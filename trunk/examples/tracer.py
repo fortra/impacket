@@ -333,11 +333,10 @@ class Tracer:
         received = 0
         while 1:
             try:
-                p = self.p.next()
+                hdr, data = self.p.next()
             except PcapError, e:
                 break
-            hdr = p[1]
-            self.newPacket(hdr[2], p[0], hdr[0])
+            self.newPacket(hdr.getcaplen(), data, hdr.getts()[0])
             received = 1
         if received and fast_draws:
             self.pc.draw()
