@@ -112,27 +112,6 @@ NT_CREATE_ANDX = 0xa2
 
 
 
-def ascii_to_wide( aBuffer ):
-	aStr = ''
-	for c in aBuffer:
-		aStr += c
-		aStr += '\x00'
-	aStr += '\x00\x00'
-	return aStr
-
-def wide_to_ascii( aBuffer, anOffset = 0):
-	offset = anOffset
-	aStr = ''
-	while 1:
-		ch = unpack( 'c', aBuffer[offset] )[0]
-		if ch == '\x00':
-			break
-		else:
-			aStr = aStr + ch
-			offset = offset + 2
-	return aStr
-
-
 def strerror(errclass, errcode):
     if errclass == 0x01:
         return 'OS error', ERRDOS.get(errcode, 'Unknown error')
