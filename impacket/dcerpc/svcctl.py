@@ -309,10 +309,10 @@ class SVCCTLRespCreateServiceHeader(ImpactPacket.Header):
         if aBuffer: self.load_header(aBuffer)
 
     def get_context_handle(self):
-        return self.get_bytes().tolist()[:20]
+        return self.get_bytes().tolist()[4:24]
     def set_context_handle(self, handle):
         assert 20 == len(handle)
-        self.get_bytes()[:20] = array.array('B', handle)
+        self.get_bytes()[4:24] = array.array('B', handle)
 
     def get_return_code(self):
         return self.get_long(24, '<')
