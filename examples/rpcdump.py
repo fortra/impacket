@@ -45,7 +45,8 @@ class RPCDump:
 
     def dump(self, addr):
         """Dumps the list of endpoints registered with the mapper
-        listening at addr. Addr is an IP address in string format.
+        listening at addr. Addr is a valid host name or IP address in
+        string format.
         """
 
         print 'Retrieving endpoint list from %s' % addr
@@ -79,17 +80,17 @@ class RPCDump:
         for entry in entries:
             base = entry.getUUID()
             if 'unknown' != entry.getProviderName():
-                print base + '/Provider', entry.getProviderName()
-            print base + '/Version', entry.getVersion()
+                print base + '/Provider:', entry.getProviderName()
+            print base + '/Version:', entry.getVersion()
             if entry.getAnnotation():
-                print base + '/Annotation', entry.getAnnotation()
+                print base + '/Annotation:', entry.getAnnotation()
 
             objbase = base
             if not entry.isZeroObjUUID():
                 objbase += '/' + entry.getObjUUID()
 
             stringbinding = transport.DCERPCStringBindingCompose('', entry.getProtocol(), '', entry.getEndpoint())
-            print objbase + '/StringBindings/' + stringbinding
+            print objbase + '/StringBindings:', stringbinding
 
         if entries:
             num = len(entries)
@@ -126,7 +127,7 @@ class RPCDump:
                                  sb.get_protocol_sequence(),
                                  sb.get_endpoint())
             entries.append(entry)
-            print str(entry)
+##             print str(entry)
             resp = rpcepm.portmap_dump(rpc_handle)
 
         dce.disconnect()
