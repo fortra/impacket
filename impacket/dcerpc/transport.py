@@ -16,8 +16,8 @@
 import re
 import socket
 
-from impact import smb
-from impact import nmb
+from impacket import smb
+from impacket import nmb
 
 class DCERPCStringBinding:
     parser = re.compile(r'(?:([a-fA-F0-9-]{8}(?:-[a-fA-F0-9-]{4}){3}-[a-fA-F0-9-]{12})@)?' # UUID (opt.)
@@ -152,7 +152,10 @@ class UDPTransport(DCERPCTransport):
     def connect(self):
         try:
             self.__socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            self.__socket.settimeout(30)
+            try:
+                self.__socket.settimeout(30)
+            except AttributeError:
+                print "Warning: timeout not available."
         except socket.error, msg:
             self.__socket = None
             raise Exception, "Could not connect: %s" % msg
@@ -189,7 +192,10 @@ class TCPTransport(DCERPCTransport):
         self.__socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
         try:
-            self.__socket.settimeout(300)
+            try:
+                self.__socket.settimeout(300)
+            except AttributeError:
+                print "Warning: timeout not available."
             self.__socket.connect((self.get_dip(), self.get_dport()))
         except socket.error, msg:
             self.__socket.close()
@@ -222,7 +228,10 @@ class HTTPTransport(DCERPCTransport):
         self.__socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
         try:
-            self.__socket.settimeout(300)
+            try:
+                self.__socket.settimeout(300)
+            except AttributeError:
+                print "Warning: timeout not available."
             self.__socket.connect((self.get_dip(), self.get_dport()))
         except socket.error, msg:
             self.__socket.close()
