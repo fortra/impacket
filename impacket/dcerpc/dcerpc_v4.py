@@ -154,9 +154,10 @@ class DCERPC_v4(dcerpc.DCERPC):
         dcerpc.DCERPC.__init__(self, transport)
         self.__activity_uuid = uuid.generate()
         self.__seq_num = 0
+        self.__bind = 0 # Don't attempt binding unless it explicitly requested.
 
     def bind(self, uuid):
-        self.bind = 1
+        self.__bind = 1 # Will bind later, when the first packet is transferred.
         self.__if_uuid = uuid[:16]
         self.__if_version = struct.unpack('<L', uuid[16:20])[0]
 
@@ -193,8 +194,8 @@ class DCERPC_v4(dcerpc.DCERPC):
         rpc.contains(data)
         self._transport.send(rpc.get_packet())
 
-        if self.bind:
-            self.bind = 0
+        if self.__bind:
+            self.__bind = 0 # Already binding, don't try to bind on next packet.
             self.conv_bind()
             self.recv() # Discard RPC_ACK.
 
