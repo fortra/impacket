@@ -90,7 +90,7 @@ class MSRPCUserInfo:
                 continue
             max_len, offset, curlen = unpack('<LLL', data[index:index+12])
             index += 12
-            item.set_name(data[index:index+2*curlen])
+            item.set_name(unicode(data[index:index+2*curlen], 'utf-16le'))
             item.set_max_len(max_len)
             item.set_offset(offset)
             item.set_length2(curlen)

@@ -22,22 +22,6 @@ def uuid_hex(_uuid):
         print "\\0x%.2x"%unpack('<B',_uuid[i]),
     print ""
 
-def unicode_to_ascii(anUnicodeStr):
-    ascii_str = ''
-    i = 0
-    for c in anUnicodeStr:
-        if i & 0x1 == 0:
-            ascii_str += c
-        i += 1
-    return ascii_str
-
-def ascii_to_unicode(anAsciiStr):
-    unicode_str = ''
-    for c in anAsciiStr:
-        unicode_str += c + '\0'
-    return unicode_str
-
-    
 def uuid_to_exe(_uuid):
     KNOWN_UUIDS = { '\xb9\x99\x3f\x87\x4d\x1b\x10\x99\xb7\xaa\x00\x04\x00\x7f\x07\x01\x00\x00': 'ssmsrp70.dll',
                     '\x90\x2c\xfe\x98\x42\xa5\xd0\x11\xa4\xef\x00\xa0\xc9\x06\x29\x10\x01\x00':'advapi32.dll',
@@ -291,7 +275,7 @@ class NDREntry:
                 elif floors[i].get_protocol() == 0x08:
                     tmp_address = 'ncadg_ip_udp:%%s[%d]' % unpack('!H',floors[i].get_rhs())
                 elif floors[i].get_protocol() == 0x09:
-                    # If the address were 0.0.0.0 it should be replaced by the remote host's IP.
+                    # If the address were 0.0.0.0 it would have to be replaced by the remote host's IP.
                     tmp_address2 = socket.inet_ntoa(floors[i].get_rhs())
                     if tmp_address <> '':
                         return tmp_address % tmp_address2
@@ -371,7 +355,7 @@ class NDRString:
         self._length = 0
         if data != '':
             self._max_len, self._offset, self._length = unpack('<LLL',data[:12])
-            self._string = data[12:]
+            self._string = unicode(data[12:], 'utf-16le')
     def get_string(self):
         return self._string
     def set_string(self,str):
@@ -382,5 +366,4 @@ class NDRString:
             self._tail = pack('<HH',0,0)
         else:
             self._tail = pack('<H',0)
-        return pack('<LLL',self._max_len, self._offset, self._length) + ascii_to_unicode(self._string) + self._tail
-#        return pack('<LLL',-1, self._offset, -1) + ascii_to_unicode(self._string) + self._tail
+        return pack('<LLL',self._max_len, self._offset, self._length) + self._string.encode('utf-16le') + self._tail

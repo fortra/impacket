@@ -35,20 +35,6 @@ MSRPC_NOTFORIDEMP = 0x20
 MSRPC_NOTFORBCAST = 0x40
 MSRPC_NOUUID    = 0x80
 
-def unicode_to_ascii(anUnicodeStr):
-    ascii_str = ''
-    i = 0
-    for c in anUnicodeStr:
-        if i & 0x1 == 0:
-            ascii_str += c
-        i += 1
-    return ascii_str
-
-def ascii_to_unicode(anAsciiStr):
-    unicode_str = ''
-    for c in anAsciiStr:
-        unicode_str += c + '\0'
-    return unicode_str
 
 class MSRPCArray:
     def __init__(self, id=0, len=0, size=0):
@@ -59,14 +45,7 @@ class MSRPCArray:
         self._offset = 0
         self._length2 = 0
         self._name = ''
-    def __is_valid_unicode(self,data):
-        i = 0
-        for c in data:
-            if (i & 0x1) != 0:
-                if c != '\0':
-                    return 0
-            i ^= 1
-        return 1
+
     def set_max_len(self, n):
         self._max_len = n
     def set_offset(self, n):
@@ -78,14 +57,11 @@ class MSRPCArray:
     def set_name(self, n):
         self._name = n
     def get_name(self):
-        if self.__is_valid_unicode(self._name):
-            return unicode_to_ascii(self._name)
-        else:
-            return self._name
+        return self._name
     def get_id(self):
         return self._id
     def rawData(self):
-        return struct.pack('<HHLLLL', self._length, self._size, 0x12345678, self._max_len, self._offset, self._length2) + self._name
+        return struct.pack('<HHLLLL', self._length, self._size, 0x12345678, self._max_len, self._offset, self._length2) + self._name.encode('utf-16le')
 
 
 class MSRPCNameArray:
@@ -105,7 +81,7 @@ class MSRPCNameArray:
         self._count, _, self._max_count = struct.unpack('<LLL', data[index:index+12])
         index += 12
 
-        # Read each object's description.
+        # Read each object's header.
         for i in range(0, self._count):
             aindex, length, size, _ = struct.unpack('<LHHL', data[index:index+12])
             self._elements.append(MSRPCArray(aindex, length, size))
@@ -115,7 +91,7 @@ class MSRPCNameArray:
         for element in self._elements:
             max_len, offset, curlen = struct.unpack('<LLL', data[index:index+12])
             index += 12
-            element.set_name(data[index:index+2*curlen])
+            element.set_name(unicode(data[index:index+2*curlen], 'utf-16le'))
             element.set_max_len(max_len)
             element.set_offset(offset)
             element.set_length2(curlen)
@@ -301,7 +277,6 @@ class MSRPCBind(ImpactPacket.Header):
 
     def __init__(self, aBuffer = None):
         ImpactPacket.Header.__init__(self, MSRPCBind.__SIZE)
-
         self.set_version((5, 0))
         self.set_type(MSRPC_BIND)
         self.set_flags(MSRPC_FIRSTFRAG | MSRPC_LASTFRAG)
@@ -315,7 +290,8 @@ class MSRPCBind(ImpactPacket.Header):
         self.set_ctx_num(1)
         self.set_ctx_id(0)
         self.set_trans_num(1)
-        self.set_xfer_syntax_binuuid('\x04\x5d\x88\x8a\xeb\x1c\xc9\x11\x9f\xe8\x08\x00\x2b\x10\x48\x60\x02\x00\x00\x00')
+        self.set_xfer_syntax_binuuid('\x04\x5d\x88\x8a\xeb\x1c\xc9\x11\x9f\xe8\x08\x00\x2b\x10\x48\x60')
+        self.set_xfer_syntax_ver(2);
 
         if aBuffer: self.load_header(aBuffer)
 
@@ -384,22 +360,38 @@ class MSRPCBind(ImpactPacket.Header):
 
     def get_trans_num(self):
         return self.get_word(30, '<')
+
     def set_trans_num(self, op):
         self.set_word(30, op, '<')
 
     def get_if_binuuid(self):
-        return self.get_bytes().tolist()[32:32+20]
+        return self.get_bytes().tolist()[32:32+16]
+
     def set_if_binuuid(self, binuuid):
-        assert 20 == len(binuuid)
-        self.get_bytes()[32:32+20] = array.array('B', binuuid)
+        self.get_bytes()[32:32+len(binuuid)] = array.array('B', binuuid)
 
     def get_xfer_syntax_binuuid(self):
-        return self.get_bytes().tolist()[52:52+20]
+        return self.get_bytes().tolist()[52:52+16]
+        
     def set_xfer_syntax_binuuid(self, binuuid):
-        assert 20 == len(binuuid)
-        self.get_bytes()[52:52+20] = array.array('B', binuuid)
-
-
+        self.get_bytes()[52:52+len(binuuid)] = array.array('B', binuuid)
+    
+    def set_xfer_syntax_ver(self,ver):
+	self.set_long(68, ver, '<')
+    
+    def get_xfer_syntax_ver(self):
+	self.get_long(68, ver, '<')
+	
+    def set_if_ver(self,ver,minor):
+    	self.set_word(48, ver, '<')
+    	self.set_word(50, minor, '<')
+    
+    def get_if_ver(self):
+	return self.get_word(48, '<')
+	
+    def get_if_ver_minor(self):
+	return self.get_word(50, '<')
+	
     def get_header_size(self):
         return MSRPCBind.__SIZE
 
