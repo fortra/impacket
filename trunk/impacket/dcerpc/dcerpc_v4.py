@@ -150,16 +150,25 @@ class MSRPCHeader(ImpactPacket.Header):
 
 
 class DCERPC_v4(dcerpc.DCERPC):
+    DEFAULT_FRAGMENT_SIZE = 1392
+
     def __init__(self, transport):
         dcerpc.DCERPC.__init__(self, transport)
         self.__activity_uuid = uuid.generate()
         self.__seq_num = 0
         self._bind = 0 # Don't attempt binding unless it explicitly requested.
 
-    def bind(self, uuid):
+    def bind(self, uuid, idempotent = 0):
+        """If idempotent is non-zero, the package will be sent with
+        that flag enabled. Certain services react by skiping the CONV
+        phase during the binding.
+        """
+
         self._bind = 1 # Will bind later, when the first packet is transferred.
         self.__if_uuid = uuid[:16]
         self.__if_version = struct.unpack('<L', uuid[16:20])[0]
+	self.__idempotent = idempotent
+        self.__frag_size = DCERPC_v4.DEFAULT_FRAGMENT_SIZE
 
     def conv_bind(self):
         # Receive CONV handshake.
@@ -185,8 +194,14 @@ class DCERPC_v4(dcerpc.DCERPC):
         self._transport.send(rpc.get_packet())
         self._transport.set_addr(old_address)
 
+    def get_fragment_size(self):
+        return self.__frag_size
+
+    def set_fragment_size(self, size):
+        self.__frag_size = size
+
     def send(self, data):
-        MAX_FRAG = 1472
+        MAX_FRAG = self.__frag_size
         packet = data.get_packet()
         datasize = data.get_size()
         datasent = 0
@@ -195,6 +210,7 @@ class DCERPC_v4(dcerpc.DCERPC):
 
         while datasent < datasize:
             frag_flags = 0xc
+            if self.__idempotent: frag_flags |= 0x20
 
             # If last fragment...
             if datasize - datasent <= MAX_FRAG:
@@ -219,7 +235,7 @@ class DCERPC_v4(dcerpc.DCERPC):
             datasent += frag_size
             frag_num += 1
 
-            if self._bind:
+            if self._bind and not self.__idempotent:
                 self._bind = 0
                 self.conv_bind()
                 self.recv() # Discard RPC_ACK.
