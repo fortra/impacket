@@ -13,6 +13,9 @@
 # Author:
 #   Alberto Solino (beto)
 
+import socket
+from struct import pack, unpack
+
 def uuid_hex(_uuid):
     for i in range(0,len(_uuid)):
         print "\\0x%.2x"%unpack('<B',_uuid[i]),
