@@ -9,7 +9,7 @@ from distutils.core import setup
 PACKAGE_NAME = "Impacket"
 
 setup(name = PACKAGE_NAME,
-      version = "0.9.3",
+      version = "0.9.4",
       description = "Network protocols Constructors and Dissectors",
       url = "http://oss.coresecurity.com/impacket",
       author = "CORE Security Technologies",
