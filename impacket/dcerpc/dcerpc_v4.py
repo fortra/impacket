@@ -154,10 +154,10 @@ class DCERPC_v4(dcerpc.DCERPC):
         dcerpc.DCERPC.__init__(self, transport)
         self.__activity_uuid = uuid.generate()
         self.__seq_num = 0
-        self.__bind = 0 # Don't attempt binding unless it explicitly requested.
+        self._bind = 0 # Don't attempt binding unless it explicitly requested.
 
     def bind(self, uuid):
-        self.__bind = 1 # Will bind later, when the first packet is transferred.
+        self._bind = 1 # Will bind later, when the first packet is transferred.
         self.__if_uuid = uuid[:16]
         self.__if_version = struct.unpack('<L', uuid[16:20])[0]
 
@@ -186,20 +186,45 @@ class DCERPC_v4(dcerpc.DCERPC):
         self._transport.set_addr(old_address)
 
     def send(self, data):
-        rpc = MSRPCHeader()
-        rpc.set_seq_num(self.__seq_num)
-        rpc.set_if_binuuid(self.__if_uuid)
-        rpc.set_if_version(self.__if_version)
-        rpc.set_activity_binuuid(self.__activity_uuid)
-        rpc.contains(data)
-        self._transport.send(rpc.get_packet())
+        MAX_FRAG = 1472
+        packet = data.get_packet()
+        datasize = data.get_size()
+        datasent = 0
+        frag_size = MAX_FRAG
+        frag_num = 0
 
-        if self.__bind:
-            self.__bind = 0 # Already binding, don't try to bind on next packet.
-            self.conv_bind()
-            self.recv() # Discard RPC_ACK.
+        while datasent < datasize:
+            frag_flags = 0xc
 
-        self.__seq_num += 1
+            # If last fragment...
+            if datasize - datasent <= MAX_FRAG:
+                frag_flags |= 2
+                frag_size = (datasize-datasent)
+
+            rpc = MSRPCHeader()
+            rpc.set_seq_num(self.__seq_num)
+            rpc.set_if_binuuid(self.__if_uuid)
+            flags = rpc.get_flags()
+            rpc.set_flags((flags[0] | frag_flags,flags[1]))
+            rpc.set_if_version(self.__if_version)
+            rpc.set_activity_binuuid(self.__activity_uuid)
+
+            frag = ImpactPacket.Data()
+            frag.set_bytes_from_string(packet[datasent:datasent+frag_size])
+            frag.OP_NUM = data.OP_NUM
+            rpc.contains(frag)
+            rpc.set_frag_num(frag_num)
+            self._transport.send(rpc.get_packet())
+
+            datasent += frag_size
+            frag_num += 1
+
+            if self._bind:
+                self._bind = 0
+                self.conv_bind()
+                self.recv() # Discard RPC_ACK.
+
+            self.__seq_num += 1
 
     def recv(self):
         data = self._transport.recv()
