@@ -1,3 +1,4 @@
 include MANIFEST.in
 include LICENSE
+include ChangeLog
 recursive-include examples *.txt *.py
