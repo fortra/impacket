@@ -7,7 +7,7 @@ from distutils.core import setup
 
 setup(name = "Conspired",
       version = "0.0",
-      description = "Network Protocols Constructors and Disectors",
+      description = "Network Protocols Constructors and Dissectors",
       author = "CORE Security Technologies",
       author_email = "opensource@coresecurity.com",
       maintainer = "Javier Kohen",
