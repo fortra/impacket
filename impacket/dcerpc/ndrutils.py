@@ -13,6 +13,7 @@
 # Author:
 #   Alberto Solino (beto)
 
+import random
 import socket
 from struct import pack, unpack
 

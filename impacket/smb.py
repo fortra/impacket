@@ -24,9 +24,11 @@
 # Modified by Alberto Solino <asolino@coresecurity.com>
 
 import os, sys, socket, string, re, select, errno
-import nmb
+from time import strftime, gmtime
 from random import randint
-from struct import *
+from struct import pack, unpack
+
+import nmb
 
 # Try to load mxCrypto's DES module to perform password encryption if required.
 # Password will not be encrypted if mxCrypto's DES module is not loaded.
