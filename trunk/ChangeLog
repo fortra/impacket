@@ -1,3 +1,8 @@
+2003-12-02    <jkohen@coresecurity.com>
+
+	* impacket/dcerpc/dcerpc_v4.py (DCERPC_v4.bind): made self.__bind protected
+	(DCERPC_v4.send): fragment outgoing packets.
+
 2003-11-28    <jkohen@coresecurity.com>
 
-	* dcerpc_v4.py: Fixed self.bind variable having the same name than a method.
+	* impacket/dcerpc/dcerpc_v4.py: Fixed self.bind variable having the same name than a method.
