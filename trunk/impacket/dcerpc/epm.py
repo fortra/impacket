@@ -16,8 +16,8 @@
 import array
 import struct
 
-from impact import ImpactPacket
-from impact import uuid
+from impacket import ImpactPacket
+from impacket import uuid
 import dcerpc
 import ndrutils
 import transport

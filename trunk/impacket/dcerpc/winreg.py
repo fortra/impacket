@@ -16,9 +16,9 @@
 import array
 import struct
 
-from impact.smb import wide_to_ascii, ascii_to_wide
+from impacket.smb import wide_to_ascii, ascii_to_wide
 import dcerpc
-from impact import ImpactPacket
+from impacket import ImpactPacket
 
 MSRPC_UUID_WINREG = '\x01\xd0\x8c\x33\x44\x22\xf1\x31\xaa\xaa\x90\x00\x38\x00\x10\x03\x01\x00\x00\x00'
 

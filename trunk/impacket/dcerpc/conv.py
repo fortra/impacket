@@ -13,7 +13,7 @@
 #   Javier Kohen (jkohen)
 
 import array
-from impact import ImpactPacket
+from impacket import ImpactPacket
 
 MSRPC_UUID_CONV = '\x76\x22\x3a\x33\x00\x00\x00\x00\x0d\x00\x00\x80\x9c\x00\x00\x00'
 

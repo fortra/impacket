@@ -13,7 +13,7 @@
 
 import array
 
-from impact import ImpactPacket
+from impacket import ImpactPacket
 import dcerpc
 import ndrutils
 from struct import *

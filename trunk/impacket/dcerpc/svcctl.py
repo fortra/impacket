@@ -16,7 +16,7 @@
 import array
 from struct import *
 
-from impact import ImpactPacket
+from impacket import ImpactPacket
 import dcerpc
 
 MSRPC_UUID_SVCCTL = '\x81\xbb\x7a\x36\x44\x98\xf1\x35\xad\x32\x98\xf0\x38\x00\x10\x03\x02\x00\x00\x00'
