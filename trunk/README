@@ -5,7 +5,7 @@ What is Impacket?
 =================
 
 Impacket is a collection of Python classes for working with network
-protocols. Impacket is mostly focused on providing low&ndash;level
+protocols. Impacket is mostly focused on providing low-level
 programmatic access to the packets, however some protocols (for
 instance NMB and SMB) are implemented in a higher level as a
 foundation for other protocols. Packets can be constructed from
@@ -48,8 +48,8 @@ install' from the directory where you placed it. Isn't that easy?
 Requirements
 ============
 
- * A <a href="http://www.python.org/">Python</a> interpreter. Versions 2.0.1 and newer are known to work.
- * A recent release of Impacket, from <a href="#download">this very same site</a>.
+ * A Python interpreter. Versions 2.0.1 and newer are known to work.
+ * A recent release of Impacket.
 
 Installing
 ----------
