@@ -1,7 +1,16 @@
+2003-12-10  Javier Kohen  <jkohen@coresecurity.com>
+
+	* impacket/dcerpc/dcerpc_v4.py (DCERPC_v4.bind): support idempotent flag.
+	(DCERPC_v4.send): reduced fragment size to avoid IP fragmentation on links with MTU = 1500. Added a method that allows the caller to configure this size.
+
 2003-12-02    <jkohen@coresecurity.com>
 
 	* impacket/dcerpc/dcerpc_v4.py (DCERPC_v4.bind): made self.__bind protected
 	(DCERPC_v4.send): fragment outgoing packets.
+
+2003-12-01    <jkohen@coresecurity.com>
+
+	* setup.py: Force linking with G++ if GCC was found, to avoid a missing symbol on some configurations.
 
 2003-11-28    <jkohen@coresecurity.com>
 
