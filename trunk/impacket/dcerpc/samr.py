@@ -14,7 +14,6 @@
 #   Javier Kohen (jkohen)
 
 import array
-from time import strftime, gmtime
 from struct import *
 
 from impacket import ImpactPacket
