@@ -4,18 +4,19 @@
 # Pcap dump splitter.
 #
 # This tools splits pcap capture files into smaller ones, one for each
-# TCP connection found in the original.
+# different TCP/IP connection found in the original.
 #
 # Authors:
 #  Alejandro D. Weil <aweil@coresecurity.com>
 #  Javier Kohen <jkohen@coresecurity.com>
 #
 # Reference for:
-#  pcapy: open_offline.
+#  pcapy: open_offline, pcapdumper.
 #  ImpactDecoder.
 
 import sys
 import string
+from exceptions import Exception
 from threading import Thread
 
 import pcapy
@@ -24,12 +25,26 @@ import impact
 from impact.ImpactDecoder import EthDecoder, LinuxSLLDecoder
 
 class Connection:
+    """This class can be used as a key in a dictionary to select a connection
+    given a pair of peers. Two connections are considered the same if both
+    peers are equal, despite the order in which they were passed to the
+    class constructor.
+    """
+
     def __init__(self, p1, p2):
+        """This constructor takes two tuples, one for each peer. The first
+        element in each tuple is the IP address as a string, and the
+        second is the port as an integer.
+        """
+
         self.p1 = p1
         self.p2 = p2
 
     def getFilename(self):
-        return '%s:%d-%s:%d.pcap'%(self.p1[0],self.p1[1],self.p2[0],self.p2[1])
+        """Utility function that returns a filename composed by the IP
+        addresses and ports of both peers.
+        """
+        return '%s.%d-%s.%d.pcap'%(self.p1[0],self.p1[1],self.p2[0],self.p2[1])
 
     def __cmp__(self, other):
         if ((self.p1 == other.p1 and self.p2 == other.p2)
@@ -63,23 +78,40 @@ class Decoder:
         self.pcap.loop(0, self.packetHandler)
 
     def packetHandler(self, hdr, data):
+        """Handles an incoming pcap packet. This method only knows how
+        to recognize TCP/IP connections.
+        Be sure that only TCP packets are passed onto this handler (or
+        fix the code to ignore the others).
+
+        Setting r"ip proto \tcp" as part of the pcap filter expression
+        suffices, and there shouldn't be any problem combining that with
+        other expressions.
+        """
+
         # Use the ImpactDecoder to turn the rawpacket into a hierarchy
         # of ImpactPacket instances.
-        # Display the packet in human-readable form.
-
         p = self.decoder.decode(data)
         ip = p.child()
         tcp = ip.child()
+
+        # Build a distinctive key for this pair of peers.
         src = (ip.get_ip_src(), tcp.get_th_sport() )
         dst = (ip.get_ip_dst(), tcp.get_th_dport() )
         con = Connection(src,dst)
-        print '.',
 
+        # If there isn't an entry associated yetwith this connection,
+        # open a new pcapdumper and create an association.
         if not self.connections.has_key(con):
-            print con.getFilename()
-            dumper = self.pcap.dump_open(con.getFilename())
+            fn = con.getFilename()
+            print "Found a new connection, storing into:", fn
+            try:
+                dumper = self.pcap.dump_open(fn)
+            except pcapy.PcapError, e:
+                print "Can't write packet to:", fn
+                return
             self.connections[con] = dumper
 
+        # Write the packet to the corresponding file.
         self.connections[con].dump(hdr, data)
 
 
@@ -87,19 +119,20 @@ class Decoder:
 def main(filename):
     # Open file
     p = open_offline(filename)
-    p.setfilter('ip proto \\tcp')
+
+    # At the moment the callback only accepts TCP/IP packets.
+    p.setfilter(r'ip proto \tcp')
 
     print "Reading from %s: linktype=%d" % (filename, p.datalink())
 
-    # Start sniffing thread and finish main thread.
+    # Start decoding process.
     Decoder(p).start()
 
 
-# Process command-line arguments. Take everything as a BPF filter to pass
-# onto pcap. Default to the empty filter (match all).
+# Process command-line arguments.
 if __name__ == '__main__':
-    if len(sys.argv) > 1:
-        filename = sys.argv[1]
-    else:
-        filename = 'test.pcap'
-    main(filename)
+    if len(sys.argv) <= 1:
+        print "Usage: %s <filename>" % sys.argv[0]
+        sys.exit(1)
+
+    main(sys.argv[1])
