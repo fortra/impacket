@@ -46,11 +46,11 @@ class DecoderThread(Thread):
         # PacketHandler shall be invoked by pcap for every packet.
         self.pcap.loop(0, self.packetHandler)
 
-    def packetHandler(self, i, s):
+    def packetHandler(self, hdr, data):
         # Use the ImpactDecoder to turn the rawpacket into a hierarchy
         # of ImpactPacket instances.
         # Display the packet in human-readable form.
-        print self.decoder.decode(s)
+        print self.decoder.decode(data)
 
 
 def getInterface():
