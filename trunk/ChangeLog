@@ -1,5 +1,7 @@
 2003-12-16    <jkohen@coresecurity.com>
 
+	* setup.py: Bumped version number to 0.9.5.1.
+
 	* impacket/dcerpc/dcerpc_v4.py (DCERPC_v4.send): fixed a problem in the fragmentation code caused by a misindented line that was introduced in the last release.
 
 2003-12-10  Javier Kohen  <jkohen@coresecurity.com>
