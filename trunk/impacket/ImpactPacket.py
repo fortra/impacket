@@ -1753,23 +1753,17 @@ class ARP(Header):
     def as_hrd(self, anArray):
         if not anArray:
             return ''
-        tmp_list = anArray.tolist()
-        if not tmp_list:
-            return ''
-        tmp_str = '%x' % tmp_list[0]
-        for i in range(1, len(tmp_list)):
-            tmp_str += ':%x' % tmp_list[i]
+        tmp_str = '%x' % anArray[0]
+        for i in range(1, len(anArray)):
+            tmp_str += ':%x' % anArray[i]
         return tmp_str
 
     def as_pro(self, anArray):
         if not anArray:
             return ''
-        tmp_list = anArray.tolist()
-        if not tmp_list:
-            return ''
-        tmp_str = '%d' % tmp_list[0]
-        for i in range(1, len(tmp_list)):
-            tmp_str += '.%d' % tmp_list[i]
+        tmp_str = '%d' % anArray[0]
+        for i in range(1, len(anArray)):
+            tmp_str += '.%d' % anArray[i]
         return tmp_str
 
     def __str__(self):
