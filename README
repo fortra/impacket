@@ -1,0 +1,82 @@
+This file is an extract from the the online documentation at
+http://oss.coresecurity.com/pcapy/.
+
+What is Impacket?
+=================
+
+Impacket is a collection of Python classes for working with network
+protocols. Impacket is mostly focused on providing low&ndash;level
+programmatic access to the packets, however some protocols (for
+instance NMB and SMB) are implemented in a higher level as a
+foundation for other protocols. Packets can be constructed from
+scratch, as well as parsed from raw data, and the object oriented API
+makes it simple to work with deep hierarchies of protocols.
+
+Impacket is most useful when used together with a packet capture
+utility or package such as Pcapy, an object oriented Python extension
+for capturing network packets.
+
+What protocols are featured?
+----------------------------
+
+ * Ethernet, Linux ``Cooked'' capture.
+ * IP, TCP, UDP, ICMP, IGMP, ARP.
+ * NMB and SMB (high-level implementations).
+ * DCE/RPC versions 4 and 5, over different transports: UDP (version 4
+   exclusively), TCP, SMB/TCP, SMB/NetBIOS and HTTP.
+ * Portions of the following DCE/RPC interfaces: Conv, DCOM, EPM,
+   SAMR, SvcCtl, WinReg.
+
+
+Getting Impacket
+================
+
+Current and past releases are available from
+http://oss.coresecurity.com/impacket/.
+
+
+Setup
+=====
+
+Quick start
+-----------
+
+Grab the latest stable release, unpack it and run 'python setup.py
+install' from the directory where you placed it. Isn't that easy?
+
+
+Requirements
+============
+
+ * A <a href="http://www.python.org/">Python</a> interpreter. Versions 2.0.1 and newer are known to work.
+ * A recent release of Impacket, from <a href="#download">this very same site</a>.
+
+Installing
+----------
+
+In order to install the source execute the following command from the
+directory where the Impacket's distribution has been unpacked: 'python
+setup.py install'. This will install the classes into the default
+Python's modules path; note that you might need special permissions to
+write there. For more information on what commands and options are
+available from setup.py, run 'python setup.py --help-commands'.
+
+
+Licensing
+=========
+
+This software is provided under under a slightly modified version of
+the Apache Software License. See the accompanying LICENSE file for
+more information.
+
+SMB and NetBIOS support based on Pysmb by Michael Teo.
+
+
+Contact Us
+==========
+
+Whether you want to report a bug, send a patch or give some
+suggestions on this package, drop us a few lines at
+oss@coresecurity.com.
+
+$Id$
