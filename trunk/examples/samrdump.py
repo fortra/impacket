@@ -49,6 +49,8 @@ class SAMRDump:
         addr. Addr is a valid host name or IP address.
         """
 
+        encoding = sys.getdefaultencoding()
+
         print 'Retrieving endpoint list from %s' % addr
 
         # Try all requested protocols until one works.
@@ -87,7 +89,9 @@ class SAMRDump:
             print base + '/Logon count: %d' % user.get_logon_count()
             items = user.get_items()
             for i in samr.MSRPCUserInfo.ITEMS.keys():
-                print base + '/' + i + ':', items[samr.MSRPCUserInfo.ITEMS[i]].get_name()
+                name = items[samr.MSRPCUserInfo.ITEMS[i]].get_name()
+                name = name.encode(encoding, 'replace')
+                print base + '/' + i + ':', name
 
         if entries:
             num = len(entries)
@@ -102,6 +106,7 @@ class SAMRDump:
     def __fetchList(self, rpctransport):
         dce = dcerpc.DCERPC_v5(rpctransport)
 
+        encoding = sys.getdefaultencoding()
         entries = []
 
         dce.connect()
@@ -139,7 +144,7 @@ class SAMRDump:
                 raise ListUsersException, 'OpenDomainUsers error'
 
             for user in resp.get_users().elements():
-                uname = user.get_name()
+                uname = user.get_name().encode(encoding, 'replace')
                 uid = user.get_id()
 
                 r = rpcsamr.openuser(domain_context_handle, uid)
