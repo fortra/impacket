@@ -1,4 +1,3 @@
-# -*- mode: python; tab-width: 4 -*-
 # $Id$
 #
 # Copyright (C) 2001 Michael Teo <michaelteo@bigfoot.com>
@@ -22,7 +21,7 @@
 #
 # 3. This notice cannot be removed or altered from any source distribution.
 #
-# Altered source done by Alberto Solino
+# Modified by Alberto Solino <asolino@coresecurity.com>
 
 import os, sys, socket, string, re, select, errno
 from random import randint
