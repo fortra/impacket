@@ -17,22 +17,12 @@ import array
 from time import strftime, gmtime
 from struct import *
 
-from impact import ImpactPacket
+from impacket import ImpactPacket
+from impacket.smb import display_time
 import dcerpc
 import ndrutils
 
 MSRPC_UUID_SAMR   = '\x78\x57\x34\x12\x34\x12\xcd\xab\xef\x00\x01\x23\x45\x67\x89\xac\x01\x00\x00\x00'
-
-def display_time(filetime_high, filetime_low, minutes_utc=0):
-    d = filetime_high*4.0*1.0*(1<<30)
-    d += filetime_low
-    d *= 1.0e-7
-    d -= (369.0*365.25*24*60*60-(3.0*24*60*60+6.0*60*60))
-    if minutes_utc == 0:
-        r = (strftime("%a, %d %b %Y %H:%M:%S",gmtime(d)), minutes_utc/60)[0]
-    else:
-        r = "%s GMT %d " % (strftime("%a, %d %b %Y %H:%M:%S",gmtime(d)), minutes_utc/60)
-    return r
 
 class MSRPCUserInfo:
     ITEMS = {'Account Name':0,

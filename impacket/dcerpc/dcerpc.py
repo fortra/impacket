@@ -15,7 +15,7 @@
 
 import array
 import struct
-from impact import ImpactPacket
+from impacket import ImpactPacket
 
 # MS/RPC Constants
 MSRPC_REQUEST   = 0x00

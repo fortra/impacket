@@ -28,8 +28,6 @@ import nmb
 from random import randint
 from struct import *
 
-from impact.dcerpc import samr
-
 # Try to load mxCrypto's DES module to perform password encryption if required.
 # Password will not be encrypted if mxCrypto's DES module is not loaded.
 try:
@@ -927,7 +925,7 @@ class SMB:
     def get_server_time(self):
         high, low = self.__ntlm_dialect.get_utc()
         min = self.__ntlm_dialect.get_minutes_utc()
-        return samr.display_time(high, low, min)
+        return display_time(high, low, min)
 
     def disconnect_tree(self, tid):
         s = SMBPacket()
@@ -1557,3 +1555,14 @@ ERRHRD = { 19: 'Media is write-protected',
            35: 'FCBs not available',
            36: 'Sharing buffer exceeded'
            }
+
+def display_time(filetime_high, filetime_low, minutes_utc=0):
+    d = filetime_high*4.0*1.0*(1<<30)
+    d += filetime_low
+    d *= 1.0e-7
+    d -= (369.0*365.25*24*60*60-(3.0*24*60*60+6.0*60*60))
+    if minutes_utc == 0:
+        r = (strftime("%a, %d %b %Y %H:%M:%S",gmtime(d)), minutes_utc/60)[0]
+    else:
+        r = "%s GMT %d " % (strftime("%a, %d %b %Y %H:%M:%S",gmtime(d)), minutes_utc/60)
+    return r
