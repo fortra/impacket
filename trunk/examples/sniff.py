@@ -24,8 +24,8 @@ from threading import Thread
 
 import pcapy
 from pcapy import findalldevs, open_live
-import impact
-from impact.ImpactDecoder import EthDecoder, LinuxSLLDecoder
+import impacket
+from impacket.ImpactDecoder import EthDecoder, LinuxSLLDecoder
 
 class DecoderThread(Thread):
     def __init__(self, pcapObj):

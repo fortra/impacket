@@ -48,9 +48,9 @@ from Tkconstants import *
 
 import pcapy
 from pcapy import open_live, findalldevs, PcapError
-import impact
-from impact import ImpactPacket
-from impact.ImpactDecoder import EthDecoder, LinuxSLLDecoder
+import impacket
+from impacket import ImpactPacket
+from impacket.ImpactDecoder import EthDecoder, LinuxSLLDecoder
 
 
 class NumericAxis:

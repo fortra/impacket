@@ -24,7 +24,7 @@ import socket
 import time
 import sys
 
-from impact import ImpactDecoder, ImpactPacket
+from impacket import ImpactDecoder, ImpactPacket
 
 if len(sys.argv) < 3:
 	print "Use: %s <src ip> <dst ip>" % sys.argv[0]
