@@ -240,7 +240,7 @@ class DCERPC_v4(dcerpc.DCERPC):
                 self.conv_bind()
                 self.recv() # Discard RPC_ACK.
 
-            self.__seq_num += 1
+        self.__seq_num += 1
 
     def recv(self):
         data = self._transport.recv()
