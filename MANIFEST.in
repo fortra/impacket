@@ -1,0 +1,2 @@
+include MANIFEST.in
+recursive-include examples *.txt *.py
