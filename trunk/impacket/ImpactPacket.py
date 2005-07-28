@@ -1503,7 +1503,7 @@ class ICMP(Header):
         return self.get_word(6)
 
     def set_icmp_nextmtu(self, aValue):
-        self.set_word(4, aValue)
+        self.set_word(6, aValue)
 
     def get_icmp_num_addrs(self):
         return self.get_byte(4)

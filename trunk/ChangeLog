@@ -1,5 +1,7 @@
 2005-07-28    <max@coresecurity.com>
+
 	* impacket/ImpactDecoder.py: fixed a bug when processing ICMP unreachables.
+	* impacket/ImpactPacket.py: fixed bug in the set_icmp_nextmtu() method (reported by icbm@0x557.org).
 	
 2004-02-26    <jkohen@coresecurity.com>
 
