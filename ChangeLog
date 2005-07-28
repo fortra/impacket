@@ -1,3 +1,6 @@
+2005-07-28    <max@coresecurity.com>
+	* impacket/ImpactDecoder.py: fixed a bug when processing ICMP unreachables.
+	
 2004-02-26    <jkohen@coresecurity.com>
 
 	* impacket/ImpactPacket.py (ARP.as_pro): Fixed as_{hrd,pro} methods to not invoke the tolist method, because they were being called with array objects as input, and anyway it wasn't necessary to call that method for what they did.
