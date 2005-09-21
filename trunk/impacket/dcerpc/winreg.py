@@ -16,7 +16,6 @@
 import array
 import struct
 
-from impacket.smb import wide_to_ascii, ascii_to_wide
 import dcerpc
 from impacket import ImpactPacket
 
