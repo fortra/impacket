@@ -1,3 +1,6 @@
+2006-04-03    <max@coresecurity.com>
+	* impacket/ImpactPacket.py: applied patch to fix bug when parsing ARP packets.
+
 2005-07-28    <max@coresecurity.com>
 
 	* impacket/ImpactDecoder.py: fixed a bug when processing ICMP unreachables.
