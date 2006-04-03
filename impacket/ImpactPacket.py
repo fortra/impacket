@@ -19,6 +19,7 @@ import array
 import struct
 import socket
 import string
+import sys
 from binascii import hexlify
 
 """Classes to build network packets programmatically.
@@ -486,6 +487,11 @@ class IP(Header):
         self.__option_list = []
         if(aBuffer):
             self.load_header(aBuffer)
+	if sys.platform.count('bsd'):
+            self.is_BSD = True
+        else:
+            self.is_BSD = False
+
 
     def get_packet(self):
         # set protocol
@@ -585,10 +591,16 @@ class IP(Header):
         self.set_byte(1, value)
 
     def get_ip_len(self):
-        return self.get_word(2)
+        if self.is_BSD:
+            return self.get_word(2, order = '=')
+        else:
+            return self.get_word(2)
 
     def set_ip_len(self, value):
-        self.set_word(2, value)
+        if self.is_BSD:
+            self.set_word(2, value, order = '=')
+        else:
+            self.set_word(2, value)
 
     def get_ip_id(self):
         return self.get_word(4)
@@ -596,10 +608,16 @@ class IP(Header):
         return self.set_word(4, value)
 
     def get_ip_off(self):
-        return self.get_word(6)
+        if self.is_BSD:
+            return self.get_word(6, order = '=')
+        else:
+            return self.get_word(6)
 
     def set_ip_off(self, aValue):
-        self.set_word(6, aValue)
+        if self.is_BSD:
+            self.set_word(6, aValue, order = '=')
+        else:
+            self.set_word(6, aValue)
 
     def get_ip_offmask(self):
         return self.get_ip_off() & 0x1FFF
