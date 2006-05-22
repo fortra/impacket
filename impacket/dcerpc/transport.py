@@ -1,9 +1,4 @@
-# Copyright (c) 2003 CORE Security Technologies
-#
-# This software is provided under under a slightly modified version
-# of the Apache Software License. See the accompanying LICENSE file
-# for more information.
-#
+# ---
 # $Id$
 #
 # Description:
@@ -12,12 +7,35 @@
 # Author:
 #   Alberto Solino (beto)
 #   Javier Kohen (jkohen)
+#
+# Copyright (c) 2001-2003 CORE Security Technologies, CORE SDI Inc.
+# All rights reserved.
+#
+# This computer software is owned by Core SDI Inc. and is
+# protected by U.S. copyright laws and other laws and by international
+# treaties.  This computer software is furnished by CORE SDI Inc.
+# pursuant to a written license agreement and may be used, copied,
+# transmitted, and stored only in accordance with the terms of such
+# license and with the inclusion of the above copyright notice.  This
+# computer software or any other copies thereof may not be provided or
+# otherwise made available to any other person.
+#
+#
+# THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESS OR IMPLIED
+# WARRANTIES ARE DISCLAIMED. IN NO EVENT SHALL CORE SDI Inc. BE LIABLE
+# FOR ANY DIRECT,  INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY OR
+# CONSEQUENTIAL  DAMAGES RESULTING FROM THE USE OR MISUSE OF
+# THIS SOFTWARE
+#
+#--
 
 import re
 import socket
 
 from impacket import smb
 from impacket import nmb
+from impacket.structure import pack
+from impacket.dcerpc import dcerpc, dcerpc_v4
 
 class DCERPCStringBinding:
     parser = re.compile(r'(?:([a-fA-F0-9-]{8}(?:-[a-fA-F0-9-]{4}){3}-[a-fA-F0-9-]{12})@)?' # UUID (opt.)
@@ -109,17 +127,25 @@ def DCERPCTransportFactory(stringbinding):
 
 
 class DCERPCTransport:
+
+    DCERPC_class = dcerpc.DCERPC_v5
+
     def __init__(self, dstip, dstport):
         self.__dstip = dstip
         self.__dstport = dstport
+        self._max_send_frag = None
+        self._max_recv_frag = None
+        self.set_credentials('','','','')
 
     def connect(self):
         raise RuntimeError, 'virtual function'
-    def send(self,data=0):
+    def send(self,data=0, forceWriteAndx = 0, forceRecv = 0):
         raise RuntimeError, 'virtual function'
     def recv(self):
         raise RuntimeError, 'virtual function'
     def disconnect(self):
+        raise RuntimeError, 'virtual function'
+    def get_socket(self):
         raise RuntimeError, 'virtual function'
 
     def get_dip(self):
@@ -141,9 +167,37 @@ class DCERPCTransport:
         self.set_dip(addr[0])
         self.set_dport(addr[1])
 
+    def set_max_fragment_size(self, send_fragment_size):
+        # -1 is default fragment size: 0 (don't fragment)
+        #  0 is don't fragment
+        #    other values are max fragment size
+        if send_fragment_size == -1:
+            self.set_default_max_fragment_size()
+        else:
+            self._max_send_frag = send_fragment_size
+
+    def set_default_max_fragment_size(self):
+        # default is 0: don'fragment. 
+        # subclasses may override this method
+        self._max_send_frag = 0
+     
+    def get_credentials(self):
+        return (
+            self._username,
+            self._password,
+            self._nt_hash,
+            self._lm_hash)
+
+    def set_credentials(self, username, password, lm_hash='', nt_hash=''):
+        self._username = username
+        self._password = password
+        self._nt_hash = nt_hash
+        self._lm_hash = lm_hash
 
 class UDPTransport(DCERPCTransport):
     "Implementation of ncadg_ip_udp protocol sequence"
+
+    DCERPC_class = dcerpc_v4.DCERPC_v4
 
     def __init__(self,dstip, dstport = 135):
         DCERPCTransport.__init__(self, dstip, dstport)
@@ -152,10 +206,7 @@ class UDPTransport(DCERPCTransport):
     def connect(self):
         try:
             self.__socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            try:
-                self.__socket.settimeout(30)
-            except AttributeError:
-                print "Warning: timeout not available."
+            self.__socket.settimeout(30)
         except socket.error, msg:
             self.__socket = None
             raise Exception, "Could not connect: %s" % msg
@@ -170,7 +221,7 @@ class UDPTransport(DCERPCTransport):
             return 0
         return 1
 
-    def send(self,data):
+    def send(self,data, forceWriteAndx = 0, forceRecv = 0):
         self.__socket.sendto(data,(self.get_dip(),self.get_dport()))
 
     def recv(self):
@@ -180,6 +231,8 @@ class UDPTransport(DCERPCTransport):
     def get_recv_addr(self):
         return self.__recv_addr
 
+    def get_socket(self):
+        return self.__socket
 
 class TCPTransport(DCERPCTransport):
     "Implementation of ncacn_ip_tcp protocol sequence"
@@ -192,10 +245,7 @@ class TCPTransport(DCERPCTransport):
         self.__socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
         try:
-            try:
-                self.__socket.settimeout(300)
-            except AttributeError:
-                print "Warning: timeout not available."
+            self.__socket.settimeout(300)
             self.__socket.connect((self.get_dip(), self.get_dport()))
         except socket.error, msg:
             self.__socket.close()
@@ -211,67 +261,65 @@ class TCPTransport(DCERPCTransport):
             return 0
         return 1
 
-    def send(self,data):
-        self.__socket.send(data)
+    def send(self,data, forceWriteAndx = 0, forceRecv = 0):
+        if self._max_send_frag:
+            offset = 0
+            while 1:
+                toSend = data[offset:offset+self._max_send_frag]
+                if not toSend:
+                    break
+                self.__socket.send(toSend)
+                offset += len(toSend)
+        else:
+            self.__socket.send(data)
 
     def recv(self):
         buffer = self.__socket.recv(8192)
         return buffer
 
-class HTTPTransport(DCERPCTransport):
+    def get_socket(self):
+        return self.__socket
+
+class HTTPTransport(TCPTransport):
     "Implementation of ncacn_http protocol sequence"
 
-    def __init__(self,dstip, dstport = 80):
-        DCERPCTransport.__init__(self, dstip, dstport)
-        self.__socket = 0
     def connect(self):
-        self.__socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-        try:
-            try:
-                self.__socket.settimeout(300)
-            except AttributeError:
-                print "Warning: timeout not available."
-            self.__socket.connect((self.get_dip(), self.get_dport()))
-        except socket.error, msg:
-            self.__socket.close()
-            raise Exception, "Could not connect: %s" % msg
+        TCPTransport.connect(self)
 
         self.__socket.send('RPC_CONNECT ' + self.get_dip() + ':593 HTTP/1.0\r\n\r\n')
         data = self.__socket.recv(8192)
         if data[10:13] != '200':
             raise Exception("Service not supported.")
 
-    def send(self, buffer):
-        self.__socket.send(buffer)
-    def recv(self):
-        data = self.__socket.recv(8192)
-        return data
-    def disconnect(self):
-        self.__socket.close()
-
 class SMBTransport(DCERPCTransport):
     "Implementation of ncacn_np protocol sequence"
 
-    def __init__(self, dstip, dstport = 445, filename = '', username='', password=''):
+    def __init__(self, dstip, dstport = 445, filename = '', username='', password='', lm_hash='', nt_hash=''):
         DCERPCTransport.__init__(self, dstip, dstport)
         self.__socket = None
         self.__smb_server = 0
         self.__tid = 0
         self.__filename = filename
         self.__handle = 0
-        self.set_credentials(username, password)
+        self.__pending_recv = 0
+        self.set_credentials(username, password, lm_hash, nt_hash)
 
-    def set_credentials(self, username, password):
-        self.__username = username
-        self.__password = password
+
+    def setup_smb_server(self):
+        if not self.__smb_server:
+            self.__smb_server = smb.SMB('*SMBSERVER',self.get_dip(), sess_port = self.get_dport())
 
     def connect(self):
-        self.__smb_server = smb.SMB('*SMBSERVER',self.get_dip(), sess_port = self.get_dport())
+        self.setup_smb_server()
         if self.__smb_server.is_login_required():
-            self.__smb_server.login(self.__username, self.__password)
-        self.__tid = self.__smb_server.connect_tree('\\\\*SMBSERVER\\IPC$', smb.SERVICE_ANY, None)
-        self.__handle = self.__smb_server.nt_create(self.__tid, self.__filename)
+            if self._password != '' or (self._password == '' and self._nt_hash == '' and self._lm_hash == ''):
+                self.__smb_server.login(self._username, self._password)
+            elif self._nt_hash != '' or self._lm_hash != '':
+                self.__smb_server.login(self._username, '', '', self._lm_hash, self._nt_hash)
+        self.__tid = self.__smb_server.tree_connect_andx('\\\\*SMBSERVER\\IPC$')
+        self.__handle = self.__smb_server.nt_create_andx(self.__tid, self.__filename)
+        # self.__handle = self.__smb_server.open_file_andx(self.__tid, r"\\PIPE\%s" % self.__filename, smb.SMB_O_CREAT, smb.SMB_ACCESS_READ)[0]
+        # self.__handle = self.__smb_server.open_file(self.__tid, r"\\PIPE\%s" % self.__filename, smb.SMB_O_CREAT, smb.SMB_ACCESS_READ)[0]
         self.__socket = self.__smb_server.get_socket()
         return 1
     
@@ -279,13 +327,41 @@ class SMBTransport(DCERPCTransport):
         self.__smb_server.disconnect_tree(self.__tid)
         self.__smb_server.logoff()
 
-    def send(self,data):
-        self.__smb_server.send_trans(self.__tid,'\x26\x00' + self.__handle,'\\PIPE\\'+'\x00','',data)
+    def send(self,data, noAnswer = 0, forceWriteAndx = 0, forceRecv = 0):
+        if self._max_send_frag:
+            offset = 0
+            while 1:
+                toSend = data[offset:offset+self._max_send_frag]
+                if not toSend:
+                    break
+                self.__smb_server.write_andx(self.__tid, self.__handle, toSend, offset = offset)
+                offset += len(toSend)
+        else:
+            if forceWriteAndx:
+                self.__smb_server.write_andx(self.__tid, self.__handle, data)
+            else:
+                self.__smb_server.TransactNamedPipe(self.__tid,self.__handle,data, noAnswer = noAnswer, waitAnswer = 0)
+        if forceRecv:
+            self.__pending_recv += 1
         
     def recv(self):
-        s = self.__smb_server.recv_packet()
-        if self.__smb_server.isValidAnswer(s,smb.SMB.SMB_COM_TRANSACTION):
-            trans = smb.TRANSHeader(s.get_parameter_words(), s.get_buffer())
-            data = trans.get_data()
-            return data
-        return 0
+        if self._max_send_frag or self.__pending_recv:
+            # _max_send_frag is checked because it's the same condition we checked
+            # to decide whether to use write_andx() or send_trans() in send() above.
+            if self.__pending_recv:
+                self.__pending_recv -= 1
+            return self.__smb_server.read_andx(self.__tid, self.__handle, max_size = self._max_recv_frag)
+        else:
+            s = self.__smb_server.recv_packet()
+            if self.__smb_server.isValidAnswer(s,smb.SMB.SMB_COM_TRANSACTION):
+                trans = smb.TRANSHeader(s.get_parameter_words(), s.get_buffer())
+                data = trans.get_data()
+                return data
+            return None
+
+    def get_smb_server(self):
+        return self.__smb_server
+
+    def get_socket(self):
+        return self.__socket
+

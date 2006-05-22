@@ -1,9 +1,4 @@
-# Copyright (c) 2003 CORE Security Technologies
-#
-# This software is provided under under a slightly modified version
-# of the Apache Software License. See the accompanying LICENSE file
-# for more information.
-#
+# ---
 # $Id$
 #
 # Description:
@@ -12,6 +7,27 @@
 # Author:
 #   Alberto Solino (beto)
 #   Javier Kohen (jkohen)
+#
+# Copyright (c) 2001-2003 CORE Security Technologies, CORE SDI Inc.
+# All rights reserved.
+#
+# This computer software is owned by Core SDI Inc. and is
+# protected by U.S. copyright laws and other laws and by international
+# treaties.  This computer software is furnished by CORE SDI Inc.
+# pursuant to a written license agreement and may be used, copied,
+# transmitted, and stored only in accordance with the terms of such
+# license and with the inclusion of the above copyright notice.  This
+# computer software or any other copies thereof may not be provided or
+# otherwise made available to any other person.
+#
+#
+# THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESS OR IMPLIED
+# WARRANTIES ARE DISCLAIMED. IN NO EVENT SHALL CORE SDI Inc. BE LIABLE
+# FOR ANY DIRECT,  INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY OR
+# CONSEQUENTIAL  DAMAGES RESULTING FROM THE USE OR MISUSE OF
+# THIS SOFTWARE
+#
+#--
 
 import array
 import struct
@@ -29,8 +45,9 @@ class EPMLookupRequestHeader(ImpactPacket.Header):
 
     __SIZE = 76
 
-    def __init__(self, aBuffer = None):
+    def __init__(self, aBuffer = None, endianness = '<'):
         ImpactPacket.Header.__init__(self, EPMLookupRequestHeader.__SIZE)
+        self.endianness = endianness
 
         self.set_inquiry_type(0)
         self.set_referent_id(1)
@@ -40,14 +57,14 @@ class EPMLookupRequestHeader(ImpactPacket.Header):
         if aBuffer: self.load_header(aBuffer)
 
     def get_inquiry_type(self):
-        return self.get_long(0, '<')
+        return self.get_long(0, self.endianness)
     def set_inquiry_type(self, type):
-        self.set_long(0, type, '<')
+        self.set_long(0, type, self.endianness)
 
     def get_referent_id(self):
-        return self.get_long(4, '<')
+        return self.get_long(4, self.endianness)
     def set_referent_id(self, id):
-        self.set_long(4, id, '<')
+        self.set_long(4, id, self.endianness)
 
     def get_obj_binuuid(self):
         return self.get_bytes().tolist()[8:8+16]
@@ -56,9 +73,9 @@ class EPMLookupRequestHeader(ImpactPacket.Header):
         self.get_bytes()[8:8+16] = array.array('B', binuuid)
 
     def get_referent_id2(self):
-        return self.get_long(24, '<')
+        return self.get_long(24, self.endianness)
     def set_referent_id2(self, id):
-        self.set_long(24, id, '<')
+        self.set_long(24, id, self.endianness)
 
     def get_if_binuuid(self):
         return self.get_bytes().tolist()[28:28+20]
@@ -67,9 +84,9 @@ class EPMLookupRequestHeader(ImpactPacket.Header):
         self.get_bytes()[28:28+20] = array.array('B', binuuid)
 
     def get_version_option(self):
-        return self.get_long(48, '<')
+        return self.get_long(48, self.endianness)
     def set_version_option(self, opt):
-        self.set_long(48, opt, '<')
+        self.set_long(48, opt, self.endianness)
 
     def get_handle(self):
         return self.get_bytes().tolist()[52:52+20]
@@ -78,9 +95,9 @@ class EPMLookupRequestHeader(ImpactPacket.Header):
         self.get_bytes()[52:52+20] = array.array('B', handle)
 
     def get_max_entries(self):
-        return self.get_long(72, '<')
+        return self.get_long(72, self.endianness)
     def set_max_entries(self, num):
-        self.set_long(72, num, '<')
+        self.set_long(72, num, self.endianness)
 
 
     def get_header_size(self):
@@ -124,11 +141,22 @@ class EPMRespLookupRequestHeader(ImpactPacket.Header):
 
 
 class DCERPCEpm:
+    endianness = '<'
     def __init__(self, dcerpc):
         self._dcerpc = dcerpc
 
     def portmap_dump(self, rpc_handle = '\x00'*20):
-        lookup = EPMLookupRequestHeader()
+        if self.endianness == '>':
+            from impacket.structure import unpack,pack
+            try:
+                rpc_handle = ''.join(map(chr, rpc_handle))
+            except:
+                pass
+            
+            uuid = list(unpack('<LLHHBB6s', rpc_handle))
+            rpc_handle = pack('>LLHHBB6s', *uuid)
+
+        lookup = EPMLookupRequestHeader(endianness = self.endianness)
         lookup.set_handle(rpc_handle);
         self._dcerpc.send(lookup)
 
@@ -150,7 +178,7 @@ class EpmEntry:
         return self.__uuid
 
     def setUUID(self, uuid):
-	self.__uuid = uuid
+        self.__uuid = uuid
 
     def getProviderName(self):
         return ndrutils.uuid_to_exe(uuid.string_to_bin(self.getUUID()) + struct.pack('<H', self.getVersion()))
@@ -159,7 +187,7 @@ class EpmEntry:
         return self.__version
 
     def setVersion(self, version):
-	self.__version = version
+        self.__version = version
 
     def isZeroObjUUID(self):
         return self.__objuuid == '00000000-0000-0000-0000-000000000000'
@@ -168,25 +196,25 @@ class EpmEntry:
         return self.__objuuid
 
     def setObjUUID(self, objuuid):
-	self.__uuid = objuuid
+        self.__uuid = objuuid
 
     def getAnnotation(self):
         return self.__annotation
 
     def setAnnotation(self, annotation):
-	self.__annotation = annotation
+        self.__annotation = annotation
 
     def getProtocol(self):
         return self.__protocol
 
     def setProtocol(self, protocol):
-	self.__protocol = protocol
+        self.__protocol = protocol
 
     def getEndpoint(self):
         return self.__endpoint
 
     def setEndpoint(self, endpoint):
-	self.__endpoint = endpoint
+        self.__endpoint = endpoint
 
     def __str__(self):
         stringbinding = transport.DCERPCStringBindingCompose(self.getObjUUID(), self.getProtocol(), '', self.getEndpoint())

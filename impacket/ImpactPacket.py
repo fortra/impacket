@@ -1331,7 +1331,10 @@ class TCPOption(PacketBuffer):
                 self.set_ts(data)
             else:
                 self.set_ts(0)
-
+        elif kind == TCPOption.TCPOPT_SACK_PERMITTED:
+            PacketBuffer.__init__(self, 2)
+            self.set_kind(TCPOption.TCPOPT_SACK_PERMITTED)
+            self.set_len(2)                
 
     def set_kind(self, kind):
         self.set_byte(0, kind)
@@ -1720,7 +1723,7 @@ class ARP(Header):
 
     def get_ar_sha(self):
         tmp_size = self.get_ar_hln()
-        return self.get_bytes()[8: 8 + tmp_size]
+        return self.get_bytes().tolist()[8: 8 + tmp_size]
 
     def set_ar_sha(self, aValue):
         for i in range(0, self.get_ar_hln()):
@@ -1728,7 +1731,7 @@ class ARP(Header):
 
     def get_ar_spa(self):
         tmp_size = self.get_ar_pln()
-        return self.get_bytes()[8 + self.get_ar_hln(): 8 + self.get_ar_hln() + tmp_size]
+        return self.get_bytes().tolist()[8 + self.get_ar_hln(): 8 + self.get_ar_hln() + tmp_size]
 
     def set_ar_spa(self, aValue):
         for i in range(0, self.get_ar_pln()):
@@ -1737,7 +1740,7 @@ class ARP(Header):
     def get_ar_tha(self):
         tmp_size = self.get_ar_hln()
         tmp_from = 8 + self.get_ar_hln() + self.get_ar_pln()
-        return self.get_bytes()[tmp_from: tmp_from + tmp_size]
+        return self.get_bytes().tolist()[tmp_from: tmp_from + tmp_size]
 
     def set_ar_tha(self, aValue):
         tmp_from = 8 + self.get_ar_hln() + self.get_ar_pln()
@@ -1747,7 +1750,7 @@ class ARP(Header):
     def get_ar_tpa(self):
         tmp_size = self.get_ar_pln()
         tmp_from = 8 + ( 2 * self.get_ar_hln()) + self.get_ar_pln()
-        return self.get_bytes()[tmp_from: tmp_from + tmp_size]
+        return self.get_bytes().tolist()[tmp_from: tmp_from + tmp_size]
 
     def set_ar_tpa(self, aValue):
         tmp_from = 8 + (2 * self.get_ar_hln()) + self.get_ar_pln()

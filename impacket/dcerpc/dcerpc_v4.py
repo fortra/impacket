@@ -148,6 +148,13 @@ class MSRPCHeader(ImpactPacket.Header):
             self.set_op_num(self.child().OP_NUM)
             self.set_frag_len(contents_size)
 
+    def get_ctx_id(self):
+        # return self.get_word(20, '<')
+        return 0
+
+    def set_ctx_id(self, id):
+        # self.set_word(20, id, '<')
+        pass
 
 class DCERPC_v4(dcerpc.DCERPC):
     DEFAULT_FRAGMENT_SIZE = 1392
@@ -157,8 +164,12 @@ class DCERPC_v4(dcerpc.DCERPC):
         self.__activity_uuid = uuid.generate()
         self.__seq_num = 0
         self._bind = 0 # Don't attempt binding unless it explicitly requested.
+	self.set_idempotent(0)
 
-    def bind(self, uuid, idempotent = 0):
+    def set_default_max_fragment_size(self):
+        self.set_max_fragment_size(DCERPC_v4.DEFAULT_FRAGMENT_SIZE)
+
+    def bind(self, uuid, bogus_binds = ''):
         """If idempotent is non-zero, the package will be sent with
         that flag enabled. Certain services react by skiping the CONV
         phase during the binding.
@@ -167,8 +178,12 @@ class DCERPC_v4(dcerpc.DCERPC):
         self._bind = 1 # Will bind later, when the first packet is transferred.
         self.__if_uuid = uuid[:16]
         self.__if_version = struct.unpack('<L', uuid[16:20])[0]
-	self.__idempotent = idempotent
-        self.__frag_size = DCERPC_v4.DEFAULT_FRAGMENT_SIZE
+
+    def get_idempotent(self):
+        return self.__idempotent
+
+    def set_idempotent(self, flag):
+        self.__idempotent = flag
 
     def conv_bind(self):
         # Receive CONV handshake.
@@ -194,47 +209,48 @@ class DCERPC_v4(dcerpc.DCERPC):
         self._transport.send(rpc.get_packet())
         self._transport.set_addr(old_address)
 
-    def get_fragment_size(self):
-        return self.__frag_size
-
-    def set_fragment_size(self, size):
-        self.__frag_size = size
-
     def send(self, data):
-        MAX_FRAG = self.__frag_size
         packet = data.get_packet()
-        datasize = data.get_size()
-        datasent = 0
-        frag_size = MAX_FRAG
         frag_num = 0
 
-        while datasent < datasize:
-            frag_flags = 0xc
-            if self.__idempotent: frag_flags |= 0x20
+        rpc = MSRPCHeader()
+        self.set_ctx_id(self._ctx)
+        rpc.set_if_binuuid(self.__if_uuid)
+        rpc.set_if_version(self.__if_version)
+        rpc.set_activity_binuuid(self.__activity_uuid)
+        rpc.set_seq_num(self.__seq_num)
 
-            # If last fragment...
-            if datasize - datasent <= MAX_FRAG:
-                frag_flags |= 2
-                frag_size = (datasize-datasent)
+        frag = dcerpc.DCERPC_RawCall(data.OP_NUM)
 
-            rpc = MSRPCHeader()
-            rpc.set_seq_num(self.__seq_num)
-            rpc.set_if_binuuid(self.__if_uuid)
-            flags = rpc.get_flags()
-            rpc.set_flags((flags[0] | frag_flags,flags[1]))
-            rpc.set_if_version(self.__if_version)
-            rpc.set_activity_binuuid(self.__activity_uuid)
+        if self._max_frag:
+            offset = 0
 
-            frag = ImpactPacket.Data()
-            frag.set_bytes_from_string(packet[datasent:datasent+frag_size])
-            frag.OP_NUM = data.OP_NUM
-            rpc.contains(frag)
-            rpc.set_frag_num(frag_num)
+            while 1:
+                toSend = packet[offset:offset+self._max_frag]
+                if not toSend:          break
+                flags = dcerpc.MSRPC_NOTAFRAG | dcerpc.MSRPC_RECRESPOND
+                if self.__idempotent: flags |= dcerpc.MSRPC_NOTFORIDEMP
+                offset += len(toSend)
+                if offset == len(packet): flags |= dcerpc.MSRPC_LASTFRAG
+                rpc.set_flags((flags, 0))
+
+                frag.setData(toSend)
+                rpc.contains(frag)
+                rpc.set_frag_num(frag_num)
+                self._transport.send(rpc.get_packet())
+
+                frag_num += 1
+
+                if self._bind and not self.__idempotent:
+                    self._bind = 0
+                    self.conv_bind()
+                    self.recv() # Discard RPC_ACK.
+        else:
+            if self.__idempotent:
+                rpc.set_flags((dcerpc.MSRPC_NOTFORIDEMP, 0))
+
+            rpc.contains(data)
             self._transport.send(rpc.get_packet())
-
-            datasent += frag_size
-            frag_num += 1
-
             if self._bind and not self.__idempotent:
                 self._bind = 0
                 self.conv_bind()
