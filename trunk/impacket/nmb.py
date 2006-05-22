@@ -1,4 +1,34 @@
-# $Id$
+#--
+# $CoreSDI: nmb.py,v 1.15 2005/10/20 18:44:55 gera Exp $
+#
+# Description:
+#
+# Author:
+#
+# Copyright (c) 2001-2004 CORE Security Technologies, CORE SDI Inc.
+# All rights reserved.
+#
+# This computer software is owned by Core SDI Inc. and is
+# protected by U.S. copyright laws and other laws and by international
+# treaties.  This computer software is furnished by CORE SDI Inc.
+# pursuant to a written license agreement and may be used, copied,
+# transmitted, and stored only in accordance with the terms of such
+# license and with the inclusion of the above copyright notice.  This
+# computer software or any other copies thereof may not be provided or
+# otherwise made available to any other person.
+#
+#
+# THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESS OR IMPLIED
+# WARRANTIES ARE DISCLAIMED. IN NO EVENT SHALL CORE SDI Inc. BE LIABLE
+# FOR ANY DIRECT,  INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY OR
+# CONSEQUENTIAL  DAMAGES RESULTING FROM THE USE OR MISUSE OF
+# THIS SOFTWARE
+#
+#--
+
+
+
+# -*- mode: python; tab-width: 4 -*-
 #
 # Copyright (C) 2001 Michael Teo <michaelteo@bigfoot.com>
 # nmb.py - NetBIOS library
@@ -21,7 +51,7 @@
 #
 # 3. This notice cannot be removed or altered from any source distribution.
 #
-# Modified by Alberto Solino <asolino@coresecurity.com>
+# Altered source done by Alberto Solino
 
 import os, sys, socket, string, re, select, errno
 from random import randint
@@ -39,6 +69,9 @@ NETBIOS_NS_PORT = 137
 # Default port for NetBIOS session service
 NETBIOS_SESSION_PORT = 139
 
+# Default port for SMB session service
+SMB_SESSION_PORT = 445
+
 # Owner Node Type Constants
 NODE_B = 0x0000
 NODE_P = 0x2000
@@ -55,6 +88,7 @@ TYPE_SERVER = 0x20
 TYPE_DOMAIN_MASTER = 0x1B
 TYPE_MASTER_BROWSER = 0x1D
 TYPE_BROWSER = 0x1E
+TYPE_NETDDE  = 0x1F
 
 # Opcodes values
 OPCODE_QUERY = 0
@@ -107,7 +141,7 @@ NAME_FLAG_DRG  = 0x1000       # Deregister Flag.  If one (1) then this name is i
 
 NAME_TYPES = { TYPE_UNKNOWN: 'Unknown', TYPE_WORKSTATION: 'Workstation', TYPE_CLIENT: 'Client',
                TYPE_SERVER: 'Server', TYPE_MASTER_BROWSER: 'Master Browser', TYPE_BROWSER: 'Browser Server',
-               TYPE_DOMAIN_MASTER: 'Domain Master' }
+               TYPE_DOMAIN_MASTER: 'Domain Master' , TYPE_NETDDE: 'NetDDE Server'}
 # NetBIOS Session Types
 NETBIOS_SESSION_MESSAGE = 0x0
 NETBIOS_SESSION_REQUEST = 0x81
@@ -130,26 +164,35 @@ def strerror(errclass, errcode):
     
 
 class NetBIOSError(Exception): pass
-class NetBIOSTimeout(Exception): pass
+class NetBIOSTimeout(Exception):
+    def __init__(self, message = 'The NETBIOS connection with the remote host timed out.'):
+        Exception.__init__(self, message)
 
 class NBResourceRecord:
     def __init__(self, data = 0):
         self._data = data
-        if self._data:
-            self.rr_name = (re.split('\x00',data))[0]
-            offset = len(self.rr_name)+1
-            self.rr_type  = unpack('>H', self._data[offset:offset+2])[0]
-            self.rr_class = unpack('>H', self._data[offset+2: offset+4])[0]
-            self.ttl = unpack('>L',self._data[offset+4:offset+8])[0]
-            self.rdlength = unpack('>H', self._data[offset+8:offset+10])[0]
-            self.rdata = data[offset+10:self.rdlength]
-        else:
-            self.rr_name = ''
-            self.rr_type = 0
-            self.rr_class = 0
-            self.ttl = 0
-            self.rdlength = 0
-            self.rdata = ''
+        try:
+            if self._data:
+                self.rr_name = (re.split('\x00',data))[0]
+                offset = len(self.rr_name)+1
+                self.rr_type  = unpack('>H', self._data[offset:offset+2])[0]
+                self.rr_class = unpack('>H', self._data[offset+2: offset+4])[0]
+                self.ttl = unpack('>L',self._data[offset+4:offset+8])[0]
+                self.rdlength = unpack('>H', self._data[offset+8:offset+10])[0]
+                self.rdata = data[offset+10:self.rdlength]
+                offset = self.rdlength - 2
+                self.unit_id = data[offset:offset+6]
+            else:
+                self.rr_name = ''
+                self.rr_type = 0
+                self.rr_class = 0
+                self.ttl = 0
+                self.rdlength = 0
+                self.rdata = ''
+                self.unit_id = ''
+        except Exception,e:
+                raise NetBIOSError( 'Wrong packet format ' )
+
     def set_rr_name(self, name):
         self.rr_name = name
     def set_rr_type(self, name):
@@ -161,6 +204,8 @@ class NBResourceRecord:
     def set_rdata(self,rdata):
         self.rdata = rdata
         self.rdlength = len(rdata)
+    def get_unit_id(self):
+        return self.unit_id
     def get_rr_name(self):
         return self.rr_name
     def get_rr_class(self):
@@ -180,17 +225,34 @@ class NBNodeStatusResponse(NBResourceRecord):
         self.num_names = 0
         self.node_names = [ ]
         self.statstics = ''
-        if data:
-            self._data = self.get_rdata()
-            self.num_names = unpack('>B',self._data[:1])[0]
-            offset = 1
-            for i in range(0, self.num_names):
-                name = self._data[offset:offset + 15]
-                type,flags = unpack('>BH', self._data[offset + 15: offset + 18])
-                offset += 18
-                self.node_names.append(NBNodeEntry(name, type ,flags))
+        self.mac = '00-00-00-00-00-00'
+        try:
+            if data:
+                self._data = self.get_rdata()
+                self.num_names = unpack('>B',self._data[:1])[0]
+                offset = 1
+                for i in range(0, self.num_names):
+                    name = self._data[offset:offset + 15]
+                    type,flags = unpack('>BH', self._data[offset + 15: offset + 18])
+                    offset += 18
+                    self.node_names.append(NBNodeEntry(name, type ,flags))
+                self.set_mac_in_hexa(self.get_unit_id())
+        except Exception,e:
+            raise NetBIOSError( 'Wrong packet format ' )
+
+    def set_mac_in_hexa(self, data):
+        data_aux = ''
+        for d in data:
+            if data_aux == '':
+                data_aux = '%02x' % ord(d)
+            else:
+                data_aux += '-%02x' % ord(d)
+        self.mac = string.upper(data_aux)
+
     def get_num_names(self):
         return self.num_names
+    def get_mac(self):
+        return self.mac
     def set_num_names(self, num):
         self.num_names = num
     def get_node_names(self):
@@ -235,16 +297,20 @@ class NetBIOSPacket:
         if data == 0:
             self._data = ''
         else:
-            self._data = data
-            self.opcode = ord(data[2]) >> 3 
-            self.nm_flags = ((ord(data[2]) & 0x3) << 4) | ((ord(data[3]) & 0xf0) >> 4)
-            self.name_trn_id = unpack('>H', self._data[:2])[0]
-            self.rcode = ord(data[3]) & 0x0f
-            self.qdcount = unpack('>H', self._data[4:6])[0]
-            self.ancount = unpack('>H', self._data[6:8])[0]
-            self.nscount = unpack('>H', self._data[8:10])[0]
-            self.arcount = unpack('>H', self._data[10:12])[0]
-            self.answers = self._data[12:]                
+            try:
+                self._data = data
+                self.opcode = ord(data[2]) >> 3 
+                self.nm_flags = ((ord(data[2]) & 0x3) << 4) | ((ord(data[3]) & 0xf0) >> 4)
+                self.name_trn_id = unpack('>H', self._data[:2])[0]
+                self.rcode = ord(data[3]) & 0x0f
+                self.qdcount = unpack('>H', self._data[4:6])[0]
+                self.ancount = unpack('>H', self._data[6:8])[0]
+                self.nscount = unpack('>H', self._data[8:10])[0]
+                self.arcount = unpack('>H', self._data[10:12])[0]
+                self.answers = self._data[12:]
+            except Exception,e:
+                raise NetBIOSError( 'Wrong packet format ' )
+            
     def set_opcode(self, opcode):
         self.opcode = opcode
     def set_trn_id(self, trn):
@@ -386,6 +452,7 @@ class NetBIOS:
         self.__servport = NETBIOS_NS_PORT
         self.__nameserver = None
         self.__broadcastaddr = BROADCAST_ADDR
+        self.mac = '00-00-00-00-00-00'
 
     # Set the default NetBIOS domain nameserver.
     def set_nameserver(self, nameserver):
@@ -418,7 +485,10 @@ class NetBIOS:
             return self.__querynodestatus(nbname, destaddr, type, scope, timeout)
         else:
             return self.__querynodestatus(nbname, self.__nameserver, type, scope, timeout)
-    
+
+    def getmacaddress(self):
+        return self.mac
+
     def __queryname(self, nbname, destaddr, type, scope, timeout):
         netbios_name = string.upper(nbname)
         trn_id = randint(1, 32000)
@@ -503,6 +573,7 @@ class NetBIOS:
                             else:
                                 raise NetBIOSError, ( 'Negative name query response', ERRCLASS_QUERY, res.get_rcode() )
                         answ = NBNodeStatusResponse(res.get_answers())
+                        self.mac = answ.get_mac()
                         return answ.get_node_names()
             except select.error, ex:
                 if ex[0] != errno.EINTR and ex[0] != errno.EAGAIN:
@@ -567,10 +638,13 @@ class NetBIOSSessionPacket:
         if data == 0:
             self._trailer = ''
         else:
-            self.type = ord(data[0])
-            self.flags = ord(data[1])
-            self.length = unpack('!H', data[2:4])[0]
-            self._trailer = data[4:]
+            try:
+                self.type = ord(data[0])
+                self.flags = ord(data[1])
+                self.length = unpack('!H', data[2:4])[0]
+                self._trailer = data[4:]
+            except:
+                raise NetBIOSError( 'Wrong packet format ' )
 
     def set_type(self, type):
         self.type = type
@@ -589,7 +663,7 @@ class NetBIOSSessionPacket:
         
 class NetBIOSSession:
 
-    def __init__(self, myname, remote_name, remote_host, host_type = TYPE_SERVER, sess_port = NETBIOS_SESSION_PORT, timeout = None):
+    def __init__(self, myname, remote_name, remote_host, remote_type = TYPE_SERVER, sess_port = NETBIOS_SESSION_PORT, timeout = None, local_type = TYPE_WORKSTATION):
         if len(myname) > 15:
             self.__myname = string.upper(myname[:15])
         else:
@@ -609,7 +683,7 @@ class NetBIOSSession:
             raise ex
 
         if sess_port == NETBIOS_SESSION_PORT:
-            self.__request_session(host_type, timeout)
+            self.__request_session(remote_type, local_type, timeout)
      
     def get_myname(self):
         return self.__myname
@@ -633,10 +707,10 @@ class NetBIOSSession:
         data = self.__read(timeout)
         return NetBIOSSessionPacket(data)
 
-    def __request_session(self, host_type, timeout = None):
+    def __request_session(self, remote_type, local_type, timeout = None):
         p = NetBIOSSessionPacket()
-        remote_name = encode_name(self.__remote_name, host_type, '')
-        myname = encode_name(self.__myname, TYPE_WORKSTATION, '')
+        remote_name = encode_name(self.__remote_name, remote_type, '')
+        myname = encode_name(self.__myname, local_type, '')
         p.set_type(NETBIOS_SESSION_REQUEST)
         p.set_trailer(remote_name + myname)
         self.__sock.send(p.rawData())

@@ -1,9 +1,4 @@
-# Copyright (c) 2003 CORE Security Technologies
-#
-# This software is provided under under a slightly modified version
-# of the Apache Software License. See the accompanying LICENSE file
-# for more information.
-#
+# ---
 # $Id$
 #
 # Description:
@@ -12,10 +7,31 @@
 #
 # Author:
 #   Alberto Solino (beto)
-
-import random
+#
+# Copyright (c) 2001-2003 CORE Security Technologies, CORE SDI Inc.
+# All rights reserved.
+#
+# This computer software is owned by Core SDI Inc. and is
+# protected by U.S. copyright laws and other laws and by international
+# treaties.  This computer software is furnished by CORE SDI Inc.
+# pursuant to a written license agreement and may be used, copied,
+# transmitted, and stored only in accordance with the terms of such
+# license and with the inclusion of the above copyright notice.  This
+# computer software or any other copies thereof may not be provided or
+# otherwise made available to any other person.
+#
+#
+# THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESS OR IMPLIED
+# WARRANTIES ARE DISCLAIMED. IN NO EVENT SHALL CORE SDI Inc. BE LIABLE
+# FOR ANY DIRECT,  INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY OR
+# CONSEQUENTIAL  DAMAGES RESULTING FROM THE USE OR MISUSE OF
+# THIS SOFTWARE
+#
+#--
+from struct import *
 import socket
-from struct import pack, unpack
+import random
+from impacket import uuid
 
 def uuid_hex(_uuid):
     for i in range(0,len(_uuid)):
@@ -117,7 +133,8 @@ def uuid_to_exe(_uuid):
         return KNOWN_UUIDS[_uuid]
     else:
         return 'unknown'
-    
+
+#Protocol ids, reference: http://www.opengroup.org/onlinepubs/9629399/apdxi.htm
 class NDRFloor:
     PROTO_ID = { 0x0: 'OSI OID',
                  0x2: 'UUID',
@@ -132,7 +149,9 @@ class NDRFloor:
                  0x2: 'DNA Session Control',
                  0x3: 'DNA Session Control V3',
                  0x4: 'DNA NSP Transport',
-                 0xf: 'Named Pipes',
+                 0x0d: 'Netware SPX', 
+                 0x0e: 'Netware IPX', #someone read hexa as decimal? (0xe=0x14 in opengroup's list)
+                 0x0f: 'Named Pipes',
                  0x10: 'Named Pipes',
                  0x11: 'NetBIOS',
                  0x12: 'NetBEUI',
@@ -290,6 +309,8 @@ class NDREntry:
                         return tmp_address % tmp_address2
                     else:
                         return 'SPX: %s' % tmp_address2
+                elif floors[i].get_protocol() == 0x0e:
+                    tmp_address = 'ncadg_ipx:~%%s[%d]' % unpack('!H',floors[i].get_rhs())
                 elif floors[i].get_protocol() == 0x0f:
                     tmp_address = 'ncacn_np:%%s[%s]' % floors[i].get_rhs()[:floors[i].get_rhs_len()-1]
                 elif floors[i].get_protocol() == 0x10:
@@ -303,7 +324,7 @@ class NDREntry:
                     tmp_address = 'ncacn_http:%%s[%d]' % unpack('!H',floors[i].get_rhs())
                 else:
                     if floors[i].get_protocol_string() == 'unknown':
-                        return 'unknown protocol received: 0x%x' % floors[i].get_protocol()
+                        return 'unknown_proto_0x%x:[0]' % floors[i].get_protocol()
                     elif floors[i].get_protocol_string() <> 'UUID':
                         return 'protocol: %s, value: %s' % (floors[i].get_protocol_string(), floors[i].get_rhs())
 
@@ -355,7 +376,7 @@ class NDRString:
         self._length = 0
         if data != '':
             self._max_len, self._offset, self._length = unpack('<LLL',data[:12])
-            self._string = unicode(data[12:], 'utf-16le')
+            self._string = unicode(data[12:12 + self._length * 2], 'utf-16le')
     def get_string(self):
         return self._string
     def set_string(self,str):
@@ -367,3 +388,10 @@ class NDRString:
         else:
             self._tail = pack('<H',0)
         return pack('<LLL',self._max_len, self._offset, self._length) + self._string.encode('utf-16le') + self._tail
+
+    def get_max_len(self):
+        return self._max_len
+
+    def get_length(self):
+        return self._length
+    

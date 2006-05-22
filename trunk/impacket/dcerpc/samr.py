@@ -1,9 +1,4 @@
-# Copyright (c) 2003 CORE Security Technologies
-#
-# This software is provided under under a slightly modified version
-# of the Apache Software License. See the accompanying LICENSE file
-# for more information.
-#
+# ---
 # $Id$
 #
 # Description:
@@ -12,16 +7,52 @@
 # Author:
 #   Alberto Solino (beto)
 #   Javier Kohen (jkohen)
+#
+# Copyright (c) 2001-2003 CORE Security Technologies, CORE SDI Inc.
+# All rights reserved.
+#
+# This computer software is owned by Core SDI Inc. and is
+# protected by U.S. copyright laws and other laws and by international
+# treaties.  This computer software is furnished by CORE SDI Inc.
+# pursuant to a written license agreement and may be used, copied,
+# transmitted, and stored only in accordance with the terms of such
+# license and with the inclusion of the above copyright notice.  This
+# computer software or any other copies thereof may not be provided or
+# otherwise made available to any other person.
+#
+#
+# THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESS OR IMPLIED
+# WARRANTIES ARE DISCLAIMED. IN NO EVENT SHALL CORE SDI Inc. BE LIABLE
+# FOR ANY DIRECT,  INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY OR
+# CONSEQUENTIAL  DAMAGES RESULTING FROM THE USE OR MISUSE OF
+# THIS SOFTWARE
+#
+#--
 
 import array
+from time import strftime, gmtime
 from struct import *
 
 from impacket import ImpactPacket
-from impacket.smb import display_time
 import dcerpc
 import ndrutils
 
 MSRPC_UUID_SAMR   = '\x78\x57\x34\x12\x34\x12\xcd\xab\xef\x00\x01\x23\x45\x67\x89\xac\x01\x00\x00\x00'
+
+OP_NUM_CREATE_USER_IN_DOMAIN    = 0xC
+OP_NUM_ENUM_USERS_IN_DOMAIN     = 0xD
+OP_NUM_CREATE_ALIAS_IN_DOMAIN   = 0xE
+
+def display_time(filetime_high, filetime_low, minutes_utc=0):
+    d = filetime_high*4.0*1.0*(1<<30)
+    d += filetime_low
+    d *= 1.0e-7
+    d -= (369.0*365.25*24*60*60-(3.0*24*60*60+6.0*60*60))
+    if minutes_utc == 0:
+        r = (strftime("%a, %d %b %Y %H:%M:%S",gmtime(d)), minutes_utc/60)[0]
+    else:
+        r = "%s GMT %d " % (strftime("%a, %d %b %Y %H:%M:%S",gmtime(d)), minutes_utc/60)
+    return r
 
 class MSRPCUserInfo:
     ITEMS = {'Account Name':0,
@@ -415,7 +446,7 @@ class SAMRRespOpenDomainHeader(ImpactPacket.Header):
 
 
 class SAMREnumDomainUsersHeader(ImpactPacket.Header):
-    OP_NUM = 0xD
+    OP_NUM = OP_NUM_ENUM_USERS_IN_DOMAIN
 
     __SIZE = 32
 
