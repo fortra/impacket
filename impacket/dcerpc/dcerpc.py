@@ -1,46 +1,11 @@
-# ---
+# Copyright (c) 2003-2006 CORE Security Technologies
+#
+# This software is provided under under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
 # $Id$
 #
-# Description:
-#   Handle basic DCE/RPC protocol, version 5.
-#
-# Author:
-#   Alberto Solino (beto)
-#   Javier Kohen (jkohen)
-#
-# Copyright (c) 2001-2003 CORE Security Technologies, CORE SDI Inc.
-# All rights reserved.
-#
-# This computer software is owned by Core SDI Inc. and is
-# protected by U.S. copyright laws and other laws and by international
-# treaties.  This computer software is furnished by CORE SDI Inc.
-# pursuant to a written license agreement and may be used, copied,
-# transmitted, and stored only in accordance with the terms of such
-# license and with the inclusion of the above copyright notice.  This
-# computer software or any other copies thereof may not be provided or
-# otherwise made available to any other person.
-#
-#
-# THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESS OR IMPLIED
-# WARRANTIES ARE DISCLAIMED. IN NO EVENT SHALL CORE SDI Inc. BE LIABLE
-# FOR ANY DIRECT,  INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY OR
-# CONSEQUENTIAL  DAMAGES RESULTING FROM THE USE OR MISUSE OF
-# THIS SOFTWARE
-#
-#--
-
-# Todo:
-# [x] Negotiate the max_fragment for receive and transmit (makes some exploits fail)
-# [ ] Handle fragmented recvs
-# [x] Fix forceWriteAndx, which needs to send a RecvRequest, because recv() will not send it
-# [ ] Try to fragment DCERPC Bind packet
-# [x] Try sending multiple contexts in a single bind request
-# [ ] Implement NTLMv2 authentication
-# [ ] Implement NTLMv2 Integrity
-# [ ] Implement NTLMv2 Privacy
-# [+] Implement Endianness selection for all DCERPC traffic
-# [ ] Implement DCERPC Authentication using only NT/LM Hashes
-# [+] Implement everything for big endian
 
 import array
 from binascii import crc32
