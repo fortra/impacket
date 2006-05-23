@@ -158,9 +158,9 @@ class PacketBuffer:
     def normalize_checksum(self, aValue):
         sum = aValue
         sum = (sum >> 16) + (sum & 0xFFFF)
-    	sum += (sum >> 16)
-    	sum = (~sum & 0xFFFF)
-    	return sum
+        sum += (sum >> 16)
+        sum = (~sum & 0xFFFF)
+        return sum
 
     def __validate_index(self, index, size):
         """This method performs two tasks: to allocate enough space to
@@ -487,7 +487,7 @@ class IP(Header):
         self.__option_list = []
         if(aBuffer):
             self.load_header(aBuffer)
-	if sys.platform.count('bsd'):
+        if sys.platform.count('bsd'):
             self.is_BSD = True
         else:
             self.is_BSD = False

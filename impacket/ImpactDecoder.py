@@ -160,8 +160,8 @@ class ICMPDecoder(Decoder):
             self.ip_decoder = IPDecoderForICMP()
             packet = self.ip_decoder.decode(aBuffer[off:])
         else:
-        self.data_decoder = DataDecoder()
-        packet = self.data_decoder.decode(aBuffer[off:])
+            self.data_decoder = DataDecoder()
+            packet = self.data_decoder.decode(aBuffer[off:])
         ic.contains(packet)
         return ic
 
