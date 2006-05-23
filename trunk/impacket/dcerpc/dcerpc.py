@@ -17,7 +17,7 @@ except Exception:
     try:
         import POW
     except Exception:
-	print "WARNING: Crypto package not found. Some features will fail."
+        print "WARNING: Crypto package not found. Some features will fail."
 
 from impacket import ntlm
 from impacket import ImpactPacket
@@ -756,31 +756,31 @@ class DCERPC_v5(DCERPC):
                 else:
                     key = '\x00'*16
 
-	    if POW:
-		cipher = POW.Symmetric(POW.RC4)
-		cipher.encryptInit(key)
-		self.cipher_encrypt = cipher.update
-	    else:
-		cipher = ARC4.new(key)
-		self.cipher_encrypt = cipher.encrypt
+            if POW:
+                cipher = POW.Symmetric(POW.RC4)
+                cipher.encryptInit(key)
+                self.cipher_encrypt = cipher.update
+            else:
+                cipher = ARC4.new(key)
+                self.cipher_encrypt = cipher.encrypt
 
-	    if response['flags'] & ntlm.NTLMSSP_KEY_EXCHANGE:
-		session_key = 'A'*16     # XXX Generate random session key
-		response['session_key'] = self.cipher_encrypt(session_key)
-		if POW:
-		    cipher = POW.Symmetric(POW.RC4)
-		    cipher.encryptInit(session_key)
-		    self.cipher_encrypt = cipher.update
-		else:
-		    cipher = ARC4.new(session_key)
-		    self.cipher_encrypt = cipher.encrypt
+            if response['flags'] & ntlm.NTLMSSP_KEY_EXCHANGE:
+                session_key = 'A'*16     # XXX Generate random session key
+                response['session_key'] = self.cipher_encrypt(session_key)
+                if POW:
+                    cipher = POW.Symmetric(POW.RC4)
+                    cipher.encryptInit(session_key)
+                    self.cipher_encrypt = cipher.update
+                else:
+                    cipher = ARC4.new(session_key)
+                    self.cipher_encrypt = cipher.encrypt
 
-	    self.sequence = 0
+            self.sequence = 0
 
-	    auth3 = MSRPCHeader()
-	    auth3.set_type(MSRPC_AUTH3)
-	    auth3.set_auth_data(str(response))
-	    self._transport.send(auth3.get_packet(), forceWriteAndx = 1)
+            auth3 = MSRPCHeader()
+            auth3.set_type(MSRPC_AUTH3)
+            auth3.set_auth_data(str(response))
+            self._transport.send(auth3.get_packet(), forceWriteAndx = 1)
 
         return resp     # means packet is signed, if verifier is wrong it fails
 

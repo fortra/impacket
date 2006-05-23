@@ -162,7 +162,7 @@ class DCERPC_v4(dcerpc.DCERPC):
         self.__activity_uuid = uuid.generate()
         self.__seq_num = 0
         self._bind = 0 # Don't attempt binding unless it explicitly requested.
-	self.set_idempotent(0)
+        self.set_idempotent(0)
 
     def set_default_max_fragment_size(self):
         self.set_max_fragment_size(DCERPC_v4.DEFAULT_FRAGMENT_SIZE)
