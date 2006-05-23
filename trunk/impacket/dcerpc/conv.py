@@ -1,4 +1,4 @@
-# Copyright (c) 2003 CORE Security Technologies
+# Copyright (c) 2003-2006 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -9,8 +9,6 @@
 # Description:
 #   Implement CONV protocol, used to establish an RPC session over UDP.
 #
-# Author:
-#   Javier Kohen (jkohen)
 
 import array
 from impacket import ImpactPacket

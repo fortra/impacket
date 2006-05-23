@@ -1,4 +1,4 @@
-# Copyright (c) 2003 CORE Security Technologies
+# Copyright (c) 2003-2006 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -9,8 +9,6 @@
 # Description:
 #   Handle basic DCE/RPC protocol, version 4.
 #
-# Author:
-#   Javier Kohen (jkohen)
 
 import array
 import socket

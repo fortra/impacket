@@ -1,4 +1,11 @@
-# $CoreSDI: printer.py,v 1.3 2005/10/31 22:30:48 kelya Exp $
+# Copyright (c) 2003-2006 CORE Security Technologies
+#
+# This software is provided under under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
+# $Id$
+#
 
 from impacket.structure import Structure
 

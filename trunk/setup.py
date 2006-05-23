@@ -17,7 +17,7 @@ setup(name = PACKAGE_NAME,
       maintainer = "Max Caceres",
       maintainer_email = "max@coresecurity.com",
       packages = ['impacket', 'impacket.dcerpc'],
-      scripts = glob.glob(os.path.join('examples', '*.py')),
+      scripts = glob.glob(os.path.join('examples', '*.py'))+glob.glob('doc/*'),
       data_files = [(os.path.join('share', 'doc', PACKAGE_NAME),
                      ['README', 'LICENSE'])],
       )
