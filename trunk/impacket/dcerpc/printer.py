@@ -273,8 +273,7 @@ class PrintSpooler:
         self.dce = dce
 
     def doRequest(self, request, noAnswer = 0, checkReturn = 1):
-        call = DCERPC_RawCall(request.opnum, str(request))
-        self.dce.send(call)
+        self.dce.call(request.opnum, request)
         if noAnswer:
             return
         else:
