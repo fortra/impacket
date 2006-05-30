@@ -29,6 +29,11 @@ def display_time(filetime_high, filetime_low, minutes_utc=0):
     d += filetime_low
     d *= 1.0e-7
     d -= (369.0*365.25*24*60*60-(3.0*24*60*60+6.0*60*60))
+    try:
+        gmtime(d)
+    execpt Exception:
+        d = 0
+
     if minutes_utc == 0:
         r = (strftime("%a, %d %b %Y %H:%M:%S",gmtime(d)), minutes_utc/60)[0]
     else:
