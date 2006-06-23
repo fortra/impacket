@@ -1090,7 +1090,7 @@ class TCP(Header):
         self.auto_checksum = 0
 
     def get_th_sum(self):
-        return self.get_long(16)
+        return self.get_word(16)
 
     def get_th_urp(self):
         return self.get_word(18)
