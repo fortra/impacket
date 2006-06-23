@@ -1,3 +1,6 @@
+2006-06-23    <max@coresecurity.com>
+	* impacket/ImpactPacket.py: fixed bug in TCP.get_th_sum() (reported by ranusy@gmail.com)
+
 2006-04-03    <max@coresecurity.com>
 	* impacket/ImpactPacket.py: applied patch to fix bug when parsing ARP packets.
 	* impacket/ImpactPacket.py: fixed byte ordering bug when using IP_HDRINCL in BSD systems (patch supplied by ginga@ginganet.org).
