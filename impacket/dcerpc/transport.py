@@ -267,8 +267,8 @@ class HTTPTransport(TCPTransport):
     def connect(self):
         TCPTransport.connect(self)
 
-        self.__socket.send('RPC_CONNECT ' + self.get_dip() + ':593 HTTP/1.0\r\n\r\n')
-        data = self.__socket.recv(8192)
+        self.get_socket().send('RPC_CONNECT ' + self.get_dip() + ':593 HTTP/1.0\r\n\r\n')
+        data = self.get_socket().recv(8192)
         if data[10:13] != '200':
             raise Exception("Service not supported.")
 
