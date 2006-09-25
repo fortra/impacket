@@ -1,39 +1,42 @@
-2006-06-23    <max@coresecurity.com>
-	* impacket/ImpactPacket.py: fixed bug in TCP.get_th_sum() (reported by ranusy@gmail.com)
+2006-09-25    <max _at_ coresecurity.com>
+	* setup.py: fixed bug where some doc files were installed on usr/bin (reported by jheath _at_ sourcefire.com)
 
-2006-04-03    <max@coresecurity.com>
+2006-06-23    <max _at_ coresecurity.com>
+	* impacket/ImpactPacket.py: fixed bug in TCP.get_th_sum() (reported by ranusy _at_ gmail.com)
+
+2006-04-03    <max _at_ coresecurity.com>
 	* impacket/ImpactPacket.py: applied patch to fix bug when parsing ARP packets.
-	* impacket/ImpactPacket.py: fixed byte ordering bug when using IP_HDRINCL in BSD systems (patch supplied by ginga@ginganet.org).
+	* impacket/ImpactPacket.py: fixed byte ordering bug when using IP_HDRINCL in BSD systems (patch supplied by ginga _at_ ginganet.org).
 
-2005-07-28    <max@coresecurity.com>
+2005-07-28    <max _at_ coresecurity.com>
 
 	* impacket/ImpactDecoder.py: fixed a bug when processing ICMP unreachables.
-	* impacket/ImpactPacket.py: fixed bug in the set_icmp_nextmtu() method (reported by icbm@0x557.org).
+	* impacket/ImpactPacket.py: fixed bug in the set_icmp_nextmtu() method (reported by icbm _at_ 0x557.org).
 	
-2004-02-26    <jkohen@coresecurity.com>
+2004-02-26    <jkohen _at_ coresecurity.com>
 
 	* impacket/ImpactPacket.py (ARP.as_pro): Fixed as_{hrd,pro} methods to not invoke the tolist method, because they were being called with array objects as input, and anyway it wasn't necessary to call that method for what they did.
 
-2003-12-16    <jkohen@coresecurity.com>
+2003-12-16    <jkohen _at_ coresecurity.com>
 
 	* setup.py: Bumped version number to 0.9.5.1.
 
 	* impacket/dcerpc/dcerpc_v4.py (DCERPC_v4.send): fixed a problem in the fragmentation code caused by a misindented line that was introduced in the last release.
 
-2003-12-10  Javier Kohen  <jkohen@coresecurity.com>
+2003-12-10  Javier Kohen  <jkohen _at_ coresecurity.com>
 
 	* impacket/dcerpc/dcerpc_v4.py (DCERPC_v4.bind): support idempotent flag.
 	(DCERPC_v4.send): reduced fragment size to avoid IP fragmentation on links with MTU = 1500. Added a method that allows the caller to configure this size.
 
-2003-12-02    <jkohen@coresecurity.com>
+2003-12-02    <jkohen _at_ coresecurity.com>
 
 	* impacket/dcerpc/dcerpc_v4.py (DCERPC_v4.bind): made self.__bind protected
 	(DCERPC_v4.send): fragment outgoing packets.
 
-2003-12-01    <jkohen@coresecurity.com>
+2003-12-01    <jkohen _at_ coresecurity.com>
 
 	* setup.py: Force linking with G++ if GCC was found, to avoid a missing symbol on some configurations.
 
-2003-11-28    <jkohen@coresecurity.com>
+2003-11-28    <jkohen _at_ coresecurity.com>
 
 	* impacket/dcerpc/dcerpc_v4.py: Fixed self.bind variable having the same name than a method.
