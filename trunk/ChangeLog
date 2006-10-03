@@ -1,3 +1,6 @@
+2006-10-93    <max _at_ coresecurity.com>
+      * impacket/dcerpc/samr.py: fixed bug in display_time (reported by grutz _at_ jingojango.net)
+
 2006-09-25    <max _at_ coresecurity.com>
 	* setup.py: fixed bug where some doc files were installed on usr/bin (reported by jheath _at_ sourcefire.com)
 
