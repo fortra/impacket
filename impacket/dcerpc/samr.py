@@ -25,10 +25,17 @@ OP_NUM_ENUM_USERS_IN_DOMAIN     = 0xD
 OP_NUM_CREATE_ALIAS_IN_DOMAIN   = 0xE
 
 def display_time(filetime_high, filetime_low, minutes_utc=0):
+    if filetime_low == 4294967295L:
+        r = "Infinity"
+        return r 
     d = filetime_high*4.0*1.0*(1<<30)
     d += filetime_low
     d *= 1.0e-7
     d -= (369.0*365.25*24*60*60-(3.0*24*60*60+6.0*60*60))
+    if d < 1:
+        r = "Undefined"
+        return r
+    
     try:
         gmtime(d)
     except Exception:
@@ -146,10 +153,7 @@ class MSRPCUserInfo:
     def get_logon_count(self):
         return self._logon_count
     def get_pwd_must_change(self):
-        if self._pwd_must_change_low == 4294967295L:
-            return "Infinity" 
-        else:
-            return display_time(self._pwd_must_change_high, self._pwd_must_change_low)
+        return display_time(self._pwd_must_change_high, self._pwd_must_change_low)
     def is_enabled(self):
         return not (self._acct_ctr & 0x01)
 
@@ -162,10 +166,7 @@ class MSRPCUserInfo:
         print "Group id: %d" % self._group
         print "Bad pwd count: %d" % self._bad_pwd_count
         print "Logon count: %d" % self._logon_count
-        if self._pwd_must_change_low == 4294967295L:
-            print "PWD Must Change: Infinity" 
-        else:
-            print "PWD Must Change: " + display_time(self._pwd_must_change_high, self._pwd_must_change_low)
+        print "PWD Must Change: " + display_time(self._pwd_must_change_high, self._pwd_must_change_low)
         for i in MSRPCUserInfo.ITEMS.keys():
             print i + ': ' + self._items[MSRPCUserInfo.ITEMS[i]].get_name()
         print
