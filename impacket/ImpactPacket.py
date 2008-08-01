@@ -1391,7 +1391,7 @@ class TCPOption(PacketBuffer):
     def get_ts_echo(self):
         if self.get_kind() != TCPOption.TCPOPT_TIMESTAMP:
             raise ImpactPacketException, "Can only retrieve timestamp from TCPOPT_TIMESTAMP option"
-        self.get_long(6)
+        return self.get_long(6)
 
     def set_ts_echo(self, ts):
         if self.get_kind() != TCPOption.TCPOPT_TIMESTAMP:
