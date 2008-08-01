@@ -1,4 +1,7 @@
-2006-10-93    <max _at_ coresecurity.com>
+2008-08-01   gera
+     Added patch to TCP.get_echo_ts() submited by Tim Coote
+
+2006-10-23    <max _at_ coresecurity.com>
       * impacket/dcerpc/samr.py: fixed bug in display_time (reported by grutz _at_ jingojango.net)
 
 2006-09-25    <max _at_ coresecurity.com>
