@@ -79,18 +79,19 @@ class IPDecoder(Decoder):
     def decode(self, aBuffer):
         i = ImpactPacket.IP(aBuffer)
         off = i.get_header_size()
+        end = i.get_ip_len()
         if i.get_ip_p() == ImpactPacket.UDP.protocol:
             self.udp_decoder = UDPDecoder()
-            packet = self.udp_decoder.decode(aBuffer[off:])
+            packet = self.udp_decoder.decode(aBuffer[off:end])
         elif i.get_ip_p() == ImpactPacket.TCP.protocol:
             self.tcp_decoder = TCPDecoder()
-            packet = self.tcp_decoder.decode(aBuffer[off:])
+            packet = self.tcp_decoder.decode(aBuffer[off:end])
         elif i.get_ip_p() == ImpactPacket.ICMP.protocol:
             self.icmp_decoder = ICMPDecoder()
-            packet = self.icmp_decoder.decode(aBuffer[off:])
+            packet = self.icmp_decoder.decode(aBuffer[off:end])
         else:
             self.data_decoder = DataDecoder()
-            packet = self.data_decoder.decode(aBuffer[off:])
+            packet = self.data_decoder.decode(aBuffer[off:end])
         i.contains(packet)
         return i
 
