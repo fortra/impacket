@@ -7,11 +7,14 @@ from impacket import ImpactDecoder
 from impacket.ImpactPacket import TCPOption
 
 Fingerprint = 'Adtran NetVanta 3200 router'
-# Fingerprint = 'ADIC Scalar 1000 tape library remote management unit'
+Fingerprint = 'ADIC Scalar 1000 tape library remote management unit' # DFI=S
+Fingerprint = 'Siemens Gigaset SX541 or USRobotics USR9111 wireless DSL modem' # DFI=O
+Fingerprint = 'Apple Mac OS X 10.5.6 (Leopard) (Darwin 9.6.0)' # DFI=Y
+
 # Fingerprint = 'Sun Solaris 9 (SPARC)'
 # Fingerprint = 'Sun Solaris 9 (x86)'
 
-Fingerprint = '3Com OfficeConnect 3CRWER100-75 wireless broadband router'  # TI=Z
+# Fingerprint = '3Com OfficeConnect 3CRWER100-75 wireless broadband router'  # TI=Z DFI=N
 # Fingerprint = 'WatchGuard Firebox X5w firewall/WAP' # TI=RD
 # no TI=Hex
 # Fingerprint = 'FreeBSD 6.0-STABLE - 6.2-RELEASE' # TI=RI
@@ -19,6 +22,8 @@ Fingerprint = '3Com OfficeConnect 3CRWER100-75 wireless broadband router'  # TI=
 # Fingerprint = 'Microsoft Windows NT 4.0 SP5 - SP6' # TI=BI
 # Fingerprint = 'Microsoft Windows Vista Business' # TI=I
 # Fingerprint = 'FreeBSD 6.1-RELEASE' # no TI (TI=O)
+
+# Fingerprint = '2Wire 1701HG wireless ADSL modem' # IE(R=N)
 
 MAC = "01:02:03:04:05:06"
 IP  = "192.168.67.254"
@@ -32,6 +37,7 @@ O_ARP = 1
 O_UDP = 2
 O_TCP = 2
 O_ICMP = 2
+O_ICMP_DATA = 3
 
 def string2tuple(string):
     if string.find(':') >= 0:
@@ -43,7 +49,7 @@ class Responder:
    templateClass = None
    signatureName      = None
 
-   def __init__(self, machine, port):
+   def __init__(self, machine, port = 0):
        self.machine = machine
        self.port = port
        print "Initializing %s" % self.__class__.__name__
@@ -54,7 +60,10 @@ class Responder:
        if not self.templateClass:
           self.template_onion = None
        else:
-          probe = self.templateClass(0, ['0.0.0.0',self.getIP()],[0, 0])
+          try:
+             probe = self.templateClass(0, ['0.0.0.0',self.getIP()],[0, 0])
+          except:
+             probe = self.templateClass(0, ['0.0.0.0',self.getIP()])
           self.template_onion = [probe.get_packet()]
           try:
              while 1: self.template_onion.append(self.template_onion[-1].child())
@@ -145,6 +154,88 @@ class IPResponder(Responder):
            (in_onion[O_IP].get_ip_dst() == self.machine.ipAddress) and
            self.sameIPFlags(in_onion)
        )
+
+   def setTTLFromFingerprint(self, out_onion):
+       f = self.fingerprint
+       # Test T: Initial TTL = range_low-range_hi, base 16
+       # Assumption: we are using the minimum in the TTL range
+       try:
+          ttl = f['T'].split('-')
+          ttl = int(ttl[0], 16)
+       except:
+          ttl = 0x7f
+
+       # Test TG: Initial TTL Guess. It's just a number, we prefer this
+       try: ttl = int(f['TG'], 16)
+       except: pass
+
+       out_onion[O_IP].set_ip_ttl(ttl)
+
+class ICMPResponder(IPResponder):
+   def initAnswer(self, in_onion):
+       out_onion = IPResponder.initAnswer(self, in_onion)
+       icmp = ImpactPacket.ICMP()
+
+       out_onion[O_IP].contains(icmp)
+       out_onion.append(icmp)
+
+       icmp.set_icmp_id(in_onion[O_ICMP].get_icmp_id())
+       icmp.set_icmp_seq(in_onion[O_ICMP].get_icmp_seq())
+       return out_onion
+
+   def isMine(self, in_onion):
+       if not IPResponder.isMine(self, in_onion): return False
+       if len(in_onion) < 3: return False
+
+       return (
+           (in_onion[O_ICMP].protocol == ImpactPacket.ICMP.protocol) and
+           self.sameICMPTemplate(in_onion))
+
+   def sameICMPTemplate(self, in_onion):
+       t_ip           = self.template_onion[O_IP]
+       t_icmp         = self.template_onion[O_ICMP]
+       t_icmp_datalen = self.template_onion[O_ICMP_DATA].get_size()
+
+       return (
+          (t_ip.get_ip_tos() == in_onion[O_IP].get_ip_tos()) and
+          (t_ip.get_ip_df() == in_onion[O_IP].get_ip_df()) and
+          (t_icmp.get_icmp_type() == in_onion[O_ICMP].get_icmp_type()) and
+          (t_icmp.get_icmp_code() == in_onion[O_ICMP].get_icmp_code()) and
+          (t_icmp_datalen == in_onion[O_ICMP_DATA].get_size())
+       )
+
+class NMAP2ICMPResponder(ICMPResponder):
+   def initAnswer(self, in_onion):
+       # IE(R=50 DFI=40 T=15 TG=15 TOSI=0 CD=100 SI=100 DLI=100)
+
+       f = self.fingerprint
+
+       # assume R = Y
+       try:
+          if (f['R'] == 'N'): return None
+       except: pass
+
+       out_onion = ICMPResponder.initAnswer(self, in_onion)
+
+       # assume DFI = N
+       try: self.dfi = f['DFI'] 
+       except: self.dfi = 'N'
+
+       if   self.dfi == 'N': out_onion[O_IP].set_ip_df(False)
+       elif self.dfi == 'Y': out_onion[O_IP].set_ip_df(True)
+       elif self.dfi == 'S': out_onion[O_IP].set_ip_df(in_onion[O_IP].get_ip_df())
+       else:                 out_onion[O_IP].set_ip_df(not in_onion[O_IP].get_ip_df())
+
+       # assume DLI = S
+       try: self.dli = f['DLI'] 
+       except: self.dli = 'S'
+
+       self.setTTLFromFingerprint(out_onion)
+       return out_onion
+
+   def sendAnswer(self, in_onion):
+       out_onion = self.initAnswer(in_onion)
+       self.machine.sendPacket(out_onion)
 
 class TCPResponder(IPResponder):
    def initAnswer(self, in_onion):
@@ -237,23 +328,14 @@ class NMAP2TCPResponder(TCPResponder):
 
        # Test DF: Don't fragment IP bit set = [YN]
        if (f['DF'] == 'Y'): out_onion[O_IP].set_ip_df(True)
+       else: out_onion[O_IP].set_ip_df(False)
 
        # Test W: Initial TCP windows size
        try: win = int(f['W'],16)
        except: win = 0
        out_onion[O_TCP].set_th_win(win)
 
-       # Test T: Initial TTL = range_low-range_hi, base 16
-       # Assumption: we are using the minimum in the TTL range
-       try:
-          ttl = f['T'].split('-')
-          ttl = int(ttl[0], 16)
-       except:
-          ttl = 0x7f
-
-       # Test TG: Initial TTL Guess. It's just a number, we prefer this
-       try: ttl = int(f['TG'], 16)
-       except: pass
+       self.setTTLFromFingerprint(out_onion)
 
        # Test CC: Explicit congestion notification
        # Two TCP flags are used in this test: ECE and CWR
@@ -271,7 +353,6 @@ class NMAP2TCPResponder(TCPResponder):
        if cwr: out_onion[O_TCP].set_CWR()
        else:   out_onion[O_TCP].reset_CWR()
 
-       out_onion[O_IP].set_ip_ttl(ttl)
 
        # Test O: TCP Options
        try: options = f['O']
@@ -371,10 +452,6 @@ class NMAP2TCPResponder(TCPResponder):
        out_onion = self.initAnswer(in_onion)
        self.machine.sendPacket(out_onion)
 
-class nmap2_ECN(NMAP2TCPResponder):
-   templateClass = os_ident.nmap2_ecn_probe
-   signatureName      = 'ECN'
-
 class nmap2_SEQ(NMAP2TCPResponder):
    templateClass = None
    signatureName = None
@@ -388,6 +465,10 @@ class nmap2_SEQ(NMAP2TCPResponder):
           WIN = self.machine.fingerprint.get_tests()['WIN']
           self.fingerprint['O'] = OPS['O%d' % self.seqNumber]
           self.fingerprint['W'] = WIN['W%d' % self.seqNumber]
+
+class nmap2_ECN(NMAP2TCPResponder):
+   templateClass = os_ident.nmap2_ecn_probe
+   signatureName      = 'ECN'
 
 class nmap2_SEQ1(nmap2_SEQ):
    templateClass = os_ident.nmap2_seq_1
@@ -443,6 +524,14 @@ class nmap2_T7(NMAP2TCPResponder):
    templateClass = os_ident.nmap2_tcp_closed_3
    signatureName = 'T7'
 
+class nmap2_ICMP_1(NMAP2ICMPResponder):
+   templateClass = os_ident.nmap2_icmp_echo_probe_1
+   signatureName = 'IE'
+
+class nmap2_ICMP_2(NMAP2ICMPResponder):
+   templateClass = os_ident.nmap2_icmp_echo_probe_2
+   signatureName = 'IE'
+
 class Machine:
    AssumedTimeIntervalPerPacket = 0.11 # seconds
    def __init__(self, emmulating, ipAddress, macAddress):
@@ -476,6 +565,8 @@ class Machine:
        self.addResponder(nmap2_T5(self, TCP_CLOSED_PORT))
        self.addResponder(nmap2_T6(self, TCP_CLOSED_PORT))
        self.addResponder(nmap2_T7(self, TCP_CLOSED_PORT))
+       self.addResponder(nmap2_ICMP_1(self))
+       self.addResponder(nmap2_ICMP_2(self))
        self.addResponder(TCPOpenPort(self, TCP_OPEN_PORT))
        self.addResponder(TCPClosedPort(self, TCP_CLOSED_PORT))
 
@@ -651,7 +742,7 @@ if __name__ == '__main__':
 # [x] TCP ISN sequence predictability index (SP)
 # [x] TCP ISN greatest common divisor (GCD)
 # [x] TCP ISN counter rate (ISR)
-# [x] IP ID sequence generation algorithm (TI)
+# [x] IP ID sequence generation algorithm on TCP Open ports (TI)
 #   [x] Z  - All zeros
 #   [x] RD - Random: It increments at least once by at least 20000.
 #   [-] Hex Value - fixed IP ID
@@ -659,8 +750,8 @@ if __name__ == '__main__':
 #   [x] BI - Broken increment. All delta_i % 256 = 0 and all delta_i <= 5120.
 #   [x] I - Incremental. All delta_i < 10
 #   [x] O - (Ommited, the test does not show in the fingerprint). None of the other
-# [ ] IP ID sequence generation algorithm (CI)
-# [-] IP ID sequence generation algorithm (II)
+# [ ] IP ID sequence generation algorithm on TCP closed ports (CI)
+# [-] IP ID sequence generation algorithm on ICMP messages (II)
 # [ ] Shared IP ID sequence Boolean (SS)
 # [x] TCP timestamp option algorithm (TS)
 #   [x] U - unsupported (don't send TS)
@@ -688,10 +779,10 @@ if __name__ == '__main__':
 # [x] TCP flags (F)
 # [ ] TCP RST data checksum (RD)
 # IE()
-# [ ] Responsiveness (R)
-# [ ] Don't fragment (ICMP) (DFI)
-# [ ] IP initial time-to-live (T)
-# [ ] IP initial time-to-live guess (TG)
+# [x] Responsiveness (R)
+# [x] Don't fragment (ICMP) (DFI)
+# [x] IP initial time-to-live (T)
+# [x] IP initial time-to-live guess (TG)
 # [ ] ICMP response code (CD)
 # [ ] IP Type of Service (TOSI)
 # [ ] ICMP Sequence number (SI)
