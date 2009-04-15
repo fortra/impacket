@@ -1,4 +1,4 @@
-
+import random
 
 import os_ident
 import pcapy
@@ -6,12 +6,12 @@ from impacket import ImpactPacket
 from impacket import ImpactDecoder
 from impacket.ImpactPacket import TCPOption
 
-Fingerprint = 'Adtran NetVanta 3200 router' # CD=Z
+Fingerprint = 'Adtran NetVanta 3200 router' # CD=Z TOSI=Z
 #Fingerprint = 'ADIC Scalar 1000 tape library remote management unit' # DFI=S
 #Fingerprint = 'Siemens Gigaset SX541 or USRobotics USR9111 wireless DSL modem' # DFI=O
 # Fingerprint = 'Apple Mac OS X 10.5.6 (Leopard) (Darwin 9.6.0)' # DFI=Y SI=S
 
-Fingerprint = 'Sun Solaris 9 (SPARC)' # CD=S
+# Fingerprint = 'Sun Solaris 9 (SPARC)' # CD=S TOSI=20
 # Fingerprint = 'Sun Solaris 9 (x86)'
 
 # Fingerprint = '3Com OfficeConnect 3CRWER100-75 wireless broadband router'  # TI=Z DFI=N
@@ -19,12 +19,14 @@ Fingerprint = 'Sun Solaris 9 (SPARC)' # CD=S
 # no TI=Hex
 # Fingerprint = 'FreeBSD 6.0-STABLE - 6.2-RELEASE' # TI=RI
 # Fingerprint = 'Microsoft Windows 98 SE' # TI=BI ----> BROKEN! nmap shows no SEQ() output
-# Fingerprint = 'Microsoft Windows NT 4.0 SP5 - SP6' # TI=BI
+# Fingerprint = 'Microsoft Windows NT 4.0 SP5 - SP6' # TI=BI TOSI=S
 # Fingerprint = 'Microsoft Windows Vista Business' # TI=I
 
 # Fingerprint = 'FreeBSD 6.1-RELEASE' # no TI (TI=O)
 
 # Fingerprint = '2Wire 1701HG wireless ADSL modem' # IE(R=N)
+
+Fingerprint = 'Cisco Catalyst 1912 switch' # TOSI=O
 
 MAC = "01:02:03:04:05:06"
 IP  = "192.168.67.254"
@@ -207,8 +209,6 @@ class ICMPResponder(IPResponder):
 
 class NMAP2ICMPResponder(ICMPResponder):
    def initAnswer(self, in_onion):
-       # IE(TOSI=0 CD=100 SI=100 DLI=100)
-
        f = self.fingerprint
 
        # assume R = Y
@@ -257,6 +257,17 @@ class NMAP2ICMPResponder(ICMPResponder):
        else:
            try: out_onion[O_ICMP].set_icmp_code(int(cd, 16)) # documented, but no examples available
            except: raise Exception('Unsupported IE(CD=%s)' % cd)
+
+       # assume TOSI = S
+       try: tosi = f['TOSI'] 
+       except: tosi = 'S'
+
+       if   tosi == 'Z': out_onion[O_IP].set_ip_tos(0)
+       elif tosi == 'S': out_onion[O_IP].set_ip_tos(in_onion[O_IP].get_ip_tos())
+       elif tosi == 'O': out_onion[O_IP].set_ip_tos(in_onion[O_IP].get_ip_tos()+1)	# no examples in DB
+       else:
+           try: out_onion[O_IP].set_ip_tos(int(tosi, 16)) # documented, but no examples available
+           except: raise Exception('Unsupported IE(TOSI=%s)' % tosi)
 
        return out_onion
 
@@ -811,7 +822,7 @@ if __name__ == '__main__':
 # [x] IP initial time-to-live (T)
 # [x] IP initial time-to-live guess (TG)
 # [x] ICMP response code (CD)
-# [ ] IP Type of Service (TOSI)
+# [x] IP Type of Service (TOSI)
 # [x] ICMP Sequence number (SI)
 # [x] IP Data Length (DLI)
 # U1()
