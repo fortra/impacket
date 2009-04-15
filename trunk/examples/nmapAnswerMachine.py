@@ -651,11 +651,11 @@ if __name__ == '__main__':
 # [x] TCP ISN sequence predictability index (SP)
 # [x] TCP ISN greatest common divisor (GCD)
 # [x] TCP ISN counter rate (ISR)
-# [ ] IP ID sequence generation algorithm (TI)
-#   [+] Z  - All zeros
-#   [+] RD - Random: It increments at least once by at least 20000.
+# [x] IP ID sequence generation algorithm (TI)
+#   [x] Z  - All zeros
+#   [x] RD - Random: It increments at least once by at least 20000.
 #   [-] Hex Value - fixed IP ID
-#   [+] RI - Random positive increments. Any (delta_i > 1000, and delta_i % 256 != 0) or (delta_i > 256000 and delta_i % 256 == 0)
+#   [x] RI - Random positive increments. Any (delta_i > 1000, and delta_i % 256 != 0) or (delta_i > 256000 and delta_i % 256 == 0)
 #   [x] BI - Broken increment. All delta_i % 256 = 0 and all delta_i <= 5120.
 #   [x] I - Incremental. All delta_i < 10
 #   [x] O - (Ommited, the test does not show in the fingerprint). None of the other
