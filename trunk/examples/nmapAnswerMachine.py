@@ -206,7 +206,7 @@ class ICMPResponder(IPResponder):
 
 class NMAP2ICMPResponder(ICMPResponder):
    def initAnswer(self, in_onion):
-       # IE(R=50 DFI=40 T=15 TG=15 TOSI=0 CD=100 SI=100 DLI=100)
+       # IE(TOSI=0 CD=100 SI=100 DLI=100)
 
        f = self.fingerprint
 
@@ -218,17 +218,19 @@ class NMAP2ICMPResponder(ICMPResponder):
        out_onion = ICMPResponder.initAnswer(self, in_onion)
 
        # assume DFI = N
-       try: self.dfi = f['DFI'] 
-       except: self.dfi = 'N'
+       try: dfi = f['DFI'] 
+       except: dfi = 'N'
 
-       if   self.dfi == 'N': out_onion[O_IP].set_ip_df(False)
-       elif self.dfi == 'Y': out_onion[O_IP].set_ip_df(True)
-       elif self.dfi == 'S': out_onion[O_IP].set_ip_df(in_onion[O_IP].get_ip_df())
-       else:                 out_onion[O_IP].set_ip_df(not in_onion[O_IP].get_ip_df())
+       if   dfi == 'N': out_onion[O_IP].set_ip_df(False)
+       elif dfi == 'Y': out_onion[O_IP].set_ip_df(True)
+       elif dfi == 'S': out_onion[O_IP].set_ip_df(in_onion[O_IP].get_ip_df())
+       else:            out_onion[O_IP].set_ip_df(not in_onion[O_IP].get_ip_df())
 
        # assume DLI = S
-       try: self.dli = f['DLI'] 
-       except: self.dli = 'S'
+       try: dli = f['DLI'] 
+       except: dli = 'S'
+
+       if dli == 'S': out_onion[O_ICMP].contains(in_onion[O_ICMP_DATA])
 
        self.setTTLFromFingerprint(out_onion)
        return out_onion
@@ -786,7 +788,7 @@ if __name__ == '__main__':
 # [ ] ICMP response code (CD)
 # [ ] IP Type of Service (TOSI)
 # [ ] ICMP Sequence number (SI)
-# [ ] IP Data Length (DLI)
+# [x] IP Data Length (DLI)
 # U1()
 # [ ] Responsiveness (R)
 # [ ] IP don't fragment bit (DF)
