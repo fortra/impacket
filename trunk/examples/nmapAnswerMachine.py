@@ -239,9 +239,9 @@ class NMAP2TCPResponder(TCPResponder):
        if (f['DF'] == 'Y'): out_onion[O_IP].set_ip_df(True)
 
        # Test W: Initial TCP windows size
-       try: win = int(ingerp['W'])
+       try: win = int(f['W'],16)
        except: win = 0
-       out_onion[O_TCP].set_th_win(0)
+       out_onion[O_TCP].set_th_win(win)
 
        # Test T: Initial TTL = range_low-range_hi, base 16
        # Assumption: we are using the minimum in the TTL range
