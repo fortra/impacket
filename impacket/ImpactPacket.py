@@ -802,7 +802,11 @@ class IP(Header):
 
 
     def __str__(self):
-        tmp_str = 'IP ' + self.get_ip_src() + ' -> ' + self.get_ip_dst()
+        flags = ' '
+        if self.get_ip_df(): flags += 'DF '
+        if self.get_ip_mf(): flags += 'MF '
+        if self.get_ip_rf(): flags += 'RF '
+        tmp_str = 'IP%s%s -> %s ' % (flags, self.get_ip_src(),self.get_ip_dst())
         for op in self.__option_list:
             tmp_str += '\n' + op.__str__()
         if self.child():
@@ -1267,6 +1271,10 @@ class TCP(Header):
 
     def __str__(self):
         tmp_str = 'TCP '
+        if self.get_ECE():
+            tmp_str += 'ece '
+        if self.get_CWR():
+            tmp_str += 'cwr '
         if self.get_ACK():
             tmp_str += 'ack '
         if self.get_FIN():
