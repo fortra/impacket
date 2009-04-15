@@ -6,27 +6,27 @@ from impacket import ImpactPacket
 from impacket import ImpactDecoder
 from impacket.ImpactPacket import TCPOption
 
-Fingerprint = 'Adtran NetVanta 3200 router' # CD=Z TOSI=Z
-#Fingerprint = 'ADIC Scalar 1000 tape library remote management unit' # DFI=S
-#Fingerprint = 'Siemens Gigaset SX541 or USRobotics USR9111 wireless DSL modem' # DFI=O
+Fingerprint = 'Adtran NetVanta 3200 router' # CD=Z TOSI=Z <----------- NMAP detects it as Linux!!!
+# Fingerprint = 'ADIC Scalar 1000 tape library remote management unit' # DFI=S
+# Fingerprint = 'Siemens Gigaset SX541 or USRobotics USR9111 wireless DSL modem' # DFI=O
 # Fingerprint = 'Apple Mac OS X 10.5.6 (Leopard) (Darwin 9.6.0)' # DFI=Y SI=S
 
 # Fingerprint = 'Sun Solaris 9 (SPARC)' # CD=S TOSI=20
 # Fingerprint = 'Sun Solaris 9 (x86)'
 
-# Fingerprint = '3Com OfficeConnect 3CRWER100-75 wireless broadband router'  # TI=Z DFI=N
+Fingerprint = '3Com OfficeConnect 3CRWER100-75 wireless broadband router'  # TI=Z DFI=N !SS TI=Z II=I
 # Fingerprint = 'WatchGuard Firebox X5w firewall/WAP' # TI=RD
 # no TI=Hex
 # Fingerprint = 'FreeBSD 6.0-STABLE - 6.2-RELEASE' # TI=RI
-# Fingerprint = 'Microsoft Windows 98 SE' # TI=BI ----> BROKEN! nmap shows no SEQ() output
-# Fingerprint = 'Microsoft Windows NT 4.0 SP5 - SP6' # TI=BI TOSI=S
+Fingerprint = 'Microsoft Windows 98 SE' # TI=BI ----> BROKEN! nmap shows no SEQ() output
+# Fingerprint = 'Microsoft Windows NT 4.0 SP5 - SP6' # TI=BI TOSI=S SS=S
 # Fingerprint = 'Microsoft Windows Vista Business' # TI=I
 
 # Fingerprint = 'FreeBSD 6.1-RELEASE' # no TI (TI=O)
 
 # Fingerprint = '2Wire 1701HG wireless ADSL modem' # IE(R=N)
 
-Fingerprint = 'Cisco Catalyst 1912 switch' # TOSI=O
+# Fingerprint = 'Cisco Catalyst 1912 switch' # TOSI=O SS=S
 
 MAC = "01:02:03:04:05:06"
 IP  = "192.168.67.254"
@@ -184,6 +184,9 @@ class ICMPResponder(IPResponder):
 
        icmp.set_icmp_id(in_onion[O_ICMP].get_icmp_id())
        icmp.set_icmp_seq(in_onion[O_ICMP].get_icmp_seq())
+
+       out_onion[O_IP].set_ip_id(self.machine.getIPID_ICMP())
+
        return out_onion
 
    def isMine(self, in_onion):
@@ -635,12 +638,11 @@ class Machine:
        self.initTCPTSGenerator()
 
    def initIPIDGenerator(self):
+       seq = self.fingerprint.get_tests()['SEQ']
        self.ip_ID = 0
 
-       try:
-          TI = self.fingerprint.get_tests()['SEQ']['TI']
-       except:
-          TI = 'O'
+       try: TI = seq['TI']
+       except: TI = 'O'
 
        if   TI == 'Z': self.ip_ID_delta = 0
        elif TI == 'RD': self.ip_ID_delta = 30000
@@ -650,7 +652,30 @@ class Machine:
        elif TI == 'O': self.ip_ID_delta = 123
        else: self.ip_ID_delta = int(TI, 16)
 
+       try: ss = seq['SS']
+       except: ss = 'O'
+
+       if ss == 'S': self.ip_ID_ICMP = None
+       else:
+          self.ip_ID_ICMP = 0
+          try: II = seq['II']
+          except: II = 'O'
+
+          if   II == 'Z': self.ip_ID_ICMP_delta = 0
+          elif II == 'RD': self.ip_ID_ICMP_delta = 30000
+          elif II == 'RI': self.ip_ID_ICMP_delta = 1234
+          elif II == 'BI': self.ip_ID_ICMP_delta = 1024+256
+          elif II == 'I': self.ip_ID_ICMP_delta = 1
+          elif II == 'O': self.ip_ID_ICMP_delta = 123
+          else: self.ip_ID_ICMP_delta = int(II, 16)
+
+       # generate a few, so we don't start with 0 when we don't have to
+       for i in range(10):
+           self.getIPID()
+           self.getIPID_ICMP()
+
        print "IP ID Delta: %d" % self.ip_ID_delta
+       print "IP ID ICMP Delta: %d" % self.ip_ID_ICMP_delta
 
    def initTCPISNGenerator(self):
        # tcp_ISN and tcp_ISN_delta for TCP Initial sequence numbers
@@ -713,14 +738,23 @@ class Machine:
        # print "IP ID: %x" % answer
        return answer
 
+   def getIPID_ICMP(self):
+       if self.ip_ID_ICMP is None:
+          return self.getIPID()
+
+       answer = self.ip_ID_ICMP
+       self.ip_ID_ICMP += self.ip_ID_ICMP_delta
+       self.ip_ID_ICMP %= 0x10000L
+       # print "IP ID: %x" % answer
+       return answer
+
    def getTCPSequence(self):
        answer = self.tcp_ISN + random.random()*self.tcp_ISN_stdDev
        self.tcp_ISN_stdDev *= -1
        answer = int(int(answer/self.tcp_ISN_GCD) * self.tcp_ISN_GCD)
        self.tcp_ISN += self.tcp_ISN_delta
        self.tcp_ISN %= 0x100000000L
-       # print "TCP ISN: %x" % answer
-       return answer
+       return answer % 0x100000000L
 
    def getTCPTimeStamp(self):
        answer = int(round(self.tcp_TS))
@@ -788,9 +822,9 @@ if __name__ == '__main__':
 #   [x] BI - Broken increment. All delta_i % 256 = 0 and all delta_i <= 5120.
 #   [x] I - Incremental. All delta_i < 10
 #   [x] O - (Ommited, the test does not show in the fingerprint). None of the other
-# [ ] IP ID sequence generation algorithm on TCP closed ports (CI)
-# [-] IP ID sequence generation algorithm on ICMP messages (II)
-# [ ] Shared IP ID sequence Boolean (SS)
+# [-] IP ID sequence generation algorithm on TCP closed ports (CI)
+# [x] IP ID sequence generation algorithm on ICMP messages (II)
+# [x] Shared IP ID sequence Boolean (SS)
 # [x] TCP timestamp option algorithm (TS)
 #   [x] U - unsupported (don't send TS)
 #   [x] 0 - Zero
