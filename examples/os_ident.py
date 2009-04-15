@@ -698,10 +698,11 @@ class nmap2_ecn_probe(nmap_tcp_probe):
         self.t.set_SYN()
         self.t.set_CWR()
         self.t.set_ECE()
+        self.t.set_flags(0x800)
         self.t.set_th_urp(0xF7F5)
         self.t.set_th_ack(0)
         self.t.set_th_win(3)
-        self.t.set_th_flags(self.t.get_th_flags() | 0x0100) # 0000 0001 00000000
+        #self.t.set_th_flags(self.t.get_th_flags() | 0x0100) # 0000 0001 00000000
 
     def test_id(self):
         return "ECN"
@@ -1919,7 +1920,7 @@ class nmap2_seq_container(os_id_test):
             if seq_stddev <= 1:
                 si_index = 0
             else:
-                si_index = int(round(.5 + (math.log(seq_stddev) / math.log(2)) * 8))
+                si_index = int(round(.5 + (math.log(seq_stddev) / math.log(2)) * 8.0))
 
         self.add_result('SP', "%X" % si_index)
         self.add_result('GCD', "%X" % seq_gcd)
