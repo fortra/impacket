@@ -490,11 +490,11 @@ class Machine:
        raise Exception, "Couldn't find fingerprint data for %r" % emmulating
 
    def initSequenceGenerators(self):
-       self.initIPIDGenerator(self)
-       self.initTCPISNGenerator(self)
-       self.initTCPTSGenerator(self):
+       self.initIPIDGenerator()
+       self.initTCPISNGenerator()
+       self.initTCPTSGenerator()
 
-   def initiPIDGenerator(self):
+   def initIPIDGenerator(self):
        pass
 
    def initTCPISNGenerator(self):
