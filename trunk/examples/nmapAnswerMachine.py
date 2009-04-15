@@ -795,7 +795,7 @@ if __name__ == '__main__':
    main()
 
 # All Probes
-# [|] SEQ
+# [x] SEQ
 # [x] OPS
 # [x] WIN
 # [x] T1
@@ -805,7 +805,7 @@ if __name__ == '__main__':
 # [x] T5
 # [x] T6
 # [x] T7
-# [ ] IE
+# [x] IE
 # [x] ECN
 # [ ] U1
 
