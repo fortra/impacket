@@ -587,7 +587,7 @@ class Machine:
    def getTCPSequence(self):
        answer = self.tcp_ISN + random.random()*self.tcp_ISN_stdDev
        self.tcp_ISN_stdDev *= -1
-       answer = int(round(answer/self.tcp_ISN_GCD) * self.tcp_ISN_GCD)
+       answer = int(int(answer/self.tcp_ISN_GCD) * self.tcp_ISN_GCD)
        self.tcp_ISN += self.tcp_ISN_delta
        self.tcp_ISN %= 0x100000000L
        # print "TCP ISN: %x" % answer
