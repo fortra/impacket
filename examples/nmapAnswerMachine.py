@@ -12,13 +12,13 @@ Fingerprint = 'Adtran NetVanta 3200 router'
 # Fingerprint = 'Sun Solaris 9 (x86)'
 
 Fingerprint = '3Com OfficeConnect 3CRWER100-75 wireless broadband router'  # TI=Z
-Fingerprint = 'WatchGuard Firebox X5w firewall/WAP' # TI=RD
+# Fingerprint = 'WatchGuard Firebox X5w firewall/WAP' # TI=RD
 # no TI=Hex
-Fingerprint = 'FreeBSD 6.0-STABLE - 6.2-RELEASE' # TI=RI
+# Fingerprint = 'FreeBSD 6.0-STABLE - 6.2-RELEASE' # TI=RI
 # Fingerprint = 'Microsoft Windows 98 SE' # TI=BI ----> BROKEN! nmap shows no SEQ() output
 # Fingerprint = 'Microsoft Windows NT 4.0 SP5 - SP6' # TI=BI
 # Fingerprint = 'Microsoft Windows Vista Business' # TI=I
-Fingerprint = 'FreeBSD 6.1-RELEASE' # no TI (TI=O)
+# Fingerprint = 'FreeBSD 6.1-RELEASE' # no TI (TI=O)
 
 MAC = "01:02:03:04:05:06"
 IP  = "192.168.67.254"
@@ -68,8 +68,7 @@ class Responder:
        if not self.signatureName:
           self.fingerprint = None
        else:
-          self.fingerprint = self.machine.fingerprint.get_tests()[self.signatureName]
-          # print "Fingerprint: %r" % self.fingerprint
+          self.fingerprint = self.machine.fingerprint.get_tests()[self.signatureName].copy()
 
    def isMine(self, in_onion):
        return False
@@ -190,9 +189,6 @@ class TCPResponder(IPResponder):
        )
 
 class TCPClosedPort(TCPResponder):
-   def __init__(self, *args):
-       TCPResponder.__init__(self, *args)
-
    def isMine(self, in_onion):
        if not TCPResponder.isMine(self, in_onion): return False
 
@@ -209,9 +205,6 @@ class TCPClosedPort(TCPResponder):
        self.machine.sendPacket(out_onion)
 
 class TCPOpenPort(TCPResponder):
-   def __init__(self, *args):
-       TCPResponder.__init__(self, *args)
-
    def isMine(self, in_onion):
        if not TCPResponder.isMine(self, in_onion): return False
 
@@ -395,7 +388,6 @@ class nmap2_SEQ(NMAP2TCPResponder):
           WIN = self.machine.fingerprint.get_tests()['WIN']
           self.fingerprint['O'] = OPS['O%d' % self.seqNumber]
           self.fingerprint['W'] = WIN['W%d' % self.seqNumber]
-          # print "Fingerprint: %r" % self.fingerprint
 
 class nmap2_SEQ1(nmap2_SEQ):
    templateClass = os_ident.nmap2_seq_1
@@ -593,7 +585,7 @@ class Machine:
        return answer
 
    def getTCPSequence(self):
-       answer = self.tcp_ISN + self.tcp_ISN_stdDev
+       answer = self.tcp_ISN + random.random()*self.tcp_ISN_stdDev
        self.tcp_ISN_stdDev *= -1
        answer = int(round(answer/self.tcp_ISN_GCD) * self.tcp_ISN_GCD)
        self.tcp_ISN += self.tcp_ISN_delta
