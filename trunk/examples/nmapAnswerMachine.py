@@ -1,4 +1,4 @@
-import random
+
 
 import os_ident
 import pcapy
@@ -6,12 +6,12 @@ from impacket import ImpactPacket
 from impacket import ImpactDecoder
 from impacket.ImpactPacket import TCPOption
 
-Fingerprint = 'Adtran NetVanta 3200 router'
-Fingerprint = 'ADIC Scalar 1000 tape library remote management unit' # DFI=S
-Fingerprint = 'Siemens Gigaset SX541 or USRobotics USR9111 wireless DSL modem' # DFI=O
+Fingerprint = 'Adtran NetVanta 3200 router' # CD=Z
+#Fingerprint = 'ADIC Scalar 1000 tape library remote management unit' # DFI=S
+#Fingerprint = 'Siemens Gigaset SX541 or USRobotics USR9111 wireless DSL modem' # DFI=O
 # Fingerprint = 'Apple Mac OS X 10.5.6 (Leopard) (Darwin 9.6.0)' # DFI=Y SI=S
 
-# Fingerprint = 'Sun Solaris 9 (SPARC)'
+Fingerprint = 'Sun Solaris 9 (SPARC)' # CD=S
 # Fingerprint = 'Sun Solaris 9 (x86)'
 
 # Fingerprint = '3Com OfficeConnect 3CRWER100-75 wireless broadband router'  # TI=Z DFI=N
@@ -244,8 +244,19 @@ class NMAP2ICMPResponder(ICMPResponder):
        if   si == 'S': out_onion[O_ICMP].set_icmp_seq(in_onion[O_ICMP].get_icmp_seq())
        elif si == 'Z': out_onion[O_ICMP].set_icmp_seq(0) # this is not currently supported by nmap, but I've done it already
        else:
-           try: out_onion[O_ICMP].set_icmp_seq(int(si, 16))
+           try: out_onion[O_ICMP].set_icmp_seq(int(si, 16)) # this is not supported either by nmap
            except: raise Exception('Unsupported IE(SI=%s)' % si)
+
+       # assume CD = S
+       try: cd = f['CD'] 
+       except: cd = 'S'
+
+       if   cd == 'Z': out_onion[O_ICMP].set_icmp_code(0)
+       elif cd == 'S': out_onion[O_ICMP].set_icmp_code(in_onion[O_ICMP].get_icmp_code())
+       elif cd == 'O': out_onion[O_ICMP].set_icmp_code(in_onion[O_ICMP].get_icmp_code()+1)	# no examples in DB
+       else:
+           try: out_onion[O_ICMP].set_icmp_code(int(cd, 16)) # documented, but no examples available
+           except: raise Exception('Unsupported IE(CD=%s)' % cd)
 
        return out_onion
 
@@ -799,7 +810,7 @@ if __name__ == '__main__':
 # [x] Don't fragment (ICMP) (DFI)
 # [x] IP initial time-to-live (T)
 # [x] IP initial time-to-live guess (TG)
-# [ ] ICMP response code (CD)
+# [x] ICMP response code (CD)
 # [ ] IP Type of Service (TOSI)
 # [x] ICMP Sequence number (SI)
 # [x] IP Data Length (DLI)
