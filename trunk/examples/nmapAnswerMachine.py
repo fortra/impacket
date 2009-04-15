@@ -9,7 +9,7 @@ from impacket.ImpactPacket import TCPOption
 Fingerprint = 'Adtran NetVanta 3200 router'
 Fingerprint = 'ADIC Scalar 1000 tape library remote management unit' # DFI=S
 Fingerprint = 'Siemens Gigaset SX541 or USRobotics USR9111 wireless DSL modem' # DFI=O
-Fingerprint = 'Apple Mac OS X 10.5.6 (Leopard) (Darwin 9.6.0)' # DFI=Y SI=S
+# Fingerprint = 'Apple Mac OS X 10.5.6 (Leopard) (Darwin 9.6.0)' # DFI=Y SI=S
 
 # Fingerprint = 'Sun Solaris 9 (SPARC)'
 # Fingerprint = 'Sun Solaris 9 (x86)'
@@ -21,6 +21,7 @@ Fingerprint = 'Apple Mac OS X 10.5.6 (Leopard) (Darwin 9.6.0)' # DFI=Y SI=S
 # Fingerprint = 'Microsoft Windows 98 SE' # TI=BI ----> BROKEN! nmap shows no SEQ() output
 # Fingerprint = 'Microsoft Windows NT 4.0 SP5 - SP6' # TI=BI
 # Fingerprint = 'Microsoft Windows Vista Business' # TI=I
+
 # Fingerprint = 'FreeBSD 6.1-RELEASE' # no TI (TI=O)
 
 # Fingerprint = '2Wire 1701HG wireless ADSL modem' # IE(R=N)
@@ -235,6 +236,16 @@ class NMAP2ICMPResponder(ICMPResponder):
        elif dli != 'Z': raise Exception('Unsupported IE(DFI=%s)' % dli)
 
        self.setTTLFromFingerprint(out_onion)
+
+       # assume SI = S
+       try: si = f['SI'] 
+       except: si = 'S'
+
+       if   si == 'S': out_onion[O_ICMP].set_icmp_seq(in_onion[O_ICMP].get_icmp_seq())
+       elif si == 'Z': out_onion[O_ICMP].set_icmp_seq(0) # this is not currently supported by nmap, but I've done it already
+       else:
+           try: out_onion[O_ICMP].set_icmp_seq(int(si, 16))
+           except: raise Exception('Unsupported IE(SI=%s)' % si)
 
        return out_onion
 
@@ -790,7 +801,7 @@ if __name__ == '__main__':
 # [x] IP initial time-to-live guess (TG)
 # [ ] ICMP response code (CD)
 # [ ] IP Type of Service (TOSI)
-# [ ] ICMP Sequence number (SI)
+# [x] ICMP Sequence number (SI)
 # [x] IP Data Length (DLI)
 # U1()
 # [ ] Responsiveness (R)
