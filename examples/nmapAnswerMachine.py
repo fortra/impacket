@@ -7,68 +7,9 @@ from impacket import ImpactDecoder
 from impacket.ImpactPacket import TCPOption
 
 Fingerprint = 'Adtran NetVanta 3200 router'
-# Class Adtran | embedded || router
-# SEQ(SP=E3-F1%GCD=1-6%ISR=E4-F8%TI=I|RD%II=I%SS=O|S%TS=U)
-# OPS(O1=%O2=%O3=M5B4%O4=M5B4%O5=M5B4%O6=M5B4)
-# WIN(W1=DAC%W2=DAC%W3=DAC%W4=DAC%W5=DAC%W6=DAC)
-# ECN(R=N)
-# T1(R=Y%DF=N%T=FA-104%TG=FF%S=O%A=O|S+%F=A|AS%RD=0%Q=)
-# T2(R=Y%DF=N%T=FA-104%TG=FF%W=0%S=Z%A=S%F=AR%O=%RD=0%Q=)
-# T3(R=N)
-# T4(R=Y%DF=N%T=FA-104%TG=FF%W=0%S=A%A=S%F=R%O=%RD=0%Q=)
-# T5(R=Y%DF=N%T=FA-104%TG=FF%W=0%S=Z%A=S+%F=AR%O=%RD=0%Q=)
-# T6(R=Y%DF=N%T=FA-104%TG=FF%W=0%S=A%A=S%F=R%O=%RD=0%Q=)
-# T7(R=N)
-# U1(DF=N%T=FA-104%TG=FF%TOS=0%IPL=38%UN=0%RIPL=G%RID=G%RIPCK=G%RUCK=G%RUL=G%RUD=G)
-# IE(DFI=N%T=FA-104%TG=FF%TOSI=Z%CD=Z%SI=S%DLI=S)
-
-Fingerprint = 'ADIC Scalar 1000 tape library remote management unit'
-# Class ADIC | embedded || storage-misc
-# SEQ(SP=14-1E%GCD=FA00|1F400|2EE00|3E800|4E200%ISR=99-A3%II=I%TS=U)
-# OPS(O1=M200NW0%O2=M200NW0%O3=M200NW0%O4=M200NW0%O5=M200NW0%O6=M200)
-# WIN(W1=578%W2=578%W3=578%W4=578%W5=578%W6=578)
-# ECN(R=Y%DF=N%T=3B-45%TG=40%W=578%O=M200NW0%CC=N%Q=)
-# T1(R=Y%DF=N%T=3B-45%TG=40%S=O%A=S+%F=AS%RD=0%Q=)
-# T2(R=N)
-# T3(R=Y%DF=N%T=3B-45%TG=40%W=578%S=O%A=O%F=A%O=%RD=0%Q=)
-# T4(R=Y%DF=N%T=3B-45%TG=40%W=578%S=A%A=Z%F=R%O=%RD=0%Q=)
-# T5(R=Y%DF=N%T=3B-45%TG=40%W=0%S=Z%A=S+%F=AR%O=%RD=0%Q=)
-# T6(R=Y%DF=N%T=3B-45%TG=40%W=0%S=A%A=Z%F=R%O=%RD=0%Q=)
-# T7(R=Y%DF=N%T=3B-45%TG=40%W=0%S=Z%A=S%F=AR%O=%RD=0%Q=)
-# U1(DF=N%T=3B-45%TG=40%TOS=0%IPL=38%UN=0%RIPL=G%RID=4210%RIPCK=Z%RUCK=0%RUL=G%RUD=G)
-# IE(DFI=S%T=3B-45%TG=40%TOSI=S%CD=S%SI=S%DLI=S)
-
+# Fingerprint = 'ADIC Scalar 1000 tape library remote management unit'
 # Fingerprint = 'Sun Solaris 9 (SPARC)'
-# Class Sun | Solaris | 9 | general purpose
-# SEQ(SP=FC-106%GCD=1-6%ISR=FD-113%TI=I%II=I%SS=S%TS=7)
-# OPS(O1=NNT11M5B4NW0NNS%O2=NNT11M5B4NW0NNS%O3=NNT11M5B4NW0%O4=NNT11M5B4NW0NNS%O5=NNT11M5B4NW0NNS%O6=NNT11M5B4NNS)
-# WIN(W1=C050%W2=C330%W3=C1CC%W4=C068%W5=C068%W6=C0B7)
-# ECN(R=Y%DF=Y%T=3B-45%TG=40%W=C1E8%O=M5B4NW0NNS%CC=Y%Q=)
-# T1(R=Y%DF=Y%T=3B-45%TG=40%S=O%A=S+%F=AS%RD=0%Q=)
-# T2(R=Y%DF=Y%T=1B-25|3B-45%TG=20|40%W=80%S=A%A=S%F=AR%O=WANM109T10S%RD=0%Q=)
-# T3(R=Y%DF=N%T=1B-25|3B-45%TG=20|40%W=100%S=A%A=S%F=AR%O=WANM109T10S%RD=0%Q=)
-# T4(R=Y%DF=Y%T=1B-25|3B-45%TG=20|40%W=400%S=A%A=S%F=AR%O=WANM109T10S%RD=0%Q=)
-# T5(R=Y%DF=Y%T=3B-45%TG=40%W=0%S=O%A=S+%F=AR%O=%RD=0%Q=)
-# T6(R=Y%DF=Y%T=1B-25|3B-45%TG=20|40%W=8000%S=A%A=S%F=AR%O=WANM109T10S%RD=0%Q=)
-# T7(R=Y%DF=N%T=1B-25|3B-45%TG=20|40%W=FFFF%S=A%A=S%F=AR%O=WFNM109T10S%RD=0%Q=)
-# U1(R=N)
-# IE(DFI=Y%T=FA-104%TG=FF%TOSI=20%CD=S%SI=S%DLI=S)
-
-# Fingerprint = 'Sun Solaris 9 (x86)'
-# Class Sun | Solaris | 9 | general purpose
-# SEQ(SP=92-9C%GCD=1-6%ISR=9D-A7%TI=I%II=I%SS=S%TS=7)
-# OPS(O1=NNT11M5B4NW1NNS%O2=NNT11M5B4NW1NNS%O3=NNT11M5B4NW1%O4=NNT11M5B4NW1NNS%O5=NNT11M5B4NW1NNS%O6=NNT11M5B4NNS)
-# WIN(W1=8218%W2=8220%W3=80CA%W4=80F4%W5=80F4%W6=FFF7)
-# ECN(R=Y%DF=Y%T=37-41%TG=40%W=8052%O=M5B4NW1NNS%CC=Y%Q=)
-# T1(R=Y%DF=Y%T=37-41%TG=40%S=O%A=S+%F=AS%RD=0%Q=)
-# T2(R=N)
-# T3(R=N)
-# T4(R=Y%DF=Y%T=3B-45%TG=40%W=0%S=A%A=Z%F=R%O=%RD=0%Q=)
-# T5(R=Y%DF=Y%T=3B-45%TG=40%W=0%S=Z%A=S+%F=AR%O=%RD=0%Q=)
-# T6(R=Y%DF=Y%T=3B-45%TG=40%W=0%S=A%A=Z%F=R%O=%RD=0%Q=)
-# T7(R=N)
-# U1(DF=Y%T=FA-104%TG=FF%TOS=0%IPL=70%UN=0%RIPL=G%RID=G%RIPCK=G%RUCK=G%RUL=G%RUD=G)
-# IE(DFI=Y%T=FA-104%TG=FF%TOSI=S%CD=S%SI=S%DLI=S)
+Fingerprint = 'Sun Solaris 9 (x86)'
 
 MAC = "01:02:03:04:05:06"
 IP  = "192.168.67.254"
@@ -91,7 +32,7 @@ def string2tuple(string):
 
 class Responder:
    templateClass = None
-   testName      = None
+   signatureName      = None
 
    def __init__(self, machine, port):
        self.machine = machine
@@ -104,7 +45,7 @@ class Responder:
        if not self.templateClass:
           self.template_onion = None
        else:
-          probe = self.templateClass(0, ['0.0.0.0',self.getIP()],[self.port, 0])
+          probe = self.templateClass(0, ['0.0.0.0',self.getIP()],[0, 0])
           self.template_onion = [probe.get_packet()]
           try:
              while 1: self.template_onion.append(self.template_onion[-1].child())
@@ -115,10 +56,10 @@ class Responder:
           print "Flags: 0x%04x" % self.template_onion[O_TCP].get_th_flags()
 
    def initFingerprint(self):
-       if not self.testName:
+       if not self.signatureName:
           self.fingerprint = None
        else:
-          self.fingerprint = self.machine.fingerprint.get_tests()[self.testName]
+          self.fingerprint = self.machine.fingerprint.get_tests()[self.signatureName]
           print "Fingerprint: %r" % self.fingerprint
 
    def isMine(self, in_onion):
@@ -344,17 +285,18 @@ class NMAP2TCPResponder(TCPResponder):
        if s == 'Z': out_onion[O_TCP].set_th_seq(0)
        if s == 'A': out_onion[O_TCP].set_th_seq(in_onion[O_TCP].get_th_ack())
        if s == 'A+': out_onion[O_TCP].set_th_seq(in_onion[O_TCP].get_th_ack()+1)
+       if s == 'O': out_onion[O_TCP].set_th_seq(self.machine.getTCPSequence())
 
        # Test A: TCP ACK number
        # Z: Ack is zero
        # S: Ack is the same as the Squence number in the probe
        # S+: Ack is the same as the Squence number in the probe + 1
        # O: Other value
-       try: s = f['A']
-       except: s = 'O'
-       if s == 'Z': out_onion[O_TCP].set_th_ack(0)
-       if s == 'S': out_onion[O_TCP].set_th_ack(in_onion[O_TCP].get_th_seq())
-       if s == 'S+': out_onion[O_TCP].set_th_ack(in_onion[O_TCP].get_th_seq()+1)
+       try: a = f['A']
+       except: a = 'O'
+       if a == 'Z': out_onion[O_TCP].set_th_ack(0)
+       if a == 'S': out_onion[O_TCP].set_th_ack(in_onion[O_TCP].get_th_seq())
+       if a == 'S+': out_onion[O_TCP].set_th_ack(in_onion[O_TCP].get_th_seq()+1)
 
        # Test Q: Quirks
        # R: Reserved bit set (right after the header length)
@@ -411,7 +353,7 @@ class NMAP2TCPResponder(TCPResponder):
           if opt == 'S': tcp.add_option(TCPOption(TCPOption.TCPOPT_SACK_PERMITTED))
           if opt == 'T':
              opt = TCPOption(TCPOption.TCPOPT_TIMESTAMP)  # default ts = 0, ts_echo = 0
-             if options[i] == '1':  opt.set_ts(0xffffffffL)
+             if options[i] == '1':  opt.set_ts(self.machine.getTCPTimeStamp())
              if options[i+1] == '1': opt.set_ts_echo(0xffffffffL)
              tcp.add_option(opt)
              i += 2
@@ -428,37 +370,79 @@ class NMAP2TCPResponder(TCPResponder):
 
 class nmap2_ECN(NMAP2TCPResponder):
    templateClass = os_ident.nmap2_ecn_probe
-   testName      = 'ECN'
+   signatureName      = 'ECN'
 
-class nmap2_T1(NMAP2TCPResponder):
+class nmap2_SEQ(NMAP2TCPResponder):
+   templateClass = None
+   signatureName = None
+   seqNumber     = None
+
+   def initFingerprint(self):
+       NMAP2TCPResponder.initFingerprint(self)
+       if not self.seqNumber: return
+       else:
+          OPS = self.machine.fingerprint.get_tests()['OPS']
+          WIN = self.machine.fingerprint.get_tests()['WIN']
+          self.fingerprint['O'] = OPS['O%d' % self.seqNumber]
+          self.fingerprint['W'] = WIN['W%d' % self.seqNumber]
+          print "Fingerprint: %r" % self.fingerprint
+
+class nmap2_SEQ1(nmap2_SEQ):
    templateClass = os_ident.nmap2_seq_1
-   testName      = 'T1'
+   signatureName = 'T1'
+   seqNumber     = 1
+
+class nmap2_SEQ2(nmap2_SEQ):
+   templateClass = os_ident.nmap2_seq_2
+   signatureName = 'T1'
+   seqNumber     = 2
+
+class nmap2_SEQ3(nmap2_SEQ):
+   templateClass = os_ident.nmap2_seq_3
+   signatureName = 'T1'
+   seqNumber     = 3
+
+class nmap2_SEQ4(nmap2_SEQ):
+   templateClass = os_ident.nmap2_seq_4
+   signatureName = 'T1'
+   seqNumber     = 4
+
+class nmap2_SEQ5(nmap2_SEQ):
+   templateClass = os_ident.nmap2_seq_5
+   signatureName = 'T1'
+   seqNumber     = 5
+
+class nmap2_SEQ6(nmap2_SEQ):
+   templateClass = os_ident.nmap2_seq_6
+   signatureName = 'T1'
+   seqNumber     = 6
 
 class nmap2_T2(NMAP2TCPResponder):
    templateClass = os_ident.nmap2_tcp_open_2
-   testName      = 'T2'
+   signatureName = 'T2'
 
 class nmap2_T3(NMAP2TCPResponder):
    templateClass = os_ident.nmap2_tcp_open_3
-   testName      = 'T3'
+   signatureName = 'T3'
 
 class nmap2_T4(NMAP2TCPResponder):
    templateClass = os_ident.nmap2_tcp_open_4
-   testName      = 'T4'
+   signatureName = 'T4'
 
 class nmap2_T5(NMAP2TCPResponder):
    templateClass = os_ident.nmap2_tcp_closed_1
-   testName      = 'T5'
+   signatureName = 'T5'
 
 class nmap2_T6(NMAP2TCPResponder):
    templateClass = os_ident.nmap2_tcp_closed_2
-   testName      = 'T6'
+   signatureName = 'T6'
 
 class nmap2_T7(NMAP2TCPResponder):
    templateClass = os_ident.nmap2_tcp_closed_3
-   testName      = 'T7'
+   signatureName = 'T7'
 
 class Machine:
+   AssumedTimeIntervalPerPacket = 0.11 # seconds
    def __init__(self, emmulating, ipAddress, macAddress):
        self.ipAddress = ipAddress
        self.macAddress = macAddress
@@ -469,6 +453,8 @@ class Machine:
        self.initFingerprint(emmulating)
        self.initResponders()
 
+       self.initSequenceGenerators()
+
    def initPcap(self):
        self.pcap = pcapy.open_live(IFACE, 65535, 1, 1)
        self.pcap.setfilter("host %s or ether host %s" % (self.ipAddress, self.macAddress))
@@ -476,7 +462,12 @@ class Machine:
    def initResponders(self):
        self.addResponder(ARPResponder(self, 0))
        self.addResponder(nmap2_ECN(self, TCP_OPEN_PORT))
-       self.addResponder(nmap2_T1(self, TCP_OPEN_PORT))
+       self.addResponder(nmap2_SEQ1(self, TCP_OPEN_PORT))
+       self.addResponder(nmap2_SEQ2(self, TCP_OPEN_PORT))
+       self.addResponder(nmap2_SEQ3(self, TCP_OPEN_PORT))
+       self.addResponder(nmap2_SEQ4(self, TCP_OPEN_PORT))
+       self.addResponder(nmap2_SEQ5(self, TCP_OPEN_PORT))
+       self.addResponder(nmap2_SEQ6(self, TCP_OPEN_PORT))
        self.addResponder(nmap2_T2(self, TCP_OPEN_PORT))
        self.addResponder(nmap2_T3(self, TCP_OPEN_PORT))
        self.addResponder(nmap2_T4(self, TCP_OPEN_PORT))
@@ -498,11 +489,91 @@ class Machine:
 
        raise Exception, "Couldn't find fingerprint data for %r" % emmulating
 
+   def initSequenceGenerators(self):
+       self.initIPIDGenerator(self)
+       self.initTCPISNGenerator(self)
+       self.initTCPTSGenerator(self):
+
+   def initiPIDGenerator(self):
+       pass
+
+   def initTCPISNGenerator(self):
+       # tcp_ISN and tcp_ISN_delta for TCP Initial sequence numbers
+       self.tcp_ISN = 0
+       try:
+          self.tcp_ISN_GCD = int(self.fingerprint.get_tests()['SEQ']['GCD'].split('|')[0].split('-')[0], 16)
+       except:
+          self.tcp_ISN_GCD = 1
+
+       try:
+          isr = self.fingerprint.get_tests()['SEQ']['ISR'].split('-')
+          if len(isr) == 1:
+             isr = int(isr[0], 16)
+          else:
+             isr = (int(isr[0], 16) + int(isr[1], 16)) / 2
+       except:
+          isr = 0
+
+       try:
+          sp = self.fingerprint.get_tests()['SEQ']['SP'].split('-')
+          sp = int(sp[0], 16)
+       except:
+          sp = 0
+
+       self.tcp_ISN_stdDev = (2**(sp/8.0)) * 5 / 4  # n-1 on small populations... erm...
+
+       if self.tcp_ISN_GCD > 9:
+          self.tcp_ISN_stdDev *= self.tcp_ISN_GCD
+
+       self.tcp_ISN_stdDev *= self.AssumedTimeIntervalPerPacket
+
+       self.tcp_ISN_delta  = 2**(isr/8.0) * self.AssumedTimeIntervalPerPacket
+
+       # generate a few, so we don't start with 0 when we don't have to
+       for i in range(10): self.getTCPSequence()
+
+       print "TCP ISN Delta: %f" % self.tcp_ISN_delta
+       print "TCP ISN Standard Deviation: %f" % self.tcp_ISN_stdDev
+
+   def initTCPTSGenerator(self):
+       # tcp_TS and tcp_TS_delta for TCP Time stamp generation
+       self.tcp_TS = 0
+
+       try:
+          ts = self.fingerprint.get_tests()['SEQ']['TS']
+       except:
+          ts = 'U'
+
+       if ts == 'U' or ts == 'Z': self.tcp_TS_delta = 0
+       else:
+           self.tcp_TS_delta = (2**int(ts, 16)) * self.AssumedTimeIntervalPerPacket
+
+       # generate a few, so we don't start with 0 when we don't have to
+       for i in range(10): self.getTCPTimeStamp()
+
+       print "TCP TS Delta: %f" % self.tcp_TS_delta
+
+   def getTCPSequence(self):
+       answer = self.tcp_ISN + self.tcp_ISN_stdDev
+       self.tcp_ISN_stdDev *= -1
+       answer = int(round(answer/self.tcp_ISN_GCD) * self.tcp_ISN_GCD)
+       self.tcp_ISN += self.tcp_ISN_delta
+       self.tcp_ISN %= 0x100000000L
+       # print "TCP ISN: %x" % answer
+       return answer
+
+   def getTCPTimeStamp(self):
+       answer = int(round(self.tcp_TS))
+       self.tcp_TS += self.tcp_TS_delta
+       self.tcp_TS %= 0x100000000L
+       # print "TCP Time Stamp: %x" % answer
+       return answer
+
    def sendPacket(self, onion):
        if not onion: return
        print "--> Packet sent"
-       print onion[0]
-       print
+       #print onion[0]
+       #print
        self.pcap.sendpacket(onion[O_ETH].get_packet())
 
    def addResponder(self, aResponder):
@@ -517,7 +588,7 @@ class Machine:
           except:
              pass
 
-          print "-------------- Received: ", in_onion[0]
+          #print "-------------- Received: ", in_onion[0]
           for r in self.responders:
               if r.process(in_onion): break
 
@@ -529,9 +600,9 @@ if __name__ == '__main__':
    main()
 
 # All Probes
-# [ ] SEQ
-# [ ] OPS
-# [ ] WIN
+# [|] SEQ
+# [x] OPS
+# [x] WIN
 # [x] T1
 # [x] T2
 # [x] T3
@@ -546,21 +617,35 @@ if __name__ == '__main__':
 # All Tests
 
 # SEQ()
-# [ ] TCP ISN sequence predictability index (SP)
-# [ ] TCP ISN greatest common divisor (GCD)
-# [ ] TCP ISN counter rate (ISR)
+# [x] TCP ISN sequence predictability index (SP)
+# [x] TCP ISN greatest common divisor (GCD)
+# [x] TCP ISN counter rate (ISR)
 # [ ] IP ID sequence generation algorithm (TI)
+#   [ ] Z  - All zeros
+#   [ ] RD - Random: It increments at least once by at least 20000.
+#   [ ] Hex Value - fixed IP ID
+#   [ ] RI - Random positive increments. Any (delta_i > 1000, and delta_i % 256 != 0) or (delta_i > 256000 and delta_i % 256 == 0)
+#   [ ] BI - Broken increment. All delta_i % 256 = 0 and all delta_i <= 5120.
+#   [ ] I - Incremental. All delta_i < 10
+#   [ ] O - (Ommited, the test does not show in the fingerprint). None of the other
 # [ ] IP ID sequence generation algorithm (CI)
 # [-] IP ID sequence generation algorithm (II)
 # [ ] Shared IP ID sequence Boolean (SS)
-# [ ] TCP timestamp option algorithm (TS)
+# [x] TCP timestamp option algorithm (TS)
+#   [x] U - unsupported (don't send TS)
+#   [x] 0 - Zero
+#   [x] 1 - 0-5.66 (2 Hz)
+#   [x] 7 - 70-150 (100 Hz)
+#   [x] 8 - 150-350 (200 Hz)
+#   [x]   - avg_freq = sum(TS_diff/time_diff) . round(.5 + math.log(avg_freq)/math.log(2)))
+#           time_diff = 0.11 segs
 # OPS()
-# [+] TCP options (O, O1-O6)
+# [x] TCP options (O, O1-O6)
 # WIN()
-# [+] TCP initial window size (W, W1-W6)
+# [x] TCP initial window size (W, W1-W6)
 # ECN, T1-T7
-# [+] TCP options (O, O1-O6)
-# [+] TCP initial window size (W, W1-W6)
+# [x] TCP options (O, O1-O6)
+# [x] TCP initial window size (W, W1-W6)
 # [x] Responsiveness (R)
 # [x] IP don't fragment bit (DF)
 # [x] IP initial time-to-live (T)
@@ -577,9 +662,9 @@ if __name__ == '__main__':
 # [ ] IP initial time-to-live (T)
 # [ ] IP initial time-to-live guess (TG)
 # [ ] ICMP response code (CD)
-# [ ] ??? (TOSI)
-# [ ] ??? (SI)
-# [ ] ??? (DLI)
+# [ ] IP Type of Service (TOSI)
+# [ ] ICMP Sequence number (SI)
+# [ ] IP Data Length (DLI)
 # U1()
 # [ ] Responsiveness (R)
 # [ ] IP don't fragment bit (DF)
@@ -592,6 +677,6 @@ if __name__ == '__main__':
 # [ ] Integrity of returned probe IP checksum value (RIPCK)
 # [ ] Integrity of returned probe UDP checksum (RUCK)
 # [ ] Integrity of returned UDP data (RUD)
-# [ ] ??? (TOS)
-# [ ] ??? (RUL)
+# [ ] ??? (TOS) Type of Service
+# [ ] ??? (RUL) Length of return UDP packet is correct
 
