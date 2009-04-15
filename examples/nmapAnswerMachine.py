@@ -9,7 +9,16 @@ from impacket.ImpactPacket import TCPOption
 Fingerprint = 'Adtran NetVanta 3200 router'
 # Fingerprint = 'ADIC Scalar 1000 tape library remote management unit'
 # Fingerprint = 'Sun Solaris 9 (SPARC)'
-Fingerprint = 'Sun Solaris 9 (x86)'
+# Fingerprint = 'Sun Solaris 9 (x86)'
+
+Fingerprint = '3Com OfficeConnect 3CRWER100-75 wireless broadband router'  # TI=Z
+Fingerprint = 'WatchGuard Firebox X5w firewall/WAP' # TI=RD
+# no TI=Hex
+Fingerprint = 'FreeBSD 6.0-STABLE - 6.2-RELEASE' # TI=RI
+# Fingerprint = 'Microsoft Windows 98 SE' # TI=BI ----> BROKEN! nmap shows no SEQ() output
+# Fingerprint = 'Microsoft Windows NT 4.0 SP5 - SP6' # TI=BI
+# Fingerprint = 'Microsoft Windows Vista Business' # TI=I
+Fingerprint = 'FreeBSD 6.1-RELEASE' # no TI (TI=O)
 
 MAC = "01:02:03:04:05:06"
 IP  = "192.168.67.254"
@@ -51,16 +60,16 @@ class Responder:
              while 1: self.template_onion.append(self.template_onion[-1].child())
           except: pass
        
-          print "Template: %s" % self.template_onion[O_ETH]
-          print "Options: %r" % self.template_onion[O_TCP].get_padded_options()
-          print "Flags: 0x%04x" % self.template_onion[O_TCP].get_th_flags()
+          # print "Template: %s" % self.template_onion[O_ETH]
+          # print "Options: %r" % self.template_onion[O_TCP].get_padded_options()
+          # print "Flags: 0x%04x" % self.template_onion[O_TCP].get_th_flags()
 
    def initFingerprint(self):
        if not self.signatureName:
           self.fingerprint = None
        else:
           self.fingerprint = self.machine.fingerprint.get_tests()[self.signatureName]
-          print "Fingerprint: %r" % self.fingerprint
+          # print "Fingerprint: %r" % self.fingerprint
 
    def isMine(self, in_onion):
        return False
@@ -121,6 +130,7 @@ class IPResponder(Responder):
 
        ip.set_ip_src(in_onion[O_IP].get_ip_dst())
        ip.set_ip_dst(in_onion[O_IP].get_ip_src())
+       ip.set_ip_id(self.machine.getIPID())
 
        return [eth, ip]
 
@@ -385,7 +395,7 @@ class nmap2_SEQ(NMAP2TCPResponder):
           WIN = self.machine.fingerprint.get_tests()['WIN']
           self.fingerprint['O'] = OPS['O%d' % self.seqNumber]
           self.fingerprint['W'] = WIN['W%d' % self.seqNumber]
-          print "Fingerprint: %r" % self.fingerprint
+          # print "Fingerprint: %r" % self.fingerprint
 
 class nmap2_SEQ1(nmap2_SEQ):
    templateClass = os_ident.nmap2_seq_1
@@ -484,24 +494,48 @@ class Machine:
            fingerprint = fpm.parse_fp(text)
            if fingerprint.get_id() == emmulating:
               self.fingerprint = fingerprint
+              self.simplifyFingerprint()
               print "Emmulating: %s" % fingerprint.get_id()
+              print fingerprint
               return
 
        raise Exception, "Couldn't find fingerprint data for %r" % emmulating
 
+   def simplifyFingerprint(self):
+       tests = self.fingerprint.get_tests()
+       for probeName in tests:
+           probe = tests[probeName]
+           for test in probe:
+               probe[test] = probe[test].split('|')[0]
+               
    def initSequenceGenerators(self):
        self.initIPIDGenerator()
        self.initTCPISNGenerator()
        self.initTCPTSGenerator()
 
    def initIPIDGenerator(self):
-       pass
+       self.ip_ID = 0
+
+       try:
+          TI = self.fingerprint.get_tests()['SEQ']['TI']
+       except:
+          TI = 'O'
+
+       if   TI == 'Z': self.ip_ID_delta = 0
+       elif TI == 'RD': self.ip_ID_delta = 30000
+       elif TI == 'RI': self.ip_ID_delta = 1234
+       elif TI == 'BI': self.ip_ID_delta = 1024+256
+       elif TI == 'I': self.ip_ID_delta = 1
+       elif TI == 'O': self.ip_ID_delta = 123
+       else: self.ip_ID_delta = int(TI, 16)
+
+       print "IP ID Delta: %d" % self.ip_ID_delta
 
    def initTCPISNGenerator(self):
        # tcp_ISN and tcp_ISN_delta for TCP Initial sequence numbers
        self.tcp_ISN = 0
        try:
-          self.tcp_ISN_GCD = int(self.fingerprint.get_tests()['SEQ']['GCD'].split('|')[0].split('-')[0], 16)
+          self.tcp_ISN_GCD = int(self.fingerprint.get_tests()['SEQ']['GCD'].split('-')[0], 16)
        except:
           self.tcp_ISN_GCD = 1
 
@@ -539,10 +573,8 @@ class Machine:
        # tcp_TS and tcp_TS_delta for TCP Time stamp generation
        self.tcp_TS = 0
 
-       try:
-          ts = self.fingerprint.get_tests()['SEQ']['TS']
-       except:
-          ts = 'U'
+       try: ts = self.fingerprint.get_tests()['SEQ']['TS']
+       except: ts = 'U'
 
        if ts == 'U' or ts == 'Z': self.tcp_TS_delta = 0
        else:
@@ -552,6 +584,13 @@ class Machine:
        for i in range(10): self.getTCPTimeStamp()
 
        print "TCP TS Delta: %f" % self.tcp_TS_delta
+
+   def getIPID(self):
+       answer = self.ip_ID
+       self.ip_ID += self.ip_ID_delta
+       self.ip_ID %= 0x10000L
+       # print "IP ID: %x" % answer
+       return answer
 
    def getTCPSequence(self):
        answer = self.tcp_ISN + self.tcp_ISN_stdDev
@@ -621,13 +660,13 @@ if __name__ == '__main__':
 # [x] TCP ISN greatest common divisor (GCD)
 # [x] TCP ISN counter rate (ISR)
 # [ ] IP ID sequence generation algorithm (TI)
-#   [ ] Z  - All zeros
-#   [ ] RD - Random: It increments at least once by at least 20000.
-#   [ ] Hex Value - fixed IP ID
-#   [ ] RI - Random positive increments. Any (delta_i > 1000, and delta_i % 256 != 0) or (delta_i > 256000 and delta_i % 256 == 0)
-#   [ ] BI - Broken increment. All delta_i % 256 = 0 and all delta_i <= 5120.
-#   [ ] I - Incremental. All delta_i < 10
-#   [ ] O - (Ommited, the test does not show in the fingerprint). None of the other
+#   [+] Z  - All zeros
+#   [+] RD - Random: It increments at least once by at least 20000.
+#   [-] Hex Value - fixed IP ID
+#   [+] RI - Random positive increments. Any (delta_i > 1000, and delta_i % 256 != 0) or (delta_i > 256000 and delta_i % 256 == 0)
+#   [x] BI - Broken increment. All delta_i % 256 = 0 and all delta_i <= 5120.
+#   [x] I - Incremental. All delta_i < 10
+#   [x] O - (Ommited, the test does not show in the fingerprint). None of the other
 # [ ] IP ID sequence generation algorithm (CI)
 # [-] IP ID sequence generation algorithm (II)
 # [ ] Shared IP ID sequence Boolean (SS)
