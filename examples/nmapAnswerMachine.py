@@ -9,7 +9,7 @@ from impacket.ImpactPacket import TCPOption
 Fingerprint = 'Adtran NetVanta 3200 router'
 Fingerprint = 'ADIC Scalar 1000 tape library remote management unit' # DFI=S
 Fingerprint = 'Siemens Gigaset SX541 or USRobotics USR9111 wireless DSL modem' # DFI=O
-Fingerprint = 'Apple Mac OS X 10.5.6 (Leopard) (Darwin 9.6.0)' # DFI=Y
+Fingerprint = 'Apple Mac OS X 10.5.6 (Leopard) (Darwin 9.6.0)' # DFI=Y SI=S
 
 # Fingerprint = 'Sun Solaris 9 (SPARC)'
 # Fingerprint = 'Sun Solaris 9 (x86)'
@@ -224,15 +224,18 @@ class NMAP2ICMPResponder(ICMPResponder):
        if   dfi == 'N': out_onion[O_IP].set_ip_df(False)
        elif dfi == 'Y': out_onion[O_IP].set_ip_df(True)
        elif dfi == 'S': out_onion[O_IP].set_ip_df(in_onion[O_IP].get_ip_df())
-       else:            out_onion[O_IP].set_ip_df(not in_onion[O_IP].get_ip_df())
+       elif dfi == 'O': out_onion[O_IP].set_ip_df(not in_onion[O_IP].get_ip_df())
+       else: raise Exception('Unsupported IE(DFI=%s)' % dfi)
 
        # assume DLI = S
        try: dli = f['DLI'] 
        except: dli = 'S'
 
-       if dli == 'S': out_onion[O_ICMP].contains(in_onion[O_ICMP_DATA])
+       if   dli == 'S': out_onion[O_ICMP].contains(in_onion[O_ICMP_DATA])
+       elif dli != 'Z': raise Exception('Unsupported IE(DFI=%s)' % dli)
 
        self.setTTLFromFingerprint(out_onion)
+
        return out_onion
 
    def sendAnswer(self, in_onion):
