@@ -6,7 +6,7 @@ from impacket import ImpactPacket
 from impacket import ImpactDecoder
 from impacket.ImpactPacket import TCPOption
 
-# Fingerprint = 'Adtran NetVanta 3200 router'
+Fingerprint = 'Adtran NetVanta 3200 router'
 # Class Adtran | embedded || router
 # SEQ(SP=E3-F1%GCD=1-6%ISR=E4-F8%TI=I|RD%II=I%SS=O|S%TS=U)
 # OPS(O1=%O2=%O3=M5B4%O4=M5B4%O5=M5B4%O6=M5B4)
@@ -38,7 +38,7 @@ Fingerprint = 'ADIC Scalar 1000 tape library remote management unit'
 # U1(DF=N%T=3B-45%TG=40%TOS=0%IPL=38%UN=0%RIPL=G%RID=4210%RIPCK=Z%RUCK=0%RUL=G%RUD=G)
 # IE(DFI=S%T=3B-45%TG=40%TOSI=S%CD=S%SI=S%DLI=S)
 
-Fingerprint = 'Sun Solaris 9 (SPARC)'
+# Fingerprint = 'Sun Solaris 9 (SPARC)'
 # Class Sun | Solaris | 9 | general purpose
 # SEQ(SP=FC-106%GCD=1-6%ISR=FD-113%TI=I%II=I%SS=S%TS=7)
 # OPS(O1=NNT11M5B4NW0NNS%O2=NNT11M5B4NW0NNS%O3=NNT11M5B4NW0%O4=NNT11M5B4NW0NNS%O5=NNT11M5B4NW0NNS%O6=NNT11M5B4NNS)
@@ -90,12 +90,39 @@ def string2tuple(string):
        return [int(x) for x in string.split('.')]
 
 class Responder:
+   templateClass = None
+   testName      = None
+
    def __init__(self, machine, port):
        self.machine = machine
        self.port = port
+       print "Initializing %s" % self.__class__.__name__
+       self.initTemplate()
+       self.initFingerprint()
+
+   def initTemplate(self):
+       if not self.templateClass:
+          self.template_onion = None
+       else:
+          probe = self.templateClass(0, ['0.0.0.0',self.getIP()],[self.port, 0])
+          self.template_onion = [probe.get_packet()]
+          try:
+             while 1: self.template_onion.append(self.template_onion[-1].child())
+          except: pass
+       
+          print "Template: %s" % self.template_onion[O_ETH]
+          print "Options: %r" % self.template_onion[O_TCP].get_padded_options()
+          print "Flags: 0x%04x" % self.template_onion[O_TCP].get_th_flags()
+
+   def initFingerprint(self):
+       if not self.testName:
+          self.fingerprint = None
+       else:
+          self.fingerprint = self.machine.fingerprint.get_tests()[self.testName]
+          print "Fingerprint: %r" % self.fingerprint
 
    def isMine(self, in_onion):
-       return false
+       return False
 
    def sendAnswer(self, in_onion):
        pass
@@ -103,7 +130,6 @@ class Responder:
    def process(self, in_onion):
        if not self.isMine(in_onion): return False
        print "Got packet for %s" % self.__class__.__name__
-       # print in_onion[0]
 
        self.sendAnswer(in_onion)
        return True
@@ -157,12 +183,18 @@ class IPResponder(Responder):
 
        return [eth, ip]
 
+   def sameIPFlags(self, in_onion):
+       if not self.template_onion: return True
+       return (self.template_onion[O_IP].get_ip_off() & 0xe000) == (in_onion[O_IP].get_ip_off() & 0xe000)
+
    def isMine(self, in_onion):
        if len(in_onion) < 2: return False
 
        return (
            (in_onion[O_IP].ethertype == ImpactPacket.IP.ethertype) and
-           (in_onion[O_IP].get_ip_dst() == self.machine.ipAddress))
+           (in_onion[O_IP].get_ip_dst() == self.machine.ipAddress) and
+           self.sameIPFlags(in_onion)
+       )
 
 class TCPResponder(IPResponder):
    def initAnswer(self, in_onion):
@@ -177,11 +209,34 @@ class TCPResponder(IPResponder):
 
        return out_onion
 
+   def sameTCPFlags(self, in_onion):
+       if not self.template_onion: return True
+       in_flags = in_onion[O_TCP].get_th_flags() & 0xfff
+       t_flags  = self.template_onion[O_TCP].get_th_flags() & 0xfff
+
+       return in_flags == t_flags
+
+   def sameTCPOptions(self, in_onion):
+       if not self.template_onion: return True
+       in_options = in_onion[O_TCP].get_padded_options()
+       t_options  = self.template_onion[O_TCP].get_padded_options()
+
+       return in_options == t_options
+
    def isMine(self, in_onion):
        if not IPResponder.isMine(self, in_onion): return False
        if len(in_onion) < 3: return False
 
-       return in_onion[O_TCP].protocol == ImpactPacket.TCP.protocol
+       #if in_onion[O_TCP].protocol == ImpactPacket.TCP.protocol:
+          # print "Options: %r" % in_onion[O_TCP].get_padded_options()
+          # print "Flags: 0x%04x" % in_onion[O_TCP].get_th_flags()
+
+       return (
+           in_onion[O_TCP].protocol == ImpactPacket.TCP.protocol and
+           in_onion[O_TCP].get_th_dport() == self.port and
+           self.sameTCPFlags(in_onion) and
+           self.sameTCPOptions(in_onion)
+       )
 
 class TCPClosedPort(TCPResponder):
    def __init__(self, *args):
@@ -227,22 +282,9 @@ class TCPOpenPort(TCPResponder):
        out_onion = self.initAnswer(in_onion)
        self.machine.sendPacket(out_onion)
 
-class nmap2_ECN(TCPOpenPort):
-   def __init__(self, *args):
-       TCPOpenPort.__init__(self, *args)
-       self.template = os_ident.nmap2_ecn_probe(0, ['0.0.0.0',self.getIP()],[self.port, 0])
-       self.fingerprint = self.machine.fingerprint.get_tests()['ECN']
-
-   def isMine(self, in_onion):
-       if not TCPOpenPort.isMine(self, in_onion): return False
-       
-       in_options = in_onion[O_TCP].get_padded_options()
-       template   = self.template.t.get_padded_options()
-
-       return in_options == template
-
+class NMAP2TCPResponder(TCPResponder):
    def initAnswer(self, in_onion):
-       out_onion = TCPOpenPort.initAnswer(self, in_onion)
+       out_onion = TCPResponder.initAnswer(self, in_onion)
 
        f = self.fingerprint
 
@@ -321,17 +363,28 @@ class nmap2_ECN(TCPOpenPort):
           if 'R' in f['Q']: out_onion[O_TCP].set_flags(0x800)
        except: pass
        try: 
-          if 'U' in f['Q']: out_onion[O_TCP].set_th_urp(1)
+          if 'U' in f['Q']: out_onion[O_TCP].set_th_urp(0xffff)
        except: pass
+
+       # Test F: TCP Flags
+       try: flags = f['F']
+       except: flags = ''
+       if 'E' in flags: out_onion[O_TCP].set_ECE()
+       if 'U' in flags: out_onion[O_TCP].set_URG()
+       if 'A' in flags: out_onion[O_TCP].set_ACK()
+       if 'P' in flags: out_onion[O_TCP].set_PSH()
+       if 'R' in flags: out_onion[O_TCP].set_RST()
+       if 'S' in flags: out_onion[O_TCP].set_SYN()
+       if 'F' in flags: out_onion[O_TCP].set_FIN()
 
        return out_onion
 
-   def setTCPOptions(self, onion, optionsString):
+   def setTCPOptions(self, onion, options):
        def getValue(string, i):
            value = 0
            
            idx = i
-           for c in optionsString[i:]:
+           for c in options[i:]:
                try:
                    value = value * 0x10 + int(c,16)
                except:
@@ -350,33 +403,60 @@ class nmap2_ECN(TCPOpenPort):
 
        i = 0
        tcp = onion[O_TCP]
-       while i < len(optionsString):
-          opt = optionsString[i]
+       while i < len(options):
+          opt = options[i]
           i += 1
           if opt == 'L': tcp.add_option(TCPOption(TCPOption.TCPOPT_EOL))
           if opt == 'N': tcp.add_option(TCPOption(TCPOption.TCPOPT_NOP))
           if opt == 'S': tcp.add_option(TCPOption(TCPOption.TCPOPT_SACK_PERMITTED))
           if opt == 'T':
              opt = TCPOption(TCPOption.TCPOPT_TIMESTAMP)  # default ts = 0, ts_echo = 0
-             if optionsString[i] == '1':  opt.set_ts(0xffffffffL)
-             if optionsString[i+1] == '1': opt.set_ts_echo(0xffffffffL)
+             if options[i] == '1':  opt.set_ts(0xffffffffL)
+             if options[i+1] == '1': opt.set_ts_echo(0xffffffffL)
              tcp.add_option(opt)
              i += 2
           if opt == 'M':
-             maxseg, i = getValue(optionsString, i)
+             maxseg, i = getValue(options, i)
              tcp.add_option(TCPOption(TCPOption.TCPOPT_MAXSEG, maxseg))
           if opt == 'W':
-             window, i = getValue(optionsString, i)
+             window, i = getValue(options, i)
              tcp.add_option(TCPOption(TCPOption.TCPOPT_WINDOW, window))
 
    def sendAnswer(self, in_onion):
        out_onion = self.initAnswer(in_onion)
        self.machine.sendPacket(out_onion)
 
-class nmap2_T2(Responder):
-   def __init__(self, *args):
-       Responder.__init__(self, *args)
-       self.template = os_ident.nmap2_tcp_open_2(0, ['0.0.0.0', self.getIP()], [self.port])
+class nmap2_ECN(NMAP2TCPResponder):
+   templateClass = os_ident.nmap2_ecn_probe
+   testName      = 'ECN'
+
+class nmap2_T1(NMAP2TCPResponder):
+   templateClass = os_ident.nmap2_seq_1
+   testName      = 'T1'
+
+class nmap2_T2(NMAP2TCPResponder):
+   templateClass = os_ident.nmap2_tcp_open_2
+   testName      = 'T2'
+
+class nmap2_T3(NMAP2TCPResponder):
+   templateClass = os_ident.nmap2_tcp_open_3
+   testName      = 'T3'
+
+class nmap2_T4(NMAP2TCPResponder):
+   templateClass = os_ident.nmap2_tcp_open_4
+   testName      = 'T4'
+
+class nmap2_T5(NMAP2TCPResponder):
+   templateClass = os_ident.nmap2_tcp_closed_1
+   testName      = 'T5'
+
+class nmap2_T6(NMAP2TCPResponder):
+   templateClass = os_ident.nmap2_tcp_closed_2
+   testName      = 'T6'
+
+class nmap2_T7(NMAP2TCPResponder):
+   templateClass = os_ident.nmap2_tcp_closed_3
+   testName      = 'T7'
 
 class Machine:
    def __init__(self, emmulating, ipAddress, macAddress):
@@ -396,9 +476,15 @@ class Machine:
    def initResponders(self):
        self.addResponder(ARPResponder(self, 0))
        self.addResponder(nmap2_ECN(self, TCP_OPEN_PORT))
+       self.addResponder(nmap2_T1(self, TCP_OPEN_PORT))
+       self.addResponder(nmap2_T2(self, TCP_OPEN_PORT))
+       self.addResponder(nmap2_T3(self, TCP_OPEN_PORT))
+       self.addResponder(nmap2_T4(self, TCP_OPEN_PORT))
+       self.addResponder(nmap2_T5(self, TCP_CLOSED_PORT))
+       self.addResponder(nmap2_T6(self, TCP_CLOSED_PORT))
+       self.addResponder(nmap2_T7(self, TCP_CLOSED_PORT))
        self.addResponder(TCPOpenPort(self, TCP_OPEN_PORT))
        self.addResponder(TCPClosedPort(self, TCP_CLOSED_PORT))
-       # self.addResponder(nmap2_T2(self, TCP_OPEN_PORT))
 
    def initFingerprint(self, emmulating):
        fpm = os_ident.NMAP2_Fingerprint_Matcher('')
@@ -408,7 +494,6 @@ class Machine:
            if fingerprint.get_id() == emmulating:
               self.fingerprint = fingerprint
               print "Emmulating: %s" % fingerprint.get_id()
-              print fingerprint.get_tests()['ECN']
               return
 
        raise Exception, "Couldn't find fingerprint data for %r" % emmulating
@@ -428,11 +513,11 @@ class Machine:
           p = self.pcap.next()
           in_onion = [self.decoder.decode(p[1])]
           try:
-             while 1:
-                in_onion.append(in_onion[-1].child())
+             while 1: in_onion.append(in_onion[-1].child())
           except:
              pass
 
+          print "-------------- Received: ", in_onion[0]
           for r in self.responders:
               if r.process(in_onion): break
 
@@ -442,4 +527,71 @@ def main():
 
 if __name__ == '__main__':
    main()
+
+# All Probes
+# [ ] SEQ
+# [ ] OPS
+# [ ] WIN
+# [x] T1
+# [x] T2
+# [x] T3
+# [x] T4
+# [x] T5
+# [x] T6
+# [x] T7
+# [ ] IE
+# [x] ECN
+# [ ] U1
+
+# All Tests
+
+# SEQ()
+# [ ] TCP ISN sequence predictability index (SP)
+# [ ] TCP ISN greatest common divisor (GCD)
+# [ ] TCP ISN counter rate (ISR)
+# [ ] IP ID sequence generation algorithm (TI)
+# [ ] IP ID sequence generation algorithm (CI)
+# [-] IP ID sequence generation algorithm (II)
+# [ ] Shared IP ID sequence Boolean (SS)
+# [ ] TCP timestamp option algorithm (TS)
+# OPS()
+# [+] TCP options (O, O1-O6)
+# WIN()
+# [+] TCP initial window size (W, W1-W6)
+# ECN, T1-T7
+# [+] TCP options (O, O1-O6)
+# [+] TCP initial window size (W, W1-W6)
+# [x] Responsiveness (R)
+# [x] IP don't fragment bit (DF)
+# [x] IP initial time-to-live (T)
+# [x] IP initial time-to-live guess (TG)
+# [x] Explicit congestion notification (CC)
+# [x] TCP miscellaneous quirks (Q)
+# [x] TCP sequence number (S)
+# [x] TCP acknowledgment number (A)
+# [x] TCP flags (F)
+# [ ] TCP RST data checksum (RD)
+# IE()
+# [ ] Responsiveness (R)
+# [ ] Don't fragment (ICMP) (DFI)
+# [ ] IP initial time-to-live (T)
+# [ ] IP initial time-to-live guess (TG)
+# [ ] ICMP response code (CD)
+# [ ] ??? (TOSI)
+# [ ] ??? (SI)
+# [ ] ??? (DLI)
+# U1()
+# [ ] Responsiveness (R)
+# [ ] IP don't fragment bit (DF)
+# [ ] IP initial time-to-live (T)
+# [ ] IP initial time-to-live guess (TG)
+# [ ] IP total length (IPL)
+# [ ] Unused port unreachable field nonzero (UN)
+# [ ] Returned probe IP total length value (RIPL)
+# [ ] Returned probe IP ID value (RID)
+# [ ] Integrity of returned probe IP checksum value (RIPCK)
+# [ ] Integrity of returned probe UDP checksum (RUCK)
+# [ ] Integrity of returned UDP data (RUD)
+# [ ] ??? (TOS)
+# [ ] ??? (RUL)
 
