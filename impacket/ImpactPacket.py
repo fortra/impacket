@@ -1404,8 +1404,7 @@ class TCPOption(PacketBuffer):
     def set_ts_echo(self, ts):
         if self.get_kind() != TCPOption.TCPOPT_TIMESTAMP:
             raise ImpactPacketException, "Can only set timestamp on TCPOPT_TIMESTAMP option"
-
-
+        self.set_long(6, ts)
 
     def __str__(self):
         map = { TCPOption.TCPOPT_EOL : "End of List ",
