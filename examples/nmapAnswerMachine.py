@@ -12,13 +12,13 @@ Fingerprint = 'Adtran NetVanta 3200 router' # CD=Z TOSI=Z <----------- NMAP dete
 # Fingerprint = 'Apple Mac OS X 10.5.6 (Leopard) (Darwin 9.6.0)' # DFI=Y SI=S
 
 # Fingerprint = 'Sun Solaris 9 (SPARC)' # CD=S TOSI=20
-# Fingerprint = 'Sun Solaris 9 (x86)'
+Fingerprint = 'Sun Solaris 9 (x86)'
 
-Fingerprint = '3Com OfficeConnect 3CRWER100-75 wireless broadband router'  # TI=Z DFI=N !SS TI=Z II=I
+# Fingerprint = '3Com OfficeConnect 3CRWER100-75 wireless broadband router'  # TI=Z DFI=N !SS TI=Z II=I
 # Fingerprint = 'WatchGuard Firebox X5w firewall/WAP' # TI=RD
 # no TI=Hex
 # Fingerprint = 'FreeBSD 6.0-STABLE - 6.2-RELEASE' # TI=RI
-Fingerprint = 'Microsoft Windows 98 SE' # TI=BI ----> BROKEN! nmap shows no SEQ() output
+# Fingerprint = 'Microsoft Windows 98 SE' # TI=BI ----> BROKEN! nmap shows no SEQ() output
 # Fingerprint = 'Microsoft Windows NT 4.0 SP5 - SP6' # TI=BI TOSI=S SS=S
 # Fingerprint = 'Microsoft Windows Vista Business' # TI=I
 
@@ -655,6 +655,7 @@ class Machine:
        try: ss = seq['SS']
        except: ss = 'O'
 
+       self.ip_ID_ICMP_delta = None
        if ss == 'S': self.ip_ID_ICMP = None
        else:
           self.ip_ID_ICMP = 0
@@ -675,7 +676,7 @@ class Machine:
            self.getIPID_ICMP()
 
        print "IP ID Delta: %d" % self.ip_ID_delta
-       print "IP ID ICMP Delta: %d" % self.ip_ID_ICMP_delta
+       print "IP ID ICMP Delta: %s" % self.ip_ID_ICMP_delta
 
    def initTCPISNGenerator(self):
        # tcp_ISN and tcp_ISN_delta for TCP Initial sequence numbers
@@ -749,7 +750,7 @@ class Machine:
        return answer
 
    def getTCPSequence(self):
-       answer = self.tcp_ISN + random.random()*self.tcp_ISN_stdDev
+       answer = self.tcp_ISN + self.tcp_ISN_stdDev # *random.random()
        self.tcp_ISN_stdDev *= -1
        answer = int(int(answer/self.tcp_ISN_GCD) * self.tcp_ISN_GCD)
        self.tcp_ISN += self.tcp_ISN_delta
