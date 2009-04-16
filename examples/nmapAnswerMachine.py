@@ -8,11 +8,11 @@ from impacket.ImpactPacket import TCPOption
 
 Fingerprint = 'Adtran NetVanta 3200 router' # CD=Z TOSI=Z <----------- NMAP detects it as Linux!!!
 # Fingerprint = 'ADIC Scalar 1000 tape library remote management unit' # DFI=S
-# Fingerprint = 'Siemens Gigaset SX541 or USRobotics USR9111 wireless DSL modem' # DFI=O
-# Fingerprint = 'Apple Mac OS X 10.5.6 (Leopard) (Darwin 9.6.0)' # DFI=Y SI=S
+Fingerprint = 'Siemens Gigaset SX541 or USRobotics USR9111 wireless DSL modem' # DFI=O U1(DF=N)
+# Fingerprint = 'Apple Mac OS X 10.5.6 (Leopard) (Darwin 9.6.0)' # DFI=Y SI=S U1(DF=Y)
 
 # Fingerprint = 'Sun Solaris 9 (SPARC)' # CD=S TOSI=20
-Fingerprint = 'Sun Solaris 9 (x86)'
+# Fingerprint = 'Sun Solaris 9 (x86)'
 
 # Fingerprint = '3Com OfficeConnect 3CRWER100-75 wireless broadband router'  # TI=Z DFI=N !SS TI=Z II=I
 # Fingerprint = 'WatchGuard Firebox X5w firewall/WAP' # TI=RD
@@ -264,11 +264,6 @@ class ClosedUDPResponder(UDPResponder):
 
        return out_onion
 
-   def sendAnswer(self, in_onion):
-       UDPResponder.sendAnswer(self, in_onion)
-       import sys
-       sys.exit()
-
 class TCPResponder(IPResponder):
    def buildAnswer(self, in_onion):
        out_onion = IPResponder.buildAnswer(self, in_onion)
@@ -339,6 +334,41 @@ class ClosedTCPResponder(TCPResponder):
        return out_onion
 
 # NMAP2 specific responders
+class NMAP2UDPResponder(ClosedUDPResponder):
+   signatureName      = 'U1'
+
+   """ No real need to filter
+   def isMine(self, in_onion):
+       return (
+          ClosedUDPResponder.isMine(self, inOnion) and
+          (in_onion[O_UDP_DATA].get_size() == 300))
+   """
+
+   def buildAnswer(self, in_onion):
+       out_onion = ClosedUDPResponder.buildAnswer(self, in_onion)
+# [ ] IP total length (IPL)
+# [ ] Unused port unreachable field nonzero (UN)
+# [ ] Returned probe IP total length value (RIPL)
+# [ ] Returned probe IP ID value (RID)
+# [ ] Integrity of returned probe IP checksum value (RIPCK)
+# [ ] Integrity of returned probe UDP checksum (RUCK)
+# [ ] Integrity of returned UDP data (RUD)
+# [-] ??? (TOS) Type of Service
+# [-] ??? (RUL) Length of return UDP packet is correct
+       f = self.fingerprint
+
+       # assume R = Y
+       try:
+          if (f['R'] == 'N'): return None
+       except: pass
+
+       # Test DF: Don't fragment IP bit set = [YN]
+       if (f['DF'] == 'Y'): out_onion[O_IP].set_ip_df(True)
+       else: out_onion[O_IP].set_ip_df(False)
+
+       self.setTTLFromFingerprint(out_onion)
+
+       return out_onion
 
 class NMAP2ICMPResponder(ICMPResponder):
    def buildAnswer(self, in_onion):
@@ -658,10 +688,10 @@ class Machine:
        self.addResponder(nmap2_T7(self))
        self.addResponder(nmap2_ICMP_1(self))
        self.addResponder(nmap2_ICMP_2(self))
+       self.addResponder(NMAP2UDPResponder(self))
        self.addResponder(OpenUDPResponder(self))
        self.addResponder(ClosedUDPResponder(self))
        self.addResponder(OpenTCPResponder(self))
-       self.addResponder(ClosedTCPResponder(self))
 
    def initFingerprint(self, emmulating):
        fpm = os_ident.NMAP2_Fingerprint_Matcher('')
@@ -913,9 +943,9 @@ if __name__ == '__main__':
 #-[x] ICMP Sequence number (SI)
 #-[x] IP Data Length (DLI)
 # U1()
-# [ ] Responsiveness (R)
-# [ ] IP don't fragment bit (DF)
-# [ ] IP initial time-to-live (T)
+# [x] Responsiveness (R)
+# [x] IP don't fragment bit (DF)
+# [x] IP initial time-to-live (T)
 # [ ] IP initial time-to-live guess (TG)
 # [ ] IP total length (IPL)
 # [ ] Unused port unreachable field nonzero (UN)
