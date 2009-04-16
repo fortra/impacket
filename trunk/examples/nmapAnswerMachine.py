@@ -364,16 +364,18 @@ class NMAP2UDPResponder(ClosedUDPResponder):
        out_onion[O_ICMP].set_icmp_void(un)
 
        # RIPL. Assume original packet just quoted
-       try: ripl = int(f['RIPL'],16)	# G generates exception
-       except: ripl = None
-       if not ripl is None:
+       try:
+          ripl = int(f['RIPL'],16)	# G generates exception
           out_onion[O_ICMP_DATA].set_ip_len(ripl)
+       except:
+          pass
 
        # RID. Assume original packet just quoted
-       try: rid = int(f['RID'],16)	# G generates exception
-       except: rid = None
-       if not rid is None:
+       try:
+          rid = int(f['RID'],16)	# G generates exception
           out_onion[O_ICMP_DATA].set_ip_id(rid)
+       except:
+          pass
 
        # RIPCK. Assume original packet just quoted
        try: ripck = f['RIPCK']
