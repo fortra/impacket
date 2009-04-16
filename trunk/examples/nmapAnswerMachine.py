@@ -375,6 +375,13 @@ class NMAP2UDPResponder(ClosedUDPResponder):
        if not rid is None:
           out_onion[O_ICMP_DATA].set_ip_id(rid)
 
+       # RIPCK. Assume original packet just quoted
+       try: ripck = f['RIPCK']
+       except: ripck = 'G'
+       if   ripck == 'I': out_onion[O_ICMP_DATA].set_ip_sum(0x6765)
+       elif ripck == 'Z': out_onion[O_ICMP_DATA].set_ip_sum(0)
+       elif ripck == 'G': out_onion[O_ICMP_DATA].auto_checksum = 0
+
        # IPL. Assume all original packet is quoted
        # This has to be the last thing we do
        # as we are going to render the packet before doing it
@@ -976,7 +983,7 @@ if __name__ == '__main__':
 # [x] Unused port unreachable field nonzero (UN)
 # [x] Returned probe IP total length value (RIPL)
 # [x] Returned probe IP ID value (RID)
-# [ ] Integrity of returned probe IP checksum value (RIPCK)
+# [x] Integrity of returned probe IP checksum value (RIPCK)
 # [ ] Integrity of returned probe UDP checksum (RUCK)
 # [ ] Integrity of returned UDP data (RUD)
 # [-] ??? (TOS) Type of Service
