@@ -391,6 +391,14 @@ class NMAP2UDPResponder(ClosedUDPResponder):
        except: 
           out_onion[O_ICMP_DATA+1].auto_checksum = 0
 
+       # RUD. Assume original packet just quoted
+       try: rud = f['RUD']
+       except: rud = 'G'
+
+       if rud == 'I':
+          udp_data = out_onion[O_ICMP_DATA+2]
+          udp_data.set_data('G'*udp_data.get_size())
+
        # IPL. Assume all original packet is quoted
        # This has to be the last thing we do
        # as we are going to render the packet before doing it
@@ -994,7 +1002,7 @@ if __name__ == '__main__':
 # [x] Returned probe IP ID value (RID)
 # [x] Integrity of returned probe IP checksum value (RIPCK)
 # [x] Integrity of returned probe UDP checksum (RUCK)
-# [ ] Integrity of returned UDP data (RUD)
+# [x] Integrity of returned UDP data (RUD)
 # [-] ??? (TOS) Type of Service
 # [-] ??? (RUL) Length of return UDP packet is correct
 
