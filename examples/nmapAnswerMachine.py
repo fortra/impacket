@@ -31,8 +31,7 @@ Fingerprint = 'Sun Solaris 9 (x86)'
 MAC = "01:02:03:04:05:06"
 IP  = "192.168.67.254"
 IFACE = "eth0"
-TCP_OPEN_PORT = 80
-TCP_CLOSED_PORT = 22
+OPEN_TCP_PORTS = [80, 443]
 
 O_ETH = 0
 O_IP  = 1
@@ -85,18 +84,25 @@ class Responder:
    def isMine(self, in_onion):
        return False
 
-   def sendAnswer(self, in_onion):
-       pass
+   def initAnswer(self, in_onion):
+       return None
+
+   def sendAnswer(self, out_onion):
+       self.machine.sendPacket(out_onion)
 
    def process(self, in_onion):
        if not self.isMine(in_onion): return False
        print "Got packet for %s" % self.__class__.__name__
 
-       self.sendAnswer(in_onion)
+       out_onion = self.initAnswer(in_onion)
+
+       if out_onion: self.sendAnswer(out_onion)
        return True
 
    def getIP(self):
        return self.machine.ipAddress
+
+# Generic Responders (does the word Responder exist?)
 
 class ARPResponder(Responder):
    def isMine(self, in_onion):
@@ -109,7 +115,7 @@ class ARPResponder(Responder):
           in_onion[O_ARP].get_ar_op() == 1 and # ARP REQUEST
           in_onion[O_ARP].get_ar_tpa() == string2tuple(self.machine.ipAddress))
 
-   def sendAnswer(self, in_onion):
+   def initAnswer(self, in_onion):
        eth = ImpactPacket.Ethernet()
        arp = ImpactPacket.ARP()
        eth.contains(arp)
@@ -127,7 +133,7 @@ class ARPResponder(Responder):
        eth.set_ether_shost(arp.get_ar_sha())
        eth.set_ether_dhost(arp.get_ar_tha())
 
-       self.machine.sendPacket([eth])
+       return [eth, arp]
 
 class IPResponder(Responder):
    def initAnswer(self, in_onion):
@@ -210,6 +216,77 @@ class ICMPResponder(IPResponder):
           (t_icmp_datalen == in_onion[O_ICMP_DATA].get_size())
        )
 
+class TCPResponder(IPResponder):
+   def initAnswer(self, in_onion):
+       out_onion = IPResponder.initAnswer(self, in_onion)
+       tcp = ImpactPacket.TCP()
+
+       out_onion[O_IP].contains(tcp)
+       out_onion.append(tcp)
+
+       tcp.set_th_dport(in_onion[O_TCP].get_th_sport())
+       tcp.set_th_sport(in_onion[O_TCP].get_th_dport())
+
+       return out_onion
+
+   def sameTCPFlags(self, in_onion):
+       if not self.template_onion: return True
+       in_flags = in_onion[O_TCP].get_th_flags() & 0xfff
+       t_flags  = self.template_onion[O_TCP].get_th_flags() & 0xfff
+
+       return in_flags == t_flags
+
+   def sameTCPOptions(self, in_onion):
+       if not self.template_onion: return True
+       in_options = in_onion[O_TCP].get_padded_options()
+       t_options  = self.template_onion[O_TCP].get_padded_options()
+
+       return in_options == t_options
+
+   def isMine(self, in_onion):
+       if not IPResponder.isMine(self, in_onion): return False
+       if len(in_onion) < 3: return False
+
+       return (
+           in_onion[O_TCP].protocol == ImpactPacket.TCP.protocol and
+           self.sameTCPFlags(in_onion) and
+           self.sameTCPOptions(in_onion)
+       )
+
+class OpenTCPResponder(TCPResponder):
+   def isMine(self, in_onion):
+       return (
+          TCPResponder.isMine(self, in_onion) and 
+          in_onion[O_TCP].get_SYN() and
+          self.machine.isTCPPortOpen(in_onion[O_TCP].get_th_dport()))
+
+   def initAnswer(self, in_onion):
+       out_onion = TCPResponder.initAnswer(self, in_onion)
+
+       out_onion[O_TCP].set_SYN()
+       out_onion[O_TCP].set_ACK()
+       out_onion[O_TCP].set_th_ack(in_onion[O_TCP].get_th_seq()+1)
+       out_onion[O_TCP].set_th_seq(random.randint(0,2**32))
+
+       return out_onion
+
+class ClosedTCPResponder(TCPResponder):
+   def isMine(self, in_onion):
+       return (
+          TCPResponder.isMine(self, in_onion) and 
+          in_onion[O_TCP].get_SYN() and
+          not self.machine.isTCPPortOpen(in_onion[O_TCP].get_th_dport()))
+
+   def initAnswer(self, in_onion):
+       out_onion = TCPResponder.initAnswer(self, in_onion)
+
+       out_onion[O_TCP].set_RST()
+       out_onion[O_TCP].set_th_ack(in_onion[O_TCP].get_th_seq()+1)
+
+       return out_onion
+
+# NMAP2 specific responders
+
 class NMAP2ICMPResponder(ICMPResponder):
    def initAnswer(self, in_onion):
        f = self.fingerprint
@@ -273,90 +350,6 @@ class NMAP2ICMPResponder(ICMPResponder):
            except: raise Exception('Unsupported IE(TOSI=%s)' % tosi)
 
        return out_onion
-
-   def sendAnswer(self, in_onion):
-       out_onion = self.initAnswer(in_onion)
-       self.machine.sendPacket(out_onion)
-
-class TCPResponder(IPResponder):
-   def initAnswer(self, in_onion):
-       out_onion = IPResponder.initAnswer(self, in_onion)
-       tcp = ImpactPacket.TCP()
-
-       out_onion[O_IP].contains(tcp)
-       out_onion.append(tcp)
-
-       tcp.set_th_dport(in_onion[O_TCP].get_th_sport())
-       tcp.set_th_sport(in_onion[O_TCP].get_th_dport())
-
-       return out_onion
-
-   def sameTCPFlags(self, in_onion):
-       if not self.template_onion: return True
-       in_flags = in_onion[O_TCP].get_th_flags() & 0xfff
-       t_flags  = self.template_onion[O_TCP].get_th_flags() & 0xfff
-
-       return in_flags == t_flags
-
-   def sameTCPOptions(self, in_onion):
-       if not self.template_onion: return True
-       in_options = in_onion[O_TCP].get_padded_options()
-       t_options  = self.template_onion[O_TCP].get_padded_options()
-
-       return in_options == t_options
-
-   def isMine(self, in_onion):
-       if not IPResponder.isMine(self, in_onion): return False
-       if len(in_onion) < 3: return False
-
-       #if in_onion[O_TCP].protocol == ImpactPacket.TCP.protocol:
-          # print "Options: %r" % in_onion[O_TCP].get_padded_options()
-          # print "Flags: 0x%04x" % in_onion[O_TCP].get_th_flags()
-
-       return (
-           in_onion[O_TCP].protocol == ImpactPacket.TCP.protocol and
-           in_onion[O_TCP].get_th_dport() == self.port and
-           self.sameTCPFlags(in_onion) and
-           self.sameTCPOptions(in_onion)
-       )
-
-class TCPClosedPort(TCPResponder):
-   def isMine(self, in_onion):
-       if not TCPResponder.isMine(self, in_onion): return False
-
-       return (
-          (in_onion[O_TCP].get_th_dport() == self.port) and
-          in_onion[O_TCP].get_SYN())
-
-   def sendAnswer(self, in_onion):
-       out_onion = self.initAnswer(in_onion)
-
-       out_onion[O_TCP].set_RST()
-       out_onion[O_TCP].set_th_ack(in_onion[O_TCP].get_th_seq()+1)
-
-       self.machine.sendPacket(out_onion)
-
-class TCPOpenPort(TCPResponder):
-   def isMine(self, in_onion):
-       if not TCPResponder.isMine(self, in_onion): return False
-
-       return (
-          (in_onion[O_TCP].get_th_dport() == self.port) and
-          in_onion[O_TCP].get_SYN())
-
-   def initAnswer(self, in_onion):
-       out_onion = TCPResponder.initAnswer(self, in_onion)
-
-       out_onion[O_TCP].set_SYN()
-       out_onion[O_TCP].set_ACK()
-       out_onion[O_TCP].set_th_ack(in_onion[O_TCP].get_th_seq()+1)
-       out_onion[O_TCP].set_th_seq(random.randint(0,2**32))
-
-       return out_onion
-
-   def sendAnswer(self, in_onion):
-       out_onion = self.initAnswer(in_onion)
-       self.machine.sendPacket(out_onion)
 
 class NMAP2TCPResponder(TCPResponder):
    def initAnswer(self, in_onion):
@@ -489,10 +482,6 @@ class NMAP2TCPResponder(TCPResponder):
              window, i = getValue(options, i)
              tcp.add_option(TCPOption(TCPOption.TCPOPT_WINDOW, window))
 
-   def sendAnswer(self, in_onion):
-       out_onion = self.initAnswer(in_onion)
-       self.machine.sendPacket(out_onion)
-
 class nmap2_SEQ(NMAP2TCPResponder):
    templateClass = None
    signatureName = None
@@ -575,7 +564,7 @@ class nmap2_ICMP_2(NMAP2ICMPResponder):
 
 class Machine:
    AssumedTimeIntervalPerPacket = 0.11 # seconds
-   def __init__(self, emmulating, ipAddress, macAddress):
+   def __init__(self, emmulating, ipAddress, macAddress, openTCPPorts = []):
        self.ipAddress = ipAddress
        self.macAddress = macAddress
        self.responders = []
@@ -586,6 +575,10 @@ class Machine:
        self.initResponders()
 
        self.initSequenceGenerators()
+       self.openTCPPorts = openTCPPorts
+
+   def isTCPPortOpen(self, port):
+       return port in self.openTCPPorts
 
    def initPcap(self):
        self.pcap = pcapy.open_live(IFACE, 65535, 1, 1)
@@ -593,23 +586,23 @@ class Machine:
 
    def initResponders(self):
        self.addResponder(ARPResponder(self, 0))
-       self.addResponder(nmap2_ECN(self, TCP_OPEN_PORT))
-       self.addResponder(nmap2_SEQ1(self, TCP_OPEN_PORT))
-       self.addResponder(nmap2_SEQ2(self, TCP_OPEN_PORT))
-       self.addResponder(nmap2_SEQ3(self, TCP_OPEN_PORT))
-       self.addResponder(nmap2_SEQ4(self, TCP_OPEN_PORT))
-       self.addResponder(nmap2_SEQ5(self, TCP_OPEN_PORT))
-       self.addResponder(nmap2_SEQ6(self, TCP_OPEN_PORT))
-       self.addResponder(nmap2_T2(self, TCP_OPEN_PORT))
-       self.addResponder(nmap2_T3(self, TCP_OPEN_PORT))
-       self.addResponder(nmap2_T4(self, TCP_OPEN_PORT))
-       self.addResponder(nmap2_T5(self, TCP_CLOSED_PORT))
-       self.addResponder(nmap2_T6(self, TCP_CLOSED_PORT))
-       self.addResponder(nmap2_T7(self, TCP_CLOSED_PORT))
+       self.addResponder(nmap2_ECN(self))
+       self.addResponder(nmap2_SEQ1(self))
+       self.addResponder(nmap2_SEQ2(self))
+       self.addResponder(nmap2_SEQ3(self))
+       self.addResponder(nmap2_SEQ4(self))
+       self.addResponder(nmap2_SEQ5(self))
+       self.addResponder(nmap2_SEQ6(self))
+       self.addResponder(nmap2_T2(self))
+       self.addResponder(nmap2_T3(self))
+       self.addResponder(nmap2_T4(self))
+       self.addResponder(nmap2_T5(self))
+       self.addResponder(nmap2_T6(self))
+       self.addResponder(nmap2_T7(self))
        self.addResponder(nmap2_ICMP_1(self))
        self.addResponder(nmap2_ICMP_2(self))
-       self.addResponder(TCPOpenPort(self, TCP_OPEN_PORT))
-       self.addResponder(TCPClosedPort(self, TCP_CLOSED_PORT))
+       self.addResponder(OpenTCPResponder(self))
+       self.addResponder(ClosedTCPResponder(self))
 
    def initFingerprint(self, emmulating):
        fpm = os_ident.NMAP2_Fingerprint_Matcher('')
@@ -789,7 +782,7 @@ class Machine:
 
 
 def main():
-   Machine(Fingerprint, IP, MAC).run()
+   Machine(Fingerprint, IP, MAC, OPEN_TCP_PORTS).run()
 
 if __name__ == '__main__':
    main()
@@ -857,9 +850,9 @@ if __name__ == '__main__':
 # [x] IP initial time-to-live (T)
 # [x] IP initial time-to-live guess (TG)
 # [x] ICMP response code (CD)
-# [x] IP Type of Service (TOSI)
-# [x] ICMP Sequence number (SI)
-# [x] IP Data Length (DLI)
+#-[x] IP Type of Service (TOSI)
+#-[x] ICMP Sequence number (SI)
+#-[x] IP Data Length (DLI)
 # U1()
 # [ ] Responsiveness (R)
 # [ ] IP don't fragment bit (DF)
@@ -872,6 +865,6 @@ if __name__ == '__main__':
 # [ ] Integrity of returned probe IP checksum value (RIPCK)
 # [ ] Integrity of returned probe UDP checksum (RUCK)
 # [ ] Integrity of returned UDP data (RUD)
-# [ ] ??? (TOS) Type of Service
-# [ ] ??? (RUL) Length of return UDP packet is correct
+# [-] ??? (TOS) Type of Service
+# [-] ??? (RUL) Length of return UDP packet is correct
 
