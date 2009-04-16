@@ -84,7 +84,7 @@ class Responder:
    def isMine(self, in_onion):
        return False
 
-   def initAnswer(self, in_onion):
+   def buildAnswer(self, in_onion):
        return None
 
    def sendAnswer(self, out_onion):
@@ -94,7 +94,7 @@ class Responder:
        if not self.isMine(in_onion): return False
        print "Got packet for %s" % self.__class__.__name__
 
-       out_onion = self.initAnswer(in_onion)
+       out_onion = self.buildAnswer(in_onion)
 
        if out_onion: self.sendAnswer(out_onion)
        return True
@@ -115,7 +115,7 @@ class ARPResponder(Responder):
           in_onion[O_ARP].get_ar_op() == 1 and # ARP REQUEST
           in_onion[O_ARP].get_ar_tpa() == string2tuple(self.machine.ipAddress))
 
-   def initAnswer(self, in_onion):
+   def buildAnswer(self, in_onion):
        eth = ImpactPacket.Ethernet()
        arp = ImpactPacket.ARP()
        eth.contains(arp)
@@ -136,7 +136,7 @@ class ARPResponder(Responder):
        return [eth, arp]
 
 class IPResponder(Responder):
-   def initAnswer(self, in_onion):
+   def buildAnswer(self, in_onion):
        eth = ImpactPacket.Ethernet()
        ip = ImpactPacket.IP()
 
@@ -181,8 +181,8 @@ class IPResponder(Responder):
        out_onion[O_IP].set_ip_ttl(ttl)
 
 class ICMPResponder(IPResponder):
-   def initAnswer(self, in_onion):
-       out_onion = IPResponder.initAnswer(self, in_onion)
+   def buildAnswer(self, in_onion):
+       out_onion = IPResponder.buildAnswer(self, in_onion)
        icmp = ImpactPacket.ICMP()
 
        out_onion[O_IP].contains(icmp)
@@ -217,8 +217,8 @@ class ICMPResponder(IPResponder):
        )
 
 class TCPResponder(IPResponder):
-   def initAnswer(self, in_onion):
-       out_onion = IPResponder.initAnswer(self, in_onion)
+   def buildAnswer(self, in_onion):
+       out_onion = IPResponder.buildAnswer(self, in_onion)
        tcp = ImpactPacket.TCP()
 
        out_onion[O_IP].contains(tcp)
@@ -260,8 +260,8 @@ class OpenTCPResponder(TCPResponder):
           in_onion[O_TCP].get_SYN() and
           self.machine.isTCPPortOpen(in_onion[O_TCP].get_th_dport()))
 
-   def initAnswer(self, in_onion):
-       out_onion = TCPResponder.initAnswer(self, in_onion)
+   def buildAnswer(self, in_onion):
+       out_onion = TCPResponder.buildAnswer(self, in_onion)
 
        out_onion[O_TCP].set_SYN()
        out_onion[O_TCP].set_ACK()
@@ -277,8 +277,8 @@ class ClosedTCPResponder(TCPResponder):
           in_onion[O_TCP].get_SYN() and
           not self.machine.isTCPPortOpen(in_onion[O_TCP].get_th_dport()))
 
-   def initAnswer(self, in_onion):
-       out_onion = TCPResponder.initAnswer(self, in_onion)
+   def buildAnswer(self, in_onion):
+       out_onion = TCPResponder.buildAnswer(self, in_onion)
 
        out_onion[O_TCP].set_RST()
        out_onion[O_TCP].set_th_ack(in_onion[O_TCP].get_th_seq()+1)
@@ -288,7 +288,7 @@ class ClosedTCPResponder(TCPResponder):
 # NMAP2 specific responders
 
 class NMAP2ICMPResponder(ICMPResponder):
-   def initAnswer(self, in_onion):
+   def buildAnswer(self, in_onion):
        f = self.fingerprint
 
        # assume R = Y
@@ -296,7 +296,7 @@ class NMAP2ICMPResponder(ICMPResponder):
           if (f['R'] == 'N'): return None
        except: pass
 
-       out_onion = ICMPResponder.initAnswer(self, in_onion)
+       out_onion = ICMPResponder.buildAnswer(self, in_onion)
 
        # assume DFI = N
        try: dfi = f['DFI'] 
@@ -352,8 +352,8 @@ class NMAP2ICMPResponder(ICMPResponder):
        return out_onion
 
 class NMAP2TCPResponder(TCPResponder):
-   def initAnswer(self, in_onion):
-       out_onion = TCPResponder.initAnswer(self, in_onion)
+   def buildAnswer(self, in_onion):
+       out_onion = TCPResponder.buildAnswer(self, in_onion)
 
        f = self.fingerprint
 
