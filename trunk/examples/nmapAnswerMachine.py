@@ -358,6 +358,11 @@ class NMAP2UDPResponder(ClosedUDPResponder):
 
        self.setTTLFromFingerprint(out_onion)
 
+       # UN. Assume 0
+       try: un = int(f['UN'],16)
+       except: un = 0
+       out_onion[O_ICMP].set_icmp_void(un)
+
        # IPL. Assume all original packet is quoted
        # This has to be the last thing we do
        # as we are going to render the packet before doing it
@@ -955,8 +960,8 @@ if __name__ == '__main__':
 # [x] IP don't fragment bit (DF)
 # [x] IP initial time-to-live (T)
 # [x] IP initial time-to-live guess (TG)
-# [ ] IP total length (IPL)
-# [ ] Unused port unreachable field nonzero (UN)
+# [x] IP total length (IPL)
+# [x] Unused port unreachable field nonzero (UN)
 # [ ] Returned probe IP total length value (RIPL)
 # [ ] Returned probe IP ID value (RID)
 # [ ] Integrity of returned probe IP checksum value (RIPCK)
