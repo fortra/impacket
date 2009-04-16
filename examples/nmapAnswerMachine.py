@@ -382,6 +382,13 @@ class NMAP2UDPResponder(ClosedUDPResponder):
        elif ripck == 'Z': out_onion[O_ICMP_DATA].set_ip_sum(0)
        elif ripck == 'G': out_onion[O_ICMP_DATA].auto_checksum = 0
 
+       # RUCK. Assume original packet just quoted
+       try:
+          ruck = int(f['RUCK'], 16)
+          out_onion[O_ICMP_DATA+1].set_uh_sum(ruck)
+       except: 
+          out_onion[O_ICMP_DATA+1].auto_checksum = 0
+
        # IPL. Assume all original packet is quoted
        # This has to be the last thing we do
        # as we are going to render the packet before doing it
@@ -984,7 +991,7 @@ if __name__ == '__main__':
 # [x] Returned probe IP total length value (RIPL)
 # [x] Returned probe IP ID value (RID)
 # [x] Integrity of returned probe IP checksum value (RIPCK)
-# [ ] Integrity of returned probe UDP checksum (RUCK)
+# [x] Integrity of returned probe UDP checksum (RUCK)
 # [ ] Integrity of returned UDP data (RUD)
 # [-] ??? (TOS) Type of Service
 # [-] ??? (RUL) Length of return UDP packet is correct
