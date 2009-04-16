@@ -6,9 +6,9 @@ from impacket import ImpactPacket
 from impacket import ImpactDecoder
 from impacket.ImpactPacket import TCPOption
 
-Fingerprint = 'Adtran NetVanta 3200 router' # CD=Z TOSI=Z <----------- NMAP detects it as Linux!!!
+# Fingerprint = 'Adtran NetVanta 3200 router' # CD=Z TOSI=Z <----------- NMAP detects it as Linux!!!
 # Fingerprint = 'ADIC Scalar 1000 tape library remote management unit' # DFI=S
-Fingerprint = 'Siemens Gigaset SX541 or USRobotics USR9111 wireless DSL modem' # DFI=O U1(DF=N)
+# Fingerprint = 'Siemens Gigaset SX541 or USRobotics USR9111 wireless DSL modem' # DFI=O U1(DF=N IPL=38)
 # Fingerprint = 'Apple Mac OS X 10.5.6 (Leopard) (Darwin 9.6.0)' # DFI=Y SI=S U1(DF=Y)
 
 # Fingerprint = 'Sun Solaris 9 (SPARC)' # CD=S TOSI=20
@@ -20,7 +20,7 @@ Fingerprint = 'Siemens Gigaset SX541 or USRobotics USR9111 wireless DSL modem' #
 # Fingerprint = 'FreeBSD 6.0-STABLE - 6.2-RELEASE' # TI=RI
 # Fingerprint = 'Microsoft Windows 98 SE' # TI=BI ----> BROKEN! nmap shows no SEQ() output
 # Fingerprint = 'Microsoft Windows NT 4.0 SP5 - SP6' # TI=BI TOSI=S SS=S
-# Fingerprint = 'Microsoft Windows Vista Business' # TI=I
+Fingerprint = 'Microsoft Windows Vista Business' # TI=I U1(IPL=164)
 
 # Fingerprint = 'FreeBSD 6.1-RELEASE' # no TI (TI=O)
 
@@ -337,24 +337,14 @@ class ClosedTCPResponder(TCPResponder):
 class NMAP2UDPResponder(ClosedUDPResponder):
    signatureName      = 'U1'
 
-   """ No real need to filter
-   def isMine(self, in_onion):
-       return (
-          ClosedUDPResponder.isMine(self, inOnion) and
-          (in_onion[O_UDP_DATA].get_size() == 300))
-   """
+   # No real need to filter
+   # def isMine(self, in_onion):
+   #     return (
+   #        ClosedUDPResponder.isMine(self, inOnion) and
+   #        (in_onion[O_UDP_DATA].get_size() == 300))
 
    def buildAnswer(self, in_onion):
        out_onion = ClosedUDPResponder.buildAnswer(self, in_onion)
-# [ ] IP total length (IPL)
-# [ ] Unused port unreachable field nonzero (UN)
-# [ ] Returned probe IP total length value (RIPL)
-# [ ] Returned probe IP ID value (RID)
-# [ ] Integrity of returned probe IP checksum value (RIPCK)
-# [ ] Integrity of returned probe UDP checksum (RUCK)
-# [ ] Integrity of returned UDP data (RUD)
-# [-] ??? (TOS) Type of Service
-# [-] ??? (RUL) Length of return UDP packet is correct
        f = self.fingerprint
 
        # assume R = Y
@@ -367,6 +357,24 @@ class NMAP2UDPResponder(ClosedUDPResponder):
        else: out_onion[O_IP].set_ip_df(False)
 
        self.setTTLFromFingerprint(out_onion)
+
+       # IPL. Assume all original packet is quoted
+       # This has to be the last thing we do
+       # as we are going to render the packet before doing it
+       try: ipl = int(f['IPL'], 16)
+       except: ipl = None
+
+       if not ipl is None:
+          data = out_onion[O_ICMP_DATA].get_packet()
+          out_onion[O_ICMP].contains(ImpactPacket.Data())
+          ip_and_icmp_len = out_onion[O_IP].get_size()
+
+          data = data[:ipl - ip_and_icmp_len]
+
+          data += '\x00'*(ipl-len(data)-ip_and_icmp_len)
+          out_onion = out_onion[:O_ICMP_DATA]
+          out_onion.append(ImpactPacket.Data(data))
+          out_onion[O_ICMP].contains(out_onion[O_ICMP_DATA])
 
        return out_onion
 
