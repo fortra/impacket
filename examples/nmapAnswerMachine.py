@@ -946,7 +946,7 @@ if __name__ == '__main__':
 # [x] Responsiveness (R)
 # [x] IP don't fragment bit (DF)
 # [x] IP initial time-to-live (T)
-# [ ] IP initial time-to-live guess (TG)
+# [x] IP initial time-to-live guess (TG)
 # [ ] IP total length (IPL)
 # [ ] Unused port unreachable field nonzero (UN)
 # [ ] Returned probe IP total length value (RIPL)
