@@ -32,6 +32,7 @@ MAC = "01:02:03:04:05:06"
 IP  = "192.168.67.254"
 IFACE = "eth0"
 OPEN_TCP_PORTS = [80, 443]
+OPEN_UDP_PORTS = [111]
 
 O_ETH = 0
 O_IP  = 1
@@ -39,6 +40,7 @@ O_ARP = 1
 O_UDP = 2
 O_TCP = 2
 O_ICMP = 2
+O_UDP_DATA = 3
 O_ICMP_DATA = 3
 
 def string2tuple(string):
@@ -51,9 +53,8 @@ class Responder:
    templateClass = None
    signatureName      = None
 
-   def __init__(self, machine, port = 0):
+   def __init__(self, machine):
        self.machine = machine
-       self.port = port
        print "Initializing %s" % self.__class__.__name__
        self.initTemplate()
        self.initFingerprint()
@@ -215,6 +216,58 @@ class ICMPResponder(IPResponder):
           (t_icmp.get_icmp_code() == in_onion[O_ICMP].get_icmp_code()) and
           (t_icmp_datalen == in_onion[O_ICMP_DATA].get_size())
        )
+
+class UDPResponder(IPResponder):
+   def isMine(self, in_onion):
+       return (
+           IPResponder.isMine(self, in_onion) and
+           (len(in_onion) >= 3) and
+           (in_onion[O_UDP].protocol == ImpactPacket.UDP.protocol)
+       )
+
+class OpenUDPResponder(UDPResponder):
+   def isMine(self, in_onion):
+       return (
+          UDPResponder.isMine(self, in_onion) and
+          self.machine.isUDPPortOpen(in_onion[O_UDP].get_uh_dport()))
+
+   def buildAnswer(self, in_onion):
+       out_onion = IPResponder.buildAnswer(self, in_onion)
+       udp = ImpactPacket.UDP()
+
+       out_onion[O_IP].contains(udp)
+       out_onion.append(udp)
+
+       udp.set_uh_dport(in_onion[O_UDP].get_uh_sport())
+       udp.set_uh_sport(in_onion[O_UDP].get_uh_dport())
+
+       return out_onion
+
+class ClosedUDPResponder(UDPResponder):
+   def isMine(self, in_onion):
+       return (
+          UDPResponder.isMine(self, in_onion) and
+          not self.machine.isUDPPortOpen(in_onion[O_UDP].get_uh_dport()))
+
+   def buildAnswer(self, in_onion):
+       out_onion = IPResponder.buildAnswer(self, in_onion)
+       icmp = ImpactPacket.ICMP()
+
+       out_onion[O_IP].contains(icmp)
+       out_onion.append(icmp)
+
+       icmp.contains(in_onion[O_IP])
+       out_onion += in_onion[O_IP:]
+
+       icmp.set_icmp_type(icmp.ICMP_UNREACH)
+       icmp.set_icmp_code(icmp.ICMP_UNREACH_PORT)
+
+       return out_onion
+
+   def sendAnswer(self, in_onion):
+       UDPResponder.sendAnswer(self, in_onion)
+       import sys
+       sys.exit()
 
 class TCPResponder(IPResponder):
    def buildAnswer(self, in_onion):
@@ -564,7 +617,7 @@ class nmap2_ICMP_2(NMAP2ICMPResponder):
 
 class Machine:
    AssumedTimeIntervalPerPacket = 0.11 # seconds
-   def __init__(self, emmulating, ipAddress, macAddress, openTCPPorts = []):
+   def __init__(self, emmulating, ipAddress, macAddress, openTCPPorts = [], openUDPPorts = []):
        self.ipAddress = ipAddress
        self.macAddress = macAddress
        self.responders = []
@@ -576,6 +629,10 @@ class Machine:
 
        self.initSequenceGenerators()
        self.openTCPPorts = openTCPPorts
+       self.openUDPPorts = openUDPPorts
+
+   def isUDPPortOpen(self, port):
+       return port in self.openUDPPorts
 
    def isTCPPortOpen(self, port):
        return port in self.openTCPPorts
@@ -585,7 +642,7 @@ class Machine:
        self.pcap.setfilter("host %s or ether host %s" % (self.ipAddress, self.macAddress))
 
    def initResponders(self):
-       self.addResponder(ARPResponder(self, 0))
+       self.addResponder(ARPResponder(self))
        self.addResponder(nmap2_ECN(self))
        self.addResponder(nmap2_SEQ1(self))
        self.addResponder(nmap2_SEQ2(self))
@@ -601,6 +658,8 @@ class Machine:
        self.addResponder(nmap2_T7(self))
        self.addResponder(nmap2_ICMP_1(self))
        self.addResponder(nmap2_ICMP_2(self))
+       self.addResponder(OpenUDPResponder(self))
+       self.addResponder(ClosedUDPResponder(self))
        self.addResponder(OpenTCPResponder(self))
        self.addResponder(ClosedTCPResponder(self))
 
@@ -782,7 +841,7 @@ class Machine:
 
 
 def main():
-   Machine(Fingerprint, IP, MAC, OPEN_TCP_PORTS).run()
+   Machine(Fingerprint, IP, MAC, OPEN_TCP_PORTS, OPEN_UDP_PORTS).run()
 
 if __name__ == '__main__':
    main()
