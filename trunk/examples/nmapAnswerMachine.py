@@ -363,6 +363,12 @@ class NMAP2UDPResponder(ClosedUDPResponder):
        except: un = 0
        out_onion[O_ICMP].set_icmp_void(un)
 
+       # RIPL. Assume original packet just quoted
+       try: ripl = int(f['RIPL'],16)	# G generates exception
+       except: ripl = None
+       if not ripl is None:
+          out_onion[O_ICMP_DATA].set_ip_len(ripl)
+
        # IPL. Assume all original packet is quoted
        # This has to be the last thing we do
        # as we are going to render the packet before doing it
@@ -962,7 +968,7 @@ if __name__ == '__main__':
 # [x] IP initial time-to-live guess (TG)
 # [x] IP total length (IPL)
 # [x] Unused port unreachable field nonzero (UN)
-# [ ] Returned probe IP total length value (RIPL)
+# [x] Returned probe IP total length value (RIPL)
 # [ ] Returned probe IP ID value (RID)
 # [ ] Integrity of returned probe IP checksum value (RIPCK)
 # [ ] Integrity of returned probe UDP checksum (RUCK)
