@@ -1,6 +1,8 @@
 import random
 
 import os_ident
+import uncrc32
+
 import pcapy
 from impacket import ImpactPacket
 from impacket import ImpactDecoder
@@ -11,7 +13,7 @@ from impacket.ImpactPacket import TCPOption
 # Fingerprint = 'Siemens Gigaset SX541 or USRobotics USR9111 wireless DSL modem' # DFI=O U1(DF=N IPL=38)
 # Fingerprint = 'Apple Mac OS X 10.5.6 (Leopard) (Darwin 9.6.0)' # DFI=Y SI=S U1(DF=Y)
 
-# Fingerprint = 'Sun Solaris 9 (SPARC)' # CD=S TOSI=20
+Fingerprint = 'Sun Solaris 9 (SPARC)' # CD=S TOSI=20
 # Fingerprint = 'Sun Solaris 9 (x86)'
 
 # Fingerprint = '3Com OfficeConnect 3CRWER100-75 wireless broadband router'  # TI=Z DFI=N !SS TI=Z II=I
@@ -20,7 +22,7 @@ from impacket.ImpactPacket import TCPOption
 # Fingerprint = 'FreeBSD 6.0-STABLE - 6.2-RELEASE' # TI=RI
 # Fingerprint = 'Microsoft Windows 98 SE' # TI=BI ----> BROKEN! nmap shows no SEQ() output
 # Fingerprint = 'Microsoft Windows NT 4.0 SP5 - SP6' # TI=BI TOSI=S SS=S
-Fingerprint = 'Microsoft Windows Vista Business' # TI=I U1(IPL=164)
+# Fingerprint = 'Microsoft Windows Vista Business' # TI=I U1(IPL=164)
 
 # Fingerprint = 'FreeBSD 6.1-RELEASE' # no TI (TI=O)
 
@@ -569,6 +571,18 @@ class NMAP2TCPResponder(TCPResponder):
        if 'S' in flags: out_onion[O_TCP].set_SYN()
        if 'F' in flags: out_onion[O_TCP].set_FIN()
 
+       # Test RD: TCP Data checksum (mostly for data in RST)
+       try:
+           crc = f['RD']
+           if crc != '0':	# when the
+               crc = int(crc, 16)
+               data  = 'TCP Port is closed\x00'
+               data += uncrc32.compensate(data, crc)
+               data = ImpactPacket.Data(data) 
+               out_onion.append(data)
+               out_onion[O_TCP].contains(data)
+       except:
+           pass
        return out_onion
 
    def setTCPOptions(self, onion, options):
@@ -981,7 +995,7 @@ if __name__ == '__main__':
 # [x] TCP sequence number (S)
 # [x] TCP acknowledgment number (A)
 # [x] TCP flags (F)
-# [ ] TCP RST data checksum (RD)
+# [x] TCP RST data checksum (RD)
 # IE()
 # [x] Responsiveness (R)
 # [x] Don't fragment (ICMP) (DFI)
