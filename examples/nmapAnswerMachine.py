@@ -3,7 +3,9 @@ import random
 import os_ident
 import uncrc32
 
-import pcapy
+try: import pcap as pcapy
+except: import pcapy
+
 from impacket import ImpactPacket
 from impacket import ImpactDecoder
 from impacket.ImpactPacket import TCPOption
@@ -712,7 +714,8 @@ class nmap2_ICMP_2(NMAP2ICMPResponder):
 
 class Machine:
    AssumedTimeIntervalPerPacket = 0.11 # seconds
-   def __init__(self, emmulating, ipAddress, macAddress, openTCPPorts = [], openUDPPorts = []):
+   def __init__(self, emmulating, interface, ipAddress, macAddress, openTCPPorts = [], openUDPPorts = []):
+       self.interface = interface
        self.ipAddress = ipAddress
        self.macAddress = macAddress
        self.responders = []
@@ -733,8 +736,9 @@ class Machine:
        return port in self.openTCPPorts
 
    def initPcap(self):
-       self.pcap = pcapy.open_live(IFACE, 65535, 1, 1)
-       self.pcap.setfilter("host %s or ether host %s" % (self.ipAddress, self.macAddress))
+       self.pcap = pcapy.open_live(self.interface, 65535, 1, 1)
+       try:       self.pcap.setfilter("host %s or ether host %s" % (self.ipAddress, self.macAddress))
+       except:    self.pcap.setfilter("host %s or ether host %s" % (self.ipAddress, self.macAddress), 1, 0xFFFFFF00)
 
    def initResponders(self):
        self.addResponder(ARPResponder(self))
@@ -914,7 +918,7 @@ class Machine:
 
    def sendPacket(self, onion):
        if not onion: return
-       print "--> Packet sent"
+       print "--> Packet sent:"
        #print onion[0]
        #print
        self.pcap.sendpacket(onion[O_ETH].get_packet())
@@ -925,7 +929,8 @@ class Machine:
    def run(self):
        while 1:
           p = self.pcap.next()
-          in_onion = [self.decoder.decode(p[1])]
+          try:    in_onion = [self.decoder.decode(p[1])]
+          except: in_onion = [self.decoder.decode(p[0])]
           try:
              while 1: in_onion.append(in_onion[-1].child())
           except:
@@ -937,7 +942,7 @@ class Machine:
 
 
 def main():
-   Machine(Fingerprint, IP, MAC, OPEN_TCP_PORTS, OPEN_UDP_PORTS).run()
+   Machine(Fingerprint, IFACE, IP, MAC, OPEN_TCP_PORTS, OPEN_UDP_PORTS).run()
 
 if __name__ == '__main__':
    main()
