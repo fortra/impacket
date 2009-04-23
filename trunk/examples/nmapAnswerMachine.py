@@ -316,7 +316,7 @@ class OpenTCPResponder(TCPResponder):
        out_onion[O_TCP].set_SYN()
        out_onion[O_TCP].set_ACK()
        out_onion[O_TCP].set_th_ack(in_onion[O_TCP].get_th_seq()+1)
-       out_onion[O_TCP].set_th_seq(random.randint(0,2**32))
+       out_onion[O_TCP].set_th_seq(self.machine.getTCPSequence())
 
        return out_onion
 
@@ -331,7 +331,9 @@ class ClosedTCPResponder(TCPResponder):
        out_onion = TCPResponder.buildAnswer(self, in_onion)
 
        out_onion[O_TCP].set_RST()
+       out_onion[O_TCP].set_ACK()
        out_onion[O_TCP].set_th_ack(in_onion[O_TCP].get_th_seq()+1)
+       out_onion[O_TCP].set_th_seq(self.machine.getTCPSequence())
 
        return out_onion
 
@@ -755,6 +757,7 @@ class Machine:
        self.addResponder(OpenUDPResponder(self))
        self.addResponder(ClosedUDPResponder(self))
        self.addResponder(OpenTCPResponder(self))
+       self.addResponder(ClosedTCPResponder(self))
 
    def initFingerprint(self, emmulating):
        fpm = os_ident.NMAP2_Fingerprint_Matcher('')
