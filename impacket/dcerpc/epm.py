@@ -174,7 +174,7 @@ class EpmEntry:
         return self.__objuuid
 
     def setObjUUID(self, objuuid):
-        self.__uuid = objuuid
+        self.__objuuid = objuuid
 
     def getAnnotation(self):
         return self.__annotation
