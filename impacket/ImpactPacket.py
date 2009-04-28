@@ -354,7 +354,11 @@ class Ethernet(Header):
     def get_packet(self):
 
         if self.child():
-            self.set_ether_type(self.child().ethertype)
+            try:
+               self.set_ether_type(self.child().ethertype)
+            except:
+               " an Ethernet packet may have a Data() "
+               pass
         return Header.get_packet(self)
 
     def get_ether_dhost(self):
