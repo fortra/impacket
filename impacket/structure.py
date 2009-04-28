@@ -542,8 +542,9 @@ class Structure:
         for field in self.commonHdr + self.structure:
             self[field[0]] = self.zeroValue(field[1])
 
-    def dump(self, msg, indent = 0):
+    def dump(self, msg = None, indent = 0):
         import types
+        if msg is None: msg = self.__class__.__name__
         ind = ' '*indent
         print "\n%s" % (msg)
         for i in self.fields.keys():
