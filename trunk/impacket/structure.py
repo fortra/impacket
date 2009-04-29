@@ -270,6 +270,8 @@ class Structure:
         if format[:1] == '_':
             if dataClassOrCode != str:
                 return eval(dataClassOrCode, {}, self.fields)
+            else:
+                return None
 
         # quote specifier
         if format[:1] == "'" or format[:1] == '"':
