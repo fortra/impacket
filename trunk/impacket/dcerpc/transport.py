@@ -224,7 +224,6 @@ class TCPTransport(DCERPCTransport):
 
     def connect(self):
         self.__socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
         try:
             self.__socket.settimeout(300)
             self.__socket.connect((self.get_dip(), self.get_dport()))
@@ -275,7 +274,7 @@ class HTTPTransport(TCPTransport):
 class SMBTransport(DCERPCTransport):
     "Implementation of ncacn_np protocol sequence"
 
-    def __init__(self, dstip, dstport = 445, filename = '', username='', password='', lm_hash='', nt_hash=''):
+    def __init__(self, dstip, dstport = 445, filename = '', username='', password='', lm_hash='', nt_hash='', remote_name=''):
         DCERPCTransport.__init__(self, dstip, dstport)
         self.__socket = None
         self.__smb_server = 0
@@ -284,11 +283,14 @@ class SMBTransport(DCERPCTransport):
         self.__handle = 0
         self.__pending_recv = 0
         self.set_credentials(username, password, lm_hash, nt_hash)
-
+        self.__remote_name = remote_name
 
     def setup_smb_server(self):
         if not self.__smb_server:
-            self.__smb_server = smb.SMB('*SMBSERVER',self.get_dip(), sess_port = self.get_dport())
+            if self.__remote_name == '':
+                self.__smb_server = smb.SMB('*SMBSERVER', self.get_dip(), sess_port = self.get_dport())
+            else:
+                self.__smb_server = smb.SMB(self.__remote_name, self.get_dip(), sess_port = self.get_dport())
 
     def connect(self):
         self.setup_smb_server()
@@ -297,10 +299,8 @@ class SMBTransport(DCERPCTransport):
                 self.__smb_server.login(self._username, self._password)
             elif self._nt_hash != '' or self._lm_hash != '':
                 self.__smb_server.login(self._username, '', '', self._lm_hash, self._nt_hash)
-        self.__tid = self.__smb_server.tree_connect_andx('\\\\*SMBSERVER\\IPC$')
+        self.__tid = self.__smb_server.tree_connect_andx('\\\\%s\\IPC$' % self.__smb_server.get_remote_name())
         self.__handle = self.__smb_server.nt_create_andx(self.__tid, self.__filename)
-        # self.__handle = self.__smb_server.open_file_andx(self.__tid, r"\\PIPE\%s" % self.__filename, smb.SMB_O_CREAT, smb.SMB_ACCESS_READ)[0]
-        # self.__handle = self.__smb_server.open_file(self.__tid, r"\\PIPE\%s" % self.__filename, smb.SMB_O_CREAT, smb.SMB_ACCESS_READ)[0]
         self.__socket = self.__smb_server.get_socket()
         return 1
     

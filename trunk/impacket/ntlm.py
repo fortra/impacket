@@ -6,8 +6,11 @@
 #
 # $Id$
 #
-
+import base64
+import array
+import struct
 from impacket.structure import Structure
+
 try:
     from Crypto.Cipher import DES
     from Crypto.Hash import MD4
@@ -31,7 +34,7 @@ NTLMSSP_KEY_128      = 0x20000000
 # NTLMSSP_           = 0x10000000
 # NTLMSSP_           = 0x08000000
 # NTLMSSP_           = 0x04000000
-# NTLMSSP_           = 0x02000000
+NTLMSSP_VERSION      = 0x02000000
 # NTLMSSP_           = 0x01000000
 NTLMSSP_TARGET_INFO  = 0x00800000
 # NTLMSSP_           = 0x00400000
@@ -69,8 +72,18 @@ class NTLMAuthHeader(Structure):
     structure = (
         ('data',':'),
     )
-                                                                                
+
+    def get_os_version(self):
+        if self['os_version'] == '':
+            return None
+        else:
+            mayor_v = struct.unpack('B',self['os_version'][0])[0]
+            minor_v = struct.unpack('B',self['os_version'][1])[0]
+            build_v = struct.unpack('H',self['os_version'][2:4])
+            return (mayor_v,minor_v,build_v)
+
 class NTLMAuthNegotiate(NTLMAuthHeader):
+
     structure = (
         ('','"NTLMSSP\x00'),
         ('message_type','<L=1'),
@@ -105,19 +118,40 @@ class NTLMAuthNegotiate(NTLMAuthHeader):
         self['domain_offset']=32+len(self['host_name'])
         return NTLMAuthHeader.__str__(self)
 
-class NTLMAuthChallenge(NTLMAuthHeader):
+    def fromString(self,data):
+        Structure.fromString(self,data)
+
+        domain_offset = self['domain_offset']
+        domain_end    = self['domain_len'] + domain_offset
+        self['domain_name'] = data[ domain_offset : domain_end ]
+
+        host_offset = self['host_offset']
+        host_end    = self['host_len'] + host_offset
+        self['host_name'] = data[ host_offset : host_end ]
+
+        hasOsInfo = self['flags'] & NTLMSSP_VERSION
+        if len(data) >= 36 and hasOsInfo:
+            self['os_version'] = data[32:36]
+        else:
+            self['os_version'] = ''
+
+
+class NTLMAuthChallenge(Structure):
+
     structure = (
         ('','"NTLMSSP\x00'),
         ('message_type','<L=2'),
         ('domain_len','<H-domain_name'),
         ('domain_max_len','<H-domain_name'),
-        ('domain_offset','<L'),
-        ('flags','<L'),
+        ('domain_offset','<L=40'),
+        ('flags','<L=0'),
         ('challenge','8s'),
         ('reserved','"\x00\x00\x00\x00\x00\x00\x00\x00'),
-        ('domain_name',':'))
-                                                                                
+        ('domain_name',':'))#,
+
+
 class NTLMAuthChallengeResponse(NTLMAuthHeader):
+
     structure = (
         ('','"NTLMSSP\x00'),
         ('message_type','<L=3'),
@@ -147,7 +181,7 @@ class NTLMAuthChallengeResponse(NTLMAuthHeader):
         ('ntlm',':'),
         ('session_key',':'))
 
-    def __init__(self, username, password, challenge):
+    def __init__(self, username = '', password = '', challenge = ''):
         NTLMAuthHeader.__init__(self)
         self['session_key']=''
         self['user_name']=username.encode('utf-16le')
@@ -185,6 +219,35 @@ class NTLMAuthChallengeResponse(NTLMAuthHeader):
         self['ntlm_offset']=self['lanman_offset']+len(self['lanman'])
         self['session_key_offset']=self['ntlm_offset']+len(self['ntlm'])
         return NTLMAuthHeader.__str__(self)
+
+    def fromString(self,data):
+        NTLMAuthHeader.fromString(self,data)
+
+        domain_offset = self['domain_offset']
+        domain_end = self['domain_len'] + domain_offset
+        self['domain_name'] = array.array('u', data[ domain_offset : domain_end ]).tounicode()
+
+        host_offset = self['host_offset']
+        host_end    = self['host_len'] + host_offset
+        self['host_name'] = array.array('u', data[ host_offset: host_end ]).tounicode()
+
+        user_offset = self['user_offset']
+        user_end    = self['user_len'] + user_offset
+        self['user_name'] = array.array('u', data[ user_offset: user_end ]).tounicode()
+
+        ntlm_offset = self['ntlm_offset'] 
+        ntlm_end    = self['ntlm_len'] + ntlm_offset 
+        self['ntlm'] = data[ ntlm_offset : ntlm_end ]
+
+        lanman_offset = self['lanman_offset'] 
+        lanman_end    = self['lanman_len'] + lanman_offset
+        self['lanman'] = data[ lanman_offset : lanman_end]
+
+        if len(data) >= 36: 
+            self['os_version'] = data[32:36]
+        else:
+            self['os_version'] = ''
+
                                                                                 
 class ImpacketStructure(Structure):
     def set_parent(self, other):
@@ -256,4 +319,47 @@ def compute_nthash(password):
 def get_ntlmv1_response(key, challenge):
     return ntlmssp_DES_encrypt(key, challenge)
 
+
+class NTLM_HTTP(object):
+    '''Parent class for NTLM HTTP classes.'''
+    MSG_TYPE = None
+
+    @classmethod
+    def get_instace(cls,msg_64):
+        msg = None
+        msg_type = 0
+        if msg_64 != '':
+            msg = base64.b64decode(msg_64[5:]) # Remove the 'NTLM '
+            msg_type = ord(msg[8])
+    
+        for _cls in NTLM_HTTP.__subclasses__():
+            if msg_type == _cls.MSG_TYPE:
+                instance = _cls()
+                instance.fromString(msg)
+                return instance
+
+    
+class NTLM_HTTP_AuthRequired(NTLM_HTTP):
+    commonHdr = ()
+    # Message 0 means the first HTTP request e.g. 'GET /bla.png'
+    MSG_TYPE = 0
+
+    def fromString(self,data): 
+        pass
+
+
+class NTLM_HTTP_AuthNegotiate(NTLM_HTTP, NTLMAuthNegotiate):
+    commonHdr = ()
+    MSG_TYPE = 1
+
+    def __init__(self):
+        NTLMAuthNegotiate.__init__(self)
+
+
+class NTLM_HTTP_AuthChallengeResponse(NTLM_HTTP, NTLMAuthChallengeResponse):
+    commonHdr = ()
+    MSG_TYPE = 3
+
+    def __init__(self):
+        NTLMAuthChallengeResponse.__init__(self)
 
