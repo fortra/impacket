@@ -35,16 +35,24 @@ class DhcpPacket(BootpPacket):
 
     options = {
         'message-type':(53,'B'),
+        'auto-configuration':(116,'B'),
         'host-name':(12,':'),
         'requested-ip':(50,'!L'),
         'client-id':(61,':'),
         'lease-time':(51,'!L'),
+        'vendor-class':(60,':'),
+        'parameter-request-list':(55,':'),
+        'fully-qualified-domain-name':(81,':'),
+        'vendor-specific':(43,':'),
+        'proxy-autodiscovery':(252,':'),
+        'eof':(255,'_'),
+
     }
     
     structure = (
             ('cookie','!L'),
             ('_options',':=self.packOptions(options)'),
-            ('options','_'))
+            ('options','_','self.unpackOptions(_options)'))
     
     def packOptions(self, options):
         # options is an array of tuples: ('name',value)
@@ -54,6 +62,29 @@ class DhcpPacket(BootpPacket):
             code,format = self.options[name]
             val = self.pack(format, value)
             answer += '%c%c%s' % (code, len(val), val)
+
+        return answer
+    
+    def getOptionNameAndFormat(self, optionCode):
+        for k in self.options:
+            code,format = self.options[k]
+            if code == optionCode: return k, format
+        return optionCode, ':'
+
+    def unpackOptions(self, options):
+        # options is a string
+
+        # print '%r' % options
+        answer = []
+        i = 0
+        while i < len(options)-1:
+            name, format = self.getOptionNameAndFormat(ord(options[i]))
+            # size = self.calcUnpackSize(format, options[i+1:])
+            size = ord(options[i+1])
+            # print i, name, format, size
+            value = self.unpack(format, options[i+2:i+2+size])
+            answer.append((name, value))
+            i += 2+size
 
         return answer
 
