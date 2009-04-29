@@ -133,6 +133,8 @@ class Structure:
             if self.debug:
                 print "fromString( %s | %s | %r )" % (field[0], field[1], data)
             size = self.calcUnpackSize(field[1], data, field[0])
+            if self.debug:
+                print "  size = %d" % size
             dataClassOrCode = str
             if len(field) > 2:
                 dataClassOrCode = field[2]
@@ -270,6 +272,8 @@ class Structure:
         if format[:1] == '_':
             if dataClassOrCode != str:
                 return eval(dataClassOrCode, {}, self.fields)
+            else:
+                return None
 
         # quote specifier
         if format[:1] == "'" or format[:1] == '"':
@@ -417,6 +421,10 @@ class Structure:
         if self.debug:
             print "  calcUnpackSize( %s | %s | %r)" %  (field, format, data)
 
+        # void specifier
+        if format[:1] == '_':
+            return 0
+
         addressField = self.findAddressFieldFor(field)
         if addressField is not None:
             if not self[addressField]:
@@ -430,10 +438,6 @@ class Structure:
 
         # XXX: Try to match to actual values, raise if no match
         
-        # void specifier
-        if format[:1] == '_':
-            return 0
-
         # quote specifier
         if format[:1] == "'" or format[:1] == '"':
             return len(format)-1

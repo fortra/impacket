@@ -33,7 +33,8 @@
 #
 # Altered source done by Alberto Solino
 
-import os, sys, socket, string, re, select, errno
+import socket, string, re, select, errno
+from structure import Structure
 from random import randint
 from struct import *
 
@@ -41,7 +42,7 @@ from struct import *
 CVS_REVISION = '$Revision$'
 
 # Taken from socket module reference
-INADDR_ANY = ''
+INADDR_ANY = '0.0.0.0'
 BROADCAST_ADDR = '<broadcast>'
 
 # Default port for NetBIOS name service
@@ -66,9 +67,11 @@ TYPE_WORKSTATION = 0x00
 TYPE_CLIENT = 0x03
 TYPE_SERVER = 0x20
 TYPE_DOMAIN_MASTER = 0x1B
+TYPE_DOMAIN_CONTROLLER = 0x1C
 TYPE_MASTER_BROWSER = 0x1D
 TYPE_BROWSER = 0x1E
 TYPE_NETDDE  = 0x1F
+TYPE_STATUS = 0x21
 
 # Opcodes values
 OPCODE_QUERY = 0
@@ -133,7 +136,7 @@ NETBIOS_SESSION_KEEP_ALIVE = 0x85
 
 def strerror(errclass, errcode):
     if errclass == ERRCLASS_OS:
-        return 'OS Error', os.strerror(errcode)
+        return 'OS Error', str(errcode)
     elif errclass == ERRCLASS_QUERY:
         return 'Query Error', QUERY_ERRORS.get(errcode, 'Unknown error')
     elif errclass == ERRCLASS_SESSION:
@@ -542,14 +545,14 @@ class NetBIOS:
                 else:
                     try:
                         data, _ = self.__sock.recvfrom(65536, 0)
-                    except:
-#                        t_log(1,"No status response")
-                        return
+                    except Exception, e:
+                        raise NetBIOSError, "recvfrom error: %s" % str(e)
                     res = NetBIOSPacket(data)
                     if res.get_trn_id() == p.get_trn_id():
                         if res.get_rcode():
                             if res.get_rcode() == 0x03:
-                                return None
+                                # I'm just guessing here
+                                raise NetBIOSError, "Cannot get data from server"
                             else:
                                 raise NetBIOSError, ( 'Negative name query response', ERRCLASS_QUERY, res.get_rcode() )
                         answ = NBNodeStatusResponse(res.get_answers())
@@ -559,9 +562,7 @@ class NetBIOS:
                 if ex[0] != errno.EINTR and ex[0] != errno.EAGAIN:
                     raise NetBIOSError, ( 'Error occurs while waiting for response', ERRCLASS_OS, ex[0] )
             except socket.error, ex:
-                pass
-        
-
+                raise NetBIOSError, 'Connection error: %s' % str(ex)
 
 # Perform first and second level encoding of name as specified in RFC 1001 (Section 4)
 def encode_name(name, type, scope):
@@ -642,31 +643,32 @@ class NetBIOSSessionPacket:
         return self._trailer
         
 class NetBIOSSession:
-
     def __init__(self, myname, remote_name, remote_host, remote_type = TYPE_SERVER, sess_port = NETBIOS_SESSION_PORT, timeout = None, local_type = TYPE_WORKSTATION):
         if len(myname) > 15:
             self.__myname = string.upper(myname[:15])
         else:
             self.__myname = string.upper(myname)
+        self.__local_type = local_type
 
         assert remote_name
         if len(remote_name) > 15:
             self.__remote_name = string.upper(remote_name[:15])
         else:
             self.__remote_name = string.upper(remote_name)
+        self.__remote_type = remote_type
 
         self.__remote_host = remote_host
-        self.__sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        try:
-            self.__sock.connect(( remote_host, sess_port ))
-        except socket.error, ex:
-            raise ex
+
+        self._sock = self._setup_connection((remote_host, sess_port))
 
         if sess_port == NETBIOS_SESSION_PORT:
-            self.__request_session(remote_type, local_type, timeout)
-     
+            self._request_session(remote_type, local_type, timeout)
+
     def get_myname(self):
         return self.__myname
+
+    def get_mytype(self):
+        return self.__local_type
 
     def get_remote_host(self):
         return self.__remote_host
@@ -674,26 +676,122 @@ class NetBIOSSession:
     def get_remote_name(self):
         return self.__remote_name
 
+    def get_remote_type(self):
+        return self.__remote_type
+
     def close(self):
-        self.__sock.close()
+        self._sock.close()
+
+    def get_socket(self):
+        return self._sock
+
+class NetBIOSUDPSessionPacket(Structure):
+    TYPE_DIRECT_UNIQUE = 16
+    TYPE_DIRECT_GROUP  = 17
+
+    FLAGS_MORE_FRAGMENTS = 1
+    FLAGS_FIRST_FRAGMENT = 2
+    FLAGS_B_NODE         = 0
+
+    structure = (
+        ('Type','B=16'),    # Direct Unique Datagram
+        ('Flags','B=2'),    # FLAGS_FIRST_FRAGMENT
+        ('ID','<H'),
+        ('_SourceIP','>L'),
+        ('SourceIP','"'),
+        ('SourcePort','>H=138'),
+        ('DataLegth','>H-Data'),
+        ('Offset','>H=0'),
+        ('SourceName','z'),
+        ('DestinationName','z'),
+        ('Data',':'),
+    )
+
+    def getData(self):
+        addr = self['SourceIP'].split('.')
+        addr = [int(x) for x in addr]
+        addr = (((addr[0] << 8) + addr[1] << 8) + addr[2] << 8) + addr[3]
+        self['_SourceIP'] = addr
+        return Structure.getData(self)
+
+    def get_trailer(self):
+        return self['Data']
+
+class NetBIOSUDPSession(NetBIOSSession):
+    def _setup_connection(self, peer):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind((INADDR_ANY, 138))
+        self.peer = peer
+        return sock
+
+    def _request_session(self, remote_type, local_type, timeout = None):
+        pass
+
+    def next_id(self):
+        if hasattr(self, '__dgram_id'):
+            answer = self.__dgram_id
+        else:
+            self.__dgram_id = randint(1,65535)
+            answer = self.__dgram_id
+        self.__dgram_id += 1
+        return answer
+
+    def send_packet(self, data):
+        # Yes... I know...
+        self._sock.connect(self.peer)
+
+        p = NetBIOSUDPSessionPacket()
+        p['ID'] = self.next_id()
+        p['SourceIP'] = self._sock.getsockname()[0]
+        p['SourceName'] = encode_name(self.get_myname(), self.get_mytype(), '')[:-1]
+        p['DestinationName'] = encode_name(self.get_remote_name(), self.get_remote_type(), '')[:-1]
+        p['Data'] = data
+
+        self._sock.sendto(str(p), self.peer)
+        self._sock.close()
+
+        self._sock = self._setup_connection(self.peer)
+
+    def recv_packet(self, timeout = None):
+        # The next loop is a workaround for a bigger problem:
+        # When data reaches higher layers, the lower headers are lost,
+        # and with them, for example, the source IP. Hence, SMB users
+        # can't know where packets are comming from... we need a better
+        # solution, right now, we will filter everything except packets
+        # coming from the remote_host specified in __init__()
+
+        while 1:
+            data, peer = self._sock.recvfrom(8192)
+#            print "peer: %r  self.peer: %r" % (peer, self.peer)
+            if peer == self.peer: break
+
+        return NetBIOSUDPSessionPacket(data)
+
+class NetBIOSTCPSession(NetBIOSSession):
+    def _setup_connection(self, peer):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect(peer)
+        return sock
 
     def send_packet(self, data):
         p = NetBIOSSessionPacket()
         p.set_type(NETBIOS_SESSION_MESSAGE)
         p.set_trailer(data)
-        self.__sock.send(p.rawData())
+        self._sock.send(p.rawData())
 
     def recv_packet(self, timeout = None):
         data = self.__read(timeout)
         return NetBIOSSessionPacket(data)
 
-    def __request_session(self, remote_type, local_type, timeout = None):
+    def _request_session(self, remote_type, local_type, timeout = None):
         p = NetBIOSSessionPacket()
-        remote_name = encode_name(self.__remote_name, remote_type, '')
-        myname = encode_name(self.__myname, local_type, '')
+        remote_name = encode_name(self.get_remote_name(), remote_type, '')
+        myname = encode_name(self.get_myname(), local_type, '')
         p.set_type(NETBIOS_SESSION_REQUEST)
         p.set_trailer(remote_name + myname)
-        self.__sock.send(p.rawData())
+
+        self._sock.send(p.rawData())
         while 1:
             p = self.recv_packet(timeout)
             if p.get_type() == NETBIOS_SESSION_NEGATIVE_RESPONSE:
@@ -709,11 +807,11 @@ class NetBIOSSession:
         data = ''
         while read_len > 0:
             try:
-                ready, _, _ = select.select([self.__sock.fileno() ], [ ], [ ], timeout)
+                ready, _, _ = select.select([self._sock.fileno() ], [ ], [ ], timeout)
                 if not ready:
                     raise NetBIOSTimeout
 
-                received = self.__sock.recv(read_len)
+                received = self._sock.recv(read_len)
                 if len(received)==0:
                     raise NetBIOSError, ( 'Error while reading from remote', ERRCLASS_OS, None)
                 
@@ -731,11 +829,11 @@ class NetBIOSSession:
         data2=''
         while read_len > 0:
             try:
-                ready, _, _ = select.select([ self.__sock.fileno() ], [ ], [ ], timeout)
+                ready, _, _ = select.select([ self._sock.fileno() ], [ ], [ ], timeout)
                 if not ready:
                     raise NetBIOSTimeout
 
-                received = self.__sock.recv(read_len)
+                received = self._sock.recv(read_len)
                 if len(received)==0:
                     raise NetBIOSError, ( 'Error while reading from remote', ERRCLASS_OS, None)
                 
@@ -746,10 +844,6 @@ class NetBIOSSession:
                     raise NetBIOSError, ( 'Error while reading from remote', ERRCLASS_OS, ex[0] )
                 
         return data + data2     
-
-    def get_socket(self):
-        return self.__sock
-
 
 ERRCLASS_QUERY = 0x00
 ERRCLASS_SESSION = 0xf0
