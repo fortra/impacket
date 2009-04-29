@@ -4,7 +4,7 @@ class BootpPacket(structure.Structure):
     commonHdr = (
             ('op','b'),
             ('htype','b=1'),    # 1 = Ether
-            ('hlen','b-chaddr'),
+            ('hlen','b=len(chaddr)'),
             ('hops','b=0'),
             ('xid','!L=0'),
             ('secs','!H=0'),
@@ -13,8 +13,7 @@ class BootpPacket(structure.Structure):
             ('yiaddr','!L=0'),
             ('siaddr','!L=0'),
             ('giaddr','!L=0'),
-            ('_chaddr','16s=chaddr'),
-            ('chaddr','_','_chaddr'),
+            ('chaddr','16s'),
             ('sname','64s=""'),
             ('file','128s=""'))
         
