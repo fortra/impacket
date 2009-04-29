@@ -1265,7 +1265,7 @@ class SMB:
     FLAGS2_USE_NT_ERRORS = 0x4000
     FLAGS2_UNICODE = 0x8000
 
-    def __init__(self, remote_name, remote_host, my_name = None, host_type = nmb.TYPE_SERVER, sess_port = nmb.NETBIOS_SESSION_PORT, timeout=None):
+    def __init__(self, remote_name, remote_host, my_name = None, host_type = nmb.TYPE_SERVER, sess_port = nmb.NETBIOS_SESSION_PORT, timeout=None, UDP = 0):
         # The uid attribute will be set when the client calls the login() method
         self.__uid = 0
         self.__server_os = ''
@@ -1287,23 +1287,26 @@ class SMB:
             if i > -1:
                 my_name = my_name[:i]
 
-        try:
-            self.__sess = nmb.NetBIOSSession(my_name, remote_name, remote_host, host_type, sess_port, timeout)
-        except socket.error, ex:
-            raise ex
+        if UDP:
+            self.__sess = nmb.NetBIOSUDPSession(my_name, remote_name, remote_host, host_type, sess_port, timeout)
+        else:
+            self.__sess = nmb.NetBIOSTCPSession(my_name, remote_name, remote_host, host_type, sess_port, timeout)
 
-        # Initialize values __ntlm_dialect, __is_pathcaseless
-        self.__neg_session()
-        
-        # If the following assertion fails, then mean that the encryption key is not sent when
-        # encrypted authentication is required by the server.
-        assert (self.__ntlm_dialect.is_auth_mode() == SMB.SECURITY_AUTH_PLAINTEXT) or (self.__ntlm_dialect.is_auth_mode() == SMB.SECURITY_AUTH_ENCRYPTED and self.__ntlm_dialect.get_encryption_key() and self.__ntlm_dialect.get_encryption_key_len() >= 8)
+            # Initialize values __ntlm_dialect, __is_pathcaseless
+            self.__neg_session()
 
-        # Call login() without any authentication information to setup a session if the remote server
-        # is in share mode.
-        if self.__ntlm_dialect.is_share_mode() == SMB.SECURITY_SHARE_SHARE:
-            self.login('', '')
-            
+            # If the following assertion fails, then mean that the encryption key is not sent when
+            # encrypted authentication is required by the server.
+            assert (self.__ntlm_dialect.is_auth_mode() == SMB.SECURITY_AUTH_PLAINTEXT) or (self.__ntlm_dialect.is_auth_mode() == SMB.SECURITY_AUTH_ENCRYPTED and self.__ntlm_dialect.get_encryption_key() and self.__ntlm_dialect.get_encryption_key_len() >= 8)
+
+            # Call login() without any authentication information to setup a session if the remote server
+            # is in share mode.
+            if self.__ntlm_dialect.is_share_mode() == SMB.SECURITY_SHARE_SHARE:
+                self.login('', '')
+
+    def get_remote_name(self):
+        return self.__remote_name
+    
     def set_timeout(self, timeout):
         self.__timeout = timeout
         
@@ -1683,14 +1686,6 @@ class SMB:
                     self.__sess.send_packet(read_data)
                     write_offset = write_offset + read_len
                     break
-
-        # We need to close fid to check whether the last raw packet is written successfully
-        self.__send_smb_packet(SMB.SMB_COM_CLOSE, 0, 0, tid, 0, pack('<HL', fid, 0), '')
-        while 1:
-            s = self.recv_packet()
-            if self.isValidAnswer(s,SMB.SMB_COM_CLOSE):
-                if s.get_error_class() == 0x00 and s.get_error_code() == 0x00:
-                    return
 
     def __browse_servers(self, server_flags, container_type, domain):
         tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\IPC$')
@@ -2147,7 +2142,7 @@ class SMB:
         tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\' + service, password)
         try:
             fid, attrib, lastwritetime, datasize, grantedaccess, filetype, devicestate, action, serverfid = self.open_andx(tid, filename, mode, SMB_ACCESS_WRITE | SMB_SHARE_DENY_WRITE)
-
+            
             # If the max_transmit buffer size is more than 16KB, upload process using non-raw mode is actually
             # faster than using raw-mode.
             if self.__ntlm_dialect.get_max_buffer() < 16384 and self.__ntlm_dialect.is_rawmode():
@@ -2156,6 +2151,19 @@ class SMB:
                 fid = -1
             else:
                 self.__nonraw_stor_file(tid, fid, offset, datasize, callback)
+        finally:
+            if fid >= 0:
+                self.close(tid, fid)
+            self.disconnect_tree(tid)
+
+    def stor_file_nonraw(self, service, filename, callback, mode = SMB_O_CREAT | SMB_O_TRUNC, offset = 0, password = None):
+        filename = string.replace(filename, '/', '\\')
+
+        fid = -1
+        tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\' + service, password)
+        try:
+            fid, attrib, lastwritetime, datasize, grantedaccess, filetype, devicestate, action, serverfid = self.open_andx(tid, filename, mode, SMB_ACCESS_WRITE | SMB_SHARE_DENY_WRITE)
+            self.__nonraw_stor_file(tid, fid, offset, datasize, callback)
         finally:
             if fid >= 0:
                 self.close(tid, fid)
