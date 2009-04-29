@@ -13,7 +13,8 @@ class BootpPacket(structure.Structure):
             ('yiaddr','!L=0'),
             ('siaddr','!L=0'),
             ('giaddr','!L=0'),
-            ('chaddr','16s'),
+            ('_chaddr','16s=chaddr'),
+            ('chaddr','_','_chaddr'),
             ('sname','64s=""'),
             ('file','128s=""'))
         
