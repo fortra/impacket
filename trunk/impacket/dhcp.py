@@ -44,7 +44,6 @@ class DhcpPacket(BootpPacket):
         'parameter-request-list':(55,':'),
         'fully-qualified-domain-name':(81,':'),
         'vendor-specific':(43,':'),
-        'proxy-autodiscovery':(252,':'),
         'eof':(255,'_'),
 
     }
