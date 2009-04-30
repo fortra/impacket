@@ -202,7 +202,9 @@ class Structure:
             try:
                 return self.pack(two[0], data)
             except:
-                return self.pack(two[0], eval(two[1], {}, self.fields))
+                fields = {'self':self}
+                fields.update(self.fields)
+                return self.pack(two[0], eval(two[1], {}, fields))
 
         # length specifier
         two = format.split('-')
@@ -271,7 +273,9 @@ class Structure:
         # void specifier
         if format[:1] == '_':
             if dataClassOrCode != str:
-                return eval(dataClassOrCode, {}, self.fields)
+                fields = {'self':self}
+                fields.update(self.fields)
+                return eval(dataClassOrCode, {}, fields)
             else:
                 return None
 
