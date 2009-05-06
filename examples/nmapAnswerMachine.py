@@ -10,6 +10,15 @@ from impacket import ImpactPacket
 from impacket import ImpactDecoder
 from impacket.ImpactPacket import TCPOption
 
+#defaults
+
+MAC = "01:02:03:04:05:06"
+IP  = "192.168.67.254"
+IFACE = "eth0"
+OPEN_TCP_PORTS = [80, 443]
+OPEN_UDP_PORTS = [111]
+UDP_CMD_PORT = 12345
+
 # Fingerprint = 'Adtran NetVanta 3200 router' # CD=Z TOSI=Z <----------- NMAP detects it as Linux!!!
 # Fingerprint = 'ADIC Scalar 1000 tape library remote management unit' # DFI=S
 # Fingerprint = 'Siemens Gigaset SX541 or USRobotics USR9111 wireless DSL modem' # DFI=O U1(DF=N IPL=38)
@@ -31,12 +40,6 @@ Fingerprint = 'Sun Solaris 9 (SPARC)' # CD=S TOSI=20
 # Fingerprint = '2Wire 1701HG wireless ADSL modem' # IE(R=N)
 
 # Fingerprint = 'Cisco Catalyst 1912 switch' # TOSI=O SS=S
-
-MAC = "01:02:03:04:05:06"
-IP  = "192.168.67.254"
-IFACE = "eth0"
-OPEN_TCP_PORTS = [80, 443]
-OPEN_UDP_PORTS = [111]
 
 O_ETH = 0
 O_IP  = 1
@@ -337,6 +340,39 @@ class ClosedTCPResponder(TCPResponder):
        out_onion[O_TCP].set_th_ack(in_onion[O_TCP].get_th_seq()+1)
        out_onion[O_TCP].set_th_seq(self.machine.getTCPSequence())
 
+       return out_onion
+
+class UDPCommandResponder(OpenUDPResponder):
+   # default UDP_CMD_PORT is 12345
+   # use with:
+   # echo cmd:exit | nc -u $(IP) $(UDP_CMD_PORT)
+   # echo cmd:who | nc -u $(IP) $(UDP_CMD_PORT)
+
+   def set_port(self, port):
+       self.port = port
+       self.machine.openUDPPort(port)
+       return self
+
+   def isMine(self, in_onion):
+       return (
+          OpenUDPResponder.isMine(self, in_onion))# and 
+          #in_onion[O_UDP].get_uh_dport() == self.port)
+
+   def buildAnswer(self, in_onion):
+       cmd = in_onion[O_UDP_DATA].get_bytes().tostring()
+       if cmd[:4] == 'cmd:': cmd = cmd[4:].strip()
+       print "Got command: %r" % cmd
+
+       if cmd == 'exit':
+          from sys import exit
+          exit()
+
+       out_onion = OpenUDPResponder.buildAnswer(self, in_onion)
+       out_onion.append(ImpactPacket.Data())
+       out_onion[O_UDP].contains(out_onion[O_UDP_DATA])
+       if cmd == 'who':
+          out_onion[O_UDP_DATA].set_data(self.machine.fingerprint.get_id())
+          
        return out_onion
 
 # NMAP2 specific responders
@@ -723,11 +759,15 @@ class Machine:
 
        self.initPcap()
        self.initFingerprint(emmulating)
-       self.initResponders()
 
        self.initSequenceGenerators()
        self.openTCPPorts = openTCPPorts
        self.openUDPPorts = openUDPPorts
+       print self
+
+   def openUDPPort(self, port):
+       if self.isUDPPortOpen(port): return
+       self.openUDPPorts.append(port)
 
    def isUDPPortOpen(self, port):
        return port in self.openUDPPorts
@@ -736,28 +776,13 @@ class Machine:
        return port in self.openTCPPorts
 
    def initPcap(self):
-       self.pcap = pcapy.open_live(self.interface, 65535, 1, 1)
+       self.pcap = pcapy.open_live(self.interface, 65535, 1, 0)
        try:       self.pcap.setfilter("host %s or ether host %s" % (self.ipAddress, self.macAddress))
        except:    self.pcap.setfilter("host %s or ether host %s" % (self.ipAddress, self.macAddress), 1, 0xFFFFFF00)
 
-   def initResponders(self):
+   def initGenericResponders(self):
+       # generic responders
        self.addResponder(ARPResponder(self))
-       self.addResponder(nmap2_ECN(self))
-       self.addResponder(nmap2_SEQ1(self))
-       self.addResponder(nmap2_SEQ2(self))
-       self.addResponder(nmap2_SEQ3(self))
-       self.addResponder(nmap2_SEQ4(self))
-       self.addResponder(nmap2_SEQ5(self))
-       self.addResponder(nmap2_SEQ6(self))
-       self.addResponder(nmap2_T2(self))
-       self.addResponder(nmap2_T3(self))
-       self.addResponder(nmap2_T4(self))
-       self.addResponder(nmap2_T5(self))
-       self.addResponder(nmap2_T6(self))
-       self.addResponder(nmap2_T7(self))
-       self.addResponder(nmap2_ICMP_1(self))
-       self.addResponder(nmap2_ICMP_2(self))
-       self.addResponder(NMAP2UDPResponder(self))
        self.addResponder(OpenUDPResponder(self))
        self.addResponder(ClosedUDPResponder(self))
        self.addResponder(OpenTCPResponder(self))
@@ -771,8 +796,7 @@ class Machine:
            if fingerprint.get_id() == emmulating:
               self.fingerprint = fingerprint
               self.simplifyFingerprint()
-              print "Emmulating: %s" % fingerprint.get_id()
-              print fingerprint
+              # print fingerprint
               return
 
        raise Exception, "Couldn't find fingerprint data for %r" % emmulating
@@ -942,7 +966,60 @@ class Machine:
 
 
 def main():
-   Machine(Fingerprint, IFACE, IP, MAC, OPEN_TCP_PORTS, OPEN_UDP_PORTS).run()
+   def initResponders(machine):
+       # cmd responder
+       machine.addResponder(UDPCommandResponder(machine).set_port(UDP_CMD_PORT))
+
+       # nmap2 specific responders
+       machine.addResponder(nmap2_ECN(machine))
+       machine.addResponder(nmap2_SEQ1(machine))
+       machine.addResponder(nmap2_SEQ2(machine))
+       machine.addResponder(nmap2_SEQ3(machine))
+       machine.addResponder(nmap2_SEQ4(machine))
+       machine.addResponder(nmap2_SEQ5(machine))
+       machine.addResponder(nmap2_SEQ6(machine))
+       machine.addResponder(nmap2_T2(machine))
+       machine.addResponder(nmap2_T3(machine))
+       machine.addResponder(nmap2_T4(machine))
+       machine.addResponder(nmap2_T5(machine))
+       machine.addResponder(nmap2_T6(machine))
+       machine.addResponder(nmap2_T7(machine))
+       machine.addResponder(nmap2_ICMP_1(machine))
+       machine.addResponder(nmap2_ICMP_2(machine))
+       machine.addResponder(NMAP2UDPResponder(machine))
+
+   from sys import argv, exit
+   def usage():
+       print """
+       if arg == '-h': usage()
+       if arg == '-f': Fingerprint = value
+       if arg == '-p': IP = value
+       if arg == '-m': MAC = value
+       if arg == '-i': IFACE = value
+
+   where:
+       arg = argv[i]
+       value = argv[i+1]
+       """
+       exit()
+
+   global Fingerprint, IFACE, MAC, IP
+   for i in xrange(len(argv)):
+       arg = argv[i]
+       try: value = argv[i+1]
+       except: value = None
+       if arg == '-h': usage()
+       if arg == '-f': Fingerprint = value
+       if arg == '-p': IP = value
+       if arg == '-m': MAC = value
+       if arg == '-i': IFACE = value
+
+   print "Emulating: %r" % Fingerprint
+   print "at %s / %s / %s" % (IFACE, MAC, IP)
+   machine = Machine(Fingerprint, IFACE, IP, MAC, OPEN_TCP_PORTS, OPEN_UDP_PORTS)
+   initResponders(machine)
+   machine.initGenericResponders()
+   machine.run()
 
 if __name__ == '__main__':
    main()
@@ -960,7 +1037,7 @@ if __name__ == '__main__':
 # [x] T7
 # [x] IE
 # [x] ECN
-# [ ] U1
+# [x] U1
 
 # All Tests
 
@@ -1028,3 +1105,4 @@ if __name__ == '__main__':
 # [-] ??? (TOS) Type of Service
 # [-] ??? (RUL) Length of return UDP packet is correct
 
+# sudo nmap -O 127.0.0.2 -p 22,111,89
