@@ -750,7 +750,7 @@ class nmap2_ICMP_2(NMAP2ICMPResponder):
 
 class Machine:
    AssumedTimeIntervalPerPacket = 0.11 # seconds
-   def __init__(self, emmulating, interface, ipAddress, macAddress, openTCPPorts = [], openUDPPorts = []):
+   def __init__(self, emmulating, interface, ipAddress, macAddress, openTCPPorts = [], openUDPPorts = [], nmapOSDB = 'nmap-os-db'):
        self.interface = interface
        self.ipAddress = ipAddress
        self.macAddress = macAddress
@@ -758,7 +758,7 @@ class Machine:
        self.decoder = ImpactDecoder.EthDecoder()
 
        self.initPcap()
-       self.initFingerprint(emmulating)
+       self.initFingerprint(emmulating, nmapOSDB)
 
        self.initSequenceGenerators()
        self.openTCPPorts = openTCPPorts
@@ -788,9 +788,9 @@ class Machine:
        self.addResponder(OpenTCPResponder(self))
        self.addResponder(ClosedTCPResponder(self))
 
-   def initFingerprint(self, emmulating):
+   def initFingerprint(self, emmulating, nmapOSDB):
        fpm = os_ident.NMAP2_Fingerprint_Matcher('')
-       f = file('nmap-os-db','r')
+       f = file(nmapOSDB, 'r')
        for text in fpm.fingerprints(f):
            fingerprint = fpm.parse_fp(text)
            if fingerprint.get_id() == emmulating:
@@ -996,6 +996,7 @@ def main():
        if arg == '-p': IP = value
        if arg == '-m': MAC = value
        if arg == '-i': IFACE = value
+       if arg == '-d': nmapOsDB = value
 
    where:
        arg = argv[i]
@@ -1013,10 +1014,19 @@ def main():
        if arg == '-p': IP = value
        if arg == '-m': MAC = value
        if arg == '-i': IFACE = value
+       if arg == '-d': nmapOSDB = value
 
    print "Emulating: %r" % Fingerprint
    print "at %s / %s / %s" % (IFACE, MAC, IP)
-   machine = Machine(Fingerprint, IFACE, IP, MAC, OPEN_TCP_PORTS, OPEN_UDP_PORTS)
+   machine = Machine(
+       Fingerprint,
+       IFACE,
+       IP,
+       MAC,
+       OPEN_TCP_PORTS,
+       OPEN_UDP_PORTS,
+       nmapOSDB = nmapOSDB)
+
    initResponders(machine)
    machine.initGenericResponders()
    machine.run()
@@ -1106,3 +1116,4 @@ if __name__ == '__main__':
 # [-] ??? (RUL) Length of return UDP packet is correct
 
 # sudo nmap -O 127.0.0.2 -p 22,111,89
+# sudo python nmapAnswerMachine.py -i eth0 -p 192.168.66.254 -f 'Sun Solaris 9 (SPARC)'
