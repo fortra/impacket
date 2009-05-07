@@ -77,7 +77,7 @@ class DhcpPacket(BootpPacket):
         # 6. Link Layer Parameters per Interface
         'trailer-encapsulation':(34,'B'),
         'arp-cache-timeout':(35,'!L'),
-        'ethernet-encapsulation':(36:'B'),
+        'ethernet-encapsulation':(36,'B'),
 
         # 7. TCP parameters
         'tcp-default-ttl':(37,'B'),
