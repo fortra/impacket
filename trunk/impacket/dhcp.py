@@ -88,9 +88,12 @@ class DhcpPacket(BootpPacket):
         'nis-domain':(40,':'),
         'nis-servers':(41,'*!L'),
         'ntp-servers':(42,'*!L'),
-
-
         'vendor-specific':(43,':'),
+        'netbios-name-server':(44,'*!L'),
+        'netbios-datagrame-distribution-server':(45,'*!L'),
+        'netbios-node-type':(46,'B'),
+
+
         'requested-ip':(50,'!L'),
         'lease-time':(51,'!L'),
         'message-type':(53,'B'),
@@ -141,6 +144,9 @@ class DhcpPacket(BootpPacket):
             i += 2+size
 
         return answer
+
+    def unpackParameterRequestList(self, options):
+        return [self.getOptionNameAndFormat(ord(opt))[0] for opt in options]
 
 class DHCPTool:
     def initialize(self):
