@@ -92,18 +92,29 @@ class DhcpPacket(BootpPacket):
         'netbios-name-server':(44,'*!L'),
         'netbios-datagrame-distribution-server':(45,'*!L'),
         'netbios-node-type':(46,'B'),
+        'netbios-scope':(47,':'),
+        'x11-font-server':(48,'*!L'),
+        'x11-display-manager':(49,'*!L'),
 
 
+        # 9. DHCP Extensions
         'requested-ip':(50,'!L'),
         'lease-time':(51,'!L'),
+        'option-overload':(52,'B'),
         'message-type':(53,'B'),
+        'server-id':(54,'!L'),
         'parameter-request-list':(55,':'),
+        'message':(56,':'),
+        'maximum-dhcp-message-size':(57,'!H'),
+        'renewal-time':(58,'!L'),
+        'rebinding-time':(59,'!L'),
         'vendor-class':(60,':'),
         'client-id':(61,':'),
+
+        # other non-rfc1533 options
         'fully-qualified-domain-name':(81,':'),
         'auto-configuration':(116,'B'),
         'eof':(255,'_'),
-
     }
     
     structure = (
