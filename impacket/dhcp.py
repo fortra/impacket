@@ -120,7 +120,7 @@ class DhcpPacket(BootpPacket):
         'domain-search-list':(119,'B'),           # http://www.ietf.org/rfc/rfc3397.txt
         'classless-route-121':(121, ':'),         # http://www.ietf.org/rfc/rfc3442.txt
         'classless-route-249':(249, ':'),         # http://support.microsoft.com/kb/121005
-        'wpad':(252,':'),
+        'proxy-autoconfig':(252,':'),
         'eof':(255,'_'),
     }
     
