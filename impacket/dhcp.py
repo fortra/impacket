@@ -21,6 +21,7 @@ class BootpPacket(structure.Structure):
 class DhcpPacket(BootpPacket):
     # DHCP: http://www.faqs.org/rfcs/rfc2131.html
     # DHCP Options: http://www.faqs.org/rfcs/rfc1533.html
+    # good list of options: http://www.networksorcery.com/enp/protocol/bootp/options.htm
     BOOTREQUEST = 1
     BOOTREPLY   = 2
 
@@ -112,8 +113,14 @@ class DhcpPacket(BootpPacket):
         'client-id':(61,':'),
 
         # other non-rfc1533 options
-        'fully-qualified-domain-name':(81,':'),
-        'auto-configuration':(116,'B'),
+        'slp-directory-agent':(78,':'),           # http://www.ietf.org/rfc/rfc2610.txt
+        'slp-service-scope':(79,':'),             # http://www.ietf.org/rfc/rfc2610.txt
+        'fully-qualified-domain-name':(81,':'),   # http://www.ietf.org/rfc/rfc4702.txt
+        'auto-configuration':(116,'B'),           # http://www.ietf.org/rfc/rfc2563.txt
+        'domain-search-list':(119,'B'),           # http://www.ietf.org/rfc/rfc3397.txt
+        'classless-route-121':(121, ':'),         # http://www.ietf.org/rfc/rfc3442.txt
+        'classless-route-249':(249, ':'),         # http://support.microsoft.com/kb/121005
+        'wpad':(252,':'),
         'eof':(255,'_'),
     }
     
