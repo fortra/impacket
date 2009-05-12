@@ -18,6 +18,7 @@ IFACE = "eth0"
 OPEN_TCP_PORTS = [80, 443]
 OPEN_UDP_PORTS = [111]
 UDP_CMD_PORT = 12345
+nmapOSDB = '/usr/share/nmap/nmap-os-db'
 
 # Fingerprint = 'Adtran NetVanta 3200 router' # CD=Z TOSI=Z <----------- NMAP detects it as Linux!!!
 # Fingerprint = 'ADIC Scalar 1000 tape library remote management unit' # DFI=S
@@ -1004,7 +1005,7 @@ def main():
        """
        exit()
 
-   global Fingerprint, IFACE, MAC, IP
+   global Fingerprint, IFACE, MAC, IP, nmapOSDB
    for i in xrange(len(argv)):
        arg = argv[i]
        try: value = argv[i+1]
