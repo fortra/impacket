@@ -23,7 +23,6 @@ class Structure:
         format specifiers:
           specifiers from module pack can be used with the same format 
           see struct.__doc__ (pack/unpack is finally called)
-            >       [little endian]
             x       [padding byte]
             c       [character]
             b       [signed byte]
