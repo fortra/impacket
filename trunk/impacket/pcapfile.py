@@ -34,6 +34,74 @@ class PCapFilePacket(structure.Structure):
         structure.Structure.__init__(self, *args, **kargs)
         self['data'] = ''
 
+class PcapFile:
+    def __init__(self, fileName = None, mode = 'rb'):
+        if not fileName is None:
+           self.file = open(fileName, mode)
+        self.hdr = None
+        self.wroteHeader = False
+
+    def close(self):
+        self.file.close()
+
+    def fileno(self):
+        return self.file.fileno()
+
+    def setFile(self, file):
+        self.file = file
+
+    def setSnapLen(self, snapLen):
+        self.createHeaderOnce()
+        self.hdr['maxLength'] = snapLen
+
+    def getSnapLen(self):
+        self.readHeaderOnce()
+        return self.hdr['maxLength']
+
+    def setLinkType(self, linkType):
+        self.createHeaderOnce()
+        self.hdr['linkType'] = linkType
+
+    def getLinkType(self):
+        self.readHeaderOnce()
+        return self.hdr['linkType']
+
+    def readHeaderOnce(self):
+        if self.hdr is None:
+           self.file.seek(0)
+           self.hdr = PCapFileHeader.fromFile(self.file)
+
+    def createHeaderOnce(self):
+        if self.hdr is None:
+           self.hdr = PCapFileHeader()
+    
+    def writeHeaderOnce(self):
+        if not self.wroteHeader:
+           self.wroteHeader = True
+           self.file.seek(0)
+           self.createHeaderOnce()
+           self.file.write(str(self.hdr))
+
+    def read(self):
+       self.readHeaderOnce()
+       try:
+          pkt = PCapFilePacket.fromFile(self.file)
+          pkt['data'] = self.file.read(pkt['savedLength'])
+          return pkt
+       except:
+          return None
+
+    def write(self, pkt):
+        self.writeHeaderOnce()
+        self.file.write(str(pkt))
+
+    def packets(self):
+        self.hdr = None
+        while 1:
+           answer = self.read()
+           if answer is None: break
+           yield answer
+
 def process(onion):
     # for dhcp we only want UDP packets
     if len(onion) <= O_UDP: return
