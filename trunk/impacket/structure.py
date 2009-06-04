@@ -84,6 +84,12 @@ class Structure:
         else:
             self.data = None
 
+    @classmethod
+    def fromFile(self, file):
+        answer = self()
+        answer.fromString(file.read(len(answer)))
+        return answer
+
     def setAlignment(self, alignment):
         self.alignment = alignment
 
