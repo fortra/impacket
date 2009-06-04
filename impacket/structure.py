@@ -273,7 +273,7 @@ class Structure:
         if format[:1] == '_':
             if dataClassOrCode != str:
                 fields = {'self':self}
-                fields = {'inputData':data}
+                fields = {'inputDataLeft':data}
                 fields.update(self.fields)
                 return eval(dataClassOrCode, {}, fields)
             else:
@@ -694,7 +694,8 @@ class _Test_AAA(_StructureTest):
           ('init_vector',   '_','(iv >> 8)'),
           ('pad',           '_','((iv >>2) & 0x3F)'),
           ('keyid',         '_','( iv & 0x03 )'),
-          ('data',':=inputData[:-4]'),
+          ('dataLen',       '_-data', 'len(inputDataLeft)-4'),
+          ('data',':'),
           ('icv','>L'),
         )
 
