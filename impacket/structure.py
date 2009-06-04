@@ -184,6 +184,16 @@ class Structure:
         if format[:1] == "'" or format[:1] == '"':
             return format[1:]
 
+        # code specifier
+        two = format.split('=')
+        if len(two) >= 2:
+            try:
+                return self.pack(two[0], data)
+            except:
+                fields = {'self':self}
+                fields.update(self.fields)
+                return self.pack(two[0], eval(two[1], {}, fields))
+
         # address specifier
         two = format.split('&')
         if len(two) == 2:
@@ -194,16 +204,6 @@ class Structure:
                     return self.pack(two[0], id(self[two[1]]))
                 else:
                     return self.pack(two[0], 0)
-
-        # code specifier
-        two = format.split('=')
-        if len(two) >= 2:
-            try:
-                return self.pack(two[0], data)
-            except:
-                fields = {'self':self}
-                fields.update(self.fields)
-                return self.pack(two[0], eval(two[1], {}, fields))
 
         # length specifier
         two = format.split('-')
