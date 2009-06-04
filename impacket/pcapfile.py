@@ -41,6 +41,10 @@ class PcapFile:
         self.hdr = None
         self.wroteHeader = False
 
+    def reset(self):
+        self.hdr = None
+        self.file.seek(0)
+
     def close(self):
         self.file.close()
 
@@ -68,7 +72,6 @@ class PcapFile:
 
     def readHeaderOnce(self):
         if self.hdr is None:
-           self.file.seek(0)
            self.hdr = PCapFileHeader.fromFile(self.file)
 
     def createHeaderOnce(self):
@@ -96,7 +99,7 @@ class PcapFile:
         self.file.write(str(pkt))
 
     def packets(self):
-        self.hdr = None
+        self.reset()
         while 1:
            answer = self.read()
            if answer is None: break
