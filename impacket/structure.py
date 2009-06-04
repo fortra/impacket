@@ -273,6 +273,7 @@ class Structure:
         if format[:1] == '_':
             if dataClassOrCode != str:
                 fields = {'self':self}
+                fields = {'inputData':data}
                 fields.update(self.fields)
                 return eval(dataClassOrCode, {}, fields)
             else:
@@ -685,6 +686,27 @@ class _Test_UnpackCode(_StructureTest):
         a['uno'] = 'soy un loco!'
         a['dos'] = 'que haces fiera'
 
+class _Test_AAA(_StructureTest):
+    class theClass(Structure):
+        commonHdr = ()
+        structure = (
+          ('iv', '!L=((init_vector & 0xFFFFFF) << 8) | ((pad & 0x3f) << 2) | (keyid & 3)'),
+          ('init_vector',   '_','(iv >> 8)'),
+          ('pad',           '_','((iv >>2) & 0x3F)'),
+          ('keyid',         '_','( iv & 0x03 )'),
+          ('data',':=inputData[:-4]'),
+          ('icv','>L'),
+        )
+
+    def populate(self, a):
+        a['init_vector']=0x01020304
+        #a['pad']=int('01010101',2)
+        a['pad']=int('010101',2)
+        a['keyid']=0x07
+        a['data']="\xA0\xA1\xA2\xA3\xA4\xA5\xA6\xA7\xA8\xA9"
+        a['icv'] = 0x05060708
+        #a['iv'] = 0x01020304
+        
 if __name__ == '__main__':
     _Test_simple().run()
 
@@ -699,3 +721,4 @@ if __name__ == '__main__':
     _Test_Optional_sparse().run()
     _Test_AsciiZArray().run()
     _Test_UnpackCode().run()
+    _Test_AAA().run()
