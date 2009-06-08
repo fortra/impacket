@@ -25,7 +25,7 @@ nmapOSDB = '/usr/share/nmap/nmap-os-db'
 # Fingerprint = 'Siemens Gigaset SX541 or USRobotics USR9111 wireless DSL modem' # DFI=O U1(DF=N IPL=38)
 # Fingerprint = 'Apple Mac OS X 10.5.6 (Leopard) (Darwin 9.6.0)' # DFI=Y SI=S U1(DF=Y)
 
-Fingerprint = 'Sun Solaris 9 (SPARC)' # CD=S TOSI=20
+Fingerprint = 'Sun Solaris 10 (SPARC)' 
 # Fingerprint = 'Sun Solaris 9 (x86)'
 
 # Fingerprint = '3Com OfficeConnect 3CRWER100-75 wireless broadband router'  # TI=Z DFI=N !SS TI=Z II=I
@@ -923,7 +923,7 @@ class Machine:
        answer = self.ip_ID_ICMP
        self.ip_ID_ICMP += self.ip_ID_ICMP_delta
        self.ip_ID_ICMP %= 0x10000L
-       # print "IP ID: %x" % answer
+       # print "---> IP ID: %x" % answer
        return answer
 
    def getTCPSequence(self):
@@ -932,13 +932,14 @@ class Machine:
        answer = int(int(answer/self.tcp_ISN_GCD) * self.tcp_ISN_GCD)
        self.tcp_ISN += self.tcp_ISN_delta
        self.tcp_ISN %= 0x100000000L
+       # print "---> TCP Sequence: %d" % (answer % 0x100000000L)
        return answer % 0x100000000L
 
    def getTCPTimeStamp(self):
        answer = int(round(self.tcp_TS))
        self.tcp_TS += self.tcp_TS_delta
        self.tcp_TS %= 0x100000000L
-       # print "TCP Time Stamp: %x" % answer
+       # print "---> TCP Time Stamp: %x" % answer
        return answer
 
    def sendPacket(self, onion):
@@ -969,16 +970,16 @@ class Machine:
 def main():
    def initResponders(machine):
        # cmd responder
-       machine.addResponder(UDPCommandResponder(machine).set_port(UDP_CMD_PORT))
+       # machine.addResponder(UDPCommandResponder(machine).set_port(UDP_CMD_PORT))
 
        # nmap2 specific responders
-       machine.addResponder(nmap2_ECN(machine))
        machine.addResponder(nmap2_SEQ1(machine))
        machine.addResponder(nmap2_SEQ2(machine))
        machine.addResponder(nmap2_SEQ3(machine))
        machine.addResponder(nmap2_SEQ4(machine))
        machine.addResponder(nmap2_SEQ5(machine))
        machine.addResponder(nmap2_SEQ6(machine))
+       machine.addResponder(nmap2_ECN(machine))
        machine.addResponder(nmap2_T2(machine))
        machine.addResponder(nmap2_T3(machine))
        machine.addResponder(nmap2_T4(machine))
