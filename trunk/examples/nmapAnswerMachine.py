@@ -993,6 +993,7 @@ def main():
    def usage():
        print """
        if arg == '-h': usage()
+       if arg == '--help': usage()
        if arg == '-f': Fingerprint = value
        if arg == '-p': IP = value
        if arg == '-m': MAC = value
@@ -1011,6 +1012,7 @@ def main():
        try: value = argv[i+1]
        except: value = None
        if arg == '-h': usage()
+       if arg == '--help': usage()
        if arg == '-f': Fingerprint = value
        if arg == '-p': IP = value
        if arg == '-m': MAC = value
