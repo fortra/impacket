@@ -8,8 +8,6 @@ from dot11 import Dot11,Dot11ControlFrameRTS
 from binascii import hexlify
 import unittest
 
-#####################
-# TODO: Rever, libpcap aparentemente esta dropeando 1 byte de los Control RTS frames
 class TestDot11FrameControlRTS(unittest.TestCase):
 
     def setUp(self):
