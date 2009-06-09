@@ -269,12 +269,12 @@ class Dot11(Header):
     def get_packet(self):       
         return self.get_bytes().tostring()
      
-    def get_order_field(self):
+    def get_order(self):
         "Return 802.11 frame 'Order' field"
         b = self.get_byte(1)
         return ((b >> 7) & 0x01)
 
-    def set_order_field(self, value):
+    def set_order(self, value):
         "Set 802.11 frame 'Order' field"
         # clear the bits
         mask = (~0x80) & 0xFF
@@ -283,12 +283,12 @@ class Dot11(Header):
         nb = masked | ((value & 0x01) << 7)
         self.set_byte(1, nb)
 
-    def get_protectedFrame_field(self):
+    def get_protectedFrame(self):
         "Return 802.11 frame 'Protected' field"
         b = self.get_byte(1)
         return ((b >> 6) & 0x01)
 
-    def set_protectedFrame_field(self, value):
+    def set_protectedFrame(self, value):
         "Set 802.11 frame 'Protected Frame' field"
         # clear the bits
         mask = (~0x40) & 0xFF
@@ -297,12 +297,12 @@ class Dot11(Header):
         nb = masked | ((value & 0x01) << 6)
         self.set_byte(1, nb)
 
-    def get_moreData_field(self):
+    def get_moreData(self):
         "Return 802.11 frame 'More Data' field"
         b = self.get_byte(1)
         return ((b >> 5) & 0x01)
 
-    def set_moreData_field(self, value):
+    def set_moreData(self, value):
         "Set 802.11 frame 'More Data' field"
         # clear the bits
         mask = (~0x20) & 0xFF
@@ -311,12 +311,12 @@ class Dot11(Header):
         nb = masked | ((value & 0x01) << 5)
         self.set_byte(1, nb)
         
-    def get_powerManagement_field(self):
+    def get_powerManagement(self):
         "Return 802.11 frame 'Power Management' field"
         b = self.get_byte(1)
         return ((b >> 4) & 0x01)
 
-    def set_powerManagement_field(self, value):
+    def set_powerManagement(self, value):
         "Set 802.11 frame 'Power Management' field"
         # clear the bits
         mask = (~0x10) & 0xFF
@@ -325,12 +325,12 @@ class Dot11(Header):
         nb = masked | ((value & 0x01) << 4)
         self.set_byte(1, nb)
   
-    def get_retry_field(self):
+    def get_retry(self):
         "Return 802.11 frame 'Retry' field"
         b = self.get_byte(1)
         return ((b >> 3) & 0x01)
 
-    def set_retry_field(self, value):
+    def set_retry(self, value):
         "Set 802.11 frame 'Retry' field"
         # clear the bits
         mask = (~0x08) & 0xFF
@@ -339,12 +339,12 @@ class Dot11(Header):
         nb = masked | ((value & 0x01) << 3)
         self.set_byte(1, nb)   
         
-    def get_moreFrag_field(self):
+    def get_moreFrag(self):
         "Return 802.11 frame 'More Fragments' field"
         b = self.get_byte(1)
         return ((b >> 2) & 0x01)
 
-    def set_moreFrag_field(self, value):
+    def set_moreFrag(self, value):
         "Set 802.11 frame 'More Fragments' field"
         # clear the bits
         mask = (~0x04) & 0xFF
@@ -353,12 +353,12 @@ class Dot11(Header):
         nb = masked | ((value & 0x01) << 2)
         self.set_byte(1, nb)  
                
-    def get_fromDS_field(self):
+    def get_fromDS(self):
         "Return 802.11 frame 'from DS' field"
         b = self.get_byte(1)
         return ((b >> 1) & 0x01)
 
-    def set_fromDS_field(self, value):
+    def set_fromDS(self, value):
         "Set 802.11 frame 'from DS' field"
         # clear the bits
         mask = (~0x02) & 0xFF
@@ -367,12 +367,12 @@ class Dot11(Header):
         nb = masked | ((value & 0x01) << 1)
         self.set_byte(1, nb)
          
-    def get_toDS_field(self):
+    def get_toDS(self):
         "Return 802.11 frame 'to DS' field"
         b = self.get_byte(1)
         return (b & 0x01)
 
-    def set_toDS_field(self, value):
+    def set_toDS(self, value):
         "Set 802.11 frame 'to DS' field"
         # clear the bits
         mask = (~0x01) & 0xFF
@@ -381,12 +381,12 @@ class Dot11(Header):
         nb = masked | (value & 0x01) 
         self.set_byte(1, nb)    
         
-    def get_subtype_field(self):
+    def get_subtype(self):
         "Return 802.11 frame 'subtype' field"
         b = self.get_byte(0)
         return ((b >> 4) & 0x0F)
 
-    def set_subtype_field(self, value):
+    def set_subtype(self, value):
         "Set 802.11 frame 'subtype' field"
         # clear the bits
         mask = (~0xF0)&0xFF 
@@ -395,12 +395,12 @@ class Dot11(Header):
         nb = masked | ((value << 4) & 0xF0)
         self.set_byte(0, nb)
         
-    def get_type_field(self):
+    def get_type(self):
         "Return 802.11 frame 'type' field"
         b = self.get_byte(0)
         return ((b >> 2) & 0x03)
 
-    def set_type_field(self, value):
+    def set_type(self, value):
         "Set 802.11 frame 'type' field"
         # clear the bits
         mask = (~0x0C)&0xFF 
@@ -409,12 +409,12 @@ class Dot11(Header):
         nb = masked | ((value << 2) & 0x0C)
         self.set_byte(0, nb)
 
-    def get_type_n_subtype_field(self):
+    def get_type_n_subtype(self):
         "Return 802.11 frame 'Type and Subtype' field"
         b = self.get_byte(0)
         return ((b >> 2) & 0x3F)
 
-    def set_type_n_subtype_field(self, value):
+    def set_type_n_subtype(self, value):
         "Set 802.11 frame 'Type and Subtype' field"
         # clear the bits
         mask = (~0xFC)&0xFF 
@@ -423,12 +423,12 @@ class Dot11(Header):
         nb = masked | ((value << 2) & 0xFC)
         self.set_byte(0, nb)
 
-    def get_version_field(self):
+    def get_version(self):
         "Return 802.11 frame control 'Protocol version' field"
         b = self.get_byte(0)
         return (b & 0x03)
 
-    def set_version_field(self, value):
+    def set_version(self, value):
         "Set the 802.11 frame control 'Protocol version' field"
         # clear the bits
         mask = (~0x03)&0xFF 
@@ -454,7 +454,7 @@ class Dot11ControlFrameCTS(Dot11):
         if aBuffer:
             self.load_header(aBuffer)
         else:
-            self.set_type_n_subtype_field(self.DOT11_TYPE_CONTROL_SUBTYPE_CLEAR_TO_SEND)
+            self.set_type_n_subtype(self.DOT11_TYPE_CONTROL_SUBTYPE_CLEAR_TO_SEND)
             
     def get_header_size(self):
         "Return size of 802.11 CTS control frame"
@@ -466,36 +466,36 @@ class Dot11ControlFrameCTS(Dot11):
         if self.auto_checksum:
             payload = self.get_bytes()[:self.__SIZE-4]
             crc32=self.compute_checksum(payload)            
-            self.set_fcs_field(crc32)
+            self.set_fcs(crc32)
         
         return self.get_bytes().tostring() 
 
-    def get_duration_field(self):
+    def get_duration(self):
         "Return 802.11 CTS control frame 'Duration' field"
         b = self.get_word(2, "<")
         return b 
 
-    def set_duration_field(self, value):
+    def set_duration(self, value):
         "Set the 802.11 CTS control frame 'Duration' field" 
         # set the bits
         nb = value & 0xFFFF
         self.set_word(2, nb, "<")
         
-    def get_ra_field(self):
+    def get_ra(self):
         "Return 802.11 CTS control frame 48 bit 'Receiver Address' field as a 6 bytes array"
         return self.get_bytes()[4:10]
 
-    def set_ra_field(self, value):
+    def set_ra(self, value):
         "Set 802.11 CTS control frame 48 bit 'Receiver Address' field as a 6 bytes array"
         for i in range(0, 6):
             self.set_byte(4+i, value[i])
 
-    def get_fcs_field(self):
+    def get_fcs(self):
         "Return 802.11 CTS control frame 'FCS' field"
         b = self.get_long(10, ">")
         return b 
 
-    def set_fcs_field(self, value):
+    def set_fcs(self, value):
         "Set the 802.11 CTS control frame 'FCS' field" 
         # set the bits
         nb = value & 0xFFFFFFFF
@@ -510,7 +510,7 @@ class Dot11ControlFrameACK(Dot11):
         if aBuffer:
             self.load_header(aBuffer)
         else:
-            self.set_type_n_subtype_field(self.DOT11_TYPE_CONTROL_SUBTYPE_ACKNOWLEDGMENT)
+            self.set_type_n_subtype(self.DOT11_TYPE_CONTROL_SUBTYPE_ACKNOWLEDGMENT)
             
     def get_header_size(self):
         "Return size of 802.11 ACK control frame"
@@ -522,36 +522,36 @@ class Dot11ControlFrameACK(Dot11):
         if self.auto_checksum:
             payload = self.get_bytes()[:self.__SIZE-4]
             crc32=self.compute_checksum(payload)            
-            self.set_fcs_field(crc32)
+            self.set_fcs(crc32)
         
         return self.get_bytes().tostring() 
 
-    def get_duration_field(self):
+    def get_duration(self):
         "Return 802.11 ACK control frame 'Duration' field"
         b = self.get_word(2, "<")
         return b 
 
-    def set_duration_field(self, value):
+    def set_duration(self, value):
         "Set the 802.11 ACK control frame 'Duration' field" 
         # set the bits
         nb = value & 0xFFFF
         self.set_word(2, nb, "<")
         
-    def get_ra_field(self):
+    def get_ra(self):
         "Return 802.11 ACK control frame 48 bit 'Receiver Address' field as a 6 bytes array"
         return self.get_bytes()[4:10]
 
-    def set_ra_field(self, value):
+    def set_ra(self, value):
         "Set 802.11 ACK control frame 48 bit 'Receiver Address' field as a 6 bytes array"
         for i in range(0, 6):
             self.set_byte(4+i, value[i])
 
-    def get_fcs_field(self):
+    def get_fcs(self):
         "Return 802.11 ACK control frame 'FCS' field"
         b = self.get_long(10, ">")
         return b 
 
-    def set_fcs_field(self, value):
+    def set_fcs(self, value):
         "Set the 802.11 ACK control frame 'FCS' field" 
         # set the bits
         nb = value & 0xFFFFFFFF
@@ -566,7 +566,7 @@ class Dot11ControlFrameRTS(Dot11):
         if aBuffer:
             self.load_header(aBuffer)
         else:
-            self.set_type_n_subtype_field(self.DOT11_TYPE_CONTROL_SUBTYPE_REQUEST_TO_SEND)
+            self.set_type_n_subtype(self.DOT11_TYPE_CONTROL_SUBTYPE_REQUEST_TO_SEND)
     
     def get_header_size(self):
         "Return size of 802.11 RTS control frame header"
@@ -578,45 +578,45 @@ class Dot11ControlFrameRTS(Dot11):
         if self.auto_checksum:
             payload = self.get_bytes()[:self.__SIZE-4]
             crc32=self.compute_checksum(payload)            
-            self.set_fcs_field(crc32)
+            self.set_fcs(crc32)
         
         return self.get_bytes().tostring()
      
-    def get_duration_field(self):
+    def get_duration(self):
         "Return 802.11 RTS control frame 'Duration' field"
         b = self.get_word(2, "<")
         return b 
 
-    def set_duration_field(self, value):
+    def set_duration(self, value):
         "Set the 802.11 RTS control frame 'Duration' field" 
         # set the bits
         nb = value & 0xFFFF
         self.set_word(2, nb, "<")
         
-    def get_ra_field(self):
+    def get_ra(self):
         "Return 802.11 RTS control frame 48 bit 'Receiver Address' field as a 6 bytes array"
         return self.get_bytes()[4:10]
 
-    def set_ra_field(self, value):
+    def set_ra(self, value):
         "Set 802.11 RTS control frame 48 bit 'Receiver Address' field as a 6 bytes array"
         for i in range(0, 6):
             self.set_byte(4+i, value[i])
 
-    def get_ta_field(self):
+    def get_ta(self):
         "Return 802.11 RTS control frame 48 bit 'Transmitter Address' field as a 6 bytes array"
         return self.get_bytes()[10:16]
 
-    def set_ta_field(self, value):
+    def set_ta(self, value):
         "Set 802.11 RTS control frame 48 bit 'Transmitter Address' field as a 6 bytes array"
         for i in range(0, 6):
             self.set_byte(10+i, value[i])            
 
-    def get_fcs_field(self):
+    def get_fcs(self):
         "Return 802.11 RTS control frame 'FCS' field"
         b = self.get_long(16, ">")
         return b 
 
-    def set_fcs_field(self, value):
+    def set_fcs(self, value):
         "Set the 802.11 RTS control frame 'FCS' field" 
         # set the bits
         nb = value & 0xFFFFFFFF
@@ -631,7 +631,7 @@ class Dot11ControlFramePSPoll(Dot11):
         if aBuffer:
             self.load_header(aBuffer)
         else:
-            self.set_type_n_subtype_field(self.DOT11_TYPE_CONTROL_SUBTYPE_POWERSAVE_POLL)
+            self.set_type_n_subtype(self.DOT11_TYPE_CONTROL_SUBTYPE_POWERSAVE_POLL)
 
     def get_header_size(self):
         "Return size of 802.11 PSPoll control frame header"
@@ -643,45 +643,45 @@ class Dot11ControlFramePSPoll(Dot11):
         if self.auto_checksum:
             payload = self.get_bytes()[:self.__SIZE-4]
             crc32=self.compute_checksum(payload)            
-            self.set_fcs_field(crc32)
+            self.set_fcs(crc32)
         
         return self.get_bytes().tostring()
      
-    def get_aid_field(self):
+    def get_aid(self):
         "Return 802.11 PSPoll control frame 'AID' field"
         b = self.get_word(2, "<")
         return b 
 
-    def set_aid_field(self, value):
+    def set_aid(self, value):
         "Set the 802.11 PSPoll control frame 'AID' field" 
         # set the bits
         nb = value & 0xFFFF
         self.set_word(2, nb, "<")
         
-    def get_bssid_field(self):
+    def get_bssid(self):
         "Return 802.11 PSPoll control frame 48 bit 'BSS ID' field as a 6 bytes array"
         return self.get_bytes()[4:10]
 
-    def set_bssid_field(self, value):
+    def set_bssid(self, value):
         "Set 802.11 PSPoll control frame 48 bit 'BSS ID' field as a 6 bytes array"
         for i in range(0, 6):
             self.set_byte(4+i, value[i])
 
-    def get_ta_field(self):
+    def get_ta(self):
         "Return 802.11 PSPoll control frame 48 bit 'Transmitter Address' field as a 6 bytes array"
         return self.get_bytes()[10:16]
 
-    def set_ta_field(self, value):
+    def set_ta(self, value):
         "Set 802.11 PSPoll control frame 48 bit 'Transmitter Address' field as a 6 bytes array"
         for i in range(0, 6):
             self.set_byte(10+i, value[i])            
 
-    def get_fcs_field(self):
+    def get_fcs(self):
         "Return 802.11 PSPoll control frame 'FCS' field"
         b = self.get_long(16, ">")
         return b 
 
-    def set_fcs_field(self, value):
+    def set_fcs(self, value):
         "Set the 802.11 PSPoll control frame 'FCS' field" 
         # set the bits
         nb = value & 0xFFFFFFFF
@@ -697,7 +697,7 @@ class Dot11ControlFrameCFEnd(Dot11):
         if aBuffer:
             self.load_header(aBuffer)
         else:
-            self.set_type_n_subtype_field(self.DOT11_TYPE_CONTROL_SUBTYPE_CF_END)
+            self.set_type_n_subtype(self.DOT11_TYPE_CONTROL_SUBTYPE_CF_END)
 
     def get_header_size(self):
         "Return size of 802.11 CF-End control frame header"
@@ -709,45 +709,45 @@ class Dot11ControlFrameCFEnd(Dot11):
         if self.auto_checksum:
             payload = self.get_bytes()[:self.__SIZE-4]
             crc32=self.compute_checksum(payload)            
-            self.set_fcs_field(crc32)
+            self.set_fcs(crc32)
         
         return self.get_bytes().tostring()
      
-    def get_duration_field(self):
+    def get_duration(self):
         "Return 802.11 CF-End control frame 'Duration' field"
         b = self.get_word(2, "<")
         return b 
 
-    def set_duration_field(self, value):
+    def set_duration(self, value):
         "Set the 802.11 CF-End control frame 'Duration' field" 
         # set the bits
         nb = value & 0xFFFF
         self.set_word(2, nb, "<")
         
-    def get_ra_field(self):
+    def get_ra(self):
         "Return 802.11 CF-End control frame 48 bit 'Receiver Address' field as a 6 bytes array"
         return self.get_bytes()[4:10]
 
-    def set_ra_field(self, value):
+    def set_ra(self, value):
         "Set 802.11 CF-End control frame 48 bit 'Receiver Address' field as a 6 bytes array"
         for i in range(0, 6):
             self.set_byte(4+i, value[i])
 
-    def get_bssid_field(self):
+    def get_bssid(self):
         "Return 802.11 CF-End control frame 48 bit 'BSS ID' field as a 6 bytes array"
         return self.get_bytes()[10:16]
 
-    def set_bssid_field(self, value):
+    def set_bssid(self, value):
         "Set 802.11 CF-End control frame 48 bit 'BSS ID' field as a 6 bytes array"
         for i in range(0, 6):
             self.set_byte(10+i, value[i])            
 
-    def get_fcs_field(self):
+    def get_fcs(self):
         "Return 802.11 CF-End control frame 'FCS' field"
         b = self.get_long(16, ">")
         return b 
 
-    def set_fcs_field(self, value):
+    def set_fcs(self, value):
         "Set the 802.11 CF-End control frame 'FCS' field" 
         # set the bits
         nb = value & 0xFFFFFFFF
@@ -762,7 +762,7 @@ class Dot11ControlFrameCFEndCFACK(Dot11):
         if aBuffer:
             self.load_header(aBuffer)
         else:
-            self.set_type_n_subtype_field(self.DOT11_TYPE_CONTROL_SUBTYPE_CF_END_CF_ACK)
+            self.set_type_n_subtype(self.DOT11_TYPE_CONTROL_SUBTYPE_CF_END_CF_ACK)
 
     def get_header_size(self):
         'Return size of 802.11 \'CF-End+CF-ACK\' control frame header' 
@@ -774,45 +774,45 @@ class Dot11ControlFrameCFEndCFACK(Dot11):
         if self.auto_checksum:
             payload = self.get_bytes()[:self.__SIZE-4]
             crc32=self.compute_checksum(payload)            
-            self.set_fcs_field(crc32)
+            self.set_fcs(crc32)
         
         return self.get_bytes().tostring()
      
-    def get_duration_field(self):
+    def get_duration(self):
         'Return 802.11 \'CF-End+CF-ACK\' control frame \'Duration\' field'
         b = self.get_word(2, "<")
         return b 
 
-    def set_duration_field(self, value):
+    def set_duration(self, value):
         'Set the 802.11 \'CF-End+CF-ACK\' control frame \'Duration\' field' 
         # set the bits
         nb = value & 0xFFFF
         self.set_word(2, nb, "<")
         
-    def get_ra_field(self):
+    def get_ra(self):
         'Return 802.11 \'CF-End+CF-ACK\' control frame 48 bit \'Receiver Address\' field as a 6 bytes array'
         return self.get_bytes()[4:10]
 
-    def set_ra_field(self, value):
+    def set_ra(self, value):
         'Set 802.11 \'CF-End+CF-ACK\' control frame 48 bit \'Receiver Address\' field as a 6 bytes array'
         for i in range(0, 6):
             self.set_byte(4+i, value[i])
 
-    def get_bssid_field(self):
+    def get_bssid(self):
         'Return 802.11 \'CF-End+CF-ACK\' control frame 48 bit \'BSS ID\' field as a 6 bytes array'
         return self.get_bytes()[10:16]
 
-    def set_bssid_field(self, value):
+    def set_bssid(self, value):
         'Set 802.11 \'CF-End+CF-ACK\' control frame 48 bit \'BSS ID\' field as a 6 bytes array'
         for i in range(0, 6):
             self.set_byte(10+i, value[i])            
 
-    def get_fcs_field(self):
+    def get_fcs(self):
         "Return 802.11 CF-End control frame 'FCS' field"
         b = self.get_long(16, ">")
         return b 
 
-    def set_fcs_field(self, value):
+    def set_fcs(self, value):
         "Set the 802.11 CF-End control frame 'FCS' field" 
         # set the bits
         nb = value & 0xFFFFFFFF
@@ -845,14 +845,14 @@ class Dot11WEPData(Header):
     def get_auto_wep_icv(self):
         return self.auto_checksum
 
-    def get_iv_field(self):
+    def get_iv(self):
         'Return the \'WEP IV\' field'
         b=self.get_bytes()[0:3].tostring()
         #unpack requires a string argument of length 4 and b is 3 bytes long
         (iv,)=struct.unpack('!L', '\x00'+b)
         return iv
 
-    def set_iv_field(self, value):
+    def set_iv(self, value):
         'Set the \'WEP IV\' field'
         # clear the bits
         mask = ((~0xFFFFFF00) & 0xFF)
@@ -861,11 +861,11 @@ class Dot11WEPData(Header):
         nb = masked | ((value & 0x00FFFFFF) << 8)
         self.set_long(0, nb)
 
-    def get_keyid_field(self):
+    def get_keyid(self):
         'Return the \'WEP KEY ID\' field'
         pass
 
-    def set_keyid_field(self):
+    def set_keyid(self):
         'Set the \'WEP KEY ID\' field'
         pass
 
@@ -875,7 +875,7 @@ class Dot11WEPData(Header):
         if self.auto_checksum:
             payload = self.get_bytes()[:self.get_header_size()-4]
             crc32=self.compute_checksum(payload)            
-            self.set_icv_field(crc32)
+            self.set_icv(crc32)
         
         return self.get_bytes().tostring()
     
@@ -889,19 +889,19 @@ class Dot11WEPData(Header):
         # TODO: Ver 8.2.1.4.5 WEP MPDU decapsulation
         pass
 
-    def get_icv_field(self):
+    def get_icv(self):
         "Return the 'WEP ICV' field"
 
         # set the WEP ICV if the user hasn't modified it
         if self.auto_checksum:
             payload = self.get_bytes()[:self.get_header_size()-4]
             crc32=self.compute_checksum(payload)            
-            self.set_icv_field(crc32)
+            self.set_icv(crc32)
             
         b = self.get_long(-4, ">")
         return b 
 
-    def set_icv_field(self, value):
+    def set_icv(self, value):
         "Set the 'WEP ICV' field" 
         # set the bits
         nb = value & 0xFFFFFFFF
@@ -917,7 +917,7 @@ class Dot11DataFrame(Dot11):
             self.__SIZE = len(aBuffer)
             self.load_header(aBuffer)
         else:
-            self.set_type_n_subtype_field(self.DOT11_TYPE_DATA_SUBTYPE_DATA)
+            self.set_type_n_subtype(self.DOT11_TYPE_DATA_SUBTYPE_DATA)
 
     def get_header_size(self):
         'Return size of 802.11 \'Data\' data frame header' 
@@ -930,7 +930,7 @@ class Dot11DataFrame(Dot11):
         if self.auto_checksum:
             payload = self.get_bytes()[:self.get_header_size()-4]
             crc32=self.compute_checksum(payload)            
-            self.set_fcs_field(crc32)
+            self.set_fcs(crc32)
         
         return self.get_bytes().tostring()
     
@@ -958,62 +958,62 @@ class Dot11DataFrame(Dot11):
         b = self.get_byte(0)
         return (b & 0x10) and True
 
-    def get_duration_field(self):
+    def get_duration(self):
         'Return 802.11 \'Data\' data frame \'Duration\' field'
         b = self.get_word(2, "<")
         return b 
 
-    def set_duration_field(self, value):
+    def set_duration(self, value):
         'Set the 802.11 \'Data\' data frame \'Duration\' field' 
         # set the bits
         nb = value & 0xFFFF
         self.set_word(2, nb, "<")
         
-    def get_address1_field(self):
+    def get_address1(self):
         'Return 802.11 \'Data\' data frame 48 bit \'Address1\' field as a 6 bytes array'
         return self.get_bytes()[4:10]
 
-    def set_address1_field(self, value):
+    def set_address1(self, value):
         'Set 802.11 \'Data\' data frame 48 bit \'Address1\' field as a 6 bytes array'
         for i in range(0, 6):
             self.set_byte(4+i, value[i])
 
-    def get_address2_field(self):
+    def get_address2(self):
         'Return 802.11 \'Data\' data frame 48 bit \'Address2\' field as a 6 bytes array'
         return self.get_bytes()[10:16]
 
-    def set_address2_field(self, value):
+    def set_address2(self, value):
         'Set 802.11 \'Data\' data frame 48 bit \'Address2\' field as a 6 bytes array'
         for i in range(0, 6):
             self.set_byte(10+i, value[i])
             
-    def get_address3_field(self):
+    def get_address3(self):
         'Return 802.11 \'Data\' data frame 48 bit \'Address3\' field as a 6 bytes array'
         return self.get_bytes()[16: 22]
 
-    def set_address3_field(self, value):
+    def set_address3(self, value):
         'Set 802.11 \'Data\' data frame 48 bit \'Address3\' field as a 6 bytes array'
         for i in range(0, 6):
             self.set_byte(16+i, value[i])
 
-    def get_sequence_control_field(self):
+    def get_sequence_control(self):
         'Return 802.11 \'Data\' data frame \'Sequence Control\' field'
         b = self.get_word(22, "<")
         return b 
 
-    def set_sequence_control_field(self, value):
+    def set_sequence_control(self, value):
         'Set the 802.11 \'Data\' data frame \'Sequence Control\' field' 
         # set the bits
         nb = value & 0xFFFF
         self.set_word(22, nb, "<")
 
-    def get_fragment_number_field(self):
+    def get_fragment_number(self):
         'Return 802.11 \'Data\' data frame \'Fragment Number\' subfield'
 
         b = self.get_word(22, "<")
         return (b&0x000F) 
 
-    def set_fragment_number_field(self, value):
+    def set_fragment_number(self, value):
         'Set the 802.11 \'Data\' data frame \'Fragment Number\' subfield' 
         # clear the bits
         mask = (~0x000F) & 0xFFFF
@@ -1022,13 +1022,13 @@ class Dot11DataFrame(Dot11):
         nb = masked | (value & 0x000F)
         self.set_word(22, nb, "<")
         
-    def get_secuence_number_field(self):
+    def get_secuence_number(self):
         'Return 802.11 \'Data\' data frame \'Secuence Number\' subfield'
         
         b = self.get_word(22, "<")
         return ((b>>4) & 0xFFF) 
     
-    def set_secuence_number_field(self, value):
+    def set_secuence_number(self, value):
         'Set the 802.11 \'Data\' data frame \'Secuence Number\' subfield' 
         # clear the bits
         mask = (~0xFFF0) & 0xFFFF
@@ -1037,26 +1037,26 @@ class Dot11DataFrame(Dot11):
         nb = masked | ((value & 0x0FFF ) << 4 ) 
         self.set_word(22, nb, "<")
 
-    def get_address4_field(self):
+    def get_address4(self):
         'Return 802.11 \'Data\' data frame 48 bit \'Address4\' field as a 6 bytes array'
-        if self.get_fromDS_field() and self.get_toDS_field():
+        if self.get_fromDS() and self.get_toDS():
             return self.get_bytes()[24: 30]
         else:
             return None
 
-    def set_address4_field(self, value):
+    def set_address4(self, value):
         'Set 802.11 \'Data\' data frame 48 bit \'Address4\' field as a 6 bytes array'
-        if self.get_fromDS_field() and self.get_toDS_field():
+        if self.get_fromDS() and self.get_toDS():
             for i in range(0, 6):
                 self.set_byte(24+i, value[i])
         else:
             # this does not have address4
             pass
 
-    def get_frame_body_field(self):
+    def get_frame_body(self):
         'Return 802.11 \'Data\' data frame \'Frame Body\' field'
         index=24
-        if self.get_fromDS_field() and self.get_toDS_field():
+        if self.get_fromDS() and self.get_toDS():
             # this does have address4
             index+=6
         if self.is_QoS_frame(): 
@@ -1069,17 +1069,17 @@ class Dot11DataFrame(Dot11):
         # correspondiente
         'Return 802.11 \'Data\' data frame \'Frame Body\' field'
         index=24
-        if self.get_fromDS_field() and self.get_toDS_field():
+        if self.get_fromDS() and self.get_toDS():
             # this does have address4
             index+=6
         if self.is_QoS_frame(): 
             index+=2
         return self.get_bytes()[index:-4].tostring()
 
-    def set_frame_body_field(self, data):
+    def set_frame_body(self, data):
         'Set 802.11 \'Data\' data frame \'Frame Body\' field'
         index=24
-        if self.get_fromDS_field() and self.get_toDS_field():
+        if self.get_fromDS() and self.get_toDS():
             # this does have address4
             index+=6
         if False and QoS: 
@@ -1092,12 +1092,12 @@ class Dot11DataFrame(Dot11):
         crc32=self.compute_checksum(frame)
         frame.append(crc32) # Append the new calculated FCS-CRC32
         
-    def get_fcs_field(self):
+    def get_fcs(self):
         "Return 802.11 \'Data\' data frame 'FCS' field"
         b = self.get_long(-4, ">")
         return b 
 
-    def set_fcs_field(self, value):
+    def set_fcs(self, value):
         "Set the 802.11 \'Data\' data frame 'FCS' field" 
         # set the bits
         nb = value & 0xFFFFFFFF

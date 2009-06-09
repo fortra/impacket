@@ -18,22 +18,22 @@ class TestDot11FrameControlCFEndCFACK(unittest.TestCase):
         
     def test_01_Type(self):
         'Test Type field'
-        self.assertEqual(self.cfendcfack.get_type_field(), Dot11.DOT11_TYPE_CONTROL)
+        self.assertEqual(self.cfendcfack.get_type(), Dot11.DOT11_TYPE_CONTROL)
         cfendcfack=Dot11ControlFrameCFEndCFACK()
-        self.assertEqual(cfendcfack.get_type_field(), Dot11.DOT11_TYPE_CONTROL)
+        self.assertEqual(cfendcfack.get_type(), Dot11.DOT11_TYPE_CONTROL)
 
     def test_02_SubType(self):
         'Test SubType field'
 
-        self.assertEqual(self.cfendcfack.get_subtype_field(), Dot11.DOT11_SUBTYPE_CONTROL_CF_END_CF_ACK)
+        self.assertEqual(self.cfendcfack.get_subtype(), Dot11.DOT11_SUBTYPE_CONTROL_CF_END_CF_ACK)
         cfendcfack=Dot11ControlFrameCFEndCFACK()
-        self.assertEqual(cfendcfack.get_subtype_field(), Dot11.DOT11_SUBTYPE_CONTROL_CF_END_CF_ACK)
+        self.assertEqual(cfendcfack.get_subtype(), Dot11.DOT11_SUBTYPE_CONTROL_CF_END_CF_ACK)
     
     def test_03_TypeSubtype(self):
         'Test Type and SubType field'
-        self.assertEqual(self.cfendcfack.get_type_n_subtype_field(), Dot11.DOT11_TYPE_CONTROL_SUBTYPE_CF_END_CF_ACK)
+        self.assertEqual(self.cfendcfack.get_type_n_subtype(), Dot11.DOT11_TYPE_CONTROL_SUBTYPE_CF_END_CF_ACK)
         cfendcfack=Dot11ControlFrameCFEndCFACK()
-        self.assertEqual(cfendcfack.get_type_n_subtype_field(), Dot11.DOT11_TYPE_CONTROL_SUBTYPE_CF_END_CF_ACK)
+        self.assertEqual(cfendcfack.get_type_n_subtype(), Dot11.DOT11_TYPE_CONTROL_SUBTYPE_CF_END_CF_ACK)
 
     def test_04_HeaderSize(self):
         'Test Header Size field'
@@ -44,43 +44,43 @@ class TestDot11FrameControlCFEndCFACK(unittest.TestCase):
     def test_05_Duration(self):
         'Test Duration field'
         
-        self.assertEqual(self.cfendcfack.get_duration_field(), 0x00)
-        self.cfendcfack.set_duration_field(0x1234)
-        self.assertEqual(self.cfendcfack.get_duration_field(), 0x1234)
+        self.assertEqual(self.cfendcfack.get_duration(), 0x00)
+        self.cfendcfack.set_duration(0x1234)
+        self.assertEqual(self.cfendcfack.get_duration(), 0x1234)
     
     def test_06_RA(self):
         'Test RA field'
         
-        ra=self.cfendcfack.get_ra_field()
+        ra=self.cfendcfack.get_ra()
         self.assertEqual(ra.tolist(), [0xff,0xff,0xff,0xff,0xff,0xff])
         ra[0]=0x12
         ra[5]=0x34
-        self.cfendcfack.set_ra_field(ra)
-        self.assertEqual(self.cfendcfack.get_ra_field().tolist(), [0x12,0xff,0xff,0xff,0xff,0x34])
+        self.cfendcfack.set_ra(ra)
+        self.assertEqual(self.cfendcfack.get_ra().tolist(), [0x12,0xff,0xff,0xff,0xff,0x34])
 
     def test_07_BSSID(self):
         'Test BSS ID field'
         
-        bssid=self.cfendcfack.get_bssid_field()
+        bssid=self.cfendcfack.get_bssid()
         self.assertEqual(bssid.tolist(), [0x00,0x19,0xe0,0x98,0x04,0xd4])
         bssid[0]=0x12
         bssid[5]=0x34
-        self.cfendcfack.set_bssid_field(bssid)
-        self.assertEqual(self.cfendcfack.get_bssid_field().tolist(), [0x12,0x19,0xe0,0x98,0x04,0x34])
+        self.cfendcfack.set_bssid(bssid)
+        self.assertEqual(self.cfendcfack.get_bssid().tolist(), [0x12,0x19,0xe0,0x98,0x04,0x34])
 
     def test_08_FCS(self):
         'Test FCS field'
         
-        fcs=self.cfendcfack.get_fcs_field()
+        fcs=self.cfendcfack.get_fcs()
 
         self.assertEqual(fcs, 0xad9c3cc0)
-        self.cfendcfack.set_fcs_field(0x44332211)
-        self.assertEqual(self.cfendcfack.get_fcs_field(), 0x44332211)
+        self.cfendcfack.set_fcs(0x44332211)
+        self.assertEqual(self.cfendcfack.get_fcs(), 0x44332211)
         
     def test_09_GetPacket(self):
         'Test FCS with auto_checksum field'
         
-        fcs=self.cfendcfack.get_fcs_field()
+        fcs=self.cfendcfack.get_fcs()
         self.assertEqual(fcs,0xad9c3cc0)
         frame=self.cfendcfack.get_packet()
         self.assertEqual(frame,self.frame_orig)
@@ -88,9 +88,9 @@ class TestDot11FrameControlCFEndCFACK(unittest.TestCase):
     def test_10_AutoChecksum(self):
         'Test auto_checksum feature'
         
-        self.cfendcfack.set_duration_field(0x1234)
+        self.cfendcfack.set_duration(0x1234)
         frame=self.cfendcfack.get_packet()
-        fcs=self.cfendcfack.get_fcs_field()
+        fcs=self.cfendcfack.get_fcs()
         self.assertEqual(fcs,0x93441DA6)
 
         newframe='\xe4\x00\x34\x12\xff\xff\xff\xff\xff\xff\x00\x19\xe0\x98\x04\xd4\x93\x44\x1d\xa6'
