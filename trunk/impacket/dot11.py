@@ -649,6 +649,8 @@ class Dot11ControlFramePSPoll(Dot11):
      
     def get_aid(self):
         "Return 802.11 PSPoll control frame 'AID' field"
+        # the spec says "The AID value always has its two MSBs each set to 1."
+        # TODO: Should we do check/modify it? Wireshark shows the only MSB to 0
         b = self.get_word(2, "<")
         return b 
 
@@ -656,6 +658,8 @@ class Dot11ControlFramePSPoll(Dot11):
         "Set the 802.11 PSPoll control frame 'AID' field" 
         # set the bits
         nb = value & 0xFFFF
+        # the spec says "The AID value always has its two MSBs each set to 1."
+        # TODO: Should we do check/modify it? Wireshark shows the only MSB to 0
         self.set_word(2, nb, "<")
         
     def get_bssid(self):
