@@ -87,7 +87,7 @@ class TestDot11FrameControlPSPoll(unittest.TestCase):
     def test_10_AutoChecksum(self):
         'Test auto_checksum feature'
         
-        self.pspoll.set_duration(0x1234)
+        self.pspoll.set_aid(0x1234)
         frame=self.pspoll.get_packet()
         fcs=self.pspoll.get_fcs()
         self.assertEqual(fcs,0xB67A88D6)
