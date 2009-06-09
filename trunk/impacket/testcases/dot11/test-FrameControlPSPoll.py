@@ -12,7 +12,7 @@ class TestDot11FrameControlPSPoll(unittest.TestCase):
 
     def setUp(self):
         # 802.11 Control Frame PSPoll
-        self.frame_orig='\xb4\x00\x81\x01\x00\x08\x54\xac\x2f\x85\x00\x23\x4d\x09\x86\xfe\x99\x75\x43\x73'
+        self.frame_orig='\xa6\x73\xf1\xaf\x48\x06\xee\x23\x2b\xc9\xfe\xbe\xe5\x05\x4c\x0a\x04\xa0\x00\x0f'
         self.pspoll=Dot11ControlFramePSPoll(self.frame_orig)
         
     def test_01_Type(self):
@@ -43,7 +43,7 @@ class TestDot11FrameControlPSPoll(unittest.TestCase):
     def test_05_AID(self):
         'Test AID field'
         
-        self.assertEqual(self.pspoll.get_aid(), 0x181)
+        self.assertEqual(self.pspoll.get_aid(), 0xAFF1)
         self.pspoll.set_aid(0x1234)
         self.assertEqual(self.pspoll.get_aid(), 0x1234)
     
@@ -51,28 +51,28 @@ class TestDot11FrameControlPSPoll(unittest.TestCase):
         'Test BSS ID field'
         
         bssid=self.pspoll.get_bssid()
-        self.assertEqual(bssid.tolist(), [0x00,0x08,0x54,0xac,0x2f,0x85])
+        self.assertEqual(bssid.tolist(), [0x48,0x06,0xee,0x23,0x2b,0xc9])
         bssid[0]=0x12
         bssid[5]=0x34
         self.pspoll.set_bssid(bssid)
-        self.assertEqual(self.pspoll.get_bssid().tolist(), [0x12,0x08,0x54,0xac,0x2f,0x34])
+        self.assertEqual(self.pspoll.get_bssid().tolist(), [0x12,0x06,0xee,0x23,0x2b,0x34])
 
     def test_07_TA(self):
         'Test TA field'
         
         ta=self.pspoll.get_ta()
-        self.assertEqual(ta.tolist(), [0x00,0x23,0x4d,0x09,0x86,0xfe])
+        self.assertEqual(ta.tolist(), [0xfe,0xbe,0xe5,0x05,0x4c,0x0a])
         ta[0]=0x12
         ta[5]=0x34
         self.pspoll.set_ta(ta)
-        self.assertEqual(self.pspoll.get_ta().tolist(), [0x12,0x23,0x4d,0x09,0x86,0x34])
+        self.assertEqual(self.pspoll.get_ta().tolist(), [0x12,0xbe,0xe5,0x05,0x4c,0x34])
 
     def test_08_FCS(self):
         'Test FCS field'
         
         fcs=self.pspoll.get_fcs()
         
-        self.assertEqual(fcs, 0x99754373)
+        self.assertEqual(fcs, 0x04A0000F)
         self.pspoll.set_fcs(0x44332211)
         self.assertEqual(self.pspoll.get_fcs(), 0x44332211)
         
@@ -80,7 +80,7 @@ class TestDot11FrameControlPSPoll(unittest.TestCase):
         'Test FCS with auto_checksum field'
         
         fcs=self.pspoll.get_fcs()
-        self.assertEqual(fcs,0x99754373)
+        self.assertEqual(fcs,0x04A0000F)
         frame=self.pspoll.get_packet()
         self.assertEqual(frame,self.frame_orig)
 
@@ -90,9 +90,9 @@ class TestDot11FrameControlPSPoll(unittest.TestCase):
         self.pspoll.set_aid(0x1234)
         frame=self.pspoll.get_packet()
         fcs=self.pspoll.get_fcs()
-        self.assertEqual(fcs,0xB67A88D6)
-        newframe='\xb4\x00\x34\x12\x00\x08\x54\xac\x2f\x85\x00\x23\x4d\x09\x86\xfe\xb6\x7a\x88\xd6'
-        self.assertEqual(frame  ,newframe)    
+        self.assertEqual(fcs,0x88A4E0EF)
+        newframe='\xa6\x734\x12\x48\x06\xee\x23\x2b\xc9\xfe\xbe\xe5\x05\x4c\x0a\x88\xa4\xe0\xef'
+        self.assertEqual(frame, newframe)    
       
 suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11FrameControlPSPoll)
 unittest.TextTestRunner(verbosity=2).run(suite)
