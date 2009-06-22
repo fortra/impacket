@@ -170,3 +170,149 @@ class DataDecoder(Decoder):
     def decode(self, aBuffer):
         d = ImpactPacket.Data(aBuffer)
         return d
+
+class RadioTapDecoder(Decoder):
+    def __init__(self):
+        pass
+
+    def decode(self, aBuffer):
+        rt = ImpactPacket.RadioTap(aBuffer)
+        
+        header_size = rt.get_header_size()
+        tail_size = rt.get_tail_size()
+        
+        self.do11_decoder = Dot11Decoder()
+        packet = self.dot11_decoder.decode(aBuffer[header_size:-tail_size])
+    
+        rt.contains(packet)
+        return rt
+
+class Dot11Decoder(Decode):
+    def __init__(self):
+        pass
+        
+    def decode(self, aBuffer):
+        d = ImpactPacket.Dot11(aBuffer)
+        
+        type = d.get_type()
+        if type == ImpactPacket.Dot11.DOT11_TYPE_CONTROL:
+            dot11_control_decoder = Dot11ControlDecoder()
+            packet = dot11_control_decoder.decode(d.body_string)
+        elif type == ImpactPacket.Dot11.DOT11_TYPE_DATA:
+            if d.get_fromDS() and d.get_toDS() and d.is_QoS_frame():
+                dot11_data_decoder = Dot11DataDecoderAddr4QoS()
+            elif d.get_fromDS() and d.get_toDS():
+                dot11_data_decoder = Dot11DataDecoderAddr4()
+            elif d.is_QoS_frame():
+                dot11_data_decoder = Dot11DataDecoderQoS()
+            else:
+                dot11_data_decoder = Dot11DataDecoder()
+                
+            packet = dot11_data_decoder.decode(d.body_string)
+        elif type == ImpactPacket.Dot11.DOT11_TYPE_MANAGEMENT:
+            dot11_management_decoder = Dot11ManagementDecoder()
+            packet = dot11_mgmt_decoder.decode(d.body_string)
+        else:
+            data_decoder = DataDecoder()
+            packet = data_decoder.decode(d.body_string)
+
+        d.contains(packet)
+        return d
+
+class Dot11DataDecoder(Decode):
+    def __init__(self):
+        pass
+        
+    def decode(self, aBuffer):
+        p = ImpactPacket.Dot11DataFrame(aBuffer)
+        
+        if p.get_encryption_type() == ImpactPacket.Dot11DataFrame.OPEN:
+            self.llc_decoder = LLCDecoder()
+            packet = self.llc_decoder.decode(p.body_string)
+        elif p.get_encryption_type() == ImpactPacket.Dot11DataFrame.WEP:
+            self.wep_decoder = Dot11DataWEPDecoder()
+            packet = self.wep_decoder.decode(p.body_string)
+        elif p.get_encryption_type() == ImpactPacket.Dot11DataFrame.WPA:
+            self.wpa_decoder = Dot11DataWPADecoder()
+            packet = self.wep_decoder.decode(p.body_string)
+        elif p.get_encryption_type() == ImpactPacket.Dot11DataFrame.WPA2:
+            self.wpa2_decoder = Dot11DataWPA2Decoder()
+            packet = self.wep_decoder.decode(p.body_string)
+        else:
+            data_decoder = DataDecoder()
+            packet = data_decoder.decode(p.body_string)
+
+        p.contains(packet)
+        return d
+      
+class Dot11DataWEPDecoder(Decode):
+    def __init__(self):
+        pass
+        
+    def decode(self, aBuffer):
+        # TODO: the WEP decoder
+        data_decoder = DataDecoder()
+        return data_decoder.decode(aBuffer)
+
+class Dot11DataWPADecoder(Decode):
+    def __init__(self):
+        pass
+        
+    def decode(self, aBuffer):
+        # TODO: the WPA decoder
+        data_decoder = DataDecoder()
+        return data_decoder.decode(aBuffer)
+
+class Dot11DataWPA2Decoder(Decode):
+    def __init__(self):
+        pass
+        
+    def decode(self, aBuffer):
+        # TODO: the WPA2 decoder
+        data_decoder = DataDecoder()
+        return data_decoder.decode(aBuffer)
+
+class LLCDecoder(Decode):
+    def __init__(self):
+        pass
+        
+    def decode(self, aBuffer):
+        d = ImpactPacket.LLC(aBuffer)
+        
+        if d.get_DSAP()==ImpactPacket.SAPTypes.SNAP:
+            if d.get_SSAP()==ImpactPacket.SAPTypes.SNAP:
+                if d.get_control()==ImpactPacket.LLC.DLC_UNNUMBERED_FRAMES:
+                    snap_decoder = SNAPDecoder()
+                    packet = snap_decoder.decode(d.body_string)
+        else:
+            # Only SNAP is implemented
+            data_decoder = DataDecoder()
+            packet = data_decoder.decode(d.body_string)
+
+        d.contains(packet)
+        return d
+
+class SNAPDecoder(Decode):
+    def __init__(self):
+        pass
+        
+    def decode(self, aBuffer):
+        s = ImpactPacket.SNAP(aBuffer)
+        
+        if  d.get_OUI()!=0x000000:
+            # We don't know how to handle other than OUI=0x000000 (EtherType)
+            self.data_decoder = DataDecoder()
+            packet = self.data_decoder.decode(s.body_string)
+        elif e.get_ether_type() == ImpactPacket.IP.ethertype:
+            self.ip_decoder = IPDecoder()
+            packet = self.ip_decoder.decode(s.body_string)
+        elif e.get_ether_type() == ImpactPacket.ARP.ethertype:
+            self.arp_decoder = ARPDecoder()
+            packet = self.arp_decoder.decode(s.body_string)
+        else:
+            self.data_decoder = DataDecoder()
+            packet = self.data_decoder.decode(s.body_string)
+
+        d.contains(packet)
+        return d
+    
