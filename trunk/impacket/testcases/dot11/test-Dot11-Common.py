@@ -4,7 +4,7 @@
 import sys
 sys.path.insert(0,"../..")
 
-from dot11 import Dot11
+from dot11 import Dot11, Dot11Types
 from binascii import hexlify
 import unittest
 
@@ -18,6 +18,10 @@ class TestDot11Common(unittest.TestCase):
     def test_01_HeaderSize(self):
         'Test Header Size field'
         self.assertEqual(self.dot11fc.get_header_size(), 2)
+
+    def test_01_TailSize(self):
+        'Test Tail Size field'
+        self.assertEqual(self.dot11fc.get_tail_size(), 4)
   
     def test_02_Version(self):
         'Test Version field'
@@ -88,15 +92,16 @@ class TestDot11Common(unittest.TestCase):
 
     def test_13_latest(self):
         'Test complete frame hexs'
-        self.dot11fc.set_type_n_subtype(Dot11.DOT11_TYPE_CONTROL_SUBTYPE_POWERSAVE_POLL)
+        self.dot11fc.set_type_n_subtype(Dot11Types.DOT11_TYPE_CONTROL_SUBTYPE_POWERSAVE_POLL)
         self.dot11fc.set_order(1)
         self.dot11fc.set_moreData(1)
         self.dot11fc.set_retry(1)
         self.dot11fc.set_fromDS(1)
         
         frame=self.dot11fc.get_packet()
-        self.assertEqual(frame, '\xa4\xaa')
-
+        
+        self.assertEqual(frame, '\xa4\xaa\x00\x00\x00\x08\x54\xac\x2f\x85\xb7\x7f\xc3\x9e')
+    
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11Common)
 unittest.TextTestRunner(verbosity=2).run(suite)
