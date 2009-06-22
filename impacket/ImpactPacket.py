@@ -182,8 +182,31 @@ class PacketBuffer:
 
         return orig_index
 
+class ProtocolLayer():
+    "Protocol Layer Manager for insertion and removal of protocol layers."
 
-class Header(PacketBuffer):
+    def __init__(self):
+        self.__child = None
+        self.__parent = None
+
+    def contains(self, aHeader):
+        "Set 'aHeader' as the child of this protocol layer"
+        self.__child = aHeader
+        aHeader.set_parent(self)
+
+    def set_parent(self, my_parent):
+        "Set the header 'my_parent' as the parent of this protocol layer"
+        self.__parent = my_parent
+
+    def child(self):
+        "Return the child of this protocol layer"
+        return self.__child
+
+    def parent(self):
+        "Return the parent of this protocol layer"
+        return self.__parent
+
+class Header(PacketBuffer,ProtocolLayer):
     "This is the base class from which all protocol definitions extend."
 
     packet_printable = filter(lambda c: c not in string.whitespace, string.printable) + ' '
@@ -192,32 +215,14 @@ class Header(PacketBuffer):
     protocol = None
     def __init__(self, length = None):
         PacketBuffer.__init__(self, length)
-        self.__child = None
-        self.__parent = None
+        ProtocolLayer.__init__()
         self.auto_checksum = 1
-
-    def contains(self, aHeader):
-        "Set 'aHeader' as the child of this header"
-        self.__child = aHeader
-        aHeader.set_parent(self)
-
-    def set_parent(self, my_parent):
-        "Set the header 'my_parent' as the parent of this header"
-        self.__parent = my_parent
-
-    def child(self):
-        "Return the child of this header"
-        return self.__child
-
-    def parent(self):
-        "Return the parent of this header"
-        return self.__parent
 
     def get_data_as_string(self):
         "Returns all data from children of this header as string"
 
-        if self.__child:
-            return self.__child.get_packet()
+        if self.child():
+            return self.child().get_packet()
         else:
             return None
 
@@ -296,8 +301,8 @@ class Header(PacketBuffer):
     def __str__(self):
         ltmp = self.list_as_hex(self.get_bytes().tolist())
 
-        if self.__child:
-            ltmp.append(['\n', self.__child.__str__()])
+        if self.child():
+            ltmp.append(['\n', self.child().__str__()])
 
         if len(ltmp)>0:
             return string.join(ltmp, '')
