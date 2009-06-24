@@ -23,10 +23,9 @@ class TestDot11DataFrames(unittest.TestCase):
         inner_packet = self.frame_orig[header_size:-tail_size]
         
         type = d.get_type()
-        if type == Dot11Types.DOT11_TYPE_DATA:
-            self.data = Dot11DataFrame(inner_packet)
-        else:
-            print "ERRROR!!!"
+        self.assertEqual(type,Dot11Types.DOT11_TYPE_DATA)
+            
+        self.data = Dot11DataFrame(inner_packet)
             
         d.contains(self.data)
         
