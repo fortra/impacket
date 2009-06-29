@@ -17,21 +17,23 @@ class TestDot11DataFrames(unittest.TestCase):
         
         d = Dot11(self.frame_orig)
         
-        header_size = d.get_header_size()
-        tail_size = d.get_tail_size()
-        
-        inner_packet = self.frame_orig[header_size:-tail_size]
-        
         type = d.get_type()
         self.assertEqual(type,Dot11Types.DOT11_TYPE_DATA)
+        
+        subtype = d.get_subtype()
+        self.assertEqual(subtype,Dot11Types.DOT11_SUBTYPE_DATA)
+        
+        typesubtype = d.get_type_n_subtype()
+        self.assertEqual(typesubtype,Dot11Types.DOT11_TYPE_DATA_SUBTYPE_DATA)
             
-        self.data = Dot11DataFrame(inner_packet)
+        self.data = Dot11DataFrame(d.get_body_as_string())
             
         d.contains(self.data)
         
     def test_01_HeaderSize(self):
-        'Test Header Size field'
+        'Test Header and Tail Size field'
         self.assertEqual(self.data.get_header_size(), 22)
+        self.assertEqual(self.data.get_tail_size(), 0)
         
     def test_02_Duration(self):
         'Test Duration field'
