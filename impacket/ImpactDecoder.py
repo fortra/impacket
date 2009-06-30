@@ -187,7 +187,7 @@ class RadioTapDecoder(Decoder):
         rt.contains(packet)
         return rt
 
-class Dot11Decoder(Decode):
+class Dot11Decoder(Decoder):
     def __init__(self):
         pass
         
@@ -199,14 +199,13 @@ class Dot11Decoder(Decode):
             dot11_control_decoder = Dot11ControlDecoder()
             packet = dot11_control_decoder.decode(d.body_string)
         elif type == ImpactPacket.Dot11.DOT11_TYPE_DATA:
-            if d.get_fromDS() and d.get_toDS() and d.is_QoS_frame():
-                dot11_data_decoder = Dot11DataDecoderAddr4QoS()
-            elif d.get_fromDS() and d.get_toDS():
-                dot11_data_decoder = Dot11DataDecoderAddr4()
-            elif d.is_QoS_frame():
-                dot11_data_decoder = Dot11DataDecoderQoS()
-            else:
-                dot11_data_decoder = Dot11DataDecoder()
+            dot11_data_decoder = Dot11DataDecoder()
+            if d.get_fromDS() and d.get_toDS():
+                dot11_data_decoder.set_Addr4()
+            if d.is_QoS_frame():
+                dot11_data_decoder.set_QoS()
+            if d.get_protectedFrame():
+                dot11_data_decoder.set_protected()
                 
             packet = dot11_data_decoder.decode(d.body_string)
         elif type == ImpactPacket.Dot11.DOT11_TYPE_MANAGEMENT:
@@ -219,60 +218,150 @@ class Dot11Decoder(Decode):
         d.contains(packet)
         return d
 
-class Dot11DataDecoder(Decode):
+class Dot11DataDecoder(Decoder):
     def __init__(self):
-        pass
+        self.QoS=False
+        self.Addr4=False
+        self.Private=False
+        
+    def set_QoS(self):
+        self.QoS = True
+    def set_Addr4(self):
+        self.Addr4 = True
+    def set_privateFrame(self):
+        self.private = True
         
     def decode(self, aBuffer):
-        p = ImpactPacket.Dot11DataFrame(aBuffer)
+        if self.Addr4:
+            if d.QoS():
+                p = ImpactPacket.Dot11DataAddr4QoSFrame(aBuffer)
+            else:
+                p = ImpactPacket.Dot11DataAddr4Frame(aBuffer)
+        elif d.is_QoS_frame():
+            p = ImpactPacket.Dot11DataQoSFrame(aBuffer)
+        else:
+            p = ImpactPacket.Dot11DataFrame(aBuffer)
         
-        if p.get_encryption_type() == ImpactPacket.Dot11DataFrame.OPEN:
+        if self.private is False:
             self.llc_decoder = LLCDecoder()
             packet = self.llc_decoder.decode(p.body_string)
-        elif p.get_encryption_type() == ImpactPacket.Dot11DataFrame.WEP:
-            self.wep_decoder = Dot11DataWEPDecoder()
-            packet = self.wep_decoder.decode(p.body_string)
-        elif p.get_encryption_type() == ImpactPacket.Dot11DataFrame.WPA:
-            self.wpa_decoder = Dot11DataWPADecoder()
-            packet = self.wep_decoder.decode(p.body_string)
-        elif p.get_encryption_type() == ImpactPacket.Dot11DataFrame.WPA2:
-            self.wpa2_decoder = Dot11DataWPA2Decoder()
-            packet = self.wep_decoder.decode(p.body_string)
         else:
-            data_decoder = DataDecoder()
-            packet = data_decoder.decode(p.body_string)
-
+            wep_decoder = Dot11WEPDecoder()
+            packet = wep_decoder.decode(p.body_string)
+            if packet is None:
+                wpa_decoder = Dot11WPADecoder()
+                packet = wpa_decoder.decode(p.body_string)
+                if packet is None:
+                    wpa2_decoder = Dot11WPA2Decoder()
+                    packet = wpa2_decoder.decode(p.body_string)
+                    if packet is None:
+                        data_decoder = DataDecoder()
+                        packet = data_decoder.decode(p.body_string)
+        
         p.contains(packet)
-        return d
+        return p
       
-class Dot11DataWEPDecoder(Decode):
+class Dot11WEPDecoder(Decoder):
     def __init__(self):
         pass
         
     def decode(self, aBuffer):
-        # TODO: the WEP decoder
-        data_decoder = DataDecoder()
-        return data_decoder.decode(aBuffer)
+        wep = ImpactPacket.Dot11WEP(aBuffer)
 
-class Dot11DataWPADecoder(Decode):
+        if wep.is_WEP() is False:
+            return None
+        
+        decoded_string=wep.get_decrypted_data()
+        
+        wep_data = Dot11DataWEPDataDecoder()
+        packet = wep_data.decode(decoded_string)
+        
+        wep.contains(packet)
+        
+        return wep
+
+class Dot11WEPDataDecoder(Decoder):
     def __init__(self):
         pass
         
     def decode(self, aBuffer):
-        # TODO: the WPA decoder
-        data_decoder = DataDecoder()
-        return data_decoder.decode(aBuffer)
+        wep_data = ImpactPacket.Dot11WEPData(aBuffer)
 
-class Dot11DataWPA2Decoder(Decode):
+        llc_decoder = LLCDecoder()
+        packet = self.llc_decoder.decode(wep_data.body_string)
+        
+        wep_data.contains(packet)
+        
+        return wep_data
+
+
+class Dot11WPADecoder(Decoder):
     def __init__(self):
         pass
         
     def decode(self, aBuffer):
-        # TODO: the WPA2 decoder
-        data_decoder = DataDecoder()
-        return data_decoder.decode(aBuffer)
+        wpa = ImpactPacket.Dot11WPA(aBuffer)
 
-class LLCDecoder(Decode):
+        if wpa.is_WPA() is False:
+            return None
+        
+        decoded_string=wpa.get_decrypted_data()
+        
+        wpa_data = Dot11DataWPADataDecoder()
+        packet = wpa_data.decode(decoded_string)
+        
+        wpa.contains(packet)
+        
+        return wpa
+    
+class Dot11WPADataDecoder(Decoder):
+    def __init__(self):
+        pass
+        
+    def decode(self, aBuffer):
+        wpa_data = ImpactPacket.Dot11WPAData(aBuffer)
+
+        llc_decoder = LLCDecoder()
+        packet = self.llc_decoder.decode(wpa_data.body_string)
+        
+        wpa_data.contains(packet)
+        
+        return wpa_data
+
+class Dot11WPA2Decoder(Decoder):
+    def __init__(self):
+        pass
+        
+    def decode(self, aBuffer):
+        wpa2 = ImpactPacket.Dot11WPA2(aBuffer)
+
+        if wpa2.is_WPA2() is False:
+            return None
+        
+        decoded_string=wpa2.get_decrypted_data()
+        
+        wpa2_data = Dot11DataWPA2DataDecoder()
+        packet = wpa2_data.decode(decoded_string)
+        
+        wpa2.contains(packet)
+        
+        return wpa2
+    
+class Dot11WPA2DataDecoder(Decoder):
+    def __init__(self):
+        pass
+        
+    def decode(self, aBuffer):
+        wpa2_data = ImpactPacket.Dot11WPA2Data(aBuffer)
+
+        llc_decoder = LLCDecoder()
+        packet = self.llc_decoder.decode(wpa2_data.body_string)
+        
+        wpa2_data.contains(packet)
+        
+        return wpa2_data
+    
+class LLCDecoder(Decoder):
     def __init__(self):
         pass
         
@@ -292,7 +381,7 @@ class LLCDecoder(Decode):
         d.contains(packet)
         return d
 
-class SNAPDecoder(Decode):
+class SNAPDecoder(Decoder):
     def __init__(self):
         pass
         

@@ -806,77 +806,6 @@ class Dot11ControlFrameCFEndCFACK(AbstractDot11):
         for i in range(0, 6):
             self.header.set_byte(8+i, value[i])            
 
-class Dot11WEPData(AbstractDot11):
-    '802.11 WEP Data Part'
-
-    __HEADER_SIZE = 4
-    __TAIL_SIZE = 4
-
-    def __init__(self, aBuffer = None):
-        AbstractDot11.__init__(self, self.__HEADER_SIZE, self.__TAIL_SIZE)
-        if(aBuffer):
-            self.load_packet(aBuffer)
-        
-    def is_WEP(self):
-        'Return True if it\'s a WEP'
-        # We already know that it's private.
-        # Now we must differentiate between WEP and WPA/WPA2
-        # WPA/WPA2 have the ExtIV (Bit 5) enaled and WEP disabled
-        b = self.header.get_byte(3)
-        return not not (b & 0x20)
-            
-    def get_iv(self):
-        'Return the \'WEP IV\' field'
-        b=self.header.get_bytes()[0:3].tostring()
-        #unpack requires a string argument of length 4 and b is 3 bytes long
-        (iv,)=struct.unpack('!L', '\x00'+b)
-        return iv
-
-    def set_iv(self, value):
-        'Set the \'WEP IV\' field. If value is None, is auto_checksum"'
-        # clear the bits
-        mask = ((~0xFFFFFF00) & 0xFF)
-        masked = self.header.get_long(0, ">") & mask
-        # set the bits 
-        nb = masked | ((value & 0x00FFFFFF) << 8)
-        self.header.set_long(0, nb)
-
-    def get_keyid(self):
-        'Return the \'WEP KEY ID\' field'
-        b = self.header.get_byte(3)
-        return (b & 0xC0)
-
-    def set_keyid(self, value):
-        'Set the \'WEP KEY ID\' field'
-        # clear the bits
-        mask = (~0xC0) & 0xFF
-        masked = self.header.get_byte(3) & mask
-        # set the bits
-        nb = masked | ((value & 0x03) << 6)
-        self.header.set_byte(3, nb)
-
-    def get_icv(self):
-        "Return 'WEP ICV' field"
-            
-        b = self.tail.get_long(-4, ">")
-        return b 
-
-    def set_icv(self, value = None):
-        "Set 'WEP ICV' field"
-
-        # calculate the FCS
-        if value is None:
-            value=self.compute_checksum(self.body_string)
-
-        # set the bits
-        nb = value & 0xFFFFFFFF
-        self.tail.set_long(-4, nb)
-
-    def get_wep_data_decrypted(self):
-        'Return \'WEP Data\' field decrypted'
-        # TODO: Ver 8.2.1.4.5 WEP MPDU decapsulation
-        pass
-
 class Dot11DataFrame(AbstractDot11):
     '802.11 Data Frame'
     
@@ -1137,3 +1066,312 @@ class SNAP(AbstractDot11):
     def set_protoID(self, value):
         "Set the two-octet Protocol Identifier (PID) SNAP field"
         self.header.set_word(3, value, "<")
+
+class Dot11WEP(AbstractDot11):
+    '802.11 WEP'
+
+    __HEADER_SIZE = 4
+    __TAIL_SIZE = 0
+
+    def __init__(self, aBuffer = None):
+        AbstractDot11.__init__(self, self.__HEADER_SIZE, self.__TAIL_SIZE)
+        if(aBuffer):
+            self.load_packet(aBuffer)
+        
+    def is_WEP(self):
+        'Return True if it\'s a WEP'
+        # We already know that it's private.
+        # Now we must differentiate between WEP and WPA/WPA2
+        # WPA/WPA2 have the ExtIV (Bit 5) enaled and WEP disabled
+        b = self.header.get_byte(3)
+        return not not (b & 0x20)
+            
+    def get_iv(self):
+        'Return the \'WEP IV\' field'
+        b=self.header.get_bytes()[0:3].tostring()
+        #unpack requires a string argument of length 4 and b is 3 bytes long
+        (iv,)=struct.unpack('!L', '\x00'+b)
+        return iv
+
+    def set_iv(self, value):
+        'Set the \'WEP IV\' field. If value is None, is auto_checksum"'
+        # clear the bits
+        mask = ((~0xFFFFFF00) & 0xFF)
+        masked = self.header.get_long(0, ">") & mask
+        # set the bits 
+        nb = masked | ((value & 0x00FFFFFF) << 8)
+        self.header.set_long(0, nb)
+
+    def get_keyid(self):
+        'Return the \'WEP KEY ID\' field'
+        b = self.header.get_byte(3)
+        return (b & 0xC0)
+
+    def set_keyid(self, value):
+        'Set the \'WEP KEY ID\' field'
+        # clear the bits
+        mask = (~0xC0) & 0xFF
+        masked = self.header.get_byte(3) & mask
+        # set the bits
+        nb = masked | ((value & 0x03) << 6)
+        self.header.set_byte(3, nb)
+
+    def get_decrypted_data(self):
+        'Return \'WEP Data\' field decrypted'
+        # TODO: Replace it with the decoded string
+        # Ver 8.2.1.4.5 WEP MPDU decapsulation
+        return self.body_string
+
+class Dot11WEPData(AbstractDot11):
+    '802.11 WEP Data Part'
+
+    __HEADER_SIZE = 0
+    __TAIL_SIZE = 4
+
+    def __init__(self, aBuffer = None):
+        AbstractDot11.__init__(self, self.__HEADER_SIZE, self.__TAIL_SIZE)
+        if(aBuffer):
+            self.load_packet(aBuffer)
+        
+    def get_icv(self):
+        "Return 'WEP ICV' field"
+            
+        b = self.tail.get_long(-4, ">")
+        return b 
+
+    def set_icv(self, value = None):
+        "Set 'WEP ICV' field"
+
+        # calculate the FCS
+        if value is None:
+            value=self.compute_checksum(self.body_string)
+
+        # set the bits
+        nb = value & 0xFFFFFFFF
+        self.tail.set_long(-4, nb)
+
+class Dot11WPA(AbstractDot11):
+    '802.11 WPA'
+
+    __HEADER_SIZE = 8
+    __TAIL_SIZE = 0
+
+    def __init__(self, aBuffer = None):
+        AbstractDot11.__init__(self, self.__HEADER_SIZE, self.__TAIL_SIZE)
+        if(aBuffer):
+            self.load_packet(aBuffer)
+        
+    def is_WPA(self):
+        'Return True if it\'s a WPA'
+        # Now we must differentiate between WPA and WPA2
+        # In WPA WEPSeed is set to (TSC1 | 0x20) & 0x7f.
+        b = self.get_WEPSeed() == ((self.get_TSC1() | 0x20 ) & 0x7f)
+        return (b and self.get_extIV())
+            
+    def get_iv(self):
+        'Return the \'WPA IV\' field'
+        b=self.header.get_bytes()[0:3].tostring()
+        #unpack requires a string argument of length 4 and b is 3 bytes long
+        (iv,)=struct.unpack('!L', '\x00'+b)
+        return iv
+
+    def set_iv(self, value):
+        'Set the \'WPA IV\' field. If value is None, is auto_checksum"'
+        # clear the bits
+        mask = ((~0xFFFFFF00) & 0xFF)
+        masked = self.header.get_long(0, ">") & mask
+        # set the bits 
+        nb = masked | ((value & 0x00FFFFFF) << 8)
+        self.header.set_long(0, nb)
+
+    def get_keyid(self):
+        'Return the \'WPA KEY ID\' field'
+        b = self.header.get_byte(3)
+        return (b & 0xC0)
+
+    def set_keyid(self, value):
+        'Set the \'WPA KEY ID\' field'
+        # clear the bits
+        mask = (~0xC0) & 0xFF
+        masked = self.header.get_byte(3) & mask
+        # set the bits
+        nb = masked | ((value & 0x03) << 6)
+        self.header.set_byte(3, nb)
+
+    def get_decrypted_data(self):
+        'Return \'WPA Data\' field decrypted'
+        # TODO: Replace it with the decoded string
+        return self.body_string
+    
+    def get_TSC1(self):
+        pass
+    def set_TSC1(self):
+        pass
+        
+    def get_WEPSeed(self):
+        pass
+    def set_WEPSeed(self):
+        pass
+
+    def get_TSC0(self):
+        pass
+    def set_TSC0(self):
+        pass
+
+    def get_extIV(self):
+        pass
+    def set_extIV(self):
+        pass
+
+    def get_TSC2(self):
+        pass
+    def set_TSC2(self):
+        pass
+
+    def get_TSC3(self):
+        pass
+    def set_TSC3(self):
+        pass
+
+    def get_TSC4(self):
+        pass
+    def set_TSC4(self):
+        pass
+
+    def get_TSC5(self):
+        pass
+    def set_TSC5(self):
+        pass
+
+
+class Dot11WPAData(AbstractDot11):
+    '802.11 WPA Data Part'
+
+    __HEADER_SIZE = 0
+    __TAIL_SIZE = 12
+
+    def __init__(self, aBuffer = None):
+        AbstractDot11.__init__(self, self.__HEADER_SIZE, self.__TAIL_SIZE)
+        if(aBuffer):
+            self.load_packet(aBuffer)
+        
+    def get_icv(self):
+        "Return 'WPA ICV' field"
+            
+        b = self.tail.get_long(-4, ">")
+        return b 
+
+    def set_icv(self, value = None):
+        "Set 'WPA ICV' field"
+
+        # calculate the FCS
+        if value is None:
+            value=self.compute_checksum(self.body_string)
+
+        # set the bits
+        nb = value & 0xFFFFFFFF
+        self.tail.set_long(-4, nb)
+    
+    def get_MIC(self):
+        pass
+    def set_MIC(self):
+        pass
+        
+class Dot11WPA2(AbstractDot11):
+    '802.11 WPA2'
+
+    __HEADER_SIZE = 8
+    __TAIL_SIZE = 0
+
+    def __init__(self, aBuffer = None):
+        AbstractDot11.__init__(self, self.__HEADER_SIZE, self.__TAIL_SIZE)
+        if(aBuffer):
+            self.load_packet(aBuffer)
+        
+    def is_WPA2(self):
+        'Return True if it\'s a WPA2'
+        # Now we must differentiate between WPA and WPA2
+        # In WPA WEPSeed is set to (TSC1 | 0x20) & 0x7f.
+        b = self.get_WEPSeed() == ((self.get_TSC1() | 0x20 ) & 0x7f)
+        return not b
+            
+    def get_iv(self):
+        'Return the \'WPA2 IV\' field'
+        b=self.header.get_bytes()[0:3].tostring()
+        #unpack requires a string argument of length 4 and b is 3 bytes long
+        (iv,)=struct.unpack('!L', '\x00'+b)
+        return iv
+
+    def set_iv(self, value):
+        'Set the \'WPA2 IV\' field. If value is None, is auto_checksum"'
+        # clear the bits
+        mask = ((~0xFFFFFF00) & 0xFF)
+        masked = self.header.get_long(0, ">") & mask
+        # set the bits 
+        nb = masked | ((value & 0x00FFFFFF) << 8)
+        self.header.set_long(0, nb)
+
+    def get_keyid(self):
+        'Return the \'WPA2 KEY ID\' field'
+        b = self.header.get_byte(3)
+        return (b & 0xC0)
+
+    def set_keyid(self, value):
+        'Set the \'WPA2 KEY ID\' field'
+        # clear the bits
+        mask = (~0xC0) & 0xFF
+        masked = self.header.get_byte(3) & mask
+        # set the bits
+        nb = masked | ((value & 0x03) << 6)
+        self.header.set_byte(3, nb)
+
+    def get_decrypted_data(self):
+        'Return \'WPA2 Data\' field decrypted'
+        # TODO: Replace it with the decoded string
+        return self.body_string
+    
+    def get_PN0(self):
+        pass
+    def set_PN0(self):
+        pass
+        
+    def get_PN1(self):
+        pass
+    def set_PN1(self):
+        pass
+
+    def get_PN2(self):
+        pass
+    def set_PN2(self):
+        pass
+
+    def get_PN3(self):
+        pass
+    def set_PN3(self):
+        pass
+
+    def get_PN4(self):
+        pass
+    def set_PN4(self):
+        pass
+
+    def get_PN5(self):
+        pass
+    def set_PN5(self):
+        pass
+
+class Dot11WPA2Data(AbstractDot11):
+    '802.11 WPA2 Data Part'
+
+    __HEADER_SIZE = 0
+    __TAIL_SIZE = 8
+
+    def __init__(self, aBuffer = None):
+        AbstractDot11.__init__(self, self.__HEADER_SIZE, self.__TAIL_SIZE)
+        if(aBuffer):
+            self.load_packet(aBuffer)
+        
+    def get_MIC(self):
+        pass
+    def set_MIC(self):
+        pass
