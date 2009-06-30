@@ -806,130 +806,88 @@ class Dot11ControlFrameCFEndCFACK(AbstractDot11):
         for i in range(0, 6):
             self.header.set_byte(8+i, value[i])            
 
-class Dot11WEPData(Header):
+class Dot11WEPData(AbstractDot11):
     '802.11 WEP Data Part'
-    __HEADER_SIZE = 0 # TODO: Revisit
-    __TAIL_SIZE = 0 # TODO: Revisit
-  
+
+    __HEADER_SIZE = 4
+    __TAIL_SIZE = 4
+
     def __init__(self, aBuffer = None):
-        Header.__init__(self)
-
-        self.auto_checksum = 0
+        AbstractDot11.__init__(self, self.__HEADER_SIZE, self.__TAIL_SIZE)
+        if(aBuffer):
+            self.load_packet(aBuffer)
         
-        if aBuffer:
-            self.load_header(aBuffer)
+    def is_WEP(self):
+        'Return True if it\'s a WEP'
+        # We already know that it's private.
+        # Now we must differentiate between WEP and WPA/WPA2
+        # WPA/WPA2 have the ExtIV (Bit 5) enaled and WEP disabled
+        b = self.header.get_byte(3)
+        return not not (b & 0x20)
             
-    def get_header_size(self):
-        'Return size of \'WEP\' data part' 
-
-        return len(self.get_bytes().tostring())
-    
-    def set_auto_wep_icv(self):
-        self.auto_checksum = 1
-
-    def unset_auto_wep_icv(self):
-        self.auto_checksum = 0
-
-    def get_auto_wep_icv(self):
-        return self.auto_checksum
-
     def get_iv(self):
         'Return the \'WEP IV\' field'
-        b=self.get_bytes()[0:3].tostring()
+        b=self.header.get_bytes()[0:3].tostring()
         #unpack requires a string argument of length 4 and b is 3 bytes long
         (iv,)=struct.unpack('!L', '\x00'+b)
         return iv
 
     def set_iv(self, value):
-        'Set the \'WEP IV\' field'
+        'Set the \'WEP IV\' field. If value is None, is auto_checksum"'
         # clear the bits
         mask = ((~0xFFFFFF00) & 0xFF)
-        masked = self.get_long(0, ">") & mask
+        masked = self.header.get_long(0, ">") & mask
         # set the bits 
         nb = masked | ((value & 0x00FFFFFF) << 8)
-        self.set_long(0, nb)
+        self.header.set_long(0, nb)
 
     def get_keyid(self):
         'Return the \'WEP KEY ID\' field'
-        pass
+        b = self.header.get_byte(3)
+        return (b & 0xC0)
 
-    def set_keyid(self):
+    def set_keyid(self, value):
         'Set the \'WEP KEY ID\' field'
-        pass
+        # clear the bits
+        mask = (~0xC0) & 0xFF
+        masked = self.header.get_byte(3) & mask
+        # set the bits
+        nb = masked | ((value & 0x03) << 6)
+        self.header.set_byte(3, nb)
 
-    def get_packet(self):
-        'Return the \'WEP\' field'
-        # set the WEP ICV if the user hasn't modified it
-        if self.auto_checksum:
-            payload = self.get_bytes()[:self.get_header_size()-4]
-            crc32=self.compute_checksum(payload)            
-            self.set_icv(crc32)
-        
-        return self.get_bytes().tostring()
+    def get_icv(self):
+        "Return 'WEP ICV' field"
+            
+        b = self.tail.get_long(-4, ">")
+        return b 
 
+    def set_icv(self, value = None):
+        "Set 'WEP ICV' field"
 
-    def get_packet(self):
-        'Return the \'WEP\' field'
-        # set the WEP ICV if the user hasn't modified it
-        if self.auto_checksum:
-            payload = self.get_bytes()[:self.get_header_size()-4]
-            crc32=self.compute_checksum(payload)            
-            self.set_icv(crc32)
-        
-        return self.get_bytes().tostring()
-    
-    def get_wep_data_not_decrypted(self):
-        'Return \'WEP Data\' field not decrypted'
+        # calculate the FCS
+        if value is None:
+            value=self.compute_checksum(self.body_string)
 
-        return  self.get_bytes()[:self.get_header_size()-4]
+        # set the bits
+        nb = value & 0xFFFFFFFF
+        self.tail.set_long(-4, nb)
 
     def get_wep_data_decrypted(self):
         'Return \'WEP Data\' field decrypted'
         # TODO: Ver 8.2.1.4.5 WEP MPDU decapsulation
         pass
 
-    def get_icv(self):
-        "Return the 'WEP ICV' field"
-
-        # set the WEP ICV if the user hasn't modified it
-        if self.auto_checksum:
-            payload = self.get_bytes()[:self.get_header_size()-4]
-            crc32=self.compute_checksum(payload)            
-            self.set_icv(crc32)
-            
-        b = self.get_long(-4, ">")
-        return b 
-
-    def set_icv(self, value):
-        "Set the 'WEP ICV' field" 
-        # set the bits
-        nb = value & 0xFFFFFFFF
-        self.set_long(-4, nb)     
-
 class Dot11DataFrame(AbstractDot11):
     '802.11 Data Frame'
     
     __HEADER_SIZE = 22
     __TAIL_SIZE = 0
-    
-    OPEN    = 1
-    WEP     = 2
-    WPA     = 3
-    WPA2    = 4
 
     def __init__(self, aBuffer = None):
         AbstractDot11.__init__(self, self.__HEADER_SIZE, self.__TAIL_SIZE)
         if(aBuffer):
             self.load_packet(aBuffer)
-
-    def get_encryption_type():
-        'Return 802.11 encryption type'
-        #return OPEN
-        #return WEP
-        #return WPA 
-        #return WPA2
-        return OPEN
-    
+        
     def get_duration(self):
         'Return 802.11 \'Data\' data frame \'Duration\' field'
         b = self.header.get_word(0, "<")
