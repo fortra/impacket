@@ -306,7 +306,8 @@ class AbstractDot11(ProtocolLayer):
         
     def extract_tail(self, aBuffer):
         if self.__TAIL_SIZE<=0:
-            start=0
+            # leave the array empty
+            return
         else:
             start=-self.__TAIL_SIZE
         self.__tail.set_bytes_from_string(aBuffer[start:])
@@ -1084,7 +1085,7 @@ class Dot11WEP(AbstractDot11):
         # Now we must differentiate between WEP and WPA/WPA2
         # WPA/WPA2 have the ExtIV (Bit 5) enaled and WEP disabled
         b = self.header.get_byte(3)
-        return not not (b & 0x20)
+        return not (b & 0x20)
             
     def get_iv(self):
         'Return the \'WEP IV\' field'
@@ -1153,7 +1154,7 @@ class Dot11WEPData(AbstractDot11):
 class Dot11WPA(AbstractDot11):
     '802.11 WPA'
 
-    __HEADER_SIZE = 8
+    __HEADER_SIZE = 4
     __TAIL_SIZE = 0
 
     def __init__(self, aBuffer = None):
@@ -1248,7 +1249,7 @@ class Dot11WPAData(AbstractDot11):
     '802.11 WPA Data Part'
 
     __HEADER_SIZE = 0
-    __TAIL_SIZE = 12
+    __TAIL_SIZE = 4
 
     def __init__(self, aBuffer = None):
         AbstractDot11.__init__(self, self.__HEADER_SIZE, self.__TAIL_SIZE)
