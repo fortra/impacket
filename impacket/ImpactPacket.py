@@ -215,7 +215,7 @@ class Header(PacketBuffer,ProtocolLayer):
     protocol = None
     def __init__(self, length = None):
         PacketBuffer.__init__(self, length)
-        ProtocolLayer.__init__()
+        ProtocolLayer.__init__(self)
         self.auto_checksum = 1
 
     def get_data_as_string(self):
