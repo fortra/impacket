@@ -1106,7 +1106,7 @@ class Dot11WEP(AbstractDot11):
     def get_keyid(self):
         'Return the \'WEP KEY ID\' field'
         b = self.header.get_byte(3)
-        return (b & 0xC0)
+        return ((b>>6) & 0x03)
 
     def set_keyid(self, value):
         'Set the \'WEP KEY ID\' field'
@@ -1154,7 +1154,7 @@ class Dot11WEPData(AbstractDot11):
 class Dot11WPA(AbstractDot11):
     '802.11 WPA'
 
-    __HEADER_SIZE = 4
+    __HEADER_SIZE = 8
     __TAIL_SIZE = 0
 
     def __init__(self, aBuffer = None):
@@ -1168,27 +1168,11 @@ class Dot11WPA(AbstractDot11):
         # In WPA WEPSeed is set to (TSC1 | 0x20) & 0x7f.
         b = self.get_WEPSeed() == ((self.get_TSC1() | 0x20 ) & 0x7f)
         return (b and self.get_extIV())
-            
-    def get_iv(self):
-        'Return the \'WPA IV\' field'
-        b=self.header.get_bytes()[0:3].tostring()
-        #unpack requires a string argument of length 4 and b is 3 bytes long
-        (iv,)=struct.unpack('!L', '\x00'+b)
-        return iv
-
-    def set_iv(self, value):
-        'Set the \'WPA IV\' field. If value is None, is auto_checksum"'
-        # clear the bits
-        mask = ((~0xFFFFFF00) & 0xFF)
-        masked = self.header.get_long(0, ">") & mask
-        # set the bits 
-        nb = masked | ((value & 0x00FFFFFF) << 8)
-        self.header.set_long(0, nb)
-
+        
     def get_keyid(self):
         'Return the \'WPA KEY ID\' field'
         b = self.header.get_byte(3)
-        return (b & 0xC0)
+        return ((b>>6) & 0x03)
 
     def set_keyid(self, value):
         'Set the \'WPA KEY ID\' field'
@@ -1205,51 +1189,101 @@ class Dot11WPA(AbstractDot11):
         return self.body_string
     
     def get_TSC1(self):
-        pass
-    def set_TSC1(self):
-        pass
+        'Return the \'WPA TSC1\' field'
+        b = self.header.get_byte(0)
+        return (b & 0xFF)
+    
+    def set_TSC1(self, value):
+        'Set the \'WPA TSC1\' field'
+        # set the bits
+        nb = (value & 0xFF)
+        self.header.set_byte(0, nb)
         
     def get_WEPSeed(self):
-        pass
-    def set_WEPSeed(self):
-        pass
+        'Return the \'WPA WEPSeed\' field'
+        b = self.header.get_byte(1)
+        return (b & 0xFF)
+    
+    def set_WEPSeed(self, value):
+        'Set the \'WPA WEPSeed\' field'
+        # set the bits
+        nb = (value & 0xFF)
+        self.header.set_byte(1, nb)
 
     def get_TSC0(self):
-        pass
-    def set_TSC0(self):
-        pass
+        'Return the \'WPA TSC0\' field'
+        b = self.header.get_byte(2)
+        return (b & 0xFF)
+    
+    def set_TSC0(self, value):
+        'Set the \'WPA TSC0\' field'
+        # set the bits
+        nb = (value & 0xFF)
+        self.header.set_byte(2, nb)
 
     def get_extIV(self):
-        pass
-    def set_extIV(self):
-        pass
+        'Return the \'WPA extID\' field'
+        b = self.header.get_byte(3)
+        return ((b>>5) & 0x1)
 
+    def set_extIV(self, value):
+        'Set the \'WPA extID\' field'
+        # clear the bits
+        mask = (~0x20) & 0xFF
+        masked = self.header.get_byte(3) & mask
+        # set the bits
+        nb = masked | ((value & 0x01) << 5)
+        self.header.set_byte(3, nb)
+        
     def get_TSC2(self):
-        pass
-    def set_TSC2(self):
-        pass
+        'Return the \'WPA TSC2\' field'
+        b = self.header.get_byte(4)
+        return (b & 0xFF)
+    
+    def set_TSC2(self, value):
+        'Set the \'WPA TSC2\' field'
+        # set the bits
+        nb = (value & 0xFF)
+        self.header.set_byte(4, nb)
 
     def get_TSC3(self):
-        pass
-    def set_TSC3(self):
-        pass
+        'Return the \'WPA TSC3\' field'
+        b = self.header.get_byte(5)
+        return (b & 0xFF)
+    
+    def set_TSC3(self, value):
+        'Set the \'WPA TSC3\' field'
+        # set the bits
+        nb = (value & 0xFF)
+        self.header.set_byte(5, nb)
 
     def get_TSC4(self):
-        pass
-    def set_TSC4(self):
-        pass
+        'Return the \'WPA TSC4\' field'
+        b = self.header.get_byte(6)
+        return (b & 0xFF)
+    
+    def set_TSC4(self, value):
+        'Set the \'WPA TSC4\' field'
+        # set the bits
+        nb = (value & 0xFF)
+        self.header.set_byte(6, nb)
 
     def get_TSC5(self):
-        pass
-    def set_TSC5(self):
-        pass
-
+        'Return the \'WPA TSC5\' field'
+        b = self.header.get_byte(7)
+        return (b & 0xFF)
+    
+    def set_TSC5(self, value):
+        'Set the \'WPA TSC5\' field'
+        # set the bits
+        nb = (value & 0xFF)
+        self.header.set_byte(7, nb)
 
 class Dot11WPAData(AbstractDot11):
     '802.11 WPA Data Part'
 
     __HEADER_SIZE = 0
-    __TAIL_SIZE = 4
+    __TAIL_SIZE = 12
 
     def __init__(self, aBuffer = None):
         AbstractDot11.__init__(self, self.__HEADER_SIZE, self.__TAIL_SIZE)
@@ -1274,9 +1308,17 @@ class Dot11WPAData(AbstractDot11):
         self.tail.set_long(-4, nb)
     
     def get_MIC(self):
-        pass
-    def set_MIC(self):
-        pass
+        'Return the \'WPA2Data MIC\' field'
+        return self.get_tail_as_string()[:8]
+
+    def set_MIC(self, value):
+        'Set the \'WPA2Data MIC\' field'
+        #Padding to 8 bytes with 0x00's 
+        value.ljust(8,'\x00')
+        #Stripping to 8 bytes
+        value=value[:8]
+        icv=self.tail.get_buffer_as_string()[-4:] 
+        self.tail.set_bytes_from_string(value+icv)
         
 class Dot11WPA2(AbstractDot11):
     '802.11 WPA2'
@@ -1293,29 +1335,28 @@ class Dot11WPA2(AbstractDot11):
         'Return True if it\'s a WPA2'
         # Now we must differentiate between WPA and WPA2
         # In WPA WEPSeed is set to (TSC1 | 0x20) & 0x7f.
-        b = self.get_WEPSeed() == ((self.get_TSC1() | 0x20 ) & 0x7f)
-        return not b
-            
-    def get_iv(self):
-        'Return the \'WPA2 IV\' field'
-        b=self.header.get_bytes()[0:3].tostring()
-        #unpack requires a string argument of length 4 and b is 3 bytes long
-        (iv,)=struct.unpack('!L', '\x00'+b)
-        return iv
+        # In WPA2 WEPSeed=PN1 and TSC1=PN0
+        b = self.get_PN1() == ((self.get_PN0() | 0x20 ) & 0x7f)
+        return (not b and self.get_extIV())
 
-    def set_iv(self, value):
-        'Set the \'WPA2 IV\' field. If value is None, is auto_checksum"'
+    def get_extIV(self):
+        'Return the \'WPA2 extID\' field'
+        b = self.header.get_byte(3)
+        return ((b>>5) & 0x1)
+    
+    def set_extIV(self, value):
+        'Set the \'WPA2 extID\' field'
         # clear the bits
-        mask = ((~0xFFFFFF00) & 0xFF)
-        masked = self.header.get_long(0, ">") & mask
-        # set the bits 
-        nb = masked | ((value & 0x00FFFFFF) << 8)
-        self.header.set_long(0, nb)
-
+        mask = (~0x20) & 0xFF
+        masked = self.header.get_byte(3) & mask
+        # set the bits
+        nb = masked | ((value & 0x01) << 5)
+        self.header.set_byte(3, nb)
+        
     def get_keyid(self):
         'Return the \'WPA2 KEY ID\' field'
         b = self.header.get_byte(3)
-        return (b & 0xC0)
+        return ((b>>6) & 0x03)
 
     def set_keyid(self, value):
         'Set the \'WPA2 KEY ID\' field'
@@ -1332,34 +1373,70 @@ class Dot11WPA2(AbstractDot11):
         return self.body_string
     
     def get_PN0(self):
-        pass
-    def set_PN0(self):
-        pass
+        'Return the \'WPA2 PN0\' field'
+        b = self.header.get_byte(0)
+        return (b & 0xFF)
+    
+    def set_PN0(self, value):
+        'Set the \'WPA2 PN0\' field'
+        # set the bits
+        nb = (value & 0xFF)
+        self.header.set_byte(0, nb)
         
     def get_PN1(self):
-        pass
-    def set_PN1(self):
-        pass
+        'Return the \'WPA2 PN1\' field'
+        b = self.header.get_byte(1)
+        return (b & 0xFF)
+    
+    def set_PN1(self, value):
+        'Set the \'WPA2 PN1\' field'
+        # set the bits
+        nb = (value & 0xFF)
+        self.header.set_byte(1, nb)
 
     def get_PN2(self):
-        pass
-    def set_PN2(self):
-        pass
+        'Return the \'WPA2 PN2\' field'
+        b = self.header.get_byte(4)
+        return (b & 0xFF)
+    
+    def set_PN2(self, value):
+        'Set the \'WPA2 PN2\' field'
+        # set the bits
+        nb = (value & 0xFF)
+        self.header.set_byte(4, nb)
 
     def get_PN3(self):
-        pass
-    def set_PN3(self):
-        pass
+        'Return the \'WPA2 PN3\' field'
+        b = self.header.get_byte(5)
+        return (b & 0xFF)
+    
+    def set_PN3(self, value):
+        'Set the \'WPA2 PN3\' field'
+        # set the bits
+        nb = (value & 0xFF)
+        self.header.set_byte(5, nb)
 
     def get_PN4(self):
-        pass
-    def set_PN4(self):
-        pass
+        'Return the \'WPA2 PN4\' field'
+        b = self.header.get_byte(6)
+        return (b & 0xFF)
+    
+    def set_PN4(self, value):
+        'Set the \'WPA2 PN4\' field'
+        # set the bits
+        nb = (value & 0xFF)
+        self.header.set_byte(6, nb)
 
     def get_PN5(self):
-        pass
-    def set_PN5(self):
-        pass
+        'Return the \'WPA2 PN5\' field'
+        b = self.header.get_byte(7)
+        return (b & 0xFF)
+    
+    def set_PN5(self, value):
+        'Set the \'WPA2 PN5\' field'
+        # set the bits
+        nb = (value & 0xFF)
+        self.header.set_byte(7, nb)
 
 class Dot11WPA2Data(AbstractDot11):
     '802.11 WPA2 Data Part'
@@ -1371,8 +1448,15 @@ class Dot11WPA2Data(AbstractDot11):
         AbstractDot11.__init__(self, self.__HEADER_SIZE, self.__TAIL_SIZE)
         if(aBuffer):
             self.load_packet(aBuffer)
-        
+            
     def get_MIC(self):
-        pass
-    def set_MIC(self):
-        pass
+        'Return the \'WPA2Data MIC\' field'
+        return self.get_tail_as_string()
+
+    def set_MIC(self, value):
+        'Set the \'WPA2Data MIC\' field'
+        #Padding to 8 bytes with 0x00's 
+        value.ljust(8,'\x00')
+        #Stripping to 8 bytes
+        value=value[:8]
+        self.tail.set_bytes_from_string(value)
