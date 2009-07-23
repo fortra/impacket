@@ -1552,28 +1552,33 @@ class RadioTap(AbstractDot11):
         'Set a \'present\' field bit'
         npresent=2**bit | self.get_present()
         self.header.set_long(4, npresent,'<')
-        
-    def __get_field_position(self, field):
+
+    def __unset_present_bit(self, bit):
+        'Unset a \'present\' field bit'
+        npresent=~(2**bit) & self.get_present()
+        self.header.set_long(4, npresent,'<')
+
+    def __get_field_position_and_length(self, field):
         
         if not self.__fields_bytes_len.has_key(field):
-            return None
+            return (None,None)
         
         field_position=self.__HEADER_BASE_SIZE
         for (f,length) in self.__fields_bytes_len.items():
             if f==field:
-                return field_position
+                return (field_position,length)
             
             if self.get_present_bit(f):
                 field_position+=length
         
-        return None
+        return (None,None)
     
-    def __set_field_from_string( self, field, field_bytes_length, value):
+    def __set_field_from_string( self, field, value):
         is_present=self.get_present_bit(field)
         if is_present is False:
             self.__set_present_bit(field)
         
-        byte_pos=self.__get_field_position(field)
+        (byte_pos,field_bytes_length)=self.__get_field_position_and_length(field)
         header=self.get_header_as_string()
         
         if is_present is True:
@@ -1583,12 +1588,17 @@ class RadioTap(AbstractDot11):
             self.__HEADER_SIZE+=field_bytes_length
         self.load_header(header)
 
-    def __unset_field_from_string( self, field, field_bytes_length):
+    def unset_field( self, field):
         is_present=self.get_present_bit(field)
         if is_present is False:
-            return
-        
-        byte_pos=self.__get_field_position(field)
+            return False
+                
+        (byte_pos,field_bytes_length)=self.__get_field_position_and_length(field)
+        if not byte_pos:
+            return False
+
+        self.__unset_present_bit(field)
+
         header=self.get_header_as_string()
         
         header=header[:byte_pos]+header[byte_pos+field_bytes_length:]
@@ -1596,7 +1606,7 @@ class RadioTap(AbstractDot11):
         
         self.load_header(header)
 
-    def __get_field_as_string( self, field, field_bytes_length ):
+    def __get_field_as_string( self, field ):
         #Structure: u64 mactime 
         #Required Alignment: 8
         #Unit: microseconds
@@ -1604,7 +1614,7 @@ class RadioTap(AbstractDot11):
         if is_present is False:
             return None
         
-        byte_pos=self.__get_field_position(field)
+        (byte_pos,field_bytes_length)=self.__get_field_position_and_length(field)
         header=self.get_header_as_string()
         v=header[ byte_pos:byte_pos+field_bytes_length ]
         return v
@@ -1618,19 +1628,19 @@ class RadioTap(AbstractDot11):
         #Structure: u64 mactime 
         #Required Alignment: 8
         #Unit: microseconds
-        field_bytes_len=8
+        field_bytes_len=self.__fields_bytes_len[self.RADIOTAP_TSFT]
         field_bits_len=field_bytes_len*8
         mask=2**field_bits_len-1
         nvalue=nvalue&mask
 
         nvalue = struct.pack('<Q', nvalue)
-        self.__set_field_from_string(field=self.RADIOTAP_TSFT, field_bytes_length=field_bytes_len, value=nvalue)
+        self.__set_field_from_string(field=self.RADIOTAP_TSFT, value=nvalue)
         
     def get_tsft( self ):
         #Structure: u64 mactime 
         #Required Alignment: 8
         #Unit: microseconds
-        s=self.__get_field_as_string(field=self.RADIOTAP_TSFT,field_bytes_length=8)
+        s=self.__get_field_as_string(field=self.RADIOTAP_TSFT)
         if s is None:
             return s
         n = struct.unpack('<Q', s)[0]
