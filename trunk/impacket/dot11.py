@@ -19,36 +19,7 @@ import string
 import sys
 from ImpactPacket import ProtocolLayer, PacketBuffer, Header
 from binascii import hexlify,crc32
-
-class RadioTap(Header):
-    def __init__(self, aBuffer = None):
-        bytes = aBuffer[2:4]
-        #self.__bytes = array.array('B', data)
-        print "Bytes [%s] Len [%d]\n" % (bytes,len(bytes))
-        # Little-Endian
-        order = '<'
-        print "Order: %s" % order
-        (length,) = struct.unpack('<H', bytes)
-        print "Len: %s" % str(length)
-
-        Header.__init__(self, length)
-        if(aBuffer):
-            self.load_header(aBuffer)
-
-    def get_header_size(self):
-        "Return size of RadioTap header"
-        return self.get_word(2, "<")
-
-    def get_packet(self):
-        return Header.get_packet(self)
-
-    def __str__(self):
-        tmp_str = 'RadioTap: Len: ' + str(self.get_header_size()) 
-        #tmp_str = 'RadioTap: ' + self.as_eth_addr(self.get_ether_shost()) + ' -> '
-        #tmp_str += self.as_eth_addr(self.get_ether_dhost())
-        if self.child():
-            tmp_str += '\n' + self.child().__str__()
-        return tmp_str
+from struct import unpack
 
 class Dot11Types():
     # Management Types/SubTypes
@@ -287,12 +258,20 @@ class AbstractDot11(ProtocolLayer):
     tail = property(__get_tail)
 
     def get_header_size(self):
-        "Return size of 802.11 frame control header"
+        "Return frame header size"
         return self.__HEADER_SIZE
     
     def get_tail_size(self):
-        "Return size of 802.11 frame control tail"
+        "Return frame tail size"
         return self.__TAIL_SIZE
+    
+    def get_body_size(self):
+        "Return frame body size"
+        return self.__BODY_SIZE
+
+    def get_size(self):
+        "Return frame total size"
+        return self.__HEADER_SIZE+self.__BODY_SIZE+self.__TAIL_SIZE
         
     def extract_header(self, aBuffer):
         self.__header.set_bytes_from_string(aBuffer[:self.__HEADER_SIZE])
@@ -302,6 +281,7 @@ class AbstractDot11(ProtocolLayer):
             end=None
         else:
             end=-self.__TAIL_SIZE
+        self.__BODY_SIZE=len(aBuffer[self.__HEADER_SIZE:end])
         self.__body.set_bytes_from_string(aBuffer[self.__HEADER_SIZE:end])
         
     def extract_tail(self, aBuffer):
@@ -1460,3 +1440,182 @@ class Dot11WPA2Data(AbstractDot11):
         #Stripping to 8 bytes
         value=value[:8]
         self.tail.set_bytes_from_string(value)
+
+class RadioTap(AbstractDot11):
+    __HEADER_BASE_SIZE = 8 # minimal header size
+    __HEADER_SIZE = __HEADER_BASE_SIZE 
+    __TAIL_SIZE = 0
+
+    RADIOTAP_TSFT = 0
+    RADIOTAP_FLAGS = 1
+    RADIOTAP_RATE = 2
+    RADIOTAP_CHANNEL = 3
+    RADIOTAP_FHSS = 4
+    RADIOTAP_DBM_ANTSIGNAL = 5
+    RADIOTAP_DBM_ANTNOISE = 6
+    RADIOTAP_LOCK_QUALITY = 7
+    RADIOTAP_TX_ATTENUATION = 8
+    RADIOTAP_DB_TX_ATTENUATION = 9
+    RADIOTAP_DBM_TX_POWER = 10
+    RADIOTAP_ANTENNA = 11
+    RADIOTAP_DB_ANTSIGNAL = 12
+    RADIOTAP_DB_ANTNOISE = 13
+    #RADIOTAP_RX_FLAGS = 14 # official assignment
+    RADIOTAP_FCS_IN_HEADER = 14 # clashes with RX_FLAGS
+    RADIOTAP_TX_FLAGS = 15 # clashes with HARDWARE_QUEUE
+    #RADIOTAP_HARDWARE_QUEUE = 15 # clashes with TX_FLAGS
+    RADIOTAP_RTS_RETRIES = 16 # clashes with RSSI
+    #RADIOTAP_RSSI = 16 # clashes with RTS_RETRIES 
+    RADIOTAP_DATA_RETRIES = 17
+    RADIOTAP_XCHANNEL = 18
+    RADIOTAP_EXT = 31
+
+    __fields_bytes_len={
+        RADIOTAP_TSFT: 8,
+        RADIOTAP_FLAGS: 1,
+        RADIOTAP_RATE: 1,
+        RADIOTAP_CHANNEL: 2+2,
+        RADIOTAP_FHSS: 1+1,
+        RADIOTAP_DBM_ANTSIGNAL: 1,
+        RADIOTAP_DBM_ANTNOISE: 1,
+        RADIOTAP_LOCK_QUALITY: 2,
+        RADIOTAP_TX_ATTENUATION: 2,
+        RADIOTAP_DB_TX_ATTENUATION: 2,
+        RADIOTAP_DBM_TX_POWER: 1,
+        RADIOTAP_ANTENNA: 1,
+        RADIOTAP_DB_ANTSIGNAL: 1,
+        RADIOTAP_DB_ANTNOISE: 1,
+        #RADIOTAP_RX_FLAGS: 2,
+        RADIOTAP_FCS_IN_HEADER: 4,
+        RADIOTAP_TX_FLAGS: 2,
+        #RADIOTAP_HARDWARE_QUEUE: 1,        
+        RADIOTAP_RTS_RETRIES: 1,
+        #RADIOTAP_RSSI: 2,
+        RADIOTAP_DATA_RETRIES: 1,
+        RADIOTAP_XCHANNEL: 4+2+1+1,
+    }
+        
+    def __init__(self, aBuffer = None):
+        if aBuffer:
+            length = unpack('<H', aBuffer[2:4])[0]
+            self.__HEADER_SIZE=length
+                    
+            AbstractDot11.__init__(self, self.__HEADER_SIZE, self.__TAIL_SIZE)
+            self.load_packet(aBuffer)
+        else:
+            AbstractDot11.__init__(self, self.__HEADER_SIZE, self.__TAIL_SIZE)
+            self.set_version(0)
+            self.set_present(0x00000000)
+            
+    def get_version(self):
+        'Return the \'version\' field'
+        b = self.header.get_byte(0)
+        return b
+    
+    def set_version(self, value):
+        'Set the \'version\' field'
+        nb = (value & 0xFF)
+        self.header.set_byte(0, nb)
+        
+        nb = (value & 0xFF)
+        "Return RadioTap len field"
+        
+        return self.__HEADER_SIZE
+        
+    def get_present(self):
+        "Return RadioTap present bitmap field"
+        present = self.header.get_long(4, "<")
+        # TODO: Implement extended 'present' bit logic here
+        return present
+
+    def __set_present(self, value):
+        "Set RadioTap present field bit"
+        # TODO: Implement extended 'present' bit logic here
+        self.header.set_long(4, value)
+
+    def get_present_bit(self, bit):
+        'Get a \'present\' field bit'
+        present=self.get_present()
+        # TODO: Implement extended 'present' bit logic here
+        return not not (2**bit & present)
+
+    def __set_present_bit(self, bit):
+        'Set a \'present\' field bit'
+        npresent=2**bit | self.get_present()
+        self.header.set_long(4, npresent,'<')
+        
+    def __get_field_position(self, field):
+        
+        if not self.__fields_bytes_len.has_key(field):
+            return None
+        
+        field_position=self.__HEADER_BASE_SIZE
+        for (f,length) in self.__fields_bytes_len.items():
+            if f==field:
+                return field_position
+            
+            if self.get_present_bit(f):
+                field_position+=length
+        
+        return None
+    
+    def __set_field_from_string( self, field, field_bytes_length, value):
+        is_present=self.get_present_bit(field)
+        if is_present is False:
+            self.__set_present_bit(field)
+        
+        byte_pos=self.__get_field_position(field)
+        header=self.get_header_as_string()
+        
+        if is_present is True:
+            header=header[:byte_pos]+value+header[byte_pos+field_bytes_length:]
+        else:
+            header=header[:byte_pos]+value+header[byte_pos:]
+        self.header.set_bytes_from_string(header)
+
+    def __get_field_as_string( self, field, field_bytes_length ):
+        #Structure: u64 mactime 
+        #Required Alignment: 8
+        #Unit: microseconds
+        is_present=self.get_present_bit(field)
+        if is_present is False:
+            return None
+        
+        byte_pos=self.__get_field_position(field)
+        header=self.get_header_as_string()
+        v=header[ byte_pos:byte_pos+field_bytes_length ]
+        return v
+         
+        ov = self.header.get_long(4, "<") 
+        # set the bits 
+        nv |= (1<<bit) 
+        self.header.set_long(4, nv, "<")
+   
+    def set_tsft( self, nvalue ):
+        #Structure: u64 mactime 
+        #Required Alignment: 8
+        #Unit: microseconds
+        field_bytes_len=8
+        field_bits_len=field_bytes_len*8
+        mask=2**field_bits_len-1
+        nvalue=nvalue&mask
+
+        nvalue = struct.pack('<Q', nvalue)
+        self.__set_field_from_string(field=self.RADIOTAP_TSFT, field_bytes_length=field_bytes_len, value=nvalue)
+        
+    def get_tsft( self ):
+        #Structure: u64 mactime 
+        #Required Alignment: 8
+        #Unit: microseconds
+        s=self.__get_field_as_string(field=self.RADIOTAP_TSFT,field_bytes_length=8)
+        if s is None:
+            return s
+        print "[%s]" % hexlify(s)
+        n = struct.unpack('<Q', s)[0]
+        return n
+   
+    def get_flags( self ):
+        pass
+   
+    def get_rate( self ):
+        pass
