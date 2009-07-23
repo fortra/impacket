@@ -117,8 +117,23 @@ class TestRadioTap(unittest.TestCase):
         self.assertEqual(self.rt1.get_tsft(),0x0807060504030201)
         self.assertEqual(self.rt1.get_header_size(),24+8)
 
-    # Test and conitnue with unset_field
+    def test_07_unset_fields(self):
+        'Test RadioTap unset field'
+        self.assertEqual(self.rt1.get_size(),len(self.frame_orig_1))
+        self.assertEqual(self.rt1.get_header_size(),24)
+        self.assertEqual(self.rt1.get_present_bit(RadioTap.RADIOTAP_FLAGS), True)
+        self.rt1.unset_field(RadioTap.RADIOTAP_FLAGS)
+        self.assertEqual(self.rt1.get_size(),len(self.frame_orig_1)-1)
+        self.assertEqual(self.rt1.get_header_size(),24-1)
+        self.assertEqual(self.rt1.get_present_bit(RadioTap.RADIOTAP_FLAGS), False)
 
+        self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2))
+        self.assertEqual(self.rt2.get_header_size(),32)
+        self.assertEqual(self.rt2.get_present_bit(RadioTap.RADIOTAP_TSFT), True)
+        self.rt2.unset_field(RadioTap.RADIOTAP_TSFT)
+        self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2)-8)
+        self.assertEqual(self.rt2.get_header_size(),32-8)
+        self.assertEqual(self.rt2.get_present_bit(RadioTap.RADIOTAP_TSFT), False)
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestRadioTap)
 unittest.TextTestRunner(verbosity=2).run(suite)
