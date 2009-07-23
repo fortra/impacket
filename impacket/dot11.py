@@ -272,11 +272,23 @@ class AbstractDot11(ProtocolLayer):
     def get_size(self):
         "Return frame total size"
         return self.__HEADER_SIZE+self.__BODY_SIZE+self.__TAIL_SIZE
+    
+    def load_header(self, aBuffer):
+        self.__HEADER_SIZE=len(aBuffer)
+        self.__header.set_bytes_from_string(aBuffer)
+    
+    def load_body(self, aBuffer):
+        self.__BODY_SIZE=len(aBuffer)
+        self.__body.set_bytes_from_string(aBuffer)
+    
+    def load_tail(self, aBuffer):
+        self.__TAIL_SIZE=len(aBuffer)
+        self.__tail.set_bytes_from_string(aBuffer)
+    
+    def __extract_header(self, aBuffer):
+        self.load_header(aBuffer[:self.__HEADER_SIZE])
         
-    def extract_header(self, aBuffer):
-        self.__header.set_bytes_from_string(aBuffer[:self.__HEADER_SIZE])
-        
-    def extract_body(self, aBuffer):
+    def __extract_body(self, aBuffer):
         if self.__TAIL_SIZE<=0:
             end=None
         else:
@@ -284,7 +296,7 @@ class AbstractDot11(ProtocolLayer):
         self.__BODY_SIZE=len(aBuffer[self.__HEADER_SIZE:end])
         self.__body.set_bytes_from_string(aBuffer[self.__HEADER_SIZE:end])
         
-    def extract_tail(self, aBuffer):
+    def __extract_tail(self, aBuffer):
         if self.__TAIL_SIZE<=0:
             # leave the array empty
             return
@@ -293,9 +305,9 @@ class AbstractDot11(ProtocolLayer):
         self.__tail.set_bytes_from_string(aBuffer[start:])
 
     def load_packet(self, aBuffer):
-        self.extract_header(aBuffer)
-        self.extract_body(aBuffer)
-        self.extract_tail(aBuffer)
+        self.__extract_header(aBuffer)
+        self.__extract_body(aBuffer)
+        self.__extract_tail(aBuffer)
         
     def get_header_as_string(self):
         return self.__header.get_buffer_as_string()
@@ -304,10 +316,7 @@ class AbstractDot11(ProtocolLayer):
         return self.__body.get_buffer_as_string()
 
     body_string = property(get_body_as_string)
-        
-    def load_body(self, aBuffer):
-        self.__body.set_bytes_from_string(aBuffer[self.__HEADER_SIZE:end])
-        
+    
     def get_tail_as_string(self):
         return self.__tail.get_buffer_as_string()
         
@@ -1571,7 +1580,21 @@ class RadioTap(AbstractDot11):
             header=header[:byte_pos]+value+header[byte_pos+field_bytes_length:]
         else:
             header=header[:byte_pos]+value+header[byte_pos:]
-        self.header.set_bytes_from_string(header)
+            self.__HEADER_SIZE+=field_bytes_length
+        self.load_header(header)
+
+    def __unset_field_from_string( self, field, field_bytes_length):
+        is_present=self.get_present_bit(field)
+        if is_present is False:
+            return
+        
+        byte_pos=self.__get_field_position(field)
+        header=self.get_header_as_string()
+        
+        header=header[:byte_pos]+header[byte_pos+field_bytes_length:]
+        self.__HEADER_SIZE-=field_bytes_length
+        
+        self.load_header(header)
 
     def __get_field_as_string( self, field, field_bytes_length ):
         #Structure: u64 mactime 
@@ -1610,7 +1633,6 @@ class RadioTap(AbstractDot11):
         s=self.__get_field_as_string(field=self.RADIOTAP_TSFT,field_bytes_length=8)
         if s is None:
             return s
-        print "[%s]" % hexlify(s)
         n = struct.unpack('<Q', s)[0]
         return n
    
