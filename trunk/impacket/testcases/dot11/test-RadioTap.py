@@ -106,13 +106,19 @@ class TestRadioTap(unittest.TestCase):
     def test_06_tsft(self):
         'Test RadioTap tstf setter'
         # When the field is new 
+        self.assertEqual(self.rt1.get_size(),len(self.frame_orig_1))
+        self.assertEqual(self.rt1.get_header_size(),24)
         self.rt1.set_tsft(0x0102030405060708)
         self.assertEqual(self.rt1.get_tsft(),0x0102030405060708)
+        self.assertEqual(self.rt1.get_header_size(),24+8)
         
         # When exist the field
         self.rt1.set_tsft(0x0807060504030201)
         self.assertEqual(self.rt1.get_tsft(),0x0807060504030201)
-        
+        self.assertEqual(self.rt1.get_header_size(),24+8)
+
+    # Test and conitnue with unset_field
+
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestRadioTap)
 unittest.TextTestRunner(verbosity=2).run(suite)
