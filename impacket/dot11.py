@@ -1527,9 +1527,6 @@ class RadioTap(AbstractDot11):
         self.header.set_byte(0, nb)
         
         nb = (value & 0xFF)
-        "Return RadioTap len field"
-        
-        return self.__HEADER_SIZE
         
     def get_present(self):
         "Return RadioTap present bitmap field"
