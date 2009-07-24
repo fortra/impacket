@@ -1570,13 +1570,19 @@ class RadioTap(AbstractDot11):
         
         return (None,None)
     
-    def __set_field_from_string( self, field, value):
+    def __set_field_from_string( self, field, value, format):
         is_present=self.get_present_bit(field)
         if is_present is False:
             self.__set_present_bit(field)
         
         (byte_pos,field_bytes_length)=self.__get_field_position_and_length(field)
         header=self.get_header_as_string()
+
+        field_bits_len=field_bytes_length*8
+        mask=2**field_bits_len-1
+        value=value&mask
+
+        value = struct.pack('<'+format, value)
         
         if is_present is True:
             header=header[:byte_pos]+value+header[byte_pos+field_bytes_length:]
@@ -1603,10 +1609,7 @@ class RadioTap(AbstractDot11):
         
         self.load_header(header)
 
-    def __get_field_as_string( self, field ):
-        #Structure: u64 mactime 
-        #Required Alignment: 8
-        #Unit: microseconds
+    def __get_field_as_string( self, field, format ):
         is_present=self.get_present_bit(field)
         if is_present is False:
             return None
@@ -1614,34 +1617,20 @@ class RadioTap(AbstractDot11):
         (byte_pos,field_bytes_length)=self.__get_field_position_and_length(field)
         header=self.get_header_as_string()
         v=header[ byte_pos:byte_pos+field_bytes_length ]
-        return v
-         
-        ov = self.header.get_long(4, "<") 
-        # set the bits 
-        nv |= (1<<bit) 
-        self.header.set_long(4, nv, "<")
-   
-    def set_tsft( self, nvalue ):
-        #Structure: u64 mactime 
-        #Required Alignment: 8
-        #Unit: microseconds
-        field_bytes_len=self.__fields_bytes_len[self.RADIOTAP_TSFT]
-        field_bits_len=field_bytes_len*8
-        mask=2**field_bits_len-1
-        nvalue=nvalue&mask
 
-        nvalue = struct.pack('<Q', nvalue)
-        self.__set_field_from_string(field=self.RADIOTAP_TSFT, value=nvalue)
+        n = struct.unpack('<'+format, v)[0]
+
+        return n
+            
+    def set_tsft( self, nvalue ):
+        self.__set_field_from_string(field=self.RADIOTAP_TSFT, value=nvalue, format='Q')
         
     def get_tsft( self ):
         #Structure: u64 mactime 
         #Required Alignment: 8
         #Unit: microseconds
-        s=self.__get_field_as_string(field=self.RADIOTAP_TSFT)
-        if s is None:
-            return s
-        n = struct.unpack('<Q', s)[0]
-        return n
+        s=self.__get_field_as_string(field=self.RADIOTAP_TSFT, format='Q')
+        return s
    
     def get_flags( self ):
         pass
