@@ -104,7 +104,7 @@ class TestRadioTap(unittest.TestCase):
         self.assertEqual(self.rt2.get_tsft(), 622461744)
 
     def test_06_tsft(self):
-        'Test RadioTap tstf setter'
+        'Test RadioTap tstf getter/setter'
         # When the field is new 
         self.assertEqual(self.rt1.get_size(),len(self.frame_orig_1))
         self.assertEqual(self.rt1.get_header_size(),24)
@@ -135,6 +135,49 @@ class TestRadioTap(unittest.TestCase):
         self.assertEqual(self.rt2.get_header_size(),32-8)
         self.assertEqual(self.rt2.get_present_bit(RadioTap.RADIOTAP_TSFT), False)
 
+    def test_08_flags_field(self):
+        'Test RadioTap flags getter/setter'
+        
+        # When exist the field
+        self.assertEqual(self.rt1.get_size(),len(self.frame_orig_1))
+        self.assertEqual(self.rt1.get_header_size(),24)
+        self.assertEqual(self.rt1.get_flags(),0x10)
+        self.rt1.set_flags(0xAB)
+        self.assertEqual(self.rt1.get_flags(),0xAB)
+        self.assertEqual(self.rt1.get_size(),len(self.frame_orig_1))
+        self.assertEqual(self.rt1.get_header_size(),24)
+
+        self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2))
+        self.assertEqual(self.rt2.get_header_size(),32)
+        self.assertEqual(self.rt2.get_flags(),0x22)
+        self.rt2.set_flags(0xAB)
+        self.assertEqual(self.rt2.get_flags(),0xAB)
+        self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2))
+        self.assertEqual(self.rt2.get_header_size(),32)
+        # TODO: Test the size when the field is new
+
+    def test_09_rate_field(self):
+        'Test RadioTap rate getter/setter'
+        
+        # When exist the field
+        self.assertEqual(self.rt1.get_size(),len(self.frame_orig_1))
+        self.assertEqual(self.rt1.get_header_size(),24)
+        self.assertEqual(self.rt1.get_rate(),0x6c)
+        self.rt1.set_rate(0xAB)
+        self.assertEqual(self.rt1.get_rate(),0xAB)
+        self.assertEqual(self.rt1.get_size(),len(self.frame_orig_1))
+        self.assertEqual(self.rt1.get_header_size(),24)
+
+        self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2))
+        self.assertEqual(self.rt2.get_header_size(),32)
+        self.assertEqual(self.rt2.get_rate(),0x0c)
+        self.rt2.set_rate(0xAB)
+        self.assertEqual(self.rt2.get_rate(),0xAB)
+        self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2))
+        self.assertEqual(self.rt2.get_header_size(),32)
+        # TODO: Test the size when the field is new
+
+        
 suite = unittest.TestLoader().loadTestsFromTestCase(TestRadioTap)
 unittest.TextTestRunner(verbosity=2).run(suite)
 
