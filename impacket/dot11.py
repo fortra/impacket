@@ -1623,17 +1623,37 @@ class RadioTap(AbstractDot11):
         return n
             
     def set_tsft( self, nvalue ):
+        "Set the Value in microseconds of the MAC's 64-bit 802.11 "\
+        "Time Synchronization Function timer when the first bit of "\
+        "the MPDU arrived at the MAC"
         self.__set_field_from_string(field=self.RADIOTAP_TSFT, value=nvalue, format='Q')
         
     def get_tsft( self ):
+        "Get the Value in microseconds of the MAC's 64-bit 802.11 "\
+        "Time Synchronization Function timer when the first bit of "\
+        "the MPDU arrived at the MAC"
         #Structure: u64 mactime 
         #Required Alignment: 8
         #Unit: microseconds
         s=self.__get_field_as_string(field=self.RADIOTAP_TSFT, format='Q')
         return s
+
+    def set_flags( self, nvalue ):
+        "Set the properties of transmitted and received frames."
+        self.__set_field_from_string(field=self.RADIOTAP_FLAGS, value=nvalue, format='B')
    
     def get_flags( self ):
-        pass
+        "Get the properties of transmitted and received frames."
+        s=self.__get_field_as_string(field=self.RADIOTAP_FLAGS, format='B')
+        return s
+   
+    def set_rate( self, nvalue ):
+        "Set the TX/RX data rate in 500 Kbps units" 
+
+        self.__set_field_from_string(field=self.RADIOTAP_RATE, value=nvalue, format='B')
    
     def get_rate( self ):
-        pass
+        "Get the TX/RX data rate in 500 Kbps units" 
+
+        s=self.__get_field_as_string(field=self.RADIOTAP_RATE, format='B')
+        return s
