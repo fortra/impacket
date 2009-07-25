@@ -344,12 +344,13 @@ class ProtocolPacket(ProtocolLayer):
         "Calculate and set the checksum for this header"
         pass
 
-class Dot11(ProtocolPacket):
-    __HEADER_SIZE = 2
-    __TAIL_SIZE = 4
-    
+class Dot11(ProtocolPacket):    
+
     def __init__(self, aBuffer = None):
-        ProtocolPacket.__init__(self, self.__HEADER_SIZE, self.__TAIL_SIZE)
+        header_size = 2
+        tail_size = 4
+
+        ProtocolPacket.__init__(self, header_size,tail_size)
         if(aBuffer):
             self.load_packet(aBuffer)
 
@@ -574,11 +575,12 @@ class Dot11(ProtocolPacket):
 
 class Dot11ControlFrameCTS(ProtocolPacket):
     "802.11 Clear-To-Send Control Frame"
-    __HEADER_SIZE = 8
-    __TAIL_SIZE = 0
     
     def __init__(self, aBuffer = None):
-        ProtocolPacket.__init__(self, self.__HEADER_SIZE, self.__TAIL_SIZE)
+        header_size = 8
+        tail_size = 0
+
+        ProtocolPacket.__init__(self, header_size, tail_size)
         if(aBuffer):
             self.load_packet(aBuffer)
             
@@ -604,11 +606,12 @@ class Dot11ControlFrameCTS(ProtocolPacket):
 
 class Dot11ControlFrameACK(ProtocolPacket):
     "802.11 Acknowledgement Control Frame"
-    __HEADER_SIZE = 8
-    __TAIL_SIZE = 0
-    
+        
     def __init__(self, aBuffer = None):
-        ProtocolPacket.__init__(self, self.__HEADER_SIZE, self.__TAIL_SIZE)
+        header_size = 8
+        tail_size = 0
+
+        ProtocolPacket.__init__(self, header_size, tail_size)
         if(aBuffer):
             self.load_packet(aBuffer)
             
@@ -634,12 +637,12 @@ class Dot11ControlFrameACK(ProtocolPacket):
 
 class Dot11ControlFrameRTS(ProtocolPacket):
     "802.11 Request-To-Send Control Frame"
-    
-    __HEADER_SIZE = 14
-    __TAIL_SIZE = 0
-    
+        
     def __init__(self, aBuffer = None):
-        ProtocolPacket.__init__(self, self.__HEADER_SIZE, self.__TAIL_SIZE)
+        header_size = 14
+        tail_size = 0
+
+        ProtocolPacket.__init__(self, header_size, tail_size)
         if(aBuffer):
             self.load_packet(aBuffer)
     
@@ -675,11 +678,11 @@ class Dot11ControlFrameRTS(ProtocolPacket):
 class Dot11ControlFramePSPoll(ProtocolPacket):
     "802.11 Power-Save Poll Control Frame"
     
-    __HEADER_SIZE = 14
-    __TAIL_SIZE = 0
-    
     def __init__(self, aBuffer = None):
-        ProtocolPacket.__init__(self, self.__HEADER_SIZE, self.__TAIL_SIZE)
+        header_size = 14
+        tail_size = 0
+        
+        ProtocolPacket.__init__(self, header_size, tail_size)
         if(aBuffer):
             self.load_packet(aBuffer)
 
@@ -719,11 +722,11 @@ class Dot11ControlFramePSPoll(ProtocolPacket):
 class Dot11ControlFrameCFEnd(ProtocolPacket):
     "802.11 'Contention Free End' Control Frame"
     
-    __HEADER_SIZE = 14
-    __TAIL_SIZE = 0
-    
     def __init__(self, aBuffer = None):
-        ProtocolPacket.__init__(self, self.__HEADER_SIZE, self.__TAIL_SIZE)
+        header_size = 14
+        tail_size = 0
+    
+        ProtocolPacket.__init__(self, header_size, tail_size)
         if(aBuffer):
             self.load_packet(aBuffer)
 
@@ -758,12 +761,12 @@ class Dot11ControlFrameCFEnd(ProtocolPacket):
 
 class Dot11ControlFrameCFEndCFACK(ProtocolPacket):
     '802.11 \'CF-End + CF-ACK\' Control Frame'
-    
-    __HEADER_SIZE = 14
-    __TAIL_SIZE = 0
-    
+        
     def __init__(self, aBuffer = None):
-        ProtocolPacket.__init__(self, self.__HEADER_SIZE, self.__TAIL_SIZE)
+        header_size = 14
+        tail_size = 0
+
+        ProtocolPacket.__init__(self, header_size, tail_size)
         if(aBuffer):
             self.load_packet(aBuffer)
 
@@ -799,11 +802,11 @@ class Dot11ControlFrameCFEndCFACK(ProtocolPacket):
 class Dot11DataFrame(ProtocolPacket):
     '802.11 Data Frame'
     
-    __HEADER_SIZE = 22
-    __TAIL_SIZE = 0
-
     def __init__(self, aBuffer = None):
-        ProtocolPacket.__init__(self, self.__HEADER_SIZE, self.__TAIL_SIZE)
+        header_size = 22
+        tail_size = 0
+
+        ProtocolPacket.__init__(self, header_size, tail_size)
         if(aBuffer):
             self.load_packet(aBuffer)
         
@@ -898,11 +901,12 @@ class Dot11DataFrame(ProtocolPacket):
 
 class Dot11DataQoSFrame(Dot11DataFrame):
     '802.11 Data QoS Frame'
-    __HEADER_SIZE = 24
-    __TAIL_SIZE = 0
     
     def __init__(self, aBuffer = None):
-        ProtocolPacket.__init__(self, self.__HEADER_SIZE, self.__TAIL_SIZE)
+        header_size = 24
+        tail_size = 0
+
+        ProtocolPacket.__init__(self, header_size, tail_size)
         if(aBuffer):
             self.load_packet(aBuffer)
 
@@ -919,11 +923,12 @@ class Dot11DataQoSFrame(Dot11DataFrame):
 
 class Dot11DataAddr4Frame(Dot11DataFrame):
     '802.11 Data With ToDS From DS Flags (With Addr 4) Frame'
-    __HEADER_SIZE = 28
-    __TAIL_SIZE = 0
 
     def __init__(self, aBuffer = None):
-        ProtocolPacket.__init__(self, self.__HEADER_SIZE, self.__TAIL_SIZE)
+        header_size = 28
+        tail_size = 0
+
+        ProtocolPacket.__init__(self, header_size, tail_size)
         if(aBuffer):
             self.load_packet(aBuffer)
     
@@ -938,11 +943,12 @@ class Dot11DataAddr4Frame(Dot11DataFrame):
 
 class Dot11DataAddr4QoSFrame(Dot11DataAddr4Frame):
     '802.11 Data With ToDS From DS Flags (With Addr 4) and QoS Frame'
-    __HEADER_SIZE = 30
-    __TAIL_SIZE = 0
 
     def __init__(self, aBuffer = None):
-        ProtocolPacket.__init__(self, self.__HEADER_SIZE, self.__TAIL_SIZE)
+        header_size = 30
+        tail_size = 0
+
+        ProtocolPacket.__init__(self, header_size, tail_size)
         if(aBuffer):
             self.load_packet(aBuffer)
     
@@ -995,13 +1001,14 @@ class SAPTypes():
 
 class LLC(ProtocolPacket):
     '802.2 Logical Link Control (LLC) Frame'
-    __HEADER_SIZE = 3
-    __TAIL_SIZE = 0
     
     DLC_UNNUMBERED_FRAMES = 0x03
 
     def __init__(self, aBuffer = None):
-        ProtocolPacket.__init__(self, self.__HEADER_SIZE, self.__TAIL_SIZE)
+        header_size = 3
+        tail_size = 0
+
+        ProtocolPacket.__init__(self, header_size, tail_size)
         if(aBuffer):
             self.load_packet(aBuffer)
 
@@ -1031,11 +1038,12 @@ class LLC(ProtocolPacket):
 
 class SNAP(ProtocolPacket):
     '802.2 SubNetwork Access Protocol (SNAP) Frame'
-    __HEADER_SIZE = 5
-    __TAIL_SIZE = 0
 
     def __init__(self, aBuffer = None):
-        ProtocolPacket.__init__(self, self.__HEADER_SIZE, self.__TAIL_SIZE)
+        header_size = 5
+        tail_size = 0
+
+        ProtocolPacket.__init__(self, header_size, tail_size)
         if(aBuffer):
             self.load_packet(aBuffer)
 
@@ -1060,11 +1068,11 @@ class SNAP(ProtocolPacket):
 class Dot11WEP(ProtocolPacket):
     '802.11 WEP'
 
-    __HEADER_SIZE = 4
-    __TAIL_SIZE = 0
-
     def __init__(self, aBuffer = None):
-        ProtocolPacket.__init__(self, self.__HEADER_SIZE, self.__TAIL_SIZE)
+        header_size = 4
+        tail_size = 0
+
+        ProtocolPacket.__init__(self, header_size, tail_size)
         if(aBuffer):
             self.load_packet(aBuffer)
         
@@ -1115,11 +1123,11 @@ class Dot11WEP(ProtocolPacket):
 class Dot11WEPData(ProtocolPacket):
     '802.11 WEP Data Part'
 
-    __HEADER_SIZE = 0
-    __TAIL_SIZE = 4
-
     def __init__(self, aBuffer = None):
-        ProtocolPacket.__init__(self, self.__HEADER_SIZE, self.__TAIL_SIZE)
+        header_size = 0
+        tail_size = 4
+
+        ProtocolPacket.__init__(self, header_size, tail_size)
         if(aBuffer):
             self.load_packet(aBuffer)
         
@@ -1143,11 +1151,11 @@ class Dot11WEPData(ProtocolPacket):
 class Dot11WPA(ProtocolPacket):
     '802.11 WPA'
 
-    __HEADER_SIZE = 8
-    __TAIL_SIZE = 0
-
     def __init__(self, aBuffer = None):
-        ProtocolPacket.__init__(self, self.__HEADER_SIZE, self.__TAIL_SIZE)
+        header_size = 8
+        tail_size = 0
+
+        ProtocolPacket.__init__(self, header_size, tail_size)
         if(aBuffer):
             self.load_packet(aBuffer)
         
@@ -1271,11 +1279,11 @@ class Dot11WPA(ProtocolPacket):
 class Dot11WPAData(ProtocolPacket):
     '802.11 WPA Data Part'
 
-    __HEADER_SIZE = 0
-    __TAIL_SIZE = 12
-
     def __init__(self, aBuffer = None):
-        ProtocolPacket.__init__(self, self.__HEADER_SIZE, self.__TAIL_SIZE)
+        header_size = 0
+        tail_size = 12
+
+        ProtocolPacket.__init__(self, header_size, tail_size)
         if(aBuffer):
             self.load_packet(aBuffer)
         
@@ -1312,11 +1320,11 @@ class Dot11WPAData(ProtocolPacket):
 class Dot11WPA2(ProtocolPacket):
     '802.11 WPA2'
 
-    __HEADER_SIZE = 8
-    __TAIL_SIZE = 0
-
     def __init__(self, aBuffer = None):
-        ProtocolPacket.__init__(self, self.__HEADER_SIZE, self.__TAIL_SIZE)
+        header_size = 8
+        tail_size = 0
+
+        ProtocolPacket.__init__(self, header_size, tail_size)
         if(aBuffer):
             self.load_packet(aBuffer)
         
@@ -1430,11 +1438,11 @@ class Dot11WPA2(ProtocolPacket):
 class Dot11WPA2Data(ProtocolPacket):
     '802.11 WPA2 Data Part'
 
-    __HEADER_SIZE = 0
-    __TAIL_SIZE = 8
-
     def __init__(self, aBuffer = None):
-        ProtocolPacket.__init__(self, self.__HEADER_SIZE, self.__TAIL_SIZE)
+        header_size = 0
+        tail_size = 8
+
+        ProtocolPacket.__init__(self, header_size, tail_size)
         if(aBuffer):
             self.load_packet(aBuffer)
             
@@ -1452,8 +1460,6 @@ class Dot11WPA2Data(ProtocolPacket):
 
 class RadioTap(ProtocolPacket):
     __HEADER_BASE_SIZE = 8 # minimal header size
-    __HEADER_SIZE = __HEADER_BASE_SIZE 
-    __TAIL_SIZE = 0
 
     RADIOTAP_TSFT = 0
     RADIOTAP_FLAGS = 1
@@ -1505,14 +1511,17 @@ class RadioTap(ProtocolPacket):
     }
         
     def __init__(self, aBuffer = None):
+        header_size = self.__HEADER_BASE_SIZE 
+        tail_size = 0
+
         if aBuffer:
             length = unpack('<H', aBuffer[2:4])[0]
-            self.__HEADER_SIZE=length
+            header_size=length
                     
-            ProtocolPacket.__init__(self, self.__HEADER_SIZE, self.__TAIL_SIZE)
+            ProtocolPacket.__init__(self, header_size, tail_size)
             self.load_packet(aBuffer)
         else:
-            ProtocolPacket.__init__(self, self.__HEADER_SIZE, self.__TAIL_SIZE)
+            ProtocolPacket.__init__(self, header_size, tail_size)
             self.set_version(0)
             self.set_present(0x00000000)
             
@@ -1588,7 +1597,6 @@ class RadioTap(ProtocolPacket):
             header=header[:byte_pos]+value+header[byte_pos+field_bytes_length:]
         else:
             header=header[:byte_pos]+value+header[byte_pos:]
-            self.__HEADER_SIZE+=field_bytes_length
         self.load_header(header)
 
     def unset_field( self, field):
@@ -1605,7 +1613,6 @@ class RadioTap(ProtocolPacket):
         header=self.get_header_as_string()
         
         header=header[:byte_pos]+header[byte_pos+field_bytes_length:]
-        self.__HEADER_SIZE-=field_bytes_length
         
         self.load_header(header)
 
