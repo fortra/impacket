@@ -17,9 +17,10 @@ import struct
 import socket
 import string
 import sys
+import types
 from ImpactPacket import ProtocolLayer, PacketBuffer, Header
 from binascii import hexlify,crc32
-from struct import unpack
+from struct import pack, unpack, calcsize
 
 class Dot11Types():
     # Management Types/SubTypes
@@ -1461,59 +1462,130 @@ class Dot11WPA2Data(ProtocolPacket):
 class RadioTap(ProtocolPacket):
     __HEADER_BASE_SIZE = 8 # minimal header size
 
-    RADIOTAP_TSFT = 0
-    RADIOTAP_FLAGS = 1
-    RADIOTAP_RATE = 2
-    RADIOTAP_CHANNEL = 3
-    RADIOTAP_FHSS = 4
-    RADIOTAP_DBM_ANTSIGNAL = 5
-    RADIOTAP_DBM_ANTNOISE = 6
-    RADIOTAP_LOCK_QUALITY = 7
-    RADIOTAP_TX_ATTENUATION = 8
-    RADIOTAP_DB_TX_ATTENUATION = 9
-    RADIOTAP_DBM_TX_POWER = 10
-    RADIOTAP_ANTENNA = 11
-    RADIOTAP_DB_ANTSIGNAL = 12
-    RADIOTAP_DB_ANTNOISE = 13
-    #RADIOTAP_RX_FLAGS = 14 # official assignment
-    RADIOTAP_FCS_IN_HEADER = 14 # clashes with RX_FLAGS
-    RADIOTAP_TX_FLAGS = 15 # clashes with HARDWARE_QUEUE
-    #RADIOTAP_HARDWARE_QUEUE = 15 # clashes with TX_FLAGS
-    RADIOTAP_RTS_RETRIES = 16 # clashes with RSSI
-    #RADIOTAP_RSSI = 16 # clashes with RTS_RETRIES 
-    RADIOTAP_DATA_RETRIES = 17
-    RADIOTAP_XCHANNEL = 18
-    RADIOTAP_EXT = 31
+    class __RadioTapField():        
+        ALIGNMENT = 1
 
-    __fields_bytes_len={
-        RADIOTAP_TSFT: 8,
-        RADIOTAP_FLAGS: 1,
-        RADIOTAP_RATE: 1,
-        RADIOTAP_CHANNEL: 2+2,
-        RADIOTAP_FHSS: 1+1,
-        RADIOTAP_DBM_ANTSIGNAL: 1,
-        RADIOTAP_DBM_ANTNOISE: 1,
-        RADIOTAP_LOCK_QUALITY: 2,
-        RADIOTAP_TX_ATTENUATION: 2,
-        RADIOTAP_DB_TX_ATTENUATION: 2,
-        RADIOTAP_DBM_TX_POWER: 1,
-        RADIOTAP_ANTENNA: 1,
-        RADIOTAP_DB_ANTSIGNAL: 1,
-        RADIOTAP_DB_ANTNOISE: 1,
-        #RADIOTAP_RX_FLAGS: 2,
-        RADIOTAP_FCS_IN_HEADER: 4,
-        RADIOTAP_TX_FLAGS: 2,
-        #RADIOTAP_HARDWARE_QUEUE: 1,        
-        RADIOTAP_RTS_RETRIES: 1,
-        #RADIOTAP_RSSI: 2,
-        RADIOTAP_DATA_RETRIES: 1,
-        RADIOTAP_XCHANNEL: 4+2+1+1,
-    }
+        def __str__( self ):
+            return str( self.__class__.__name__ )
         
+    class RTF_TSFT(__RadioTapField):
+        BIT_NUMBER = 0
+        STRUCTURE = "<Q"
+        ALIGNMENT = 8
+
+    class RTF_FLAGS(__RadioTapField):
+        BIT_NUMBER = 1
+        STRUCTURE = "<B"
+
+    class RTF_RATE(__RadioTapField):
+        BIT_NUMBER = 2
+        STRUCTURE = "<B"
+
+    class RTF_CHANNEL(__RadioTapField):
+        BIT_NUMBER = 3
+        STRUCTURE = "<HH"
+        ALIGNMENT = 2
+
+    class RTF_FHSS(__RadioTapField):
+        BIT_NUMBER = 4
+        STRUCTURE = "<BB"
+
+    class RTF_DBM_ANTSIGNAL(__RadioTapField):
+        BIT_NUMBER = 5
+        STRUCTURE = "<B"
+
+    class RTF_DBM_ANTNOISE(__RadioTapField):
+        BIT_NUMBER = 6
+        STRUCTURE = "<B"
+
+    class RTF_LOCK_QUALITY(__RadioTapField):
+        BIT_NUMBER = 7
+        STRUCTURE = "<H"
+        ALIGNMENT = 2
+
+    class RTF_TX_ATTENUATION(__RadioTapField):
+        BIT_NUMBER = 8
+        STRUCTURE = "<H"
+        ALIGNMENT = 2
+
+    class RTF_DB_TX_ATTENUATION(__RadioTapField):
+        BIT_NUMBER = 9
+        STRUCTURE = "<H"
+        ALIGNMENT = 2
+
+    class RTF_DBM_TX_POWER(__RadioTapField):
+        BIT_NUMBER = 10
+        STRUCTURE = "<B"
+        ALIGNMENT = 2
+
+    class RTF_ANTENNA(__RadioTapField):
+        BIT_NUMBER = 11
+        STRUCTURE = "<B"
+
+    class RTF_DB_ANTSIGNAL(__RadioTapField):
+        BIT_NUMBER = 12
+        STRUCTURE = "<B"
+
+    class RTF_DB_ANTNOISE(__RadioTapField):
+        BIT_NUMBER = 13
+        STRUCTURE = "<B"
+
+##    # official assignment
+##    class RTF_RX_FLAGS(__RadioTapField):
+##        BIT_NUMBER = 14
+##        STRUCTURE = "<H"
+##        ALIGNMENT = 2
+
+    # clashes with RTF_RX_FLAGS
+    class RTF_FCS_IN_HEADER(__RadioTapField):
+        BIT_NUMBER = 14
+        STRUCTURE = "<L"
+        ALIGNMENT = 4   
+
+    # clashes with HARDWARE_QUEUE
+    class RTF_TX_FLAGS(__RadioTapField):
+        BIT_NUMBER = 15
+        STRUCTURE = "<H"
+        ALIGNMENT = 2
+
+##    # clashes with TX_FLAGS
+##    class RTF_HARDWARE_QUEUE(__RadioTapField):
+##        BIT_NUMBER = 15
+##        STRUCTURE = "<B"
+##        ALIGNMENT = 1
+
+    # clashes with RSSI
+    class RTF_RTS_RETRIES(__RadioTapField):
+        BIT_NUMBER = 16
+        STRUCTURE = "<B"
+
+##    # clashes with RTS_RETRIES 
+##    class RTF_RSSI(__RadioTapField):
+##        BIT_NUMBER = 16
+##        STRUCTURE = "<H"
+##        ALIGNMENT = 1
+
+    class RTF_DATA_RETRIES(__RadioTapField):
+        BIT_NUMBER = 17
+        STRUCTURE = "<B"
+
+    class RTF_XCHANNEL(__RadioTapField):
+        BIT_NUMBER = 18
+        STRUCTURE = "<LHBB"
+        ALIGNMENT = 4
+
+    class RTF_EXT(__RadioTapField):
+        BIT_NUMBER = 31
+        STRUCTURE = []
+       
     def __init__(self, aBuffer = None):
         header_size = self.__HEADER_BASE_SIZE 
         tail_size = 0
+        self.__radiotap_fields=[ x for x in self.__class__.__dict__.values() if type(x) is types.ClassType and self.__RadioTapField in (x.__bases__) ]
+        # Sort the list so the 'for' statement walk the list in the right order
+        self.__radiotap_fields.sort(lambda x, y: cmp(x.BIT_NUMBER,y.BIT_NUMBER))
 
+        
         if aBuffer:
             length = unpack('<H', aBuffer[2:4])[0]
             header_size=length
@@ -1540,127 +1612,196 @@ class RadioTap(ProtocolPacket):
     def get_present(self):
         "Return RadioTap present bitmap field"
         present = self.header.get_long(4, "<")
-        # TODO: Implement extended 'present' bit logic here
         return present
 
     def __set_present(self, value):
         "Set RadioTap present field bit"
-        # TODO: Implement extended 'present' bit logic here
         self.header.set_long(4, value)
 
-    def get_present_bit(self, bit):
+    def get_present_bit(self, field):
         'Get a \'present\' field bit'
         present=self.get_present()
-        # TODO: Implement extended 'present' bit logic here
-        return not not (2**bit & present)
+        return not not (2**field.BIT_NUMBER & present)
 
-    def __set_present_bit(self, bit):
+    def __set_present_bit(self, field):
         'Set a \'present\' field bit'
-        npresent=2**bit | self.get_present()
+        npresent=2**field.BIT_NUMBER | self.get_present()
         self.header.set_long(4, npresent,'<')
 
-    def __unset_present_bit(self, bit):
+    def __unset_present_bit(self, field):
         'Unset a \'present\' field bit'
-        npresent=~(2**bit) & self.get_present()
+        npresent=~(2**field.BIT_NUMBER) & self.get_present()
         self.header.set_long(4, npresent,'<')
+        
+    def __align(self, val, align):
+        return ( (((val) + ((align) - 1)) & ~((align) - 1)) - val )
 
-    def __get_field_position_and_length(self, field):
-        
-        if not self.__fields_bytes_len.has_key(field):
-            return (None,None)
-        
+    def __get_field_position(self, field):        
         field_position=self.__HEADER_BASE_SIZE
-        for (f,length) in self.__fields_bytes_len.items():
+        for f in self.__radiotap_fields:
+            field_position+=self.__align(field_position,f.ALIGNMENT)
             if f==field:
-                return (field_position,length)
+                return field_position
             
             if self.get_present_bit(f):
-                field_position+=length
-        
-        return (None,None)
+                total_length=calcsize(f.STRUCTURE)
+                field_position+=total_length
+            
+        return None
     
-    def __set_field_from_string( self, field, value, format):
-        is_present=self.get_present_bit(field)
-        if is_present is False:
-            self.__set_present_bit(field)
-        
-        (byte_pos,field_bytes_length)=self.__get_field_position_and_length(field)
-        header=self.get_header_as_string()
-
-        field_bits_len=field_bytes_length*8
-        mask=2**field_bits_len-1
-        value=value&mask
-
-        value = struct.pack('<'+format, value)
-        
-        if is_present is True:
-            header=header[:byte_pos]+value+header[byte_pos+field_bytes_length:]
-        else:
-            header=header[:byte_pos]+value+header[byte_pos:]
-        self.load_header(header)
+##    def __set_field_from_string( self, field, value, format):
+##        is_present=self.get_present_bit(field)
+##        if is_present is False:
+##            self.__set_present_bit(field)
+##        
+##        byte_pos=self.__get_field_position(field)
+##        header=self.get_header_as_string()
+##
+##        field_bits_len=field.TOTAL_LENGTH*8
+##        mask=2**field_bits_len-1
+##        value=value&mask
+##
+##        value = struct.pack('<'+format, value)
+##        
+##        if is_present is True:
+##            header=header[:byte_pos]+value+header[byte_pos+field_bytes_length:]
+##        else:
+##            header=header[:byte_pos]+value+header[byte_pos:]
+##        self.load_header(header)
 
     def unset_field( self, field):
         is_present=self.get_present_bit(field)
         if is_present is False:
             return False
                 
-        (byte_pos,field_bytes_length)=self.__get_field_position_and_length(field)
+        byte_pos=self.__get_field_position(field)
         if not byte_pos:
             return False
 
         self.__unset_present_bit(field)
 
         header=self.get_header_as_string()
-        
-        header=header[:byte_pos]+header[byte_pos+field_bytes_length:]
+        total_length = calcsize(field.STRUCTURE)
+        header=header[:byte_pos]+header[byte_pos+total_length:]
         
         self.load_header(header)
 
-    def __get_field_as_string( self, field, format ):
+##    def __get_field_as_string( self, field, format ):
+##        is_present=self.get_present_bit(field)
+##        if is_present is False:
+##            return None
+##        
+##        byte_pos=self.__get_field_position(field)
+##        header=self.get_header_as_string()
+##        v=header[ byte_pos:byte_pos+field.TOTAL_LENGTH ]
+##
+##        n = struct.unpack('<'+format, v)[0]
+##
+##        return n
+
+    def __get_field_values( self, field ):
         is_present=self.get_present_bit(field)
         if is_present is False:
             return None
         
-        (byte_pos,field_bytes_length)=self.__get_field_position_and_length(field)
+        byte_pos=self.__get_field_position(field)
         header=self.get_header_as_string()
-        v=header[ byte_pos:byte_pos+field_bytes_length ]
+        total_length=calcsize(field.STRUCTURE)
+        v=header[ byte_pos:byte_pos+total_length ]
+        
+        field_values = struct.unpack(field.STRUCTURE, v)
+        
+        return field_values
 
-        n = struct.unpack('<'+format, v)[0]
+    def __set_field_values( self, field, values ):
+        if not hasattr(values,'__iter__'):
+            raise Exception("arg 'values' is not iterable")
+        
+        # It's for to known the qty of argument of a structure
+        from string import maketrans
+        num_fields=len(field.STRUCTURE.translate(string.maketrans("",""), '=@!<>'))
 
-        return n
+        if len(values)!=num_fields:
+            raise Exception("Field %s has exactly %d items"%(str(field),calcsize(field.STRUCTURE)))
+        
+        is_present=self.get_present_bit(field)
+        if is_present is False:
+            self.__set_present_bit(field)
+        
+        byte_pos=self.__get_field_position(field)
+        header=self.get_header_as_string()
+        total_length=calcsize(field.STRUCTURE)
+        v=header[ byte_pos:byte_pos+total_length ]
+        
+        new_str = struct.pack(field.STRUCTURE, *values)
+
+        if is_present is True:
+            header=header[:byte_pos]+new_str+header[byte_pos+total_length:]
+        else:
+            header=header[:byte_pos]+new_str+header[byte_pos:]
+        self.load_header(header)
+
             
     def set_tsft( self, nvalue ):
         "Set the Value in microseconds of the MAC's 64-bit 802.11 "\
         "Time Synchronization Function timer when the first bit of "\
         "the MPDU arrived at the MAC"
-        self.__set_field_from_string(field=self.RADIOTAP_TSFT, value=nvalue, format='Q')
+        self.__set_field_values(RadioTap.RTF_TSFT, [nvalue])
         
     def get_tsft( self ):
         "Get the Value in microseconds of the MAC's 64-bit 802.11 "\
         "Time Synchronization Function timer when the first bit of "\
         "the MPDU arrived at the MAC"
-        #Structure: u64 mactime 
-        #Required Alignment: 8
-        #Unit: microseconds
-        s=self.__get_field_as_string(field=self.RADIOTAP_TSFT, format='Q')
-        return s
+        
+        values=self.__get_field_values(RadioTap.RTF_TSFT)
+        if not values:
+            return None
+        return values[0]
 
     def set_flags( self, nvalue ):
         "Set the properties of transmitted and received frames."
-        self.__set_field_from_string(field=self.RADIOTAP_FLAGS, value=nvalue, format='B')
+        self.__set_field_values(self.RTF_FLAGS, [nvalue])
    
     def get_flags( self ):
         "Get the properties of transmitted and received frames."
-        s=self.__get_field_as_string(field=self.RADIOTAP_FLAGS, format='B')
-        return s
+        values=self.__get_field_values(self.RTF_FLAGS)
+        if not values:
+            return None
+        return values[0]
    
     def set_rate( self, nvalue ):
         "Set the TX/RX data rate in 500 Kbps units" 
-
-        self.__set_field_from_string(field=self.RADIOTAP_RATE, value=nvalue, format='B')
+        
+        self.__set_field_values(self.RTF_RATE, [nvalue])
    
     def get_rate( self ):
         "Get the TX/RX data rate in 500 Kbps units" 
 
-        s=self.__get_field_as_string(field=self.RADIOTAP_RATE, format='B')
-        return s
+        values=self.__get_field_values(self.RTF_RATE)
+        if not values:
+            return None
+        return values[0]
+
+    def set_channel( self, freq, flags ):
+        "Set the channel Tx/Rx frequency in MHz and the channel flags" 
+
+        self.__set_field_values(self.RTF_RATE, [freq, flags])
+   
+    def get_channel( self ):
+        "Get the TX/RX data rate in 500 Kbps units" 
+
+        values=self.__get_field_values(self.RTF_RATE)
+
+        return values
+
+    def set_xchannel( self, flags, freq, channel, maxpower ):
+        "Set extended channel information: flags, freq, channel and maxpower" 
+        
+        self.__set_field_values(self.RTF_XCHANNEL, [flags, freq, channel, maxpower] )
+   
+    def get_xchannel( self ):
+        "Get extended channel information: flags, freq, channel and maxpower" 
+        
+        values=self.__get_field_values(field=self.RTF_XCHANNEL)
+
+        return values
