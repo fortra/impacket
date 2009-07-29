@@ -179,11 +179,8 @@ class RadioTapDecoder(Decoder):
     def decode(self, aBuffer):
         rt = dot11.RadioTap(aBuffer)
         
-        header_size = rt.get_header_size()
-        tail_size = rt.get_tail_size()
-        
         self.do11_decoder = Dot11Decoder()
-        packet = self.dot11_decoder.decode(aBuffer[header_size:-tail_size])
+        packet = self.do11_decoder.decode(rt.get_body_as_string())
     
         rt.contains(packet)
         return rt
