@@ -179,9 +179,12 @@ class TestRadioTap(unittest.TestCase):
 
     def test_10_xchannel_field(self):
         'Test RadioTap xchannel getter/setter'
-        
-        (a,b,c,d)=self.rt2.get_xchannel()
-        print "a=%s b=%s c=%s d=%s" % (str(a),str(b),str(c),str(d))
+
+        (ch_type,ch_freq,ch_num,ch_maxpower)=self.rt2.get_xchannel()
+        self.assertEqual(ch_type,0x00000140)
+        self.assertEqual(ch_freq,5180)
+        self.assertEqual(ch_num,36)
+        self.assertEqual(ch_maxpower,0x11)
         
 suite = unittest.TestLoader().loadTestsFromTestCase(TestRadioTap)
 unittest.TextTestRunner(verbosity=2).run(suite)
