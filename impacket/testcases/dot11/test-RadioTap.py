@@ -186,6 +186,17 @@ class TestRadioTap(unittest.TestCase):
         self.assertEqual(ch_num,36)
         self.assertEqual(ch_maxpower,0x11)
         
+        (ch_type,ch_freq,ch_num,ch_maxpower)=(0x12345678, 1234, 12, 34)
+
+        self.rt2.set_xchannel(flags=ch_type, freq=ch_freq, channel=ch_num, maxpower=ch_maxpower)
+        (nch_type,nch_freq,nch_num,nch_maxpower)=self.rt2.get_xchannel()
+
+        self.assertEqual(ch_type,nch_type)
+        self.assertEqual(ch_freq,nch_freq)
+        self.assertEqual(ch_num,nch_num)
+        self.assertEqual(ch_maxpower,nch_maxpower)
+
+        
 suite = unittest.TestLoader().loadTestsFromTestCase(TestRadioTap)
 unittest.TextTestRunner(verbosity=2).run(suite)
 
