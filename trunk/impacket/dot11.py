@@ -1515,7 +1515,7 @@ class RadioTap(ProtocolPacket):
 
     class RTF_DBM_TX_POWER(__RadioTapField):
         BIT_NUMBER = 10
-        STRUCTURE = "<B"
+        STRUCTURE = "<b"
         ALIGNMENT = 2
 
     class RTF_ANTENNA(__RadioTapField):
@@ -1794,6 +1794,220 @@ class RadioTap(ProtocolPacket):
 
         return values
 
+    def set_fhss( self, hop_set, hop_pattern ):
+        "Set the hop set and pattern for frequency-hopping radios" 
+
+        self.__set_field_values(self.RTF_FHSS, [hop_set, hop_pattern])
+   
+    def get_fhss( self ):
+        "Get the hop set and pattern for frequency-hopping radios" 
+
+        values=self.__get_field_values(self.RTF_FHSS)
+
+        return values
+
+    def set_dBm_ant_signal( self, signal ):
+        "Set the RF signal power at the antenna, decibel difference from an "\
+        "arbitrary, fixed reference." 
+
+        self.__set_field_values(self.RTF_DBM_ANTSIGNAL, [signal])
+   
+    def get_dBm_ant_signal( self ):
+        "Get the RF signal power at the antenna, decibel difference from an "\
+        "arbitrary, fixed reference." 
+
+        values=self.__get_field_values(self.RTF_DBM_ANTSIGNAL)
+        if not values:
+            return None
+        return values[0]
+
+    def set_dBm_ant_noise( self, signal ):
+        "Set the RF noise power at the antenna, decibel difference from an "\
+        "arbitrary, fixed reference."
+
+        self.__set_field_values(self.RTF_DBM_ANTNOISE, [signal])
+   
+    def get_dBm_ant_noise( self ):
+        "Get the RF noise power at the antenna, decibel difference from an "\
+        "arbitrary, fixed reference."
+
+        values=self.__get_field_values(self.RTF_DBM_ANTNOISE)
+        if not values:
+            return None
+        return values[0]
+
+    def set_lock_quality( self, quality ):
+        "Set the quality of Barker code lock. "\
+        "Called 'Signal Quality' in datasheets. "
+
+        self.__set_field_values(self.RTF_LOCK_QUALITY, [quality])
+   
+    def get_lock_quality( self ):
+        "Get the quality of Barker code lock. "\
+        "Called 'Signal Quality' in datasheets. "
+        
+        values=self.__get_field_values(self.RTF_LOCK_QUALITY)
+        if not values:
+            return None
+        return values[0]
+
+    def set_tx_attenuation( self, power ):
+        "Set the transmit power expressed as unitless distance from max power "\
+        "set at factory calibration. 0 is max power."
+
+        self.__set_field_values(self.RTF_TX_ATTENUATION, [power])
+   
+    def get_tx_attenuation( self ):
+        "Set the transmit power expressed as unitless distance from max power "\
+        "set at factory calibration. 0 is max power."
+        
+        values=self.__get_field_values(self.RTF_TX_ATTENUATION)
+        if not values:
+            return None
+        return values[0]
+
+    def set_dB_tx_attenuation( self, power ):
+        "Set the transmit power expressed as decibel distance from max power "\
+        "set at factory calibration. 0 is max power. "
+
+        self.__set_field_values(self.RTF_DB_TX_ATTENUATION, [power])
+   
+    def get_dB_tx_attenuation( self ):
+        "Set the transmit power expressed as decibel distance from max power "\
+        "set at factory calibration. 0 is max power. "
+        
+        values=self.__get_field_values(self.RTF_DB_TX_ATTENUATION)
+        if not values:
+            return None
+        return values[0]
+
+    def set_dBm_tx_power( self, power ):
+        "Set the transmit power expressed as dBm (decibels from a 1 milliwatt"\
+        " reference). This is the absolute power level measured at the "\
+        "antenna port."
+        
+        self.__set_field_values(self.RTF_DBM_TX_POWER, [power])
+   
+    def get_dBm_tx_power( self ):
+        "Get the transmit power expressed as dBm (decibels from a 1 milliwatt"\
+        " reference). This is the absolute power level measured at the "\
+        "antenna port."
+        
+        values=self.__get_field_values(self.RTF_DBM_TX_POWER)
+        if not values:
+            return None
+        return values[0]
+
+    def set_antenna( self, antenna_index ):
+        "Set Rx/Tx antenna index for this packet. "\
+        "The first antenna is antenna 0. "\
+        
+        self.__set_field_values(self.RTF_ANTENNA, [power])
+   
+    def get_antenna( self ):
+        "Set Rx/Tx antenna index for this packet. "\
+        "The first antenna is antenna 0. "\
+        
+        values=self.__get_field_values(self.RTF_ANTENNA)
+        if not values:
+            return None
+        return values[0]
+
+    def set_dB_ant_signal( self, signal ):
+        "Set the RF signal power at the antenna, decibel difference from an "\
+        "arbitrary, fixed reference." 
+
+        self.__set_field_values(self.RTF_DB_ANTSIGNAL, [signal])
+   
+    def get_dB_ant_signal( self ):
+        "Get the RF signal power at the antenna, decibel difference from an "\
+        "arbitrary, fixed reference." 
+
+        values=self.__get_field_values(self.RTF_DB_ANTSIGNAL)
+        if not values:
+            return None
+        return values[0]
+
+    def set_dB_ant_noise( self, signal ):
+        "Set the RF noise power at the antenna, decibel difference from an "\
+        "arbitrary, fixed reference." 
+
+        self.__set_field_values(self.RTF_DB_ANTNOISE, [signal])
+   
+    def get_dB_ant_noise( self ):
+        "Get the RF noise power at the antenna, decibel difference from an "\
+        "arbitrary, fixed reference." 
+
+        values=self.__get_field_values(self.RTF_DB_ANTNOISE)
+        if not values:
+            return None
+        return values[0]
+
+    def set_rx_flags( self, flags ):
+        "Set the properties of received frames." 
+
+        self.__set_field_values(self.RTF_RX_FLAGS, [flags])
+   
+    def get_rx_flags( self ):
+        "Get the properties of received frames." 
+
+        values=self.__get_field_values(self.RTF_RX_FLAGS)
+        if not values:
+            return None
+        return values[0]
+
+    def set_FCS_in_header( self, flags ):
+        "Set the Field containing the FCS of the frame (instead of it being "\
+        "appended to the frame as it would appear on the air.) " 
+
+        self.__set_field_values(self.RTF_FCS_IN_HEADER, [flags])
+   
+    def get_FCS_in_header( self ):
+        "Get the Field containing the FCS of the frame (instead of it being "\
+        "appended to the frame as it would appear on the air.) " 
+
+        values=self.__get_field_values(self.RTF_FCS_IN_HEADER)
+        if not values:
+            return None
+        return values[0]
+
+    def set_RSSI( self, rssi, max_rssi ):
+        "Set the received signal strength and the maximum for the hardware." 
+
+        self.__set_field_values(self.RTF_RSSI, [rssi, max_rssi])
+   
+    def get_RSSI( self ):
+        "Get the received signal strength and the maximum for the hardware." 
+
+        values=self.__get_field_values(self.RTF_RSSI)
+
+        return values
+
+    def set_RTS_retries( self, rts_retries):
+        "Set the number of RTS retries a transmitted frame used." 
+
+        self.__set_field_values(self.RTF_RTS_RETRIES, [rts_retries])
+   
+    def get_RTS_retries( self ):
+        "Get the number of RTS retries a transmitted frame used." 
+
+        values=self.__get_field_values(self.RTF_RTS_RETRIES)
+
+        return values
+
+    def set_tx_flags( self, flags ):
+        "Set the properties of transmitted frames." 
+
+        self.__set_field_values(self.RTF_TX_FLAGS, [flags])
+   
+    def get_tx_flags( self ):
+        "Get the properties of transmitted frames." 
+
+        values=self.__get_field_values(self.RTF_TX_FLAGS)
+        if not values:
+            return None
+        return values[0]
+
     def set_xchannel( self, flags, freq, channel, maxpower ):
         "Set extended channel information: flags, freq, channel and maxpower" 
         
@@ -1805,3 +2019,29 @@ class RadioTap(ProtocolPacket):
         values=self.__get_field_values(field=self.RTF_XCHANNEL)
 
         return values
+
+    def set_data_retries( self, retries ):
+        "Set the number of data retries a transmitted frame used." 
+
+        self.__set_field_values(self.RTF_DATA_RETRIES, [retries])
+   
+    def get_data_retries( self ):
+        "Get the number of data retries a transmitted frame used." 
+
+        values=self.__get_field_values(self.RTF_DATA_RETRIES)
+        if not values:
+            return None
+        return values[0]
+
+    def set_hardware_queue( self, flags ):
+        "Set the hardware queue to send the frame on." 
+
+        self.__set_field_values(self.RTF_HARDWARE_QUEUE, [flags])
+   
+    def get_hardware_queue( self ):
+        "Get the hardware queue to send the frame on." 
+
+        values=self.__get_field_values(self.RTF_HARDWARE_QUEUE)
+        if not values:
+            return None
+        return values[0]
