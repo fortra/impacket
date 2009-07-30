@@ -28,8 +28,20 @@ be wrapped into a ImpactPacket.Data object.
 """
 
 class Decoder:
+    __decoded_protocol = None
     def decode(self, aBuffer):
         pass
+        
+    def set_decoded_protocol(self, protocol):
+        self.__decoded_protocol = protocol
+        
+    def get_protocol(self, aprotocol):
+        protocol = self.__decoded_protocol
+        while protocol:
+            if protocol.__class__ == aprotocol:
+                break
+            protocol=protocol.child()
+        return protocol
 
 class EthDecoder(Decoder):
     def __init__(self):
@@ -37,6 +49,7 @@ class EthDecoder(Decoder):
 
     def decode(self, aBuffer):
         e = ImpactPacket.Ethernet(aBuffer)
+        self.set_decoded_protocol( e )
         off = e.get_header_size()
         if e.get_ether_type() == ImpactPacket.IP.ethertype:
             self.ip_decoder = IPDecoder()
@@ -59,6 +72,7 @@ class LinuxSLLDecoder(Decoder):
 
     def decode(self, aBuffer):
         e = ImpactPacket.LinuxSLL(aBuffer)
+        self.set_decoded_protocol( e )
         off = 16
         if e.get_ether_type() == ImpactPacket.IP.ethertype:
             self.ip_decoder = IPDecoder()
@@ -79,6 +93,7 @@ class IPDecoder(Decoder):
 
     def decode(self, aBuffer):
         i = ImpactPacket.IP(aBuffer)
+        self.set_decoded_protocol ( i )
         off = i.get_header_size()
         end = i.get_ip_len()
         if i.get_ip_p() == ImpactPacket.UDP.protocol:
@@ -102,6 +117,7 @@ class ARPDecoder(Decoder):
 
     def decode(self, aBuffer):
         arp = ImpactPacket.ARP(aBuffer)
+        self.set_decoded_protocol( arp )
         off = arp.get_header_size()
         self.data_decoder = DataDecoder()
         packet = self.data_decoder.decode(aBuffer[off:])
@@ -114,6 +130,7 @@ class UDPDecoder(Decoder):
 
     def decode(self, aBuffer):
         u = ImpactPacket.UDP(aBuffer)
+        self.set_decoded_protocol( u )
         off = u.get_header_size()
         self.data_decoder = DataDecoder()
         packet = self.data_decoder.decode(aBuffer[off:])
@@ -126,6 +143,7 @@ class TCPDecoder(Decoder):
 
     def decode(self, aBuffer):
         t = ImpactPacket.TCP(aBuffer)
+        self.set_decoded_protocol( t )
         off = t.get_header_size()
         self.data_decoder = DataDecoder()
         packet = self.data_decoder.decode(aBuffer[off:])
@@ -141,6 +159,7 @@ class IPDecoderForICMP(Decoder):
 
     def decode(self, aBuffer):
         i = ImpactPacket.IP(aBuffer)
+        self.set_decoded_protocol( i )
         off = i.get_header_size()
         if i.get_ip_p() == ImpactPacket.UDP.protocol:
             self.udp_decoder = UDPDecoder()
@@ -157,6 +176,7 @@ class ICMPDecoder(Decoder):
 
     def decode(self, aBuffer):
         ic = ImpactPacket.ICMP(aBuffer)
+        self.set_decoded_protocol( ic )
         off = ic.get_header_size()
         if ic.get_icmp_type() == ImpactPacket.ICMP.ICMP_UNREACH:
             self.ip_decoder = IPDecoderForICMP()
@@ -170,6 +190,7 @@ class ICMPDecoder(Decoder):
 class DataDecoder(Decoder):
     def decode(self, aBuffer):
         d = ImpactPacket.Data(aBuffer)
+        self.set_decoded_protocol( d )
         return d
 
 class RadioTapDecoder(Decoder):
@@ -178,6 +199,7 @@ class RadioTapDecoder(Decoder):
 
     def decode(self, aBuffer):
         rt = dot11.RadioTap(aBuffer)
+        self.set_decoded_protocol( rt )
         
         self.do11_decoder = Dot11Decoder()
         packet = self.do11_decoder.decode(rt.get_body_as_string())
@@ -191,6 +213,7 @@ class Dot11Decoder(Decoder):
         
     def decode(self, aBuffer):
         d = dot11.Dot11(aBuffer)
+        self.set_decoded_protocol( d )
         
         type = d.get_type()
         if type == dot11.Dot11Types.DOT11_TYPE_CONTROL:
@@ -239,6 +262,7 @@ class Dot11DataDecoder(Decoder):
             p = dot11.Dot11DataQoSFrame(aBuffer)
         else:
             p = dot11.Dot11DataFrame(aBuffer)
+        self.set_decoded_protocol( p )
         
         if self.Private is False:
             self.llc_decoder = LLCDecoder()
@@ -265,6 +289,7 @@ class Dot11WEPDecoder(Decoder):
         
     def decode(self, aBuffer):
         wep = dot11.Dot11WEP(aBuffer)
+        self.set_decoded_protocol( wep )
 
         if wep.is_WEP() is False:
             return None
@@ -284,6 +309,7 @@ class Dot11WEPDataDecoder(Decoder):
         
     def decode(self, aBuffer):
         wep_data = dot11.Dot11WEPData(aBuffer)
+        self.set_decoded_protocol( wep_data )
 
         llc_decoder = LLCDecoder()
         packet = llc_decoder.decode(wep_data.body_string)
@@ -299,6 +325,7 @@ class Dot11WPADecoder(Decoder):
         
     def decode(self, aBuffer):
         wpa = dot11.Dot11WPA(aBuffer)
+        self.set_decoded_protocol( wpa )
 
         if wpa.is_WPA() is False:
             return None
@@ -318,6 +345,7 @@ class Dot11WPADataDecoder(Decoder):
         
     def decode(self, aBuffer):
         wpa_data = dot11.Dot11WPAData(aBuffer)
+        self.set_decoded_protocol( wpa_data )
 
         llc_decoder = LLCDecoder()
         packet = self.llc_decoder.decode(wpa_data.body_string)
@@ -332,6 +360,7 @@ class Dot11WPA2Decoder(Decoder):
         
     def decode(self, aBuffer):
         wpa2 = dot11.Dot11WPA2(aBuffer)
+        self.set_decoded_protocol( wpa2 )
 
         if wpa2.is_WPA2() is False:
             return None
@@ -351,6 +380,7 @@ class Dot11WPA2DataDecoder(Decoder):
         
     def decode(self, aBuffer):
         wpa2_data = dot11.Dot11WPA2Data(aBuffer)
+        self.set_decoded_protocol( wpa2_data )
 
         llc_decoder = LLCDecoder()
         packet = self.llc_decoder.decode(wpa2_data.body_string)
@@ -365,6 +395,7 @@ class LLCDecoder(Decoder):
         
     def decode(self, aBuffer):
         d = dot11.LLC(aBuffer)
+        self.set_decoded_protocol( d )
         
         if d.get_DSAP()==dot11.SAPTypes.SNAP:
             if d.get_SSAP()==dot11.SAPTypes.SNAP:
@@ -385,6 +416,7 @@ class SNAPDecoder(Decoder):
         
     def decode(self, aBuffer):
         s = dot11.SNAP(aBuffer)
+        self.set_decoded_protocol( s )
         
         if  s.get_OUI()!=0x000000:
             # We don't know how to handle other than OUI=0x000000 (EtherType)
