@@ -1785,12 +1785,12 @@ class RadioTap(ProtocolPacket):
     def set_channel( self, freq, flags ):
         "Set the channel Tx/Rx frequency in MHz and the channel flags" 
 
-        self.__set_field_values(self.RTF_RATE, [freq, flags])
+        self.__set_field_values(self.RTF_CHANNEL, [freq, flags])
    
     def get_channel( self ):
         "Get the TX/RX data rate in 500 Kbps units" 
 
-        values=self.__get_field_values(self.RTF_RATE)
+        values=self.__get_field_values(self.RTF_CHANNEL)
 
         return values
 

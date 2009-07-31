@@ -177,6 +177,27 @@ class TestRadioTap(unittest.TestCase):
         self.assertEqual(self.rt2.get_header_size(),32)
         # TODO: Test the size when the field is new
 
+    def test_10_channel_field(self):
+        'Test RadioTap channel getter/setter'
+        
+        # When exist the field
+        self.assertEqual(self.rt1.get_size(),len(self.frame_orig_1))
+        self.assertEqual(self.rt1.get_header_size(),24)
+        self.assertEqual(self.rt1.get_channel(),(2412,0x0480))
+        self.rt1.set_channel( freq=1234, flags=0x5678 )
+        self.assertEqual(self.rt1.get_channel(),(1234,0x5678))
+        self.assertEqual(self.rt1.get_size(),len(self.frame_orig_1))
+        self.assertEqual(self.rt1.get_header_size(),24)
+
+        # When the field is new 
+        self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2))
+        self.assertEqual(self.rt2.get_header_size(),32)
+        self.assertEqual(self.rt2.get_channel(),None)
+        self.rt2.set_channel( freq=1234, flags=0x5678 )
+        self.assertEqual(self.rt2.get_channel(),(1234,0x5678))
+        self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2)+4)
+        self.assertEqual(self.rt2.get_header_size(),32+4)
+
     def test_10_xchannel_field(self):
         'Test RadioTap xchannel getter/setter'
 
