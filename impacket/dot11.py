@@ -1530,7 +1530,7 @@ class RadioTap(ProtocolPacket):
         BIT_NUMBER = 13
         STRUCTURE = "<B"
 
-##    # official assignment
+##    # official assignment, clashes with RTF_FCS_IN_HEADER
 ##    class RTF_RX_FLAGS(__RadioTapField):
 ##        BIT_NUMBER = 14
 ##        STRUCTURE = "<H"
@@ -1794,12 +1794,12 @@ class RadioTap(ProtocolPacket):
 
         return values
 
-    def set_fhss( self, hop_set, hop_pattern ):
+    def set_FHSS( self, hop_set, hop_pattern ):
         "Set the hop set and pattern for frequency-hopping radios" 
 
         self.__set_field_values(self.RTF_FHSS, [hop_set, hop_pattern])
    
-    def get_fhss( self ):
+    def get_FHSS( self ):
         "Get the hop set and pattern for frequency-hopping radios" 
 
         values=self.__get_field_values(self.RTF_FHSS)
@@ -1902,7 +1902,7 @@ class RadioTap(ProtocolPacket):
         "Set Rx/Tx antenna index for this packet. "\
         "The first antenna is antenna 0. "\
         
-        self.__set_field_values(self.RTF_ANTENNA, [power])
+        self.__set_field_values(self.RTF_ANTENNA, [antenna_index])
    
     def get_antenna( self ):
         "Set Rx/Tx antenna index for this packet. "\
@@ -1943,24 +1943,24 @@ class RadioTap(ProtocolPacket):
             return None
         return values[0]
 
-    def set_rx_flags( self, flags ):
-        "Set the properties of received frames." 
+##    def set_rx_flags( self, flags ):
+##        "Set the properties of received frames." 
+##
+##        self.__set_field_values(self.RTF_RX_FLAGS, [flags])
+##   
+##    def get_rx_flags( self ):
+##        "Get the properties of received frames." 
+##
+##        values=self.__get_field_values(self.RTF_RX_FLAGS)
+##        if not values:
+##            return None
+##        return values[0]
 
-        self.__set_field_values(self.RTF_RX_FLAGS, [flags])
-   
-    def get_rx_flags( self ):
-        "Get the properties of received frames." 
-
-        values=self.__get_field_values(self.RTF_RX_FLAGS)
-        if not values:
-            return None
-        return values[0]
-
-    def set_FCS_in_header( self, flags ):
+    def set_FCS_in_header( self, fcs ):
         "Set the Field containing the FCS of the frame (instead of it being "\
         "appended to the frame as it would appear on the air.) " 
 
-        self.__set_field_values(self.RTF_FCS_IN_HEADER, [flags])
+        self.__set_field_values(self.RTF_FCS_IN_HEADER, [fcs])
    
     def get_FCS_in_header( self ):
         "Get the Field containing the FCS of the frame (instead of it being "\
@@ -1971,29 +1971,30 @@ class RadioTap(ProtocolPacket):
             return None
         return values[0]
 
-    def set_RSSI( self, rssi, max_rssi ):
-        "Set the received signal strength and the maximum for the hardware." 
+##    def set_RSSI( self, rssi, max_rssi ):
+##        "Set the received signal strength and the maximum for the hardware." 
+##        
+##        self.__set_field_values(self.RTF_RSSI, [rssi, max_rssi])
+##   
+##    def get_RSSI( self ):
+##        "Get the received signal strength and the maximum for the hardware." 
+##        
+##        values=self.__get_field_values(self.RTF_RSSI)
+##        
+##        return values
 
-        self.__set_field_values(self.RTF_RSSI, [rssi, max_rssi])
-   
-    def get_RSSI( self ):
-        "Get the received signal strength and the maximum for the hardware." 
-
-        values=self.__get_field_values(self.RTF_RSSI)
-
-        return values
-
-    def set_RTS_retries( self, rts_retries):
+    def set_RTS_retries( self, retries):
         "Set the number of RTS retries a transmitted frame used." 
-
-        self.__set_field_values(self.RTF_RTS_RETRIES, [rts_retries])
+        
+        self.__set_field_values(self.RTF_RTS_RETRIES, [retries])
    
     def get_RTS_retries( self ):
         "Get the number of RTS retries a transmitted frame used." 
-
+        
         values=self.__get_field_values(self.RTF_RTS_RETRIES)
-
-        return values
+        if not values:
+            return None
+        return values[0]
 
     def set_tx_flags( self, flags ):
         "Set the properties of transmitted frames." 
@@ -2033,15 +2034,15 @@ class RadioTap(ProtocolPacket):
             return None
         return values[0]
 
-    def set_hardware_queue( self, flags ):
+    def set_hardware_queue( self, queue ):
         "Set the hardware queue to send the frame on." 
 
-        self.__set_field_values(self.RTF_HARDWARE_QUEUE, [flags])
+        self.__set_field_values(self.RTF_HARDWARE_QUEUE, [queue])
    
-    def get_hardware_queue( self ):
-        "Get the hardware queue to send the frame on." 
-
-        values=self.__get_field_values(self.RTF_HARDWARE_QUEUE)
-        if not values:
-            return None
-        return values[0]
+##    def get_hardware_queue( self ):
+##        "Get the hardware queue to send the frame on." 
+##
+##        values=self.__get_field_values(self.RTF_HARDWARE_QUEUE)
+##        if not values:
+##            return None
+##        return values[0]

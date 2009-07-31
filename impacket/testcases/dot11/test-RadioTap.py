@@ -198,7 +198,261 @@ class TestRadioTap(unittest.TestCase):
         self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2)+4)
         self.assertEqual(self.rt2.get_header_size(),32+4)
 
-    def test_10_xchannel_field(self):
+    def test_11_fhss_field(self):
+        'Test RadioTap FHSS getter/setter'
+        
+        # TODO: When exist the field
+
+        # When the field is new 
+        self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2))
+        self.assertEqual(self.rt2.get_header_size(),32)
+        self.assertEqual(self.rt2.get_FHSS(),None)
+        self.rt2.set_FHSS( hop_set=0xAB, hop_pattern=0xCD )
+        self.assertEqual(self.rt2.get_FHSS(),(0xAB,0xCD))
+        self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2)+2)
+        self.assertEqual(self.rt2.get_header_size(),32+2)
+
+    def test_12_dBm_ant_signal_field(self):
+        'Test RadioTap dBm Antenna Signal getter/setter'
+        
+        # When exist the field
+        self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2))
+        self.assertEqual(self.rt2.get_header_size(),32)
+        self.assertEqual(self.rt2.get_dBm_ant_signal(),0xd9)
+        self.rt2.set_dBm_ant_signal( signal=0xF1 )
+        self.assertEqual(self.rt2.get_dBm_ant_signal(),0xF1)
+        self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2))
+        self.assertEqual(self.rt2.get_header_size(),32)
+
+        # When the field is new 
+        self.assertEqual(self.rt1.get_size(),len(self.frame_orig_1))
+        self.assertEqual(self.rt1.get_header_size(),24)
+        self.assertEqual(self.rt1.get_dBm_ant_signal(),None)
+        self.rt1.set_dBm_ant_signal( signal=0xF1 )
+        self.assertEqual(self.rt1.get_dBm_ant_signal(),0xF1)
+        self.assertEqual(self.rt1.get_size(),len(self.frame_orig_1)+1)
+        self.assertEqual(self.rt1.get_header_size(),24+1)
+
+    def test_13_dBm_ant_noise_field(self):
+        'Test RadioTap dBm Antenna Noise getter/setter'
+        
+        # When exist the field
+        self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2))
+        self.assertEqual(self.rt2.get_header_size(),32)
+        self.assertEqual(self.rt2.get_dBm_ant_noise(),0xa0)
+        self.rt2.set_dBm_ant_noise( signal=0xF1 )
+        self.assertEqual(self.rt2.get_dBm_ant_noise(),0xF1)
+        self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2))
+        self.assertEqual(self.rt2.get_header_size(),32)
+
+        # When the field is new 
+        self.assertEqual(self.rt1.get_size(),len(self.frame_orig_1))
+        self.assertEqual(self.rt1.get_header_size(),24)
+        self.assertEqual(self.rt1.get_dBm_ant_noise(),None)
+        self.rt1.set_dBm_ant_noise( signal=0xF1 )
+        self.assertEqual(self.rt1.get_dBm_ant_noise(),0xF1)
+        self.assertEqual(self.rt1.get_size(),len(self.frame_orig_1)+1)
+        self.assertEqual(self.rt1.get_header_size(),24+1)
+
+    def test_14_lock_quality_field(self):
+        'Test RadioTap Lock Quality getter/setter'
+        
+        # TODO: When exist the field
+
+        # When the field is new 
+        self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2))
+        self.assertEqual(self.rt2.get_header_size(),32)
+        self.assertEqual(self.rt2.get_lock_quality(),None)
+        self.rt2.set_lock_quality(quality=0xABBA )
+        self.assertEqual(self.rt2.get_lock_quality(),0xABBA)
+        self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2)+2)
+        self.assertEqual(self.rt2.get_header_size(),32+2)
+
+    def test_15_tx_attenuation_field(self):
+        'Test RadioTap Tx Attenuation getter/setter'
+        
+        # TODO: When exist the field
+
+        # When the field is new 
+        self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2))
+        self.assertEqual(self.rt2.get_header_size(),32)
+        self.assertEqual(self.rt2.get_tx_attenuation(),None)
+        self.rt2.set_tx_attenuation(power=0xABBA )
+        self.assertEqual(self.rt2.get_tx_attenuation(),0xABBA)
+        self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2)+2)
+        self.assertEqual(self.rt2.get_header_size(),32+2)
+
+    def test_16_dB_tx_attenuation_field(self):
+        'Test RadioTap dB Tx Attenuation getter/setter'
+        
+        # TODO: When exist the field
+
+        # When the field is new 
+        self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2))
+        self.assertEqual(self.rt2.get_header_size(),32)
+        self.assertEqual(self.rt2.get_dB_tx_attenuation(),None)
+        self.rt2.set_dB_tx_attenuation(power=0xABBA )
+        self.assertEqual(self.rt2.get_dB_tx_attenuation(),0xABBA)
+        self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2)+2)
+        self.assertEqual(self.rt2.get_header_size(),32+2)
+
+    def test_17_dBm_tx_power_field(self):
+        'Test RadioTap dBm Tx Power getter/setter'
+        
+        # TODO: When exist the field
+
+        # When the field is new 
+        self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2))
+        self.assertEqual(self.rt2.get_header_size(),32)
+        self.assertEqual(self.rt2.get_dBm_tx_power(),None)
+        self.rt2.set_dBm_tx_power(power=-8)
+        self.assertEqual(self.rt2.get_dBm_tx_power(),-8)
+        self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2)+1)
+        self.assertEqual(self.rt2.get_header_size(),32+1)
+
+    def test_18_antenna_field(self):
+        'Test RadioTap Antenna getter/setter'
+        
+        # When exist the field
+        self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2))
+        self.assertEqual(self.rt2.get_header_size(),32)
+        self.assertEqual(self.rt2.get_antenna(),0x02)
+        self.rt2.set_antenna( antenna_index=0xF1 )
+        self.assertEqual(self.rt2.get_antenna(),0xF1)
+        self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2))
+        self.assertEqual(self.rt2.get_header_size(),32)
+
+        self.assertEqual(self.rt1.get_size(),len(self.frame_orig_1))
+        self.assertEqual(self.rt1.get_header_size(),24)
+        self.assertEqual(self.rt1.get_antenna(),0x00)
+        self.rt1.set_antenna( antenna_index=0xF1 )
+        self.assertEqual(self.rt1.get_antenna(),0xF1)
+        self.assertEqual(self.rt1.get_size(),len(self.frame_orig_1))
+        self.assertEqual(self.rt1.get_header_size(),24)
+        
+        # TODO: When the field is new 
+
+    def test_19_dB_ant_signal_field(self):
+        'Test RadioTap dB Antenna Signal getter/setter'
+        
+        # When exist the field
+        self.assertEqual(self.rt1.get_size(),len(self.frame_orig_1))
+        self.assertEqual(self.rt1.get_header_size(),24)
+        self.assertEqual(self.rt1.get_dB_ant_signal(),0x1e)
+        self.rt1.set_dB_ant_signal( signal=0xF1 )
+        self.assertEqual(self.rt1.get_dB_ant_signal(),0xF1)
+        self.assertEqual(self.rt1.get_size(),len(self.frame_orig_1))
+        self.assertEqual(self.rt1.get_header_size(),24)
+        
+        # When the field is new 
+        self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2))
+        self.assertEqual(self.rt2.get_header_size(),32)
+        self.assertEqual(self.rt2.get_dB_ant_signal(),None)
+        self.rt2.set_dB_ant_signal( signal=0xF1 )
+        self.assertEqual(self.rt2.get_dB_ant_signal(),0xF1)
+        self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2)+1)
+        self.assertEqual(self.rt2.get_header_size(),32+1)
+
+    def test_20_dB_ant_noise_field(self):
+        'Test RadioTap dB Antenna Noise getter/setter'
+        
+        # When the field is new 
+        self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2))
+        self.assertEqual(self.rt2.get_header_size(),32)
+        self.assertEqual(self.rt2.get_dB_ant_noise(),None)
+        self.rt2.set_dB_ant_noise( signal=0xF1 )
+        self.assertEqual(self.rt2.get_dB_ant_noise(),0xF1)
+        self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2)+1)
+        self.assertEqual(self.rt2.get_header_size(),32+1)
+
+        self.assertEqual(self.rt1.get_size(),len(self.frame_orig_1))
+        self.assertEqual(self.rt1.get_header_size(),24)
+        self.assertEqual(self.rt1.get_dB_ant_noise(),None)
+        self.rt1.set_dB_ant_noise( signal=0xF1 )
+        self.assertEqual(self.rt1.get_dB_ant_noise(),0xF1)
+        self.assertEqual(self.rt1.get_size(),len(self.frame_orig_1)+1)
+        self.assertEqual(self.rt1.get_header_size(),24+1)
+
+        # TODO: When exist the field
+
+##    def test_21_rx_flags_field(self):
+##        'Test RadioTap RX Flags getter/setter'
+##        
+##        # When the field is new 
+##        self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2))
+##        self.assertEqual(self.rt2.get_header_size(),32)
+##        self.assertEqual(self.rt2.get_rx_flags(),None)
+##        self.rt2.set_rx_flags( signal=0xABBA )
+##        self.assertEqual(self.rt2.get_rx_flags(),0xABBA)
+##        self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2)+2)
+##        self.assertEqual(self.rt2.get_header_size(),32+2)
+##        
+##        # TODO: When exist the field
+                
+    def test_22_FCS_in_header_field(self):
+        'Test RadioTap FCS in header getter/setter'
+        
+        # When exist the field
+        self.assertEqual(self.rt1.get_size(),len(self.frame_orig_1))
+        self.assertEqual(self.rt1.get_header_size(),24)
+        self.assertEqual(self.rt1.get_FCS_in_header(),0x00000000)
+        self.rt1.set_FCS_in_header( fcs=0x89ABCDEF )
+        self.assertEqual(self.rt1.get_FCS_in_header(),0x89ABCDEF)
+        self.assertEqual(self.rt1.get_size(),len(self.frame_orig_1))
+        self.assertEqual(self.rt1.get_header_size(),24)
+        
+        # When the field is new 
+        self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2))
+        self.assertEqual(self.rt2.get_header_size(),32)
+        self.assertEqual(self.rt2.get_FCS_in_header(),None)
+        self.rt2.set_FCS_in_header( fcs=0x89ABCDEF )
+        self.assertEqual(self.rt2.get_FCS_in_header(),0x89ABCDEF)
+        self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2)+4)
+        self.assertEqual(self.rt2.get_header_size(),32+4)
+
+##    def test_23_rssi_field(self):
+##        'Test RadioTap RSSI getter/setter'
+##        
+##        # When the field is new 
+##        self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2))
+##        self.assertEqual(self.rt2.get_header_size(),32)
+##        self.assertEqual(self.rt2.get_RSSI(),None)
+##        self.rt2.set_RSSI( rssi=0xBA, max_rssi=0xAB )
+##        self.assertEqual(self.rt2.get_RSSI(),( 0xBA, 0xAB))
+##        self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2)+2)
+##        self.assertEqual(self.rt2.get_header_size(),32+2)
+##        
+##        # TODO: When exist the field
+
+    def test_24_RTS_retries_field(self):
+        'Test RadioTap RTS retries getter/setter'
+        
+        # When the field is new 
+        self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2))
+        self.assertEqual(self.rt2.get_header_size(),32)
+        self.assertEqual(self.rt2.get_RTS_retries(),None)
+        self.rt2.set_RTS_retries( retries=0xBA )
+        self.assertEqual(self.rt2.get_RTS_retries(), 0xBA)
+        self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2)+1)
+        self.assertEqual(self.rt2.get_header_size(),32+1)
+        
+        # TODO: When exist the field
+
+    def test_25_tx_flags_field(self):
+        'Test RadioTap TX flags getter/setter'
+        
+        # When the field is new 
+        self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2))
+        self.assertEqual(self.rt2.get_header_size(),32)
+        self.assertEqual(self.rt2.get_tx_flags(),None)
+        self.rt2.set_tx_flags( flags=0xABBA )
+        self.assertEqual(self.rt2.get_tx_flags(),0xABBA)
+        self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2)+2)
+        self.assertEqual(self.rt2.get_header_size(),32+2)
+        
+        # TODO: When exist the field
+
+    def test_26_xchannel_field(self):
         'Test RadioTap xchannel getter/setter'
 
         (ch_type,ch_freq,ch_num,ch_maxpower)=self.rt2.get_xchannel()
@@ -216,6 +470,34 @@ class TestRadioTap(unittest.TestCase):
         self.assertEqual(ch_freq,nch_freq)
         self.assertEqual(ch_num,nch_num)
         self.assertEqual(ch_maxpower,nch_maxpower)
+
+    def test_27_data_retries_field(self):
+        'Test RadioTap Data retries getter/setter'
+        
+        # When the field is new 
+        self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2))
+        self.assertEqual(self.rt2.get_header_size(),32)
+        self.assertEqual(self.rt2.get_data_retries(),None)
+        self.rt2.set_data_retries( retries=0xAB )
+        self.assertEqual(self.rt2.get_data_retries(),0xAB)
+        self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2)+1)
+        self.assertEqual(self.rt2.get_header_size(),32+1)
+        
+        # TODO: When exist the field
+
+##    def test_28_hardware_queue_field(self):
+##        'Test RadioTap Hardware Queue getter/setter'
+##        
+##        # When the field is new 
+##        self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2))
+##        self.assertEqual(self.rt2.get_header_size(),32)
+##        self.assertEqual(self.rt2.get_hardware_queue(),None)
+##        self.rt2.set_hardware_queue( queue=0xAB )
+##        self.assertEqual(self.rt2.get_hardware_queue(),0xAB)
+##        self.assertEqual(self.rt2.get_size(),len(self.frame_orig_2)+1)
+##        self.assertEqual(self.rt2.get_header_size(),32+1)
+##        
+##        # TODO: When exist the field
 
         
 suite = unittest.TestLoader().loadTestsFromTestCase(TestRadioTap)
