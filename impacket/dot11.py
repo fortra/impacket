@@ -20,7 +20,6 @@ import sys
 import types
 from ImpactPacket import ProtocolLayer, PacketBuffer
 from binascii import hexlify,crc32
-from struct import pack, unpack, calcsize
 
 class Dot11Types():
     # Management Types/SubTypes
@@ -1597,7 +1596,7 @@ class RadioTap(ProtocolPacket):
         self.__radiotap_fields.sort(lambda x, y: cmp(x.BIT_NUMBER,y.BIT_NUMBER))
         
         if aBuffer:
-            length = unpack('<H', aBuffer[2:4])[0]
+            length = struct.unpack('<H', aBuffer[2:4])[0]
             header_size=length
                     
             ProtocolPacket.__init__(self, header_size, tail_size)
@@ -1654,7 +1653,7 @@ class RadioTap(ProtocolPacket):
                 return field_position
             
             if self.get_present_bit(f):
-                total_length=calcsize(f.STRUCTURE)
+                total_length=struct.calcsize(f.STRUCTURE)
                 field_position+=total_length
             
         return None
@@ -1691,7 +1690,7 @@ class RadioTap(ProtocolPacket):
         self.__unset_present_bit(field)
 
         header=self.get_header_as_string()
-        total_length = calcsize(field.STRUCTURE)
+        total_length = struct.calcsize(field.STRUCTURE)
         header=header[:byte_pos]+header[byte_pos+total_length:]
         
         self.load_header(header)
@@ -1716,7 +1715,7 @@ class RadioTap(ProtocolPacket):
         
         byte_pos=self.__get_field_position(field)
         header=self.get_header_as_string()
-        total_length=calcsize(field.STRUCTURE)
+        total_length=struct.calcsize(field.STRUCTURE)
         v=header[ byte_pos:byte_pos+total_length ]
         
         field_values = struct.unpack(field.STRUCTURE, v)
@@ -1732,7 +1731,7 @@ class RadioTap(ProtocolPacket):
         num_fields=len(field.STRUCTURE.translate(string.maketrans("",""), '=@!<>'))
 
         if len(values)!=num_fields:
-            raise Exception("Field %s has exactly %d items"%(str(field),calcsize(field.STRUCTURE)))
+            raise Exception("Field %s has exactly %d items"%(str(field),struct.calcsize(field.STRUCTURE)))
         
         is_present=self.get_present_bit(field)
         if is_present is False:
@@ -1740,7 +1739,7 @@ class RadioTap(ProtocolPacket):
         
         byte_pos=self.__get_field_position(field)
         header=self.get_header_as_string()
-        total_length=calcsize(field.STRUCTURE)
+        total_length=struct.calcsize(field.STRUCTURE)
         v=header[ byte_pos:byte_pos+total_length ]
         
         new_str = struct.pack(field.STRUCTURE, *values)
@@ -2186,7 +2185,7 @@ class Dot11ManagementBeacon(ProtocolPacket):
         remaining=len(buffer)
         offset=0
         while remaining > 0:
-            (type,length)=unpack("!BB",buffer[offset:offset+2])
+            (type,length)=struct.unpack("!BB",buffer[offset:offset+2])
             offset+=length
             if length>remaining:
                 # Error!!
