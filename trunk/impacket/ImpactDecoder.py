@@ -231,7 +231,8 @@ class Dot11Decoder(Decoder):
             packet = dot11_data_decoder.decode(d.body_string)
         elif type == dot11.Dot11Types.DOT11_TYPE_MANAGEMENT:
             dot11_management_decoder = Dot11ManagementDecoder()
-            packet = dot11_mgmt_decoder.decode(d.body_string)
+            dot11_management_decoder.set_subtype(d.get_subtype())
+            packet = dot11_management_decoder.decode(d.body_string)
         else:
             data_decoder = DataDecoder()
             packet = data_decoder.decode(d.body_string)
@@ -434,4 +435,36 @@ class SNAPDecoder(Decoder):
 
         s.contains(packet)
         return s
+
+class Dot11ManagementDecoder(Decoder):
+    subtype = None
+    def __init__(self):
+        pass
+        
+    def set_subtype(self, subtype):
+        self.subtype=subtype
+    
+    def decode(self, aBuffer):
+        p = dot11.Dot11ManagementFrame(aBuffer)
+        self.set_decoded_protocol( p )
+        
+        if self.subtype is dot11.Dot11Types.DOT11_SUBTYPE_MANAGEMENT_BEACON:
+            self.mgt_beacon_decoder = Dot11ManagementBeaconDecoder()
+            packet = self.mgt_beacon_decoder.decode(p.body_string)
+        else:
+            data_decoder = DataDecoder()
+            packet = data_decoder.decode(p.body_string)
+        
+        p.contains(packet)
+        return p
+
+class Dot11ManagementBeaconDecoder(Decoder):
+    def __init__(self):
+        pass
+        
+    def decode(self, aBuffer):
+        p = dot11.Dot11ManagementBeacon(aBuffer)
+        self.set_decoded_protocol( p )
+        
+        return p
     

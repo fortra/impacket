@@ -1584,7 +1584,6 @@ class RadioTap(ProtocolPacket):
         self.__radiotap_fields=[ x for x in self.__class__.__dict__.values() if type(x) is types.ClassType and self.__RadioTapField in (x.__bases__) ]
         # Sort the list so the 'for' statement walk the list in the right order
         self.__radiotap_fields.sort(lambda x, y: cmp(x.BIT_NUMBER,y.BIT_NUMBER))
-
         
         if aBuffer:
             length = unpack('<H', aBuffer[2:4])[0]
@@ -2046,3 +2045,177 @@ class RadioTap(ProtocolPacket):
 ##        if not values:
 ##            return None
 ##        return values[0]
+
+class Dot11ManagementFrame(ProtocolPacket):
+    '802.11 Management Frame'
+    
+    def __init__(self, aBuffer = None):
+        header_size = 22
+        tail_size = 0
+
+        ProtocolPacket.__init__(self, header_size, tail_size)
+        if(aBuffer):
+            self.load_packet(aBuffer)
+
+    def __init__(self, aBuffer = None):
+        header_size = 22
+        tail_size = 0
+
+        ProtocolPacket.__init__(self, header_size, tail_size)
+        if(aBuffer):
+            self.load_packet(aBuffer)
+        
+    def get_duration(self):
+        'Return 802.11 Management frame \'Duration\' field'
+        b = self.header.get_word(0, "<")
+        return b 
+
+    def set_duration(self, value):
+        'Set the 802.11 Management frame \'Duration\' field' 
+        # set the bits
+        nb = value & 0xFFFF
+        self.header.set_word(0, nb, "<")
+        
+    def get_destination_address(self):
+        'Return 802.11 Management frame \'Destination Address\' field as a 6 bytes array'
+        return self.header.get_bytes()[2:8]
+
+    def set_destination_address(self, value):
+        'Set 802.11 Management frame \'Destination Address\' field as a 6 bytes array'
+        for i in range(0, 6):
+            self.header.set_byte(2+i, value[i])
+
+    def get_source_address(self):
+        'Return 802.11 Management frame \'Source Address\' field as a 6 bytes array'
+        return self.header.get_bytes()[8:14]
+
+    def set_source_address(self, value):
+        'Set 802.11 Management frame \'Source Address\' field as a 6 bytes array'
+        for i in range(0, 6):
+            self.header.set_byte(8+i, value[i])
+            
+    def get_bssid(self):
+        'Return 802.11 Management frame \'BSSID\' field as a 6 bytes array'
+        return self.header.get_bytes()[14: 20]
+
+    def set_bssid(self, value):
+        'Set 802.11 Management frame \'BSSID\' field as a 6 bytes array'
+        for i in range(0, 6):
+            self.header.set_byte(14+i, value[i])
+
+    def get_sequence_control(self):
+        'Return 802.11 Management frame \'Sequence Control\' field'
+        b = self.header.get_word(20, "<")
+        return b 
+
+    def set_sequence_control(self, value):
+        'Set the 802.11 Management frame \'Sequence Control\' field' 
+        # set the bits
+        nb = value & 0xFFFF
+        self.header.set_word(20, nb, "<")
+
+    def get_fragment_number(self):
+        'Return 802.11 Management frame \'Fragment Number\' subfield'
+
+        b = self.get_sequence_control()
+        return (b&0x000F) 
+
+    def set_fragment_number(self, value):
+        'Set the 802.11 Management frame \'Fragment Number\' subfield' 
+        # clear the bits
+        mask = (~0x000F) & 0xFFFF
+        masked = self.header.get_word(20, "<") & mask
+        # set the bits 
+        nb = masked | (value & 0x000F)
+        self.header.set_word(20, nb, "<")
+        
+    def get_secuence_number(self):
+        'Return 802.11 Management frame \'Secuence Number\' subfield'
+        
+        b = self.get_sequence_control()
+        return ((b>>4) & 0xFFF) 
+    
+    def set_secuence_number(self, value):
+        'Set the 802.11 Management frame \'Secuence Number\' subfield' 
+        # clear the bits
+        mask = (~0xFFF0) & 0xFFFF
+        masked = self.header.get_word(20, "<") & mask
+        # set the bits 
+        nb = masked | ((value & 0x0FFF ) << 4 ) 
+        self.header.set_word(20, nb, "<")
+
+    def get_frame_body(self):
+        'Return 802.11 Management frame \'Frame Body\' field'
+        
+        return self.get_body_as_string()
+
+    def set_frame_body(self, data):
+        'Set 802.11 Management frame \'Frame Body\' field'
+        
+        self.load_body(data)
+        
+class Dot11ManagementBeacon(ProtocolPacket):
+    '802.11 Management Beacon Frame'
+    __HEADER_BASE_SIZE = 12 # minimal header size
+    
+    def __init__(self, aBuffer = None):
+        header_size = self.__HEADER_BASE_SIZE
+        tail_size = 0
+        
+        if aBuffer:
+            tagged_parameters_length=self.__calculate_tagged_parameters_length(aBuffer[self.__HEADER_BASE_SIZE:])
+            header_size+=tagged_parameters_length
+            
+            ProtocolPacket.__init__(self, header_size, tail_size)
+            self.load_packet(aBuffer)
+        else:
+            ProtocolPacket.__init__(self, header_size, tail_size)
+
+    def __calculate_tagged_parameters_length(self, buffer):
+        remaining=len(buffer)
+        offset=0
+        while remaining > 0:
+            (type,length)=unpack("!BB",buffer[offset:offset+2])
+            offset+=length
+            if length>remaining:
+                # Error!!
+                length = remaining;
+            remaining-=length
+        return offset
+        
+    def get_timestamp(self):
+        'Return the 802.11 Management Beacon frame \'Timestamp\' field' 
+        b = self.header.get_long_long(0, "<")
+        return b 
+
+    def set_timestamp(self, value):
+        'Set the 802.11 Management Beacon frame \'Timestamp\' field' 
+        # set the bits
+        nb = value & 0xFFFFFFFFFFFFFFFF
+        self.header.set_long_long(0, nb, "<")
+
+    def get_beacon_interval(self):
+        'Return the 802.11 Management Beacon frame \'Beacon Inteval\' field' \
+        'To convert it to seconds =>  secs = Beacon_Interval*1024/1000000'
+
+        b = self.header.get_word(8, "<")
+        return b 
+
+    def set_beacon_interval(self, value):
+        'Set the 802.11 Management Beacon frame \'Beacon Inteval\' field' 
+        # set the bits
+        nb = value & 0xFFFF
+        self.header.set_word(8, nb, "<")
+
+    def get_capabilities(self):
+        'Return the 802.11 Management Beacon frame \'Capability information\' field. '
+        
+        b = self.header.get_word(10, "<")
+        return b 
+
+    def set_capabilities(self, value):
+        'Set the 802.11 Management Beacon frame \'Capability Information\' field' 
+        # set the bits
+        nb = value & 0xFFFF
+        self.header.set_word(10, nb, "<")
+
