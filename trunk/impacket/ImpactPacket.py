@@ -205,10 +205,9 @@ class PacketBuffer:
 class ProtocolLayer():
     "Protocol Layer Manager for insertion and removal of protocol layers."
 
-    def __init__(self):
-        self.__child = None
-        self.__parent = None
-
+    __child = None
+    __parent = None
+        
     def contains(self, aHeader):
         "Set 'aHeader' as the child of this protocol layer"
         self.__child = aHeader
@@ -225,6 +224,12 @@ class ProtocolLayer():
     def parent(self):
         "Return the parent of this protocol layer"
         return self.__parent
+    
+    def unlink_child(self):
+        "Break the hierarchy parent/child child/parent"
+        if self.__child:
+            self.__child.set_parent(None)
+            self.__child = None 
 
 class Header(PacketBuffer,ProtocolLayer):
     "This is the base class from which all protocol definitions extend."
@@ -235,7 +240,6 @@ class Header(PacketBuffer,ProtocolLayer):
     protocol = None
     def __init__(self, length = None):
         PacketBuffer.__init__(self, length)
-        ProtocolLayer.__init__(self)
         self.auto_checksum = 1
 
     def get_data_as_string(self):

@@ -18,7 +18,7 @@ import socket
 import string
 import sys
 import types
-from ImpactPacket import ProtocolLayer, PacketBuffer, Header
+from ImpactPacket import ProtocolLayer, PacketBuffer
 from binascii import hexlify,crc32
 from struct import pack, unpack, calcsize
 
@@ -242,13 +242,21 @@ class ProtocolPacket(ProtocolLayer):
         self.__header=PacketBuffer(self.__HEADER_SIZE)
         self.__body=PacketBuffer()
         self.__tail=PacketBuffer(self.__TAIL_SIZE)
-    
+        
+    def __update_body_from_child(self):
+        # Update child raw packet in my body
+        if self.child():
+            body=self.child().get_packet()
+            self.__BODY_SIZE=len(body)
+            self.__body.set_bytes_from_string(body)
+            
     def __get_header(self):
         return self.__header
     
     header = property(__get_header)
 
     def __get_body(self):
+        self.__update_body_from_child()
         return self.__body
     
     body = property(__get_body)
@@ -268,17 +276,21 @@ class ProtocolPacket(ProtocolLayer):
     
     def get_body_size(self):
         "Return frame body size"
+        self.__update_body_from_child()
         return self.__BODY_SIZE
 
     def get_size(self):
         "Return frame total size"
-        return self.__HEADER_SIZE+self.__BODY_SIZE+self.__TAIL_SIZE
+        return self.get_header_size()+self.get_body_size()+self.get_tail_size()
     
     def load_header(self, aBuffer):
         self.__HEADER_SIZE=len(aBuffer)
         self.__header.set_bytes_from_string(aBuffer)
     
     def load_body(self, aBuffer):
+        "Load the packet body from string. "\
+        "WARNING: Using this function will break the hierarchy of preceding protocol layer"
+        self.unlink_child()
         self.__BODY_SIZE=len(aBuffer)
         self.__body.set_bytes_from_string(aBuffer)
     
@@ -306,6 +318,10 @@ class ProtocolPacket(ProtocolLayer):
         self.__tail.set_bytes_from_string(aBuffer[start:])
 
     def load_packet(self, aBuffer):
+        "Load the whole packet from a string" \
+        "WARNING: Using this function will break the hierarchy of preceding protocol layer"
+        self.unlink_child()
+        
         self.__extract_header(aBuffer)
         self.__extract_body(aBuffer)
         self.__extract_tail(aBuffer)
@@ -314,16 +330,15 @@ class ProtocolPacket(ProtocolLayer):
         return self.__header.get_buffer_as_string()
         
     def get_body_as_string(self):
+        self.__update_body_from_child()
         return self.__body.get_buffer_as_string()
-
     body_string = property(get_body_as_string)
     
     def get_tail_as_string(self):
         return self.__tail.get_buffer_as_string()
         
     def get_packet(self):
-        
-        self.calculate_checksum()
+        self.__update_body_from_child()
         
         ret = ''
         
@@ -341,10 +356,6 @@ class ProtocolPacket(ProtocolLayer):
             
         return ret
     
-    def calculate_checksum(self):
-        "Calculate and set the checksum for this header"
-        pass
-
 class Dot11(ProtocolPacket):    
 
     def __init__(self, aBuffer = None):
