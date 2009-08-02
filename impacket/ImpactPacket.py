@@ -119,6 +119,26 @@ class PacketBuffer:
         (value,) = struct.unpack(order + 'L', bytes.tostring())
         return value
 
+    def set_long_long(self, index, value, order = '!'):
+        "Set 8-byte 'value' at 'index'. See struct module's documentation to understand the meaning of 'order'."
+        index = self.__validate_index(index, 8)
+        ary = array.array("B", struct.pack(order + 'Q', value))
+        if -8 == index:
+            self.__bytes[index:] = ary
+        else:
+            self.__bytes[index:index+8] = ary
+
+    def get_long_long(self, index, order = '!'):
+        "Return 8-byte value at 'index'. See struct module's documentation to understand the meaning of 'order'."
+        index = self.__validate_index(index, 8)
+        if -8 == index:
+            bytes = self.__bytes[index:]
+        else:
+            bytes = self.__bytes[index:index+8]
+        (value,) = struct.unpack(order + 'Q', bytes.tostring())
+        return value
+
+
     def get_ip_address(self, index):
         "Return 4-byte value at 'index' as an IP string"
         index = self.__validate_index(index, 4)
