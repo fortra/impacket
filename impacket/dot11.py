@@ -2183,11 +2183,56 @@ class Dot11ManagementFrame(ProtocolPacket):
         'Set 802.11 Management frame \'Frame Body\' field'
         
         self.load_body(data)
+
+class DOT11_MANAGEMENT_ELEMENTS():
+    SSID                    =  0
+    SUPPORTED_RATES         =  1
+    FH_PARAMETER_SET        =  2
+    DS_PARAMETER_SET        =  3
+    CF_PARAMETER_SET        =  4
+    TIM                     =  5
+    IBSS_PARAMETER_SET      =  6
+    COUNTRY                 =  7
+    HOPPING_PARAMETER       =  8
+    HOPPING_TABLE           =  9
+    REQUEST                 = 10
+    BSS_LOAD                = 11
+    EDCA_PARAMETER_SET      = 12
+    TSPEC                   = 13
+    TCLAS                   = 14
+    SCHEDULE                = 15
+    CHALLENGE_TEXT          = 16
+    # RESERVED                17-31 
+    POWER_CONSTRAINT        = 32
+    POWER_CAPABILITY        = 33
+    TPC_REQUEST             = 34
+    TPC_REPORT              = 35
+    SUPPORTED_CHANNELS      = 36
+    CHANNEL_SWITCH_ANN      = 37
+    MEASURE_REQ             = 38
+    MEASURE_REP             = 39
+    QUIET                   = 40
+    IBSS_DFS                = 41
+    ERP_INFO                = 42
+    TS_DELAY                = 43
+    TCLAS_PROCESSING        = 44
+    #RESERVED                 45  # See: IEEE 802.11n
+    QOS_CAPABILITY          = 46
+    #RESERVED                 47  # See: IEEE 802.11g
+    RSN                     = 48  
+    #RESERVED                 49
+    EXT_SUPPORTED_RATES     = 50
+    #RESERVED                 51-126
+    EXTENDED_CAPABILITIES   = 127
+    #RESERVED                 128-220
+    VENDOR_SPECIFIC         = 221
+    #RESERVED                 222-255
         
 class Dot11ManagementBeacon(ProtocolPacket):
     '802.11 Management Beacon Frame'
+        
     __HEADER_BASE_SIZE = 12 # minimal header size
-    
+
     def __init__(self, aBuffer = None):
         header_size = self.__HEADER_BASE_SIZE
         tail_size = 0
@@ -2206,12 +2251,30 @@ class Dot11ManagementBeacon(ProtocolPacket):
         offset=0
         while remaining > 0:
             (type,length)=struct.unpack("!BB",buffer[offset:offset+2])
+            length+=2 #id+length
             offset+=length
             if length>remaining:
                 # Error!!
                 length = remaining;
             remaining-=length
         return offset
+        
+    def __get_tagged_parameter(self, element_id):
+        tagged_parameters=self.get_header_as_string()[self.__HEADER_BASE_SIZE:]
+        remaining=len(tagged_parameters)
+        offset=0
+        while remaining > 0:
+            (id,length)=struct.unpack("!BB",tagged_parameters[offset:offset+2])
+            if id==element_id:
+                value=tagged_parameters[offset+2:offset+2+length]
+                return value
+            length+=2 #id+length
+            offset+=length
+            if length>remaining:
+                # Error!!
+                length = remaining;
+            remaining-=length
+        return None
         
     def get_timestamp(self):
         'Return the 802.11 Management Beacon frame \'Timestamp\' field' 
@@ -2248,4 +2311,24 @@ class Dot11ManagementBeacon(ProtocolPacket):
         # set the bits
         nb = value & 0xFFFF
         self.header.set_word(10, nb, "<")
+        
+    def get_ssid(self):
+        "Get the 802.11 Management Beacon SSID element. "\
+        "The SSID element indicates the identity of an ESS or IBSS."
+        return self.__get_tagged_parameter(DOT11_MANAGEMENT_ELEMENTS.SSID)
 
+    def get_supported_rates(self, human_readable=False):
+        "Get the 802.11 Management Beacon Supported Rates element. "\
+        "Specifies up to eight rates, then an Extended Supported Rate element "\
+        "shall be generated to specify the remaining supported rates."\
+        "If human_readable is True, the rates are returned in Mbit/sec"
+        s=self.__get_tagged_parameter(DOT11_MANAGEMENT_ELEMENTS.SUPPORTED_RATES)
+        if s is None:
+            return None
+        
+        rates=struct.unpack('%dB'%len(s),s)
+        if not human_readable:
+            return rates
+            
+        rates_Mbs=tuple(map(lambda x: (x&0x7F)*0.5,rates))
+        return rates_Mbs
