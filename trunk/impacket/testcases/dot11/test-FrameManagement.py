@@ -43,7 +43,7 @@ class TestDot11ManagementBeaconFrames(unittest.TestCase):
         'Test Header and Tail Size field'
         self.assertEqual(self.management_base.get_header_size(), 22)
         self.assertEqual(self.management_base.get_tail_size(), 0)
-        self.assertEqual(self.management_beacon.get_header_size(), 112)
+        self.assertEqual(self.management_beacon.get_header_size(), 116)
         self.assertEqual(self.management_beacon.get_tail_size(), 0)
         
     def test_02_Duration(self):
@@ -106,7 +106,7 @@ class TestDot11ManagementBeaconFrames(unittest.TestCase):
         
     def test_09_managment_frame_data(self):
         'Test Management Frame Data field'
-        frame_body="\x3a\x40\xcb\x26\x00\x00\x00\x00\x64\x00\x01\x05\x00\x0a\x66\x72\x65\x65\x62\x73\x64\x2d\x61\x70\x01\x08\x8c\x12\x98\x24\xb0\x48\x60\x6c\x03\x01\x24\x05\x04\x00\x01\x00\x00\x07\x2a\x55\x53\x20\x24\x01\x11\x28\x01\x11\x2c\x01\x11\x30\x01\x11\x34\x01\x17\x38\x01\x17\x3c\x01\x17\x40\x01\x17\x95\x01\x1e\x99\x01\x1e\x9d\x01\x1e\xa1\x01\x1e\xa5\x01\x1e\x20\x01\x00\xdd\x18\x00\x50\xf2\x02\x01\x01\x00\x00\x03\xa4\x00\x00\x27\xa4\x00\x00\x42\x43\x5e\x00"
+        frame_body="\x3a\x40\xcb\x26\x00\x00\x00\x00\x64\x00\x01\x05\x00\x0a\x66\x72\x65\x65\x62\x73\x64\x2d\x61\x70\x01\x08\x8c\x12\x98\x24\xb0\x48\x60\x6c\x03\x01\x24\x05\x04\x00\x01\x00\x00\x07\x2a\x55\x53\x20\x24\x01\x11\x28\x01\x11\x2c\x01\x11\x30\x01\x11\x34\x01\x17\x38\x01\x17\x3c\x01\x17\x40\x01\x17\x95\x01\x1e\x99\x01\x1e\x9d\x01\x1e\xa1\x01\x1e\xa5\x01\x1e\x20\x01\x00\xdd\x18\x00\x50\xf2\x02\x01\x01\x00\x00\x03\xa4\x00\x00\x27\xa4\x00\x00\x42\x43\x5e\x00\x62\x32\x2f\x00"
         self.assertEqual(self.management_base.get_frame_body(), frame_body)
 
     def test_10_beacon_timestamp(self):
@@ -126,7 +126,16 @@ class TestDot11ManagementBeaconFrames(unittest.TestCase):
         self.assertEqual(self.management_beacon.get_capabilities(), 0x0501)
         self.management_beacon.set_capabilities(0x4321) 
         self.assertEqual(self.management_beacon.get_capabilities(), 0x4321)
-              
+
+    def test_13_get_ssid(self):
+        'Test Management get_ssid method'
+        self.assertEqual(self.management_beacon.get_ssid(), "freebsd-ap")
+
+    def test_13_get_supported_rates(self):
+        'Test Management get_supported_rates method'
+        self.assertEqual(self.management_beacon.get_supported_rates(), (0x8c,0x12,0x98,0x24,0xb0,0x48,0x60,0x6c) )
+        self.assertEqual(self.management_beacon.get_supported_rates(human_readable=True), (6.0, 9.0, 12.0, 18.0, 24.0, 36.0, 48.0, 54.0) )
+        
 suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11ManagementBeaconFrames)
 unittest.TextTestRunner(verbosity=2).run(suite)
 
