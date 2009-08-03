@@ -1678,26 +1678,6 @@ class RadioTap(ProtocolPacket):
             
         return None
     
-##    def __set_field_from_string( self, field, value, format):
-##        is_present=self.get_present_bit(field)
-##        if is_present is False:
-##            self.__set_present_bit(field)
-##        
-##        byte_pos=self.__get_field_position(field)
-##        header=self.get_header_as_string()
-##
-##        field_bits_len=field.TOTAL_LENGTH*8
-##        mask=2**field_bits_len-1
-##        value=value&mask
-##
-##        value = struct.pack('<'+format, value)
-##        
-##        if is_present is True:
-##            header=header[:byte_pos]+value+header[byte_pos+field_bytes_length:]
-##        else:
-##            header=header[:byte_pos]+value+header[byte_pos:]
-##        self.load_header(header)
-
     def unset_field( self, field):
         is_present=self.get_present_bit(field)
         if is_present is False:
@@ -1714,19 +1694,6 @@ class RadioTap(ProtocolPacket):
         header=header[:byte_pos]+header[byte_pos+total_length:]
         
         self.load_header(header)
-
-##    def __get_field_as_string( self, field, format ):
-##        is_present=self.get_present_bit(field)
-##        if is_present is False:
-##            return None
-##        
-##        byte_pos=self.__get_field_position(field)
-##        header=self.get_header_as_string()
-##        v=header[ byte_pos:byte_pos+field.TOTAL_LENGTH ]
-##
-##        n = struct.unpack('<'+format, v)[0]
-##
-##        return n
 
     def __get_field_values( self, field ):
         is_present=self.get_present_bit(field)
