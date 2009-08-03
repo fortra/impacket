@@ -202,17 +202,26 @@ class RadioTapDecoder(Decoder):
         self.set_decoded_protocol( rt )
         
         self.do11_decoder = Dot11Decoder()
+        flags=rt.get_flags()
+        if flags:
+            fcs=flags&dot11.RadioTap.RTF_FLAGS.PROPERTY_FCS_AT_END
+            self.do11_decoder.FCS_at_end(fcs)
+            
         packet = self.do11_decoder.decode(rt.get_body_as_string())
     
         rt.contains(packet)
         return rt
 
 class Dot11Decoder(Decoder):
+    __FCS_at_end = True
     def __init__(self):
         pass
         
+    def FCS_at_end(self, fcs_at_end=True):
+        self.__FCS_at_end=not not fcs_at_end 
+        
     def decode(self, aBuffer):
-        d = dot11.Dot11(aBuffer)
+        d = dot11.Dot11(aBuffer, self.__FCS_at_end)
         self.set_decoded_protocol( d )
         
         type = d.get_type()
