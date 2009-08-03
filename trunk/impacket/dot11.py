@@ -356,15 +356,18 @@ class ProtocolPacket(ProtocolLayer):
         return ret
     
 class Dot11(ProtocolPacket):    
-
-    def __init__(self, aBuffer = None):
+    def __init__(self, aBuffer = None, FCS_at_end = True):
         header_size = 2
-        tail_size = 4
-
+        self.__FCS_at_end=not not FCS_at_end # Is Boolean
+        if self.__FCS_at_end:
+            tail_size = 4
+        else:
+            tail_size = 0
+            
         ProtocolPacket.__init__(self, header_size,tail_size)
         if(aBuffer):
             self.load_packet(aBuffer)
-
+        
     def get_order(self):
         "Return 802.11 frame 'Order' field"
         b = self.header.get_byte(1)
@@ -567,13 +570,19 @@ class Dot11(ProtocolPacket):
     
     def get_fcs(self):
         "Return 802.11 'FCS' field"
-            
+        
+        if not self.__FCS_at_end:
+            return None   
+
         b = self.tail.get_long(-4, ">")
         return b 
 
     def set_fcs(self, value = None):
         "Set the 802.11 CTS control frame 'FCS' field. If value is None, is auto_checksum"
 
+        if not self.__FCS_at_end:   
+            return
+        
         # calculate the FCS
         if value is None:
             payload = self.get_body_as_string()
@@ -1486,6 +1495,17 @@ class RadioTap(ProtocolPacket):
     class RTF_FLAGS(__RadioTapField):
         BIT_NUMBER = 1
         STRUCTURE = "<B"
+        
+        # From http://www.radiotap.org/defined-fields/Flags
+        PROPERTY_CFP            = 0x01 #sent/received during CFP
+        PROPERTY_SHORTPREAMBLE  = 0x02 #sent/received with short preamble 
+        PROPERTY_WEP            = 0x04 #sent/received with WEP encryption 
+        PROPERTY_FRAGMENTATION  = 0x08 #sent/received with fragmentation 
+        PROPERTY_FCS_AT_END     = 0x10 #frame includes FCS 
+        PROPERTY_PAYLOAD_PADDING= 0x20 #frame has padding between 802.11 header and payload (to 32-bit boundary)
+        PROPERTY_BAD_FCS        = 0x40 #does not pass FCS check
+        PROPERTY_SHORT_GI       = 0x80 #frame used short guard interval (HT). Unspecified but used:
+
 
     class RTF_RATE(__RadioTapField):
         BIT_NUMBER = 2
