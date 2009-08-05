@@ -2194,8 +2194,109 @@ class DOT11_MANAGEMENT_ELEMENTS():
     #RESERVED                 128-220
     VENDOR_SPECIFIC         = 221
     #RESERVED                 222-255
+    
+class Dot11ManagementHelper(ProtocolPacket):
         
-class Dot11ManagementBeacon(ProtocolPacket):
+    def __init__(self, header_size, tail_size, aBuffer = None):
+        self.__HEADER_BASE_SIZE=header_size
+        
+        if aBuffer:
+            elements_length=self.__calculate_elements_length(aBuffer[self.__HEADER_BASE_SIZE:])
+            header_size+=elements_length
+            
+            ProtocolPacket.__init__(self, header_size, tail_size)
+            self.load_packet(aBuffer)
+        else:
+            ProtocolPacket.__init__(self, header_size, tail_size)
+
+    def _find_element(self, elements, element_id ):
+        remaining=len(elements)
+        
+        offset=0
+        while remaining > 0:
+            (id,length)=struct.unpack("!BB",elements[offset:offset+2])
+            if element_id is None:
+                pass # through the whole list returning the length
+            elif id==element_id:
+                yield (0,offset,length+2)    # ==
+            elif id>element_id:
+                yield (1,offset,None)        # >
+                
+            length+=2 #id+length
+            offset+=length
+            if length>remaining:
+                # Error!!
+                length = remaining;
+            remaining-=length
+        # < Not found
+        yield (-1, offset, None)
+
+    def __calculate_elements_length(self, elements):
+        gen_tp=self._find_element(elements, None )
+        (match,offset,length)=gen_tp.next()
+        if match != -1:
+            # element_id is None, then __find_tagged_parameter must return -1
+            raise Exception("Internal Error %s"%match)
+        return offset
+        
+    def _get_element(self, element_id):
+        elements=self.get_header_as_string()[self.__HEADER_BASE_SIZE:]
+        gen_tp=self._find_element(elements, element_id )
+        (match,offset,length)=gen_tp.next()
+        if match != 0:
+            return None
+        value_offset=offset+2
+        value_end=offset+length
+        value=elements[value_offset:value_end]
+        return value
+
+    def delete_element(self, element_id, multiple = False):
+        header=self.get_header_as_string()
+        elements=header[self.__HEADER_BASE_SIZE:]
+        gen_tp=self._find_element(elements, element_id )
+        found=False
+        while True:
+            (match,offset,length)=gen_tp.next()
+            if match != 0:
+                break
+            start=self.__HEADER_BASE_SIZE+offset
+            header=header[:start]+header[start+length:]
+            found=True
+            if multiple is False:
+                break
+            
+        if not found:
+            return  False
+        
+        self.load_header(header)
+        return True
+    
+    def _set_element(self, element_id, value, replace = True):
+        parameter=struct.pack('BB%ds'%len(value),element_id,len(value),value)
+        
+        header=self.get_header_as_string()
+        elements=header[self.__HEADER_BASE_SIZE:]
+        gen_tp=self._find_element(elements, element_id )
+        found=False
+        while True:
+            (match,offset,length)=gen_tp.next()
+            start=self.__HEADER_BASE_SIZE+offset
+            if match == 0 and replace:
+                # Replace
+                header=header[:start]+parameter+header[start+length:]
+                found=True
+                break
+            elif match > 0:
+                # Add
+                header=header[:start]+parameter+header[start:]
+                found=True
+                break
+        if not found:
+            # Append (found<0 Not found)
+            header=header+parameter        
+        self.load_header(header)
+
+class Dot11ManagementBeacon(Dot11ManagementHelper):
     '802.11 Management Beacon Frame'
         
     __HEADER_BASE_SIZE = 12 # minimal header size
@@ -2203,46 +2304,8 @@ class Dot11ManagementBeacon(ProtocolPacket):
     def __init__(self, aBuffer = None):
         header_size = self.__HEADER_BASE_SIZE
         tail_size = 0
-        
-        if aBuffer:
-            tagged_parameters_length=self.__calculate_tagged_parameters_length(aBuffer[self.__HEADER_BASE_SIZE:])
-            header_size+=tagged_parameters_length
-            
-            ProtocolPacket.__init__(self, header_size, tail_size)
-            self.load_packet(aBuffer)
-        else:
-            ProtocolPacket.__init__(self, header_size, tail_size)
+        Dot11ManagementHelper.__init__(self, header_size, tail_size, aBuffer)
 
-    def __calculate_tagged_parameters_length(self, buffer):
-        remaining=len(buffer)
-        offset=0
-        while remaining > 0:
-            (type,length)=struct.unpack("!BB",buffer[offset:offset+2])
-            length+=2 #id+length
-            offset+=length
-            if length>remaining:
-                # Error!!
-                length = remaining;
-            remaining-=length
-        return offset
-        
-    def __get_tagged_parameter(self, element_id):
-        tagged_parameters=self.get_header_as_string()[self.__HEADER_BASE_SIZE:]
-        remaining=len(tagged_parameters)
-        offset=0
-        while remaining > 0:
-            (id,length)=struct.unpack("!BB",tagged_parameters[offset:offset+2])
-            if id==element_id:
-                value=tagged_parameters[offset+2:offset+2+length]
-                return value
-            length+=2 #id+length
-            offset+=length
-            if length>remaining:
-                # Error!!
-                length = remaining;
-            remaining-=length
-        return None
-        
     def get_timestamp(self):
         'Return the 802.11 Management Beacon frame \'Timestamp\' field' 
         b = self.header.get_long_long(0, "<")
@@ -2280,16 +2343,19 @@ class Dot11ManagementBeacon(ProtocolPacket):
         self.header.set_word(10, nb, "<")
         
     def get_ssid(self):
-        "Get the 802.11 Management Beacon SSID element. "\
+        "Get the 802.11 Management SSID element. "\
         "The SSID element indicates the identity of an ESS or IBSS."
-        return self.__get_tagged_parameter(DOT11_MANAGEMENT_ELEMENTS.SSID)
+        return self._get_element(DOT11_MANAGEMENT_ELEMENTS.SSID)
+
+    def set_ssid(self, ssid):
+        self._set_element(DOT11_MANAGEMENT_ELEMENTS.SSID,ssid)
 
     def get_supported_rates(self, human_readable=False):
-        "Get the 802.11 Management Beacon Supported Rates element. "\
+        "Get the 802.11 Management Supported Rates element. "\
         "Specifies up to eight rates, then an Extended Supported Rate element "\
         "shall be generated to specify the remaining supported rates."\
         "If human_readable is True, the rates are returned in Mbit/sec"
-        s=self.__get_tagged_parameter(DOT11_MANAGEMENT_ELEMENTS.SUPPORTED_RATES)
+        s=self._get_element(DOT11_MANAGEMENT_ELEMENTS.SUPPORTED_RATES)
         if s is None:
             return None
         
@@ -2299,3 +2365,33 @@ class Dot11ManagementBeacon(ProtocolPacket):
             
         rates_Mbs=tuple(map(lambda x: (x&0x7F)*0.5,rates))
         return rates_Mbs
+
+    def set_supported_rates(self, rates):
+        "Set the 802.11 Management Supported Rates element. "\
+        "Specifies a tuple or list with up to eight rates, then an "\
+        "Extended Supported Rate element shall be generated to specify "\
+        "the remaining supported rates."
+        qty_rates=len(rates)
+        if qty_rates>8:
+            raise Exception("requires up to eight rates")
+        rates_string=struct.pack('B'*qty_rates,*rates)
+        self._set_element(DOT11_MANAGEMENT_ELEMENTS.SUPPORTED_RATES,rates_string)
+
+    def get_ds_parameter_set(self):
+        "Get the 802.11 Management DS Parameter set element. "\
+        "Contains information to allow channel number identification for "\
+        "STAs using a DSSS PHY."
+        s=self._get_element(DOT11_MANAGEMENT_ELEMENTS.DS_PARAMETER_SET)
+        if s is None:
+            return None
+        
+        (ch,)=struct.unpack('B',s)
+
+        return ch
+
+    def set_ds_parameter_set(self, channel):
+        "Set the 802.11 Management DS Parameter set element. "\
+        "Contains information to allow channel number identification for "\
+        "STAs using a DSSS PHY."
+        channel_string=struct.pack('B',channel)
+        self._set_element(DOT11_MANAGEMENT_ELEMENTS.DS_PARAMETER_SET,channel_string)
