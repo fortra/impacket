@@ -2239,16 +2239,31 @@ class Dot11ManagementHelper(ProtocolPacket):
             raise Exception("Internal Error %s"%match)
         return offset
         
-    def _get_element(self, element_id):
+    def _get_elements_generator(self, element_id):
         elements=self.get_header_as_string()[self.__HEADER_BASE_SIZE:]
         gen_tp=self._find_element(elements, element_id )
-        (match,offset,length)=gen_tp.next()
-        if match != 0:
-            return None
-        value_offset=offset+2
-        value_end=offset+length
-        value=elements[value_offset:value_end]
-        return value
+        while True:
+            (match,offset,length)=gen_tp.next()
+            if match != 0:
+                return
+            value_offset=offset+2
+            value_end=offset+length
+            value=elements[value_offset:value_end]
+            yield value
+        
+    def _get_element(self, element_id):
+        gen_get_element=self._get_elements_generator(element_id)
+        try:
+            s=gen_get_element.next()
+            
+            if s is None:
+                raise Exception("gen_get_element salio con None in _get_element!!!")
+            
+            return s
+        except StopIteration:
+            pass
+            
+        return None
 
     def delete_element(self, element_id, multiple = False):
         header=self.get_header_as_string()
@@ -2290,6 +2305,8 @@ class Dot11ManagementHelper(ProtocolPacket):
                 # Add
                 header=header[:start]+parameter+header[start:]
                 found=True
+                break
+            else:
                 break
         if not found:
             # Append (found<0 Not found)
@@ -2395,3 +2412,47 @@ class Dot11ManagementBeacon(Dot11ManagementHelper):
         "STAs using a DSSS PHY."
         channel_string=struct.pack('B',channel)
         self._set_element(DOT11_MANAGEMENT_ELEMENTS.DS_PARAMETER_SET,channel_string)
+
+    def get_vendor_specific(self):
+        "Get the 802.11 Management Vendor Specific elements "\
+        "as a list of tuples."
+        "The Vendor Specific information element is used to carry "\
+        "information not defined in the standard within a single "\
+        "defined format"
+        
+        vs=[]
+        gen_get_element=self._get_elements_generator(DOT11_MANAGEMENT_ELEMENTS.VENDOR_SPECIFIC)
+        try:
+            while 1:
+                s=gen_get_element.next()
+                
+                if s is None:
+                    raise Exception("gen_get_element salio con None!!!")
+                
+                # OUI is 3 bytes
+                (oui,)=struct.unpack('>L','\x00'+s[:3])
+                data=s[3:]
+                vs.append((oui,data))
+        except StopIteration:
+            pass
+            
+        return vs
+
+    def add_vendor_specific(self, oui, data):
+        "Set the 802.11 Management Vendor Specific element. "\
+        "The Vendor Specific information element is used to carry "\
+        "information not defined in the standard within a single "\
+        "defined format"
+        
+        # 3 is the  OUI length
+        max_data_len=255-3
+        data_len=len(data)
+
+        if data_len>max_data_len:
+            raise Exception("data allow up to %d bytes long" % max_data)
+        if oui&0xFF000000:
+            raise Exception("oui is three bytes long")
+        
+        oui_str=struct.pack('>L',oui)[-3:]
+        
+        self._set_element(DOT11_MANAGEMENT_ELEMENTS.VENDOR_SPECIFIC,oui_str+data, replace=False)
