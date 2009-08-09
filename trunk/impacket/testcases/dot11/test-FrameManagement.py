@@ -155,6 +155,18 @@ class TestDot11ManagementBeaconFrames(unittest.TestCase):
 
         self.assertEqual(self.management_beacon.get_ds_parameter_set(), 40 )
         self.assertEqual(self.management_beacon.get_header_size(), 116)
+
+    def test_16(self):
+        'Test Management Vendor Specific getter/setter methods'
+        self.assertEqual(self.management_beacon.get_vendor_specific(), [(0x0050F2,"\x02\x01\x01\x00\x00\x03\xa4\x00\x00\x27\xa4\x00\x00\x42\x43\x5e\x00\x62\x32\x2f\x00")])
+        
+        self.management_beacon.add_vendor_specific(0x40,"\x04\x04\x04\x04\x04\x04")
+
+        self.assertEqual(self.management_beacon.get_vendor_specific(), 
+            [(0x0050F2,"\x02\x01\x01\x00\x00\x03\xa4\x00\x00\x27\xa4\x00\x00\x42\x43\x5e\x00\x62\x32\x2f\x00"),
+             (0x000040,"\x04\x04\x04\x04\x04\x04"),
+            ])
+        self.assertEqual(self.management_beacon.get_header_size(), 127)
         
 suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11ManagementBeaconFrames)
 unittest.TextTestRunner(verbosity=2).run(suite)
