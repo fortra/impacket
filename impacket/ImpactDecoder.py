@@ -249,6 +249,98 @@ class Dot11Decoder(Decoder):
         d.contains(packet)
         return d
 
+class Dot11ControlDecoder(Decoder):
+    __FCS_at_end = True
+    def __init__(self):
+        pass
+
+    def FCS_at_end(self, fcs_at_end=True):
+        self.__FCS_at_end=not not fcs_at_end 
+    
+    def decode(self, aBuffer):
+        d = dot11.Dot11(aBuffer, self.__FCS_at_end)
+        self.set_decoded_protocol(d)
+        
+        self.subtype = d.get_subtype()
+        if self.subtype is dot11.Dot11Types.DOT11_SUBTYPE_CONTROL_CLEAR_TO_SEND:
+            self.ctrl_cts_decoder = Dot11ControlFrameCTSDecoder()
+            packet = self.ctrl_cts_decoder.decode(d.body_string)
+        elif self.subtype is dot11.Dot11Types.DOT11_SUBTYPE_CONTROL_ACKNOWLEDGMENT:
+            self.ctrl_ack_decoder = Dot11ControlFrameACKDecoder()
+            packet = self.ctrl_ack_decoder(d.body_string)
+        elif self.subtype is dot11.Dot11Types.DOT11_SUBTYPE_CONTROL_REQUEST_TO_SEND:
+            self.ctrl_rts_decoder = Dot11ControlFrameRTSDecoder()
+            packet = self.ctrl_rts_decoder(d.body_string)
+        elif self.subtype is dot11.Dot11Types.DOT11_SUBTYPE_CONTROL_POWERSAVE_POLL:
+            self.ctrl_pspoll_decoder = Dot11ControlFramePSPollDecoder()
+            packet = self.ctrl_pspoll_decoder(d.body_string)
+        elif self.subtype is dot11.Dot11Types.DOT11_SUBTYPE_CONTROL_CF_END:
+            self.ctrl_cfend_decoder = Dot11ControlFrameCFEndDecoder()
+            packet = self.ctrl_cfend_decoder(d.body_string)
+        elif self.subtype is dot11.Dot11Types.DOT11_SUBTYPE_CONTROL_CF_END_CF_ACK:
+            self.ctrl_cfendcfack_decoder = Dot11ControlFrameCFEndCFACKDecoder()
+            packet = self.ctrl_cfendcfack_decoder(d.body_string)
+        else:
+            data_decoder = DataDecoder()
+            packet = data_decoder.decode(d.body_string)
+        
+        d.contains(packet)
+        return d
+
+class Dot11ControlFrameCTSDecoder(Decoder):
+    def __init__(self):
+        pass
+    
+    def decode(self, aBuffer):
+        p = dot11.Dot11ControlFrameCTS(aBuffer)
+        self.set_decoded_protocol(p)
+        return p
+
+class Dot11ControlFrameACKDecoder(Decoder):
+    def __init__(self):
+        pass
+    
+    def decode(self, aBuffer):
+        p = dot11.Dot11ControlFrameACK(aBuffer)
+        self.set_decoded_protocol(p)
+        return p
+
+class Dot11ControlFrameRTSDecoder(Decoder):
+    def __init__(self):
+        pass
+    
+    def decode(self, aBuffer):
+        p = dot11.Dot11ControlFrameRTS(aBuffer)
+        self.set_decoded_protocol(p)
+        return p
+
+class Dot11ControlFramePSPollDecoder(Decoder):
+    def __init__(self):
+        pass
+    
+    def decode(self, aBuffer):
+        p = dot11.Dot11ControlFramePSPoll(aBuffer)
+        self.set_decoded_protocol(p)
+        return p
+
+class Dot11ControlFrameCFEndDecoder(Decoder):
+    def __init__(self):
+        pass
+    
+    def decode(self, aBuffer):
+        p = dot11.Dot11ControlFrameCFEnd(aBuffer)
+        self.set_decoded_protocol(p)
+        return p
+
+class Dot11ControlFrameCFEndCFACKDecoder(Decoder):
+    def __init__(self):
+        pass
+    
+    def decode(self, aBuffer):
+        p = dot11.Dot11ControlFrameCFEndCFACK(aBuffer)
+        self.set_decoded_protocol(p)
+        return p
+
 class Dot11DataDecoder(Decoder):
     def __init__(self):
         self.QoS=False
@@ -377,7 +469,7 @@ class Dot11WPA2Decoder(Decoder):
         
         decoded_string=wpa2.get_decrypted_data()
         
-        wpa2_data = Dot11DataWPA2DataDecoder()
+        wpa2_data = Dot11WPA2DataDecoder()
         packet = wpa2_data.decode(decoded_string)
         
         wpa2.contains(packet)
