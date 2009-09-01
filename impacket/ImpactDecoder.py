@@ -389,17 +389,21 @@ class Dot11WEPDecoder(Decoder):
     def __init__(self):
         pass
         
-    def decode(self, aBuffer):
+    def decode(self, aBuffer, key=None):
         wep = dot11.Dot11WEP(aBuffer)
         self.set_decoded_protocol( wep )
 
         if wep.is_WEP() is False:
             return None
         
-        decoded_string=wep.get_decrypted_data()
-        
-        wep_data = Dot11WEPDataDecoder()
-        packet = wep_data.decode(decoded_string)
+	if key:
+	        decoded_string=wep.get_decrypted_data()
+
+	        wep_data = Dot11WEPDataDecoder()
+        	packet = wep_data.decode(decoded_string)
+	else:
+		data_decoder = DataDecoder()
+		packet = data_decoder.decode(wep.body_string)
         
         wep.contains(packet)
         
@@ -425,17 +429,21 @@ class Dot11WPADecoder(Decoder):
     def __init__(self):
         pass
         
-    def decode(self, aBuffer):
+    def decode(self, aBuffer, key=None):
         wpa = dot11.Dot11WPA(aBuffer)
         self.set_decoded_protocol( wpa )
 
         if wpa.is_WPA() is False:
             return None
         
-        decoded_string=wpa.get_decrypted_data()
-        
-        wpa_data = Dot11DataWPADataDecoder()
-        packet = wpa_data.decode(decoded_string)
+	if key:
+		decoded_string=wpa.get_decrypted_data()
+		
+		wpa_data = Dot11DataWPADataDecoder()
+		packet = wpa_data.decode(decoded_string)
+	else:
+		data_decoder = DataDecoder()
+		packet = data_decoder.decode(wpa.body_string)
         
         wpa.contains(packet)
         
@@ -460,17 +468,21 @@ class Dot11WPA2Decoder(Decoder):
     def __init__(self):
         pass
         
-    def decode(self, aBuffer):
+    def decode(self, aBuffer, key=None):
         wpa2 = dot11.Dot11WPA2(aBuffer)
         self.set_decoded_protocol( wpa2 )
 
         if wpa2.is_WPA2() is False:
             return None
         
-        decoded_string=wpa2.get_decrypted_data()
-        
-        wpa2_data = Dot11WPA2DataDecoder()
-        packet = wpa2_data.decode(decoded_string)
+	if key:
+		decoded_string=wpa2.get_decrypted_data()
+		
+		wpa2_data = Dot11WPA2DataDecoder()
+		packet = wpa2_data.decode(decoded_string)
+	else:
+		data_decoder = DataDecoder()
+		packet = data_decoder.decode(wpa2.body_string)
         
         wpa2.contains(packet)
         
@@ -568,4 +580,3 @@ class Dot11ManagementBeaconDecoder(Decoder):
         self.set_decoded_protocol( p )
         
         return p
-    
