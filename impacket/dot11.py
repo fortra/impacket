@@ -2456,3 +2456,52 @@ class Dot11ManagementBeacon(Dot11ManagementHelper):
         oui_str=struct.pack('>L',oui)[-3:]
         
         self._set_element(DOT11_MANAGEMENT_ELEMENTS.VENDOR_SPECIFIC,oui_str+data, replace=False)
+
+class Dot11ManagementProbeRequest(Dot11ManagementHelper):
+    '802.11 Management Probe Request Frame'
+        
+    def __init__(self, aBuffer = None):
+        header_size = 0
+        tail_size = 0
+        Dot11ManagementHelper.__init__(self, header_size, tail_size, aBuffer)
+
+    def get_ssid(self):
+        "Get the 802.11 Management SSID element. "\
+        "The SSID element indicates the identity of an ESS or IBSS."
+        return self._get_element(DOT11_MANAGEMENT_ELEMENTS.SSID)
+
+    def set_ssid(self, ssid):
+        self._set_element(DOT11_MANAGEMENT_ELEMENTS.SSID,ssid)
+
+    def get_supported_rates(self, human_readable=False):
+        "Get the 802.11 Management Supported Rates element. "\
+        "Specifies up to eight rates, then an Extended Supported Rate element "\
+        "shall be generated to specify the remaining supported rates."\
+        "If human_readable is True, the rates are returned in Mbit/sec"
+        s=self._get_element(DOT11_MANAGEMENT_ELEMENTS.SUPPORTED_RATES)
+        if s is None:
+            return None
+        
+        rates=struct.unpack('%dB'%len(s),s)
+        if not human_readable:
+            return rates
+            
+        rates_Mbs=tuple(map(lambda x: (x&0x7F)*0.5,rates))
+        return rates_Mbs
+
+    def set_supported_rates(self, rates):
+        "Set the 802.11 Management Supported Rates element. "\
+        "Specifies a tuple or list with up to eight rates, then an "\
+        "Extended Supported Rate element shall be generated to specify "\
+        "the remaining supported rates."
+        qty_rates=len(rates)
+        if qty_rates>8:
+            raise Exception("requires up to eight rates")
+        rates_string=struct.pack('B'*qty_rates,*rates)
+        self._set_element(DOT11_MANAGEMENT_ELEMENTS.SUPPORTED_RATES,rates_string)
+
+class Dot11ManagementProbeResponse(Dot11ManagementBeacon):
+    '802.11 Management Probe Response Frame'
+
+    def __init__(self, aBuffer = None):
+        Dot11ManagementBeacon.__init__(self, aBuffer)

@@ -203,7 +203,7 @@ class RadioTapDecoder(Decoder):
         
         self.do11_decoder = Dot11Decoder()
         flags=rt.get_flags()
-        if flags:
+        if flags is not None:
             fcs=flags&dot11.RadioTap.RTF_FLAGS.PROPERTY_FCS_AT_END
             self.do11_decoder.FCS_at_end(fcs)
             
@@ -564,6 +564,12 @@ class Dot11ManagementDecoder(Decoder):
         if self.subtype is dot11.Dot11Types.DOT11_SUBTYPE_MANAGEMENT_BEACON:
             self.mgt_beacon_decoder = Dot11ManagementBeaconDecoder()
             packet = self.mgt_beacon_decoder.decode(p.body_string)
+        elif self.subtype is dot11.Dot11Types.DOT11_SUBTYPE_MANAGEMENT_PROBE_REQUEST:
+            self.mgt_probe_request_decoder = Dot11ManagementProbeRequestDecoder()
+            packet = self.mgt_probe_request_decoder.decode(p.body_string)
+        elif self.subtype is dot11.Dot11Types.DOT11_SUBTYPE_MANAGEMENT_PROBE_RESPONSE:
+            self.mgt_probe_response_decoder = Dot11ManagementProbeResponseDecoder()
+            packet = self.mgt_probe_response_decoder.decode(p.body_string)				
         else:
             data_decoder = DataDecoder()
             packet = data_decoder.decode(p.body_string)
@@ -577,6 +583,26 @@ class Dot11ManagementBeaconDecoder(Decoder):
         
     def decode(self, aBuffer):
         p = dot11.Dot11ManagementBeacon(aBuffer)
+        self.set_decoded_protocol( p )
+        
+        return p
+
+class Dot11ManagementProbeRequestDecoder(Decoder):
+    def __init__(self):
+        pass
+        
+    def decode(self, aBuffer):
+        p = dot11.Dot11ManagementProbeRequest(aBuffer)
+        self.set_decoded_protocol( p )
+        
+        return p
+
+class Dot11ManagementProbeResponseDecoder(Decoder):
+    def __init__(self):
+        pass
+        
+    def decode(self, aBuffer):
+        p = dot11.Dot11ManagementProbeResponse(aBuffer)
         self.set_decoded_protocol( p )
         
         return p
