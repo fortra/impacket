@@ -312,9 +312,10 @@ class MSRPCRequestHeader(MSRPCHeader):
 
     def __init__(self, aBuffer = None, endianness = '<'):
         MSRPCHeader.__init__(self, aBuffer = aBuffer, endianness = endianness)
-        self.set_type(MSRPC_REQUEST)
-        self.set_ctx_id(0)
-        self.set_alloc_hint(0)
+        if aBuffer is None:
+            self.set_type(MSRPC_REQUEST)
+            self.set_ctx_id(0)
+            self.set_alloc_hint(0)
 
     def get_alloc_hint(self):
         return self.get_long(16, self.endianness)
@@ -345,9 +346,10 @@ class MSRPCRespHeader(MSRPCHeader):
 
     def __init__(self, aBuffer = None, endianness = '<'):
         MSRPCHeader.__init__(self, aBuffer = aBuffer, endianness = endianness)
-        self.set_type(MSRPC_RESPONSE)
-        self.set_ctx_id(0)
-        self.set_alloc_hint(0)
+        if aBuffer is None:
+           self.set_type(MSRPC_RESPONSE)
+           self.set_ctx_id(0)
+           self.set_alloc_hint(0)
 
     def get_alloc_hint(self):
         return self.get_long(16, self.endianness)
@@ -375,11 +377,12 @@ class MSRPCBind(MSRPCHeader):
     def __init__(self, aBuffer = None, endianness = '<'):
         MSRPCHeader.__init__(self, aBuffer = aBuffer, endianness = endianness)
 
-        self.set_type(MSRPC_BIND)
-        self.set_max_tfrag(4280)
-        self.set_max_rfrag(4280)
-        self.set_assoc_group(0)
-        self.set_ctx_num(1)
+        if aBuffer is None:
+            self.set_type(MSRPC_BIND)
+            self.set_max_tfrag(4280)
+            self.set_max_rfrag(4280)
+            self.set_assoc_group(0)
+            self.set_ctx_num(1)
 
     def get_max_tfrag(self):
         return self.get_word(16, self.endianness)

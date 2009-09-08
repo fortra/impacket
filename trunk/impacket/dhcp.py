@@ -17,6 +17,9 @@ class BootpPacket(structure.Structure):
             ('chaddr','_','_chaddr[:hlen]'),
             ('sname','64s=""'),
             ('file','128s=""'))
+            
+    #def __init__(self, data = None, alignment = 0):
+    #    structure.Structure.__init__(self, data, alignment)
         
 class DhcpPacket(BootpPacket):
     # DHCP: http://www.faqs.org/rfcs/rfc2131.html
@@ -33,7 +36,6 @@ class DhcpPacket(BootpPacket):
     DHCPNAK     = 6
     DHCPRELEASE = 7
         
-
     options = {
         # 3. Vendor Extensions
         'pad':(0,'_'),
@@ -129,6 +131,10 @@ class DhcpPacket(BootpPacket):
             ('_options',':=self.packOptions(options)'),
             ('options','_','self.unpackOptions(_options)'))
     
+
+    #def __init__(self, data = None, alignment = 0):
+    #    BootpPacket.__init__(self, data, alignment)
+    
     def packOptions(self, options):
         # options is an array of tuples: ('name',value)
 
@@ -165,6 +171,14 @@ class DhcpPacket(BootpPacket):
 
     def unpackParameterRequestList(self, options):
         return [self.getOptionNameAndFormat(ord(opt))[0] for opt in options]
+        
+    def isAskingForProxyAutodiscovery(self):
+        for opt in self.fields['options']:
+            if opt[0] == 'parameter-request-list':
+                for optCode in opt[1]:
+                    if ord(optCode) == 252:
+                        return True
+        return False
 
 class DHCPTool:
     def initialize(self):
