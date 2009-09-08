@@ -154,7 +154,7 @@ class NDRFloor:
         self._rhs_len = 0
         self._rhs = ''
         self._floor_len = 0
-        if data != 0:
+        if data:
             self._lhs_len, self._protocol = unpack('<HB',data[:3])
             offset = 3
             if self._protocol == 0x0d: # UUID
@@ -197,7 +197,7 @@ class NDRTower:
         self._number_of_floors = 0
         self._floors = []
         self._tower_len = 0
-        if data != 0:
+        if data:
             self._length, self._length2, self._number_of_floors = unpack('<LLH',data[:10])
             offset = 10
             for i in range(0,self._number_of_floors):
@@ -221,7 +221,7 @@ class NDREntry:
         self._annotation_offset = 0
         self._annotation_len = 0
         self._annotation = ''
-        if data != 0:
+        if data:
             self._objectid = data[:16]
             self._referent_id = unpack('<L',data[16:20])[0]
             self._annotation_offset, self._annotation_len = unpack('<LL',data[20:28])
@@ -315,7 +315,7 @@ class NDREntries:
         self._actual_count = 0
         self._entries_len = 0
         self._entries = []
-        if data != 0:
+        if data:
             self._max_count, self._offset, self._actual_count = unpack('<LLL',data[:12])
             self._entries_len = 12
             for i in range (0,self._actual_count):
@@ -337,7 +337,7 @@ class NDRPointer:
     def __init__(self,data='',pointerType = None):
         self._referent_id = random.randint(0,65535)
         self._pointer = None
-        if data != '':
+        if data:
             self._referent_id = unpack('<L',data[:4])[0]
             self._pointer = pointerType(data[4:])
     def set_pointer(self, data):
@@ -353,7 +353,7 @@ class NDRString:
         self._max_len = 0
         self._offset = 0
         self._length = 0
-        if data != '':
+        if data:
             self._max_len, self._offset, self._length = unpack('<LLL',data[:12])
             self._string = unicode(data[12:12 + self._length * 2], 'utf-16le')
     def get_string(self):
