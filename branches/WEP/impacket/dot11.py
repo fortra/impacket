@@ -1134,11 +1134,42 @@ class Dot11WEP(ProtocolPacket):
         nb = masked | ((value & 0x03) << 6)
         self.header.set_byte(3, nb)
 
-    def get_decrypted_data(self):
+    def get_decrypted_data(self, key_string):
         'Return \'WEP Data\' field decrypted'
-        # TODO: Replace it with the decoded string
+
         # Ver 8.2.1.4.5 WEP MPDU decapsulation
-        return self.body_string
+        
+        # Needs to be at least 8 bytes of payload 
+        if len(self.body_string)<8:
+            return self.body_string
+        
+        # initialize the first bytes of the key from the IV 
+        # and copy rest of the WEP key (the secret part) 
+        key=self.get_iv()+key_string
+        keylen=3+len(key_string) # add in IV bytes
+
+        # set up the RC4 state
+        j = 0
+        s = range(256)
+        for i in range(256):
+            j = (j + s[i] + ord(key[i % len(key)])) & 0xff
+            s[i],s[j] = s[j],s[i] # SSWAP(i,j)
+            
+        # Apply the RC4 to the data, update the CRC32
+        out = ""
+        i = j = 0
+        for c in data:
+            i = (i+1) & 0xff
+            j = (j+s[i]) & 0xff
+            s[i],s[j] = s[j],s[i] # SSWAP(i,j)
+            d=chr(ord(c) ^ s[(s[i] + s[j]) & 0xff])
+            out+=d
+        dwd=Dot11WEPData(out)
+        
+        if False: # is ICV correct
+            return dwd
+        else:
+            return self.body_string
 
 class Dot11WEPData(ProtocolPacket):
     '802.11 WEP Data Part'

@@ -396,18 +396,54 @@ class Dot11WEPDecoder(Decoder):
         if wep.is_WEP() is False:
             return None
         
-	if key:
-	        decoded_string=wep.get_decrypted_data()
+    if key:
+            decoded_string=wep.decrypt_data()
+            
+            wep_data = Dot11WEPDataDecoder()
+            packet = wep_data.decode(decoded_string)
+    else:
+        data_decoder = DataDecoder()
+        packet = data_decoder.decode(wep.body_string)
 
-	        wep_data = Dot11WEPDataDecoder()
-        	packet = wep_data.decode(decoded_string)
-	else:
-		data_decoder = DataDecoder()
-		packet = data_decoder.decode(wep.body_string)
-        
         wep.contains(packet)
         
         return wep
+
+    def decrypt_data(self, key_string):
+        'Return \'WEP Data\' decrypted'
+        
+        # Needs to be at least 8 bytes of payload 
+        if len(self.body_string)<8:
+            return self.body_string
+        
+        # initialize the first bytes of the key from the IV 
+        # and copy rest of the WEP key (the secret part) 
+        key=self.get_iv()+key_string
+        keylen=3+len(key_string) # add in IV bytes
+
+        # set up the RC4 state
+        j = 0
+        s = range(256)
+        for i in range(256):
+            j = (j + s[i] + ord(key[i % len(key)])) & 0xff
+            s[i],s[j] = s[j],s[i] # SSWAP(i,j)
+            
+        # Apply the RC4 to the data, update the CRC32
+        out = ""
+        i = j = 0
+        for c in data:
+            i = (i+1) & 0xff
+            j = (j+s[i]) & 0xff
+            s[i],s[j] = s[j],s[i] # SSWAP(i,j)
+            d=chr(ord(c) ^ s[(s[i] + s[j]) & 0xff])
+            out+=d
+        dwd=Dot11WEPData(out)
+        
+        if False: # is ICV correct
+            return dwd
+        else:
+            return self.body_string
+
 
 class Dot11WEPDataDecoder(Decoder):
     def __init__(self):
