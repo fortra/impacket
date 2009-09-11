@@ -2237,7 +2237,7 @@ class DOT11_MANAGEMENT_ELEMENTS():
     #RESERVED                 45  # See: IEEE 802.11n
     QOS_CAPABILITY          = 46
     #RESERVED                 47  # See: IEEE 802.11g
-    RSN                     = 48  
+    RSN                     = 48
     #RESERVED                 49
     EXT_SUPPORTED_RATES     = 50
     #RESERVED                 51-126
@@ -2463,6 +2463,17 @@ class Dot11ManagementBeacon(Dot11ManagementHelper):
         "STAs using a DSSS PHY."
         channel_string=struct.pack('B',channel)
         self._set_element(DOT11_MANAGEMENT_ELEMENTS.DS_PARAMETER_SET,channel_string)
+
+    def get_rsn(self):
+        "Get the 802.11 Management Robust Security Network element."
+        s = self._get_element(DOT11_MANAGEMENT_ELEMENTS.RSN)
+        if s is None:
+            return None
+        return s
+
+    def set_rsn(self, data):
+        "Set the 802.11 Management Robust Security Network element."
+        self._set_element(DOT11_MANAGEMENT_ELEMENTS.RSN, data)
 
     def get_vendor_specific(self):
         "Get the 802.11 Management Vendor Specific elements "\
