@@ -2492,7 +2492,7 @@ class Dot11ManagementBeacon(Dot11ManagementHelper):
                     raise Exception("gen_get_element salio con None!!!")
                 
                 # OUI is 3 bytes
-                (oui,)=struct.unpack('>L','\x00'+s[:3])
+                oui=s[:3]
                 data=s[3:]
                 vs.append((oui,data))
         except StopIteration:
@@ -2506,18 +2506,16 @@ class Dot11ManagementBeacon(Dot11ManagementHelper):
         "information not defined in the standard within a single "\
         "defined format"
         
-        # 3 is the  OUI length
+        # 3 is the OUI length
         max_data_len=255-3
         data_len=len(data)
 
         if data_len>max_data_len:
             raise Exception("data allow up to %d bytes long" % max_data)
-        if oui&0xFF000000:
+        if len(oui) > 3:
             raise Exception("oui is three bytes long")
         
-        oui_str=struct.pack('>L',oui)[-3:]
-        
-        self._set_element(DOT11_MANAGEMENT_ELEMENTS.VENDOR_SPECIFIC,oui_str+data, replace=False)
+        self._set_element(DOT11_MANAGEMENT_ELEMENTS.VENDOR_SPECIFIC,oui+data, replace=False)
 
 class Dot11ManagementProbeRequest(Dot11ManagementHelper):
     '802.11 Management Probe Request Frame'
