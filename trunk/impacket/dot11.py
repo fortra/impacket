@@ -2565,3 +2565,18 @@ class Dot11ManagementProbeResponse(Dot11ManagementBeacon):
 
     def __init__(self, aBuffer = None):
         Dot11ManagementBeacon.__init__(self, aBuffer)
+
+class Dot11ManagementDeauthentication(Dot11ManagementFrame):
+    '802.11 Management Deauthentication Frame'
+
+    def __init__(self, aBuffer = None):
+        header_size = 2
+        tail_size = 0
+        Dot11ManagementFrame.__init__(self, aBuffer)
+
+    def get_reason_code(self):
+        "Get the 802.11 Management Deauthentication or Diassociation Code."
+        return self.header.get_word(0, "<")
+
+    def set_reason_code(self, rc):
+        self.header.set_word(0, rc, "<")
