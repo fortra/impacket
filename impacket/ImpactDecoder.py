@@ -569,7 +569,10 @@ class Dot11ManagementDecoder(Decoder):
             packet = self.mgt_probe_request_decoder.decode(p.body_string)
         elif self.subtype is dot11.Dot11Types.DOT11_SUBTYPE_MANAGEMENT_PROBE_RESPONSE:
             self.mgt_probe_response_decoder = Dot11ManagementProbeResponseDecoder()
-            packet = self.mgt_probe_response_decoder.decode(p.body_string)				
+            packet = self.mgt_probe_response_decoder.decode(p.body_string)
+        elif self.subtype is dot11.Dot11Types.DOT11_SUBTYPE_MANAGEMENT_DEAUTHENTICATION:
+            self.mgt_deauthentication_decoder = Dot11ManagementDeauthenticationDecoder()
+            packet = self.mgt_deauthentication_decoder.decode(p.body_string)
         else:
             data_decoder = DataDecoder()
             packet = data_decoder.decode(p.body_string)
@@ -603,6 +606,16 @@ class Dot11ManagementProbeResponseDecoder(Decoder):
         
     def decode(self, aBuffer):
         p = dot11.Dot11ManagementProbeResponse(aBuffer)
+        self.set_decoded_protocol( p )
+        
+        return p
+
+class Dot11ManagementDeauthenticationDecoder(Decoder):
+    def __init__(self):
+        pass
+        
+    def decode(self, aBuffer):
+        p = dot11.Dot11ManagementDeauthentication(aBuffer)
         self.set_decoded_protocol( p )
         
         return p
