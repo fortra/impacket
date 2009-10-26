@@ -2177,13 +2177,13 @@ class Dot11ManagementFrame(ProtocolPacket):
         nb = masked | (value & 0x000F)
         self.header.set_word(20, nb, "<")
         
-    def get_secuence_number(self):
+    def get_sequence_number(self):
         'Return 802.11 Management frame \'Secuence Number\' subfield'
         
         b = self.get_sequence_control()
         return ((b>>4) & 0xFFF) 
     
-    def set_secuence_number(self, value):
+    def set_sequence_number(self, value):
         'Set the 802.11 Management frame \'Secuence Number\' subfield' 
         # clear the bits
         mask = (~0xFFF0) & 0xFFFF
