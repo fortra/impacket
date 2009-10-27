@@ -945,14 +945,14 @@ class Dot11DataFrame(ProtocolPacket):
         nb = masked | (value & 0x000F)
         self.header.set_word(20, nb, "<")
         
-    def get_secuence_number(self):
-        'Return 802.11 \'Data\' data frame \'Secuence Number\' subfield'
+    def get_sequence_number(self):
+        'Return 802.11 \'Data\' data frame \'Sequence Number\' subfield'
         
         b = self.header.get_word(20, "<")
         return ((b>>4) & 0xFFF) 
     
-    def set_secuence_number(self, value):
-        'Set the 802.11 \'Data\' data frame \'Secuence Number\' subfield' 
+    def set_sequence_number(self, value):
+        'Set the 802.11 \'Data\' data frame \'Sequence Number\' subfield' 
         # clear the bits
         mask = (~0xFFF0) & 0xFFFF
         masked = self.header.get_word(20, "<") & mask
@@ -2178,13 +2178,13 @@ class Dot11ManagementFrame(ProtocolPacket):
         self.header.set_word(20, nb, "<")
         
     def get_sequence_number(self):
-        'Return 802.11 Management frame \'Secuence Number\' subfield'
+        'Return 802.11 Management frame \'Sequence Number\' subfield'
         
         b = self.get_sequence_control()
         return ((b>>4) & 0xFFF) 
     
     def set_sequence_number(self, value):
-        'Set the 802.11 Management frame \'Secuence Number\' subfield' 
+        'Set the 802.11 Management frame \'Sequence Number\' subfield' 
         # clear the bits
         mask = (~0xFFF0) & 0xFFFF
         masked = self.header.get_word(20, "<") & mask
