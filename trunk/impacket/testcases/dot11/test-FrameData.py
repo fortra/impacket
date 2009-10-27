@@ -76,7 +76,7 @@ class TestDot11DataFrames(unittest.TestCase):
         self.assertEqual(self.data.get_address3().tolist(), [0x12,0x08,0x54,0xac,0x2f,0x34])
     
     def test_06_sequence_control(self):
-        'Test Secuence control field'
+        'Test Sequence control field'
         self.assertEqual(self.data.get_sequence_control(), 0x4440)
         self.data.set_sequence_control(0x1234)
         self.assertEqual(self.data.get_sequence_control(), 0x1234)
@@ -87,11 +87,11 @@ class TestDot11DataFrames(unittest.TestCase):
         self.data.set_fragment_number(0xF1) # Es de 4 bit
         self.assertEqual(self.data.get_fragment_number(), 0x01)
 
-    def test_08_secuence_number(self):
-        'Test Secuence number field'
-        self.assertEqual(self.data.get_secuence_number(), 0x0444)
-        self.data.set_secuence_number(0xF234) # Es de 12 bit
-        self.assertEqual(self.data.get_secuence_number(), 0x0234)
+    def test_08_sequence_number(self):
+        'Test Sequence number field'
+        self.assertEqual(self.data.get_sequence_number(), 0x0444)
+        self.data.set_sequence_number(0xF234) # Es de 12 bit
+        self.assertEqual(self.data.get_sequence_number(), 0x0234)
         
     def test_09_frame_data(self):
         'Test Frame Data field'

@@ -87,7 +87,7 @@ class TestDot11ManagementProbeResponseFrames(unittest.TestCase):
         self.assertEqual(self.management_base.get_bssid().tolist(), [0x12,0x1B,0x11,0x32,0x66,0x34])
 
     def test_06(self):
-        'Test Secuence control field'
+        'Test Sequence control field'
         self.assertEqual(self.management_base.get_sequence_control(), 0x7320)
         self.management_base.set_sequence_control(0x1234)
         self.assertEqual(self.management_base.get_sequence_control(), 0x1234)
@@ -99,10 +99,10 @@ class TestDot11ManagementProbeResponseFrames(unittest.TestCase):
         self.assertEqual(self.management_base.get_fragment_number(), 0x01)
 
     def test_08(self):
-        'Test Secuence number field'
-        self.assertEqual(self.management_base.get_secuence_number(), 1842)
-        self.management_base.set_secuence_number(0xF234) # It's 12 bits long
-        self.assertEqual(self.management_base.get_secuence_number(), 0x0234)
+        'Test Sequence number field'
+        self.assertEqual(self.management_base.get_sequence_number(), 1842)
+        self.management_base.set_sequence_number(0xF234) # It's 12 bits long
+        self.assertEqual(self.management_base.get_sequence_number(), 0x0234)
         
     def test_09(self):
         'Test Management Frame Data field'
