@@ -19,7 +19,8 @@ except Exception:
     try:
         import POW
     except Exception:
-        pass
+        print "Warning: You don't have any crypto installed. You need either POW or PyCrypto"
+        print "We suggest PyCrypto. See http://www.pycrypto.org/"
 
 NTLM_AUTH_NONE          = 1
 NTLM_AUTH_CONNECT       = 2
