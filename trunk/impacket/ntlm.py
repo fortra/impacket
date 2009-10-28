@@ -12,9 +12,9 @@ import struct
 from impacket.structure import Structure
 
 try:
+    POW = None
     from Crypto.Cipher import DES
     from Crypto.Hash import MD4
-    POW = None
 except Exception:
     try:
         import POW
