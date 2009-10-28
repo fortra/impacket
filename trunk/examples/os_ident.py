@@ -1,13 +1,6 @@
 #--
 # $Id$
 #
-# Description:
-#
-# Author of the original module: Bruce Leidl (brl)
-# Author of Nmap variant: Javier Kohen (jkohen)
-#  - Nmap marshaler, singleton support, native signature db: Fernando Russ (fruss)
-# Author of Neural Networks analysis: Javier Burroni (javier)
-#
 # Copyright (c) 2001-2003 CORE Security Technologies, CORE SDI Inc.
 # All rights reserved.
 #
@@ -28,13 +21,9 @@
 # THIS SOFTWARE
 #
 #--
-# TODO:
-#  Retries
-#
 
 from impacket.ImpactPacket import *
 from impacket.ImpactDecoder import *
-
 
 g_nmap1_signature_filename="nmap-os-fingerprints"
 g_nmap2_signature_filename="nmap-os-db"
