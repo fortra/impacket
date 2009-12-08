@@ -860,7 +860,7 @@ class IPOption(PacketBuffer):
 
     def __init__(self, opcode = 0, size = None):
         if size and (size < 3 or size > 40):
-            raise ImpactPacketException, "IP Options must have a size between 3 and 39 bytes"
+            raise ImpactPacketException, "IP Options must have a size between 3 and 40 bytes"
 
         if(opcode == IPOption.IPOPT_EOL):
             PacketBuffer.__init__(self, 1)
