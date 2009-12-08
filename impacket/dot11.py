@@ -619,6 +619,75 @@ class Dot11(ProtocolPacket):
         b = self.header.get_byte(0)
         return (b & 0x10) and True
     
+    def fragment_by_size(self, aSize):
+        body_len = len(body_string)
+        if  not body_string or \
+            not self.get_type()!=Dot11Types.DOT11_TYPE_DATA or \
+            not self.get_type()!=Dot11Types.DOT11_TYPE_MANAGEMENT:
+            return [self]
+        
+        # The length of each fragment shall always be an even number
+        # of octets, except for the last fragment of an MSDU or MMPDU
+        if aSize%2:
+            aSize += 1
+        
+        num_frags = body_len / aSize
+        
+        if body_len % aSize:
+            num_frags += 1
+        
+        size_list = []
+        for i in range(0, num_frags):
+            size_list.append(aSize)
+        return self.fragment_by_list(size_list)
+##        current_offset = 0
+##        fragment_list = []
+##
+##        for frag_size in aList:
+##            ip = IP()
+##            ip.set_bytes(ip_header_bytes) # copy of original header
+##            ip.set_ip_p(proto)
+##
+##
+##            if frag_size % 8:   # round this fragment size up to next multiple of 8
+##                frag_size += 8 - (frag_size % 8)
+##
+##
+##            ip.set_ip_offmask(current_offset / 8)
+##            current_offset += frag_size
+##
+##            data = Data(child_data[:frag_size])
+##            child_data = child_data[frag_size:]
+##
+##            ip.set_ip_len(20 + data.get_size())
+##            ip.contains(data)
+##
+##
+##            if child_data:
+##
+##                ip.set_ip_mf(1)
+##
+##                fragment_list.append(ip)
+##            else: # no more data bytes left to add to fragments
+##
+##                ip.set_ip_mf(0)
+##
+##                fragment_list.append(ip)
+##                return fragment_list
+##
+##        if child_data: # any remaining data?
+##            # create a fragment containing all of the remaining child_data
+##            ip = IP()
+##            ip.set_bytes(ip_header_bytes)
+##            ip.set_ip_offmask(current_offset)
+##            ip.set_ip_len(20 + len(child_data))
+##            data = Data(child_data)
+##            ip.contains(data)
+##            fragment_list.append(ip)
+##
+##        return fragment_list
+
+    
     def get_fcs(self):
         "Return 802.11 'FCS' field"
         
@@ -1120,21 +1189,27 @@ class SNAP(ProtocolPacket):
 
     def get_OUI(self):
         "Get the three-octet Organizationally Unique Identifier (OUI) SNAP frame"
-        return self.header.get_bytes()[0:3]
+        b=self.header.get_bytes()[0:3].tostring()
+        #unpack requires a string argument of length 4 and b is 3 bytes long
+        (oui,)=struct.unpack('!L', '\x00'+b)
+        return oui
 
     def set_OUI(self, value):
         "Set the three-octet Organizationally Unique Identifier (OUI) SNAP frame"
-        
-        for i in range(0, 3):
-            self.header.set_byte(0+i, value[i])
+        # clear the bits
+        mask = ((~0xFFFFFF00) & 0xFF)
+        masked = self.header.get_long(0, ">") & mask
+        # set the bits 
+        nb = masked | ((value & 0x00FFFFFF) << 8)
+        self.header.set_long(0, nb)
 
     def get_protoID(self):
         "Get the two-octet Protocol Identifier (PID) SNAP field"
-        return self.header.get_word(3, "<")
-    
+        return self.header.get_word(3, ">")
+
     def set_protoID(self, value):
         "Set the two-octet Protocol Identifier (PID) SNAP field"
-        self.header.set_word(3, value, "<")
+        self.header.set_word(3, value, ">")
 
 class Dot11WEP(ProtocolPacket):
     '802.11 WEP'
