@@ -20,6 +20,7 @@ import sys
 import types
 from ImpactPacket import ProtocolLayer, PacketBuffer
 from binascii import hexlify,crc32
+from Dot11Crypto import RC4
 
 class Dot11ManagementCapabilities:
     #
@@ -386,6 +387,7 @@ class ProtocolPacket(ProtocolLayer):
     
     def get_tail_as_string(self):
         return self.__tail.get_buffer_as_string()
+    tail_string = property(get_tail_as_string)
         
     def get_packet(self):
         self.__update_body_from_child()
@@ -618,75 +620,6 @@ class Dot11(ProtocolPacket):
         
         b = self.header.get_byte(0)
         return (b & 0x10) and True
-    
-    def fragment_by_size(self, aSize):
-        body_len = len(body_string)
-        if  not body_string or \
-            not self.get_type()!=Dot11Types.DOT11_TYPE_DATA or \
-            not self.get_type()!=Dot11Types.DOT11_TYPE_MANAGEMENT:
-            return [self]
-        
-        # The length of each fragment shall always be an even number
-        # of octets, except for the last fragment of an MSDU or MMPDU
-        if aSize%2:
-            aSize += 1
-        
-        num_frags = body_len / aSize
-        
-        if body_len % aSize:
-            num_frags += 1
-        
-        size_list = []
-        for i in range(0, num_frags):
-            size_list.append(aSize)
-        return self.fragment_by_list(size_list)
-##        current_offset = 0
-##        fragment_list = []
-##
-##        for frag_size in aList:
-##            ip = IP()
-##            ip.set_bytes(ip_header_bytes) # copy of original header
-##            ip.set_ip_p(proto)
-##
-##
-##            if frag_size % 8:   # round this fragment size up to next multiple of 8
-##                frag_size += 8 - (frag_size % 8)
-##
-##
-##            ip.set_ip_offmask(current_offset / 8)
-##            current_offset += frag_size
-##
-##            data = Data(child_data[:frag_size])
-##            child_data = child_data[frag_size:]
-##
-##            ip.set_ip_len(20 + data.get_size())
-##            ip.contains(data)
-##
-##
-##            if child_data:
-##
-##                ip.set_ip_mf(1)
-##
-##                fragment_list.append(ip)
-##            else: # no more data bytes left to add to fragments
-##
-##                ip.set_ip_mf(0)
-##
-##                fragment_list.append(ip)
-##                return fragment_list
-##
-##        if child_data: # any remaining data?
-##            # create a fragment containing all of the remaining child_data
-##            ip = IP()
-##            ip.set_bytes(ip_header_bytes)
-##            ip.set_ip_offmask(current_offset)
-##            ip.set_ip_len(20 + len(child_data))
-##            data = Data(child_data)
-##            ip.contains(data)
-##            fragment_list.append(ip)
-##
-##        return fragment_list
-
     
     def get_fcs(self):
         "Return 802.11 'FCS' field"
@@ -1238,7 +1171,7 @@ class Dot11WEP(ProtocolPacket):
         return iv
 
     def set_iv(self, value):
-        'Set the \'WEP IV\' field. If value is None, is auto_checksum"'
+        'Set the \'WEP IV\' field.'
         # clear the bits
         mask = ((~0xFFFFFF00) & 0xFF)
         masked = self.header.get_long(0, ">") & mask
@@ -1259,13 +1192,33 @@ class Dot11WEP(ProtocolPacket):
         # set the bits
         nb = masked | ((value & 0x03) << 6)
         self.header.set_byte(3, nb)
-
-    def get_decrypted_data(self):
+    
+    def get_decrypted_data(self, key_string):
         'Return \'WEP Data\' field decrypted'
-        # TODO: Replace it with the decoded string
-        # Ver 8.2.1.4.5 WEP MPDU decapsulation
-        return self.body_string
 
+        # Needs to be at least 8 bytes of payload 
+        if len(self.body_string)<8:
+            return self.body_string
+        
+        # initialize the first bytes of the key from the IV 
+        # and copy rest of the WEP key (the secret part) 
+        
+        # Convert IV to 3 bytes long string
+        iv=struct.pack('>L',self.get_iv())[-3:]
+        key=iv+key_string
+        rc4=RC4(key)
+        decrypted_data=rc4.decrypt(self.body_string)
+        
+        return decrypted_data
+    
+    def get_encrypted_data(self, key_string):
+        # RC4 is symmetric
+        return self.get_decrypted_data(key_string)
+    
+    def encrypt_frame(self, key_string):
+        enc = self.get_encrypted_data(key_string)
+        self.load_body(enc)
+    
 class Dot11WEPData(ProtocolPacket):
     '802.11 WEP Data Part'
 
@@ -1286,13 +1239,29 @@ class Dot11WEPData(ProtocolPacket):
     def set_icv(self, value = None):
         "Set 'WEP ICV' field"
 
-        # calculate the FCS
+        # Compute the WEP ICV
         if value is None:
-            value=self.compute_checksum(self.body_string)
+            value=self.get_computed_icv()
 
         # set the bits
         nb = value & 0xFFFFFFFF
         self.tail.set_long(-4, nb)
+    
+    def get_computed_icv(self):
+        crcle=crc32(self.body_string)&0xffffffffL
+        # This crc32 is in little endian, convert it to big endian 
+        crc=struct.pack('<L', crcle)
+         # Convert to long
+        (crc_long,) = struct.unpack('!L', crc)
+        return crc_long
+    
+    def check_icv(self):
+        computed_icv=self.get_computed_icv()
+        current_icv=self.get_icv()
+        if computed_icv==current_icv:
+            return True
+        else:
+            return False
 
 class Dot11WPA(ProtocolPacket):
     '802.11 WPA'

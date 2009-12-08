@@ -16,6 +16,8 @@
 
 import ImpactPacket
 import dot11
+from Dot11KeyManager import KeyManager
+from Dot11Crypto import RC4
 
 """Classes to convert from raw packets into a hierarchy of
 ImpactPacket derived objects.
@@ -42,6 +44,17 @@ class Decoder:
                 break
             protocol=protocol.child()
         return protocol
+    
+    def __str__(self):
+        protocol = self.__decoded_protocol
+        i=0
+        out=''
+        while protocol:
+            tabline=' '*i+'+-'+str(protocol.__class__)
+            out+="%s"%tabline+'\n'
+            protocol=protocol.child()
+            i+=1
+        return out
 
 class EthDecoder(Decoder):
     def __init__(self):
@@ -193,7 +206,26 @@ class DataDecoder(Decoder):
         self.set_decoded_protocol( d )
         return d
 
-class RadioTapDecoder(Decoder):
+class BaseDot11Decoder(Decoder):
+    def __init__(self, key_manager=None):
+        self.set_key_manager(key_manager)
+        
+    def set_key_manager(self, key_manager):
+        if not key_manager :
+            self.key_manager = KeyManager()
+        else:
+            if not isinstance(key_manager, KeyManager):
+                raise Exception('key_manager must be an instance of KeyManager (or a subclass)')
+            self.key_manager = key_manager
+        
+    def find_key(self, bssid):
+        try:
+            key = self.key_manager.get_key(bssid)
+        except:
+            return False
+        return key
+
+class RadioTapDecoder(BaseDot11Decoder):
     def __init__(self):
         pass
 
@@ -212,10 +244,10 @@ class RadioTapDecoder(Decoder):
         rt.contains(packet)
         return rt
 
-class Dot11Decoder(Decoder):
-    __FCS_at_end = True
+class Dot11Decoder(BaseDot11Decoder):
     def __init__(self):
-        pass
+        BaseDot11Decoder.__init__(self)
+        self.__FCS_at_end = True
         
     def FCS_at_end(self, fcs_at_end=True):
         self.__FCS_at_end=not not fcs_at_end 
@@ -230,6 +262,8 @@ class Dot11Decoder(Decoder):
             packet = dot11_control_decoder.decode(d.body_string)
         elif type == dot11.Dot11Types.DOT11_TYPE_DATA:
             dot11_data_decoder = Dot11DataDecoder()
+            dot11_data_decoder.set_key_manager(self.key_manager)
+                
             if d.get_fromDS() and d.get_toDS():
                 dot11_data_decoder.set_Addr4()
             if d.is_QoS_frame():
@@ -249,10 +283,10 @@ class Dot11Decoder(Decoder):
         d.contains(packet)
         return d
 
-class Dot11ControlDecoder(Decoder):
-    __FCS_at_end = True
+class Dot11ControlDecoder(BaseDot11Decoder):
     def __init__(self):
-        pass
+        BaseDot11Decoder.__init__(self)
+        self.__FCS_at_end = True
 
     def FCS_at_end(self, fcs_at_end=True):
         self.__FCS_at_end=not not fcs_at_end 
@@ -287,70 +321,73 @@ class Dot11ControlDecoder(Decoder):
         d.contains(packet)
         return d
 
-class Dot11ControlFrameCTSDecoder(Decoder):
+class Dot11ControlFrameCTSDecoder(BaseDot11Decoder):
     def __init__(self):
-        pass
+        BaseDot11Decoder.__init__(self)
     
     def decode(self, aBuffer):
         p = dot11.Dot11ControlFrameCTS(aBuffer)
         self.set_decoded_protocol(p)
         return p
 
-class Dot11ControlFrameACKDecoder(Decoder):
+class Dot11ControlFrameACKDecoder(BaseDot11Decoder):
     def __init__(self):
-        pass
+        BaseDot11Decoder.__init__(self)
     
     def decode(self, aBuffer):
         p = dot11.Dot11ControlFrameACK(aBuffer)
         self.set_decoded_protocol(p)
         return p
 
-class Dot11ControlFrameRTSDecoder(Decoder):
+class Dot11ControlFrameRTSDecoder(BaseDot11Decoder):
     def __init__(self):
-        pass
+        BaseDot11Decoder.__init__(self)
     
     def decode(self, aBuffer):
         p = dot11.Dot11ControlFrameRTS(aBuffer)
         self.set_decoded_protocol(p)
         return p
 
-class Dot11ControlFramePSPollDecoder(Decoder):
+class Dot11ControlFramePSPollDecoder(BaseDot11Decoder):
     def __init__(self):
-        pass
+        BaseDot11Decoder.__init__(self)
     
     def decode(self, aBuffer):
         p = dot11.Dot11ControlFramePSPoll(aBuffer)
         self.set_decoded_protocol(p)
         return p
 
-class Dot11ControlFrameCFEndDecoder(Decoder):
+class Dot11ControlFrameCFEndDecoder(BaseDot11Decoder):
     def __init__(self):
-        pass
+        BaseDot11Decoder.__init__(self)
     
     def decode(self, aBuffer):
         p = dot11.Dot11ControlFrameCFEnd(aBuffer)
         self.set_decoded_protocol(p)
         return p
-
-class Dot11ControlFrameCFEndCFACKDecoder(Decoder):
+class Dot11ControlFrameCFEndCFACKDecoder(BaseDot11Decoder):
     def __init__(self):
-        pass
+        BaseDot11Decoder.__init__(self)
     
     def decode(self, aBuffer):
         p = dot11.Dot11ControlFrameCFEndCFACK(aBuffer)
         self.set_decoded_protocol(p)
         return p
 
-class Dot11DataDecoder(Decoder):
+class Dot11DataDecoder(BaseDot11Decoder):
     def __init__(self):
+        BaseDot11Decoder.__init__(self)
         self.QoS=False
         self.Addr4=False
         self.Private=False
+        self.fromds=False
         
     def set_QoS(self):
         self.QoS = True
+
     def set_Addr4(self):
         self.Addr4 = True
+
     def set_privateFrame(self):
         self.Private = True
         
@@ -370,7 +407,10 @@ class Dot11DataDecoder(Decoder):
             self.llc_decoder = LLCDecoder()
             packet = self.llc_decoder.decode(p.body_string)
         else:
-            wep_decoder = Dot11WEPDecoder()
+            #If it's "Type: Data Subtype: Data", the 3rd Addr is the BSSID
+            bssid=p.get_address3()
+            wep_decoder = Dot11WEPDecoder(self.key_manager)
+            wep_decoder.set_bssid(bssid)
             packet = wep_decoder.decode(p.body_string)
             if packet is None:
                 wpa_decoder = Dot11WPADecoder()
@@ -385,36 +425,66 @@ class Dot11DataDecoder(Decoder):
         p.contains(packet)
         return p
       
-class Dot11WEPDecoder(Decoder):
-    def __init__(self):
-        pass
+class Dot11WEPDecoder(BaseDot11Decoder):
+    def __init__(self, key_manager):
+        BaseDot11Decoder.__init__(self, key_manager)
+        self.bssid = None
         
-    def decode(self, aBuffer, key=None):
+    def set_bssid(self, bssid):
+        self.bssid = bssid
+        
+    def decode(self, aBuffer):
         wep = dot11.Dot11WEP(aBuffer)
         self.set_decoded_protocol( wep )
-
+        
         if wep.is_WEP() is False:
             return None
         
-	if key:
-	        decoded_string=wep.get_decrypted_data()
-
-	        wep_data = Dot11WEPDataDecoder()
-        	packet = wep_data.decode(decoded_string)
-	else:
-		data_decoder = DataDecoder()
-		packet = data_decoder.decode(wep.body_string)
+        key = self.find_key(self.bssid)
+        if key:
+            decoded_string=wep.get_decrypted_data(key)
+            
+            wep_data = Dot11WEPDataDecoder()
+            packet = wep_data.decode(decoded_string)
+        else:
+            data_decoder = DataDecoder()
+            packet = data_decoder.decode(wep.body_string)
         
         wep.contains(packet)
         
         return wep
 
-class Dot11WEPDataDecoder(Decoder):
+    def decrypt_data(self, key_string):
+        'Return \'WEP Data\' decrypted'
+        
+        # Needs to be at least 8 bytes of payload 
+        if len(self.body_string)<8:
+            return self.body_string
+        
+        # initialize the first bytes of the key from the IV 
+        # and copy rest of the WEP key (the secret part) 
+        key=self.get_iv()+key_string
+        rc4=RC4(key)
+        out=rc4.decrypt(data)
+        dwd=Dot11WEPData(out)
+        
+        if False: # is ICV correct
+            return dwd
+        else:
+            return self.body_string
+
+
+class Dot11WEPDataDecoder(BaseDot11Decoder):
     def __init__(self):
-        pass
+        BaseDot11Decoder.__init__(self)
         
     def decode(self, aBuffer):
         wep_data = dot11.Dot11WEPData(aBuffer)
+        
+        if not wep_data.check_icv():
+            # TODO: Do something when the icv is not correct
+            pass
+
         self.set_decoded_protocol( wep_data )
 
         llc_decoder = LLCDecoder()
@@ -425,9 +495,9 @@ class Dot11WEPDataDecoder(Decoder):
         return wep_data
 
 
-class Dot11WPADecoder(Decoder):
+class Dot11WPADecoder(BaseDot11Decoder):
     def __init__(self):
-        pass
+        BaseDot11Decoder.__init__(self)
         
     def decode(self, aBuffer, key=None):
         wpa = dot11.Dot11WPA(aBuffer)
@@ -436,22 +506,22 @@ class Dot11WPADecoder(Decoder):
         if wpa.is_WPA() is False:
             return None
         
-	if key:
-		decoded_string=wpa.get_decrypted_data()
-		
-		wpa_data = Dot11DataWPADataDecoder()
-		packet = wpa_data.decode(decoded_string)
-	else:
-		data_decoder = DataDecoder()
-		packet = data_decoder.decode(wpa.body_string)
+        if key:
+            decoded_string=wpa.get_decrypted_data()
+            
+            wpa_data = Dot11DataWPADataDecoder()
+            packet = wpa_data.decode(decoded_string)
+        else:
+            data_decoder = DataDecoder()
+            packet = data_decoder.decode(wpa.body_string)
         
         wpa.contains(packet)
         
         return wpa
     
-class Dot11WPADataDecoder(Decoder):
+class Dot11WPADataDecoder(BaseDot11Decoder):
     def __init__(self):
-        pass
+        BaseDot11Decoder.__init__(self)
         
     def decode(self, aBuffer):
         wpa_data = dot11.Dot11WPAData(aBuffer)
@@ -464,9 +534,9 @@ class Dot11WPADataDecoder(Decoder):
         
         return wpa_data
 
-class Dot11WPA2Decoder(Decoder):
+class Dot11WPA2Decoder(BaseDot11Decoder):
     def __init__(self):
-        pass
+        BaseDot11Decoder.__init__(self)
         
     def decode(self, aBuffer, key=None):
         wpa2 = dot11.Dot11WPA2(aBuffer)
@@ -475,22 +545,22 @@ class Dot11WPA2Decoder(Decoder):
         if wpa2.is_WPA2() is False:
             return None
         
-	if key:
-		decoded_string=wpa2.get_decrypted_data()
-		
-		wpa2_data = Dot11WPA2DataDecoder()
-		packet = wpa2_data.decode(decoded_string)
-	else:
-		data_decoder = DataDecoder()
-		packet = data_decoder.decode(wpa2.body_string)
+        if key:
+            decoded_string=wpa2.get_decrypted_data()
+            
+            wpa2_data = Dot11WPA2DataDecoder()
+            packet = wpa2_data.decode(decoded_string)
+        else:
+            data_decoder = DataDecoder()
+            packet = data_decoder.decode(wpa2.body_string)
+
+            wpa2.contains(packet)
+            
+            return wpa2
         
-        wpa2.contains(packet)
-        
-        return wpa2
-    
-class Dot11WPA2DataDecoder(Decoder):
+class Dot11WPA2DataDecoder(BaseDot11Decoder):
     def __init__(self):
-        pass
+        BaseDot11Decoder.__init__(self)
         
     def decode(self, aBuffer):
         wpa2_data = dot11.Dot11WPA2Data(aBuffer)
@@ -549,10 +619,10 @@ class SNAPDecoder(Decoder):
         s.contains(packet)
         return s
 
-class Dot11ManagementDecoder(Decoder):
-    subtype = None
+class Dot11ManagementDecoder(BaseDot11Decoder):
     def __init__(self):
-        pass
+        BaseDot11Decoder.__init__(self)
+        self.subtype = None
         
     def set_subtype(self, subtype):
         self.subtype=subtype
@@ -580,9 +650,9 @@ class Dot11ManagementDecoder(Decoder):
         p.contains(packet)
         return p
 
-class Dot11ManagementBeaconDecoder(Decoder):
+class Dot11ManagementBeaconDecoder(BaseDot11Decoder):
     def __init__(self):
-        pass
+        BaseDot11Decoder.__init__(self)
         
     def decode(self, aBuffer):
         p = dot11.Dot11ManagementBeacon(aBuffer)
@@ -590,9 +660,9 @@ class Dot11ManagementBeaconDecoder(Decoder):
         
         return p
 
-class Dot11ManagementProbeRequestDecoder(Decoder):
+class Dot11ManagementProbeRequestDecoder(BaseDot11Decoder):
     def __init__(self):
-        pass
+        BaseDot11Decoder.__init__(self)
         
     def decode(self, aBuffer):
         p = dot11.Dot11ManagementProbeRequest(aBuffer)
@@ -600,9 +670,9 @@ class Dot11ManagementProbeRequestDecoder(Decoder):
         
         return p
 
-class Dot11ManagementProbeResponseDecoder(Decoder):
+class Dot11ManagementProbeResponseDecoder(BaseDot11Decoder):
     def __init__(self):
-        pass
+        BaseDot11Decoder.__init__(self)
         
     def decode(self, aBuffer):
         p = dot11.Dot11ManagementProbeResponse(aBuffer)
@@ -610,9 +680,9 @@ class Dot11ManagementProbeResponseDecoder(Decoder):
         
         return p
 
-class Dot11ManagementDeauthenticationDecoder(Decoder):
+class Dot11ManagementDeauthenticationDecoder(BaseDot11Decoder):
     def __init__(self):
-        pass
+        BaseDot11Decoder.__init__(self)
         
     def decode(self, aBuffer):
         p = dot11.Dot11ManagementDeauthentication(aBuffer)
