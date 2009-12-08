@@ -519,7 +519,10 @@ class IP(Header):
         self.set_ip_ttl(255)
         self.__option_list = []
         if(aBuffer):
+            # When decoding, checksum shouldn't be modified
+            self.auto_checksum = 0
             self.load_header(aBuffer)
+            
         if sys.platform.count('bsd'):
             self.is_BSD = True
         else:
