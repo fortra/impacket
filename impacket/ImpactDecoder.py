@@ -643,6 +643,24 @@ class Dot11ManagementDecoder(BaseDot11Decoder):
         elif self.subtype is dot11.Dot11Types.DOT11_SUBTYPE_MANAGEMENT_DEAUTHENTICATION:
             self.mgt_deauthentication_decoder = Dot11ManagementDeauthenticationDecoder()
             packet = self.mgt_deauthentication_decoder.decode(p.body_string)
+        elif self.subtype is dot11.Dot11Types.DOT11_SUBTYPE_MANAGEMENT_AUTHENTICATION:
+            self.mgt_Authentication_decoder = Dot11ManagementAuthenticationDecoder()
+            packet = self.mgt_Authentication_decoder.decode(p.body_string)
+        elif self.subtype is dot11.Dot11Types.DOT11_SUBTYPE_MANAGEMENT_DISASSOCIATION:
+            self.mgt_disassociation_decoder = Dot11ManagementDisassociationDecoder()
+            packet = self.mgt_disassociation_decoder.decode(p.body_string)
+        elif self.subtype is dot11.Dot11Types.DOT11_SUBTYPE_MANAGEMENT_ASSOCIATION_REQUEST:
+            self.mgt_association_request_decoder = Dot11ManagementAssociationRequestDecoder()
+            packet = self.mgt_association_request_decoder.decode(p.body_string)
+        elif self.subtype is dot11.Dot11Types.DOT11_SUBTYPE_MANAGEMENT_ASSOCIATION_RESPONSE:
+            self.mgt_association_response_decoder = Dot11ManagementAssociationResponseDecoder()
+            packet = self.mgt_association_response_decoder.decode(p.body_string)
+        elif self.subtype is dot11.Dot11Types.DOT11_SUBTYPE_MANAGEMENT_REASSOCIATION_REQUEST:
+            self.mgt_reassociation_request_decoder = Dot11ManagementReassociationRequestDecoder()
+            packet = self.mgt_reassociation_request_decoder.decode(p.body_string)
+        elif self.subtype is dot11.Dot11Types.DOT11_SUBTYPE_MANAGEMENT_REASSOCIATION_RESPONSE:
+            self.mgt_reassociation_response_decoder = Dot11ManagementReassociationResponseDecoder()
+            packet = self.mgt_reassociation_response_decoder.decode(p.body_string)
         else:
             data_decoder = DataDecoder()
             packet = data_decoder.decode(p.body_string)
@@ -683,9 +701,69 @@ class Dot11ManagementProbeResponseDecoder(BaseDot11Decoder):
 class Dot11ManagementDeauthenticationDecoder(BaseDot11Decoder):
     def __init__(self):
         BaseDot11Decoder.__init__(self)
-        
+
     def decode(self, aBuffer):
         p = dot11.Dot11ManagementDeauthentication(aBuffer)
         self.set_decoded_protocol( p )
+
+        return p
+
+class Dot11ManagementAuthenticationDecoder(BaseDot11Decoder):
+    def __init__(self):
+        BaseDot11Decoder.__init__(self)
+
+    def decode(self, aBuffer):
+        p = dot11.Dot11ManagementAuthentication(aBuffer)
+        self.set_decoded_protocol(p)
+
+        return p
+
+class Dot11ManagementDisassociationDecoder(BaseDot11Decoder):
+    def __init__(self):
+        BaseDot11Decoder.__init__(self)
+        
+    def decode(self, aBuffer):
+        p = dot11.Dot11ManagementDisassociation(aBuffer)
+        self.set_decoded_protocol(p)
+        
+        return p
+
+class Dot11ManagementAssociationRequestDecoder(BaseDot11Decoder):
+    def __init__(self):
+        BaseDot11Decoder.__init__(self)
+        
+    def decode(self, aBuffer):
+        p = dot11.Dot11ManagementAssociationRequest(aBuffer)
+        self.set_decoded_protocol(p)
+        
+        return p
+
+class Dot11ManagementAssociationResponseDecoder(BaseDot11Decoder):
+    def __init__(self):
+        BaseDot11Decoder.__init__(self)
+        
+    def decode(self, aBuffer):
+        p = dot11.Dot11ManagementAssociationResponse(aBuffer)
+        self.set_decoded_protocol(p)
+        
+        return p
+
+class Dot11ManagementReassociationRequestDecoder(BaseDot11Decoder):
+    def __init__(self):
+        BaseDot11Decoder.__init__(self)
+        
+    def decode(self, aBuffer):
+        p = dot11.Dot11ManagementReassociationRequest(aBuffer)
+        self.set_decoded_protocol(p)
+        
+        return p
+
+class Dot11ManagementReassociationResponseDecoder(BaseDot11Decoder):
+    def __init__(self):
+        BaseDot11Decoder.__init__(self)
+        
+    def decode(self, aBuffer):
+        p = dot11.Dot11ManagementReassociationResponse(aBuffer)
+        self.set_decoded_protocol(p)
         
         return p
