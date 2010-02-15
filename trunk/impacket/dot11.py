@@ -100,7 +100,7 @@ class Dot11Types():
     DOT11_TYPE_MANAGEMENT_SUBTYPE_REASSOCIATION_REQUEST = \
         DOT11_TYPE_MANAGEMENT|DOT11_SUBTYPE_MANAGEMENT_REASSOCIATION_REQUEST<<2
     DOT11_TYPE_MANAGEMENT_SUBTYPE_REASSOCIATION_RESPONSE = \
-        DOT11_TYPE_MANAGEMENT|DOT11_SUBTYPE_MANAGEMENT_REASSOCIATION_REQUEST<<2
+        DOT11_TYPE_MANAGEMENT|DOT11_SUBTYPE_MANAGEMENT_REASSOCIATION_RESPONSE<<2
     DOT11_TYPE_MANAGEMENT_SUBTYPE_PROBE_REQUEST = \
         DOT11_TYPE_MANAGEMENT|DOT11_SUBTYPE_MANAGEMENT_PROBE_REQUEST<<2
     DOT11_TYPE_MANAGEMENT_SUBTYPE_PROBE_RESPONSE = \
@@ -2623,8 +2623,448 @@ class Dot11ManagementDeauthentication(ProtocolPacket):
             ProtocolPacket.__init__(self, header_size, tail_size)
 
     def get_reason_code(self):
-        "Get the 802.11 Management Deauthentication or Diassociation Code."
+        "Get the 802.11 Management Deauthentication or Disassociation Code."
         return self.header.get_word(0, "<")
 
     def set_reason_code(self, rc):
         self.header.set_word(0, rc, "<")
+
+class Dot11ManagementAuthentication(Dot11ManagementHelper):
+    '802.11 Management Authentication Frame'
+
+    __HEADER_BASE_SIZE = 6 # minimal header size
+
+    def __init__(self, aBuffer = None):
+        header_size = self.__HEADER_BASE_SIZE
+        tail_size = 0
+        Dot11ManagementHelper.__init__(self, header_size, tail_size, aBuffer)
+
+    def get_authentication_algorithm(self):
+        "Get the 802.11 Management Authentication Algorithm."
+        return self.header.get_word(0, "<")
+
+    def set_authentication_algorithm(self, aa):
+        "Set the 802.11 Management Authentication Algorithm."
+        self.header.set_word(0, aa, "<")
+
+    def get_authentication_sequence(self):
+        "Get the 802.11 Management Authentication Sequence."
+        return self.header.get_word(2, ">")
+
+    def set_authentication_sequence(self, as):
+        "Set the 802.11 Management Authentication Sequence."
+        self.header.set_word(2, as, ">")
+
+    def get_authentication_status(self):
+        "Get the 802.11 Management Authentication Status."
+        return self.header.get_word(4, "<")
+
+    def set_authentication_status(self, as):
+        "Set the 802.11 Management Authentication Status."
+        self.header.set_word(4, as, "<")
+
+    def get_vendor_specific(self):
+        "Get the 802.11 Management Vendor Specific elements "\
+        "as a list of tuples."
+        "The Vendor Specific information element is used to carry "\
+        "information not defined in the standard within a single "\
+        "defined format"
+        
+        vs=[]
+        gen_get_element=self._get_elements_generator(DOT11_MANAGEMENT_ELEMENTS.VENDOR_SPECIFIC)
+        try:
+            while 1:
+                s=gen_get_element.next()
+                
+                if s is None:
+                    raise Exception("gen_get_element salio con None!!!")
+                
+                # OUI is 3 bytes
+                oui=s[:3]
+                data=s[3:]
+                vs.append((oui,data))
+        except StopIteration:
+            pass
+            
+        return vs
+
+    def add_vendor_specific(self, oui, data):
+        "Set the 802.11 Management Vendor Specific element. "\
+        "The Vendor Specific information element is used to carry "\
+        "information not defined in the standard within a single "\
+        "defined format"
+        
+        # 3 is the OUI length
+        max_data_len=255-3
+        data_len=len(data)
+
+        if data_len>max_data_len:
+            raise Exception("data allow up to %d bytes long" % max_data)
+        if len(oui) > 3:
+            raise Exception("oui is three bytes long")
+        
+        self._set_element(DOT11_MANAGEMENT_ELEMENTS.VENDOR_SPECIFIC,oui+data, replace=False)
+
+class Dot11ManagementDisassociation(Dot11ManagementDeauthentication):
+    '802.11 Management Disassociation Frame'
+
+    def __init__(self, aBuffer = None):
+        Dot11ManagementDeauthentication.__init__(self, aBuffer)
+
+class Dot11ManagementAssociationRequest(Dot11ManagementHelper):
+    '802.11 Management Association Request Frame'
+        
+    __HEADER_BASE_SIZE = 4 # minimal header size
+
+    def __init__(self, aBuffer = None):
+        header_size = self.__HEADER_BASE_SIZE
+        tail_size = 0
+        Dot11ManagementHelper.__init__(self, header_size, tail_size, aBuffer)
+
+    def get_capabilities(self):
+        'Return the 802.11 Management Association Request Frame \'Capability information\' field. '
+        b = self.header.get_word(0, "<")
+        return b 
+
+    def set_capabilities(self, value):
+        'Set the 802.11 Management Association Request Frame \'Capability Information\' field' 
+        # set the bits
+        nb = value & 0xFFFF
+        self.header.set_word(0, nb, "<")
+        
+    def get_listen_interval(self):
+        'Return the 802.11 Management Association Request Frame \'Listen Interval\' field. '
+        b = self.header.get_word(2, "<")
+        return b 
+
+    def set_listen_interval(self, value):
+        'Set the 802.11 Management Association Request Frame \'Listen Interval\' field' 
+        self.header.set_word(2, value, "<")
+        
+    def get_ssid(self):
+        "Get the 802.11 Management SSID element. "\
+        "The SSID element indicates the identity of an ESS or IBSS."
+        return self._get_element(DOT11_MANAGEMENT_ELEMENTS.SSID)
+
+    def set_ssid(self, ssid):
+        self._set_element(DOT11_MANAGEMENT_ELEMENTS.SSID,ssid)
+
+    def get_supported_rates(self, human_readable=False):
+        "Get the 802.11 Management Supported Rates element. "\
+        "Specifies up to eight rates, then an Extended Supported Rate element "\
+        "shall be generated to specify the remaining supported rates."\
+        "If human_readable is True, the rates are returned in Mbit/sec"
+        s=self._get_element(DOT11_MANAGEMENT_ELEMENTS.SUPPORTED_RATES)
+        if s is None:
+            return None
+        
+        rates=struct.unpack('%dB'%len(s),s)
+        if not human_readable:
+            return rates
+            
+        rates_Mbs=tuple(map(lambda x: (x&0x7F)*0.5,rates))
+        return rates_Mbs
+
+    def set_supported_rates(self, rates):
+        "Set the 802.11 Management Supported Rates element. "\
+        "Specifies a tuple or list with up to eight rates, then an "\
+        "Extended Supported Rate element shall be generated to specify "\
+        "the remaining supported rates."
+        qty_rates=len(rates)
+        if qty_rates>8:
+            raise Exception("requires up to eight rates")
+        rates_string=struct.pack('B'*qty_rates,*rates)
+        self._set_element(DOT11_MANAGEMENT_ELEMENTS.SUPPORTED_RATES,rates_string)
+
+    def get_rsn(self):
+        "Get the 802.11 Management Robust Security Network element."
+        s = self._get_element(DOT11_MANAGEMENT_ELEMENTS.RSN)
+        if s is None:
+            return None
+        return s
+
+    def set_rsn(self, data):
+        "Set the 802.11 Management Robust Security Network element."
+        self._set_element(DOT11_MANAGEMENT_ELEMENTS.RSN, data)
+
+    def get_vendor_specific(self):
+        "Get the 802.11 Management Vendor Specific elements "\
+        "as a list of tuples."
+        "The Vendor Specific information element is used to carry "\
+        "information not defined in the standard within a single "\
+        "defined format"
+        
+        vs=[]
+        gen_get_element=self._get_elements_generator(DOT11_MANAGEMENT_ELEMENTS.VENDOR_SPECIFIC)
+        try:
+            while 1:
+                s=gen_get_element.next()
+                
+                if s is None:
+                    raise Exception("gen_get_element salio con None!!!")
+                
+                # OUI is 3 bytes
+                oui=s[:3]
+                data=s[3:]
+                vs.append((oui,data))
+        except StopIteration:
+            pass
+            
+        return vs
+
+    def add_vendor_specific(self, oui, data):
+        "Set the 802.11 Management Vendor Specific element. "\
+        "The Vendor Specific information element is used to carry "\
+        "information not defined in the standard within a single "\
+        "defined format"
+        
+        # 3 is the OUI length
+        max_data_len=255-3
+        data_len=len(data)
+
+        if data_len>max_data_len:
+            raise Exception("data allow up to %d bytes long" % max_data)
+        if len(oui) > 3:
+            raise Exception("oui is three bytes long")
+        
+        self._set_element(DOT11_MANAGEMENT_ELEMENTS.VENDOR_SPECIFIC,oui+data, replace=False)
+
+class Dot11ManagementAssociationResponse(Dot11ManagementHelper):
+    '802.11 Management Association Response Frame'
+        
+    __HEADER_BASE_SIZE = 6 # minimal header size
+
+    def __init__(self, aBuffer = None):
+        header_size = self.__HEADER_BASE_SIZE
+        tail_size = 0
+        Dot11ManagementHelper.__init__(self, header_size, tail_size, aBuffer)
+
+    def get_capabilities(self):
+        'Return the 802.11 Management Association Response Frame \'Capability information\' field. '
+        b = self.header.get_word(0, "<")
+        return b 
+
+    def set_capabilities(self, value):
+        'Set the 802.11 Management Association Response Frame \'Capability Information\' field' 
+        # set the bits
+        nb = value & 0xFFFF
+        self.header.set_word(0, nb, "<")
+        
+    def get_status_code(self):
+        'Return the 802.11 Management Association Response Frame \'Status Code\' field. '
+        b = self.header.get_word(2, "<")
+        return b 
+
+    def set_status_code(self, value):
+        'Set the 802.11 Management Association Response Frame \'Status Code\' field' 
+        self.header.set_word(2, value, "<")
+
+    def get_association_id(self):
+        'Return the 802.11 Management Association Response Frame \'Association Id\' field. '
+        b = self.header.get_word(4, "<")
+        return b 
+
+    def set_association_id(self, value):
+        'Set the 802.11 Management Association Response Frame \'Association Id\' field' 
+        self.header.set_word(4, value, "<")
+
+    def get_supported_rates(self, human_readable=False):
+        "Get the 802.11 Management Supported Rates element. "\
+        "Specifies up to eight rates, then an Extended Supported Rate element "\
+        "shall be generated to specify the remaining supported rates."\
+        "If human_readable is True, the rates are returned in Mbit/sec"
+        s=self._get_element(DOT11_MANAGEMENT_ELEMENTS.SUPPORTED_RATES)
+        if s is None:
+            return None
+        
+        rates=struct.unpack('%dB'%len(s),s)
+        if not human_readable:
+            return rates
+            
+        rates_Mbs=tuple(map(lambda x: (x&0x7F)*0.5,rates))
+        return rates_Mbs
+
+    def set_supported_rates(self, rates):
+        "Set the 802.11 Management Supported Rates element. "\
+        "Specifies a tuple or list with up to eight rates, then an "\
+        "Extended Supported Rate element shall be generated to specify "\
+        "the remaining supported rates."
+        qty_rates=len(rates)
+        if qty_rates>8:
+            raise Exception("requires up to eight rates")
+        rates_string=struct.pack('B'*qty_rates,*rates)
+        self._set_element(DOT11_MANAGEMENT_ELEMENTS.SUPPORTED_RATES,rates_string)
+
+    def get_vendor_specific(self):
+        "Get the 802.11 Management Vendor Specific elements "\
+        "as a list of tuples."
+        "The Vendor Specific information element is used to carry "\
+        "information not defined in the standard within a single "\
+        "defined format"
+        
+        vs=[]
+        gen_get_element=self._get_elements_generator(DOT11_MANAGEMENT_ELEMENTS.VENDOR_SPECIFIC)
+        try:
+            while 1:
+                s=gen_get_element.next()
+                
+                if s is None:
+                    raise Exception("gen_get_element salio con None!!!")
+                
+                # OUI is 3 bytes
+                oui=s[:3]
+                data=s[3:]
+                vs.append((oui,data))
+        except StopIteration:
+            pass
+            
+        return vs
+
+    def add_vendor_specific(self, oui, data):
+        "Set the 802.11 Management Vendor Specific element. "\
+        "The Vendor Specific information element is used to carry "\
+        "information not defined in the standard within a single "\
+        "defined format"
+        
+        # 3 is the OUI length
+        max_data_len=255-3
+        data_len=len(data)
+        if data_len>max_data_len:
+            raise Exception("data allow up to %d bytes long" % max_data)
+        if len(oui) > 3:
+            raise Exception("oui is three bytes long")
+        
+        self._set_element(DOT11_MANAGEMENT_ELEMENTS.VENDOR_SPECIFIC,oui+data, replace=False)
+
+class Dot11ManagementReassociationRequest(Dot11ManagementHelper):
+    '802.11 Management Reassociation Request Frame'
+        
+    __HEADER_BASE_SIZE = 10 # minimal header size
+
+    def __init__(self, aBuffer = None):
+        header_size = self.__HEADER_BASE_SIZE
+        tail_size = 0
+        Dot11ManagementHelper.__init__(self, header_size, tail_size, aBuffer)
+
+    def get_capabilities(self):
+        'Return the 802.11 Management Reassociation Request Frame \'Capability information\' field. '
+        b = self.header.get_word(0, "<")
+        return b 
+
+    def set_capabilities(self, value):
+        'Set the 802.11 Management Reassociation Request Frame \'Capability Information\' field' 
+        # set the bits
+        nb = value & 0xFFFF
+        self.header.set_word(0, nb, "<")
+
+    def get_listen_interval(self):
+        'Return the 802.11 Management Reassociation Request Frame \'Listen Interval\' field. '
+        b = self.header.get_word(2, "<")
+        return b 
+
+    def set_listen_interval(self, value):
+        'Set the 802.11 Management Reassociation Request Frame \'Listen Interval\' field' 
+        self.header.set_word(2, value, "<")
+
+    def get_current_ap(self):
+        'Return the 802.11 Management Reassociation Request Frame \'Current AP\' field.'
+        return self.header.get_bytes()[4:10]
+
+    def set_current_ap(self, value):
+        'Set the 802.11 Management Reassociation Request Frame \'Current AP\' field'
+        for i in range(0, 6):
+            self.header.set_byte(4+i, value[i])
+
+    def get_ssid(self):
+        "Get the 802.11 Management SSID element. "\
+        "The SSID element indicates the identity of an ESS or IBSS."
+        return self._get_element(DOT11_MANAGEMENT_ELEMENTS.SSID)
+
+    def set_ssid(self, ssid):
+        self._set_element(DOT11_MANAGEMENT_ELEMENTS.SSID,ssid)
+
+    def get_supported_rates(self, human_readable=False):
+        "Get the 802.11 Management Supported Rates element. "\
+        "Specifies up to eight rates, then an Extended Supported Rate element "\
+        "shall be generated to specify the remaining supported rates."\
+        "If human_readable is True, the rates are returned in Mbit/sec"
+        s=self._get_element(DOT11_MANAGEMENT_ELEMENTS.SUPPORTED_RATES)
+        if s is None:
+            return None
+        
+        rates=struct.unpack('%dB'%len(s),s)
+        if not human_readable:
+            return rates
+            
+        rates_Mbs=tuple(map(lambda x: (x&0x7F)*0.5,rates))
+        return rates_Mbs
+
+    def set_supported_rates(self, rates):
+        "Set the 802.11 Management Supported Rates element. "\
+        "Specifies a tuple or list with up to eight rates, then an "\
+        "Extended Supported Rate element shall be generated to specify "\
+        "the remaining supported rates."
+        qty_rates=len(rates)
+        if qty_rates>8:
+            raise Exception("requires up to eight rates")
+        rates_string=struct.pack('B'*qty_rates,*rates)
+        self._set_element(DOT11_MANAGEMENT_ELEMENTS.SUPPORTED_RATES,rates_string)
+
+    def get_rsn(self):
+        "Get the 802.11 Management Robust Security Network element."
+        s = self._get_element(DOT11_MANAGEMENT_ELEMENTS.RSN)
+        if s is None:
+            return None
+        return s
+
+    def set_rsn(self, data):
+        "Set the 802.11 Management Robust Security Network element."
+        self._set_element(DOT11_MANAGEMENT_ELEMENTS.RSN, data)
+
+    def get_vendor_specific(self):
+        "Get the 802.11 Management Vendor Specific elements "\
+        "as a list of tuples."
+        "The Vendor Specific information element is used to carry "\
+        "information not defined in the standard within a single "\
+        "defined format"
+        
+        vs=[]
+        gen_get_element=self._get_elements_generator(DOT11_MANAGEMENT_ELEMENTS.VENDOR_SPECIFIC)
+        try:
+            while 1:
+                s=gen_get_element.next()
+                
+                if s is None:
+                    raise Exception("gen_get_element salio con None!!!")
+                
+                # OUI is 3 bytes
+                oui=s[:3]
+                data=s[3:]
+                vs.append((oui,data))
+        except StopIteration:
+            pass
+            
+        return vs
+
+    def add_vendor_specific(self, oui, data):
+        "Set the 802.11 Management Vendor Specific element. "\
+        "The Vendor Specific information element is used to carry "\
+        "information not defined in the standard within a single "\
+        "defined format"
+        
+        # 3 is the OUI length
+        max_data_len=255-3
+        data_len=len(data)
+
+        if data_len>max_data_len:
+            raise Exception("data allow up to %d bytes long" % max_data)
+        if len(oui) > 3:
+            raise Exception("oui is three bytes long")
+        
+        self._set_element(DOT11_MANAGEMENT_ELEMENTS.VENDOR_SPECIFIC,oui+data, replace=False)
+
+class Dot11ManagementReassociationResponse(Dot11ManagementAssociationResponse):
+    '802.11 Management Reassociation Response Frame'
+
+    def __init__(self, aBuffer = None):
+        Dot11ManagementAssociationResponse.__init__(self, aBuffer)
