@@ -22,7 +22,7 @@ from ImpactPacket import ProtocolLayer, PacketBuffer
 from binascii import hexlify,crc32
 from Dot11Crypto import RC4
 
-class Dot11ManagementCapabilities:
+class Dot11ManagementCapabilities():
     #
     # Capability Information
     #   0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
@@ -2610,6 +2610,44 @@ class Dot11ManagementProbeResponse(Dot11ManagementBeacon):
     def __init__(self, aBuffer = None):
         Dot11ManagementBeacon.__init__(self, aBuffer)
 
+class DOT11_REASON_CODES():
+    # RESERVED                                         = 0
+    UNSPECIFIED_REASON                                 = 1
+    PREV_AUTH_NO_LONGER_VALID                          = 2
+    DEAUTH_STA_IS_LEAVING                              = 3
+    DISASS_DUE_TO_INACTIVITY                           = 4
+    DISASS_AP_UNABLE_HANDLE_ALL_STA                    = 5
+    C2_FRAME_FROM_NONAUTHENTICATED_STA                 = 6
+    C3_FRAME_FROM_NONASSOCIATED_STA                    = 7
+    DISSASS_STA_IS_LEAVING                             = 8
+    STA_REQ_NOT_AUTH_STA                               = 9
+    DISASS_POWER_CAP_IE_UNNACCEPTABLE                  = 10
+    DISASS_SUP_CH_IE_UNNACCEPTABLE                     = 11
+    # RESERVED                                         = 12
+    INVALID_IE                                         = 13
+    MIC_FAILURE                                        = 14
+    FOUR_WAY_HANDSHAKE_TIMEOUT                         = 15
+    GROUP_KEY_HANDSHAKE_TIMEOUT                        = 16
+    IE_FOUR_WAY_HANDSHAKE_DIFFERENT                    = 17
+    INVALID_GROUP_CIPHER                               = 18
+    INVALID_PAIRWISE_CIPHER                            = 19
+    INVALID_AKMP                                       = 20
+    UNSUPPORTED_RSN_IE_VERSION                         = 21
+    INVALID_RSN_IE_CAP                                 = 22
+    X_AUTH_FAILED                                      = 23
+    CIPHER_SUITE_REJECTED_SECURITY_POLICY              = 24
+    # RESERVED                                         = 25 - 31
+    DISASS_QOS_RELATED_REASON                          = 32
+    DISASS_QOS_UNSUFFICIENT_BANDWIDTH                  = 33
+    DISASS_EXCESSIVE_FRAMES_WITHOUT_ACK                = 34
+    DISASS_STA_TX_OUTSIDE_TXOPS                        = 35
+    REQ_STA_LEAVING                                    = 36
+    REQ_STA_NOT_WANT_MECHANISM                         = 37
+    REQ_STA_RECV_FRAMES_WHICH_SETUP_REQ                = 38
+    REQ_STA_DUE_TIMEOUT                                = 39
+    STA_NOT_SUPPORT_CIPHER_SUITE                       = 45
+    # RESERVED                                         = 46 - 65 535
+
 class Dot11ManagementDeauthentication(ProtocolPacket):
     '802.11 Management Deauthentication Frame'
 
@@ -2628,6 +2666,54 @@ class Dot11ManagementDeauthentication(ProtocolPacket):
 
     def set_reason_code(self, rc):
         self.header.set_word(0, rc, "<")
+
+class DOT11_AUTH_ALGORITHMS():
+    OPEN       = 0
+    SHARED_KEY = 1
+
+class DOT11_AUTH_STATUS_CODES():
+    SUCCESFUL                                          = 0
+    UNSPECIFIED_FAILURE                                = 1
+    # RESERVED                                         = 2 - 9
+    CAP_REQ_UNSUPPORTED                                = 10
+    REASS_DENIED_CANNOT_CONFIRM_ASS_EXISTS             = 11
+    ASS_DENIED_REASON_OUTSIDE_SCOPE_STANDARD           = 12
+    STA_NOT_SUPPORT_AUTH_ALGORITHM                     = 13
+    AUTH_SEQ_OUT_OF_EXPECTED                           = 14
+    AUTH_REJECTED_CHALLENGE_FAILURE                    = 15
+    AUTH_REJECTED_TIMEOUT                              = 16
+    ASS_DENIED_AP_UNABLE_HANDLE_MORE_STA               = 17
+    ASS_DENIED_STA_NOT_SUPPORTING_DATA_RATES           = 18
+    ASS_DENIED_STA_NOT_SUPPORTING_SHORT_PREAMBLE       = 19
+    ASS_DENIED_STA_NOT_SUPPORTING_PBCC_MODULATION      = 20
+    ASS_DENIED_STA_NOT_SUPPORTING_CHANNEL_AGILITY      = 21
+    ASS_REQUEST_REJECTED_SPACTRUM_MGT_CAP              = 22
+    ASS_REQUEST_REJECTED_POWER_CAP_IE_UNNACCEPTABLE    = 23
+    ASS_REQUEST_REJECTED_SUP_CH_IE_UNNACCEPTABLE       = 24
+    ASS_DENIED_STA_NOT_SUPPORTING_SHORT_SLOT_TIME      = 25
+    ASS_DENIED_STA_NOT_SUPPORTING_DSSS_OFDM            = 26
+    # RESERVED                                         = 27 - 31
+    UNSPECIFIED_QOS                                    = 32
+    ASS_DENIED_QOS_UNSUFFICIENT_BANDWIDTH              = 33
+    ASS_DENIED_EXCESSIVE_FRAME_LOST                    = 34
+    ASS_DENIED_STA_NOT_SUPPORT_QOS                     = 35
+    # RESERVED                                         = 36
+    REQ_HAS_BEEN_DECLINED                              = 37
+    REQ_NOT_SUCCESSFUL_PARAM_INVALID_VALUE             = 38
+    TSPEC                                              = 39
+    INVALID_IE                                         = 40
+    INVALID_GROUP_CIPHER                               = 41
+    INVALID_PAIRWISE_CIPHER                            = 42
+    INVALID_AKMP                                       = 43
+    UNSUPPORTED_RSN_IE_VERSION                         = 44
+    INVALID_RSN_IE_CAP                                 = 45
+    CIPHER_SUITE_REJECTED_SECURITY_POLICY              = 46
+    TS_NOT_CREATED                                     = 47
+    DIRECT_LINK_NOT_ALLOWED_BSS_POLICY                 = 48
+    DST_STA_NOT_PRESENT_IN_BSS                         = 49
+    DST_STA_NOT_QOS_STA                                = 50
+    ASS_DENIED_LISTEN_INTERVAL_TOO_LARGE               = 51
+    # RESERVED                                         = 52 - 65 535
 
 class Dot11ManagementAuthentication(Dot11ManagementHelper):
     '802.11 Management Authentication Frame'
@@ -2662,6 +2748,12 @@ class Dot11ManagementAuthentication(Dot11ManagementHelper):
     def set_authentication_status(self, as):
         "Set the 802.11 Management Authentication Status."
         self.header.set_word(4, as, "<")
+
+    def get_challenge_text(self):
+        return self._get_element(DOT11_MANAGEMENT_ELEMENTS.CHALLENGE_TEXT)
+
+    def set_challenge_text(self, challenge):
+        self._set_element(DOT11_MANAGEMENT_ELEMENTS.CHALLENGE_TEXT, challenge)
 
     def get_vendor_specific(self):
         "Get the 802.11 Management Vendor Specific elements "\
