@@ -2729,25 +2729,25 @@ class Dot11ManagementAuthentication(Dot11ManagementHelper):
         "Get the 802.11 Management Authentication Algorithm."
         return self.header.get_word(0, "<")
 
-    def set_authentication_algorithm(self, aa):
+    def set_authentication_algorithm(self, algorithm):
         "Set the 802.11 Management Authentication Algorithm."
-        self.header.set_word(0, aa, "<")
+        self.header.set_word(0, algorithm, "<")
 
     def get_authentication_sequence(self):
         "Get the 802.11 Management Authentication Sequence."
         return self.header.get_word(2, ">")
 
-    def set_authentication_sequence(self, as):
+    def set_authentication_sequence(self, seq):
         "Set the 802.11 Management Authentication Sequence."
-        self.header.set_word(2, as, ">")
+        self.header.set_word(2, seq, ">")
 
     def get_authentication_status(self):
         "Get the 802.11 Management Authentication Status."
         return self.header.get_word(4, "<")
 
-    def set_authentication_status(self, as):
+    def set_authentication_status(self, status):
         "Set the 802.11 Management Authentication Status."
-        self.header.set_word(4, as, "<")
+        self.header.set_word(4, status, "<")
 
     def get_challenge_text(self):
         return self._get_element(DOT11_MANAGEMENT_ELEMENTS.CHALLENGE_TEXT)
