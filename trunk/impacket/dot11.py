@@ -2672,7 +2672,7 @@ class DOT11_AUTH_ALGORITHMS():
     SHARED_KEY = 1
 
 class DOT11_AUTH_STATUS_CODES():
-    SUCCESFUL                                          = 0
+    SUCCESSFUL                                         = 0
     UNSPECIFIED_FAILURE                                = 1
     # RESERVED                                         = 2 - 9
     CAP_REQ_UNSUPPORTED                                = 10
