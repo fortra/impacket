@@ -2735,11 +2735,11 @@ class Dot11ManagementAuthentication(Dot11ManagementHelper):
 
     def get_authentication_sequence(self):
         "Get the 802.11 Management Authentication Sequence."
-        return self.header.get_word(2, ">")
+        return self.header.get_word(2, "<")
 
     def set_authentication_sequence(self, seq):
         "Set the 802.11 Management Authentication Sequence."
-        self.header.set_word(2, seq, ">")
+        self.header.set_word(2, seq, "<")
 
     def get_authentication_status(self):
         "Get the 802.11 Management Authentication Status."
