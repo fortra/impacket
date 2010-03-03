@@ -278,8 +278,7 @@ class Structure:
         # void specifier
         if format[:1] == '_':
             if dataClassOrCode != str:
-                fields = {'self':self}
-                fields = {'inputDataLeft':data}
+                fields = {'self':self, 'inputDataLeft':data}
                 fields.update(self.fields)
                 return eval(dataClassOrCode, {}, fields)
             else:
