@@ -1032,7 +1032,7 @@ class UDP(Header):
         if self.auto_checksum and (not self.get_uh_sum()):
             # if there isn't a parent to grab a pseudo-header from we'll assume the user knows what they're doing
             # and won't meddle with the checksum or throw an exception
-            if not self.parent:
+            if not self.parent():
                 return
 
             buffer = self.parent().get_pseudo_header()
