@@ -179,6 +179,13 @@ class DhcpPacket(BootpPacket):
                     if ord(optCode) == 252:
                         return True
         return False
+    
+    def getOptionValue(self, name):
+        for opt in self.fields['options']:
+            if opt[0] == name:
+                return opt[1]
+        return None
+    
 
 class DHCPTool:
     def initialize(self):
