@@ -32,7 +32,7 @@ All objects can be turned back into a raw buffer ready to be sent over
 the wire (see method get_packet).
 """
 
-class ImpactPacketException:
+class ImpactPacketException(Exception):
     def __init__(self, value):
         self.value = value
     def __str__(self):
