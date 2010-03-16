@@ -231,6 +231,136 @@ class ProtocolLayer():
             self.__child.set_parent(None)
             self.__child = None 
 
+class ProtocolPacket(ProtocolLayer):
+    __HEADER_SIZE = 0
+    __BODY_SIZE = 0
+    __TAIL_SIZE = 0
+    
+    __header = None
+    __body = None
+    __tail = None
+
+    def __init__(self, header_size, tail_size):
+        self.__HEADER_SIZE = header_size
+        self.__TAIL_SIZE = tail_size
+        self.__header=PacketBuffer(self.__HEADER_SIZE)
+        self.__body=PacketBuffer()
+        self.__tail=PacketBuffer(self.__TAIL_SIZE)
+        
+    def __update_body_from_child(self):
+        # Update child raw packet in my body
+        if self.child():
+            body=self.child().get_packet()
+            self.__BODY_SIZE=len(body)
+            self.__body.set_bytes_from_string(body)
+            
+    def __get_header(self):
+        return self.__header
+    
+    header = property(__get_header)
+
+    def __get_body(self):
+        self.__update_body_from_child()
+        return self.__body
+    
+    body = property(__get_body)
+    
+    def __get_tail(self):
+        return self.__tail
+    
+    tail = property(__get_tail)
+
+    def get_header_size(self):
+        "Return frame header size"
+        return self.__HEADER_SIZE
+    
+    def get_tail_size(self):
+        "Return frame tail size"
+        return self.__TAIL_SIZE
+    
+    def get_body_size(self):
+        "Return frame body size"
+        self.__update_body_from_child()
+        return self.__BODY_SIZE
+
+    def get_size(self):
+        "Return frame total size"
+        return self.get_header_size()+self.get_body_size()+self.get_tail_size()
+    
+    def load_header(self, aBuffer):
+        self.__HEADER_SIZE=len(aBuffer)
+        self.__header.set_bytes_from_string(aBuffer)
+    
+    def load_body(self, aBuffer):
+        "Load the packet body from string. "\
+        "WARNING: Using this function will break the hierarchy of preceding protocol layer"
+        self.unlink_child()
+        self.__BODY_SIZE=len(aBuffer)
+        self.__body.set_bytes_from_string(aBuffer)
+    
+    def load_tail(self, aBuffer):
+        self.__TAIL_SIZE=len(aBuffer)
+        self.__tail.set_bytes_from_string(aBuffer)
+    
+    def __extract_header(self, aBuffer):
+        self.load_header(aBuffer[:self.__HEADER_SIZE])
+        
+    def __extract_body(self, aBuffer):
+        if self.__TAIL_SIZE<=0:
+            end=None
+        else:
+            end=-self.__TAIL_SIZE
+        self.__BODY_SIZE=len(aBuffer[self.__HEADER_SIZE:end])
+        self.__body.set_bytes_from_string(aBuffer[self.__HEADER_SIZE:end])
+        
+    def __extract_tail(self, aBuffer):
+        if self.__TAIL_SIZE<=0:
+            # leave the array empty
+            return
+        else:
+            start=-self.__TAIL_SIZE
+        self.__tail.set_bytes_from_string(aBuffer[start:])
+
+    def load_packet(self, aBuffer):
+        "Load the whole packet from a string" \
+        "WARNING: Using this function will break the hierarchy of preceding protocol layer"
+        self.unlink_child()
+        
+        self.__extract_header(aBuffer)
+        self.__extract_body(aBuffer)
+        self.__extract_tail(aBuffer)
+        
+    def get_header_as_string(self):
+        return self.__header.get_buffer_as_string()
+        
+    def get_body_as_string(self):
+        self.__update_body_from_child()
+        return self.__body.get_buffer_as_string()
+    body_string = property(get_body_as_string)
+    
+    def get_tail_as_string(self):
+        return self.__tail.get_buffer_as_string()
+    tail_string = property(get_tail_as_string)
+        
+    def get_packet(self):
+        self.__update_body_from_child()
+        
+        ret = ''
+        
+        header = self.get_header_as_string()
+        if header:
+            ret += header
+
+        body = self.get_body_as_string()
+        if body:
+            ret += body
+        
+        tail = self.get_tail_as_string()    
+        if tail:
+            ret += tail
+            
+        return ret
+
 class Header(PacketBuffer,ProtocolLayer):
     "This is the base class from which all protocol definitions extend."
 
