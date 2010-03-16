@@ -117,7 +117,7 @@ class TestDot11ManagementAuthenticationFrames(unittest.TestCase):
 
     def test_11(self):
         'Test Management Frame Authentication Sequence field' 
-        self.assertEqual(self.management_authentication.get_authentication_sequence(), 0x0100)
+        self.assertEqual(self.management_authentication.get_authentication_sequence(), 0x0001)
         self.management_authentication.set_authentication_sequence(0x8765)
         self.assertEqual(self.management_authentication.get_authentication_sequence(), 0x8765)
 
