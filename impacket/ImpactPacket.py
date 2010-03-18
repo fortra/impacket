@@ -670,6 +670,9 @@ class IP(Header):
 
         child_data = self.get_data_as_string();
 
+        if self.auto_checksum:
+            self.reset_ip_sum()
+
         my_bytes = self.get_bytes()
 
         for op in self.__option_list:
@@ -918,6 +921,10 @@ class IP(Header):
     def set_ip_sum(self, value):
         self.auto_checksum = 0
         self.set_word(10, value)
+
+    def reset_ip_sum(self):
+        self.set_ip_sum(0x0000)
+        self.auto_checksum = 1
 
     def get_ip_src(self):
         return self.get_ip_address(12)
