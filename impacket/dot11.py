@@ -1589,7 +1589,7 @@ class RadioTap(ProtocolPacket):
         else:
             ProtocolPacket.__init__(self, header_size, tail_size)
             self.set_version(0)
-            self.set_present(0x00000000)
+            self.__set_present(0x00000000)
             
     def get_version(self):
         'Return the \'version\' field'
