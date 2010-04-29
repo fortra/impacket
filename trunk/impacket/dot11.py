@@ -1471,7 +1471,6 @@ class RadioTap(ProtocolPacket):
         PROPERTY_BAD_FCS        = 0x40 #does not pass FCS check
         PROPERTY_SHORT_GI       = 0x80 #frame used short guard interval (HT). Unspecified but used:
 
-
     class RTF_RATE(__RadioTapField):
         BIT_NUMBER = 2
         STRUCTURE = "<B"
@@ -1590,6 +1589,11 @@ class RadioTap(ProtocolPacket):
             ProtocolPacket.__init__(self, header_size, tail_size)
             self.set_version(0)
             self.__set_present(0x00000000)
+            
+    def get_header_length(self):
+        'Return the RadioTap header \'length\' field'
+        self.__update_header_length()        
+        return self.header.get_word(2, "<")
             
     def get_version(self):
         'Return the \'version\' field'
@@ -2007,6 +2011,14 @@ class RadioTap(ProtocolPacket):
 ##        if not values:
 ##            return None
 ##        return values[0]
+
+    def __update_header_length(self):
+        'Update the RadioTap header length field with the real size'
+        self.header.set_word(2, self.get_size(), "<")
+
+    def get_packet(self):
+        self.__update_header_length()
+        return ProtocolPacket.get_packet(self)
 
 class Dot11ManagementFrame(ProtocolPacket):
     '802.11 Management Frame'
