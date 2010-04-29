@@ -499,7 +499,27 @@ class TestRadioTap(unittest.TestCase):
 ##        
 ##        # TODO: When exist the field
 
+    def test_29_radiotap_length_field(self):
+        'Test RadioTap header length field'
         
+        # RadioTap from scratch calling get_length() and then get_packet()
+        rt = RadioTap()
+        
+        # 0x08 bytes is the minimal headers size:
+        #   1 byte Revision
+        #   1 byte pad
+        #   2 bytes header length
+        #   4 bytes present flags
+        self.assertEqual(rt.get_header_length(), 0x08) 
+        
+        raw_packet = rt.get_packet()
+        self.assertEqual(raw_packet, "\x00\x00\x08\x00\x00\x00\x00\x00")
+
+        # RadioTap from scratch without call to get_length()
+        raw_packet = RadioTap().get_packet()
+        self.assertEqual(raw_packet, "\x00\x00\x08\x00\x00\x00\x00\x00")        
+
+       
 suite = unittest.TestLoader().loadTestsFromTestCase(TestRadioTap)
 unittest.TextTestRunner(verbosity=2).run(suite)
 
