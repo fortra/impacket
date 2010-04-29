@@ -2014,7 +2014,7 @@ class RadioTap(ProtocolPacket):
 
     def __update_header_length(self):
         'Update the RadioTap header length field with the real size'
-        self.header.set_word(2, self.get_size(), "<")
+        self.header.set_word(2, self.get_header_size(), "<")
 
     def get_packet(self):
         self.__update_header_length()

@@ -5,6 +5,7 @@ import sys
 sys.path.insert(0,"../..")
 
 from dot11 import Dot11,Dot11Types,Dot11DataFrame,RadioTap
+from ImpactPacket import Data
 from binascii import hexlify
 import unittest
 
@@ -518,6 +519,18 @@ class TestRadioTap(unittest.TestCase):
         # RadioTap from scratch without call to get_length()
         raw_packet = RadioTap().get_packet()
         self.assertEqual(raw_packet, "\x00\x00\x08\x00\x00\x00\x00\x00")        
+        
+    def test_30_radiotap_length_filed_with_payload(self):
+        'Test RadioTap header length field with payload'
+        # RadioTap from scratch calling get_length() and then get_packet()
+        rt = RadioTap()
+        self.assertEqual(rt.get_header_length(), 0x08) 
+        data = Data("aa")
+        rt.contains(data)
+        self.assertEqual(rt.get_header_length(), 0x08) # The header length is the same
+        
+        raw_packet = rt.get_packet()
+        self.assertEqual(raw_packet, "\x00\x00\x08\x00\x00\x00\x00\x00aa")
 
        
 suite = unittest.TestLoader().loadTestsFromTestCase(TestRadioTap)
