@@ -1197,6 +1197,7 @@ class UDP(Header):
 
 class TCP(Header):
     protocol = 6
+    TCP_FLAGS_MASK = 0x00FF # lowest 16 bits are the flags
     def __init__(self, aBuffer = None):
         Header.__init__(self, 20)
         self.set_th_off(5)
@@ -1251,10 +1252,12 @@ class TCP(Header):
         self.set_long(8, aValue)
 
     def get_th_flags(self):
-        return self.get_word(12)
+        return self.get_word(12) & self.TCP_FLAGS_MASK
 
     def set_th_flags(self, aValue):
-        self.set_word(12, aValue)
+        masked = self.get_word(12) & (~self.TCP_FLAGS_MASK)
+        nb = masked | (aValue & self.TCP_FLAGS_MASK)
+        return self.set_word(12, nb, ">")
 
     def get_th_win(self):
         return self.get_word(14)
@@ -1278,12 +1281,14 @@ class TCP(Header):
     # Flag accessors
 
     def get_th_off(self):
-        tmp_value = self.get_th_flags() >> 12
+        tmp_value = self.get_byte(12) >> 4
         return tmp_value
 
     def set_th_off(self, aValue):
-        self.reset_flags(0xF000)
-        self.set_flags(aValue << 12)
+        mask = 0xF0
+        masked = self.get_byte(12) & (~mask)
+        nb = masked | ( (aValue << 4) & mask)
+        return self.set_byte(12, nb)
 
     def get_CWR(self):
         return self.get_flag(128)
@@ -1344,9 +1349,7 @@ class TCP(Header):
     # Overriden Methods
 
     def get_header_size(self):
-
         return 20 + len(self.get_padded_options())
-
 
     def calculate_checksum(self):
         if not self.auto_checksum or not self.parent():
@@ -1365,7 +1368,6 @@ class TCP(Header):
 
         self.set_th_sum(self.compute_checksum(buffer))
 
-
     def get_packet(self):
         "Returns entire packet including child data as a string.  This is the function used to extract the final packet"
 
@@ -1382,7 +1384,6 @@ class TCP(Header):
             return bytes.tostring() + data
         else:
             return bytes.tostring()
-
 
     def load_header(self, aBuffer):
         self.set_bytes_from_string(aBuffer[:20])
@@ -1410,9 +1411,6 @@ class TCP(Header):
             if op_kind == TCPOption.TCPOPT_EOL:
                 break
 
-
-
-
     #
     # Private
     #
@@ -1425,12 +1423,11 @@ class TCP(Header):
 
     def reset_flags(self, aValue):
         tmp_value = self.get_th_flags() & (~aValue)
-        return self.set_word(12, tmp_value)
-
+        return self.set_th_flags(tmp_value)
 
     def set_flags(self, aValue):
         tmp_value =  self.get_th_flags() | aValue
-        return self.set_word(12, tmp_value)
+        return self.set_th_flags(tmp_value)
 
     def get_padded_options(self):
         "Return an array containing all options padded to a 4 byte boundry"
