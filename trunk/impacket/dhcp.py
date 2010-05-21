@@ -35,6 +35,7 @@ class DhcpPacket(BootpPacket):
     DHCPACK     = 5
     DHCPNAK     = 6
     DHCPRELEASE = 7
+    DHCPINFORM  = 8
         
     options = {
         # 3. Vendor Extensions
