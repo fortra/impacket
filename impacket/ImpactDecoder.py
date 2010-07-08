@@ -211,12 +211,7 @@ class BaseDot11Decoder(Decoder):
         self.set_key_manager(key_manager)
         
     def set_key_manager(self, key_manager):
-        if not key_manager :
-            self.key_manager = KeyManager()
-        else:
-            if not isinstance(key_manager, KeyManager):
-                raise Exception('key_manager must be an instance of KeyManager (or a subclass)')
-            self.key_manager = key_manager
+        self.key_manager = key_manager
         
     def find_key(self, bssid):
         try:
@@ -227,13 +222,14 @@ class BaseDot11Decoder(Decoder):
 
 class RadioTapDecoder(BaseDot11Decoder):
     def __init__(self):
-        pass
+        BaseDot11Decoder.__init__(self)
 
     def decode(self, aBuffer):
         rt = dot11.RadioTap(aBuffer)
         self.set_decoded_protocol( rt )
         
         self.do11_decoder = Dot11Decoder()
+        self.do11_decoder.set_key_manager(self.key_manager)
         flags=rt.get_flags()
         if flags is not None:
             fcs=flags&dot11.RadioTap.RTF_FLAGS.PROPERTY_FCS_AT_END
@@ -261,16 +257,10 @@ class Dot11Decoder(BaseDot11Decoder):
             dot11_control_decoder = Dot11ControlDecoder()
             packet = dot11_control_decoder.decode(d.body_string)
         elif type == dot11.Dot11Types.DOT11_TYPE_DATA:
-            dot11_data_decoder = Dot11DataDecoder()
-            dot11_data_decoder.set_key_manager(self.key_manager)
-                
-            if d.get_fromDS() and d.get_toDS():
-                dot11_data_decoder.set_Addr4()
-            if d.is_QoS_frame():
-                dot11_data_decoder.set_QoS()
-            if d.get_protectedFrame():
-                dot11_data_decoder.set_privateFrame()
-                
+            dot11_data_decoder = Dot11DataDecoder(self.key_manager)
+            
+            dot11_data_decoder.set_dot11_hdr(d)
+            
             packet = dot11_data_decoder.decode(d.body_string)
         elif type == dot11.Dot11Types.DOT11_TYPE_MANAGEMENT:
             dot11_management_decoder = Dot11ManagementDecoder()
@@ -375,40 +365,38 @@ class Dot11ControlFrameCFEndCFACKDecoder(BaseDot11Decoder):
         return p
 
 class Dot11DataDecoder(BaseDot11Decoder):
-    def __init__(self):
-        BaseDot11Decoder.__init__(self)
-        self.QoS=False
-        self.Addr4=False
-        self.Private=False
-        self.fromds=False
+    def __init__(self, key_manager):
+        BaseDot11Decoder.__init__(self, key_manager)
         
-    def set_QoS(self):
-        self.QoS = True
-
-    def set_Addr4(self):
-        self.Addr4 = True
-
-    def set_privateFrame(self):
-        self.Private = True
+    def set_dot11_hdr(self, dot11_obj):
+        self.dot11 = dot11_obj
         
     def decode(self, aBuffer):
-        if self.Addr4:
-            if self.QoS:
+        if self.dot11.get_fromDS() and self.dot11.get_toDS():
+            if self.dot11.is_QoS_frame():
                 p = dot11.Dot11DataAddr4QoSFrame(aBuffer)
             else:
                 p = dot11.Dot11DataAddr4Frame(aBuffer)
-        elif self.QoS:
+        elif self.dot11.is_QoS_frame():
             p = dot11.Dot11DataQoSFrame(aBuffer)
         else:
             p = dot11.Dot11DataFrame(aBuffer)
         self.set_decoded_protocol( p )
         
-        if self.Private is False:
+        if not self.dot11.get_protectedFrame():
             self.llc_decoder = LLCDecoder()
             packet = self.llc_decoder.decode(p.body_string)
         else:
-            #If it's "Type: Data Subtype: Data", the 3rd Addr is the BSSID
-            bssid=p.get_address3()
+            if not self.dot11.get_fromDS() and self.dot11.get_toDS():
+                bssid = p.get_address1()
+            elif self.dot11.get_fromDS() and not self.dot11.get_toDS():
+                bssid = p.get_address2()
+            elif not self.dot11.get_fromDS() and not self.dot11.get_toDS():
+                bssid = p.get_address3()
+            else:
+                # WDS, this is the RA
+                bssid = p.get_address1()
+                
             wep_decoder = Dot11WEPDecoder(self.key_manager)
             wep_decoder.set_bssid(bssid)
             packet = wep_decoder.decode(p.body_string)
