@@ -34,7 +34,7 @@ class TestDot11WEPData(unittest.TestCase):
         self.wep_header.contains(self.wep_data)
         
         self.km=KeyManager()
-        self.km.add_key([0x00,0x21,0x29,0x68,0x33,0x5b],'999cbb701ca2ef030e302dcc35'.decode('hex_codec'))
+        self.km.add_key([0x00,0x21,0x29,0x68,0x33,0x5d],'999cbb701ca2ef030e302dcc35'.decode('hex_codec'))
         
     def test_01(self):
         'Test WEPHeader is_WEP method'
