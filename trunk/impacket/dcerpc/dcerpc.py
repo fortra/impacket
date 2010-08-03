@@ -331,7 +331,7 @@ class MSRPCRequestHeader(MSRPCHeader):
         return self.get_word(22, self.endianness)
     def set_op_num(self, op):
         self.set_word(22, op, self.endianness)
-
+        
 class MSRPCRespHeader(MSRPCHeader):
     _SIZE = 24
 
@@ -353,16 +353,21 @@ class MSRPCRespHeader(MSRPCHeader):
 
     def get_alloc_hint(self):
         return self.get_long(16, self.endianness)
+        
     def set_alloc_hint(self, len):
         self.set_long(16, len, self.endianness)
 
     def get_ctx_id(self):
         return self.get_word(20, self.endianness)
+        
     def set_ctx_id(self, id):
         self.set_word(20, id, self.endianness)
 
     def get_cancel_count(self):
         return self.get_byte(22)
+
+    def get_status(self):
+        return self.get_long(24, self.endianness)
 
 class MSRPCBind(MSRPCHeader):
     _SIZE = 72-44
@@ -667,6 +672,9 @@ class DCERPC_v5(DCERPC):
         # auth level is ntlm.NTLM_AUTH_*
         self.__auth_level = auth_level
 
+    def set_max_tfrag(self, size):
+        self.__max_xmit_size = size
+    
     def set_credentials(self, username, password):
         self.set_auth_level(ntlm.NTLM_AUTH_CONNECT)
         # self.set_auth_level(ntlm.NTLM_AUTH_CALL)
@@ -677,7 +685,6 @@ class DCERPC_v5(DCERPC):
 
     def bind(self, uuid, alter = 0, bogus_binds = 0):
         bind = MSRPCBind(endianness = self.endianness)
-
         syntax = '\x04\x5d\x88\x8a\xeb\x1c\xc9\x11\x9f\xe8\x08\x00\x2b\x10\x48\x60'
 
         if self.endianness == '>':
@@ -725,6 +732,7 @@ class DCERPC_v5(DCERPC):
         self._transport.send(bind.get_packet())
 
         s = self._transport.recv()
+
         if s != 0:
             resp = MSRPCBindAck(s)
         else:
@@ -737,7 +745,7 @@ class DCERPC_v5(DCERPC):
                 raise Exception(rpc_status_codes[status_code], resp)
             else:
                 raise Exception('Unknown DCE RPC fault status code: %.8x' % status_code, resp)
-            
+
         self.__max_xmit_size = resp.get_max_tfrag()
 
         if self.__auth_level != ntlm.NTLM_AUTH_NONE:
@@ -781,8 +789,11 @@ class DCERPC_v5(DCERPC):
             self.sequence = 0
 
             auth3 = MSRPCHeader()
+            
             auth3.set_type(MSRPC_AUTH3)
+
             auth3.set_auth_data(str(response))
+
             self._transport.send(auth3.get_packet(), forceWriteAndx = 1)
 
         return resp     # means packet is signed, if verifier is wrong it fails
@@ -794,6 +805,7 @@ class DCERPC_v5(DCERPC):
                 response['auth_ctx_id'] = self._ctx + 79231 
                 response['auth_level'] = self.__auth_level
                 rpc_packet.set_auth_data(str(response))
+
                 
         if self.__auth_level in [ntlm.NTLM_AUTH_PKT_INTEGRITY, ntlm.NTLM_AUTH_PKT_PRIVACY]:
             verifier = ntlm.NTLMAuthVerifier()
@@ -807,7 +819,7 @@ class DCERPC_v5(DCERPC):
                 data = DCERPC_RawCall(rpc_call.OP_NUM)
                 data.setData(self.cipher_encrypt(rpc_call.get_packet()))
                 rpc_packet.contains(data)
-            
+
             crc = crc32(rpc_call.get_packet())
             data = pack('<LLL',0,crc,self.sequence)     # XXX 0 can be anything: randomize
             data = self.cipher_encrypt(data)
