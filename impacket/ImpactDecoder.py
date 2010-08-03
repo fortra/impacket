@@ -16,6 +16,7 @@
 
 import ImpactPacket
 import dot11
+from cdp import CDP
 from Dot11KeyManager import KeyManager
 from Dot11Crypto import RC4
 
@@ -70,6 +71,10 @@ class EthDecoder(Decoder):
         elif e.get_ether_type() == ImpactPacket.ARP.ethertype:
             self.arp_decoder = ARPDecoder()
             packet = self.arp_decoder.decode(aBuffer[off:])
+        # LLC ?
+        elif e.get_ether_type() < 1500:
+            self.llc_decoder = LLCDecoder()
+            packet = self.llc_decoder.decode(aBuffer[off:])
         else:
             self.data_decoder = DataDecoder()
             packet = self.data_decoder.decode(aBuffer[off:])
@@ -574,11 +579,12 @@ class LLCDecoder(Decoder):
                 if d.get_control()==dot11.LLC.DLC_UNNUMBERED_FRAMES:
                     snap_decoder = SNAPDecoder()
                     packet = snap_decoder.decode(d.body_string)
-        else:
-            # Only SNAP is implemented
-            data_decoder = DataDecoder()
-            packet = data_decoder.decode(d.body_string)
-
+                    d.contains(packet)
+                    return d
+        
+        # Only SNAP is implemented
+        data_decoder = DataDecoder()
+        packet = data_decoder.decode(d.body_string)
         d.contains(packet)
         return d
 
@@ -589,8 +595,10 @@ class SNAPDecoder(Decoder):
     def decode(self, aBuffer):
         s = dot11.SNAP(aBuffer)
         self.set_decoded_protocol( s )
-        
-        if  s.get_OUI()!=0x000000:
+        if  s.get_OUI()==CDP.OUI and s.get_protoID()==CDP.Type:
+            dec = CDPDecoder()
+            packet = dec.decode(s.body_string)
+        elif  s.get_OUI()!=0x000000:
             # We don't know how to handle other than OUI=0x000000 (EtherType)
             self.data_decoder = DataDecoder()
             packet = self.data_decoder.decode(s.body_string)
@@ -607,6 +615,16 @@ class SNAPDecoder(Decoder):
         s.contains(packet)
         return s
 
+class CDPDecoder(Decoder):
+    
+    def __init__(self):
+        pass
+        
+    def decode(self, aBuffer):
+        s = CDP(aBuffer)
+        self.set_decoded_protocol( s )
+        return s
+            
 class Dot11ManagementDecoder(BaseDot11Decoder):
     def __init__(self):
         BaseDot11Decoder.__init__(self)
@@ -693,7 +711,7 @@ class Dot11ManagementDeauthenticationDecoder(BaseDot11Decoder):
     def decode(self, aBuffer):
         p = dot11.Dot11ManagementDeauthentication(aBuffer)
         self.set_decoded_protocol( p )
-
+        
         return p
 
 class Dot11ManagementAuthenticationDecoder(BaseDot11Decoder):

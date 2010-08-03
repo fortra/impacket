@@ -56,12 +56,17 @@ from structure import Structure
 unicode_support = 0
 unicode_convert = 1
 
+import random
+
 try:
     from cStringIO import StringIO
 except ImportError:
     from StringIO import StringIO
 
 from binascii import a2b_hex
+
+import md5
+import binascii
 
 CVS_REVISION = '$Revision$'
 
@@ -130,6 +135,16 @@ SMB_ACCESS_EXEC = 0x03
 
 TRANS_DISCONNECT_TID = 1
 TRANS_NO_RESPONSE    = 2
+
+STATUS_SUCCESS                  = 0x00000000
+STATUS_LOGON_FAILURE            = 0xC000006D
+STATUS_LOGON_TYPE_NOT_GRANTED   = 0xC000015B
+MAX_TFRAG_SIZE = 5840
+EVASION_NONE  = 0
+EVASION_LOW   = 1
+EVASION_HIGH  = 2
+EVASION_MAX   = 3
+RPC_X_BAD_STUB_DATA = 0x6F7
 
 #*********************************** TEMP BEGIN ********************************
 def set_key_odd_parity(key):
@@ -600,6 +615,9 @@ class NewSMBPacket(Structure):
         return (self['Command'] in [SMB.SMB_COM_TRANSACTION, SMB.SMB_COM_READ_ANDX, SMB.SMB_COM_READ_RAW] and
                 self['ErrorClass'] == 1 and self['ErrorCode'] == SessionError.ERRmoredata)
 
+    def isMoreProcessingRequired(self):
+        return self['ErrorClass'] == 0x16 and self['ErrorCode'] == 0xc000
+
     def isValidAnswer(self, cmd):
         # this was inside a loop reading more from the net (with recv_packet(None))
         if self['Command'] == cmd:
@@ -607,6 +625,8 @@ class NewSMBPacket(Structure):
                 self['ErrorCode']  == 0x00):
                     return 1
             elif self.isMoreData():
+                return 1
+            elif self.isMoreProcessingRequired():
                 return 1
             raise SessionError, ("SMB Library Error", self['ErrorClass'], self['ErrorCode'])
         else:
@@ -829,6 +849,24 @@ class SMBSessionSetupAndX_Data(AsciiOrUnicodeStructure):
         ('PrimaryDomain','w=""'),
         ('NativeOS','w=""'),
         ('NativeLanMan','w=""'),
+    )
+
+class SMBSessionSetupAndX_Parameters2(SMBAndXCommand_Parameters):
+    structure = (
+        ('MaxBuffer','<H'),
+        ('MaxMpxCount','<H'),
+        ('VCNumber','<H'),
+        ('SessionKey','<L'),
+        ('BlobLength','<H'),
+        ('_reserved','<L=0'),
+        ('Capabilities','<L'),
+    )
+
+class SMBSessionSetupAndX_Data2(AsciiOrUnicodeStructure):
+    AsciiStructure = (
+        ('Blob',':=""'),
+        ('NativeOS','z=""'),
+        ('NativeLanMan','z=""'),
     )
 
 class SMBSessionSetupAndXResponse_Parameters(SMBAndXCommand_Parameters):
@@ -1267,15 +1305,18 @@ class SMB:
 
     def __init__(self, remote_name, remote_host, my_name = None, host_type = nmb.TYPE_SERVER, sess_port = nmb.NETBIOS_SESSION_PORT, timeout=None, UDP = 0):
         # The uid attribute will be set when the client calls the login() method
-        self.__uid = 0
+        self._uid = 0
         self.__server_os = ''
         self.__server_lanman = ''
         self.__server_domain = ''
         self.__remote_name = string.upper(remote_name)
         self.__is_pathcaseless = 0
-        self.__ntlm_dialect = 0
-        self.__sess = None
-
+        self._ntlm_dialect = 0
+        self._sess = None
+        self.encrypt_passwords = True
+        self.tid = 0
+        self.fid = 0
+        
         if timeout==None:
             self.__timeout = 30
         else:
@@ -1288,31 +1329,44 @@ class SMB:
                 my_name = my_name[:i]
 
         if UDP:
-            self.__sess = nmb.NetBIOSUDPSession(my_name, remote_name, remote_host, host_type, sess_port, timeout)
+            self._sess = nmb.NetBIOSUDPSession(my_name, remote_name, remote_host, host_type, sess_port, timeout)
         else:
-            self.__sess = nmb.NetBIOSTCPSession(my_name, remote_name, remote_host, host_type, sess_port, timeout)
+            self._sess = nmb.NetBIOSTCPSession(my_name, remote_name, remote_host, host_type, sess_port, timeout)
 
             # Initialize values __ntlm_dialect, __is_pathcaseless
-            self.__neg_session()
+            self.neg_session()
 
             # If the following assertion fails, then mean that the encryption key is not sent when
             # encrypted authentication is required by the server.
-            assert (self.__ntlm_dialect.is_auth_mode() == SMB.SECURITY_AUTH_PLAINTEXT) or (self.__ntlm_dialect.is_auth_mode() == SMB.SECURITY_AUTH_ENCRYPTED and self.__ntlm_dialect.get_encryption_key() and self.__ntlm_dialect.get_encryption_key_len() >= 8)
+            if not self.ntlm_supported():
+                assert (self._ntlm_dialect.is_auth_mode() == SMB.SECURITY_AUTH_PLAINTEXT) or (self._ntlm_dialect.is_auth_mode() == SMB.SECURITY_AUTH_ENCRYPTED and self._ntlm_dialect.get_encryption_key() and self._ntlm_dialect.get_encryption_key_len() >= 8)
 
             # Call login() without any authentication information to setup a session if the remote server
             # is in share mode.
-            if self.__ntlm_dialect.is_share_mode() == SMB.SECURITY_SHARE_SHARE:
+            if self._ntlm_dialect.is_share_mode() == SMB.SECURITY_SHARE_SHARE:
                 self.login('', '')
+
+    def ntlm_supported(self):
+        return False
 
     def get_remote_name(self):
         return self.__remote_name
     
     def set_timeout(self, timeout):
         self.__timeout = timeout
-        
+
+    def get_session(self):        
+        return self._sess
+    
+    def get_tid(self):
+        return self.tid
+
+    def get_fid(self):
+        return self.fid
+
     def __del__(self):
-        if self.__sess:
-            self.__sess.close()
+        if self._sess:
+            self._sess.close()
 
     def __decode_smb(self, data):
         _, cmd, err_class, _, err_code, flags1, flags2, _, tid, pid, uid, mid, wcount = unpack('<4sBBBHBH12sHHHHB', data[:33])
@@ -1320,11 +1374,11 @@ class SMB:
         return cmd, err_class, err_code, flags1, flags2, tid, uid, mid, data[33:param_end], data[param_end + 2:]
 
     def recvSMB(self):
-        r = self.__sess.recv_packet(self.__timeout)
+        r = self._sess.recv_packet(self.__timeout)
         return NewSMBPacket(data = r.get_trailer())
     
     def recv_packet(self):
-        r = self.__sess.recv_packet(self.__timeout)
+        r = self._sess.recv_packet(self.__timeout)
         return SMBPacket(r.get_trailer())
     
     def __decode_trans(self, params, data):
@@ -1338,14 +1392,14 @@ class SMB:
         return has_more, params[20:20 + setupcnt * 2], data[paramoffset:paramoffset + paramcnt], data[dataoffset:dataoffset + datacnt]
 
     def sendSMB(self,smb):
-        smb['Uid'] = self.__uid
+        smb['Uid'] = self._uid
         smb['Pid'] = os.getpid()
-        self.__sess.send_packet(str(smb))
+        self._sess.send_packet(str(smb))
 
     def send_smb(self,s):
-        s.set_uid(self.__uid)
+        s.set_uid(self._uid)
         s.set_pid(os.getpid())
-        self.__sess.send_packet(s.rawData())
+        self._sess.send_packet(s.rawData())
 
     def __send_smb_packet(self, cmd, flags, flags2, tid, mid, params = '', data = ''):
         smb = NewSMBPacket()
@@ -1373,8 +1427,8 @@ class SMB:
 #                    raise SessionError("Invalid command received. %x" % cmd)
 #            s=self.recv_packet(None)   
         return 0
-    
-    def __neg_session(self):
+
+    def neg_session(self):
         s = SMBPacket()
         s.set_command(SMB.SMB_COM_NEGOTIATE)
         s.set_buffer('\x02NT LM 0.12\x00')
@@ -1383,12 +1437,12 @@ class SMB:
         while 1:
             s = self.recv_packet()
             if self.isValidAnswer(s,SMB.SMB_COM_NEGOTIATE):
-                self.__ntlm_dialect = NTLMDialect(s.rawData())
-                if self.__ntlm_dialect.get_selected_dialect() == 0xffff:
+                self._ntlm_dialect = NTLMDialect(s.rawData())
+                if self._ntlm_dialect.get_selected_dialect() == 0xffff:
                     raise UnsupportedFeature,"Remote server does not know NT LM 0.12"
 
                 #NL LM 0.12 dialect selected
-                if self.__ntlm_dialect.get_lsw_capabilities() & SMB.CAP_EXTENDED_SECURITY:
+                if self._ntlm_dialect.get_lsw_capabilities() & SMB.CAP_EXTENDED_SECURITY:
                     raise UnsupportedFeature, "This version of pysmb does not support extended security validation. Please file a request for it."
 
                 self.__is_pathcaseless = s.get_flags() & SMB.FLAGS1_PATHCASELESS
@@ -1402,7 +1456,7 @@ class SMB:
         # return 0x800
         if password:
             # Password is only encrypted if the server passed us an "encryption" during protocol dialect
-            if self.__ntlm_dialect.get_encryption_key():
+            if self._ntlm_dialect.get_encryption_key():
                 # this code is untested
                 password = self.get_ntlmv1_response(ntlm.compute_lmhash(password))
 
@@ -1433,10 +1487,16 @@ class SMB:
                 return smb['Tid']
             return smb['Tid']
 
-    def tree_connect_andx(self, path, password = None, service = SERVICE_ANY):
+    def get_uid(self):
+        return self._uid
+
+    def set_uid(self, uid):
+        self._uid = uid
+
+    def tree_connect_andx(self, path, password = None, service = SERVICE_ANY, smb_packet=None):
         if password:
             # Password is only encrypted if the server passed us an "encryption" during protocol dialect
-            if self.__ntlm_dialect.get_encryption_key():
+            if self._ntlm_dialect.get_encryption_key():
                 # this code is untested
                 password = self.get_ntlmv1_response(ntlm.compute_lmhash(password))
         else:
@@ -1448,8 +1508,11 @@ class SMB:
             else:
                 raise Except('SMB: Can\t convert path from unicode!')
 
-        smb = NewSMBPacket()
-        smb['Flags1']  = 8
+        if smb_packet == None:
+            smb = NewSMBPacket()
+            smb['Flags1']  = 8
+        else:
+            smb = smb_packet
         
         treeConnect = SMBCommand(SMB.SMB_COM_TREE_CONNECT_ANDX)
         treeConnect['Parameters'] = SMBTreeConnectAndX_Parameters()
@@ -1479,21 +1542,23 @@ class SMB:
             smb = self.recvSMB()
             if smb.isValidAnswer(SMB.SMB_COM_TREE_CONNECT_ANDX):
                 # XXX Here we are ignoring the rest of the response
-                return smb['Tid']
-            return smb['Tid']
+                self.tid = smb['Tid']
+                return self.tid
+            self.tid = smb['Tid']
+            return self.tid
 
     # backwars compatibility
     connect_tree = tree_connect_andx
 
     def get_server_name(self):
-        return self.__ntlm_dialect.get_server_name()
+        return self._ntlm_dialect.get_server_name()
 
     def get_session_key(self):
-        return self.__ntlm_dialect.get_session_key()
+        return self._ntlm_dialect.get_session_key()
 
     def get_server_time(self):
-        high, low = self.__ntlm_dialect.get_utc()
-        min = self.__ntlm_dialect.get_minutes_utc()
+        high, low = self._ntlm_dialect.get_utc()
+        min = self._ntlm_dialect.get_minutes_utc()
         return samr.display_time(high, low, min)
 
     def disconnect_tree(self, tid):
@@ -1623,7 +1688,7 @@ class SMB:
         param_offset = name_len + setup_len + 63
         data_offset = param_offset + param_len
             
-        self.__send_smb_packet(SMB.SMB_COM_TRANSACTION2, self.__is_pathcaseless, SMB.FLAGS2_LONG_FILENAME, tid, 0, pack('<HHHHBBHLHHHHHBB', param_len, data_len, 1024, self.__ntlm_dialect.get_max_buffer(), 0, 0, 0, 0, 0, param_len, param_offset, data_len, data_offset, setup_len / 2, 0) + setup, name  + param + data)
+        self.__send_smb_packet(SMB.SMB_COM_TRANSACTION2, self.__is_pathcaseless, SMB.FLAGS2_LONG_FILENAME, tid, 0, pack('<HHHHBBHLHHHHHBB', param_len, data_len, 1024, self._ntlm_dialect.get_max_buffer(), 0, 0, 0, 0, 0, param_len, param_offset, data_len, data_offset, setup_len / 2, 0) + setup, name  + param + data)
 
     def query_file_info(self, tid, fid):
         self.trans2(tid, '\x07\x00', '\x00', pack('<HH', fid, 0x107), '')
@@ -1635,7 +1700,7 @@ class SMB:
                 return (f2 & 0xffffffffL) << 32 | f1
 
     def __nonraw_retr_file(self, tid, fid, offset, datasize, callback):
-        max_buf_size = self.__ntlm_dialect.get_max_buffer() & ~0x3ff  # Read in multiple KB blocks
+        max_buf_size = self._ntlm_dialect.get_max_buffer() & ~0x3ff  # Read in multiple KB blocks
         read_offset = offset
         while read_offset < datasize:
             data = self.read_andx(tid, fid, read_offset, max_buf_size)
@@ -1644,7 +1709,7 @@ class SMB:
             read_offset += len(data)
 
     def __raw_retr_file(self, tid, fid, offset, datasize, callback):
-        max_buf_size = self.__ntlm_dialect.get_max_buffer() & ~0x3ff  # Write in multiple KB blocks
+        max_buf_size = self._ntlm_dialect.get_max_buffer() & ~0x3ff  # Write in multiple KB blocks
         read_offset = offset
         while read_offset < datasize:
             data = self.read_raw(tid, fid, read_offset, 0xffff)
@@ -1656,7 +1721,7 @@ class SMB:
             read_offset += len(data)
 
     def __nonraw_stor_file(self, tid, fid, offset, datasize, callback):
-        max_buf_size = self.__ntlm_dialect.get_max_buffer() & ~0x3ff  # Write in multiple KB blocks
+        max_buf_size = self._ntlm_dialect.get_max_buffer() & ~0x3ff  # Write in multiple KB blocks
         write_offset = offset
         while 1:
             data = callback(max_buf_size)
@@ -1683,7 +1748,7 @@ class SMB:
             while 1:
                 s = self.recv_packet()
                 if self.isValidAnswer(s,SMB.SMB_COM_WRITE_RAW):
-                    self.__sess.send_packet(read_data)
+                    self._sess.send_packet(read_data)
                     write_offset = write_offset + read_len
                     break
 
@@ -1730,16 +1795,19 @@ class SMB:
     def get_server_os(self):
         return self.__server_os
 
+    def set_server_os(self, os):
+        self.__server_os = os
+
     def get_server_lanman(self):
         return self.__server_lanman
 
     def is_login_required(self):
         # Login is required if share mode is user. Otherwise only public services or services in share mode
         # are allowed.
-        return self.__ntlm_dialect.is_share_mode() == SMB.SECURITY_SHARE_USER
+        return self._ntlm_dialect.is_share_mode() == SMB.SECURITY_SHARE_USER
 
     def get_ntlmv1_response(self, key):
-        challenge = self.__ntlm_dialect.get_encryption_key()
+        challenge = self._ntlm_dialect.get_encryption_key()
         return ntlm.get_ntlmv1_response(key, challenge)
 
     def hmac_md5(self, key, data):
@@ -1775,7 +1843,7 @@ class SMB:
         sessionSetup['Parameters']['MaxBuffer']        = 65535
         sessionSetup['Parameters']['MaxMpxCount']      = 2
         sessionSetup['Parameters']['VCNumber']         = os.getpid()
-        sessionSetup['Parameters']['SessionKey']       = self.__ntlm_dialect.get_session_key()
+        sessionSetup['Parameters']['SessionKey']       = self._ntlm_dialect.get_session_key()
         sessionSetup['Parameters']['AnsiPwdLength']    = len(pwd_ansi)
         sessionSetup['Parameters']['UnicodePwdLength'] = len(pwd_unicode)
         sessionSetup['Parameters']['Capabilities']     = SMB.CAP_RAW_MODE
@@ -1794,7 +1862,7 @@ class SMB:
         smb = self.recvSMB()
         if smb.isValidAnswer(SMB.SMB_COM_SESSION_SETUP_ANDX):
             # We will need to use this uid field for all future requests/responses
-            self.__uid = smb['Uid']
+            self._uid = smb['Uid']
             sessionResponse   = SMBCommand(smb['Data'][0])
             sessionParameters = SMBSessionSetupAndXResponse_Parameters(sessionResponse['Parameters'])
             sessionData       = SMBSessionSetupAndXResponse_Data(flags = smb['Flags2'], data = sessionResponse['Data'])
@@ -1808,7 +1876,7 @@ class SMB:
 
     def read(self, tid, fid, offset=0, max_size = None, wait_answer=1):
         if not max_size:
-            max_size = self.__ntlm_dialect.get_max_buffer() # Read in multiple KB blocks
+            max_size = self._ntlm_dialect.get_max_buffer() # Read in multiple KB blocks
         
         # max_size is not working, because although it would, the server returns an error (More data avail)
 
@@ -1841,25 +1909,28 @@ class SMB:
 
         return None
 
-    def read_andx(self, tid, fid, offset=0, max_size = None, wait_answer=1):
+    def read_andx(self, tid, fid, offset=0, max_size = None, wait_answer=1, smb_packet=None):
         if not max_size:
-            max_size = self.__ntlm_dialect.get_max_buffer() # Read in multiple KB blocks
+            max_size = self._ntlm_dialect.get_max_buffer() # Read in multiple KB blocks
         
         # max_size is not working, because although it would, the server returns an error (More data avail)
 
-        smb = NewSMBPacket()
-        smb['Flags1'] = 0x18
-        smb['Flags2'] = 0
-        smb['Tid']    = tid
+        if smb_packet == None:
+            smb = NewSMBPacket()
+            smb['Flags1'] = 0x18
+            smb['Flags2'] = 0
+            smb['Tid']    = tid
 
-        readAndX = SMBCommand(SMB.SMB_COM_READ_ANDX)
-        
-        readAndX['Parameters'] = SMBReadAndX_Parameters()
-        readAndX['Parameters']['Fid'] = fid
-        readAndX['Parameters']['Offset'] = offset
-        readAndX['Parameters']['MaxCount'] = max_size
+            readAndX = SMBCommand(SMB.SMB_COM_READ_ANDX)
+            readAndX['Parameters'] = SMBReadAndX_Parameters()
+            readAndX['Parameters']['Fid'] = fid
+            readAndX['Parameters']['Offset'] = offset
+            readAndX['Parameters']['MaxCount'] = max_size
 
-        smb.addCommand(readAndX)
+            smb.addCommand(readAndX)
+        else:
+            smb = smb_packet
+
 
         if wait_answer:
             answer = ''
@@ -1879,12 +1950,23 @@ class SMB:
                         return answer
                     max_size = min(max_size, readAndXParameters['Remaining'])
                     readAndX['Parameters']['Offset'] += count                      # XXX Offset is not important (apparently)
+        else:
+            self.sendSMB(smb)
+            ans = self.recvSMB()
+
+            try:
+                if ans.isValidAnswer(SMB.SMB_COM_READ_ANDX):
+                    return ans
+                else:
+                    return None
+            except:
+                return ans
 
         return None
 
     def read_raw(self, tid, fid, offset=0, max_size = None, wait_answer=1):
         if not max_size:
-            max_size = self.__ntlm_dialect.get_max_buffer() # Read in multiple KB blocks
+            max_size = self._ntlm_dialect.get_max_buffer() # Read in multiple KB blocks
         
         # max_size is not working, because although it would, the server returns an error (More data avail)
 
@@ -1904,7 +1986,7 @@ class SMB:
 
         self.sendSMB(smb)
         if wait_answer:
-            data = self.__sess.recv_packet(self.__timeout).get_trailer()
+            data = self._sess.recv_packet(self.__timeout).get_trailer()
             if not data:
                 # If there is no data it means there was an error
                 data = self.read_andx(tid, fid, offset, max_size)
@@ -1937,23 +2019,26 @@ class SMB:
                 return smb
         return None
 
-    def write_andx(self,tid,fid,data, offset = 0, wait_answer=1):
-        smb = NewSMBPacket()
-        smb['Flags1'] = 0x18
-        smb['Flags2'] = 0
-        smb['Tid']    = tid
+    def write_andx(self,tid,fid,data, offset = 0, wait_answer=1, smb_packet=None):
+        if smb_packet == None:
+            smb = NewSMBPacket()
+            smb['Flags1'] = 0x18
+            smb['Flags2'] = 0
+            smb['Tid']    = tid
 
-        writeAndX = SMBCommand(SMB.SMB_COM_WRITE_ANDX)
-        smb.addCommand(writeAndX)
+            writeAndX = SMBCommand(SMB.SMB_COM_WRITE_ANDX)
+            smb.addCommand(writeAndX)
         
-        writeAndX['Parameters'] = SMBWriteAndX_Parameters()
-        writeAndX['Parameters']['Fid'] = fid
-        writeAndX['Parameters']['Offset'] = offset
-        writeAndX['Parameters']['WriteMode'] = 8
-        writeAndX['Parameters']['Remaining'] = len(data)
-        writeAndX['Parameters']['DataLength'] = len(data)
-        writeAndX['Parameters']['DataOffset'] = len(smb)    # this length already includes the parameter
-        writeAndX['Data'] = data
+            writeAndX['Parameters'] = SMBWriteAndX_Parameters()
+            writeAndX['Parameters']['Fid'] = fid
+            writeAndX['Parameters']['Offset'] = offset
+            writeAndX['Parameters']['WriteMode'] = 8
+            writeAndX['Parameters']['Remaining'] = len(data)
+            writeAndX['Parameters']['DataLength'] = len(data)
+            writeAndX['Parameters']['DataOffset'] = len(smb)    # this length already includes the parameter
+            writeAndX['Data'] = data
+        else:
+            smb = smb_packet
 
         self.sendSMB(smb)
                 
@@ -1980,7 +2065,7 @@ class SMB:
         writeRaw['Parameters']['DataOffset'] = 0
 
         self.sendSMB(smb)
-        self.__sess.send_packet(data)
+        self._sess.send_packet(data)
                 
         if wait_answer:
             smb = self.recvSMB()
@@ -2001,23 +2086,26 @@ class SMB:
 
         return None
 
+    def nt_create_andx(self,tid,filename, smb_packet=None, cmd = None):
+        if smb_packet == None:
+            smb = NewSMBPacket()
+            smb['Flags1'] = 0x18
+            smb['Flags2'] = SMB.FLAGS2_LONG_FILENAME
+            smb['Tid']    = tid
+        else:
+            smb = smb_packet
         
-
-    def nt_create_andx(self,tid,filename):
-        smb = NewSMBPacket()
-        smb['Flags1'] = 0x18
-        smb['Flags2'] = SMB.FLAGS2_LONG_FILENAME
-        smb['Tid']    = tid
-        
-        ntCreate = SMBCommand(SMB.SMB_COM_NT_CREATE_ANDX)
-        ntCreate['Parameters'] = SMBNtCreateAndX_Parameters()
-        ntCreate['Data']       = SMBNtCreateAndX_Data()
-        ntCreate['Parameters']['FileNameLength'] = len(filename)
-        ntCreate['Parameters']['CreateFlags'] = 0x16
-        ntCreate['Parameters']['AccessMask'] = 0x2019f
-        ntCreate['Parameters']['CreateOptions'] = 0x40
-
-        ntCreate['Data']['FileName'] = filename
+        if cmd == None:
+            ntCreate = SMBCommand(SMB.SMB_COM_NT_CREATE_ANDX)
+            ntCreate['Parameters'] = SMBNtCreateAndX_Parameters()
+            ntCreate['Data']       = SMBNtCreateAndX_Data()
+            ntCreate['Parameters']['FileNameLength'] = len(filename)
+            ntCreate['Parameters']['CreateFlags'] = 0x16
+            ntCreate['Parameters']['AccessMask'] = 0x2019f
+            ntCreate['Parameters']['CreateOptions'] = 0x40
+            ntCreate['Data']['FileName'] = filename
+        else:
+            ntCreate = cmd
 
         smb.addCommand(ntCreate)
 
@@ -2030,6 +2118,7 @@ class SMB:
                 ntCreateResponse   = SMBCommand(smb['Data'][0])
                 ntCreateParameters = SMBNtCreateAndXResponse_Parameters(ntCreateResponse['Parameters'])
 
+                self.fid = ntCreateParameters['Fid']
                 return ntCreateParameters['Fid']
 
     def login_pass_the_hash(self, user, lmhash, nthash, domain = ''):
@@ -2043,7 +2132,7 @@ class SMB:
 
     def login_plaintext_password(self, name, password, domain = ''):
         # Password is only encrypted if the server passed us an "encryption key" during protocol dialect negotiation
-        if password and self.__ntlm_dialect.get_encryption_key():
+        if password and self._ntlm_dialect.get_encryption_key():
             lmhash = ntlm.compute_lmhash(password)
             nthash = ntlm.compute_nthash(password)
             lmhash = self.get_ntlmv1_response(lmhash)
@@ -2126,7 +2215,7 @@ class SMB:
             if not datasize:
                 datasize = self.query_file_info(tid, fid)
 
-            if self.__ntlm_dialect.is_rawmode():
+            if self._ntlm_dialect.is_rawmode():
                 self.__raw_retr_file(tid, fid, offset, datasize, callback)
             else:
                 self.__nonraw_retr_file(tid, fid, offset, datasize, callback)
@@ -2145,7 +2234,7 @@ class SMB:
             
             # If the max_transmit buffer size is more than 16KB, upload process using non-raw mode is actually
             # faster than using raw-mode.
-            if self.__ntlm_dialect.get_max_buffer() < 16384 and self.__ntlm_dialect.is_rawmode():
+            if self._ntlm_dialect.get_max_buffer() < 16384 and self._ntlm_dialect.is_rawmode():
                 # Once the __raw_stor_file returns, fid is already closed
                 self.__raw_stor_file(tid, fid, offset, datasize, callback)
                 fid = -1
@@ -2187,7 +2276,7 @@ class SMB:
             if callback:
                 callback(0, src_datasize)
 
-            max_buf_size = (self.__ntlm_dialect.get_max_buffer() >> 10) << 10
+            max_buf_size = (self._ntlm_dialect.get_max_buffer() >> 10) << 10
             read_offset = 0
             write_offset = 0
             while read_offset < src_datasize:
@@ -2305,8 +2394,435 @@ class SMB:
         return self.__browse_servers(SV_TYPE_SERVER | SV_TYPE_PRINTQ_SERVER | SV_TYPE_WFW | SV_TYPE_NT, SMBMachine, domain)
 
     def get_socket(self):
-        return self.__sess.get_socket()
+        return self._sess.get_socket()
 
+class SMBExtended(SMB):
+    def __init__(self, remote_name, remote_host, my_name = None, host_type = nmb.TYPE_SERVER, sess_port = nmb.NETBIOS_SESSION_PORT, timeout=None, UDP = 0):
+        SMB.__init__(self, remote_name, remote_host, my_name, host_type, sess_port, timeout, UDP)
+        self.max_send_frag  = 4096
+        self.pending_recv   = 0
+
+    def ntlm_supported(self):
+        return True
+
+    def neg_session(self):
+        self.mid = self.rand(0xffff)
+        dialects = ['LANMAN1.0', 'LM1.2X002' ]
+        if self.encrypt_passwords:
+            dialects += ['NT LANMAN 1.0', 'NT LM 0.12']
+            
+        dialects = "".join(map(lambda e: '\x02'+e+'\x00', dialects))
+
+        s = SMBPacket()
+        s.set_command(SMB.SMB_COM_NEGOTIATE)
+        s.set_buffer(dialects)
+        s.set_flags(0x18)
+        s.set_flags2(0x2801)
+        s.set_pid(os.getpid())
+        s.set_mid(self.mid)
+        self.sendSMB(s.rawData())
+
+        while 1:
+            s = self.recv_packet()
+            
+            if self.isValidAnswer(s, SMB.SMB_COM_NEGOTIATE):
+                self._ntlm_dialect = NTLMDialect(s.rawData())
+                if self._ntlm_dialect.get_selected_dialect() == 0xffff:
+                    raise UnsupportedFeature,"Remote server does not know NT LM 0.12"
+
+                self.__is_pathcaseless = s.get_flags() & SMB.FLAGS1_PATHCASELESS
+
+                return 1
+            else:
+                return 0
+
+    def login(self, user = '', password = '', domain = ''):
+        if self._ntlm_dialect.get_wordcount() == 17:
+            #Process NTLM negotiate responses
+            resp = self.process_ntlm_negotiate_response(user, password, domain)
+        elif self._ntlm_dialect.get_wordcount() == 13:
+            # Process LANMAN negotiate responses
+            resp = self.process_lanman_negotiate_response()
+        elif self._ntlm_dialect.get_wordcount() == 1:
+            # Process ERROR negotiate responses
+            resp = self.process_error_negotiate_response()
+        elif self._ntlm_dialect.get_wordcount() == 0:
+            # Process SMB error responses
+            resp = self.process_error_response()
+
+        # resp = NewSMBPacket()
+        if isinstance(resp, NewSMBPacket):
+            nt_status = pack('<BBH', resp['ErrorClass'], resp['_reserved'], resp['ErrorCode'])
+            nt_status = unpack('<L', nt_status)[0]
+            if nt_status != STATUS_SUCCESS:
+                resp = self.session_setup()
+            
+        return resp
+
+    def session_setup(self, user = '', pwd = '', domain = 'WORKGROUP'):
+        packet = NewSMBPacket()
+        packet['Flags1']    = 0x18
+        packet['Flags2']    = 0x2001
+        packet['Uid']       = self.get_uid()
+        packet['Tid']       = self.get_tid()
+        
+        sessionSetup = SMBCommand(SMB.SMB_COM_SESSION_SETUP_ANDX)
+        sessionSetup['Parameters'] = SMBSessionSetupAndX_Parameters()
+        sessionSetup['Data']       = SMBSessionSetupAndX_Data()
+
+        sessionSetup['Parameters']['MaxBuffer']        = 65503
+        sessionSetup['Parameters']['MaxMpxCount']      = 2
+        sessionSetup['Parameters']['VCNumber']         = 1
+        sessionSetup['Parameters']['SessionKey']       = self._ntlm_dialect.get_session_key()
+        sessionSetup['Parameters']['AnsiPwdLength']    = len(pwd)
+        sessionSetup['Parameters']['UnicodePwdLength'] = len(pwd)
+        sessionSetup['Parameters']['Capabilities']     = 0x00000040
+
+        sessionSetup['Data']['AnsiPwd']       = pwd
+        sessionSetup['Data']['UnicodePwd']    = pwd
+        sessionSetup['Data']['Account']       = str(user)
+        sessionSetup['Data']['PrimaryDomain'] = str(domain)
+        sessionSetup['Data']['NativeOS']      = 'Windows 2000 2195'
+        sessionSetup['Data']['NativeLanMan']  = 'Windows 2000 5.0'
+
+        packet.addCommand(sessionSetup)
+
+        #self.get_session().send_packet(str(packet))
+        self.sendSMB(str(packet))
+
+        smb_packet = self.recvSMB()
+        if smb_packet.isValidAnswer(SMB.SMB_COM_SESSION_SETUP_ANDX):
+            # We will need to use this uid field for all future requests/responses
+            self.set_uid(smb_packet['Uid'])
+            sessionResponse   = SMBCommand(smb_packet['Data'][0])
+            sessionParameters = SMBSessionSetupAndXResponse_Parameters(sessionResponse['Parameters'])
+            sessionData       = SMBSessionSetupAndXResponse_Data(flags = smb_packet['Flags2'], data = sessionResponse['Data'])
+
+            self.__server_os        = sessionData['NativeOS']
+            self.__server_lanman    = sessionData['NativeLanMan']
+            self.__server_domain    = sessionData['PrimaryDomain']
+
+            return smb_packet
+        else: raise Exception('Error: Could not login successfully')
+
+    def process_ntlm_negotiate_response(self, user = '', password = '', domain = ''):
+        if self._ntlm_dialect.get_selected_dialect() >= 3:
+            if self._ntlm_dialect.get_encryption_key() != '':
+                return self.session_setup_ntlmv1(user, password)
+            
+            # Extended security supported
+            if self._ntlm_dialect.get_msw_capabilities() & 0x8000:
+                return self.session_setup_ntlmv2(user, password)
+
+    def session_setup_ntlmv2(self, user = '', pwd = ''):
+        smb_packet = NewSMBPacket()
+        smb_packet['Flags1'] = 0x18
+        smb_packet['Flags2'] = 0x2801
+        smb_packet['Pid']    = os.getpid()
+        smb_packet['Mid']    = self.mid
+        smb_packet['Tid']    = 0
+        sessionSetup = SMBCommand(SMB.SMB_COM_SESSION_SETUP_ANDX)
+
+        sessionSetup['Parameters'] = SMBSessionSetupAndX_Parameters2()
+        sessionSetup['Data']       = SMBSessionSetupAndX_Data2()
+        domain      = 'WORKGROUP'
+        name        = self.getName(16)
+        flags       = 0x80201
+
+        blob        = self.make_ntlmv2_secblob_init(domain, name, flags)
+
+        #print 'alex session_setup_ntlmv2: %s' % binascii.hexlify(blob)
+
+        sessionSetup['Parameters']['MaxBuffer']        = 65503
+        sessionSetup['Parameters']['MaxMpxCount']      = 2
+        sessionSetup['Parameters']['VCNumber']         = 1
+        sessionSetup['Parameters']['SessionKey']       = self._ntlm_dialect.get_session_key()
+        sessionSetup['Parameters']['BlobLength']       = len(blob)
+        sessionSetup['Parameters']['Capabilities']     = 0x8000d05c
+        sessionSetup['Data']['Blob']          = str(blob)
+        native_os = 'Windows 2000 2195' + '\x00'
+        native_lm = 'Windows 2000 5.0' + "\x00"
+        sessionSetup['Data']['NativeOS']      = native_os.replace('\x00', '')
+        sessionSetup['Data']['NativeLanMan']  = native_lm.replace('\x00', '')
+        sessionSetup['ByteCount']             = len(blob) + len(native_os) + len(native_lm)
+        smb_packet.addCommand(sessionSetup)
+
+        self.sendSMB(str(smb_packet))
+        smb_packet = self.recvSMB()
+
+        if smb_packet.isValidAnswer(SMB.SMB_COM_SESSION_SETUP_ANDX):
+            # We will need to use this uid field for all future requests/responses
+            self.set_uid(smb_packet['Uid'])
+            sessionResponse     = SMBCommand(smb_packet['Data'][0])
+            sessionParameters   = SMBSessionSetupAndXResponse_Parameters(sessionResponse['Parameters'])
+            blob                = sessionResponse['Data']
+            ind1 = blob.find("NTLMSSP")
+            blob_data = blob[ind1:]
+            auth_challenge  = ntlm.NTLMAuthChallenge(data = blob_data)
+            buffer = auth_challenge['domain_name']
+            offset = 0
+            length = unpack_from('H', buffer, offset)[0]
+            offset += calcsize('H')
+            max_length = unpack_from('H', buffer, offset)[0]
+            offset += calcsize('H')
+            offfset = unpack_from('I', buffer, offset)[0]
+            addr_list = blob_data[offfset:offfset+length]
+
+            native_os = blob_data[offfset+length:]
+            native_os = binascii.b2a_qp(native_os)
+            self.set_server_os(native_os)
+            
+            challenge_key = auth_challenge['challenge']
+            client_challenge = self.rand_text(8)
+
+            # Generate the nonce
+            #nonce = CRYPT.md5_hash(challenge_key + client_challenge)
+            nonce = md5.md5 (challenge_key + client_challenge).digest ()
+            # Generate the NTLM hash
+            if (len(pwd) == 65):
+                #resp_ntlm = self.e_p24( [ pwd.upcase()[33,65] ].pack('H42'), nonce[0, 8])
+                #alex TO DO
+                resp_ntlm = ntlm.get_ntlmv1_response( pwd.upper()[33:], nonce[0:8])
+            else:
+                resp_ntlm = self.ntlm_md4(pwd, nonce[0:8])
+
+            # Generate the fake LANMAN hash
+            resp_lmv2 = client_challenge + "\x00" * 16
+            
+            # Create the ntlmv2 security blob data
+            blob = self.make_ntlmv2_secblob_auth(domain, name, user, resp_lmv2, resp_ntlm)
+
+            smb_packet = NewSMBPacket()
+            smb_packet['Flags1'] = 0x18
+            smb_packet['Flags2'] = 0x2801
+            smb_packet['Uid']    = self.get_uid()
+            smb_packet['Pid']    = os.getpid()
+            smb_packet['Mid']    = self.mid
+            smb_packet['Tid']    = 0
+            sessionSetup = SMBCommand(SMB.SMB_COM_SESSION_SETUP_ANDX)
+            sessionSetup['Parameters'] = SMBSessionSetupAndX_Parameters2()
+            sessionSetup['Data']       = SMBSessionSetupAndX_Data2()
+            domain      = 'WORKGROUP'
+            name        = self.getName(16)
+            flags       = 0x80201
+
+            sessionSetup['Parameters']['MaxBuffer']        = 65503
+            sessionSetup['Parameters']['MaxMpxCount']      = 2
+            sessionSetup['Parameters']['VCNumber']         = 1
+            sessionSetup['Parameters']['SessionKey']       = self._ntlm_dialect.get_session_key()
+            sessionSetup['Parameters']['BlobLength']       = len(blob)
+            sessionSetup['Parameters']['Capabilities']     = 0x8000d05c
+            sessionSetup['Data']['Blob']          = str(blob)
+            native_os = 'Windows 2000 2195' + '\x00'
+            native_lm = 'Windows 2000 5.0' + "\x00"
+            sessionSetup['Data']['NativeOS']      = native_os.replace('\x00', '')
+            sessionSetup['Data']['NativeLanMan']  = native_lm.replace('\x00', '')
+            sessionSetup['ByteCount']             = len(blob) + len(native_os) + len(native_lm)
+            smb_packet.addCommand(sessionSetup)
+            self.sendSMB(str(smb_packet))
+
+            smb_packet = self.recvSMB()
+
+            return smb_packet
+        else: raise Exception('Error: Could not login successfully')
+
+    def ntlm_md4(self, pwd, chal):
+        """
+        def self.ntlm_md4(pass, chal)
+            e_p24( [ md4_hash(Rex::Text.to_unicode(pass)) ].pack('a21'), chal)
+        end
+        """
+        
+        return ntlm.get_ntlmv1_response(pack('21s', unicode(pwd).encode('utf_16le') ), chal)
+    
+    def make_ntlmv2_secblob_auth(self, domain, name, user, lmv2, ntlm, flags = 0x080201):
+        lmv2 = pack('24s', lmv2)
+        ntlm = pack('24s', ntlm)
+
+        domain_uni = unicode(domain).encode('utf_16le')
+        user_uni   = unicode(user).encode('utf_16le')
+        name_uni   = unicode(name).encode('utf_16le')
+        session    = ''
+
+        ptr  = 64 
+        ptr2 = ptr + len(lmv2)
+        ptr3 = ptr2 + len(ntlm)
+        ptr4 = ptr3 + len(domain_uni)
+        ptr5 = ptr4 + len(user_uni)
+        ptr6 = ptr5 + len(name_uni)
+
+        var1 = pack('<HHL', len(lmv2), len(lmv2), ptr)
+        var2 = pack('<HHL', len(ntlm), len(ntlm), ptr2)
+        var3 = pack('<HHL', len(domain_uni), len(domain_uni), ptr3)
+        var4 = pack('<HHL', len(user_uni), len(user_uni), ptr4)
+        var5 = pack('<HHL', len(name_uni), len(name_uni), ptr5)
+        var6 = pack('<HHL', len(session), len(session), ptr6)
+        var7 = pack('>L', flags)
+        param = "NTLMSSP\x00" + pack('<L', 3) + var1 + var2 + var3 + var4 + var5 + var6 + var7 + lmv2 + ntlm + domain_uni + user_uni + name_uni + session + "\x00"
+        param2 = self.asn1encode(param)
+        blob = "\xa1" + self.asn1encode("\x30" + self.asn1encode("\xa2" + self.asn1encode("\x04" + param2)))
+
+        """
+        blob = "\xa1" + self.asn1encode(
+                "\x30" + self.asn1encode(
+                    "\xa2" + self.asn1encode(
+                        "\x04" + self.asn1encode(param)
+                )
+            )
+        )
+        """
+        return blob
+
+    def make_ntlmv2_secblob_init(self, domain = 'WORKGROUP', name = 'WORKSTATION', flags=0x80201):
+        blob = "\x60" + self.asn1encode(
+            "\x06" + self.asn1encode(
+                "\x2b\x06\x01\x05\x05\x02"
+            ) + 
+            "\xa0" + self.asn1encode(
+                "\x30" + self.asn1encode(
+                    "\xa0" + self.asn1encode(
+                        "\x30" + self.asn1encode(
+                            "\x06" + self.asn1encode(
+                                "\x2b\x06\x01\x04\x01\x82\x37\x02\x02\x0a"
+                            )
+                        )
+                    ) +
+                    "\xa2" + self.asn1encode(
+                        "\x04" + self.asn1encode(
+                            "NTLMSSP\x00" +
+                            pack('<LL', 1, flags) +
+                            pack('<HHL', len(domain), len(domain), 32) +
+                            pack('<HHL', len(name), len(name), len(domain) + 32) +
+                            domain + name
+                        )
+                    )
+                )
+            )
+        )
+        return blob
+
+    def getName(self, size):
+        alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+        result   = "".join(random.sample(alphabet, random.randint(size,size)))
+        return result
+
+    def rand(self, nro):
+        nro -= 1
+        return random.randint(0, nro)
+
+    def asn1encode(self, str = ''):
+        #res = asn1.SEQUENCE(str).encode()
+        #import binascii
+        #print '\nalex asn1encode str: %s\n' % binascii.hexlify(str)
+        
+        if len(str) >= 0 and len(str) <= 0x7F:
+            res = pack('B', len(str)) + str
+        elif len(str) >= 0x80 and len(str) <= 0xFF:
+            res = pack('BB', 0x81, len(str)) + str
+        elif len(str) >= 0x100 and len(str) <= 0xFFFF:
+            res = pack('B!H', 0x82, len(str)) + str
+        elif len(str) >= 0x10000 and len(str) <= 0xffffff:
+            res = pack('BB!H', 0x83, len(str) >> 16, len(str) & 0xFFFF) + str
+        elif len(str) >= 0x1000000 and len(str) <= 0xffffffff:
+            res = pack('B!L', 0x84, len(str)) + str
+        else:
+            raise Exception('Error in asn1encode')
+        return res
+
+    def rand_text(self, size):
+        allnros = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50]
+        allnros += [51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100]
+        allnros += [101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150]
+        allnros += [151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195, 196, 197, 198, 199, 200]
+        allnros += [201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250]
+        allnros += [251, 252, 253, 254, 255]
+        all     = "".join(map(lambda n:pack('B', n) , allnros))
+        result   = "".join(random.sample(all, random.randint(size,size)))
+        return result
+
+    def process_error_negotiate_response(self):
+        pass
+        
+    def process_lanman_negotiate_response(self):
+        pass
+
+    def session_setup_ntlmv1(self, user = '', pwd = ''):
+        #alex TO DO
+        print 'alex in session_setup_ntlmv1'
+    
+    def is_auth_mode(self):
+        return self._ntlm_dialect.is_auth_mode()
+
+    def get_encryption_key_len(self):
+        return self._ntlm_dialect.get_encryption_key_len()
+    
+    def get_encryption_key(self):
+        return self._ntlm_dialect.get_encryption_key()
+
+    def get_mid(self):
+        return self.mid
+
+    def sendSMB(self,smb):
+        self._sess.send_packet(str(smb))
+
+    def send(self, data, noAnswer = 0, forceWriteAndx = 0, forceRecv = 0):
+        if self.max_send_frag:
+            offset = 0
+            while 1:
+                toSend = data[offset:offset+self.max_send_frag]
+                if not toSend:
+                    break
+                packet = NewSMBPacket()
+                packet['Flags1'] = 0x18
+                packet['Flags2'] = 0x2001
+                packet['Tid']    = self.tid
+                packet['Pid']    = os.getpid()
+                packet['Mid']    = self.get_mid()
+                packet['Uid']    = self.get_uid()
+
+                writeAndX = SMBCommand(SMB.SMB_COM_WRITE_ANDX)
+                packet.addCommand(writeAndX)
+                writeAndX['Parameters'] = SMBWriteAndX_Parameters()
+                writeAndX['Parameters']['Fid'] = self.get_fid()
+                writeAndX['Parameters']['Offset'] = self.rand(1024) + 1
+                writeAndX['Parameters']['WriteMode'] = 8
+                writeAndX['Parameters']['Remaining'] = len(toSend)
+                writeAndX['Parameters']['DataLength'] = len(toSend)
+                writeAndX['Parameters']['_reserved'] = 0
+                data_offset = len(packet)
+                writeAndX['Parameters']['DataOffset'] = data_offset    # this length already includes the parameter
+                writeAndX['Data'] = str(toSend)
+
+                self.resp_packet = self.write_andx(0, 0, 0, smb_packet=packet)
+                offset += len(toSend)
+        else:
+            if forceWriteAndx:
+                packet = NewSMBPacket()
+                packet['Flags1'] = 0x18
+                packet['Flags2'] = 0x2001
+                packet['Tid']    = self.tid
+                packet['Pid']    = os.getpid()
+                packet['Mid']    = self.get_mid()
+                packet['Uid']    = self.get_uid()
+
+                writeAndX = SMBCommand(SMB.SMB_COM_WRITE_ANDX)
+                packet.addCommand(writeAndX)
+                writeAndX['Parameters'] = SMBWriteAndX_Parameters()
+                writeAndX['Parameters']['Fid'] = self.handle
+                writeAndX['Parameters']['Offset'] = self.rand(1024) + 1
+                writeAndX['Parameters']['WriteMode'] = 8
+                writeAndX['Parameters']['Remaining'] = len(data)
+                writeAndX['Parameters']['DataLength'] = len(data)
+                writeAndX['Parameters']['_reserved'] = 0
+                data_offset = len(packet)
+                writeAndX['Parameters']['DataOffset'] = data_offset    # this length already includes the parameter
+                writeAndX['Data'] = str(data)
+                
+                self.resp_packet = self.write_andx(0, 0, 0, smb_packet=packet)
+            else:
+                self.TransactNamedPipe(self.tid, self.handle, data, noAnswer = noAnswer, waitAnswer = 0)
+        if forceRecv:
+            self.pending_recv += 1
 
 ERRDOS = { 1: 'Invalid function',
            2: 'File not found',
