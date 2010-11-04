@@ -1446,7 +1446,7 @@ class Dot11WPA2Data(ProtocolPacket):
 class RadioTap(ProtocolPacket):
     __HEADER_BASE_SIZE = 8 # minimal header size
 
-    class __RadioTapField():        
+    class __RadioTapField(object):
         ALIGNMENT = 1
 
         def __str__( self ):
@@ -1571,13 +1571,14 @@ class RadioTap(ProtocolPacket):
     class RTF_EXT(__RadioTapField):
         BIT_NUMBER = 31
         STRUCTURE = []
-       
+    
+    # Sort the list so the 'for' statement walk the list in the right order
+    radiotap_fields = __RadioTapField.__subclasses__()
+    radiotap_fields.sort(lambda x, y: cmp(x.BIT_NUMBER,y.BIT_NUMBER))
+    
     def __init__(self, aBuffer = None):
         header_size = self.__HEADER_BASE_SIZE 
         tail_size = 0
-        self.__radiotap_fields=[ x for x in self.__class__.__dict__.values() if type(x) is types.ClassType and self.__RadioTapField in (x.__bases__) ]
-        # Sort the list so the 'for' statement walk the list in the right order
-        self.__radiotap_fields.sort(lambda x, y: cmp(x.BIT_NUMBER,y.BIT_NUMBER))
         
         if aBuffer:
             length = struct.unpack('<H', aBuffer[2:4])[0]
@@ -1636,7 +1637,7 @@ class RadioTap(ProtocolPacket):
 
     def __get_field_position(self, field):        
         field_position=self.__HEADER_BASE_SIZE
-        for f in self.__radiotap_fields:
+        for f in self.radiotap_fields:
             field_position+=self.__align(field_position,f.ALIGNMENT)
             if f==field:
                 return field_position
