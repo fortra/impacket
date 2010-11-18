@@ -1253,12 +1253,12 @@ class TCP(Header):
 
     def get_th_flags(self):
         return self.get_word(12) & self.TCP_FLAGS_MASK
-
+    
     def set_th_flags(self, aValue):
         masked = self.get_word(12) & (~self.TCP_FLAGS_MASK)
         nb = masked | (aValue & self.TCP_FLAGS_MASK)
         return self.set_word(12, nb, ">")
-
+     
     def get_th_win(self):
         return self.get_word(14)
 
@@ -1279,6 +1279,11 @@ class TCP(Header):
         return self.set_word(18, aValue)
 
     # Flag accessors
+
+    def get_th_reserved(self):
+        tmp_value = self.get_byte(12) & 0x0f
+        return tmp_value
+
 
     def get_th_off(self):
         tmp_value = self.get_byte(12) >> 4
