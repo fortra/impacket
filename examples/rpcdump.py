@@ -20,7 +20,7 @@ import string
 import sys
 import types
 
-from impacket import uuid
+from impacket import uuid, ntlm
 from impacket.dcerpc import dcerpc_v4, dcerpc, transport, epm
 
 class RPCDump:
@@ -112,6 +112,7 @@ class RPCDump:
         entries = []
 
         dce.connect()
+        dce.set_auth_level(ntlm.NTLM_AUTH_PKT_PRIVACY)
         dce.bind(epm.MSRPC_UUID_PORTMAP)
         rpcepm = epm.DCERPCEpm(dce)
 

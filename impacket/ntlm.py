@@ -137,7 +137,7 @@ class NTLMAuthNegotiate(NTLMAuthHeader):
             self['os_version'] = ''
 
 
-class NTLMAuthChallenge(Structure):
+class NTLMAuthChallenge(NTLMAuthHeader):
 
     structure = (
         ('','"NTLMSSP\x00'),

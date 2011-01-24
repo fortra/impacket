@@ -279,7 +279,10 @@ class MSRPCHeader(ImpactPacket.Header):
     def contains(self, aHeader):
         ImpactPacket.Header.contains(self, aHeader)
         if self.child():
-            self.set_op_num(self.child().OP_NUM)
+            try:
+               self.set_op_num(self.child().OP_NUM)
+            except:
+               pass
 
     def set_alloc_hint(self, hint):
         pass
@@ -288,15 +291,16 @@ class MSRPCHeader(ImpactPacket.Header):
         if self._auth_data:
             self.set_auth_len(len(self._auth_data)-8)
 
-        if self.child():
-            contents_size = self.child().get_size()
-        else:
-            contents_size = 0
+        if not self.child():
+           self.contains(ImpactPacket.Data('    '))
 
+        contents_size = self.child().get_size()
         contents_size += len(self._auth_data)
+
         if not self.__frag_len_set:
             self.set_frag_len(self.get_header_size() + contents_size)
         self.set_alloc_hint(contents_size)
+            
         return ImpactPacket.Header.get_packet(self)+self._auth_data
 
 class MSRPCRequestHeader(MSRPCHeader):
