@@ -258,7 +258,7 @@ class MSRPCHeader(ImpactPacket.Header):
     def get_frag_len(self):
         return self.get_word(8, self.endianness)
     def set_frag_len(self, len):
-        self.__frag_len_set == 1
+        self.__frag_len_set = 1
         self.set_word(8, len, self.endianness)
 
     def get_auth_len(self):
@@ -447,7 +447,7 @@ class MSRPCBind(MSRPCHeader):
     def set_xfer_syntax_ver(self,ver, index = 0):
         self.set_long(68+44*index, ver, self.endianness)
     def get_xfer_syntax_ver(self, index = 0):
-        self.get_long(68+44*index, ver, self.endianness)
+        self.get_long(68+44*index, self.endianness)
         
 class MSRPCBindAck(ImpactPacket.Header):
     _SIZE = 56
@@ -728,7 +728,7 @@ class DCERPC_v5(DCERPC):
         if (self.__auth_level != ntlm.NTLM_AUTH_NONE):
             if (self.__username is None) or (self.__password is None):
                 self.__username, self.__password, nth, lmh = self._transport.get_credentials()
-            auth = ntlm.NTLMAuthNegotiate()
+            auth = ntlm.DCERPC_NTLMAuthNegotiate()
             auth['auth_level']  = self.__auth_level
             auth['auth_ctx_id'] = self._ctx + 79231 
             bind.set_auth_data(str(auth))
@@ -753,9 +753,9 @@ class DCERPC_v5(DCERPC):
         self.__max_xmit_size = resp.get_max_tfrag()
 
         if self.__auth_level != ntlm.NTLM_AUTH_NONE:
-            authResp = ntlm.NTLMAuthChallenge(data = resp.get_auth_data().tostring())
+            authResp = ntlm.DCERPC_NTLMAuthChallenge(data = resp.get_auth_data().tostring())
             self._ntlm_challenge = authResp['challenge']
-            response = ntlm.NTLMAuthChallengeResponse(self.__username,self.__password, self._ntlm_challenge)
+            response = ntlm.DCERPC_NTLMAuthChallengeResponse(self.__username,self.__password, self._ntlm_challenge)
             response['auth_ctx_id'] = self._ctx + 79231 
             response['auth_level'] = self.__auth_level
 
@@ -805,14 +805,14 @@ class DCERPC_v5(DCERPC):
     def _transport_send(self, rpc_packet, forceWriteAndx = 0, forceRecv = 0):
         if self.__auth_level == ntlm.NTLM_AUTH_CALL:
             if rpc_packet.get_type() == MSRPC_REQUEST:
-                response = ntlm.NTLMAuthChallengeResponse(self.__username,self.__password, self._ntlm_challenge)
+                response = ntlm.DCERPC_NTLMAuthChallengeResponse(self.__username,self.__password, self._ntlm_challenge)
                 response['auth_ctx_id'] = self._ctx + 79231 
                 response['auth_level'] = self.__auth_level
                 rpc_packet.set_auth_data(str(response))
 
                 
         if self.__auth_level in [ntlm.NTLM_AUTH_PKT_INTEGRITY, ntlm.NTLM_AUTH_PKT_PRIVACY]:
-            verifier = ntlm.NTLMAuthVerifier()
+            verifier = ntlm.DCERPC_NTLMAuthVerifier()
             verifier['auth_level'] = self.__auth_level
             verifier['auth_ctx_id'] = self._ctx + 79231 
             verifier['data'] = ' '*12
@@ -889,7 +889,7 @@ class DCERPC_v5(DCERPC):
         if auth_len:
             auth_len += 8
             auth_data = answer[-auth_len:]
-            ntlmssp   = ntlm.NTLMAuthHeader(data = auth_data)
+            ntlmssp   = ntlm.DCERPC_NTLMAuthHeader(data = auth_data)
             answer = answer[:-auth_len]
 
             if ntlmssp['auth_level'] == ntlm.NTLM_AUTH_PKT_PRIVACY:
@@ -899,7 +899,7 @@ class DCERPC_v5(DCERPC):
                 answer = answer[:-ntlmssp['auth_pad_len']]
 
             if ntlmssp['auth_level'] in [ntlm.NTLM_AUTH_PKT_INTEGRITY, ntlm.NTLM_AUTH_PKT_PRIVACY]:
-                ntlmssp = ntlm.NTLMAuthVerifier(data = auth_data)
+                ntlmssp = ntlm.DCERPC_NTLMAuthVerifier(data = auth_data)
                 data = self.cipher_encrypt(ntlmssp['data'])
                 zero, crc, sequence = unpack('<LLL', data)
                 self.sequence = sequence + 1

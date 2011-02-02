@@ -62,7 +62,7 @@ NTLMSSP_TARGET       = 0x00000004
 NTLMSSP_OEM          = 0x00000002
 NTLMSSP_UNICODE      = 0x00000001
 
-class NTLMAuthHeader(Structure):
+class DCERPC_NTLMAuthHeader(Structure):
     commonHdr = (
         ('auth_type', 'B=10'),
         ('auth_level','B'),
@@ -74,6 +74,7 @@ class NTLMAuthHeader(Structure):
         ('data',':'),
     )
 
+class NTLMAuthMixin:
     def get_os_version(self):
         if self['os_version'] == '':
             return None
@@ -82,8 +83,8 @@ class NTLMAuthHeader(Structure):
             minor_v = struct.unpack('B',self['os_version'][1])[0]
             build_v = struct.unpack('H',self['os_version'][2:4])
             return (mayor_v,minor_v,build_v)
-
-class NTLMAuthNegotiate(NTLMAuthHeader):
+        
+class NTLMAuthNegotiate(Structure, NTLMAuthMixin):
 
     structure = (
         ('','"NTLMSSP\x00'),
@@ -99,7 +100,7 @@ class NTLMAuthNegotiate(NTLMAuthHeader):
         ('domain_name',':'))
                                                                                 
     def __init__(self):
-        NTLMAuthHeader.__init__(self)
+        Structure.__init__(self)
         self['flags']= (
                NTLMSSP_KEY_128     |
                NTLMSSP_KEY_EXCHANGE|
@@ -117,7 +118,7 @@ class NTLMAuthNegotiate(NTLMAuthHeader):
     def __str__(self):
         self['host_offset']=32
         self['domain_offset']=32+len(self['host_name'])
-        return NTLMAuthHeader.__str__(self)
+        return Structure.__str__(self)
 
     def fromString(self,data):
         Structure.fromString(self,data)
@@ -136,8 +137,10 @@ class NTLMAuthNegotiate(NTLMAuthHeader):
         else:
             self['os_version'] = ''
 
+class DCERPC_NTLMAuthNegotiate(NTLMAuthNegotiate,DCERPC_NTLMAuthHeader):
+    commonHdr = DCERPC_NTLMAuthHeader.commonHdr
 
-class NTLMAuthChallenge(NTLMAuthHeader):
+class NTLMAuthChallenge(Structure):
 
     structure = (
         ('','"NTLMSSP\x00'),
@@ -149,9 +152,11 @@ class NTLMAuthChallenge(NTLMAuthHeader):
         ('challenge','8s'),
         ('reserved','"\x00\x00\x00\x00\x00\x00\x00\x00'),
         ('domain_name',':'))#,
+    
+class DCERPC_NTLMAuthChallenge(NTLMAuthChallenge,DCERPC_NTLMAuthHeader):
+    commonHdr = DCERPC_NTLMAuthHeader.commonHdr
 
-
-class NTLMAuthChallengeResponse(NTLMAuthHeader):
+class NTLMAuthChallengeResponse(Structure, NTLMAuthMixin):
 
     structure = (
         ('','"NTLMSSP\x00'),
@@ -183,7 +188,7 @@ class NTLMAuthChallengeResponse(NTLMAuthHeader):
         ('session_key',':'))
 
     def __init__(self, username = '', password = '', challenge = ''):
-        NTLMAuthHeader.__init__(self)
+        Structure.__init__(self)
         self['session_key']=''
         self['user_name']=username.encode('utf-16le')
         self['domain_name']='' #"CLON".encode('utf-16le')
@@ -219,10 +224,10 @@ class NTLMAuthChallengeResponse(NTLMAuthHeader):
         self['lanman_offset']=self['host_offset']+len(self['host_name'])
         self['ntlm_offset']=self['lanman_offset']+len(self['lanman'])
         self['session_key_offset']=self['ntlm_offset']+len(self['ntlm'])
-        return NTLMAuthHeader.__str__(self)
+        return Structure.__str__(self)
 
     def fromString(self,data):
-        NTLMAuthHeader.fromString(self,data)
+        Structure.fromString(self,data)
 
         domain_offset = self['domain_offset']
         domain_end = self['domain_len'] + domain_offset
@@ -249,7 +254,9 @@ class NTLMAuthChallengeResponse(NTLMAuthHeader):
         else:
             self['os_version'] = ''
 
-                                                                                
+class DCERPC_NTLMAuthChallengeResponse(NTLMAuthChallengeResponse,DCERPC_NTLMAuthHeader):
+    commonHdr = DCERPC_NTLMAuthHeader.commonHdr
+                                                                   
 class ImpacketStructure(Structure):
     def set_parent(self, other):
         self.parent = other
@@ -260,7 +267,7 @@ class ImpacketStructure(Structure):
     def get_size(self):
         return len(self)
 
-class NTLMAuthVerifier(NTLMAuthHeader):
+class NTLMAuthVerifier(Structure):
     structure = (
         ('version','<L=1'),
         ('data','12s'),
@@ -268,6 +275,8 @@ class NTLMAuthVerifier(NTLMAuthHeader):
         # ('crc','<L=0'),
         # ('sequence','<L=0'),
     )
+class DCERPC_NTLMAuthVerifier(NTLMAuthVerifier,DCERPC_NTLMAuthHeader):
+    commonHdr = DCERPC_NTLMAuthHeader.commonHdr
 
 KNOWN_DES_INPUT = "KGS!@#$%"
 
