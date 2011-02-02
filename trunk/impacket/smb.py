@@ -168,8 +168,8 @@ def strerror(errclass, errcode):
     elif errclass == 0x03:
         return 'Hardware error', ERRHRD.get(errcode, 'Unknown error')
     # This is not a standard error class for SMB
-    elif errclass == 0x80:
-        return 'Browse error', ERRBROWSE.get(errcode, 'Unknown error')
+    #elif errclass == 0x80:
+    #    return 'Browse error', ERRBROWSE.get(errcode, 'Unknown error')
     elif errclass == 0xff:
         return 'Bad command', 'Bad command. Please file bug report'
     else:
@@ -418,7 +418,8 @@ class SessionError(Exception):
     
 
     def __init__( self, str, error_class, error_code):
-        self.args = str
+        Exception.__init__(self, str)
+        self._args = str
         self.error_class = error_class
         self.error_code = error_code
 
@@ -441,7 +442,7 @@ class SessionError(Exception):
             else:
                 error_code_str = '%s(%s)' % (error_code)
 
-        return 'SessionError: %s, class: %s, code: %s' % (self.args, error_class_str, error_code_str)
+        return 'SessionError: %s, class: %s, code: %s' % (self._args, error_class_str, error_code_str)
 
 
 # Raised when an supported feature is present/required in the protocol but is not
@@ -1464,7 +1465,7 @@ class SMB:
             if unicode_convert:
                 path = str(path)
             else:
-                raise Except('SMB: Can\t conver path from unicode!')
+                raise Exception('SMB: Can\t conver path from unicode!')
 
         smb = NewSMBPacket()
         smb['Flags1']  = 8
@@ -1506,7 +1507,7 @@ class SMB:
             if unicode_convert:
                 path = str(path)
             else:
-                raise Except('SMB: Can\t convert path from unicode!')
+                raise Exception('SMB: Can\t convert path from unicode!')
 
         if smb_packet == None:
             smb = NewSMBPacket()
@@ -2272,6 +2273,8 @@ class SMB:
             
             dest_fid = self.open_andx(dest_tid, dest_path, write_mode, SMB_ACCESS_WRITE | SMB_SHARE_DENY_WRITE)[0]
             src_fid, _, _, src_datasize, _, _, _, _, _ = self.open_andx(src_tid, src_path, SMB_O_OPEN, SMB_ACCESS_READ | SMB_SHARE_DENY_WRITE)
+            if not src_datasize:
+                src_datasize = self.query_file_info(src_tid, src_fid)
 
             if callback:
                 callback(0, src_datasize)
@@ -2286,6 +2289,7 @@ class SMB:
                     if self.isValidAnswer(s,SMB.SMB_COM_READ_ANDX):
                         offset = unpack('<H', s.get_parameter_words()[2:4])[0]
                         data_len, dataoffset = unpack('<HH', s.get_parameter_words()[10+offset:14+offset])
+                        d = s.get_buffer()
                         if data_len == len(d):
                             self.__send_smb_packet(SMB.SMB_COM_WRITE_ANDX, 0, 0, dest_tid, 0, pack('<BBHHLLHHHHH', 0xff, 0, 0, dest_fid, write_offset, 0, 0, 0, 0, data_len, 59), d)
                         else:
@@ -2293,8 +2297,7 @@ class SMB:
                         while 1:
                             s = self.recv_packet()
                             if self.isValidAnswer(s,SMB.SMB_COM_WRITE_ANDX):
-                                offset = unpack('<H', s.get_parameter_words()[2:4])[0]
-                                write_offset = write_offset + unpack('<H', s.get_parameter_words()[4+offset:6+offset])[0]
+                                data_len, dataoffset = unpack('<HH', s.get_parameter_words()[4:8])
                                 break
                         read_offset = read_offset + data_len
                         if callback:
