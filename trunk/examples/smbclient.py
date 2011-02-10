@@ -66,7 +66,7 @@ class MiniImpacketShell:
     def help(self):
         print """
  open {host,port} - opens a SMB connection against the target host/port
- login {username,passwd} - logs into the current SMB connection, no parameters for NULL connection
+ login {username,passwd,domain} - logs into the current SMB connection, no parameters for NULL connection
  login_hash {username,lmhash,nthash} - logs into the current SMB connection using the password hashes
  logoff - logs off
  shares - list available shares
@@ -89,8 +89,8 @@ class MiniImpacketShell:
     def open(self,host,port):
         self.smb = smb.SMB("*SMBSERVER", host, sess_port=int(port))
 
-    def login(self,username='', password=''):
-        self.smb.login(username, password)
+    def login(self,username='', password='', domain=''):
+        self.smb.login(username, password, domain=domain)
 
     def login_hash(self,username, lmhash, nthash):
         self.smb.login(username, '', lmhash=lmhash, nthash=nthash)
