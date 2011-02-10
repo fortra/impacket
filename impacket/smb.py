@@ -2155,8 +2155,7 @@ class SMB:
 
         buf = StringIO()
         try:
-            #self.send_trans(tid, '', '\\PIPE\\LANMAN\0', '\x00\x00WrLeh\0B13BWz\0\x01\x00\xe0\xff', '')
-            self.send_trans(tid, '', '\\PIPE\\LANMAN\0', '\x00\x00WrLeh\0B13BWzWWWzB9B\0\x01\x00\xe0\xff', '')
+            self.send_trans(tid, '', '\\PIPE\\LANMAN\0', '\x00\x00WrLeh\0B13BWz\0\x01\x00\xe0\xff', '')
             numentries = 0
             share_list = [ ]
             while 1:
