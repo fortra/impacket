@@ -1981,7 +1981,6 @@ class ARP(Header):
             tmp_str += '\n' + self.child().__str__()
         return tmp_str
 
-
 def example(): #To execute an example, remove this line
     a = Ethernet()
     b = ARP()
@@ -1998,3 +1997,4 @@ def example(): #To execute an example, remove this line
     b.set_ar_tpa((192, 168, 66, 171))
     a.set_ether_shost((0x0, 0xe0, 0x7d, 0x8a, 0xef, 0x3d))
     a.set_ether_dhost((0x0, 0xc0, 0xdf, 0x6, 0x5, 0xe))
+
