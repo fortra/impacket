@@ -16,6 +16,7 @@
 
 import ImpactPacket
 import dot11
+import IP6
 from cdp import CDP
 from Dot11KeyManager import KeyManager
 from Dot11Crypto import RC4
@@ -128,6 +129,41 @@ class IPDecoder(Decoder):
             packet = self.data_decoder.decode(aBuffer[off:end])
         i.contains(packet)
         return i
+    
+class IP6Decoder(Decoder):
+    def __init__(self):
+        pass
+
+    def decode(self, buffer):
+        ip6_packet = IP6.IP6(buffer)
+        self.set_decoded_protocol (ip6_packet)
+        start_pos = packet.get_header_size() 
+        end_pos = packet.get_payload_length() + start_pos
+        contained_protocol = packet.get_next_header()
+        if contained_protocol == ImpactPacket.UDP.protocol:
+            self.udp_decoder = UDPDecoder()
+            child_packet = self.udp_decoder.decode(buffer[start_pos:end_pos])
+        elif contained_protocol == ImpactPacket.TCP.protocol:
+            self.tcp_decoder = TCPDecoder()
+            child_packet = self.tcp_decoder.decode(buffer[start_pos:end_pos])
+        elif contained_protocol == ImpactPacket.ICMP6.protocol:
+            self.icmp6_decoder = ICMP6Decoder()
+            child_packet = self.icmp6_decoder.decode(buffer[start_pos:end_pos])
+        else:
+            self.data_decoder = DataDecoder()
+            child_packet = self.data_decoder.decode(buffer[start_pos:end_pos])
+        packet.contains(child_packet)
+        return packet
+    
+class ICMP6Decoder(Decoder):
+    def __init__(self):
+        pass
+
+    def decode(self, buffer):
+        icmp6_packet = ImpactPacket.ICMP6(buffer)
+        self.set_decoded_protocol(icmp6_packet)
+        return icmp6_packet
+
 
 class ARPDecoder(Decoder):
     def __init__(self):
