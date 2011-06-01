@@ -122,7 +122,7 @@ class IP6_Address():
         else:
             raise Exception('IP6_Address - more than one compression marker (\"::\") found')
        
-    #Returns how many hex groups are present, ina a compressed address 
+    #Returns how many hex groups are present, in a compressed address 
     def __count_compressed_groups(self, address):
         trimmed_address = address.replace(self.SEPARATOR * 2, self.SEPARATOR) #Replace "::" with ":"        
         return trimmed_address.count(self.SEPARATOR) + 1

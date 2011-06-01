@@ -1529,12 +1529,12 @@ class TCPOption(PacketBuffer):
 
     def set_len(self, len):
         if self.get_size() < 2:
-            raise ImpactPacketException, "Cannot set length field on option of less than two bytes"
+            raise ImpactPacketException, "Cannot set length field on an option having a size smaller than 2 bytes"
         self.set_byte(1, len)
 
     def get_len(self):
         if self.get_size() < 2:
-            raise ImpactPacketException, "Cannot retrive length field from option of less that two bytes"
+            raise ImpactPacketException, "Cannot retrieve length field from an option having a size smaller than 2 bytes"
         return self.get_byte(1)
 
     def get_size(self):

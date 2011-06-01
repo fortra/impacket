@@ -94,7 +94,7 @@ class NDP_Option():
     TARGET_LINK_LAYER_ADDRESS = 2
     PREFIX_INFORMATION = 3
     REDIRECTED_HEADER = 4
-    MTU_ = 5 #The underscore differentiates it from the class method with the same name
+    MTU_OPTION = 5
     
 ############################################################################
     @classmethod    
@@ -144,7 +144,7 @@ class NDP_Option():
         option_data = struct.pack('>BB', 0x00, 0x00)# Reserved bytes
         option_data += struct.pack('>L', mtu)
         option_length = 1
-        return class_object.__build_option(NDP_Option.MTU_, option_length, option_data)
+        return class_object.__build_option(NDP_Option.MTU_OPTION, option_length, option_data)
 
 
     @classmethod
