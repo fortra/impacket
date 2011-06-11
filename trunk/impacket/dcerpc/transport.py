@@ -274,10 +274,10 @@ class HTTPTransport(TCPTransport):
 class SMBTransport(DCERPCTransport):
     "Implementation of ncacn_np protocol sequence"
 
-    def __init__(self, dstip, dstport = 445, filename = '', username='', password='', lm_hash='', nt_hash='', remote_name=''):
+    def __init__(self, dstip, dstport = 445, filename = '', username='', password='', lm_hash='', nt_hash='', remote_name='', smb_server = 0):
         DCERPCTransport.__init__(self, dstip, dstport)
         self.__socket = None
-        self.__smb_server = 0
+        self.__smb_server = smb_server
         self.__tid = 0
         self.__filename = filename
         self.__handle = 0
@@ -293,11 +293,13 @@ class SMBTransport(DCERPCTransport):
                 self.__smb_server = smb.SMB(self.__remote_name, self.get_dip(), sess_port = self.get_dport())
 
     def connect(self):
-        self.setup_smb_server()
-        if self.__smb_server.is_login_required():
-            if self._password != '' or (self._password == '' and self._nt_hash == '' and self._lm_hash == ''):
-                self.__smb_server.login(self._username, self._password)
-            elif self._nt_hash != '' or self._lm_hash != '':
+        # Check if we have a smb connection already setup
+        if self.__smb_server == 0:  
+           self.setup_smb_server()
+           if self.__smb_server.is_login_required():
+              if self._password != '' or (self._password == '' and self._nt_hash == '' and self._lm_hash == ''):
+                 self.__smb_server.login(self._username, self._password)
+              elif self._nt_hash != '' or self._lm_hash != '':
                 self.__smb_server.login(self._username, '', '', self._lm_hash, self._nt_hash)
         self.__tid = self.__smb_server.tree_connect_andx('\\\\%s\\IPC$' % self.__smb_server.get_remote_name())
         self.__handle = self.__smb_server.nt_create_andx(self.__tid, self.__filename)
