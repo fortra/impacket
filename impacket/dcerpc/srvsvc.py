@@ -1,4 +1,4 @@
-# Copyright (c) 2003-2006 CORE Security Technologies
+# Copyright (c) 2003-2011 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -15,10 +15,102 @@ from struct import *
 import exceptions
 
 from impacket import ImpactPacket
+from impacket.structure import Structure
 import dcerpc
 import ndrutils
 
 MSRPC_UUID_SRVSVC = '\xc8\x4f\x32\x4b\x70\x16\xd3\x01\x12\x78\x5a\x47\xbf\x6e\xe1\x88\x03\x00\x00\x00'
+
+# We should move this to ndrutils.py once we port it to structure
+class NDRString(Structure):
+    alignment = 4
+    structure = (
+    ('sName','w'),
+    )
+
+class SRVSVCShareEnumStruct(Structure):
+    alignment = 4
+    structure = (
+	('Level','<L'),
+	('pCount','<L&Count'),
+	('Count','<L'),
+	('pMaxCount','<L&MaxCount'),
+	('MaxCount','<L'),
+    )
+
+class SRVSVCShareInfo1(Structure):
+    alignment = 4
+    structure = (
+	('pNetName','<L'),
+	('Type','<L'),
+	('pRemark','<L'),
+   )
+
+class SRVSVCShareInfo2(Structure):
+    alignment = 4
+    structure = (
+	('pNetName','<L&NetName'),
+	('Type','<L'),
+	('pRemark','<L&Remark'),
+	('Permissions','<L'),
+	('Max_Uses','<L'),
+	('Current_Uses','<L'),
+	('pPath','<L&Path'),
+	('pPassword','<L&Password'),
+	('NetName','w'),
+	('Remark','w'),
+	('Path','w'),
+	('Password','w'),
+)
+
+class SRVSVCSwitchpShareInfo2(Structure):
+    alignment = 4
+    structure = (
+	('Level','<L'),
+	('pInfo','<L=&InfoStruct'),
+	('InfoStruct',':',SRVSVCShareInfo2),
+    )
+
+######### FUNCTIONS ###########
+
+class SRVSVCNetrShareGetInfo(Structure):
+    opnum = 16
+    alignment = 4
+    structure = (
+       ('RefID','<L&ServerName'),
+       ('ServerName','w'),
+       ('NetName','w'),
+       ('Level','<L=2'),
+    )
+
+class SRVSVCNetrShareEnum(Structure):
+    opnum = 15
+    alignment = 4
+    structure = (
+       ('RefID','<L&ServerName'),
+       ('ServerName','w'),
+       ('Level','<L=0x1'),
+       ('pShareEnum','<L=0x1'),
+       ('p2','<L=0x5678'),
+       ('count','<L=0'),
+       ('NullP','<L=0'),
+       ('PreferedMaximumLength','<L=0xffffffff'),
+       ('pResumeHandler','<L=0x9abc'),
+       ('ResumeHandler','<L=0'),
+    )
+
+class SRVSVCNetrShareEnum1_answer(Structure):
+    alignment = 4
+    structure = (
+	('pLevel','<L&Info'),
+	('Info',':',SRVSVCShareEnumStruct),
+# Not catched by the unpacker - just for doc purposed.
+#	('pTotalEntries','<L=&TotalEntries'),
+#	('TotalEntries','<L'),
+#	('pResumeHandler','<L=&ResumeHandler'),
+#	('ResumeHandler','<L'),
+    )
+
 
 class SRVSVCNetShareGetInfoHeader(ImpactPacket.Header):
     OP_NUM = 0x10
@@ -247,6 +339,16 @@ class DCERPCSrvSvc:
     def __init__(self, dcerpc):
         self._dcerpc = dcerpc
 
+    def doRequest(self, request, noAnswer = 0, checkReturn = 1):
+        self._dcerpc.call(request.opnum, request)
+        if noAnswer:
+            return
+        else:
+            answer = self._dcerpc.recv()
+            if checkReturn and answer[-4:] != '\x00\x00\x00\x00':
+                raise Exception, 'DCE-RPC call returned an error.'
+            return answer
+
     def get_share_info(self, server, share, level):
         server += '\0'
         share += '\0'
@@ -267,6 +369,37 @@ class DCERPCSrvSvc:
         retVal = SRVSVCRespNetShareGetInfoHeader(data)
         return retVal
 
-    
+#NetrShareEnum() with Level1 Info
+    def get_share_enum_1(self,server):
+    	shareEnum = SRVSVCNetrShareEnum()
+    	shareEnum['ServerName'] = (server+'\x00').encode('utf-16le')
+    	data = self.doRequest(shareEnum, checkReturn = 1)
+        b = SRVSVCNetrShareEnum1_answer().fromString(data)
+        shareInfoList = []
+        index = len(b)
+        for i in range(b['Info']['Count']):
+            tmp_dict = {}
+            shareInfo = SRVSVCShareInfo1().fromString(data[index:])
+            tmp_dict['Type']=shareInfo['Type']
+            shareInfoList.append(tmp_dict)
+            index += len(shareInfo)
+        for i in range(b['Info']['Count']):
+            ndr_str = NDRString().fromString(data[index:])
+            shareInfoList[i]['NetName'] = ndr_str['sName']
+            index += len(ndr_str)
+        for i in range(b['Info']['Count']):
+            ndr_str = NDRString().fromString(data[index:])
+            shareInfoList[i]['Remark'] = ndr_str['sName']
+            index += len(ndr_str)
+    	return shareInfoList
+
+#NetrShareGetInfo() with Level2 Info
+    def get_share_info_2(self, server, share):
+    	shareInfoReq = SRVSVCNetrShareGetInfo()
+    	shareInfoReq['Level'] = 2
+    	shareInfoReq['ServerName'] = (server+'\x00').encode('utf-16le')
+    	shareInfoReq['NetName'] = (share+'\x00').encode('utf-16le')
+    	ans = self.doRequest(shareInfoReq, checkReturn = 1)
+    	return SRVSVCSwitchpShareInfo2(ans)    
 
         
