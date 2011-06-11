@@ -1311,6 +1311,7 @@ class SMB:
         self.__server_lanman = ''
         self.__server_domain = ''
         self.__remote_name = string.upper(remote_name)
+        self.__remote_host = remote_host
         self.__is_pathcaseless = 0
         self._ntlm_dialect = 0
         self._sess = None
@@ -1353,6 +1354,9 @@ class SMB:
     def get_remote_name(self):
         return self.__remote_name
     
+    def get_remote_host(self):
+        return self.__remote_host
+
     def set_timeout(self, timeout):
         self.__timeout = timeout
 
