@@ -78,6 +78,7 @@ class MiniImpacketShell:
  rmdir {dirname} - removes the directory under the current path
  put {filename} - uploads the filename into the current path
  get {filename} - downloads the filename from the current path
+ info - Return NetrServerInfo main results
  close - closes the current SMB Session
  exit - terminates the server process (and this session)
 
@@ -97,6 +98,20 @@ class MiniImpacketShell:
     def logoff(self):
         self.smb.logoff()
 
+    def info(self):
+        rpctransport = transport.SMBTransport(self.smb.get_remote_name(), self.smb.get_remote_host(), filename = r'\srvsvc', smb_server = self.smb)
+        dce = dcerpc.DCERPC_v5(rpctransport)
+        dce.connect()                     
+        dce.bind(srvsvc.MSRPC_UUID_SRVSVC)
+        srv_svc = srvsvc.DCERPCSrvSvc(dce)
+        resp = srv_svc.get_server_info_102(rpctransport.get_dip())
+        print "Version Major: %d" % resp['VersionMajor']
+        print "Version Minor: %d" % resp['VersionMinor']
+        print "Server Name: %s" % resp['Name']
+        print "Server Comment: %s" % resp['Comment']
+        print "Server UserPath: %s" % resp['UserPath']
+        print "Simultaneous Users: %d" % resp['Users']
+         
     def shares(self):
         rpctransport = transport.SMBTransport(self.smb.get_remote_name(), self.smb.get_remote_host(), filename = r'\srvsvc', smb_server = self.smb)
         dce = dcerpc.DCERPC_v5(rpctransport)
