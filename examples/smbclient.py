@@ -65,7 +65,7 @@ class MiniImpacketShell:
 
     def help(self):
         print """
- open {host,port} - opens a SMB connection against the target host/port
+ open {host,port,remote_name = '*SMBSERVER'} - opens a SMB connection against the target host/port
  login {username,passwd,domain} - logs into the current SMB connection, no parameters for NULL connection
  login_hash {username,lmhash,nthash} - logs into the current SMB connection using the password hashes
  logoff - logs off
@@ -86,8 +86,8 @@ class MiniImpacketShell:
  NOTE: the server is not terminated, although it is left unusable
 """
 
-    def open(self,host,port):
-        self.smb = smb.SMB("*SMBSERVER", host, sess_port=int(port))
+    def open(self,host,port, remote_name='*SMBSERVER'):
+        self.smb = smb.SMB(remote_name, host, sess_port=int(port))
 
     def login(self,username='', password='', domain=''):
         self.smb.login(username, password, domain=domain)
