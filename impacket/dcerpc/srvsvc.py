@@ -71,6 +71,35 @@ class SRVSVCSwitchpShareInfo2(Structure):
 	('InfoStruct',':',SRVSVCShareInfo2),
     )
 
+class SRVSVCServerInfo102(Structure):
+    alignment = 4
+    structure = (
+       ('PlatFormID','<L'),
+       ('pName','<L=&Name'),
+       ('VersionMajor','<L'),
+       ('VersionMinor','<L'),
+       ('Type','<L'),
+       ('pComment','<L=&Commet'),
+       ('Users','<L'),
+       ('DisconnectTime','<L'),
+       ('IsHidden','<I'),
+       ('Announce','<L'),
+       ('AnnounceDelta','<L'),
+       ('Licenses','<L'),
+       ('pUserPath','<L=&Path'),
+       ('Name','w'),
+       ('Comment','w'),
+       ('UserPath','w'),
+    )
+
+class SRVSVCServerpInfo102(Structure):
+    alignment = 4
+    structure = (
+       ('Level','<L'),
+       ('pInfo','<L=&ServerInfo'),
+       ('ServerInfo',':',SRVSVCServerInfo102),
+    )
+
 ######### FUNCTIONS ###########
 
 class SRVSVCNetrShareGetInfo(Structure):
@@ -82,6 +111,16 @@ class SRVSVCNetrShareGetInfo(Structure):
        ('NetName','w'),
        ('Level','<L=2'),
     )
+
+class SRVSVCNetrServerGetInfo(Structure):
+    opnum = 21
+    alignment = 4
+    structure = (
+       ('RefID','<L&ServerName'),
+       ('ServerName','w'),
+       ('Level','<L=102'),
+    )
+
 
 class SRVSVCNetrShareEnum(Structure):
     opnum = 15
@@ -402,4 +441,9 @@ class DCERPCSrvSvc:
     	ans = self.doRequest(shareInfoReq, checkReturn = 1)
     	return SRVSVCSwitchpShareInfo2(ans)    
 
-        
+#NetrServerGetInfo() with Level 102 Info
+    def get_server_info_102(self, server):
+      serverInfoReq = SRVSVCNetrServerGetInfo()
+      serverInfoReq['ServerName'] = (server+'\x00').encode('utf-16le')
+      data = self.doRequest(serverInfoReq, checkReturn = 1)  
+      return SRVSVCServerpInfo102(data)['ServerInfo']
