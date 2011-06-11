@@ -1,6 +1,5 @@
 #!/usr/bin/python
-
-# Copyright (c) 2002, Core SDI S.A., Argentina
+# Copyright (c) 2003-2011, Core SDI S.A., Argentina
 # All rights reserved
 # 
 # Redistribution and use in source and binary forms, with or without
@@ -27,7 +26,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
-
+# $Id$
 # 
 # mini shell to be used with impacket
 #
@@ -35,7 +34,7 @@
 import sys
 import string
 from impacket import smb
-
+from impacket.dcerpc import dcerpc_v4, dcerpc, transport, srvsvc
 
 class MiniImpacketShell:    
     def __init__(self):
@@ -99,8 +98,17 @@ class MiniImpacketShell:
         self.smb.logoff()
 
     def shares(self):
-        for share in self.smb.list_shared():
-            print "%s" % share.get_name()
+        rpctransport = transport.SMBTransport(self.smb.get_remote_name(), self.smb.get_remote_host(), filename = r'\srvsvc', smb_server = self.smb)
+        dce = dcerpc.DCERPC_v5(rpctransport)
+        dce.connect()                     
+        dce.bind(srvsvc.MSRPC_UUID_SRVSVC)
+        srv_svc = srvsvc.DCERPCSrvSvc(dce)
+        resp = srv_svc.get_share_enum_1(rpctransport.get_dip())
+        for i in range(len(resp)):                        
+                print resp[i]['NetName'].decode('utf-16')
+	# Old Code in case you want to use the old SMB shares commands
+        #for share in self.smb.list_shared():
+        #    print "%s" % share.get_name()
 
     def use(self,sharename):
         self.share = sharename
