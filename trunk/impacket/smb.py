@@ -1100,6 +1100,59 @@ class SMBOpenResponse_Parameters(SMBCommand_Parameters):
         ('GrantedAccess','<H=0'),
     )
 
+class SMBExtended_Security_Parameters(Structure):
+    structure = (
+        ('DialectIndex','<H'),
+        ('SecurityMode','<B'),
+        ('MaxMpxCount','<H'),
+        ('MaxNumberVcs','<H'),
+        ('MaxBufferSize','<L'),
+        ('MaxRawSize','<L'),
+        ('SessionKey','<L'),
+        ('Capabilities','<L'),
+        ('LowDateTime','<L'),
+        ('HighDateTime','<L'),
+        ('ServerTimeZone','<H'),
+        ('ChallengeLenght','<B'),
+    )
+
+class SMBExtended_Security_Data(Structure):
+    structure = (
+        ('ServerGUID','16s'),
+        ('SecurityBlob',':'),
+    )
+
+class SMBNTLMDialect_Parameters(Structure):
+    structure = (
+        ('DialectIndex','<H'),
+        ('SecurityMode','<B'),
+        ('MaxMpxCount','<H'),
+        ('MaxNumberVcs','<H'),
+        ('MaxBufferSize','<L'),
+        ('MaxRawSize','<L'),
+        ('SessionKey','<L'),
+        ('Capabilities','<L'),
+        ('LowDateTime','<L'),
+        ('HighDateTime','<L'),
+        ('ServerTimeZone','<H'),
+        ('ChallengeLength','<B'),
+    )
+
+class SMBNTLMDialect_Data(Structure):
+    structure = (
+        ('ChallengeLength','_-Challenge','self["ChallengeLength"]'),
+        ('Challenge',':'),
+        ('DomainName','u'),
+        ('ServerName','u'),
+    )
+    def __init__(self,data = None, alignment = 0):
+         Structure.__init__(self,data,alignment)
+         #self['ChallengeLength']=8
+         
+    def fromString(self,data):
+        Structure.fromString(self,data)
+         
+
 class NTLMDialect(SMBPacket):
     def __init__(self,data=''):
         SMBPacket.__init__(self,data)
@@ -1299,6 +1352,7 @@ class SMB:
     FLAGS2_LONG_FILENAME = 0x0001
     FLAGS2_USE_NT_ERRORS = 0x4000
     FLAGS2_UNICODE = 0x8000
+    FLAGS2_EXTENDED_SECURITY = 0x0800
 
     def __init__(self, remote_name, remote_host, my_name = None, host_type = nmb.TYPE_SERVER, sess_port = nmb.NETBIOS_SESSION_PORT, timeout=None, UDP = 0):
         # The uid attribute will be set when the client calls the login() method
@@ -1429,9 +1483,11 @@ class SMB:
 #            s=self.recv_packet(None)   
         return 0
 
-    def neg_session(self):
+    def neg_session(self, extended_security = False):
         smb = NewSMBPacket()
         negSession = SMBCommand(SMB.SMB_COM_NEGOTIATE)
+        if extended_security == True:
+            smb['Flags2']=SMB.FLAGS2_EXTENDED_SECURITY
         negSession['Data'] = '\x02NT LM 0.12\x00'
         smb.addCommand(negSession)
         self.sendSMB(smb)
@@ -1439,17 +1495,34 @@ class SMB:
         while 1:
             smb = self.recvSMB()
             if smb.isValidAnswer(SMB.SMB_COM_NEGOTIATE):
+                sessionResponse = SMBCommand(smb['Data'][0])
+                # I will deprecat this soon :) (beto)
                 self._ntlm_dialect = NTLMDialect(str(smb))
-                if self._ntlm_dialect.get_selected_dialect() == 0xffff:
-                    raise UnsupportedFeature,"Remote server does not know NT LM 0.12"
 
-                #NL LM 0.12 dialect selected
-                if self._ntlm_dialect.get_lsw_capabilities() & SMB.CAP_EXTENDED_SECURITY:
-                    raise UnsupportedFeature, "This version of pysmb does not support extended security validation. Please file a request for it."
+                if smb['Flags2'] & SMB.FLAGS2_EXTENDED_SECURITY > 0:
+                # Whether we choose it or it is enforced by the server, we go for extended security
+                    self._smb_extended_security_parameters = SMBExtended_Security_Parameters(sessionResponse['Parameters'])
+                    self._smb_extended_security_parameters.dump()
+                    self._smb_extended_security_data = SMBExtended_Security_Data(sessionResponse['Data'])
+                    return 1
 
-                self.__is_pathcaseless = smb['Flags1'] & SMB.FLAGS1_PATHCASELESS
-                return 1
+                # If not, let's try the old way
+                else:
 
+                    self._ntlm_dialect_parameters = SMBNTLMDialect_Parameters(sessionResponse['Parameters'])
+                    self._ntlm_dialect_data = SMBNTLMDialect_Data()
+                    self._ntlm_dialect_data['ChallengeLength'] = self._ntlm_dialect_parameters['ChallengeLength']
+                    self._ntlm_dialect_data.fromString(sessionResponse['Data'])
+
+                    if self._ntlm_dialect.get_selected_dialect() == 0xffff:
+                        raise UnsupportedFeature,"Remote server does not know NT LM 0.12"
+
+                    #NL LM 0.12 dialect selected
+                    if self._ntlm_dialect.get_lsw_capabilities() & SMB.CAP_EXTENDED_SECURITY:
+                        raise UnsupportedFeature, "This version of pysmb does not support extended security validation. Please file a request for it."
+
+                    self.__is_pathcaseless = smb['Flags1'] & SMB.FLAGS1_PATHCASELESS
+                    return 1
             else:
                 return 0
 
@@ -1827,11 +1900,17 @@ class SMB:
         """
         return ''
 
+    def login_extended(self, user, password, domain = '', lmhash = '', nthash = '' ):
+        raise UnsupportedFeature, "Extended Login not yet supported!"
+
     def login(self, user, password, domain = '', lmhash = '', nthash = ''):
-        if password != '' or (password == '' and lmhash == '' and nthash == ''):
-            self.login_plaintext_password(user, password, domain)
-        elif lmhash != '' or nthash != '':
-            self.login_pass_the_hash(user, lmhash, nthash, domain)
+        if self._ntlm_dialect.get_msw_capabilities() & SMB.CAP_EXTENDED_SECURITY:
+            self.login_extended(user,password,domain,lmhash,nthash)
+        else:
+            if password != '' or (password == '' and lmhash == '' and nthash == ''):
+                self.login_plaintext_password(user, password, domain)
+            elif lmhash != '' or nthash != '':
+                self.login_pass_the_hash(user, lmhash, nthash, domain)
 
     def _login(self, user, pwd_ansi, pwd_unicode, domain = ''):
         smb = NewSMBPacket()
