@@ -1404,7 +1404,7 @@ class SMB:
 
     def __send_smb_packet(self, cmd, flags, flags2, tid, mid, params = '', data = ''):
         smb = NewSMBPacket()
-        smb['Flags'] = flags
+        smb['Flags1'] = flags
         smb['Flags2'] = flags2
         smb['Tid'] = tid
         smb['Mid'] = mid
@@ -1572,7 +1572,7 @@ class SMB:
 
     def open(self, tid, filename, open_mode, desired_access):
         smb = NewSMBPacket()
-        smb['Flags']  = 8
+        smb['Flags1']  = 8
         smb['Flags2'] = SMB.FLAGS2_LONG_FILENAME
         smb['Tid']    = tid
 
@@ -1604,7 +1604,7 @@ class SMB:
         
     def open_andx(self, tid, filename, open_mode, desired_access):
         smb = NewSMBPacket()
-        smb['Flags']  = 8
+        smb['Flags1']  = 8
         smb['Flags2'] = SMB.FLAGS2_LONG_FILENAME
         smb['Tid']    = tid
 
