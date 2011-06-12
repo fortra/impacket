@@ -1430,15 +1430,16 @@ class SMB:
         return 0
 
     def neg_session(self):
-        s = SMBPacket()
-        s.set_command(SMB.SMB_COM_NEGOTIATE)
-        s.set_buffer('\x02NT LM 0.12\x00')
-        self.send_smb(s)
+        smb = NewSMBPacket()
+        negSession = SMBCommand(SMB.SMB_COM_NEGOTIATE)
+        negSession['Data'] = '\x02NT LM 0.12\x00'
+        smb.addCommand(negSession)
+        self.sendSMB(smb)
 
         while 1:
-            s = self.recv_packet()
-            if self.isValidAnswer(s,SMB.SMB_COM_NEGOTIATE):
-                self._ntlm_dialect = NTLMDialect(s.rawData())
+            smb = self.recvSMB()
+            if smb.isValidAnswer(SMB.SMB_COM_NEGOTIATE):
+                self._ntlm_dialect = NTLMDialect(str(smb))
                 if self._ntlm_dialect.get_selected_dialect() == 0xffff:
                     raise UnsupportedFeature,"Remote server does not know NT LM 0.12"
 
@@ -1446,12 +1447,11 @@ class SMB:
                 if self._ntlm_dialect.get_lsw_capabilities() & SMB.CAP_EXTENDED_SECURITY:
                     raise UnsupportedFeature, "This version of pysmb does not support extended security validation. Please file a request for it."
 
-                self.__is_pathcaseless = s.get_flags() & SMB.FLAGS1_PATHCASELESS
-
+                self.__is_pathcaseless = smb['Flags1'] & SMB.FLAGS1_PATHCASELESS
                 return 1
+
             else:
                 return 0
-
 
     def tree_connect(self, path, password = '', service = SERVICE_ANY):
         # return 0x800
