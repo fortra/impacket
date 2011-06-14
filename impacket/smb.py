@@ -1,4 +1,4 @@
-# Copyright (c) 2003-2011 CORE Security Technologies
+# Copyright (c) 2003-2011 CORE Security Technologies)
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -147,7 +147,9 @@ GSS_API_SPNEGO_UUID = '\x2b\x06\x01\x05\x05\x02'
 ASN1_SEQUENCE = 0x30
 ASN1_AID      = 0x60
 ASN1_OID      = 0x06
+ASN1_OCTET_STRING = 0x04
 ASN1_MECH_TYPE = 0xa0
+ASN1_MECH_TOKEN = 0xa2
 MechTypes = {
 '+\x06\x01\x04\x01\x827\x02\x02\x1e': 'SNMPv2-SMI::enterprises.311.2.2.30',
 '+\x06\x01\x04\x01\x827\x02\x02\n': 'NTLMSSP - Microsoft NTLM Security Support Provider',
@@ -221,6 +223,12 @@ class GSSAPI():
     def __delitem__(self, key):
         del self.fields[key]
 
+    def __len__(self):
+        return len(self.getData())
+
+    def __str__(self):
+        return len(self.getData())
+
     def fromString(self, data = None):
        	# Manual parse of the GSSAPI Header Format
         # It should be something like
@@ -244,7 +252,7 @@ class GSSAPI():
         self['OID'] = uuid
         # the rest should be the data
         self['Payload'] = decode_data[total_bytes:]
-        pass
+        #pass
         
     def dump(self):
         for i in self.fields.keys():
@@ -309,14 +317,24 @@ class SPNEGO_NegTokenInit(GSSAPI):
             mechTypes += pack('B', ASN1_OID)
             mechTypes += asn1encode(i)
 
+	mechToken = ''
+        # Do we have tokens to send?
+        if self.fields.has_key('MechToken'):
+           mechToken = pack('B', ASN1_MECH_TOKEN) + asn1encode(
+                       pack('B', ASN1_OCTET_STRING) + asn1encode(
+                       self['MechToken']))
+
         ans = pack('B',SPNEGO_NegTokenInit.SPNEGO_NEG_TOKEN_INIT)
         ans += asn1encode(
                pack('B', ASN1_SEQUENCE) +
                asn1encode(
                pack('B', ASN1_MECH_TYPE) +
                asn1encode(
-               pack('B', ASN1_SEQUENCE) + mechTypes)))
+               pack('B', ASN1_SEQUENCE) + 
+               asn1encode(mechTypes)) + mechToken ))
 
+
+        self['Payload'] = ans
         return GSSAPI.getData(self)
      
 
@@ -1003,6 +1021,17 @@ class SMBSessionSetupAndX_Parameters(SMBAndXCommand_Parameters):
         ('Capabilities','<L'),
     )
 
+class SMBSessionSetupAndX_Extended_Parameters(SMBAndXCommand_Parameters):
+    structure = (
+        ('MaxBufferSize','<H'),
+        ('MaxMpxCount','<H'),
+        ('VcNumber','<H'),
+        ('SessionKey','<L'),
+        ('SecurityBlobLength','<H'),
+        ('Reserved','<L=0'),
+        ('Capabilities','<L'),
+    )
+
 class SMBSessionSetupAndX_Data(AsciiOrUnicodeStructure):
     AsciiStructure = (
         ('AnsiPwdLength','_-AnsiPwd'),
@@ -1022,6 +1051,21 @@ class SMBSessionSetupAndX_Data(AsciiOrUnicodeStructure):
         ('UnicodePwd',':=""'),
         ('Account','w=""'),
         ('PrimaryDomain','w=""'),
+        ('NativeOS','w=""'),
+        ('NativeLanMan','w=""'),
+    )
+
+class SMBSessionSetupAndX_Extended_Data(AsciiOrUnicodeStructure):
+    AsciiStructure = (
+        ('SecurityBlobLength','_-SecurityBlob','self["SecurityBlob"]'),
+        ('SecurityBlob',':'),
+        ('NativeOS','z=""'),
+        ('NativeLanMan','z=""'),
+    )
+
+    UnicodeStructure = (
+        ('SecurityBlobLength','_-SecurityBlob','self["SecurityBlob"]'),
+        ('SecurityBlob',':'),
         ('NativeOS','w=""'),
         ('NativeLanMan','w=""'),
     )
@@ -1523,6 +1567,7 @@ class SMB:
     CAP_UNICODE = 0x0004
     CAP_LARGE_FILES = 0x0008
     CAP_EXTENDED_SECURITY = 0x80000000
+    CAP_USE_NT_ERRORS = 0x40
 
     # Flags1 Mask
     FLAGS1_PATHCASELESS = 0x08
@@ -2084,6 +2129,45 @@ class SMB:
         return ''
 
     def login_extended(self, user, password, domain = '', lmhash = '', nthash = '' ):
+        # Once everything's working we should join login methods into a single one
+        smb = NewSMBPacket()
+        smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
+        smb['Flags2']= SMB.FLAGS2_USE_NT_ERRORS | SMB.FLAGS2_EXTENDED_SECURITY
+
+        sessionSetup = SMBCommand(SMB.SMB_COM_SESSION_SETUP_ANDX)
+        sessionSetup['Parameters'] = SMBSessionSetupAndX_Extended_Parameters()
+        sessionSetup['Data']       = SMBSessionSetupAndX_Extended_Data()
+
+        sessionSetup['Parameters']['MaxBufferSize']        = 65535
+        sessionSetup['Parameters']['MaxMpxCount']      = 2
+        sessionSetup['Parameters']['VcNumber']         = 1
+        sessionSetup['Parameters']['SessionKey']       = 0
+        sessionSetup['Parameters']['Capabilities']     = SMB.CAP_EXTENDED_SECURITY | SMB.CAP_USE_NT_ERRORS
+
+        # Let's build a NegTokenInit with the NTLM provider
+        # TODO: In the future we should be able to choose different providers
+
+        blob = SPNEGO_NegTokenInit() 
+
+        # NTLMSSP
+        blob['MechTypes'] = ['+\x06\x01\x04\x01\x827\x02\x02\n']
+        auth = ntlm.NTLMAuthNegotiate()
+        auth['host_name'] = 'JACK'
+        auth['domain_name'] = 'WORKGROUP'
+        blob['MechToken'] = str(auth)
+        
+        sessionSetup['Parameters']['SecurityBlobLength']  = len(blob)
+        sessionSetup['Parameters'].dump()
+        sessionSetup['Parameters'].getData()
+        sessionSetup['Data']['SecurityBlob']       = blob.getData()
+
+        # Fake Data here, don't want to get us fingerprinted
+        sessionSetup['Data']['NativeOS']      = 'Unix'
+        sessionSetup['Data']['NativeLanMan']  = 'Samba'
+
+        smb.addCommand(sessionSetup)
+        self.sendSMB(smb)
+
         raise UnsupportedFeature, "Extended Login not yet supported!"
 
     def login(self, user, password, domain = '', lmhash = '', nthash = ''):
