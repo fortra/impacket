@@ -64,8 +64,6 @@ from binascii import a2b_hex
 import md5
 import binascii
 
-CVS_REVISION = '$Revision$'
-
 # Shared Device Type
 SHARED_DISK = 0x00
 SHARED_PRINT_QUEUE = 0x01
@@ -1570,13 +1568,22 @@ class SMB:
     CAP_USE_NT_ERRORS = 0x40
 
     # Flags1 Mask
-    FLAGS1_PATHCASELESS = 0x08
+    FLAGS1_LOCK_AND_READ_OK                = 0x01
+    FLAGS1_PATHCASELESS                    = 0x08
+    FLAGS1_REPLY                           = 0x80
 
     # Flags2 Mask
-    FLAGS2_LONG_FILENAME = 0x0001
-    FLAGS2_USE_NT_ERRORS = 0x4000
-    FLAGS2_UNICODE = 0x8000
-    FLAGS2_EXTENDED_SECURITY = 0x0800
+    FLAGS2_LONG_NAMES                      = 0x0001
+    FLAGS2_EAS                             = 0x0002
+    FLAGS2_SMB_SECURITY_SIGNATURE          = 0x0004
+    FLAGS2_IS_LONG_NAME                    = 0x0040
+    FLAGS2_DFS                             = 0x1000
+    FLAGS2_PAGING_IO                       = 0x2000
+    FLAGS2_NT_STATUS                       = 0x4000
+    FLAGS2_UNICODE                         = 0x8000
+    FLAGS2_COMPRESSED                      = 0x0008
+    FLAGS2_SMB_SECURITY_SIGNATURE_REQUIRED = 0x0010
+    FLAGS2_EXTENDED_SECURITY               = 0x0800
 
     def __init__(self, remote_name, remote_host, my_name = None, host_type = nmb.TYPE_SERVER, sess_port = nmb.NETBIOS_SESSION_PORT, timeout=None, UDP = 0):
         # The uid attribute will be set when the client calls the login() method
@@ -1874,7 +1881,7 @@ class SMB:
     def open(self, tid, filename, open_mode, desired_access):
         smb = NewSMBPacket()
         smb['Flags1']  = 8
-        smb['Flags2'] = SMB.FLAGS2_LONG_FILENAME
+        smb['Flags2'] = SMB.FLAGS2_LONG_NAMES
         smb['Tid']    = tid
 
         openFile = SMBCommand(SMB.SMB_COM_OPEN)
@@ -1906,7 +1913,7 @@ class SMB:
     def open_andx(self, tid, filename, open_mode, desired_access):
         smb = NewSMBPacket()
         smb['Flags1']  = 8
-        smb['Flags2'] = SMB.FLAGS2_LONG_FILENAME
+        smb['Flags2'] = SMB.FLAGS2_LONG_NAMES
         smb['Tid']    = tid
 
         openFile = SMBCommand(SMB.SMB_COM_OPEN_ANDX)
@@ -1953,7 +1960,7 @@ class SMB:
         s.set_tid(tid)
         s.set_command(SMB.SMB_COM_TRANSACTION)
         s.set_flags(self.__is_pathcaseless)
-        s.set_flags2(SMB.FLAGS2_LONG_FILENAME)
+        s.set_flags2(SMB.FLAGS2_LONG_NAMES)
         t.set_setup(setup)
         t.set_name(name)
         t.set_parameters(param)
@@ -1977,7 +1984,7 @@ class SMB:
         param_offset = name_len + setup_len + 63
         data_offset = param_offset + param_len
             
-        self.__send_smb_packet(SMB.SMB_COM_TRANSACTION, self.__is_pathcaseless, SMB.FLAGS2_LONG_FILENAME, tid, 0, pack('<HHHHBBHLHHHHHBB', param_len, data_len, 1024, 65504, 0, 0, 0, 0, 0, param_len, param_offset, data_len, data_offset, setup_len / 2, 0) + setup, name + param + data)
+        self.__send_smb_packet(SMB.SMB_COM_TRANSACTION, self.__is_pathcaseless, SMB.FLAGS2_LONG_NAMES, tid, 0, pack('<HHHHBBHLHHHHHBB', param_len, data_len, 1024, 65504, 0, 0, 0, 0, 0, param_len, param_offset, data_len, data_offset, setup_len / 2, 0) + setup, name + param + data)
 
     def trans2(self, tid, setup, name, param, data):
         data_len = len(data)
@@ -1990,7 +1997,7 @@ class SMB:
         param_offset = name_len + setup_len + 63
         data_offset = param_offset + param_len
             
-        self.__send_smb_packet(SMB.SMB_COM_TRANSACTION2, self.__is_pathcaseless, SMB.FLAGS2_LONG_FILENAME, tid, 0, pack('<HHHHBBHLHHHHHBB', param_len, data_len, 1024, self._ntlm_dialect.get_max_buffer(), 0, 0, 0, 0, 0, param_len, param_offset, data_len, data_offset, setup_len / 2, 0) + setup, name  + param + data)
+        self.__send_smb_packet(SMB.SMB_COM_TRANSACTION2, self.__is_pathcaseless, SMB.FLAGS2_LONG_NAMES, tid, 0, pack('<HHHHBBHLHHHHHBB', param_len, data_len, 1024, self._ntlm_dialect.get_max_buffer(), 0, 0, 0, 0, 0, param_len, param_offset, data_len, data_offset, setup_len / 2, 0) + setup, name  + param + data)
 
     def query_file_info(self, tid, fid):
         self.trans2(tid, '\x07\x00', '\x00', pack('<HH', fid, 0x107), '')
@@ -2132,7 +2139,7 @@ class SMB:
         # Once everything's working we should join login methods into a single one
         smb = NewSMBPacket()
         smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
-        smb['Flags2']= SMB.FLAGS2_USE_NT_ERRORS | SMB.FLAGS2_EXTENDED_SECURITY
+        smb['Flags2']= SMB.FLAGS2_NT_STATUS | SMB.FLAGS2_EXTENDED_SECURITY
 
         sessionSetup = SMBCommand(SMB.SMB_COM_SESSION_SETUP_ANDX)
         sessionSetup['Parameters'] = SMBSessionSetupAndX_Extended_Parameters()
@@ -2437,7 +2444,7 @@ class SMB:
         if smb_packet == None:
             smb = NewSMBPacket()
             smb['Flags1'] = 0x18
-            smb['Flags2'] = SMB.FLAGS2_LONG_FILENAME
+            smb['Flags2'] = SMB.FLAGS2_LONG_NAMES
             smb['Tid']    = tid
         else:
             smb = smb_packet
