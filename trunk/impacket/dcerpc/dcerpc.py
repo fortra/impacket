@@ -825,7 +825,7 @@ class DCERPC_v5(DCERPC):
                 rpc_packet.contains(data)
 
             crc = crc32(rpc_call.get_packet())
-            data = pack('<LLL',0,crc,self.sequence)     # XXX 0 can be anything: randomize
+            data = pack('<iii',0,crc,self.sequence)     # XXX 0 can be anything: randomize
             data = self.cipher_encrypt(data)
             verifier['data'] = data
             rpc_packet.set_auth_data(str(verifier))
