@@ -143,11 +143,15 @@ RPC_X_BAD_STUB_DATA = 0x6F7
 ############### GSS Stuff ################
 GSS_API_SPNEGO_UUID = '\x2b\x06\x01\x05\x05\x02' 
 ASN1_SEQUENCE = 0x30
+ASN1_SEQUENCE = 0x30
 ASN1_AID      = 0x60
 ASN1_OID      = 0x06
 ASN1_OCTET_STRING = 0x04
 ASN1_MECH_TYPE = 0xa0
 ASN1_MECH_TOKEN = 0xa2
+ASN1_SUPPORTED_MECH = 0xa1
+ASN1_RESPONSE_TOKEN = 0xa2
+ASN1_ENUMERATED = 0x0a
 MechTypes = {
 '+\x06\x01\x04\x01\x827\x02\x02\x1e': 'SNMPv2-SMI::enterprises.311.2.2.30',
 '+\x06\x01\x04\x01\x827\x02\x02\n': 'NTLMSSP - Microsoft NTLM Security Support Provider',
@@ -264,7 +268,115 @@ class GSSAPI():
                self['Payload'] )
         return ans
 
+class SPNEGO_NegTokenResp():
+    # http://tools.ietf.org/html/rfc4178#page-9
+    # NegTokenResp ::= SEQUENCE {
+    #     negState       [0] ENUMERATED {
+    #         accept-completed    (0),
+    #         accept-incomplete   (1),
+    #         reject              (2),
+    #         request-mic         (3)
+    #     }                                 OPTIONAL,
+    #       -- REQUIRED in the first reply from the target
+    #     supportedMech   [1] MechType      OPTIONAL,
+    #       -- present only in the first reply from the target
+    #     responseToken   [2] OCTET STRING  OPTIONAL,
+    #     mechListMIC     [3] OCTET STRING  OPTIONAL,
+    #     ...
+    # }
+    # This structure is not prepended by a GSS generic header!
+    SPNEGO_NEG_TOKEN_RESP = 0xa1
+
+    def __init__(self, data = None):
+        self.fields = {}
+        if data:
+             self.fromString(data)
+        pass
+
+    def __setitem__(self,key,value):
+        self.fields[key] = value
+
+    def __getitem__(self, key):
+        return self.fields[key]
+
+    def __delitem__(self, key):
+        del self.fields[key]
+
+    def __len__(self):
+        return len(self.getData())
+
+    def __str__(self):
+        return len(self.getData())
+
+    def fromString(self, data = 0):
+        payload = data
+        next_byte = unpack('B', payload[:1])[0]
+        if next_byte != SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP:
+            raise Exception('NegTokenResp not found %x' % next_byte)
+        payload = payload[1:]
+        decode_data, total_bytes = asn1decode(payload)
+	next_byte = unpack('B', decode_data[:1])[0]
+        if next_byte != ASN1_SEQUENCE:
+            raise Exception('SEQUENCE tag not found %x' % next_byte)
+        decode_data = decode_data[1:]
+        decode_data, total_bytes = asn1decode(decode_data)
+        next_byte = unpack('B',decode_data[:1])[0]
+
+        if next_byte != ASN1_MECH_TYPE:
+            raise Exception('MechType tag not found %x' % next_byte)
+        decode_data2 = decode_data[1:]
+        decode_data2, total_bytes = asn1decode(decode_data2)
+        next_byte = unpack('B', decode_data2[:1])[0]
+        if next_byte != ASN1_ENUMERATED:
+            raise Exception('Enumerated tag not found %x' % next_byte)
+        decode_data2 = decode_data2[1:]
+        item, total_bytes2 = asn1decode(decode_data)
+        self['NegResult'] = item
+        decode_data = decode_data[1:]
+        decode_data = decode_data[total_bytes:]
+
+        next_byte = unpack('B', decode_data[:1])[0]
+        if next_byte != ASN1_SUPPORTED_MECH:
+            raise Exception('Supported Mech tag not found %x' % next_byte)
+        decode_data2 = decode_data[1:]
+        decode_data2, total_bytes = asn1decode(decode_data2)
+        next_byte = unpack('B', decode_data2[:1])[0]
+        if next_byte != ASN1_OID:
+            raise Exception('OID tag not found %x' % next_byte)
+        decode_data2 = decode_data2[1:]
+        item, total_bytes2 = asn1decode(decode_data2)
+        self['SuportedMech'] = item
+
+        decode_data = decode_data[1:]
+        decode_data = decode_data[total_bytes:]
+        next_byte = unpack('B', decode_data[:1])[0]
+        if next_byte != ASN1_RESPONSE_TOKEN:
+            raise Exception('Response token tag not found %x' % next_byte)
+        decode_data = decode_data[1:]
+        decode_data, total_bytes = asn1decode(decode_data)
+        next_byte = unpack('B', decode_data[:1])[0]
+        if next_byte != ASN1_OCTET_STRING:
+            raise Exception('Octet string token tag not found %x' % next_byte)
+        decode_data = decode_data[1:]
+        decode_data, total_bytes = asn1decode(decode_data)
+        self['ResponseToken'] = decode_data
+
+    def dump(self):
+        for i in self.fields.keys():
+            print "%s: {%r}" % (i,self[i])
+        
+    def getData(self):
+        ans = pack('B',SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP)
+        ans += asn1encode(
+               pack('B', ASN1_SEQUENCE) +
+               asn1encode(
+               pack('B', ASN1_RESPONSE_TOKEN) +
+               asn1encode(
+               pack('B', ASN1_OCTET_STRING) + asn1encode(self['ResponseToken']))))
+        return ans
+
 class SPNEGO_NegTokenInit(GSSAPI):
+    # http://tools.ietf.org/html/rfc4178#page-8 
     # NegTokeInit :: = SEQUENCE {
     #   mechTypes	[0] MechTypeList,
     #   reqFlags        [1] ContextFlags OPTIONAL,
@@ -1007,6 +1119,7 @@ class SMBAndXCommand_Parameters(Structure):
         ('Data',':=""'),
     )
 
+############# SMB_COM_SESSION_SETUP_ANDX (0x73)
 class SMBSessionSetupAndX_Parameters(SMBAndXCommand_Parameters):
     structure = (
         ('MaxBuffer','<H'),
@@ -1055,14 +1168,14 @@ class SMBSessionSetupAndX_Data(AsciiOrUnicodeStructure):
 
 class SMBSessionSetupAndX_Extended_Data(AsciiOrUnicodeStructure):
     AsciiStructure = (
-        ('SecurityBlobLength','_-SecurityBlob','self["SecurityBlob"]'),
+        ('SecurityBlobLength','_-SecurityBlob','self["SecurityBlobLength"]'),
         ('SecurityBlob',':'),
         ('NativeOS','z=""'),
         ('NativeLanMan','z=""'),
     )
 
     UnicodeStructure = (
-        ('SecurityBlobLength','_-SecurityBlob','self["SecurityBlob"]'),
+        ('SecurityBlobLength','_-SecurityBlob','self["SecurityBlobLength"]'),
         ('SecurityBlob',':'),
         ('NativeOS','w=""'),
         ('NativeLanMan','w=""'),
@@ -1091,6 +1204,12 @@ class SMBSessionSetupAndXResponse_Parameters(SMBAndXCommand_Parameters):
         ('Action','<H'),
     )
 
+class SMBSessionSetupAndX_Extended_Response_Parameters(SMBAndXCommand_Parameters):
+    structure = (
+        ('Action','<H'),
+        ('SecurityBlobLength','<H'),
+    )
+
 class SMBSessionSetupAndXResponse_Data(AsciiOrUnicodeStructure):
     AsciiStructure = (
         ('NativeOS','z=""'),
@@ -1104,6 +1223,22 @@ class SMBSessionSetupAndXResponse_Data(AsciiOrUnicodeStructure):
         ('PrimaryDomain','w=""'),
     )
 
+class SMBSessionSetupAndX_Extended_Response_Data(AsciiOrUnicodeStructure):
+    AsciiStructure = (
+        ('SecurityBlobLength','_-SecurityBlob','self["SecurityBlobLength"]'),
+        ('SecurityBlob',':'),
+        ('NativeOS','z=""'),
+        ('NativeLanMan','z=""'),
+    )
+
+    UnicodeStructure = (
+        ('SecurityBlobLength','_-SecurityBlob','self["SecurityBlobLength"]'),
+        ('SecurityBlob',':'),
+        ('NativeOS','w=""'),
+        ('NativeLanMan','w=""'),
+    )
+
+############# 
 class SMBTreeConnect_Parameters(SMBCommand_Parameters):
     structure = (
     )
@@ -1333,7 +1468,7 @@ class SMBExtended_Security_Parameters(Structure):
         ('LowDateTime','<L'),
         ('HighDateTime','<L'),
         ('ServerTimeZone','<H'),
-        ('ChallengeLenght','<B'),
+        ('ChallengeLength','<B'),
     )
 
 class SMBExtended_Security_Data(Structure):
@@ -1362,8 +1497,8 @@ class SMBNTLMDialect_Data(Structure):
     structure = (
         ('ChallengeLength','_-Challenge','self["ChallengeLength"]'),
         ('Challenge',':'),
-        ('DomainName','u'),
 # For some reason on an old Linux this field is not present, we have to check this out. There must be a flag stating this.
+#        ('DomainName','u'),
 #        ('ServerName','u'),
     )
     def __init__(self,data = None, alignment = 0):
@@ -2139,17 +2274,17 @@ class SMB:
         # Once everything's working we should join login methods into a single one
         smb = NewSMBPacket()
         smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
-        smb['Flags2']= SMB.FLAGS2_NT_STATUS | SMB.FLAGS2_EXTENDED_SECURITY
+        smb['Flags2'] = SMB.FLAGS2_NT_STATUS | SMB.FLAGS2_EXTENDED_SECURITY
 
         sessionSetup = SMBCommand(SMB.SMB_COM_SESSION_SETUP_ANDX)
         sessionSetup['Parameters'] = SMBSessionSetupAndX_Extended_Parameters()
         sessionSetup['Data']       = SMBSessionSetupAndX_Extended_Data()
 
         sessionSetup['Parameters']['MaxBufferSize']        = 65535
-        sessionSetup['Parameters']['MaxMpxCount']      = 2
-        sessionSetup['Parameters']['VcNumber']         = 1
-        sessionSetup['Parameters']['SessionKey']       = 0
-        sessionSetup['Parameters']['Capabilities']     = SMB.CAP_EXTENDED_SECURITY | SMB.CAP_USE_NT_ERRORS
+        sessionSetup['Parameters']['MaxMpxCount']          = 2
+        sessionSetup['Parameters']['VcNumber']             = 1
+        sessionSetup['Parameters']['SessionKey']           = 0
+        sessionSetup['Parameters']['Capabilities']         = SMB.CAP_EXTENDED_SECURITY | SMB.CAP_USE_NT_ERRORS
 
         # Let's build a NegTokenInit with the NTLM provider
         # TODO: In the future we should be able to choose different providers
@@ -2159,12 +2294,9 @@ class SMB:
         # NTLMSSP
         blob['MechTypes'] = ['+\x06\x01\x04\x01\x827\x02\x02\n']
         auth = ntlm.NTLMAuthNegotiate()
-        auth['host_name'] = 'JACK'
-        auth['domain_name'] = 'WORKGROUP'
         blob['MechToken'] = str(auth)
         
         sessionSetup['Parameters']['SecurityBlobLength']  = len(blob)
-        sessionSetup['Parameters'].dump()
         sessionSetup['Parameters'].getData()
         sessionSetup['Data']['SecurityBlob']       = blob.getData()
 
@@ -2174,6 +2306,41 @@ class SMB:
 
         smb.addCommand(sessionSetup)
         self.sendSMB(smb)
+
+        smb = self.recvSMB()
+        if smb.isValidAnswer(SMB.SMB_COM_SESSION_SETUP_ANDX):
+            # Now we have to extract the blob to continue the auth process
+            sessionResponse   = SMBCommand(smb['Data'][0])
+            sessionParameters = SMBSessionSetupAndX_Extended_Response_Parameters(sessionResponse['Parameters'])
+            sessionData       = SMBSessionSetupAndX_Extended_Response_Data(flags = smb['Flags2'])
+            sessionData['SecurityBlobLength'] = sessionParameters['SecurityBlobLength']
+            sessionData.fromString(sessionResponse['Data'])
+
+            respToken = SPNEGO_NegTokenResp(sessionData['SecurityBlob'])
+
+            ntlmChallenge = ntlm.NTLMAuthChallenge(respToken['ResponseToken'])
+      
+            ntlmChallengeResponse = ntlm.NTLMAuthChallengeResponse(user, password, ntlmChallenge['challenge'])
+            ntlmChallengeResponse['flags'] = ntlmChallengeResponse['flags'] 
+            ntlmChallengeResponse['session_key'] = 'aksowlspdksjqn18'
+            #ntlmChallengeResponse['session_key'] = 'aksowlspdksjqn18'
+
+            smb2 = NewSMBPacket()
+            smb2['Flags1'] = SMB.FLAGS1_PATHCASELESS
+            smb2['Flags2'] = SMB.FLAGS2_NT_STATUS | SMB.FLAGS2_EXTENDED_SECURITY 
+            respToken2 = SPNEGO_NegTokenResp()
+            respToken2['ResponseToken'] = str(ntlmChallengeResponse)
+            sessionSetup['Parameters']['SecurityBlobLength'] = len(respToken2)
+            sessionSetup['Data']['SecurityBlob'] = respToken2.getData()
+            sessionSetup['Data']['NativeOS']      = 'Unix'
+            sessionSetup['Data']['NativeLanMan']  = 'Samba'
+            sessionSetup['Parameters']['Capabilities']         = SMB.CAP_EXTENDED_SECURITY | SMB.CAP_USE_NT_ERRORS 
+            smb2.addCommand(sessionSetup)
+            smb2.dump()
+            self.sendSMB(smb2)
+            
+        else:
+            raise Exception('Error: Could not login successfully')
 
         raise UnsupportedFeature, "Extended Login not yet supported!"
 
