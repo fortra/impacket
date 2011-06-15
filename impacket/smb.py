@@ -1866,9 +1866,8 @@ class SMB:
                 self._ntlm_dialect = NTLMDialect(str(smb))
 
                 if smb['Flags2'] & SMB.FLAGS2_EXTENDED_SECURITY > 0:
-                # Whether we choose it or it is enforced by the server, we go for extended security
+                    # Whether we choose it or it is enforced by the server, we go for extended security
                     self._smb_extended_security_parameters = SMBExtended_Security_Parameters(sessionResponse['Parameters'])
-                    #self._smb_extended_security_parameters.dump()
                     self._smb_extended_security_data = SMBExtended_Security_Data(sessionResponse['Data'])
                     # Interestingly, the security Blob might be missing sometimes.
                     #spnego = SPNEGO_NegTokenInit(self._smb_extended_security_data['SecurityBlob'])
@@ -2294,6 +2293,7 @@ class SMB:
         # NTLMSSP
         blob['MechTypes'] = ['+\x06\x01\x04\x01\x827\x02\x02\n']
         auth = ntlm.NTLMAuthNegotiate()
+        auth['flags'] = auth['flags'] & ~ntlm.NTLMSSP_KEY_EXCHANGE 
         blob['MechToken'] = str(auth)
         
         sessionSetup['Parameters']['SecurityBlobLength']  = len(blob)
@@ -2309,6 +2309,8 @@ class SMB:
 
         smb = self.recvSMB()
         if smb.isValidAnswer(SMB.SMB_COM_SESSION_SETUP_ANDX):
+            # We will need to use this uid field for all future requests/responses
+            self._uid = smb['Uid']
             # Now we have to extract the blob to continue the auth process
             sessionResponse   = SMBCommand(smb['Data'][0])
             sessionParameters = SMBSessionSetupAndX_Extended_Response_Parameters(sessionResponse['Parameters'])
@@ -2321,28 +2323,30 @@ class SMB:
             ntlmChallenge = ntlm.NTLMAuthChallenge(respToken['ResponseToken'])
       
             ntlmChallengeResponse = ntlm.NTLMAuthChallengeResponse(user, password, ntlmChallenge['challenge'])
-            ntlmChallengeResponse['flags'] = ntlmChallengeResponse['flags'] 
-            ntlmChallengeResponse['session_key'] = 'aksowlspdksjqn18'
-            #ntlmChallengeResponse['session_key'] = 'aksowlspdksjqn18'
+            ntlmChallengeResponse['flags'] = ntlmChallengeResponse['flags'] & ~ntlm.NTLMSSP_KEY_EXCHANGE
 
-            smb2 = NewSMBPacket()
-            smb2['Flags1'] = SMB.FLAGS1_PATHCASELESS
-            smb2['Flags2'] = SMB.FLAGS2_NT_STATUS | SMB.FLAGS2_EXTENDED_SECURITY 
+            smb = NewSMBPacket()
+            smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
+            smb['Flags2'] = SMB.FLAGS2_NT_STATUS | SMB.FLAGS2_EXTENDED_SECURITY 
+
             respToken2 = SPNEGO_NegTokenResp()
             respToken2['ResponseToken'] = str(ntlmChallengeResponse)
+
+            # Reusing the previous structure
             sessionSetup['Parameters']['SecurityBlobLength'] = len(respToken2)
             sessionSetup['Data']['SecurityBlob'] = respToken2.getData()
-            sessionSetup['Data']['NativeOS']      = 'Unix'
-            sessionSetup['Data']['NativeLanMan']  = 'Samba'
-            sessionSetup['Parameters']['Capabilities']         = SMB.CAP_EXTENDED_SECURITY | SMB.CAP_USE_NT_ERRORS 
-            smb2.addCommand(sessionSetup)
-            smb2.dump()
-            self.sendSMB(smb2)
+
+            smb.addCommand(sessionSetup)
+            self.sendSMB(smb)
             
+            smb = self.recvSMB()
+
+            if smb['ErrorCode'] == 0:
+               return 1
+            else:
+               return 0
         else:
             raise Exception('Error: Could not login successfully')
-
-        raise UnsupportedFeature, "Extended Login not yet supported!"
 
     def login(self, user, password, domain = '', lmhash = '', nthash = ''):
         if self._ntlm_dialect.get_msw_capabilities() & SMB.CAP_EXTENDED_SECURITY:
