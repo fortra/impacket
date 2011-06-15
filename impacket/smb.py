@@ -159,6 +159,7 @@ MechTypes = {
 '*\x86H\x86\xf7\x12\x01\x02\x02': 'KRB5 - Kerberos 5',
 '*\x86H\x86\xf7\x12\x01\x02\x02\x03': 'KRB5 - Kerberos 5 - User to User'
 }
+TypesMech = dict((v,k) for k, v in MechTypes.iteritems())
 
 def asn1encode(data = ''):
         #res = asn1.SEQUENCE(str).encode()
@@ -2285,13 +2286,13 @@ class SMB:
         sessionSetup['Parameters']['SessionKey']           = 0
         sessionSetup['Parameters']['Capabilities']         = SMB.CAP_EXTENDED_SECURITY | SMB.CAP_USE_NT_ERRORS
 
-        # Let's build a NegTokenInit with the NTLM provider
+        # Let's build a NegTokenInit with the NTLMSSP
         # TODO: In the future we should be able to choose different providers
 
         blob = SPNEGO_NegTokenInit() 
 
         # NTLMSSP
-        blob['MechTypes'] = ['+\x06\x01\x04\x01\x827\x02\x02\n']
+        blob['MechTypes'] = [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
         auth = ntlm.NTLMAuthNegotiate()
         auth['flags'] = auth['flags'] & ~ntlm.NTLMSSP_KEY_EXCHANGE 
         blob['MechToken'] = str(auth)
