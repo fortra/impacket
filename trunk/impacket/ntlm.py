@@ -218,16 +218,17 @@ class NTLMAuthChallenge(Structure):
         ('domain_name',':'),
         ('TargetInfoFields',':'))
     def getData(self):
-        raw_av_fields = self['TargetInfoFields'].getData()
-        self['TargetInfoFields'] = raw_av_fields
+        if self['TargetInfoFields'] is not None:
+            raw_av_fields = self['TargetInfoFields'].getData()
+            self['TargetInfoFields'] = raw_av_fields
         Structure.getData(self)
 
     def fromString(self,data):
         Structure.fromString(self,data)
         # We gotta process the TargetInfoFields
-        fields = {}
-        av_pairs = AV_PAIRS(self['TargetInfoFields'][:self['TargetInfoFields_len']]) 
-        self['TargetInfoFields'] = av_pairs
+        if self['TargetInfoFields_len'] > 0:
+            av_pairs = AV_PAIRS(self['TargetInfoFields'][:self['TargetInfoFields_len']]) 
+            self['TargetInfoFields'] = av_pairs
 
         return self
         
