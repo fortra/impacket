@@ -62,6 +62,13 @@ NTLMSSP_TARGET       = 0x00000004
 NTLMSSP_OEM          = 0x00000002
 NTLMSSP_UNICODE      = 0x00000001
 
+# Target Info Fields Type
+NTLMSSP_TI_HOSTNAME        = 0x01
+NTLMSSP_TI_DOMAINNAME      = 0x02
+NTLMSSP_TI_DNS_HOSTNAME    = 0x03
+NTLMSSP_TI_DNS_DOMAINNAME  = 0x04
+NTLMSSP_TI_TIME            = 0x07
+
 class DCERPC_NTLMAuthHeader(Structure):
     commonHdr = (
         ('auth_type', 'B=10'),
@@ -151,7 +158,31 @@ class NTLMAuthChallenge(Structure):
         ('flags','<L=0'),
         ('challenge','8s'),
         ('reserved','"\x00\x00\x00\x00\x00\x00\x00\x00'),
-        ('domain_name',':'))#,
+        ('TargetInfoFields_len','<H-TargetInfoFields'),
+        ('TargetInfoFields_max_len','<H-TargetInfoFields'),
+        ('TargetInfoFields_offset','<L'),
+        ('unknown','8s'),
+        ('domain_name',':'),
+        ('TargetInfoFields',':'))
+
+    def fromString(self,data):
+        Structure.fromString(self,data)
+        # We gotta process the TargetInfoFields
+        fields = {}
+        lenFields = self['TargetInfoFields_len']
+        tInfo = self['TargetInfoFields']
+        while lenFields > 0:
+            fType = struct.unpack('<H',tInfo[:struct.calcsize('<H')])[0]
+            tInfo = tInfo[struct.calcsize('<H'):]
+            length = struct.unpack('<H',tInfo[:struct.calcsize('<H')])[0]
+            tInfo = tInfo[struct.calcsize('<H'):]
+            content = tInfo[:length]
+            lenFields -= struct.calcsize('<H')*2 + length
+            fields[fType]=(length,content)
+            tInfo = tInfo[length:]
+        self['TargetInfoFields'] = fields
+        return self
+        
     
 class DCERPC_NTLMAuthChallenge(NTLMAuthChallenge,DCERPC_NTLMAuthHeader):
     commonHdr = DCERPC_NTLMAuthHeader.commonHdr
