@@ -62,13 +62,66 @@ NTLMSSP_TARGET       = 0x00000004
 NTLMSSP_OEM          = 0x00000002
 NTLMSSP_UNICODE      = 0x00000001
 
-# Target Info Fields Type
-NTLMSSP_TI_HOSTNAME        = 0x01
-NTLMSSP_TI_DOMAINNAME      = 0x02
-NTLMSSP_TI_DNS_HOSTNAME    = 0x03
-NTLMSSP_TI_DNS_DOMAINNAME  = 0x04
-NTLMSSP_TI_TIME            = 0x07
+# AV_PAIR constants
+NTLMSSP_AV_EOL              = 0x00
+NTLMSSP_AV_HOSTNAME         = 0x01
+NTLMSSP_AV_DOMAINNAME       = 0x02
+NTLMSSP_AV_DNS_HOSTNAME     = 0x03
+NTLMSSP_AV_DNS_DOMAINNAME   = 0x04
+NTLMSSP_AV_DNS_TREENAME     = 0x05
+NTLMSSP_AV_FLAGS            = 0x06
+NTLMSSP_AV_TIME             = 0x07
+NTLMSSP_AV_RESTRICTIONS     = 0x08
+NTLMSSP_AV_TARGET_NAME      = 0x09
+NTLMSSP_AV_CHANNEL_BINDINGS = 0x0a
 
+class AV_PAIRS():
+    def __init__(self, data = None):
+        self.fields = {}
+        if data is not None:
+            self.fromString(data)
+
+    def __setitem__(self,key,value):
+        self.fields[key] = value
+
+    def __getitem__(self, key):
+        return self.fields[key]
+
+    def __delitem__(self, key):
+        del self.fields[key]
+
+    def __len__(self):
+        return len(self.getData())
+
+    def __str__(self):
+        return len(self.getData())
+
+    def fromString(self, data):
+        tInfo = data
+        fType = 0xff
+        while fType is not NTLMSSP_AV_EOL:
+            fType = struct.unpack('<H',tInfo[:struct.calcsize('<H')])[0]
+            tInfo = tInfo[struct.calcsize('<H'):]
+            length = struct.unpack('<H',tInfo[:struct.calcsize('<H')])[0]
+            tInfo = tInfo[struct.calcsize('<H'):]
+            content = tInfo[:length]
+            self.fields[fType]=(length,content)
+            tInfo = tInfo[length:]
+
+    def dump(self):
+        for i in self.fields.keys():
+            print "%s: {%r}" % (i,self[i])
+
+    def getData(self):
+        ans = ''
+        for i in self.fields.keys():
+            ans+= struct.pack('<HH', i, len(self[i]))
+            ans+= self[i]
+ 
+        # end with a NTLMSSP_AV_EOL
+        ans += struct.pack('<HH', NTLMSSP_AV_EOL, 0)
+
+        return ans
 class DCERPC_NTLMAuthHeader(Structure):
     commonHdr = (
         ('auth_type', 'B=10'),
@@ -164,25 +217,21 @@ class NTLMAuthChallenge(Structure):
         ('unknown','8s'),
         ('domain_name',':'),
         ('TargetInfoFields',':'))
+    def getData(self):
+        raw_av_fields = self['TargetInfoFields'].getData()
+        self['TargetInfoFields'] = raw_av_fields
+        Structure.getData(self)
 
     def fromString(self,data):
         Structure.fromString(self,data)
         # We gotta process the TargetInfoFields
         fields = {}
-        lenFields = self['TargetInfoFields_len']
-        tInfo = self['TargetInfoFields']
-        while lenFields > 0:
-            fType = struct.unpack('<H',tInfo[:struct.calcsize('<H')])[0]
-            tInfo = tInfo[struct.calcsize('<H'):]
-            length = struct.unpack('<H',tInfo[:struct.calcsize('<H')])[0]
-            tInfo = tInfo[struct.calcsize('<H'):]
-            content = tInfo[:length]
-            lenFields -= struct.calcsize('<H')*2 + length
-            fields[fType]=(length,content)
-            tInfo = tInfo[length:]
-        self['TargetInfoFields'] = fields
+        av_pairs = AV_PAIRS(self['TargetInfoFields'][:self['TargetInfoFields_len']]) 
+        self['TargetInfoFields'] = av_pairs
+
         return self
         
+      
     
 class DCERPC_NTLMAuthChallenge(NTLMAuthChallenge,DCERPC_NTLMAuthHeader):
     commonHdr = DCERPC_NTLMAuthHeader.commonHdr
@@ -360,6 +409,57 @@ def compute_nthash(password):
 def get_ntlmv1_response(key, challenge):
     return ntlmssp_DES_encrypt(key, challenge)
 
+# NTLMv2 Algorithm
+
+def hmac_md5(key, data):
+    if POW:
+        h = POW.Hmac(POW.MD5_DIGEST, key)
+        h.update(data)
+        result = h.mac()
+    else:
+        import hmac
+        h = hmac.new(key)
+        h.update(data)
+        result = h.digest()
+    return result
+
+def NTOWFv2( user, password, domain, hash = ''):
+    if hash != '':
+       theHash = hash 
+    else:
+       theHash = compute_nthash(password)
+    return hmac_md5(theHash, user.upper().encode('utf-16le') + password.encode('utf-16le'))
+
+def LMOWFv2( user, password, domain, lmhash = ''):
+    return NTOWFv2( user, password, domain, lmhash)
+
+
+def computeResponseNTLMv2(serverChallenge, clientChallenge, time, serverName, domain, user, password, lmhash = '', nthash = ''):
+    responseServerVersion = '\x01'
+    hiResponseServerVersion = '\x01'
+
+    responseKeyNT = NTOWFv2(user, password, domain, nthash)
+    responseKeyLM = LMOWFv2(user, password, domain, lmhash)
+
+    # Generate the AV_PAIRS
+    av_pairs = AV_PAIRS()
+    av_pairs[NTLMSSP_AV_HOSTNAME] = serverName
+    av_pairs[NTLMSSP_AV_DOMAINNAME] = domain.encode('utf-16le')
+    av_pairs[NTLMSSP_AV_DNS_HOSTNAME] = serverName
+    av_pairs[NTLMSSP_AV_DNS_DOMAINNAME] = domain.encode('utf-16le')
+    # Temp stuff, just for testing
+    av_pairs[NTLMSSP_AV_TARGET_NAME] = 'cifs/192.168.66.244'.encode('utf-16le')
+    av_pairs[NTLMSSP_AV_TIME] = time
+    avp = av_pairs.getData()
+
+    #temp = responseServerVersion + hiResponseServerVersion + '\x00' * 6 + time + clientChallenge + '\x00' * 4 + serverName + '\x00' * 4
+    temp = responseServerVersion + hiResponseServerVersion + '\x00' * 6 + time + clientChallenge + '\x00' * 4 + avp + '\x00' * 4
+
+    ntProofStr = hmac_md5(responseKeyNT, serverChallenge + temp)
+
+    ntChallengeResponse = ntProofStr + temp
+    lmChallengeResponse = hmac_md5(responseKeyNT, serverChallenge + clientChallenge) + clientChallenge
+    return ntChallengeResponse, lmChallengeResponse
 
 class NTLM_HTTP(object):
     '''Parent class for NTLM HTTP classes.'''
