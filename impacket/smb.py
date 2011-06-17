@@ -1905,7 +1905,7 @@ class SMB:
 #            s=self.recv_packet(None)   
         return 0
 
-    def neg_session(self, extended_security = False):
+    def neg_session(self, extended_security = True):
         smb = NewSMBPacket()
         negSession = SMBCommand(SMB.SMB_COM_NEGOTIATE)
         if extended_security == True:
@@ -2751,27 +2751,6 @@ class SMB:
 
                 self.fid = ntCreateParameters['Fid']
                 return ntCreateParameters['Fid']
-
-    def login_pass_the_hash(self, user, lmhash, nthash, domain = ''):
-        if len(lmhash) % 2:     lmhash = '0%s' % lmhash
-        if len(nthash) % 2:     nthash = '0%s' % nthash
-
-        if lmhash: lmhash = self.get_ntlmv1_response(a2b_hex(lmhash))
-        if nthash: nthash = self.get_ntlmv1_response(a2b_hex(nthash))
-
-        self._login(user, lmhash, nthash, domain)
-
-    def login_plaintext_password(self, name, password, domain = ''):
-        # Password is only encrypted if the server passed us an "encryption key" during protocol dialect negotiation
-        if password and self._ntlm_dialect.get_encryption_key():
-            lmhash = ntlm.compute_lmhash(password)
-            nthash = ntlm.compute_nthash(password)
-            lmhash = self.get_ntlmv1_response(lmhash)
-            nthash = self.get_ntlmv1_response(nthash)
-        else:
-            lmhash = password
-            nthash = ''
-        self._login(name, lmhash, nthash, domain)
 
     def logoff(self):
         s = SMBPacket()
