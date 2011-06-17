@@ -405,15 +405,37 @@ def ntlmssp_DES_encrypt(key, challenge):
     answer += __DES_block(key[14:], challenge)
     return answer
 
+# NTLMv1 Algorithm
+
+def generateSessionKeyV1(password, lmhash, nthash):
+    if POW:
+        hash = POW.Digest(POW.MD4_DIGEST)
+    else:        
+        hash = MD4.new()
+    hash.update(NTOWFv1(password, lmhash, nthash))
+    return hash.digest()
+    
+def computeResponseNTLMv1(serverChallenge, user, password, lmhash='', nthash=''):
+    lmhash = LMOWFv1(password, lmhash, nthash)
+    nthash = NTOWFv1(password, lmhash, nthash)
+    lmResponse = get_ntlmv1_response(lmhash,serverChallenge)
+    ntResponse = get_ntlmv1_response(nthash,serverChallenge)
+
+    return lmResponse, ntResponse 
+
 def compute_lmhash(password):
     # This is done according to Samba's encryption specification (docs/html/ENCRYPTION.html)
     password = password.upper()
     lmhash  = __DES_block(password[:7], KNOWN_DES_INPUT)
     lmhash += __DES_block(password[7:14], KNOWN_DES_INPUT)
     return lmhash
-LMOWF = compute_lmhash
 
-def LMOWF(password, lmhash = '', nthash=''):
+def NTOWFv1(password, lmhash = '', nthash=''):
+    if nthash != '':
+       return nthash
+    return compute_nthash(password)   
+
+def LMOWFv1(password, lmhash = '', nthash=''):
     if lmhash != '':
        return lmhash
     return compute_lmhash(password)
@@ -431,9 +453,11 @@ def compute_nthash(password):
 def get_ntlmv1_response(key, challenge):
     return ntlmssp_DES_encrypt(key, challenge)
 
+# NTLMv2 Algorithm
+
 # Crypto Stuff
 
-def generateSessionKey(keyExchangeKey, exportedSessionKey):
+def generateSessionKeyV2(keyExchangeKey, exportedSessionKey):
    if POW:
        cipher = POW.Symmetric(POW.RC4)
        cipher.encryptInit(keyExchangeKey)
@@ -453,9 +477,9 @@ def KXKEY(flags, sessionBaseKey, lmChallengeResponse, serverChallenge, password,
           keyExchangeKey = sessionBaseKey
    elif flags & NTLMSSP_NTLM_KEY:
        if flags & NTLMSSP_LM_KEY:
-          keyExchangeKey = __DES_block(LMOWF(password,lmash)[:7], lmChallengeResponse[:8]) + __DES_block(LMOWF(password,lmhash)[8] + '\xBD\xBD\xBD\xBD\xBD\xBD', lmChallengeResponse[:8])
+          keyExchangeKey = __DES_block(LMOWFv1(password,lmash)[:7], lmChallengeResponse[:8]) + __DES_block(LMOWFv1(password,lmhash)[8] + '\xBD\xBD\xBD\xBD\xBD\xBD', lmChallengeResponse[:8])
        elif flags & NTLMSSP_NOT_NT_KEY:
-          keyExchangeKey = LMOWF(password,lmhash)[:8] + '\x00'*8
+          keyExchangeKey = LMOWFv1(password,lmhash)[:8] + '\x00'*8
        else:
           keyExchangeKey = sessionBaseKey
    else:
@@ -463,9 +487,6 @@ def KXKEY(flags, sessionBaseKey, lmChallengeResponse, serverChallenge, password,
 
    return keyExchangeKey
       
-    
-# NTLMv2 Algorithm
-
 def hmac_md5(key, data):
     if POW:
         h = POW.Hmac(POW.MD5_DIGEST, key)
