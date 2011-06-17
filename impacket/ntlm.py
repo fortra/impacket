@@ -9,10 +9,13 @@
 import base64
 import array
 import struct
+import calendar
+import time
 from impacket.structure import Structure
 
 try:
     POW = None
+    from Crypto.Cipher import ARC4
     from Crypto.Cipher import DES
     from Crypto.Hash import MD4
 except Exception:
@@ -38,10 +41,10 @@ NTLMSSP_KEY_128      = 0x20000000
 NTLMSSP_VERSION      = 0x02000000
 # NTLMSSP_           = 0x01000000
 NTLMSSP_TARGET_INFO  = 0x00800000
-# NTLMSSP_           = 0x00400000
 # NTLMSSP_           = 0x00200000
 # NTLMSSP_           = 0x00100000
 NTLMSSP_NTLM2_KEY    = 0x00080000
+NTLMSSP_NOT_NT_KEY   = 0x00400000
 NTLMSSP_CHALL_NOT_NT = 0x00040000
 NTLMSSP_CHALL_ACCEPT = 0x00020000
 NTLMSSP_CHALL_INIT   = 0x00010000
@@ -85,7 +88,9 @@ class AV_PAIRS():
         self.fields[key] = (len(value),value)
 
     def __getitem__(self, key):
-        return self.fields[key]
+        if self.fields.has_key(key):
+           return self.fields[key]
+        return None
 
     def __delitem__(self, key):
         del self.fields[key]
@@ -216,9 +221,17 @@ class NTLMAuthChallenge(Structure):
         ('TargetInfoFields_len','<H-TargetInfoFields'),
         ('TargetInfoFields_max_len','<H-TargetInfoFields'),
         ('TargetInfoFields_offset','<L'),
-        ('unknown','8s'),
+        ('VersionLen','_-Version','self.checkVersion(self["flags"])'), 
+        ('Version',':'),
         ('domain_name',':'),
         ('TargetInfoFields',':'))
+
+    def checkVersion(self, flags):
+        if flags is not None:
+           if flags & NTLMSSP_VERSION == 0:
+              return 0
+        return 8
+
     def getData(self):
         if self['TargetInfoFields'] is not None:
             raw_av_fields = self['TargetInfoFields'].getData()
@@ -398,6 +411,7 @@ def compute_lmhash(password):
     lmhash  = __DES_block(password[:7], KNOWN_DES_INPUT)
     lmhash += __DES_block(password[7:14], KNOWN_DES_INPUT)
     return lmhash
+LMOWF = compute_lmhash
 
 def compute_nthash(password):
     # This is done according to Samba's encryption specification (docs/html/ENCRYPTION.html)
@@ -412,6 +426,39 @@ def compute_nthash(password):
 def get_ntlmv1_response(key, challenge):
     return ntlmssp_DES_encrypt(key, challenge)
 
+# Crypto Stuff
+
+def generateSessionKey(keyExchangeKey, exportedSessionKey):
+   if POW:
+       cipher = POW.Symmetric(POW.RC4)
+       cipher.encryptInit(keyExchangeKey)
+       cipher_encrypt = cipher.update
+   else:
+       cipher = ARC4.new(keyExchangeKey)
+       cipher_encrypt = cipher.encrypt
+
+   sessionKey = cipher_encrypt(exportedSessionKey)
+   return sessionKey
+
+def KXKEY(flags, sessionBaseKey, lmChallengeResponse, serverChallenge, password):
+   if flags & NTLMSSP_NTLM2_KEY:
+       if flags & NTLMSSP_NTLM_KEY: 
+          keyExchangeKey = hmac_md5(sessionBaseKey, serverChallenge + lmChallengeResponse[:8])
+       else:
+          keyExchangeKey = sessionBaseKey
+   elif flags & NTLMSSP_NTLM_KEY:
+       if flags & NTLMSSP_LM_KEY:
+          keyExchangeKey = __DES_block(LMOWF(password)[:7], lmChallengeResponse[:8]) + __DES_block(LMOWF(password)[8] + '\xBD\xBD\xBD\xBD\xBD\xBD', lmChallengeResponse[:8])
+       elif flags & NTLMSSP_NOT_NT_KEY:
+          keyExchangeKey = LMOWF(password)[:8] + '\x00'*8
+       else:
+          keyExchangeKey = sessionBaseKey
+   else:
+       raise "Can't create a valid KXKEY!"
+
+   return keyExchangeKey
+      
+    
 # NTLMv2 Algorithm
 
 def hmac_md5(key, data):
@@ -437,13 +484,18 @@ def LMOWFv2( user, password, domain, lmhash = ''):
     return NTOWFv2( user, password, domain, lmhash)
 
 
-def computeResponseNTLMv2(serverChallenge, clientChallenge, time, serverName, domain, user, password, lmhash = '', nthash = ''):
+def computeResponseNTLMv2(serverChallenge, clientChallenge,  serverName, domain, user, password, lmhash = '', nthash = ''):
     responseServerVersion = '\x01'
     hiResponseServerVersion = '\x01'
 
     responseKeyNT = NTOWFv2(user, password, domain, nthash)
     responseKeyLM = LMOWFv2(user, password, domain, lmhash)
 
+    # Generate a time av if no time was provided
+    if serverName[NTLMSSP_AV_TIME] is not None:
+       aTime = serverName[NTLMSSP_AV_TIME][1]
+    else:
+       aTime = struct.pack('<q', (116444736000000000 + calendar.timegm(time.gmtime()) * 10000000) )
     # Generate the AV_PAIRS
     #av_pairs = AV_PAIRS()
     #av_pairs[NTLMSSP_AV_HOSTNAME] = serverName
@@ -459,13 +511,15 @@ def computeResponseNTLMv2(serverChallenge, clientChallenge, time, serverName, do
 
     #serverName[NTLMSSP_AV_TARGET_NAME] = 'cifs/192.168.88.107'.encode('utf-16le')
 
-    temp = responseServerVersion + hiResponseServerVersion + '\x00' * 6 + time + clientChallenge + '\x00' * 4 + serverName.getData() + '\x00' * 4
+    temp = responseServerVersion + hiResponseServerVersion + '\x00' * 6 + aTime + clientChallenge + '\x00' * 4 + serverName.getData() + '\x00' * 4
 
     ntProofStr = hmac_md5(responseKeyNT, serverChallenge + temp)
 
     ntChallengeResponse = ntProofStr + temp
     lmChallengeResponse = hmac_md5(responseKeyNT, serverChallenge + clientChallenge) + clientChallenge
-    return ntChallengeResponse, lmChallengeResponse
+    sessionBaseKey = hmac_md5(responseKeyNT, ntProofStr)
+
+    return ntChallengeResponse, lmChallengeResponse, sessionBaseKey
 
 class NTLM_HTTP(object):
     '''Parent class for NTLM HTTP classes.'''
