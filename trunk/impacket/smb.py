@@ -448,7 +448,6 @@ class SPNEGO_NegTokenInit(GSSAPI):
         self['Payload'] = ans
         return GSSAPI.getData(self)
      
-
 #*********************************** TEMP BEGIN ********************************
 def set_key_odd_parity(key):
     ""
@@ -2294,7 +2293,7 @@ class SMB:
         # NTLMSSP
         blob['MechTypes'] = [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
         auth = ntlm.NTLMAuthNegotiate()
-        auth['flags'] = ntlm.NTLMSSP_KEY_128 | ntlm.NTLMSSP_NTLM2_KEY | ntlm.NTLMSSP_UNICODE
+        auth['flags'] = ntlm.NTLMSSP_KEY_128 | ntlm.NTLMSSP_NTLM2_KEY | ntlm.NTLMSSP_UNICODE | ntlm.NTLMSSP_KEY_EXCHANGE | ntlm.NTLMSSP_TARGET
 
         #auth['host_name'] = 'JACK'
         auth['domain_name'] = domain
@@ -2324,7 +2323,6 @@ class SMB:
             sessionData.fromString(sessionResponse['Data'])
             respToken = SPNEGO_NegTokenResp(sessionData['SecurityBlob'])
             ntlmChallenge = ntlm.NTLMAuthChallenge(respToken['ResponseToken'])
-
             # Token received and parsed. Depending on the authentication 
             # method we will create a valid ChallengeResponse
 
@@ -2332,15 +2330,25 @@ class SMB:
                # Handle NTLMv2
                ntlmChallengeResponse = ntlm.NTLMAuthChallengeResponse(user, password, ntlmChallenge['challenge'])
                clientChallenge = "".join([random.choice(string.digits+string.letters) for i in xrange(8)])
-               serverTime = ntlmChallenge['TargetInfoFields'][ntlm.NTLMSSP_AV_TIME][1]
                serverName = ntlmChallenge['TargetInfoFields']
 
-               ntResponse, lmResponse = ntlm.computeResponseNTLMv2(ntlmChallenge['challenge'], clientChallenge, serverTime, serverName, domain, user, password, lmhash, nthash )
+               ntResponse, lmResponse, sessionBaseKey = ntlm.computeResponseNTLMv2(ntlmChallenge['challenge'], clientChallenge, serverName, domain, user, password, lmhash, nthash )
 
+               # If we set up key exchange, let's fill the right variables
+               if ntlmChallenge['flags'] & ntlm.NTLMSSP_KEY_EXCHANGE:
+                  # not exactly what I call random tho :\
+                  keyExchangeKey = ntlm.KXKEY(ntlmChallenge['flags'],sessionBaseKey, lmResponse, ntlmChallenge['challenge'], password)
+                  exportedSessionKey = "".join([random.choice(string.digits+string.letters) for i in xrange(16)])
+
+                  encryptedRandomSessionKey = ntlm.generateSessionKey(keyExchangeKey, exportedSessionKey)
+               else:
+                  encryptedRandomSessionKey = 0
+
+               ntlmChallengeResponse['flags'] = ntlm.NTLMSSP_KEY_128 | ntlm.NTLMSSP_NTLM2_KEY | ntlm.NTLMSSP_UNICODE | ntlm.NTLMSSP_NTLM_KEY | ntlm.NTLMSSP_KEY_EXCHANGE
                ntlmChallengeResponse['lanman'] = lmResponse
                ntlmChallengeResponse['ntlm'] = ntResponse
                ntlmChallengeResponse['domain_name'] = domain.encode('utf-16le')
-               ntlmChallengeResponse['flags'] = ntlm.NTLMSSP_KEY_128 | ntlm.NTLMSSP_NTLM2_KEY | ntlm.NTLMSSP_UNICODE | ntlm.NTLMSSP_NTLM_KEY 
+               ntlmChallengeResponse['session_key'] = encryptedRandomSessionKey
 
             elif ntlmChallenge['flags'] & ntlm.NTLMSSP_NTLM_KEY:
                # Handle NTLMv1
