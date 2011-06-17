@@ -633,6 +633,32 @@ class SessionError(Exception):
       35: ("ERRFCBUnavail", "No FCBs are available to process request."),
       36: ("ERRsharebufexc", "A sharing buffer has been exceeded.")
       }
+
+    nt_msgs = {
+      0x02: ("ERRbadfunc", "Invalid function."),
+      0x10: ("ERRbadfunc", "Invalid function."),
+      0xAF: ("ERRbadfunc", "Invalid function."),
+      0x0f: ("ERRbadfile", "File not found."),
+      0x0e: ("ERRbadfile", "File not found."),
+      0x34: ("ERRbadfile", "File not found."),
+      0x3a: ("ERRbadpath", "Directory invalid."),
+      0x6d: ("ERRnoaccess", "Access denied."),
+      0x22: ("ERRnoaccess", "Access denied."),
+      0x1E: ("ERRnoaccess", "Access denied."),
+      0x1F: ("ERRnoaccess", "Access denied."),
+      0x21: ("ERRnoaccess", "Access denied."),
+      0x41: ("ERRnoaccess", "Access denied."),
+      0x4B: ("ERRnoaccess", "Access denied."),
+      0x56: ("ERRnoaccess", "Access denied."),
+      0x61: ("ERRnoaccess", "Access denied."),
+      0xBA: ("ERRnoaccess", "Access denied."),
+      0xD5: ("ERRbadpath", "Directory invalid."),
+      0x3A: ("ERRbadpath", "Directory invalid."),
+      0x3B: ("ERRbadpath", "Directory invalid."),
+      0x9B: ("ERRbadpath", "Directory invalid."),
+      0xFB: ("ERRbadpath", "Directory invalid."),
+    }
+
     dos_msgs = {
       ERRbadfunc: ("ERRbadfunc", "Invalid function."),
       ERRbadfile: ("ERRbadfile", "File not found."),
@@ -715,15 +741,21 @@ class SessionError(Exception):
                       0xE1: ("ERRRMX1", {} ),
                       0xE2: ("ERRRMX2", {} ),
                       0xE3: ("ERRRMX3", {} ),
+                      0xC000: ("ERRNT", nt_msgs),
                       0xFF: ("ERRCMD", {} ) }
 
     
 
-    def __init__( self, str, error_class, error_code):
+    def __init__( self, str, error_class, error_code, nt_status = 0):
         Exception.__init__(self, str)
         self._args = str
-        self.error_class = error_class
-        self.error_code = error_code
+        if nt_status:
+           self.error_class = error_code
+           self.error_code  = error_class
+        else:
+           self.error_class = error_class
+           self.error_code = error_code
+       
 
     def get_error_class( self ):
         return self.error_class
@@ -933,7 +965,7 @@ class NewSMBPacket(Structure):
                 return 1
             elif self.isMoreProcessingRequired():
                 return 1
-            raise SessionError, ("SMB Library Error", self['ErrorClass'], self['ErrorCode'])
+            raise SessionError, ("SMB Library Error", self['ErrorClass'], self['ErrorCode'], self['Flags2'] & SMB.FLAGS2_NT_STATUS)
         else:
             raise UnsupportedFeature, ("Unexpected answer from server: Got %d, Expected %d" % (self['Command'], cmd))
 
@@ -1745,6 +1777,11 @@ class SMB:
         self.__remote_name = string.upper(remote_name)
         self.__remote_host = remote_host
         self.__is_pathcaseless = 0
+        # Negotiate Protocol Result, used everywhere
+        # Could be extended or not, flags should be checked before 
+        self._dialect_data = 0
+        self._dialect_parameters = 0
+        # To be killed soon
         self._ntlm_dialect = 0
         self._sess = None
         self.encrypt_passwords = True
@@ -1769,11 +1806,6 @@ class SMB:
 
             # Initialize values __ntlm_dialect, __is_pathcaseless
             self.neg_session()
-
-            # If the following assertion fails, then mean that the encryption key is not sent when
-            # encrypted authentication is required by the server.
-            if not self.ntlm_supported():
-                assert (self._ntlm_dialect.is_auth_mode() == SMB.SECURITY_AUTH_PLAINTEXT) or (self._ntlm_dialect.is_auth_mode() == SMB.SECURITY_AUTH_ENCRYPTED and self._ntlm_dialect.get_encryption_key() and self._ntlm_dialect.get_encryption_key_len() >= 8)
 
             # Call login() without any authentication information to setup a session if the remote server
             # is in share mode.
@@ -1891,8 +1923,8 @@ class SMB:
 
                 if smb['Flags2'] & SMB.FLAGS2_EXTENDED_SECURITY > 0:
                     # Whether we choose it or it is enforced by the server, we go for extended security
-                    self._smb_extended_security_parameters = SMBExtended_Security_Parameters(sessionResponse['Parameters'])
-                    self._smb_extended_security_data = SMBExtended_Security_Data(sessionResponse['Data'])
+                    self._dialects_parameters = SMBExtended_Security_Parameters(sessionResponse['Parameters'])
+                    self._dialects_data = SMBExtended_Security_Data(sessionResponse['Data'])
                     # Interestingly, the security Blob might be missing sometimes.
                     #spnego = SPNEGO_NegTokenInit(self._smb_extended_security_data['SecurityBlob'])
                     #for i in spnego['MechTypes']:
@@ -1901,19 +1933,13 @@ class SMB:
 
                 # If not, let's try the old way
                 else:
-
-                    self._ntlm_dialect_parameters = SMBNTLMDialect_Parameters(sessionResponse['Parameters'])
-                    self._ntlm_dialect_data = SMBNTLMDialect_Data()
-                    self._ntlm_dialect_data['ChallengeLength'] = self._ntlm_dialect_parameters['ChallengeLength']
-                    self._ntlm_dialect_data.fromString(sessionResponse['Data'])
+                    self._dialects_parameters = SMBNTLMDialect_Parameters(sessionResponse['Parameters'])
+                    self._dialects_data = SMBNTLMDialect_Data()
+                    self._dialects_data['ChallengeLength'] = self._dialects_parameters['ChallengeLength']
+                    self._dialects_data.fromString(sessionResponse['Data'])
 
                     if self._ntlm_dialect.get_selected_dialect() == 0xffff:
                         raise UnsupportedFeature,"Remote server does not know NT LM 0.12"
-
-                    #NL LM 0.12 dialect selected
-                    if self._ntlm_dialect.get_lsw_capabilities() & SMB.CAP_EXTENDED_SECURITY:
-                        raise UnsupportedFeature, "This version of pysmb does not support extended security validation. Please file a request for it."
-
                     self.__is_pathcaseless = smb['Flags1'] & SMB.FLAGS1_PATHCASELESS
                     return 1
             else:
@@ -2281,7 +2307,7 @@ class SMB:
         # Once everything's working we should join login methods into a single one
         smb = NewSMBPacket()
         smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
-        smb['Flags2'] = SMB.FLAGS2_NT_STATUS | SMB.FLAGS2_EXTENDED_SECURITY 
+        smb['Flags2'] = SMB.FLAGS2_EXTENDED_SECURITY #| SMB.FLAGS2_NT_STATUS
 
         sessionSetup = SMBCommand(SMB.SMB_COM_SESSION_SETUP_ANDX)
         sessionSetup['Parameters'] = SMBSessionSetupAndX_Extended_Parameters()
@@ -2333,11 +2359,11 @@ class SMB:
             ntlmChallenge = ntlm.NTLMAuthChallenge(respToken['ResponseToken'])
             # Token received and parsed. Depending on the authentication 
             # method we will create a valid ChallengeResponse
+            ntlmChallengeResponse = ntlm.NTLMAuthChallengeResponse(user, password, ntlmChallenge['challenge'])
+            clientChallenge = "".join([random.choice(string.digits+string.letters) for i in xrange(8)])
 
             if ntlmChallenge['flags'] & ntlm.NTLMSSP_NTLM2_KEY:
                # Handle NTLMv2
-               ntlmChallengeResponse = ntlm.NTLMAuthChallengeResponse(user, password, ntlmChallenge['challenge'])
-               clientChallenge = "".join([random.choice(string.digits+string.letters) for i in xrange(8)])
                serverName = ntlmChallenge['TargetInfoFields']
 
                ntResponse, lmResponse, sessionBaseKey = ntlm.computeResponseNTLMv2(ntlmChallenge['challenge'], clientChallenge, serverName, domain, user, password, lmhash, nthash )
@@ -2349,7 +2375,7 @@ class SMB:
                   # exportedSessionKey = this is the key we should use to sign
                   exportedSessionKey = "".join([random.choice(string.digits+string.letters) for i in xrange(16)])
 
-                  encryptedRandomSessionKey = ntlm.generateSessionKey(keyExchangeKey, exportedSessionKey)
+                  encryptedRandomSessionKey = ntlm.generateSessionKeyV2(keyExchangeKey, exportedSessionKey)
                else:
                   encryptedRandomSessionKey = None
 
@@ -2362,23 +2388,29 @@ class SMB:
                #    clientSealing = ntlm.SEALKEY(ntlmChallenge['flags'], exportedSessionKey, "Client")
 
                ntlmChallengeResponse['flags'] = ntlm.NTLMSSP_KEY_128 | ntlm.NTLMSSP_NTLM2_KEY | ntlm.NTLMSSP_UNICODE | ntlm.NTLMSSP_NTLM_KEY | ntlm.NTLMSSP_KEY_EXCHANGE
-               ntlmChallengeResponse['lanman'] = lmResponse
-               ntlmChallengeResponse['ntlm'] = ntResponse
                ntlmChallengeResponse['domain_name'] = domain.encode('utf-16le')
-               if encryptedRandomSessionKey is not None: 
-                  ntlmChallengeResponse['session_key'] = encryptedRandomSessionKey
 
             elif ntlmChallenge['flags'] & ntlm.NTLMSSP_NTLM_KEY:
                # Handle NTLMv1
-               ntlmChallengeResponse = ntlm.NTLMAuthChallengeResponse(user, password, ntlmChallenge['challenge'])
-               ntlmChallengeResponse['flags'] = ntlm.NTLMSSP_KEY_128 | ntlm.NTLMSSP_NTLM_KEY | ntlm.NTLMSSP_UNICODE
+               if ntlmChallenge['flags'] & ntlm.NTLMSSP_KEY_EXCHANGE:
+                    encryptedRandomSessionKey = ntlm.generateSessionKeyV1(password, lmhash, nthash)
+               else:
+                    encryptedRandomSessionKey = None
 
+               ntlmChallengeResponse['flags'] = ntlm.NTLMSSP_KEY_128 | ntlm.NTLMSSP_NTLM_KEY | ntlm.NTLMSSP_UNICODE
+               lmResponse, ntResponse = ntlm.computeResponseNTLMv1(ntlmChallenge['challenge'], user, password, lmhash, nthash)
             else:
                 raise Unsupported ("Unsupported authentication flag %d" % ntlmChallenge['flags'])
 
+           
+            ntlmChallengeResponse['lanman'] = lmResponse
+            ntlmChallengeResponse['ntlm'] = ntResponse
+            if encryptedRandomSessionKey is not None: 
+                ntlmChallengeResponse['session_key'] = encryptedRandomSessionKey
+
             smb = NewSMBPacket()
             smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
-            smb['Flags2'] = SMB.FLAGS2_NT_STATUS | SMB.FLAGS2_EXTENDED_SECURITY 
+            smb['Flags2'] = SMB.FLAGS2_EXTENDED_SECURITY #| SMB.FLAGS2_NT_STATUS
 
             respToken2 = SPNEGO_NegTokenResp()
             respToken2['ResponseToken'] = str(ntlmChallengeResponse)
@@ -2391,24 +2423,47 @@ class SMB:
             self.sendSMB(smb)
             
             smb = self.recvSMB()
+            if smb.isValidAnswer(SMB.SMB_COM_SESSION_SETUP_ANDX):
+                sessionResponse   = SMBCommand(smb['Data'][0])
+                sessionParameters = SMBSessionSetupAndXResponse_Parameters(sessionResponse['Parameters'])
+                sessionData       = SMBSessionSetupAndXResponse_Data(flags = smb['Flags2'], data = sessionResponse['Data'])
 
-            if smb['ErrorCode'] == 0:
-               return 1
-            else:
-               return 0
+                self.__server_os     = sessionData['NativeOS']
+                self.__server_lanman = sessionData['NativeLanMan']
+                self.__server_domain = sessionData['PrimaryDomain']
+
+                return 1
         else:
             raise Exception('Error: Could not login successfully')
 
     def login(self, user, password, domain = '', lmhash = '', nthash = ''):
-        if self._ntlm_dialect.get_msw_capabilities() & SMB.CAP_EXTENDED_SECURITY:
-            self.login_extended(user,password,domain,lmhash,nthash)
-        else:
-            if password != '' or (password == '' and lmhash == '' and nthash == ''):
-                self.login_plaintext_password(user, password, domain)
-            elif lmhash != '' or nthash != '':
-                self.login_pass_the_hash(user, lmhash, nthash, domain)
 
-    def _login(self, user, pwd_ansi, pwd_unicode, domain = ''):
+        # If we have hashes, normalize them
+        if ( lmhash != '' or nthash != ''):
+            if len(lmhash) % 2:     lmhash = '0%s' % lmhash
+            if len(nthash) % 2:     nthash = '0%s' % nthash
+            lmhash = a2b_hex(lmhash)
+            nthash = a2b_hex(nthash)
+
+        if self._dialects_parameters['Capabilities'] & SMB.CAP_EXTENDED_SECURITY:
+            self.login_extended(user, password, domain, lmhash, nthash)
+        else:
+            self.login_standard(user, password, domain, lmhash, nthash)
+
+    def login_standard(self, user, password, domain = '', lmhash = '', nthash = ''):
+
+        # Password is only encrypted if the server passed us an "encryption key" during protocol dialect negotiation
+        if self._ntlm_dialect.get_encryption_key():
+            if lmhash != '' or nthash != '':
+               pwd_ansi = self.get_ntlmv1_response(lmhash)
+               pwd_unicode = self.get_ntlmv1_response(nthash)
+            elif password: 
+               pwd_ansi = self.get_ntlmv1_response(ntlm.compute_lmhash(password))
+               pwd_unicode = self.get_ntlmv1_response(ntlm.compute_nthash(password))
+        else:
+            pwd_ansi = password
+            pwd_unicode = ''
+
         smb = NewSMBPacket()
         smb['Flags1']  = 8
         
