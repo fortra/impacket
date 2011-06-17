@@ -892,7 +892,9 @@ class NewSMBPacket(Structure):
         ('ErrorCode','<H=0'),
         ('Flags1','B=0'),
         ('Flags2','<H=0'),
-        ('Padding','12s=""'),
+        ('PIDHigh','<H=0'),
+        ('SecurityFeatures','8s=""'),
+        ('Reserved','<H=0'),
         ('Tid','<H=0xffff'),
         ('Pid','<H=0'),
         ('Uid','<H=0'),
@@ -905,7 +907,7 @@ class NewSMBPacket(Structure):
 
         if not kargs.has_key('data'):
             self['Data'] = []
-
+    
     def addCommand(self, command):
         if len(self['Data']) == 0:
             self['Command'] = command.command
@@ -1117,6 +1119,14 @@ class SMBAndXCommand_Parameters(Structure):
     )
     structure = (       # default structure, overriden by subclasses
         ('Data',':=""'),
+    )
+
+############# Security Features
+class SecurityFeatures(Structure):
+    structure = (
+        ('Key','<L=0'),
+        ('CID','<H=0'),
+        ('SequenceNumber','<H=0'),
     )
 
 ############# SMB_COM_SESSION_SETUP_ANDX (0x73)
@@ -1719,6 +1729,12 @@ class SMB:
     FLAGS2_COMPRESSED                      = 0x0008
     FLAGS2_SMB_SECURITY_SIGNATURE_REQUIRED = 0x0010
     FLAGS2_EXTENDED_SECURITY               = 0x0800
+    
+    # Dialect's Security Mode flags
+    NEGOTIATE_USER_SECURITY                = 0x01
+    NEGOTIATE_ENCRYPT_PASSWORDS            = 0x02
+    NEGOTIATE_SECURITY_SIGNATURE_ENABLE    = 0x04
+    NEGOTIATE_SECURITY_SIGNATURE_REQUIRED  = 0x08
 
     def __init__(self, remote_name, remote_host, my_name = None, host_type = nmb.TYPE_SERVER, sess_port = nmb.NETBIOS_SESSION_PORT, timeout=None, UDP = 0):
         # The uid attribute will be set when the client calls the login() method
@@ -1812,9 +1828,17 @@ class SMB:
         dataoffset = dataoffset - 55 - setupcnt * 2
         return has_more, params[20:20 + setupcnt * 2], data[paramoffset:paramoffset + paramcnt], data[dataoffset:dataoffset + datacnt]
 
+    def signSMB(self, data, signingSessionKey, signingChallengeResponse):
+        raise
+
     def sendSMB(self,smb):
         smb['Uid'] = self._uid
         smb['Pid'] = os.getpid()
+        try:
+           if smb['Flags2'] & SMB.FLAGS2_SMB_SECURITY_SIGNATURE:
+              smb['SecurityFeatures'] =  signSMB(str(smb), self._signingSessionKey, self._signingChallengeResponse)
+        except:
+           pass
         self._sess.send_packet(str(smb))
 
     def send_smb(self,s):
@@ -2253,22 +2277,6 @@ class SMB:
         challenge = self._ntlm_dialect.get_encryption_key()
         return ntlm.get_ntlmv1_response(key, challenge)
 
-    def hmac_md5(self, key, data):
-        import POW
-        h = POW.Hmac(POW.MD5_DIGEST, key)
-        h.update(data)
-        result = h.mac()
-        return result
-
-    def get_ntlmv2_response(self, hash):
-        """
-        blob = RandomBytes( blobsize );
-        data = concat( ServerChallenge, 8, blob, blobsize );
-        hmac = hmac_md5( v2hash, 16, data, (8 + blobsize) );
-        v2resp = concat( hmac, 16, blob, blobsize );
-        """
-        return ''
-
     def login_extended(self, user, password, domain = '', lmhash = '', nthash = '' ):
         # Once everything's working we should join login methods into a single one
         smb = NewSMBPacket()
@@ -2293,7 +2301,7 @@ class SMB:
         # NTLMSSP
         blob['MechTypes'] = [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
         auth = ntlm.NTLMAuthNegotiate()
-        auth['flags'] = ntlm.NTLMSSP_KEY_128 | ntlm.NTLMSSP_NTLM2_KEY | ntlm.NTLMSSP_UNICODE | ntlm.NTLMSSP_KEY_EXCHANGE | ntlm.NTLMSSP_TARGET
+        auth['flags'] = ntlm.NTLMSSP_KEY_128 | ntlm.NTLMSSP_NTLM2_KEY | ntlm.NTLMSSP_UNICODE | ntlm.NTLMSSP_TARGET | ntlm.NTLMSSP_KEY_EXCHANGE 
 
         #auth['host_name'] = 'JACK'
         auth['domain_name'] = domain
@@ -2337,18 +2345,28 @@ class SMB:
                # If we set up key exchange, let's fill the right variables
                if ntlmChallenge['flags'] & ntlm.NTLMSSP_KEY_EXCHANGE:
                   # not exactly what I call random tho :\
-                  keyExchangeKey = ntlm.KXKEY(ntlmChallenge['flags'],sessionBaseKey, lmResponse, ntlmChallenge['challenge'], password)
+                  keyExchangeKey = ntlm.KXKEY(ntlmChallenge['flags'],sessionBaseKey, lmResponse, ntlmChallenge['challenge'], password, lmhash, nthash)
+                  # exportedSessionKey = this is the key we should use to sign
                   exportedSessionKey = "".join([random.choice(string.digits+string.letters) for i in xrange(16)])
 
                   encryptedRandomSessionKey = ntlm.generateSessionKey(keyExchangeKey, exportedSessionKey)
                else:
-                  encryptedRandomSessionKey = 0
+                  encryptedRandomSessionKey = None
+
+               # Should we prepare for signing?
+               #if ntlmChallenge['flags'] & ntlm.NTLMSSP_SIGN:
+               #    clientSigning = ntlm.SIGNKEY(ntlmChallenge['flags'], exportedSessionKey, "Client")
+
+               # Should we prepare for Sealing?
+               #if ntlmChallenge['flags'] & ntlm.NTLMSSP_SEAL:
+               #    clientSealing = ntlm.SEALKEY(ntlmChallenge['flags'], exportedSessionKey, "Client")
 
                ntlmChallengeResponse['flags'] = ntlm.NTLMSSP_KEY_128 | ntlm.NTLMSSP_NTLM2_KEY | ntlm.NTLMSSP_UNICODE | ntlm.NTLMSSP_NTLM_KEY | ntlm.NTLMSSP_KEY_EXCHANGE
                ntlmChallengeResponse['lanman'] = lmResponse
                ntlmChallengeResponse['ntlm'] = ntResponse
                ntlmChallengeResponse['domain_name'] = domain.encode('utf-16le')
-               ntlmChallengeResponse['session_key'] = encryptedRandomSessionKey
+               if encryptedRandomSessionKey is not None: 
+                  ntlmChallengeResponse['session_key'] = encryptedRandomSessionKey
 
             elif ntlmChallenge['flags'] & ntlm.NTLMSSP_NTLM_KEY:
                # Handle NTLMv1
