@@ -2274,7 +2274,7 @@ class SMB:
         # Once everything's working we should join login methods into a single one
         smb = NewSMBPacket()
         smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
-        smb['Flags2'] = SMB.FLAGS2_NT_STATUS | SMB.FLAGS2_EXTENDED_SECURITY
+        smb['Flags2'] = SMB.FLAGS2_NT_STATUS | SMB.FLAGS2_EXTENDED_SECURITY 
 
         sessionSetup = SMBCommand(SMB.SMB_COM_SESSION_SETUP_ANDX)
         sessionSetup['Parameters'] = SMBSessionSetupAndX_Extended_Parameters()
@@ -2284,7 +2284,7 @@ class SMB:
         sessionSetup['Parameters']['MaxMpxCount']          = 2
         sessionSetup['Parameters']['VcNumber']             = 1
         sessionSetup['Parameters']['SessionKey']           = 0
-        sessionSetup['Parameters']['Capabilities']         = SMB.CAP_EXTENDED_SECURITY | SMB.CAP_USE_NT_ERRORS
+        sessionSetup['Parameters']['Capabilities']         = SMB.CAP_EXTENDED_SECURITY | SMB.CAP_USE_NT_ERRORS | SMB.CAP_UNICODE
 
         # Let's build a NegTokenInit with the NTLMSSP
         # TODO: In the future we should be able to choose different providers
@@ -2294,8 +2294,10 @@ class SMB:
         # NTLMSSP
         blob['MechTypes'] = [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
         auth = ntlm.NTLMAuthNegotiate()
-        #auth['flags'] = ntlm.NTLMSSP_KEY_128 | ntlm.NTLMSSP_NTLM_KEY | ntlm.NTLMSSP_UNICODE
-        auth['flags'] = ntlm.NTLMSSP_KEY_128 | ntlm.NTLMSSP_NTLM2_KEY | ntlm.NTLMSSP_UNICODE 
+        auth['flags'] = ntlm.NTLMSSP_KEY_128 | ntlm.NTLMSSP_NTLM2_KEY | ntlm.NTLMSSP_UNICODE
+
+        #auth['host_name'] = 'JACK'
+        auth['domain_name'] = domain
 
         blob['MechToken'] = str(auth)
         
@@ -2322,27 +2324,29 @@ class SMB:
             sessionData.fromString(sessionResponse['Data'])
             respToken = SPNEGO_NegTokenResp(sessionData['SecurityBlob'])
             ntlmChallenge = ntlm.NTLMAuthChallenge(respToken['ResponseToken'])
-            # Token received and parsed. Depending on the authentication method we will create a valid ChallengeResponse
+
+            # Token received and parsed. Depending on the authentication 
+            # method we will create a valid ChallengeResponse
 
             if ntlmChallenge['flags'] & ntlm.NTLMSSP_NTLM2_KEY:
                # Handle NTLMv2
                ntlmChallengeResponse = ntlm.NTLMAuthChallengeResponse(user, password, ntlmChallenge['challenge'])
                clientChallenge = "".join([random.choice(string.digits+string.letters) for i in xrange(8)])
                serverTime = ntlmChallenge['TargetInfoFields'][ntlm.NTLMSSP_AV_TIME][1]
-               serverName = ntlmChallenge['domain_name']
+               serverName = ntlmChallenge['TargetInfoFields']
 
-               ntResponse, lmResponse = ntlm.computeResponseNTLMv2(ntlmChallenge['challenge'], clientChallenge, serverTime, serverName, 'ANGELINA', user, password, lmhash, nthash )
-               print "ntResponse: %d - %r, lmResponse: %d - %r" % (len(ntResponse), ntResponse, len(lmResponse), lmResponse)
+               ntResponse, lmResponse = ntlm.computeResponseNTLMv2(ntlmChallenge['challenge'], clientChallenge, serverTime, serverName, domain, user, password, lmhash, nthash )
 
                ntlmChallengeResponse['lanman'] = lmResponse
                ntlmChallengeResponse['ntlm'] = ntResponse
-               ntlmChallengeResponse['domain_name'] = 'ANGELINA'.encode('utf-16le')
-               ntlmChallengeResponse['host_name'] = 'JACK'.encode('utf-16le')
-               ntlmChallengeResponse['flags'] = ntlm.NTLMSSP_KEY_128 | ntlm.NTLMSSP_NTLM2_KEY | ntlm.NTLMSSP_UNICODE | ntlm.NTLMSSP_TARGET | ntlm.NTLMSSP_TARGET_INFO | ntlm.NTLMSSP_NTLM_KEY | ntlm.NTLMSSP_VERSION | ntlm.NTLMSSP_KEY_56
+               ntlmChallengeResponse['domain_name'] = domain.encode('utf-16le')
+               ntlmChallengeResponse['flags'] = ntlm.NTLMSSP_KEY_128 | ntlm.NTLMSSP_NTLM2_KEY | ntlm.NTLMSSP_UNICODE | ntlm.NTLMSSP_NTLM_KEY 
+
             elif ntlmChallenge['flags'] & ntlm.NTLMSSP_NTLM_KEY:
                # Handle NTLMv1
                ntlmChallengeResponse = ntlm.NTLMAuthChallengeResponse(user, password, ntlmChallenge['challenge'])
                ntlmChallengeResponse['flags'] = ntlm.NTLMSSP_KEY_128 | ntlm.NTLMSSP_NTLM_KEY | ntlm.NTLMSSP_UNICODE
+
             else:
                 raise Unsupported ("Unsupported authentication flag %d" % ntlmChallenge['flags'])
 
