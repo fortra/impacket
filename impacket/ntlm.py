@@ -82,7 +82,7 @@ class AV_PAIRS():
             self.fromString(data)
 
     def __setitem__(self,key,value):
-        self.fields[key] = value
+        self.fields[key] = (len(value),value)
 
     def __getitem__(self, key):
         return self.fields[key]
@@ -113,10 +113,12 @@ class AV_PAIRS():
             print "%s: {%r}" % (i,self[i])
 
     def getData(self):
+        if self.fields.has_key(NTLMSSP_AV_EOL):
+            del self.fields[NTLMSSP_AV_EOL]
         ans = ''
         for i in self.fields.keys():
-            ans+= struct.pack('<HH', i, len(self[i]))
-            ans+= self[i]
+            ans+= struct.pack('<HH', i, self[i][0])
+            ans+= self[i][1]
  
         # end with a NTLMSSP_AV_EOL
         ans += struct.pack('<HH', NTLMSSP_AV_EOL, 0)
@@ -429,7 +431,7 @@ def NTOWFv2( user, password, domain, hash = ''):
        theHash = hash 
     else:
        theHash = compute_nthash(password)
-    return hmac_md5(theHash, user.upper().encode('utf-16le') + password.encode('utf-16le'))
+    return hmac_md5(theHash, user.upper().encode('utf-16le') + domain.encode('utf-16le'))
 
 def LMOWFv2( user, password, domain, lmhash = ''):
     return NTOWFv2( user, password, domain, lmhash)
@@ -443,18 +445,21 @@ def computeResponseNTLMv2(serverChallenge, clientChallenge, time, serverName, do
     responseKeyLM = LMOWFv2(user, password, domain, lmhash)
 
     # Generate the AV_PAIRS
-    av_pairs = AV_PAIRS()
-    av_pairs[NTLMSSP_AV_HOSTNAME] = serverName
-    av_pairs[NTLMSSP_AV_DOMAINNAME] = domain.encode('utf-16le')
-    av_pairs[NTLMSSP_AV_DNS_HOSTNAME] = serverName
-    av_pairs[NTLMSSP_AV_DNS_DOMAINNAME] = domain.encode('utf-16le')
+    #av_pairs = AV_PAIRS()
+    #av_pairs[NTLMSSP_AV_HOSTNAME] = serverName
+    #av_pairs[NTLMSSP_AV_DOMAINNAME] = domain.encode('utf-16le')
+    #av_pairs[NTLMSSP_AV_DOMAINNAME] = domain
+    #av_pairs[NTLMSSP_AV_DNS_HOSTNAME] = serverName
+    #av_pairs[NTLMSSP_AV_DNS_DOMAINNAME] = domain.encode('utf-16le')
+    #av_pairs[NTLMSSP_AV_DNS_DOMAINNAME] = domain
     # Temp stuff, just for testing
-    av_pairs[NTLMSSP_AV_TARGET_NAME] = 'cifs/192.168.66.244'.encode('utf-16le')
-    av_pairs[NTLMSSP_AV_TIME] = time
-    avp = av_pairs.getData()
+    #av_pairs[NTLMSSP_AV_TARGET_NAME] = 'cifs/192.168.88.107'.encode('utf-16le')
+    #av_pairs[NTLMSSP_AV_TIME] = time
+    #avp = av_pairs.getData()
 
-    #temp = responseServerVersion + hiResponseServerVersion + '\x00' * 6 + time + clientChallenge + '\x00' * 4 + serverName + '\x00' * 4
-    temp = responseServerVersion + hiResponseServerVersion + '\x00' * 6 + time + clientChallenge + '\x00' * 4 + avp + '\x00' * 4
+    #serverName[NTLMSSP_AV_TARGET_NAME] = 'cifs/192.168.88.107'.encode('utf-16le')
+
+    temp = responseServerVersion + hiResponseServerVersion + '\x00' * 6 + time + clientChallenge + '\x00' * 4 + serverName.getData() + '\x00' * 4
 
     ntProofStr = hmac_md5(responseKeyNT, serverChallenge + temp)
 
