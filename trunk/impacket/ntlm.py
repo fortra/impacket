@@ -413,6 +413,11 @@ def compute_lmhash(password):
     return lmhash
 LMOWF = compute_lmhash
 
+def LMOWF(password, lmhash = '', nthash=''):
+    if lmhash != '':
+       return lmhash
+    return compute_lmhash(password)
+
 def compute_nthash(password):
     # This is done according to Samba's encryption specification (docs/html/ENCRYPTION.html)
     password = unicode(password).encode('utf_16le')
@@ -440,7 +445,7 @@ def generateSessionKey(keyExchangeKey, exportedSessionKey):
    sessionKey = cipher_encrypt(exportedSessionKey)
    return sessionKey
 
-def KXKEY(flags, sessionBaseKey, lmChallengeResponse, serverChallenge, password):
+def KXKEY(flags, sessionBaseKey, lmChallengeResponse, serverChallenge, password, lmhash, nthash):
    if flags & NTLMSSP_NTLM2_KEY:
        if flags & NTLMSSP_NTLM_KEY: 
           keyExchangeKey = hmac_md5(sessionBaseKey, serverChallenge + lmChallengeResponse[:8])
@@ -448,9 +453,9 @@ def KXKEY(flags, sessionBaseKey, lmChallengeResponse, serverChallenge, password)
           keyExchangeKey = sessionBaseKey
    elif flags & NTLMSSP_NTLM_KEY:
        if flags & NTLMSSP_LM_KEY:
-          keyExchangeKey = __DES_block(LMOWF(password)[:7], lmChallengeResponse[:8]) + __DES_block(LMOWF(password)[8] + '\xBD\xBD\xBD\xBD\xBD\xBD', lmChallengeResponse[:8])
+          keyExchangeKey = __DES_block(LMOWF(password,lmash)[:7], lmChallengeResponse[:8]) + __DES_block(LMOWF(password,lmhash)[8] + '\xBD\xBD\xBD\xBD\xBD\xBD', lmChallengeResponse[:8])
        elif flags & NTLMSSP_NOT_NT_KEY:
-          keyExchangeKey = LMOWF(password)[:8] + '\x00'*8
+          keyExchangeKey = LMOWF(password,lmhash)[:8] + '\x00'*8
        else:
           keyExchangeKey = sessionBaseKey
    else:
