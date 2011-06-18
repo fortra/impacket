@@ -8,6 +8,7 @@
 #
 
 import array
+from binascii import a2b_hex
 from binascii import crc32
 try:
     from Crypto.Cipher import ARC4
@@ -657,7 +658,7 @@ class DCERPC:
     def send(self, data): raise RuntimeError, 'virtual method. Not implemented in subclass'
     def recv(self): raise RuntimeError, 'virtual method. Not implemented in subclass'
     def alter_ctx(self, newUID, bogus_binds = ''): raise RuntimeError, 'virtual method. Not implemented in subclass'
-    def set_credentials(self, username, password): pass
+    def set_credentials(self, username, password, lmhash = '', nthash = ''): pass
     def set_auth_level(self, auth_level): pass
     def get_idempotent(self): return 0
     def set_idempotent(self, flag): pass
@@ -671,6 +672,8 @@ class DCERPC_v5(DCERPC):
         self.__auth_level = ntlm.NTLM_AUTH_NONE
         self.__username = None
         self.__password = None
+        self.__lmhash = ''
+        self.__nthash = ''
         
     def set_auth_level(self, auth_level):
         # auth level is ntlm.NTLM_AUTH_*
@@ -679,13 +682,18 @@ class DCERPC_v5(DCERPC):
     def set_max_tfrag(self, size):
         self.__max_xmit_size = size
     
-    def set_credentials(self, username, password):
+    def set_credentials(self, username, password, lmhash = '', nthash = ''):
         self.set_auth_level(ntlm.NTLM_AUTH_CONNECT)
         # self.set_auth_level(ntlm.NTLM_AUTH_CALL)
         # self.set_auth_level(ntlm.NTLM_AUTH_PKT_INTEGRITY)
         # self.set_auth_level(ntlm.NTLM_AUTH_PKT_PRIVACY)
         self.__username = username
         self.__password = password
+        if ( lmhash != '' or nthash != ''):
+            if len(lmhash) % 2:     lmhash = '0%s' % lmhash
+            if len(nthash) % 2:     nthash = '0%s' % nthash
+            self.__lmhash = a2b_hex(lmhash)
+            self.__nthash = a2b_hex(nthash)
 
     def bind(self, uuid, alter = 0, bogus_binds = 0):
         bind = MSRPCBind(endianness = self.endianness)
@@ -727,7 +735,7 @@ class DCERPC_v5(DCERPC):
 
         if (self.__auth_level != ntlm.NTLM_AUTH_NONE):
             if (self.__username is None) or (self.__password is None):
-                self.__username, self.__password, nth, lmh = self._transport.get_credentials()
+                self.__username, self.__password, self.__lmhash, self.__nthash = self._transport.get_credentials()
             auth = ntlm.DCERPC_NTLMAuthNegotiate()
             auth['auth_level']  = self.__auth_level
             auth['auth_ctx_id'] = self._ctx + 79231 
@@ -755,12 +763,20 @@ class DCERPC_v5(DCERPC):
         if self.__auth_level != ntlm.NTLM_AUTH_NONE:
             authResp = ntlm.DCERPC_NTLMAuthChallenge(data = resp.get_auth_data().tostring())
             self._ntlm_challenge = authResp['challenge']
-            response = ntlm.DCERPC_NTLMAuthChallengeResponse(self.__username,self.__password, self._ntlm_challenge)
+            response = ntlm.DCERPC_NTLMAuthChallengeResponse(self.__username,self.__password, self._ntlm_challenge, lmhash = self.__lmhash, nthash = self.__nthash)
             response['auth_ctx_id'] = self._ctx + 79231 
             response['auth_level'] = self.__auth_level
 
             if self.__auth_level in (ntlm.NTLM_AUTH_CONNECT, ntlm.NTLM_AUTH_PKT_INTEGRITY, ntlm.NTLM_AUTH_PKT_PRIVACY):
-                if self.__password:
+                if self.__nthash and self.__username:
+                    key = self.__nthash
+                    if POW:
+                        hash = POW.Digest(POW.MD4_DIGEST)
+                    else:
+                        hash = MD4.new()
+                    hash.update(key)
+                    key = hash.digest()
+                elif self.__password:
                     key = ntlm.compute_nthash(self.__password)
                     if POW:
                         hash = POW.Digest(POW.MD4_DIGEST)
@@ -805,7 +821,7 @@ class DCERPC_v5(DCERPC):
     def _transport_send(self, rpc_packet, forceWriteAndx = 0, forceRecv = 0):
         if self.__auth_level == ntlm.NTLM_AUTH_CALL:
             if rpc_packet.get_type() == MSRPC_REQUEST:
-                response = ntlm.DCERPC_NTLMAuthChallengeResponse(self.__username,self.__password, self._ntlm_challenge)
+                response = ntlm.DCERPC_NTLMAuthChallengeResponse(self.__username,self.__password, self._ntlm_challenge, lmhash = self.__lmhash, nthash = self.__nthash)
                 response['auth_ctx_id'] = self._ctx + 79231 
                 response['auth_level'] = self.__auth_level
                 rpc_packet.set_auth_data(str(response))
@@ -909,7 +925,7 @@ class DCERPC_v5(DCERPC):
     def alter_ctx(self, newUID, bogus_binds = 0):
         answer = self.__class__(self._transport)
 
-        answer.set_credentials(self.__username, self.__password)
+        answer.set_credentials(self.__username, self.__password, self.__lmhash, self.__nthash )
         answer.set_auth_level(self.__auth_level)
 
         self._max_ctx += 1

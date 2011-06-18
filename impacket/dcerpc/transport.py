@@ -12,6 +12,7 @@
 
 import re
 import socket
+import binascii
 
 from impacket import smb
 from impacket import nmb
@@ -166,14 +167,20 @@ class DCERPCTransport:
         return (
             self._username,
             self._password,
-            self._nt_hash,
-            self._lm_hash)
+            self._lmhash,
+            self._nthash)
 
-    def set_credentials(self, username, password, lm_hash='', nt_hash=''):
+    def set_credentials(self, username, password, lmhash='', nthash=''):
         self._username = username
         self._password = password
-        self._nt_hash = nt_hash
-        self._lm_hash = lm_hash
+        if ( lmhash != '' or nthash != ''):
+            if len(lmhash) % 2:     lmhash = '0%s' % lmhash
+            if len(nthash) % 2:     nthash = '0%s' % nthash
+            try: # just in case they were converted already
+               self._lmhash = binascii.a2b_hex(lmhash)
+               self._nthash = binascii.a2b_hex(nthash)
+            except:
+               pass
 
 class UDPTransport(DCERPCTransport):
     "Implementation of ncadg_ip_udp protocol sequence"
@@ -274,7 +281,7 @@ class HTTPTransport(TCPTransport):
 class SMBTransport(DCERPCTransport):
     "Implementation of ncacn_np protocol sequence"
 
-    def __init__(self, dstip, dstport = 445, filename = '', username='', password='', lm_hash='', nt_hash='', remote_name='', smb_server = 0):
+    def __init__(self, dstip, dstport = 445, filename = '', username='', password='', lmhash='', nthash='', remote_name='', smb_server = 0):
         DCERPCTransport.__init__(self, dstip, dstport)
         self.__socket = None
         self.__smb_server = smb_server
@@ -282,7 +289,7 @@ class SMBTransport(DCERPCTransport):
         self.__filename = filename
         self.__handle = 0
         self.__pending_recv = 0
-        self.set_credentials(username, password, lm_hash, nt_hash)
+        self.set_credentials(username, password, lmhash, nthash)
         self.__remote_name = remote_name
 
     def setup_smb_server(self):
@@ -297,10 +304,10 @@ class SMBTransport(DCERPCTransport):
         if self.__smb_server == 0:  
            self.setup_smb_server()
            if self.__smb_server.is_login_required():
-              if self._password != '' or (self._password == '' and self._nt_hash == '' and self._lm_hash == ''):
+              if self._password != '' or (self._password == '' and self._nthash == '' and self._lmhash == ''):
                  self.__smb_server.login(self._username, self._password)
-              elif self._nt_hash != '' or self._lm_hash != '':
-                self.__smb_server.login(self._username, '', '', self._lm_hash, self._nt_hash)
+              elif self._nthash != '' or self._lmhash != '':
+                self.__smb_server.login(self._username, '', '', self._lmhash, self._nthash)
         self.__tid = self.__smb_server.tree_connect_andx('\\\\%s\\IPC$' % self.__smb_server.get_remote_name())
         self.__handle = self.__smb_server.nt_create_andx(self.__tid, self.__filename)
         self.__socket = self.__smb_server.get_socket()
