@@ -283,7 +283,7 @@ class NTLMAuthChallengeResponse(Structure, NTLMAuthMixin):
         ('ntlm',':'),
         ('session_key',':'))
 
-    def __init__(self, username = '', password = '', challenge = ''):
+    def __init__(self, username = '', password = '', challenge = '', lmhash = '', nthash = ''):
         Structure.__init__(self)
         self['session_key']=''
         self['user_name']=username.encode('utf-16le')
@@ -302,7 +302,10 @@ class NTLMAuthChallengeResponse(Structure, NTLMAuthMixin):
            # NTLMSSP_TARGET      |
            0)
         # Here we do the stuff
-        if username and password:
+        if username and ( lmhash != '' or nthash != ''):            
+            self['lanman'] = get_ntlmv1_response(lmhash, challenge)
+            self['ntlm'] = get_ntlmv1_response(nthash, challenge)
+        elif (username and password):
             lmhash = compute_lmhash(password)
             nthash = compute_nthash(password)
             self['lanman']=get_ntlmv1_response(lmhash, challenge)
