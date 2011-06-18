@@ -637,6 +637,7 @@ class SessionError(Exception):
       0x3B: ("ERRbadpath", "Directory invalid."),
       0x9B: ("ERRbadpath", "Directory invalid."),
       0xFB: ("ERRbadpath", "Directory invalid."),
+      0xBD: ("ERRbadpath", "Duplicate name."),
     }
 
     dos_msgs = {
