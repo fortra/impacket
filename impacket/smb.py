@@ -2460,6 +2460,9 @@ class SMB:
             elif password: 
                pwd_ansi = self.get_ntlmv1_response(ntlm.compute_lmhash(password))
                pwd_unicode = self.get_ntlmv1_response(ntlm.compute_nthash(password))
+            else: # NULL SESSION
+               pwd_ansi = ''
+               pwd_unicode = ''
         else:
             pwd_ansi = password
             pwd_unicode = ''
