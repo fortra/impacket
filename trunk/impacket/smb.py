@@ -38,120 +38,116 @@
 # [ ] Try [SMB]transport fragmentation with overlaping segments
 # [ ] Try [SMB]transport fragmentation with out of order segments
 # [x] Do chained AndX requests
+# [ ] Transform the rest of the calls to structure
 
 import os, sys, socket, string, re, select, errno
 import nmb
 import types
+import md5
+from binascii import a2b_hex
+import ntlm
+import random
 from random import randint
 from struct import *
-
-import ntlm
 from dcerpc import samr
 from structure import Structure
 
 unicode_support = 0
 unicode_convert = 1
 
-import random
-
 try:
     from cStringIO import StringIO
 except ImportError:
     from StringIO import StringIO
 
-from binascii import a2b_hex
-
-import md5
-import binascii
-
 # Shared Device Type
-SHARED_DISK = 0x00
-SHARED_PRINT_QUEUE = 0x01
-SHARED_DEVICE = 0x02
-SHARED_IPC = 0x03
+SHARED_DISK                      = 0x00
+SHARED_PRINT_QUEUE               = 0x01
+SHARED_DEVICE                    = 0x02
+SHARED_IPC                       = 0x03
 
 # Extended attributes mask
-ATTR_ARCHIVE = 0x020
-ATTR_COMPRESSED = 0x800
-ATTR_NORMAL = 0x080
-ATTR_HIDDEN = 0x002
-ATTR_READONLY = 0x001
-ATTR_TEMPORARY = 0x100
-ATTR_DIRECTORY = 0x010
-ATTR_SYSTEM = 0x004
+ATTR_ARCHIVE                     = 0x020
+ATTR_COMPRESSED                  = 0x800
+ATTR_NORMAL                      = 0x080
+ATTR_HIDDEN                      = 0x002
+ATTR_READONLY                    = 0x001
+ATTR_TEMPORARY                   = 0x100
+ATTR_DIRECTORY                   = 0x010
+ATTR_SYSTEM                      = 0x004
 
 # Service Type
-SERVICE_DISK = 'A:'
-SERVICE_PRINTER = 'LPT1:'
-SERVICE_IPC = 'IPC'
-SERVICE_COMM = 'COMM'
-SERVICE_ANY = '?????'
+SERVICE_DISK                     = 'A:'
+SERVICE_PRINTER                  = 'LPT1:'
+SERVICE_IPC                      = 'IPC'
+SERVICE_COMM                     = 'COMM'
+SERVICE_ANY                      = '?????'
 
 # Server Type (Can be used to mask with SMBMachine.get_type() or SMBDomain.get_type())
-SV_TYPE_WORKSTATION = 0x00000001
-SV_TYPE_SERVER      = 0x00000002
-SV_TYPE_SQLSERVER   = 0x00000004
-SV_TYPE_DOMAIN_CTRL = 0x00000008
-SV_TYPE_DOMAIN_BAKCTRL = 0x00000010
-SV_TYPE_TIME_SOURCE    = 0x00000020
-SV_TYPE_AFP            = 0x00000040
-SV_TYPE_NOVELL         = 0x00000080
-SV_TYPE_DOMAIN_MEMBER = 0x00000100
-SV_TYPE_PRINTQ_SERVER = 0x00000200
-SV_TYPE_DIALIN_SERVER = 0x00000400
-SV_TYPE_XENIX_SERVER  = 0x00000800
-SV_TYPE_NT        = 0x00001000
-SV_TYPE_WFW       = 0x00002000
-SV_TYPE_SERVER_NT = 0x00004000
-SV_TYPE_POTENTIAL_BROWSER = 0x00010000
-SV_TYPE_BACKUP_BROWSER    = 0x00020000
-SV_TYPE_MASTER_BROWSER    = 0x00040000
-SV_TYPE_DOMAIN_MASTER     = 0x00080000
-SV_TYPE_LOCAL_LIST_ONLY = 0x40000000
-SV_TYPE_DOMAIN_ENUM     = 0x80000000
+SV_TYPE_WORKSTATION              = 0x00000001
+SV_TYPE_SERVER                   = 0x00000002
+SV_TYPE_SQLSERVER                = 0x00000004
+SV_TYPE_DOMAIN_CTRL              = 0x00000008
+SV_TYPE_DOMAIN_BAKCTRL           = 0x00000010
+SV_TYPE_TIME_SOURCE              = 0x00000020
+SV_TYPE_AFP                      = 0x00000040
+SV_TYPE_NOVELL                   = 0x00000080
+SV_TYPE_DOMAIN_MEMBER            = 0x00000100
+SV_TYPE_PRINTQ_SERVER            = 0x00000200
+SV_TYPE_DIALIN_SERVER            = 0x00000400
+SV_TYPE_XENIX_SERVER             = 0x00000800
+SV_TYPE_NT                       = 0x00001000
+SV_TYPE_WFW                      = 0x00002000
+SV_TYPE_SERVER_NT                = 0x00004000
+SV_TYPE_POTENTIAL_BROWSER        = 0x00010000
+SV_TYPE_BACKUP_BROWSER           = 0x00020000
+SV_TYPE_MASTER_BROWSER           = 0x00040000
+SV_TYPE_DOMAIN_MASTER            = 0x00080000
+SV_TYPE_LOCAL_LIST_ONLY          = 0x40000000
+SV_TYPE_DOMAIN_ENUM              = 0x80000000
 
 # Options values for SMB.stor_file and SMB.retr_file
-SMB_O_CREAT = 0x10   # Create the file if file does not exists. Otherwise, operation fails.
-SMB_O_EXCL = 0x00    # When used with SMB_O_CREAT, operation fails if file exists. Cannot be used with SMB_O_OPEN.
-SMB_O_OPEN = 0x01    # Open the file if the file exists
-SMB_O_TRUNC = 0x02   # Truncate the file if the file exists
+SMB_O_CREAT                      = 0x10   # Create the file if file does not exists. Otherwise, operation fails.
+SMB_O_EXCL                       = 0x00    # When used with SMB_O_CREAT, operation fails if file exists. Cannot be used with SMB_O_OPEN.
+SMB_O_OPEN                       = 0x01    # Open the file if the file exists
+SMB_O_TRUNC                      = 0x02   # Truncate the file if the file exists
 
 # Share Access Mode
-SMB_SHARE_COMPAT = 0x00
-SMB_SHARE_DENY_EXCL = 0x10
-SMB_SHARE_DENY_WRITE = 0x20
-SMB_SHARE_DENY_READEXEC = 0x30
-SMB_SHARE_DENY_NONE = 0x40
-SMB_ACCESS_READ = 0x00
-SMB_ACCESS_WRITE = 0x01
-SMB_ACCESS_READWRITE = 0x02
-SMB_ACCESS_EXEC = 0x03
+SMB_SHARE_COMPAT                 = 0x00
+SMB_SHARE_DENY_EXCL              = 0x10
+SMB_SHARE_DENY_WRITE             = 0x20
+SMB_SHARE_DENY_READEXEC          = 0x30
+SMB_SHARE_DENY_NONE              = 0x40
+SMB_ACCESS_READ                  = 0x00
+SMB_ACCESS_WRITE                 = 0x01
+SMB_ACCESS_READWRITE             = 0x02
+SMB_ACCESS_EXEC                  = 0x03
 
-TRANS_DISCONNECT_TID = 1
-TRANS_NO_RESPONSE    = 2
+TRANS_DISCONNECT_TID             = 1
+TRANS_NO_RESPONSE                = 2
 
-STATUS_SUCCESS                  = 0x00000000
-STATUS_LOGON_FAILURE            = 0xC000006D
-STATUS_LOGON_TYPE_NOT_GRANTED   = 0xC000015B
-MAX_TFRAG_SIZE = 5840
-EVASION_NONE  = 0
-EVASION_LOW   = 1
-EVASION_HIGH  = 2
-EVASION_MAX   = 3
-RPC_X_BAD_STUB_DATA = 0x6F7
+STATUS_SUCCESS                   = 0x00000000
+STATUS_LOGON_FAILURE             = 0xC000006D
+STATUS_LOGON_TYPE_NOT_GRANTED    = 0xC000015B
+MAX_TFRAG_SIZE                   = 5840
+EVASION_NONE                     = 0
+EVASION_LOW                      = 1
+EVASION_HIGH                     = 2
+EVASION_MAX                      = 3
+RPC_X_BAD_STUB_DATA              = 0x6F7
 
 ############### GSS Stuff ################
-GSS_API_SPNEGO_UUID = '\x2b\x06\x01\x05\x05\x02' 
-ASN1_SEQUENCE = 0x30
-ASN1_SEQUENCE = 0x30
-ASN1_AID      = 0x60
-ASN1_OID      = 0x06
-ASN1_OCTET_STRING = 0x04
-ASN1_MECH_TYPE = 0xa0
-ASN1_MECH_TOKEN = 0xa2
-ASN1_SUPPORTED_MECH = 0xa1
-ASN1_RESPONSE_TOKEN = 0xa2
-ASN1_ENUMERATED = 0x0a
+GSS_API_SPNEGO_UUID              = '\x2b\x06\x01\x05\x05\x02' 
+ASN1_SEQUENCE                    = 0x30
+ASN1_SEQUENCE                    = 0x30
+ASN1_AID                         = 0x60
+ASN1_OID                         = 0x06
+ASN1_OCTET_STRING                = 0x04
+ASN1_MECH_TYPE                   = 0xa0
+ASN1_MECH_TOKEN                  = 0xa2
+ASN1_SUPPORTED_MECH              = 0xa1
+ASN1_RESPONSE_TOKEN              = 0xa2
+ASN1_ENUMERATED                  = 0x0a
 MechTypes = {
 '+\x06\x01\x04\x01\x827\x02\x02\x1e': 'SNMPv2-SMI::enterprises.311.2.2.30',
 '+\x06\x01\x04\x01\x827\x02\x02\n': 'NTLMSSP - Microsoft NTLM Security Support Provider',
@@ -481,136 +477,133 @@ def strerror(errclass, errcode):
 
 # Raised when an error has occured during a session
 class SessionError(Exception):
-    # Error codes
-
-
     # SMB X/Open error codes for the ERRDOS error class
-    ERRsuccess = 0
-    ERRbadfunc = 1
-    ERRbadfile = 2
-    ERRbadpath = 3
-    ERRnofids = 4
-    ERRnoaccess = 5
-    ERRbadfid = 6
-    ERRbadmcb = 7
-    ERRnomem = 8
-    ERRbadmem = 9
-    ERRbadenv = 10
-    ERRbadaccess = 12
-    ERRbaddata = 13
-    ERRres = 14
-    ERRbaddrive = 15
-    ERRremcd = 16
-    ERRdiffdevice = 17
-    ERRnofiles = 18
-    ERRgeneral = 31
-    ERRbadshare = 32
-    ERRlock = 33
-    ERRunsup = 50
-    ERRnetnamedel = 64
-    ERRnosuchshare = 67
-    ERRfilexists = 80
-    ERRinvalidparam = 87
-    ERRcannotopen = 110
-    ERRinsufficientbuffer = 122
-    ERRinvalidname = 123
-    ERRunknownlevel = 124
-    ERRnotlocked = 158
-    ERRrename = 183
-    ERRbadpipe = 230
-    ERRpipebusy = 231
-    ERRpipeclosing = 232
-    ERRnotconnected = 233
-    ERRmoredata = 234
-    ERRnomoreitems = 259
-    ERRbaddirectory = 267
-    ERReasnotsupported = 282
-    ERRlogonfailure = 1326
-    ERRbuftoosmall = 2123
-    ERRunknownipc = 2142
-    ERRnosuchprintjob = 2151
-    ERRinvgroup = 2455
+    ERRsuccess                           = 0
+    ERRbadfunc                           = 1
+    ERRbadfile                           = 2
+    ERRbadpath                           = 3
+    ERRnofids                            = 4
+    ERRnoaccess                          = 5
+    ERRbadfid                            = 6
+    ERRbadmcb                            = 7
+    ERRnomem                             = 8
+    ERRbadmem                            = 9
+    ERRbadenv                            = 10
+    ERRbadaccess                         = 12
+    ERRbaddata                           = 13
+    ERRres                               = 14
+    ERRbaddrive                          = 15
+    ERRremcd                             = 16
+    ERRdiffdevice                        = 17
+    ERRnofiles                           = 18
+    ERRgeneral                           = 31
+    ERRbadshare                          = 32
+    ERRlock                              = 33
+    ERRunsup                             = 50
+    ERRnetnamedel                        = 64
+    ERRnosuchshare                       = 67
+    ERRfilexists                         = 80
+    ERRinvalidparam                      = 87
+    ERRcannotopen                        = 110
+    ERRinsufficientbuffer                = 122
+    ERRinvalidname                       = 123
+    ERRunknownlevel                      = 124
+    ERRnotlocked                         = 158
+    ERRrename                            = 183
+    ERRbadpipe                           = 230
+    ERRpipebusy                          = 231
+    ERRpipeclosing                       = 232
+    ERRnotconnected                      = 233
+    ERRmoredata                          = 234
+    ERRnomoreitems                       = 259
+    ERRbaddirectory                      = 267
+    ERReasnotsupported                   = 282
+    ERRlogonfailure                      = 1326
+    ERRbuftoosmall                       = 2123
+    ERRunknownipc                        = 2142
+    ERRnosuchprintjob                    = 2151
+    ERRinvgroup                          = 2455
 
     # here's a special one from observing NT
-    ERRnoipc = 66
+    ERRnoipc                             = 66
 
     # These errors seem to be only returned by the NT printer driver system
-    ERRdriveralreadyinstalled = 1795
-    ERRunknownprinterport = 1796
-    ERRunknownprinterdriver = 1797
-    ERRunknownprintprocessor = 1798
-    ERRinvalidseparatorfile = 1799
-    ERRinvalidjobpriority = 1800
-    ERRinvalidprintername = 1801
-    ERRprinteralreadyexists = 1802
-    ERRinvalidprintercommand = 1803
-    ERRinvaliddatatype = 1804
-    ERRinvalidenvironment = 1805
+    ERRdriveralreadyinstalled            = 1795
+    ERRunknownprinterport                = 1796
+    ERRunknownprinterdriver              = 1797
+    ERRunknownprintprocessor             = 1798
+    ERRinvalidseparatorfile              = 1799
+    ERRinvalidjobpriority                = 1800
+    ERRinvalidprintername                = 1801
+    ERRprinteralreadyexists              = 1802
+    ERRinvalidprintercommand             = 1803
+    ERRinvaliddatatype                   = 1804
+    ERRinvalidenvironment                = 1805
 
-    ERRunknownprintmonitor = 3000
-    ERRprinterdriverinuse = 3001
-    ERRspoolfilenotfound = 3002
-    ERRnostartdoc = 3003
-    ERRnoaddjob = 3004
-    ERRprintprocessoralreadyinstalled = 3005
-    ERRprintmonitoralreadyinstalled = 3006
-    ERRinvalidprintmonitor = 3007
-    ERRprintmonitorinuse = 3008
-    ERRprinterhasjobsqueued = 3009
+    ERRunknownprintmonitor               = 3000
+    ERRprinterdriverinuse                = 3001
+    ERRspoolfilenotfound                 = 3002
+    ERRnostartdoc                        = 3003
+    ERRnoaddjob                          = 3004
+    ERRprintprocessoralreadyinstalled    = 3005
+    ERRprintmonitoralreadyinstalled      = 3006
+    ERRinvalidprintmonitor               = 3007
+    ERRprintmonitorinuse                 = 3008
+    ERRprinterhasjobsqueued              = 3009
 
     # Error codes for the ERRSRV class
 
-    ERRerror = 1
-    ERRbadpw = 2
-    ERRbadtype = 3
-    ERRaccess = 4
-    ERRinvnid = 5
-    ERRinvnetname = 6
-    ERRinvdevice = 7
-    ERRqfull = 49
-    ERRqtoobig = 50
-    ERRinvpfid = 52
-    ERRsmbcmd = 64
-    ERRsrverror = 65
-    ERRfilespecs = 67
-    ERRbadlink = 68
-    ERRbadpermits = 69
-    ERRbadpid = 70
-    ERRsetattrmode = 71
-    ERRpaused = 81
-    ERRmsgoff = 82
-    ERRnoroom = 83
-    ERRrmuns = 87
-    ERRtimeout = 88
-    ERRnoresource = 89
-    ERRtoomanyuids = 90
-    ERRbaduid = 91
-    ERRuseMPX = 250
-    ERRuseSTD = 251
-    ERRcontMPX = 252
-    ERRbadPW = None
-    ERRnosupport = 0
-    ERRunknownsmb = 22
+    ERRerror                             = 1
+    ERRbadpw                             = 2
+    ERRbadtype                           = 3
+    ERRaccess                            = 4
+    ERRinvnid                            = 5
+    ERRinvnetname                        = 6
+    ERRinvdevice                         = 7
+    ERRqfull                             = 49
+    ERRqtoobig                           = 50
+    ERRinvpfid                           = 52
+    ERRsmbcmd                            = 64
+    ERRsrverror                          = 65
+    ERRfilespecs                         = 67
+    ERRbadlink                           = 68
+    ERRbadpermits                        = 69
+    ERRbadpid                            = 70
+    ERRsetattrmode                       = 71
+    ERRpaused                            = 81
+    ERRmsgoff                            = 82
+    ERRnoroom                            = 83
+    ERRrmuns                             = 87
+    ERRtimeout                           = 88
+    ERRnoresource                        = 89
+    ERRtoomanyuids                       = 90
+    ERRbaduid                            = 91
+    ERRuseMPX                            = 250
+    ERRuseSTD                            = 251
+    ERRcontMPX                           = 252
+    ERRbadPW                             = None
+    ERRnosupport                         = 0
+    ERRunknownsmb                        = 22
 
     # Error codes for the ERRHRD class
 
-    ERRnowrite = 19
-    ERRbadunit = 20
-    ERRnotready = 21
-    ERRbadcmd = 22
-    ERRdata = 23
-    ERRbadreq = 24
-    ERRseek = 25
-    ERRbadmedia = 26
-    ERRbadsector = 27
-    ERRnopaper = 28
-    ERRwrite = 29
-    ERRread = 30
-    ERRgeneral = 31
-    ERRwrongdisk = 34
-    ERRFCBunavail = 35
-    ERRsharebufexc = 36
-    ERRdiskfull = 39
+    ERRnowrite                           = 19
+    ERRbadunit                           = 20
+    ERRnotready                          = 21
+    ERRbadcmd                            = 22
+    ERRdata                              = 23
+    ERRbadreq                            = 24
+    ERRseek                              = 25
+    ERRbadmedia                          = 26
+    ERRbadsector                         = 27
+    ERRnopaper                           = 28
+    ERRwrite                             = 29
+    ERRread                              = 30
+    ERRgeneral                           = 31
+    ERRwrongdisk                         = 34
+    ERRFCBunavail                        = 35
+    ERRsharebufexc                       = 36
+    ERRdiskfull                          = 39
 
 
     hard_msgs = {
@@ -756,7 +749,6 @@ class SessionError(Exception):
            self.error_class = error_class
            self.error_code = error_code
        
-
     def get_error_class( self ):
         return self.error_class
 
@@ -804,10 +796,8 @@ class SharedDevice:
         return '<SharedDevice instance: name=' + self.__name + ', type=' + str(self.__type) + ', comment="' + self.__comment + '">'
 
 
-
 # Contains information about the shared file/directory
 class SharedFile:
-
     def __init__(self, ctime, atime, mtime, filesize, allocsize, attribs, shortname, longname):
         self.__ctime = ctime
         self.__atime = atime
@@ -905,7 +895,6 @@ class SMBMachine:
 
 
 class SMBDomain:
-
     def __init__(self, nbgroup, type, master_browser):
         self.__nbgroup = nbgroup
         self.__type = type
@@ -1223,24 +1212,6 @@ class SMBSessionSetupAndX_Extended_Data(AsciiOrUnicodeStructure):
         ('NativeLanMan','w=""'),
     )
 
-class SMBSessionSetupAndX_Parameters2(SMBAndXCommand_Parameters):
-    structure = (
-        ('MaxBuffer','<H'),
-        ('MaxMpxCount','<H'),
-        ('VCNumber','<H'),
-        ('SessionKey','<L'),
-        ('BlobLength','<H'),
-        ('_reserved','<L=0'),
-        ('Capabilities','<L'),
-    )
-
-class SMBSessionSetupAndX_Data2(AsciiOrUnicodeStructure):
-    AsciiStructure = (
-        ('Blob',':=""'),
-        ('NativeOS','z=""'),
-        ('NativeLanMan','z=""'),
-    )
-
 class SMBSessionSetupAndXResponse_Parameters(SMBAndXCommand_Parameters):
     structure = (
         ('Action','<H'),
@@ -1308,6 +1279,7 @@ class SMBTreeConnectAndX_Data(SMBCommand_Parameters):
         ('Service','z'),
     )
 
+############# SMB_COM_NT_CREATE_ANDX (0xA2)
 class SMBNtCreateAndX_Parameters(SMBAndXCommand_Parameters):
     structure = (
         ('_reserved', 'B=0'),
@@ -1354,6 +1326,7 @@ class SMBNtCreateAndX_Data(Structure):
         ('FileName','z'),
     )
 
+############# SMB_COM_OPEN_ANDX (0xD2)
 class SMBOpenAndX_Parameters(SMBAndXCommand_Parameters):
     structure = (
         ('Flags','<H=0'),
@@ -1383,6 +1356,7 @@ class SMBOpenAndXResponse_Parameters(SMBAndXCommand_Parameters):
         ('_reserved','<H=0'),
     )
 
+############# SMB_COM_WRITE (0x0B)
 class SMBWrite_Parameters(SMBCommand_Parameters):
     structure = (
         ('Fid','<H'),
@@ -1397,7 +1371,9 @@ class SMBWrite_Data(Structure):
         ('DataLength','<H-Data'),
         ('Data',':'),
     )
+
     
+############# SMB_COM_WRITE_ANDX (0x2F)
 class SMBWriteAndX_Parameters(SMBAndXCommand_Parameters):
     structure = (
         ('Fid','<H'),
@@ -1411,6 +1387,7 @@ class SMBWriteAndX_Parameters(SMBAndXCommand_Parameters):
         ('HighOffset','<L=0'),
     )
     
+############# SMB_COM_WRITE_RAW (0x1D)
 class SMBWriteRaw_Parameters(SMBCommand_Parameters):
     structure = (
         ('Fid','<H'),
@@ -1424,6 +1401,7 @@ class SMBWriteRaw_Parameters(SMBCommand_Parameters):
         ('DataOffset','<H=0'),
     )
     
+############# SMB_COM_READ (0x0A)
 class SMBRead_Parameters(SMBCommand_Parameters):
     structure = (
         ('Fid','<H'),
@@ -1445,6 +1423,7 @@ class SMBReadResponse_Data(Structure):
         ('Data',':'),
     )
 
+############# SMB_COM_READ_RAW (0x1A)
 class SMBReadRaw_Parameters(SMBCommand_Parameters):
     structure = (
         ('Fid','<H'),
@@ -1455,6 +1434,7 @@ class SMBReadRaw_Parameters(SMBCommand_Parameters):
         ('_reserved','<H=0'),
     )
 
+############# SMB_COM_READ_ANDX (0x2E)
 class SMBReadAndX_Parameters(SMBAndXCommand_Parameters):
     structure = (
         ('Fid','<H'),
@@ -1476,6 +1456,9 @@ class SMBReadAndXResponse_Parameters(SMBAndXCommand_Parameters):
         ('DataCount_Hi','<L'),
         ('_reserved2','"\0\0\0\0\0\0'),
     )
+
+
+############# SMB_COM_OPEN (0x02)
 class SMBOpen_Parameters(SMBCommand_Parameters):
     structure = (
         ('DesiredAccess','<H=0'),
@@ -1497,6 +1480,7 @@ class SMBOpenResponse_Parameters(SMBCommand_Parameters):
         ('GrantedAccess','<H=0'),
     )
 
+############# EXTENDED SECURITY CLASSES
 class SMBExtended_Security_Parameters(Structure):
     structure = (
         ('DialectIndex','<H'),
@@ -1549,7 +1533,7 @@ class SMBNTLMDialect_Data(Structure):
          
     def fromString(self,data):
         Structure.fromString(self,data)
-         
+
 
 class NTLMDialect(SMBPacket):
     def __init__(self,data=''):
@@ -1646,127 +1630,126 @@ class NTLMDialect(SMBPacket):
                 
                 
 class SMB:
-
     # SMB Command Codes
-    SMB_COM_CREATE_DIRECTORY = 0x00
-    SMB_COM_DELETE_DIRECTORY = 0x01
-    SMB_COM_OPEN = 0x02
-    SMB_COM_CREATE = 0x03
-    SMB_COM_CLOSE = 0x04
-    SMB_COM_FLUSH = 0x05
-    SMB_COM_DELETE = 0x06
-    SMB_COM_RENAME = 0x07
-    SMB_COM_QUERY_INFORMATION = 0x08
-    SMB_COM_SET_INFORMATION = 0x09
-    SMB_COM_READ = 0x0A
-    SMB_COM_WRITE = 0x0B
-    SMB_COM_LOCK_BYTE_RANGE = 0x0C
-    SMB_COM_UNLOCK_BYTE_RANGE = 0x0D
-    SMB_COM_CREATE_TEMPORARY = 0x0E
-    SMB_COM_CREATE_NEW = 0x0F
-    SMB_COM_CHECK_DIRECTORY = 0x10
-    SMB_COM_PROCESS_EXIT = 0x11
-    SMB_COM_SEEK = 0x12
-    SMB_COM_LOCK_AND_READ = 0x13
-    SMB_COM_WRITE_AND_UNLOCK = 0x14
-    SMB_COM_READ_RAW = 0x1A
-    SMB_COM_READ_MPX = 0x1B
-    SMB_COM_READ_MPX_SECONDARY = 0x1C
-    SMB_COM_WRITE_RAW = 0x1D
-    SMB_COM_WRITE_MPX = 0x1E
-    SMB_COM_WRITE_MPX_SECONDARY = 0x1F
-    SMB_COM_WRITE_COMPLETE = 0x20
-    SMB_COM_QUERY_SERVER = 0x21
-    SMB_COM_SET_INFORMATION2 = 0x22
-    SMB_COM_QUERY_INFORMATION2 = 0x23
-    SMB_COM_LOCKING_ANDX = 0x24
-    SMB_COM_TRANSACTION = 0x25
-    SMB_COM_TRANSACTION_SECONDARY = 0x26
-    SMB_COM_IOCTL = 0x27
-    SMB_COM_IOCTL_SECONDARY = 0x28
-    SMB_COM_COPY = 0x29
-    SMB_COM_MOVE = 0x2A
-    SMB_COM_ECHO = 0x2B
-    SMB_COM_WRITE_AND_CLOSE = 0x2C
-    SMB_COM_OPEN_ANDX = 0x2D
-    SMB_COM_READ_ANDX = 0x2E
-    SMB_COM_WRITE_ANDX = 0x2F
-    SMB_COM_NEW_FILE_SIZE = 0x30
-    SMB_COM_CLOSE_AND_TREE_DISC = 0x31
-    SMB_COM_TRANSACTION2 = 0x32
-    SMB_COM_TRANSACTION2_SECONDARY = 0x33
-    SMB_COM_FIND_CLOSE2 = 0x34
-    SMB_COM_FIND_NOTIFY_CLOSE = 0x35
+    SMB_COM_CREATE_DIRECTORY                = 0x00
+    SMB_COM_DELETE_DIRECTORY                = 0x01
+    SMB_COM_OPEN                            = 0x02
+    SMB_COM_CREATE                          = 0x03
+    SMB_COM_CLOSE                           = 0x04
+    SMB_COM_FLUSH                           = 0x05
+    SMB_COM_DELETE                          = 0x06
+    SMB_COM_RENAME                          = 0x07
+    SMB_COM_QUERY_INFORMATION               = 0x08
+    SMB_COM_SET_INFORMATION                 = 0x09
+    SMB_COM_READ                            = 0x0A
+    SMB_COM_WRITE                           = 0x0B
+    SMB_COM_LOCK_BYTE_RANGE                 = 0x0C
+    SMB_COM_UNLOCK_BYTE_RANGE               = 0x0D
+    SMB_COM_CREATE_TEMPORARY                = 0x0E
+    SMB_COM_CREATE_NEW                      = 0x0F
+    SMB_COM_CHECK_DIRECTORY                 = 0x10
+    SMB_COM_PROCESS_EXIT                    = 0x11
+    SMB_COM_SEEK                            = 0x12
+    SMB_COM_LOCK_AND_READ                   = 0x13
+    SMB_COM_WRITE_AND_UNLOCK                = 0x14
+    SMB_COM_READ_RAW                        = 0x1A
+    SMB_COM_READ_MPX                        = 0x1B
+    SMB_COM_READ_MPX_SECONDARY              = 0x1C
+    SMB_COM_WRITE_RAW                       = 0x1D
+    SMB_COM_WRITE_MPX                       = 0x1E
+    SMB_COM_WRITE_MPX_SECONDARY             = 0x1F
+    SMB_COM_WRITE_COMPLETE                  = 0x20
+    SMB_COM_QUERY_SERVER                    = 0x21
+    SMB_COM_SET_INFORMATION2                = 0x22
+    SMB_COM_QUERY_INFORMATION2              = 0x23
+    SMB_COM_LOCKING_ANDX                    = 0x24
+    SMB_COM_TRANSACTION                     = 0x25
+    SMB_COM_TRANSACTION_SECONDARY           = 0x26
+    SMB_COM_IOCTL                           = 0x27
+    SMB_COM_IOCTL_SECONDARY                 = 0x28
+    SMB_COM_COPY                            = 0x29
+    SMB_COM_MOVE                            = 0x2A
+    SMB_COM_ECHO                            = 0x2B
+    SMB_COM_WRITE_AND_CLOSE                 = 0x2C
+    SMB_COM_OPEN_ANDX                       = 0x2D
+    SMB_COM_READ_ANDX                       = 0x2E
+    SMB_COM_WRITE_ANDX                      = 0x2F
+    SMB_COM_NEW_FILE_SIZE                   = 0x30
+    SMB_COM_CLOSE_AND_TREE_DISC             = 0x31
+    SMB_COM_TRANSACTION2                    = 0x32
+    SMB_COM_TRANSACTION2_SECONDARY          = 0x33
+    SMB_COM_FIND_CLOSE2                     = 0x34
+    SMB_COM_FIND_NOTIFY_CLOSE               = 0x35
     # Used by Xenix/Unix 0x60 - 0x6E 
-    SMB_COM_TREE_CONNECT = 0x70
-    SMB_COM_TREE_DISCONNECT = 0x71
-    SMB_COM_NEGOTIATE = 0x72
-    SMB_COM_SESSION_SETUP_ANDX = 0x73
-    SMB_COM_LOGOFF_ANDX = 0x74
-    SMB_COM_TREE_CONNECT_ANDX = 0x75
-    SMB_COM_QUERY_INFORMATION_DISK = 0x80
-    SMB_COM_SEARCH = 0x81
-    SMB_COM_FIND = 0x82
-    SMB_COM_FIND_UNIQUE = 0x83
-    SMB_COM_FIND_CLOSE = 0x84
-    SMB_COM_NT_TRANSACT = 0xA0
-    SMB_COM_NT_TRANSACT_SECONDARY = 0xA1
-    SMB_COM_NT_CREATE_ANDX = 0xA2
-    SMB_COM_NT_CANCEL = 0xA4
-    SMB_COM_NT_RENAME = 0xA5
-    SMB_COM_OPEN_PRINT_FILE = 0xC0
-    SMB_COM_WRITE_PRINT_FILE = 0xC1
-    SMB_COM_CLOSE_PRINT_FILE = 0xC2
-    SMB_COM_GET_PRINT_QUEUE = 0xC3
-    SMB_COM_READ_BULK = 0xD8
-    SMB_COM_WRITE_BULK = 0xD9
-    SMB_COM_WRITE_BULK_DATA = 0xDA
+    SMB_COM_TREE_CONNECT                    = 0x70
+    SMB_COM_TREE_DISCONNECT                 = 0x71
+    SMB_COM_NEGOTIATE                       = 0x72
+    SMB_COM_SESSION_SETUP_ANDX              = 0x73
+    SMB_COM_LOGOFF_ANDX                     = 0x74
+    SMB_COM_TREE_CONNECT_ANDX               = 0x75
+    SMB_COM_QUERY_INFORMATION_DISK          = 0x80
+    SMB_COM_SEARCH                          = 0x81
+    SMB_COM_FIND                            = 0x82
+    SMB_COM_FIND_UNIQUE                     = 0x83
+    SMB_COM_FIND_CLOSE                      = 0x84
+    SMB_COM_NT_TRANSACT                     = 0xA0
+    SMB_COM_NT_TRANSACT_SECONDARY           = 0xA1
+    SMB_COM_NT_CREATE_ANDX                  = 0xA2
+    SMB_COM_NT_CANCEL                       = 0xA4
+    SMB_COM_NT_RENAME                       = 0xA5
+    SMB_COM_OPEN_PRINT_FILE                 = 0xC0
+    SMB_COM_WRITE_PRINT_FILE                = 0xC1
+    SMB_COM_CLOSE_PRINT_FILE                = 0xC2
+    SMB_COM_GET_PRINT_QUEUE                 = 0xC3
+    SMB_COM_READ_BULK                       = 0xD8
+    SMB_COM_WRITE_BULK                      = 0xD9
+    SMB_COM_WRITE_BULK_DATA                 = 0xDA
 
     # Security Share Mode (Used internally by SMB class)
-    SECURITY_SHARE_MASK = 0x01
-    SECURITY_SHARE_SHARE = 0x00
-    SECURITY_SHARE_USER = 0x01
+    SECURITY_SHARE_MASK                     = 0x01
+    SECURITY_SHARE_SHARE                    = 0x00
+    SECURITY_SHARE_USER                     = 0x01
     
     # Security Auth Mode (Used internally by SMB class)
-    SECURITY_AUTH_MASK = 0x02
-    SECURITY_AUTH_ENCRYPTED = 0x02
-    SECURITY_AUTH_PLAINTEXT = 0x00
+    SECURITY_AUTH_MASK                      = 0x02
+    SECURITY_AUTH_ENCRYPTED                 = 0x02
+    SECURITY_AUTH_PLAINTEXT                 = 0x00
 
     # Raw Mode Mask (Used internally by SMB class. Good for dialect up to and including LANMAN2.1)
-    RAW_READ_MASK = 0x01
-    RAW_WRITE_MASK = 0x02
+    RAW_READ_MASK                           = 0x01
+    RAW_WRITE_MASK                          = 0x02
 
     # Capabilities Mask (Used internally by SMB class. Good for dialect NT LM 0.12)
-    CAP_RAW_MODE = 0x0001
-    CAP_MPX_MODE = 0x0002
-    CAP_UNICODE = 0x0004
-    CAP_LARGE_FILES = 0x0008
-    CAP_EXTENDED_SECURITY = 0x80000000
-    CAP_USE_NT_ERRORS = 0x40
+    CAP_RAW_MODE                            = 0x0001
+    CAP_MPX_MODE                            = 0x0002
+    CAP_UNICODE                             = 0x0004
+    CAP_LARGE_FILES                         = 0x0008
+    CAP_EXTENDED_SECURITY                   = 0x80000000
+    CAP_USE_NT_ERRORS                       = 0x40
 
     # Flags1 Mask
-    FLAGS1_LOCK_AND_READ_OK                = 0x01
-    FLAGS1_PATHCASELESS                    = 0x08
-    FLAGS1_REPLY                           = 0x80
+    FLAGS1_LOCK_AND_READ_OK                 = 0x01
+    FLAGS1_PATHCASELESS                     = 0x08
+    FLAGS1_REPLY                            = 0x80
 
     # Flags2 Mask
-    FLAGS2_LONG_NAMES                      = 0x0001
-    FLAGS2_EAS                             = 0x0002
-    FLAGS2_SMB_SECURITY_SIGNATURE          = 0x0004
-    FLAGS2_IS_LONG_NAME                    = 0x0040
-    FLAGS2_DFS                             = 0x1000
-    FLAGS2_PAGING_IO                       = 0x2000
-    FLAGS2_NT_STATUS                       = 0x4000
-    FLAGS2_UNICODE                         = 0x8000
-    FLAGS2_COMPRESSED                      = 0x0008
-    FLAGS2_SMB_SECURITY_SIGNATURE_REQUIRED = 0x0010
-    FLAGS2_EXTENDED_SECURITY               = 0x0800
+    FLAGS2_LONG_NAMES                       = 0x0001
+    FLAGS2_EAS                              = 0x0002
+    FLAGS2_SMB_SECURITY_SIGNATURE           = 0x0004
+    FLAGS2_IS_LONG_NAME                     = 0x0040
+    FLAGS2_DFS                              = 0x1000
+    FLAGS2_PAGING_IO                        = 0x2000
+    FLAGS2_NT_STATUS                        = 0x4000
+    FLAGS2_UNICODE                          = 0x8000
+    FLAGS2_COMPRESSED                       = 0x0008
+    FLAGS2_SMB_SECURITY_SIGNATURE_REQUIRED  = 0x0010
+    FLAGS2_EXTENDED_SECURITY                = 0x0800
     
     # Dialect's Security Mode flags
-    NEGOTIATE_USER_SECURITY                = 0x01
-    NEGOTIATE_ENCRYPT_PASSWORDS            = 0x02
-    NEGOTIATE_SECURITY_SIGNATURE_ENABLE    = 0x04
-    NEGOTIATE_SECURITY_SIGNATURE_REQUIRED  = 0x08
+    NEGOTIATE_USER_SECURITY                 = 0x01
+    NEGOTIATE_ENCRYPT_PASSWORDS             = 0x02
+    NEGOTIATE_SECURITY_SIGNATURE_ENABLE     = 0x04
+    NEGOTIATE_SECURITY_SIGNATURE_REQUIRED   = 0x08
 
     def __init__(self, remote_name, remote_host, my_name = None, host_type = nmb.TYPE_SERVER, sess_port = nmb.NETBIOS_SESSION_PORT, timeout=None, UDP = 0):
         # The uid attribute will be set when the client calls the login() method
@@ -2603,7 +2586,6 @@ class SMB:
             max_size = self._ntlm_dialect.get_max_buffer() # Read in multiple KB blocks
         
         # max_size is not working, because although it would, the server returns an error (More data avail)
-
         smb = NewSMBPacket()
         smb['Flags1'] = 0x18
         smb['Flags2'] = 0
