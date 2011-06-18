@@ -444,20 +444,6 @@ class SPNEGO_NegTokenInit(GSSAPI):
         self['Payload'] = ans
         return GSSAPI.getData(self)
      
-#*********************************** TEMP BEGIN ********************************
-def set_key_odd_parity(key):
-    ""
-    for i in range(len(key)):
-        for k in range(7):
-            bit = 0
-            t = key[i] >> k
-            bit = (t ^ bit) & 0x1
-        key[i] = (key[i] & 0xFE) | bit
-
-    return key
-
-#*********************************** TEMP END ********************************
-
 def strerror(errclass, errcode):
     if errclass == 0x01:
         return 'OS error', ERRDOS.get(errcode, 'Unknown error')
