@@ -117,6 +117,8 @@ class DCERPCTransport:
         self.__dstport = dstport
         self._max_send_frag = None
         self._max_recv_frag = None
+        self._lmhash = ''
+        self._nthash = ''
         self.set_credentials('','','','')
 
     def connect(self):
