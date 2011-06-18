@@ -47,6 +47,7 @@ import md5
 from binascii import a2b_hex
 import ntlm
 import random
+import datetime, time
 from random import randint
 from struct import *
 from dcerpc import samr
@@ -1509,9 +1510,10 @@ class SMBNTLMDialect_Data(Structure):
     structure = (
         ('ChallengeLength','_-Challenge','self["ChallengeLength"]'),
         ('Challenge',':'),
+        ('Payload',':'),
 # For some reason on an old Linux this field is not present, we have to check this out. There must be a flag stating this.
-#        ('DomainName','u'),
-#        ('ServerName','u'),
+        ('DomainName','_'),
+        ('ServerName','_'),
     )
     def __init__(self,data = None, alignment = 0):
          Structure.__init__(self,data,alignment)
@@ -1519,102 +1521,23 @@ class SMBNTLMDialect_Data(Structure):
          
     def fromString(self,data):
         Structure.fromString(self,data)
-
-
-class NTLMDialect(SMBPacket):
-    def __init__(self,data=''):
-        SMBPacket.__init__(self,data)
-        self._selected_dialect = 0
-        self._security_mode = 0
-        self._max_mpx = 0
-        self._max_vc = 0
-        self._max_buffer = 0
-        self._max_raw = 0
-        self._session_key = 0
-        self._lsw_capabilities = 0
-        self._msw_capabilities = 0
-        self._utc_high = 0
-        self._utc_low = 0
-        self._minutes_utc = 0
-        self._encryption_key_len = 0
-        self._encryption_key = ''
-        self._server_domain = ''
-        self._server_name = ''
-        if data:
-            self._selected_dialect, self._security_mode, self._max_mpx, self._max_vc = unpack('<HBHH',self.get_parameter_words()[:7])
-            self._max_buffer,self._max_raw, self._session_key, self._lsw_capabilities, self._msw_capabilities = unpack('<lllHH', self.get_parameter_words()[7:16+7])
-            self._utc_low, self._utc_high,self._minutes_utc, self._encryption_key_len = unpack('<LLhB',self.get_parameter_words()[23:34])
-            if self._encryption_key_len > 0 and len(self.get_buffer()) >= self._encryption_key_len:
-                self._encryption_key = self.get_buffer()[:self._encryption_key_len]
-                buf = self.get_buffer() 
-                # Look for the server domain offset
-                self._server_name = '<Unknown>'
-                self._server_domain = '<Unknown>'
-                try:
-                    if self._lsw_capabilities & 0x3: # is this unicode?
-                         offset = self._encryption_key_len
-                         if offset & 0x01:
-                            offset += 1
-                         end = offset
-                         while ord(buf[end]) or ord(buf[end+1]):
-                             end += 2
-                         self._server_domain = unicode(buf[offset:end],'utf_16_le')
-                         end += 2
-                         offset = end
-                         while ord(buf[end]) or ord(buf[end+1]):
-                             end += 2
-                         self._server_name = unicode(buf[offset:end],'utf_16_le')
-                    else:
-                         offset = self._encryption_key_len
-                         idx1 = string.find(buf,'\0',offset)
-                         if idx1 != -1:
-                            self._server_domain = buf[offset:idx1]
-                            idx2 = string.find(buf, '\0', idx1 + 1)
-                            if idx2 != -1:
-                               self._server_name = buf[idx1+1:idx2]
-                except:
-                    pass
-            else:
-                self._encryption_key = ''
- 
-    def get_selected_dialect(self):
-        return self._selected_dialect
-    def get_security_mode(self):
-        return self._security_mode
-    def get_max_mpx(self):
-        return self._max_mpx
-    def get_max_vc(self):
-        return self._max_vc
-    def get_max_buffer(self):
-        return self._max_buffer
-    def get_max_raw(self):
-        return self._max_raw
-    def get_session_key(self):
-        return self._session_key
-    def get_lsw_capabilities(self):
-        return self._lsw_capabilities
-    def get_msw_capabilities(self):
-        return self._msw_capabilities
-    def get_utc(self):
-        return self._utc_high, self._utc_low
-    def get_minutes_utc(self):
-        return self._minutes_utc
-    def get_encryption_key_len(self):
-        return self._encryption_key_len
-    def get_encryption_key(self):
-        return self._encryption_key
-    def get_server_domain(self):
-        return self._server_domain
-    def get_server_name(self):
-        return self._server_name
-    def is_auth_mode(self):
-        return self._security_mode & SMB.SECURITY_AUTH_MASK
-    def is_share_mode(self):
-        return self._security_mode & SMB.SECURITY_SHARE_MASK
-    def is_rawmode(self):
-        return self._lsw_capabilities & SMB.CAP_RAW_MODE
-                
-                
+        if len(self['Payload']) > 0:
+           if self['Payload'][2] == '\x00':
+           # TODO: Ugly hack, should be taken of once mechListMIC is parsed in SPNEGO
+               # We might have server's info
+               data = self['Payload']
+               length = data.index('\x00\x00')+1
+               self['DomainName'] = data[:length].decode('utf-16le')
+               data = data[length:]
+               if len(data) > 3:
+                  #We might have Server's Name
+                  data = data[2:]
+                  length = data.index('\x00\x00')+1
+                  self['ServerName'] = data[:length].decode('utf-16le')
+        else:
+           self['DomainName'] = '' 
+           self['ServerName'] = ''
+           
 class SMB:
     # SMB Command Codes
     SMB_COM_CREATE_DIRECTORY                = 0x00
@@ -1706,7 +1629,7 @@ class SMB:
     RAW_WRITE_MASK                          = 0x02
 
     # Capabilities Mask (Used internally by SMB class. Good for dialect NT LM 0.12)
-    CAP_RAW_MODE                            = 0x0001
+    CAP_RAW_MODE                            = 0x00000001
     CAP_MPX_MODE                            = 0x0002
     CAP_UNICODE                             = 0x0004
     CAP_LARGE_FILES                         = 0x0008
@@ -1750,8 +1673,6 @@ class SMB:
         # Could be extended or not, flags should be checked before 
         self._dialect_data = 0
         self._dialect_parameters = 0
-        # To be killed soon
-        self._ntlm_dialect = 0
         self._sess = None
         self.encrypt_passwords = True
         self.tid = 0
@@ -1773,12 +1694,13 @@ class SMB:
         else:
             self._sess = nmb.NetBIOSTCPSession(my_name, remote_name, remote_host, host_type, sess_port, timeout)
 
-            # Initialize values __ntlm_dialect, __is_pathcaseless
+            # Initialize session values (_dialect_data and _dialect_parameters)
             self.neg_session()
 
-            # Call login() without any authentication information to setup a session if the remote server
+            # Call login() without any authentication information to 
+            # setup a session if the remote server
             # is in share mode.
-            if self._ntlm_dialect.is_share_mode() == SMB.SECURITY_SHARE_SHARE:
+            if (self._dialects_parameters['SecurityMode'] & SMB.SECURITY_SHARE_MASK) == SMB.SECURITY_SHARE_SHARE:
                 self.login('', '')
 
     def ntlm_supported(self):
@@ -1887,8 +1809,12 @@ class SMB:
             smb = self.recvSMB()
             if smb.isValidAnswer(SMB.SMB_COM_NEGOTIATE):
                 sessionResponse = SMBCommand(smb['Data'][0])
-                # I will deprecat this soon :) (beto)
-                self._ntlm_dialect = NTLMDialect(str(smb))
+                self._dialects_parameters = SMBNTLMDialect_Parameters(sessionResponse['Parameters'])
+                self._dialects_data = SMBNTLMDialect_Data()
+                self._dialects_data['ChallengeLength'] = self._dialects_parameters['ChallengeLength']
+                self._dialects_data.fromString(sessionResponse['Data'])
+                self._dialects_parameters.dump()
+                self._dialects_data.dump()
 
                 if smb['Flags2'] & SMB.FLAGS2_EXTENDED_SECURITY > 0:
                     # Whether we choose it or it is enforced by the server, we go for extended security
@@ -1907,7 +1833,7 @@ class SMB:
                     self._dialects_data['ChallengeLength'] = self._dialects_parameters['ChallengeLength']
                     self._dialects_data.fromString(sessionResponse['Data'])
 
-                    if self._ntlm_dialect.get_selected_dialect() == 0xffff:
+                    if self._dialects_parameters['DialectIndex'] == 0xffff:
                         raise UnsupportedFeature,"Remote server does not know NT LM 0.12"
                     self.__is_pathcaseless = smb['Flags1'] & SMB.FLAGS1_PATHCASELESS
                     return 1
@@ -1918,7 +1844,7 @@ class SMB:
         # return 0x800
         if password:
             # Password is only encrypted if the server passed us an "encryption" during protocol dialect
-            if self._ntlm_dialect.get_encryption_key():
+            if self._dialects_data['ChallengeLength'] > 0:
                 # this code is untested
                 password = self.get_ntlmv1_response(ntlm.compute_lmhash(password))
 
@@ -1958,7 +1884,7 @@ class SMB:
     def tree_connect_andx(self, path, password = None, service = SERVICE_ANY, smb_packet=None):
         if password:
             # Password is only encrypted if the server passed us an "encryption" during protocol dialect
-            if self._ntlm_dialect.get_encryption_key():
+            if self._dialects_data['ChallengeLength'] > 0:
                 # this code is untested
                 password = self.get_ntlmv1_response(ntlm.compute_lmhash(password))
         else:
@@ -2013,15 +1939,19 @@ class SMB:
     connect_tree = tree_connect_andx
 
     def get_server_name(self):
-        return self._ntlm_dialect.get_server_name()
+        return self._dialects_data['ServerName']
 
     def get_session_key(self):
-        return self._ntlm_dialect.get_session_key()
+        return self._dialects_parameters['SessionKey']
 
     def get_server_time(self):
-        high, low = self._ntlm_dialect.get_utc()
-        min = self._ntlm_dialect.get_minutes_utc()
-        return samr.display_time(high, low, min)
+        timestamp = self._dialects_parameters['HighDateTime']
+        timestamp <<= 32
+        timestamp |= self._dialects_parameters['LowDateTime']
+        timestamp -= 116444736000000000
+        timestamp /= 10000000
+        d = datetime.datetime.utcfromtimestamp(timestamp)
+        return d.strftime("%a, %d %b %Y %H:%M:%S GMT")
 
     def disconnect_tree(self, tid):
         smb = NewSMBPacket()
@@ -2150,7 +2080,7 @@ class SMB:
         param_offset = name_len + setup_len + 63
         data_offset = param_offset + param_len
             
-        self.__send_smb_packet(SMB.SMB_COM_TRANSACTION2, self.__is_pathcaseless, SMB.FLAGS2_LONG_NAMES, tid, 0, pack('<HHHHBBHLHHHHHBB', param_len, data_len, 1024, self._ntlm_dialect.get_max_buffer(), 0, 0, 0, 0, 0, param_len, param_offset, data_len, data_offset, setup_len / 2, 0) + setup, name  + param + data)
+        self.__send_smb_packet(SMB.SMB_COM_TRANSACTION2, self.__is_pathcaseless, SMB.FLAGS2_LONG_NAMES, tid, 0, pack('<HHHHBBHLHHHHHBB', param_len, data_len, 1024, self._dialects_parameters['MaxBufferSize'], 0, 0, 0, 0, 0, param_len, param_offset, data_len, data_offset, setup_len / 2, 0) + setup, name  + param + data)
 
     def query_file_info(self, tid, fid):
         self.trans2(tid, '\x07\x00', '\x00', pack('<HH', fid, 0x107), '')
@@ -2162,7 +2092,7 @@ class SMB:
                 return (f2 & 0xffffffffL) << 32 | f1
 
     def __nonraw_retr_file(self, tid, fid, offset, datasize, callback):
-        max_buf_size = self._ntlm_dialect.get_max_buffer() & ~0x3ff  # Read in multiple KB blocks
+        max_buf_size = self._dialects_parameters['MaxBufferSize'] & ~0x3ff  # Read in multiple KB blocks
         read_offset = offset
         while read_offset < datasize:
             data = self.read_andx(tid, fid, read_offset, max_buf_size)
@@ -2171,7 +2101,7 @@ class SMB:
             read_offset += len(data)
 
     def __raw_retr_file(self, tid, fid, offset, datasize, callback):
-        max_buf_size = self._ntlm_dialect.get_max_buffer() & ~0x3ff  # Write in multiple KB blocks
+        max_buf_size = self._dialects_parameters['MaxBufferSize'] & ~0x3ff  # Write in multiple KB blocks
         read_offset = offset
         while read_offset < datasize:
             data = self.read_raw(tid, fid, read_offset, 0xffff)
@@ -2183,7 +2113,7 @@ class SMB:
             read_offset += len(data)
 
     def __nonraw_stor_file(self, tid, fid, offset, datasize, callback):
-        max_buf_size = self._ntlm_dialect.get_max_buffer() & ~0x3ff  # Write in multiple KB blocks
+        max_buf_size = self._dialects_parameters['MaxBufferSize'] & ~0x3ff  # Write in multiple KB blocks
         write_offset = offset
         while 1:
             data = callback(max_buf_size)
@@ -2264,12 +2194,13 @@ class SMB:
         return self.__server_lanman
 
     def is_login_required(self):
-        # Login is required if share mode is user. Otherwise only public services or services in share mode
+        # Login is required if share mode is user. 
+        # Otherwise only public services or services in share mode
         # are allowed.
-        return self._ntlm_dialect.is_share_mode() == SMB.SECURITY_SHARE_USER
+        return (self._dialects_parameters['SecurityMode'] & SMB.SECURITY_SHARE_MASK) == SMB.SECURITY_SHARE_USER
 
     def get_ntlmv1_response(self, key):
-        challenge = self._ntlm_dialect.get_encryption_key()
+        challenge = self._dialects_data['Challenge']
         return ntlm.get_ntlmv1_response(key, challenge)
 
     def login_extended(self, user, password, domain = '', lmhash = '', nthash = '' ):
@@ -2422,7 +2353,7 @@ class SMB:
     def login_standard(self, user, password, domain = '', lmhash = '', nthash = ''):
 
         # Password is only encrypted if the server passed us an "encryption key" during protocol dialect negotiation
-        if self._ntlm_dialect.get_encryption_key():
+        if self._dialects_data['ChallengeLength'] > 0:
             if lmhash != '' or nthash != '':
                pwd_ansi = self.get_ntlmv1_response(lmhash)
                pwd_unicode = self.get_ntlmv1_response(nthash)
@@ -2446,7 +2377,7 @@ class SMB:
         sessionSetup['Parameters']['MaxBuffer']        = 65535
         sessionSetup['Parameters']['MaxMpxCount']      = 2
         sessionSetup['Parameters']['VCNumber']         = os.getpid()
-        sessionSetup['Parameters']['SessionKey']       = self._ntlm_dialect.get_session_key()
+        sessionSetup['Parameters']['SessionKey']       = self._dialects_parameters['SessionKey']
         sessionSetup['Parameters']['AnsiPwdLength']    = len(pwd_ansi)
         sessionSetup['Parameters']['UnicodePwdLength'] = len(pwd_unicode)
         sessionSetup['Parameters']['Capabilities']     = SMB.CAP_RAW_MODE
@@ -2479,7 +2410,7 @@ class SMB:
 
     def read(self, tid, fid, offset=0, max_size = None, wait_answer=1):
         if not max_size:
-            max_size = self._ntlm_dialect.get_max_buffer() # Read in multiple KB blocks
+            max_size = self._dialects_parameters['MaxBufferSize'] # Read in multiple KB blocks
         
         # max_size is not working, because although it would, the server returns an error (More data avail)
 
@@ -2514,7 +2445,7 @@ class SMB:
 
     def read_andx(self, tid, fid, offset=0, max_size = None, wait_answer=1, smb_packet=None):
         if not max_size:
-            max_size = self._ntlm_dialect.get_max_buffer() # Read in multiple KB blocks
+            max_size = self._dialects_parameters['MaxBufferSize'] # Read in multiple KB blocks
         
         # max_size is not working, because although it would, the server returns an error (More data avail)
 
@@ -2569,7 +2500,7 @@ class SMB:
 
     def read_raw(self, tid, fid, offset=0, max_size = None, wait_answer=1):
         if not max_size:
-            max_size = self._ntlm_dialect.get_max_buffer() # Read in multiple KB blocks
+            max_size = self._dialects_parameters['MaxBufferSize'] # Read in multiple KB blocks
         
         # max_size is not working, because although it would, the server returns an error (More data avail)
         smb = NewSMBPacket()
@@ -2796,7 +2727,7 @@ class SMB:
             if not datasize:
                 datasize = self.query_file_info(tid, fid)
 
-            if self._ntlm_dialect.is_rawmode():
+            if self._dialects_parameters['Capabilities'] & SMB.CAP_RAW_MODE:
                 self.__raw_retr_file(tid, fid, offset, datasize, callback)
             else:
                 self.__nonraw_retr_file(tid, fid, offset, datasize, callback)
@@ -2815,7 +2746,7 @@ class SMB:
             
             # If the max_transmit buffer size is more than 16KB, upload process using non-raw mode is actually
             # faster than using raw-mode.
-            if self._ntlm_dialect.get_max_buffer() < 16384 and self._ntlm_dialect.is_rawmode():
+            if self._dialects_parameters['MaxBufferSize'] < 16384 and self._dialects_parameters['Capabilities'] & SMB.CAP_RAW_MODE:
                 # Once the __raw_stor_file returns, fid is already closed
                 self.__raw_stor_file(tid, fid, offset, datasize, callback)
                 fid = -1
@@ -2859,7 +2790,7 @@ class SMB:
             if callback:
                 callback(0, src_datasize)
 
-            max_buf_size = (self._ntlm_dialect.get_max_buffer() >> 10) << 10
+            max_buf_size = (self._dialects_parameters['MaxBufferSize'] >> 10) << 10
             read_offset = 0
             write_offset = 0
             while read_offset < src_datasize:
