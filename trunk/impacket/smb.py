@@ -1429,6 +1429,38 @@ class SMBReadRaw_Parameters(SMBCommand_Parameters):
         ('_reserved','<H=0'),
     )
 
+############# SMB_COM_TRANSACTION (0x25)
+class SMBTransaction_Parameters(SMBCommand_Parameters):
+    structure = (
+        ('TotalParameterCount','<H'),
+        ('TotalDataCount','<H'),
+        ('MaxParameterCount','<H=1024'),
+        ('MaxDataCount','<H=65504'),
+        ('MaxSetupCount','<B=0'),
+        ('Reserved1','<B=0'),
+        ('Flags','<H=0'),
+        ('Timeout','<L=0'),
+        ('Reserved2','<H=0'),
+        ('ParameterCount','<H'),
+        ('ParameterOffset','<H'),
+        ('DataCount','<H'),
+        ('DataOffset','<H'),
+        ('SetupCount','<B=len(Setup)/2'),
+        ('Reserved3','<B=0'),
+        ('SetupLength','_-Setup','SetupCount*2'),
+        ('Setup',':'),
+    )
+
+class SMBTransaction_Data(SMBCommand_Parameters):
+    structure = (
+        ('NameLength','_-Name'),
+        ('Name',':'),
+        ('Trans_ParametersLength','_-Trans_Parameters'),
+        ('Trans_Parameters',':'),
+        ('Trans_DataLength','_-Trans_Data'),
+        ('Trans_Data',':'),
+    )
+
 ############# SMB_COM_READ_ANDX (0x2E)
 class SMBReadAndX_Parameters(SMBAndXCommand_Parameters):
     structure = (
@@ -2057,36 +2089,34 @@ class SMB:
         return 0
 
     def send_trans(self, tid, setup, name, param, data, noAnswer = 0):
-        t = TRANSHeader()
-        s = SMBPacket()
-        s.set_tid(tid)
-        s.set_command(SMB.SMB_COM_TRANSACTION)
-        s.set_flags(self.__is_pathcaseless)
-        s.set_flags2(SMB.FLAGS2_LONG_NAMES)
-        t.set_setup(setup)
-        t.set_name(name)
-        t.set_parameters(param)
-        t.set_data(data)
-        t.set_max_param_count(1024) # Saca esto y se muere remotamente
-        t.set_max_data_count(65504) # Saca esto y se muere remotamente
+        smb = NewSMBPacket()
+        smb['Flags1']  = 8
+        smb['Flags2'] = SMB.FLAGS2_LONG_NAMES
+        smb['Tid']    = tid
+
+        transCommand = SMBCommand(SMB.SMB_COM_TRANSACTION)
+        transCommand['Parameters'] = SMBTransaction_Parameters()
+        transCommand['Data'] = SMBTransaction_Data()
+
+        transCommand['Parameters']['Setup'] = setup
+        transCommand['Parameters']['TotalParameterCount'] = len(param) 
+        transCommand['Parameters']['TotalDataCount'] = len(data)
+
+        transCommand['Parameters']['ParameterCount'] = len(param)
+        transCommand['Parameters']['ParameterOffset'] = 32+3+28+len(setup)+len(name)
+
+        transCommand['Parameters']['DataCount'] = len(data)
+        transCommand['Parameters']['DataOffset'] = transCommand['Parameters']['ParameterOffset'] + len(param)
+
+        transCommand['Data']['Name'] = name
+        transCommand['Data']['Trans_Parameters'] = param
+        transCommand['Data']['Trans_Data'] = data
+
         if noAnswer:
-            t.set_flags(TRANS_NO_RESPONSE)
-        s.set_parameter_words(t.get_rawParameters())
-        s.set_buffer(t.rawData())
-        self.send_smb(s)
-
-    def __trans(self, tid, setup, name, param, data):
-        data_len = len(data)
-        name_len = len(name)
-        param_len = len(param)
-        setup_len = len(setup)
-
-        assert setup_len & 0x01 == 0
-
-        param_offset = name_len + setup_len + 63
-        data_offset = param_offset + param_len
-            
-        self.__send_smb_packet(SMB.SMB_COM_TRANSACTION, self.__is_pathcaseless, SMB.FLAGS2_LONG_NAMES, tid, 0, pack('<HHHHBBHLHHHHHBB', param_len, data_len, 1024, 65504, 0, 0, 0, 0, 0, param_len, param_offset, data_len, data_offset, setup_len / 2, 0) + setup, name + param + data)
+           transCommand['Parameters']['Flags'] = TRANS_NO_RESPONSE
+      
+        smb.addCommand(transCommand)
+        self.sendSMB(smb)
 
     def trans2(self, tid, setup, name, param, data):
         data_len = len(data)
@@ -2158,43 +2188,6 @@ class SMB:
                     self._sess.send_packet(read_data)
                     write_offset = write_offset + read_len
                     break
-
-    def __browse_servers(self, server_flags, container_type, domain):
-        tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\IPC$')
-
-        buf = StringIO()
-        try:
-            if server_flags & 0x80000000:
-                self.__trans(tid, '', '\\PIPE\\LANMAN\x00', '\x68\x00WrLehDz\x00' + 'B16BBDz\x00\x01\x00\xff\xff\x00\x00\x00\x80', '')
-            else:
-                self.__trans(tid, '', '\\PIPE\\LANMAN\x00', '\x68\x00WrLehDz\x00' + 'B16BBDz\x00\x01\x00\xff\xff' + pack('<l', server_flags)  + domain + '\x00', '')
-                
-            servers = [ ]
-            entry_count = 0
-            while 1:
-                s = self.recv_packet()
-                if self.isValidAnswer(s,SMB.SMB_COM_TRANSACTION):
-                    has_more, _, transparam, transdata = self.__decode_trans(s.get_parameter_words(), s.get_buffer())
-                    if not entry_count:
-                        status, convert, entry_count, avail_entry = unpack('<HHHH', transparam[:8])
-                        if status and status != 234:  # status 234 means have more data
-                            raise SessionError, ( 'Browse domains failed. (ErrClass: %d and ErrCode: %d)' % ( 0x80, status ), 0x80, status )
-                    buf.write(transdata)
-
-                    if not has_more:
-                        server_data = buf.getvalue()
-
-                        for i in range(0, entry_count):
-                            server, _, server_type, comment_offset = unpack('<16s2sll', server_data[i * 26:i * 26 + 26])
-                            idx = string.find(server, '\0')
-                            idx2 = string.find(server_data, '\0', comment_offset)
-                            if idx < 0:
-                                server = server[:idx]
-                            servers.append(container_type(server, server_type, server_data[comment_offset:idx2]))
-                        return servers
-        finally:
-            buf.close()
-            self.disconnect_tree(tid)            
 
     def get_server_domain(self):
         return self.__server_domain
@@ -2912,15 +2905,6 @@ class SMB:
             return 0
         finally:
             self.disconnect_tree(s.get_tid())
-
-    def browse_domains(self):
-        return self.__browse_servers(SV_TYPE_DOMAIN_ENUM, SMBDomain, '')
-
-    def browse_servers_for_domain(self, domain = None):
-        if not domain:
-            domain = self.__server_domain
-
-        return self.__browse_servers(SV_TYPE_SERVER | SV_TYPE_PRINTQ_SERVER | SV_TYPE_WFW | SV_TYPE_NT, SMBMachine, domain)
 
     def get_socket(self):
         return self._sess.get_socket()
