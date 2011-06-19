@@ -1375,6 +1375,13 @@ class SMBWriteAndX_Parameters(SMBAndXCommand_Parameters):
         ('HighOffset','<L=0'),
     )
     
+class SMBWriteAndXResponse_Parameters(SMBAndXCommand_Parameters):
+    structure = (
+        ('Count','<H'),
+        ('Available','<H'),
+        ('Reserved','<L'),
+    )
+
 ############# SMB_COM_WRITE_RAW (0x1D)
 class SMBWriteRaw_Parameters(SMBCommand_Parameters):
     structure = (
@@ -1814,8 +1821,6 @@ class SMB:
                 self._dialects_data = SMBNTLMDialect_Data()
                 self._dialects_data['ChallengeLength'] = self._dialects_parameters['ChallengeLength']
                 self._dialects_data.fromString(sessionResponse['Data'])
-                self._dialects_parameters.dump()
-                self._dialects_data.dump()
 
                 if smb['Flags2'] & SMB.FLAGS2_EXTENDED_SECURITY > 0:
                     # Whether we choose it or it is enforced by the server, we go for extended security
@@ -2120,20 +2125,16 @@ class SMB:
             data = callback(max_buf_size)
             if not data:
                 break
-            
-            self.__send_smb_packet(SMB.SMB_COM_WRITE_ANDX, 0, 0, tid, 0, pack('<BBHHLLHHHHH', 0xff, 0, 0, fid, write_offset, 0, 0, 0, 0, len(data), 59), data)
-            
-            while 1:
-                s = self.recv_packet()
-                if self.isValidAnswer(s,SMB.SMB_COM_WRITE_ANDX):
-                    offset = unpack('<H', s.get_parameter_words()[2:4])[0]
-                    write_offset = write_offset + unpack('<H', s.get_parameter_words()[4:6])[0]
-                    break
+
+            smb = self.write_andx(tid,fid,data, write_offset)
+            writeResponse   = SMBCommand(smb['Data'][0])
+            writeResponseParameters = SMBWriteAndXResponse_Parameters(writeResponse['Parameters'])
+            write_offset += writeResponseParameters['Count']
 
     def __raw_stor_file(self, tid, fid, offset, datasize, callback):
         write_offset = offset
         while 1:
-            read_data = callback(65535)
+            read_data = callback(self._dialects_parameters['MaxRawSize'])
             if not read_data:
                 break
             read_len = len(read_data)
