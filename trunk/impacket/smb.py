@@ -1190,7 +1190,7 @@ class SMBSessionSetupAndX_Extended_Response_Data(AsciiOrUnicodeStructure):
         ('NativeLanMan','w=""'),
     )
 
-############# 
+############# SMB_COM_TREE_CONNECT (0x70
 class SMBTreeConnect_Parameters(SMBCommand_Parameters):
     structure = (
     )
@@ -1437,9 +1437,6 @@ class SMBTransactionResponse_Data(SMBCommand_Parameters):
         ('Trans_Data',':'),
     )
 
-
-
-
 ############# SMB_COM_READ_ANDX (0x2E)
 class SMBReadAndX_Parameters(SMBAndXCommand_Parameters):
     structure = (
@@ -1462,6 +1459,10 @@ class SMBReadAndXResponse_Parameters(SMBAndXCommand_Parameters):
         ('DataCount_Hi','<L'),
         ('_reserved2','"\0\0\0\0\0\0'),
     )
+
+############# SMB_COM_LOGOFF_ANDX (0x74)
+class SMBLogOffAndX(SMBAndXCommand_Parameters):
+    strucure = ()
 
 ############# SMB_COM_CLOSE (0x04)
 class SMBClose_Parameters(SMBCommand_Parameters):
@@ -2637,11 +2638,11 @@ class SMB:
                 return ntCreateParameters['Fid']
 
     def logoff(self):
-        s = SMBPacket()
-        s.set_command(SMB.SMB_COM_LOGOFF_ANDX)
-        s.set_parameter_words('\xff\x00\x00\x00')
-        self.send_smb(s)
-        s = self.recv_packet()
+        smb = NewSMBPacket()
+        logOff = SMBCommand(SMB.SMB_COM_LOGOFF_ANDX)
+        logOff['Parameters'] = SMBLogOffAndX()
+        smb.addCommand(logOff)
+        self.sendSMB(smb)
 
     def list_shared(self):
         tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\IPC$')
