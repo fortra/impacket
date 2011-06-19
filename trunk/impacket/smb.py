@@ -1452,6 +1452,12 @@ class SMBReadAndXResponse_Parameters(SMBAndXCommand_Parameters):
         ('_reserved2','"\0\0\0\0\0\0'),
     )
 
+############# SMB_COM_CLOSE (0x04)
+class SMBClose_Parameters(SMBCommand_Parameters):
+   structure = (
+        ('FID','<H'),
+        ('Time','<L=0'),
+   )
 
 ############# SMB_COM_OPEN (0x02)
 class SMBOpen_Parameters(SMBCommand_Parameters):
@@ -1800,8 +1806,6 @@ class SMB:
                         raise SessionError, ( "SMB Library Error", s.get_error_class(), s.get_error_code())
                 else:
                     break
-#                    raise SessionError("Invalid command received. %x" % cmd)
-#            s=self.recv_packet(None)   
         return 0
 
     def neg_session(self, extended_security = True):
@@ -2036,12 +2040,21 @@ class SMB:
             )
         
     def close(self, tid, fid):
-        s = SMBPacket()
-        s.set_command(SMB.SMB_COM_CLOSE)
-        s.set_tid(tid)
-        s.set_parameter_words(pack('<HL', fid, 0))
-        self.send_smb(s)
-        s = self.recv_packet()
+        smb = NewSMBPacket()
+        smb['Flags1']  = 8
+        smb['Flags2'] = SMB.FLAGS2_LONG_NAMES
+        smb['Tid']    = tid
+
+        closeFile = SMBCommand(SMB.SMB_COM_CLOSE)
+        closeFile['Parameters'] = SMBClose_Parameters()
+        closeFile['Parameters']['FID']    = fid
+        smb.addCommand(closeFile)
+
+        self.sendSMB(smb)
+        smb = self.recvSMB()
+        if smb.isValidAnswer(SMB.SMB_COM_CLOSE):
+           return 1
+        return 0
 
     def send_trans(self, tid, setup, name, param, data, noAnswer = 0):
         t = TRANSHeader()
