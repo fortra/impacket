@@ -638,6 +638,7 @@ class SessionError(Exception):
       0x9B: ("ERRbadpath", "Directory invalid."),
       0xFB: ("ERRbadpath", "Directory invalid."),
       0xBD: ("ERRbadpath", "Duplicate name."),
+      0x35: ("ERRfilexists", "The file named in a Create Directory, Make  New  File  or  Link  request already exists.") 
     }
 
     dos_msgs = {
@@ -1210,7 +1211,7 @@ class SMBTreeConnectAndX_Parameters(SMBAndXCommand_Parameters):
         ('PasswordLength','<H'),
     )
 
-class SMBTreeConnectAndX_Data(SMBCommand_Parameters):
+class SMBTreeConnectAndX_Data(Structure):
     structure = (
         ('_PasswordLength','_-Password'),
         ('Password',':'),
@@ -1419,7 +1420,7 @@ class SMBTransactionResponse_Parameters(SMBCommand_Parameters):
         ('Setup',':'),
     )
 
-class SMBTransaction_Data(SMBCommand_Parameters):
+class SMBTransaction_Data(Structure):
     structure = (
         ('NameLength','_-Name'),
         ('Name',':'),
@@ -1429,7 +1430,7 @@ class SMBTransaction_Data(SMBCommand_Parameters):
         ('Trans_Data',':'),
     )
 
-class SMBTransactionResponse_Data(SMBCommand_Parameters):
+class SMBTransactionResponse_Data(Structure):
     structure = (
         ('Trans_ParametersLength','_-Trans_Parameters'),
         ('Trans_Parameters',':'),
@@ -1470,6 +1471,28 @@ class SMBClose_Parameters(SMBCommand_Parameters):
         ('FID','<H'),
         ('Time','<L=0'),
    )
+
+############# SMB_COM_CREATE_DIRECTORY (0x00)
+class SMBCreateDirectory_Data(Structure):
+    structure = (
+        ('BufferFormat','<B=4'),
+        ('DirectoryName','z'),
+    )
+
+############# SMB_COM_RENAME (0x07)
+class SMBRename_Parameters(SMBCommand_Parameters):
+    structure = (
+        ('SearchAttributes','<H'),
+    )
+
+class SMBRename_Data(Structure):
+    structure = (
+        ('BufferFormat1','<B=4'),
+        ('OldFileName','z'),
+        ('BufferFormat2','<B=4'),
+        ('NewFileName','z'),
+    )
+
 
 ############# SMB_COM_OPEN (0x02)
 class SMBOpen_Parameters(SMBCommand_Parameters):
@@ -2848,38 +2871,42 @@ class SMB:
     def mkdir(self, service, path, password = None):
         tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\' + service, password)
         try:
-            s = SMBPacket()
-            s.set_command(SMB.SMB_COM_CREATE_DIRECTORY)
-            s.set_flags(0x08)
-            s.set_flags2(0)
-            s.set_tid(tid)
-            s.set_parameter_words('') # check this! don't know if i don'thave to put this
-            s.set_buffer('\x04' + path + '\x00')
-            self.send_smb(s)
-            s = self.recv_packet()
-            if self.isValidAnswer(s,SMB.SMB_COM_CREATE_DIRECTORY):
+            smb = NewSMBPacket()
+            smb['Tid'] = tid
+            createDir = SMBCommand(SMB.SMB_COM_CREATE_DIRECTORY)
+            createDir['Data'] = SMBCreateDirectory_Data()
+            createDir['Data']['DirectoryName'] = path
+            smb.addCommand(createDir)
+            self.sendSMB(smb)
+        
+            smb = self.recvSMB()
+            if smb.isValidAnswer(SMB.SMB_COM_CREATE_DIRECTORY):
                 return 1
             return 0
         finally:
-            self.disconnect_tree(s.get_tid())
+            self.disconnect_tree(smb['Tid'])
 
     def rename(self, service, old_path, new_path, password = None):
         tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\' + service, password)
         try:
-            s = SMBPacket()
-            s.set_command(SMB.SMB_COM_RENAME)
-            s.set_flags(0x08)
-            s.set_flags2(0)
-            s.set_tid(tid)
-            s.set_parameter_words(pack('<H', ATTR_SYSTEM | ATTR_HIDDEN | ATTR_DIRECTORY))
-            s.set_buffer('\x04' + old_path + '\x00\x04' + new_path + '\x00')
-            self.send_smb(s)
-            s = self.recv_packet()
-            if self.isValidAnswer(s,SMB.SMB_COM_RENAME):
-                return 1
-            return 0
+            smb = NewSMBPacket()
+            smb['Tid'] = tid
+            smb['Flags'] = SMB.FLAGS1_PATHCASELESS
+            renameCmd = SMBCommand(SMB.SMB_COM_RENAME)
+            renameCmd['Parameters'] = SMBRename_Parameters()
+            renameCmd['Parameters']['SearchAttributes'] = ATTR_SYSTEM | ATTR_HIDDEN | ATTR_DIRECTORY 
+            renameCmd['Data'] = SMBRename_Data()
+            renameCmd['Data']['OldFileName'] = old_path
+            renameCmd['Data']['NewFileName'] = new_path 
+
+            smb.addCommand(renameCmd)
+            self.sendSMB(smb)
+            smb = self.recvSMB()
+            if smb.isValidAnswer(SMB.SMB_COM_RENAME):
+               return 1
+            return 0 
         finally:
-            self.disconnect_tree(s.get_tid())
+            self.disconnect_tree(smb['Tid'])
 
     def get_socket(self):
         return self._sess.get_socket()
