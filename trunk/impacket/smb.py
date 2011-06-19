@@ -1753,11 +1753,6 @@ class SMB:
         if self._sess:
             self._sess.close()
 
-    def __decode_smb(self, data):
-        _, cmd, err_class, _, err_code, flags1, flags2, _, tid, pid, uid, mid, wcount = unpack('<4sBBBHBH12sHHHHB', data[:33])
-        param_end = 33 + wcount * 2
-        return cmd, err_class, err_code, flags1, flags2, tid, uid, mid, data[33:param_end], data[param_end + 2:]
-
     def recvSMB(self):
         r = self._sess.recv_packet(self.__timeout)
         return NewSMBPacket(data = r.get_trailer())
