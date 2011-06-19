@@ -1039,55 +1039,6 @@ class SMBPacket:
                     self._flags2,self._pad,self._tid, self._pid, self._uid, self._mid, self._wordcount) + self._parameter_words + pack('<H',self._bytecount) + self._buffer
         return data        
 
-class TRANSHeader:
-    def __init__(self,params = '', data = ''):
-        self._total_param_count = 0
-        self._total_data_count = 0
-        self._max_param_count = 0
-        self._max_data_count = 0
-        self._max_setup_count = 0
-        self._flags = 0
-        self._timeout = 0
-        self._param_count = 0
-        self._param_offset = 0
-        self._data_count = 0
-        self._data_offset = 0
-        self._setup_count = 0
-        self._setup = 0
-        self._name = ''
-        self._pad = ''
-        self._parameters = 0
-        self._data = 0
-        if data != '' and params != '':
-            self._total_param_count, self._total_data_count, _, self._param_count, self._param_offset, self._param_displacement, self._data_count, self._data_offset, self._data_displacement, self._setup_count, _ = unpack ('<HHHHHHHHHBB', params)
-            self._data = data[-self._data_count:]; # Remove -potential- prefix padding.
-            
-    def set_flags(self, flags):
-        self._flags = flags
-    def set_name(self,name):
-        self._name = name
-    def set_setup(self,setup):
-        self._setup = setup
-    def set_parameters(self,parameters):
-        self._parameters = parameters
-        self._total_param_count = len(parameters)
-    def set_data(self, data):
-        self._data = data
-        self._total_data_count = len(data)
-    def set_max_data_count(self, max):
-        self._max_data_count = max
-    def set_max_param_count(self, max):
-        self._max_param_count = max
-    def get_rawParameters(self):
-        self._param_offset = 32+3+28+len(self._setup)+len(self._name)
-        self._data_offset = self._param_offset + len(self._parameters)
-        return pack('<HHHHBBHLHHHHHBB', self._total_param_count, self._total_data_count, self._max_param_count, self._max_data_count, self._max_setup_count,
-                    0,self._flags, self._timeout, 0, self._total_param_count, self._param_offset , self._total_data_count, self._data_offset, len(self._setup) / 2,0 ) + self._setup
-    def get_data(self):
-        return self._data
-    def rawData(self):
-        return self._name +  self._parameters + self._data
-
 class SMBCommand(Structure):
     structure = (
         ('WordCount', 'B=len(Parameters)/2'),
@@ -1451,6 +1402,23 @@ class SMBTransaction_Parameters(SMBCommand_Parameters):
         ('Setup',':'),
     )
 
+class SMBTransactionResponse_Parameters(SMBCommand_Parameters):
+    structure = (
+        ('TotalParameterCount','<H'),
+        ('TotalDataCount','<H'),
+        ('Reserved1','<H'),
+        ('ParameterCount','<H'),
+        ('ParameterOffset','<H'),
+        ('ParameterDisplacement','<H'),
+        ('DataCount','<H'),
+        ('DataOffset','<H'),
+        ('DataDisplacement','<H'),
+        ('SetupCount','<B'),
+        ('Reserved2','<B'),
+        ('SetupLength','_-Setup','SetupCount*2'),
+        ('Setup',':'),
+    )
+
 class SMBTransaction_Data(SMBCommand_Parameters):
     structure = (
         ('NameLength','_-Name'),
@@ -1460,6 +1428,17 @@ class SMBTransaction_Data(SMBCommand_Parameters):
         ('Trans_DataLength','_-Trans_Data'),
         ('Trans_Data',':'),
     )
+
+class SMBTransactionResponse_Data(SMBCommand_Parameters):
+    structure = (
+        ('Trans_ParametersLength','_-Trans_Parameters'),
+        ('Trans_Parameters',':'),
+        ('Trans_DataLength','_-Trans_Data'),
+        ('Trans_Data',':'),
+    )
+
+
+
 
 ############# SMB_COM_READ_ANDX (0x2E)
 class SMBReadAndX_Parameters(SMBAndXCommand_Parameters):
@@ -2619,11 +2598,11 @@ class SMB:
 
         if noAnswer or not waitAnswer:
             return
-
-        s = self.recv_packet()
-        if self.isValidAnswer(s,SMB.SMB_COM_TRANSACTION):
-            trans = TRANSHeader(s.get_parameter_words(), s.get_buffer())
-            return trans.get_data()
+        smb = self.recvSMB()
+        if smb.isValidAnswer(SMB.SMB_COM_TRANSACTION):
+           transResponse = SMBCommand(smb['Data'][0])
+           transParameters = SMBTransaction_Parameters(transResponse['Parameters'])
+           return transResponse['Data'][-transParameters['TotalDataCount']:] # Remove Potential Prefix Padding
 
         return None
 

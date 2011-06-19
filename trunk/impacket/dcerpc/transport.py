@@ -344,11 +344,11 @@ class SMBTransport(DCERPCTransport):
                 self.__pending_recv -= 1
             return self.__smb_server.read_andx(self.__tid, self.__handle, max_size = self._max_recv_frag)
         else:
-            s = self.__smb_server.recv_packet()
-            if self.__smb_server.isValidAnswer(s,smb.SMB.SMB_COM_TRANSACTION):
-                trans = smb.TRANSHeader(s.get_parameter_words(), s.get_buffer())
-                data = trans.get_data()
-                return data
+            s = self.__smb_server.recvSMB()
+            if s.isValidAnswer(smb.SMB.SMB_COM_TRANSACTION):
+               transResponse = smb.SMBCommand(s['Data'][0])
+               transParameters = smb.SMBTransactionResponse_Parameters(transResponse['Parameters'])
+               return transResponse['Data'][-transParameters['TotalDataCount']:] # Remove Potential Prefix Padding
             return None
 
     def get_smb_server(self):
