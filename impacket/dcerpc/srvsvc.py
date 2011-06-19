@@ -9,6 +9,7 @@
 # Description:
 #   SRVSVC interface implementation.
 #
+# TODO: NetServerEnum2 
 
 import array
 from struct import *
