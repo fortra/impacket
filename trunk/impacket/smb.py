@@ -51,7 +51,11 @@ import datetime, time
 from random import randint
 from struct import *
 from dcerpc import samr
+import struct
 from structure import Structure
+
+# For signing
+import hashlib
 
 unicode_support = 0
 unicode_convert = 1
@@ -136,6 +140,10 @@ EVASION_LOW                      = 1
 EVASION_HIGH                     = 2
 EVASION_MAX                      = 3
 RPC_X_BAD_STUB_DATA              = 0x6F7
+
+# Session SetupAndX Action flags
+SMB_SETUP_GUEST                  = 0x01
+SMB_SETUP_USE_LANMAN_KEY         = 0x02
 
 ############### GSS Stuff ################
 GSS_API_SPNEGO_UUID              = '\x2b\x06\x01\x05\x05\x02' 
@@ -1727,6 +1735,12 @@ class SMB:
         self.tid = 0
         self.fid = 0
         
+        # Signing stuff
+        self._SignSequenceNumber = 0
+        self._SigningSessionKey = ''
+        self._SigningChallengeResponse = ''
+        self._SignatureEnabled = False
+
         if timeout==None:
             self.__timeout = 30
         else:
@@ -1795,19 +1809,60 @@ class SMB:
         dataoffset = dataoffset - 55 - setupcnt * 2
         return has_more, params[20:20 + setupcnt * 2], data[paramoffset:paramoffset + paramcnt], data[dataoffset:dataoffset + datacnt]
 
-    def signSMB(self, data, signingSessionKey, signingChallengeResponse):
-        raise
+    # TODO: Move this to NewSMBPacket, it belongs there
+    def signSMB(self, packet, signingSessionKey, signingChallengeResponse):
+        # This logic MUST be applied for messages sent in response to any of the higher-layer actions and in
+        # compliance with the message sequencing rules.
+        #  * The client or server that sends the message MUST provide the 32-bit sequence number for this
+        #    message, as specified in sections 3.2.4.1 and 3.3.4.1.
+        #  * The SMB_FLAGS2_SMB_SECURITY_SIGNATURE flag in the header MUST be set.
+        #  * To generate the signature, a 32-bit sequence number is copied into the 
+        #    least significant 32 bits of the SecuritySignature field and the remaining 
+        #    4 bytes are set to 0x00.
+        #  * The MD5 algorithm, as specified in [RFC1321], MUST be used to generate a hash of the SMB
+        #    message from the start of the SMB Header, which is defined as follows.
+        #    CALL MD5Init( md5context )
+        #    CALL MD5Update( md5context, Connection.SigningSessionKey )
+        #    CALL MD5Update( md5context, Connection.SigningChallengeResponse )
+        #    CALL MD5Update( md5context, SMB message )
+        #    CALL MD5Final( digest, md5context )
+        #    SET signature TO the first 8 bytes of the digest
+        # The resulting 8-byte signature MUST be copied into the SecuritySignature field of the SMB Header,
+        # after which the message can be transmitted.
 
+        #print "signingSessionKey %r, signingChallengeResponse %r" % (signingSessionKey, signingChallengeResponse)
+        packet['SecurityFeatures'] = struct.pack('<q',self._SignSequenceNumber)
+        # Sign with the sequence
+        m = hashlib.md5()
+        m.update( signingSessionKey )
+        m.update( signingChallengeResponse )
+        m.update( str(packet) )
+        # Replace sequence with acual hash
+        dd = m.digest()[:8]
+        #packet['SecurityFeatures'] = m.digest()[:8]
+        packet['SecurityFeatures'] = dd
+        self._SignSequenceNumber +=1
+
+
+    def checkSignSMB(self, packet, signingSessionKey, signingChallengeResponse):
+        # Let's check
+        print "SessionKey(%d) %r, ChallengeResponse(%d) %r" % (len(signingSessionKey), signingSessionKey, len(signingChallengeResponse), signingChallengeResponse)
+        signature = packet['SecurityFeatures']
+        print "Signature received: %r " % signature
+        self.signSMB(packet, signingSessionKey, signingChallengeResponse) 
+        print "Signature calculated: %r" % packet['SecurityFeatures']
+        return packet['SecurityFeatures'] == signature
+         
     def sendSMB(self,smb):
         smb['Uid'] = self._uid
         smb['Pid'] = os.getpid()
-        try:
-           if smb['Flags2'] & SMB.FLAGS2_SMB_SECURITY_SIGNATURE:
-              smb['SecurityFeatures'] =  signSMB(str(smb), self._signingSessionKey, self._signingChallengeResponse)
-        except:
-           pass
+        if self._SignatureEnabled:
+            smb['Flags2'] = SMB.FLAGS2_SMB_SECURITY_SIGNATURE
+            self.signSMB(smb, self._SigningSessionKey, self._SigningChallengeResponse)
         self._sess.send_packet(str(smb))
 
+    # Should be gone soon. Not used anymore within the library. DON'T use it!
+    # Use sendSMB instead (and build the packet with NewSMBPacket)
     def send_smb(self,s):
         s.set_uid(self._uid)
         s.set_pid(os.getpid())
@@ -2213,7 +2268,7 @@ class SMB:
         # Once everything's working we should join login methods into a single one
         smb = NewSMBPacket()
         smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
-        smb['Flags2'] = SMB.FLAGS2_EXTENDED_SECURITY #| SMB.FLAGS2_NT_STATUS
+        smb['Flags2'] = SMB.FLAGS2_EXTENDED_SECURITY #| SMB.FLAGS2_SMB_SECURITY_SIGNATURE #| SMB.FLAGS2_NT_STATUS
 
         sessionSetup = SMBCommand(SMB.SMB_COM_SESSION_SETUP_ANDX)
         sessionSetup['Parameters'] = SMBSessionSetupAndX_Extended_Parameters()
@@ -2281,7 +2336,7 @@ class SMB:
                   # exportedSessionKey = this is the key we should use to sign
                   exportedSessionKey = "".join([random.choice(string.digits+string.letters) for i in xrange(16)])
 
-                  encryptedRandomSessionKey = ntlm.generateSessionKeyV2(keyExchangeKey, exportedSessionKey)
+                  encryptedRandomSessionKey = ntlm.generateEncryptedSessionKey(keyExchangeKey, exportedSessionKey)
                else:
                   encryptedRandomSessionKey = None
 
@@ -2298,13 +2353,18 @@ class SMB:
 
             elif ntlmChallenge['flags'] & ntlm.NTLMSSP_NTLM_KEY:
                # Handle NTLMv1
+               lmResponse, ntResponse, sessionBaseKey = ntlm.computeResponseNTLMv1(ntlmChallenge['challenge'], user, password, lmhash, nthash)
+
+               keyExchangeKey = ntlm.KXKEY(ntlmChallenge['flags'], sessionBaseKey, lmResponse, ntlmChallenge['challenge'], password, lmhash, nthash)
+               # exportedSessionKey = this is the key we should use to sign
+               exportedSessionKey = "".join([random.choice(string.digits+string.letters) for i in xrange(16)])
+
                if ntlmChallenge['flags'] & ntlm.NTLMSSP_KEY_EXCHANGE:
-                    encryptedRandomSessionKey = ntlm.generateSessionKeyV1(password, lmhash, nthash)
+                    encryptedRandomSessionKey = ntlm.generateEncryptedSessionKey(keyExchangeKey, exportedSessionKey)
                else:
                     encryptedRandomSessionKey = None
 
                ntlmChallengeResponse['flags'] = ntlm.NTLMSSP_KEY_128 | ntlm.NTLMSSP_NTLM_KEY | ntlm.NTLMSSP_UNICODE
-               lmResponse, ntResponse = ntlm.computeResponseNTLMv1(ntlmChallenge['challenge'], user, password, lmhash, nthash)
             else:
                 raise Unsupported ("Unsupported authentication flag %d" % ntlmChallenge['flags'])
 
@@ -2313,10 +2373,11 @@ class SMB:
             ntlmChallengeResponse['ntlm'] = ntResponse
             if encryptedRandomSessionKey is not None: 
                 ntlmChallengeResponse['session_key'] = encryptedRandomSessionKey
+                self._SigningSessionKey = exportedSessionKey
 
             smb = NewSMBPacket()
             smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
-            smb['Flags2'] = SMB.FLAGS2_EXTENDED_SECURITY #| SMB.FLAGS2_NT_STATUS
+            smb['Flags2'] = SMB.FLAGS2_EXTENDED_SECURITY #| SMB.FLAGS2_SMB_SECURITY_SIGNATURE  #| SMB.FLAGS2_NT_STATUS
 
             respToken2 = SPNEGO_NegTokenResp()
             respToken2['ResponseToken'] = str(ntlmChallengeResponse)
@@ -2333,6 +2394,11 @@ class SMB:
                 sessionResponse   = SMBCommand(smb['Data'][0])
                 sessionParameters = SMBSessionSetupAndXResponse_Parameters(sessionResponse['Parameters'])
                 sessionData       = SMBSessionSetupAndXResponse_Data(flags = smb['Flags2'], data = sessionResponse['Data'])
+
+                # Let's check the signature
+                #self._SignSequenceNumber = 1
+                #print "SigningKey %r" % self._SigningSessionKey
+                #self.checkSignSMB(smb, self._SigningSessionKey ,self._SigningChallengeResponse)
 
                 self.__server_os     = sessionData['NativeOS']
                 self.__server_lanman = sessionData['NativeLanMan']
@@ -2357,15 +2423,17 @@ class SMB:
             self.login_standard(user, password, domain, lmhash, nthash)
 
     def login_standard(self, user, password, domain = '', lmhash = '', nthash = ''):
-
+        # Only supports NTLMv1
         # Password is only encrypted if the server passed us an "encryption key" during protocol dialect negotiation
         if self._dialects_data['ChallengeLength'] > 0:
             if lmhash != '' or nthash != '':
                pwd_ansi = self.get_ntlmv1_response(lmhash)
                pwd_unicode = self.get_ntlmv1_response(nthash)
             elif password: 
-               pwd_ansi = self.get_ntlmv1_response(ntlm.compute_lmhash(password))
-               pwd_unicode = self.get_ntlmv1_response(ntlm.compute_nthash(password))
+               lmhash = ntlm.compute_lmhash(password)
+               nthash = ntlm.compute_nthash(password)
+               pwd_ansi = self.get_ntlmv1_response(lmhash)
+               pwd_unicode = self.get_ntlmv1_response(nthash)
             else: # NULL SESSION
                pwd_ansi = ''
                pwd_unicode = ''
@@ -2375,6 +2443,7 @@ class SMB:
 
         smb = NewSMBPacket()
         smb['Flags1']  = 8
+        #smb['Flags2']  = SMB.FLAGS2_SMB_SECURITY_SIGNATURE
         
         sessionSetup = SMBCommand(SMB.SMB_COM_SESSION_SETUP_ANDX)
         sessionSetup['Parameters'] = SMBSessionSetupAndX_Parameters()
@@ -2407,6 +2476,17 @@ class SMB:
             sessionParameters = SMBSessionSetupAndXResponse_Parameters(sessionResponse['Parameters'])
             sessionData       = SMBSessionSetupAndXResponse_Data(flags = smb['Flags2'], data = sessionResponse['Data'])
 
+            # Still gotta figure out how to do this with no EXTENDED_SECURITY
+            if sessionParameters['Action'] & SMB_SETUP_USE_LANMAN_KEY == 0:
+                 self._SigningChallengeResponse = sessionSetup['Data']['UnicodePwd'] 
+                 self._SigningSessionKey = nthash
+            else:
+                 self._SigningChallengeResponse = sessionSetup['Data']['AnsiPwd'] 
+                 self._SigningSessionKey = lmhash
+
+            self._SignSequenceNumber = 1
+            self.checkSignSMB(smb, self._SigningSessionKey ,self._SigningChallengeResponse)
+            #self._SignatureEnabled = True
             self.__server_os     = sessionData['NativeOS']
             self.__server_lanman = sessionData['NativeLanMan']
             self.__server_domain = sessionData['PrimaryDomain']
