@@ -428,8 +428,10 @@ def computeResponseNTLMv1(serverChallenge, user, password, lmhash='', nthash='')
         nthash = NTOWFv1(password, lmhash, nthash)
         lmResponse = get_ntlmv1_response(lmhash,serverChallenge)
         ntResponse = get_ntlmv1_response(nthash,serverChallenge)
+   
+    sessionBaseKey = generateSessionKeyV1(password, lmhash, nthash)
 
-    return lmResponse, ntResponse 
+    return lmResponse, ntResponse, sessionBaseKey
 
 def compute_lmhash(password):
     # This is done according to Samba's encryption specification (docs/html/ENCRYPTION.html)
@@ -465,7 +467,7 @@ def get_ntlmv1_response(key, challenge):
 
 # Crypto Stuff
 
-def generateSessionKeyV2(keyExchangeKey, exportedSessionKey):
+def generateEncryptedSessionKey(keyExchangeKey, exportedSessionKey):
    if POW:
        cipher = POW.Symmetric(POW.RC4)
        cipher.encryptInit(keyExchangeKey)
