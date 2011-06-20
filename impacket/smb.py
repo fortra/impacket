@@ -1896,6 +1896,7 @@ class SMB:
     def neg_session(self, extended_security = True):
         smb = NewSMBPacket()
         negSession = SMBCommand(SMB.SMB_COM_NEGOTIATE)
+        #smb['Flags2'] = SMB.FLAGS2_SMB_SECURITY_SIGNATURE
         if extended_security == True:
             smb['Flags2']=SMB.FLAGS2_EXTENDED_SECURITY
         negSession['Data'] = '\x02NT LM 0.12\x00'
@@ -2484,8 +2485,8 @@ class SMB:
                  self._SigningChallengeResponse = sessionSetup['Data']['AnsiPwd'] 
                  self._SigningSessionKey = lmhash
 
-            self._SignSequenceNumber = 1
-            self.checkSignSMB(smb, self._SigningSessionKey ,self._SigningChallengeResponse)
+            #self._SignSequenceNumber = 1
+            #self.checkSignSMB(smb, self._SigningSessionKey ,self._SigningChallengeResponse)
             #self._SignatureEnabled = True
             self.__server_os     = sessionData['NativeOS']
             self.__server_lanman = sessionData['NativeLanMan']
