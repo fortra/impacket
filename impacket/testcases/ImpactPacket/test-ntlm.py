@@ -145,11 +145,11 @@ flags =  ntlm.NTLMSSP_KEY_EXCHANGE | ntlm.NTLMSSP_KEY_56 | ntlm.NTLMSSP_KEY_128 
 print "Flags"
 hexdump(struct.pack('<L',flags))
 print "\n"
-av_pairs = ntlm.AV_PAIRS()
-av_pairs[ntlm.NTLMSSP_AV_HOSTNAME] = serverName.encode('utf-16le')
-av_pairs[ntlm.NTLMSSP_AV_DOMAINNAME] = domain.encode('utf-16le')
-print "AV PAIRS"
-hexdump(av_pairs.getData())
+#av_pairs = ntlm.AV_PAIRS()
+#av_pairs[ntlm.NTLMSSP_AV_HOSTNAME] = serverName.encode('utf-16le')
+#av_pairs[ntlm.NTLMSSP_AV_DOMAINNAME] = domain.encode('utf-16le')
+#print "AV PAIRS"
+#hexdump(av_pairs.getData())
 print "\n"
 print "4.2.4.1.1 NTOWFv2 and LMOWFv2"
 hexdump(ntlm.NTOWFv2(user,password,domain))
@@ -157,7 +157,7 @@ print "\n"
 hexdump(ntlm.LMOWFv2(user,password,domain))
 print "\n"
 print "4.2.4.1.2 Session Base Key"
-ntResponse, lmResponse, sessionBaseKey = ntlm.computeResponseNTLMv2(serverChallenge, clientChallenge, av_pairs, domain, user, password, '', '' )
+ntResponse, lmResponse, sessionBaseKey = ntlm.computeResponseNTLM2(serverChallenge, clientChallenge, serverName, domain, user, password, '', '' )
 hexdump(sessionBaseKey)
 print "\n"
 
