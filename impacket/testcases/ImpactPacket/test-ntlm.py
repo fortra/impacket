@@ -138,6 +138,9 @@ print "\n"
 
 print "####### 4.2.4 NTLMv2 Authentication"
 ntlm.USE_NTLMv2 = True
+serverName = '\x02\x00\x0c\x00\x44\x00\x6f\x00\x6d\x00\x61\x00\x69\x00\x6e\x00\x01\x00\x0c\x00\x53\x00\x65\x00\x72\x00\x76\x00\x65\x00\x72\x00\x00\x00\x00\x00'
+# Still the aTime won't be set to zero. that must be changed in ntlm.computeResponseNTLM2. Gotta make this more automated
+
 flags =  ntlm.NTLMSSP_KEY_EXCHANGE | ntlm.NTLMSSP_KEY_56 | ntlm.NTLMSSP_KEY_128 | ntlm.NTLMSSP_VERSION | ntlm.NTLMSSP_TARGET_INFO | ntlm.NTLMSSP_NTLM2_KEY | ntlm.NTLMSSP_TARGET_TYPE_SERVER | ntlm.NTLMSSP_ALWAYS_SIGN | ntlm.NTLMSSP_NTLM_KEY | ntlm.NTLMSSP_SEAL | ntlm.NTLMSSP_SIGN | ntlm.NTLMSSP_OEM | ntlm.NTLMSSP_UNICODE
 print "Flags"
 hexdump(struct.pack('<L',flags))
