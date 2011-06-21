@@ -11,7 +11,19 @@ import array
 import struct
 import calendar
 import time
+import hashlib
 from impacket.structure import Structure
+
+# This is important. NTLMv2 is not negotiated by the client or server. 
+# It is used if set locally on both sides. Change this item if you don't want to use 
+# NTLMv2 by default and fall back to NTLMv1 (with EXTENDED_SESSION_SECURITY or not)
+# Check the following links:
+# http://davenport.sourceforge.net/ntlm.html
+# http://blogs.msdn.com/b/openspecification/archive/2010/04/20/ntlm-keys-and-sundry-stuff.aspx
+# http://social.msdn.microsoft.com/Forums/en-US/os_interopscenarios/thread/c8f488ed-1b96-4e06-bd65-390aa41138d1/
+# So I'm setting a global variable to control this
+
+USE_NTLMv2 = True # if false will fall back to NTLMv1 (or NTLMv1 with ESS a.k.a NTLM2)
 
 try:
     POW = None
@@ -32,38 +44,38 @@ NTLM_AUTH_PKT           = 4
 NTLM_AUTH_PKT_INTEGRITY = 5
 NTLM_AUTH_PKT_PRIVACY   = 6
 
-NTLMSSP_KEY_56       = 0x80000000
-NTLMSSP_KEY_EXCHANGE = 0x40000000
-NTLMSSP_KEY_128      = 0x20000000
-# NTLMSSP_           = 0x10000000
-# NTLMSSP_           = 0x08000000
-# NTLMSSP_           = 0x04000000
-NTLMSSP_VERSION      = 0x02000000
-# NTLMSSP_           = 0x01000000
-NTLMSSP_TARGET_INFO  = 0x00800000
-# NTLMSSP_           = 0x00200000
-# NTLMSSP_           = 0x00100000
-NTLMSSP_NTLM2_KEY    = 0x00080000
-NTLMSSP_NOT_NT_KEY   = 0x00400000
-NTLMSSP_CHALL_NOT_NT = 0x00040000
-NTLMSSP_CHALL_ACCEPT = 0x00020000
-NTLMSSP_CHALL_INIT   = 0x00010000
-NTLMSSP_ALWAYS_SIGN  = 0x00008000       # forces the other end to sign packets
-NTLMSSP_LOCAL_CALL   = 0x00004000
-NTLMSSP_WORKSTATION  = 0x00002000
-NTLMSSP_DOMAIN       = 0x00001000
-# NTLMSSP_           = 0x00000800
-# NTLMSSP_           = 0x00000400
-NTLMSSP_NTLM_KEY     = 0x00000200
-NTLMSSP_NETWARE      = 0x00000100
-NTLMSSP_LM_KEY       = 0x00000080
-NTLMSSP_DATAGRAM     = 0x00000040
-NTLMSSP_SEAL         = 0x00000020
-NTLMSSP_SIGN         = 0x00000010       # means packet is signed, if verifier is wrong it fails
-# NTLMSSP_           = 0x00000008
-NTLMSSP_TARGET       = 0x00000004
-NTLMSSP_OEM          = 0x00000002
-NTLMSSP_UNICODE      = 0x00000001
+NTLMSSP_KEY_56             = 0x80000000
+NTLMSSP_KEY_EXCHANGE       = 0x40000000
+NTLMSSP_KEY_128            = 0x20000000
+# NTLMSSP_                 = 0x10000000
+# NTLMSSP_                 = 0x08000000
+# NTLMSSP_                 = 0x04000000
+NTLMSSP_VERSION            = 0x02000000
+# NTLMSSP_                 = 0x01000000
+NTLMSSP_TARGET_INFO        = 0x00800000
+# NTLMSSP_                 = 0x00200000
+# NTLMSSP_                 = 0x00100000
+NTLMSSP_NTLM2_KEY          = 0x00080000
+NTLMSSP_NOT_NT_KEY         = 0x00400000
+NTLMSSP_CHALL_NOT_NT       = 0x00040000
+NTLMSSP_TARGET_TYPE_SERVER = 0x00020000
+NTLMSSP_CHALL_INIT         = 0x00010000
+NTLMSSP_ALWAYS_SIGN        = 0x00008000       # forces the other end to sign packets
+NTLMSSP_LOCAL_CALL         = 0x00004000
+NTLMSSP_WORKSTATION        = 0x00002000
+NTLMSSP_DOMAIN             = 0x00001000
+# NTLMSSP_                 = 0x00000800
+# NTLMSSP_                 = 0x00000400
+NTLMSSP_NTLM_KEY           = 0x00000200
+NTLMSSP_NETWARE            = 0x00000100
+NTLMSSP_LM_KEY             = 0x00000080
+NTLMSSP_DATAGRAM           = 0x00000040
+NTLMSSP_SEAL               = 0x00000020
+NTLMSSP_SIGN               = 0x00000010       # means packet is signed, if verifier is wrong it fails
+# NTLMSSP_                 = 0x00000008
+NTLMSSP_TARGET             = 0x00000004
+NTLMSSP_OEM                = 0x00000002
+NTLMSSP_UNICODE            = 0x00000001
 
 # AV_PAIR constants
 NTLMSSP_AV_EOL              = 0x00
@@ -240,10 +252,12 @@ class NTLMAuthChallenge(Structure):
 
     def fromString(self,data):
         Structure.fromString(self,data)
+        # Just in case there's more data after the TargetInfoFields
+        self['TargetInfoFields'] = self['TargetInfoFields'][:self['TargetInfoFields_len']]
         # We gotta process the TargetInfoFields
-        if self['TargetInfoFields_len'] > 0:
-            av_pairs = AV_PAIRS(self['TargetInfoFields'][:self['TargetInfoFields_len']]) 
-            self['TargetInfoFields'] = av_pairs
+        #if self['TargetInfoFields_len'] > 0:
+        #    av_pairs = AV_PAIRS(self['TargetInfoFields'][:self['TargetInfoFields_len']]) 
+        #    self['TargetInfoFields'] = av_pairs
 
         return self
         
@@ -327,31 +341,31 @@ class NTLMAuthChallengeResponse(Structure, NTLMAuthMixin):
 
     def fromString(self,data):
         Structure.fromString(self,data)
+        # I'm leaving this commented, I don't think we really need this. Structure can handle this stuff
+        #domain_offset = self['domain_offset']
+        #domain_end = self['domain_len'] + domain_offset
+        #self['domain_name'] = array.array('u', data[ domain_offset : domain_end ]).tounicode()
 
-        domain_offset = self['domain_offset']
-        domain_end = self['domain_len'] + domain_offset
-        self['domain_name'] = array.array('u', data[ domain_offset : domain_end ]).tounicode()
+        #host_offset = self['host_offset']
+        #host_end    = self['host_len'] + host_offset
+        #self['host_name'] = array.array('u', data[ host_offset: host_end ]).tounicode()
 
-        host_offset = self['host_offset']
-        host_end    = self['host_len'] + host_offset
-        self['host_name'] = array.array('u', data[ host_offset: host_end ]).tounicode()
+        #user_offset = self['user_offset']
+        #user_end    = self['user_len'] + user_offset
+        #self['user_name'] = array.array('u', data[ user_offset: user_end ]).tounicode()
 
-        user_offset = self['user_offset']
-        user_end    = self['user_len'] + user_offset
-        self['user_name'] = array.array('u', data[ user_offset: user_end ]).tounicode()
+        #ntlm_offset = self['ntlm_offset'] 
+        #ntlm_end    = self['ntlm_len'] + ntlm_offset 
+        #self['ntlm'] = data[ ntlm_offset : ntlm_end ]
 
-        ntlm_offset = self['ntlm_offset'] 
-        ntlm_end    = self['ntlm_len'] + ntlm_offset 
-        self['ntlm'] = data[ ntlm_offset : ntlm_end ]
+        #lanman_offset = self['lanman_offset'] 
+        #lanman_end    = self['lanman_len'] + lanman_offset
+        #self['lanman'] = data[ lanman_offset : lanman_end]
 
-        lanman_offset = self['lanman_offset'] 
-        lanman_end    = self['lanman_len'] + lanman_offset
-        self['lanman'] = data[ lanman_offset : lanman_end]
-
-        if len(data) >= 36: 
-            self['os_version'] = data[32:36]
-        else:
-            self['os_version'] = ''
+        #if len(data) >= 36: 
+        #    self['os_version'] = data[32:36]
+        #else:
+        #    self['os_version'] = ''
 
 class DCERPC_NTLMAuthChallengeResponse(NTLMAuthChallengeResponse,DCERPC_NTLMAuthHeader):
     commonHdr = DCERPC_NTLMAuthHeader.commonHdr
@@ -418,7 +432,7 @@ def generateSessionKeyV1(password, lmhash, nthash):
     hash.update(NTOWFv1(password, lmhash, nthash))
     return hash.digest()
     
-def computeResponseNTLMv1(serverChallenge, user, password, lmhash='', nthash=''):
+def computeResponseNTLMv1(flags, serverChallenge, clientChallenge, user, password, lmhash='', nthash=''):
     if (user == '' and password == ''): 
         # Special case for anonymous authentication
         lmResponse = ''
@@ -426,8 +440,18 @@ def computeResponseNTLMv1(serverChallenge, user, password, lmhash='', nthash='')
     else:
         lmhash = LMOWFv1(password, lmhash, nthash)
         nthash = NTOWFv1(password, lmhash, nthash)
-        lmResponse = get_ntlmv1_response(lmhash,serverChallenge)
-        ntResponse = get_ntlmv1_response(nthash,serverChallenge)
+        if flags & NTLMSSP_LM_KEY:
+           ntResponse = ''
+           lmResponse = get_ntlmv1_response(lmhash, serverChallenge)
+        elif flags & NTLMSSP_NTLM2_KEY:
+           md5 = hashlib.new('md5')
+           chall = (serverChallenge + clientChallenge)
+           md5.update(chall)
+           ntResponse = ntlmssp_DES_encrypt(nthash, md5.digest()[:8])
+           lmResponse = clientChallenge + '\x00'*16
+        else:
+           ntResponse = get_ntlmv1_response(nthash,serverChallenge)
+           lmResponse = get_ntlmv1_response(lmhash, serverChallenge)
    
     sessionBaseKey = generateSessionKeyV1(password, lmhash, nthash)
 
@@ -480,6 +504,10 @@ def generateEncryptedSessionKey(keyExchangeKey, exportedSessionKey):
    return sessionKey
 
 def KXKEY(flags, sessionBaseKey, lmChallengeResponse, serverChallenge, password, lmhash, nthash):
+
+   if USE_NTLMv2:
+       return sessionBaseKey
+
    if flags & NTLMSSP_NTLM2_KEY:
        if flags & NTLMSSP_NTLM_KEY: 
           keyExchangeKey = hmac_md5(sessionBaseKey, serverChallenge + lmChallengeResponse[:8])
@@ -487,7 +515,7 @@ def KXKEY(flags, sessionBaseKey, lmChallengeResponse, serverChallenge, password,
           keyExchangeKey = sessionBaseKey
    elif flags & NTLMSSP_NTLM_KEY:
        if flags & NTLMSSP_LM_KEY:
-          keyExchangeKey = __DES_block(LMOWFv1(password,lmash)[:7], lmChallengeResponse[:8]) + __DES_block(LMOWFv1(password,lmhash)[8] + '\xBD\xBD\xBD\xBD\xBD\xBD', lmChallengeResponse[:8])
+          keyExchangeKey = __DES_block(LMOWFv1(password,lmhash)[:7], lmChallengeResponse[:8]) + __DES_block(LMOWFv1(password,lmhash)[7] + '\xBD\xBD\xBD\xBD\xBD\xBD', lmChallengeResponse[:8])
        elif flags & NTLMSSP_NOT_NT_KEY:
           keyExchangeKey = LMOWFv1(password,lmhash)[:8] + '\x00'*8
        else:
@@ -520,7 +548,7 @@ def LMOWFv2( user, password, domain, lmhash = ''):
     return NTOWFv2( user, password, domain, lmhash)
 
 
-def computeResponseNTLMv2(serverChallenge, clientChallenge,  serverName, domain, user, password, lmhash = '', nthash = ''):
+def computeResponseNTLM2(serverChallenge, clientChallenge,  serverName, domain, user, password, lmhash = '', nthash = ''):
 
     if (user == '' and password == ''):
         # Special case for anonymous authentication
@@ -533,11 +561,13 @@ def computeResponseNTLMv2(serverChallenge, clientChallenge,  serverName, domain,
         responseKeyNT = NTOWFv2(user, password, domain, nthash)
         responseKeyLM = LMOWFv2(user, password, domain, lmhash)
 
-        # Generate a time av if no time was provided
-        if serverName[NTLMSSP_AV_TIME] is not None:
-           aTime = serverName[NTLMSSP_AV_TIME][1]
+        av_pairs = AV_PAIRS(serverName)
+        if av_pairs[NTLMSSP_AV_TIME] is not None:
+           aTime = av_pairs[NTLMSSP_AV_TIME][1]
         else:
-           aTime = struct.pack('<q', (116444736000000000 + calendar.timegm(time.gmtime()) * 10000000) )
+           aTime = '\x00'*8
+           #aTime = struct.pack('<q', (116444736000000000 + calendar.timegm(time.gmtime()) * 10000000) )
+          
         # Generate the AV_PAIRS
         #av_pairs = AV_PAIRS()
         #av_pairs[NTLMSSP_AV_HOSTNAME] = serverName
@@ -553,7 +583,7 @@ def computeResponseNTLMv2(serverChallenge, clientChallenge,  serverName, domain,
 
         #serverName[NTLMSSP_AV_TARGET_NAME] = 'cifs/192.168.88.107'.encode('utf-16le')
 
-        temp = responseServerVersion + hiResponseServerVersion + '\x00' * 6 + aTime + clientChallenge + '\x00' * 4 + serverName.getData() + '\x00' * 4
+        temp = responseServerVersion + hiResponseServerVersion + '\x00' * 6 + aTime + clientChallenge + '\x00' * 4 + serverName + '\x00' * 4
 
         ntProofStr = hmac_md5(responseKeyNT, serverChallenge + temp)
 

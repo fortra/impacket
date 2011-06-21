@@ -2325,10 +2325,10 @@ class SMB:
             clientChallenge = "".join([random.choice(string.digits+string.letters) for i in xrange(8)])
 
             if ntlmChallenge['flags'] & ntlm.NTLMSSP_NTLM2_KEY:
-               # Handle NTLMv2
+               # Handle NTLMv2 / NTLM2 (depending on the global ntlm.USE_NTLMv2)
                serverName = ntlmChallenge['TargetInfoFields']
 
-               ntResponse, lmResponse, sessionBaseKey = ntlm.computeResponseNTLMv2(ntlmChallenge['challenge'], clientChallenge, serverName, domain, user, password, lmhash, nthash )
+               ntResponse, lmResponse, sessionBaseKey = ntlm.computeResponseNTLM2(ntlmChallenge['challenge'], clientChallenge, serverName, domain, user, password, lmhash, nthash )
 
                # If we set up key exchange, let's fill the right variables
                if ntlmChallenge['flags'] & ntlm.NTLMSSP_KEY_EXCHANGE:
@@ -2354,7 +2354,8 @@ class SMB:
 
             elif ntlmChallenge['flags'] & ntlm.NTLMSSP_NTLM_KEY:
                # Handle NTLMv1
-               lmResponse, ntResponse, sessionBaseKey = ntlm.computeResponseNTLMv1(ntlmChallenge['challenge'], user, password, lmhash, nthash)
+               clientChallenge = "".join([random.choice(string.digits+string.letters) for i in xrange(8)])
+               lmResponse, ntResponse, sessionBaseKey = ntlm.computeResponseNTLMv1(ntlmChallenge['flags'], ntlmChallenge['challenge'], clientChallenge, user, password, lmhash, nthash)
 
                keyExchangeKey = ntlm.KXKEY(ntlmChallenge['flags'], sessionBaseKey, lmResponse, ntlmChallenge['challenge'], password, lmhash, nthash)
                # exportedSessionKey = this is the key we should use to sign
