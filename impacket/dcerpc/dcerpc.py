@@ -123,6 +123,9 @@ rpc_status_codes = {
     0x1C000025L : 'nca_s_fault_no_client_stub'
 }
 
+class Exception(Exception):
+    pass
+
 class MSRPCArray:
     def __init__(self, id=0, len=0, size=0):
         self._length = len
@@ -527,28 +530,37 @@ class MSRPCBindAck(ImpactPacket.Header):
         self.get_bytes()[26:26+self.get_secondary_addr_len()] = array.array('B', addr)
         self.set_secondary_addr_len(len(addr))
 
-    def _get_results_offset(self):
-        answer = 26+self.get_secondary_addr_len()
-        answer +=3
-        answer -= answer % 4
-        return answer+2
-    
+    def _get_result_list_offset(self):
+        offset = 26+self.get_secondary_addr_len()
+        aligned = (offset + 3) & ~3
+        return aligned
+
     def get_results_num(self):
-        return self.get_byte(self._get_results_offset()-2)
+        return self.get_byte(self._get_result_list_offset())
     def set_results_num(self, num):
-        self.set_byte(self._get_results_offset()-2, num)
+        self.set_byte(self._get_result_list_offset(), num)
+
+    def _get_result_offset(self, index):
+        return self._get_result_list_offset() + 4 + 20*index
 
     def get_result(self, index = 0):
-        return self.get_word(self._get_results_offset()+2*index, '<' )
+        return self.get_word(self._get_result_offset(index)+0, '<' )
     def set_result(self, res, index = 0):
-        self.set_word(self._get_results_offset()+2*index, '<' )
+        self.set_word(self._get_result_offset(index)+0, '<' )
 
-    def get_xfer_syntax_binuuid(self):
-        return self.get_bytes().tolist()[-20:]
-    def set_xfer_syntax_binuuid(self, binuuid):
+    def get_result_reason(self, index = 0):
+        return self.get_word(self._get_result_offset(index)+2, '<' )
+    def set_result_reason(self, res, index = 0):
+        self.set_word(self._get_result_offset(index)+2, '<' )
+
+    # TODO: split this into (20-byte UUID, 4-byte ver)
+    def get_xfer_syntax_binuuid(self, index = 0):
+        offset = _get_result_offset(index)+4
+        return self.get_bytes().tolist()[offset:offset + 20]
+    def set_xfer_syntax_binuuid(self, binuuid, index = 0):
         assert 20 == len(binuuid)
-        self.get_bytes()[-20:] = array.array('B', binuuid)
-
+        offset = _get_result_offset(index)+4
+        self.get_bytes()[offset:offset + 20] = array.array('B', binuuid)
 
     def get_header_size(self):
         var_size = len(self.get_bytes()) - self._SIZE
@@ -757,6 +769,19 @@ class DCERPC_v5(DCERPC):
                 raise Exception(rpc_status_codes[status_code], resp)
             else:
                 raise Exception('Unknown DCE RPC fault status code: %.8x' % status_code, resp)
+
+        # check ack results for each context
+        for ctx in range(bind.get_ctx_num()):
+            result = resp.get_result(ctx)
+            if result != 0:
+                msg = "Bind context %d rejected: " % ctx
+                msg += rpc_cont_def_result.get(result, 'Unknown DCE RPC context result code: %.4x' % result)
+                msg += "; "
+                reason = resp.get_result_reason(ctx)
+                msg += rpc_provider_reason.get(reason, 'Unknown reason code: %.4x' % reason)
+                if (result, reason) == (2, 1): # provider_rejection, abstract syntax not supported
+                    msg += " (this usually means the interface isn't listening on the given endpoint)"
+                raise Exception(msg, resp)
 
         self.__max_xmit_size = resp.get_max_tfrag()
 
