@@ -25,6 +25,11 @@ from impacket.structure import Structure
 
 USE_NTLMv2 = True # if false will fall back to NTLMv1 (or NTLMv1 with ESS a.k.a NTLM2)
 
+def computeResponse(*kargs):
+    if USE_NTLMv2:
+       return computeResponseNTLMv2(*kargs)
+    else:
+       return computeResponseNTLMv1(*kargs)
 try:
     POW = None
     from Crypto.Cipher import ARC4
@@ -432,7 +437,7 @@ def generateSessionKeyV1(password, lmhash, nthash):
     hash.update(NTOWFv1(password, lmhash, nthash))
     return hash.digest()
     
-def computeResponseNTLMv1(flags, serverChallenge, clientChallenge, user, password, lmhash='', nthash=''):
+def computeResponseNTLMv1(flags, serverChallenge, clientChallenge, serverName, domain, user, password, lmhash='', nthash=''):
     if (user == '' and password == ''): 
         # Special case for anonymous authentication
         lmResponse = ''
@@ -548,48 +553,47 @@ def LMOWFv2( user, password, domain, lmhash = ''):
     return NTOWFv2( user, password, domain, lmhash)
 
 
-def computeResponseNTLM2(serverChallenge, clientChallenge,  serverName, domain, user, password, lmhash = '', nthash = ''):
+def computeResponseNTLMv2(flags, serverChallenge, clientChallenge,  serverName, domain, user, password, lmhash = '', nthash = ''):
+
+    responseServerVersion = '\x01'
+    hiResponseServerVersion = '\x01'
+    responseKeyNT = NTOWFv2(user, password, domain, nthash)
+    responseKeyLM = LMOWFv2(user, password, domain, lmhash)
+
+    av_pairs = AV_PAIRS(serverName)
+    if av_pairs[NTLMSSP_AV_TIME] is not None:
+       aTime = av_pairs[NTLMSSP_AV_TIME][1]
+    else:
+       aTime = '\x00'*8
+       #aTime = struct.pack('<q', (116444736000000000 + calendar.timegm(time.gmtime()) * 10000000) )
+          
+    # Generate the AV_PAIRS
+    #av_pairs = AV_PAIRS()
+    #av_pairs[NTLMSSP_AV_HOSTNAME] = serverName
+    #av_pairs[NTLMSSP_AV_DOMAINNAME] = domain.encode('utf-16le')
+    #av_pairs[NTLMSSP_AV_DOMAINNAME] = domain
+    #av_pairs[NTLMSSP_AV_DNS_HOSTNAME] = serverName
+    #av_pairs[NTLMSSP_AV_DNS_DOMAINNAME] = domain.encode('utf-16le')
+    #av_pairs[NTLMSSP_AV_DNS_DOMAINNAME] = domain
+    # Temp stuff, just for testing
+    #av_pairs[NTLMSSP_AV_TARGET_NAME] = 'cifs/192.168.88.107'.encode('utf-16le')
+    #av_pairs[NTLMSSP_AV_TIME] = time
+    #avp = av_pairs.getData()
+
+    #serverName[NTLMSSP_AV_TARGET_NAME] = 'cifs/192.168.88.107'.encode('utf-16le')
+
+    temp = responseServerVersion + hiResponseServerVersion + '\x00' * 6 + aTime + clientChallenge + '\x00' * 4 + serverName + '\x00' * 4
+
+    ntProofStr = hmac_md5(responseKeyNT, serverChallenge + temp)
+
+    ntChallengeResponse = ntProofStr + temp
+    lmChallengeResponse = hmac_md5(responseKeyNT, serverChallenge + clientChallenge) + clientChallenge
+    sessionBaseKey = hmac_md5(responseKeyNT, ntProofStr)
 
     if (user == '' and password == ''):
         # Special case for anonymous authentication
         ntChallengeResponse = ''
         lmChallengeResponse = ''
-        sessionBaseKey = ''
-    else:
-        responseServerVersion = '\x01'
-        hiResponseServerVersion = '\x01'
-        responseKeyNT = NTOWFv2(user, password, domain, nthash)
-        responseKeyLM = LMOWFv2(user, password, domain, lmhash)
-
-        av_pairs = AV_PAIRS(serverName)
-        if av_pairs[NTLMSSP_AV_TIME] is not None:
-           aTime = av_pairs[NTLMSSP_AV_TIME][1]
-        else:
-           aTime = '\x00'*8
-           #aTime = struct.pack('<q', (116444736000000000 + calendar.timegm(time.gmtime()) * 10000000) )
-          
-        # Generate the AV_PAIRS
-        #av_pairs = AV_PAIRS()
-        #av_pairs[NTLMSSP_AV_HOSTNAME] = serverName
-        #av_pairs[NTLMSSP_AV_DOMAINNAME] = domain.encode('utf-16le')
-        #av_pairs[NTLMSSP_AV_DOMAINNAME] = domain
-        #av_pairs[NTLMSSP_AV_DNS_HOSTNAME] = serverName
-        #av_pairs[NTLMSSP_AV_DNS_DOMAINNAME] = domain.encode('utf-16le')
-        #av_pairs[NTLMSSP_AV_DNS_DOMAINNAME] = domain
-        # Temp stuff, just for testing
-        #av_pairs[NTLMSSP_AV_TARGET_NAME] = 'cifs/192.168.88.107'.encode('utf-16le')
-        #av_pairs[NTLMSSP_AV_TIME] = time
-        #avp = av_pairs.getData()
-
-        #serverName[NTLMSSP_AV_TARGET_NAME] = 'cifs/192.168.88.107'.encode('utf-16le')
-
-        temp = responseServerVersion + hiResponseServerVersion + '\x00' * 6 + aTime + clientChallenge + '\x00' * 4 + serverName + '\x00' * 4
-
-        ntProofStr = hmac_md5(responseKeyNT, serverChallenge + temp)
-
-        ntChallengeResponse = ntProofStr + temp
-        lmChallengeResponse = hmac_md5(responseKeyNT, serverChallenge + clientChallenge) + clientChallenge
-        sessionBaseKey = hmac_md5(responseKeyNT, ntProofStr)
 
     return ntChallengeResponse, lmChallengeResponse, sessionBaseKey
 
