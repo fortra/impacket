@@ -923,6 +923,7 @@ class NewSMBPacket(Structure):
     def __init__(self, **kargs):
         Structure.__init__(self, **kargs)
 
+        self['Flags2'] = 0
         if not kargs.has_key('data'):
             self['Data'] = []
     
@@ -1675,6 +1676,8 @@ class SMB:
     SECURITY_SHARE_MASK                     = 0x01
     SECURITY_SHARE_SHARE                    = 0x00
     SECURITY_SHARE_USER                     = 0x01
+    SECURITY_SIGNATURES_ENABLED             = 0X04
+    SECURITY_SIGNATURES_REQUIRED            = 0X08
     
     # Security Auth Mode (Used internally by SMB class)
     SECURITY_AUTH_MASK                      = 0x02
@@ -1862,7 +1865,7 @@ class SMB:
         smb['Uid'] = self._uid
         smb['Pid'] = os.getpid()
         if self._SignatureEnabled:
-            smb['Flags2'] = SMB.FLAGS2_SMB_SECURITY_SIGNATURE
+            smb['Flags2'] |= SMB.FLAGS2_SMB_SECURITY_SIGNATURE
             self.signSMB(smb, self._SigningSessionKey, self._SigningChallengeResponse)
         self._sess.send_packet(str(smb))
 
@@ -1901,7 +1904,6 @@ class SMB:
     def neg_session(self, extended_security = True):
         smb = NewSMBPacket()
         negSession = SMBCommand(SMB.SMB_COM_NEGOTIATE)
-        #smb['Flags2'] = SMB.FLAGS2_SMB_SECURITY_SIGNATURE
         if extended_security == True:
             smb['Flags2']=SMB.FLAGS2_EXTENDED_SECURITY
         negSession['Data'] = '\x02NT LM 0.12\x00'
@@ -2274,7 +2276,10 @@ class SMB:
         # Once everything's working we should join login methods into a single one
         smb = NewSMBPacket()
         smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
-        smb['Flags2'] = SMB.FLAGS2_EXTENDED_SECURITY #| SMB.FLAGS2_SMB_SECURITY_SIGNATURE #| SMB.FLAGS2_NT_STATUS
+        smb['Flags2'] = SMB.FLAGS2_EXTENDED_SECURITY #| SMB.FLAGS2_NT_STATUS
+        # Are we required to sign SMB? If so we do it, if not we skip it
+        if self._dialects_parameters['SecurityMode'] & SMB.SECURITY_SIGNATURES_REQUIRED:
+           smb['Flags2'] |= SMB.FLAGS2_SMB_SECURITY_SIGNATURE
 
         sessionSetup = SMBCommand(SMB.SMB_COM_SESSION_SETUP_ANDX)
         sessionSetup['Parameters'] = SMBSessionSetupAndX_Extended_Parameters()
@@ -2294,7 +2299,7 @@ class SMB:
         # NTLMSSP
         blob['MechTypes'] = [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
         auth = ntlm.NTLMAuthNegotiate()
-        auth['flags'] = ntlm.NTLMSSP_KEY_128 | ntlm.NTLMSSP_NTLM_KEY | ntlm.NTLMSSP_NTLM_KEY | ntlm.NTLMSSP_UNICODE | ntlm.NTLMSSP_TARGET | ntlm.NTLMSSP_KEY_EXCHANGE | ntlm.NTLMSSP_SIGN
+        auth['flags'] = ntlm.NTLMSSP_KEY_128 | ntlm.NTLMSSP_NTLM_KEY | ntlm.NTLMSSP_NTLM2_KEY | ntlm.NTLMSSP_UNICODE | ntlm.NTLMSSP_TARGET | ntlm.NTLMSSP_KEY_EXCHANGE | ntlm.NTLMSSP_SIGN
 
         #auth['host_name'] = 'JACK'
         auth['domain_name'] = domain
@@ -2361,7 +2366,11 @@ class SMB:
 
             smb = NewSMBPacket()
             smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
-            smb['Flags2'] = SMB.FLAGS2_EXTENDED_SECURITY #| SMB.FLAGS2_SMB_SECURITY_SIGNATURE  #| SMB.FLAGS2_NT_STATUS
+            smb['Flags2'] = SMB.FLAGS2_EXTENDED_SECURITY #| SMB.FLAGS2_NT_STATUS
+
+            # Are we required to sign SMB? If so we do it, if not we skip it
+            if self._dialects_parameters['SecurityMode'] & SMB.SECURITY_SIGNATURES_REQUIRED:
+               smb['Flags2'] |= SMB.FLAGS2_SMB_SECURITY_SIGNATURE
 
             respToken2 = SPNEGO_NegTokenResp()
             respToken2['ResponseToken'] = str(ntlmChallengeResponse)
@@ -2379,11 +2388,10 @@ class SMB:
                 sessionParameters = SMBSessionSetupAndXResponse_Parameters(sessionResponse['Parameters'])
                 sessionData       = SMBSessionSetupAndXResponse_Data(flags = smb['Flags2'], data = sessionResponse['Data'])
 
-                # Let's check the signature
-                #self._SignSequenceNumber = 1
-                #print "SigningKey %r" % self._SigningSessionKey
-                #self.checkSignSMB(smb, self._SigningSessionKey ,self._SigningChallengeResponse)
-                #self._SignatureEnabled = True
+                # If smb sign required, let's enable it for the rest of the connection
+                if self._dialects_parameters['SecurityMode'] & SMB.SECURITY_SIGNATURES_REQUIRED:
+                   self._SignSequenceNumber = 2
+                   self._SignatureEnabled = True
 
                 self.__server_os     = sessionData['NativeOS']
                 self.__server_lanman = sessionData['NativeLanMan']
@@ -2428,7 +2436,6 @@ class SMB:
 
         smb = NewSMBPacket()
         smb['Flags1']  = 8
-        #smb['Flags2']  = SMB.FLAGS2_SMB_SECURITY_SIGNATURE
         
         sessionSetup = SMBCommand(SMB.SMB_COM_SESSION_SETUP_ANDX)
         sessionSetup['Parameters'] = SMBSessionSetupAndX_Parameters()
