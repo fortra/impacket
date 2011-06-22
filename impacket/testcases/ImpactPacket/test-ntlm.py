@@ -52,7 +52,7 @@ print "4.2.2.1.2 NTOWFv1()"
 hexdump(ntlm.NTOWFv1(password))
 print "\n"
 print "4.2.2.1.3 Session Base Key and Key Exchange Key"
-lmResponse, ntResponse, sessionBaseKey  = ntlm.computeResponseNTLMv1(long(flags), serverChallenge, clientChallenge, user, password)
+lmResponse, ntResponse, sessionBaseKey  = ntlm.computeResponseNTLMv1(long(flags), serverChallenge, clientChallenge, serverName, domain, user, password, '', '')
 hexdump(sessionBaseKey)
 print "\n"
 print "4.2.2.2.1 NTLMv1 Response"
@@ -64,11 +64,11 @@ print "\n"
 print "4.2.2.2.2 LMv1 Response with NTLMSSP_NEGOTIATE_LM_KEY set"
 flags2 = flags | ntlm.NTLMSSP_LM_KEY
 #hexdump(struct.pack('<L',flags2))
-lmResponse, ntResponse, sessionBaseKey  = ntlm.computeResponseNTLMv1(long(flags2), serverChallenge, clientChallenge, user, password)
+lmResponse, ntResponse, sessionBaseKey  = ntlm.computeResponseNTLMv1(long(flags2), serverChallenge, clientChallenge, serverName, domain, user, password, '', '')
 hexdump(lmResponse)
 print "\n"
 print "4.2.2.2.3 Encrypted Session Key "
-lmResponse, ntResponse, sessionBaseKey  = ntlm.computeResponseNTLMv1(long(flags), serverChallenge, clientChallenge, user, password)
+lmResponse, ntResponse, sessionBaseKey  = ntlm.computeResponseNTLMv1(long(flags), serverChallenge, clientChallenge, serverName, domain, user, password, '', '')
 keyExchangeKey = ntlm.KXKEY(flags, sessionBaseKey, lmResponse, serverChallenge, password,'','')
 encryptedSessionKey = ntlm.generateEncryptedSessionKey(keyExchangeKey,randomSessionKey)
 hexdump(encryptedSessionKey)
@@ -88,7 +88,7 @@ encryptedSessionKey = ntlm.generateEncryptedSessionKey(keyExchangeKey,randomSess
 hexdump(encryptedSessionKey)
 print "\n"
 print "4.2.2.3 AUTHENTICATE MESSAGE"
-lmResponse, ntResponse, sessionBaseKey  = ntlm.computeResponseNTLMv1(long(flags), serverChallenge, clientChallenge, user, password)
+lmResponse, ntResponse, sessionBaseKey  = ntlm.computeResponseNTLMv1(long(flags), serverChallenge, clientChallenge, serverName, domain, user, password, '', '')
 keyExchangeKey = ntlm.KXKEY(flags, sessionBaseKey, lmResponse, serverChallenge, password,'','')
 encryptedSessionKey = ntlm.generateEncryptedSessionKey(keyExchangeKey,randomSessionKey)
 ntlmChallengeResponse = ntlm.NTLMAuthChallengeResponse(user, password, serverChallenge)
@@ -110,7 +110,7 @@ print "4.2.3.1.1 NTOWFv1(password)"
 hexdump(ntlm.NTOWFv1(password))
 print "\n"
 print "4.2.3.1.2 Session Base Key"
-lmResponse, ntResponse, sessionBaseKey  = ntlm.computeResponseNTLMv1(long(flags), serverChallenge, clientChallenge, user, password)
+lmResponse, ntResponse, sessionBaseKey  = ntlm.computeResponseNTLMv1(long(flags), serverChallenge, clientChallenge, serverName, domain, user, password, '', '')
 hexdump(sessionBaseKey)
 print "\n"
 print "4.2.3.1.3 Key Exchange Key"
@@ -157,7 +157,7 @@ print "\n"
 hexdump(ntlm.LMOWFv2(user,password,domain))
 print "\n"
 print "4.2.4.1.2 Session Base Key"
-ntResponse, lmResponse, sessionBaseKey = ntlm.computeResponseNTLM2(serverChallenge, clientChallenge, serverName, domain, user, password, '', '' )
+ntResponse, lmResponse, sessionBaseKey = ntlm.computeResponseNTLMv2(flags, serverChallenge, clientChallenge, serverName, domain, user, password, '', '' )
 hexdump(sessionBaseKey)
 print "\n"
 
