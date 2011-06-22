@@ -923,7 +923,9 @@ class NewSMBPacket(Structure):
     def __init__(self, **kargs):
         Structure.__init__(self, **kargs)
 
-        self['Flags2'] = 0
+        if self.fields.has_key('Flags2') is False:
+             self['Flags2'] = 0
+
         if not kargs.has_key('data'):
             self['Data'] = []
     
@@ -1744,6 +1746,7 @@ class SMB:
         self._SigningChallengeResponse = ''
         self._SignatureEnabled = False
         self._SignatureVerificationEnabled = False
+        self._SignatureRequired = False
 
         if timeout==None:
             self.__timeout = 30
@@ -1918,11 +1921,14 @@ class SMB:
                 self._dialects_data = SMBNTLMDialect_Data()
                 self._dialects_data['ChallengeLength'] = self._dialects_parameters['ChallengeLength']
                 self._dialects_data.fromString(sessionResponse['Data'])
-
-                if smb['Flags2'] & SMB.FLAGS2_EXTENDED_SECURITY > 0:
+                if smb['Flags2'] & SMB.FLAGS2_EXTENDED_SECURITY:
                     # Whether we choose it or it is enforced by the server, we go for extended security
                     self._dialects_parameters = SMBExtended_Security_Parameters(sessionResponse['Parameters'])
                     self._dialects_data = SMBExtended_Security_Data(sessionResponse['Data'])
+                    # Let's setup some variable for later use
+                    if self._dialects_parameters['SecurityMode'] & SMB.SECURITY_SIGNATURES_REQUIRED:
+                         self._SignatureRequired = True
+
                     # Interestingly, the security Blob might be missing sometimes.
                     #spnego = SPNEGO_NegTokenInit(self._smb_extended_security_data['SecurityBlob'])
                     #for i in spnego['MechTypes']:
@@ -1931,11 +1937,6 @@ class SMB:
 
                 # If not, let's try the old way
                 else:
-                    self._dialects_parameters = SMBNTLMDialect_Parameters(sessionResponse['Parameters'])
-                    self._dialects_data = SMBNTLMDialect_Data()
-                    self._dialects_data['ChallengeLength'] = self._dialects_parameters['ChallengeLength']
-                    self._dialects_data.fromString(sessionResponse['Data'])
-
                     if self._dialects_parameters['DialectIndex'] == 0xffff:
                         raise UnsupportedFeature,"Remote server does not know NT LM 0.12"
                     self.__is_pathcaseless = smb['Flags1'] & SMB.FLAGS1_PATHCASELESS
@@ -2276,10 +2277,11 @@ class SMB:
         # Once everything's working we should join login methods into a single one
         smb = NewSMBPacket()
         smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
-        smb['Flags2'] = SMB.FLAGS2_EXTENDED_SECURITY #| SMB.FLAGS2_NT_STATUS
+        smb['Flags2'] = SMB.FLAGS2_EXTENDED_SECURITY 
         # Are we required to sign SMB? If so we do it, if not we skip it
-        if self._dialects_parameters['SecurityMode'] & SMB.SECURITY_SIGNATURES_REQUIRED:
+        if self._SignatureRequired: 
            smb['Flags2'] |= SMB.FLAGS2_SMB_SECURITY_SIGNATURE
+          
 
         sessionSetup = SMBCommand(SMB.SMB_COM_SESSION_SETUP_ANDX)
         sessionSetup['Parameters'] = SMBSessionSetupAndX_Extended_Parameters()
@@ -2299,7 +2301,13 @@ class SMB:
         # NTLMSSP
         blob['MechTypes'] = [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
         auth = ntlm.NTLMAuthNegotiate()
-        auth['flags'] = ntlm.NTLMSSP_KEY_128 | ntlm.NTLMSSP_NTLM_KEY | ntlm.NTLMSSP_NTLM2_KEY | ntlm.NTLMSSP_UNICODE | ntlm.NTLMSSP_TARGET | ntlm.NTLMSSP_KEY_EXCHANGE | ntlm.NTLMSSP_SIGN
+        auth['flags']=0
+        if self._SignatureRequired:
+           auth['flags'] = ntlm.NTLMSSP_KEY_EXCHANGE | ntlm.NTLMSSP_SIGN | ntlm.NTLMSSP_ALWAYS_SIGN
+        if ntlm.USE_NTLMv2:
+           auth['flags'] |= ntlm.NTLMSSP_TARGET_INFO
+        auth['flags'] |= ntlm.NTLMSSP_NTLM_KEY | ntlm.NTLMSSP_NTLM2_KEY | ntlm.NTLMSSP_UNICODE | ntlm.NTLMSSP_TARGET |  ntlm.NTLMSSP_KEY_128 | ntlm.NTLMSSP_KEY_56 
+
 
         #auth['host_name'] = 'JACK'
         auth['domain_name'] = domain
@@ -2356,7 +2364,7 @@ class SMB:
                #if ntlmChallenge['flags'] & ntlm.NTLMSSP_SEAL:
                #    clientSealing = ntlm.SEALKEY(ntlmChallenge['flags'], exportedSessionKey, "Client")
 
-            ntlmChallengeResponse['flags'] = ntlm.NTLMSSP_KEY_128 | ntlm.NTLMSSP_NTLM2_KEY | ntlm.NTLMSSP_UNICODE | ntlm.NTLMSSP_NTLM_KEY | ntlm.NTLMSSP_KEY_EXCHANGE
+            ntlmChallengeResponse['flags'] =  auth['flags']
             ntlmChallengeResponse['domain_name'] = domain.encode('utf-16le')
             ntlmChallengeResponse['lanman'] = lmResponse
             ntlmChallengeResponse['ntlm'] = ntResponse
@@ -2369,7 +2377,7 @@ class SMB:
             smb['Flags2'] = SMB.FLAGS2_EXTENDED_SECURITY #| SMB.FLAGS2_NT_STATUS
 
             # Are we required to sign SMB? If so we do it, if not we skip it
-            if self._dialects_parameters['SecurityMode'] & SMB.SECURITY_SIGNATURES_REQUIRED:
+            if self._SignatureRequired: 
                smb['Flags2'] |= SMB.FLAGS2_SMB_SECURITY_SIGNATURE
 
             respToken2 = SPNEGO_NegTokenResp()

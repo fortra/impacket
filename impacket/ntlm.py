@@ -23,7 +23,7 @@ from impacket.structure import Structure
 # http://social.msdn.microsoft.com/Forums/en-US/os_interopscenarios/thread/c8f488ed-1b96-4e06-bd65-390aa41138d1/
 # So I'm setting a global variable to control this
 
-USE_NTLMv2 = True # if false will fall back to NTLMv1 (or NTLMv1 with ESS a.k.a NTLM2)
+USE_NTLMv2 = False # if false will fall back to NTLMv1 (or NTLMv1 with ESS a.k.a NTLM2)
 
 def computeResponse(*kargs):
     if USE_NTLMv2:
@@ -563,12 +563,13 @@ def computeResponseNTLMv2(flags, serverChallenge, clientChallenge,  serverName, 
     # In order to support SPN target name validation, we have to add this to the serverName av_pairs. Otherwise we will get access denied
     # This is set at Local Security Policy -> Local Policies -> Security Options -> Server SPN target name validation level
     av_pairs[NTLMSSP_AV_TARGET_NAME] = 'cifs/'.encode('utf-16le') + av_pairs[NTLMSSP_AV_HOSTNAME][1]
-    serverName = av_pairs.getData()
     if av_pairs[NTLMSSP_AV_TIME] is not None:
        aTime = av_pairs[NTLMSSP_AV_TIME][1]
     else:
-       aTime = '\x00'*8
-       #aTime = struct.pack('<q', (116444736000000000 + calendar.timegm(time.gmtime()) * 10000000) )
+       aTime = struct.pack('<q', (116444736000000000 + calendar.timegm(time.gmtime()) * 10000000) )
+       #aTime = '\x00'*8
+       av_pairs[NTLMSSP_AV_TIME] = aTime
+    serverName = av_pairs.getData()
           
     # Generate the AV_PAIRS
     #av_pairs = AV_PAIRS()
