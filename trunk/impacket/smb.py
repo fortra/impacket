@@ -1740,6 +1740,7 @@ class SMB:
         self._SigningSessionKey = ''
         self._SigningChallengeResponse = ''
         self._SignatureEnabled = False
+        self._SignatureVerificationEnabled = False
 
         if timeout==None:
             self.__timeout = 30
@@ -1830,7 +1831,7 @@ class SMB:
         # The resulting 8-byte signature MUST be copied into the SecuritySignature field of the SMB Header,
         # after which the message can be transmitted.
 
-        #print "signingSessionKey %r, signingChallengeResponse %r" % (signingSessionKey, signingChallengeResponse)
+        #print "seq(%d) signingSessionKey %r, signingChallengeResponse %r" % (self._SignSequenceNumber, signingSessionKey, signingChallengeResponse)
         packet['SecurityFeatures'] = struct.pack('<q',self._SignSequenceNumber)
         # Sign with the sequence
         m = hashlib.md5()
@@ -1841,16 +1842,20 @@ class SMB:
         dd = m.digest()[:8]
         #packet['SecurityFeatures'] = m.digest()[:8]
         packet['SecurityFeatures'] = dd
-        self._SignSequenceNumber +=1
+        if self._SignatureVerificationEnabled:
+           self._SignSequenceNumber +=1
+        else:
+           self._SignSequenceNumber +=2
 
 
     def checkSignSMB(self, packet, signingSessionKey, signingChallengeResponse):
         # Let's check
-        print "SessionKey(%d) %r, ChallengeResponse(%d) %r" % (len(signingSessionKey), signingSessionKey, len(signingChallengeResponse), signingChallengeResponse)
         signature = packet['SecurityFeatures']
-        print "Signature received: %r " % signature
+        #print "Signature received: %r " % signature
         self.signSMB(packet, signingSessionKey, signingChallengeResponse) 
-        print "Signature calculated: %r" % packet['SecurityFeatures']
+        #print "Signature calculated: %r" % packet['SecurityFeatures']
+        if self._SignatureVerificationEnabled is not True:
+           self._SignSequenceNumber -= 1
         return packet['SecurityFeatures'] == signature
          
     def sendSMB(self,smb):
@@ -2378,6 +2383,7 @@ class SMB:
                 #self._SignSequenceNumber = 1
                 #print "SigningKey %r" % self._SigningSessionKey
                 #self.checkSignSMB(smb, self._SigningSessionKey ,self._SigningChallengeResponse)
+                #self._SignatureEnabled = True
 
                 self.__server_os     = sessionData['NativeOS']
                 self.__server_lanman = sessionData['NativeLanMan']
