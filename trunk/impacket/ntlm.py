@@ -560,6 +560,10 @@ def computeResponseNTLMv2(flags, serverChallenge, clientChallenge,  serverName, 
     responseKeyLM = LMOWFv2(user, password, domain, lmhash)
 
     av_pairs = AV_PAIRS(serverName)
+    # In order to support SPN target name validation, we have to add this to the serverName av_pairs. Otherwise we will get access denied
+    # This is set at Local Security Policy -> Local Policies -> Security Options -> Server SPN target name validation level
+    av_pairs[NTLMSSP_AV_TARGET_NAME] = 'cifs/'.encode('utf-16le') + av_pairs[NTLMSSP_AV_HOSTNAME][1]
+    serverName = av_pairs.getData()
     if av_pairs[NTLMSSP_AV_TIME] is not None:
        aTime = av_pairs[NTLMSSP_AV_TIME][1]
     else:
