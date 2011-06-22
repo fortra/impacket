@@ -2289,7 +2289,7 @@ class SMB:
         # NTLMSSP
         blob['MechTypes'] = [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
         auth = ntlm.NTLMAuthNegotiate()
-        auth['flags'] = ntlm.NTLMSSP_KEY_128 | ntlm.NTLMSSP_NTLM2_KEY | ntlm.NTLMSSP_UNICODE | ntlm.NTLMSSP_TARGET | ntlm.NTLMSSP_KEY_EXCHANGE 
+        auth['flags'] = ntlm.NTLMSSP_KEY_128 | ntlm.NTLMSSP_NTLM_KEY | ntlm.NTLMSSP_NTLM_KEY | ntlm.NTLMSSP_UNICODE | ntlm.NTLMSSP_TARGET | ntlm.NTLMSSP_KEY_EXCHANGE | ntlm.NTLMSSP_SIGN
 
         #auth['host_name'] = 'JACK'
         auth['domain_name'] = domain
@@ -2324,22 +2324,19 @@ class SMB:
             ntlmChallengeResponse = ntlm.NTLMAuthChallengeResponse(user, password, ntlmChallenge['challenge'])
             clientChallenge = "".join([random.choice(string.digits+string.letters) for i in xrange(8)])
 
-            if ntlmChallenge['flags'] & ntlm.NTLMSSP_NTLM2_KEY:
-               # Handle NTLMv2 / NTLM2 (depending on the global ntlm.USE_NTLMv2)
-               serverName = ntlmChallenge['TargetInfoFields']
+            serverName = ntlmChallenge['TargetInfoFields']
 
-               ntResponse, lmResponse, sessionBaseKey = ntlm.computeResponseNTLM2(ntlmChallenge['challenge'], clientChallenge, serverName, domain, user, password, lmhash, nthash )
+            ntResponse, lmResponse, sessionBaseKey = ntlm.computeResponse(ntlmChallenge['flags'], ntlmChallenge['challenge'], clientChallenge, serverName, domain, user, password, lmhash, nthash )
 
-               # If we set up key exchange, let's fill the right variables
-               if ntlmChallenge['flags'] & ntlm.NTLMSSP_KEY_EXCHANGE:
-                  # not exactly what I call random tho :\
-                  keyExchangeKey = ntlm.KXKEY(ntlmChallenge['flags'],sessionBaseKey, lmResponse, ntlmChallenge['challenge'], password, lmhash, nthash)
-                  # exportedSessionKey = this is the key we should use to sign
-                  exportedSessionKey = "".join([random.choice(string.digits+string.letters) for i in xrange(16)])
-
-                  encryptedRandomSessionKey = ntlm.generateEncryptedSessionKey(keyExchangeKey, exportedSessionKey)
-               else:
-                  encryptedRandomSessionKey = None
+            # If we set up key exchange, let's fill the right variables
+            if ntlmChallenge['flags'] & ntlm.NTLMSSP_KEY_EXCHANGE:
+               # not exactly what I call random tho :\
+               keyExchangeKey = ntlm.KXKEY(ntlmChallenge['flags'],sessionBaseKey, lmResponse, ntlmChallenge['challenge'], password, lmhash, nthash)
+               # exportedSessionKey = this is the key we should use to sign
+               exportedSessionKey = "".join([random.choice(string.digits+string.letters) for i in xrange(16)])
+               encryptedRandomSessionKey = ntlm.generateEncryptedSessionKey(keyExchangeKey, exportedSessionKey)
+            else:
+               encryptedRandomSessionKey = None
 
                # Should we prepare for signing?
                #if ntlmChallenge['flags'] & ntlm.NTLMSSP_SIGN:
@@ -2349,28 +2346,8 @@ class SMB:
                #if ntlmChallenge['flags'] & ntlm.NTLMSSP_SEAL:
                #    clientSealing = ntlm.SEALKEY(ntlmChallenge['flags'], exportedSessionKey, "Client")
 
-               ntlmChallengeResponse['flags'] = ntlm.NTLMSSP_KEY_128 | ntlm.NTLMSSP_NTLM2_KEY | ntlm.NTLMSSP_UNICODE | ntlm.NTLMSSP_NTLM_KEY | ntlm.NTLMSSP_KEY_EXCHANGE
-               ntlmChallengeResponse['domain_name'] = domain.encode('utf-16le')
-
-            elif ntlmChallenge['flags'] & ntlm.NTLMSSP_NTLM_KEY:
-               # Handle NTLMv1
-               clientChallenge = "".join([random.choice(string.digits+string.letters) for i in xrange(8)])
-               lmResponse, ntResponse, sessionBaseKey = ntlm.computeResponseNTLMv1(ntlmChallenge['flags'], ntlmChallenge['challenge'], clientChallenge, user, password, lmhash, nthash)
-
-               keyExchangeKey = ntlm.KXKEY(ntlmChallenge['flags'], sessionBaseKey, lmResponse, ntlmChallenge['challenge'], password, lmhash, nthash)
-               # exportedSessionKey = this is the key we should use to sign
-               exportedSessionKey = "".join([random.choice(string.digits+string.letters) for i in xrange(16)])
-
-               if ntlmChallenge['flags'] & ntlm.NTLMSSP_KEY_EXCHANGE:
-                    encryptedRandomSessionKey = ntlm.generateEncryptedSessionKey(keyExchangeKey, exportedSessionKey)
-               else:
-                    encryptedRandomSessionKey = None
-
-               ntlmChallengeResponse['flags'] = ntlm.NTLMSSP_KEY_128 | ntlm.NTLMSSP_NTLM_KEY | ntlm.NTLMSSP_UNICODE
-            else:
-                raise Unsupported ("Unsupported authentication flag %d" % ntlmChallenge['flags'])
-
-           
+            ntlmChallengeResponse['flags'] = ntlm.NTLMSSP_KEY_128 | ntlm.NTLMSSP_NTLM2_KEY | ntlm.NTLMSSP_UNICODE | ntlm.NTLMSSP_NTLM_KEY | ntlm.NTLMSSP_KEY_EXCHANGE
+            ntlmChallengeResponse['domain_name'] = domain.encode('utf-16le')
             ntlmChallengeResponse['lanman'] = lmResponse
             ntlmChallengeResponse['ntlm'] = ntResponse
             if encryptedRandomSessionKey is not None: 
