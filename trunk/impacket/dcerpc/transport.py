@@ -101,7 +101,7 @@ def DCERPCTransportFactory(stringbinding):
         named_pipe = sb.get_endpoint()
         if named_pipe:
             named_pipe = named_pipe[len(r'\pipe'):]
-            return SMBTransport(na, filename = named_pipe, remote_name = na)
+            return SMBTransport(na, filename = named_pipe) #, remote_name = na)
         else:
             return SMBTransport(na)
     else:
