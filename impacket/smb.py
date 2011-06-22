@@ -1921,7 +1921,7 @@ class SMB:
                 self._dialects_data = SMBNTLMDialect_Data()
                 self._dialects_data['ChallengeLength'] = self._dialects_parameters['ChallengeLength']
                 self._dialects_data.fromString(sessionResponse['Data'])
-                if smb['Flags2'] & SMB.FLAGS2_EXTENDED_SECURITY:
+                if self._dialects_parameters['Capabilities'] & SMB.CAP_EXTENDED_SECURITY:
                     # Whether we choose it or it is enforced by the server, we go for extended security
                     self._dialects_parameters = SMBExtended_Security_Parameters(sessionResponse['Parameters'])
                     self._dialects_data = SMBExtended_Security_Data(sessionResponse['Data'])
@@ -1948,7 +1948,7 @@ class SMB:
         # return 0x800
         if password:
             # Password is only encrypted if the server passed us an "encryption" during protocol dialect
-            if self._dialects_data['ChallengeLength'] > 0:
+            if self._dialects_parameters['ChallengeLength'] > 0:
                 # this code is untested
                 password = self.get_ntlmv1_response(ntlm.compute_lmhash(password))
 
@@ -1988,7 +1988,7 @@ class SMB:
     def tree_connect_andx(self, path, password = None, service = SERVICE_ANY, smb_packet=None):
         if password:
             # Password is only encrypted if the server passed us an "encryption" during protocol dialect
-            if self._dialects_data['ChallengeLength'] > 0:
+            if self._dialects_parameters['ChallengeLength'] > 0:
                 # this code is untested
                 password = self.get_ntlmv1_response(ntlm.compute_lmhash(password))
         else:
@@ -2426,7 +2426,7 @@ class SMB:
     def login_standard(self, user, password, domain = '', lmhash = '', nthash = ''):
         # Only supports NTLMv1
         # Password is only encrypted if the server passed us an "encryption key" during protocol dialect negotiation
-        if self._dialects_data['ChallengeLength'] > 0:
+        if self._dialects_parameters['ChallengeLength'] > 0:
             if lmhash != '' or nthash != '':
                pwd_ansi = self.get_ntlmv1_response(lmhash)
                pwd_unicode = self.get_ntlmv1_response(nthash)
