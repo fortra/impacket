@@ -459,8 +459,7 @@ def computeResponseNTLMv1(flags, serverChallenge, clientChallenge, serverName, d
            lmResponse = get_ntlmv1_response(lmhash, serverChallenge)
    
     sessionBaseKey = generateSessionKeyV1(password, lmhash, nthash)
-
-    return lmResponse, ntResponse, sessionBaseKey
+    return ntResponse, lmResponse, sessionBaseKey
 
 def compute_lmhash(password):
     # This is done according to Samba's encryption specification (docs/html/ENCRYPTION.html)
