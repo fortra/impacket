@@ -427,7 +427,6 @@ class DCERPCSrvSvc:
             ndr_str = NDRString().fromString(data[index:])
             shareInfoList[i]['NetName'] = ndr_str['sName']
             index += len(ndr_str)
-        for i in range(b['Info']['Count']):
             ndr_str = NDRString().fromString(data[index:])
             shareInfoList[i]['Remark'] = ndr_str['sName']
             index += len(ndr_str)
