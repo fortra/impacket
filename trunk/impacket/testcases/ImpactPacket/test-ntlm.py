@@ -40,7 +40,9 @@ time = "\x00"*8
 clientChallenge = "\xaa"*8
 serverChallenge = "\x01\x23\x45\x67\x89\xab\xcd\xef"
 flags =  ntlm.NTLMSSP_KEY_EXCHANGE | ntlm.NTLMSSP_KEY_56 | ntlm.NTLMSSP_KEY_128 | ntlm.NTLMSSP_VERSION | ntlm.NTLMSSP_TARGET_TYPE_SERVER | ntlm.NTLMSSP_ALWAYS_SIGN | ntlm.NTLMSSP_NTLM_KEY | ntlm.NTLMSSP_SEAL | ntlm.NTLMSSP_SIGN | ntlm.NTLMSSP_OEM | ntlm.NTLMSSP_UNICODE
-
+print "## BEFORE RUNNING THESE TESTS"
+print "Don't forget to set up aTime = '\x00'*8 in computeResponseNTLMv2 otherwise the results won't be right. "
+print "Look for that in ntlm.py and uncomment that line (then, comment it back for production use)"
 print "Flags"
 hexdump(struct.pack('<L',flags))
 print "####### 4.2.2 NTLMv1 Authentication"
