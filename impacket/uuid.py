@@ -44,6 +44,12 @@ def uuidtup_to_bin(tup):
     if len(tup) != 2: return
     return string_to_bin(tup[0]) + stringver_to_bin(tup[1])
 
+def bin_to_uuidtup(bin):
+    assert len(bin) == 20
+    uuidstr = bin_to_string(bin[:16])
+    maj, min = unpack("<HH", bin[16:])
+    return uuidstr, "%d.%d" % (maj, min)
+
 #input: string
 #output: tuple (uuid,version) 
 #if version is not found in the input string "1.0"  is returned
@@ -58,3 +64,7 @@ def string_to_uuidtup(s):
         (u,v) = g.groups()
         return (u,v)
     return
+
+def uuidtup_to_string(tup):
+    uuid, (maj, min) = tup
+    return "%s v%d.%d" % (uuid, maj, min)
