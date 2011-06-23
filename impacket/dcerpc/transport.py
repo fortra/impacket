@@ -117,6 +117,7 @@ class DCERPCTransport:
         self.__dstport = dstport
         self._max_send_frag = None
         self._max_recv_frag = None
+        self._domain = ''
         self._lmhash = ''
         self._nthash = ''
         self.set_credentials('','')
@@ -169,12 +170,14 @@ class DCERPCTransport:
         return (
             self._username,
             self._password,
+            self._domain,
             self._lmhash,
             self._nthash)
 
     def set_credentials(self, username, password, domain='', lmhash='', nthash=''):
         self._username = username
         self._password = password
+        self._domain   = domain
         if ( lmhash != '' or nthash != ''):
             if len(lmhash) % 2:     lmhash = '0%s' % lmhash
             if len(nthash) % 2:     nthash = '0%s' % nthash
@@ -309,9 +312,9 @@ class SMBTransport(DCERPCTransport):
            self.setup_smb_server()
            if self.__smb_server.is_login_required():
               if self._password != '' or (self._password == '' and self._nthash == '' and self._lmhash == ''):
-                 self.__smb_server.login(self._username, self._password)
+                 self.__smb_server.login(self._username, self._password, self._domain)
               elif self._nthash != '' or self._lmhash != '':
-                self.__smb_server.login(self._username, '', '', self._lmhash, self._nthash)
+                self.__smb_server.login(self._username, '', self._domain, self._lmhash, self._nthash)
         self.__tid = self.__smb_server.tree_connect_andx('\\\\%s\\IPC$' % self.__smb_server.get_remote_name())
         self.__handle = self.__smb_server.nt_create_andx(self.__tid, self.__filename)
         self.__socket = self.__smb_server.get_socket()

@@ -682,6 +682,8 @@ class DCERPC_v5(DCERPC):
     def __init__(self, transport):
         DCERPC.__init__(self, transport)
         self.__auth_level = ntlm.NTLM_AUTH_NONE
+        # Flags of the authenticated session. We will need them throughout the connection
+        self.__auth_flags = 0
         self.__username = None
         self.__password = None
         self.__domain = ''
@@ -748,7 +750,7 @@ class DCERPC_v5(DCERPC):
 
         if (self.__auth_level != ntlm.NTLM_AUTH_NONE):
             if (self.__username is None) or (self.__password is None):
-                self.__username, self.__password, self.__lmhash, self.__nthash = self._transport.get_credentials()
+                self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash = self._transport.get_credentials()
             auth = ntlm.DCERPC_NTLMAuthNegotiate()
             auth['auth_level']  = self.__auth_level
             auth['auth_ctx_id'] = self._ctx + 79231 

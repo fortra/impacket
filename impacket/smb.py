@@ -2302,13 +2302,11 @@ class SMB:
         auth = ntlm.NTLMAuthNegotiate()
         auth['flags']=0
         if self._SignatureRequired:
-           auth['flags'] = ntlm.NTLMSSP_KEY_EXCHANGE | ntlm.NTLMSSP_SIGN | ntlm.NTLMSSP_ALWAYS_SIGN
+           auth['flags'] = ntlm.NTLMSSP_KEY_EXCHANGE | ntlm.NTLMSSP_SIGN | ntlm.NTLMSSP_ALWAYS_SIGN | ntlm.NTLMSSP_SEAL
         if ntlm.USE_NTLMv2:
            responseFlags = ntlm.NTLMSSP_TARGET_INFO
         responseFlags |= ntlm.NTLMSSP_NTLM_KEY | ntlm.NTLMSSP_NTLM2_KEY | ntlm.NTLMSSP_UNICODE | ntlm.NTLMSSP_TARGET |  ntlm.NTLMSSP_KEY_128 | ntlm.NTLMSSP_KEY_56 
         auth['flags'] |= responseFlags
-
-        #auth['host_name'] = 'JACK'
         auth['domain_name'] = domain
 
         blob['MechToken'] = str(auth)
@@ -2336,7 +2334,9 @@ class SMB:
             sessionData['SecurityBlobLength'] = sessionParameters['SecurityBlobLength']
             sessionData.fromString(sessionResponse['Data'])
             respToken = SPNEGO_NegTokenResp(sessionData['SecurityBlob'])
+
             ntlmChallenge = ntlm.NTLMAuthChallenge(respToken['ResponseToken'])
+
             # Token received and parsed. Depending on the authentication 
             # method we will create a valid ChallengeResponse
             ntlmChallengeResponse = ntlm.NTLMAuthChallengeResponse(user, password, ntlmChallenge['challenge'])
