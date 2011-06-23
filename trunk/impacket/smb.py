@@ -2304,9 +2304,9 @@ class SMB:
         if self._SignatureRequired:
            auth['flags'] = ntlm.NTLMSSP_KEY_EXCHANGE | ntlm.NTLMSSP_SIGN | ntlm.NTLMSSP_ALWAYS_SIGN | ntlm.NTLMSSP_SEAL
         if ntlm.USE_NTLMv2:
-           responseFlags = ntlm.NTLMSSP_TARGET_INFO
-        responseFlags |= ntlm.NTLMSSP_NTLM_KEY | ntlm.NTLMSSP_NTLM2_KEY | ntlm.NTLMSSP_UNICODE | ntlm.NTLMSSP_TARGET |  ntlm.NTLMSSP_KEY_128 | ntlm.NTLMSSP_KEY_56 
-        auth['flags'] |= responseFlags
+           auth['flags'] |= ntlm.NTLMSSP_TARGET_INFO
+        auth['flags'] |= ntlm.NTLMSSP_NTLM_KEY | ntlm.NTLMSSP_NTLM2_KEY | ntlm.NTLMSSP_UNICODE | ntlm.NTLMSSP_TARGET |  ntlm.NTLMSSP_KEY_128 | ntlm.NTLMSSP_KEY_56 
+        responseFlags = auth['flags']
         auth['domain_name'] = domain
 
         blob['MechToken'] = str(auth)
@@ -2356,6 +2356,15 @@ class SMB:
             if (ntlmChallenge['flags'] & ntlm.NTLMSSP_KEY_EXCHANGE) == 0:
                 # No key exchange supported, taking it out
                 responseFlags &= 0xffffffff ^ ntlm.NTLMSSP_KEY_EXCHANGE
+            if (ntlmChallenge['flags'] & ntlm.NTLMSSP_SEAL) == 0:
+                # No sign available, taking it out
+                responseFlags &= 0xffffffff ^ ntlm.NTLMSSP_SEAL
+            if (ntlmChallenge['flags'] & ntlm.NTLMSSP_SIGN) == 0:
+                # No sign available, taking it out
+                responseFlags &= 0xffffffff ^ ntlm.NTLMSSP_SIGN
+            if (ntlmChallenge['flags'] & ntlm.NTLMSSP_ALWAYS_SIGN) == 0:
+                # No sign available, taking it out
+                responseFlags &= 0xffffffff ^ ntlm.NTLMSSP_ALWAYS_SIGN
 
             # If we set up key exchange, let's fill the right variables
             if ntlmChallenge['flags'] & ntlm.NTLMSSP_KEY_EXCHANGE:
