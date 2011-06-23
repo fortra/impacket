@@ -670,7 +670,7 @@ class DCERPC:
     def send(self, data): raise RuntimeError, 'virtual method. Not implemented in subclass'
     def recv(self): raise RuntimeError, 'virtual method. Not implemented in subclass'
     def alter_ctx(self, newUID, bogus_binds = ''): raise RuntimeError, 'virtual method. Not implemented in subclass'
-    def set_credentials(self, username, password, lmhash = '', nthash = ''): pass
+    def set_credentials(self, username, password, domain = '', lmhash = '', nthash = ''): pass
     def set_auth_level(self, auth_level): pass
     def get_idempotent(self): return 0
     def set_idempotent(self, flag): pass
@@ -684,6 +684,7 @@ class DCERPC_v5(DCERPC):
         self.__auth_level = ntlm.NTLM_AUTH_NONE
         self.__username = None
         self.__password = None
+        self.__domain = ''
         self.__lmhash = ''
         self.__nthash = ''
         
@@ -694,7 +695,7 @@ class DCERPC_v5(DCERPC):
     def set_max_tfrag(self, size):
         self.__max_xmit_size = size
     
-    def set_credentials(self, username, password, lmhash = '', nthash = ''):
+    def set_credentials(self, username, password, domain = '', lmhash = '', nthash = ''):
         self.set_auth_level(ntlm.NTLM_AUTH_CONNECT)
         # self.set_auth_level(ntlm.NTLM_AUTH_CALL)
         # self.set_auth_level(ntlm.NTLM_AUTH_PKT_INTEGRITY)
@@ -950,7 +951,7 @@ class DCERPC_v5(DCERPC):
     def alter_ctx(self, newUID, bogus_binds = 0):
         answer = self.__class__(self._transport)
 
-        answer.set_credentials(self.__username, self.__password, self.__lmhash, self.__nthash )
+        answer.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash )
         answer.set_auth_level(self.__auth_level)
 
         self._max_ctx += 1
