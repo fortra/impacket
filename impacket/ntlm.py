@@ -385,6 +385,28 @@ class ImpacketStructure(Structure):
     def get_size(self):
         return len(self)
 
+class ExtendedOrNotMessageSignature(Structure):
+    def __init__(self, flags = 0, **kargs):
+        if flags & NTLMSSP_NTLM2_KEY:
+            self.structure = self.extendedMessageSignature
+        else:
+            self.structure = self.MessageSignature
+        return Structure.__init__(self, **kargs)
+
+class NTLMMessageSignature(ExtendedOrNotMessageSignature):
+      extendedMessageSignature = (
+          ('Version','<L=1'),
+          ('Checksum','<Q'),
+          ('SeqNum','<L'),
+      )
+
+      MessageSignature = (
+          ('Version','<L=1'),
+          ('RandomPad','<L=0xabcdabcd'),
+          ('Checksum','<L'),
+          ('SeqNum','<L'),
+      )
+
 class NTLMAuthVerifier(Structure):
     structure = (
         ('version','<L=1'),
