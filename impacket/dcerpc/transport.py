@@ -195,7 +195,8 @@ class UDPTransport(DCERPCTransport):
 
     def connect(self):
         try:
-            self.__socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            af, socktype, proto, canonname, sa = socket.getaddrinfo(self.get_dip(), self.get_dport(), 0, socket.SOCK_DGRAM)[0]
+            self.__socket = socket.socket(af, socktype, proto)
             self.__socket.settimeout(30)
         except socket.error, msg:
             self.__socket = None
@@ -232,7 +233,8 @@ class TCPTransport(DCERPCTransport):
         self.__socket = 0
 
     def connect(self):
-        self.__socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        af, socktype, proto, canonname, sa = socket.getaddrinfo(self.get_dip(), self.get_dport(), 0, socket.SOCK_STREAM)[0]
+        self.__socket = socket.socket(af, socktype, proto)
         try:
             self.__socket.settimeout(300)
             self.__socket.connect((self.get_dip(), self.get_dport()))
