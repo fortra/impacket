@@ -119,7 +119,7 @@ class DCERPCTransport:
         self._max_recv_frag = None
         self._lmhash = ''
         self._nthash = ''
-        self.set_credentials('','','','')
+        self.set_credentials('','')
 
     def connect(self):
         raise RuntimeError, 'virtual function'
@@ -172,7 +172,7 @@ class DCERPCTransport:
             self._lmhash,
             self._nthash)
 
-    def set_credentials(self, username, password, lmhash='', nthash=''):
+    def set_credentials(self, username, password, domain='', lmhash='', nthash=''):
         self._username = username
         self._password = password
         if ( lmhash != '' or nthash != ''):
@@ -285,7 +285,7 @@ class HTTPTransport(TCPTransport):
 class SMBTransport(DCERPCTransport):
     "Implementation of ncacn_np protocol sequence"
 
-    def __init__(self, dstip, dstport = 445, filename = '', username='', password='', lmhash='', nthash='', remote_name='', smb_server = 0):
+    def __init__(self, dstip, dstport = 445, filename = '', username='', password='', domain = '', lmhash='', nthash='', remote_name='', smb_server = 0):
         DCERPCTransport.__init__(self, dstip, dstport)
         self.__socket = None
         self.__smb_server = smb_server
@@ -293,7 +293,7 @@ class SMBTransport(DCERPCTransport):
         self.__filename = filename
         self.__handle = 0
         self.__pending_recv = 0
-        self.set_credentials(username, password, lmhash, nthash)
+        self.set_credentials(username, password, domain, lmhash, nthash)
         self.__remote_name = remote_name
 
     def setup_smb_server(self):
