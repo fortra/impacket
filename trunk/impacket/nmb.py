@@ -417,8 +417,30 @@ class NetBIOS:
     # Creates a NetBIOS instance without specifying any default NetBIOS domain nameserver.
     # All queries will be sent through the servport.
     def __init__(self, servport = NETBIOS_NS_PORT):
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        #s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 #        s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        #has_bind = 1
+        #for i in range(0, 10):
+        # We try to bind to a port for 10 tries
+        #    try:
+        #        s.bind(( INADDR_ANY, randint(10000, 60000) ))
+        #        s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        #        has_bind = 1
+        #    except socket.error, ex:
+        #        pass
+        #if not has_bind:
+        #    raise NetBIOSError, ( 'Cannot bind to a good UDP port', ERRCLASS_OS, errno.EAGAIN )
+
+        #self.__sock = s
+        self.__servport = NETBIOS_NS_PORT
+        self.__nameserver = None
+        self.__broadcastaddr = BROADCAST_ADDR
+        self.mac = '00-00-00-00-00-00'
+
+    def _setup_connection(self, dstaddr):
+        port = randint(10000, 60000)
+        af, socktype, proto, canonname, sa = socket.getaddrinfo(dstaddr, port, 0, socket.SOCK_DGRAM)[0]
+        s = socket.socket(af, socktype, proto)
         has_bind = 1
         for i in range(0, 10):
         # We try to bind to a port for 10 tries
@@ -430,12 +452,7 @@ class NetBIOS:
                 pass
         if not has_bind:
             raise NetBIOSError, ( 'Cannot bind to a good UDP port', ERRCLASS_OS, errno.EAGAIN )
-
         self.__sock = s
-        self.__servport = NETBIOS_NS_PORT
-        self.__nameserver = None
-        self.__broadcastaddr = BROADCAST_ADDR
-        self.mac = '00-00-00-00-00-00'
 
     # Set the default NetBIOS domain nameserver.
     def set_nameserver(self, nameserver):
@@ -473,6 +490,7 @@ class NetBIOS:
         return self.mac
 
     def __queryname(self, nbname, destaddr, type, scope, timeout):
+        self._setup_connection(destaddr)
         netbios_name = string.upper(nbname)
         trn_id = randint(1, 32000)
         p = NetBIOSPacket()
@@ -503,6 +521,7 @@ class NetBIOS:
                         raise NetBIOSTimeout
                 else:
                     data, _ = self.__sock.recvfrom(65536, 0)
+                    self.__sock.close()
                     res = NetBIOSPacket(data)
                     if res.get_trn_id() == p.get_trn_id():
                         if res.get_rcode():
@@ -520,6 +539,7 @@ class NetBIOS:
                 pass
 
     def __querynodestatus(self, nbname, destaddr, type, scope, timeout):
+        self._setup_connection(destaddr)
         trn_id = randint(1, 32000)
         p = NetBIOSPacket()
         p.set_trn_id(trn_id)
@@ -547,6 +567,7 @@ class NetBIOS:
                         data, _ = self.__sock.recvfrom(65536, 0)
                     except Exception, e:
                         raise NetBIOSError, "recvfrom error: %s" % str(e)
+                    self.__sock.close()
                     res = NetBIOSPacket(data)
                     if res.get_trn_id() == p.get_trn_id():
                         if res.get_rcode():
@@ -719,7 +740,11 @@ class NetBIOSUDPSessionPacket(Structure):
 
 class NetBIOSUDPSession(NetBIOSSession):
     def _setup_connection(self, peer):
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        af, socktype, proto, canonname, sa = socket.getaddrinfo(peer[0], peer[1], 0, socket.SOCK_DGRAM)[0]
+        sock = socket.socket(af, socktype, proto)
+        sock.connect(sa)
+
+        sock = socket.socket(af, socktype, proto)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind((INADDR_ANY, 138))
         self.peer = peer
@@ -770,8 +795,9 @@ class NetBIOSUDPSession(NetBIOSSession):
 
 class NetBIOSTCPSession(NetBIOSSession):
     def _setup_connection(self, peer):
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.connect(peer)
+        af, socktype, proto, canonname, sa = socket.getaddrinfo(peer[0], peer[1], 0, socket.SOCK_STREAM)[0]
+        sock = socket.socket(af, socktype, proto)
+        sock.connect(sa)
         return sock
 
     def send_packet(self, data):
