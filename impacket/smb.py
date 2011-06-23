@@ -43,7 +43,6 @@
 import os, sys, socket, string, re, select, errno
 import nmb
 import types
-import md5
 from binascii import a2b_hex
 import ntlm
 import random
@@ -2305,9 +2304,9 @@ class SMB:
         if self._SignatureRequired:
            auth['flags'] = ntlm.NTLMSSP_KEY_EXCHANGE | ntlm.NTLMSSP_SIGN | ntlm.NTLMSSP_ALWAYS_SIGN
         if ntlm.USE_NTLMv2:
-           auth['flags'] |= ntlm.NTLMSSP_TARGET_INFO
-        auth['flags'] |= ntlm.NTLMSSP_NTLM_KEY | ntlm.NTLMSSP_NTLM2_KEY | ntlm.NTLMSSP_UNICODE | ntlm.NTLMSSP_TARGET |  ntlm.NTLMSSP_KEY_128 | ntlm.NTLMSSP_KEY_56 
-
+           responseFlags = ntlm.NTLMSSP_TARGET_INFO
+        responseFlags |= ntlm.NTLMSSP_NTLM_KEY | ntlm.NTLMSSP_NTLM2_KEY | ntlm.NTLMSSP_UNICODE | ntlm.NTLMSSP_TARGET |  ntlm.NTLMSSP_KEY_128 | ntlm.NTLMSSP_KEY_56 
+        auth['flags'] |= responseFlags
 
         #auth['host_name'] = 'JACK'
         auth['domain_name'] = domain
@@ -2329,6 +2328,7 @@ class SMB:
         if smb.isValidAnswer(SMB.SMB_COM_SESSION_SETUP_ANDX):
             # We will need to use this uid field for all future requests/responses
             self._uid = smb['Uid']
+
             # Now we have to extract the blob to continue the auth process
             sessionResponse   = SMBCommand(smb['Data'][0])
             sessionParameters = SMBSessionSetupAndX_Extended_Response_Parameters(sessionResponse['Parameters'])
@@ -2346,12 +2346,41 @@ class SMB:
 
             ntResponse, lmResponse, sessionBaseKey = ntlm.computeResponse(ntlmChallenge['flags'], ntlmChallenge['challenge'], clientChallenge, serverName, domain, user, password, lmhash, nthash )
 
+            # Let's check the return flags
+            if (ntlmChallenge['flags'] & ntlm.NTLMSSP_NTLM2_KEY) == 0:
+                # No extended session security, taking it out
+                responseFlags &= 0xffffffff ^ ntlm.NTLMSSP_NTLM2_KEY
+            if (ntlmChallenge['flags'] & ntlm.NTLMSSP_KEY_128 ) == 0:
+                # No support for 128 key len, taking it out
+                responseFlags &= 0xffffffff ^ ntlm.NTLMSSP_KEY_128
+            if (ntlmChallenge['flags'] & ntlm.NTLMSSP_KEY_EXCHANGE) == 0:
+                # No key exchange supported, taking it out
+                responseFlags &= 0xffffffff ^ ntlm.NTLMSSP_KEY_EXCHANGE
+
             # If we set up key exchange, let's fill the right variables
             if ntlmChallenge['flags'] & ntlm.NTLMSSP_KEY_EXCHANGE:
                # not exactly what I call random tho :\
                keyExchangeKey = ntlm.KXKEY(ntlmChallenge['flags'],sessionBaseKey, lmResponse, ntlmChallenge['challenge'], password, lmhash, nthash)
                # exportedSessionKey = this is the key we should use to sign
                exportedSessionKey = "".join([random.choice(string.digits+string.letters) for i in xrange(16)])
+
+               # Let's generate the right session key based on the challenge flags
+               if responseFlags & ntlm.NTLMSSP_NTLM2_KEY:
+                   # Extended session security enabled
+                   if responseFlags & ntlm.NTLMSSP_KEY_128:
+                       # Full key
+                       exportedSessionKey = exportedSessionKey
+                   elif responseFlags & ntlm.NTLMSSP_KEY_56:
+                       # Only 56-bit key
+                       exportedSessionKey = exportedSessionKey[:7]
+                   else:
+                       exportedSessionKey = exportedSessionKey[:5]
+               elif responseFlags & ntlm.NTLMSSP_KEY_56:
+                   # No extended session security, just 56 bits key
+                   exportedSessionKey = exportedSessionKey[:7] + '\xa0'
+               else:
+                   exportedSessionKey = exportedSessionKey[:5] + '\xe5\x38\xb0'
+
                encryptedRandomSessionKey = ntlm.generateEncryptedSessionKey(keyExchangeKey, exportedSessionKey)
             else:
                encryptedRandomSessionKey = None
@@ -2364,7 +2393,7 @@ class SMB:
                #if ntlmChallenge['flags'] & ntlm.NTLMSSP_SEAL:
                #    clientSealing = ntlm.SEALKEY(ntlmChallenge['flags'], exportedSessionKey, "Client")
 
-            ntlmChallengeResponse['flags'] =  auth['flags']
+            ntlmChallengeResponse['flags'] = responseFlags
             ntlmChallengeResponse['domain_name'] = domain.encode('utf-16le')
             ntlmChallengeResponse['lanman'] = lmResponse
             ntlmChallengeResponse['ntlm'] = ntResponse
