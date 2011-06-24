@@ -1,4 +1,4 @@
-# Copyright (c) 2003-2006 CORE Security Technologies
+# Copyright (c) 2003-2006 CORE Security Technologies:
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -12,6 +12,8 @@ import struct
 import calendar
 import time
 import hashlib
+import random
+import string
 from impacket.structure import Structure
 
 # This is important. NTLMv2 is not negotiated by the client or server. 
@@ -448,6 +450,101 @@ def ntlmssp_DES_encrypt(key, challenge):
     answer += __DES_block(key[7:14], challenge)
     answer += __DES_block(key[14:], challenge)
     return answer
+
+# High level functions to use NTLMSSP
+
+def getNTLMSSPType1(workstation='', domain='', signingRequired = False):
+    # Let's prepare a Type 1 NTLMSSP Message
+    auth = NTLMAuthNegotiate()
+    auth['flags']=0
+    if signingRequired:
+       auth['flags'] = NTLMSSP_KEY_EXCHANGE | NTLMSSP_SIGN | NTLMSSP_ALWAYS_SIGN | NTLMSSP_SEAL
+    if USE_NTLMv2:
+       auth['flags'] |= NTLMSSP_TARGET_INFO
+    auth['flags'] |= NTLMSSP_NTLM_KEY | NTLMSSP_NTLM2_KEY | NTLMSSP_UNICODE | NTLMSSP_TARGET |  NTLMSSP_KEY_128 | NTLMSSP_KEY_56 
+    auth['domain_name'] = domain
+    return auth
+
+def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = ''):
+    ntlmChallenge = NTLMAuthChallenge(type2)
+
+    # Let's start with the original flags sent in the type1 message
+    responseFlags = type1['flags']
+
+    # Token received and parsed. Depending on the authentication 
+    # method we will create a valid ChallengeResponse
+    ntlmChallengeResponse = NTLMAuthChallengeResponse(user, password, ntlmChallenge['challenge'])
+    clientChallenge = "".join([random.choice(string.digits+string.letters) for i in xrange(8)])
+
+    serverName = ntlmChallenge['TargetInfoFields']
+
+    ntResponse, lmResponse, sessionBaseKey = computeResponse(ntlmChallenge['flags'], ntlmChallenge['challenge'], clientChallenge, serverName, domain, user, password, lmhash, nthash )
+
+    # Let's check the return flags
+    if (ntlmChallenge['flags'] & NTLMSSP_NTLM2_KEY) == 0:
+        # No extended session security, taking it out
+        responseFlags &= 0xffffffff ^ NTLMSSP_NTLM2_KEY
+    if (ntlmChallenge['flags'] & NTLMSSP_KEY_128 ) == 0:
+        # No support for 128 key len, taking it out
+        responseFlags &= 0xffffffff ^ NTLMSSP_KEY_128
+    if (ntlmChallenge['flags'] & NTLMSSP_KEY_EXCHANGE) == 0:
+        # No key exchange supported, taking it out
+        responseFlags &= 0xffffffff ^ NTLMSSP_KEY_EXCHANGE
+    if (ntlmChallenge['flags'] & NTLMSSP_SEAL) == 0:
+        # No sign available, taking it out
+        responseFlags &= 0xffffffff ^ NTLMSSP_SEAL
+    if (ntlmChallenge['flags'] & NTLMSSP_SIGN) == 0:
+        # No sign available, taking it out
+        responseFlags &= 0xffffffff ^ NTLMSSP_SIGN
+    if (ntlmChallenge['flags'] & NTLMSSP_ALWAYS_SIGN) == 0:
+        # No sign available, taking it out
+        responseFlags &= 0xffffffff ^ NTLMSSP_ALWAYS_SIGN
+
+    # If we set up key exchange, let's fill the right variables
+    if ntlmChallenge['flags'] & NTLMSSP_KEY_EXCHANGE:
+       # not exactly what I call random tho :\
+       keyExchangeKey = KXKEY(ntlmChallenge['flags'],sessionBaseKey, lmResponse, ntlmChallenge['challenge'], password, lmhash, nthash)
+       # exportedSessionKey = this is the key we should use to sign
+       exportedSessionKey = "".join([random.choice(string.digits+string.letters) for i in xrange(16)])
+
+       # Let's generate the right session key based on the challenge flags
+       if responseFlags & NTLMSSP_NTLM2_KEY:
+           # Extended session security enabled
+           if responseFlags & NTLMSSP_KEY_128:
+               # Full key
+               exportedSessionKey = exportedSessionKey
+           elif responseFlags & NTLMSSP_KEY_56:
+               # Only 56-bit key
+               exportedSessionKey = exportedSessionKey[:7]
+           else:
+               exportedSessionKey = exportedSessionKey[:5]
+       elif responseFlags & NTLMSSP_KEY_56:
+           # No extended session security, just 56 bits key
+           exportedSessionKey = exportedSessionKey[:7] + '\xa0'
+       else:
+           exportedSessionKey = exportedSessionKey[:5] + '\xe5\x38\xb0'
+
+       encryptedRandomSessionKey = generateEncryptedSessionKey(keyExchangeKey, exportedSessionKey)
+    else:
+       encryptedRandomSessionKey = None
+       exportedSessionKey        = None
+
+       # Should we prepare for signing?
+       #if ntlmChallenge['flags'] & ntlm.NTLMSSP_SIGN:
+       #    clientSigning = ntlm.SIGNKEY(ntlmChallenge['flags'], exportedSessionKey, "Client")
+
+       # Should we prepare for Sealing?
+       #if ntlmChallenge['flags'] & ntlm.NTLMSSP_SEAL:
+       #    clientSealing = ntlm.SEALKEY(ntlmChallenge['flags'], exportedSessionKey, "Client")
+
+    ntlmChallengeResponse['flags'] = responseFlags
+    ntlmChallengeResponse['domain_name'] = domain.encode('utf-16le')
+    ntlmChallengeResponse['lanman'] = lmResponse
+    ntlmChallengeResponse['ntlm'] = ntResponse
+    if encryptedRandomSessionKey is not None: 
+        ntlmChallengeResponse['session_key'] = encryptedRandomSessionKey
+
+    return ntlmChallengeResponse, exportedSessionKey
 
 # NTLMv1 Algorithm
 

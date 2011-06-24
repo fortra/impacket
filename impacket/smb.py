@@ -2299,16 +2299,7 @@ class SMB:
 
         # NTLMSSP
         blob['MechTypes'] = [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
-        auth = ntlm.NTLMAuthNegotiate()
-        auth['flags']=0
-        if self._SignatureRequired:
-           auth['flags'] = ntlm.NTLMSSP_KEY_EXCHANGE | ntlm.NTLMSSP_SIGN | ntlm.NTLMSSP_ALWAYS_SIGN | ntlm.NTLMSSP_SEAL
-        if ntlm.USE_NTLMv2:
-           auth['flags'] |= ntlm.NTLMSSP_TARGET_INFO
-        auth['flags'] |= ntlm.NTLMSSP_NTLM_KEY | ntlm.NTLMSSP_NTLM2_KEY | ntlm.NTLMSSP_UNICODE | ntlm.NTLMSSP_TARGET |  ntlm.NTLMSSP_KEY_128 | ntlm.NTLMSSP_KEY_56 
-        responseFlags = auth['flags']
-        auth['domain_name'] = domain
-
+        auth = ntlm.getNTLMSSPType1('',domain,self._SignatureRequired)
         blob['MechToken'] = str(auth)
         
         sessionSetup['Parameters']['SecurityBlobLength']  = len(blob)
@@ -2335,79 +2326,11 @@ class SMB:
             sessionData.fromString(sessionResponse['Data'])
             respToken = SPNEGO_NegTokenResp(sessionData['SecurityBlob'])
 
-            ntlmChallenge = ntlm.NTLMAuthChallenge(respToken['ResponseToken'])
+            type3, exportedSessionKey = ntlm.getNTLMSSPType3(auth, respToken['ResponseToken'], user, password, domain, lmhash, nthash)
 
-            # Token received and parsed. Depending on the authentication 
-            # method we will create a valid ChallengeResponse
-            ntlmChallengeResponse = ntlm.NTLMAuthChallengeResponse(user, password, ntlmChallenge['challenge'])
-            clientChallenge = "".join([random.choice(string.digits+string.letters) for i in xrange(8)])
+            #ntlmChallenge = ntlm.NTLMAuthChallenge(respToken['ResponseToken'])
 
-            serverName = ntlmChallenge['TargetInfoFields']
-
-            ntResponse, lmResponse, sessionBaseKey = ntlm.computeResponse(ntlmChallenge['flags'], ntlmChallenge['challenge'], clientChallenge, serverName, domain, user, password, lmhash, nthash )
-
-            # Let's check the return flags
-            if (ntlmChallenge['flags'] & ntlm.NTLMSSP_NTLM2_KEY) == 0:
-                # No extended session security, taking it out
-                responseFlags &= 0xffffffff ^ ntlm.NTLMSSP_NTLM2_KEY
-            if (ntlmChallenge['flags'] & ntlm.NTLMSSP_KEY_128 ) == 0:
-                # No support for 128 key len, taking it out
-                responseFlags &= 0xffffffff ^ ntlm.NTLMSSP_KEY_128
-            if (ntlmChallenge['flags'] & ntlm.NTLMSSP_KEY_EXCHANGE) == 0:
-                # No key exchange supported, taking it out
-                responseFlags &= 0xffffffff ^ ntlm.NTLMSSP_KEY_EXCHANGE
-            if (ntlmChallenge['flags'] & ntlm.NTLMSSP_SEAL) == 0:
-                # No sign available, taking it out
-                responseFlags &= 0xffffffff ^ ntlm.NTLMSSP_SEAL
-            if (ntlmChallenge['flags'] & ntlm.NTLMSSP_SIGN) == 0:
-                # No sign available, taking it out
-                responseFlags &= 0xffffffff ^ ntlm.NTLMSSP_SIGN
-            if (ntlmChallenge['flags'] & ntlm.NTLMSSP_ALWAYS_SIGN) == 0:
-                # No sign available, taking it out
-                responseFlags &= 0xffffffff ^ ntlm.NTLMSSP_ALWAYS_SIGN
-
-            # If we set up key exchange, let's fill the right variables
-            if ntlmChallenge['flags'] & ntlm.NTLMSSP_KEY_EXCHANGE:
-               # not exactly what I call random tho :\
-               keyExchangeKey = ntlm.KXKEY(ntlmChallenge['flags'],sessionBaseKey, lmResponse, ntlmChallenge['challenge'], password, lmhash, nthash)
-               # exportedSessionKey = this is the key we should use to sign
-               exportedSessionKey = "".join([random.choice(string.digits+string.letters) for i in xrange(16)])
-
-               # Let's generate the right session key based on the challenge flags
-               if responseFlags & ntlm.NTLMSSP_NTLM2_KEY:
-                   # Extended session security enabled
-                   if responseFlags & ntlm.NTLMSSP_KEY_128:
-                       # Full key
-                       exportedSessionKey = exportedSessionKey
-                   elif responseFlags & ntlm.NTLMSSP_KEY_56:
-                       # Only 56-bit key
-                       exportedSessionKey = exportedSessionKey[:7]
-                   else:
-                       exportedSessionKey = exportedSessionKey[:5]
-               elif responseFlags & ntlm.NTLMSSP_KEY_56:
-                   # No extended session security, just 56 bits key
-                   exportedSessionKey = exportedSessionKey[:7] + '\xa0'
-               else:
-                   exportedSessionKey = exportedSessionKey[:5] + '\xe5\x38\xb0'
-
-               encryptedRandomSessionKey = ntlm.generateEncryptedSessionKey(keyExchangeKey, exportedSessionKey)
-            else:
-               encryptedRandomSessionKey = None
-
-               # Should we prepare for signing?
-               #if ntlmChallenge['flags'] & ntlm.NTLMSSP_SIGN:
-               #    clientSigning = ntlm.SIGNKEY(ntlmChallenge['flags'], exportedSessionKey, "Client")
-
-               # Should we prepare for Sealing?
-               #if ntlmChallenge['flags'] & ntlm.NTLMSSP_SEAL:
-               #    clientSealing = ntlm.SEALKEY(ntlmChallenge['flags'], exportedSessionKey, "Client")
-
-            ntlmChallengeResponse['flags'] = responseFlags
-            ntlmChallengeResponse['domain_name'] = domain.encode('utf-16le')
-            ntlmChallengeResponse['lanman'] = lmResponse
-            ntlmChallengeResponse['ntlm'] = ntResponse
-            if encryptedRandomSessionKey is not None: 
-                ntlmChallengeResponse['session_key'] = encryptedRandomSessionKey
+            if exportedSessionKey is not None: 
                 self._SigningSessionKey = exportedSessionKey
 
             smb = NewSMBPacket()
@@ -2419,7 +2342,7 @@ class SMB:
                smb['Flags2'] |= SMB.FLAGS2_SMB_SECURITY_SIGNATURE
 
             respToken2 = SPNEGO_NegTokenResp()
-            respToken2['ResponseToken'] = str(ntlmChallengeResponse)
+            respToken2['ResponseToken'] = str(type3)
 
             # Reusing the previous structure
             sessionSetup['Parameters']['SecurityBlobLength'] = len(respToken2)
