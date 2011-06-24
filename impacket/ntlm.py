@@ -512,10 +512,10 @@ def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = 
         # No sign available, taking it out
         responseFlags &= 0xffffffff ^ NTLMSSP_ALWAYS_SIGN
 
+    keyExchangeKey = KXKEY(ntlmChallenge['flags'],sessionBaseKey, lmResponse, ntlmChallenge['challenge'], password, lmhash, nthash)
     # If we set up key exchange, let's fill the right variables
     if ntlmChallenge['flags'] & NTLMSSP_KEY_EXCHANGE:
        # not exactly what I call random tho :\
-       keyExchangeKey = KXKEY(ntlmChallenge['flags'],sessionBaseKey, lmResponse, ntlmChallenge['challenge'], password, lmhash, nthash)
        # exportedSessionKey = this is the key we should use to sign
        exportedSessionKey = "".join([random.choice(string.digits+string.letters) for i in xrange(16)])
 
