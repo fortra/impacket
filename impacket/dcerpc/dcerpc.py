@@ -752,6 +752,7 @@ class DCERPC_v5(DCERPC):
             if (self.__username is None) or (self.__password is None):
                 self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash = self._transport.get_credentials()
             auth = ntlm.DCERPC_NTLMAuthNegotiate()
+            #auth = ntlm.getNTLMSSPType1('', self.__domain, True, struct_type = 1)
             auth['auth_level']  = self.__auth_level
             auth['auth_ctx_id'] = self._ctx + 79231 
             bind.set_auth_data(str(auth))
@@ -789,6 +790,7 @@ class DCERPC_v5(DCERPC):
         self.__max_xmit_size = resp.get_max_tfrag()
 
         if self.__auth_level != ntlm.NTLM_AUTH_NONE:
+            #response, randomSessionKey = ntlm.getNTLMSSPType3(auth, resp.get_auth_data().tostring(), self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, 1)
             authResp = ntlm.DCERPC_NTLMAuthChallenge(data = resp.get_auth_data().tostring())
             self._ntlm_challenge = authResp['challenge']
             response = ntlm.DCERPC_NTLMAuthChallengeResponse(self.__username,self.__password, self._ntlm_challenge, lmhash = self.__lmhash, nthash = self.__nthash)
