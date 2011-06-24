@@ -14,6 +14,7 @@ import time
 import hashlib
 import random
 import string
+import binascii
 from impacket.structure import Structure
 
 # This is important. NTLMv2 is not negotiated by the client or server. 
@@ -398,15 +399,15 @@ class ExtendedOrNotMessageSignature(Structure):
 class NTLMMessageSignature(ExtendedOrNotMessageSignature):
       extendedMessageSignature = (
           ('Version','<L=1'),
-          ('Checksum','<Q'),
-          ('SeqNum','<L'),
+          ('Checksum','<q'),
+          ('SeqNum','<i'),
       )
 
       MessageSignature = (
           ('Version','<L=1'),
-          ('RandomPad','<L=0xabcdabcd'),
-          ('Checksum','<L'),
-          ('SeqNum','<L'),
+          ('RandomPad','<i=0'),
+          ('Checksum','<i'),
+          ('SeqNum','<i'),
       )
 
 class NTLMAuthVerifier(Structure):
@@ -453,9 +454,12 @@ def ntlmssp_DES_encrypt(key, challenge):
 
 # High level functions to use NTLMSSP
 
-def getNTLMSSPType1(workstation='', domain='', signingRequired = False):
+def getNTLMSSPType1(workstation='', domain='', signingRequired = False, struct_type = 0):
     # Let's prepare a Type 1 NTLMSSP Message
-    auth = NTLMAuthNegotiate()
+    if struct_type == 1:
+       auth = DCERPC_NTLMAuthNegotiate()
+    else:
+       auth = NTLMAuthNegotiate()
     auth['flags']=0
     if signingRequired:
        auth['flags'] = NTLMSSP_KEY_EXCHANGE | NTLMSSP_SIGN | NTLMSSP_ALWAYS_SIGN | NTLMSSP_SEAL
@@ -465,15 +469,23 @@ def getNTLMSSPType1(workstation='', domain='', signingRequired = False):
     auth['domain_name'] = domain
     return auth
 
-def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = ''):
-    ntlmChallenge = NTLMAuthChallenge(type2)
+def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = '', struct_type = 0):
+
+    if struct_type == 1:
+        ntlmChallenge = DCERPC_NTLMAuthChallenge(type2)
+    else:
+        ntlmChallenge = NTLMAuthChallenge(type2)
 
     # Let's start with the original flags sent in the type1 message
     responseFlags = type1['flags']
 
     # Token received and parsed. Depending on the authentication 
     # method we will create a valid ChallengeResponse
-    ntlmChallengeResponse = NTLMAuthChallengeResponse(user, password, ntlmChallenge['challenge'])
+    if struct_type == 1:
+        ntlmChallengeResponse = DCERPC_NTLMAuthChallengeResponse(user, password, ntlmChallenge['challenge'])
+    else:
+        ntlmChallengeResponse = NTLMAuthChallengeResponse(user, password, ntlmChallenge['challenge'])
+
     clientChallenge = "".join([random.choice(string.digits+string.letters) for i in xrange(8)])
 
     serverName = ntlmChallenge['TargetInfoFields']
@@ -546,6 +558,7 @@ def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = 
 
     return ntlmChallengeResponse, exportedSessionKey
 
+
 # NTLMv1 Algorithm
 
 def generateSessionKeyV1(password, lmhash, nthash):
@@ -614,6 +627,81 @@ def get_ntlmv1_response(key, challenge):
 
 # Crypto Stuff
 
+def MAC(flags, handle, signingKey, seqNum, message):
+   # [MS-NLMP] Section 3.4.4
+   # Returns the right messageSignature depending on the flags
+   messageSignature = NTLMMessageSignature(flags)
+   if flags & NTLMSSP_NTLM2_KEY:
+       if flags & NTLMSSP_KEY_EXCHANGE:
+           messageSignature['Version'] = 1
+           messageSignature['Checksum'] = struct.unpack('<q',handle(hmac_md5(signingKey, struct.pack('<i',seqNum)+message)[:8]))[0]
+           messageSignature['SeqNum'] = seqNum
+           seqNum += 1
+       else:
+           messageSignature['Version'] = 1
+           messageSignature['Checksum'] = struct.unpack('<q',hmac_md5(signingKey, struct.pack('<i',seqNum)+message)[:8])[0]
+           messageSignature['SeqNum'] = seqNum
+           seqNum += 1
+   else:
+       messageSignature['Version'] = 1
+       messageSignature['Checksum'] = struct.pack('<i',binascii.crc32(message))
+       messageSignature['RandomPad'] = 0
+       messageSignature['RandomPad'] = handle(struct.pack('<i',messageSignature['RandomPad']))
+       messageSignature['Checksum'] = struct.unpack('<i',handle(messageSignature['Checksum']))[0]
+       messageSignature['SeqNum'] = handle('\x00\x00\x00\x00')
+       messageSignature['SeqNum'] = struct.unpack('i',messageSignature['SeqNum'])[0] ^ seqNum
+       messageSignature['RandomPad'] = 0
+       
+   return messageSignature.getData()
+
+def SEAL(flags, sealingKey, message, seqNum, handle):
+   sealedMessage = handle(message)
+   signature = MAC(flags, handle, sealingKey, seqNum, message)
+   return sealedMessage, signature
+
+def SIGN(flags, signingKey, message, seqNum, handle):
+   return message + MAC(flags, handle, signingKey, seqNum, message)
+
+def SIGNKEY(flags, randomSessionKey, mode = 'Client'):
+   if flags & NTLMSSP_NTLM2_KEY:
+       if mode == 'Client':
+           md5 = hashlib.new('md5')
+           md5.update(randomSessionKey + "session key to client-to-server signing key magic constant")
+           signKey = md5.digest()
+       else:
+           md5 = hashlib.new('md5')
+           md5.update(randomSessionKey + "session key to server-to-client signing key magic constant")
+           signKey = md5.digest()
+   else:
+       signKey = None
+   return signKey
+
+def SEALKEY(flags, randomSessionKey, mode = 'Client'):
+   if flags & NTLMSSP_NTLM2_KEY:
+       if flags & NTLMSSP_KEY_128:
+           sealKey = randomSessionKey
+       elif flags & NTLMSSP_KEY_56:
+           sealKey = randomSessionKey[:7]
+       else:
+           sealKey = randomSessionKey[:5]
+
+       if mode == 'Client':
+               md5 = hashlib.new('md5')
+               md5.update(sealKey + 'session key to client-to-server sealing key magic constant')
+               sealKey = md5.digest()
+       else:
+               md5 = hashlib.new('md5')
+               md5.update(sealKey + 'session key to server-to-client sealing key magic constant')
+               sealKey = md5.digest()
+
+   elif flags & NTLMSSP_KEY_56:
+       sealKey = randomSessionKey[:7] + '\xa0'
+   else:
+       sealKey = randomSessionKey[:5] + '\xe5\x38\xb0'
+
+   return sealKey
+
+
 def generateEncryptedSessionKey(keyExchangeKey, exportedSessionKey):
    if POW:
        cipher = POW.Symmetric(POW.RC4)
@@ -678,6 +766,8 @@ def computeResponseNTLMv2(flags, serverChallenge, clientChallenge,  serverName, 
     responseKeyNT = NTOWFv2(user, password, domain, nthash)
     responseKeyLM = LMOWFv2(user, password, domain, lmhash)
 
+    # If you're running test-ntlm, comment the following lines and uncoment the ones that are commented. Don't forget to turn it back after the tests!
+    ######################
     av_pairs = AV_PAIRS(serverName)
     # In order to support SPN target name validation, we have to add this to the serverName av_pairs. Otherwise we will get access denied
     # This is set at Local Security Policy -> Local Policies -> Security Options -> Server SPN target name validation level
@@ -690,21 +780,9 @@ def computeResponseNTLMv2(flags, serverChallenge, clientChallenge,  serverName, 
        av_pairs[NTLMSSP_AV_TIME] = aTime
     serverName = av_pairs.getData()
           
-    # Generate the AV_PAIRS
-    #av_pairs = AV_PAIRS()
-    #av_pairs[NTLMSSP_AV_HOSTNAME] = serverName
-    #av_pairs[NTLMSSP_AV_DOMAINNAME] = domain.encode('utf-16le')
-    #av_pairs[NTLMSSP_AV_DOMAINNAME] = domain
-    #av_pairs[NTLMSSP_AV_DNS_HOSTNAME] = serverName
-    #av_pairs[NTLMSSP_AV_DNS_DOMAINNAME] = domain.encode('utf-16le')
-    #av_pairs[NTLMSSP_AV_DNS_DOMAINNAME] = domain
-    # Temp stuff, just for testing
-    #av_pairs[NTLMSSP_AV_TARGET_NAME] = 'cifs/192.168.88.107'.encode('utf-16le')
-    #av_pairs[NTLMSSP_AV_TIME] = time
-    #avp = av_pairs.getData()
-
-    #serverName[NTLMSSP_AV_TARGET_NAME] = 'cifs/192.168.88.107'.encode('utf-16le')
-
+    ######################
+    #aTime = '\x00'*8
+    ######################
     temp = responseServerVersion + hiResponseServerVersion + '\x00' * 6 + aTime + clientChallenge + '\x00' * 4 + serverName + '\x00' * 4
 
     ntProofStr = hmac_md5(responseKeyNT, serverChallenge + temp)
