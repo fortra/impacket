@@ -40,6 +40,10 @@ time = "\x00"*8
 clientChallenge = "\xaa"*8
 serverChallenge = "\x01\x23\x45\x67\x89\xab\xcd\xef"
 flags =  ntlm.NTLMSSP_KEY_EXCHANGE | ntlm.NTLMSSP_KEY_56 | ntlm.NTLMSSP_KEY_128 | ntlm.NTLMSSP_VERSION | ntlm.NTLMSSP_TARGET_TYPE_SERVER | ntlm.NTLMSSP_ALWAYS_SIGN | ntlm.NTLMSSP_NTLM_KEY | ntlm.NTLMSSP_SEAL | ntlm.NTLMSSP_SIGN | ntlm.NTLMSSP_OEM | ntlm.NTLMSSP_UNICODE
+seqNum = 0
+nonce = '\x00' * 4
+plaintext = 'Plaintext'.encode('utf-16le')
+
 print "## BEFORE RUNNING THESE TESTS"
 print "Don't forget to set up aTime = '\x00'*8 in computeResponseNTLMv2 otherwise the results won't be right. "
 print "Look for that in ntlm.py and uncomment that line (then, comment it back for production use)"
@@ -103,6 +107,20 @@ ntlmChallengeResponse['session_key'] = encryptedSessionKey
 hexdump(str(ntlmChallengeResponse))
 print "\n"
 
+print "4.2.2.4 GSS_WrapEx"
+print "Output of SEAL()"
+from Crypto.Cipher import ARC4
+cipher = ARC4.new(randomSessionKey)
+handle = cipher.encrypt
+print "Plaintext"
+hexdump(plaintext)
+print "\n"
+sealedMsg, signature = ntlm.SEAL(flags, nonce, plaintext, seqNum, handle)
+hexdump(sealedMsg)
+print "\n"
+hexdump(signature)
+print "\n"
+
 print "####### 4.2.3 NTLMv1 with Client Challenge"
 flags =  ntlm.NTLMSSP_KEY_56 | ntlm.NTLMSSP_VERSION | ntlm.NTLMSSP_NTLM2_KEY | ntlm.NTLMSSP_TARGET_TYPE_SERVER | ntlm.NTLMSSP_ALWAYS_SIGN | ntlm.NTLMSSP_NTLM_KEY | ntlm.NTLMSSP_SEAL | ntlm.NTLMSSP_SIGN | ntlm.NTLMSSP_OEM | ntlm.NTLMSSP_UNICODE
 print "Flags"
@@ -137,7 +155,28 @@ ntlmChallengeResponse['lanman'] = lmResponse
 ntlmChallengeResponse['ntlm'] = ntResponse
 hexdump(str(ntlmChallengeResponse))
 print "\n"
+print "4.2.3.4 GSS_WrapEx"
+print "Plaintext"
+hexdump(plaintext)
+print "\n"
+print "Output of SEAL()"
 
+from Crypto.Cipher import ARC4
+cipher = ARC4.new(keyExchangeKey)
+handle = cipher.encrypt
+keySeal = ntlm.SEALKEY(flags,keyExchangeKey)
+print "SEALKEY()"
+hexdump(keySeal)
+print "\n"
+print "SIGNKEY()"
+keySign = ntlm.SIGNKEY(flags,keyExchangeKey)
+hexdump(keySign)
+print "\n"
+sealedMsg, signature = ntlm.SEAL(flags, keySeal, plaintext, seqNum, handle)
+hexdump(sealedMsg)
+print "\n"
+hexdump(signature)
+print "\n"
 print "####### 4.2.4 NTLMv2 Authentication"
 ntlm.USE_NTLMv2 = True
 serverName = '\x02\x00\x0c\x00\x44\x00\x6f\x00\x6d\x00\x61\x00\x69\x00\x6e\x00\x01\x00\x0c\x00\x53\x00\x65\x00\x72\x00\x76\x00\x65\x00\x72\x00\x00\x00\x00\x00'
@@ -185,4 +224,26 @@ ntlmChallengeResponse['lanman'] = lmResponse
 ntlmChallengeResponse['ntlm'] = ntResponse
 ntlmChallengeResponse['session_key'] = encryptedSessionKey
 hexdump(str(ntlmChallengeResponse))
+print "\n"
+print "4.2.4.4 GSS_WrapEx"
+print "Plaintext"
+hexdump(plaintext)
+print "\n"
+print "Output of SEAL()"
+
+from Crypto.Cipher import ARC4
+cipher = ARC4.new(randomSessionKey)
+handle = cipher.encrypt
+keySeal = ntlm.SEALKEY(flags,randomSessionKey)
+print "SEALKEY()"
+hexdump(keySeal)
+print "\n"
+print "SIGNKEY()"
+keySign = ntlm.SIGNKEY(flags,randomSessionKey)
+hexdump(keySign)
+print "\n"
+sealedMsg, signature = ntlm.SEAL(flags, keySeal, plaintext, seqNum, handle)
+hexdump(sealedMsg)
+print "\n"
+hexdump(signature)
 print "\n"
