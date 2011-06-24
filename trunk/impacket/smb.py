@@ -1748,7 +1748,7 @@ class SMB:
         self._SignatureRequired = False
 
         if timeout==None:
-            self.__timeout = 30
+            self.__timeout = 5
         else:
             self.__timeout = timeout
         
