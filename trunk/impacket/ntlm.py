@@ -539,7 +539,8 @@ def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = 
        encryptedRandomSessionKey = generateEncryptedSessionKey(keyExchangeKey, exportedSessionKey)
     else:
        encryptedRandomSessionKey = None
-       exportedSessionKey        = None
+       # [MS-NLMP] page 46
+       exportedSessionKey        = keyExchangeKey
 
        # Should we prepare for signing?
        #if ntlmChallenge['flags'] & ntlm.NTLMSSP_SIGN:
