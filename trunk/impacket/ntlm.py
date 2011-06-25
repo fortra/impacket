@@ -655,9 +655,9 @@ def MAC(flags, handle, signingKey, seqNum, message):
        
    return messageSignature.getData()
 
-def SEAL(flags, sealingKey, message, seqNum, handle):
-   sealedMessage = handle(message)
-   signature = MAC(flags, handle, sealingKey, seqNum, message)
+def SEAL(flags, sealingKey, signingKey, message, seqNum, handle_seal, handle_sign):
+   sealedMessage = handle_seal(message)
+   signature = MAC(flags, handle_sign, signingKey, seqNum, message)
    return sealedMessage, signature
 
 def SIGN(flags, signingKey, message, seqNum, handle):
