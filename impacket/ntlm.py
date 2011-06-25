@@ -667,11 +667,11 @@ def SIGNKEY(flags, randomSessionKey, mode = 'Client'):
    if flags & NTLMSSP_NTLM2_KEY:
        if mode == 'Client':
            md5 = hashlib.new('md5')
-           md5.update(randomSessionKey + "session key to client-to-server signing key magic constant")
+           md5.update(randomSessionKey + "session key to client-to-server signing key magic constant\x00")
            signKey = md5.digest()
        else:
            md5 = hashlib.new('md5')
-           md5.update(randomSessionKey + "session key to server-to-client signing key magic constant")
+           md5.update(randomSessionKey + "session key to server-to-client signing key magic constant\x00")
            signKey = md5.digest()
    else:
        signKey = None
@@ -688,11 +688,11 @@ def SEALKEY(flags, randomSessionKey, mode = 'Client'):
 
        if mode == 'Client':
                md5 = hashlib.new('md5')
-               md5.update(sealKey + 'session key to client-to-server sealing key magic constant')
+               md5.update(sealKey + 'session key to client-to-server sealing key magic constant\x00')
                sealKey = md5.digest()
        else:
                md5 = hashlib.new('md5')
-               md5.update(sealKey + 'session key to server-to-client sealing key magic constant')
+               md5.update(sealKey + 'session key to server-to-client sealing key magic constant\x00')
                sealKey = md5.digest()
 
    elif flags & NTLMSSP_KEY_56:
