@@ -45,8 +45,8 @@ nonce = '\x00' * 4
 plaintext = 'Plaintext'.encode('utf-16le')
 
 print "## BEFORE RUNNING THESE TESTS"
-print "Don't forget to set up aTime = '\x00'*8 in computeResponseNTLMv2 otherwise the results won't be right. "
-print "Look for that in ntlm.py and uncomment that line (then, comment it back for production use)"
+print "Don't forget to set up aTime = '\\x00'*8 in computeResponseNTLMv2 otherwise the results won't be right. "
+print "Look for that in ntlm.py and uncomment the lines, comment the other ones and don't forget to revert everything back whenever finished testing"
 print "Flags"
 hexdump(struct.pack('<L',flags))
 print "####### 4.2.2 NTLMv1 Authentication"
@@ -179,9 +179,11 @@ print "\n"
 print "SIGNKEY()"
 hexdump(clientSigningKey)
 print "\n"
+print "Sealed Data"
 sealedMsg, signature = ntlm.SEAL(flags, clientSealingKey, clientSigningKey, plaintext, seqNum, client_sealing_h, client_signing_h)
 hexdump(sealedMsg)
 print "\n"
+print "Signature"
 hexdump(signature)
 print "\n"
 print "####### 4.2.4 NTLMv2 Authentication"
@@ -238,19 +240,28 @@ hexdump(plaintext)
 print "\n"
 print "Output of SEAL()"
 
+exportedSessionKey = randomSessionKey
+clientSigningKey = ntlm.SIGNKEY(flags, exportedSessionKey)
+serverSigningKey = ntlm.SIGNKEY(flags, exportedSessionKey, "Server")
+clientSealingKey = ntlm.SEALKEY(flags, exportedSessionKey)
+serverSealingKey = ntlm.SEALKEY(flags, exportedSessionKey, "Server")
+
 from Crypto.Cipher import ARC4
-cipher = ARC4.new(randomSessionKey)
-handle = cipher.encrypt
-keySeal = ntlm.SEALKEY(flags,randomSessionKey)
+cipher = ARC4.new(clientSigningKey)
+client_signing_h = cipher.encrypt
+
+cipher2 = ARC4.new(clientSealingKey)
+client_sealing_h = cipher2.encrypt
 print "SEALKEY()"
-hexdump(keySeal)
+hexdump(clientSealingKey)
 print "\n"
 print "SIGNKEY()"
-keySign = ntlm.SIGNKEY(flags,randomSessionKey)
-hexdump(keySign)
+hexdump(clientSigningKey)
 print "\n"
-sealedMsg, signature = ntlm.SEAL(flags, keySeal, plaintext, seqNum, handle)
+print "Sealed Data"
+sealedMsg, signature = ntlm.SEAL(flags, clientSealingKey, clientSigningKey, plaintext, seqNum, client_sealing_h, client_signing_h)
 hexdump(sealedMsg)
 print "\n"
+print "Signature"
 hexdump(signature)
 print "\n"
