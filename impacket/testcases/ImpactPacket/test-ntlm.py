@@ -161,18 +161,25 @@ hexdump(plaintext)
 print "\n"
 print "Output of SEAL()"
 
+exportedSessionKey = keyExchangeKey
+clientSigningKey = ntlm.SIGNKEY(flags, exportedSessionKey)
+serverSigningKey = ntlm.SIGNKEY(flags, exportedSessionKey, "Server")
+clientSealingKey = ntlm.SEALKEY(flags, exportedSessionKey)
+serverSealingKey = ntlm.SEALKEY(flags, exportedSessionKey, "Server")
+
 from Crypto.Cipher import ARC4
-cipher = ARC4.new(keyExchangeKey)
-handle = cipher.encrypt
-keySeal = ntlm.SEALKEY(flags,keyExchangeKey)
+cipher = ARC4.new(clientSigningKey)
+client_signing_h = cipher.encrypt
+
+cipher2 = ARC4.new(clientSealingKey)
+client_sealing_h = cipher2.encrypt
 print "SEALKEY()"
-hexdump(keySeal)
+hexdump(clientSealingKey)
 print "\n"
 print "SIGNKEY()"
-keySign = ntlm.SIGNKEY(flags,keyExchangeKey)
-hexdump(keySign)
+hexdump(clientSigningKey)
 print "\n"
-sealedMsg, signature = ntlm.SEAL(flags, keySeal, plaintext, seqNum, handle)
+sealedMsg, signature = ntlm.SEAL(flags, clientSealingKey, plaintext, seqNum, handle)
 hexdump(sealedMsg)
 print "\n"
 hexdump(signature)
