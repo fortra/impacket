@@ -118,7 +118,7 @@ print "\n"
 sealedMsg, signature = ntlm.SEAL(flags, nonce, nonce, plaintext, seqNum, handle, handle)
 hexdump(sealedMsg)
 print "\n"
-hexdump(signature)
+hexdump(signature.getData())
 print "\n"
 
 print "####### 4.2.3 NTLMv1 with Client Challenge"
@@ -184,7 +184,7 @@ sealedMsg, signature = ntlm.SEAL(flags, clientSealingKey, clientSigningKey, plai
 hexdump(sealedMsg)
 print "\n"
 print "Signature"
-hexdump(signature)
+hexdump(signature.getData())
 print "\n"
 print "####### 4.2.4 NTLMv2 Authentication"
 ntlm.USE_NTLMv2 = True
@@ -263,5 +263,5 @@ sealedMsg, signature = ntlm.SEAL(flags, clientSealingKey, clientSigningKey, plai
 hexdump(sealedMsg)
 print "\n"
 print "Signature"
-hexdump(signature)
+hexdump(signature.getData())
 print "\n"
