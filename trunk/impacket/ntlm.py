@@ -410,6 +410,9 @@ class NTLMMessageSignature(ExtendedOrNotMessageSignature):
           ('SeqNum','<i'),
       )
 
+class DCERPC_NTLMMessageSignature(NTLMMessageSignature, DCERPC_NTLMAuthHeader):
+      commonHdr = DCERPC_NTLMAuthHeader.commonHdr
+
 class NTLMAuthVerifier(Structure):
     structure = (
         ('version','<L=1'),
@@ -520,35 +523,27 @@ def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = 
        exportedSessionKey = "".join([random.choice(string.digits+string.letters) for i in xrange(16)])
 
        # Let's generate the right session key based on the challenge flags
-       if responseFlags & NTLMSSP_NTLM2_KEY:
+       #if responseFlags & NTLMSSP_NTLM2_KEY:
            # Extended session security enabled
-           if responseFlags & NTLMSSP_KEY_128:
+       #    if responseFlags & NTLMSSP_KEY_128:
                # Full key
-               exportedSessionKey = exportedSessionKey
-           elif responseFlags & NTLMSSP_KEY_56:
+       #        exportedSessionKey = exportedSessionKey
+       #    elif responseFlags & NTLMSSP_KEY_56:
                # Only 56-bit key
-               exportedSessionKey = exportedSessionKey[:7]
-           else:
-               exportedSessionKey = exportedSessionKey[:5]
-       elif responseFlags & NTLMSSP_KEY_56:
+       #        exportedSessionKey = exportedSessionKey[:7]
+       #    else:
+       #        exportedSessionKey = exportedSessionKey[:5]
+       #elif responseFlags & NTLMSSP_KEY_56:
            # No extended session security, just 56 bits key
-           exportedSessionKey = exportedSessionKey[:7] + '\xa0'
-       else:
-           exportedSessionKey = exportedSessionKey[:5] + '\xe5\x38\xb0'
+       #    exportedSessionKey = exportedSessionKey[:7] + '\xa0'
+       #else:
+       #    exportedSessionKey = exportedSessionKey[:5] + '\xe5\x38\xb0'
 
        encryptedRandomSessionKey = generateEncryptedSessionKey(keyExchangeKey, exportedSessionKey)
     else:
        encryptedRandomSessionKey = None
        # [MS-NLMP] page 46
        exportedSessionKey        = keyExchangeKey
-
-       # Should we prepare for signing?
-       #if ntlmChallenge['flags'] & ntlm.NTLMSSP_SIGN:
-       #    clientSigning = ntlm.SIGNKEY(ntlmChallenge['flags'], exportedSessionKey, "Client")
-
-       # Should we prepare for Sealing?
-       #if ntlmChallenge['flags'] & ntlm.NTLMSSP_SEAL:
-       #    clientSealing = ntlm.SEALKEY(ntlmChallenge['flags'], exportedSessionKey, "Client")
 
     ntlmChallengeResponse['flags'] = responseFlags
     ntlmChallengeResponse['domain_name'] = domain.encode('utf-16le')
@@ -628,10 +623,13 @@ def get_ntlmv1_response(key, challenge):
 
 # Crypto Stuff
 
-def MAC(flags, handle, signingKey, seqNum, message):
+def MAC(flags, handle, signingKey, seqNum, message, isDCE = False):
    # [MS-NLMP] Section 3.4.4
    # Returns the right messageSignature depending on the flags
-   messageSignature = NTLMMessageSignature(flags)
+   if isDCE is True:
+       messageSignature = DCERPC_NTLMMessageSignature(flags)
+   else:
+       messageSignature = NTLMMessageSignature(flags)
    if flags & NTLMSSP_NTLM2_KEY:
        if flags & NTLMSSP_KEY_EXCHANGE:
            messageSignature['Version'] = 1
@@ -653,15 +651,15 @@ def MAC(flags, handle, signingKey, seqNum, message):
        messageSignature['SeqNum'] = struct.unpack('i',messageSignature['SeqNum'])[0] ^ seqNum
        messageSignature['RandomPad'] = 0
        
-   return messageSignature.getData()
+   return messageSignature
 
 def SEAL(flags, sealingKey, signingKey, message, seqNum, handle_seal, handle_sign):
    sealedMessage = handle_seal(message)
    signature = MAC(flags, handle_seal, signingKey, seqNum, message)
    return sealedMessage, signature
 
-def SIGN(flags, signingKey, message, seqNum, handle):
-   return message + MAC(flags, handle, signingKey, seqNum, message)
+def SIGN(flags, signingKey, message, seqNum, handle, isDCE = False):
+   return MAC(flags, handle, signingKey, seqNum, message, isDCE)
 
 def SIGNKEY(flags, randomSessionKey, mode = 'Client'):
    if flags & NTLMSSP_NTLM2_KEY:
