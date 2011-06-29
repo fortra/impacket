@@ -623,7 +623,7 @@ def get_ntlmv1_response(key, challenge):
 
 # Crypto Stuff
 
-def MAC(flags, handle, signingKey, seqNum, message, isDCE = False):
+def MAC(flags, handle, signingKey, seqNum, message, isDCE = False, encrypt = True):
    # [MS-NLMP] Section 3.4.4
    # Returns the right messageSignature depending on the flags
    if isDCE is True:
@@ -631,7 +631,7 @@ def MAC(flags, handle, signingKey, seqNum, message, isDCE = False):
    else:
        messageSignature = NTLMMessageSignature(flags)
    if flags & NTLMSSP_NTLM2_KEY:
-       if flags & NTLMSSP_KEY_EXCHANGE:
+       if flags & NTLMSSP_KEY_EXCHANGE and encrypt is True:
            messageSignature['Version'] = 1
            messageSignature['Checksum'] = struct.unpack('<q',handle(hmac_md5(signingKey, struct.pack('<i',seqNum)+message)[:8]))[0]
            messageSignature['SeqNum'] = seqNum
@@ -648,18 +648,18 @@ def MAC(flags, handle, signingKey, seqNum, message, isDCE = False):
        messageSignature['RandomPad'] = handle(struct.pack('<i',messageSignature['RandomPad']))
        messageSignature['Checksum'] = struct.unpack('<i',handle(messageSignature['Checksum']))[0]
        messageSignature['SeqNum'] = handle('\x00\x00\x00\x00')
-       messageSignature['SeqNum'] = struct.unpack('i',messageSignature['SeqNum'])[0] ^ seqNum
+       messageSignature['SeqNum'] = struct.unpack('<i',messageSignature['SeqNum'])[0] ^ seqNum
        messageSignature['RandomPad'] = 0
        
    return messageSignature
 
-def SEAL(flags, sealingKey, signingKey, message, seqNum, handle_seal, handle_sign):
-   sealedMessage = handle_seal(message)
-   signature = MAC(flags, handle_seal, signingKey, seqNum, message)
-   return sealedMessage, signature
+def SEAL(flags, sealingKey, signingKey, message, seqNum, handle, isDCE = False):
+   #signature = MAC(flags, handle, signingKey, seqNum, message)
+   sealedMessage = handle(message)
+   return sealedMessage#, signature
 
-def SIGN(flags, signingKey, message, seqNum, handle, isDCE = False):
-   return MAC(flags, handle, signingKey, seqNum, message, isDCE)
+def SIGN(flags, signingKey, message, seqNum, handle, isDCE = False, encrypt = True):
+   return MAC(flags, handle, signingKey, seqNum, message, isDCE, encrypt)
 
 def SIGNKEY(flags, randomSessionKey, mode = 'Client'):
    if flags & NTLMSSP_NTLM2_KEY:
