@@ -1581,7 +1581,7 @@ class SMBNTLMDialect_Data(Structure):
     def fromString(self,data):
         Structure.fromString(self,data)
         if len(self['Payload']) > 0:
-           if self['Payload'][2] == '\x00':
+           if self['Payload'][1] == '\x00':
            # TODO: Ugly hack, should be taken of once mechListMIC is parsed in SPNEGO
                # We might have server's info
                data = self['Payload']
@@ -1724,6 +1724,7 @@ class SMB:
     def __init__(self, remote_name, remote_host, my_name = None, host_type = nmb.TYPE_SERVER, sess_port = nmb.NETBIOS_SESSION_PORT, timeout=None, UDP = 0):
         # The uid attribute will be set when the client calls the login() method
         self._uid = 0
+        self.__server_name = ''
         self.__server_os = ''
         self.__server_lanman = ''
         self.__server_domain = ''
@@ -1941,6 +1942,7 @@ class SMB:
 
                 # If not, let's try the old way
                 else:
+                    self.__server_name = self._dialects_data['ServerName']
                     if self._dialects_parameters['DialectIndex'] == 0xffff:
                         raise UnsupportedFeature,"Remote server does not know NT LM 0.12"
                     self.__is_pathcaseless = smb['Flags1'] & SMB.FLAGS1_PATHCASELESS
@@ -2047,7 +2049,8 @@ class SMB:
     connect_tree = tree_connect_andx
 
     def get_server_name(self):
-        return self._dialects_data['ServerName']
+        #return self._dialects_data['ServerName']
+        return self.__server_name
 
     def get_session_key(self):
         return self._dialects_parameters['SessionKey']
@@ -2366,6 +2369,17 @@ class SMB:
                 if self._dialects_parameters['SecurityMode'] & SMB.SECURITY_SIGNATURES_REQUIRED:
                    self._SignSequenceNumber = 2
                    self._SignatureEnabled = True
+
+                # Let's parse some data and keep it to ourselves in case it is asked
+
+                ntlmChallenge = ntlm.NTLMAuthChallenge(respToken['ResponseToken'])
+                if ntlmChallenge['TargetInfoFields_len'] > 0:
+                    infoFields = ntlmChallenge['TargetInfoFields']
+                    av_pairs = ntlm.AV_PAIRS(ntlmChallenge['TargetInfoFields'][:ntlmChallenge['TargetInfoFields_len']]) 
+                    if av_pairs[ntlm.NTLMSSP_AV_HOSTNAME] is not None:
+                       self.__server_name = av_pairs[ntlm.NTLMSSP_AV_HOSTNAME][1]
+
+                
 
                 self.__server_os     = sessionData['NativeOS']
                 self.__server_lanman = sessionData['NativeLanMan']
