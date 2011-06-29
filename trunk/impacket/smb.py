@@ -112,8 +112,8 @@ SV_TYPE_DOMAIN_ENUM              = 0x80000000
 
 # Options values for SMB.stor_file and SMB.retr_file
 SMB_O_CREAT                      = 0x10   # Create the file if file does not exists. Otherwise, operation fails.
-SMB_O_EXCL                       = 0x00    # When used with SMB_O_CREAT, operation fails if file exists. Cannot be used with SMB_O_OPEN.
-SMB_O_OPEN                       = 0x01    # Open the file if the file exists
+SMB_O_EXCL                       = 0x00   # When used with SMB_O_CREAT, operation fails if file exists. Cannot be used with SMB_O_OPEN.
+SMB_O_OPEN                       = 0x01   # Open the file if the file exists
 SMB_O_TRUNC                      = 0x02   # Truncate the file if the file exists
 
 # Share Access Mode
@@ -1757,6 +1757,11 @@ class SMB:
             i = string.find(my_name, '.')
             if i > -1:
                 my_name = my_name[:i]
+
+        # If port 445 and the name sent is *SMBSERVER we're setting the name to the IP. This is to help some old applications still believing 
+        # *SMSBSERVER will work against modern OSes. If port is NETBIOS_SESSION_PORT the user better know about *SMBSERVER's limitations
+        if sess_port == 445 and remote_name == '*SMBSERVER':
+           self.__remote_name = remote_host
 
         if UDP:
             self._sess = nmb.NetBIOSUDPSession(my_name, remote_name, remote_host, host_type, sess_port, timeout)
