@@ -457,9 +457,9 @@ def ntlmssp_DES_encrypt(key, challenge):
 
 # High level functions to use NTLMSSP
 
-def getNTLMSSPType1(workstation='', domain='', signingRequired = False, struct_type = 0):
+def getNTLMSSPType1(workstation='', domain='', signingRequired = False, isDCE = False):
     # Let's prepare a Type 1 NTLMSSP Message
-    if struct_type == 1:
+    if isDCE is True:
        auth = DCERPC_NTLMAuthNegotiate()
     else:
        auth = NTLMAuthNegotiate()
@@ -472,9 +472,9 @@ def getNTLMSSPType1(workstation='', domain='', signingRequired = False, struct_t
     auth['domain_name'] = domain
     return auth
 
-def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = '', struct_type = 0):
+def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = '', isDCE = False):
 
-    if struct_type == 1:
+    if isDCE is True:
         ntlmChallenge = DCERPC_NTLMAuthChallenge(type2)
     else:
         ntlmChallenge = NTLMAuthChallenge(type2)
@@ -484,7 +484,7 @@ def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = 
 
     # Token received and parsed. Depending on the authentication 
     # method we will create a valid ChallengeResponse
-    if struct_type == 1:
+    if isDCE is True:
         ntlmChallengeResponse = DCERPC_NTLMAuthChallengeResponse(user, password, ntlmChallenge['challenge'])
     else:
         ntlmChallengeResponse = NTLMAuthChallengeResponse(user, password, ntlmChallenge['challenge'])
