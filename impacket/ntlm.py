@@ -256,7 +256,7 @@ class NTLMAuthChallenge(Structure):
         if self['TargetInfoFields'] is not None:
             raw_av_fields = self['TargetInfoFields'].getData()
             self['TargetInfoFields'] = raw_av_fields
-        Structure.getData(self)
+        return Structure.getData(self)
 
     def fromString(self,data):
         Structure.fromString(self,data)
