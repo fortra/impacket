@@ -1250,7 +1250,7 @@ class SMBSessionSetupAndX_Extended_Response_Data(AsciiOrUnicodeStructure):
         ('NativeLanMan','w=""'),
     )
 
-############# SMB_COM_TREE_CONNECT (0x70
+############# SMB_COM_TREE_CONNECT (0x70)
 class SMBTreeConnect_Parameters(SMBCommand_Parameters):
     structure = (
     )
@@ -1264,6 +1264,8 @@ class SMBTreeConnect_Data(SMBCommand_Parameters):
         ('ServiceFormat','"\x04'),
         ('Service','z'),
     )
+
+############# SMB_COM_TREE_CONNECT (0x75)
 class SMBTreeConnectAndX_Parameters(SMBAndXCommand_Parameters):
     structure = (
         ('Flags','<H=0'),
