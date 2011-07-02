@@ -664,7 +664,7 @@ class NetBIOSSessionPacket:
         return self._trailer
         
 class NetBIOSSession:
-    def __init__(self, myname, remote_name, remote_host, remote_type = TYPE_SERVER, sess_port = NETBIOS_SESSION_PORT, timeout = None, local_type = TYPE_WORKSTATION):
+    def __init__(self, myname, remote_name, remote_host, remote_type = TYPE_SERVER, sess_port = NETBIOS_SESSION_PORT, timeout = None, local_type = TYPE_WORKSTATION, sock = None):
         if len(myname) > 15:
             self.__myname = string.upper(myname[:15])
         else:
@@ -680,7 +680,11 @@ class NetBIOSSession:
 
         self.__remote_host = remote_host
 
-        self._sock = self._setup_connection((remote_host, sess_port))
+        if sock is not None:
+            # We are acting as a server
+            self._sock = sock
+        else:
+            self._sock = self._setup_connection((remote_host, sess_port))
 
         if sess_port == NETBIOS_SESSION_PORT:
             self._request_session(remote_type, local_type, timeout)
