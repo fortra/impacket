@@ -402,17 +402,18 @@ class SPNEGO_NegTokenInit(GSSAPI):
         if next_byte != ASN1_SEQUENCE:
             raise Exception('SEQUENCE tag not found %x' % next_byte)
         decode_data = decode_data[1:]
-        decode_data, total_bytes = asn1decode(decode_data)
+        decode_data, total_bytes2 = asn1decode(decode_data)
         next_byte = unpack('B',decode_data[:1])[0]
         if next_byte != ASN1_MECH_TYPE:
             raise Exception('MechType tag not found %x' % next_byte)
         decode_data = decode_data[1:]
-        decode_data, total_bytes = asn1decode(decode_data)
+        remaining_data = decode_data
+        decode_data, total_bytes3 = asn1decode(decode_data)
         next_byte = unpack('B', decode_data[:1])[0]
         if next_byte != ASN1_SEQUENCE:
             raise Exception('SEQUENCE tag not found %x' % next_byte)
         decode_data = decode_data[1:]
-	decode_data, total_bytes = asn1decode(decode_data)
+	decode_data, total_bytes4 = asn1decode(decode_data)
         # And finally we should have the MechTypes
         self['MechTypes'] = []
         i = 1
@@ -425,6 +426,20 @@ class SPNEGO_NegTokenInit(GSSAPI):
            item, total_bytes = asn1decode(decode_data)
            self['MechTypes'].append(item)
            decode_data = decode_data[total_bytes:]
+
+        # Do we have MechTokens as well?
+        decode_data = remaining_data[total_bytes3:]
+        if len(decode_data) > 0:
+            next_byte = unpack('B', decode_data[:1])[0]
+            if next_byte == ASN1_MECH_TOKEN:
+                # We have tokens in here!
+                decode_data = decode_data[1:]
+                decode_data, total_bytes = asn1decode(decode_data)
+                next_byte = unpack('B', decode_data[:1])[0]
+                if next_byte ==  ASN1_OCTET_STRING:
+                    decode_data = decode_data[1:]
+                    decode_data, total_bytes = asn1decode(decode_data)
+                    self['MechToken'] =  decode_data
 
     def getData(self):
         mechTypes = ''
@@ -1169,7 +1184,7 @@ class SMBSessionSetupAndXResponse_Parameters(SMBAndXCommand_Parameters):
 
 class SMBSessionSetupAndX_Extended_Response_Parameters(SMBAndXCommand_Parameters):
     structure = (
-        ('Action','<H'),
+        ('Action','<H=0'),
         ('SecurityBlobLength','<H'),
     )
 
@@ -1935,7 +1950,7 @@ class SMB:
                          self._SignatureRequired = True
 
                     # Interestingly, the security Blob might be missing sometimes.
-                    #spnego = SPNEGO_NegTokenInit(self._smb_extended_security_data['SecurityBlob'])
+                    #spnego = SPNEGO_NegTokenInit(self._dialects_data['SecurityBlob'])
                     #for i in spnego['MechTypes']:
                     #      print "Mech Found: %s" % MechTypes[i]
                     return 1
