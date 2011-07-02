@@ -291,6 +291,7 @@ class SPNEGO_NegTokenResp():
     # }
     # This structure is not prepended by a GSS generic header!
     SPNEGO_NEG_TOKEN_RESP = 0xa1
+    SPNEGO_NEG_TOKEN_TARG = 0xa0
 
     def __init__(self, data = None):
         self.fields = {}
@@ -328,35 +329,41 @@ class SPNEGO_NegTokenResp():
         next_byte = unpack('B',decode_data[:1])[0]
 
         if next_byte != ASN1_MECH_TYPE:
-            raise Exception('MechType tag not found %x' % next_byte)
-        decode_data2 = decode_data[1:]
-        decode_data2, total_bytes = asn1decode(decode_data2)
-        next_byte = unpack('B', decode_data2[:1])[0]
-        if next_byte != ASN1_ENUMERATED:
-            raise Exception('Enumerated tag not found %x' % next_byte)
-        decode_data2 = decode_data2[1:]
-        item, total_bytes2 = asn1decode(decode_data)
-        self['NegResult'] = item
-        decode_data = decode_data[1:]
-        decode_data = decode_data[total_bytes:]
+            # MechType not found, could be an AUTH answer
+            if next_byte != ASN1_RESPONSE_TOKEN:
+               raise Exception('MechType/ResponseToken tag not found %x' % next_byte)
+        else:
+            decode_data2 = decode_data[1:]
+            decode_data2, total_bytes = asn1decode(decode_data2)
+            next_byte = unpack('B', decode_data2[:1])[0]
+            if next_byte != ASN1_ENUMERATED:
+                raise Exception('Enumerated tag not found %x' % next_byte)
+            decode_data2 = decode_data2[1:]
+            item, total_bytes2 = asn1decode(decode_data)
+            self['NegResult'] = item
+            decode_data = decode_data[1:]
+            decode_data = decode_data[total_bytes:]
 
-        next_byte = unpack('B', decode_data[:1])[0]
-        if next_byte != ASN1_SUPPORTED_MECH:
-            raise Exception('Supported Mech tag not found %x' % next_byte)
-        decode_data2 = decode_data[1:]
-        decode_data2, total_bytes = asn1decode(decode_data2)
-        next_byte = unpack('B', decode_data2[:1])[0]
-        if next_byte != ASN1_OID:
-            raise Exception('OID tag not found %x' % next_byte)
-        decode_data2 = decode_data2[1:]
-        item, total_bytes2 = asn1decode(decode_data2)
-        self['SuportedMech'] = item
+            next_byte = unpack('B', decode_data[:1])[0]
+            if next_byte != ASN1_SUPPORTED_MECH:
+                if next_byte != ASN1_RESPONSE_TOKEN:
+                    raise Exception('Supported Mech/ResponseToken tag not found %x' % next_byte)
+            else:
+                decode_data2 = decode_data[1:]
+                decode_data2, total_bytes = asn1decode(decode_data2)
+                next_byte = unpack('B', decode_data2[:1])[0]
+                if next_byte != ASN1_OID:
+                    raise Exception('OID tag not found %x' % next_byte)
+                decode_data2 = decode_data2[1:]
+                item, total_bytes2 = asn1decode(decode_data2)
+                self['SuportedMech'] = item
 
-        decode_data = decode_data[1:]
-        decode_data = decode_data[total_bytes:]
-        next_byte = unpack('B', decode_data[:1])[0]
-        if next_byte != ASN1_RESPONSE_TOKEN:
-            raise Exception('Response token tag not found %x' % next_byte)
+                decode_data = decode_data[1:]
+                decode_data = decode_data[total_bytes:]
+                next_byte = unpack('B', decode_data[:1])[0]
+                if next_byte != ASN1_RESPONSE_TOKEN:
+                    raise Exception('Response token tag not found %x' % next_byte)
+
         decode_data = decode_data[1:]
         decode_data, total_bytes = asn1decode(decode_data)
         next_byte = unpack('B', decode_data[:1])[0]
@@ -372,7 +379,34 @@ class SPNEGO_NegTokenResp():
         
     def getData(self):
         ans = pack('B',SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP)
-        ans += asn1encode(
+        if self.fields.has_key('NegResult') and self.fields.has_key('SupportedMech'):
+            # Server resp
+            ans += asn1encode(
+               pack('B', ASN1_SEQUENCE) +
+               asn1encode(
+               pack('B',SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_TARG) +
+               asn1encode(
+               pack('B',ASN1_ENUMERATED) + 
+               asn1encode( self['NegResult'] )) +
+               pack('B',ASN1_SUPPORTED_MECH) +
+               asn1encode( 
+               pack('B',ASN1_OID) +
+               asn1encode(self['SupportedMech'])) +
+               pack('B',ASN1_RESPONSE_TOKEN ) +
+               asn1encode(
+               pack('B', ASN1_OCTET_STRING) + asn1encode(self['ResponseToken']))))
+        elif self.fields.has_key('NegResult'):
+            # Server resp
+            ans += asn1encode(
+               pack('B', ASN1_SEQUENCE) + 
+               asn1encode(
+               pack('B', SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_TARG) +
+               asn1encode(
+               pack('B',ASN1_ENUMERATED) +
+               asn1encode( self['NegResult'] ))))
+        else:
+            # Client resp
+            ans += asn1encode(
                pack('B', ASN1_SEQUENCE) +
                asn1encode(
                pack('B', ASN1_RESPONSE_TOKEN) +
