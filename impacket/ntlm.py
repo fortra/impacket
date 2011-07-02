@@ -298,6 +298,10 @@ class NTLMAuthChallengeResponse(Structure, NTLMAuthMixin):
         ('session_key_max_len','<H-session_key'),
         ('session_key_offset','<L'),
         ('flags','<L'),
+        ('VersionLen','_-Version','self.checkVersion(self["flags"])'), 
+        ('Version',':=""'),
+        ('MICLen','_-MIC','self.checkMIC(self["flags"])'),
+        ('MIC',':=""'),
         ('domain_name',':'),
         ('user_name',':'),
         ('host_name',':'),
@@ -305,7 +309,7 @@ class NTLMAuthChallengeResponse(Structure, NTLMAuthMixin):
         ('ntlm',':'),
         ('session_key',':'))
 
-    def __init__(self, username = '', password = '', challenge = '', lmhash = '', nthash = ''):
+    def __init__(self, username = '', password = '', challenge = '', lmhash = '', nthash = '', flags = 0):
         Structure.__init__(self)
         self['session_key']=''
         self['user_name']=username.encode('utf-16le')
@@ -337,6 +341,19 @@ class NTLMAuthChallengeResponse(Structure, NTLMAuthMixin):
             self['ntlm'] = ''
             if not self['host_name']:
                 self['host_name'] = 'NULL'.encode('utf-16le')      # for NULL session there must be a hostname
+
+    def checkVersion(self, flags):
+        if flags is not None:
+           if flags & NTLMSSP_VERSION == 0:
+              return 0
+        return 8
+
+    def checkMIC(self, flags):
+        # TODO: Find a proper way to check the MIC is in there
+        if flags is not None:
+           if flags & NTLMSSP_VERSION == 0:
+              return 0
+        return 16
                                                                                 
     def __str__(self):
         self['domain_offset']=64
@@ -349,26 +366,29 @@ class NTLMAuthChallengeResponse(Structure, NTLMAuthMixin):
 
     def fromString(self,data):
         Structure.fromString(self,data)
-        # I'm leaving this commented, I don't think we really need this. Structure can handle this stuff
-        #domain_offset = self['domain_offset']
-        #domain_end = self['domain_len'] + domain_offset
-        #self['domain_name'] = array.array('u', data[ domain_offset : domain_end ]).tounicode()
+        # [MS-NLMP] page 27
+        # Payload data can be present in any order within the Payload field, 
+        # with variable-length padding before or after the data
 
-        #host_offset = self['host_offset']
-        #host_end    = self['host_len'] + host_offset
-        #self['host_name'] = array.array('u', data[ host_offset: host_end ]).tounicode()
+        domain_offset = self['domain_offset']
+        domain_end = self['domain_len'] + domain_offset
+        self['domain_name'] = data[ domain_offset : domain_end ]
 
-        #user_offset = self['user_offset']
-        #user_end    = self['user_len'] + user_offset
-        #self['user_name'] = array.array('u', data[ user_offset: user_end ]).tounicode()
+        host_offset = self['host_offset']
+        host_end    = self['host_len'] + host_offset
+        self['host_name'] = data[ host_offset: host_end ]
 
-        #ntlm_offset = self['ntlm_offset'] 
-        #ntlm_end    = self['ntlm_len'] + ntlm_offset 
-        #self['ntlm'] = data[ ntlm_offset : ntlm_end ]
+        user_offset = self['user_offset']
+        user_end    = self['user_len'] + user_offset
+        self['user_name'] = data[ user_offset: user_end ]
 
-        #lanman_offset = self['lanman_offset'] 
-        #lanman_end    = self['lanman_len'] + lanman_offset
-        #self['lanman'] = data[ lanman_offset : lanman_end]
+        ntlm_offset = self['ntlm_offset'] 
+        ntlm_end    = self['ntlm_len'] + ntlm_offset 
+        self['ntlm'] = data[ ntlm_offset : ntlm_end ]
+
+        lanman_offset = self['lanman_offset'] 
+        lanman_end    = self['lanman_len'] + lanman_offset
+        self['lanman'] = data[ lanman_offset : lanman_end]
 
         #if len(data) >= 36: 
         #    self['os_version'] = data[32:36]
