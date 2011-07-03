@@ -1272,12 +1272,25 @@ class SMBTreeConnectAndX_Parameters(SMBAndXCommand_Parameters):
         ('PasswordLength','<H'),
     )
 
+class SMBTreeConnectAndXResponse_Parameters(SMBAndXCommand_Parameters):
+    structure = (
+        ('OptionalSupport','<H=0'),
+    )
+
 class SMBTreeConnectAndX_Data(Structure):
     structure = (
-        ('_PasswordLength','_-Password'),
+        ('_PasswordLength','_-Password','self["_PasswordLength"]'),
         ('Password',':'),
         ('Path','z'),
         ('Service','z'),
+    )
+
+class SMBTreeConnectAndXResponse_Data(Structure):
+    structure = (
+        ('Service','z'),
+        ('PadLen','_-Pad','self["PadLen"]'),
+        ('Pad',':=""'),
+        ('NativeFileSystem','z'),
     )
 
 ############# SMB_COM_NT_CREATE_ANDX (0xA2)
@@ -1442,6 +1455,64 @@ class SMBReadRaw_Parameters(SMBCommand_Parameters):
         ('_reserved','<H=0'),
     )
 
+############# SMB_COM_TRANSACTION2 (0x32)
+
+class SMBTransaction2_Parameters(SMBCommand_Parameters):
+    structure = (
+        ('TotalParameterCount','<H'),
+        ('TotalDataCount','<H'),
+        ('MaxParameterCount','<H=1024'),
+        ('MaxDataCount','<H=65504'),
+        ('MaxSetupCount','<B=0'),
+        ('Reserved1','<B=0'),
+        ('Flags','<H=0'),
+        ('Timeout','<L=0'),
+        ('Reserved2','<H=0'),
+        ('ParameterCount','<H'),
+        ('ParameterOffset','<H'),
+        ('DataCount','<H'),
+        ('DataOffset','<H'),
+        ('SetupCount','<B=len(Setup)/2'),
+        ('Reserved3','<B=0'),
+        ('SetupLength','_-Setup','SetupCount*2'),
+        ('Setup',':'),
+    )
+
+class SMBTransaction2Response_Parameters(SMBCommand_Parameters):
+    structure = (
+        ('TotalParameterCount','<H'),
+        ('TotalDataCount','<H'),
+        ('Reserved1','<H'),
+        ('ParameterCount','<H'),
+        ('ParameterOffset','<H'),
+        ('ParameterDisplacement','<H'),
+        ('DataCount','<H'),
+        ('DataOffset','<H'),
+        ('DataDisplacement','<H'),
+        ('SetupCount','<B'),
+        ('Reserved2','<B'),
+        ('SetupLength','_-Setup','SetupCount*2'),
+        ('Setup',':'),
+    )
+
+class SMBTransaction2_Data(Structure):
+    structure = (
+        ('NameLength','_-Name'),
+        ('Name',':'),
+        ('Trans_ParametersLength','_-Trans_Parameters'),
+        ('Trans_Parameters',':'),
+        ('Trans_DataLength','_-Trans_Data'),
+        ('Trans_Data',':'),
+    )
+
+class SMBTransaction2Response_Data(Structure):
+    structure = (
+        ('Trans_ParametersLength','_-Trans_Parameters'),
+        ('Trans_Parameters',':'),
+        ('Trans_DataLength','_-Trans_Data'),
+        ('Trans_Data',':'),
+    )
+
 ############# SMB_COM_TRANSACTION (0x25)
 class SMBTransaction_Parameters(SMBCommand_Parameters):
     structure = (
@@ -1521,6 +1592,30 @@ class SMBReadAndXResponse_Parameters(SMBAndXCommand_Parameters):
         ('DataCount_Hi','<L'),
         ('_reserved2','"\0\0\0\0\0\0'),
     )
+
+############# SMB_COM_ECHO (0x2B)
+class SMBEcho_Data(Structure):
+    structure = (
+        ('Data',':'),
+    )
+
+class SMBEcho_Parameters(Structure):
+    structure = (
+        ('EchoCount','<H'),
+    )
+
+class SMBEchoResponse_Data(Structure):
+    structure = (
+        ('Data',':'),
+    )
+
+class SMBEchoResponse_Parameters(Structure):
+    structure = (
+        ('SequenceNumber','<H=1'),
+    )
+
+
+
 
 ############# SMB_COM_LOGOFF_ANDX (0x74)
 class SMBLogOffAndX(SMBAndXCommand_Parameters):
@@ -1771,6 +1866,12 @@ class SMB:
     NEGOTIATE_ENCRYPT_PASSWORDS             = 0x02
     NEGOTIATE_SECURITY_SIGNATURE_ENABLE     = 0x04
     NEGOTIATE_SECURITY_SIGNATURE_REQUIRED   = 0x08
+
+    # Tree Connect AndX Response optionalSuppor flags
+    SMB_SUPPORT_SEARCH_BITS                 = 0x01
+    SMB_SHARE_IS_IN_DFS                     = 0x02 
+
+
 
     def __init__(self, remote_name, remote_host, my_name = None, host_type = nmb.TYPE_SERVER, sess_port = nmb.NETBIOS_SESSION_PORT, timeout=None, UDP = 0):
         # The uid attribute will be set when the client calls the login() method
