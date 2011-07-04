@@ -166,6 +166,7 @@ SMB_QUERY_FS_VOLUME_INFO         = 0x0102
 SMB_QUERY_FS_SIZE_INFO           = 0x0103
 SMB_QUERY_FS_DEVICE_INFO         = 0x0104
 SMB_QUERY_FS_ATTRIBUTE_INFO      = 0x0105
+SMB_QUERY_FILE_BASIC_INFO        = 0x0101
 
 # File System Attributes
 FILE_CASE_SENSITIVE_SEARCH       = 0x00000001
@@ -175,6 +176,20 @@ FILE_PERSISTENT_ACLS             = 0x00000008
 FILE_FILE_COMPRESSION            = 0x00000010
 FILE_VOLUME_IS_COMPRESSED        = 0x00008000
 
+# FIND_FIRST2 flags and levels
+SMB_FIND_CLOSE_AFTER_REQUEST     = 0x0001
+SMB_FIND_CLOSE_AT_EOS            = 0x0002
+SMB_FIND_RETURN_RESUME_KEYS      = 0x0004
+SMB_FIND_CONTINUE_FROM_LAST      = 0x0008
+SMB_FIND_WITH_BACKUP_INTENT      = 0x0010
+
+FILE_DIRECTORY_FILE              = 0x00000001
+FILE_NON_DIRECTORY_FILE          = 0x00000040
+
+SMB_FIND_INFO_STANDARD           = 0x0001
+SMB_FIND_FILE_DIRECTORY_INFO     = 0x0101
+SMB_FIND_FILE_FULL_DIRECTORY_INFO= 0x0102
+SMB_FIND_FILE_BOTH_DIRECTORY_INFO= 0x0104
 
 ############### GSS Stuff ################
 GSS_API_SPNEGO_UUID              = '\x2b\x06\x01\x05\x05\x02' 
@@ -1173,6 +1188,7 @@ class SMBAndXCommand_Parameters(Structure):
         ('Data',':=""'),
     )
 
+############# TRANSACTIONS RELATED 
 # QUERY_FS Information Levels
 # SMB_QUERY_FS_ATTRIBUTE_INFO
 class SMBQueryFsAttributeInfo(Structure):
@@ -1182,6 +1198,131 @@ class SMBQueryFsAttributeInfo(Structure):
         ('LengthOfFileSystemName','<L-FileSystemName'),
         ('FileSystemName',':'),
     )
+
+# SMB_FIND_FILE_BOTH_DIRECTORY_INFO level
+class SMBFindFileBothDirectoryInfo(Structure):
+    structure = (
+        ('NextEntryOffset','<L=0'),
+        ('FileIndex','<L=0'),
+        ('CreationTime','<q'),
+        ('LastAccessTime','<q'),
+        ('LastWriteTime','<q'),
+        ('LastChangeTime','<q'),
+        ('EndOfFile','<q=0'),
+        ('AllocationSize','<q=1'),
+        ('ExtFileAttributes','<L=0'),
+        ('FileNameLength','<L-FileName','len(FileName)'),
+        ('EaSize','<L'),
+        ('ShortNameLength','<B-ShortName','len(ShortName)'),
+        ('Reserved','<B=0'),
+        ('ShortName',':=""'),
+        ('FileName','z'),
+    )
+
+# SMB_FIND_FILE_DIRECTORY_INFO level
+class SMBFindFileDirectoryInfo(Structure):
+    structure = (
+        ('NextEntryOffset','<L=0'),
+        ('FileIndex','<L=0'),
+        ('CreationTime','<q'),
+        ('LastAccessTime','<q'),
+        ('LastWriteTime','<q'),
+        ('LastChangeTime','<q'),
+        ('EndOfFile','<q=0'),
+        ('AllocationSize','<q=1'),
+        ('ExtFileAttributes','<L=0'),
+        ('FileNameLength','<L-FileName','len(FileName)'),
+        ('FileName','z'),
+    )
+
+# SMB_FIND_FILE_FULL_DIRECTORY_INFO level
+class SMBFindFileFullDirectoryInfo(Structure):
+    structure = (
+        ('NextEntryOffset','<L=0'),
+        ('FileIndex','<L=0'),
+        ('CreationTime','<q'),
+        ('LastAccessTime','<q'),
+        ('LastWriteTime','<q'),
+        ('LastChangeTime','<q'),
+        ('EndOfFile','<q=0'),
+        ('AllocationSize','<q=1'),
+        ('ExtFileAttributes','<L=0'),
+        ('FileNameLength','<L-FileName','len(FileName)'),
+        ('EaSize','<L'),
+        ('FileName','z'),
+    )
+
+# SMB_FIND_INFO_STANDARD level
+class SMBFindInfoStandard(Structure):
+    structure = (
+        ('ResumeKey','<L=0xff'),
+        ('CreationDate','<H=0'),
+        ('CreationTime','<H=0'),
+        ('LastAccessDate','<H=0'),
+        ('LastAccessTime','<H=0'),
+        ('LastWriteDate','<H=0'),
+        ('LastWriteTime','<H=0'),
+        ('EaSize','<L'),
+        ('AllocationSize','<L=1'),
+        ('ExtFileAttributes','<H=0'),
+        ('FileNameLength','<B-FileName','len(FileName)'),
+        ('FileName','z'),
+    )
+
+
+class SMBFindFirst2Response_Parameters(Structure):
+     structure = (
+         ('SID','<H'),
+         ('SearchCount','<H'),
+         ('EndOfSearch','<H=1'),
+         ('EaErrorOffset','<H=0'),
+         ('LastNameOffset','<H=0'),
+     )
+
+class SMBFindFirst2_Parameters(Structure):
+     structure = (
+         ('SearchAttributes','<H'),
+         ('SearchCount','<H'),
+         ('Flags','<H'),
+         ('InformationLevel','<H'),
+         ('SearchStorageType','<L'),
+         ('FileName','z'),
+     )
+
+class SMBFindFirst2_Data(Structure):
+     structure = (
+         ('GetExtendedAttributesListLength','_-GetExtendedAttributesList', 'self["GetExtendedAttributesListLength"]'),
+         ('GetExtendedAttributesList',':'),
+     )
+
+class SMBQueryPathInformationResponse_Parameters(Structure):
+    structure = (
+        ('EaErrorOffset','<H=0'),
+    )
+
+class SMBQueryPathInformation_Parameters(Structure):
+    structure = (
+        ('InformationLevel','<H'),
+        ('Reserved','<L=0'),
+        ('FileName','z'),
+    )
+
+class SMBQueryPathInformation_Data(Structure):
+    structure = (
+        ('GetExtendedAttributeList',':'),
+    )
+
+# SMB_QUERY_FILE_BASIC_INFO 
+class SMBQueryFileBasicInfo(Structure):
+    structure = (
+        ('CreationTime','<q'),
+        ('LastAccessTime','<q'),
+        ('LastWriteTime','<q'),
+        ('LastChangeTime','<q'),
+        ('ExtFileAttributes','<L'),
+        ('Reserved','<L=0'),
+    )
+
 
 ############# Security Features
 class SecurityFeatures(Structure):
@@ -1524,34 +1665,42 @@ class SMBTransaction2Response_Parameters(SMBCommand_Parameters):
     structure = (
         ('TotalParameterCount','<H'),
         ('TotalDataCount','<H'),
-        ('Reserved1','<H'),
+        ('Reserved1','<H=0'),
         ('ParameterCount','<H'),
         ('ParameterOffset','<H'),
-        ('ParameterDisplacement','<H'),
+        ('ParameterDisplacement','<H=0'),
         ('DataCount','<H'),
         ('DataOffset','<H'),
-        ('DataDisplacement','<H'),
-        ('SetupCount','<B'),
-        ('Reserved2','<B'),
+        ('DataDisplacement','<H=0'),
+        ('SetupCount','<B=0'),
+        ('Reserved2','<B=0'),
         ('SetupLength','_-Setup','SetupCount*2'),
         ('Setup',':'),
     )
 
 class SMBTransaction2_Data(Structure):
     structure = (
-        ('NameLength','_-Name','1'),
-        ('Name',':'),
+#        ('NameLength','_-Name','1'),
+#        ('Name',':'),
+        ('Pad1Length','_-Pad1','self["Pad1Length"]'),
+        ('Pad1',':'),
         ('Trans_ParametersLength','_-Trans_Parameters','self["Trans_ParametersLength"]'),
         ('Trans_Parameters',':'),
+        ('Pad2Length','_-Pad2','self["Pad2Length"]'),
+        ('Pad2',':'),
         ('Trans_DataLength','_-Trans_Data','self["Trans_DataLength"]'),
         ('Trans_Data',':'),
     )
 
 class SMBTransaction2Response_Data(Structure):
     structure = (
-        ('Trans_ParametersLength','_-Trans_Parameters'),
+        ('Pad1Length','_-Pad1','self["Pad1Length"]'),
+        ('Pad1',':'),
+        ('Trans_ParametersLength','_-Trans_Parameters','self["Trans_ParametersLength"]'),
         ('Trans_Parameters',':'),
-        ('Trans_DataLength','_-Trans_Data'),
+        ('Pad2Length','_-Pad2','self["Pad2Length"]'),
+        ('Pad2',':'),
+        ('Trans_DataLength','_-Trans_Data','self["Trans_DataLength"]'),
         ('Trans_Data',':'),
     )
 
@@ -1673,7 +1822,15 @@ class SMBEchoResponse_Parameters(Structure):
         ('SequenceNumber','<H=1'),
     )
 
-
+############# SMB_COM_QUERY_INFORMATION_DISK (0x80)
+class SMBQueryInformationDiskResponse_Parameters(Structure):
+    structure = (
+        ('TotalUnits','<H'),
+        ('BlocksPerUnit','<H'),
+        ('BlockSize','<H'),
+        ('FreeUnits','<H'),
+        ('Reserved','<H=0'),
+    )
 
 
 ############# SMB_COM_LOGOFF_ANDX (0x74)
@@ -1879,7 +2036,9 @@ class SMB:
     SMB_COM_WRITE_BULK_DATA                 = 0xDA
 
     # TRANSACT2 codes
+    TRANS2_FIND_FIRST2                      = 0x0001
     TRANS2_QUERY_FS_INFORMATION             = 0x0003
+    TRANS2_QUERY_PATH_INFORMATION           = 0x0005
 
     # Security Share Mode (Used internally by SMB class)
     SECURITY_SHARE_MASK                     = 0x01
