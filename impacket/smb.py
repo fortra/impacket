@@ -140,9 +140,41 @@ EVASION_HIGH                     = 2
 EVASION_MAX                      = 3
 RPC_X_BAD_STUB_DATA              = 0x6F7
 
+# SMB_FILE_ATTRIBUTES
+
+SMB_FILE_ATTRIBUTE_NORMAL        = 0x0000
+SMB_FILE_ATTRIBUTE_READONLY      = 0x0001
+SMB_FILE_ATTRIBUTE_HIDDEN        = 0x0002
+SMB_FILE_ATTRIBUTE_SYSTEM        = 0x0004
+SMB_FILE_ATTRIBUTE_VOLUME        = 0x0008
+SMB_FILE_ATTRIBUTE_DIRECORY      = 0x0010
+SMB_FILE_ATTRIBUTE_ARCHIVE       = 0x0020
+SMB_SEARCH_ATTRIBUTE_READONLY    = 0x0100
+SMB_SEARCH_ATTRIBUTE_HIDDEN      = 0x0200
+SMB_SEARCH_ATTRIBUTE_SYSTEM      = 0x0400
+SMB_SEARCH_ATTRIBUTE_DIRECTORY   = 0x1000
+SMB_SEARCH_ATTRIBUTE_ARCHIVE     = 0x2000
+
 # Session SetupAndX Action flags
 SMB_SETUP_GUEST                  = 0x01
 SMB_SETUP_USE_LANMAN_KEY         = 0x02
+
+# QUERY_INFORMATION levels
+SMB_INFO_ALLOCATION              = 0x0001
+SMB_INFO_VOLUME                  = 0x0002
+SMB_QUERY_FS_VOLUME_INFO         = 0x0102
+SMB_QUERY_FS_SIZE_INFO           = 0x0103
+SMB_QUERY_FS_DEVICE_INFO         = 0x0104
+SMB_QUERY_FS_ATTRIBUTE_INFO      = 0x0105
+
+# File System Attributes
+FILE_CASE_SENSITIVE_SEARCH       = 0x00000001
+FILE_CASE_PRESERVED_NAMES        = 0x00000002
+FILE_UNICODE_ON_DISK             = 0x00000004
+FILE_PERSISTENT_ACLS             = 0x00000008
+FILE_FILE_COMPRESSION            = 0x00000010
+FILE_VOLUME_IS_COMPRESSED        = 0x00008000
+
 
 ############### GSS Stuff ################
 GSS_API_SPNEGO_UUID              = '\x2b\x06\x01\x05\x05\x02' 
@@ -1141,6 +1173,16 @@ class SMBAndXCommand_Parameters(Structure):
         ('Data',':=""'),
     )
 
+# QUERY_FS Information Levels
+# SMB_QUERY_FS_ATTRIBUTE_INFO
+class SMBQueryFsAttributeInfo(Structure):
+    structure = (
+        ('FileSystemAttributes','<L'),
+        ('MaxFilenNameLengthInBytes','<L'),
+        ('LengthOfFileSystemName','<L-FileSystemName'),
+        ('FileSystemName',':'),
+    )
+
 ############# Security Features
 class SecurityFeatures(Structure):
     structure = (
@@ -1497,11 +1539,11 @@ class SMBTransaction2Response_Parameters(SMBCommand_Parameters):
 
 class SMBTransaction2_Data(Structure):
     structure = (
-        ('NameLength','_-Name'),
+        ('NameLength','_-Name','1'),
         ('Name',':'),
-        ('Trans_ParametersLength','_-Trans_Parameters'),
+        ('Trans_ParametersLength','_-Trans_Parameters','self["Trans_ParametersLength"]'),
         ('Trans_Parameters',':'),
-        ('Trans_DataLength','_-Trans_Data'),
+        ('Trans_DataLength','_-Trans_Data','self["Trans_DataLength"]'),
         ('Trans_Data',':'),
     )
 
@@ -1511,6 +1553,23 @@ class SMBTransaction2Response_Data(Structure):
         ('Trans_Parameters',':'),
         ('Trans_DataLength','_-Trans_Data'),
         ('Trans_Data',':'),
+    )
+
+############# SMB_COM_QUERY_INFORMATION (0x08)
+
+class SMBQueryInformation_Data(Structure):
+    structure = (
+        ('BufferFormat','B=4'),
+        ('FileName','z'),
+    )
+
+
+class SMBQueryInformationResponse_Parameters(Structure):
+    structure = (
+        ('FileAttributes','<H'),
+        ('LastWriteTime','<L'),
+        ('FileSize','<L'),
+        ('Reserved','"0123456789'),
     )
 
 ############# SMB_COM_TRANSACTION (0x25)
@@ -1818,6 +1877,9 @@ class SMB:
     SMB_COM_READ_BULK                       = 0xD8
     SMB_COM_WRITE_BULK                      = 0xD9
     SMB_COM_WRITE_BULK_DATA                 = 0xDA
+
+    # TRANSACT2 codes
+    TRANS2_QUERY_FS_INFORMATION             = 0x0003
 
     # Security Share Mode (Used internally by SMB class)
     SECURITY_SHARE_MASK                     = 0x01
