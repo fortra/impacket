@@ -1811,6 +1811,16 @@ class SMBReadAndX_Parameters(SMBAndXCommand_Parameters):
         ('HighOffset','<L=0'),
     )
 
+class SMBReadAndX_Parameters2(SMBAndXCommand_Parameters):
+    structure = (
+        ('Fid','<H'),
+        ('Offset','<L'),
+        ('MaxCount','<H'),
+        ('MinCount','<H=MaxCount'),
+        ('_reserved','<L=0xffffffff'),
+        ('Remaining','<H=MaxCount'),
+    )
+
 class SMBReadAndXResponse_Parameters(SMBAndXCommand_Parameters):
     structure = (
         ('Remaining','<H=0'),
