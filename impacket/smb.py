@@ -1332,6 +1332,27 @@ class SecurityFeatures(Structure):
         ('SequenceNumber','<H=0'),
     )
 
+############# SMB_COM_QUERY_INFORMATION2 (0x23)
+class SMBQueryInformation2_Parameters(Structure):
+    structure = (
+        ('Fid','<H'),
+    )
+
+class SMBQueryInformation2Response_Parameters(Structure):
+    structure = (
+        ('CreateDate','<H'),
+        ('CreationTime','<H'),
+        ('LastAccessDate','<H'),
+        ('LastAccessTime','<H'),
+        ('LastWriteDate','<H'),
+        ('LastWriteTime','<H'),
+        ('FileDataSize','<L'),
+        ('FileAllocationSize','<L'),
+        ('FileAttributes','<L'),
+    )
+
+
+
 ############# SMB_COM_SESSION_SETUP_ANDX (0x73)
 class SMBSessionSetupAndX_Parameters(SMBAndXCommand_Parameters):
     structure = (
