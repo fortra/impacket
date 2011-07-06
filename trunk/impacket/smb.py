@@ -1686,6 +1686,11 @@ class SMBWrite_Parameters(SMBCommand_Parameters):
         ('Remaining','<H'),
     )
 
+class SMBWriteResponse_Parameters(SMBCommand_Parameters):
+    structure = (
+        ('Count','<H'),
+    )
+
 class SMBWrite_Data(Structure):
     structure = (
         ('BufferFormat','<B=1'),
@@ -1707,12 +1712,31 @@ class SMBWriteAndX_Parameters(SMBAndXCommand_Parameters):
         ('DataOffset','<H=0'),
         ('HighOffset','<L=0'),
     )
+
+class SMBWriteAndX_Data(Structure):
+     structure = (
+         ('Pad','<B=0'),
+         ('DataLength','_-Data','self["DataLength"]'),
+         ('Data',':'),
+     )
+    
+class SMBWriteAndX_Parameters2(SMBAndXCommand_Parameters):
+    structure = (
+        ('Fid','<H'),
+        ('Offset','<L'),
+        ('_reserved','<L=0xff'),
+        ('WriteMode','<H=8'),
+        ('Remaining','<H'),
+        ('DataLength_Hi','<H=0'),
+        ('DataLength','<H'),
+        ('DataOffset','<H=0'),
+    )
     
 class SMBWriteAndXResponse_Parameters(SMBAndXCommand_Parameters):
     structure = (
         ('Count','<H'),
         ('Available','<H'),
-        ('Reserved','<L'),
+        ('Reserved','<L=0'),
     )
 
 ############# SMB_COM_WRITE_RAW (0x1D)
