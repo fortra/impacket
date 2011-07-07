@@ -211,7 +211,7 @@ FILE_SHARE_WRITE                 = 0x00000002
 FILE_SHARE_DELETE                = 0x00000004
 
 # CreateDisposition flags
-FILE_SEPERSEDE                  = 0x00000000
+FILE_SUPERSEDE                  = 0x00000000
 FILE_OPEN                       = 0x00000001
 FILE_CREATE                     = 0x00000002
 FILE_OPEN_IF                    = 0x00000003
@@ -1607,7 +1607,7 @@ class SMBNtCreateAndX_Parameters(SMBAndXCommand_Parameters):
         ('FileNameLength','<H'),
         ('CreateFlags','<L'),
         ('RootFid','<L=0'),
-        ('AccessMask','<L'),
+        ('AccessMask','<L'), # DesiredAccess
         ('AllocationSizeLo','<L=0'),
         ('AllocationSizeHi','<L=0'),
         ('FileAttributes','<L=0'),
