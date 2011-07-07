@@ -170,6 +170,9 @@ SMB_QUERY_FILE_BASIC_INFO        = 0x0101
 SMB_QUERY_FILE_STANDARD_INFO     = 0x0102
 SMB_QUERY_FILE_ALL_INFO          = 0x0107
 
+# SET_INFORMATION levels
+SMB_SET_FILE_DISPOSITION_INFO    = 0x0102
+
 # File System Attributes
 FILE_CASE_SENSITIVE_SEARCH       = 0x00000001
 FILE_CASE_PRESERVED_NAMES        = 0x00000002
@@ -1322,6 +1325,13 @@ class SMBFindInfoStandard(Structure):
         ('FileName','z'),
     )
 
+# SET_FILE_INFORMATION structures
+# SET_FILE_DISPOSITION
+class SMBSetFileDispositionInfo(Structure):
+    structure = (
+        ('DeletePending','<B'),
+    )
+
 # TRANS2_FIND_FIRST2 
 class SMBFindFirst2Response_Parameters(Structure):
      structure = (
@@ -1348,11 +1358,29 @@ class SMBFindFirst2_Data(Structure):
          ('GetExtendedAttributesList',':'),
      )
 
+# TRANS2_SET_FILE_INFORMATION
+class SMBSetFileInformation_Parameters(Structure):
+    structure = (
+        ('FID','<H'),
+        ('InformationLevel','<H'),
+        ('Reserved','<H'),
+    )
+
+class SMBSetFileInformationResponse_Parameters(Structure):
+    structure = (
+        ('EaErrorOffset','<H=0'),
+    )
+
 # TRANS2_QUERY_FILE_INFORMATION
 class SMBQueryFileInformation_Parameters(Structure):
     structure = (
         ('FID','<H'),
         ('InformationLevel','<H'),
+    )
+
+class SMBQueryFileInformationResponse_Parameters(Structure):
+    structure = (
+        ('EaErrorOffset','<H=0')
     )
 
 class SMBQueryFileInformation_Data(Structure):
@@ -2277,6 +2305,7 @@ class SMB:
     TRANS2_QUERY_FS_INFORMATION             = 0x0003
     TRANS2_QUERY_PATH_INFORMATION           = 0x0005
     TRANS2_QUERY_FILE_INFORMATION           = 0x0007
+    TRANS2_SET_FILE_INFORMATION             = 0x0008
 
     # Security Share Mode (Used internally by SMB class)
     SECURITY_SHARE_MASK                     = 0x01
