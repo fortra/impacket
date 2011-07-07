@@ -2069,6 +2069,25 @@ class SMBCreateDirectory_Data(Structure):
         ('DirectoryName','z'),
     )
 
+############# SMB_COM_DELETE (0x06)
+class SMBDelete_Data(Structure):
+    structure = (
+        ('BufferFormat','<B=4'),
+        ('FileName','z'),
+    )
+
+class SMBDelete_Parameters(Structure):
+    structure = (
+        ('SearchAttributes','<H'),
+    )
+
+############# SMB_COM_DELETE_DIRECTORY (0x01)
+class SMBDeleteDirectory_Data(Structure):
+    structure = (
+        ('BufferFormat','<B=4'),
+        ('DirectoryName','z'),
+    )
+
 ############# SMB_COM_RENAME (0x07)
 class SMBRename_Parameters(SMBCommand_Parameters):
     structure = (
