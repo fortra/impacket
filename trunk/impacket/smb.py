@@ -1333,6 +1333,32 @@ class SMBSetFileDispositionInfo(Structure):
         ('DeletePending','<B'),
     )
 
+# TRANS2_FIND_NEXT2
+class SMBFindNext2_Parameters(Structure):
+     structure = (
+         ('SID','<H'),
+         ('SearchCount','<H'),
+         ('InformationLevel','<H'),
+         ('ResumeKey','<L'),
+         ('Flags','<H'),
+         ('FileName','z'),
+     )
+
+class SMBFindNext2Response_Parameters(Structure):
+     structure = (
+         ('SearchCount','<H'),
+         ('EndOfSearch','<H=1'),
+         ('EaErrorOffset','<H=0'),
+         ('LastNameOffset','<H=0'),
+     )
+
+class SMBFindNext2_Data(Structure):
+     structure = (
+         ('GetExtendedAttributesListLength','_-GetExtendedAttributesList', 'self["GetExtendedAttributesListLength"]'),
+         ('GetExtendedAttributesList',':'),
+     )
+
+
 # TRANS2_FIND_FIRST2 
 class SMBFindFirst2Response_Parameters(Structure):
      structure = (
@@ -1869,6 +1895,32 @@ class SMBNTTransactionResponse_Data(Structure):
     )
 
 
+############# SMB_COM_TRANSACTION2_SECONDARY (0x33)
+class SMBTransaction2Secondary_Parameters(SMBCommand_Parameters):
+    structure = (
+        ('TotalParameterCount','<H'),
+        ('TotalDataCount','<H'),
+        ('ParameterCount','<H'),
+        ('ParameterOffset','<H'),
+        ('DataCount','<H'),
+        ('DataOffset','<H'),
+        ('DataDisplacement','<H=0'),
+        ('FID','<H'),
+    )
+
+class SMBTransaction2Secondary_Data(Structure):
+    structure = (
+        ('Pad1Length','_-Pad1','self["Pad1Length"]'),
+        ('Pad1',':'),
+        ('Trans_ParametersLength','_-Trans_Parameters','self["Trans_ParametersLength"]'),
+        ('Trans_Parameters',':'),
+        ('Pad2Length','_-Pad2','self["Pad2Length"]'),
+        ('Pad2',':'),
+        ('Trans_DataLength','_-Trans_Data','self["Trans_DataLength"]'),
+        ('Trans_Data',':'),
+    )
+
+
 ############# SMB_COM_TRANSACTION2 (0x32)
 
 class SMBTransaction2_Parameters(SMBCommand_Parameters):
@@ -2297,6 +2349,7 @@ class SMB:
 
     # TRANSACT2 codes
     TRANS2_FIND_FIRST2                      = 0x0001
+    TRANS2_FIND_NEXT2                       = 0x0002
     TRANS2_QUERY_FS_INFORMATION             = 0x0003
     TRANS2_QUERY_PATH_INFORMATION           = 0x0005
     TRANS2_QUERY_FILE_INFORMATION           = 0x0007
