@@ -189,6 +189,7 @@ SMB_FIND_CONTINUE_FROM_LAST      = 0x0008
 SMB_FIND_WITH_BACKUP_INTENT      = 0x0010
 
 FILE_DIRECTORY_FILE              = 0x00000001
+FILE_DELETE_ON_CLOSE             = 0x00001000
 FILE_NON_DIRECTORY_FILE          = 0x00000040
 
 SMB_FIND_INFO_STANDARD           = 0x0001
@@ -1632,16 +1633,16 @@ class SMBTreeConnectAndXResponse_Data(Structure):
 class SMBNtCreateAndX_Parameters(SMBAndXCommand_Parameters):
     structure = (
         ('_reserved', 'B=0'),
-        ('FileNameLength','<H'),
-        ('CreateFlags','<L'),
-        ('RootFid','<L=0'),
-        ('AccessMask','<L'), # DesiredAccess
-        ('AllocationSizeLo','<L=0'),
+        ('FileNameLength','<H'),     # NameLength
+        ('CreateFlags','<L'),        # Flags
+        ('RootFid','<L=0'),          # RootDirectoryFID
+        ('AccessMask','<L'),         # DesiredAccess
+        ('AllocationSizeLo','<L=0'), # AllocationSize
         ('AllocationSizeHi','<L=0'),
-        ('FileAttributes','<L=0'),
-        ('ShareAccess','<L=3'),
-        ('Disposition','<L=1'),
-        ('CreateOptions','<L'),
+        ('FileAttributes','<L=0'),   # ExtFileAttributes
+        ('ShareAccess','<L=3'),      # 
+        ('Disposition','<L=1'),      # CreateDisposition
+        ('CreateOptions','<L'),      # CreateOptions
         ('Impersonation','<L=2'),
         ('SecurityFlags','B=3'),
     )
@@ -1652,19 +1653,13 @@ class SMBNtCreateAndXResponse_Parameters(SMBAndXCommand_Parameters):
         ('OplockLevel', 'B=0'),
         ('Fid','<H'),
         ('CreateAction','<L'),
-        ('CreationTimeLo','<L=0'),
-        ('CreationTimeHi','<L=0'),
-        ('AccessTimeLo','<L=0'),
-        ('AccessTimeHi','<L=0'),
-        ('LastWriteTimeLo','<L=0'),
-        ('LastWriteTimeHi','<L=0'),
-        ('ChangeTimeLo','<L=0'),
-        ('ChangeTimeHi','<L=0'),
+        ('CreateTime','<q=0'),
+        ('LastAccessTime','<q=0'),
+        ('LastWriteTime','<q=0'),
+        ('LastChangeTime','<q=0'),
         ('FileAttributes','<L=0x80'),
-        ('AllocationSizeLo','<L=0'),
-        ('AllocationSizeHi','<L=0'),
-        ('EndOfFileLo','<L=0'),
-        ('EndOfFileHi','<L=0'),
+        ('AllocationSize','<q=0'),
+        ('EndOfFile','<q=0'),
         ('FileType','<H=0'),
         ('IPCState','<H=0'),
         ('IsDirectory','B'),
