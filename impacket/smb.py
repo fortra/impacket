@@ -172,6 +172,9 @@ SMB_QUERY_FILE_ALL_INFO          = 0x0107
 
 # SET_INFORMATION levels
 SMB_SET_FILE_DISPOSITION_INFO    = 0x0102
+SMB_SET_FILE_BASIC_INFO          = 0x0101
+SMB_SET_FILE_END_OF_FILE_INFO    = 0x0104
+
 
 # File System Attributes
 FILE_CASE_SENSITIVE_SEARCH       = 0x00000001
@@ -1327,11 +1330,29 @@ class SMBFindInfoStandard(Structure):
     )
 
 # SET_FILE_INFORMATION structures
-# SET_FILE_DISPOSITION
+# SMB_SET_FILE_DISPOSITION_INFO
 class SMBSetFileDispositionInfo(Structure):
     structure = (
         ('DeletePending','<B'),
     )
+
+# SMB_SET_FILE_BASIC_INFO
+class SMBSetFileBasicInfo(Structure):
+    structure = (
+        ('CreationTime','<q'),
+        ('LastAccessTime','<q'),
+        ('LastWriteTime','<q'),
+        ('ChangeTime','<q'),
+        ('ExtFileAttributes','<H'),
+        ('Reserved','<L'),
+    )
+
+# SMB_SET_FILE_END_OF_FILE_INFO
+class SMBSetFileEndOfFileInfo(Structure):
+    structure = (
+        ('EndOfFile','<q'),
+    )
+
 
 # TRANS2_FIND_NEXT2
 class SMBFindNext2_Parameters(Structure):
