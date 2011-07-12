@@ -2071,6 +2071,17 @@ class SMBTransactionResponse_Parameters(SMBCommand_Parameters):
         ('Setup',':'),
     )
 
+# TODO: We should merge these both. But this will require fixing 
+# the instances where this structure is used on the client side
+class SMBTransaction_SData(Structure):
+    structure = (
+        ('Name','z'),
+        ('Trans_ParametersLength','_-Trans_Parameters'),
+        ('Trans_Parameters',':'),
+        ('Trans_DataLength','_-Trans_Data'),
+        ('Trans_Data',':'),
+    )
+
 class SMBTransaction_Data(Structure):
     structure = (
         ('NameLength','_-Name'),
