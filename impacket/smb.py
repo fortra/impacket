@@ -164,6 +164,7 @@ SMB_INFO_ALLOCATION              = 0x0001
 SMB_INFO_VOLUME                  = 0x0002
 SMB_QUERY_FS_VOLUME_INFO         = 0x0102
 SMB_QUERY_FS_SIZE_INFO           = 0x0103
+SMB_QUERY_FILE_EA_INFO           = 0x0103
 SMB_QUERY_FS_DEVICE_INFO         = 0x0104
 SMB_QUERY_FS_ATTRIBUTE_INFO      = 0x0105
 SMB_QUERY_FILE_BASIC_INFO        = 0x0101
@@ -1461,6 +1462,12 @@ class SMBQueryPathInformation_Data(Structure):
     )
 
 
+# SMB_QUERY_FILE_EA_INFO
+class SMBQueryFileEaInfo(Structure):
+    structure = (
+        ('EaSize','<L=0'),
+    )
+
 # SMB_QUERY_FILE_BASIC_INFO 
 class SMBQueryFileBasicInfo(Structure):
     structure = (
@@ -1840,7 +1847,7 @@ class SMBReadResponse_Parameters(Structure):
 
 class SMBReadResponse_Data(Structure):
     structure = (
-        ('BufferFormat','<B'),
+        ('BufferFormat','<B=0x1'),
         ('DataLength','<H-Data'),
         ('Data',':'),
     )
