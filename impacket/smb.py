@@ -1590,8 +1590,8 @@ class SMBSessionSetupAndX_Extended_Parameters(SMBAndXCommand_Parameters):
 
 class SMBSessionSetupAndX_Data(AsciiOrUnicodeStructure):
     AsciiStructure = (
-        ('AnsiPwdLength','_-AnsiPwd'),
-        ('UnicodePwdLength','_-UnicodePwd'),
+        ('AnsiPwdLength','_-AnsiPwd','self["AnsiPwdLength"]'),
+        ('UnicodePwdLength','_-UnicodePwd','self["UnicodePwdLength"]'),
         ('AnsiPwd',':=""'),
         ('UnicodePwd',':=""'),
         ('Account','z=""'),
@@ -1601,8 +1601,8 @@ class SMBSessionSetupAndX_Data(AsciiOrUnicodeStructure):
     )
     
     UnicodeStructure = (
-        ('AnsiPwdLength','_-AnsiPwd'),
-        ('UnicodePwdLength','_-UnicodePwd'),
+        ('AnsiPwdLength','_-AnsiPwd','self["AnsiPwdLength"]'),
+        ('UnicodePwdLength','_-UnicodePwd','self["UnicodePwdLength"]'),
         ('AnsiPwd',':=""'),
         ('UnicodePwd',':=""'),
         ('Account','w=""'),
