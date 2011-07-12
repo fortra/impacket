@@ -1354,7 +1354,6 @@ class SMBSetFileEndOfFileInfo(Structure):
         ('EndOfFile','<q'),
     )
 
-
 # TRANS2_FIND_NEXT2
 class SMBFindNext2_Parameters(Structure):
      structure = (
@@ -1509,6 +1508,32 @@ class SMBQueryFileAllInfo(Structure):
         ('FileName','z'),
     )
 
+# \PIPE\LANMAN NetShareEnum
+class SMBNetShareEnum(Structure):
+    structure = (
+        ('RAPOpcode','<H=0'),
+        ('ParamDesc','z'),
+        ('DataDesc','z'),
+        ('InfoLevel','<H'),
+        ('ReceiveBufferSize','<H'),
+    )
+
+class SMBNetShareEnumResponse(Structure):
+    structure = (
+        ('Status','<H=0'),
+        ('Convert','<H=0'),
+        ('EntriesReturned','<H'),
+        ('EntriesAvailable','<H'),
+    )
+
+class NetShareInfo1(Structure):
+    structure = (
+        ('NetworkName','13s'),
+        ('Pad','<B=0'),
+        ('Type','<H=0'),
+        ('RemarkOffsetLow','<H=0'),
+        ('RemarkOffsetHigh','<H=0'),
+    )
 
 ############# Security Features
 class SecurityFeatures(Structure):
@@ -2058,15 +2083,15 @@ class SMBTransactionResponse_Parameters(SMBCommand_Parameters):
     structure = (
         ('TotalParameterCount','<H'),
         ('TotalDataCount','<H'),
-        ('Reserved1','<H'),
+        ('Reserved1','<H=0'),
         ('ParameterCount','<H'),
         ('ParameterOffset','<H'),
-        ('ParameterDisplacement','<H'),
+        ('ParameterDisplacement','<H=0'),
         ('DataCount','<H'),
         ('DataOffset','<H'),
-        ('DataDisplacement','<H'),
+        ('DataDisplacement','<H=0'),
         ('SetupCount','<B'),
-        ('Reserved2','<B'),
+        ('Reserved2','<B=0'),
         ('SetupLength','_-Setup','SetupCount*2'),
         ('Setup',':'),
     )
