@@ -1245,10 +1245,10 @@ class SMBQueryFsInfoVolume(Structure):
 # SMB_QUERY_FS_SIZE_INFO
 class SMBQueryFsSizeInfo(Structure):
     structure = (
-        ('TotalAllocationUnits','<q=1024*1024*1024'),
-        ('TotalFreeAllocationUnits','<q=0'),
-        ('SectorsPerAllocationUnit','<L=1'),
-        ('BytesPerSector','<L=1'),
+        ('TotalAllocationUnits','<q=148529400'),
+        ('TotalFreeAllocationUnits','<q=14851044'),
+        ('SectorsPerAllocationUnit','<L=2'),
+        ('BytesPerSector','<L=512'),
     )
 # SMB_QUERY_FS_VOLUME_INFO
 class SMBQueryFsVolumeInfo(Structure):
@@ -1405,6 +1405,19 @@ class SMBFindFirst2_Data(Structure):
          ('GetExtendedAttributesListLength','_-GetExtendedAttributesList', 'self["GetExtendedAttributesListLength"]'),
          ('GetExtendedAttributesList',':'),
      )
+
+# TRANS2_SET_PATH_INFORMATION
+class SMBSetPathInformation_Parameters(Structure):
+    structure = (
+        ('InformationLevel','<H'),
+        ('Reserved','<L'),
+        ('FileName','z'),
+    )
+
+class SMBSetPathInformationResponse_Parameters(Structure):
+    structure = (
+        ('EaErrorOffset','<H=0'),
+    )
 
 # TRANS2_SET_FILE_INFORMATION
 class SMBSetFileInformation_Parameters(Structure):
@@ -2418,6 +2431,7 @@ class SMB:
     TRANS2_QUERY_PATH_INFORMATION           = 0x0005
     TRANS2_QUERY_FILE_INFORMATION           = 0x0007
     TRANS2_SET_FILE_INFORMATION             = 0x0008
+    TRANS2_SET_PATH_INFORMATION             = 0x0006
 
     # Security Share Mode (Used internally by SMB class)
     SECURITY_SHARE_MASK                     = 0x01
