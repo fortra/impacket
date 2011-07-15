@@ -2822,6 +2822,12 @@ class SMB:
     def get_session_key(self):
         return self._dialects_parameters['SessionKey']
 
+    def get_encryption_key(self):
+        if self._dialects_data.fields.has_key('Challenge'):
+            return self._dialects_data['Challenge']
+        else:
+            return None
+
     def get_server_time(self):
         timestamp = self._dialects_parameters['HighDateTime']
         timestamp <<= 32
