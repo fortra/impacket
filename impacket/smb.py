@@ -2488,7 +2488,7 @@ class SMB:
 
 
 
-    def __init__(self, remote_name, remote_host, my_name = None, host_type = nmb.TYPE_SERVER, sess_port = nmb.NETBIOS_SESSION_PORT, timeout=None, UDP = 0):
+    def __init__(self, remote_name, remote_host, my_name = None, host_type = nmb.TYPE_SERVER, sess_port = 445, timeout=None, UDP = 0):
         # The uid attribute will be set when the client calls the login() method
         self._uid = 0
         self.__server_name = ''
@@ -2517,7 +2517,7 @@ class SMB:
         self._SignatureRequired = False
 
         if timeout==None:
-            self.__timeout = 5
+            self.__timeout = 10
         else:
             self.__timeout = timeout
         
