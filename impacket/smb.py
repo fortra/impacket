@@ -2502,6 +2502,7 @@ class SMB:
         # Could be extended or not, flags should be checked before 
         self._dialect_data = 0
         self._dialect_parameters = 0
+        self._action = 0
         self._sess = None
         self.encrypt_passwords = True
         self.tid = 0
@@ -2565,6 +2566,9 @@ class SMB:
 
     def get_fid(self):
         return self.fid
+   
+    def isGuestSession(self):
+        return self._action & SMB_SETUP_GUEST 
 
     def __del__(self):
         if self._sess:
@@ -3138,6 +3142,7 @@ class SMB:
                 sessionParameters = SMBSessionSetupAndXResponse_Parameters(sessionResponse['Parameters'])
                 sessionData       = SMBSessionSetupAndXResponse_Data(flags = smb['Flags2'], data = sessionResponse['Data'])
 
+                self._action = sessionParameters['Action']
                 # If smb sign required, let's enable it for the rest of the connection
                 if self._dialects_parameters['SecurityMode'] & SMB.SECURITY_SIGNATURES_REQUIRED:
                    self._SignSequenceNumber = 2
@@ -3228,6 +3233,8 @@ class SMB:
             sessionResponse   = SMBCommand(smb['Data'][0])
             sessionParameters = SMBSessionSetupAndXResponse_Parameters(sessionResponse['Parameters'])
             sessionData       = SMBSessionSetupAndXResponse_Data(flags = smb['Flags2'], data = sessionResponse['Data'])
+
+            self._action = sessionParameters['Action']
 
             # Still gotta figure out how to do this with no EXTENDED_SECURITY
             if sessionParameters['Action'] & SMB_SETUP_USE_LANMAN_KEY == 0:
