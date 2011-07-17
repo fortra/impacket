@@ -66,6 +66,7 @@ except ImportError:
 
 # Shared Device Type
 SHARED_DISK                      = 0x00
+SHARED_DISK_HIDDEN               = 0x80000000
 SHARED_PRINT_QUEUE               = 0x01
 SHARED_DEVICE                    = 0x02
 SHARED_IPC                       = 0x03
