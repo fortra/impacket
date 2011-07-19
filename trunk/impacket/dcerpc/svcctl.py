@@ -726,7 +726,7 @@ class DCERPCSvcCtl:
         createService['ServiceName']    = (serviceName+'\x00').encode('utf-16le')
         createService['DisplayName']    = (displayName+'\x00').encode('utf-16le')
         createService['DesiredAccess']  = SERVICE_ALL_ACCESS
-        createService['ServiceType']    = SERVICE_WIN32_OWN_PROCESS
+        createService['ServiceType']    = SERVICE_WIN32_OWN_PROCESS | SERVICE_INTERACTIVE_PROCESS
         createService['StartType']      = SERVICE_AUTO_START
         createService['ErrorControl']   = SERVICE_ERROR_IGNORE
         createService['BinaryPathName'] = (binaryPathName+'\x00').encode('utf-16le')
