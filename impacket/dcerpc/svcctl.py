@@ -180,6 +180,14 @@ class SVCCTLRCreateServiceW(Structure):
     )
     
  
+class SVCCTLRCreateServiceWResponse(Structure):
+    alignment = 4
+    structure = (
+        ('TagID','<L'),
+        ('ContextHandle','20s'),
+        ('ErrorCode','<L'),
+    )
+
 # OLD Style structs.. leaving this stuff for compatibility purpose. Don't use these structs/functions anymore
 
 class SVCCTLOpenSCManagerHeader(ImpactPacket.Header):
@@ -685,8 +693,6 @@ class DCERPCSvcCtl:
             return
         else:
             answer = self._dcerpc.recv()
-            if checkReturn and answer[-4:] != '\x00\x00\x00\x00':
-                raise Exception, 'DCE-RPC call returned an error.'
             return answer
 
     def DeleteService(self, handle):
@@ -732,7 +738,7 @@ class DCERPCSvcCtl:
         createService['BinaryPathName'] = (binaryPathName+'\x00').encode('utf-16le')
         createService['TagID'] = 0
         ans = self.doRequest(createService, checkReturn = 1)
-        return ans
+        return SVCCTLRCreateServiceWResponse(ans)
 
     def OpenSCManagerW(self): 
         openSCManager = SVCCTLROpenSCManagerW()
