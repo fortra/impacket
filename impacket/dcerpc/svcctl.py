@@ -6,6 +6,8 @@
 #
 # $Id$
 #
+# Author: Alberto Solino
+#
 # Description:
 #   SVCCTL (Services Control) interface implementation.
 #
@@ -14,9 +16,171 @@ import array
 from struct import *
 
 from impacket import ImpactPacket
+from structure import Structure
 import dcerpc
 
 MSRPC_UUID_SVCCTL = '\x81\xbb\x7a\x36\x44\x98\xf1\x35\xad\x32\x98\xf0\x38\x00\x10\x03\x02\x00\x00\x00'
+
+# Error Codes 
+ERROR_PATH_NOT_FOUND            = 3
+ERROR_ACCESS_DENIES             = 5
+ERROR_INVALID_HANDLE            = 6
+ERROR_INVALID_DATA              = 13
+ERROR_INVALID_PARAMETER         = 87
+ERROR_INVALID_NAME              = 123
+ERROR_SERVICE_ALREADY_RUNNING   = 1056
+ERROR_INVALID_SERVICE_ACCOUNT   = 1057
+ERROR_SERVICE_DISABLED          = 1058
+ERROR_DATABASE_DOES_NOT_EXIST   = 1065
+ERROR_SERVICE_LOGON_FAILURE     = 1069
+ERROR_SERVICE_MARKED_FOR_DELETE = 1072
+ERROR_SERVICE_EXISTS            = 1073
+ERROR_DUPLICATE_SERVICE_NAME    = 1078
+ERROR_SHUTDOWN_IN_PROGRESS      = 1115
+
+# Access codes
+SERVICE_ALL_ACCESS            = 0X000F01FF
+SERVICE_CHANGE_CONFIG         = 0X00000002
+SERVICE_ENUMERATE_DEPENDENTS  = 0X00000008
+SERVICE_INTERROGATE           = 0X00000080
+SERVICE_PAUSE_CONTINUE        = 0X00000040
+SERVICE_QUERY_CONFIG          = 0X00000001
+SERVICE_QUERY_STATUS          = 0X00000004
+SERVICE_START                 = 0X00000010
+SERVICE_STOP                  = 0X00000020
+SERVICE_USER_DEFINED_CTRL     = 0X00000100
+SERVICE_SET_STATUS            = 0X00008000
+
+# Service Types
+SERVICE_KERNEL_DRIVER         = 0x00000001
+SERVICE_FILE_SYSTEM_DRIVER    = 0x00000002
+SERVICE_WIN32_OWN_PROCESS     = 0x00000010
+SERVICE_WIN32_SHARE_PROCESS   = 0x00000020
+SERVICE_INTERACTIVE_PROCESS   = 0x00000100
+
+# Start Types
+SERVICE_BOOT_START            = 0x00000000
+SERVICE_SYSTEM_START          = 0x00000001
+SERVICE_AUTO_START            = 0x00000002
+SERVICE_DEMAND_START          = 0x00000003
+SERVICE_DISABLED              = 0x00000004
+
+# Error Control 
+SERVICE_ERROR_IGNORE          = 0x00000000
+SERVICE_ERROR_NORMAL          = 0x00000001
+SERVICE_ERROR_SEVERE          = 0x00000002
+SERVICE_ERROR_CRITICAL        = 0x00000003
+
+# Service Control Codes
+SERVICE_CONTROL_CONTINUE      = 0x00000003
+SERVICE_CONTROL_INTERROGATE   = 0x00000004
+SERVICE_CONTROL_PARAMCHANGE   = 0x00000006
+SERVICE_CONTROL_PAUSE         = 0x00000002
+SERVICE_CONTROL_STOP          = 0x00000001
+
+class SVCCTLRDeleteService(Structure):
+    opnum = 2
+    alignment = 4
+    structure = (
+        ('ContextHandle','20s'),
+    )
+ 
+class SVCCTLRControlService(Structure):
+    opnum = 1
+    alignment = 4
+    structure = (
+        ('ContextHandle','20s'),
+        ('Control','<L'),
+    )
+
+class SVCCTLRControlServiceResponse(Structure):
+    alignment = 4
+    structure = (
+        ('ServiceStatus','20s'),
+    )
+
+class SVCCTLRStartServiceW(Structure):
+    opnum = 31
+    alignment = 4
+    structure = (
+        ('ContextHandle','20s'),
+        ('argc','<L=0'),
+        ('argv','<L=0'),
+    )
+
+class SVCCTLROpenServiceW(Structure):
+    opnum = 16
+    alignment = 4
+    structure = (
+        ('SCManager','20s'),
+        ('ServiceName','w'),
+        ('DesiredAccess','<L'),
+    )
+
+class SVCCTLROpenServiceWResponse(Structure):
+    alignment = 4
+    structure = (
+        ('ContextHandle','20s'),
+        ('ErrorCode','<L'),
+    )
+
+class SVCCTLROpenSCManagerW(Structure):
+    opnum = 15
+    alignment = 4
+    structure = (
+        ('pMachineName','<L-MachineName'),
+        ('MachineName','w'),
+        ('DatabaseName','"\x00'),
+        ('DesiredAccess','<L'),
+    )
+
+class SVCCTLROpenSCManagerAResponse(Structure):
+    alignment = 4
+    structure = (
+        ('ContextHandle','20s'),
+        ('ErrorCode','<L'),
+    )
+
+class SVCCTLRCloseServiceHandle(Structure):
+    opnum = 0
+    alignment = 4
+    structure = (
+       ('ContextHandle','20s'),
+    )
+   
+class SVCCTLRCloseServiceHandlerResponse(Structure):
+    alignment = 4
+    structure = (
+        ('ContextHandle','20s'),
+        ('ErrorCode','<L'),
+    )
+
+class SVCCTLRCreateServiceW(Structure):
+    opnum = 12
+    alignment = 4
+    structure = (
+        ('SCManager','20s'),
+        ('ServiceName','w'),
+        ('pRefId1','<L-&DisplayName'), # Unique
+        ('DisplayName','w'),
+        ('DesiredAccess','<L'),
+        ('ServiceType','<L'),
+        ('StartType','<L'),
+        ('ErrorControl','<L'),
+        ('BinaryPathName','w'),
+        ('LoadOrderGroup','<L=0'),
+        ('TagID','<L=0'),
+        ('Dependencies','<L=0'),
+        ('DependenciesSize','<L=0'),
+        #('pServiceStartName','<L-&ServiceStartName'),
+        #('ServiceStartName','w'),
+        ('ServiceStartName','<L=0'),
+        ('Password','<L=0'),
+        ('PwSize','<L=0'),
+    )
+    
+ 
+# OLD Style structs.. leaving this stuff for compatibility purpose. Don't use these structs/functions anymore
 
 class SVCCTLOpenSCManagerHeader(ImpactPacket.Header):
     OP_NUM = 0x1B
@@ -512,3 +676,75 @@ class DCERPCSvcCtl:
         data = self._dcerpc.recv()
         retVal = SVCCTLRespStartServiceHeader(data)
         return retVal
+
+# Use these functions to manipulate services. The previous ones are left for backward compatibility reasons.
+
+    def doRequest(self, request, noAnswer = 0, checkReturn = 1):
+        self._dcerpc.call(request.opnum, request)
+        if noAnswer:
+            return
+        else:
+            answer = self._dcerpc.recv()
+            if checkReturn and answer[-4:] != '\x00\x00\x00\x00':
+                raise Exception, 'DCE-RPC call returned an error.'
+            return answer
+
+    def DeleteService(self, handle):
+        deleteService = SVCCTLRDeleteService()
+        deleteService['ContextHandle'] = handle
+        ans = self.doRequest(deleteService, checkReturn = 1)
+        return ans
+
+    def StopService(self, handle):
+        controlService = SVCCTLRControlService()
+        controlService['ContextHandle'] = handle
+        controlService['Control']  = SERVICE_CONTROL_STOP
+        ans = self.doRequest(controlService, checkReturn = 1)
+        return ans
+ 
+    def OpenServiceW(self, handle, name):
+        openService = SVCCTLROpenServiceW()
+        openService['SCManager'] = handle
+        openService['ServiceName'] = (name+'\x00').encode('utf-16le')
+        openService['DesiredAccess'] = SERVICE_ALL_ACCESS
+
+        ans = self.doRequest(openService, checkReturn = 1)
+        return SVCCTLROpenServiceWResponse(ans)
+
+    def StartServiceW(self, handle):
+        # TODO: Handle Arguments
+        startService = SVCCTLRStartServiceW()
+        startService['ContextHandle']   = handle
+        
+        ans = self.doRequest(startService, checkReturn = 1)
+      
+        return ans
+
+    def CreateServiceW(self, handle, serviceName, displayName, binaryPathName):
+        createService = SVCCTLRCreateServiceW()
+        createService['SCManager']      = handle
+        createService['ServiceName']    = (serviceName+'\x00').encode('utf-16le')
+        createService['DisplayName']    = (displayName+'\x00').encode('utf-16le')
+        createService['DesiredAccess']  = SERVICE_ALL_ACCESS
+        createService['ServiceType']    = SERVICE_WIN32_OWN_PROCESS
+        createService['StartType']      = SERVICE_AUTO_START
+        createService['ErrorControl']   = SERVICE_ERROR_IGNORE
+        createService['BinaryPathName'] = (binaryPathName+'\x00').encode('utf-16le')
+        createService['TagID'] = 0
+        ans = self.doRequest(createService, checkReturn = 1)
+        return ans
+
+    def OpenSCManagerW(self): 
+        openSCManager = SVCCTLROpenSCManagerW()
+        openSCManager['MachineName'] = 'DUMMY\x00'.encode('utf-16le')
+        openSCManager['DesiredAccess'] = SERVICE_START | SERVICE_STOP | SERVICE_CHANGE_CONFIG | SERVICE_QUERY_CONFIG | SERVICE_QUERY_STATUS | SERVICE_ENUMERATE_DEPENDENTS
+
+        ans = self.doRequest(openSCManager, checkReturn = 1)
+        return SVCCTLROpenSCManagerAResponse(ans)
+
+    def CloseServiceHandle(self, handle):
+        closeHandle = SVCCTLRCloseServiceHandle()
+        closeHandle['ContextHandle'] = handle
+        ans = self.doRequest(closeHandle, checkReturn = 1)
+        return SVCCTLRCloseServiceHandlerResponse(ans)
+        

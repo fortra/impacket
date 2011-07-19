@@ -1,10 +1,12 @@
-# Copyright (c) 2003-2006 CORE Security Technologies
+# Copyright (c) 2003-2011 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
 # $Id$
+#
+# Author: Alberto Solino
 #
 # Description:
 #   Transport implementations for the DCE/RPC protocol.
@@ -101,7 +103,7 @@ def DCERPCTransportFactory(stringbinding):
         named_pipe = sb.get_endpoint()
         if named_pipe:
             named_pipe = named_pipe[len(r'\pipe'):]
-            return SMBTransport(na, filename = named_pipe) #, remote_name = na)
+            return SMBTransport(na, filename = named_pipe)
         else:
             return SMBTransport(na)
     else:
