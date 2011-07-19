@@ -6,6 +6,8 @@
 #
 # $Id$
 #
+# Author: Alberto Solino
+#
 # Description:
 #   SRVSVC interface implementation.
 #

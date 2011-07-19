@@ -6,6 +6,8 @@
 #
 # $Id$
 #
+# Author: Alberto Solino
+#
 # Description:
 #   WinReg (Windows Registry) interface implementation.
 #

@@ -1,10 +1,12 @@
-# Copyright (c) 2003-2006 CORE Security Technologies
+# Copyright (c) 2003-2011 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
 # $Id$
+#
+# Author: Alberto Solino
 #
 # Description:
 #   SAMR (Security Account Manager Remote) interface implementation.
