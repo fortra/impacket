@@ -118,7 +118,17 @@ class SVCCTLROpenServiceW(Structure):
         ('DesiredAccess','<L'),
     )
 
-class SVCCTLROpenServiceWResponse(Structure):
+class SVCCTLROpenServiceA(Structure):
+    opnum = 28
+    alignment = 4
+    structure = (
+        ('SCManager','20s'),
+        ('ServiceName',':',ndrutils.NDRStringA),
+        ('DesiredAccess','<L'),
+    )
+
+
+class SVCCTLROpenServiceResponse(Structure):
     alignment = 4
     structure = (
         ('ContextHandle','20s'),
@@ -707,6 +717,16 @@ class DCERPCSvcCtl:
         ans = self.doRequest(controlService, checkReturn = 1)
         return ans
  
+    def OpenServiceA(self, handle, name):
+        openService = SVCCTLROpenServiceA()
+        openService['SCManager'] = handle
+        openService['ServiceName'] = ndrutils.NDRStringA()
+        openService['ServiceName']['Data'] = (name+'\x00')
+        openService['DesiredAccess'] = SERVICE_ALL_ACCESS
+
+        ans = self.doRequest(openService, checkReturn = 1)
+        return SVCCTLROpenServiceResponse(ans)
+
     def OpenServiceW(self, handle, name):
         # We MUST receive Unicode data here
         openService = SVCCTLROpenServiceW()
@@ -716,7 +736,7 @@ class DCERPCSvcCtl:
         openService['DesiredAccess'] = SERVICE_ALL_ACCESS
 
         ans = self.doRequest(openService, checkReturn = 1)
-        return SVCCTLROpenServiceWResponse(ans)
+        return SVCCTLROpenServiceResponse(ans)
 
     def StartServiceW(self, handle):
         # TODO: Handle Arguments
