@@ -18,6 +18,7 @@ from struct import *
 from impacket import ImpactPacket
 from structure import Structure
 import dcerpc
+from impacket.dcerpc import ndrutils
 
 MSRPC_UUID_SVCCTL = '\x81\xbb\x7a\x36\x44\x98\xf1\x35\xad\x32\x98\xf0\x38\x00\x10\x03\x02\x00\x00\x00'
 
@@ -113,7 +114,7 @@ class SVCCTLROpenServiceW(Structure):
     alignment = 4
     structure = (
         ('SCManager','20s'),
-        ('ServiceName','w'),
+        ('ServiceName',':',ndrutils.NDRStringW),
         ('DesiredAccess','<L'),
     )
 
@@ -128,8 +129,7 @@ class SVCCTLROpenSCManagerW(Structure):
     opnum = 15
     alignment = 4
     structure = (
-        ('pMachineName','<L-MachineName'),
-        ('MachineName','w'),
+        ('MachineName',':',ndrutils.NDRUniqueStringW),
         ('DatabaseName','"\x00'),
         ('DesiredAccess','<L'),
     )
@@ -160,14 +160,13 @@ class SVCCTLRCreateServiceW(Structure):
     alignment = 4
     structure = (
         ('SCManager','20s'),
-        ('ServiceName','w'),
-        ('pRefId1','<L-&DisplayName'), # Unique
-        ('DisplayName','w'),
+        ('ServiceName',':',ndrutils.NDRStringW),
+        ('DisplayName',':',ndrutils.NDRUniqueStringW),
         ('DesiredAccess','<L'),
         ('ServiceType','<L'),
         ('StartType','<L'),
         ('ErrorControl','<L'),
-        ('BinaryPathName','w'),
+        ('BinaryPathName',':',ndrutils.NDRStringW),
         ('LoadOrderGroup','<L=0'),
         ('TagID','<L=0'),
         ('Dependencies','<L=0'),
@@ -709,9 +708,11 @@ class DCERPCSvcCtl:
         return ans
  
     def OpenServiceW(self, handle, name):
+        # We MUST receive Unicode data here
         openService = SVCCTLROpenServiceW()
         openService['SCManager'] = handle
-        openService['ServiceName'] = (name+'\x00').encode('utf-16le')
+        openService['ServiceName'] = ndrutils.NDRStringW()
+        openService['ServiceName']['Data'] = (name+'\x00'.encode('utf-16le'))
         openService['DesiredAccess'] = SERVICE_ALL_ACCESS
 
         ans = self.doRequest(openService, checkReturn = 1)
@@ -727,22 +728,27 @@ class DCERPCSvcCtl:
         return ans
 
     def CreateServiceW(self, handle, serviceName, displayName, binaryPathName):
+        # We MUST receive Unicode data here
         createService = SVCCTLRCreateServiceW()
         createService['SCManager']      = handle
-        createService['ServiceName']    = (serviceName+'\x00').encode('utf-16le')
-        createService['DisplayName']    = (displayName+'\x00').encode('utf-16le')
+        createService['ServiceName']    = ndrutils.NDRStringW()
+        createService['ServiceName']['Data']    = (serviceName+'\x00'.encode('utf-16le'))
+        createService['DisplayName']    = ndrutils.NDRUniqueStringW()
+        createService['DisplayName']['Data']    = (displayName+'\x00'.encode('utf-16le'))
         createService['DesiredAccess']  = SERVICE_ALL_ACCESS
         createService['ServiceType']    = SERVICE_WIN32_OWN_PROCESS | SERVICE_INTERACTIVE_PROCESS
         createService['StartType']      = SERVICE_AUTO_START
         createService['ErrorControl']   = SERVICE_ERROR_IGNORE
-        createService['BinaryPathName'] = (binaryPathName+'\x00').encode('utf-16le')
+        createService['BinaryPathName'] = ndrutils.NDRStringW()
+        createService['BinaryPathName']['Data'] = (binaryPathName+'\x00'.encode('utf-16le'))
         createService['TagID'] = 0
         ans = self.doRequest(createService, checkReturn = 1)
         return SVCCTLRCreateServiceWResponse(ans)
 
     def OpenSCManagerW(self): 
         openSCManager = SVCCTLROpenSCManagerW()
-        openSCManager['MachineName'] = 'DUMMY\x00'.encode('utf-16le')
+        openSCManager['MachineName'] = ndrutils.NDRUniqueStringW()
+        openSCManager['MachineName']['Data'] = 'DUMMY\x00'.encode('utf-16le')
         openSCManager['DesiredAccess'] = SERVICE_START | SERVICE_STOP | SERVICE_CHANGE_CONFIG | SERVICE_QUERY_CONFIG | SERVICE_QUERY_STATUS | SERVICE_ENUMERATE_DEPENDENTS
 
         ans = self.doRequest(openSCManager, checkReturn = 1)
