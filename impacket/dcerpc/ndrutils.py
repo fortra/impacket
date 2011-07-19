@@ -11,6 +11,8 @@ from struct import *
 import socket
 import random
 from impacket import uuid
+from impacket import structure
+from structure import *
 
 def uuid_hex(_uuid):
     for i in range(0,len(_uuid)):
@@ -375,3 +377,41 @@ class NDRString:
     def get_length(self):
         return self._length
     
+class NDRStringA(Structure):
+    structure = (
+        ('MaxCount','<L=len(Data)'),
+        ('Offset','<L=0'),
+        ('ActualCount','<L=len(Data)'),
+        ('DataLen','_-Data','MaxCount'),
+        ('Data',':'),
+    )
+
+class NDRUniqueStringA(NDRStringA):
+    commonHdr = (
+        ('RefId','<L'),
+    )
+    def __init__(self, data = None, alignment = 0):
+        NDRStringA.__init__(self,data, alignment)
+        self['RefId'] = random.randint(0,65535)
+
+
+class NDRStringW(Structure):
+    alignment = 4
+    structure = (
+        ('MaxCount','<L=len(Data)/2'),
+        ('Offset','<L=0'),
+        ('ActualCount','<L=len(Data)/2'),
+        ('DataLen','_-Data','MaxCount*2'),
+        ('Data',':'),
+    )
+
+class NDRUniqueStringW(NDRStringW):
+    alignment = 4
+    commonHdr = (
+        ('RefId','<L'),
+    )
+    def __init__(self, data = None, alignment = 0):
+        NDRStringW.__init__(self,data, alignment)
+        self['RefId'] = random.randint(0,65535)
+
+
