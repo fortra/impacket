@@ -24,7 +24,7 @@ MSRPC_UUID_SVCCTL = '\x81\xbb\x7a\x36\x44\x98\xf1\x35\xad\x32\x98\xf0\x38\x00\x1
 
 # Error Codes 
 ERROR_PATH_NOT_FOUND            = 3
-ERROR_ACCESS_DENIES             = 5
+ERROR_ACCESS_DENIED             = 5
 ERROR_INVALID_HANDLE            = 6
 ERROR_INVALID_DATA              = 13
 ERROR_INVALID_PARAMETER         = 87
