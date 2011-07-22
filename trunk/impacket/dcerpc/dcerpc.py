@@ -774,8 +774,8 @@ class DCERPC_v5(DCERPC):
             else:
                 raise Exception('Unknown DCE RPC fault status code: %.8x' % status_code, resp)
 
-        # check ack results for each context
-        for ctx in range(bind.get_ctx_num()):
+        # check ack results for each context, except for the bogus ones
+        for ctx in range(bogus_binds+1,bind.get_ctx_num()):
             result = resp.get_result(ctx)
             if result != 0:
                 msg = "Bind context %d rejected: " % ctx
