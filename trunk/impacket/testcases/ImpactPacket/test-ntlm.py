@@ -68,7 +68,8 @@ print "4.2.2.2.2 LMv1 Response"
 hexdump(lmResponse)
 print "\n"
 print "4.2.2.2.2 LMv1 Response with NTLMSSP_NEGOTIATE_LM_KEY set"
-flags2 = flags | ntlm.NTLMSSP_LM_KEY
+flags2 = flags
+#flags2 = flags | ntlm.NTLMSSP_LM_KEY
 #hexdump(struct.pack('<L',flags2))
 ntResponse, lmResponse, sessionBaseKey  = ntlm.computeResponseNTLMv1(long(flags2), serverChallenge, clientChallenge, serverName, domain, user, password, '', '')
 hexdump(lmResponse)
@@ -115,8 +116,8 @@ handle = cipher.encrypt
 print "Plaintext"
 hexdump(plaintext)
 print "\n"
-sealedMsg = ntlm.SEAL(flags, nonce, nonce, plaintext, seqNum, handle, handle)
-signature = ntlm.SIGN(flags, nonce, plaintext, seqNum, handle)
+sealedMsg, signature = ntlm.SEAL(flags, nonce, nonce, plaintext, seqNum, handle)
+#signature = ntlm.SIGN(flags, nonce, plaintext, seqNum, handle)
 hexdump(sealedMsg)
 print "\n"
 hexdump(signature.getData())
@@ -181,8 +182,8 @@ print "SIGNKEY()"
 hexdump(clientSigningKey)
 print "\n"
 print "Sealed Data"
-sealedMsg = ntlm.SEAL(flags, clientSealingKey, clientSigningKey, plaintext, seqNum, client_sealing_h, client_signing_h)
-signature = ntlm.SIGN(flags, clientSigningKey, plaintext, seqNum, client_sealing_h)
+sealedMsg, signature = ntlm.SEAL(flags, clientSealingKey, clientSigningKey, plaintext, seqNum, client_sealing_h, client_signing_h)
+#signature = ntlm.SIGN(flags, clientSigningKey, plaintext, seqNum, client_sealing_h)
 hexdump(sealedMsg)
 print "\n"
 print "Signature"
@@ -261,8 +262,8 @@ print "SIGNKEY()"
 hexdump(clientSigningKey)
 print "\n"
 print "Sealed Data"
-sealedMsg = ntlm.SEAL(flags, clientSealingKey, clientSigningKey, plaintext, seqNum, client_sealing_h, client_signing_h)
-signature = ntlm.SIGN(flags, clientSigningKey, plaintext, seqNum, client_sealing_h)
+sealedMsg, signature = ntlm.SEAL(flags, clientSealingKey, clientSigningKey, plaintext, seqNum, client_sealing_h, client_signing_h)
+#signature = ntlm.SIGN(flags, clientSigningKey, plaintext, seqNum, client_sealing_h)
 hexdump(sealedMsg)
 print "\n"
 print "Signature"
