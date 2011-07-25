@@ -536,6 +536,11 @@ def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = 
         responseFlags &= 0xffffffff ^ NTLMSSP_ALWAYS_SIGN
 
     keyExchangeKey = KXKEY(ntlmChallenge['flags'],sessionBaseKey, lmResponse, ntlmChallenge['challenge'], password, lmhash, nthash)
+
+    # Special case for anonymous login
+    if user == '' and password == '' and lmhash == '' and nthash == '':
+      keyExchangeKey = '\x00'*16
+
     # If we set up key exchange, let's fill the right variables
     if ntlmChallenge['flags'] & NTLMSSP_KEY_EXCHANGE:
        # not exactly what I call random tho :\
@@ -735,9 +740,6 @@ def generateEncryptedSessionKey(keyExchangeKey, exportedSessionKey):
    return sessionKey
 
 def KXKEY(flags, sessionBaseKey, lmChallengeResponse, serverChallenge, password, lmhash, nthash):
-
-   if password == '' and lmhash == '' and nthash == '':
-      return '\x00'*16
 
    if USE_NTLMv2:
        return sessionBaseKey
