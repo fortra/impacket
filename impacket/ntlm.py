@@ -674,9 +674,9 @@ def MAC(flags, handle, signingKey, seqNum, message, isDCE = False):
        
    return messageSignature
 
-def SEAL(flags, sealingKey, signingKey, message, seqNum, handle, isDCE = False):
-   sealedMessage = handle(message)
-   signature = MAC(flags, handle, signingKey, seqNum, message, isDCE)
+def SEAL(flags, signingKey, sealingKey, messageToSign, messageToEncrypt, seqNum, handle, isDCE = False):
+   sealedMessage = handle(messageToEncrypt)
+   signature = MAC(flags, handle, signingKey, seqNum, messageToSign, isDCE)
    return sealedMessage, signature
 
 def SIGN(flags, signingKey, message, seqNum, handle, isDCE = False):
@@ -736,6 +736,9 @@ def generateEncryptedSessionKey(keyExchangeKey, exportedSessionKey):
 
 def KXKEY(flags, sessionBaseKey, lmChallengeResponse, serverChallenge, password, lmhash, nthash):
 
+   if password == '' and lmhash == '' and nthash == '':
+      return '\x00'*16
+
    if USE_NTLMv2:
        return sessionBaseKey
 
@@ -745,9 +748,6 @@ def KXKEY(flags, sessionBaseKey, lmChallengeResponse, serverChallenge, password,
        else:
           keyExchangeKey = sessionBaseKey
    elif flags & NTLMSSP_NTLM_KEY:
-       if password == '' and lmhash == '' and nthash == '':
-          return '\x00'*16
-
        if flags & NTLMSSP_LM_KEY:
           keyExchangeKey = __DES_block(LMOWFv1(password,lmhash)[:7], lmChallengeResponse[:8]) + __DES_block(LMOWFv1(password,lmhash)[7] + '\xBD\xBD\xBD\xBD\xBD\xBD', lmChallengeResponse[:8])
        elif flags & NTLMSSP_NOT_NT_KEY:
