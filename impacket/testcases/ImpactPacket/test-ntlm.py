@@ -116,7 +116,7 @@ handle = cipher.encrypt
 print "Plaintext"
 hexdump(plaintext)
 print "\n"
-sealedMsg, signature = ntlm.SEAL(flags, nonce, nonce, plaintext, seqNum, handle)
+sealedMsg, signature = ntlm.SEAL(flags, nonce, nonce, plaintext, plaintext, seqNum, handle)
 #signature = ntlm.SIGN(flags, nonce, plaintext, seqNum, handle)
 hexdump(sealedMsg)
 print "\n"
@@ -182,7 +182,7 @@ print "SIGNKEY()"
 hexdump(clientSigningKey)
 print "\n"
 print "Sealed Data"
-sealedMsg, signature = ntlm.SEAL(flags, clientSealingKey, clientSigningKey, plaintext, seqNum, client_sealing_h, client_signing_h)
+sealedMsg, signature = ntlm.SEAL(flags, clientSealingKey, clientSigningKey, plaintext, plaintext, seqNum, client_sealing_h, client_signing_h)
 #signature = ntlm.SIGN(flags, clientSigningKey, plaintext, seqNum, client_sealing_h)
 hexdump(sealedMsg)
 print "\n"
@@ -262,7 +262,7 @@ print "SIGNKEY()"
 hexdump(clientSigningKey)
 print "\n"
 print "Sealed Data"
-sealedMsg, signature = ntlm.SEAL(flags, clientSealingKey, clientSigningKey, plaintext, seqNum, client_sealing_h, client_signing_h)
+sealedMsg, signature = ntlm.SEAL(flags, clientSealingKey, clientSigningKey, plaintext, plaintext, seqNum, client_sealing_h, client_signing_h)
 #signature = ntlm.SIGN(flags, clientSigningKey, plaintext, seqNum, client_sealing_h)
 hexdump(sealedMsg)
 print "\n"
