@@ -1,4 +1,4 @@
-# Copyright (c) 2003-2006 CORE Security Technologies
+# Copyright (c) 2003-2011 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -15,7 +15,7 @@
 import array
 import struct
 
-import dcerpc
+from impacket import dcerpc
 from impacket import ImpactPacket
 
 MSRPC_UUID_WINREG = '\x01\xd0\x8c\x33\x44\x22\xf1\x31\xaa\xaa\x90\x00\x38\x00\x10\x03\x01\x00\x00\x00'

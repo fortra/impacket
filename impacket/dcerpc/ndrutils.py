@@ -12,7 +12,7 @@ import socket
 import random
 from impacket import uuid
 from impacket import structure
-from structure import *
+from impacket.structure import *
 
 def uuid_hex(_uuid):
     for i in range(0,len(_uuid)):
