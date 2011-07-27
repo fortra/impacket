@@ -20,7 +20,7 @@ import exceptions
 from impacket import ImpactPacket
 from impacket.structure import Structure
 from impacket import dcerpc
-from impacke.dcerpc import ndrutils
+from impacket.dcerpc import ndrutils
 
 MSRPC_UUID_SRVSVC = '\xc8\x4f\x32\x4b\x70\x16\xd3\x01\x12\x78\x5a\x47\xbf\x6e\xe1\x88\x03\x00\x00\x00'
 

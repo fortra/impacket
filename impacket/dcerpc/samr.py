@@ -18,7 +18,7 @@ from struct import *
 
 from impacket import ImpactPacket
 from impacket import dcerpc
-from impacke.dcerpc import ndrutils
+from impacket.dcerpc import ndrutils
 
 MSRPC_UUID_SAMR   = '\x78\x57\x34\x12\x34\x12\xcd\xab\xef\x00\x01\x23\x45\x67\x89\xac\x01\x00\x00\x00'
 
