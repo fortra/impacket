@@ -16,8 +16,8 @@ import array
 from struct import *
 
 from impacket import ImpactPacket
-from structure import Structure
-import dcerpc
+from impacket.structure import Structure
+from impacket import dcerpc
 from impacket.dcerpc import ndrutils
 
 MSRPC_UUID_SVCCTL = '\x81\xbb\x7a\x36\x44\x98\xf1\x35\xad\x32\x98\xf0\x38\x00\x10\x03\x02\x00\x00\x00'
@@ -522,7 +522,7 @@ class SVCCTLDeleteServiceHeader(ImpactPacket.Header):
         return SVCCTLDeleteServiceHeader.__SIZE
 
 
-class SVCCTLRespDeleteServiceHeader(dcerpc.MSRPCHeader):
+class SVCCTLRespDeleteServiceHeader(ImpactPacket.Header):
     __SIZE = 4
 
     def __init__(self, aBuffer = None):

@@ -1,4 +1,4 @@
-# Copyright (c) 2003-2006 CORE Security Technologies
+# Copyright (c) 2003-2010 CORE Security Technologies
 # Copyright (c) 2011 Catalin Patulea
 #
 # This software is provided under under a slightly modified version
@@ -13,9 +13,9 @@ import struct
 
 from impacket import ImpactPacket
 from impacket import uuid
-import dcerpc
-import ndrutils
-import transport
+from impacket import dcerpc
+from impacket.dcerpc import ndrutils
+from impacket.dcerpc import transport
 
 MSRPC_UUID_MGMT = uuid.uuidtup_to_bin(("afa8bd80-7d8a-11c9-bef4-08002b102989", "1.0"))
 

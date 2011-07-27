@@ -1,4 +1,4 @@
-# Copyright (c) 2003-2006 CORE Security Technologies
+# Copyright (c) 2003-2011 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -12,9 +12,9 @@ import struct
 
 from impacket import ImpactPacket
 from impacket import uuid
-import dcerpc
-import ndrutils
-import transport
+from impacket import dcerpc
+from impacket.dcerpc import ndrutils
+from impacket.dcerpc import transport
 
 MSRPC_UUID_PORTMAP ='\x08\x83\xaf\xe1\x1f\x5d\xc9\x11\x91\xa4\x08\x00\x2b\x14\xa0\xfa\x03\x00\x00\x00'
 

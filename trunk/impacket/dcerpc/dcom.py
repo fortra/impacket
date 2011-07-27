@@ -1,4 +1,4 @@
-# Copyright (c) 2003-2006 CORE Security Technologies
+# Copyright (c) 2003-2011 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -10,8 +10,8 @@
 import array
 
 from impacket import ImpactPacket
-import dcerpc
-import ndrutils
+from impacket import dcerpc
+from impacket.dcerpc import ndrutils
 from struct import *
 
 MSRPC_UUID_REMOTE_ACTIVATION ='\xb8\x4a\x9f\x4d\x1c\x7d\xcf\x11\x86\x1e\x00\x20\xaf\x6e\x7c\x57\x00\x00\x00\x00'
