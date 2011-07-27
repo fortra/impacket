@@ -769,6 +769,7 @@ class SessionError(Exception):
       0x41: ("ERRnoaccess", "Access denied."),
       0x4B: ("ERRnoaccess", "Access denied."),
       0x56: ("ERRnoaccess", "Access denied."),
+      0x5B: ("ERRnoaccess", "Logon Type not Granted."),
       0x61: ("ERRnoaccess", "Access denied."),
       0xBA: ("ERRnoaccess", "Access denied."),
       0xD5: ("ERRbadpath", "Directory invalid."),
@@ -3147,7 +3148,9 @@ class SMB:
             self.sendSMB(smb)
             
             smb = self.recvSMB()
+            self._uid = 0
             if smb.isValidAnswer(SMB.SMB_COM_SESSION_SETUP_ANDX):
+                self._uid = smb['Uid']
                 sessionResponse   = SMBCommand(smb['Data'][0])
                 sessionParameters = SMBSessionSetupAndXResponse_Parameters(sessionResponse['Parameters'])
                 sessionData       = SMBSessionSetupAndXResponse_Data(flags = smb['Flags2'], data = sessionResponse['Data'])
