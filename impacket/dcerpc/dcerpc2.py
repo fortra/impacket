@@ -19,41 +19,58 @@ from Crypto.Hash import MD4
 
 from impacket import ntlm
 from impacket.structure import Structure,pack,unpack
+from impacket import uuid
+from uuid import uuidtup_to_bin
 
 # MS/RPC Constants
 MSRPC_REQUEST   = 0x00
+MSRPC_PING      = 0x01
 MSRPC_RESPONSE  = 0x02
 MSRPC_FAULT     = 0x03
+MSRPC_WORKING   = 0x04
+MSRPC_NOCALL    = 0x05
+MSRPC_REJECT    = 0x06
 MSRPC_ACK       = 0x07
+MSRPC_CL_CANCEL = 0x08
+MSRPC_FACK      = 0x09
+MSRPC_CANCELACK = 0x0A
 MSRPC_BIND      = 0x0B
 MSRPC_BINDACK   = 0x0C
 MSRPC_BINDNAK   = 0x0D
 MSRPC_ALTERCTX  = 0x0E
+MSRPC_ALTERCTX_R= 0x0F
 MSRPC_AUTH3     = 0x10
+MSRPC_SHUTDOWN  = 0x11
+MSRPC_CO_CANCEL = 0x12
+MSRPC_ORPHANED  = 0x13
 
 # MS/RPC Packet Flags
-MSRPC_FIRSTFRAG = 0x01
-MSRPC_LASTFRAG  = 0x02
-MSRPC_NOTAFRAG  = 0x04
-MSRPC_RECRESPOND= 0x08
-MSRPC_NOMULTIPLEX = 0x10
-MSRPC_NOTFORIDEMP = 0x20
-MSRPC_NOTFORBCAST = 0x40
-MSRPC_NOUUID    = 0x80
+MSRPC_FIRSTFRAG     = 0x01
+MSRPC_LASTFRAG      = 0x02
 
-# InterfaceID
-class InterfaceID(Structure):
-    structure = (
-        ('UUID','16s'),
-        ('VerMajor','<H'),
-        ('VerMinor','<H'),
-    )
+# For PDU types bind, bind_ack, alter_context, and
+# alter_context_resp, this flag MUST be interpreted as PFC_SUPPORT_HEADER_SIGN
+MSRPC_SUPPORT_SIGN  = 0x04
 
-class SyntaxID(Structure):
-    structure = (
-        ('UUID','16s'),
-        ('Version','<L'),
-    )
+#For the
+#remaining PDU types, this flag MUST be interpreted as PFC_PENDING_CANCEL.
+MSRPC_PENDING_CANCEL= 0x04
+
+#MSRPC_NOTAFRAG     = 0x04
+MSRPC_RECRESPOND    = 0x08
+MSRPC_NOMULTIPLEX   = 0x10
+MSRPC_NOTFORIDEMP   = 0x20
+MSRPC_NOTFORBCAST   = 0x40
+MSRPC_NOUUID        = 0x80
+
+# Auth Types
+RPC_C_AUTHN_NONE          = 0x00
+RPC_C_AUTHN_GSS_NEGOTIATE = 0x09
+RPC_C_AUTHN_WINNT         = 0x0A
+RPC_C_AUTHN_GSS_SCHANNEL  = 0x0E
+RPC_C_AUTHN_GSS_KERBEROS  = 0x10
+RPC_C_AUTHN_NETLOGON      = 0x44
+RPC_C_AUTHN_DEFAULT       = 0xFF
 
 # Context Item
 class CtxItem(Structure):
@@ -61,15 +78,15 @@ class CtxItem(Structure):
         ('ContextID','<H'),
         ('TransItems','B'),
         ('Pad','B=0'),
-        ('AbstractSyntax',':',InterfaceID),
-        ('TransferSyntax',':',SyntaxID),
+        ('AbstractSyntax','20s'),
+        ('TransferSyntax','20s'),
     )
 
 class CtxItemResult(Structure):
     structure = (
         ('Result','<H'),
         ('Reason','<H'),
-        ('TransferSyntax',':',SyntaxID),
+        ('TransferSyntax','20s'),
     )
 
 #Reasons for rejection of a context element, included in bind_ack result reason
@@ -77,7 +94,10 @@ rpc_provider_reason = {
     0       : 'reason_not_specified',
     1       : 'abstract_syntax_not_supported',
     2       : 'proposed_transfer_syntaxes_not_supported',
-    3       : 'local_limit_exceeded'
+    3       : 'local_limit_exceeded',
+    4       : 'protocol_version_not_specified',
+    8       : 'authentication_type_not_recognized',
+    9       : 'invalid_checksum'
 }
 
 MSRPC_CONT_RESULT_ACCEPT = 0
@@ -253,7 +273,7 @@ class MSRPCHeader(Structure):
         if data is None:
             self['ver_major'] = 5
             self['ver_minor'] = 0
-            self['flags'] = MSRPC_FIRSTFRAG | MSRPC_LASTFRAG
+            self['flags'] = MSRPC_FIRSTFRAG | MSRPC_LASTFRAG 
             self['type'] = MSRPC_REQUEST
             self.__frag_len_set = 0
             self['auth_len'] = 0
@@ -305,7 +325,6 @@ class MSRPCRespHeader(MSRPCHeader):
         MSRPCHeader.__init__(self, aBuffer, alignment)
         self['type'] = MSRPC_RESPONSE
         self['ctx_id'] = 0
-        #self['alloc_hint'] = 0
 
 class MSRPCBind(Structure):
     structure = ( 
@@ -386,7 +405,7 @@ class MSRPCBindAck(Structure):
 class MSRPCBindNak(Structure):
     structure = ( 
         ('RejectedReason','<H'),
-        ('SupportedVerions',':'),
+        ('SupportedVersions',':'),
     )
 
 class DCERPC:
@@ -472,32 +491,29 @@ class DCERPC_v5(DCERPC):
 
     def bind(self, uuid, alter = 0, bogus_binds = 0):
         bind = MSRPCBind()
-        syntax = '\x04\x5d\x88\x8a\xeb\x1c\xc9\x11\x9f\xe8\x08\x00\x2b\x10\x48\x60'
+        # Standard NDR Representation
+        NDRSyntax   = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
+        # NDR 64
+        NDR64Syntax = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0') 
+        #item['TransferSyntax']['Version'] = 1
         ctx = 0
         for i in range(bogus_binds):
             item = CtxItem()
             item['ContextID'] = ctx
             item['TransItems'] = 1
             item['ContextID'] = ctx
-            item['AbstractSyntax'] = InterfaceID()
-            item['TransferSyntax'] = SyntaxID()
-            item['AbstractSyntax']['UUID'] = 'A'*16
-            item['AbstractSyntax']['VerMajor'] = 0xffff
-            item['AbstractSyntax']['VerMinor'] = 0xffff
-            item['TransferSyntax']['UUID'] = syntax
-            item['TransferSyntax']['Version'] = 2
+            item['AbstractSyntax'] = uuidtup_to_bin('aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', '2.0')
+            item['TransferSyntax'] = uuidtup_to_bin(NDRSyntax)
             bind.addCtxItem(item)
             self._ctx += 1
             ctx += 1
 
         # The true one :)
         item = CtxItem()
-        item['AbstractSyntax'] = InterfaceID(uuid)
-        item['TransferSyntax'] = SyntaxID()
+        item['AbstractSyntax'] = uuid
+        item['TransferSyntax'] = uuidtup_to_bin(NDRSyntax)
         item['ContextID'] = ctx
         item['TransItems'] = 1
-        item['TransferSyntax']['UUID'] = syntax
-        item['TransferSyntax']['Version'] = 2
         bind.addCtxItem(item)
 
         packet = MSRPCHeader()
@@ -541,7 +557,7 @@ class DCERPC_v5(DCERPC):
                 raise Exception('Unknown DCE RPC fault status code: %.8x' % status_code, resp)
 
         # check ack results for each context, except for the bogus ones
-        for ctx in range(bogus_binds+1,bindResp['ctx_num']):
+        for ctx in range(bogus_binds+1,bindResp['ctx_num']+1):
             result = bindResp.getCtxItem(ctx)['Result']
             if result != 0:
                 msg = "Bind context %d rejected: " % ctx
