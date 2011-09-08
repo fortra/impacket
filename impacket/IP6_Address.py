@@ -8,6 +8,7 @@ class IP6_Address():
     TOTAL_SEPARATORS = TOTAL_HEX_GROUPS - 1
     ADDRESS_TEXT_SIZE = (TOTAL_HEX_GROUPS * HEX_GROUP_SIZE) + TOTAL_SEPARATORS
     SEPARATOR = ":"
+    SCOPE_SEPARATOR = "%"
     
 #############################################################################################################
 # Constructor and construction helpers
@@ -15,6 +16,7 @@ class IP6_Address():
     def __init__(self, address):
         #The internal representation of an IP6 address is a 16-byte array
         self.__bytes = array.array('B', '\0' * self.ADDRESS_BYTE_SIZE)
+        self.__scope_id = ""
         
         #Invoke a constructor based on the type of the argument
         if type(address) is str or type(address) is unicode:
@@ -24,6 +26,14 @@ class IP6_Address():
 
                                 
     def __from_string(self, address):
+        #Separate the Scope ID, if present
+        if self.__is_a_scoped_address(address):
+            split_parts = address.split(self.SCOPE_SEPARATOR)
+            address = split_parts[0]
+            if (split_parts[1] == ""):
+                raise Exception("Empty scope ID")
+            self.__scope_id = split_parts[1]
+        
         #Expand address if it's in compressed form
         if self.__is_address_in_compressed_form(address):
             address = self.__expand_compressed_address(address)
@@ -58,24 +68,33 @@ class IP6_Address():
 
 #############################################################################################################
 # Projectors
-    def as_string(self, compress_address = True):
-        str = ""
+    def as_string(self, compress_address = True, scoped_address = True):
+        s = ""
         for i, v in enumerate(self.__bytes):
-            str += hex(v)[2:].rjust(2, '0')
+            s += hex(v)[2:].rjust(2, '0')
             if (i % 2 == 1):
-                str += self.SEPARATOR
-        str = str[:-1].upper()
+                s += self.SEPARATOR
+        s = s[:-1].upper()
         
         if (compress_address):
-            str = self.__trim_leading_zeroes(str)
-            str = self.__trim_longest_zero_chain(str)
-        return str
+            s = self.__trim_leading_zeroes(s)
+            s = self.__trim_longest_zero_chain(s)
+            
+        if (scoped_address and self.get_scope_id() != ""):
+            s += self.SCOPE_SEPARATOR + self.__scope_id
+        return s
                 
     def as_bytes(self):
         return self.__bytes
     
     def __str__(self):
         return self.as_string()
+    
+    def get_scope_id(self):
+        return self.__scope_id
+    
+    def get_unscoped_address(self):
+        return self.as_string(True, False) #Compressed address = True, Scoped address = False
         
 #############################################################################################################
 # Semantic helpers
@@ -91,6 +110,10 @@ class IP6_Address():
     def is_site_local_unicast(self):
         return self.is_unicast() and (self.__bytes[1] & 0xC0 == 0xC0)
     
+    def is_unique_local_unicast(self):
+        return (self.__bytes[0] == 0xFD)
+                
+    
     def get_human_readable_address_type(self):
         if (self.is_multicast()):
             return "multicast"
@@ -101,6 +124,8 @@ class IP6_Address():
                 return "site-local unicast"
             else:
                 return "unicast"
+        elif (self.is_unique_local_unicast()):
+            return "unique-local unicast"
         else:
             return "unknown type"
 
@@ -159,6 +184,7 @@ class IP6_Address():
         address = address.replace(self.SEPARATOR * 2, self.SEPARATOR)        
         return address
 
+
 #############################################################################################################
 #Compression helpers
 
@@ -203,6 +229,19 @@ class IP6_Address():
         return str[:-1]
                 
 
+#############################################################################################################
+    @classmethod
+    def is_a_valid_text_representation(cls, text_representation):
+        try:
+            #Capitalize on the constructor's ability to detect invalid text representations of an IP6 address            
+            ip6_address = IP6_Address(text_representation)
+            return True
+        except Exception, e:
+            return False
+                
+    def __is_a_scoped_address(self, text_representation):
+        return text_representation.count(self.SCOPE_SEPARATOR) == 1
+    
 #############################################################################################################
 # Informal tests
 if __name__ == '__main__':
