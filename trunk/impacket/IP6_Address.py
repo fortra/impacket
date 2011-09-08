@@ -17,7 +17,7 @@ class IP6_Address():
         self.__bytes = array.array('B', '\0' * self.ADDRESS_BYTE_SIZE)
         
         #Invoke a constructor based on the type of the argument
-        if type(address) is str:
+        if type(address) is str or type(address) is unicode:
             self.__from_string(address)
         else:
             self.__from_bytes(address)
