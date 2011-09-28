@@ -2630,9 +2630,7 @@ class SMB:
         m.update( signingChallengeResponse )
         m.update( str(packet) )
         # Replace sequence with acual hash
-        dd = m.digest()[:8]
-        #packet['SecurityFeatures'] = m.digest()[:8]
-        packet['SecurityFeatures'] = dd
+        packet['SecurityFeatures'] = m.digest()[:8]
         if self._SignatureVerificationEnabled:
            self._SignSequenceNumber +=1
         else:
