@@ -202,7 +202,7 @@ class UDPTransport(DCERPCTransport):
         try:
             af, socktype, proto, canonname, sa = socket.getaddrinfo(self.get_dip(), self.get_dport(), 0, socket.SOCK_DGRAM)[0]
             self.__socket = socket.socket(af, socktype, proto)
-            self.__socket.settimeout(30)
+            self.__socket.settimeout(10)
         except socket.error, msg:
             self.__socket = None
             raise Exception, "Could not connect: %s" % msg
@@ -241,7 +241,7 @@ class TCPTransport(DCERPCTransport):
         af, socktype, proto, canonname, sa = socket.getaddrinfo(self.get_dip(), self.get_dport(), 0, socket.SOCK_STREAM)[0]
         self.__socket = socket.socket(af, socktype, proto)
         try:
-            self.__socket.settimeout(300)
+            self.__socket.settimeout(10)
             self.__socket.connect((self.get_dip(), self.get_dport()))
         except socket.error, msg:
             self.__socket.close()
