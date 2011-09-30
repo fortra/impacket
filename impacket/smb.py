@@ -2722,7 +2722,11 @@ class SMB:
 
                 # If not, let's try the old way
                 else:
-                    self.__server_name = self._dialects_data['ServerName']
+                    if self._dialects_data['ServerName'] is not None:
+                        self.__server_name = self._dialects_data['ServerName']
+                    else:
+                        self.__server_name = 'ServerName Unavailable'.encode('utf-16le')
+
                     if self._dialects_parameters['DialectIndex'] == 0xffff:
                         raise UnsupportedFeature,"Remote server does not know NT LM 0.12"
                     self.__is_pathcaseless = smb['Flags1'] & SMB.FLAGS1_PATHCASELESS
