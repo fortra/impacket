@@ -293,13 +293,17 @@ class SMBTransport(DCERPCTransport):
     def __init__(self, dstip, dstport = 445, filename = '', username='', password='', domain = '', lmhash='', nthash='', remote_name='', smb_server = 0):
         DCERPCTransport.__init__(self, dstip, dstport)
         self.__socket = None
-        self.__smb_server = smb_server
         self.__tid = 0
         self.__filename = filename
         self.__handle = 0
         self.__pending_recv = 0
         self.set_credentials(username, password, domain, lmhash, nthash)
         self.__remote_name = remote_name
+        if smb_server == 0:
+            self.__existing_smb = True
+        else:
+            self.__existing_smb = False
+        self.__smb_server = smb_server
 
     def setup_smb_server(self):
         if not self.__smb_server:
@@ -324,7 +328,10 @@ class SMBTransport(DCERPCTransport):
     
     def disconnect(self):
         self.__smb_server.disconnect_tree(self.__tid)
-        self.__smb_server.logoff()
+        # If we created the SMB connection, we close it, otherwise
+        # that's up for the caller
+        if self.__existing_smb == False:
+            self.__smb_server.logoff()
 
     def send(self,data, noAnswer = 0, forceWriteAndx = 0, forceRecv = 0):
         if self._max_send_frag:
