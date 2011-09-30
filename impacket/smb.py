@@ -3142,6 +3142,10 @@ class SMB:
             sessionSetup['Parameters']['SecurityBlobLength'] = len(respToken2)
             sessionSetup['Data']['SecurityBlob'] = respToken2.getData()
 
+            # Storing some info for later use
+            self.__server_os     = sessionData['NativeOS']
+            self.__server_lanman = sessionData['NativeLanMan']
+
             smb.addCommand(sessionSetup)
             self.sendSMB(smb)
             
@@ -3167,12 +3171,6 @@ class SMB:
                     av_pairs = ntlm.AV_PAIRS(ntlmChallenge['TargetInfoFields'][:ntlmChallenge['TargetInfoFields_len']]) 
                     if av_pairs[ntlm.NTLMSSP_AV_HOSTNAME] is not None:
                        self.__server_name = av_pairs[ntlm.NTLMSSP_AV_HOSTNAME][1]
-
-                
-
-                self.__server_os     = sessionData['NativeOS']
-                self.__server_lanman = sessionData['NativeLanMan']
-                self.__server_domain = sessionData['PrimaryDomain']
 
                 # Set up the flags to be used from now on
                 self.__flags1 = SMB.FLAGS1_PATHCASELESS
