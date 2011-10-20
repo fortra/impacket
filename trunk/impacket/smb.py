@@ -2685,7 +2685,7 @@ class SMB:
                     if s.get_error_class() == 0x00 and s.get_error_code() == 0x00:
                         return 1
                     else:
-                        raise SessionError, ( "SMB Library Error", s.get_error_class(), s.get_error_code())
+                        raise SessionError, ( "SMB Library Error", s.get_error_class(), s.get_error_code(), s.get_flags2() & SMB.FLAGS2_NT_STATUS )
                 else:
                     break
         return 0
