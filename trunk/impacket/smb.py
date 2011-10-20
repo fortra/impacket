@@ -39,6 +39,7 @@
 # [ ] Try [SMB]transport fragmentation with out of order segments
 # [x] Do chained AndX requests
 # [ ] Transform the rest of the calls to structure
+# [ ] Implement TRANS/TRANS2 reassembly for list_path 
 
 import os, sys, socket, string, re, select, errno
 import nmb
@@ -739,7 +740,7 @@ class SessionError(Exception):
       22: ("ERRbadcmd", "Unknown command."),
       23: ("ERRdata", "Data error (CRC)."),
       24: ("ERRbadreq", "Bad request structure length."),
-      25 : ("ERRseek", "Seek error."),
+      25: ("ERRseek", "Seek error."),
       26: ("ERRbadmedia", "Unknown media type."),
       27: ("ERRbadsector", "Sector not found."),
       28: ("ERRnopaper", "Printer out of paper."),
@@ -3562,22 +3563,41 @@ class SMB:
         tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\' + service, password)
         try:
             self.trans2(tid, '\x01\x00', '\x00', '\x16\x00\x00\x02\x06\x00\x04\x01\x00\x00\x00\x00' + path + '\x00', '')
+            resume = False
+            files = [ ]
 
             while 1:
                 s = self.recv_packet()
                 if self.isValidAnswer(s,SMB.SMB_COM_TRANSACTION2):
                     has_more, _, transparam, transdata = self.__decode_trans(s.get_parameter_words(), s.get_buffer())
-                    sid, searchcnt, eos, erroffset, lastnameoffset = unpack('<HHHHH', transparam)
-                    files = [ ]
+                    # A fairly quick trans reassembly. 
+                    while has_more:
+                       s2 = self.recv_packet()
+                       if self.isValidAnswer(s2,SMB.SMB_COM_TRANSACTION2):
+                          has_more, _, transparam2, transdata2 = self.__decode_trans(s2.get_parameter_words(), s2.get_buffer())
+                          transdata += transdata2
+                          transparam += transparam2
+
+                    if not resume:
+                        sid, searchcnt, eos, erroffset, lastnameoffset = unpack('<HHHHH', transparam)
+                    else:
+                        searchcnt, eos, erroffset, lastnameoffset = unpack('<HHHH', transparam)
+
                     offset = 0
                     data_len = len(transdata)
                     while offset < data_len:
                         nextentry, fileindex, lowct, highct, lowat, highat, lowmt, highmt, lowcht, hightcht, loweof, higheof, lowsz, highsz, attrib, longnamelen, easz, shortnamelen = unpack('<lL12LLlLB', transdata[offset:offset + 69])
                         files.append(SharedFile(highct << 32 | lowct, highat << 32 | lowat, highmt << 32 | lowmt, higheof << 32 | loweof, highsz << 32 | lowsz, attrib, transdata[offset + 70:offset + 70 + shortnamelen], transdata[offset + 94:offset + 94 + longnamelen]))
+                        resume_filename = transdata[offset + 94:offset + 94 + longnamelen]
                         offset = offset + nextentry
                         if not nextentry:
                             break
-                    return files
+                    if eos:
+                       return files
+                    else:
+                       self.trans2(tid, '\x02\x00', '\x00', pack('<H', sid) + '\x56\x05\x04\x01\x00\x00\x00\x00\x06\x00' + resume_filename, '')
+                       resume = True
+                       resume_filename = ''
         finally:
             self.disconnect_tree(tid)
 
