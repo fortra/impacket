@@ -103,6 +103,29 @@ class SRVSVCServerpInfo102(Structure):
        ('ServerInfo',':',SRVSVCServerInfo102),
     )
 
+class SRVSVCTimeOfDayInfo(Structure):
+    alignment = 4
+    structure = (
+       ('Elapsedt','<H'),
+       ('MSecs','<H'),
+       ('Hours','<H'),
+       ('Mins','<H'),
+       ('Secs','<H'),
+       ('Hunds','<H'),
+       ('TimeZone','<L'),
+       ('TInterval','<H'),
+       ('Day','<H'),
+       ('Month','<H'),
+       ('Year','<H'),
+       ('Weekday','<H'),
+    )
+class SRVSVCpTimeOfDayInfo(Structure):
+    alignment = 4
+    structure = (
+       ('pData','<L=&Data'),
+       ('Data',':',SRVSVCTimeOfDayInfo),
+    )
+
 ######### FUNCTIONS ###########
 
 class SRVSVCNetrShareGetInfo(Structure):
@@ -123,7 +146,6 @@ class SRVSVCNetrServerGetInfo(Structure):
        ('ServerName','w'),
        ('Level','<L=102'),
     )
-
 
 class SRVSVCNetrShareEnum(Structure):
     opnum = 15
@@ -153,6 +175,13 @@ class SRVSVCNetrShareEnum1_answer(Structure):
 #	('ResumeHandler','<L'),
     )
 
+class SRVSVCNetrRemoteTOD(Structure):
+    opnum = 28
+    alignment = 4
+    structure = (
+       ('RefID','<L&ServerName'),
+       ('ServerName','w')
+    )
 
 class SRVSVCNetShareGetInfoHeader(ImpactPacket.Header):
     OP_NUM = 0x10
@@ -449,3 +478,10 @@ class DCERPCSrvSvc:
       serverInfoReq['ServerName'] = (server+'\x00').encode('utf-16le')
       data = self.doRequest(serverInfoReq, checkReturn = 1)  
       return SRVSVCServerpInfo102(data)['ServerInfo']
+
+#NetrRemoteTOD()
+    def NetrRemoteTOD(self, server):
+      remoteTODReq = SRVSVCNetrRemoteTOD()
+      remoteTODReq['ServerName'] = (server+'\x00').encode('utf-16le')
+      data = self.doRequest(remoteTODReq, checkReturn = 1)
+      return SRVSVCpTimeOfDayInfo(data)
