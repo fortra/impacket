@@ -183,6 +183,18 @@ class SRVSVCNetrRemoteTOD(Structure):
        ('ServerName','w')
     )
 
+class SRVSVCNetprNameCanonicalize(Structure):
+    opnum = 34
+    alignment = 4
+    structure = (
+       ('RefID','<L&ServerName'),
+       ('ServerName','w'),
+       ('Name','w'),
+       ('OutbufLen','<H'),
+       ('NameType','<H'),
+       ('Flags','<H')
+    )
+
 class SRVSVCNetShareGetInfoHeader(ImpactPacket.Header):
     OP_NUM = 0x10
     __SIZE = 32
@@ -485,3 +497,15 @@ class DCERPCSrvSvc:
       remoteTODReq['ServerName'] = (server+'\x00').encode('utf-16le')
       data = self.doRequest(remoteTODReq, checkReturn = 1)
       return SRVSVCpTimeOfDayInfo(data)
+
+#NetprNameCanonicalize
+    def NetprNameCanonicalize( self, serverName, name, bufLen, nameType ):
+      NameCReq = SRVSVCNetprNameCanonicalize()
+      NameCReq['ServerName'] = (serverName+'\x00').encode('utf-16le')
+      NameCReq['Name'] = (name+'\x00').encode('utf-16le')
+      NameCReq['OutbufLen'] = bufLen
+      NameCReq['NameType'] = nameType
+      NameCReq['Flags'] = 0x0
+      data = self.doRequest(NameCReq, checkReturn = 1)
+      return data
+
