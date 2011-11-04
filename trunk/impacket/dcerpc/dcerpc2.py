@@ -304,8 +304,9 @@ class MSRPCRequestHeader(MSRPCHeader):
 
     def __init__(self, data = None, alignment = 0):
         MSRPCHeader.__init__(self, data, alignment)
-        self['type'] = MSRPC_REQUEST
-        self['ctx_id'] = 0
+        if data is None:
+           self['type'] = MSRPC_REQUEST
+           self['ctx_id'] = 0
 
 class MSRPCRespHeader(MSRPCHeader):
     _SIZE = 24
@@ -323,8 +324,9 @@ class MSRPCRespHeader(MSRPCHeader):
 
     def __init__(self, aBuffer = None, alignment = 0):
         MSRPCHeader.__init__(self, aBuffer, alignment)
-        self['type'] = MSRPC_RESPONSE
-        self['ctx_id'] = 0
+        if aBuffer is None:
+            self['type'] = MSRPC_RESPONSE
+            self['ctx_id'] = 0
 
 class MSRPCBind(Structure):
     structure = ( 
@@ -339,12 +341,12 @@ class MSRPCBind(Structure):
  
     def __init__(self, data = None, alignment = 0):
         Structure.__init__(self, data, alignment)
-
-        self['max_tfrag'] = 4280
-        self['max_rfrag'] = 4280
-        self['assoc_group'] = 0
-        self['ctx_num'] = 1
-        self['ctx_items'] = ''
+        if data is None:
+            self['max_tfrag'] = 4280
+            self['max_rfrag'] = 4280
+            self['assoc_group'] = 0
+            self['ctx_num'] = 1
+            self['ctx_items'] = ''
         self.__ctx_items = []
 
     def addCtxItem(self, item):
