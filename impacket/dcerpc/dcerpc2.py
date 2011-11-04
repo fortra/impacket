@@ -20,7 +20,7 @@ from Crypto.Hash import MD4
 from impacket import ntlm
 from impacket.structure import Structure,pack,unpack
 from impacket import uuid
-from uuid import uuidtup_to_bin
+from uuid import uuidtup_to_bin, generate, stringver_to_bin
 
 # MS/RPC Constants
 MSRPC_REQUEST   = 0x00
@@ -504,7 +504,8 @@ class DCERPC_v5(DCERPC):
             item['ContextID'] = ctx
             item['TransItems'] = 1
             item['ContextID'] = ctx
-            item['AbstractSyntax'] = uuidtup_to_bin('aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', '2.0')
+            # We generate random UUIDs for bogus binds
+            item['AbstractSyntax'] = generate() + stringver_to_bin('2.0')
             item['TransferSyntax'] = uuidtup_to_bin(NDRSyntax)
             bind.addCtxItem(item)
             self._ctx += 1
