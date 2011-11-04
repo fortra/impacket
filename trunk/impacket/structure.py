@@ -207,7 +207,7 @@ class Structure:
                 return self.pack(two[0], data)
             except:
                 if (self.fields.has_key(two[1])) and (self[two[1]] is not None):
-                    return self.pack(two[0], id(self[two[1]]) & (pow(2,calcsize(two[0])*8)-1))
+                    return self.pack(two[0], id(self[two[1]]) & ((1<<(calcsize(two[0])*8))-1) )
                 else:
                     return self.pack(two[0], 0)
 
