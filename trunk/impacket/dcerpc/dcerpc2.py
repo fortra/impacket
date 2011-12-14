@@ -20,7 +20,7 @@ from Crypto.Hash import MD4
 from impacket import ntlm
 from impacket.structure import Structure,pack,unpack
 from impacket import uuid
-from uuid import uuidtup_to_bin, generate, stringver_to_bin
+from impacket.uuid import uuidtup_to_bin, generate, stringver_to_bin
 
 # MS/RPC Constants
 MSRPC_REQUEST   = 0x00
