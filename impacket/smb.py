@@ -3038,7 +3038,12 @@ class SMB:
     def __raw_stor_file(self, tid, fid, offset, datasize, callback):
         write_offset = offset
         while 1:
-            read_data = callback(self._dialects_parameters['MaxRawSize'])
+            max_raw_size = self._dialects_parameters['MaxRawSize']
+            # Due to different dialects interpretation of MaxRawSize, we're limiting it to 0xffff
+            if max_raw_size > 65535:
+               max_raw_size = 65535
+            read_data = callback(max_raw_size)
+
             if not read_data:
                 break
             read_len = len(read_data)
