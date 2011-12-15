@@ -760,6 +760,7 @@ class SessionError(Exception):
       0xAF: ("ERRbadfunc", "Invalid function."),
       0x0f: ("ERRbadfile", "File not found."),
       0x0e: ("ERRbadfile", "File not found."),
+      0x33: ("ERRbadfile", "Object Name Invalid"),
       0x34: ("ERRbadfile", "File not found."),
       0x3a: ("ERRbadpath", "Directory invalid."),
       0x6d: ("ERRnoaccess", "Access denied."),
@@ -3190,8 +3191,11 @@ class SMB:
         if ( lmhash != '' or nthash != ''):
             if len(lmhash) % 2:     lmhash = '0%s' % lmhash
             if len(nthash) % 2:     nthash = '0%s' % nthash
-            lmhash = a2b_hex(lmhash)
-            nthash = a2b_hex(nthash)
+            try: # just in case they were converted already
+                lmhash = a2b_hex(lmhash)
+                nthash = a2b_hex(nthash)
+            except:
+                pass
 
         if self._dialects_parameters['Capabilities'] & SMB.CAP_EXTENDED_SECURITY:
             self.login_extended(user, password, domain, lmhash, nthash)
