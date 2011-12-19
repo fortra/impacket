@@ -2498,10 +2498,10 @@ class SMB:
     def __init__(self, remote_name, remote_host, my_name = None, host_type = nmb.TYPE_SERVER, sess_port = 445, timeout=None, UDP = 0):
         # The uid attribute will be set when the client calls the login() method
         self._uid = 0
-        self.__server_name = ''
+        self.__server_name = None
         self.__server_os = ''
         self.__server_lanman = ''
-        self.__server_domain = ''
+        self.__server_domain = None
         self.__remote_name = string.upper(remote_name)
         self.__remote_host = remote_host
         self.__is_pathcaseless = 0
@@ -2562,7 +2562,7 @@ class SMB:
 
     def get_remote_name(self):
         return self.__remote_name
-    
+
     def get_remote_host(self):
         return self.__remote_host
 
@@ -2726,8 +2726,6 @@ class SMB:
                 else:
                     if self._dialects_data['ServerName'] is not None:
                         self.__server_name = self._dialects_data['ServerName']
-                    else:
-                        self.__server_name = 'ServerName Unavailable'.encode('utf-16le')
 
                     if self._dialects_parameters['DialectIndex'] == 0xffff:
                         raise UnsupportedFeature,"Remote server does not know NT LM 0.12"
@@ -3131,9 +3129,26 @@ class SMB:
             sessionData.fromString(sessionResponse['Data'])
             respToken = SPNEGO_NegTokenResp(sessionData['SecurityBlob'])
 
-            type3, exportedSessionKey = ntlm.getNTLMSSPType3(auth, respToken['ResponseToken'], user, password, domain, lmhash, nthash)
+            # Let's parse some data and keep it to ourselves in case it is asked
+            ntlmChallenge = ntlm.NTLMAuthChallenge(respToken['ResponseToken'])
+            if ntlmChallenge['TargetInfoFields_len'] > 0:
+                infoFields = ntlmChallenge['TargetInfoFields']
+                av_pairs = ntlm.AV_PAIRS(ntlmChallenge['TargetInfoFields'][:ntlmChallenge['TargetInfoFields_len']]) 
+                if av_pairs[ntlm.NTLMSSP_AV_HOSTNAME] is not None:
+                   try:
+                       self.__server_name = av_pairs[ntlm.NTLMSSP_AV_HOSTNAME][1].decode('utf-16le')
+                   except:
+                       # For some reason, we couldn't decode Unicode here.. silently discard the operation
+                       pass 
+                if av_pairs[ntlm.NTLMSSP_AV_DOMAINNAME] is not None:
+                   try:
+                       if self.__server_name != av_pairs[ntlm.NTLMSSP_AV_DOMAINNAME][1].decode('utf-16le'): 
+                           self.__server_domain = av_pairs[ntlm.NTLMSSP_AV_DOMAINNAME][1].decode('utf-16le')
+                   except:
+                       # For some reason, we couldn't decode Unicode here.. silently discard the operation
+                       pass 
 
-            #ntlmChallenge = ntlm.NTLMAuthChallenge(respToken['ResponseToken'])
+            type3, exportedSessionKey = ntlm.getNTLMSSPType3(auth, respToken['ResponseToken'], user, password, domain, lmhash, nthash)
 
             if exportedSessionKey is not None: 
                 self._SigningSessionKey = exportedSessionKey
@@ -3173,16 +3188,6 @@ class SMB:
                 if self._dialects_parameters['SecurityMode'] & SMB.SECURITY_SIGNATURES_REQUIRED:
                    self._SignSequenceNumber = 2
                    self._SignatureEnabled = True
-
-                # Let's parse some data and keep it to ourselves in case it is asked
-
-                ntlmChallenge = ntlm.NTLMAuthChallenge(respToken['ResponseToken'])
-                if ntlmChallenge['TargetInfoFields_len'] > 0:
-                    infoFields = ntlmChallenge['TargetInfoFields']
-                    av_pairs = ntlm.AV_PAIRS(ntlmChallenge['TargetInfoFields'][:ntlmChallenge['TargetInfoFields_len']]) 
-                    if av_pairs[ntlm.NTLMSSP_AV_HOSTNAME] is not None:
-                       self.__server_name = av_pairs[ntlm.NTLMSSP_AV_HOSTNAME][1]
-
                 # Set up the flags to be used from now on
                 self.__flags1 = SMB.FLAGS1_PATHCASELESS
                 self.__flags2 = SMB.FLAGS2_EXTENDED_SECURITY
