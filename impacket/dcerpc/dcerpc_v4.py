@@ -18,6 +18,18 @@ from impacket import ImpactPacket
 from impacket import uuid
 import dcerpc, conv
 
+class DCERPC_RawCall(ImpactPacket.Header):
+    def __init__(self, op_num, data = ''):
+        self.OP_NUM = op_num
+        ImpactPacket.Header.__init__(self)
+        self.setData(data)
+
+    def setData(self, data):
+        self.get_bytes()[:] = array.array('B', data)
+
+    def get_header_size(self):
+        return len(self.get_bytes())
+
 
 class MSRPCHeader(ImpactPacket.Header):
     __SIZE = 80
@@ -218,7 +230,7 @@ class DCERPC_v4(dcerpc.DCERPC):
         rpc.set_activity_binuuid(self.__activity_uuid)
         rpc.set_seq_num(self.__seq_num)
 
-        frag = dcerpc.DCERPC_RawCall(data.OP_NUM)
+        frag = DCERPC_RawCall(data.OP_NUM)
 
         if self._max_frag:
             offset = 0
