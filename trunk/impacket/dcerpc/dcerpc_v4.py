@@ -221,6 +221,7 @@ class DCERPC_v4(dcerpc.DCERPC):
 
     def send(self, data):
         packet = data.get_packet()
+        data_packet = MSRPCHeader(packet)
         frag_num = 0
 
         rpc = MSRPCHeader()
@@ -230,7 +231,7 @@ class DCERPC_v4(dcerpc.DCERPC):
         rpc.set_activity_binuuid(self.__activity_uuid)
         rpc.set_seq_num(self.__seq_num)
 
-        frag = DCERPC_RawCall(data.OP_NUM)
+        frag = DCERPC_RawCall(data_packet.get_op_num())
 
         if self._max_frag:
             offset = 0
@@ -259,7 +260,7 @@ class DCERPC_v4(dcerpc.DCERPC):
             if self.__idempotent:
                 rpc.set_flags((dcerpc.MSRPC_NOTFORIDEMP, 0))
 
-            rpc.contains(data)
+            rpc.contains(data_packet)
             self._transport.send(rpc.get_packet())
             if self._bind and not self.__idempotent:
                 self._bind = 0
