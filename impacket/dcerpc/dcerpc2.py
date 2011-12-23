@@ -56,7 +56,7 @@ MSRPC_SUPPORT_SIGN  = 0x04
 #remaining PDU types, this flag MUST be interpreted as PFC_PENDING_CANCEL.
 MSRPC_PENDING_CANCEL= 0x04
 
-MSRPC_NOTAFRAG      = 0x04
+MSRPC_NOTAFRAG     = 0x04
 MSRPC_RECRESPOND    = 0x08
 MSRPC_NOMULTIPLEX   = 0x10
 MSRPC_NOTFORIDEMP   = 0x20
@@ -471,6 +471,7 @@ class DCERPC_v5(DCERPC):
         self.__sequence = 0   
 
         self.__callid = 1
+        self._ctx = 0
 
     def set_auth_level(self, auth_level):
         # auth level is ntlm.NTLM_AUTH_*
@@ -498,7 +499,7 @@ class DCERPC_v5(DCERPC):
         # NDR 64
         NDR64Syntax = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0') 
         #item['TransferSyntax']['Version'] = 1
-        ctx = 0
+        ctx = self._ctx
         for i in range(bogus_binds):
             item = CtxItem()
             item['ContextID'] = ctx
@@ -549,7 +550,7 @@ class DCERPC_v5(DCERPC):
         else:
             return 0 #mmm why not None?
 
-        if resp['type'] == MSRPC_BINDACK:
+        if resp['type'] == MSRPC_BINDACK or resp['type'] == MSRPC_ALTERCTX_R:
             bindResp = MSRPCBindAck(str(resp))
         elif resp['type'] == MSRPC_BINDNAK:
             resp = MSRPCBindNak(resp['pduData'])
@@ -558,6 +559,8 @@ class DCERPC_v5(DCERPC):
                 raise Exception(rpc_status_codes[status_code], resp)
             else:
                 raise Exception('Unknown DCE RPC fault status code: %.8x' % status_code, resp)
+        else:
+            raise Exception('Unknown DCE RPC packet type received: %d' % resp['type'])
 
         # check ack results for each context, except for the bogus ones
         for ctx in range(bogus_binds+1,bindResp['ctx_num']+1):
