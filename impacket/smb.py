@@ -2544,9 +2544,9 @@ class SMB:
            self.__remote_name = remote_host
 
         if UDP:
-            self._sess = nmb.NetBIOSUDPSession(my_name, remote_name, remote_host, host_type, sess_port, timeout)
+            self._sess = nmb.NetBIOSUDPSession(my_name, remote_name, remote_host, host_type, sess_port, self.__timeout)
         else:
-            self._sess = nmb.NetBIOSTCPSession(my_name, remote_name, remote_host, host_type, sess_port, timeout)
+            self._sess = nmb.NetBIOSTCPSession(my_name, remote_name, remote_host, host_type, sess_port, self.__timeout)
 
             # Initialize session values (_dialect_data and _dialect_parameters)
             self.neg_session()
