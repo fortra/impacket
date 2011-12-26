@@ -1,4 +1,4 @@
-# Copyright (c) 2003-2006 CORE Security Technologies
+# Copyright (c) 2003-2011 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -6,52 +6,98 @@
 #
 # $Id$
 #
+# NOTE: This file replaces dcerpc.py. The packets are now handled by structure
+# and it supports SIGN/SEAL under all flavours of NTLM
+# After further testing this will replace the current dcerpc.py (BETO)
+#
 
 import array
 from binascii import a2b_hex
 from binascii import crc32
-try:
-    from Crypto.Cipher import ARC4
-    from Crypto.Hash import MD4
-    POW = None
-except Exception:
-    try:
-        import POW
-    except Exception:
-        print "WARNING: Crypto package not found. Some features will fail."
+from Crypto.Cipher import ARC4
+from Crypto.Hash import MD4
 
 from impacket import ntlm
-from impacket import ImpactPacket
 from impacket.structure import Structure,pack,unpack
+from impacket import uuid
+from impacket.uuid import uuidtup_to_bin, generate, stringver_to_bin
 
 # MS/RPC Constants
 MSRPC_REQUEST   = 0x00
+MSRPC_PING      = 0x01
 MSRPC_RESPONSE  = 0x02
 MSRPC_FAULT     = 0x03
+MSRPC_WORKING   = 0x04
+MSRPC_NOCALL    = 0x05
+MSRPC_REJECT    = 0x06
 MSRPC_ACK       = 0x07
+MSRPC_CL_CANCEL = 0x08
+MSRPC_FACK      = 0x09
+MSRPC_CANCELACK = 0x0A
 MSRPC_BIND      = 0x0B
 MSRPC_BINDACK   = 0x0C
 MSRPC_BINDNAK   = 0x0D
 MSRPC_ALTERCTX  = 0x0E
+MSRPC_ALTERCTX_R= 0x0F
 MSRPC_AUTH3     = 0x10
+MSRPC_SHUTDOWN  = 0x11
+MSRPC_CO_CANCEL = 0x12
+MSRPC_ORPHANED  = 0x13
 
 # MS/RPC Packet Flags
-MSRPC_FIRSTFRAG = 0x01
-MSRPC_LASTFRAG  = 0x02
-MSRPC_NOTAFRAG  = 0x04
-MSRPC_RECRESPOND= 0x08
-MSRPC_NOMULTIPLEX = 0x10
-MSRPC_NOTFORIDEMP = 0x20
-MSRPC_NOTFORBCAST = 0x40
-MSRPC_NOUUID    = 0x80
+MSRPC_FIRSTFRAG     = 0x01
+MSRPC_LASTFRAG      = 0x02
 
+# For PDU types bind, bind_ack, alter_context, and
+# alter_context_resp, this flag MUST be interpreted as PFC_SUPPORT_HEADER_SIGN
+MSRPC_SUPPORT_SIGN  = 0x04
+
+#For the
+#remaining PDU types, this flag MUST be interpreted as PFC_PENDING_CANCEL.
+MSRPC_PENDING_CANCEL= 0x04
+
+MSRPC_NOTAFRAG     = 0x04
+MSRPC_RECRESPOND    = 0x08
+MSRPC_NOMULTIPLEX   = 0x10
+MSRPC_NOTFORIDEMP   = 0x20
+MSRPC_NOTFORBCAST   = 0x40
+MSRPC_NOUUID        = 0x80
+
+# Auth Types
+RPC_C_AUTHN_NONE          = 0x00
+RPC_C_AUTHN_GSS_NEGOTIATE = 0x09
+RPC_C_AUTHN_WINNT         = 0x0A
+RPC_C_AUTHN_GSS_SCHANNEL  = 0x0E
+RPC_C_AUTHN_GSS_KERBEROS  = 0x10
+RPC_C_AUTHN_NETLOGON      = 0x44
+RPC_C_AUTHN_DEFAULT       = 0xFF
+
+# Context Item
+class CtxItem(Structure):
+    structure = (
+        ('ContextID','<H'),
+        ('TransItems','B'),
+        ('Pad','B=0'),
+        ('AbstractSyntax','20s'),
+        ('TransferSyntax','20s'),
+    )
+
+class CtxItemResult(Structure):
+    structure = (
+        ('Result','<H'),
+        ('Reason','<H'),
+        ('TransferSyntax','20s'),
+    )
 
 #Reasons for rejection of a context element, included in bind_ack result reason
 rpc_provider_reason = {
     0       : 'reason_not_specified',
     1       : 'abstract_syntax_not_supported',
     2       : 'proposed_transfer_syntaxes_not_supported',
-    3       : 'local_limit_exceeded'
+    3       : 'local_limit_exceeded',
+    4       : 'protocol_version_not_specified',
+    8       : 'authentication_type_not_recognized',
+    9       : 'invalid_checksum'
 }
 
 MSRPC_CONT_RESULT_ACCEPT = 0
@@ -75,6 +121,7 @@ rpc_status_codes = {
     0x00000005L : 'rpc_s_access_denied',
     0x00000008L : 'Authentication type not recognized',
     0x000006C6L : 'rpc_x_invalid_bound',                # the arrays bound are invalid
+    0x000006E4L : 'rpc_s_cannot_support: The requested operation is not supported.',               # some operation is not supported
     0x000006F7L : 'rpc_x_bad_stub_data',                # the stub data is invalid, doesn't match with the IDL definition
     0x1C010001L : 'nca_s_comm_failure',                 # unable to get response from server:
     0x1C010002L : 'nca_s_op_rng_error',                 # bad operation number in call
@@ -201,441 +248,167 @@ class MSRPCNameArray:
 
         return ret + pos_ret
 
-class MSRPCHeader(ImpactPacket.Header):
+class MSRPCHeader(Structure):
     _SIZE = 16
-    commonHdr = ( # not used, just for doc and future use
+    commonHdr = ( 
         ('ver_major','B'),                              # 0
         ('ver_minor','B'),                              # 1
-        ('type','B=MSRPC_REQUEST'),                     # 2
-        ('flags','B=MSRPC_FIRSTFRAG | MSRPC_LASTFRAG'), # 3
-        ('represntation','<L=0x10'),                    # 4
-        ('frag_len','<H=24+len(data)+len(auth_data)'),  # 8
+        ('type','B'),                                   # 2
+        ('flags','B'),                                  # 3
+        ('representation','<L=0x10'),                   # 4
+        ('frag_len','<H=self._SIZE+len(pduData)+len(auth_data)'),  # 8
         ('auth_len','<H=len(auth_data)-8'),             # 10
         ('call_id','<L=1'),                             # 12    <-- Common up to here (including this)
     )
 
-    structure = ( # not used, just for documentation and future use
-        ('data',':'),                                   # 24
+    structure = ( 
+        ('dataLen','_-pduData','self["frag_len"]-self["auth_len"]-8'),  
+        ('pduData',':'),                                # 24
+        ('auth_dataLen','_-auth_data','self["auth_len"]'),
         ('auth_data',':'),
     )
 
-    def __init__(self, aBuffer = None, endianness = '<'):
-        ImpactPacket.Header.__init__(self, self._SIZE)
-
-        self.endianness = endianness
-        self.set_version((5, 0))
-        self.set_flags(MSRPC_FIRSTFRAG | MSRPC_LASTFRAG)
-        if endianness == '<':
-            self.set_representation(0x10)
-        else:
-            self.set_representation(0x0)
-        self.__frag_len_set = 0
-        self.set_auth_len(0)
-        self.set_call_id(1)
-        self.set_auth_data('')
-
-        if aBuffer: self.load_header(aBuffer)
-
-    def get_version(self):
-        """ This method returns a tuple in (major, minor) form."""
-        return (self.get_byte(0), self.get_byte(1))
-    def set_version(self, version):
-        """ This method takes a tuple in (major, minor) form."""
-        self.set_byte(0, version[0])
-        self.set_byte(1, version[1])
-
-    def get_type(self):
-        return self.get_byte(2)
-    def set_type(self, type):
-        self.set_byte(2, type)
-
-    def get_flags(self):
-        return self.get_byte(3)
-    def set_flags(self, flags):
-        self.set_byte(3, flags)
-
-    def get_representation(self):
-        return self.get_long(4, self.endianness)
-    def set_representation(self, representation):
-        self.set_long(4, representation, self.endianness)
-
-    def get_frag_len(self):
-        return self.get_word(8, self.endianness)
-    def set_frag_len(self, len):
-        self.__frag_len_set = 1
-        self.set_word(8, len, self.endianness)
-
-    def get_auth_len(self):
-        return self.get_word(10, self.endianness)
-    def set_auth_len(self, len):
-        self.set_word(10, len, self.endianness)
-    def set_auth_data(self, data):
-        self._auth_data = data
-
-    def get_call_id(self):
-        return self.get_long(12, self.endianness)
-    def set_call_id(self, id):
-        self.set_long(12, id, self.endianness)
+    def __init__(self, data = None, alignment = 0):
+        Structure.__init__(self,data, alignment)
+        if data is None:
+            self['ver_major'] = 5
+            self['ver_minor'] = 0
+            self['flags'] = MSRPC_FIRSTFRAG | MSRPC_LASTFRAG 
+            self['type'] = MSRPC_REQUEST
+            self.__frag_len_set = 0
+            self['auth_len'] = 0
+            self['pduData'] = ''
+            self['auth_data'] = ''
 
     def get_header_size(self):
         return self._SIZE
 
-    def contains(self, aHeader):
-        ImpactPacket.Header.contains(self, aHeader)
-        if self.child():
-            try:
-               self.set_op_num(self.child().OP_NUM)
-            except:
-               pass
-
-    def set_alloc_hint(self, hint):
-        pass
-
     def get_packet(self):
-        if self._auth_data:
-            self.set_auth_len(len(self._auth_data)-8)
+        if self['auth_data'] != '':
+            self['auth_len'] = len(self['auth_data'])-8
+        if self['pduData'] == '':
+            self['pduData'] += '    '
 
-        if not self.child():
-           self.contains(ImpactPacket.Data('    '))
-
-        contents_size = self.child().get_size()
-        contents_size += len(self._auth_data)
-
-        if not self.__frag_len_set:
-            self.set_frag_len(self.get_header_size() + contents_size)
-        self.set_alloc_hint(contents_size)
-            
-        return ImpactPacket.Header.get_packet(self)+self._auth_data
+        return self.getData()
 
 class MSRPCRequestHeader(MSRPCHeader):
     _SIZE = 24
+    structure = ( 
+        ('alloc_hint','<L=0'),                            # 16
+        ('ctx_id','<H=0'),                                # 20
+        ('op_num','<H'),                                  # 22
 
-    structure = (  # not used, just for documentation and future use
-        ('alloc_hint','<L=frag_len'),                   # 16
-        ('ctx_id','<H=0'),                              # 20
-        ('op_num','<H'),                                # 22
-        ('data',':'),                                   # 24
+        ('pduData',':'),                                  # 24
         ('auth_data',':'),
     )
 
-    def __init__(self, aBuffer = None, endianness = '<'):
-        MSRPCHeader.__init__(self, aBuffer = aBuffer, endianness = endianness)
-        if aBuffer is None:
-            self.set_type(MSRPC_REQUEST)
-            self.set_ctx_id(0)
-            self.set_alloc_hint(0)
+    def __init__(self, data = None, alignment = 0):
+        MSRPCHeader.__init__(self, data, alignment)
+        if data is None:
+           self['type'] = MSRPC_REQUEST
+           self['ctx_id'] = 0
 
-    def get_alloc_hint(self):
-        return self.get_long(16, self.endianness)
-    def set_alloc_hint(self, len):
-        self.set_long(16, len, self.endianness)
-
-    def get_ctx_id(self):
-        return self.get_word(20, self.endianness)
-    def set_ctx_id(self, id):
-        self.set_word(20, id, self.endianness)
-
-    def get_op_num(self):
-        return self.get_word(22, self.endianness)
-    def set_op_num(self, op):
-        self.set_word(22, op, self.endianness)
-        
 class MSRPCRespHeader(MSRPCHeader):
     _SIZE = 24
 
-    structure = ( # not used, just for documentation and future use
-        ('alloc_hint','<L=frag_len'),                   # 16    <-- Common up to here (including this)
+    structure = ( 
+        ('alloc_hint','<L=0'),                          # 16   
         ('ctx_id','<H=0'),                              # 20
         ('cancel_count','<B'),                          # 22
         ('padding','<B=0'),                             # 23
-        ('data',':'),                                   # 24
+        #('dataLen','_-data','self["frag_len"]-self["auth_len"]'),  
+        ('pduData',':'),                                # 24
+        #('auth_dataLen','_-auth_pduData','self["auth_len"]'),
         ('auth_data',':'),
     )
 
-    def __init__(self, aBuffer = None, endianness = '<'):
-        MSRPCHeader.__init__(self, aBuffer = aBuffer, endianness = endianness)
+    def __init__(self, aBuffer = None, alignment = 0):
+        MSRPCHeader.__init__(self, aBuffer, alignment)
         if aBuffer is None:
-           self.set_type(MSRPC_RESPONSE)
-           self.set_ctx_id(0)
-           self.set_alloc_hint(0)
+            self['type'] = MSRPC_RESPONSE
+            self['ctx_id'] = 0
 
-    def get_alloc_hint(self):
-        return self.get_long(16, self.endianness)
-        
-    def set_alloc_hint(self, len):
-        self.set_long(16, len, self.endianness)
-
-    def get_ctx_id(self):
-        return self.get_word(20, self.endianness)
-        
-    def set_ctx_id(self, id):
-        self.set_word(20, id, self.endianness)
-
-    def get_cancel_count(self):
-        return self.get_byte(22)
-
-    def get_status(self):
-        return self.get_long(24, self.endianness)
-
-class MSRPCBind(MSRPCHeader):
-    _SIZE = 72-44
-
-    structure = ( # not used, just for documentation and future use
+class MSRPCBind(Structure):
+    structure = ( 
         ('max_tfrag','<H=4280'),
         ('max_rfrag','<H=4280'),
         ('assoc_group','<L=0'),
         ('ctx_num','B'),
+        ('Reserved','B=0'),
+        ('Reserved2','<H=0'),
+        ('ctx_items',':'),
     )
  
-    def __init__(self, aBuffer = None, endianness = '<'):
-        MSRPCHeader.__init__(self, aBuffer = aBuffer, endianness = endianness)
+    def __init__(self, data = None, alignment = 0):
+        Structure.__init__(self, data, alignment)
+        if data is None:
+            self['max_tfrag'] = 4280
+            self['max_rfrag'] = 4280
+            self['assoc_group'] = 0
+            self['ctx_num'] = 1
+            self['ctx_items'] = ''
+        self.__ctx_items = []
 
-        if aBuffer is None:
-            self.set_type(MSRPC_BIND)
-            self.set_max_tfrag(4280)
-            self.set_max_rfrag(4280)
-            self.set_assoc_group(0)
-            self.set_ctx_num(1)
-
-    def get_max_tfrag(self):
-        return self.get_word(16, self.endianness)
-    def set_max_tfrag(self, size):
-        self.set_word(16, size, self.endianness)
-
-    def get_max_rfrag(self):
-        return self.get_word(18, self.endianness)
-    def set_max_rfrag(self, size):
-        self.set_word(18, size, self.endianness)
-
-    def get_assoc_group(self):
-        return self.get_long(20, self.endianness)
-    def set_assoc_group(self, id):
-        self.set_long(20, id, self.endianness)
-
-    def get_ctx_num(self):
-        return self.get_byte(24)
-    def set_ctx_num(self, num):
-        self._SIZE = 28+num*44
-        self.set_byte(24, num)
-
-    # --- next fields repeated for each interface to bind to
-    def get_ctx_id(self, index = 0):
-        return self.get_word(28+44*index, self.endianness)
-    def set_ctx_id(self, id, index = 0):
-        self.set_word(28+44*index, id, self.endianness)
-
-    def get_trans_num(self, index = 0):
-        return self.get_byte(30+44*index)
-    def set_trans_num(self, op, index = 0):
-        self.set_byte(30+44*index, op)
-        self.set_byte(31+44*index, 0)
-
-    def get_if_binuuid(self, index = 0):
-        return self.get_bytes().tolist()[32+44*index:32+44*index+16]
-    def set_if_binuuid(self, binuuid, index = 0):
-        self.get_bytes()[32+44*index:32+len(binuuid)+44*index] = array.array('B', binuuid)
-
-    def set_if_ver(self,ver,minor, index = 0):
-        self.set_word(48+44*index, ver, self.endianness)
-        self.set_word(50+44*index, minor, self.endianness)
-    def get_if_ver(self, index = 0):
-        return self.get_word(48+44*index, self.endianness)
-    def get_if_ver_minor(self, index = 0):
-        return self.get_word(50+44*index, self.endianness)
-        
-    def get_xfer_syntax_binuuid(self, index = 0):
-        return self.get_bytes().tolist()[52+44*index:52+44*index+16]
-    def set_xfer_syntax_binuuid(self, binuuid, index = 0):
-        self.get_bytes()[52+44*index:52+len(binuuid)+44*index] = array.array('B', binuuid)
+    def addCtxItem(self, item):
+        self.__ctx_items.append(item)
     
-    def set_xfer_syntax_ver(self,ver, index = 0):
-        self.set_long(68+44*index, ver, self.endianness)
-    def get_xfer_syntax_ver(self, index = 0):
-        self.get_long(68+44*index, self.endianness)
-        
-class MSRPCBindAck(ImpactPacket.Header):
-    _SIZE = 56
+    def getData(self):
+        self['ctx_num'] = len(self.__ctx_items)
+        for i in self.__ctx_items:
+            self['ctx_items'] += i.getData()
+        return Structure.getData(self)
 
-    def __init__(self, aBuffer = None):
-        ImpactPacket.Header.__init__(self, self._SIZE)
+class MSRPCBindAck(Structure):
+    _SIZE = 26 # Up to SecondaryAddr
+    commonHdr = ( 
+        ('ver_major','B'),                              # 0
+        ('ver_minor','B'),                              # 1
+        ('type','B'),                                   # 2
+        ('flags','B'),                                  # 3
+        ('representation','<L=0x10'),                   # 4
+        ('frag_len','<H'),                              # 8
+        ('auth_len','<H'),                              # 10
+        ('call_id','<L=1'),                             # 12    <-- Common up to here (including this)
+    )
+    structure = ( 
+        ('max_tfrag','<H'),
+        ('max_rfrag','<H'),
+        ('assoc_group','<L'),
+        ('SecondaryAddrLen','<H'),
+        ('SecondaryAddr','z'),
+        ('PadLen','_-Pad','2-(self["SecondaryAddrLen"] % 2)'),
+        ('Pad',':'),
+        ('ctx_num','B'),
+        ('Reserved','B=0'),
+        ('Reserved2','<H=0'),
+        ('ctx_itemsLen','_-ctx_items','self["frag_len"]-self["auth_len"]-self._SIZE-self["SecondaryAddrLen"]-self["PadLen"]-4-(8 if self["auth_len"] else 0)'),
+        ('ctx_items',':'),
+        ('auth_data',':'),
+    )
+    def __init__(self, data = None, alignment = 0):
+        self.__ctx_items = []
+        Structure.__init__(self,data,alignment)
 
-        self.set_type(MSRPC_BINDACK)
+    def getCtxItems(self):
+        return self.__ctx_items
 
-        if aBuffer: self.load_header(aBuffer)
+    def getCtxItem(self,index):
+        return self.__ctx_items[index-1]
 
-    def get_version(self):
-        """ This method returns a tuple in (major, minor) form."""
-        return (self.get_byte(0), self.get_byte(1))
-    def set_version(self, version):
-        """ This method takes a tuple in (major, minor) form."""
-        self.set_byte(0, version[0])
-        self.set_byte(1, version[1])
-
-    def get_type(self):
-        return self.get_byte(2)
-    def set_type(self, type):
-        self.set_byte(2, type)
-
-    def get_flags(self):
-        return self.get_byte(3)
-    def set_flags(self, flags):
-        self.set_byte(3, flags)
-
-    def get_representation(self):
-        return self.get_long(4, '<')
-    def set_representation(self, representation):
-        self.set_long(4, representation, '<')
-
-    def get_frag_len(self):
-        return self.get_word(8, '<')
-    def set_frag_len(self, len):
-        self.set_word(8, len, '<')
-
-    def get_auth_len(self):
-        return self.get_word(10, '<')
-    def set_auth_len(self, len):
-        self.set_word(10, len, '<')
-    def get_auth_data(self):
-        data = self.get_bytes()
-        return data[-self.get_auth_len()-8:]
-
-    def get_call_id(self):
-        return self.get_long(12, '<')
-    def set_call_id(self, id):
-        self.set_long(12, id, '<')
-
-    def get_max_tfrag(self):
-        return self.get_word(16, '<')
-    def set_max_tfrag(self, size):
-        self.set_word(16, size, '<')
-
-    def get_max_rfrag(self):
-        return self.get_word(18, '<')
-    def set_max_rfrag(self, size):
-        self.set_word(18, size, '<')
-
-    def get_assoc_group(self):
-        return self.get_long(20, '<')
-    def set_assoc_group(self, id):
-        self.set_long(20, id, '<')
-
-    def get_secondary_addr_len(self):
-        return self.get_word(24, '<')
-    def set_secondary_addr_len(self, len):
-        self.set_word(24, len, '<')
-
-    def get_secondary_addr(self):
-        return self.get_bytes().tolist()[26:26+self.get_secondary_addr_len()]
-    def set_secondary_addr(self, addr):
-        self.get_bytes()[26:26+self.get_secondary_addr_len()] = array.array('B', addr)
-        self.set_secondary_addr_len(len(addr))
-
-    def _get_result_list_offset(self):
-        offset = 26+self.get_secondary_addr_len()
-        aligned = (offset + 3) & ~3
-        return aligned
-
-    def get_results_num(self):
-        return self.get_byte(self._get_result_list_offset())
-    def set_results_num(self, num):
-        self.set_byte(self._get_result_list_offset(), num)
-
-    def _get_result_offset(self, index):
-        return self._get_result_list_offset() + 4 + 20*index
-
-    def get_result(self, index = 0):
-        return self.get_word(self._get_result_offset(index)+0, '<' )
-    def set_result(self, res, index = 0):
-        self.set_word(self._get_result_offset(index)+0, '<' )
-
-    def get_result_reason(self, index = 0):
-        return self.get_word(self._get_result_offset(index)+2, '<' )
-    def set_result_reason(self, res, index = 0):
-        self.set_word(self._get_result_offset(index)+2, '<' )
-
-    # TODO: split this into (20-byte UUID, 4-byte ver)
-    def get_xfer_syntax_binuuid(self, index = 0):
-        offset = _get_result_offset(index)+4
-        return self.get_bytes().tolist()[offset:offset + 20]
-    def set_xfer_syntax_binuuid(self, binuuid, index = 0):
-        assert 20 == len(binuuid)
-        offset = _get_result_offset(index)+4
-        self.get_bytes()[offset:offset + 20] = array.array('B', binuuid)
-
-    def get_header_size(self):
-        var_size = len(self.get_bytes()) - self._SIZE
-        # assert var_size > 0
-        return self._SIZE + var_size
-
-    def contains(self, aHeader):
-        ImpactPacket.Header.contains(self, aHeader)
-        if self.child():
-            contents_size = self.child().get_size()
-            self.set_op_num(self.child().OP_NUM)
-            self.set_frag_len(self.get_header_size() + contents_size)
-            self.set_alloc_hint(contents_size)
-
-class MSRPCBindNak(ImpactPacket.Header):
-    _SIZE = 24
-
-    def __init__(self, aBuffer = None):
-        ImpactPacket.Header.__init__(self, self._SIZE)
-
-        self.set_type(MSRPC_BINDNAK)
-
-        if aBuffer: self.load_header(aBuffer)
-
-    def get_version(self):
-        """ This method returns a tuple in (major, minor) form."""
-        return (self.get_byte(0), self.get_byte(1))
-    def set_version(self, version):
-        """ This method takes a tuple in (major, minor) form."""
-        self.set_byte(0, version[0])
-        self.set_byte(1, version[1])
-
-    def get_type(self):
-        return self.get_byte(2)
-    def set_type(self, type):
-        self.set_byte(2, type)
-
-    def get_flags(self):
-        return self.get_byte(3)
-    def set_flags(self, flags):
-        self.set_byte(3, flags)
-
-    def get_representation(self):
-        return self.get_long(4, '<')
-    def set_representation(self, representation):
-        self.set_long(4, representation, '<')
-
-    def get_frag_len(self):
-        return self.get_word(8, '<')
-    def set_frag_len(self, len):
-        self.set_word(8, len, '<')
-
-    def get_auth_len(self):
-        return self.get_word(10, '<')
-    def set_auth_len(self, len):
-        self.set_word(10, len, '<')
-
-    def get_call_id(self):
-        return self.get_long(12, '<')
-    def set_call_id(self, id):
-        self.set_long(12, id, '<')
-
-    def get_reason(self):
-        return self.get_word(16, '<')
-    def set_reason(self, reason):
-        self.set_word(16, reason, '<')
-
-    def get_assoc_group(self):
-        return self.get_long(20, '<')
-    def set_assoc_group(self, id):
-        self.set_long(20, id, '<')
-
-
-    def get_header_size(self):
-        return self._SIZE
+    def fromString(self, data):
+        Structure.fromString(self,data)
+        # Parse the ctx_items
+        data = self['ctx_items']
+        for i in range(self['ctx_num']):
+            item = CtxItemResult(data)
+            self.__ctx_items.append(item)
+            data = data[len(item):]
+            
+class MSRPCBindNak(Structure):
+    structure = ( 
+        ('RejectedReason','<H'),
+        ('SupportedVersions',':'),
+    )
 
 class DCERPC:
     _max_ctx = 0
@@ -678,7 +451,6 @@ class DCERPC:
         return self.send(DCERPC_RawCall(function, str(body)))
 
 class DCERPC_v5(DCERPC):
-    endianness = '<'
     def __init__(self, transport):
         DCERPC.__init__(self, transport)
         self.__auth_level = ntlm.NTLM_AUTH_NONE
@@ -690,6 +462,17 @@ class DCERPC_v5(DCERPC):
         self.__lmhash = ''
         self.__nthash = ''
         
+        self.__clientSigningKey = ''
+        self.__serverSigningKey = ''
+        self.__clientSealingKey = ''
+        self.__clientSealingHandle = ''
+        self.__serverSealingKey = ''
+        self.__serverSealingHandle = ''
+        self.__sequence = 0   
+
+        self.__callid = 1
+        self._ctx = 0
+
     def set_auth_level(self, auth_level):
         # auth level is ntlm.NTLM_AUTH_*
         self.__auth_level = auth_level
@@ -699,7 +482,6 @@ class DCERPC_v5(DCERPC):
     
     def set_credentials(self, username, password, domain = '', lmhash = '', nthash = ''):
         self.set_auth_level(ntlm.NTLM_AUTH_CONNECT)
-        # self.set_auth_level(ntlm.NTLM_AUTH_CALL)
         # self.set_auth_level(ntlm.NTLM_AUTH_PKT_INTEGRITY)
         # self.set_auth_level(ntlm.NTLM_AUTH_PKT_PRIVACY)
         self.__username = username
@@ -711,195 +493,216 @@ class DCERPC_v5(DCERPC):
             self.__nthash = a2b_hex(nthash)
 
     def bind(self, uuid, alter = 0, bogus_binds = 0):
-        bind = MSRPCBind(endianness = self.endianness)
-        syntax = '\x04\x5d\x88\x8a\xeb\x1c\xc9\x11\x9f\xe8\x08\x00\x2b\x10\x48\x60'
-
-        if self.endianness == '>':
-            syntax = unpack('<LHHBB6s', syntax)
-            syntax = pack('>LHHBB6s', *syntax)
-
-            uuid = list(unpack('<LHHBB6sHH', uuid))
-
-            uuid[-1] ^= uuid[-2]
-            uuid[-2] ^= uuid[-1]
-            uuid[-1] ^= uuid[-2]
-            
-            uuid = pack('>LHHBB6sHH', *uuid)
-
-        ctx = 0
+        bind = MSRPCBind()
+        # Standard NDR Representation
+        NDRSyntax   = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
+        # NDR 64
+        NDR64Syntax = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0') 
+        #item['TransferSyntax']['Version'] = 1
+        ctx = self._ctx
         for i in range(bogus_binds):
-            bind.set_ctx_id(self._ctx, index = ctx)
-            bind.set_trans_num(1, index = ctx)
-            bind.set_if_binuuid('A'*20, index = ctx)
-            bind.set_xfer_syntax_binuuid(syntax, index = ctx)
-            bind.set_xfer_syntax_ver(2, index = ctx)
-
+            item = CtxItem()
+            item['ContextID'] = ctx
+            item['TransItems'] = 1
+            item['ContextID'] = ctx
+            # We generate random UUIDs for bogus binds
+            item['AbstractSyntax'] = generate() + stringver_to_bin('2.0')
+            item['TransferSyntax'] = uuidtup_to_bin(NDRSyntax)
+            bind.addCtxItem(item)
             self._ctx += 1
             ctx += 1
 
-        bind.set_ctx_id(self._ctx, index = ctx)
-        bind.set_trans_num(1, index = ctx)
-        bind.set_if_binuuid(uuid,index = ctx)
-        bind.set_xfer_syntax_binuuid(syntax, index = ctx)
-        bind.set_xfer_syntax_ver(2, index = ctx)
+        # The true one :)
+        item = CtxItem()
+        item['AbstractSyntax'] = uuid
+        item['TransferSyntax'] = uuidtup_to_bin(NDRSyntax)
+        item['ContextID'] = ctx
+        item['TransItems'] = 1
+        bind.addCtxItem(item)
 
-        bind.set_ctx_num(ctx+1)
+        packet = MSRPCHeader()
+        packet['type'] = MSRPC_BIND
 
         if alter:
-            bind.set_type(MSRPC_ALTERCTX)
+            packet['type'] = MSRPC_ALTERCTX
 
         if (self.__auth_level != ntlm.NTLM_AUTH_NONE):
             if (self.__username is None) or (self.__password is None):
                 self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash = self._transport.get_credentials()
-            auth = ntlm.DCERPC_NTLMAuthNegotiate()
-            #auth = ntlm.getNTLMSSPType1('', self.__domain, True, struct_type = 1)
+            auth = ntlm.getNTLMSSPType1('', self.__domain, True, isDCE = True)
             auth['auth_level']  = self.__auth_level
             auth['auth_ctx_id'] = self._ctx + 79231 
-            bind.set_auth_data(str(auth))
 
-        self._transport.send(bind.get_packet())
+            pad = (8 - (len(packet.get_packet()) % 8)) % 8
+            if pad != 0:
+               packet['pduData'] = packet['pduData'] + '\xFF'*pad
+               auth['auth_pad_len']=pad
+            packet['auth_data'] = str(auth)
+
+        packet['pduData'] = str(bind)
+        packet['call_id'] = self.__callid
+        self._transport.send(packet.get_packet())
 
         s = self._transport.recv()
 
         if s != 0:
-            resp = MSRPCBindAck(s)
+            resp = MSRPCHeader(s)
         else:
             return 0 #mmm why not None?
 
-        if resp.get_type() == MSRPC_BINDNAK:
-            resp = MSRPCBindNak(s)
-            status_code = resp.get_reason()
+        if resp['type'] == MSRPC_BINDACK or resp['type'] == MSRPC_ALTERCTX_R:
+            bindResp = MSRPCBindAck(str(resp))
+        elif resp['type'] == MSRPC_BINDNAK:
+            resp = MSRPCBindNak(resp['pduData'])
+            status_code = resp['RejectedReason']
             if rpc_status_codes.has_key(status_code):
                 raise Exception(rpc_status_codes[status_code], resp)
             else:
                 raise Exception('Unknown DCE RPC fault status code: %.8x' % status_code, resp)
+        else:
+            raise Exception('Unknown DCE RPC packet type received: %d' % resp['type'])
 
         # check ack results for each context, except for the bogus ones
-        for ctx in range(bogus_binds+1,bind.get_ctx_num()):
-            result = resp.get_result(ctx)
+        for ctx in range(bogus_binds+1,bindResp['ctx_num']+1):
+            result = bindResp.getCtxItem(ctx)['Result']
             if result != 0:
                 msg = "Bind context %d rejected: " % ctx
                 msg += rpc_cont_def_result.get(result, 'Unknown DCE RPC context result code: %.4x' % result)
                 msg += "; "
-                reason = resp.get_result_reason(ctx)
+                reason = bindResp.getCtxItem(ctx)['Reason']
                 msg += rpc_provider_reason.get(reason, 'Unknown reason code: %.4x' % reason)
                 if (result, reason) == (2, 1): # provider_rejection, abstract syntax not supported
                     msg += " (this usually means the interface isn't listening on the given endpoint)"
                 raise Exception(msg, resp)
 
-        self.__max_xmit_size = resp.get_max_tfrag()
+        self.__max_xmit_size = bindResp['max_tfrag']
 
         if self.__auth_level != ntlm.NTLM_AUTH_NONE:
-            #response, randomSessionKey = ntlm.getNTLMSSPType3(auth, resp.get_auth_data().tostring(), self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, 1)
-            authResp = ntlm.DCERPC_NTLMAuthChallenge(data = resp.get_auth_data().tostring())
-            self._ntlm_challenge = authResp['challenge']
-            response = ntlm.DCERPC_NTLMAuthChallengeResponse(self.__username,self.__password, self._ntlm_challenge, lmhash = self.__lmhash, nthash = self.__nthash)
+            response, randomSessionKey = ntlm.getNTLMSSPType3(auth, bindResp['auth_data'], self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, True)
             response['auth_ctx_id'] = self._ctx + 79231 
             response['auth_level'] = self.__auth_level
+            self.__flags = response['flags']
 
             if self.__auth_level in (ntlm.NTLM_AUTH_CONNECT, ntlm.NTLM_AUTH_PKT_INTEGRITY, ntlm.NTLM_AUTH_PKT_PRIVACY):
-                if self.__nthash and self.__username:
-                    key = self.__nthash
-                    if POW:
-                        hash = POW.Digest(POW.MD4_DIGEST)
-                    else:
-                        hash = MD4.new()
-                    hash.update(key)
-                    key = hash.digest()
-                elif self.__password:
-                    key = ntlm.compute_nthash(self.__password)
-                    if POW:
-                        hash = POW.Digest(POW.MD4_DIGEST)
-                    else:
-                        hash = MD4.new()
-                    hash.update(key)
-                    key = hash.digest()
+                if self.__flags & ntlm.NTLMSSP_NTLM2_KEY:
+                    self.__clientSigningKey = ntlm.SIGNKEY(self.__flags, randomSessionKey)
+                    self.__serverSigningKey = ntlm.SIGNKEY(self.__flags, randomSessionKey,"Server")
+                    self.__clientSealingKey = ntlm.SEALKEY(self.__flags, randomSessionKey)
+                    self.__serverSealingKey = ntlm.SEALKEY(self.__flags, randomSessionKey,"Server")
+                    # Preparing the keys handle states
+                    cipher3 = ARC4.new(self.__clientSealingKey)
+                    self.__clientSealingHandle = cipher3.encrypt
+                    cipher4 = ARC4.new(self.__serverSealingKey)
+                    self.__serverSealingHandle = cipher4.encrypt
                 else:
-                    key = '\x00'*16
+                    # Same key for everything
+                    self.__clientSigningKey = randomSessionKey
+                    self.__serverSigningKey = randomSessionKey
+                    self.__clientSealingKey = randomSessionKey
+                    self.__serverSealingKey = randomSessionKey
+                    cipher = ARC4.new(self.__clientSigningKey)
+                    self.__clientSealingHandle = cipher.encrypt
+                    self.__serverSealingHandle = cipher.encrypt
 
-            if POW:
-                cipher = POW.Symmetric(POW.RC4)
-                cipher.encryptInit(key)
-                self.cipher_encrypt = cipher.update
-            else:
-                cipher = ARC4.new(key)
-                self.cipher_encrypt = cipher.encrypt
-
-            if response['flags'] & ntlm.NTLMSSP_KEY_EXCHANGE:
-                session_key = 'A'*16     # XXX Generate random session key
-                response['session_key'] = self.cipher_encrypt(session_key)
-                if POW:
-                    cipher = POW.Symmetric(POW.RC4)
-                    cipher.encryptInit(session_key)
-                    self.cipher_encrypt = cipher.update
-                else:
-                    cipher = ARC4.new(session_key)
-                    self.cipher_encrypt = cipher.encrypt
-
-            self.sequence = 0
+            self.__sequence = 0
 
             auth3 = MSRPCHeader()
-            
-            auth3.set_type(MSRPC_AUTH3)
+            auth3['type'] = MSRPC_AUTH3
+            auth3['auth_data'] = str(response)
 
-            auth3.set_auth_data(str(response))
-
+            # Use the same call_id
+            self.__callid = resp['call_id']
+            auth3['call_id'] = self.__callid
             self._transport.send(auth3.get_packet(), forceWriteAndx = 1)
+            self.__callid += 1
 
         return resp     # means packet is signed, if verifier is wrong it fails
 
     def _transport_send(self, rpc_packet, forceWriteAndx = 0, forceRecv = 0):
-        if self.__auth_level == ntlm.NTLM_AUTH_CALL:
-            if rpc_packet.get_type() == MSRPC_REQUEST:
-                response = ntlm.DCERPC_NTLMAuthChallengeResponse(self.__username,self.__password, self._ntlm_challenge, lmhash = self.__lmhash, nthash = self.__nthash)
-                response['auth_ctx_id'] = self._ctx + 79231 
-                response['auth_level'] = self.__auth_level
-                rpc_packet.set_auth_data(str(response))
-
                 
+        rpc_packet['ctx_id'] = self._ctx
         if self.__auth_level in [ntlm.NTLM_AUTH_PKT_INTEGRITY, ntlm.NTLM_AUTH_PKT_PRIVACY]:
+            # Dummy verifier, just for the calculations
             verifier = ntlm.DCERPC_NTLMAuthVerifier()
+            verifier['auth_pad_len'] = 0
+
+            pad = (8 - (len(rpc_packet.get_packet()) % 8)) % 8
+            if pad != 0:
+               rpc_packet['pduData'] = rpc_packet['pduData'] + '\x00'*pad
+               verifier['auth_pad_len']=pad
+
             verifier['auth_level'] = self.__auth_level
             verifier['auth_ctx_id'] = self._ctx + 79231 
             verifier['data'] = ' '*12
-            rpc_packet.set_auth_data(str(verifier))
+            rpc_packet['auth_data'] = str(verifier)
 
-            rpc_call = rpc_packet.child()
+            plain_data = rpc_packet['pduData']
             if self.__auth_level == ntlm.NTLM_AUTH_PKT_PRIVACY:
-                data = DCERPC_RawCall(rpc_call.OP_NUM)
-                data.setData(self.cipher_encrypt(rpc_call.get_packet()))
-                rpc_packet.contains(data)
+                if self.__flags & ntlm.NTLMSSP_NTLM2_KEY:
+                    # When NTLM2 is on, we sign the whole pdu, but encrypt just
+                    # the data, not the dcerpc header. Weird..
+                    sealedMessage, signature =  ntlm.SEAL(self.__flags, 
+                           self.__clientSigningKey, 
+                           self.__clientSealingKey,  
+                           rpc_packet.get_packet()[:-16], 
+                           plain_data, 
+                           self.__sequence, 
+                           self.__clientSealingHandle, 
+                           isDCE = True)
+                else:
+                    sealedMessage, signature =  ntlm.SEAL(self.__flags, 
+                           self.__clientSigningKey, 
+                           self.__clientSealingKey,  
+                           plain_data, 
+                           plain_data, 
+                           self.__sequence, 
+                           self.__clientSealingHandle, 
+                           isDCE = True)
+                rpc_packet['pduData'] = sealedMessage
+            else: 
+                if self.__flags & ntlm.NTLMSSP_NTLM2_KEY:
+                    # Interesting thing.. with NTLM2, what is is signed is the 
+                    # whole PDU, not just the data
+                    signature =  ntlm.SIGN(self.__flags, 
+                           self.__clientSigningKey, 
+                           rpc_packet.get_packet()[:-16], 
+                           self.__sequence, 
+                           self.__clientSealingHandle, 
+                           isDCE = True)
+                else:
+                    signature =  ntlm.SIGN(self.__flags, 
+                           self.__clientSigningKey, 
+                           plain_data, 
+                           self.__sequence, 
+                           self.__clientSealingHandle, 
+                           isDCE = True)
 
-            crc = crc32(rpc_call.get_packet())
-            data = pack('<iii',0,crc,self.sequence)     # XXX 0 can be anything: randomize
-            data = self.cipher_encrypt(data)
-            verifier['data'] = data
-            rpc_packet.set_auth_data(str(verifier))
+            signature['auth_level'] = self.__auth_level
+            signature['auth_ctx_id'] = verifier['auth_ctx_id']
+            signature['auth_pad_len'] = pad
+            rpc_packet['auth_data'] = str(signature)
 
-            self.sequence += 1
+            self.__sequence += 1
 
         self._transport.send(rpc_packet.get_packet(), forceWriteAndx = forceWriteAndx, forceRecv = forceRecv)
 
     def send(self, data):
-        # This endianness does necesary have to be the same as the one used in the bind
-        # however, the endianness of the stub data MUST be the same as the one in the bind
-        # i.e. the endianness on the next call could be hardcoded to any
-        rpc = MSRPCRequestHeader(endianness = self.endianness)
+        if isinstance(data, MSRPCHeader) is not True:
+            # Must be an Impacket, transform to structure
+            data = DCERPC_RawCall(data.OP_NUM, data.get_packet())
 
-        rpc.set_ctx_id(self._ctx)
-
+        data['ctx_id'] = self._ctx
+        data['call_id'] = self.__callid
         max_frag = self._max_frag
-
-        if data.get_size() > self.__max_xmit_size - 32:
+        if len(data['pduData']) > self.__max_xmit_size - 32:
             max_frag = self.__max_xmit_size - 32    # XXX: 32 is a safe margin for auth data
 
         if self._max_frag:
             max_frag = min(max_frag, self._max_frag)
-
-        if max_frag:
-            packet = str(data.get_bytes().tostring())
+        if max_frag and len(data['pduData']) > 0:
+            packet = data['pduData']
             offset = 0
-            rawcall = DCERPC_RawCall(data.OP_NUM)
+            rawcall = DCERPC_RawCall(data['op_num'])
 
             while 1:
                 toSend = packet[offset:offset+max_frag]
@@ -911,27 +714,25 @@ class DCERPC_v5(DCERPC):
                 offset += len(toSend)
                 if offset == len(packet):
                     flags |= MSRPC_LASTFRAG
-                rpc.set_flags(flags)
-
-                rawcall.setData(toSend)
-                rpc.contains(rawcall)
-                self._transport_send(rpc, forceWriteAndx = 1, forceRecv = flags & MSRPC_LASTFRAG)
+                data['flags'] = flags
+                data['pduData'] = toSend
+                self._transport_send(data, forceWriteAndx = 1, forceRecv = flags & MSRPC_LASTFRAG)
         else:
-            rpc.contains(data)
-            self._transport_send(rpc)
+            self._transport_send(data)
+        self.__callid += 1
 
     def recv(self):
         self.response_data = self._transport.recv()
         self.response_header = MSRPCRespHeader(self.response_data)
         off = self.response_header.get_header_size()
-        if self.response_header.get_type() == MSRPC_FAULT and self.response_header.get_frag_len() >= off+4:
+        if self.response_header['type'] == MSRPC_FAULT and self.response_header['frag_len'] >= off+4:
             status_code = unpack("<L",self.response_data[off:off+4])[0]
             if rpc_status_codes.has_key(status_code):
                 raise Exception(rpc_status_codes[status_code])
             else:
                 raise Exception('Unknown DCE RPC fault status code: %.8x' % status_code)
         answer = self.response_data[off:]
-        auth_len = self.response_header.get_auth_len()
+        auth_len = self.response_header['auth_len']
         if auth_len:
             auth_len += 8
             auth_data = answer[-auth_len:]
@@ -939,16 +740,51 @@ class DCERPC_v5(DCERPC):
             answer = answer[:-auth_len]
 
             if ntlmssp['auth_level'] == ntlm.NTLM_AUTH_PKT_PRIVACY:
-                answer = self.cipher_encrypt(answer)
 
+                if self.__flags & ntlm.NTLMSSP_NTLM2_KEY:
+                    # TODO: FIX THIS, it's not calculating the signature well
+                    # Since I'm not testing it we don't care... yet
+                    answer, signature =  ntlm.SEAL(self.__flags, 
+                            self.__serverSigningKey, 
+                            self.__serverSealingKey,  
+                            answer, 
+                            answer, 
+                            self.__sequence, 
+                            self.__serverSealingHandle, 
+                            isDCE = True)
+                else:
+                    answer, signature = ntlm.SEAL(self.__flags, 
+                            self.__serverSigningKey, 
+                            self.__serverSealingKey, 
+                            answer, 
+                            answer, 
+                            self.__sequence, 
+                            self.__serverSealingHandle, 
+                            isDCE = True)
+                    self.__sequence += 1
+            else:
+                ntlmssp = ntlm.DCERPC_NTLMAuthVerifier(data = auth_data)
+                if self.__flags & ntlm.NTLMSSP_NTLM2_KEY:
+                    signature =  ntlm.SIGN(self.__flags, 
+                            self.__serverSigningKey, 
+                            answer, 
+                            self.__sequence, 
+                            self.__serverSealingHandle, 
+                            isDCE = True)
+                else:
+                    signature = ntlm.SIGN(self.__flags, 
+                            self.__serverSigningKey, 
+                            ntlmssp['data'], 
+                            self.__sequence, 
+                            self.__serverSealingHandle, 
+                            isDCE = True)
+                    # Yes.. NTLM2 doesn't increment sequence when receiving
+                    # the packet :P
+                    self.__sequence += 1
+                
             if ntlmssp['auth_pad_len']:
                 answer = answer[:-ntlmssp['auth_pad_len']]
 
-            if ntlmssp['auth_level'] in [ntlm.NTLM_AUTH_PKT_INTEGRITY, ntlm.NTLM_AUTH_PKT_PRIVACY]:
-                ntlmssp = ntlm.DCERPC_NTLMAuthVerifier(data = auth_data)
-                data = self.cipher_encrypt(ntlmssp['data'])
-                zero, crc, sequence = unpack('<LLL', data)
-                self.sequence = sequence + 1
 
         return answer
 
@@ -964,16 +800,11 @@ class DCERPC_v5(DCERPC):
         answer.bind(newUID, alter = 1, bogus_binds = bogus_binds)
         return answer
 
-class DCERPC_RawCall(ImpactPacket.Header):
+class DCERPC_RawCall(MSRPCRequestHeader):
     def __init__(self, op_num, data = ''):
-        self.OP_NUM = op_num
-        ImpactPacket.Header.__init__(self)
-        self.setData(data)
+        MSRPCRequestHeader.__init__(self)
+        self['op_num'] = op_num
+        self['pduData'] = data
 
     def setData(self, data):
-        self.get_bytes()[:] = array.array('B', data)
-
-    def get_header_size(self):
-        return len(self.get_bytes())
-
-
+        self['pduData'] = data
