@@ -486,6 +486,11 @@ class NetBIOS:
         else:
             return self.__querynodestatus(nbname, self.__nameserver, type, scope, timeout)
 
+    def getnetbiosname(self, ip):
+        entries = self.getnodestatus('*',ip)
+        entries = filter(lambda x:x.get_nametype() == TYPE_SERVER, entries)
+        return entries[0].get_nbname().strip()
+
     def getmacaddress(self):
         return self.mac
 
@@ -672,6 +677,19 @@ class NetBIOSSession:
         self.__local_type = local_type
 
         assert remote_name
+        # If remote name is *SMBSERVER let's try to query its name.. if can't be guessed, continue and hope for the best
+        if remote_name == '*SMBSERVER':
+           nb = NetBIOS()
+
+           try:
+              res = nb.getnetbiosname(remote_host)
+           except:
+              res = None
+              pass 
+
+           if res is not None:
+              remote_name = res
+
         if len(remote_name) > 15:
             self.__remote_name = string.upper(remote_name[:15])
         else:
