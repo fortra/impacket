@@ -376,7 +376,7 @@ class MSRPCBindAck(Structure):
         ('assoc_group','<L'),
         ('SecondaryAddrLen','<H'),
         ('SecondaryAddr','z'),
-        ('PadLen','_-Pad','2-(self["SecondaryAddrLen"] % 2)'),
+        ('PadLen','_-Pad','(4-((self["SecondaryAddrLen"]+self._SIZE) % 4))%4'),
         ('Pad',':'),
         ('ctx_num','B'),
         ('Reserved','B=0'),
