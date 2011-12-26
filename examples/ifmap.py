@@ -301,6 +301,7 @@ def main(args):
   trans.set_dport(port)
 
   dce = dcerpc.DCERPC_v5(trans)
+  dce.set_credentials('test','cach0','')
   dce.connect()
 
   iid = uuid.uuidtup_to_bin(("afa8bd80-7d8a-11c9-bef4-08002b102989", "1.0"))
@@ -327,8 +328,8 @@ def main(args):
     try:
       dce.bind(binuuid)
     except dcerpc.Exception, e:
-      resp = e.args[1]
-      if (resp.get_result(), resp.get_result_reason()) == (2, 1):
+      resp = dcerpc.MSRPCBindAck(str(e.args[1]))
+      if (resp.getCtxItem(1)['Result'], resp.getCtxItem(1)['Reason']) == (2, 1):
         listening = False
       else:
         raise
