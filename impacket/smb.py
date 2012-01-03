@@ -2498,10 +2498,10 @@ class SMB:
     def __init__(self, remote_name, remote_host, my_name = None, host_type = nmb.TYPE_SERVER, sess_port = 445, timeout=None, UDP = 0):
         # The uid attribute will be set when the client calls the login() method
         self._uid = 0
-        self.__server_name = None
+        self.__server_name = ''
         self.__server_os = ''
         self.__server_lanman = ''
-        self.__server_domain = None
+        self.__server_domain = ''
         self.__remote_name = string.upper(remote_name)
         self.__remote_host = remote_host
         self.__is_pathcaseless = 0
