@@ -16,6 +16,7 @@ import array
 import struct
 
 from impacket import dcerpc
+from impacket.dcerpc import ndrutils
 from impacket import ImpactPacket
 
 MSRPC_UUID_WINREG = '\x01\xd0\x8c\x33\x44\x22\xf1\x31\xaa\xaa\x90\x00\x38\x00\x10\x03\x01\x00\x00\x00'
@@ -309,14 +310,11 @@ class WINREGOpenKey(ImpactPacket.Header):
         if not name.endswith('\0'):
             name += '\0'
         namelen = len(name)
-        padlen = 2 * (int((namelen + 2) / 4) * 4 + 2 - namelen)
-        pad = '\x00' * padlen
-
+        ndrStr = ndrutils.NDRStringW()
+        ndrStr['Data'] = name.encode('utf-16le')
         self.set_word(20, 2 * namelen, '<')
         self.set_word(22, 2 * namelen, '<')
-        self.set_long(28, namelen, '<')
-        self.set_long(36, namelen, '<')
-        self.get_bytes()[40:-4] = array.array('B', name.encode('utf-16le') + pad)
+        self.get_bytes()[28:-4] = array.array('B',str(ndrStr) + '\x00' * 4)
 
     def get_access_mask(self):
         return self.get_long(-4, '<')
