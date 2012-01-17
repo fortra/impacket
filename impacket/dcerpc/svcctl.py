@@ -79,6 +79,12 @@ SERVICE_CONTROL_PARAMCHANGE   = 0x00000006
 SERVICE_CONTROL_PAUSE         = 0x00000002
 SERVICE_CONTROL_STOP          = 0x00000001
 
+# Service State
+SERVICE_ACTIVE                = 0x00000001
+SERVICE_INACTIVE              = 0x00000002
+SERVICE_STATE_ALL             = 0x00000003
+
+
 class SVCCTLRDeleteService(Structure):
     opnum = 2
     alignment = 4
@@ -196,6 +202,18 @@ class SVCCTLRCreateServiceWResponse(Structure):
         ('ContextHandle','20s'),
         ('ErrorCode','<L'),
     )
+
+class SVCCTLREnumServicesStatusW(Structure):
+    opnum = 14
+    alignment = 4
+    structure = (
+        ('ContextHandle','20s'),
+        ('ServiceType','<L'),
+        ('ServiceState','<L'),
+        ('BufSize','<L=0xff'),
+        ('ResumeIndex','<L=0'),
+ 
+    ) 
 
 # OLD Style structs.. leaving this stuff for compatibility purpose. Don't use these structs/functions anymore
 
@@ -758,6 +776,7 @@ class DCERPCSvcCtl:
         createService['DesiredAccess']  = SERVICE_ALL_ACCESS
         createService['ServiceType']    = SERVICE_WIN32_OWN_PROCESS | SERVICE_INTERACTIVE_PROCESS
         createService['StartType']      = SERVICE_AUTO_START
+        #createService['StartType']      = SERVICE_DEMAND_START
         createService['ErrorControl']   = SERVICE_ERROR_IGNORE
         createService['BinaryPathName'] = ndrutils.NDRStringW()
         createService['BinaryPathName']['Data'] = (binaryPathName+'\x00'.encode('utf-16le'))
@@ -779,4 +798,14 @@ class DCERPCSvcCtl:
         closeHandle['ContextHandle'] = handle
         ans = self.doRequest(closeHandle, checkReturn = 1)
         return SVCCTLRCloseServiceHandlerResponse(ans)
+ 
+    def EnumServicesStatusW(self, handle):
+        enumServices = SVCCTLREnumServicesStatusW()
+        enumServices['ContextHandle'] = handle
+        #enumServices['ServiceType']   = SERVICE_KERNEL_DRIVER | SERVICE_FILE_SYSTEM_DRIVER | SERVICE_WIN32_OWN_PROCESS | SERVICE_WIN32_SHARE_PROCESS | SERVICE_INTERACTIVE_PROCESS
+        enumServices['ServiceType']   = SERVICE_INTERACTIVE_PROCESS
+        enumServices['ServiceState']  = SERVICE_STATE_ALL
+        #enumServices['ServiceState']  = SERVICE_ACTIVE
+        ans = self.doRequest(enumServices, checkReturn = 1)
+        return ans
         
