@@ -722,71 +722,86 @@ class DCERPC_v5(DCERPC):
         self.__callid += 1
 
     def recv(self):
-        self.response_data = self._transport.recv()
-        self.response_header = MSRPCRespHeader(self.response_data)
-        off = self.response_header.get_header_size()
-        if self.response_header['type'] == MSRPC_FAULT and self.response_header['frag_len'] >= off+4:
-            status_code = unpack("<L",self.response_data[off:off+4])[0]
-            if rpc_status_codes.has_key(status_code):
-                raise Exception(rpc_status_codes[status_code])
-            else:
-                raise Exception('Unknown DCE RPC fault status code: %.8x' % status_code)
-        answer = self.response_data[off:]
-        auth_len = self.response_header['auth_len']
-        if auth_len:
-            auth_len += 8
-            auth_data = answer[-auth_len:]
-            ntlmssp   = ntlm.DCERPC_NTLMAuthHeader(data = auth_data)
-            answer = answer[:-auth_len]
-
-            if ntlmssp['auth_level'] == ntlm.NTLM_AUTH_PKT_PRIVACY:
-
-                if self.__flags & ntlm.NTLMSSP_NTLM2_KEY:
-                    # TODO: FIX THIS, it's not calculating the signature well
-                    # Since I'm not testing it we don't care... yet
-                    answer, signature =  ntlm.SEAL(self.__flags, 
-                            self.__serverSigningKey, 
-                            self.__serverSealingKey,  
-                            answer, 
-                            answer, 
-                            self.__sequence, 
-                            self.__serverSealingHandle, 
-                            isDCE = True)
+        finished = False
+        forceRecv = 0
+        retAnswer = ''
+        while not finished:
+            # At least give me the MSRPCRespHeader, especially important for TCP/UDP Transports
+            self.response_data = self._transport.recv(forceRecv, count=MSRPCRespHeader._SIZE)
+            self.response_header = MSRPCRespHeader(self.response_data)
+            # Ok, there might be situation, especially with large packets, that the transport layer didn't send us the full packet's contents
+            # So we gotta check we received it all
+            while ( len(self.response_data) < self.response_header['frag_len'] ):
+               self.response_data += self._transport.recv(forceRecv, count=(self.response_header['frag_len']-len(self.response_data)))
+            off = self.response_header.get_header_size()
+            if self.response_header['type'] == MSRPC_FAULT and self.response_header['frag_len'] >= off+4:
+                status_code = unpack("<L",self.response_data[off:off+4])[0]
+                if rpc_status_codes.has_key(status_code):
+                    raise Exception(rpc_status_codes[status_code])
                 else:
-                    answer, signature = ntlm.SEAL(self.__flags, 
-                            self.__serverSigningKey, 
-                            self.__serverSealingKey, 
-                            answer, 
-                            answer, 
-                            self.__sequence, 
-                            self.__serverSealingHandle, 
-                            isDCE = True)
-                    self.__sequence += 1
+                    raise Exception('Unknown DCE RPC fault status code: %.8x' % status_code)
+            if self.response_header['flags'] & MSRPC_LASTFRAG:
+                # No need to reassembly DCERPC
+                finished = True
             else:
-                ntlmssp = ntlm.DCERPC_NTLMAuthVerifier(data = auth_data)
-                if self.__flags & ntlm.NTLMSSP_NTLM2_KEY:
-                    signature =  ntlm.SIGN(self.__flags, 
-                            self.__serverSigningKey, 
-                            answer, 
-                            self.__sequence, 
-                            self.__serverSealingHandle, 
-                            isDCE = True)
+                # Forcing Read Recv, we need more packets!
+                forceRecv = 1
+            answer = self.response_data[off:]
+            auth_len = self.response_header['auth_len']
+            if auth_len:
+                auth_len += 8
+                auth_data = answer[-auth_len:]
+                ntlmssp   = ntlm.DCERPC_NTLMAuthHeader(data = auth_data)
+                answer = answer[:-auth_len]
+
+                if ntlmssp['auth_level'] == ntlm.NTLM_AUTH_PKT_PRIVACY:
+
+                    if self.__flags & ntlm.NTLMSSP_NTLM2_KEY:
+                        # TODO: FIX THIS, it's not calculating the signature well
+                        # Since I'm not testing it we don't care... yet
+                        answer, signature =  ntlm.SEAL(self.__flags, 
+                                self.__serverSigningKey, 
+                                self.__serverSealingKey,  
+                                answer, 
+                                answer, 
+                                self.__sequence, 
+                                self.__serverSealingHandle, 
+                                isDCE = True)
+                    else:
+                        answer, signature = ntlm.SEAL(self.__flags, 
+                                self.__serverSigningKey, 
+                                self.__serverSealingKey, 
+                                answer, 
+                                answer, 
+                                self.__sequence, 
+                                self.__serverSealingHandle, 
+                                isDCE = True)
+                        self.__sequence += 1
                 else:
-                    signature = ntlm.SIGN(self.__flags, 
-                            self.__serverSigningKey, 
-                            ntlmssp['data'], 
-                            self.__sequence, 
-                            self.__serverSealingHandle, 
-                            isDCE = True)
-                    # Yes.. NTLM2 doesn't increment sequence when receiving
-                    # the packet :P
-                    self.__sequence += 1
+                    ntlmssp = ntlm.DCERPC_NTLMAuthVerifier(data = auth_data)
+                    if self.__flags & ntlm.NTLMSSP_NTLM2_KEY:
+                        signature =  ntlm.SIGN(self.__flags, 
+                                self.__serverSigningKey, 
+                                answer, 
+                                self.__sequence, 
+                                self.__serverSealingHandle, 
+                                isDCE = True)
+                    else:
+                        signature = ntlm.SIGN(self.__flags, 
+                                self.__serverSigningKey, 
+                                ntlmssp['data'], 
+                                self.__sequence, 
+                                self.__serverSealingHandle, 
+                                isDCE = True)
+                        # Yes.. NTLM2 doesn't increment sequence when receiving
+                        # the packet :P
+                        self.__sequence += 1
                 
-            if ntlmssp['auth_pad_len']:
-                answer = answer[:-ntlmssp['auth_pad_len']]
-
-
-        return answer
+                if ntlmssp['auth_pad_len']:
+                    answer = answer[:-ntlmssp['auth_pad_len']]
+              
+            retAnswer += answer
+        return retAnswer
 
     def alter_ctx(self, newUID, bogus_binds = 0):
         answer = self.__class__(self._transport)
