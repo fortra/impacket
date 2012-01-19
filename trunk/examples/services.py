@@ -80,7 +80,11 @@ class SVCCTL:
         else:
             dce = dcerpc.DCERPC_v5(rpctransport)
 
+        #dce.set_credentials(self.__username, self.__password)
         dce.connect()
+        #dce.set_max_fragment_size(1)
+        #dce.set_auth_level(ntlm.NTLM_AUTH_PKT_PRIVACY)
+        #dce.set_auth_level(ntlm.NTLM_AUTH_PKT_INTEGRITY)
         dce.bind(svcctl.MSRPC_UUID_SVCCTL)
         rpc = svcctl.DCERPCSvcCtl(dce)
         ans = rpc.OpenSCManagerW()
@@ -90,16 +94,45 @@ class SVCCTL:
         if self.__action.upper() == 'START':
             print "Starting service %s" % self.__service_name
             rpc.StartServiceW(serviceHandle)
+            rpc.CloseServiceHandle(serviceHandle)
         elif self.__action.upper() == 'STOP':
             print "Stopping service %s" % self.__service_name
             rpc.StopService(serviceHandle)
+            rpc.CloseServiceHandle(serviceHandle)
         elif self.__action.upper() == 'DELETE':
             print "Deleting service %s" % self.__service_name
             rpc.DeleteService(serviceHandle)
+            rpc.CloseServiceHandle(serviceHandle)
+        elif self.__action.upper() == 'LIST':
+            print "Listing services available on target"
+            #resp = rpc.EnumServicesStatusW(scManagerHandle, svcctl.SERVICE_WIN32_SHARE_PROCESS )
+            #resp = rpc.EnumServicesStatusW(scManagerHandle, svcctl.SERVICE_WIN32_OWN_PROCESS )
+            resp = rpc.EnumServicesStatusW(scManagerHandle, serviceState = svcctl.SERVICE_ACTIVE )
+            #resp = rpc.EnumServicesStatusW(scManagerHandle)
+            for i in range(len(resp)):
+                print "%30s - %70s - " % (resp[i]['ServiceName'].decode('utf-16'), resp[i]['DisplayName'].decode('utf-16')),
+                state = resp[i]['CurrentState']
+                if state == svcctl.SERVICE_CONTINUE_PENDING:
+                   print "CONTINUE PENDING"
+                elif state == svcctl.SERVICE_PAUSE_PENDING:
+                   print "PAUSE PENDING"
+                elif state == svcctl.SERVICE_PAUSED:
+                   print "PAUSED"
+                elif state == svcctl.SERVICE_RUNNING:
+                   print "RUNNING"
+                elif state == svcctl.SERVICE_START_PENDING:
+                   print "START PENDING"
+                elif state == svcctl.SERVICE_STOP_PENDING:
+                   print "STOP PENDING"
+                elif state == svcctl.SERVICE_STOPPED:
+                   print "STOPPED"
+                else:
+                   print "UNKOWN"
+            print "Total Services: %d" % len(resp)
+
         else:
             print "Unknown action %s" % self.__action
 
-        rpc.CloseServiceHandle(serviceHandle)
         rpc.CloseServiceHandle(scManagerHandle)
 
         dce.disconnect()
@@ -113,7 +146,8 @@ if __name__ == '__main__':
         print "Usage: %s [username[:password]@]<address> <servicename> <action> [protocol list...]" % sys.argv[0]
         print "Available protocols: %s" % SVCCTL.KNOWN_PROTOCOLS.keys()
         print "Username and password are only required for certain transports, eg. SMB."
-        print "Action: START/STOP/DELETE"
+        print "Action: START/STOP/DELETE/LIST"
+        print "(for LIST specify a random servicename)"
         sys.exit(1)
 
     import re
