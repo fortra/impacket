@@ -128,7 +128,7 @@ class DCERPCTransport:
         raise RuntimeError, 'virtual function'
     def send(self,data=0, forceWriteAndx = 0, forceRecv = 0):
         raise RuntimeError, 'virtual function'
-    def recv(self, forceRecv = 0):
+    def recv(self, forceRecv = 0, count = 0):
         raise RuntimeError, 'virtual function'
     def disconnect(self):
         raise RuntimeError, 'virtual function'
@@ -220,7 +220,7 @@ class UDPTransport(DCERPCTransport):
     def send(self,data, forceWriteAndx = 0, forceRecv = 0):
         self.__socket.sendto(data,(self.get_dip(),self.get_dport()))
 
-    def recv(self, forceRecv = 0):
+    def recv(self, forceRecv = 0, count = 0):
         buffer, self.__recv_addr = self.__socket.recvfrom(8192)
         return buffer
 
@@ -269,8 +269,13 @@ class TCPTransport(DCERPCTransport):
         else:
             self.__socket.send(data)
 
-    def recv(self, forceRecv = 0):
-        buffer = self.__socket.recv(8192)
+    def recv(self, forceRecv = 0, count = 0):
+        if count:
+            buffer = ''
+            while len(buffer) < count:
+               buffer += self.__socket.recv(count-len(buffer))
+        else:
+            buffer = self.__socket.recv(8192)
         return buffer
 
     def get_socket(self):
@@ -350,7 +355,7 @@ class SMBTransport(DCERPCTransport):
         if forceRecv:
             self.__pending_recv += 1
         
-    def recv(self, forceRecv = 0):
+    def recv(self, forceRecv = 0, count = 0 ):
         if self._max_send_frag or self.__pending_recv:
             # _max_send_frag is checked because it's the same condition we checked
             # to decide whether to use write_andx() or send_trans() in send() above.
