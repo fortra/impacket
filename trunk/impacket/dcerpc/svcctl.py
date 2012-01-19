@@ -18,7 +18,7 @@ from struct import *
 from impacket import ImpactPacket
 from impacket.structure import Structure
 from impacket import dcerpc
-from impacket.dcerpc import ndrutils
+from impacket.dcerpc import ndrutils, dcerpc
 
 MSRPC_UUID_SVCCTL = '\x81\xbb\x7a\x36\x44\x98\xf1\x35\xad\x32\x98\xf0\x38\x00\x10\x03\x02\x00\x00\x00'
 
@@ -84,6 +84,14 @@ SERVICE_ACTIVE                = 0x00000001
 SERVICE_INACTIVE              = 0x00000002
 SERVICE_STATE_ALL             = 0x00000003
 
+# Current State
+SERVICE_CONTINUE_PENDING      = 0x00000005
+SERVICE_PAUSE_PENDING         = 0x00000006
+SERVICE_PAUSED                = 0x00000007
+SERVICE_RUNNING               = 0x00000004
+SERVICE_START_PENDING         = 0x00000002
+SERVICE_STOP_PENDING          = 0x00000003
+SERVICE_STOPPED               = 0x00000001
 
 class SVCCTLRDeleteService(Structure):
     opnum = 2
@@ -210,12 +218,38 @@ class SVCCTLREnumServicesStatusW(Structure):
         ('ContextHandle','20s'),
         ('ServiceType','<L'),
         ('ServiceState','<L'),
-        ('BufSize','<L=0xff'),
+        ('BuffSize','<L=0'),
+        ('pResumeIndex','<L=123'),
         ('ResumeIndex','<L=0'),
  
     ) 
 
+class SVCCTLREnumServicesStatusWResponse(Structure):
+    alignment = 4
+    structure = (
+        ('BuffSize','<L'),
+        ('BytesNeeded','<L'),
+        ('BufferLen','_-Buffer','self["BuffSize"]'),
+        ('Buffer',':'),
+        ('ServicesReturned','<L'),
+        ('Dontknow','<L'),
+        ('Dontknow','<L'),
+        ('ErrorCode','<L'),
+    )
+
 # OLD Style structs.. leaving this stuff for compatibility purpose. Don't use these structs/functions anymore
+
+class SVCCTLServiceStatus(Structure):
+    structure = (
+        ('DontKnow','<L'),
+        ('ServiceType','<L'),
+        ('CurrentState','<L'),
+        ('ControlsAccepted','<L'),
+        ('Win32ExitCode','<L'),
+        ('ServiceSpecificExitCode','<L'),
+        ('CheckPoint','<L'),
+        ('WaitHint','<L'),
+    )
 
 class SVCCTLOpenSCManagerHeader(ImpactPacket.Header):
     OP_NUM = 0x1B
@@ -799,13 +833,43 @@ class DCERPCSvcCtl:
         ans = self.doRequest(closeHandle, checkReturn = 1)
         return SVCCTLRCloseServiceHandlerResponse(ans)
  
-    def EnumServicesStatusW(self, handle):
+    def EnumServicesStatusW(self, handle, serviceType = SERVICE_KERNEL_DRIVER | SERVICE_FILE_SYSTEM_DRIVER | SERVICE_WIN32_OWN_PROCESS | SERVICE_WIN32_SHARE_PROCESS | SERVICE_INTERACTIVE_PROCESS, serviceState = SERVICE_STATE_ALL ):
         enumServices = SVCCTLREnumServicesStatusW()
         enumServices['ContextHandle'] = handle
-        #enumServices['ServiceType']   = SERVICE_KERNEL_DRIVER | SERVICE_FILE_SYSTEM_DRIVER | SERVICE_WIN32_OWN_PROCESS | SERVICE_WIN32_SHARE_PROCESS | SERVICE_INTERACTIVE_PROCESS
-        enumServices['ServiceType']   = SERVICE_INTERACTIVE_PROCESS
-        enumServices['ServiceState']  = SERVICE_STATE_ALL
-        #enumServices['ServiceState']  = SERVICE_ACTIVE
+        enumServices['ServiceType']   = serviceType
+        enumServices['ServiceState']  = serviceState
+        enumServices['BuffSize']      = 0x0
+
+        # First packet is to get the buffer size we need to hold the answer
+        ans = self.doRequest(enumServices, checkReturn = 0)
+        packet = SVCCTLREnumServicesStatusWResponse(ans)
+        enumServices['BuffSize']      = packet['BytesNeeded']
+
+        # Now the actual request
         ans = self.doRequest(enumServices, checkReturn = 1)
-        return ans
+        packet = SVCCTLREnumServicesStatusWResponse(ans)
+
+        data = packet['Buffer']
+        # TODO: There are a few NDR types that I still don't know how they are marshalled... I'm sure this could be done way cleaner..
+        index = -4
+        enumServicesList = []
+        for i in range(packet['ServicesReturned']):
+            tmpDict = {}
+            index += 4
+            serviceStatus = SVCCTLServiceStatus(data[index:])
+            tmpDict['ServiceType']       = serviceStatus['ServiceType']
+            tmpDict['CurrentState']      = serviceStatus['CurrentState']
+            tmpDict['ControlsAccepted']  = serviceStatus['ControlsAccepted']
+            enumServicesList.append(tmpDict)
+            index += len(serviceStatus)
+        for i in range(packet['ServicesReturned']):
+            # Strings here are plain Unicode with no padding, that's odd
+            string = data[index:].split('\x00\x00\x00')[0]
+            enumServicesList[i]['DisplayName'] = string + '\x00'
+            index += len(string) + 3
+            string = data[index:].split('\x00\x00\x00')[0]
+            enumServicesList[i]['ServiceName'] = string + '\x00'
+            index += len(string) + 3
+
+        return enumServicesList
         
