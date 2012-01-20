@@ -95,7 +95,7 @@ SERVICE_STOPPED               = 0x00000001
 
 class SVCCTLServiceStatus(Structure):
     structure = (
-        ('DontKnow','<L'),
+        ('StringsOffset','<L'),
         ('ServiceType','<L'),
         ('CurrentState','<L'),
         ('ControlsAccepted','<L'),
@@ -860,16 +860,15 @@ class DCERPCSvcCtl:
             tmpDict['ServiceType']       = serviceStatus['ServiceType']
             tmpDict['CurrentState']      = serviceStatus['CurrentState']
             tmpDict['ControlsAccepted']  = serviceStatus['ControlsAccepted']
+            # Now Parse the strings
+            strOffset = data[serviceStatus['StringsOffset']-4:]
+            string = strOffset.split('\x00\x00\x00')[0]
+            tmpDict['DisplayName'] = string + '\x00'
+            strOffset = strOffset[len(string) + 3:]
+            string = strOffset.split('\x00\x00\x00')[0]
+            tmpDict['ServiceName'] = string + '\x00'
             enumServicesList.append(tmpDict)
             index += len(serviceStatus)
-        for i in range(packet['ServicesReturned']):
-            # Strings here are plain Unicode with no padding, that's odd
-            string = data[index:].split('\x00\x00\x00')[0]
-            enumServicesList[i]['DisplayName'] = string + '\x00'
-            index += len(string) + 3
-            string = data[index:].split('\x00\x00\x00')[0]
-            enumServicesList[i]['ServiceName'] = string + '\x00'
-            index += len(string) + 3
 
         return enumServicesList
         
