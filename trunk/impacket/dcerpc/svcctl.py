@@ -93,6 +93,18 @@ SERVICE_START_PENDING         = 0x00000002
 SERVICE_STOP_PENDING          = 0x00000003
 SERVICE_STOPPED               = 0x00000001
 
+class SVCCTLServiceStatus(Structure):
+    structure = (
+        ('DontKnow','<L'),
+        ('ServiceType','<L'),
+        ('CurrentState','<L'),
+        ('ControlsAccepted','<L'),
+        ('Win32ExitCode','<L'),
+        ('ServiceSpecificExitCode','<L'),
+        ('CheckPoint','<L'),
+        ('WaitHint','<L'),
+    )
+
 class SVCCTLRDeleteService(Structure):
     opnum = 2
     alignment = 4
@@ -111,7 +123,8 @@ class SVCCTLRControlService(Structure):
 class SVCCTLRControlServiceResponse(Structure):
     alignment = 4
     structure = (
-        ('ServiceStatus','20s'),
+        ('ServiceStatus',':',SVCCTLServiceStatus),
+        #('ErrorCode','<L'),
     )
 
 class SVCCTLRStartServiceW(Structure):
@@ -221,7 +234,6 @@ class SVCCTLREnumServicesStatusW(Structure):
         ('BuffSize','<L=0'),
         ('pResumeIndex','<L=123'),
         ('ResumeIndex','<L=0'),
- 
     ) 
 
 class SVCCTLREnumServicesStatusWResponse(Structure):
@@ -238,18 +250,6 @@ class SVCCTLREnumServicesStatusWResponse(Structure):
     )
 
 # OLD Style structs.. leaving this stuff for compatibility purpose. Don't use these structs/functions anymore
-
-class SVCCTLServiceStatus(Structure):
-    structure = (
-        ('DontKnow','<L'),
-        ('ServiceType','<L'),
-        ('CurrentState','<L'),
-        ('ControlsAccepted','<L'),
-        ('Win32ExitCode','<L'),
-        ('ServiceSpecificExitCode','<L'),
-        ('CheckPoint','<L'),
-        ('WaitHint','<L'),
-    )
 
 class SVCCTLOpenSCManagerHeader(ImpactPacket.Header):
     OP_NUM = 0x1B
@@ -767,7 +767,7 @@ class DCERPCSvcCtl:
         controlService['ContextHandle'] = handle
         controlService['Control']  = SERVICE_CONTROL_STOP
         ans = self.doRequest(controlService, checkReturn = 1)
-        return ans
+        return SVCCTLServiceStatus(ans)
  
     def OpenServiceA(self, handle, name):
         openService = SVCCTLROpenServiceA()
