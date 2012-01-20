@@ -22,7 +22,7 @@ import socket
 import string
 import sys
 import types
-import hexdump
+#import hexdump
 
 from impacket import uuid, ntlm
 from impacket.dcerpc import dcerpc_v4, dcerpc, transport, svcctl
@@ -36,7 +36,7 @@ class SVCCTL:
         }
 
 
-    def __init__(self, username, password, protocol, service_name, action):
+    def __init__(self, username, password, protocol, service_name=None, action=None):
         if not protocol:
             protocol = SVCCTL.KNOWN_PROTOCOLS.keys()
 
