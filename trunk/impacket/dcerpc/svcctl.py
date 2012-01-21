@@ -95,7 +95,6 @@ SERVICE_STOPPED               = 0x00000001
 
 class SVCCTLServiceStatus(Structure):
     structure = (
-        ('StringsOffset','<L'),
         ('ServiceType','<L'),
         ('CurrentState','<L'),
         ('ControlsAccepted','<L'),
@@ -240,9 +239,9 @@ class SVCCTLREnumServicesStatusWResponse(Structure):
     alignment = 4
     structure = (
         ('BuffSize','<L'),
-        ('BytesNeeded','<L'),
         ('BufferLen','_-Buffer','self["BuffSize"]'),
         ('Buffer',':'),
+        ('BytesNeeded','<L'),
         ('ServicesReturned','<L'),
         ('Dontknow','<L'),
         ('Dontknow','<L'),
@@ -851,21 +850,22 @@ class DCERPCSvcCtl:
 
         data = packet['Buffer']
         # TODO: There are a few NDR types that I still don't know how they are marshalled... I'm sure this could be done way cleaner..
-        index = -4
+        index = 0
         enumServicesList = []
         for i in range(packet['ServicesReturned']):
             tmpDict = {}
+            serviceNamePtr = unpack('<L',data[index:index+4])[0] 
+            index += 4
+            displayNamePtr = unpack('<L',data[index:index+4])[0] 
             index += 4
             serviceStatus = SVCCTLServiceStatus(data[index:])
             tmpDict['ServiceType']       = serviceStatus['ServiceType']
             tmpDict['CurrentState']      = serviceStatus['CurrentState']
             tmpDict['ControlsAccepted']  = serviceStatus['ControlsAccepted']
             # Now Parse the strings
-            strOffset = data[serviceStatus['StringsOffset']-4:]
-            string = strOffset.split('\x00\x00\x00')[0]
+            string = data[displayNamePtr:].split('\x00\x00\x00')[0]
             tmpDict['DisplayName'] = string + '\x00'
-            strOffset = strOffset[len(string) + 3:]
-            string = strOffset.split('\x00\x00\x00')[0]
+            string = data[serviceNamePtr:].split('\x00\x00\x00')[0]
             tmpDict['ServiceName'] = string + '\x00'
             enumServicesList.append(tmpDict)
             index += len(serviceStatus)
