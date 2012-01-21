@@ -103,12 +103,33 @@ class SVCCTL:
             print "Deleting service %s" % self.__service_name
             rpc.DeleteService(serviceHandle)
             rpc.CloseServiceHandle(serviceHandle)
+        elif self.__action.upper() == 'STATUS':
+            print "Querying status for %s" % self.__service_name
+            resp = rpc.QueryServiceStatus(serviceHandle)
+            print "%30s - " % (self.__service_name),
+            state = resp['CurrentState']
+            if state == svcctl.SERVICE_CONTINUE_PENDING:
+               print "CONTINUE PENDING"
+            elif state == svcctl.SERVICE_PAUSE_PENDING:
+               print "PAUSE PENDING"
+            elif state == svcctl.SERVICE_PAUSED:
+               print "PAUSED"
+            elif state == svcctl.SERVICE_RUNNING:
+               print "RUNNING"
+            elif state == svcctl.SERVICE_START_PENDING:
+               print "START PENDING"
+            elif state == svcctl.SERVICE_STOP_PENDING:
+               print "STOP PENDING"
+            elif state == svcctl.SERVICE_STOPPED:
+               print "STOPPED"
+            else:
+               print "UNKOWN"
         elif self.__action.upper() == 'LIST':
             print "Listing services available on target"
             #resp = rpc.EnumServicesStatusW(scManagerHandle, svcctl.SERVICE_WIN32_SHARE_PROCESS )
             #resp = rpc.EnumServicesStatusW(scManagerHandle, svcctl.SERVICE_WIN32_OWN_PROCESS )
-            resp = rpc.EnumServicesStatusW(scManagerHandle, serviceState = svcctl.SERVICE_ACTIVE )
-            #resp = rpc.EnumServicesStatusW(scManagerHandle)
+            #resp = rpc.EnumServicesStatusW(scManagerHandle, serviceType = svcctl.SERVICE_FILE_SYSTEM_DRIVER, serviceState = svcctl.SERVICE_STATE_ALL )
+            resp = rpc.EnumServicesStatusW(scManagerHandle)
             for i in range(len(resp)):
                 print "%30s - %70s - " % (resp[i]['ServiceName'].decode('utf-16'), resp[i]['DisplayName'].decode('utf-16')),
                 state = resp[i]['CurrentState']
@@ -146,7 +167,7 @@ if __name__ == '__main__':
         print "Usage: %s [username[:password]@]<address> <servicename> <action> [protocol list...]" % sys.argv[0]
         print "Available protocols: %s" % SVCCTL.KNOWN_PROTOCOLS.keys()
         print "Username and password are only required for certain transports, eg. SMB."
-        print "Action: START/STOP/DELETE/LIST"
+        print "Action: START/STOP/DELETE/STATUS/LIST"
         print "(for LIST specify a random servicename)"
         sys.exit(1)
 
