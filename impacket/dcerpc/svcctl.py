@@ -104,6 +104,14 @@ class SVCCTLServiceStatus(Structure):
         ('WaitHint','<L'),
     )
 
+class SVCCTLRQueryServiceStatus(Structure):
+    opnum = 6
+    alignment = 4
+    structure = (
+        ('ContextHandle','20s'),
+    )
+
+
 class SVCCTLRDeleteService(Structure):
     opnum = 2
     alignment = 4
@@ -127,12 +135,12 @@ class SVCCTLRControlServiceResponse(Structure):
     )
 
 class SVCCTLRStartServiceW(Structure):
-    opnum = 31
+    opnum = 19
     alignment = 4
     structure = (
         ('ContextHandle','20s'),
         ('argc','<L=0'),
-        ('argv','<L=0'),
+        ('argv',':'),
     )
 
 class SVCCTLROpenServiceW(Structure):
@@ -789,10 +797,14 @@ class DCERPCSvcCtl:
         ans = self.doRequest(openService, checkReturn = 1)
         return SVCCTLROpenServiceResponse(ans)
 
-    def StartServiceW(self, handle):
-        # TODO: Handle Arguments
+    def StartServiceW(self, handle, arguments = 0):
+        # TODO: argv has to be a pointer to a buffer that contains an array
+        # of pointers to null-terminated UNICODE strings that are passed as
+        # arguments to the service
         startService = SVCCTLRStartServiceW()
-        startService['ContextHandle']   = handle
+        startService['ContextHandle'] = handle
+        startService['argc'] = len(arguments)
+        startService['argv'] = ''
         
         ans = self.doRequest(startService, checkReturn = 1)
       
@@ -872,3 +884,11 @@ class DCERPCSvcCtl:
 
         return enumServicesList
         
+
+    def QueryServiceStatus(self, handle):
+        queryStatus = SVCCTLRQueryServiceStatus()
+        queryStatus['ContextHandle'] = handle
+
+        ans = self.doRequest(queryStatus, checkReturn = 1)
+        return SVCCTLServiceStatus(ans)
+
