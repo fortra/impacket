@@ -104,6 +104,24 @@ class SVCCTLServiceStatus(Structure):
         ('WaitHint','<L'),
     )
 
+
+class SVCCTLRQueryServiceConfigW(Structure):
+    opnum = 17
+    alignment = 4
+    structure = (
+        ('ContextHandle','20s'),
+        ('BuffSize','<L=0'),
+    )
+
+class SVCCTLRQueryServiceConfigWResponse(Structure):
+    structure = (
+        ('BuffSize','<L=0'),
+        ('BufferLen','_-Buffer','self["BuffSize"]'),
+        ('Buffer',':'),
+        ('BytesNeeded','<L'),
+        ('ErrorCode','<L'),
+    )
+
 class SVCCTLRQueryServiceStatus(Structure):
     opnum = 6
     alignment = 4
@@ -892,3 +910,21 @@ class DCERPCSvcCtl:
         ans = self.doRequest(queryStatus, checkReturn = 1)
         return SVCCTLServiceStatus(ans)
 
+    def QueryServiceConfigW(self, handle):
+        serviceConfig = SVCCTLRQueryServiceConfigW()
+
+        # First packet is to get the buffer size we need to hold the answer
+        serviceConfig['ContextHandle'] = handle
+        serviceConfig['BuffSize']      = 0
+        ans = self.doRequest(serviceConfig, checkReturn = 1)
+        packet = SVCCTLRQueryServiceConfigWResponse(ans)
+        packet.dump()
+
+        serviceConfig['BuffSize'] = packet['BytesNeeded']
+        # Now the actual request
+        ans = self.doRequest(serviceConfig, checkReturn = 1)
+        packet = SVCCTLRQueryServiceConfigWResponse(ans)
+        packet.dump()
+
+        return ans
+ 
