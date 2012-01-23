@@ -104,6 +104,18 @@ class SVCCTLServiceStatus(Structure):
         ('WaitHint','<L'),
     )
 
+class SVCCTLQueryServiceConfigW(Structure):
+    structure = (
+        ('ServiceType','<L'),
+        ('StartType','<L'),
+        ('ErrorControl','<L'),
+        ('pBinaryPathName','<L'),
+        ('pLoadOrderGroup','<L'),
+        ('TagID','<L'),
+        ('pDependecies','<L'),
+        ('pServiceStartName','<L'),
+        ('pDisplayName','<L'),
+    )
 
 class SVCCTLRQueryServiceConfigW(Structure):
     opnum = 17
@@ -115,9 +127,9 @@ class SVCCTLRQueryServiceConfigW(Structure):
 
 class SVCCTLRQueryServiceConfigWResponse(Structure):
     structure = (
-        ('BuffSize','<L=0'),
-        ('BufferLen','_-Buffer','self["BuffSize"]'),
-        ('Buffer',':'),
+        ('QueryConfig',':',SVCCTLQueryServiceConfigW),
+        ('BufferLen','_-StringsBuffer','self["BufferSize"]'),
+        ('StringsBuffer',':'),
         ('BytesNeeded','<L'),
         ('ErrorCode','<L'),
     )
@@ -917,13 +929,18 @@ class DCERPCSvcCtl:
         serviceConfig['ContextHandle'] = handle
         serviceConfig['BuffSize']      = 0
         ans = self.doRequest(serviceConfig, checkReturn = 1)
-        packet = SVCCTLRQueryServiceConfigWResponse(ans)
+        packet = SVCCTLRQueryServiceConfigWResponse()
+        packet['BufferSize'] = 0
+        packet.fromString(ans)
         packet.dump()
 
-        serviceConfig['BuffSize'] = packet['BytesNeeded']
+        bytesNeeded =  packet['BytesNeeded']
+        serviceConfig['BuffSize'] = bytesNeeded
         # Now the actual request
         ans = self.doRequest(serviceConfig, checkReturn = 1)
-        packet = SVCCTLRQueryServiceConfigWResponse(ans)
+        packet = SVCCTLRQueryServiceConfigWResponse()
+        packet['BufferSize'] = bytesNeeded + 6 - 36 - 8
+        packet.fromString(ans)
         packet.dump()
 
         return ans
