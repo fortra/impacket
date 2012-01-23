@@ -103,6 +103,10 @@ class SVCCTL:
             print "Deleting service %s" % self.__service_name
             rpc.DeleteService(serviceHandle)
             rpc.CloseServiceHandle(serviceHandle)
+        elif self.__action.upper() == 'CONFIG':
+            print "Querying service config for %s" % self.__service_name
+            resp = rpc.QueryServiceConfigW(serviceHandle)
+            #print repr(resp)
         elif self.__action.upper() == 'STATUS':
             print "Querying status for %s" % self.__service_name
             resp = rpc.QueryServiceStatus(serviceHandle)
@@ -167,7 +171,7 @@ if __name__ == '__main__':
         print "Usage: %s [username[:password]@]<address> <servicename> <action> [protocol list...]" % sys.argv[0]
         print "Available protocols: %s" % SVCCTL.KNOWN_PROTOCOLS.keys()
         print "Username and password are only required for certain transports, eg. SMB."
-        print "Action: START/STOP/DELETE/STATUS/LIST"
+        print "Action: START/STOP/DELETE/STATUS/CONFIG/LIST"
         print "(for LIST specify a random servicename)"
         sys.exit(1)
 
