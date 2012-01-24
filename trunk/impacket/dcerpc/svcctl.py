@@ -1,4 +1,4 @@
-# Copyright (c) 2003-2011 CORE Security Technologies
+# Copyright (c) 2003-2012 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -112,7 +112,7 @@ class SVCCTLQueryServiceConfigW(Structure):
         ('pBinaryPathName','<L'),
         ('pLoadOrderGroup','<L'),
         ('TagID','<L'),
-        ('pDependecies','<L'),
+        ('pDependencies','<L'),
         ('pServiceStartName','<L'),
         ('pDisplayName','<L'),
     )
@@ -923,6 +923,14 @@ class DCERPCSvcCtl:
         return SVCCTLServiceStatus(ans)
 
     def QueryServiceConfigW(self, handle):
+        class configStrings(Structure):
+            structure = (
+                ('BinaryPathName',':',ndrutils.NDRStringW),
+                ('LoadOrderGroup',':',ndrutils.NDRStringW),
+                ('Dependencies',':',ndrutils.NDRStringW),
+                ('ServiceStartName',':',ndrutils.NDRStringW),
+                ('DisplayName',':',ndrutils.NDRStringW),
+            )
         serviceConfig = SVCCTLRQueryServiceConfigW()
 
         # First packet is to get the buffer size we need to hold the answer
@@ -932,16 +940,21 @@ class DCERPCSvcCtl:
         packet = SVCCTLRQueryServiceConfigWResponse()
         packet['BufferSize'] = 0
         packet.fromString(ans)
-        packet.dump()
 
         bytesNeeded =  packet['BytesNeeded']
         serviceConfig['BuffSize'] = bytesNeeded
+
         # Now the actual request
         ans = self.doRequest(serviceConfig, checkReturn = 1)
         packet = SVCCTLRQueryServiceConfigWResponse()
         packet['BufferSize'] = bytesNeeded + 6 - 36 - 8
         packet.fromString(ans)
-        packet.dump()
+        confStr = configStrings(packet['StringsBuffer'])
+        packet['QueryConfig']['BinaryPathName'] = confStr['BinaryPathName']['Data']
+        packet['QueryConfig']['LoadOrderGroup'] = confStr['LoadOrderGroup']['Data']
+        packet['QueryConfig']['Dependencies']   = confStr['Dependencies']['Data']
+        packet['QueryConfig']['ServiceStartName'] = confStr['ServiceStartName']['Data']
+        packet['QueryConfig']['DisplayName'] = confStr['DisplayName']['Data']
 
-        return ans
+        return packet
  
