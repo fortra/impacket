@@ -947,7 +947,7 @@ class DCERPCSvcCtl:
         # Now the actual request
         ans = self.doRequest(serviceConfig, checkReturn = 1)
         packet = SVCCTLRQueryServiceConfigWResponse()
-        packet['BufferSize'] = bytesNeeded + 6 - 36 - 8
+        packet['BufferSize'] = len(ans) - 36 - 8
         packet.fromString(ans)
         confStr = configStrings(packet['StringsBuffer'])
         packet['QueryConfig']['BinaryPathName'] = confStr['BinaryPathName']['Data']
