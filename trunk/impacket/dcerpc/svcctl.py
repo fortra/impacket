@@ -949,12 +949,13 @@ class DCERPCSvcCtl:
         packet = SVCCTLRQueryServiceConfigWResponse()
         packet['BufferSize'] = len(ans) - 36 - 8
         packet.fromString(ans)
-        confStr = configStrings(packet['StringsBuffer'])
-        packet['QueryConfig']['BinaryPathName'] = confStr['BinaryPathName']['Data']
-        packet['QueryConfig']['LoadOrderGroup'] = confStr['LoadOrderGroup']['Data']
-        packet['QueryConfig']['Dependencies']   = confStr['Dependencies']['Data']
-        packet['QueryConfig']['ServiceStartName'] = confStr['ServiceStartName']['Data']
-        packet['QueryConfig']['DisplayName'] = confStr['DisplayName']['Data']
+        if packet['ErrorCode'] == 0:
+            confStr = configStrings(packet['StringsBuffer'])
+            packet['QueryConfig']['BinaryPathName'] = confStr['BinaryPathName']['Data']
+            packet['QueryConfig']['LoadOrderGroup'] = confStr['LoadOrderGroup']['Data']
+            packet['QueryConfig']['Dependencies']   = confStr['Dependencies']['Data']
+            packet['QueryConfig']['ServiceStartName'] = confStr['ServiceStartName']['Data']
+            packet['QueryConfig']['DisplayName'] = confStr['DisplayName']['Data']
 
         return packet
  
