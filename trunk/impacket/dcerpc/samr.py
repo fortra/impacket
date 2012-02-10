@@ -19,6 +19,7 @@ from struct import *
 from impacket import ImpactPacket
 from impacket import dcerpc
 from impacket.dcerpc import ndrutils, dcerpc
+from impacket.structure import Structure
 
 MSRPC_UUID_SAMR   = '\x78\x57\x34\x12\x34\x12\xcd\xab\xef\x00\x01\x23\x45\x67\x89\xac\x01\x00\x00\x00'
 
@@ -174,6 +175,23 @@ class MSRPCUserInfo:
         print
         return
 
+class SAMREnumerateAliasesInDomain(Structure):
+    opnum = 15
+    alignment = 4
+    structure = (
+        ('ContextHandle','20s'),
+        ('ResumeHandle','<L=0'),
+        ('PreferedMaximumLength','<L=0xffffffff'),
+    )
+
+class SAMREnumerateAliasesInDomainResponse(Structure):
+    structure = (
+        ('ResumeHandle','<L=0'),
+        ('BuffSize','_-pEnumerationBuffer','len(self.rawData)-12'),
+        ('pEnumerationBuffer',':'),
+        ('CountReturned','<L'),
+        ('ErrorCode','<L'),
+    )
 
 class SAMRConnectHeader(ImpactPacket.Header):
     OP_NUM = 0x39
@@ -663,6 +681,14 @@ class DCERPCSamr:
     def __init__(self, dcerpc):
         self._dcerpc = dcerpc
 
+    def doRequest(self, request, noAnswer = 0, checkReturn = 1):
+        self._dcerpc.call(request.opnum, request)
+        if noAnswer:
+            return
+        else:
+            answer = self._dcerpc.recv()
+            return answer
+
     def connect(self):
         samrcon = SAMRConnectHeader()
         samrcon.set_server('*SMBSERVER')
@@ -729,3 +755,11 @@ class DCERPCSamr:
         data = self._dcerpc.recv()
         retVal = SAMRRespCloseRequestHeader(data)
         return retVal
+
+    def EnumerateAliasesInDomain(self, context_handle):
+        enumAliases = SAMREnumerateAliasesInDomain()
+        enumAliases['ContextHandle'] = context_handle
+        ans = self.doRequest(enumAliases, checkReturn = 0)
+        packet = SAMREnumerateAliasesInDomainResponse(ans)
+        enum = dcerpc.MSRPCNameArray(packet['pEnumerationBuffer'])
+        return enum.elements()
