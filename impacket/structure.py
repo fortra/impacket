@@ -79,6 +79,7 @@ class Structure:
             self.alignment = alignment
 
         self.fields    = {}
+        self.rawData   = data
         if data is not None:
             self.fromString(data)
         else:
@@ -134,6 +135,7 @@ class Structure:
         return data
 
     def fromString(self, data):
+        self.rawData = data
         for field in self.commonHdr+self.structure:
             if self.debug:
                 print "fromString( %s | %s | %r )" % (field[0], field[1], data)
