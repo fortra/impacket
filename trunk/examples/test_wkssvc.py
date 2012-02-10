@@ -80,9 +80,9 @@ class WKSSVCstuff:
         try:
             print 'Retrieving mac address for %s' % rpctransport.get_dip()
             resp = wkssvc_dce.NetrWkstaTransportEnum(rpctransport.get_dip())
-            print 'TransportName: %s' % resp['Array']['TransportName'][
-'Data'].decode('utf-16le')
-            print 'TransportAddress: %s' % resp['Array']['TransportAddress']['Data'].decode('utf-16le')
+            for i in range(resp['Count']):
+                print 'TransportName: %s' % resp['Array'][i]['TransportName']['Data'].decode('utf-16le')
+                print 'TransportAddress: %s' % resp['Array'][i]['TransportAddress']['Data'].decode('utf-16le')
         except WKSSVCException, e:
             print "Error: %s" % e
 
