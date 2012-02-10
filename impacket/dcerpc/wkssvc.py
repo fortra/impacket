@@ -26,8 +26,8 @@ class WKSTA_TRANSPORT_INFO_0(Structure):
        ('RefId1','<L'),
        ('RefId2','<L'),
        ('IsRoutableTransport','<L'),
-       ('TransportName',':',ndrutils.NDRStringW),
-       ('TransportAddress',':',ndrutils.NDRStringW),
+#       ('TransportName',':',ndrutils.NDRStringW),
+#       ('TransportAddress',':',ndrutils.NDRStringW),
     )
 
 class WKSSVCNetrWkstaTransportEnum(Structure):
@@ -49,7 +49,8 @@ class WKSSVCNetrWkstaTransportEnumResponse(Structure):
        ('Count','<L'),
        ('refId2','<L'),
        ('MaxCount','<L'),
-       ('Array',':',WKSTA_TRANSPORT_INFO_0),
+       ('ArrayLen','_-Array','len(self.rawData)-40'),
+       ('Array',':'),
        ('TotalEntries','<L'),
        ('refId3','<L'),
        ('ResumeHandle','<L'),
@@ -77,5 +78,20 @@ class DCERPCWksSvc:
       transportEnum['TransportInfo'] = '\x00'*8 + '\x04\x00\x04\x00' + '\x00'*8
       data = self.doRequest(transportEnum, checkReturn = 1)
       ans = WKSSVCNetrWkstaTransportEnumResponse(data)
+      data = ans['Array']
+      transportList = []
+      for i in range(ans['Count']):
+         ll = WKSTA_TRANSPORT_INFO_0(data)
+         transportList.append(ll)
+         data = data[len(ll):]
+      for i in range(ans['Count']):
+         transName = ndrutils.NDRStringW(data)
+         transportList[i]['TransportName'] = transName
+         data = data[len(transName):]
+         transAddress = ndrutils.NDRStringW(data)
+         transportList[i]['TransportAddress'] = transAddress
+         data = data[len(transAddress):]
+      ans['Array'] = transportList
       return ans
+
 
