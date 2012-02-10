@@ -127,7 +127,7 @@ class MiniImpacketShell:
 
     def use(self,sharename):
         self.share = sharename
-        self.tid = self.smb.tree_connect(sharename)
+        self.tid = self.smb.connect_tree(sharename)
 
     def cd(self, path):
         p = string.replace(path,'/','\\')
