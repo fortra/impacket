@@ -188,6 +188,18 @@ class SAMR_RPC_SID(Structure):
         ('SubAuthority',':'),
     )
 
+    def fromCanonical(self, canonical):
+       items = canonical.split('-')
+       print items
+       self['Revision'] = int(items[1])
+       self['IdentifierAuthority'] = SAMR_RPC_SID_IDENTIFIER_AUTHORITY()
+       self['IdentifierAuthority']['Value'] = '\x00\x00\x00\x00\x00' + pack('B',int(items[2]))
+       self['SubAuthorityCount'] = len(items) - 3
+       ans = ''
+       for i in range(self['SubAuthorityCount']):
+           ans += pack('<L', int(items[i+3]))
+       self['SubAuthority'] = ans
+
     def formatCanonical(self):
        ans = 'S-%d-%d' % (self['Revision'], ord(self['IdentifierAuthority']['Value'][5]))
        for i in range(self['SubAuthorityCount']):
