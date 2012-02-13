@@ -175,6 +175,54 @@ class MSRPCUserInfo:
         print
         return
 
+class SAMR_RPC_SID_IDENTIFIER_AUTHORITY(Structure):
+    structure = (
+        ('Value','6s'),
+    )
+
+class SAMR_RPC_SID(Structure):
+    structure = (
+        ('Revision','<B'),
+        ('SubAuthorityCount','<B-SubAuthority*4'),
+        ('IdentifierAuthority',':',SAMR_RPC_SID_IDENTIFIER_AUTHORITY),
+        ('SubAuthority',':'),
+    )
+
+    def formatCanonical(self):
+       ans = 'S-%d-%d' % (self['Revision'], ord(self['IdentifierAuthority']['Value'][5]))
+       for i in range(self['SubAuthorityCount']):
+           ans += '-%d' % ( unpack('<L',self['SubAuthority'][i*4:i*4+4])[0])
+       return ans
+
+class SAMROpenAlias(Structure):
+    opnum = 27
+    alignment = 4
+    structure = (
+        ('ContextHandle','20s'),
+        ('AccessMask','<L'),
+        ('AliasId','<L'),
+    )
+
+class SAMROpenAliasResponse(Structure):
+    structure = (
+        ('ContextHandle','20s'),
+        ('ErrorCode','<L'),
+    )
+
+class SAMRGetMembersInAlias(Structure):
+    opnum = 33
+    alignment = 4
+    structure = (
+        ('ContextHandle','20s'),
+    )
+
+class SAMRGetMembersInAliasResponse(Structure):
+    structure = (
+        ('BuffSize','_-pEnumerationBuffer','len(self.rawData)-4'),
+        ('pEnumerationBuffer',':'),
+        ('ErrorCode','<L'),
+    )
+
 class SAMREnumerateAliasesInDomain(Structure):
     opnum = 15
     alignment = 4
@@ -763,3 +811,20 @@ class DCERPCSamr:
         packet = SAMREnumerateAliasesInDomainResponse(ans)
         enum = dcerpc.MSRPCNameArray(packet['pEnumerationBuffer'])
         return enum.elements()
+
+    def OpenAlias(self, context_handle, alias_id):
+        open_alias = SAMROpenAlias()
+        open_alias['ContextHandle'] = context_handle
+        open_alias['AliasId'] = alias_id
+        open_alias['AccessMask'] = 0x2000C
+        ans = self.doRequest(open_alias)
+        packet = SAMROpenAliasResponse(ans)
+        return packet
+
+    def GetMembersInAlias(self, context_handle):
+        alias_members = SAMRGetMembersInAlias()
+        alias_members['ContextHandle'] = context_handle
+        ans = self.doRequest(alias_members)
+        packet = SAMRGetMembersInAliasResponse(ans)
+        return packet
+
