@@ -183,8 +183,9 @@ class SAMR_RPC_SID_IDENTIFIER_AUTHORITY(Structure):
 class SAMR_RPC_SID(Structure):
     structure = (
         ('Revision','<B'),
-        ('SubAuthorityCount','<B-SubAuthority*4'),
+        ('SubAuthorityCount','<B'),
         ('IdentifierAuthority',':',SAMR_RPC_SID_IDENTIFIER_AUTHORITY),
+        ('SubLen','_-SubAuthority','self["SubAuthorityCount"]*4'),
         ('SubAuthority',':'),
     )
 
@@ -230,7 +231,8 @@ class SAMRGetMembersInAlias(Structure):
 
 class SAMRGetMembersInAliasResponse(Structure):
     structure = (
-        ('BuffSize','_-pEnumerationBuffer','len(self.rawData)-4'),
+        ('BuffSize','_-pEnumerationBuffer','len(self.rawData)-8'),
+        ('Count','<L'),
         ('pEnumerationBuffer',':'),
         ('ErrorCode','<L'),
     )
@@ -838,5 +840,19 @@ class DCERPCSamr:
         alias_members['ContextHandle'] = context_handle
         ans = self.doRequest(alias_members)
         packet = SAMRGetMembersInAliasResponse(ans)
+        # Now parse the Aliases
+        if packet['Count'] > 0:
+           # Skipping the pointer data
+           data = packet['pEnumerationBuffer'][8:]
+           # Skipping the referent ID for each entry
+           data = data[4*packet['Count']:]
+        entries = []
+        for i in range(packet['Count']):
+           # Skip the count ID
+           data = data[4:]
+           entry = SAMR_RPC_SID(data)
+           entries.append(entry)
+           data = data[len(entry):]
+        packet['EnumerationBuffer'] = entries 
         return packet
 
