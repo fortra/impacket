@@ -170,7 +170,7 @@ class SVCCTLRStartServiceW(Structure):
     structure = (
         ('ContextHandle','20s'),
         ('argc','<L=0'),
-        ('argv',':'),
+        ('argv','<L=0'),
     )
 
 class SVCCTLROpenServiceW(Structure):
@@ -827,14 +827,14 @@ class DCERPCSvcCtl:
         ans = self.doRequest(openService, checkReturn = 1)
         return SVCCTLROpenServiceResponse(ans)
 
-    def StartServiceW(self, handle, arguments = 0):
+    def StartServiceW(self, handle, arguments = ''):
         # TODO: argv has to be a pointer to a buffer that contains an array
         # of pointers to null-terminated UNICODE strings that are passed as
         # arguments to the service
         startService = SVCCTLRStartServiceW()
         startService['ContextHandle'] = handle
-        startService['argc'] = len(arguments)
-        startService['argv'] = ''
+        #startService['argc'] = len(arguments)
+        #startService['argv'] = ''
         
         ans = self.doRequest(startService, checkReturn = 1)
       
