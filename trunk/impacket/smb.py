@@ -780,7 +780,8 @@ class SessionError(Exception):
       0x9B: ("ERRbadpath", "Directory invalid."),
       0xFB: ("ERRbadpath", "Directory invalid."),
       0xBD: ("ERRbadpath", "Duplicate name."),
-      0x35: ("ERRfilexists", "The file named in a Create Directory, Make  New  File  or  Link  request already exists.") 
+      0x35: ("ERRfilexists", "The file named in a Create Directory, Make  New  File  or  Link  request already exists.") ,
+      0xB0: ("ERRpipedisconnected", "Pipe is disconnected"),
     }
 
     dos_msgs = {
@@ -3494,7 +3495,7 @@ class SMB:
         smb = self.recvSMB()
         if smb.isValidAnswer(SMB.SMB_COM_TRANSACTION):
            transResponse = SMBCommand(smb['Data'][0])
-           transParameters = SMBTransaction_Parameters(transResponse['Parameters'])
+           transParameters = SMBTransactionResponse_Parameters(transResponse['Parameters'])
            return transResponse['Data'][-transParameters['TotalDataCount']:] # Remove Potential Prefix Padding
 
         return None
