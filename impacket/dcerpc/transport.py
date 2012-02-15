@@ -313,7 +313,10 @@ class SMBTransport(DCERPCTransport):
     def setup_smb_server(self):
         if not self.__smb_server:
             if self.__remote_name == '':
-                self.__smb_server = smb.SMB('*SMBSERVER', self.get_dip(), sess_port = self.get_dport())
+                if self.get_dport() == nmb.NETBIOS_SESSION_PORT:
+                    self.__smb_server = smb.SMB('*SMBSERVER', self.get_dip(), sess_port = self.get_dport())
+                else:
+                    self.__smb_server = smb.SMB(self.get_dip(), self.get_dip(), sess_port = self.get_dport())
             else:
                 self.__smb_server = smb.SMB(self.__remote_name, self.get_dip(), sess_port = self.get_dport())
 
