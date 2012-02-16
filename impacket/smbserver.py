@@ -2197,7 +2197,7 @@ class SMBSERVERHandler(SocketServer.BaseRequestHandler):
 
 class SMBSERVER(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
 #class SMBSERVER(SocketServer.ForkingMixIn, SocketServer.TCPServer):
-    def __init__(self, server_address, handler_class=SMBSERVERHandler):
+    def __init__(self, server_address, handler_class=SMBSERVERHandler, config_parser = None):
         SocketServer.TCPServer.__init__(self, server_address, handler_class)
 
         # Server name and OS to be presented whenever is necessary
@@ -2207,6 +2207,9 @@ class SMBSERVER(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
 
         # Our ConfigParser data
         self.__serverConfig = None
+
+        # Explicit configuration data, specified as an already-modified ConfigParser
+        self.__configParser = config_parser
 
         # Our credentials to be used during the server's lifetime
         self.__credentials = {}
@@ -2546,10 +2549,14 @@ class SMBSERVER(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
 
     def processConfigFile(self, configFile = None):
         # TODO: Do a real config parser
-        if configFile is None:
-            configFile = self.__configFile
-        self.__serverConfig = ConfigParser.ConfigParser()
-        self.__serverConfig.read(configFile)
+        if self.__configParser is None:
+            if configFile is None:
+                configFile = self.__configFile
+            self.__serverConfig = ConfigParser.ConfigParser()
+            self.__serverConfig.read(configFile)
+        else:
+           self.__serverConfig = self.__configParser
+
         self.__serverName   = self.__serverConfig.get('global','server_name')
         self.__serverOS     = self.__serverConfig.get('global','server_os')
         self.__serverDomain = self.__serverConfig.get('global','server_domain')
