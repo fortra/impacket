@@ -38,6 +38,7 @@ import os
 import glob
 import fnmatch
 import errno
+import sys
 
 # For signing
 import hashlib
@@ -1119,7 +1120,8 @@ class SMBCommands():
              errorCode = STATUS_SUCCESS
              fileHandle = connData['OpenedFiles'][comClose['FID']]['FileHandle']
              try:
-                 os.close(fileHandle)
+                 if fileHandle != VOID_FILE_DESCRIPTOR:
+                     os.close(fileHandle)
              except Exception, e:
                  smbServer.log("comClose %s" % e, logging.ERROR)
                  errorCode = STATUS_ACCESS_DENIED
@@ -1747,7 +1749,10 @@ class SMBCommands():
                  
                  if errorCode == STATUS_SUCCESS:
                      try:
-                         fid = os.open(pathName, mode)
+                         if os.path.isdir(pathName) and sys.platform == 'win32':
+                            fid = VOID_FILE_DESCRIPTOR
+                         else:
+                            fid = os.open(pathName, mode)
                      except Exception, e:
                          smbServer.log("NTCreateAndX: %s,%s,%s" % (pathName,mode,e),logging.ERROR)
                          print e
@@ -2169,7 +2174,7 @@ class SMBSERVERHandler(SocketServer.BaseRequestHandler):
         SocketServer.BaseRequestHandler.__init__(self, request, client_address, server)
 
     def handle(self):
-        self.__SMB.log("Incoming connection (%s,%d,%d)" % (self.__ip, self.__port,os.getuid()))
+        self.__SMB.log("Incoming connection (%s,%d)" % (self.__ip, self.__port))
         self.__SMB.addConnection(self.__connId, self.__ip, self.__port)
         while True:
             try:
@@ -2279,7 +2284,10 @@ class SMBSERVER(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
         return self.__credentials
 
     def removeConnection(self, name):
-        del(self.__activeConnections[name])
+        try:
+           del(self.__activeConnections[name])
+        except:
+           pass
         self.log("Remaining connections %s" % self.__activeConnections.keys())
 
     def addConnection(self, name, ip, port):
@@ -2593,3 +2601,6 @@ STATUS_DIRECTORY_NOT_EMPTY           = 0xC0000101
 STATUS_INVALID_HANDLE                = 0xC0000008
 STATUS_NOT_IMPLEMENTED               = 0xC0000002
 STATUS_LOGON_FAILURE                 = 0xC000006d
+
+# For windows platforms, opening a directory is not an option, so we set a void FD
+VOID_FILE_DESCRIPTOR = -1
