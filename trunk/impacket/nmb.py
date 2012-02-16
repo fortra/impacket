@@ -677,6 +677,10 @@ class NetBIOSSession:
         self.__local_type = local_type
 
         assert remote_name
+        # if destination port SMB_SESSION_PORT and remote name *SMBSERVER, we're changing it to its IP address
+        # helping solving the client mistake ;)
+        if remote_name == '*SMBSERVER' and sess_port == SMB_SESSION_PORT:
+            remote_name = remote_host 
         # If remote name is *SMBSERVER let's try to query its name.. if can't be guessed, continue and hope for the best
         if remote_name == '*SMBSERVER':
            nb = NetBIOS()
