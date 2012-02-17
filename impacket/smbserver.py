@@ -119,6 +119,8 @@ def openFile(path,fileName, accessMode, fileAttributes, openMode):
        mode = os.O_RDONLY
 
     try:
+        if sys.platform == 'win32':
+            mode |= os.O_BINARY
         fid = os.open(pathName, mode)
     except Exception, e:
         print "openFile: %s,%s" % (pathName, mode) ,e
@@ -1752,6 +1754,8 @@ class SMBCommands():
                          if os.path.isdir(pathName) and sys.platform == 'win32':
                             fid = VOID_FILE_DESCRIPTOR
                          else:
+                            if sys.platform == 'win32':
+                               mode |= os.O_BINARY
                             fid = os.open(pathName, mode)
                      except Exception, e:
                          smbServer.log("NTCreateAndX: %s,%s,%s" % (pathName,mode,e),logging.ERROR)
@@ -2117,8 +2121,12 @@ class SMBCommands():
            _dialects_parameters['SecurityMode']    = smb.SMB.SECURITY_AUTH_ENCRYPTED | smb.SMB.SECURITY_SHARE_USER
            _dialects_parameters['MaxMpxCount']     = 50
            _dialects_parameters['MaxNumberVcs']    = 1
-           _dialects_parameters['MaxBufferSize']   = 64000
-           _dialects_parameters['MaxRawSize']      = 65536
+           if sys.platform == 'win32':
+               _dialects_parameters['MaxBufferSize']   = 1500
+               _dialects_parameters['MaxRawSize']      = 1500
+           else:
+               _dialects_parameters['MaxBufferSize']   = 64000
+               _dialects_parameters['MaxRawSize']      = 65536
            _dialects_parameters['SessionKey']      = 0
            _dialects_parameters['LowDateTime']     = 0
            _dialects_parameters['HighDateTime']    = 0
