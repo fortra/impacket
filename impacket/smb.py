@@ -3610,7 +3610,7 @@ class SMB:
                     if eos:
                        return files
                     else:
-                       self.trans2(tid, '\x02\x00', '\x00', pack('<H', sid) + '\x56\x05\x04\x01\x00\x00\x00\x00\x06\x00' + resume_filename, '')
+                       self.trans2(tid, '\x02\x00', '\x00', pack('<H', sid) + '\x56\x05\x04\x01\x00\x00\x00\x00\x06\x00' + resume_filename + '\x00', '')
                        resume = True
                        resume_filename = ''
         finally:
