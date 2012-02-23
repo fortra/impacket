@@ -2193,11 +2193,22 @@ class SMBSERVERHandler(SocketServer.BaseRequestHandler):
                 except nmb.NetBIOSTimeout:
                     raise
 
-                resp = self.__SMB.processRequest(self.__connId, p.get_trailer())
-                # Send all the packets recevied. Except for big transactions this should be
-                # a single packet
-                for i in resp:
-                    session.send_packet(str(i))
+                if p.get_type() == nmb.NETBIOS_SESSION_REQUEST:
+                   # Someone is requesting a session, we're gonna accept them all :)
+                   _, rn, my = p.get_trailer().split(' ')
+                   remote_name = nmb.decode_name('\x20'+rn)
+                   myname = nmb.decode_name('\x20'+my) 
+                   self.__SMB.log("NetBIOS Session request (%s,%s,%s)" % (self.__ip, remote_name[1].strip(), myname[1])) 
+                   r = nmb.NetBIOSSessionPacket()
+                   r.set_type(nmb.NETBIOS_SESSION_POSITIVE_RESPONSE)
+                   r.set_trailer(p.get_trailer())
+                   self.__request.send(r.rawData())
+                else:
+                   resp = self.__SMB.processRequest(self.__connId, p.get_trailer())
+                   # Send all the packets recevied. Except for big transactions this should be
+                   # a single packet
+                   for i in resp:
+                       session.send_packet(str(i))
             except Exception, e:
                 print "Handle: %s" % e
                 break
