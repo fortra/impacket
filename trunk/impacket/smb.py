@@ -3219,9 +3219,11 @@ class SMB:
                 self.login_extended(user, password, domain, lmhash, nthash, use_ntlmv2 = True)
             except:
                 # If the target OS is Windows 5.0 or Samba, let's try using NTLMv1
-                if self.get_server_lanman().find('Windows 2000') != -1:
+                if (self.get_server_lanman().find('Windows 2000') != -1) or (self.get_server_lanman().find('Samba') != -1):
                     self.login_extended(user, password, domain, lmhash, nthash, use_ntlmv2 = False)
                     self.__isNTLMv2 = False
+                else:
+                    raise
         else:
             self.login_standard(user, password, domain, lmhash, nthash)
             self.__isNTLMv2 = False
