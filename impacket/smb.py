@@ -2508,6 +2508,7 @@ class SMB:
         self.__remote_name = string.upper(remote_name)
         self.__remote_host = remote_host
         self.__is_pathcaseless = 0
+        self.__isNTLMv2 = True
         # Negotiate Protocol Result, used everywhere
         # Could be extended or not, flags should be checked before 
         self._dialect_data = 0
@@ -2583,6 +2584,9 @@ class SMB:
    
     def isGuestSession(self):
         return self._action & SMB_SETUP_GUEST 
+ 
+    def doesSupportNTLMv2(self):
+        return self.__isNTLMv2
 
     def __del__(self):
         if self._sess:
@@ -3211,9 +3215,16 @@ class SMB:
                 pass
 
         if self._dialects_parameters['Capabilities'] & SMB.CAP_EXTENDED_SECURITY:
-            self.login_extended(user, password, domain, lmhash, nthash, True)
+            try:
+                self.login_extended(user, password, domain, lmhash, nthash, use_ntlmv2 = True)
+            except:
+                # If the target OS is Windows 5.0 or Samba, let's try using NTLMv1
+                if self.get_server_lanman().find('Windows 2000') != -1:
+                    self.login_extended(user, password, domain, lmhash, nthash, use_ntlmv2 = False)
+                    self.__isNTLMv2 = False
         else:
             self.login_standard(user, password, domain, lmhash, nthash)
+            self.__isNTLMv2 = False
 
     def login_standard(self, user, password, domain = '', lmhash = '', nthash = ''):
         # Only supports NTLMv1
