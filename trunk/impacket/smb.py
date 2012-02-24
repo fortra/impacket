@@ -782,6 +782,8 @@ class SessionError(Exception):
       0xBD: ("ERRbadpath", "Duplicate name."),
       0x35: ("ERRfilexists", "The file named in a Create Directory, Make  New  File  or  Link  request already exists.") ,
       0xB0: ("ERRpipedisconnected", "Pipe is disconnected"),
+      0xBB: ("ErrUnsupported","Operation not supported"),
+      0xCC: ("ErrNetName","Bad Network Name"),
     }
 
     dos_msgs = {
