@@ -529,7 +529,7 @@ class DCERPC_v5(DCERPC):
         if (self.__auth_level != ntlm.NTLM_AUTH_NONE):
             if (self.__username is None) or (self.__password is None):
                 self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash = self._transport.get_credentials()
-            auth = ntlm.getNTLMSSPType1('', self.__domain, True, isDCE = True)
+            auth = ntlm.getNTLMSSPType1('', self.__domain, True, isDCE = True, use_ntlmv2 = self._transport.doesSupportNTLMv2())
             auth['auth_level']  = self.__auth_level
             auth['auth_ctx_id'] = self._ctx + 79231 
 
@@ -578,7 +578,7 @@ class DCERPC_v5(DCERPC):
         self.__max_xmit_size = bindResp['max_tfrag']
 
         if self.__auth_level != ntlm.NTLM_AUTH_NONE:
-            response, randomSessionKey = ntlm.getNTLMSSPType3(auth, bindResp['auth_data'], self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, True)
+            response, randomSessionKey = ntlm.getNTLMSSPType3(auth, bindResp['auth_data'], self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, True, use_ntlmv2 = self._transport.doesSupportNTLMv2())
             response['auth_ctx_id'] = self._ctx + 79231 
             response['auth_level'] = self.__auth_level
             self.__flags = response['flags']
