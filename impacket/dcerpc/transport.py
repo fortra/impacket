@@ -18,6 +18,7 @@ import binascii
 
 from impacket import smb
 from impacket import nmb
+from impacket import ntlm
 from impacket.structure import pack
 from impacket.dcerpc import dcerpc, dcerpc_v4
 
@@ -188,6 +189,10 @@ class DCERPCTransport:
                self._nthash = binascii.a2b_hex(nthash)
             except:
                pass
+
+    def doesSupportNTLMv2(self):
+        # By default we'll be returning the library's deafult. Only on SMB Transports we might be able to know it beforehand
+        return ntlm.USE_NTLMv2
 
 class UDPTransport(DCERPCTransport):
     "Implementation of ncadg_ip_udp protocol sequence"
@@ -380,4 +385,7 @@ class SMBTransport(DCERPCTransport):
 
     def get_socket(self):
         return self.__socket
+
+    def doesSupportNTLMv2(self):
+        return self.__smb_server.doesSupportNTLMv2()
 
