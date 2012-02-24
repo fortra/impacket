@@ -535,7 +535,7 @@ def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = 
         # No sign available, taking it out
         responseFlags &= 0xffffffff ^ NTLMSSP_ALWAYS_SIGN
 
-    keyExchangeKey = KXKEY(ntlmChallenge['flags'],sessionBaseKey, lmResponse, ntlmChallenge['challenge'], password, lmhash, nthash)
+    keyExchangeKey = KXKEY(ntlmChallenge['flags'],sessionBaseKey, lmResponse, ntlmChallenge['challenge'], password, lmhash, nthash,use_ntlmv2)
 
     # Special case for anonymous login
     if user == '' and password == '' and lmhash == '' and nthash == '':
@@ -740,7 +740,6 @@ def generateEncryptedSessionKey(keyExchangeKey, exportedSessionKey):
    return sessionKey
 
 def KXKEY(flags, sessionBaseKey, lmChallengeResponse, serverChallenge, password, lmhash, nthash, use_ntlmv2 = USE_NTLMv2):
-
    if use_ntlmv2:
        return sessionBaseKey
 
