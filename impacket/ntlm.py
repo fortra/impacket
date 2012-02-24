@@ -24,15 +24,15 @@ from impacket.structure import Structure
 # http://davenport.sourceforge.net/ntlm.html
 # http://blogs.msdn.com/b/openspecification/archive/2010/04/20/ntlm-keys-and-sundry-stuff.aspx
 # http://social.msdn.microsoft.com/Forums/en-US/os_interopscenarios/thread/c8f488ed-1b96-4e06-bd65-390aa41138d1/
-# So I'm setting a global variable to control this
+# So I'm setting a global variable to control this, this can also be set programmatically
 
 USE_NTLMv2 = True # if false will fall back to NTLMv1 (or NTLMv1 with ESS a.k.a NTLM2)
 
-def computeResponse(*kargs):
-    if USE_NTLMv2:
-       return computeResponseNTLMv2(*kargs)
+def computeResponse(flags, serverChallenge, clientChallenge,  serverName, domain, user, password, lmhash = '', nthash = '', use_ntlmv2 = USE_NTLMv2):
+    if use_ntlmv2:
+       return computeResponseNTLMv2(flags, serverChallenge, clientChallenge,  serverName, domain, user, password, lmhash = '', nthash = '', use_ntlmv2 = use_ntlmv2)
     else:
-       return computeResponseNTLMv1(*kargs)
+       return computeResponseNTLMv1(flags, serverChallenge, clientChallenge,  serverName, domain, user, password, lmhash = '', nthash = '', use_ntlmv2 = use_ntlmv2)
 try:
     POW = None
     from Crypto.Cipher import ARC4
@@ -477,7 +477,7 @@ def ntlmssp_DES_encrypt(key, challenge):
 
 # High level functions to use NTLMSSP
 
-def getNTLMSSPType1(workstation='', domain='', signingRequired = False, isDCE = False):
+def getNTLMSSPType1(workstation='', domain='', signingRequired = False, isDCE = False, use_ntlmv2 = USE_NTLMv2):
     # Let's prepare a Type 1 NTLMSSP Message
     if isDCE is True:
        auth = DCERPC_NTLMAuthNegotiate()
@@ -486,13 +486,13 @@ def getNTLMSSPType1(workstation='', domain='', signingRequired = False, isDCE = 
     auth['flags']=0
     if signingRequired:
        auth['flags'] = NTLMSSP_KEY_EXCHANGE | NTLMSSP_SIGN | NTLMSSP_ALWAYS_SIGN | NTLMSSP_SEAL
-    if USE_NTLMv2:
+    if use_ntlmv2:
        auth['flags'] |= NTLMSSP_TARGET_INFO
     auth['flags'] |= NTLMSSP_NTLM_KEY | NTLMSSP_NTLM2_KEY | NTLMSSP_UNICODE | NTLMSSP_TARGET |  NTLMSSP_KEY_128 | NTLMSSP_KEY_56 
     auth['domain_name'] = domain
     return auth
 
-def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = '', isDCE = False):
+def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = '', isDCE = False, use_ntlmv2 = USE_NTLMv2):
 
     if isDCE is True:
         ntlmChallenge = DCERPC_NTLMAuthChallenge(type2)
@@ -513,7 +513,7 @@ def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = 
 
     serverName = ntlmChallenge['TargetInfoFields']
 
-    ntResponse, lmResponse, sessionBaseKey = computeResponse(ntlmChallenge['flags'], ntlmChallenge['challenge'], clientChallenge, serverName, domain, user, password, lmhash, nthash )
+    ntResponse, lmResponse, sessionBaseKey = computeResponse(ntlmChallenge['flags'], ntlmChallenge['challenge'], clientChallenge, serverName, domain, user, password, lmhash, nthash, use_ntlmv2 )
 
     # Let's check the return flags
     if (ntlmChallenge['flags'] & NTLMSSP_NTLM2_KEY) == 0:
@@ -591,7 +591,7 @@ def generateSessionKeyV1(password, lmhash, nthash):
     hash.update(NTOWFv1(password, lmhash, nthash))
     return hash.digest()
     
-def computeResponseNTLMv1(flags, serverChallenge, clientChallenge, serverName, domain, user, password, lmhash='', nthash=''):
+def computeResponseNTLMv1(flags, serverChallenge, clientChallenge, serverName, domain, user, password, lmhash='', nthash='', use_ntlmv2 = USE_NTLMv2):
     if (user == '' and password == ''): 
         # Special case for anonymous authentication
         lmResponse = ''
@@ -739,9 +739,9 @@ def generateEncryptedSessionKey(keyExchangeKey, exportedSessionKey):
    sessionKey = cipher_encrypt(exportedSessionKey)
    return sessionKey
 
-def KXKEY(flags, sessionBaseKey, lmChallengeResponse, serverChallenge, password, lmhash, nthash):
+def KXKEY(flags, sessionBaseKey, lmChallengeResponse, serverChallenge, password, lmhash, nthash, use_ntlmv2 = USE_NTLMv2):
 
-   if USE_NTLMv2:
+   if use_ntlmv2:
        return sessionBaseKey
 
    if flags & NTLMSSP_NTLM2_KEY:
@@ -784,7 +784,7 @@ def LMOWFv2( user, password, domain, lmhash = ''):
     return NTOWFv2( user, password, domain, lmhash)
 
 
-def computeResponseNTLMv2(flags, serverChallenge, clientChallenge,  serverName, domain, user, password, lmhash = '', nthash = ''):
+def computeResponseNTLMv2(flags, serverChallenge, clientChallenge,  serverName, domain, user, password, lmhash = '', nthash = '', use_ntlmv2 = USE_NTLMv2):
 
     responseServerVersion = '\x01'
     hiResponseServerVersion = '\x01'
