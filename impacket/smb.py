@@ -3078,7 +3078,7 @@ class SMB:
         challenge = self._dialects_data['Challenge']
         return ntlm.get_ntlmv1_response(key, challenge)
 
-    def login_extended(self, user, password, domain = '', lmhash = '', nthash = '' ):
+    def login_extended(self, user, password, domain = '', lmhash = '', nthash = '', use_ntlmv2 = True ):
         # Once everything's working we should join login methods into a single one
         smb = NewSMBPacket()
         smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
@@ -3105,7 +3105,7 @@ class SMB:
 
         # NTLMSSP
         blob['MechTypes'] = [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
-        auth = ntlm.getNTLMSSPType1('',domain,self._SignatureRequired)
+        auth = ntlm.getNTLMSSPType1('',domain,self._SignatureRequired, use_ntlmv2 = use_ntlmv2)
         blob['MechToken'] = str(auth)
         
         sessionSetup['Parameters']['SecurityBlobLength']  = len(blob)
@@ -3151,7 +3151,7 @@ class SMB:
                        # For some reason, we couldn't decode Unicode here.. silently discard the operation
                        pass 
 
-            type3, exportedSessionKey = ntlm.getNTLMSSPType3(auth, respToken['ResponseToken'], user, password, domain, lmhash, nthash)
+            type3, exportedSessionKey = ntlm.getNTLMSSPType3(auth, respToken['ResponseToken'], user, password, domain, lmhash, nthash, use_ntlmv2 = use_ntlmv2)
 
             if exportedSessionKey is not None: 
                 self._SigningSessionKey = exportedSessionKey
@@ -3211,7 +3211,7 @@ class SMB:
                 pass
 
         if self._dialects_parameters['Capabilities'] & SMB.CAP_EXTENDED_SECURITY:
-            self.login_extended(user, password, domain, lmhash, nthash)
+            self.login_extended(user, password, domain, lmhash, nthash, True)
         else:
             self.login_standard(user, password, domain, lmhash, nthash)
 
