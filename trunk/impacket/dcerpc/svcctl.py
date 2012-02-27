@@ -170,7 +170,7 @@ class SVCCTLRStartServiceW(Structure):
     structure = (
         ('ContextHandle','20s'),
         ('argc','<L=0'),
-        ('argv','<L=0'),
+        ('argv',':'),
     )
 
 class SVCCTLROpenServiceW(Structure):
@@ -833,8 +833,17 @@ class DCERPCSvcCtl:
         # arguments to the service
         startService = SVCCTLRStartServiceW()
         startService['ContextHandle'] = handle
-        #startService['argc'] = len(arguments)
-        #startService['argv'] = ''
+        startService['argc'] = len(arguments)
+        if len(arguments) == 0:
+           startService['argv'] = '\x00'*4
+        else:
+           args_data = pack('<LL', id(arguments), len(arguments))
+           args_data += apply(pack, ['<' + 'L'*len(arguments)] + map(id, arguments) )
+           for i in range(len(arguments)):
+               item = ndrutils.NDRStringW()
+               item['Data'] = arguments[i]+'\x00'.encode('utf-16le')
+               args_data += str(item) 
+           startService['argv'] = args_data
         
         ans = self.doRequest(startService, checkReturn = 1)
       
