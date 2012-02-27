@@ -538,14 +538,10 @@ class Ethernet(Header):
         for i in range(0, 6):
             self.set_byte(i + 6, aValue[i])
 
-    def as_eth_addr(self, anArray):
-        tmp_list = anArray.tolist()
-        if not tmp_list:
-            return ''
-        tmp_str = '%x' % tmp_list[0]
-        for i in range(1, len(tmp_list)):
-            tmp_str += ':%x' % tmp_list[i]
-        return tmp_str
+    @staticmethod
+    def as_eth_addr(anArray):
+        tmp_list = map(lambda x: x > 15 and '%x'%x or '0%x'%x, anArray)
+        return '' + reduce(lambda x, y: x+':'+y, tmp_list)
 
     def __str__(self):
         tmp_str = 'Ether: ' + self.as_eth_addr(self.get_ether_shost()) + ' -> '
@@ -1997,4 +1993,5 @@ def example(): #To execute an example, remove this line
     b.set_ar_tpa((192, 168, 66, 171))
     a.set_ether_shost((0x0, 0xe0, 0x7d, 0x8a, 0xef, 0x3d))
     a.set_ether_dhost((0x0, 0xc0, 0xdf, 0x6, 0x5, 0xe))
+    print "beto %s" % a
 
