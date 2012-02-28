@@ -30,9 +30,9 @@ USE_NTLMv2 = True # if false will fall back to NTLMv1 (or NTLMv1 with ESS a.k.a 
 
 def computeResponse(flags, serverChallenge, clientChallenge,  serverName, domain, user, password, lmhash = '', nthash = '', use_ntlmv2 = USE_NTLMv2):
     if use_ntlmv2:
-       return computeResponseNTLMv2(flags, serverChallenge, clientChallenge,  serverName, domain, user, password, lmhash = '', nthash = '', use_ntlmv2 = use_ntlmv2)
+       return computeResponseNTLMv2(flags, serverChallenge, clientChallenge,  serverName, domain, user, password, lmhash, nthash, use_ntlmv2 = use_ntlmv2)
     else:
-       return computeResponseNTLMv1(flags, serverChallenge, clientChallenge,  serverName, domain, user, password, lmhash = '', nthash = '', use_ntlmv2 = use_ntlmv2)
+       return computeResponseNTLMv1(flags, serverChallenge, clientChallenge,  serverName, domain, user, password, lmhash, nthash, use_ntlmv2 = use_ntlmv2)
 try:
     POW = None
     from Crypto.Cipher import ARC4
