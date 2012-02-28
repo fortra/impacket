@@ -1122,7 +1122,7 @@ class SMBCommands():
              errorCode = STATUS_SUCCESS
              fileHandle = connData['OpenedFiles'][comClose['FID']]['FileHandle']
              try:
-                 if fileHandle != VOID_FILE_DESCRIPTOR:
+                 if fileHandle != VOID_FILE_DESCRIPTOR and fileHandle != PIPE_FILE_DESCRIPTOR:
                      os.close(fileHandle)
              except Exception, e:
                  smbServer.log("comClose %s" % e, logging.ERROR)
@@ -1164,10 +1164,14 @@ class SMBCommands():
              fileHandle = connData['OpenedFiles'][comWriteParameters['Fid']]['FileHandle']
              errorCode = STATUS_SUCCESS
              try:
-                 # TODO: Handle big size files
-                 (mode, ino, dev, nlink, uid, gid, size, atime, mtime, ctime) = os.fstat(fileHandle)
-                 os.lseek(fileHandle,comWriteParameters['Offset'],os.SEEK_SET)
-                 os.write(fileHandle,comWriteData['Data'])
+                 if fileHandle != PIPE_FILE_DESCRIPTOR:
+                     # TODO: Handle big size files
+                     (mode, ino, dev, nlink, uid, gid, size, atime, mtime, ctime) = os.fstat(fileHandle)
+                     os.lseek(fileHandle,comWriteParameters['Offset'],os.SEEK_SET)
+                     os.write(fileHandle,comWriteData['Data'])
+                 else:
+                     sock = smbServer.getRegisteredNamedPipes()[connData['OpenedFiles'][comWriteParameters['Fid']]['FileName']]
+                     sock.send(comWriteData['Data'])
                  respParameters['Count']    = comWriteParameters['Count']
              except Exception, e:
                  smbServer.log('smbComWrite: %s' % e, logging.ERROR)
@@ -1393,10 +1397,15 @@ class SMBCommands():
              fileHandle = connData['OpenedFiles'][writeAndX['Fid']]['FileHandle']
              errorCode = STATUS_SUCCESS
              try:
-                 # TODO: Handle big size files
-                 (mode, ino, dev, nlink, uid, gid, size, atime, mtime, ctime) = os.fstat(fileHandle)
-                 os.lseek(fileHandle,writeAndX['Offset'],os.SEEK_SET)
-                 os.write(fileHandle,writeAndXData['Data'])
+                 if fileHandle != PIPE_FILE_DESCRIPTOR:
+                     # TODO: Handle big size files
+                     (mode, ino, dev, nlink, uid, gid, size, atime, mtime, ctime) = os.fstat(fileHandle)
+                     os.lseek(fileHandle,writeAndX['Offset'],os.SEEK_SET)
+                     os.write(fileHandle,writeAndXData['Data'])
+                 else:
+                     sock = smbServer.getRegisteredNamedPipes()[connData['OpenedFiles'][writeAndX['Fid']]['FileName']]
+                     sock.write(writeAndXData['Data'])
+
                  respParameters['Count']    = writeAndX['DataLength']
                  respParameters['Available']= 0xff
              except Exception, e:
@@ -1429,11 +1438,14 @@ class SMBCommands():
              fileHandle = connData['OpenedFiles'][comReadParameters['Fid']]['FileHandle']
              errorCode = STATUS_SUCCESS
              try:
-                 # TODO: Handle big size files
-                 (mode, ino, dev, nlink, uid, gid, size, atime, mtime, ctime) = os.fstat(fileHandle)
-                 os.lseek(fileHandle,comReadParameters['Offset'],os.SEEK_SET)
-                 content = os.read(fileHandle,comReadParameters['Count'])
-
+                 if fileHandle != PIPE_FILE_DESCRIPTOR:
+                     # TODO: Handle big size files
+                     (mode, ino, dev, nlink, uid, gid, size, atime, mtime, ctime) = os.fstat(fileHandle)
+                     os.lseek(fileHandle,comReadParameters['Offset'],os.SEEK_SET)
+                     content = os.read(fileHandle,comReadParameters['Count'])
+                 else:
+                     sock = smbServer.getRegisteredNamedPipes()[connData['OpenedFiles'][comReadParameters['Fid']]['FileName']]
+                     content = sock.recv(comReadParameters['Count'])
                  respParameters['Count']    = len(content)
                  respData['DataLength']     = len(content)
                  respData['Data']           = content
@@ -1470,10 +1482,14 @@ class SMBCommands():
              fileHandle = connData['OpenedFiles'][readAndX['Fid']]['FileHandle']
              errorCode = 0
              try:
-                 # TODO: Handle big size files
-                 (mode, ino, dev, nlink, uid, gid, size, atime, mtime, ctime) = os.fstat(fileHandle)
-                 os.lseek(fileHandle,readAndX['Offset'],os.SEEK_SET)
-                 content = os.read(fileHandle,readAndX['MaxCount'])
+                 if fileHandle != PIPE_FILE_DESCRIPTOR:
+                     # TODO: Handle big size files
+                     (mode, ino, dev, nlink, uid, gid, size, atime, mtime, ctime) = os.fstat(fileHandle)
+                     os.lseek(fileHandle,readAndX['Offset'],os.SEEK_SET)
+                     content = os.read(fileHandle,readAndX['MaxCount'])
+                 else:
+                     sock = smbServer.getRegisteredNamedPipes()[connData['OpenedFiles'][readAndX['Fid']]['FileName']]
+                     content = sock.recv(readAndX['MaxCount'])
                  respParameters['Remaining']    = 0xffff
                  respParameters['DataCount']    = len(content)
                  respParameters['DataOffset']   = 59
@@ -1719,7 +1735,7 @@ class SMBCommands():
                  else:
                      mode |= os.O_CREAT
              elif createDisposition & smb.FILE_OPEN == smb.FILE_OPEN:
-                 if os.path.exists(pathName) is not True:
+                 if os.path.exists(pathName) is not True and smbServer.getRegisteredNamedPipes().has_key(pathName) is not True:
                      errorCode = STATUS_NO_SUCH_FILE
 
              if errorCode == STATUS_SUCCESS:
@@ -1756,7 +1772,10 @@ class SMBCommands():
                          else:
                             if sys.platform == 'win32':
                                mode |= os.O_BINARY
-                            fid = os.open(pathName, mode)
+                            if smbServer.getRegisteredNamedPipes().has_key(pathName):
+                                fid = PIPE_FILE_DESCRIPTOR
+                            else:
+                                fid = os.open(pathName, mode)
                      except Exception, e:
                          smbServer.log("NTCreateAndX: %s,%s,%s" % (pathName,mode,e),logging.ERROR)
                          print e
@@ -1773,33 +1792,45 @@ class SMBCommands():
                fakefid = connData['OpenedFiles'].keys()[-1] + 1
             respParameters['Fid'] = fakefid
             respParameters['CreateAction'] = createDisposition
-            if os.path.isdir(pathName):
-                respParameters['FileAttributes'] = smb.SMB_FILE_ATTRIBUTE_DIRECORY
-                respParameters['IsDirectory'] = 1
-            else:
+            if fid == PIPE_FILE_DESCRIPTOR:
+                respParameters['FileAttributes'] = smb.SMB_FILE_ATTRIBUTE_NORMAL
                 respParameters['IsDirectory'] = 0
-                respParameters['FileAttributes'] = ntCreateAndXParameters['FileAttributes']
-            # Let's get this file's information
-            respInfo, errorCode = queryPathInformation('',pathName,level= smb.SMB_QUERY_FILE_ALL_INFO)
-            if errorCode == STATUS_SUCCESS:
-                respParameters['CreateTime']     = respInfo['CreationTime']
-                respParameters['LastAccessTime'] = respInfo['LastAccessTime']
-                respParameters['LastWriteTime']  = respInfo['LastWriteTime']
-                respParameters['LastChangeTime'] = respInfo['LastChangeTime']
-                respParameters['FileAttributes'] = respInfo['ExtFileAttributes']
-                respParameters['AllocationSize'] = respInfo['AllocationSize']
-                respParameters['EndOfFile']      = respInfo['EndOfFile']
+                respParameters['CreateTime']     = 0
+                respParameters['LastAccessTime'] = 0
+                respParameters['LastWriteTime']  = 0
+                respParameters['LastChangeTime'] = 0
+                respParameters['AllocationSize'] = 4096
+                respParameters['EndOfFile']      = 0
+                respParameters['FileType']       = 2
+                respParameters['IPCState']       = 0x5ff
+            else:
+                if os.path.isdir(pathName):
+                    respParameters['FileAttributes'] = smb.SMB_FILE_ATTRIBUTE_DIRECORY
+                    respParameters['IsDirectory'] = 1
+                else:
+                    respParameters['IsDirectory'] = 0
+                    respParameters['FileAttributes'] = ntCreateAndXParameters['FileAttributes']
+                # Let's get this file's information
+                respInfo, errorCode = queryPathInformation('',pathName,level= smb.SMB_QUERY_FILE_ALL_INFO)
+                if errorCode == STATUS_SUCCESS:
+                    respParameters['CreateTime']     = respInfo['CreationTime']
+                    respParameters['LastAccessTime'] = respInfo['LastAccessTime']
+                    respParameters['LastWriteTime']  = respInfo['LastWriteTime']
+                    respParameters['LastChangeTime'] = respInfo['LastChangeTime']
+                    respParameters['FileAttributes'] = respInfo['ExtFileAttributes']
+                    respParameters['AllocationSize'] = respInfo['AllocationSize']
+                    respParameters['EndOfFile']      = respInfo['EndOfFile']
+                else:
+                    respParameters = ''
+                    respData       = ''
 
+            if errorCode == STATUS_SUCCESS:
                 # Let's store the fid for the connection
-                #smbServer.log('Create file %s, mode:0x%x' % (pathName, mode))
+                # smbServer.log('Create file %s, mode:0x%x' % (pathName, mode))
                 connData['OpenedFiles'][fakefid] = {}
                 connData['OpenedFiles'][fakefid]['FileHandle'] = fid
                 connData['OpenedFiles'][fakefid]['FileName'] = pathName
                 connData['OpenedFiles'][fakefid]['DeleteOnClose']  = deleteOnClose
-            else:
-                respParameters = ''
-                respData       = ''
-
         else:
             respParameters = ''
             respData       = ''
@@ -2240,6 +2271,9 @@ class SMBSERVER(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
 
         # Our log file
         self.__logFile = ''
+
+        # Registered Named Pipes, format is PipeName,Socket
+        self.__registeredNamedPipes = {}
  
         # Our list of commands we will answer, by default the NOT IMPLEMENTED one
         self.__smbCommandsHandler = SMBCommands()
@@ -2337,6 +2371,12 @@ class SMBSERVER(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
                 raise Exception("User not Authenticated!")
         return conn
 
+    def getRegisteredNamedPipes(self):
+        return self.__registeredNamedPipes
+
+    def registerNamedPipe(self, pipeName, socket):
+        self.__registeredNamedPipes[pipeName] = socket        
+        return True
 
     def hookTransaction(self, transCommand, callback):
         # If you call this function, callback will replace 
@@ -2623,3 +2663,4 @@ STATUS_LOGON_FAILURE                 = 0xC000006d
 
 # For windows platforms, opening a directory is not an option, so we set a void FD
 VOID_FILE_DESCRIPTOR = -1
+PIPE_FILE_DESCRIPTOR = -2
