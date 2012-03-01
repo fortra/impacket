@@ -159,9 +159,12 @@ class SRVSVCNetrShareEnum(Structure):
        ('count','<L=0'),
        ('NullP','<L=0'),
        ('PreferedMaximumLength','<L=0xffffffff'),
-       ('pResumeHandler','<L=0x9abc'),
-       ('ResumeHandler','<L=0'),
+       ('pResumeHandler',':'),
     )
+
+    def __init__(self, data = 0):
+       Structure.__init__(self, data)
+       self['pResumeHandler'] = '\xbc\x9a\x00\x00\x00\x00\x00\x00'
 
 class SRVSVCNetrShareEnum1_answer(Structure):
     alignment = 4
