@@ -25,6 +25,7 @@ from impacket import nmb
 from impacket import ntlm
 from structure import Structure
 import calendar
+import socket
 import time
 import datetime
 import struct
@@ -403,7 +404,7 @@ class TRANSCommands():
                 os.write(fileHandle,data)
                 respData = os.read(fileHandle,data)
             else:
-                sock = smbServer.getRegisteredNamedPipes()[connData['OpenedFiles'][fid]['FileName']]
+                sock = connData['OpenedFiles'][fid]['Socket']
                 sock.send(data)
                 respData = sock.recv(maxDataCount)
         else:
@@ -1153,7 +1154,9 @@ class SMBCommands():
              errorCode = STATUS_SUCCESS
              fileHandle = connData['OpenedFiles'][comClose['FID']]['FileHandle']
              try:
-                 if fileHandle != VOID_FILE_DESCRIPTOR and fileHandle != PIPE_FILE_DESCRIPTOR:
+                 if fileHandle == PIPE_FILE_DESCRIPTOR:
+                     connData['OpenedFiles'][comClose['FID']]['Socket'].close()
+                 elif fileHandle != VOID_FILE_DESCRIPTOR:
                      os.close(fileHandle)
              except Exception, e:
                  smbServer.log("comClose %s" % e, logging.ERROR)
@@ -1201,7 +1204,7 @@ class SMBCommands():
                      os.lseek(fileHandle,comWriteParameters['Offset'],os.SEEK_SET)
                      os.write(fileHandle,comWriteData['Data'])
                  else:
-                     sock = smbServer.getRegisteredNamedPipes()[connData['OpenedFiles'][comWriteParameters['Fid']]['FileName']]
+                     sock = connData['OpenedFiles'][comWriteParameters['Fid']]['Socket']
                      sock.send(comWriteData['Data'])
                  respParameters['Count']    = comWriteParameters['Count']
              except Exception, e:
@@ -1434,7 +1437,7 @@ class SMBCommands():
                      os.lseek(fileHandle,writeAndX['Offset'],os.SEEK_SET)
                      os.write(fileHandle,writeAndXData['Data'])
                  else:
-                     sock = smbServer.getRegisteredNamedPipes()[connData['OpenedFiles'][writeAndX['Fid']]['FileName']]
+                     sock = connData['OpenedFiles'][writeAndX['Fid']]['Socket']
                      sock.write(writeAndXData['Data'])
 
                  respParameters['Count']    = writeAndX['DataLength']
@@ -1475,7 +1478,7 @@ class SMBCommands():
                      os.lseek(fileHandle,comReadParameters['Offset'],os.SEEK_SET)
                      content = os.read(fileHandle,comReadParameters['Count'])
                  else:
-                     sock = smbServer.getRegisteredNamedPipes()[connData['OpenedFiles'][comReadParameters['Fid']]['FileName']]
+                     sock = connData['OpenedFiles'][comReadParameters['Fid']]['Socket']
                      content = sock.recv(comReadParameters['Count'])
                  respParameters['Count']    = len(content)
                  respData['DataLength']     = len(content)
@@ -1519,7 +1522,7 @@ class SMBCommands():
                      os.lseek(fileHandle,readAndX['Offset'],os.SEEK_SET)
                      content = os.read(fileHandle,readAndX['MaxCount'])
                  else:
-                     sock = smbServer.getRegisteredNamedPipes()[connData['OpenedFiles'][readAndX['Fid']]['FileName']]
+                     sock = connData['OpenedFiles'][readAndX['Fid']]['Socket']
                      content = sock.recv(readAndX['MaxCount'])
                  respParameters['Remaining']    = 0xffff
                  respParameters['DataCount']    = len(content)
@@ -1805,6 +1808,8 @@ class SMBCommands():
                                mode |= os.O_BINARY
                             if smbServer.getRegisteredNamedPipes().has_key(pathName):
                                 fid = PIPE_FILE_DESCRIPTOR
+                                sock = socket.socket()
+                                sock.connect(smbServer.getRegisteredNamedPipes()[pathName])
                             else:
                                 fid = os.open(pathName, mode)
                      except Exception, e:
@@ -1862,6 +1867,8 @@ class SMBCommands():
                 connData['OpenedFiles'][fakefid]['FileHandle'] = fid
                 connData['OpenedFiles'][fakefid]['FileName'] = pathName
                 connData['OpenedFiles'][fakefid]['DeleteOnClose']  = deleteOnClose
+                if fid == PIPE_FILE_DESCRIPTOR:
+                    connData['OpenedFiles'][fakefid]['Socket'] = sock
         else:
             respParameters = ''
             respData       = ''
@@ -2319,7 +2326,7 @@ class SMBSERVER(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
 
         self.__smbTransCommands  = {
 '\\PIPE\\LANMAN'                       :self.__smbTransHandler.lanMan,
-smb.TRANS_TRANSACT_NMPIPE              :self.__smbTransHandler.transactNamedPipe,
+smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe,
         }
         self.__smbTrans2Commands = {
 
@@ -2406,8 +2413,8 @@ smb.TRANS_TRANSACT_NMPIPE              :self.__smbTransHandler.transactNamedPipe
     def getRegisteredNamedPipes(self):
         return self.__registeredNamedPipes
 
-    def registerNamedPipe(self, pipeName, socket):
-        self.__registeredNamedPipes[pipeName] = socket        
+    def registerNamedPipe(self, pipeName, address):
+        self.__registeredNamedPipes[pipeName] = address
         return True
 
     def hookTransaction(self, transCommand, callback):
