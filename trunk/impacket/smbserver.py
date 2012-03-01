@@ -383,6 +383,36 @@ class TRANSCommands():
 
         return respSetup, respParameters, respData, errorCode
 
+    def transactNamedPipe(self, connId, smbServer, recvPacket, parameters, data, maxDataCount = 0):
+        connData = smbServer.getConnectionData(connId)
+
+        respSetup = ''
+        respParameters = ''
+        respData = ''
+        errorCode = STATUS_SUCCESS
+        SMBCommand  = smb.SMBCommand(recvPacket['Data'][0])
+        transParameters= smb.SMBTransaction_Parameters(SMBCommand['Parameters'])
+
+        # Extract the FID
+        fid = struct.unpack('<H', transParameters['Setup'][2:])[0]
+
+        if connData['OpenedFiles'].has_key(fid):
+            fileHandle = connData['OpenedFiles'][fid]['FileHandle']
+            if fileHandle != PIPE_FILE_DESCRIPTOR:
+                (mode, ino, dev, nlink, uid, gid, size, atime, mtime, ctime) = os.fstat(fileHandle)
+                os.write(fileHandle,data)
+                respData = os.read(fileHandle,data)
+            else:
+                sock = smbServer.getRegisteredNamedPipes()[connData['OpenedFiles'][fid]['FileName']]
+                sock.send(data)
+                respData = sock.recv(maxDataCount)
+        else:
+            errorCode = STATUS_INVALID_HANDLE
+
+        smbServer.setConnectionData(connId, connData)
+
+        return respSetup, respParameters, respData, errorCode
+
 # Here we implement the transaction2 handlers
 class TRANS2Commands():
     # All these commands return setup, parameters, data, errorCode
@@ -714,6 +744,7 @@ class SMBCommands():
                 command = transData['Name']
             else:
                 command = struct.unpack('<H', transParameters['Setup'][:2])[0]
+            
             if transCommands.has_key(command):
                # Call the TRANS subcommand
                setup = ''
@@ -2288,6 +2319,7 @@ class SMBSERVER(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
 
         self.__smbTransCommands  = {
 '\\PIPE\\LANMAN'                       :self.__smbTransHandler.lanMan,
+smb.TRANS_TRANSACT_NMPIPE              :self.__smbTransHandler.transactNamedPipe,
         }
         self.__smbTrans2Commands = {
 
