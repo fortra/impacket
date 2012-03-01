@@ -2912,6 +2912,9 @@ class SMB:
     SMB_COM_WRITE_BULK                      = 0xD9
     SMB_COM_WRITE_BULK_DATA                 = 0xDA
 
+    # TRANSACT codes
+    TRANS_TRANSACT_NMPIPE                   = 0x26
+
     # TRANSACT2 codes
     TRANS2_FIND_FIRST2                      = 0x0001
     TRANS2_FIND_NEXT2                       = 0x0002
