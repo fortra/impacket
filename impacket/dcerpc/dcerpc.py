@@ -361,13 +361,13 @@ class MSRPCBind(Structure):
 class MSRPCBindAck(Structure):
     _SIZE = 26 # Up to SecondaryAddr
     commonHdr = ( 
-        ('ver_major','B'),                              # 0
-        ('ver_minor','B'),                              # 1
+        ('ver_major','B=5'),                            # 0
+        ('ver_minor','B=0'),                            # 1
         ('type','B'),                                   # 2
         ('flags','B'),                                  # 3
         ('representation','<L=0x10'),                   # 4
         ('frag_len','<H'),                              # 8
-        ('auth_len','<H'),                              # 10
+        ('auth_len','<H=0'),                            # 10
         ('call_id','<L=1'),                             # 12    <-- Common up to here (including this)
     )
     structure = ( 
