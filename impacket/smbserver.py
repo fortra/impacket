@@ -353,6 +353,7 @@ class TRANSCommands():
         respData = ''
         errorCode = STATUS_SUCCESS
         if struct.unpack('<H',parameters[:2])[0] == 0:
+            # NetShareEnum Request
             netShareEnum = smb.SMBNetShareEnum(parameters)
             if netShareEnum['InfoLevel'] == 1:
                 shares = getShares(connId, smbServer)
@@ -376,8 +377,15 @@ class TRANSCommands():
             else:
                 # We don't support other info levels
                 errorCode = STATUS_NOT_SUPPORTED
+        elif struct.unpack('<H',parameters[:2])[0] == 13:
+            request = smb.SMBNetShareEnum(parameters)
+            respParameters = smb.SMBNetServerGetInfoResponse()
+            netServerInfo = smb.SMBNetServerInfo1()
+            netServerInfo['ServerName'] = smbServer.getServerName()
+            respData = str(netServerInfo)
+            respParameters['TotalBytesAvailable'] = len(respData)
         else:
-            # We don't know how to handle anything except NetShareEnum
+            # We don't know how to handle anything else
             errorCode = STATUS_NOT_SUPPORTED
 
         smbServer.setConnectionData(connId, connData)
