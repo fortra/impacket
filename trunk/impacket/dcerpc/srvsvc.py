@@ -70,7 +70,7 @@ class SRVSVCSwitchpShareInfo2(Structure):
     alignment = 4
     structure = (
 	('Level','<L'),
-	('pInfo','<L=&InfoStruct'),
+	('pInfo','<L&InfoStruct'),
 	('InfoStruct',':',SRVSVCShareInfo2),
     )
 
@@ -99,9 +99,32 @@ class SRVSVCServerpInfo102(Structure):
     alignment = 4
     structure = (
        ('Level','<L'),
-       ('pInfo','<L=&ServerInfo'),
+       ('pInfo','<L&ServerInfo'),
        ('ServerInfo',':',SRVSVCServerInfo102),
     )
+
+
+class SRVSVCServerInfo101(Structure):
+    alignment = 4
+    structure = (
+       ('PlatFormID','<L=500'),
+       ('pName','<L&Name'),
+       ('VersionMajor','<L=5'),
+       ('VersionMinor','<L=0'),
+       ('Type','<L=1'),
+       ('pComment','<L&Comment'),
+       ('Name','w'),
+       ('Comment','w'),
+    )
+
+class SRVSVCServerpInfo101(Structure):
+    alignment = 4
+    structure = (
+       ('Level','<L=101'),
+       ('pInfo','<L&ServerInfo'),
+       ('ServerInfo',':',SRVSVCServerInfo101),
+    )
+ 
 
 class SRVSVCTimeOfDayInfo(Structure):
     alignment = 4
