@@ -378,6 +378,7 @@ class TRANSCommands():
                 # We don't support other info levels
                 errorCode = STATUS_NOT_SUPPORTED
         elif struct.unpack('<H',parameters[:2])[0] == 13:
+            # NetrServerGetInfo Request
             request = smb.SMBNetShareEnum(parameters)
             respParameters = smb.SMBNetServerGetInfoResponse()
             netServerInfo = smb.SMBNetServerInfo1()
@@ -1732,6 +1733,10 @@ class SMBCommands():
         ntCreateAndXParameters = smb.SMBNtCreateAndX_Parameters(SMBCommand['Parameters'])
         ntCreateAndXData       = smb.SMBNtCreateAndX_Data(SMBCommand['Data'])
 
+        #if ntCreateAndXParameters['CreateFlags'] & 0x10:  # NT_CREATE_REQUEST_EXTENDED_RESPONSE
+        #    respParameters        = smb.SMBNtCreateAndXExtendedResponse_Parameters()
+        #    respParameters['VolumeGUID'] = '\x00'
+
         errorCode = 0xFF
         # Get the Tid associated
         if connData['ConnectedShares'].has_key(recvPacket['Tid']):
@@ -1837,7 +1842,7 @@ class SMBCommands():
             respParameters['Fid'] = fakefid
             respParameters['CreateAction'] = createDisposition
             if fid == PIPE_FILE_DESCRIPTOR:
-                respParameters['FileAttributes'] = smb.SMB_FILE_ATTRIBUTE_NORMAL
+                respParameters['FileAttributes'] = 0x80
                 respParameters['IsDirectory'] = 0
                 respParameters['CreateTime']     = 0
                 respParameters['LastAccessTime'] = 0
@@ -1961,6 +1966,9 @@ class SMBCommands():
 
         treeConnectAndXParameters = smb.SMBTreeConnectAndX_Parameters(SMBCommand['Parameters'])
 
+        if treeConnectAndXParameters['Flags'] & 0x8:
+            respParameters        = smb.SMBTreeConnectAndXExtendedResponse_Parameters()
+
         treeConnectAndXData                    = smb.SMBTreeConnectAndX_Data()
         treeConnectAndXData['_PasswordLength'] = treeConnectAndXParameters['PasswordLength']
         treeConnectAndXData.fromString(SMBCommand['Data'])
@@ -1987,7 +1995,10 @@ class SMBCommands():
         ##
         respParameters['OptionalSupport'] = smb.SMB.SMB_SUPPORT_SEARCH_BITS
 
-        respData['Service']               = treeConnectAndXData['Service']
+        if path == 'IPC$':
+            respData['Service']               = 'IPC'
+        else:
+            respData['Service']               = 'A:'
         respData['PadLen']                = 0
         respData['NativeFileSystem']      = 'NTFS'
 
@@ -2181,6 +2192,7 @@ class SMBCommands():
         
                     _dialects_parameters = smb.SMBExtended_Security_Parameters()
                     _dialects_parameters['Capabilities']    = smb.SMB.CAP_EXTENDED_SECURITY | smb.SMB.CAP_USE_NT_ERRORS | smb.SMB.CAP_NT_SMBS 
+                    #_dialects_parameters['Capabilities']    = 0x8001e3fc
 
            else:
                     resp['Flags2'] = smb.SMB.FLAGS2_NT_STATUS
