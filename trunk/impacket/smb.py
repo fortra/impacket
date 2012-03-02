@@ -2264,6 +2264,29 @@ class SMBNtCreateAndXResponse_Parameters(SMBAndXCommand_Parameters):
         ('IsDirectory','B'),
     )
 
+class SMBNtCreateAndXExtendedResponse_Parameters(SMBAndXCommand_Parameters):
+    # [MS-SMB] Extended response description
+    structure = (
+        ('OplockLevel', 'B=0'),
+        ('Fid','<H'),
+        ('CreateAction','<L'),
+        ('CreateTime','<q=0'),
+        ('LastAccessTime','<q=0'),
+        ('LastWriteTime','<q=0'),
+        ('LastChangeTime','<q=0'),
+        ('FileAttributes','<L=0x80'),
+        ('AllocationSize','<q=0'),
+        ('EndOfFile','<q=0'),
+        ('FileType','<H=0'),
+        ('IPCState','<H=0'),
+        ('IsDirectory','B'),
+        ('VolumeGUID','16s'),
+        ('FileIdLow','<L=0'),
+        ('FileIdHigh','<L=0'),
+        ('MaximalAccessRights','<L=0x12019b'),
+        ('GuestMaximalAccessRights','<L=0x120089'),
+    )
+
 class SMBNtCreateAndX_Data(Structure):
     structure = (
         ('FileName','z'),
