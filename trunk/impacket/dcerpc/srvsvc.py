@@ -35,7 +35,7 @@ class SRVSVCShareEnumStruct(Structure):
     alignment = 4
     structure = (
 	('Level','<L'),
-	('pCount','<L&Count'),
+	('pCount','<L=1'),
 	('Count','<L'),
 	('pMaxCount','<L&MaxCount'),
 	('MaxCount','<L'),
@@ -169,7 +169,7 @@ class SRVSVCNetrShareEnum(Structure):
 class SRVSVCNetrShareEnum1_answer(Structure):
     alignment = 4
     structure = (
-	('pLevel','<L&Info'),
+	('pLevel','<L=1'),
 	('Info',':',SRVSVCShareEnumStruct),
 # Not catched by the unpacker - just for doc purposed.
 #	('pTotalEntries','<L=&TotalEntries'),
