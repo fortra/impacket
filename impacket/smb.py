@@ -2212,6 +2212,13 @@ class SMBTreeConnectAndXResponse_Parameters(SMBAndXCommand_Parameters):
         ('OptionalSupport','<H=0'),
     )
 
+class SMBTreeConnectAndXExtendedResponse_Parameters(SMBAndXCommand_Parameters):
+    structure = (
+        ('OptionalSupport','<H=1'),
+        ('MaximalShareAccessRights','<L=0x1fffff'),
+        ('GuestMaximalShareAccessRights','<L=0x1fffff'),
+    )
+
 class SMBTreeConnectAndX_Data(Structure):
     structure = (
         ('_PasswordLength','_-Password','self["_PasswordLength"]'),
