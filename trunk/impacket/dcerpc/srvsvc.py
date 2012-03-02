@@ -162,9 +162,9 @@ class SRVSVCNetrShareEnum(Structure):
        ('pResumeHandler',':'),
     )
 
-    def __init__(self, data = 0):
-       Structure.__init__(self, data)
+    def getData(self):
        self['pResumeHandler'] = '\xbc\x9a\x00\x00\x00\x00\x00\x00'
+       return Structure.getData(self)
 
 class SRVSVCNetrShareEnum1_answer(Structure):
     alignment = 4
