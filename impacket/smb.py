@@ -2036,6 +2036,25 @@ class NetShareInfo1(Structure):
         ('RemarkOffsetHigh','<H=0'),
     )
 
+# \PIPE\LANMAN NetServerGetInfo
+class SMBNetServerGetInfoResponse(Structure):
+    structure = (
+        ('Status','<H=0'),
+        ('Convert','<H=0'),
+        ('TotalBytesAvailable','<H'),
+    )
+
+class SMBNetServerInfo1(Structure):
+    # Level 1 Response
+    structure = (
+        ('ServerName','16s'),
+        ('MajorVersion','B=5'),
+        ('MinorVersion','B=0'),
+        ('ServerType','<L=1'),
+        ('ServerCommentLow','<H=0'),
+        ('ServerCommentHigh','<H=0'),
+    )
+
 ############# Security Features
 class SecurityFeatures(Structure):
     structure = (
