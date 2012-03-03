@@ -16,6 +16,7 @@
 #     right now you can ask for any command without actually being authenticated
 # [ ] PATH TRAVERSALS EVERYWHERE.. BE WARNED!
 # [ ] Check the credentials.. now we're just letting everybody to log in.
+# [ ] Check error situation (now many places assume the right data is coming)
 # [ ] Implement IPC to the main process so the connectionData is on a single place
 # [ ] Hence.. implement locking
 # estamos en la B
@@ -385,6 +386,22 @@ class TRANSCommands():
             netServerInfo['ServerName'] = smbServer.getServerName()
             respData = str(netServerInfo)
             respParameters['TotalBytesAvailable'] = len(respData)
+        elif struct.unpack('<H',parameters[:2])[0] == 1:
+            # NetrShareGetInfo Request
+            request = smb.SMBNetShareGetInfo(parameters)
+            respParameters = smb.SMBNetShareGetInfoResponse()
+            shares = getShares(connId, smbServer)
+            share = shares[request['ShareName']]
+            print "Share", share
+            shareInfo = smb.NetShareInfo1() 
+            shareInfo['NetworkName'] = request['ShareName'] + '\x00'
+            shareInfo['Type']        = int(share['share type'])
+            respData = shareInfo.getData()
+            if share.has_key('comment'):
+                shareInfo['RemarkOffsetLow'] = 20 
+                respData += share['comment'] + '\x00'
+            respParameters['TotalBytesAvailable'] = len(respData)
+     
         else:
             # We don't know how to handle anything else
             errorCode = STATUS_NOT_SUPPORTED
