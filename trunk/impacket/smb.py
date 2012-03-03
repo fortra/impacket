@@ -2050,9 +2050,27 @@ class SMBNetServerInfo1(Structure):
         ('ServerName','16s'),
         ('MajorVersion','B=5'),
         ('MinorVersion','B=0'),
-        ('ServerType','<L=1'),
+        ('ServerType','<L=3'),
         ('ServerCommentLow','<H=0'),
         ('ServerCommentHigh','<H=0'),
+    )
+
+# \PIPE\LANMAN NetShareGetInfo
+class SMBNetShareGetInfo(Structure):
+    structure = (
+        ('RAPOpcode','<H=0'),
+        ('ParamDesc','z'),
+        ('DataDesc','z'),
+        ('ShareName','z'),
+        ('InfoLevel','<H'),
+        ('ReceiveBufferSize','<H'),
+    )
+
+class SMBNetShareGetInfoResponse(Structure):
+    structure = (
+        ('Status','<H=0'),
+        ('Convert','<H=0'),
+        ('TotalBytesAvailable','<H'),
     )
 
 ############# Security Features
