@@ -25,6 +25,8 @@ from impacket import smb
 from impacket import nmb
 from impacket import ntlm
 from structure import Structure
+import traceback
+import sys
 import calendar
 import socket
 import time
@@ -220,6 +222,12 @@ def findFirst2(path, fileName, level, searchAttributes):
             item = smb.SMBFindFileFullDirectoryInfo()
         elif level == smb.SMB_FIND_INFO_STANDARD:
             item = smb.SMBFindInfoStandard()
+        elif level == smb.SMB_FIND_FILE_ID_FULL_DIRECTORY_INFO:
+            item = smb.SMBFindFileIdFullDirectoryInfo()
+        elif level == smb.SMB_FIND_FILE_ID_BOTH_DIRECTORY_INFO:
+            item = smb.SMBFindFileIdBothDirectoryInfo()
+        else:
+            print "Wrong level %d!" % level
             
         (mode, ino, dev, nlink, uid, gid, size, atime, mtime, ctime) = os.stat(i)
         if os.path.isdir(i):
@@ -229,7 +237,7 @@ def findFirst2(path, fileName, level, searchAttributes):
 
         item['FileName'] = os.path.basename(i)
 
-        if level == smb.SMB_FIND_FILE_BOTH_DIRECTORY_INFO:
+        if level == smb.SMB_FIND_FILE_BOTH_DIRECTORY_INFO or level == smb.SMB_FIND_FILE_ID_BOTH_DIRECTORY_INFO:
            item['EaSize']            = 0
            item['EndOfFile']         = size
            item['AllocationSize']    = size
@@ -240,7 +248,7 @@ def findFirst2(path, fileName, level, searchAttributes):
            item['ShortName']         = '\x00'*24
            item['FileName']          = os.path.basename(i)
            item['NextEntryOffset']   = len(item)
-        elif level == smb.SMB_FIND_FILE_FULL_DIRECTORY_INFO:
+        elif level == smb.SMB_FIND_FILE_FULL_DIRECTORY_INFO or level == smb.SMB_FIND_FILE_ID_FULL_DIRECTORY_INFO:
            item['EaSize']            = 0
            item['EndOfFile']         = size
            item['AllocationSize']    = size
@@ -1063,6 +1071,7 @@ class SMBCommands():
                                 trans2Parameters['MaxDataCount'])
                except Exception, e:
                    smbServer.log('Transaction2: (0x%x,%s)' % (command, e), logging.ERROR)
+                   traceback.print_exc()
                    errorCode = STATUS_ACCESS_DENIED
                    raise
 
@@ -2633,7 +2642,6 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
         except Exception, e:
             # Something wen't wrong, defaulting to Bad user ID
             self.log('processRequest (0x%x,%s)' % (packet['Command'],e), logging.ERROR)
-            raise
             packet['Flags1'] |= smb.SMB.FLAGS1_REPLY
             packet['Flags2'] = 0
             errorCode = STATUS_SMB_BAD_UID

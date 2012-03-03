@@ -202,6 +202,9 @@ SMB_FIND_INFO_STANDARD           = 0x0001
 SMB_FIND_FILE_DIRECTORY_INFO     = 0x0101
 SMB_FIND_FILE_FULL_DIRECTORY_INFO= 0x0102
 SMB_FIND_FILE_BOTH_DIRECTORY_INFO= 0x0104
+SMB_FIND_FILE_ID_FULL_DIRECTORY_INFO = 0x105
+SMB_FIND_FILE_ID_BOTH_DIRECTORY_INFO = 0x106
+
 
 # DesiredAccess flags
 FILE_READ_DATA                   = 0x00000001
@@ -1765,6 +1768,47 @@ class SMBFindFileBothDirectoryInfo(Structure):
         ('ShortNameLength','<B=0'),
         ('Reserved','<B=0'),
         ('ShortName','24s'),
+        ('FileName',':'),
+    )
+# SMB_FIND_FILE_ID_FULL_DIRECTORY_INFO level
+class SMBFindFileIdFullDirectoryInfo(Structure):
+    structure = (
+        ('NextEntryOffset','<L=0'),
+        ('FileIndex','<L=0'),
+        ('CreationTime','<q'),
+        ('LastAccessTime','<q'),
+        ('LastWriteTime','<q'),
+        ('LastChangeTime','<q'),
+        ('EndOfFile','<q=0'),
+        ('AllocationSize','<q=0'),
+        ('ExtFileAttributes','<L=0'),
+        ('FileNameLength','<L-FileName','len(FileName)'),
+        ('EaSize','<L=0'),
+        #('ShortNameLength','<B-ShortName','len(ShortName)'),
+        ('FileID','<q=0'),
+        ('FileName',':'),
+    )
+
+# SMB_FIND_FILE_ID_BOTH_DIRECTORY_INFO level
+class SMBFindFileIdBothDirectoryInfo(Structure):
+    structure = (
+        ('NextEntryOffset','<L=0'),
+        ('FileIndex','<L=0'),
+        ('CreationTime','<q'),
+        ('LastAccessTime','<q'),
+        ('LastWriteTime','<q'),
+        ('LastChangeTime','<q'),
+        ('EndOfFile','<q=0'),
+        ('AllocationSize','<q=0'),
+        ('ExtFileAttributes','<L=0'),
+        ('FileNameLength','<L-FileName','len(FileName)'),
+        ('EaSize','<L=0'),
+        #('ShortNameLength','<B-ShortName','len(ShortName)'),
+        ('ShortNameLength','<B=0'),
+        ('Reserved','<B=0'),
+        ('ShortName','24s'),
+        ('Reserved','<H=0'),
+        ('FileID','<q=0'),
         ('FileName',':'),
     )
 
