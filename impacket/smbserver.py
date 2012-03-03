@@ -391,14 +391,13 @@ class TRANSCommands():
             request = smb.SMBNetShareGetInfo(parameters)
             respParameters = smb.SMBNetShareGetInfoResponse()
             shares = getShares(connId, smbServer)
-            share = shares[request['ShareName']]
-            print "Share", share
+            share = shares[request['ShareName'].upper()]
             shareInfo = smb.NetShareInfo1() 
-            shareInfo['NetworkName'] = request['ShareName'] + '\x00'
+            shareInfo['NetworkName'] = request['ShareName'].upper() + '\x00'
             shareInfo['Type']        = int(share['share type'])
             respData = shareInfo.getData()
             if share.has_key('comment'):
-                shareInfo['RemarkOffsetLow'] = 20 
+                shareInfo['RemarkOffsetLow'] = len(respData)
                 respData += share['comment'] + '\x00'
             respParameters['TotalBytesAvailable'] = len(respData)
      
