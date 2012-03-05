@@ -37,6 +37,7 @@ import socket, string, re, select, errno
 from structure import Structure
 from random import randint
 from struct import *
+import time
 
 
 CVS_REVISION = '$Revision$'
@@ -820,6 +821,10 @@ class NetBIOSUDPSession(NetBIOSSession):
         return NetBIOSUDPSessionPacket(data)
 
 class NetBIOSTCPSession(NetBIOSSession):
+    def __init__(self, myname, remote_name, remote_host, remote_type = TYPE_SERVER, sess_port = NETBIOS_SESSION_PORT, timeout = None, local_type = TYPE_WORKSTATION, sock = None, select_poll = False):
+        NetBIOSSession.__init__(self, myname, remote_name, remote_host, remote_type = remote_type, sess_port = sess_port, timeout = timeout, local_type = local_type, sock=sock)
+        self.__select_poll = select_poll
+
     def _setup_connection(self, peer):
         af, socktype, proto, canonname, sa = socket.getaddrinfo(peer[0], peer[1], 0, socket.SOCK_STREAM)[0]
         sock = socket.socket(af, socktype, proto)
@@ -857,9 +862,25 @@ class NetBIOSTCPSession(NetBIOSSession):
     def __read(self, timeout = None):
         read_len = 4
         data = ''
+        if self.__select_poll:
+            if timeout = None:
+                # Well, since we're mimicking a timeout, we will need to wait a lot, this won't block forever
+                # but it's a fair big value
+                timeout = 3600
+            time_left = timeout
         while read_len > 0:
             try:
-                ready, _, _ = select.select([self._sock.fileno() ], [ ], [ ], timeout)
+                if self.__select_poll:
+                    ready, _, _ = select.select([self._sock.fileno() ], [ ], [ ], 0)
+                    time.sleep(0.025)
+                    time_left = time_left - 0.025
+                    if not ready:
+                        if time_left == 0:
+                            raise NetBIOSTimeout
+                        else:
+                            continue
+                else:
+                    ready, _, _ = select.select([self._sock.fileno() ], [ ], [ ], timeout)
                 if not ready:
                     raise NetBIOSTimeout
 
@@ -879,9 +900,21 @@ class NetBIOSTCPSession(NetBIOSSession):
             
         read_len = length
         data2=''
+        if self.__select_poll:
+            time_left = timeout
         while read_len > 0:
             try:
-                ready, _, _ = select.select([ self._sock.fileno() ], [ ], [ ], timeout)
+                if self.__select_poll:
+                    ready, _, _ = select.select([self._sock.fileno() ], [ ], [ ], 0)
+                    time.sleep(0.025)
+                    time_left = time_left - 0.025
+                    if not ready:
+                        if time_left == 0:
+                            raise NetBIOSTimeout
+                        else:
+                            continue
+                else:
+                    ready, _, _ = select.select([ self._sock.fileno() ], [ ], [ ], timeout)
                 if not ready:
                     raise NetBIOSTimeout
 

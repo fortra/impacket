@@ -2301,7 +2301,7 @@ class SMBSERVERHandler(SocketServer.BaseRequestHandler):
         while True:
             try:
                 # Firt of all let's get the NETBIOS packet
-                session = nmb.NetBIOSTCPSession(self.__SMB.getServerName(),'HOST', self.__ip, sess_port = self.__port, sock = self.__request)
+                session = nmb.NetBIOSTCPSession(self.__SMB.getServerName(),'HOST', self.__ip, sess_port = self.__port, sock = self.__request, select_poll = False)
                 try:
                     p = session.recv_packet(self.__timeOut)
                 except nmb.NetBIOSTimeout:
