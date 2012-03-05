@@ -863,7 +863,7 @@ class NetBIOSTCPSession(NetBIOSSession):
         read_len = 4
         data = ''
         if self.__select_poll:
-            if timeout = None:
+            if timeout == None:
                 # Well, since we're mimicking a timeout, we will need to wait a lot, this won't block forever
                 # but it's a fair big value
                 timeout = 3600
