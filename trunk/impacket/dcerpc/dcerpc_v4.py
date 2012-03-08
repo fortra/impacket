@@ -16,6 +16,7 @@ import struct
 
 from impacket import ImpactPacket
 from impacket import uuid
+from impacket import dcerpc
 import dcerpc, conv
 
 class DCERPC_RawCall(ImpactPacket.Header):
@@ -220,8 +221,13 @@ class DCERPC_v4(dcerpc.DCERPC):
         self._transport.set_addr(old_address)
 
     def send(self, data):
-        packet = data.get_packet()
-        data_packet = MSRPCHeader(packet)
+        if isinstance(data, dcerpc.MSRPCHeader):
+            opnum = data['op_num']
+            packet = data['pduData']
+        else:
+            opnum = data.OP_NUM
+            packet = data.get_packet()
+
         frag_num = 0
 
         rpc = MSRPCHeader()
@@ -231,7 +237,7 @@ class DCERPC_v4(dcerpc.DCERPC):
         rpc.set_activity_binuuid(self.__activity_uuid)
         rpc.set_seq_num(self.__seq_num)
 
-        frag = DCERPC_RawCall(data_packet.get_op_num())
+        frag = DCERPC_RawCall(opnum)
 
         if self._max_frag:
             offset = 0
@@ -260,7 +266,7 @@ class DCERPC_v4(dcerpc.DCERPC):
             if self.__idempotent:
                 rpc.set_flags((dcerpc.MSRPC_NOTFORIDEMP, 0))
 
-            rpc.contains(data_packet)
+            rpc.contains(packet)
             self._transport.send(rpc.get_packet())
             if self._bind and not self.__idempotent:
                 self._bind = 0
