@@ -876,13 +876,13 @@ class NetBIOSTCPSession(NetBIOSSession):
         while bytes_left > 0:
             try:
                 ready, _, _ = select.select([self._sock.fileno() ], [ ], [ ], 0)
-                time.sleep(CHUNK_TIME)
-                time_left = time_left - CHUNK_TIME
-
+                
                 if not ready:
                     if time_left == 0:
                         raise NetBIOSTimeout
                     else:
+                        time.sleep(CHUNK_TIME)
+                        time_left = time_left - CHUNK_TIME
                         continue
 
                 received = self._sock.recv(bytes_left)

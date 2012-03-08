@@ -4,7 +4,7 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id: dot11.py 209 2009-10-26 19:30:08Z narrowmind $
+# $Id$
 #
 # Description:
 #    Cisco Discovery Protocol packet codecs.
@@ -29,8 +29,11 @@ class CDPTypes:
     Platform_Type       = 6
     IPPrefix_Type       = 7
     ProtocolHello_Type  = 8
-
-
+    MTU_Type            = 17
+    SystemName_Type     = 20
+    SystemObjectId_Type = 21
+    SnmpLocation        = 23
+    
 class CDP(Header):
     
     Type = 0x2000
@@ -259,7 +262,6 @@ class Capabilities(CDPElement):
             return
         
         capabilities = unpack("!L", self.get_capabilities())[0]
-        print "capabilities:", capabilities
         self._router = (capabilities & 0x1) > 0
         self._transparent_bridge = (capabilities & 0x02) > 0
         self._source_route_bridge = (capabilities & 0x04) > 0
@@ -319,6 +321,21 @@ class Platform(CDPElement):
     def __str__(self):
         return "Platform:%r" % self.get_platform()                
       
+
+class IpPrefix(CDPElement):
+    Type = 7
+    
+    def get_type(self):
+        return IpPrefix .Type
+    
+    def get_ip_prefix(self):
+        return CDPElement.get_ip_address(self, 4)                
+
+    def get_bits(self):
+        return self.get_byte(8)        
+        
+    def __str__(self):
+        return "IP Prefix/Gateway: %r/%d" % (self.get_ip_prefix(), self.get_bits())
       
 class ProtocolHello(CDPElement):
     Type = 8
@@ -372,7 +389,7 @@ class Duplex(CDPElement):
                 
     def is_full_duplex(self):
         return self.get_duplex()==0x1
- 
+        
 class VLAN(CDPElement):
     Type = 0xa
                 
@@ -408,13 +425,42 @@ class UntrustedPortCoS(CDPElement):
     def __str__(self):
         return "UntrustedPortCoS port CoS %r" % self.get_port_CoS()
 
-        
 class ManagementAddresses(Address):
     Type = 0x16
     
     def get_type(self):
         return ManagementAddresses.Type
+        
+class MTU(CDPElement):
+    Type = 0x11
+    
+    def get_type(self):
+        return MTU.Type
+        
+class SystemName(CDPElement):
+    Type = 0x14
+    
+    def get_type(self):
+        return SystemName.Type
 
+class SystemObjectId(CDPElement):
+    Type = 0x15
+    
+    def get_type(self):
+        return SystemObjectId.Type
+
+class SnmpLocation(CDPElement):
+    Type = 0x17
+    
+    def get_type(self):
+        return SnmpLocation.Type
+
+
+class DummyCdpElement(CDPElement):
+    Type = 0x99
+
+    def get_type(self):
+        return DummyCdpElement.Type
 
 class CDPElementFactory():
     
@@ -425,13 +471,18 @@ class CDPElementFactory():
                         Address.Type              : Address, 
                         SoftVersion.Type          : SoftVersion,
                         Platform.Type             : Platform,
+                        IpPrefix.Type             : IpPrefix,
                         ProtocolHello.Type        : ProtocolHello,
                         VTPManagementDomain.Type  : VTPManagementDomain,
                         VLAN.Type                 : VLAN,
                         Duplex.Type               : Duplex,
                         TrustBitmap.Type          : TrustBitmap,
                         UntrustedPortCoS.Type     : UntrustedPortCoS,
-                        ManagementAddresses.Type  : ManagementAddresses
+                        ManagementAddresses.Type  : ManagementAddresses,
+                        MTU.Type                  : MTU,
+                        SystemName.Type           : SystemName,
+                        SystemObjectId.Type       : SystemObjectId,
+                        SnmpLocation.Type         : SnmpLocation
                      }
     
     @classmethod
@@ -443,5 +494,6 @@ class CDPElementFactory():
         try:
             class_type = cls.elementTypeMap[_type]
         except KeyError:
-            raise Exception("CDP Element type %s not implemented" % _type)
+            class_type = DummyCdpElement
+            #raise Exception("CDP Element type %s not implemented" % _type)
         return class_type( aBuffer )                   
