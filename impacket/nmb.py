@@ -824,6 +824,11 @@ class NetBIOSTCPSession(NetBIOSSession):
     def __init__(self, myname, remote_name, remote_host, remote_type = TYPE_SERVER, sess_port = NETBIOS_SESSION_PORT, timeout = None, local_type = TYPE_WORKSTATION, sock = None, select_poll = False):
         NetBIOSSession.__init__(self, myname, remote_name, remote_host, remote_type = remote_type, sess_port = sess_port, timeout = timeout, local_type = local_type, sock=sock)
         self.__select_poll = select_poll
+        if (self.__select_poll):
+            self.read_function = self.polling_read
+        else:
+            self.read_function = self.non_polling_read
+
 
     def _setup_connection(self, peer):
         af, socktype, proto, canonname, sa = socket.getaddrinfo(peer[0], peer[1], 0, socket.SOCK_STREAM)[0]
@@ -859,76 +864,70 @@ class NetBIOSTCPSession(NetBIOSSession):
                 # Ignore all other messages, most probably keepalive messages
                 pass
 
-    def __read(self, timeout = None):
-        read_len = 4
+    def polling_read(self, read_length, timeout):
         data = ''
-        if self.__select_poll:
-            if timeout == None:
-                # Well, since we're mimicking a timeout, we will need to wait a lot, this won't block forever
-                # but it's a fair big value
-                timeout = 3600
-            time_left = timeout
-        while read_len > 0:
-            try:
-                if self.__select_poll:
-                    ready, _, _ = select.select([self._sock.fileno() ], [ ], [ ], 0)
-                    time.sleep(0.025)
-                    time_left = time_left - 0.025
-                    if not ready:
-                        if time_left == 0:
-                            raise NetBIOSTimeout
-                        else:
-                            continue
-                else:
-                    ready, _, _ = select.select([self._sock.fileno() ], [ ], [ ], timeout)
-                if not ready:
-                    raise NetBIOSTimeout
+        if (timeout is None):
+            timeout = 3600
 
-                received = self._sock.recv(read_len)
-                if len(received)==0:
+        time_left = timeout
+        CHUNK_TIME = 0.025
+        bytes_left = read_length
+
+        while bytes_left > 0:
+            try:
+                ready, _, _ = select.select([self._sock.fileno() ], [ ], [ ], 0)
+                time.sleep(CHUNK_TIME)
+                time_left = time_left - CHUNK_TIME
+
+                if not ready:
+                    if time_left == 0:
+                        raise NetBIOSTimeout
+                    else:
+                        continue
+
+                received = self._sock.recv(bytes_left)
+                if len(received) == 0:
                     raise NetBIOSError, ( 'Error while reading from remote', ERRCLASS_OS, None)
-                
+
                 data = data + received
-                read_len = 4 - len(data)
+                bytes_left = read_length - len(data)
             except select.error, ex:
                 if ex[0] != errno.EINTR and ex[0] != errno.EAGAIN:
                     raise NetBIOSError, ( 'Error occurs while reading from remote', ERRCLASS_OS, ex[0] )
-                
+
+        return data
+
+    def non_polling_read(self, read_length, timeout):
+        data = ''
+        bytes_left = read_length
+
+        while bytes_left > 0:
+            try:
+                ready, _, _ = select.select([self._sock.fileno() ], [ ], [ ], timeout)
+
+                if not ready:
+                        raise NetBIOSTimeout
+
+                received = self._sock.recv(bytes_left)
+                if len(received) == 0:
+                    raise NetBIOSError, ( 'Error while reading from remote', ERRCLASS_OS, None)
+
+                data = data + received
+                bytes_left = read_length - len(data)
+            except select.error, ex:
+                if ex[0] != errno.EINTR and ex[0] != errno.EAGAIN:
+                    raise NetBIOSError, ( 'Error occurs while reading from remote', ERRCLASS_OS, ex[0] )
+
+        return data
+
+    def __read(self, timeout = None):
+        data = self.read_function(4, timeout)
         type, flags, length = unpack('>ccH', data)
         if ord(flags) & 0x01:
             length = length | 0x10000
-            
-        read_len = length
-        data2=''
-        if self.__select_poll:
-            time_left = timeout
-        while read_len > 0:
-            try:
-                if self.__select_poll:
-                    ready, _, _ = select.select([self._sock.fileno() ], [ ], [ ], 0)
-                    time.sleep(0.025)
-                    time_left = time_left - 0.025
-                    if not ready:
-                        if time_left == 0:
-                            raise NetBIOSTimeout
-                        else:
-                            continue
-                else:
-                    ready, _, _ = select.select([ self._sock.fileno() ], [ ], [ ], timeout)
-                if not ready:
-                    raise NetBIOSTimeout
+        data2 = self.read_function(length, timeout)
 
-                received = self._sock.recv(read_len)
-                if len(received)==0:
-                    raise NetBIOSError, ( 'Error while reading from remote', ERRCLASS_OS, None)
-                
-                data2 = data2 + received 
-                read_len = length - len(data2)
-            except select.error, ex:
-                if ex[0] != errno.EINTR and ex[0] != errno.EAGAIN:
-                    raise NetBIOSError, ( 'Error while reading from remote', ERRCLASS_OS, ex[0] )
-                
-        return data + data2     
+        return data + data2
 
 ERRCLASS_QUERY = 0x00
 ERRCLASS_SESSION = 0xf0
