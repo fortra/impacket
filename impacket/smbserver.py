@@ -4,7 +4,7 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id: smb.py 354 2011-06-29 15:19:16Z bethus@gmail.com $
+# $Id:$
 #
 # Author: Alberto Solino
 # TODO:
@@ -2286,12 +2286,13 @@ class SMBCommands():
 
 class SMBSERVERHandler(SocketServer.BaseRequestHandler):
 
-    def __init__(self, request, client_address, server):
+    def __init__(self, request, client_address, server, select_poll = False):
         self.__SMB = server
         self.__ip, self.__port = client_address
         self.__request = request
         self.__connId = threading.currentThread().getName()
         self.__timeOut = 60*5
+        self.__select_poll = select_poll
         #self.__connId = os.getpid()
         SocketServer.BaseRequestHandler.__init__(self, request, client_address, server)
 
@@ -2301,7 +2302,7 @@ class SMBSERVERHandler(SocketServer.BaseRequestHandler):
         while True:
             try:
                 # Firt of all let's get the NETBIOS packet
-                session = nmb.NetBIOSTCPSession(self.__SMB.getServerName(),'HOST', self.__ip, sess_port = self.__port, sock = self.__request, select_poll = False)
+                session = nmb.NetBIOSTCPSession(self.__SMB.getServerName(),'HOST', self.__ip, sess_port = self.__port, sock = self.__request, select_poll = self.__select_poll)
                 try:
                     p = session.recv_packet(self.__timeOut)
                 except nmb.NetBIOSTimeout:
@@ -2336,6 +2337,7 @@ class SMBSERVERHandler(SocketServer.BaseRequestHandler):
 class SMBSERVER(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
 #class SMBSERVER(SocketServer.ForkingMixIn, SocketServer.TCPServer):
     def __init__(self, server_address, handler_class=SMBSERVERHandler, config_parser = None):
+        SocketServer.TCPServer.allow_reuse_address = True
         SocketServer.TCPServer.__init__(self, server_address, handler_class)
 
         # Server name and OS to be presented whenever is necessary
@@ -2642,6 +2644,7 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
         except Exception, e:
             # Something wen't wrong, defaulting to Bad user ID
             self.log('processRequest (0x%x,%s)' % (packet['Command'],e), logging.ERROR)
+            raise
             packet['Flags1'] |= smb.SMB.FLAGS1_REPLY
             packet['Flags2'] = 0
             errorCode = STATUS_SMB_BAD_UID
