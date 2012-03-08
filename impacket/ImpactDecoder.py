@@ -69,6 +69,9 @@ class EthDecoder(Decoder):
         if e.get_ether_type() == ImpactPacket.IP.ethertype:
             self.ip_decoder = IPDecoder()
             packet = self.ip_decoder.decode(aBuffer[off:])
+        elif e.get_ether_type() == IP6.IP6.ethertype:
+            self.ip6_decoder = IP6Decoder()
+            packet = self.ip6_decoder.decode(aBuffer[off:])
         elif e.get_ether_type() == ImpactPacket.ARP.ethertype:
             self.arp_decoder = ARPDecoder()
             packet = self.arp_decoder.decode(aBuffer[off:])
@@ -146,7 +149,7 @@ class IP6Decoder(Decoder):
         elif contained_protocol == ImpactPacket.TCP.protocol:
             self.tcp_decoder = TCPDecoder()
             child_packet = self.tcp_decoder.decode(buffer[start_pos:end_pos])
-        elif contained_protocol == ImpactPacket.ICMP6.protocol:
+        elif contained_protocol == ICMP6.ICMP6.protocol:
             self.icmp6_decoder = ICMP6Decoder()
             child_packet = self.icmp6_decoder.decode(buffer[start_pos:end_pos])
         else:
