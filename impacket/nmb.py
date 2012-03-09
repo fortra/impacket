@@ -822,12 +822,12 @@ class NetBIOSUDPSession(NetBIOSSession):
 
 class NetBIOSTCPSession(NetBIOSSession):
     def __init__(self, myname, remote_name, remote_host, remote_type = TYPE_SERVER, sess_port = NETBIOS_SESSION_PORT, timeout = None, local_type = TYPE_WORKSTATION, sock = None, select_poll = False):
-        NetBIOSSession.__init__(self, myname, remote_name, remote_host, remote_type = remote_type, sess_port = sess_port, timeout = timeout, local_type = local_type, sock=sock)
         self.__select_poll = select_poll
         if (self.__select_poll):
             self.read_function = self.polling_read
         else:
             self.read_function = self.non_polling_read
+        NetBIOSSession.__init__(self, myname, remote_name, remote_host, remote_type = remote_type, sess_port = sess_port, timeout = timeout, local_type = local_type, sock=sock)                
 
 
     def _setup_connection(self, peer):
