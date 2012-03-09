@@ -3167,9 +3167,9 @@ class SMB:
         return self.__flags1, self.__flags2
 
     def set_flags(self, flags1=None, flags2=None):
-        if flags1:
+        if flags1 is not None:
            self.__flags1 = flags1
-        if flags2:
+        if flags2 is not None:
            self.__flags2 = flags2
 
     def set_timeout(self, timeout):
