@@ -3163,6 +3163,15 @@ class SMB:
     def get_remote_host(self):
         return self.__remote_host
 
+    def get_flags(self):
+        return self.__flags1, self.__flags2
+
+    def set_flags(self, flags1=None, flags2=None):
+        if flags1:
+           self.__flags1 = flags1
+        if flags2:
+           self.__flags2 = flags2
+
     def set_timeout(self, timeout):
         self.__timeout = timeout
 
