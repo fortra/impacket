@@ -124,6 +124,7 @@ class DCERPCTransport:
         self._lmhash = ''
         self._nthash = ''
         self.set_credentials('','')
+        self.__connect_timeout = None
 
     def connect(self):
         raise RuntimeError, 'virtual function'
@@ -135,6 +136,11 @@ class DCERPCTransport:
         raise RuntimeError, 'virtual function'
     def get_socket(self):
         raise RuntimeError, 'virtual function'
+
+    def get_connect_timeout(self):
+        return self.__connect_timeout
+    def set_connect_timeout(self, timeout):
+        self.__connect_timeout = timeout
 
     def get_dip(self):
         return self.__dstip
@@ -202,12 +208,13 @@ class UDPTransport(DCERPCTransport):
     def __init__(self,dstip, dstport = 135):
         DCERPCTransport.__init__(self, dstip, dstport)
         self.__socket = 0
+        self.set_connect_timeout(30)
 
     def connect(self):
         try:
             af, socktype, proto, canonname, sa = socket.getaddrinfo(self.get_dip(), self.get_dport(), 0, socket.SOCK_DGRAM)[0]
             self.__socket = socket.socket(af, socktype, proto)
-            self.__socket.settimeout(10)
+            self.__socket.settimeout(self.get_connect_timeout())
         except socket.error, msg:
             self.__socket = None
             raise Exception, "Could not connect: %s" % msg
@@ -241,17 +248,17 @@ class TCPTransport(DCERPCTransport):
     def __init__(self, dstip, dstport = 135):
         DCERPCTransport.__init__(self, dstip, dstport)
         self.__socket = 0
+        self.set_connect_timeout(30)
 
     def connect(self):
         af, socktype, proto, canonname, sa = socket.getaddrinfo(self.get_dip(), self.get_dport(), 0, socket.SOCK_STREAM)[0]
         self.__socket = socket.socket(af, socktype, proto)
         try:
-            self.__socket.settimeout(10)
+            self.__socket.settimeout(self.get_connect_timeout())
             self.__socket.connect((self.get_dip(), self.get_dport()))
         except socket.error, msg:
             self.__socket.close()
             raise Exception, "Could not connect: %s" % msg
-
         return 1
 
     def disconnect(self):
