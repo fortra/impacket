@@ -317,9 +317,9 @@ class SMBTransport(DCERPCTransport):
         self.set_credentials(username, password, domain, lmhash, nthash)
         self.__remote_name = remote_name
         if smb_server == 0:
-            self.__existing_smb = True
-        else:
             self.__existing_smb = False
+        else:
+            self.__existing_smb = True
         self.__smb_server = smb_server
 
     def setup_smb_server(self):
