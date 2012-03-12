@@ -1571,7 +1571,6 @@ class NewSMBPacket(Structure):
                 return 1
             elif self.isMoreProcessingRequired():
                 return 1
-            print "reserved %x" % self['_reserved']
             raise SessionError, ("SMB Library Error", self['ErrorClass'] + (self['_reserved'] << 8), self['ErrorCode'], self['Flags2'] & SMB.FLAGS2_NT_STATUS)
         else:
             raise UnsupportedFeature, ("Unexpected answer from server: Got %d, Expected %d" % (self['Command'], cmd))
