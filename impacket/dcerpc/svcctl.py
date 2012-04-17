@@ -14,7 +14,6 @@
 
 import array
 from struct import *
-
 from impacket import ImpactPacket
 from impacket.structure import Structure
 from impacket import dcerpc
@@ -23,21 +22,31 @@ from impacket.dcerpc import ndrutils, dcerpc
 MSRPC_UUID_SVCCTL = '\x81\xbb\x7a\x36\x44\x98\xf1\x35\xad\x32\x98\xf0\x38\x00\x10\x03\x02\x00\x00\x00'
 
 # Error Codes 
-ERROR_PATH_NOT_FOUND            = 3
-ERROR_ACCESS_DENIED             = 5
-ERROR_INVALID_HANDLE            = 6
-ERROR_INVALID_DATA              = 13
-ERROR_INVALID_PARAMETER         = 87
-ERROR_INVALID_NAME              = 123
-ERROR_SERVICE_ALREADY_RUNNING   = 1056
-ERROR_INVALID_SERVICE_ACCOUNT   = 1057
-ERROR_SERVICE_DISABLED          = 1058
-ERROR_DATABASE_DOES_NOT_EXIST   = 1065
-ERROR_SERVICE_LOGON_FAILURE     = 1069
-ERROR_SERVICE_MARKED_FOR_DELETE = 1072
-ERROR_SERVICE_EXISTS            = 1073
-ERROR_DUPLICATE_SERVICE_NAME    = 1078
-ERROR_SHUTDOWN_IN_PROGRESS      = 1115
+ERROR_PATH_NOT_FOUND             = 3
+ERROR_ACCESS_DENIED              = 5
+ERROR_INVALID_HANDLE             = 6
+ERROR_INVALID_DATA               = 13
+ERROR_INVALID_PARAMETER          = 87
+ERROR_INSUFICIENT_BUFFER         = 122
+ERROR_INVALID_NAME               = 123
+ERROR_INVALID_LEVEL              = 124
+ERROR_MORE_DATA                  = 234
+ERROR_DEPENDENT_SERVICES_RUNNING = 1051
+ERROR_INVALID_SERVICE_CONTROL    = 1052
+ERROR_SERVICE_REQUEST_TIMEOUT    = 1053
+ERROR_SERVICE_ALREADY_RUNNING    = 1056
+ERROR_INVALID_SERVICE_ACCOUNT    = 1057
+ERROR_SERVICE_DISABLED           = 1058
+ERROR_CIRCULAR_DEPENDENCY        = 1059
+ERROR_SERVICE_DOES_NOT_EXISTS    = 1060
+ERROR_SERVICE_CANNOT_ACCEPT_CTRL = 1061
+ERROR_SERVICE_NOT_ACTIVE         = 1062
+ERROR_DATABASE_DOES_NOT_EXIST    = 1065
+ERROR_SERVICE_LOGON_FAILURE      = 1069
+ERROR_SERVICE_MARKED_FOR_DELETE  = 1072
+ERROR_SERVICE_EXISTS             = 1073
+ERROR_DUPLICATE_SERVICE_NAME     = 1078
+ERROR_SHUTDOWN_IN_PROGRESS       = 1115
 
 # Access codes
 SERVICE_ALL_ACCESS            = 0X000F01FF
@@ -92,6 +101,54 @@ SERVICE_RUNNING               = 0x00000004
 SERVICE_START_PENDING         = 0x00000002
 SERVICE_STOP_PENDING          = 0x00000003
 SERVICE_STOPPED               = 0x00000001
+
+
+class SVCCTLSessionError(Exception):
+    
+    error_messages = {
+ ERROR_PATH_NOT_FOUND            : ("ERROR_PATH_NOT_FOUND", "The system cannot find the path specified."),          
+ ERROR_ACCESS_DENIED             : ("ERROR_ACCESS_DENIED", "Access is denied."),
+ ERROR_INVALID_HANDLE            : ("ERROR_INVALID_HANDLE", "The handle is invalid."),
+ ERROR_INVALID_DATA              : ("ERROR_INVALID_DATA", "The data is invalid."),
+ ERROR_INVALID_PARAMETER         : ("ERROR_INVALID_PARAMETER", "The parameter is incorrect."),
+ ERROR_INSUFICIENT_BUFFER        : ("ERROR_INSUFICIENT_BUFFER", "The data area passed to a system call is too small."), 
+ ERROR_INVALID_NAME              : ("ERROR_INVALID_NAME", "The specified name is invalid."),
+ ERROR_INVALID_LEVEL             : ("ERROR_INVALID_LEVEL", "The level specified contains an unsupported value."),           
+ ERROR_MORE_DATA                 : ("ERROR_MORE_DATA", "More data is available."),
+ ERROR_DEPENDENT_SERVICES_RUNNING: ("ERROR_DEPENDENT_SERVICES_RUNNING", "The service cannot be stopped because other running services are dependent on it."),
+ ERROR_INVALID_SERVICE_CONTROL   : ("ERROR_INVALID_SERVICE_CONTROL", "The requested control code is not valid, or it is unacceptable to the service."),
+ ERROR_SERVICE_REQUEST_TIMEOUT   : ("ERROR_SERVICE_REQUEST_TIMEOUT", "The request timed out."), 
+ ERROR_SERVICE_ALREADY_RUNNING   : ("ERROR_SERVICE_ALREADY_RUNNING", "The target service is already running."),
+ ERROR_INVALID_SERVICE_ACCOUNT   : ("ERROR_INVALID_SERVICE_ACCOUNT", "The service account specified does not exist."),   
+ ERROR_SERVICE_DISABLED          : ("ERROR_SERVICE_DISABLED", "The service is disabled."),          
+ ERROR_CIRCULAR_DEPENDENCY       : ("ERROR_CIRCULAR_DEPENDENCY", "A circular dependency was specified."), 
+ ERROR_SERVICE_DOES_NOT_EXISTS   : ("ERROR_SERVICE_DOES_NOT_EXISTS", "The service does not exist in the SCM database."), 
+ ERROR_SERVICE_CANNOT_ACCEPT_CTRL: ("ERROR_SERVICE_CANNOT_ACCEPT_CTRL", "The requested control code cannot be sent to the service."),
+ ERROR_SERVICE_NOT_ACTIVE        : ("ERROR_SERVICE_NOT_ACTIVE", "The service has not been started."), 
+ ERROR_DATABASE_DOES_NOT_EXIST   : ("ERROR_DATABASE_DOES_NOT_EXIST", "The database specified does not exists."), 
+ ERROR_SERVICE_LOGON_FAILURE     : ("ERROR_SERVICE_LOGON_FAILURE", "The service did not start due to a logon failure."), 
+ ERROR_SERVICE_MARKED_FOR_DELETE : ("ERROR_SERVICE_MARKED_FOR_DELETE", "The service has been marked for deletion."), 
+ ERROR_SERVICE_EXISTS            : ("ERROR_SERVICE_EXISTS", "The service already exists."), 
+ ERROR_DUPLICATE_SERVICE_NAME    : ("ERROR_DUPLICATE_SERVICE_NAME", "The service already exists."), 
+ ERROR_SHUTDOWN_IN_PROGRESS      : ("ERROR_SHUTDOWN_IN_PROGRESS", "The system is shutting down."), 
+    }    
+
+    def __init__( self, error_code):
+        Exception.__init__(self)
+        self.error_code = error_code
+       
+    def get_error_code( self ):
+        return self.error_code
+
+    def __str__( self ):
+        key = self.error_code
+        if (SVCCTLSessionError.error_messages.has_key(key)):
+            error_msg_short = SVCCTLSessionError.error_messages[key][0]
+            error_msg_verbose = SVCCTLSessionError.error_messages[key][1] 
+            return 'SVCCTL SessionError: code: %s - %s - %s' % (str(self.error_code), error_msg_short, error_msg_verbose)
+        else:
+            return 'SVCCTL SessionError: unknown error code: %s' % (str(self.error_code))
+    
 
 class SVCCTLServiceStatus(Structure):
     structure = (
@@ -791,7 +848,10 @@ class DCERPCSvcCtl:
             return
         else:
             answer = self._dcerpc.recv()
-            return answer
+            if checkReturn and answer[-4:] != '\x00\x00\x00\x00':
+                error_code = unpack("<L", answer[-4:])[0]
+                raise SVCCTLSessionError(error_code)  
+        return answer
 
     def DeleteService(self, handle):
         deleteService = SVCCTLRDeleteService()
@@ -945,7 +1005,7 @@ class DCERPCSvcCtl:
         # First packet is to get the buffer size we need to hold the answer
         serviceConfig['ContextHandle'] = handle
         serviceConfig['BuffSize']      = 0
-        ans = self.doRequest(serviceConfig, checkReturn = 1)
+        ans = self.doRequest(serviceConfig, checkReturn = 0)
         packet = SVCCTLRQueryServiceConfigWResponse()
         packet['BufferSize'] = 0
         packet.fromString(ans)
