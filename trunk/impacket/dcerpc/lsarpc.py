@@ -103,6 +103,9 @@ class LSARPCLookupSidsResponse(Structure):
         l_dict.append({'domain': unpack('%ss'%elem_length, sids_resp[ptr:ptr+elem_length])[0].decode('utf16')})
         ptr += elem_length + 4 #for the SID Count
 
+        if (elem_length/2) % 2 == 1:
+           ptr += 2
+
         entry = SAMR_RPC_SID(sids_resp[ptr:])
         l_dict[i]['sid'] = entry
         ptr += len(entry)
@@ -111,17 +114,23 @@ class LSARPCLookupSidsResponse(Structure):
       ptr += 12
 
       for i in range(name_count):
-        names_size.append([unpack('<H',sids_resp[ptr+4:ptr+6])[0], unpack('<L', sids_resp[ptr+12:ptr+16])[0]])
+        names_size.append([unpack('<H',sids_resp[ptr+4:ptr+6])[0], unpack('<H', sids_resp[ptr:ptr+2])[0], unpack('<L', sids_resp[ptr+12:ptr+16])[0]])
         ptr += 16
 
       for i in range(name_count):
         elem_length = names_size[i][0]
+        sid_type = names_size[i][1]
         act_count = unpack('<L', sids_resp[ptr+8:ptr+12])[0]
         ptr += 12
         name = unpack('%ss'%elem_length, sids_resp[ptr:ptr+elem_length])[0].decode('utf16')
-        ret = l_dict[names_size[i][1]].setdefault('names', [name])
+
+        ret = l_dict[names_size[i][2]].setdefault('names', [name])
         if ret != [name]:
-          l_dict[names_size[i][1]]['names'].append(name)
+          l_dict[names_size[i][2]]['names'].append(name)
+  
+        ret = l_dict[names_size[i][2]].setdefault('types', [sid_type])
+        if ret != [sid_type]:
+          l_dict[names_size[i][2]]['types'].append(sid_type)
 
         ptr += elem_length
         if act_count % 2 == 1:
