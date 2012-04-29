@@ -1,11 +1,11 @@
 #!/usr/bin/python
-# Copyright (c) 2011 CORE Security Technologies
+# Copyright (c) 2012 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id: rpcdump.py 246 2011-01-24 14:39:58Z gera@corest.com $
+# $Id$
 #
 # SMB Relay Module
 #
