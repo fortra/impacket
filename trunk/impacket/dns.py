@@ -4,7 +4,7 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id: dot11.py 227 2010-02-24 20:27:00Z 6e726d $
+# $Id$
 #
 # Author:
 #  Andres Blanco
