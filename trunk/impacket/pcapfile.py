@@ -1,3 +1,12 @@
+# Copyright (c) 2003-2012 CORE Security Technologies
+#
+# This software is provided under under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
+# $Id$
+#
+
 from impacket import ImpactPacket, ImpactDecoder, structure
 
 O_ETH = 0

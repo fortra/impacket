@@ -1,3 +1,11 @@
+# Copyright (c) 2003-2012 CORE Security Technologies
+#
+# This software is provided under under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
+# $Id$
+#
 
 from ImpactPacket import Header
 from IP6_Address import IP6_Address
