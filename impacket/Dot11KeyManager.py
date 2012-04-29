@@ -4,7 +4,7 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id: dot11.py 221 2009-12-08 15:34:45Z gmoreira $
+# $Id$
 #
 # Description:
 #  IEEE 802.11 Network packet codecs.

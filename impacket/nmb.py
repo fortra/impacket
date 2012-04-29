@@ -40,7 +40,7 @@ from struct import *
 import time
 
 
-CVS_REVISION = '$Revision$'
+CVS_REVISION = '$Revision: 526 $'
 
 # Taken from socket module reference
 INADDR_ANY = '0.0.0.0'
