@@ -18,8 +18,9 @@ from impacket import ImpactPacket
 from impacket.structure import Structure
 from impacket import dcerpc
 from impacket.dcerpc import ndrutils, dcerpc
+from impacket.uuid import uuidtup_to_bin
 
-MSRPC_UUID_SVCCTL = '\x81\xbb\x7a\x36\x44\x98\xf1\x35\xad\x32\x98\xf0\x38\x00\x10\x03\x02\x00\x00\x00'
+MSRPC_UUID_SVCCTL = uuidtup_to_bin(('367ABB81-9844-35F1-AD32-98F038001003', '2.0'))
 
 # Error Codes 
 ERROR_PATH_NOT_FOUND             = 3

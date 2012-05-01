@@ -20,8 +20,9 @@ from impacket import ImpactPacket
 from impacket import dcerpc
 from impacket.dcerpc import ndrutils, dcerpc
 from impacket.structure import Structure
+from impacket.uuid import uuidtup_to_bin
 
-MSRPC_UUID_SAMR   = '\x78\x57\x34\x12\x34\x12\xcd\xab\xef\x00\x01\x23\x45\x67\x89\xac\x01\x00\x00\x00'
+MSRPC_UUID_SAMR   = uuidtup_to_bin(('12345778-1234-ABCD-EF00-0123456789AC', '1.0'))
 
 OP_NUM_CREATE_USER_IN_DOMAIN    = 0xC
 OP_NUM_ENUM_USERS_IN_DOMAIN     = 0xD

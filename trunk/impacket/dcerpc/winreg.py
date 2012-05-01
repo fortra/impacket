@@ -18,8 +18,10 @@ import struct
 from impacket import dcerpc
 from impacket.dcerpc import ndrutils
 from impacket import ImpactPacket
+from impacket.uuid import uuidtup_to_bin
 
-MSRPC_UUID_WINREG = '\x01\xd0\x8c\x33\x44\x22\xf1\x31\xaa\xaa\x90\x00\x38\x00\x10\x03\x01\x00\x00\x00'
+
+MSRPC_UUID_WINREG = uuidtup_to_bin(('338CD001-2244-31F1-AAAA-900038001003', '1.0'))
 
 # Registry Security Access Mask values
 KEY_CREATE_LINK         = 0x20
