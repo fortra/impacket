@@ -15,8 +15,9 @@ from impacket import uuid
 from impacket import dcerpc
 from impacket.dcerpc import ndrutils
 from impacket.dcerpc import transport
+from impacket.uuid import uuidtup_to_bin
 
-MSRPC_UUID_PORTMAP ='\x08\x83\xaf\xe1\x1f\x5d\xc9\x11\x91\xa4\x08\x00\x2b\x14\xa0\xfa\x03\x00\x00\x00'
+MSRPC_UUID_PORTMAP = uuidtup_to_bin(('E1AF8308-5D1F-11C9-91A4-08002B14A0FA', '3.0'))
 
 class EPMLookupRequestHeader(ImpactPacket.Header):
     OP_NUM = 2

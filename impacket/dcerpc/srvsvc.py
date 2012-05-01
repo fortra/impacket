@@ -21,8 +21,10 @@ from impacket import ImpactPacket
 from impacket.structure import Structure
 from impacket import dcerpc
 from impacket.dcerpc import ndrutils
+from impacket.uuid import uuidtup_to_bin
 
-MSRPC_UUID_SRVSVC = '\xc8\x4f\x32\x4b\x70\x16\xd3\x01\x12\x78\x5a\x47\xbf\x6e\xe1\x88\x03\x00\x00\x00'
+
+MSRPC_UUID_SRVSVC = uuidtup_to_bin(('4B324FC8-1670-01D3-1278-5A47BF6EE188', '3.0'))
 
 # We should move this to ndrutils.py once we port it to structure
 class NDRString(Structure):
