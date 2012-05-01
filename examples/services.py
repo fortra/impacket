@@ -89,8 +89,9 @@ class SVCCTL:
         rpc = svcctl.DCERPCSvcCtl(dce)
         ans = rpc.OpenSCManagerW()
         scManagerHandle = ans['ContextHandle']
-        ans = rpc.OpenServiceW(scManagerHandle, self.__service_name.encode('utf-16le'))
-        serviceHandle = ans['ContextHandle']
+        if self.__action.upper() != 'LIST':
+            ans = rpc.OpenServiceW(scManagerHandle, self.__service_name.encode('utf-16le'))
+            serviceHandle = ans['ContextHandle']
         if self.__action.upper() == 'START':
             print "Starting service %s" % self.__service_name
             rpc.StartServiceW(serviceHandle)
