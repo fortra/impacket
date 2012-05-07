@@ -103,7 +103,9 @@ class DOMAIN_INFORMATION(Structure):
         data = self['Data']
         if self['pName'] != 0:
             name = ndrutils.NDRStringW(data)
-            data = data[len(name):]
+            data = data[name['ActualCount']*2+12:]
+            if name['ActualCount'] % 2 == 1:
+                data = data[2:]
             resp['name'] = name['Data']
         if self['pSid'] != 0:
             resp['sid'] = SAMR_RPC_SID(data[4:])
@@ -231,7 +233,7 @@ class DCERPCLsarpc:
     def __init__(self, dcerpc):
         self._dcerpc = dcerpc
 
-    def doRequest(self, request, noAnswer = 0, checkReturn = 0):
+    def doRequest(self, request, noAnswer = 0, checkReturn = 1):
         self._dcerpc.call(request.opnum, request)
         if noAnswer:
             return
@@ -264,7 +266,7 @@ class DCERPCLsarpc:
       open_policy['ContextHandle'] = context_handle
       open_policy['SidsBuff'] = SIDS_BUFF()
       open_policy['SidsBuff']['NumSids'] = len(sids)
-      open_policy['SidsBuff']['RefID'] = random.randint(0,65535)
+      open_policy['SidsBuff']['RefID'] = random.randint(1,65535)
       open_policy['SidsBuff']['MaxCount'] = len(sids)
       
       sids_str = ''
@@ -288,14 +290,14 @@ class DCERPCLsarpc:
         sids_str += _sid.getData()
 
       for i in range(0, sid_items):
-        sids_str = pack('<L',random.randint(0,65535)) + sids_str
+        sids_str = pack('<L',random.randint(1,65535)) + sids_str
       open_policy['SidsBuff']['Sids'] = sids_str
 
       open_policy['TransNames'] = '\x00\x00\x00\x00\x00\x00\x00\x00'
       open_policy['LookupLevel'] = 1
       open_policy['MappedCount'] = '\x00\x00\x00\x00\x00\x00'
 
-      data = self.doRequest(open_policy)
+      data = self.doRequest(open_policy, checkReturn = 0)
       packet = LSARPCLookupSidsResponse(data)
       return packet
 
@@ -303,7 +305,7 @@ class DCERPCLsarpc:
        queryInfo = LSARPCQueryInformationPolicy2()
        queryInfo['ContextHandle'] = policyHandle
        queryInfo['InformationClass'] = informationClass
-       packet = self.doRequest(queryInfo, checkReturn = 1)
+       packet = self.doRequest(queryInfo)
        
        data = LSARPCQueryInformationPolicy2Response(packet)
        # For the answers we can parse, we return the structs, for the rest, just the data
