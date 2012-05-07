@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Copyright (c) 2003 CORE Security Technologies
+# Copyright (c) 2003-2012 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -13,7 +13,7 @@
 #  Javier Kohen <jkohen@coresecurity.com>
 #
 # Reference for:
-#  DCE/RPC.
+#  DCE/RPC for SAMR
 
 import socket
 import string
@@ -35,12 +35,13 @@ class SAMRDump:
 
 
     def __init__(self, protocols = None,
-                 username = '', password = ''):
+                 username = '', password = '', domain = ''):
         if not protocols:
             protocols = SAMRDump.KNOWN_PROTOCOLS.keys()
 
         self.__username = username
         self.__password = password
+        self.__domain = domain
         self.__protocols = protocols
 
 
@@ -60,7 +61,7 @@ class SAMRDump:
             port = protodef[1]
 
             print "Trying protocol %s..." % protocol
-            rpctransport = transport.SMBTransport(addr, port, r'\samr', self.__username, self.__password)
+            rpctransport = transport.SMBTransport(addr, port, r'\samr', self.__username, self.__password, self.__domain)
 
             try:
                 entries = self.__fetchList(rpctransport)
@@ -140,21 +141,29 @@ class SAMRDump:
 
             domain_context_handle = resp.get_context_handle()
             resp = rpcsamr.enumusers(domain_context_handle)
-            if resp.get_return_code() != 0:
+            if resp.get_return_code() != 0 and resp.get_return_code() != 0x105:
                 raise ListUsersException, 'OpenDomainUsers error'
 
-            for user in resp.get_users().elements():
-                uname = user.get_name().encode(encoding, 'replace')
-                uid = user.get_id()
+            done = False
+            while done is False:
+                for user in resp.get_users().elements():
+                    uname = user.get_name().encode(encoding, 'replace')
+                    uid = user.get_id()
 
-                r = rpcsamr.openuser(domain_context_handle, uid)
-                print "Found user: %s, uid = %d" % (uname, uid)
+                    r = rpcsamr.openuser(domain_context_handle, uid)
+                    print "Found user: %s, uid = %d" % (uname, uid)
 
-                if r.get_return_code() == 0:
-                    info = rpcsamr.queryuserinfo(r.get_context_handle()).get_user_info()
-                    entry = (uname, uid, info)
-                    entries.append(entry)
-                    c = rpcsamr.closerequest(r.get_context_handle())
+                    if r.get_return_code() == 0:
+                        info = rpcsamr.queryuserinfo(r.get_context_handle()).get_user_info()
+                        entry = (uname, uid, info)
+                        entries.append(entry)
+                        c = rpcsamr.closerequest(r.get_context_handle())
+
+                # Do we have more users?
+                if resp.get_return_code() == 0x105:
+                    resp = rpcsamr.enumusers(domain_context_handle, resp.get_resume_handle())
+                else:
+                    done = True
         except ListUsersException, e:
             print "Error listing users: %s" % e
 
@@ -174,9 +183,9 @@ if __name__ == '__main__':
     import re
 
     username, password, address = re.compile('(?:([^@:]*)(?::([^@]*))?@)?(.*)').match(sys.argv[1]).groups('')
-
+    domain = ''
     if len(sys.argv) > 2:
-        dumper = SAMRDump(sys.argv[2:], username, password)
+        dumper = SAMRDump(sys.argv[2:], username, password, domain)
     else:
-        dumper = SAMRDump(username = username, password = password)
+        dumper = SAMRDump(username = username, password = password, domain = domain)
     dumper.dump(address)
