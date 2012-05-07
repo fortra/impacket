@@ -338,7 +338,7 @@ class NDREntries:
     
 class NDRPointer:
     def __init__(self,data='',pointerType = None):
-        self._referent_id = random.randint(0,65535)
+        self._referent_id = random.randint(1,65535)
         self._pointer = None
         if data:
             self._referent_id = unpack('<L',data[:4])[0]
@@ -392,7 +392,7 @@ class NDRUniqueStringA(NDRStringA):
     )
     def __init__(self, data = None, alignment = 0):
         NDRStringA.__init__(self,data, alignment)
-        self['RefId'] = random.randint(0,65535)
+        self['RefId'] = random.randint(1,65535)
 
 
 class NDRStringW(Structure):
@@ -412,6 +412,6 @@ class NDRUniqueStringW(NDRStringW):
     )
     def __init__(self, data = None, alignment = 0):
         NDRStringW.__init__(self,data, alignment)
-        self['RefId'] = random.randint(0,65535)
+        self['RefId'] = random.randint(1,65535)
 
 
