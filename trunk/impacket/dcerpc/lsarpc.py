@@ -127,7 +127,6 @@ class SIDS_BUFF(Structure):
 
 class LSARPCLookupSids(Structure):
     opnum = 15
-    alignment = 4
     structure = (
        ('ContextHandle','20s'),
        ('SidsBuff',':',SIDS_BUFF),
@@ -152,8 +151,10 @@ class LSARPCLookupSidsResponse(Structure):
 
       sids_resp = self['pSidsRespBuffer']
       dom_count = unpack('<L',sids_resp[4:8])[0]
-
-      ptr = 20
+      if dom_count == 0:
+          ptr = 8
+      else:
+          ptr = 20
       for i in range(dom_count):
         elem_len.append(unpack('<H',sids_resp[ptr:ptr+2])[0])
         ptr += 12
@@ -181,9 +182,13 @@ class LSARPCLookupSidsResponse(Structure):
       for i in range(name_count):
         elem_length = names_size[i][0]
         sid_type = names_size[i][1]
-        act_count = unpack('<L', sids_resp[ptr+8:ptr+12])[0]
-        ptr += 12
-        name = unpack('%ss'%elem_length, sids_resp[ptr:ptr+elem_length])[0].decode('utf16')
+        if elem_length != 0:
+            act_count = unpack('<L', sids_resp[ptr+8:ptr+12])[0]
+            ptr += 12
+            name = unpack('%ss'%elem_length, sids_resp[ptr:ptr+elem_length])[0].decode('utf16')
+        else:
+            act_count = 0
+            name = ''
 
         ret = l_dict[names_size[i][2]].setdefault('names', [name])
         if ret != [name]:
