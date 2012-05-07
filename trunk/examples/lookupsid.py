@@ -89,14 +89,13 @@ class LSALookupSid:
         dce.bind(lsarpc.MSRPC_UUID_LSARPC)
         rpc = lsarpc.DCERPCLsarpc(dce)
 
-        resp = rpc.LsarOpenPolicy2(rpctransport.get_dip())
+        resp = rpc.LsarOpenPolicy2(rpctransport.get_dip(), access_mask=0x02000000)
 
         try:
           resp2 = rpc.LsarQueryInformationPolicy2(resp['ContextHandle'], lsarpc.POLICY_ACCOUNT_DOMAIN_INFORMATION)
           rootsid = resp2.formatDict()['sid'].formatCanonical()
         except Exception, e:
           print e 
-        l = []
 
         for i in range(500,maxRid):
             res = rpc.LsarLookupSids(resp['ContextHandle'], [rootsid + '-%d' % i])
