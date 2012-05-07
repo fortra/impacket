@@ -7,6 +7,7 @@
 # $Id$
 #
 # Author: Pablo A. Schachner
+#         Alberto Solino
 #
 # Description:
 #   LSARPC interface implementation.
@@ -21,6 +22,27 @@ from struct import pack, unpack
 
 MSRPC_UUID_LSARPC = uuidtup_to_bin(('12345778-1234-ABCD-EF00-0123456789AB','0.0'))
 
+# Constants
+
+# POLICY_INFORMATION_CLASS
+POLICY_AUDIT_LOG_INFORMATION            = 1
+POLICY_AUDIT_EVENTS_INFORMATION         = 2
+POLICY_PRIMARY_DOMAIN_INFORMATION       = 3
+POLICY_PD_ACCOUNT_INFORMATION           = 4
+POLICY_ACCOUNT_DOMAIN_INFORMATION       = 5
+POLICY_LSA_SERVER_ROLE_INFORMATION      = 6
+POLICY_REPLICA_SOURCE_INFORMATION       = 7
+POLICY_DEFAULT_QUOTA_INFORMATION        = 8
+POLICY_MODIFICATION_INFORMATION         = 9
+POLICY_AUDIT_FULL_SET_INFORMATION       = 10
+POLICY_AUDIT_FULL_QUERY_INFORMATION     = 11
+POLICY_DNS_DOMAIN_INFORMATION           = 12
+POLICY_DNS_DOMAIN_INFORMATION_INT       = 13
+POLICY_LOCAL_ACCOUNT_DOMAIN_INFORMATION = 14
+POLICY_LAST_ENTRY                       = 15
+
+
+# Structs
 class LSARPCOpenPolicy2(Structure):
     opnum = 44
     alignment = 4
@@ -49,6 +71,45 @@ class LSARPCCloseResponse(Structure):
         ('ErrorCode','<L'),
     )
     
+class LSARPCQueryInformationPolicy2(Structure):
+    opnum = 46
+    structure = (
+        ('ContextHandle','20s'),
+        ('InformationClass', '<H'),
+    )
+
+class LSARPCQueryInformationPolicy2Response(Structure):
+    structure = (
+        ('RefID','<L'),
+        ('Info','<L'),
+        ('BuffSize','_-pRespBuffer','len(self.rawData)-12'),
+        ('pRespBuffer',':'),
+        ('ErrorCode','<L')
+    )
+
+class DOMAIN_INFORMATION(Structure):
+    structure = (
+        ('Length','<H'),
+        ('Size','<H'),
+        ('pName','<L'),
+        ('pSid','<L'),
+        ('Data',':'),
+    )
+
+    def formatDict(self):
+        resp = {}
+        resp['name'] = None
+        resp['sid']  = None
+        data = self['Data']
+        if self['pName'] != 0:
+            name = ndrutils.NDRStringW(data)
+            data = data[len(name):]
+            resp['name'] = name['Data']
+        if self['pSid'] != 0:
+            resp['sid'] = SAMR_RPC_SID(data[4:])
+        return resp
+        
+
 class SAMR_RPC_SID_STRUCT(Structure):
     structure = (
         ('Count','<L'),
@@ -138,17 +199,42 @@ class LSARPCLookupSidsResponse(Structure):
 
       return l_dict
 
+class LSARPCSessionError(Exception):
+
+    # TODO, complete the error codes here. Looks like LSA return NT Error codes
+    error_messages = {
+    }
+
+    def __init__( self, error_code):
+        Exception.__init__(self)
+        self.error_code = error_code
+       
+    def get_error_code( self ):
+        return self.error_code
+
+    def __str__( self ):
+        key = self.error_code
+        if (LSARPCSessionError.error_messages.has_key(key)):
+            error_msg_short = LSARPCSessionError.error_messages[key][0]
+            error_msg_verbose = LSARPCSessionError.error_messages[key][1] 
+            return 'LSARPC SessionError: code: %s - %s - %s' % (str(self.error_code), error_msg_short, error_msg_verbose)
+        else:
+            return 'LSARPC SessionError: unknown error code: 0x%x' % (self.error_code)
+
 class DCERPCLsarpc:
     
     def __init__(self, dcerpc):
         self._dcerpc = dcerpc
 
-    def doRequest(self, request, noAnswer = 0, checkReturn = 1):
+    def doRequest(self, request, noAnswer = 0, checkReturn = 0):
         self._dcerpc.call(request.opnum, request)
         if noAnswer:
             return
         else:
             answer = self._dcerpc.recv()
+            if checkReturn and answer[-4:] != '\x00\x00\x00\x00':
+                error_code = unpack('<L', answer[-4:])[0]
+                raise LSARPCSessionError(error_code)
             return answer
 
     def LsarOpenPolicy2( self, server_name, access_mask = 0x00020801):
@@ -207,6 +293,21 @@ class DCERPCLsarpc:
       data = self.doRequest(open_policy)
       packet = LSARPCLookupSidsResponse(data)
       return packet
+
+    def LsarQueryInformationPolicy2(self, policyHandle, informationClass):
+       queryInfo = LSARPCQueryInformationPolicy2()
+       queryInfo['ContextHandle'] = policyHandle
+       queryInfo['InformationClass'] = informationClass
+       packet = self.doRequest(queryInfo, checkReturn = 1)
+       
+       data = LSARPCQueryInformationPolicy2Response(packet)
+       # For the answers we can parse, we return the structs, for the rest, just the data
+       if informationClass == POLICY_PRIMARY_DOMAIN_INFORMATION:
+           return DOMAIN_INFORMATION(data['pRespBuffer'])
+       elif informationClass == POLICY_ACCOUNT_DOMAIN_INFORMATION:
+           return DOMAIN_INFORMATION(data['pRespBuffer'])
+       else:
+           return data
 
     def LsarClose( self, context_handle):
       open_policy = LSARPCClose()
