@@ -24,6 +24,9 @@ from impacket.uuid import uuidtup_to_bin
 
 MSRPC_UUID_SAMR   = uuidtup_to_bin(('12345778-1234-ABCD-EF00-0123456789AC', '1.0'))
 
+KNOWN_SIDS = {
+}
+
 OP_NUM_CREATE_USER_IN_DOMAIN    = 0xC
 OP_NUM_ENUM_USERS_IN_DOMAIN     = 0xD
 OP_NUM_CREATE_ALIAS_IN_DOMAIN   = 0xE
@@ -786,9 +789,10 @@ class DCERPCSamr:
         retVal = SAMRRespOpenDomainHeader(data)
         return retVal
 
-    def enumusers(self,context_handle):
+    def enumusers(self,context_handle, resume_handle = 0):
         enumusers = SAMREnumDomainUsersHeader()
         enumusers.set_context_handle(context_handle)
+        enumusers.set_resume_handle(resume_handle)
         self._dcerpc.send(enumusers)
         data = self._dcerpc.recv()
         retVal = SAMRRespEnumDomainUsersHeader(data)
