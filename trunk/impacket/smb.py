@@ -3058,6 +3058,8 @@ class SMB:
     CAP_EXTENDED_SECURITY                   = 0x80000000
     CAP_USE_NT_ERRORS                       = 0x40
     CAP_NT_SMBS                             = 0x10
+    CAP_LARGE_READX                         = 0x00004000
+    CAP_LARGE_WRITEX                        = 0x00008000
 
     # Flags1 Mask
     FLAGS1_LOCK_AND_READ_OK                 = 0x01
@@ -3608,7 +3610,11 @@ class SMB:
                 return (f2 & 0xffffffffL) << 32 | f1
 
     def __nonraw_retr_file(self, tid, fid, offset, datasize, callback):
-        max_buf_size = self._dialects_parameters['MaxBufferSize'] & ~0x3ff  # Read in multiple KB blocks
+        if (self._dialects_parameters['Capabilities'] & SMB.CAP_LARGE_READX) and self._SignatureEnabled is False:
+            max_buf_size = 65000
+        else:
+            max_buf_size = self._dialects_parameters['MaxBufferSize'] & ~0x3ff  # Read in multiple KB blocks
+
         read_offset = offset
         while read_offset < datasize:
             data = self.read_andx(tid, fid, read_offset, max_buf_size)
@@ -3629,7 +3635,11 @@ class SMB:
             read_offset += len(data)
 
     def __nonraw_stor_file(self, tid, fid, offset, datasize, callback):
-        max_buf_size = self._dialects_parameters['MaxBufferSize'] & ~0x3ff  # Write in multiple KB blocks
+        if (self._dialects_parameters['Capabilities'] & SMB.CAP_LARGE_WRITEX) and self._SignatureEnabled is False:
+            max_buf_size = 65000
+        else:
+            max_buf_size = self._dialects_parameters['MaxBufferSize'] & ~0x3ff  # Write in multiple KB blocks
+
         write_offset = offset
         while 1:
             data = callback(max_buf_size)
@@ -3942,7 +3952,10 @@ class SMB:
 
     def read_andx(self, tid, fid, offset=0, max_size = None, wait_answer=1, smb_packet=None):
         if not max_size:
-            max_size = self._dialects_parameters['MaxBufferSize'] # Read in multiple KB blocks
+            if (self._dialects_parameters['Capabilities'] & SMB.CAP_LARGE_READX) and self._SignatureEnabled is False:
+                max_size = 65000
+            else:
+                max_size = self._dialects_parameters['MaxBufferSize'] # Read in multiple KB blocks
         
         # max_size is not working, because although it would, the server returns an error (More data avail)
 
