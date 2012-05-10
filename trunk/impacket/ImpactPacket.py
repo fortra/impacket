@@ -1402,6 +1402,8 @@ class TCP(Header):
                 op_len = opt_bytes[1]
                 if op_len > len(opt_bytes):
                     raise ImpactPacketException, "TCP Option length is too high"
+                if op_len < 2:
+                    raise ImpactPacketException, "TCP Option length is too low"
 
                 new_option = TCPOption(op_kind)
                 new_option.set_bytes(opt_bytes[:op_len])
