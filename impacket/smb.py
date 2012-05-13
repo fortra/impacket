@@ -431,6 +431,10 @@ class SPNEGO_NegTokenResp():
             decode_data = decode_data[1:]
             decode_data = decode_data[total_bytes:]
 
+            # Do we have more data?
+            if len(decode_data) == 0:
+                return
+
             next_byte = unpack('B', decode_data[:1])[0]
             if next_byte != ASN1_SUPPORTED_MECH:
                 if next_byte != ASN1_RESPONSE_TOKEN:
