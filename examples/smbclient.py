@@ -36,6 +36,7 @@ import string
 from impacket import smb
 from impacket.dcerpc import dcerpc_v4, dcerpc, transport, srvsvc
 import cmd
+import os
 
 class MiniImpacketShell(cmd.Cmd):    
     def __init__(self):
@@ -57,6 +58,11 @@ class MiniImpacketShell(cmd.Cmd):
 
     def do_exit(self,line):
         return True
+
+    def do_shell(self, line):
+        output = os.popen(line).read()
+        print output
+        self.last_output = output
 
     def do_help(self,line):
         print """
@@ -137,17 +143,19 @@ class MiniImpacketShell(cmd.Cmd):
         print "Simultaneous Users: %d" % resp['Users']
          
     def do_shares(self, line):
-        rpctransport = transport.SMBTransport(self.smb.get_remote_name(), self.smb.get_remote_host(), filename = r'\srvsvc', smb_server = self.smb)
-        dce = dcerpc.DCERPC_v5(rpctransport)
-        dce.connect()                     
-        dce.bind(srvsvc.MSRPC_UUID_SRVSVC)
-        srv_svc = srvsvc.DCERPCSrvSvc(dce)
-        resp = srv_svc.get_share_enum_1(rpctransport.get_dip())
-        for i in range(len(resp)):                        
+        try:
+            rpctransport = transport.SMBTransport(self.smb.get_remote_name(), self.smb.get_remote_host(), filename = r'\srvsvc', smb_server = self.smb)
+            dce = dcerpc.DCERPC_v5(rpctransport)
+            dce.connect()                     
+            dce.bind(srvsvc.MSRPC_UUID_SRVSVC)
+            srv_svc = srvsvc.DCERPCSrvSvc(dce)
+            resp = srv_svc.get_share_enum_1(rpctransport.get_dip())
+            for i in range(len(resp)):                        
                 print resp[i]['NetName'].decode('utf-16')
-	# Old Code in case you want to use the old SMB shares commands
-        #for share in self.smb.list_shared():
-        #    print "%s" % share.get_name()
+        except:
+	    # Old Code in case you want to use the old SMB shares commands
+            for share in self.smb.list_shared():
+                print "%s" % share.get_name()
 
     def do_use(self,line):
         self.share = line
