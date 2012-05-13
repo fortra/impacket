@@ -20,12 +20,12 @@ What protocols are featured?
 ----------------------------
 
  * Ethernet, Linux ``Cooked'' capture.
- * IP, TCP, UDP, ICMP, IGMP, ARP.
+ * IP, TCP, UDP, ICMP, IGMP, ARP. (IPv4 and IPv6)
  * NMB and SMB (high-level implementations).
  * DCE/RPC versions 4 and 5, over different transports: UDP (version 4
    exclusively), TCP, SMB/TCP, SMB/NetBIOS and HTTP.
  * Portions of the following DCE/RPC interfaces: Conv, DCOM, EPM,
-   SAMR, SvcCtl, WinReg.
+   SAMR, SVCCTL, WINREG, SRVSVC, LSARPC, WKSSVC.
 
 
 Getting Impacket
@@ -33,7 +33,8 @@ Getting Impacket
 
 Current and past releases are available from
 http://oss.coresecurity.com/impacket/.
-
+Trunk available from
+http://code.google.com/p/impacket/
 
 Setup
 =====
