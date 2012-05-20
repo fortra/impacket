@@ -8,6 +8,9 @@
 #
 
 from impacket.structure import Structure
+from impacket.uuid import uuidtup_to_bin
+
+MSRPC_UUID_SPOOLSS   = uuidtup_to_bin(('12345678-1234-ABCD-EF00-0123456789AB', '1.0'))
 
 def zeroize(s):
     return '\x00'.join(str(s)) + '\x00'
@@ -290,10 +293,7 @@ class PrintSpooler:
         enumPrinters['Name'] = name
         enumPrinters['PrinterEnum'] = ''
         ans = SpoolSS_EnumPrinters_answer(self.doRequest(enumPrinters, checkReturn = 0))
-
-        self.logDebug("enumPrinters() needing %d bytes" % ans['cbNeeded'])
-        if ans['cbNeeded'] > 4096:
-            raise Exception, "Buffer is too big."
+        #print("enumPrinters() needing %d bytes" % ans['cbNeeded'])
 
         # do the real request
         enumPrinters = SpoolSS_EnumPrinters()
@@ -303,7 +303,7 @@ class PrintSpooler:
         enumPrinters['PrinterEnum'] = '\x00' * ans['cbNeeded']
 
         ans = SpoolSS_EnumPrinters_answer(self.doRequest(enumPrinters, checkReturn = 0))
-        # ans.dump('answer')
+        return ans
         
     def openPrinter(self, printerName, dataType, devMode, accessRequired):
         openPrinter = SpoolSS_OpenPrinter()
