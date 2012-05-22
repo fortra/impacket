@@ -374,8 +374,8 @@ class MSRPCBindAck(Structure):
         ('max_tfrag','<H'),
         ('max_rfrag','<H'),
         ('assoc_group','<L'),
-        ('SecondaryAddrLen','<H'),
-        ('SecondaryAddr','z'),
+        ('SecondaryAddrLen','<H&SecondaryAddr'), 
+        ('SecondaryAddr','z'), # Optional if SecondaryAddrLen == 0
         ('PadLen','_-Pad','(4-((self["SecondaryAddrLen"]+self._SIZE) % 4))%4'),
         ('Pad',':'),
         ('ctx_num','B'),
@@ -811,6 +811,7 @@ class DCERPC_v5(DCERPC):
 
         self._max_ctx += 1
         answer.set_ctx_id(self._max_ctx)
+        answer.__callid = self.__callid
         
         answer.bind(newUID, alter = 1, bogus_binds = bogus_binds)
         return answer
