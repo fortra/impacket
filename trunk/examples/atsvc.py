@@ -70,6 +70,8 @@ class ATSVC:
     def doStuff(self, rpctransport):
         dce = dcerpc.DCERPC_v5(rpctransport)
 
+        user, pwd, domain, _, _ = rpctransport.get_credentials()
+        dce.set_credentials(user,pwd,domain)
         dce.connect()
         #dce.set_auth_level(ntlm.NTLM_AUTH_PKT_PRIVACY)
         #dce.set_max_fragment_size(16)
@@ -89,9 +91,32 @@ class ATSVC:
         resp = at.NetrJobAdd(('\\\\%s'% rpctransport.get_dip()),atInfo)
 
         resp = at.NetrJobEnum(rpctransport.get_dip())
-
-        # ToDo: Parse this struct.. Should be easy
+        # ToDo: Parse this struct, should be easy
         resp.dump()
+        # Switching context to TSS
+        dce = dce.alter_ctx(atsvc.MSRPC_UUID_TSS)
+        # Now atsvc should use that new context
+        at = atsvc.DCERPCAtSvc(dce)
+        #path = '\\Microsoft\\Windows\\Media Center'
+        path = '\\'
+        resp = at.SchRpcEnumTasks(path)
+        if resp['Count'] == 1:
+            print resp['TaskName']['Data']
+            if resp['ErrorCode'] == atsvc.S_FALSE:
+                i = 1
+                done = False
+                while done is not True:
+                    # More items
+                    try:
+                        resp = at.SchRpcEnumTasks(path,startIndex=i)
+                    except:
+                        break
+                    if resp['Count'] == 1:
+                         print resp['TaskName']['Data'] 
+                         i += 1
+                    elif resp['ErrorCode'] != atsvc.S_FALSE:
+                        done = True
+ 
 
         dce.disconnect()
 
