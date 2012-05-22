@@ -352,6 +352,7 @@ class SMBTransport(DCERPCTransport):
         # that's up for the caller
         if self.__existing_smb == False:
             self.__smb_server.logoff()
+            self.__smb_server = 0
 
     def send(self,data, noAnswer = 0, forceWriteAndx = 0, forceRecv = 0):
         if self._max_send_frag:
