@@ -22,6 +22,15 @@ MSRPC_UUID_ATSVC = uuidtup_to_bin(('1FF70682-0A51-30E8-076D-740BE8CEE98B', '1.0'
 MSRPC_UUID_SASEC = uuidtup_to_bin(('378E52B0-C0A9-11CF-822D-00AA0051E40F', '1.0'))
 MSRPC_UUID_TSS   = uuidtup_to_bin(('86D35949-83C9-4044-B424-DB363231FD0C', '1.0'))
 
+# Constants
+S_OK                      = 0x00000000
+S_FALSE                   = 0x00000001
+E_OUTOFMEMORY             = 0x80000002
+E_ACCESSDENIED            = 0x80000009
+E_INVALIDARG              = 0x80000003
+E_FAIL                    = 0x80000008
+E_UNEXPECTED              = 0x8000FFFF
+
 # Structures
 
 class AT_INFO(Structure):
@@ -30,14 +39,14 @@ class AT_INFO(Structure):
         ('DaysOfMonth','<L=0'),
         ('DaysOfWeek','<B=0'),
         ('Flags','<B=0'),
-        ('unknown','<H=0'),
-        ('Command',':',ndrutils.NDRStringW),
+        ('unknown','<H=0xffff'),
+        ('Command',':',ndrutils.NDRUniqueStringW),
     )
 
 # Opnums
 class ATSVCNetrJobAdd(Structure):
     opnum = 0
-    alignment = 4
+    #alignment = 4
     structure = (
         ('ServerName',':',ndrutils.NDRUniqueStringW),
         ('pAtInfo',':',AT_INFO),
@@ -65,6 +74,26 @@ class ATSVCNetrJobEnumResponse(Structure):
         ('TotalEntries','<L'),
         ('RedId2','<L'),
         ('ResumeHandle','<L=0xff'),
+    )
+
+class ATSVCSchRpcEnumTasks(Structure):
+    opnum = 7
+    alignment = 4
+    structure = (
+         ('Path',':',ndrutils.NDRStringW),
+         ('Flags','<L'),
+         ('StartIndex','<L=0'),
+         ('cRequested','<L=1'), 
+     )
+
+class ATSVCSchRpcEnumTasksResp(Structure):
+    structure = (
+        ('pcNames','<L'),
+        ('Count','<L'),
+        ('RefId','<L'),
+        ('Count2','<L'),
+        ('TaskName',':',ndrutils.NDRUniqueStringW),
+        ('ErrorCode','<L'),
     )
 
 class ATSVCSessionError(Exception):
@@ -124,5 +153,17 @@ class DCERPCAtSvc:
          packet = self.doRequest(jobEnum, checkReturn = 1)
          ans = ATSVCNetrJobEnumResponse(packet) 
          return ans
+
+    def SchRpcEnumTasks(self, path, startIndex=0, flags=0):
+         enumTasks = ATSVCSchRpcEnumTasks()
+         enumTasks['Path'] = ndrutils.NDRStringW()
+         enumTasks['Path']['Data'] = (path+'\x00').encode('utf-16le')
+         enumTasks['StartIndex'] = startIndex
+         enumTasks['Flags'] = 0
+         packet = self.doRequest(enumTasks, checkReturn = 0)
+         ans = ATSVCSchRpcEnumTasksResp(packet)
+         return ans
+
+
 
 
