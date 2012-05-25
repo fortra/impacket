@@ -133,9 +133,22 @@ class LSARPCLookupSids(Structure):
        ('ContextHandle','20s'),
        ('SidsBuff',':',SIDS_BUFF),
        ('TransNames', '8s'),
-       ('LookupLevel', 'H'),
+       ('LookupLevel', '<H'),
        ('MappedCount', '6s'),
     )
+
+class LSARPCLookupSids3(Structure):
+    opnum = 76 
+    structure = (
+       ('ContextHandle','20s'),
+       ('SidsBuff',':',SIDS_BUFF),
+       ('TransNames', '8s'),
+       ('LookupLevel', '<H'),
+       ('MappedCount', '6s'),
+       ('LookupOptions', '<L=0'),
+       ('ClientRevision', '<L=1'),
+    )
+
 
 class LSARPCLookupSidsResponse(Structure):
      
