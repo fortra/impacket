@@ -2933,22 +2933,8 @@ class SMBNTLMDialect_Data(Structure):
          
     def fromString(self,data):
         Structure.fromString(self,data)
-        if len(self['Payload']) > 0:
-           if self['Payload'][1] == '\x00':
-           # TODO: Ugly hack, should be taken of once mechListMIC is parsed in SPNEGO
-               # We might have server's info
-               data = self['Payload']
-               length = data.index('\x00\x00')+1
-               self['DomainName'] = data[:length].decode('utf-16le')
-               data = data[length:]
-               if len(data) > 3:
-                  #We might have Server's Name
-                  data = data[2:]
-                  length = data.index('\x00\x00')+1
-                  self['ServerName'] = data[:length].decode('utf-16le')
-        else:
-           self['DomainName'] = '' 
-           self['ServerName'] = ''
+        self['DomainName'] = '' 
+        self['ServerName'] = ''
            
 class SMB:
     # SMB Command Codes
