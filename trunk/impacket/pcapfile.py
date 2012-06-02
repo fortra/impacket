@@ -139,7 +139,7 @@ def main():
     hdr = PCapFileHeader()
     hdr.fromString(f_in.read(len(hdr)))
 
-    hdr.dump()
+    #hdr.dump()
 
     decoder = ImpactDecoder.EthDecoder()
     while 1:
@@ -150,17 +150,16 @@ def main():
           break
        pkt['data'] = f_in.read(pkt['savedLength'])
        hdr['packets'].append(pkt)
-
-       p = self.pcap.next()
-       try:    in_onion = [self.decoder.decode(p[1])]
-       except: in_onion = [self.decoder.decode(p[0])]
+       p = pkt['data']
+       try:    in_onion = [decoder.decode(p[1])]
+       except: in_onion = [decoder.decode(p[0])]
        try:
           while 1: in_onion.append(in_onion[-1].child())
        except:
           pass
 
        process(in_onion)
-       #pkt.dump()
+       pkt.dump()
        #print "%r" % str(pkt)
 
        if f_out:
