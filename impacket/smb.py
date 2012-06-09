@@ -2190,10 +2190,10 @@ class SMBSessionSetupAndX_Data(AsciiOrUnicodeStructure):
         ('UnicodePwdLength','_-UnicodePwd','self["UnicodePwdLength"]'),
         ('AnsiPwd',':=""'),
         ('UnicodePwd',':=""'),
-        ('Account','w=""'),
-        ('PrimaryDomain','w=""'),
-        ('NativeOS','w=""'),
-        ('NativeLanMan','w=""'),
+        ('Account','u=""'),
+        ('PrimaryDomain','u=""'),
+        ('NativeOS','u=""'),
+        ('NativeLanMan','u=""'),
     )
 
 class SMBSessionSetupAndX_Extended_Data(AsciiOrUnicodeStructure):
@@ -2207,8 +2207,8 @@ class SMBSessionSetupAndX_Extended_Data(AsciiOrUnicodeStructure):
     UnicodeStructure = (
         ('SecurityBlobLength','_-SecurityBlob','self["SecurityBlobLength"]'),
         ('SecurityBlob',':'),
-        ('NativeOS','w=""'),
-        ('NativeLanMan','w=""'),
+        ('NativeOS','u=""'),
+        ('NativeLanMan','u=""'),
     )
 
 class SMBSessionSetupAndXResponse_Parameters(SMBAndXCommand_Parameters):
@@ -2230,9 +2230,9 @@ class SMBSessionSetupAndXResponse_Data(AsciiOrUnicodeStructure):
     )
 
     UnicodeStructure = (
-        ('NativeOS','w=""'),
-        ('NativeLanMan','w=""'),
-        ('PrimaryDomain','w=""'),
+        ('NativeOS','u=""'),
+        ('NativeLanMan','u=""'),
+        ('PrimaryDomain','u=""'),
     )
 
 class SMBSessionSetupAndX_Extended_Response_Data(AsciiOrUnicodeStructure):
@@ -2246,8 +2246,8 @@ class SMBSessionSetupAndX_Extended_Response_Data(AsciiOrUnicodeStructure):
     UnicodeStructure = (
         ('SecurityBlobLength','_-SecurityBlob','self["SecurityBlobLength"]'),
         ('SecurityBlob',':'),
-        ('NativeOS','w=""'),
-        ('NativeLanMan','w=""'),
+        ('NativeOS','u=""'),
+        ('NativeLanMan','u=""'),
     )
 
 ############# SMB_COM_TREE_CONNECT (0x70)
