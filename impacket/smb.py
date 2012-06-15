@@ -3166,6 +3166,9 @@ class SMB:
     def set_timeout(self, timeout):
         self.__timeout = timeout
 
+    def get_timeout(self):
+        return self.__timeout
+
     def get_session(self):        
         return self._sess
     
