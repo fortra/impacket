@@ -4163,6 +4163,10 @@ class SMB:
         logOff['Parameters'] = SMBLogOffAndX()
         smb.addCommand(logOff)
         self.sendSMB(smb)
+        smb = self.recvSMB()
+        # Let's clear some fields so you can login again under the same session
+        self._uid = 0 
+
 
     def list_shared(self):
         tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\IPC$')
