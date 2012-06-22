@@ -237,7 +237,7 @@ class NTLMAuthChallenge(Structure):
         ('domain_offset','<L=40'),
         ('flags','<L=0'),
         ('challenge','8s'),
-        ('reserved','"\x00\x00\x00\x00\x00\x00\x00\x00'),
+        ('reserved','8s=""'),
         ('TargetInfoFields_len','<H-TargetInfoFields'),
         ('TargetInfoFields_max_len','<H-TargetInfoFields'),
         ('TargetInfoFields_offset','<L'),
