@@ -120,6 +120,7 @@ rpc_cont_def_result = {
 rpc_status_codes = {
     0x00000005L : 'rpc_s_access_denied',
     0x00000008L : 'Authentication type not recognized',
+    0x000006D8L : 'rpc_fault_cant_perform', 
     0x000006C6L : 'rpc_x_invalid_bound',                # the arrays bound are invalid
     0x000006E4L : 'rpc_s_cannot_support: The requested operation is not supported.',               # some operation is not supported
     0x000006F7L : 'rpc_x_bad_stub_data',                # the stub data is invalid, doesn't match with the IDL definition
