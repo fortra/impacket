@@ -140,7 +140,7 @@ class LSARPCLookupSids(Structure):
 class LSARPCLookupSids3(Structure):
     opnum = 76 
     structure = (
-       ('ContextHandle','20s'),
+      # ('ContextHandle','20s'),
        ('SidsBuff',':',SIDS_BUFF),
        ('TransNames', '8s'),
        ('LookupLevel', '<H'),
@@ -276,6 +276,52 @@ class DCERPCLsarpc:
       '''
 
       open_policy = LSARPCLookupSids()
+      open_policy['ContextHandle'] = context_handle
+      open_policy['SidsBuff'] = SIDS_BUFF()
+      open_policy['SidsBuff']['NumSids'] = len(sids)
+      open_policy['SidsBuff']['RefID'] = random.randint(1,65535)
+      open_policy['SidsBuff']['MaxCount'] = len(sids)
+      
+      sids_str = ''
+      sid_items = 0
+      for sid_i in range(len(sids)):
+        sid_arr = sids[sid_i].split('-')
+        _sid = SAMR_RPC_SID_STRUCT()
+        sid_items += 1
+        _sid['Count'] = len(sid_arr) - 3
+        _sid['Sid'] = SAMR_RPC_SID()
+        _sid['Sid']['Revision'] = int(sid_arr[1])
+        _sid['Sid']['SubAuthorityCount'] =len(sid_arr) - 3
+        _sid['Sid']['IdentifierAuthority'] = SAMR_RPC_SID_IDENTIFIER_AUTHORITY()
+        _sid['Sid']['IdentifierAuthority']['Value'] = '\x00\x00\x00\x00\x00' + pack('B',int(sid_arr[2]))
+
+        sub_auth = ''
+        for elem in sid_arr[3:]:
+            sub_auth += pack('<L', int(elem))
+        _sid['Sid']['SubAuthority'] = sub_auth
+
+        sids_str += _sid.getData()
+
+      for i in range(0, sid_items):
+        sids_str = pack('<L',random.randint(1,65535)) + sids_str
+      open_policy['SidsBuff']['Sids'] = sids_str
+
+      open_policy['TransNames'] = '\x00\x00\x00\x00\x00\x00\x00\x00'
+      open_policy['LookupLevel'] = 1
+      open_policy['MappedCount'] = '\x00\x00\x00\x00\x00\x00'
+
+      data = self.doRequest(open_policy, checkReturn = 0)
+      packet = LSARPCLookupSidsResponse(data)
+      return packet
+
+    def LsarLookupSids3( self, context_handle, sids):
+      '''
+           This method receives the following parameters:
+                - Handle(OpenPolicy2 handle)
+                - list of sids to look information for ([S1, S2 ...])
+      '''
+
+      open_policy = LSARPCLookupSids3()
       open_policy['ContextHandle'] = context_handle
       open_policy['SidsBuff'] = SIDS_BUFF()
       open_policy['SidsBuff']['NumSids'] = len(sids)
