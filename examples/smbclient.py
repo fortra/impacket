@@ -113,6 +113,10 @@ class MiniImpacketShell(cmd.Cmd):
            domain = l[2]
 
         self.smb.login(username, password, domain=domain)
+        if self.smb.isGuestSession() > 0:
+            print "GUEST Session Granted"
+        else:
+            print "USER Session Granted" 
 
     def do_login_hash(self,line): 
         l = line.split(' ')
