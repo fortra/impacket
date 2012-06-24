@@ -22,9 +22,10 @@ import socket
 import string
 import sys
 import types
+import argparse
 #import hexdump
 
-from impacket import uuid, ntlm
+from impacket import uuid, ntlm, version
 from impacket.dcerpc import dcerpc_v4, dcerpc, transport, svcctl
 
 class SVCCTL:
@@ -36,14 +37,16 @@ class SVCCTL:
         }
 
 
-    def __init__(self, username, password, protocol, service_name=None, action=None):
+    def __init__(self, username, password, protocol, service_name=None, action=None, display_name = None, binary_path = None):
         if not protocol:
             protocol = SVCCTL.KNOWN_PROTOCOLS.keys()
 
         self.__username = username
         self.__password = password
-        self.__protocol = protocol
+        self.__protocol = [protocol]
         self.__service_name = service_name
+        self.__display_name = display_name
+        self.__binary_path = binary_path
         self.__action = action
 
 
@@ -66,8 +69,7 @@ class SVCCTL:
             try:
                 self.doStuff(rpctransport)
             except Exception, e:
-                print 'Protocol failed: %s' % e
-                raise
+                print e
             else:
                 # Got a response. No need for further iterations.
                 break
@@ -89,9 +91,10 @@ class SVCCTL:
         rpc = svcctl.DCERPCSvcCtl(dce)
         ans = rpc.OpenSCManagerW()
         scManagerHandle = ans['ContextHandle']
-        if self.__action.upper() != 'LIST':
+        if self.__action.upper() != 'LIST' and self.__action.upper() != 'CREATE':
             ans = rpc.OpenServiceW(scManagerHandle, self.__service_name.encode('utf-16le'))
             serviceHandle = ans['ContextHandle']
+
         if self.__action.upper() == 'START':
             print "Starting service %s" % self.__service_name
             rpc.StartServiceW(serviceHandle)
@@ -196,7 +199,8 @@ class SVCCTL:
                 else:
                    print "UNKOWN"
             print "Total Services: %d" % len(resp)
-
+        elif self.__action.upper() == 'CREATE':
+            resp = rpc.CreateServiceW(scManagerHandle,self.__service_name.encode('utf-16le'), self.__display_name.encode('utf-16le'), self.__binary_path.encode('utf-16le'))
         else:
             print "Unknown action %s" % self.__action
 
@@ -209,20 +213,65 @@ class SVCCTL:
 
 # Process command-line arguments.
 if __name__ == '__main__':
-    if len(sys.argv) <= 1:
-        print "Usage: %s [username[:password]@]<address> <servicename> <action> [protocol list...]" % sys.argv[0]
-        print "Available protocols: %s" % SVCCTL.KNOWN_PROTOCOLS.keys()
-        print "Username and password are only required for certain transports, eg. SMB."
-        print "Action: START/STOP/DELETE/STATUS/CONFIG/LIST"
-        print "(for LIST specify a random servicename)"
-        sys.exit(1)
+
+    print version.BANNER
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('target', action='store', help='[username[:password]@]<address>')
+    subparsers = parser.add_subparsers(help='actions', dest='action')
+ 
+    # A start command
+    start_parser = subparsers.add_parser('start', help='starts the service')
+    start_parser.add_argument('-name', action='store', required=True, help='service name')
+
+    # A stop command
+    stop_parser = subparsers.add_parser('stop', help='stops the service')
+    stop_parser.add_argument('-name', action='store', required=True, help='service name')
+
+    # A delete command
+    delete_parser = subparsers.add_parser('delete', help='deletes the service')
+    delete_parser.add_argument('-name', action='store', required=True, help='service name')
+
+    # A status command
+    status_parser = subparsers.add_parser('status', help='returns service status')
+    status_parser.add_argument('-name', action='store', required=True, help='service name')
+
+    # A config command
+    config_parser = subparsers.add_parser('config', help='returns service configuration')
+    config_parser.add_argument('-name', action='store', required=True, help='service name')
+
+    # A list command
+    list_parser = subparsers.add_parser('list', help='list available services')
+
+    # A create command
+    create_parser = subparsers.add_parser('create', help='create a service')
+    create_parser.add_argument('-name', action='store', required=True, help='service name')
+    create_parser.add_argument('-display', action='store', required=True, help='display name')
+    create_parser.add_argument('-path', action='store', required=True, help='binary path')
+
+    parser.add_argument('protocol', choices=SVCCTL.KNOWN_PROTOCOLS.keys() , default='445/SMB', help='transport protocol')
+    options = parser.parse_args()
 
     import re
 
-    username, password, address = re.compile('(?:([^@:]*)(?::([^@]*))?@)?(.*)').match(sys.argv[1]).groups('')
+    username, password, address = re.compile('(?:([^@:]*)(?::([^@]*))?@)?(.*)').match(options.target).groups('')
 
-    if len(sys.argv) > 2:
-        services = SVCCTL(username, password, sys.argv[4:], sys.argv[2], sys.argv[3])
+    try:
+        service_name = options.name
+    except:
+        service_name = None
+
+    if options.action.upper() == 'CREATE':
+        display_name = options.display
+        path = options.path
     else:
-        services = SVCCTL(username = username, password = password)
-    services.run(address)
+        display_name = None
+        path = None
+        
+
+    services = SVCCTL(username, password, options.protocol, service_name , options.action.upper(), display_name, path)
+    try:
+        services.run(address)
+    except Exception, e:
+        print e
