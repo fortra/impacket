@@ -1,3 +1,4 @@
+#!/usr/bin/python
 # Copyright (c) 2003-2012 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
@@ -19,7 +20,8 @@
 import struct
 from select import select
 import socket
-from impacket import pcapfile, smb, nmb, ntlm
+import argparse
+from impacket import pcapfile, smb, nmb, ntlm, version
 from impacket import ImpactPacket, ImpactDecoder, structure
 
 # Command handler
@@ -375,25 +377,28 @@ def main():
     DEFAULT_PROTOCOLS = ('tcp',)
     sockets = []
 
+    print version.BANNER
 
-    if len(sys.argv) <= 1:
-        print "Usage: %s <pcapInfile> <pcapOutfile>" % sys.argv[0]
-        print "If no pcapInfile provided, sniffing..."
-        print "pcapOutfile logs all the packets that triggered errors"
-        sys.exit(1)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-i", metavar = 'FILE', help = 'pcap file to read packets. If not specified the program sniffes traffic (only as root)')
+    parser.add_argument("-o", metavar = 'FILE', help = 'pcap output file where the packets with errors will be written')
+
+    options = parser.parse_args()
+
+    outFile = options.o
+
+    if options.i is None:
+        sniffTraffic = True
+        toListen = DEFAULT_PROTOCOLS
     else:
-        if len(sys.argv) <=2:
-            outFile = sys.argv[1] 
-            sniffTraffic = True
-            toListen = DEFAULT_PROTOCOLS
-        else: 
-            inFile = sys.argv[1]
-            outFile = sys.argv[2]
-            sniffTraffic = False
+        sniffTraffic = False
+        inFile = options.i
 
     packetNum = 0
-    f_out = open(outFile,'wb')
-    f_out.write(str(pcapfile.PCapFileHeader()))
+    
+    if outFile:
+        f_out = open(outFile,'wb')
+        f_out.write(str(pcapfile.PCapFileHeader()))
 
     if sniffTraffic is False:
         f_in = open(inFile,'rb')
@@ -455,7 +460,8 @@ def main():
                           pkt_out['data'] = eth.get_packet()
                       else:
                           pkt_out['data'] = str(p)
-                      f_out.write(str(pkt_out))
+                      if outFile:
+                          f_out.write(str(pkt_out))
 
 if __name__ == '__main__':
    main()
