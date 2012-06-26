@@ -597,8 +597,7 @@ if __name__ == '__main__':
     print version.BANNER
     parser = argparse.ArgumentParser(add_help = False, description = "For every connection received, this module will try to SMB relay that connection to the target system or the original client")
     parser.add_argument("--help", action="help", help='show this help message and exit')
-    parser.add_argument('-m', choices=('relay','reflection'), default='reflection', help="modes of attack (default: reflection)")
-    parser.add_argument('-h', action='store', metavar = 'HOST', help='Host to relay the credentials to when running in -relay mode')
+    parser.add_argument('-h', action='store', metavar = 'HOST', help='Host to relay the credentials to, if not it will relay it back to the client')
     parser.add_argument('-e', action='store', required=True, metavar = 'FILE', help='File to execute on the target system')
 
     try:
@@ -607,14 +606,17 @@ if __name__ == '__main__':
        print e
        sys.exit(1)
 
-    if options.m.upper() == 'RELAY' and options.h is None:
-        print "-h HOST option is needed when running in relay mode"
-        sys.exit(1)
-
-    targetSystem = options.h
-    exeFile = options.e
-    mode = options.m
     print "[*] Setting up SMB Server"
+    if options.h is not None:
+        print "[*] Running in relay mode"
+        mode = 'RELAY'
+        targetSystem = options.h
+    else:
+        print "[*] Running in reflection mode"
+        targetSystem = None
+        mode = 'REFLECTION'
+
+    exeFile = options.e
     s = SMBRelayServer()
     s.setTargets(targetSystem)
     s.setExeFile(exeFile)
