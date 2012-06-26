@@ -93,7 +93,7 @@ class doAttack(Thread):
             resp = self.rpcsvc.CreateServiceW(handle, self.__service_name.encode('utf-16le'), self.__service_name.encode('utf-16le'), command.encode('utf-16le'))
         except:
             print "[!] Error creating service %s on %s" % (self.__service_name, self.client.get_remote_host())
-            return None
+            raise
         else:
             return resp['ContextHandle']
 
