@@ -53,6 +53,7 @@ from struct import *
 from dcerpc import samr
 import struct
 from structure import Structure
+from contextlib import contextmanager
 
 # For signing
 import hashlib
@@ -3169,6 +3170,14 @@ class SMB:
     def get_timeout(self):
         return self.__timeout
 
+    @contextmanager
+    def use_timeout(self, timeout):
+        prev_timeout = self.set_timeout(timeout)
+        try:
+            yield
+        finally:
+            self.set_timeout(prev_timeout)
+
     def get_session(self):        
         return self._sess
     
@@ -3338,6 +3347,8 @@ class SMB:
                 return 0
 
     def tree_connect(self, path, password = '', service = SERVICE_ANY):
+        print "[MS-CIFS] This is an original Core Protocol command.\nThis command has been deprecated.\nClient Implementations SHOULD use SMB_COM_TREE_CONNECT_ANDX"
+
         # return 0x800
         if password:
             # Password is only encrypted if the server passed us an "encryption" during protocol dialect
