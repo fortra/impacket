@@ -111,16 +111,17 @@ class SVCCTL:
             print "Querying service config for %s" % self.__service_name
             resp = rpc.QueryServiceConfigW(serviceHandle)
             print "TYPE              : %2d - " % resp['QueryConfig']['ServiceType'],
-            if resp['QueryConfig']['ServiceType'] == 0x1:
-                print "SERVICE_KERNLE_DRIVER"
-            elif resp['QueryConfig']['ServiceType'] == 0x2:
-                print "SERVICE_FILE_SYSTEM_DRIVER"
-            elif resp['QueryConfig']['ServiceType'] == 0x10:
-                print "SERVICE_WIN32_OWN_PROCESS"
-            elif resp['QueryConfig']['ServiceType'] == 0x20:
-                print "SERVICE_WIN32_SHARE_PROCESS"
-            else:
-                print "UNKOWN"
+            if resp['QueryConfig']['ServiceType'] & 0x1:
+                print "SERVICE_KERNLE_DRIVER ",
+            if resp['QueryConfig']['ServiceType'] & 0x2:
+                print "SERVICE_FILE_SYSTEM_DRIVER ",
+            if resp['QueryConfig']['ServiceType'] & 0x10:
+                print "SERVICE_WIN32_OWN_PROCESS ",
+            if resp['QueryConfig']['ServiceType'] & 0x20:
+                print "SERVICE_WIN32_SHARE_PROCESS ",
+            if resp['QueryConfig']['ServiceType'] & 0x100:
+                print "SERVICE_INTERACTIVE_PROCESS ",
+            print ""
             print "START_TYPE        : %2d - " % resp['QueryConfig']['StartType'],
             if resp['QueryConfig']['StartType'] == 0x0:
                 print "BOOT START"
