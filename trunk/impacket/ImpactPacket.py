@@ -1517,6 +1517,16 @@ class TCPOption(PacketBuffer):
             self.set_kind(TCPOption.TCPOPT_SACK_PERMITTED)
             self.set_len(2)                
 
+        elif kind == TCPOption.TCPOPT_SACK:
+            PacketBuffer.__init__(self, 2)
+            self.set_kind(TCPOption.TCPOPT_SACK)
+
+    def set_left_edge(self, aValue):
+        self.set_long (2, aValue)
+
+    def set_right_edge(self, aValue):
+        self.set_long (6, aValue)
+
     def set_kind(self, kind):
         self.set_byte(0, kind)
 
