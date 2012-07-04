@@ -202,6 +202,7 @@ FILE_NON_DIRECTORY_FILE          = 0x00000040
 SMB_FIND_INFO_STANDARD           = 0x0001
 SMB_FIND_FILE_DIRECTORY_INFO     = 0x0101
 SMB_FIND_FILE_FULL_DIRECTORY_INFO= 0x0102
+SMB_FIND_FILE_NAMES_INFO         = 0x0103
 SMB_FIND_FILE_BOTH_DIRECTORY_INFO= 0x0104
 SMB_FIND_FILE_ID_FULL_DIRECTORY_INFO = 0x105
 SMB_FIND_FILE_ID_BOTH_DIRECTORY_INFO = 0x106
@@ -1828,6 +1829,15 @@ class SMBFindFileDirectoryInfo(Structure):
         ('EndOfFile','<q=0'),
         ('AllocationSize','<q=1'),
         ('ExtFileAttributes','<L=0'),
+        ('FileNameLength','<L-FileName','len(FileName)'),
+        ('FileName','z'),
+    )
+
+# SMB_FIND_FILE_NAMES_INFO level
+class SMBFindFileNamesInfo(Structure):
+    structure = (
+        ('NextEntryOffset','<L=0'),
+        ('FileIndex','<L=0'),
         ('FileNameLength','<L-FileName','len(FileName)'),
         ('FileName','z'),
     )

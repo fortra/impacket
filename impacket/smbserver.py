@@ -226,6 +226,8 @@ def findFirst2(path, fileName, level, searchAttributes):
             item = smb.SMBFindFileIdFullDirectoryInfo()
         elif level == smb.SMB_FIND_FILE_ID_BOTH_DIRECTORY_INFO:
             item = smb.SMBFindFileIdBothDirectoryInfo()
+        elif level == smb.SMB_FIND_FILE_NAMES_INFO:
+            item = smb.SMBFindFileNamesInfo()
         else:
             print "Wrong level %d!" % level
             
