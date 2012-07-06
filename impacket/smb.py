@@ -3637,6 +3637,8 @@ class SMB:
             read_offset += len(data)
 
     def __raw_retr_file(self, tid, fid, offset, datasize, callback):
+        print "[MS-CIFS] This command was introduced in the CorePlus dialect, but is often listed as part of the LAN Manager 1.0 dialect.\nThis command has been deprecated.\nClients SHOULD use SMB_COM_READ_ANDX"
+
         max_buf_size = self._dialects_parameters['MaxBufferSize'] & ~0x3ff  # Write in multiple KB blocks
         read_offset = offset
         while read_offset < datasize:
@@ -3666,6 +3668,7 @@ class SMB:
             write_offset += writeResponseParameters['Count']
 
     def __raw_stor_file(self, tid, fid, offset, datasize, callback):
+        print "[MS-CIFS] This command was introduced in the CorePlus dialect, but is often listed as part of the LAN Manager 1.0 dialect.\nThis command has been deprecated.\nClients SHOULD use SMB_COM_WRITE_ANDX"
         write_offset = offset
         while 1:
             max_raw_size = self._dialects_parameters['MaxRawSize']
@@ -4106,6 +4109,7 @@ class SMB:
         return None
 
     def write_raw(self,tid,fid,data, offset = 0, wait_answer=1):
+        print "[MS-CIFS] This command was introduced in the CorePlus dialect, but is often listed as part of the LAN Manager 1.0 dialect.\nThis command has been deprecated.\nClients SHOULD use SMB_COM_WRITE_ANDX"
         smb = NewSMBPacket()
         smb['Flags1'] = SMB.FLAGS1_CANONICALIZED_PATHS | SMB.FLAGS1_PATHCASELESS 
         smb['Flags2'] = 0
@@ -4274,10 +4278,7 @@ class SMB:
             if not datasize:
                 datasize = self.query_file_info(tid, fid)
 
-            if self._dialects_parameters['Capabilities'] & SMB.CAP_RAW_MODE:
-                self.__raw_retr_file(tid, fid, offset, datasize, callback)
-            else:
-                self.__nonraw_retr_file(tid, fid, offset, datasize, callback)
+            self.__nonraw_retr_file(tid, fid, offset, datasize, callback)
         finally:
             if fid >= 0:
                 self.close(tid, fid)
@@ -4291,14 +4292,7 @@ class SMB:
         try:
             fid, attrib, lastwritetime, datasize, grantedaccess, filetype, devicestate, action, serverfid = self.open_andx(tid, filename, mode, SMB_ACCESS_WRITE | SMB_SHARE_DENY_WRITE)
             
-            # If the max_transmit buffer size is more than 16KB, upload process using non-raw mode is actually
-            # faster than using raw-mode.
-            if self._dialects_parameters['MaxBufferSize'] < 16384 and self._dialects_parameters['Capabilities'] & SMB.CAP_RAW_MODE:
-                # Once the __raw_stor_file returns, fid is already closed
-                self.__raw_stor_file(tid, fid, offset, datasize, callback)
-                fid = -1
-            else:
-                self.__nonraw_stor_file(tid, fid, offset, datasize, callback)
+            self.__nonraw_stor_file(tid, fid, offset, datasize, callback)
         finally:
             if fid >= 0:
                 self.close(tid, fid)
