@@ -974,10 +974,10 @@ class SMBCommands():
                        # TODO: Make sure we're calculating the pad right
                        if (len(parameters) > 0):
                            #padLen = 4 - (71 + len(setup)) % 4 
-                           padLen = (4 - (71 + len(setup)) % 4 ) % 4
+                           padLen = (4 - (73 + len(setup)) % 4 ) % 4
                            padBytes = '\xFF' * padLen
                            respData['Pad1'] = padBytes
-                           respParameters['ParameterOffset'] = 71 + len(setup) + padLen 
+                           respParameters['ParameterOffset'] = 73 + len(setup) + padLen 
                        else:
                            padLen = 0
                            respParameters['ParameterOffset'] = 0
@@ -985,9 +985,9 @@ class SMBCommands():
 
                        if (len(data) > 0):
                            #pad2Len = 4 - (71 + len(setup) + padLen + len(parameters)) % 4
-                           pad2Len = (4 - (71 + len(setup) + padLen + len(parameters)) % 4) % 4
+                           pad2Len = (4 - (73 + len(setup) + padLen + len(parameters)) % 4) % 4
                            respData['Pad2'] = '\xFF' * pad2Len
-                           respParameters['DataOffset'] = 71 + len(setup) + padLen + len(parameters) + pad2Len
+                           respParameters['DataOffset'] = 73 + len(setup) + padLen + len(parameters) + pad2Len
                        else:
                            respParameters['DataOffset'] = 0
                            respData['Pad2']             = ''
