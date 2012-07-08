@@ -4148,7 +4148,7 @@ class SMB:
                     sendData = '\xff\xff' + data
                     totalLen = len(sendData)
                     writeAndX['Parameters']['DataLength'] = chunks_size
-                    writeAndX['Parameters']['Remaining'] = totalLen
+                    writeAndX['Parameters']['Remaining'] = totalLen-2
                     writeAndX['Data'] = sendData[:chunks_size]
 
                     self.sendSMB(smb)
