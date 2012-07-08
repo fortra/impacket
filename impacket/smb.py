@@ -3724,11 +3724,12 @@ class SMB:
         sessionSetup['Parameters'] = SMBSessionSetupAndX_Extended_Parameters()
         sessionSetup['Data']       = SMBSessionSetupAndX_Extended_Data()
 
-        sessionSetup['Parameters']['MaxBufferSize']        = 65535
+        sessionSetup['Parameters']['MaxBufferSize']        = 61440
         sessionSetup['Parameters']['MaxMpxCount']          = 2
         sessionSetup['Parameters']['VcNumber']             = 1
         sessionSetup['Parameters']['SessionKey']           = 0
-        sessionSetup['Parameters']['Capabilities']         = SMB.CAP_EXTENDED_SECURITY | SMB.CAP_USE_NT_ERRORS | SMB.CAP_UNICODE
+        sessionSetup['Parameters']['Capabilities']         = SMB.CAP_EXTENDED_SECURITY | SMB.CAP_USE_NT_ERRORS | SMB.CAP_UNICODE | SMB.CAP_LARGE_READX | SMB.CAP_LARGE_WRITEX
+
 
         # Let's build a NegTokenInit with the NTLMSSP
         # TODO: In the future we should be able to choose different providers
@@ -3882,13 +3883,13 @@ class SMB:
         sessionSetup['Parameters'] = SMBSessionSetupAndX_Parameters()
         sessionSetup['Data']       = SMBSessionSetupAndX_Data()
 
-        sessionSetup['Parameters']['MaxBuffer']        = 65535
+        sessionSetup['Parameters']['MaxBuffer']        = 61440
         sessionSetup['Parameters']['MaxMpxCount']      = 2
         sessionSetup['Parameters']['VCNumber']         = os.getpid()
         sessionSetup['Parameters']['SessionKey']       = self._dialects_parameters['SessionKey']
         sessionSetup['Parameters']['AnsiPwdLength']    = len(pwd_ansi)
         sessionSetup['Parameters']['UnicodePwdLength'] = len(pwd_unicode)
-        sessionSetup['Parameters']['Capabilities']     = SMB.CAP_RAW_MODE
+        sessionSetup['Parameters']['Capabilities']     = SMB.CAP_RAW_MODE | SMB.CAP_USE_NT_ERRORS | SMB.CAP_LARGE_READX | SMB.CAP_LARGE_WRITEX
 
         sessionSetup['Data']['AnsiPwd']       = pwd_ansi
         sessionSetup['Data']['UnicodePwd']    = pwd_unicode
@@ -3931,6 +3932,46 @@ class SMB:
             self.__flags2 = 0
             return 1
         else: raise Exception('Error: Could not login successfully')
+
+    def waitNamedPipe(self, tid, pipe, noAnswer = 0):
+        smb = NewSMBPacket()
+        smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
+        smb['Flags2'] = SMB.FLAGS2_LONG_NAMES
+        smb['Tid']    = tid
+
+        transCommand = SMBCommand(SMB.SMB_COM_TRANSACTION)
+        transCommand['Parameters'] = SMBTransaction_Parameters()
+        transCommand['Data'] = SMBTransaction_Data()
+
+        setup = '\x53\x00\x00\x00'
+        name = '\\PIPE%s\x00' % pipe
+        transCommand['Parameters']['Setup'] = setup
+        transCommand['Parameters']['TotalParameterCount'] = 0
+        transCommand['Parameters']['TotalDataCount'] = 0
+        transCommand['Parameters']['MaxParameterCount'] = 0
+        transCommand['Parameters']['MaxDataCount'] = 0
+        transCommand['Parameters']['Timeout'] = 5000
+
+        transCommand['Parameters']['ParameterCount'] = 0
+        transCommand['Parameters']['ParameterOffset'] = 32+3+28+len(setup)+len(name)
+
+        transCommand['Parameters']['DataCount'] = 0
+        transCommand['Parameters']['DataOffset'] = 0
+
+        transCommand['Data']['Name'] = name
+        transCommand['Data']['Trans_Parameters'] = ''
+        transCommand['Data']['Trans_Data'] = ''
+
+        if noAnswer:
+           transCommand['Parameters']['Flags'] = TRANS_NO_RESPONSE
+      
+        smb.addCommand(transCommand)
+        self.sendSMB(smb)
+
+        smb = self.recvSMB()
+        if smb.isValidAnswer(SMB.SMB_COM_TRANSACTION):
+           return 1
+        return 0
 
     def read(self, tid, fid, offset=0, max_size = None, wait_answer=1):
         if not max_size:
@@ -4079,7 +4120,7 @@ class SMB:
                 return smb
         return None
 
-    def write_andx(self,tid,fid,data, offset = 0, wait_answer=1, smb_packet=None):
+    def write_andx(self,tid,fid,data, offset = 0, wait_answer=1, write_pipe_mode = False, smb_packet=None):
         if smb_packet == None:
             smb = NewSMBPacket()
             smb['Flags1'] = SMB.FLAGS1_CANONICALIZED_PATHS | SMB.FLAGS1_PATHCASELESS 
@@ -4088,7 +4129,7 @@ class SMB:
 
             writeAndX = SMBCommand(SMB.SMB_COM_WRITE_ANDX)
             smb.addCommand(writeAndX)
-        
+       
             writeAndX['Parameters'] = SMBWriteAndX_Parameters()
             writeAndX['Parameters']['Fid'] = fid
             writeAndX['Parameters']['Offset'] = offset
@@ -4097,6 +4138,40 @@ class SMB:
             writeAndX['Parameters']['DataLength'] = len(data)
             writeAndX['Parameters']['DataOffset'] = len(smb)    # this length already includes the parameter
             writeAndX['Data'] = data
+            
+            if write_pipe_mode is True:
+                # First of all we gotta know what the MaxBuffSize is
+                maxBuffSize = self._dialects_parameters['MaxBufferSize'] 
+                if len(data) > maxBuffSize:
+                    chunks_size = maxBuffSize - 5
+                    writeAndX['Parameters']['WriteMode'] = 0x0c
+                    sendData = '\xff\xff' + data
+                    totalLen = len(sendData)
+                    writeAndX['Parameters']['DataLength'] = chunks_size
+                    writeAndX['Parameters']['Remaining'] = totalLen
+                    writeAndX['Data'] = sendData[:chunks_size]
+
+                    self.sendSMB(smb)
+                    if wait_answer:
+                        smbResp = self.recvSMB()
+                        smbResp.isValidAnswer(SMB.SMB_COM_WRITE_ANDX)
+
+                    alreadySent = chunks_size
+                    sendData = sendData[chunks_size:]
+
+                    while alreadySent < totalLen:
+                        writeAndX['Parameters']['WriteMode'] = 0x04
+                        writeAndX['Parameters']['DataLength'] = len(sendData[:chunks_size])
+                        writeAndX['Data'] = sendData[:chunks_size]
+                        self.sendSMB(smb)
+                        if wait_answer:
+                            smbResp = self.recvSMB()
+                            smbResp.isValidAnswer(SMB.SMB_COM_WRITE_ANDX)
+                        alreadySent += writeAndX['Parameters']['DataLength'] 
+                        sendData = sendData[chunks_size:]
+
+                    return smbResp
+
         else:
             smb = smb_packet
 
