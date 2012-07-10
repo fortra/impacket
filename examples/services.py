@@ -37,7 +37,7 @@ class SVCCTL:
         }
 
 
-    def __init__(self, username, password, protocol, service_name=None, action=None, display_name = None, binary_path = None):
+    def __init__(self, username, password, protocol, domain='', hashes=None, service_name=None, action=None, display_name = None, binary_path = None):
         if not protocol:
             protocol = SVCCTL.KNOWN_PROTOCOLS.keys()
 
@@ -48,6 +48,12 @@ class SVCCTL:
         self.__display_name = display_name
         self.__binary_path = binary_path
         self.__action = action
+        self.__domain = domain
+        self.__lmhash = ''
+        self.__nthash = ''
+        if hashes is not None:
+            self.__lmhash, self.__nthash = hashes.split(':')
+
 
 
     def run(self, addr):
@@ -64,7 +70,7 @@ class SVCCTL:
             rpctransport.set_dport(port)
             if hasattr(rpctransport, 'set_credentials'):
                 # This method exists only for selected protocol sequences.
-                rpctransport.set_credentials(self.__username,self.__password)
+                rpctransport.set_credentials(self.__username,self.__password, self.__domain, self.__lmhash, self.__nthash)
 
             try:
                 self.doStuff(rpctransport)
@@ -219,7 +225,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('target', action='store', help='[username[:password]@]<address>')
+    parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<address>')
     subparsers = parser.add_subparsers(help='actions', dest='action')
  
     # A start command
@@ -252,11 +258,16 @@ if __name__ == '__main__':
     create_parser.add_argument('-path', action='store', required=True, help='binary path')
 
     parser.add_argument('protocol', choices=SVCCTL.KNOWN_PROTOCOLS.keys() , default='445/SMB', help='transport protocol')
+
+    group = parser.add_argument_group('authentication')
+
+    group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
+
     options = parser.parse_args()
 
     import re
 
-    username, password, address = re.compile('(?:([^@:]*)(?::([^@]*))?@)?(.*)').match(options.target).groups('')
+    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(options.target).groups('')
 
     try:
         service_name = options.name
@@ -270,8 +281,10 @@ if __name__ == '__main__':
         display_name = None
         path = None
         
+    if domain is None:
+        domain = ''
 
-    services = SVCCTL(username, password, options.protocol, service_name , options.action.upper(), display_name, path)
+    services = SVCCTL(username, password, options.protocol, domain, options.hashes, service_name , options.action.upper(), display_name, path)
     try:
         services.run(address)
     except Exception, e:
