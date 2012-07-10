@@ -20,8 +20,9 @@ import string
 import sys
 import types
 
-from impacket import uuid, ntlm
+from impacket import uuid, ntlm, version
 from impacket.dcerpc import dcerpc_v4, dcerpc, transport, epm
+import argparse
 
 class RPCDump:
     KNOWN_PROTOCOLS = {
@@ -34,14 +35,18 @@ class RPCDump:
 
 
     def __init__(self, protocols = None,
-                 username = '', password = ''):
+                 username = '', password = '', domain='', hashes = None):
         if not protocols:
             protocols = RPCDump.KNOWN_PROTOCOLS.keys()
 
         self.__username = username
         self.__password = password
-        self.__protocols = protocols
-
+        self.__protocols = [protocols]
+        self.__domain = domain
+        self.__lmhash = ''
+        self.__nthash = ''
+        if hashes is not None:
+            self.__lmhash, self.__nthash = hashes.split(':')
 
     def dump(self, addr):
         """Dumps the list of endpoints registered with the mapper
@@ -64,7 +69,7 @@ class RPCDump:
             rpctransport.set_dport(port)
             if hasattr(rpctransport, 'set_credentials'):
                 # This method exists only for selected protocol sequences.
-                rpctransport.set_credentials(self.__username, self.__password)
+                rpctransport.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
 
             try:
                 entries = self.__fetchList(rpctransport)
@@ -138,18 +143,26 @@ class RPCDump:
 
 # Process command-line arguments.
 if __name__ == '__main__':
-    if len(sys.argv) <= 1:
-        print "Usage: %s [username[:password]@]<address> [protocol list...]" % sys.argv[0]
-        print "Available protocols: %s" % RPCDump.KNOWN_PROTOCOLS.keys()
-        print "Username and password are only required for certain transports, eg. SMB."
-        sys.exit(1)
+    print version.BANNER
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('target', action='store', help='[domain/][username[:password]@]<address>')
+    parser.add_argument('protocol', choices=RPCDump.KNOWN_PROTOCOLS.keys() , default='445/SMB', help='transport protocol')
+
+    group = parser.add_argument_group('authentication')
+
+    group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
+ 
+    options = parser.parse_args()
 
     import re
 
-    username, password, address = re.compile('(?:([^@:]*)(?::([^@]*))?@)?(.*)').match(sys.argv[1]).groups('')
+    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(options.target).groups('')
 
-    if len(sys.argv) > 2:
-        dumper = RPCDump(sys.argv[2:], username, password)
-    else:
-        dumper = RPCDump(username = username, password = password)
+    if domain is None:
+        domain = ''
+
+    dumper = RPCDump(options.protocol, username, password, domain, options.hashes)
+
     dumper.dump(address)
