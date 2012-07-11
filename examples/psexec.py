@@ -107,11 +107,16 @@ class PSEXEC:
     def doStuff(self, rpctransport):
 
         dce = dcerpc.DCERPC_v5(rpctransport)
-        dce.connect()
+        try:
+            dce.connect()
+        except Exception, e:
+            print e
+            sys.exit(1)
 
         try:
             unInstalled = False
             s = rpctransport.get_smb_server()
+
             # We don't wanna deal with timeouts from now on.
             s.set_timeout(100000)
             installService = serviceinstall.ServiceInstall(rpctransport.get_smb_server(), remcomsvc.RemComSvc())
@@ -172,12 +177,13 @@ class Pipes(Thread):
         self.credentials = transport.get_credentials()
         self.tid = 0
         self.fid = 0
+        self.port = transport.get_dport()
         self.pipe = pipe
         self.permissions = permissions
         self.daemon = True
 
     def connectPipe(self):
-        self.server = smb.SMB('*SMBSERVER', self.transport.get_smb_server().get_remote_host())
+        self.server = smb.SMB('*SMBSERVER', self.transport.get_smb_server().get_remote_host(), sess_port = self.port)
         user, passwd, domain, lm, nt = self.credentials
         self.server.login(user, passwd, domain, lm, nt)
         self.tid = self.server.tree_connect_andx('\\\\%s\\IPC$' % self.transport.get_smb_server().get_remote_name())
