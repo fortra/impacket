@@ -599,6 +599,9 @@ if __name__ == '__main__':
     parser.add_argument("--help", action="help", help='show this help message and exit')
     parser.add_argument('-h', action='store', metavar = 'HOST', help='Host to relay the credentials to, if not it will relay it back to the client')
     parser.add_argument('-e', action='store', required=True, metavar = 'FILE', help='File to execute on the target system')
+    if len(sys.argv)==1:
+        parser.print_help()
+        sys.exit(1)
 
     try:
        options = parser.parse_args()
