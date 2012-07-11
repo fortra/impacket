@@ -37,7 +37,6 @@ class SPOOLSS:
         if not protocols:
             protocols = SPOOLSS.KNOWN_PROTOCOLS.keys()
 
-        print username, password
         self.__username = username
         self.__password = password
         self.__protocols = [protocols]
