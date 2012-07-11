@@ -20,9 +20,11 @@ import string
 import sys
 import types
 
-from impacket import uuid, ntlm
+from impacket import uuid, ntlm, version
 from impacket.dcerpc import dcerpc_v4, dcerpc, transport, printer
 from struct import unpack
+
+import argparse
 
 class SPOOLSS:
     KNOWN_PROTOCOLS = {
@@ -31,15 +33,19 @@ class SPOOLSS:
         }
 
 
-    def __init__(self, protocols = None,
-                 username = '', password = ''):
+    def __init__(self, username, password, domain, hashes, protocols):
         if not protocols:
             protocols = SPOOLSS.KNOWN_PROTOCOLS.keys()
 
+        print username, password
         self.__username = username
         self.__password = password
-        self.__protocols = protocols
-
+        self.__protocols = [protocols]
+        self.__domain = domain
+        self.__lmhash = ''
+        self.__nthash = ''
+        if hashes is not None:
+            self.__lmhash, self.__nthash = hashes.split(':')
 
     def play(self, addr):
 
@@ -56,7 +62,7 @@ class SPOOLSS:
             rpctransport.set_dport(port)
             if hasattr(rpctransport, 'set_credentials'):
                 # This method exists only for selected protocol sequences.
-                rpctransport.set_credentials(self.__username, self.__password)
+                rpctransport.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
 
             try:
                 entries = self.doStuff(rpctransport)
@@ -71,7 +77,7 @@ class SPOOLSS:
         dce = dcerpc.DCERPC_v5(rpctransport)
 
         dce.connect()
-        #dce.set_auth_level(ntlm.NTLM_AUTH_PKT_PRIVACY)
+        dce.set_auth_level(ntlm.NTLM_AUTH_PKT_PRIVACY)
         #dce.set_max_fragment_size(16)
         dce.bind(printer.MSRPC_UUID_SPOOLSS)
         rpcspool = printer.PrintSpooler(dce)
@@ -102,18 +108,28 @@ class SPOOLSS:
 
 # Process command-line arguments.
 if __name__ == '__main__':
-    if len(sys.argv) <= 1:
-        print "Usage: %s [username[:password]@]<address> [protocol list...]" % sys.argv[0]
-        print "Available protocols: %s" % SPOOLSS.KNOWN_PROTOCOLS.keys()
-        print "Username and password are only required for certain transports, eg. SMB."
+    print version.BANNER
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('target', action='store', help='[domain/][username[:password]@]<address>')
+    parser.add_argument('protocol', choices=SPOOLSS.KNOWN_PROTOCOLS.keys(), nargs='?', default='445/SMB', help='transport protocol (default 445/SMB)')
+
+    group = parser.add_argument_group('authentication')
+
+    group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
+ 
+    if len(sys.argv)==1:
+        parser.print_help()
         sys.exit(1)
 
+    options = parser.parse_args()
+
     import re
+    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(options.target).groups('')
 
-    username, password, address = re.compile('(?:([^@:]*)(?::([^@]*))?@)?(.*)').match(sys.argv[1]).groups('')
+    if domain is None:
+        domain = ''
 
-    if len(sys.argv) > 2:
-        dumper = SPOOLSS(sys.argv[2:], username, password)
-    else:
-        dumper = SPOOLSS(username = username, password = password)
+    dumper = SPOOLSS(username, password, domain, options.hashes, options.protocol)
     dumper.play(address)
