@@ -20,8 +20,9 @@ import string
 import sys
 import types
 
-from impacket import uuid, ntlm
+from impacket import uuid, ntlm, version
 from impacket.dcerpc import dcerpc_v4, dcerpc, transport, lsarpc
+import argparse
 
 class LSALookupSid:
     KNOWN_PROTOCOLS = {
@@ -30,17 +31,20 @@ class LSALookupSid:
         '135/TCP': (r'ncacn_ip_tcp:%s', 135),
         }
 
-
-    def __init__(self, protocols = None,
-                 username = '', password = '', maxRid = 4000):
+    def __init__(self, username, password, domain, protocols = None,
+                 hashes = None, maxRid=4000):
         if not protocols:
             protocols = LSALookupSid.KNOWN_PROTOCOLS.keys()
 
         self.__username = username
         self.__password = password
-        self.__protocols = protocols
+        self.__protocols = [protocols]
         self.__maxRid = int(maxRid)
-
+        self.__domain = domain
+        self.__lmhash = ''
+        self.__nthash = ''
+        if hashes is not None:
+            self.__lmhash, self.__nthash = hashes.split(':')
 
     def dump(self, addr):
 
@@ -59,7 +63,7 @@ class LSALookupSid:
             rpctransport.set_dport(port)
             if hasattr(rpctransport, 'set_credentials'):
                 # This method exists only for selected protocol sequences.
-                rpctransport.set_credentials(self.__username, self.__password)
+                rpctransport.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
 
             try:
                 entries = self.__bruteForce(rpctransport, self.__maxRid)
@@ -111,20 +115,29 @@ class LSALookupSid:
 
 # Process command-line arguments.
 if __name__ == '__main__':
-    if len(sys.argv) <= 2:
-        print "Usage: %s [username[:password]@]<address> <maxRid> [protocol list...]" % sys.argv[0]
-        print "Available protocols: %s" % LSALookupSid.KNOWN_PROTOCOLS.keys()
-        print "<maxRid>: Max Rid to check (starts at 500)"
-        print "Username and password are only required for certain transports, eg. SMB."
+    print version.BANNER
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('target', action='store', help='[domain/][username[:password]@]<address>')
+    parser.add_argument('maxRid', action='store', default = '4000', nargs='?', help='max Rid to check (default 4000)')
+    parser.add_argument('protocol', choices=LSALookupSid.KNOWN_PROTOCOLS.keys(), nargs='?', default='445/SMB', help='transport protocol (default 445/SMB)')
+
+    group = parser.add_argument_group('authentication')
+
+    group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
+
+    if len(sys.argv)==1:
+        parser.print_help()
         sys.exit(1)
 
+    options = parser.parse_args()
+
     import re
+    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(options.target).groups('')
 
-    username, password, address = re.compile('(?:([^@:]*)(?::([^@]*))?@)?(.*)').match(sys.argv[1]).groups('')
+    if domain is None:
+        domain = ''
 
-    if len(sys.argv) > 2:
-        lookup = LSALookupSid(sys.argv[3:], username, password, sys.argv[2])
-    else:
-        lookup = LSALookupSid(username = username, password = password, maxRid = sys.argv[2])
-
+    lookup = LSALookupSid(username, password, domain, options.protocol, options.hashes, options.maxRid)
     lookup.dump(address)
