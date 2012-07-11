@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Copyright (c) 2003 CORE Security Technologies
+# Copyright (c) 2003-2012 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -20,8 +20,9 @@ import string
 import sys
 import types
 
-from impacket import uuid
+from impacket import uuid, version
 from impacket.dcerpc import dcerpc_v4, dcerpc, transport, wkssvc
+import argparse
 
 
 class WKSSVCException(Exception):
@@ -34,15 +35,18 @@ class WKSSVCstuff:
         }
 
 
-    def __init__(self, protocols = None,
-                 username = '', password = ''):
+    def __init__(self, username, password, domain, hashes=None, protocols= None):
         if not protocols:
             protocols = WKSSVCstuff.KNOWN_PROTOCOLS.keys()
 
         self.__username = username
         self.__password = password
-        self.__protocols = protocols
-
+        self.__protocols = [protocols]
+        self.__domain = domain
+        self.__lmhash = ''
+        self.__nthash = ''
+        if hashes is not None:
+            self.__lmhash, self.__nthash = hashes.split(':')
 
     def doStuff(self, addr):
 
@@ -55,7 +59,7 @@ class WKSSVCstuff:
             port = protodef[1]
 
             print "Trying protocol %s..." % protocol
-            rpctransport = transport.SMBTransport(addr, port, r'\wkssvc', self.__username, self.__password)
+            rpctransport = transport.SMBTransport(addr, port, r'\wkssvc', self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
 
             try:
                 entries = self.__fetchData(rpctransport)
@@ -93,18 +97,28 @@ class WKSSVCstuff:
 
 # Process command-line arguments.
 if __name__ == '__main__':
-    if len(sys.argv) <= 1:
-        print "Usage: %s [username[:password]@]<address> [protocol list...]" % sys.argv[0]
-        print "Available protocols: %s" % WKSSVCstuff.KNOWN_PROTOCOLS.keys()
-        print "Username and password are only required for certain transports, eg. SMB."
+    print version.BANNER
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('target', action='store', help='[domain/][username[:password]@]<address>')
+    parser.add_argument('protocol', choices=WKSSVCstuff.KNOWN_PROTOCOLS.keys(), nargs='?', default='445/SMB', help='transport protocol (default 445/SMB)')
+
+    group = parser.add_argument_group('authentication')
+
+    group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
+ 
+    if len(sys.argv)==1:
+        parser.print_help()
         sys.exit(1)
 
+    options = parser.parse_args()
+
     import re
+    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(options.target).groups('')
 
-    username, password, address = re.compile('(?:([^@:]*)(?::([^@]*))?@)?(.*)').match(sys.argv[1]).groups('')
+    if domain is None:
+        domain = ''
 
-    if len(sys.argv) > 2:
-        dumper = WKSSVCstuff(sys.argv[2:], username, password)
-    else:
-        dumper = WKSSVCstuff(username = username, password = password)
+    dumper = WKSSVCstuff(username, password, domain, options.hashes, options.protocol)
     dumper.doStuff(address)
