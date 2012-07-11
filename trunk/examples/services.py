@@ -257,16 +257,18 @@ if __name__ == '__main__':
     create_parser.add_argument('-display', action='store', required=True, help='display name')
     create_parser.add_argument('-path', action='store', required=True, help='binary path')
 
-    parser.add_argument('protocol', choices=SVCCTL.KNOWN_PROTOCOLS.keys() , default='445/SMB', help='transport protocol')
+    parser.add_argument('protocol', choices=SVCCTL.KNOWN_PROTOCOLS.keys(), nargs='?', default='445/SMB', help='transport protocol (default 445/SMB)')
 
     group = parser.add_argument_group('authentication')
 
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
+    if len(sys.argv)==1:
+        parser.print_help()
+        sys.exit(1)
 
     options = parser.parse_args()
 
     import re
-
     domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(options.target).groups('')
 
     try:
