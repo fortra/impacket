@@ -11,6 +11,7 @@
 #
 # Author:
 #  Javier Kohen <jkohen@coresecurity.com>
+#  Alberto Solino <bethus@gmail.com>
 #
 # Reference for:
 #  DCE/RPC for SAMR
@@ -184,12 +185,15 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument('target', action='store', help='[domain/][username[:password]@]<address>')
-    parser.add_argument('protocol', choices=SAMRDump.KNOWN_PROTOCOLS.keys() , default='445/SMB', help='transport protocol')
+    parser.add_argument('protocol', choices=SAMRDump.KNOWN_PROTOCOLS.keys(), nargs='?', default='445/SMB', help='transport protocol (default 445/SMB)')
 
     group = parser.add_argument_group('authentication')
 
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
- 
+    if len(sys.argv)==1:
+        parser.print_help()
+        sys.exit(1)
+
     options = parser.parse_args()
 
     import re
