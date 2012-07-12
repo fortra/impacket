@@ -2723,13 +2723,15 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
         self.__log        = logging.getLogger()
 
         # Process the credentials
-        cred = open(self.__serverConfig.get('global','credentials_file'))
-        line = cred.readline()
-        while line:
-            name, domain, lmhash, nthash = line.split(':')
-            self.__credentials[name] = (domain, lmhash, nthash.strip('\r\n'))
+        credentials_fname = self.__serverConfig.get('global','credentials_file')
+        if credentials_fname is not "":
+            cred = open(credentials_fname)
             line = cred.readline()
-        cred.close()
+            while line:
+                name, domain, lmhash, nthash = line.split(':')
+                self.__credentials[name] = (domain, lmhash, nthash.strip('\r\n'))
+                line = cred.readline()
+            cred.close()
         self.log('Config file parsed')     
 
 # NT ERRORS and STATUS codes
