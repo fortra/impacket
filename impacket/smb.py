@@ -4446,7 +4446,7 @@ class SMB:
                 if self.isValidAnswer(s,SMB.SMB_COM_CHECK_DIRECTORY):
                     return
         finally:
-            self.disconnect_tree(s.get_tid())
+            self.disconnect_tree(tid)
 
     def remove(self, service, path, password = None):
         # Perform a list to ensure the path exists
@@ -4461,7 +4461,7 @@ class SMB:
                 if self.isValidAnswer(s,SMB.SMB_COM_DELETE):
                     return
         finally:
-            self.disconnect_tree(s.get_tid())
+            self.disconnect_tree(tid)
 
     def rmdir(self, service, path, password = None):
         # Check that the directory exists
@@ -4476,7 +4476,7 @@ class SMB:
                 if self.isValidAnswer(s,SMB.SMB_COM_DELETE_DIRECTORY):
                     return
         finally:
-            self.disconnect_tree(s.get_tid())
+            self.disconnect_tree(tid)
 
     def mkdir(self, service, path, password = None):
         tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\' + service, password)
@@ -4494,7 +4494,7 @@ class SMB:
                 return 1
             return 0
         finally:
-            self.disconnect_tree(smb['Tid'])
+            self.disconnect_tree(tid)
 
     def rename(self, service, old_path, new_path, password = None):
         tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\' + service, password)
@@ -4516,7 +4516,7 @@ class SMB:
                return 1
             return 0 
         finally:
-            self.disconnect_tree(smb['Tid'])
+            self.disconnect_tree(tid)
 
     def get_socket(self):
         return self._sess.get_socket()
