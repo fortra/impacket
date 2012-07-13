@@ -17,6 +17,7 @@
 
 import sys
 import os
+import cmd
 
 from impacket import smb, version
 from impacket.dcerpc import dcerpc_v4, dcerpc, transport, svcctl, srvsvc
@@ -148,7 +149,7 @@ class PSEXEC:
             stdin_pipe.start()
             stdout_pipe.start()
             stderr_pipe.start()
-
+            
             # And we stay here till the end
             ans = s.read_andx(tid,fid_main,8, wait_answer = 0)
             readAndXResponse   = smb.SMBCommand(ans['Data'][0])
@@ -165,6 +166,7 @@ class PSEXEC:
         except:
             if unInstalled is False:
                 installService.uninstall()
+            sys.stdout.flush()
             sys.exit(1)
 
 
@@ -183,27 +185,30 @@ class Pipes(Thread):
         self.daemon = True
 
     def connectPipe(self):
-        self.server = smb.SMB('*SMBSERVER', self.transport.get_smb_server().get_remote_host(), sess_port = self.port)
-        user, passwd, domain, lm, nt = self.credentials
-        self.server.login(user, passwd, domain, lm, nt)
-        self.tid = self.server.tree_connect_andx('\\\\%s\\IPC$' % self.transport.get_smb_server().get_remote_name())
+        try:
+            self.server = smb.SMB('*SMBSERVER', self.transport.get_smb_server().get_remote_host(), sess_port = self.port)
+            user, passwd, domain, lm, nt = self.credentials
+            self.server.login(user, passwd, domain, lm, nt)
+            self.tid = self.server.tree_connect_andx('\\\\%s\\IPC$' % self.transport.get_smb_server().get_remote_name())
 
-        self.server.waitNamedPipe(self.tid, self.pipe)
+            self.server.waitNamedPipe(self.tid, self.pipe)
 
-        ntCreate = smb.SMBCommand(smb.SMB.SMB_COM_NT_CREATE_ANDX)
-        ntCreate['Parameters'] = smb.SMBNtCreateAndX_Parameters()
-        ntCreate['Data']       = smb.SMBNtCreateAndX_Data()
-        ntCreate['Parameters']['FileNameLength'] = len(self.pipe)
-        ntCreate['Parameters']['FileAttributes'] = 0x80
-        ntCreate['Parameters']['CreateFlags'] = 0x0
-        ntCreate['Parameters']['AccessMask'] = self.permissions
-        ntCreate['Parameters']['CreateOptions'] = 0x40
-        ntCreate['Parameters']['ShareAccess'] = 0x7
-        ntCreate['Data']['FileName'] = self.pipe
+            ntCreate = smb.SMBCommand(smb.SMB.SMB_COM_NT_CREATE_ANDX)
+            ntCreate['Parameters'] = smb.SMBNtCreateAndX_Parameters()
+            ntCreate['Data']       = smb.SMBNtCreateAndX_Data()
+            ntCreate['Parameters']['FileNameLength'] = len(self.pipe)
+            ntCreate['Parameters']['FileAttributes'] = 0x80
+            ntCreate['Parameters']['CreateFlags'] = 0x0
+            ntCreate['Parameters']['AccessMask'] = self.permissions
+            ntCreate['Parameters']['CreateOptions'] = 0x40
+            ntCreate['Parameters']['ShareAccess'] = 0x7
+            ntCreate['Data']['FileName'] = self.pipe
 
-        self.fid = self.server.nt_create_andx(self.tid,self.pipe,cmd=ntCreate)
+            self.fid = self.server.nt_create_andx(self.tid,self.pipe,cmd=ntCreate)
  
-        self.server.set_timeout(1000000)
+            self.server.set_timeout(1000000)
+        except:
+            print "[!] Something wen't wrong connecting the pipes, try again"
 
 
 class RemoteStdOutPipe(Pipes):
@@ -266,23 +271,58 @@ class RemoteStdErrPipe(Pipes):
                     except:
                         pass
 
+class RemoteShell(cmd.Cmd):
+    def __init__(self, smb, tid, fid):
+        cmd.Cmd.__init__(self, False)
+        self.prompt = '\x08'
+        self.server = smb
+        self.tid = tid
+        self.fid = fid
+        self.intro = '[!] Press help for extra shell commands'
+
+    def do_help(self, line):
+        print """
+ lcd {path} - changes the current local directory to {path}
+ exit       - terminates the server process (and this session)
+ ! {cmd}    - executes a local shell cmd
+"""
+        self.send_data('\r\n', False)
+
+    def do_shell(self, s):
+        os.system(s)
+        self.send_data('\r\n')
+
+    def do_lcd(self, s):
+        if s == '':
+            print os.getcwd()
+        else:
+            os.chdir(s)
+        self.send_data('\r\n')
+
+    def emptyline(self):
+        self.send_data('\r\n')
+        return
+
+    def default(self, line):
+        self.send_data(line+'\r\n')
+
+    def send_data(self, data, hideOutput = True):
+        if hideOutput is True:
+            global LastDataSent
+            LastDataSent = data
+        else:
+            LastDataSent = ''
+        self.server.write_andx(self.tid, self.fid, data, wait_answer = 0)
+
+
 class RemoteStdInPipe(Pipes):
     def __init__(self, transport, pipe, permisssions):
         Pipes.__init__(self, transport, pipe, permisssions)
 
     def run(self):
         self.connectPipe()
-        while True:
-            # First off, we readline
-            #data = raw_input()
-            data = sys.stdin.read(1)
-            global LastDataSent
-            LastDataSent += data
-            # Then write to the pipe
-            try:
-                self.server.write_andx(self.tid, self.fid, data, wait_answer = 0)
-            except:
-                pass
+        self.shell = RemoteShell(self.server, self.tid, self.fid)
+        self.shell.cmdloop()
 
 
 # Process command-line arguments.
