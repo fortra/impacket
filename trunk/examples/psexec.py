@@ -22,11 +22,12 @@ import cmd
 from impacket import smb, version
 from impacket.dcerpc import dcerpc_v4, dcerpc, transport, svcctl, srvsvc
 from impacket.structure import Structure
-from threading import Thread
+from threading import Thread, Lock
 from impacket.examples import remcomsvc, serviceinstall
 import argparse
 import random
 import string
+import time
 
 class RemComMessage(Structure):
     structure = (
@@ -47,6 +48,8 @@ class RemComResponse(Structure):
 RemComSTDOUT         = "RemCom_stdout"
 RemComSTDIN          = "RemCom_stdin"
 RemComSTDERR         = "RemCom_stderr"
+
+lock = Lock()
 
 class PSEXEC:
     KNOWN_PROTOCOLS = {
@@ -144,10 +147,10 @@ class PSEXEC:
 
             # Create the pipes threads
             stdin_pipe  = RemoteStdInPipe(rpctransport,'\%s%s%d' % (RemComSTDIN ,packet['Machine'],packet['ProcessID']), smb.FILE_WRITE_DATA | smb.FILE_APPEND_DATA )
-            stdout_pipe = RemoteStdOutPipe(rpctransport,'\%s%s%d' % (RemComSTDOUT,packet['Machine'],packet['ProcessID']), smb.FILE_READ_DATA )
-            stderr_pipe = RemoteStdErrPipe(rpctransport,'\%s%s%d' % (RemComSTDERR,packet['Machine'],packet['ProcessID']), smb.FILE_READ_DATA )
             stdin_pipe.start()
+            stdout_pipe = RemoteStdOutPipe(rpctransport,'\%s%s%d' % (RemComSTDOUT,packet['Machine'],packet['ProcessID']), smb.FILE_READ_DATA )
             stdout_pipe.start()
+            stderr_pipe = RemoteStdErrPipe(rpctransport,'\%s%s%d' % (RemComSTDERR,packet['Machine'],packet['ProcessID']), smb.FILE_READ_DATA )
             stderr_pipe.start()
             
             # And we stay here till the end
@@ -186,9 +189,11 @@ class Pipes(Thread):
 
     def connectPipe(self):
         try:
+            lock.acquire()
             self.server = smb.SMB('*SMBSERVER', self.transport.get_smb_server().get_remote_host(), sess_port = self.port)
             user, passwd, domain, lm, nt = self.credentials
             self.server.login(user, passwd, domain, lm, nt)
+            lock.release()
             self.tid = self.server.tree_connect_andx('\\\\%s\\IPC$' % self.transport.get_smb_server().get_remote_name())
 
             self.server.waitNamedPipe(self.tid, self.pipe)
@@ -208,7 +213,7 @@ class Pipes(Thread):
  
             self.server.set_timeout(1000000)
         except:
-            print "[!] Something wen't wrong connecting the pipes, try again"
+            print "[!] Something wen't wrong connecting the pipes(%s), try again" % self.__class__
 
 
 class RemoteStdOutPipe(Pipes):
