@@ -1,40 +1,27 @@
 #!/usr/bin/python
-# Copyright (c) 2003-2011, Core SDI S.A., Argentina
-# All rights reserved
-# 
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions
-# are met:
-# 
-# 1. Redistributions of source code must retain the above copyright
-#    notice, this list of conditions and the following disclaimer.
-# 2. Redistributions in binary form must reproduce the above copyright
-#    notice, this list of conditions and the following disclaimer in the
-#    documentation and/or other materials provided with the distribution.
-# 3. Neither name of the Core SDI S.A. nor the names of its contributors
-#    may be used to endorse or promote products derived from this software
-#    without specific prior written permission.
+# Copyright (c) 2003-2012 CORE Security Technologies
 #
-# THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
-# IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
-# OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
-# IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
-# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
-# NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-# DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-# THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
-# THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+# This software is provided under under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
 #
 # $Id$
+#
+# Description: Mini shell using some of the SMB funcionality of the library
+#
+# Author:
+#  Alberto Solino
+#
 # 
-# mini shell to be used with impacket
+# Reference for:
+#  SMB DCE/RPC 
 #
 
 import sys
 import string
-from impacket import smb
+from impacket import smb, version
 from impacket.dcerpc import dcerpc_v4, dcerpc, transport, srvsvc
+import argparse
 import cmd
 import os
 
@@ -44,8 +31,12 @@ class MiniImpacketShell(cmd.Cmd):
         self.prompt = '# '
         self.smb = None
         self.tid = None
+        self.intro = 'Type help for list of commands'
         self.pwd = ''
         self.share = None
+
+    def emptyline(self):
+        pass
 
     def onecmd(self,s):
         retVal = False
@@ -199,11 +190,19 @@ class MiniImpacketShell(cmd.Cmd):
         pathname = string.replace(p,'/','\\')
         self.smb.rmdir(self.share, pathname)
 
-    def do_put(self, filename):
-        fh = open(filename, 'rb')
-        f = self.pwd + '/' + filename
-        pathname = string.replace(f,'/','\\')
-        self.smb.stor_file(self.share, pathname, fh.read)
+    def do_put(self, pathname):
+        params = pathname.split(' ')
+        if len(params) > 1:
+            src_path = params[0]
+            dst_name = params[1]
+        elif len(params) == 1:
+            src_path = params[0]
+            dst_name = os.path.basename(src_path)
+
+        fh = open(pathname, 'rb')
+        f = self.pwd + '/' + dst_name
+        finalpath = string.replace(f,'/','\\')
+        self.smb.stor_file(self.share, finalpath, fh.read)
         fh.close()
 
     def do_get(self, filename):
@@ -217,9 +216,27 @@ class MiniImpacketShell(cmd.Cmd):
         del(self.smb);
 
 def main():
+    print version.BANNER
+
     shell = MiniImpacketShell()
-    shell.cmdloop()
+    if len(sys.argv)==1:
+        shell.cmdloop()
+    else:
+        parser = argparse.ArgumentParser()
+        parser.add_argument('-file', type=argparse.FileType('r'), help='input file with commands to execute in the mini shell')
+        options = parser.parse_args()
+        print "Executing commands from %s" % options.file.name
+        for line in options.file.readlines():
+            print "# %s" % line,
+            shell.onecmd(line)
+
+
+
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except:
+        print "\n"
+        pass
 
