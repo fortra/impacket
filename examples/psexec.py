@@ -146,7 +146,7 @@ class PSEXEC:
             LastDataSent = ''
 
             # Create the pipes threads
-            stdin_pipe  = RemoteStdInPipe(rpctransport,'\%s%s%d' % (RemComSTDIN ,packet['Machine'],packet['ProcessID']), smb.FILE_WRITE_DATA | smb.FILE_APPEND_DATA )
+            stdin_pipe  = RemoteStdInPipe(rpctransport,'\%s%s%d' % (RemComSTDIN ,packet['Machine'],packet['ProcessID']), smb.FILE_WRITE_DATA | smb.FILE_APPEND_DATA, installService.getShare() )
             stdin_pipe.start()
             stdout_pipe = RemoteStdOutPipe(rpctransport,'\%s%s%d' % (RemComSTDOUT,packet['Machine'],packet['ProcessID']), smb.FILE_READ_DATA )
             stdout_pipe.start()
@@ -175,13 +175,14 @@ class PSEXEC:
 
 
 class Pipes(Thread):
-    def __init__(self, transport, pipe, permissions):
+    def __init__(self, transport, pipe, permissions, share=None):
         Thread.__init__(self)
         self.server = 0
         self.transport = transport
         self.credentials = transport.get_credentials()
         self.tid = 0
         self.fid = 0
+        self.share = share
         self.port = transport.get_dport()
         self.pipe = pipe
         self.permissions = permissions
@@ -277,25 +278,79 @@ class RemoteStdErrPipe(Pipes):
                         pass
 
 class RemoteShell(cmd.Cmd):
-    def __init__(self, smb, tid, fid):
+    def __init__(self, server, port, credentials, tid, fid, share):
         cmd.Cmd.__init__(self, False)
         self.prompt = '\x08'
-        self.server = smb
+        self.server = server
+        self.transferClient = None
         self.tid = tid
         self.fid = fid
+        self.credentials = credentials
+        self.share = share
+        self.port = port
         self.intro = '[!] Press help for extra shell commands'
+
+    def connect_transferClient(self):
+        self.transferClient = smb.SMB('*SMBSERVER', self.server.get_remote_host(), sess_port = self.port)
+        user, passwd, domain, lm, nt = self.credentials
+        self.transferClient.login(user, passwd, domain, lm, nt)
 
     def do_help(self, line):
         print """
- lcd {path} - changes the current local directory to {path}
- exit       - terminates the server process (and this session)
- ! {cmd}    - executes a local shell cmd
-"""
+ lcd {path}                 - changes the current local directory to {path}
+ exit                       - terminates the server process (and this session)
+ put {src_file, dst_path}   - uploads a local file to the dst_path RELATIVE to the connected share (%s)
+ get {file}                 - downloads pathname RELATIVE to the connected share (%s) to the current local dir 
+ ! {cmd}                    - executes a local shell cmd
+""" % (self.share, self.share)
         self.send_data('\r\n', False)
 
     def do_shell(self, s):
         os.system(s)
         self.send_data('\r\n')
+
+    def do_get(self, src_path):
+        try:
+            if self.transferClient is None:
+                self.connect_transferClient()
+
+            import ntpath
+            filename = ntpath.basename(src_path)
+            fh = open(filename,'wb')
+            print "[*] Downloading %s\%s" % (self.share, src_path)
+            self.transferClient.retr_file(self.share, src_path, fh.write)
+            fh.close()
+        except Exception, e:
+            print e
+            pass
+
+        self.send_data('\r\n')
+ 
+    def do_put(self, s):
+        try:
+            if self.transferClient is None:
+                self.connect_transferClient()
+            params = s.split(' ')
+            if len(params) > 1:
+                src_path = params[0]
+                dst_path = params[1]
+            elif len(params) == 1:
+                src_path = params[0]
+                dst_path = '/'
+
+            src_file = os.path.basename(src_path)
+            fh = open(src_path, 'rb')
+            f = dst_path + '/' + src_file
+            pathname = string.replace(f,'/','\\')
+            print "[*] Uploading %s to %s\%s" % (src_file, self.share, dst_path)
+            self.transferClient.stor_file(self.share, pathname, fh.read)
+            fh.close()
+        except Exception, e:
+            print e
+            pass
+
+        self.send_data('\r\n')
+
 
     def do_lcd(self, s):
         if s == '':
@@ -321,12 +376,12 @@ class RemoteShell(cmd.Cmd):
 
 
 class RemoteStdInPipe(Pipes):
-    def __init__(self, transport, pipe, permisssions):
-        Pipes.__init__(self, transport, pipe, permisssions)
+    def __init__(self, transport, pipe, permisssions, share=None):
+        Pipes.__init__(self, transport, pipe, permisssions, share)
 
     def run(self):
         self.connectPipe()
-        self.shell = RemoteShell(self.server, self.tid, self.fid)
+        self.shell = RemoteShell(self.server, self.port, self.credentials, self.tid, self.fid, self.share)
         self.shell.cmdloop()
 
 
