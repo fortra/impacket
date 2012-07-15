@@ -28,6 +28,10 @@ class ServiceInstall():
         self.__binary_service_name = ''.join([random.choice(string.letters) for i in range(8)]) + '.exe'
         self.__exeFile = exeFile
         self.client = SMBClient
+        self.share = ''
+ 
+    def getShare(self):
+        return self.share
 
     def getShares(self):
         # Setup up a DCE SMBTransport with the connection already in place
