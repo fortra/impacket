@@ -32,10 +32,14 @@ if __name__ == '__main__':
             self.prompt = 'SQL> '
 
         def default(self, line):
-            replies = self.sql.sql_query(line)
-            self.sql.printReplies()
-            self.sql.printRows()
-
+            try:
+                replies = self.sql.sql_query(line)
+                self.sql.printReplies()
+                self.sql.printRows()
+            except Exception, e:
+                print e
+                pass
+         
         def emptyline(self):
             pass
 
