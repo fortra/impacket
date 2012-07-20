@@ -37,7 +37,6 @@ if __name__ == '__main__':
                 self.sql.printReplies()
                 self.sql.printRows()
             except Exception, e:
-                print e
                 pass
          
         def emptyline(self):
