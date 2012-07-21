@@ -322,6 +322,12 @@ class TDS_LOGIN_ACK(Structure):
         ('BuildNumLow','<B'),
     )
 
+class TDS_RETURNSTATUS(Structure):
+    structure = (
+        ('TokenType','<B'),
+        ('Value','<L'),
+    )
+
 class TDS_INFO_ERROR(Structure):
     structure = (
         ('TokenType','<B'),
@@ -949,6 +955,8 @@ class MSSQL():
             tokenID = struct.unpack('B',tokens[0])[0]
             if tokenID == TDS_ERROR_TOKEN:
                 token = TDS_INFO_ERROR(tokens)
+            elif tokenID == TDS_RETURNSTATUS_TOKEN:
+                token = TDS_RETURNSTATUS(tokens)
             elif tokenID == TDS_INFO_TOKEN:
                 token = TDS_INFO_ERROR(tokens)
             elif tokenID == TDS_LOGINACK_TOKEN:
@@ -961,7 +969,9 @@ class MSSQL():
                 elif token['Type'] is TDS_ENVCHANGE_DATABASE:
                       record = TDS_ENVCHANGE_VARCHAR(token['Data'])
                       self.currentDB =  record['NewValue'].decode('utf-16le') 
-            elif tokenID == TDS_DONEINPROC_TOKEN:
+
+            elif (tokenID == TDS_DONEINPROC_TOKEN) |\
+                 (tokenID == TDS_DONEPROC_TOKEN): 
                 token = TDS_DONEINPROC(tokens)
             elif tokenID == TDS_ORDER_TOKEN:
                 token = TDS_ORDER(tokens)
