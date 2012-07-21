@@ -798,11 +798,17 @@ class MSSQL():
                     value = 'NULL'
 
             elif (type == TDS_BITTYPE) |\
-                 (type == TDS_NUMERICNTYPE) |\
                  (type == TDS_INT1TYPE):
                 #print "BITTYPE"
                 value = ord(data[:1])
                 data = data[1:]
+
+            elif (type == TDS_NUMERICNTYPE):
+                valueLen = ord(data[:1])
+                data = data[1:]
+                value = data[:valueLen]
+                value = "TODO: Interpret TDS_NUMERICNTYPE correctly"
+                data = data[valueLen:]
 
             elif (type == TDS_BITNTYPE) |\
                  (type == TDS_DECIMALNTYPE):
