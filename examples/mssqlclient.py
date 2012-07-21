@@ -53,7 +53,7 @@ if __name__ == '__main__':
     parser.add_argument('-port', action='store', default='1433', help='target MSSQL port (default 1433)')
     parser.add_argument('-db', action='store', help='MSSQL database instance (default None)')
     parser.add_argument('-windows-auth', action='store', choices=['True','False'], default = 'False', help='whether or not to use Windows Authentication (default False)')
-    
+    parser.add_argument('-file', type=argparse.FileType('r'), help='input file with commands to execute in the SQL shell')
 
     group = parser.add_argument_group('authentication')
 
@@ -80,5 +80,10 @@ if __name__ == '__main__':
     ms_sql.printReplies()
     if res == True:
         shell = SQLSHELL(ms_sql)
-        shell.cmdloop()
+        if options.file is None:
+            shell.cmdloop()
+        else:
+            for line in options.file.readlines():
+                print "SQL> %s" % line,
+                shell.onecmd(line)
     ms_sql.disconnect()
