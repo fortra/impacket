@@ -658,7 +658,6 @@ class MSSQL():
         row = {}
         origDataLen = len(token['Data'])
         data = token['Data']
-
         for i in range(len(self.colMeta)):
             type = self.colMeta[i]['Type']
             if (type == TDS_NVARCHARTYPE) |\
@@ -856,6 +855,7 @@ class MSSQL():
         if count == 0xFFFF:
             return 0
 
+        self.colMeta = []
         origDataLen = len(token['Data'])
         data = token['Data']
         for i in range(count):
@@ -998,6 +998,8 @@ class MSSQL():
 
             replies[tokenID].append(token)
             tokens = tokens[len(token):]
+            #print "TYPE 0x%x, LEN: %d" %(tokenID, len(token))
+            #print repr(tokens[:10])
 
         return replies
 
