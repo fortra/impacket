@@ -78,6 +78,7 @@ if __name__ == '__main__':
     ms_sql.connect()
     res = ms_sql.login(options.db, username, password, domain, options.hashes, win_auth)
     ms_sql.printReplies()
-    shell = SQLSHELL(ms_sql)
-    shell.cmdloop()
+    if res == True:
+        shell = SQLSHELL(ms_sql)
+        shell.cmdloop()
     ms_sql.disconnect()
