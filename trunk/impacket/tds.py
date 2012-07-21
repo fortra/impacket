@@ -656,7 +656,7 @@ class MSSQL():
         if len(token) == 1:
            return 0
         row = {}
-        origData = token['Data']
+        origDataLen = len(token['Data'])
         data = token['Data']
 
         for i in range(len(self.colMeta)):
@@ -720,7 +720,6 @@ class MSSQL():
                     value = 'NULL'
 
             elif (type == TDS_BIGVARBINTYPE) |\
-                 (type == TDS_NUMERICNTYPE) |\
                  (type == TDS_BIGBINARYTYPE):
                 charLen = struct.unpack('<H',data[:struct.calcsize('<H')])[0]
                 data = data[struct.calcsize('<H'):]
@@ -800,6 +799,7 @@ class MSSQL():
                     value = 'NULL'
 
             elif (type == TDS_BITTYPE) |\
+                 (type == TDS_NUMERICNTYPE) |\
                  (type == TDS_INT1TYPE):
                 #print "BITTYPE"
                 value = ord(data[:1])
@@ -843,13 +843,12 @@ class MSSQL():
             else:
                 print "ParseROW: Unsupported data type: 0%x" % type
                 raise
-
             row[self.colMeta[i]['Name']] = value
 
 
         self.rows.append(row)
 
-        return (len(origData) - len(data))
+        return (origDataLen - len(data))
 
     def parseColMetaData(self, token):
         # TODO Add support for more data types!
@@ -857,7 +856,7 @@ class MSSQL():
         if count == 0xFFFF:
             return 0
 
-        origData = token['Data']
+        origDataLen = len(token['Data'])
         data = token['Data']
         for i in range(count):
             column = {}
@@ -947,7 +946,7 @@ class MSSQL():
             column['Flags'] = flags
             self.colMeta.append(column)
 
-        return (len(origData) - len(data))
+        return (origDataLen - len(data))
 
     def parseReply(self, tokens):
         if len(tokens) == 0:
