@@ -696,7 +696,7 @@ class MSSQL():
                 charLen = ord(data[0])
                 data = data[1+charLen+8:]
                 charLen = struct.unpack('<L',data[:struct.calcsize('<L')])[0]
-                data = data[struct.calcsize('<H'):]
+                data = data[struct.calcsize('<L'):]
                 if charLen != 0xFFFF:
                     if type == TDS_NTEXTTYPE:
                         value = data[:charLen].decode('utf-16le')
