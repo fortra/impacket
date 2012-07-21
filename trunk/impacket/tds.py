@@ -684,9 +684,12 @@ class MSSQL():
             elif (type == TDS_GUIDTYPE):
                 uuidLen = ord(data[0])
                 data = data[1:]
-                uu = data[:uuidLen]
-                value = uuid.bin_to_string(uu)
-                data = data[uuidLen:]
+                if uuidLen > 0:
+                    uu = data[:uuidLen]
+                    value = uuid.bin_to_string(uu)
+                    data = data[uuidLen:]
+                else:
+                    value = 'NULL'
                 
             elif (type == TDS_NTEXTTYPE) |\
                  (type == TDS_IMAGETYPE) :
