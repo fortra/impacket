@@ -29,6 +29,7 @@ import struct
 import socket, select
 import random
 import binascii 
+import math
 
 
 # MC-SQLR Constants and Structures
@@ -807,8 +808,27 @@ class MSSQL():
                 valueLen = ord(data[:1])
                 data = data[1:]
                 value = data[:valueLen]
-                value = "TODO: Interpret TDS_NUMERICNTYPE correctly"
                 data = data[valueLen:]
+                precision = ord(self.colMeta[i]['TypeData'][1])
+                scale = ord(self.colMeta[i]['TypeData'][2])
+                if valueLen > 0:
+                    isPositiveSign = ord(value[0])
+                    if (valueLen-1) == 2:
+                        fmt = '<H'
+                    elif (valueLen-1) == 4:
+                        fmt = '<L'
+                    elif (valueLen-1) == 8:
+                        fmt = '<Q'
+                    else:
+                        # Still don't know how to handle higher values
+                        value = "TODO: Interpret TDS_NUMERICNTYPE correctly"
+                    number = struct.unpack(fmt, value[1:])[0]
+                    number /= math.pow(precision, scale)
+                    if isPositiveSign == 0:
+                        number *= -1 
+                    value = number
+                else:
+                    value = 'NULL'
 
             elif (type == TDS_BITNTYPE) |\
                  (type == TDS_DECIMALNTYPE):
