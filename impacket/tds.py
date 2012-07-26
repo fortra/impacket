@@ -565,6 +565,8 @@ class MSSQL():
 
         if hashes is not None:
             lmhash, nthash = hashes.split(':')
+            lmhash = binascii.a2b_hex(lmhash)
+            nthash = binascii.a2b_hex(nthash)
         else:
             lmhash = ''
             nthash = ''
@@ -589,7 +591,7 @@ class MSSQL():
         if useWindowsAuth is True:
             login['OptionFlags2'] |= TDS_INTEGRATED_SECURITY_ON
             # NTLMSSP Negotiate
-            auth = ntlm.getNTLMSSPType1('WORKSTATION','DEVEL')
+            auth = ntlm.getNTLMSSPType1('WORKSTATION','')
             login['SSPI'] = str(auth)
         else:
             login['UserName'] = username.encode('utf-16le')
@@ -604,17 +606,6 @@ class MSSQL():
 
         if useWindowsAuth is True:
             serverChallenge = tds['Data'][3:]
-
-            #User: devel\pruebasql        Pwd:Unpassword1
-            #User: devel\Administrator    Pwd: Admin123
-            #user = 'pruebasql'
-            #user = 'Administrator'
-            #password = 'Unpassword1'
-            #password = 'Admin123'
-            #domain = 'DEVEL'
-            #domain = 'DEVEL'
-            #lmhash = ''
-            #nthash = ''
 
             # Generate the NTLM ChallengeResponse AUTH 
             type3, exportedSessionKey = ntlm.getNTLMSSPType3(auth, serverChallenge, username, password, domain, lmhash, nthash)
