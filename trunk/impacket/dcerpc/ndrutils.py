@@ -133,10 +133,14 @@ class NDRFloor:
                  0x4: 'DNA NSP Transport',
                  0x0d: 'Netware SPX', 
                  0x0e: 'Netware IPX', #someone read hexa as decimal? (0xe=0x14 in opengroup's list)
+                 # [MS-RPCE] RPC over SMB MUST use a protocol identifier of 0x0F instead of 0x10, 
+                 # as specified in [C706] Appendix I.
                  0x0f: 'Named Pipes',
                  0x10: 'Named Pipes',
                  0x11: 'NetBIOS',
-                 0x12: 'NetBEUI',
+                 # [MS-RPCE] RPC over NetBIOS over TCP MUST use a protocol identifier of 0x12 instead
+                 # of the value 0x11, as specified in [C706] Appendix I.
+                 0x12: 'NetBIOS',
                  0x13: 'Netware SPX',
                  0x14: 'Netware IPX',
                  0x16: 'Appletalk Stream',
