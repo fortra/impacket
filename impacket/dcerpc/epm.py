@@ -4,20 +4,156 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
+# Author:
+#  Alberto Solino (beto@coresecurity.com)
+#
 # $Id$
 #
 
 import array
 import struct
 
+from struct import unpack
 from impacket import ImpactPacket
 from impacket import uuid
 from impacket import dcerpc
+from impacket.structure import Structure
 from impacket.dcerpc import ndrutils
 from impacket.dcerpc import transport
 from impacket.uuid import uuidtup_to_bin
 
+
 MSRPC_UUID_PORTMAP = uuidtup_to_bin(('E1AF8308-5D1F-11C9-91A4-08002B14A0FA', '3.0'))
+
+# EPM Constants
+# Inquire Type
+RPC_C_EP_ALL_ELTS     = 0x0
+RPC_C_EP_MATCH_BY_IF  = 0x1
+RPC_C_EP_MATH_BY_OBJ  = 0x2
+RPC_C_EP_MATH_BY_BOTH = 0x1
+
+# Vers Option
+RPC_C_VERS_ALL        = 0x1
+RPC_C_VERS_COMPATIBLE = 0x2
+RPC_C_VERS_EXACT      = 0x3
+RPC_C_VERS_MARJOR_ONLY= 0x4
+RPC_C_VERS_UPTO       = 0x5
+
+# Search 
+RPC_NO_MORE_ELEMENTS  = 0x16c9a0d6 
+
+# EPM Classes
+class EPMEntries(Structure):
+    structure = (
+        ('MaxCount','<L=0'),
+        ('Offset','<L=0'),
+        ('ActualCount','<L=0'),
+        ('Data',':')
+    )
+
+class EPMTower(Structure):
+    structure = (
+        ('Length','<L=0'),
+        ('ActualLength','<L=0'),
+        ('NumberOfFloors','<H'),
+        ('_Floors','_-Floors','self["ActualLength"]-2'),
+        ('Floors',':'),
+    )
+    def fromString(self,data):
+        Structure.fromString(self,data)
+        floors = self['Floors']
+        fList = []
+        for f in range(self['NumberOfFloors']):
+            floor = EPMFloors[f](floors)
+            floors = floors[len(floor):]
+            fList.append(floor) 
+        self['Floors'] = fList
+
+    def __len__(self):
+       ll = 0
+       for i in self['Floors']:
+           ll += len(i) 
+       ll += 10
+       ll += (4-ll%4) & 3
+       return ll
+            
+            
+
+class EPMEntry(Structure):
+    alignment = 4
+    structure = (
+        ('Object','16s'),
+        ('pTower','<L&Tower'),
+        ('AnnotationOffset','<L=0'),
+        ('AnnotationLength','<L=0'),
+        ('_Annotation','_-Annotation','self["AnnotationLength"]'),
+        ('Annotation',':'),
+        # As part of the answer there will be a Tower field
+        #('Tower',':')
+    )
+
+class EPMFloor(Structure):
+    structure = (
+        ('LHSByteCount','<H=0'),
+        ('_ProtocolData','_-ProtocolData','self["LHSByteCount"]'),
+        ('ProtocolData',':'),
+        ('RHSByteCount','<H=0'),
+        ('_RelatedData','_-RelatedData','self["RHSByteCount"]'),
+        ('RelatedData',':'),
+
+    ) 
+
+class EPMRPCInterface(EPMFloor):
+    def __init__(self, data = None):
+        EPMFloor.__init__(self, data)
+
+    def __str__(self):
+        assert self["ProtocolData"][0] == '\r'
+        aUuid = self["ProtocolData"][1:] + self["RelatedData"]
+        tupUuid = uuid.bin_to_uuidtup(aUuid)
+        return "%s v%s" % tupUuid
+
+class EPMRPCDataRepresentation(EPMFloor):
+    def __init__(self, data = None):
+        EPMFloor.__init__(self, data)
+
+    def __str__(self):
+        assert self["ProtocolData"][0] == '\r'
+        aUuid = self["ProtocolData"][1:] + self["RelatedData"]
+        tupUuid = uuid.bin_to_uuidtup(aUuid)
+        return "%s v%s" % tupUuid
+
+# Standard Floor Assignments
+EPMFloors = [ 
+EPMRPCInterface,
+EPMRPCDataRepresentation,
+EPMFloor,
+EPMFloor,
+EPMFloor,
+EPMFloor
+]
+
+class EPMLookup(Structure):
+    opnum = 2
+    structure = (
+        ('InquireType','<L=1'),
+        ('UUIDRefId','<L=1'),
+        ('UUID','16s=""'),
+        ('IfIdRefId','<L=2'),
+        ('IfId','20s=""'),
+        ('VersionOption','<L'),
+        ('EntryHandle','20s=""'), 
+        ('MaxEntries','<L=500'),
+    )
+
+class EPMLookupResponse(Structure):
+    structure = (
+        ('Handle','20s'),
+        ('NumEntries','<L'),
+        ('_Entries','_-Entries','len(self.rawData)-28'),
+        ('Entries',':',EPMEntries),
+        ('ErrorCode','<L')
+    )
 
 class EPMLookupRequestHeader(ImpactPacket.Header):
     OP_NUM = 2
@@ -118,32 +254,6 @@ class EPMRespLookupRequestHeader(ImpactPacket.Header):
         entries_size = self.get_entry().get_entries_len()
         return EPMRespLookupRequestHeader.__SIZE + entries_size
 
-
-class DCERPCEpm:
-    endianness = '<'
-    def __init__(self, dcerpc):
-        self._dcerpc = dcerpc
-
-    def portmap_dump(self, rpc_handle = '\x00'*20):
-        if self.endianness == '>':
-            from impacket.structure import unpack,pack
-            try:
-                rpc_handle = ''.join(map(chr, rpc_handle))
-            except:
-                pass
-            
-            uuid = list(unpack('<LLHHBB6s', rpc_handle))
-            rpc_handle = pack('>LLHHBB6s', *uuid)
-
-        lookup = EPMLookupRequestHeader(endianness = self.endianness)
-        lookup.set_handle(rpc_handle);
-        self._dcerpc.send(lookup)
-
-        data = self._dcerpc.recv()
-        resp = EPMRespLookupRequestHeader(data)
-
-        return resp
-
 class EpmEntry:
     def __init__(self, uuid, version, annotation, objuuid, protocol, endpoint):
         self.__uuid = uuid
@@ -213,3 +323,100 @@ class EpmEntry:
             return 0
         else:
             return -1 # or +1, for what we care.
+
+class DCERPCEpm:
+    endianness = '<'
+    def __init__(self, dcerpc):
+        self._dcerpc = dcerpc
+
+    def portmap_dump(self, rpc_handle = '\x00'*20):
+        if self.endianness == '>':
+            from impacket.structure import unpack,pack
+            try:
+                rpc_handle = ''.join(map(chr, rpc_handle))
+            except:
+                pass
+            
+            uuid = list(unpack('<LLHHBB6s', rpc_handle))
+            rpc_handle = pack('>LLHHBB6s', *uuid)
+
+        lookup = EPMLookupRequestHeader(endianness = self.endianness)
+        lookup.set_handle(rpc_handle);
+        self._dcerpc.send(lookup)
+
+        data = self._dcerpc.recv()
+        resp = EPMRespLookupRequestHeader(data)
+
+        return resp
+
+    # Use these functions to manipulate the portmapper. The previous ones are left for backward compatibility reasons.
+
+
+    def doRequest(self, request, noAnswer = 0, checkReturn = 1):
+        self._dcerpc.call(request.opnum, request)
+        if noAnswer:
+            return
+        else:
+            answer = self._dcerpc.recv()
+            if checkReturn and answer[-4:] != '\x00\x00\x00\x00':
+                error_code = unpack("<L", answer[-4:])[0]
+                raise 
+        return answer
+
+
+    def lookup(self, IfId, ObjectUUID = '\x00'*16, inquireType = RPC_C_EP_MATCH_BY_IF, versOpt = RPC_C_VERS_EXACT,  resumeHandle = '\x00'*20):
+        # A more general lookup method. Check [C706] for a description of each parameter
+        # It will return a list of records found matching the criteria
+        # Entries in the list looks like:
+        # EPMEntry
+        # pTower: {3}
+        # Object: {'termsrv\x00\x00\x00\x00\x00\x00\x00\x00\x00'}
+        # AnnotationOffset: {0}
+        # AnnotationLength: {19}
+        #
+        # Tower:{
+        #     _Floors: {86}
+        #     Length: {88}
+        #     Floors: {[<impacket.dcerpc.epm.EPMRPCInterface instance at 0x7fa9dbd43170>, 
+        #               <impacket.dcerpc.epm.EPMRPCDataRepresentation instance at 0x7fa9dbd43098>,
+        #               <impacket.dcerpc.epm.EPMFloor instance at 0x7fa9dbd431b8>, 
+        #               <impacket.dcerpc.epm.EPMFloor instance at 0x7fa9dbd43248>]}
+        #     ActualLength: {88}
+        #     NumberOfFloors: {4}
+        # }
+        # _Annotation: {19}
+        # Annotation: {'Impl friendly name\x00'}
+
+        lookup = EPMLookup()
+        lookup['InquireType'] = 0 #inquireType
+        lookup['IfId'] = IfId
+        lookup['UUID'] = ObjectUUID
+        lookup['VersionOption'] = versOpt
+        lookup['EntryHandle'] = resumeHandle
+        entries = []
+        errorCode = 0
+        while errorCode != RPC_NO_MORE_ELEMENTS:
+           data = self.doRequest(lookup, checkReturn = 0)
+           resp = EPMLookupResponse(data)
+           data = resp['Entries']['Data']
+
+           tmpEntries = []
+           for i in range(resp['Entries']['ActualCount']):
+               entry = EPMEntry(data)
+               data = data[len(entry):]
+               tmpEntries.append(entry)
+
+           for entry in tmpEntries:
+               tower = EPMTower(data)
+               data = data[len(tower):]
+               entry['Tower'] = tower
+
+           entries += tmpEntries
+
+           if resp['Handle'] == '\x00'*20:
+               break
+
+           lookup['EntryHandle'] = resp['Handle']
+           errorCode = resp['ErrorCode']
+        return entries
+
