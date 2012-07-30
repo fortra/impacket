@@ -12,7 +12,7 @@
 
 import array
 import struct
-
+import socket
 from struct import unpack
 from impacket import ImpactPacket
 from impacket import uuid
@@ -419,4 +419,45 @@ class DCERPCEpm:
            lookup['EntryHandle'] = resp['Handle']
            errorCode = resp['ErrorCode']
         return entries
+
+def PrintStringBinding(floors):
+    tmp_address = ''
+    tmp_address2 = ''
+    for floor in floors[3:]:
+        if floor['ProtocolData'] == chr(0x07):
+            tmp_address = 'ncacn_ip_tcp:%%s[%d]' % struct.unpack('!H',floor['RelatedData'])
+        elif floor['ProtocolData'] == chr(0x08):
+            tmp_address = 'ncadg_ip_udp:%%s[%d]' % struct.unpack('!H',floor['RelatedData'])
+        elif floor['ProtocolData'] == chr(0x09):
+            # If the address were 0.0.0.0 it would have to be replaced by the remote host's IP.
+            tmp_address2 = socket.inet_ntoa(floor['RelatedData'])
+            if tmp_address <> '':
+                return tmp_address % tmp_address2
+            else:
+                return 'IP: %s' % tmp_address2
+        elif floor['ProtocolData'] == chr(0x0c):
+            tmp_address = 'ncacn_spx:~%%s[%d]' % struct.unpack('!H',floor['RelatedData'])
+        elif floor['ProtocolData'] == chr(0x0d):
+            n = len(floor['RelatedData'])
+            tmp_address2 = ('%02X' * n) % struct.unpack("%dB" % n, floor['RelatedData'])
+
+            if tmp_address <> '':
+                return tmp_address % tmp_address2
+            else:
+                return 'SPX: %s' % tmp_address2
+        elif floor['ProtocolData'] == chr(0x0e):
+            tmp_address = 'ncadg_ipx:~%%s[%d]' % struct.unpack('!H',floor['RelatedData'])
+        elif floor['ProtocolData'] == chr(0x0f):
+            tmp_address = 'ncacn_np:%%s[%s]' % floor['RelatedData'][:len(floor['RelatedData'])-1]
+        elif floor['ProtocolData'] == chr(0x10):
+            return 'ncalrpc:[%s]' % floor['RelatedData'][:len(floor['RelatedData'])-1]
+        elif floor['ProtocolData'] == chr(0x01) or floor['ProtocolData'] == chr(0x11):
+            if tmp_address <> '':
+                return tmp_address % floor['RelatedData'][:len(floor['RelatedData'])-1]
+            else:
+                return 'NetBIOS: %s' % floor['RelatedData'] 
+        elif floor['ProtocolData'] == chr(0x1f):
+            tmp_address = 'ncacn_http:%%s[%d]' % struct.unpack('!H',floor['RelatedData'])
+        else:
+            return 'unknown_proto_0x%x:[0]' % ord(floor['ProtocolData'] )
 
