@@ -11,6 +11,7 @@
 #
 # Author:
 #  Javier Kohen <jkohen@coresecurity.com>
+#  Alberto Solino <beto@coresecurity.com>
 #
 # Reference for:
 #  DCE/RPC.
@@ -83,19 +84,11 @@ class RPCDump:
         # Display results.
 
         for entry in entries:
-            base = entry.getUUID()
-            if 'unknown' != entry.getProviderName():
-                print base + '/Provider:', entry.getProviderName()
-            print base + '/Version:', entry.getVersion()
-            if entry.getAnnotation():
-                print base + '/Annotation:', entry.getAnnotation()
-
-            objbase = base
-            if not entry.isZeroObjUUID():
-                objbase += '/' + entry.getObjUUID()
-
-            stringbinding = transport.DCERPCStringBindingCompose('', entry.getProtocol(), '', entry.getEndpoint())
-            print objbase + '/StringBindings:', stringbinding
+            binding = epm.PrintStringBinding(entry['Tower']['Floors'])
+            print "UUID   : %s %s" % (entry['Tower']['Floors'][0], entry['Annotation'][:-1])
+            #print "Transfer Syntax: %s" % entry['Tower']['Floors'][1]
+            print "%s" % binding
+            print ""
 
         if entries:
             num = len(entries)
@@ -121,24 +114,11 @@ class RPCDump:
         dce.bind(epm.MSRPC_UUID_PORTMAP)
         rpcepm = epm.DCERPCEpm(dce)
 
-        resp = rpcepm.portmap_dump()
-        while resp.get_entries_num() != 0:
-            rpc_handle = resp.get_handle()
-            ndrentry = resp.get_entry().get_entry()
-            sb = transport.DCERPCStringBinding(ndrentry.get_string_binding())
-            entry = epm.EpmEntry(uuid.bin_to_string(ndrentry.get_uuid()),
-                                 ndrentry.get_version(),
-                                 ndrentry.get_annotation(),
-                                 uuid.bin_to_string(ndrentry.get_objuuid()),
-                                 sb.get_protocol_sequence(),
-                                 sb.get_endpoint())
-            entries.append(entry)
-##             print str(entry)
-            resp = rpcepm.portmap_dump(rpc_handle)
+        resp = rpcepm.lookup('', inquireType = epm.RPC_C_EP_ALL_ELTS)
 
         dce.disconnect()
 
-        return entries
+        return resp
 
 
 # Process command-line arguments.
