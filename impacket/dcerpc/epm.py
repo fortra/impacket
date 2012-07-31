@@ -388,7 +388,7 @@ class DCERPCEpm:
         # Annotation: {'Impl friendly name\x00'}
 
         lookup = EPMLookup()
-        lookup['InquireType'] = 0 #inquireType
+        lookup['InquireType'] = inquireType
         lookup['IfId'] = IfId
         lookup['UUID'] = ObjectUUID
         lookup['VersionOption'] = versOpt
