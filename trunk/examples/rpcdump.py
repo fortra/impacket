@@ -85,9 +85,14 @@ class RPCDump:
 
         for entry in entries:
             binding = epm.PrintStringBinding(entry['Tower']['Floors'])
-            print "UUID   : %s %s" % (entry['Tower']['Floors'][0], entry['Annotation'][:-1])
-            #print "Transfer Syntax: %s" % entry['Tower']['Floors'][1]
+            tmpUUID = str(entry['Tower']['Floors'][0])
+            if epm.KNOWN_PROTOCOLS.has_key(tmpUUID[:36]):
+                print "Protocol: %s " % epm.KNOWN_PROTOCOLS[tmpUUID[:36]]
+            else:
+                print "Protocol: N/A"
+            print "UUID    : %s %s" % (tmpUUID, entry['Annotation'][:-1])
             print "%s" % binding
+            #print "Transfer Syntax: %s" % entry['Tower']['Floors'][1]
             print ""
 
         if entries:
