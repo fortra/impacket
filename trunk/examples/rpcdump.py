@@ -83,16 +83,28 @@ class RPCDump:
 
         # Display results.
 
+        endpoints = {}
+        # Let's groups the UUIDS
         for entry in entries:
             binding = epm.PrintStringBinding(entry['Tower']['Floors'])
             tmpUUID = str(entry['Tower']['Floors'][0])
+            if endpoints.has_key(tmpUUID) is not True:
+                endpoints[tmpUUID] = {}
+                endpoints[tmpUUID]['Bindings'] = list()
+            endpoints[tmpUUID]['Annotation'] = entry['Annotation'][:-1]
+            endpoints[tmpUUID]['Bindings'].append(binding)
+
             if epm.KNOWN_PROTOCOLS.has_key(tmpUUID[:36]):
-                print "Protocol: %s " % epm.KNOWN_PROTOCOLS[tmpUUID[:36]]
+                endpoints[tmpUUID]['Protocol'] = epm.KNOWN_PROTOCOLS[tmpUUID[:36]]
             else:
-                print "Protocol: N/A"
-            print "UUID    : %s %s" % (tmpUUID, entry['Annotation'][:-1])
-            print "%s" % binding
+                endpoints[tmpUUID]['Protocol'] = "N/A"
             #print "Transfer Syntax: %s" % entry['Tower']['Floors'][1]
+     
+        for endpoint in endpoints.keys():
+            print "Protocol: %s " % endpoints[endpoint]['Protocol']
+            print "UUID    : %s %s" % (endpoint, endpoints[endpoint]['Annotation'])
+            for binding in endpoints[endpoint]['Bindings']:
+                print binding
             print ""
 
         if entries:
