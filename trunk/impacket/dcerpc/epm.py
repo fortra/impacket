@@ -557,6 +557,15 @@ KNOWN_PROTOCOLS = {
 '481E06CF-AB04-4498-8FFE-124A0A34296D':'[MS-WSRM]: Windows System Resource Manager (WSRM) Protocol',
 'E8BCFFAC-B864-4574-B2E8-F1FB21DFDC18':'[MS-WSRM]: Windows System Resource Manager (WSRM) Protocol',
 '943991A5-B3FE-41FA-9696-7F7B656EE34B':'[MS-WSRM]: Windows System Resource Manager (WSRM) Protocol',
+'BBA9CB76-EB0C-462C-AA1B-5D8C34415701':'[MS-ADTS]: Active Directory Technical',
+'906B0CE0-C70B-1067-B317-00DD010662DA':'[MS-CMPO]: MSDTC Connection Manager',
+'E3514235-4B06-11D1-AB04-00C04FC2DCD2':'[MS-DRDM]: Directory Replication and Data Management (DRDM)',
+'E3514235-4B06-11D1-AB04-00C04FC2DCD2':'[MS-DRSR]: Directory Replication Service (DRS) Remote Protocol',
+'F6BEAFF7-1E19-4FBB-9F8F-B89E2018337C':'[MS-EVEN6]: EventLog Remoting Protocol',
+'D049B186-814F-11D1-9A3C-00C04FC9B232':'[MS-FRS1]: File Replication Service Protocol ',
+'F5CC59B4-4264-101A-8C59-08002B2F8426':'[MS-FRS1]: File Replication Service Protocol ',
+'5A7B91F8-FF00-11D0-A9B2-00C04FB6E6FC':'[MS-MSRP]: Messenger Service Remote Protocol ',
+'E33C0CC4-0482-101A-BC0C-02608C6BA218':'[MS-RPCL]: Remote Procedure Call Location Services Extensions',
 }
 
 # EPM Classes
