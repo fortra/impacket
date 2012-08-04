@@ -22,7 +22,7 @@ import sys
 import types
 
 from impacket import uuid, ntlm, version
-from impacket.dcerpc import dcerpc_v4, dcerpc, transport, epm
+from impacket.dcerpc import dcerpc_v4, dcerpc, transport, epm, ndrutils
 import argparse
 
 class RPCDump:
@@ -91,6 +91,10 @@ class RPCDump:
             if endpoints.has_key(tmpUUID) is not True:
                 endpoints[tmpUUID] = {}
                 endpoints[tmpUUID]['Bindings'] = list()
+            if ndrutils.KNOWN_UUIDS.has_key(uuid.uuidtup_to_bin(uuid.string_to_uuidtup(tmpUUID))[:18]):
+                endpoints[tmpUUID]['EXE'] = ndrutils.KNOWN_UUIDS[uuid.uuidtup_to_bin(uuid.string_to_uuidtup(tmpUUID))[:18]]
+            else:
+                endpoints[tmpUUID]['EXE'] = 'N/A'
             endpoints[tmpUUID]['Annotation'] = entry['Annotation'][:-1]
             endpoints[tmpUUID]['Bindings'].append(binding)
 
@@ -102,9 +106,11 @@ class RPCDump:
      
         for endpoint in endpoints.keys():
             print "Protocol: %s " % endpoints[endpoint]['Protocol']
+            print "Provider: %s " % endpoints[endpoint]['EXE']
             print "UUID    : %s %s" % (endpoint, endpoints[endpoint]['Annotation'])
+            print "Bindings: "
             for binding in endpoints[endpoint]['Bindings']:
-                print binding
+                print "          %s" % binding
             print ""
 
         if entries:
