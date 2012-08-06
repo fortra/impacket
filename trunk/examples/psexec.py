@@ -58,7 +58,7 @@ class PSEXEC:
         }
 
 
-    def __init__(self, command, path, protocols = None, 
+    def __init__(self, command, path, exeFile, protocols = None, 
                  username = '', password = '', domain = '', hashes = None):
         if not protocols:
             protocols = PSEXEC.KNOWN_PROTOCOLS.keys()
@@ -71,6 +71,7 @@ class PSEXEC:
         self.__domain = domain
         self.__lmhash = ''
         self.__nthash = ''
+        self.__exeFile = exeFile
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
 
@@ -91,7 +92,10 @@ class PSEXEC:
             self.doStuff(rpctransport)
 
     def openPipe(self, s, tid, pipe, accessMask):
-        s.waitNamedPipe(tid,pipe)
+        try:
+            s.waitNamedPipe(tid,pipe)
+        except:
+            pass
 
         ntCreate = smb.SMBCommand(smb.SMB.SMB_COM_NT_CREATE_ANDX)
         ntCreate['Parameters'] = smb.SMBNtCreateAndX_Parameters()
@@ -123,8 +127,20 @@ class PSEXEC:
 
             # We don't wanna deal with timeouts from now on.
             s.set_timeout(100000)
-            installService = serviceinstall.ServiceInstall(rpctransport.get_smb_server(), remcomsvc.RemComSvc())
+            if self.__exeFile is None:
+                installService = serviceinstall.ServiceInstall(rpctransport.get_smb_server(), remcomsvc.RemComSvc())
+            else:
+                try:
+                    f = open(self.__exeFile)
+                except Exception, e:
+                    print e
+                    sys.exit(1)
+                installService = serviceinstall.ServiceInstall(rpctransport.get_smb_server(), f)
+    
             installService.install()
+
+            if self.__exeFile is not None:
+                f.close()
 
             tid = s.tree_connect_andx('\\\\%s\\IPC$' % s.get_remote_name())
             fid_main = self.openPipe(s,tid,'\RemCom_communicaton',0x12019f)
@@ -394,6 +410,7 @@ if __name__ == '__main__':
     parser.add_argument('target', action='store', help='[domain/][username[:password]@]<address>')
     parser.add_argument('command', action='store', help='command to execute at the target (w/o path)')
     parser.add_argument('-path', action='store', help='path of the command to execute')
+    parser.add_argument('-file', action='store', help="alternative RemCom binary (be sure it doesn't require CRT)")
     parser.add_argument('protocol', choices=PSEXEC.KNOWN_PROTOCOLS.keys(), nargs='?', default='445/SMB', help='transport protocol (default 445/SMB)')
 
     group = parser.add_argument_group('authentication')
@@ -412,5 +429,5 @@ if __name__ == '__main__':
     if domain is None:
         domain = ''
 
-    executer = PSEXEC(options.command, options.path, options.protocol, username, password, domain, options.hashes)
+    executer = PSEXEC(options.command, options.path, options.file, options.protocol, username, password, domain, options.hashes)
     executer.run(address)
