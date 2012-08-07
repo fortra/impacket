@@ -146,7 +146,11 @@ class ServiceInstall():
                 fileCopied = True
                 svcManager = self.openSvcManager()
                 if svcManager != 0:
-                    path = '\\\\127.0.0.1\\' + self.share 
+                    serverName = self.client.get_server_name()
+                    if serverName != '':
+                       path = '\\\\%s\\%s' % (serverName, self.share)
+                    else:
+                       path = '\\\\127.0.0.1\\' + self.share 
                     service = self.createService(svcManager, self.share, path)
                     serviceCreated = True
                     if service != 0:
