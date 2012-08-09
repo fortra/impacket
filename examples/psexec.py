@@ -92,10 +92,20 @@ class PSEXEC:
             self.doStuff(rpctransport)
 
     def openPipe(self, s, tid, pipe, accessMask):
-        try:
-            s.waitNamedPipe(tid,pipe)
-        except:
-            pass
+        pipeReady = False
+        tries = 50
+        while pipeReady is False and tries > 0:
+            try:
+                s.waitNamedPipe(tid,pipe)
+                pipeReady = True
+            except:
+                tries -= 1
+                time.sleep(2)
+                pass
+
+        if tries == 0:
+            print '[!] Pipe not ready, aborting'
+            raise
 
         ntCreate = smb.SMBCommand(smb.SMB.SMB_COM_NT_CREATE_ANDX)
         ntCreate['Parameters'] = smb.SMBNtCreateAndX_Parameters()
