@@ -4143,7 +4143,7 @@ class SMB:
                 # First of all we gotta know what the MaxBuffSize is
                 maxBuffSize = self._dialects_parameters['MaxBufferSize'] 
                 if len(data) > maxBuffSize:
-                    chunks_size = maxBuffSize - 5
+                    chunks_size = maxBuffSize - 60
                     writeAndX['Parameters']['WriteMode'] = 0x0c
                     sendData = '\xff\xff' + data
                     totalLen = len(sendData)
