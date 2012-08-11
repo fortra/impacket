@@ -42,17 +42,16 @@
 # [ ] Implement TRANS/TRANS2 reassembly for list_path 
 
 import os, sys, socket, string, re, select, errno
-import nmb
+from impacket import nmb, ntlm
+from impacket.dcerpc import samr
+from impacket.structure import Structure
 import types
 from binascii import a2b_hex
-import ntlm
 import random
 import datetime, time
 from random import randint
 from struct import *
-from dcerpc import samr
 import struct
-from structure import Structure
 from contextlib import contextmanager
 
 # For signing
