@@ -664,7 +664,7 @@ class NetBIOSSessionPacket:
         return self.type
     def rawData(self):
         if self.type == NETBIOS_SESSION_MESSAGE:
-            data = pack('!BBH',self.type,self.length >> 16,self.length) + self._trailer
+            data = pack('!BBH',self.type,self.length >> 16,self.length & 0xFFFF) + self._trailer
         else:
             data = pack('!BBH',self.type,self.flags,self.length) + self._trailer
         return data
