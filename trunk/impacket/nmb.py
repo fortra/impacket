@@ -648,8 +648,12 @@ class NetBIOSSessionPacket:
         else:
             try:
                 self.type = ord(data[0])
-                self.flags = ord(data[1])
-                self.length = unpack('!H', data[2:4])[0]
+                if self.type == NETBIOS_SESSION_MESSAGE:
+                    self.length = ord(data[1]) << 16 | (unpack('!H', data[2:4])[0])
+                else:
+                    self.flags = ord(data[1])
+                    self.length = unpack('!H', data[2:4])[0]
+
                 self._trailer = data[4:]
             except:
                 raise NetBIOSError( 'Wrong packet format ' )
@@ -659,7 +663,10 @@ class NetBIOSSessionPacket:
     def get_type(self):
         return self.type
     def rawData(self):
-        data = pack('!BBH',self.type,self.flags,self.length) + self._trailer
+        if self.type == NETBIOS_SESSION_MESSAGE:
+            data = pack('!BBH',self.type,self.length >> 16,self.length) + self._trailer
+        else:
+            data = pack('!BBH',self.type,self.flags,self.length) + self._trailer
         return data
     def set_trailer(self,data):
         self._trailer = data
@@ -923,8 +930,11 @@ class NetBIOSTCPSession(NetBIOSSession):
     def __read(self, timeout = None):
         data = self.read_function(4, timeout)
         type, flags, length = unpack('>ccH', data)
-        if ord(flags) & 0x01:
-            length = length | 0x10000
+        if ord(type) == NETBIOS_SESSION_MESSAGE:
+            length = ord(flags) << 16 | length
+        else:
+            if ord(flags) & 0x01:
+                length = length | 0x10000
         data2 = self.read_function(length, timeout)
 
         return data + data2
