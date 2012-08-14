@@ -148,6 +148,8 @@ class SMB3:
             'ServerCapabilities'       : 0,    #
             'ClientSecurityMode'       : 0,    #
             'ServerSecurityMode'       : 0,    #
+            # Outside the protocol
+            'ServerIP'                 : '',    #
         }
    
         self._Session = {
@@ -167,14 +169,17 @@ class SMB3:
             'DecryptionKey'            : '',
             'SigningKey'               : '',  
             'ApplicationKey'           : '',
-            'ServerName'               : '',
-            'ServerDomain'             : '', 
-            'ServerOS'                 : '', 
+            # Outside the protocol
+            'SessionFlags'             : 0,     # 
+            'ServerName'               : '',    #
+            'ServerDomain'             : '',    #
+            'ServerOS'                 : '',    #
         }
 
         self.SMB_PACKET = SMB2Packet
         
         self._timeout = timeout
+        self._Connection['ServerIP'] = remote_host
         
         if not my_name:
             my_name = socket.gethostname()
@@ -206,11 +211,17 @@ class SMB3:
     def getServerName(self):
         return self._Session['ServerName']
 
+    def getServerIP(self):
+        return self._Connection['ServerIP']
+
     def getServerDomain(self):
         return self._Session['ServerDomain']
 
     def getServerOS(self):
         return self._Session['ServerOS']
+
+    def isGuestSession(self):
+        return self._Session['SessionFlags'] & SMB2_SESSION_FLAG_IS_GUEST 
 
     def signSMB(self, packet):
         #raise
@@ -435,6 +446,8 @@ class SMB3:
             packetID = self.sendSMB(packet)
             packet = self.recvSMB(packetID)
             if packet.isValidAnswer(STATUS_SUCCESS):
+                sessionSetupResponse = SMB2SessionSetup_Response(ans['Data'])
+                self._Session['SessionFlags'] = sessionSetupResponse['SessionFlags']
                 return True
 
     def connectTree(self, share):
@@ -867,6 +880,7 @@ class SMB3:
     get_server_name   = getServerName
     get_server_domain = getServerDomain
     get_remote_name   = getServerName
+    get_remote_host   = getServerIP
 
     def doesSupportNTLMv2(self):
         # Always true :P 
@@ -878,6 +892,7 @@ class SMB3:
 
     tree_connect_andx = connectTree
     tree_connect      = connectTree
+    connect_tree      = connectTree
     disconnect_tree   = disconnectTree 
     def nt_create_andx(self, treeId, fileName):
         if len(fileName) > 0 and fileName[0] == '\\':
@@ -911,3 +926,8 @@ class SMB3:
         if max_size is None:
             max_size = self._Connection['MaxReadSize']
         return self.read(tid, fid, offset, max_size, wait_answer)
+
+    def list_shared(self):
+        # In the context of SMB2/3, forget about the old LANMAN, throw NOT IMPLEMENTED
+        raise SessionError(STATUS_NOT_IMPLEMENTED)
+
