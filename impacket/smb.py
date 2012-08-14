@@ -4218,8 +4218,16 @@ class SMB:
            transResponse = SMBCommand(smb['Data'][0])
            transParameters = SMBTransactionResponse_Parameters(transResponse['Parameters'])
            return transResponse['Data'][-transParameters['TotalDataCount']:] # Remove Potential Prefix Padding
-
         return None
+
+    def TransactNamedPipeRecv(self):
+        s = self.recvSMB()
+        if s.isValidAnswer(SMB.SMB_COM_TRANSACTION):
+           transResponse = SMBCommand(s['Data'][0])
+           transParameters = SMBTransactionResponse_Parameters(transResponse['Parameters'])
+           return transResponse['Data'][-transParameters['TotalDataCount']:] # Remove Potential Prefix Padding
+        return None
+
 
     def nt_create_andx(self,tid,filename, smb_packet=None, cmd = None):
         if smb_packet == None:
