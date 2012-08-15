@@ -527,6 +527,8 @@ class SMB3:
         packetID = self.sendSMB(packet)
         packet = self.recvSMB(packetID)
         if packet.isValidAnswer(STATUS_SUCCESS):
+            shareName = self._Session['TreeConnectTable'][treeId]['ShareName']
+            del(self._Session['TreeConnectTable'][shareName])
             del(self._Session['TreeConnectTable'][treeId])
             return True
 
