@@ -873,6 +873,45 @@ class SMB3:
         if ans.isValidAnswer(STATUS_SUCCESS):
             return True
 
+    def list_path(self, shareName, path, password = None):
+        # ToDo: Handle situations where share is password protected
+        path = string.replace(path,'/', '\\')
+        path = ntpath.normpath(path)
+        if len(path) > 0 and path[0] == '\\':
+            path = path[1:]
+
+        treeId = self.connectTree(shareName)
+
+        fileId = None
+        try:
+            # ToDo, we're assuming it's a directory, we should check what the file type is
+            fileId = self.create(treeId, ntpath.dirname(path), FILE_READ_ATTRIBUTES | FILE_READ_DATA ,FILE_SHARE_READ | FILE_SHARE_WRITE |FILE_SHARE_DELETE, FILE_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT, FILE_OPEN, 0) 
+            res = ''
+            files = []
+            import smb
+            while True:
+                try:
+                    res = self.queryDirectory( treeId, fileId, ntpath.basename(path), maxBufferSize = 65535 )
+                    nextOffset = 1
+                    while nextOffset != 0:
+                        fileInfo = smb.SMBFindFileNamesInfo(smb.SMB.FLAGS2_UNICODE)
+                        fileInfo.fromString(res)
+                        files.append(smb.SharedFile(0,0,0,0,0,0,fileInfo['FileName'].decode('utf-16le'), fileInfo['FileName'].decode('utf-16le')))
+                        nextOffset = fileInfo['NextEntryOffset']
+                        res = res[nextOffset:]
+                except SessionError, e:
+                    if (e.get_error_code()) != STATUS_NO_MORE_FILES:
+                        raise
+                    break 
+        finally:
+            if fileId is not None:
+                self.close(treeId, fileId)
+            self.disconnectTree(treeId) 
+
+        return files
+
+
+
     ######################################################################
     # Backward compatibility functions for SMB1 and DCE Transports
     # NOTE: It is strongly recommended not to use these commands
