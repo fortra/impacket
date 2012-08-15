@@ -36,7 +36,7 @@ SMB2_CANCEL          = 0x000C #
 SMB2_ECHO            = 0x000D #
 SMB2_QUERY_DIRECTORY = 0x000E #
 SMB2_CHANGE_NOTIFY   = 0x000F
-SMB2_QUERY_INFO      = 0x0010
+SMB2_QUERY_INFO      = 0x0010 #
 SMB2_SET_INFO        = 0x0011
 SMB2_OPLOCK_BREAK    = 0x0012
 
@@ -344,6 +344,54 @@ SMB2_0_INFO_FILE        = 0x01
 SMB2_0_INFO_FILESYSTEM  = 0x02
 SMB2_0_INFO_SECURITY    = 0x03
 SMB2_0_INFO_QUOTA       = 0x04
+
+# File Information Classes
+SMB2_FILE_ACCESS_INFO                 = 8
+SMB2_FILE_ALIGNMENT_INFO              = 17
+SMB2_FILE_ALL_INFO                    = 18
+SMB2_FILE_ALLOCATION_INFO             = 19
+SMB2_FILE_ALTERNATE_NAME_INFO         = 21
+SMB2_ATTRIBUTE_TAG_INFO               = 35
+SMB2_FILE_BASIC_INFO                  = 4
+SMB2_FILE_BOTH_DIRECTORY_INFO         = 3
+SMB2_FILE_COMPRESSION_INFO            = 28
+SMB2_FILE_DIRECTORY_INFO              = 1
+SMB2_FILE_DISPOSITION_INFO            = 13
+SMB2_FILE_EA_INFO                     = 7
+SMB2_FILE_END_OF_FILE_INFO            = 20
+SMB2_FULL_DIRECTORY_INFO              = 2
+SMB2_FULL_EA_INFO                     = 15
+SMB2_FILE_HARDLINK_INFO               = 46
+SMB2_FILE_ID_BOTH_DIRECTORY_INFO      = 37
+SMB2_FILE_ID_FULL_DIRECTORY_INFO      = 38
+SMB2_FILE_ID_GLOBAL_TX_DIRECTORY_INFO = 50
+SMB2_FILE_INTERNAL_INFO               = 6
+SMB2_FILE_LINK_INFO                   = 11
+SMB2_FILE_MAILSLOT_QUERY_INFO         = 26
+SMB2_FILE_MAILSLOT_SET_INFO           = 27
+SMB2_FILE_MODE_INFO                   = 16
+SMB2_FILE_MOVE_CLUSTER_INFO           = 31
+SMB2_FILE_NAME_INFO                   = 9
+SMB2_FILE_NAMES_INFO                  = 12
+SMB2_FILE_NETWORK_OPEN_INFO           = 34
+SMB2_FILE_NORMALIZED_NAME_INFO        = 48
+SMB2_FILE_OBJECT_ID_INFO              = 29
+SMB2_FILE_PIPE_INFO                   = 23
+SMB2_FILE_PIPE_LOCAL_INFO             = 24
+SMB2_FILE_PIPE_REMOTE_INFO            = 25
+SMB2_FILE_POSITION_INFO               = 14
+SMB2_FILE_QUOTA_INFO                  = 32
+SMB2_FILE_RENAME_INFO                 = 10
+SMB2_FILE_REPARSE_POINT_INFO          = 33
+SMB2_FILE_SFIO_RESERVE_INFO           = 44
+SMB2_FILE_SHORT_NAME_INFO             = 45
+SMB2_FILE_STANDARD_INFO               = 5
+SMB2_FILE_STANDARD_LINK_INFO          = 54
+SMB2_FILE_STREAM_INFO                 = 22
+SMB2_FILE_TRACKING_INFO               = 36
+SMB2_FILE_VALID_DATA_LENGTH_INFO      = 39
+
+
 
 # Additional information
 OWNER_SECURITY_INFORMATION  = 0x00000001
@@ -1205,12 +1253,13 @@ class FILE_NOTIFY_INFORMATION(Structure):
 
 # SMB2_QUERY_INFO
 class SMB2QueryInfo(Structure):
-   structure = (
+    SIZE = 40
+    structure = (
        ('StructureSize','<H=41'),
        ('InfoType','<B=0'),
        ('FileInfoClass','<B=0'),
        ('OutputBufferLength','<L=0'),
-       ('InputBufferOffset','<H=0'),
+       ('InputBufferOffset','<H=(self.SIZE + 64 + len(self["AlignPad"]))'),
        ('Reserved','<H=0'),
        ('InputBufferLength','<L=0'),
        ('AdditionalInformation','<L=0'),
@@ -1220,7 +1269,12 @@ class SMB2QueryInfo(Structure):
        ('AlignPad',':=""'),
        ('_Buffer','_-Buffer','self["InputBufferLength"]'),
        ('Buffer',':'),
-   )
+    )
+    def __init__(self, data = None):
+        Structure.__init__(self,data)
+        if data is None:
+            self['AlignPad'] = ''
+
 
 class SMB2_QUERY_QUOTA_INFO(Structure):
     structure = (
