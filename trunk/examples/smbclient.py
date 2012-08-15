@@ -19,8 +19,9 @@
 
 import sys
 import string
-from impacket import smb, version, smb3
+from impacket import smb, version, smb3, nt_errors
 from impacket.dcerpc import dcerpc_v4, dcerpc, transport, srvsvc
+from nt_errors import *
 import argparse
 import ntpath
 import cmd
@@ -164,11 +165,24 @@ class MiniImpacketShell(cmd.Cmd):
 
     def do_cd(self, line):
         p = string.replace(line,'/','\\')
+        oldpwd = self.pwd
         if p[0] == '\\':
            self.pwd = line
         else:
            self.pwd = ntpath.join(self.pwd, line)
         self.pwd = ntpath.normpath(self.pwd)
+        # Let's try to open the directory to see if it's valid
+        try:
+            fid = self.smb.nt_create_andx(self.tid, self.pwd)
+            self.smb.close(self.tid,fid)
+            self.pwd = oldpwd
+        except Exception, e:
+            if (e.get_error_code() & 0xff) == (STATUS_FILE_IS_A_DIRECTORY & 0xff):
+               pass
+            else:
+               self.pwd = oldpwd
+               raise
+            
 
     def do_pwd(self,line):
         print self.pwd
