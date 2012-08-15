@@ -228,7 +228,8 @@ class MiniImpacketShell(cmd.Cmd):
         fh.close()
 
     def do_get(self, filename):
-        fh = open(filename,'wb')
+        filename = string.replace(filename,'/','\\')
+        fh = open(ntpath.basename(filename),'wb')
         pathname = ntpath.join(self.pwd,filename)
         try:
             self.smb.retr_file(self.share, pathname, fh.write)
