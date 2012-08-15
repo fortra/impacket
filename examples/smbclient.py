@@ -19,9 +19,10 @@
 
 import sys
 import string
-from impacket import smb, version
+from impacket import smb, version, smb3
 from impacket.dcerpc import dcerpc_v4, dcerpc, transport, srvsvc
 import argparse
+import ntpath
 import cmd
 import os
 
@@ -119,6 +120,10 @@ class MiniImpacketShell(cmd.Cmd):
            nthash = l[2]
 
         self.smb.login(username, '', lmhash=lmhash, nthash=nthash)
+        if self.smb.isGuestSession() > 0:
+            print "GUEST Session Granted"
+        else:
+            print "USER Session Granted"
 
     def do_logoff(self, line):
         self.smb.logoff()
@@ -155,14 +160,15 @@ class MiniImpacketShell(cmd.Cmd):
     def do_use(self,line):
         self.share = line
         self.tid = self.smb.connect_tree(line)
-        self.pwd = ''
+        self.pwd = '\\'
 
     def do_cd(self, line):
         p = string.replace(line,'/','\\')
         if p[0] == '\\':
            self.pwd = line
         else:
-           self.pwd += '/' + line
+           self.pwd = ntpath.join(self.pwd, line)
+        self.pwd = ntpath.normpath(self.pwd)
 
     def do_pwd(self,line):
         print self.pwd
@@ -171,22 +177,24 @@ class MiniImpacketShell(cmd.Cmd):
         if wildcard == '':
            pwd = self.pwd + '/*'
         else:
-           pwd = self.pwd + '/' + wildcard
+           pwd = ntpath.join(self.pwd, wildcard)
+        pwd = string.replace(pwd,'/','\\')
+        pwd = ntpath.normpath(pwd)
         for f in self.smb.list_path(self.share, pwd):
            print "%s" % f.get_longname()
 
     def do_rm(self, filename):
-        f = self.pwd + '/' + filename
+        f = ntpath.join(self.pwd, filename)
         file = string.replace(f,'/','\\')
         self.smb.remove(self.share, file)
  
     def do_mkdir(self, path):
-        p = self.pwd + '/' + path
+        p = ntpath.join(self.pwd, path)
         pathname = string.replace(p,'/','\\')
         self.smb.mkdir(self.share,pathname)
 
     def do_rmdir(self, path):
-        p = self.pwd + '/' + path
+        p = ntpath.join(self.pwd, path)
         pathname = string.replace(p,'/','\\')
         self.smb.rmdir(self.share, pathname)
 
@@ -200,16 +208,20 @@ class MiniImpacketShell(cmd.Cmd):
             dst_name = os.path.basename(src_path)
 
         fh = open(pathname, 'rb')
-        f = self.pwd + '/' + dst_name
+        f = ntpath.join(self.pwd,dst_name)
         finalpath = string.replace(f,'/','\\')
         self.smb.stor_file(self.share, finalpath, fh.read)
         fh.close()
 
     def do_get(self, filename):
         fh = open(filename,'wb')
-        f = self.pwd + '/' + filename
-        pathname = string.replace(f,'/','\\')
-        self.smb.retr_file(self.share, pathname, fh.write)
+        pathname = ntpath.join(self.pwd,filename)
+        try:
+            self.smb.retr_file(self.share, pathname, fh.write)
+        except:
+            fh.close()
+            os.remove(filename)
+            raise
         fh.close()
 
     def do_close(self, line):
@@ -227,11 +239,11 @@ def main():
         options = parser.parse_args()
         print "Executing commands from %s" % options.file.name
         for line in options.file.readlines():
-            print "# %s" % line,
-            shell.onecmd(line)
-
-
-
+            if line[0] != '#':
+                print "# %s" % line,
+                shell.onecmd(line)
+            else:
+                print line,
 
 if __name__ == "__main__":
     try:
