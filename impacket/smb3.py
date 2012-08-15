@@ -722,8 +722,8 @@ class SMB3:
             writeResponse = SMB2Write_Response(ans['Data'])
             bytesWritten = writeResponse['Count']
             if bytesWritten < bytesToWrite:
-                self.write(treeId, fileId, data[bytesWritten:], offset+bytesWritten, bytesToWrite-bytesWritten, waitAnswer)
-            return True
+                bytesWritten += self.write(treeId, fileId, data[bytesWritten:], offset+bytesWritten, bytesToWrite-bytesWritten, waitAnswer)
+            return bytesWritten
 
     def queryDirectory(self, treeId, fileId, searchString = '*', resumeIndex = 0, informationClass = FILENAMES_INFORMATION, maxBufferSize = None, enumRestart = False, singleEntry = False):
         if self._Session['TreeConnectTable'].has_key(treeId) is False:
@@ -1032,6 +1032,30 @@ class SMB3:
             if fileId is not None:
                 self.close(treeId, fileId)
             self.disconnectTree(treeId) 
+
+    def stor_file(self, shareName, path, callback, mode = FILE_OVERWRITE_IF, offset = 0, password = None):
+        # ToDo: Handle situations where share is password protected
+        path = string.replace(path,'/', '\\')
+        path = ntpath.normpath(path)
+        if len(path) > 0 and path[0] == '\\':
+            path = path[1:]
+
+        treeId = self.connectTree(shareName)
+        fileId = None
+        try:
+            fileId = self.create(treeId, path, FILE_WRITE_DATA, FILE_SHARE_WRITE, FILE_NON_DIRECTORY_FILE, mode, 0 )
+            finished = False
+            writeOffset = offset
+            while not finished:
+                data = callback(self._Connection['MaxWriteSize'])
+                if len(data) == 0:
+                    break
+                written = self.write(treeId, fileId, data, writeOffset, len(data))
+                writeOffset += written
+        finally:
+            if fileId is not None:
+                self.close(treeId, fileId)
+            self.disconnectTree(treeId)
 
 
     ######################################################################
