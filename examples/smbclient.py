@@ -175,7 +175,7 @@ class MiniImpacketShell(cmd.Cmd):
 
     def do_ls(self, wildcard):
         if wildcard == '':
-           pwd = self.pwd + '/*'
+           pwd = ntpath.join(self.pwd,'*')
         else:
            pwd = ntpath.join(self.pwd, wildcard)
         pwd = string.replace(pwd,'/','\\')
