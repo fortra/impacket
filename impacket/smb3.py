@@ -33,7 +33,7 @@ from spnego import *
 from binascii import a2b_hex
 import socket, string, ntpath
 # For signing
-import hashlib, hmac
+import hashlib, hmac, copy
 
 # Structs to be used
 TREE_CONNECT = {
@@ -224,6 +224,9 @@ class SMB3:
 
     def isGuestSession(self):
         return self._Session['SessionFlags'] & SMB2_SESSION_FLAG_IS_GUEST 
+
+    def setTimeout(self, timeout):
+        self._timeout = timeout
 
     def signSMB(self, packet):
         #raise
@@ -457,6 +460,7 @@ class SMB3:
         # Just in case this came with the full path (maybe an SMB1 client), let's just leave 
         # the sharename, we'll take care of the rest
 
+        #print self._Session['TreeConnectTable']
         share = share.split('\\')[-1]
         if self._Session['TreeConnectTable'].has_key(share):
             # Already connected, no need to reconnect
@@ -478,7 +482,7 @@ class SMB3:
         packet = self.recvSMB(packetID)
         if packet.isValidAnswer(STATUS_SUCCESS):
            treeConnectResponse = SMB2TreeConnect_Response(packet['Data'])
-           treeEntry = TREE_CONNECT
+           treeEntry = copy.deepcopy(TREE_CONNECT)
            treeEntry['ShareName']     = share
            treeEntry['TreeConnectId'] = packet['TreeID']
            treeEntry['Session']       = packet['SessionID']
@@ -536,7 +540,7 @@ class SMB3:
         else:
             pathName = '\\\\' + self._Connection['ServerName'] + '\\' + fileName
 
-        fileEntry = FILE
+        fileEntry = copy.deepcopy(FILE)
         fileEntry['LeaseKey']   = uuid.generate()
         fileEntry['LeaseState'] = SMB2_LEASE_NONE
         self.GlobalFileTable[pathName] = fileEntry 
@@ -549,7 +553,7 @@ class SMB3:
                print "Don't know what to do now! :-o"
                raise
            else:
-               parentEntry = FILE
+               parentEntry = copy.deepcopy(FILE)
                parentEntry['LeaseKey']   = uuid.generate()
                parentEntry['LeaseState'] = SMB2_LEASE_NONE 
                self.GlobalFileTable[parentDir] = parentEntry 
@@ -589,7 +593,7 @@ class SMB3:
         if ans.isValidAnswer(STATUS_SUCCESS):
             createResponse = SMB2Create_Response(ans['Data'])
 
-            openFile = OPEN
+            openFile = copy.deepcopy(OPEN)
             openFile['FileID']      = createResponse['FileID']
             openFile['TreeConnect'] = treeId
             openFile['Oplocklevel'] = oplockLevel
@@ -1079,10 +1083,18 @@ class SMB3:
     tree_connect      = connectTree
     connect_tree      = connectTree
     disconnect_tree   = disconnectTree 
+    set_timeout       = setTimeout
 
-    def nt_create_andx(self, treeId, fileName):
+    def nt_create_andx(self, treeId, fileName, smb_packet=None, cmd = None):
         if len(fileName) > 0 and fileName[0] == '\\':
             fileName = fileName[1:]
+ 
+        if cmd is not None:
+            import smb
+            ntCreate = smb.SMBCommand(data = cmd)
+            parameters = smb.SMBNtCreateAndX_Parameters(ntCreate['Parameters'])
+            parameters.dump()
+            
 
         return self.create(treeId, fileName, FILE_READ_DATA | FILE_WRITE_DATA | FILE_APPEND_DATA | FILE_READ_EA |
                     FILE_WRITE_EA | FILE_WRITE_ATTRIBUTES | FILE_READ_ATTRIBUTES | READ_CONTROL,
