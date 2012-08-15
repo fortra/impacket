@@ -932,6 +932,8 @@ class SMB3:
             queryResponse = SMB2QueryInfo_Response(ans['Data'])
             return queryResponse['Buffer']
 
+    ######################################################################
+    # Higher level functions
 
     def list_path(self, shareName, path, password = None):
         # ToDo: Handle situations where share is password protected
@@ -1063,6 +1065,23 @@ class SMB3:
                 self.close(treeId, fileId)
             self.disconnectTree(treeId)
 
+    def waitNamedPipe(self, treeId, pipename, timeout = 5):
+        pipename = ntpath.basename(pipename)
+        if self._Session['TreeConnectTable'].has_key(treeId) is False:
+            raise SessionError(STATUS_INVALID_PARAMETER)
+        if len(pipename) > 0xffff:
+            raise SessionError(STATUS_INVALID_PARAMETER)
+
+        pipeWait = FSCTL_PIPE_WAIT_STRUCTURE()
+        pipeWait['Timeout']          = timeout*100000
+        pipeWait['NameLength']       = len(pipename)*2
+        pipeWait['TimeoutSpecified'] = 1
+        pipeWait['Name']             = pipename.encode('utf-16le')
+
+        return self.ioctl(treeId, None, FSCTL_PIPE_WAIT,flags=SMB2_0_IOCTL_IS_FSCTL, inputBlob=pipeWait, maxInputResponse = 0, maxOutputResponse=0)
+        
+
+        
 
     ######################################################################
     # Backward compatibility functions for SMB1 and DCE Transports
@@ -1093,12 +1112,15 @@ class SMB3:
  
         if cmd is not None:
             import smb
-            ntCreate = smb.SMBCommand(data = cmd)
-            parameters = smb.SMBNtCreateAndX_Parameters(ntCreate['Parameters'])
-            parameters.dump()
-            
-
-        return self.create(treeId, fileName, FILE_READ_DATA | FILE_WRITE_DATA | FILE_APPEND_DATA | FILE_READ_EA |
+            ntCreate = smb.SMBCommand(data = str(cmd))
+            params = smb.SMBNtCreateAndX_Parameters(ntCreate['Parameters'])
+            return self.create(treeId, fileName, params['AccessMask'], params['ShareAccess'],
+                               params['CreateOptions'], params['Disposition'], params['FileAttributes'],
+                               params['Impersonation'], params['SecurityFlags'])
+                               
+        else:
+            return self.create(treeId, fileName, 
+                    FILE_READ_DATA | FILE_WRITE_DATA | FILE_APPEND_DATA | FILE_READ_EA |
                     FILE_WRITE_EA | FILE_WRITE_ATTRIBUTES | FILE_READ_ATTRIBUTES | READ_CONTROL,
                     FILE_SHARE_READ | FILE_SHARE_WRITE, FILE_NON_DIRECTORY_FILE, FILE_OPEN, 0 )
                     

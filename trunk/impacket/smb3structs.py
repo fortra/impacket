@@ -1053,6 +1053,16 @@ class SMB2Ioctl(Structure):
         if data is None:
             self['AlignPad'] = ''
 
+class FSCTL_PIPE_WAIT_STRUCTURE(Structure):
+    structure = (
+        ('Timeout','<q=0'),
+        ('NameLength','<L=0'),
+        ('TimeoutSpecified','<B=0'),
+        ('Padding','<B=0'),
+        ('_Name','_-Name','self["NameLength"]'),
+        ('Name',':'),
+    )
+
 class SRV_COPYCHUNK_COPY(Structure):
     structure = (
         ('SourceKey','24s=""'),
