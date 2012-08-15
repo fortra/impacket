@@ -46,6 +46,8 @@ TREE_CONNECT = {
     'IsCAShare'       : False,
     'EncryptData'     : False,
     'IsScaleoutShare' : False,
+    # Outside the protocol
+    'NumberOfUses'    : 0,
 }
 
 FILE = {
@@ -451,19 +453,26 @@ class SMB3:
                 return True
 
     def connectTree(self, share):
-        packet = self.SMB_PACKET()
-        packet['Command'] = SMB2_TREE_CONNECT
 
         # Just in case this came with the full path (maybe an SMB1 client), let's just leave 
         # the sharename, we'll take care of the rest
 
         share = share.split('\\')[-1]
-        treeConnect = SMB2TreeConnect()
-        path = '\\\\' + self._Connection['ServerName'] + '\\' +share
+        if self._Session['TreeConnectTable'].has_key(share):
+            # Already connected, no need to reconnect
+            treeEntry =  self._Session['TreeConnectTable'][share]
+            treeEntry['NumberOfUses'] += 1
+            self._Session['TreeConnectTable'][treeEntry['TreeConnectId']]['NumberOfUses'] += 1
+            return treeEntry['TreeConnectId']
+
         #path = share
+        path = '\\\\' + self._Connection['ServerName'] + '\\' +share
+        treeConnect = SMB2TreeConnect()
         treeConnect['Buffer']     = path.encode('utf-16le')
         treeConnect['PathLength'] = len(path)*2
          
+        packet = self.SMB_PACKET()
+        packet['Command'] = SMB2_TREE_CONNECT
         packet['Data'] = treeConnect
         packetID = self.sendSMB(packet)
         packet = self.recvSMB(packetID)
@@ -473,6 +482,7 @@ class SMB3:
            treeEntry['ShareName']     = share
            treeEntry['TreeConnectId'] = packet['TreeID']
            treeEntry['Session']       = packet['SessionID']
+           treeEntry['NumberOfUses'] += 1
            if (treeConnectResponse['Capabilities'] & SMB2_SHARE_CAP_DFS) == SMB2_SHARE_CAP_DFS:
                treeEntry['IsDfsShare'] = True
            if (treeConnectResponse['Capabilities'] & SMB2_SHARE_CAP_CONTINUOUS_AVAILABILITY) == SMB2_SHARE_CAP_CONTINUOUS_AVAILABILITY:
@@ -489,12 +499,22 @@ class SMB3:
                    treeEntry['IsScaleoutShare'] = True
 
            self._Session['TreeConnectTable'][packet['TreeID']] = treeEntry
+           self._Session['TreeConnectTable'][share]            = treeEntry
 
            return packet['TreeID'] 
 
     def disconnectTree(self, treeId):
         if self._Session['TreeConnectTable'].has_key(treeId) is False:
             raise SessionError(STATUS_INVALID_PARAMETER)
+
+        if self._Session['TreeConnectTable'].has_key(treeId):
+            # More than 1 use? descrease it and return, if not, send the packet
+            if self._Session['TreeConnectTable'][treeId]['NumberOfUses'] > 1:
+                treeEntry =  self._Session['TreeConnectTable'][treeId]
+                treeEntry['NumberOfUses'] -= 1
+                self._Session['TreeConnectTable'][treeEntry['ShareName']]['NumberOfUses'] -= 1
+                return True
+
         packet = self.SMB_PACKET()
         packet['Command'] = SMB2_TREE_DISCONNECT
         packet['TreeID'] = treeId
@@ -504,6 +524,7 @@ class SMB3:
         packet = self.recvSMB(packetID)
         if packet.isValidAnswer(STATUS_SUCCESS):
             del(self._Session['TreeConnectTable'][treeId])
+            return True
 
     def create(self, treeId, fileName, desiredAccess, shareMode, creationOptions, creationDisposition, fileAttributes, impersonationLevel = SMB2_IL_IMPERSONATION, securityFlags = 0, oplockLevel = SMB2_OPLOCK_LEVEL_NONE, createContexts = None):
         if self._Session['TreeConnectTable'].has_key(treeId) is False:
@@ -910,7 +931,46 @@ class SMB3:
 
         return files
 
+    def mkdir(self, shareName, pathName, password = None):
+        # ToDo: Handle situations where share is password protected
+        pathName = string.replace(pathName,'/', '\\')
+        pathName = ntpath.normpath(pathName)
+        if len(pathName) > 0 and pathName[0] == '\\':
+            pathName = pathName[1:]
 
+        treeId = self.connectTree(shareName)
+
+        fileId = None
+        try:
+            fileId = self.create(treeId, pathName,GENERIC_ALL ,FILE_SHARE_READ | FILE_SHARE_WRITE |FILE_SHARE_DELETE, FILE_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT, FILE_CREATE, 0)          
+        finally:
+            if fileId is not None:
+                self.close(treeId, fileId)            
+            self.disconnectTree(treeId) 
+
+        return True
+
+    def rmdir(self, shareName, pathName, password = None):
+        # ToDo: Handle situations where share is password protected
+        pathName = string.replace(pathName,'/', '\\')
+        pathName = ntpath.normpath(pathName)
+        if len(pathName) > 0 and pathName[0] == '\\':
+            pathName = pathName[1:]
+
+        treeId = self.connectTree(shareName)
+
+        fileId = None
+        try:
+            fileId = self.create(treeId, pathName,GENERIC_ALL | DELETE,FILE_SHARE_READ | FILE_SHARE_WRITE |FILE_SHARE_DELETE, FILE_DIRECTORY_FILE | FILE_DELETE_ON_CLOSE, FILE_OPEN, 0)          
+        finally:
+            if fileId is not None:
+                self.close(treeId, fileId)
+            self.disconnectTree(treeId) 
+
+        return True
+
+
+ 
 
     ######################################################################
     # Backward compatibility functions for SMB1 and DCE Transports
