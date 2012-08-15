@@ -697,8 +697,8 @@ class SMB3:
         packet['Command'] = SMB2_WRITE
         packet['TreeID']  = treeId
 
-        if self._Connection['MaxReadSize'] < bytesToWrite:
-            maxBytesToWrite = self._Connection['MaxReadSize']
+        if self._Connection['MaxWriteSize'] < bytesToWrite:
+            maxBytesToWrite = self._Connection['MaxWriteSize']
         else: 
             maxBytesToWrite = bytesToWrite
 
@@ -894,6 +894,39 @@ class SMB3:
         if ans.isValidAnswer(STATUS_SUCCESS):
             return True
 
+    def queryInfo(self, treeId, fileId, inputBlob = '', infoType = SMB2_0_INFO_FILE, fileInfoClass = SMB2_FILE_STANDARD_INFO, additionalInformation = 0, flags = 0 ):
+        if self._Session['TreeConnectTable'].has_key(treeId) is False:
+            raise SessionError(STATUS_INVALID_PARAMETER)
+        if self._Session['OpenTable'].has_key(fileId) is False:
+            raise SessionError(STATUS_INVALID_PARAMETER)
+
+        packet = self.SMB_PACKET()
+        packet['Command'] = SMB2_QUERY_INFO
+        packet['TreeID']  = treeId
+
+        queryInfo = SMB2QueryInfo()
+        queryInfo['FileID']                = fileId
+        queryInfo['InfoType']              = SMB2_0_INFO_FILE 
+        queryInfo['FileInfoClass']         = fileInfoClass 
+        queryInfo['OutputBufferLength']    = 65535
+        queryInfo['AdditionalInformation'] = additionalInformation
+        if len(inputBlob) == 0:
+            queryInfo['InputBufferOffset'] = 0
+            queryInfo['Buffer']            = '\x00'
+        else:
+            queryInfo['InputBufferLength'] = len(inputBlob)
+            queryInfo['Buffer']            = inputBlob
+        queryInfo['Flags']                 = flags
+
+        packet['Data'] = queryInfo
+        packetID = self.sendSMB(packet)
+        ans = self.recvSMB(packetID)
+
+        if ans.isValidAnswer(STATUS_SUCCESS):
+            queryResponse = SMB2QueryInfo_Response(ans['Data'])
+            return queryResponse['Buffer']
+
+
     def list_path(self, shareName, path, password = None):
         # ToDo: Handle situations where share is password protected
         path = string.replace(path,'/', '\\')
@@ -961,7 +994,7 @@ class SMB3:
 
         fileId = None
         try:
-            fileId = self.create(treeId, pathName,GENERIC_ALL | DELETE,FILE_SHARE_READ | FILE_SHARE_WRITE |FILE_SHARE_DELETE, FILE_DIRECTORY_FILE | FILE_DELETE_ON_CLOSE, FILE_OPEN, 0)          
+            fileId = self.create(treeId, pathName,GENERIC_ALL | DELETE, FILE_SHARE_READ | FILE_SHARE_WRITE |FILE_SHARE_DELETE, FILE_DIRECTORY_FILE | FILE_DELETE_ON_CLOSE, FILE_OPEN, 0)          
         finally:
             if fileId is not None:
                 self.close(treeId, fileId)
@@ -969,8 +1002,37 @@ class SMB3:
 
         return True
 
+    def retr_file(self, shareName, path, callback, mode = FILE_OPEN, offset = 0, password = None):
+        # ToDo: Handle situations where share is password protected
+        path = string.replace(path,'/', '\\')
+        path = ntpath.normpath(path)
+        if len(path) > 0 and path[0] == '\\':
+            path = path[1:]
 
- 
+        treeId = self.connectTree(shareName)
+        fileId = None
+        import smb
+        try:
+            fileId = self.create(treeId, path, FILE_READ_DATA, FILE_SHARE_READ, FILE_NON_DIRECTORY_FILE, mode, 0 )
+            res = self.queryInfo(treeId, fileId)
+            fileInfo = smb.SMBQueryFileStandardInfo(res)
+            fileSize = fileInfo['EndOfFile']
+            if (fileSize-offset) < self._Connection['MaxReadSize']:
+                data = self.read(treeId, fileId, offset, fileSize-offset)
+                callback(data)
+            else:
+                written = 0
+                toBeRead = fileSize-offset
+                while written < (toBeRead):
+                    data = self.read(treeId, fileId, offset, self._Connection['MaxReadSize'])
+                    written += len(data)
+                    offset  += len(data)
+                    callback(data)
+        finally:
+            if fileId is not None:
+                self.close(treeId, fileId)
+            self.disconnectTree(treeId) 
+
 
     ######################################################################
     # Backward compatibility functions for SMB1 and DCE Transports
@@ -993,6 +1055,7 @@ class SMB3:
     tree_connect      = connectTree
     connect_tree      = connectTree
     disconnect_tree   = disconnectTree 
+
     def nt_create_andx(self, treeId, fileName):
         if len(fileName) > 0 and fileName[0] == '\\':
             fileName = fileName[1:]
@@ -1029,4 +1092,12 @@ class SMB3:
     def list_shared(self):
         # In the context of SMB2/3, forget about the old LANMAN, throw NOT IMPLEMENTED
         raise SessionError(STATUS_NOT_IMPLEMENTED)
+
+    def open_andx(self, tid, fileName, open_mode, desired_access):
+        # ToDo Return all the attributes of the file
+        if len(fileName) > 0 and fileName[0] == '\\':
+            fileName = fileName[1:]
+
+        fileId = self.create(tid,fileName,desired_access, open_mode, FILE_NON_DIRECTORY_FILE, open_mode, 0)
+        return fileId, 0, 0, 0, 0, 0, 0, 0, 0
 
