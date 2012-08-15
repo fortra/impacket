@@ -1833,14 +1833,20 @@ class SMBFindFileDirectoryInfo(Structure):
     )
 
 # SMB_FIND_FILE_NAMES_INFO level
-class SMBFindFileNamesInfo(Structure):
-    structure = (
+class SMBFindFileNamesInfo(AsciiOrUnicodeStructure):
+    AsciiStructure = (
         ('NextEntryOffset','<L=0'),
         ('FileIndex','<L=0'),
         ('FileNameLength','<L-FileName','len(FileName)'),
         ('FileName','z'),
     )
 
+    UnicodeStructure = (
+        ('NextEntryOffset','<L=0'),
+        ('FileIndex','<L=0'),
+        ('FileNameLength','<L-FileName','len(FileName)'),
+        ('FileName',':'),
+    )
 # SMB_FIND_FILE_FULL_DIRECTORY_INFO level
 class SMBFindFileFullDirectoryInfo(Structure):
     structure = (
