@@ -160,7 +160,7 @@ class MiniImpacketShell(cmd.Cmd):
 
     def do_use(self,line):
         self.share = line
-        self.tid = self.smb.connect_tree(line)
+        self.tid = self.smb.connect_tree('\\\\' + self.smb.get_remote_host() + '\\' + line)
         self.pwd = '\\'
 
     def do_cd(self, line):
