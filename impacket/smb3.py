@@ -376,6 +376,7 @@ class SMB3:
            sessionSetup['SecurityMode'] = SMB2_NEGOTIATE_SIGNING_ENABLED
 
         sessionSetup['Flags'] = 0
+        #sessionSetup['Capabilities'] = SMB2_GLOBAL_CAP_LARGE_MTU | SMB2_GLOBAL_CAP_LEASING | SMB2_GLOBAL_CAP_DFS
 
         # Let's build a NegTokenInit with the NTLMSSP
         # TODO: In the future we should be able to choose different providers
