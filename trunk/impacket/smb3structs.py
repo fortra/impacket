@@ -563,12 +563,12 @@ class SMB2Negotiate_Response(Structure):
 class SMB2SessionSetup(Structure):
     SIZE = 24
     structure = (
-        ('StructureSize','<H=0'),
+        ('StructureSize','<H=25'),
         ('Flags','<B=0'),
         ('SecurityMode','<B=0'),
         ('Capabilities','<L=0'),
         ('Channel','<L=0'),
-        ('SecurityBufferOffset','<H=(self["StructureSize"] + 64 + len(self["AlignPad"]))'),
+        ('SecurityBufferOffset','<H=(self.SIZE + 64 + len(self["AlignPad"]))'),
         ('SecurityBufferLength','<H=0'),
         ('PreviousSessionId','<Q=0'),
         ('_AlignPad','_-AlignPad','self["SecurityBufferOffset"] - (64 + self["StructureSize"] - 1)'),
@@ -581,7 +581,6 @@ class SMB2SessionSetup(Structure):
         Structure.__init__(self,data)
         if data is None:
             self['AlignPad'] = ''
-            self['StructureSize'] = self.SIZE
 
     def getData(self):
         #self['AlignPad'] = '\x00' * ((8 - ((24 + SMB2_PACKET_SIZE) & 7)) & 7)
