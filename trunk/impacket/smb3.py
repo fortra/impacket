@@ -241,7 +241,7 @@ class SMB3:
 
     def signSMB(self, packet):
         packet['Signature'] = '\x00'*16
-        if self._Connection['Dialect'] == SMB2_DIALECT_21:
+        if self._Connection['Dialect'] == SMB2_DIALECT_21 or self._Connection['Dialect'] == SMB2_DIALECT_002:
             if len(self._Session['SessionKey']) > 0:
                 signature = hmac.new(self._Session['SessionKey'], str(packet), hashlib.sha256).digest()
                 packet['Signature'] = signature[:16]
