@@ -24,6 +24,7 @@
 from impacket import smb
 from impacket import nmb
 from impacket import ntlm
+from impacket.spnego import *
 from structure import Structure
 import traceback
 import sys
@@ -2060,11 +2061,11 @@ class SMBCommands():
 
             if struct.unpack('B',sessionSetupData['SecurityBlob'][0])[0] != smb.ASN1_AID:
                # If there no GSSAPI ID, it must be an AUTH packet
-               blob = smb.SPNEGO_NegTokenResp(sessionSetupData['SecurityBlob'])
+               blob = SPNEGO_NegTokenResp(sessionSetupData['SecurityBlob'])
                token = blob['ResponseToken']
             else:
                # NEGOTIATE packet
-               blob =  smb.SPNEGO_NegTokenInit(sessionSetupData['SecurityBlob'])
+               blob =  SPNEGO_NegTokenInit(sessionSetupData['SecurityBlob'])
                token = blob['MechToken']
 
             # Here we only handle NTLMSSP, depending on what stage of the 
@@ -2120,10 +2121,10 @@ class SMBCommands():
                 challengeMessage['Version']          = '\xff'*8
                 challengeMessage['VersionLen']       = 8
 
-                respToken = smb.SPNEGO_NegTokenResp()
+                respToken = SPNEGO_NegTokenResp()
                 # accept-incomplete. We want more data
                 respToken['NegResult'] = '\x01'  
-                respToken['SupportedMech'] = smb.TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']
+                respToken['SupportedMech'] = TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']
 
                 respToken['ResponseToken'] = challengeMessage.getData()
 
@@ -2147,7 +2148,7 @@ class SMBCommands():
                 smbServer.log("AUTHENTICATE_MESSAGE (%s\\%s,%s)" % (authenticateMessage['domain_name'], authenticateMessage['user_name'], authenticateMessage['host_name']))
                 # TODO: Check the credentials! Now granting permissions
 
-                respToken = smb.SPNEGO_NegTokenResp()
+                respToken = SPNEGO_NegTokenResp()
                 # accept-completed
                 respToken['NegResult'] = '\x00'
 
@@ -2218,8 +2219,8 @@ class SMBCommands():
                     resp['Flags2'] = smb.SMB.FLAGS2_EXTENDED_SECURITY | smb.SMB.FLAGS2_NT_STATUS
                     _dialects_data = smb.SMBExtended_Security_Data()
                     _dialects_data['ServerGUID'] = 'A'*16
-                    blob = smb.SPNEGO_NegTokenInit()
-                    blob['MechTypes'] = [smb.TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
+                    blob = SPNEGO_NegTokenInit()
+                    blob['MechTypes'] = [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
                     _dialects_data['SecurityBlob'] = blob.getData()
         
                     _dialects_parameters = smb.SMBExtended_Security_Parameters()
