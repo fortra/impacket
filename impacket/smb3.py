@@ -33,6 +33,7 @@ from nt_errors import *
 from spnego import *
 from binascii import a2b_hex
 import socket, string, ntpath
+from contextlib import contextmanager
 # For signing
 import hashlib, hmac, copy
 
@@ -228,6 +229,15 @@ class SMB3:
 
     def setTimeout(self, timeout):
         self._timeout = timeout
+
+    @contextmanager
+    def useTimeout(self, timeout):
+        prev_timeout = self.setTimeout(timeout)
+        try:
+            yield
+        finally:
+            self.setTimeout(prev_timeout)
+
 
     def signSMB(self, packet):
         packet['Signature'] = '\x00'*16
@@ -1023,6 +1033,25 @@ class SMB3:
 
         return True
 
+    def remove(self, shareName, pathName, password = None):
+        # ToDo: Handle situations where share is password protected
+        pathName = string.replace(pathName,'/', '\\')
+        pathName = ntpath.normpath(pathName)
+        if len(pathName) > 0 and pathName[0] == '\\':
+            pathName = pathName[1:]
+
+        treeId = self.connectTree(shareName)
+
+        fileId = None
+        try:
+            fileId = self.create(treeId, pathName,GENERIC_ALL | DELETE, FILE_SHARE_READ | FILE_SHARE_WRITE |FILE_SHARE_DELETE, FILE_NON_DIRECTORY_FILE | FILE_DELETE_ON_CLOSE, FILE_OPEN, 0)          
+        finally:
+            if fileId is not None:
+                self.close(treeId, fileId)
+            self.disconnectTree(treeId) 
+
+        return True
+
     def retr_file(self, shareName, path, callback, mode = FILE_OPEN, offset = 0, password = None):
         # ToDo: Handle situations where share is password protected
         path = string.replace(path,'/', '\\')
@@ -1104,6 +1133,12 @@ class SMB3:
     get_server_domain = getServerDomain
     get_remote_name   = getServerName
     get_remote_host   = getServerIP
+    tree_connect_andx = connectTree
+    tree_connect      = connectTree
+    connect_tree      = connectTree
+    disconnect_tree   = disconnectTree 
+    set_timeout       = setTimeout
+    use_timeout       = useTimeout
 
     def doesSupportNTLMv2(self):
         # Always true :P 
@@ -1112,12 +1147,6 @@ class SMB3:
     def is_login_required(self):
         # Always true :P 
         return True
-
-    tree_connect_andx = connectTree
-    tree_connect      = connectTree
-    connect_tree      = connectTree
-    disconnect_tree   = disconnectTree 
-    set_timeout       = setTimeout
 
     def nt_create_andx(self, treeId, fileName, smb_packet=None, cmd = None):
         if len(fileName) > 0 and fileName[0] == '\\':
