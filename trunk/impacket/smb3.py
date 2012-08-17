@@ -17,16 +17,17 @@
 #   it certainly helps following the document way easier.
 #
 # ToDo: 
-# [ ] Implement SMB2_CHANGE_NOTIFY
-# [ ] Implement SMB2_QUERY_INFO
+# [X] Implement SMB2_CHANGE_NOTIFY
+# [X] Implement SMB2_QUERY_INFO
 # [ ] Implement SMB2_SET_INFO
 # [ ] Implement SMB2_OPLOCK_BREAK
-# [ ] Implement SMB3 signing and encryption
+# [X] Implement SMB3 signing 
+# [ ] Implement SMB3 encryption
 # [ ] Add more backward compatible commands from the smb.py code
 # [ ] Fix up all the 'ToDo' comments inside the code
 #
 
-from impacket import nmb, smb3structs, nt_errors, spnego, ntlm, uuid
+from impacket import nmb, smb3structs, nt_errors, spnego, ntlm, uuid, crypto
 from smb3structs import *
 from nt_errors import *
 from spnego import *
@@ -229,15 +230,16 @@ class SMB3:
         self._timeout = timeout
 
     def signSMB(self, packet):
-        #raise
         packet['Signature'] = '\x00'*16
         if self._Connection['Dialect'] == SMB2_DIALECT_21:
             if len(self._Session['SessionKey']) > 0:
                 signature = hmac.new(self._Session['SessionKey'], str(packet), hashlib.sha256).digest()
                 packet['Signature'] = signature[:16]
         else:
-            print "Signing not yet Implemented for dialect %x" % self._Connection['Dialect']
-      
+            if len(self._Session['SessionKey']) > 0:
+                p = str(packet)
+                signature = crypto.AES_CMAC(self._Session['SigningKey'], p, len(p))
+                packet['Signature'] = signature
      
     def sendSMB(self, packet):
         # The idea here is to receive multiple/single commands and create a compound request, and send it
@@ -438,9 +440,11 @@ class SMB3:
                     self._Session['ServerOS'] = "Windows %d.%d Build %d" % (ord(version[0]), ord(version[1]), struct.unpack('<H',version[2:4])[0])
 
             type3, exportedSessionKey = ntlm.getNTLMSSPType3(auth, respToken['ResponseToken'], user, password, domain, lmhash, nthash)
-
+   
             if exportedSessionKey is not None: 
                 self._Session['SessionKey']  = exportedSessionKey
+                if self._Session['SigningRequired'] is True and self._Connection['Dialect'] == SMB2_DIALECT_30:
+                    self._Session['SigningKey']  = crypto.KDF_CounterMode(exportedSessionKey, "SMB2AESCMAC\x00", "SmbSign\x00", 128)
 
             respToken2 = SPNEGO_NegTokenResp()
             respToken2['ResponseToken'] = str(type3)
@@ -454,6 +458,14 @@ class SMB3:
             if packet.isValidAnswer(STATUS_SUCCESS):
                 sessionSetupResponse = SMB2SessionSetup_Response(ans['Data'])
                 self._Session['SessionFlags'] = sessionSetupResponse['SessionFlags']
+
+                # Calculate the key derivations for dialect 3.0
+                if self._Session['SigningRequired'] is True and self._Connection['Dialect'] == SMB2_DIALECT_30:
+                    self._Session['ApplicationKey']  = crypto.KDF_CounterMode(exportedSessionKey, "SMB2APP\x00", "SmbRpc\x00", 128)
+                if self._Session['EncryptData'] is True:
+                    self._Session['EncryptionKey']  = crypto.KDF_CounterMode(exportedSessionKey, "SMB2AESCCM\x00", "ServerIn\x00", 128)
+                    self._Session['DecryptionKey']  = crypto.KDF_CounterMode(exportedSessionKey, "SMB2AESCCM\x00", "ServerOut\x00", 128)
+ 
                 return True
 
     def connectTree(self, share):
