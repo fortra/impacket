@@ -39,6 +39,7 @@ import argparse
 from impacket import smbserver, smb, ntlm, dcerpc, version
 from impacket.dcerpc import dcerpc, transport, srvsvc, svcctl
 from impacket.examples import serviceinstall
+from impacket.spnego import *
 from smb import *
 from smbserver import *
 
@@ -268,11 +269,11 @@ class SMBRelayServer:
 
             if struct.unpack('B',sessionSetupData['SecurityBlob'][0])[0] != smb.ASN1_AID:
                # If there no GSSAPI ID, it must be an AUTH packet
-               blob = smb.SPNEGO_NegTokenResp(sessionSetupData['SecurityBlob'])
+               blob = SPNEGO_NegTokenResp(sessionSetupData['SecurityBlob'])
                token = blob['ResponseToken']
             else:
                # NEGOTIATE packet
-               blob =  smb.SPNEGO_NegTokenInit(sessionSetupData['SecurityBlob'])
+               blob =  SPNEGO_NegTokenInit(sessionSetupData['SecurityBlob'])
                token = blob['MechToken']
 
             # Here we only handle NTLMSSP, depending on what stage of the 
@@ -295,10 +296,10 @@ class SMBRelayServer:
                 challengeMessage.fromString(clientChallengeMessage)
                 #############################################################
 
-                respToken = smb.SPNEGO_NegTokenResp()
+                respToken = SPNEGO_NegTokenResp()
                 # accept-incomplete. We want more data
                 respToken['NegResult'] = '\x01'  
-                respToken['SupportedMech'] = smb.TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']
+                respToken['SupportedMech'] = TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']
 
                 respToken['ResponseToken'] = str(challengeMessage)
 
@@ -353,7 +354,7 @@ class SMBRelayServer:
                     # Now continue with the server
                 #############################################################
 
-                respToken = smb.SPNEGO_NegTokenResp()
+                respToken = SPNEGO_NegTokenResp()
                 # accept-completed
                 respToken['NegResult'] = '\x00'
 
