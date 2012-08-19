@@ -110,7 +110,7 @@ class SessionError(Exception):
 
 
 class SMB3:
-    def __init__(self, remote_name, remote_host, my_name = None, host_type = nmb.TYPE_SERVER, sess_port = 445, timeout=10, UDP = 0):
+    def __init__(self, remote_name, remote_host, my_name = None, host_type = nmb.TYPE_SERVER, sess_port = 445, timeout=10, UDP = 0, preferredDialect = None):
 
         # [MS-SMB2] Section 3
         self.RequireMessageSigning = False    #
@@ -201,7 +201,7 @@ class SMB3:
         else:
             self._NetBIOSSession = nmb.NetBIOSTCPSession(my_name, self._Connection['ServerName'], remote_host, host_type, sess_port, self._timeout)
 
-            self.negotiateSession()
+            self.negotiateSession(preferredDialect)
 
     def printStatus(self):
         print "CONNECTION"
@@ -237,6 +237,9 @@ class SMB3:
             yield
         finally:
             self.setTimeout(prev_timeout)
+
+    def getDialect(self):
+        return self._Connection['Dialect']
 
 
     def signSMB(self, packet):
@@ -315,7 +318,7 @@ class SMB3:
             self._Connection['OutstandingResponses'][packet['MessageID']] = packet
             return self.recvSMB(packetID) 
 
-    def negotiateSession(self):
+    def negotiateSession(self, preferredDialect = None):
         packet = self.SMB_PACKET()
         packet['Command'] = SMB2_NEGOTIATE
         negSession = SMB2Negotiate()
@@ -325,7 +328,10 @@ class SMB3:
             negSession['SecurityMode'] |= SMB2_NEGOTIATE_SIGNING_REQUIRED
         negSession['Capabilities'] = 0
         negSession['ClientGuid'] = self.ClientGuid
-        negSession['Dialects'] = [SMB2_DIALECT_002, SMB2_DIALECT_21, SMB2_DIALECT_30]
+        if preferredDialect is not None:
+            negSession['Dialects'] = [preferredDialect]
+        else:
+            negSession['Dialects'] = [SMB2_DIALECT_002, SMB2_DIALECT_21, SMB2_DIALECT_30]
         negSession['DialectCount'] = len(negSession['Dialects'])
         packet['Data'] = negSession
 
@@ -560,6 +566,11 @@ class SMB3:
             raise SessionError(STATUS_INVALID_PARAMETER)
 
         fileName = string.replace(fileName, '/', '\\')
+        if len(fileName) > 0:
+            fileName = ntpath.normpath(fileName)
+            if fileName[0] == '\\':
+                fileName = fileName[1:]
+
         if self._Session['TreeConnectTable'][treeId]['IsDfsShare'] is True:
             pathName = fileName
         else:
@@ -1133,12 +1144,17 @@ class SMB3:
     get_server_domain = getServerDomain
     get_remote_name   = getServerName
     get_remote_host   = getServerIP
+    get_server_os     = getServerOS
     tree_connect_andx = connectTree
     tree_connect      = connectTree
     connect_tree      = connectTree
     disconnect_tree   = disconnectTree 
     set_timeout       = setTimeout
     use_timeout       = useTimeout
+    def __del__(self):
+        if self._NetBIOSSession:
+            self._NetBIOSSession.close()
+
 
     def doesSupportNTLMv2(self):
         # Always true :P 
