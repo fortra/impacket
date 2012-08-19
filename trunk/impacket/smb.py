@@ -66,6 +66,9 @@ try:
 except ImportError:
     from StringIO import StringIO
 
+# Dialect for SMB1
+SMB_DIALECT = 'NT LM 0.12'
+
 # Shared Device Type
 SHARED_DISK                      = 0x00
 SHARED_DISK_HIDDEN               = 0x80000000
@@ -3101,6 +3104,9 @@ class SMB:
     # backwars compatibility
     connect_tree = tree_connect_andx
 
+    def getDialect(self):
+        return SMB_DIALECT
+
     def get_server_name(self):
         #return self._dialects_data['ServerName']
         return self.__server_name
@@ -3132,6 +3138,7 @@ class SMB:
         smb = self.recvSMB()
 
     def open(self, tid, filename, open_mode, desired_access):
+        filename = string.replace(filename,'/', '\\')
         smb = NewSMBPacket()
         smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
         smb['Flags2'] = SMB.FLAGS2_LONG_NAMES
@@ -3164,6 +3171,7 @@ class SMB:
             )
         
     def open_andx(self, tid, filename, open_mode, desired_access):
+        filename = string.replace(filename,'/', '\\')
         smb = NewSMBPacket()
         smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
         smb['Flags2'] = SMB.FLAGS2_LONG_NAMES
@@ -3876,6 +3884,7 @@ class SMB:
 
 
     def nt_create_andx(self,tid,filename, smb_packet=None, cmd = None):
+        filename = string.replace(filename,'/', '\\')
         if smb_packet == None:
             smb = NewSMBPacket()
             smb['Flags1'] = SMB.FLAGS1_CANONICALIZED_PATHS | SMB.FLAGS1_PATHCASELESS 
@@ -4090,6 +4099,7 @@ class SMB:
                 self.disconnect_tree(dest_tid)
 
     def check_dir(self, service, path, password = None):
+        path = string.replace(path,'/', '\\')
         tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\' + service, password)
         try:
             self.__send_smb_packet(SMB.SMB_COM_CHECK_DIRECTORY, 0x08, 0, tid, 0, '', '\x04' + path + '\x00')
@@ -4102,6 +4112,7 @@ class SMB:
             self.disconnect_tree(tid)
 
     def remove(self, service, path, password = None):
+        path = string.replace(path,'/', '\\')
         # Perform a list to ensure the path exists
         self.list_path(service, path, password)
 
@@ -4117,6 +4128,7 @@ class SMB:
             self.disconnect_tree(tid)
 
     def rmdir(self, service, path, password = None):
+        path = string.replace(path,'/', '\\')
         # Check that the directory exists
         self.check_dir(service, path, password)
 
@@ -4132,6 +4144,7 @@ class SMB:
             self.disconnect_tree(tid)
 
     def mkdir(self, service, path, password = None):
+        path = string.replace(path,'/', '\\')
         tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\' + service, password)
         try:
             smb = NewSMBPacket()
@@ -4150,6 +4163,7 @@ class SMB:
             self.disconnect_tree(tid)
 
     def rename(self, service, old_path, new_path, password = None):
+        path = string.replace(path,'/', '\\')
         tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\' + service, password)
         try:
             smb = NewSMBPacket()
