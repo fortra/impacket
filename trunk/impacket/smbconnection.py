@@ -16,6 +16,7 @@
 #
 
 from impacket import smb, smb3, nmb
+from impacket.dcerpc import transport, dcerpc, srvsvc
 from smb3structs import *
 import ntpath, string
 
@@ -111,7 +112,22 @@ class SMBConnection():
         return self._SMBConnection.disconnect_tree(treeId)
 
     def listShares(self):
-        pass
+        if self.getDialect() == smb.SMB_DIALECT:
+            # For SMB1 we should try LANMAN first. Most probably won't work but oh well
+            try: 
+                return self._SMBConnection.list_shared()
+            except:
+                pass
+        # Get the shares through RPC
+        rpctransport = transport.SMBTransport(self.getRemoteHost(), self.getRemoteHost(), filename = r'\srvsvc', smb_server = self.getSMBServer())
+        dce = dcerpc.DCERPC_v5(rpctransport)
+        dce.connect()
+        dce.bind(srvsvc.MSRPC_UUID_SRVSVC)
+        srv_svc = srvsvc.DCERPCSrvSvc(dce)
+        resp = srv_svc.get_share_enum_1(rpctransport.get_dip())
+        for i in range(len(resp)):
+            print resp[i]['NetName'].decode('utf-16')
+        return resp
 
     def listPath(self, shareName, path, password = None):
         return self._SMBConnection.list_path(shareName, path, password)
@@ -264,7 +280,7 @@ class SMBConnection():
         :return: None, raises a SessionError exception if error.
             
         """
-        return self._SMBConnection.waitNamedPipe(treeId, pipeName)
+        return self._SMBConnection.waitNamedPipe(treeId, pipeName, timeout = timeout)
 
     def transactNamedPipe(self, treeId, fileId, data, waitAnswer = True):
         """
@@ -278,12 +294,39 @@ class SMBConnection():
         :return: None, raises a SessionError exception if error.
             
         """
-        return self._SMBConnection.waitNamedPipe(treeId, fileId, data, waitAnswer = waitAnswer)
+        return self._SMBConnection.TransactNamedPipe(treeId, fileId, data, waitAnswer = waitAnswer)
 
-    def writeNamedPipe(self):
-        pass
-    def readNamedPipe(self):
-        pass
+    def writeNamedPipe(self, treeId, fileId, data, waitAnswer = True):
+        """
+        writes to a named pipe 
+
+        :param HANDLE treeId: a valid handle for the share where the file is to be checked
+        :param HANDLE fileId: a valid handle for the file/directory to be closed
+        :param string data: buffer with the data to write
+        :param boolean waitAnswer: whether or not to wait for an answer
+
+        :return: None, raises a SessionError exception if error.
+            
+        """
+        if self.getDialect() == smb.SMB_DIALECT:
+            return write_andx(treeId, fileId, data, waitAnswer = waitAnswer, write_pipe_mode = True)
+        else:
+            return self._SMBConnection.TransactNamedPipe(treeId, fileId, data, waitAnswer = waitAnswer)
+
+    def readNamedPipe(self,treeId, fileId, bytesToRead = None ):
+        """
+        read from a named pipe 
+
+        :param HANDLE treeId: a valid handle for the share where the file is to be checked
+        :param HANDLE fileId: a valid handle for the file/directory to be closed
+        :param integer bytestToRead: amount of data to read
+        :param boolean waitAnswer: whether or not to wait for an answer
+
+        :return: None, raises a SessionError exception if error.
+            
+        """
+
+        return self.readFile(treeId, fileId, bytesToRead = bytesToRead)  
 
     def getFile(self, shareName, pathName, callback):
         """
@@ -311,6 +354,17 @@ class SMBConnection():
         """
         return self._SMBConnection.stor_file(shareName, pathName, callback)
 
-    def rename(self):
-        pass
+    def rename(self, shareName, oldPath, newPath):
+        """
+        rename a file/directory
+
+        :param string shareName: a valid handle for the share where the file is to be opened
+        :param string oldPath: the old path name or the directory/file to rename
+        :param string newPath: the new path name or the directory/file to rename
+
+        :return: True, raises a SessionError exception if error.
+            
+        """
+
+        return self._SMBConnection.rename(shareName, oldPath, newPath)
  
