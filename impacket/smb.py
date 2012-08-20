@@ -4185,6 +4185,24 @@ class SMB:
         finally:
             self.disconnect_tree(tid)
 
+    def writeFile(self, treeId, fileId, data, offset = 0):
+        if (self._dialects_parameters['Capabilities'] & SMB.CAP_LARGE_WRITEX) and self._SignatureEnabled is False:
+            max_buf_size = 65000
+        else:
+            max_buf_size = self._dialects_parameters['MaxBufferSize'] & ~0x3ff  # Write in multiple KB blocks
+
+        write_offset = offset
+        while 1:
+            if len(data) == 0:
+                break
+            writeData = data[:max_buf_size]
+            data = data[max_buf_size:]
+
+            smb = self.write_andx(treeId,fileId,writeData, write_offset)
+            writeResponse   = SMBCommand(smb['Data'][0])
+            writeResponseParameters = SMBWriteAndXResponse_Parameters(writeResponse['Parameters'])
+            write_offset += writeResponseParameters['Count']
+
     def get_socket(self):
         return self._sess.get_socket()
 
