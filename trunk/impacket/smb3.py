@@ -19,7 +19,7 @@
 # ToDo: 
 # [X] Implement SMB2_CHANGE_NOTIFY
 # [X] Implement SMB2_QUERY_INFO
-# [ ] Implement SMB2_SET_INFO
+# [X] Implement SMB2_SET_INFO
 # [ ] Implement SMB2_OPLOCK_BREAK
 # [X] Implement SMB3 signing 
 # [ ] Implement SMB3 encryption
@@ -966,8 +966,61 @@ class SMB3:
             queryResponse = SMB2QueryInfo_Response(ans['Data'])
             return queryResponse['Buffer']
 
+    def setInfo(self, treeId, fileId, inputBlob = '', infoType = SMB2_0_INFO_FILE, fileInfoClass = SMB2_FILE_STANDARD_INFO, additionalInformation = 0 ):
+        if self._Session['TreeConnectTable'].has_key(treeId) is False:
+            raise SessionError(STATUS_INVALID_PARAMETER)
+        if self._Session['OpenTable'].has_key(fileId) is False:
+            raise SessionError(STATUS_INVALID_PARAMETER)
+
+        packet = self.SMB_PACKET()
+        packet['Command'] = SMB2_SET_INFO
+        packet['TreeID']  = treeId
+
+        setInfo = SMB2SetInfo()
+        setInfo['InfoType']              = SMB2_0_INFO_FILE 
+        setInfo['FileInfoClass']         = fileInfoClass 
+        setInfo['BufferLength']          = len(inputBlob)
+        setInfo['AdditionalInformation'] = additionalInformation
+        setInfo['FileID']                = fileId
+        setInfo['Buffer']                = inputBlob
+
+        packet['Data'] = setInfo
+        packetID = self.sendSMB(packet)
+        ans = self.recvSMB(packetID)
+
+        if ans.isValidAnswer(STATUS_SUCCESS):
+            return True
+
     ######################################################################
     # Higher level functions
+
+    def rename(self, shareName, oldPath, newPath):
+        oldPath = string.replace(oldPath,'/', '\\')
+        oldPath = ntpath.normpath(oldPath)
+        if len(oldPath) > 0 and oldPath[0] == '\\':
+            oldPath = oldPath[1:]
+
+        newPath = string.replace(newPath,'/', '\\')
+        newPath = ntpath.normpath(newPath)
+        if len(newPath) > 0 and newPath[0] == '\\':
+            newPath = newPath[1:]
+
+        treeId = self.connectTree(shareName)
+        fileId = None
+        try:
+            fileId = self.create(treeId, oldPath, MAXIMUM_ALLOWED ,FILE_SHARE_READ | FILE_SHARE_WRITE |FILE_SHARE_DELETE, 0x200020, FILE_OPEN, 0) 
+            renameReq = FILE_RENAME_INFORMATION_TYPE_2()
+            renameReq['ReplaceIfExists'] = 1
+            renameReq['RootDirectory']   = '\x00'*8
+            renameReq['FileNameLength']  = len(newPath)*2
+            renameReq['FileName']        = newPath.encode('utf-16le')
+            self.setInfo(treeId, fileId, renameReq, infoType = SMB2_0_INFO_FILE, fileInfoClass = SMB2_FILE_RENAME_INFO)
+        finally:
+            if fileId is not None:
+                self.close(treeId, fileId)
+            self.disconnectTree(treeId) 
+
+        return True
 
     def writeFile(self, treeId, fileId, data, offset = 0):
         finished = False

@@ -1308,13 +1308,15 @@ class SMB2QueryInfo_Response(Structure):
        ('Buffer',':'),
    )
 
+# SMB2_SET_INFO
 class SMB2SetInfo(Structure):
+    SIZE = 32
     structure = (
        ('StructureSize','<H=33'),
        ('InfoType','<B=0'),
        ('FileInfoClass','<B=0'),
        ('BufferLength','<L=0'),
-       ('BufferOffset','<H=0'),
+       ('BufferOffset','<H=(self.SIZE + 64 + len(self["AlignPad"]))'),
        ('Reserved','<H=0'),
        ('AdditionalInformation','<L=0'),
        ('FileID',':',SMB2_FILEID),
@@ -1323,10 +1325,24 @@ class SMB2SetInfo(Structure):
        ('_Buffer','_-Buffer','self["BufferLength"]'),
        ('Buffer',':'),
     )
+    def __init__(self, data = None):
+        Structure.__init__(self,data)
+        if data is None:
+            self['AlignPad'] = ''
 
 class SMB2SetInfo_Response(Structure):
     structure = (
        ('StructureSize','<H=2'),
+    )
+
+class FILE_RENAME_INFORMATION_TYPE_2(Structure):
+    structure = (
+        ('ReplaceIfExists','<B=0'),
+        ('Reserved','7s=""'),
+        ('RootDirectory',':',SMB2_FILEID),
+        ('FileNameLength','<L=0'),
+        ('_FileName','_-FileName','self["FileNameLength"]'),
+        ('FileName',':'),
     )
 
 class SMB2_TRANSFORM_HEADER(Structure):
@@ -1339,3 +1355,5 @@ class SMB2_TRANSFORM_HEADER(Structure):
         ('EncryptionAlgorithm','<H=0'),
         ('SessionID','<Q=0'),
     )
+
+
