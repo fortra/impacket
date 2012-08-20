@@ -3586,7 +3586,7 @@ class SMB:
             return 1
         else: raise Exception('Error: Could not login successfully')
 
-    def waitNamedPipe(self, tid, pipe, noAnswer = 0):
+    def waitNamedPipe(self, tid, pipe, timeout = 5, noAnswer = 0):
         smb = NewSMBPacket()
         smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
         smb['Flags2'] = SMB.FLAGS2_LONG_NAMES
@@ -3603,7 +3603,7 @@ class SMB:
         transCommand['Parameters']['TotalDataCount'] = 0
         transCommand['Parameters']['MaxParameterCount'] = 0
         transCommand['Parameters']['MaxDataCount'] = 0
-        transCommand['Parameters']['Timeout'] = 5000
+        transCommand['Parameters']['Timeout'] = timeout * 1000
 
         transCommand['Parameters']['ParameterCount'] = 0
         transCommand['Parameters']['ParameterOffset'] = 32+3+28+len(setup)+len(name)
