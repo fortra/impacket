@@ -189,7 +189,7 @@ class SMBConnection():
 
         :return: amount of bytes written, if not raises a SessionError exception.
         """
-        return self._SMBConnection.write_andx(treeId, fileId, data, offset)
+        return self._SMBConnection.writeFile(treeId, fileId, data, offset)
 
     def readFile(self, treeId, fileId, offset = 0, bytesToRead = None):
         """
