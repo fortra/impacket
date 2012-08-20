@@ -35,7 +35,7 @@ class SMBConnection():
 
     :return: a SMBConnection instance, if not raises a SessionError exception
     """
-    def __init__(self, remoteName, remoteHost, myName = None, sess_port = 445, timeout=10, preferredDialect = None):
+    def __init__(self, remoteName, remoteHost, myName = None, sess_port = 445, timeout=10, preferredDialect = SMB_DIALECT):
 
         self._SMBConnection = 0
         self._dialect       = ''
@@ -379,4 +379,7 @@ class SMBConnection():
         """
 
         return self._SMBConnection.rename(shareName, oldPath, newPath)
+
+    def setTimeout(self, timeout):
+        return self._SMBConnection.set_timeout(timeout)
  
