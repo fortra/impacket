@@ -16,9 +16,11 @@
 #
 
 from impacket import smb, smb3, nmb
-from impacket.dcerpc import transport, dcerpc, srvsvc
 from smb3structs import *
 import ntpath, string
+
+# So the user doesn't need to import smb, the smb3 are already in here
+SMB_DIALECT = smb.SMB_DIALECT
 
 class SMBConnection():
     """
@@ -119,14 +121,13 @@ class SMBConnection():
             except:
                 pass
         # Get the shares through RPC
-        rpctransport = transport.SMBTransport(self.getRemoteHost(), self.getRemoteHost(), filename = r'\srvsvc', smb_server = self.getSMBServer())
+        from impacket.dcerpc import transport, dcerpc, srvsvc
+        rpctransport = transport.SMBTransport(self.getRemoteHost(), self.getRemoteHost(), filename = r'\srvsvc', smb_connection = self)
         dce = dcerpc.DCERPC_v5(rpctransport)
         dce.connect()
         dce.bind(srvsvc.MSRPC_UUID_SRVSVC)
         srv_svc = srvsvc.DCERPCSrvSvc(dce)
         resp = srv_svc.get_share_enum_1(rpctransport.get_dip())
-        for i in range(len(resp)):
-            print resp[i]['NetName'].decode('utf-16')
         return resp
 
     def listPath(self, shareName, path, password = None):
@@ -173,7 +174,8 @@ class SMBConnection():
         :return: a valid file descriptor, if not raises a SessionError exception.
         """
 
-        if self.getDialect == smb.SMB_DIALECT:
+        if self.getDialect() == smb.SMB_DIALECT:
+            pathName = string.replace(pathName, '/', '\\')
             ntCreate = smb.SMBCommand(smb.SMB.SMB_COM_NT_CREATE_ANDX)
             ntCreate['Parameters'] = smb.SMBNtCreateAndX_Parameters()
             ntCreate['Data']       = smb.SMBNtCreateAndX_Data()
@@ -185,6 +187,7 @@ class SMBConnection():
             ntCreate['Parameters']['CreateOptions'] = creationOption
             ntCreate['Parameters']['Impersonation'] = impersonationLevel
             ntCreate['Parameters']['SecurityFlags'] = securityFlags
+            ntCreate['Parameters']['CreateFlags']   = 0x16
             ntCreate['Data']['FileName'] = pathName
 
             if createContexts is not None:
@@ -295,6 +298,15 @@ class SMBConnection():
             
         """
         return self._SMBConnection.TransactNamedPipe(treeId, fileId, data, waitAnswer = waitAnswer)
+
+    def transactNamedPipeRecv(self):
+        """
+        reads from a named pipe using a transaction command
+
+        :return: data read, raises a SessionError exception if error.
+            
+        """
+        return self._SMBConnection.TransactNamedPipeRecv()
 
     def writeNamedPipe(self, treeId, fileId, data, waitAnswer = True):
         """
