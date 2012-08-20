@@ -4163,7 +4163,8 @@ class SMB:
             self.disconnect_tree(tid)
 
     def rename(self, service, old_path, new_path, password = None):
-        path = string.replace(path,'/', '\\')
+        old_path = string.replace(old_path,'/', '\\')
+        new_path = string.replace(new_path,'/', '\\')
         tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\' + service, password)
         try:
             smb = NewSMBPacket()
