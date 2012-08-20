@@ -969,6 +969,18 @@ class SMB3:
     ######################################################################
     # Higher level functions
 
+    def writeFile(self, treeId, fileId, data, offset = 0):
+        finished = False
+        writeOffset = offset
+        while not finished:
+            if len(data) == 0:
+                break
+            writeData = data[:self._Connection['MaxWriteSize']]
+            data = data[self._Connection['MaxWriteSize']:]
+            written = self.write(treeId, fileId, writeData, writeOffset, len(writeData))
+            writeOffset += written
+        return writeOffset - offset
+
     def list_path(self, shareName, path, password = None):
         # ToDo: Handle situations where share is password protected
         path = string.replace(path,'/', '\\')
