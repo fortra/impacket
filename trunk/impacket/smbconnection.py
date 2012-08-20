@@ -105,7 +105,6 @@ class SMBConnection():
         if self.getDialect() == smb.SMB_DIALECT:
             share = ntpath.basename(share)
             share = '\\\\' + self.getRemoteHost() + '\\' + share
-        print "SHARE: ", share
         return self._SMBConnection.connect_tree(share)
 
     def disconnectTree(self, treeId):
