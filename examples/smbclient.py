@@ -22,6 +22,7 @@ import string
 from impacket import smb, version, smb3, nt_errors
 from impacket.dcerpc import dcerpc_v4, dcerpc, transport, srvsvc
 from nt_errors import *
+from impacket.smbconnection import *
 import argparse
 import ntpath
 import cmd
@@ -91,7 +92,16 @@ class MiniImpacketShell(cmd.Cmd):
         else:
            remote_name = '*SMBSERVER'
 
-        self.smb = smb.SMB(remote_name, host, sess_port=int(port))
+        self.smb = SMBConnection(remote_name, host, sess_port=int(port))
+        dialect = self.smb.getDialect()
+        if dialect == SMB_DIALECT:
+            print "SMBv1 dialect used"
+        elif dialect == SMB2_DIALECT_002:
+            print "SMBv2.0 dialect used"
+        elif dialect == SMB2_DIALECT_21:
+            print "SMBv2.1 dialect used"
+        else:
+            print "SMBv3.0 dialect used"
 
     def do_login(self,line):
         l = line.split(' ')
@@ -130,7 +140,7 @@ class MiniImpacketShell(cmd.Cmd):
         self.smb.logoff()
 
     def do_info(self, line):
-        rpctransport = transport.SMBTransport(self.smb.get_remote_name(), self.smb.get_remote_host(), filename = r'\srvsvc', smb_server = self.smb)
+        rpctransport = transport.SMBTransport(self.smb.getServerName(), self.smb.getRemoteHost(), filename = r'\srvsvc', smb_connection = self.smb)
         dce = dcerpc.DCERPC_v5(rpctransport)
         dce.connect()                     
         dce.bind(srvsvc.MSRPC_UUID_SRVSVC)
@@ -144,23 +154,13 @@ class MiniImpacketShell(cmd.Cmd):
         print "Simultaneous Users: %d" % resp['Users']
          
     def do_shares(self, line):
-        try:
-            rpctransport = transport.SMBTransport(self.smb.get_remote_name(), self.smb.get_remote_host(), filename = r'\srvsvc', smb_server = self.smb)
-            dce = dcerpc.DCERPC_v5(rpctransport)
-            dce.connect()                     
-            dce.bind(srvsvc.MSRPC_UUID_SRVSVC)
-            srv_svc = srvsvc.DCERPCSrvSvc(dce)
-            resp = srv_svc.get_share_enum_1(rpctransport.get_dip())
-            for i in range(len(resp)):                        
-                print resp[i]['NetName'].decode('utf-16')
-        except:
-	    # Old Code in case you want to use the old SMB shares commands
-            for share in self.smb.list_shared():
-                print "%s" % share.get_name()
+        resp = self.smb.listShares()
+        for i in range(len(resp)):                        
+            print resp[i]['NetName'].decode('utf-16')
 
     def do_use(self,line):
         self.share = line
-        self.tid = self.smb.connect_tree('\\\\' + self.smb.get_remote_host() + '\\' + line)
+        self.tid = self.smb.connectTree(line)
         self.pwd = '\\'
 
     def do_cd(self, line):
@@ -173,8 +173,8 @@ class MiniImpacketShell(cmd.Cmd):
         self.pwd = ntpath.normpath(self.pwd)
         # Let's try to open the directory to see if it's valid
         try:
-            fid = self.smb.nt_create_andx(self.tid, self.pwd)
-            self.smb.close(self.tid,fid)
+            fid = self.smb.openFile(self.tid, self.pwd)
+            self.smb.closeFile(self.tid,fid)
             self.pwd = oldpwd
         except Exception, e:
             if (e.get_error_code() & 0xff) == (STATUS_FILE_IS_A_DIRECTORY & 0xff):
@@ -194,23 +194,23 @@ class MiniImpacketShell(cmd.Cmd):
            pwd = ntpath.join(self.pwd, wildcard)
         pwd = string.replace(pwd,'/','\\')
         pwd = ntpath.normpath(pwd)
-        for f in self.smb.list_path(self.share, pwd):
+        for f in self.smb.listPath(self.share, pwd):
            print "%s" % f.get_longname()
 
     def do_rm(self, filename):
         f = ntpath.join(self.pwd, filename)
         file = string.replace(f,'/','\\')
-        self.smb.remove(self.share, file)
+        self.smb.deleteFile(self.share, file)
  
     def do_mkdir(self, path):
         p = ntpath.join(self.pwd, path)
         pathname = string.replace(p,'/','\\')
-        self.smb.mkdir(self.share,pathname)
+        self.smb.createDirectory(self.share,pathname)
 
     def do_rmdir(self, path):
         p = ntpath.join(self.pwd, path)
         pathname = string.replace(p,'/','\\')
-        self.smb.rmdir(self.share, pathname)
+        self.smb.deleteDirectory(self.share, pathname)
 
     def do_put(self, pathname):
         params = pathname.split(' ')
@@ -224,7 +224,7 @@ class MiniImpacketShell(cmd.Cmd):
         fh = open(pathname, 'rb')
         f = ntpath.join(self.pwd,dst_name)
         finalpath = string.replace(f,'/','\\')
-        self.smb.stor_file(self.share, finalpath, fh.read)
+        self.smb.putFile(self.share, finalpath, fh.read)
         fh.close()
 
     def do_get(self, filename):
@@ -232,7 +232,7 @@ class MiniImpacketShell(cmd.Cmd):
         fh = open(ntpath.basename(filename),'wb')
         pathname = ntpath.join(self.pwd,filename)
         try:
-            self.smb.retr_file(self.share, pathname, fh.write)
+            self.smb.getFile(self.share, pathname, fh.write)
         except:
             fh.close()
             os.remove(filename)
