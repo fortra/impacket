@@ -184,6 +184,7 @@ class SMB3:
         
         self._timeout = timeout
         self._Connection['ServerIP'] = remote_host
+        self._NetBIOSSession = None
         
         if not my_name:
             my_name = socket.gethostname()
