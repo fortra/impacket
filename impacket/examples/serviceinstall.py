@@ -18,16 +18,24 @@
 
 import random
 from impacket.dcerpc import srvsvc, dcerpc, svcctl, transport
-from impacket import smb
+from impacket import smb,smb3
+from impacket.smbconnection import *
 import string
 
 class ServiceInstall():
-    def __init__(self, SMBClient, exeFile):
+    def __init__(self, SMBObject, exeFile):
         self._rpctransport = 0
         self.__service_name = ''.join([random.choice(string.letters) for i in range(4)])
         self.__binary_service_name = ''.join([random.choice(string.letters) for i in range(8)]) + '.exe'
         self.__exeFile = exeFile
-        self.client = SMBClient
+
+        # We might receive two different types of objects, always end up
+        # with a SMBConnection one
+        if isinstance(SMBObject, smb.SMB) or isinstance(SMBObject, smb3.SMB3):
+            self.connection = SMBConnection(existingConnection = SMBObject)
+        else:
+            self.connection = SMBObject
+
         self.share = ''
  
     def getShare(self):
@@ -35,9 +43,9 @@ class ServiceInstall():
 
     def getShares(self):
         # Setup up a DCE SMBTransport with the connection already in place
-        print "[*] Requesting shares on %s....." % (self.client.get_remote_host())
+        print "[*] Requesting shares on %s....." % (self.connection.getRemoteHost())
         try: 
-            self._rpctransport = transport.SMBTransport('','',filename = r'\srvsvc', smb_server = self.client)
+            self._rpctransport = transport.SMBTransport('','',filename = r'\srvsvc', smb_connection = self.connection)
             self._dce = dcerpc.DCERPC_v5(self._rpctransport)
             self._dce.connect()
 
@@ -46,12 +54,12 @@ class ServiceInstall():
             resp = srv_svc.get_share_enum_1(self._rpctransport.get_dip())
             return resp
         except:
-            print "[!] Error requesting shares on %s, aborting....." % (self.client.get_remote_host())
+            print "[!] Error requesting shares on %s, aborting....." % (self.connection.getRemoteHost())
             raise
 
         
     def createService(self, handle, share, path):
-        print "[*] Creating service %s on %s....." % (self.__service_name, self.client.get_remote_host())
+        print "[*] Creating service %s on %s....." % (self.__service_name, self.connection.getRemoteHost())
 
 
         # First we try to open the service in case it exists. If it does, we remove it.
@@ -73,15 +81,15 @@ class ServiceInstall():
         try: 
             resp = self.rpcsvc.CreateServiceW(handle, self.__service_name.encode('utf-16le'), self.__service_name.encode('utf-16le'), command.encode('utf-16le'))
         except:
-            print "[!] Error creating service %s on %s" % (self.__service_name, self.client.get_remote_host())
+            print "[!] Error creating service %s on %s" % (self.__service_name, self.connection.getRemoteHost())
             raise
         else:
             return resp['ContextHandle']
 
     def openSvcManager(self):
-        print "[*] Opening SVCManager on %s....." % self.client.get_remote_host()
+        print "[*] Opening SVCManager on %s....." % self.connection.getRemoteHost()
         # Setup up a DCE SMBTransport with the connection already in place
-        self._rpctransport = transport.SMBTransport('','',filename = r'\svcctl', smb_server = self.client)
+        self._rpctransport = transport.SMBTransport('','',filename = r'\svcctl', smb_connection = self.connection)
         self._dce = dcerpc.DCERPC_v5(self._rpctransport)
         self._dce.connect()
         self._dce.bind(svcctl.MSRPC_UUID_SVCCTL)
@@ -89,7 +97,7 @@ class ServiceInstall():
         try:
             resp = self.rpcsvc.OpenSCManagerW()
         except:
-            print "[!] Error opening SVCManager on %s....." % self.client.get_remote_host()
+            print "[!] Error opening SVCManager on %s....." % self.connection.getRemoteHost()
             return 0
         else:
             return resp['ContextHandle']
@@ -105,7 +113,7 @@ class ServiceInstall():
         f = dst
         pathname = string.replace(f,'/','\\')
         try:
-            self.client.stor_file(tree, pathname, fh.read)
+            self.connection.putFile(tree, pathname, fh.read)
         except:
             print "[!] Error uploading file %s, aborting....." % dst
             raise
@@ -117,23 +125,23 @@ class ServiceInstall():
             if i['Type'] == smb.SHARED_DISK or i['Type'] == smb.SHARED_DISK_HIDDEN:
                share = i['NetName'].decode('utf-16le')[:-1]
                try:
-                   self.client.mkdir(share,'BETO')
+                   self.connection.createDirectory(share,'BETO')
                except:
                    # Can't create, pass
                    print '[!] No written share found, aborting...'
                    raise
                else:
                    print '[*] Found writable share %s' % share
-                   self.client.rmdir(share,'BETO')
+                   self.connection.deleteDirectory(share,'BETO')
                    return str(share)
         return None
         
 
     def install(self):
-        if self.client.isGuestSession():
+        if self.connection.isGuestSession():
             print "[!] Authenticated as Guest. Aborting"
-            self.client.logoff()
-            del(self.client)
+            self.connection.logoff()
+            del(self.connection)
         else:
             fileCopied = False
             serviceCreated = False
@@ -146,7 +154,7 @@ class ServiceInstall():
                 fileCopied = True
                 svcManager = self.openSvcManager()
                 if svcManager != 0:
-                    serverName = self.client.get_server_name()
+                    serverName = self.connection.getServerName()
                     if serverName != '':
                        path = '\\\\%s\\%s' % (serverName, self.share)
                     else:
@@ -171,7 +179,7 @@ class ServiceInstall():
                     pass
                 if fileCopied is True:
                     try:
-                        self.client.remove(self.share, self.__binary_service_name)
+                        self.connection.deleteFile(self.share, self.__binary_service_name)
                     except:
                         pass
                 if serviceCreated is True:
@@ -200,7 +208,7 @@ class ServiceInstall():
                 self.rpcsvc.CloseServiceHandle(service)
                 self.rpcsvc.CloseServiceHandle(svcManager)
             print '[*] Removing file %s.....' % self.__binary_service_name
-            self.client.remove(self.share, self.__binary_service_name)
+            self.connection.deleteFile(self.share, self.__binary_service_name)
         except Exception, e:
             print "[!] Error performing the uninstallation, cleaning up" 
             try:
@@ -209,10 +217,10 @@ class ServiceInstall():
                 pass
             if fileCopied is True:
                 try:
-                    self.client.remove(self.share, self.__binary_service_name)
+                    self.connection.deleteFile(self.share, self.__binary_service_name)
                 except:
                     try:
-                        self.client.remove(self.share, self.__binary_service_name)
+                        self.connection.deleteFile(self.share, self.__binary_service_name)
                     except:
                         pass
                     pass
