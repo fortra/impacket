@@ -19,7 +19,8 @@ import sys
 import os
 import cmd
 
-from impacket import smb, version
+from impacket import version
+from impacket.smbconnection import *
 from impacket.dcerpc import dcerpc_v4, dcerpc, transport, svcctl, srvsvc
 from impacket.structure import Structure
 from threading import Thread, Lock
@@ -85,6 +86,8 @@ class PSEXEC:
 
             rpctransport = transport.DCERPCTransportFactory(stringbinding)
             rpctransport.set_dport(port)
+            #if hasattr(rpctransport,'preferred_dialect'):
+            #   rpctransport.preferred_dialect(SMB_DIALECT)
             if hasattr(rpctransport, 'set_credentials'):
                 # This method exists only for selected protocol sequences.
                 rpctransport.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
@@ -107,18 +110,7 @@ class PSEXEC:
             print '[!] Pipe not ready, aborting'
             raise
 
-        ntCreate = smb.SMBCommand(smb.SMB.SMB_COM_NT_CREATE_ANDX)
-        ntCreate['Parameters'] = smb.SMBNtCreateAndX_Parameters()
-        ntCreate['Data']       = smb.SMBNtCreateAndX_Data()
-        ntCreate['Parameters']['FileNameLength'] = len(pipe)
-        ntCreate['Parameters']['FileAttributes'] = 0x80
-        ntCreate['Parameters']['CreateFlags'] = 0x0
-        ntCreate['Parameters']['AccessMask'] = accessMask
-        ntCreate['Parameters']['CreateOptions'] = 0x40
-        ntCreate['Parameters']['ShareAccess'] = 0x7
-        ntCreate['Data']['FileName'] = pipe
-
-        fid = s.nt_create_andx(tid,pipe,cmd=ntCreate)
+        fid = s.openFile(tid,pipe,accessMask, creationOption = 0x40, fileAttributes = 0x80)
 
         return fid
 
@@ -133,26 +125,26 @@ class PSEXEC:
 
         try:
             unInstalled = False
-            s = rpctransport.get_smb_server()
+            s = rpctransport.get_smb_connection()
 
             # We don't wanna deal with timeouts from now on.
-            s.set_timeout(100000)
+            s.setTimeout(100000)
             if self.__exeFile is None:
-                installService = serviceinstall.ServiceInstall(rpctransport.get_smb_server(), remcomsvc.RemComSvc())
+                installService = serviceinstall.ServiceInstall(rpctransport.get_smb_connection(), remcomsvc.RemComSvc())
             else:
                 try:
                     f = open(self.__exeFile)
                 except Exception, e:
                     print e
                     sys.exit(1)
-                installService = serviceinstall.ServiceInstall(rpctransport.get_smb_server(), f)
+                installService = serviceinstall.ServiceInstall(rpctransport.get_smb_connection(), f)
     
             installService.install()
 
             if self.__exeFile is not None:
                 f.close()
 
-            tid = s.tree_connect_andx('\\\\%s\\IPC$' % s.get_remote_name())
+            tid = s.connectTree('IPC$')
             fid_main = self.openPipe(s,tid,'\RemCom_communicaton',0x12019f)
 
             packet = RemComMessage()
@@ -164,7 +156,7 @@ class PSEXEC:
             packet['Command'] = self.__command
             packet['ProcessID'] = pid
 
-            s.write_andx(tid, fid_main, str(packet), write_pipe_mode = True)
+            s.writeNamedPipe(tid, fid_main, str(packet))
 
             # Here we'll store the command we type so we don't print it back ;)
             # ( I know.. globals are nasty :P )
@@ -180,13 +172,10 @@ class PSEXEC:
             stderr_pipe.start()
             
             # And we stay here till the end
-            ans = s.read_andx(tid,fid_main,8, wait_answer = 0)
-            readAndXResponse   = smb.SMBCommand(ans['Data'][0])
-            readAndXParameters = smb.SMBReadAndXResponse_Parameters(readAndXResponse['Parameters'])
-            offset = readAndXParameters['DataOffset']
-            count = readAndXParameters['DataCount']+0x10000*readAndXParameters['DataCount_Hi']
-            if count > 0:
-               retCode = RemComResponse(str(ans)[offset:offset+count])
+            ans = s.readNamedPipe(tid,fid_main,8)
+
+            if len(ans):
+               retCode = RemComResponse(ans)
                print "[*] Process %s finished with ErrorCode: %d, ReturnCode: %d" % (self.__command, retCode['ErrorCode'], retCode['ReturnCode'])
             installService.uninstall()
             unInstalled = True
@@ -217,28 +206,16 @@ class Pipes(Thread):
     def connectPipe(self):
         try:
             lock.acquire()
-            self.server = smb.SMB('*SMBSERVER', self.transport.get_smb_server().get_remote_host(), sess_port = self.port)
+            #self.server = SMBConnection('*SMBSERVER', self.transport.get_smb_connection().getRemoteHost(), sess_port = self.port, preferredDialect = SMB_DIALECT)
+            self.server = SMBConnection('*SMBSERVER', self.transport.get_smb_connection().getRemoteHost(), sess_port = self.port)
             user, passwd, domain, lm, nt = self.credentials
             self.server.login(user, passwd, domain, lm, nt)
             lock.release()
-            self.tid = self.server.tree_connect_andx('\\\\%s\\IPC$' % self.transport.get_smb_server().get_remote_name())
+            self.tid = self.server.connectTree('IPC$') 
 
             self.server.waitNamedPipe(self.tid, self.pipe)
-
-            ntCreate = smb.SMBCommand(smb.SMB.SMB_COM_NT_CREATE_ANDX)
-            ntCreate['Parameters'] = smb.SMBNtCreateAndX_Parameters()
-            ntCreate['Data']       = smb.SMBNtCreateAndX_Data()
-            ntCreate['Parameters']['FileNameLength'] = len(self.pipe)
-            ntCreate['Parameters']['FileAttributes'] = 0x80
-            ntCreate['Parameters']['CreateFlags'] = 0x0
-            ntCreate['Parameters']['AccessMask'] = self.permissions
-            ntCreate['Parameters']['CreateOptions'] = 0x40
-            ntCreate['Parameters']['ShareAccess'] = 0x7
-            ntCreate['Data']['FileName'] = self.pipe
-
-            self.fid = self.server.nt_create_andx(self.tid,self.pipe,cmd=ntCreate)
- 
-            self.server.set_timeout(1000000)
+            self.fid = self.server.openFile(self.tid,self.pipe,self.permissions, creationOption = 0x40, fileAttributes = 0x80)
+            self.server.setTimeout(1000000)
         except:
             print "[!] Something wen't wrong connecting the pipes(%s), try again" % self.__class__
 
@@ -251,32 +228,24 @@ class RemoteStdOutPipe(Pipes):
         self.connectPipe()
         while True:
             try:
-                ans = self.server.read_andx(self.tid,self.fid, max_size = 1024, wait_answer = 0 )
+                ans = self.server.readFile(self.tid,self.fid, 0, 1024)
             except Exception, e: 
                 pass
             else:
-                if ans['Command'] == smb.SMB.SMB_COM_READ_ANDX:
-                    try:
-                        readAndXResponse   = smb.SMBCommand(ans['Data'][0])
-                        readAndXParameters = smb.SMBReadAndXResponse_Parameters(readAndXResponse['Parameters'])
-                        offset = readAndXParameters['DataOffset']
-                        count = readAndXParameters['DataCount']+0x10000*readAndXParameters['DataCount_Hi']
-                        if count > 0:
-                            data = str(ans)[offset:offset+count]
-                            global LastDataSent
-                            if data != LastDataSent:
-                                sys.stdout.write(str(ans)[offset:offset+count])
-                                sys.stdout.flush()
-                            else:
-                                # Don't echo what I sent, and clear it up
-                                LastDataSent = ''
-                            # Just in case this got out of sync, i'm cleaning it up if there are more than 10 chars, 
-                            # it will give false positives tho.. we should find a better way to handle this.
-                            if LastDataSent > 10:
-                                LastDataSent = ''
-                        ans['Command'] = 0
-                    except:
-                        pass
+                try:
+                        global LastDataSent
+                        if ans != LastDataSent:
+                            sys.stdout.write(ans)
+                            sys.stdout.flush()
+                        else:
+                            # Don't echo what I sent, and clear it up
+                            LastDataSent = ''
+                        # Just in case this got out of sync, i'm cleaning it up if there are more than 10 chars, 
+                        # it will give false positives tho.. we should find a better way to handle this.
+                        if LastDataSent > 10:
+                            LastDataSent = ''
+                except:
+                    pass
 
 class RemoteStdErrPipe(Pipes):
     def __init__(self, transport, pipe, permisssions):
@@ -286,22 +255,15 @@ class RemoteStdErrPipe(Pipes):
         self.connectPipe()
         while True:
             try:
-                ans = self.server.read_andx(self.tid,self.fid, max_size = 1024, wait_answer = 0 )
+                ans = self.server.readNamedPipe(self.tid,self.fid, 1024)
             except Exception, e: 
                 pass
             else:
-                if ans['Command'] == smb.SMB.SMB_COM_READ_ANDX:
-                    try:
-                        readAndXResponse   = smb.SMBCommand(ans['Data'][0])
-                        readAndXParameters = smb.SMBReadAndXResponse_Parameters(readAndXResponse['Parameters'])
-                        offset = readAndXParameters['DataOffset']
-                        count = readAndXParameters['DataCount']+0x10000*readAndXParameters['DataCount_Hi']
-                        if count > 0:
-                            sys.stderr.write(str(ans)[offset:offset+count])
-                            sys.stderr.flush()
-                        ans['Command'] = 0
-                    except:
-                        pass
+                try:
+                    sys.stderr.write(str(ans)[offset:offset+count])
+                    sys.stderr.flush()
+                except:
+                    pass
 
 class RemoteShell(cmd.Cmd):
     def __init__(self, server, port, credentials, tid, fid, share):
@@ -317,7 +279,8 @@ class RemoteShell(cmd.Cmd):
         self.intro = '[!] Press help for extra shell commands'
 
     def connect_transferClient(self):
-        self.transferClient = smb.SMB('*SMBSERVER', self.server.get_remote_host(), sess_port = self.port)
+        #self.transferClient = SMBConnection('*SMBSERVER', self.server.getRemoteHost(), sess_port = self.port, preferredDialect = SMB_DIALECT)
+        self.transferClient = SMBConnection('*SMBSERVER', self.server.getRemoteHost(), sess_port = self.port)
         user, passwd, domain, lm, nt = self.credentials
         self.transferClient.login(user, passwd, domain, lm, nt)
 
@@ -344,7 +307,7 @@ class RemoteShell(cmd.Cmd):
             filename = ntpath.basename(src_path)
             fh = open(filename,'wb')
             print "[*] Downloading %s\%s" % (self.share, src_path)
-            self.transferClient.retr_file(self.share, src_path, fh.write)
+            self.transferClient.getFile(self.share, src_path, fh.write)
             fh.close()
         except Exception, e:
             print e
@@ -369,7 +332,7 @@ class RemoteShell(cmd.Cmd):
             f = dst_path + '/' + src_file
             pathname = string.replace(f,'/','\\')
             print "[*] Uploading %s to %s\%s" % (src_file, self.share, dst_path)
-            self.transferClient.stor_file(self.share, pathname, fh.read)
+            self.transferClient.putFile(self.share, pathname, fh.read)
             fh.close()
         except Exception, e:
             print e
@@ -398,7 +361,7 @@ class RemoteShell(cmd.Cmd):
             LastDataSent = data
         else:
             LastDataSent = ''
-        self.server.write_andx(self.tid, self.fid, data, wait_answer = 0)
+        self.server.writeFile(self.tid, self.fid, data)
 
 
 class RemoteStdInPipe(Pipes):
