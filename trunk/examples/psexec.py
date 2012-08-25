@@ -123,6 +123,9 @@ class PSEXEC:
             print e
             sys.exit(1)
 
+        global dialect
+        dialect = rpctransport.get_smb_connection().getDialect()
+
         try:
             unInstalled = False
             s = rpctransport.get_smb_connection()
@@ -206,8 +209,9 @@ class Pipes(Thread):
     def connectPipe(self):
         try:
             lock.acquire()
+            global dialect
             #self.server = SMBConnection('*SMBSERVER', self.transport.get_smb_connection().getRemoteHost(), sess_port = self.port, preferredDialect = SMB_DIALECT)
-            self.server = SMBConnection('*SMBSERVER', self.transport.get_smb_connection().getRemoteHost(), sess_port = self.port)
+            self.server = SMBConnection('*SMBSERVER', self.transport.get_smb_connection().getRemoteHost(), sess_port = self.port, preferredDialect = dialect)
             user, passwd, domain, lm, nt = self.credentials
             self.server.login(user, passwd, domain, lm, nt)
             lock.release()
@@ -280,7 +284,7 @@ class RemoteShell(cmd.Cmd):
 
     def connect_transferClient(self):
         #self.transferClient = SMBConnection('*SMBSERVER', self.server.getRemoteHost(), sess_port = self.port, preferredDialect = SMB_DIALECT)
-        self.transferClient = SMBConnection('*SMBSERVER', self.server.getRemoteHost(), sess_port = self.port)
+        self.transferClient = SMBConnection('*SMBSERVER', self.server.getRemoteHost(), sess_port = self.port, preferredDialect = dialect)
         user, passwd, domain, lm, nt = self.credentials
         self.transferClient.login(user, passwd, domain, lm, nt)
 
