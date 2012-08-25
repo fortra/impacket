@@ -42,6 +42,8 @@ class SMBConnection():
         hostType = nmb.TYPE_SERVER
 
         if existingConnection is not None:
+            # Existing Connection must be a smb or smb3 instance
+            assert ( isinstance(existingConnection,smb.SMB) or isinstance(existingConnection, smb3.SMB3))
             self._SMBConnection = existingConnection
             return
         # If no preferredDialect sent, we try the highest available one.
