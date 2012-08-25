@@ -756,7 +756,10 @@ class SMB3:
         packet['Data'] = smbWrite
 
         packetID = self.sendSMB(packet)
-        ans = self.recvSMB(packetID)
+        if waitAnswer == True:
+            ans = self.recvSMB(packetID)
+        else:
+            return maxBytesToWrite
 
         if ans.isValidAnswer(STATUS_SUCCESS):
             writeResponse = SMB2Write_Response(ans['Data'])
