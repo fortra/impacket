@@ -35,12 +35,15 @@ class SMBConnection():
 
     :return: a SMBConnection instance, if not raises a SessionError exception
     """
-    def __init__(self, remoteName, remoteHost, myName = None, sess_port = 445, timeout=10, preferredDialect = SMB_DIALECT):
+    def __init__(self, remoteName='', remoteHost='', myName = None, sess_port = 445, timeout=10, preferredDialect = None, existingConnection = None):
 
         self._SMBConnection = 0
         self._dialect       = ''
         hostType = nmb.TYPE_SERVER
 
+        if existingConnection is not None:
+            self._SMBConnection = existingConnection
+            return
         # If no preferredDialect sent, we try the highest available one.
         if preferredDialect is None:
             try:
@@ -323,7 +326,7 @@ class SMBConnection():
         if self.getDialect() == smb.SMB_DIALECT:
             return self._SMBConnection.write_andx(treeId, fileId, data, wait_answer = waitAnswer, write_pipe_mode = True)
         else:
-            return self._SMBConnection.TransactNamedPipe(treeId, fileId, data, waitAnswer = waitAnswer)
+            return self.writeFile(treeId, fileId, data, 0)
 
     def readNamedPipe(self,treeId, fileId, bytesToRead = None ):
         """
