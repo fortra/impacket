@@ -16,7 +16,7 @@ import re
 import socket
 import binascii
 
-from impacket import smb
+from impacket.smbconnection import *
 from impacket import nmb
 from impacket import ntlm
 from impacket.structure import pack
@@ -307,7 +307,111 @@ class HTTPTransport(TCPTransport):
 class SMBTransport(DCERPCTransport):
     "Implementation of ncacn_np protocol sequence"
 
-    def __init__(self, dstip, dstport = 445, filename = '', username='', password='', domain = '', lmhash='', nthash='', remote_name='', smb_server = 0):
+    def __init__(self, dstip, dstport = 445, filename = '', username='', password='', domain = '', lmhash='', nthash='', remote_name='', smb_connection = 0):
+        DCERPCTransport.__init__(self, dstip, dstport)
+        self.__socket = None
+        self.__tid = 0
+        self.__filename = filename
+        self.__handle = 0
+        self.__pending_recv = 0
+        self.set_credentials(username, password, domain, lmhash, nthash)
+        self.__remote_name = remote_name
+
+        if smb_connection == 0:
+            self.__existing_smb = False
+        else:
+            self.__existing_smb = True
+
+        self.__prefDialect = None
+
+        if isinstance(smb_connection, smb.SMB):
+            # Backward compatibility hack, let's return a
+            # SMBBackwardCompatibilityTransport instance
+            return SMBBackwardCompatibilityTransport(smb_server = smb_connection)            
+        else:
+            self.__smb_connection = smb_connection
+
+    def preferred_dialect(self, dialect):
+        self.__prefDialect = dialect
+
+    def setup_smb_connection(self):
+        if not self.__smb_connection:
+            if self.__remote_name == '':
+                if self.get_dport() == nmb.NETBIOS_SESSION_PORT:
+                    self.__smb_connection = SMBConnection('*SMBSERVER', self.get_dip(), sess_port = self.get_dport(),preferredDialect = self.__prefDialect)
+                else:
+                    self.__smb_connection = SMBConnection(self.get_dip(), self.get_dip(), sess_port = self.get_dport(),preferredDialect = self.__prefDialect)
+            else:
+                self.__smb_connection = SMBConnection(self.__remote_name, self.get_dip(), sess_port = self.get_dport(),preferredDialect = self.__prefDialect)
+
+    def connect(self):
+        # Check if we have a smb connection already setup
+        if self.__smb_connection == 0:  
+           self.setup_smb_connection()
+           self.__smb_connection.login(self._username, self._password, self._domain, self._lmhash, self._nthash)
+        self.__tid = self.__smb_connection.connectTree('IPC$')
+        self.__handle = self.__smb_connection.openFile(self.__tid, self.__filename)
+        self.__socket = self.__smb_connection.getSMBServer().get_socket()
+        return 1
+    
+    def disconnect(self):
+        self.__smb_connection.disconnectTree(self.__tid)
+        # If we created the SMB connection, we close it, otherwise
+        # that's up for the caller
+        if self.__existing_smb == False:
+            self.__smb_connection.logoff()
+            self.__smb_connection = 0
+
+    def send(self,data, forceWriteAndx = 0, forceRecv = 0):
+        if self._max_send_frag:
+            offset = 0
+            while 1:
+                toSend = data[offset:offset+self._max_send_frag]
+                if not toSend:
+                    break
+                self.__smb_connection.writeFile(self.__tid, self.__handle, toSend, offset = offset)
+                offset += len(toSend)
+        else:
+            if forceWriteAndx:
+                self.__smb_connection.writeNamedPipe(self.__tid, self.__handle, data)
+            else:
+                self.__smb_connection.transactNamedPipe(self.__tid,self.__handle,data, waitAnswer = False)
+        if forceRecv:
+            self.__pending_recv += 1
+        
+    def recv(self, forceRecv = 0, count = 0 ):
+        if self._max_send_frag or self.__pending_recv:
+            # _max_send_frag is checked because it's the same condition we checked
+            # to decide whether to use write_andx() or send_trans() in send() above.
+            if self.__pending_recv:
+                self.__pending_recv -= 1
+            return self.__smb_connection.readNamedPipe(self.__tid, self.__handle, self._max_recv_frag)
+        elif forceRecv:
+            return self.__smb_connection.readNamedPipe(self.__tid, self.__handle, self._max_recv_frag)
+        else:
+            return self.__smb_connection.transactNamedPipeRecv()
+
+    def get_smb_connection(self):
+        return self.__smb_connection
+    
+    def get_smb_server(self):
+        # Raw Access to the SMBServer (whatever type it is)
+        return self.__smb_connection.getSMBServer()
+
+    def get_socket(self):
+        return self.__socket
+
+    def doesSupportNTLMv2(self):
+        return self.__smb_connection.doesSupportNTLMv2()
+
+# I'm leaving the old SMBTransport still here, just as backward
+# compatibility with previous implementations.
+# SMBTransport will figure out if this class is needed.
+# Should NOT be used anymore (will die eventually)
+class SMBBackwardCompatibilityTransport(DCERPCTransport):
+    "Implementation of ncacn_np protocol sequence"
+
+    def __init__(self, dstip=0, dstport = 445, filename = '', username='', password='', domain = '', lmhash='', nthash='', remote_name='', smb_server = 0):
         DCERPCTransport.__init__(self, dstip, dstport)
         self.__socket = None
         self.__tid = 0
