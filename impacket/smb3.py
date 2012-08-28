@@ -178,6 +178,7 @@ class SMB3:
             'ServerName'               : '',    #
             'ServerDomain'             : '',    #
             'ServerOS'                 : '',    #
+            'SigningActivated'         : False, #
         }
 
         self.SMB_PACKET = SMB2Packet
@@ -277,7 +278,7 @@ class SMB3:
         if self._Connection['SequenceWindow'] > 3:
             packet['CreditRequestResponse'] = 127
 
-        if self._Session['SigningRequired'] is True and self._Connection['SequenceWindow'] > 3:
+        if self._Session['SigningActivated'] is True and self._Connection['SequenceWindow'] > 3:
             if packet['TreeID'] > 0 and self._Session['TreeConnectTable'].has_key(packet['TreeID']) is True:
                 if self._Session['TreeConnectTable'][packet['TreeID']]['EncryptData'] is False:
                     packet['Flags'] = SMB2_FLAGS_SIGNED
@@ -472,18 +473,32 @@ class SMB3:
 
             packetID = self.sendSMB(packet)
             packet = self.recvSMB(packetID)
-            if packet.isValidAnswer(STATUS_SUCCESS):
-                sessionSetupResponse = SMB2SessionSetup_Response(ans['Data'])
-                self._Session['SessionFlags'] = sessionSetupResponse['SessionFlags']
+            try:
+                if packet.isValidAnswer(STATUS_SUCCESS):
+                    sessionSetupResponse = SMB2SessionSetup_Response(ans['Data'])
+                    self._Session['SessionFlags'] = sessionSetupResponse['SessionFlags']
 
-                # Calculate the key derivations for dialect 3.0
-                if self._Session['SigningRequired'] is True and self._Connection['Dialect'] == SMB2_DIALECT_30:
-                    self._Session['ApplicationKey']  = crypto.KDF_CounterMode(exportedSessionKey, "SMB2APP\x00", "SmbRpc\x00", 128)
-                if self._Session['EncryptData'] is True:
-                    self._Session['EncryptionKey']  = crypto.KDF_CounterMode(exportedSessionKey, "SMB2AESCCM\x00", "ServerIn\x00", 128)
-                    self._Session['DecryptionKey']  = crypto.KDF_CounterMode(exportedSessionKey, "SMB2AESCCM\x00", "ServerOut\x00", 128)
+                    # Calculate the key derivations for dialect 3.0
+                    if self._Session['SigningRequired'] is True:
+                        self._Session['SigningActivated'] = True
+                        if self._Connection['Dialect'] == SMB2_DIALECT_30:
+                            self._Session['ApplicationKey']  = crypto.KDF_CounterMode(exportedSessionKey, "SMB2APP\x00", "SmbRpc\x00", 128)
+                    if self._Session['EncryptData'] is True:
+                        self._Session['EncryptionKey']  = crypto.KDF_CounterMode(exportedSessionKey, "SMB2AESCCM\x00", "ServerIn\x00", 128)
+                        self._Session['DecryptionKey']  = crypto.KDF_CounterMode(exportedSessionKey, "SMB2AESCCM\x00", "ServerOut\x00", 128)
  
-                return True
+                    return True
+            except:
+                # We clean the stuff we used in case we want to authenticate again
+                # within the same connection
+                self._Session['UserCredentials']   = ''
+                self._Session['Connection']        = 0
+                self._Session['SessionID']         = 0
+                self._Session['SigningRequired']   = False
+                self._Session['SigningKey']        = ''
+                self._Session['SessionKey']        = ''
+                self._Session['SigningActivated']  = False
+                raise
 
     def connectTree(self, share):
 
