@@ -86,7 +86,7 @@ class RPCDump:
         endpoints = {}
         # Let's groups the UUIDS
         for entry in entries:
-            binding = epm.PrintStringBinding(entry['Tower']['Floors'])
+            binding = epm.PrintStringBinding(entry['Tower']['Floors'], rpctransport.get_dip())
             tmpUUID = str(entry['Tower']['Floors'][0])
             if endpoints.has_key(tmpUUID) is not True:
                 endpoints[tmpUUID] = {}
