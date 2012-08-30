@@ -946,7 +946,7 @@ class DCERPCEpm:
            errorCode = resp['ErrorCode']
         return entries
 
-def PrintStringBinding(floors):
+def PrintStringBinding(floors, serverAddr = '0.0.0.0'):
     tmp_address = ''
     tmp_address2 = ''
     for floor in floors[3:]:
@@ -955,8 +955,10 @@ def PrintStringBinding(floors):
         elif floor['ProtocolData'] == chr(0x08):
             tmp_address = 'ncadg_ip_udp:%%s[%d]' % struct.unpack('!H',floor['RelatedData'])
         elif floor['ProtocolData'] == chr(0x09):
-            # If the address were 0.0.0.0 it would have to be replaced by the remote host's IP.
             tmp_address2 = socket.inet_ntoa(floor['RelatedData'])
+            # If the address were 0.0.0.0 it would have to be replaced by the remote host's IP.
+            if tmp_address2 == '0.0.0.0':
+                tmp_address2 = serverAddr
             if tmp_address <> '':
                 return tmp_address % tmp_address2
             else:
