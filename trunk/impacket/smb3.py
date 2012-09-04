@@ -1237,7 +1237,7 @@ class SMB3:
     use_timeout       = useTimeout
     stor_file         = storeFile
     retr_file         = retrieveFile
-    list_path         = list_path
+    list_path         = listPath
 
     def __del__(self):
         if self._NetBIOSSession:
