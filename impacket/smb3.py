@@ -1053,7 +1053,7 @@ class SMB3:
             writeOffset += written
         return writeOffset - offset
 
-    def list_path(self, shareName, path, password = None):
+    def listPath(self, shareName, path, password = None):
         # ToDo: Handle situations where share is password protected
         path = string.replace(path,'/', '\\')
         path = ntpath.normpath(path)
@@ -1147,7 +1147,7 @@ class SMB3:
 
         return True
 
-    def retr_file(self, shareName, path, callback, mode = FILE_OPEN, offset = 0, password = None):
+    def retrieveFile(self, shareName, path, callback, mode = FILE_OPEN, offset = 0, password = None):
         # ToDo: Handle situations where share is password protected
         path = string.replace(path,'/', '\\')
         path = ntpath.normpath(path)
@@ -1178,7 +1178,7 @@ class SMB3:
                 self.close(treeId, fileId)
             self.disconnectTree(treeId) 
 
-    def stor_file(self, shareName, path, callback, mode = FILE_OVERWRITE_IF, offset = 0, password = None):
+    def storeFile(self, shareName, path, callback, mode = FILE_OVERWRITE_IF, offset = 0, password = None):
         # ToDo: Handle situations where share is password protected
         path = string.replace(path,'/', '\\')
         path = ntpath.normpath(path)
@@ -1221,7 +1221,7 @@ class SMB3:
         
 
     ######################################################################
-    # Backward compatibility functions for SMB1 and DCE Transports
+    # Backward compatibility functions and alias for SMB1 and DCE Transports
     # NOTE: It is strongly recommended not to use these commands
     # when implementing new client calls.
     get_server_name   = getServerName
@@ -1235,6 +1235,10 @@ class SMB3:
     disconnect_tree   = disconnectTree 
     set_timeout       = setTimeout
     use_timeout       = useTimeout
+    stor_file         = storeFile
+    retr_file         = retrieveFile
+    list_path         = list_path
+
     def __del__(self):
         if self._NetBIOSSession:
             self._NetBIOSSession.close()
