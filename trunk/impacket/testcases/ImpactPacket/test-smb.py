@@ -1,23 +1,20 @@
 import unittest
-
 from impacket import smb
 from impacket.smbconnection import *
 from impacket.smb3structs import *
 import time, ntpath
 
+# IMPORTANT NOTE:
+# For some reason, under Windows 8, you cannot switch between
+# dialects 002, 2_1 and 3_0 (it will throw STATUS_USER_SESSION_DELETED),
+# but you can with SMB1.
+# So, you can't run all test cases against the same machine.
+# Usually running all the tests against a Windows 7 except SMB3
+# would do the trick.
+# ToDo:
+# [ ] Add the rest of SMBConnection public methods
+
 class SMBTests(unittest.TestCase):
-    def setUp(self):
-        unittest.TestCase.setUp(self)
-        self.username = 'test'
-        self.password = 'passwd'
-        self.machine  = '192.168.53.236'
-        self.share    = 'c$'
-        self.file     = '/tmp/TEST'
-        self.directory= '/tmp/BETO'
-        self.upload   = '../../nt_errors.py'
-        #self.dialects = [smb.SMB_DIALECT, SMB2_DIALECT_002, SMB2_DIALECT_21, SMB2_DIALECT_30]
-        #self.dialects = smb.SMB_DIALECT
-        self.dialects = SMB2_DIALECT_21
 
     def test_connection(self):
        smb = SMBConnection('*SMBSERVER', self.machine, preferredDialect = self.dialects)
@@ -95,5 +92,61 @@ class SMBTests(unittest.TestCase):
         smb.deleteFile(self.share, self.file)
         smb.logoff()
 
+class SMB1Tests(SMBTests):
+    def setUp(self):
+        SMBTests.setUp(self)
+        # Put specific configuration for target machine with SMB1
+        self.username = 'admin'
+        self.password = 'admin'
+        self.machine  = '192.168.53.218'
+        self.share    = 'Users'
+        self.file     = '/admin/TEST'
+        self.directory= '/admin/BETO'
+        self.upload   = '../../nt_errors.py'
+        self.dialects = smb.SMB_DIALECT
+
+class SMB002Tests(SMBTests):
+    def setUp(self):
+        # Put specific configuration for target machine with SMB_002
+        SMBTests.setUp(self)
+        self.username = 'admin'
+        self.password = 'admin'
+        self.machine  = '192.168.53.218'
+        self.share    = 'Users'
+        self.file     = '/admin/TEST'
+        self.directory= '/admin/BETO'
+        self.upload   = '../../nt_errors.py'
+        self.dialects = SMB2_DIALECT_002
+
+class SMB21Tests(SMBTests):
+    def setUp(self):
+        # Put specific configuration for target machine with SMB 2.1
+        SMBTests.setUp(self)
+        self.username = 'admin'
+        self.password = 'admin'
+        self.machine  = '192.168.53.218'
+        self.share    = 'Users'
+        self.file     = '/admin/TEST'
+        self.directory= '/admin/BETO'
+        self.upload   = '../../nt_errors.py'
+        self.dialects = SMB2_DIALECT_21
+
+class SMB3Tests(SMBTests):
+    def setUp(self):
+        # Put specific configuration for target machine with SMB3
+        SMBTests.setUp(self)
+        self.username = 'admin'
+        self.password = 'admin'
+        self.machine  = '192.168.53.218'
+        self.share    = 'Users'
+        self.file     = '/admin/TEST'
+        self.directory= '/admin/BETO'
+        self.upload   = '../../nt_errors.py'
+        self.dialects = SMB2_DIALECT_30
+
 if __name__ == "__main__":
-    unittest.main()
+    suite = unittest.TestLoader().loadTestsFromTestCase(SMB1Tests)
+    suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMB002Tests))
+    suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMB21Tests))
+    suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMB3Tests))
+    unittest.TextTestRunner(verbosity=1).run(suite)
