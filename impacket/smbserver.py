@@ -1477,7 +1477,7 @@ class SMBCommands():
                      os.write(fileHandle,writeAndXData['Data'])
                  else:
                      sock = connData['OpenedFiles'][writeAndX['Fid']]['Socket']
-                     sock.write(writeAndXData['Data'])
+                     sock.send(writeAndXData['Data'])
 
                  respParameters['Count']    = writeAndX['DataLength']
                  respParameters['Available']= 0xff
