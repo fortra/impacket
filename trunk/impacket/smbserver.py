@@ -2049,7 +2049,7 @@ class SMBCommands():
 
         respSMBCommand = smb.SMBCommand(smb.SMB.SMB_COM_SESSION_SETUP_ANDX)
 
-        if connData['_dialects_parameters']['Capabilities'] & smb.SMB.CAP_EXTENDED_SECURITY:
+        if recvPacket['Flags2'] & smb.SMB.FLAGS2_EXTENDED_SECURITY:
             # Extended security. Here we deal with all SPNEGO stuff
             respParameters = smb.SMBSessionSetupAndX_Extended_Response_Parameters()
             respData       = smb.SMBSessionSetupAndX_Extended_Response_Data()
