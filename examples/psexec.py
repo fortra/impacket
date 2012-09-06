@@ -259,12 +259,12 @@ class RemoteStdErrPipe(Pipes):
         self.connectPipe()
         while True:
             try:
-                ans = self.server.readNamedPipe(self.tid,self.fid, 1024)
+                ans = self.server.readFile(self.tid,self.fid, 0, 1024)
             except Exception, e: 
                 pass
             else:
                 try:
-                    sys.stderr.write(str(ans)[offset:offset+count])
+                    sys.stderr.write(str(ans))
                     sys.stderr.flush()
                 except:
                     pass
