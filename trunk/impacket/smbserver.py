@@ -2225,7 +2225,7 @@ class SMBCommands():
         
                     _dialects_parameters = smb.SMBExtended_Security_Parameters()
                     _dialects_parameters['Capabilities']    = smb.SMB.CAP_EXTENDED_SECURITY | smb.SMB.CAP_USE_NT_ERRORS | smb.SMB.CAP_NT_SMBS 
-                    #_dialects_parameters['Capabilities']    = 0x8001e3fc
+                    _dialects_parameters['ChallengeLength'] = 0
 
            else:
                     resp['Flags2'] = smb.SMB.FLAGS2_NT_STATUS
@@ -2233,6 +2233,7 @@ class SMBCommands():
                     _dialects_data= smb.SMBNTLMDialect_Data()
                     if connData.has_key('EncryptionKey'):
                         _dialects_data['Challenge'] = connData['EncryptionKey']
+                        _dialects_parameters['ChallengeLength'] = len(str(_dialects_data))
                     else:
                         # TODO: Handle random challenges, now one that can be used with rainbow tables
                         _dialects_data['Challenge'] = '\x11\x22\x33\x44\x55\x66\x77\x88'
@@ -2253,7 +2254,6 @@ class SMBCommands():
            _dialects_parameters['LowDateTime']     = 0
            _dialects_parameters['HighDateTime']    = 0
            _dialects_parameters['ServerTimeZone']  = 0 
-           _dialects_parameters['ChallengeLength'] = len(str(_dialects_data))
 
 
            respSMBCommand['Data']           = _dialects_data
