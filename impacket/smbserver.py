@@ -1461,6 +1461,7 @@ class SMBCommands():
             writeAndX =  smb.SMBWriteAndX_Parameters(SMBCommand['Parameters'])
         writeAndXData = smb.SMBWriteAndX_Data()
         writeAndXData['DataLength'] = writeAndX['DataLength']
+        writeAndXData['DataOffset'] = writeAndX['DataOffset']
         writeAndXData.fromString(SMBCommand['Data'])
 
         errorCode = 0xff

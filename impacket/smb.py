@@ -2078,20 +2078,22 @@ class SMBWrite_Data(Structure):
 ############# SMB_COM_WRITE_ANDX (0x2F)
 class SMBWriteAndX_Parameters(SMBAndXCommand_Parameters):
     structure = (
-        ('Fid','<H'),
-        ('Offset','<L'),
+        ('Fid','<H=0'),
+        ('Offset','<L=0'),
         ('_reserved','<L=0xff'),
         ('WriteMode','<H=8'),
-        ('Remaining','<H'),
+        ('Remaining','<H=0'),
         ('DataLength_Hi','<H=0'),
-        ('DataLength','<H'),
+        ('DataLength','<H=0'),
         ('DataOffset','<H=0'),
         ('HighOffset','<L=0'),
     )
 
 class SMBWriteAndX_Data(Structure):
      structure = (
-         ('Pad','<B=0'),
+         ('_PadLen','_-Pad','self["DataOffset"] - 63'),
+         ('Pad',':'),
+         #('Pad','<B=0'),
          ('DataLength','_-Data','self["DataLength"]'),
          ('Data',':'),
      )
