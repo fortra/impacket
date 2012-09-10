@@ -749,7 +749,7 @@ class SVCCTLStartServiceHeader(ImpactPacket.Header):
         args_data += reduce(lambda a, b: a+b,
                             map(lambda element: pack('<LLL', len(element)+1, 0, len(element)+1) + element + '\x00' + '\x00' * ((4 - (len(element) + 1) % 4) % 4), arguments),
                             '')
-        data = pack('<LLL', len(arguments), id(arguments), len(arguments)) + args_data
+        data = pack('<LLL', len(arguments), id(arguments) & 0xffffffff, len(arguments)) + args_data
         self.get_bytes()[20:] = array.array('B', data)
 
 
@@ -898,8 +898,11 @@ class DCERPCSvcCtl:
         if len(arguments) == 0:
            startService['argv'] = '\x00'*4
         else:
-           args_data = pack('<LL', id(arguments), len(arguments))
-           args_data += apply(pack, ['<' + 'L'*len(arguments)] + map(id, arguments) )
+           args_data = pack('<LL', id(arguments) & 0xffffffff, len(arguments))
+
+           for argument in arguments:
+               args_data += pack('<L',id(argument)&0xffffffff)
+
            for i in range(len(arguments)):
                item = ndrutils.NDRStringW()
                item['Data'] = arguments[i]+'\x00'.encode('utf-16le')

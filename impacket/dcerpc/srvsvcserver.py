@@ -243,9 +243,9 @@ class SRVSVCServer(DCERPCServer):
        answer = srvsvc.SRVSVCSwitchpShareInfo2()
        answer['Level']      = 1
        answer['InfoStruct'] = srvsvc.SRVSVCShareInfo1()
-       answer['InfoStruct']['pNetName'] = id(share)
+       answer['InfoStruct']['pNetName'] = id(share) & 0xffffffff
        answer['InfoStruct']['Type']     = int(share['share type'])
-       answer['InfoStruct']['pRemark']  = id(share)+1
+       answer['InfoStruct']['pRemark']  = (id(share) & 0xffffffff) + 1
        answer = str(answer)
        netName = srvsvc.NDRString()
        remark  = srvsvc.NDRString()
@@ -276,9 +276,9 @@ class SRVSVCServer(DCERPCServer):
        answer = str(shareEnum) 
        for i in self.__shares:
           shareInfo = srvsvc.SRVSVCShareInfo1()
-          shareInfo['pNetName'] = id(i)
+          shareInfo['pNetName'] = id(i) & 0xffffffff
           shareInfo['Type']     = int(self.__shares[i]['share type'])
-          shareInfo['pRemark']  = id(i)+1
+          shareInfo['pRemark']  = (id(i) & 0xffffffff)+1
           answer += str(shareInfo)
 
        for i in self.__shares:
