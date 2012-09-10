@@ -25,26 +25,26 @@ import struct
 
 class DCERPCServer():
     def __init__(self):
-        self.__listenPort    = 4343
-        self.__listenAddress = '0.0.0.0'
-        self.__listenUUIDS   = []
-        self.__callbacks     = {}
-        self.__boundUUID     = ''
-        self.__sock          = None
-        self.__clientSock    = None
-        self.__callid        = 1
+        self._listenPort    = 4343
+        self._listenAddress = '0.0.0.0'
+        self._listenUUIDS   = []
+        self._callbacks     = {}
+        self._boundUUID     = ''
+        self._sock          = None
+        self._clientSock    = None
+        self._callid        = 1
         self._max_frag       = None
-        self.__max_xmit_size = 4280
+        self._max_xmit_size = 4280
  
 
     def addCallbacks(self, UUID, callbacks):
         # Format is [opnum] =  callback
-        self.__callbacks[uuidtup_to_bin(UUID)] = callbacks
-        self.__listenUUIDS.append(uuidtup_to_bin(UUID))
+        self._callbacks[uuidtup_to_bin(UUID)] = callbacks
+        self._listenUUIDS.append(uuidtup_to_bin(UUID))
         print "Callback added for UUID %s V:%s" % UUID
 
     def setListenPort(self, portNum):
-        self.__listenPort = portNum
+        self._listenPort = portNum
 
     def recv(self):
         finished = False
@@ -52,12 +52,12 @@ class DCERPCServer():
         retAnswer = ''
         while not finished:
             # At least give me the MSRPCRespHeader, especially important for TCP/UDP Transports
-            self.response_data = self.__clientSock.recv(dcerpc.MSRPCRespHeader._SIZE)
+            self.response_data = self._clientSock.recv(dcerpc.MSRPCRespHeader._SIZE)
             self.response_header = dcerpc.MSRPCRespHeader(self.response_data)
             # Ok, there might be situation, especially with large packets, that the transport layer didn't send us the full packet's contents
             # So we gotta check we received it all
             while ( len(self.response_data) < self.response_header['frag_len'] ):
-               self.response_data += self.__clientSock.recv(self.response_header['frag_len']-len(self.response_data))
+               self.response_data += self._clientSock.recv(self.response_header['frag_len']-len(self.response_data))
             self.response_header = dcerpc.MSRPCRespHeader(self.response_data)
             if self.response_header['flags'] & dcerpc.MSRPC_LASTFRAG:
                 # No need to reassembly DCERPC
@@ -79,11 +79,11 @@ class DCERPCServer():
         return self.response_data
     
     def run(self):
-        self.__sock = socket.socket()
-        self.__sock.bind((self.__listenAddress,self.__listenPort))
-        self.__sock.listen(10)
+        self._sock = socket.socket()
+        self._sock.bind((self._listenAddress,self._listenPort))
+        self._sock.listen(10)
         while True:
-            self.__clientSock, address = self.__sock.accept()
+            self._clientSock, address = self._sock.accept()
             print "Connected from ", address
             try:
                 while True:
@@ -97,8 +97,8 @@ class DCERPCServer():
 
     def send(self, data):
         max_frag       = self._max_frag
-        if len(data['pduData']) > self.__max_xmit_size - 32:
-            max_frag   = self.__max_xmit_size - 32    # XXX: 32 is a safe margin for auth data
+        if len(data['pduData']) > self._max_xmit_size - 32:
+            max_frag   = self._max_xmit_size - 32    # XXX: 32 is a safe margin for auth data
 
         if self._max_frag:
             max_frag   = min(max_frag, self._max_frag)
@@ -117,10 +117,10 @@ class DCERPCServer():
                     flags |= dcerpc.MSRPC_LASTFRAG
                 data['flags']   = flags
                 data['pduData'] = toSend
-                self.__clientSock.send(data.get_packet())
+                self._clientSock.send(data.get_packet())
         else:
-            self.__clientSock.send(data.get_packet())
-        self.__callid += 1
+            self._clientSock.send(data.get_packet())
+        self._callid += 1
 
     def bind(self,packet, bind):
         # Standard NDR Representation
@@ -154,11 +154,11 @@ class DCERPCServer():
             if item['TransferSyntax'] == uuidtup_to_bin(NDRSyntax):
                 # Now Check if the interface is what we listen
                 reason = 1 # Default, Abstract Syntax not supported
-                for i in self.__listenUUIDS:
+                for i in self._listenUUIDS:
                     if item['AbstractSyntax'] == i:
                         # Match, we accept the bind request
                         reason           = 0
-                        self.__boundUUID = i
+                        self._boundUUID = i
             else:
                 # Fail the bind request for this context
                 reason = 2 # Transfer Syntax not supported
@@ -178,7 +178,7 @@ class DCERPCServer():
         resp['ctx_items'] = ctx_items
         resp['frag_len']  = len(str(resp))
 
-        self.__clientSock.send(str(resp)) 
+        self._clientSock.send(str(resp)) 
         return None
 
     def processRequest(self,data):
@@ -191,9 +191,9 @@ class DCERPCServer():
             response         = dcerpc.MSRPCRespHeader(data)
             response['type'] = dcerpc.MSRPC_RESPONSE
             # Serve the opnum requested, if not, fails
-            if self.__callbacks[self.__boundUUID].has_key(request['op_num']):
+            if self._callbacks[self._boundUUID].has_key(request['op_num']):
                 # Call the function 
-                returnData          = self.__callbacks[self.__boundUUID][request['op_num']](request['pduData'])
+                returnData          = self._callbacks[self._boundUUID][request['op_num']](request['pduData'])
                 response['pduData'] = returnData
             else:
                 response['type']    = dcerpc.MSRPC_FAULT
@@ -216,7 +216,7 @@ class SRVSVCServer(DCERPCServer):
     def __init__(self):
         DCERPCServer.__init__(self)
 
-        self.__shares = {}
+        self._shares = {}
 
         self.srvsvcCallBacks = {
             15: self.NetShareEnumAll,
@@ -233,13 +233,13 @@ class SRVSVCServer(DCERPCServer):
        # Remove the global one
        del(sections[sections.index('global')])
        for i in sections:
-           self.__shares[i] = dict(serverConfig.items(i))
+           self._shares[i] = dict(serverConfig.items(i))
 
     def NetrGetShareInfo(self,data):
        request = srvsvc.SRVSVCNetrShareGetInfo(data)
        print "NetrGetShareInfo Level: %d" % request['Level']
        s = request['NetName'].decode('utf-16le')[:-1].upper().strip()
-       share  = self.__shares[s]
+       share  = self._shares[s]
        answer = srvsvc.SRVSVCSwitchpShareInfo2()
        answer['Level']      = 1
        answer['InfoStruct'] = srvsvc.SRVSVCShareInfo1()
@@ -271,23 +271,23 @@ class SRVSVCServer(DCERPCServer):
        shareEnum = srvsvc.SRVSVCNetrShareEnum1_answer()
        shareEnum['Info'] = srvsvc.SRVSVCShareEnumStruct()
        shareEnum['Info']['Level']    = 1
-       shareEnum['Info']['Count']    = len(self.__shares)
-       shareEnum['Info']['MaxCount'] = len(self.__shares)
+       shareEnum['Info']['Count']    = len(self._shares)
+       shareEnum['Info']['MaxCount'] = len(self._shares)
        answer = str(shareEnum) 
-       for i in self.__shares:
+       for i in self._shares:
           shareInfo = srvsvc.SRVSVCShareInfo1()
           shareInfo['pNetName'] = id(i) & 0xffffffff
-          shareInfo['Type']     = int(self.__shares[i]['share type'])
+          shareInfo['Type']     = int(self._shares[i]['share type'])
           shareInfo['pRemark']  = (id(i) & 0xffffffff)+1
           answer += str(shareInfo)
 
-       for i in self.__shares:
+       for i in self._shares:
           netName = srvsvc.NDRString()
           remark = srvsvc.NDRString()
           netName['sName'] = (i+'\x00').encode('utf-16le')
-          remark['sName']  = (self.__shares[i]['comment']+'\x00').encode('utf-16le')
+          remark['sName']  = (self._shares[i]['comment']+'\x00').encode('utf-16le')
           answer += str(netName) + str(remark)
 
        # and the answer
-       answer += struct.pack('<LLL',len(self.__shares),0,0)
+       answer += struct.pack('<LLL',len(self._shares),0,0)
        return answer
