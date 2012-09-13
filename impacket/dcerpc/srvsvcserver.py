@@ -53,6 +53,9 @@ class DCERPCServer():
         while not finished:
             # At least give me the MSRPCRespHeader, especially important for TCP/UDP Transports
             self.response_data = self._clientSock.recv(dcerpc.MSRPCRespHeader._SIZE)
+            # No data?, connection might have closed
+            if self.response_data == '':
+                return None
             self.response_header = dcerpc.MSRPCRespHeader(self.response_data)
             # Ok, there might be situation, especially with large packets, that the transport layer didn't send us the full packet's contents
             # So we gotta check we received it all
@@ -88,12 +91,16 @@ class DCERPCServer():
             try:
                 while True:
                     data = self.recv()
+                    if data is None:
+                        # No data.. connection closed
+                        break
                     answer = self.processRequest(data)
                     if answer != None:
                         self.send(answer)
             except Exception, e:
                 #print e 
                 print "Connection Finished!"
+            self._clientSock.close()
 
     def send(self, data):
         max_frag       = self._max_frag
