@@ -2238,6 +2238,7 @@ class SMBCommands():
                     else:
                         # TODO: Handle random challenges, now one that can be used with rainbow tables
                         _dialects_data['Challenge'] = '\x11\x22\x33\x44\x55\x66\x77\x88'
+                        _dialects_parameters['ChallengeLength'] = 8
                     _dialects_parameters['Capabilities']    = smb.SMB.CAP_USE_NT_ERRORS | smb.SMB.CAP_NT_SMBS
                     _dialects_data['Payload'] = ''
 
