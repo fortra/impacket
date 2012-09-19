@@ -2050,7 +2050,12 @@ class SMBCommands():
 
         respSMBCommand = smb.SMBCommand(smb.SMB.SMB_COM_SESSION_SETUP_ANDX)
 
-        if recvPacket['Flags2'] & smb.SMB.FLAGS2_EXTENDED_SECURITY:
+        # From [MS-SMB]
+        # When extended security is being used (see section 3.2.4.2.4), the 
+        # request MUST take the following form
+        # [..]
+        # WordCount (1 byte): The value of this field MUST be 0x0C.
+        if SMBCommand['WordCount'] == 12:
             # Extended security. Here we deal with all SPNEGO stuff
             respParameters = smb.SMBSessionSetupAndX_Extended_Response_Parameters()
             respData       = smb.SMBSessionSetupAndX_Extended_Response_Data()
