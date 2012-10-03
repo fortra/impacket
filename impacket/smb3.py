@@ -28,9 +28,9 @@
 #
 
 from impacket import nmb, smb3structs, nt_errors, spnego, ntlm, uuid, crypto
-from smb3structs import *
-from nt_errors import *
-from spnego import *
+from impacket.smb3structs import *
+from impacket.nt_errors import *
+from impacket.spnego import *
 from binascii import a2b_hex
 import socket, string, ntpath
 from contextlib import contextmanager

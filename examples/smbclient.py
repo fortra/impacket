@@ -21,7 +21,7 @@ import sys
 import string
 from impacket import smb, version, smb3, nt_errors
 from impacket.dcerpc import dcerpc_v4, dcerpc, transport, srvsvc
-from nt_errors import *
+from impacket.nt_errors import *
 from impacket.smbconnection import *
 import argparse
 import ntpath
