@@ -325,12 +325,11 @@ class SMBRelayServer:
                 authData = sessionSetupData['SecurityBlob']
                 authenticateMessage = ntlm.NTLMAuthChallengeResponse()
                 authenticateMessage.fromString(token)
-                authenticateMessage.dump()
                 if authenticateMessage['user_name'] != '':
                     clientResponse, errorCode = smbClient.sendAuth(sessionSetupData['SecurityBlob'])                
                 else:
-                    # Anonymous login, send STATUS_LOGON_FAILURE so we force the client to send his credentials
-                    errorCode = STATUS_LOGON_FAILURE
+                    # Anonymous login, send STATUS_ACCESS_DENIED so we force the client to send his credentials
+                    errorCode = STATUS_ACCESS_DENIED
 
                 if errorCode != STATUS_SUCCESS:
                     # Let's return what the target returned, hope the client connects back again
@@ -388,7 +387,12 @@ class SMBRelayServer:
             #############################################################
             # SMBRelay
             smbClient = smbData[self.target]['SMBClient']
-            clientResponse, errorCode = smbClient.login_standard(sessionSetupData['Account'], sessionSetupData['PrimaryDomain'], sessionSetupData['AnsiPwd'], sessionSetupData['UnicodePwd'])
+            if sessionSetupData['Account'] != '':
+                clientResponse, errorCode = smbClient.login_standard(sessionSetupData['Account'], sessionSetupData['PrimaryDomain'], sessionSetupData['AnsiPwd'], sessionSetupData['UnicodePwd'])
+            else:
+                # Anonymous login, send STATUS_ACCESS_DENIED so we force the client to send his credentials
+                errorCode = STATUS_ACCESS_DENIED
+
             if errorCode != STATUS_SUCCESS:
                 # Let's return what the target returned, hope the client connects back again
                 packet = smb.NewSMBPacket()
