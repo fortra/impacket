@@ -2237,6 +2237,7 @@ class SMBCommands():
                     resp['Flags2'] = smb.SMB.FLAGS2_NT_STATUS
                     _dialects_parameters = smb.SMBNTLMDialect_Parameters()
                     _dialects_data= smb.SMBNTLMDialect_Data()
+                    _dialects_data['Payload'] = ''
                     if connData.has_key('EncryptionKey'):
                         _dialects_data['Challenge'] = connData['EncryptionKey']
                         _dialects_parameters['ChallengeLength'] = len(str(_dialects_data))
@@ -2245,7 +2246,6 @@ class SMBCommands():
                         _dialects_data['Challenge'] = '\x11\x22\x33\x44\x55\x66\x77\x88'
                         _dialects_parameters['ChallengeLength'] = 8
                     _dialects_parameters['Capabilities']    = smb.SMB.CAP_USE_NT_ERRORS | smb.SMB.CAP_NT_SMBS
-                    _dialects_data['Payload'] = ''
 
            _dialects_parameters['DialectIndex']    = index
            _dialects_parameters['SecurityMode']    = smb.SMB.SECURITY_AUTH_ENCRYPTED | smb.SMB.SECURITY_SHARE_USER
