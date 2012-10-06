@@ -1373,11 +1373,16 @@ class SMBQueryFsAttributeInfo(Structure):
         ('FileSystemName',':'),
     )
 
-class SMBQueryFsInfoVolume(Structure):
-    structure = (
+class SMBQueryFsInfoVolume(AsciiOrUnicodeStructure):
+    commonHdr = (
         ('ulVolSerialNbr','<L=0xABCDEFAA'),
         ('cCharCount','<B-VolumeLabel'),
+    )
+    AsciiStructure = (
         ('VolumeLabel','z'),
+    )
+    UnicodeStructure = (
+        ('VolumeLabel','u'),
     )
 
 # SMB_QUERY_FS_SIZE_INFO
@@ -1393,13 +1398,13 @@ class SMBQueryFsVolumeInfo(Structure):
     structure = (
         ('VolumeCreationTime','<q'),
         ('SerialNumber','<L=0xABCDEFAA'),
-        ('VolumeLabelSize','<L=len(VolumeLabel)/2'),
+        ('VolumeLabelSize','<L=len(VolumeLabel)'),
         ('Reserved','<H=0'),
         ('VolumeLabel',':')
     )
 # SMB_FIND_FILE_BOTH_DIRECTORY_INFO level
-class SMBFindFileBothDirectoryInfo(Structure):
-    structure = (
+class SMBFindFileBothDirectoryInfo(AsciiOrUnicodeStructure):
+    commonHdr = (
         ('NextEntryOffset','<L=0'),
         ('FileIndex','<L=0'),
         ('CreationTime','<q'),
@@ -1409,17 +1414,28 @@ class SMBFindFileBothDirectoryInfo(Structure):
         ('EndOfFile','<q=0'),
         ('AllocationSize','<q=0'),
         ('ExtFileAttributes','<L=0'),
+    )
+    AsciiStructure = (
         ('FileNameLength','<L-FileName','len(FileName)'),
         ('EaSize','<L=0'),
-        #('ShortNameLength','<B-ShortName','len(ShortName)'),
         ('ShortNameLength','<B=0'),
         ('Reserved','<B=0'),
         ('ShortName','24s'),
         ('FileName',':'),
     )
+    UnicodeStructure = (
+        ('FileNameLength','<L-FileName','len(FileName)*2'),
+        ('EaSize','<L=0'),
+        ('ShortNameLength','<B=0'),
+        ('Reserved','<B=0'),
+        ('ShortName','24s'),
+        ('FileName','u'),
+    )
+
+
 # SMB_FIND_FILE_ID_FULL_DIRECTORY_INFO level
-class SMBFindFileIdFullDirectoryInfo(Structure):
-    structure = (
+class SMBFindFileIdFullDirectoryInfo(AsciiOrUnicodeStructure):
+    commonHdr = (
         ('NextEntryOffset','<L=0'),
         ('FileIndex','<L=0'),
         ('CreationTime','<q'),
@@ -1429,16 +1445,23 @@ class SMBFindFileIdFullDirectoryInfo(Structure):
         ('EndOfFile','<q=0'),
         ('AllocationSize','<q=0'),
         ('ExtFileAttributes','<L=0'),
+    )
+    AsciiStructure = (
         ('FileNameLength','<L-FileName','len(FileName)'),
         ('EaSize','<L=0'),
-        #('ShortNameLength','<B-ShortName','len(ShortName)'),
         ('FileID','<q=0'),
         ('FileName',':'),
     )
+    UnicodeStructure = (
+        ('FileNameLength','<L-FileName','len(FileName)*2'),
+        ('EaSize','<L=0'),
+        ('FileID','<q=0'),
+        ('FileName','u'),
+    )
 
 # SMB_FIND_FILE_ID_BOTH_DIRECTORY_INFO level
-class SMBFindFileIdBothDirectoryInfo(Structure):
-    structure = (
+class SMBFindFileIdBothDirectoryInfo(AsciiOrUnicodeStructure):
+    commonHdr = (
         ('NextEntryOffset','<L=0'),
         ('FileIndex','<L=0'),
         ('CreationTime','<q'),
@@ -1448,20 +1471,31 @@ class SMBFindFileIdBothDirectoryInfo(Structure):
         ('EndOfFile','<q=0'),
         ('AllocationSize','<q=0'),
         ('ExtFileAttributes','<L=0'),
+    )
+    AsciiStructure = (
         ('FileNameLength','<L-FileName','len(FileName)'),
         ('EaSize','<L=0'),
-        #('ShortNameLength','<B-ShortName','len(ShortName)'),
         ('ShortNameLength','<B=0'),
         ('Reserved','<B=0'),
         ('ShortName','24s'),
         ('Reserved','<H=0'),
         ('FileID','<q=0'),
-        ('FileName',':'),
+        ('FileName','z'),
+    )
+    UnicodeStructure = (
+        ('FileNameLength','<L-FileName','len(FileName)*2'),
+        ('EaSize','<L=0'),
+        ('ShortNameLength','<B=0'),
+        ('Reserved','<B=0'),
+        ('ShortName','24s'),
+        ('Reserved','<H=0'),
+        ('FileID','<q=0'),
+        ('FileName','u'),
     )
 
 # SMB_FIND_FILE_DIRECTORY_INFO level
-class SMBFindFileDirectoryInfo(Structure):
-    structure = (
+class SMBFindFileDirectoryInfo(AsciiOrUnicodeStructure):
+    commonHdr = (
         ('NextEntryOffset','<L=0'),
         ('FileIndex','<L=0'),
         ('CreationTime','<q'),
@@ -1471,28 +1505,34 @@ class SMBFindFileDirectoryInfo(Structure):
         ('EndOfFile','<q=0'),
         ('AllocationSize','<q=1'),
         ('ExtFileAttributes','<L=0'),
+    )
+    AsciiStructure = (
         ('FileNameLength','<L-FileName','len(FileName)'),
         ('FileName','z'),
+    )
+    UnicodeStructure = (
+        ('FileNameLength','<L-FileName','len(FileName)*2'),
+        ('FileName','u'),
     )
 
 # SMB_FIND_FILE_NAMES_INFO level
 class SMBFindFileNamesInfo(AsciiOrUnicodeStructure):
-    AsciiStructure = (
+    commonHdr = (
         ('NextEntryOffset','<L=0'),
         ('FileIndex','<L=0'),
+    )
+    AsciiStructure = (
         ('FileNameLength','<L-FileName','len(FileName)'),
         ('FileName','z'),
     )
-
     UnicodeStructure = (
-        ('NextEntryOffset','<L=0'),
-        ('FileIndex','<L=0'),
-        ('FileNameLength','<L-FileName','len(FileName)'),
+        ('FileNameLength','<L-FileName','len(FileName)*2'),
         ('FileName',':'),
     )
+
 # SMB_FIND_FILE_FULL_DIRECTORY_INFO level
-class SMBFindFileFullDirectoryInfo(Structure):
-    structure = (
+class SMBFindFileFullDirectoryInfo(AsciiOrUnicodeStructure):
+    commonHdr = (
         ('NextEntryOffset','<L=0'),
         ('FileIndex','<L=0'),
         ('CreationTime','<q'),
@@ -1502,14 +1542,21 @@ class SMBFindFileFullDirectoryInfo(Structure):
         ('EndOfFile','<q=0'),
         ('AllocationSize','<q=1'),
         ('ExtFileAttributes','<L=0'),
+    )
+    AsciiStructure = (
         ('FileNameLength','<L-FileName','len(FileName)'),
         ('EaSize','<L'),
         ('FileName','z'),
     )
+    UnicodeStructure = (
+        ('FileNameLength','<L-FileName','len(FileName)*2'),
+        ('EaSize','<L'),
+        ('FileName','u'),
+    )
 
 # SMB_FIND_INFO_STANDARD level
-class SMBFindInfoStandard(Structure):
-    structure = (
+class SMBFindInfoStandard(AsciiOrUnicodeStructure):
+    commonHdr = (
         ('ResumeKey','<L=0xff'),
         ('CreationDate','<H=0'),
         ('CreationTime','<H=0'),
@@ -1520,8 +1567,14 @@ class SMBFindInfoStandard(Structure):
         ('EaSize','<L'),
         ('AllocationSize','<L=1'),
         ('ExtFileAttributes','<H=0'),
+    )
+    AsciiStructure = (
         ('FileNameLength','<B-FileName','len(FileName)'),
         ('FileName','z'),
+    )
+    UnicodeStructure = (
+        ('FileNameLength','<B-FileName','len(FileName)*2'),
+        ('FileName','u'),
     )
 
 # SET_FILE_INFORMATION structures
@@ -1549,14 +1602,19 @@ class SMBSetFileEndOfFileInfo(Structure):
     )
 
 # TRANS2_FIND_NEXT2
-class SMBFindNext2_Parameters(Structure):
-     structure = (
+class SMBFindNext2_Parameters(AsciiOrUnicodeStructure):
+     commonHdr = (
          ('SID','<H'),
          ('SearchCount','<H'),
          ('InformationLevel','<H'),
          ('ResumeKey','<L'),
          ('Flags','<H'),
+     )
+     AsciiStructure = (
          ('FileName','z'),
+     )
+     UnicodeStructure = (
+         ('FileName','u'),
      )
 
 class SMBFindNext2Response_Parameters(Structure):
@@ -1584,14 +1642,19 @@ class SMBFindFirst2Response_Parameters(Structure):
          ('LastNameOffset','<H=0'),
      )
 
-class SMBFindFirst2_Parameters(Structure):
-     structure = (
+class SMBFindFirst2_Parameters(AsciiOrUnicodeStructure):
+     commonHdr = (
          ('SearchAttributes','<H'),
          ('SearchCount','<H'),
          ('Flags','<H'),
          ('InformationLevel','<H'),
          ('SearchStorageType','<L'),
+     )
+     AsciiStructure = (
          ('FileName','z'),
+     )
+     UnicodeStructure = (
+         ('FileName','u'),
      )
 
 class SMBFindFirst2_Data(Structure):
@@ -1601,11 +1664,16 @@ class SMBFindFirst2_Data(Structure):
      )
 
 # TRANS2_SET_PATH_INFORMATION
-class SMBSetPathInformation_Parameters(Structure):
-    structure = (
+class SMBSetPathInformation_Parameters(AsciiOrUnicodeStructure):
+    commonHdr = (
         ('InformationLevel','<H'),
         ('Reserved','<L'),
+    )
+    AsciiStructure = (
         ('FileName','z'),
+    )
+    UnicodeStructure = (
+        ('FileName','u'),
     )
 
 class SMBSetPathInformationResponse_Parameters(Structure):
@@ -1655,11 +1723,16 @@ class SMBQueryPathInformationResponse_Parameters(Structure):
         ('EaErrorOffset','<H=0'),
     )
 
-class SMBQueryPathInformation_Parameters(Structure):
-    structure = (
+class SMBQueryPathInformation_Parameters(AsciiOrUnicodeStructure):
+    commonHdr = (
         ('InformationLevel','<H'),
         ('Reserved','<L=0'),
+    )
+    AsciiStructure = (
         ('FileName','z'),
+    )
+    UnicodeStructure = (
+        ('FileName','u'),
     )
 
 class SMBQueryPathInformation_Data(Structure):
@@ -1711,8 +1784,8 @@ class SMBQueryFileAllInfo(Structure):
         ('Directory','<B'),
         ('Reserved','<H=0'),
         ('EaSize','<L=0'),
-        ('FileNameLength','<L-FileName','len(FileName)'),
-        ('FileName','z'),
+        ('FileNameLength','<L-FileName','len(FileName)*2'),
+        ('FileName','u'),
     )
 
 # \PIPE\LANMAN NetShareEnum
@@ -1924,7 +1997,7 @@ class SMBTreeConnect_Data(SMBCommand_Parameters):
         ('Service','z'),
     )
 
-############# SMB_COM_TREE_CONNECT (0x75)
+############# SMB_COM_TREE_CONNECT_ANDX (0x75)
 class SMBTreeConnectAndX_Parameters(SMBAndXCommand_Parameters):
     structure = (
         ('Flags','<H=0'),
@@ -1943,20 +2016,33 @@ class SMBTreeConnectAndXExtendedResponse_Parameters(SMBAndXCommand_Parameters):
         ('GuestMaximalShareAccessRights','<L=0x1fffff'),
     )
 
-class SMBTreeConnectAndX_Data(Structure):
-    structure = (
+class SMBTreeConnectAndX_Data(AsciiOrUnicodeStructure):
+    AsciiStructure = (
         ('_PasswordLength','_-Password','self["_PasswordLength"]'),
         ('Password',':'),
         ('Path','z'),
         ('Service','z'),
     )
 
-class SMBTreeConnectAndXResponse_Data(Structure):
-    structure = (
+    UnicodeStructure = (
+        ('_PasswordLength','_-Password','self["_PasswordLength"]'),
+        ('Password',':'),
+        ('Path','u'),
+        ('Service','z'),
+    )
+
+class SMBTreeConnectAndXResponse_Data(AsciiOrUnicodeStructure):
+    AsciiStructure = (
         ('Service','z'),
         ('PadLen','_-Pad','self["PadLen"]'),
         ('Pad',':=""'),
         ('NativeFileSystem','z'),
+    )
+    UnicodeStructure = (
+        ('Service','z'),
+        ('PadLen','_-Pad','self["PadLen"]'),
+        ('Pad',':=""'),
+        ('NativeFileSystem','u'),
     )
 
 ############# SMB_COM_NT_CREATE_ANDX (0xA2)
@@ -2018,9 +2104,13 @@ class SMBNtCreateAndXExtendedResponse_Parameters(SMBAndXCommand_Parameters):
         ('GuestMaximalAccessRights','<L=0x120089'),
     )
 
-class SMBNtCreateAndX_Data(Structure):
-    structure = (
+class SMBNtCreateAndX_Data(AsciiOrUnicodeStructure):
+    AsciiStructure = (
         ('FileName','z'),
+    )
+    UnicodeStructure = (
+        ('Pad','B'),
+        ('FileName','u'),
     )
 
 ############# SMB_COM_OPEN_ANDX (0xD2)
@@ -2089,6 +2179,15 @@ class SMBWriteAndX_Parameters(SMBAndXCommand_Parameters):
         ('HighOffset','<L=0'),
     )
 
+class SMBWriteAndX_Data_Short(Structure):
+     structure = (
+         ('_PadLen','_-Pad','self["DataOffset"] - 59'),
+         ('Pad',':'),
+         #('Pad','<B=0'),
+         ('DataLength','_-Data','self["DataLength"]'),
+         ('Data',':'),
+     )
+
 class SMBWriteAndX_Data(Structure):
      structure = (
          ('_PadLen','_-Pad','self["DataOffset"] - 63'),
@@ -2097,8 +2196,9 @@ class SMBWriteAndX_Data(Structure):
          ('DataLength','_-Data','self["DataLength"]'),
          ('Data',':'),
      )
+
     
-class SMBWriteAndX_Parameters2(SMBAndXCommand_Parameters):
+class SMBWriteAndX_Parameters_Short(SMBAndXCommand_Parameters):
     structure = (
         ('Fid','<H'),
         ('Offset','<L'),
@@ -2318,10 +2418,14 @@ class SMBTransaction2Response_Data(Structure):
 
 ############# SMB_COM_QUERY_INFORMATION (0x08)
 
-class SMBQueryInformation_Data(Structure):
-    structure = (
+class SMBQueryInformation_Data(AsciiOrUnicodeStructure):
+    AsciiStructure = (
         ('BufferFormat','B=4'),
         ('FileName','z'),
+    )
+    UnicodeStructure = (
+        ('BufferFormat','B=4'),
+        ('FileName','u'),
     )
 
 
@@ -2374,9 +2478,17 @@ class SMBTransactionResponse_Parameters(SMBCommand_Parameters):
 
 # TODO: We should merge these both. But this will require fixing 
 # the instances where this structure is used on the client side
-class SMBTransaction_SData(Structure):
-    structure = (
+class SMBTransaction_SData(AsciiOrUnicodeStructure):
+    AsciiStructure = (
         ('Name','z'),
+        ('Trans_ParametersLength','_-Trans_Parameters'),
+        ('Trans_Parameters',':'),
+        ('Trans_DataLength','_-Trans_Data'),
+        ('Trans_Data',':'),
+    )
+    UnicodeStructure = (
+        ('Pad','B'),
+        ('Name','u'),
         ('Trans_ParametersLength','_-Trans_Parameters'),
         ('Trans_Parameters',':'),
         ('Trans_DataLength','_-Trans_Data'),
@@ -2478,17 +2590,25 @@ class SMBClose_Parameters(SMBCommand_Parameters):
    )
 
 ############# SMB_COM_CREATE_DIRECTORY (0x00)
-class SMBCreateDirectory_Data(Structure):
-    structure = (
+class SMBCreateDirectory_Data(AsciiOrUnicodeStructure):
+    AsciiStructure = (
         ('BufferFormat','<B=4'),
         ('DirectoryName','z'),
     )
+    UnicodeStructure = (
+        ('BufferFormat','<B=4'),
+        ('DirectoryName','u'),
+    )
 
 ############# SMB_COM_DELETE (0x06)
-class SMBDelete_Data(Structure):
-    structure = (
+class SMBDelete_Data(AsciiOrUnicodeStructure):
+    AsciiStructure = (
         ('BufferFormat','<B=4'),
         ('FileName','z'),
+    )
+    UnicodeStructure = (
+        ('BufferFormat','<B=4'),
+        ('FileName','u'),
     )
 
 class SMBDelete_Parameters(Structure):
@@ -2497,10 +2617,14 @@ class SMBDelete_Parameters(Structure):
     )
 
 ############# SMB_COM_DELETE_DIRECTORY (0x01)
-class SMBDeleteDirectory_Data(Structure):
-    structure = (
+class SMBDeleteDirectory_Data(AsciiOrUnicodeStructure):
+    AsciiStructure = (
         ('BufferFormat','<B=4'),
         ('DirectoryName','z'),
+    )
+    UnicodeStructure = (
+        ('BufferFormat','<B=4'),
+        ('DirectoryName','u'),
     )
 
 ############# SMB_COM_RENAME (0x07)
@@ -2509,12 +2633,19 @@ class SMBRename_Parameters(SMBCommand_Parameters):
         ('SearchAttributes','<H'),
     )
 
-class SMBRename_Data(Structure):
-    structure = (
+class SMBRename_Data(AsciiOrUnicodeStructure):
+    AsciiStructure = (
         ('BufferFormat1','<B=4'),
         ('OldFileName','z'),
         ('BufferFormat2','<B=4'),
         ('NewFileName','z'),
+    )
+    UnicodeStructure = (
+        ('BufferFormat1','<B=4'),
+        ('OldFileName','u'),
+        ('BufferFormat2','<B=4'),
+        ('Pad','B'),
+        ('NewFileName','u'),
     )
 
 
