@@ -119,12 +119,6 @@ class SMBConnection():
         return self._SMBConnection.disconnect_tree(treeId)
 
     def listShares(self):
-        if self.getDialect() == smb.SMB_DIALECT:
-            # For SMB1 we should try LANMAN first. Most probably won't work but oh well
-            try: 
-                return self._SMBConnection.list_shared()
-            except:
-                pass
         # Get the shares through RPC
         from impacket.dcerpc import transport, dcerpc, srvsvc
         rpctransport = transport.SMBTransport(self.getRemoteHost(), self.getRemoteHost(), filename = r'\srvsvc', smb_connection = self)
