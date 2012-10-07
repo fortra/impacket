@@ -327,7 +327,7 @@ class SMBTransport(DCERPCTransport):
         if isinstance(smb_connection, smb.SMB):
             # Backward compatibility hack, let's return a
             # SMBBackwardCompatibilityTransport instance
-            return SMBBackwardCompatibilityTransport(smb_server = smb_connection)            
+            return SMBBackwardCompatibilityTransport(filename = filename, smb_server = smb_connection)            
         else:
             self.__smb_connection = smb_connection
 
