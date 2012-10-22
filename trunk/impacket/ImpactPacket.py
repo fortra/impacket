@@ -1861,8 +1861,8 @@ class IGMP(Header):
         return answer
 
     def calculate_checksum(self):
-        if self.__auto_checksum and (not self.get_igmp_cksum()):
-            self.set_igmp_cksum(self.compute_checksum(self.get_buffer_as_string()))
+        if self.auto_checksum and (not self.get_igmp_cksum()):
+            self.set_igmp_cksum(self.compute_checksum(self.get_bytes()))
 
     def __str__(self):
         knowcode = 0
