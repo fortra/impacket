@@ -1305,8 +1305,9 @@ class SMBCommands():
              path = connData['ConnectedShares'][recvPacket['Tid']]['path']
              fileName = os.path.normpath(decodeSMBString(recvPacket['Flags2'],comCreateDirectoryData['DirectoryName']).replace('\\','/'))
              if len(fileName) > 0:
-                # strip leading '/'
-                fileName = fileName[1:]
+                if fileName[0] == '/':
+                    # strip leading '/'
+                    fileName = fileName[1:]
              pathName = os.path.join(path,fileName)
              if os.path.exists(pathName):
                 errorCode = STATUS_OBJECT_NAME_COLLISION
