@@ -1163,8 +1163,10 @@ class SMB3:
             fileInfo = smb.SMBQueryFileStandardInfo(res)
             fileSize = fileInfo['EndOfFile']
             if (fileSize-offset) < self._Connection['MaxReadSize']:
-                data = self.read(treeId, fileId, offset, fileSize-offset)
-                callback(data)
+                # Skip reading 0 bytes files. 
+                if (fileSize-offset) > 0:
+                    data = self.read(treeId, fileId, offset, fileSize-offset)
+                    callback(data)
             else:
                 written = 0
                 toBeRead = fileSize-offset
