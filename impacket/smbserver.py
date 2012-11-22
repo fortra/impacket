@@ -2378,7 +2378,7 @@ class SMBSERVERHandler(SocketServer.BaseRequestHandler):
                    for i in resp:
                        session.send_packet(str(i))
             except Exception, e:
-                print "Handle: %s" % e
+                self.__SMB.log("Handle: %s" % e)
                 #raise
                 break
 
