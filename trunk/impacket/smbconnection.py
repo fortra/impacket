@@ -101,7 +101,7 @@ class SMBConnection():
 
         :return: None, raises a Session Error if error.
         """
-        return self._SMBConnection.login(user, password, domain = '', lmhash = '', nthash = '')
+        return self._SMBConnection.login(user, password, domain, lmhash, nthash)
 
     def isGuestSession(self):
         return self._SMBConnection.isGuestSession()
