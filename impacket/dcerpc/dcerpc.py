@@ -487,6 +487,7 @@ class DCERPC_v5(DCERPC):
         # self.set_auth_level(ntlm.NTLM_AUTH_PKT_PRIVACY)
         self.__username = username
         self.__password = password
+        self.__domain   = domain
         if ( lmhash != '' or nthash != ''):
             if len(lmhash) % 2:     lmhash = '0%s' % lmhash
             if len(nthash) % 2:     nthash = '0%s' % nthash
