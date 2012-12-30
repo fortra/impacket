@@ -1866,10 +1866,13 @@ class SMBCommands():
                  createOptions =  ntCreateAndXParameters['CreateOptions']
                  if mode & os.O_CREAT == os.O_CREAT:
                      if createOptions & smb.FILE_DIRECTORY_FILE == smb.FILE_DIRECTORY_FILE: 
-                         # Let's create the directory
-                         os.mkdir(pathName)
-                         mode = os.O_RDONLY
-
+                         try:
+                             # Let's create the directory
+                             os.mkdir(pathName)
+                             mode = os.O_RDONLY
+                         except Exception, e:
+                             smbServer.log("NTCreateAndX: %s,%s,%s" % (pathName,mode,e),logging.ERROR)
+                             errorCode = STATUS_ACCESS_DENIED
                  if createOptions & smb.FILE_NON_DIRECTORY_FILE == smb.FILE_NON_DIRECTORY_FILE:
                      # If the file being opened is a directory, the server MUST fail the request with
                      # STATUS_FILE_IS_A_DIRECTORY in the Status field of the SMB Header in the server
