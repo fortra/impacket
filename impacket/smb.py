@@ -2243,7 +2243,7 @@ class SMBRead_Parameters(SMBCommand_Parameters):
 class SMBReadResponse_Parameters(Structure):
     structure = (
         ('Count','<H=0'),
-        ('_reserved','"\0\0\0\0\0\0\0\0'),
+        ('_reserved','8s=""'),
     )
 
 class SMBReadResponse_Data(Structure):
@@ -2285,7 +2285,7 @@ class SMBNTTransaction_Parameters(SMBCommand_Parameters):
 
 class SMBNTTransactionResponse_Parameters(SMBCommand_Parameters):
     structure = (
-        ('Reserved1','"\0\0\0'),
+        ('Reserved1','3s=""'),
         ('TotalParameterCount','<L'),
         ('TotalDataCount','<L'),
         ('ParameterCount','<L'),
@@ -2543,7 +2543,7 @@ class SMBReadAndXResponse_Parameters(SMBAndXCommand_Parameters):
         ('DataCount','<H'),
         ('DataOffset','<H'),
         ('DataCount_Hi','<L'),
-        ('_reserved2','"\0\0\0\0\0\0'),
+        ('_reserved2','6s=""'),
     )
 
 ############# SMB_COM_ECHO (0x2B)
