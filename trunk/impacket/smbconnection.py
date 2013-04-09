@@ -15,9 +15,11 @@
 # by calling getSMBServer()
 #
 
+import ntpath
+import string
+import socket
 from impacket import smb, smb3, nmb
 from smb3structs import *
-import ntpath, string
 
 # So the user doesn't need to import smb, the smb3 are already in here
 SMB_DIALECT = smb.SMB_DIALECT
@@ -39,6 +41,7 @@ class SMBConnection():
 
         self._SMBConnection = 0
         self._dialect       = ''
+        self._nmbSession    = 0
         hostType = nmb.TYPE_SERVER
 
         if existingConnection is not None:
@@ -46,13 +49,17 @@ class SMBConnection():
             assert ( isinstance(existingConnection,smb.SMB) or isinstance(existingConnection, smb3.SMB3))
             self._SMBConnection = existingConnection
             return
-        # If no preferredDialect sent, we try the highest available one.
+
+
         if preferredDialect is None:
-            try:
-                self._SMBConnection = smb3.SMB3(remoteName, remoteHost, myName, hostType, sess_port, timeout)
-            except:
-                # No SMB2/3 available.. let's try the old SMB1
-                self._SMBConnection = smb.SMB(remoteName, remoteHost, myName, hostType, sess_port, timeout)
+            # If no preferredDialect sent, we try the highest available one.
+            packet = self._negotiateSession(myName, remoteName, remoteHost, sess_port, timeout)
+            if packet[0] == '\xfe':
+                # Answer is SMB2 packet
+                self._SMBConnection = smb3.SMB3(remoteName, remoteHost, myName, hostType, sess_port, timeout, session = self._nmbSession )
+            else:
+                # Answer is SMB packet, sticking to SMBv1
+                self._SMBConnection = smb.SMB(remoteName, remoteHost, myName, hostType, sess_port, timeout, session = self._nmbSession, negPacket = packet)
         else:
             if preferredDialect == smb.SMB_DIALECT:
                 self._SMBConnection = smb.SMB(remoteName, remoteHost, myName, hostType, sess_port, timeout)
@@ -61,6 +68,36 @@ class SMBConnection():
             else:
                 print "Unknown dialect ", preferredDialect
                 raise 
+
+    def _negotiateSession(self, myName, remoteName, remoteHost, sess_port, timeout, extended_security = True):
+        # Here we follow [MS-SMB2] negotiation handshake trying to understand what dialects 
+        # (including SMB1) is supported on the other end. 
+
+        if not myName:
+            myName = socket.gethostname()
+            i = string.find(myName, '.')
+            if i > -1:
+                myName = myName[:i]
+
+        # If port 445 and the name sent is *SMBSERVER we're setting the name to the IP. This is to help some old applications still believing 
+        # *SMSBSERVER will work against modern OSes. If port is NETBIOS_SESSION_PORT the user better know about *SMBSERVER's limitations
+        if sess_port == 445 and remoteName == '*SMBSERVER':
+           remoteName = remoteHost
+
+        self._nmbSession = nmb.NetBIOSTCPSession(myName, remoteName, remoteHost, nmb.TYPE_SERVER, sess_port, timeout)
+
+        smbp = smb.NewSMBPacket()
+        negSession = smb.SMBCommand(smb.SMB.SMB_COM_NEGOTIATE)
+        if extended_security == True:
+            smbp['Flags2']=smb.SMB.FLAGS2_EXTENDED_SECURITY 
+        negSession['Data'] = '\x02NT LM 0.12\x00\x02SMB 2.002\x00\x02SMB 2.???\x00'
+        smbp.addCommand(negSession)
+        self._nmbSession.send_packet(str(smbp))
+
+        r = self._nmbSession.recv_packet(timeout)
+
+        return r.get_trailer()
+
 
     def getSMBServer(self):
         """

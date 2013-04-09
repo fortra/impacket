@@ -2874,7 +2874,7 @@ class SMB:
 
 
 
-    def __init__(self, remote_name, remote_host, my_name = None, host_type = nmb.TYPE_SERVER, sess_port = 445, timeout=None, UDP = 0):
+    def __init__(self, remote_name, remote_host, my_name = None, host_type = nmb.TYPE_SERVER, sess_port = 445, timeout=None, UDP = 0, session = None, negPacket = None):
         # The uid attribute will be set when the client calls the login() method
         self._uid = 0
         self.__server_name = ''
@@ -2911,31 +2911,41 @@ class SMB:
             self.__timeout = 10
         else:
             self.__timeout = timeout
-        
-        if not my_name:
-            my_name = socket.gethostname()
-            i = string.find(my_name, '.')
-            if i > -1:
-                my_name = my_name[:i]
 
-        # If port 445 and the name sent is *SMBSERVER we're setting the name to the IP. This is to help some old applications still believing 
-        # *SMSBSERVER will work against modern OSes. If port is NETBIOS_SESSION_PORT the user better know about *SMBSERVER's limitations
-        if sess_port == 445 and remote_name == '*SMBSERVER':
-           self.__remote_name = remote_host
+        if session is None:
+            if not my_name:
+                my_name = socket.gethostname()
+                i = string.find(my_name, '.')
+                if i > -1:
+                    my_name = my_name[:i]
 
-        if UDP:
-            self._sess = nmb.NetBIOSUDPSession(my_name, remote_name, remote_host, host_type, sess_port, self.__timeout)
+            # If port 445 and the name sent is *SMBSERVER we're setting the name to the IP. This is to help some old applications still believing 
+            # *SMSBSERVER will work against modern OSes. If port is NETBIOS_SESSION_PORT the user better know about *SMBSERVER's limitations
+            if sess_port == 445 and remote_name == '*SMBSERVER':
+               self.__remote_name = remote_host
+
+            if UDP:
+                self._sess = nmb.NetBIOSUDPSession(my_name, remote_name, remote_host, host_type, sess_port, self.__timeout)
+            else:
+                self._sess = nmb.NetBIOSTCPSession(my_name, remote_name, remote_host, host_type, sess_port, self.__timeout)
+
+                # Initialize session values (_dialect_data and _dialect_parameters)
+                self.neg_session()
+
+                # Call login() without any authentication information to 
+                # setup a session if the remote server
+                # is in share mode.
+                if (self._dialects_parameters['SecurityMode'] & SMB.SECURITY_SHARE_MASK) == SMB.SECURITY_SHARE_SHARE:
+                    self.login('', '')
         else:
-            self._sess = nmb.NetBIOSTCPSession(my_name, remote_name, remote_host, host_type, sess_port, self.__timeout)
-
-            # Initialize session values (_dialect_data and _dialect_parameters)
-            self.neg_session()
-
+            self._sess = session
+            self.neg_session(negPacket = negPacket)
             # Call login() without any authentication information to 
             # setup a session if the remote server
             # is in share mode.
             if (self._dialects_parameters['SecurityMode'] & SMB.SECURITY_SHARE_MASK) == SMB.SECURITY_SHARE_SHARE:
                 self.login('', '')
+
 
     def ntlm_supported(self):
         return False
@@ -3094,17 +3104,8 @@ class SMB:
                     break
         return 0
 
-    def neg_session(self, extended_security = True):
-        smb = NewSMBPacket()
-        negSession = SMBCommand(SMB.SMB_COM_NEGOTIATE)
-        if extended_security == True:
-            smb['Flags2']=SMB.FLAGS2_EXTENDED_SECURITY
-        negSession['Data'] = '\x02NT LM 0.12\x00'
-        smb.addCommand(negSession)
-        self.sendSMB(smb)
-
-        while 1:
-            smb = self.recvSMB()
+    def neg_session(self, extended_security = True, negPacket = None):
+        def parsePacket(smb):
             if smb.isValidAnswer(SMB.SMB_COM_NEGOTIATE):
                 sessionResponse = SMBCommand(smb['Data'][0])
                 self._dialects_parameters = SMBNTLMDialect_Parameters(sessionResponse['Parameters'])
@@ -3136,6 +3137,23 @@ class SMB:
                     return 1
             else:
                 return 0
+
+        if negPacket is None:
+            smb = NewSMBPacket()
+            negSession = SMBCommand(SMB.SMB_COM_NEGOTIATE)
+            if extended_security == True:
+                smb['Flags2']=SMB.FLAGS2_EXTENDED_SECURITY 
+            negSession['Data'] = '\x02NT LM 0.12\x00'
+            smb.addCommand(negSession)
+            self.sendSMB(smb)
+
+            while 1:
+                smb = self.recvSMB()
+                return parsePacket(smb)
+        else:
+            
+            return parsePacket( NewSMBPacket( data = negPacket))
+
 
     def tree_connect(self, path, password = '', service = SERVICE_ANY):
         print "[MS-CIFS] This is an original Core Protocol command.\nThis command has been deprecated.\nClient Implementations SHOULD use SMB_COM_TREE_CONNECT_ANDX"

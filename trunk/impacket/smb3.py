@@ -110,7 +110,7 @@ class SessionError(Exception):
 
 
 class SMB3:
-    def __init__(self, remote_name, remote_host, my_name = None, host_type = nmb.TYPE_SERVER, sess_port = 445, timeout=10, UDP = 0, preferredDialect = None):
+    def __init__(self, remote_name, remote_host, my_name = None, host_type = nmb.TYPE_SERVER, sess_port = 445, timeout=10, UDP = 0, preferredDialect = None, session = None):
 
         # [MS-SMB2] Section 3
         self.RequireMessageSigning = False    #
@@ -187,22 +187,30 @@ class SMB3:
         self._Connection['ServerIP'] = remote_host
         self._NetBIOSSession = None
         
-        if not my_name:
-            my_name = socket.gethostname()
-            i = string.find(my_name, '.')
-            if i > -1:
-                my_name = my_name[:i]
 
         if sess_port == 445 and remote_name == '*SMBSERVER':
            self._Connection['ServerName'] = remote_host
         else:
            self._Connection['ServerName'] = remote_name
 
-        if UDP:
-            self._NetBIOSSession = nmb.NetBIOSUDPSession(my_name, self._Connection['ServerName'], remote_host, host_type, sess_port, self._timeout)
-        else:
-            self._NetBIOSSession = nmb.NetBIOSTCPSession(my_name, self._Connection['ServerName'], remote_host, host_type, sess_port, self._timeout)
+        if session is None:
+            if not my_name:
+                my_name = socket.gethostname()
+                i = string.find(my_name, '.')
+                if i > -1:
+                    my_name = my_name[:i]
 
+            if UDP:
+                self._NetBIOSSession = nmb.NetBIOSUDPSession(my_name, self._Connection['ServerName'], remote_host, host_type, sess_port, self._timeout)
+            else:
+                self._NetBIOSSession = nmb.NetBIOSTCPSession(my_name, self._Connection['ServerName'], remote_host, host_type, sess_port, self._timeout)
+
+                self.negotiateSession(preferredDialect)
+        else:
+            self._NetBIOSSession = session
+            # We should increase the SequenceWindow since a packet was already received.
+            self._Connection['SequenceWindow'] += 1
+            # Let's negotiate again using the same connection
             self.negotiateSession(preferredDialect)
 
     def printStatus(self):
