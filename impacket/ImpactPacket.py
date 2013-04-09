@@ -1689,7 +1689,7 @@ class ICMP(Header):
         return self.get_ip_address(4)
 
     def set_icmp_gwaddr(self, ip):
-        self.set_ip_adress(4, ip)
+        self.set_ip_address(4, ip)
 
     def get_icmp_id(self):
         return self.get_word(4)
