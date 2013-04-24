@@ -202,10 +202,10 @@ class NTLMAuthNegotiate(Structure, NTLMAuthMixin):
         self['host_name']=''
         self['domain_name']=''
     
-    def __str__(self):
+    def getData(self):
         self['host_offset']=32
         self['domain_offset']=32+len(self['host_name'])
-        return Structure.__str__(self)
+        return Structure.getData(self)
 
     def fromString(self,data):
         Structure.fromString(self,data)
@@ -355,14 +355,14 @@ class NTLMAuthChallengeResponse(Structure, NTLMAuthMixin):
               return 0
         return 16
                                                                                 
-    def __str__(self):
+    def getData(self):
         self['domain_offset']=64
         self['user_offset']=64+len(self['domain_name'])
         self['host_offset']=self['user_offset']+len(self['user_name'])
         self['lanman_offset']=self['host_offset']+len(self['host_name'])
         self['ntlm_offset']=self['lanman_offset']+len(self['lanman'])
         self['session_key_offset']=self['ntlm_offset']+len(self['ntlm'])
-        return Structure.__str__(self)
+        return Structure.getData(self)
 
     def fromString(self,data):
         Structure.fromString(self,data)
