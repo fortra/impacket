@@ -27,12 +27,12 @@
 # [ ] Fix up all the 'ToDo' comments inside the code
 #
 
+import socket, string, ntpath
 from impacket import nmb, smb3structs, nt_errors, spnego, ntlm, uuid, crypto
 from impacket.smb3structs import *
 from impacket.nt_errors import *
 from impacket.spnego import *
 from binascii import a2b_hex
-import socket, string, ntpath
 from contextlib import contextmanager
 # For signing
 import hashlib, hmac, copy
@@ -1076,7 +1076,7 @@ class SMB3:
             fileId = self.create(treeId, ntpath.dirname(path), FILE_READ_ATTRIBUTES | FILE_READ_DATA ,FILE_SHARE_READ | FILE_SHARE_WRITE |FILE_SHARE_DELETE, FILE_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT, FILE_OPEN, 0) 
             res = ''
             files = []
-            import smb
+            from impacket import smb
             while True:
                 try:
                     res = self.queryDirectory( treeId, fileId, ntpath.basename(path), maxBufferSize = 65535 )
@@ -1164,7 +1164,7 @@ class SMB3:
 
         treeId = self.connectTree(shareName)
         fileId = None
-        import smb
+        from impacket import smb
         try:
             fileId = self.create(treeId, path, FILE_READ_DATA, FILE_SHARE_READ, FILE_NON_DIRECTORY_FILE, mode, 0 )
             res = self.queryInfo(treeId, fileId)
@@ -1267,7 +1267,7 @@ class SMB3:
             fileName = fileName[1:]
  
         if cmd is not None:
-            import smb
+            from impacket import smb
             ntCreate = smb.SMBCommand(data = str(cmd))
             params = smb.SMBNtCreateAndX_Parameters(ntCreate['Parameters'])
             return self.create(treeId, fileName, params['AccessMask'], params['ShareAccess'],
