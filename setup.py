@@ -6,7 +6,7 @@ import os
 
 from distutils.core import setup
 
-PACKAGE_NAME = "Impacket"
+PACKAGE_NAME = "impacket"
 
 setup(name = PACKAGE_NAME,
       version = "1.0.0.0-dev",
