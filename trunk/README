@@ -49,7 +49,10 @@ install' from the directory where you placed it. Isn't that easy?
 Requirements
 ============
 
- * A Python interpreter. Versions 2.0.1 and newer are known to work.
+ * A Python interpreter. Versions 2.0.1 and newer are known to work. 
+   a) If you want to run the examples and you have Python < 2.7, you
+      will need to install argparse package for them to work.
+   b) For cryptographic operations you will need pycrypto package
  * A recent release of Impacket.
 
 Installing
