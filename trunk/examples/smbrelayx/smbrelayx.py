@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Copyright (c) 2012 CORE Security Technologies
+# Copyright (c) 2013 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -24,7 +24,8 @@
 # If the authentication against the targets succeed, the client authentication success as well and 
 # a valid connection is set against the local smbserver. It's up to the user to set up the local
 # smbserver functionality. One option is to set up shares with whatever files you want to the victim
-# thinks it's connected to a valid SMB server. All that is done through the smb.conf file.
+# thinks it's connected to a valid SMB server. All that is done through the smb.conf file or 
+# programmatically.
 #
 
 import socket
@@ -207,8 +208,26 @@ class SMBRelayServer:
         self.server = 0
         self.target = '' 
         self.mode = 'REFLECTION'
-        self.server = smbserver.SMBSERVER(('0.0.0.0',445))
-        self.server.processConfigFile('smb.conf')
+
+        # Here we write a mini config for the server
+        smbConfig = ConfigParser.ConfigParser()
+        smbConfig.add_section('global')
+        smbConfig.set('global','server_name','server_name')
+        smbConfig.set('global','server_os','UNIX')
+        smbConfig.set('global','server_domain','WORKGROUP')
+        smbConfig.set('global','log_file','smb.log')
+        smbConfig.set('global','credentials_file','')
+
+        # IPC always needed
+        smbConfig.add_section('IPC$')
+        smbConfig.set('IPC$','comment','')
+        smbConfig.set('IPC$','read only','yes')
+        smbConfig.set('IPC$','share type','3')
+        smbConfig.set('IPC$','path')
+
+        self.server = smbserver.SMBSERVER(('0.0.0.0',445), config_parser = smbConfig)
+        self.server.processConfigFile()
+
         self.origSmbComNegotiate = self.server.hookSmbCommand(smb.SMB.SMB_COM_NEGOTIATE, self.SmbComNegotiate)
         self.origSmbSessionSetupAndX = self.server.hookSmbCommand(smb.SMB.SMB_COM_SESSION_SETUP_ANDX, self.SmbSessionSetupAndX)
         # Let's use the SMBServer Connection dictionary to keep track of our client connections as well
