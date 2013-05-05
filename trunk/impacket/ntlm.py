@@ -179,10 +179,11 @@ class NTLMAuthNegotiate(Structure, NTLMAuthMixin):
         ('flags','<L'),
         ('domain_len','<H-domain_name'),
         ('domain_max_len','<H-domain_name'),
-        ('domain_offset','<L'),
+        ('domain_offset','<L=0'),
         ('host_len','<H-host_name'),
         ('host_maxlen','<H-host_name'),
-        ('host_offset','<L'),
+        ('host_offset','<L=0'),
+        ('os_version',':'),
         ('host_name',':'),
         ('domain_name',':'))
                                                                                 
@@ -201,10 +202,23 @@ class NTLMAuthNegotiate(Structure, NTLMAuthMixin):
                0)
         self['host_name']=''
         self['domain_name']=''
+        self['os_version']=''
     
     def getData(self):
-        self['host_offset']=32
-        self['domain_offset']=32+len(self['host_name'])
+        if len(self.fields['host_name']) > 0:
+            self['flags'] |= NTLMSSP_WORKSTATION
+        if len(self.fields['domain_name']) > 0:
+            self['flags'] |= NTLMSSP_DOMAIN
+        if len(self.fields['os_version']) > 0:
+            self['flags'] |= NTLMSSP_VERSION
+        if (self['flags'] & NTLMSSP_VERSION) == NTLMSSP_VERSION:
+            version_len = 8
+        else:
+            version_len = 0
+        if (self['flags'] & NTLMSSP_WORKSTATION) == NTLMSSP_WORKSTATION:
+            self['host_offset']=32 + version_len
+        if (self['flags'] & NTLMSSP_DOMAIN) == NTLMSSP_DOMAIN:
+            self['domain_offset']=32+len(self['host_name']) + version_len
         return Structure.getData(self)
 
     def fromString(self,data):
@@ -220,7 +234,7 @@ class NTLMAuthNegotiate(Structure, NTLMAuthMixin):
 
         hasOsInfo = self['flags'] & NTLMSSP_VERSION
         if len(data) >= 36 and hasOsInfo:
-            self['os_version'] = data[32:36]
+            self['os_version'] = data[32:40]
         else:
             self['os_version'] = ''
 
