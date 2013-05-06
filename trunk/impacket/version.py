@@ -7,7 +7,7 @@
 # $Id$
 #
 
-VER_MAJOR = "0"
-VER_MINOR = "9.10"
+VER_MAJOR = "1"
+VER_MINOR = "0-dev"
 
 BANNER = "Impacket v%s.%s - Copyright 2002-2013 Core Security Technologies\n" % (VER_MAJOR,VER_MINOR)
