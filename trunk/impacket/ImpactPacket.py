@@ -491,24 +491,136 @@ class Data(Header):
         return len(self.get_bytes())
 
 
+class EthernetTag(PacketBuffer):
+    """Represents a VLAN header specified in IEEE 802.1Q and 802.1ad.
+       Provides methods for convenient manipulation with header fields."""
+
+    def __init__(self, value=0x81000000):
+        PacketBuffer.__init__(self, 4)
+        self.set_long(0, value)
+
+    def get_tpid(self):
+        """Returns Tag Protocol Identifier"""
+        return self.get_word(0)
+
+    def set_tpid(self, value):
+        """Sets Tag Protocol Identifier"""
+        return self.set_word(0, value)
+
+    def get_pcp(self):
+        """Returns Priority Code Point"""
+        return (self.get_byte(2) & 0xE0) >> 5
+
+    def set_pcp(self, value):
+        """Sets Priority Code Point"""
+        orig_value = self.get_byte(2)
+        self.set_byte(2, (orig_value & 0x1F) | ((value & 0x07) << 5))
+
+    def get_dei(self):
+        """Returns Drop Eligible Indicator"""
+        return (self.get_byte(2) & 0x10) >> 4
+
+    def set_dei(self, value):
+        """Sets Drop Eligible Indicator"""
+        orig_value = self.get_byte(2)
+        self.set_byte(2, orig_value | 0x10 if value else orig_value & 0xEF)
+
+    def get_vid(self):
+        """Returns VLAN Identifier"""
+        return self.get_word(2) & 0x0FFF
+
+    def set_vid(self, value):
+        """Sets VLAN Identifier"""
+        orig_value = self.get_word(2)
+        self.set_word(2, (orig_value & 0xF000) | (value & 0x0FFF))
+
+    def __str__(self):
+        priorities = (
+            'Best Effort',
+            'Background',
+            'Excellent Effort',
+            'Critical Applications',
+            'Video, < 100 ms latency and jitter',
+            'Voice, < 10 ms latency and jitter',
+            'Internetwork Control',
+            'Network Control')
+
+        pcp = self.get_pcp()
+        return '\n'.join((
+            '802.1Q header: 0x{0:08X}'.format(self.get_long(0)),
+            'Priority Code Point: {0} ({1})'.format(pcp, priorities[pcp]),
+            'Drop Eligible Indicator: {0}'.format(self.get_dei()),
+            'VLAN Identifier: {0}'.format(self.get_vid())))
+
 
 class Ethernet(Header):
     def __init__(self, aBuffer = None):
         Header.__init__(self, 14)
+        self.tag_cnt = 0
         if(aBuffer):
             self.load_header(aBuffer)
 
     def set_ether_type(self, aValue):
         "Set ethernet data type field to 'aValue'"
-        self.set_word(12, aValue)
+        self.set_word(12 + 4*self.tag_cnt, aValue)
 
     def get_ether_type(self):
         "Return ethernet data type field"
-        return self.get_word(12)
+        return self.get_word(12 + 4*self.tag_cnt)
+
+    def get_tag(self, index):
+        """Returns an EthernetTag initialized from index-th VLAN tag.
+           The tags are numbered from 0 to self.tag_cnt-1 as they appear in the frame.
+           It is possible to use negative indeces as well."""
+        index = self.__validate_tag_index(index)
+        return EthernetTag(self.get_long(12+4*index))
+
+    def set_tag(self, index, tag):
+        """Sets the index-th VLAN tag to contents of an EthernetTag object.
+           The tags are numbered from 0 to self.tag_cnt-1 as they appear in the frame.
+           It is possible to use negative indeces as well."""
+        index = self.__validate_tag_index(index)
+        pos = 12 + 4*index
+        for i,val in enumerate(tag.get_bytes()):
+            self.set_byte(pos+i, val)
+
+    def push_tag(self, tag, index=0):
+        """Inserts contents of an EthernetTag object before the index-th VLAN tag.
+           Index defaults to 0 (the top of the stack)."""
+        if index < 0:
+            index += self.tag_cnt
+        pos = 12 + 4*max(0, min(index, self.tag_cnt))
+        data = self.get_bytes()
+        data[pos:pos] = tag.get_bytes()
+        self.set_bytes(data)
+        self.tag_cnt += 1
+
+    def pop_tag(self, index=0):
+        """Removes the index-th VLAN tag and returns it as an EthernetTag object.
+           Index defaults to 0 (the top of the stack)."""
+        index = self.__validate_tag_index(index)
+        pos = 12 + 4*index
+        tag = self.get_long(pos)
+        data = self.get_bytes()
+        del data[pos:pos+4]
+        self.set_bytes(data)
+        self.tag_cnt -= 1
+        return EthernetTag(tag)
+
+    def load_header(self, aBuffer):
+        self.tag_cnt = 0
+        while aBuffer[12+4*self.tag_cnt:14+4*self.tag_cnt] in ('\x81\x00', '\x88\xa8', '\x91\x00'):
+            self.tag_cnt += 1
+
+        hdr_len = self.get_header_size()
+        diff = hdr_len - len(aBuffer)
+        if diff > 0:
+            aBuffer += '\x00'*diff
+        self.set_bytes_from_string(aBuffer[:hdr_len])
 
     def get_header_size(self):
         "Return size of Ethernet header"
-        return 14
+        return 14 + 4*self.tag_cnt
 
     def get_packet(self):
 
@@ -550,6 +662,14 @@ class Ethernet(Header):
             tmp_str += '\n' + self.child().__str__()
         return tmp_str
 
+    def __validate_tag_index(self, index):
+        """Adjusts negative indices to their absolute equivalents.
+           Raises IndexError when out of range <0, self.tag_cnt-1>."""
+        if index < 0:
+            index += self.tag_cnt
+        if index < 0 or index >= self.tag_cnt:
+            raise IndexError("Tag index out of range")
+        return index
 
 # Linux "cooked" capture encapsulation.
 # Used, for instance, for packets returned by the "any" interface.
