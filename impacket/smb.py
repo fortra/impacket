@@ -2912,17 +2912,19 @@ class SMB:
         else:
             self.__timeout = timeout
 
+        # If port 445 and the name sent is *SMBSERVER we're setting the name to the IP. 
+        # This is to help some old applications still believing 
+        # *SMSBSERVER will work against modern OSes. If port is NETBIOS_SESSION_PORT the user better 
+        # know about *SMBSERVER's limitations
+        if sess_port == 445 and remote_name == '*SMBSERVER':
+           self.__remote_name = remote_host
+
         if session is None:
             if not my_name:
                 my_name = socket.gethostname()
                 i = string.find(my_name, '.')
                 if i > -1:
                     my_name = my_name[:i]
-
-            # If port 445 and the name sent is *SMBSERVER we're setting the name to the IP. This is to help some old applications still believing 
-            # *SMSBSERVER will work against modern OSes. If port is NETBIOS_SESSION_PORT the user better know about *SMBSERVER's limitations
-            if sess_port == 445 and remote_name == '*SMBSERVER':
-               self.__remote_name = remote_host
 
             if UDP:
                 self._sess = nmb.NetBIOSUDPSession(my_name, remote_name, remote_host, host_type, sess_port, self.__timeout)
