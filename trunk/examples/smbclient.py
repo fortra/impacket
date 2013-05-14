@@ -60,7 +60,7 @@ class MiniImpacketShell(cmd.Cmd):
 
     def do_help(self,line):
         print """
- open {host,port,remote_name = '*SMBSERVER'} - opens a SMB connection against the target host/port
+ open {host,port,remote_name = host} - opens a SMB connection against the target host/port
  login {username,passwd,domain} - logs into the current SMB connection, no parameters for NULL connection
  login_hash {username,lmhash,nthash} - logs into the current SMB connection using the password hashes
  logoff - logs off
@@ -90,7 +90,7 @@ class MiniImpacketShell(cmd.Cmd):
         if len(l) > 2:
            remote_name = l[2]
         else:
-           remote_name = '*SMBSERVER'
+           remote_name = host
 
         self.smb = SMBConnection(remote_name, host, sess_port=int(port))
         dialect = self.smb.getDialect()
