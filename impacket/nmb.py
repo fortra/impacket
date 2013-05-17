@@ -885,7 +885,7 @@ class NetBIOSTCPSession(NetBIOSSession):
                 ready, _, _ = select.select([self._sock.fileno() ], [ ], [ ], 0)
                 
                 if not ready:
-                    if time_left == 0:
+                    if time_left <= 0:
                         raise NetBIOSTimeout
                     else:
                         time.sleep(CHUNK_TIME)
