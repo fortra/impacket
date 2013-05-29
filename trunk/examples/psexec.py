@@ -59,7 +59,7 @@ class PSEXEC:
         }
 
 
-    def __init__(self, command, path, exeFile, protocols = None, 
+    def __init__(self, command, path, exeFile, copyFile, protocols = None, 
                  username = '', password = '', domain = '', hashes = None):
         if not protocols:
             protocols = PSEXEC.KNOWN_PROTOCOLS.keys()
@@ -73,6 +73,7 @@ class PSEXEC:
         self.__lmhash = ''
         self.__nthash = ''
         self.__exeFile = exeFile
+        self.__copyFile = copyFile
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
 
@@ -147,6 +148,12 @@ class PSEXEC:
             if self.__exeFile is not None:
                 f.close()
 
+            # Check if we need to copy a file for execution
+            if self.__copyFile is not None:
+                installService.copy_file(self.__copyFile, installService.getShare(), os.path.basename(self.__copyFile))
+                # And we change the command to be executed to this filename
+                self.__command = os.path.basename(self.__copyFile) + ' ' + self.__command
+
             tid = s.connectTree('IPC$')
             fid_main = self.openPipe(s,tid,'\RemCom_communicaton',0x12019f)
 
@@ -181,12 +188,17 @@ class PSEXEC:
                retCode = RemComResponse(ans)
                print "[*] Process %s finished with ErrorCode: %d, ReturnCode: %d" % (self.__command, retCode['ErrorCode'], retCode['ReturnCode'])
             installService.uninstall()
+            if self.__copyFile is not None:
+                # We copied a file for execution, let's remove it
+                s.deleteFile(installService.getShare(), os.path.basename(self.__copyFile))
             unInstalled = True
             sys.exit(retCode['ErrorCode'])
 
         except:
             if unInstalled is False:
                 installService.uninstall()
+                if self.__copyFile is not None:
+                    s.deleteFile(installService.getShare(), os.path.basename(self.__copyFile))
             sys.stdout.flush()
             sys.exit(1)
 
@@ -385,7 +397,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument('target', action='store', help='[domain/][username[:password]@]<address>')
-    parser.add_argument('command', action='store', help='command to execute at the target (w/o path)')
+    parser.add_argument('command', nargs='*', default = ' ', help='command (or arguments if -c is used) to execute at the target (w/o path)')
+    parser.add_argument('-c', action='store',metavar = "pathname",  help='copy the filename for later execution, arguments are passed in the command option')
     parser.add_argument('-path', action='store', help='path of the command to execute')
     parser.add_argument('-file', action='store', help="alternative RemCom binary (be sure it doesn't require CRT)")
     parser.add_argument('protocol', choices=PSEXEC.KNOWN_PROTOCOLS.keys(), nargs='?', default='445/SMB', help='transport protocol (default 445/SMB)')
@@ -406,5 +419,5 @@ if __name__ == '__main__':
     if domain is None:
         domain = ''
 
-    executer = PSEXEC(options.command, options.path, options.file, options.protocol, username, password, domain, options.hashes)
+    executer = PSEXEC(options.command[0], options.path, options.file, options.c, options.protocol, username, password, domain, options.hashes)
     executer.run(address)
