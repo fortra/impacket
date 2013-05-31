@@ -34,7 +34,7 @@ class Structure:
             i       [signed integer]
             I       [unsigned integer]
             q       [signed long long (quad)]
-            Q       [unsigned long ong (quad)]
+            Q       [unsigned long long (quad)]
             s       [string (array of chars), must be preceded with length in format specifier, padded with zeros]
             p       [pascal string (includes byte count), must be preceded with length in format specifier, padded with zeros]
             f       [float]
@@ -50,7 +50,7 @@ class Structure:
 
             %08x    will output an 8 bytes hex
             %s      will output a string
-            %s\x00  will output a NUL terminated string
+            %s\\x00  will output a NUL terminated string
             %d%d    will output 2 decimal digits (against the very same specification of Structure)
             ...
 
@@ -58,7 +58,7 @@ class Structure:
             :       just copy the bytes from the field into the output string (input may be string, other structure, or anything responding to __str__()) (for unpacking, all what's left is returned)
             z       same as :, but adds a NUL byte at the end (asciiz) (for unpacking the first NUL byte is used as terminator)  [asciiz string]
             u       same as z, but adds two NUL bytes at the end (after padding to an even size with NULs). (same for unpacking) [unicode string]
-            w       DCE-RPC/NDR string (it's a macro for [  '<L=(len(field)+1)/2','"\x00\x00\x00\x00','<L=(len(field)+1)/2',':' ]
+            w       DCE-RPC/NDR string (it's a macro for [  '<L=(len(field)+1)/2','"\\x00\\x00\\x00\\x00','<L=(len(field)+1)/2',':' ]
             ?-field length of field named 'field', formated as specified with ? ('?' may be '!H' for example). The input value overrides the real length
             ?1*?2   array of elements. Each formated as '?2', the number of elements in the array is stored as specified by '?1' (?1 is optional, or can also be a constant (number), for unpacking)
             'xxxx   literal xxxx (field's value doesn't change the output. quotes must not be closed or escaped)
