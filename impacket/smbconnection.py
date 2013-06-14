@@ -381,7 +381,7 @@ class SMBConnection():
         downloads a file
 
         :param string shareName: a valid handle for the share where the file is to be opened
-        :param string pathName: the path name or the directory to delete
+        :param string pathName: the path name to retrieve
         :param callback callback: 
 
         :return: None, raises a SessionError exception if error.
@@ -394,7 +394,7 @@ class SMBConnection():
         uploads a file
 
         :param string shareName: a valid handle for the share where the file is to be opened
-        :param string pathName: the path name or the directory to delete
+        :param string pathName: the path name to upload
         :param callback callback: 
 
         :return: None, raises a SessionError exception if error.
