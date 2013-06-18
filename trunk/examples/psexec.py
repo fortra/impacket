@@ -194,6 +194,8 @@ class PSEXEC:
             unInstalled = True
             sys.exit(retCode['ErrorCode'])
 
+        except SystemExit:
+            raise
         except:
             if unInstalled is False:
                 installService.uninstall()
