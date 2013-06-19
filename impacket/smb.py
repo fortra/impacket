@@ -3220,7 +3220,13 @@ class SMB:
             smb['Flags1']  = SMB.FLAGS1_PATHCASELESS
         else:
             smb = smb_packet
-        
+
+        # Just in case this came with the full path ,let's just leave 
+        # the sharename, we'll take care of the rest
+
+        share = path.split('\\')[-1]
+        path = '\\\\' + self.get_remote_host() + '\\' +share 
+
         treeConnect = SMBCommand(SMB.SMB_COM_TREE_CONNECT_ANDX)
         treeConnect['Parameters'] = SMBTreeConnectAndX_Parameters()
         treeConnect['Data']       = SMBTreeConnectAndX_Data()
