@@ -43,7 +43,7 @@ class PacketBuffer:
     packet's raw buffer. All the packet classes derive from this one.
 
     The byte, word, long and ip_address getters and setters accept
-    negative indeces, having these the a similar effect as in a
+    negative indexes, having these the a similar effect as in a
     regular Python sequence slice.
     """
 
@@ -383,7 +383,7 @@ class Header(PacketBuffer,ProtocolLayer):
     def get_packet(self):
         """Returns the raw representation of this packet and its
         children as a string. The output from this method is a packet
-        ready to be transmited over the wire.
+        ready to be transmitted over the wire.
         """
         self.calculate_checksum()
 
@@ -482,7 +482,7 @@ class Data(Header):
     def __init__(self, aBuffer = None):
         Header.__init__(self)
         if aBuffer:
-           self.set_data(aBuffer)
+            self.set_data(aBuffer)
 
     def set_data(self, data):
         self.set_bytes_from_string(data)
@@ -626,10 +626,10 @@ class Ethernet(Header):
 
         if self.child():
             try:
-               self.set_ether_type(self.child().ethertype)
+                self.set_ether_type(self.child().ethertype)
             except:
-               " an Ethernet packet may have a Data() "
-               pass
+                " an Ethernet packet may have a Data() "
+                pass
         return Header.get_packet(self)
 
     def get_ether_dhost(self):
@@ -815,15 +815,15 @@ class IP(Header):
 
 
 
-  #  def calculate_checksum(self, buffer = None):
-  #      tmp_value = self.get_ip_sum()
-  #      if self.auto_checksum and (not tmp_value):
-  #          if buffer:
-  #              tmp_bytes = buffer
-  #          else:
-  #              tmp_bytes = self.bytes[0:self.get_header_size()]
-  #
-  #          self.set_ip_sum(self.compute_checksum(tmp_bytes))
+    #  def calculate_checksum(self, buffer = None):
+    #      tmp_value = self.get_ip_sum()
+    #      if self.auto_checksum and (not tmp_value):
+    #          if buffer:
+    #              tmp_bytes = buffer
+    #          else:
+    #              tmp_bytes = self.bytes[0:self.get_header_size()]
+    #
+    #          self.set_ip_sum(self.compute_checksum(tmp_bytes))
 
 
     def get_pseudo_header(self):
@@ -1938,8 +1938,8 @@ class ICMP(Header):
         return self.isDestinationUnreachable() and (self.get_icmp_code() == 2)
 
     def isQuery(self):
-         tmp_dict = {8:'',  9:'',  10:'', 13:'', 14:'', 15:'', 16:'', 17:'', 18:''}
-         return tmp_dict.has_key(self.get_icmp_type())
+        tmp_dict = {8:'',  9:'',  10:'', 13:'', 14:'', 15:'', 16:'', 17:'', 18:''}
+        return tmp_dict.has_key(self.get_icmp_type())
 
 class IGMP(Header):
     protocol = 2
@@ -1977,7 +1977,7 @@ class IGMP(Header):
 
     def get_type_name(self, aType):
         tmp_dict = {0x11:'HOST MEMBERSHIP QUERY ', 0x12:'v1 HOST MEMBERSHIP REPORT ', 0x13:'IGMP DVMRP ', 0x14:' PIM ', 0x16:'v2 HOST MEMBERSHIP REPORT ', 0x17:'HOST LEAVE MESSAGE ', 0x1e:'MTRACE REPLY ', 0X1f:'MTRACE QUERY '}
-        answer = tmp_type.get(aType, 'UNKNOWN TYPE OR VERSION ')
+        answer = tmp_dict.get(aType, 'UNKNOWN TYPE OR VERSION ')
         return answer
 
     def calculate_checksum(self):
