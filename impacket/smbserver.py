@@ -2363,6 +2363,8 @@ class SMBSERVERHandler(SocketServer.BaseRequestHandler):
                     p = session.recv_packet(self.__timeOut)
                 except nmb.NetBIOSTimeout:
                     raise
+                except nmb.NetBIOSError:
+                    break                 
 
                 if p.get_type() == nmb.NETBIOS_SESSION_REQUEST:
                    # Someone is requesting a session, we're gonna accept them all :)
@@ -2641,6 +2643,10 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
   
     def getServerConfig(self):
         return self.__serverConfig
+
+    def setServerConfig(self, config):
+        self.__serverConfig = config
+
 
     def verify_request(self, request, client_address):
         # TODO: Control here the max amount of processes we want to launch

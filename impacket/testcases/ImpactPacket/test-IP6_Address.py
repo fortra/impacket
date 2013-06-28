@@ -1,13 +1,26 @@
 #!/usr/bin/env python
 
-import sys
-sys.path.insert(0,"../..")
+#Impact test version
+try:
+    from impacket import IP6_Address
+except:
+    pass
+ 
+#Standalone test version
+try:
+    import sys
+    sys.path.insert(0,"../..")
+    import IP6_Address
+except:
+    pass
 
-import IP6_Address
 import unittest
 
 class TestIP6_Address(unittest.TestCase):
         
+    def runTest(self):
+        pass
+  
     def test_construction(self):
         '''Test IP6 Address construction'''
         normal_text_address = "FE80:1234:5678:ABCD:EF01:2345:6789:ABCD"

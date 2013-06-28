@@ -1,11 +1,21 @@
 #!/usr/bin/env python
 
-# sorry, this is very ugly, but I'm in python 2.5
-import sys
-sys.path.insert(0,"../..")
+#Impact test version
+try:
+    from impacket.ImpactDecoder import EthDecoder
+    from impacket.ImpactPacket import TCP
+except:
+    pass
 
-from ImpactDecoder import EthDecoder
-from ImpactPacket import TCP
+#Standalone test version
+try:
+    import sys
+    sys.path.insert(0,"../..")
+    from ImpactDecoder import EthDecoder
+    from ImpactPacket import TCP
+except:
+    pass
+
 from binascii import hexlify
 import unittest
 
