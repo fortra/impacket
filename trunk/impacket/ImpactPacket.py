@@ -185,7 +185,7 @@ class PacketBuffer:
     def __validate_index(self, index, size):
         """This method performs two tasks: to allocate enough space to
         fit the elements at positions index through index+size, and to
-        adjust negative indeces to their absolute equivalent.
+        adjust negative indexes to their absolute equivalent.
         """
 
         orig_index = index
@@ -571,14 +571,14 @@ class Ethernet(Header):
     def get_tag(self, index):
         """Returns an EthernetTag initialized from index-th VLAN tag.
            The tags are numbered from 0 to self.tag_cnt-1 as they appear in the frame.
-           It is possible to use negative indeces as well."""
+           It is possible to use negative indexes as well."""
         index = self.__validate_tag_index(index)
         return EthernetTag(self.get_long(12+4*index))
 
     def set_tag(self, index, tag):
         """Sets the index-th VLAN tag to contents of an EthernetTag object.
            The tags are numbered from 0 to self.tag_cnt-1 as they appear in the frame.
-           It is possible to use negative indeces as well."""
+           It is possible to use negative indexes as well."""
         index = self.__validate_tag_index(index)
         pos = 12 + 4*index
         for i,val in enumerate(tag.get_bytes()):

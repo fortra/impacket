@@ -1,9 +1,19 @@
 #!/usr/bin/env python
 
-import sys
-sys.path.insert(0,"../..")
+#Impact test version
+try:
+    from impacket import IP6_Address, IP6, ImpactDecoder
+except:
+    pass
 
-import IP6_Address, IP6, ImpactDecoder
+#Standalone test version
+try:
+    import sys
+    sys.path.insert(0,"../..")
+    import IP6_Address, IP6, ImpactDecoder
+except:
+    pass
+
 import unittest
 
 class TestIP6(unittest.TestCase):
