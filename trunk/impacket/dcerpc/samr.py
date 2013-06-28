@@ -17,7 +17,6 @@ from time import strftime, gmtime
 from struct import *
 
 from impacket import ImpactPacket
-from impacket import dcerpc
 from impacket.dcerpc import ndrutils, dcerpc
 from impacket.structure import Structure
 from impacket.uuid import uuidtup_to_bin

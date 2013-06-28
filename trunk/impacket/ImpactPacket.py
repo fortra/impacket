@@ -421,7 +421,7 @@ class Header(PacketBuffer,ProtocolLayer):
 
     def get_header_size(self):
         "Return the size of this header, that is, not counting neither the size of the children nor of the parents."
-        raise RuntimeError("Method %s.get_header_size must be overriden." % self.__class__)
+        raise RuntimeError("Method %s.get_header_size must be overridden." % self.__class__)
 
     def list_as_hex(self, aList):
         if len(aList):
@@ -1155,7 +1155,7 @@ class IPOption(PacketBuffer):
             self.set_flags(0)
         else:
             if not size:
-                raise ImpactPacketError, "Size required for this type"
+                raise ImpactPacketException, "Size required for this type"
             PacketBuffer.__init__(self,size)
             self.set_code(opcode)
             self.set_len(size)
@@ -1467,7 +1467,7 @@ class TCP(Header):
     def reset_FIN(self):
         return self.reset_flags(1)
 
-    # Overriden Methods
+    # Overridden Methods
 
     def get_header_size(self):
         return 20 + len(self.get_padded_options())
@@ -1985,9 +1985,8 @@ class IGMP(Header):
             self.set_igmp_cksum(self.compute_checksum(self.get_bytes()))
 
     def __str__(self):
-        knowcode = 0
         tmp_str = 'IGMP: ' + self.get_type_name(self.get_igmp_type())
-        tmp_str += 'Group: ' +  socket.inet_ntoa(pack('!L',self.get_igmp_group()))
+        tmp_str += 'Group: ' +  socket.inet_ntoa(struct.pack('!L',self.get_igmp_group()))
         if self.child():
             tmp_str += '\n' + self.child().__str__()
         return tmp_str

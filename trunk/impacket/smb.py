@@ -3066,7 +3066,8 @@ class SMB:
          
     def sendSMB(self,smb):
         smb['Uid'] = self._uid
-        smb['Pid'] = os.getpid()
+        #At least on AIX, PIDs can exceed 16 bits, so we mask them out
+        smb['Pid'] = (os.getpid() & 0xFFFF)
         smb['Flags1'] |= self.__flags1
         smb['Flags2'] |= self.__flags2
         if self._SignatureEnabled:

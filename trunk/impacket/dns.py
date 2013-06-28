@@ -206,13 +206,29 @@ class DNS(ProtocolPacket):
         'Set 16 bit message ID.'
         self.header.set_word(0, value)
     
+    def get_transaction_id_tcp(self):
+        'Get 16 bit message ID.'
+        return self.header.get_word(2)
+    
+    def set_transaction_id_tcp(self, value):
+        'Set 16 bit message ID.'
+        self.header.set_word(2, value)
+
     def get_flags(self):
         'Get 16 bit flags.'
         return self.header.get_word(2)
-    
+
     def set_flags(self, value):
         'Set 16 bit flags.'
         self.header.set_word(2, value)
+
+    def get_flags_tcp(self):
+        'Get 16 bit flags.'
+        return self.header.get_word(4)
+    
+    def set_flags_tcp(self, value):
+        'Set 16 bit flags.'
+        self.header.set_word(4, value)
     
     def get_qdcount(self):
         'Get Unsigned 16 bit integer specifying the number of entries in the question section.'
@@ -222,6 +238,14 @@ class DNS(ProtocolPacket):
         'Set Unsigned 16 bit integer specifying the number of entries in the question section.'
         self.header.set_word(4, value)
     
+    def get_qdcount_tcp(self):
+        'Get Unsigned 16 bit integer specifying the number of entries in the question section.'
+        return self.header.get_word(6)
+    
+    def set_qdcount_tcp(self, value):
+        'Set Unsigned 16 bit integer specifying the number of entries in the question section.'
+        self.header.set_word(6, value)
+
     def get_ancount(self):
         'Get Unsigned 16 bit integer specifying the number of resource records in the answer section'
         return self.header.get_word(6)
@@ -255,7 +279,7 @@ class DNS(ProtocolPacket):
         offset   = 0
         qdcount = self.get_qdcount()
         data    = self.get_body_as_string()
-        for i in range(qdcount): # number of questions
+        for _ in range(qdcount): # number of questions
             offset, qname = self.parseCompressedMessage(data, offset)
             qtype  = data[offset:offset+self.__TYPE_LEN]
             offset  += self.__TYPE_LEN
@@ -266,25 +290,48 @@ class DNS(ProtocolPacket):
             aux.append((qname, qtype, qclass))
         return (aux, offset)
 
-    def parseCompressedMessage(self, buffer, offset=0):
+    def get_questions_tcp(self):
+        'Get a list of the DNS Question.'
+        return self.__get_questions_tcp()[0]
+
+    def __get_questions_tcp(self):
+        aux = []
+        offset   = 2
+        qdcount = self.get_qdcount_tcp()
+        data    = self.get_body_as_string()
+        for _ in range(qdcount): # number of questions
+            offset, qname = self.parseCompressedMessage(data, offset)
+            qtype  = data[offset:offset+self.__TYPE_LEN]
+            offset  += self.__TYPE_LEN
+            qclass = data[offset:offset+self.__CLASS_LEN]
+            offset  += self.__CLASS_LEN
+            qtype  = struct.unpack("!H", qtype)[0]
+            qclass = struct.unpack("!H", qclass)[0]
+            aux.append((qname, qtype, qclass))
+        return (aux, offset)
+
+    def parseCompressedMessage(self, buf, offset=0):
         'Parse compressed message defined on rfc1035 4.1.4.'
-        if offset >= len(buffer):
+        if offset >= len(buf):
             raise Exception("No more data to parse. Offset is bigger than length of buffer.")
-        byte = struct.unpack("B", buffer[offset])[0]
+        byte = struct.unpack("B", buf[offset])[0]
+        #  if the first two bits are ones (11000000=0xC0), the next bits are the offset
         if byte & 0xC0 == 0xC0:
-            pointer = struct.unpack("!H", buffer[offset:offset+2])[0] # network unsigned short
+            # It's a pointer
+            pointer = struct.unpack("!H", buf[offset:offset+2])[0] # network unsigned short
             pointer = (pointer & 0x3FFF) - self.__HEADER_BASE_SIZE
             offset += 2
-            name = self.parseCompressedMessage(buffer, pointer)[1]
+            name = self.parseCompressedMessage(buf, pointer)[1]
             return (offset, name)
         else:
+            # It's a label
             if byte == 0x00:
                 offset += 1
                 return (offset, '')
             offset += 1
-            name = buffer[offset:offset+byte]
+            name = buf[offset:offset+byte]
             offset += byte
-            offset, unamed = self.parseCompressedMessage(buffer, offset)
+            offset, unamed = self.parseCompressedMessage(buf, offset)
             if not unamed:
                 return (offset, name)
             else:
@@ -293,8 +340,8 @@ class DNS(ProtocolPacket):
     def get_answers(self):
         return self.__get_answers()[0]
     
-    def get_authoritatives(self):
-        return self.__get_authoritatives()[0]
+    def get_authoritative(self):
+        return self.__get_authoritative()[0]
     
     def get_additionals(self):
         return self.__get_additionals()[0]
@@ -304,35 +351,39 @@ class DNS(ProtocolPacket):
         ancount = self.get_ancount()
         return self.__process_answer_structure(offset, ancount)
     
-    def __get_authoritatives(self):
-        'Get a list of the DNS Authoritatives.'
+    def __get_authoritative(self):
+        'Get a list of the DNS Authoritative.'
         offset  = self.__get_answers()[1] # get the initial offset
         nscount = self.get_nscount()
         return self.__process_answer_structure(offset, nscount)
     
     def __get_additionals(self):
         'Get a list of the DNS Additional Records.'
-        offset  = self.__get_authoritatives()[1] # get the initial offset
+        offset  = self.__get_authoritative()[1] # get the initial offset
         arcount = self.get_arcount()
         return self.__process_answer_structure(offset, arcount)
     
     def __process_answer_structure(self, offset, num):
         aux  = []
         data = self.get_body_as_string()
-        for i in range(num):
+        for _ in range(num):
             offset, qname = self.parseCompressedMessage(data, offset)
             qtype  = data[offset:offset+self.__TYPE_LEN]
-            offset  += self.__TYPE_LEN
-            qclass = data[offset:offset+self.__CLASS_LEN]
-            offset  += self.__CLASS_LEN
             qtype  = struct.unpack("!H", qtype)[0]
+            offset  += self.__TYPE_LEN
+            
+            qclass = data[offset:offset+self.__CLASS_LEN]
             qclass = struct.unpack("!H", qclass)[0]
-            qttl = data[offset:offset+self.__TTL_LEN]
-            qttl = struct.unpack("!L", qttl)[0]
+            offset  += self.__CLASS_LEN
+            
+            qttl_raw = data[offset:offset+self.__TTL_LEN]
+            qttl = struct.unpack("!L", qttl_raw)[0]
             offset  += self.__TTL_LEN
+            
             qrdlength = data[offset:offset+self.__RDLENGTH_LEN]
             qrdlength = struct.unpack("!H", qrdlength)[0]
             offset  += self.__RDLENGTH_LEN
+            
             qrdata = {}
             if qtype == DNSType.A:
                 # IP Address  Unsigned 32-bit value representing the IP address
@@ -370,13 +421,32 @@ class DNS(ProtocolPacket):
                 # Name  The host name that represents the supplied IP address (in the case of a PTR) or the NS name for the supplied domain (in the case of NS). May be a label, pointer or any combination.
                 offset, name = self.parseCompressedMessage(data, offset)
                 qrdata["Name"] = name
-            else:
+            elif qtype == DNSType.OPT:
+                # rfc2671 4.3
+                #NAME         domain name    empty (root domain)
+                #TYPE         u_int16_t      OPT
+                #CLASS        u_int16_t      sender's UDP payload size
+                #TTL          u_int32_t      extended RCODE and flags
+                #RDLEN        u_int16_t      describes RDATA
+                #RDATA        octet stream   {attribute,value} pairs
+                #udp_payload = qclass
+                udp_payload_size = qclass
+                ext_rcode = struct.unpack("B", qttl_raw[0])[0]
+                version = struct.unpack("B", qttl_raw[1])[0]
+                flags = struct.unpack("!H", qttl_raw[2:4])[0]
+                qrdata["RDATA"] = data[offset:offset+qrdlength]
                 offset  += qrdlength
+                aux.append((qname, qtype, udp_payload_size, ext_rcode, version, flags, qrdata))
+                continue   
+            else:
+                # We don't know how to parse it, just skip it
+                offset  += qrdlength
+                
             aux.append((qname, qtype, qclass, qttl, qrdata))
         return (aux, offset)
     
     def get_header_size(self):
-        return 12
+        return self.__HEADER_BASE_SIZE
     
     def __str__(self):
         res = ""
@@ -408,7 +478,7 @@ class DNS(ProtocolPacket):
             while(questions):
                 qname, qtype, qclass = questions.pop()
                 format = (qname, DNSType.getTypeName(qtype), qtype, DNSClass.getClassName(qclass), qclass)
-                res += "  * Domain: %s - Type: %s [%04x] - Class: %s [%04x]\n" % format
+                res += "  * Domain: %s - Type: %s [0x%04x] - Class: %s [0x%04x]\n" % format
         
         if ancount > 0:
             res += " - Answers:\n"
@@ -417,30 +487,87 @@ class DNS(ProtocolPacket):
             while(answers):
                 qname, qtype, qclass, qttl, qrdata = answers.pop()
                 format = (qname, DNSType.getTypeName(qtype), qtype, DNSClass.getClassName(qclass), qclass, qttl, repr(qrdata))
-                res += "  * Domain: %s - Type: %s [%04x] - Class: %s [%04x] - TTL: %d seconds - %s\n" % format
+                res += "  * Domain: %s - Type: %s [0x%04x] - Class: %s [0x%04x] - TTL: %d seconds - %s\n" % format
         
         if nscount > 0:
-            res += " - Authoritatives:\n"
-            authoritatives = self.get_authoritatives()
-            authoritatives.reverse()
-            while(authoritatives):
-                qname, qtype, qclass, qttl, qrdata = authoritatives.pop()
+            res += " - Authoritative:\n"
+            authoritative = self.get_authoritative()
+            authoritative.reverse()
+            while(authoritative):
+                qname, qtype, qclass, qttl, qrdata = authoritative.pop()
                 format = (qname, DNSType.getTypeName(qtype), qtype, DNSClass.getClassName(qclass), qclass, qttl, repr(qrdata))
-                res += "  * Domain: %s - Type: %s [%04x] - Class: %s [%04x] - TTL: %d seconds - %s\n" % format
+                res += "  * Domain: %s - Type: %s [0x%04x] - Class: %s [0x%04x] - TTL: %d seconds - %s\n" % format
         
         if arcount > 0:
             res += " - Additionals:\n"
             additionals = self.get_additionals()
-            additionals.reverse()
-            while(additionals):
-                qname, qtype, qclass, qttl, qrdata = additionals.pop()
-                format = (qname, DNSType.getTypeName(qtype), qtype, DNSClass.getClassName(qclass), qclass, qttl, repr(qrdata))
-                res += "  * Domain: %s - Type: %s [%04x] - Class: %s [%04x] - TTL: %d seconds - %s\n" % format
+            for additional in additionals:
+                qtype = additional[1]
+                if qtype == DNSType.OPT:
+                    
+                    qname, qtype, udp_payload_size, ext_rcode, version, flags, qrdata = additional
+                    format = (DNSType.getTypeName(qtype), qtype, udp_payload_size, ext_rcode, version, flags, repr(qrdata['RDATA']))
+                    res += "  * Name: <Root> - Type: %s [0x%04x] - udp payload size: [%d] - extended RCODE: [0x%02x] - EDNS0 version: [0x%02x] - Z Flags: [0x%02x] - RDATA: [%s]\n" % format
+                else:
+                    qname, qtype, qclass, qttl, qrdata = additional
+                    format = (qname, DNSType.getTypeName(qtype), qtype, DNSClass.getClassName(qclass), qclass, qttl, repr(qrdata))
+                    res += "  * Domain: %s - Type: %s [0x%04x] - Class: %s [0x%04x] - TTL: %d seconds - %s\n" % format
         
         return res
-    
-    def get_packet(self):
-        return Header.get_packet(self)
+ 
+    def __get_questions_raw(self):
+        if self.get_qdcount() == 0:
+            return ''
+        questions_offset = self.__get_questions()[1]
+        raw_data  = self.get_body_as_string()[:questions_offset]
+        return raw_data
+
+    def __get_answers_raw(self):
+        if self.get_ancount() == 0:
+            return ''
+        questions_offset = self.__get_questions()[1]
+        answers_offset = self.__get_answers()[1]
+        raw_data  = self.get_body_as_string()[questions_offset: answers_offset]
+        return raw_data
+
+    def __get_authoritative_raw(self):
+        if self.get_nscount() == 0:
+            return ''
+        answers_offset = self.__get_answers()[1]
+        authoritative_offset = self.__get_authoritative()[1]
+        raw_data  = self.get_body_as_string()[answers_offset:authoritative_offset]
+        return raw_data
+
+    def __get_additionals_raw(self):
+        if self.get_arcount() == 0:
+            return ''
+        authoritative_offset = self.__get_authoritative()[1]
+        raw_data  = self.get_body_as_string()[authoritative_offset:]
+        return raw_data
+
+    def add_answer(self, answer_raw):
+        '''Add a raw answer'''
+        questions_raw = self.__get_questions_raw()
+        answers_raw = self.__get_answers_raw()
+        authoritative_raw = self.__get_authoritative_raw()
+        additionals_raw = self.__get_additionals_raw()
+        
+        answers_raw += answer_raw
+        
+        body = questions_raw + answers_raw + authoritative_raw + additionals_raw
+        self.load_body(body) # It breaks children hierarchy
+        
+        # Increment the answer count  
+        cur_answer_count = self.get_ancount()+1
+        self.set_ancount(cur_answer_count)
+
+    def is_edns0(self):
+        additionals = self.get_additionals()
+        for item in additionals:
+            response_type = item[1]
+            if response_type == DNSType.OPT:
+                return True
+        return False
 
 if __name__ == "__main__":
     pkts = [

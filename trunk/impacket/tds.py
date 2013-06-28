@@ -72,6 +72,9 @@ class SQLR_Response(SQLR):
         ('Data',':'),
     )
 
+class SQLErrorException(Exception):
+    pass
+
 # TDS Constants and Structures
 
 # TYPE constants
@@ -477,12 +480,20 @@ class MSSQL():
     def connect(self):
         af, socktype, proto, canonname, sa = socket.getaddrinfo(self.server, self.port, 0, socket.SOCK_STREAM)[0]
         sock = socket.socket(af, socktype, proto)
-        sock.connect(sa)
+
+        try:
+            sock.connect(sa)
+        except Exception:
+            import traceback
+            traceback.print_exc()
+            raise
+
         self.socket = sock
         return sock
 
     def disconnect(self):
-        return self.socket.close()
+        if self.socket:
+            return self.socket.close()
 
     def setPacketSize(self, packetSize):
         self.packetSize = packetSize
@@ -665,69 +676,71 @@ class MSSQL():
         if len(self.colMeta) == 0:
             return
         for col in self.colMeta:
-           print col['Format'] % col['Name'] + self.COL_SEPARATOR,
+            print col['Format'] % col['Name'] + self.COL_SEPARATOR,
         print ''
         for col in self.colMeta:
-           print '-'*col['Length'] + self.COL_SEPARATOR,
+            print '-'*col['Length'] + self.COL_SEPARATOR,
         print ''
 
     def printRows(self):
         if self.lastError is True:
-           return
+            return
         self.processColMeta()
         self.printColumnsHeader()
         for row in self.rows:
             for col in self.colMeta:
-               print col['Format'] % row[col['Name']] + self.COL_SEPARATOR,
+                print col['Format'] % row[col['Name']] + self.COL_SEPARATOR,
             print ''
 
 
     def printReplies(self):
-       for keys in self.replies.keys():
-           for i, key in enumerate(self.replies[keys]):
-               if key['TokenType'] == TDS_ERROR_TOKEN:
-                   print "[!] ERROR(%s): Line %d: %s" % (key['ServerName'].decode('utf-16le'), key['LineNumber'], key['MsgText'].decode('utf-16le'))
-                   self.lastError = True
+        for keys in self.replies.keys():
+            for i, key in enumerate(self.replies[keys]):
+                if key['TokenType'] == TDS_ERROR_TOKEN:
+                    error =  "[!] ERROR(%s): Line %d: %s" % (key['ServerName'].decode('utf-16le'), key['LineNumber'], key['MsgText'].decode('utf-16le'))                                      
+                    self.lastError = SQLErrorException("[!] ERROR: Line %d: %s" % (key['LineNumber'], key['MsgText'].decode('utf-16le')))
+                    print error
 
-               elif key['TokenType'] == TDS_INFO_TOKEN:
-                   print "[*] INFO(%s): Line %d: %s" % (key['ServerName'].decode('utf-16le'), key['LineNumber'], key['MsgText'].decode('utf-16le'))
+                elif key['TokenType'] == TDS_INFO_TOKEN:
+                    print "[*] INFO(%s): Line %d: %s" % (key['ServerName'].decode('utf-16le'), key['LineNumber'], key['MsgText'].decode('utf-16le'))
 
-               elif key['TokenType'] == TDS_LOGINACK_TOKEN:
-                   print "[*] ACK: Result: %s - %s (%d%d %d%d) " % (key['Interface'], key['ProgName'].decode('utf-16le'), key['MajorVer'], key['MinorVer'], key['BuildNumHi'], key['BuildNumLow'])
+                elif key['TokenType'] == TDS_LOGINACK_TOKEN:
+                    print "[*] ACK: Result: %s - %s (%d%d %d%d) " % (key['Interface'], key['ProgName'].decode('utf-16le'), key['MajorVer'], key['MinorVer'], key['BuildNumHi'], key['BuildNumLow'])
 
-               elif key['TokenType'] == TDS_ENVCHANGE_TOKEN:
-                   if key['Type'] in (TDS_ENVCHANGE_DATABASE, TDS_ENVCHANGE_LANGUAGE, TDS_ENVCHANGE_CHARSET, TDS_ENVCHANGE_PACKETSIZE):
-                      record = TDS_ENVCHANGE_VARCHAR(key['Data'])
-                      if record['OldValue'] == '':
-                          record['OldValue'] = 'None'.encode('utf-16le')
-                      elif record['NewValue'] == '':
-                          record['NewValue'] = 'None'.encode('utf-16le')
-                      if key['Type'] == TDS_ENVCHANGE_DATABASE:
-                          type = 'DATABASE'
-                      elif key['Type'] == TDS_ENVCHANGE_LANGUAGE:
-                          type = 'LANGUAGE'
-                      elif key['Type'] == TDS_ENVCHANGE_CHARSET:
-                          type = 'CHARSET'
-                      elif key['Type'] == TDS_ENVCHANGE_PACKETSIZE:
-                          type = 'PACKETSIZE'
-                      else:
-                          type = "%d" % key['Type']
-                 
-                      print "[*] ENVCHANGE(%s): Old Value: %s, New Value: %s" % (type,record['OldValue'].decode('utf-16le'), record['NewValue'].decode('utf-16le'))
+                elif key['TokenType'] == TDS_ENVCHANGE_TOKEN:
+                    if key['Type'] in (TDS_ENVCHANGE_DATABASE, TDS_ENVCHANGE_LANGUAGE, TDS_ENVCHANGE_CHARSET, TDS_ENVCHANGE_PACKETSIZE):
+                        record = TDS_ENVCHANGE_VARCHAR(key['Data'])
+                        if record['OldValue'] == '':
+                            record['OldValue'] = 'None'.encode('utf-16le')
+                        elif record['NewValue'] == '':
+                            record['NewValue'] = 'None'.encode('utf-16le')
+                        if key['Type'] == TDS_ENVCHANGE_DATABASE:
+                            _type = 'DATABASE'
+                        elif key['Type'] == TDS_ENVCHANGE_LANGUAGE:
+                            _type = 'LANGUAGE'
+                        elif key['Type'] == TDS_ENVCHANGE_CHARSET:
+                            _type = 'CHARSET'
+                        elif key['Type'] == TDS_ENVCHANGE_PACKETSIZE:
+                            _type = 'PACKETSIZE'
+                        else:
+                            _type = "%d" % key['Type']
+                        print "[*] ENVCHANGE(%s): Old Value: %s, New Value: %s" % (_type,record['OldValue'].decode('utf-16le'), record['NewValue'].decode('utf-16le'))
        
-    def parseRow(self,token):
+    def parseRow(self,token,tuplemode=False):
         # TODO: This REALLY needs to be improved. Right now we don't support correctly all the data types
         # help would be appreciated ;) 
         if len(token) == 1:
-           return 0
-        row = {}
+            return 0
+
+        row = [] if tuplemode else {}
+
         origDataLen = len(token['Data'])
         data = token['Data']
         for col in self.colMeta:
-            type = col['Type']
-            if (type == TDS_NVARCHARTYPE) |\
-               (type == TDS_NCHARTYPE):
-                #print "NVAR 0x%x" % type
+            _type = col['Type']
+            if (_type == TDS_NVARCHARTYPE) |\
+               (_type == TDS_NCHARTYPE):
+                #print "NVAR 0x%x" % _type
                 charLen = struct.unpack('<H',data[:struct.calcsize('<H')])[0]
                 data = data[struct.calcsize('<H'):]
                 if charLen != 0xFFFF:
@@ -736,7 +749,7 @@ class MSSQL():
                 else:
                     value = 'NULL'
 
-            elif (type == TDS_BIGVARCHRTYPE): 
+            elif (_type == TDS_BIGVARCHRTYPE): 
                 charLen = struct.unpack('<H',data[:struct.calcsize('<H')])[0]
                 data = data[struct.calcsize('<H'):]
                 if charLen != 0xFFFF:
@@ -745,7 +758,7 @@ class MSSQL():
                 else:
                     value = 'NULL'
 
-            elif (type == TDS_GUIDTYPE):
+            elif (_type == TDS_GUIDTYPE):
                 uuidLen = ord(data[0])
                 data = data[1:]
                 if uuidLen > 0:
@@ -755,8 +768,8 @@ class MSSQL():
                 else:
                     value = 'NULL'
                 
-            elif (type == TDS_NTEXTTYPE) |\
-                 (type == TDS_IMAGETYPE) :
+            elif (_type == TDS_NTEXTTYPE) |\
+                 (_type == TDS_IMAGETYPE) :
                 # Skip the pointer data
                 charLen = ord(data[0])
                 if charLen == 0:
@@ -767,7 +780,7 @@ class MSSQL():
                     charLen = struct.unpack('<L',data[:struct.calcsize('<L')])[0]
                     data = data[struct.calcsize('<L'):]
                     if charLen != 0xFFFF:
-                        if type == TDS_NTEXTTYPE:
+                        if _type == TDS_NTEXTTYPE:
                             value = data[:charLen].decode('utf-16le')
                         else:
                             value = binascii.b2a_hex(data[:charLen])
@@ -775,7 +788,7 @@ class MSSQL():
                     else:
                         value = 'NULL'
                 
-            elif (type == TDS_TEXTTYPE): 
+            elif (_type == TDS_TEXTTYPE): 
                 # Skip the pointer data
                 charLen = ord(data[0])
                 if charLen == 0:
@@ -791,8 +804,8 @@ class MSSQL():
                     else:
                         value = 'NULL'
 
-            elif (type == TDS_BIGVARBINTYPE) |\
-                 (type == TDS_BIGBINARYTYPE):
+            elif (_type == TDS_BIGVARBINTYPE) |\
+                 (_type == TDS_BIGBINARYTYPE):
                 charLen = struct.unpack('<H',data[:struct.calcsize('<H')])[0]
                 data = data[struct.calcsize('<H'):]
                 if charLen != 0xFFFF:
@@ -801,21 +814,21 @@ class MSSQL():
                 else:
                     value = 'NULL'
 
-            elif (type == TDS_DATETIM4TYPE) |\
-                 (type == TDS_DATETIMNTYPE) |\
-                 (type == TDS_DATETIMETYPE):
+            elif (_type == TDS_DATETIM4TYPE) |\
+                 (_type == TDS_DATETIMNTYPE) |\
+                 (_type == TDS_DATETIMETYPE):
                 value = ''    
-                if type == TDS_DATETIMNTYPE:
+                if _type == TDS_DATETIMNTYPE:
                     # For DATETIMNTYPE, the only valid lengths are 0x04 and 0x08, which map to smalldatetime and
                     # datetime SQL data types respectively.
                     if ord(data[0]) == 4:
-                        type = TDS_DATETIM4TYPE
+                        _type = TDS_DATETIM4TYPE
                     elif ord(data[0]) == 8:
-                        type = TDS_DATETIMETYPE
+                        _type = TDS_DATETIMETYPE
                     else:
                         value = 'NULL'
                     data = data[1:]
-                if (type == TDS_DATETIMETYPE):
+                if (_type == TDS_DATETIMETYPE):
                     # datetime is represented in the following sequence:
                     # * One 4-byte signed integer that represents the number of days since January 1, 1900. Negative
                     #   numbers are allowed to represents dates since January 1, 1753.
@@ -829,7 +842,7 @@ class MSSQL():
                         baseDate = datetime.date(1900,1,1)
                     timeValue = struct.unpack('<L',data[:4])[0]
                     data = data[4:] 
-                elif (type == TDS_DATETIM4TYPE):
+                elif (_type == TDS_DATETIM4TYPE):
                     # Small datetime
                     # 2.2.5.5.1.8
                     # Date/Times
@@ -848,14 +861,14 @@ class MSSQL():
                     minutes, second = divmod(mod, 60)
                     value = datetime.datetime(dateValue.year, dateValue.month, dateValue.day, hours, minutes, second)
 
-            elif (type == TDS_INT4TYPE) |\
-                 (type == TDS_MONEY4TYPE) |\
-                 (type == TDS_FLT4TYPE):
+            elif (_type == TDS_INT4TYPE) |\
+                 (_type == TDS_MONEY4TYPE) |\
+                 (_type == TDS_FLT4TYPE):
                 #print "INT4"
                 value = struct.unpack('<l',data[:struct.calcsize('<l')])[0]
                 data = data[struct.calcsize('<l'):]
 
-            elif (type == TDS_FLTNTYPE):
+            elif (_type == TDS_FLTNTYPE):
                 valueSize = ord(data[:1])
                 if valueSize == 4:
                     fmt = '<f'
@@ -870,7 +883,7 @@ class MSSQL():
                 else:
                     value = 'NULL'
 
-            elif type == TDS_MONEYNTYPE:
+            elif _type == TDS_MONEYNTYPE:
                 valueSize = ord(data[:1])
                 if valueSize == 4:
                     fmt = '<l'
@@ -890,27 +903,27 @@ class MSSQL():
                     value = 'NULL'
 
                 
-            elif type == TDS_BIGCHARTYPE:
+            elif _type == TDS_BIGCHARTYPE:
                 #print "BIGC"
                 charLen = struct.unpack('<H',data[:struct.calcsize('<H')])[0]
                 data = data[struct.calcsize('<H'):]
                 value = data[:charLen]
                 data = data[charLen:]
 
-            elif (type == TDS_INT8TYPE) |\
-                 (type == TDS_FLT8TYPE) |\
-                 (type == TDS_MONEYTYPE):
+            elif (_type == TDS_INT8TYPE) |\
+                 (_type == TDS_FLT8TYPE) |\
+                 (_type == TDS_MONEYTYPE):
                 #print "DATETIME"
                 value = struct.unpack('<q',data[:struct.calcsize('<q')])[0]
                 data = data[struct.calcsize('<q'):]
 
 
-            elif (type == TDS_INT2TYPE):
+            elif (_type == TDS_INT2TYPE):
                 #print "INT2TYPE"
                 value = struct.unpack('<H',(data[:2]))[0]
                 data = data[2:]
 
-            elif (type == TDS_DATENTYPE):
+            elif (_type == TDS_DATENTYPE):
                 # date is represented as one 3-byte unsigned integer that represents the number of days since
                 # January 1, year 1.
                 valueSize = ord(data[:1])
@@ -923,14 +936,14 @@ class MSSQL():
                 else:
                     value = 'NULL'
 
-            elif (type == TDS_BITTYPE) |\
-                 (type == TDS_INT1TYPE):
+            elif (_type == TDS_BITTYPE) |\
+                 (_type == TDS_INT1TYPE):
                 #print "BITTYPE"
                 value = ord(data[:1])
                 data = data[1:]
 
-            elif (type == TDS_NUMERICNTYPE) |\
-                 (type == TDS_DECIMALNTYPE):
+            elif (_type == TDS_NUMERICNTYPE) |\
+                 (_type == TDS_DECIMALNTYPE):
                 valueLen = ord(data[:1])
                 data = data[1:]
                 value = data[:valueLen]
@@ -956,7 +969,7 @@ class MSSQL():
                 else:
                     value = 'NULL'
 
-            elif (type == TDS_BITNTYPE):
+            elif (_type == TDS_BITNTYPE):
                 #print "BITNTYPE"
                 valueSize = ord(data[:1])
                 data = data[1:]
@@ -969,7 +982,7 @@ class MSSQL():
                     value = 'NULL'
                 data = data[valueSize:]
 
-            elif (type == TDS_INTNTYPE):
+            elif (_type == TDS_INTNTYPE):
                 valueSize = ord(data[:1])
                 if valueSize == 1:
                     fmt = '<B'
@@ -989,13 +1002,17 @@ class MSSQL():
                     data = data[valueSize:]
                 else:
                     value = 'NULL'
-            elif (type == TDS_SSVARIANTTYPE):
+            elif (_type == TDS_SSVARIANTTYPE):
                 print "ParseRow: SQL Variant type not yet supported :("
                 raise
             else:
-                print "ParseROW: Unsupported data type: 0%x" % type
+                print "ParseROW: Unsupported data type: 0%x" % _type
                 raise
-            row[col['Name']] = value
+
+            if tuplemode:
+                row.append(value)
+            else:
+                row[col['Name']] = value
 
 
         self.rows.append(row)
@@ -1107,7 +1124,7 @@ class MSSQL():
 
         return (origDataLen - len(data))
 
-    def parseReply(self, tokens):
+    def parseReply(self, tokens,tuplemode=False):
         if len(tokens) == 0:
             return False
 
@@ -1125,11 +1142,11 @@ class MSSQL():
             elif tokenID == TDS_ENVCHANGE_TOKEN:
                 token = TDS_ENVCHANGE(tokens)
                 if token['Type'] is TDS_ENVCHANGE_PACKETSIZE:
-                      record = TDS_ENVCHANGE_VARCHAR(token['Data'])
-                      self.packetSize = string.atoi( record['NewValue'].decode('utf-16le') )
+                    record = TDS_ENVCHANGE_VARCHAR(token['Data'])
+                    self.packetSize = string.atoi( record['NewValue'].decode('utf-16le') )
                 elif token['Type'] is TDS_ENVCHANGE_DATABASE:
-                      record = TDS_ENVCHANGE_VARCHAR(token['Data'])
-                      self.currentDB =  record['NewValue'].decode('utf-16le') 
+                    record = TDS_ENVCHANGE_VARCHAR(token['Data'])
+                    self.currentDB =  record['NewValue'].decode('utf-16le') 
 
             elif (tokenID == TDS_DONEINPROC_TOKEN) |\
                  (tokenID == TDS_DONEPROC_TOKEN): 
@@ -1139,7 +1156,7 @@ class MSSQL():
             elif tokenID == TDS_ROW_TOKEN:
                 #print "ROW"
                 token = TDS_ROW(tokens)
-                tokenLen = self.parseRow(token)
+                tokenLen = self.parseRow(token,tuplemode)
                 token['Data'] = token['Data'][:tokenLen]
             elif tokenID == TDS_COLMETADATA_TOKEN:
                 #print "COLMETA"
@@ -1162,28 +1179,42 @@ class MSSQL():
 
         return replies
 
-    def batch(self, cmd):
+    def batch(self, cmd,tuplemode=False):
         # First of all we clear the rows, colMeta and lastError
         self.rows = []
         self.colMeta = []
         self.lastError = False
         self.sendTDS(TDS_SQL_BATCH, (cmd+'\r\n').encode('utf-16le'))
         tds = self.recvTDS()
-        self.replies = self.parseReply(tds['Data'])
+        self.replies = self.parseReply(tds['Data'],tuplemode)
         return self.rows
+    
+    def batchStatement(self, cmd,tuplemode=False):
+        # First of all we clear the rows, colMeta and lastError
+        self.rows = []
+        self.colMeta = []
+        self.lastError = False
+        self.sendTDS(TDS_SQL_BATCH, (cmd+'\r\n').encode('utf-16le'))
+        #self.recvTDS()        
 
     # Handy alias
     sql_query = batch
 
     def changeDB(self, db):
         if db != self.currentDB:
-            self.batch('use %s' % db)
+            chdb = 'use %s' % db            
+            self.batch(chdb)
             self.printReplies()
 
-    def RunSQL(self,db,sql_query, **kwArgs):
+    def RunSQLQuery(self,db,sql_query,tuplemode=False,**kwArgs):
         self.changeDB(db)
         self.printReplies() 
-        ret = self.batch(sql_query)
+        ret = self.batch(sql_query,tuplemode)
         self.printReplies()
-
+        if self.lastError:
+            raise self.lastError
         return ret
+    
+    def RunSQLStatement(self,db,sql_query,**kwArgs):
+        self.RunSQLQuery(db, sql_query)        
+        return True
