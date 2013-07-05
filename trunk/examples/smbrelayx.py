@@ -345,7 +345,7 @@ class SMBRelayServer(Thread):
         smbConfig.set('IPC$','comment','')
         smbConfig.set('IPC$','read only','yes')
         smbConfig.set('IPC$','share type','3')
-        smbConfig.set('IPC$','path')
+        smbConfig.set('IPC$','path','')
 
         self.server = smbserver.SMBSERVER(('0.0.0.0',445), config_parser = smbConfig)
         self.server.processConfigFile()
