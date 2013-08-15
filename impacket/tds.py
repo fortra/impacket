@@ -31,7 +31,14 @@ import random
 import binascii 
 import math
 import datetime
+import sys
 
+try:
+    import OpenSSL
+    from OpenSSL import SSL, crypto
+except:
+    print "pyOpenSSL is not installed, can't continue"
+    sys.exit(1)
 
 # MC-SQLR Constants and Structures
 SQLR_PORT           = 1434
@@ -422,6 +429,7 @@ class MSSQL():
         self.COL_SEPARATOR = '  '
         self.MAX_COL_LEN = 255
         self.lastError = False
+        self.tlsSocket = None
 
     def getInstances(self, timeout = 5):
         packet = SQLR()
@@ -465,6 +473,7 @@ class MSSQL():
         prelogin = TDS_PRELOGIN()
         prelogin['Version'] = "\x08\x00\x01\x55\x00\x00"
         prelogin['Encryption'] = TDS_ENCRYPT_NOT_SUP
+        #prelogin['Encryption'] = TDS_ENCRYPT_OFF
         prelogin['ThreadID'] = struct.pack('<L',random.randint(0,65535))
         prelogin['Instance'] = 'MSSQLServer\x00'
 
@@ -501,6 +510,14 @@ class MSSQL():
     def getPacketSize(self):
         return self.packetSize
     
+    def socketSendall(self,data):
+        if self.tlsSocket is None:
+            return self.socket.sendall(data)
+        else:
+            self.tlsSocket.sendall(data)
+            dd = self.tlsSocket.bio_read(self.packetSize)
+            return self.socket.sendall(dd)
+
     def sendTDS(self, packetType, data, packetID = 1):
         if (len(data)-8) > self.packetSize:
             remaining = data[self.packetSize-8:]
@@ -509,12 +526,13 @@ class MSSQL():
             tds['Status'] = TDS_STATUS_NORMAL
             tds['PacketID'] = packetID
             tds['Data'] = data[:self.packetSize-8]
-            self.socket.sendall(str(tds))
+            self.socketSendall(str(tds))
+
             while len(remaining) > (self.packetSize-8):
                 packetID += 1
                 tds['PacketID'] = packetID
                 tds['Data'] = remaining[:self.packetSize-8]
-                self.socket.sendall(str(tds))
+                self.socketSendall(str(tds))
                 remaining = remaining[self.packetSize-8:]
             data = remaining
             packetID+=1
@@ -524,17 +542,35 @@ class MSSQL():
         tds['Status'] = TDS_STATUS_EOM
         tds['PacketID'] = packetID
         tds['Data'] = data
-        self.socket.sendall(str(tds))
+        self.socketSendall(str(tds))
+
+    def socketRecv(self, packetSize):
+        data = self.socket.recv(packetSize)
+        if self.tlsSocket is not None:
+            dd = ''
+            self.tlsSocket.bio_write(data)
+            while True:
+                try:
+                    dd += self.tlsSocket.read(packetSize)
+                except SSL.WantReadError:
+                    data2 = self.socket.recv(packetSize - len(data) )
+                    self.tlsSocket.bio_write(data2)
+                    data += data2
+                    pass
+                else:
+                    data = dd
+                    break
+        return data
 
     def recvTDS(self, packetSize = None):
         # Do reassembly here
         if packetSize is None:
             packetSize = self.packetSize
-        packet = TDSPacket(self.socket.recv(packetSize))
+        packet = TDSPacket(self.socketRecv(packetSize))
         status = packet['Status']
         packetLen = packet['Length']-8
         while packetLen > len(packet['Data']):
-            data = self.socket.recv(packetSize)
+            data = self.socketRecv(packetSize)
             packet['Data'] += data
         
         remaining = None
@@ -553,11 +589,11 @@ class MSSQL():
                 tmpPacket = TDSPacket(remaining)
                 remaining = None
             else: 
-                tmpPacket = TDSPacket(self.socket.recv(packetSize))
+                tmpPacket = TDSPacket(self.socketRecv(packetSize))
 
             packetLen = tmpPacket['Length'] - 8
             while packetLen > len(tmpPacket['Data']):
-                data = self.socket.recv(packetSize)
+                data = self.socketRecv(packetSize)
                 tmpPacket['Data'] += data
 
             remaining = None
@@ -583,10 +619,27 @@ class MSSQL():
             nthash = ''
 
         resp = self.preLogin()
-
         # Test this!
-        if resp['Encryption'] != TDS_ENCRYPT_NOT_SUP:
-            print "Encryption not supported"
+        if resp['Encryption'] == TDS_ENCRYPT_REQ or resp['Encryption'] == TDS_ENCRYPT_OFF:
+            print "[!] Encryption required, switching to TLS"
+
+            # Switching to TLS now
+            ctx = SSL.Context(SSL.TLSv1_METHOD)
+            ctx.set_cipher_list('RC4')
+            tls = SSL.Connection(ctx,None)
+            tls.set_connect_state()
+            while True:
+                try:
+                    tls.do_handshake()
+                except SSL.WantReadError:
+                    data = tls.bio_read(4096)
+                    self.sendTDS(TDS_PRE_LOGIN, data,0)
+                    tds = self.recvTDS()
+                    tls.bio_write(tds['Data'])
+                else:
+                    break
+
+            self.tlsSocket = tls 
 
         login = TDS_LOGIN()
 
@@ -611,9 +664,16 @@ class MSSQL():
 
         login['Length'] = len(str(login))
 
-        self.sendTDS(TDS_LOGIN7, str(login))
         # Send the NTLMSSP Negotiate or SQL Auth Packet
+        self.sendTDS(TDS_LOGIN7, str(login))
+
+        # According to the spects, if encryption is not required, we must encrypt just 
+        # the first Login packet :-o 
+        if resp['Encryption'] == TDS_ENCRYPT_OFF:
+            self.tlsSocket = None
+
         tds = self.recvTDS()
+
 
         if useWindowsAuth is True:
             serverChallenge = tds['Data'][3:]
@@ -630,6 +690,7 @@ class MSSQL():
             return True
         else:
             return False
+
 
     def processColMeta(self):
         for col in self.colMeta:
