@@ -239,7 +239,7 @@ class TDS_LOGIN(Structure):
     structure = (
         ('Length','<L=0'),
         ('TDSVersion','>L=0x71'),
-        ('PacketSize','>L=32766'),
+        ('PacketSize','<L=32764'),
         ('ClientProgVer','>L=7'),
         ('ClientPID','<L=0'),
         ('ConnectionID','<L=0'),
@@ -418,7 +418,8 @@ class TDS_COLMETADATA(Structure):
 
 class MSSQL():
     def __init__(self, address, port=1433):
-        self.packetSize = 32766
+        #self.packetSize = 32764
+        self.packetSize = 32763
         self.server = address
         self.port = port
         self.socket = 0
@@ -472,8 +473,8 @@ class MSSQL():
     def preLogin(self):
         prelogin = TDS_PRELOGIN()
         prelogin['Version'] = "\x08\x00\x01\x55\x00\x00"
-        prelogin['Encryption'] = TDS_ENCRYPT_NOT_SUP
-        #prelogin['Encryption'] = TDS_ENCRYPT_OFF
+        #prelogin['Encryption'] = TDS_ENCRYPT_NOT_SUP
+        prelogin['Encryption'] = TDS_ENCRYPT_OFF
         prelogin['ThreadID'] = struct.pack('<L',random.randint(0,65535))
         prelogin['Instance'] = 'MSSQLServer\x00'
 
@@ -555,7 +556,6 @@ class MSSQL():
                 except SSL.WantReadError:
                     data2 = self.socket.recv(packetSize - len(data) )
                     self.tlsSocket.bio_write(data2)
-                    data += data2
                     pass
                 else:
                     data = dd
@@ -639,7 +639,11 @@ class MSSQL():
                 else:
                     break
 
+            # SSL and TLS limitation: Secure Socket Layer (SSL) and its replacement, 
+            # Transport Layer Security(TLS), limit data fragments to 16k in size.
+            self.packetSize = 16*1024-1
             self.tlsSocket = tls 
+
 
         login = TDS_LOGIN()
 
@@ -648,6 +652,7 @@ class MSSQL():
         login['ServerName'] = self.server.encode('utf-16le')
         login['CltIntName']  = login['AppName']
         login['ClientPID'] = random.randint(0,1024)
+        login['PacketSize'] = self.packetSize
         if database is not None:
             login['Database'] = database.encode('utf-16le')
         login['OptionFlags2'] = TDS_INIT_LANG_FATAL | TDS_ODBC_ON
