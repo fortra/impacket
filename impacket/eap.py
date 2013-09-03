@@ -1,5 +1,5 @@
 from helper import ProtocolPacket, Byte, Word, Long, ThreeBytesBigEndian, BaseDecoder
-from impacket.dot11 import SNAP
+from dot11 import SNAP
 import wps
 
 DOT1X_AUTHENTICATION = 0x888E
