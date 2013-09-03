@@ -20,6 +20,7 @@ import IP6, ICMP6
 from cdp import CDP
 from Dot11KeyManager import KeyManager
 from Dot11Crypto import RC4
+import eap
 
 """Classes to convert from raw packets into a hierarchy of
 ImpactPacket derived objects.
@@ -652,6 +653,9 @@ class SNAPDecoder(Decoder):
         elif s.get_protoID() == ImpactPacket.ARP.ethertype:
             self.arp_decoder = ARPDecoder()
             packet = self.arp_decoder.decode(s.body_string)
+        elif s.get_protoID() == eap.DOT1X_AUTHENTICATION:
+            self.eapol_decoder = eap.EAPOLDecoder()
+            packet = self.eapol_decoder.decode(s.body_string)
         else:
             self.data_decoder = DataDecoder()
             packet = self.data_decoder.decode(s.body_string)
