@@ -13,7 +13,6 @@
 # Aureliano Calvo
 
 
-from impacket.ImpactDecoder import Decoder, DataDecoder
 import impacket.ImpactPacket as ip
 import struct
 import functools
@@ -150,13 +149,3 @@ class ProtocolPacket(ip.ProtocolPacket):
         if buff:
             self.load_packet(buff)
             
-class BaseDecoder(Decoder):
-    
-    def decode(self, buff):
-        
-        packet = self.klass(buff)
-        self.set_decoded_protocol(packet)
-        cd = self.child_decoders.get(self.child_key(packet), DataDecoder())
-        packet.contains(cd.decode(packet.get_body_as_string()))
-        return packet
-    

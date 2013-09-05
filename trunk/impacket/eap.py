@@ -14,9 +14,7 @@
 # Aureliano Calvo
 
 
-from helper import ProtocolPacket, Byte, Word, Long, ThreeBytesBigEndian, BaseDecoder
-from dot11 import SNAP
-import wps
+from impacket.helper import ProtocolPacket, Byte, Word, Long, ThreeBytesBigEndian
 
 DOT1X_AUTHENTICATION = 0x888E
 
@@ -72,49 +70,4 @@ class EAPOL(ProtocolPacket):
     packet_type = Byte(1)
     body_length = Word(2, ">")
     
-class EAPExpandedDecoder(BaseDecoder):
-    child_decoders = {
-        (EAPExpanded.WFA_SMI, EAPExpanded.SIMPLE_CONFIG): wps.SimpleConfigDecoder(),
-    }
-    klass = EAPExpanded
-    child_key = lambda s,p: (p.get_vendor_id(), p.get_vendor_type())
-        
-class EAPRDecoder(BaseDecoder):
-    child_decoders = {
-        EAPR.EXPANDED:EAPExpandedDecoder()
-    }
-    klass = EAPR
-    child_key = lambda s, p: p.get_type()
-        
-class EAPDecoder(BaseDecoder):
-    child_decoders = {
-        EAP.REQUEST: EAPRDecoder(),
-        EAP.RESPONSE: EAPRDecoder(),
-    }
-    klass = EAP
-    child_key = lambda s, p: p.get_code()
-        
-class EAPOLDecoder(BaseDecoder):
-    child_decoders = {
-        EAPOL.EAP_PACKET: EAPDecoder()
-    }
-    klass = EAPOL
-    child_key = lambda s, p: p.get_packet_type()
-    
-class EnhancedDecoder(object):
-    """Enhances a decoder so it handles an EAPOL packet inside a SNAP packet"""
-    
-    def __init__(self, base_decoder):
-        self.base_decoder = base_decoder
-    
-    def decode(self, buff):
-        packet = self.base_decoder.decode(buff)
-        snap = self.get_protocol(SNAP)
-        
-        if snap and snap.get_protoID() == DOT1X_AUTHENTICATION:
-            snap.contains(EAPOLDecoder().decode(snap.get_body_as_string()))
-            
-        return packet
-    
-    def get_protocol(self, p):
-        return self.base_decoder.get_protocol(p)
+

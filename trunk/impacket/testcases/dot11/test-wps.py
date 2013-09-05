@@ -17,11 +17,11 @@
 
 # sorry, this is very ugly, but I'm in python 2.5
 import sys
-sys.path.insert(0,"../..")
+sys.path.insert(0,"../../..")
 
 
 import unittest
-import wps
+from impacket import wps
 import array
 
 

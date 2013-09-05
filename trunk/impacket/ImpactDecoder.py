@@ -1,4 +1,4 @@
-# Copyright (c) 2003-2012 CORE Security Technologies
+# Copyright (c) 2003-2013 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -13,6 +13,7 @@
 # Author:
 #  Javier Burroni (javier)
 #  Bruce Leidl (brl)
+#  Aureliano Calvo
 
 import ImpactPacket
 import dot11
@@ -21,6 +22,8 @@ from cdp import CDP
 from Dot11KeyManager import KeyManager
 from Dot11Crypto import RC4
 import eap
+from impacket import wps
+import array
 
 """Classes to convert from raw packets into a hierarchy of
 ImpactPacket derived objects.
@@ -654,7 +657,7 @@ class SNAPDecoder(Decoder):
             self.arp_decoder = ARPDecoder()
             packet = self.arp_decoder.decode(s.body_string)
         elif s.get_protoID() == eap.DOT1X_AUTHENTICATION:
-            self.eapol_decoder = eap.EAPOLDecoder()
+            self.eapol_decoder = EAPOLDecoder()
             packet = self.eapol_decoder.decode(s.body_string)
         else:
             self.data_decoder = DataDecoder()
@@ -821,3 +824,59 @@ class Dot11ManagementReassociationResponseDecoder(BaseDot11Decoder):
         self.set_decoded_protocol(p)
         
         return p
+
+class BaseDecoder(Decoder):
+    
+    def decode(self, buff):
+        
+        packet = self.klass(buff)
+        self.set_decoded_protocol(packet)
+        cd = self.child_decoders.get(self.child_key(packet), DataDecoder())
+        packet.contains(cd.decode(packet.get_body_as_string()))
+        return packet
+
+class SimpleConfigDecoder(BaseDecoder):
+
+    child_decoders = {}
+    klass = wps.SimpleConfig
+    child_key = lambda s,p: None
+    
+    def decode(self, buff):
+        sc = BaseDecoder.decode(self, buff)
+        ary = array.array('B', sc.child().get_packet())
+        sc.unlink_child()
+        tlv = wps.SimpleConfig.build_tlv_container()
+        tlv.from_ary(ary)
+        sc.contains(tlv)
+        
+        return sc
+
+class EAPExpandedDecoder(BaseDecoder):
+    child_decoders = {
+        (eap.EAPExpanded.WFA_SMI, eap.EAPExpanded.SIMPLE_CONFIG): SimpleConfigDecoder(),
+    }
+    klass = eap.EAPExpanded
+    child_key = lambda s,p: (p.get_vendor_id(), p.get_vendor_type())
+        
+class EAPRDecoder(BaseDecoder):
+    child_decoders = {
+        eap.EAPR.EXPANDED:EAPExpandedDecoder()
+    }
+    klass = eap.EAPR
+    child_key = lambda s, p: p.get_type()
+        
+class EAPDecoder(BaseDecoder):
+    child_decoders = {
+        eap.EAP.REQUEST: EAPRDecoder(),
+        eap.EAP.RESPONSE: EAPRDecoder(),
+    }
+    klass = eap.EAP
+    child_key = lambda s, p: p.get_code()
+        
+class EAPOLDecoder(BaseDecoder):
+    child_decoders = {
+        eap.EAPOL.EAP_PACKET: EAPDecoder()
+    }
+    klass = eap.EAPOL
+    child_key = lambda s, p: p.get_packet_type()
+    
