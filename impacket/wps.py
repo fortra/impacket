@@ -13,7 +13,7 @@
 # Aureliano Calvo
 
 
-from helper import ProtocolPacket, Byte, Bit, BaseDecoder
+from impacket.helper import ProtocolPacket, Byte, Bit
 import array
 import struct
 
@@ -401,21 +401,4 @@ class SimpleConfig(ProtocolPacket):
             builders=SimpleConfig.BUILDERS, 
             descs = dict( (v,k) for (k,v) in SCElem.__dict__.iteritems() )
         )
-    
-class SimpleConfigDecoder(BaseDecoder):
-
-    child_decoders = {}
-    klass = SimpleConfig
-    child_key = lambda s,p: None
-    
-    def decode(self, buff):
-        sc = BaseDecoder.decode(self, buff)
-        ary = array.array('B', sc.child().get_packet())
-        sc.unlink_child()
-        tlv = SimpleConfig.build_tlv_container()
-        tlv.from_ary(ary)
-        sc.contains(tlv)
-        
-        return sc
-    
     
