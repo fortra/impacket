@@ -1,3 +1,19 @@
+
+# Copyright (c) 2003-2013 CORE Security Technologies
+#
+# This software is provided under under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
+# $Id$
+#
+# Description:
+#  EAP packets
+#
+# Author:
+# Aureliano Calvo
+
+
 from helper import ProtocolPacket, Byte, Word, Long, ThreeBytesBigEndian, BaseDecoder
 from dot11 import SNAP
 import wps
