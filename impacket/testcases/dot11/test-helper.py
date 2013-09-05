@@ -1,5 +1,19 @@
 #!/usr/bin/env python
 
+# Copyright (c) 2003-2013 CORE Security Technologies
+#
+# This software is provided under under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
+# $Id$
+#
+# Description:
+#  Tests for helper used to build ProtocolPackets
+#
+# Author:
+# Aureliano Calvo
+
 # sorry, this is very ugly, but I'm in python 2.5
 import sys
 sys.path.insert(0,"../..")

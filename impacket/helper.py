@@ -1,3 +1,18 @@
+# Copyright (c) 2003-2013 CORE Security Technologies
+#
+# This software is provided under under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
+# $Id$
+#
+# Description:
+#  Helper used to build ProtocolPackets
+#
+# Author:
+# Aureliano Calvo
+
+
 from impacket.ImpactDecoder import Decoder, DataDecoder
 import impacket.ImpactPacket as ip
 import struct
