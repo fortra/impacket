@@ -136,7 +136,7 @@ FILE_MFTMirr  = 1
 FILE_LogFile  = 2
 FILE_Volume   = 3
 FILE_AttrDef  = 4
-FILE_root     = 5
+FILE_Root     = 5
 FILE_Bitmap   = 6
 FILE_Boot     = 7
 FILE_BadClus  = 8
@@ -651,7 +651,7 @@ class INODE():
         self.AttributesRaw = None
         self.AttributesLastPos = None
         # Some interesting Attributes to parse
-        self.FileAttributes = None
+        self.FileAttributes = 0
         self.LastDataChangeTime = None
         self.FileName = None
         self.FileSize = 0
@@ -698,6 +698,10 @@ class INODE():
             mask += 'E'
         else:
             mask += '-'
+        if self.isSparse():
+            mask += 's'
+        else:
+            mask += '-'
         return mask
 
     def parseAttributes(self):
@@ -706,6 +710,7 @@ class INODE():
         if attr is not None:
             si = AttributeStandardInfo(attr)
             self.Attributes[STANDARD_INFORMATION] = si
+            self.FileAttributes |= si.getFileAttributes()
             self.LastDataChangeTime = si.getFileTime()
             self.Attributes[STANDARD_INFORMATION] = si
 
@@ -716,7 +721,7 @@ class INODE():
             if fn.getFileNameType() != FILE_NAME_DOS:
                 self.FileName = fn.getFileName()
                 self.FileSize = fn.getFileSize()
-                self.FileAttributes = fn.getFileAttributes()
+                self.FileAttributes |= fn.getFileAttributes()
                 self.Attributes[FILE_NAME] = fn
                 break
             attr = self.searchAttribute(FILE_NAME, None, True)
@@ -833,15 +838,15 @@ class INODE():
             else:
                 if len(entry.getKey()) > 0 and entry.getINodeNumber() > 16:
                     fn = NTFS_FILE_NAME_ATTR(entry.getKey())
-                    inode = INODE(self.NTFSVolume)
-                    inode.FileAttributes = fn['FileAttributes']
-                    inode.FileSize = fn['DataSize']
-                    inode.LastDataChangeTime = datetime.fromtimestamp(getUnixTime(fn['LastDataChangeTime']))
-                    inode.INodeNumber = entry.getINodeNumber()
                     if fn['FileNameType'] != FILE_NAME_DOS:
-                        inode.FileName = fn['FileName'].decode('utf-16le')
-                    inode.displayName()
-                    files.append(inode.FileName)
+                        #inode = INODE(self.NTFSVolume)
+                        #inode.FileAttributes = fn['FileAttributes']
+                        #inode.FileSize = fn['DataSize']
+                        #inode.LastDataChangeTime = datetime.fromtimestamp(getUnixTime(fn['LastDataChangeTime']))
+                        #inode.INodeNumber = entry.getINodeNumber()
+                        #inode.FileName = fn['FileName'].decode('utf-16le')
+                        #inode.displayName()
+                        files.append(fn)
 #                    if inode.FileAttributes & FILE_ATTR_I30_INDEX_PRESENT and entry.getINodeNumber() > 16:
 #                        inode2 = self.NTFSVolume.getINode(entry.getINodeNumber())
 #                        inode2.walk()
@@ -949,7 +954,7 @@ class NTFS:
         logging.debug("Mounting volume...")
         self.volumeFD = open(self.__volumeName,"rb")
         self.readBootSector()
-        self.MFTINode = self.getINode(0)
+        self.MFTINode = self.getINode(FILE_MFT)
         # Check whether MFT is fragmented
         attr = self.MFTINode.searchAttribute(DATA, None)
         if attr is None:
@@ -1007,13 +1012,6 @@ class NTFS:
         newINode.AttributesRaw = record[mftRecord['AttributesOffset']-recordLen:]
         newINode.parseAttributes()
 
-        if newINode.isCompressed():
-            logging.ERROR('Compressed files not supported!')
-        if newINode.isEncrypted():
-            logging.ERROR('Encrypted files not supported!')
-        if newINode.isSparse():
-            logging.ERROR('Sparse files not supported!')
-
         return newINode
 
 class MiniShell(cmd.Cmd):
@@ -1037,7 +1035,6 @@ class MiniShell(cmd.Cmd):
            retVal = cmd.Cmd.onecmd(self,s)
         except Exception, e:
            print "ERROR: %s" % e
-           raise
 
         return retVal
 
@@ -1076,25 +1073,30 @@ class MiniShell(cmd.Cmd):
         if newPath == self.pwd:
             # Nothing changed
             return
-        if len(newPath) < len(self.pwd):
-            # .. or \ entered.. parsing it all again
-            p = ntpath.normpath(ntpath.join(self.pwd,p))
-        res = self.findPathName(ntpath.normpath(p))
+        common = ntpath.commonprefix([newPath,oldpwd])
+
+        if common == oldpwd:
+            res = self.findPathName(ntpath.normpath(p))
+        else:
+            res = self.findPathName(newPath)
+
         if res is None:
             print "Directory not found"
             self.pwd = oldpwd
+            return 
+        if res.isDirectory() == 0:
+            print "Not a directory!"
+            self.pwd = oldpwd
+            return
         else:
-            if res.isDirectory() == 0:
-                print "Not a directory!"
-                self.pwd = oldpwd
-            else:
-                self.currentINode = res
-                self.pwd = ntpath.join(self.pwd,p)
-                self.pwd = ntpath.normpath(self.pwd)
-                self.prompt = self.pwd + '>'
+            self.currentINode = res
+            self.do_ls('', False)
+            self.pwd = ntpath.join(self.pwd,p)
+            self.pwd = ntpath.normpath(self.pwd)
+            self.prompt = self.pwd + '>'
 
     def findPathName(self, pathName):
-        if len(pathName) == 1 and pathName == '\\':
+        if pathName == '\\':
             return self.rootINode
         tmpINode = self.currentINode
         parts = pathName.split('\\')
@@ -1113,12 +1115,20 @@ class MiniShell(cmd.Cmd):
     def do_pwd(self,line):
         print self.pwd
 
-    def do_ls(self, wildcard):
-        self.completion = self.currentINode.walk()
-        self.completion = [c for c in self.completion if c is not None]
-
+    def do_ls(self, line, display = True):
+        entries = self.currentINode.walk()
+        self.completion = []
+        for entry in entries:
+            inode = INODE(self.volume)
+            inode.FileAttributes = entry['FileAttributes']
+            inode.FileSize = entry['DataSize']
+            inode.LastDataChangeTime = datetime.fromtimestamp(getUnixTime(entry['LastDataChangeTime']))
+            inode.FileName = entry['FileName'].decode('utf-16le')
+            if display is True:
+                inode.displayName()
+            self.completion.append(inode.FileName)
+            
     def complete_cd(self, text, line, begidx, endidx):
-#        print "ACA"
         return self.complete_get(text, line, begidx, endidx)
 
     def complete_cat(self,text,line,begidx,endidx):
@@ -1146,11 +1156,12 @@ class MiniShell(cmd.Cmd):
         if res is None:
             print "Not found!"
             return
-        else:
-            if res.isDirectory() > 0:
-                print "It's a directory!"
-                return
-
+        if res.isDirectory() > 0:
+            print "It's a directory!"
+            return
+        if res.isCompressed() or res.isEncrypted() or res.isSparse():
+            logging.error('Cannot handle compressed/encrypted/sparse files! :(')
+            return
         stream = res.getStream(None)
         chunks = 4096*10
         written = 0
@@ -1161,32 +1172,14 @@ class MiniShell(cmd.Cmd):
         if stream.getDataSize() % chunks:
             buf = stream.read(written, stream.getDataSize() % chunks)
             command(buf)
+        print "%d bytes read" % stream.getDataSize()
 
     def do_get(self, line):
         pathName = string.replace(line,'/','\\')
         pathName = ntpath.normpath(ntpath.join(self.pwd,pathName))
-        res = self.findPathName(pathName)
-        if res is None:
-            print "Not found!"
-            return
-        else:
-            if res.isDirectory() > 0:
-                print "It's a directory!"
-                return
-
-        stream = res.getStream(None)
         fh = open(ntpath.basename(pathName),"wb")
-        chunks = 4096*10
-        written = 0
-        for i in range(stream.getDataSize()/chunks):
-            buf = stream.read(i*chunks, chunks)
-            written += len(buf)
-            fh.write(buf)
-        if stream.getDataSize() % chunks:
-            buf = stream.read(written, stream.getDataSize() % chunks)
-            fh.write(buf)
+        self.do_cat(line, command = fh.write)
         fh.close()
-        print "%d bytes written" % stream.getDataSize()
 
 def main():
     print version.BANNER
