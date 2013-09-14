@@ -1025,6 +1025,7 @@ class MiniShell(cmd.Cmd):
         self.currentINode = self.rootINode
         self.completion = []
         self.pwd = '\\'
+        self.do_ls('',False)
 
     def emptyline(self):
         pass
@@ -1126,10 +1127,10 @@ class MiniShell(cmd.Cmd):
             inode.FileName = entry['FileName'].decode('utf-16le')
             if display is True:
                 inode.displayName()
-            self.completion.append(inode.FileName)
+            self.completion.append((inode.FileName,inode.isDirectory()))
             
     def complete_cd(self, text, line, begidx, endidx):
-        return self.complete_get(text, line, begidx, endidx)
+        return self.complete_get(text, line, begidx, endidx, include = 2)
 
     def complete_cat(self,text,line,begidx,endidx):
         return self.complete_get(text, line, begidx, endidx)
@@ -1137,14 +1138,25 @@ class MiniShell(cmd.Cmd):
     def complete_hexdump(self,text,line,begidx,endidx):
         return self.complete_get(text, line, begidx, endidx)
 
-    def complete_get(self, text, line, begidx, endidx):
+    def complete_get(self, text, line, begidx, endidx, include = 1):
+        # include means
+        # 1 just files
+        # 2 just directories
+        items = []
+        if include == 1:
+            mask = 0
+        else:
+            mask = FILE_ATTR_I30_INDEX_PRESENT
+        for i in self.completion:
+            if i[1] == mask:
+                items.append(i[0])
         if text:
             return  [
-                item for item in self.completion
+                item for item in items
                 if item.upper().startswith(text.upper())
             ]
         else:
-            return self.completion
+            return items
 
     def do_hexdump(self,line):
         return self.do_cat(line,command = hexdump)
