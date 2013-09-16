@@ -3,6 +3,7 @@ separator='=====================================================================
 #ls *.py | xargs -I{} --max-args=1 bash -c "echo -e '$separator\nExecuting: {}\n';python {}"
 #ls *.py | xargs --max-args=1 python
 
+export PYTHONPATH=../../..:$PYTHONPATH
 
 total=0
 ok=0
