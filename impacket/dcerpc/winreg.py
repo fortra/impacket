@@ -50,6 +50,67 @@ REG_RESOURCE_LIST       =     8 #   // Resource list in the resource map
 REG_FULL_RESOURCE_DESCRIPTOR  = 9   # Resource list in the hardware description
 REG_RESOURCE_REQUIREMENTS_LIST  = 10
 
+class WINREGSaveKey(ImpactPacket.Header):
+    OP_NUM = 20
+    __SIZE = 72
+
+    def __init__(self, aBuffer = None):
+        ImpactPacket.Header.__init__(self, WINREGSaveKey.__SIZE)
+
+        if aBuffer: self.load_header(aBuffer)
+        print len(self.get_bytes())
+
+    def get_context_handle(self):
+        return self.get_bytes().tolist()[:20]
+
+    def set_context_handle(self, handle):
+        assert 20 == len(handle)
+        self.get_bytes()[:20] = array.array('B', handle)
+
+    def get_file_name(self):
+        return unicode(self.get_bytes().tostring()[40:-4], 'utf-16le')
+
+    def set_file_name(self, name):
+        if not name.endswith('\0'):
+            name += '\0'
+        namelen = len(name)
+        wlen = 2 * namelen
+        if (wlen % 4):
+            pad = ('\x00' * (4 - (wlen % 4)))
+        else:
+            pad = ''
+
+        self.set_word(20, 2 * namelen, '<')
+        self.set_word(22, 2 * namelen, '<')
+        self.set_long(24, 0x2, '<')
+        self.set_long(28, namelen, '<')
+        self.set_long(36, namelen, '<')
+        self.get_bytes()[40:] = array.array('B', name.encode('utf-16le') + pad + '\x00'*4)
+
+
+    def get_header_size(self):
+        var_size = len(self.get_bytes()) - WINREGSaveKey.__SIZE
+        assert var_size > 0
+        return WINREGSaveKey.__SIZE + var_size
+
+
+class WINREGRespSaveKey(ImpactPacket.Header):
+    __SIZE = 4
+
+    def __init__(self, aBuffer = None):
+        ImpactPacket.Header.__init__(self, WINREGRespSaveKey.__SIZE)
+        if aBuffer: self.load_header(aBuffer)
+
+    def get_return_code(self):
+        return self.get_long(0, '<')
+    def set_return_code(self, code):
+        self.set_long(0, code, '<')
+
+
+    def get_header_size(self):
+        return WINREGRespSaveKey.__SIZE
+
+
 
 class WINREGCloseKey(ImpactPacket.Header):
     OP_NUM = 5
@@ -692,6 +753,16 @@ class DCERPCWinReg:
         self._dce.send(wreg_setval)
         data = self._dce.recv()
         retVal = WINREGRespSetValue(data)
+        return retVal
+
+    def regSaveKey(self, context_handle, fileName):
+        wreg_savekey = WINREGSaveKey()
+        wreg_savekey.set_context_handle( context_handle )
+        wreg_savekey.set_file_name(fileName)
+        print wreg_savekey
+        self._dce.send(wreg_savekey)
+        data = self._dce.recv()
+        retVal = WINREGRespSaveKey(data)
         return retVal
 
     def openHKLM(self):
