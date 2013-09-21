@@ -11,6 +11,8 @@
 # Description:
 #   WinReg (Windows Registry) interface implementation.
 #
+# ToDo:
+# [ ] Port all this to structure. Check svcctl.py
 
 import array
 import struct
@@ -49,6 +51,58 @@ REG_MULTI_SZ            =     7 #   // Multiple Unicode strings
 REG_RESOURCE_LIST       =     8 #   // Resource list in the resource map
 REG_FULL_RESOURCE_DESCRIPTOR  = 9   # Resource list in the hardware description
 REG_RESOURCE_REQUIREMENTS_LIST  = 10
+
+class WINREGQueryInfoKey(ImpactPacket.Header):
+# Just the class info stuff for now
+    OP_NUM = 16
+    __SIZE = 40
+
+    def __init__(self, aBuffer = None):
+        ImpactPacket.Header.__init__(self, WINREGQueryInfoKey.__SIZE)
+        self.set_word(20, 0, '<')
+        self.set_word(22, 520, '<')
+        self.set_long(24,0x2,'<')
+        self.set_long(28, 260, '<')
+        self.set_long(32, 0, '<')
+        self.set_long(34, 0, '<')
+        self.set_word(36, 0, '<')
+
+    def get_context_handle(self):
+        return self.get_bytes().tolist()[:20]
+
+    def set_context_handle(self, handle):
+        assert 20 == len(handle)
+        self.get_bytes()[:20] = array.array('B', handle)
+
+    def get_header_size(self):
+        var_size = len(self.get_bytes()) - WINREGQueryInfoKey.__SIZE
+        assert var_size > 0
+        return WINREGQueryInfoKey.__SIZE + var_size
+
+class WINREGRespQueryInfoKey(ImpactPacket.Header):
+    OP_NUM = 16
+    __SIZE = 0
+
+    def __init__(self, aBuffer = None):
+        ImpactPacket.Header.__init__(self, WINREGRespQueryInfoKey.__SIZE)
+        if aBuffer: self.load_header(aBuffer)
+
+    def get_class_data(self):
+        length = self.get_word(0, '<')
+        return unicode(self.get_bytes().tostring()[20:20+length], 'utf-16le')
+
+    def get_return_code(self):
+        return self.get_long(-4, '<')
+
+    def set_return_code(self, code):
+        self.set_long(-4, code, '<')
+
+
+    def get_header_size(self):
+        var_size = len(self.get_bytes()) - WINREGRespQueryInfoKey.__SIZE
+        assert var_size > 0
+        return WINREGRespQueryInfoKey.__SIZE + var_size
+
 
 class WINREGSaveKey(ImpactPacket.Header):
     OP_NUM = 20
@@ -759,10 +813,17 @@ class DCERPCWinReg:
         wreg_savekey = WINREGSaveKey()
         wreg_savekey.set_context_handle( context_handle )
         wreg_savekey.set_file_name(fileName)
-        print wreg_savekey
         self._dce.send(wreg_savekey)
         data = self._dce.recv()
         retVal = WINREGRespSaveKey(data)
+        return retVal
+
+    def regGetClassInfo(self, context_handle):
+        query_key = WINREGQueryInfoKey()
+        query_key.set_context_handle(context_handle)
+        self._dce.send(query_key)
+        data = self._dce.recv()
+        retVal = WINREGRespQueryInfoKey(data)
         return retVal
 
     def openHKLM(self):
