@@ -344,6 +344,25 @@ class SVCCTLREnumServicesStatusWResponse(Structure):
         ('ErrorCode','<L'),
     )
 
+class SVCCTLRChangeServiceConfigW(Structure):
+     opnum = 11
+     alignment = 4
+     structure = (
+         ('ContextHandle','20s'),
+         ('ServiceType','<L=0xffffffff'),
+         ('StartType','<L=0'),
+         ('ErrorControl','<L=0xffffffff'),
+         ('BinaryPathName','<L=0',ndrutils.NDRUniqueStringW),
+         ('LoadOrderGroup','<L=0',ndrutils.NDRUniqueStringW),
+         ('TagID','<L=0'),
+         ('Dependencies','<L=0'),
+         ('DependenciesSize','<L=0'),
+         ('ServiceStartName','<L=0',ndrutils.NDRUniqueStringW),
+         ('Password','<L=0'),
+         ('PwSize','<L=0'),
+         ('DisplayName','<L=0',ndrutils.NDRUniqueStringW),
+     )
+
 # OLD Style structs.. leaving this stuff for compatibility purpose. Don't use these structs/functions anymore
 
 class SVCCTLOpenSCManagerHeader(ImpactPacket.Header):
@@ -987,7 +1006,22 @@ class DCERPCSvcCtl:
 
         return enumServicesList
         
-
+    def ChangeServiceConfigW(self, handle, startType):
+        # For now we just support changing the startType
+        changeConfig = SVCCTLRChangeServiceConfigW()
+        changeConfig['ContextHandle'] = handle
+        changeConfig['StartType'] = startType
+##        changeConfig['BinaryPathName'] = ndrutils.NDRUniqueStringW()
+##        changeConfig['BinaryPathName']['Data'] = ''
+##        changeConfig['LoadOrderGroup'] = ndrutils.NDRUniqueStringW()
+##        changeConfig['LoadOrderGroup']['Data'] = ''
+##        changeConfig['ServiceStartName'] = ndrutils.NDRUniqueStringW()
+##        changeConfig['ServiceStartName']['Data'] = ''
+##        changeConfig['DisplayName'] = ndrutils.NDRUniqueStringW()
+##        changeConfig['DisplayName']['Data'] = ''
+        ans = self.doRequest(changeConfig, checkReturn = 1)
+        return ans
+ 
     def QueryServiceStatus(self, handle):
         queryStatus = SVCCTLRQueryServiceStatus()
         queryStatus['ContextHandle'] = handle
