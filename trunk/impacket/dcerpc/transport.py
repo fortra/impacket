@@ -396,6 +396,7 @@ class SMBTransport(DCERPCTransport):
     
     def set_smb_connection(self, smb_connection):
         self.__smb_connection = smb_connection
+        self.__existing_smb = True
 
     def get_smb_server(self):
         # Raw Access to the SMBServer (whatever type it is)
