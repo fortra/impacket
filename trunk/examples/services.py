@@ -286,6 +286,10 @@ if __name__ == '__main__':
     if domain is None:
         domain = ''
 
+    if password == '' and username != '' and options.hashes is None:
+        from getpass import getpass
+        password = getpass("Password:")
+
     services = SVCCTL(username, password, options.protocol, domain, options.hashes, service_name , options.action.upper(), display_name, path)
     try:
         services.run(address)

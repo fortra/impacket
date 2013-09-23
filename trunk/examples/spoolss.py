@@ -127,6 +127,10 @@ if __name__ == '__main__':
     import re
     domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(options.target).groups('')
 
+    if password == '' and username != '' and options.hashes is None:
+        from getpass import getpass
+        password = getpass("Password:")
+
     if domain is None:
         domain = ''
 
