@@ -343,7 +343,7 @@ class Registry():
 
         for key in range(lf['NumKeys']):
             hashRec = REG_HASH(data[:8])
-            self.walkSubNodes(hashRec)
+            self.__walkSubNodes(hashRec)
             data = data[8:]
 
         if isinstance(nk, REG_NK):
