@@ -203,5 +203,9 @@ if __name__ == '__main__':
     if domain is None:
         domain = ''
 
+    if password == '' and username != '' and options.hashes is None:
+        from getpass import getpass
+        password = getpass("Password:")
+
     dumper = SAMRDump(options.protocol, username, password, domain, options.hashes)
     dumper.dump(address)

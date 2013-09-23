@@ -421,5 +421,9 @@ if __name__ == '__main__':
     if domain is None:
         domain = ''
 
+    if password == '' and username != '' and options.hashes is None:
+        from getpass import getpass
+        password = getpass("Password:")
+
     executer = PSEXEC(options.command[0], options.path, options.file, options.c, options.protocol, username, password, domain, options.hashes)
     executer.run(address)
