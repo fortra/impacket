@@ -389,7 +389,11 @@ class Registry():
         elif valueType == REG_QWORD:
             print "%d" % (unpack('<Q',valueData)[0])
         elif valueType == REG_NONE:
-            print " NULL"
+            if len(valueData) > 1:
+                print ''
+                hexdump(valueData, self.indent)
+            else:
+                print " NULL"
         elif valueType == REG_MULTISZ:
             print "%s" % (valueData.decode('utf-16le'))
         else:
@@ -431,6 +435,8 @@ class Registry():
             for value in valueList:
                 if value['Flag'] > 0:
                     resp.append(value['Name'])
+                else: 
+                    resp.append('default')
 
         return resp
 
@@ -449,6 +455,8 @@ class Registry():
 
             for value in valueList:
                 if value['Name'] == regValue:
+                    return (value['ValueType'], self.__getValueData(value))
+                elif regValue == 'default' and value['Flag'] <=0:
                     return (value['ValueType'], self.__getValueData(value))
 
         return None
