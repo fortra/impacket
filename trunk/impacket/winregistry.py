@@ -259,7 +259,7 @@ class Registry():
             # if DataLen < 5 the value itself is stored in the Offset field
             return rec['OffsetData']
         else:
-            return self.__getData(rec['OffsetData'], rec['DataLen']+2)
+            return self.__getData(rec['OffsetData'], rec['DataLen']+4)
 
     def __getLhHash(self, key):
         res = 0
