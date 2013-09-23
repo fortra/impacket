@@ -112,7 +112,6 @@ class WINREGSaveKey(ImpactPacket.Header):
         ImpactPacket.Header.__init__(self, WINREGSaveKey.__SIZE)
 
         if aBuffer: self.load_header(aBuffer)
-        print len(self.get_bytes())
 
     def get_context_handle(self):
         return self.get_bytes().tolist()[:20]
