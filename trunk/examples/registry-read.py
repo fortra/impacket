@@ -9,7 +9,7 @@
 # Author: Alberto Solino (beto@coresecurity.com)
 #
 # Description: A Windows Registry Reader Example
-# 
+#
 # Reference for:
 #  winregistry.py
 #
@@ -28,7 +28,7 @@ def bootKey(reg):
 
     for key in keys:
         tmpKey = tmpKey + reg.getClass(baseClass + key).decode('utf-16le')[:8].decode('hex')
-        
+
     transforms = [ 8, 5, 4, 2, 11, 9, 13, 3, 0, 6, 1, 12, 14, 10, 15, 7 ]
 
     syskey = ''
@@ -88,7 +88,6 @@ def enumValues(reg, searchKey):
             reg.printValue(data[0],data[1])
 
 def enumKey(reg, searchKey, isRecursive, indent='  '):
-    #reg.walk()
     parentKey = reg.findKey(searchKey)
 
     if parentKey is None:
@@ -103,6 +102,9 @@ def enumKey(reg, searchKey, isRecursive, indent='  '):
                 enumKey(reg, '\\%s'%(key),isRecursive,indent+'  ')
             else:
                 enumKey(reg, '%s\\%s'%(searchKey,key),isRecursive,indent+'  ')
+
+def walk(reg, keyName):
+    return reg.walk(keyName)
 
 
 def main():
@@ -124,9 +126,13 @@ def main():
     getvalue_parser = subparsers.add_parser('get_value', help='retrieves the data for the specified registry value')
     getvalue_parser.add_argument('-name', action='store', required=True, help='registry value')
 
-    # A get_value command
+    # A get_class command
     getclass_parser = subparsers.add_parser('get_class', help='retrieves the data for the specified registry class')
     getclass_parser.add_argument('-name', action='store', required=True, help='registry class name')
+
+    # A walk command
+    walk_parser = subparsers.add_parser('walk', help='walks the registry from the name node down')
+    walk_parser.add_argument('-name', action='store', required=True, help='registry class name to start walking down from')
 
     if len(sys.argv)==1:
         parser.print_help()
@@ -145,6 +151,8 @@ def main():
         getValue(reg, options.name)
     elif options.action.upper() == 'GET_CLASS':
         getClass(reg, options.name)
+    elif options.action.upper() == 'WALK':
+        walk(reg, options.name)
 
     reg.close()
 
