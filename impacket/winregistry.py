@@ -9,7 +9,7 @@
 # Author: Alberto Solino (beto@coresecurity.com)
 #
 # Description: A Windows Registry Library Parser
-# 
+#
 # Data taken from http://bazaar.launchpad.net/~guadalinex-members/dumphive/trunk/view/head:/winreg.txt
 # http://sentinelchicken.com/data/TheWindowsNTRegistryFileFormat.pdf
 #
@@ -39,7 +39,7 @@ REG_DWORD       = 0x04
 REG_MULTISZ     = 0x07
 REG_QWORD       = 0x0b
 
-# Structs 
+# Structs
 class REG_REGF(Structure):
     structure = (
         ('Magic','"regf'),
@@ -349,11 +349,13 @@ class Registry():
         if isinstance(nk, REG_NK):
             self.indent = self.indent[:-2]
 
-    def walk(self):
-        self.rootKey = self.__findRootKey()
-        if self.rootKey is None:
+    def walk(self, parentKey):
+        key = self.findKey(parentKey)
+
+        if key is None:
             return
-        lf = self.__getBlock(self.rootKey['OffsetSubKeyLf'])
+
+        lf = self.__getBlock(key['OffsetSubKeyLf'])
         data = lf['HashRecords']
         for record in range(lf['NumKeys']):
             hashRec = REG_HASH(data[:8])
@@ -435,7 +437,7 @@ class Registry():
             for value in valueList:
                 if value['Flag'] > 0:
                     resp.append(value['Name'])
-                else: 
+                else:
                     resp.append('default')
 
         return resp
