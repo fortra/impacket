@@ -9,7 +9,7 @@
 # Author: Alberto Solino (beto@coresecurity.com)
 #
 # Description:
-#            
+#
 # Wrapper class for SMB1/2/3 so it's transparent for the client.
 # You can still play with the low level methods (version dependant)
 # by calling getSMBServer()
@@ -67,11 +67,11 @@ class SMBConnection():
                 self._SMBConnection = smb3.SMB3(remoteName, remoteHost, myName, hostType, sess_port, timeout, preferredDialect = preferredDialect)
             else:
                 print "Unknown dialect ", preferredDialect
-                raise 
+                raise
 
     def _negotiateSession(self, myName, remoteName, remoteHost, sess_port, timeout, extended_security = True):
-        # Here we follow [MS-SMB2] negotiation handshake trying to understand what dialects 
-        # (including SMB1) is supported on the other end. 
+        # Here we follow [MS-SMB2] negotiation handshake trying to understand what dialects
+        # (including SMB1) is supported on the other end.
 
         if not myName:
             myName = socket.gethostname()
@@ -79,7 +79,7 @@ class SMBConnection():
             if i > -1:
                 myName = myName[:i]
 
-        # If port 445 and the name sent is *SMBSERVER we're setting the name to the IP. This is to help some old applications still believing 
+        # If port 445 and the name sent is *SMBSERVER we're setting the name to the IP. This is to help some old applications still believing
         # *SMSBSERVER will work against modern OSes. If port is NETBIOS_SESSION_PORT the user better know about *SMBSERVER's limitations
         if sess_port == 445 and remoteName == '*SMBSERVER':
            remoteName = remoteHost
@@ -89,7 +89,7 @@ class SMBConnection():
         smbp = smb.NewSMBPacket()
         negSession = smb.SMBCommand(smb.SMB.SMB_COM_NEGOTIATE)
         if extended_security == True:
-            smbp['Flags2']=smb.SMB.FLAGS2_EXTENDED_SECURITY 
+            smbp['Flags2']=smb.SMB.FLAGS2_EXTENDED_SECURITY
         negSession['Data'] = '\x02NT LM 0.12\x00\x02SMB 2.002\x00\x02SMB 2.???\x00'
         smbp.addCommand(negSession)
         self._nmbSession.send_packet(str(smbp))
@@ -196,7 +196,7 @@ class SMBConnection():
 
             if createContexts is not None:
                 print "CreateContexts not supported in SMB1"
-      
+
             return self._SMBConnection.nt_create_andx(treeId, pathName, cmd = ntCreate)
         else:
             return self._SMBConnection.create(treeId, pathName, desiredAccess, shareMode, creationOption, creationDisposition, fileAttributes, impersonationLevel, securityFlags, oplockLevel, createContexts)
@@ -228,11 +228,11 @@ class SMBConnection():
 
             if createContexts is not None:
                 print "CreateContexts not supported in SMB1"
-      
+
             return self._SMBConnection.nt_create_andx(treeId, pathName, cmd = ntCreate)
         else:
             return self._SMBConnection.create(treeId, pathName, desiredAccess, shareMode, creationOption, creationDisposition, fileAttributes, impersonationLevel, securityFlags, oplockLevel, createContexts)
-        
+
     def writeFile(self, treeId, fileId, data, offset=0):
         """
         writes data to a file
@@ -268,7 +268,7 @@ class SMBConnection():
         :param HANDLE fileId: a valid handle for the file/directory to be closed
 
         :return: None, raises a SessionError exception if error.
-            
+
         """
         return self._SMBConnection.close(treeId, fileId)
 
@@ -280,7 +280,7 @@ class SMBConnection():
         :param string pathName: the path name to remove
 
         :return: None, raises a SessionError exception if error.
-            
+
         """
         return self._SMBConnection.remove(shareName, pathName)
 
@@ -292,7 +292,7 @@ class SMBConnection():
         :param string pathName: the path name or the directory to create
 
         :return: None, raises a SessionError exception if error.
-            
+
         """
         return self._SMBConnection.mkdir(shareName, pathName)
 
@@ -304,7 +304,7 @@ class SMBConnection():
         :param string pathName: the path name or the directory to delete
 
         :return: None, raises a SessionError exception if error.
-            
+
         """
         return self._SMBConnection.rmdir(shareName, pathName)
 
@@ -317,7 +317,7 @@ class SMBConnection():
         :param integer timeout: time to wait for an answer
 
         :return: None, raises a SessionError exception if error.
-            
+
         """
         return self._SMBConnection.waitNamedPipe(treeId, pipeName, timeout = timeout)
 
@@ -331,7 +331,7 @@ class SMBConnection():
         :param boolean waitAnswer: whether or not to wait for an answer
 
         :return: None, raises a SessionError exception if error.
-            
+
         """
         return self._SMBConnection.TransactNamedPipe(treeId, fileId, data, waitAnswer = waitAnswer)
 
@@ -340,13 +340,13 @@ class SMBConnection():
         reads from a named pipe using a transaction command
 
         :return: data read, raises a SessionError exception if error.
-            
+
         """
         return self._SMBConnection.TransactNamedPipeRecv()
 
     def writeNamedPipe(self, treeId, fileId, data, waitAnswer = True):
         """
-        writes to a named pipe 
+        writes to a named pipe
 
         :param HANDLE treeId: a valid handle for the share where the file is to be checked
         :param HANDLE fileId: a valid handle for the file/directory to be closed
@@ -354,7 +354,7 @@ class SMBConnection():
         :param boolean waitAnswer: whether or not to wait for an answer
 
         :return: None, raises a SessionError exception if error.
-            
+
         """
         if self.getDialect() == smb.SMB_DIALECT:
             return self._SMBConnection.write_andx(treeId, fileId, data, wait_answer = waitAnswer, write_pipe_mode = True)
@@ -363,7 +363,7 @@ class SMBConnection():
 
     def readNamedPipe(self,treeId, fileId, bytesToRead = None ):
         """
-        read from a named pipe 
+        read from a named pipe
 
         :param HANDLE treeId: a valid handle for the share where the file is to be checked
         :param HANDLE fileId: a valid handle for the file/directory to be closed
@@ -371,21 +371,21 @@ class SMBConnection():
         :param boolean waitAnswer: whether or not to wait for an answer
 
         :return: None, raises a SessionError exception if error.
-            
+
         """
 
-        return self.readFile(treeId, fileId, bytesToRead = bytesToRead)  
+        return self.readFile(treeId, fileId, bytesToRead = bytesToRead)
 
     def getFile(self, shareName, pathName, callback):
         """
         downloads a file
 
-        :param string shareName: a valid handle for the share where the file is to be opened
+        :param string shareName: name for the share where the file is to be opened
         :param string pathName: the path name to retrieve
-        :param callback callback: 
+        :param callback callback:
 
         :return: None, raises a SessionError exception if error.
-            
+
         """
         return self._SMBConnection.retr_file(shareName, pathName, callback)
 
@@ -393,12 +393,12 @@ class SMBConnection():
         """
         uploads a file
 
-        :param string shareName: a valid handle for the share where the file is to be opened
+        :param string shareName: name for the share where the file is to be opened
         :param string pathName: the path name to upload
-        :param callback callback: 
+        :param callback callback:
 
         :return: None, raises a SessionError exception if error.
-            
+
         """
         return self._SMBConnection.stor_file(shareName, pathName, callback)
 
@@ -406,16 +406,16 @@ class SMBConnection():
         """
         rename a file/directory
 
-        :param string shareName: a valid handle for the share where the file is to be opened
+        :param string shareName: name for the share where the file is to be opened
         :param string oldPath: the old path name or the directory/file to rename
         :param string newPath: the new path name or the directory/file to rename
 
         :return: True, raises a SessionError exception if error.
-            
+
         """
 
         return self._SMBConnection.rename(shareName, oldPath, newPath)
 
     def setTimeout(self, timeout):
         return self._SMBConnection.set_timeout(timeout)
- 
+
