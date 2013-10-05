@@ -562,12 +562,26 @@ class Structure:
         if msg is None: msg = self.__class__.__name__
         ind = ' '*indent
         print "\n%s" % (msg)
-        for i in self.fields.keys():
+        fixedFields = []
+        for field in self.commonHdr+self.structure:
+            i = field[0] 
+            if i in self.fields:
+                fixedFields.append(i)
+                if isinstance(self[i], Structure):
+                    self[i].dump('%s:{' % i, indent = indent + 4)
+                    print "}"
+                else:
+                    print "%s%s: {%r}" % (ind,i,self[i])
+        # Do we have remaining fields not defined in the structures? let's 
+        # print them
+        remainingFields = list(set(self.fields) - set(fixedFields))
+        for i in remainingFields:
             if isinstance(self[i], Structure):
                 self[i].dump('%s:{' % i, indent = indent + 4)
                 print "}"
             else:
                 print "%s%s: {%r}" % (ind,i,self[i])
+
 
 class _StructureTest:
     alignment = 0
