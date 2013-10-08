@@ -537,12 +537,6 @@ class ESENT_PAGE():
                 branchEntry.dump()
             elif self.record['PageFlags'] & FLAGS_LEAF > 0:
                 # Leaf page
-                if self.__DBHeader['Version'] == 0x620 and self.__DBHeader['FileFormatRevision'] > 11 and self.__DBHeader['PageSize'] > 8192:
-                    #logging.warning('Version 0x620, revision 0x11 still experimental')
-                    #print "ACA 0x%x" % unpack('<L', data[:4])[0]
-                    #hexdump(unpack('<L', data[:4])[0])
-                    pass
-                    #raise
                 if self.record['PageFlags'] & FLAGS_SPACE_TREE > 0:
                     # Space Tree
                     spaceTreeEntry = ESENT_SPACE_TREE_ENTRY(data)
@@ -931,7 +925,7 @@ class ESENT_DB:
                         record[column] = None
                     elif itemFlag & TAGGED_DATA_TYPE_MULTI_VALUE:
                         # ToDo: Parse multi-values properly
-                        logging.warning('Multivalue detected in column %s, returning raw results' % (column))
+                        logging.info('Multivalue detected in column %s, returning raw results' % (column))
                         record[column] = (tag[offsetItem:][:itemSize].encode('hex'),)
                     else:
                         record[column] = tag[offsetItem:][:itemSize]
