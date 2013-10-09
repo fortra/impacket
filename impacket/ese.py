@@ -925,7 +925,7 @@ class ESENT_DB:
                         record[column] = None
                     elif itemFlag & TAGGED_DATA_TYPE_MULTI_VALUE:
                         # ToDo: Parse multi-values properly
-                        logging.info('Multivalue detected in column %s, returning raw results' % (column))
+                        logging.debug('Multivalue detected in column %s, returning raw results' % (column))
                         record[column] = (tag[offsetItem:][:itemSize].encode('hex'),)
                     else:
                         record[column] = tag[offsetItem:][:itemSize]
