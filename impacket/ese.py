@@ -588,7 +588,7 @@ class ESENT_PAGE():
         return pageFlags, tagData
 
 class ESENT_DB:
-    def __init__(self, fileName, pageSize = 8192):
+    def __init__(self, fileName, pageSize = 8192, isRemote = False):
         self.__fileName = fileName
         self.__pageSize = pageSize
         self.__DB = None
@@ -596,11 +596,16 @@ class ESENT_DB:
         self.__totalPages = None
         self.__tables = OrderedDict()
         self.__currentTable = None
+        self.__isRemote = isRemote
         self.mountDB()
 
     def mountDB(self):
         logging.debug("Mounting DB...")
-        self.__DB = open(self.__fileName,"rb")
+        if self.__isRemote is True:
+            self.__DB = self.__fileName
+            self.__DB.open()
+        else:
+            self.__DB = open(self.__fileName,"rb")
         mainHeader = self.getPage(-1)
         self.__DBHeader = ESENT_DB_HEADER(mainHeader)
         self.__pageSize = self.__DBHeader['PageSize']
