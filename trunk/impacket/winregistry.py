@@ -179,10 +179,7 @@ class Registry():
         self.fd.close()
 
     def __del__(self):
-        try:
-            self.close()
-        except:
-            pass
+        self.close()
 
     def __findRootKey(self):
         self.fd.seek(0,0)
