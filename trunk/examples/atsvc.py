@@ -7,7 +7,7 @@
 #
 # $Id$
 #
-# ATSVC example for some functions implemented
+# ATSVC example for some functions implemented, creates, enums, runs, delete jobs
 #
 # Author:
 #  Alberto Solino (bethus@gmail.com)
@@ -87,17 +87,18 @@ class ATSVC:
         atInfo['Command']            = ndrutils.NDRUniqueStringW()
         atInfo['Command']['Data']    = ('calc.exe\x00').encode('utf-16le')
 
-        # Remember to remove it on the target server ;)
         resp = at.NetrJobAdd(('\\\\%s'% rpctransport.get_dip()),atInfo)
+        jobId = resp['JobID']
 
         resp = at.NetrJobEnum(rpctransport.get_dip())
         # ToDo: Parse this struct, should be easy
         resp.dump()
+
         # Switching context to TSS
-        dce = dce.alter_ctx(atsvc.MSRPC_UUID_TSS)
+        dce2 = dce.alter_ctx(atsvc.MSRPC_UUID_TSS)
         # Now atsvc should use that new context
-        at = atsvc.DCERPCAtSvc(dce)
-        #path = '\\Microsoft\\Windows\\Media Center'
+        at = atsvc.DCERPCAtSvc(dce2)
+
         path = '\\'
         resp = at.SchRpcEnumTasks(path)
         if resp['Count'] == 1:
@@ -116,6 +117,11 @@ class ATSVC:
                          i += 1
                     elif resp['ErrorCode'] != atsvc.S_FALSE:
                         done = True
+
+        resp = at.SchRpcRun('\\At%d' % jobId)
+        # Switching back to the old ctx_id
+        at = atsvc.DCERPCAtSvc(dce)
+        resp = at.NetrJobDel('\\\\%s'% rpctransport.get_dip(), jobId, jobId)
  
 
         dce.disconnect()
@@ -132,6 +138,10 @@ if __name__ == '__main__':
     import re
 
     username, password, address = re.compile('(?:([^@:]*)(?::([^@]*))?@)?(.*)').match(sys.argv[1]).groups('')
+
+    if password == '' and username != '':
+        from getpass import getpass
+        password = getpass("Password:")
 
     if len(sys.argv) > 2:
         dumper = ATSVC(sys.argv[2:], username, password)
