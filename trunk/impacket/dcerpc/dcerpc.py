@@ -495,7 +495,9 @@ class DCERPC_v5(DCERPC):
                 self.__lmhash = a2b_hex(lmhash)
                 self.__nthash = a2b_hex(nthash)
             except:
-               pass
+                self.__lmhash = lmhash
+                self.__nthash = nthash
+                pass
 
 
     def bind(self, uuid, alter = 0, bogus_binds = 0):
