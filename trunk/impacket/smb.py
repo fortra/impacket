@@ -2885,6 +2885,13 @@ class SMB:
         self.__remote_host = remote_host
         self.__is_pathcaseless = 0
         self.__isNTLMv2 = True
+        # Credentials
+        self.__userName = ''
+        self.__password = ''
+        self.__domain   = ''
+        self.__lmhash   = ''
+        self.__nthash   = ''
+
         # Negotiate Protocol Result, used everywhere
         # Could be extended or not, flags should be checked before 
         self._dialect_data = 0
@@ -3644,6 +3651,14 @@ class SMB:
         else:
             raise Exception('Error: Could not login successfully')
 
+    def getCredentials(self):
+        return (
+            self.__userName,
+            self.__password,
+            self.__domain,
+            self.__lmhash,
+            self.__nthash)
+
     def login(self, user, password, domain = '', lmhash = '', nthash = ''):
 
         # If we have hashes, normalize them
@@ -3655,6 +3670,12 @@ class SMB:
                 nthash = a2b_hex(nthash)
             except:
                 pass
+
+        self.__userName = user
+        self.__password = password
+        self.__domain   = domain
+        self.__lmhash   = lmhash
+        self.__nthash   = nthash
 
         if self._dialects_parameters['Capabilities'] & SMB.CAP_EXTENDED_SECURITY:
             try:

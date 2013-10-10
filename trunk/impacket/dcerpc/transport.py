@@ -195,6 +195,8 @@ class DCERPCTransport:
                self._nthash = binascii.a2b_hex(nthash)
             except:
                pass
+        self._lmhash = lmhash
+        self._nthash = nthash
 
     def doesSupportNTLMv2(self):
         # By default we'll be returning the library's deafult. Only on SMB Transports we might be able to know it beforehand
@@ -321,6 +323,8 @@ class SMBTransport(DCERPCTransport):
             self.__existing_smb = False
         else:
             self.__existing_smb = True
+            user, passwd, domain, lm, nt = smb_connection.getCredentials()
+            self.set_credentials(user, passwd, domain, lm, nt)
 
         self.__prefDialect = None
 
@@ -396,6 +400,8 @@ class SMBTransport(DCERPCTransport):
     
     def set_smb_connection(self, smb_connection):
         self.__smb_connection = smb_connection
+        user, passwd, domain, lm, nt = smb_connection.getCredentials()
+        self.set_credentials(user, passwd, domain, lm, nt)
         self.__existing_smb = True
 
     def get_smb_server(self):

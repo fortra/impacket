@@ -386,6 +386,14 @@ class SMB3:
                 self._Connection['ServerCapabilities'] = negResp['Capabilities']
                 self._Connection['ServerSecurityMode'] = negResp['SecurityMode']
 
+    def getCredentials(self):
+        return (
+            self.__userName,
+            self.__password,
+            self.__domain,
+            self.__lmhash,
+            self.__nthash)
+
     def login(self, user, password, domain = '', lmhash = '', nthash = ''):
         # If we have hashes, normalize them
         if ( lmhash != '' or nthash != ''):
@@ -397,6 +405,12 @@ class SMB3:
             except:
                 pass
 
+        self.__userName = user
+        self.__password = password
+        self.__domain   = domain
+        self.__lmhash   = lmhash
+        self.__nthash   = nthash
+       
         sessionSetup = SMB2SessionSetup()
         if self.RequireMessageSigning is True:
            sessionSetup['SecurityMode'] = SMB2_NEGOTIATE_SIGNING_REQUIRED

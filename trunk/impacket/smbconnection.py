@@ -126,6 +126,9 @@ class SMBConnection():
     def isLoginRequired(self):
         return self._SMBConnection.is_login_required()
 
+    def getCredentials(self):
+        return self._SMBConnection.getCredentials()
+
     def login(self, user, password, domain = '', lmhash = '', nthash = ''):
         """
         logins into the target system
