@@ -156,10 +156,14 @@ StructMappings = {'nk': REG_NK,
                  }
 
 class Registry():
-    def __init__(self, hive):
+    def __init__(self, hive, isRemote = False):
         logging.basicConfig(format='%(levelname)s:%(message)s',level = logging.WARNING)
         self.__hive = hive
-        self.fd = open(hive,'rb')
+        if isRemote is True:
+            self.fd = self.__hive
+            self.__hive.open()
+        else:
+            self.fd = open(hive,'rb')
         data = self.fd.read(4096)
         self.__regf = REG_REGF(data)
         self.indent = ''
@@ -175,7 +179,10 @@ class Registry():
         self.fd.close()
 
     def __del__(self):
-        self.close()
+        try:
+            self.close()
+        except:
+            pass
 
     def __findRootKey(self):
         self.fd.seek(0,0)
