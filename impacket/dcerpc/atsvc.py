@@ -52,6 +52,19 @@ class ATSVCNetrJobAdd(Structure):
         ('pAtInfo',':',AT_INFO),
     )
 
+class ATSVCNetrJobAddResponse(Structure):
+    structure = (
+        ('JobID', '<L=0'), 
+    )
+
+class ATSVCNetrJobDel(Structure):
+    opnum = 1
+    structure = (
+        ('ServerName',':',ndrutils.NDRUniqueStringW),
+        ('MinJobId','<L=0'),
+        ('MaxJobId','<L=0'),
+    )
+
 class ATSVCNetrJobEnum(Structure):
     opnum = 2
     alignment = 4
@@ -96,6 +109,17 @@ class ATSVCSchRpcEnumTasksResp(Structure):
         ('ErrorCode','<L'),
     )
 
+class ATSVCSchRpcRun(Structure):
+    opnum = 12
+    structure = (
+        ('Path',':',ndrutils.NDRStringW),
+        ('cArgs','<L=0'),
+        ('pArgs','<L=0'),
+        ('flags','<L=0'),
+        ('sessionId','<L=0'),
+        ('user','<L=0'),
+    )
+
 class ATSVCSessionError(Exception):
     
     # ToDo: Complete this stuff
@@ -136,33 +160,52 @@ class DCERPCAtSvc:
         return answer
 
     def NetrJobAdd(self, serverName, atInfo):
-         jobAdd = ATSVCNetrJobAdd()
-         jobAdd['ServerName']         = ndrutils.NDRUniqueStringW()
-         jobAdd['ServerName']['Data'] = (serverName+'\x00').encode('utf-16le')
+        jobAdd = ATSVCNetrJobAdd()
+        jobAdd['ServerName']         = ndrutils.NDRUniqueStringW()
+        jobAdd['ServerName']['Data'] = (serverName+'\x00').encode('utf-16le')
 
-         jobAdd['pAtInfo'] = atInfo
+        jobAdd['pAtInfo'] = atInfo
 
-         ans = self.doRequest(jobAdd, checkReturn = 1)
-         return ans
+        packet = self.doRequest(jobAdd, checkReturn = 1)
+        ans = ATSVCNetrJobAddResponse(packet)
+        return ans
+
+    def NetrJobDel(self, serverName, minJobId, maxJobId):
+        jobDel = ATSVCNetrJobDel()
+        jobDel['ServerName']         = ndrutils.NDRUniqueStringW()
+        jobDel['ServerName']['Data'] = (serverName+'\x00').encode('utf-16le')
+        jobDel['MinJobId'] = minJobId
+        jobDel['MaxJobId'] = maxJobId
+        packet = self.doRequest(jobDel, checkReturn = 1)
+        return packet 
 
     def NetrJobEnum(self, serverName, resumeHandle = 0x0 ):
-         jobEnum = ATSVCNetrJobEnum()
-         jobEnum['ServerName']         = ndrutils.NDRUniqueStringW()
-         jobEnum['ServerName']['Data'] = (serverName+'\x00').encode('utf-16le')
-         jobEnum['ResumeHandle']       = resumeHandle
-         packet = self.doRequest(jobEnum, checkReturn = 1)
-         ans = ATSVCNetrJobEnumResponse(packet) 
-         return ans
+        jobEnum = ATSVCNetrJobEnum()
+        jobEnum['ServerName']         = ndrutils.NDRUniqueStringW()
+        jobEnum['ServerName']['Data'] = (serverName+'\x00').encode('utf-16le')
+        jobEnum['ResumeHandle']       = resumeHandle
+        packet = self.doRequest(jobEnum, checkReturn = 1)
+        ans = ATSVCNetrJobEnumResponse(packet) 
+        return ans
 
     def SchRpcEnumTasks(self, path, startIndex=0, flags=0):
-         enumTasks = ATSVCSchRpcEnumTasks()
-         enumTasks['Path'] = ndrutils.NDRStringW()
-         enumTasks['Path']['Data'] = (path+'\x00').encode('utf-16le')
-         enumTasks['StartIndex'] = startIndex
-         enumTasks['Flags'] = 0
-         packet = self.doRequest(enumTasks, checkReturn = 0)
-         ans = ATSVCSchRpcEnumTasksResp(packet)
-         return ans
+        enumTasks = ATSVCSchRpcEnumTasks()
+        enumTasks['Path'] = ndrutils.NDRStringW()
+        enumTasks['Path']['Data'] = (path+'\x00').encode('utf-16le')
+        enumTasks['StartIndex'] = startIndex
+        enumTasks['Flags'] = 0
+        packet = self.doRequest(enumTasks, checkReturn = 0)
+        ans = ATSVCSchRpcEnumTasksResp(packet)
+        return ans
+
+    def SchRpcRun(self, path):
+        rpcRun = ATSVCSchRpcRun()
+        rpcRun['Path'] = ndrutils.NDRStringW()
+        rpcRun['Path']['Data'] = (path+'\x00').encode('utf-16le')
+        packet = self.doRequest(rpcRun, checkReturn = 0)
+        return packet
+
+
 
 
 
