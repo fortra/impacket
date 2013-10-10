@@ -194,9 +194,9 @@ class DCERPCTransport:
                self._lmhash = binascii.a2b_hex(lmhash)
                self._nthash = binascii.a2b_hex(nthash)
             except:
+               self._lmash = lmhash
+               self._nthash = nthash
                pass
-        self._lmhash = lmhash
-        self._nthash = nthash
 
     def doesSupportNTLMv2(self):
         # By default we'll be returning the library's deafult. Only on SMB Transports we might be able to know it beforehand
