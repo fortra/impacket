@@ -491,8 +491,12 @@ class DCERPC_v5(DCERPC):
         if ( lmhash != '' or nthash != ''):
             if len(lmhash) % 2:     lmhash = '0%s' % lmhash
             if len(nthash) % 2:     nthash = '0%s' % nthash
-            self.__lmhash = a2b_hex(lmhash)
-            self.__nthash = a2b_hex(nthash)
+            try: # just in case they were converted already
+                self.__lmhash = a2b_hex(lmhash)
+                self.__nthash = a2b_hex(nthash)
+            except:
+               pass
+
 
     def bind(self, uuid, alter = 0, bogus_binds = 0):
         bind = MSRPCBind()
