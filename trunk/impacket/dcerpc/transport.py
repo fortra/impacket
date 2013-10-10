@@ -194,7 +194,7 @@ class DCERPCTransport:
                self._lmhash = binascii.a2b_hex(lmhash)
                self._nthash = binascii.a2b_hex(nthash)
             except:
-               self._lmash = lmhash
+               self._lmhash = lmhash
                self._nthash = nthash
                pass
 
