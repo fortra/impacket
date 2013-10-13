@@ -932,7 +932,7 @@ class DCERPCSvcCtl:
       
         return ans
 
-    def CreateServiceW(self, handle, serviceName, displayName, binaryPathName):
+    def CreateServiceW(self, handle, serviceName, displayName, binaryPathName, serviceType = SERVICE_WIN32_OWN_PROCESS):
         # We MUST receive Unicode data here
         createService = SVCCTLRCreateServiceW()
         createService['SCManager']      = handle
@@ -941,7 +941,7 @@ class DCERPCSvcCtl:
         createService['DisplayName']    = ndrutils.NDRUniqueStringW()
         createService['DisplayName']['Data']    = (displayName+'\x00'.encode('utf-16le'))
         createService['DesiredAccess']  = SERVICE_ALL_ACCESS
-        createService['ServiceType']    = SERVICE_WIN32_OWN_PROCESS | SERVICE_INTERACTIVE_PROCESS
+        createService['ServiceType']    = serviceType
         createService['StartType']      = SERVICE_AUTO_START
         #createService['StartType']      = SERVICE_DEMAND_START
         createService['ErrorControl']   = SERVICE_ERROR_IGNORE
