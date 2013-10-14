@@ -111,7 +111,7 @@ def main():
     print version.BANNER
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-file', action='store', help='registry hive to open')
+    parser.add_argument('hive', action='store', help='registry hive to open')
     subparsers = parser.add_subparsers(help='actions', dest='action')
     # A enum_key command
     enumkey_parser = subparsers.add_parser('enum_key', help='enumerates the subkeys of the specified open registry key')
@@ -140,7 +140,7 @@ def main():
 
     options = parser.parse_args()
 
-    reg = winregistry.Registry(options.file)
+    reg = winregistry.Registry(options.hive)
 
     if options.action.upper() == 'ENUM_KEY':
         print "[%s]" % options.name

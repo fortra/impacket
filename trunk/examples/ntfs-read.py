@@ -1197,13 +1197,13 @@ def main():
     print version.BANNER
     logging.basicConfig(format='%(levelname)s:%(message)s',level = logging.WARNING)
     parser = argparse.ArgumentParser()
-    parser.add_argument('-file', action='store', help='NTFS volume to open (e.g. \\\\.\\C: or /dev/disk1s1)')
+    parser.add_argument('volume', action='store', help='NTFS volume to open (e.g. \\\\.\\C: or /dev/disk1s1)')
     parser.add_argument('-extract', action='store', help='extracts pathname (e.g. \windows\system32\config\sam)')
-    options = parser.parse_args()
     if len(sys.argv)==1:
         parser.print_help()
         sys.exit(1)
-    shell = MiniShell(options.file)
+    options = parser.parse_args()
+    shell = MiniShell(options.volume)
     if options.extract is not None:
         shell.onecmd("get %s"% options.extract)
     else:
