@@ -395,10 +395,13 @@ class Registry():
         elif valueType == REG_QWORD:
             print "%d" % (unpack('<Q',valueData)[0])
         elif valueType == REG_NONE:
-            if len(valueData) > 1:
-                print ''
-                hexdump(valueData, self.indent)
-            else:
+            try:
+                if len(valueData) > 1:
+                    print ''
+                    hexdump(valueData, self.indent)
+                else:
+                    print " NULL"
+            except:
                 print " NULL"
         elif valueType == REG_MULTISZ:
             print "%s" % (valueData.decode('utf-16le'))
