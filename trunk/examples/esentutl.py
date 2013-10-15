@@ -73,10 +73,9 @@ def main():
     options = parser.parse_args()
 
     if options.debug is True:
-        logging.basicConfig(format='%(levelname)s:%(message)s',level = logging.DEBUG)
+        logging.getLogger().setLevel(logging.DEBUG)
     else:
-        logging.basicConfig(format='%(levelname)s:%(message)s',level = logging.WARNING)
-
+        logging.getLogger().setLevel(logging.INFO)
 
     ese = ESENT_DB(options.databaseFile)
 
