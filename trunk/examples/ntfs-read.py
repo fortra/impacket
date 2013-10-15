@@ -1195,7 +1195,7 @@ class MiniShell(cmd.Cmd):
 
 def main():
     print version.BANNER
-    logging.basicConfig(format='%(levelname)s:%(message)s',level = logging.WARNING)
+    logging.getLogger().setLevel(logging.WARNING)
     parser = argparse.ArgumentParser()
     parser.add_argument('volume', action='store', help='NTFS volume to open (e.g. \\\\.\\C: or /dev/disk1s1)')
     parser.add_argument('-extract', action='store', help='extracts pathname (e.g. \windows\system32\config\sam)')
