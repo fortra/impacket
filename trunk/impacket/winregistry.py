@@ -386,7 +386,10 @@ class Registry():
 
     def printValue(self, valueType, valueData):
         if valueType == REG_SZ or valueType == REG_EXPAND_SZ:
-            print "%s" % (valueData.decode('utf-16le'))
+            if type(valueData) is int:
+                print 'NULL'
+            else:
+                print "%s" % (valueData.decode('utf-16le'))
         elif valueType == REG_BINARY:
             print ''
             hexdump(valueData, self.indent)
