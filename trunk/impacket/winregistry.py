@@ -356,7 +356,7 @@ class Registry():
     def walk(self, parentKey):
         key = self.findKey(parentKey)
 
-        if key is None:
+        if key is None or key['OffsetSubKeyLf'] < 0:
             return
 
         lf = self.__getBlock(key['OffsetSubKeyLf'])
