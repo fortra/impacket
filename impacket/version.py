@@ -8,6 +8,7 @@
 #
 
 import logging
+import sys
 
 VER_MAJOR = "0"
 VER_MINOR = "9.11-dev"
@@ -20,4 +21,12 @@ logging.addLevelName(logging.WARNING,'[!]')
 logging.addLevelName(logging.CRITICAL,'[!]')
 logging.addLevelName(logging.INFO,'[*]')
 logging.addLevelName(logging.DEBUG,'[+]')
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+ch = logging.StreamHandler(sys.stdout)
+formatter = logging.Formatter('%(levelname)s %(message)s')
+ch.setFormatter(formatter)
+logger.addHandler(ch)
 
