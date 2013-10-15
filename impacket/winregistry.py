@@ -379,7 +379,7 @@ class Registry():
                 if res is not None:
                     parentKey = res
                 else:
-                    logging.error("Key %s not found!" % key)
+                    #logging.error("Key %s not found!" % key)
                     return None
 
         return parentKey
