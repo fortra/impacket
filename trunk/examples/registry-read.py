@@ -77,7 +77,7 @@ def enumValues(reg, searchKey):
     values = reg.enumValues(key)
 
     for value in values:
-        print "  %s: " % (value),
+        print "  %-30s: " % (value),
         data = reg.getValue('%s\\%s'%(searchKey,value))
         # Special case for binary string.. so it looks better formatted
         if data[0] == winregistry.REG_BINARY:
