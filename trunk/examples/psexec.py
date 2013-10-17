@@ -61,12 +61,12 @@ class PSEXEC:
 
     def __init__(self, command, path, exeFile, copyFile, protocols = None, 
                  username = '', password = '', domain = '', hashes = None):
-        if not protocols:
-            protocols = PSEXEC.KNOWN_PROTOCOLS.keys()
-
         self.__username = username
         self.__password = password
-        self.__protocols = [protocols]
+        if protocols is None:
+            self.__protocols = PSEXEC.KNOWN_PROTOCOLS.keys()
+        else:
+            self.__protocols = [protocols]
         self.__command = command
         self.__path = path
         self.__domain = domain
@@ -403,7 +403,6 @@ if __name__ == '__main__':
     parser.add_argument('-c', action='store',metavar = "pathname",  help='copy the filename for later execution, arguments are passed in the command option')
     parser.add_argument('-path', action='store', help='path of the command to execute')
     parser.add_argument('-file', action='store', help="alternative RemCom binary (be sure it doesn't require CRT)")
-    parser.add_argument('protocol', choices=PSEXEC.KNOWN_PROTOCOLS.keys(), nargs='?', default='445/SMB', help='transport protocol (default 445/SMB)')
 
     group = parser.add_argument_group('authentication')
 
@@ -425,5 +424,5 @@ if __name__ == '__main__':
         from getpass import getpass
         password = getpass("Password:")
 
-    executer = PSEXEC(options.command[0], options.path, options.file, options.c, options.protocol, username, password, domain, options.hashes)
+    executer = PSEXEC(' '.join(options.command), options.path, options.file, options.c, None, username, password, domain, options.hashes)
     executer.run(address)
