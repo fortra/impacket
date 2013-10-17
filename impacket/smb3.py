@@ -110,7 +110,7 @@ class SessionError(Exception):
 
 
 class SMB3:
-    def __init__(self, remote_name, remote_host, my_name = None, host_type = nmb.TYPE_SERVER, sess_port = 445, timeout=10, UDP = 0, preferredDialect = None, session = None):
+    def __init__(self, remote_name, remote_host, my_name = None, host_type = nmb.TYPE_SERVER, sess_port = 445, timeout=60, UDP = 0, preferredDialect = None, session = None):
 
         # [MS-SMB2] Section 3
         self.RequireMessageSigning = False    #
