@@ -2915,7 +2915,7 @@ class SMB:
         self.__flags2 = 0
 
         if timeout==None:
-            self.__timeout = 10
+            self.__timeout = 60
         else:
             self.__timeout = timeout
 
