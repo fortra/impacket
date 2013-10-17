@@ -98,7 +98,7 @@ if __name__ == '__main__':
     parser.add_argument('target', action='store', help='[domain/][username[:password]@]<address>')
     parser.add_argument('-port', action='store', default='1433', help='target MSSQL port (default 1433)')
     parser.add_argument('-db', action='store', help='MSSQL database instance (default None)')
-    parser.add_argument('-windows-auth', action='store', choices=['True','False'], default = 'False', help='whether or not to use Windows Authentication (default False)')
+    parser.add_argument('-windows-auth', action='store_true', default = 'False', help='whether or not to use Windows Authentication (default False)')
     parser.add_argument('-file', type=argparse.FileType('r'), help='input file with commands to execute in the SQL shell')
 
     group = parser.add_argument_group('authentication')
@@ -120,14 +120,9 @@ if __name__ == '__main__':
         from getpass import getpass
         password = getpass("Password:")
 
-    if options.windows_auth == 'True':
-        win_auth = True
-    else:
-        win_auth = False
-
     ms_sql = tds.MSSQL(address, string.atoi(options.port))
     ms_sql.connect()
-    res = ms_sql.login(options.db, username, password, domain, options.hashes, win_auth)
+    res = ms_sql.login(options.db, username, password, domain, options.hashes, options.windows_auth)
     ms_sql.printReplies()
     if res == True:
         shell = SQLSHELL(ms_sql)
