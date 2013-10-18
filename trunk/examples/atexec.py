@@ -98,7 +98,7 @@ class ATSVC_EXEC:
         resp = at.NetrJobAdd(('\\\\%s'% rpctransport.get_dip()),atInfo)
         jobId = resp['JobID']
 
-        resp = at.NetrJobEnum(rpctransport.get_dip())
+        #resp = at.NetrJobEnum(rpctransport.get_dip())
 
         # Switching context to TSS
         dce2 = dce.alter_ctx(atsvc.MSRPC_UUID_TSS)
