@@ -46,6 +46,8 @@ class MiniImpacketShell(cmd.Cmd):
         try:
            retVal = cmd.Cmd.onecmd(self,s)
         except Exception, e:
+           #import traceback
+           #print traceback.print_exc()
            print "ERROR: %s" % e
 
         return retVal
@@ -60,9 +62,9 @@ class MiniImpacketShell(cmd.Cmd):
 
     def do_help(self,line):
         print """
- open {host,port,remote_name = host} - opens a SMB connection against the target host/port
- login {username,passwd,domain} - logs into the current SMB connection, no parameters for NULL connection
- login_hash {username,lmhash,nthash} - logs into the current SMB connection using the password hashes
+ open {host,port=445} - opens a SMB connection against the target host/port
+ login {domain/username,passwd} - logs into the current SMB connection, no parameters for NULL connection. If no password specified, it'll be prompted
+ login_hash {domain/username,lmhash:nthash} - logs into the current SMB connection using the password hashes
  logoff - logs off
  shares - list available shares
  use {sharename} - connect to an specific share
@@ -87,12 +89,9 @@ class MiniImpacketShell(cmd.Cmd):
            host = l[0]
         if len(l) > 1:
            port = l[1]
-        if len(l) > 2:
-           remote_name = l[2]
-        else:
-           remote_name = host
 
-        self.smb = SMBConnection(remote_name, host, sess_port=int(port))
+        self.smb = SMBConnection(host, host, sess_port=int(port))
+
         dialect = self.smb.getDialect()
         if dialect == SMB_DIALECT:
             print "SMBv1 dialect used"
@@ -112,10 +111,16 @@ class MiniImpacketShell(cmd.Cmd):
            username = l[0]
         if len(l) > 1:
            password = l[1]
-        if len(l) > 2:
-           domain = l[2]
+
+        if username.find('/') > 0:
+           domain, username = username.split('/')
+
+        if password == '' and username != '':
+            from getpass import getpass
+            password = getpass("Password:")
 
         self.smb.login(username, password, domain=domain)
+
         if self.smb.isGuestSession() > 0:
             print "GUEST Session Granted"
         else:
@@ -123,14 +128,22 @@ class MiniImpacketShell(cmd.Cmd):
 
     def do_login_hash(self,line): 
         l = line.split(' ')
+        domain = ''
         if len(l) > 0:
            username = l[0]
         if len(l) > 1:
-           lmhash = l[1]
-        if len(l) > 2:
-           nthash = l[2]
+           hashes = l[1]
+        else:
+           print "Hashes needed. Format is lmhash:nthash"
+           return
 
-        self.smb.login(username, '', lmhash=lmhash, nthash=nthash)
+        if username.find('/') > 0:
+           domain, username = username.split('/')
+       
+        lmhash, nthash = hashes.split(':')
+
+        self.smb.login(username, '', domain,lmhash=lmhash, nthash=nthash)
+
         if self.smb.isGuestSession() > 0:
             print "GUEST Session Granted"
         else:
@@ -213,13 +226,8 @@ class MiniImpacketShell(cmd.Cmd):
         self.smb.deleteDirectory(self.share, pathname)
 
     def do_put(self, pathname):
-        params = pathname.split(' ')
-        if len(params) > 1:
-            src_path = params[0]
-            dst_name = params[1]
-        elif len(params) == 1:
-            src_path = params[0]
-            dst_name = os.path.basename(src_path)
+        src_path = pathname
+        dst_name = os.path.basename(src_path)
 
         fh = open(pathname, 'rb')
         f = ntpath.join(self.pwd,dst_name)
