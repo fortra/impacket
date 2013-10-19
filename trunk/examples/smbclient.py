@@ -19,9 +19,9 @@
 
 import sys
 import string
+import time
 from impacket import smb, version, smb3, nt_errors
 from impacket.dcerpc import dcerpc_v4, dcerpc, transport, srvsvc
-from impacket.nt_errors import *
 from impacket.smbconnection import *
 import argparse
 import ntpath
@@ -48,7 +48,7 @@ class MiniImpacketShell(cmd.Cmd):
         except Exception, e:
            #import traceback
            #print traceback.print_exc()
-           print "ERROR: %s" % e
+           print e
 
         return retVal
 
@@ -190,7 +190,7 @@ class MiniImpacketShell(cmd.Cmd):
             self.smb.closeFile(self.tid,fid)
             self.pwd = oldpwd
         except Exception, e:
-            if (e.get_error_code() & 0xff) == (STATUS_FILE_IS_A_DIRECTORY & 0xff):
+            if (e.get_error_code() & 0xff) == (nt_errors.STATUS_FILE_IS_A_DIRECTORY & 0xff):
                pass
             else:
                self.pwd = oldpwd
@@ -208,7 +208,7 @@ class MiniImpacketShell(cmd.Cmd):
         pwd = string.replace(pwd,'/','\\')
         pwd = ntpath.normpath(pwd)
         for f in self.smb.listPath(self.share, pwd):
-           print "%s" % f.get_longname()
+           print "%crw-rw-rw- %10d  %s %s" % ('d' if f.is_directory() > 0 else '-', f.get_filesize(),  time.ctime(float(f.get_mtime_epoch())) ,f.get_longname() )
 
     def do_rm(self, filename):
         f = ntpath.join(self.pwd, filename)
