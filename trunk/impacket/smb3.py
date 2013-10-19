@@ -1093,12 +1093,12 @@ class SMB3:
             from impacket import smb
             while True:
                 try:
-                    res = self.queryDirectory( treeId, fileId, ntpath.basename(path), maxBufferSize = 65535 )
+                    res = self.queryDirectory( treeId, fileId, ntpath.basename(path), maxBufferSize = 65535, informationClass = FILE_FULL_DIRECTORY_INFORMATION )
                     nextOffset = 1
                     while nextOffset != 0:
-                        fileInfo = smb.SMBFindFileNamesInfo(smb.SMB.FLAGS2_UNICODE)
+                        fileInfo = smb.SMBFindFileFullDirectoryInfo(smb.SMB.FLAGS2_UNICODE)
                         fileInfo.fromString(res)
-                        files.append(smb.SharedFile(0,0,0,0,0,0,fileInfo['FileName'].decode('utf-16le'), fileInfo['FileName'].decode('utf-16le')))
+                        files.append(smb.SharedFile(fileInfo['CreationTime'],fileInfo['LastAccessTime'],fileInfo['LastChangeTime'],fileInfo['EndOfFile'],fileInfo['AllocationSize'],fileInfo['ExtFileAttributes'],fileInfo['FileName'].decode('utf-16le'), fileInfo['FileName'].decode('utf-16le')))
                         nextOffset = fileInfo['NextEntryOffset']
                         res = res[nextOffset:]
                 except SessionError, e:
