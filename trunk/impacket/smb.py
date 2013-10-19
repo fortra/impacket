@@ -1551,7 +1551,7 @@ class SMBFindFileFullDirectoryInfo(AsciiOrUnicodeStructure):
     UnicodeStructure = (
         ('FileNameLength','<L-FileName','len(FileName)*2'),
         ('EaSize','<L'),
-        ('FileName','u'),
+        ('FileName',':'),
     )
 
 # SMB_FIND_INFO_STANDARD level
