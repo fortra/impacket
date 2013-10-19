@@ -20,6 +20,7 @@
 import sys
 import string
 import time
+import logging
 from impacket import smb, version, smb3, nt_errors
 from impacket.dcerpc import dcerpc_v4, dcerpc, transport, srvsvc
 from impacket.smbconnection import *
@@ -37,6 +38,7 @@ class MiniImpacketShell(cmd.Cmd):
         self.intro = 'Type help for list of commands'
         self.pwd = ''
         self.share = None
+        self.loggedIn = False
 
     def emptyline(self):
         pass
@@ -48,7 +50,7 @@ class MiniImpacketShell(cmd.Cmd):
         except Exception, e:
            #import traceback
            #print traceback.print_exc()
-           print e
+           logging.error(e)
 
         return retVal
 
@@ -94,15 +96,23 @@ class MiniImpacketShell(cmd.Cmd):
 
         dialect = self.smb.getDialect()
         if dialect == SMB_DIALECT:
-            print "SMBv1 dialect used"
+            logging.info("SMBv1 dialect used")
         elif dialect == SMB2_DIALECT_002:
-            print "SMBv2.0 dialect used"
+            logging.info("SMBv2.0 dialect used")
         elif dialect == SMB2_DIALECT_21:
-            print "SMBv2.1 dialect used"
+            logging.info("SMBv2.1 dialect used")
         else:
-            print "SMBv3.0 dialect used"
+            logging.info("SMBv3.0 dialect used")
+
+        self.share = None
+        self.tid = None
+        self.pwd = ''
+        self.loggedIn = False
 
     def do_login(self,line):
+        if self.smb is None:
+            logging.error("No connection open")
+            return
         l = line.split(' ')
         username = ''
         password = ''
@@ -122,11 +132,15 @@ class MiniImpacketShell(cmd.Cmd):
         self.smb.login(username, password, domain=domain)
 
         if self.smb.isGuestSession() > 0:
-            print "GUEST Session Granted"
+            logging.info("GUEST Session Granted")
         else:
-            print "USER Session Granted" 
+            logging.info("USER Session Granted")
+        self.loggedIn = True
 
     def do_login_hash(self,line): 
+        if self.smb is None:
+            logging.error("No connection open")
+            return
         l = line.split(' ')
         domain = ''
         if len(l) > 0:
@@ -134,7 +148,7 @@ class MiniImpacketShell(cmd.Cmd):
         if len(l) > 1:
            hashes = l[1]
         else:
-           print "Hashes needed. Format is lmhash:nthash"
+           logging.error("Hashes needed. Format is lmhash:nthash")
            return
 
         if username.find('/') > 0:
@@ -145,14 +159,26 @@ class MiniImpacketShell(cmd.Cmd):
         self.smb.login(username, '', domain,lmhash=lmhash, nthash=nthash)
 
         if self.smb.isGuestSession() > 0:
-            print "GUEST Session Granted"
+            logging.info("GUEST Session Granted")
         else:
-            print "USER Session Granted"
+            logging.info("USER Session Granted")
+        self.loggedIn = True
 
     def do_logoff(self, line):
+        if self.smb is None:
+            logging.error("No connection open")
+            return
         self.smb.logoff()
+        self.share = None
+        self.smb = None
+        self.tid = None
+        self.pwd = ''
+        self.loggedIn = False
 
     def do_info(self, line):
+        if self.loggedIn is False:
+            logging.error("Not logged in")
+            return
         rpctransport = transport.SMBTransport(self.smb.getServerName(), self.smb.getRemoteHost(), filename = r'\srvsvc', smb_connection = self.smb)
         dce = dcerpc.DCERPC_v5(rpctransport)
         dce.connect()                     
@@ -167,16 +193,25 @@ class MiniImpacketShell(cmd.Cmd):
         print "Simultaneous Users: %d" % resp['Users']
          
     def do_shares(self, line):
+        if self.loggedIn is False:
+            logging.error("Not logged in")
+            return
         resp = self.smb.listShares()
         for i in range(len(resp)):                        
             print resp[i]['NetName'].decode('utf-16')
 
     def do_use(self,line):
+        if self.loggedIn is False:
+            logging.error("Not logged in")
+            return
         self.share = line
         self.tid = self.smb.connectTree(line)
         self.pwd = '\\'
 
     def do_cd(self, line):
+        if self.tid is None:
+            logging.error("No share selected")
+            return
         p = string.replace(line,'/','\\')
         oldpwd = self.pwd
         if p[0] == '\\':
@@ -189,8 +224,9 @@ class MiniImpacketShell(cmd.Cmd):
             fid = self.smb.openFile(self.tid, self.pwd)
             self.smb.closeFile(self.tid,fid)
             self.pwd = oldpwd
+            logging.error("Invalid directory")
         except Exception, e:
-            if (e.get_error_code() & 0xff) == (nt_errors.STATUS_FILE_IS_A_DIRECTORY & 0xff):
+            if e.getErrorCode() == nt_errors.STATUS_FILE_IS_A_DIRECTORY: 
                pass
             else:
                self.pwd = oldpwd
@@ -198,9 +234,15 @@ class MiniImpacketShell(cmd.Cmd):
             
 
     def do_pwd(self,line):
+        if self.loggedIn is False:
+            logging.error("Not logged in")
+            return
         print self.pwd
 
     def do_ls(self, wildcard):
+        if self.tid is None:
+            logging.error("No share selected")
+            return
         if wildcard == '':
            pwd = ntpath.join(self.pwd,'*')
         else:
@@ -211,21 +253,33 @@ class MiniImpacketShell(cmd.Cmd):
            print "%crw-rw-rw- %10d  %s %s" % ('d' if f.is_directory() > 0 else '-', f.get_filesize(),  time.ctime(float(f.get_mtime_epoch())) ,f.get_longname() )
 
     def do_rm(self, filename):
+        if self.tid is None:
+            logging.error("No share selected")
+            return
         f = ntpath.join(self.pwd, filename)
         file = string.replace(f,'/','\\')
         self.smb.deleteFile(self.share, file)
  
     def do_mkdir(self, path):
+        if self.tid is None:
+            logging.error("No share selected")
+            return
         p = ntpath.join(self.pwd, path)
         pathname = string.replace(p,'/','\\')
         self.smb.createDirectory(self.share,pathname)
 
     def do_rmdir(self, path):
+        if self.tid is None:
+            logging.error("No share selected")
+            return
         p = ntpath.join(self.pwd, path)
         pathname = string.replace(p,'/','\\')
         self.smb.deleteDirectory(self.share, pathname)
 
     def do_put(self, pathname):
+        if self.tid is None:
+            logging.error("No share selected")
+            return
         src_path = pathname
         dst_name = os.path.basename(src_path)
 
@@ -236,6 +290,9 @@ class MiniImpacketShell(cmd.Cmd):
         fh.close()
 
     def do_get(self, filename):
+        if self.tid is None:
+            logging.error("No share selected")
+            return
         filename = string.replace(filename,'/','\\')
         fh = open(ntpath.basename(filename),'wb')
         pathname = ntpath.join(self.pwd,filename)
@@ -248,6 +305,9 @@ class MiniImpacketShell(cmd.Cmd):
         fh.close()
 
     def do_close(self, line):
+        if self.loggedIn is False:
+            logging.error("Not logged in")
+            return
         del(self.smb);
 
 def main():
@@ -260,7 +320,7 @@ def main():
         parser = argparse.ArgumentParser()
         parser.add_argument('-file', type=argparse.FileType('r'), help='input file with commands to execute in the mini shell')
         options = parser.parse_args()
-        print "Executing commands from %s" % options.file.name
+        logging.info("Executing commands from %s" % options.file.name)
         for line in options.file.readlines():
             if line[0] != '#':
                 print "# %s" % line,
