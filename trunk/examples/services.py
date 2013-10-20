@@ -33,17 +33,13 @@ class SVCCTL:
         '139/SMB': (r'ncacn_np:%s[\pipe\svcctl]', 139),
         '445/SMB': (r'ncacn_np:%s[\pipe\svcctl]', 445),
         '135/TCP': (r'ncacn_ip_tcp:%s', 135),
-        '135/UDP': (r'ncadg_ip_udp:%s', 135),
         }
 
 
-    def __init__(self, username, password, protocol, domain='', hashes=None, service_name=None, action=None, display_name = None, binary_path = None):
-        if not protocol:
-            protocol = SVCCTL.KNOWN_PROTOCOLS.keys()
-
+    def __init__(self, username, password, domain='', hashes=None, service_name=None, action=None, display_name = None, binary_path = None):
         self.__username = username
         self.__password = password
-        self.__protocol = [protocol]
+        self.__protocol = SVCCTL.KNOWN_PROTOCOLS.keys()
         self.__service_name = service_name
         self.__display_name = display_name
         self.__binary_path = binary_path
@@ -257,8 +253,6 @@ if __name__ == '__main__':
     create_parser.add_argument('-display', action='store', required=True, help='display name')
     create_parser.add_argument('-path', action='store', required=True, help='binary path')
 
-    parser.add_argument('protocol', choices=SVCCTL.KNOWN_PROTOCOLS.keys(), nargs='?', default='445/SMB', help='transport protocol (default 445/SMB)')
-
     group = parser.add_argument_group('authentication')
 
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
@@ -290,7 +284,7 @@ if __name__ == '__main__':
         from getpass import getpass
         password = getpass("Password:")
 
-    services = SVCCTL(username, password, options.protocol, domain, options.hashes, service_name , options.action.upper(), display_name, path)
+    services = SVCCTL(username, password, domain, options.hashes, service_name , options.action.upper(), display_name, path)
     try:
         services.run(address)
     except Exception, e:
