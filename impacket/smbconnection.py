@@ -212,8 +212,8 @@ class SMBConnection():
         """
         creates a remote file
 
-        :param HANDLE treeId: a valid handle for the share where the file is to be opened
-        :param string pathName: the path name to open
+        :param HANDLE treeId: a valid handle for the share where the file is to be created
+        :param string pathName: the path name of the file to create
         :return: a valid file descriptor, if not raises a SessionError exception.
         """
 
@@ -289,8 +289,8 @@ class SMBConnection():
         """
         writes data to a file
 
-        :param HANDLE treeId: a valid handle for the share where the file is to be opened
-        :param HANDLE fileId: a valid handle for the file/directory to be closed
+        :param HANDLE treeId: a valid handle for the share where the file is to be written
+        :param HANDLE fileId: a valid handle for the file
         :param string data: buffer with the data to write
         :param integer offset: offset where to start writing the data
 
@@ -306,9 +306,9 @@ class SMBConnection():
         """
         reads data from a file
 
-        :param HANDLE treeId: a valid handle for the share where the file is to be opened
-        :param HANDLE fileId: a valid handle for the file/directory to be closed
-        :param integer offset: offset where to start writing the data
+        :param HANDLE treeId: a valid handle for the share where the file is to be read
+        :param HANDLE fileId: a valid handle for the file to be read
+        :param integer offset: offset where to start reading the data
         :param integer bytesToRead: amount of bytes to read. If None, it will read Dialect['MaxBufferSize'] bytes.
 
         :return: the data read, if not raises a SessionError exception.
@@ -338,7 +338,7 @@ class SMBConnection():
         """
         removes a file
 
-        :param string shareName: a valid name for the share where the file is to be opened
+        :param string shareName: a valid name for the share where the file is to be deleted 
         :param string pathName: the path name to remove
 
         :return: None, raises a SessionError exception if error.
@@ -353,7 +353,7 @@ class SMBConnection():
         """
         creates a directory
 
-        :param string shareName: a valid name for the share where the file is to be opened
+        :param string shareName: a valid name for the share where the directory is to be created
         :param string pathName: the path name or the directory to create
 
         :return: None, raises a SessionError exception if error.
@@ -368,7 +368,7 @@ class SMBConnection():
         """
         deletes a directory
 
-        :param string shareName: a valid name for the share where the file is to be opened
+        :param string shareName: a valid name for the share where directory is to be deleted
         :param string pathName: the path name or the directory to delete
 
         :return: None, raises a SessionError exception if error.
@@ -383,7 +383,7 @@ class SMBConnection():
         """
         waits for a named pipe
 
-        :param HANDLE treeId: a valid handle for the share where the file is to be checked
+        :param HANDLE treeId: a valid handle for the share where the pipe is
         :param string pipeName: the pipe name to check
         :param integer timeout: time to wait for an answer
 
@@ -399,8 +399,8 @@ class SMBConnection():
         """
         writes to a named pipe using a transaction command
 
-        :param HANDLE treeId: a valid handle for the share where the file is to be checked
-        :param HANDLE fileId: a valid handle for the file/directory to be closed
+        :param HANDLE treeId: a valid handle for the share where the pipe is
+        :param HANDLE fileId: a valid handle for the pipe
         :param string data: buffer with the data to write
         :param boolean waitAnswer: whether or not to wait for an answer
 
@@ -429,8 +429,8 @@ class SMBConnection():
         """
         writes to a named pipe
 
-        :param HANDLE treeId: a valid handle for the share where the file is to be checked
-        :param HANDLE fileId: a valid handle for the file/directory to be closed
+        :param HANDLE treeId: a valid handle for the share where the pipe is
+        :param HANDLE fileId: a valid handle for the pipe
         :param string data: buffer with the data to write
         :param boolean waitAnswer: whether or not to wait for an answer
 
@@ -450,8 +450,8 @@ class SMBConnection():
         """
         read from a named pipe
 
-        :param HANDLE treeId: a valid handle for the share where the file is to be checked
-        :param HANDLE fileId: a valid handle for the file/directory to be closed
+        :param HANDLE treeId: a valid handle for the share where the pipe resides
+        :param HANDLE fileId: a valid handle for the pipe
         :param integer bytestToRead: amount of data to read
         :param boolean waitAnswer: whether or not to wait for an answer
 
@@ -469,7 +469,7 @@ class SMBConnection():
         """
         downloads a file
 
-        :param string shareName: name for the share where the file is to be opened
+        :param string shareName: name for the share where the file is to be retrieved
         :param string pathName: the path name to retrieve
         :param callback callback:
 
@@ -485,7 +485,7 @@ class SMBConnection():
         """
         uploads a file
 
-        :param string shareName: name for the share where the file is to be opened
+        :param string shareName: name for the share where the file is to be uploaded
         :param string pathName: the path name to upload
         :param callback callback:
 
@@ -501,7 +501,7 @@ class SMBConnection():
         """
         rename a file/directory
 
-        :param string shareName: name for the share where the file is to be opened
+        :param string shareName: name for the share where the files/directories are
         :param string oldPath: the old path name or the directory/file to rename
         :param string newPath: the new path name or the directory/file to rename
 
