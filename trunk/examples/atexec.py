@@ -126,6 +126,10 @@ class ATSVC_EXEC:
         #                done = True
 
         resp = at.SchRpcRun('\\At%d' % jobId)
+        # On the first run, it takes a while the remote target to start executing the job
+        # so I'm setting this sleep.. I don't like sleeps.. but this is just an example
+        # Best way would be to check the task status before attempting to read the file
+        time.sleep(3)
         # Switching back to the old ctx_id
         at = atsvc.DCERPCAtSvc(dce)
         resp = at.NetrJobDel('\\\\%s'% rpctransport.get_dip(), jobId, jobId)
