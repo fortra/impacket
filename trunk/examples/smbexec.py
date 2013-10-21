@@ -152,18 +152,18 @@ class CMDEXEC:
                     serverThread = SMBServer()
                     serverThread.daemon = True
                     serverThread.start()
-                self.shell = RemoteShell(self.__share, rpctransport, self.__mode)
+                self.shell = RemoteShell(self.__share, rpctransport, self.__mode, self.__serviceName)
                 self.shell.cmdloop()
                 if self.__mode == 'SERVER':
                     serverThread.stop()
-            except Exception, e:
-                raise
+            except  (Exception, KeyboardInterrupt), e:
                 print e
+                self.shell.finish()
                 sys.stdout.flush()
                 sys.exit(1)
 
 class RemoteShell(cmd.Cmd):
-    def __init__(self, share, rpc, mode):
+    def __init__(self, share, rpc, mode, serviceName):
         cmd.Cmd.__init__(self)
         self.__share = share
         self.__mode = mode
@@ -172,7 +172,8 @@ class RemoteShell(cmd.Cmd):
         self.__outputBuffer = ''
         self.__command = ''
         self.__shell = '%COMSPEC% /Q /c '
-        self.__serviceName = 'BTOBTO'.encode('utf-16le')
+        self.__serviceName = serviceName
+        self.__rpc = rpc
         self.intro = '[!] Launching semi-interactive shell - Careful what you execute'
 
         dce = dcerpc.DCERPC_v5(rpc)
@@ -189,8 +190,6 @@ class RemoteShell(cmd.Cmd):
         if mode == 'SERVER':
             myIPaddr = s.getSMBServer().get_socket().getsockname()[0]
             self.__copyBack = 'copy %s \\\\%s\\%s' % (self.__output, myIPaddr, DUMMY_SHARE)
-            #self.__output = '\\\\%s\\%s\\%s' % (myIPaddr, DUMMY_SHARE, OUTPUT_FILENAME )
-            #self.__batchFile = '\\\\%s\\%s\\%s' % (myIPaddr, DUMMY_SHARE, BATCH_FILENAME )
 
         dce.bind(svcctl.MSRPC_UUID_SVCCTL)
         self.rpcsvc = svcctl.DCERPCSvcCtl(dce)
@@ -198,6 +197,24 @@ class RemoteShell(cmd.Cmd):
         self.__scHandle = resp['ContextHandle']
         self.transferClient = rpc.get_smb_connection()
         self.do_cd('')
+
+    def finish(self):
+        # Just in case the service is still created
+        try:
+           dce = dcerpc.DCERPC_v5(self.__rpc)
+           dce.connect() 
+           dce.bind(svcctl.MSRPC_UUID_SVCCTL)
+           self.rpcsvc = svcctl.DCERPCSvcCtl(dce)
+           resp = self.rpcsvc.OpenSCManagerW()
+           self.__scHandle = resp['ContextHandle']
+           resp = self.rpcsvc.OpenServiceW(self.__scHandle, self.__serviceName)
+           service = resp['ContextHandle']
+           self.rpcsvc.DeleteService(service)
+           self.rpcsvc.StopService(service)
+           self.rpcsvc.CloseServiceHandle(service)
+        except Exception, e:
+           print e
+           pass
 
     def do_shell(self, s):
         os.system(s)
