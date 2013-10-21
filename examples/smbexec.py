@@ -213,7 +213,6 @@ class RemoteShell(cmd.Cmd):
            self.rpcsvc.StopService(service)
            self.rpcsvc.CloseServiceHandle(service)
         except Exception, e:
-           print e
            pass
 
     def do_shell(self, s):
