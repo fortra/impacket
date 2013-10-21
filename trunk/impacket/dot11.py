@@ -2197,9 +2197,6 @@ class Dot11ManagementHelper(ProtocolPacket):
                 pass # through the whole list returning the length
             elif id==element_id:
                 yield (0,offset,length+2)    # ==
-            elif id>element_id:
-                yield (1,offset,None)        # >
-                
             length+=2 #id+length
             offset+=length
             if length>remaining:
