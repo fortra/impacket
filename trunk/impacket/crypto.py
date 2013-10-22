@@ -15,10 +15,15 @@
 #   NIST SP 800-108 Section 5.1, with PRF HMAC-SHA256 implementation
 #   (http://tools.ietf.org/html/draft-irtf-cfrg-kdf-uses-00#ref-SP800-108)
 #
+#   [MS-LSAD] Section 5.1.2
 
-import Crypto
-from Crypto.Cipher import AES
+try:
+    from Crypto.Cipher import DES, AES
+except Exception:
+    print "Warning: You don't have any crypto installed. You need PyCrypto"
+    print "See http://www.pycrypto.org/"
 from struct import pack, unpack
+from impacket.structure import Structure
 import hmac, hashlib
 
 def Generate_Subkey(K):
@@ -231,6 +236,75 @@ def KDF_CounterMode(KI, Label, Context, L):
        result = result + K
  
     return result[:(L/8)]      
+
+# [MS-LSAD] Section 5.1.2 / 5.1.3
+class LSA_SECRET_XP(Structure):
+    structure = (
+        ('Length','<L=0'),
+        ('Version','<L=0'),
+        ('_Secret','_-Secret', 'self["Length"]'),
+        ('Secret', ':'),
+    )
+
+def transformKey(InputKey):
+    # Section 5.1.3
+    OutputKey = []
+    OutputKey.append( chr(ord(InputKey[0]) >> 0x01) )
+    OutputKey.append( chr(((ord(InputKey[0])&0x01)<<6) | (ord(InputKey[1])>>2)) )
+    OutputKey.append( chr(((ord(InputKey[1])&0x03)<<5) | (ord(InputKey[2])>>3)) )
+    OutputKey.append( chr(((ord(InputKey[2])&0x07)<<4) | (ord(InputKey[3])>>4)) )
+    OutputKey.append( chr(((ord(InputKey[3])&0x0F)<<3) | (ord(InputKey[4])>>5)) )
+    OutputKey.append( chr(((ord(InputKey[4])&0x1F)<<2) | (ord(InputKey[5])>>6)) )
+    OutputKey.append( chr(((ord(InputKey[5])&0x3F)<<1) | (ord(InputKey[6])>>7)) )
+    OutputKey.append( chr(ord(InputKey[6]) & 0x7F) )
+
+    for i in range(8):
+        OutputKey[i] = chr((ord(OutputKey[i]) << 1) & 0xfe)
+
+    return "".join(OutputKey)
+
+def decryptSecret(key, value):
+    # [MS-LSAD] Section 5.1.2
+    plainText = ''
+    key0 = key
+    for i in range(0, len(value), 8):
+        cipherText = value[:8]
+        tmpStrKey = key0[:7]
+        tmpKey = transformKey(tmpStrKey)
+        Crypt1 = DES.new(tmpKey, DES.MODE_ECB)
+        plainText += Crypt1.decrypt(cipherText) 
+        cipherText = cipherText[8:]
+        key0 = key0[7:]
+        value = value[8:]
+        # AdvanceKey
+        if len(key0) < 7:
+            key0 = key[len(key0):]
+
+    secret = LSA_SECRET_XP(plainText)
+    return (secret['Secret'])
+
+def encryptSecret(key, value):
+    # [MS-LSAD] Section 5.1.2
+    plainText = ''
+    cipherText = ''
+    key0 = key
+    value0 = pack('<LL', len(value), 1) + value
+    for i in range(0, len(value0), 8):
+        if len(value0) < 8:
+            value0 = value0 + '\x00'*(8-len(value0))
+        plainText = value0[:8]
+        tmpStrKey = key0[:7]
+        tmpKey = transformKey(tmpStrKey)
+        Crypt1 = DES.new(tmpKey, DES.MODE_ECB)
+        cipherText += Crypt1.encrypt(plainText) 
+        plainText = plainText[8:]
+        key0 = key0[7:]
+        value0 = value0[8:]
+        # AdvanceKey
+        if len(key0) < 7:
+            key0 = key[len(key0):]
+
+    return cipherText
 
 if __name__ == '__main__':
 #   Test Vectors
