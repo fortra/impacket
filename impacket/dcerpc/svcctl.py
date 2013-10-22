@@ -13,6 +13,7 @@
 #
 
 import array
+import random
 from struct import *
 from impacket import ImpactPacket
 from impacket.structure import Structure
@@ -350,17 +351,17 @@ class SVCCTLRChangeServiceConfigW(Structure):
      structure = (
          ('ContextHandle','20s'),
          ('ServiceType','<L=0xffffffff'),
-         ('StartType','<L=0'),
+         ('StartType','<L=0xffffffff'),
          ('ErrorControl','<L=0xffffffff'),
-         ('BinaryPathName','<L=0',ndrutils.NDRUniqueStringW),
-         ('LoadOrderGroup','<L=0',ndrutils.NDRUniqueStringW),
+         ('BinaryPathName',':'),
+         ('LoadOrderGroup','<L=0'),
          ('TagID','<L=0'),
          ('Dependencies','<L=0'),
          ('DependenciesSize','<L=0'),
-         ('ServiceStartName','<L=0',ndrutils.NDRUniqueStringW),
-         ('Password','<L=0'),
+         ('ServiceStartName',':'),
+         ('Password',':'),
          ('PwSize','<L=0'),
-         ('DisplayName','<L=0',ndrutils.NDRUniqueStringW),
+         ('DisplayName',':'),
      )
 
 # OLD Style structs.. leaving this stuff for compatibility purpose. Don't use these structs/functions anymore
@@ -1006,19 +1007,48 @@ class DCERPCSvcCtl:
 
         return enumServicesList
         
-    def ChangeServiceConfigW(self, handle, startType):
-        # For now we just support changing the startType
+    def ChangeServiceConfigW(self, handle,  displayName = None, binaryPathName = None, serviceType = None, startType = None, serviceStartName = None, password = None):
         changeConfig = SVCCTLRChangeServiceConfigW()
         changeConfig['ContextHandle'] = handle
-        changeConfig['StartType'] = startType
-##        changeConfig['BinaryPathName'] = ndrutils.NDRUniqueStringW()
-##        changeConfig['BinaryPathName']['Data'] = ''
-##        changeConfig['LoadOrderGroup'] = ndrutils.NDRUniqueStringW()
-##        changeConfig['LoadOrderGroup']['Data'] = ''
-##        changeConfig['ServiceStartName'] = ndrutils.NDRUniqueStringW()
-##        changeConfig['ServiceStartName']['Data'] = ''
-##        changeConfig['DisplayName'] = ndrutils.NDRUniqueStringW()
-##        changeConfig['DisplayName']['Data'] = ''
+
+        if startType is not None:
+            changeConfig['StartType'] = startType
+
+        if binaryPathName is not None:
+            changeConfig['BinaryPathName'] = ndrutils.NDRUniqueStringW()
+            changeConfig['BinaryPathName']['Data'] =  (binaryPathName+'\x00'.encode('utf-16le'))
+        else:
+            changeConfig['BinaryPathName'] = '\x00'*4
+
+
+        if displayName is not None:
+            changeConfig['DisplayName'] = ndrutils.NDRUniqueStringW()
+            changeConfig['DisplayName']['Data'] = (displayName+'\x00'.encode('utf-16le'))
+        else:
+            changeConfig['DisplayName'] = '\x00'*4
+
+        if serviceType is not None:
+            changeConfig['ServiceType'] = serviceType
+
+        # For now we're leaving this way. Still gotta find out how to send passwords
+        changeConfig['ServiceStartName'] = '\x00'*4
+        changeConfig['Password'] = '\x00'*4
+
+#        if serviceStartName is not None:
+#            changeConfig['ServiceStartName'] = ndrutils.NDRUniqueStringW()
+#            changeConfig['ServiceStartName']['Data'] = ('.\\'.encode('utf-16le') + serviceStartName+'\x00'.encode('utf-16le'))
+#        else:
+#            changeConfig['ServiceStartName'] = '\x00'*4
+
+#        if password is not None:
+#            data = (password+'\x00'.encode('utf-16le'))
+#            changeConfig['Password'] = pack('<L',random.randint(1,65535))
+#            changeConfig['Password'] += pack('<L',len(data))
+#            changeConfig['Password'] += data
+#            changeConfig['PwSize'] = len(data)
+#        else:
+#            changeConfig['Password'] = '\x00'*4
+
         ans = self.doRequest(changeConfig, checkReturn = 1)
         return ans
  
