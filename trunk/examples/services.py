@@ -36,18 +36,16 @@ class SVCCTL:
         }
 
 
-    def __init__(self, username, password, domain='', hashes=None, service_name=None, action=None, display_name = None, binary_path = None):
+    def __init__(self, username, password, domain, options):
         self.__username = username
         self.__password = password
         self.__protocol = SVCCTL.KNOWN_PROTOCOLS.keys()
-        self.__service_name = service_name
-        self.__display_name = display_name
-        self.__binary_path = binary_path
-        self.__action = action
+        self.__options = options
+        self.__action = options.action.upper()
         self.__domain = domain
         self.__lmhash = ''
         self.__nthash = ''
-        if hashes is not None:
+        if options.hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
 
 
@@ -71,7 +69,10 @@ class SVCCTL:
             try:
                 self.doStuff(rpctransport)
             except Exception, e:
+                #import traceback
+                #traceback.print_exc()
                 print e
+                break
             else:
                 # Got a response. No need for further iterations.
                 break
@@ -93,24 +94,24 @@ class SVCCTL:
         rpc = svcctl.DCERPCSvcCtl(dce)
         ans = rpc.OpenSCManagerW()
         scManagerHandle = ans['ContextHandle']
-        if self.__action.upper() != 'LIST' and self.__action.upper() != 'CREATE':
-            ans = rpc.OpenServiceW(scManagerHandle, self.__service_name.encode('utf-16le'))
+        if self.__action != 'LIST' and self.__action != 'CREATE':
+            ans = rpc.OpenServiceW(scManagerHandle, self.__options.name.encode('utf-16le'))
             serviceHandle = ans['ContextHandle']
 
-        if self.__action.upper() == 'START':
-            print "Starting service %s" % self.__service_name
+        if self.__action == 'START':
+            print "Starting service %s" % self.__options.name
             rpc.StartServiceW(serviceHandle)
             rpc.CloseServiceHandle(serviceHandle)
-        elif self.__action.upper() == 'STOP':
-            print "Stopping service %s" % self.__service_name
+        elif self.__action == 'STOP':
+            print "Stopping service %s" % self.__options.name
             rpc.StopService(serviceHandle)
             rpc.CloseServiceHandle(serviceHandle)
-        elif self.__action.upper() == 'DELETE':
-            print "Deleting service %s" % self.__service_name
+        elif self.__action == 'DELETE':
+            print "Deleting service %s" % self.__options.name
             rpc.DeleteService(serviceHandle)
             rpc.CloseServiceHandle(serviceHandle)
-        elif self.__action.upper() == 'CONFIG':
-            print "Querying service config for %s" % self.__service_name
+        elif self.__action == 'CONFIG':
+            print "Querying service config for %s" % self.__options.name
             resp = rpc.QueryServiceConfigW(serviceHandle)
             print "TYPE              : %2d - " % resp['QueryConfig']['ServiceType'],
             if resp['QueryConfig']['ServiceType'] & 0x1:
@@ -155,10 +156,10 @@ class SVCCTL:
             print "DISPLAY_NAME      : %s" % resp['QueryConfig']['DisplayName'].decode('utf-16le')
             print "DEPENDENCIES      : %s" % resp['QueryConfig']['Dependencies'].decode('utf-16le').replace('/',' - ')
             print "SERVICE_START_NAME: %s" % resp['QueryConfig']['ServiceStartName'].decode('utf-16le')
-        elif self.__action.upper() == 'STATUS':
-            print "Querying status for %s" % self.__service_name
+        elif self.__action == 'STATUS':
+            print "Querying status for %s" % self.__options.name
             resp = rpc.QueryServiceStatus(serviceHandle)
-            print "%30s - " % (self.__service_name),
+            print "%30s - " % (self.__options.name),
             state = resp['CurrentState']
             if state == svcctl.SERVICE_CONTINUE_PENDING:
                print "CONTINUE PENDING"
@@ -176,7 +177,7 @@ class SVCCTL:
                print "STOPPED"
             else:
                print "UNKOWN"
-        elif self.__action.upper() == 'LIST':
+        elif self.__action == 'LIST':
             print "Listing services available on target"
             #resp = rpc.EnumServicesStatusW(scManagerHandle, svcctl.SERVICE_WIN32_SHARE_PROCESS )
             #resp = rpc.EnumServicesStatusW(scManagerHandle, svcctl.SERVICE_WIN32_OWN_PROCESS )
@@ -202,8 +203,43 @@ class SVCCTL:
                 else:
                    print "UNKOWN"
             print "Total Services: %d" % len(resp)
-        elif self.__action.upper() == 'CREATE':
-            resp = rpc.CreateServiceW(scManagerHandle,self.__service_name.encode('utf-16le'), self.__display_name.encode('utf-16le'), self.__binary_path.encode('utf-16le'))
+        elif self.__action == 'CREATE':
+            resp = rpc.CreateServiceW(scManagerHandle,self.__options.name.encode('utf-16le'), self.__options.display.encode('utf-16le'), self.__options.path.encode('utf-16le'))
+        elif self.__action == 'CHANGE':
+            if self.__options.start_type is not None:
+                start_type = int(self.__options.start_type)
+            else:
+                start_type = None
+            if self.__options.service_type is not None:
+                service_type = int(self.__options.service_type)
+            else:
+                service_type = None
+
+            if self.__options.display is not None:
+                display = self.__options.display.encode('utf-16le')
+            else:
+                display = None
+ 
+            if self.__options.path is not None:
+                path = self.__options.path.encode('utf-16le')
+            else:
+                path = None
+ 
+            start_name = None
+            password = None
+#            if self.__options.start_name is not None:
+#                start_name = self.__options.start_name.encode('utf-16le')
+#            else:
+#                start_name = None
+#
+#            if self.__options.password is not None:
+#                password = self.__options.password.encode('utf-16le')
+#            else:
+#                password = None
+ 
+
+            resp = rpc.ChangeServiceConfigW(serviceHandle,  display, path, service_type, start_type, start_name, password)
+            rpc.CloseServiceHandle(serviceHandle)
         else:
             print "Unknown action %s" % self.__action
 
@@ -253,6 +289,16 @@ if __name__ == '__main__':
     create_parser.add_argument('-display', action='store', required=True, help='display name')
     create_parser.add_argument('-path', action='store', required=True, help='binary path')
 
+    # A change command
+    create_parser = subparsers.add_parser('change', help='change a service configuration')
+    create_parser.add_argument('-name', action='store', required=True, help='service name')
+    create_parser.add_argument('-display', action='store', required=False, help='display name')
+    create_parser.add_argument('-path', action='store', required=False, help='binary path')
+    create_parser.add_argument('-service_type', action='store', required=False, help='service type')
+    create_parser.add_argument('-start_type', action='store', required=False, help='service start type')
+    #create_parser.add_argument('-start_name', action='store', required=False, help='string that specifies the name of the account under which the service should run')
+    #create_parser.add_argument('-password', action='store', required=False, help='string that contains the password of the account whose name was specified by the start_name parameter')
+
     group = parser.add_argument_group('authentication')
 
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
@@ -265,18 +311,6 @@ if __name__ == '__main__':
     import re
     domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(options.target).groups('')
 
-    try:
-        service_name = options.name
-    except:
-        service_name = None
-
-    if options.action.upper() == 'CREATE':
-        display_name = options.display
-        path = options.path
-    else:
-        display_name = None
-        path = None
-        
     if domain is None:
         domain = ''
 
@@ -284,7 +318,7 @@ if __name__ == '__main__':
         from getpass import getpass
         password = getpass("Password:")
 
-    services = SVCCTL(username, password, domain, options.hashes, service_name , options.action.upper(), display_name, path)
+    services = SVCCTL(username, password, domain, options)
     try:
         services.run(address)
     except Exception, e:
