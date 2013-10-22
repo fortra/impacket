@@ -1008,6 +1008,24 @@ class DCERPCSvcCtl:
         return enumServicesList
         
     def ChangeServiceConfigW(self, handle,  displayName = None, binaryPathName = None, serviceType = None, startType = None, serviceStartName = None, password = None):
+        """
+            VERY IMPORTANT: If you dare to change the username and password, you need to 
+            take care of the following:
+            From [MS-SCMR], section 3.1.4.12
+
+            The server MUST treat the lpPassword as a clear-text password if the client 
+            is using RPC over TCP, ncacn_ip_tcp (as specified in [MS-RPCE]). 
+            See section 2.1.2 Client.
+            The server MUST treat the lpPassword as encrypted and decrypt it, if the 
+            client is using a RPC over NP, ncacn_np (as specified in [MS-RPCE]). 
+            The server MUST first retrieve a session key as specified in [MS-CIFS] 
+            (section 3.5.4.4). An RPC server application requests the session key of 
+            a client and then uses the routine as specified in [MS-LSAD] (section 5.1.2) 
+            to decrypt the password.
+
+            It's your reponsibility to fill out the right password data in the password 
+            parameter
+        """
         changeConfig = SVCCTLRChangeServiceConfigW()
         changeConfig['ContextHandle'] = handle
 
@@ -1030,24 +1048,20 @@ class DCERPCSvcCtl:
         if serviceType is not None:
             changeConfig['ServiceType'] = serviceType
 
-        # For now we're leaving this way. Still gotta find out how to send passwords
-        changeConfig['ServiceStartName'] = '\x00'*4
-        changeConfig['Password'] = '\x00'*4
+        if serviceStartName is not None:
+            changeConfig['ServiceStartName'] = ndrutils.NDRUniqueStringW()
+            changeConfig['ServiceStartName']['Data'] = ('.\\'.encode('utf-16le') + serviceStartName+'\x00'.encode('utf-16le'))
+        else:
+            changeConfig['ServiceStartName'] = '\x00'*4
 
-#        if serviceStartName is not None:
-#            changeConfig['ServiceStartName'] = ndrutils.NDRUniqueStringW()
-#            changeConfig['ServiceStartName']['Data'] = ('.\\'.encode('utf-16le') + serviceStartName+'\x00'.encode('utf-16le'))
-#        else:
-#            changeConfig['ServiceStartName'] = '\x00'*4
-
-#        if password is not None:
-#            data = (password+'\x00'.encode('utf-16le'))
-#            changeConfig['Password'] = pack('<L',random.randint(1,65535))
-#            changeConfig['Password'] += pack('<L',len(data))
-#            changeConfig['Password'] += data
-#            changeConfig['PwSize'] = len(data)
-#        else:
-#            changeConfig['Password'] = '\x00'*4
+        if password is not None:
+            data = password
+            changeConfig['Password'] = pack('<L',random.randint(1,65535))
+            changeConfig['Password'] += pack('<L',len(password))
+            changeConfig['Password'] += data
+            changeConfig['PwSize'] = len(password)
+        else:
+            changeConfig['Password'] = '\x00'*4
 
         ans = self.doRequest(changeConfig, checkReturn = 1)
         return ans
