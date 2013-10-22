@@ -90,9 +90,13 @@ class MiniImpacketShell(cmd.Cmd):
         if len(l) > 0:
            host = l[0]
         if len(l) > 1:
-           port = l[1]
+           port = int(l[1])
 
-        self.smb = SMBConnection(host, host, sess_port=int(port))
+        
+        if port == 139:
+            self.smb = SMBConnection('*SMBSERVER', host, sess_port=port)
+        else:
+            self.smb = SMBConnection(host, host, sess_port=port)
 
         dialect = self.smb.getDialect()
         if dialect == SMB_DIALECT:
