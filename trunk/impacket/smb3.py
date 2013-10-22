@@ -503,8 +503,8 @@ class SMB3:
                     # Calculate the key derivations for dialect 3.0
                     if self._Session['SigningRequired'] is True:
                         self._Session['SigningActivated'] = True
-                        if self._Connection['Dialect'] == SMB2_DIALECT_30:
-                            self._Session['ApplicationKey']  = crypto.KDF_CounterMode(exportedSessionKey, "SMB2APP\x00", "SmbRpc\x00", 128)
+                    if self._Connection['Dialect'] == SMB2_DIALECT_30:
+                        self._Session['ApplicationKey']  = crypto.KDF_CounterMode(exportedSessionKey, "SMB2APP\x00", "SmbRpc\x00", 128)
                     if self._Session['EncryptData'] is True:
                         self._Session['EncryptionKey']  = crypto.KDF_CounterMode(exportedSessionKey, "SMB2AESCCM\x00", "ServerIn \x00", 128)
                         self._Session['DecryptionKey']  = crypto.KDF_CounterMode(exportedSessionKey, "SMB2AESCCM\x00", "ServerOut\x00", 128)
@@ -1031,6 +1031,12 @@ class SMB3:
 
         if ans.isValidAnswer(STATUS_SUCCESS):
             return True
+
+    def getSessionKey(self):
+        if self.getDialect() == SMB2_DIALECT_30: 
+           return self._Session['ApplicationKey']
+        else:
+           return self._Session['SessionKey']
 
     ######################################################################
     # Higher level functions
