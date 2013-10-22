@@ -198,8 +198,10 @@ class SVCCTL:
                    print "UNKOWN"
             print "Total Services: %d" % len(resp)
         elif self.__action == 'CREATE':
+            print "Creating service %s" % self.__options.name
             resp = rpc.CreateServiceW(scManagerHandle,self.__options.name.encode('utf-16le'), self.__options.display.encode('utf-16le'), self.__options.path.encode('utf-16le'))
         elif self.__action == 'CHANGE':
+            print "Changing service config for %s" % self.__options.name
             if self.__options.start_type is not None:
                 start_type = int(self.__options.start_type)
             else:
