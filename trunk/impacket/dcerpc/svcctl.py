@@ -1049,8 +1049,11 @@ class DCERPCSvcCtl:
             changeConfig['ServiceType'] = serviceType
 
         if serviceStartName is not None:
+            if serviceStartName.find('\\') <= 0:
+                # Local user, we gotta append .\
+                serviceStartName = '.\\'.encode('utf-16le') + serviceStartName
             changeConfig['ServiceStartName'] = ndrutils.NDRUniqueStringW()
-            changeConfig['ServiceStartName']['Data'] = ('.\\'.encode('utf-16le') + serviceStartName+'\x00'.encode('utf-16le'))
+            changeConfig['ServiceStartName']['Data'] = (serviceStartName+'\x00'.encode('utf-16le'))
         else:
             changeConfig['ServiceStartName'] = '\x00'*4
 
