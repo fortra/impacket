@@ -2574,7 +2574,7 @@ class SMB:
         #At least on AIX, PIDs can exceed 16 bits, so we mask them out
         smb['Pid'] = (os.getpid() & 0xFFFF)
         smb['Flags1'] |= self.__flags1
-        smb['Flags2'] |= self.__flags2
+        smb['Flags2'] |= self.__flags2 | SMB.FLAGS2_NT_STATUS
         if self._SignatureEnabled:
             smb['Flags2'] |= SMB.FLAGS2_SMB_SECURITY_SIGNATURE
             self.signSMB(smb, self._SigningSessionKey, self._SigningChallengeResponse)
@@ -2777,7 +2777,7 @@ class SMB:
         return self.__server_name
 
     def get_session_key(self):
-        return self._dialects_parameters['SessionKey']
+        return self._SigningSessionKey
 
     def get_encryption_key(self):
         if self._dialects_data.fields.has_key('Challenge'):
@@ -3109,7 +3109,7 @@ class SMB:
 
             smb = NewSMBPacket()
             smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
-            smb['Flags2'] = SMB.FLAGS2_EXTENDED_SECURITY #| SMB.FLAGS2_NT_STATUS
+            smb['Flags2'] = SMB.FLAGS2_EXTENDED_SECURITY |  SMB.FLAGS2_NT_STATUS
 
             # Are we required to sign SMB? If so we do it, if not we skip it
             if self._SignatureRequired: 
