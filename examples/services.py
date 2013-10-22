@@ -23,18 +23,15 @@ import string
 import sys
 import types
 import argparse
-#import hexdump
-
 from impacket import uuid, ntlm, version
 from impacket.dcerpc import dcerpc_v4, dcerpc, transport, svcctl
+from impacket.crypto import *
 
 class SVCCTL:
     KNOWN_PROTOCOLS = {
         '139/SMB': (r'ncacn_np:%s[\pipe\svcctl]', 139),
         '445/SMB': (r'ncacn_np:%s[\pipe\svcctl]', 445),
-        '135/TCP': (r'ncacn_ip_tcp:%s', 135),
         }
-
 
     def __init__(self, username, password, domain, options):
         self.__username = username
@@ -47,8 +44,6 @@ class SVCCTL:
         self.__nthash = ''
         if options.hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
-
-
 
     def run(self, addr):
 
@@ -69,14 +64,13 @@ class SVCCTL:
             try:
                 self.doStuff(rpctransport)
             except Exception, e:
-                #import traceback
-                #traceback.print_exc()
+                ##import traceback
+                ##traceback.print_exc()
                 print e
                 break
             else:
                 # Got a response. No need for further iterations.
                 break
-
 
     def doStuff(self, rpctransport):
         # UDP only works over DCE/RPC version 4.
@@ -225,17 +219,18 @@ class SVCCTL:
             else:
                 path = None
  
-            start_name = None
-            password = None
-#            if self.__options.start_name is not None:
-#                start_name = self.__options.start_name.encode('utf-16le')
-#            else:
-#                start_name = None
-#
-#            if self.__options.password is not None:
-#                password = self.__options.password.encode('utf-16le')
-#            else:
-#                password = None
+            if self.__options.start_name is not None:
+                start_name = self.__options.start_name.encode('utf-16le')
+            else:
+                start_name = None
+
+            if self.__options.password is not None:
+                s = rpctransport.get_smb_connection()
+                key = s.getSessionKey()
+                password = (self.__options.password+'\x00').encode('utf-16le')
+                password = encryptSecret(key, password)
+            else:
+                password = None
  
 
             resp = rpc.ChangeServiceConfigW(serviceHandle,  display, path, service_type, start_type, start_name, password)
@@ -296,8 +291,8 @@ if __name__ == '__main__':
     create_parser.add_argument('-path', action='store', required=False, help='binary path')
     create_parser.add_argument('-service_type', action='store', required=False, help='service type')
     create_parser.add_argument('-start_type', action='store', required=False, help='service start type')
-    #create_parser.add_argument('-start_name', action='store', required=False, help='string that specifies the name of the account under which the service should run')
-    #create_parser.add_argument('-password', action='store', required=False, help='string that contains the password of the account whose name was specified by the start_name parameter')
+    create_parser.add_argument('-start_name', action='store', required=False, help='string that specifies the name of the account under which the service should run')
+    create_parser.add_argument('-password', action='store', required=False, help='string that contains the password of the account whose name was specified by the start_name parameter')
 
     group = parser.add_argument_group('authentication')
 
