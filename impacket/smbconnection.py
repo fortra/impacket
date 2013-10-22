@@ -520,6 +520,12 @@ class SMBConnection():
         except (smb.SessionError, smb3.SessionError), e:
             raise SessionError(e.get_error_code())
 
+    def getSessionKey(self):
+        if self.getDialect() == smb.SMB_DIALECT:
+            return self._SMBConnection.get_session_key()
+        else:
+            return self._SMBConnection.getSessionKey()
+
 class SessionError(Exception):
     """
     This is the exception every client should catch regardless of the underlying
