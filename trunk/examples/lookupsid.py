@@ -68,7 +68,7 @@ class LSALookupSid:
             try:
                 entries = self.__bruteForce(rpctransport, self.__maxRid)
             except Exception, e:
-                print 'Protocol failed: %s' % str(e)
+                print e
                 raise
             else:
                 # Got a response. No need for further iterations.
@@ -144,4 +144,7 @@ if __name__ == '__main__':
         password = getpass("Password:")
 
     lookup = LSALookupSid(username, password, domain, options.protocol, options.hashes, options.maxRid)
-    lookup.dump(address)
+    try:
+        lookup.dump(address)
+    except Exception, e:
+        pass
