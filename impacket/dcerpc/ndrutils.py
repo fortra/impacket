@@ -621,3 +621,28 @@ class NDRUniqueStringW(NDRStringW):
         self['RefId'] = random.randint(1,65535)
 
 
+class RPC_UNICODE_STRING(Structure):
+    structure = (
+        ('Length','<H=0'),
+        ('MaximumLength','<H=0'),
+        ('Buffer',':', NDRUniqueStringW ),
+    )
+
+    def __init__(self, data = None, alignment = 0):
+        Structure.__init__(self, data, alignment)
+
+    def fromString(self, data):
+        retVal = Structure.fromString(self, data)
+        self['Buffer'] = self['Buffer']['Data']
+        return retVal
+        
+    def getData(self):
+        self['Length'] = len(self['Buffer'])
+        self['MaximumLength'] = self['Length']
+        tmpStr =  self['Buffer'] 
+        self['Buffer'] = NDRUniqueStringW()
+        self['Buffer']['Data'] = tmpStr
+        retVal = Structure.getData(self)
+        self['Buffer'] = tmpStr
+        return retVal
+
