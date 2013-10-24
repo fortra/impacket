@@ -41,8 +41,31 @@ POLICY_DNS_DOMAIN_INFORMATION_INT       = 13
 POLICY_LOCAL_ACCOUNT_DOMAIN_INFORMATION = 14
 POLICY_LAST_ENTRY                       = 15
 
+# LSAP_LOOKUP_LEVEL ( [MS-LSAT] Section 2.2.16 )
+LsapLookupWksta                   = 1
+LsapLookupPDC                     = 2
+LsapLookupTDL                     = 3
+LsapLookupGC                      = 4
+LsapLookupXForestReferral         = 5
+LsapLookupXForestResolve          = 6
+LsapLookupRODCReferralToFullDC    = 7
 
 # Structs
+class LSARPCLookupNames2(Structure):
+    opnum = 58
+    alignment = 4
+    structure = (
+        ('PolicyHandle','20s'),
+        ('Count','<L=0'),
+        ('SizeIs','<L=0'),
+        ('Names',':'),
+        ('TranslatedSids',':'),
+        ('LookupLevel','<H=0'),
+        ('MappedCount','<L=0'),
+        ('LookupOptions','<L=0'),
+        ('ClientRevision','<L=0'),
+    )
+
 class LSARPCOpenPolicy2(Structure):
     opnum = 44
     alignment = 4
@@ -257,22 +280,28 @@ class DCERPCLsarpc:
                 raise LSARPCSessionError(error_code)
             return answer
 
-    def LsarOpenPolicy2( self, server_name, access_mask = 0x00020801):
+    def LsarOpenPolicy2( self, systemName, desiredAccess = 0x00020801):
+      """
+       opens a context handle to the RPC server
+
+       :param string SystemName: This parameter does not have any effect on message processing in any environment. It MUST be ignored on receipt.
+       :param int DesiredAccess: An ACCESS_MASK value that specifies the requested access rights that MUST be granted on the returned PolicyHandle if the request is successful
+      """
       open_policy = LSARPCOpenPolicy2()
       open_policy['ServerName'] = ndrutils.NDRUniqueStringW()
-      open_policy['ServerName']['Data'] = (server_name+'\x00').encode('utf-16le')
+      open_policy['ServerName']['Data'] = (systemName+'\x00').encode('utf-16le')
       #TODO: Implement ObjectAtributes structure
       open_policy['ObjectAttributes'] = '\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
-      open_policy['AccessMask'] = access_mask
+      open_policy['AccessMask'] = desiredAccess
       data = self.doRequest(open_policy)
       ans = LSARPCOpenPolicy2Response(data)
       return ans
 
     def LsarLookupSids( self, context_handle, sids):
       '''
-           This method receives the following parameters:
-                - Handle(OpenPolicy2 handle)
-                - list of sids to look information for ([S1, S2 ...])
+
+      :param HANDLE context_handle: OpenPolicy2 handle)
+      :param list sids: list of sids to look information for ([S1, S2 ...])
       '''
 
       open_policy = LSARPCLookupSids()
@@ -381,3 +410,21 @@ class DCERPCLsarpc:
       data = self.doRequest(open_policy)
       ans = LSARPCCloseResponse(data)
       return ans
+
+    def LsarLookupNames2(self, policyHandle, names, lookupLevel=LsapLookupWksta, lookupOptions = 0x0, clientRevision = 0x1):
+        lookupNames2 = LSARPCLookupNames2()
+        lookupNames2['PolicyHandle'] = policyHandle
+        lookupNames2['Count'] = 1
+        lookupNames2['SizeIs'] = 1
+        lookupNames2['Names'] = ndrutils.RPC_UNICODE_STRING()
+        lookupNames2['Names']['Buffer'] = names
+        lookupNames2['TranslatedSids'] = '\x00'*8
+        lookupNames2['LookupOptions'] = lookupOptions
+        lookupNames2['LookupLevel'] = lookupLevel
+        lookupNames2['MappedCount'] = 0
+        lookupNames2['ClientRevision'] = clientRevision
+
+        data = self.doRequest(lookupNames2)
+
+        return data
+
