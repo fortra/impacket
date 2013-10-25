@@ -52,6 +52,14 @@ LsapLookupRODCReferralToFullDC    = 7
 
 # Structs
 
+class LSARPCSetSystemAccessAccount(Structure):
+    opnum = 24
+    alignment = 4
+    structure = (
+        ('AccountHandle','20s'), 
+        ('SystemAccess','<L=0'), 
+    )
+
 class LSARPCLookupNames2(Structure):
     opnum = 58
     alignment = 4
@@ -73,6 +81,18 @@ class RPC_SID(SAMR_RPC_SID):
     )
     def __init__(self, data = None, alignment = 0):
         SAMR_RPC_SID.__init__(self, data)
+
+    def fromCanonical(self, canonical):
+       items = canonical.split('-')
+       self['Revision'] = int(items[1])
+       self['IdentifierAuthority'] = SAMR_RPC_SID_IDENTIFIER_AUTHORITY()
+       self['IdentifierAuthority']['Value'] = '\x00\x00\x00\x00\x00' + pack('B',int(items[2]))
+       self['SubAuthorityCount'] = len(items) - 3
+       self['Count'] = self['SubAuthorityCount']
+       ans = ''
+       for i in range(self['SubAuthorityCount']):
+           ans += pack('<L', int(items[i+3]))
+       self['SubAuthority'] = ans
 
 class LSAPR_TRUST_INFORMATION(Structure):
     structure = (
@@ -118,6 +138,41 @@ class LSARPCLookupNames2Response(Structure):
         ('Size', '<L=0'),
         ('TranslatedSids',':', LSAPR_TRANSLATED_SIDS_EX),
         ('MappedCount','<L=0'),
+    )
+
+class LSARPCDeleteObject(Structure):
+    opnum = 34
+    alignment = 4
+    structure = (
+        ('ObjectHandle','20s'),
+    )
+
+class LSARPCCreateAccount(Structure):
+    opnum = 10
+    alignment = 4
+    structure = (
+        ('PolicyHandle','20s'),
+        ('AccountSid',':', RPC_SID),
+        ('DesiredAccess','<L=0'),
+    )
+    
+class LSARPCCreateAccountResponse(Structure):
+    structure = (
+        ('AccountHandle', '20s'),
+    )
+
+class LSARPCOpenAccount(Structure):
+    opnum = 17
+    alignment = 4
+    structure = (
+        ('PolicyHandle','20s'),
+        ('AccountSid',':', RPC_SID),
+        ('DesiredAccess','<L=0'),
+    )
+    
+class LSARPCOpenAccountResponse(Structure):
+    structure = (
+        ('AccountHandle', '20s'),
     )
 
 class LSARPCOpenPolicy2(Structure):
@@ -338,8 +393,9 @@ class DCERPCLsarpc:
       """
        opens a context handle to the RPC server
 
-       :param string SystemName: This parameter does not have any effect on message processing in any environment. It MUST be ignored on receipt.
-       :param int DesiredAccess: An ACCESS_MASK value that specifies the requested access rights that MUST be granted on the returned PolicyHandle if the request is successful
+       :param string systemName: This parameter does not have any effect on message processing in any environment. It MUST be ignored on receipt.
+       :param int desiredAccess: An ACCESS_MASK value that specifies the requested access rights that MUST be granted on the returned PolicyHandle if the request is successful. Check [MS-DTYP], section 2.4.3
+
       """
       open_policy = LSARPCOpenPolicy2()
       open_policy['ServerName'] = ndrutils.NDRUniqueStringW()
@@ -496,4 +552,76 @@ class DCERPCLsarpc:
         ans = LSARPCLookupNames2Response(data)
 
         return ans
+
+    def LsarOpenAccount(self, policyHandle, accountSid, desiredAccess=0x02000000):
+        """
+        obtains a handle to an account object
+
+        :param HANDLE policyHandle: OpenPolicy2 handle
+        :param RPC_SID accountSid: A SID of the account to be opened
+        :param int desiredAccess: An ACCESS_MASK value that specifies the requested access rights that MUST be granted on the returned PolicyHandle if the request is successful. Check [MS-DTYP], section 2.4.3
+
+        :return: returns the AccountHandle for the opened Sid. Call dump() method to see the structure.
+        """
+        openAccount = LSARPCOpenAccount()
+        openAccount['PolicyHandle'] = policyHandle
+        openAccount['AccountSid'] = accountSid
+        openAccount['DesiredAccess'] = desiredAccess
+
+        data = self.doRequest(openAccount)
+        ans = LSARPCOpenAccountResponse(data)
+
+        return ans
+
+    def LsarCreateAccount(self, policyHandle, accountSid, desiredAccess=0x02000000):
+        """
+        creates a new account object in the server's database
+
+        :param HANDLE policyHandle: OpenPolicy2 handle
+        :param RPC_SID accountSid: A SID of the account to be opened
+        :param int desiredAccess: An ACCESS_MASK value that specifies the requested access rights that MUST be granted on the returned PolicyHandle if the request is successful. Check [MS-DTYP], section 2.4.3
+
+        :return: returns the AccountHandle for the created Sid. Call dump() method to see the structure.
+        """
+        createAccount = LSARPCCreateAccount()
+        createAccount['PolicyHandle'] = policyHandle
+        createAccount['AccountSid'] = accountSid
+        createAccount['DesiredAccess'] = desiredAccess
+
+        data = self.doRequest(createAccount)
+        ans = LSARPCCreateAccountResponse(data)
+
+        return ans
+
+    def LsarDeleteObject(self, objectHandle):
+        """
+        deletes an open account object, secret object, or trusted domain object.
+
+        :param HANDLE objectHandle: handle of the object to delete
+
+        :return: NULL or raises an exception on error
+        """
+        deleteObject = LSARPCDeleteObject()
+        deleteObject['ObjectHandle'] = objectHandle
+
+        data = self.doRequest(deleteObject)
+
+        return data
+
+    def LsarSetSystemAccessAccount(self, accountHandle, systemAccess = 0x10):
+        """
+        sets system access account flags for an account object.
+
+        :param HANDLE accountHandle: handle for a valid opened account
+        :param int systemAccess: a bitmask containing the account flags to be set on the account.
+
+        :return: NULL or raises an exception on error
+        """
+        setSystemAccess = LSARPCSetSystemAccessAccount()
+        setSystemAccess['AccountHandle'] = accountHandle
+        setSystemAccess['SystemAccess'] = systemAccess
+
+        data = self.doRequest(setSystemAccess)
+
+        return data
 
