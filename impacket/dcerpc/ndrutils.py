@@ -592,6 +592,14 @@ class NDRStringA(Structure):
         ('Data',':'),
     )
 
+class NDRPointerNew(Structure):
+    structure = (
+        ('RefId','<L=0xff'),
+    )
+    def __init__(self, data = None, alignment = 0):
+        Structure.__init__(self,data, alignment)
+        self['RefId'] = random.randint(1,65535)
+
 class NDRUniqueStringA(NDRStringA):
     commonHdr = (
         ('RefId','<L'),
@@ -621,28 +629,32 @@ class NDRUniqueStringW(NDRStringW):
         self['RefId'] = random.randint(1,65535)
 
 
-class RPC_UNICODE_STRING(Structure):
+class pRPC_UNICODE_STRING(Structure):
+    # Pointer to a RPC_UNICODE_STRING
     structure = (
         ('Length','<H=0'),
         ('MaximumLength','<H=0'),
-        ('Buffer',':', NDRUniqueStringW ),
+        ('NDRStringPtr','<L=0'),
     )
 
     def __init__(self, data = None, alignment = 0):
         Structure.__init__(self, data, alignment)
+        self['NDRStringPtr'] = random.randint(1,65535)
 
-    def fromString(self, data):
-        retVal = Structure.fromString(self, data)
-        self['Buffer'] = self['Buffer']['Data']
-        return retVal
-        
-    def getData(self):
-        self['Length'] = len(self['Buffer'])
+    def setDataLen(self, data):
+        self['Length'] = len(data)
         self['MaximumLength'] = self['Length']
-        tmpStr =  self['Buffer'] 
-        self['Buffer'] = NDRUniqueStringW()
-        self['Buffer']['Data'] = tmpStr
-        retVal = Structure.getData(self)
-        self['Buffer'] = tmpStr
-        return retVal
+
+class RPC_UNICODE_STRING(Structure):
+    # Same as NDRStringW except DataLen is taken from ActualCount
+    structure = (
+        ('MaxCount','<L=len(Data)/2'),
+        ('Offset','<L=0'),
+        ('ActualCount','<L=len(Data)/2'),
+        ('DataLen','_-Data','ActualCount*2'),
+        ('Data',':'),
+    )
+
+    def __init__(self, data = None, alignment = 0):
+        Structure.__init__(self, data, alignment)
 
