@@ -568,8 +568,8 @@ class Structure:
             if i in self.fields:
                 fixedFields.append(i)
                 if isinstance(self[i], Structure):
-                    self[i].dump('%s:{' % i, indent = indent + 4)
-                    print "}"
+                    self[i].dump('%s%s:{' % (ind,i), indent = indent + 4)
+                    print "%s}" % ind
                 else:
                     print "%s%s: {%r}" % (ind,i,self[i])
         # Do we have remaining fields not defined in the structures? let's 
