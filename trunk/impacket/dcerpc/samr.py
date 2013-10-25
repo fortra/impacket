@@ -194,7 +194,6 @@ class SAMR_RPC_SID(Structure):
 
     def fromCanonical(self, canonical):
        items = canonical.split('-')
-       print items
        self['Revision'] = int(items[1])
        self['IdentifierAuthority'] = SAMR_RPC_SID_IDENTIFIER_AUTHORITY()
        self['IdentifierAuthority']['Value'] = '\x00\x00\x00\x00\x00' + pack('B',int(items[2]))
