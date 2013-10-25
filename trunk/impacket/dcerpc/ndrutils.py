@@ -658,3 +658,12 @@ class RPC_UNICODE_STRING(Structure):
     def __init__(self, data = None, alignment = 0):
         Structure.__init__(self, data, alignment)
 
+class NDRConformantVaryingArray(Structure):
+    structure = (
+        ('MaxCount','<L=len(Data)'),
+        ('Offset','<L=0'),
+        ('ActualCount','<L=len(Data)'),
+        ('DataLen','_-Data','ActualCount'),
+        ('Data',':'),
+    )
+
