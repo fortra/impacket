@@ -51,6 +51,7 @@ LsapLookupXForestResolve          = 6
 LsapLookupRODCReferralToFullDC    = 7
 
 # Structs
+
 class LSARPCLookupNames2(Structure):
     opnum = 58
     alignment = 4
@@ -64,6 +65,59 @@ class LSARPCLookupNames2(Structure):
         ('MappedCount','<L=0'),
         ('LookupOptions','<L=0'),
         ('ClientRevision','<L=0'),
+    )
+
+class RPC_SID(SAMR_RPC_SID):
+    commonHdr = (
+        ('Count', '<L=0'),
+    )
+    def __init__(self, data = None, alignment = 0):
+        SAMR_RPC_SID.__init__(self, data)
+
+class LSAPR_TRUST_INFORMATION(Structure):
+    structure = (
+        ('pName',':', ndrutils.pRPC_UNICODE_STRING),
+        ('pSid',':', ndrutils.NDRPointerNew),
+        ('Name',':', ndrutils.RPC_UNICODE_STRING),
+        ('Sid', ':', RPC_SID),
+    )
+
+class LSAPR_REFERENCED_DOMAIN_LIST(Structure):
+    alignment = 4
+    structure = (
+        ('Entries','<L=0'),
+        ('pDomains','<L=0'),
+        ('MaxEntries','<L=0'),
+        ('Size', '<L=0'),
+        ('Domains', ':', LSAPR_TRUST_INFORMATION), 
+    )
+
+class PLSAPR_REFERENCED_DOMAIN_LIST(LSAPR_REFERENCED_DOMAIN_LIST):
+    alignment = 4
+    commonHdr = (
+        ('RefId','<L'),
+    )
+    def __init__(self, data = None, alignment = 0):
+        LSAPR_REFERENCED_DOMAIN_LIST.__init__(self,data, alignment)
+        self['RefId'] = random.randint(1,65535)
+
+class LSAPR_TRANSLATED_SIDS_EX(Structure):
+    alignment = 4
+    structure = (
+        ('Use', '<H=0'),
+        ('RelativeId', '<L=0'),
+        ('DomainIndex', '<L=0'),
+        ('Flags', '<L=0'),
+    )
+
+class LSARPCLookupNames2Response(Structure):
+    structure = (
+        ('pReferencedDomains',':', PLSAPR_REFERENCED_DOMAIN_LIST),
+        ('Entries', '<L=0'),
+        ('pTranslatedSids', ':', ndrutils.NDRPointerNew),
+        ('Size', '<L=0'),
+        ('TranslatedSids',':', LSAPR_TRANSLATED_SIDS_EX),
+        ('MappedCount','<L=0'),
     )
 
 class LSARPCOpenPolicy2(Structure):
@@ -412,12 +466,26 @@ class DCERPCLsarpc:
       return ans
 
     def LsarLookupNames2(self, policyHandle, names, lookupLevel=LsapLookupWksta, lookupOptions = 0x0, clientRevision = 0x1):
+        """
+        translates a batch of security principal names to their SID form
+
+        :param HANDLE policyHandle: OpenPolicy2 handle
+        :param string names: contains the security principal names to translate (only supports one name)
+        :param int lookupLevel: Specifies what scopes are to be used during translation, as specified in section 2.2.16 [MS-LSAT]
+        :param int lookupOptions: flags that control the lookup operation. For possible values and their meanings, see section 3.1.4.5 [MS-LSAT]
+        :param int clientRevision: version of the client, which implies the client's capabilities. For possible values and their meanings, see section 3.1.4.5 [MS-LSAT]
+
+        :return: on successful return, call the dump() method to see its contents
+        """
         lookupNames2 = LSARPCLookupNames2()
         lookupNames2['PolicyHandle'] = policyHandle
         lookupNames2['Count'] = 1
         lookupNames2['SizeIs'] = 1
-        lookupNames2['Names'] = ndrutils.RPC_UNICODE_STRING()
-        lookupNames2['Names']['Buffer'] = names
+        rpcUnicodePtr = ndrutils.pRPC_UNICODE_STRING()
+        rpcUnicodePtr.setDataLen(names)
+        rpcUnicode = ndrutils.RPC_UNICODE_STRING()
+        rpcUnicode['Data'] = names
+        lookupNames2['Names'] = str(rpcUnicodePtr) + str(rpcUnicode)
         lookupNames2['TranslatedSids'] = '\x00'*8
         lookupNames2['LookupOptions'] = lookupOptions
         lookupNames2['LookupLevel'] = lookupLevel
@@ -425,6 +493,7 @@ class DCERPCLsarpc:
         lookupNames2['ClientRevision'] = clientRevision
 
         data = self.doRequest(lookupNames2)
+        ans = LSARPCLookupNames2Response(data)
 
-        return data
+        return ans
 
