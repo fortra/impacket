@@ -729,7 +729,6 @@ class LSASecrets(OfflineRegistry):
         OfflineRegistry.__init__(self,securityFile, isRemote)
         self.__hashedBootKey = ''
         self.__bootKey = bootKey
-        #self.__bootKey = '8\xe8\xcd"\xd7\x9b\x83\xb4\x9cH&\xbet\x94\x7fh'
         self.__LSAKey = ''
         self.__NKLMKey = ''
         self.__isRemote = isRemote
@@ -1356,5 +1355,4 @@ if __name__ == '__main__':
     try:
         dumper.dump()
     except Exception, e:
-        raise
         logging.error(e)
