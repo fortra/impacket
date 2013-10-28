@@ -28,6 +28,11 @@ import argparse
 import ntpath
 import cmd
 import os
+# If you wanna have readline like functionality in Windows, install pyreadline
+try:
+  import pyreadline as readline
+except ImportError:
+  import readline
 
 class MiniImpacketShell(cmd.Cmd):    
     def __init__(self):
@@ -39,6 +44,7 @@ class MiniImpacketShell(cmd.Cmd):
         self.pwd = ''
         self.share = None
         self.loggedIn = False
+        self.completion = []
 
     def emptyline(self):
         pass
@@ -211,6 +217,10 @@ class MiniImpacketShell(cmd.Cmd):
         self.share = line
         self.tid = self.smb.connectTree(line)
         self.pwd = '\\'
+        self.do_ls('', False)
+
+    def complete_cd(self, text, line, begidx, endidx):
+        return self.complete_get(text, line, begidx, endidx, include = 2)
 
     def do_cd(self, line):
         if self.tid is None:
@@ -235,7 +245,6 @@ class MiniImpacketShell(cmd.Cmd):
             else:
                self.pwd = oldpwd
                raise
-            
 
     def do_pwd(self,line):
         if self.loggedIn is False:
@@ -243,7 +252,7 @@ class MiniImpacketShell(cmd.Cmd):
             return
         print self.pwd
 
-    def do_ls(self, wildcard):
+    def do_ls(self, wildcard, display = True):
         if self.tid is None:
             logging.error("No share selected")
             return
@@ -251,10 +260,14 @@ class MiniImpacketShell(cmd.Cmd):
            pwd = ntpath.join(self.pwd,'*')
         else:
            pwd = ntpath.join(self.pwd, wildcard)
+        self.completion = []
         pwd = string.replace(pwd,'/','\\')
         pwd = ntpath.normpath(pwd)
         for f in self.smb.listPath(self.share, pwd):
-           print "%crw-rw-rw- %10d  %s %s" % ('d' if f.is_directory() > 0 else '-', f.get_filesize(),  time.ctime(float(f.get_mtime_epoch())) ,f.get_longname() )
+           if display is True:
+               print "%crw-rw-rw- %10d  %s %s" % ('d' if f.is_directory() > 0 else '-', f.get_filesize(),  time.ctime(float(f.get_mtime_epoch())) ,f.get_longname() )
+           self.completion.append((f.get_longname(),f.is_directory()))
+
 
     def do_rm(self, filename):
         if self.tid is None:
@@ -292,6 +305,28 @@ class MiniImpacketShell(cmd.Cmd):
         finalpath = string.replace(f,'/','\\')
         self.smb.putFile(self.share, finalpath, fh.read)
         fh.close()
+
+    def complete_get(self, text, line, begidx, endidx, include = 1):
+        # include means
+        # 1 just files
+        # 2 just directories
+        p = string.replace(line,'/','\\') 
+        if p.find('\\') < 0:
+            items = []
+            if include == 1:
+                mask = 0
+            else:
+                mask = 0x010
+            for i in self.completion:
+                if i[1] == mask:
+                    items.append(i[0])
+            if text:
+                return  [
+                    item for item in items
+                    if item.upper().startswith(text.upper())
+                ]
+            else:
+                return items
 
     def do_get(self, filename):
         if self.tid is None:
