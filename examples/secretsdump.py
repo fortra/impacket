@@ -507,6 +507,7 @@ class RemoteOperations:
             if str(e).find('NOT_FOUND') > 0:
                return None
 
+        logging.info('NTDS.dit found. Calling vssadmin to get a copy. This might take some time')
         # Get the list of remote shadows
         shadow = self.__getLastVSS()
         if shadow == '':
