@@ -875,12 +875,27 @@ class DCERPCSvcCtl:
         return answer
 
     def DeleteService(self, handle):
+        """
+        deletes a service
+
+        :param HANDLE handle: a valid HANDLE to a service previously opened
+
+        :return: on error it raises an exception. Otherwise it was successful
+        """
+
         deleteService = SVCCTLRDeleteService()
         deleteService['ContextHandle'] = handle
         ans = self.doRequest(deleteService, checkReturn = 1)
         return ans
 
     def StopService(self, handle):
+        """
+        stops a service
+
+        :param HANDLE handle: a valid HANDLE to a service previously opened
+
+        :return: returns an updated SVCCTLServiceStatus structure. Call dump() method to see its contents. On error it raises an exception
+        """
         controlService = SVCCTLRControlService()
         controlService['ContextHandle'] = handle
         controlService['Control']  = SERVICE_CONTROL_STOP
@@ -888,6 +903,15 @@ class DCERPCSvcCtl:
         return SVCCTLServiceStatus(ans)
  
     def OpenServiceA(self, handle, name):
+        """
+        opens a service
+
+        :param HANDLE handle: a valid HANDLE to the SCM database (see OpenSCManagerW)
+        :param STRING name: name of the service
+
+        :return: returns an SVCCTLROpenServiceResponse structure with the service handle. Call dump() method to see its contents. On error it raises an exception
+
+        """
         openService = SVCCTLROpenServiceA()
         openService['SCManager'] = handle
         openService['ServiceName'] = ndrutils.NDRStringA()
@@ -898,6 +922,15 @@ class DCERPCSvcCtl:
         return SVCCTLROpenServiceResponse(ans)
 
     def OpenServiceW(self, handle, name):
+        """
+        opens a service
+
+        :param HANDLE handle: a valid HANDLE to the SCM database (see OpenSCManagerW)
+        :param UNICODE name: name of the service
+
+        :return: returns an SVCCTLROpenServiceResponse structure with the service handle. Call dump() method to see its contents. On error it raises an exception
+
+        """
         # We MUST receive Unicode data here
         openService = SVCCTLROpenServiceW()
         openService['SCManager'] = handle
@@ -909,6 +942,15 @@ class DCERPCSvcCtl:
         return SVCCTLROpenServiceResponse(ans)
 
     def StartServiceW(self, handle, arguments = ''):
+        """
+        starts a service
+
+        :param HANDLE handle: a valid HANDLE to the service (see OpenServiceW)
+        :param STRING arguments: arguments to be passed to the service
+
+        :return: On error it raises an exception. Otherwise it was successful
+        """
+
         # TODO: argv has to be a pointer to a buffer that contains an array
         # of pointers to null-terminated UNICODE strings that are passed as
         # arguments to the service
@@ -934,6 +976,17 @@ class DCERPCSvcCtl:
         return ans
 
     def CreateServiceW(self, handle, serviceName, displayName, binaryPathName, serviceType = SERVICE_WIN32_OWN_PROCESS):
+        """
+        creates a service
+
+        :param HANDLE handle: a valid HANDLE to the SCM database (see OpenSCManagerW)
+        :param UNICODE serviceName: the name of the service to create
+        :param UNICODE displayName: the display name of the service to create
+        :param UNICODE binaryPathName: the pathname for the binary to be executed when starting the service
+        :param INT serviceType: the type of service to be created. See service types within this file or [MS-SCMR] section 3.1.4.12.
+
+        :return: returns an SVCCTLRCreateServiceWResponse structure with the service handle. Call dump() method to see its contents. On error it raises an exception
+        """
         # We MUST receive Unicode data here
         createService = SVCCTLRCreateServiceW()
         createService['SCManager']      = handle
@@ -953,6 +1006,11 @@ class DCERPCSvcCtl:
         return SVCCTLRCreateServiceWResponse(ans)
 
     def OpenSCManagerW(self): 
+        """
+        opens the SCM database on the specified server.
+
+        :return: returns an SVCCTLROpenSCManagerAResponse structure with the SCM handle. Call dump() method to see its contents. On error it raises an exception
+        """
         openSCManager = SVCCTLROpenSCManagerW()
         openSCManager['MachineName'] = ndrutils.NDRUniqueStringW()
         openSCManager['MachineName']['Data'] = 'DUMMY\x00'.encode('utf-16le')
@@ -962,12 +1020,38 @@ class DCERPCSvcCtl:
         return SVCCTLROpenSCManagerAResponse(ans)
 
     def CloseServiceHandle(self, handle):
+        """
+        releases the handle to the specified service or the SCM database
+
+        :param HANDLE handle: a valid HANDLE to a service or SCM database
+
+        :return: On error it raises an exception. Otherwise it was successful
+        """
         closeHandle = SVCCTLRCloseServiceHandle()
         closeHandle['ContextHandle'] = handle
         ans = self.doRequest(closeHandle, checkReturn = 1)
         return SVCCTLRCloseServiceHandlerResponse(ans)
  
     def EnumServicesStatusW(self, handle, serviceType = SERVICE_KERNEL_DRIVER | SERVICE_FILE_SYSTEM_DRIVER | SERVICE_WIN32_OWN_PROCESS | SERVICE_WIN32_SHARE_PROCESS | SERVICE_INTERACTIVE_PROCESS, serviceState = SERVICE_STATE_ALL ):
+        """
+        enumerates service records in the specified SCM database
+
+        :param HANDLE handle: a valid HANDLE to the SCM database (see OpenSCManagerW)
+        :param INT serviceType: a value that specifies what types of service records to enumerate. By default it request all services. For a list of serviceTypes see [MS-SCMR] 3.1.4.14
+        :param INT serviceState: A value that specifies the service records to enumerate based on the value of their current state. By default it request all states. For a list of serviceState see [MS-SCMR] 3.1.4.14
+
+        :return: Returns a list of services. Each item on that list is a dictionary with the following keys/types:
+        {
+            'ServiceName'       : UNICODE,
+            'DisplayName'       : UNICODE,
+            'ServiceType'       : int,
+            'CurrentState'      : int,
+            'ControlsAccepted'  : int,
+        }
+
+        On error it raises an exception
+
+        """
         enumServices = SVCCTLREnumServicesStatusW()
         enumServices['ContextHandle'] = handle
         enumServices['ServiceType']   = serviceType
@@ -1009,22 +1093,34 @@ class DCERPCSvcCtl:
         
     def ChangeServiceConfigW(self, handle,  displayName = None, binaryPathName = None, serviceType = None, startType = None, serviceStartName = None, password = None):
         """
-            VERY IMPORTANT: If you dare to change the username and password, you need to 
-            take care of the following:
-            From [MS-SCMR], section 3.1.4.12
+        changes a service's configuration parameters in the SCM database
 
-            The server MUST treat the lpPassword as a clear-text password if the client 
-            is using RPC over TCP, ncacn_ip_tcp (as specified in [MS-RPCE]). 
-            See section 2.1.2 Client.
-            The server MUST treat the lpPassword as encrypted and decrypt it, if the 
-            client is using a RPC over NP, ncacn_np (as specified in [MS-RPCE]). 
-            The server MUST first retrieve a session key as specified in [MS-CIFS] 
-            (section 3.5.4.4). An RPC server application requests the session key of 
-            a client and then uses the routine as specified in [MS-LSAD] (section 5.1.2) 
-            to decrypt the password.
+        :param HANDLE handle: a valid HANDLE to the service (see OpenServiceW)
+        :param UNICODE displayName: the new display name of the service. None if you don't want to change this value.
+        :param UNICODE binaryPathName: the new pathname for the binary to be executed when starting the service. None if you don't want to change this value
+        :param UNICODE serviceType: the new type of the service. None if you don't want to change this value. See service types within this file or [MS-SCMR] section 3.1.4.12.
+        :param INT startType: the new startType of the service. None if you don't want to change this value. See [MS-SCMR] section 3.1.4.11 for a list of possible values.
+        :param UNICODE startStartName: the name of the account under which the service should run. None if you don't want to change this value. 
+        :param BINARY password: a password value for the user. None if you don't want to change this value.
+        
+        :return: On error it raises an exception. Otherwise it was successful
+        
+        VERY IMPORTANT: If you dare to change the username and password, you need to 
+        take care of the following:
+        From [MS-SCMR], section 3.1.4.12
 
-            It's your reponsibility to fill out the right password data in the password 
-            parameter
+        The server MUST treat the lpPassword as a clear-text password if the client 
+        is using RPC over TCP, ncacn_ip_tcp (as specified in [MS-RPCE]). 
+        See section 2.1.2 Client.
+        The server MUST treat the lpPassword as encrypted and decrypt it, if the 
+        client is using a RPC over NP, ncacn_np (as specified in [MS-RPCE]). 
+        The server MUST first retrieve a session key as specified in [MS-CIFS] 
+        (section 3.5.4.4). An RPC server application requests the session key of 
+        a client and then uses the routine as specified in [MS-LSAD] (section 5.1.2) 
+        to decrypt the password.
+
+        It's your reponsibility to fill out the right password data in the password 
+        parameter
         """
         changeConfig = SVCCTLRChangeServiceConfigW()
         changeConfig['ContextHandle'] = handle
@@ -1070,6 +1166,14 @@ class DCERPCSvcCtl:
         return ans
  
     def QueryServiceStatus(self, handle):
+        """
+        returns the current status of the specified service
+
+        :param HANDLE handle: a valid HANDLE to the service (see OpenServiceW)
+
+        :return: returns an SVCCTLServiceStatus structure with the service status. Call dump() method to see its contents. On error it raises an exception
+
+        """
         queryStatus = SVCCTLRQueryServiceStatus()
         queryStatus['ContextHandle'] = handle
 
@@ -1077,6 +1181,13 @@ class DCERPCSvcCtl:
         return SVCCTLServiceStatus(ans)
 
     def QueryServiceConfigW(self, handle):
+        """
+        returns the configuration parameters of the specified service
+
+        :param HANDLE handle: a valid HANDLE to the service (see OpenServiceW)
+
+        :return: returns an SVCCTLRQueryServiceConfigWResponse structure with the service's configuration. Call dump() method to see its contents. On error it raises an exception
+        """
         class configStrings(Structure):
             structure = (
                 ('BinaryPathName',':',ndrutils.NDRStringW),
