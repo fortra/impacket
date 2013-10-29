@@ -22,7 +22,7 @@ import string
 import time
 import logging
 from impacket import smb, version, smb3, nt_errors
-from impacket.dcerpc import dcerpc_v4, dcerpc, transport, srvsvc
+from impacket.dcerpc import transport, srvsvc
 from impacket.smbconnection import *
 import argparse
 import ntpath
@@ -190,7 +190,7 @@ class MiniImpacketShell(cmd.Cmd):
             logging.error("Not logged in")
             return
         rpctransport = transport.SMBTransport(self.smb.getServerName(), self.smb.getRemoteHost(), filename = r'\srvsvc', smb_connection = self.smb)
-        dce = dcerpc.DCERPC_v5(rpctransport)
+        dce = rpctransport.get_dce_rpc()
         dce.connect()                     
         dce.bind(srvsvc.MSRPC_UUID_SRVSVC)
         srv_svc = srvsvc.DCERPCSrvSvc(dce)

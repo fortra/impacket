@@ -22,7 +22,7 @@ import sys
 import types
 
 from impacket import uuid, ntlm, version
-from impacket.dcerpc import dcerpc_v4, dcerpc, transport, epm, ndrutils
+from impacket.dcerpc import transport, epm, ndrutils
 import argparse
 
 class RPCDump:
@@ -30,8 +30,6 @@ class RPCDump:
         '139/SMB': (r'ncacn_np:%s[\pipe\epmapper]', 139),
         '445/SMB': (r'ncacn_np:%s[\pipe\epmapper]', 445),
         '135/TCP': (r'ncacn_ip_tcp:%s', 135),
-        '135/UDP': (r'ncadg_ip_udp:%s', 135),
-        '80/HTTP': (r'ncacn_http:%s', 80),
         }
 
 
@@ -124,12 +122,7 @@ class RPCDump:
 
 
     def __fetchList(self, rpctransport):
-        # UDP only works over DCE/RPC version 4.
-        if isinstance(rpctransport, transport.UDPTransport):
-            dce = dcerpc_v4.DCERPC_v4(rpctransport)
-        else:
-            dce = dcerpc.DCERPC_v5(rpctransport)
-
+        dce = rpctransport.get_dce_rpc()
         entries = []
 
         dce.connect()

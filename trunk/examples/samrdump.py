@@ -22,7 +22,7 @@ import sys
 import types
 
 from impacket import uuid, version
-from impacket.dcerpc import dcerpc_v4, dcerpc, transport, samr
+from impacket.dcerpc import transport, samr
 import argparse
 
 
@@ -111,7 +111,7 @@ class SAMRDump:
 
 
     def __fetchList(self, rpctransport):
-        dce = dcerpc.DCERPC_v5(rpctransport)
+        dce = rpctransport.get_dce_rpc()
 
         encoding = sys.getdefaultencoding()
         entries = []

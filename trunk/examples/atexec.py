@@ -26,7 +26,7 @@ import time
 import random
 
 from impacket import uuid, ntlm, version
-from impacket.dcerpc import dcerpc_v4, dcerpc, transport, ndrutils, atsvc
+from impacket.dcerpc import transport, ndrutils, atsvc
 from struct import unpack
 
 class ATSVC_EXEC:
@@ -76,7 +76,7 @@ class ATSVC_EXEC:
         def output_callback(data):
             print data
 
-        dce = dcerpc.DCERPC_v5(rpctransport)
+        dce = rpctransport.get_dce_rpc()
 
         dce.set_credentials(*rpctransport.get_credentials())
         dce.connect()

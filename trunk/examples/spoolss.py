@@ -21,7 +21,7 @@ import sys
 import types
 
 from impacket import uuid, ntlm, version
-from impacket.dcerpc import dcerpc_v4, dcerpc, transport, printer
+from impacket.dcerpc import transport, printer
 from struct import unpack
 
 import argparse
@@ -73,7 +73,7 @@ class SPOOLSS:
 
 
     def doStuff(self, rpctransport):
-        dce = dcerpc.DCERPC_v5(rpctransport)
+        dce = rpctransport.get_dce_rpc()
 
         dce.connect()
         dce.set_auth_level(ntlm.NTLM_AUTH_PKT_PRIVACY)

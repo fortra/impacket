@@ -21,7 +21,7 @@ import cmd
 
 from impacket import version
 from impacket.smbconnection import *
-from impacket.dcerpc import dcerpc_v4, dcerpc, transport, svcctl, srvsvc
+from impacket.dcerpc import transport, svcctl
 from impacket.structure import Structure
 from threading import Thread, Lock
 from impacket.examples import remcomsvc, serviceinstall
@@ -117,7 +117,7 @@ class PSEXEC:
 
     def doStuff(self, rpctransport):
 
-        dce = dcerpc.DCERPC_v5(rpctransport)
+        dce = rpctransport.get_dce_rpc()
         try:
             dce.connect()
         except Exception, e:
