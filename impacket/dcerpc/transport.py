@@ -202,6 +202,13 @@ class DCERPCTransport:
         # By default we'll be returning the library's deafult. Only on SMB Transports we might be able to know it beforehand
         return ntlm.USE_NTLMv2
 
+    def get_dce_rpc(self):
+        if isinstance(self, UDPTransport):
+            return dcerpc_v4.DCERPC_v4(self)
+        else:
+            return dcerpc.DCERPC_v5(self)
+
+
 class UDPTransport(DCERPCTransport):
     "Implementation of ncadg_ip_udp protocol sequence"
 

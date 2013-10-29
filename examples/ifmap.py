@@ -35,7 +35,7 @@ Author: Catalin Patulea <cat@vv.carleton.ca>
 """
 import sys, struct
 from impacket import uuid
-from impacket.dcerpc import transport, dcerpc, dcerpc_v4, ndrutils
+from impacket.dcerpc import transport, dcerpc, ndrutils
 from impacket.dcerpc import mgmt
 
 uuid_database = set(uuid.string_to_uuidtup(line) for line in """
@@ -300,7 +300,7 @@ def main(args):
   trans = transport.DCERPCTransportFactory(stringbinding)
   trans.set_dport(port)
 
-  dce = dcerpc.DCERPC_v5(trans)
+  dce = trans.get_dce_rpc()
   dce.connect()
 
   iid = uuid.uuidtup_to_bin(("afa8bd80-7d8a-11c9-bef4-08002b102989", "1.0"))

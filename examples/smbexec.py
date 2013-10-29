@@ -42,7 +42,7 @@ from threading import Thread
 
 from impacket import version, smbserver
 from impacket.smbconnection import *
-from impacket.dcerpc import dcerpc_v4, dcerpc, transport, svcctl, srvsvc
+from impacket.dcerpc import transport, svcctl, srvsvc
 
 
 OUTPUT_FILENAME = '__output'
@@ -176,7 +176,7 @@ class RemoteShell(cmd.Cmd):
         self.__rpc = rpc
         self.intro = '[!] Launching semi-interactive shell - Careful what you execute'
 
-        dce = dcerpc.DCERPC_v5(rpc)
+        dce = rpc.get_dce_rpc()
         try:
             dce.connect()
         except Exception, e:
@@ -201,7 +201,7 @@ class RemoteShell(cmd.Cmd):
     def finish(self):
         # Just in case the service is still created
         try:
-           dce = dcerpc.DCERPC_v5(self.__rpc)
+           dce = self.__rpc.get_dce_rpc()
            dce.connect() 
            dce.bind(svcctl.MSRPC_UUID_SVCCTL)
            self.rpcsvc = svcctl.DCERPCSvcCtl(dce)

@@ -24,7 +24,7 @@ import sys
 import types
 import argparse
 from impacket import uuid, ntlm, version
-from impacket.dcerpc import dcerpc_v4, dcerpc, transport, svcctl
+from impacket.dcerpc import transport, svcctl
 from impacket.crypto import *
 
 class SVCCTL:
@@ -73,12 +73,7 @@ class SVCCTL:
                 break
 
     def doStuff(self, rpctransport):
-        # UDP only works over DCE/RPC version 4.
-        if isinstance(rpctransport, transport.UDPTransport):
-            dce = dcerpc_v4.DCERPC_v4(rpctransport)
-        else:
-            dce = dcerpc.DCERPC_v5(rpctransport)
-
+        dce = rpctransport.get_dce_rpc()
         #dce.set_credentials(self.__username, self.__password)
         dce.connect()
         #dce.set_max_fragment_size(1)

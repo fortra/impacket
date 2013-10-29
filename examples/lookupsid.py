@@ -21,7 +21,7 @@ import sys
 import types
 
 from impacket import uuid, ntlm, version
-from impacket.dcerpc import dcerpc_v4, dcerpc, transport, lsarpc
+from impacket.dcerpc import transport, lsarpc
 import argparse
 
 class LSALookupSid:
@@ -79,7 +79,7 @@ class LSALookupSid:
         if isinstance(rpctransport, transport.UDPTransport):
             dce = dcerpc_v4.DCERPC_v4(rpctransport)
         else:
-            dce = dcerpc.DCERPC_v5(rpctransport)
+            dce = rpctransport.get_dce_rpc()
 
         entries = []
         dce.connect()

@@ -25,7 +25,7 @@ Author: Catalin Patulea <cat@vv.carleton.ca>
 """
 import sys
 from impacket import uuid
-from impacket.dcerpc import transport, dcerpc, dcerpc_v4
+from impacket.dcerpc import transport, dcerpc
 
 def main(args):
   if len(args) != 4:
@@ -40,7 +40,7 @@ def main(args):
 
   results = []
   for i in range(256):
-    dce = dcerpc.DCERPC_v5(trans)
+    dce = trans.get_dce_rpc()
     dce.connect()
 
     iid = uuid.uuidtup_to_bin((interface, version))
