@@ -35,6 +35,52 @@ ServerSecureChannel = 6
 CdcServerSecureChannel = 7
 
 # Structures
+class NETLOGONGetDCName(Structure):
+    opnum = 11
+    structure = (
+        ('ServerName',':', ndrutils.NDRStringW),
+        ('DomainName',':', ndrutils.NDRUniqueStringW),
+    )
+
+class NETLOGONGetDCNameResponse(Structure):
+    structure = (
+        ('Buffer',':', ndrutils.NDRUniqueStringW),
+    )
+
+class NETLOGONGetAnyDCName(Structure):
+    opnum = 13
+    structure = (
+        ('ServerName',':', ndrutils.NDRUniqueStringW),
+        ('DomainName',':', ndrutils.NDRUniqueStringW),
+    )
+
+class NETLOGONGetAnyDCNameResponse(Structure):
+    structure = (
+        ('Buffer',':', ndrutils.NDRUniqueStringW),
+    )
+
+class NETLOGONGetSiteName(Structure):
+    opnum = 28
+    structure = (
+        ('ComputerName',':', ndrutils.NDRUniqueStringW),
+    )
+
+class NETLOGONGetSiteNameResponse(Structure):
+    structure = (
+        ('SiteName',':', ndrutils.NDRUniqueStringW),
+    )
+
+
+class NETLOGONGetDcSiteCoverageW(Structure):
+    opnum = 38
+    structure = (
+        ('ServerName',':', ndrutils.NDRUniqueStringW),
+    )
+
+class NETLOGONGetDcSiteCoverageWResponse(Structure):
+    structure = (
+        ('SiteNames',':'),
+    )
 
 class NETLOGONServerAuthenticate3(Structure):
     opnum = 26
@@ -160,6 +206,85 @@ class DCERPCNetLogon:
 
         packet = self.doRequest(serverAuthenticate3, checkReturn = 1)
         ans = NETLOGONServerAuthenticate3Response(packet)
+        return ans
+
+    def DsrGetDcSiteCoverageW(self, serverName=''):
+        """
+        returns a list of sites covered by a domain controller
+
+        :param UNICODE serverName: the NetBIOS name of the remote machine. '' would do the work as well
+
+        :return: 
+        """
+        getDCSite = NETLOGONGetDcSiteCoverageW()
+        getDCSite['ServerName'] = ndrutils.NDRUniqueStringW()
+        getDCSite['ServerName']['Data'] = serverName+'\x00'.encode('utf-16le')
+        getDCSite['ServerName'].alignment = 0
+
+        packet = self.doRequest(getDCSite, checkReturn = 1)
+        ans = NETLOGONGetDcSiteCoverageWResponse(packet)
+        return ans
+
+    def DsrGetSiteName(self, computerName=''):
+        """
+        returns the site name for the specified computer that receives this call
+
+        :param UNICODE computerName: the NetBIOS name of the remote machine. '' would do the work as well
+
+        :return: returns an NETLOGONGetSiteNameResponse structure including the server's site name. Call dump() method to see its contents. On error it raises an exception
+
+        """
+        getSiteName = NETLOGONGetSiteName()
+        getSiteName['ComputerName'] = ndrutils.NDRUniqueStringW()
+        getSiteName['ComputerName']['Data'] = computerName+'\x00'.encode('utf-16le')
+        getSiteName['ComputerName'].alignment = 0
+
+        packet = self.doRequest(getSiteName, checkReturn = 1)
+        ans = NETLOGONGetSiteNameResponse(packet)
+        return ans
+
+    def DsrNetrGetAnyDCName(self, serverName='', domainName=''):
+        """
+        retrieves the name of a domain controller in the specified primary or directly trusted domain
+
+        :param UNICODE serverName: the NetBIOS name of the remote machine. '' would do the work as well
+        :param UNICODE domainName: the name of the primary or directly trusted domain. If the string is NULL or empty (that is, the first character in the string is the null-terminator character), the primary domain name (3) is assumed
+
+        :return: returns an NETLOGONGetAnyDCNameResponse structure including the server's NetBIOS name. Call dump() method to see its contents. On error it raises an exception
+
+        """
+        getAnyDCName = NETLOGONGetAnyDCName()
+        getAnyDCName['ServerName'] = ndrutils.NDRUniqueStringW()
+        getAnyDCName['ServerName']['Data'] = serverName+'\x00'.encode('utf-16le')
+        getAnyDCName['ServerName'].alignment = 4
+        getAnyDCName['DomainName'] = ndrutils.NDRUniqueStringW()
+        getAnyDCName['DomainName']['Data'] = domainName+'\x00'.encode('utf-16le')
+        getAnyDCName['DomainName'].alignment = 0
+
+        packet = self.doRequest(getAnyDCName, checkReturn = 1)
+        ans = NETLOGONGetAnyDCNameResponse(packet)
+        return ans
+
+    def NetrGetDCName(self, serverName='', domainName=''):
+        """
+        retrieves the NetBIOS name of the PDC for the specified domain
+ 
+        :param UNICODE serverName: the NetBIOS name of the remote machine. '' would do the work as well
+        :param UNICODE domainName: Unicode string that specifies the domain name 
+
+        :return: returns an NETLOGONGetDCNameResponse structure including the server's NetBIOS name. Call dump() method to see its contents. On error it raises an exception
+
+        """
+        getDCName = NETLOGONGetDCName()
+        getDCName['ServerName'] = ndrutils.NDRStringW()
+        getDCName['ServerName']['Data'] = serverName+'\x00'.encode('utf-16le')
+        getDCName['ServerName'].alignment = 4
+        getDCName['DomainName'] = ndrutils.NDRUniqueStringW()
+        getDCName['DomainName']['Data'] = domainName+'\x00'.encode('utf-16le')
+        getDCName['DomainName'].alignment = 0
+
+        packet = self.doRequest(getDCName, checkReturn = 1)
+        ans = NETLOGONGetDCNameResponse(packet)
         return ans
 
 
