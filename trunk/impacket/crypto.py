@@ -16,6 +16,7 @@
 #   (http://tools.ietf.org/html/draft-irtf-cfrg-kdf-uses-00#ref-SP800-108)
 #
 #   [MS-LSAD] Section 5.1.2
+#   [MS-NRPC] Section 3.1.4.3.2
 
 try:
     from Crypto.Cipher import DES, AES
@@ -24,6 +25,7 @@ except Exception:
     print "See http://www.pycrypto.org/"
 from struct import pack, unpack
 from impacket.structure import Structure
+from impacket import ntlm
 import hmac, hashlib
 
 def Generate_Subkey(K):
@@ -306,6 +308,34 @@ def encryptSecret(key, value):
 
     return cipherText
 
+def ComputeNetlogonCredential(inputData, Sk):
+    # [MS-NRPC] Section 3.1.4.4.2
+    k1 = Sk[:7]
+    k3 = transformKey(k1)
+    k2 = Sk[7:14]
+    k4 = transformKey(k2)
+    Crypt1 = DES.new(k3, DES.MODE_ECB)
+    Crypt2 = DES.new(k4, DES.MODE_ECB)
+    cipherText = Crypt1.encrypt(inputData)
+    return Crypt2.encrypt(cipherText)
+
+def ComputeSessionKeyStrongKey(sharedSecret, clientChallenge, serverChallenge, sharedSecretHash = None):
+    # [MS-NRPC] Section 3.1.4.3.2, added the ability to receive hashes already
+
+    if sharedSecretHash is None:
+        M4SS = ntlm.NTOWFv1(sharedSecret)
+    else:
+        M4SS = sharedSecretHash
+
+    md5 = hashlib.new('md5')
+    md5.update('\x00'*4)
+    md5.update(clientChallenge)
+    md5.update(serverChallenge)
+    finalMD5 = md5.digest()
+    hm = hmac.new(M4SS) 
+    hm.update(finalMD5)
+    return hm.digest()
+    
 if __name__ == '__main__':
 #   Test Vectors
 #   --------------------------------------------------
