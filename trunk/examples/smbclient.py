@@ -84,7 +84,8 @@ class MiniImpacketShell(cmd.Cmd):
  rmdir {dirname} - removes the directory under the current path
  put {filename} - uploads the filename into the current path
  get {filename} - downloads the filename from the current path
- info - Return NetrServerInfo main results
+ info - returns NetrServerInfo main results
+ who - returns the sessions currently connected at the target host (admin required)
  close - closes the current SMB Session
  exit - terminates the server process (and this session)
 
@@ -202,6 +203,19 @@ class MiniImpacketShell(cmd.Cmd):
         print "Server UserPath: %s" % resp['UserPath']
         print "Simultaneous Users: %d" % resp['Users']
          
+    def do_who(self, line):
+        if self.loggedIn is False:
+            logging.error("Not logged in")
+            return
+        rpctransport = transport.SMBTransport(self.smb.getServerName(), self.smb.getRemoteHost(), filename = r'\srvsvc', smb_connection = self.smb)
+        dce = rpctransport.get_dce_rpc()
+        dce.connect()                     
+        dce.bind(srvsvc.MSRPC_UUID_SRVSVC)
+        srv_svc = srvsvc.DCERPCSrvSvc(dce)
+        resp = srv_svc.NetrSessionEnum()
+        for session in resp:
+            print "host: %15s, user: %5s, active: %5d, idle: %5d, type: %5s, transport: %s" % (session['HostName'], session['UserName'], session['Active'], session['IDLE'], session['Type'],session['Transport'] )
+
     def do_shares(self, line):
         if self.loggedIn is False:
             logging.error("Not logged in")
