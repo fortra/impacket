@@ -189,7 +189,7 @@ class SMBConnection():
         dce.connect()
         dce.bind(srvsvc.MSRPC_UUID_SRVSVC)
         srv_svc = srvsvc.DCERPCSrvSvc(dce)
-        resp = srv_svc.get_share_enum_1(rpctransport.get_dip())
+        resp = srv_svc.NetrShareEnum()
         return resp
 
     def listPath(self, shareName, path, password = None):
