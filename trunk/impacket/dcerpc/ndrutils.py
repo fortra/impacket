@@ -681,10 +681,12 @@ class NDRArray(Structure):
                 item = 'Item_%d'%i 
                 self[item] = itemClass(self['Data'])
                 self['Data'] = self['Data'][len(self[item]):]
-            # Now, we're past the structs headers, let's go to the strings
+            # Now, we're past the structs headers, let's go to the deferred stuff
             for i in range(self['MaxCount']):
                 item = 'Item_%d'%i 
+                prevLen = len(self[item])
                 self[item].fromStringDeferred(self['Data'])
+                self['Data'] = self['Data'][len(self[item])-prevLen:]
 
     def __len__(self):
         for i in range(self['MaxCount']):
