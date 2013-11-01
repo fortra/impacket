@@ -294,6 +294,77 @@ class SESSION_ENUM_STRUCT(Structure):
         ('SessionInfo',':',SESSION_INFO_502_CONTAINER),
     )
 
+class SHARE_INFO_1(Structure):
+    class nonDeferred(Structure):
+        structure = (
+            ('shi1_netname',':',ndrutils.NDRPointerNew),
+            ('shi1_type','<L=0'),
+            ('shi1_remark',':', ndrutils.NDRPointerNew),
+        )
+
+    class deferred(Structure):
+        structure = (
+            ('netname',':',ndrutils.NDRStringW),
+            ('remark',':',ndrutils.NDRStringW),
+        )
+        def __init__(self, data = None, alignment = 0):
+            Structure.__init__(self, data, alignment)
+            if data is None:
+                self['netname'] = ''
+                self['remark'] = ''
+            return 
+            
+    def __init__(self, data = None, alignment = 0):
+        self.__deferred = self.deferred()
+        self.__nonDeferred = self.nonDeferred(data, alignment)
+
+    def fromStringDeferred(self, data):
+        self.__deferred.fromString(data)
+
+    def dumpDeferred(self):
+        self.__deferred.dump()
+
+    def dump(self, msg = None, indent = 0):
+        self.__nonDeferred.dump(msg, indent)
+        self.__deferred.dump('', indent)
+
+    def __len__(self):
+        return len(self.__deferred) + len(self.__nonDeferred)
+
+    def __str__(self):
+        return str(self.__nonDeferred)
+
+    def __getitem__(self, key):
+        if self.__nonDeferred.fields.has_key(key):
+            return self.__nonDeferred[key]
+        else:
+            return self.__deferred[key]
+
+class SHARE_INFO_1_CONTAINER(Structure):
+    structure = (
+       ('EntriesRead','<L=0'),
+       ('pBuffer',':', ndrutils.NDRPointerNew),
+       ('Buffer',':'),
+    )
+    def __init__(self, data=None, alignment = 0):
+        Structure.__init__(self, data, alignment)
+        if data:
+            self.__array = ndrutils.NDRArray(data = self['Buffer'], itemClass = SHARE_INFO_1)
+            self['Buffer'] = self.__array
+
+        return 
+
+    def __len__(self):
+        return len(self.__array) + 4 + 4
+
+class SHARE_ENUM_STRUCT(Structure):
+    structure = (
+        ('Level','<L=0'),
+        ('SwitchIs','<L=0', "self['Level']"),
+        ('pContainer',':', ndrutils.NDRPointerNew),
+        ('ShareInfo',':',SHARE_INFO_1_CONTAINER),
+    )
+
 ######### FUNCTIONS ###########
 
 class SRVSVCShareGetInfo(Structure):
@@ -316,6 +387,25 @@ class SRVSVCServerGetInfo(Structure):
     )
 
 class SRVSVCShareEnum(Structure):
+    opnum = 15
+    alignment = 4
+    structure = (
+       ('ServerName',':', ndrutils.NDRUniqueStringW),
+       ('InfoStruct',':', SHARE_ENUM_STRUCT),
+       ('PreferedMaximumLength','<L=0'),
+       ('pResumeHandle', ':', ndrutils.NDRPointerNew),
+       ('ResumeHandle', '<L=0'),
+    )
+
+class SRVSVCShareEnumResponse(Structure):
+    structure = (
+        ('InfoStruct',':', SHARE_ENUM_STRUCT),
+        ('TotalEntries','<L=0'),
+        ('pResumeHandle',':', ndrutils.NDRPointerNew),
+        ('ResumeHandle','<L=0'),
+    )
+
+class SRVSVCShareEnumOld(Structure):
     opnum = 15
     alignment = 4
     structure = (
@@ -642,9 +732,9 @@ class DCERPCSrvSvc:
         retVal = SRVSVCRespNetShareGetInfoHeader(data)
         return retVal
 
-#NetrShareEnum() with Level1 Info
+#NetrShareEnum() with Level1 Info. Going away soon
     def get_share_enum_1(self,server):
-    	shareEnum = SRVSVCShareEnum()
+    	shareEnum = SRVSVCShareEnumOld()
     	shareEnum['ServerName'] = (server+'\x00').encode('utf-16le')
     	data = self.doRequest(shareEnum, checkReturn = 1)
         b = SRVSVCShareEnum1Response().fromString(data)
@@ -699,6 +789,46 @@ class DCERPCSrvSvc:
       data = self.doRequest(NameCReq, checkReturn = 1)
       return data
 
+    def NetrShareEnum(self, serverName='', preferedMaximumLength=0xffffffff, resumeHandle=0):
+        """
+        retrieves information about each shared resource on a server (only level1 supported)
+
+        :param UNICODE serverName: the NetBIOS name of the remote machine. '' would do the work as well
+        :param INT preferedMaximumLength: specifies the preferred maximum length, in bytes, of the returned data. Default value is MAX_PREFERRED_LENGTH
+        :param INT resumeHandle: a value that contains a handle, which is used to continue an existing share search. First time it should be 0
+
+        :return: returns a list of dictionaries for each shares returned. print the response to see its contents. On error it raises an exception
+        """
+        shareEnum = SRVSVCShareEnum()
+        shareEnum['ServerName'] = ndrutils.NDRUniqueStringW()
+        shareEnum['ServerName']['Data'] = serverName+'\x00'.encode('utf-16le')
+        shareEnum['ServerName'].alignment = 4
+        shareEnum['InfoStruct'] = SHARE_ENUM_STRUCT()
+        shareEnum['InfoStruct']['Level'] = 1
+        shareEnum['InfoStruct']['SwitchIs'] = 1
+        shareEnum['InfoStruct']['pContainer'] =  ndrutils.NDRPointerNew()
+        shareEnum['InfoStruct']['ShareInfo'] = SHARE_INFO_1_CONTAINER()
+        shareEnum['InfoStruct']['ShareInfo']['pBuffer'] = ndrutils.NDRPointerNew()
+        shareEnum['InfoStruct']['ShareInfo']['pBuffer']['RefId'] = 0
+        shareEnum['InfoStruct']['ShareInfo']['Buffer'] = ''
+        shareEnum['PreferedMaximumLength'] = preferedMaximumLength
+        shareEnum['pResumeHandle'] = ndrutils.NDRPointerNew()
+        shareEnum['ResumeHandle'] = resumeHandle
+
+        data = self.doRequest(shareEnum, checkReturn = 1)
+        ans = SRVSVCShareEnumResponse(data)
+        # Now let's return something useful
+        shareList = []
+        for i in range(ans['InfoStruct']['ShareInfo']['EntriesRead']):
+            item = ans['InfoStruct']['ShareInfo']['Buffer']['Item_%d'%i] 
+            entry = {}
+            entry['Type'] = item['shi1_type']
+            entry['NetName'] = item['netname']['Data'].decode('utf-16le')[:-1]
+            entry['Remark'] = item['remark']['Data'].decode('utf-16le')[:-1]
+            shareList.append(entry)
+      
+        return shareList
+
     def NetrSessionEnum(self, serverName='', clientName='', userName='', preferedMaximumLength=0xffffffff, resumeHandle=0): 
         """
         returns information about sessions that are established on a server (info struct 502 only supported)
@@ -706,6 +836,8 @@ class DCERPCSrvSvc:
         :param UNICODE serverName: the NetBIOS name of the remote machine. '' would do the work as well
         :param UNICODE clientName: Unicode string that specifies the client machine users are connected from. Default value means all users will be returned instead of the client machine they are connecting from.
         :param UNICODE userName: Unicode string that specifies the specific username to check for connectivity. Default value means all users will be returned.
+        :param INT preferedMaximumLength: specifies the preferred maximum length, in bytes, of the returned data. Default value is MAX_PREFERRED_LENGTH
+        :param INT resumeHandle: a value that contains a handle, which is used to continue an existing share search. First time it should be 0
 
         :return: returns a list of dictionaries for each session returned. print the response to see its contents. On error it raises an exception
         """
