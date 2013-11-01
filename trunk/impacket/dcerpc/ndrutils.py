@@ -598,7 +598,8 @@ class NDRPointerNew(Structure):
     )
     def __init__(self, data = None, alignment = 0):
         Structure.__init__(self,data, alignment)
-        self['RefId'] = random.randint(1,65535)
+        if data is None:
+            self['RefId'] = random.randint(1,65535)
 
 class NDRUniqueStringA(NDRStringA):
     commonHdr = (
@@ -666,4 +667,28 @@ class NDRConformantVaryingArray(Structure):
         ('DataLen','_-Data','ActualCount'),
         ('Data',':'),
     )
+
+# I'm not sure this will work as a general Array. For now I'm leaving this here
+class NDRArray(Structure):
+    structure = (
+        ('MaxCount','<L=0'),
+        ('Data', ':'),
+    )
+    def __init__(self, data = None, alignment = 0, itemClass = None):
+        if data is not None:
+            Structure.__init__(self,data,alignment)
+            for i in range(self['MaxCount']):
+                item = 'Item_%d'%i 
+                self[item] = itemClass(self['Data'])
+                self['Data'] = self['Data'][len(self[item]):]
+            # Now, we're past the structs headers, let's go to the strings
+            for i in range(self['MaxCount']):
+                item = 'Item_%d'%i 
+                self[item].fromStringDeferred(self['Data'])
+
+    def __len__(self):
+        for i in range(self['MaxCount']):
+            item = 'Item_%d'%i 
+            finalLen = len(self[item])
+        return finalLen + 4
 
