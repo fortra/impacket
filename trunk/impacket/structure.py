@@ -577,7 +577,7 @@ class Structure:
         remainingFields = list(set(self.fields) - set(fixedFields))
         for i in remainingFields:
             if isinstance(self[i], Structure):
-                self[i].dump('%s:{' % i, indent = indent + 4)
+                self[i].dump('%s%s:{' % (ind,i), indent = indent + 4)
                 print "}"
             else:
                 print "%s%s: {%r}" % (ind,i,self[i])
