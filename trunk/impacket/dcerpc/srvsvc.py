@@ -26,6 +26,69 @@ from impacket.uuid import uuidtup_to_bin
 
 MSRPC_UUID_SRVSVC = uuidtup_to_bin(('4B324FC8-1670-01D3-1278-5A47BF6EE188', '3.0'))
 
+# Error Codes
+ERROR_ACCESS_DENIED             = 0x00000005
+ERROR_INVALID_LEVEL             = 0x0000007C
+ERROR_INVALID_PARAMETER         = 0x00000057
+ERROR_MORE_DATA                 = 0x000000EA
+ERROR_NOT_ENOUGH_MEMORY         = 0x00000000
+ERROR_FILE_NOT_FOUND            = 0x00000002
+ERROR_DUP_NAME                  = 0x00000034
+ERROR_INVALID_DOMAINNAME        = 0x000004BC
+ERROR_NOT_SUPPORTED             = 0x00000032
+ERROR_SERVICE_DOES_NOT_EXIST    = 0x00000424
+NERR_BufTooSmall                = 0x0000084B
+NERR_ClientNameNotFound         = 0x00000908
+NERR_InvalidComputer            = 0x0000092F
+NERR_UserNotFound               = 0x000008AD
+NERR_DuplicateShare             = 0x00000846
+NERR_RedirectedPath             = 0x00000845
+NERR_UnknownDevDir              = 0x00000844
+NERR_NetNameNotFound            = 0x00000906
+NERR_DeviceNotShared            = 0x00000907
+NERR_DuplicateShare             = 0x00000846
+
+class SRVSVCSessionError(Exception):
+    error_messages = {
+ ERROR_ACCESS_DENIED          : ("ERROR_ACCESS_DENIED", "The user does not have access to the requested information."),          
+ ERROR_INVALID_LEVEL          : ("ERROR_INVALID_LEVEL", "The value that is specified for the level parameter is invalid."),          
+ ERROR_INVALID_PARAMETER      : ("ERROR_INVALID_PARAMETER", "One or more of the specified parameters is invalid."),          
+ ERROR_MORE_DATA              : ("ERROR_MORE_DATA", "More entries are available. Specify a large enough buffer to receive all entries."),          
+ ERROR_NOT_ENOUGH_MEMORY      : ("ERROR_NOT_ENOUGH_MEMORY", "Not enough storage is available to process this command."),          
+ ERROR_FILE_NOT_FOUND         : ("ERROR_FILE_NOT_FOUND", "The system cannot find the file specified."),          
+ ERROR_DUP_NAME               : ("ERROR_DUP_NAME", "A duplicate name exists on the network."),          
+ ERROR_INVALID_DOMAINNAME     : ("ERROR_INVALID_DOMAINNAME", "The format of the specified NetBIOS name of a domain is invalid."),          
+ ERROR_NOT_SUPPORTED          : ("ERROR_NOT_SUPPORTED", "The server does not support branch cache."),          
+ ERROR_SERVICE_DOES_NOT_EXIST : ("ERROR_SERVICE_DOES_NOT_EXIST", "The branch cache component does not exist as an installed service."),          
+ NERR_BufTooSmall             : ("NERR_BufTooSmall", "The client request succeeded. More entries are available. The buffer size that is specified by PreferedMaximumLength was too small to fit even a single entry."),          
+ NERR_ClientNameNotFound      : ("NERR_ClientNameNotFound", "A session does not exist with the computer name."),          
+ NERR_InvalidComputer         : ("NERR_InvalidComputer", "The computer name is not valid."), NERR_UserNotFound            : ("NERR_UserNotFound", "The user name could not be found."),
+ NERR_DuplicateShare          : ("NERR_DuplicateShare", "The operation is not valid for a redirected resource. The specified device name is assigned to a shared resource."),          
+ NERR_RedirectedPath          : ("NERR_RedirectedPath", "The device or directory does not exist."),          
+ NERR_UnknownDevDir           : ("NERR_UnknownDevDir", "The share name does not exist."),
+ NERR_NetNameNotFound         : ("NERR_NetNameNotFound", "The device is not shared."),     
+ NERR_DeviceNotShared         : ("NERR_DeviceNotShared", "The system cannot find the path specified."),          
+ NERR_DuplicateShare          : ("NERR_DuplicateShare", "The alias already exists."),          
+    }    
+
+    def __init__( self, error_code):
+        Exception.__init__(self)
+        self.error_code = error_code
+       
+    def get_error_code( self ):
+        return self.error_code
+
+    def __str__( self ):
+        key = self.error_code
+        if (SRVSVCSessionError.error_messages.has_key(key)):
+            error_msg_short = SRVSVCSessionError.error_messages[key][0]
+            error_msg_verbose = SRVSVCSessionError.error_messages[key][1] 
+            return 'SRVSVC SessionError: code: %s - %s - %s' % (str(self.error_code), error_msg_short, error_msg_verbose)
+        else:
+            return 'SRVSVC SessionError: unknown error code: %s' % (str(self.error_code))
+        
+
+# Structures
 # We should move this to ndrutils.py once we port it to structure
 class NDRString(Structure):
     alignment = 4
@@ -151,9 +214,89 @@ class SRVSVCpTimeOfDayInfo(Structure):
        ('Data',':',SRVSVCTimeOfDayInfo),
     )
 
+class SESSION_INFO_502(Structure):
+    class nonDeferred(Structure):
+        structure = (
+            ('sesi502_cname',':',ndrutils.NDRPointerNew),
+            ('sesi502_username',':',ndrutils.NDRPointerNew),
+            ('sesi502_num_opens','<L=0'),
+            ('sesi502_time','<L=0'),
+            ('sesi502_idle_time','<L=0'),
+            ('sesi502_user_flags','<L=0'),
+            ('sesi502_cltype_name',':', ndrutils.NDRPointerNew),
+            ('sesi502_transport',':', ndrutils.NDRPointerNew),
+        )
+
+    class deferred(Structure):
+        structure = (
+            ('cname',':',ndrutils.NDRStringW),
+            ('username',':',ndrutils.NDRStringW),
+            ('cltype_name',':',ndrutils.NDRStringW),
+            ('transport',':',ndrutils.NDRStringW),
+        )
+        def __init__(self, data = None, alignment = 0):
+            Structure.__init__(self, data, alignment)
+            if data is None:
+                self['cname'] = ''
+                self['username'] = ''
+                self['cltype_name'] = ''
+                self['transport'] = ''
+            return 
+            
+    def __init__(self, data = None, alignment = 0):
+        self.__deferred = self.deferred()
+        self.__nonDeferred = self.nonDeferred(data, alignment)
+
+    def fromStringDeferred(self, data):
+        self.__deferred.fromString(data)
+
+    def dumpDeferred(self):
+        self.__deferred.dump()
+
+    def dump(self, msg = None, indent = 0):
+        self.__nonDeferred.dump(msg, indent)
+        self.__deferred.dump('', indent)
+
+    def __len__(self):
+        return len(self.__deferred) + len(self.__nonDeferred)
+
+    def __str__(self):
+        return str(self.__nonDeferred)
+
+    def __getitem__(self, key):
+        if self.__nonDeferred.fields.has_key(key):
+            return self.__nonDeferred[key]
+        else:
+            return self.__deferred[key]
+        
+class SESSION_INFO_502_CONTAINER(Structure):
+    structure = (
+       ('EntriesRead','<L=0'),
+       ('pBuffer',':', ndrutils.NDRPointerNew),
+       ('Buffer',':'),
+    )
+    def __init__(self, data=None, alignment = 0):
+        Structure.__init__(self, data, alignment)
+        if data:
+            self.__array = ndrutils.NDRArray(data = self['Buffer'], itemClass = SESSION_INFO_502)
+            self['Buffer'] = self.__array
+
+        return 
+
+    def __len__(self):
+        return len(self.__array) + 4 + 4
+
+class SESSION_ENUM_STRUCT(Structure):
+    structure = (
+        ('Level','<L=0'),
+        ('SwitchIs','<L=0', "self['Level']"),
+        ('pContainer',':', ndrutils.NDRPointerNew),
+        ('SessionInfo',':',SESSION_INFO_502_CONTAINER),
+    )
+
 ######### FUNCTIONS ###########
 
-class SRVSVCNetrShareGetInfo(Structure):
+class SRVSVCShareGetInfo(Structure):
     opnum = 16
     alignment = 4
     structure = (
@@ -163,7 +306,7 @@ class SRVSVCNetrShareGetInfo(Structure):
        ('Level','<L=2'),
     )
 
-class SRVSVCNetrServerGetInfo(Structure):
+class SRVSVCServerGetInfo(Structure):
     opnum = 21
     alignment = 4
     structure = (
@@ -172,7 +315,7 @@ class SRVSVCNetrServerGetInfo(Structure):
        ('Level','<L=102'),
     )
 
-class SRVSVCNetrShareEnum(Structure):
+class SRVSVCShareEnum(Structure):
     opnum = 15
     alignment = 4
     structure = (
@@ -191,7 +334,7 @@ class SRVSVCNetrShareEnum(Structure):
        self['pResumeHandler'] = '\xbc\x9a\x00\x00\x00\x00\x00\x00'
        return Structure.getData(self)
 
-class SRVSVCNetrShareEnum1_answer(Structure):
+class SRVSVCShareEnum1Response(Structure):
     alignment = 4
     structure = (
 	('pLevel','<L=1'),
@@ -203,7 +346,7 @@ class SRVSVCNetrShareEnum1_answer(Structure):
 #	('ResumeHandler','<L'),
     )
 
-class SRVSVCNetrRemoteTOD(Structure):
+class SRVSVCRemoteTOD(Structure):
     opnum = 28
     alignment = 4
     structure = (
@@ -211,7 +354,7 @@ class SRVSVCNetrRemoteTOD(Structure):
        ('ServerName','w')
     )
 
-class SRVSVCNetprNameCanonicalize(Structure):
+class SRVSVCNameCanonicalize(Structure):
     opnum = 34
     alignment = 4
     structure = (
@@ -221,6 +364,26 @@ class SRVSVCNetprNameCanonicalize(Structure):
        ('OutbufLen','<H'),
        ('NameType','<H'),
        ('Flags','<H')
+    )
+
+class SRVSVCSessionEnum(Structure):
+    opnum = 12
+    structure = (
+        ('ServerName',':', ndrutils.NDRUniqueStringW),
+        ('ClientName',':', ndrutils.NDRUniqueStringW),
+        ('UserName',':', ndrutils.NDRUniqueStringW),
+        ('InfoStruct',':',SESSION_ENUM_STRUCT),
+        ('PreferedMaximumLength', '<L=0xffffffff'),
+        ('pResumeHandle', ':', ndrutils.NDRPointerNew),
+        ('ResumeHandle', '<L=0'),
+    )
+
+class SRVSVCSessionEnumResponse(Structure):
+    structure = (
+        ('InfoStruct',':', SESSION_ENUM_STRUCT),
+        ('TotalEntries','<L=0'),
+        ('pResumeHandle',':', ndrutils.NDRPointerNew),
+        ('ResumeHandle','<L=0'),
     )
 
 class SRVSVCNetShareGetInfoHeader(ImpactPacket.Header):
@@ -444,8 +607,6 @@ class ShareInfoLevel2Entry:
     def get_current_uses(self):
         return self._current_uses
     
-        
-
 class DCERPCSrvSvc:
     def __init__(self, dcerpc):
         self._dcerpc = dcerpc
@@ -457,7 +618,8 @@ class DCERPCSrvSvc:
         else:
             answer = self._dcerpc.recv()
             if checkReturn and answer[-4:] != '\x00\x00\x00\x00':
-                raise Exception, 'DCE-RPC call returned an error.'
+                error_code = unpack("<L", answer[-4:])[0]
+                raise SRVSVCSessionError(error_code)  
             return answer
 
     def get_share_info(self, server, share, level):
@@ -482,10 +644,10 @@ class DCERPCSrvSvc:
 
 #NetrShareEnum() with Level1 Info
     def get_share_enum_1(self,server):
-    	shareEnum = SRVSVCNetrShareEnum()
+    	shareEnum = SRVSVCShareEnum()
     	shareEnum['ServerName'] = (server+'\x00').encode('utf-16le')
     	data = self.doRequest(shareEnum, checkReturn = 1)
-        b = SRVSVCNetrShareEnum1_answer().fromString(data)
+        b = SRVSVCShareEnum1Response().fromString(data)
         shareInfoList = []
         index = len(b)
         for i in range(b['Info']['Count']):
@@ -505,7 +667,7 @@ class DCERPCSrvSvc:
 
 #NetrShareGetInfo() with Level2 Info
     def get_share_info_2(self, server, share):
-    	shareInfoReq = SRVSVCNetrShareGetInfo()
+    	shareInfoReq = SRVSVCShareGetInfo()
     	shareInfoReq['Level'] = 2
     	shareInfoReq['ServerName'] = (server+'\x00').encode('utf-16le')
     	shareInfoReq['NetName'] = (share+'\x00').encode('utf-16le')
@@ -514,21 +676,21 @@ class DCERPCSrvSvc:
 
 #NetrServerGetInfo() with Level 102 Info
     def get_server_info_102(self, server):
-      serverInfoReq = SRVSVCNetrServerGetInfo()
+      serverInfoReq = SRVSVCServerGetInfo()
       serverInfoReq['ServerName'] = (server+'\x00').encode('utf-16le')
       data = self.doRequest(serverInfoReq, checkReturn = 1)  
       return SRVSVCServerpInfo102(data)['ServerInfo']
 
 #NetrRemoteTOD()
     def NetrRemoteTOD(self, server):
-      remoteTODReq = SRVSVCNetrRemoteTOD()
+      remoteTODReq = SRVSVCRemoteTOD()
       remoteTODReq['ServerName'] = (server+'\x00').encode('utf-16le')
       data = self.doRequest(remoteTODReq, checkReturn = 1)
       return SRVSVCpTimeOfDayInfo(data)
 
 #NetprNameCanonicalize
-    def NetprNameCanonicalize( self, serverName, name, bufLen, nameType ):
-      NameCReq = SRVSVCNetprNameCanonicalize()
+    def NetprNameCanonicalize(self, serverName, name, bufLen, nameType):
+      NameCReq = SRVSVCNameCanonicalize()
       NameCReq['ServerName'] = (serverName+'\x00').encode('utf-16le')
       NameCReq['Name'] = (name+'\x00').encode('utf-16le')
       NameCReq['OutbufLen'] = bufLen
@@ -536,4 +698,53 @@ class DCERPCSrvSvc:
       NameCReq['Flags'] = 0x0
       data = self.doRequest(NameCReq, checkReturn = 1)
       return data
+
+    def NetrSessionEnum(self, serverName='', clientName='', userName='', preferedMaximumLength=0xffffffff, resumeHandle=0): 
+        """
+        returns information about sessions that are established on a server (info struct 502 only supported)
+
+        :param UNICODE serverName: the NetBIOS name of the remote machine. '' would do the work as well
+        :param UNICODE clientName: Unicode string that specifies the client machine users are connected from. Default value means all users will be returned instead of the client machine they are connecting from.
+        :param UNICODE userName: Unicode string that specifies the specific username to check for connectivity. Default value means all users will be returned.
+
+        :return: returns a list of dictionaries for each session returned. print the response to see its contents. On error it raises an exception
+        """
+        sessionEnum = SRVSVCSessionEnum()
+        sessionEnum['ServerName'] = ndrutils.NDRUniqueStringW()
+        sessionEnum['ServerName']['Data'] = serverName+'\x00'.encode('utf-16le')
+        sessionEnum['ServerName'].alignment = 4
+        sessionEnum['ClientName'] = ndrutils.NDRUniqueStringW()
+        sessionEnum['ClientName']['Data'] = clientName+'\x00'.encode('utf-16le')
+        sessionEnum['ClientName'].alignment = 4
+        sessionEnum['UserName'] = ndrutils.NDRUniqueStringW()
+        sessionEnum['UserName']['Data'] = userName+'\x00'.encode('utf-16le')
+        sessionEnum['UserName'].alignment = 4
+        sessionEnum['InfoStruct'] = SESSION_ENUM_STRUCT()
+        sessionEnum['InfoStruct']['Level'] = 502
+        sessionEnum['InfoStruct']['SwitchIs'] = 502
+        sessionEnum['InfoStruct']['pContainer'] =  ndrutils.NDRPointerNew()
+        sessionEnum['InfoStruct']['SessionInfo'] = SESSION_INFO_502_CONTAINER()
+        sessionEnum['InfoStruct']['SessionInfo']['pBuffer'] = ndrutils.NDRPointerNew()
+        sessionEnum['InfoStruct']['SessionInfo']['pBuffer']['RefId'] = 0
+        sessionEnum['InfoStruct']['SessionInfo']['Buffer'] = ''
+        sessionEnum['PreferedMaximumLength'] = preferedMaximumLength
+        sessionEnum['pResumeHandle'] = ndrutils.NDRPointerNew()
+        sessionEnum['ResumeHandle'] = resumeHandle
+
+        data = self.doRequest(sessionEnum, checkReturn = 1)
+        ans = SRVSVCSessionEnumResponse(data)
+        # Now let's return something useful
+        sessionList = []
+        for i in range(ans['InfoStruct']['SessionInfo']['EntriesRead']):
+            item = ans['InfoStruct']['SessionInfo']['Buffer']['Item_%d'%i] 
+            entry = {}
+            entry['Active'] = item['sesi502_time']
+            entry['IDLE']   = item['sesi502_idle_time']
+            entry['Type'] = item['cltype_name']['Data'].decode('utf-16le')[:-1]
+            entry['Transport'] = item['transport']['Data'].decode('utf-16le')[:-1]
+            entry['HostName'] = item['cname']['Data'].decode('utf-16le')[:-1]
+            entry['UserName'] = item['username']['Data'].decode('utf-16le')[:-1]
+            sessionList.append(entry)
+      
+        return sessionList
 
