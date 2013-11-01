@@ -59,7 +59,7 @@ import string
 
 try:
     from Crypto.Cipher import DES, ARC4, AES
-    from Crypto.Hash import HMAC
+    from Crypto.Hash import HMAC, MD4
 except Exception:
     print "Warning: You don't have any crypto installed. You need PyCrypto"
     print "See http://www.pycrypto.org/"
@@ -954,7 +954,11 @@ class LSASecrets(OfflineRegistry):
                 pass
             else:
                 secret = 'ASPNET: %s' % strDecoded
-            
+        elif upperName.startswith('$MACHINE.ACC'):
+            # compute MD4 of the secret.. yes.. that is the nthash? :-o
+            md4 = MD4.new()
+            md4.update(secretItem)
+            secret = "$MACHINE.ACC: %s" % md4.digest().encode('hex')
             
         if secret != '':
             print secret
