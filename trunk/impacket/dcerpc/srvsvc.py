@@ -778,7 +778,6 @@ class DCERPCSrvSvc:
       data = self.doRequest(remoteTODReq, checkReturn = 1)
       return SRVSVCpTimeOfDayInfo(data)
 
-#NetprNameCanonicalize
     def NetprNameCanonicalize(self, serverName, name, bufLen, nameType):
       NameCReq = SRVSVCNameCanonicalize()
       NameCReq['ServerName'] = (serverName+'\x00').encode('utf-16le')
@@ -797,7 +796,7 @@ class DCERPCSrvSvc:
         :param INT preferedMaximumLength: specifies the preferred maximum length, in bytes, of the returned data. Default value is MAX_PREFERRED_LENGTH
         :param INT resumeHandle: a value that contains a handle, which is used to continue an existing share search. First time it should be 0
 
-        :return: returns a list of dictionaries for each shares returned. print the response to see its contents. On error it raises an exception
+        :return: returns a list of dictionaries for each shares returned (strings in UNICODE). print the response to see its contents. On error it raises an exception
         """
         shareEnum = SRVSVCShareEnum()
         shareEnum['ServerName'] = ndrutils.NDRUniqueStringW()
@@ -823,8 +822,8 @@ class DCERPCSrvSvc:
             item = ans['InfoStruct']['ShareInfo']['Buffer']['Item_%d'%i] 
             entry = {}
             entry['Type'] = item['shi1_type']
-            entry['NetName'] = item['netname']['Data'].decode('utf-16le')[:-1]
-            entry['Remark'] = item['remark']['Data'].decode('utf-16le')[:-1]
+            entry['NetName'] = item['netname']['Data']
+            entry['Remark'] = item['remark']['Data']
             shareList.append(entry)
       
         return shareList
@@ -839,7 +838,7 @@ class DCERPCSrvSvc:
         :param INT preferedMaximumLength: specifies the preferred maximum length, in bytes, of the returned data. Default value is MAX_PREFERRED_LENGTH
         :param INT resumeHandle: a value that contains a handle, which is used to continue an existing share search. First time it should be 0
 
-        :return: returns a list of dictionaries for each session returned. print the response to see its contents. On error it raises an exception
+        :return: returns a list of dictionaries for each session returned (strings in UNICODE). print the response to see its contents. On error it raises an exception
         """
         sessionEnum = SRVSVCSessionEnum()
         sessionEnum['ServerName'] = ndrutils.NDRUniqueStringW()
@@ -872,10 +871,10 @@ class DCERPCSrvSvc:
             entry = {}
             entry['Active'] = item['sesi502_time']
             entry['IDLE']   = item['sesi502_idle_time']
-            entry['Type'] = item['cltype_name']['Data'].decode('utf-16le')[:-1]
-            entry['Transport'] = item['transport']['Data'].decode('utf-16le')[:-1]
-            entry['HostName'] = item['cname']['Data'].decode('utf-16le')[:-1]
-            entry['UserName'] = item['username']['Data'].decode('utf-16le')[:-1]
+            entry['Type'] = item['cltype_name']['Data']
+            entry['Transport'] = item['transport']['Data']
+            entry['HostName'] = item['cname']['Data']
+            entry['UserName'] = item['username']['Data']
             sessionList.append(entry)
       
         return sessionList
