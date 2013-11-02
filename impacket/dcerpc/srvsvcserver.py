@@ -20,6 +20,8 @@ from impacket.dcerpc import dcerpc
 from impacket import ntlm
 from impacket import uuid
 from impacket.uuid import uuidtup_to_bin, generate, stringver_to_bin, bin_to_uuidtup
+from impacket import structure
+from impacket.structure import Structure
 import socket
 import struct
 
@@ -219,6 +221,119 @@ from impacket import smbserver
 import ConfigParser
 import struct
 
+class SRVSVCShareInfo1(Structure):
+    alignment = 4
+    structure = (
+        ('pNetName','<L'),
+        ('Type','<L'),
+        ('pRemark','<L'),
+    )
+
+class SRVSVCShareGetInfo(Structure):
+    opnum = 16
+    alignment = 4
+    structure = (
+       ('RefID','<L&ServerName'),
+       ('ServerName','w'),
+       ('NetName','w'),
+       ('Level','<L=2'),
+    )
+
+class SRVSVCShareInfo2(Structure):
+    alignment = 4
+    structure = (
+	('pNetName','<L&NetName'),
+	('Type','<L'),
+	('pRemark','<L&Remark'),
+	('Permissions','<L'),
+	('Max_Uses','<L'),
+	('Current_Uses','<L'),
+	('pPath','<L&Path'),
+	('pPassword','<L&Password'),
+	('NetName','w'),
+	('Remark','w'),
+	('Path','w'),
+	('Password','w'),
+)
+
+class SRVSVCSwitchpShareInfo2(Structure):
+    alignment = 4
+    structure = (
+	('Level','<L'),
+	('pInfo','<L&InfoStruct'),
+	('InfoStruct',':',SRVSVCShareInfo2),
+    )
+
+class SRVSVCServerGetInfo(Structure):
+    opnum = 21
+    alignment = 4
+    structure = (
+       ('RefID','<L&ServerName'),
+       ('ServerName','w'),
+       ('Level','<L=102'),
+    )
+
+class SRVSVCServerInfo101(Structure):
+    alignment = 4
+    structure = (
+       ('PlatFormID','<L=500'),
+       ('pName','<L&Name'),
+       ('VersionMajor','<L=5'),
+       ('VersionMinor','<L=0'),
+       ('Type','<L=1'),
+       ('pComment','<L&Comment'),
+       ('Name','w'),
+       ('Comment','w'),
+    )
+
+class SRVSVCServerpInfo101(Structure):
+    alignment = 4
+    structure = (
+       ('Level','<L=101'),
+       ('pInfo','<L&ServerInfo'),
+       ('ServerInfo',':',SRVSVCServerInfo101),
+    )
+
+class SRVSVCNetrShareEnum(Structure):
+    opnum = 15
+    alignment = 4
+    structure = (
+       ('RefID','<L&ServerName'),
+       ('ServerName','w'),
+       ('Level','<L=0x1'),
+       ('pShareEnum','<L=0x1'),
+       ('p2','<L=0x5678'),
+       ('count','<L=0'),
+       ('NullP','<L=0'),
+       ('PreferedMaximumLength','<L=0xffffffff'),
+       ('pResumeHandler',':'),
+    )
+
+    def getData(self):
+       self['pResumeHandler'] = '\xbc\x9a\x00\x00\x00\x00\x00\x00'
+       return Structure.getData(self)
+
+class SRVSVCShareEnumStruct(Structure):
+    alignment = 4
+    structure = (
+        ('Level','<L'),
+        ('pCount','<L=1'),
+        ('Count','<L'),
+        ('pMaxCount','<L&MaxCount'),
+        ('MaxCount','<L'),
+    )
+class SRVSVCNetrShareEnum1_answer(Structure):
+    alignment = 4
+    structure = (
+        ('pLevel','<L=1'),
+        ('Info',':',SRVSVCShareEnumStruct),
+# Not catched by the unpacker - just for doc purposed.
+#       ('pTotalEntries','<L=&TotalEntries'),
+#       ('TotalEntries','<L'),
+#       ('pResumeHandler','<L=&ResumeHandler'),
+#       ('ResumeHandler','<L'),
+    )
+
 class SRVSVCServer(DCERPCServer):
     def __init__(self):
         DCERPCServer.__init__(self)
@@ -243,13 +358,13 @@ class SRVSVCServer(DCERPCServer):
            self._shares[i] = dict(serverConfig.items(i))
 
     def NetrGetShareInfo(self,data):
-       request = srvsvc.SRVSVCNetrShareGetInfo(data)
+       request = SRVSVCShareGetInfo(data)
        print "NetrGetShareInfo Level: %d" % request['Level']
        s = request['NetName'].decode('utf-16le')[:-1].upper().strip()
        share  = self._shares[s]
-       answer = srvsvc.SRVSVCSwitchpShareInfo2()
+       answer = SRVSVCSwitchpShareInfo2()
        answer['Level']      = 1
-       answer['InfoStruct'] = srvsvc.SRVSVCShareInfo1()
+       answer['InfoStruct'] = SRVSVCShareInfo1()
        answer['InfoStruct']['pNetName'] = id(share) & 0xffffffff
        answer['InfoStruct']['Type']     = int(share['share type'])
        answer['InfoStruct']['pRemark']  = (id(share) & 0xffffffff) + 1
@@ -263,26 +378,26 @@ class SRVSVCServer(DCERPCServer):
        return answer
 
     def NetrServerGetInfo(self,data):
-       request = srvsvc.SRVSVCNetrServerGetInfo(data)
+       request = SRVSVCServerGetInfo(data)
        print "NetrServerGetInfo Level: %d" % request['Level']
-       answer = srvsvc.SRVSVCServerpInfo101()
-       answer['ServerInfo'] = srvsvc.SRVSVCServerInfo101()
+       answer = SRVSVCServerpInfo101()
+       answer['ServerInfo'] = SRVSVCServerInfo101()
        answer['ServerInfo']['Name']    = request['ServerName']
        answer['ServerInfo']['Comment'] = '\x00\x00'
        answer = str(answer) + '\x00'*4
        return answer
 
     def NetShareEnumAll(self, data):
-       request = srvsvc.SRVSVCNetrShareEnum(data)
+       request = SRVSVCNetrShareEnum(data)
        print "NetrShareEnumAll Level: %d" % request['Level']
-       shareEnum = srvsvc.SRVSVCNetrShareEnum1_answer()
-       shareEnum['Info'] = srvsvc.SRVSVCShareEnumStruct()
+       shareEnum = SRVSVCNetrShareEnum1_answer()
+       shareEnum['Info'] = SRVSVCShareEnumStruct()
        shareEnum['Info']['Level']    = 1
        shareEnum['Info']['Count']    = len(self._shares)
        shareEnum['Info']['MaxCount'] = len(self._shares)
        answer = str(shareEnum) 
        for i in self._shares:
-          shareInfo = srvsvc.SRVSVCShareInfo1()
+          shareInfo = SRVSVCShareInfo1()
           shareInfo['pNetName'] = id(i) & 0xffffffff
           shareInfo['Type']     = int(self._shares[i]['share type'])
           shareInfo['pRemark']  = (id(i) & 0xffffffff)+1
