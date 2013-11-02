@@ -106,14 +106,6 @@ class SRVSVCShareEnumStruct(Structure):
 	('MaxCount','<L'),
     )
 
-class SRVSVCShareInfo1(Structure):
-    alignment = 4
-    structure = (
-	('pNetName','<L'),
-	('Type','<L'),
-	('pRemark','<L'),
-   )
-
 class SRVSVCShareInfo2(Structure):
     alignment = 4
     structure = (
@@ -403,37 +395,6 @@ class SRVSVCShareEnumResponse(Structure):
         ('TotalEntries','<L=0'),
         ('pResumeHandle',':', ndrutils.NDRPointerNew),
         ('ResumeHandle','<L=0'),
-    )
-
-class SRVSVCShareEnumOld(Structure):
-    opnum = 15
-    alignment = 4
-    structure = (
-       ('RefID','<L&ServerName'),
-       ('ServerName','w'),
-       ('Level','<L=0x1'),
-       ('pShareEnum','<L=0x1'),
-       ('p2','<L=0x5678'),
-       ('count','<L=0'),
-       ('NullP','<L=0'),
-       ('PreferedMaximumLength','<L=0xffffffff'),
-       ('pResumeHandler',':'),
-    )
-
-    def getData(self):
-       self['pResumeHandler'] = '\xbc\x9a\x00\x00\x00\x00\x00\x00'
-       return Structure.getData(self)
-
-class SRVSVCShareEnum1Response(Structure):
-    alignment = 4
-    structure = (
-	('pLevel','<L=1'),
-	('Info',':',SRVSVCShareEnumStruct),
-# Not catched by the unpacker - just for doc purposed.
-#	('pTotalEntries','<L=&TotalEntries'),
-#	('TotalEntries','<L'),
-#	('pResumeHandler','<L=&ResumeHandler'),
-#	('ResumeHandler','<L'),
     )
 
 class SRVSVCRemoteTOD(Structure):
@@ -732,28 +693,6 @@ class DCERPCSrvSvc:
         retVal = SRVSVCRespNetShareGetInfoHeader(data)
         return retVal
 
-#NetrShareEnum() with Level1 Info. Going away soon
-    def get_share_enum_1(self,server):
-    	shareEnum = SRVSVCShareEnumOld()
-    	shareEnum['ServerName'] = (server+'\x00').encode('utf-16le')
-    	data = self.doRequest(shareEnum, checkReturn = 1)
-        b = SRVSVCShareEnum1Response().fromString(data)
-        shareInfoList = []
-        index = len(b)
-        for i in range(b['Info']['Count']):
-            tmp_dict = {}
-            shareInfo = SRVSVCShareInfo1().fromString(data[index:])
-            tmp_dict['Type']=shareInfo['Type']
-            shareInfoList.append(tmp_dict)
-            index += len(shareInfo)
-        for i in range(b['Info']['Count']):
-            ndr_str = NDRString().fromString(data[index:])
-            shareInfoList[i]['NetName'] = ndr_str['sName']
-            index += len(ndr_str)
-            ndr_str = NDRString().fromString(data[index:])
-            shareInfoList[i]['Remark'] = ndr_str['sName']
-            index += len(ndr_str)
-    	return shareInfoList
 
 #NetrShareGetInfo() with Level2 Info
     def get_share_info_2(self, server, share):
@@ -879,3 +818,7 @@ class DCERPCSrvSvc:
       
         return sessionList
 
+    # Old functions, mantained just for compatibility reasons. Might be taken out soon
+    #NetrShareEnum() with Level1 Info. Going away soon
+    def get_share_enum_1(self,server):
+        return self.NetrShareEnum(server.encode('utf-16le'))
