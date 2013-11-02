@@ -9,7 +9,7 @@
 # Author: Alberto Solino
 #
 # Description:
-#   SRVSVC interface implementation.
+#   [MS-SRVS] interface implementation.
 #
 # TODO: NetServerEnum2 
 
@@ -96,41 +96,6 @@ class NDRString(Structure):
     ('sName','w'),
     )
 
-class SRVSVCShareEnumStruct(Structure):
-    alignment = 4
-    structure = (
-	('Level','<L'),
-	('pCount','<L=1'),
-	('Count','<L'),
-	('pMaxCount','<L&MaxCount'),
-	('MaxCount','<L'),
-    )
-
-class SRVSVCShareInfo2(Structure):
-    alignment = 4
-    structure = (
-	('pNetName','<L&NetName'),
-	('Type','<L'),
-	('pRemark','<L&Remark'),
-	('Permissions','<L'),
-	('Max_Uses','<L'),
-	('Current_Uses','<L'),
-	('pPath','<L&Path'),
-	('pPassword','<L&Password'),
-	('NetName','w'),
-	('Remark','w'),
-	('Path','w'),
-	('Password','w'),
-)
-
-class SRVSVCSwitchpShareInfo2(Structure):
-    alignment = 4
-    structure = (
-	('Level','<L'),
-	('pInfo','<L&InfoStruct'),
-	('InfoStruct',':',SRVSVCShareInfo2),
-    )
-
 class SRVSVCServerInfo102(Structure):
     alignment = 4
     structure = (
@@ -160,29 +125,6 @@ class SRVSVCServerpInfo102(Structure):
        ('ServerInfo',':',SRVSVCServerInfo102),
     )
 
-
-class SRVSVCServerInfo101(Structure):
-    alignment = 4
-    structure = (
-       ('PlatFormID','<L=500'),
-       ('pName','<L&Name'),
-       ('VersionMajor','<L=5'),
-       ('VersionMinor','<L=0'),
-       ('Type','<L=1'),
-       ('pComment','<L&Comment'),
-       ('Name','w'),
-       ('Comment','w'),
-    )
-
-class SRVSVCServerpInfo101(Structure):
-    alignment = 4
-    structure = (
-       ('Level','<L=101'),
-       ('pInfo','<L&ServerInfo'),
-       ('ServerInfo',':',SRVSVCServerInfo101),
-    )
- 
-
 class SRVSVCTimeOfDayInfo(Structure):
     alignment = 4
     structure = (
@@ -199,6 +141,7 @@ class SRVSVCTimeOfDayInfo(Structure):
        ('Year','<H'),
        ('Weekday','<H'),
     )
+
 class SRVSVCpTimeOfDayInfo(Structure):
     alignment = 4
     structure = (
@@ -272,7 +215,6 @@ class SESSION_INFO_502_CONTAINER(Structure):
         if data:
             self.__array = ndrutils.NDRArray(data = self['Buffer'], itemClass = SESSION_INFO_502)
             self['Buffer'] = self.__array
-
         return 
 
     def __len__(self):
@@ -357,25 +299,44 @@ class SHARE_ENUM_STRUCT(Structure):
         ('ShareInfo',':',SHARE_INFO_1_CONTAINER),
     )
 
+class SHARE_INFO_2(Structure):
+    structure = (
+        ('shi2_netname',':', ndrutils.NDRPointerNew),
+        ('shi2_type','<L=0'),
+        ('shi2_remark',':', ndrutils.NDRPointerNew),
+        ('shi2_permissions','<L=0'),
+        ('shi2_max_uses','<L=0'),
+        ('shi2_current_uses','<L=0'),
+        ('shi2_path',':', ndrutils.NDRPointerNew),
+        ('shi2_passwd',':', ndrutils.NDRPointerNew),
+        ('netname',':', ndrutils.NDRStringW),
+        ('remark',':', ndrutils.NDRStringW),
+        ('path',':', ndrutils.NDRStringW),
+        # Password is not used/set
+        ('passwd','s="'),
+    )
+
+class SHARE_INFO(Structure):
+    structure = (
+        ('SwitchIs','<L=0'),
+        ('pInfo',':', ndrutils.NDRPointerNew),
+        ('ShareInfo2',':', SHARE_INFO_2)
+    )
+
 ######### FUNCTIONS ###########
 
 class SRVSVCShareGetInfo(Structure):
     opnum = 16
     alignment = 4
     structure = (
-       ('RefID','<L&ServerName'),
-       ('ServerName','w'),
-       ('NetName','w'),
+       ('ServerName',':', ndrutils.NDRUniqueStringW),
+       ('NetName',':', ndrutils.NDRStringW),
        ('Level','<L=2'),
     )
 
-class SRVSVCServerGetInfo(Structure):
-    opnum = 21
-    alignment = 4
+class SRVSVCShareGetInfoResponse(Structure):
     structure = (
-       ('RefID','<L&ServerName'),
-       ('ServerName','w'),
-       ('Level','<L=102'),
+        ('InfoStruct',':', SHARE_INFO),
     )
 
 class SRVSVCShareEnum(Structure):
@@ -397,26 +358,6 @@ class SRVSVCShareEnumResponse(Structure):
         ('ResumeHandle','<L=0'),
     )
 
-class SRVSVCRemoteTOD(Structure):
-    opnum = 28
-    alignment = 4
-    structure = (
-       ('RefID','<L&ServerName'),
-       ('ServerName','w')
-    )
-
-class SRVSVCNameCanonicalize(Structure):
-    opnum = 34
-    alignment = 4
-    structure = (
-       ('RefID','<L&ServerName'),
-       ('ServerName','w'),
-       ('Name','w'),
-       ('OutbufLen','<H'),
-       ('NameType','<H'),
-       ('Flags','<H')
-    )
-
 class SRVSVCSessionEnum(Structure):
     opnum = 12
     structure = (
@@ -435,6 +376,35 @@ class SRVSVCSessionEnumResponse(Structure):
         ('TotalEntries','<L=0'),
         ('pResumeHandle',':', ndrutils.NDRPointerNew),
         ('ResumeHandle','<L=0'),
+    )
+
+class SRVSVCServerGetInfo(Structure):
+    opnum = 21
+    alignment = 4
+    structure = (
+       ('RefID','<L&ServerName'),
+       ('ServerName','w'),
+       ('Level','<L=102'),
+    )
+
+class SRVSVCRemoteTOD(Structure):
+    opnum = 28
+    alignment = 4
+    structure = (
+       ('RefID','<L&ServerName'),
+       ('ServerName','w')
+    )
+
+class SRVSVCNameCanonicalize(Structure):
+    opnum = 34
+    alignment = 4
+    structure = (
+       ('RefID','<L&ServerName'),
+       ('ServerName','w'),
+       ('Name','w'),
+       ('OutbufLen','<H'),
+       ('NameType','<H'),
+       ('Flags','<H')
     )
 
 class SRVSVCNetShareGetInfoHeader(ImpactPacket.Header):
@@ -673,60 +643,6 @@ class DCERPCSrvSvc:
                 raise SRVSVCSessionError(error_code)  
             return answer
 
-    def get_share_info(self, server, share, level):
-        server += '\0'
-        share += '\0'
-        server = server.encode('utf-16le')
-        share = share.encode('utf-16le')
-        info = SRVSVCNetShareGetInfoHeader()
-        server_len = len(server)
-        share_len = len(share)
-        info.set_server_max_count(server_len / 2)
-        info.set_server_actual_count(server_len / 2)
-        info.set_server(server)
-        info.set_share_max_count(share_len / 2)
-        info.set_share_actual_count(share_len / 2)
-        info.set_share(share)
-        info.set_info_level(2)
-        self._dcerpc.send(info)
-        data = self._dcerpc.recv()
-        retVal = SRVSVCRespNetShareGetInfoHeader(data)
-        return retVal
-
-
-#NetrShareGetInfo() with Level2 Info
-    def get_share_info_2(self, server, share):
-    	shareInfoReq = SRVSVCShareGetInfo()
-    	shareInfoReq['Level'] = 2
-    	shareInfoReq['ServerName'] = (server+'\x00').encode('utf-16le')
-    	shareInfoReq['NetName'] = (share+'\x00').encode('utf-16le')
-    	ans = self.doRequest(shareInfoReq, checkReturn = 1)
-    	return SRVSVCSwitchpShareInfo2(ans)    
-
-#NetrServerGetInfo() with Level 102 Info
-    def get_server_info_102(self, server):
-      serverInfoReq = SRVSVCServerGetInfo()
-      serverInfoReq['ServerName'] = (server+'\x00').encode('utf-16le')
-      data = self.doRequest(serverInfoReq, checkReturn = 1)  
-      return SRVSVCServerpInfo102(data)['ServerInfo']
-
-#NetrRemoteTOD()
-    def NetrRemoteTOD(self, server):
-      remoteTODReq = SRVSVCRemoteTOD()
-      remoteTODReq['ServerName'] = (server+'\x00').encode('utf-16le')
-      data = self.doRequest(remoteTODReq, checkReturn = 1)
-      return SRVSVCpTimeOfDayInfo(data)
-
-    def NetprNameCanonicalize(self, serverName, name, bufLen, nameType):
-      NameCReq = SRVSVCNameCanonicalize()
-      NameCReq['ServerName'] = (serverName+'\x00').encode('utf-16le')
-      NameCReq['Name'] = (name+'\x00').encode('utf-16le')
-      NameCReq['OutbufLen'] = bufLen
-      NameCReq['NameType'] = nameType
-      NameCReq['Flags'] = 0x0
-      data = self.doRequest(NameCReq, checkReturn = 1)
-      return data
-
     def NetrShareEnum(self, serverName='', preferedMaximumLength=0xffffffff, resumeHandle=0):
         """
         retrieves information about each shared resource on a server (only level1 supported)
@@ -818,7 +734,88 @@ class DCERPCSrvSvc:
       
         return sessionList
 
+
+    def NetrShareGetInfo(self, serverName, netName):
+        """
+        retrieves information about a particular shared resource on the server (info struct level 2 only supported)
+
+        :param UNICODE serverName: the NetBIOS name of the remote machine. '' would do the work as well
+        :param UNICODE netName: Unicode string that specifies the name of the share to return information for
+
+        :return: a SHARE_INFO_2 like structure (strings in UNICODE). For the meaning of each field see [MS-SRVS] Section 2.2.4.24
+
+        """
+        shareGetInfo = SRVSVCShareGetInfo() 
+        shareGetInfo['ServerName'] = ndrutils.NDRUniqueStringW()
+        shareGetInfo['ServerName']['Data'] = serverName+'\x00'.encode('utf-16le')
+        shareGetInfo['ServerName'].alignment = 4
+        shareGetInfo['NetName'] = ndrutils.NDRStringW()
+        shareGetInfo['NetName']['Data'] = netName+'\x00'.encode('utf-16le')
+        shareGetInfo['NetName'].alignment = 4
+        shareGetInfo['Level'] = 2
+
+        data = self.doRequest(shareGetInfo, checkReturn = 1)
+        ans = SRVSVCShareGetInfoResponse(data)
+
+        entry = {}
+        entry['Type'] = ans['InfoStruct']['ShareInfo2']['shi2_type']
+        entry['NetName'] = ans['InfoStruct']['ShareInfo2']['netname']['Data']
+        entry['Remark'] =ans['InfoStruct']['ShareInfo2']['remark']['Data']
+        entry['Permissions'] =ans['InfoStruct']['ShareInfo2']['shi2_permissions'] 
+        entry['MaxUses'] =ans['InfoStruct']['ShareInfo2']['shi2_max_uses'] 
+        entry['CurrentUses'] =ans['InfoStruct']['ShareInfo2']['shi2_current_uses'] 
+        entry['Path'] =ans['InfoStruct']['ShareInfo2']['path']['Data']
+
+        return entry
+
+    ################################################################################### 
     # Old functions, mantained just for compatibility reasons. Might be taken out soon
+
     #NetrShareEnum() with Level1 Info. Going away soon
     def get_share_enum_1(self,server):
         return self.NetrShareEnum(server.encode('utf-16le'))
+
+    def NetrRemoteTOD(self, server):
+      remoteTODReq = SRVSVCRemoteTOD()
+      remoteTODReq['ServerName'] = (server+'\x00').encode('utf-16le')
+      data = self.doRequest(remoteTODReq, checkReturn = 1)
+      return SRVSVCpTimeOfDayInfo(data)
+
+    def NetprNameCanonicalize(self, serverName, name, bufLen, nameType):
+      NameCReq = SRVSVCNameCanonicalize()
+      NameCReq['ServerName'] = (serverName+'\x00').encode('utf-16le')
+      NameCReq['Name'] = (name+'\x00').encode('utf-16le')
+      NameCReq['OutbufLen'] = bufLen
+      NameCReq['NameType'] = nameType
+      NameCReq['Flags'] = 0x0
+      data = self.doRequest(NameCReq, checkReturn = 1)
+      return data
+
+    def get_server_info_102(self, server):
+      #NetrServerGetInfo() with Level 102 Info
+      serverInfoReq = SRVSVCServerGetInfo()
+      serverInfoReq['ServerName'] = (server+'\x00').encode('utf-16le')
+      data = self.doRequest(serverInfoReq, checkReturn = 1)  
+      return SRVSVCServerpInfo102(data)['ServerInfo']
+
+    def get_share_info(self, server, share, level):
+        server += '\0'
+        share += '\0'
+        server = server.encode('utf-16le')
+        share = share.encode('utf-16le')
+        info = SRVSVCNetShareGetInfoHeader()
+        server_len = len(server)
+        share_len = len(share)
+        info.set_server_max_count(server_len / 2)
+        info.set_server_actual_count(server_len / 2)
+        info.set_server(server)
+        info.set_share_max_count(share_len / 2)
+        info.set_share_actual_count(share_len / 2)
+        info.set_share(share)
+        info.set_info_level(2)
+        self._dcerpc.send(info)
+        data = self._dcerpc.recv()
+        retVal = SRVSVCRespNetShareGetInfoHeader(data)
+        return retVal
+
+
