@@ -214,7 +214,7 @@ class MiniImpacketShell(cmd.Cmd):
         srv_svc = srvsvc.DCERPCSrvSvc(dce)
         resp = srv_svc.NetrSessionEnum()
         for session in resp:
-            print "host: %15s, user: %5s, active: %5d, idle: %5d, type: %5s, transport: %s" % (session['HostName'], session['UserName'], session['Active'], session['IDLE'], session['Type'],session['Transport'] )
+            print "host: %15s, user: %5s, active: %5d, idle: %5d, type: %5s, transport: %s" % (session['HostName'].decode('utf-16le')[:-1], session['UserName'].decode('utf-16le')[:-1], session['Active'], session['IDLE'], session['Type'].decode('utf-16le')[:-1],session['Transport'].decode('utf-16le')[:-1] )
 
     def do_shares(self, line):
         if self.loggedIn is False:
@@ -222,7 +222,7 @@ class MiniImpacketShell(cmd.Cmd):
             return
         resp = self.smb.listShares()
         for i in range(len(resp)):                        
-            print resp[i]['NetName']
+            print resp[i]['NetName'].decode('utf-16le')[:-1]
 
     def do_use(self,line):
         if self.loggedIn is False:
