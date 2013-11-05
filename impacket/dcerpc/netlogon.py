@@ -61,13 +61,13 @@ class PENCRYPTED_NT_OWF_PASSWORD(ndrutils.NDRPointerNew):
 class NL_GENERIC_RPC_DATA(Structure):
     structure = (
         ('UlongEntryCount','<L=0'),
-        ('SizeIs','<H=0'),
-        ('_UlongData','_-UlongData','self["SizeIs"]'),
-        ('UlongData',':'),
+        ('pUlongData', ':', ndrutils.NDRPointerNew),
         ('UnicodeStringEntryCount','<L=0'),
+        ('pUnicodeStringData',':', ndrutils.NDRPointerNew),
         ('SizeIs2','<L=0'),
-        ('_UnicodeStringData','_-UnicodeStringData', 'self["SizeIs2"]'),
-        ('UnicodeStringData',':'),
+        ('_UlongData', '_-UlongData', 'self["UlongEntryCount"]*4'),
+        ('UlongData', ':'),
+        ('UnicodeStringData', ':'),
     )
 
 class PNL_GENERIC_RPC_DATA(ndrutils.NDRPointerNew):
@@ -171,7 +171,6 @@ class NETLOGONServerGetTrustInfoResponse(Structure):
         ('EncryptedNewOwfPassword',':', ENCRYPTED_NT_OWF_PASSWORD),
         ('EncryptedOldOwfPassword',':', ENCRYPTED_NT_OWF_PASSWORD),
         ('TrustInfo',':', PNL_GENERIC_RPC_DATA),
-        #('TrustInfo',':'),
     )
 
 class NETLOGONServerPasswordGet(Structure):
