@@ -35,6 +35,44 @@ ServerSecureChannel = 6
 CdcServerSecureChannel = 7
 
 # Structures
+
+class NETLOGON_CREDENTIAL(Structure):
+    structure = (
+        ('data','8s=""'),
+    )
+
+class NETLOGON_AUTHENTICATOR(Structure):
+    structure = (
+        ('Credential',':', NETLOGON_CREDENTIAL),
+        ('Timestamp','<L=0'),
+    )
+
+class PNETLOGON_AUTHENTICATOR(ndrutils.NDRPointerNew):
+    structure = NETLOGON_AUTHENTICATOR.structure
+    
+class ENCRYPTED_NT_OWF_PASSWORD(Structure):
+    structure = (
+        ('data','16s=""'),
+    )
+
+class PENCRYPTED_NT_OWF_PASSWORD(ndrutils.NDRPointerNew):
+    structure = ENCRYPTED_NT_OWF_PASSWORD.structure
+
+class NL_GENERIC_RPC_DATA(Structure):
+    structure = (
+        ('UlongEntryCount','<L=0'),
+        ('SizeIs','<H=0'),
+        ('_UlongData','_-UlongData','self["SizeIs"]'),
+        ('UlongData',':'),
+        ('UnicodeStringEntryCount','<L=0'),
+        ('SizeIs2','<L=0'),
+        ('_UnicodeStringData','_-UnicodeStringData', 'self["SizeIs2"]'),
+        ('UnicodeStringData',':'),
+    )
+
+class PNL_GENERIC_RPC_DATA(ndrutils.NDRPointerNew):
+    structure = NL_GENERIC_RPC_DATA.structure
+
 class NETLOGONGetDCName(Structure):
     opnum = 11
     structure = (
@@ -114,6 +152,26 @@ class NETLOGONServerReqChallenge(Structure):
 class NETLOGONServerReqChallengeResponse(Structure):
     structure = (
         ('ServerChallenge','8s'),
+    )
+
+class NETLOGONServerGetTrustInfo(Structure):
+    opnum = 46
+    structure = (
+        ('TrustedDcName',':',ndrutils.NDRUniqueStringW),
+        ('AccountName',':', ndrutils.NDRStringW),
+        ('SecureChannelType','<H=0'),
+        ('Pad0', ':'),
+        ('ComputerName',':', ndrutils.NDRStringW ),
+        ('Authenticator',':', NETLOGON_AUTHENTICATOR),
+    )
+
+class NETLOGONServerGetTrustInfoResponse(Structure):
+    structure = (
+        ('ReturnAuthenticator',':', NETLOGON_AUTHENTICATOR),
+        ('EncryptedNewOwfPassword',':', ENCRYPTED_NT_OWF_PASSWORD),
+        ('EncryptedOldOwfPassword',':', ENCRYPTED_NT_OWF_PASSWORD),
+        ('TrustInfo',':', PNL_GENERIC_RPC_DATA),
+        #('TrustInfo',':'),
     )
 
 class NETLOGONSessionError(Exception):
@@ -287,6 +345,38 @@ class DCERPCNetLogon:
         ans = NETLOGONGetDCNameResponse(packet)
         return ans
 
+    def NetrServerGetTrustInfo(self, trustedDcName, accountName, secureChannelType, computerName='X'.encode('utf-16le'), authenticator=None):
+        """
+        returns an information block from a specified server. The information includes encrypted current and previous passwords for a particular account and additional trust data. The account name requested MUST be the name used when the secure channel was created, unless the method is called on a PDC by a domain controller, in which case it can be any valid account name
 
+        :param UNICODE trustedDcName: the NetBIOS name of the remote machine. '' would do the work as well
+        :param UNICODE accountName: Unicode string that identifies the name of the account
+        :param WORD secureChannelType: the channel type requested. See [MS-NRPC] Section 2.2.1.3.13 for valid values
+        :param UNICODE computerName: Unicode string that contains the NetBIOS name of the client computer calling this method. The default value would do the work.
+        :param NETLOGON_AUTHENTICATOR authenticator: the NETLOGON_AUTHENTICATOR for this call. For more information about how to compute such value, check [MS-NRPC] Section 3.1.4.5
+
+        :return: returns a NETLOGONServerGetTrustInfoResponse structure. Call dump() method to see its contents. For understanding the meaning of each field, check [MS-NRPC] Section 3.5.4.7.6
+        """
+
+        getTrustInfo = NETLOGONServerGetTrustInfo()
+        getTrustInfo['TrustedDcName'] = ndrutils.NDRUniqueStringW()
+        getTrustInfo['TrustedDcName']['Data'] = trustedDcName+'\x00'.encode('utf-16le')
+        getTrustInfo['TrustedDcName'].alignment = 4
+
+        getTrustInfo['AccountName'] = ndrutils.NDRStringW()
+        getTrustInfo['AccountName'].alignment = 0
+        getTrustInfo['AccountName']['Data'] = accountName+'\x00'.encode('utf-16le')
+        getTrustInfo['SecureChannelType'] = secureChannelType
+        # So.. We have to have the buffer aligned before Computer Name, there we go. The "2" there belongs to the size
+        # of SecureChannelType
+        getTrustInfo['Pad0'] = '\x00'*((len(getTrustInfo['AccountName']['Data'])+2) % 4)
+        getTrustInfo['ComputerName'] = ndrutils.NDRStringW()
+        getTrustInfo['ComputerName'].alignment = 4
+        getTrustInfo['ComputerName']['Data'] = computerName+'\x00'.encode('utf-16le')
+        getTrustInfo['Authenticator'] = authenticator
+
+        packet = self.doRequest(getTrustInfo, checkReturn = 1)
+        ans = NETLOGONServerGetTrustInfoResponse(packet)
+        return ans
 
 
