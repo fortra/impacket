@@ -174,6 +174,23 @@ class NETLOGONServerGetTrustInfoResponse(Structure):
         #('TrustInfo',':'),
     )
 
+class NETLOGONServerPasswordGet(Structure):
+    opnum = 31
+    structure = (
+        ('PrimaryName',':', ndrutils.NDRUniqueStringW),
+        ('AccountName',':', ndrutils.NDRStringW),
+        ('AccountType','<H=0'),
+        ('Pad0', ':'),
+        ('ComputerName',':', ndrutils.NDRStringW),
+        ('Authenticator',':', NETLOGON_AUTHENTICATOR),
+    )
+
+class NETLOGONServerPasswordGetResponse(Structure):
+    structure = (
+        ('ReturnAuthenticator',':', NETLOGON_AUTHENTICATOR),
+        ('EncryptedNtOwfPassword',':', ENCRYPTED_NT_OWF_PASSWORD),
+    )
+
 class NETLOGONSessionError(Exception):
     
     error_messages = {
@@ -379,4 +396,38 @@ class DCERPCNetLogon:
         ans = NETLOGONServerGetTrustInfoResponse(packet)
         return ans
 
+    def NetrServerPasswordGet(self, primaryName, accountName, accountType, computerName='X'.encode('utf-16le'), authenticator=None):
+        """
+        allows a BDC to get a machine account password from the DC with the PDC role in the domain
+
+        :param UNICODE primaryName: the NetBIOS name of the remote machine. '' would do the work as well
+        :param UNICODE accountName: Unicode string that identifies the name of the account
+        :param WORD accountType: the channel type requested. See [MS-NRPC] Section 2.2.1.3.13 for valid values
+        :param UNICODE computerName: Unicode string that contains the NetBIOS name of the client computer calling this method. 
+        :param NETLOGON_AUTHENTICATOR authenticator: the NETLOGON_AUTHENTICATOR for this call. For more information about how to compute such value, check [MS-NRPC] Section 3.1.4.5
+
+        :return: returns a NETLOGONServerPasswordResponse structure. Call dump() method to see its contents. For understanding the meaning of each field, check [MS-NRPC] Section 3.5.4.7.6
+        """
+        passwordGet = NETLOGONServerPasswordGet()
+        passwordGet['PrimaryName'] = ndrutils.NDRUniqueStringW()
+        passwordGet['PrimaryName']['Data'] = primaryName+'\x00'.encode('utf-16le')
+        passwordGet['PrimaryName'].alignment = 4
+
+        passwordGet['AccountName'] = ndrutils.NDRStringW()
+        passwordGet['AccountName'].alignment = 0
+        passwordGet['AccountName']['Data'] = accountName+'\x00'.encode('utf-16le')
+
+        passwordGet['AccountType'] = accountType
+        # So.. We have to have the buffer aligned before Computer Name, there we go. The "2" there belongs to the size
+        # of SecureChannelType
+
+        passwordGet['Pad0'] = '\x00'*((len(passwordGet['AccountName']['Data'])+2) % 4)
+        passwordGet['ComputerName'] = ndrutils.NDRStringW()
+        passwordGet['ComputerName'].alignment = 4
+        passwordGet['ComputerName']['Data'] = computerName+'\x00'.encode('utf-16le')
+        passwordGet['Authenticator'] = authenticator
+
+        packet = self.doRequest(passwordGet, checkReturn = 1)
+        ans = NETLOGONServerPasswordGetResponse(packet)
+        return ans
 
