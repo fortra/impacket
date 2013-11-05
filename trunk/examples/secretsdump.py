@@ -288,6 +288,9 @@ class RemoteOperations:
         self.__dce.bind(winreg.MSRPC_UUID_WINREG)
         self.__winreg = winreg.DCERPCWinReg(self.__dce)
 
+    def getMachineNameAndDomain(self):
+        return self.__smbConnection.getServerName(), self.__smbConnection.getServerDomain()
+
     def getDefaultLoginAccount(self):
         try:
             ans = self.__winreg.regOpenKey(self.__regHandle, 'SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon', winreg.KEY_READ)
@@ -958,7 +961,11 @@ class LSASecrets(OfflineRegistry):
             # compute MD4 of the secret.. yes.. that is the nthash? :-o
             md4 = MD4.new()
             md4.update(secretItem)
-            secret = "$MACHINE.ACC: %s" % md4.digest().encode('hex')
+            if self.__isRemote is True:
+                machine, domain = self.__remoteOps.getMachineNameAndDomain()
+                secret = "%s\\%s$:%s:%s" % (domain, machine, ntlm.LMOWFv1('','').encode('hex'), md4.digest().encode('hex'))
+            else: 
+                secret = "$MACHINE.ACC: %s:%s" % (ntlm.LMOWFv1('','').encode('hex'), md4.digest().encode('hex'))
             
         if secret != '':
             print secret
