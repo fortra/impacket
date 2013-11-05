@@ -17,6 +17,7 @@
 #
 #   [MS-LSAD] Section 5.1.2
 #   [MS-NRPC] Section 3.1.4.3.2
+#   [MS-SAMR] Section 2.2.11.1.1
 
 try:
     from Crypto.Cipher import DES, AES
@@ -336,6 +337,44 @@ def ComputeSessionKeyStrongKey(sharedSecret, clientChallenge, serverChallenge, s
     hm.update(finalMD5)
     return hm.digest()
     
+def SamDecryptNTLMHash(encryptedHash, key):
+    # [MS-SAMR] Section 2.2.11.1.1
+    Block1 = encryptedHash[:8]
+    Block2 = encryptedHash[8:]
+
+    Key1 = key[:7]
+    Key1 = transformKey(Key1)
+    Key2 = key[7:14]
+    Key2 = transformKey(Key2)
+
+    Crypt1 = DES.new(Key1, DES.MODE_ECB)
+    Crypt2 = DES.new(Key2, DES.MODE_ECB)
+
+    plain1 = Crypt1.decrypt(Block1)
+    plain2 = Crypt2.decrypt(Block2)
+
+    return plain1 + plain2 
+
+def SamEncryptNTLMHash(encryptedHash, key):
+    # [MS-SAMR] Section 2.2.11.1.1
+    Block1 = encryptedHash[:8]
+    Block2 = encryptedHash[8:]
+
+    Key1 = key[:7]
+    Key1 = transformKey(Key1)
+    Key2 = key[7:14]
+    Key2 = transformKey(Key2)
+
+    Crypt1 = DES.new(Key1, DES.MODE_ECB)
+    Crypt2 = DES.new(Key2, DES.MODE_ECB)
+
+    plain1 = Crypt1.encrypt(Block1)
+    plain2 = Crypt2.encrypt(Block2)
+
+    return plain1 + plain2 
+
+
+
 if __name__ == '__main__':
 #   Test Vectors
 #   --------------------------------------------------
