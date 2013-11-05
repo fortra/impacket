@@ -593,7 +593,7 @@ class NDRStringA(Structure):
     )
 
 class NDRPointerNew(Structure):
-    structure = (
+    commonHdr = (
         ('RefId','<L=0xff'),
     )
     def __init__(self, data = None, alignment = 0):
