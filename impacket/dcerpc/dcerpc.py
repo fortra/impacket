@@ -446,6 +446,7 @@ class DCERPC:
     def alter_ctx(self, newUID, bogus_binds = ''): raise RuntimeError, 'virtual method. Not implemented in subclass'
     def set_credentials(self, username, password, domain = '', lmhash = '', nthash = ''): pass
     def set_auth_level(self, auth_level): pass
+    def set_auth_type(self, auth_type, callback = None): pass
     def get_idempotent(self): return 0
     def set_idempotent(self, flag): pass
     def call(self, function, body):
@@ -455,6 +456,8 @@ class DCERPC_v5(DCERPC):
     def __init__(self, transport):
         DCERPC.__init__(self, transport)
         self.__auth_level = ntlm.NTLM_AUTH_NONE
+        self.__auth_type = RPC_C_AUTHN_WINNT
+        self.__auth_type_callback = None
         # Flags of the authenticated session. We will need them throughout the connection
         self.__auth_flags = 0
         self.__username = None
@@ -477,6 +480,10 @@ class DCERPC_v5(DCERPC):
     def set_auth_level(self, auth_level):
         # auth level is ntlm.NTLM_AUTH_*
         self.__auth_level = auth_level
+
+    def set_auth_type(self, auth_type, callback = None):
+        self.__auth_type = auth_type
+        self.__auth_type_callback = callback
 
     def set_max_tfrag(self, size):
         self.__max_xmit_size = size
