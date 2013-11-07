@@ -56,7 +56,10 @@ class SMBServer(Thread):
 
     def cleanup_server(self):
         print '[*] Cleaning up..'
-        os.unlink(SMBSERVER_DIR + '/smb.log')
+        try:
+            os.unlink(SMBSERVER_DIR + '/smb.log')
+        except:
+            pass
         os.rmdir(SMBSERVER_DIR)
 
     def run(self):
