@@ -53,6 +53,81 @@ def display_time(filetime_high, filetime_low, minutes_utc=0):
         r = "%s GMT %d " % (strftime("%a, %d %b %Y %H:%M:%S",gmtime(d)), minutes_utc/60)
     return r
 
+class MSRPCArray:
+    def __init__(self, id=0, len=0, size=0):
+        self._length = len
+        self._size = size
+        self._id = id
+        self._max_len = 0
+        self._offset = 0
+        self._length2 = 0
+        self._name = ''
+
+    def set_max_len(self, n):
+        self._max_len = n
+    def set_offset(self, n):
+        self._offset = n
+    def set_length2(self, n):
+        self._length2 = n
+    def get_size(self):
+        return self._size
+    def set_name(self, n):
+        self._name = n
+    def get_name(self):
+        return self._name
+    def get_id(self):
+        return self._id
+    def rawData(self):
+        return pack('<HHLLLL', self._length, self._size, 0x12345678, self._max_len, self._offset, self._length2) + self._name.encode('utf-16le')
+
+class MSRPCNameArray:
+    def __init__(self, data = None):
+        self._count = 0
+        self._max_count = 0
+        self._elements = []
+
+        if data: self.load(data)
+
+    def load(self, data):
+        ptr = unpack('<L', data[:4])[0]
+        index = 4
+        if 0 == ptr: # No data. May be a bug in certain versions of Samba.
+            return
+
+        self._count, _, self._max_count = unpack('<LLL', data[index:index+12])
+        index += 12
+
+        # Read each object's header.
+        for i in range(0, self._count):
+            aindex, length, size, _ = unpack('<LHHL', data[index:index+12])
+            self._elements.append(MSRPCArray(aindex, length, size))
+            index += 12
+
+        # Read the objects themselves.
+        for element in self._elements:
+            max_len, offset, curlen = unpack('<LLL', data[index:index+12])
+            index += 12
+            element.set_name(unicode(data[index:index+2*curlen], 'utf-16le'))
+            element.set_max_len(max_len)
+            element.set_offset(offset)
+            element.set_length2(curlen)
+            index += 2*curlen
+            if curlen & 0x1: index += 2 # Skip padding.
+
+    def elements(self):
+        return self._elements
+
+    def rawData(self):
+        ret = pack('<LLLL', 0x74747474, self._count, 0x47474747, self._max_count)
+        pos_ret = []
+        for i in xrange(0, self._count):
+            ret += pack('<L', self._elements[i].get_id())
+            data = self._elements[i].rawData()
+            ret += data[:8]
+            pos_ret += data[8:]
+
+        return ret + pos_ret
+
 class MSRPCUserInfo:
     ITEMS = {'Account Name':0,
              'Full Name':1,
@@ -99,7 +174,7 @@ class MSRPCUserInfo:
         index += 48
         for i in range(0,len(MSRPCUserInfo.ITEMS)-1):
             length, size, id = unpack('<HHL',data[index:index+8])
-            self._items.append(dcerpc.MSRPCArray(length, size, id))
+            self._items.append(MSRPCArray(length, size, id))
             index += 8
 
         index += 24     # salteo los unknowns
@@ -108,7 +183,7 @@ class MSRPCUserInfo:
         self._rid, self._group, self._acct_ctr,_ = unpack('<LLLL',data[index: index+16])
         index += 16
         logon_divisions, _, id = unpack('<HHL',data[index:index+8])
-        self._items.append(dcerpc.MSRPCArray(logon_divisions, _, id))
+        self._items.append(MSRPCArray(logon_divisions, _, id))
         index += 8
         self._bad_pwd_count, self._logon_count, self._country, self._codepage = unpack('<HHHH', data[index: index + 8])
         index += 8
@@ -363,9 +438,9 @@ class SAMRRespEnumDomainHeader(ImpactPacket.Header):
         self.set_long(0, handle, '<')
 
     def get_domains(self):
-        return dcerpc.MSRPCNameArray(self.get_bytes()[4:-8].tostring())
+        return MSRPCNameArray(self.get_bytes()[4:-8].tostring())
     def set_domains(self, domains):
-        assert isinstance(domains, dcerpc.MSRPCNameArray)
+        assert isinstance(domains, MSRPCNameArray)
         self.get_bytes()[4:-8] = array.array('B', domains.rawData())
 
     def get_entries_num(self):
@@ -401,9 +476,9 @@ class SAMRLookupDomainHeader(ImpactPacket.Header):
         self.get_bytes()[:20] = array.array('B', handle)
 
     def get_domain(self):
-        return dcerpc.MSRPCArray(self.get_bytes().tolist()[20:])
+        return MSRPCArray(self.get_bytes().tolist()[20:])
     def set_domain(self, domain):
-        assert isinstance(domain, dcerpc.MSRPCArray)
+        assert isinstance(domain, MSRPCArray)
         self.get_bytes()[20:] = array.array('B', domain.rawData())
 
 
@@ -567,9 +642,9 @@ class SAMRRespEnumDomainUsersHeader(ImpactPacket.Header):
         self.set_long(0, handle, '<')
 
     def get_users(self):
-        return dcerpc.MSRPCNameArray(self.get_bytes()[4:-8].tostring())
+        return MSRPCNameArray(self.get_bytes()[4:-8].tostring())
     def set_users(self, users):
-        assert isinstance(users, dcerpc.MSRPCNameArray)
+        assert isinstance(users, MSRPCNameArray)
         self.get_bytes()[4:-8] = array.array('B', users.rawData())
 
     def get_entries_num(self):
@@ -826,7 +901,7 @@ class DCERPCSamr:
         enumAliases['ContextHandle'] = context_handle
         ans = self.doRequest(enumAliases, checkReturn = 0)
         packet = SAMREnumerateAliasesInDomainResponse(ans)
-        enum = dcerpc.MSRPCNameArray(packet['pEnumerationBuffer'])
+        enum = MSRPCNameArray(packet['pEnumerationBuffer'])
         return enum.elements()
 
     def OpenAlias(self, context_handle, alias_id):
