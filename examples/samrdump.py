@@ -39,12 +39,13 @@ class SAMRDump:
     def __init__(self, protocols = None,
                  username = '', password = '', domain = '', hashes = None):
         if not protocols:
-            protocols = SAMRDump.KNOWN_PROTOCOLS.keys()
+            self.__protocols = SAMRDump.KNOWN_PROTOCOLS.keys()
+        else:
+            self.__protocols = [protocols]
 
         self.__username = username
         self.__password = password
         self.__domain = domain
-        self.__protocols = [protocols]
         self.__lmhash = ''
         self.__nthash = ''
         if hashes is not None:
@@ -73,7 +74,6 @@ class SAMRDump:
                 entries = self.__fetchList(rpctransport)
             except Exception, e:
                 print 'Protocol failed: %s' % e
-                raise
             else:
                 # Got a response. No need for further iterations.
                 break
