@@ -322,8 +322,7 @@ if __name__ == '__main__':
                        plain_data, 
                        plain_data, 
                        self.__sequence, 
-                       self.__clientSealingHandle, 
-                       isDCE = False)
+                       self.__clientSealingHandle)
             else:
                 sealedMessage, signature =  ntlm.SEAL(self.__flags, 
                        self.__clientSigningKey, 
@@ -331,8 +330,7 @@ if __name__ == '__main__':
                        plain_data, 
                        plain_data, 
                        self.__sequence, 
-                       self.__clientSealingHandle, 
-                       isDCE = False)
+                       self.__clientSealingHandle)
 
             self.__sequence += 1
 
@@ -348,8 +346,7 @@ if __name__ == '__main__':
                         answer, 
                         answer, 
                         self.__sequence, 
-                        self.__serverSealingHandle, 
-                        isDCE = False)
+                        self.__serverSealingHandle)
             else:
                 answer, signature = ntlm.SEAL(self.__flags, 
                         self.__serverSigningKey, 
@@ -357,8 +354,7 @@ if __name__ == '__main__':
                         answer, 
                         answer, 
                         self.__sequence, 
-                        self.__serverSealingHandle, 
-                        isDCE = False)
+                        self.__serverSealingHandle)
                 self.__sequence += 1
 
             return signature, answer
