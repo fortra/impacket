@@ -715,7 +715,7 @@ class SAMHashes(OfflineRegistry):
             if ntHash == '':
                 ntHash = ntlm.NTOWFv1('','')
 
-            answer =  "%s:%d:%s:%s" % (userName, rid, lmHash.encode('hex'), ntHash.encode('hex'))
+            answer =  "%s:%d:%s:%s:::" % (userName, rid, lmHash.encode('hex'), ntHash.encode('hex'))
             self.__itemsFound[rid] = answer
             print answer
 
@@ -888,7 +888,7 @@ class LSASecrets(OfflineRegistry):
                 domain = plainText[:record['DomainNameLength']].decode('utf-16le')
                 plainText = plainText[self.__pad(record['DomainNameLength']):]
                 domainLong = plainText[:self.__pad(record['FullDomainLength'])].decode('utf-16le')
-                answer = "%s:%s:%s:%s" % (userName, encHash.encode('hex'), domainLong, domain)
+                answer = "%s:%s:%s:%s:::" % (userName, encHash.encode('hex'), domainLong, domain)
                 self.__cachedItems.append(answer)
                 print answer
 
@@ -963,7 +963,7 @@ class LSASecrets(OfflineRegistry):
             md4.update(secretItem)
             if self.__isRemote is True:
                 machine, domain = self.__remoteOps.getMachineNameAndDomain()
-                secret = "%s\\%s$:%s:%s" % (domain, machine, ntlm.LMOWFv1('','').encode('hex'), md4.digest().encode('hex'))
+                secret = "%s\\%s$:%s:%s:::" % (domain, machine, ntlm.LMOWFv1('','').encode('hex'), md4.digest().encode('hex'))
             else: 
                 secret = "$MACHINE.ACC: %s:%s" % (ntlm.LMOWFv1('','').encode('hex'), md4.digest().encode('hex'))
             
@@ -1156,7 +1156,7 @@ class NTDSHashes():
         else: 
             userName = '%s' % record[self.NAME_TO_INTERNAL['sAMAccountName']]
  
-        answer =  "%s:%s:%s:%s" % (userName, rid, LMHash.encode('hex'), NTHash.encode('hex'))
+        answer =  "%s:%s:%s:%s:::" % (userName, rid, LMHash.encode('hex'), NTHash.encode('hex'))
         self.__itemsFound[record[self.NAME_TO_INTERNAL['objectSid']].decode('hex')] = answer
         print answer
 
