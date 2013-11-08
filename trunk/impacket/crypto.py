@@ -337,6 +337,19 @@ def ComputeSessionKeyStrongKey(sharedSecret, clientChallenge, serverChallenge, s
     hm.update(finalMD5)
     return hm.digest()
     
+def ComputeNetlogonSignatureMD5(authSignature, message, confounder, sessionKey):
+    # [MS-NRPC] Section 3.3.4.2.1
+    md5 = hashlib.new('md5')
+    md5.update('\x00'*4)
+    md5.update(str(authSignature))
+    # If no confidentiality requested, it should be ''
+    md5.update(confounder)
+    md5.update(str(message))
+    finalMD5 = md5.digest()
+    hm = hmac.new(sessionKey)
+    hm.update(finalMD5)
+    return hm.digest[:8]
+
 def SamDecryptNTLMHash(encryptedHash, key):
     # [MS-SAMR] Section 2.2.11.1.1
     Block1 = encryptedHash[:8]

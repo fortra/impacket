@@ -22,6 +22,68 @@ from impacket import nt_errors
 
 MSRPC_UUID_NETLOGON = uuidtup_to_bin(('12345678-1234-ABCD-EF00-01234567CFFB', '1.0'))
 
+# SSP Stuff
+# Constants
+NL_AUTH_MESSAGE_NETBIOS_DOMAIN        = 0x1
+NL_AUTH_MESSAGE_NETBIOS_HOST          = 0x2
+NL_AUTH_MESSAGE_DNS_DOMAIN            = 0x4
+NL_AUTH_MESSAGE_DNS_HOST              = 0x8
+NL_AUTH_MESSAGE_NETBIOS_HOST_UTF8     = 0x10
+
+NL_AUTH_MESSAGE_REQUEST               = 0x0
+NL_AUTH_MESSAGE_RESPONSE              = 0x1
+
+NL_SIGNATURE_HMAC_MD5    = 0x77
+NL_SIGNATURE_HMAC_SHA256 = 0x13
+NL_SEAL_NOT_ENCRYPTED    = 0xffff
+NL_SEAL_RC4              = 0x7A
+NL_SEAL_AES128           = 0x1A
+
+# Structures
+class NL_AUTH_MESSAGE(Structure):
+    structure = (
+        ('MessageType','<L=0'),
+        ('Flags','<L=0'),
+        ('Buffer',':'),
+    )
+    def __init__(self, data = None, alignment = 0):
+        Structure.__init__(self, data, alignment)
+        if data is None:
+            self['Buffer'] = ''
+
+class NL_AUTH_SIGNATURE(Structure):
+    structure = (
+        ('SignatureAlgorithm','<H=NL_SIGNATURE_HMAC_MD5'),
+        ('SealAlgorithm','<H=0'),
+        ('Pad','<H=0xffff'),
+        ('Flags','<H=0'),
+        ('SequenceNumber','<Q=0'),
+        ('Checksum','<Q=0'),
+        ('_Confounder','_-Confounder','8'),
+        ('Confounder',':'),
+    )
+    def __init__(self, data = None, alignment = 0):
+        Structure.__init__(self, data, alignment)
+        if data is None:
+            self['Confounder'] = ''
+
+class NL_AUTH_SHA2_SIGNATURE(Structure):
+    structure = (
+        ('SignatureAlgorithm','<H=NL_SIGNATURE_HMAC_SHA256'),
+        ('SealAlgorithm','<H=0'),
+        ('Pad','<H=0xffff'),
+        ('Flags','<H=0'),
+        ('SequenceNumber','<Q=0'),
+        ('Checksum','32s=""'),
+        ('_Confounder','_-Confounder','8'),
+        ('Confounder',':'),
+    )
+    def __init__(self, data = None, alignment = 0):
+        Structure.__init__(self, data, alignment)
+        if data is None:
+            self['Confounder'] = ''
+
+# NETLOGON RPC Stuff
 # Constants
 
 # NETLOGON_SECURE_CHANNEL_TYPE 
@@ -35,7 +97,6 @@ ServerSecureChannel = 6
 CdcServerSecureChannel = 7
 
 # Structures
-
 class NETLOGON_CREDENTIAL(Structure):
     structure = (
         ('data','8s=""'),
