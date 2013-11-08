@@ -17,6 +17,7 @@
 
 import array
 from impacket.dcerpc import dcerpc
+from impacket.dcerpc.dcerpc import SEC_TRAILER
 from impacket import ntlm
 from impacket import uuid
 from impacket.uuid import uuidtup_to_bin, generate, stringver_to_bin, bin_to_uuidtup
@@ -75,10 +76,10 @@ class DCERPCServer():
             if auth_len:
                 auth_len += 8
                 auth_data = answer[-auth_len:]
-                ntlmssp   = ntlm.DCERPC_NTLMAuthHeader(data = auth_data)
+                sec_trailer = SEC_TRAILER(data = auth_data)
                 answer = answer[:-auth_len]
-                if ntlmssp['auth_pad_len']:
-                    answer = answer[:-ntlmssp['auth_pad_len']]
+                if sec_trailer['auth_pad_len']:
+                    answer = answer[:-sec_trailer['auth_pad_len']]
               
             retAnswer += answer
         return self.response_data
