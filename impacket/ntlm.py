@@ -149,17 +149,6 @@ class AV_PAIRS():
         ans += struct.pack('<HH', NTLMSSP_AV_EOL, 0)
 
         return ans
-class DCERPC_NTLMAuthHeader(Structure):
-    commonHdr = (
-        ('auth_type', 'B=10'),
-        ('auth_level','B'),
-        ('auth_pad_len','B=0'),
-        ('auth_rsvrd','"\x00'),
-        ('auth_ctx_id','<L=747920'),
-        )
-    structure = (
-        ('data',':'),
-    )
 
 class NTLMAuthMixin:
     def get_os_version(self):
@@ -238,9 +227,6 @@ class NTLMAuthNegotiate(Structure, NTLMAuthMixin):
         else:
             self['os_version'] = ''
 
-class DCERPC_NTLMAuthNegotiate(NTLMAuthNegotiate,DCERPC_NTLMAuthHeader):
-    commonHdr = DCERPC_NTLMAuthHeader.commonHdr
-
 class NTLMAuthChallenge(Structure):
 
     structure = (
@@ -283,11 +269,6 @@ class NTLMAuthChallenge(Structure):
 
         return self
         
-      
-    
-class DCERPC_NTLMAuthChallenge(NTLMAuthChallenge,DCERPC_NTLMAuthHeader):
-    commonHdr = DCERPC_NTLMAuthHeader.commonHdr
-
 class NTLMAuthChallengeResponse(Structure, NTLMAuthMixin):
 
     structure = (
@@ -409,9 +390,6 @@ class NTLMAuthChallengeResponse(Structure, NTLMAuthMixin):
         #else:
         #    self['os_version'] = ''
 
-class DCERPC_NTLMAuthChallengeResponse(NTLMAuthChallengeResponse,DCERPC_NTLMAuthHeader):
-    commonHdr = DCERPC_NTLMAuthHeader.commonHdr
-                                                                   
 class ImpacketStructure(Structure):
     def set_parent(self, other):
         self.parent = other
@@ -443,20 +421,6 @@ class NTLMMessageSignature(ExtendedOrNotMessageSignature):
           ('Checksum','<i'),
           ('SeqNum','<i'),
       )
-
-class DCERPC_NTLMMessageSignature(NTLMMessageSignature, DCERPC_NTLMAuthHeader):
-      commonHdr = DCERPC_NTLMAuthHeader.commonHdr
-
-class NTLMAuthVerifier(Structure):
-    structure = (
-        ('version','<L=1'),
-        ('data','12s'),
-        # ('_zero','<L=0'),
-        # ('crc','<L=0'),
-        # ('sequence','<L=0'),
-    )
-class DCERPC_NTLMAuthVerifier(NTLMAuthVerifier,DCERPC_NTLMAuthHeader):
-    commonHdr = DCERPC_NTLMAuthHeader.commonHdr
 
 KNOWN_DES_INPUT = "KGS!@#$%"
 
@@ -491,12 +455,9 @@ def ntlmssp_DES_encrypt(key, challenge):
 
 # High level functions to use NTLMSSP
 
-def getNTLMSSPType1(workstation='', domain='', signingRequired = False, isDCE = False, use_ntlmv2 = USE_NTLMv2):
+def getNTLMSSPType1(workstation='', domain='', signingRequired = False, use_ntlmv2 = USE_NTLMv2):
     # Let's prepare a Type 1 NTLMSSP Message
-    if isDCE is True:
-       auth = DCERPC_NTLMAuthNegotiate()
-    else:
-       auth = NTLMAuthNegotiate()
+    auth = NTLMAuthNegotiate()
     auth['flags']=0
     if signingRequired:
        auth['flags'] = NTLMSSP_KEY_EXCHANGE | NTLMSSP_SIGN | NTLMSSP_ALWAYS_SIGN | NTLMSSP_SEAL
@@ -506,22 +467,16 @@ def getNTLMSSPType1(workstation='', domain='', signingRequired = False, isDCE = 
     auth['domain_name'] = domain
     return auth
 
-def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = '', isDCE = False, use_ntlmv2 = USE_NTLMv2):
+def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = '', use_ntlmv2 = USE_NTLMv2):
 
-    if isDCE is True:
-        ntlmChallenge = DCERPC_NTLMAuthChallenge(type2)
-    else:
-        ntlmChallenge = NTLMAuthChallenge(type2)
+    ntlmChallenge = NTLMAuthChallenge(type2)
 
     # Let's start with the original flags sent in the type1 message
     responseFlags = type1['flags']
 
     # Token received and parsed. Depending on the authentication 
     # method we will create a valid ChallengeResponse
-    if isDCE is True:
-        ntlmChallengeResponse = DCERPC_NTLMAuthChallengeResponse(user, password, ntlmChallenge['challenge'])
-    else:
-        ntlmChallengeResponse = NTLMAuthChallengeResponse(user, password, ntlmChallenge['challenge'])
+    ntlmChallengeResponse = NTLMAuthChallengeResponse(user, password, ntlmChallenge['challenge'])
 
     clientChallenge = "".join([random.choice(string.digits+string.letters) for i in xrange(8)])
 
@@ -663,13 +618,10 @@ def get_ntlmv1_response(key, challenge):
 
 # Crypto Stuff
 
-def MAC(flags, handle, signingKey, seqNum, message, isDCE = False):
+def MAC(flags, handle, signingKey, seqNum, message):
    # [MS-NLMP] Section 3.4.4
    # Returns the right messageSignature depending on the flags
-   if isDCE is True:
-       messageSignature = DCERPC_NTLMMessageSignature(flags)
-   else:
-       messageSignature = NTLMMessageSignature(flags)
+   messageSignature = NTLMMessageSignature(flags)
    if flags & NTLMSSP_NTLM2_KEY:
        if flags & NTLMSSP_KEY_EXCHANGE:
            messageSignature['Version'] = 1
@@ -693,13 +645,13 @@ def MAC(flags, handle, signingKey, seqNum, message, isDCE = False):
        
    return messageSignature
 
-def SEAL(flags, signingKey, sealingKey, messageToSign, messageToEncrypt, seqNum, handle, isDCE = False):
+def SEAL(flags, signingKey, sealingKey, messageToSign, messageToEncrypt, seqNum, handle):
    sealedMessage = handle(messageToEncrypt)
-   signature = MAC(flags, handle, signingKey, seqNum, messageToSign, isDCE)
+   signature = MAC(flags, handle, signingKey, seqNum, messageToSign)
    return sealedMessage, signature
 
-def SIGN(flags, signingKey, message, seqNum, handle, isDCE = False):
-   return MAC(flags, handle, signingKey, seqNum, message, isDCE)
+def SIGN(flags, signingKey, message, seqNum, handle):
+   return MAC(flags, handle, signingKey, seqNum, message)
 
 def SIGNKEY(flags, randomSessionKey, mode = 'Client'):
    if flags & NTLMSSP_NTLM2_KEY:
