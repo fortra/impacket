@@ -348,7 +348,7 @@ def ComputeNetlogonSignatureMD5(authSignature, message, confounder, sessionKey):
     finalMD5 = md5.digest()
     hm = hmac.new(sessionKey)
     hm.update(finalMD5)
-    return hm.digest()
+    return hm.digest()[:8]
 
 def encryptSequenceNumberRC4(sequenceNum, checkSum, sessionKey):
     # [MS-NRPC] Section 3.3.4.2.1, point 9
