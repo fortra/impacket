@@ -20,7 +20,7 @@
 #   [MS-SAMR] Section 2.2.11.1.1
 
 try:
-    from Crypto.Cipher import DES, AES
+    from Crypto.Cipher import DES, AES, ARC4
 except Exception:
     print "Warning: You don't have any crypto installed. You need PyCrypto"
     print "See http://www.pycrypto.org/"
@@ -338,17 +338,34 @@ def ComputeSessionKeyStrongKey(sharedSecret, clientChallenge, serverChallenge, s
     return hm.digest()
     
 def ComputeNetlogonSignatureMD5(authSignature, message, confounder, sessionKey):
-    # [MS-NRPC] Section 3.3.4.2.1
+    # [MS-NRPC] Section 3.3.4.2.1, point 7
     md5 = hashlib.new('md5')
     md5.update('\x00'*4)
-    md5.update(str(authSignature))
+    md5.update(str(authSignature)[:8])
     # If no confidentiality requested, it should be ''
     md5.update(confounder)
     md5.update(str(message))
     finalMD5 = md5.digest()
     hm = hmac.new(sessionKey)
     hm.update(finalMD5)
-    return hm.digest[:8]
+    return hm.digest()
+
+def encryptSequenceNumberRC4(sequenceNum, checkSum, sessionKey):
+    # [MS-NRPC] Section 3.3.4.2.1, point 9
+
+    hm = hmac.new(sessionKey)
+    hm.update('\x00'*4)
+    hm2 = hmac.new(hm.digest())
+    hm2.update(checkSum)
+    encryptionKey = hm2.digest()
+
+    cipher = ARC4.new(encryptionKey)
+    return cipher.encrypt(sequenceNum)
+
+def decryptSequenceNumberRC4(sequenceNum, checkSum, sessionKey):
+    # [MS-NRPC] Section 3.3.4.2.2, point 5
+
+    return encryptSequenceNumberRC4(sequenceNum, checkSum, sessionKey)
 
 def SamDecryptNTLMHash(encryptedHash, key):
     # [MS-SAMR] Section 2.2.11.1.1
