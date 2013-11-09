@@ -16,7 +16,6 @@
 #   (http://tools.ietf.org/html/draft-irtf-cfrg-kdf-uses-00#ref-SP800-108)
 #
 #   [MS-LSAD] Section 5.1.2
-#   [MS-NRPC] Section 3.1.4.3.2
 #   [MS-SAMR] Section 2.2.11.1.1
 
 try:
@@ -308,64 +307,6 @@ def encryptSecret(key, value):
             key0 = key[len(key0):]
 
     return cipherText
-
-def ComputeNetlogonCredential(inputData, Sk):
-    # [MS-NRPC] Section 3.1.4.4.2
-    k1 = Sk[:7]
-    k3 = transformKey(k1)
-    k2 = Sk[7:14]
-    k4 = transformKey(k2)
-    Crypt1 = DES.new(k3, DES.MODE_ECB)
-    Crypt2 = DES.new(k4, DES.MODE_ECB)
-    cipherText = Crypt1.encrypt(inputData)
-    return Crypt2.encrypt(cipherText)
-
-def ComputeSessionKeyStrongKey(sharedSecret, clientChallenge, serverChallenge, sharedSecretHash = None):
-    # [MS-NRPC] Section 3.1.4.3.2, added the ability to receive hashes already
-
-    if sharedSecretHash is None:
-        M4SS = ntlm.NTOWFv1(sharedSecret)
-    else:
-        M4SS = sharedSecretHash
-
-    md5 = hashlib.new('md5')
-    md5.update('\x00'*4)
-    md5.update(clientChallenge)
-    md5.update(serverChallenge)
-    finalMD5 = md5.digest()
-    hm = hmac.new(M4SS) 
-    hm.update(finalMD5)
-    return hm.digest()
-    
-def ComputeNetlogonSignatureMD5(authSignature, message, confounder, sessionKey):
-    # [MS-NRPC] Section 3.3.4.2.1, point 7
-    md5 = hashlib.new('md5')
-    md5.update('\x00'*4)
-    md5.update(str(authSignature)[:8])
-    # If no confidentiality requested, it should be ''
-    md5.update(confounder)
-    md5.update(str(message))
-    finalMD5 = md5.digest()
-    hm = hmac.new(sessionKey)
-    hm.update(finalMD5)
-    return hm.digest()[:8]
-
-def encryptSequenceNumberRC4(sequenceNum, checkSum, sessionKey):
-    # [MS-NRPC] Section 3.3.4.2.1, point 9
-
-    hm = hmac.new(sessionKey)
-    hm.update('\x00'*4)
-    hm2 = hmac.new(hm.digest())
-    hm2.update(checkSum)
-    encryptionKey = hm2.digest()
-
-    cipher = ARC4.new(encryptionKey)
-    return cipher.encrypt(sequenceNum)
-
-def decryptSequenceNumberRC4(sequenceNum, checkSum, sessionKey):
-    # [MS-NRPC] Section 3.3.4.2.2, point 5
-
-    return encryptSequenceNumberRC4(sequenceNum, checkSum, sessionKey)
 
 def SamDecryptNTLMHash(encryptedHash, key):
     # [MS-SAMR] Section 2.2.11.1.1

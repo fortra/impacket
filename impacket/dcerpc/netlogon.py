@@ -19,6 +19,13 @@ from impacket.structure import Structure
 from impacket.dcerpc import ndrutils, dcerpc
 from impacket.uuid import uuidtup_to_bin
 from impacket import nt_errors, crypto
+import hmac, hashlib
+try:
+ from Crypto.Cipher import DES, AES, ARC4
+except Exception:
+    print "Warning: You don't have any crypto installed. You need PyCrypto"
+    print "See http://www.pycrypto.org/"
+
 
 MSRPC_UUID_NETLOGON = uuidtup_to_bin(('12345678-1234-ABCD-EF00-01234567CFFB', '1.0'))
 
@@ -83,6 +90,34 @@ class NL_AUTH_SHA2_SIGNATURE(Structure):
         if data is None:
             self['Confounder'] = ''
 
+def ComputeNetlogonCredential(inputData, Sk):
+    # [MS-NRPC] Section 3.1.4.4.2
+    k1 = Sk[:7]
+    k3 = crypto.transformKey(k1)
+    k2 = Sk[7:14]
+    k4 = crypto.transformKey(k2)
+    Crypt1 = DES.new(k3, DES.MODE_ECB)
+    Crypt2 = DES.new(k4, DES.MODE_ECB)
+    cipherText = Crypt1.encrypt(inputData)
+    return Crypt2.encrypt(cipherText)
+
+def ComputeSessionKeyStrongKey(sharedSecret, clientChallenge, serverChallenge, sharedSecretHash = None):
+    # [MS-NRPC] Section 3.1.4.3.2, added the ability to receive hashes already
+
+    if sharedSecretHash is None:
+        M4SS = ntlm.NTOWFv1(sharedSecret)
+    else:
+        M4SS = sharedSecretHash
+
+    md5 = hashlib.new('md5')
+    md5.update('\x00'*4)
+    md5.update(clientChallenge)
+    md5.update(serverChallenge)
+    finalMD5 = md5.digest()
+    hm = hmac.new(M4SS) 
+    hm.update(finalMD5)
+    return hm.digest()
+    
 def deriveSequenceNumber(sequenceNum):
     res = ''
 
@@ -93,19 +128,65 @@ def deriveSequenceNumber(sequenceNum):
     res = pack('<L', sequenceLow)
     res += pack('<L', sequenceHigh)
      
-    from impacket.winregistry import hexdump
-    print "SEQUENCE"
-    hexdump(res)
     return res
+
+def ComputeNetlogonSignatureMD5(authSignature, message, confounder, sessionKey):
+    # [MS-NRPC] Section 3.3.4.2.1, point 7
+    md5 = hashlib.new('md5')
+    md5.update('\x00'*4)
+    md5.update(str(authSignature)[:8])
+    # If no confidentiality requested, it should be ''
+    md5.update(confounder)
+    md5.update(str(message))
+    finalMD5 = md5.digest()
+    hm = hmac.new(sessionKey)
+    hm.update(finalMD5)
+    return hm.digest()[:8]
+
+def encryptSequenceNumberRC4(sequenceNum, checkSum, sessionKey):
+    # [MS-NRPC] Section 3.3.4.2.1, point 9
+
+    hm = hmac.new(sessionKey)
+    hm.update('\x00'*4)
+    hm2 = hmac.new(hm.digest())
+    hm2.update(checkSum)
+    encryptionKey = hm2.digest()
+
+    cipher = ARC4.new(encryptionKey)
+    return cipher.encrypt(sequenceNum)
+
+def decryptSequenceNumberRC4(sequenceNum, checkSum, sessionKey):
+    # [MS-NRPC] Section 3.3.4.2.2, point 5
+
+    return encryptSequenceNumberRC4(sequenceNum, checkSum, sessionKey)
 
 def SIGN(data, sequenceNum, conFounder, key):
     signature = NL_AUTH_SIGNATURE()
     signature['SignatureAlgorithm'] = NL_SIGNATURE_HMAC_MD5
     signature['SealAlgorithm'] = NL_SEAL_NOT_ENCRYPTED
-    signature['Checksum'] = crypto.ComputeNetlogonSignatureMD5(signature, data, conFounder, key)
-    signature['SequenceNumber'] = crypto.encryptSequenceNumberRC4(deriveSequenceNumber(sequenceNum), signature['Checksum'], key)
+    signature['Checksum'] = ComputeNetlogonSignatureMD5(signature, data, conFounder, key)
+    signature['SequenceNumber'] = encryptSequenceNumberRC4(deriveSequenceNumber(sequenceNum), signature['Checksum'], key)
     return signature
 
+def SEAL(data, confounder, sequenceNum, key):
+    XorKey = []
+    for i in key:
+       XorKey.append(chr(ord(i) ^ 0xf0))
+
+    XorKey = ''.join(XorKey)
+    hm = hmac.new(XorKey)
+    hm.update('\x00'*4)
+    hm2 = hmac.new(hm.digest())
+    hm2.update(sequenceNum)
+    encryptionKey = hm2.digest()
+
+    cipher = ARC4.new(encryptionKey)
+    cfounder = cipher.encrypt(confounder)
+    cipher = ARC4.new(encryptionKey)
+    plain = cipher.encrypt(data)
+
+    return plain, cfounder
+    
 def getSSPType1(workstation='', domain='', signingRequired=False):
     auth = NL_AUTH_MESSAGE()
     auth['Flags'] = 0
