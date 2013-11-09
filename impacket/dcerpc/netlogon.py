@@ -18,7 +18,7 @@ from struct import *
 from impacket.structure import Structure
 from impacket.dcerpc import ndrutils, dcerpc
 from impacket.uuid import uuidtup_to_bin
-from impacket import nt_errors
+from impacket import nt_errors, crypto
 
 MSRPC_UUID_NETLOGON = uuidtup_to_bin(('12345678-1234-ABCD-EF00-01234567CFFB', '1.0'))
 
@@ -49,16 +49,16 @@ class NL_AUTH_MESSAGE(Structure):
     def __init__(self, data = None, alignment = 0):
         Structure.__init__(self, data, alignment)
         if data is None:
-            self['Buffer'] = ''
+            self['Buffer'] = '\x00'*4
 
 class NL_AUTH_SIGNATURE(Structure):
     structure = (
-        ('SignatureAlgorithm','<H=NL_SIGNATURE_HMAC_MD5'),
+        ('SignatureAlgorithm','<H=0'),
         ('SealAlgorithm','<H=0'),
         ('Pad','<H=0xffff'),
         ('Flags','<H=0'),
-        ('SequenceNumber','<Q=0'),
-        ('Checksum','<Q=0'),
+        ('SequenceNumber','8s=""'),
+        ('Checksum','8s=""'),
         ('_Confounder','_-Confounder','8'),
         ('Confounder',':'),
     )
@@ -82,6 +82,59 @@ class NL_AUTH_SHA2_SIGNATURE(Structure):
         Structure.__init__(self, data, alignment)
         if data is None:
             self['Confounder'] = ''
+
+def deriveSequenceNumber(sequenceNum):
+    res = ''
+
+    sequenceLow = sequenceNum & 0xffffffff
+    sequenceHigh = (sequenceNum >> 32) & 0xffffffff
+    sequenceHigh |= 0x80
+
+    res = pack('<L', sequenceLow)
+    res += pack('<L', sequenceHigh)
+     
+    from impacket.winregistry import hexdump
+    print "SEQUENCE"
+    hexdump(res)
+    return res
+
+def SIGN(data, sequenceNum, conFounder, key):
+    signature = NL_AUTH_SIGNATURE()
+    signature['SignatureAlgorithm'] = NL_SIGNATURE_HMAC_MD5
+    signature['SealAlgorithm'] = NL_SEAL_NOT_ENCRYPTED
+    signature['Checksum'] = crypto.ComputeNetlogonSignatureMD5(signature, data, conFounder, key)
+    signature['SequenceNumber'] = crypto.encryptSequenceNumberRC4(deriveSequenceNumber(sequenceNum), signature['Checksum'], key)
+    return signature
+
+def getSSPType1(workstation='', domain='', signingRequired=False):
+    auth = NL_AUTH_MESSAGE()
+    auth['Flags'] = 0
+    auth['Buffer'] = ''
+    auth['Flags'] |= NL_AUTH_MESSAGE_NETBIOS_DOMAIN 
+    if domain != '':
+        auth['Buffer'] = auth['Buffer'] + domain + '\x00'
+    else:
+        auth['Buffer'] = auth['Buffer'] + 'WORKGROUP\x00'
+
+    auth['Flags'] |= NL_AUTH_MESSAGE_NETBIOS_HOST 
+    if workstation != '':
+        auth['Buffer'] = auth['Buffer'] + workstation + '\x00'
+    else:
+        auth['Buffer'] = auth['Buffer'] + 'MYHOST\x00'
+
+#    auth['Flags'] |= NL_AUTH_MESSAGE_DNS_DOMAIN 
+#    if domain != '':
+#        auth['Buffer'] += pack('<B', len(domain)) + domain + '\x03NET\x00'
+#    else:
+#        auth['Buffer'] += '\x09WORKGROUP\x00'
+
+    auth['Flags'] |= NL_AUTH_MESSAGE_NETBIOS_HOST_UTF8 
+    if workstation != '':
+        auth['Buffer'] += pack('<B',len(workstation)) + workstation + '\x00'
+    else:
+        auth['Buffer'] += '\x06MYHOST\x00'
+
+    return auth
 
 # NETLOGON RPC Stuff
 # Constants
