@@ -143,10 +143,10 @@ class SMB1Tests(SMBTests):
         SMBTests.setUp(self)
         # Put specific configuration for target machine with SMB1
         self.username = 'Administrator'
-        self.domain   = 'DOMAIN'
+        self.domain   = 'FREEFLY'
         self.serverName = 'ULTIMATE64'
-        self.password = 'Admin'
-        self.machine  = '192.168.88.109'
+        self.password = 'Admin123456'
+        self.machine  = '192.168.88.105'
         self.hashes   = 'aad3b435b51404eeaad3b435b51404ee:ae4c0d5fb959fda8f4cb1d14a8376af4'
         self.share    = 'C$'
         self.file     = '/TEST'
@@ -159,11 +159,11 @@ class SMB002Tests(SMBTests):
         # Put specific configuration for target machine with SMB_002
         SMBTests.setUp(self)
         self.username = 'Administrator'
-        self.domain   = 'DOMAIN'
+        self.domain   = 'FREEFLY'
         self.serverName = 'ULTIMATE64'
-        self.password = 'Admin'
+        self.password = 'Admin123456'
         self.hashes   = 'aad3b435b51404eeaad3b435b51404ee:ae4c0d5fb959fda8f4cb1d14a8376af4'
-        self.machine  = '192.168.88.109'
+        self.machine  = '192.168.88.105'
         self.share    = 'C$'
         self.file     = '/TEST'
         self.directory= '/BETO'
@@ -175,11 +175,11 @@ class SMB21Tests(SMBTests):
         # Put specific configuration for target machine with SMB 2.1
         SMBTests.setUp(self)
         self.username = 'Administrator'
-        self.domain   = 'DOMAIN'
+        self.domain   = 'FREEFLY'
         self.serverName = 'ULTIMATE64'
-        self.password = 'Admin'
+        self.password = 'Admin123456'
         self.hashes   = 'aad3b435b51404eeaad3b435b51404ee:ae4c0d5fb959fda8f4cb1d14a8376af4'
-        self.machine  = '192.168.88.109'
+        self.machine  = '192.168.88.105'
         self.share    = 'C$'
         self.file     = '/TEST'
         self.directory= '/BETO'
