@@ -205,7 +205,7 @@ class MSRPCHeader(Structure):
     )
 
     structure = ( 
-        ('dataLen','_-pduData','self["frag_len"]-self["auth_len"]-self._SIZE'),  
+        ('dataLen','_-pduData','self["frag_len"]-self["auth_len"]-self._SIZE-(8 if self["auth_len"] > 0 else 0)'),  
         ('pduData',':'),                                
         ('_pad', '_-pad','(4 - ((self._SIZE + len(self["pduData"])) & 3) & 3)'),
         ('pad', ':'),
@@ -434,6 +434,9 @@ class DCERPC_v5(DCERPC):
         self.__callid = 1
         self._ctx = 0
 
+    def set_session_key(self, session_key):
+        self.__sessionKey = session_key
+
     def set_auth_level(self, auth_level):
         # auth level is ntlm.NTLM_AUTH_*
         self.__auth_level = auth_level
@@ -491,6 +494,8 @@ class DCERPC_v5(DCERPC):
 
         packet = MSRPCHeader()
         packet['type'] = MSRPC_BIND
+        packet['pduData'] = str(bind)
+        packet['call_id'] = self.__callid
 
         if alter:
             packet['type'] = MSRPC_ALTERCTX
@@ -498,8 +503,14 @@ class DCERPC_v5(DCERPC):
         if (self.__auth_level != RPC_C_AUTHN_LEVEL_NONE):
             if (self.__username is None) or (self.__password is None):
                 self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash = self._transport.get_credentials()
-            auth = ntlm.getNTLMSSPType1('', self.__domain, signingRequired = True, use_ntlmv2 = self._transport.doesSupportNTLMv2())
+            if self.__auth_type == RPC_C_AUTHN_WINNT:
+                auth = ntlm.getNTLMSSPType1('', self.__domain, signingRequired = True, use_ntlmv2 = self._transport.doesSupportNTLMv2())
+            elif self.__auth_type == RPC_C_AUTHN_NETLOGON:
+                from impacket.dcerpc import netlogon
+                auth = netlogon.getSSPType1(self.__username[:-1], self.__domain, signingRequired = True)
+
             sec_trailer = SEC_TRAILER()
+            sec_trailer['auth_type']   = self.__auth_type
             sec_trailer['auth_level']  = self.__auth_level
             sec_trailer['auth_ctx_id'] = self._ctx + 79231 
 
@@ -507,11 +518,10 @@ class DCERPC_v5(DCERPC):
             if pad != 0:
                packet['pduData'] = packet['pduData'] + '\xFF'*pad
                sec_trailer['auth_pad_len']=pad
+
             packet['sec_trailer'] = sec_trailer
             packet['auth_data'] = str(auth)
 
-        packet['pduData'] = str(bind)
-        packet['call_id'] = self.__callid
         self._transport.send(packet.get_packet())
 
         s = self._transport.recv()
@@ -528,6 +538,8 @@ class DCERPC_v5(DCERPC):
             status_code = resp['RejectedReason']
             if rpc_status_codes.has_key(status_code):
                 raise Exception(rpc_status_codes[status_code], resp)
+            elif rpc_provider_reason.has_key(status_code):
+                raise Exception("Bind context rejected: %s" % rpc_provider_reason[status_code])
             else:
                 raise Exception('Unknown DCE RPC fault status code: %.8x' % status_code, resp)
         else:
@@ -549,49 +561,59 @@ class DCERPC_v5(DCERPC):
         self.__max_xmit_size = bindResp['max_tfrag']
 
         if self.__auth_level != RPC_C_AUTHN_LEVEL_NONE:
-            response, randomSessionKey = ntlm.getNTLMSSPType3(auth, bindResp['auth_data'], self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, use_ntlmv2 = self._transport.doesSupportNTLMv2())
-            sec_trailer = SEC_TRAILER()
-            sec_trailer['auth_ctx_id'] = self._ctx + 79231 
-            sec_trailer['auth_level'] = self.__auth_level
-            self.__flags = response['flags']
-
-            if self.__auth_level in (RPC_C_AUTHN_LEVEL_CONNECT, RPC_C_AUTHN_LEVEL_PKT_INTEGRITY, RPC_C_AUTHN_LEVEL_PKT_PRIVACY):
-                if self.__flags & ntlm.NTLMSSP_NTLM2_KEY:
-                    self.__clientSigningKey = ntlm.SIGNKEY(self.__flags, randomSessionKey)
-                    self.__serverSigningKey = ntlm.SIGNKEY(self.__flags, randomSessionKey,"Server")
-                    self.__clientSealingKey = ntlm.SEALKEY(self.__flags, randomSessionKey)
-                    self.__serverSealingKey = ntlm.SEALKEY(self.__flags, randomSessionKey,"Server")
-                    # Preparing the keys handle states
-                    cipher3 = ARC4.new(self.__clientSealingKey)
-                    self.__clientSealingHandle = cipher3.encrypt
-                    cipher4 = ARC4.new(self.__serverSealingKey)
-                    self.__serverSealingHandle = cipher4.encrypt
-                else:
-                    # Same key for everything
-                    self.__clientSigningKey = randomSessionKey
-                    self.__serverSigningKey = randomSessionKey
-                    self.__clientSealingKey = randomSessionKey
-                    self.__serverSealingKey = randomSessionKey
-                    cipher = ARC4.new(self.__clientSigningKey)
-                    self.__clientSealingHandle = cipher.encrypt
-                    self.__serverSealingHandle = cipher.encrypt
+            if self.__auth_type == RPC_C_AUTHN_WINNT:
+                response, randomSessionKey = ntlm.getNTLMSSPType3(auth, bindResp['auth_data'], self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, use_ntlmv2 = self._transport.doesSupportNTLMv2())
+                self.__flags = response['flags']
+            elif self.__auth_type == RPC_C_AUTHN_NETLOGON:
+                response = None
 
             self.__sequence = 0
 
-            auth3 = MSRPCHeader()
-            auth3['type'] = MSRPC_AUTH3
-            # pad (4 bytes): Can be set to any arbitrary value when set and MUST be 
-            # ignored on receipt. The pad field MUST be immediately followed by a 
-            # sec_trailer structure whose layout, location, and alignment are as 
-            # specified in section 2.2.2.11
-            auth3['pduData'] = '    '
-            auth3['sec_trailer'] = sec_trailer
-            auth3['auth_data'] = str(response)
+            if self.__auth_level in (RPC_C_AUTHN_LEVEL_CONNECT, RPC_C_AUTHN_LEVEL_PKT_INTEGRITY, RPC_C_AUTHN_LEVEL_PKT_PRIVACY):
+                if self.__auth_type == RPC_C_AUTHN_WINNT:
+                    if self.__flags & ntlm.NTLMSSP_NTLM2_KEY:
+                        self.__clientSigningKey = ntlm.SIGNKEY(self.__flags, randomSessionKey)
+                        self.__serverSigningKey = ntlm.SIGNKEY(self.__flags, randomSessionKey,"Server")
+                        self.__clientSealingKey = ntlm.SEALKEY(self.__flags, randomSessionKey)
+                        self.__serverSealingKey = ntlm.SEALKEY(self.__flags, randomSessionKey,"Server")
+                        # Preparing the keys handle states
+                        cipher3 = ARC4.new(self.__clientSealingKey)
+                        self.__clientSealingHandle = cipher3.encrypt
+                        cipher4 = ARC4.new(self.__serverSealingKey)
+                        self.__serverSealingHandle = cipher4.encrypt
+                    else:
+                        # Same key for everything
+                        self.__clientSigningKey = randomSessionKey
+                        self.__serverSigningKey = randomSessionKey
+                        self.__clientSealingKey = randomSessionKey
+                        self.__serverSealingKey = randomSessionKey
+                        cipher = ARC4.new(self.__clientSigningKey)
+                        self.__clientSealingHandle = cipher.encrypt
+                        self.__serverSealingHandle = cipher.encrypt
+                elif self.__auth_type == RPC_C_AUTHN_NETLOGON:
+                    pass
 
-            # Use the same call_id
-            self.__callid = resp['call_id']
-            auth3['call_id'] = self.__callid
-            self._transport.send(auth3.get_packet(), forceWriteAndx = 1)
+            sec_trailer = SEC_TRAILER()
+            sec_trailer['auth_type'] = self.__auth_type
+            sec_trailer['auth_level'] = self.__auth_level
+            sec_trailer['auth_ctx_id'] = self._ctx + 79231 
+
+            if response is not None:
+                auth3 = MSRPCHeader()
+                auth3['type'] = MSRPC_AUTH3
+                # pad (4 bytes): Can be set to any arbitrary value when set and MUST be 
+                # ignored on receipt. The pad field MUST be immediately followed by a 
+                # sec_trailer structure whose layout, location, and alignment are as 
+                # specified in section 2.2.2.11
+                auth3['pduData'] = '    '
+                auth3['sec_trailer'] = sec_trailer
+                auth3['auth_data'] = str(response)
+
+                # Use the same call_id
+                self.__callid = resp['call_id']
+                auth3['call_id'] = self.__callid
+                self._transport.send(auth3.get_packet(), forceWriteAndx = 1)
+
             self.__callid += 1
 
         return resp     # means packet is signed, if verifier is wrong it fails
@@ -601,8 +623,9 @@ class DCERPC_v5(DCERPC):
         if self.__auth_level in [RPC_C_AUTHN_LEVEL_PKT_INTEGRITY, RPC_C_AUTHN_LEVEL_PKT_PRIVACY]:
             # Dummy verifier, just for the calculations
             sec_trailer = SEC_TRAILER()
-            sec_trailer['auth_pad_len'] = 0
+            sec_trailer['auth_type'] = self.__auth_type
             sec_trailer['auth_level'] = self.__auth_level
+            sec_trailer['auth_pad_len'] = 0
             sec_trailer['auth_ctx_id'] = self._ctx + 79231 
 
             pad = (4 - (len(rpc_packet.get_packet()) % 4)) % 4
@@ -615,43 +638,46 @@ class DCERPC_v5(DCERPC):
 
             plain_data = rpc_packet['pduData']
             if self.__auth_level == RPC_C_AUTHN_LEVEL_PKT_PRIVACY:
-                if self.__flags & ntlm.NTLMSSP_NTLM2_KEY:
-                    # When NTLM2 is on, we sign the whole pdu, but encrypt just
-                    # the data, not the dcerpc header. Weird..
-                    sealedMessage, signature =  ntlm.SEAL(self.__flags, 
-                           self.__clientSigningKey, 
-                           self.__clientSealingKey,  
-                           rpc_packet.get_packet()[:-16], 
-                           plain_data, 
-                           self.__sequence, 
-                           self.__clientSealingHandle)
-                else:
-                    sealedMessage, signature =  ntlm.SEAL(self.__flags, 
-                           self.__clientSigningKey, 
-                           self.__clientSealingKey,  
-                           plain_data, 
-                           plain_data, 
-                           self.__sequence, 
-                           self.__clientSealingHandle)
-                rpc_packet['pduData'] = sealedMessage
+                if self.__auth_type == RPC_C_AUTHN_WINNT:
+                    if self.__flags & ntlm.NTLMSSP_NTLM2_KEY:
+                        # When NTLM2 is on, we sign the whole pdu, but encrypt just
+                        # the data, not the dcerpc header. Weird..
+                        sealedMessage, signature =  ntlm.SEAL(self.__flags, 
+                               self.__clientSigningKey, 
+                               self.__clientSealingKey,  
+                               rpc_packet.get_packet()[:-16], 
+                               plain_data, 
+                               self.__sequence, 
+                               self.__clientSealingHandle)
+                    else:
+                        sealedMessage, signature =  ntlm.SEAL(self.__flags, 
+                               self.__clientSigningKey, 
+                               self.__clientSealingKey,  
+                               plain_data, 
+                               plain_data, 
+                               self.__sequence, 
+                               self.__clientSealingHandle)
+                    rpc_packet['pduData'] = sealedMessage
             else: 
-                if self.__flags & ntlm.NTLMSSP_NTLM2_KEY:
-                    # Interesting thing.. with NTLM2, what is is signed is the 
-                    # whole PDU, not just the data
-                    signature =  ntlm.SIGN(self.__flags, 
-                           self.__clientSigningKey, 
-                           rpc_packet.get_packet()[:-16], 
-                           self.__sequence, 
-                           self.__clientSealingHandle)
-                else:
-                    signature =  ntlm.SIGN(self.__flags, 
-                           self.__clientSigningKey, 
-                           plain_data, 
-                           self.__sequence, 
-                           self.__clientSealingHandle)
+                if self.__auth_type == RPC_C_AUTHN_WINNT:
+                    if self.__flags & ntlm.NTLMSSP_NTLM2_KEY:
+                        # Interesting thing.. with NTLM2, what is is signed is the 
+                        # whole PDU, not just the data
+                        signature =  ntlm.SIGN(self.__flags, 
+                               self.__clientSigningKey, 
+                               rpc_packet.get_packet()[:-16], 
+                               self.__sequence, 
+                               self.__clientSealingHandle)
+                    else:
+                        signature =  ntlm.SIGN(self.__flags, 
+                               self.__clientSigningKey, 
+                               plain_data, 
+                               self.__sequence, 
+                               self.__clientSealingHandle)
+                elif self.__auth_type == RPC_C_AUTHN_NETLOGON:
+                    from impacket.dcerpc import netlogon
+                    signature = netlogon.SIGN(rpc_packet.get_packet()[:-16], self.__sequence, '', self.__sessionKey)
 
-            sec_trailer['auth_level'] = self.__auth_level
-            sec_trailer['auth_pad_len'] = pad
             rpc_packet['sec_trailer'] = str(sec_trailer)
             rpc_packet['auth_data'] = str(signature)
 
@@ -735,43 +761,44 @@ class DCERPC_v5(DCERPC):
                 answer = answer[:-auth_len]
 
                 if sec_trailer['auth_level'] == RPC_C_AUTHN_LEVEL_PKT_PRIVACY:
-
-                    if self.__flags & ntlm.NTLMSSP_NTLM2_KEY:
-                        # TODO: FIX THIS, it's not calculating the signature well
-                        # Since I'm not testing it we don't care... yet
-                        answer, signature =  ntlm.SEAL(self.__flags, 
-                                self.__serverSigningKey, 
-                                self.__serverSealingKey,  
-                                answer, 
-                                answer, 
-                                self.__sequence, 
-                                self.__serverSealingHandle)
-                    else:
-                        answer, signature = ntlm.SEAL(self.__flags, 
-                                self.__serverSigningKey, 
-                                self.__serverSealingKey, 
-                                answer, 
-                                answer, 
-                                self.__sequence, 
-                                self.__serverSealingHandle)
-                        self.__sequence += 1
+                    if self.__auth_type == RPC_C_AUTHN_WINNT:
+                        if self.__flags & ntlm.NTLMSSP_NTLM2_KEY:
+                            # TODO: FIX THIS, it's not calculating the signature well
+                            # Since I'm not testing it we don't care... yet
+                            answer, signature =  ntlm.SEAL(self.__flags, 
+                                    self.__serverSigningKey, 
+                                    self.__serverSealingKey,  
+                                    answer, 
+                                    answer, 
+                                    self.__sequence, 
+                                    self.__serverSealingHandle)
+                        else:
+                            answer, signature = ntlm.SEAL(self.__flags, 
+                                    self.__serverSigningKey, 
+                                    self.__serverSealingKey, 
+                                    answer, 
+                                    answer, 
+                                    self.__sequence, 
+                                    self.__serverSealingHandle)
+                            self.__sequence += 1
                 else:
-                    ntlmssp = auth_data[12:]
-                    if self.__flags & ntlm.NTLMSSP_NTLM2_KEY:
-                        signature =  ntlm.SIGN(self.__flags, 
-                                self.__serverSigningKey, 
-                                answer, 
-                                self.__sequence, 
-                                self.__serverSealingHandle)
-                    else:
-                        signature = ntlm.SIGN(self.__flags, 
-                                self.__serverSigningKey, 
-                                ntlmssp, 
-                                self.__sequence, 
-                                self.__serverSealingHandle)
-                        # Yes.. NTLM2 doesn't increment sequence when receiving
-                        # the packet :P
-                        self.__sequence += 1
+                    if self.__auth_type == RPC_C_AUTHN_WINNT:
+                        ntlmssp = auth_data[12:]
+                        if self.__flags & ntlm.NTLMSSP_NTLM2_KEY:
+                            signature =  ntlm.SIGN(self.__flags, 
+                                    self.__serverSigningKey, 
+                                    answer, 
+                                    self.__sequence, 
+                                    self.__serverSealingHandle)
+                        else:
+                            signature = ntlm.SIGN(self.__flags, 
+                                    self.__serverSigningKey, 
+                                    ntlmssp, 
+                                    self.__sequence, 
+                                    self.__serverSealingHandle)
+                            # Yes.. NTLM2 doesn't increment sequence when receiving
+                            # the packet :P
+                            self.__sequence += 1
                 
                 if sec_trailer['auth_pad_len']:
                     answer = answer[:-sec_trailer['auth_pad_len']]
@@ -783,6 +810,7 @@ class DCERPC_v5(DCERPC):
         answer = self.__class__(self._transport)
 
         answer.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash )
+        answer.set_auth_type(self.__auth_type)
         answer.set_auth_level(self.__auth_level)
 
         self._max_ctx += 1
