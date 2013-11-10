@@ -41,6 +41,7 @@ class DCERPCTests(unittest.TestCase):
         dce.set_credentials(*(rpctransport.get_credentials()))
         dce.connect()
         dce.bind(epm.MSRPC_UUID_PORTMAP)
+        rpcepm = epm.DCERPCEpm(dce)
         dce.disconnect()
 
     def test_dceAuthHasHashes(self):
@@ -54,6 +55,7 @@ class DCERPCTests(unittest.TestCase):
         dce.set_credentials(*(rpctransport.get_credentials()))
         dce.connect()
         dce.bind(epm.MSRPC_UUID_PORTMAP)
+        rpcepm = epm.DCERPCEpm(dce)
         dce.disconnect()
 
     def test_dceTransportFragmentation(self):
@@ -199,10 +201,10 @@ class TCPTransport(DCERPCTests):
         DCERPCTests.setUp(self)
         # Put specific configuration for target machine with SMB1
         self.username = 'Administrator'
-        self.domain   = ''
+        self.domain   = 'FREEFLY'
         self.serverName = 'ULTIMATE64'
         self.password = 'Admin123456'
-        self.machine  = '192.168.88.109'
+        self.machine  = '192.168.88.105'
         self.stringBinding = r'ncacn_ip_tcp:%s' % self.machine
         self.dport = 135
         self.hashes   = 'aad3b435b51404eeaad3b435b51404ee:ae4c0d5fb959fda8f4cb1d14a8376af4'
@@ -213,11 +215,11 @@ class SMBTransport(DCERPCTests):
         # Put specific configuration for target machine with SMB_002
         DCERPCTests.setUp(self)
         self.username = 'Administrator'
-        self.domain   = ''
+        self.domain   = 'FREEFLY'
         self.serverName = 'ULTIMATE64'
-        self.password = 'Admin'
+        self.password = 'Admin123456'
         self.hashes   = 'aad3b435b51404eeaad3b435b51404ee:ae4c0d5fb959fda8f4cb1d14a8376af4'
-        self.machine  = '192.168.88.109'
+        self.machine  = '192.168.88.105'
         self.stringBinding = r'ncacn_np:%s[\pipe\epmapper]' % self.machine
         self.dport = 445
 
