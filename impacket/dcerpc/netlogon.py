@@ -292,12 +292,6 @@ def getSSPType1(workstation='', domain='', signingRequired=False):
     else:
         auth['Buffer'] = auth['Buffer'] + 'MYHOST\x00'
 
-#    auth['Flags'] |= NL_AUTH_MESSAGE_DNS_DOMAIN 
-#    if domain != '':
-#        auth['Buffer'] += pack('<B', len(domain)) + domain + '\x03NET\x00'
-#    else:
-#        auth['Buffer'] += '\x09WORKGROUP\x00'
-
     auth['Flags'] |= NL_AUTH_MESSAGE_NETBIOS_HOST_UTF8 
     if workstation != '':
         auth['Buffer'] += pack('<B',len(workstation)) + workstation + '\x00'
@@ -330,6 +324,10 @@ class NETLOGON_AUTHENTICATOR(Structure):
         ('Credential',':', NETLOGON_CREDENTIAL),
         ('Timestamp','<L=0'),
     )
+    def __init__(self, data=None, alignment=0):
+        Structure.__init__(self, data, alignment)
+        if data is None:
+            self['Credential'] = NETLOGON_CREDENTIAL()
 
 class PNETLOGON_AUTHENTICATOR(ndrutils.NDRPointerNew):
     structure = NETLOGON_AUTHENTICATOR.structure
@@ -474,6 +472,38 @@ class NETLOGONServerPasswordGetResponse(Structure):
         ('EncryptedNtOwfPassword',':', ENCRYPTED_NT_OWF_PASSWORD),
     )
 
+class NETLOGONLogonGetDomainInfo(Structure):
+    opnum = 29
+    structure = (
+        ('ServerName',':', ndrutils.NDRStringW),
+        ('ComputerName',':', ndrutils.NDRUniqueStringW),
+        ('Authenticator',':', NETLOGON_AUTHENTICATOR),
+        ('ReturnAuthenticator',':', NETLOGON_AUTHENTICATOR),
+        ('Level','<L=1'),
+    )
+
+class NETLOGONLogonGetDomainInfoResponse(Structure):
+    structure = (
+        ('ReturnAuthenticator',':', NETLOGON_AUTHENTICATOR),
+    )
+
+class NETLOGONLogonGetCapabilities(Structure):
+    opnum = 21
+    structure = (
+        ('ServerName',':', ndrutils.NDRStringW),
+        ('ComputerName',':', ndrutils.NDRUniqueStringW),
+        ('Authenticator',':', NETLOGON_AUTHENTICATOR),
+        ('ReturnAuthenticator',':', NETLOGON_AUTHENTICATOR),
+        ('Level','<L=1'),
+    )
+
+class NETLOGONLogonGetCapabilitiesResponse(Structure):
+    structure = (
+        ('ReturnAuthenticator',':', NETLOGON_AUTHENTICATOR),
+        ('SwitchIs','<L=0'),
+        ('ServerCapabilities','<L=0'),
+    )
+ 
 class NETLOGONSessionError(Exception):
     
     error_messages = {
@@ -713,4 +743,56 @@ class DCERPCNetLogon:
         packet = self.doRequest(passwordGet, checkReturn = 1)
         ans = NETLOGONServerPasswordGetResponse(packet)
         return ans
+
+    def NetrLogonGetDomainInfo(self, serverName, computerName='X'.encode('utf-16le'), authenticator=None):
+        """
+        returns information that describes the current domain to which the specified client belongs
+
+        :param UNICODE serverName: the NetBIOS name of the remote machine. '' would do the work as well
+        :param UNICODE computerName: Unicode string that contains the NetBIOS name of the client computer calling this method. The default value would do the work.
+        :param NETLOGON_AUTHENTICATOR authenticator: the NETLOGON_AUTHENTICATOR for this call. For more information about how to compute such value, check [MS-NRPC] Section 3.1.4.5
+
+        :return: returns a structure. Call dump() method to see its contents. For understanding the meaning of each field, check [MS-NRPC] Section 
+        """
+        ### NOT FINISHED YET
+        getDomainInfo = NETLOGONLogonGetDomainInfo()
+        getDomainInfo['ServerName'] = ndrutils.NDRStringW()
+        getDomainInfo['ServerName']['Data'] = serverName+'\x00'.encode('utf-16le')
+        getDomainInfo['ServerName'].alignment = 4
+
+        getDomainInfo['ComputerName'] = ndrutils.NDRUniqueStringW()
+        getDomainInfo['ComputerName'].alignment = 4
+        getDomainInfo['ComputerName']['Data'] = computerName+'\x00'.encode('utf-16le')
+        getDomainInfo['Authenticator'] = authenticator
+        getDomainInfo['ReturnAuthenticator'] = NETLOGON_AUTHENTICATOR()
+
+        packet = self.doRequest(getDomainInfo, checkReturn = 1)
+        ans = NETLOGONLogonGetDomainInfoResponse(packet)
+        return ans
+
+    def NetrLogonGetCapabilities(self, serverName, computerName='X'.encode('utf-16le'), authenticator = None):
+        """
+        used by clients to confirm the server capabilities after a secure channel has been established ( only NETLOGON_INFO_1 level supported)
+
+        :param UNICODE serverName: the NetBIOS name of the remote machine. '' would do the work as well
+        :param UNICODE computerName: Unicode string that contains the NetBIOS name of the client computer calling this method. The default value would do the work.
+        :param NETLOGON_AUTHENTICATOR authenticator: the NETLOGON_AUTHENTICATOR for this call. For more information about how to compute such value, check [MS-NRPC] Section 3.1.4.5
+
+        :return: returns a NETLOGONLogonGetCapabilitiesResponse structure. Call dump() method to see its contents. 
+        """
+        getCapabilities = NETLOGONLogonGetCapabilities()
+        getCapabilities['ServerName'] = ndrutils.NDRStringW()
+        getCapabilities['ServerName']['Data'] = serverName+'\x00'.encode('utf-16le')
+        getCapabilities['ServerName'].alignment = 4
+
+        getCapabilities['ComputerName'] = ndrutils.NDRUniqueStringW()
+        getCapabilities['ComputerName'].alignment = 4
+        getCapabilities['ComputerName']['Data'] = computerName+'\x00'.encode('utf-16le')
+        getCapabilities['Authenticator'] = authenticator
+        getCapabilities['ReturnAuthenticator'] = NETLOGON_AUTHENTICATOR()
+
+        packet = self.doRequest(getCapabilities, checkReturn = 1)
+        ans = NETLOGONLogonGetCapabilitiesResponse(packet)
+        return ans
+
 
