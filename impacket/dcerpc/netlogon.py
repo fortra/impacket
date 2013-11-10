@@ -76,11 +76,11 @@ class NL_AUTH_SIGNATURE(Structure):
 
 class NL_AUTH_SHA2_SIGNATURE(Structure):
     structure = (
-        ('SignatureAlgorithm','<H=NL_SIGNATURE_HMAC_SHA256'),
+        ('SignatureAlgorithm','<H=0'),
         ('SealAlgorithm','<H=0'),
         ('Pad','<H=0xffff'),
         ('Flags','<H=0'),
-        ('SequenceNumber','<Q=0'),
+        ('SequenceNumber','8s=""'),
         ('Checksum','32s=""'),
         ('_Confounder','_-Confounder','8'),
         ('Confounder',':'),
@@ -100,6 +100,27 @@ def ComputeNetlogonCredential(inputData, Sk):
     Crypt2 = DES.new(k4, DES.MODE_ECB)
     cipherText = Crypt1.encrypt(inputData)
     return Crypt2.encrypt(cipherText)
+
+def ComputeNetlogonCredentialAES(inputData, Sk):
+    # [MS-NRPC] Section 3.1.4.4.1
+    IV='\x00'*16
+    Crypt1 = AES.new(Sk, AES.MODE_CFB, IV)
+    return Crypt1.encrypt(inputData)
+
+def ComputeSessionKeyAES(sharedSecret, clientChallenge, serverChallenge, sharedSecretHash = None):
+    # [MS-NRPC] Section 3.1.4.3.1, added the ability to receive hashes already
+    if sharedSecretHash is None:
+        M4SS = ntlm.NTOWFv1(sharedSecret)
+    else:
+        M4SS = sharedSecretHash
+
+    hm = hmac.new(key=M4SS, digestmod=hashlib.sha256)
+    hm.update(clientChallenge)
+    hm.update(serverChallenge)
+    sessionKey = hm.digest()
+
+    return sessionKey[:16]
+
 
 def ComputeSessionKeyStrongKey(sharedSecret, clientChallenge, serverChallenge, sharedSecretHash = None):
     # [MS-NRPC] Section 3.1.4.3.2, added the ability to receive hashes already
@@ -123,12 +144,20 @@ def deriveSequenceNumber(sequenceNum):
 
     sequenceLow = sequenceNum & 0xffffffff
     sequenceHigh = (sequenceNum >> 32) & 0xffffffff
-    sequenceHigh |= 0x80
+    sequenceHigh |= 0x80000000
 
-    res = pack('<L', sequenceLow)
-    res += pack('<L', sequenceHigh)
-     
+    res = pack('>L', sequenceLow)
+    res += pack('>L', sequenceHigh)
     return res
+
+def ComputeNetlogonSignatureAES(authSignature, message, confounder, sessionKey):
+    # [MS-NRPC] Section 3.3.4.2.1, point 7
+    hm = hmac.new(key=sessionKey, digestmod=hashlib.sha256)
+    hm.update(str(authSignature)[:8])
+    # If no confidentiality requested, it should be ''
+    hm.update(confounder)
+    hm.update(str(message))
+    return hm.digest()[:8]+'\x00'*24
 
 def ComputeNetlogonSignatureMD5(authSignature, message, confounder, sessionKey):
     # [MS-NRPC] Section 3.3.4.2.1, point 7
@@ -160,32 +189,92 @@ def decryptSequenceNumberRC4(sequenceNum, checkSum, sessionKey):
 
     return encryptSequenceNumberRC4(sequenceNum, checkSum, sessionKey)
 
-def SIGN(data, sequenceNum, conFounder, key):
-    signature = NL_AUTH_SIGNATURE()
-    signature['SignatureAlgorithm'] = NL_SIGNATURE_HMAC_MD5
-    signature['SealAlgorithm'] = NL_SEAL_NOT_ENCRYPTED
-    signature['Checksum'] = ComputeNetlogonSignatureMD5(signature, data, conFounder, key)
-    signature['SequenceNumber'] = encryptSequenceNumberRC4(deriveSequenceNumber(sequenceNum), signature['Checksum'], key)
-    return signature
+def encryptSequenceNumberAES(sequenceNum, checkSum, sessionKey):
+    # [MS-NRPC] Section 3.3.4.2.1, point 9
+    IV = checkSum[:8] + checkSum[:8]
+    Cipher = AES.new(sessionKey, AES.MODE_CFB, IV)
+    return Cipher.encrypt(sequenceNum)
 
-def SEAL(data, confounder, sequenceNum, key):
+def decryptSequenceNumberAES(sequenceNum, checkSum, sessionKey):
+    # [MS-NRPC] Section 3.3.4.2.1, point 9
+    IV = checkSum[:8] + checkSum[:8]
+    Cipher = AES.new(sessionKey, AES.MODE_CFB, IV)
+    return Cipher.decrypt(sequenceNum)
+
+def SIGN(data, conFounder, sequenceNum, key, aes = False):
+    if aes is False:
+        signature = NL_AUTH_SIGNATURE()
+        signature['SignatureAlgorithm'] = NL_SIGNATURE_HMAC_MD5
+        if conFounder == '':
+            signature['SealAlgorithm'] = NL_SEAL_NOT_ENCRYPTED
+        else:
+            signature['SealAlgorithm'] = NL_SEAL_RC4
+        signature['Checksum'] = ComputeNetlogonSignatureMD5(signature, data, conFounder, key)
+        signature['SequenceNumber'] = encryptSequenceNumberRC4(deriveSequenceNumber(sequenceNum), signature['Checksum'], key)
+        return signature
+    else:
+        signature = NL_AUTH_SIGNATURE()
+        signature['SignatureAlgorithm'] = NL_SIGNATURE_HMAC_SHA256
+        if conFounder == '':
+            signature['SealAlgorithm'] = NL_SEAL_NOT_ENCRYPTED
+        else:
+            signature['SealAlgorithm'] = NL_SEAL_AES128
+        signature['Checksum'] = ComputeNetlogonSignatureAES(signature, data, conFounder, key)
+        signature['SequenceNumber'] = encryptSequenceNumberAES(deriveSequenceNumber(sequenceNum), signature['Checksum'], key)
+        return signature
+
+def SEAL(data, confounder, sequenceNum, key, aes = False):
     XorKey = []
     for i in key:
        XorKey.append(chr(ord(i) ^ 0xf0))
 
     XorKey = ''.join(XorKey)
-    hm = hmac.new(XorKey)
-    hm.update('\x00'*4)
-    hm2 = hmac.new(hm.digest())
-    hm2.update(sequenceNum)
-    encryptionKey = hm2.digest()
+    if aes is False:
+        hm = hmac.new(XorKey)
+        hm.update('\x00'*4)
+        hm2 = hmac.new(hm.digest())
+        hm2.update(sequenceNum)
+        encryptionKey = hm2.digest()
 
-    cipher = ARC4.new(encryptionKey)
-    cfounder = cipher.encrypt(confounder)
-    cipher = ARC4.new(encryptionKey)
-    plain = cipher.encrypt(data)
+        cipher = ARC4.new(encryptionKey)
+        cfounder = cipher.encrypt(confounder)
+        cipher = ARC4.new(encryptionKey)
+        plain = cipher.encrypt(data)
 
-    return plain, cfounder
+        return plain, cfounder
+    else:
+        IV = sequenceNum + sequenceNum
+        cipher = AES.new(XorKey, AES.MODE_CFB, IV)
+        cfounder = cipher.encrypt(confounder)
+        plain = cipher.encrypt(data)
+        return plain, cfounder
+        
+def UNSEAL(data, confounder, sequenceNum, key, aes = False):
+    XorKey = []
+    for i in key:
+       XorKey.append(chr(ord(i) ^ 0xf0))
+
+    XorKey = ''.join(XorKey)
+    if aes is False:
+        hm = hmac.new(XorKey)
+        hm.update('\x00'*4)
+        hm2 = hmac.new(hm.digest())
+        hm2.update(sequenceNum)
+        encryptionKey = hm2.digest()
+
+        cipher = ARC4.new(encryptionKey)
+        cfounder = cipher.encrypt(confounder)
+        cipher = ARC4.new(encryptionKey)
+        plain = cipher.encrypt(data)
+
+        return plain, cfounder
+    else:
+        IV = sequenceNum + sequenceNum
+        cipher = AES.new(XorKey, AES.MODE_CFB, IV)
+        cfounder = cipher.decrypt(confounder)
+        plain = cipher.decrypt(data)
+        return plain, cfounder
+        
     
 def getSSPType1(workstation='', domain='', signingRequired=False):
     auth = NL_AUTH_MESSAGE()
