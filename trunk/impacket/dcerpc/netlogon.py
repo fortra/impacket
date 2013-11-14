@@ -15,6 +15,8 @@
 import array
 import random
 from struct import *
+from impacket.dcerpc import ndr
+from impacket.dcerpc.ndr import NDR
 from impacket.structure import Structure
 from impacket.dcerpc import ndrutils, dcerpc
 from impacket.uuid import uuidtup_to_bin
@@ -314,140 +316,153 @@ ServerSecureChannel = 6
 CdcServerSecureChannel = 7
 
 # Structures
-class NETLOGON_CREDENTIAL(Structure):
+class NETLOGON_CREDENTIAL(NDR):
     structure = (
         ('data','8s=""'),
     )
 
-class NETLOGON_AUTHENTICATOR(Structure):
+class NETLOGON_AUTHENTICATOR(NDR):
+    align = 4
     structure = (
         ('Credential',':', NETLOGON_CREDENTIAL),
         ('Timestamp','<L=0'),
     )
-    def __init__(self, data=None, alignment=0):
-        Structure.__init__(self, data, alignment)
-        if data is None:
-            self['Credential'] = NETLOGON_CREDENTIAL()
 
 class PNETLOGON_AUTHENTICATOR(ndrutils.NDRPointerNew):
     structure = NETLOGON_AUTHENTICATOR.structure
     
-class ENCRYPTED_NT_OWF_PASSWORD(Structure):
+class ENCRYPTED_NT_OWF_PASSWORD(NDR):
     structure = (
         ('data','16s=""'),
     )
 
-class PENCRYPTED_NT_OWF_PASSWORD(ndrutils.NDRPointerNew):
-    structure = ENCRYPTED_NT_OWF_PASSWORD.structure
-
-class NL_GENERIC_RPC_DATA(Structure):
+class NL_GENERIC_RPC_DATA(NDR):
     structure = (
         ('UlongEntryCount','<L=0'),
-        ('pUlongData', ':', ndrutils.NDRPointerNew),
+        ('UlongData', ':', ndr.PNDRUniConformantArray),
         ('UnicodeStringEntryCount','<L=0'),
-        ('pUnicodeStringData',':', ndrutils.NDRPointerNew),
-        ('SizeIs2','<L=0'),
-        ('_UlongData', '_-UlongData', 'self["UlongEntryCount"]*4'),
-        ('UlongData', ':'),
-        ('UnicodeStringData', ':'),
+        ('UnicodeStringData',':', ndr.PNDRUniConformantArray),
+    )
+    def __init__(self, data = None, alignment = 0, isNDR64 = False):
+        NDR.__init__(self, None, alignment,isNDR64)
+        self['UlongData']['Data'].item = '<L'
+        if data is not None:
+            self.fromString(data)
+
+
+class PNL_GENERIC_RPC_DATA(ndr.NDREmbeddedFullPointer):
+    referent = (
+        ('Data', ':', NL_GENERIC_RPC_DATA),
+    )
+    def __init__(self, data = None, alignment = 0, isNDR64 = False):
+        ndr.NDREmbeddedFullPointer.__init__(self,data,alignment,isNDR64)
+
+class NL_SITE_NAME_ARRAY(NDR):
+    structure = (
+       ('EntryCount','<L=0'),
+       ('SiteNames',':', ndr.PNDRUniConformantArray),
+    )
+    def __init__(self, data = None, alignment = 0, isNDR64 = False):
+        NDR.__init__(self, None, alignment,isNDR64)
+        self['SiteNames']['Data'].item = ndr.PRPC_UNICODE_STRING
+        if data is not None:
+            self.fromString(data)
+
+class PNL_SITE_NAME_ARRAY(ndr.NDREmbeddedFullPointer):
+    referent = (
+        ('Data', ':', NL_SITE_NAME_ARRAY),
     )
 
-class PNL_GENERIC_RPC_DATA(ndrutils.NDRPointerNew):
-    structure = NL_GENERIC_RPC_DATA.structure
-
-class NETLOGONGetDCName(Structure):
+class NETLOGONGetDCName(NDR):
     opnum = 11
     structure = (
-        ('ServerName',':', ndrutils.NDRStringW),
-        ('DomainName',':', ndrutils.NDRUniqueStringW),
+        ('ServerName',':', ndr.NDRString),
+        ('DomainName',':', ndr.NDRUniqueString),
     )
 
-class NETLOGONGetDCNameResponse(Structure):
+class NETLOGONGetDCNameResponse(NDR):
     structure = (
-        ('Buffer',':', ndrutils.NDRUniqueStringW),
+        ('Buffer',':', ndr.NDRUniqueString),
     )
 
-class NETLOGONGetAnyDCName(Structure):
+class NETLOGONGetAnyDCName(NDR):
     opnum = 13
     structure = (
-        ('ServerName',':', ndrutils.NDRUniqueStringW),
-        ('DomainName',':', ndrutils.NDRUniqueStringW),
+        ('ServerName',':', ndr.NDRUniqueString),
+        ('DomainName',':', ndr.NDRUniqueString),
     )
 
-class NETLOGONGetAnyDCNameResponse(Structure):
+class NETLOGONGetAnyDCNameResponse(NDR):
     structure = (
-        ('Buffer',':', ndrutils.NDRUniqueStringW),
+        ('Buffer',':', ndr.NDRUniqueString),
     )
 
-class NETLOGONGetSiteName(Structure):
+class NETLOGONGetSiteName(NDR):
     opnum = 28
     structure = (
-        ('ComputerName',':', ndrutils.NDRUniqueStringW),
+        ('ComputerName',':', ndr.NDRUniqueString),
     )
 
-class NETLOGONGetSiteNameResponse(Structure):
+class NETLOGONGetSiteNameResponse(NDR):
     structure = (
-        ('SiteName',':', ndrutils.NDRUniqueStringW),
+        ('SiteName',':', ndr.NDRUniqueString),
     )
 
 
-class NETLOGONGetDcSiteCoverageW(Structure):
+class NETLOGONGetDcSiteCoverageW(NDR):
     opnum = 38
     structure = (
-        ('ServerName',':', ndrutils.NDRUniqueStringW),
+        ('ServerName',':', ndr.NDRUniqueString),
     )
 
-class NETLOGONGetDcSiteCoverageWResponse(Structure):
+class NETLOGONGetDcSiteCoverageWResponse(NDR):
     structure = (
-        ('SiteNames',':'),
+        ('SiteNames',':', PNL_SITE_NAME_ARRAY),
     )
 
-class NETLOGONServerAuthenticate3(Structure):
+class NETLOGONServerAuthenticate3(NDR):
     opnum = 26
     structure = (
-        ('PrimaryName',':', ndrutils.NDRUniqueStringW),
-        ('AccountName',':', ndrutils.NDRStringW ),
+        ('PrimaryName',':', ndr.NDRUniqueString),
+        ('AccountName',':', ndr.NDRString),
         ('SecureChannelType','<H=0'),
-        ('Pad0', ':'),
-        ('ComputerName',':', ndrutils.NDRStringW ),
-        ('ClientCredential',':'),
-        ('Pad', ':'),
+        ('ComputerName',':', ndr.NDRString ),
+        ('ClientCredential',':',NETLOGON_CREDENTIAL),
         ('NegotiateFlags','<L=0'),
     )
 
-class NETLOGONServerAuthenticate3Response(Structure):
+class NETLOGONServerAuthenticate3Response(NDR):
     structure = (
-        ('ServerCredential','8s'),
+        ('ServerCredential',':',NETLOGON_CREDENTIAL),
         ('NegotiateFlags','<L=0'),
         ('AccountRid','<L=0'),
     )
 
-class NETLOGONServerReqChallenge(Structure):
+class NETLOGONServerReqChallenge(NDR):
     opnum = 4
     alingment = 4
     structure = (
-        ('PrimaryName',':', ndrutils.NDRUniqueStringW),
-        ('ComputerName',':', ndrutils.NDRStringW ),
-        ('ClientChallenge','8s'),
+        ('PrimaryName',':', ndr.NDRUniqueString),
+        ('ComputerName',':', ndr.NDRString ),
+        ('ClientChallenge',':', NETLOGON_CREDENTIAL),
     )
 
 class NETLOGONServerReqChallengeResponse(Structure):
     structure = (
-        ('ServerChallenge','8s'),
+        ('ServerChallenge',':', NETLOGON_CREDENTIAL),
     )
 
-class NETLOGONServerGetTrustInfo(Structure):
+class NETLOGONServerGetTrustInfo(NDR):
     opnum = 46
     structure = (
-        ('TrustedDcName',':',ndrutils.NDRUniqueStringW),
-        ('AccountName',':', ndrutils.NDRStringW),
+        ('TrustedDcName',':',ndr.NDRUniqueString),
+        ('AccountName',':', ndr.NDRString),
         ('SecureChannelType','<H=0'),
-        ('Pad0', ':'),
-        ('ComputerName',':', ndrutils.NDRStringW ),
+        ('ComputerName',':', ndr.NDRString ),
         ('Authenticator',':', NETLOGON_AUTHENTICATOR),
     )
 
-class NETLOGONServerGetTrustInfoResponse(Structure):
+class NETLOGONServerGetTrustInfoResponse(NDR):
     structure = (
         ('ReturnAuthenticator',':', NETLOGON_AUTHENTICATOR),
         ('EncryptedNewOwfPassword',':', ENCRYPTED_NT_OWF_PASSWORD),
@@ -455,49 +470,48 @@ class NETLOGONServerGetTrustInfoResponse(Structure):
         ('TrustInfo',':', PNL_GENERIC_RPC_DATA),
     )
 
-class NETLOGONServerPasswordGet(Structure):
+class NETLOGONServerPasswordGet(NDR):
     opnum = 31
     structure = (
-        ('PrimaryName',':', ndrutils.NDRUniqueStringW),
-        ('AccountName',':', ndrutils.NDRStringW),
+        ('PrimaryName',':', ndr.NDRUniqueString),
+        ('AccountName',':', ndr.NDRString),
         ('AccountType','<H=0'),
-        ('Pad0', ':'),
-        ('ComputerName',':', ndrutils.NDRStringW),
+        ('ComputerName',':', ndr.NDRString),
         ('Authenticator',':', NETLOGON_AUTHENTICATOR),
     )
 
-class NETLOGONServerPasswordGetResponse(Structure):
+class NETLOGONServerPasswordGetResponse(NDR):
     structure = (
         ('ReturnAuthenticator',':', NETLOGON_AUTHENTICATOR),
         ('EncryptedNtOwfPassword',':', ENCRYPTED_NT_OWF_PASSWORD),
     )
 
-class NETLOGONLogonGetDomainInfo(Structure):
+class NETLOGONLogonGetDomainInfo(NDR):
     opnum = 29
     structure = (
-        ('ServerName',':', ndrutils.NDRStringW),
-        ('ComputerName',':', ndrutils.NDRUniqueStringW),
+        ('ServerName',':', ndr.NDRString),
+        ('ComputerName',':', ndr.NDRUniqueString),
         ('Authenticator',':', NETLOGON_AUTHENTICATOR),
         ('ReturnAuthenticator',':', NETLOGON_AUTHENTICATOR),
         ('Level','<L=1'),
     )
 
-class NETLOGONLogonGetDomainInfoResponse(Structure):
+class NETLOGONLogonGetDomainInfoResponse(NDR):
     structure = (
         ('ReturnAuthenticator',':', NETLOGON_AUTHENTICATOR),
     )
 
-class NETLOGONLogonGetCapabilities(Structure):
+class NETLOGONLogonGetCapabilities(NDR):
     opnum = 21
     structure = (
-        ('ServerName',':', ndrutils.NDRStringW),
-        ('ComputerName',':', ndrutils.NDRUniqueStringW),
+        ('ServerName',':', ndr.NDRString),
+        ('ComputerName',':', ndr.NDRUniqueString),
         ('Authenticator',':', NETLOGON_AUTHENTICATOR),
         ('ReturnAuthenticator',':', NETLOGON_AUTHENTICATOR),
         ('Level','<L=1'),
     )
 
-class NETLOGONLogonGetCapabilitiesResponse(Structure):
+class NETLOGONLogonGetCapabilitiesResponse(NDR):
     structure = (
         ('ReturnAuthenticator',':', NETLOGON_AUTHENTICATOR),
         ('SwitchIs','<L=0'),
@@ -552,12 +566,9 @@ class DCERPCNetLogon:
         :return: returns an NETLOGONServerReqChallengeResponse structure with the server chalenge. Call dump() method to see its contents. On error it raises an exception
         """
         reqChallenge = NETLOGONServerReqChallenge()
-        reqChallenge['PrimaryName'] = ndrutils.NDRUniqueStringW()
         reqChallenge['PrimaryName']['Data'] = primaryName+'\x00'.encode('utf-16le')
-        reqChallenge['ComputerName'] = ndrutils.NDRStringW()
-        reqChallenge['ComputerName'].alignment = 0
         reqChallenge['ComputerName']['Data'] = computerName+'\x00'.encode('utf-16le')
-        reqChallenge['ClientChallenge'] =  clientChallenge
+        reqChallenge['ClientChallenge']['data'] =  clientChallenge
         packet = self.doRequest(reqChallenge, checkReturn = 1)
         ans = NETLOGONServerReqChallengeResponse(packet)
         return ans
@@ -576,20 +587,11 @@ class DCERPCNetLogon:
         :return: returns an NETLOGONServerAuthenticate3Response structure including server credentials, account rid and updated negotiate flags. Call dump() method to see its contents. On error it raises an exception
         """
         serverAuthenticate3 = NETLOGONServerAuthenticate3()
-        serverAuthenticate3['PrimaryName'] = ndrutils.NDRUniqueStringW()
         serverAuthenticate3['PrimaryName']['Data'] = primaryName+'\x00'.encode('utf-16le')
-        serverAuthenticate3['AccountName'] = ndrutils.NDRStringW()
-        serverAuthenticate3['AccountName'].alignment = 0
         serverAuthenticate3['AccountName']['Data'] = accountName+'\x00'.encode('utf-16le')
         serverAuthenticate3['SecureChannelType'] = secureChannelType
-        # So.. We have to have the buffer aligned before Computer Name, there we go. The "2" there belongs to the size
-        # of SecureChannelType
-        serverAuthenticate3['Pad0'] = '\x00'*((len(serverAuthenticate3['AccountName']['Data'])+2) % 4)
-        serverAuthenticate3['ComputerName'] = ndrutils.NDRStringW()
-        serverAuthenticate3['ComputerName'].alignment = 0
         serverAuthenticate3['ComputerName']['Data'] = computerName+'\x00'.encode('utf-16le')
-        serverAuthenticate3['ClientCredential'] = clientCredential
-        serverAuthenticate3['Pad'] = '\x00'*(len(serverAuthenticate3['ComputerName']['Data']) % 4)
+        serverAuthenticate3['ClientCredential']['data'] = clientCredential
         serverAuthenticate3['NegotiateFlags'] = negotiateFlags
 
         packet = self.doRequest(serverAuthenticate3, checkReturn = 1)
@@ -605,9 +607,7 @@ class DCERPCNetLogon:
         :return: 
         """
         getDCSite = NETLOGONGetDcSiteCoverageW()
-        getDCSite['ServerName'] = ndrutils.NDRUniqueStringW()
         getDCSite['ServerName']['Data'] = serverName+'\x00'.encode('utf-16le')
-        getDCSite['ServerName'].alignment = 0
 
         packet = self.doRequest(getDCSite, checkReturn = 1)
         ans = NETLOGONGetDcSiteCoverageWResponse(packet)
@@ -623,9 +623,7 @@ class DCERPCNetLogon:
 
         """
         getSiteName = NETLOGONGetSiteName()
-        getSiteName['ComputerName'] = ndrutils.NDRUniqueStringW()
         getSiteName['ComputerName']['Data'] = computerName+'\x00'.encode('utf-16le')
-        getSiteName['ComputerName'].alignment = 0
 
         packet = self.doRequest(getSiteName, checkReturn = 1)
         ans = NETLOGONGetSiteNameResponse(packet)
@@ -642,12 +640,8 @@ class DCERPCNetLogon:
 
         """
         getAnyDCName = NETLOGONGetAnyDCName()
-        getAnyDCName['ServerName'] = ndrutils.NDRUniqueStringW()
         getAnyDCName['ServerName']['Data'] = serverName+'\x00'.encode('utf-16le')
-        getAnyDCName['ServerName'].alignment = 4
-        getAnyDCName['DomainName'] = ndrutils.NDRUniqueStringW()
         getAnyDCName['DomainName']['Data'] = domainName+'\x00'.encode('utf-16le')
-        getAnyDCName['DomainName'].alignment = 0
 
         packet = self.doRequest(getAnyDCName, checkReturn = 1)
         ans = NETLOGONGetAnyDCNameResponse(packet)
@@ -664,12 +658,8 @@ class DCERPCNetLogon:
 
         """
         getDCName = NETLOGONGetDCName()
-        getDCName['ServerName'] = ndrutils.NDRStringW()
         getDCName['ServerName']['Data'] = serverName+'\x00'.encode('utf-16le')
-        getDCName['ServerName'].alignment = 4
-        getDCName['DomainName'] = ndrutils.NDRUniqueStringW()
         getDCName['DomainName']['Data'] = domainName+'\x00'.encode('utf-16le')
-        getDCName['DomainName'].alignment = 0
 
         packet = self.doRequest(getDCName, checkReturn = 1)
         ans = NETLOGONGetDCNameResponse(packet)
@@ -689,19 +679,9 @@ class DCERPCNetLogon:
         """
 
         getTrustInfo = NETLOGONServerGetTrustInfo()
-        getTrustInfo['TrustedDcName'] = ndrutils.NDRUniqueStringW()
         getTrustInfo['TrustedDcName']['Data'] = trustedDcName+'\x00'.encode('utf-16le')
-        getTrustInfo['TrustedDcName'].alignment = 4
-
-        getTrustInfo['AccountName'] = ndrutils.NDRStringW()
-        getTrustInfo['AccountName'].alignment = 0
         getTrustInfo['AccountName']['Data'] = accountName+'\x00'.encode('utf-16le')
         getTrustInfo['SecureChannelType'] = secureChannelType
-        # So.. We have to have the buffer aligned before Computer Name, there we go. The "2" there belongs to the size
-        # of SecureChannelType
-        getTrustInfo['Pad0'] = '\x00'*((len(getTrustInfo['AccountName']['Data'])+2) % 4)
-        getTrustInfo['ComputerName'] = ndrutils.NDRStringW()
-        getTrustInfo['ComputerName'].alignment = 4
         getTrustInfo['ComputerName']['Data'] = computerName+'\x00'.encode('utf-16le')
         getTrustInfo['Authenticator'] = authenticator
 
@@ -722,21 +702,9 @@ class DCERPCNetLogon:
         :return: returns a NETLOGONServerPasswordResponse structure. Call dump() method to see its contents. For understanding the meaning of each field, check [MS-NRPC] Section 3.5.4.7.6
         """
         passwordGet = NETLOGONServerPasswordGet()
-        passwordGet['PrimaryName'] = ndrutils.NDRUniqueStringW()
         passwordGet['PrimaryName']['Data'] = primaryName+'\x00'.encode('utf-16le')
-        passwordGet['PrimaryName'].alignment = 4
-
-        passwordGet['AccountName'] = ndrutils.NDRStringW()
-        passwordGet['AccountName'].alignment = 0
         passwordGet['AccountName']['Data'] = accountName+'\x00'.encode('utf-16le')
-
         passwordGet['AccountType'] = accountType
-        # So.. We have to have the buffer aligned before Computer Name, there we go. The "2" there belongs to the size
-        # of SecureChannelType
-
-        passwordGet['Pad0'] = '\x00'*((len(passwordGet['AccountName']['Data'])+2) % 4)
-        passwordGet['ComputerName'] = ndrutils.NDRStringW()
-        passwordGet['ComputerName'].alignment = 4
         passwordGet['ComputerName']['Data'] = computerName+'\x00'.encode('utf-16le')
         passwordGet['Authenticator'] = authenticator
 
@@ -756,12 +724,7 @@ class DCERPCNetLogon:
         """
         ### NOT FINISHED YET
         getDomainInfo = NETLOGONLogonGetDomainInfo()
-        getDomainInfo['ServerName'] = ndrutils.NDRStringW()
         getDomainInfo['ServerName']['Data'] = serverName+'\x00'.encode('utf-16le')
-        getDomainInfo['ServerName'].alignment = 4
-
-        getDomainInfo['ComputerName'] = ndrutils.NDRUniqueStringW()
-        getDomainInfo['ComputerName'].alignment = 4
         getDomainInfo['ComputerName']['Data'] = computerName+'\x00'.encode('utf-16le')
         getDomainInfo['Authenticator'] = authenticator
         getDomainInfo['ReturnAuthenticator'] = NETLOGON_AUTHENTICATOR()
@@ -781,12 +744,7 @@ class DCERPCNetLogon:
         :return: returns a NETLOGONLogonGetCapabilitiesResponse structure. Call dump() method to see its contents. 
         """
         getCapabilities = NETLOGONLogonGetCapabilities()
-        getCapabilities['ServerName'] = ndrutils.NDRStringW()
         getCapabilities['ServerName']['Data'] = serverName+'\x00'.encode('utf-16le')
-        getCapabilities['ServerName'].alignment = 4
-
-        getCapabilities['ComputerName'] = ndrutils.NDRUniqueStringW()
-        getCapabilities['ComputerName'].alignment = 4
         getCapabilities['ComputerName']['Data'] = computerName+'\x00'.encode('utf-16le')
         getCapabilities['Authenticator'] = authenticator
         getCapabilities['ReturnAuthenticator'] = NETLOGON_AUTHENTICATOR()
