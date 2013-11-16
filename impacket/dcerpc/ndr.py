@@ -342,6 +342,8 @@ class NDR():
             if dataClass is not None:
                 for each in data:
                     answer += each.getDataReferents()
+                    # ToDo, still to work out this
+                    #answer = each.getDataReferent(answer)
 
             self.fields[two[1]] = len(data)
             return answer
@@ -393,7 +395,6 @@ class NDR():
                 else:
                     itemn = dataClassOrCode(data[soFar:])
                     itemn.rawData = data[soFar+len(itemn):] 
-                    #itemn.fromStringReferent(data[soFar+len(itemn):])
                     answer.append(itemn)
                     nsofar += len(itemn)
                 numItems -= 1
@@ -405,6 +406,8 @@ class NDR():
                 answer2 = []
                 for itemn in answer:
                     itemn.fromStringReferents(data)
+                    # ToDo, still to work out this
+                    #itemn.fromStringReferent(data)
                     itemn.rawData = data[len(itemn.getDataReferents()):] 
                     data = itemn.rawData
                     answer2.append(itemn)
