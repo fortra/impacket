@@ -748,7 +748,7 @@ class RPC_UNICODE_STRING(NDR):
     def getDataLen(self, data):
         return self["ActualCount"]*2 
 
-class PRPC_UNICODE_STRING(NDREmbeddedFullPointer):
+class UNICODE_STRING(NDREmbeddedFullPointer):
     align = 2
     align64 = 2
     commonHdr = (
@@ -766,14 +766,12 @@ class PRPC_UNICODE_STRING(NDREmbeddedFullPointer):
         ('pString',RPC_UNICODE_STRING),
     )
 
-NDRString = RPC_UNICODE_STRING
-
 # Special treatment for UniqueString to avoid nesting ['Data']['Data'] .. for now
-class NDRUniqueString(NDRString, NDRTopLevelPointer):
+class UNIQUE_RPC_UNICODE_STRING(RPC_UNICODE_STRING, NDRTopLevelPointer):
     def __init__(self, data = None, isNDR64 = False):
-        self.commonHdr = NDRTopLevelPointer.commonHdr + NDRString.commonHdr
-        self.commonHdr64 = NDRTopLevelPointer.commonHdr64 + NDRString.commonHdr64
-        NDRString.__init__(self,data,isNDR64)
+        self.commonHdr = NDRTopLevelPointer.commonHdr + RPC_UNICODE_STRING.commonHdr
+        self.commonHdr64 = NDRTopLevelPointer.commonHdr64 + RPC_UNICODE_STRING.commonHdr64
+        RPC_UNICODE_STRING.__init__(self,data,isNDR64)
         NDRTopLevelPointer.__init__(self,data,isNDR64)
 
 #class NDRUniqueString(NDRTopLevelPointer):
@@ -856,17 +854,17 @@ class TestUniConformantArray(NDRTest):
         )
         def __init__(self, data = None,isNDR64 = False):
             NDR.__init__(self, None, isNDR64)
-            self['Array']['Data'].item = NDRString
-            self['Array2']['Data'].item = NDRString
+            self['Array']['Data'].item = RPC_UNICODE_STRING
+            self['Array2']['Data'].item = RPC_UNICODE_STRING
             if data is not None:
                 self.fromString(data)
         
     def populate(self, a):
         array = []
-        strstr = NDRString()
+        strstr = RPC_UNICODE_STRING()
         strstr['Data'] = 'ThisIsMe'.encode('utf-16le')
         array.append(strstr)
-        strstr = NDRString()
+        strstr = RPC_UNICODE_STRING()
         strstr['Data'] = 'ThisIsYou'.encode('utf-16le')
         array.append(strstr)
         a['Array']['Data']['Data'] = array
@@ -944,10 +942,10 @@ class TestServerAuthenticate(NDRTest):
                 ('data','8s=""'),
             )
         structure = (
-            ('PrimaryName', NDRUniqueString),
-            ('AccountName', NDRString ),
+            ('PrimaryName', UNIQUE_RPC_UNICODE_STRING),
+            ('AccountName', RPC_UNICODE_STRING),
             ('SecureChannelType',NDRSHORT),
-            ('ComputerName', NDRString ),
+            ('ComputerName', RPC_UNICODE_STRING),
             ('ClientCredential',NETLOGON_CREDENTIAL),
             ('NegotiateFlags',NDRLONG),
         )
