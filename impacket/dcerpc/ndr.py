@@ -670,8 +670,10 @@ class NDRConformantVaryingString(NDRUniConformantVaryingArray):
 # Pointers
 
 class NDRPointerNULL(NDR):
+    align = 4
+    align64 = 8
     structure = (
-        ('Data', '<H=0'),
+        ('Data', '<L=0'),
     )
     structure64 = (
         ('Data', '<Q=0'),
