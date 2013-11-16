@@ -405,7 +405,6 @@ class NDR():
                 answer2 = []
                 for itemn in answer:
                     itemn.fromStringReferents(data)
-                    itemn.dump()
                     itemn.rawData = data[len(itemn.getDataReferents()):] 
                     data = itemn.rawData
                     answer2.append(itemn)
