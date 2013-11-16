@@ -188,6 +188,8 @@ class NDR():
         else:
             alignment = 0
 
+        #if alignment > 0:
+        #    print "PAD" * 80
         return alignment
 
     def getData(self):
@@ -221,6 +223,7 @@ class NDR():
         data = ''
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure: 
             if isinstance(self.fields[fieldName], NDR):
+               data += self.fields[fieldName].getDataReferents()
                data += self.fields[fieldName].getDataReferent()
         self.data += data
         return data
@@ -278,16 +281,18 @@ class NDR():
     def fromStringReferents(self, data):
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             if isinstance(self.fields[fieldName], NDR):
+                data =self.fields[fieldName].fromStringReferents(data)
                 data = self.fields[fieldName].fromStringReferent(data)
+        return data
 
     def fromStringReferent(self, data):
         if hasattr(self, 'referent') is not True:
-            return
+            return data
 
         if self.fields.has_key('ReferentID'):
             if self['ReferentID'] == 0:
                 # NULL Pointer, there's no referent for it
-                return
+                return data
 
         for fieldName, fieldTypeOrClass in self.referent:
             size = self.calcUnPackSize(fieldTypeOrClass, data)
@@ -744,9 +749,11 @@ class LPWSTR(NDREmbeddedFullPointer):
     referent = (
         ('Data', WSTR),
     )
-      
-        
 
+class LPWSTR2(NDREmbeddedFullPointer):
+    referent = (
+        ('Data', RPC_UNICODE_STRING),
+    )
     
 
 ################################################################################
