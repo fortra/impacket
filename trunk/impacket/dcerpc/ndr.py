@@ -191,8 +191,8 @@ class NDR():
         return alignment
 
     def getData(self):
-        if self.data is not None:
-            return self.data
+        #if self.data is not None:
+        #    return self.data
 
         data = ''
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
@@ -209,15 +209,23 @@ class NDR():
                     e.args += ("When packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__),)
                 raise
 
-        for fieldName, fieldTypeOrClass in self.commonHdr+self.structure: 
-            if isinstance(self.fields[fieldName], NDR):
-               data += self.fields[fieldName].getReferents()
+#        for fieldName, fieldTypeOrClass in self.commonHdr+self.structure: 
+#            if isinstance(self.fields[fieldName], NDR):
+#               data += self.fields[fieldName].getDataReferent()
 
         self.data = data
 
         return data
 
-    def getReferents(self):
+    def getDataReferents(self):
+        data = ''
+        for fieldName, fieldTypeOrClass in self.commonHdr+self.structure: 
+            if isinstance(self.fields[fieldName], NDR):
+               data += self.fields[fieldName].getDataReferent()
+        self.data += data
+        return data
+
+    def getDataReferent(self):
         if hasattr(self,'referent') is False:
             return ''
 
@@ -239,6 +247,7 @@ class NDR():
                 else:
                     e.args += ("When packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__),)
                 raise
+
         return data
 
     def fromString(self, data):
@@ -261,10 +270,15 @@ class NDR():
 
             data = data[size:]
 
+#        for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
+#            if isinstance(self.fields[fieldName], NDR):
+#                data = self.fields[fieldName].fromStringReferent(data)
+        return self
+
+    def fromStringReferents(self, data):
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             if isinstance(self.fields[fieldName], NDR):
                 data = self.fields[fieldName].fromStringReferent(data)
-        return self
 
     def fromStringReferent(self, data):
         if hasattr(self, 'referent') is not True:
@@ -287,7 +301,7 @@ class NDR():
                 raise
 
             if isinstance(self.fields[fieldName], NDR):
-                size = len(self.fields[fieldName])
+                size = len(self.fields[fieldName]) + len(self.fields[fieldName].getDataReferents())
 
             data = data[size:]
         return data 
@@ -329,7 +343,9 @@ class NDR():
                     answer += pack(item, each)
                 else:
                     answer += each.getData()
-                    answer += each.getReferents()
+            if dataClass is not None:
+                for each in data:
+                    answer += each.getDataReferents()
 
             self.fields[two[1]] = len(data)
             return answer
@@ -381,11 +397,26 @@ class NDR():
                 else:
                     itemn = dataClassOrCode(data[soFar:])
                     itemn.rawData = data[soFar+len(itemn):] 
-                    itemn.fromStringReferent(data[soFar+len(itemn):])
+                    #itemn.fromStringReferent(data[soFar+len(itemn):])
                     answer.append(itemn)
                     nsofar += len(itemn)
                 numItems -= 1
                 soFar = nsofar
+
+            if dataClassOrCode is not None:
+                # We gotta go over again, asking for the referents
+                data = data[soFar:]
+                answer2 = []
+                for itemn in answer:
+                    itemn.fromStringReferents(data)
+                    itemn.dump()
+                    itemn.rawData = data[len(itemn.getDataReferents()):] 
+                    data = itemn.rawData
+                    answer2.append(itemn)
+                    numItems -= 1
+                answer = answer2
+                del(answer2)
+
             del(self.fields['_tmpItem'])
             return answer
 
@@ -705,7 +736,18 @@ class PNDRUniConformantArray(NDREmbeddedFullPointer):
     def __init__(self, data = None, isNDR64 = False):
         NDREmbeddedFullPointer.__init__(self,data,isNDR64)
         
+class WSTR(NDRUniFixedArray):
+    def getDataLen(self, data):
+        return data.find('\x00\x00\x00')+3
 
+class LPWSTR(NDREmbeddedFullPointer):
+    referent = (
+        ('Data', WSTR),
+    )
+      
+        
+
+    
 
 ################################################################################
 # Tests
@@ -756,10 +798,12 @@ class TestUniConformantArray(NDRTest):
     class theClass(NDR):
         structure = (
             ('Array', PNDRUniConformantArray),
+            ('Array2', PNDRUniConformantArray),
         )
         def __init__(self, data = None,isNDR64 = False):
             NDR.__init__(self, None, isNDR64)
             self['Array']['Data'].item = NDRString
+            self['Array2']['Data'].item = NDRString
             if data is not None:
                 self.fromString(data)
         
@@ -772,6 +816,7 @@ class TestUniConformantArray(NDRTest):
         strstr['Data'] = 'ThisIsYou'.encode('utf-16le')
         array.append(strstr)
         a['Array']['Data']['Data'] = array
+        a['Array2']['Data']['Data'] = array
 
 class TestUniVaryingArray(NDRTest):
     class theClass(NDR):
