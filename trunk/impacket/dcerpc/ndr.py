@@ -795,7 +795,7 @@ class LPWSTR(NDREmbeddedFullPointer):
         ('Data', WSTR),
     )
 
-class LPWSTR2(NDREmbeddedFullPointer):
+class PRPC_UNICODE_STRING(NDREmbeddedFullPointer):
     referent = (
         ('Data', RPC_UNICODE_STRING),
     )
