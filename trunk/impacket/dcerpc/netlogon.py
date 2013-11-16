@@ -16,7 +16,7 @@ import array
 import random
 from struct import *
 from impacket.dcerpc import ndr
-from impacket.dcerpc.ndr import NDR
+from impacket.dcerpc.ndr import NDR, NDRCall
 from impacket.structure import Structure
 from impacket.dcerpc import ndrutils, dcerpc
 from impacket.uuid import uuidtup_to_bin
@@ -368,7 +368,7 @@ class NL_SITE_NAME_ARRAY(NDR):
         if data is not None:
             self.fromString(data)
 
-class PNL_SITE_NAME_ARRAY(ndr.NDREmbeddedFullPointer):
+class PNL_SITE_NAME_ARRAY(ndr.NDRTopLevelPointer):
     referent = (
         ('Data', NL_SITE_NAME_ARRAY),
     )
@@ -415,7 +415,7 @@ class NETLOGONGetDcSiteCoverageW(NDR):
         ('ServerName', ndr.UNIQUE_RPC_UNICODE_STRING),
     )
 
-class NETLOGONGetDcSiteCoverageWResponse(NDR):
+class NETLOGONGetDcSiteCoverageWResponse(NDRCall):
     structure = (
         ('SiteNames',PNL_SITE_NAME_ARRAY),
     )
