@@ -211,10 +211,6 @@ class NDR():
                     e.args += ("When packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__),)
                 raise
 
-#        for fieldName, fieldTypeOrClass in self.commonHdr+self.structure: 
-#            if isinstance(self.fields[fieldName], NDR):
-#               data += self.fields[fieldName].getDataReferent()
-
         self.data = data
 
         return data
@@ -224,11 +220,11 @@ class NDR():
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure: 
             if isinstance(self.fields[fieldName], NDR):
                data += self.fields[fieldName].getDataReferents()
-               data += self.fields[fieldName].getDataReferent()
-        self.data += data
+               data = self.fields[fieldName].getDataReferent(data)
+        self.data = data
         return data
 
-    def getDataReferent(self):
+    def getDataReferent(self, data):
         if hasattr(self,'referent') is False:
             return ''
 
@@ -236,7 +232,6 @@ class NDR():
             if self['ReferentID'] == 0:
                 return ''
 
-        data = ''
         for fieldName, fieldTypeOrClass in self.referent:
             try:
                 pad = self.calculatePad(fieldName, fieldTypeOrClass, data, len(data), packing = True)
@@ -264,24 +259,20 @@ class NDR():
                 data = data[pad:]
             try:
                 self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size])
+                if isinstance(self.fields[fieldName], NDR):
+                    size = len(self.fields[fieldName])
+
+                data = data[size:]
             except Exception,e:
                 e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data, size),)
                 raise
 
-            if isinstance(self.fields[fieldName], NDR):
-                size = len(self.fields[fieldName])
-
-            data = data[size:]
-
-#        for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
-#            if isinstance(self.fields[fieldName], NDR):
-#                data = self.fields[fieldName].fromStringReferent(data)
         return self
 
     def fromStringReferents(self, data):
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             if isinstance(self.fields[fieldName], NDR):
-                data =self.fields[fieldName].fromStringReferents(data)
+                data = self.fields[fieldName].fromStringReferents(data)
                 data = self.fields[fieldName].fromStringReferent(data)
         return data
 
@@ -489,6 +480,60 @@ class NDR():
 
         # struct like specifier
         return calcsize(fieldTypeOrClass)
+
+class NDRCall(NDR):
+    # This represents a group of NDR instances that conforms an NDR Call. 
+    # The only different between a regular NDR instance is a NDR call must 
+    # represent the referents when building the final octet stream
+    def getData(self):
+        data = ''
+        for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
+            try:
+                pad = self.calculatePad(fieldName, fieldTypeOrClass, data, len(data), packing = True)
+                if pad > 0:
+                    data = data + '\xbb'*pad
+
+                data += self.pack(fieldName, fieldTypeOrClass)
+                # Any referent information to pack?
+                if isinstance(self.fields[fieldName], NDR):
+                    data += self.fields[fieldName].getDataReferents()
+            except Exception, e:
+                if self.fields.has_key(fieldName):
+                    e.args += ("When packing field '%s | %s | %r' in %s" % (fieldName, fieldTypeOrClass, self.fields[fieldName], self.__class__),)
+                else:
+                    e.args += ("When packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__),)
+                raise
+
+        self.data = data
+
+        return data
+
+    def fromString(self, data):
+        if self.rawData is None:
+            self.rawData = data
+
+        for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
+            size = self.calcUnPackSize(fieldTypeOrClass, data)
+            pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar = len(self.rawData) - len(data), packing = False)
+            if pad > 0:
+                data = data[pad:]
+            try:
+                self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size])
+                if isinstance(self.fields[fieldName], NDR):
+                    size = len(self.fields[fieldName])
+                    # Any referent information to unpack?
+                    if isinstance(self.fields[fieldName], NDR):
+                        res = self.fields[fieldName].fromStringReferents(data[size:])
+                    size+= len(data[size:]) - len(res)
+
+                data = data[size:]
+            except Exception,e:
+                e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data, size),)
+                raise
+
+        return self
+
+        pass
 
 # NDR Primitives
 
