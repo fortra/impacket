@@ -369,7 +369,7 @@ class NL_SITE_NAME_ARRAY(NDR):
             self.fromString(data)
 
 class PNL_SITE_NAME_ARRAY(ndr.NDRTopLevelPointer):
-    referent = (
+    structure = (
         ('Data', NL_SITE_NAME_ARRAY),
     )
 
