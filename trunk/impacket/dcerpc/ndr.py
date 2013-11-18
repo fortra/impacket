@@ -343,7 +343,7 @@ class NDR():
                 for each in data:
                     answer += each.getDataReferents()
                     # ToDo, still to work out this
-                    #answer = each.getDataReferent(answer)
+                    answer = each.getDataReferent(answer)
 
             self.fields[two[1]] = len(data)
             return answer
@@ -407,7 +407,7 @@ class NDR():
                 for itemn in answer:
                     itemn.fromStringReferents(data)
                     # ToDo, still to work out this
-                    #itemn.fromStringReferent(data)
+                    itemn.fromStringReferent(data)
                     itemn.rawData = data[len(itemn.getDataReferents()):] 
                     data = itemn.rawData
                     answer2.append(itemn)
