@@ -226,11 +226,11 @@ class NDR():
 
     def getDataReferent(self, data):
         if hasattr(self,'referent') is False:
-            return ''
+            return data
 
         if self.fields.has_key('ReferentID'):
             if self['ReferentID'] == 0:
-                return ''
+                return data
 
         for fieldName, fieldTypeOrClass in self.referent:
             try:
@@ -781,6 +781,10 @@ class UNIQUE_RPC_UNICODE_STRING(RPC_UNICODE_STRING, NDRTopLevelPointer):
 #        ('Data',':',NDRString),
 #    ) 
 
+class PNDRUniConformantVaryingArray(NDREmbeddedFullPointer):
+    referent = (
+        ('Data', NDRUniConformantVaryingArray),
+    )
 class PNDRUniConformantArray(NDREmbeddedFullPointer):
     referent = (
         ('Data', NDRUniConformantArray),
