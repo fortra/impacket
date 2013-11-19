@@ -216,7 +216,7 @@ FILE_READ_DATA                   = 0x00000001
 FILE_WRITE_DATA                  = 0x00000002
 FILE_APPEND_DATA                 = 0x00000004
 FILE_EXECUTE                     = 0x00000020
-MAXIMUM_ALLOWED                  = 0200000000
+MAXIMUM_ALLOWED                  = 0x02000000
 GENERIC_ALL                      = 0x10000000
 GENERIC_EXECUTE                  = 0x20000000
 GENERIC_WRITE                    = 0x40000000
@@ -3561,8 +3561,7 @@ class SMB:
            return transResponse['Data'][-transParameters['TotalDataCount']:] # Remove Potential Prefix Padding
         return None
 
-
-    def nt_create_andx(self,tid,filename, smb_packet=None, cmd = None):
+    def nt_create_andx(self,tid,filename, smb_packet=None, cmd = None, shareAccessMode = FILE_SHARE_READ | FILE_SHARE_WRITE, disposition = FILE_OPEN):
         filename = string.replace(filename,'/', '\\')
         if smb_packet == None:
             smb = NewSMBPacket()
@@ -3580,6 +3579,8 @@ class SMB:
             ntCreate['Parameters']['CreateFlags'] = 0x16
             ntCreate['Parameters']['AccessMask'] = 0x2019f
             ntCreate['Parameters']['CreateOptions'] = 0x40
+            ntCreate['Parameters']['ShareAccess'] = shareAccessMode
+            ntCreate['Parameters']['Disposition'] = disposition
             ntCreate['Data']['FileName'] = filename
         else:
             ntCreate = cmd
@@ -3683,16 +3684,15 @@ class SMB:
         finally:
             self.disconnect_tree(tid)
 
-    def retr_file(self, service, filename, callback, mode = SMB_O_OPEN, offset = 0, password = None):
+    def retr_file(self, service, filename, callback, mode = FILE_OPEN, offset = 0, password = None, shareAccessMode = SMB_ACCESS_READ):
         filename = string.replace(filename, '/', '\\')
 
         fid = -1
         tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\' + service, password)
         try:
-            fid, attrib, lastwritetime, datasize, grantedaccess, filetype, devicestate, action, serverfid = self.open_andx(tid, filename, mode, SMB_ACCESS_READ | SMB_SHARE_DENY_WRITE)
+            fid = self.nt_create_andx(tid, filename, shareAccessMode = shareAccessMode)
 
-            if not datasize:
-                datasize = self.query_file_info(tid, fid)
+            datasize = self.query_file_info(tid, fid)
 
             self.__nonraw_retr_file(tid, fid, offset, datasize, callback)
         finally:
@@ -3700,28 +3700,28 @@ class SMB:
                 self.close(tid, fid)
             self.disconnect_tree(tid)
 
-    def stor_file(self, service, filename, callback, mode = SMB_O_CREAT | SMB_O_TRUNC, offset = 0, password = None):
+    def stor_file(self, service, filename, callback, mode = FILE_OVERWRITE_IF, offset = 0, password = None, shareAccessMode = SMB_ACCESS_WRITE):
         filename = string.replace(filename, '/', '\\')
 
         fid = -1
         tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\' + service, password)
         try:
-            fid, attrib, lastwritetime, datasize, grantedaccess, filetype, devicestate, action, serverfid = self.open_andx(tid, filename, mode, SMB_ACCESS_WRITE | SMB_SHARE_DENY_WRITE)
+            fid = self.nt_create_andx(tid, filename, shareAccessMode = shareAccessMode, disposition = mode )
             
-            self.__nonraw_stor_file(tid, fid, offset, datasize, callback)
+            self.__nonraw_stor_file(tid, fid, offset, 0, callback)
         finally:
             if fid >= 0:
                 self.close(tid, fid)
             self.disconnect_tree(tid)
 
-    def stor_file_nonraw(self, service, filename, callback, mode = SMB_O_CREAT | SMB_O_TRUNC, offset = 0, password = None):
+    def stor_file_nonraw(self, service, filename, callback, mode = FILE_OVERWRITE_IF, offset = 0, password = None, shareAccessMode = SMB_ACCESS_WRITE ):
         filename = string.replace(filename, '/', '\\')
 
         fid = -1
         tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\' + service, password)
         try:
-            fid, attrib, lastwritetime, datasize, grantedaccess, filetype, devicestate, action, serverfid = self.open_andx(tid, filename, mode, SMB_ACCESS_WRITE | SMB_SHARE_DENY_WRITE)
-            self.__nonraw_stor_file(tid, fid, offset, datasize, callback)
+            fid = self.nt_create_andx(tid, filename, shareAccessMode = shareAccessMode, disposition = mode)
+            self.__nonraw_stor_file(tid, fid, offset, 0, callback)
         finally:
             if fid >= 0:
                 self.close(tid, fid)
@@ -3739,8 +3739,8 @@ class SMB:
             else:
                 dest_tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\' + dest_service, dest_password)
             
-            dest_fid = self.open_andx(dest_tid, dest_path, write_mode, SMB_ACCESS_WRITE | SMB_SHARE_DENY_WRITE)[0]
-            src_fid, _, _, src_datasize, _, _, _, _, _ = self.open_andx(src_tid, src_path, SMB_O_OPEN, SMB_ACCESS_READ | SMB_SHARE_DENY_WRITE)
+            dest_fid = self.open_andx(dest_tid, dest_path, write_mode, SMB_ACCESS_WRITE)[0]
+            src_fid, _, _, src_datasize, _, _, _, _, _ = self.open_andx(src_tid, src_path, SMB_O_OPEN, SMB_ACCESS_READ)
             if not src_datasize:
                 src_datasize = self.query_file_info(src_tid, src_fid)
 
