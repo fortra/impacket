@@ -1175,7 +1175,7 @@ class SMB3:
 
         return True
 
-    def retrieveFile(self, shareName, path, callback, mode = FILE_OPEN, offset = 0, password = None):
+    def retrieveFile(self, shareName, path, callback, mode = FILE_OPEN, offset = 0, password = None, shareAccessMode = FILE_SHARE_READ):
         # ToDo: Handle situations where share is password protected
         path = string.replace(path,'/', '\\')
         path = ntpath.normpath(path)
@@ -1186,7 +1186,7 @@ class SMB3:
         fileId = None
         from impacket import smb
         try:
-            fileId = self.create(treeId, path, FILE_READ_DATA, FILE_SHARE_READ, FILE_NON_DIRECTORY_FILE, mode, 0 )
+            fileId = self.create(treeId, path, FILE_READ_DATA, shareAccessMode, FILE_NON_DIRECTORY_FILE, mode, 0)
             res = self.queryInfo(treeId, fileId)
             fileInfo = smb.SMBQueryFileStandardInfo(res)
             fileSize = fileInfo['EndOfFile']
@@ -1208,7 +1208,7 @@ class SMB3:
                 self.close(treeId, fileId)
             self.disconnectTree(treeId) 
 
-    def storeFile(self, shareName, path, callback, mode = FILE_OVERWRITE_IF, offset = 0, password = None):
+    def storeFile(self, shareName, path, callback, mode = FILE_OVERWRITE_IF, offset = 0, password = None, shareAccessMode = FILE_SHARE_WRITE):
         # ToDo: Handle situations where share is password protected
         path = string.replace(path,'/', '\\')
         path = ntpath.normpath(path)
@@ -1218,7 +1218,7 @@ class SMB3:
         treeId = self.connectTree(shareName)
         fileId = None
         try:
-            fileId = self.create(treeId, path, FILE_WRITE_DATA, FILE_SHARE_WRITE, FILE_NON_DIRECTORY_FILE, mode, 0 )
+            fileId = self.create(treeId, path, FILE_WRITE_DATA, shareAccessMode, FILE_NON_DIRECTORY_FILE, mode, 0)
             finished = False
             writeOffset = offset
             while not finished:

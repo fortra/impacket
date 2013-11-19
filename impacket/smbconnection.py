@@ -465,7 +465,7 @@ class SMBConnection():
             raise SessionError(e.get_error_code())
 
 
-    def getFile(self, shareName, pathName, callback):
+    def getFile(self, shareName, pathName, callback, shareAccessMode = None):
         """
         downloads a file
 
@@ -477,11 +477,15 @@ class SMBConnection():
 
         """
         try:
-            return self._SMBConnection.retr_file(shareName, pathName, callback)
+	    if shareAccessMode is None:
+		# if share access mode is none, let's the underlying API deals with it
+            	return self._SMBConnection.retr_file(shareName, pathName, callback)
+	    else:
+            	return self._SMBConnection.retr_file(shareName, pathName, callback, shareAccessMode = shareAccessMode)
         except (smb.SessionError, smb3.SessionError), e:
             raise SessionError(e.get_error_code())
 
-    def putFile(self, shareName, pathName, callback):
+    def putFile(self, shareName, pathName, callback, shareAccessMode = None):
         """
         uploads a file
 
@@ -493,7 +497,11 @@ class SMBConnection():
 
         """
         try:
-            return self._SMBConnection.stor_file(shareName, pathName, callback)
+	    if shareAccessMode is None:
+		# if share access mode is none, let's the underlying API deals with it
+            	return self._SMBConnection.stor_file(shareName, pathName, callback)
+	    else: 
+            	return self._SMBConnection.stor_file(shareName, pathName, callback, shareAccessMode)
         except (smb.SessionError, smb3.SessionError), e:
             raise SessionError(e.get_error_code())
 
