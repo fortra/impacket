@@ -70,7 +70,7 @@ class NDR():
     align64        = 0
     debug          = False
 
-    def __init__(self, data = None, isNDR64 = False):
+    def __init__(self, data = None, isNDR64 = False, isNDRCall = False):
         self.__isNDR64 = isNDR64
         self.fields = {}
         self.data = None
@@ -487,6 +487,50 @@ class NDRCall(NDR):
     # This represents a group of NDR instances that conforms an NDR Call. 
     # The only different between a regular NDR instance is a NDR call must 
     # represent the referents when building the final octet stream
+    referent       = ()
+    commonHdr      = ()
+    commonHdr64    = ()
+    structure      = ()
+    structure64    = ()
+    align          = 0
+    align64        = 0
+    debug          = False
+    def __init__(self, data = None, isNDR64 = False, isNDRCall = False):
+        #NDR.__init__(self,data, isNDR64, False) 
+        self.__isNDR64 = isNDR64
+        self.fields = {}
+        self.data = None
+        self.rawData = None
+
+        if isNDR64 is True:
+            if self.commonHdr64 != ():
+                self.commonHdr = self.commonHdr64
+            if self.structure64 != ():
+                self.structure = self.structure64
+            if hasattr(self, 'align64'):
+                self.align = self.align64
+
+        for fieldName, fieldTypeOrClass in self.commonHdr+self.structure+self.referent:
+            if self.isNDR(fieldTypeOrClass):
+               self.fields[fieldName] = fieldTypeOrClass(isNDR64 = self.__isNDR64, isNDRCall = True)
+            elif fieldTypeOrClass == ':':
+               self.fields[fieldName] = ''
+            elif len(fieldTypeOrClass.split('=')) == 2: 
+               try:
+                   self.fields[fieldName] = eval(fieldTypeOrClass.split('=')[1])
+               except:
+                   self.fields[fieldName] = None
+            else:
+               self.fields[fieldName] = 0
+
+        if data is not None:
+            self.fromString(data)
+        else:
+            self.data = None
+
+        return None
+
+
     def getData(self):
         data = ''
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
@@ -681,32 +725,13 @@ class NDRPointerNULL(NDR):
         ('Data', '<Q=0'),
     )
 
-class NDRTopLevelPointer(NDR):
-    align = 4
-    align64 = 8
-    commonHdr = (
-        ('ReferentID','<L=0xff'),
-    )
-    commonHdr64 = (
-        ('ReferentID','<Q=0xff'),
-    )
-
-    structure = (
-        # This is the representation of the Referent
-        ('Data',':'),
-    )
-    def __init__(self, data = None, isNDR64=False):
-        NDR.__init__(self,data, isNDR64=isNDR64)
-        if data is None:
-            self['ReferentID'] = random.randint(1,65535)
-
-class NDRTopLevelReferencePointer(NDR):
+class NDRReferencePointer(NDR):
     structure = (
         # This is the representation of the Referent
         ('Data',':'),
     )
 
-class NDREmbeddedFullPointer(NDR):
+class NDRPointer(NDR):
     commonHdr = (
         ('ReferentID','<L=0xff'),
     )
@@ -718,8 +743,17 @@ class NDREmbeddedFullPointer(NDR):
         # This is the representation of the Referent
         ('Data',':'),
     )
-    def __init__(self, data = None, isNDR64=False):
-        ret = NDR.__init__(self,None, isNDR64=isNDR64)
+    def __init__(self, data = None, isNDR64=False, isNDRCall = False):
+        ret = NDR.__init__(self,None, isNDR64=isNDR64, isNDRCall=isNDRCall)
+        # If we are being called from a NDRCall, it's a TopLevelPointer, 
+        # if not, it's a embeeded pointer.
+        # It is *very* important, for every subclass of NDRPointer
+        # you have to declare the referent in the referent variable
+        # Not in the structure one! 
+        if isNDRCall is True:
+            self.structure = self.referent
+            self.referent = ()
+       
         if data is None:
             self['ReferentID'] = random.randint(1,65535)
         else:
@@ -750,7 +784,7 @@ class RPC_UNICODE_STRING(NDR):
     def getDataLen(self, data):
         return self["ActualCount"]*2 
 
-class UNICODE_STRING(NDREmbeddedFullPointer):
+class UNICODE_STRING(NDRPointer):
     align = 2
     align64 = 2
     commonHdr = (
@@ -769,39 +803,41 @@ class UNICODE_STRING(NDREmbeddedFullPointer):
     )
 
 # Special treatment for UniqueString to avoid nesting ['Data']['Data'] .. for now
-class UNIQUE_RPC_UNICODE_STRING(RPC_UNICODE_STRING, NDRTopLevelPointer):
-    def __init__(self, data = None, isNDR64 = False):
-        self.commonHdr = NDRTopLevelPointer.commonHdr + RPC_UNICODE_STRING.commonHdr
-        self.commonHdr64 = NDRTopLevelPointer.commonHdr64 + RPC_UNICODE_STRING.commonHdr64
-        RPC_UNICODE_STRING.__init__(self,data,isNDR64)
-        NDRTopLevelPointer.__init__(self,data,isNDR64)
+class UNIQUE_RPC_UNICODE_STRING(RPC_UNICODE_STRING, NDRPointer):
+    def __init__(self, data = None, isNDR64 = False, isNDRCall = False):
+        self.commonHdr = NDRPointer.commonHdr + RPC_UNICODE_STRING.commonHdr
+        self.commonHdr64 = NDRPointer.commonHdr64 + RPC_UNICODE_STRING.commonHdr64
+        self.referent = NDRPointer.referent + RPC_UNICODE_STRING.referent
+        RPC_UNICODE_STRING.__init__(self,data,isNDR64, isNDRCall = isNDRCall)
+        NDRPointer.__init__(self,data,isNDR64, isNDRCall = isNDRCall)
 
 #class NDRUniqueString(NDRTopLevelPointer):
 #    structure = (
 #        ('Data',':',NDRString),
 #    ) 
 
-class PNDRUniConformantVaryingArray(NDREmbeddedFullPointer):
+class PNDRUniConformantVaryingArray(NDRPointer):
     referent = (
         ('Data', NDRUniConformantVaryingArray),
     )
-class PNDRUniConformantArray(NDREmbeddedFullPointer):
+
+class PNDRUniConformantArray(NDRPointer):
     referent = (
         ('Data', NDRUniConformantArray),
     )
-    def __init__(self, data = None, isNDR64 = False):
-        NDREmbeddedFullPointer.__init__(self,data,isNDR64)
+    def __init__(self, data = None, isNDR64 = False, isNDRCall = False):
+        NDRPointer.__init__(self,data,isNDR64,isNDRCall)
         
 class WSTR(NDRUniFixedArray):
     def getDataLen(self, data):
         return data.find('\x00\x00\x00')+3
 
-class LPWSTR(NDREmbeddedFullPointer):
+class LPWSTR(NDRPointer):
     referent = (
         ('Data', WSTR),
     )
 
-class PRPC_UNICODE_STRING(NDREmbeddedFullPointer):
+class PRPC_UNICODE_STRING(NDRPointer):
     referent = (
         ('Data', RPC_UNICODE_STRING),
     )
@@ -853,13 +889,13 @@ class TestUniFixedArray(NDRTest):
         a['Array']['Data'] = '12345678'
 
 class TestUniConformantArray(NDRTest):
-    class theClass(NDR):
+    class theClass(NDRCall):
         structure = (
             ('Array', PNDRUniConformantArray),
             ('Array2', PNDRUniConformantArray),
         )
-        def __init__(self, data = None,isNDR64 = False):
-            NDR.__init__(self, None, isNDR64)
+        def __init__(self, data = None,isNDR64 = False, isNDRCall = False):
+            NDRCall.__init__(self, None, isNDR64, isNDRCall)
             self['Array']['Data'].item = RPC_UNICODE_STRING
             self['Array2']['Data'].item = RPC_UNICODE_STRING
             if data is not None:
@@ -917,32 +953,13 @@ class TestPointerNULL(NDRTest):
     def populate(self, a):
         pass
 
-class TestTopLevelPointer(NDRTest):
-    class theClass(NDR):
-        structure = (
-            ('Pointer', NDRTopLevelPointer),
-        )
-
-    def populate(self, a):
-        a["Pointer"]["Data"] = 'hola loco como te va'
-
-class TestEmbeddedFullPointer(NDRTest):
-    class theClass(NDR):
-        structure = (
-            ('Pointer',NDREmbeddedFullPointer),
-            ('AAA', '<L=0xffffffff'),
-        )
-
-    def populate(self, a):
-        a["Pointer"]["Data"] = 'hola loco como te va'
-
 class TestServerAuthenticate(NDRTest):
     class NETLOGON_CREDENTIAL(NDR):
         structure = (
             ('data','8s=""'),
         )
 
-    class theClass(NDR):
+    class theClass(NDRCall):
         class NETLOGON_CREDENTIAL(NDR):
             structure = (
                 ('data','8s=""'),
@@ -955,6 +972,7 @@ class TestServerAuthenticate(NDRTest):
             ('ClientCredential',NETLOGON_CREDENTIAL),
             ('NegotiateFlags',NDRLONG),
         )
+
     def populate(self, a):
         a['PrimaryName']['Data'] = 'XXX1DC001\x00'.encode('utf-16le')
         a['AccountName']['Data'] = 'TEST-MACHINE$\x00'.encode('utf-16le')
@@ -972,6 +990,4 @@ if __name__ == '__main__':
     TestVaryingString().run()
     TestConformantVaryingString().run()
     TestPointerNULL().run()
-    TestTopLevelPointer().run()
-    TestEmbeddedFullPointer().run()
     TestServerAuthenticate().run()
