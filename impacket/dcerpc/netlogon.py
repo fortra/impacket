@@ -350,12 +350,12 @@ class NL_GENERIC_RPC_DATA(NDR):
             self.fromString(data)
 
 
-class PNL_GENERIC_RPC_DATA(ndr.NDREmbeddedFullPointer):
+class PNL_GENERIC_RPC_DATA(ndr.NDRPointer):
     referent = (
         ('Data', NL_GENERIC_RPC_DATA),
     )
-    def __init__(self, data = None, isNDR64 = False):
-        ndr.NDREmbeddedFullPointer.__init__(self,data,isNDR64)
+    def __init__(self, data = None, isNDR64 = False, isNDRCall = False):
+        ndr.NDRPointer.__init__(self,data,isNDR64,isNDRCall)
 
 class NL_SITE_NAME_ARRAY(NDR):
     structure = (
@@ -368,8 +368,8 @@ class NL_SITE_NAME_ARRAY(NDR):
         if data is not None:
             self.fromString(data)
 
-class PNL_SITE_NAME_ARRAY(ndr.NDRTopLevelPointer):
-    structure = (
+class PNL_SITE_NAME_ARRAY(ndr.NDRPointer):
+    referent = (
         ('Data', NL_SITE_NAME_ARRAY),
     )
 
