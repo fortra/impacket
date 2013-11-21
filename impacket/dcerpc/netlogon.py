@@ -373,43 +373,43 @@ class PNL_SITE_NAME_ARRAY(ndr.NDRPointer):
         ('Data', NL_SITE_NAME_ARRAY),
     )
 
-class NETLOGONGetDCName(NDR):
+class NETLOGONGetDCName(NDRCall):
     opnum = 11
     structure = (
         ('ServerName', ndr.RPC_UNICODE_STRING),
         ('DomainName', ndr.UNIQUE_RPC_UNICODE_STRING),
     )
 
-class NETLOGONGetDCNameResponse(NDR):
+class NETLOGONGetDCNameResponse(NDRCall):
     structure = (
         ('Buffer', ndr.UNIQUE_RPC_UNICODE_STRING),
     )
 
-class NETLOGONGetAnyDCName(NDR):
+class NETLOGONGetAnyDCName(NDRCall):
     opnum = 13
     structure = (
         ('ServerName', ndr.UNIQUE_RPC_UNICODE_STRING),
         ('DomainName', ndr.UNIQUE_RPC_UNICODE_STRING),
     )
 
-class NETLOGONGetAnyDCNameResponse(NDR):
+class NETLOGONGetAnyDCNameResponse(NDRCall):
     structure = (
         ('Buffer', ndr.UNIQUE_RPC_UNICODE_STRING),
     )
 
-class NETLOGONGetSiteName(NDR):
+class NETLOGONGetSiteName(NDRCall):
     opnum = 28
     structure = (
         ('ComputerName', ndr.UNIQUE_RPC_UNICODE_STRING),
     )
 
-class NETLOGONGetSiteNameResponse(NDR):
+class NETLOGONGetSiteNameResponse(NDRCall):
     structure = (
         ('SiteName', ndr.UNIQUE_RPC_UNICODE_STRING),
     )
 
 
-class NETLOGONGetDcSiteCoverageW(NDR):
+class NETLOGONGetDcSiteCoverageW(NDRCall):
     opnum = 38
     structure = (
         ('ServerName', ndr.UNIQUE_RPC_UNICODE_STRING),
@@ -420,7 +420,7 @@ class NETLOGONGetDcSiteCoverageWResponse(NDRCall):
         ('SiteNames',PNL_SITE_NAME_ARRAY),
     )
 
-class NETLOGONServerAuthenticate3(NDR):
+class NETLOGONServerAuthenticate3(NDRCall):
     opnum = 26
     structure = (
         ('PrimaryName', ndr.UNIQUE_RPC_UNICODE_STRING),
@@ -431,14 +431,14 @@ class NETLOGONServerAuthenticate3(NDR):
         ('NegotiateFlags',ndr.NDRLONG),
     )
 
-class NETLOGONServerAuthenticate3Response(NDR):
+class NETLOGONServerAuthenticate3Response(NDRCall):
     structure = (
         ('ServerCredential',NETLOGON_CREDENTIAL),
         ('NegotiateFlags',ndr.NDRLONG),
         ('AccountRid',ndr.NDRLONG),
     )
 
-class NETLOGONServerReqChallenge(NDR):
+class NETLOGONServerReqChallenge(NDRCall):
     opnum = 4
     alingment = 4
     structure = (
@@ -447,12 +447,12 @@ class NETLOGONServerReqChallenge(NDR):
         ('ClientChallenge', NETLOGON_CREDENTIAL),
     )
 
-class NETLOGONServerReqChallengeResponse(NDR):
+class NETLOGONServerReqChallengeResponse(NDRCall):
     structure = (
         ('ServerChallenge', NETLOGON_CREDENTIAL),
     )
 
-class NETLOGONServerGetTrustInfo(NDR):
+class NETLOGONServerGetTrustInfo(NDRCall):
     opnum = 46
     structure = (
         ('TrustedDcName',ndr.UNIQUE_RPC_UNICODE_STRING),
@@ -462,7 +462,7 @@ class NETLOGONServerGetTrustInfo(NDR):
         ('Authenticator', NETLOGON_AUTHENTICATOR),
     )
 
-class NETLOGONServerGetTrustInfoResponse(NDR):
+class NETLOGONServerGetTrustInfoResponse(NDRCall):
     structure = (
         ('ReturnAuthenticator', NETLOGON_AUTHENTICATOR),
         ('EncryptedNewOwfPassword', ENCRYPTED_NT_OWF_PASSWORD),
@@ -470,7 +470,7 @@ class NETLOGONServerGetTrustInfoResponse(NDR):
         ('TrustInfo', PNL_GENERIC_RPC_DATA),
     )
 
-class NETLOGONServerPasswordGet(NDR):
+class NETLOGONServerPasswordGet(NDRCall):
     opnum = 31
     structure = (
         ('PrimaryName', ndr.UNIQUE_RPC_UNICODE_STRING),
@@ -480,13 +480,13 @@ class NETLOGONServerPasswordGet(NDR):
         ('Authenticator', NETLOGON_AUTHENTICATOR),
     )
 
-class NETLOGONServerPasswordGetResponse(NDR):
+class NETLOGONServerPasswordGetResponse(NDRCall):
     structure = (
         ('ReturnAuthenticator', NETLOGON_AUTHENTICATOR),
         ('EncryptedNtOwfPassword', ENCRYPTED_NT_OWF_PASSWORD),
     )
 
-class NETLOGONLogonGetDomainInfo(NDR):
+class NETLOGONLogonGetDomainInfo(NDRCall):
     opnum = 29
     structure = (
         ('ServerName', ndr.RPC_UNICODE_STRING),
@@ -496,12 +496,12 @@ class NETLOGONLogonGetDomainInfo(NDR):
         ('Level',ndr.NDRLONG),
     )
 
-class NETLOGONLogonGetDomainInfoResponse(NDR):
+class NETLOGONLogonGetDomainInfoResponse(NDRCall):
     structure = (
         ('ReturnAuthenticator', NETLOGON_AUTHENTICATOR),
     )
 
-class NETLOGONLogonGetCapabilities(NDR):
+class NETLOGONLogonGetCapabilities(NDRCall):
     opnum = 21
     structure = (
         ('ServerName', ndr.RPC_UNICODE_STRING),
@@ -511,7 +511,7 @@ class NETLOGONLogonGetCapabilities(NDR):
         ('Level',ndr.NDRLONG),
     )
 
-class NETLOGONLogonGetCapabilitiesResponse(NDR):
+class NETLOGONLogonGetCapabilitiesResponse(NDRCall):
     structure = (
         ('ReturnAuthenticator', NETLOGON_AUTHENTICATOR),
         ('SwitchIs',ndr.NDRLONG),
@@ -566,7 +566,7 @@ class DCERPCNetLogon:
         :return: returns an NETLOGONServerReqChallengeResponse structure with the server chalenge. Call dump() method to see its contents. On error it raises an exception
         """
         reqChallenge = NETLOGONServerReqChallenge()
-        reqChallenge['PrimaryName']['Data'] = primaryName+'\x00'.encode('utf-16le')
+        reqChallenge['PrimaryName']['Data']['Data'] = primaryName+'\x00'.encode('utf-16le')
         reqChallenge['ComputerName']['Data'] = computerName+'\x00'.encode('utf-16le')
         reqChallenge['ClientChallenge']['data'] =  clientChallenge
         packet = self.doRequest(reqChallenge, checkReturn = 1)
@@ -587,7 +587,7 @@ class DCERPCNetLogon:
         :return: returns an NETLOGONServerAuthenticate3Response structure including server credentials, account rid and updated negotiate flags. Call dump() method to see its contents. On error it raises an exception
         """
         serverAuthenticate3 = NETLOGONServerAuthenticate3()
-        serverAuthenticate3['PrimaryName']['Data'] = primaryName+'\x00'.encode('utf-16le')
+        serverAuthenticate3['PrimaryName']['Data']['Data'] = primaryName+'\x00'.encode('utf-16le')
         serverAuthenticate3['AccountName']['Data'] = accountName+'\x00'.encode('utf-16le')
         serverAuthenticate3['SecureChannelType']['Data'] = secureChannelType
         serverAuthenticate3['ComputerName']['Data'] = computerName+'\x00'.encode('utf-16le')
@@ -607,7 +607,7 @@ class DCERPCNetLogon:
         :return: 
         """
         getDCSite = NETLOGONGetDcSiteCoverageW()
-        getDCSite['ServerName']['Data'] = serverName+'\x00'.encode('utf-16le')
+        getDCSite['ServerName']['Data']['Data'] = serverName+'\x00'.encode('utf-16le')
 
         packet = self.doRequest(getDCSite, checkReturn = 1)
         ans = NETLOGONGetDcSiteCoverageWResponse(packet)
@@ -623,7 +623,7 @@ class DCERPCNetLogon:
 
         """
         getSiteName = NETLOGONGetSiteName()
-        getSiteName['ComputerName']['Data'] = computerName+'\x00'.encode('utf-16le')
+        getSiteName['ComputerName']['Data']['Data'] = computerName+'\x00'.encode('utf-16le')
 
         packet = self.doRequest(getSiteName, checkReturn = 1)
         ans = NETLOGONGetSiteNameResponse(packet)
@@ -640,8 +640,8 @@ class DCERPCNetLogon:
 
         """
         getAnyDCName = NETLOGONGetAnyDCName()
-        getAnyDCName['ServerName']['Data'] = serverName+'\x00'.encode('utf-16le')
-        getAnyDCName['DomainName']['Data'] = domainName+'\x00'.encode('utf-16le')
+        getAnyDCName['ServerName']['Data']['Data'] = serverName+'\x00'.encode('utf-16le')
+        getAnyDCName['DomainName']['Data']['Data'] = domainName+'\x00'.encode('utf-16le')
 
         packet = self.doRequest(getAnyDCName, checkReturn = 1)
         ans = NETLOGONGetAnyDCNameResponse(packet)
@@ -659,7 +659,7 @@ class DCERPCNetLogon:
         """
         getDCName = NETLOGONGetDCName()
         getDCName['ServerName']['Data'] = serverName+'\x00'.encode('utf-16le')
-        getDCName['DomainName']['Data'] = domainName+'\x00'.encode('utf-16le')
+        getDCName['DomainName']['Data']['Data'] = domainName+'\x00'.encode('utf-16le')
 
         packet = self.doRequest(getDCName, checkReturn = 1)
         ans = NETLOGONGetDCNameResponse(packet)
@@ -679,7 +679,7 @@ class DCERPCNetLogon:
         """
 
         getTrustInfo = NETLOGONServerGetTrustInfo()
-        getTrustInfo['TrustedDcName']['Data'] = trustedDcName+'\x00'.encode('utf-16le')
+        getTrustInfo['TrustedDcName']['Data']['Data'] = trustedDcName+'\x00'.encode('utf-16le')
         getTrustInfo['AccountName']['Data'] = accountName+'\x00'.encode('utf-16le')
         getTrustInfo['SecureChannelType']['Data'] = secureChannelType
         getTrustInfo['ComputerName']['Data'] = computerName+'\x00'.encode('utf-16le')
@@ -702,7 +702,7 @@ class DCERPCNetLogon:
         :return: returns a NETLOGONServerPasswordResponse structure. Call dump() method to see its contents. For understanding the meaning of each field, check [MS-NRPC] Section 3.5.4.7.6
         """
         passwordGet = NETLOGONServerPasswordGet()
-        passwordGet['PrimaryName']['Data'] = primaryName+'\x00'.encode('utf-16le')
+        passwordGet['PrimaryName']['Data']['Data'] = primaryName+'\x00'.encode('utf-16le')
         passwordGet['AccountName']['Data'] = accountName+'\x00'.encode('utf-16le')
         passwordGet['AccountType'] = accountType
         passwordGet['ComputerName']['Data'] = computerName+'\x00'.encode('utf-16le')
@@ -725,7 +725,7 @@ class DCERPCNetLogon:
         ### NOT FINISHED YET
         getDomainInfo = NETLOGONLogonGetDomainInfo()
         getDomainInfo['ServerName']['Data'] = serverName+'\x00'.encode('utf-16le')
-        getDomainInfo['ComputerName']['Data'] = computerName+'\x00'.encode('utf-16le')
+        getDomainInfo['ComputerName']['Data']['Data'] = computerName+'\x00'.encode('utf-16le')
         getDomainInfo['Authenticator'] = authenticator
         getDomainInfo['ReturnAuthenticator'] = NETLOGON_AUTHENTICATOR()
 
@@ -745,7 +745,7 @@ class DCERPCNetLogon:
         """
         getCapabilities = NETLOGONLogonGetCapabilities()
         getCapabilities['ServerName']['Data'] = serverName+'\x00'.encode('utf-16le')
-        getCapabilities['ComputerName']['Data'] = computerName+'\x00'.encode('utf-16le')
+        getCapabilities['ComputerName']['Data']['Data'] = computerName+'\x00'.encode('utf-16le')
         getCapabilities['Authenticator'] = authenticator
         getCapabilities['ReturnAuthenticator'] = NETLOGON_AUTHENTICATOR()
         getCapabilities['Level']['Data']  = 1
