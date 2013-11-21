@@ -555,7 +555,7 @@ class DCERPCNetLogon:
                 raise NETLOGONSessionError(error_code)  
         return answer
 
-    def NetrServerReqChallenge(self, primaryName='', computerName='X'.encode('utf-16le'), clientChallenge='12345678'):
+    def NetrServerReqChallenge(self, primaryName='', computerName='X', clientChallenge='12345678'):
         """
         receives a client challenge and returns a server challenge
 
@@ -566,14 +566,14 @@ class DCERPCNetLogon:
         :return: returns an NETLOGONServerReqChallengeResponse structure with the server chalenge. Call dump() method to see its contents. On error it raises an exception
         """
         reqChallenge = NETLOGONServerReqChallenge()
-        reqChallenge['PrimaryName']['Data']['Data'] = primaryName+'\x00'.encode('utf-16le')
-        reqChallenge['ComputerName']['Data'] = computerName+'\x00'.encode('utf-16le')
+        reqChallenge['PrimaryName']['Data']['Data'] = primaryName+'\x00'
+        reqChallenge['ComputerName']['Data'] = computerName+'\x00'
         reqChallenge['ClientChallenge']['data'] =  clientChallenge
         packet = self.doRequest(reqChallenge, checkReturn = 1)
         ans = NETLOGONServerReqChallengeResponse(packet)
         return ans
 
-    def NetrServerAuthenticate3(self, primaryName, accountName, secureChannelType, computerName='X'.encode('utf-16le'), clientCredential='', negotiateFlags=''):
+    def NetrServerAuthenticate3(self, primaryName, accountName, secureChannelType, computerName='X', clientCredential='', negotiateFlags=''):
         """
         receives a client challenge and returns a server challenge
 
@@ -587,10 +587,10 @@ class DCERPCNetLogon:
         :return: returns an NETLOGONServerAuthenticate3Response structure including server credentials, account rid and updated negotiate flags. Call dump() method to see its contents. On error it raises an exception
         """
         serverAuthenticate3 = NETLOGONServerAuthenticate3()
-        serverAuthenticate3['PrimaryName']['Data']['Data'] = primaryName+'\x00'.encode('utf-16le')
-        serverAuthenticate3['AccountName']['Data'] = accountName+'\x00'.encode('utf-16le')
+        serverAuthenticate3['PrimaryName']['Data']['Data'] = primaryName+'\x00'
+        serverAuthenticate3['AccountName']['Data'] = accountName+'\x00'
         serverAuthenticate3['SecureChannelType']['Data'] = secureChannelType
-        serverAuthenticate3['ComputerName']['Data'] = computerName+'\x00'.encode('utf-16le')
+        serverAuthenticate3['ComputerName']['Data'] = computerName+'\x00'
         serverAuthenticate3['ClientCredential']['data'] = clientCredential
         serverAuthenticate3['NegotiateFlags']['Data'] = negotiateFlags
 
@@ -607,7 +607,7 @@ class DCERPCNetLogon:
         :return: 
         """
         getDCSite = NETLOGONGetDcSiteCoverageW()
-        getDCSite['ServerName']['Data']['Data'] = serverName+'\x00'.encode('utf-16le')
+        getDCSite['ServerName']['Data']['Data'] = serverName+'\x00'
 
         packet = self.doRequest(getDCSite, checkReturn = 1)
         ans = NETLOGONGetDcSiteCoverageWResponse(packet)
@@ -623,7 +623,7 @@ class DCERPCNetLogon:
 
         """
         getSiteName = NETLOGONGetSiteName()
-        getSiteName['ComputerName']['Data']['Data'] = computerName+'\x00'.encode('utf-16le')
+        getSiteName['ComputerName']['Data']['Data'] = computerName+'\x00'
 
         packet = self.doRequest(getSiteName, checkReturn = 1)
         ans = NETLOGONGetSiteNameResponse(packet)
@@ -640,8 +640,8 @@ class DCERPCNetLogon:
 
         """
         getAnyDCName = NETLOGONGetAnyDCName()
-        getAnyDCName['ServerName']['Data']['Data'] = serverName+'\x00'.encode('utf-16le')
-        getAnyDCName['DomainName']['Data']['Data'] = domainName+'\x00'.encode('utf-16le')
+        getAnyDCName['ServerName']['Data']['Data'] = serverName+'\x00'
+        getAnyDCName['DomainName']['Data']['Data'] = domainName+'\x00'
 
         packet = self.doRequest(getAnyDCName, checkReturn = 1)
         ans = NETLOGONGetAnyDCNameResponse(packet)
@@ -658,14 +658,14 @@ class DCERPCNetLogon:
 
         """
         getDCName = NETLOGONGetDCName()
-        getDCName['ServerName']['Data'] = serverName+'\x00'.encode('utf-16le')
-        getDCName['DomainName']['Data']['Data'] = domainName+'\x00'.encode('utf-16le')
+        getDCName['ServerName']['Data'] = serverName+'\x00'
+        getDCName['DomainName']['Data']['Data'] = domainName+'\x00'
 
         packet = self.doRequest(getDCName, checkReturn = 1)
         ans = NETLOGONGetDCNameResponse(packet)
         return ans
 
-    def NetrServerGetTrustInfo(self, trustedDcName, accountName, secureChannelType, computerName='X'.encode('utf-16le'), authenticator=None):
+    def NetrServerGetTrustInfo(self, trustedDcName, accountName, secureChannelType, computerName='X', authenticator=None):
         """
         returns an information block from a specified server. The information includes encrypted current and previous passwords for a particular account and additional trust data. The account name requested MUST be the name used when the secure channel was created, unless the method is called on a PDC by a domain controller, in which case it can be any valid account name
 
@@ -679,17 +679,17 @@ class DCERPCNetLogon:
         """
 
         getTrustInfo = NETLOGONServerGetTrustInfo()
-        getTrustInfo['TrustedDcName']['Data']['Data'] = trustedDcName+'\x00'.encode('utf-16le')
-        getTrustInfo['AccountName']['Data'] = accountName+'\x00'.encode('utf-16le')
+        getTrustInfo['TrustedDcName']['Data']['Data'] = trustedDcName+'\x00'
+        getTrustInfo['AccountName']['Data'] = accountName+'\x00'
         getTrustInfo['SecureChannelType']['Data'] = secureChannelType
-        getTrustInfo['ComputerName']['Data'] = computerName+'\x00'.encode('utf-16le')
+        getTrustInfo['ComputerName']['Data'] = computerName+'\x00'
         getTrustInfo['Authenticator'] = authenticator
 
         packet = self.doRequest(getTrustInfo, checkReturn = 1)
         ans = NETLOGONServerGetTrustInfoResponse(packet)
         return ans
 
-    def NetrServerPasswordGet(self, primaryName, accountName, accountType, computerName='X'.encode('utf-16le'), authenticator=None):
+    def NetrServerPasswordGet(self, primaryName, accountName, accountType, computerName='X', authenticator=None):
         """
         allows a BDC to get a machine account password from the DC with the PDC role in the domain
 
@@ -702,17 +702,17 @@ class DCERPCNetLogon:
         :return: returns a NETLOGONServerPasswordResponse structure. Call dump() method to see its contents. For understanding the meaning of each field, check [MS-NRPC] Section 3.5.4.7.6
         """
         passwordGet = NETLOGONServerPasswordGet()
-        passwordGet['PrimaryName']['Data']['Data'] = primaryName+'\x00'.encode('utf-16le')
-        passwordGet['AccountName']['Data'] = accountName+'\x00'.encode('utf-16le')
+        passwordGet['PrimaryName']['Data']['Data'] = primaryName+'\x00'
+        passwordGet['AccountName']['Data'] = accountName+'\x00'
         passwordGet['AccountType'] = accountType
-        passwordGet['ComputerName']['Data'] = computerName+'\x00'.encode('utf-16le')
+        passwordGet['ComputerName']['Data'] = computerName+'\x00'
         passwordGet['Authenticator'] = authenticator
 
         packet = self.doRequest(passwordGet, checkReturn = 1)
         ans = NETLOGONServerPasswordGetResponse(packet)
         return ans
 
-    def NetrLogonGetDomainInfo(self, serverName, computerName='X'.encode('utf-16le'), authenticator=None):
+    def NetrLogonGetDomainInfo(self, serverName, computerName='X', authenticator=None):
         """
         returns information that describes the current domain to which the specified client belongs
 
@@ -724,8 +724,8 @@ class DCERPCNetLogon:
         """
         ### NOT FINISHED YET
         getDomainInfo = NETLOGONLogonGetDomainInfo()
-        getDomainInfo['ServerName']['Data'] = serverName+'\x00'.encode('utf-16le')
-        getDomainInfo['ComputerName']['Data']['Data'] = computerName+'\x00'.encode('utf-16le')
+        getDomainInfo['ServerName']['Data'] = serverName+'\x00'
+        getDomainInfo['ComputerName']['Data']['Data'] = computerName+'\x00'
         getDomainInfo['Authenticator'] = authenticator
         getDomainInfo['ReturnAuthenticator'] = NETLOGON_AUTHENTICATOR()
 
@@ -733,7 +733,7 @@ class DCERPCNetLogon:
         ans = NETLOGONLogonGetDomainInfoResponse(packet)
         return ans
 
-    def NetrLogonGetCapabilities(self, serverName, computerName='X'.encode('utf-16le'), authenticator = None):
+    def NetrLogonGetCapabilities(self, serverName, computerName='X', authenticator = None):
         """
         used by clients to confirm the server capabilities after a secure channel has been established ( only NETLOGON_INFO_1 level supported)
 
@@ -744,8 +744,8 @@ class DCERPCNetLogon:
         :return: returns a NETLOGONLogonGetCapabilitiesResponse structure. Call dump() method to see its contents. 
         """
         getCapabilities = NETLOGONLogonGetCapabilities()
-        getCapabilities['ServerName']['Data'] = serverName+'\x00'.encode('utf-16le')
-        getCapabilities['ComputerName']['Data']['Data'] = computerName+'\x00'.encode('utf-16le')
+        getCapabilities['ServerName']['Data'] = serverName+'\x00'
+        getCapabilities['ComputerName']['Data']['Data'] = computerName+'\x00'
         getCapabilities['Authenticator'] = authenticator
         getCapabilities['ReturnAuthenticator'] = NETLOGON_AUTHENTICATOR()
         getCapabilities['Level']['Data']  = 1
