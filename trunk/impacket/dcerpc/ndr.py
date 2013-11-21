@@ -495,6 +495,7 @@ class NDRCall(NDR):
     align          = 0
     align64        = 0
     debug          = False
+    consistencyCheck = True
     def __init__(self, data = None, isNDR64 = False, isNDRCall = False):
         #NDR.__init__(self,data, isNDR64, False) 
         self.__isNDR64 = isNDR64
@@ -528,6 +529,7 @@ class NDRCall(NDR):
         else:
             self.data = None
 
+        #self.dump()
         return None
 
 
@@ -577,9 +579,15 @@ class NDRCall(NDR):
                 e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data, size),)
                 raise
 
-        return self
+        if self.consistencyCheck is True:
+            if self.getData() != self.rawData[:-4]:
+                print "Pack/Unpack doesnt match!"
+                print "UNPACKED"
+                hexdump(self.rawData)
+                print "PACKED"
+                hexdump(self.getData())
 
-        pass
+        return self
 
 # NDR Primitives
 
@@ -759,6 +767,13 @@ class NDRPointer(NDR):
         else:
            self.fromString(data)
 
+    def getData(self):
+        # If we have a ReferentID == 0, means there's no data
+        if self.fields['ReferentID'] == 0:
+            return '\x00'*4
+        else:
+            return NDR.getData(self)
+
 # Embedded Reference Pointers not implemented for now
 
 ################################################################################
@@ -803,14 +818,18 @@ class UNICODE_STRING(NDRPointer):
     )
 
 # Special treatment for UniqueString to avoid nesting ['Data']['Data'] .. for now
-class UNIQUE_RPC_UNICODE_STRING(RPC_UNICODE_STRING, NDRPointer):
-    def __init__(self, data = None, isNDR64 = False, isNDRCall = False):
-        self.commonHdr = NDRPointer.commonHdr + RPC_UNICODE_STRING.commonHdr
-        self.commonHdr64 = NDRPointer.commonHdr64 + RPC_UNICODE_STRING.commonHdr64
-        self.referent = NDRPointer.referent + RPC_UNICODE_STRING.referent
-        RPC_UNICODE_STRING.__init__(self,data,isNDR64, isNDRCall = isNDRCall)
-        NDRPointer.__init__(self,data,isNDR64, isNDRCall = isNDRCall)
+#class UNIQUE_RPC_UNICODE_STRING(RPC_UNICODE_STRING, NDRPointer):
+#    def __init__(self, data = None, isNDR64 = False, isNDRCall = False):
+#        self.commonHdr = NDRPointer.commonHdr + RPC_UNICODE_STRING.commonHdr
+#        self.commonHdr64 = NDRPointer.commonHdr64 + RPC_UNICODE_STRING.commonHdr64
+#        self.referent = NDRPointer.referent + RPC_UNICODE_STRING.referent
+#        RPC_UNICODE_STRING.__init__(self,data,isNDR64, isNDRCall = isNDRCall)
+#        NDRPointer.__init__(self,data,isNDR64, isNDRCall = isNDRCall)
 
+class UNIQUE_RPC_UNICODE_STRING(NDRPointer):
+    referent = (
+       ('Data', RPC_UNICODE_STRING ),
+    )
 #class NDRUniqueString(NDRTopLevelPointer):
 #    structure = (
 #        ('Data',':',NDRString),
