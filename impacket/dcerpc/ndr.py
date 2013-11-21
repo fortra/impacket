@@ -71,7 +71,7 @@ class NDR():
     debug          = False
 
     def __init__(self, data = None, isNDR64 = False, isNDRCall = False):
-        self.__isNDR64 = isNDR64
+        self._isNDR64 = isNDR64
         self.fields = {}
         self.data = None
         self.rawData = None
@@ -86,7 +86,7 @@ class NDR():
 
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure+self.referent:
             if self.isNDR(fieldTypeOrClass):
-               self.fields[fieldName] = fieldTypeOrClass(isNDR64 = self.__isNDR64)
+               self.fields[fieldName] = fieldTypeOrClass(isNDR64 = self._isNDR64)
             elif fieldTypeOrClass == ':':
                self.fields[fieldName] = ''
             elif len(fieldTypeOrClass.split('=')) == 2: 
@@ -168,6 +168,7 @@ class NDR():
         if isinstance(self.fields[fieldName], NDR):
             alignment = self.fields[fieldName].align
         else:
+            print "fieldType ", fieldType
             if fieldType == ':':
                 return 0
             # Special case for arrays, fieldType is the array item type
@@ -498,7 +499,7 @@ class NDRCall(NDR):
     consistencyCheck = True
     def __init__(self, data = None, isNDR64 = False, isNDRCall = False):
         #NDR.__init__(self,data, isNDR64, False) 
-        self.__isNDR64 = isNDR64
+        self._isNDR64 = isNDR64
         self.fields = {}
         self.data = None
         self.rawData = None
@@ -513,7 +514,7 @@ class NDRCall(NDR):
 
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure+self.referent:
             if self.isNDR(fieldTypeOrClass):
-               self.fields[fieldName] = fieldTypeOrClass(isNDR64 = self.__isNDR64, isNDRCall = True)
+               self.fields[fieldName] = fieldTypeOrClass(isNDR64 = self._isNDR64, isNDRCall = True)
             elif fieldTypeOrClass == ':':
                self.fields[fieldName] = ''
             elif len(fieldTypeOrClass.split('=')) == 2: 
@@ -770,9 +771,20 @@ class NDRPointer(NDR):
     def getData(self):
         # If we have a ReferentID == 0, means there's no data
         if self.fields['ReferentID'] == 0:
-            return '\x00'*4
-        else:
-            return NDR.getData(self)
+            if len(self.referent) > 0:
+                # Embeeded pointer.
+                if self._isNDR64 is True:
+                    self['Data'] = '\x00'*8
+                else:
+                    self['Data'] = '\x00'*4
+            else:
+                if self._isNDR64 is True:
+                    return '\x00'*8
+                else:
+                    return '\x00'*4
+
+        return NDR.getData(self)
+
 
 # Embedded Reference Pointers not implemented for now
 
@@ -993,7 +1005,7 @@ class TestServerAuthenticate(NDRTest):
         )
 
     def populate(self, a):
-        a['PrimaryName']['Data'] = 'XXX1DC001\x00'.encode('utf-16le')
+        a['PrimaryName']['Data']['Data'] = 'XXX1DC001\x00'.encode('utf-16le')
         a['AccountName']['Data'] = 'TEST-MACHINE$\x00'.encode('utf-16le')
         a['SecureChannelType']['Data'] = 0xffff
         a['ComputerName']['Data'] = 'TEST-MACHINE\x00'.encode('utf-16le')
