@@ -580,7 +580,7 @@ class NDRCall(NDR):
                 raise
 
         if self.consistencyCheck is True:
-            if self.getData() != self.rawData[:-4]:
+            if self.getData() != self.rawData:
                 print "Pack/Unpack doesnt match!"
                 print "UNPACKED"
                 hexdump(self.rawData)
@@ -771,11 +771,11 @@ class NDRPointer(NDR):
         # If we have a ReferentID == 0, means there's no data
         if self.fields['ReferentID'] == 0:
             if len(self.referent) > 0:
-                # Embeeded pointer.
-                if self._isNDR64 is True:
-                    self['Data'] = '\x00'*8
-                else:
-                    self['Data'] = '\x00'*4
+                #if self._isNDR64 is True:
+                #    self['Data'] = '\x00'*8
+                #else:
+                #    self['Data'] = '\x00'*4
+                self['Data'] = ''
             else:
                 if self._isNDR64 is True:
                     return '\x00'*8
@@ -783,6 +783,15 @@ class NDRPointer(NDR):
                     return '\x00'*4
 
         return NDR.getData(self)
+
+    def fromString(self,data):
+        # Do we have a Referent ID == 0?
+        if unpack('<L', data[:4])[0] == 0:
+            self['ReferentID'] = 0
+            self.fields['Data'] = ''
+            return self
+        else:
+            return NDR.fromString(self,data)
 
 
 # Embedded Reference Pointers not implemented for now
@@ -810,7 +819,20 @@ class RPC_UNICODE_STRING(NDR):
     def getDataLen(self, data):
         return self["ActualCount"]*2 
 
-class UNICODE_STRING(NDRPointer):
+    def __setitem__(self, key, value):
+        if key == 'Data':
+            self.fields[key] = value.encode('utf-16le')
+            self.data = None        # force recompute
+        else:
+            return NDR.__setitem__(self, key, value)
+
+    def __getitem__(self, key):
+        if key == 'Data':
+            return self.fields[key].decode('utf-16le')
+        else:
+            return NDR.__getitem__(self,key)
+
+class UNICODE_STRING(NDR):
     align = 2
     align64 = 2
     commonHdr = (
@@ -828,23 +850,10 @@ class UNICODE_STRING(NDRPointer):
         ('pString',RPC_UNICODE_STRING),
     )
 
-# Special treatment for UniqueString to avoid nesting ['Data']['Data'] .. for now
-#class UNIQUE_RPC_UNICODE_STRING(RPC_UNICODE_STRING, NDRPointer):
-#    def __init__(self, data = None, isNDR64 = False, isNDRCall = False):
-#        self.commonHdr = NDRPointer.commonHdr + RPC_UNICODE_STRING.commonHdr
-#        self.commonHdr64 = NDRPointer.commonHdr64 + RPC_UNICODE_STRING.commonHdr64
-#        self.referent = NDRPointer.referent + RPC_UNICODE_STRING.referent
-#        RPC_UNICODE_STRING.__init__(self,data,isNDR64, isNDRCall = isNDRCall)
-#        NDRPointer.__init__(self,data,isNDR64, isNDRCall = isNDRCall)
-
 class UNIQUE_RPC_UNICODE_STRING(NDRPointer):
     referent = (
        ('Data', RPC_UNICODE_STRING ),
     )
-#class NDRUniqueString(NDRTopLevelPointer):
-#    structure = (
-#        ('Data',':',NDRString),
-#    ) 
 
 class PNDRUniConformantVaryingArray(NDRPointer):
     referent = (
@@ -934,10 +943,10 @@ class TestUniConformantArray(NDRTest):
     def populate(self, a):
         array = []
         strstr = RPC_UNICODE_STRING()
-        strstr['Data'] = 'ThisIsMe'.encode('utf-16le')
+        strstr['Data'] = 'ThisIsMe'
         array.append(strstr)
         strstr = RPC_UNICODE_STRING()
-        strstr['Data'] = 'ThisIsYou'.encode('utf-16le')
+        strstr['Data'] = 'ThisIsYou'
         array.append(strstr)
         a['Array']['Data']['Data'] = array
         a['Array2']['Data']['Data'] = array
@@ -1004,10 +1013,10 @@ class TestServerAuthenticate(NDRTest):
         )
 
     def populate(self, a):
-        a['PrimaryName']['Data']['Data'] = 'XXX1DC001\x00'.encode('utf-16le')
-        a['AccountName']['Data'] = 'TEST-MACHINE$\x00'.encode('utf-16le')
+        a['PrimaryName']['Data']['Data'] = 'XXX1DC001\x00'
+        a['AccountName']['Data'] = 'TEST-MACHINE$\x00'
         a['SecureChannelType']['Data'] = 0xffff
-        a['ComputerName']['Data'] = 'TEST-MACHINE\x00'.encode('utf-16le')
+        a['ComputerName']['Data'] = 'TEST-MACHINE\x00'
         a['ClientCredential']['data']  = '12345678'
         a['NegotiateFlags']['Data'] = 0xabcdabcd
 
