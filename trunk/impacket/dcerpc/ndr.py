@@ -168,7 +168,6 @@ class NDR():
         if isinstance(self.fields[fieldName], NDR):
             alignment = self.fields[fieldName].align
         else:
-            print "fieldType ", fieldType
             if fieldType == ':':
                 return 0
             # Special case for arrays, fieldType is the array item type
