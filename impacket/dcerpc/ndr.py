@@ -174,6 +174,10 @@ class NDR():
             if len(fieldType.split('*')) == 2:
                 if self.isNDR(self.item):
                     fieldType = ':'
+                    # ToDo: Careful here.. I don't know this is right.. 
+                    # But, if we're inside an array, data should be aligned already, by means
+                    # of the previous fields
+                    return 0
                 else:
                     fieldType = self.item
             if packing:
@@ -202,6 +206,7 @@ class NDR():
                 pad = self.calculatePad(fieldName, fieldTypeOrClass, data, len(data), packing = True)
                 if pad > 0:
                     data = data + '\xbb'*pad
+                    #data = data + '\x00'*pad
 
                 data += self.pack(fieldName, fieldTypeOrClass)
             except Exception, e:
@@ -236,7 +241,8 @@ class NDR():
             try:
                 pad = self.calculatePad(fieldName, fieldTypeOrClass, data, len(data), packing = True)
                 if pad > 0:
-                    data = data + '\xbb'*pad
+                    data = data + '\xcc'*pad
+                    #data = data + '\x00'*pad
 
                 data += self.pack(fieldName, fieldTypeOrClass)
             except Exception, e:
@@ -495,7 +501,7 @@ class NDRCall(NDR):
     align          = 0
     align64        = 0
     debug          = False
-    consistencyCheck = True
+    consistencyCheck = False
     def __init__(self, data = None, isNDR64 = False, isNDRCall = False):
         #NDR.__init__(self,data, isNDR64, False) 
         self._isNDR64 = isNDR64
@@ -539,7 +545,8 @@ class NDRCall(NDR):
             try:
                 pad = self.calculatePad(fieldName, fieldTypeOrClass, data, len(data), packing = True)
                 if pad > 0:
-                    data = data + '\xbb'*pad
+                    data = data + '\xaa'*pad
+                    #data = data + '\x00'*pad
 
                 data += self.pack(fieldName, fieldTypeOrClass)
                 # Any referent information to pack?
@@ -580,12 +587,16 @@ class NDRCall(NDR):
                 raise
 
         if self.consistencyCheck is True:
-            if self.getData() != self.rawData:
-                print "Pack/Unpack doesnt match!"
-                print "UNPACKED"
-                hexdump(self.rawData)
-                print "PACKED"
-                hexdump(self.getData())
+            res = self.getData()
+            # Padding PDU to 4
+            res = res + '\x00' * (4 - (len(res) & 3) & 3)
+            # Stripping the return code, if it's there
+            if res != self.rawData[:-4]:
+                    print "Pack/Unpack doesnt match!"
+                    print "UNPACKED"
+                    hexdump(self.rawData)
+                    print "PACKED"
+                    hexdump(res)
 
         return self
 
