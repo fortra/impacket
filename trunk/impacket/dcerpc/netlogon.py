@@ -352,7 +352,7 @@ class NL_GENERIC_RPC_DATA(NDR):
 
 class PNL_GENERIC_RPC_DATA(ndr.NDRPointer):
     referent = (
-        ('Data', NL_GENERIC_RPC_DATA),
+        ('Pointer', NL_GENERIC_RPC_DATA),
     )
     def __init__(self, data = None, isNDR64 = False, isNDRCall = False):
         ndr.NDRPointer.__init__(self,data,isNDR64,isNDRCall)
@@ -370,7 +370,7 @@ class NL_SITE_NAME_ARRAY(NDR):
 
 class PNL_SITE_NAME_ARRAY(ndr.NDRPointer):
     referent = (
-        ('Data', NL_SITE_NAME_ARRAY),
+        ('Pointer', NL_SITE_NAME_ARRAY),
     )
 
 class NETLOGONGetDCName(NDRCall):
@@ -566,7 +566,7 @@ class DCERPCNetLogon:
         :return: returns an NETLOGONServerReqChallengeResponse structure with the server chalenge. Call dump() method to see its contents. On error it raises an exception
         """
         reqChallenge = NETLOGONServerReqChallenge()
-        reqChallenge['PrimaryName']['Data']['Data'] = primaryName+'\x00'
+        reqChallenge['PrimaryName']['Pointer']['Data'] = primaryName+'\x00'
         reqChallenge['ComputerName']['Data'] = computerName+'\x00'
         reqChallenge['ClientChallenge']['data'] =  clientChallenge
         packet = self.doRequest(reqChallenge, checkReturn = 1)
@@ -587,7 +587,7 @@ class DCERPCNetLogon:
         :return: returns an NETLOGONServerAuthenticate3Response structure including server credentials, account rid and updated negotiate flags. Call dump() method to see its contents. On error it raises an exception
         """
         serverAuthenticate3 = NETLOGONServerAuthenticate3()
-        serverAuthenticate3['PrimaryName']['Data']['Data'] = primaryName+'\x00'
+        serverAuthenticate3['PrimaryName']['Pointer']['Data'] = primaryName+'\x00'
         serverAuthenticate3['AccountName']['Data'] = accountName+'\x00'
         serverAuthenticate3['SecureChannelType']['Data'] = secureChannelType
         serverAuthenticate3['ComputerName']['Data'] = computerName+'\x00'
@@ -607,7 +607,7 @@ class DCERPCNetLogon:
         :return: 
         """
         getDCSite = NETLOGONGetDcSiteCoverageW()
-        getDCSite['ServerName']['Data']['Data'] = serverName+'\x00'
+        getDCSite['ServerName']['Pointer']['Data'] = serverName+'\x00'
 
         packet = self.doRequest(getDCSite, checkReturn = 1)
         ans = NETLOGONGetDcSiteCoverageWResponse(packet)
@@ -623,7 +623,7 @@ class DCERPCNetLogon:
 
         """
         getSiteName = NETLOGONGetSiteName()
-        getSiteName['ComputerName']['Data']['Data'] = computerName+'\x00'
+        getSiteName['ComputerName']['Pointer']['Data'] = computerName+'\x00'
 
         packet = self.doRequest(getSiteName, checkReturn = 1)
         ans = NETLOGONGetSiteNameResponse(packet)
@@ -640,8 +640,8 @@ class DCERPCNetLogon:
 
         """
         getAnyDCName = NETLOGONGetAnyDCName()
-        getAnyDCName['ServerName']['Data']['Data'] = serverName+'\x00'
-        getAnyDCName['DomainName']['Data']['Data'] = domainName+'\x00'
+        getAnyDCName['ServerName']['Pointer']['Data'] = serverName+'\x00'
+        getAnyDCName['DomainName']['Pointer']['Data'] = domainName+'\x00'
 
         packet = self.doRequest(getAnyDCName, checkReturn = 1)
         ans = NETLOGONGetAnyDCNameResponse(packet)
@@ -659,7 +659,7 @@ class DCERPCNetLogon:
         """
         getDCName = NETLOGONGetDCName()
         getDCName['ServerName']['Data'] = serverName+'\x00'
-        getDCName['DomainName']['Data']['Data'] = domainName+'\x00'
+        getDCName['DomainName']['Pointer']['Data'] = domainName+'\x00'
 
         packet = self.doRequest(getDCName, checkReturn = 1)
         ans = NETLOGONGetDCNameResponse(packet)
@@ -679,7 +679,7 @@ class DCERPCNetLogon:
         """
 
         getTrustInfo = NETLOGONServerGetTrustInfo()
-        getTrustInfo['TrustedDcName']['Data']['Data'] = trustedDcName+'\x00'
+        getTrustInfo['TrustedDcName']['Pointer']['Data'] = trustedDcName+'\x00'
         getTrustInfo['AccountName']['Data'] = accountName+'\x00'
         getTrustInfo['SecureChannelType']['Data'] = secureChannelType
         getTrustInfo['ComputerName']['Data'] = computerName+'\x00'
@@ -702,7 +702,7 @@ class DCERPCNetLogon:
         :return: returns a NETLOGONServerPasswordResponse structure. Call dump() method to see its contents. For understanding the meaning of each field, check [MS-NRPC] Section 3.5.4.7.6
         """
         passwordGet = NETLOGONServerPasswordGet()
-        passwordGet['PrimaryName']['Data']['Data'] = primaryName+'\x00'
+        passwordGet['PrimaryName']['Pointer']['Data'] = primaryName+'\x00'
         passwordGet['AccountName']['Data'] = accountName+'\x00'
         passwordGet['AccountType'] = accountType
         passwordGet['ComputerName']['Data'] = computerName+'\x00'
@@ -725,7 +725,7 @@ class DCERPCNetLogon:
         ### NOT FINISHED YET
         getDomainInfo = NETLOGONLogonGetDomainInfo()
         getDomainInfo['ServerName']['Data'] = serverName+'\x00'
-        getDomainInfo['ComputerName']['Data']['Data'] = computerName+'\x00'
+        getDomainInfo['ComputerName']['Pointer']['Data'] = computerName+'\x00'
         getDomainInfo['Authenticator'] = authenticator
         getDomainInfo['ReturnAuthenticator'] = NETLOGON_AUTHENTICATOR()
 
@@ -745,7 +745,7 @@ class DCERPCNetLogon:
         """
         getCapabilities = NETLOGONLogonGetCapabilities()
         getCapabilities['ServerName']['Data'] = serverName+'\x00'
-        getCapabilities['ComputerName']['Data']['Data'] = computerName+'\x00'
+        getCapabilities['ComputerName']['Pointer']['Data'] = computerName+'\x00'
         getCapabilities['Authenticator'] = authenticator
         getCapabilities['ReturnAuthenticator'] = NETLOGON_AUTHENTICATOR()
         getCapabilities['Level']['Data']  = 1

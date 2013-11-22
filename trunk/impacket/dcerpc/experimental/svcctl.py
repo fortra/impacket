@@ -20,7 +20,7 @@ from impacket import dcerpc
 from impacket.dcerpc import ndrutils, dcerpc
 from impacket.uuid import uuidtup_to_bin
 from impacket.dcerpc import ndr
-from impacket.dcerpc.ndr import NDRCall, NDR, NDRPointer, UNIQUE_RPC_UNICODE_STRING, NDRLONG, WSTR, LPWSTR, RPC_UNICODE_STRING, PRPC_UNICODE_STRING, NDRPointerNULL, NDRUniConformantArray
+from impacket.dcerpc.ndr import NDRCall, NDR, NDRPointer, UNIQUE_RPC_UNICODE_STRING, NDRLONG, WSTR, LPWSTR, RPC_UNICODE_STRING, PRPC_UNICODE_STRING, NDRPointerNULL, NDRUniConformantArray, PNDRUniConformantArray
 from impacket.dcerpc.dtypes import *
 
 MSRPC_UUID_SVCCTL = uuidtup_to_bin(('367ABB81-9844-35F1-AD32-98F038001003', '2.0'))
@@ -171,7 +171,7 @@ class SC_RPC_HANDLE(NDR):
         ('Data','20s=""'),
     )
 
-LPSC_RPC_HANDLE = SC_RPC_HANDLE
+SC_RPC_HANDLE
 
 class SERVICE_STATUS(NDR):
     structure =  (
@@ -202,11 +202,9 @@ class SC_RPC_LOCK(NDR):
         ('Data','20s=""'),
     )
 
-LPSC_RPC_LOCK = SC_RPC_LOCK
-
 class LPSERVICE_STATUS(NDRPointer):
     referent = (
-        ('Data',SERVICE_STATUS),
+        ('Pointer',SERVICE_STATUS),
     )
 
 SECURITY_INFORMATION = NDRLONG
@@ -215,10 +213,9 @@ BOUNDED_DWORD_256K = DWORD
 
 class LPBOUNDED_DWORD_256K(NDRPointer):
     referent = (
-        ('Data', BOUNDED_DWORD_256K),
+        ('Pointer', BOUNDED_DWORD_256K),
     )
 
-# ToDo NOSE!
 SVCCTL_HANDLEW = PRPC_UNICODE_STRING
 
 class ENUM_SERVICE_STATUSW(NDR):
@@ -230,21 +227,44 @@ class ENUM_SERVICE_STATUSW(NDR):
 
 class LPQUERY_SERVICE_CONFIGW(NDRPointer):
     referent = (
-        ('Data', QUERY_SERVICE_CONFIGW),
+        ('Pointer', QUERY_SERVICE_CONFIGW),
     )
 
 BOUNDED_DWORD_8K = DWORD
+BOUNDED_DWORD_4K = DWORD
+
+class STRING_PTRSW(NDR):
+    structure = (
+        ('Data',NDRUniConformantArray),
+    )
+    def __init__(self, data = None, isNDR64 = False, isNDRCall = False):
+        NDR.__init__(self,None,isNDR64,isNDRCall)
+        self['Data'].item = PRPC_UNICODE_STRING
+        if data is not None:
+            self.fromString(data)
+
+class UNIQUE_STRING_PTRSW(NDRPointer):
+    referent = (
+        ('Pointer', STRING_PTRSW),
+    )
+
+class QUERY_SERVICE_LOCK_STATUSW(NDR):
+    structure = (
+        ('fIsLocked',DWORD),
+        ('lpLockOwner',LPWSTR),
+        ('dwLockDuration',DWORD),
+    )
 
 # RPC Calls
 class RCloseServiceHandleCall(NDRCall):
     opnum = 0
     structure = (
-        ('hSCObject',LPSC_RPC_HANDLE),
+        ('hSCObject',SC_RPC_HANDLE),
     )
 
 class RCloseServiceHandleResponse(NDRCall):
     structure = (
-        ('hSCObject',LPSC_RPC_HANDLE),
+        ('hSCObject',SC_RPC_HANDLE),
     )
 
 class RControlServiceCall(NDRCall):
@@ -262,7 +282,7 @@ class RControlServiceResponse(NDRCall):
 class RDeleteServiceCall(NDRCall):
     opnum = 2
     structure = (
-        ('hService',LPSC_RPC_HANDLE),
+        ('hService',SC_RPC_HANDLE),
     )
 
 class RDeleteServiceResponse(NDRCall):
@@ -277,7 +297,7 @@ class RLockServiceDatabaseCall(NDRCall):
 
 class RLockServiceDatabaseResponse(NDRCall):
     structure = (
-        ('lpLock',LPSC_RPC_LOCK),
+        ('lpLock',SC_RPC_LOCK),
     )
 
 class RQueryServiceObjectSecurityCall(NDRCall):
@@ -291,7 +311,7 @@ class RQueryServiceObjectSecurityCall(NDRCall):
 class RQueryServiceObjectSecurityResponse(NDRCall):
     structure = (
         ('lpSecurityDescriptor',LPBYTE),
-        ('pcbBytesNeeded',LPBOUNDED_DWORD_256K),
+        ('pcbBytesNeeded',BOUNDED_DWORD_256K),
     )
 
 class RSetServiceObjectSecurityCall(NDRCall):
@@ -332,12 +352,12 @@ class RSetServiceStatusResponse(NDRCall):
 class RUnlockServiceDatabaseCall(NDRCall):
     opnum = 8
     structure = (
-        ('Lock',LPSC_RPC_LOCK),
+        ('Lock',SC_RPC_LOCK),
     )
 
 class RUnlockServiceDatabaseResponse(NDRCall):
     structure = (
-        ('Lock',LPSC_RPC_LOCK),
+        ('Lock',SC_RPC_LOCK),
     )
 
 class RNotifyBootConfigStatusCall(NDRCall):
@@ -397,7 +417,7 @@ class RCreateServiceWCall(NDRCall):
 class RCreateServiceWResponse(NDRCall):
     structure = (
         ('lpdwTagId',UNIQUE_RPC_UNICODE_STRING),
-        ('lpServiceHandle',LPSC_RPC_HANDLE)
+        ('lpServiceHandle',SC_RPC_HANDLE)
     )
 
 class REnumDependentServicesWCall(NDRCall):
@@ -422,7 +442,7 @@ class REnumServicesStatusWCall(NDRCall):
         ('dwServiceType',DWORD),
         ('dwServiceState',DWORD),
         ('cbBufSize',DWORD),
-        ('lpResumeIndex',LPBOUNDED_DWORD_256K),
+        ('lpResumeIndex',BOUNDED_DWORD_256K),
     )
 
 class REnumServicesStatusWResponse(NDRCall):
@@ -442,7 +462,7 @@ class ROpenSCManagerWCall(NDRCall):
 
 class ROpenSCManagerWResponse(NDRCall):
     structure = (
-        ('lpScHandle',LPSC_RPC_HANDLE),
+        ('lpScHandle',SC_RPC_HANDLE),
     )
 
 class ROpenServiceWCall(NDRCall):
@@ -455,7 +475,7 @@ class ROpenServiceWCall(NDRCall):
 
 class ROpenServiceWResponse(NDRCall):
     structure = (
-        ('lpServiceHandle',LPSC_RPC_HANDLE),
+        ('lpServiceHandle',SC_RPC_HANDLE),
     )
 
 class RQueryServiceConfigWCall(NDRCall):
@@ -470,6 +490,34 @@ class RQueryServiceConfigWResponse(NDRCall):
         ('lpServiceConfig',QUERY_SERVICE_CONFIGW),
         ('pcbBytesNeeded',BOUNDED_DWORD_8K),
     )
+
+class RQueryServiceLockStatusWCall(NDRCall):
+    opnum = 18
+    structure = (
+        ('hSCManager',SC_RPC_HANDLE),
+        ('cbBufSize',DWORD),
+    )
+
+class RQueryServiceLockStatusWResponse(NDRCall):
+    structure = (
+        ('lpLockStatus',QUERY_SERVICE_LOCK_STATUSW),
+        ('pcbBytesNeeded',BOUNDED_DWORD_4K),
+    )
+
+class RStartServiceWCall(NDRCall):
+    opnum = 19
+    structure = (
+        ('hService',SC_RPC_HANDLE),
+        ('argc',DWORD),
+        ('argv',UNIQUE_STRING_PTRSW),
+    )
+
+class RStartServiceWResponse(NDRCall):
+    structure = (
+        ('lpLockStatus',QUERY_SERVICE_LOCK_STATUSW),
+        ('pcbBytesNeeded',BOUNDED_DWORD_4K),
+    )
+
 
 
 class DCERPCSvcCtl:
@@ -558,7 +606,7 @@ class DCERPCSvcCtl:
 
     def RNotifyBootConfigStatus(self, lpMachineName, BootAcceptable ):
         notifyBootConfigStatus = RNotifyBootConfigStatusCall()
-        notifyBootConfigStatus['lpMachineName']['Data']['Data'] = lpMachineName
+        notifyBootConfigStatus['lpMachineName']['Pointer']['Data'] = lpMachineName
         notifyBootConfigStatus['BootAcceptable']['Data'] = BootAcceptable
         ans = self.doRequest(notifyBootConfigStatus)
         resp = RNotifyBootConfigStatusResponse(ans)
@@ -573,32 +621,33 @@ class DCERPCSvcCtl:
         if lpBinaryPathName == '':
             changeServiceConfig['lpBinaryPathName'] = NDRPointerNULL()
         else:
-            changeServiceConfig['lpBinaryPathName']['Data']['Data'] = lpBinaryPathName
+            changeServiceConfig['lpBinaryPathName']['Pointer']['Data'] = lpBinaryPathName
         if lpLoadOrderGroup == '':
             changeServiceConfig['lpLoadOrderGroup'] = NDRPointerNULL()
         else:
-            changeServiceConfig['lpLoadOrderGroup']['Data']['Data'] = lpLoadOrderGroup
+            changeServiceConfig['lpLoadOrderGroup']['Pointer']['Data'] = lpLoadOrderGroup
         if lpdwTagId == '':
             changeServiceConfig['lpdwTagId'] = NDRPointerNULL()
         else:
-            changeServiceConfig['lpdwTagId']['Data']['Data'] = lpdwTagId
+            changeServiceConfig['lpdwTagId']['Pointer']['Data'] = lpdwTagId
         if lpDependencies == '':
             changeServiceConfig['lpDependencies'] = NDRPointerNULL()
         else:
-            changeServiceConfig['lpDependencies']['Data']['Data'] = lpDependencies
+            changeServiceConfig['lpDependencies']['Pointer']['Data'] = lpDependencies
+        changeServiceConfig['dwDependSize']['Data'] = dwDependSize
         if lpServiceStartName == '':
             changeServiceConfig['lpServiceStartName'] = NDRPointerNULL()
         else:
-            changeServiceConfig['lpServiceStartName']['Data']['Data'] = lpServiceStartName
+            changeServiceConfig['lpServiceStartName']['Pointer']['Data'] = lpServiceStartName
         if lpPassword == '':
             changeServiceConfig['lpPassword'] = NDRPointerNULL()
         else:
-            changeServiceConfig['lpPassword']['Data']['Data'] = lpPassword
+            changeServiceConfig['lpPassword']['Pointer']['Data'] = lpPassword
         changeServiceConfig['dwPwSize']['Data'] = dwPwSize
         if lpDisplayName == '':
             changeServiceConfig['lpDisplayName'] = NDRPointerNULL()
         else:
-            changeServiceConfig['lpDisplayName']['Data']['Data'] = lpDisplayName
+            changeServiceConfig['lpDisplayName']['Pointer']['Data'] = lpDisplayName
         ans = self.doRequest(changeServiceConfig)
         resp = RChangeServiceConfigWResponse(ans)
         return resp
@@ -607,7 +656,7 @@ class DCERPCSvcCtl:
         createService = RCreateServiceWCall()
         createService['hSCManager']['Data'] = hSCManager
         createService['lpServiceName']['Data'] = lpServiceName
-        createService['lpDisplayName']['Data']['Data'] = lpDisplayName
+        createService['lpDisplayName']['Pointer']['Data'] = lpDisplayName
         createService['dwDesiredAccess']['Data'] = dwDesiredAccess
         createService['dwServiceType']['Data'] = dwServiceType
         createService['dwStartType']['Data'] = dwStartType
@@ -616,24 +665,24 @@ class DCERPCSvcCtl:
         if lpLoadOrderGroup == '':
             createService['lpLoadOrderGroup'] = NDRPointerNULL() 
         else:
-            createService['lpLoadOrderGroup']['Data']['Data'] = lpLoadOrderGroup
+            createService['lpLoadOrderGroup']['Pointer']['Data'] = lpLoadOrderGroup
         if lpdwTagId == '':
             createService['lpdwTagId'] = NDRPointerNULL()
         else: 
-            createService['lpdwTagId']['Data']['Data'] = lpdwTagId
+            createService['lpdwTagId']['Pointer']['Data'] = lpdwTagId
         if lpDependencies == '':
             createService['lpDependencies'] = NDRPointerNULL()
         else:
-            createService['lpDependencies']['Data']['Data'] = lpDependencies
+            createService['lpDependencies']['Pointer']['Data'] = lpDependencies
         createService['dwDependSize']['Data'] = dwDependSize
         if lpServiceStartName == '':
             createService['lpServiceStartName'] = NDRPointerNULL()
         else:
-            createService['lpServiceStartName']['Data']['Data'] = lpServiceStartName
+            createService['lpServiceStartName']['Pointer']['Data'] = lpServiceStartName
         if lpPassword == '':
             createService['lpPassword'] = NDRPointerNULL()
         else:
-            createService['lpPassword']['Data']['Data'] = lpPassword
+            createService['lpPassword']['Pointer']['Data'] = lpPassword
         createService['dwPwSize']['Data'] = dwPwSize
         ans = self.doRequest(createService)
         resp = RCreateServiceWResponse(ans)
@@ -664,11 +713,11 @@ class DCERPCSvcCtl:
 
     def ROpenSCManagerW(self, lpMachineName, lpDatabaseName, dwDesiredAccess):
         openSCManager = ROpenSCManagerWCall()
-        openSCManager['lpMachineName']['Data']['Data'] = lpMachineName
+        openSCManager['lpMachineName']['Pointer']['Data'] = lpMachineName
         if lpDatabaseName == '':
             openSCManager['lpDatabaseName'] = NDRPointerNULL()
         else:
-            openSCManager['lpDatabaseName']['Data']['Data'] = lpDatabaseName
+            openSCManager['lpDatabaseName']['Pointer']['Data'] = lpDatabaseName
         openSCManager['dwDesiredAccess']['Data'] = dwDesiredAccess
         ans = self.doRequest(openSCManager)
         resp = ROpenSCManagerWResponse(ans)
@@ -689,5 +738,30 @@ class DCERPCSvcCtl:
         queryService['cbBufSize']['Data'] = cbBufSize
         ans = self.doRequest(queryService, checkReturn = 0)
         resp = RQueryServiceConfigWResponse(ans)
+        return resp
+
+    def RQueryServiceLockStatusW(self, hSCManager, cbBufSize ):
+        queryServiceLock = RQueryServiceLockStatusWCall()
+        queryServiceLock['hSCManager']['Data'] = hSCManager
+        queryServiceLock['cbBufSize']['Data'] = cbBufSize
+        ans = self.doRequest(queryServiceLock, checkReturn = 0)
+        resp = RQueryServiceLockStatusWResponse(ans)
+        return resp
+
+    def RStartServiceW(self, hService, argc, argv ):
+        startService = RStartServiceWCall()
+        startService['hService']['Data'] = hService
+        startService['argc']['Data'] = argc
+        if argc == 0:
+            startService['argv']['Data'] = NDRPointerNULL()
+        else:
+            items = []
+            for item in argv:
+                string = startService['argv']['Pointer']['Data'].item()
+                string['Pointer']['Data'] = item
+                items.append(string)
+            startService['argv']['Pointer']['Data']['Data'] = items
+        ans = self.doRequest(startService)
+        resp = RStartServiceWResponse(ans)
         return resp
 
