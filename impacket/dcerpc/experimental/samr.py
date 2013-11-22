@@ -348,11 +348,11 @@ class GROUP_MEMBERSHIP(NDR):
 
 class PGROUP_MEMBERSHIP(ndr.NDRPointer):
     referent = (
-        ('Data', ndr.NDRUniConformantArray),
+        ('Pointer', ndr.NDRUniConformantArray),
     )
     def __init__(self, data = None, isNDR64 = False):
         ndr.NDRPointer.__init__(self, None, isNDR64)
-        self['Data'].item = GROUP_MEMBERSHIP
+        self['Pointer'].item = GROUP_MEMBERSHIP
         if data is not None:
             self.fromString(data)
 
@@ -364,7 +364,7 @@ class SAMPR_GET_GROUPS_BUFFER(NDR):
 
 class PSAMPR_GET_GROUPS_BUFFER(ndr.NDRPointer):
     referent = (
-        ('Data', SAMPR_GET_GROUPS_BUFFER),
+        ('Pointer', SAMPR_GET_GROUPS_BUFFER),
     )
 
 class SAMRGetGroupsForUser(NDRCall):
@@ -380,7 +380,7 @@ class SAMRGetGroupsForUserResponse(NDRCall):
 
 class PRPC_SHORT_BLOB(ndr.NDRPointer):
     referent = (
-        ('Data', ENCRYPTED_NT_OWF_PASSWORD),
+        ('Pointer', ENCRYPTED_NT_OWF_PASSWORD),
     )   
 
 class SAMPR_SR_SECURITY_DESCRIPTOR(NDR):
@@ -435,7 +435,7 @@ class SAMPR_USER_ALL_INFORMATION(NDR):
 class PSAMPR_USER_INFO_BUFFER(ndr.NDRPointer):
     referent = (
         ('SwitchIs', ndr.NDRLONG),
-        ('Data',SAMPR_USER_ALL_INFORMATION),
+        ('Pointer',SAMPR_USER_ALL_INFORMATION),
     )
 class SamrQueryInformationUser(NDRCall):
     structure = (
