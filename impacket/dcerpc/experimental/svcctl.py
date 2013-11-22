@@ -573,33 +573,32 @@ class DCERPCSvcCtl:
         if lpBinaryPathName == '':
             changeServiceConfig['lpBinaryPathName'] = NDRPointerNULL()
         else:
-            changeServiceConfig['lpBinaryPathName']['Data'] = lpBinaryPathName
+            changeServiceConfig['lpBinaryPathName']['Data']['Data'] = lpBinaryPathName
         if lpLoadOrderGroup == '':
             changeServiceConfig['lpLoadOrderGroup'] = NDRPointerNULL()
         else:
-            changeServiceConfig['lpLoadOrderGroup']['Data'] = lpLoadOrderGroup
-
+            changeServiceConfig['lpLoadOrderGroup']['Data']['Data'] = lpLoadOrderGroup
         if lpdwTagId == '':
             changeServiceConfig['lpdwTagId'] = NDRPointerNULL()
         else:
-            changeServiceConfig['lpdwTagId']['Data'] = lpdwTagId
+            changeServiceConfig['lpdwTagId']['Data']['Data'] = lpdwTagId
         if lpDependencies == '':
             changeServiceConfig['lpDependencies'] = NDRPointerNULL()
         else:
-            changeServiceConfig['lpDependencies']['Data'] = lpDependencies
+            changeServiceConfig['lpDependencies']['Data']['Data'] = lpDependencies
         if lpServiceStartName == '':
             changeServiceConfig['lpServiceStartName'] = NDRPointerNULL()
         else:
-            changeServiceConfig['lpServiceStartName']['Data'] = lpServiceStartName
+            changeServiceConfig['lpServiceStartName']['Data']['Data'] = lpServiceStartName
         if lpPassword == '':
             changeServiceConfig['lpPassword'] = NDRPointerNULL()
         else:
-            changeServiceConfig['lpPassword']['Data'] = lpPassword
+            changeServiceConfig['lpPassword']['Data']['Data'] = lpPassword
         changeServiceConfig['dwPwSize']['Data'] = dwPwSize
         if lpDisplayName == '':
             changeServiceConfig['lpDisplayName'] = NDRPointerNULL()
         else:
-            changeServiceConfig['lpDisplayName']['Data'] = lpDisplayName
+            changeServiceConfig['lpDisplayName']['Data']['Data'] = lpDisplayName
         ans = self.doRequest(changeServiceConfig)
         resp = RChangeServiceConfigWResponse(ans)
         return resp
