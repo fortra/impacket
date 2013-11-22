@@ -738,16 +738,16 @@ class NDRPointerNULL(NDR):
     align = 4
     align64 = 8
     structure = (
-        ('Data', '<L=0'),
+        ('Pointer', '<L=0'),
     )
     structure64 = (
-        ('Data', '<Q=0'),
+        ('Pointer', '<Q=0'),
     )
 
 class NDRReferencePointer(NDR):
     structure = (
         # This is the representation of the Referent
-        ('Data',':'),
+        ('Pointer',':'),
     )
 
 class NDRPointer(NDR):
@@ -760,7 +760,7 @@ class NDRPointer(NDR):
 
     referent = (
         # This is the representation of the Referent
-        ('Data',':'),
+        ('Pointer',':'),
     )
     def __init__(self, data = None, isNDR64=False, isNDRCall = False):
         ret = NDR.__init__(self,None, isNDR64=isNDR64, isNDRCall=isNDRCall)
@@ -786,7 +786,7 @@ class NDRPointer(NDR):
                 #    self['Data'] = '\x00'*8
                 #else:
                 #    self['Data'] = '\x00'*4
-                self['Data'] = ''
+                self['Pointer'] = ''
             else:
                 if self._isNDR64 is True:
                     return '\x00'*8
@@ -799,7 +799,7 @@ class NDRPointer(NDR):
         # Do we have a Referent ID == 0?
         if unpack('<L', data[:4])[0] == 0:
             self['ReferentID'] = 0
-            self.fields['Data'] = ''
+            self.fields['Pointer'] = ''
             return self
         else:
             return NDR.fromString(self,data)
@@ -863,17 +863,17 @@ class UNICODE_STRING(NDR):
 
 class UNIQUE_RPC_UNICODE_STRING(NDRPointer):
     referent = (
-       ('Data', RPC_UNICODE_STRING ),
+       ('Pointer', RPC_UNICODE_STRING ),
     )
 
 class PNDRUniConformantVaryingArray(NDRPointer):
     referent = (
-        ('Data', NDRUniConformantVaryingArray),
+        ('Pointer', NDRUniConformantVaryingArray),
     )
 
 class PNDRUniConformantArray(NDRPointer):
     referent = (
-        ('Data', NDRUniConformantArray),
+        ('Pointer', NDRUniConformantArray),
     )
     def __init__(self, data = None, isNDR64 = False, isNDRCall = False):
         NDRPointer.__init__(self,data,isNDR64,isNDRCall)
@@ -884,12 +884,12 @@ class WSTR(NDRUniFixedArray):
 
 class LPWSTR(NDRPointer):
     referent = (
-        ('Data', WSTR),
+        ('Pointer', WSTR),
     )
 
 class PRPC_UNICODE_STRING(NDRPointer):
     referent = (
-        ('Data', RPC_UNICODE_STRING),
+        ('Pointer', RPC_UNICODE_STRING),
     )
     
 
@@ -946,8 +946,8 @@ class TestUniConformantArray(NDRTest):
         )
         def __init__(self, data = None,isNDR64 = False, isNDRCall = False):
             NDRCall.__init__(self, None, isNDR64, isNDRCall)
-            self['Array']['Data'].item = RPC_UNICODE_STRING
-            self['Array2']['Data'].item = RPC_UNICODE_STRING
+            self['Array']['Pointer'].item = RPC_UNICODE_STRING
+            self['Array2']['Pointer'].item = RPC_UNICODE_STRING
             if data is not None:
                 self.fromString(data)
         
@@ -959,8 +959,8 @@ class TestUniConformantArray(NDRTest):
         strstr = RPC_UNICODE_STRING()
         strstr['Data'] = 'ThisIsYou'
         array.append(strstr)
-        a['Array']['Data']['Data'] = array
-        a['Array2']['Data']['Data'] = array
+        a['Array']['Pointer']['Data'] = array
+        a['Array2']['Pointer']['Data'] = array
 
 class TestUniVaryingArray(NDRTest):
     class theClass(NDR):
@@ -1024,7 +1024,7 @@ class TestServerAuthenticate(NDRTest):
         )
 
     def populate(self, a):
-        a['PrimaryName']['Data']['Data'] = 'XXX1DC001\x00'
+        a['PrimaryName']['Pointer']['Data'] = 'XXX1DC001\x00'
         a['AccountName']['Data'] = 'TEST-MACHINE$\x00'
         a['SecureChannelType']['Data'] = 0xffff
         a['ComputerName']['Data'] = 'TEST-MACHINE\x00'
