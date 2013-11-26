@@ -456,7 +456,7 @@ class Header(PacketBuffer,ProtocolLayer):
         ltmp = self.list_as_hex(self.get_bytes().tolist())
 
         if self.child():
-            ltmp.append(['\n', self.child().__str__()])
+            ltmp.append(['\n', str(self.child())])
 
         if len(ltmp)>0:
             return string.join(ltmp, '')
@@ -659,7 +659,7 @@ class Ethernet(Header):
         tmp_str = 'Ether: ' + self.as_eth_addr(self.get_ether_shost()) + ' -> '
         tmp_str += self.as_eth_addr(self.get_ether_dhost())
         if self.child():
-            tmp_str += '\n' + self.child().__str__()
+            tmp_str += '\n' + str( self.child())
         return tmp_str
 
     def __validate_tag_index(self, index):
@@ -751,7 +751,7 @@ class LinuxSLL(Header):
         addr = hexlify(self.get_addr()[0:alen])
         ss.append("Linux SLL: addr=%s type=`%s'" % (addr, self.get_type_desc()))
         if self.child():
-            ss.append(self.child().__str__())
+            ss.append(str(self.child()))
 
         return '\n'.join(ss)
 
@@ -1097,9 +1097,9 @@ class IP(Header):
         if self.get_ip_rf(): flags += 'RF '
         tmp_str = 'IP%s%s -> %s ' % (flags, self.get_ip_src(),self.get_ip_dst())
         for op in self.__option_list:
-            tmp_str += '\n' + op.__str__()
+            tmp_str += '\n' + str(op)
         if self.child():
-            tmp_str += '\n' + self.child().__str__()
+            tmp_str += '\n' + str(self.child())
         return tmp_str
 
 
@@ -1302,7 +1302,7 @@ class UDP(Header):
     def __str__(self):
         tmp_str = 'UDP %d -> %d' % (self.get_uh_sport(), self.get_uh_dport())
         if self.child():
-            tmp_str += '\n' + self.child().__str__()
+            tmp_str += '\n' + str(self.child())
         return tmp_str
 
     def get_packet(self):
@@ -1582,10 +1582,10 @@ class TCP(Header):
             tmp_str += 'urg '
         tmp_str += '%d -> %d' % (self.get_th_sport(), self.get_th_dport())
         for op in self.__option_list:
-            tmp_str += '\n' + op.__str__()
+            tmp_str += '\n' + str(op)
 
         if self.child():
-            tmp_str += '\n' + self.child().__str__()
+            tmp_str += '\n' + str(self.child())
         return tmp_str
 
 
@@ -1916,7 +1916,7 @@ class ICMP(Header):
         tmp_str = 'ICMP type: ' + self.get_type_name(tmp_type)
         tmp_str+= ' code: ' + self.get_code_name(tmp_type, tmp_code)
         if self.child():
-            tmp_str += '\n' + self.child().__str__()
+            tmp_str += '\n' + str( self.child() )
         return tmp_str
 
     def isDestinationUnreachable(self):
@@ -1988,7 +1988,7 @@ class IGMP(Header):
         tmp_str = 'IGMP: ' + self.get_type_name(self.get_igmp_type())
         tmp_str += 'Group: ' +  socket.inet_ntoa(struct.pack('!L',self.get_igmp_group()))
         if self.child():
-            tmp_str += '\n' + self.child().__str__()
+            tmp_str += '\n' + str(self.child())
         return tmp_str
 
 
@@ -2105,7 +2105,7 @@ class ARP(Header):
         tmp_str += '\n' + self.as_pro(self.get_ar_spa()) + ' -> '
         tmp_str += self.as_pro(self.get_ar_tpa())
         if self.child():
-            tmp_str += '\n' + self.child().__str__()
+            tmp_str += '\n' + str(self.child())
         return tmp_str
 
 def example(): #To execute an example, remove this line
