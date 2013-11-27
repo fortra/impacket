@@ -42,8 +42,7 @@ import sys
 import unittest
 from struct import pack, unpack
 
-from impacket import version
-from impacket.dcerpc import transport
+from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import scmr
 from impacket.dcerpc.v5.ndr import NULL
 from impacket.crypto import encryptSecret
