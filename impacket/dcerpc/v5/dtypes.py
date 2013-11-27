@@ -1,3 +1,16 @@
+# Copyright (c) 2003-2013 CORE Security Technologies
+#
+# This software is provided under under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
+# $Id$
+#
+# Author: Alberto Solino
+#
+# Description:
+#   [MS-DTYP] Interface mini implementation
+#
 from impacket.dcerpc.v5 import ndr
 
 DWORD = ndr.NDRLONG
