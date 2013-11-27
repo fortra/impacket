@@ -12,10 +12,7 @@
 #   [MS-SCMR] Interface implementation
 #
 
-import array
-import random
-from struct import *
-from impacket import ImpactPacket
+from struct import unpack
 from impacket.uuid import uuidtup_to_bin
 from impacket.dcerpc.v5 import ndr
 from impacket.dcerpc.v5.ndr import NDRCall, NDR, NDRPointer, UNIQUE_RPC_UNICODE_STRING, NDRLONG, WSTR, RPC_UNICODE_STRING, NDRPointerNULL, NDRUniConformantArray, PNDRUniConformantArray, NDRBOOLEAN, NDRSHORT, NDRUniFixedArray, NDRUnion, NULL
@@ -333,8 +330,8 @@ class STRING_PTRSW(NDR):
     structure = (
         ('Data',NDRUniConformantArray),
     )
-    def __init__(self, data = None, isNDR64 = False, isNDRCall = False):
-        NDR.__init__(self,None,isNDR64,isNDRCall)
+    def __init__(self, data = None, isNDR64 = False):
+        NDR.__init__(self,None,isNDR64)
         self.fields['Data'].item = LPWSTR
         if data is not None:
             self.fromString(data)
@@ -385,8 +382,8 @@ class SC_ACTIONS(NDR):
     structure = (
        ('Data', NDRUniConformantArray),
     )
-    def __init__(self, data = None, isNDR64 = False, isNDRCall = False):
-        NDR.__init__(self,None,isNDR64,isNDRCall)
+    def __init__(self, data = None, isNDR64 = False):
+        NDR.__init__(self,None,isNDR64)
         self.fields['Data'].item = SC_ACTION
         if data is not None:
             self.fromString(data)
@@ -528,8 +525,8 @@ class SC_RPC_NOTIFY_PARAMS_ARRAY(NDR):
     structure = (
         ('Data',NDRUniConformantArray),
     )
-    def __init__(self, data = None, isNDR64 = False, isNDRCall = False):
-        NDR.__init__(self,None,isNDR64,isNDRCall)
+    def __init__(self, data = None, isNDR64 = False):
+        NDR.__init__(self,None,isNDR64)
         self.fields['Data'].item = SC_RPC_NOTIFY_PARAMS
         if data is not None:
             self.fromString(data)
@@ -561,8 +558,8 @@ class SERVICE_TRIGGER_SPECIFIC_DATA_ITEM_ARRAY(NDR):
     structure = (
         ('Data',NDRUniConformantArray),
     )
-    def __init__(self, data = None, isNDR64 = False, isNDRCall = False):
-        NDR.__init__(self,None,isNDR64,isNDRCall)
+    def __init__(self, data = None, isNDR64 = False):
+        NDR.__init__(self,None,isNDR64)
         self.fields['Data'].item = SERVICE_TRIGGER_SPECIFIC_DATA_ITEM
         if data is not None:
             self.fromString(data)
@@ -589,8 +586,8 @@ class SERVICE_TRIGGER_ARRAY(NDR):
     structure = (
         ('Data',NDRUniConformantArray),
     )
-    def __init__(self, data = None, isNDR64 = False, isNDRCall = False):
-        NDR.__init__(self,None,isNDR64,isNDRCall)
+    def __init__(self, data = None, isNDR64 = False):
+        NDR.__init__(self,None,isNDR64)
         self.fields['Data'].item = SERVICE_TRIGGER
         if data is not None:
             self.fromString(data)

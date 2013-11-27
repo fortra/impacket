@@ -353,8 +353,8 @@ class PNL_GENERIC_RPC_DATA(ndr.NDRPointer):
     referent = (
         ('Data', NL_GENERIC_RPC_DATA),
     )
-    def __init__(self, data = None, isNDR64 = False, isNDRCall = False):
-        ndr.NDRPointer.__init__(self,data,isNDR64,isNDRCall)
+    def __init__(self, data = None, isNDR64 = False, topLevel = False):
+        ndr.NDRPointer.__init__(self,data,isNDR64,topLevel)
 
 class NL_SITE_NAME_ARRAY(NDR):
     structure = (

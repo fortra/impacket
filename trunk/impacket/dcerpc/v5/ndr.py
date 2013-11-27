@@ -70,7 +70,7 @@ class NDR():
     align64        = 0
     debug          = False
 
-    def __init__(self, data = None, isNDR64 = False, isNDRCall = False):
+    def __init__(self, data = None, isNDR64 = False):
         self._isNDR64 = isNDR64
         self.fields = {}
         self.data = None
@@ -519,7 +519,7 @@ class NDRCall(NDR):
     align64        = 0
     debug          = False
     consistencyCheck = False
-    def __init__(self, data = None, isNDR64 = False, isNDRCall = False):
+    def __init__(self, data = None, isNDR64 = False):
         #NDR.__init__(self,data, isNDR64, False) 
         self._isNDR64 = isNDR64
         self.fields = {}
@@ -536,7 +536,10 @@ class NDRCall(NDR):
 
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure+self.referent:
             if self.isNDR(fieldTypeOrClass):
-               self.fields[fieldName] = fieldTypeOrClass(isNDR64 = self._isNDR64, isNDRCall = True)
+               if self.isPointer(fieldTypeOrClass):
+                   self.fields[fieldName] = fieldTypeOrClass(isNDR64 = self._isNDR64, topLevel = True)
+               else:
+                   self.fields[fieldName] = fieldTypeOrClass(isNDR64 = self._isNDR64)
             elif fieldTypeOrClass == ':':
                self.fields[fieldName] = None
             elif len(fieldTypeOrClass.split('=')) == 2: 
@@ -553,6 +556,19 @@ class NDRCall(NDR):
             self.data = None
 
         return None
+
+    def isPointer(self, field):
+        if self.debug:
+            print "isPointer %r" % field, type(field),
+        if inspect.isclass(field):
+            myClass = field
+            if issubclass(myClass, NDRPointer):
+                if self.debug:
+                    print "True"
+                return True
+        if self.debug:
+            print 'False'
+        return False
 
     def dump(self, msg = None, indent = 0):
         NDR.dump(self, msg, indent)
@@ -783,9 +799,8 @@ class NDRUnion(NDR):
         #1: ('pStatusChangeParam1', PSERVICE_NOTIFY_STATUS_CHANGE_PARAMS_1),
         #2: ('pStatusChangeParams', PSERVICE_NOTIFY_STATUS_CHANGE_PARAMS_2),
     }
-    def __init__(self, data = None, isNDR64=False, isNDRCall = False):
-        ret = NDR.__init__(self,None, isNDR64=isNDR64, isNDRCall=isNDRCall)
-        self._isNDRCall = isNDRCall
+    def __init__(self, data = None, isNDR64=False):
+        ret = NDR.__init__(self,None, isNDR64=isNDR64)
         if data is not None:
             self.fromString(self, data)
 
@@ -796,7 +811,7 @@ class NDRUnion(NDR):
             if self.union.has_key(value):
                 self.structure = (self.union[value]),
                 # Init again the structure
-                NDR.__init__(self, None, isNDR64=self._isNDR64, isNDRCall=self._isNDRCall)
+                NDR.__init__(self, None, isNDR64=self._isNDR64)
                 self.fields['tag']['Data'] = value
                 self.fields['SwitchValue']['Data'] = value
             else:
@@ -810,7 +825,7 @@ class NDRUnion(NDR):
             tag = unpack('<L', data[:4])[0]
             if self.union.has_key(tag):
                 self.structure = (self.union[tag]),
-                NDR.__init__(self, None, isNDR64=self._isNDR64, isNDRCall=self._isNDRCall)
+                NDR.__init__(self, None, isNDR64=self._isNDR64)
                 return NDR.fromString(self, data)
             else:
                 raise Exception("Unknow tag %d for union!" % tag)
@@ -851,14 +866,14 @@ class NDRPointer(NDR):
         # This is the representation of the Referent
         ('Data',':'),
     )
-    def __init__(self, data = None, isNDR64=False, isNDRCall = False):
-        ret = NDR.__init__(self,None, isNDR64=isNDR64, isNDRCall=isNDRCall)
+    def __init__(self, data = None, isNDR64=False, topLevel = False):
+        ret = NDR.__init__(self,None, isNDR64=isNDR64)
         # If we are being called from a NDRCall, it's a TopLevelPointer, 
         # if not, it's a embeeded pointer.
         # It is *very* important, for every subclass of NDRPointer
         # you have to declare the referent in the referent variable
         # Not in the structure one! 
-        if isNDRCall is True:
+        if topLevel is True:
             self.structure = self.referent
             self.referent = ()
        
@@ -987,8 +1002,8 @@ class PNDRUniConformantArray(NDRPointer):
     referent = (
         ('Data', NDRUniConformantArray),
     )
-    def __init__(self, data = None, isNDR64 = False, isNDRCall = False):
-        NDRPointer.__init__(self,data,isNDR64,isNDRCall)
+    def __init__(self, data = None, isNDR64 = False, topLevel = False):
+        NDRPointer.__init__(self,data,isNDR64,topLevel)
         
 class WSTR(NDRUniFixedArray):
     def getDataLen(self, data):
@@ -1058,8 +1073,8 @@ class TestUniConformantArray(NDRTest):
             ('Array', PNDRUniConformantArray),
             ('Array2', PNDRUniConformantArray),
         )
-        def __init__(self, data = None,isNDR64 = False, isNDRCall = False):
-            NDRCall.__init__(self, None, isNDR64, isNDRCall)
+        def __init__(self, data = None,isNDR64 = False):
+            NDRCall.__init__(self, None, isNDR64)
             self.fields['Array'].fields['Data'].item = RPC_UNICODE_STRING
             self.fields['Array2'].fields['Data'].item = RPC_UNICODE_STRING
             if data is not None:

@@ -51,8 +51,8 @@ class LPDWORD(ndr.NDRPointer):
     referent = (
         ('Data', ndr.NDRUniConformantArray),
     )
-    def __init__(self, data = None,isNDR64 = False, isNDRCall = False):
-        ndr.NDRPointer.__init__(self, None, isNDR64, isNDRCall)
+    def __init__(self, data = None,isNDR64 = False, topLevel = False):
+        ndr.NDRPointer.__init__(self, None, isNDR64, topLevel)
         # ToDo: change this so it is DWORD instead of <H
         self.fields['Data'].item = '<L'
         if data is not None:
