@@ -606,7 +606,7 @@ class SERVICE_TRIGGER_INFO(NDR):
     structure = (
         ('cTriggers', DWORD),
         ('pTriggers', PSERVICE_TRIGGER),
-        ('pReserved', NULL ),
+        ('pReserved', NDRPointerNULL ),
     )
     def getData(self):
         if self['pTriggers'] != 0:
@@ -1268,33 +1268,33 @@ class DCERPCSvcCtl:
         changeServiceConfig['dwStartType'] = dwStartType
         changeServiceConfig['dwErrorControl'] = dwErrorControl
         if lpBinaryPathName == '':
-            changeServiceConfig['lpBinaryPathName'] = NDRPointerNULL()
+            changeServiceConfig['lpBinaryPathName'] = NULL
         else:
             changeServiceConfig['lpBinaryPathName'] = lpBinaryPathName
         if lpLoadOrderGroup == '':
-            changeServiceConfig['lpLoadOrderGroup'] = NDRPointerNULL()
+            changeServiceConfig['lpLoadOrderGroup'] = NULL
         else:
             changeServiceConfig['lpLoadOrderGroup'] = lpLoadOrderGroup
         if lpdwTagId == '':
-            changeServiceConfig['lpdwTagId'] = NDRPointerNULL()
+            changeServiceConfig['lpdwTagId'] = NULL
         else:
             changeServiceConfig['lpdwTagId'] = lpdwTagId
         if lpDependencies == '':
-            changeServiceConfig['lpDependencies'] = NDRPointerNULL()
+            changeServiceConfig['lpDependencies'] = NULL
         else:
             changeServiceConfig['lpDependencies'] = lpDependencies
         changeServiceConfig['dwDependSize'] = dwDependSize
         if lpServiceStartName == '':
-            changeServiceConfig['lpServiceStartName'] = NDRPointerNULL()
+            changeServiceConfig['lpServiceStartName'] = NULL
         else:
             changeServiceConfig['lpServiceStartName'] = lpServiceStartName
         if lpPassword == '':
-            changeServiceConfig['lpPassword'] = NDRPointerNULL()
+            changeServiceConfig['lpPassword'] = NULL
         else:
             changeServiceConfig['lpPassword'] = lpPassword
         changeServiceConfig['dwPwSize'] = dwPwSize
         if lpDisplayName == '':
-            changeServiceConfig['lpDisplayName'] = NDRPointerNULL()
+            changeServiceConfig['lpDisplayName'] = NULL
         else:
             changeServiceConfig['lpDisplayName'] = lpDisplayName
         ans = self.doRequest(changeServiceConfig)
@@ -1312,24 +1312,24 @@ class DCERPCSvcCtl:
         createService['dwErrorControl'] = dwErrorControl
         createService['lpBinaryPathName'] = lpBinaryPathName
         if lpLoadOrderGroup == '':
-            createService['lpLoadOrderGroup'] = NDRPointerNULL() 
+            createService['lpLoadOrderGroup'] = NULL
         else:
             createService['lpLoadOrderGroup'] = lpLoadOrderGroup
         if lpdwTagId == '':
-            createService['lpdwTagId'] = NDRPointerNULL()
+            createService['lpdwTagId'] = NULL
         else: 
             createService['lpdwTagId'] = lpdwTagId
         if lpDependencies == '':
-            createService['lpDependencies'] = NDRPointerNULL()
+            createService['lpDependencies'] = NULL
         else:
             createService['lpDependencies'] = lpDependencies
         createService['dwDependSize'] = dwDependSize
         if lpServiceStartName == '':
-            createService['lpServiceStartName'] = NDRPointerNULL()
+            createService['lpServiceStartName'] = NULL
         else:
             createService['lpServiceStartName'] = lpServiceStartName
         if lpPassword == '':
-            createService['lpPassword'] = NDRPointerNULL()
+            createService['lpPassword'] = NULL
         else:
             createService['lpPassword'] = lpPassword
         createService['dwPwSize'] = dwPwSize
@@ -1353,7 +1353,7 @@ class DCERPCSvcCtl:
         enumServicesStatus['dwServiceState'] = dwServiceState
         enumServicesStatus['cbBufSize'] = cbBufSize
         if lpResumeIndex == 0:
-            enumServicesStatus['lpResumeIndex'] = NDRPointerNULL()
+            enumServicesStatus['lpResumeIndex'] = NULL
         else:
             enumServicesStatus['lpResumeIndex'] = lpResumeIndex
         ans = self.doRequest(enumServicesStatus, checkReturn = 0)
@@ -1364,7 +1364,7 @@ class DCERPCSvcCtl:
         openSCManager = ROpenSCManagerWCall()
         openSCManager['lpMachineName'] = lpMachineName
         if lpDatabaseName == '':
-            openSCManager['lpDatabaseName'] = NDRPointerNULL()
+            openSCManager['lpDatabaseName'] = NULL
         else:
             openSCManager['lpDatabaseName'] = lpDatabaseName
         openSCManager['dwDesiredAccess'] = dwDesiredAccess
@@ -1402,7 +1402,7 @@ class DCERPCSvcCtl:
         startService['hService'] = hService
         startService['argc'] = argc
         if argc == 0:
-            startService['argv'] = NDRPointerNULL()
+            startService['argv'] = NULL
         else:
             items = []
             for item in argv:
@@ -1438,7 +1438,7 @@ class DCERPCSvcCtl:
         enumServiceGroup['dwServiceState'] = dwServiceState
         enumServiceGroup['cbBufSize'] = cbBufSize
         if lpResumeIndex == 0:
-            enumServiceGroup['lpResumeIndex'] = NDRPointerNULL()
+            enumServiceGroup['lpResumeIndex'] = NULL
         else:
             enumServiceGroup['lpResumeIndex'] = lpResumeIndex
         enumServiceGroup['pszGroupName'] = pszGroupName
