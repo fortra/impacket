@@ -21,8 +21,6 @@ import random
 import inspect
 from struct import *
 from impacket import uuid
-from impacket import structure
-from impacket.structure import Structure
 from impacket.winregistry import hexdump
 
 # Something important to have in mind:
@@ -846,7 +844,7 @@ class NDRPointerNULL(NDR):
         ('Data', '<Q=0'),
     )
 
-NULL = NDRPointerNULL
+NULL = NDRPointerNULL()
 
 class NDRReferencePointer(NDR):
     structure = (
