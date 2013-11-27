@@ -1,4 +1,4 @@
-from impacket.dcerpc import ndr
+from impacket.dcerpc.v5 import ndr
 
 DWORD = ndr.NDRLONG
 ULONGLONG = ndr.NDRHYPER
