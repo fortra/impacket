@@ -564,7 +564,7 @@ class SVCCTLTests(unittest.TestCase):
         try:
             resp = rpc.RNotifyBootConfigStatus(lpMachineName, 0x0)
             #resp.dump()
-        except scmr.SVCCTLSessionError, e:
+        except scmr.SCMRSessionError, e:
            if str(e).find('ERROR_BOOT_ALREADY_ACCEPTED') <= 0:
                raise
  

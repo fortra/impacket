@@ -207,7 +207,7 @@ ERROR_CANNOT_DETECT_DRIVER_FAILURE = 1080
 ERROR_SHUTDOWN_IN_PROGRESS       = 1115
 ERROR_REQUEST_ABORTED            = 1235
 
-class SVCCTLSessionError(Exception):
+class SCMRSessionError(Exception):
     
     error_messages = {
  ERROR_FILE_NOT_FOUND            : ("ERROR_FILE_NOT_FOUND", "he system cannot find the file specified."),          
@@ -251,9 +251,9 @@ class SVCCTLSessionError(Exception):
 
     def __str__( self ):
         key = self.error_code
-        if (SVCCTLSessionError.error_messages.has_key(key)):
-            error_msg_short = SVCCTLSessionError.error_messages[key][0]
-            error_msg_verbose = SVCCTLSessionError.error_messages[key][1] 
+        if (SCMRSessionError.error_messages.has_key(key)):
+            error_msg_short = SCMRSessionError.error_messages[key][0]
+            error_msg_verbose = SCMRSessionError.error_messages[key][1] 
             return 'SVCCTL SessionError: code: %s - %s - %s' % (str(self.error_code), error_msg_short, error_msg_verbose)
         else:
             return 'SVCCTL SessionError: unknown error code: %s' % (str(self.error_code))
@@ -1175,7 +1175,7 @@ class DCERPCSvcCtl:
             answer = self._dcerpc.recv()
             if checkReturn and answer[-4:] != '\x00\x00\x00\x00':
                 error_code = unpack("<L", answer[-4:])[0]
-                raise SVCCTLSessionError(error_code)  
+                raise SCMRSessionError(error_code)  
         return answer
 
     def request(self, request):
