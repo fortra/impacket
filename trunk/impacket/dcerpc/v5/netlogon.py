@@ -15,8 +15,8 @@
 import array
 import random
 from struct import *
-from impacket.dcerpc import ndr
-from impacket.dcerpc.ndr import NDR, NDRCall
+from impacket.dcerpc.v5 import ndr
+from impacket.dcerpc.v5.ndr import NDR, NDRCall
 from impacket.structure import Structure
 from impacket.dcerpc import ndrutils, dcerpc
 from impacket.uuid import uuidtup_to_bin
@@ -348,7 +348,6 @@ class NL_GENERIC_RPC_DATA(NDR):
         self.fields['UlongData'].fields['Data'].item = '<L'
         if data is not None:
             self.fromString(data)
-
 
 class PNL_GENERIC_RPC_DATA(ndr.NDRPointer):
     referent = (

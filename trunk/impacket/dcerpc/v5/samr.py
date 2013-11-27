@@ -19,8 +19,8 @@ from struct import *
 from impacket import ImpactPacket
 from impacket.dcerpc import ndrutils, dcerpc
 from impacket.dcerpc.netlogon import ENCRYPTED_NT_OWF_PASSWORD
-from impacket.dcerpc import ndr
-from impacket.dcerpc.ndr import NDR, NDRCall
+from impacket.dcerpc.v5 import ndr
+from impacket.dcerpc.v5.ndr import NDR, NDRCall
 from impacket.structure import Structure
 from impacket.uuid import uuidtup_to_bin
 
