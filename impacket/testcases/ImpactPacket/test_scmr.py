@@ -200,7 +200,7 @@ class SVCCTLTests(unittest.TestCase):
             item['dwDataType'] = scmr.SERVICE_TRIGGER_DATA_TYPE_STRING
             item['pData'] = list(u'FREEFLY\x00'.encode('utf-16le'))
             #trigger['pDataItems'].append(item)
-            trigger['pDataItems'] = NULL()
+            trigger['pDataItems'] = NULL
             request['Info']['psti']['pTriggers'].append(trigger)
             resp = rpc.request(request)
             self.changeServiceAndQuery2(rpc, request, '\x00')
@@ -240,8 +240,8 @@ class SVCCTLTests(unittest.TestCase):
         request['InfoLevel'] = scmr.SC_STATUS_PROCESS_INFO
         request['dwServiceType'] = scmr.SERVICE_WIN32_OWN_PROCESS
         request['dwServiceState'] = scmr.SERVICE_STATE_ALL
-        request['lpResumeIndex'] = NULL()
-        request['pszGroupName'] = NULL()
+        request['lpResumeIndex'] = NULL
+        request['pszGroupName'] = NULL
         request['cbBufSize'] = 0
         #request.dump()
         #print "\n"
@@ -322,7 +322,7 @@ class SVCCTLTests(unittest.TestCase):
         request['hService'] = serviceHandle
         request['dwControl'] = scmr.SERVICE_CONTROL_STOP
         request['dwInfoLevel'] = 1
-        request['pControlInParams'] = NULL()
+        request['pControlInParams'] = NULL
 
         resp = rpc.request(request)
         resp.dump()
@@ -606,7 +606,7 @@ class SMBTransport(SVCCTLTests):
         self.domain   = ''
         self.serverName = ''
         self.password = 'test'
-        self.machine  = '172.16.123.187'
+        self.machine  = '172.16.123.191'
         self.stringBinding = r'ncacn_np:%s[\pipe\svcctl]' % self.machine
         self.dport = 445
         self.hashes   = ''
