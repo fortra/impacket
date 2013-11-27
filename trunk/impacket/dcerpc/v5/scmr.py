@@ -16,8 +16,6 @@ import array
 import random
 from struct import *
 from impacket import ImpactPacket
-from impacket import dcerpc
-from impacket.dcerpc import ndrutils, dcerpc
 from impacket.uuid import uuidtup_to_bin
 from impacket.dcerpc.v5 import ndr
 from impacket.dcerpc.v5.ndr import NDRCall, NDR, NDRPointer, UNIQUE_RPC_UNICODE_STRING, NDRLONG, WSTR, RPC_UNICODE_STRING, NDRPointerNULL, NDRUniConformantArray, PNDRUniConformantArray, NDRBOOLEAN, NDRSHORT, NDRUniFixedArray, NDRUnion, NULL
