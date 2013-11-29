@@ -207,10 +207,10 @@ ERROR_CANNOT_DETECT_DRIVER_FAILURE = 1080
 ERROR_SHUTDOWN_IN_PROGRESS       = 1115
 ERROR_REQUEST_ABORTED            = 1235
 
-class SCMRSessionError(Exception):
+class SessionError(Exception):
     
     error_messages = {
- ERROR_FILE_NOT_FOUND            : ("ERROR_FILE_NOT_FOUND", "he system cannot find the file specified."),          
+ ERROR_FILE_NOT_FOUND            : ("ERROR_FILE_NOT_FOUND", "The system cannot find the file specified."),          
  ERROR_PATH_NOT_FOUND            : ("ERROR_PATH_NOT_FOUND", "The system cannot find the path specified."),          
  ERROR_ACCESS_DENIED             : ("ERROR_ACCESS_DENIED", "Access is denied."),
  ERROR_INVALID_HANDLE            : ("ERROR_INVALID_HANDLE", "The handle is invalid."),
@@ -242,21 +242,25 @@ class SCMRSessionError(Exception):
  ERROR_CANNOT_DETECT_DRIVER_FAILURE: ("SERVICE_CONFIG_FAILURE_ACTIONS cannot be used as a dwInfoLevel in the Info parameter for service records with a Type value defined for drivers."),
     }    
 
-    def __init__( self, error_code):
+    def __init__( self, packet):
         Exception.__init__(self)
-        self.error_code = error_code
+        self.packet = packet
+        self.error_code = packet['ErrorCode']
        
     def get_error_code( self ):
         return self.error_code
+ 
+    def get_packet( self ):
+        return self.packet
 
     def __str__( self ):
         key = self.error_code
-        if (SCMRSessionError.error_messages.has_key(key)):
-            error_msg_short = SCMRSessionError.error_messages[key][0]
-            error_msg_verbose = SCMRSessionError.error_messages[key][1] 
-            return 'SVCCTL SessionError: code: %s - %s - %s' % (str(self.error_code), error_msg_short, error_msg_verbose)
+        if (SessionError.error_messages.has_key(key)):
+            error_msg_short = SessionError.error_messages[key][0]
+            error_msg_verbose = SessionError.error_messages[key][1] 
+            return 'SCMR SessionError: code: %s - %s - %s' % (str(self.error_code), error_msg_short, error_msg_verbose)
         else:
-            return 'SVCCTL SessionError: unknown error code: %s' % (str(self.error_code))
+            return 'SCMR SessionError: unknown error code: %s' % (str(self.error_code))
 
 # SCMR Structures
 class SC_RPC_HANDLE(NDR):
@@ -670,7 +674,7 @@ class SC_RPC_CONFIG_INFOW(NDRUnion):
     }
 
 # RPC Calls
-class RCloseServiceHandleCall(NDRCall):
+class RCloseServiceHandle(NDRCall):
     opnum = 0
     structure = (
         ('hSCObject',SC_RPC_HANDLE),
@@ -682,7 +686,7 @@ class RCloseServiceHandleResponse(NDRCall):
         ('ErrorCode', DWORD),
     )
 
-class RControlServiceCall(NDRCall):
+class RControlService(NDRCall):
     opnum = 1
     structure = (
         ('hService',SC_RPC_HANDLE),
@@ -695,7 +699,7 @@ class RControlServiceResponse(NDRCall):
         ('ErrorCode', DWORD),
     )
 
-class RDeleteServiceCall(NDRCall):
+class RDeleteService(NDRCall):
     opnum = 2
     structure = (
         ('hService',SC_RPC_HANDLE),
@@ -706,7 +710,7 @@ class RDeleteServiceResponse(NDRCall):
         ('ErrorCode', DWORD),
     )
 
-class RLockServiceDatabaseCall(NDRCall):
+class RLockServiceDatabase(NDRCall):
     opnum = 3
     structure = (
         ('hSCManager',SC_RPC_HANDLE),
@@ -718,7 +722,7 @@ class RLockServiceDatabaseResponse(NDRCall):
         ('ErrorCode', DWORD),
     )
 
-class RQueryServiceObjectSecurityCall(NDRCall):
+class RQueryServiceObjectSecurity(NDRCall):
     opnum = 4
     structure = (
         ('hService',SC_RPC_HANDLE),
@@ -733,7 +737,7 @@ class RQueryServiceObjectSecurityResponse(NDRCall):
         ('ErrorCode', DWORD),
     )
 
-class RSetServiceObjectSecurityCall(NDRCall):
+class RSetServiceObjectSecurity(NDRCall):
     opnum = 5
     structure = (
         ('hService',SC_RPC_HANDLE),
@@ -747,7 +751,7 @@ class RSetServiceObjectSecurityResponse(NDRCall):
         ('ErrorCode', DWORD),
     )
 
-class RQueryServiceStatusCall(NDRCall):
+class RQueryServiceStatus(NDRCall):
     opnum = 6
     structure = (
         ('hService',SC_RPC_HANDLE),
@@ -759,7 +763,7 @@ class RQueryServiceStatusResponse(NDRCall):
         ('ErrorCode', DWORD),
     )
 
-class RSetServiceStatusCall(NDRCall):
+class RSetServiceStatus(NDRCall):
     opnum = 7
     structure = (
         ('hServiceStatus',SC_RPC_HANDLE),
@@ -771,7 +775,7 @@ class RSetServiceStatusResponse(NDRCall):
         ('ErrorCode', DWORD),
     )
 
-class RUnlockServiceDatabaseCall(NDRCall):
+class RUnlockServiceDatabase(NDRCall):
     opnum = 8
     structure = (
         ('Lock',SC_RPC_LOCK),
@@ -783,7 +787,7 @@ class RUnlockServiceDatabaseResponse(NDRCall):
         ('ErrorCode', DWORD),
     )
 
-class RNotifyBootConfigStatusCall(NDRCall):
+class RNotifyBootConfigStatus(NDRCall):
     opnum = 9
     structure = (
         ('lpMachineName',SVCCTL_HANDLEW),
@@ -795,7 +799,7 @@ class RNotifyBootConfigStatusResponse(NDRCall):
         ('ErrorCode', DWORD),
     )
 
-class RChangeServiceConfigWCall(NDRCall):
+class RChangeServiceConfigW(NDRCall):
     opnum = 11
     structure = (
         ('hService',SC_RPC_HANDLE),
@@ -819,7 +823,7 @@ class RChangeServiceConfigWResponse(NDRCall):
         ('ErrorCode', DWORD),
     )
 
-class RCreateServiceWCall(NDRCall):
+class RCreateServiceW(NDRCall):
     opnum = 12
     structure = (
         ('hSCManager',SC_RPC_HANDLE),
@@ -846,7 +850,7 @@ class RCreateServiceWResponse(NDRCall):
         ('ErrorCode', DWORD),
     )
 
-class REnumDependentServicesWCall(NDRCall):
+class REnumDependentServicesW(NDRCall):
     opnum = 13
     structure = (
         ('hService',SC_RPC_HANDLE),
@@ -862,7 +866,7 @@ class REnumDependentServicesWResponse(NDRCall):
         ('ErrorCode', DWORD),
     )
 
-class REnumServicesStatusWCall(NDRCall):
+class REnumServicesStatusW(NDRCall):
     opnum = 14
     structure = (
         ('hSCManager',SC_RPC_HANDLE),
@@ -880,7 +884,7 @@ class REnumServicesStatusWResponse(NDRCall):
         ('ErrorCode', DWORD),
     )
 
-class ROpenSCManagerWCall(NDRCall):
+class ROpenSCManagerW(NDRCall):
     opnum = 15
     structure = (
         ('lpMachineName',SVCCTL_HANDLEW),
@@ -894,7 +898,7 @@ class ROpenSCManagerWResponse(NDRCall):
         ('ErrorCode', DWORD),
     )
 
-class ROpenServiceWCall(NDRCall):
+class ROpenServiceW(NDRCall):
     opnum = 16
     structure = (
         ('hSCManager',SC_RPC_HANDLE),
@@ -908,7 +912,7 @@ class ROpenServiceWResponse(NDRCall):
         ('ErrorCode', DWORD),
     )
 
-class RQueryServiceConfigWCall(NDRCall):
+class RQueryServiceConfigW(NDRCall):
     opnum = 17
     structure = (
         ('hService',SC_RPC_HANDLE),
@@ -922,7 +926,7 @@ class RQueryServiceConfigWResponse(NDRCall):
         ('ErrorCode', DWORD),
     )
 
-class RQueryServiceLockStatusWCall(NDRCall):
+class RQueryServiceLockStatusW(NDRCall):
     opnum = 18
     structure = (
         ('hSCManager',SC_RPC_HANDLE),
@@ -936,7 +940,7 @@ class RQueryServiceLockStatusWResponse(NDRCall):
         ('ErrorCode', DWORD),
     )
 
-class RStartServiceWCall(NDRCall):
+class RStartServiceW(NDRCall):
     opnum = 19
     structure = (
         ('hService',SC_RPC_HANDLE),
@@ -949,7 +953,7 @@ class RStartServiceWResponse(NDRCall):
         ('ErrorCode', DWORD),
     )
 
-class RGetServiceDisplayNameWCall(NDRCall):
+class RGetServiceDisplayNameW(NDRCall):
     opnum = 20
     structure = (
         ('hSCManager',SC_RPC_HANDLE),
@@ -964,7 +968,7 @@ class RGetServiceDisplayNameWResponse(NDRCall):
         ('ErrorCode', DWORD),
     )
 
-class RGetServiceKeyNameWCall(NDRCall):
+class RGetServiceKeyNameW(NDRCall):
     opnum = 21
     structure = (
         ('hSCManager',SC_RPC_HANDLE),
@@ -980,7 +984,7 @@ class RGetServiceKeyNameWResponse(NDRCall):
     )
 
 
-class REnumServiceGroupWCall(NDRCall):
+class REnumServiceGroupW(NDRCall):
     opnum = 35
     structure = (
         ('hSCManager',SC_RPC_HANDLE),
@@ -1163,286 +1167,236 @@ class RQueryServiceConfigExResponse(NDRCall):
         ('ErrorCode', DWORD),
     )
 
-class DCERPCSvcCtl:
-    def __init__(self, dcerpc):
-        self._dcerpc = dcerpc
+################################################################################
+# Helper functions
+################################################################################
 
-    def doRequest(self, request, noAnswer = 0, checkReturn = 1):
-        self._dcerpc.call(request.opnum, request)
-        if noAnswer:
-            return
-        else:
-            answer = self._dcerpc.recv()
-            if checkReturn and answer[-4:] != '\x00\x00\x00\x00':
-                error_code = unpack("<L", answer[-4:])[0]
-                raise SCMRSessionError(error_code)  
-        return answer
+#    def doRequest(self, request, noAnswer = 0, checkReturn = 1):
+#        self.dcerpc.call(request.opnum, request)
+#        if noAnswer:
+#            return
+#        else:
+#            answer = self.dcerpc.recv()
+#            if checkReturn and answer[-4:] != '\x00\x00\x00\x00':
+#                error_code = unpack("<L", answer[-4:])[0]
+#                raise SCMRSessionError(error_code)  
+#        return answer
 
-    def request(self, request):
-        self._dcerpc.call(request.opnum, request)
-        answer = self._dcerpc.recv()
-        resp = request.__class__.__name__ + 'Response'
-        return eval(resp)(answer)
+def hRCloseServiceHandle(dce, hSCObject):
+    request = RCloseServiceHandle()
+    request['hSCObject'] = hSCObject
+    return dce.request(request)
 
-    def RCloseServiceHandle(self, hSCObject):
-        closeService = RCloseServiceHandleCall()
-        closeService['hSCObject'] = hSCObject
-        ans = self.doRequest(closeService)
-        resp = RCloseServiceHandleResponse(ans)
-        return resp
+def hRControlService(dce, hService, dwControl):
+    request = RControlServiceCall()
+    request['hService'] = hService
+    request['dwControl'] = dwControl
+    return dce.request(request)
 
-    def RControlService(self, hService, dwControl):
-        controlService = RControlServiceCall()
-        controlService['hService'] = hService
-        controlService['dwControl'] = dwControl
-        ans = self.doRequest(controlService)
-        resp = RControlServiceResponse(ans)
-        return resp
+def hRDeleteService(dce, hService):
+    request = RDeleteService()
+    request ['hService'] = hService
+    return dce.request(request)
 
-    def RDeleteService(self, hService):
-        deleteService = RDeleteServiceCall()
-        deleteService['hService'] = hService
-        ans = self.doRequest(deleteService)
-        resp = RDeleteServiceResponse(ans)
-        return resp
-    
-    def RLockServiceDatabase(self, hSCManager):
-        lockServiceDatabase = RLockServiceDatabaseCall()
-        lockServiceDatabase['hSCManager'] = hSCManager
-        ans = self.doRequest(lockServiceDatabase)
-        resp = RLockServiceDatabaseResponse(ans)
-        return resp
+def hRLockServiceDatabase(dce, hSCManager):
+    request = RLockServiceDatabase()
+    request['hSCManager'] = hSCManager
+    return dce.request(request)
 
-    def RQueryServiceObjectSecurity(self, hService, dwSecurityInformation, cbBufSize ):
-        queryServiceObjectSecurity = RQueryServiceObjectSecurityCall()
-        queryServiceObjectSecurity['hService'] = hService
-        queryServiceObjectSecurity['dwSecurityInformation'] = dwSecurityInformation
-        queryServiceObjectSecurity['cbBufSize'] = cbBufSize
-        ans = self.doRequest(queryServiceObjectSecurity)
-        resp = RQueryServiceObjectSecurityResponse(ans)
-        return resp
+def hRQueryServiceObjectSecurity(dce, hService, dwSecurityInformation, cbBufSize ):
+    request = RQueryServiceObjectSecurity()
+    request['hService'] = hService
+    request['dwSecurityInformation'] = dwSecurityInformation
+    request['cbBufSize'] = cbBufSize
+    return dce.request(request)
 
-    def RSetServiceObjectSecurity(self, hService, dwSecurityInformation, lpSecurityDescriptor, cbBufSize ):
-        setServiceObjectSecurity = RSetServiceObjectSecurityCall()
-        setServiceObjectSecurity['hService'] = hService
-        setServiceObjectSecurity['dwSecurityInformation'] = dwSecurityInformation
-        setServiceObjectSecurity['cbBufSize'] = cbBufSize
-        ans = self.doRequest(setServiceObjectSecurity)
-        resp = RSetServiceObjectSecurityResponse(ans)
-        return resp
+def hRSetServiceObjectSecurity(dce, hService, dwSecurityInformation, lpSecurityDescriptor, cbBufSize ):
+    request = RSetServiceObjectSecurityCall()
+    request['hService'] = hService
+    request['dwSecurityInformation'] = dwSecurityInformation
+    request['cbBufSize'] = cbBufSize
+    return dce.request(request)
 
-    def RQueryServiceStatus(self, hService ):
-        queryServiceStatus = RQueryServiceStatusCall()
-        queryServiceStatus['hService'] = hService
-        ans = self.doRequest(queryServiceStatus)
-        resp = RQueryServiceStatusResponse(ans)
-        return resp
+def hRQueryServiceStatus(dce, hService ):
+    request = RQueryServiceStatus()
+    request['hService'] = hService
+    return dce.request(request)
 
-    def RSetServiceStatus(self, hServiceStatus, lpServiceStatus ):
-        setServiceStatus = RSetServiceStatusCall()
-        setServiceStatus['hServiceStatus'] = hServiceStatus
-        setServiceStatus['lpServiceStatus'] = lpServiceStatus
-        ans = self.doRequest(setServiceStatus)
-        resp = RSetServiceStatusResponse(ans)
-        return resp
+def hRSetServiceStatus(dce, hServiceStatus, lpServiceStatus ):
+    request = RSetServiceStatus()
+    request['hServiceStatus'] = hServiceStatus
+    request['lpServiceStatus'] = lpServiceStatus
+    return dce.request(request)
 
-    def RUnlockServiceDatabase(self, Lock ):
-        unlockServiceDatabase = RUnlockServiceDatabaseCall()
-        unlockServiceDatabase['Lock'] = Lock
-        ans = self.doRequest(unlockServiceDatabase)
-        resp = RUnlockServiceDatabaseResponse(ans)
-        return resp
+def hRUnlockServiceDatabase(dce, Lock ):
+    request = RUnlockServiceDatabase()
+    request['Lock'] = Lock
+    return dce.request(request)
 
-    def RNotifyBootConfigStatus(self, lpMachineName, BootAcceptable ):
-        notifyBootConfigStatus = RNotifyBootConfigStatusCall()
-        notifyBootConfigStatus['lpMachineName'] = lpMachineName
-        notifyBootConfigStatus['BootAcceptable'] = BootAcceptable
-        ans = self.doRequest(notifyBootConfigStatus)
-        resp = RNotifyBootConfigStatusResponse(ans)
-        return resp
+def hRNotifyBootConfigStatus(dce, lpMachineName, BootAcceptable ):
+    request = RNotifyBootConfigStatus()
+    request['lpMachineName'] = lpMachineName
+    request['BootAcceptable'] = BootAcceptable
+    return dce.request(request)
 
-    def RChangeServiceConfigW(self, hService, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName):
-        changeServiceConfig = RChangeServiceConfigWCall()
-        changeServiceConfig['hService'] = hService
-        changeServiceConfig['dwServiceType'] = dwServiceType
-        changeServiceConfig['dwStartType'] = dwStartType
-        changeServiceConfig['dwErrorControl'] = dwErrorControl
-        if lpBinaryPathName == '':
-            changeServiceConfig['lpBinaryPathName'] = NULL
-        else:
-            changeServiceConfig['lpBinaryPathName'] = lpBinaryPathName
-        if lpLoadOrderGroup == '':
-            changeServiceConfig['lpLoadOrderGroup'] = NULL
-        else:
-            changeServiceConfig['lpLoadOrderGroup'] = lpLoadOrderGroup
-        if lpdwTagId == '':
-            changeServiceConfig['lpdwTagId'] = NULL
-        else:
-            changeServiceConfig['lpdwTagId'] = lpdwTagId
-        if lpDependencies == '':
-            changeServiceConfig['lpDependencies'] = NULL
-        else:
-            changeServiceConfig['lpDependencies'] = lpDependencies
-        changeServiceConfig['dwDependSize'] = dwDependSize
-        if lpServiceStartName == '':
-            changeServiceConfig['lpServiceStartName'] = NULL
-        else:
-            changeServiceConfig['lpServiceStartName'] = lpServiceStartName
-        if lpPassword == '':
-            changeServiceConfig['lpPassword'] = NULL
-        else:
-            changeServiceConfig['lpPassword'] = lpPassword
-        changeServiceConfig['dwPwSize'] = dwPwSize
-        if lpDisplayName == '':
-            changeServiceConfig['lpDisplayName'] = NULL
-        else:
-            changeServiceConfig['lpDisplayName'] = lpDisplayName
-        ans = self.doRequest(changeServiceConfig)
-        resp = RChangeServiceConfigWResponse(ans)
-        return resp
+def hRChangeServiceConfigW(dce, hService, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName):
+    changeServiceConfig = RChangeServiceConfigW()
+    changeServiceConfig['hService'] = hService
+    changeServiceConfig['dwServiceType'] = dwServiceType
+    changeServiceConfig['dwStartType'] = dwStartType
+    changeServiceConfig['dwErrorControl'] = dwErrorControl
+    if lpBinaryPathName == '':
+        changeServiceConfig['lpBinaryPathName'] = NULL
+    else:
+        changeServiceConfig['lpBinaryPathName'] = lpBinaryPathName
+    if lpLoadOrderGroup == '':
+        changeServiceConfig['lpLoadOrderGroup'] = NULL
+    else:
+        changeServiceConfig['lpLoadOrderGroup'] = lpLoadOrderGroup
+    if lpdwTagId == '':
+        changeServiceConfig['lpdwTagId'] = NULL
+    else:
+        changeServiceConfig['lpdwTagId'] = lpdwTagId
+    if lpDependencies == '':
+        changeServiceConfig['lpDependencies'] = NULL
+    else:
+        changeServiceConfig['lpDependencies'] = lpDependencies
+    changeServiceConfig['dwDependSize'] = dwDependSize
+    if lpServiceStartName == '':
+        changeServiceConfig['lpServiceStartName'] = NULL
+    else:
+        changeServiceConfig['lpServiceStartName'] = lpServiceStartName
+    if lpPassword == '':
+        changeServiceConfig['lpPassword'] = NULL
+    else:
+        changeServiceConfig['lpPassword'] = lpPassword
+    changeServiceConfig['dwPwSize'] = dwPwSize
+    if lpDisplayName == '':
+        changeServiceConfig['lpDisplayName'] = NULL
+    else:
+        changeServiceConfig['lpDisplayName'] = lpDisplayName
+    return dce.request(changeServiceConfig)
 
-    def RCreateServiceW(self, hSCManager, lpServiceName, lpDisplayName, dwDesiredAccess, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize):
-        createService = RCreateServiceWCall()
-        createService['hSCManager'] = hSCManager
-        createService['lpServiceName'] = lpServiceName
-        createService['lpDisplayName'] = lpDisplayName
-        createService['dwDesiredAccess'] = dwDesiredAccess
-        createService['dwServiceType'] = dwServiceType
-        createService['dwStartType'] = dwStartType
-        createService['dwErrorControl'] = dwErrorControl
-        createService['lpBinaryPathName'] = lpBinaryPathName
-        if lpLoadOrderGroup == '':
-            createService['lpLoadOrderGroup'] = NULL
-        else:
-            createService['lpLoadOrderGroup'] = lpLoadOrderGroup
-        if lpdwTagId == '':
-            createService['lpdwTagId'] = NULL
-        else: 
-            createService['lpdwTagId'] = lpdwTagId
-        if lpDependencies == '':
-            createService['lpDependencies'] = NULL
-        else:
-            createService['lpDependencies'] = lpDependencies
-        createService['dwDependSize'] = dwDependSize
-        if lpServiceStartName == '':
-            createService['lpServiceStartName'] = NULL
-        else:
-            createService['lpServiceStartName'] = lpServiceStartName
-        if lpPassword == '':
-            createService['lpPassword'] = NULL
-        else:
-            createService['lpPassword'] = lpPassword
-        createService['dwPwSize'] = dwPwSize
-        ans = self.doRequest(createService)
-        resp = RCreateServiceWResponse(ans)
-        return resp
+def hRCreateServiceW(dce, hSCManager, lpServiceName, lpDisplayName, dwDesiredAccess, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize):
+    createService = RCreateServiceW()
+    createService['hSCManager'] = hSCManager
+    createService['lpServiceName'] = lpServiceName
+    createService['lpDisplayName'] = lpDisplayName
+    createService['dwDesiredAccess'] = dwDesiredAccess
+    createService['dwServiceType'] = dwServiceType
+    createService['dwStartType'] = dwStartType
+    createService['dwErrorControl'] = dwErrorControl
+    createService['lpBinaryPathName'] = lpBinaryPathName
+    if lpLoadOrderGroup == '':
+        createService['lpLoadOrderGroup'] = NULL
+    else:
+        createService['lpLoadOrderGroup'] = lpLoadOrderGroup
+    if lpdwTagId == '':
+        createService['lpdwTagId'] = NULL
+    else: 
+        createService['lpdwTagId'] = lpdwTagId
+    if lpDependencies == '':
+        createService['lpDependencies'] = NULL
+    else:
+        createService['lpDependencies'] = lpDependencies
+    createService['dwDependSize'] = dwDependSize
+    if lpServiceStartName == '':
+        createService['lpServiceStartName'] = NULL
+    else:
+        createService['lpServiceStartName'] = lpServiceStartName
+    if lpPassword == '':
+        createService['lpPassword'] = NULL
+    else:
+        createService['lpPassword'] = lpPassword
+    createService['dwPwSize'] = dwPwSize
+    return dce.request(createService)
 
-    def REnumDependentServicesW(self, hService, dwServiceState, cbBufSize ):
-        enumDependentServices = REnumDependentServicesWCall()
-        enumDependentServices['hService'] = hService
-        enumDependentServices['dwServiceState'] = dwServiceState
-        enumDependentServices['cbBufSize'] = cbBufSize
-        ans = self.doRequest(enumDependentServices, checkReturn = 0)
-        resp = REnumDependentServicesWResponse(ans)
-        return resp
+def hREnumDependentServicesW(dce, hService, dwServiceState, cbBufSize ):
+    enumDependentServices = REnumDependentServicesW()
+    enumDependentServices['hService'] = hService
+    enumDependentServices['dwServiceState'] = dwServiceState
+    enumDependentServices['cbBufSize'] = cbBufSize
+    return dce.request(enumDependentServices)
 
-    def REnumServicesStatusW(self, hSCManager, dwServiceType, dwServiceState, cbBufSize, lpResumeIndex ):
-        enumServicesStatus = REnumServicesStatusWCall()
-        enumServicesStatus['hSCManager'] = hSCManager
-        enumServicesStatus['dwServiceType'] = dwServiceType
-        enumServicesStatus['dwServiceState'] = dwServiceState
-        enumServicesStatus['cbBufSize'] = cbBufSize
-        if lpResumeIndex == 0:
-            enumServicesStatus['lpResumeIndex'] = NULL
-        else:
-            enumServicesStatus['lpResumeIndex'] = lpResumeIndex
-        ans = self.doRequest(enumServicesStatus, checkReturn = 0)
-        resp = REnumServicesStatusWResponse(ans)
-        return resp
+def hREnumServicesStatusW(dce, hSCManager, dwServiceType, dwServiceState, cbBufSize, lpResumeIndex ):
+    enumServicesStatus = REnumServicesStatusW()
+    enumServicesStatus['hSCManager'] = hSCManager
+    enumServicesStatus['dwServiceType'] = dwServiceType
+    enumServicesStatus['dwServiceState'] = dwServiceState
+    enumServicesStatus['cbBufSize'] = cbBufSize
+    if lpResumeIndex == 0:
+        enumServicesStatus['lpResumeIndex'] = NULL
+    else:
+        enumServicesStatus['lpResumeIndex'] = lpResumeIndex
+    return dce.request(enumServicesStatus)
 
-    def ROpenSCManagerW(self, lpMachineName, lpDatabaseName, dwDesiredAccess):
-        openSCManager = ROpenSCManagerWCall()
-        openSCManager['lpMachineName'] = lpMachineName
-        if lpDatabaseName == '':
-            openSCManager['lpDatabaseName'] = NULL
-        else:
-            openSCManager['lpDatabaseName'] = lpDatabaseName
-        openSCManager['dwDesiredAccess'] = dwDesiredAccess
-        ans = self.doRequest(openSCManager)
-        resp = ROpenSCManagerWResponse(ans)
-        return resp
+def hROpenSCManagerW(dce, lpMachineName, lpDatabaseName, dwDesiredAccess):
+    openSCManager = ROpenSCManagerW()
+    openSCManager['lpMachineName'] = lpMachineName
+    if lpDatabaseName == '':
+        openSCManager['lpDatabaseName'] = NULL
+    else:
+        openSCManager['lpDatabaseName'] = lpDatabaseName
+    openSCManager['dwDesiredAccess'] = dwDesiredAccess
+    return dce.request(openSCManager)
 
-    def ROpenServiceW(self, hSCManager, lpServiceName, dwDesiredAccess):
-        openService = ROpenServiceWCall()
-        openService['hSCManager'] = hSCManager
-        openService['lpServiceName'] = lpServiceName
-        openService['dwDesiredAccess'] = dwDesiredAccess
-        ans = self.doRequest(openService)
-        resp = ROpenServiceWResponse(ans)
-        return resp
+def hROpenServiceW(dce, hSCManager, lpServiceName, dwDesiredAccess):
+    openService = ROpenServiceW()
+    openService['hSCManager'] = hSCManager
+    openService['lpServiceName'] = lpServiceName
+    openService['dwDesiredAccess'] = dwDesiredAccess
+    return dce.request(openService)
 
-    def RQueryServiceConfigW(self, hService, cbBufSize ):
-        queryService = RQueryServiceConfigWCall()
-        queryService['hService'] = hService
-        queryService['cbBufSize'] = cbBufSize
-        ans = self.doRequest(queryService, checkReturn = 0)
-        resp = RQueryServiceConfigWResponse(ans)
-        return resp
+def hRQueryServiceConfigW(dce, hService, cbBufSize ):
+    queryService = RQueryServiceConfigW()
+    queryService['hService'] = hService
+    queryService['cbBufSize'] = cbBufSize
+    return dce.request(queryService)
 
-    def RQueryServiceLockStatusW(self, hSCManager, cbBufSize ):
-        queryServiceLock = RQueryServiceLockStatusWCall()
-        queryServiceLock['hSCManager'] = hSCManager
-        queryServiceLock['cbBufSize'] = cbBufSize
-        ans = self.doRequest(queryServiceLock, checkReturn = 0)
-        resp = RQueryServiceLockStatusWResponse(ans)
-        return resp
+def hRQueryServiceLockStatusW(dce, hSCManager, cbBufSize ):
+    queryServiceLock = RQueryServiceLockStatusW()
+    queryServiceLock['hSCManager'] = hSCManager
+    queryServiceLock['cbBufSize'] = cbBufSize
+    return dce.request(queryServiceLock)
 
-    def RStartServiceW(self, hService, argc, argv ):
-        startService = RStartServiceWCall()
-        startService['hService'] = hService
-        startService['argc'] = argc
-        if argc == 0:
-            startService['argv'] = NULL
-        else:
-            items = []
-            for item in argv:
-                itemn = LPWSTR()
-                itemn['Data'] = item
-                startService['argv'].append(itemn)
-        ans = self.doRequest(startService)
-        resp = RStartServiceWResponse(ans)
-        return resp
+def hRStartServiceW(dce, hService, argc, argv ):
+    startService = RStartServiceW()
+    startService['hService'] = hService
+    startService['argc'] = argc
+    if argc == 0:
+        startService['argv'] = NULL
+    else:
+        items = []
+        for item in argv:
+            itemn = LPWSTR()
+            itemn['Data'] = item
+            startService['argv'].append(itemn)
+    return dce.request(startService)
 
-    def RGetServiceDisplayNameW(self, hSCManager, lpServiceName, lpcchBuffer ):
-        getServiceDisplay = RGetServiceDisplayNameWCall()
-        getServiceDisplay['hSCManager'] = hSCManager
-        getServiceDisplay['lpServiceName'] = lpServiceName
-        getServiceDisplay['lpcchBuffer'] = lpcchBuffer
-        ans = self.doRequest(getServiceDisplay)
-        resp = RGetServiceDisplayNameWResponse(ans)
-        return resp
+def hRGetServiceDisplayNameW(dce, hSCManager, lpServiceName, lpcchBuffer ):
+    getServiceDisplay = RGetServiceDisplayNameW()
+    getServiceDisplay['hSCManager'] = hSCManager
+    getServiceDisplay['lpServiceName'] = lpServiceName
+    getServiceDisplay['lpcchBuffer'] = lpcchBuffer
+    return dce.request(getServiceDisplay)
 
-    def RGetServiceKeyNameW(self, hSCManager, lpDisplayName, lpcchBuffer ):
-        getServiceKeyName = RGetServiceKeyNameWCall()
-        getServiceKeyName['hSCManager'] = hSCManager
-        getServiceKeyName['lpDisplayName'] = lpDisplayName
-        getServiceKeyName['lpcchBuffer'] = lpcchBuffer
-        ans = self.doRequest(getServiceKeyName)
-        resp = RGetServiceKeyNameWResponse(ans)
-        return resp
+def hRGetServiceKeyNameW(dce, hSCManager, lpDisplayName, lpcchBuffer ):
+    getServiceKeyName = RGetServiceKeyNameW()
+    getServiceKeyName['hSCManager'] = hSCManager
+    getServiceKeyName['lpDisplayName'] = lpDisplayName
+    getServiceKeyName['lpcchBuffer'] = lpcchBuffer
+    return dce.request(getServiceKeyName)
 
-    def REnumServiceGroupW(self, hSCManager, dwServiceType, dwServiceState, cbBufSize, lpResumeIndex, pszGroupName ):
-        enumServiceGroup = REnumServiceGroupWCall()
-        enumServiceGroup['hSCManager'] = hSCManager
-        enumServiceGroup['dwServiceType'] = dwServiceType
-        enumServiceGroup['dwServiceState'] = dwServiceState
-        enumServiceGroup['cbBufSize'] = cbBufSize
-        if lpResumeIndex == 0:
-            enumServiceGroup['lpResumeIndex'] = NULL
-        else:
-            enumServiceGroup['lpResumeIndex'] = lpResumeIndex
-        enumServiceGroup['pszGroupName'] = pszGroupName
-        ans = self.doRequest(enumServiceGroup)
-        resp = REnumServiceGroupWResponse(ans)
-        return resp
+def hREnumServiceGroupW(dce, hSCManager, dwServiceType, dwServiceState, cbBufSize, lpResumeIndex, pszGroupName ):
+    enumServiceGroup = REnumServiceGroupW()
+    enumServiceGroup['hSCManager'] = hSCManager
+    enumServiceGroup['dwServiceType'] = dwServiceType
+    enumServiceGroup['dwServiceState'] = dwServiceState
+    enumServiceGroup['cbBufSize'] = cbBufSize
+    if lpResumeIndex == 0:
+        enumServiceGroup['lpResumeIndex'] = NULL
+    else:
+        enumServiceGroup['lpResumeIndex'] = lpResumeIndex
+    enumServiceGroup['pszGroupName'] = pszGroupName
+    return dce.request(enumServiceGroup)
 
