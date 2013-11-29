@@ -17,6 +17,7 @@
 from binascii import a2b_hex
 from Crypto.Cipher import ARC4
 
+import impacket
 from impacket import ntlm
 from impacket.structure import Structure,pack,unpack
 from impacket import uuid
@@ -408,6 +409,17 @@ class DCERPC:
     def set_idempotent(self, flag): pass
     def call(self, function, body):
         return self.send(DCERPC_RawCall(function, str(body)))
+    def request(self, request):
+        self.call(request.opnum, request)
+        answer = self.recv()
+        respClass = request.__module__ + '.' + request.__class__.__name__ + 'Response'
+        response =  eval(respClass)(answer)
+        if response['ErrorCode'] != 0:
+            sessionErrorClass = request.__module__ + '.SessionError'
+            exception = eval(sessionErrorClass)(response)
+            raise exception
+        else:
+            return response
 
 class DCERPC_v5(DCERPC):
     def __init__(self, transport):
@@ -431,6 +443,7 @@ class DCERPC_v5(DCERPC):
         self.__serverSealingHandle = ''
         self.__sequence = 0   
 
+        self.__transfer_syntax = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
         self.__callid = 1
         self._ctx = 0
 
@@ -547,8 +560,8 @@ class DCERPC_v5(DCERPC):
 
         # check ack results for each context, except for the bogus ones
         for ctx in range(bogus_binds+1,bindResp['ctx_num']+1):
-            result = bindResp.getCtxItem(ctx)['Result']
-            if result != 0:
+            resp = bindResp.getCtxItem(ctx)
+            if resp['Result'] != 0:
                 msg = "Bind context %d rejected: " % ctx
                 msg += rpc_cont_def_result.get(result, 'Unknown DCE RPC context result code: %.4x' % result)
                 msg += "; "
@@ -557,6 +570,9 @@ class DCERPC_v5(DCERPC):
                 if (result, reason) == (2, 1): # provider_rejection, abstract syntax not supported
                     msg += " (this usually means the interface isn't listening on the given endpoint)"
                 raise Exception(msg, resp)
+
+            # Save the transfer syntax for later use
+            self.__transfer_syntax = resp['TransferSyntax'] 
 
         self.__max_xmit_size = bindResp['max_tfrag']
 
