@@ -1,6 +1,6 @@
 ################################################################################
 #  Tested so far: 
-#  RCloseServiceHandleCall
+#  hRCloseServiceHandleCall
 #  RControlService
 #  RDeleteService
 #  RLockServiceDatabase
@@ -50,12 +50,12 @@ from impacket.winregistry import hexdump
 from impacket.uuid import string_to_bin
 
 class SVCCTLTests(unittest.TestCase):
-    def changeServiceAndQuery(self, rpc, cbBufSize, hService, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName):
+    def changeServiceAndQuery(self, dce, cbBufSize, hService, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName):
 
         try:
-            resp = rpc.RChangeServiceConfigW( hService, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName)
+            resp = scmr.hRChangeServiceConfigW( dce, hService, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName)
 
-            resp = rpc.RQueryServiceConfigW(hService, cbBufSize)
+            resp = scmr.hRQueryServiceConfigW(dce, hService, cbBufSize)
             #resp.dump()
             # Now let's compare all the results
             if dwServiceType != scmr.SERVICE_NO_CHANGE:
@@ -80,10 +80,10 @@ class SVCCTLTests(unittest.TestCase):
             #    if resp['lpServiceConfig']['dwTagId']['Data'] != lpdwTagId:
             #        print "ERROR %s" % 'lpdwTagId'
         except:
-            resp = rpc.RDeleteService(hService)
+            resp = scmr.hRDeleteService(dce, hService)
             raise
 
-    def changeServiceAndQuery2(self, rpc, info, changeDone):
+    def changeServiceAndQuery2(self, dce, info, changeDone):
         serviceHandle = info['hService']
         dwInfoLevel = info['Info']['tag']
         cbBuffSize = 0
@@ -91,9 +91,16 @@ class SVCCTLTests(unittest.TestCase):
         request['hService'] = serviceHandle
         request['dwInfoLevel'] = dwInfoLevel
         request['cbBufSize'] = cbBuffSize
-        resp = rpc.request(request)
+        try:
+            resp = dce.request(request)
+        except Exception, e:
+            if str(e).find('ERROR_INSUFICIENT_BUFFER') <= 0:
+                raise
+            else: 
+                resp = e.get_packet()
+
         request['cbBufSize'] = resp['pcbBytesNeeded'] 
-        resp = rpc.request(request)
+        resp = dce.request(request)
         arrayData = ''.join(resp['lpBuffer'])
         if dwInfoLevel == 1:
            self.assertTrue(arrayData[4:].decode('utf-16le') == changeDone)
@@ -126,18 +133,18 @@ class SVCCTLTests(unittest.TestCase):
         dce = rpctransport.get_dce_rpc()
         dce.connect()
         dce.bind(scmr.MSRPC_UUID_SVCCTL)
-        rpc = scmr.DCERPCSvcCtl(dce)
+        #rpc = scmr.DCERPCSvcCtl(dce)
         lpMachineName = 'DUMMY\x00'
         lpDatabaseName = 'ServicesActive\x00'
         desiredAccess = scmr.SERVICE_START | scmr.SERVICE_STOP | scmr.SERVICE_CHANGE_CONFIG | scmr.SERVICE_QUERY_CONFIG | scmr.SERVICE_QUERY_STATUS | scmr.SERVICE_ENUMERATE_DEPENDENTS | scmr.SC_MANAGER_ENUMERATE_SERVICE
         
-        resp = rpc.ROpenSCManagerW(lpMachineName, lpDatabaseName, desiredAccess)
+        resp = scmr.hROpenSCManagerW(dce,lpMachineName, lpDatabaseName, desiredAccess)
         scHandle = resp['lpScHandle']
 
-        return rpc, rpctransport, scHandle
+        return dce, rpctransport, scHandle
 
     def test_RChangeServiceConfig2W(self):
-        rpc, rpctransport, scHandle  = self.connect()
+        dce, rpctransport, scHandle  = self.connect()
         lpServiceName = 'TESTSVC\x00'
         lpDisplayName = 'DisplayName\x00'
         dwDesiredAccess = scmr.SERVICE_ALL_ACCESS
@@ -152,7 +159,7 @@ class SVCCTLTests(unittest.TestCase):
         lpServiceStartName = ''
         lpPassword = ''
         dwPwSize = 0
-        resp = rpc.RCreateServiceW(scHandle, lpServiceName, lpDisplayName, dwDesiredAccess, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize)
+        resp = scmr.hRCreateServiceW(dce, scHandle, lpServiceName, lpDisplayName, dwDesiredAccess, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize)
         #resp.dump()
         newHandle = resp['lpServiceHandle'] 
         error = False
@@ -161,35 +168,35 @@ class SVCCTLTests(unittest.TestCase):
             request['hService'] = newHandle
             request['Info']['tag'] = 1
             request['Info']['psd']['lpDescription'] = u'betobeto\x00'
-            resp = rpc.request(request)
+            resp = dce.request(request)
             #resp.dump()
-            self.changeServiceAndQuery2(rpc, request, request['Info']['psd']['lpDescription'])
+            self.changeServiceAndQuery2(dce, request, request['Info']['psd']['lpDescription'])
             request['Info']['tag'] = 2
             request['Info']['psfa']['lpRebootMsg'] = u'rebootMsg\00'
             request['Info']['psfa']['lpCommand'] = u'lpCommand\00'
-            resp = rpc.request(request)
+            resp = dce.request(request)
             #resp.dump()
-            self.changeServiceAndQuery2(rpc, request, request['Info']['psfa']['lpRebootMsg'])
+            self.changeServiceAndQuery2(dce, request, request['Info']['psfa']['lpRebootMsg'])
             request['Info']['tag'] = 3
             request['Info']['psda']['fDelayedAutostart'] = 1
-            resp = rpc.request(request)
-            self.changeServiceAndQuery2(rpc, request, request['Info']['psda']['fDelayedAutostart'])
+            resp = dce.request(request)
+            self.changeServiceAndQuery2(dce, request, request['Info']['psda']['fDelayedAutostart'])
             request['Info']['tag'] = 4
             request['Info']['psfaf']['fFailureActionsOnNonCrashFailures'] = 1
-            resp = rpc.request(request)
-            self.changeServiceAndQuery2(rpc, request, request['Info']['psfaf']['fFailureActionsOnNonCrashFailures'])
+            resp = dce.request(request)
+            self.changeServiceAndQuery2(dce, request, request['Info']['psfaf']['fFailureActionsOnNonCrashFailures'])
             request['Info']['tag'] = 5
             request['Info']['pssid']['dwServiceSidType'] = 1
-            resp = rpc.request(request)
-            self.changeServiceAndQuery2(rpc, request, request['Info']['pssid']['dwServiceSidType'])
+            resp = dce.request(request)
+            self.changeServiceAndQuery2(dce, request, request['Info']['pssid']['dwServiceSidType'])
             request['Info']['tag'] = 6
             request['Info']['psrp']['pRequiredPrivileges'] = list(u'SeAssignPrimaryTokenPrivilege\x00\x00'.encode('utf-16le'))
-            resp = rpc.request(request)
-            self.changeServiceAndQuery2(rpc, request, request['Info']['psrp']['pRequiredPrivileges'])
+            resp = dce.request(request)
+            self.changeServiceAndQuery2(dce, request, request['Info']['psrp']['pRequiredPrivileges'])
             request['Info']['tag'] = 7
             request['Info']['psps']['dwPreshutdownTimeout'] = 22
-            resp = rpc.request(request)
-            self.changeServiceAndQuery2(rpc, request, request['Info']['psps']['dwPreshutdownTimeout'])
+            resp = dce.request(request)
+            self.changeServiceAndQuery2(dce, request, request['Info']['psps']['dwPreshutdownTimeout'])
             request['Info']['tag'] = 8
             #request.dump()
             trigger = scmr.SERVICE_TRIGGER()
@@ -202,22 +209,22 @@ class SVCCTLTests(unittest.TestCase):
             #trigger['pDataItems'].append(item)
             trigger['pDataItems'] = NULL
             request['Info']['psti']['pTriggers'].append(trigger)
-            resp = rpc.request(request)
-            self.changeServiceAndQuery2(rpc, request, '\x00')
+            resp = dce.request(request)
+            #self.changeServiceAndQuery2(dce, request, '\x00')
             request['Info']['tag'] = 9
             request['Info']['pspn']['usPreferredNode'] = 22
-            resp = rpc.request(request)
-            self.changeServiceAndQuery2(rpc, request, request['Info']['pspn']['usPreferredNode'])
+            #resp = dce.request(request)
+            #self.changeServiceAndQuery2(dce, request, request['Info']['pspn']['usPreferredNode'])
             request['Info']['tag'] = 10
             request['Info']['psri']['eLowestRunLevel'] = 1
             # This one doesn't work
-            #resp = rpc.request(request)
-            self.changeServiceAndQuery2(rpc, request, request['Info']['psri']['eLowestRunLevel'])
+            #resp = dce.request(request)
+            #self.changeServiceAndQuery2(dce, request, request['Info']['psri']['eLowestRunLevel'])
             request['Info']['tag'] = 11
             request['Info']['psma']['fIsManagedAccount'] = 1
             # This one doesn't work
-            #resp = rpc.request(request)
-            self.changeServiceAndQuery2(rpc, request, request['Info']['psma']['fIsManagedAccount'])
+            #resp = dce.request(request)
+            #self.changeServiceAndQuery2(dce, request, request['Info']['psma']['fIsManagedAccount'])
 
         except Exception, e:
             import traceback
@@ -226,14 +233,14 @@ class SVCCTLTests(unittest.TestCase):
             error = True
             pass
 
-        resp = rpc.RDeleteService(newHandle)
-        resp = rpc.RCloseServiceHandle(newHandle)
-        resp = rpc.RCloseServiceHandle(scHandle)
+        resp = scmr.hRDeleteService(dce, newHandle)
+        resp = scmr.hRCloseServiceHandle(dce, newHandle)
+        resp = scmr.hRCloseServiceHandle(dce, scHandle)
         if error:
             self.assertTrue( 1 == 0 )
     
     def test_REnumServicesStatusExW(self):
-        rpc, rpctransport, scHandle  = self.connect()
+        dce, rpctransport, scHandle  = self.connect()
 
         request = scmr.REnumServicesStatusExW()
         request['hSCManager'] = scHandle
@@ -247,18 +254,24 @@ class SVCCTLTests(unittest.TestCase):
         #print "\n"
 
         # Request again with the right bufSize
-        resp = rpc.request(request)
+        try:
+            resp = dce.request(request)
+        except Exception, e:
+            if str(e).find('ERROR_MORE_DATA') <= 0:
+                raise
+            else: 
+                resp = e.get_packet()
         #resp.dump()
         request['cbBufSize'] = resp['pcbBytesNeeded']
-        resp = rpc.request(request)
+        resp = dce.request(request)
         #resp.dump()
 
     def test_RQueryServiceStatusEx(self):
-        rpc, rpctransport, scHandle  = self.connect()
+        dce, rpctransport, scHandle  = self.connect()
         lpServiceName = 'PlugPlay\x00'
         desiredAccess = scmr.SERVICE_START | scmr.SERVICE_STOP | scmr.SERVICE_CHANGE_CONFIG | scmr.SERVICE_QUERY_CONFIG | scmr.SERVICE_QUERY_STATUS | scmr.SERVICE_ENUMERATE_DEPENDENTS
 
-        resp = rpc.ROpenServiceW(scHandle, lpServiceName, desiredAccess )
+        resp = scmr.hROpenServiceW(dce, scHandle, lpServiceName, desiredAccess )
         #resp.dump()
 
         serviceHandle = resp['lpServiceHandle']
@@ -268,13 +281,13 @@ class SVCCTLTests(unittest.TestCase):
         request['InfoLevel'] = scmr.SC_STATUS_PROCESS_INFO
         request['cbBufSize'] = 100
 
-        resp = rpc.request(request)
+        resp = dce.request(request)
         array = ''.join(resp['lpBuffer'])
         status = scmr.SERVICE_STATUS_PROCESS(array)
         #status.dump()
 
     def test_REnumServiceGroupW(self):
-        rpc, rpctransport, scHandle  = self.connect()
+        dce, rpctransport, scHandle  = self.connect()
 
 
         dwServiceType = scmr.SERVICE_WIN32_OWN_PROCESS
@@ -284,20 +297,20 @@ class SVCCTLTests(unittest.TestCase):
         pszGroupName = 'RemoteRegistry\x00'
 
         try:
-            resp = rpc.REnumServiceGroupW(scHandle, dwServiceType, dwServiceState, cbBufSize, lpResumeIndex, pszGroupName )
+            resp = scmr.hREnumServiceGroupW(dce, scHandle, dwServiceType, dwServiceState, cbBufSize, lpResumeIndex, pszGroupName )
             #resp.dump()
         except Exception, e:
            if str(e).find('ERROR_SERVICE_DOES_NOT_EXISTS') <= 0:
                raise
 
-        resp = rpc.RCloseServiceHandle(scHandle)
+        resp = scmr.hRCloseServiceHandle(dce, scHandle)
 
     def test_RQueryServiceConfigEx(self):
-        rpc, rpctransport, scHandle  = self.connect()
+        dce, rpctransport, scHandle  = self.connect()
         lpServiceName = 'RemoteRegistry\x00'
         desiredAccess = scmr.SERVICE_START | scmr.SERVICE_STOP | scmr.SERVICE_CHANGE_CONFIG | scmr.SERVICE_QUERY_CONFIG | scmr.SERVICE_QUERY_STATUS | scmr.SERVICE_ENUMERATE_DEPENDENTS
 
-        resp = rpc.ROpenServiceW(scHandle, lpServiceName, desiredAccess )
+        resp = scmr.hROpenServiceW(dce, scHandle, lpServiceName, desiredAccess )
         #resp.dump()
         serviceHandle = resp['lpServiceHandle']
 
@@ -306,15 +319,15 @@ class SVCCTLTests(unittest.TestCase):
         request['dwInfoLevel'] = 0x00000008
         #request.dump()
 
-        resp = rpc.request(request)
+        resp = dce.request(request)
         #resp.dump()
 
     def test_RControlServiceExW(self):
-        rpc, rpctransport, scHandle  = self.connect()
+        dce, rpctransport, scHandle  = self.connect()
         lpServiceName = 'PlugPlay\x00'
         desiredAccess = scmr.SERVICE_START | scmr.SERVICE_STOP | scmr.SERVICE_CHANGE_CONFIG | scmr.SERVICE_QUERY_CONFIG | scmr.SERVICE_QUERY_STATUS | scmr.SERVICE_ENUMERATE_DEPENDENTS
 
-        resp = rpc.ROpenServiceW(scHandle, lpServiceName, desiredAccess )
+        resp = scmr.hROpenServiceW(dce, scHandle, lpServiceName, desiredAccess )
         #resp.dump()
         serviceHandle = resp['lpServiceHandle']
 
@@ -324,16 +337,17 @@ class SVCCTLTests(unittest.TestCase):
         request['dwInfoLevel'] = 1
         request['pControlInParams'] = NULL
 
-        resp = rpc.request(request)
+        resp = dce.request(request)
+
         resp.dump()
 
 
     def test_RNotifyServiceStatusChange(self):
-        rpc, rpctransport, scHandle  = self.connect()
+        dce, rpctransport, scHandle  = self.connect()
         lpServiceName = 'PlugPlay\x00'
         desiredAccess = scmr.SERVICE_START | scmr.SERVICE_STOP | scmr.SERVICE_CHANGE_CONFIG | scmr.SERVICE_QUERY_CONFIG | scmr.SERVICE_QUERY_STATUS | scmr.SERVICE_ENUMERATE_DEPENDENTS
 
-        resp = rpc.ROpenServiceW(scHandle, lpServiceName, desiredAccess )
+        resp = scmr.hROpenServiceW(dce, scHandle, lpServiceName, desiredAccess )
         #resp.dump()
         serviceHandle = resp['lpServiceHandle']
 
@@ -343,84 +357,84 @@ class SVCCTLTests(unittest.TestCase):
         request['NotifyParams']['pStatusChangeParam1']['dwNotifyMask'] = scmr.SERVICE_NOTIFY_RUNNING
         request['pClientProcessGuid'] = '0'*16
         #request.dump()
-        resp = rpc.request(request)
+        resp = dce.request(request)
         #resp.dump()
 
         request = scmr.RCloseNotifyHandle()
         request['phNotify'] = resp['phNotify']
 
-        resp = rpc.request(request)
+        resp = dce.request(request)
         #resp.dump()
 
         request = scmr.RGetNotifyResults()
         request['hNotify'] = resp['phNotify']
 
-        resp = rpc.request(request)
+        resp = dce.request(request)
         #resp.dump()
 
     def test_RGetServiceDisplayNameW(self):
-        rpc, rpctransport, scHandle  = self.connect()
+        dce, rpctransport, scHandle  = self.connect()
 
         lpServiceName = 'PlugPlay\x00'
         lpcchBuffer = len(lpServiceName)+100
 
-        resp = rpc.RGetServiceDisplayNameW(scHandle, lpServiceName, lpcchBuffer)
+        resp = scmr.hRGetServiceDisplayNameW(dce, scHandle, lpServiceName, lpcchBuffer)
 
-        resp = rpc.RCloseServiceHandle(scHandle)
+        resp = scmr.hRCloseServiceHandle(dce, scHandle)
 
     def test_RGetServiceKeyNameW(self):
-        rpc, rpctransport, scHandle  = self.connect()
+        dce, rpctransport, scHandle  = self.connect()
 
         lpDisplayName = 'Plug and Play\x00'
         lpcchBuffer = len(lpDisplayName)+100
 
-        resp = rpc.RGetServiceKeyNameW(scHandle, lpDisplayName, lpcchBuffer)
+        resp = scmr.hRGetServiceKeyNameW(dce, scHandle, lpDisplayName, lpcchBuffer)
 
-        resp = rpc.RCloseServiceHandle(scHandle)
+        resp = scmr.hRCloseServiceHandle(dce, scHandle)
 
     def test_RStartServiceW(self):
-        rpc, rpctransport, scHandle  = self.connect()
+        dce, rpctransport, scHandle  = self.connect()
 
         lpServiceName = 'PlugPlay\x00'
         desiredAccess = scmr.SERVICE_START | scmr.SERVICE_STOP | scmr.SERVICE_CHANGE_CONFIG | scmr.SERVICE_QUERY_CONFIG | scmr.SERVICE_QUERY_STATUS | scmr.SERVICE_ENUMERATE_DEPENDENTS
 
-        resp = rpc.ROpenServiceW(scHandle, lpServiceName, desiredAccess )
+        resp = scmr.hROpenServiceW(dce, scHandle, lpServiceName, desiredAccess )
         #resp.dump()
         serviceHandle = resp['lpServiceHandle']
   
         try:
-            resp = rpc.RStartServiceW(serviceHandle, 3, ['arg1\x00', 'arg2\x00', 'arg3\x00'] )
+            resp = scmr.hRStartServiceW(dce, serviceHandle, 3, ['arg1\x00', 'arg2\x00', 'arg3\x00'] )
         except Exception, e:
            if str(e).find('ERROR_SERVICE_ALREADY_RUNNING') <= 0:
                raise
-        resp = rpc.RCloseServiceHandle(scHandle)
+        resp = scmr.hRCloseServiceHandle(dce, scHandle)
 
     def test_RQueryServiceLockStatusW(self):
-        rpc, rpctransport, scHandle  = self.connect()
+        dce, rpctransport, scHandle  = self.connect()
 
         pcbBytesNeeded = 1000
-        resp = rpc.RQueryServiceLockStatusW(scHandle, pcbBytesNeeded)
+        resp = scmr.hRQueryServiceLockStatusW(dce, scHandle, pcbBytesNeeded)
 
-        resp = rpc.RCloseServiceHandle(scHandle)
+        resp = scmr.hRCloseServiceHandle(dce, scHandle)
 
     def test_enumservices(self):
-        rpc, rpctransport, scHandle  = self.connect()
+        dce, rpctransport, scHandle  = self.connect()
 
         #####################
         # EnumServicesStatusW
         dwServiceType = scmr.SERVICE_KERNEL_DRIVER | scmr.SERVICE_FILE_SYSTEM_DRIVER | scmr.SERVICE_WIN32_OWN_PROCESS | scmr.SERVICE_WIN32_SHARE_PROCESS
         dwServiceState = scmr.SERVICE_STATE_ALL
         cbBufSize = 0
-        resp = rpc.REnumServicesStatusW(scHandle, dwServiceType, dwServiceState, cbBufSize, 0)
+        resp = scmr.hREnumServicesStatusW(dce, scHandle, dwServiceType, dwServiceState, cbBufSize, 0)
         #resp.dump()
         cbBufSize = resp['pcbBytesNeeded'] 
-        resp = rpc.REnumServicesStatusW(scHandle, dwServiceType, dwServiceState, cbBufSize, 0)
+        resp = scmr.hREnumServicesStatusW(dce, scHandle, dwServiceType, dwServiceState, cbBufSize, 0)
         #resp.dump()
 
-        resp = rpc.RCloseServiceHandle(scHandle)
+        resp = scmr.hRCloseServiceHandle(dce, scHandle)
 
     def test_create_change_delete(self):
-        rpc, rpctransport, scHandle  = self.connect()
+        dce, rpctransport, scHandle  = self.connect()
 
         #####################
         # Create / Change /  Query / Delete a service
@@ -438,13 +452,20 @@ class SVCCTLTests(unittest.TestCase):
         lpServiceStartName = ''
         lpPassword = ''
         dwPwSize = 0
-        resp = rpc.RCreateServiceW(scHandle, lpServiceName, lpDisplayName, dwDesiredAccess, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize)
+        resp = scmr.hRCreateServiceW(dce, scHandle, lpServiceName, lpDisplayName, dwDesiredAccess, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize)
         #resp.dump()
         newHandle = resp['lpServiceHandle'] 
 
         # Aca hay que chequear cada uno de los items
         cbBufSize = 0
-        resp = rpc.RQueryServiceConfigW(newHandle, cbBufSize)
+        try:
+            resp = scmr.hRQueryServiceConfigW(dce, newHandle, cbBufSize)
+        except Exception, e:
+            if str(e).find('ERROR_INSUFICIENT_BUFFER') <= 0:
+                raise
+            else: 
+                resp = e.get_packet()
+
         #resp.dump()
         cbBufSize = resp['pcbBytesNeeded']+100
 
@@ -462,37 +483,37 @@ class SVCCTLTests(unittest.TestCase):
         lpDisplayName = ''
         lpdwTagId = ''
 
-        self.changeServiceAndQuery(rpc, cbBufSize, newHandle, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName) 
+        self.changeServiceAndQuery(dce, cbBufSize, newHandle, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName) 
         dwServiceType = scmr.SERVICE_NO_CHANGE        
 
         dwStartType = scmr.SERVICE_DISABLED
-        self.changeServiceAndQuery(rpc, cbBufSize, newHandle, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName) 
+        self.changeServiceAndQuery(dce, cbBufSize, newHandle, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName) 
         dwStartType = scmr.SERVICE_NO_CHANGE        
 
         dwErrorControl = scmr.SERVICE_ERROR_SEVERE
-        self.changeServiceAndQuery(rpc, cbBufSize, newHandle, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName) 
+        self.changeServiceAndQuery(dce, cbBufSize, newHandle, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName) 
         dwErrorControl = scmr.SERVICE_NO_CHANGE        
 
         lpBinaryPathName = 'BETOBETO\x00'
-        self.changeServiceAndQuery(rpc, cbBufSize, newHandle, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName) 
+        self.changeServiceAndQuery(dce, cbBufSize, newHandle, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName) 
         lpBinaryPathName = ''
 
         lpLoadOrderGroup = 'KKKK\x00'
-        self.changeServiceAndQuery(rpc, cbBufSize, newHandle, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName) 
+        self.changeServiceAndQuery(dce, cbBufSize, newHandle, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName) 
         lpLoadOrderGroup = ''
 
         #lpdwTagId = [0]
-        #self.changeServiceAndQuery(rpc, cbBufSize, newHandle, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName) 
+        #self.changeServiceAndQuery(dce, cbBufSize, newHandle, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName) 
         #lpdwTagId = ''
 
         lpDependencies = 'RemoteRegistry\x00\x00'.encode('utf-16le')
         dwDependSize = len(lpDependencies)
-        self.changeServiceAndQuery(rpc, cbBufSize, newHandle, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName) 
+        self.changeServiceAndQuery(dce, cbBufSize, newHandle, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName) 
         lpDependencies = ''
         dwDependSize = 0
 
         lpServiceStartName = '.\\Administrator\x00'
-        self.changeServiceAndQuery(rpc, cbBufSize, newHandle, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName) 
+        self.changeServiceAndQuery(dce, cbBufSize, newHandle, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName) 
         lpServiceStartName = ''
 
         lpPassword = 'mypwd\x00'.encode('utf-16le')
@@ -500,101 +521,112 @@ class SVCCTLTests(unittest.TestCase):
         key = s.getSessionKey()
         lpPassword = encryptSecret(key, lpPassword)
         dwPwSize = len(lpPassword)
-        self.changeServiceAndQuery(rpc, cbBufSize, newHandle, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName) 
+        self.changeServiceAndQuery(dce, cbBufSize, newHandle, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName) 
         lpPassword = ''
         dwPwSize = 0
 
         lpDisplayName = 'MANOLO\x00'
-        self.changeServiceAndQuery(rpc, cbBufSize, newHandle, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName) 
+        self.changeServiceAndQuery(dce, cbBufSize, newHandle, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName) 
         lpDisplayName = ''
 
-        resp = rpc.RDeleteService(newHandle)
-        resp = rpc.RCloseServiceHandle(newHandle)
-        resp = rpc.RCloseServiceHandle(scHandle)
+        resp = scmr.hRDeleteService(dce, newHandle)
+        resp = scmr.hRCloseServiceHandle(dce, newHandle)
+        resp = scmr.hRCloseServiceHandle(dce, scHandle)
 
     def test_query(self):
-        rpc, rpctransport, scHandle  = self.connect()
+        dce, rpctransport, scHandle  = self.connect()
 
         ############################
         # Query Service Status / Enum Dependent
         lpServiceName = 'PlugPlay\x00'
         desiredAccess = scmr.SERVICE_START | scmr.SERVICE_STOP | scmr.SERVICE_CHANGE_CONFIG | scmr.SERVICE_QUERY_CONFIG | scmr.SERVICE_QUERY_STATUS | scmr.SERVICE_ENUMERATE_DEPENDENTS
 
-        resp = rpc.ROpenServiceW(scHandle, lpServiceName, desiredAccess )
+        resp = scmr.hROpenServiceW(dce, scHandle, lpServiceName, desiredAccess )
         #resp.dump()
 
         serviceHandle = resp['lpServiceHandle']
  
-        resp = rpc.RQueryServiceStatus(serviceHandle)
+        resp = scmr.hRQueryServiceStatus(dce, serviceHandle)
 
         cbBufSize = 0
-        resp = rpc.REnumDependentServicesW(serviceHandle, scmr.SERVICE_STATE_ALL,cbBufSize )
+        try:
+            resp = scmr.hREnumDependentServicesW(dce, serviceHandle, scmr.SERVICE_STATE_ALL,cbBufSize )
+            #resp.dump()
+        except scmr.SessionError, e:
+           if str(e).find('ERROR_MORE_DATA') <= 0:
+               raise
+           else:
+               resp = e.get_packet()
+
         #resp.dump()
         cbBufSize = resp['pcbBytesNeeded']
-        resp = rpc.REnumDependentServicesW(serviceHandle, scmr.SERVICE_STATE_ALL,cbBufSize )
+        resp = scmr.hREnumDependentServicesW(dce, serviceHandle, scmr.SERVICE_STATE_ALL,cbBufSize )
         #resp.dump()
-        resp = rpc.RCloseServiceHandle(serviceHandle)
-        resp = rpc.RCloseServiceHandle(scHandle)
+        resp = scmr.hRCloseServiceHandle(dce, serviceHandle)
+        resp = scmr.hRCloseServiceHandle(dce, scHandle)
 
     def test_lock_unlock(self):
-        rpc, rpctransport, scHandle  = self.connect()
+        dce, rpctransport, scHandle  = self.connect()
         
-        resp = rpc.RLockServiceDatabase(scHandle)
+        resp = scmr.hRLockServiceDatabase(dce, scHandle)
         lockHandle = resp['lpLock']
-        resp = rpc.RUnlockServiceDatabase(lockHandle)
+        resp = scmr.hRUnlockServiceDatabase(dce, lockHandle)
 
-        resp = rpc.RCloseServiceHandle(scHandle)
+        resp = scmr.hRCloseServiceHandle(dce, scHandle)
 
     def test_query_set_object_security(self):
-        rpc, rpctransport, scHandle  = self.connect()
+        dce, rpctransport, scHandle  = self.connect()
         
         try:
-            resp = rpc.RQueryServiceObjectSecurity(scHandle, scmr.DACL_SECURITY_INFORMATION, 0)
+            resp = scmr.hRQueryServiceObjectSecurity(dce, scHandle, scmr.DACL_SECURITY_INFORMATION, 0)
             #resp.dump()
         except Exception, e:
            if str(e).find('ERROR_ACCESS_DENIED') <= 0:
                raise
  
-        resp = rpc.RCloseServiceHandle(scHandle)
+        resp = scmr.hRCloseServiceHandle(dce, scHandle)
 
     def test_notify_config(self):
-        rpc, rpctransport, scHandle  = self.connect()
+        dce, rpctransport, scHandle  = self.connect()
         lpMachineName = 'DUMMY\x00'
         
         try:
-            resp = rpc.RNotifyBootConfigStatus(lpMachineName, 0x0)
+            resp = scmr.hRNotifyBootConfigStatus(dce, lpMachineName, 0x0)
             #resp.dump()
-        except scmr.SCMRSessionError, e:
+        except scmr.SessionError, e:
            if str(e).find('ERROR_BOOT_ALREADY_ACCEPTED') <= 0:
                raise
  
-        resp = rpc.RCloseServiceHandle(scHandle)
+        resp = scmr.hRCloseServiceHandle(dce, scHandle)
 
     def test_RControlServiceCall(self):
-        rpc, rpctransport, scHandle  = self.connect()
+        dce, rpctransport, scHandle  = self.connect()
         lpServiceName = 'WSearch\x00'
         desiredAccess = scmr.SERVICE_START | scmr.SERVICE_STOP | scmr.SERVICE_CHANGE_CONFIG | scmr.SERVICE_QUERY_CONFIG | scmr.SERVICE_QUERY_STATUS | scmr.SERVICE_ENUMERATE_DEPENDENTS
 
-        resp = rpc.ROpenServiceW(scHandle, lpServiceName, desiredAccess )
+        resp = scmr.hROpenServiceW(dce, scHandle, lpServiceName, desiredAccess )
         #resp.dump()
 
         serviceHandle = resp['lpServiceHandle']
  
         try:
-            resp = rpc.RControlService(serviceHandle, scmr.SERVICE_CONTROL_STOP)
+            req = scmr.RControlService()
+            req['hService'] = serviceHandle
+            req['dwControl'] = scmr.SERVICE_CONTROL_STOP
+            resp = dce.request(req)
         except Exception, e:
             print e
             pass
 
-        resp = rpc.RCloseServiceHandle(serviceHandle)
+        resp = scmr.hRCloseServiceHandle(dce, serviceHandle)
         import time
         time.sleep(1)
-        resp = rpc.ROpenServiceW(scHandle, lpServiceName, desiredAccess )
+        resp = scmr.hROpenServiceW(dce, scHandle, lpServiceName, desiredAccess )
         #resp.dump()
 
         serviceHandle = resp['lpServiceHandle']
 
-        resp = rpc.RStartServiceW(serviceHandle, 0, '' )
+        resp = scmr.hRStartServiceW(dce, serviceHandle, 0, '' )
         #resp.dump()
         return 
 
@@ -606,7 +638,7 @@ class SMBTransport(SVCCTLTests):
         self.domain   = ''
         self.serverName = ''
         self.password = 'test'
-        self.machine  = '172.16.123.191'
+        self.machine  = '172.16.123.196'
         self.stringBinding = r'ncacn_np:%s[\pipe\svcctl]' % self.machine
         self.dport = 445
         self.hashes   = ''
