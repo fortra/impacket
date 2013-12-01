@@ -1,4 +1,3 @@
-# Copyright (c) 2003-2013 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -12,7 +11,7 @@
 #   [MS-SCMR] Interface implementation
 #
 
-from struct import unpack
+from struct import unpack, pack
 from impacket.uuid import uuidtup_to_bin
 from impacket.dcerpc.v5 import ndr
 from impacket.dcerpc.v5.ndr import NDRCall, NDR, NDRPointer, UNIQUE_RPC_UNICODE_STRING, NDRLONG, WSTR, RPC_UNICODE_STRING, NDRPointerNULL, NDRUniConformantArray, PNDRUniConformantArray, NDRBOOLEAN, NDRSHORT, NDRUniFixedArray, NDRUnion, NULL
@@ -207,7 +206,7 @@ ERROR_CANNOT_DETECT_DRIVER_FAILURE = 1080
 ERROR_SHUTDOWN_IN_PROGRESS       = 1115
 ERROR_REQUEST_ABORTED            = 1235
 
-class SessionError(Exception):
+class DCERPCSessionError(Exception):
     
     error_messages = {
  ERROR_FILE_NOT_FOUND            : ("ERROR_FILE_NOT_FOUND", "The system cannot find the file specified."),          
@@ -255,9 +254,9 @@ class SessionError(Exception):
 
     def __str__( self ):
         key = self.error_code
-        if (SessionError.error_messages.has_key(key)):
-            error_msg_short = SessionError.error_messages[key][0]
-            error_msg_verbose = SessionError.error_messages[key][1] 
+        if (DCERPCSessionError.error_messages.has_key(key)):
+            error_msg_short = DCERPCSessionError.error_messages[key][0]
+            error_msg_verbose = DCERPCSessionError.error_messages[key][1] 
             return 'SCMR SessionError: code: %s - %s - %s' % (str(self.error_code), error_msg_short, error_msg_verbose)
         else:
             return 'SCMR SessionError: unknown error code: %s' % (str(self.error_code))
@@ -881,6 +880,7 @@ class REnumServicesStatusWResponse(NDRCall):
         ('lpBuffer',NDRUniConformantArray),
         ('pcbBytesNeeded',BOUNDED_DWORD_256K),
         ('lpServicesReturned',BOUNDED_DWORD_256K),
+        ('lpResumeIndex',LPBOUNDED_DWORD_256K),
         ('ErrorCode', DWORD),
     )
 
@@ -1171,24 +1171,13 @@ class RQueryServiceConfigExResponse(NDRCall):
 # Helper functions
 ################################################################################
 
-#    def doRequest(self, request, noAnswer = 0, checkReturn = 1):
-#        self.dcerpc.call(request.opnum, request)
-#        if noAnswer:
-#            return
-#        else:
-#            answer = self.dcerpc.recv()
-#            if checkReturn and answer[-4:] != '\x00\x00\x00\x00':
-#                error_code = unpack("<L", answer[-4:])[0]
-#                raise SCMRSessionError(error_code)  
-#        return answer
-
 def hRCloseServiceHandle(dce, hSCObject):
     request = RCloseServiceHandle()
     request['hSCObject'] = hSCObject
     return dce.request(request)
 
 def hRControlService(dce, hService, dwControl):
-    request = RControlServiceCall()
+    request = RControlService()
     request['hService'] = hService
     request['dwControl'] = dwControl
     return dce.request(request)
@@ -1239,45 +1228,24 @@ def hRNotifyBootConfigStatus(dce, lpMachineName, BootAcceptable ):
     request['BootAcceptable'] = BootAcceptable
     return dce.request(request)
 
-def hRChangeServiceConfigW(dce, hService, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName):
+def hRChangeServiceConfigW(dce, hService, dwServiceType=SERVICE_NO_CHANGE, dwStartType=SERVICE_NO_CHANGE, dwErrorControl=SERVICE_NO_CHANGE, lpBinaryPathName=NULL, lpLoadOrderGroup=NULL, lpdwTagId=NULL, lpDependencies=NULL, dwDependSize=0, lpServiceStartName=NULL, lpPassword=NULL, dwPwSize=0, lpDisplayName=NULL):
     changeServiceConfig = RChangeServiceConfigW()
     changeServiceConfig['hService'] = hService
     changeServiceConfig['dwServiceType'] = dwServiceType
     changeServiceConfig['dwStartType'] = dwStartType
     changeServiceConfig['dwErrorControl'] = dwErrorControl
-    if lpBinaryPathName == '':
-        changeServiceConfig['lpBinaryPathName'] = NULL
-    else:
-        changeServiceConfig['lpBinaryPathName'] = lpBinaryPathName
-    if lpLoadOrderGroup == '':
-        changeServiceConfig['lpLoadOrderGroup'] = NULL
-    else:
-        changeServiceConfig['lpLoadOrderGroup'] = lpLoadOrderGroup
-    if lpdwTagId == '':
-        changeServiceConfig['lpdwTagId'] = NULL
-    else:
-        changeServiceConfig['lpdwTagId'] = lpdwTagId
-    if lpDependencies == '':
-        changeServiceConfig['lpDependencies'] = NULL
-    else:
-        changeServiceConfig['lpDependencies'] = lpDependencies
+    changeServiceConfig['lpBinaryPathName'] = lpBinaryPathName
+    changeServiceConfig['lpLoadOrderGroup'] = lpLoadOrderGroup
+    changeServiceConfig['lpdwTagId'] = lpdwTagId
+    changeServiceConfig['lpDependencies'] = lpDependencies
     changeServiceConfig['dwDependSize'] = dwDependSize
-    if lpServiceStartName == '':
-        changeServiceConfig['lpServiceStartName'] = NULL
-    else:
-        changeServiceConfig['lpServiceStartName'] = lpServiceStartName
-    if lpPassword == '':
-        changeServiceConfig['lpPassword'] = NULL
-    else:
-        changeServiceConfig['lpPassword'] = lpPassword
+    changeServiceConfig['lpServiceStartName'] = lpServiceStartName
+    changeServiceConfig['lpPassword'] = lpPassword
     changeServiceConfig['dwPwSize'] = dwPwSize
-    if lpDisplayName == '':
-        changeServiceConfig['lpDisplayName'] = NULL
-    else:
-        changeServiceConfig['lpDisplayName'] = lpDisplayName
+    changeServiceConfig['lpDisplayName'] = lpDisplayName
     return dce.request(changeServiceConfig)
 
-def hRCreateServiceW(dce, hSCManager, lpServiceName, lpDisplayName, dwDesiredAccess, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize):
+def hRCreateServiceW(dce, hSCManager, lpServiceName, lpDisplayName, dwDesiredAccess=SERVICE_ALL_ACCESS, dwServiceType=SERVICE_WIN32_OWN_PROCESS, dwStartType=SERVICE_AUTO_START, dwErrorControl=SERVICE_ERROR_IGNORE, lpBinaryPathName=NULL, lpLoadOrderGroup=NULL, lpdwTagId=NULL, lpDependencies=NULL, dwDependSize=0, lpServiceStartName=NULL, lpPassword=NULL, dwPwSize=0):
     createService = RCreateServiceW()
     createService['hSCManager'] = hSCManager
     createService['lpServiceName'] = lpServiceName
@@ -1287,27 +1255,12 @@ def hRCreateServiceW(dce, hSCManager, lpServiceName, lpDisplayName, dwDesiredAcc
     createService['dwStartType'] = dwStartType
     createService['dwErrorControl'] = dwErrorControl
     createService['lpBinaryPathName'] = lpBinaryPathName
-    if lpLoadOrderGroup == '':
-        createService['lpLoadOrderGroup'] = NULL
-    else:
-        createService['lpLoadOrderGroup'] = lpLoadOrderGroup
-    if lpdwTagId == '':
-        createService['lpdwTagId'] = NULL
-    else: 
-        createService['lpdwTagId'] = lpdwTagId
-    if lpDependencies == '':
-        createService['lpDependencies'] = NULL
-    else:
-        createService['lpDependencies'] = lpDependencies
+    createService['lpLoadOrderGroup'] = lpLoadOrderGroup
+    createService['lpdwTagId'] = lpdwTagId
+    createService['lpDependencies'] = lpDependencies
     createService['dwDependSize'] = dwDependSize
-    if lpServiceStartName == '':
-        createService['lpServiceStartName'] = NULL
-    else:
-        createService['lpServiceStartName'] = lpServiceStartName
-    if lpPassword == '':
-        createService['lpPassword'] = NULL
-    else:
-        createService['lpPassword'] = lpPassword
+    createService['lpServiceStartName'] = lpServiceStartName
+    createService['lpPassword'] = lpPassword
     createService['dwPwSize'] = dwPwSize
     return dce.request(createService)
 
@@ -1318,40 +1271,90 @@ def hREnumDependentServicesW(dce, hService, dwServiceState, cbBufSize ):
     enumDependentServices['cbBufSize'] = cbBufSize
     return dce.request(enumDependentServices)
 
-def hREnumServicesStatusW(dce, hSCManager, dwServiceType, dwServiceState, cbBufSize, lpResumeIndex ):
+def hREnumServicesStatusW(dce, hSCManager, dwServiceType=SERVICE_WIN32_OWN_PROCESS|SERVICE_KERNEL_DRIVER|SERVICE_FILE_SYSTEM_DRIVER|SERVICE_WIN32_SHARE_PROCESS|SERVICE_INTERACTIVE_PROCESS, dwServiceState=SERVICE_STATE_ALL):
+    class ENUM_SERVICE_STATUSW2(NDR):
+        # This is a little trick, since the original structure is slightly different
+        # but instead of parsing the LPBYTE buffer at hand, we just do it with the aid
+        # of the NDR library, although the pointers are swapped from the original specification.
+        # Why is this? Well.. since we're getting an LPBYTE back, it's just a copy of the remote's memory
+        # where the pointers are actually POINTING to the data.
+        # Sadly, the pointers are not aligned based on the services records, so we gotta do this
+        # It should be easier in C of course.
+        class STR(NDRPointer):
+            referent = (
+                ('Data', WSTR),
+            )
+        structure = (
+            ('lpServiceName',STR),
+            ('lpDisplayName',STR),
+            ('ServiceStatus',SERVICE_STATUS),
+        )
+
     enumServicesStatus = REnumServicesStatusW()
     enumServicesStatus['hSCManager'] = hSCManager
     enumServicesStatus['dwServiceType'] = dwServiceType
     enumServicesStatus['dwServiceState'] = dwServiceState
-    enumServicesStatus['cbBufSize'] = cbBufSize
-    if lpResumeIndex == 0:
-        enumServicesStatus['lpResumeIndex'] = NULL
-    else:
-        enumServicesStatus['lpResumeIndex'] = lpResumeIndex
-    return dce.request(enumServicesStatus)
+    enumServicesStatus['cbBufSize'] = 0
+    enumServicesStatus['lpResumeIndex'] = NULL
 
-def hROpenSCManagerW(dce, lpMachineName, lpDatabaseName, dwDesiredAccess):
+    try:
+        resp = dce.request(enumServicesStatus)
+    except DCERPCSessionError, e:
+        if e.get_error_code() == ERROR_MORE_DATA:
+            resp = e.get_packet()
+            enumServicesStatus['cbBufSize'] = resp['pcbBytesNeeded']
+            resp = dce.request(enumServicesStatus)
+        else:
+            raise
+    
+    # Now we're supposed to have all services returned. Now we gotta parse them
+    enumArray = NDRUniConformantArray()
+    enumArray.item = ENUM_SERVICE_STATUSW2
+    data = ''.join(resp['lpBuffer'])
+    data = pack('<L', resp['lpServicesReturned']) + data
+    enumArray.fromString(data)
+    data = data[4:]
+    # Since the pointers here are pointing to the actual data, we have to reparse
+    # the referents
+    for record in enumArray['Data']:
+        offset =  record.fields['lpDisplayName'].fields['ReferentID']
+        name = WSTR(data[offset:])
+        record['lpDisplayName'] = name['Data']
+        offset =  record.fields['lpServiceName'].fields['ReferentID']
+        name = WSTR(data[offset:])
+        record['lpServiceName'] = name['Data']
+
+    return enumArray['Data']
+
+def hROpenSCManagerW(dce, lpMachineName='DUMMY\x00', lpDatabaseName='ServicesActive\x00', dwDesiredAccess=SERVICE_START | SERVICE_STOP | SERVICE_CHANGE_CONFIG | SERVICE_QUERY_CONFIG | SERVICE_QUERY_STATUS | SERVICE_ENUMERATE_DEPENDENTS | SC_MANAGER_ENUMERATE_SERVICE):
     openSCManager = ROpenSCManagerW()
     openSCManager['lpMachineName'] = lpMachineName
-    if lpDatabaseName == '':
-        openSCManager['lpDatabaseName'] = NULL
-    else:
-        openSCManager['lpDatabaseName'] = lpDatabaseName
+    openSCManager['lpDatabaseName'] = lpDatabaseName
     openSCManager['dwDesiredAccess'] = dwDesiredAccess
     return dce.request(openSCManager)
 
-def hROpenServiceW(dce, hSCManager, lpServiceName, dwDesiredAccess):
+def hROpenServiceW(dce, hSCManager, lpServiceName, dwDesiredAccess= SERVICE_ALL_ACCESS):
     openService = ROpenServiceW()
     openService['hSCManager'] = hSCManager
     openService['lpServiceName'] = lpServiceName
     openService['dwDesiredAccess'] = dwDesiredAccess
     return dce.request(openService)
 
-def hRQueryServiceConfigW(dce, hService, cbBufSize ):
+def hRQueryServiceConfigW(dce, hService):
     queryService = RQueryServiceConfigW()
     queryService['hService'] = hService
-    queryService['cbBufSize'] = cbBufSize
-    return dce.request(queryService)
+    queryService['cbBufSize'] = 0
+    try:
+        resp = dce.request(queryService)
+    except DCERPCSessionError, e:
+        if e.get_error_code() == ERROR_INSUFICIENT_BUFFER:
+            resp = e.get_packet()
+            queryService['cbBufSize'] = resp['pcbBytesNeeded']
+            resp = dce.request(queryService)
+        else:
+            raise
+
+    return resp
 
 def hRQueryServiceLockStatusW(dce, hSCManager, cbBufSize ):
     queryServiceLock = RQueryServiceLockStatusW()
@@ -1359,7 +1362,7 @@ def hRQueryServiceLockStatusW(dce, hSCManager, cbBufSize ):
     queryServiceLock['cbBufSize'] = cbBufSize
     return dce.request(queryServiceLock)
 
-def hRStartServiceW(dce, hService, argc, argv ):
+def hRStartServiceW(dce, hService, argc=0, argv=NULL ):
     startService = RStartServiceW()
     startService['hService'] = hService
     startService['argc'] = argc
@@ -1387,16 +1390,13 @@ def hRGetServiceKeyNameW(dce, hSCManager, lpDisplayName, lpcchBuffer ):
     getServiceKeyName['lpcchBuffer'] = lpcchBuffer
     return dce.request(getServiceKeyName)
 
-def hREnumServiceGroupW(dce, hSCManager, dwServiceType, dwServiceState, cbBufSize, lpResumeIndex, pszGroupName ):
+def hREnumServiceGroupW(dce, hSCManager, dwServiceType, dwServiceState, cbBufSize, lpResumeIndex = NULL, pszGroupName = NULL ):
     enumServiceGroup = REnumServiceGroupW()
     enumServiceGroup['hSCManager'] = hSCManager
     enumServiceGroup['dwServiceType'] = dwServiceType
     enumServiceGroup['dwServiceState'] = dwServiceState
     enumServiceGroup['cbBufSize'] = cbBufSize
-    if lpResumeIndex == 0:
-        enumServiceGroup['lpResumeIndex'] = NULL
-    else:
-        enumServiceGroup['lpResumeIndex'] = lpResumeIndex
+    enumServiceGroup['lpResumeIndex'] = lpResumeIndex
     enumServiceGroup['pszGroupName'] = pszGroupName
     return dce.request(enumServiceGroup)
 
