@@ -689,6 +689,7 @@ class NDRArray(NDR):
         ind = ' '*indent
         if msg != '':
             print msg,
+
         if isinstance(self['Data'], list):
             print "\n%s[" % ind
             ind += ' '*4
@@ -700,7 +701,7 @@ class NDRArray(NDR):
                    print "%s %r," % (ind,j)
             print "%s]" % ind[:-4],
         else:
-            print " %r" % self.fields['Data']
+            print " %r" % self['Data'],
 
 class NDRUniFixedArray(NDRArray):
     structure = (
