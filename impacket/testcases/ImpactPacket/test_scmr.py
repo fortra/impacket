@@ -1,4 +1,4 @@
-################################################################################
+###############################################################################
 #  Tested so far: 
 #  hRCloseServiceHandleCall
 #  RControlService
@@ -55,7 +55,7 @@ class SVCCTLTests(unittest.TestCase):
         try:
             resp = scmr.hRChangeServiceConfigW( dce, hService, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName)
 
-            resp = scmr.hRQueryServiceConfigW(dce, hService, cbBufSize)
+            resp = scmr.hRQueryServiceConfigW(dce, hService)
             #resp.dump()
             # Now let's compare all the results
             if dwServiceType != scmr.SERVICE_NO_CHANGE:
@@ -64,17 +64,17 @@ class SVCCTLTests(unittest.TestCase):
                 self.assertTrue( resp['lpServiceConfig']['dwStartType'] == dwStartType )
             if dwErrorControl != scmr.SERVICE_NO_CHANGE:
                 self.assertTrue( resp['lpServiceConfig']['dwErrorControl'] == dwErrorControl )
-            if lpBinaryPathName != '':
+            if lpBinaryPathName != NULL:
                 self.assertTrue( resp['lpServiceConfig']['lpBinaryPathName'] == lpBinaryPathName )
-            if lpBinaryPathName != '':
+            if lpBinaryPathName != NULL:
                 self.assertTrue( resp['lpServiceConfig']['lpBinaryPathName'] == lpBinaryPathName )
-            if lpLoadOrderGroup != '':
+            if lpLoadOrderGroup != NULL:
                 self.assertTrue( resp['lpServiceConfig']['lpLoadOrderGroup'] == lpLoadOrderGroup )
             #if lpDependencies != '':
             #    self.assertTrue( resp['lpServiceConfig']['lpDependencies'] == lpDependencies[:-4]+'/\x00\x00\x00')
-            if lpServiceStartName != '':
+            if lpServiceStartName != NULL:
                 self.assertTrue( resp['lpServiceConfig']['lpServiceStartName'] == lpServiceStartName )
-            if lpDisplayName != '':
+            if lpDisplayName != NULL:
                 self.assertTrue( resp['lpServiceConfig']['lpDisplayName'] == lpDisplayName )
             #if lpdwTagId != scmr.SERVICE_NO_CHANGE:
             #    if resp['lpServiceConfig']['dwTagId']['Data'] != lpdwTagId:
@@ -152,12 +152,12 @@ class SVCCTLTests(unittest.TestCase):
         dwStartType = scmr.SERVICE_DEMAND_START
         dwErrorControl = scmr.SERVICE_ERROR_NORMAL
         lpBinaryPathName = 'binaryPath\x00'
-        lpLoadOrderGroup = ''
-        lpdwTagId = ''
-        lpDependencies = ''
+        lpLoadOrderGroup = NULL
+        lpdwTagId = NULL 
+        lpDependencies = NULL
         dwDependSize = 0
-        lpServiceStartName = ''
-        lpPassword = ''
+        lpServiceStartName = NULL
+        lpPassword = NULL
         dwPwSize = 0
         resp = scmr.hRCreateServiceW(dce, scHandle, lpServiceName, lpDisplayName, dwDesiredAccess, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize)
         #resp.dump()
@@ -335,11 +335,14 @@ class SVCCTLTests(unittest.TestCase):
         request['hService'] = serviceHandle
         request['dwControl'] = scmr.SERVICE_CONTROL_STOP
         request['dwInfoLevel'] = 1
+        # This is not working, don't know exactly why
+        request['pControlInParams']['dwReason'] = 0x20000000
+        request['pControlInParams']['pszComment'] = 'nada\x00'
         request['pControlInParams'] = NULL
 
         resp = dce.request(request)
 
-        resp.dump()
+        #resp.dump()
 
 
     def test_RNotifyServiceStatusChange(self):
@@ -425,11 +428,7 @@ class SVCCTLTests(unittest.TestCase):
         dwServiceType = scmr.SERVICE_KERNEL_DRIVER | scmr.SERVICE_FILE_SYSTEM_DRIVER | scmr.SERVICE_WIN32_OWN_PROCESS | scmr.SERVICE_WIN32_SHARE_PROCESS
         dwServiceState = scmr.SERVICE_STATE_ALL
         cbBufSize = 0
-        resp = scmr.hREnumServicesStatusW(dce, scHandle, dwServiceType, dwServiceState, cbBufSize, 0)
-        #resp.dump()
-        cbBufSize = resp['pcbBytesNeeded'] 
-        resp = scmr.hREnumServicesStatusW(dce, scHandle, dwServiceType, dwServiceState, cbBufSize, 0)
-        #resp.dump()
+        resp = scmr.hREnumServicesStatusW(dce, scHandle, dwServiceType, dwServiceState)
 
         resp = scmr.hRCloseServiceHandle(dce, scHandle)
 
@@ -445,12 +444,12 @@ class SVCCTLTests(unittest.TestCase):
         dwStartType = scmr.SERVICE_DEMAND_START
         dwErrorControl = scmr.SERVICE_ERROR_NORMAL
         lpBinaryPathName = 'binaryPath\x00'
-        lpLoadOrderGroup = ''
-        lpdwTagId = ''
-        lpDependencies = ''
+        lpLoadOrderGroup = NULL
+        lpdwTagId = NULL
+        lpDependencies = NULL
         dwDependSize = 0
-        lpServiceStartName = ''
-        lpPassword = ''
+        lpServiceStartName = NULL
+        lpPassword = NULL
         dwPwSize = 0
         resp = scmr.hRCreateServiceW(dce, scHandle, lpServiceName, lpDisplayName, dwDesiredAccess, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize)
         #resp.dump()
@@ -459,7 +458,7 @@ class SVCCTLTests(unittest.TestCase):
         # Aca hay que chequear cada uno de los items
         cbBufSize = 0
         try:
-            resp = scmr.hRQueryServiceConfigW(dce, newHandle, cbBufSize)
+            resp = scmr.hRQueryServiceConfigW(dce, newHandle)
         except Exception, e:
             if str(e).find('ERROR_INSUFICIENT_BUFFER') <= 0:
                 raise
@@ -473,15 +472,15 @@ class SVCCTLTests(unittest.TestCase):
         dwServiceType = scmr.SERVICE_WIN32_SHARE_PROCESS
         dwStartType = scmr.SERVICE_NO_CHANGE
         dwErrorControl = scmr.SERVICE_NO_CHANGE
-        lpBinaryPathName = ''
-        lpLoadOrderGroup = ''
-        lpDependencies = ''
+        lpBinaryPathName = NULL
+        lpLoadOrderGroup = NULL
+        lpDependencies = NULL
         dwDependSize = 0
-        lpServiceStartName = ''
-        lpPassword = ''
+        lpServiceStartName = NULL
+        lpPassword = NULL
         dwPwSize = 0
-        lpDisplayName = ''
-        lpdwTagId = ''
+        lpDisplayName = NULL
+        lpdwTagId = NULL
 
         self.changeServiceAndQuery(dce, cbBufSize, newHandle, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName) 
         dwServiceType = scmr.SERVICE_NO_CHANGE        
@@ -496,11 +495,11 @@ class SVCCTLTests(unittest.TestCase):
 
         lpBinaryPathName = 'BETOBETO\x00'
         self.changeServiceAndQuery(dce, cbBufSize, newHandle, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName) 
-        lpBinaryPathName = ''
+        lpBinaryPathName = NULL 
 
         lpLoadOrderGroup = 'KKKK\x00'
         self.changeServiceAndQuery(dce, cbBufSize, newHandle, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName) 
-        lpLoadOrderGroup = ''
+        lpLoadOrderGroup = NULL
 
         #lpdwTagId = [0]
         #self.changeServiceAndQuery(dce, cbBufSize, newHandle, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName) 
@@ -509,12 +508,12 @@ class SVCCTLTests(unittest.TestCase):
         lpDependencies = 'RemoteRegistry\x00\x00'.encode('utf-16le')
         dwDependSize = len(lpDependencies)
         self.changeServiceAndQuery(dce, cbBufSize, newHandle, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName) 
-        lpDependencies = ''
+        lpDependencies = NULL
         dwDependSize = 0
 
         lpServiceStartName = '.\\Administrator\x00'
         self.changeServiceAndQuery(dce, cbBufSize, newHandle, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName) 
-        lpServiceStartName = ''
+        lpServiceStartName = NULL
 
         lpPassword = 'mypwd\x00'.encode('utf-16le')
         s = rpctransport.get_smb_connection()
@@ -522,12 +521,12 @@ class SVCCTLTests(unittest.TestCase):
         lpPassword = encryptSecret(key, lpPassword)
         dwPwSize = len(lpPassword)
         self.changeServiceAndQuery(dce, cbBufSize, newHandle, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName) 
-        lpPassword = ''
+        lpPassword = NULL
         dwPwSize = 0
 
         lpDisplayName = 'MANOLO\x00'
         self.changeServiceAndQuery(dce, cbBufSize, newHandle, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName) 
-        lpDisplayName = ''
+        lpDisplayName = NULL
 
         resp = scmr.hRDeleteService(dce, newHandle)
         resp = scmr.hRCloseServiceHandle(dce, newHandle)
@@ -552,7 +551,7 @@ class SVCCTLTests(unittest.TestCase):
         try:
             resp = scmr.hREnumDependentServicesW(dce, serviceHandle, scmr.SERVICE_STATE_ALL,cbBufSize )
             #resp.dump()
-        except scmr.SessionError, e:
+        except scmr.DCERPCSessionError, e:
            if str(e).find('ERROR_MORE_DATA') <= 0:
                raise
            else:
@@ -593,7 +592,7 @@ class SVCCTLTests(unittest.TestCase):
         try:
             resp = scmr.hRNotifyBootConfigStatus(dce, lpMachineName, 0x0)
             #resp.dump()
-        except scmr.SessionError, e:
+        except scmr.DCERPCSessionError, e:
            if str(e).find('ERROR_BOOT_ALREADY_ACCEPTED') <= 0:
                raise
  
@@ -626,7 +625,7 @@ class SVCCTLTests(unittest.TestCase):
 
         serviceHandle = resp['lpServiceHandle']
 
-        resp = scmr.hRStartServiceW(dce, serviceHandle, 0, '' )
+        resp = scmr.hRStartServiceW(dce, serviceHandle, 0, NULL )
         #resp.dump()
         return 
 
@@ -638,7 +637,7 @@ class SMBTransport(SVCCTLTests):
         self.domain   = ''
         self.serverName = ''
         self.password = 'test'
-        self.machine  = '172.16.123.196'
+        self.machine  = '192.168.88.113'
         self.stringBinding = r'ncacn_np:%s[\pipe\svcctl]' % self.machine
         self.dport = 445
         self.hashes   = ''
