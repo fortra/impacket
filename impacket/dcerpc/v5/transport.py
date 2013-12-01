@@ -4,7 +4,7 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id: transport.py 876 2013-10-29 16:04:19Z bethus@gmail.com $
+# $Id$
 #
 # Author: Alberto Solino
 #

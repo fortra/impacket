@@ -4,7 +4,7 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id: netlogon.py 945 2013-11-22 21:58:48Z bethus@gmail.com $
+# $Id$
 #
 # Author: Alberto Solino
 #
