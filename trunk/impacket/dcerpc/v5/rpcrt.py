@@ -4,7 +4,7 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id: dcerpc.py 917 2013-11-10 20:47:57Z bethus $
+# $Id$
 #
 # Partial C706.pdf + [MS-RPCE] implementation
 #

@@ -4,7 +4,7 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id: samr.py 906 2013-11-07 22:20:26Z bethus@gmail.com $
+# $Id$
 #
 # Author: Alberto Solino
 #

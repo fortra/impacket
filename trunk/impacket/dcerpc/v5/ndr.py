@@ -4,7 +4,7 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id: ndr.py 944 2013-11-22 21:57:47Z bethus@gmail.com $
+# $Id$
 #
 # [C706] Transfer NDR Syntax implementation
 # 
