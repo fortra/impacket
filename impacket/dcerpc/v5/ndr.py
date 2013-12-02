@@ -64,8 +64,8 @@ class NDR():
     commonHdr64    = ()
     structure      = ()
     structure64    = ()
-    align          = 0
-    align64        = 0
+    align          = 4
+    align64        = 4
     debug          = False
 
     def __init__(self, data = None, isNDR64 = False):
@@ -452,7 +452,7 @@ class NDR():
                     # ToDo, still to work out this
                     itemn.fromStringReferent(data)
                     soFar = len(itemn.getDataReferents())
-                    itemn.rawData = data[len(itemn.getDataReferents()):] 
+                    itemn.rawData = data[len(itemn.getDataReferents())+len(itemn.getDataReferent('')):] 
                     data = itemn.rawData
                     answer2.append(itemn)
                     numItems -= 1
@@ -536,8 +536,8 @@ class NDRCall(NDR):
     commonHdr64    = ()
     structure      = ()
     structure64    = ()
-    align          = 0
-    align64        = 0
+    align          = 4
+    align64        = 4
     debug          = False
     consistencyCheck = False
     def __init__(self, data = None, isNDR64 = False):
@@ -669,6 +669,7 @@ class NDRSMALL(NDR):
 NDRBOOLEAN = NDRSMALL
 
 class NDRCHAR(NDR):
+    align = 1
     structure = (
         ('Data', 'c'),
     )
