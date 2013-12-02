@@ -12,13 +12,38 @@
 #
 
 from struct import unpack, pack
+from impacket import system_errors
 from impacket.uuid import uuidtup_to_bin
 from impacket.dcerpc.v5 import ndr
 from impacket.dcerpc.v5.ndr import NDRCall, NDR, NDRPointer, UNIQUE_RPC_UNICODE_STRING, NDRLONG, WSTR, RPC_UNICODE_STRING, NDRPointerNULL, NDRUniConformantArray, PNDRUniConformantArray, NDRBOOLEAN, NDRSHORT, NDRUniFixedArray, NDRUnion, NULL
 from impacket.dcerpc.v5.dtypes import *
-from impacket import system_errors
 
 MSRPC_UUID_SVCCTL = uuidtup_to_bin(('367ABB81-9844-35F1-AD32-98F038001003', '2.0'))
+
+class DCERPCSessionError(Exception):
+    def __init__( self, packet):
+        Exception.__init__(self)
+        self.packet = packet
+        self.error_code = packet['ErrorCode']
+       
+    def get_error_code( self ):
+        return self.error_code
+ 
+    def get_packet( self ):
+        return self.packet
+
+    def __str__( self ):
+        key = self.error_code
+        if (system_errors.ERROR_MESSAGES.has_key(key)):
+            error_msg_short = system_errors.ERROR_MESSAGES[key][0]
+            error_msg_verbose = system_errors.ERROR_MESSAGES[key][1] 
+            return 'SCMR SessionError: code: %s - %s - %s' % (str(self.error_code), error_msg_short, error_msg_verbose)
+        else:
+            return 'SCMR SessionError: unknown error code: %s' % (str(self.error_code))
+
+################################################################################
+# CONSTANTS
+################################################################################
 
 # Access codes
 SERVICE_ALL_ACCESS            = 0X000F01FF
@@ -175,28 +200,10 @@ USER_POLICY_PRESENT_GUID                        = '54FB46C8-F089-464C-B1FD-59D1B
 SERVICE_TRIGGER_DATA_TYPE_BINARY = 0x00000001
 SERVICE_TRIGGER_DATA_TYPE_STRING = 0x00000002
 
-class DCERPCSessionError(Exception):
-    def __init__( self, packet):
-        Exception.__init__(self)
-        self.packet = packet
-        self.error_code = packet['ErrorCode']
-       
-    def get_error_code( self ):
-        return self.error_code
- 
-    def get_packet( self ):
-        return self.packet
+################################################################################
+# STRUCTURES
+################################################################################
 
-    def __str__( self ):
-        key = self.error_code
-        if (system_errors.ERROR_MESSAGES.has_key(key)):
-            error_msg_short = system_errors.ERROR_MESSAGES[key][0]
-            error_msg_verbose = system_errors.ERROR_MESSAGES[key][1] 
-            return 'SCMR SessionError: code: %s - %s - %s' % (str(self.error_code), error_msg_short, error_msg_verbose)
-        else:
-            return 'SCMR SessionError: unknown error code: %s' % (str(self.error_code))
-
-# SCMR Structures
 class SC_RPC_HANDLE(NDR):
     structure =  (
         ('Data','20s=""'),
@@ -607,7 +614,10 @@ class SC_RPC_CONFIG_INFOW(NDRUnion):
         11: ('psma',PSERVICE_MANAGEDACCOUNT_INFO),
     }
 
-# RPC Calls
+################################################################################
+# RPC CALLS
+################################################################################
+
 class RCloseServiceHandle(NDRCall):
     opnum = 0
     structure = (
@@ -1103,7 +1113,7 @@ class RQueryServiceConfigExResponse(NDRCall):
     )
 
 ################################################################################
-# Helper functions
+# HELPER FUNCTIONS
 ################################################################################
 
 def hRCloseServiceHandle(dce, hSCObject):
