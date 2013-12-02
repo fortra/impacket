@@ -351,21 +351,32 @@ class NDR():
             if self.isNDR(self.item):
                 item = ':'
                 dataClass = self.item
+                self.fields['_tmpItem'] = dataClass()
             else:
                 item = self.item
                 dataClass = None
+                self.fields['_tmpItem'] = item
 
             for each in data:
+                pad = self.calculatePad('_tmpItem', self.item, answer, len(answer), packing = True)
+                if pad > 0:
+                    answer += '\xdd' * pad
                 if dataClass is None:
                     answer += pack(item, each)
                 else:
                     answer += each.getData()
+
+
             if dataClass is not None:
                 for each in data:
+                    pad = self.calculatePad('_tmpItem', self.item, answer, len(answer), packing = True)
+                    if pad > 0:
+                        answer += '\xdd' * pad
                     answer += each.getDataReferents()
                     # ToDo, still to work out this
                     answer = each.getDataReferent(answer)
 
+            del(self.fields['_tmpItem'])
             self.fields[two[1]] = len(data)
             return answer
 
@@ -402,14 +413,17 @@ class NDR():
             if self.isNDR(self.item):
                 item = ':'
                 dataClassOrCode = self.item
+                self.fields['_tmpItem'] = dataClassOrCode()
             else:
                 item = self.item
                 dataClassOrCode = None
+                self.fields['_tmpItem'] = item
 
             nsofar = 0
-            self.fields['_tmpItem'] = dataClassOrCode
-
             while numItems and soFar < len(data):
+                pad = self.calculatePad('_tmpItem', self.item, data[soFar:], soFar, packing = False)
+                if pad > 0:
+                    soFar +=pad
                 if dataClassOrCode is None:
                     nsofar = soFar + calcsize(item)
                     answer.append(unpack(item, data[soFar:nsofar])[0])
@@ -417,18 +431,27 @@ class NDR():
                     itemn = dataClassOrCode(data[soFar:])
                     itemn.rawData = data[soFar+len(itemn):] 
                     answer.append(itemn)
-                    nsofar += len(itemn)
+                    nsofar += len(itemn) + pad
                 numItems -= 1
                 soFar = nsofar
+
+            pad = self.calculatePad('_tmpItem', self.item, data[soFar:], soFar, packing = False)
+            if pad > 0:
+                soFar +=pad
 
             if dataClassOrCode is not None:
                 # We gotta go over again, asking for the referents
                 data = data[soFar:]
                 answer2 = []
+                soFar = 0
                 for itemn in answer:
+                    pad = self.calculatePad('_tmpItem', self.item, data, soFar, packing = False)
+                    if pad > 0:
+                        data = data[pad:]
                     itemn.fromStringReferents(data)
                     # ToDo, still to work out this
                     itemn.fromStringReferent(data)
+                    soFar = len(itemn.getDataReferents())
                     itemn.rawData = data[len(itemn.getDataReferents()):] 
                     data = itemn.rawData
                     answer2.append(itemn)
@@ -1056,7 +1079,7 @@ class NDRTest:
     def run(self):
         self.test(False)
         # Now the same tests but with NDR64
-        #self.test(True)
+        self.test(True)
 
 class TestUniFixedArray(NDRTest):
     class theClass(NDR):
