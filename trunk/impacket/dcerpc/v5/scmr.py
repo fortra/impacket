@@ -16,6 +16,7 @@ from impacket.uuid import uuidtup_to_bin
 from impacket.dcerpc.v5 import ndr
 from impacket.dcerpc.v5.ndr import NDRCall, NDR, NDRPointer, UNIQUE_RPC_UNICODE_STRING, NDRLONG, WSTR, RPC_UNICODE_STRING, NDRPointerNULL, NDRUniConformantArray, PNDRUniConformantArray, NDRBOOLEAN, NDRSHORT, NDRUniFixedArray, NDRUnion, NULL
 from impacket.dcerpc.v5.dtypes import *
+from impacket import system_errors
 
 MSRPC_UUID_SVCCTL = uuidtup_to_bin(('367ABB81-9844-35F1-AD32-98F038001003', '2.0'))
 
@@ -174,73 +175,7 @@ USER_POLICY_PRESENT_GUID                        = '54FB46C8-F089-464C-B1FD-59D1B
 SERVICE_TRIGGER_DATA_TYPE_BINARY = 0x00000001
 SERVICE_TRIGGER_DATA_TYPE_STRING = 0x00000002
 
-# Error Codes 
-ERROR_FILE_NOT_FOUND             = 2
-ERROR_PATH_NOT_FOUND             = 3
-ERROR_ACCESS_DENIED              = 5
-ERROR_INVALID_HANDLE             = 6
-ERROR_INVALID_DATA               = 13
-ERROR_INVALID_PARAMETER          = 87
-ERROR_INSUFICIENT_BUFFER         = 122
-ERROR_INVALID_NAME               = 123
-ERROR_INVALID_LEVEL              = 124
-ERROR_MORE_DATA                  = 234
-ERROR_DEPENDENT_SERVICES_RUNNING = 1051
-ERROR_INVALID_SERVICE_CONTROL    = 1052
-ERROR_SERVICE_REQUEST_TIMEOUT    = 1053
-ERROR_SERVICE_ALREADY_RUNNING    = 1056
-ERROR_INVALID_SERVICE_ACCOUNT    = 1057
-ERROR_SERVICE_DISABLED           = 1058
-ERROR_CIRCULAR_DEPENDENCY        = 1059
-ERROR_SERVICE_DOES_NOT_EXISTS    = 1060
-ERROR_SERVICE_CANNOT_ACCEPT_CTRL = 1061
-ERROR_SERVICE_NOT_ACTIVE         = 1062
-ERROR_DATABASE_DOES_NOT_EXIST    = 1065
-ERROR_SERVICE_LOGON_FAILURE      = 1069
-ERROR_SERVICE_MARKED_FOR_DELETE  = 1072
-ERROR_SERVICE_EXISTS             = 1073
-ERROR_ALREADY_RUNNING_LKG        = 1074
-ERROR_BOOT_ALREADY_ACCEPTED      = 1076
-ERROR_DUPLICATE_SERVICE_NAME     = 1078
-ERROR_CANNOT_DETECT_DRIVER_FAILURE = 1080
-ERROR_SHUTDOWN_IN_PROGRESS       = 1115
-ERROR_REQUEST_ABORTED            = 1235
-
 class DCERPCSessionError(Exception):
-    
-    error_messages = {
- ERROR_FILE_NOT_FOUND            : ("ERROR_FILE_NOT_FOUND", "The system cannot find the file specified."),          
- ERROR_PATH_NOT_FOUND            : ("ERROR_PATH_NOT_FOUND", "The system cannot find the path specified."),          
- ERROR_ACCESS_DENIED             : ("ERROR_ACCESS_DENIED", "Access is denied."),
- ERROR_INVALID_HANDLE            : ("ERROR_INVALID_HANDLE", "The handle is invalid."),
- ERROR_INVALID_DATA              : ("ERROR_INVALID_DATA", "The data is invalid."),
- ERROR_INVALID_PARAMETER         : ("ERROR_INVALID_PARAMETER", "The parameter is incorrect."),
- ERROR_INSUFICIENT_BUFFER        : ("ERROR_INSUFICIENT_BUFFER", "The data area passed to a system call is too small."), 
- ERROR_INVALID_NAME              : ("ERROR_INVALID_NAME", "The specified name is invalid."),
- ERROR_INVALID_LEVEL             : ("ERROR_INVALID_LEVEL", "The level specified contains an unsupported value."),           
- ERROR_MORE_DATA                 : ("ERROR_MORE_DATA", "More data is available."),
- ERROR_DEPENDENT_SERVICES_RUNNING: ("ERROR_DEPENDENT_SERVICES_RUNNING", "The service cannot be stopped because other running services are dependent on it."),
- ERROR_INVALID_SERVICE_CONTROL   : ("ERROR_INVALID_SERVICE_CONTROL", "The requested control code is not valid, or it is unacceptable to the service."),
- ERROR_SERVICE_REQUEST_TIMEOUT   : ("ERROR_SERVICE_REQUEST_TIMEOUT", "The request timed out."), 
- ERROR_SERVICE_ALREADY_RUNNING   : ("ERROR_SERVICE_ALREADY_RUNNING", "The target service is already running."),
- ERROR_INVALID_SERVICE_ACCOUNT   : ("ERROR_INVALID_SERVICE_ACCOUNT", "The service account specified does not exist."),   
- ERROR_SERVICE_DISABLED          : ("ERROR_SERVICE_DISABLED", "The service is disabled."),          
- ERROR_CIRCULAR_DEPENDENCY       : ("ERROR_CIRCULAR_DEPENDENCY", "A circular dependency was specified."), 
- ERROR_SERVICE_DOES_NOT_EXISTS   : ("ERROR_SERVICE_DOES_NOT_EXISTS", "The service does not exist in the SCM database."), 
- ERROR_SERVICE_CANNOT_ACCEPT_CTRL: ("ERROR_SERVICE_CANNOT_ACCEPT_CTRL", "The requested control code cannot be sent to the service."),
- ERROR_SERVICE_NOT_ACTIVE        : ("ERROR_SERVICE_NOT_ACTIVE", "The service has not been started."), 
- ERROR_DATABASE_DOES_NOT_EXIST   : ("ERROR_DATABASE_DOES_NOT_EXIST", "The database specified does not exists."), 
- ERROR_SERVICE_LOGON_FAILURE     : ("ERROR_SERVICE_LOGON_FAILURE", "The service did not start due to a logon failure."), 
- ERROR_SERVICE_MARKED_FOR_DELETE : ("ERROR_SERVICE_MARKED_FOR_DELETE", "The service has been marked for deletion."), 
- ERROR_SERVICE_EXISTS            : ("ERROR_SERVICE_EXISTS", "The service already exists."), 
- ERROR_DUPLICATE_SERVICE_NAME    : ("ERROR_DUPLICATE_SERVICE_NAME", "The service already exists."), 
- ERROR_SHUTDOWN_IN_PROGRESS      : ("ERROR_SHUTDOWN_IN_PROGRESS", "The system is shutting down."), 
- ERROR_ALREADY_RUNNING_LKG       : ("ERROR_ALREADY_RUNNING_LKG", "The system is currently running with the last-known-good configuration."),
- ERROR_BOOT_ALREADY_ACCEPTED     : ("ERROR_BOOT_ALREADY_ACCEPTED", "The BootAccepted field of the SCM on the target machine indicated that a successful call to RNotifyBootConfigStatus has already been made."),
- ERROR_REQUEST_ABORTED           : ("ERROR_REQUEST_ABORTED", "The request was aborted."),
- ERROR_CANNOT_DETECT_DRIVER_FAILURE: ("SERVICE_CONFIG_FAILURE_ACTIONS cannot be used as a dwInfoLevel in the Info parameter for service records with a Type value defined for drivers."),
-    }    
-
     def __init__( self, packet):
         Exception.__init__(self)
         self.packet = packet
@@ -254,9 +189,9 @@ class DCERPCSessionError(Exception):
 
     def __str__( self ):
         key = self.error_code
-        if (DCERPCSessionError.error_messages.has_key(key)):
-            error_msg_short = DCERPCSessionError.error_messages[key][0]
-            error_msg_verbose = DCERPCSessionError.error_messages[key][1] 
+        if (system_errors.ERROR_MESSAGES.has_key(key)):
+            error_msg_short = system_errors.ERROR_MESSAGES[key][0]
+            error_msg_verbose = system_errors.ERROR_MESSAGES[key][1] 
             return 'SCMR SessionError: code: %s - %s - %s' % (str(self.error_code), error_msg_short, error_msg_verbose)
         else:
             return 'SCMR SessionError: unknown error code: %s' % (str(self.error_code))
@@ -1300,7 +1235,7 @@ def hREnumServicesStatusW(dce, hSCManager, dwServiceType=SERVICE_WIN32_OWN_PROCE
     try:
         resp = dce.request(enumServicesStatus)
     except DCERPCSessionError, e:
-        if e.get_error_code() == ERROR_MORE_DATA:
+        if e.get_error_code() == system_errors.ERROR_MORE_DATA:
             resp = e.get_packet()
             enumServicesStatus['cbBufSize'] = resp['pcbBytesNeeded']
             resp = dce.request(enumServicesStatus)
@@ -1347,7 +1282,7 @@ def hRQueryServiceConfigW(dce, hService):
     try:
         resp = dce.request(queryService)
     except DCERPCSessionError, e:
-        if e.get_error_code() == ERROR_INSUFICIENT_BUFFER:
+        if e.get_error_code() == system_errors.ERROR_INSUFFICIENT_BUFFER:
             resp = e.get_packet()
             queryService['cbBufSize'] = resp['pcbBytesNeeded']
             resp = dce.request(queryService)
