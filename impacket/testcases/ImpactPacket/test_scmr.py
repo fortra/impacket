@@ -48,6 +48,7 @@ from impacket.dcerpc.v5.ndr import NULL
 from impacket.crypto import encryptSecret
 from impacket.winregistry import hexdump
 from impacket.uuid import string_to_bin
+from impacket import system_errors
 
 class SVCCTLTests(unittest.TestCase):
     def changeServiceAndQuery(self, dce, cbBufSize, hService, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName):
@@ -94,7 +95,7 @@ class SVCCTLTests(unittest.TestCase):
         try:
             resp = dce.request(request)
         except Exception, e:
-            if str(e).find('ERROR_INSUFICIENT_BUFFER') <= 0:
+            if str(e).find('ERROR_INSUFFICIENT_BUFFER') <= 0:
                 raise
             else: 
                 resp = e.get_packet()
@@ -460,7 +461,8 @@ class SVCCTLTests(unittest.TestCase):
         try:
             resp = scmr.hRQueryServiceConfigW(dce, newHandle)
         except Exception, e:
-            if str(e).find('ERROR_INSUFICIENT_BUFFER') <= 0:
+            print e
+            if str(e).find('ERROR_INSUFFICIENT_BUFFER') <= 0:
                 raise
             else: 
                 resp = e.get_packet()
