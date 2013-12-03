@@ -27,6 +27,9 @@ class PGUID(ndr.NDRPointer):
         ('Data', GUID),
     )
 
+UUID = GUID
+PUUID = PGUID
+
 class PBOOL(ndr.NDRPointer):
     referent = (
         ('Data', BOOL),
