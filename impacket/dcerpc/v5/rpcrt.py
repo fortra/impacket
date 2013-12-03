@@ -414,7 +414,7 @@ class DCERPC:
         answer = self.recv()
         respClass = request.__module__ + '.' + request.__class__.__name__ + 'Response'
         response =  eval(respClass)(answer)
-        if response['ErrorCode'] != 0:
+        if  answer[-4:] != '\x00\x00\x00\x00':
             sessionErrorClass = request.__module__ + '.DCERPCSessionError'
             exception = eval(sessionErrorClass)(response)
             raise exception
