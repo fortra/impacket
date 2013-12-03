@@ -50,7 +50,7 @@ from impacket.winregistry import hexdump
 from impacket.uuid import string_to_bin
 from impacket import system_errors
 
-class SVCCTLTests(unittest.TestCase):
+class SCMRTests(unittest.TestCase):
     def changeServiceAndQuery(self, dce, cbBufSize, hService, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName):
 
         try:
@@ -133,7 +133,7 @@ class SVCCTLTests(unittest.TestCase):
             rpctransport.set_credentials(self.username,self.password, self.domain, lmhash, nthash)
         dce = rpctransport.get_dce_rpc()
         dce.connect()
-        dce.bind(scmr.MSRPC_UUID_SVCCTL)
+        dce.bind(scmr.MSRPC_UUID_SCMR)
         #rpc = scmr.DCERPCSvcCtl(dce)
         lpMachineName = 'DUMMY\x00'
         lpDatabaseName = 'ServicesActive\x00'
@@ -293,7 +293,7 @@ class SVCCTLTests(unittest.TestCase):
 
         dwServiceType = scmr.SERVICE_WIN32_OWN_PROCESS
         dwServiceState = scmr.SERVICE_STATE_ALL
-        cbBufSize = 1000
+        cbBufSize = 10
         lpResumeIndex = 0
         pszGroupName = 'RemoteRegistry\x00'
 
@@ -631,15 +631,15 @@ class SVCCTLTests(unittest.TestCase):
         #resp.dump()
         return 
 
-class SMBTransport(SVCCTLTests):
+class SMBTransport(SCMRTests):
     def setUp(self):
-        SVCCTLTests.setUp(self)
+        SCMRTests.setUp(self)
         # Put specific configuration for target machine with SMB1
         self.username = 'test'
         self.domain   = ''
         self.serverName = ''
         self.password = 'test'
-        self.machine  = '192.168.88.113'
+        self.machine  = '172.16.123.202'
         self.stringBinding = r'ncacn_np:%s[\pipe\svcctl]' % self.machine
         self.dport = 445
         self.hashes   = ''
