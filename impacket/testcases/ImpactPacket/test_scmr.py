@@ -582,7 +582,7 @@ class SCMRTests(unittest.TestCase):
             resp = scmr.hRQueryServiceObjectSecurity(dce, scHandle, scmr.DACL_SECURITY_INFORMATION, 0)
             #resp.dump()
         except Exception, e:
-           if str(e).find('ERROR_ACCESS_DENIED') <= 0:
+           if str(e).find('rpc_s_access_denied') <= 0:
                raise
  
         resp = scmr.hRCloseServiceHandle(dce, scHandle)
@@ -639,7 +639,7 @@ class SMBTransport(SCMRTests):
         self.domain   = ''
         self.serverName = ''
         self.password = 'test'
-        self.machine  = '172.16.123.202'
+        self.machine  = '172.16.123.210'
         self.stringBinding = r'ncacn_np:%s[\pipe\svcctl]' % self.machine
         self.dport = 445
         self.hashes   = ''
