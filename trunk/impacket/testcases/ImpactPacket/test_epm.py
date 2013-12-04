@@ -51,13 +51,25 @@ class EPMTests(unittest.TestCase):
         request['vers_option'] = epm.RPC_C_VERS_EXACT
         request['max_ents'] = 499
       
-        #request.dump()
         resp = dce.request(request)
         for entry in resp['entries']:
             tower = entry['tower']['tower_octet_string']
             tower = epm.EPMTower(''.join(tower))
             #print tower['Floors'][0]
             #print tower['Floors'][1]
+
+    def test_hlookup(self):
+        resp = epm.hept_lookup(self.machine)
+        #for entry in resp:
+        #    print epm.PrintStringBinding(entry['tower']['Floors'], self.machine)
+        MSRPC_UUID_SAMR   = uuidtup_to_bin(('12345778-1234-ABCD-EF00-0123456789AC', '1.0'))
+        resp = epm.hept_lookup(self.machine, inquiry_type = epm.RPC_C_EP_MATCH_BY_IF, ifId = MSRPC_UUID_SAMR)
+        MSRPC_UUID_ATSVC = uuidtup_to_bin(('1FF70682-0A51-30E8-076D-740BE8CEE98B', '1.0'))
+        resp = epm.hept_lookup(self.machine, inquiry_type = epm.RPC_C_EP_MATCH_BY_IF, ifId = MSRPC_UUID_ATSVC)
+        MSRPC_UUID_SCMR = uuidtup_to_bin(('367ABB81-9844-35F1-AD32-98F038001003', '2.0'))
+        resp = epm.hept_lookup(self.machine, inquiry_type = epm.RPC_C_EP_MATCH_BY_IF, ifId = MSRPC_UUID_SCMR)
+
+
 
     def test_map(self):
         dce, rpctransport = self.connect()
@@ -108,7 +120,7 @@ class SMBTransport(EPMTests):
         self.domain   = ''
         self.serverName = ''
         self.password = 'test'
-        self.machine  = '172.16.123.204'
+        self.machine  = '172.16.123.210'
         self.stringBinding = r'ncacn_np:%s[\pipe\epmapper]' % self.machine
         self.dport = 445
         self.hashes   = ''
