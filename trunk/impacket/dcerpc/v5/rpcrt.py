@@ -536,6 +536,25 @@ rpc_status_codes = {
 class Exception(Exception):
     pass
 
+class DCERPCException(Exception):
+    def __init__( self, error_code):
+        Exception.__init__(self)
+        self.error_code = error_code
+       
+    def get_error_code( self ):
+        return self.error_code
+ 
+    def get_packet( self ):
+        return self.packet
+
+    def __str__( self ):
+        key = self.error_code
+        if (rpc_status_codes.has_key(key)):
+            error_msg_short = rpc_status_codes[key]
+            return 'DCERPC Runtime Error: code: 0x%x - %s ' % (self.error_code, error_msg_short)
+        else:
+            return 'DCERPC Runtime Error: unknown error code: 0x%x' % (self.error_code)
+
 # Context Item
 class CtxItem(Structure):
     structure = (
@@ -783,12 +802,18 @@ class DCERPC:
         self.call(request.opnum, request)
         answer = self.recv()
         respClass = request.__module__ + '.' + request.__class__.__name__ + 'Response'
-        response =  eval(respClass)(answer)
         if  answer[-4:] != '\x00\x00\x00\x00':
-            sessionErrorClass = request.__module__ + '.DCERPCSessionError'
-            exception = eval(sessionErrorClass)(response)
+            error_code = unpack('<L', answer[-4:])[0]
+            if rpc_status_codes.has_key(error_code):
+                # This is an error we can handle
+                exception = DCERPCException(error_code)
+            else:    
+                response =  eval(respClass)(answer)
+                sessionErrorClass = request.__module__ + '.DCERPCSessionError'
+                exception = eval(sessionErrorClass)(response)
             raise exception
         else:
+            response =  eval(respClass)(answer)
             return response
 
 class DCERPC_v5(DCERPC):
