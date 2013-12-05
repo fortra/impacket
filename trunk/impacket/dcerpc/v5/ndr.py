@@ -105,6 +105,18 @@ class NDR():
     def __setitem__(self, key, value):
         if isinstance(value, NDRPointerNULL):
             self.fields[key] = value
+        elif isinstance(value, NDR):
+            # It's not a null pointer, ok. Another NDR type, but it 
+            # must be the same same as the iteam already in place
+            if self.fields[key].__class__.__name__ == value.__class__.__name__:
+                self.fields[key] = value
+            elif isinstance(self.fields[key]['Data'], NDR):
+                if self.fields[key]['Data'].__class__.__name__ == value.__class__.__name__:
+                    self.fields[key]['Data'] = value
+                else:
+                    print "Can't setitem with class specified, should be %s" % self.fields[key]['Data'].__class__.__name__
+            else:
+                print "Can't setitem with class specified, should be %s" % self.fields[key].__class__.__name__
         elif isinstance(self.fields[key], NDR):
             self.fields[key]['Data'] = value
         else:
@@ -611,6 +623,8 @@ class NDRCall(NDR):
                 # Guess we'll figure it out testing.
                 if isinstance(self.fields[fieldName], NDR):
                     data += self.fields[fieldName].getDataReferents()
+                    data = self.fields[fieldName].getDataReferent(data)
+        
             except Exception, e:
                 if self.fields.has_key(fieldName):
                     e.args += ("When packing field '%s | %s | %r' in %s" % (fieldName, fieldTypeOrClass, self.fields[fieldName], self.__class__),)
@@ -638,6 +652,7 @@ class NDRCall(NDR):
                     # Any referent information to unpack?
                     if isinstance(self.fields[fieldName], NDR):
                         res = self.fields[fieldName].fromStringReferents(data[size:])
+                        self.fields[fieldName].fromStringReferent(data[size:])
                     size+= len(data[size:]) - len(res)
 
                 data = data[size:]
@@ -662,6 +677,7 @@ class NDRCall(NDR):
 # NDR Primitives
 
 class NDRSMALL(NDR):
+    align = 1
     structure = (
         ('Data', 'B=0'),
     )
@@ -815,7 +831,7 @@ class NDRUnion(NDR):
     align64 = 4
     commonHdr = (
         ('tag', NDRLONG),
-        ('SwitchValue', NDRLONG),
+        #('SwitchValue', NDRLONG),
     )
     union = {
         # For example
@@ -836,7 +852,7 @@ class NDRUnion(NDR):
                 # Init again the structure
                 NDR.__init__(self, None, isNDR64=self._isNDR64)
                 self.fields['tag']['Data'] = value
-                self.fields['SwitchValue']['Data'] = value
+                #self.fields['SwitchValue']['Data'] = value
             else:
                 raise Exception("Unknow tag %d for union!" % value)
         else:
@@ -844,7 +860,7 @@ class NDRUnion(NDR):
 
     def fromString(self, data):
         if len(data) > 4:
-            # First off, let's see what the dwInfoLevel is:
+            # First off, let's see what the tag is:
             tag = unpack('<L', data[:4])[0]
             if self.union.has_key(tag):
                 self.structure = (self.union[tag]),
@@ -944,78 +960,6 @@ class NDRPointer(NDR):
 ################################################################################
 # Common RPC Data Types
 
-class RPC_UNICODE_STRING(NDR):
-    align = 4
-    align64 = 8
-    commonHdr = (
-        ('MaximumCount', '<L=len(Data)/2'),
-        ('Offset','<L=0'),
-        ('ActualCount','<L=len(Data)/2'),
-    )
-    commonHdr64 = (
-        ('MaximumCount', '<Q=len(Data)/2'),
-        ('Offset','<Q=0'),
-        ('ActualCount','<Q=len(Data)/2'),
-    )
-    structure = (
-        ('Data',':'),
-    )
-
-    def dump(self, msg = None, indent = 0):
-        if msg is None: msg = self.__class__.__name__
-        ind = ' '*indent
-        if msg != '':
-            print "%s" % (msg),
-        # Here just print the data
-        print " %r" % (self['Data']),
-
-    def getDataLen(self, data):
-        return self["ActualCount"]*2 
-
-    def __setitem__(self, key, value):
-        if key == 'Data':
-            self.fields[key] = value.encode('utf-16le')
-            self.data = None        # force recompute
-        else:
-            return NDR.__setitem__(self, key, value)
-
-    def __getitem__(self, key):
-        if key == 'Data':
-            return self.fields[key].decode('utf-16le')
-        else:
-            return NDR.__getitem__(self,key)
-
-class UNICODE_STRING(NDR):
-    align = 2
-    align64 = 2
-    commonHdr = (
-        ('MaximumLength','<H=0'),
-        ('Length','<H=0'),
-        ('ReferentID','<L=0xff'),
-    )
-    commonHdr64 = (
-        ('MaximumLength','<H=0'),
-        ('Length','<H=0'),
-        ('ReferentID','<Q=0xff'),
-    )
-
-    referent = (
-        ('Data',RPC_UNICODE_STRING),
-    )
-
-    def dump(self, msg = None, indent = 0):
-        if msg is None: msg = self.__class__.__name__
-        ind = ' '*indent
-        if msg != '':
-            print "%s" % (msg),
-        # Here just print the data
-        print " %r" % (self['Data']),
-
-class UNIQUE_RPC_UNICODE_STRING(NDRPointer):
-    referent = (
-       ('Data', RPC_UNICODE_STRING ),
-    )
-
 class PNDRUniConformantVaryingArray(NDRPointer):
     referent = (
         ('Data', NDRUniConformantVaryingArray),
@@ -1028,23 +972,6 @@ class PNDRUniConformantArray(NDRPointer):
     def __init__(self, data = None, isNDR64 = False, topLevel = False):
         NDRPointer.__init__(self,data,isNDR64,topLevel)
         
-class WSTR(NDRUniFixedArray):
-    def getDataLen(self, data):
-        return data.find('\x00\x00\x00')+3
-
-    def __setitem__(self, key, value):
-        if key == 'Data':
-            self.fields[key] = value.encode('utf-16le')
-            self.data = None        # force recompute
-        else:
-            return NDR.__setitem__(self, key, value)
-
-    def __getitem__(self, key):
-        if key == 'Data':
-            return self.fields[key].decode('utf-16le')
-        else:
-            return NDR.__getitem__(self,key)
-
 ################################################################################
 # Tests
 
@@ -1090,29 +1017,29 @@ class TestUniFixedArray(NDRTest):
     def populate(self, a):
         a['Array'] = '12345678'
 
-class TestUniConformantArray(NDRTest):
-    class theClass(NDRCall):
-        structure = (
-            ('Array', PNDRUniConformantArray),
-            ('Array2', PNDRUniConformantArray),
-        )
-        def __init__(self, data = None,isNDR64 = False):
-            NDRCall.__init__(self, None, isNDR64)
-            self.fields['Array'].fields['Data'].item = RPC_UNICODE_STRING
-            self.fields['Array2'].fields['Data'].item = RPC_UNICODE_STRING
-            if data is not None:
-                self.fromString(data)
-        
-    def populate(self, a):
-        array = []
-        strstr = RPC_UNICODE_STRING()
-        strstr['Data'] = 'ThisIsMe'
-        array.append(strstr)
-        strstr = RPC_UNICODE_STRING()
-        strstr['Data'] = 'ThisIsYou'
-        array.append(strstr)
-        a['Array'] = array
-        a['Array2'] = array
+#class TestUniConformantArray(NDRTest):
+#    class theClass(NDRCall):
+#        structure = (
+#            ('Array', PNDRUniConformantArray),
+#            ('Array2', PNDRUniConformantArray),
+#        )
+#        def __init__(self, data = None,isNDR64 = False):
+#            NDRCall.__init__(self, None, isNDR64)
+#            self.fields['Array'].fields['Data'].item = RPC_UNICODE_STRING
+#            self.fields['Array2'].fields['Data'].item = RPC_UNICODE_STRING
+#            if data is not None:
+#                self.fromString(data)
+#        
+#    def populate(self, a):
+#        array = []
+#        strstr = RPC_UNICODE_STRING()
+#        strstr['Data'] = 'ThisIsMe'
+#        array.append(strstr)
+#        strstr = RPC_UNICODE_STRING()
+#        strstr['Data'] = 'ThisIsYou'
+#        array.append(strstr)
+#        a['Array'] = array
+#        a['Array2'] = array
 
 class TestUniVaryingArray(NDRTest):
     class theClass(NDR):
@@ -1155,33 +1082,33 @@ class TestPointerNULL(NDRTest):
     def populate(self, a):
         pass
 
-class TestServerAuthenticate(NDRTest):
-    class NETLOGON_CREDENTIAL(NDR):
-        structure = (
-            ('Data','8s=""'),
-        )
-
-    class theClass(NDRCall):
-        class NETLOGON_CREDENTIAL(NDR):
-            structure = (
-                ('Data','8s=""'),
-            )
-        structure = (
-            ('PrimaryName', UNIQUE_RPC_UNICODE_STRING),
-            ('AccountName', RPC_UNICODE_STRING),
-            ('SecureChannelType',NDRSHORT),
-            ('ComputerName', RPC_UNICODE_STRING),
-            ('ClientCredential',NETLOGON_CREDENTIAL),
-            ('NegotiateFlags',NDRLONG),
-        )
-
-    def populate(self, a):
-        a['PrimaryName'] = 'XXX1DC001\x00'
-        a['AccountName'] = 'TEST-MACHINE$\x00'
-        a['SecureChannelType'] = 0xffff
-        a['ComputerName'] = 'TEST-MACHINE\x00'
-        a['ClientCredential']  = '12345678'
-        a['NegotiateFlags'] = 0xabcdabcd
+#class TestServerAuthenticate(NDRTest):
+#    class NETLOGON_CREDENTIAL(NDR):
+#        structure = (
+#            ('Data','8s=""'),
+#        )
+#
+#    class theClass(NDRCall):
+#        class NETLOGON_CREDENTIAL(NDR):
+#            structure = (
+#                ('Data','8s=""'),
+#            )
+#        structure = (
+#            ('PrimaryName', UNIQUE_RPC_UNICODE_STRING),
+#            ('AccountName', RPC_UNICODE_STRING),
+#            ('SecureChannelType',NDRSHORT),
+#            ('ComputerName', RPC_UNICODE_STRING),
+#            ('ClientCredential',NETLOGON_CREDENTIAL),
+#            ('NegotiateFlags',NDRLONG),
+#        )
+#
+#    def populate(self, a):
+#        a['PrimaryName'] = 'XXX1DC001\x00'
+#        a['AccountName'] = 'TEST-MACHINE$\x00'
+#        a['SecureChannelType'] = 0xffff
+#        a['ComputerName'] = 'TEST-MACHINE\x00'
+#        a['ClientCredential']  = '12345678'
+#        a['NegotiateFlags'] = 0xabcdabcd
 
 if __name__ == '__main__':
     from impacket.dcerpc.netlogon import NETLOGON_CREDENTIAL
