@@ -86,7 +86,7 @@ class SCMRTests(unittest.TestCase):
 
     def changeServiceAndQuery2(self, dce, info, changeDone):
         serviceHandle = info['hService']
-        dwInfoLevel = info['Info']['tag']
+        dwInfoLevel = info['Info']['Union']['tag']
         cbBuffSize = 0
         request = scmr.RQueryServiceConfig2W()
         request['hService'] = serviceHandle
@@ -167,38 +167,46 @@ class SCMRTests(unittest.TestCase):
         try:
             request = scmr.RChangeServiceConfig2W()
             request['hService'] = newHandle
-            request['Info']['tag'] = 1
-            request['Info']['psd']['lpDescription'] = u'betobeto\x00'
+            request['Info']['dwInfoLevel'] = 1
+            request['Info']['Union']['tag'] = 1
+            request['Info']['Union']['psd']['lpDescription'] = u'betobeto\x00'
             resp = dce.request(request)
             #resp.dump()
-            self.changeServiceAndQuery2(dce, request, request['Info']['psd']['lpDescription'])
-            request['Info']['tag'] = 2
-            request['Info']['psfa']['lpRebootMsg'] = u'rebootMsg\00'
-            request['Info']['psfa']['lpCommand'] = u'lpCommand\00'
+            self.changeServiceAndQuery2(dce, request, request['Info']['Union']['psd']['lpDescription'])
+            request['Info']['dwInfoLevel'] = 2
+            request['Info']['Union']['tag'] = 2
+            request['Info']['Union']['psfa']['lpRebootMsg'] = u'rebootMsg\00'
+            request['Info']['Union']['psfa']['lpCommand'] = u'lpCommand\00'
             resp = dce.request(request)
             #resp.dump()
-            self.changeServiceAndQuery2(dce, request, request['Info']['psfa']['lpRebootMsg'])
-            request['Info']['tag'] = 3
-            request['Info']['psda']['fDelayedAutostart'] = 1
+            self.changeServiceAndQuery2(dce, request, request['Info']['Union']['psfa']['lpRebootMsg'])
+            request['Info']['dwInfoLevel'] = 3
+            request['Info']['Union']['tag'] = 3
+            request['Info']['Union']['psda']['fDelayedAutostart'] = 1
             resp = dce.request(request)
-            self.changeServiceAndQuery2(dce, request, request['Info']['psda']['fDelayedAutostart'])
-            request['Info']['tag'] = 4
-            request['Info']['psfaf']['fFailureActionsOnNonCrashFailures'] = 1
+            self.changeServiceAndQuery2(dce, request, request['Info']['Union']['psda']['fDelayedAutostart'])
+            request['Info']['dwInfoLevel'] = 4
+            request['Info']['Union']['tag'] = 4
+            request['Info']['Union']['psfaf']['fFailureActionsOnNonCrashFailures'] = 1
             resp = dce.request(request)
-            self.changeServiceAndQuery2(dce, request, request['Info']['psfaf']['fFailureActionsOnNonCrashFailures'])
-            request['Info']['tag'] = 5
-            request['Info']['pssid']['dwServiceSidType'] = 1
+            self.changeServiceAndQuery2(dce, request, request['Info']['Union']['psfaf']['fFailureActionsOnNonCrashFailures'])
+            request['Info']['dwInfoLevel'] = 5
+            request['Info']['Union']['tag'] = 5
+            request['Info']['Union']['pssid']['dwServiceSidType'] = 1
             resp = dce.request(request)
-            self.changeServiceAndQuery2(dce, request, request['Info']['pssid']['dwServiceSidType'])
-            request['Info']['tag'] = 6
-            request['Info']['psrp']['pRequiredPrivileges'] = list(u'SeAssignPrimaryTokenPrivilege\x00\x00'.encode('utf-16le'))
+            self.changeServiceAndQuery2(dce, request, request['Info']['Union']['pssid']['dwServiceSidType'])
+            request['Info']['dwInfoLevel'] = 6
+            request['Info']['Union']['tag'] = 6
+            request['Info']['Union']['psrp']['pRequiredPrivileges'] = list(u'SeAssignPrimaryTokenPrivilege\x00\x00'.encode('utf-16le'))
             resp = dce.request(request)
-            self.changeServiceAndQuery2(dce, request, request['Info']['psrp']['pRequiredPrivileges'])
-            request['Info']['tag'] = 7
-            request['Info']['psps']['dwPreshutdownTimeout'] = 22
+            self.changeServiceAndQuery2(dce, request, request['Info']['Union']['psrp']['pRequiredPrivileges'])
+            request['Info']['dwInfoLevel'] = 7
+            request['Info']['Union']['tag'] = 7
+            request['Info']['Union']['psps']['dwPreshutdownTimeout'] = 22
             resp = dce.request(request)
-            self.changeServiceAndQuery2(dce, request, request['Info']['psps']['dwPreshutdownTimeout'])
-            request['Info']['tag'] = 8
+            self.changeServiceAndQuery2(dce, request, request['Info']['Union']['psps']['dwPreshutdownTimeout'])
+            request['Info']['dwInfoLevel'] = 8
+            request['Info']['Union']['tag'] = 8
             #request.dump()
             trigger = scmr.SERVICE_TRIGGER()
             trigger['dwTriggerType'] = scmr.SERVICE_TRIGGER_TYPE_DOMAIN_JOIN
@@ -209,23 +217,26 @@ class SCMRTests(unittest.TestCase):
             item['pData'] = list(u'FREEFLY\x00'.encode('utf-16le'))
             #trigger['pDataItems'].append(item)
             trigger['pDataItems'] = NULL
-            request['Info']['psti']['pTriggers'].append(trigger)
+            request['Info']['Union']['psti']['pTriggers'].append(trigger)
             resp = dce.request(request)
             #self.changeServiceAndQuery2(dce, request, '\x00')
-            request['Info']['tag'] = 9
-            request['Info']['pspn']['usPreferredNode'] = 22
+            request['Info']['dwInfoLevel'] = 9
+            request['Info']['Union']['tag'] = 9
+            request['Info']['Union']['pspn']['usPreferredNode'] = 22
             #resp = dce.request(request)
-            #self.changeServiceAndQuery2(dce, request, request['Info']['pspn']['usPreferredNode'])
-            request['Info']['tag'] = 10
-            request['Info']['psri']['eLowestRunLevel'] = 1
+            #self.changeServiceAndQuery2(dce, request, request['Info']['Union']['pspn']['usPreferredNode'])
+            request['Info']['dwInfoLevel'] = 10
+            request['Info']['Union']['tag'] = 10
+            request['Info']['Union']['psri']['eLowestRunLevel'] = 1
             # This one doesn't work
             #resp = dce.request(request)
-            #self.changeServiceAndQuery2(dce, request, request['Info']['psri']['eLowestRunLevel'])
-            request['Info']['tag'] = 11
-            request['Info']['psma']['fIsManagedAccount'] = 1
+            #self.changeServiceAndQuery2(dce, request, request['Info']['Union']['psri']['eLowestRunLevel'])
+            request['Info']['dwInfoLevel'] = 11
+            request['Info']['Union']['tag'] = 11
+            request['Info']['Union']['psma']['fIsManagedAccount'] = 1
             # This one doesn't work
             #resp = dce.request(request)
-            #self.changeServiceAndQuery2(dce, request, request['Info']['psma']['fIsManagedAccount'])
+            #self.changeServiceAndQuery2(dce, request, request['Info']['Union']['psma']['fIsManagedAccount'])
 
         except Exception, e:
             import traceback
