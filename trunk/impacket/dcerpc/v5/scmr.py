@@ -16,7 +16,7 @@ from struct import unpack, pack
 from impacket import system_errors
 from impacket.uuid import uuidtup_to_bin
 from impacket.dcerpc.v5 import ndr
-from impacket.dcerpc.v5.ndr import NDRCall, NDR, NDRPointer, UNIQUE_RPC_UNICODE_STRING, NDRLONG, WSTR, RPC_UNICODE_STRING, NDRPointerNULL, NDRUniConformantArray, PNDRUniConformantArray, NDRBOOLEAN, NDRSHORT, NDRUniFixedArray, NDRUnion, NULL
+from impacket.dcerpc.v5.ndr import NDRCall, NDR, NDRPointer, NDRLONG, NDRPointerNULL, NDRUniConformantArray, PNDRUniConformantArray, NDRBOOLEAN, NDRSHORT, NDRUniFixedArray, NDRUnion, NULL
 from impacket.dcerpc.v5.dtypes import *
 
 MSRPC_UUID_SCMR = uuidtup_to_bin(('367ABB81-9844-35F1-AD32-98F038001003', '2.0'))
@@ -38,9 +38,9 @@ class DCERPCSessionError(Exception):
         if (system_errors.ERROR_MESSAGES.has_key(key)):
             error_msg_short = system_errors.ERROR_MESSAGES[key][0]
             error_msg_verbose = system_errors.ERROR_MESSAGES[key][1] 
-            return 'SCMR SessionError: code: %s - %s - %s' % (str(self.error_code), error_msg_short, error_msg_verbose)
+            return 'SCMR SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
         else:
-            return 'SCMR SessionError: unknown error code: %s' % (str(self.error_code))
+            return 'SCMR SessionError: unknown error code: 0x%x' % (self.error_code)
 
 ################################################################################
 # CONSTANTS
@@ -467,15 +467,8 @@ class SC_RPC_NOTIFY_PARAMS(NDRUnion):
         2: ('pStatusChangeParams', PSERVICE_NOTIFY_STATUS_CHANGE_PARAMS_2),
     }
 
-class SC_RPC_NOTIFY_PARAMS_ARRAY(NDR):
-    structure = (
-        ('Data',NDRUniConformantArray),
-    )
-    def __init__(self, data = None, isNDR64 = False):
-        NDR.__init__(self,None,isNDR64)
-        self.fields['Data'].item = SC_RPC_NOTIFY_PARAMS
-        if data is not None:
-            self.fromString(data)
+class SC_RPC_NOTIFY_PARAMS_ARRAY(NDRUniConformantArray):
+     item = SC_RPC_NOTIFY_PARAMS
 
 class PSC_RPC_NOTIFY_PARAMS_LIST(NDR):
     structure = (
@@ -500,15 +493,8 @@ class SERVICE_TRIGGER_SPECIFIC_DATA_ITEM(NDR):
             self['cbData'] = len(self['pData'])
         return NDR.getData(self)
 
-class SERVICE_TRIGGER_SPECIFIC_DATA_ITEM_ARRAY(NDR):
-    structure = (
-        ('Data',NDRUniConformantArray),
-    )
-    def __init__(self, data = None, isNDR64 = False):
-        NDR.__init__(self,None,isNDR64)
-        self.fields['Data'].item = SERVICE_TRIGGER_SPECIFIC_DATA_ITEM
-        if data is not None:
-            self.fromString(data)
+class SERVICE_TRIGGER_SPECIFIC_DATA_ITEM_ARRAY(NDRUniConformantArray):
+    item = SERVICE_TRIGGER_SPECIFIC_DATA_ITEM
 
 class PSERVICE_TRIGGER_SPECIFIC_DATA_ITEM(NDRPointer):
     referent = (
@@ -528,15 +514,8 @@ class SERVICE_TRIGGER(NDR):
             self['cDataItems'] = len(self['pDataItems'])
         return NDR.getData(self)
 
-class SERVICE_TRIGGER_ARRAY(NDR):
-    structure = (
-        ('Data',NDRUniConformantArray),
-    )
-    def __init__(self, data = None, isNDR64 = False):
-        NDR.__init__(self,None,isNDR64)
-        self.fields['Data'].item = SERVICE_TRIGGER
-        if data is not None:
-            self.fromString(data)
+class SERVICE_TRIGGER_ARRAY(NDRUniConformantArray):
+    item = SERVICE_TRIGGER
 
 class PSERVICE_TRIGGER(NDRPointer):
     referent = (
@@ -595,12 +574,7 @@ class PSERVICE_MANAGEDACCOUNT_INFO(NDRPointer):
         ('Data', SERVICE_MANAGEDACCOUNT_INFO),
     )
 
-class SC_RPC_CONFIG_INFOW2(NDR):
-    structure= (
-        ('psd', LPSERVICE_DESCRIPTIONW),
-    )
-
-class SC_RPC_CONFIG_INFOW(NDRUnion):
+class SC_RPC_CONFIG_INFOW_UNION(NDRUnion):
     union = {
         1: ('psd', LPSERVICE_DESCRIPTIONW),
         2: ('psfa',LPSERVICE_FAILURE_ACTIONSW ),
@@ -614,6 +588,12 @@ class SC_RPC_CONFIG_INFOW(NDRUnion):
         10: ('psri',PSERVICE_RUNLEVEL_INFO),
         11: ('psma',PSERVICE_MANAGEDACCOUNT_INFO),
     }
+
+class SC_RPC_CONFIG_INFOW(NDR):
+    structure = (
+        ('dwInfoLevel', DWORD),
+        ('Union', SC_RPC_CONFIG_INFOW_UNION),
+    )
 
 ################################################################################
 # RPC CALLS
@@ -751,15 +731,15 @@ class RChangeServiceConfigW(NDRCall):
         ('dwServiceType',DWORD),
         ('dwStartType',DWORD),
         ('dwErrorControl',DWORD),
-        ('lpBinaryPathName',UNIQUE_RPC_UNICODE_STRING),
-        ('lpLoadOrderGroup',UNIQUE_RPC_UNICODE_STRING),
+        ('lpBinaryPathName',LPWSTR),
+        ('lpLoadOrderGroup',LPWSTR),
         ('lpdwTagId',LPDWORD),
         ('lpDependencies',LPBYTE),
         ('dwDependSize',DWORD),
-        ('lpServiceStartName',UNIQUE_RPC_UNICODE_STRING),
+        ('lpServiceStartName',LPWSTR),
         ('lpPassword',LPBYTE),
         ('dwPwSize',DWORD),
-        ('lpDisplayName',UNIQUE_RPC_UNICODE_STRING),
+        ('lpDisplayName',LPWSTR),
     )
 
 class RChangeServiceConfigWResponse(NDRCall):
@@ -772,25 +752,25 @@ class RCreateServiceW(NDRCall):
     opnum = 12
     structure = (
         ('hSCManager',SC_RPC_HANDLE),
-        ('lpServiceName',RPC_UNICODE_STRING),
-        ('lpDisplayName',UNIQUE_RPC_UNICODE_STRING),
+        ('lpServiceName',WSTR),
+        ('lpDisplayName',LPWSTR),
         ('dwDesiredAccess',DWORD),
         ('dwServiceType',DWORD),
         ('dwStartType',DWORD),
         ('dwErrorControl',DWORD),
-        ('lpBinaryPathName',RPC_UNICODE_STRING),
-        ('lpLoadOrderGroup',UNIQUE_RPC_UNICODE_STRING),
+        ('lpBinaryPathName',WSTR),
+        ('lpLoadOrderGroup',LPWSTR),
         ('lpdwTagId',LPDWORD),
         ('lpDependencies',LPBYTE),
         ('dwDependSize',DWORD),
-        ('lpServiceStartName',UNIQUE_RPC_UNICODE_STRING),
+        ('lpServiceStartName',LPWSTR),
         ('lpPassword',LPBYTE),
         ('dwPwSize',DWORD),
     )
 
 class RCreateServiceWResponse(NDRCall):
     structure = (
-        ('lpdwTagId',UNIQUE_RPC_UNICODE_STRING),
+        ('lpdwTagId',LPWSTR),
         ('lpServiceHandle',SC_RPC_HANDLE),
         ('ErrorCode', DWORD),
     )
@@ -834,7 +814,7 @@ class ROpenSCManagerW(NDRCall):
     opnum = 15
     structure = (
         ('lpMachineName',SVCCTL_HANDLEW),
-        ('lpDatabaseName',UNIQUE_RPC_UNICODE_STRING),
+        ('lpDatabaseName',LPWSTR),
         ('dwDesiredAccess',DWORD),
     )
 
@@ -848,7 +828,7 @@ class ROpenServiceW(NDRCall):
     opnum = 16
     structure = (
         ('hSCManager',SC_RPC_HANDLE),
-        ('lpServiceName',RPC_UNICODE_STRING),
+        ('lpServiceName',WSTR),
         ('dwDesiredAccess',DWORD),
     )
 
@@ -903,13 +883,13 @@ class RGetServiceDisplayNameW(NDRCall):
     opnum = 20
     structure = (
         ('hSCManager',SC_RPC_HANDLE),
-        ('lpServiceName',RPC_UNICODE_STRING),
+        ('lpServiceName',WSTR),
         ('lpcchBuffer',DWORD),
     )
 
 class RGetServiceDisplayNameWResponse(NDRCall):
     structure = (
-        ('lpDisplayName',RPC_UNICODE_STRING),
+        ('lpDisplayName',WSTR),
         ('lpcchBuffer',DWORD),
         ('ErrorCode', DWORD),
     )
@@ -918,13 +898,13 @@ class RGetServiceKeyNameW(NDRCall):
     opnum = 21
     structure = (
         ('hSCManager',SC_RPC_HANDLE),
-        ('lpDisplayName',RPC_UNICODE_STRING),
+        ('lpDisplayName',WSTR),
         ('lpcchBuffer',DWORD),
     )
 
 class RGetServiceKeyNameWResponse(NDRCall):
     structure = (
-        ('lpDisplayName',RPC_UNICODE_STRING),
+        ('lpDisplayName',WSTR),
         ('lpcchBuffer',DWORD),
         ('ErrorCode', DWORD),
     )
@@ -1017,25 +997,25 @@ class RCreateServiceWOW64W(NDRCall):
     opnum = 45
     structure = (
         ('hSCManager',SC_RPC_HANDLE),
-        ('lpServiceName',RPC_UNICODE_STRING),
-        ('lpDisplayName',UNIQUE_RPC_UNICODE_STRING),
+        ('lpServiceName',WSTR),
+        ('lpDisplayName',LPWSTR),
         ('dwDesiredAccess',DWORD),
         ('dwServiceType',DWORD),
         ('dwStartType',DWORD),
         ('dwErrorControl',DWORD),
-        ('lpBinaryPathName',RPC_UNICODE_STRING),
-        ('lpLoadOrderGroup',UNIQUE_RPC_UNICODE_STRING),
+        ('lpBinaryPathName',WSTR),
+        ('lpLoadOrderGroup',LPWSTR),
         ('lpdwTagId',LPDWORD),
         ('lpDependencies',LPBYTE),
         ('dwDependSize',DWORD),
-        ('lpServiceStartName',UNIQUE_RPC_UNICODE_STRING),
+        ('lpServiceStartName',LPWSTR),
         ('lpPassword',LPBYTE),
         ('dwPwSize',DWORD),
     )
 
 class RCreateServiceWOW64WResponse(NDRCall):
     structure = (
-        ('lpdwTagId',UNIQUE_RPC_UNICODE_STRING),
+        ('lpdwTagId',LPWSTR),
         ('lpServiceHandle',SC_RPC_HANDLE),
         ('ErrorCode', DWORD),
     )
@@ -1228,7 +1208,7 @@ def hREnumServicesStatusW(dce, hSCManager, dwServiceType=SERVICE_WIN32_OWN_PROCE
         # It should be easier in C of course.
         class STR(NDRPointer):
             referent = (
-                ('Data', WSTR),
+                ('Data', WIDESTR),
             )
         structure = (
             ('lpServiceName',STR),
@@ -1264,10 +1244,10 @@ def hREnumServicesStatusW(dce, hSCManager, dwServiceType=SERVICE_WIN32_OWN_PROCE
     # the referents
     for record in enumArray['Data']:
         offset =  record.fields['lpDisplayName'].fields['ReferentID']
-        name = WSTR(data[offset:])
+        name = WIDESTR(data[offset:])
         record['lpDisplayName'] = name['Data']
         offset =  record.fields['lpServiceName'].fields['ReferentID']
-        name = WSTR(data[offset:])
+        name = WIDESTR(data[offset:])
         record['lpServiceName'] = name['Data']
 
     return enumArray['Data']
