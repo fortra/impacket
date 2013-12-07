@@ -22,6 +22,7 @@ import inspect
 from struct import *
 from impacket import uuid
 from impacket.winregistry import hexdump
+from impacket.dcerpc.v5.enum import Enum
 
 # Something important to have in mind:
 # Diagrams do not depict the specified alignment gaps, which can appear in the octet stream
@@ -29,7 +30,7 @@ from impacket.winregistry import hexdump
 # Where necessary, an alignment gap, consisting of octets of unspecified value, *precedes* the 
 # representation of a primitive. The gap is of the smallest size sufficient to align the primitive
 
-class NDR():
+class NDR(object):
     """
     This will be the base class for all DCERPC NDR Types.
     It changes the structure behaviour, plus it adds the possibility
@@ -720,6 +721,31 @@ class NDRDOUBLEFLOAT(NDR):
         ('Data', '<d=0'),
     )
 
+class EnumType(type):
+    def __getattr__(self, attr):
+        return self.enumItems[attr].value
+
+class NDRENUM(NDRSHORT):
+    __metaclass__ = EnumType
+    align = 2
+    # enum MUST be an python enum (see enum.py)
+    class enumItems(Enum):
+        pass
+
+    def __setitem__(self, key, value):
+       if isinstance(value, Enum):
+           self['Data'] = value.value
+       else:
+           return NDR.__setitem__(self,key,value)
+
+    def dump(self, msg = None, indent = 0):
+        if msg is None: msg = self.__class__.__name__
+        ind = ' '*indent
+        if msg != '':
+            print msg,
+
+        print " %s" % self.enumItems(self.fields['Data']).name
+
 # NDR Constructed Types (arrays, strings, structures, unions, variant structures, pipes and pointers)
 
 # Uni-dimensional Fixed Arrays
@@ -854,7 +880,7 @@ class NDRUnion(NDR):
                 self.fields['tag']['Data'] = value
                 #self.fields['SwitchValue']['Data'] = value
             else:
-                raise Exception("Unknow tag %d for union!" % value)
+                raise Exception("Unknown tag %d for union!" % value)
         else:
             return NDR.__setitem__(self,key,value)
 
@@ -867,7 +893,7 @@ class NDRUnion(NDR):
                 NDR.__init__(self, None, isNDR64=self._isNDR64)
                 return NDR.fromString(self, data)
             else:
-                raise Exception("Unknow tag %d for union!" % tag)
+                raise Exception("Unknown tag %d for union!" % tag)
         return NDR.fromString(self,data)
 
    
