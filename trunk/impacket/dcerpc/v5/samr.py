@@ -343,6 +343,28 @@ class PSAMPR_SR_SECURITY_DESCRIPTOR(NDRPointer):
         ('Data', SAMPR_SR_SECURITY_DESCRIPTOR),
     )
 
+# 2.2.3.14 SAMPR_GET_MEMBERS_BUFFER
+class LONG_ARRAY(ndr.NDRUniConformantArray):
+    item = NDRLONG
+    pass
+
+class PLONG_ARRAY(NDRPointer):
+    referent = (
+        ('Data', LONG_ARRAY),
+    )
+
+class SAMPR_GET_MEMBERS_BUFFER(NDR):
+    structure = (
+        ('MemberCount', NDRLONG),
+        ('Members', PLONG_ARRAY),
+        ('Attributes', PLONG_ARRAY),
+    )
+
+class PSAMPR_GET_MEMBERS_BUFFER(NDRPointer):
+    referent = (
+        ('Data', SAMPR_GET_MEMBERS_BUFFER),
+    )
+
 # 2.2.8.12 DOMAIN_DISPLAY_INFORMATION
 class DOMAIN_DISPLAY_INFORMATION(NDRENUM):
     class enumItems(Enum):
@@ -1349,6 +1371,55 @@ class SamrQueryInformationGroupResponse(NDRCall):
        ('ErrorCode',NDRLONG),
     )
 
+class SamrAddMemberToGroup(NDRCall):
+    opnum = 22
+    structure = (
+       ('GroupHandle',SAMPR_HANDLE),
+       ('MemberId', NDRLONG),
+       ('Attributes', NDRLONG),
+    )
+
+class SamrAddMemberToGroupResponse(NDRCall):
+    structure = (
+       ('ErrorCode',NDRLONG),
+    )
+
+class SamrRemoveMemberFromGroup(NDRCall):
+    opnum = 24
+    structure = (
+       ('GroupHandle',SAMPR_HANDLE),
+       ('MemberId', NDRLONG),
+    )
+
+class SamrRemoveMemberFromGroupResponse(NDRCall):
+    structure = (
+       ('ErrorCode',NDRLONG),
+    )
+
+class SamrGetMembersInGroup(NDRCall):
+    opnum = 25
+    structure = (
+       ('GroupHandle',SAMPR_HANDLE),
+    )
+
+class SamrGetMembersInGroupResponse(NDRCall):
+    structure = (
+       ('Members',PSAMPR_GET_MEMBERS_BUFFER),
+       ('ErrorCode',NDRLONG),
+    )
+
+class SamrDeleteGroup(NDRCall):
+    opnum = 30
+    structure = (
+       ('GroupHandle',SAMPR_HANDLE),
+    )
+
+class SamrDeleteGroupResponse(NDRCall):
+    structure = (
+       ('GroupHandle',SAMPR_HANDLE),
+       ('ErrorCode',NDRLONG),
+    )
+
 class SamrOpenAlias(NDRCall):
     opnum = 27
     structure = (
@@ -1376,6 +1447,18 @@ class SamrQueryInformationAliasResponse(NDRCall):
        ('ErrorCode',NDRLONG),
     )
 
+class SamrDeleteAlias(NDRCall):
+    opnum = 30
+    structure = (
+       ('AliasHandle',SAMPR_HANDLE),
+    )
+
+class SamrDeleteAliasResponse(NDRCall):
+    structure = (
+       ('AliasHandle',SAMPR_HANDLE),
+       ('ErrorCode',NDRLONG),
+    )
+
 class SamrOpenUser(NDRCall):
     opnum = 34
     structure = (
@@ -1385,6 +1468,18 @@ class SamrOpenUser(NDRCall):
     )
 
 class SamrOpenUserResponse(NDRCall):
+    structure = (
+       ('UserHandle',SAMPR_HANDLE),
+       ('ErrorCode',NDRLONG),
+    )
+
+class SamrDeleteUser(NDRCall):
+    opnum = 35
+    structure = (
+       ('UserHandle',SAMPR_HANDLE),
+    )
+
+class SamrDeleteUserResponse(NDRCall):
     structure = (
        ('UserHandle',SAMPR_HANDLE),
        ('ErrorCode',NDRLONG),
