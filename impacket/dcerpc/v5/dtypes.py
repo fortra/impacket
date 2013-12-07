@@ -61,6 +61,34 @@ class WIDESTR(ndr.NDRUniFixedArray):
         else:
             return ndr.NDR.__getitem__(self,key)
 
+class STR(ndr.NDR):
+    align = 4
+    align64 = 8
+    commonHdr = (
+        ('MaximumCount', '<L=len(Data)'),
+        ('Offset','<L=0'),
+        ('ActualCount','<L=len(Data)'),
+    )
+    commonHdr64 = (
+        ('MaximumCount', '<Q=len(Data)'),
+        ('Offset','<Q=0'),
+        ('ActualCount','<Q=len(Data)'),
+    )
+    structure = (
+        ('Data',':'),
+    )
+
+    def dump(self, msg = None, indent = 0):
+        if msg is None: msg = self.__class__.__name__
+        ind = ' '*indent
+        if msg != '':
+            print "%s" % (msg),
+        # Here just print the data
+        print " %r" % (self['Data']),
+
+    def getDataLen(self, data):
+        return self["ActualCount"]
+
 class WSTR(ndr.NDR):
     align = 4
     align64 = 8
@@ -109,8 +137,8 @@ class LPWSTR(ndr.NDRPointer):
 
 # 2.3.8 RPC_UNICODE_STRING
 class RPC_UNICODE_STRING(ndr.NDR):
-    align = 2
-    align64 = 2
+    align = 4
+    align64 = 4
     commonHdr = (
         ('MaximumLength','<H=len(Data)-12'),
         ('Length','<H=len(Data)-12'),
@@ -172,7 +200,7 @@ READ_CONTROL            = 0x00020000L
 DELETE                  = 0x00010000L
 
 # 2.4.2.3 RPC_SID
-class DWORD_array(ndr.NDRUniFixedArray):
+class DWORD_ARRAY(ndr.NDRUniFixedArray):
     align = 0
     align64 = 0
     def getDataLen(self, data):
@@ -193,7 +221,7 @@ class RPC_SID(ndr.NDR):
         ('Revision',ndr.NDRSMALL),
         ('SubAuthorityCount',ndr.NDRSMALL),
         ('IdentifierAuthority',RPC_SID_IDENTIFIER_AUTHORITY),
-        ('SubAuthority',DWORD_array),
+        ('SubAuthority',DWORD_ARRAY),
     )
     def __init__(self, data = None,isNDR64 = False):
         ndr.NDR.__init__(self, None, isNDR64)
@@ -232,3 +260,6 @@ class PRPC_SID(ndr.NDRPointer):
     referent = (
         ('Data', RPC_SID),
     )
+
+# 2.3.3 LARGE_INTEGER
+LARGE_INTEGER = ndr.NDRHYPER
