@@ -1021,7 +1021,6 @@ class DCERPC_v5(DCERPC):
                 auth3['auth_data'] = str(response)
 
                 # Use the same call_id
-                self.__callid = resp['call_id']
                 auth3['call_id'] = self.__callid
                 self._transport.send(auth3.get_packet(), forceWriteAndx = 1)
 
