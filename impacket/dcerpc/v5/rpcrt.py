@@ -955,8 +955,8 @@ class DCERPC_v5(DCERPC):
 
         # check ack results for each context, except for the bogus ones
         for ctx in range(bogus_binds+1,bindResp['ctx_num']+1):
-            resp = bindResp.getCtxItem(ctx)
-            if resp['Result'] != 0:
+            ctxItems = bindResp.getCtxItem(ctx)
+            if ctxItems['Result'] != 0:
                 msg = "Bind context %d rejected: " % ctx
                 msg += rpc_cont_def_result.get(result, 'Unknown DCE RPC context result code: %.4x' % result)
                 msg += "; "
@@ -964,10 +964,10 @@ class DCERPC_v5(DCERPC):
                 msg += rpc_provider_reason.get(reason, 'Unknown reason code: %.4x' % reason)
                 if (result, reason) == (2, 1): # provider_rejection, abstract syntax not supported
                     msg += " (this usually means the interface isn't listening on the given endpoint)"
-                raise Exception(msg, resp)
+                raise Exception(msg, ctxItems)
 
             # Save the transfer syntax for later use
-            self.__transfer_syntax = resp['TransferSyntax'] 
+            self.__transfer_syntax = ctxItems['TransferSyntax'] 
 
         self.__max_xmit_size = bindResp['max_tfrag']
 
@@ -1021,6 +1021,7 @@ class DCERPC_v5(DCERPC):
                 auth3['auth_data'] = str(response)
 
                 # Use the same call_id
+                self.__callid = resp['call_id']
                 auth3['call_id'] = self.__callid
                 self._transport.send(auth3.get_packet(), forceWriteAndx = 1)
 
