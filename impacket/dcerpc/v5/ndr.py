@@ -226,14 +226,17 @@ class NDR(object):
 
     def getData(self, soFar = 0):
         data = ''
+        soFar0 = soFar
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             try:
-                pad = self.calculatePad(fieldName, fieldTypeOrClass, data, len(data)+soFar, packing = True)
+                pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar, packing = True)
                 if pad > 0:
+                    soFar += pad
                     data = data + '\xbb'*pad
                     #data = data + '\x00'*pad
 
-                data += self.pack(fieldName, fieldTypeOrClass, len(data)+soFar)
+                data += self.pack(fieldName, fieldTypeOrClass, soFar)
+                soFar = soFar0 + len(data)
             except Exception, e:
                 if self.fields.has_key(fieldName):
                     e.args += ("When packing field '%s | %s | %r' in %s" % (fieldName, fieldTypeOrClass, self.fields[fieldName], self.__class__),)
@@ -250,17 +253,19 @@ class NDR(object):
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure: 
             if isinstance(self.fields[fieldName], NDR):
                data += self.fields[fieldName].getDataReferents(len(data)+soFar)
-               data = self.fields[fieldName].getDataReferent(data, len(data)+soFar)
+               data += self.fields[fieldName].getDataReferent(len(data)+soFar)
         self.data = data
         return data
 
-    def getDataReferent(self, data, soFar=0):
+    def getDataReferent(self, soFar=0):
+        data = ''
+        soFar0 = soFar
         if hasattr(self,'referent') is False:
-            return data
+            return ''
 
         if self.fields.has_key('ReferentID'):
             if self['ReferentID'] == 0:
-                return data
+                return ''
 
         for fieldName, fieldTypeOrClass in self.referent:
             try:
@@ -271,9 +276,11 @@ class NDR(object):
                     #data = data + '\x00'*pad
 
                 data += self.pack(fieldName, fieldTypeOrClass, soFar)
+                soFar = soFar0 + len(data)
                 # Any referent information to pack?
                 if isinstance(self.fields[fieldName], NDR):
-                    data += self.fields[fieldName].getDataReferents(len(data)+soFar)
+                    data += self.fields[fieldName].getDataReferents(soFar)
+                soFar = soFar0 + len(data)
             except Exception, e:
                 if self.fields.has_key(fieldName):
                     e.args += ("When packing field '%s | %s | %r' in %s" % (fieldName, fieldTypeOrClass, self.fields[fieldName], self.__class__),)
@@ -310,7 +317,9 @@ class NDR(object):
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             if isinstance(self.fields[fieldName], NDR):
                 data = self.fields[fieldName].fromStringReferents(data, soFar)
+                soFar += len(self.fields[fieldName].getDataReferents(soFar))
                 data = self.fields[fieldName].fromStringReferent(data, soFar)
+                soFar += len(self.fields[fieldName].getDataReferent(soFar))
         return data
 
     def fromStringReferent(self, data, soFar = 0):
@@ -392,7 +401,7 @@ class NDR(object):
                         answer += '\xdd' * pad
                     answer += each.getDataReferents(len(answer)+soFar)
                     # ToDo, still to work out this
-                    answer = each.getDataReferent(answer, len(answer)+soFar)
+                    answer += each.getDataReferent(len(answer)+soFar)
 
             del(self.fields['_tmpItem'])
             self.fields[two[1]] = len(data)
@@ -470,7 +479,7 @@ class NDR(object):
                     # ToDo, still to work out this
                     itemn.fromStringReferent(data, soFar + soFarItems)
                     soFarItems = len(itemn.getDataReferents(len(data)+soFar))
-                    itemn.rawData = data[len(itemn.getDataReferents(len(data)+soFar))+len(itemn.getDataReferent('',len(data)+soFar)):] 
+                    itemn.rawData = data[len(itemn.getDataReferents(len(data)+soFar))+len(itemn.getDataReferent(len(data)+soFar)):] 
                     data = itemn.rawData
                     answer2.append(itemn)
                     numItems -= 1
@@ -615,22 +624,26 @@ class NDRCall(NDR):
 
     def getData(self, soFar = 0):
         data = ''
+        soFar0 = soFar
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             try:
-                pad = self.calculatePad(fieldName, fieldTypeOrClass, data, len(data)+soFar, packing = True)
+                pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar, packing = True)
                 if pad > 0:
+                    soFar += pad
                     data = data + '\xaa'*pad
                     #data = data + '\x00'*pad
 
                 data += self.pack(fieldName, fieldTypeOrClass, len(data)+soFar)
+                soFar = soFar0 + len(data)
                 # Any referent information to pack?
                 # I'm still not sure whether this should go after processing 
                 # all the fields at the call level.
                 # Guess we'll figure it out testing.
                 if isinstance(self.fields[fieldName], NDR):
-                    data += self.fields[fieldName].getDataReferents(len(data)+soFar)
-                    data = self.fields[fieldName].getDataReferent(data, len(data)+soFar)
-        
+                    data += self.fields[fieldName].getDataReferents(soFar)
+                    soFar = soFar0 + len(data)
+                    data += self.fields[fieldName].getDataReferent(soFar)
+                    soFar = soFar0 + len(data)
             except Exception, e:
                 if self.fields.has_key(fieldName):
                     e.args += ("When packing field '%s | %s | %r' in %s" % (fieldName, fieldTypeOrClass, self.fields[fieldName], self.__class__),)
@@ -860,9 +873,9 @@ class NDRConformantVaryingString(NDRUniConformantVaryingArray):
 # Unions 
 
 class NDRUnion(NDR):
-    align = 4
+    align = 2
     commonHdr = (
-        ('tag', NDRLONG),
+        ('tag', NDRSHORT),
         #('SwitchValue', NDRLONG),
     )
     union = {
