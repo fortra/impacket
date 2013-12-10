@@ -494,6 +494,11 @@ class SAMPR_REVISION_INFO_V1(NDR):
 
 # 2.2.3.16 SAMPR_REVISION_INFO
 class SAMPR_REVISION_INFO(NDRUnion):
+    align = 4
+    commonHdr = (
+        ('tag', NDRLONG),
+    )
+
     union = {
         1: ('V1', SAMPR_REVISION_INFO_V1),
     }
@@ -629,10 +634,6 @@ class DOMAIN_INFORMATION_CLASS(NDRENUM):
 
 # 2.2.4.17 SAMPR_DOMAIN_INFO_BUFFER
 class SAMPR_DOMAIN_INFO_BUFFER(NDRUnion):
-    align = 2
-    commonHdr = (
-        ('tag', NDRSHORT),
-    )
     union = {
         DOMAIN_INFORMATION_CLASS.DomainPasswordInformation    : ('Password', DOMAIN_PASSWORD_INFORMATION),
         DOMAIN_INFORMATION_CLASS.DomainGeneralInformation     : ('General', SAMPR_DOMAIN_GENERAL_INFORMATION),
@@ -1045,11 +1046,6 @@ class USER_INFORMATION_CLASS(NDRENUM):
 
 # 2.2.7.29 SAMPR_USER_INFO_BUFFER
 class SAMPR_USER_INFO_BUFFER(NDRUnion):
-    align = 2
-    commonHdr = (
-        ('tag', NDRSHORT),
-    )
-
     union = {
         USER_INFORMATION_CLASS.UserGeneralInformation     : ('General', SAMPR_USER_GENERAL_INFORMATION),
         USER_INFORMATION_CLASS.UserPreferencesInformation : ('Preferences', SAMPR_USER_PREFERENCES_INFORMATION),
@@ -1317,11 +1313,6 @@ class PASSWORD_POLICY_VALIDATION_TYPE(NDRENUM):
 
 # 2.2.9.9 SAM_VALIDATE_INPUT_ARG
 class SAM_VALIDATE_INPUT_ARG(NDRUnion):
-    align = 2
-    commonHdr = (
-        ('tag', NDRSHORT),
-    )
-
     union = {
         PASSWORD_POLICY_VALIDATION_TYPE.SamValidateAuthentication : ('ValidateAuthenticationInput', SAM_VALIDATE_AUTHENTICATION_INPUT_ARG),
         PASSWORD_POLICY_VALIDATION_TYPE.SamValidatePasswordChange : ('ValidatePasswordChangeInput', SAM_VALIDATE_PASSWORD_CHANGE_INPUT_ARG),
