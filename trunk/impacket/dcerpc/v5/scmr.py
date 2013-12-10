@@ -384,9 +384,9 @@ class SERVICE_RPC_REQUIRED_PRIVILEGES_INFO(NDR):
         ('cbRequiredPrivileges',DWORD),
         ('pRequiredPrivileges',LPBYTE),
     )
-    def getData(self):
+    def getData(self, soFar = 0):
         self['cbRequiredPrivileges'] = len(self['pRequiredPrivileges'])
-        return NDR.getData(self)
+        return NDR.getData(self, soFar = 0)
 
 
 class LPSERVICE_RPC_REQUIRED_PRIVILEGES_INFO(NDRPointer):
@@ -488,10 +488,10 @@ class SERVICE_TRIGGER_SPECIFIC_DATA_ITEM(NDR):
         ('cbData',DWORD),
         ('pData', LPBYTE),
     )
-    def getData(self):
+    def getData(self, soFar = 0):
         if self['pData'] != 0:
             self['cbData'] = len(self['pData'])
-        return NDR.getData(self)
+        return NDR.getData(self, soFar)
 
 class SERVICE_TRIGGER_SPECIFIC_DATA_ITEM_ARRAY(NDRUniConformantArray):
     item = SERVICE_TRIGGER_SPECIFIC_DATA_ITEM
@@ -509,10 +509,10 @@ class SERVICE_TRIGGER(NDR):
         ('cDataItems', DWORD),
         ('pDataItems', PSERVICE_TRIGGER_SPECIFIC_DATA_ITEM),
     )
-    def getData(self):
+    def getData(self, soFar = 0):
         if self['pDataItems'] != 0:
             self['cDataItems'] = len(self['pDataItems'])
-        return NDR.getData(self)
+        return NDR.getData(self, soFar)
 
 class SERVICE_TRIGGER_ARRAY(NDRUniConformantArray):
     item = SERVICE_TRIGGER
@@ -533,10 +533,10 @@ class SERVICE_TRIGGER_INFO(NDR):
         ('pTriggers', PSERVICE_TRIGGER),
         ('pReserved', NDRPointerNULL ),
     )
-    def getData(self):
+    def getData(self, soFar = 0):
         if self['pTriggers'] != 0:
             self['cTriggers'] = len(self['pTriggers'])
-        return NDR.getData(self)
+        return NDR.getData(self, soFar)
     
 class PSERVICE_TRIGGER_INFO(NDRPointer):
     referent = (
