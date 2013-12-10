@@ -206,18 +206,18 @@ class DWORD_ARRAY(ndr.NDRUniFixedArray):
     def getDataLen(self, data):
         return self.count * 4
 
-class RPC_SID_IDENTIFIER_AUTHORITY(ndr.NDR):
+class RPC_SID_IDENTIFIER_AUTHORITY(ndr.NDRUniFixedArray):
     align = 0
     align64 = 0
-    structure = (
-        ('Data', '6s=""'),
-    )
+    def getDataLen(self, data):
+        return 6
 
 class RPC_SID(ndr.NDR):
     align = 0
     align64 = 0
     structure = (
-        ('Count', '<L=0'),
+        #('Count', '<L=0'),
+        ('Count', ndr.NDRLONG),
         ('Revision',ndr.NDRSMALL),
         ('SubAuthorityCount',ndr.NDRSMALL),
         ('IdentifierAuthority',RPC_SID_IDENTIFIER_AUTHORITY),
@@ -229,15 +229,15 @@ class RPC_SID(ndr.NDR):
         if data is not None:
             self.fromString(data)
 
-    def fromString(self, data):
+    def fromString(self, data, soFar = 0 ):
         count = unpack('<L', data[:4])[0]
         self.fields['SubAuthority'].count = count
-        return ndr.NDR.fromString(self,data)
+        return ndr.NDR.fromString(self,data, soFar)
  
-    def getData(self):
+    def getData(self, soFar = 0):
         self['SubAuthorityCount'] = len(self['SubAuthority'])/4
         self['Count'] = self['SubAuthorityCount']
-        return ndr.NDR.getData(self)
+        return ndr.NDR.getData(self, soFar)
 
     def fromCanonical(self, canonical):
         items = canonical.split('-')
