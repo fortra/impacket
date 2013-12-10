@@ -224,16 +224,16 @@ class NDR(object):
 
         return alignment
 
-    def getData(self):
+    def getData(self, soFar = 0):
         data = ''
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             try:
-                pad = self.calculatePad(fieldName, fieldTypeOrClass, data, len(data), packing = True)
+                pad = self.calculatePad(fieldName, fieldTypeOrClass, data, len(data)+soFar, packing = True)
                 if pad > 0:
                     data = data + '\xbb'*pad
                     #data = data + '\x00'*pad
 
-                data += self.pack(fieldName, fieldTypeOrClass)
+                data += self.pack(fieldName, fieldTypeOrClass, len(data)+soFar)
             except Exception, e:
                 if self.fields.has_key(fieldName):
                     e.args += ("When packing field '%s | %s | %r' in %s" % (fieldName, fieldTypeOrClass, self.fields[fieldName], self.__class__),)
@@ -245,16 +245,16 @@ class NDR(object):
 
         return data
 
-    def getDataReferents(self):
+    def getDataReferents(self, soFar = 0):
         data = ''
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure: 
             if isinstance(self.fields[fieldName], NDR):
-               data += self.fields[fieldName].getDataReferents()
-               data = self.fields[fieldName].getDataReferent(data)
+               data += self.fields[fieldName].getDataReferents(len(data)+soFar)
+               data = self.fields[fieldName].getDataReferent(data, len(data)+soFar)
         self.data = data
         return data
 
-    def getDataReferent(self, data):
+    def getDataReferent(self, data, soFar=0):
         if hasattr(self,'referent') is False:
             return data
 
@@ -264,15 +264,16 @@ class NDR(object):
 
         for fieldName, fieldTypeOrClass in self.referent:
             try:
-                pad = self.calculatePad(fieldName, fieldTypeOrClass, data, len(data), packing = True)
+                pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar, packing = True)
                 if pad > 0:
+                    soFar += pad
                     data = data + '\xcc'*pad
                     #data = data + '\x00'*pad
 
-                data += self.pack(fieldName, fieldTypeOrClass)
+                data += self.pack(fieldName, fieldTypeOrClass, soFar)
                 # Any referent information to pack?
                 if isinstance(self.fields[fieldName], NDR):
-                    data += self.fields[fieldName].getDataReferents()
+                    data += self.fields[fieldName].getDataReferents(len(data)+soFar)
             except Exception, e:
                 if self.fields.has_key(fieldName):
                     e.args += ("When packing field '%s | %s | %r' in %s" % (fieldName, fieldTypeOrClass, self.fields[fieldName], self.__class__),)
@@ -282,35 +283,37 @@ class NDR(object):
 
         return data
 
-    def fromString(self, data):
+    def fromString(self, data, soFar = 0):
         if self.rawData is None:
             self.rawData = data
 
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             size = self.calcUnPackSize(fieldTypeOrClass, data)
-            pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar = len(self.rawData) - len(data), packing = False)
+            pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar = soFar, packing = False)
             if pad > 0:
+                soFar += pad
                 data = data[pad:]
             try:
-                self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size])
+                self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
                 if isinstance(self.fields[fieldName], NDR):
                     size = len(self.fields[fieldName])
 
                 data = data[size:]
+                soFar += size
             except Exception,e:
                 e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data, size),)
                 raise
 
         return self
 
-    def fromStringReferents(self, data):
+    def fromStringReferents(self, data, soFar = 0):
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             if isinstance(self.fields[fieldName], NDR):
-                data = self.fields[fieldName].fromStringReferents(data)
-                data = self.fields[fieldName].fromStringReferent(data)
+                data = self.fields[fieldName].fromStringReferents(data, soFar)
+                data = self.fields[fieldName].fromStringReferent(data, soFar)
         return data
 
-    def fromStringReferent(self, data):
+    def fromStringReferent(self, data, soFar = 0):
         if hasattr(self, 'referent') is not True:
             return data
 
@@ -323,6 +326,7 @@ class NDR(object):
             size = self.calcUnPackSize(fieldTypeOrClass, data)
             pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar = len(self.rawData) - len(data), packing = False)
             if pad > 0:
+                soFar += pad
                 data = data[pad:]
             try:
                 self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size])
@@ -334,14 +338,15 @@ class NDR(object):
                 size = len(self.fields[fieldName]) + len(self.fields[fieldName].getDataReferents())
 
             data = data[size:]
+            soFar += size
         return data 
 
-    def pack(self, fieldName, fieldTypeOrClass):
+    def pack(self, fieldName, fieldTypeOrClass, soFar = 0):
         if self.debug:
             print "  pack( %s | %s )" %  (fieldName, fieldTypeOrClass)
 
         if isinstance(self.fields[fieldName], NDR):
-            return self.fields[fieldName].getData()
+            return self.fields[fieldName].getData(soFar)
 
         data = self.fields[fieldName]
         # void specifier
@@ -352,10 +357,10 @@ class NDR(object):
         two = fieldTypeOrClass.split('=')
         if len(two) >= 2:
             try:
-                return self.pack(fieldName, two[0])
+                return self.pack(fieldName, two[0], soFar)
             except:
                 self.fields[fieldName] = eval(two[1], {}, self.fields)
-                return self.pack(fieldName, two[0])
+                return self.pack(fieldName, two[0], soFar)
 
         # array specifier
         two = fieldTypeOrClass.split('*')
@@ -371,23 +376,23 @@ class NDR(object):
                 self.fields['_tmpItem'] = item
 
             for each in data:
-                pad = self.calculatePad('_tmpItem', self.item, answer, len(answer), packing = True)
+                pad = self.calculatePad('_tmpItem', self.item, answer, len(answer)+soFar, packing = True)
                 if pad > 0:
                     answer += '\xdd' * pad
                 if dataClass is None:
                     answer += pack(item, each)
                 else:
-                    answer += each.getData()
+                    answer += each.getData(len(answer)+soFar)
 
 
             if dataClass is not None:
                 for each in data:
-                    pad = self.calculatePad('_tmpItem', self.item, answer, len(answer), packing = True)
+                    pad = self.calculatePad('_tmpItem', self.item, answer, len(answer)+soFar, packing = True)
                     if pad > 0:
                         answer += '\xdd' * pad
-                    answer += each.getDataReferents()
+                    answer += each.getDataReferents(len(answer)+soFar)
                     # ToDo, still to work out this
-                    answer = each.getDataReferent(answer)
+                    answer = each.getDataReferent(answer, len(answer)+soFar)
 
             del(self.fields['_tmpItem'])
             self.fields[two[1]] = len(data)
@@ -403,22 +408,22 @@ class NDR(object):
         # struct like specifier
         return pack(fieldTypeOrClass, data)
 
-    def unpack(self, fieldName, fieldTypeOrClass, data):
+    def unpack(self, fieldName, fieldTypeOrClass, data, soFar = 0):
         if self.debug:
-            print "  unpack( %s | %s | %r )" %  (fieldName, fieldTypeOrClass, data)
+            print "  unpack( %s | %s | %r | %d)" %  (fieldName, fieldTypeOrClass, data, soFar)
 
         if isinstance(self.fields[fieldName], NDR):
-            return self.fields[fieldName].fromString(data)
+            return self.fields[fieldName].fromString(data, soFar)
 
         # code specifier
         two = fieldTypeOrClass.split('=')
         if len(two) >= 2:
-            return self.unpack(fieldName,two[0], data)
+            return self.unpack(fieldName,two[0], data, soFar)
 
         # array specifier
         two = fieldTypeOrClass.split('*')
         answer = []
-        soFar = 0
+        soFarItems = 0
         if len(two) == 2:
             # First field points to a field with the amount of items
             numItems = self[two[1]]
@@ -433,39 +438,39 @@ class NDR(object):
                 self.fields['_tmpItem'] = item
 
             nsofar = 0
-            while numItems and soFar < len(data):
-                pad = self.calculatePad('_tmpItem', self.item, data[soFar:], soFar, packing = False)
+            while numItems and soFarItems < len(data):
+                pad = self.calculatePad('_tmpItem', self.item, data[soFar:], soFarItems+soFar, packing = False)
                 if pad > 0:
-                    soFar +=pad
+                    soFarItems +=pad
                 if dataClassOrCode is None:
-                    nsofar = soFar + calcsize(item)
-                    answer.append(unpack(item, data[soFar:nsofar])[0])
+                    nsofar = soFarItems + calcsize(item)
+                    answer.append(unpack(item, data[soFarItems:nsofar])[0])
                 else:
-                    itemn = dataClassOrCode(data[soFar:])
-                    itemn.rawData = data[soFar+len(itemn):] 
+                    itemn = dataClassOrCode(data[soFarItems:])
+                    itemn.rawData = data[soFarItems+len(itemn):] 
                     answer.append(itemn)
                     nsofar += len(itemn) + pad
                 numItems -= 1
-                soFar = nsofar
+                soFarItems = nsofar
 
-            pad = self.calculatePad('_tmpItem', self.item, data[soFar:], soFar, packing = False)
+            pad = self.calculatePad('_tmpItem', self.item, data[soFarItems:], soFarItems+soFar, packing = False)
             if pad > 0:
-                soFar +=pad
+                soFarItems +=pad
 
             if dataClassOrCode is not None:
                 # We gotta go over again, asking for the referents
-                data = data[soFar:]
+                data = data[soFarItems:]
                 answer2 = []
-                soFar = 0
+                soFarItems = 0
                 for itemn in answer:
-                    pad = self.calculatePad('_tmpItem', self.item, data, soFar, packing = False)
+                    pad = self.calculatePad('_tmpItem', self.item, data, soFarItems+soFar, packing = False)
                     if pad > 0:
                         data = data[pad:]
                     itemn.fromStringReferents(data)
                     # ToDo, still to work out this
-                    itemn.fromStringReferent(data)
-                    soFar = len(itemn.getDataReferents())
-                    itemn.rawData = data[len(itemn.getDataReferents())+len(itemn.getDataReferent('')):] 
+                    itemn.fromStringReferent(data, soFar + soFarItems)
+                    soFarItems = len(itemn.getDataReferents(len(data)+soFar))
+                    itemn.rawData = data[len(itemn.getDataReferents(len(data)+soFar))+len(itemn.getDataReferent('',len(data)+soFar)):] 
                     data = itemn.rawData
                     answer2.append(itemn)
                     numItems -= 1
@@ -478,7 +483,7 @@ class NDR(object):
         # literal specifier
         if fieldTypeOrClass == ':':
             if isinstance(fieldTypeOrClass, NDR):
-                return self.fields[field].fromString(data)
+                return self.fields[field].fromString(data, soFar)
             else:
                 return data[:self.getDataLen(data)]
 
@@ -608,23 +613,23 @@ class NDRCall(NDR):
         NDR.dump(self, msg, indent)
         print '\n\n'
 
-    def getData(self):
+    def getData(self, soFar = 0):
         data = ''
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             try:
-                pad = self.calculatePad(fieldName, fieldTypeOrClass, data, len(data), packing = True)
+                pad = self.calculatePad(fieldName, fieldTypeOrClass, data, len(data)+soFar, packing = True)
                 if pad > 0:
                     data = data + '\xaa'*pad
                     #data = data + '\x00'*pad
 
-                data += self.pack(fieldName, fieldTypeOrClass)
+                data += self.pack(fieldName, fieldTypeOrClass, len(data)+soFar)
                 # Any referent information to pack?
                 # I'm still not sure whether this should go after processing 
                 # all the fields at the call level.
                 # Guess we'll figure it out testing.
                 if isinstance(self.fields[fieldName], NDR):
-                    data += self.fields[fieldName].getDataReferents()
-                    data = self.fields[fieldName].getDataReferent(data)
+                    data += self.fields[fieldName].getDataReferents(len(data)+soFar)
+                    data = self.fields[fieldName].getDataReferent(data, len(data)+soFar)
         
             except Exception, e:
                 if self.fields.has_key(fieldName):
@@ -637,26 +642,28 @@ class NDRCall(NDR):
 
         return data
 
-    def fromString(self, data):
+    def fromString(self, data, soFar = 0):
         if self.rawData is None:
             self.rawData = data
 
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             size = self.calcUnPackSize(fieldTypeOrClass, data)
-            pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar = len(self.rawData) - len(data), packing = False)
+            pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar = soFar, packing = False)
             if pad > 0:
+                soFar += pad
                 data = data[pad:]
             try:
-                self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size])
+                self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
                 if isinstance(self.fields[fieldName], NDR):
                     size = len(self.fields[fieldName])
                     # Any referent information to unpack?
                     if isinstance(self.fields[fieldName], NDR):
-                        res = self.fields[fieldName].fromStringReferents(data[size:])
+                        res = self.fields[fieldName].fromStringReferents(data[size:], soFar+size)
                         self.fields[fieldName].fromStringReferent(data[size:])
                     size+= len(data[size:]) - len(res)
 
                 data = data[size:]
+                soFar += size
             except Exception,e:
                 e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data, size),)
                 raise
@@ -824,16 +831,16 @@ class NDRUniConformantVaryingArray(NDRArray):
 
 # Varying Strings
 class NDRVaryingString(NDRUniVaryingArray):
-    def getData(self):
+    def getData(self, soFar = 0):
         # The last element of a string is a terminator of the same size as the other elements. 
         # If the string element size is one octet, the terminator is a NULL character. 
         # The terminator for a string of multi-byte characters is the array element zero (0).
         if self["Data"][-1:] != '\x00':
             self["Data"] = ''.join(self["Data"]) + '\x00'
-        return NDRUniVaryingArray.getData(self)
+        return NDRUniVaryingArray.getData(self, soFar)
 
-    def fromString(self, data):
-        ret = NDRUniVaryingArray.fromString(self,data)
+    def fromString(self, data, soFar = 0):
+        ret = NDRUniVaryingArray.fromString(self,data, soFar = 0)
         # Let's take out the last item
         self["Data"] = self["Data"][:-1] 
         return ret
@@ -854,7 +861,6 @@ class NDRConformantVaryingString(NDRUniConformantVaryingArray):
 
 class NDRUnion(NDR):
     align = 4
-    align64 = 4
     commonHdr = (
         ('tag', NDRLONG),
         #('SwitchValue', NDRLONG),
@@ -884,17 +890,19 @@ class NDRUnion(NDR):
         else:
             return NDR.__setitem__(self,key,value)
 
-    def fromString(self, data):
+    def fromString(self, data, soFar = 0 ):
         if len(data) > 4:
             # First off, let's see what the tag is:
-            tag = unpack('<L', data[:4])[0]
+            # We need to know the tag type and unpack it
+            tagtype = self.commonHdr[0][1].structure[0][1].split('=')[0]
+            tag = unpack(tagtype, data[:calcsize(tagtype)])[0]
             if self.union.has_key(tag):
                 self.structure = (self.union[tag]),
                 NDR.__init__(self, None, isNDR64=self._isNDR64)
-                return NDR.fromString(self, data)
+                return NDR.fromString(self, data, soFar)
             else:
                 raise Exception("Unknown tag %d for union!" % tag)
-        return NDR.fromString(self,data)
+        return NDR.fromString(self,data,soFar)
 
    
 # Pipes not implemented for now
@@ -947,7 +955,24 @@ class NDRPointer(NDR):
         else:
            self.fromString(data)
 
-    def getData(self):
+    def __setitem__(self, key, value):
+        if self.fields.has_key(key) is False:
+            # Key not found.. let's send it to the referent to handle, maybe it's there
+            return self.fields['Data'].__setitem__(key,value)
+        else:
+            return NDR.__setitem__(self,key,value)
+
+    def __getitem__(self, key):
+        if self.fields.has_key(key):
+            if isinstance(self.fields[key], NDR):
+                if self.fields[key].fields.has_key('Data'):
+                    return self.fields[key]['Data']
+            return self.fields[key]
+        else:
+            # Key not found, let's send it to the referent, maybe it's there
+            return self.fields['Data'].__getitem__(key)
+
+    def getData(self, soFar = 0):
         # If we have a ReferentID == 0, means there's no data
         if self.fields['ReferentID'] == 0:
             if len(self.referent) > 0:
@@ -958,16 +983,16 @@ class NDRPointer(NDR):
                 else:
                     return '\x00'*4
 
-        return NDR.getData(self)
+        return NDR.getData(self, soFar)
 
-    def fromString(self,data):
+    def fromString(self,data,soFar = 0):
         # Do we have a Referent ID == 0?
         if unpack('<L', data[:4])[0] == 0:
             self['ReferentID'] = 0
             self.fields['Data'] = ''
             return self
         else:
-            return NDR.fromString(self,data)
+            return NDR.fromString(self,data, soFar)
 
     def dump(self, msg = None, indent = 0):
         if msg is None: msg = self.__class__.__name__
@@ -1139,10 +1164,10 @@ class TestPointerNULL(NDRTest):
 if __name__ == '__main__':
     from impacket.dcerpc.netlogon import NETLOGON_CREDENTIAL
     TestUniFixedArray().run()
-    TestUniConformantArray().run()
+    #TestUniConformantArray().run()
     TestUniVaryingArray().run()
     TestUniConformantVaryingArray().run()
     TestVaryingString().run()
     TestConformantVaryingString().run()
     TestPointerNULL().run()
-    TestServerAuthenticate().run()
+    #TestServerAuthenticate().run()
