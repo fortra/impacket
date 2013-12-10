@@ -246,6 +246,22 @@ DOMAIN_GROUP_RID_CONTROLLERS          = 0x00000203
 DOMAIN_ALIAS_RID_ADMINS               = 0x00000220
 DOMAIN_GROUP_RID_READONLY_CONTROLLERS = 0x00000209
 
+# 2.2.4.1 Domain Fields
+DOMAIN_PASSWORD_COMPLEX         = 0x00000001
+DOMAIN_PASSWORD_NO_ANON_CHANGE  = 0x00000002
+DOMAIN_PASSWORD_NO_CLEAR_CHANGE = 0x00000004
+DOMAIN_LOCKOUT_ADMINS           = 0x00000008
+DOMAIN_PASSWORD_STORE_CLEARTEXT = 0x00000010
+DOMAIN_REFUSE_PASSWORD_CHANGE   = 0x00000020
+
+# 2.2.9.2 SAM_VALIDATE_PERSISTED_FIELDS PresentFields
+SAM_VALIDATE_PASSWORD_LAST_SET       = 0x00000001
+SAM_VALIDATE_BAD_PASSWORD_TIME       = 0x00000002
+SAM_VALIDATE_LOCKOUT_TIME            = 0x00000004
+SAM_VALIDATE_BAD_PASSWORD_COUNT      = 0x00000008
+SAM_VALIDATE_PASSWORD_HISTORY_LENGTH = 0x00000010
+SAM_VALIDATE_PASSWORD_HISTORY        = 0x00000020
+
 ################################################################################
 # STRUCTURES
 ################################################################################
@@ -299,7 +315,7 @@ class SID_NAME_USE(NDRENUM):
         SidTypeLabel           = 10
 
 # 2.2.2.4 RPC_SHORT_BLOB
-class SHORT_ARRAY(ndr.NDRUniConformantVaryingArray):
+class SHORT_ARRAY(NDRUniConformantVaryingArray):
     item = '<H'
     pass
 
@@ -315,6 +331,12 @@ class RPC_SHORT_BLOB(NDR):
         ('Buffer',PSHORT_ARRAY),
     )
 
+# 2.2.3.2 SAMPR_HANDLE
+class SAMPR_HANDLE(NDR):
+    structure =  (
+        ('Data','20s=""'),
+    )
+
 # 2.2.3.3 ENCRYPTED_LM_OWF_PASSWORD, ENCRYPTED_NT_OWF_PASSWORD
 class ENCRYPTED_LM_OWF_PASSWORD(NDR):
     structure = (
@@ -323,8 +345,79 @@ class ENCRYPTED_LM_OWF_PASSWORD(NDR):
 
 ENCRYPTED_NT_OWF_PASSWORD = ENCRYPTED_LM_OWF_PASSWORD
 
+class PENCRYPTED_LM_OWF_PASSWORD(NDR):
+    referent = (
+        ('Data', ENCRYPTED_LM_OWF_PASSWORD),
+    )
+
+PENCRYPTED_NT_OWF_PASSWORD = PENCRYPTED_LM_OWF_PASSWORD
+
+# 2.2.3.4 SAMPR_ULONG_ARRAY
+class SAMPR_ULONG_ARRAY(NDRUniConformantVaryingArray):
+    item = '<L'
+
+# 2.2.3.5 SAMPR_SID_INFORMATION
+class SAMPR_SID_INFORMATION(NDR):
+    structure = (
+        ('SidPointer', RPC_SID),
+    )
+
+class PSAMPR_SID_INFORMATION(NDRPointer):
+    referent = (
+        ('Data', SAMPR_SID_INFORMATION),
+    )
+
+class SAMPR_SID_INFORMATION_ARRAY(NDRUniConformantArray):
+    item = PSAMPR_SID_INFORMATION
+
+class PSAMPR_SID_INFORMATION_ARRAY(NDRPointer):
+    referent = (
+        ('Data', SAMPR_SID_INFORMATION_ARRAY),
+    )
+
+# 2.2.3.6 SAMPR_PSID_ARRAY
+class SAMPR_PSID_ARRAY(NDR):
+    structure = (
+        ('Count', NDRLONG),
+        ('Sids', PSAMPR_SID_INFORMATION_ARRAY),
+    )
+
+# 2.2.3.7 SAMPR_PSID_ARRAY_OUT
+class SAMPR_PSID_ARRAY_OUT(NDR):
+    structure = (
+        ('Count', NDRLONG),
+        ('Sids', PSAMPR_SID_INFORMATION_ARRAY),
+    )
+
+# 2.2.3.9 SAMPR_RID_ENUMERATION
+class SAMPR_RID_ENUMERATION(NDR):
+    structure = (
+        ('RelativeId',NDRLONG),
+        ('Name',RPC_UNICODE_STRING),
+    )
+
+class SAMPR_RID_ENUMERATION_ARRAY(NDRUniConformantArray):
+    item = SAMPR_RID_ENUMERATION
+
+class PSAMPR_RID_ENUMERATION_ARRAY(NDRPointer):
+    referent = (
+        ('Data', SAMPR_RID_ENUMERATION_ARRAY),
+    )
+
+# 2.2.3.10 SAMPR_ENUMERATION_BUFFER
+class SAMPR_ENUMERATION_BUFFER(NDR):
+    structure = (
+        ('EntriesRead',NDRLONG ),
+        ('Buffer',PSAMPR_RID_ENUMERATION_ARRAY ),
+    )
+
+class PSAMPR_ENUMERATION_BUFFER(NDRPointer):
+    referent = (
+        ('Data',SAMPR_ENUMERATION_BUFFER),
+    )
+
 # 2.2.3.11 SAMPR_SR_SECURITY_DESCRIPTOR
-class CHAR_ARRAY(ndr.NDRUniConformantVaryingArray):
+class CHAR_ARRAY(NDRUniConformantVaryingArray):
     pass
 
 class PCHAR_ARRAY(NDRPointer):
@@ -343,8 +436,35 @@ class PSAMPR_SR_SECURITY_DESCRIPTOR(NDRPointer):
         ('Data', SAMPR_SR_SECURITY_DESCRIPTOR),
     )
 
+# 2.2.3.12 GROUP_MEMBERSHIP
+class GROUP_MEMBERSHIP(NDR):
+    structure = (
+        ('RelativeId',NDRLONG),
+        ('Attributes',NDRLONG),
+    )
+
+class GROUP_MEMBERSHIP_ARRAY(NDRUniConformantArray):
+    item = GROUP_MEMBERSHIP
+
+class PGROUP_MEMBERSHIP_ARRAY(NDRPointer):
+    referent = (
+        ('Data',GROUP_MEMBERSHIP_ARRAY),
+    ) 
+
+# 2.2.3.13 SAMPR_GET_GROUPS_BUFFER
+class SAMPR_GET_GROUPS_BUFFER(NDR):
+    structure = (
+        ('MembershipCount',NDRLONG),
+        ('Groups',PGROUP_MEMBERSHIP_ARRAY),
+    )
+
+class PSAMPR_GET_GROUPS_BUFFER(NDRPointer):
+    referent = (
+        ('Data',SAMPR_GET_GROUPS_BUFFER),
+    )
+
 # 2.2.3.14 SAMPR_GET_MEMBERS_BUFFER
-class LONG_ARRAY(ndr.NDRUniConformantArray):
+class LONG_ARRAY(NDRUniConformantArray):
     item = NDRLONG
     pass
 
@@ -365,30 +485,25 @@ class PSAMPR_GET_MEMBERS_BUFFER(NDRPointer):
         ('Data', SAMPR_GET_MEMBERS_BUFFER),
     )
 
-# 2.2.8.12 DOMAIN_DISPLAY_INFORMATION
-class DOMAIN_DISPLAY_INFORMATION(NDRENUM):
-    class enumItems(Enum):
-        DomainDisplayUser     = 1
-        DomainDisplayMachine  = 2
-        DomainDisplayGroup    = 3
-        DomainDisplayOemUser  = 4
-        DomainDisplayOemGroup = 5
+# 2.2.3.15 SAMPR_REVISION_INFO_V1
+class SAMPR_REVISION_INFO_V1(NDR):
+    structure = (
+       ('Revision',NDRLONG),
+       ('SupportedFeatures',NDRLONG),
+    )
 
-# 2.2.4.16 DOMAIN_INFORMATION_CLASS
-class DOMAIN_INFORMATION_CLASS(NDRENUM):
-    class enumItems(Enum):
-        DomainPasswordInformation    = 1
-        DomainGeneralInformation     = 2
-        DomainLogoffInformation      = 3
-        DomainOemInformation         = 4
-        DomainNameInformation        = 5
-        DomainReplicationInformation = 6
-        DomainServerRoleInformation  = 7
-        DomainModifiedInformation    = 8
-        DomainStateInformation       = 9
-        DomainGeneralInformation2    = 11
-        DomainLockoutInformation     = 12
-        DomainModifiedInformation2   = 13
+# 2.2.3.16 SAMPR_REVISION_INFO
+class SAMPR_REVISION_INFO(NDRUnion):
+    union = {
+        1: ('V1', SAMPR_REVISION_INFO_V1),
+    }
+
+# 2.2.3.17 USER_DOMAIN_PASSWORD_INFORMATION
+class USER_DOMAIN_PASSWORD_INFORMATION(NDR):
+    structure = (
+        ('MinPasswordLength', NDRSHORT),
+        ('PasswordProperties', NDRLONG),
+    )
 
 # 2.2.4.2 DOMAIN_SERVER_ENABLE_STATE
 class DOMAIN_SERVER_ENABLE_STATE(NDRENUM):
@@ -396,192 +511,17 @@ class DOMAIN_SERVER_ENABLE_STATE(NDRENUM):
         DomainServerEnabled  = 1
         DomainServerDisabled = 2
 
+# 2.2.4.3 DOMAIN_STATE_INFORMATION
+class DOMAIN_STATE_INFORMATION(NDR):
+    structure = (
+        ('DomainServerState', DOMAIN_SERVER_ENABLE_STATE),
+    )
+
 # 2.2.4.4 DOMAIN_SERVER_ROLE
 class DOMAIN_SERVER_ROLE(NDRENUM):
     class enumItems(Enum):
         DomainServerRoleBackup  = 2
         DomainServerRolePrimary = 3
-
-# 2.2.5.6 GROUP_INFORMATION_CLASS
-class GROUP_INFORMATION_CLASS(NDRENUM):
-    class enumItems(Enum):
-        GroupGeneralInformation      = 1 
-        GroupNameInformation         = 2
-        GroupAttributeInformation    = 3
-        GroupAdminCommentInformation = 4
-        GroupReplicationInformation  = 5
-
-# 2.2.6.5 ALIAS_INFORMATION_CLASS
-class ALIAS_INFORMATION_CLASS(NDRENUM):
-    class enumItems(Enum):
-        AliasGeneralInformation      = 1
-        AliasNameInformation         = 2
-        AliasAdminCommentInformation = 3
-
-# 2.2.7.28 USER_INFORMATION_CLASS
-class USER_INFORMATION_CLASS(NDRENUM):
-    class enumItems(Enum):
-        UserGeneralInformation      = 1
-        UserPreferencesInformation  = 2
-        UserLogonInformation        = 3
-        UserLogonHoursInformation   = 4
-        UserAccountInformation      = 5
-        UserNameInformation         = 6
-        UserAccountNameInformation  = 7
-        UserFullNameInformation     = 8
-        UserPrimaryGroupInformation = 9
-        UserHomeInformation         = 10
-        UserScriptInformation       = 11
-        UserProfileInformation      = 12
-        UserAdminCommentInformation = 13
-        UserWorkStationsInformation = 14
-        UserControlInformation      = 16
-        UserExpiresInformation      = 17
-        UserInternal1Information    = 18
-        UserParametersInformation   = 20
-        UserAllInformation          = 21
-        UserInternal4Information    = 23
-        UserInternal5Information    = 24
-        UserInternal4InformationNew = 25
-        UserInternal5InformationNew = 26
-
-# 2.2.8.2 SAMPR_DOMAIN_DISPLAY_USER
-class SAMPR_DOMAIN_DISPLAY_USER(NDR):
-    structure = (
-        ('Index',NDRLONG),
-        ('Rid',NDRLONG),
-        ('AccountControl',NDRLONG),
-        ('AccountName',RPC_UNICODE_STRING),
-        ('AdminComment',RPC_UNICODE_STRING),
-        ('FullName',RPC_UNICODE_STRING),
-    )
-
-
-class SAMPR_DOMAIN_DISPLAY_USER_ARRAY(NDRUniConformantArray):
-    item = SAMPR_DOMAIN_DISPLAY_USER
-
-class PSAMPR_DOMAIN_DISPLAY_USER_ARRAY(NDRPointer):
-    referent = (
-        ('Data',SAMPR_DOMAIN_DISPLAY_USER_ARRAY),
-    )
-
-# 2.2.8.2 SAMPR_DOMAIN_DISPLAY_USER
-class SAMPR_DOMAIN_DISPLAY_USER_BUFFER(NDR):
-    structure = (
-        ('EntriesRead', NDRLONG),
-        ('Buffer', PSAMPR_DOMAIN_DISPLAY_USER_ARRAY),
-    )
-
-# 2.2.8.3 SAMPR_DOMAIN_DISPLAY_MACHINE
-class SAMPR_DOMAIN_DISPLAY_MACHINE(NDR):
-    structure = (
-        ('Index',NDRLONG),
-        ('Rid',NDRLONG),
-        ('AccountControl',NDRLONG),
-        ('AccountName',RPC_UNICODE_STRING),
-        ('AdminComment',RPC_UNICODE_STRING),
-    )
-
-class SAMPR_DOMAIN_DISPLAY_MACHINE_ARRAY(NDRUniConformantArray):
-    item = SAMPR_DOMAIN_DISPLAY_MACHINE
-
-class PSAMPR_DOMAIN_DISPLAY_MACHINE_ARRAY(NDRPointer):
-    referent = (
-        ('Data',SAMPR_DOMAIN_DISPLAY_MACHINE_ARRAY),
-    )
-
-# 2.2.8.8 SAMPR_DOMAIN_DISPLAY_MACHINE_BUFFER
-class SAMPR_DOMAIN_DISPLAY_MACHINE_BUFFER(NDR):
-    structure = (
-        ('EntriesRead', NDRLONG),
-        ('Buffer', PSAMPR_DOMAIN_DISPLAY_MACHINE_ARRAY),
-    )
- 
-# 2.2.8.4 SAMPR_DOMAIN_DISPLAY_GROUP
-class SAMPR_DOMAIN_DISPLAY_GROUP(NDR):
-    structure = (
-        ('Index',NDRLONG),
-        ('Rid',NDRLONG),
-        ('AccountControl',NDRLONG),
-        ('AccountName',RPC_UNICODE_STRING),
-        ('AdminComment',RPC_UNICODE_STRING),
-    )
-
-class SAMPR_DOMAIN_DISPLAY_GROUP_ARRAY(NDRUniConformantArray):
-    item = SAMPR_DOMAIN_DISPLAY_GROUP
-
-class PSAMPR_DOMAIN_DISPLAY_GROUP_ARRAY(NDRPointer):
-    referent = (
-        ('Data',SAMPR_DOMAIN_DISPLAY_GROUP_ARRAY),
-    )
-
-# 2.2.8.9 SAMPR_DOMAIN_DISPLAY_GROUP_BUFFER
-class SAMPR_DOMAIN_DISPLAY_GROUP_BUFFER(NDR):
-    structure = (
-        ('EntriesRead', NDRLONG),
-        ('Buffer', PSAMPR_DOMAIN_DISPLAY_GROUP_ARRAY),
-    )
- 
-# 2.2.8.5 SAMPR_DOMAIN_DISPLAY_OEM_USER
-class SAMPR_DOMAIN_DISPLAY_OEM_USER(NDR):
-    structure = (
-        ('Index',NDRLONG),
-        ('OemAccountName',RPC_STRING),
-    )
-
-class SAMPR_DOMAIN_DISPLAY_OEM_USER_ARRAY(NDRUniConformantArray):
-    item = SAMPR_DOMAIN_DISPLAY_OEM_USER
-
-class PSAMPR_DOMAIN_DISPLAY_OEM_USER_ARRAY(NDRPointer):
-    referent = (
-        ('Data',SAMPR_DOMAIN_DISPLAY_OEM_USER_ARRAY),
-    )
-
-# 2.2.8.10 SAMPR_DOMAIN_DISPLAY_OEM_USER_BUFFER
-class SAMPR_DOMAIN_DISPLAY_OEM_USER_BUFFER(NDR):
-    structure = (
-        ('EntriesRead', NDRLONG),
-        ('Buffer', PSAMPR_DOMAIN_DISPLAY_OEM_USER_ARRAY),
-    )
- 
-# 2.2.8.6 SAMPR_DOMAIN_DISPLAY_OEM_GROUP
-class SAMPR_DOMAIN_DISPLAY_OEM_GROUP(NDR):
-    structure = (
-        ('Index',NDRLONG),
-        ('OemAccountName',RPC_STRING),
-    )
-
-class SAMPR_DOMAIN_DISPLAY_OEM_GROUP_ARRAY(NDRUniConformantArray):
-    item = SAMPR_DOMAIN_DISPLAY_OEM_GROUP
-
-class PSAMPR_DOMAIN_DISPLAY_OEM_GROUP_ARRAY(NDRPointer):
-    referent = (
-        ('Data',SAMPR_DOMAIN_DISPLAY_OEM_GROUP_ARRAY),
-    )
-
-# 2.2.8.11 SAMPR_DOMAIN_DISPLAY_OEM_GROUP_BUFFER
-class SAMPR_DOMAIN_DISPLAY_OEM_GROUP_BUFFER(NDR):
-    structure = (
-        ('EntriesRead', NDRLONG),
-        ('Buffer', PSAMPR_DOMAIN_DISPLAY_OEM_GROUP_ARRAY),
-    )
-
-# 2.2.8.13 SAMPR_DISPLAY_INFO_BUFFER
-class SAMPR_DISPLAY_INFO_BUFFER(NDRUnion):
-    union = {
-        DOMAIN_DISPLAY_INFORMATION.DomainDisplayUser     : ('UserInformation', SAMPR_DOMAIN_DISPLAY_USER_BUFFER),
-        DOMAIN_DISPLAY_INFORMATION.DomainDisplayMachine  : ('MachineInformation', SAMPR_DOMAIN_DISPLAY_MACHINE_BUFFER),
-        DOMAIN_DISPLAY_INFORMATION.DomainDisplayGroup    : ('GroupInformation', SAMPR_DOMAIN_DISPLAY_GROUP_BUFFER),
-        DOMAIN_DISPLAY_INFORMATION.DomainDisplayOemUser  : ('OemUserInformation', SAMPR_DOMAIN_DISPLAY_OEM_USER_BUFFER),
-        DOMAIN_DISPLAY_INFORMATION.DomainDisplayOemGroup : ('OemGroupInformation', SAMPR_DOMAIN_DISPLAY_OEM_GROUP_BUFFER),
-    }
-
-# 2.2.2.2 OLD_LARGE_INTEGER
-class OLD_LARGE_INTEGER(NDR):
-    structure = (
-        ('LowPart', NDRLONG),
-        ('HighPart', NDRLONG),
-    )
 
 # 2.2.4.5 DOMAIN_PASSWORD_INFORMATION
 class DOMAIN_PASSWORD_INFORMATION(NDR):
@@ -591,6 +531,33 @@ class DOMAIN_PASSWORD_INFORMATION(NDR):
         ('PasswordProperties', NDRLONG),
         ('MaxPasswordAge', OLD_LARGE_INTEGER),
         ('MinPasswordAge', OLD_LARGE_INTEGER),
+    )
+
+# 2.2.4.6 DOMAIN_LOGOFF_INFORMATION
+class DOMAIN_LOGOFF_INFORMATION(NDR):
+    structure = (
+        ('ForceLogoff', OLD_LARGE_INTEGER),
+    )
+
+# 2.2.4.7 DOMAIN_SERVER_ROLE_INFORMATION
+class DOMAIN_SERVER_ROLE_INFORMATION(NDR):
+    structure = (
+        ('DomainServerRole', DOMAIN_SERVER_ROLE),
+    )
+
+# 2.2.4.8 DOMAIN_MODIFIED_INFORMATION
+class DOMAIN_MODIFIED_INFORMATION(NDR):
+    structure = (
+        ('DomainModifiedCount', OLD_LARGE_INTEGER),
+        ('CreationTime', OLD_LARGE_INTEGER),
+    )
+
+# 2.2.4.9 DOMAIN_MODIFIED_INFORMATION2
+class DOMAIN_MODIFIED_INFORMATION2(NDR):
+    structure = (
+        ('DomainModifiedCount', OLD_LARGE_INTEGER),
+        ('CreationTime', OLD_LARGE_INTEGER),
+        ('ModifiedCountAtLastPromotion', OLD_LARGE_INTEGER),
     )
 
 # 2.2.4.10 SAMPR_DOMAIN_GENERAL_INFORMATION
@@ -609,9 +576,13 @@ class SAMPR_DOMAIN_GENERAL_INFORMATION(NDR):
         ('AliasCount', NDRLONG),
     )
 
-class DOMAIN_LOGOFF_INFORMATION(NDR):
+# 2.2.4.11 SAMPR_DOMAIN_GENERAL_INFORMATION2
+class SAMPR_DOMAIN_GENERAL_INFORMATION2(NDR):
     structure = (
-        ('ForceLogoff', OLD_LARGE_INTEGER),
+        ('I1', SAMPR_DOMAIN_GENERAL_INFORMATION),
+        ('LockoutDuration', LARGE_INTEGER),
+        ('LockoutObservationWindow', LARGE_INTEGER),
+        ('LockoutThreshold', NDRSHORT),
     )
 
 # 2.2.4.12 SAMPR_DOMAIN_OEM_INFORMATION
@@ -626,38 +597,10 @@ class SAMPR_DOMAIN_NAME_INFORMATION(NDR):
         ('DomainName', RPC_UNICODE_STRING),
     )
 
-# 2.2.4.7 DOMAIN_SERVER_ROLE_INFORMATION
-class DOMAIN_SERVER_ROLE_INFORMATION(NDR):
-    structure = (
-        ('DomainServerRole', DOMAIN_SERVER_ROLE),
-    )
-
 # 2.2.4.14 SAMPR_DOMAIN_REPLICATION_INFORMATION
 class SAMPR_DOMAIN_REPLICATION_INFORMATION(NDR):
     structure = (
         ('ReplicaSourceNodeName', RPC_UNICODE_STRING),
-    )
-
-# 2.2.4.8 DOMAIN_MODIFIED_INFORMATION
-class DOMAIN_MODIFIED_INFORMATION(NDR):
-    structure = (
-        ('DomainModifiedCount', OLD_LARGE_INTEGER),
-        ('CreationTime', OLD_LARGE_INTEGER),
-    )
-
-# 2.2.4.3 DOMAIN_STATE_INFORMATION
-class DOMAIN_STATE_INFORMATION(NDR):
-    structure = (
-        ('DomainServerState', DOMAIN_SERVER_ENABLE_STATE),
-    )
-
-# 2.2.4.11 SAMPR_DOMAIN_GENERAL_INFORMATION2
-class SAMPR_DOMAIN_GENERAL_INFORMATION2(NDR):
-    structure = (
-        ('I1', SAMPR_DOMAIN_GENERAL_INFORMATION),
-        ('LockoutDuration', LARGE_INTEGER),
-        ('LockoutObservationWindow', LARGE_INTEGER),
-        ('LockoutThreshold', NDRSHORT),
     )
 
 # 2.2.4.15 SAMPR_DOMAIN_LOCKOUT_INFORMATION
@@ -668,16 +611,28 @@ class SAMPR_DOMAIN_LOCKOUT_INFORMATION(NDR):
         ('LockoutThreshold', NDRSHORT),
     )
 
-# 2.2.4.9 DOMAIN_MODIFIED_INFORMATION2
-class DOMAIN_MODIFIED_INFORMATION2(NDR):
-    structure = (
-        ('DomainModifiedCount', OLD_LARGE_INTEGER),
-        ('CreationTime', OLD_LARGE_INTEGER),
-        ('ModifiedCountAtLastPromotion', OLD_LARGE_INTEGER),
-    )
+# 2.2.4.16 DOMAIN_INFORMATION_CLASS
+class DOMAIN_INFORMATION_CLASS(NDRENUM):
+    class enumItems(Enum):
+        DomainPasswordInformation    = 1
+        DomainGeneralInformation     = 2
+        DomainLogoffInformation      = 3
+        DomainOemInformation         = 4
+        DomainNameInformation        = 5
+        DomainReplicationInformation = 6
+        DomainServerRoleInformation  = 7
+        DomainModifiedInformation    = 8
+        DomainStateInformation       = 9
+        DomainGeneralInformation2    = 11
+        DomainLockoutInformation     = 12
+        DomainModifiedInformation2   = 13
 
 # 2.2.4.17 SAMPR_DOMAIN_INFO_BUFFER
 class SAMPR_DOMAIN_INFO_BUFFER(NDRUnion):
+    align = 2
+    commonHdr = (
+        ('tag', NDRSHORT),
+    )
     union = {
         DOMAIN_INFORMATION_CLASS.DomainPasswordInformation    : ('Password', DOMAIN_PASSWORD_INFORMATION),
         DOMAIN_INFORMATION_CLASS.DomainGeneralInformation     : ('General', SAMPR_DOMAIN_GENERAL_INFORMATION),
@@ -698,6 +653,28 @@ class PSAMPR_DOMAIN_INFO_BUFFER(NDRPointer):
         ('Data', SAMPR_DOMAIN_INFO_BUFFER),
     )
 
+# 2.2.4.16 DOMAIN_INFORMATION_CLASS
+class DOMAIN_INFORMATION_CLASS(NDRENUM):
+    class enumItems(Enum):
+        DomainPasswordInformation    = 1
+        DomainGeneralInformation     = 2
+        DomainLogoffInformation      = 3
+        DomainOemInformation         = 4
+        DomainNameInformation        = 5
+        DomainReplicationInformation = 6
+        DomainServerRoleInformation  = 7
+        DomainModifiedInformation    = 8
+        DomainStateInformation       = 9
+        DomainGeneralInformation2    = 11
+        DomainLockoutInformation     = 12
+        DomainModifiedInformation2   = 13
+
+# 2.2.5.2 GROUP_ATTRIBUTE_INFORMATION
+class GROUP_ATTRIBUTE_INFORMATION(NDR):
+    structure = (
+        ('Attributes', NDRLONG),
+    )
+
 # 2.2.5.3 SAMPR_GROUP_GENERAL_INFORMATION
 class SAMPR_GROUP_GENERAL_INFORMATION(NDR):
     structure = (
@@ -713,18 +690,20 @@ class SAMPR_GROUP_NAME_INFORMATION(NDR):
         ('Name', RPC_UNICODE_STRING),
     )
 
-# 2.2.5.2 GROUP_ATTRIBUTE_INFORMATION
-class GROUP_ATTRIBUTE_INFORMATION(NDR):
-    structure = (
-        ('Attributes', NDRLONG),
-    )
-
 # 2.2.5.5 SAMPR_GROUP_ADM_COMMENT_INFORMATION
 class SAMPR_GROUP_ADM_COMMENT_INFORMATION(NDR):
     structure = (
         ('AdminComment', RPC_UNICODE_STRING),
     )
 
+# 2.2.5.6 GROUP_INFORMATION_CLASS
+class GROUP_INFORMATION_CLASS(NDRENUM):
+    class enumItems(Enum):
+        GroupGeneralInformation      = 1 
+        GroupNameInformation         = 2
+        GroupAttributeInformation    = 3
+        GroupAdminCommentInformation = 4
+        GroupReplicationInformation  = 5
 
 # 2.2.5.7 SAMPR_GROUP_INFO_BUFFER
 class SAMPR_GROUP_INFO_BUFFER(NDRUnion):
@@ -761,6 +740,13 @@ class SAMPR_ALIAS_ADM_COMMENT_INFORMATION(NDR):
         ('AdminComment', RPC_UNICODE_STRING),
     )
 
+# 2.2.6.5 ALIAS_INFORMATION_CLASS
+class ALIAS_INFORMATION_CLASS(NDRENUM):
+    class enumItems(Enum):
+        AliasGeneralInformation      = 1
+        AliasNameInformation         = 2
+        AliasAdminCommentInformation = 3
+
 # 2.2.6.6 SAMPR_ALIAS_INFO_BUFFER
 class SAMPR_ALIAS_INFO_BUFFER(NDRUnion):
     union = {
@@ -774,157 +760,10 @@ class PSAMPR_ALIAS_INFO_BUFFER(NDRPointer):
         ('Data', SAMPR_ALIAS_INFO_BUFFER),
     )
 
-# 2.2.7.5 SAMPR_LOGON_HOURS
-class LOGON_HOURS_ARRAY(ndr.NDRUniConformantVaryingArray):
-    pass
-
-class PLOGON_HOURS_ARRAY(NDRPointer):
-    referent = (
-        ('Data', LOGON_HOURS_ARRAY),
-    )
-
-class SAMPR_LOGON_HOURS(NDR):
-    structure = (
-        ('UnitsPerWeek', NDRSHORT),
-        ('LogonHours', PLOGON_HOURS_ARRAY),
-    )
-
-    def getData(self):
-        self['UnitsPerWeek'] = len(self['LogonHours']) * 8 
-        return ndr.NDR.getData(self)
-
-
-# 2.2.7.7 SAMPR_USER_GENERAL_INFORMATION
-class SAMPR_USER_GENERAL_INFORMATION(NDR):
-    structure = (
-        ('UserName', RPC_UNICODE_STRING),
-        ('FullName', RPC_UNICODE_STRING),
-        ('PrimaryGroupId', NDRLONG),
-        ('AdminComment', RPC_UNICODE_STRING),
-        ('UserComment', RPC_UNICODE_STRING),
-    )
-
-# 2.2.7.8 SAMPR_USER_PREFERENCES_INFORMATION
-class SAMPR_USER_PREFERENCES_INFORMATION(NDR):
-    structure = (
-        ('UserComment', RPC_UNICODE_STRING),
-        ('Reserved1', RPC_UNICODE_STRING),
-        ('CountryCode', NDRSHORT),
-        ('CodePage', NDRSHORT),
-    )
-
-# 2.2.7.10 SAMPR_USER_LOGON_INFORMATION
-class SAMPR_USER_LOGON_INFORMATION(NDR):
-    structure = (
-        ('UserName', RPC_UNICODE_STRING),
-        ('FullName', RPC_UNICODE_STRING),
-        ('UserId', NDRLONG),
-        ('PrimaryGroupId', NDRLONG),
-        ('HomeDirectory', RPC_UNICODE_STRING),
-        ('HomeDirectoryDrive', RPC_UNICODE_STRING),
-        ('ScriptPath', RPC_UNICODE_STRING),
-        ('ProfilePath', RPC_UNICODE_STRING),
-        ('WorkStations', RPC_UNICODE_STRING),
-        ('LastLogon', OLD_LARGE_INTEGER),
-        ('LastLogoff', OLD_LARGE_INTEGER),
-        ('PasswordLastSet', OLD_LARGE_INTEGER),
-        ('PasswordCanChange', OLD_LARGE_INTEGER),
-        ('PasswordMustChange', OLD_LARGE_INTEGER),
-        ('LogonHours', SAMPR_LOGON_HOURS),
-        ('BadPasswordCount', NDRSHORT),
-        ('LogonCount', NDRSHORT),
-        ('UserAccountControl', NDRLONG),
-    )
-
-# 2.2.7.20 SAMPR_USER_LOGON_HOURS_INFORMATION
-class SAMPR_USER_LOGON_HOURS_INFORMATION(NDR):
-    structure = (
-        ('LogonHours', SAMPR_LOGON_HOURS),
-    )
-
-# 2.2.7.21 SAMPR_ENCRYPTED_USER_PASSWORD
-class SAMPR_ENCRYPTED_USER_PASSWORD(NDR):
-    structure = (
-        ('Buffer', '516s=""'),
-    )
-
-# 2.2.7.11 SAMPR_USER_ACCOUNT_INFORMATION
-class SAMPR_USER_ACCOUNT_INFORMATION(NDR):
-    structure = (
-        ('UserName', RPC_UNICODE_STRING),
-        ('FullName', RPC_UNICODE_STRING),
-        ('UserId', NDRLONG),
-        ('PrimaryGroupId', NDRLONG),
-        ('HomeDirectory', RPC_UNICODE_STRING),
-        ('HomeDirectoryDrive', RPC_UNICODE_STRING),
-        ('ScriptPath', RPC_UNICODE_STRING),
-        ('ProfilePath', RPC_UNICODE_STRING),
-        ('AdminComment', RPC_UNICODE_STRING),
-        ('WorkStations', RPC_UNICODE_STRING),
-        ('LastLogon', OLD_LARGE_INTEGER),
-        ('LastLogoff', OLD_LARGE_INTEGER),
-        ('LogonHours', SAMPR_LOGON_HOURS),
-        ('BadPasswordCount', NDRSHORT),
-        ('LogonCount', NDRSHORT),
-        ('PasswordLastSet', OLD_LARGE_INTEGER),
-        ('AccountExpires', OLD_LARGE_INTEGER),
-        ('UserAccountControl', NDRLONG)
-    )
-
-# 2.2.7.14 SAMPR_USER_NAME_INFORMATION
-class SAMPR_USER_NAME_INFORMATION(NDR):
-    structure = (
-        ('UserName', RPC_UNICODE_STRING),
-        ('FullName', RPC_UNICODE_STRING),
-    )
-
-# 2.2.7.12 SAMPR_USER_A_NAME_INFORMATION
-class SAMPR_USER_A_NAME_INFORMATION(NDR):
-    structure = (
-        ('UserName', RPC_UNICODE_STRING),
-    )
-
-# 2.2.7.13 SAMPR_USER_F_NAME_INFORMATION
-class SAMPR_USER_F_NAME_INFORMATION(NDR):
-    structure = (
-        ('FullName', RPC_UNICODE_STRING),
-    )
-
 # 2.2.7.2 USER_PRIMARY_GROUP_INFORMATION
 class USER_PRIMARY_GROUP_INFORMATION(NDR):
     structure = (
         ('PrimaryGroupId', NDRLONG),
-    )
-
-# 2.2.7.15 SAMPR_USER_HOME_INFORMATION
-class SAMPR_USER_HOME_INFORMATION(NDR):
-    structure = (
-        ('HomeDirectory', RPC_UNICODE_STRING),
-        ('HomeDirectoryDrive', RPC_UNICODE_STRING),
-    )
-
-# 2.2.7.16 SAMPR_USER_SCRIPT_INFORMATION
-class SAMPR_USER_SCRIPT_INFORMATION(NDR):
-    structure = (
-        ('ScriptPath', RPC_UNICODE_STRING),
-    )
-
-# 2.2.7.17 SAMPR_USER_PROFILE_INFORMATION
-class SAMPR_USER_PROFILE_INFORMATION(NDR):
-    structure = (
-        ('ProfilePath', RPC_UNICODE_STRING),
-    )
-
-# 2.2.7.18 SAMPR_USER_ADMIN_COMMENT_INFORMATION
-class SAMPR_USER_ADMIN_COMMENT_INFORMATION(NDR):
-    structure = (
-        ('AdminComment', RPC_UNICODE_STRING),
-    )
-
-# 2.2.7.19 SAMPR_USER_WORKSTATIONS_INFORMATION
-class SAMPR_USER_WORKSTATIONS_INFORMATION(NDR):
-    structure = (
-        ('WorkStations', RPC_UNICODE_STRING),
     )
 
 # 2.2.7.3 USER_CONTROL_INFORMATION
@@ -939,21 +778,24 @@ class USER_EXPIRES_INFORMATION(NDR):
         ('AccountExpires', OLD_LARGE_INTEGER),
     )
 
-# 2.2.7.23 SAMPR_USER_INTERNAL1_INFORMATION
-class SAMPR_USER_INTERNAL1_INFORMATION(NDR):
-    structure = (
-        ('EncryptedNtOwfPassword', ENCRYPTED_NT_OWF_PASSWORD),
-        ('EncryptedLmOwfPassword', ENCRYPTED_LM_OWF_PASSWORD),
-        ('NtPasswordPresent', NDRSMALL),
-        ('LmPasswordPresent', NDRSMALL),
-        ('PasswordExpired', NDRSMALL),
+# 2.2.7.5 SAMPR_LOGON_HOURS
+class LOGON_HOURS_ARRAY(NDRUniConformantVaryingArray):
+    pass
+
+class PLOGON_HOURS_ARRAY(NDRPointer):
+    referent = (
+        ('Data', LOGON_HOURS_ARRAY),
     )
 
-# 2.2.7.9 SAMPR_USER_PARAMETERS_INFORMATION
-class SAMPR_USER_PARAMETERS_INFORMATION(NDR):
+class SAMPR_LOGON_HOURS(NDR):
     structure = (
-        ('Parameters', RPC_UNICODE_STRING),
+        ('UnitsPerWeek', NDRSHORT),
+        ('LogonHours', PLOGON_HOURS_ARRAY),
     )
+
+    def getData(self, soFar = 0):
+        self['UnitsPerWeek'] = len(self['LogonHours']) * 8 
+        return ndr.NDR.getData(self, soFar)
 
 # 2.2.7.6 SAMPR_USER_ALL_INFORMATION
 class SAMPR_USER_ALL_INFORMATION(NDR):
@@ -997,10 +839,153 @@ class SAMPR_USER_ALL_INFORMATION(NDR):
 
     )
 
+# 2.2.7.7 SAMPR_USER_GENERAL_INFORMATION
+class SAMPR_USER_GENERAL_INFORMATION(NDR):
+    structure = (
+        ('UserName', RPC_UNICODE_STRING),
+        ('FullName', RPC_UNICODE_STRING),
+        ('PrimaryGroupId', NDRLONG),
+        ('AdminComment', RPC_UNICODE_STRING),
+        ('UserComment', RPC_UNICODE_STRING),
+    )
+
+# 2.2.7.8 SAMPR_USER_PREFERENCES_INFORMATION
+class SAMPR_USER_PREFERENCES_INFORMATION(NDR):
+    structure = (
+        ('UserComment', RPC_UNICODE_STRING),
+        ('Reserved1', RPC_UNICODE_STRING),
+        ('CountryCode', NDRSHORT),
+        ('CodePage', NDRSHORT),
+    )
+
+# 2.2.7.9 SAMPR_USER_PARAMETERS_INFORMATION
+class SAMPR_USER_PARAMETERS_INFORMATION(NDR):
+    structure = (
+        ('Parameters', RPC_UNICODE_STRING),
+    )
+
+# 2.2.7.10 SAMPR_USER_LOGON_INFORMATION
+class SAMPR_USER_LOGON_INFORMATION(NDR):
+    structure = (
+        ('UserName', RPC_UNICODE_STRING),
+        ('FullName', RPC_UNICODE_STRING),
+        ('UserId', NDRLONG),
+        ('PrimaryGroupId', NDRLONG),
+        ('HomeDirectory', RPC_UNICODE_STRING),
+        ('HomeDirectoryDrive', RPC_UNICODE_STRING),
+        ('ScriptPath', RPC_UNICODE_STRING),
+        ('ProfilePath', RPC_UNICODE_STRING),
+        ('WorkStations', RPC_UNICODE_STRING),
+        ('LastLogon', OLD_LARGE_INTEGER),
+        ('LastLogoff', OLD_LARGE_INTEGER),
+        ('PasswordLastSet', OLD_LARGE_INTEGER),
+        ('PasswordCanChange', OLD_LARGE_INTEGER),
+        ('PasswordMustChange', OLD_LARGE_INTEGER),
+        ('LogonHours', SAMPR_LOGON_HOURS),
+        ('BadPasswordCount', NDRSHORT),
+        ('LogonCount', NDRSHORT),
+        ('UserAccountControl', NDRLONG),
+    )
+
+# 2.2.7.11 SAMPR_USER_ACCOUNT_INFORMATION
+class SAMPR_USER_ACCOUNT_INFORMATION(NDR):
+    structure = (
+        ('UserName', RPC_UNICODE_STRING),
+        ('FullName', RPC_UNICODE_STRING),
+        ('UserId', NDRLONG),
+        ('PrimaryGroupId', NDRLONG),
+        ('HomeDirectory', RPC_UNICODE_STRING),
+        ('HomeDirectoryDrive', RPC_UNICODE_STRING),
+        ('ScriptPath', RPC_UNICODE_STRING),
+        ('ProfilePath', RPC_UNICODE_STRING),
+        ('AdminComment', RPC_UNICODE_STRING),
+        ('WorkStations', RPC_UNICODE_STRING),
+        ('LastLogon', OLD_LARGE_INTEGER),
+        ('LastLogoff', OLD_LARGE_INTEGER),
+        ('LogonHours', SAMPR_LOGON_HOURS),
+        ('BadPasswordCount', NDRSHORT),
+        ('LogonCount', NDRSHORT),
+        ('PasswordLastSet', OLD_LARGE_INTEGER),
+        ('AccountExpires', OLD_LARGE_INTEGER),
+        ('UserAccountControl', NDRLONG)
+    )
+
+# 2.2.7.12 SAMPR_USER_A_NAME_INFORMATION
+class SAMPR_USER_A_NAME_INFORMATION(NDR):
+    structure = (
+        ('UserName', RPC_UNICODE_STRING),
+    )
+
+# 2.2.7.13 SAMPR_USER_F_NAME_INFORMATION
+class SAMPR_USER_F_NAME_INFORMATION(NDR):
+    structure = (
+        ('FullName', RPC_UNICODE_STRING),
+    )
+
+# 2.2.7.14 SAMPR_USER_NAME_INFORMATION
+class SAMPR_USER_NAME_INFORMATION(NDR):
+    structure = (
+        ('UserName', RPC_UNICODE_STRING),
+        ('FullName', RPC_UNICODE_STRING),
+    )
+
+# 2.2.7.15 SAMPR_USER_HOME_INFORMATION
+class SAMPR_USER_HOME_INFORMATION(NDR):
+    structure = (
+        ('HomeDirectory', RPC_UNICODE_STRING),
+        ('HomeDirectoryDrive', RPC_UNICODE_STRING),
+    )
+
+# 2.2.7.16 SAMPR_USER_SCRIPT_INFORMATION
+class SAMPR_USER_SCRIPT_INFORMATION(NDR):
+    structure = (
+        ('ScriptPath', RPC_UNICODE_STRING),
+    )
+
+# 2.2.7.17 SAMPR_USER_PROFILE_INFORMATION
+class SAMPR_USER_PROFILE_INFORMATION(NDR):
+    structure = (
+        ('ProfilePath', RPC_UNICODE_STRING),
+    )
+
+# 2.2.7.18 SAMPR_USER_ADMIN_COMMENT_INFORMATION
+class SAMPR_USER_ADMIN_COMMENT_INFORMATION(NDR):
+    structure = (
+        ('AdminComment', RPC_UNICODE_STRING),
+    )
+
+# 2.2.7.19 SAMPR_USER_WORKSTATIONS_INFORMATION
+class SAMPR_USER_WORKSTATIONS_INFORMATION(NDR):
+    structure = (
+        ('WorkStations', RPC_UNICODE_STRING),
+    )
+
+# 2.2.7.20 SAMPR_USER_LOGON_HOURS_INFORMATION
+class SAMPR_USER_LOGON_HOURS_INFORMATION(NDR):
+    structure = (
+        ('LogonHours', SAMPR_LOGON_HOURS),
+    )
+
+# 2.2.7.21 SAMPR_ENCRYPTED_USER_PASSWORD
+class SAMPR_ENCRYPTED_USER_PASSWORD(NDR):
+    structure = (
+        ('Buffer', '516s=""'),
+    )
+
 # 2.2.7.22 SAMPR_ENCRYPTED_USER_PASSWORD_NEW
 class SAMPR_ENCRYPTED_USER_PASSWORD_NEW(NDR):
     structure = (
         ('Buffer', '522s=""'),
+    )
+
+# 2.2.7.23 SAMPR_USER_INTERNAL1_INFORMATION
+class SAMPR_USER_INTERNAL1_INFORMATION(NDR):
+    structure = (
+        ('EncryptedNtOwfPassword', ENCRYPTED_NT_OWF_PASSWORD),
+        ('EncryptedLmOwfPassword', ENCRYPTED_LM_OWF_PASSWORD),
+        ('NtPasswordPresent', NDRSMALL),
+        ('LmPasswordPresent', NDRSMALL),
+        ('PasswordExpired', NDRSMALL),
     )
 
 # 2.2.7.24 SAMPR_USER_INTERNAL4_INFORMATION
@@ -1010,18 +995,18 @@ class SAMPR_USER_INTERNAL4_INFORMATION(NDR):
         ('UserPassword', SAMPR_ENCRYPTED_USER_PASSWORD),
     )
 
-# 2.2.7.26 SAMPR_USER_INTERNAL5_INFORMATION
-class SAMPR_USER_INTERNAL5_INFORMATION(NDR):
-    structure = (
-        ('UserPassword', SAMPR_ENCRYPTED_USER_PASSWORD),
-        ('PasswordExpired', NDRSMALL),
-    )
-
 # 2.2.7.25 SAMPR_USER_INTERNAL4_INFORMATION_NEW
 class SAMPR_USER_INTERNAL4_INFORMATION_NEW(NDR):
     structure = (
         ('I1', SAMPR_USER_ALL_INFORMATION),
         ('UserPassword', SAMPR_ENCRYPTED_USER_PASSWORD_NEW),
+    )
+
+# 2.2.7.26 SAMPR_USER_INTERNAL5_INFORMATION
+class SAMPR_USER_INTERNAL5_INFORMATION(NDR):
+    structure = (
+        ('UserPassword', SAMPR_ENCRYPTED_USER_PASSWORD),
+        ('PasswordExpired', NDRSMALL),
     )
 
 # 2.2.7.27 SAMPR_USER_INTERNAL5_INFORMATION_NEW
@@ -1031,8 +1016,40 @@ class SAMPR_USER_INTERNAL5_INFORMATION_NEW(NDR):
         ('PasswordExpired', NDRSMALL),
     )
 
+# 2.2.7.28 USER_INFORMATION_CLASS
+class USER_INFORMATION_CLASS(NDRENUM):
+    class enumItems(Enum):
+        UserGeneralInformation      = 1
+        UserPreferencesInformation  = 2
+        UserLogonInformation        = 3
+        UserLogonHoursInformation   = 4
+        UserAccountInformation      = 5
+        UserNameInformation         = 6
+        UserAccountNameInformation  = 7
+        UserFullNameInformation     = 8
+        UserPrimaryGroupInformation = 9
+        UserHomeInformation         = 10
+        UserScriptInformation       = 11
+        UserProfileInformation      = 12
+        UserAdminCommentInformation = 13
+        UserWorkStationsInformation = 14
+        UserControlInformation      = 16
+        UserExpiresInformation      = 17
+        UserInternal1Information    = 18
+        UserParametersInformation   = 20
+        UserAllInformation          = 21
+        UserInternal4Information    = 23
+        UserInternal5Information    = 24
+        UserInternal4InformationNew = 25
+        UserInternal5InformationNew = 26
+
 # 2.2.7.29 SAMPR_USER_INFO_BUFFER
 class SAMPR_USER_INFO_BUFFER(NDRUnion):
+    align = 2
+    commonHdr = (
+        ('tag', NDRSHORT),
+    )
+
     union = {
         USER_INFORMATION_CLASS.UserGeneralInformation     : ('General', SAMPR_USER_GENERAL_INFORMATION),
         USER_INFORMATION_CLASS.UserPreferencesInformation : ('Preferences', SAMPR_USER_PREFERENCES_INFORMATION),
@@ -1070,84 +1087,277 @@ class PSAMPR_SERVER_NAME2(NDRPointer):
         ('Data', '4s=""'),
     ) 
 
-class SAMPR_ULONG_ARRAY(NDRUniConformantVaryingArray):
-    item = '<L'
-
-class SAMPR_HANDLE(NDR):
-    structure =  (
-        ('Data','20s=""'),
-    )
-
-# 2.2.3.15 SAMPR_REVISION_INFO_V1
-class SAMPR_REVISION_INFO_V1(NDR):
+# 2.2.8.2 SAMPR_DOMAIN_DISPLAY_USER
+class SAMPR_DOMAIN_DISPLAY_USER(NDR):
     structure = (
-       ('Revision',NDRLONG),
-       ('SupportedFeatures',NDRLONG),
+        ('Index',NDRLONG),
+        ('Rid',NDRLONG),
+        ('AccountControl',NDRLONG),
+        ('AccountName',RPC_UNICODE_STRING),
+        ('AdminComment',RPC_UNICODE_STRING),
+        ('FullName',RPC_UNICODE_STRING),
     )
 
-# 2.2.3.16 SAMPR_REVISION_INFO
-class SAMPR_REVISION_INFO(NDRUnion):
+class SAMPR_DOMAIN_DISPLAY_USER_ARRAY(NDRUniConformantArray):
+    item = SAMPR_DOMAIN_DISPLAY_USER
+
+class PSAMPR_DOMAIN_DISPLAY_USER_ARRAY(NDRPointer):
+    referent = (
+        ('Data',SAMPR_DOMAIN_DISPLAY_USER_ARRAY),
+    )
+
+# 2.2.8.3 SAMPR_DOMAIN_DISPLAY_MACHINE
+class SAMPR_DOMAIN_DISPLAY_MACHINE(NDR):
+    structure = (
+        ('Index',NDRLONG),
+        ('Rid',NDRLONG),
+        ('AccountControl',NDRLONG),
+        ('AccountName',RPC_UNICODE_STRING),
+        ('AdminComment',RPC_UNICODE_STRING),
+    )
+
+class SAMPR_DOMAIN_DISPLAY_MACHINE_ARRAY(NDRUniConformantArray):
+    item = SAMPR_DOMAIN_DISPLAY_MACHINE
+
+class PSAMPR_DOMAIN_DISPLAY_MACHINE_ARRAY(NDRPointer):
+    referent = (
+        ('Data',SAMPR_DOMAIN_DISPLAY_MACHINE_ARRAY),
+    )
+
+# 2.2.8.4 SAMPR_DOMAIN_DISPLAY_GROUP
+class SAMPR_DOMAIN_DISPLAY_GROUP(NDR):
+    structure = (
+        ('Index',NDRLONG),
+        ('Rid',NDRLONG),
+        ('AccountControl',NDRLONG),
+        ('AccountName',RPC_UNICODE_STRING),
+        ('AdminComment',RPC_UNICODE_STRING),
+    )
+
+class SAMPR_DOMAIN_DISPLAY_GROUP_ARRAY(NDRUniConformantArray):
+    item = SAMPR_DOMAIN_DISPLAY_GROUP
+
+class PSAMPR_DOMAIN_DISPLAY_GROUP_ARRAY(NDRPointer):
+    referent = (
+        ('Data',SAMPR_DOMAIN_DISPLAY_GROUP_ARRAY),
+    )
+
+# 2.2.8.5 SAMPR_DOMAIN_DISPLAY_OEM_USER
+class SAMPR_DOMAIN_DISPLAY_OEM_USER(NDR):
+    structure = (
+        ('Index',NDRLONG),
+        ('OemAccountName',RPC_STRING),
+    )
+
+class SAMPR_DOMAIN_DISPLAY_OEM_USER_ARRAY(NDRUniConformantArray):
+    item = SAMPR_DOMAIN_DISPLAY_OEM_USER
+
+class PSAMPR_DOMAIN_DISPLAY_OEM_USER_ARRAY(NDRPointer):
+    referent = (
+        ('Data',SAMPR_DOMAIN_DISPLAY_OEM_USER_ARRAY),
+    )
+
+# 2.2.8.6 SAMPR_DOMAIN_DISPLAY_OEM_GROUP
+class SAMPR_DOMAIN_DISPLAY_OEM_GROUP(NDR):
+    structure = (
+        ('Index',NDRLONG),
+        ('OemAccountName',RPC_STRING),
+    )
+
+class SAMPR_DOMAIN_DISPLAY_OEM_GROUP_ARRAY(NDRUniConformantArray):
+    item = SAMPR_DOMAIN_DISPLAY_OEM_GROUP
+
+class PSAMPR_DOMAIN_DISPLAY_OEM_GROUP_ARRAY(NDRPointer):
+    referent = (
+        ('Data',SAMPR_DOMAIN_DISPLAY_OEM_GROUP_ARRAY),
+    )
+
+#2.2.8.7 SAMPR_DOMAIN_DISPLAY_USER_BUFFER
+class SAMPR_DOMAIN_DISPLAY_USER_BUFFER(NDR):
+    structure = (
+        ('EntriesRead', NDRLONG),
+        ('Buffer', PSAMPR_DOMAIN_DISPLAY_USER_ARRAY),
+    )
+
+# 2.2.8.8 SAMPR_DOMAIN_DISPLAY_MACHINE_BUFFER
+class SAMPR_DOMAIN_DISPLAY_MACHINE_BUFFER(NDR):
+    structure = (
+        ('EntriesRead', NDRLONG),
+        ('Buffer', PSAMPR_DOMAIN_DISPLAY_MACHINE_ARRAY),
+    )
+ 
+# 2.2.8.9 SAMPR_DOMAIN_DISPLAY_GROUP_BUFFER
+class SAMPR_DOMAIN_DISPLAY_GROUP_BUFFER(NDR):
+    structure = (
+        ('EntriesRead', NDRLONG),
+        ('Buffer', PSAMPR_DOMAIN_DISPLAY_GROUP_ARRAY),
+    )
+ 
+# 2.2.8.10 SAMPR_DOMAIN_DISPLAY_OEM_USER_BUFFER
+class SAMPR_DOMAIN_DISPLAY_OEM_USER_BUFFER(NDR):
+    structure = (
+        ('EntriesRead', NDRLONG),
+        ('Buffer', PSAMPR_DOMAIN_DISPLAY_OEM_USER_ARRAY),
+    )
+ 
+# 2.2.8.11 SAMPR_DOMAIN_DISPLAY_OEM_GROUP_BUFFER
+class SAMPR_DOMAIN_DISPLAY_OEM_GROUP_BUFFER(NDR):
+    structure = (
+        ('EntriesRead', NDRLONG),
+        ('Buffer', PSAMPR_DOMAIN_DISPLAY_OEM_GROUP_ARRAY),
+    )
+
+# 2.2.8.12 DOMAIN_DISPLAY_INFORMATION
+class DOMAIN_DISPLAY_INFORMATION(NDRENUM):
+    class enumItems(Enum):
+        DomainDisplayUser     = 1
+        DomainDisplayMachine  = 2
+        DomainDisplayGroup    = 3
+        DomainDisplayOemUser  = 4
+        DomainDisplayOemGroup = 5
+
+# 2.2.8.13 SAMPR_DISPLAY_INFO_BUFFER
+class SAMPR_DISPLAY_INFO_BUFFER(NDRUnion):
     union = {
-        1: ('V1', SAMPR_REVISION_INFO_V1),
+        DOMAIN_DISPLAY_INFORMATION.DomainDisplayUser     : ('UserInformation', SAMPR_DOMAIN_DISPLAY_USER_BUFFER),
+        DOMAIN_DISPLAY_INFORMATION.DomainDisplayMachine  : ('MachineInformation', SAMPR_DOMAIN_DISPLAY_MACHINE_BUFFER),
+        DOMAIN_DISPLAY_INFORMATION.DomainDisplayGroup    : ('GroupInformation', SAMPR_DOMAIN_DISPLAY_GROUP_BUFFER),
+        DOMAIN_DISPLAY_INFORMATION.DomainDisplayOemUser  : ('OemUserInformation', SAMPR_DOMAIN_DISPLAY_OEM_USER_BUFFER),
+        DOMAIN_DISPLAY_INFORMATION.DomainDisplayOemGroup : ('OemGroupInformation', SAMPR_DOMAIN_DISPLAY_OEM_GROUP_BUFFER),
     }
 
-# 2.2.3.9 SAMPR_RID_ENUMERATION
-class SAMPR_RID_ENUMERATION(NDR):
+# 2.2.9.1 SAM_VALIDATE_PASSWORD_HASH
+class SAM_VALIDATE_PASSWORD_HASH(NDR):
     structure = (
-        ('RelativeId',NDRLONG),
-        ('Name',RPC_UNICODE_STRING),
+        ('Length', NDRLONG),
+        ('Hash', LPBYTE),
     )
 
-class SAMPR_RID_ENUMERATION_ARRAY(NDRUniConformantArray):
-    item = SAMPR_RID_ENUMERATION
-
-class PSAMPR_RID_ENUMERATION_ARRAY(NDRPointer):
+class PSAM_VALIDATE_PASSWORD_HASH(NDRPointer):
     referent = (
-        ('Data', SAMPR_RID_ENUMERATION_ARRAY),
+        ('Data', SAM_VALIDATE_PASSWORD_HASH),
     )
 
-# 2.2.3.10 SAMPR_ENUMERATION_BUFFER
-class SAMPR_ENUMERATION_BUFFER(NDR):
+# 2.2.9.2 SAM_VALIDATE_PERSISTED_FIELDS
+class SAM_VALIDATE_PERSISTED_FIELDS(NDR):
     structure = (
-        ('EntriesRead',NDRLONG ),
-        ('Buffer',PSAMPR_RID_ENUMERATION_ARRAY ),
+        ('PresentFields', NDRLONG),
+        ('PasswordLastSet', LARGE_INTEGER),
+        ('BadPasswordTime', LARGE_INTEGER),
+        ('LockoutTime', LARGE_INTEGER),
+        ('BadPasswordCount', NDRLONG),
+        ('PasswordHistoryLength', NDRLONG),
+        ('PasswordHistory', PSAM_VALIDATE_PASSWORD_HASH),
     )
 
-class PSAMPR_ENUMERATION_BUFFER(NDRPointer):
-    referent = (
-        ('Data',SAMPR_ENUMERATION_BUFFER),
-    )
+# 2.2.9.3 SAM_VALIDATE_VALIDATION_STATUS
+class SAM_VALIDATE_VALIDATION_STATUS(NDRENUM):
+    class enumItems(Enum):
+        SamValidateSuccess                  = 1
+        SamValidatePasswordMustChange       = 2
+        SamValidateAccountLockedOut         = 3
+        SamValidatePasswordExpired          = 3
+        SamValidatePasswordIncorrect        = 3
+        SamValidatePasswordIsInHistory      = 3
+        SamValidatePasswordTooShort         = 3
+        SamValidatePasswordTooLong          = 3
+        SamValidatePasswordNotComplexEnough = 3
+        SamValidatePasswordTooRecent        = 3
+        SamValidatePasswordFilterError      = 3
 
-# 2.2.3.12 GROUP_MEMBERSHIP
-class GROUP_MEMBERSHIP(NDR):
+# 2.2.9.4 SAM_VALIDATE_STANDARD_OUTPUT_ARG
+class SAM_VALIDATE_STANDARD_OUTPUT_ARG(NDR):
     structure = (
-        ('RelativeId',NDRLONG),
-        ('Attributes',NDRLONG),
+        ('ChangedPersistedFields', SAM_VALIDATE_PERSISTED_FIELDS),
+        ('ValidationStatus', SAM_VALIDATE_VALIDATION_STATUS),
     )
 
-class GROUP_MEMBERSHIP_ARRAY(NDRUniConformantArray):
-    item = GROUP_MEMBERSHIP
-
-class PGROUP_MEMBERSHIP_ARRAY(NDRPointer):
+class PSAM_VALIDATE_STANDARD_OUTPUT_ARG(NDRPointer):
     referent = (
-        ('Data',GROUP_MEMBERSHIP_ARRAY),
-    ) 
+        ('Data', SAM_VALIDATE_STANDARD_OUTPUT_ARG),
+    )
 
-# 2.2.3.13 SAMPR_GET_GROUPS_BUFFER
-class SAMPR_GET_GROUPS_BUFFER(NDR):
+# 2.2.9.5 SAM_VALIDATE_AUTHENTICATION_INPUT_ARG
+class SAM_VALIDATE_AUTHENTICATION_INPUT_ARG(NDR):
+    align = 8
     structure = (
-        ('MembershipCount',NDRLONG),
-        ('Groups',PGROUP_MEMBERSHIP_ARRAY),
+        ('InputPersistedFields', SAM_VALIDATE_PERSISTED_FIELDS),
+        ('PasswordMatched', NDRSMALL),
     )
 
-class PSAMPR_GET_GROUPS_BUFFER(NDRPointer):
-    referent = (
-        ('Data',SAMPR_GET_GROUPS_BUFFER),
+# 2.2.9.6 SAM_VALIDATE_PASSWORD_CHANGE_INPUT_ARG
+class SAM_VALIDATE_PASSWORD_CHANGE_INPUT_ARG(NDR):
+    align = 8
+    structure = (
+        ('InputPersistedFields', SAM_VALIDATE_PERSISTED_FIELDS),
+        ('ClearPassword', RPC_UNICODE_STRING),
+        ('UserAccountName', RPC_UNICODE_STRING),
+        ('HashedPassword', SAM_VALIDATE_PASSWORD_HASH),
+        ('PasswordMatch', NDRSMALL),
     )
+
+# 2.2.9.7 SAM_VALIDATE_PASSWORD_RESET_INPUT_ARG
+class SAM_VALIDATE_PASSWORD_RESET_INPUT_ARG(NDR):
+    align = 8
+    structure = (
+        ('InputPersistedFields', SAM_VALIDATE_PERSISTED_FIELDS),
+        ('ClearPassword', RPC_UNICODE_STRING),
+        ('UserAccountName', RPC_UNICODE_STRING),
+        ('HashedPassword', SAM_VALIDATE_PASSWORD_HASH),
+        ('PasswordMustChangeAtNextLogon', NDRSMALL),
+        ('ClearLockout', NDRSMALL),
+    )
+
+# 2.2.9.8 PASSWORD_POLICY_VALIDATION_TYPE
+class PASSWORD_POLICY_VALIDATION_TYPE(NDRENUM):
+    class enumItems(Enum):
+        SamValidateAuthentication   = 1
+        SamValidatePasswordChange   = 2
+        SamValidatePasswordReset    = 3
+
+# 2.2.9.9 SAM_VALIDATE_INPUT_ARG
+class SAM_VALIDATE_INPUT_ARG(NDRUnion):
+    align = 2
+    commonHdr = (
+        ('tag', NDRSHORT),
+    )
+
+    union = {
+        PASSWORD_POLICY_VALIDATION_TYPE.SamValidateAuthentication : ('ValidateAuthenticationInput', SAM_VALIDATE_AUTHENTICATION_INPUT_ARG),
+        PASSWORD_POLICY_VALIDATION_TYPE.SamValidatePasswordChange : ('ValidatePasswordChangeInput', SAM_VALIDATE_PASSWORD_CHANGE_INPUT_ARG),
+        PASSWORD_POLICY_VALIDATION_TYPE.SamValidatePasswordReset  : ('ValidatePasswordResetInput', SAM_VALIDATE_PASSWORD_RESET_INPUT_ARG),
+    }
+
+# 2.2.9.10 SAM_VALIDATE_OUTPUT_ARG
+class SAM_VALIDATE_OUTPUT_ARG(NDRUnion):
+    union = {
+        PASSWORD_POLICY_VALIDATION_TYPE.SamValidateAuthentication : ('ValidateAuthenticationOutput', SAM_VALIDATE_STANDARD_OUTPUT_ARG),
+        PASSWORD_POLICY_VALIDATION_TYPE.SamValidatePasswordChange : ('ValidatePasswordChangeOutput', SAM_VALIDATE_STANDARD_OUTPUT_ARG),
+        PASSWORD_POLICY_VALIDATION_TYPE.SamValidatePasswordReset  : ('ValidatePasswordResetOutput', SAM_VALIDATE_STANDARD_OUTPUT_ARG),
+    }
+
+class PSAM_VALIDATE_OUTPUT_ARG(NDRPointer):
+    referent = (
+        ('Data', SAM_VALIDATE_OUTPUT_ARG),
+    )
+
 
 ################################################################################
 # RPC CALLS
 ################################################################################
+
+class SamrCloseHandle(NDRCall):
+    opnum = 1
+    structure = (
+       ('SamHandle',SAMPR_HANDLE),
+       ('DesiredAccess', NDRLONG),
+    )
+
+class SamrCloseHandleResponse(NDRCall):
+    structure = (
+       ('SamHandle',SAMPR_HANDLE),
+       ('ErrorCode',NDRLONG),
+    )
 
 class SamrConnect(NDRCall):
     opnum = 0
@@ -1313,6 +1523,19 @@ class SamrEnumerateAliasesInDomainResponse(NDRCall):
        ('ErrorCode',NDRLONG),
     )
 
+class SamrGetAliasMembership(NDRCall):
+    opnum = 16
+    structure = (
+       ('DomainHandle',SAMPR_HANDLE),
+       ('SidArray',SAMPR_PSID_ARRAY),
+    )
+
+class SamrGetAliasMembershipResponse(NDRCall):
+    structure = (
+       ('Membership',SAMPR_ULONG_ARRAY),
+       ('ErrorCode',NDRLONG),
+    )
+
 class SamrLookupNamesInDomain(NDRCall):
     opnum = 17
     structure = (
@@ -1325,7 +1548,7 @@ class SamrLookupNamesInDomainResponse(NDRCall):
     structure = (
        ('RelativeIds',NDRLONG),
        ('Use',SAMPR_ULONG_ARRAY),
-       ('ErrorCode',SAMPR_ULONG_ARRAY),
+       ('ErrorCode',NDRLONG),
     )
 
 class SamrLookupIdsInDomain(NDRCall):
@@ -1408,6 +1631,20 @@ class SamrGetMembersInGroupResponse(NDRCall):
        ('ErrorCode',NDRLONG),
     )
 
+class SamrSetMemberAttributesOfGroup(NDRCall):
+    opnum = 25
+    structure = (
+       ('GroupHandle',SAMPR_HANDLE),
+       ('MemberId',NDRLONG),
+       ('Attributes',NDRLONG),
+    )
+
+class SamrSetMemberAttributesOfGroupResponse(NDRCall):
+    structure = (
+       ('Members',PSAMPR_GET_MEMBERS_BUFFER),
+       ('ErrorCode',NDRLONG),
+    )
+
 class SamrDeleteGroup(NDRCall):
     opnum = 30
     structure = (
@@ -1456,6 +1693,42 @@ class SamrDeleteAlias(NDRCall):
 class SamrDeleteAliasResponse(NDRCall):
     structure = (
        ('AliasHandle',SAMPR_HANDLE),
+       ('ErrorCode',NDRLONG),
+    )
+
+class SamrAddMemberToAlias(NDRCall):
+    opnum = 31
+    structure = (
+       ('AliasHandle',SAMPR_HANDLE),
+       ('MemberId', RPC_SID),
+    )
+
+class SamrAddMemberToAliasResponse(NDRCall):
+    structure = (
+       ('ErrorCode',NDRLONG),
+    )
+
+class SamrRemoveMemberFromAlias(NDRCall):
+    opnum = 32
+    structure = (
+       ('AliasHandle',SAMPR_HANDLE),
+       ('MemberId', RPC_SID),
+    )
+
+class SamrRemoveMemberFromAliasResponse(NDRCall):
+    structure = (
+       ('ErrorCode',NDRLONG),
+    )
+
+class SamrGetMembersInAlias(NDRCall):
+    opnum = 33
+    structure = (
+       ('AliasHandle',SAMPR_HANDLE),
+    )
+
+class SamrGetMembersInAliasResponse(NDRCall):
+    structure = (
+       ('Members',SAMPR_PSID_ARRAY_OUT),
        ('ErrorCode',NDRLONG),
     )
 
@@ -1539,6 +1812,30 @@ class SamrGetDisplayEnumerationIndex(NDRCall):
 class SamrGetDisplayEnumerationIndexResponse(NDRCall):
     structure = (
        ('Index',NDRLONG),
+       ('ErrorCode',NDRLONG),
+    )
+
+class SamrGetUserDomainPasswordInformation(NDRCall):
+    opnum = 44
+    structure = (
+       ('UserHandle',SAMPR_HANDLE),
+    )
+
+class SamrGetUserDomainPasswordInformationResponse(NDRCall):
+    structure = (
+       ('PasswordInformation',USER_DOMAIN_PASSWORD_INFORMATION),
+       ('ErrorCode',NDRLONG),
+    )
+
+class SamrRemoveMemberFromForeignDomain(NDRCall):
+    opnum = 45
+    structure = (
+       ('DomainHandle',SAMPR_HANDLE),
+       ('MemberSid', RPC_SID),
+    )
+
+class SamrRemoveMemberFromForeignDomainResponse(NDRCall):
+    structure = (
        ('ErrorCode',NDRLONG),
     )
 
@@ -1635,6 +1932,43 @@ class SamrQueryDisplayInformation3Response(NDRCall):
        ('ErrorCode',NDRLONG),
     )
 
+class SamrAddMultipleMembersToAlias(NDRCall):
+    opnum = 52
+    structure = (
+       ('AliasHandle',SAMPR_HANDLE),
+       ('MembersBuffer', SAMPR_PSID_ARRAY),
+    )
+
+class SamrAddMultipleMembersToAliasResponse(NDRCall):
+    structure = (
+       ('ErrorCode',NDRLONG),
+    )
+
+class SamrRemoveMultipleMembersFromAlias(NDRCall):
+    opnum = 53
+    structure = (
+       ('AliasHandle',SAMPR_HANDLE),
+       ('MembersBuffer', SAMPR_PSID_ARRAY),
+    )
+
+class SamrRemoveMultipleMembersFromAliasResponse(NDRCall):
+    structure = (
+       ('ErrorCode',NDRLONG),
+    )
+
+class SamrGetDomainPasswordInformation(NDRCall):
+    opnum = 56
+    structure = (
+       #('BindingHandle',SAMPR_HANDLE),
+       ('Unused', UNIQUE_RPC_UNICODE_STRING),
+    )
+
+class SamrGetDomainPasswordInformationResponse(NDRCall):
+    structure = (
+       ('PasswordInformation',USER_DOMAIN_PASSWORD_INFORMATION),
+       ('ErrorCode',NDRLONG),
+    )
+
 class SamrConnect2(NDRCall):
     opnum = 57
     structure = (
@@ -1678,6 +2012,46 @@ class SamrConnect5Response(NDRCall):
        ('ServerHandle',SAMPR_HANDLE),
        ('ErrorCode',NDRLONG),
     )
+
+class SamrRidToSid(NDRCall):
+    opnum = 65
+    structure = (
+       ('ObjectHandle',SAMPR_HANDLE),
+       ('Rid', NDRLONG),
+    )
+
+class SamrRidToSidResponse(NDRCall):
+    structure = (
+       ('Sid',PRPC_SID),
+       ('ErrorCode',NDRLONG),
+    )
+
+class SamrSetDSRMPassword(NDRCall):
+    opnum = 66
+    structure = (
+       ('Unused', UNIQUE_RPC_UNICODE_STRING),
+       ('UserId',NDRLONG),
+       ('EncryptedNtOwfPassword',PENCRYPTED_NT_OWF_PASSWORD),
+    )
+
+class SamrSetDSRMPasswordResponse(NDRCall):
+    structure = (
+       ('ErrorCode',NDRLONG),
+    )
+
+class SamrValidatePassword(NDRCall):
+    opnum = 67
+    structure = (
+       ('ValidationType', PASSWORD_POLICY_VALIDATION_TYPE),
+       ('InputArg',SAM_VALIDATE_INPUT_ARG),
+    )
+
+class SamrValidatePasswordResponse(NDRCall):
+    structure = (
+       ('OutputArg',PSAM_VALIDATE_OUTPUT_ARG),
+       ('ErrorCode',NDRLONG),
+    )
+
 
 
 ################################################################################
