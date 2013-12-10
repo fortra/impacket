@@ -575,6 +575,11 @@ class PSERVICE_MANAGEDACCOUNT_INFO(NDRPointer):
     )
 
 class SC_RPC_CONFIG_INFOW_UNION(NDRUnion):
+    align = 4
+    commonHdr = (
+        ('tag', NDRLONG),
+    )
+
     union = {
         1: ('psd', LPSERVICE_DESCRIPTIONW),
         2: ('psfa',LPSERVICE_FAILURE_ACTIONSW ),
