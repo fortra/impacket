@@ -633,7 +633,7 @@ class NDRCall(NDR):
                     data = data + '\xaa'*pad
                     #data = data + '\x00'*pad
 
-                data += self.pack(fieldName, fieldTypeOrClass, len(data)+soFar)
+                data += self.pack(fieldName, fieldTypeOrClass, soFar)
                 soFar = soFar0 + len(data)
                 # Any referent information to pack?
                 # I'm still not sure whether this should go after processing 
@@ -808,6 +808,11 @@ class NDRUniConformantArray(NDRArray):
         ('Data', '*MaximumCount'),
     )
 
+    def __setitem__(self, key, value):
+        self.fields['MaximumCount'] = None
+        self.data = None        # force recompute
+        return NDRArray.__setitem__(self, key, value)
+
 # Uni-dimensional Varying Arrays
 class NDRUniVaryingArray(NDRArray):
     item = 'c'
@@ -821,6 +826,11 @@ class NDRUniVaryingArray(NDRArray):
         ('ActualCount','<Q=len(Data)'),
         ('Data','*ActualCount'),
     )
+
+    def __setitem__(self, key, value):
+        self.fields['ActualCount'] = None
+        self.data = None        # force recompute
+        return NDRArray.__setitem__(self, key, value)
 
 # Uni-dimensional Conformant-varying Arrays
 class NDRUniConformantVaryingArray(NDRArray):
@@ -839,6 +849,12 @@ class NDRUniConformantVaryingArray(NDRArray):
     structure = (
         ('Data','*ActualCount'),
     )
+
+    def __setitem__(self, key, value):
+        self.fields['MaximumCount'] = None
+        self.fields['ActualCount'] = None
+        self.data = None        # force recompute
+        return NDRArray.__setitem__(self, key, value)
 
 # Multidimensional arrays not implemented for now
 
