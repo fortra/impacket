@@ -51,6 +51,16 @@
 #  SamrGetDomainPasswordInformation
 #  SamrRidToSid
 #  SamrSetDSRMPassword
+#  SamrValidatePassword
+#  SamrQuerySecurityObject
+#  SamrSetSecurityObject
+#  SamrSetInformationDomain
+#  SamrSetInformationGroup
+#  SamrSetInformationAlias
+#  SamrSetInformationUser2
+#  SamrChangePasswordUser
+#  SamrOemChangePasswordUser2
+#  SamrUnicodeChangePasswordUser2
 #  
 ################################################################################
 
@@ -83,7 +93,7 @@ class SAMRTests(unittest.TestCase):
         dce.bind(samr.MSRPC_UUID_SAMR)
         request = samr.SamrConnect()
         request['ServerName'] = u'BETO\x00'
-        request['DesiredAccess'] = samr.SAM_SERVER_ALL_ACCESS | samr.MAXIMUM_ALLOWED | samr.DELETE | samr.SAM_SERVER_LOOKUP_DOMAIN
+        request['DesiredAccess'] = samr.DELETE | samr.READ_CONTROL | samr.WRITE_DAC | samr.WRITE_OWNER | samr.ACCESS_SYSTEM_SECURITY | samr.GENERIC_READ | samr.GENERIC_WRITE | samr.GENERIC_EXECUTE | samr.SAM_SERVER_CONNECT | samr.SAM_SERVER_SHUTDOWN | samr.SAM_SERVER_INITIALIZE | samr.SAM_SERVER_CREATE_DOMAIN | samr.SAM_SERVER_ENUMERATE_DOMAINS | samr.SAM_SERVER_LOOKUP_DOMAIN | samr.SAM_SERVER_READ | samr.SAM_SERVER_WRITE | samr.SAM_SERVER_EXECUTE
         resp = dce.request(request)
         request = samr.SamrEnumerateDomainsInSamServer()
         request['ServerHandle'] = resp['ServerHandle']
@@ -96,7 +106,7 @@ class SAMRTests(unittest.TestCase):
         resp3 = dce.request(request)
         request = samr.SamrOpenDomain()
         request['ServerHandle'] = resp['ServerHandle']
-        request['DesiredAccess'] =  samr.DOMAIN_READ_PASSWORD_PARAMETERS | samr.DOMAIN_READ_OTHER_PARAMETERS | samr.DOMAIN_CREATE_USER | samr.DOMAIN_CREATE_ALIAS | samr.DOMAIN_LOOKUP | samr.DOMAIN_LIST_ACCOUNTS | samr.DOMAIN_ADMINISTER_SERVER | samr.DELETE
+        request['DesiredAccess'] =  samr.DOMAIN_READ_PASSWORD_PARAMETERS | samr.DOMAIN_READ_OTHER_PARAMETERS | samr.DOMAIN_CREATE_USER | samr.DOMAIN_CREATE_ALIAS | samr.DOMAIN_LOOKUP | samr.DOMAIN_LIST_ACCOUNTS | samr.DOMAIN_ADMINISTER_SERVER | samr.DELETE | samr.READ_CONTROL | samr.ACCESS_SYSTEM_SECURITY | samr.DOMAIN_WRITE_OTHER_PARAMETERS | samr.DOMAIN_WRITE_PASSWORD_PARAMS 
         request['DomainId'] = resp3['DomainId']
         resp4 = dce.request(request)
 
@@ -196,7 +206,7 @@ class SAMRTests(unittest.TestCase):
         request = samr.SamrOpenUser()
         request['DomainHandle'] = domainHandle
         request['DesiredAccess'] =  samr.USER_READ_GENERAL | samr.USER_READ_PREFERENCES | samr.USER_READ_ACCOUNT
-        request['UserId'] = 500
+        request['UserId'] = samr.DOMAIN_USER_RID_ADMIN
         resp = dce.request(request)
         ##resp.dump()
 
@@ -311,7 +321,7 @@ class SAMRTests(unittest.TestCase):
         request = samr.SamrOpenUser()
         request['DomainHandle'] = domainHandle
         request['DesiredAccess'] =  samr.USER_READ_GENERAL | samr.USER_READ_PREFERENCES | samr.USER_READ_ACCOUNT | samr.USER_LIST_GROUPS
-        request['UserId'] = 500
+        request['UserId'] = samr.DOMAIN_USER_RID_ADMIN
         resp = dce.request(request)
         ##resp.dump()
         request = samr.SamrGetGroupsForUser()
@@ -611,42 +621,144 @@ class SAMRTests(unittest.TestCase):
         resp = dce.request(request)
         ##resp.dump()
 
-    def test_SamrQueryInformationDomain(self):
+    def test_SamrQueryInformationDomain_SamrSetInformationDomain(self):
         dce, rpctransport, domainHandle  = self.connect()
+
         request = samr.SamrQueryInformationDomain()
         request['DomainHandle'] = domainHandle
         request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainPasswordInformation
         #request.dump()
         resp = dce.request(request)
-        ##resp.dump()
+        #resp.dump()
 
+        request = samr.SamrSetInformationDomain()
+        request['DomainHandle'] = domainHandle
+        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainPasswordInformation
+        request['DomainInformation'] = resp['Buffer'] 
+        request['DomainInformation']['Password']['MaxPasswordAge']['LowPart'] = 11
+        #request.dump()
+        resp = dce.request(request)
+        #resp.dump()
+ 
+        request = samr.SamrQueryInformationDomain()
+        request['DomainHandle'] = domainHandle
+        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainPasswordInformation
+        #request.dump()
+        resp2 = dce.request(request)
+        #resp2.dump()
+        self.assertTrue( 11 == resp2['Buffer']['Password']['MaxPasswordAge']['LowPart'] )
+
+        request = samr.SamrSetInformationDomain()
+        request['DomainHandle'] = domainHandle
+        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainPasswordInformation
+        request['DomainInformation'] = resp2['Buffer'] 
+        request['DomainInformation']['Password']['MaxPasswordAge']['LowPart'] = 0
+        resp = dce.request(request)
+   
+        ################################################################################ 
         request = samr.SamrQueryInformationDomain()
         request['DomainHandle'] = domainHandle
         request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainGeneralInformation
         #request.dump()
         resp = dce.request(request)
-        ##resp.dump()
+        #resp.dump()
+
+        request = samr.SamrSetInformationDomain()
+        request['DomainHandle'] = domainHandle
+        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainGeneralInformation
+        request['DomainInformation'] = resp['Buffer'] 
+        request['DomainInformation']['General']['ReplicaSourceNodeName'] = 'BETUS'
+        #request.dump()
+        try:
+            resp = dce.request(request)
+        except Exception, e:
+            if str(e).find('STATUS_INVALID_INFO_CLASS') < 0:
+                raise
+
+
+        ################################################################################ 
 
         request = samr.SamrQueryInformationDomain()
         request['DomainHandle'] = domainHandle
         request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainLogoffInformation
         #request.dump()
         resp = dce.request(request)
-        ##resp.dump()
+        #resp.dump()
+        oldData = resp['Buffer']['Logoff']['ForceLogoff']['LowPart'] 
 
+        request = samr.SamrSetInformationDomain()
+        request['DomainHandle'] = domainHandle
+        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainLogoffInformation
+        request['DomainInformation'] = resp['Buffer'] 
+        request['DomainInformation']['Logoff']['ForceLogoff']['LowPart'] = 11
+        #request.dump()
+        resp2 = dce.request(request)
+        #resp.dump()
+
+        request = samr.SamrQueryInformationDomain()
+        request['DomainHandle'] = domainHandle
+        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainLogoffInformation
+        #request.dump()
+        resp2 = dce.request(request)
+        #resp2.dump()
+
+        self.assertTrue( 11 == resp2['Buffer']['Logoff']['ForceLogoff']['LowPart'] )
+
+        request = samr.SamrSetInformationDomain()
+        request['DomainHandle'] = domainHandle
+        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainLogoffInformation
+        request['DomainInformation'] = resp['Buffer'] 
+        request['DomainInformation']['Logoff']['ForceLogoff']['LowPart'] = oldData
+        #request.dump()
+        resp = dce.request(request)
+        #resp.dump()
+
+        ################################################################################ 
         request = samr.SamrQueryInformationDomain()
         request['DomainHandle'] = domainHandle
         request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainOemInformation
         #request.dump()
         resp = dce.request(request)
-        ##resp.dump()
+        #resp.dump()
+        oldData = resp['Buffer']['Oem']['OemInformation']
+
+        request = samr.SamrSetInformationDomain()
+        request['DomainHandle'] = domainHandle
+        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainOemInformation
+        request['DomainInformation'] = resp['Buffer'] 
+        request['DomainInformation']['Oem']['OemInformation'] = 'BETUS'
+        #request.dump()
+        resp2 = dce.request(request)
+        #resp.dump()
+
+        request = samr.SamrQueryInformationDomain()
+        request['DomainHandle'] = domainHandle
+        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainOemInformation
+        #request.dump()
+        resp2 = dce.request(request)
+        #resp2.dump()
+
+        self.assertTrue( 'BETUS'  == resp2['Buffer']['Oem']['OemInformation'])
+
+        request = samr.SamrSetInformationDomain()
+        request['DomainHandle'] = domainHandle
+        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainOemInformation
+        request['DomainInformation'] = resp['Buffer'] 
+        request['DomainInformation']['Oem']['OemInformation'] = oldData
+        #request.dump()
+        resp2 = dce.request(request)
+        #resp.dump()
+
+        ################################################################################ 
 
         request = samr.SamrQueryInformationDomain()
         request['DomainHandle'] = domainHandle
         request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainNameInformation
         #request.dump()
         resp = dce.request(request)
-        ##resp.dump()
+        #resp.dump()
+
+        ################################################################################ 
 
         request = samr.SamrQueryInformationDomain()
         request['DomainHandle'] = domainHandle
@@ -655,6 +767,7 @@ class SAMRTests(unittest.TestCase):
         resp = dce.request(request)
         ##resp.dump()
 
+        ################################################################################ 
         request = samr.SamrQueryInformationDomain()
         request['DomainHandle'] = domainHandle
         request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainReplicationInformation
@@ -662,82 +775,178 @@ class SAMRTests(unittest.TestCase):
         resp = dce.request(request)
         ##resp.dump()
 
+        oldData = resp['Buffer']['Replication']['ReplicaSourceNodeName']
+
+        request = samr.SamrSetInformationDomain()
+        request['DomainHandle'] = domainHandle
+        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainReplicationInformation
+        request['DomainInformation'] = resp['Buffer'] 
+        request['DomainInformation']['Replication']['ReplicaSourceNodeName'] = 'BETUS'
+        #request.dump()
+        resp2 = dce.request(request)
+        #resp.dump()
+
+        request = samr.SamrQueryInformationDomain()
+        request['DomainHandle'] = domainHandle
+        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainReplicationInformation
+        #request.dump()
+        resp2 = dce.request(request)
+        #resp2.dump()
+
+        self.assertTrue( 'BETUS'  == resp2['Buffer']['Replication']['ReplicaSourceNodeName'])
+
+        request = samr.SamrSetInformationDomain()
+        request['DomainHandle'] = domainHandle
+        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainReplicationInformation
+        request['DomainInformation'] = resp['Buffer'] 
+        request['DomainInformation']['Replication']['ReplicaSourceNodeName'] = oldData
+        #request.dump()
+        resp2 = dce.request(request)
+        #resp.dump()
+
         request = samr.SamrQueryInformationDomain()
         request['DomainHandle'] = domainHandle
         request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainModifiedInformation
         #request.dump()
         resp = dce.request(request)
-        ##resp.dump()
+        #resp.dump()
 
         request = samr.SamrQueryInformationDomain()
         request['DomainHandle'] = domainHandle
         request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainStateInformation
         #request.dump()
         resp = dce.request(request)
-        ##resp.dump()
+        #resp.dump()
 
         request = samr.SamrQueryInformationDomain()
         request['DomainHandle'] = domainHandle
         request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainGeneralInformation2
         #request.dump()
         resp = dce.request(request)
-        ##resp.dump()
+        #resp.dump()
 
         request = samr.SamrQueryInformationDomain()
         request['DomainHandle'] = domainHandle
         request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainLockoutInformation
         #request.dump()
         resp = dce.request(request)
-        ##resp.dump()
+        #resp.dump()
 
         request = samr.SamrQueryInformationDomain()
         request['DomainHandle'] = domainHandle
         request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainModifiedInformation2
         #request.dump()
         resp = dce.request(request)
-        ##resp.dump()
+        #resp.dump()
 
-    def test_SamrQueryInformationGroup(self):
+    def test_SamrQueryInformationGroup_SamrSetInformationGroup(self):
         dce, rpctransport, domainHandle  = self.connect()
         request = samr.SamrOpenGroup()
         request['DomainHandle'] = domainHandle
         request['DesiredAccess'] = samr.GROUP_ALL_ACCESS
         request['GroupId'] = samr.DOMAIN_GROUP_RID_USERS
         try:
-            resp = dce.request(request)
+            resp0 = dce.request(request)
             ##resp.dump()
         except Exception, e:
             if str(e).find('STATUS_NO_SUCH_DOMAIN') < 0:
                 raise
 
         request = samr.SamrQueryInformationGroup()
-        request['GroupHandle'] = resp['GroupHandle']
+        request['GroupHandle'] = resp0['GroupHandle']
         request['GroupInformationClass'] = samr.GROUP_INFORMATION_CLASS.GroupGeneralInformation
         #request.dump()
         resp = dce.request(request)
-        ##resp.dump()
+        #resp.dump()
+        ################################################################################ 
 
         request['GroupInformationClass'] = samr.GROUP_INFORMATION_CLASS.GroupNameInformation
         #request.dump()
         resp = dce.request(request)
-        ##resp.dump()
+        #resp.dump()
+        oldData = resp['Buffer']['Name']['Name']
+
+        req = samr.SamrSetInformationGroup()
+        req['GroupHandle'] = resp0['GroupHandle']
+        req['GroupInformationClass'] = samr.GROUP_INFORMATION_CLASS.GroupNameInformation
+        req['Buffer']['tag'] = samr.GROUP_INFORMATION_CLASS.GroupNameInformation
+        req['Buffer']['Name']['Name'] = 'BETUS'
+        resp = dce.request(req)
+        #resp.dump()
+
+        request['GroupInformationClass'] = samr.GROUP_INFORMATION_CLASS.GroupNameInformation
+        #request.dump()
+        resp = dce.request(request)
+        #resp.dump()
+
+        self.assertTrue( 'BETUS'  == resp['Buffer']['Name']['Name'])
+
+        req['Buffer']['Name']['Name'] = oldData
+        resp = dce.request(req)
+        #resp.dump()
+
+
+        ################################################################################ 
+        request['GroupInformationClass'] = samr.GROUP_INFORMATION_CLASS.GroupAttributeInformation
+        #request.dump()
+        resp = dce.request(request)
+        #resp.dump()
+        oldData = resp['Buffer']['Attribute']['Attributes']
+
+        req = samr.SamrSetInformationGroup()
+        req['GroupHandle'] = resp0['GroupHandle']
+        req['GroupInformationClass'] = samr.GROUP_INFORMATION_CLASS.GroupAttributeInformation
+        req['Buffer']['tag'] = samr.GROUP_INFORMATION_CLASS.GroupAttributeInformation
+        req['Buffer']['Attribute']['Attributes'] = 2
+        resp = dce.request(req)
+        #resp.dump()
 
         request['GroupInformationClass'] = samr.GROUP_INFORMATION_CLASS.GroupAttributeInformation
         #request.dump()
         resp = dce.request(request)
-        ##resp.dump()
+        #resp.dump()
+
+        self.assertTrue( 2  == resp['Buffer']['Attribute']['Attributes'])
+
+        req['Buffer']['Attribute']['Attributes'] = oldData
+        resp = dce.request(req)
+        #resp.dump()
+
+
+        ################################################################################ 
+        request['GroupInformationClass'] = samr.GROUP_INFORMATION_CLASS.GroupAdminCommentInformation
+        #request.dump()
+        resp = dce.request(request)
+        #resp.dump()
+
+        oldData = resp['Buffer']['AdminComment']['AdminComment']
+
+        req = samr.SamrSetInformationGroup()
+        req['GroupHandle'] = resp0['GroupHandle']
+        req['GroupInformationClass'] = samr.GROUP_INFORMATION_CLASS.GroupAdminCommentInformation
+        req['Buffer']['tag'] = samr.GROUP_INFORMATION_CLASS.GroupAdminCommentInformation
+        req['Buffer']['AdminComment']['AdminComment'] = 'BETUS'
+        resp = dce.request(req)
+        #resp.dump()
 
         request['GroupInformationClass'] = samr.GROUP_INFORMATION_CLASS.GroupAdminCommentInformation
         #request.dump()
         resp = dce.request(request)
-        ##resp.dump()
+        #resp.dump()
 
+        self.assertTrue( 'BETUS'  == resp['Buffer']['AdminComment']['AdminComment'])
+
+        req['Buffer']['AdminComment']['AdminComment'] = oldData
+        resp = dce.request(req)
+        #resp.dump()
+
+        ################################################################################ 
         request['GroupInformationClass'] = samr.GROUP_INFORMATION_CLASS.GroupReplicationInformation
         #request.dump()
         resp = dce.request(request)
         ##resp.dump()
 
-    def test_SamrQueryInformationAlias(self):
+    def test_SamrQueryInformationAlias_SamrSetInformationAlias(self):
         dce, rpctransport, domainHandle  = self.connect()
         request = samr.SamrEnumerateAliasesInDomain()
         request['DomainHandle'] = domainHandle
@@ -749,27 +958,71 @@ class SAMRTests(unittest.TestCase):
         request['DomainHandle'] = domainHandle
         request['DesiredAccess'] =  dtypes.MAXIMUM_ALLOWED
         request['AliasId'] = resp4['Buffer']['Buffer'][0]['RelativeId']
-        resp = dce.request(request)
+        resp0 = dce.request(request)
         ##resp.dump()
 
         request = samr.SamrQueryInformationAlias()
-        request['AliasHandle'] = resp['AliasHandle']
+        request['AliasHandle'] = resp0['AliasHandle']
         request['AliasInformationClass'] = samr.ALIAS_INFORMATION_CLASS.AliasGeneralInformation
         #request.dump()
         resp = dce.request(request)
         ##resp.dump()
 
+        ################################################################################ 
         request['AliasInformationClass'] = samr.ALIAS_INFORMATION_CLASS.AliasNameInformation
         #request.dump()
         resp = dce.request(request)
-        ##resp.dump()
+        #resp.dump()
+        oldData = resp['Buffer']['Name']['Name']
+
+        req = samr.SamrSetInformationAlias()
+        req['AliasHandle'] = resp0['AliasHandle']
+        req['AliasInformationClass'] = samr.ALIAS_INFORMATION_CLASS.AliasNameInformation
+        req['Buffer']['tag'] = samr.ALIAS_INFORMATION_CLASS.AliasNameInformation
+        req['Buffer']['Name']['Name'] = 'BETUS'
+        resp = dce.request(req)
+        #resp.dump()
+
+        request['AliasInformationClass'] = samr.ALIAS_INFORMATION_CLASS.AliasNameInformation
+        #request.dump()
+        resp = dce.request(request)
+        #resp.dump()
+
+        self.assertTrue( 'BETUS'  == resp['Buffer']['Name']['Name'])
+
+        req['Buffer']['Name']['Name'] = oldData
+        resp = dce.request(req)
+        #resp.dump()
+
+
+        ################################################################################ 
+        request['AliasInformationClass'] = samr.ALIAS_INFORMATION_CLASS.AliasAdminCommentInformation
+        #request.dump()
+        resp = dce.request(request)
+        #resp.dump()
+        oldData = resp['Buffer']['AdminComment']['AdminComment']
+
+        req = samr.SamrSetInformationAlias()
+        req['AliasHandle'] = resp0['AliasHandle']
+        req['AliasInformationClass'] = samr.ALIAS_INFORMATION_CLASS.AliasAdminCommentInformation
+        req['Buffer']['tag'] = samr.ALIAS_INFORMATION_CLASS.AliasAdminCommentInformation
+        req['Buffer']['AdminComment']['AdminComment'] = 'BETUS'
+        resp = dce.request(req)
+        #resp.dump()
 
         request['AliasInformationClass'] = samr.ALIAS_INFORMATION_CLASS.AliasAdminCommentInformation
         #request.dump()
         resp = dce.request(request)
-        ##resp.dump()
+        #resp.dump()
 
-    def test_SamrQueryInformationUser2(self):
+        self.assertTrue( 'BETUS'  == resp['Buffer']['AdminComment']['AdminComment'])
+
+        req['Buffer']['AdminComment']['AdminComment'] = oldData
+        resp = dce.request(req)
+        #resp.dump()
+
+
+    def test_SamrQueryInformationUser2_SamrSetInformationUser2(self):
         dce, rpctransport, domainHandle  = self.connect()
         request = samr.SamrOpenUser()
         request['DomainHandle'] = domainHandle
@@ -781,22 +1034,42 @@ class SAMRTests(unittest.TestCase):
             | samr.USER_READ | samr.USER_WRITE  | samr.USER_EXECUTE 
 
         
-        request['UserId'] = 500
+        request['UserId'] = samr.DOMAIN_USER_RID_ADMIN
         resp = dce.request(request)
         ##resp.dump()
 
         request = samr.SamrQueryInformationUser2()
         request['UserHandle'] = resp['UserHandle']
+        userHandle = resp['UserHandle'] 
         request['UserInformationClass'] = samr.USER_INFORMATION_CLASS.UserGeneralInformation
         #request.dump()
         resp = dce.request(request)
         #resp.dump()
-
+        ################################################################################ 
         request['UserInformationClass'] = samr.USER_INFORMATION_CLASS.UserPreferencesInformation
         #request.dump()
         resp = dce.request(request)
         #resp.dump()
+        oldData = resp['Buffer']['Preferences']['UserComment']
 
+        req = samr.SamrSetInformationUser2()
+        req['UserHandle'] = userHandle
+        req['UserInformationClass'] = samr.USER_INFORMATION_CLASS.UserPreferencesInformation
+        req['Buffer'] = resp['Buffer'] 
+        req['Buffer']['Preferences']['UserComment'] = 'BETO'
+        resp = dce.request(req)
+        #resp.dump()
+
+        resp = dce.request(request)
+        #resp.dump()
+
+        self.assertTrue( 'BETO' == resp['Buffer']['Preferences']['UserComment'])
+
+        req['Buffer']['Preferences']['UserComment'] = oldData
+        resp = dce.request(req)
+        #resp.dump()
+
+        ################################################################################ 
         request['UserInformationClass'] = samr.USER_INFORMATION_CLASS.UserLogonInformation
         #request.dump()
         resp = dce.request(request)
@@ -812,14 +1085,53 @@ class SAMRTests(unittest.TestCase):
         resp = dce.request(request)
         #resp.dump()
 
+        ################################################################################ 
         request['UserInformationClass'] = samr.USER_INFORMATION_CLASS.UserNameInformation
         #request.dump()
         resp = dce.request(request)
         #resp.dump()
+        oldData = resp['Buffer']['Name']['FullName']
 
+        req = samr.SamrSetInformationUser2()
+        req['UserHandle'] = userHandle
+        req['UserInformationClass'] = samr.USER_INFORMATION_CLASS.UserNameInformation
+        req['Buffer'] = resp['Buffer'] 
+        req['Buffer']['Name']['FullName'] = 'BETO'
+        resp = dce.request(req)
+        #resp.dump()
+
+        resp = dce.request(request)
+        #resp.dump()
+
+        self.assertTrue( 'BETO' == resp['Buffer']['Name']['FullName'])
+
+        req['Buffer']['Name']['FullName'] = oldData
+        resp = dce.request(req)
+        #resp.dump()
+
+        ################################################################################ 
         request['UserInformationClass'] = samr.USER_INFORMATION_CLASS.UserAccountNameInformation
         #request.dump()
         resp = dce.request(request)
+        #resp.dump()
+
+        oldData = resp['Buffer']['AccountName']['UserName']
+
+        req = samr.SamrSetInformationUser2()
+        req['UserHandle'] = userHandle
+        req['UserInformationClass'] = samr.USER_INFORMATION_CLASS.UserAccountNameInformation
+        req['Buffer'] = resp['Buffer'] 
+        req['Buffer']['AccountName']['UserName'] = 'BETUS'
+        resp = dce.request(req)
+        #resp.dump()
+
+        resp = dce.request(request)
+        #resp.dump()
+
+        self.assertTrue( 'BETUS' == resp['Buffer']['AccountName']['UserName'])
+
+        req['Buffer']['AccountName']['UserName'] = oldData
+        resp = dce.request(req)
         #resp.dump()
 
         request['UserInformationClass'] = samr.USER_INFORMATION_CLASS.UserFullNameInformation
@@ -882,11 +1194,13 @@ class SAMRTests(unittest.TestCase):
         resp = dce.request(request)
         #resp.dump()
 
+        ################################################################################ 
         request['UserInformationClass'] = samr.USER_INFORMATION_CLASS.UserAllInformation
         #request.dump()
         resp = dce.request(request)
         #resp.dump()
-
+       
+        ################################################################################ 
         request['UserInformationClass'] = samr.USER_INFORMATION_CLASS.UserInternal4Information
         #request.dump()
         try:
@@ -927,25 +1241,46 @@ class SAMRTests(unittest.TestCase):
                 raise
             pass
 
-    def test_SamrQueryInformationUser(self):
+    def test_SamrQueryInformationUser_SamrSetInformationUser(self):
         dce, rpctransport, domainHandle  = self.connect()
         request = samr.SamrOpenUser()
         request['DomainHandle'] = domainHandle
         request['DesiredAccess'] =  samr.USER_READ_GENERAL | samr.USER_READ_PREFERENCES | samr.USER_READ_ACCOUNT | samr.USER_ALL_ACCESS | samr.USER_READ
-        request['UserId'] = 500
+        request['UserId'] = samr.DOMAIN_USER_RID_ADMIN
         resp = dce.request(request)
         #resp.dump()
 
         request = samr.SamrQueryInformationUser()
         request['UserHandle'] = resp['UserHandle']
+        userHandle = resp['UserHandle']
+
         request['UserInformationClass'] = samr.USER_INFORMATION_CLASS.UserGeneralInformation
         #request.dump()
         resp = dce.request(request)
         #resp.dump()
 
+        ################################################################################ 
         request['UserInformationClass'] = samr.USER_INFORMATION_CLASS.UserPreferencesInformation
         #request.dump()
         resp = dce.request(request)
+        #resp.dump()
+        oldData = resp['Buffer']['Preferences']['UserComment']
+
+        req = samr.SamrSetInformationUser()
+        req['UserHandle'] = userHandle
+        req['UserInformationClass'] = samr.USER_INFORMATION_CLASS.UserPreferencesInformation
+        req['Buffer'] = resp['Buffer'] 
+        req['Buffer']['Preferences']['UserComment'] = 'BETO'
+        resp = dce.request(req)
+        #resp.dump()
+
+        resp = dce.request(request)
+        #resp.dump()
+
+        self.assertTrue( 'BETO' == resp['Buffer']['Preferences']['UserComment'])
+
+        req['Buffer']['Preferences']['UserComment'] = oldData
+        resp = dce.request(req)
         #resp.dump()
 
         request['UserInformationClass'] = samr.USER_INFORMATION_CLASS.UserLogonInformation
@@ -1463,6 +1798,183 @@ class SAMRTests(unittest.TestCase):
             if str(e).find('rpc_s_access_denied') < 0:
                 raise
 
+    def test_SamrQuerySecurityObject(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        request = samr.SamrQuerySecurityObject()
+        request['ObjectHandle'] =  domainHandle
+        request['SecurityInformation'] =  dtypes.OWNER_SECURITY_INFORMATION | dtypes.GROUP_SECURITY_INFORMATION | dtypes.SACL_SECURITY_INFORMATION | samr.DACL_SECURITY_INFORMATION
+        resp = dce.request(request)
+        #resp.dump()
+
+    def test_SamrSetSecurityObject(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        request = samr.SamrQuerySecurityObject()
+        request['ObjectHandle'] =  domainHandle
+        request['SecurityInformation'] =  dtypes.SACL_SECURITY_INFORMATION 
+        resp = dce.request(request)
+        #resp.dump()
+
+        request = samr.SamrSetSecurityObject()
+        request['ObjectHandle'] =  domainHandle
+        request['SecurityInformation'] =  dtypes.SACL_SECURITY_INFORMATION 
+        request['SecurityDescriptor'] = resp['SecurityDescriptor'] 
+        #request.dump()
+        resp = dce.request(request)
+        #resp.dump()
+
+    def test_SamrChangePasswordUser(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        request = samr.SamrOpenUser()
+        request['DomainHandle'] = domainHandle
+        #request['DesiredAccess'] =  samr.USER_READ_GENERAL | samr.USER_READ_PREFERENCES | samr.USER_READ_ACCOUNT | samr.USER_ALL_ACCESS | samr.USER_READ | samr.USER_READ_LOGON 
+        request['DesiredAccess'] = \
+            samr.USER_READ_GENERAL | samr.USER_READ_PREFERENCES | samr.USER_WRITE_PREFERENCES | samr.USER_READ_LOGON \
+            | samr.USER_READ_ACCOUNT | samr.USER_WRITE_ACCOUNT | samr.USER_CHANGE_PASSWORD | samr.USER_FORCE_PASSWORD_CHANGE  \
+            | samr.USER_LIST_GROUPS | samr.USER_READ_GROUP_INFORMATION | samr.USER_WRITE_GROUP_INFORMATION | samr.USER_ALL_ACCESS  \
+            | samr.USER_READ | samr.USER_WRITE  | samr.USER_EXECUTE 
+
+        
+        request['UserId'] = samr.DOMAIN_USER_RID_ADMIN
+        resp = dce.request(request)
+        ##resp.dump()
+
+        # As you can guess by now, target machine must have the Administrator account with password admin
+        oldPwd = 'admin'
+        oldPwdHashNT = ntlm.NTOWFv1(oldPwd)
+        newPwd = 'ADMIN'
+        newPwdHashNT = ntlm.NTOWFv1(newPwd)
+        newPwdHashLM = ntlm.LMOWFv1(newPwd)
+
+        from impacket import crypto
+        request = samr.SamrChangePasswordUser()
+        request['UserHandle'] = resp['UserHandle']
+        request['LmPresent'] = 0
+        request['OldLmEncryptedWithNewLm'] = NULL
+        request['NewLmEncryptedWithOldLm'] = NULL
+        request['NtPresent'] = 1
+        request['OldNtEncryptedWithNewNt'] = crypto.SamEncryptNTLMHash(oldPwdHashNT, newPwdHashNT)
+        request['NewNtEncryptedWithOldNt'] = crypto.SamEncryptNTLMHash(newPwdHashNT, oldPwdHashNT) 
+        request['NtCrossEncryptionPresent'] = 0
+        request['NewNtEncryptedWithNewLm'] = NULL
+        request['LmCrossEncryptionPresent'] = 1
+        request['NewLmEncryptedWithNewNt'] = crypto.SamEncryptNTLMHash(newPwdHashLM, newPwdHashNT)
+        resp = dce.request(request)
+        #resp.dump()
+
+        # Restoring it back
+        oldPwd = 'ADMIN'
+        oldPwdHashNT = ntlm.NTOWFv1(oldPwd)
+        newPwd = 'admin'
+        newPwdHashNT = ntlm.NTOWFv1(newPwd)
+        newPwdHashLM = ntlm.LMOWFv1(newPwd)
+
+        request['OldNtEncryptedWithNewNt'] = crypto.SamEncryptNTLMHash(oldPwdHashNT, newPwdHashNT)
+        request['NewNtEncryptedWithOldNt'] = crypto.SamEncryptNTLMHash(newPwdHashNT, oldPwdHashNT) 
+        request['NtCrossEncryptionPresent'] = 0
+        request['NewNtEncryptedWithNewLm'] = NULL
+        request['LmCrossEncryptionPresent'] = 1
+        request['NewLmEncryptedWithNewNt'] = crypto.SamEncryptNTLMHash(newPwdHashLM, newPwdHashNT)
+        resp = dce.request(request)
+        #resp.dump()
+
+    def test_SamrOemChangePasswordUser2(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        # As you can guess by now, target machine must have the Administrator account with password admin
+        # NOTE: It's giving me WRONG_PASSWORD  'cause the target test server doesn't hold LM Hashes
+        # further testing is needed to verify this call works
+        oldPwd = 'admin'
+        oldPwdHashLM = ntlm.LMOWFv1(oldPwd)
+        newPwd = 'ADMIN'
+        newPwdHashNT = ntlm.NTOWFv1(newPwd)
+        newPwdHashLM = ntlm.LMOWFv1(newPwd)
+
+        try:
+            from Crypto.Cipher import ARC4
+        except Exception:
+            print "Warning: You don't have any crypto installed. You need PyCrypto"
+            print "See http://www.pycrypto.org/"
+
+        from impacket import crypto
+        request = samr.SamrOemChangePasswordUser2()
+        request['ServerName'] = ''
+        request['UserName'] = 'Administrator'
+        samUser = samr.SAMPR_USER_PASSWORD()
+        samUser['Buffer'] = 'A'*(512-len(newPwd)) + newPwd
+        samUser['Length'] = len(newPwd)
+        pwdBuff = str(samUser)
+
+        rc4 = ARC4.new(oldPwdHashLM)
+        encBuf = rc4.encrypt(pwdBuff)
+        request['NewPasswordEncryptedWithOldLm']['Buffer'] = encBuf
+        request['OldLmOwfPasswordEncryptedWithNewLm'] = crypto.SamEncryptNTLMHash(oldPwdHashLM, newPwdHashLM)
+        try:
+            resp = dce.request(request)
+            resp.dump()
+        except Exception, e:
+            if str(e).find('STATUS_WRONG_PASSWORD') < 0:
+                raise
+
+    def test_SamrUnicodeChangePasswordUser2(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        # As you can guess by now, target machine must have the Administrator account with password admin
+        oldPwd = 'admin'
+        oldPwdHashLM = ntlm.LMOWFv1(oldPwd)
+        oldPwdHashNT = ntlm.NTOWFv1(oldPwd)
+        newPwd = 'ADMIN'
+        newPwdHashNT = ntlm.NTOWFv1(newPwd)
+        newPwdHashLM = ntlm.LMOWFv1(newPwd)
+
+        try:
+            from Crypto.Cipher import ARC4
+        except Exception:
+            print "Warning: You don't have any crypto installed. You need PyCrypto"
+            print "See http://www.pycrypto.org/"
+
+        from impacket import crypto
+        request = samr.SamrUnicodeChangePasswordUser2()
+        request['ServerName'] = ''
+        request['UserName'] = 'Administrator'
+        samUser = samr.SAMPR_USER_PASSWORD()
+        samUser['Buffer'] = 'A'*(512-len(newPwd)*2) + newPwd.encode('utf-16le')
+        samUser['Length'] = len(newPwd)*2
+        pwdBuff = str(samUser)
+
+        rc4 = ARC4.new(oldPwdHashNT)
+        encBuf = rc4.encrypt(pwdBuff)
+        request['NewPasswordEncryptedWithOldNt']['Buffer'] = encBuf
+        request['OldNtOwfPasswordEncryptedWithNewNt'] = crypto.SamEncryptNTLMHash(oldPwdHashNT, newPwdHashNT)
+        request['LmPresent'] = 0
+        request['NewPasswordEncryptedWithOldLm'] = NULL
+        request['OldLmOwfPasswordEncryptedWithNewNt'] = NULL
+
+        resp = dce.request(request)
+        #resp.dump()
+
+        oldPwd = 'ADMIN'
+        oldPwdHashLM = ntlm.LMOWFv1(oldPwd)
+        oldPwdHashNT = ntlm.NTOWFv1(oldPwd)
+        newPwd = 'admin'
+        newPwdHashNT = ntlm.NTOWFv1(newPwd)
+        newPwdHashLM = ntlm.LMOWFv1(newPwd)
+        request = samr.SamrUnicodeChangePasswordUser2()
+        request['ServerName'] = ''
+        request['UserName'] = 'Administrator'
+        samUser = samr.SAMPR_USER_PASSWORD()
+        samUser['Buffer'] = 'A'*(512-len(newPwd)*2) + newPwd.encode('utf-16le')
+        samUser['Length'] = len(newPwd)*2
+        pwdBuff = str(samUser)
+
+        rc4 = ARC4.new(oldPwdHashNT)
+        encBuf = rc4.encrypt(pwdBuff)
+        request['NewPasswordEncryptedWithOldNt']['Buffer'] = encBuf
+        request['OldNtOwfPasswordEncryptedWithNewNt'] = crypto.SamEncryptNTLMHash(oldPwdHashNT, newPwdHashNT)
+        request['LmPresent'] = 0
+        request['NewPasswordEncryptedWithOldLm'] = NULL
+        request['OldLmOwfPasswordEncryptedWithNewNt'] = NULL
+
+        resp = dce.request(request)
+        #resp.dump()
+
 class SMBTransport(SAMRTests):
     def setUp(self):
         SAMRTests.setUp(self)
@@ -1471,7 +1983,7 @@ class SMBTransport(SAMRTests):
         self.domain   = ''
         self.serverName = ''
         self.password = 'test'
-        self.machine  = '172.16.123.222'
+        self.machine  = '172.16.123.228'
         self.stringBinding = r'ncacn_np:%s[\pipe\samr]' % self.machine
         self.dport = 445
         self.hashes   = ''
