@@ -17,6 +17,8 @@ from impacket.dcerpc.v5 import ndr
 DWORD = ndr.NDRLONG
 ULONGLONG = ndr.NDRHYPER
 BOOL = ndr.NDRLONG
+UCHAR = ndr.NDRSMALL
+USHORT = ndr.NDRSHORT
 
 class GUID(ndr.NDR):
     structure = (
@@ -86,6 +88,15 @@ class STR(ndr.NDR):
         # Here just print the data
         print " %r" % (self['Data']),
 
+    def __setitem__(self, key, value):
+        if key == 'Data':
+            self.fields[key] = value
+            self.fields['MaximumCount'] = None
+            self.fields['ActualCount'] = None
+            self.data = None        # force recompute
+        else:
+            return ndr.NDR.__setitem__(self, key, value)
+
     def getDataLen(self, data):
         return self["ActualCount"]
 
@@ -120,6 +131,8 @@ class WSTR(ndr.NDR):
     def __setitem__(self, key, value):
         if key == 'Data':
             self.fields[key] = value.encode('utf-16le')
+            self.fields['MaximumCount'] = None
+            self.fields['ActualCount'] = None
             self.data = None        # force recompute
         else:
             return ndr.NDR.__setitem__(self, key, value)
@@ -134,6 +147,9 @@ class LPWSTR(ndr.NDRPointer):
     referent = (
         ('Data', WSTR),
     )
+
+# 2.3.3 LARGE_INTEGER
+LARGE_INTEGER = ndr.NDRHYPER
 
 # 2.3.8 RPC_UNICODE_STRING
 class RPC_UNICODE_STRING(ndr.NDR):
@@ -162,6 +178,13 @@ class RPC_UNICODE_STRING(ndr.NDR):
         # Here just print the data
         print " %r" % (self['Data']),
 
+    def __setitem__(self, key, value):
+        if key == 'Data':
+            self.fields['MaximumLength'] = None
+            self.fields['Length'] = None
+            self.data = None        # force recompute
+        return ndr.NDR.__setitem__(self, key, value)
+
 class UNIQUE_RPC_UNICODE_STRING(ndr.NDRPointer):
     referent = (
        ('Data', RPC_UNICODE_STRING ),
@@ -184,20 +207,6 @@ class LPDWORD(ndr.NDRPointer):
         self.fields['Data'].item = '<L'
         if data is not None:
             self.fromString(data)
-
-# 2.4.3 ACCESS_MASK
-ACCESS_MASK = DWORD
-GENERIC_READ            = 0x80000000L
-GENERIC_WRITE           = 0x4000000L
-GENERIC_EXECUTE         = 0x20000000L
-GENERIC_ALL             = 0x10000000L
-MAXIMUM_ALLOWED         = 0x02000000L
-ACCESS_SYSTEM_SECURITY  = 0x01000000L
-SYNCHRONIZE             = 0x00100000L
-WRITE_OWNER             = 0x00080000L
-WRITE_DACL              = 0x00040000L
-READ_CONTROL            = 0x00020000L
-DELETE                  = 0x00010000L
 
 # 2.4.2.3 RPC_SID
 class DWORD_ARRAY(ndr.NDRUniFixedArray):
@@ -261,5 +270,65 @@ class PRPC_SID(ndr.NDRPointer):
         ('Data', RPC_SID),
     )
 
-# 2.3.3 LARGE_INTEGER
-LARGE_INTEGER = ndr.NDRHYPER
+PSID = PRPC_SID
+
+# 2.4.3 ACCESS_MASK
+ACCESS_MASK = DWORD
+GENERIC_READ            = 0x80000000L
+GENERIC_WRITE           = 0x4000000L
+GENERIC_EXECUTE         = 0x20000000L
+GENERIC_ALL             = 0x10000000L
+MAXIMUM_ALLOWED         = 0x02000000L
+ACCESS_SYSTEM_SECURITY  = 0x01000000L
+SYNCHRONIZE             = 0x00100000L
+WRITE_OWNER             = 0x00080000L
+WRITE_DACL              = 0x00040000L
+READ_CONTROL            = 0x00020000L
+DELETE                  = 0x00010000L
+
+# 2.4.5.1 ACL--RPC Representation
+class ACL(ndr.NDR):
+    structure = (
+        ('AclRevision',ndr.NDRCHAR),
+        ('Sbz1',ndr.NDRCHAR),
+        ('AclSize',ndr.NDRSHORT),
+        ('AceCount',ndr.NDRSHORT),
+        ('Sbz2',ndr.NDRSHORT),
+    )
+
+class PACL(ndr.NDRPointer):
+    referent = (
+        ('Data', ACL),
+    )
+
+# 2.4.6.1 SECURITY_DESCRIPTOR--RPC Representation
+class SECURITY_DESCRIPTOR(ndr.NDR):
+    structure = (
+        ('Revision',UCHAR),
+        ('Sbz1',UCHAR),
+        ('Control',USHORT),
+        ('Owner',PSID),
+        ('Group',PSID),
+        ('Sacl',PACL),
+        ('Dacl',PACL),
+    )
+
+# 2.4.7 SECURITY_INFORMATION
+OWNER_SECURITY_INFORMATION            = 0x00000001
+GROUP_SECURITY_INFORMATION            = 0x00000002
+DACL_SECURITY_INFORMATION             = 0x00000004
+SACL_SECURITY_INFORMATION             = 0x00000008
+LABEL_SECURITY_INFORMATION            = 0x00000010
+UNPROTECTED_SACL_SECURITY_INFORMATION = 0x10000000
+UNPROTECTED_DACL_SECURITY_INFORMATION = 0x20000000
+PROTECTED_SACL_SECURITY_INFORMATION   = 0x40000000
+PROTECTED_DACL_SECURITY_INFORMATION   = 0x80000000
+ATTRIBUTE_SECURITY_INFORMATION        = 0x00000020
+SCOPE_SECURITY_INFORMATION            = 0x00000040
+BACKUP_SECURITY_INFORMATION           = 0x00010000
+
+SECURITY_INFORMATION = DWORD
+class PSECURITY_INFORMATION(ndr.NDRPointer):
+    referent = (
+        ('Data', SECURITY_INFORMATION),
+    )
