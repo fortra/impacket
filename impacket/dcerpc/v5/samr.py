@@ -293,6 +293,11 @@ class RPC_STRING(NDR):
         # Here just print the data
         print " %r" % (self['Data']),
 
+class PRPC_STRING(NDRPointer):
+    referent = (
+        ('Data', RPC_STRING),
+    )
+ 
 # 2.2.2.2 OLD_LARGE_INTEGER
 class OLD_LARGE_INTEGER(NDR):
     structure = (
@@ -345,7 +350,7 @@ class ENCRYPTED_LM_OWF_PASSWORD(NDR):
 
 ENCRYPTED_NT_OWF_PASSWORD = ENCRYPTED_LM_OWF_PASSWORD
 
-class PENCRYPTED_LM_OWF_PASSWORD(NDR):
+class PENCRYPTED_LM_OWF_PASSWORD(NDRPointer):
     referent = (
         ('Data', ENCRYPTED_LM_OWF_PASSWORD),
     )
@@ -417,7 +422,7 @@ class PSAMPR_ENUMERATION_BUFFER(NDRPointer):
     )
 
 # 2.2.3.11 SAMPR_SR_SECURITY_DESCRIPTOR
-class CHAR_ARRAY(NDRUniConformantVaryingArray):
+class CHAR_ARRAY(NDRUniConformantArray):
     pass
 
 class PCHAR_ARRAY(NDRPointer):
@@ -790,7 +795,8 @@ class PLOGON_HOURS_ARRAY(NDRPointer):
 
 class SAMPR_LOGON_HOURS(NDR):
     structure = (
-        ('UnitsPerWeek', NDRSHORT),
+        #('UnitsPerWeek', NDRSHORT),
+        ('UnitsPerWeek', NDRLONG),
         ('LogonHours', PLOGON_HOURS_ARRAY),
     )
 
@@ -968,9 +974,20 @@ class SAMPR_USER_LOGON_HOURS_INFORMATION(NDR):
     )
 
 # 2.2.7.21 SAMPR_ENCRYPTED_USER_PASSWORD
+class SAMPR_USER_PASSWORD(NDR):
+    structure = (
+        ('Buffer', '512s=""'),
+        ('Length', NDRLONG),
+    )
+
 class SAMPR_ENCRYPTED_USER_PASSWORD(NDR):
     structure = (
         ('Buffer', '516s=""'),
+    )
+
+class PSAMPR_ENCRYPTED_USER_PASSWORD(NDRPointer):
+    referent = (
+        ('Data', SAMPR_ENCRYPTED_USER_PASSWORD),
     )
 
 # 2.2.7.22 SAMPR_ENCRYPTED_USER_PASSWORD_NEW
@@ -1337,6 +1354,19 @@ class PSAM_VALIDATE_OUTPUT_ARG(NDRPointer):
 # RPC CALLS
 ################################################################################
 
+class SamrConnect(NDRCall):
+    opnum = 0
+    structure = (
+       ('ServerName',PSAMPR_SERVER_NAME2),
+       ('DesiredAccess', NDRLONG),
+    )
+
+class SamrConnectResponse(NDRCall):
+    structure = (
+       ('ServerHandle',SAMPR_HANDLE),
+       ('ErrorCode',NDRLONG),
+    )
+
 class SamrCloseHandle(NDRCall):
     opnum = 1
     structure = (
@@ -1350,16 +1380,29 @@ class SamrCloseHandleResponse(NDRCall):
        ('ErrorCode',NDRLONG),
     )
 
-class SamrConnect(NDRCall):
-    opnum = 0
+class SamrSetSecurityObject(NDRCall):
+    opnum = 2
     structure = (
-       ('ServerName',PSAMPR_SERVER_NAME2),
-       ('DesiredAccess', NDRLONG),
+       ('ObjectHandle',SAMPR_HANDLE),
+       ('SecurityInformation', SECURITY_INFORMATION),
+       ('SecurityDescriptor', SAMPR_SR_SECURITY_DESCRIPTOR),
     )
 
-class SamrConnectResponse(NDRCall):
+class SamrSetSecurityObjectResponse(NDRCall):
     structure = (
-       ('ServerHandle',SAMPR_HANDLE),
+       ('ErrorCode',NDRLONG),
+    )
+
+class SamrQuerySecurityObject(NDRCall):
+    opnum = 3
+    structure = (
+       ('ObjectHandle',SAMPR_HANDLE),
+       ('SecurityInformation', SECURITY_INFORMATION),
+    )
+
+class SamrQuerySecurityObjectResponse(NDRCall):
+    structure = (
+       ('SecurityDescriptor',PSAMPR_SR_SECURITY_DESCRIPTOR),
        ('ErrorCode',NDRLONG),
     )
 
@@ -1416,6 +1459,19 @@ class SamrQueryInformationDomain(NDRCall):
 class SamrQueryInformationDomainResponse(NDRCall):
     structure = (
        ('Buffer',PSAMPR_DOMAIN_INFO_BUFFER),
+       ('ErrorCode',NDRLONG),
+    )
+
+class SamrSetInformationDomain(NDRCall):
+    opnum = 9
+    structure = (
+       ('DomainHandle',SAMPR_HANDLE),
+       ('DomainInformationClass', DOMAIN_INFORMATION_CLASS),
+       ('DomainInformation', SAMPR_DOMAIN_INFO_BUFFER),
+    )
+
+class SamrSetInformationDomainResponse(NDRCall):
+    structure = (
        ('ErrorCode',NDRLONG),
     )
 
@@ -1585,6 +1641,19 @@ class SamrQueryInformationGroupResponse(NDRCall):
        ('ErrorCode',NDRLONG),
     )
 
+class SamrSetInformationGroup(NDRCall):
+    opnum = 21
+    structure = (
+       ('GroupHandle',SAMPR_HANDLE),
+       ('GroupInformationClass', GROUP_INFORMATION_CLASS),
+       ('Buffer', SAMPR_GROUP_INFO_BUFFER),
+    )
+
+class SamrSetInformationGroupResponse(NDRCall):
+    structure = (
+       ('ErrorCode',NDRLONG),
+    )
+
 class SamrAddMemberToGroup(NDRCall):
     opnum = 22
     structure = (
@@ -1595,6 +1664,18 @@ class SamrAddMemberToGroup(NDRCall):
 
 class SamrAddMemberToGroupResponse(NDRCall):
     structure = (
+       ('ErrorCode',NDRLONG),
+    )
+
+class SamrDeleteGroup(NDRCall):
+    opnum = 23
+    structure = (
+       ('GroupHandle',SAMPR_HANDLE),
+    )
+
+class SamrDeleteGroupResponse(NDRCall):
+    structure = (
+       ('GroupHandle',SAMPR_HANDLE),
        ('ErrorCode',NDRLONG),
     )
 
@@ -1623,7 +1704,7 @@ class SamrGetMembersInGroupResponse(NDRCall):
     )
 
 class SamrSetMemberAttributesOfGroup(NDRCall):
-    opnum = 25
+    opnum = 26
     structure = (
        ('GroupHandle',SAMPR_HANDLE),
        ('MemberId',NDRLONG),
@@ -1632,19 +1713,6 @@ class SamrSetMemberAttributesOfGroup(NDRCall):
 
 class SamrSetMemberAttributesOfGroupResponse(NDRCall):
     structure = (
-       ('Members',PSAMPR_GET_MEMBERS_BUFFER),
-       ('ErrorCode',NDRLONG),
-    )
-
-class SamrDeleteGroup(NDRCall):
-    opnum = 30
-    structure = (
-       ('GroupHandle',SAMPR_HANDLE),
-    )
-
-class SamrDeleteGroupResponse(NDRCall):
-    structure = (
-       ('GroupHandle',SAMPR_HANDLE),
        ('ErrorCode',NDRLONG),
     )
 
@@ -1672,6 +1740,19 @@ class SamrQueryInformationAlias(NDRCall):
 class SamrQueryInformationAliasResponse(NDRCall):
     structure = (
        ('Buffer',PSAMPR_ALIAS_INFO_BUFFER),
+       ('ErrorCode',NDRLONG),
+    )
+
+class SamrSetInformationAlias(NDRCall):
+    opnum = 29
+    structure = (
+       ('AliasHandle',SAMPR_HANDLE),
+       ('AliasInformationClass', ALIAS_INFORMATION_CLASS),
+       ('Buffer',SAMPR_ALIAS_INFO_BUFFER),
+    )
+
+class SamrSetInformationAliasResponse(NDRCall):
+    structure = (
        ('ErrorCode',NDRLONG),
     )
 
@@ -1759,6 +1840,40 @@ class SamrQueryInformationUser(NDRCall):
 class SamrQueryInformationUserResponse(NDRCall):
     structure = (
        ('Buffer',PSAMPR_USER_INFO_BUFFER),
+       ('ErrorCode',NDRLONG),
+    )
+
+class SamrSetInformationUser(NDRCall):
+    opnum = 37
+    structure = (
+       ('UserHandle',SAMPR_HANDLE),
+       ('UserInformationClass', USER_INFORMATION_CLASS ),
+       ('Buffer',SAMPR_USER_INFO_BUFFER),
+    )
+
+class SamrSetInformationUserResponse(NDRCall):
+    structure = (
+       ('ErrorCode',NDRLONG),
+    )
+
+class SamrChangePasswordUser(NDRCall):
+    opnum = 38
+    structure = (
+       ('UserHandle',SAMPR_HANDLE),
+       ('LmPresent', NDRSMALL ),
+       ('OldLmEncryptedWithNewLm',PENCRYPTED_LM_OWF_PASSWORD),
+       ('NewLmEncryptedWithOldLm',PENCRYPTED_LM_OWF_PASSWORD),
+       ('NtPresent',NDRSMALL),
+       ('OldNtEncryptedWithNewNt',PENCRYPTED_NT_OWF_PASSWORD),
+       ('NewNtEncryptedWithOldNt',PENCRYPTED_NT_OWF_PASSWORD),
+       ('NtCrossEncryptionPresent',NDRSMALL),
+       ('NewNtEncryptedWithNewLm',PENCRYPTED_NT_OWF_PASSWORD),
+       ('LmCrossEncryptionPresent',NDRSMALL),
+       ('NewLmEncryptedWithNewNt',PENCRYPTED_NT_OWF_PASSWORD),
+    )
+
+class SamrChangePasswordUserResponse(NDRCall):
+    structure = (
        ('ErrorCode',NDRLONG),
     )
 
@@ -1947,6 +2062,37 @@ class SamrRemoveMultipleMembersFromAliasResponse(NDRCall):
        ('ErrorCode',NDRLONG),
     )
 
+class SamrOemChangePasswordUser2(NDRCall):
+    opnum = 54
+    structure = (
+       ('ServerName', PRPC_STRING),
+       ('UserName', RPC_STRING),
+       ('NewPasswordEncryptedWithOldLm', PSAMPR_ENCRYPTED_USER_PASSWORD),
+       ('OldLmOwfPasswordEncryptedWithNewLm', PENCRYPTED_LM_OWF_PASSWORD),
+    )
+
+class SamrOemChangePasswordUser2Response(NDRCall):
+    structure = (
+       ('ErrorCode',NDRLONG),
+    )
+
+class SamrUnicodeChangePasswordUser2(NDRCall):
+    opnum = 55
+    structure = (
+       ('ServerName', PRPC_UNICODE_STRING),
+       ('UserName', RPC_UNICODE_STRING),
+       ('NewPasswordEncryptedWithOldNt',PSAMPR_ENCRYPTED_USER_PASSWORD),
+       ('OldNtOwfPasswordEncryptedWithNewNt',PENCRYPTED_NT_OWF_PASSWORD),
+       ('LmPresent',NDRSMALL),
+       ('NewPasswordEncryptedWithOldLm',PSAMPR_ENCRYPTED_USER_PASSWORD),
+       ('OldLmOwfPasswordEncryptedWithNewNt',PENCRYPTED_LM_OWF_PASSWORD),
+    )
+
+class SamrUnicodeChangePasswordUser2Response(NDRCall):
+    structure = (
+       ('ErrorCode',NDRLONG),
+    )
+
 class SamrGetDomainPasswordInformation(NDRCall):
     opnum = 56
     structure = (
@@ -1970,6 +2116,19 @@ class SamrConnect2(NDRCall):
 class SamrConnect2Response(NDRCall):
     structure = (
        ('ServerHandle',SAMPR_HANDLE),
+       ('ErrorCode',NDRLONG),
+    )
+
+class SamrSetInformationUser2(NDRCall):
+    opnum = 58
+    structure = (
+       ('UserHandle',SAMPR_HANDLE),
+       ('UserInformationClass', USER_INFORMATION_CLASS),
+       ('Buffer', SAMPR_USER_INFO_BUFFER),
+    )
+
+class SamrSetInformationUser2Response(NDRCall):
+    structure = (
        ('ErrorCode',NDRLONG),
     )
 
