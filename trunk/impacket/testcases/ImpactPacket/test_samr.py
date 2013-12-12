@@ -66,10 +66,11 @@
 
 import sys
 import unittest
+import ConfigParser
 from struct import pack, unpack
 
 from impacket.dcerpc.v5 import transport
-from impacket.dcerpc.v5 import samr
+from impacket.dcerpc.v5 import samr, epm
 from impacket.winregistry import hexdump
 from impacket.dcerpc.v5 import dtypes
 from impacket import nt_errors, ntlm
@@ -78,7 +79,7 @@ from impacket.dcerpc.v5.ndr import NULL
 class SAMRTests(unittest.TestCase):
     def connect(self):
         rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
-        rpctransport.set_dport(self.dport)
+        #rpctransport.set_dport(self.dport)
         if len(self.hashes) > 0:
             lmhash, nthash = self.hashes.split(':')
         else:
@@ -90,6 +91,7 @@ class SAMRTests(unittest.TestCase):
         dce = rpctransport.get_dce_rpc()
         dce.connect()
         #dce.set_auth_level(ntlm.NTLM_AUTH_PKT_PRIVACY)
+        dce.set_auth_level(ntlm.NTLM_AUTH_PKT_INTEGRITY)
         dce.bind(samr.MSRPC_UUID_SAMR)
         request = samr.SamrConnect()
         request['ServerName'] = u'BETO\x00'
@@ -1793,7 +1795,7 @@ class SAMRTests(unittest.TestCase):
         kk.fromString(str(request))
         try:
             resp = dce.request(request)
-            resp.dump()
+            #resp.dump()
         except Exception, e:
             if str(e).find('rpc_s_access_denied') < 0:
                 raise
@@ -1978,15 +1980,29 @@ class SAMRTests(unittest.TestCase):
 class SMBTransport(SAMRTests):
     def setUp(self):
         SAMRTests.setUp(self)
-        # Put specific configuration for target machine with SMB1
-        self.username = 'test'
-        self.domain   = ''
-        self.serverName = ''
-        self.password = 'test'
-        self.machine  = '172.16.123.228'
-        self.stringBinding = r'ncacn_np:%s[\pipe\samr]' % self.machine
-        self.dport = 445
-        self.hashes   = ''
+        configFile = ConfigParser.ConfigParser()
+        configFile.read('dcetests.cfg')
+        self.username = configFile.get('SMBTransport', 'username')
+        self.domain   = configFile.get('SMBTransport', 'domain')
+        self.serverName = configFile.get('SMBTransport', 'servername')
+        self.password = configFile.get('SMBTransport', 'password')
+        self.machine  = configFile.get('SMBTransport', 'machine')
+        self.hashes   = configFile.get('SMBTransport', 'hashes')
+        self.stringBinding = epm.hept_map(self.machine, samr.MSRPC_UUID_SAMR, protocol = 'ncacn_np')
+
+class TCPTransport(SAMRTests):
+    def setUp(self):
+        SAMRTests.setUp(self)
+        configFile = ConfigParser.ConfigParser()
+        configFile.read('dcetests.cfg')
+        self.username = configFile.get('TCPTransport', 'username')
+        self.domain   = configFile.get('TCPTransport', 'domain')
+        self.serverName = configFile.get('TCPTransport', 'servername')
+        self.password = configFile.get('TCPTransport', 'password')
+        self.machine  = configFile.get('TCPTransport', 'machine')
+        self.hashes   = configFile.get('TCPTransport', 'hashes')
+        #print epm.hept_map(self.machine, samr.MSRPC_UUID_SAMR, protocol = 'ncacn_ip_tcp')
+        self.stringBinding = epm.hept_map(self.machine, samr.MSRPC_UUID_SAMR, protocol = 'ncacn_ip_tcp')
 
 
 # Process command-line arguments.
@@ -1997,5 +2013,5 @@ if __name__ == '__main__':
         suite = unittest.TestLoader().loadTestsFromTestCase(globals()[testcase])
     else:
         suite = unittest.TestLoader().loadTestsFromTestCase(SMBTransport)
-        #suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMBTransport))
+        #suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport))
     unittest.TextTestRunner(verbosity=1).run(suite)

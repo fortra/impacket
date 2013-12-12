@@ -8,6 +8,7 @@
 
 import sys
 import unittest
+import ConfigParser
 from struct import pack, unpack
 
 from impacket.dcerpc.v5 import transport
@@ -20,7 +21,6 @@ from impacket import system_errors
 class EPMTests(unittest.TestCase):
     def connect(self):
         rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
-        rpctransport.set_dport(self.dport)
         if len(self.hashes) > 0:
             lmhash, nthash = self.hashes.split(':')
         else:
@@ -69,8 +69,6 @@ class EPMTests(unittest.TestCase):
         MSRPC_UUID_SCMR = uuidtup_to_bin(('367ABB81-9844-35F1-AD32-98F038001003', '2.0'))
         resp = epm.hept_lookup(self.machine, inquiry_type = epm.RPC_C_EP_MATCH_BY_IF, ifId = MSRPC_UUID_SCMR)
 
-
-
     def test_map(self):
         dce, rpctransport = self.connect()
         tower2 = '\x04\x00\x13\x00\r\xac\xbe\x00\xc1:\xd3KJ\xbf#\xbb\xefFc\xd0\x17\x01\x00\x02\x00\x00\x00\x13\x00\r\x04]\x88\x8a\xeb\x1c\xc9\x11\x9f\xe8\x08\x00+\x10H`\x02\x00\x02\x00\x00\x00\x01\x00\x0c\x02\x00\x00\x00\x01\x00\x10\x18\x00LRPC-26b184043749be8892\x00'
@@ -115,16 +113,28 @@ class EPMTests(unittest.TestCase):
 class SMBTransport(EPMTests):
     def setUp(self):
         EPMTests.setUp(self)
-        # Put specific configuration for target machine with SMB1
-        self.username = 'test'
-        self.domain   = ''
-        self.serverName = ''
-        self.password = 'test'
-        self.machine  = '172.16.123.210'
+        configFile = ConfigParser.ConfigParser()
+        configFile.read('dcetests.cfg')
+        self.username = configFile.get('SMBTransport', 'username')
+        self.domain   = configFile.get('SMBTransport', 'domain')
+        self.serverName = configFile.get('SMBTransport', 'servername')
+        self.password = configFile.get('SMBTransport', 'password')
+        self.machine  = configFile.get('SMBTransport', 'machine')
+        self.hashes   = configFile.get('SMBTransport', 'hashes')
         self.stringBinding = r'ncacn_np:%s[\pipe\epmapper]' % self.machine
-        self.dport = 445
-        self.hashes   = ''
 
+class TCPTransport(EPMTests):
+    def setUp(self):
+        EPMTests.setUp(self)
+        configFile = ConfigParser.ConfigParser()
+        configFile.read('dcetests.cfg')
+        self.username = configFile.get('TCPTransport', 'username')
+        self.domain   = configFile.get('TCPTransport', 'domain')
+        self.serverName = configFile.get('TCPTransport', 'servername')
+        self.password = configFile.get('TCPTransport', 'password')
+        self.machine  = configFile.get('TCPTransport', 'machine')
+        self.hashes   = configFile.get('TCPTransport', 'hashes')
+        self.stringBinding = r'ncacn_ip_tcp:%s[135]' % self.machine
 
 # Process command-line arguments.
 if __name__ == '__main__':
@@ -134,5 +144,5 @@ if __name__ == '__main__':
         suite = unittest.TestLoader().loadTestsFromTestCase(globals()[testcase])
     else:
         suite = unittest.TestLoader().loadTestsFromTestCase(SMBTransport)
-        #suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMBTransport))
+        suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport))
     unittest.TextTestRunner(verbosity=1).run(suite)
