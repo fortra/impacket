@@ -303,7 +303,8 @@ class NDR(object):
             try:
                 self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
                 if isinstance(self.fields[fieldName], NDR):
-                    size = len(self.fields[fieldName])
+                    #size = len(self.fields[fieldName])
+                    size = len(self.fields[fieldName].getData(soFar))
 
                 data = data[size:]
                 soFar += size
@@ -338,13 +339,14 @@ class NDR(object):
                 soFar += pad
                 data = data[pad:]
             try:
-                self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size])
+                #self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
+                self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size], len(self.rawData) - len(data))
             except Exception,e:
                 e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data, size),)
                 raise
 
             if isinstance(self.fields[fieldName], NDR):
-                size = len(self.fields[fieldName]) + len(self.fields[fieldName].getDataReferents())
+                size = len(self.fields[fieldName].getData(soFar)) + len(self.fields[fieldName].getDataReferents(len(self.rawData) - len(data)))
 
             data = data[size:]
             soFar += size
@@ -352,7 +354,7 @@ class NDR(object):
 
     def pack(self, fieldName, fieldTypeOrClass, soFar = 0):
         if self.debug:
-            print "  pack( %s | %s )" %  (fieldName, fieldTypeOrClass)
+            print "  pack( %s | %s | %d )" %  (fieldName, fieldTypeOrClass, soFar)
 
         if isinstance(self.fields[fieldName], NDR):
             return self.fields[fieldName].getData(soFar)
@@ -456,9 +458,9 @@ class NDR(object):
                     answer.append(unpack(item, data[soFarItems:nsofar])[0])
                 else:
                     itemn = dataClassOrCode(data[soFarItems:])
-                    itemn.rawData = data[soFarItems+len(itemn):] 
+                    itemn.rawData = data[soFarItems+len(itemn.getData(soFarItems)):] 
                     answer.append(itemn)
-                    nsofar += len(itemn) + pad
+                    nsofar += len(itemn.getData(soFarItems)) + pad
                 numItems -= 1
                 soFarItems = nsofar
 
@@ -475,7 +477,8 @@ class NDR(object):
                     pad = self.calculatePad('_tmpItem', self.item, data, soFarItems+soFar, packing = False)
                     if pad > 0:
                         data = data[pad:]
-                    itemn.fromStringReferents(data)
+                    itemn.fromStringReferents(data,soFarItems+soFar)
+                    #itemn.fromStringReferents(data)
                     # ToDo, still to work out this
                     itemn.fromStringReferent(data, soFar + soFarItems)
                     soFarItems = len(itemn.getDataReferents(len(data)+soFar))
@@ -586,6 +589,8 @@ class NDRCall(NDR):
             if self.isNDR(fieldTypeOrClass):
                if self.isPointer(fieldTypeOrClass):
                    self.fields[fieldName] = fieldTypeOrClass(isNDR64 = self._isNDR64, topLevel = True)
+               elif self.isUnion(fieldTypeOrClass):
+                   self.fields[fieldName] = fieldTypeOrClass(isNDR64 = self._isNDR64, topLevel = True)
                else:
                    self.fields[fieldName] = fieldTypeOrClass(isNDR64 = self._isNDR64)
             elif fieldTypeOrClass == ':':
@@ -611,6 +616,19 @@ class NDRCall(NDR):
         if inspect.isclass(field):
             myClass = field
             if issubclass(myClass, NDRPointer):
+                if self.debug:
+                    print "True"
+                return True
+        if self.debug:
+            print 'False'
+        return False
+
+    def isUnion(self, field):
+        if self.debug:
+            print "isUnion %r" % field, type(field),
+        if inspect.isclass(field):
+            myClass = field
+            if issubclass(myClass, NDRUnion):
                 if self.debug:
                     print "True"
                 return True
@@ -668,11 +686,12 @@ class NDRCall(NDR):
             try:
                 self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
                 if isinstance(self.fields[fieldName], NDR):
-                    size = len(self.fields[fieldName])
+                    size = len(self.fields[fieldName].getData(soFar))
                     # Any referent information to unpack?
                     if isinstance(self.fields[fieldName], NDR):
                         res = self.fields[fieldName].fromStringReferents(data[size:], soFar+size)
-                        self.fields[fieldName].fromStringReferent(data[size:])
+                        self.fields[fieldName].fromStringReferent(data[size:], soFar + size + len(res))
+                        #self.fields[fieldName].fromStringReferent(data[size:])
                     size+= len(data[size:]) - len(res)
 
                 data = data[size:]
@@ -869,7 +888,8 @@ class NDRVaryingString(NDRUniVaryingArray):
         return NDRUniVaryingArray.getData(self, soFar)
 
     def fromString(self, data, soFar = 0):
-        ret = NDRUniVaryingArray.fromString(self,data, soFar = 0)
+        #ret = NDRUniVaryingArray.fromString(self,data, soFar = 0)
+        ret = NDRUniVaryingArray.fromString(self,data)
         # Let's take out the last item
         self["Data"] = self["Data"][:-1] 
         return ret
@@ -899,10 +919,72 @@ class NDRUnion(NDR):
         #1: ('pStatusChangeParam1', PSERVICE_NOTIFY_STATUS_CHANGE_PARAMS_1),
         #2: ('pStatusChangeParams', PSERVICE_NOTIFY_STATUS_CHANGE_PARAMS_2),
     }
-    def __init__(self, data = None, isNDR64=False):
-        ret = NDR.__init__(self,None, isNDR64=isNDR64)
+    def __init__(self, data = None, isNDR64=False, topLevel = False):
+        #ret = NDR.__init__(self,None, isNDR64=isNDR64, topLevel=topLevel)
+        self.topLevel = topLevel
+        self._isNDR64 = isNDR64
+        self.fields = {}
+        self.data = None
+        self.rawData = None
+
+        if isNDR64 is True:
+            if self.commonHdr64 != ():
+                self.commonHdr = self.commonHdr64
+            if self.structure64 != ():
+                self.structure = self.structure64
+            if hasattr(self, 'align64'):
+                self.align = self.align64
+
+        for fieldName, fieldTypeOrClass in self.commonHdr+self.structure+self.referent:
+            if self.isNDR(fieldTypeOrClass):
+               if self.isPointer(fieldTypeOrClass):
+                   self.fields[fieldName] = fieldTypeOrClass(isNDR64 = self._isNDR64, topLevel = True)
+               elif self.isUnion(fieldTypeOrClass):
+                   self.fields[fieldName] = fieldTypeOrClass(isNDR64 = self._isNDR64, topLevel = True)
+               else:
+                   self.fields[fieldName] = fieldTypeOrClass(isNDR64 = self._isNDR64)
+            elif fieldTypeOrClass == ':':
+               self.fields[fieldName] = None
+            elif len(fieldTypeOrClass.split('=')) == 2: 
+               try:
+                   self.fields[fieldName] = eval(fieldTypeOrClass.split('=')[1])
+               except:
+                   self.fields[fieldName] = None
+            else:
+               self.fields[fieldName] = 0
+
         if data is not None:
-            self.fromString(self, data)
+            self.fromString(data)
+        else:
+            self.data = None
+
+        return None
+
+    def isPointer(self, field):
+        if self.debug:
+            print "isPointer %r" % field, type(field),
+        if inspect.isclass(field):
+            myClass = field
+            if issubclass(myClass, NDRPointer):
+                if self.debug:
+                    print "True"
+                return True
+        if self.debug:
+            print 'False'
+        return False
+
+    def isUnion(self, field):
+        if self.debug:
+            print "isUnion %r" % field, type(field),
+        if inspect.isclass(field):
+            myClass = field
+            if issubclass(myClass, NDRUnion):
+                if self.debug:
+                    print "True"
+                return True
+        if self.debug:
+            print 'False'
+        return False
 
     def __setitem__(self, key, value):
         if key == 'tag':
@@ -911,7 +993,8 @@ class NDRUnion(NDR):
             if self.union.has_key(value):
                 self.structure = (self.union[value]),
                 # Init again the structure
-                NDR.__init__(self, None, isNDR64=self._isNDR64)
+                #NDR.__init__(self, None, isNDR64=self._isNDR64)
+                self.__init__(None, isNDR64=self._isNDR64, topLevel = self.topLevel)
                 self.fields['tag']['Data'] = value
                 #self.fields['SwitchValue']['Data'] = value
             else:
@@ -927,7 +1010,8 @@ class NDRUnion(NDR):
             tag = unpack(tagtype, data[:calcsize(tagtype)])[0]
             if self.union.has_key(tag):
                 self.structure = (self.union[tag]),
-                NDR.__init__(self, None, isNDR64=self._isNDR64)
+                self.__init__(None, isNDR64=self._isNDR64, topLevel = self.topLevel)
+                #NDR.__init__(self, None, isNDR64=self._isNDR64)
                 return NDR.fromString(self, data, soFar)
             else:
                 raise Exception("Unknown tag %d for union!" % tag)
