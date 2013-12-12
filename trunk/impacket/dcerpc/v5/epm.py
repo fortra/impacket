@@ -978,7 +978,7 @@ def hept_map(destHost, remoteIf, dataRepresentation = uuidtup_to_bin(('8a885d04-
     elif protocol == 'ncacn_ip_tcp':
         # Port Number should be the 4th floor
         portAddr = EPMPortAddr(tower['Floors'][3].getData())
-        result = 'ncanc_ip_tcp:%s[%s]' % (destHost, portAddr['IpPort'])
+        result = 'ncacn_ip_tcp:%s[%s]' % (destHost, portAddr['IpPort'])
         
     dce.disconnect()
     return result
