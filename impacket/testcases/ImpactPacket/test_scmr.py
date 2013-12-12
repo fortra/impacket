@@ -40,15 +40,16 @@
 
 import sys
 import unittest
+import ConfigParser
 from struct import pack, unpack
 
 from impacket.dcerpc.v5 import transport
-from impacket.dcerpc.v5 import scmr
+from impacket.dcerpc.v5 import scmr, epm
 from impacket.dcerpc.v5.ndr import NULL
 from impacket.crypto import encryptSecret
 from impacket.winregistry import hexdump
 from impacket.uuid import string_to_bin
-from impacket import system_errors
+from impacket import system_errors, ntlm
 
 class SCMRTests(unittest.TestCase):
     def changeServiceAndQuery(self, dce, cbBufSize, hService, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName):
@@ -122,7 +123,6 @@ class SCMRTests(unittest.TestCase):
  
     def connect(self):
         rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
-        rpctransport.set_dport(self.dport)
         if len(self.hashes) > 0:
             lmhash, nthash = self.hashes.split(':')
         else:
@@ -132,7 +132,10 @@ class SCMRTests(unittest.TestCase):
             # This method exists only for selected protocol sequences.
             rpctransport.set_credentials(self.username,self.password, self.domain, lmhash, nthash)
         dce = rpctransport.get_dce_rpc()
+        dce.set_max_fragment_size(32)
         dce.connect()
+        if self.__class__.__name__ == 'TCPTransport':
+            dce.set_auth_level(ntlm.NTLM_AUTH_PKT_PRIVACY)
         dce.bind(scmr.MSRPC_UUID_SCMR)
         #rpc = scmr.DCERPCSvcCtl(dce)
         lpMachineName = 'DUMMY\x00'
@@ -530,18 +533,19 @@ class SCMRTests(unittest.TestCase):
         self.changeServiceAndQuery(dce, cbBufSize, newHandle, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName) 
         lpServiceStartName = NULL
 
-        lpPassword = 'mypwd\x00'.encode('utf-16le')
-        s = rpctransport.get_smb_connection()
-        key = s.getSessionKey()
-        lpPassword = encryptSecret(key, lpPassword)
-        dwPwSize = len(lpPassword)
-        self.changeServiceAndQuery(dce, cbBufSize, newHandle, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName) 
-        lpPassword = NULL
-        dwPwSize = 0
+        if self.__class__.__name__ == 'SMBTransport':
+            lpPassword = 'mypwd\x00'.encode('utf-16le')
+            s = rpctransport.get_smb_connection()
+            key = s.getSessionKey()
+            lpPassword = encryptSecret(key, lpPassword)
+            dwPwSize = len(lpPassword)
+            self.changeServiceAndQuery(dce, cbBufSize, newHandle, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName) 
+            lpPassword = NULL
+            dwPwSize = 0
 
-        lpDisplayName = 'MANOLO\x00'
-        self.changeServiceAndQuery(dce, cbBufSize, newHandle, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName) 
-        lpDisplayName = NULL
+            lpDisplayName = 'MANOLO\x00'
+            self.changeServiceAndQuery(dce, cbBufSize, newHandle, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName) 
+            lpDisplayName = NULL
 
         resp = scmr.hRDeleteService(dce, newHandle)
         resp = scmr.hRCloseServiceHandle(dce, newHandle)
@@ -647,16 +651,29 @@ class SCMRTests(unittest.TestCase):
 class SMBTransport(SCMRTests):
     def setUp(self):
         SCMRTests.setUp(self)
-        # Put specific configuration for target machine with SMB1
-        self.username = 'test'
-        self.domain   = ''
-        self.serverName = ''
-        self.password = 'test'
-        self.machine  = '172.16.123.222'
+        configFile = ConfigParser.ConfigParser()
+        configFile.read('dcetests.cfg')
+        self.username = configFile.get('SMBTransport', 'username')
+        self.domain   = configFile.get('SMBTransport', 'domain')
+        self.serverName = configFile.get('SMBTransport', 'servername')
+        self.password = configFile.get('SMBTransport', 'password')
+        self.machine  = configFile.get('SMBTransport', 'machine')
+        self.hashes   = configFile.get('SMBTransport', 'hashes')
         self.stringBinding = r'ncacn_np:%s[\pipe\svcctl]' % self.machine
-        self.dport = 445
-        self.hashes   = ''
 
+class TCPTransport(SCMRTests):
+    def setUp(self):
+        SCMRTests.setUp(self)
+        configFile = ConfigParser.ConfigParser()
+        configFile.read('dcetests.cfg')
+        self.username = configFile.get('TCPTransport', 'username')
+        self.domain   = configFile.get('TCPTransport', 'domain')
+        self.serverName = configFile.get('TCPTransport', 'servername')
+        self.password = configFile.get('TCPTransport', 'password')
+        self.machine  = configFile.get('TCPTransport', 'machine')
+        self.hashes   = configFile.get('TCPTransport', 'hashes')
+        #print epm.hept_map(self.machine, samr.MSRPC_UUID_SAMR, protocol = 'ncacn_ip_tcp')
+        self.stringBinding = epm.hept_map(self.machine, scmr.MSRPC_UUID_SCMR, protocol = 'ncacn_ip_tcp')
 
 # Process command-line arguments.
 if __name__ == '__main__':
@@ -666,5 +683,6 @@ if __name__ == '__main__':
         suite = unittest.TestLoader().loadTestsFromTestCase(globals()[testcase])
     else:
         suite = unittest.TestLoader().loadTestsFromTestCase(SMBTransport)
-        #suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMBTransport))
+        #suite = unittest.TestLoader().loadTestsFromTestCase(TCPTransport)
+        suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport))
     unittest.TextTestRunner(verbosity=1).run(suite)
