@@ -22,10 +22,13 @@ from impacket.dcerpc.v5.dtypes import *
 MSRPC_UUID_SCMR = uuidtup_to_bin(('367ABB81-9844-35F1-AD32-98F038001003', '2.0'))
 
 class DCERPCSessionError(Exception):
-    def __init__( self, packet):
+    def __init__( self, packet = None, error_code = None):
         Exception.__init__(self)
         self.packet = packet
-        self.error_code = packet['ErrorCode']
+        if packet is not None:
+            self.error_code = packet['ErrorCode']
+        else:
+            self.error_code = error_code
        
     def get_error_code( self ):
         return self.error_code
