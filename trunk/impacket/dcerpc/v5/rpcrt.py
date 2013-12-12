@@ -808,9 +808,15 @@ class DCERPC:
                 # This is an error we can handle
                 exception = DCERPCException(error_code)
             else:    
-                response =  eval(respClass)(answer)
                 sessionErrorClass = request.__module__ + '.DCERPCSessionError'
-                exception = eval(sessionErrorClass)(response)
+                try: 
+                    # Try to unpack the answer, even if it is an error, it works most of the times
+                    response =  eval(respClass)(answer)
+                except:
+                    # No luck :(
+                    exception = eval(sessionErrorClass)(error_code = error_code)
+                else:
+                    exception = eval(sessionErrorClass)(response)
             raise exception
         else:
             response =  eval(respClass)(answer)
