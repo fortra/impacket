@@ -19,6 +19,12 @@ ULONGLONG = ndr.NDRHYPER
 BOOL = ndr.NDRLONG
 UCHAR = ndr.NDRSMALL
 USHORT = ndr.NDRSHORT
+ULONG = ndr.NDRLONG
+
+class LPLONG(ndr.NDRPointer):
+    referent = (
+        ('Data', ndr.NDRLONG),
+    )
 
 class GUID(ndr.NDR):
     structure = (
