@@ -878,7 +878,7 @@ class DCERPC_v5(DCERPC):
                 self.__nthash = nthash
                 pass
 
-    def bind(self, uuid, alter = 0, bogus_binds = 0):
+    def bind(self, uuid, alter = 0, bogus_binds = 0, transfer_syntax = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')):
         bind = MSRPCBind()
         # Standard NDR Representation
         NDRSyntax   = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
@@ -893,7 +893,7 @@ class DCERPC_v5(DCERPC):
             item['ContextID'] = ctx
             # We generate random UUIDs for bogus binds
             item['AbstractSyntax'] = generate() + stringver_to_bin('2.0')
-            item['TransferSyntax'] = uuidtup_to_bin(NDRSyntax)
+            item['TransferSyntax'] = uuidtup_to_bin(transfer_syntax)
             bind.addCtxItem(item)
             self._ctx += 1
             ctx += 1
@@ -901,7 +901,7 @@ class DCERPC_v5(DCERPC):
         # The true one :)
         item = CtxItem()
         item['AbstractSyntax'] = uuid
-        item['TransferSyntax'] = uuidtup_to_bin(NDRSyntax)
+        item['TransferSyntax'] = uuidtup_to_bin(transfer_syntax)
         item['ContextID'] = ctx
         item['TransItems'] = 1
         bind.addCtxItem(item)
@@ -964,11 +964,11 @@ class DCERPC_v5(DCERPC):
             ctxItems = bindResp.getCtxItem(ctx)
             if ctxItems['Result'] != 0:
                 msg = "Bind context %d rejected: " % ctx
-                msg += rpc_cont_def_result.get(result, 'Unknown DCE RPC context result code: %.4x' % result)
+                msg += rpc_cont_def_result.get(ctxItems['Result'], 'Unknown DCE RPC context result code: %.4x' % ctxItems['Result'])
                 msg += "; "
                 reason = bindResp.getCtxItem(ctx)['Reason']
                 msg += rpc_provider_reason.get(reason, 'Unknown reason code: %.4x' % reason)
-                if (result, reason) == (2, 1): # provider_rejection, abstract syntax not supported
+                if (ctxItems['Result'], reason) == (2, 1): # provider_rejection, abstract syntax not supported
                     msg += " (this usually means the interface isn't listening on the given endpoint)"
                 raise Exception(msg, ctxItems)
 
