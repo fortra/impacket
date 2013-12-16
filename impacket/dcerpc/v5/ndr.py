@@ -476,6 +476,7 @@ class NDR(object):
                 for itemn in answer:
                     pad = self.calculatePad('_tmpItem', self.item, data, soFarItems+soFar, packing = False)
                     if pad > 0:
+                        soFarItems += pad
                         data = data[pad:]
                     itemn.fromStringReferents(data,soFarItems+soFar)
                     #itemn.fromStringReferents(data)
