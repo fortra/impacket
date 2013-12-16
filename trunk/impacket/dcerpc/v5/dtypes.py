@@ -26,19 +26,6 @@ class LPLONG(ndr.NDRPointer):
         ('Data', ndr.NDRLONG),
     )
 
-class GUID(ndr.NDR):
-    structure = (
-        ('Data','16s=""'),
-    )
-
-class PGUID(ndr.NDRPointer):
-    referent = (
-        ('Data', GUID),
-    )
-
-UUID = GUID
-PUUID = PGUID
-
 class PBOOL(ndr.NDRPointer):
     referent = (
         ('Data', BOOL),
@@ -153,6 +140,29 @@ class LPWSTR(ndr.NDRPointer):
     referent = (
         ('Data', WSTR),
     )
+
+# 2.2.26 LMSTR
+LMSTR = LPWSTR
+
+# 2.2.36 NET_API_STATUS
+NET_API_STATUS = DWORD
+
+# 2.3.2 GUID and UUID
+class GUID(ndr.NDR):
+    structure = (
+        ('Data','16s=""'),
+    )
+
+class PGUID(ndr.NDRPointer):
+    referent = (
+        ('Data', GUID),
+    )
+
+UUID = GUID
+PUUID = PGUID
+
+# 2.2.59 WCHAR
+WCHAR = WSTR
 
 # 2.3.3 LARGE_INTEGER
 LARGE_INTEGER = ndr.NDRHYPER
