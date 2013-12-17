@@ -13,7 +13,7 @@
 #
 
 from impacket.dcerpc.v5 import ndr
-from impacket.dcerpc.v5.ndr import NDRCall, NDR, NDRENUM, NDRUnion, NDRLONG, NDRPointer, NDRUniConformantArray, NDRUniFixedArray, NDRBOOLEAN
+from impacket.dcerpc.v5.ndr import NDRCall, NDR, NDRENUM, NDRUnion, NDRLONG, NDRPointer, NDRUniConformantArray, NDRUniFixedArray, NDRBOOLEAN, NDRUniConformantVaryingArray, NDRUniVaryingArray, PNDRUniConformantArray
 from impacket.dcerpc.v5.dtypes import *
 from impacket import system_errors
 from impacket.uuid import uuidtup_to_bin
@@ -315,6 +315,22 @@ SVTI2_SCOPED_NAME      = 0x00000004
 # SiteFlags
 DFS_SITE_PRIMARY = 0x00000001
 
+# 3.1.4.42 NetrDfsFixLocalVolume (Opnum 51)
+# ServiceType
+DFS_SERVICE_TYPE_MASTER     = 0x00000001
+DFS_SERVICE_TYPE_READONLY   = 0x00000002
+DFS_SERVICE_TYPE_LOCAL      = 0x00000004
+DFS_SERVICE_TYPE_REFERRAL   = 0x00000008
+DFS_SERVICE_TYPE_ACTIVE     = 0x000000010
+DFS_SERVICE_TYPE_DOWN_LEVEL = 0x000000020
+DFS_SERVICE_TYPE_COSTLIER   = 0x000000040
+DFS_SERVICE_TYPE_OFFLINE    = 0x000000080
+
+# CreateDisposition
+FILE_SUPERSEDE = 0x00000000
+FILE_OPEN      = 0x00000001
+FILE_CREATE    = 0x00000002
+
 ################################################################################
 # STRUCTURES
 ################################################################################
@@ -505,6 +521,7 @@ class SESSION_INFO_1(NDR):
         ('sesi1_cname', LPWSTR),
         ('sesi1_username', LPWSTR),
         ('sesi1_num_opens', DWORD),
+        ('sesi1_time', DWORD),
         ('sesi1_idle_time', DWORD),
         ('sesi1_user_flags', DWORD),
     )
@@ -1014,6 +1031,11 @@ class STAT_SERVER_0(NDR):
         ('sts0_avresponse', DWORD),
         ('sts0_reqbufneed', DWORD),
         ('sts0_bigbufneed', DWORD),
+    )
+
+class LPSTAT_SERVER_0(NDRPointer):
+    referent = (
+        ('Data', STAT_SERVER_0),
     )
 
 # 2.2.4.40 SERVER_INFO_100
@@ -1722,9 +1744,51 @@ class LPSERVER_INFO_1556(NDRPointer):
     )
 
 # 2.2.4.91 DISK_INFO
+class WCHAR_ARRAY(NDR):
+    align = 4
+    align64 = 8
+
+    commonHdr = (
+        ('Offset','<L=0'),
+        ('ActualCount','<L=len(Data)/2'),
+    )
+    commonHdr64 = (
+        ('Offset','<Q=0'),
+        ('ActualCount','<Q=len(Data)/2'),
+    )
+    structure = (
+        ('Data',':'),
+    )
+
+    def dump(self, msg = None, indent = 0):
+        if msg is None: msg = self.__class__.__name__
+        ind = ' '*indent
+        if msg != '':
+            print "%s" % (msg),
+        # Here just print the data
+        print " %r" % (self['Data']),
+
+    def __setitem__(self, key, value):
+        if key == 'Data':
+            self.fields[key] = value.encode('utf-16le')
+            self.fields['ActualCount'] = None
+            self.data = None        # force recompute
+        else:
+            return NDR.__setitem__(self, key, value)
+
+    def __getitem__(self, key):
+        if key == 'Data':
+            return self.fields[key].decode('utf-16le')
+        else:
+            return NDR.__getitem__(self,key)
+
+    def getDataLen(self, data):
+        return self["ActualCount"]*2 
+
+
 class DISK_INFO(NDR):
     structure = (
-        ('Disk', WSTR),
+        ('Disk', WCHAR_ARRAY),
     )
 
 class LPDISK_INFO(NDRPointer):
@@ -1732,7 +1796,7 @@ class LPDISK_INFO(NDRPointer):
         ('Data', DISK_INFO),
     )
 
-class DISK_INFO_ARRAY(NDRUniConformantArray):
+class DISK_INFO_ARRAY(NDRUniConformantVaryingArray):
     item = DISK_INFO
 
 class LPDISK_INFO_ARRAY(NDRPointer):
@@ -1757,7 +1821,7 @@ class SERVER_TRANSPORT_INFO_0(NDR):
     structure = (
         ('svti0_numberofvcs', DWORD),
         ('svti0_transportname', LPWSTR),
-        ('svti0_transportaddress', NDRUniConformantArray),
+        ('svti0_transportaddress', PNDRUniConformantArray),
         ('svti0_transportaddresslength', DWORD),
         ('svti0_networkaddress', LPWSTR),
     )
@@ -1780,7 +1844,7 @@ class SERVER_TRANSPORT_INFO_1(NDR):
     structure = (
         ('svti1_numberofvcs', DWORD),
         ('svti1_transportname', LPWSTR),
-        ('svti1_transportaddress', NDRUniConformantArray),
+        ('svti1_transportaddress', PNDRUniConformantArray),
         ('svti1_transportaddresslength', DWORD),
         ('svti1_networkaddress', LPWSTR),
         ('svti1_domain', LPWSTR),
@@ -1804,7 +1868,7 @@ class SERVER_TRANSPORT_INFO_2(NDR):
     structure = (
         ('svti2_numberofvcs', DWORD),
         ('svti2_transportname', LPWSTR),
-        ('svti2_transportaddress', NDRUniConformantArray),
+        ('svti2_transportaddress', PNDRUniConformantArray),
         ('svti2_transportaddresslength', DWORD),
         ('svti2_networkaddress', LPWSTR),
         ('svti2_domain', LPWSTR),
@@ -1833,7 +1897,7 @@ class SERVER_TRANSPORT_INFO_3(NDR):
     structure = (
         ('svti3_numberofvcs', DWORD),
         ('svti3_transportname', LPWSTR),
-        ('svti3_transportaddress', NDRUniConformantArray),
+        ('svti3_transportaddress', PNDRUniConformantArray),
         ('svti3_transportaddresslength', DWORD),
         ('svti3_networkaddress', LPWSTR),
         ('svti3_domain', LPWSTR),
@@ -1992,11 +2056,21 @@ class TIME_OF_DAY_INFO(NDR):
         ('tod_weekday', DWORD),
     )
 
+class LPTIME_OF_DAY_INFO(NDRPointer):
+    referent = (
+        ('Data', TIME_OF_DAY_INFO),
+    )
+
 # 2.2.4.106 ADT_SECURITY_DESCRIPTOR
 class ADT_SECURITY_DESCRIPTOR(NDR):
     structure = (
         ('Length', DWORD),
-        ('Buffer', NDRUniConformantArray),
+        ('Buffer', PNDRUniConformantArray),
+    )
+
+class PADT_SECURITY_DESCRIPTOR(NDRPointer):
+    referent = (
+        ('Data', ADT_SECURITY_DESCRIPTOR),
     )
 
 # 2.2.4.107 NET_DFS_ENTRY_ID
@@ -2017,7 +2091,7 @@ class LPNET_DFS_ENTRY_ID_ARRAY(NDRPointer):
 # 2.2.4.108 NET_DFS_ENTRY_ID_CONTAINER
 class NET_DFS_ENTRY_ID_CONTAINER(NDR):
     structure = (
-        ('Count', GUID),
+        ('Count', DWORD),
         ('Buffer', LPNET_DFS_ENTRY_ID_ARRAY),
     )
 
@@ -2036,6 +2110,11 @@ class DFS_SITELIST_INFO(NDR):
     structure = (
         ('cSites', DWORD),
         ('Site', DFS_SITENAME_INFO_ARRAY),
+    )
+
+class LPDFS_SITELIST_INFO(NDRPointer):
+    referent = (
+        ('Data', DFS_SITELIST_INFO),
     )
 
 # 2.2.3 Unions
@@ -2329,6 +2408,23 @@ class NetrShareGetInfoResponse(NDRCall):
        ('ErrorCode',NDRLONG),
     )
 
+# 3.1.4.11 NetrShareSetInfo (Opnum 17)
+class NetrShareSetInfo(NDRCall):
+    opnum = 17
+    structure = (
+       ('ServerName', PSRVSVC_HANDLE),
+       ('NetName', WSTR),
+       ('Level', DWORD),
+       ('ShareInfo', SHARE_INFO),
+       ('ParmErr', LPLONG),
+    )
+
+class NetrShareSetInfoResponse(NDRCall):
+    structure = (
+       ('ParmErr', LPLONG),
+       ('ErrorCode',NDRLONG),
+    )
+
 # 3.1.4.12 NetrShareDel (Opnum 18)
 class NetrShareDel(NDRCall):
     opnum = 18
@@ -2342,6 +2438,546 @@ class NetrShareDelResponse(NDRCall):
     structure = (
        ('ErrorCode',NDRLONG),
     )
+
+# 3.1.4.13 NetrShareDelSticky (Opnum 19)
+class NetrShareDelSticky(NDRCall):
+    opnum = 19
+    structure = (
+       ('ServerName', PSRVSVC_HANDLE),
+       ('NetName', WSTR),
+       ('Reserved', DWORD),
+    )
+
+class NetrShareDelStickyResponse(NDRCall):
+    structure = (
+       ('ErrorCode',NDRLONG),
+    )
+
+# 3.1.4.14 NetrShareDelStart (Opnum 37)
+class NetrShareDelStart(NDRCall):
+    opnum = 37
+    structure = (
+       ('ServerName', PSRVSVC_HANDLE),
+       ('NetName', WSTR),
+       ('Reserved', DWORD),
+    )
+
+class NetrShareDelStartResponse(NDRCall):
+    structure = (
+       ('ContextHandle',SHARE_DEL_HANDLE),
+       ('ErrorCode',NDRLONG),
+    )
+
+# 3.1.4.15 NetrShareDelCommit (Opnum 38)
+class NetrShareDelCommit(NDRCall):
+    opnum = 38
+    structure = (
+       ('ContextHandle',SHARE_DEL_HANDLE),
+    )
+
+class NetrShareDelCommitResponse(NDRCall):
+    structure = (
+       ('ErrorCode',NDRLONG),
+    )
+
+# 3.1.4.16 NetrShareCheck (Opnum 20)
+class NetrShareCheck(NDRCall):
+    opnum = 20
+    structure = (
+       ('ServerName', PSRVSVC_HANDLE),
+       ('Device', WSTR),
+    )
+
+class NetrShareCheckResponse(NDRCall):
+    structure = (
+       ('Type',DWORD),
+       ('ErrorCode',NDRLONG),
+    )
+
+# 3.1.4.17 NetrServerGetInfo (Opnum 21)
+class NetrServerGetInfo(NDRCall):
+    opnum = 21
+    structure = (
+       ('ServerName', PSRVSVC_HANDLE),
+       ('Level', DWORD),
+       ('InfoStruct', SERVER_INFO),
+    )
+
+class NetrServerGetInfoResponse(NDRCall):
+    structure = (
+       ('InfoStruct', SERVER_INFO),
+       ('ErrorCode',NDRLONG),
+    )
+
+# 3.1.4.18 NetrServerSetInfo (Opnum 22)
+class NetrServerSetInfo(NDRCall):
+    opnum = 22
+    structure = (
+       ('ServerName', PSRVSVC_HANDLE),
+       ('Level', DWORD),
+       ('InfoStruct', SERVER_INFO),
+    )
+
+class NetrServerSetInfoResponse(NDRCall):
+    structure = (
+       ('ParmErr', LPLONG),
+       ('ErrorCode',NDRLONG),
+    )
+
+# 3.1.4.19 NetrServerDiskEnum (Opnum 23)
+class NetrServerDiskEnum(NDRCall):
+    opnum = 23
+    structure = (
+       ('ServerName', PSRVSVC_HANDLE),
+       ('Level', DWORD),
+       ('DiskInfoStruct', DISK_ENUM_CONTAINER),
+       ('PreferedMaximumLength', DWORD),
+       ('ResumeHandle', LPLONG),
+    )
+
+class NetrServerDiskEnumResponse(NDRCall):
+    structure = (
+       ('DiskInfoStruct', DISK_ENUM_CONTAINER),
+       ('TotalEntries', DWORD),
+       ('ResumeHandle', LPLONG),
+       ('ErrorCode',NDRLONG),
+    )
+
+# 3.1.4.20 NetrServerStatisticsGet (Opnum 24)
+class NetrServerStatisticsGet(NDRCall):
+    opnum = 24
+    structure = (
+       ('ServerName', PSRVSVC_HANDLE),
+       ('Service', LPWSTR),
+       ('Level', DWORD),
+       ('Options', DWORD),
+    )
+
+class NetrServerStatisticsGetResponse(NDRCall):
+    structure = (
+       ('InfoStruct', LPSTAT_SERVER_0),
+       ('ErrorCode',NDRLONG),
+    )
+
+# 3.1.4.21 NetrRemoteTOD (Opnum 28)
+class NetrRemoteTOD(NDRCall):
+    opnum = 28
+    structure = (
+       ('ServerName', PSRVSVC_HANDLE),
+    )
+
+class NetrRemoteTODResponse(NDRCall):
+    structure = (
+       ('BufferPtr', LPTIME_OF_DAY_INFO),
+       ('ErrorCode',NDRLONG),
+    )
+
+# 3.1.4.22 NetrServerTransportAdd (Opnum 25)
+class NetrServerTransportAdd(NDRCall):
+    opnum = 25
+    structure = (
+       ('ServerName', PSRVSVC_HANDLE),
+       ('Level', DWORD),
+       ('Buffer', SERVER_TRANSPORT_INFO_0),
+    )
+
+class NetrServerTransportAddResponse(NDRCall):
+    structure = (
+       ('ErrorCode',NDRLONG),
+    )
+
+# 3.1.4.23 NetrServerTransportAddEx (Opnum 41)
+class NetrServerTransportAddEx(NDRCall):
+    opnum = 41
+    structure = (
+       ('ServerName', PSRVSVC_HANDLE),
+       ('Level', DWORD),
+       ('Buffer', TRANSPORT_INFO),
+    )
+
+class NetrServerTransportAddExResponse(NDRCall):
+    structure = (
+       ('ErrorCode',NDRLONG),
+    )
+
+# 3.1.4.24 NetrServerTransportEnum (Opnum 26)
+class NetrServerTransportEnum(NDRCall):
+    opnum = 26
+    structure = (
+       ('ServerName', PSRVSVC_HANDLE),
+       ('InfoStruct', SERVER_XPORT_ENUM_STRUCT),
+       ('PreferedMaximumLength', DWORD),
+       ('ResumeHandle', LPLONG),
+    )
+
+class NetrServerTransportEnumResponse(NDRCall):
+    structure = (
+       ('InfoStruct', SERVER_XPORT_ENUM_STRUCT),
+       ('TotalEntries', DWORD),
+       ('ResumeHandle', LPLONG),
+       ('ErrorCode',NDRLONG),
+    )
+
+# 3.1.4.25 NetrServerTransportDel (Opnum 27)
+class NetrServerTransportDel(NDRCall):
+    opnum = 27
+    structure = (
+       ('ServerName', PSRVSVC_HANDLE),
+       ('Level', DWORD),
+       ('Buffer', SERVER_TRANSPORT_INFO_0),
+    )
+
+class NetrServerTransportDelResponse(NDRCall):
+    structure = (
+       ('ErrorCode',NDRLONG),
+    )
+
+# 3.1.4.26 NetrServerTransportDelEx (Opnum 53)
+class NetrServerTransportDelEx(NDRCall):
+    opnum = 53
+    structure = (
+       ('ServerName', PSRVSVC_HANDLE),
+       ('Level', DWORD),
+       ('Buffer', TRANSPORT_INFO),
+    )
+
+class NetrServerTransportDelExResponse(NDRCall):
+    structure = (
+       ('ErrorCode',NDRLONG),
+    )
+
+# 3.1.4.27 NetrpGetFileSecurity (Opnum 39)
+class NetrpGetFileSecurity(NDRCall):
+    opnum = 39
+    structure = (
+       ('ServerName', PSRVSVC_HANDLE),
+       ('ShareName', LPWSTR),
+       ('lpFileName', WSTR),
+       ('RequestedInformation', SECURITY_INFORMATION),
+    )
+
+class NetrpGetFileSecurityResponse(NDRCall):
+    structure = (
+       ('SecurityDescriptor', PADT_SECURITY_DESCRIPTOR),
+       ('ErrorCode',NDRLONG),
+    )
+
+# 3.1.4.28 NetrpSetFileSecurity (Opnum 40)
+class NetrpSetFileSecurity(NDRCall):
+    opnum = 40
+    structure = (
+       ('ServerName', PSRVSVC_HANDLE),
+       ('ShareName', LPWSTR),
+       ('lpFileName', WSTR),
+       ('SecurityInformation', SECURITY_INFORMATION),
+       ('SecurityDescriptor', ADT_SECURITY_DESCRIPTOR),
+    )
+
+class NetrpSetFileSecurityResponse(NDRCall):
+    structure = (
+       ('ErrorCode',NDRLONG),
+    )
+
+# 3.1.4.29 NetprPathType (Opnum 30)
+class NetprPathType(NDRCall):
+    opnum = 30
+    structure = (
+       ('ServerName', PSRVSVC_HANDLE),
+       ('PathName', WSTR),
+       ('Flags', DWORD),
+    )
+
+class NetprPathTypeResponse(NDRCall):
+    structure = (
+       ('PathType', DWORD),
+       ('ErrorCode',NDRLONG),
+    )
+
+# 3.1.4.30 NetprPathCanonicalize (Opnum 31)
+class NetprPathCanonicalize(NDRCall):
+    opnum = 31
+    structure = (
+       ('ServerName', PSRVSVC_HANDLE),
+       ('PathName', WSTR),
+       ('OutbufLen', DWORD),
+       ('Prefix', WSTR),
+       ('PathType', DWORD),
+       ('Flags', DWORD),
+    )
+
+class NetprPathCanonicalizeResponse(NDRCall):
+    structure = (
+       ('Outbuf', NDRUniConformantArray),
+       ('PathType', DWORD),
+       ('ErrorCode',NDRLONG),
+    )
+
+# 3.1.4.31 NetprPathCompare (Opnum 32)
+class NetprPathCompare(NDRCall):
+    opnum = 32
+    structure = (
+       ('ServerName', PSRVSVC_HANDLE),
+       ('PathName1', WSTR),
+       ('PathName2', WSTR),
+       ('PathType', DWORD),
+       ('Flags', DWORD),
+    )
+
+class NetprPathCompareResponse(NDRCall):
+    structure = (
+       ('ErrorCode',NDRLONG),
+    )
+
+# 3.1.4.32 NetprNameValidate (Opnum 33)
+class NetprNameValidate(NDRCall):
+    opnum = 33
+    structure = (
+       ('ServerName', PSRVSVC_HANDLE),
+       ('Name', WSTR),
+       ('NameType', DWORD),
+       ('Flags', DWORD),
+    )
+
+class NetprNameValidateResponse(NDRCall):
+    structure = (
+       ('ErrorCode',NDRLONG),
+    )
+
+# 3.1.4.33 NetprNameCanonicalize (Opnum 34)
+class NetprNameCanonicalize(NDRCall):
+    opnum = 34
+    structure = (
+       ('ServerName', PSRVSVC_HANDLE),
+       ('Name', WSTR),
+       ('OutbufLen', DWORD),
+       ('NameType', DWORD),
+       ('Flags', DWORD),
+    )
+
+class NetprNameCanonicalizeResponse(NDRCall):
+    structure = (
+       ('Outbuf', NDRUniConformantArray),
+       ('NameType', DWORD),
+       ('ErrorCode',NDRLONG),
+    )
+
+# 3.1.4.34 NetprNameCompare (Opnum 35)
+class NetprNameCompare(NDRCall):
+    opnum = 35
+    structure = (
+       ('ServerName', PSRVSVC_HANDLE),
+       ('Name1', WSTR),
+       ('Name2', WSTR),
+       ('NameType', DWORD),
+       ('Flags', DWORD),
+    )
+
+class NetprNameCompareResponse(NDRCall):
+    structure = (
+       ('ErrorCode',NDRLONG),
+    )
+
+# 3.1.4.35 NetrDfsGetVersion (Opnum 43)
+class NetrDfsGetVersion(NDRCall):
+    opnum = 43
+    structure = (
+       ('ServerName', PSRVSVC_HANDLE),
+    )
+
+class NetrDfsGetVersionResponse(NDRCall):
+    structure = (
+       ('Version', DWORD),
+       ('ErrorCode',NDRLONG),
+    )
+
+# 3.1.4.36 NetrDfsCreateLocalPartition (Opnum 44)
+class NetrDfsCreateLocalPartition(NDRCall):
+    opnum = 44
+    structure = (
+       ('ServerName', PSRVSVC_HANDLE),
+       ('ShareName', WSTR),
+       ('EntryUid', GUID),
+       ('EntryPrefix', WSTR),
+       ('ShortName', WSTR),
+       ('RelationInfo', NET_DFS_ENTRY_ID_CONTAINER),
+       ('Force', DWORD),
+    )
+
+class NetrDfsCreateLocalPartitionResponse(NDRCall):
+    structure = (
+       ('ErrorCode',NDRLONG),
+    )
+
+# 3.1.4.37 NetrDfsDeleteLocalPartition (Opnum 45)
+class NetrDfsDeleteLocalPartition(NDRCall):
+    opnum = 45
+    structure = (
+       ('ServerName', PSRVSVC_HANDLE),
+       ('Uid', GUID),
+       ('Prefix', WSTR),
+    )
+
+class NetrDfsDeleteLocalPartitionResponse(NDRCall):
+    structure = (
+       ('ErrorCode',NDRLONG),
+    )
+
+# 3.1.4.38 NetrDfsSetLocalVolumeState (Opnum 46)
+class NetrDfsSetLocalVolumeState(NDRCall):
+    opnum = 46
+    structure = (
+       ('ServerName', PSRVSVC_HANDLE),
+       ('Uid', GUID),
+       ('Prefix', WSTR),
+       ('State', DWORD),
+    )
+
+class NetrDfsSetLocalVolumeStateResponse(NDRCall):
+    structure = (
+       ('ErrorCode',NDRLONG),
+    )
+
+# 3.1.4.39 NetrDfsCreateExitPoint (Opnum 48)
+class NetrDfsCreateExitPoint(NDRCall):
+    opnum = 48
+    structure = (
+       ('ServerName', PSRVSVC_HANDLE),
+       ('Uid', GUID),
+       ('Prefix', WSTR),
+       ('Type', DWORD),
+       ('ShortPrefixLen', DWORD),
+    )
+
+class NetrDfsCreateExitPointResponse(NDRCall):
+    structure = (
+       ('ShortPrefix',WCHAR_ARRAY),
+       ('ErrorCode',NDRLONG),
+    )
+
+# 3.1.4.40 NetrDfsModifyPrefix (Opnum 50)
+class NetrDfsModifyPrefix(NDRCall):
+    opnum = 50
+    structure = (
+       ('ServerName', PSRVSVC_HANDLE),
+       ('Uid', GUID),
+       ('Prefix', WSTR),
+    )
+
+class NetrDfsModifyPrefixResponse(NDRCall):
+    structure = (
+       ('ErrorCode',NDRLONG),
+    )
+
+# 3.1.4.41 NetrDfsDeleteExitPoint (Opnum 49)
+class NetrDfsDeleteExitPoint(NDRCall):
+    opnum = 49
+    structure = (
+       ('ServerName', PSRVSVC_HANDLE),
+       ('Uid', GUID),
+       ('Prefix', WSTR),
+       ('Type', DWORD),
+    )
+
+class NetrDfsDeleteExitPointResponse(NDRCall):
+    structure = (
+       ('ErrorCode',NDRLONG),
+    )
+
+# 3.1.4.42 NetrDfsFixLocalVolume (Opnum 51)
+class NetrDfsFixLocalVolume(NDRCall):
+    opnum = 51
+    structure = (
+       ('ServerName', PSRVSVC_HANDLE),
+       ('VolumeName', WSTR),
+       ('EntryType', DWORD),
+       ('ServiceType', DWORD),
+       ('StgId', WSTR),
+       ('EntryUid', GUID),
+       ('EntryPrefix', WSTR),
+       ('RelationInfo', NET_DFS_ENTRY_ID_CONTAINER),
+       ('CreateDisposition', DWORD),
+    )
+
+class NetrDfsFixLocalVolumeResponse(NDRCall):
+    structure = (
+       ('ErrorCode',NDRLONG),
+    )
+
+# 3.1.4.43 NetrDfsManagerReportSiteInfo (Opnum 52)
+class NetrDfsManagerReportSiteInfo(NDRCall):
+    opnum = 52
+    structure = (
+       ('ServerName', PSRVSVC_HANDLE),
+       ('ppSiteInfo', LPDFS_SITELIST_INFO),
+    )
+
+class NetrDfsManagerReportSiteInfoResponse(NDRCall):
+    structure = (
+       ('ppSiteInfo', LPDFS_SITELIST_INFO),
+       ('ErrorCode',NDRLONG),
+    )
+
+# 3.1.4.44 NetrServerAliasAdd (Opnum 54)
+class NetrServerAliasAdd(NDRCall):
+    opnum = 54
+    structure = (
+       ('ServerName', PSRVSVC_HANDLE),
+       ('Level', DWORD),
+       ('InfoStruct', SERVER_ALIAS_INFO),
+    )
+
+class NetrServerAliasAddResponse(NDRCall):
+    structure = (
+       ('ErrorCode',NDRLONG),
+    )
+
+# 3.1.4.45 NetrServerAliasEnum (Opnum 55)
+class NetrServerAliasEnum(NDRCall):
+    opnum = 55
+    structure = (
+       ('ServerName', PSRVSVC_HANDLE),
+       ('InfoStruct', SERVER_ALIAS_ENUM_STRUCT),
+       ('PreferedMaximumLength', DWORD),
+       ('ResumeHandle', LPLONG),
+    )
+
+class NetrServerAliasEnumResponse(NDRCall):
+    structure = (
+       ('InfoStruct',SERVER_ALIAS_ENUM_STRUCT),
+       ('TotalEntries',DWORD),
+       ('ResumeHandle',LPLONG),
+       ('ErrorCode',NDRLONG),
+    )
+
+# 3.1.4.46 NetrServerAliasDel (Opnum 56)
+class NetrServerAliasDel(NDRCall):
+    opnum = 56
+    structure = (
+       ('ServerName', PSRVSVC_HANDLE),
+       ('Level', DWORD),
+       ('InfoStruct', SERVER_ALIAS_INFO),
+    )
+
+class NetrServerAliasDelResponse(NDRCall):
+    structure = (
+       ('ErrorCode',NDRLONG),
+    )
+
+# 3.1.4.47 NetrShareDelEx (Opnum 57)
+class NetrShareDelEx(NDRCall):
+    opnum = 57
+    structure = (
+       ('ServerName', PSRVSVC_HANDLE),
+       ('Level', DWORD),
+       ('ShareInfo', SHARE_INFO),
+    )
+
+class NetrShareDelExResponse(NDRCall):
+    structure = (
+       ('ErrorCode',NDRLONG),
+    )
+
+
 
 ################################################################################
 # HELPER FUNCTIONS
