@@ -20,6 +20,7 @@ BOOL = ndr.NDRLONG
 UCHAR = ndr.NDRSMALL
 USHORT = ndr.NDRSHORT
 ULONG = ndr.NDRLONG
+LONG = ndr.NDRLONG
 
 class LPLONG(ndr.NDRPointer):
     referent = (
@@ -149,6 +150,7 @@ NET_API_STATUS = DWORD
 
 # 2.3.2 GUID and UUID
 class GUID(ndr.NDR):
+    align = 0
     structure = (
         ('Data','16s=""'),
     )
@@ -166,6 +168,13 @@ WCHAR = WSTR
 
 # 2.3.3 LARGE_INTEGER
 LARGE_INTEGER = ndr.NDRHYPER
+
+# 2.3.5 LUID
+class LUID(ndr.NDR):
+    structure = (
+        ('LowPart', DWORD),
+        ('HighPart', LONG),
+    )
 
 # 2.3.8 RPC_UNICODE_STRING
 class RPC_UNICODE_STRING(ndr.NDR):
