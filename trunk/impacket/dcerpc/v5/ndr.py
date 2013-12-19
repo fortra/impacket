@@ -324,6 +324,7 @@ class NDR(object):
                 # Any referent information to pack?
                 if isinstance(self.fields[fieldName], NDR):
                     data += self.fields[fieldName].getDataReferents(soFar)
+                    data += self.fields[fieldName].getDataReferent(len(data)+soFar)
                 soFar = soFar0 + len(data)
             except Exception, e:
                 if self.fields.has_key(fieldName):
@@ -390,7 +391,6 @@ class NDR(object):
                     soFar -= arrayItemSize
                     # and add sizeItemSize to the size variable
                     size += arrayItemSize
-                    
 
                 self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
                 if isinstance(self.fields[fieldName], NDR):
@@ -437,7 +437,11 @@ class NDR(object):
                 raise
 
             if isinstance(self.fields[fieldName], NDR):
-                size = len(self.fields[fieldName].getData(soFar)) + len(self.fields[fieldName].getDataReferents(len(self.rawData) - len(data)))
+                size = len(self.fields[fieldName].getData(soFar))
+                res = self.fields[fieldName].fromStringReferents(data[size:], soFar+size)
+                self.fields[fieldName].fromStringReferent(data[size:], soFar + size + len(res))
+
+                size = len(self.fields[fieldName].getData(soFar)) + len(self.fields[fieldName].getDataReferents(len(self.rawData) - len(data)))+ len(self.fields[fieldName].getDataReferent(len(self.rawData) - len(data))) 
 
             data = data[size:]
             soFar += size
@@ -783,7 +787,6 @@ class NDRCall(NDR):
                     if isinstance(self.fields[fieldName], NDR):
                         res = self.fields[fieldName].fromStringReferents(data[size:], soFar+size)
                         self.fields[fieldName].fromStringReferent(data[size:], soFar + size + len(res))
-                        #self.fields[fieldName].fromStringReferent(data[size:])
                     size+= len(data[size:]) - len(res)
 
                 data = data[size:]
