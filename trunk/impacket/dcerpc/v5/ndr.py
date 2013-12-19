@@ -227,6 +227,37 @@ class NDR(object):
     def getData(self, soFar = 0):
         data = ''
         soFar0 = soFar
+        arrayPresent = False
+        # 14.3.7.1 Structures Containing a Conformant Array
+        # A structure can contain a conformant array only as its last member.
+        # In the NDR representation of a structure that contains a conformant array, 
+        # the unsigned long integers that give maximum element counts for dimensions of the array 
+        # are moved to the beginning of the structure, and the array elements appear in place at 
+        # the end of the structure.
+        # 14.3.7.2 Structures Containing a Conformant and Varying Array
+        # A structure can contain a conformant and varying array only as its last member.
+        # In the NDR representation of a structure that contains a conformant and varying array, 
+        # the maximum counts for dimensions of the array are moved to the beginning of the structure, 
+        # but the offsets and actual counts remain in place at the end of the structure, 
+        # immediately preceding the array elements
+        lastItem = (self.commonHdr+self.structure)[-1][0]
+        if isinstance(self.fields[lastItem], NDRUniConformantArray) or isinstance(self.fields[lastItem], NDRUniConformantVaryingArray):
+            # So we have an array, first item in the structure must be the array size, although we
+            # will need to build it later.
+            arrayPresent = True 
+            if self._isNDR64:
+                arrayItemSize = 8
+            else:
+                arrayItemSize = 4
+
+            # We need to check whether we need padding or not
+            pad = (arrayItemSize - (soFar % arrayItemSize)) % arrayItemSize 
+            if pad > 0:
+                soFar += pad
+                data = data + '\xee'*pad
+            # And now, let's pretend we put the item in
+            soFar += arrayItemSize
+
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             try:
                 pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar, packing = True)
@@ -235,7 +266,20 @@ class NDR(object):
                     data = data + '\xbb'*pad
                     #data = data + '\x00'*pad
 
-                data += self.pack(fieldName, fieldTypeOrClass, soFar)
+                res = self.pack(fieldName, fieldTypeOrClass, soFar)
+                if isinstance(self.fields[fieldName], NDRUniConformantArray) or isinstance(self.fields[fieldName], NDRUniConformantVaryingArray):
+                    # Okey.. here it is.. so we should remove the first arrayItemSize bytes from res
+                    # and stick them at the beginning of the data, except when we're inside a pointer
+                    # where we should go after the referent id
+                    arraySize = res[:arrayItemSize]
+                    res = res[arrayItemSize:]
+                    if isinstance(self, NDRPointer):
+                        pointerData = data[:arrayItemSize]    
+                        data = data[arrayItemSize:]
+                        data = pointerData + arraySize + data
+                    else:
+                        data = arraySize + data
+                data += res
                 soFar = soFar0 + len(data)
             except Exception, e:
                 if self.fields.has_key(fieldName):
@@ -294,6 +338,43 @@ class NDR(object):
         if self.rawData is None:
             self.rawData = data
 
+        # 14.3.7.1 Structures Containing a Conformant Array
+        # A structure can contain a conformant array only as its last member.
+        # In the NDR representation of a structure that contains a conformant array, 
+        # the unsigned long integers that give maximum element counts for dimensions of the array 
+        # are moved to the beginning of the structure, and the array elements appear in place at 
+        # the end of the structure.
+        # 14.3.7.2 Structures Containing a Conformant and Varying Array
+        # A structure can contain a conformant and varying array only as its last member.
+        # In the NDR representation of a structure that contains a conformant and varying array, 
+        # the maximum counts for dimensions of the array are moved to the beginning of the structure, 
+        # but the offsets and actual counts remain in place at the end of the structure, 
+        # immediately preceding the array elements
+        lastItem = (self.commonHdr+self.structure)[-1][0]
+        if isinstance(self.fields[lastItem], NDRUniConformantArray) or isinstance(self.fields[lastItem], NDRUniConformantVaryingArray):
+            # So we have an array, first item in the structure must be the array size, although we
+            # will need to build it later.
+            arrayPresent = True 
+            if self._isNDR64:
+                arrayItemSize = 8
+            else:
+                arrayItemSize = 4
+
+            # We need to check whether we need padding or not
+            pad = (arrayItemSize - (soFar % arrayItemSize)) % arrayItemSize 
+            if pad > 0:
+                soFar += pad
+                data = data[pad:]
+            # And now, let's pretend we put the item in
+            soFar += arrayItemSize
+            # And let's extract the array size for later use, if it is a pointer, it is after the referent ID
+            if isinstance(self, NDRPointer):
+                arraySize = data[arrayItemSize:][:arrayItemSize]
+            else:
+                arraySize = data[:arrayItemSize]
+            # And move on data
+            data = data[arrayItemSize:]
+
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             size = self.calcUnPackSize(fieldTypeOrClass, data)
             pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar = soFar, packing = False)
@@ -301,6 +382,16 @@ class NDR(object):
                 soFar += pad
                 data = data[pad:]
             try:
+                if isinstance(self.fields[fieldName], NDRUniConformantArray) or isinstance(self.fields[fieldName], NDRUniConformantVaryingArray):
+                    # Okey.. here it is.. so we should add the first arrayItemSize bytes to data
+                    # and move from there
+                    data = arraySize + data
+                    # and substract soFar times arrayItemSize (that we already counted at the beggining)
+                    soFar -= arrayItemSize
+                    # and add sizeItemSize to the size variable
+                    size += arrayItemSize
+                    
+
                 self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
                 if isinstance(self.fields[fieldName], NDR):
                     #size = len(self.fields[fieldName])
@@ -1022,7 +1113,6 @@ class NDRUnion(NDR):
 # Pipes not implemented for now
 
 # Pointers
-
 class NDRPointerNULL(NDR):
     align = 4
     align64 = 8
