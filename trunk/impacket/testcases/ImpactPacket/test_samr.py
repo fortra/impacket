@@ -954,7 +954,18 @@ class SAMRTests(unittest.TestCase):
         request['DomainHandle'] = domainHandle
         request['EnumerationContext'] =  0
         request['PreferedMaximumLength'] = 500
-        resp4 = dce.request(request)
+        status = nt_errors.STATUS_MORE_ENTRIES
+        while status == nt_errors.STATUS_MORE_ENTRIES:
+            try:
+                resp4 = dce.request(request)
+            except Exception, e:
+                if str(e).find('STATUS_MORE_ENTRIES') < 0:
+                    raise 
+                resp4 = e.get_packet()
+            #resp4['Buffer'].dump()
+            request['EnumerationContext'] = resp4['EnumerationContext'] 
+            status = resp4['ErrorCode']
+
         #resp4.dump()
         request = samr.SamrOpenAlias()
         request['DomainHandle'] = domainHandle
@@ -1826,6 +1837,27 @@ class SAMRTests(unittest.TestCase):
 
     def test_SamrChangePasswordUser(self):
         dce, rpctransport, domainHandle  = self.connect()
+
+        request = samr.SamrEnumerateUsersInDomain()
+        request['DomainHandle'] = domainHandle
+        request['UserAccountControl'] =  samr.USER_NORMAL_ACCOUNT
+        request['EnumerationContext'] =  0
+        request['PreferedMaximumLength'] = 0xffffffff
+        status = nt_errors.STATUS_MORE_ENTRIES
+        while status == nt_errors.STATUS_MORE_ENTRIES:
+            try:
+                resp4 = dce.request(request)
+            except Exception, e:
+                if str(e).find('STATUS_MORE_ENTRIES') < 0:
+                    raise 
+                resp4 = e.get_packet()
+            for user in resp4['Buffer']['Buffer']:
+                 if user['Name'] == self.username:
+                     userRid = user['RelativeId'] 
+                     break
+            request['EnumerationContext'] = resp4['EnumerationContext'] 
+            status = resp4['ErrorCode']
+
         request = samr.SamrOpenUser()
         request['DomainHandle'] = domainHandle
         #request['DesiredAccess'] =  samr.USER_READ_GENERAL | samr.USER_READ_PREFERENCES | samr.USER_READ_ACCOUNT | samr.USER_ALL_ACCESS | samr.USER_READ | samr.USER_READ_LOGON 
@@ -1836,12 +1868,11 @@ class SAMRTests(unittest.TestCase):
             | samr.USER_READ | samr.USER_WRITE  | samr.USER_EXECUTE 
 
         
-        request['UserId'] = samr.DOMAIN_USER_RID_ADMIN
+        request['UserId'] = userRid
         resp = dce.request(request)
         ##resp.dump()
 
-        # As you can guess by now, target machine must have the Administrator account with password admin
-        oldPwd = 'admin'
+        oldPwd = self.password
         oldPwdHashNT = ntlm.NTOWFv1(oldPwd)
         newPwd = 'ADMIN'
         newPwdHashNT = ntlm.NTOWFv1(newPwd)
@@ -1866,7 +1897,7 @@ class SAMRTests(unittest.TestCase):
         # Restoring it back
         oldPwd = 'ADMIN'
         oldPwdHashNT = ntlm.NTOWFv1(oldPwd)
-        newPwd = 'admin'
+        newPwd = self.password
         newPwdHashNT = ntlm.NTOWFv1(newPwd)
         newPwdHashLM = ntlm.LMOWFv1(newPwd)
 
@@ -1918,8 +1949,8 @@ class SAMRTests(unittest.TestCase):
 
     def test_SamrUnicodeChangePasswordUser2(self):
         dce, rpctransport, domainHandle  = self.connect()
-        # As you can guess by now, target machine must have the Administrator account with password admin
-        oldPwd = 'admin'
+
+        oldPwd = self.password
         oldPwdHashLM = ntlm.LMOWFv1(oldPwd)
         oldPwdHashNT = ntlm.NTOWFv1(oldPwd)
         newPwd = 'ADMIN'
@@ -1935,7 +1966,7 @@ class SAMRTests(unittest.TestCase):
         from impacket import crypto
         request = samr.SamrUnicodeChangePasswordUser2()
         request['ServerName'] = ''
-        request['UserName'] = 'Administrator'
+        request['UserName'] = self.username
         samUser = samr.SAMPR_USER_PASSWORD()
         samUser['Buffer'] = 'A'*(512-len(newPwd)*2) + newPwd.encode('utf-16le')
         samUser['Length'] = len(newPwd)*2
@@ -1955,12 +1986,12 @@ class SAMRTests(unittest.TestCase):
         oldPwd = 'ADMIN'
         oldPwdHashLM = ntlm.LMOWFv1(oldPwd)
         oldPwdHashNT = ntlm.NTOWFv1(oldPwd)
-        newPwd = 'admin'
+        newPwd = self.password
         newPwdHashNT = ntlm.NTOWFv1(newPwd)
         newPwdHashLM = ntlm.LMOWFv1(newPwd)
         request = samr.SamrUnicodeChangePasswordUser2()
         request['ServerName'] = ''
-        request['UserName'] = 'Administrator'
+        request['UserName'] = self.username
         samUser = samr.SAMPR_USER_PASSWORD()
         samUser['Buffer'] = 'A'*(512-len(newPwd)*2) + newPwd.encode('utf-16le')
         samUser['Length'] = len(newPwd)*2
