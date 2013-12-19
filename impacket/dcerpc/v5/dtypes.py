@@ -94,6 +94,11 @@ class STR(ndr.NDR):
     def getDataLen(self, data):
         return self["ActualCount"]
 
+class LPSTR(ndr.NDRPointer):
+    referent = (
+        ('Data', STR),
+    )
+
 class WSTR(ndr.NDR):
     align = 4
     align64 = 8
@@ -163,11 +168,18 @@ class PGUID(ndr.NDRPointer):
 UUID = GUID
 PUUID = PGUID
 
+# 2.2.37 NTSTATUS
+NTSTATUS = LONG
+
 # 2.2.59 WCHAR
 WCHAR = WSTR
 
 # 2.3.3 LARGE_INTEGER
 LARGE_INTEGER = ndr.NDRHYPER
+class PLARGE_INTEGER(ndr.NDRPointer):
+    referent = (
+        ('Data', LARGE_INTEGER),
+    )
 
 # 2.3.5 LUID
 class LUID(ndr.NDR):
@@ -247,8 +259,8 @@ class RPC_SID_IDENTIFIER_AUTHORITY(ndr.NDRUniFixedArray):
         return 6
 
 class RPC_SID(ndr.NDR):
-    align = 0
-    align64 = 0
+    align = 4
+    align64 = 4
     structure = (
         #('Count', '<L=0'),
         ('Count', ndr.NDRLONG),
@@ -314,8 +326,8 @@ DELETE                  = 0x00010000L
 # 2.4.5.1 ACL--RPC Representation
 class ACL(ndr.NDR):
     structure = (
-        ('AclRevision',ndr.NDRCHAR),
-        ('Sbz1',ndr.NDRCHAR),
+        ('AclRevision',ndr.NDRSMALL),
+        ('Sbz1',ndr.NDRSMALL),
         ('AclSize',ndr.NDRSHORT),
         ('AceCount',ndr.NDRSHORT),
         ('Sbz2',ndr.NDRSHORT),
