@@ -860,7 +860,32 @@ class LsarQueryInformationPolicyResponse(NDRCall):
     )
 
 # 3.1.4.4.5 LsarSetInformationPolicy2 (Opnum 47)
+class LsarSetInformationPolicy2(NDRCall):
+    opnum = 47
+    structure = (
+       ('PolicyHandle', LSAPR_HANDLE),
+       ('InformationClass',POLICY_INFORMATION_CLASS),
+       ('PolicyInformation',LSAPR_POLICY_INFORMATION),
+    )
+
+class LsarSetInformationPolicy2Response(NDRCall):
+    structure = (
+       ('ErrorCode', NTSTATUS),
+    )
+
 # 3.1.4.4.6 LsarSetInformationPolicy (Opnum 8)
+class LsarSetInformationPolicy(NDRCall):
+    opnum = 8
+    structure = (
+       ('PolicyHandle', LSAPR_HANDLE),
+       ('InformationClass',POLICY_INFORMATION_CLASS),
+       ('PolicyInformation',LSAPR_POLICY_INFORMATION),
+    )
+
+class LsarSetInformationPolicyResponse(NDRCall):
+    structure = (
+       ('ErrorCode', NTSTATUS),
+    )
 
 # 3.1.4.4.7 LsarQueryDomainInformationPolicy (Opnum 53)
 class LsarQueryDomainInformationPolicy(NDRCall):

@@ -34,6 +34,8 @@
 #  LsarQuerySecurityObject
 #  LsarSetSecurityObject
 #  LsarQueryForestTrustInformation
+#  LsarSetInformationPolicy
+#  LsarSetInformationPolicy2
 #
 #  Not yet:
 #
@@ -186,7 +188,7 @@ class LSADTests(unittest.TestCase):
         request['InformationClass'] = lsad.POLICY_DOMAIN_INFORMATION_CLASS.PolicyDomainQualityOfServiceInformation
         try:
             resp = dce.request(request)
-            resp.dump()
+            #resp.dump()
         except Exception, e:
             if str(e).find('STATUS_INVALID_PARAMETER') < 0:
                 raise
@@ -194,7 +196,7 @@ class LSADTests(unittest.TestCase):
         request['InformationClass'] = lsad.POLICY_DOMAIN_INFORMATION_CLASS.PolicyDomainEfsInformation
         try:
             resp = dce.request(request)
-            resp.dump()
+            #resp.dump()
         except Exception, e:
             if str(e).find('STATUS_OBJECT_NAME_NOT_FOUND') < 0:
                 raise
@@ -202,7 +204,7 @@ class LSADTests(unittest.TestCase):
         request['InformationClass'] = lsad.POLICY_DOMAIN_INFORMATION_CLASS.PolicyDomainKerberosTicketInformation
         try:
             resp = dce.request(request)
-            resp.dump()
+            #resp.dump()
         except Exception, e:
             if str(e).find('STATUS_OBJECT_NAME_NOT_FOUND') < 0:
                 raise
@@ -563,6 +565,154 @@ class LSADTests(unittest.TestCase):
         except Exception, e:
             if str(e).find('STATUS_INVALID_DOMAIN_STATE') < 0:
                 raise
+
+    def test_LsarSetInformationPolicy2(self):
+        dce, rpctransport, policyHandle = self.connect()
+        request = lsad.LsarQueryInformationPolicy2()
+        request['PolicyHandle'] = policyHandle
+        request['InformationClass'] = lsad.POLICY_INFORMATION_CLASS.PolicyAuditEventsInformation
+        resp = dce.request(request)
+        #resp.dump()
+        oldValue = resp['PolicyInformation']['PolicyAuditEventsInfo']['AuditingMode']
+
+        req = lsad.LsarSetInformationPolicy2()
+        req['PolicyHandle'] = policyHandle
+        req['InformationClass'] = request['InformationClass']
+        req['PolicyInformation'] = resp['PolicyInformation']
+        req['PolicyInformation']['PolicyAuditEventsInfo']['AuditingMode'] = 0
+        resp2 = dce.request(req)
+        #resp2.dump()
+
+        resp = dce.request(request)
+        #resp.dump()
+
+        req['PolicyInformation']['PolicyAuditEventsInfo']['AuditingMode'] = oldValue
+        resp2 = dce.request(req)
+        #resp2.dump()
+        ################################################################################ 
+
+        request['InformationClass'] = lsad.POLICY_INFORMATION_CLASS.PolicyPrimaryDomainInformation
+        resp = dce.request(request)
+        #resp.dump()
+        oldValue = resp['PolicyInformation']['PolicyPrimaryDomainInfo']['Name']
+
+        req = lsad.LsarSetInformationPolicy2()
+        req['PolicyHandle'] = policyHandle
+        req['InformationClass'] = request['InformationClass']
+        req['PolicyInformation'] = resp['PolicyInformation']
+        req['PolicyInformation']['PolicyPrimaryDomainInfo']['Name'] = 'BETUS'
+        resp2 = dce.request(req)
+        #resp2.dump()
+
+        resp = dce.request(request)
+        #resp.dump()
+
+        self.assertTrue( 'BETUS' == resp['PolicyInformation']['PolicyPrimaryDomainInfo']['Name'] )
+
+        req['PolicyInformation']['PolicyPrimaryDomainInfo']['Name'] = oldValue
+        resp2 = dce.request(req)
+        #resp2.dump()
+
+        ################################################################################ 
+
+        request['InformationClass'] = lsad.POLICY_INFORMATION_CLASS.PolicyAccountDomainInformation
+        resp = dce.request(request)
+        #resp.dump()
+        oldValue = resp['PolicyInformation']['PolicyAccountDomainInfo']['DomainName']
+
+        req = lsad.LsarSetInformationPolicy2()
+        req['PolicyHandle'] = policyHandle
+        req['InformationClass'] = request['InformationClass']
+        req['PolicyInformation'] = resp['PolicyInformation']
+        req['PolicyInformation']['PolicyAccountDomainInfo']['DomainName'] = 'BETUS'
+        resp2 = dce.request(req)
+        #resp2.dump()
+
+        resp = dce.request(request)
+        #resp.dump()
+
+        self.assertTrue( 'BETUS' == resp['PolicyInformation']['PolicyAccountDomainInfo']['DomainName'] )
+
+        req['PolicyInformation']['PolicyAccountDomainInfo']['DomainName'] = oldValue
+        resp2 = dce.request(req)
+        #resp2.dump()
+
+        ################################################################################ 
+
+        # ToDo rest of the Information Classes
+    def test_LsarSetInformationPolicy(self):
+        dce, rpctransport, policyHandle = self.connect()
+        request = lsad.LsarQueryInformationPolicy()
+        request['PolicyHandle'] = policyHandle
+        request['InformationClass'] = lsad.POLICY_INFORMATION_CLASS.PolicyAuditEventsInformation
+        resp = dce.request(request)
+        #resp.dump()
+        oldValue = resp['PolicyInformation']['PolicyAuditEventsInfo']['AuditingMode']
+
+        req = lsad.LsarSetInformationPolicy()
+        req['PolicyHandle'] = policyHandle
+        req['InformationClass'] = request['InformationClass']
+        req['PolicyInformation'] = resp['PolicyInformation']
+        req['PolicyInformation']['PolicyAuditEventsInfo']['AuditingMode'] = 0
+        resp2 = dce.request(req)
+        #resp2.dump()
+
+        resp = dce.request(request)
+        #resp.dump()
+
+        req['PolicyInformation']['PolicyAuditEventsInfo']['AuditingMode'] = oldValue
+        resp2 = dce.request(req)
+        #resp2.dump()
+        ################################################################################ 
+
+        request['InformationClass'] = lsad.POLICY_INFORMATION_CLASS.PolicyPrimaryDomainInformation
+        resp = dce.request(request)
+        #resp.dump()
+        oldValue = resp['PolicyInformation']['PolicyPrimaryDomainInfo']['Name']
+
+        req = lsad.LsarSetInformationPolicy()
+        req['PolicyHandle'] = policyHandle
+        req['InformationClass'] = request['InformationClass']
+        req['PolicyInformation'] = resp['PolicyInformation']
+        req['PolicyInformation']['PolicyPrimaryDomainInfo']['Name'] = 'BETUS'
+        resp2 = dce.request(req)
+        #resp2.dump()
+
+        resp = dce.request(request)
+        #resp.dump()
+        self.assertTrue( 'BETUS' == resp['PolicyInformation']['PolicyPrimaryDomainInfo']['Name'] )
+
+        req['PolicyInformation']['PolicyPrimaryDomainInfo']['Name'] = oldValue
+        resp2 = dce.request(req)
+        #resp2.dump()
+
+        ################################################################################ 
+
+        request['InformationClass'] = lsad.POLICY_INFORMATION_CLASS.PolicyAccountDomainInformation
+        resp = dce.request(request)
+        #resp.dump()
+        oldValue = resp['PolicyInformation']['PolicyAccountDomainInfo']['DomainName']
+
+        req = lsad.LsarSetInformationPolicy()
+        req['PolicyHandle'] = policyHandle
+        req['InformationClass'] = request['InformationClass']
+        req['PolicyInformation'] = resp['PolicyInformation']
+        req['PolicyInformation']['PolicyAccountDomainInfo']['DomainName'] = 'BETUS'
+        resp2 = dce.request(req)
+        #resp2.dump()
+
+        resp = dce.request(request)
+        #resp.dump()
+
+        self.assertTrue( 'BETUS' == resp['PolicyInformation']['PolicyAccountDomainInfo']['DomainName'] )
+
+        req['PolicyInformation']['PolicyAccountDomainInfo']['DomainName'] = oldValue
+        resp2 = dce.request(req)
+        #resp2.dump()
+
+        ################################################################################ 
+
+        # ToDo rest of the Information Classes
 
 class SMBTransport(LSADTests):
     def setUp(self):
