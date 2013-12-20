@@ -2102,7 +2102,7 @@ class SamrGetDomainPasswordInformation(NDRCall):
     opnum = 56
     structure = (
        #('BindingHandle',SAMPR_HANDLE),
-       ('Unused', UNIQUE_RPC_UNICODE_STRING),
+       ('Unused', PRPC_UNICODE_STRING),
     )
 
 class SamrGetDomainPasswordInformationResponse(NDRCall):
@@ -2184,7 +2184,7 @@ class SamrRidToSidResponse(NDRCall):
 class SamrSetDSRMPassword(NDRCall):
     opnum = 66
     structure = (
-       ('Unused', UNIQUE_RPC_UNICODE_STRING),
+       ('Unused', PRPC_UNICODE_STRING),
        ('UserId',NDRLONG),
        ('EncryptedNtOwfPassword',PENCRYPTED_NT_OWF_PASSWORD),
     )

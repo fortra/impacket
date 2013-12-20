@@ -1351,36 +1351,7 @@ class TestPointerNULL(NDRTest):
     def populate(self, a):
         pass
 
-#class TestServerAuthenticate(NDRTest):
-#    class NETLOGON_CREDENTIAL(NDR):
-#        structure = (
-#            ('Data','8s=""'),
-#        )
-#
-#    class theClass(NDRCall):
-#        class NETLOGON_CREDENTIAL(NDR):
-#            structure = (
-#                ('Data','8s=""'),
-#            )
-#        structure = (
-#            ('PrimaryName', UNIQUE_RPC_UNICODE_STRING),
-#            ('AccountName', RPC_UNICODE_STRING),
-#            ('SecureChannelType',NDRSHORT),
-#            ('ComputerName', RPC_UNICODE_STRING),
-#            ('ClientCredential',NETLOGON_CREDENTIAL),
-#            ('NegotiateFlags',NDRLONG),
-#        )
-#
-#    def populate(self, a):
-#        a['PrimaryName'] = 'XXX1DC001\x00'
-#        a['AccountName'] = 'TEST-MACHINE$\x00'
-#        a['SecureChannelType'] = 0xffff
-#        a['ComputerName'] = 'TEST-MACHINE\x00'
-#        a['ClientCredential']  = '12345678'
-#        a['NegotiateFlags'] = 0xabcdabcd
-
 if __name__ == '__main__':
-    from impacket.dcerpc.netlogon import NETLOGON_CREDENTIAL
     TestUniFixedArray().run()
     #TestUniConformantArray().run()
     TestUniVaryingArray().run()
@@ -1388,4 +1359,3 @@ if __name__ == '__main__':
     TestVaryingString().run()
     TestConformantVaryingString().run()
     TestPointerNULL().run()
-    #TestServerAuthenticate().run()
