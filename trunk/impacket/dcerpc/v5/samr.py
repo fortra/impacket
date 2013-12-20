@@ -1352,6 +1352,8 @@ class PSAM_VALIDATE_OUTPUT_ARG(NDRPointer):
         ('Data', SAM_VALIDATE_OUTPUT_ARG),
     )
 
+class RPC_UNICODE_STRING_ARRAY(ndr.NDRUniConformantVaryingArray):
+    item = RPC_UNICODE_STRING
 
 ################################################################################
 # RPC CALLS
