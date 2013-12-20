@@ -37,6 +37,8 @@
 #
 #  Not yet:
 #
+# Shouldn't dump errors against a win7
+#
 ################################################################################
 
 import sys
@@ -358,7 +360,7 @@ class LSADTests(unittest.TestCase):
         request['Privileges']['Privilege'].append(attribute)
         try:
             resp = dce.request(request)
-            resp.dump()
+            #resp.dump()
         except:
             request = lsad.LsarDeleteObject()
             request['ObjectHandle'] = accountHandle
@@ -370,7 +372,7 @@ class LSADTests(unittest.TestCase):
         request['AllPrivileges'] = 1
         request['Privileges'] = NULL
         resp = dce.request(request)
-        resp.dump()
+        #resp.dump()
 
         request = lsad.LsarDeleteObject()
         request['ObjectHandle'] = accountHandle

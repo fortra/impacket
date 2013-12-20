@@ -50,6 +50,9 @@
 #  Not yet:
 #
 #  NetrServerSetInfo
+#
+#  Shouldn't dump errors against a win7
+#
 ################################################################################
 
 import sys
@@ -234,7 +237,7 @@ class SRVSTests(unittest.TestCase):
         request['InfoStruct']['ShareInfo2']['shi2_type'] = srvs.STYPE_TEMPORARY
         request['InfoStruct']['ShareInfo2']['shi2_remark'] = 'My Remark\x00'
         request['InfoStruct']['ShareInfo2']['shi2_max_uses'] = 0xFFFFFFFF
-        request['InfoStruct']['ShareInfo2']['shi2_path'] = 'c:\\tmp\x00'
+        request['InfoStruct']['ShareInfo2']['shi2_path'] = 'c:\\\x00'
         request['InfoStruct']['ShareInfo2']['shi2_passwd'] = NULL
         resp = dce.request(request)
         #resp.dump()
@@ -377,7 +380,7 @@ class SRVSTests(unittest.TestCase):
         request['InfoStruct']['ShareInfo2']['shi2_type'] = 0
         request['InfoStruct']['ShareInfo2']['shi2_remark'] = 'My Remark\x00'
         request['InfoStruct']['ShareInfo2']['shi2_max_uses'] = 0xFFFFFFFF
-        request['InfoStruct']['ShareInfo2']['shi2_path'] = 'c:\\tmp\x00'
+        request['InfoStruct']['ShareInfo2']['shi2_path'] = 'c:\\\x00'
         request['InfoStruct']['ShareInfo2']['shi2_passwd'] = NULL
         resp = dce.request(request)
         #resp.dump()
@@ -404,7 +407,7 @@ class SRVSTests(unittest.TestCase):
         request['InfoStruct']['ShareInfo2']['shi2_type'] = 0
         request['InfoStruct']['ShareInfo2']['shi2_remark'] = 'My Remark\x00'
         request['InfoStruct']['ShareInfo2']['shi2_max_uses'] = 0xFFFFFFFF
-        request['InfoStruct']['ShareInfo2']['shi2_path'] = 'c:\\tmp\x00'
+        request['InfoStruct']['ShareInfo2']['shi2_path'] = 'c:\\\x00'
         request['InfoStruct']['ShareInfo2']['shi2_passwd'] = NULL
         resp = dce.request(request)
         #resp.dump()
@@ -706,7 +709,7 @@ class SRVSTests(unittest.TestCase):
         request['InfoStruct']['ShareInfo2']['shi2_type'] = srvs.STYPE_TEMPORARY
         request['InfoStruct']['ShareInfo2']['shi2_remark'] = 'My Remark\x00'
         request['InfoStruct']['ShareInfo2']['shi2_max_uses'] = 0xFFFFFFFF
-        request['InfoStruct']['ShareInfo2']['shi2_path'] = 'c:\\tmp\x00'
+        request['InfoStruct']['ShareInfo2']['shi2_path'] = 'c:\\\x00'
         request['InfoStruct']['ShareInfo2']['shi2_passwd'] = NULL
         resp = dce.request(request)
         #resp.dump()
@@ -721,7 +724,7 @@ class SRVSTests(unittest.TestCase):
         request['ShareInfo']['ShareInfo503']['shi503_permissions'] = 0
         request['ShareInfo']['ShareInfo503']['shi503_max_uses'] = 0xFFFFFFFF
         request['ShareInfo']['ShareInfo503']['shi503_current_uses'] = 0
-        request['ShareInfo']['ShareInfo503']['shi503_path'] = 'c:\\tmp\x00'
+        request['ShareInfo']['ShareInfo503']['shi503_path'] = 'c:\\\x00'
         request['ShareInfo']['ShareInfo503']['shi503_passwd'] = NULL
         request['ShareInfo']['ShareInfo503']['shi503_servername'] = NULL
         request['ShareInfo']['ShareInfo503']['shi503_reserved'] = 0

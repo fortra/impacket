@@ -62,6 +62,7 @@
 #  SamrOemChangePasswordUser2
 #  SamrUnicodeChangePasswordUser2
 #  
+# Shouldn't dump errors against a win7
 ################################################################################
 
 import sys

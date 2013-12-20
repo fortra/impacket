@@ -36,6 +36,8 @@
 #  RSetServiceStatus
 #  RCreateServiceWOW64W
 #  
+# Shouldn't dump errors against a win7
+#
 ################################################################################
 
 import sys
@@ -132,7 +134,7 @@ class SCMRTests(unittest.TestCase):
             # This method exists only for selected protocol sequences.
             rpctransport.set_credentials(self.username,self.password, self.domain, lmhash, nthash)
         dce = rpctransport.get_dce_rpc()
-        dce.set_max_fragment_size(32)
+        #dce.set_max_fragment_size(32)
         dce.connect()
         if self.__class__.__name__ == 'TCPTransport':
             dce.set_auth_level(ntlm.NTLM_AUTH_PKT_PRIVACY)
@@ -477,7 +479,6 @@ class SCMRTests(unittest.TestCase):
         try:
             resp = scmr.hRQueryServiceConfigW(dce, newHandle)
         except Exception, e:
-            print e
             if str(e).find('ERROR_INSUFFICIENT_BUFFER') <= 0:
                 raise
             else: 
@@ -619,7 +620,7 @@ class SCMRTests(unittest.TestCase):
 
     def test_RControlServiceCall(self):
         dce, rpctransport, scHandle  = self.connect()
-        lpServiceName = 'WSearch\x00'
+        lpServiceName = 'wuauserv\x00'
         desiredAccess = scmr.SERVICE_START | scmr.SERVICE_STOP | scmr.SERVICE_CHANGE_CONFIG | scmr.SERVICE_QUERY_CONFIG | scmr.SERVICE_QUERY_STATUS | scmr.SERVICE_ENUMERATE_DEPENDENTS
 
         resp = scmr.hROpenServiceW(dce, scHandle, lpServiceName, desiredAccess )
@@ -633,7 +634,8 @@ class SCMRTests(unittest.TestCase):
             req['dwControl'] = scmr.SERVICE_CONTROL_STOP
             resp = dce.request(req)
         except Exception, e:
-            print e
+            if str(e).find('ERROR_DEPENDENT_SERVICES_RUNNING') < 0:
+                raise
             pass
 
         resp = scmr.hRCloseServiceHandle(dce, serviceHandle)
@@ -644,8 +646,12 @@ class SCMRTests(unittest.TestCase):
 
         serviceHandle = resp['lpServiceHandle']
 
-        resp = scmr.hRStartServiceW(dce, serviceHandle, 0, NULL )
-        #resp.dump()
+        try:
+            resp = scmr.hRStartServiceW(dce, serviceHandle, 0, NULL )
+            #resp.dump()
+        except Exception, e:
+            if str(e).find('ERROR_SERVICE_ALREADY_RUNNING') < 0:
+                raise
         return 
 
 class SMBTransport(SCMRTests):
