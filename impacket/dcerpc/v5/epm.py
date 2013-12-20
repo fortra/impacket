@@ -17,8 +17,8 @@ import socket
 from struct import unpack
 from impacket.uuid import uuidtup_to_bin, bin_to_string
 from impacket.dcerpc.v5 import ndr, transport
-from impacket.dcerpc.v5.ndr import NDR, NDRCall, NDRLONG, NDRSHORT, NDRPointer, NDRUniConformantVaryingArray, NDRUniVaryingArray, NDRUniConformantArray
-from impacket.dcerpc.v5.dtypes import GUID, UUID, LPBYTE, PUUID
+from impacket.dcerpc.v5.ndr import NDR, NDRCall, NDRPointer, NDRUniConformantVaryingArray, NDRUniVaryingArray, NDRUniConformantArray
+from impacket.dcerpc.v5.dtypes import GUID, UUID, LPBYTE, PUUID, ULONG, USHORT
 from impacket.structure import Structure
 from impacket.uuid import string_to_bin
 from impacket.dcerpc.v5.ndr import NULL
@@ -774,8 +774,8 @@ class EPMTower(Structure):
 class RPC_IF_ID(NDR):
     structure = (
         ('Uuid', UUID ),
-        ('VersMajor', NDRSHORT),
-        ('VersMinor', NDRSHORT),
+        ('VersMajor', USHORT),
+        ('VersMinor', USHORT),
     )
 
 class PRPC_IF_ID(NDRPointer):
@@ -791,7 +791,7 @@ class ept_lookup_handle_t(NDR):
 class twr_t(NDR):
     align = 4
     structure = (
-        ('tower_length', NDRLONG),
+        ('tower_length', ULONG),
         ('tower_octet_string', NDRUniConformantArray),
     )
 
@@ -802,7 +802,7 @@ class twr_p_t(NDRPointer):
 
 class octet_string_t(NDR):
     structure = (
-        ('count', NDRSHORT),
+        ('count', USHORT),
         ('value', LPBYTE),
     )
 
@@ -814,7 +814,7 @@ class prot_and_addr_t(NDR):
 
 class protocol_tower_t(NDR):
     structure = (
-        ('count', NDRSHORT),
+        ('count', USHORT),
         ('floors', prot_and_addr_t ),
     )
 
@@ -840,7 +840,7 @@ class twr_p_t_array(NDRUniConformantVaryingArray):
         if data is not None:
             self.fromString(data)
 
-error_status = NDRLONG
+error_status = ULONG
 
 ################################################################################
 # RPC CALLS
@@ -849,18 +849,18 @@ error_status = NDRLONG
 class ept_lookup(NDRCall):
     opnum = 2
     structure = (
-        ('inquiry_type',NDRLONG),
+        ('inquiry_type',ULONG),
         ('object',PUUID),
         ('Ifid',PRPC_IF_ID),
-        ('vers_option',NDRLONG),
+        ('vers_option',ULONG),
         ('entry_handle',ept_lookup_handle_t),
-        ('max_ents',NDRLONG),
+        ('max_ents',ULONG),
     )
 
 class ept_lookupResponse(NDRCall):
     structure = (
         ('entry_handle',ept_lookup_handle_t),
-        ('num_ents',NDRLONG),
+        ('num_ents',ULONG),
         ('entries',ept_entry_t_array),
         ('status',error_status),
     )
@@ -871,13 +871,13 @@ class ept_map(NDRCall):
         ('obj',PUUID),
         ('map_tower',twr_p_t),
         ('entry_handle',ept_lookup_handle_t),
-        ('max_towers',NDRLONG),
+        ('max_towers',ULONG),
     )
 
 class ept_mapResponse(NDRCall):
     structure = (
         ('entry_handle',ept_lookup_handle_t),
-        ('num_towers',NDRLONG),
+        ('num_towers',ULONG),
         ('ITowers',twr_p_t_array),
         ('status',error_status),
     )

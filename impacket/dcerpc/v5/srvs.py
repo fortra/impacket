@@ -13,7 +13,7 @@
 #
 
 from impacket.dcerpc.v5 import ndr
-from impacket.dcerpc.v5.ndr import NDRCall, NDR, NDRENUM, NDRUnion, NDRLONG, NDRPointer, NDRUniConformantArray, NDRUniFixedArray, NDRBOOLEAN, NDRUniConformantVaryingArray, NDRUniVaryingArray, PNDRUniConformantArray
+from impacket.dcerpc.v5.ndr import NDRCall, NDR, NDRENUM, NDRUnion, NDRPointer, NDRUniConformantArray, NDRUniFixedArray, NDRBOOLEAN, NDRUniConformantVaryingArray, NDRUniVaryingArray, PNDRUniConformantArray
 from impacket.dcerpc.v5.dtypes import *
 from impacket import system_errors
 from impacket.uuid import uuidtup_to_bin
@@ -2256,7 +2256,7 @@ class NetrConnectionEnumResponse(NDRCall):
        ('InfoStruct',CONNECT_ENUM_STRUCT),
        ('TotalEntries',DWORD),
        ('ResumeHandle',LPLONG),
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.2 NetrFileEnum (Opnum 9)
@@ -2276,7 +2276,7 @@ class NetrFileEnumResponse(NDRCall):
        ('InfoStruct',FILE_ENUM_STRUCT),
        ('TotalEntries',DWORD),
        ('ResumeHandle',LPLONG),
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.3 NetrFileGetInfo (Opnum 10)
@@ -2291,7 +2291,7 @@ class NetrFileGetInfo(NDRCall):
 class NetrFileGetInfoResponse(NDRCall):
     structure = (
        ('InfoStruct',FILE_INFO),
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.4 NetrFileClose (Opnum 11)
@@ -2304,7 +2304,7 @@ class NetrFileClose(NDRCall):
 
 class NetrFileCloseResponse(NDRCall):
     structure = (
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.5 NetrSessionEnum (Opnum 12)
@@ -2324,7 +2324,7 @@ class NetrSessionEnumResponse(NDRCall):
        ('InfoStruct',SESSION_ENUM_STRUCT),
        ('TotalEntries',DWORD),
        ('ResumeHandle',LPLONG),
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.6 NetrSessionDel (Opnum 13)
@@ -2338,7 +2338,7 @@ class NetrSessionDel(NDRCall):
 
 class NetrSessionDelResponse(NDRCall):
     structure = (
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.7 NetrShareAdd (Opnum 14)
@@ -2354,7 +2354,7 @@ class NetrShareAdd(NDRCall):
 class NetrShareAddResponse(NDRCall):
     structure = (
        ('ParmErr', LPLONG),
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.8 NetrShareEnum (Opnum 15)
@@ -2372,7 +2372,7 @@ class NetrShareEnumResponse(NDRCall):
        ('InfoStruct', SHARE_ENUM_STRUCT),
        ('TotalEntries',DWORD),
        ('ResumeHandle',LPLONG),
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.9 NetrShareEnumSticky (Opnum 36)
@@ -2390,7 +2390,7 @@ class NetrShareEnumStickyResponse(NDRCall):
        ('InfoStruct', SHARE_ENUM_STRUCT),
        ('TotalEntries',DWORD),
        ('ResumeHandle',LPLONG),
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.10 NetrShareGetInfo (Opnum 16)
@@ -2405,7 +2405,7 @@ class NetrShareGetInfo(NDRCall):
 class NetrShareGetInfoResponse(NDRCall):
     structure = (
        ('InfoStruct', SHARE_INFO),
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.11 NetrShareSetInfo (Opnum 17)
@@ -2422,7 +2422,7 @@ class NetrShareSetInfo(NDRCall):
 class NetrShareSetInfoResponse(NDRCall):
     structure = (
        ('ParmErr', LPLONG),
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.12 NetrShareDel (Opnum 18)
@@ -2436,7 +2436,7 @@ class NetrShareDel(NDRCall):
 
 class NetrShareDelResponse(NDRCall):
     structure = (
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.13 NetrShareDelSticky (Opnum 19)
@@ -2450,7 +2450,7 @@ class NetrShareDelSticky(NDRCall):
 
 class NetrShareDelStickyResponse(NDRCall):
     structure = (
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.14 NetrShareDelStart (Opnum 37)
@@ -2465,7 +2465,7 @@ class NetrShareDelStart(NDRCall):
 class NetrShareDelStartResponse(NDRCall):
     structure = (
        ('ContextHandle',SHARE_DEL_HANDLE),
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.15 NetrShareDelCommit (Opnum 38)
@@ -2477,7 +2477,7 @@ class NetrShareDelCommit(NDRCall):
 
 class NetrShareDelCommitResponse(NDRCall):
     structure = (
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.16 NetrShareCheck (Opnum 20)
@@ -2491,7 +2491,7 @@ class NetrShareCheck(NDRCall):
 class NetrShareCheckResponse(NDRCall):
     structure = (
        ('Type',DWORD),
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.17 NetrServerGetInfo (Opnum 21)
@@ -2506,7 +2506,7 @@ class NetrServerGetInfo(NDRCall):
 class NetrServerGetInfoResponse(NDRCall):
     structure = (
        ('InfoStruct', SERVER_INFO),
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.18 NetrServerSetInfo (Opnum 22)
@@ -2521,7 +2521,7 @@ class NetrServerSetInfo(NDRCall):
 class NetrServerSetInfoResponse(NDRCall):
     structure = (
        ('ParmErr', LPLONG),
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.19 NetrServerDiskEnum (Opnum 23)
@@ -2540,7 +2540,7 @@ class NetrServerDiskEnumResponse(NDRCall):
        ('DiskInfoStruct', DISK_ENUM_CONTAINER),
        ('TotalEntries', DWORD),
        ('ResumeHandle', LPLONG),
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.20 NetrServerStatisticsGet (Opnum 24)
@@ -2556,7 +2556,7 @@ class NetrServerStatisticsGet(NDRCall):
 class NetrServerStatisticsGetResponse(NDRCall):
     structure = (
        ('InfoStruct', LPSTAT_SERVER_0),
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.21 NetrRemoteTOD (Opnum 28)
@@ -2569,7 +2569,7 @@ class NetrRemoteTOD(NDRCall):
 class NetrRemoteTODResponse(NDRCall):
     structure = (
        ('BufferPtr', LPTIME_OF_DAY_INFO),
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.22 NetrServerTransportAdd (Opnum 25)
@@ -2583,7 +2583,7 @@ class NetrServerTransportAdd(NDRCall):
 
 class NetrServerTransportAddResponse(NDRCall):
     structure = (
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.23 NetrServerTransportAddEx (Opnum 41)
@@ -2597,7 +2597,7 @@ class NetrServerTransportAddEx(NDRCall):
 
 class NetrServerTransportAddExResponse(NDRCall):
     structure = (
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.24 NetrServerTransportEnum (Opnum 26)
@@ -2615,7 +2615,7 @@ class NetrServerTransportEnumResponse(NDRCall):
        ('InfoStruct', SERVER_XPORT_ENUM_STRUCT),
        ('TotalEntries', DWORD),
        ('ResumeHandle', LPLONG),
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.25 NetrServerTransportDel (Opnum 27)
@@ -2629,7 +2629,7 @@ class NetrServerTransportDel(NDRCall):
 
 class NetrServerTransportDelResponse(NDRCall):
     structure = (
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.26 NetrServerTransportDelEx (Opnum 53)
@@ -2643,7 +2643,7 @@ class NetrServerTransportDelEx(NDRCall):
 
 class NetrServerTransportDelExResponse(NDRCall):
     structure = (
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.27 NetrpGetFileSecurity (Opnum 39)
@@ -2659,7 +2659,7 @@ class NetrpGetFileSecurity(NDRCall):
 class NetrpGetFileSecurityResponse(NDRCall):
     structure = (
        ('SecurityDescriptor', PADT_SECURITY_DESCRIPTOR),
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.28 NetrpSetFileSecurity (Opnum 40)
@@ -2675,7 +2675,7 @@ class NetrpSetFileSecurity(NDRCall):
 
 class NetrpSetFileSecurityResponse(NDRCall):
     structure = (
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.29 NetprPathType (Opnum 30)
@@ -2690,7 +2690,7 @@ class NetprPathType(NDRCall):
 class NetprPathTypeResponse(NDRCall):
     structure = (
        ('PathType', DWORD),
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.30 NetprPathCanonicalize (Opnum 31)
@@ -2709,7 +2709,7 @@ class NetprPathCanonicalizeResponse(NDRCall):
     structure = (
        ('Outbuf', NDRUniConformantArray),
        ('PathType', DWORD),
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.31 NetprPathCompare (Opnum 32)
@@ -2725,7 +2725,7 @@ class NetprPathCompare(NDRCall):
 
 class NetprPathCompareResponse(NDRCall):
     structure = (
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.32 NetprNameValidate (Opnum 33)
@@ -2740,7 +2740,7 @@ class NetprNameValidate(NDRCall):
 
 class NetprNameValidateResponse(NDRCall):
     structure = (
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.33 NetprNameCanonicalize (Opnum 34)
@@ -2758,7 +2758,7 @@ class NetprNameCanonicalizeResponse(NDRCall):
     structure = (
        ('Outbuf', NDRUniConformantArray),
        ('NameType', DWORD),
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.34 NetprNameCompare (Opnum 35)
@@ -2774,7 +2774,7 @@ class NetprNameCompare(NDRCall):
 
 class NetprNameCompareResponse(NDRCall):
     structure = (
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.35 NetrDfsGetVersion (Opnum 43)
@@ -2787,7 +2787,7 @@ class NetrDfsGetVersion(NDRCall):
 class NetrDfsGetVersionResponse(NDRCall):
     structure = (
        ('Version', DWORD),
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.36 NetrDfsCreateLocalPartition (Opnum 44)
@@ -2805,7 +2805,7 @@ class NetrDfsCreateLocalPartition(NDRCall):
 
 class NetrDfsCreateLocalPartitionResponse(NDRCall):
     structure = (
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.37 NetrDfsDeleteLocalPartition (Opnum 45)
@@ -2819,7 +2819,7 @@ class NetrDfsDeleteLocalPartition(NDRCall):
 
 class NetrDfsDeleteLocalPartitionResponse(NDRCall):
     structure = (
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.38 NetrDfsSetLocalVolumeState (Opnum 46)
@@ -2834,7 +2834,7 @@ class NetrDfsSetLocalVolumeState(NDRCall):
 
 class NetrDfsSetLocalVolumeStateResponse(NDRCall):
     structure = (
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.39 NetrDfsCreateExitPoint (Opnum 48)
@@ -2851,7 +2851,7 @@ class NetrDfsCreateExitPoint(NDRCall):
 class NetrDfsCreateExitPointResponse(NDRCall):
     structure = (
        ('ShortPrefix',WCHAR_ARRAY),
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.40 NetrDfsModifyPrefix (Opnum 50)
@@ -2865,7 +2865,7 @@ class NetrDfsModifyPrefix(NDRCall):
 
 class NetrDfsModifyPrefixResponse(NDRCall):
     structure = (
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.41 NetrDfsDeleteExitPoint (Opnum 49)
@@ -2880,7 +2880,7 @@ class NetrDfsDeleteExitPoint(NDRCall):
 
 class NetrDfsDeleteExitPointResponse(NDRCall):
     structure = (
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.42 NetrDfsFixLocalVolume (Opnum 51)
@@ -2900,7 +2900,7 @@ class NetrDfsFixLocalVolume(NDRCall):
 
 class NetrDfsFixLocalVolumeResponse(NDRCall):
     structure = (
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.43 NetrDfsManagerReportSiteInfo (Opnum 52)
@@ -2914,7 +2914,7 @@ class NetrDfsManagerReportSiteInfo(NDRCall):
 class NetrDfsManagerReportSiteInfoResponse(NDRCall):
     structure = (
        ('ppSiteInfo', LPDFS_SITELIST_INFO),
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.44 NetrServerAliasAdd (Opnum 54)
@@ -2928,7 +2928,7 @@ class NetrServerAliasAdd(NDRCall):
 
 class NetrServerAliasAddResponse(NDRCall):
     structure = (
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.45 NetrServerAliasEnum (Opnum 55)
@@ -2946,7 +2946,7 @@ class NetrServerAliasEnumResponse(NDRCall):
        ('InfoStruct',SERVER_ALIAS_ENUM_STRUCT),
        ('TotalEntries',DWORD),
        ('ResumeHandle',LPLONG),
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.46 NetrServerAliasDel (Opnum 56)
@@ -2960,7 +2960,7 @@ class NetrServerAliasDel(NDRCall):
 
 class NetrServerAliasDelResponse(NDRCall):
     structure = (
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 # 3.1.4.47 NetrShareDelEx (Opnum 57)
@@ -2974,7 +2974,7 @@ class NetrShareDelEx(NDRCall):
 
 class NetrShareDelExResponse(NDRCall):
     structure = (
-       ('ErrorCode',NDRLONG),
+       ('ErrorCode',ULONG),
     )
 
 

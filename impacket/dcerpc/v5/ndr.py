@@ -814,6 +814,12 @@ class NDRCall(NDR):
 class NDRSMALL(NDR):
     align = 1
     structure = (
+        ('Data', 'b=0'),
+    )
+
+class NDRUSMALL(NDR):
+    align = 1
+    structure = (
         ('Data', 'B=0'),
     )
 
@@ -828,16 +834,34 @@ class NDRCHAR(NDR):
 class NDRSHORT(NDR):
     align = 2
     structure = (
+        ('Data', '<h=0'),
+    )
+
+class NDRUSHORT(NDR):
+    align = 2
+    structure = (
         ('Data', '<H=0'),
     )
 
 class NDRLONG(NDR):
     align = 4
     structure = (
+        ('Data', '<l=0'),
+    )
+
+class NDRULONG(NDR):
+    align = 4
+    structure = (
         ('Data', '<L=0'),
     )
 
 class NDRHYPER(NDR):
+    align = 8
+    structure = (
+        ('Data', '<q=0'),
+    )
+
+class NDRUHYPER(NDR):
     align = 8
     structure = (
         ('Data', '<Q=0'),
@@ -859,7 +883,7 @@ class EnumType(type):
     def __getattr__(self, attr):
         return self.enumItems[attr].value
 
-class NDRENUM(NDRSHORT):
+class NDRENUM(NDRUSHORT):
     __metaclass__ = EnumType
     align = 2
     # enum MUST be an python enum (see enum.py)
@@ -1006,7 +1030,7 @@ class NDRConformantVaryingString(NDRUniConformantVaryingArray):
 class NDRUnion(NDR):
     align = 2
     commonHdr = (
-        ('tag', NDRSHORT),
+        ('tag', NDRUSHORT),
         #('SwitchValue', NDRLONG),
     )
     union = {

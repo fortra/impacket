@@ -16,7 +16,7 @@ from struct import unpack, pack
 from impacket import system_errors
 from impacket.uuid import uuidtup_to_bin
 from impacket.dcerpc.v5 import ndr
-from impacket.dcerpc.v5.ndr import NDRCall, NDR, NDRPointer, NDRLONG, NDRPointerNULL, NDRUniConformantArray, PNDRUniConformantArray, NDRBOOLEAN, NDRSHORT, NDRUniFixedArray, NDRUnion, NULL
+from impacket.dcerpc.v5.ndr import NDRCall, NDR, NDRPointer, NDRPointerNULL, NDRUniConformantArray, PNDRUniConformantArray, NDRBOOLEAN, NDRUniFixedArray, NDRUnion, NULL
 from impacket.dcerpc.v5.dtypes import *
 
 MSRPC_UUID_SCMR = uuidtup_to_bin(('367ABB81-9844-35F1-AD32-98F038001003', '2.0'))
@@ -249,7 +249,7 @@ class LPSERVICE_STATUS(NDRPointer):
         ('Data',SERVICE_STATUS),
     )
 
-SECURITY_INFORMATION = NDRLONG
+SECURITY_INFORMATION = ULONG
 
 BOUNDED_DWORD_256K = DWORD
 
@@ -548,7 +548,7 @@ class PSERVICE_TRIGGER_INFO(NDRPointer):
 
 class SERVICE_PREFERRED_NODE_INFO(NDR):
     structure = (
-        ('usPreferredNode', NDRSHORT),
+        ('usPreferredNode', USHORT),
         ('fDelete', BOOL),
     )
 
@@ -580,7 +580,7 @@ class PSERVICE_MANAGEDACCOUNT_INFO(NDRPointer):
 class SC_RPC_CONFIG_INFOW_UNION(NDRUnion):
     align = 4
     commonHdr = (
-        ('tag', NDRLONG),
+        ('tag', ULONG),
     )
 
     union = {
