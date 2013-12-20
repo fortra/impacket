@@ -15,17 +15,22 @@ import random
 from struct import pack, unpack
 from impacket.dcerpc.v5 import ndr
 
-DWORD = ndr.NDRLONG
-ULONGLONG = ndr.NDRHYPER
-BOOL = ndr.NDRLONG
-UCHAR = ndr.NDRSMALL
+DWORD = ndr.NDRULONG
+ULONGLONG = ndr.NDRUHYPER
+BOOL = ndr.NDRULONG
+UCHAR = ndr.NDRUSMALL
 USHORT = ndr.NDRSHORT
-ULONG = ndr.NDRLONG
+ULONG = ndr.NDRULONG
 LONG = ndr.NDRLONG
 
 class LPLONG(ndr.NDRPointer):
     referent = (
-        ('Data', ndr.NDRLONG),
+        ('Data', LONG),
+    )
+
+class LPULONG(ndr.NDRPointer):
+    referent = (
+        ('Data', ULONG),
     )
 
 class PBOOL(ndr.NDRPointer):
@@ -170,7 +175,7 @@ UUID = GUID
 PUUID = PGUID
 
 # 2.2.37 NTSTATUS
-NTSTATUS = LONG
+NTSTATUS = DWORD
 
 # 2.2.59 WCHAR
 WCHAR = WSTR

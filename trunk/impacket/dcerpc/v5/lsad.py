@@ -13,7 +13,7 @@
 #
 
 from impacket.dcerpc.v5 import ndr
-from impacket.dcerpc.v5.ndr import NDRCall, NDR, NDRENUM, NDRUnion, NDRLONG, NDRPointer, NDRSMALL, NDRSHORT, NDRUniConformantArray, NDRUniConformantVaryingArray
+from impacket.dcerpc.v5.ndr import NDRCall, NDR, NDRENUM, NDRUnion, NDRPointer, NDRUniConformantArray, NDRUniConformantVaryingArray
 from impacket.dcerpc.v5.dtypes import *
 from impacket import nt_errors
 from impacket.uuid import uuidtup_to_bin
@@ -167,9 +167,9 @@ class PSTRING(NDR):
 # 2.2.3.2 LSAPR_ACL
 class LSAPR_ACL(NDR):
     structure =  (
-        ('AclRevision', NDRSMALL),
-        ('Sbz1', NDRSMALL),
-        ('AclSize', NDRSHORT),
+        ('AclRevision', UCHAR),
+        ('Sbz1', UCHAR),
+        ('AclSize', USHORT),
         ('Dummy1',NDRUniConformantArray),
     )
 
@@ -198,7 +198,7 @@ class SECURITY_QUALITY_OF_SERVICE(NDR):
         ('Length', DWORD), 
         ('ImpersonationLevel', SECURITY_IMPERSONATION_LEVEL), 
         ('ContextTrackingMode', SECURITY_CONTEXT_TRACKING_MODE), 
-        ('EffectiveOnly', NDRSMALL), 
+        ('EffectiveOnly', UCHAR), 
     )
 
 class PSECURITY_QUALITY_OF_SERVICE(NDRPointer):
@@ -257,7 +257,7 @@ class POLICY_AUDIT_LOG_INFO(NDR):
         ('AuditLogPercentFull', DWORD), 
         ('MaximumLogSize', DWORD), 
         ('AuditRetentionPeriod', LARGE_INTEGER), 
-        ('AuditLogFullShutdownInProgress', NDRSMALL), 
+        ('AuditLogFullShutdownInProgress', UCHAR), 
         ('TimeToShutdown', LARGE_INTEGER), 
         ('NextAuditRecordId', DWORD), 
     )
@@ -273,7 +273,7 @@ class PDWORD_ARRAY(NDRPointer):
 
 class LSAPR_POLICY_AUDIT_EVENTS_INFO(NDR):
     structure = (
-        ('AuditingMode', NDRSMALL), 
+        ('AuditingMode', UCHAR), 
         ('EventAuditingOptions', PDWORD_ARRAY), 
         ('MaximumAuditEventCount', DWORD), 
     )
@@ -327,14 +327,14 @@ class POLICY_MODIFICATION_INFO(NDR):
 # 2.2.4.12 POLICY_AUDIT_FULL_SET_INFO
 class POLICY_AUDIT_FULL_SET_INFO(NDR):
     structure = (
-        ('ShutDownOnFull', NDRSMALL), 
+        ('ShutDownOnFull', UCHAR), 
     )
 
 # 2.2.4.13 POLICY_AUDIT_FULL_QUERY_INFO
 class POLICY_AUDIT_FULL_QUERY_INFO(NDR):
     structure = (
-        ('ShutDownOnFull', NDRSMALL), 
-        ('LogIsFull', NDRSMALL), 
+        ('ShutDownOnFull', UCHAR), 
+        ('LogIsFull', UCHAR), 
     )
 
 # 2.2.4.14 LSAPR_POLICY_DNS_DOMAIN_INFO
@@ -1274,14 +1274,14 @@ class LsarLookupPrivilegeDisplayName(NDRCall):
     structure = (
        ('PolicyHandle', LSAPR_HANDLE),
        ('Name', RPC_UNICODE_STRING),
-       ('ClientLanguage', NDRSHORT),
-       ('ClientSystemDefaultLanguage', NDRSHORT),
+       ('ClientLanguage', USHORT),
+       ('ClientSystemDefaultLanguage', USHORT),
     )
 
 class LsarLookupPrivilegeDisplayNameResponse(NDRCall):
     structure = (
        ('Name', PRPC_UNICODE_STRING),
-       ('LanguageReturned', NDRSHORT),
+       ('LanguageReturned', UCHAR),
        ('ErrorCode', NTSTATUS),
     )
 
