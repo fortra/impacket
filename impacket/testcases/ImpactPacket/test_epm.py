@@ -3,6 +3,7 @@
 #
 #  Not yet:
 #
+# Shouldn't dump errors against a win7
 #  
 ################################################################################
 
@@ -48,7 +49,9 @@ class EPMTests(unittest.TestCase):
         dce, rpctransport = self.connect()
         request = epm.ept_lookup()
         request['inquiry_type'] = epm.RPC_C_EP_ALL_ELTS
-        request['vers_option'] = epm.RPC_C_VERS_EXACT
+        request['object'] = NULL
+        request['Ifid'] = NULL
+        request['vers_option'] = epm.RPC_C_VERS_ALL
         request['max_ents'] = 499
       
         resp = dce.request(request)

@@ -23,6 +23,7 @@
 #
 #  Not yet:
 #
+# Shouldn't dump errors against a win7
 #  
 ################################################################################
 
@@ -332,7 +333,7 @@ class WKSTTests(unittest.TestCase):
             resp2 = dce.request(req)
             #resp2.dump()
         except Exception, e:
-            if str(e).find('ERROR_NOT_SUPPORTED') < 0:
+            if str(e).find('ERROR_NOT_SUPPORTED') < 0 and str(e).find('ERROR_INVALID_PASSWORD') < 0:
                 raise
 
     def test_NetrRemoveAlternateComputerName(self):
@@ -348,7 +349,7 @@ class WKSTTests(unittest.TestCase):
             resp2 = dce.request(req)
             #resp2.dump()
         except Exception, e:
-            if str(e).find('ERROR_NOT_SUPPORTED') < 0:
+            if str(e).find('ERROR_NOT_SUPPORTED') < 0 and str(e).find('ERROR_INVALID_PASSWORD') < 0:
                 raise
 
     def test_NetrSetPrimaryComputerName(self):
