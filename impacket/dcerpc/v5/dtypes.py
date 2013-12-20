@@ -11,6 +11,7 @@
 # Description:
 #   [MS-DTYP] Interface mini implementation
 #
+import random
 from struct import pack, unpack
 from impacket.dcerpc.v5 import ndr
 
@@ -193,13 +194,13 @@ class RPC_UNICODE_STRING(ndr.NDR):
     align = 4
     align64 = 4
     commonHdr = (
-        ('MaximumLength','<H=len(Data)-12'),
         ('Length','<H=len(Data)-12'),
+        ('MaximumLength','<H=len(Data)-12'),
         ('ReferentID','<L=0xff'),
     )
     commonHdr64 = (
-        ('MaximumLength','<H=len(Data)-24'),
         ('Length','<H=len(Data)-24'),
+        ('MaximumLength','<H=len(Data)-24'),
         ('ReferentID','<Q=0xff'),
     )
 
@@ -217,17 +218,16 @@ class RPC_UNICODE_STRING(ndr.NDR):
 
     def __setitem__(self, key, value):
         if key == 'Data':
-            self.fields['MaximumLength'] = None
+            self.fields['ReferentID'] = random.randint(1, 65535)
             self.fields['Length'] = None
+            self.fields['MaximumLength'] = None
             self.data = None        # force recompute
         return ndr.NDR.__setitem__(self, key, value)
 
-class UNIQUE_RPC_UNICODE_STRING(ndr.NDRPointer):
+class PRPC_UNICODE_STRING(ndr.NDRPointer):
     referent = (
        ('Data', RPC_UNICODE_STRING ),
     )
-
-PRPC_UNICODE_STRING = UNIQUE_RPC_UNICODE_STRING
 
 class LPDWORD(ndr.NDRPointer):
     align = 4

@@ -15,8 +15,9 @@
 import array
 import random
 from struct import *
+from impacket.dcerpc.v5.dtypes import *
 from impacket.dcerpc.v5 import ndr
-from impacket.dcerpc.v5.ndr import NDR, NDRCall
+from impacket.dcerpc.v5.ndr import NDR, NDRCall, NDRLONG, PNDRUniConformantArray, NDRPointer, NDRSHORT
 from impacket.structure import Structure
 from impacket.dcerpc import ndrutils, dcerpc
 from impacket.uuid import uuidtup_to_bin
@@ -325,7 +326,7 @@ class NETLOGON_AUTHENTICATOR(NDR):
     align = 4
     structure = (
         ('Credential',NETLOGON_CREDENTIAL),
-        ('Timestamp',ndr.NDRLONG),
+        ('Timestamp',NDRLONG),
     )
 
 class PNETLOGON_AUTHENTICATOR(ndrutils.NDRPointerNew):
@@ -338,10 +339,10 @@ class ENCRYPTED_NT_OWF_PASSWORD(NDR):
 
 class NL_GENERIC_RPC_DATA(NDR):
     structure = (
-        ('UlongEntryCount',ndr.NDRLONG),
-        ('UlongData', ndr.PNDRUniConformantArray),
-        ('UnicodeStringEntryCount',ndr.NDRLONG),
-        ('UnicodeStringData',ndr.PNDRUniConformantArray),
+        ('UlongEntryCount',NDRLONG),
+        ('UlongData', PNDRUniConformantArray),
+        ('UnicodeStringEntryCount',NDRLONG),
+        ('UnicodeStringData',PNDRUniConformantArray),
     )
     def __init__(self, data = None, isNDR64 = False):
         NDR.__init__(self, None, isNDR64)
@@ -349,26 +350,26 @@ class NL_GENERIC_RPC_DATA(NDR):
         if data is not None:
             self.fromString(data)
 
-class PNL_GENERIC_RPC_DATA(ndr.NDRPointer):
+class PNL_GENERIC_RPC_DATA(NDRPointer):
     referent = (
         ('Data', NL_GENERIC_RPC_DATA),
     )
     def __init__(self, data = None, isNDR64 = False, topLevel = False):
-        ndr.NDRPointer.__init__(self,data,isNDR64,topLevel)
+        NDRPointer.__init__(self,data,isNDR64,topLevel)
 
 class NL_SITE_NAME_ARRAY(NDR):
     structure = (
-       ('EntryCount',ndr.NDRLONG),
-       ('SiteNames',ndr.PNDRUniConformantArray),
+       ('EntryCount',NDRLONG),
+       ('SiteNames',PNDRUniConformantArray),
     )
 
     def __init__(self, data = None, isNDR64 = False):
         NDR.__init__(self, None, isNDR64)
-        self.fields['SiteNames'].fields['Data'].item = ndr.UNICODE_STRING
+        self.fields['SiteNames'].fields['Data'].item = UNICODE_STRING
         if data is not None:
             self.fromString(data)
 
-class PNL_SITE_NAME_ARRAY(ndr.NDRPointer):
+class PNL_SITE_NAME_ARRAY(NDRPointer):
     referent = (
         ('Data', NL_SITE_NAME_ARRAY),
     )
@@ -376,43 +377,43 @@ class PNL_SITE_NAME_ARRAY(ndr.NDRPointer):
 class NETLOGONGetDCName(NDRCall):
     opnum = 11
     structure = (
-        ('ServerName', ndr.RPC_UNICODE_STRING),
-        ('DomainName', ndr.UNIQUE_RPC_UNICODE_STRING),
+        ('ServerName', RPC_UNICODE_STRING),
+        ('DomainName', PRPC_UNICODE_STRING),
     )
 
 class NETLOGONGetDCNameResponse(NDRCall):
     structure = (
-        ('Buffer', ndr.UNIQUE_RPC_UNICODE_STRING),
+        ('Buffer', PRPC_UNICODE_STRING),
     )
 
 class NETLOGONGetAnyDCName(NDRCall):
     opnum = 13
     structure = (
-        ('ServerName', ndr.UNIQUE_RPC_UNICODE_STRING),
-        ('DomainName', ndr.UNIQUE_RPC_UNICODE_STRING),
+        ('ServerName', PRPC_UNICODE_STRING),
+        ('DomainName', PRPC_UNICODE_STRING),
     )
 
 class NETLOGONGetAnyDCNameResponse(NDRCall):
     structure = (
-        ('Buffer', ndr.UNIQUE_RPC_UNICODE_STRING),
+        ('Buffer', PRPC_UNICODE_STRING),
     )
 
 class NETLOGONGetSiteName(NDRCall):
     opnum = 28
     structure = (
-        ('ComputerName', ndr.UNIQUE_RPC_UNICODE_STRING),
+        ('ComputerName', PRPC_UNICODE_STRING),
     )
 
 class NETLOGONGetSiteNameResponse(NDRCall):
     structure = (
-        ('SiteName', ndr.UNIQUE_RPC_UNICODE_STRING),
+        ('SiteName', PRPC_UNICODE_STRING),
     )
 
 
 class NETLOGONGetDcSiteCoverageW(NDRCall):
     opnum = 38
     structure = (
-        ('ServerName', ndr.UNIQUE_RPC_UNICODE_STRING),
+        ('ServerName', PRPC_UNICODE_STRING),
     )
 
 class NETLOGONGetDcSiteCoverageWResponse(NDRCall):
@@ -423,27 +424,27 @@ class NETLOGONGetDcSiteCoverageWResponse(NDRCall):
 class NETLOGONServerAuthenticate3(NDRCall):
     opnum = 26
     structure = (
-        ('PrimaryName', ndr.UNIQUE_RPC_UNICODE_STRING),
-        ('AccountName', ndr.RPC_UNICODE_STRING),
-        ('SecureChannelType',ndr.NDRSHORT),
-        ('ComputerName', ndr.RPC_UNICODE_STRING),
+        ('PrimaryName', PRPC_UNICODE_STRING),
+        ('AccountName', RPC_UNICODE_STRING),
+        ('SecureChannelType',NDRSHORT),
+        ('ComputerName', RPC_UNICODE_STRING),
         ('ClientCredential',NETLOGON_CREDENTIAL),
-        ('NegotiateFlags',ndr.NDRLONG),
+        ('NegotiateFlags',NDRLONG),
     )
 
 class NETLOGONServerAuthenticate3Response(NDRCall):
     structure = (
         ('ServerCredential',NETLOGON_CREDENTIAL),
-        ('NegotiateFlags',ndr.NDRLONG),
-        ('AccountRid',ndr.NDRLONG),
+        ('NegotiateFlags',NDRLONG),
+        ('AccountRid',NDRLONG),
     )
 
 class NETLOGONServerReqChallenge(NDRCall):
     opnum = 4
     alingment = 4
     structure = (
-        ('PrimaryName', ndr.UNIQUE_RPC_UNICODE_STRING),
-        ('ComputerName', ndr.RPC_UNICODE_STRING),
+        ('PrimaryName', PRPC_UNICODE_STRING),
+        ('ComputerName', RPC_UNICODE_STRING),
         ('ClientChallenge', NETLOGON_CREDENTIAL),
     )
 
@@ -455,10 +456,10 @@ class NETLOGONServerReqChallengeResponse(NDRCall):
 class NETLOGONServerGetTrustInfo(NDRCall):
     opnum = 46
     structure = (
-        ('TrustedDcName',ndr.UNIQUE_RPC_UNICODE_STRING),
-        ('AccountName', ndr.RPC_UNICODE_STRING),
-        ('SecureChannelType',ndr.NDRSHORT),
-        ('ComputerName', ndr.RPC_UNICODE_STRING),
+        ('TrustedDcName',PRPC_UNICODE_STRING),
+        ('AccountName', RPC_UNICODE_STRING),
+        ('SecureChannelType',NDRSHORT),
+        ('ComputerName', RPC_UNICODE_STRING),
         ('Authenticator', NETLOGON_AUTHENTICATOR),
     )
 
@@ -473,10 +474,10 @@ class NETLOGONServerGetTrustInfoResponse(NDRCall):
 class NETLOGONServerPasswordGet(NDRCall):
     opnum = 31
     structure = (
-        ('PrimaryName', ndr.UNIQUE_RPC_UNICODE_STRING),
-        ('AccountName', ndr.RPC_UNICODE_STRING),
-        ('AccountType',ndr.NDRSHORT),
-        ('ComputerName', ndr.RPC_UNICODE_STRING),
+        ('PrimaryName', PRPC_UNICODE_STRING),
+        ('AccountName', RPC_UNICODE_STRING),
+        ('AccountType',NDRSHORT),
+        ('ComputerName', RPC_UNICODE_STRING),
         ('Authenticator', NETLOGON_AUTHENTICATOR),
     )
 
@@ -489,11 +490,11 @@ class NETLOGONServerPasswordGetResponse(NDRCall):
 class NETLOGONLogonGetDomainInfo(NDRCall):
     opnum = 29
     structure = (
-        ('ServerName', ndr.RPC_UNICODE_STRING),
-        ('ComputerName', ndr.UNIQUE_RPC_UNICODE_STRING),
+        ('ServerName', RPC_UNICODE_STRING),
+        ('ComputerName', PRPC_UNICODE_STRING),
         ('Authenticator', NETLOGON_AUTHENTICATOR),
         ('ReturnAuthenticator', NETLOGON_AUTHENTICATOR),
-        ('Level',ndr.NDRLONG),
+        ('Level',NDRLONG),
     )
 
 class NETLOGONLogonGetDomainInfoResponse(NDRCall):
@@ -504,18 +505,18 @@ class NETLOGONLogonGetDomainInfoResponse(NDRCall):
 class NETLOGONLogonGetCapabilities(NDRCall):
     opnum = 21
     structure = (
-        ('ServerName', ndr.RPC_UNICODE_STRING),
-        ('ComputerName', ndr.UNIQUE_RPC_UNICODE_STRING),
+        ('ServerName', RPC_UNICODE_STRING),
+        ('ComputerName', PRPC_UNICODE_STRING),
         ('Authenticator', NETLOGON_AUTHENTICATOR),
         ('ReturnAuthenticator', NETLOGON_AUTHENTICATOR),
-        ('Level',ndr.NDRLONG),
+        ('Level',NDRLONG),
     )
 
 class NETLOGONLogonGetCapabilitiesResponse(NDRCall):
     structure = (
         ('ReturnAuthenticator', NETLOGON_AUTHENTICATOR),
-        ('SwitchIs',ndr.NDRLONG),
-        ('ServerCapabilities',ndr.NDRLONG),
+        ('SwitchIs',NDRLONG),
+        ('ServerCapabilities',NDRLONG),
     )
  
 class NETLOGONSessionError(Exception):
