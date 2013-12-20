@@ -229,9 +229,6 @@ class UNIQUE_RPC_UNICODE_STRING(ndr.NDRPointer):
 
 PRPC_UNICODE_STRING = UNIQUE_RPC_UNICODE_STRING
 
-class RPC_UNICODE_STRING_ARRAY(ndr.NDRUniConformantVaryingArray):
-    item = RPC_UNICODE_STRING
-
 class LPDWORD(ndr.NDRPointer):
     align = 4
     align64 = 8
