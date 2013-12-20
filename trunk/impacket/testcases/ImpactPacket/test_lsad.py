@@ -229,8 +229,12 @@ class LSADTests(unittest.TestCase):
         request['PolicyHandle'] = policyHandle
         request['EnumerationContext'] = 0
         request['PreferedMaximumLength'] = 0xffffffff
-        resp = dce.request(request)
-        resp.dump()
+        try:
+            resp = dce.request(request)
+            resp.dump()
+        except Exception, e:
+            if str(e).find('STATUS_NO_MORE_ENTRIES') < 0:
+                raise
 
     def test_LsarEnumerateTrustedDomains(self):
         dce, rpctransport, policyHandle = self.connect()
@@ -238,8 +242,12 @@ class LSADTests(unittest.TestCase):
         request['PolicyHandle'] = policyHandle
         request['EnumerationContext'] = 0
         request['PreferedMaximumLength'] = 0xffffffff
-        resp = dce.request(request)
-        resp.dump()
+        try:
+            resp = dce.request(request)
+            resp.dump()
+        except Exception, e:
+            if str(e).find('STATUS_NO_MORE_ENTRIES') < 0:
+                raise
 
     def test_LsarOpenAccount(self):
         dce, rpctransport, policyHandle = self.connect()
@@ -297,7 +305,7 @@ class LSADTests(unittest.TestCase):
         request = lsad.LsarEnumeratePrivilegesAccount()
         request['AccountHandle'] = resp['AccountHandle']
         resp = dce.request(request)
-        resp.dump()
+        #resp.dump()
 
     def test_LsarGetSystemAccessAccount_LsarSetSystemAccessAccount(self):
         dce, rpctransport, policyHandle = self.connect()
@@ -418,7 +426,7 @@ class LSADTests(unittest.TestCase):
         request['SecretName'] = 'MYSECRET'
         request['DesiredAccess'] = MAXIMUM_ALLOWED
         resp0 = dce.request(request)
-        resp0.dump()
+        #resp0.dump()
 
         request = lsad.LsarSetSecret()
         request['SecretHandle'] = resp0['SecretHandle']
@@ -432,7 +440,7 @@ class LSADTests(unittest.TestCase):
         #request['EncryptedOldValue'] = NULL
         try:
             resp = dce.request(request)
-            resp.dump()
+            #resp.dump()
         except: 
             pass
 
@@ -538,7 +546,7 @@ class LSADTests(unittest.TestCase):
         request['SecurityInformation'] = lsad.OWNER_SECURITY_INFORMATION
         request['SecurityDescriptor'] = resp['SecurityDescriptor']
         resp = dce.request(request)
-        resp.dump()
+        #resp.dump()
 
     def test_LsarQueryForestTrustInformation(self):
         dce, rpctransport, policyHandle = self.connect()
