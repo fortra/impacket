@@ -152,8 +152,13 @@ class SRVSTests(unittest.TestCase):
         request = srvs.NetrFileClose()
         request['ServerName'] = '\\\\%s\x00' % self.machine
         request['FileId'] = resp['InfoStruct']['FileInfo']['Level2']['Buffer'][0]['fi2_id']
-        resp = dce.request(request)
-        #resp.dump()
+        try:
+            resp = dce.request(request)
+            #resp.dump()
+        except Exception, e:
+            # I might be closing myself ;)
+            if str(e).find('STATUS_PIPE_BROKEN') < 0:
+                raise
 
     def test_NetrSessionEnum(self):
         dce, rpctransport = self.connect()
