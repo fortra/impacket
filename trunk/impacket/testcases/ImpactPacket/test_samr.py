@@ -1839,41 +1839,16 @@ class SAMRTests(unittest.TestCase):
     def test_SamrChangePasswordUser(self):
         dce, rpctransport, domainHandle  = self.connect()
 
-        request = samr.SamrEnumerateUsersInDomain()
+        request = samr.SamrCreateUser2InDomain()
         request['DomainHandle'] = domainHandle
-        request['UserAccountControl'] =  samr.USER_NORMAL_ACCOUNT
-        request['EnumerationContext'] =  0
-        request['PreferedMaximumLength'] = 0xffffffff
-        status = nt_errors.STATUS_MORE_ENTRIES
-        while status == nt_errors.STATUS_MORE_ENTRIES:
-            try:
-                resp4 = dce.request(request)
-            except Exception, e:
-                if str(e).find('STATUS_MORE_ENTRIES') < 0:
-                    raise 
-                resp4 = e.get_packet()
-            for user in resp4['Buffer']['Buffer']:
-                 if user['Name'] == self.username:
-                     userRid = user['RelativeId'] 
-                     break
-            request['EnumerationContext'] = resp4['EnumerationContext'] 
-            status = resp4['ErrorCode']
+        request['Name'] = 'testAccount'
+        request['AccountType'] = samr.USER_NORMAL_ACCOUNT
+        request['DesiredAccess'] = dtypes.MAXIMUM_ALLOWED | samr.USER_READ_GENERAL | samr.DELETE
+        #request.dump()
+        resp0 = dce.request(request)
+        #resp0.dump()
 
-        request = samr.SamrOpenUser()
-        request['DomainHandle'] = domainHandle
-        #request['DesiredAccess'] =  samr.USER_READ_GENERAL | samr.USER_READ_PREFERENCES | samr.USER_READ_ACCOUNT | samr.USER_ALL_ACCESS | samr.USER_READ | samr.USER_READ_LOGON 
-        request['DesiredAccess'] = \
-            samr.USER_READ_GENERAL | samr.USER_READ_PREFERENCES | samr.USER_WRITE_PREFERENCES | samr.USER_READ_LOGON \
-            | samr.USER_READ_ACCOUNT | samr.USER_WRITE_ACCOUNT | samr.USER_CHANGE_PASSWORD | samr.USER_FORCE_PASSWORD_CHANGE  \
-            | samr.USER_LIST_GROUPS | samr.USER_READ_GROUP_INFORMATION | samr.USER_WRITE_GROUP_INFORMATION | samr.USER_ALL_ACCESS  \
-            | samr.USER_READ | samr.USER_WRITE  | samr.USER_EXECUTE 
-
-        
-        request['UserId'] = userRid
-        resp = dce.request(request)
-        ##resp.dump()
-
-        oldPwd = self.password
+        oldPwd = ''
         oldPwdHashNT = ntlm.NTOWFv1(oldPwd)
         newPwd = 'ADMIN'
         newPwdHashNT = ntlm.NTOWFv1(newPwd)
@@ -1881,7 +1856,7 @@ class SAMRTests(unittest.TestCase):
 
         from impacket import crypto
         request = samr.SamrChangePasswordUser()
-        request['UserHandle'] = resp['UserHandle']
+        request['UserHandle'] = resp0['UserHandle']
         request['LmPresent'] = 0
         request['OldLmEncryptedWithNewLm'] = NULL
         request['NewLmEncryptedWithOldLm'] = NULL
@@ -1898,7 +1873,7 @@ class SAMRTests(unittest.TestCase):
         # Restoring it back
         oldPwd = 'ADMIN'
         oldPwdHashNT = ntlm.NTOWFv1(oldPwd)
-        newPwd = self.password
+        newPwd = ''
         newPwdHashNT = ntlm.NTOWFv1(newPwd)
         newPwdHashLM = ntlm.LMOWFv1(newPwd)
 
@@ -1910,6 +1885,13 @@ class SAMRTests(unittest.TestCase):
         request['NewLmEncryptedWithNewNt'] = crypto.SamEncryptNTLMHash(newPwdHashLM, newPwdHashNT)
         resp = dce.request(request)
         #resp.dump()
+
+        # Delete the temp user
+        request = samr.SamrDeleteUser()
+        request['UserHandle'] = resp0['UserHandle']
+        resp = dce.request(request)
+        ##resp.dump()
+
 
     def test_SamrOemChangePasswordUser2(self):
         dce, rpctransport, domainHandle  = self.connect()
@@ -1951,10 +1933,41 @@ class SAMRTests(unittest.TestCase):
     def test_SamrUnicodeChangePasswordUser2(self):
         dce, rpctransport, domainHandle  = self.connect()
 
-        oldPwd = self.password
-        oldPwdHashLM = ntlm.LMOWFv1(oldPwd)
+        request = samr.SamrCreateUser2InDomain()
+        request['DomainHandle'] = domainHandle
+        request['Name'] = 'testAccount'
+        request['AccountType'] = samr.USER_NORMAL_ACCOUNT
+        request['DesiredAccess'] = dtypes.MAXIMUM_ALLOWED | samr.USER_READ_GENERAL | samr.DELETE
+        #request.dump()
+        resp0 = dce.request(request)
+        #resp0.dump()
+
+        oldPwd = ''
         oldPwdHashNT = ntlm.NTOWFv1(oldPwd)
         newPwd = 'ADMIN'
+        newPwdHashNT = ntlm.NTOWFv1(newPwd)
+        newPwdHashLM = ntlm.LMOWFv1(newPwd)
+
+        from impacket import crypto
+        request = samr.SamrChangePasswordUser()
+        request['UserHandle'] = resp0['UserHandle']
+        request['LmPresent'] = 0
+        request['OldLmEncryptedWithNewLm'] = NULL
+        request['NewLmEncryptedWithOldLm'] = NULL
+        request['NtPresent'] = 1
+        request['OldNtEncryptedWithNewNt'] = crypto.SamEncryptNTLMHash(oldPwdHashNT, newPwdHashNT)
+        request['NewNtEncryptedWithOldNt'] = crypto.SamEncryptNTLMHash(newPwdHashNT, oldPwdHashNT) 
+        request['NtCrossEncryptionPresent'] = 0
+        request['NewNtEncryptedWithNewLm'] = NULL
+        request['LmCrossEncryptionPresent'] = 1
+        request['NewLmEncryptedWithNewNt'] = crypto.SamEncryptNTLMHash(newPwdHashLM, newPwdHashNT)
+        resp = dce.request(request)
+        #resp.dump()
+
+        oldPwd = 'ADMIN'
+        oldPwdHashLM = ntlm.LMOWFv1(oldPwd)
+        oldPwdHashNT = ntlm.NTOWFv1(oldPwd)
+        newPwd = 'HOLALOCO'
         newPwdHashNT = ntlm.NTOWFv1(newPwd)
         newPwdHashLM = ntlm.LMOWFv1(newPwd)
 
@@ -1967,7 +1980,7 @@ class SAMRTests(unittest.TestCase):
         from impacket import crypto
         request = samr.SamrUnicodeChangePasswordUser2()
         request['ServerName'] = ''
-        request['UserName'] = self.username
+        request['UserName'] = 'testAccount'
         samUser = samr.SAMPR_USER_PASSWORD()
         samUser['Buffer'] = 'A'*(512-len(newPwd)*2) + newPwd.encode('utf-16le')
         samUser['Length'] = len(newPwd)*2
@@ -1984,15 +1997,15 @@ class SAMRTests(unittest.TestCase):
         resp = dce.request(request)
         #resp.dump()
 
-        oldPwd = 'ADMIN'
+        oldPwd = 'HOLALOCO'
         oldPwdHashLM = ntlm.LMOWFv1(oldPwd)
         oldPwdHashNT = ntlm.NTOWFv1(oldPwd)
-        newPwd = self.password
+        newPwd = 'ADMIN'
         newPwdHashNT = ntlm.NTOWFv1(newPwd)
         newPwdHashLM = ntlm.LMOWFv1(newPwd)
         request = samr.SamrUnicodeChangePasswordUser2()
         request['ServerName'] = ''
-        request['UserName'] = self.username
+        request['UserName'] = 'testAccount'
         samUser = samr.SAMPR_USER_PASSWORD()
         samUser['Buffer'] = 'A'*(512-len(newPwd)*2) + newPwd.encode('utf-16le')
         samUser['Length'] = len(newPwd)*2
@@ -2008,6 +2021,13 @@ class SAMRTests(unittest.TestCase):
 
         resp = dce.request(request)
         #resp.dump()
+
+        # Delete the temp user
+        request = samr.SamrDeleteUser()
+        request['UserHandle'] = resp0['UserHandle']
+        resp = dce.request(request)
+        ##resp.dump()
+
 
 class SMBTransport(SAMRTests):
     def setUp(self):
