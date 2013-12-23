@@ -131,7 +131,7 @@ class LSAPR_HANDLE(NDR):
 LSA_UNICODE_STRING = RPC_UNICODE_STRING
 
 # 2.2.3.1 STRING
-class PSTRING(NDR):
+class STRING(NDR):
     align = 4
     align64 = 4
     commonHdr = (
@@ -211,7 +211,7 @@ class LSAPR_OBJECT_ATTRIBUTES(NDR):
     structure = (
         ('Length', DWORD), 
         ('RootDirectory', LPWSTR), 
-        ('ObjectName', PSTRING), 
+        ('ObjectName', STRING), 
         ('Attributes', DWORD), 
         ('SecurityDescriptor', PLSAPR_SECURITY_DESCRIPTOR), 
         ('SecurityQualityOfService', PSECURITY_QUALITY_OF_SERVICE), 
