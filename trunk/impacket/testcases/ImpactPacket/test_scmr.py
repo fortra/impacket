@@ -620,7 +620,7 @@ class SCMRTests(unittest.TestCase):
 
     def test_RControlServiceCall(self):
         dce, rpctransport, scHandle  = self.connect()
-        lpServiceName = 'wuauserv\x00'
+        lpServiceName = 'CryptSvc\x00'
         desiredAccess = scmr.SERVICE_START | scmr.SERVICE_STOP | scmr.SERVICE_CHANGE_CONFIG | scmr.SERVICE_QUERY_CONFIG | scmr.SERVICE_QUERY_STATUS | scmr.SERVICE_ENUMERATE_DEPENDENTS
 
         resp = scmr.hROpenServiceW(dce, scHandle, lpServiceName, desiredAccess )

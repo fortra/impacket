@@ -327,7 +327,7 @@ class WKSTTests(unittest.TestCase):
         req['ServerName'] = '\x00'*10
         req['AlternateName'] = 'FREEFLY\x00'
         req['DomainAccount'] = NULL
-        req['Password'] = NULL
+        req['EncryptedPassword'] = NULL
         #req.dump()
         try:
             resp2 = dce.request(req)
@@ -343,7 +343,7 @@ class WKSTTests(unittest.TestCase):
         req['ServerName'] = '\x00'*10
         req['AlternateName'] = 'FREEFLY\x00'
         req['DomainAccount'] = NULL
-        req['Password'] = NULL
+        req['EncryptedPassword'] = NULL
         #req.dump()
         try:
             resp2 = dce.request(req)
