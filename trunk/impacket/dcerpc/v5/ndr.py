@@ -105,7 +105,9 @@ class NDR(object):
 
     def __setitem__(self, key, value):
         if isinstance(value, NDRPointerNULL):
-            self.fields[key] = value
+            self.fields[key].fields['ReferentID'] = 0x00
+            if isinstance(self.fields[key], NDRPointer):
+                self.fields[key] = value
         elif isinstance(value, NDR):
             # It's not a null pointer, ok. Another NDR type, but it 
             # must be the same same as the iteam already in place

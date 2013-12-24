@@ -222,12 +222,34 @@ class RPC_UNICODE_STRING(ndr.NDR):
         print " %r" % (self['Data']),
 
     def __setitem__(self, key, value):
+        if isinstance(value, ndr.NDRPointerNULL):
+            self.fields['ReferentID'] = 0x00
+            self.fields['Data'] = value
         if key == 'Data':
             self.fields['ReferentID'] = random.randint(1, 65535)
             self.fields['Length'] = None
             self.fields['MaximumLength'] = None
             self.data = None        # force recompute
         return ndr.NDR.__setitem__(self, key, value)
+
+    def getData(self, soFar = 0):
+        # If we have a ReferentID == 0, means there's no data
+        if self.fields['ReferentID'] == 0:
+            self.fields['Data'].fields['Data']=''
+
+        return ndr.NDR.getData(self, soFar)
+
+    def dump(self, msg = None, indent = 0):
+        if msg is None: msg = self.__class__.__name__
+        ind = ' '*indent
+        if msg != '':
+            print "%s" % (msg),
+        # Here we just print the referent
+        if self['ReferentID'] == 0:
+            print " NULL",
+        else:
+            return self.fields['Data'].dump( '', indent)
+
 
 class PRPC_UNICODE_STRING(ndr.NDRPointer):
     referent = (
