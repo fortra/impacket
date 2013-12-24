@@ -401,9 +401,15 @@ class NRPCTests(unittest.TestCase):
         request['Authenticator'] = self.update_authenticator()
         request['ReturnAuthenticator']['Credential'] = '\x00'*8
         request['ReturnAuthenticator']['Timestamp'] = 0
-        request['Level'] = 2
-        request['WkstaBuffer']['tag'] = 2
-        request['WkstaBuffer']['LsaPolicyInfo'] = NULL
+        request['Level'] = 1
+        request['WkstaBuffer']['tag'] = 1
+        request['WkstaBuffer']['WorkstationInfo']['DnsHostName'] = NULL
+        request['WkstaBuffer']['WorkstationInfo']['SiteName'] = NULL
+        request['WkstaBuffer']['WorkstationInfo']['OsName'] = ''
+        request['WkstaBuffer']['WorkstationInfo']['Dummy1'] = NULL 
+        request['WkstaBuffer']['WorkstationInfo']['Dummy2'] = NULL  
+        request['WkstaBuffer']['WorkstationInfo']['Dummy3'] = NULL 
+        request['WkstaBuffer']['WorkstationInfo']['Dummy4'] = NULL  
         resp = dce.request(request)
         #resp.dump()
 
@@ -422,14 +428,14 @@ class NRPCTests(unittest.TestCase):
     def test_NetrLogonSamLogonEx(self):
         dce, rpctransport = self.connect()
         request = nrpc.NetrLogonSamLogonEx()
-        request['LogonServer'] = NULL
+        request['LogonServer'] = '\x00'
         request['ComputerName'] = self.serverName + '\x00'
         request['LogonLevel'] = nrpc.NETLOGON_LOGON_INFO_CLASS.NetlogonInteractiveInformation
         request['LogonInformation']['tag'] = nrpc.NETLOGON_LOGON_INFO_CLASS.NetlogonInteractiveInformation
         request['LogonInformation']['LogonInteractive']['Identity']['LogonDomainName'] = self.domain 
-        request['LogonInformation']['LogonInteractive']['Identity']['ParameterControl'] = 0xffffffff
+        request['LogonInformation']['LogonInteractive']['Identity']['ParameterControl'] = 2 + 2**14 + 2**7 + 2**9 + 2**5 + 2**11
         request['LogonInformation']['LogonInteractive']['Identity']['UserName'] = self.username 
-        request['LogonInformation']['LogonInteractive']['Identity']['Workstation'] = self.serverName 
+        request['LogonInformation']['LogonInteractive']['Identity']['Workstation'] = ''
         if len(self.hashes) > 0:
             lmhash, nthash = self.hashes.split(':')
             lmhash = lmhash.decode('hex')
@@ -437,9 +443,21 @@ class NRPCTests(unittest.TestCase):
         else:
             lmhash = ntlm.LMOWFv1(self.password)
             nthash = ntlm.NTOWFv1(self.password)
+        try:
+            from Crypto.Cipher import ARC4
+        except Exception:
+            print "Warning: You don't have any crypto installed. You need PyCrypto"
+            print "See http://www.pycrypto.org/"
+
+        from impacket import crypto
+        rc4 = ARC4.new(self.sessionKey)
+        lmhash = rc4.encrypt(lmhash)
+        rc4 = ARC4.new(self.sessionKey)
+        nthash = rc4.encrypt(nthash)
+
         request['LogonInformation']['LogonInteractive']['LmOwfPassword'] = lmhash
         request['LogonInformation']['LogonInteractive']['NtOwfPassword'] = nthash
-        request['ValidationLevel'] = nrpc.NETLOGON_VALIDATION_INFO_CLASS.NetlogonValidationSamInfo2
+        request['ValidationLevel'] = nrpc.NETLOGON_VALIDATION_INFO_CLASS.NetlogonValidationSamInfo4
         request['ExtraFlags'] = 1
         resp = dce.request(request)
         resp.dump()
@@ -447,14 +465,14 @@ class NRPCTests(unittest.TestCase):
     def test_NetrLogonSamLogonWithFlags(self):
         dce, rpctransport = self.connect()
         request = nrpc.NetrLogonSamLogonWithFlags()
-        request['LogonServer'] = NULL
+        request['LogonServer'] = '\x00'
         request['ComputerName'] = self.serverName + '\x00'
         request['LogonLevel'] = nrpc.NETLOGON_LOGON_INFO_CLASS.NetlogonInteractiveInformation
         request['LogonInformation']['tag'] = nrpc.NETLOGON_LOGON_INFO_CLASS.NetlogonInteractiveInformation
-        request['LogonInformation']['LogonInteractive']['Identity']['LogonDomainName'] = self.domain 
-        request['LogonInformation']['LogonInteractive']['Identity']['ParameterControl'] = 0xffffffff
-        request['LogonInformation']['LogonInteractive']['Identity']['UserName'] = self.username 
-        request['LogonInformation']['LogonInteractive']['Identity']['Workstation'] = self.serverName 
+        request['LogonInformation']['LogonInteractive']['Identity']['LogonDomainName'] = self.domain
+        request['LogonInformation']['LogonInteractive']['Identity']['ParameterControl'] = 2 + 2**14 + 2**7 + 2**9 + 2**5 + 2**11
+        request['LogonInformation']['LogonInteractive']['Identity']['UserName'] = self.username
+        request['LogonInformation']['LogonInteractive']['Identity']['Workstation'] = ''
         if len(self.hashes) > 0:
             lmhash, nthash = self.hashes.split(':')
             lmhash = lmhash.decode('hex')
@@ -462,25 +480,44 @@ class NRPCTests(unittest.TestCase):
         else:
             lmhash = ntlm.LMOWFv1(self.password)
             nthash = ntlm.NTOWFv1(self.password)
+
+        try:
+            from Crypto.Cipher import ARC4
+        except Exception:
+            print "Warning: You don't have any crypto installed. You need PyCrypto"
+            print "See http://www.pycrypto.org/"
+
+        from impacket import crypto
+        rc4 = ARC4.new(self.sessionKey)
+        lmhash = rc4.encrypt(lmhash)
+        rc4 = ARC4.new(self.sessionKey)
+        nthash = rc4.encrypt(nthash)
+
         request['LogonInformation']['LogonInteractive']['LmOwfPassword'] = lmhash
         request['LogonInformation']['LogonInteractive']['NtOwfPassword'] = nthash
-        request['ValidationLevel'] = nrpc.NETLOGON_VALIDATION_INFO_CLASS.NetlogonValidationSamInfo2
+        request['ValidationLevel'] = nrpc.NETLOGON_VALIDATION_INFO_CLASS.NetlogonValidationSamInfo4
         request['Authenticator'] = self.update_authenticator()
-        request['ExtraFlags'] = 1
-        resp = dce.request(request)
-        resp.dump()
+        request['ReturnAuthenticator']['Credential'] = '\x00'*8
+        request['ReturnAuthenticator']['Timestamp'] = 0
+        request['ExtraFlags'] = 0
+        try:
+            resp = dce.request(request)
+            resp.dump()
+        except Exception, e:
+            if str(e).find('STATUS_NO_SUCH_USER') < 0:
+                raise
 
     def test_NetrLogonSamLogon(self):
         dce, rpctransport = self.connect()
         request = nrpc.NetrLogonSamLogon()
-        request['LogonServer'] = NULL
+        request['LogonServer'] = '\\\\FREEFLY-DC\x00'
         request['ComputerName'] = self.serverName + '\x00'
         request['LogonLevel'] = nrpc.NETLOGON_LOGON_INFO_CLASS.NetlogonInteractiveInformation
         request['LogonInformation']['tag'] = nrpc.NETLOGON_LOGON_INFO_CLASS.NetlogonInteractiveInformation
-        request['LogonInformation']['LogonInteractive']['Identity']['LogonDomainName'] = self.domain + '\x00'
-        request['LogonInformation']['LogonInteractive']['Identity']['ParameterControl'] = 0xffffffff
-        request['LogonInformation']['LogonInteractive']['Identity']['UserName'] = self.username + '\x00'
-        request['LogonInformation']['LogonInteractive']['Identity']['Workstation'] = self.serverName + '\x00'
+        request['LogonInformation']['LogonInteractive']['Identity']['LogonDomainName'] = self.domain
+        request['LogonInformation']['LogonInteractive']['Identity']['ParameterControl'] = 2 
+        request['LogonInformation']['LogonInteractive']['Identity']['UserName'] = self.username
+        request['LogonInformation']['LogonInteractive']['Identity']['Workstation'] = ''
         if len(self.hashes) > 0:
             lmhash, nthash = self.hashes.split(':')
             lmhash = lmhash.decode('hex')
@@ -488,13 +525,31 @@ class NRPCTests(unittest.TestCase):
         else:
             lmhash = ntlm.LMOWFv1(self.password)
             nthash = ntlm.NTOWFv1(self.password)
+
+        try:
+            from Crypto.Cipher import ARC4
+        except Exception:
+            print "Warning: You don't have any crypto installed. You need PyCrypto"
+            print "See http://www.pycrypto.org/"
+
+        from impacket import crypto
+        rc4 = ARC4.new(self.sessionKey)
+        lmhash = rc4.encrypt(lmhash)
+        rc4 = ARC4.new(self.sessionKey)
+        nthash = rc4.encrypt(nthash)
+
         request['LogonInformation']['LogonInteractive']['LmOwfPassword'] = lmhash
         request['LogonInformation']['LogonInteractive']['NtOwfPassword'] = nthash
         request['ValidationLevel'] = nrpc.NETLOGON_VALIDATION_INFO_CLASS.NetlogonValidationSamInfo2
         request['Authenticator'] = self.update_authenticator()
-        request['ReturnAuthenticator'] = NULL
-        resp = dce.request(request)
-        resp.dump()
+        request['ReturnAuthenticator']['Credential'] = '\x00'*8
+        request['ReturnAuthenticator']['Timestamp'] = 0
+        try:
+            resp = dce.request(request)
+            resp.dump()
+        except Exception, e:
+            if str(e).find('ERROR_PATH_NOT_FOUND') < 0:
+                raise
 
     def test_NetrDatabaseDeltas(self):
         dce, rpctransport = self.connect()
