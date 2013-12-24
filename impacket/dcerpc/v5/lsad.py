@@ -211,7 +211,7 @@ class LSAPR_OBJECT_ATTRIBUTES(NDR):
     structure = (
         ('Length', DWORD), 
         ('RootDirectory', LPWSTR), 
-        ('ObjectName', STRING), 
+        ('ObjectName', LPWSTR), 
         ('Attributes', DWORD), 
         ('SecurityDescriptor', PLSAPR_SECURITY_DESCRIPTOR), 
         ('SecurityQualityOfService', PSECURITY_QUALITY_OF_SERVICE), 
