@@ -317,7 +317,7 @@ class PNETLOGON_LSA_POLICY_INFO(NDRPointer):
 # 2.2.1.3.6 NETLOGON_WORKSTATION_INFO
 class NETLOGON_WORKSTATION_INFO(NDR):
     structure = (
-        ('NETLOGON_LSA_POLICY_INFO', ULONG),
+        ('LsaPolicy', NETLOGON_LSA_POLICY_INFO),
         ('DnsHostName', LPWSTR),
         ('SiteName', LPWSTR),
         ('Dummy1', LPWSTR),
@@ -522,9 +522,13 @@ class NL_OUT_CHAIN_SET_CLIENT_ATTRIBUTES(NDRUnion):
     }
 
 # 2.2.1.4.1 LM_CHALLENGE
+class CHAR_FIXED_8_ARRAY(NDRUniFixedArray):
+    def getDataLen(self, data):
+        return 8
+
 class LM_CHALLENGE(NDR):
     structure = (
-        ('Data', '8s=""'),
+        ('Data', CHAR_FIXED_8_ARRAY),
     )
 
 # 2.2.1.4.15 NETLOGON_LOGON_IDENTITY_INFO
