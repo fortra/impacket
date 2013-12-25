@@ -13,7 +13,7 @@
 #
 
 from impacket.dcerpc.v5 import ndr
-from impacket.dcerpc.v5.ndr import NDRCall, NDR, NDRUnion, NDRPointer, NDRUniConformantArray, NDRUniConformantVaryingArray, NDRENUM
+from impacket.dcerpc.v5.ndr import NDRCall, NDR, NDRUnion, NDRPointer, NDRUniConformantArray, NDRUniConformantVaryingArray, NDRENUM, NULL
 from impacket.dcerpc.v5.dtypes import *
 from impacket import nt_errors
 from impacket.uuid import uuidtup_to_bin
@@ -2211,4 +2211,257 @@ class SamrValidatePasswordResponse(NDRCall):
 ################################################################################
 # HELPER FUNCTIONS
 ################################################################################
+
+def hSamrConnect5(dce, serverName='\x00', desiredAccess=MAXIMUM_ALLOWED, inVersion=1):
+    request = SamrConnect5()
+    request['ServerName'] = serverName
+    request['DesiredAccess'] = desiredAccess
+    request['InVersion'] = inVersion
+    request['InRevisionInfo']['tag'] = inVersion
+    return dce.request(request)
+
+def hSamrConnect4(dce, serverName='\x00', desiredAccess=MAXIMUM_ALLOWED, clientRevision=2):
+    request = SamrConnect4()
+    request['ServerName'] = serverName
+    request['DesiredAccess'] = desiredAccess
+    request['ClientRevision'] = clientRevision
+    return dce.request(request)
+
+def hSamrConnect2(dce, serverName='\x00', desiredAccess=MAXIMUM_ALLOWED):
+    request = SamrConnect2()
+    request['ServerName'] = serverName
+    request['DesiredAccess'] = desiredAccess
+    return dce.request(request)
+
+def hSamrConnect(dce, serverName='\x00', desiredAccess=MAXIMUM_ALLOWED):
+    request = SamrConnect()
+    request['ServerName'] = serverName
+    request['DesiredAccess'] = desiredAccess
+    return dce.request(request)
+
+def hSamrOpenDomain(dce, serverHandle, desiredAccess=MAXIMUM_ALLOWED, domainId=NULL):
+    request = SamrOpenDomain()
+    request['ServerHandle'] = serverHandle
+    request['DesiredAccess'] = desiredAccess
+    request['DomainId'] = domainId
+    return dce.request(request)
+
+def hSamrOpenGroup(dce, domainHandle, desiredAccess=MAXIMUM_ALLOWED, groupId=0):
+    request = SamrOpenGroup()
+    request['DomainHandle'] = domainHandle
+    request['DesiredAccess'] = desiredAccess
+    request['GroupId'] = groupId
+    return dce.request(request)
+
+def hSamrOpenAlias(dce, domainHandle, desiredAccess=MAXIMUM_ALLOWED, aliasId=0):
+    request = SamrOpenAlias()
+    request['DomainHandle'] = domainHandle
+    request['DesiredAccess'] = desiredAccess
+    request['AliasId'] = aliasId
+    return dce.request(request)
+
+def hSamrOpenUser(dce, domainHandle, desiredAccess=MAXIMUM_ALLOWED, userId=0):
+    request = SamrOpenUser()
+    request['DomainHandle'] = domainHandle
+    request['DesiredAccess'] = desiredAccess
+    request['UserId'] = userId
+    return dce.request(request)
+
+def hSamrEnumerateDomainsInSamServer(dce, serverHandle, enumerationContext=0, preferedMaximumLength=0xffffffff):
+    request = SamrEnumerateDomainsInSamServer()
+    request['ServerHandle'] = serverHandle
+    request['EnumerationContext'] = enumerationContext
+    request['PreferedMaximumLength'] = preferedMaximumLength
+    return dce.request(request)
+
+def hSamrEnumerateGroupsInDomain(dce, domainHandle, enumerationContext=0, preferedMaximumLength=0xffffffff):
+    request = SamrEnumerateGroupsInDomain()
+    request['DomainHandle'] = domainHandle
+    request['EnumerationContext'] = enumerationContext
+    request['PreferedMaximumLength'] = preferedMaximumLength
+    return dce.request(request)
+
+def hSamrEnumerateAliasesInDomain(dce, domainHandle, enumerationContext=0, preferedMaximumLength=0xffffffff):
+    request = SamrEnumerateAliasesInDomain()
+    request['DomainHandle'] = domainHandle
+    request['EnumerationContext'] = enumerationContext
+    request['PreferedMaximumLength'] = preferedMaximumLength
+    return dce.request(request)
+
+def hSamrEnumerateUsersInDomain(dce, domainHandle, userAccountControl=USER_NORMAL_ACCOUNT, enumerationContext=0, preferedMaximumLength=0xffffffff):
+    request = SamrEnumerateUsersInDomain()
+    request['DomainHandle'] = domainHandle
+    request['UserAccountControl'] = enumerationContext
+    request['EnumerationContext'] = enumerationContext
+    request['PreferedMaximumLength'] = preferedMaximumLength
+    return dce.request(request)
+
+def hSamrQueryDisplayInformation3(dce, domainHandle, displayInformationClass=DOMAIN_DISPLAY_INFORMATION.DomainDisplayUser, index=0, entryCount=0xffffffff, preferedMaximumLength=0xffffffff):
+    request = SamrQueryDisplayInformation3()
+    request['DomainHandle'] = domainHandle
+    request['DisplayInformationClass'] = displayInformationClass
+    request['Index'] = index
+    request['EntryCount'] = entryCount
+    request['PreferredMaximumLength'] = preferedMaximumLength
+    return dce.request(request)
+
+def hSamrQueryDisplayInformation2(dce, domainHandle, displayInformationClass=DOMAIN_DISPLAY_INFORMATION.DomainDisplayUser, index=0, entryCount=0xffffffff, preferedMaximumLength=0xffffffff):
+    request = SamrQueryDisplayInformation2()
+    request['DomainHandle'] = domainHandle
+    request['DisplayInformationClass'] = displayInformationClass
+    request['Index'] = index
+    request['EntryCount'] = entryCount
+    request['PreferredMaximumLength'] = preferedMaximumLength
+    return dce.request(request)
+
+def hSamrQueryDisplayInformation(dce, domainHandle, displayInformationClass=DOMAIN_DISPLAY_INFORMATION.DomainDisplayUser, index=0, entryCount=0xffffffff, preferedMaximumLength=0xffffffff):
+    request = SamrQueryDisplayInformation()
+    request['DomainHandle'] = domainHandle
+    request['DisplayInformationClass'] = displayInformationClass
+    request['Index'] = index
+    request['EntryCount'] = entryCount
+    request['PreferredMaximumLength'] = preferedMaximumLength
+    return dce.request(request)
+
+def hSamrGetDisplayEnumerationIndex2(dce, domainHandle, displayInformationClass=DOMAIN_DISPLAY_INFORMATION.DomainDisplayUser, prefix=''):
+    request = SamrGetDisplayEnumerationIndex2()
+    request['DomainHandle'] = domainHandle
+    request['DisplayInformationClass'] = displayInformationClass
+    request['Prefix'] = prefix
+    return dce.request(request)
+
+def hSamrGetDisplayEnumerationIndex(dce, domainHandle, displayInformationClass=DOMAIN_DISPLAY_INFORMATION.DomainDisplayUser, prefix=''):
+    request = SamrGetDisplayEnumerationIndex()
+    request['DomainHandle'] = domainHandle
+    request['DisplayInformationClass'] = displayInformationClass
+    request['Prefix'] = prefix
+    return dce.request(request)
+
+def hSamrCreateGroupInDomain(dce, domainHandle, name, desiredAccess=GROUP_ALL_ACCESS):
+    request = SamrCreateGroupInDomain()
+    request['DomainHandle'] = domainHandle
+    request['Name'] = name
+    request['DesiredAccess'] = desiredAccess
+    return dce.request(request)
+
+def hSamrCreateAliasInDomain(dce, domainHandle, accountName, desiredAccess=GROUP_ALL_ACCESS):
+    request = SamrCreateAliasInDomain()
+    request['DomainHandle'] = domainHandle
+    request['AccountName'] = accountName
+    request['DesiredAccess'] = desiredAccess
+    return dce.request(request)
+
+def hSamrCreateUser2InDomain(dce, domainHandle, name, accountType=USER_NORMAL_ACCOUNT, desiredAccess=GROUP_ALL_ACCESS):
+    request = SamrCreateUser2InDomain()
+    request['DomainHandle'] = domainHandle
+    request['Name'] = name
+    request['AccountType'] = accountType
+    request['DesiredAccess'] = desiredAccess
+    return dce.request(request)
+
+def hSamrCreateUserInDomain(dce, domainHandle, name, desiredAccess=GROUP_ALL_ACCESS):
+    request = SamrCreateUserInDomain()
+    request['DomainHandle'] = domainHandle
+    request['Name'] = name
+    request['DesiredAccess'] = desiredAccess
+    return dce.request(request)
+
+def hSamrQueryInformationDomain(dce, domainHandle, domainInformationClass=DOMAIN_INFORMATION_CLASS.DomainGeneralInformation2):
+    request = SamrQueryInformationDomain()
+    request['DomainHandle'] = domainHandle
+    request['DomainInformationClass'] = domainInformationClass
+    return dce.request(request)
+
+def hSamrQueryInformationDomain2(dce, domainHandle, domainInformationClass=DOMAIN_INFORMATION_CLASS.DomainGeneralInformation2):
+    request = SamrQueryInformationDomain2()
+    request['DomainHandle'] = domainHandle
+    request['DomainInformationClass'] = domainInformationClass
+    return dce.request(request)
+
+def hSamrQueryInformationGroup(dce, groupHandle, groupInformationClass=GROUP_INFORMATION_CLASS.GroupGeneralInformation):
+    request = SamrQueryInformationGroup()
+    request['GroupHandle'] = groupHandle
+    request['GroupInformationClass'] = groupInformationClass
+    return dce.request(request)
+
+def hSamrQueryInformationAlias(dce, aliasHandle, aliasInformationClass=ALIAS_INFORMATION_CLASS.AliasGeneralInformation):
+    request = SamrQueryInformationAlias()
+    request['AliasHandle'] = aliasHandle
+    request['AliasInformationClass'] = aliasInformationClass
+    return dce.request(request)
+
+def hSamrQueryInformationUser2(dce, userHandle, userInformationClass=USER_INFORMATION_CLASS.UserGeneralInformation):
+    request = SamrQueryInformationUser2()
+    request['UserHandle'] = userHandle
+    request['UserInformationClass'] = userInformationClass
+    return dce.request(request)
+
+def hSamrQueryInformationUser(dce, userHandle, userInformationClass=USER_INFORMATION_CLASS.UserGeneralInformation):
+    request = SamrQueryInformationUser()
+    request['UserHandle'] = userHandle
+    request['UserInformationClass'] = userInformationClass
+    return dce.request(request)
+
+def hSamrSetInformationDomain(dce, domainHandle, domainInformation):
+    request = SamrSetInformationDomain()
+    request['DomainHandle'] = domainHandle
+    request['DomainInformationClass'] = domainInformation['tag']
+    request['DomainInformation'] = domainInformation
+    return dce.request(request)
+
+def hSamrSetInformationGroup(dce, groupHandle, buffer):
+    request = SamrSetInformationGroup()
+    request['GroupHandle'] = groupHandle
+    request['GroupInformationClass'] = buffer['tag']
+    request['Buffer'] = buffer
+    return dce.request(request)
+
+def hSamrSetInformationAlias(dce, aliasHandle, buffer):
+    request = SamrSetInformationAlias()
+    request['AliasHandle'] = aliasHandle
+    request['AliasInformationClass'] = buffer['tag']
+    request['Buffer'] = buffer
+    return dce.request(request)
+
+def hSamrSetInformationUser2(dce, userHandle, buffer):
+    request = SamrSetInformationUser2()
+    request['UserHandle'] = userHandle
+    request['UserInformationClass'] = buffer['tag']
+    request['Buffer'] = buffer
+    return dce.request(request)
+
+def hSamrSetInformationUser(dce, userHandle, buffer):
+    request = SamrSetInformationUser()
+    request['UserHandle'] = userHandle
+    request['UserInformationClass'] = buffer['tag']
+    request['Buffer'] = buffer
+    return dce.request(request)
+
+def hSamrDeleteGroup(dce, groupHandle):
+    request = SamrDeleteGroup()
+    request['GroupHandle'] = groupHandle
+    return dce.request(request)
+
+def hSamrDeleteAlias(dce, aliasHandle):
+    request = SamrDeleteAlias()
+    request['AliasHandle'] = aliasHandle
+    return dce.request(request)
+
+def hSamrDeleteUser(dce, userHandle):
+    request = SamrDeleteUser()
+    request['UserHandle'] = userHandle
+    return dce.request(request)
+
+def hSamrAddMemberToGroup(dce, groupHandle, memberId, attributes):
+    request = SamrAddMemberToGroup()
+    request['GroupHandle'] = groupHandle
+    request['MemberId'] = memberId
+    request['Attributes'] = attributes
+    return dce.request(request)
+
+def hSamrRemoveMemberFromGroup(dce, groupHandle, memberId):
+    request = SamrRemoveMemberFromGroup()
+    request['GroupHandle'] = groupHandle
+    request['MemberId'] = memberId
+    return dce.request(request)
 

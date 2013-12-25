@@ -61,6 +61,41 @@
 #  SamrChangePasswordUser
 #  SamrOemChangePasswordUser2
 #  SamrUnicodeChangePasswordUser2
+#  hSamrConnect5
+#  hSamrConnect4
+#  hSamrConnect2
+#  hSamrConnect
+#  hSamrOpenDomain
+#  hSamrOpenGroup
+#  hSamrOpenAlias
+#  hSamrOpenUser 
+#  hSamrEnumerateDomainsInSamServer
+#  hSamrEnumerateGroupsInDomain
+#  hSamrEnumerateAliasesInDomain
+#  hSamrEnumerateUsersInDomain
+#  hSamrQueryDisplayInformation3
+#  hSamrQueryDisplayInformation2
+#  hSamrQueryDisplayInformation
+#  hSamrGetDisplayEnumerationIndex2
+#  hSamrGetDisplayEnumerationIndex
+#  hSamrCreateGroupInDomain
+#  hSamrCreateAliasInDomain
+#  hSamrCreateUser2InDomain
+#  hSamrCreateUserInDomain
+#  hSamrQueryInformationDomain2
+#  hSamrQueryInformationDomain
+#  hSamrQueryInformationGroup
+#  hSamrQueryInformationAlias
+#  SamrQueryInformationUser2
+#  hSamrSetInformationDomain
+#  hSamrSetInformationGroup
+#  hSamrSetInformationAlias
+#  hSamrSetInformationUser2
+#  hSamrDeleteGroup
+#  hSamrDeleteAlias
+#  hSamrDeleteUser
+#  hSamrAddMemberToGroup
+#  hSamrRemoveMemberFromGroup
 #  
 # Shouldn't dump errors against a win7
 ################################################################################
@@ -134,6 +169,11 @@ class SAMRTests(unittest.TestCase):
         resp = dce.request(request)
         ##resp.dump()
 
+    def test_hSamrConnect5(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        resp = samr.hSamrConnect5(dce)
+        #resp.dump()
+
     def test_SamrConnect4(self):
         dce, rpctransport, domainHandle  = self.connect()
         request = samr.SamrConnect4()
@@ -143,6 +183,11 @@ class SAMRTests(unittest.TestCase):
         resp = dce.request(request)
         ##resp.dump()
 
+    def test_hSamrConnect4(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        resp = samr.hSamrConnect4(dce)
+        #resp.dump()
+
     def test_SamrConnect2(self):
         dce, rpctransport, domainHandle  = self.connect()
         request = samr.SamrConnect2()
@@ -151,12 +196,22 @@ class SAMRTests(unittest.TestCase):
         resp = dce.request(request)
         ##resp.dump()
 
+    def test_hSamrConnect2(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        resp = samr.hSamrConnect2(dce)
+        #resp.dump()
+
     def test_SamrConnect(self):
         dce, rpctransport, domainHandle  = self.connect()
         request = samr.SamrConnect()
         request['DesiredAccess'] = dtypes.MAXIMUM_ALLOWED
         resp = dce.request(request)
         ##resp.dump()
+
+    def test_hSamrConnect(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        resp = samr.hSamrConnect(dce)
+        #resp.dump()
 
     def test_SamrOpenDomain(self):
         dce, rpctransport, domainHandle  = self.connect()
@@ -176,6 +231,20 @@ class SAMRTests(unittest.TestCase):
             if str(e).find('STATUS_NO_SUCH_DOMAIN') < 0:
                 raise
         
+    def test_hSamrOpenDomain(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        resp = samr.hSamrConnect(dce)
+
+        SID = 'S-1-5-352321536-2562177771-1589929855-2033349547'
+        sid = dtypes.RPC_SID()
+        sid.fromCanonical(SID)
+        try:
+            resp = samr.hSamrOpenDomain(dce, serverHandle = resp['ServerHandle'], domainId = sid) 
+            resp.dump()
+        except Exception, e:
+            if str(e).find('STATUS_NO_SUCH_DOMAIN') < 0:
+                raise
+
     def test_SamrOpenGroup(self):
         dce, rpctransport, domainHandle  = self.connect()
         request = samr.SamrConnect()
@@ -193,6 +262,15 @@ class SAMRTests(unittest.TestCase):
             if str(e).find('STATUS_NO_SUCH_DOMAIN') < 0:
                 raise
         
+    def test_hSamrOpenGroup(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        try:
+            resp = samr.hSamrOpenGroup(dce, domainHandle, groupId=samr.DOMAIN_GROUP_RID_USERS)
+            #resp.dump()
+        except Exception, e:
+            if str(e).find('STATUS_NO_SUCH_DOMAIN') < 0:
+                raise
+
     def test_SamrOpenAlias(self):
         dce, rpctransport, domainHandle  = self.connect()
         request = samr.SamrOpenAlias()
@@ -206,6 +284,15 @@ class SAMRTests(unittest.TestCase):
             if str(e).find('STATUS_NO_SUCH_ALIAS') < 0:
                 raise
 
+    def test_hSamrOpenAlias(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        try:
+            resp = samr.hSamrOpenAlias(dce, domainHandle, aliasId = 25)
+            #resp.dump()
+        except Exception, e:
+            if str(e).find('STATUS_NO_SUCH_ALIAS') < 0:
+                raise
+
     def test_SamrOpenUser(self):
         dce, rpctransport, domainHandle  = self.connect()
         request = samr.SamrOpenUser()
@@ -214,6 +301,12 @@ class SAMRTests(unittest.TestCase):
         request['UserId'] = samr.DOMAIN_USER_RID_ADMIN
         resp = dce.request(request)
         ##resp.dump()
+
+    def test_hSamrOpenUser(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        resp = samr.hSamrOpenUser(dce, domainHandle, samr.USER_READ_GENERAL | samr.USER_READ_PREFERENCES | samr.USER_READ_ACCOUNT, samr.DOMAIN_USER_RID_ADMIN)
+
+        #resp.dump()
 
     def test_SamrEnumerateDomainsInSamServer(self):
         dce, rpctransport, domainHandle  = self.connect()
@@ -226,6 +319,23 @@ class SAMRTests(unittest.TestCase):
         request['EnumerationContext'] =  0
         request['PreferedMaximumLength'] = 500
         resp2 = dce.request(request)
+        #resp2.dump()
+        request = samr.SamrLookupDomainInSamServer()
+        request['ServerHandle'] = resp['ServerHandle']
+        request['Name'] = resp2['Buffer']['Buffer'][0]['Name']
+        resp3 = dce.request(request)
+        #resp3.dump()
+        request = samr.SamrOpenDomain()
+        request['ServerHandle'] = resp['ServerHandle']
+        request['DesiredAccess'] =  dtypes.MAXIMUM_ALLOWED
+        request['DomainId'] = resp3['DomainId']
+        resp4 = dce.request(request)
+        #resp4.dump()
+
+    def test_hSamrEnumerateDomainsInSamServer(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        resp = samr.hSamrConnect(dce, desiredAccess = samr.SAM_SERVER_ENUMERATE_DOMAINS | samr.SAM_SERVER_LOOKUP_DOMAIN)
+        resp2 = samr.hSamrEnumerateDomainsInSamServer(dce, resp['ServerHandle'])
         #resp2.dump()
         request = samr.SamrLookupDomainInSamServer()
         request['ServerHandle'] = resp['ServerHandle']
@@ -284,6 +394,11 @@ class SAMRTests(unittest.TestCase):
             request['EnumerationContext'] = resp4['EnumerationContext'] 
             status = resp4['ErrorCode']
 
+    def test_hSamrEnumerateGroupsInDomain(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        resp = samr.hSamrEnumerateGroupsInDomain(dce, domainHandle)
+        #resp.dump()
+
     def test_SamrEnumerateAliasesInDomain(self):
         dce, rpctransport, domainHandle  = self.connect()
         request = samr.SamrEnumerateAliasesInDomain()
@@ -301,6 +416,11 @@ class SAMRTests(unittest.TestCase):
             #resp4['Buffer'].dump()
             request['EnumerationContext'] = resp4['EnumerationContext'] 
             status = resp4['ErrorCode']
+
+    def test_hSamrEnumerateAliasesInDomain(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        resp = samr.hSamrEnumerateAliasesInDomain(dce, domainHandle)
+        #resp.dump()
 
     def test_SamrEnumerateUsersInDomain(self):
         dce, rpctransport, domainHandle  = self.connect()
@@ -320,6 +440,11 @@ class SAMRTests(unittest.TestCase):
             #resp4['Buffer'].dump()
             request['EnumerationContext'] = resp4['EnumerationContext'] 
             status = resp4['ErrorCode']
+
+    def test_hSamrEnumerateUsersInDomain(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        resp = samr.hSamrEnumerateUsersInDomain(dce, domainHandle)
+        #resp.dump()
 
     def test_SamrGetGroupsForUser(self):
         dce, rpctransport, domainHandle  = self.connect()
@@ -376,47 +501,33 @@ class SAMRTests(unittest.TestCase):
         resp = dce.request(request)
         ##resp.dump()
 
+    def test_hSamrQueryDisplayInformation3(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        resp = samr.hSamrQueryDisplayInformation3(dce, domainHandle,  samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayUser)
+        #resp.dump()
+
+        resp = samr.hSamrQueryDisplayInformation3(dce, domainHandle,  samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayMachine)
+        #resp.dump()
+
+        resp = samr.hSamrQueryDisplayInformation3(dce, domainHandle,  samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayGroup)
+        #resp.dump()
+
+        resp = samr.hSamrQueryDisplayInformation3(dce, domainHandle,  samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayOemGroup)
+        #resp.dump()
+
     def test_SamrQueryDisplayInformation2(self):
         dce, rpctransport, domainHandle  = self.connect()
-        request = samr.SamrQueryDisplayInformation2()
-        request['DomainHandle'] = domainHandle
-        request['DisplayInformationClass'] = samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayUser
-        request['Index'] = 0
-        request['EntryCount'] = 100
-        request['PreferredMaximumLength'] = 8192
-        #request.dump()
-        resp = dce.request(request)
-        ##resp.dump()
+        resp = samr.hSamrQueryDisplayInformation2(dce, domainHandle,  samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayUser)
+        #resp.dump()
 
-        request = samr.SamrQueryDisplayInformation2()
-        request['DomainHandle'] = domainHandle
-        request['DisplayInformationClass'] = samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayMachine
-        request['Index'] = 0
-        request['EntryCount'] = 100
-        request['PreferredMaximumLength'] = 8192
-        #request.dump()
-        resp = dce.request(request)
-        ##resp.dump()
+        resp = samr.hSamrQueryDisplayInformation2(dce, domainHandle,  samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayMachine)
+        #resp.dump()
 
-        request = samr.SamrQueryDisplayInformation2()
-        request['DomainHandle'] = domainHandle
-        request['DisplayInformationClass'] = samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayGroup
-        request['Index'] = 0
-        request['EntryCount'] = 100
-        request['PreferredMaximumLength'] = 8192
-        #request.dump()
-        resp = dce.request(request)
-        ##resp.dump()
+        resp = samr.hSamrQueryDisplayInformation2(dce, domainHandle,  samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayGroup)
+        #resp.dump()
 
-        request = samr.SamrQueryDisplayInformation2()
-        request['DomainHandle'] = domainHandle
-        request['DisplayInformationClass'] = samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayOemGroup
-        request['Index'] = 0
-        request['EntryCount'] = 100
-        request['PreferredMaximumLength'] = 8192
-        #request.dump()
-        resp = dce.request(request)
-        ##resp.dump()
+        resp = samr.hSamrQueryDisplayInformation2(dce, domainHandle,  samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayOemGroup)
+        #resp.dump()
 
     def test_SamrQueryDisplayInformation(self):
         dce, rpctransport, domainHandle  = self.connect()
@@ -460,6 +571,21 @@ class SAMRTests(unittest.TestCase):
         resp = dce.request(request)
         ##resp.dump()
 
+    def test_SamrQueryDisplayInformation(self):
+        dce, rpctransport, domainHandle  = self.connect()
+
+        resp = samr.hSamrQueryDisplayInformation(dce, domainHandle,  samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayUser)
+        #resp.dump()
+
+        resp = samr.hSamrQueryDisplayInformation(dce, domainHandle,  samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayMachine)
+        #resp.dump()
+
+        resp = samr.hSamrQueryDisplayInformation(dce, domainHandle,  samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayGroup)
+        #resp.dump()
+
+        resp = samr.hSamrQueryDisplayInformation(dce, domainHandle,  samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayOemGroup)
+        #resp.dump()
+
     def test_SamrGetDisplayEnumerationIndex2(self):
         dce, rpctransport, domainHandle  = self.connect()
         request = samr.SamrGetDisplayEnumerationIndex2()
@@ -478,7 +604,20 @@ class SAMRTests(unittest.TestCase):
         resp = dce.request(request)
         ##resp.dump()
 
+    def test_hSamrGetDisplayEnumerationIndex2(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        resp = samr.hSamrGetDisplayEnumerationIndex2(dce, domainHandle, samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayUser, 'Gu')
+        #resp.dump()
+
+        resp = samr.hSamrGetDisplayEnumerationIndex2(dce, domainHandle, samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayGroup, 'Non')
+        #resp.dump()
+
     def test_SamrGetDisplayEnumerationIndex(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        resp = samr.hSamrGetDisplayEnumerationIndex(dce, domainHandle, samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayUser, 'Gu')
+        #resp.dump()
+
+    def test_hSamrGetDisplayEnumerationIndex(self):
         dce, rpctransport, domainHandle  = self.connect()
         request = samr.SamrGetDisplayEnumerationIndex()
         request['DomainHandle'] = domainHandle
@@ -510,6 +649,21 @@ class SAMRTests(unittest.TestCase):
             if str(e).find("STATUS_OBJECT_TYPE_MISMATCH") < 0:
                 raise
 
+    def test_hSamrCreateGroupInDomain_hSamrDeleteGroup(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        try:
+            resp = samr.hSamrCreateGroupInDomain(dce, domainHandle, 'testGroup', samr.GROUP_ALL_ACCESS | samr.DELETE)
+            resp.dump()
+        except Exception, e:
+            if str(e).find("STATUS_ACCESS_DENIED") < 0:
+                raise
+        try:
+            resp = samr.hSamrDeleteGroup(dce, domainHandle)
+            ##resp.dump()
+        except Exception, e:
+            if str(e).find("STATUS_OBJECT_TYPE_MISMATCH") < 0:
+                raise
+
     def test_SamrCreateAliasInDomain_SamrDeleteAlias(self):
         dce, rpctransport, domainHandle  = self.connect()
         request = samr.SamrCreateAliasInDomain()
@@ -524,6 +678,12 @@ class SAMRTests(unittest.TestCase):
         resp = dce.request(request)
         ##resp.dump()
 
+    def test_hSamrCreateAliasInDomain_hSamrDeleteAlias(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        resp = samr.hSamrCreateAliasInDomain(dce, domainHandle, 'testGroup',  samr.GROUP_ALL_ACCESS | samr.DELETE)
+        #resp.dump()
+        resp = samr.hSamrDeleteAlias(dce, resp['AliasHandle'])
+        ##resp.dump()
 
     def test_SamrCreateUser2InDomain_SamrDeleteUser(self):
         dce, rpctransport, domainHandle  = self.connect()
@@ -537,6 +697,99 @@ class SAMRTests(unittest.TestCase):
         ##resp.dump()
         request = samr.SamrDeleteUser()
         request['UserHandle'] = resp['UserHandle']
+        resp = dce.request(request)
+        ##resp.dump()
+
+    def test_hSamrCreateUser2InDomain_hSamrDeleteUser(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        resp = samr.hSamrCreateUser2InDomain(dce, domainHandle, 'testAccount', samr.USER_NORMAL_ACCOUNT,samr.USER_READ_GENERAL | samr.DELETE )
+        #resp.dump()
+        resp = samr.hSamrDeleteUser(dce, resp['UserHandle'])
+        ##resp.dump()
+
+    def test_SamrQueryInformationDomain2(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        request = samr.SamrQueryInformationDomain2()
+        request['DomainHandle'] = domainHandle
+        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainPasswordInformation
+        #request.dump()
+        resp = dce.request(request)
+        ##resp.dump()
+
+        request = samr.SamrQueryInformationDomain2()
+        request['DomainHandle'] = domainHandle
+        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainGeneralInformation
+        #request.dump()
+        resp = dce.request(request)
+        ##resp.dump()
+
+        request = samr.SamrQueryInformationDomain2()
+        request['DomainHandle'] = domainHandle
+        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainLogoffInformation
+        #request.dump()
+        resp = dce.request(request)
+        ##resp.dump()
+
+        request = samr.SamrQueryInformationDomain2()
+        request['DomainHandle'] = domainHandle
+        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainOemInformation
+        #request.dump()
+        resp = dce.request(request)
+        ##resp.dump()
+
+        request = samr.SamrQueryInformationDomain2()
+        request['DomainHandle'] = domainHandle
+        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainNameInformation
+        #request.dump()
+        resp = dce.request(request)
+        ##resp.dump()
+
+        request = samr.SamrQueryInformationDomain2()
+        request['DomainHandle'] = domainHandle
+        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainServerRoleInformation
+        #request.dump()
+        resp = dce.request(request)
+        ##resp.dump()
+
+        request = samr.SamrQueryInformationDomain2()
+        request['DomainHandle'] = domainHandle
+        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainReplicationInformation
+        #request.dump()
+        resp = dce.request(request)
+        ##resp.dump()
+
+        request = samr.SamrQueryInformationDomain2()
+        request['DomainHandle'] = domainHandle
+        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainModifiedInformation
+        #request.dump()
+        resp = dce.request(request)
+        ##resp.dump()
+
+        request = samr.SamrQueryInformationDomain2()
+        request['DomainHandle'] = domainHandle
+        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainStateInformation
+        #request.dump()
+        resp = dce.request(request)
+        ##resp.dump()
+
+        request = samr.SamrQueryInformationDomain2()
+        request['DomainHandle'] = domainHandle
+        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainGeneralInformation2
+        #request.dump()
+        resp = dce.request(request)
+        ##resp.dump()
+
+        request = samr.SamrQueryInformationDomain2()
+        request['DomainHandle'] = domainHandle
+        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainLockoutInformation
+        #request.dump()
+        resp = dce.request(request)
+        ##resp.dump()
+
+        request = samr.SamrQueryInformationDomain2()
+        request['DomainHandle'] = domainHandle
+        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainModifiedInformation2
+        #request.dump()
         resp = dce.request(request)
         ##resp.dump()
 
@@ -626,56 +879,69 @@ class SAMRTests(unittest.TestCase):
         resp = dce.request(request)
         ##resp.dump()
 
-    def test_SamrQueryInformationDomain_SamrSetInformationDomain(self):
+    def test_hSamrQueryInformationDomain2(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        resp = samr.hSamrQueryInformationDomain2(dce, domainHandle,samr.DOMAIN_INFORMATION_CLASS.DomainPasswordInformation)
+        #resp.dump()
+
+        resp = samr.hSamrQueryInformationDomain2(dce, domainHandle,samr.DOMAIN_INFORMATION_CLASS.DomainGeneralInformation)
+        #resp.dump()
+
+        resp = samr.hSamrQueryInformationDomain2(dce, domainHandle,samr.DOMAIN_INFORMATION_CLASS.DomainLogoffInformation)
+        #resp.dump()
+
+        resp = samr.hSamrQueryInformationDomain2(dce, domainHandle,samr.DOMAIN_INFORMATION_CLASS.DomainOemInformation)
+        #resp.dump()
+
+        resp = samr.hSamrQueryInformationDomain2(dce, domainHandle,samr.DOMAIN_INFORMATION_CLASS.DomainNameInformation)
+        #resp.dump()
+
+        resp = samr.hSamrQueryInformationDomain2(dce, domainHandle,samr.DOMAIN_INFORMATION_CLASS.DomainServerRoleInformation)
+        #resp.dump()
+
+        resp = samr.hSamrQueryInformationDomain2(dce, domainHandle,samr.DOMAIN_INFORMATION_CLASS.DomainReplicationInformation)
+        #resp.dump()
+
+        resp = samr.hSamrQueryInformationDomain2(dce, domainHandle,samr.DOMAIN_INFORMATION_CLASS.DomainModifiedInformation)
+        #resp.dump()
+
+        resp = samr.hSamrQueryInformationDomain2(dce, domainHandle,samr.DOMAIN_INFORMATION_CLASS.DomainStateInformation)
+        #resp.dump()
+
+        resp = samr.hSamrQueryInformationDomain2(dce, domainHandle,samr.DOMAIN_INFORMATION_CLASS.DomainGeneralInformation2)
+        #resp.dump()
+
+        resp = samr.hSamrQueryInformationDomain2(dce, domainHandle,samr.DOMAIN_INFORMATION_CLASS.DomainLockoutInformation)
+        #resp.dump()
+
+        resp = samr.hSamrQueryInformationDomain2(dce, domainHandle,samr.DOMAIN_INFORMATION_CLASS.DomainModifiedInformation2)
+        #resp.dump()
+
+    def test_hSamrQueryInformationDomain_hSamrSetInformationDomain(self):
         dce, rpctransport, domainHandle  = self.connect()
 
-        request = samr.SamrQueryInformationDomain()
-        request['DomainHandle'] = domainHandle
-        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainPasswordInformation
-        #request.dump()
-        resp = dce.request(request)
+        resp = samr.hSamrQueryInformationDomain(dce, domainHandle, samr.DOMAIN_INFORMATION_CLASS.DomainPasswordInformation)
         #resp.dump()
 
-        request = samr.SamrSetInformationDomain()
-        request['DomainHandle'] = domainHandle
-        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainPasswordInformation
-        request['DomainInformation'] = resp['Buffer'] 
-        request['DomainInformation']['Password']['MaxPasswordAge']['LowPart'] = 11
-        #request.dump()
-        resp = dce.request(request)
+        resp['Buffer']['Password']['MaxPasswordAge']['LowPart'] = 11
+        resp = samr.hSamrSetInformationDomain(dce, domainHandle, resp['Buffer'])
         #resp.dump()
  
-        request = samr.SamrQueryInformationDomain()
-        request['DomainHandle'] = domainHandle
-        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainPasswordInformation
-        #request.dump()
-        resp2 = dce.request(request)
+        resp2 = samr.hSamrQueryInformationDomain(dce, domainHandle, samr.DOMAIN_INFORMATION_CLASS.DomainPasswordInformation)
         #resp2.dump()
         self.assertTrue( 11 == resp2['Buffer']['Password']['MaxPasswordAge']['LowPart'] )
 
-        request = samr.SamrSetInformationDomain()
-        request['DomainHandle'] = domainHandle
-        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainPasswordInformation
-        request['DomainInformation'] = resp2['Buffer'] 
-        request['DomainInformation']['Password']['MaxPasswordAge']['LowPart'] = 0
-        resp = dce.request(request)
+        resp2['Buffer']['Password']['MaxPasswordAge']['LowPart'] = 0
+        resp = samr.hSamrSetInformationDomain(dce, domainHandle, resp2['Buffer'])
+        #resp.dump()
    
         ################################################################################ 
-        request = samr.SamrQueryInformationDomain()
-        request['DomainHandle'] = domainHandle
-        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainGeneralInformation
-        #request.dump()
-        resp = dce.request(request)
+        resp = samr.hSamrQueryInformationDomain(dce, domainHandle, samr.DOMAIN_INFORMATION_CLASS.DomainGeneralInformation)
         #resp.dump()
 
-        request = samr.SamrSetInformationDomain()
-        request['DomainHandle'] = domainHandle
-        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainGeneralInformation
-        request['DomainInformation'] = resp['Buffer'] 
-        request['DomainInformation']['General']['ReplicaSourceNodeName'] = 'BETUS'
-        #request.dump()
+        resp['Buffer']['General']['ReplicaSourceNodeName'] = 'BETUS'
         try:
-            resp = dce.request(request)
+            resp = samr.hSamrSetInformationDomain(dce, domainHandle, resp['Buffer'])
         except Exception, e:
             if str(e).find('STATUS_INVALID_INFO_CLASS') < 0:
                 raise
@@ -683,165 +949,85 @@ class SAMRTests(unittest.TestCase):
 
         ################################################################################ 
 
-        request = samr.SamrQueryInformationDomain()
-        request['DomainHandle'] = domainHandle
-        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainLogoffInformation
-        #request.dump()
-        resp = dce.request(request)
+        resp = samr.hSamrQueryInformationDomain(dce, domainHandle, samr.DOMAIN_INFORMATION_CLASS.DomainLogoffInformation)
         #resp.dump()
+
         oldData = resp['Buffer']['Logoff']['ForceLogoff']['LowPart'] 
 
-        request = samr.SamrSetInformationDomain()
-        request['DomainHandle'] = domainHandle
-        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainLogoffInformation
-        request['DomainInformation'] = resp['Buffer'] 
-        request['DomainInformation']['Logoff']['ForceLogoff']['LowPart'] = 11
-        #request.dump()
-        resp2 = dce.request(request)
+        resp['Buffer']['Logoff']['ForceLogoff']['LowPart'] = 11
+        resp = samr.hSamrSetInformationDomain(dce, domainHandle, resp['Buffer'])
         #resp.dump()
 
-        request = samr.SamrQueryInformationDomain()
-        request['DomainHandle'] = domainHandle
-        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainLogoffInformation
-        #request.dump()
-        resp2 = dce.request(request)
+        resp2 = samr.hSamrQueryInformationDomain(dce, domainHandle, samr.DOMAIN_INFORMATION_CLASS.DomainLogoffInformation)
         #resp2.dump()
 
         self.assertTrue( 11 == resp2['Buffer']['Logoff']['ForceLogoff']['LowPart'] )
 
-        request = samr.SamrSetInformationDomain()
-        request['DomainHandle'] = domainHandle
-        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainLogoffInformation
-        request['DomainInformation'] = resp['Buffer'] 
-        request['DomainInformation']['Logoff']['ForceLogoff']['LowPart'] = oldData
-        #request.dump()
-        resp = dce.request(request)
+        resp2['Buffer']['Logoff']['ForceLogoff']['LowPart'] = oldData
+        resp = samr.hSamrSetInformationDomain(dce, domainHandle, resp2['Buffer'])
         #resp.dump()
 
         ################################################################################ 
-        request = samr.SamrQueryInformationDomain()
-        request['DomainHandle'] = domainHandle
-        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainOemInformation
-        #request.dump()
-        resp = dce.request(request)
+        resp = samr.hSamrQueryInformationDomain(dce, domainHandle, samr.DOMAIN_INFORMATION_CLASS.DomainOemInformation)
         #resp.dump()
+
         oldData = resp['Buffer']['Oem']['OemInformation']
 
-        request = samr.SamrSetInformationDomain()
-        request['DomainHandle'] = domainHandle
-        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainOemInformation
-        request['DomainInformation'] = resp['Buffer'] 
-        request['DomainInformation']['Oem']['OemInformation'] = 'BETUS'
-        #request.dump()
-        resp2 = dce.request(request)
+        resp['Buffer']['Oem']['OemInformation'] = 'BETUS'
+        resp = samr.hSamrSetInformationDomain(dce, domainHandle, resp['Buffer'])
         #resp.dump()
 
-        request = samr.SamrQueryInformationDomain()
-        request['DomainHandle'] = domainHandle
-        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainOemInformation
-        #request.dump()
-        resp2 = dce.request(request)
+        resp2 = samr.hSamrQueryInformationDomain(dce, domainHandle, samr.DOMAIN_INFORMATION_CLASS.DomainOemInformation)
         #resp2.dump()
 
         self.assertTrue( 'BETUS'  == resp2['Buffer']['Oem']['OemInformation'])
 
-        request = samr.SamrSetInformationDomain()
-        request['DomainHandle'] = domainHandle
-        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainOemInformation
-        request['DomainInformation'] = resp['Buffer'] 
-        request['DomainInformation']['Oem']['OemInformation'] = oldData
-        #request.dump()
-        resp2 = dce.request(request)
+        resp2['Buffer']['Oem']['OemInformation'] = oldData
+        resp = samr.hSamrSetInformationDomain(dce, domainHandle, resp2['Buffer'])
         #resp.dump()
 
         ################################################################################ 
 
-        request = samr.SamrQueryInformationDomain()
-        request['DomainHandle'] = domainHandle
-        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainNameInformation
-        #request.dump()
-        resp = dce.request(request)
+        resp = samr.hSamrQueryInformationDomain(dce, domainHandle, samr.DOMAIN_INFORMATION_CLASS.DomainNameInformation)
         #resp.dump()
 
         ################################################################################ 
 
-        request = samr.SamrQueryInformationDomain()
-        request['DomainHandle'] = domainHandle
-        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainServerRoleInformation
-        #request.dump()
-        resp = dce.request(request)
-        ##resp.dump()
+        resp = samr.hSamrQueryInformationDomain(dce, domainHandle, samr.DOMAIN_INFORMATION_CLASS.DomainServerRoleInformation)
+        #resp.dump()
 
         ################################################################################ 
-        request = samr.SamrQueryInformationDomain()
-        request['DomainHandle'] = domainHandle
-        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainReplicationInformation
-        #request.dump()
-        resp = dce.request(request)
-        ##resp.dump()
+        resp = samr.hSamrQueryInformationDomain(dce, domainHandle, samr.DOMAIN_INFORMATION_CLASS.DomainReplicationInformation)
+        #resp.dump()
 
         oldData = resp['Buffer']['Replication']['ReplicaSourceNodeName']
 
-        request = samr.SamrSetInformationDomain()
-        request['DomainHandle'] = domainHandle
-        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainReplicationInformation
-        request['DomainInformation'] = resp['Buffer'] 
-        request['DomainInformation']['Replication']['ReplicaSourceNodeName'] = 'BETUS'
-        #request.dump()
-        resp2 = dce.request(request)
+        resp['Buffer']['Replication']['ReplicaSourceNodeName'] = 'BETUS'
+        resp = samr.hSamrSetInformationDomain(dce, domainHandle, resp['Buffer'])
         #resp.dump()
 
-        request = samr.SamrQueryInformationDomain()
-        request['DomainHandle'] = domainHandle
-        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainReplicationInformation
-        #request.dump()
-        resp2 = dce.request(request)
+        resp2 = samr.hSamrQueryInformationDomain(dce, domainHandle, samr.DOMAIN_INFORMATION_CLASS.DomainReplicationInformation)
         #resp2.dump()
 
         self.assertTrue( 'BETUS'  == resp2['Buffer']['Replication']['ReplicaSourceNodeName'])
 
-        request = samr.SamrSetInformationDomain()
-        request['DomainHandle'] = domainHandle
-        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainReplicationInformation
-        request['DomainInformation'] = resp['Buffer'] 
-        request['DomainInformation']['Replication']['ReplicaSourceNodeName'] = oldData
-        #request.dump()
-        resp2 = dce.request(request)
+        resp2['Buffer']['Replication']['ReplicaSourceNodeName'] = oldData
+        resp = samr.hSamrSetInformationDomain(dce, domainHandle, resp2['Buffer'])
         #resp.dump()
 
-        request = samr.SamrQueryInformationDomain()
-        request['DomainHandle'] = domainHandle
-        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainModifiedInformation
-        #request.dump()
-        resp = dce.request(request)
+        resp = samr.hSamrQueryInformationDomain(dce, domainHandle, samr.DOMAIN_INFORMATION_CLASS.DomainModifiedInformation)
         #resp.dump()
 
-        request = samr.SamrQueryInformationDomain()
-        request['DomainHandle'] = domainHandle
-        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainStateInformation
-        #request.dump()
-        resp = dce.request(request)
+        resp = samr.hSamrQueryInformationDomain(dce, domainHandle, samr.DOMAIN_INFORMATION_CLASS.DomainStateInformation)
         #resp.dump()
 
-        request = samr.SamrQueryInformationDomain()
-        request['DomainHandle'] = domainHandle
-        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainGeneralInformation2
-        #request.dump()
-        resp = dce.request(request)
+        resp = samr.hSamrQueryInformationDomain(dce, domainHandle, samr.DOMAIN_INFORMATION_CLASS.DomainGeneralInformation2)
         #resp.dump()
 
-        request = samr.SamrQueryInformationDomain()
-        request['DomainHandle'] = domainHandle
-        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainLockoutInformation
-        #request.dump()
-        resp = dce.request(request)
+        resp = samr.hSamrQueryInformationDomain(dce, domainHandle, samr.DOMAIN_INFORMATION_CLASS.DomainLockoutInformation)
         #resp.dump()
 
-        request = samr.SamrQueryInformationDomain()
-        request['DomainHandle'] = domainHandle
-        request['DomainInformationClass'] = samr.DOMAIN_INFORMATION_CLASS.DomainModifiedInformation2
-        #request.dump()
-        resp = dce.request(request)
+        resp = samr.hSamrQueryInformationDomain(dce, domainHandle, samr.DOMAIN_INFORMATION_CLASS.DomainModifiedInformation2)
         #resp.dump()
 
     def test_SamrQueryInformationGroup_SamrSetInformationGroup(self):
@@ -951,6 +1137,68 @@ class SAMRTests(unittest.TestCase):
         resp = dce.request(request)
         ##resp.dump()
 
+    def test_hSamrQueryInformationGroup_hSamrSetInformationGroup(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        try:
+            resp0 = samr.hSamrOpenGroup(dce, domainHandle,samr.GROUP_ALL_ACCESS, samr.DOMAIN_GROUP_RID_USERS )
+            #resp0.dump()
+        except Exception, e:
+            if str(e).find('STATUS_NO_SUCH_DOMAIN') < 0:
+                raise
+
+        resp = samr.hSamrQueryInformationGroup(dce, resp0['GroupHandle'],samr.GROUP_INFORMATION_CLASS.GroupGeneralInformation)
+        #resp.dump()
+        ################################################################################ 
+
+        resp = samr.hSamrQueryInformationGroup(dce, resp0['GroupHandle'],samr.GROUP_INFORMATION_CLASS.GroupNameInformation)
+        #resp.dump()
+        oldData = resp['Buffer']['Name']['Name']
+
+        req = samr.SAMPR_GROUP_INFO_BUFFER()
+        req['tag'] = samr.GROUP_INFORMATION_CLASS.GroupNameInformation
+        req['Name']['Name'] = 'BETUS'
+        resp = samr.hSamrSetInformationGroup(dce, resp0['GroupHandle'], req)
+        #resp.dump()
+
+        resp = samr.hSamrQueryInformationGroup(dce, resp0['GroupHandle'],samr.GROUP_INFORMATION_CLASS.GroupNameInformation)
+        #resp.dump()
+        self.assertTrue( 'BETUS'  == resp['Buffer']['Name']['Name'])
+
+        req['Name']['Name'] = oldData
+        resp = samr.hSamrSetInformationGroup(dce, resp0['GroupHandle'], req)
+        #resp.dump()
+
+    def test_hSamrQueryInformationAlias_hSamrSetInformationAlias(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        resp4 = samr.hSamrEnumerateAliasesInDomain(dce, domainHandle)
+        #resp4.dump()
+
+        resp0 = samr.hSamrOpenAlias(dce, domainHandle, aliasId = resp4['Buffer']['Buffer'][0]['RelativeId'])
+        #resp0.dump()
+
+        resp = samr.hSamrQueryInformationAlias(dce, resp0['AliasHandle'], samr.ALIAS_INFORMATION_CLASS.AliasGeneralInformation)
+        #resp.dump()
+
+        ################################################################################ 
+        resp = samr.hSamrQueryInformationAlias(dce, resp0['AliasHandle'], samr.ALIAS_INFORMATION_CLASS.AliasNameInformation)
+        #resp.dump()
+        oldData = resp['Buffer']['Name']['Name']
+
+        req = samr.SAMPR_ALIAS_INFO_BUFFER()
+        req['tag'] = samr.ALIAS_INFORMATION_CLASS.AliasNameInformation
+        req['Name']['Name'] = 'BETUS'
+        resp = samr.hSamrSetInformationAlias(dce, resp0['AliasHandle'], req)
+        #resp.dump()
+
+        resp = samr.hSamrQueryInformationAlias(dce, resp0['AliasHandle'], samr.ALIAS_INFORMATION_CLASS.AliasNameInformation)
+        #resp.dump()
+
+        self.assertTrue( 'BETUS'  == resp['Buffer']['Name']['Name'])
+
+        req['Name']['Name'] = oldData
+        resp = samr.hSamrSetInformationAlias(dce, resp0['AliasHandle'], req)
+        #resp.dump()
+
     def test_SamrQueryInformationAlias_SamrSetInformationAlias(self):
         dce, rpctransport, domainHandle  = self.connect()
         request = samr.SamrEnumerateAliasesInDomain()
@@ -1036,7 +1284,6 @@ class SAMRTests(unittest.TestCase):
         req['Buffer']['AdminComment']['AdminComment'] = oldData
         resp = dce.request(req)
         #resp.dump()
-
 
     def test_SamrQueryInformationUser2_SamrSetInformationUser2(self):
         dce, rpctransport, domainHandle  = self.connect()
@@ -1257,6 +1504,119 @@ class SAMRTests(unittest.TestCase):
                 raise
             pass
 
+    def test_hSamrQueryInformationUser2_hSamrSetInformationUser2(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        desiredAccess = \
+            samr.USER_READ_GENERAL | samr.USER_READ_PREFERENCES | samr.USER_WRITE_PREFERENCES | samr.USER_READ_LOGON \
+            | samr.USER_READ_ACCOUNT | samr.USER_WRITE_ACCOUNT | samr.USER_CHANGE_PASSWORD | samr.USER_FORCE_PASSWORD_CHANGE  \
+            | samr.USER_LIST_GROUPS | samr.USER_READ_GROUP_INFORMATION | samr.USER_WRITE_GROUP_INFORMATION | samr.USER_ALL_ACCESS  \
+            | samr.USER_READ | samr.USER_WRITE  | samr.USER_EXECUTE 
+        resp = samr.hSamrOpenUser(dce, domainHandle, desiredAccess, samr.DOMAIN_USER_RID_ADMIN )
+        #resp.dump()
+        userHandle = resp['UserHandle']
+
+        resp = samr.hSamrQueryInformationUser2(dce, userHandle,samr.USER_INFORMATION_CLASS.UserGeneralInformation)
+        #resp.dump()
+        ################################################################################ 
+        resp = samr.hSamrQueryInformationUser2(dce, userHandle,samr.USER_INFORMATION_CLASS.UserPreferencesInformation)
+        #resp.dump()
+        oldData = resp['Buffer']['Preferences']['UserComment']
+
+        resp['Buffer']['Preferences']['UserComment'] = 'BETO'
+        resp = samr.hSamrSetInformationUser2(dce, userHandle, resp['Buffer'])
+        #resp.dump()
+
+        resp = samr.hSamrQueryInformationUser2(dce, userHandle,samr.USER_INFORMATION_CLASS.UserPreferencesInformation)
+        #resp.dump()
+
+        self.assertTrue( 'BETO' == resp['Buffer']['Preferences']['UserComment'])
+
+        resp['Buffer']['Preferences']['UserComment'] = oldData
+        resp = samr.hSamrSetInformationUser2(dce, userHandle, resp['Buffer'])
+        #resp.dump()
+
+        ################################################################################ 
+        resp = samr.hSamrQueryInformationUser2(dce, userHandle,samr.USER_INFORMATION_CLASS.UserLogonInformation)
+        #resp.dump()
+
+        resp = samr.hSamrQueryInformationUser2(dce, userHandle,samr.USER_INFORMATION_CLASS.UserLogonHoursInformation)
+        #resp.dump()
+
+        resp = samr.hSamrQueryInformationUser2(dce, userHandle,samr.USER_INFORMATION_CLASS.UserAccountInformation)
+        #resp.dump()
+
+        ################################################################################ 
+        resp = samr.hSamrQueryInformationUser2(dce, userHandle,samr.USER_INFORMATION_CLASS.UserNameInformation)
+        #resp.dump()
+        oldData = resp['Buffer']['Name']['FullName']
+
+        resp['Buffer']['Name']['FullName'] = 'BETO'
+        resp = samr.hSamrSetInformationUser2(dce, userHandle, resp['Buffer'])
+        #resp.dump()
+
+        resp = samr.hSamrQueryInformationUser2(dce, userHandle,samr.USER_INFORMATION_CLASS.UserNameInformation)
+        #resp.dump()
+
+        self.assertTrue( 'BETO' == resp['Buffer']['Name']['FullName'])
+
+        resp['Buffer']['Name']['FullName'] = oldData
+        resp = samr.hSamrSetInformationUser2(dce, userHandle, resp['Buffer'])
+        #resp.dump()
+
+        ################################################################################ 
+        resp = samr.hSamrQueryInformationUser2(dce, userHandle,samr.USER_INFORMATION_CLASS.UserAccountNameInformation)
+        #resp.dump()
+
+        oldData = resp['Buffer']['AccountName']['UserName']
+
+        resp['Buffer']['AccountName']['UserName'] = 'BETUS'
+        resp = samr.hSamrSetInformationUser2(dce, userHandle, resp['Buffer'])
+        #resp.dump()
+
+        resp = samr.hSamrQueryInformationUser2(dce, userHandle,samr.USER_INFORMATION_CLASS.UserAccountNameInformation)
+        #resp.dump()
+
+        self.assertTrue( 'BETUS' == resp['Buffer']['AccountName']['UserName'])
+
+        resp['Buffer']['AccountName']['UserName'] = oldData
+        resp = samr.hSamrSetInformationUser2(dce, userHandle, resp['Buffer'])
+        #resp.dump()
+
+        resp = samr.hSamrQueryInformationUser2(dce, userHandle,samr.USER_INFORMATION_CLASS.UserFullNameInformation)
+        #resp.dump()
+
+        resp = samr.hSamrQueryInformationUser2(dce, userHandle,samr.USER_INFORMATION_CLASS.UserPrimaryGroupInformation)
+        #resp.dump()
+
+        resp = samr.hSamrQueryInformationUser2(dce, userHandle,samr.USER_INFORMATION_CLASS.UserHomeInformation)
+        #resp.dump()
+
+        resp = samr.hSamrQueryInformationUser2(dce, userHandle,samr.USER_INFORMATION_CLASS.UserScriptInformation)
+        #resp.dump()
+
+        resp = samr.hSamrQueryInformationUser2(dce, userHandle,samr.USER_INFORMATION_CLASS.UserProfileInformation)
+        #resp.dump()
+
+        resp = samr.hSamrQueryInformationUser2(dce, userHandle,samr.USER_INFORMATION_CLASS.UserAdminCommentInformation)
+        #resp.dump()
+
+        resp = samr.hSamrQueryInformationUser2(dce, userHandle,samr.USER_INFORMATION_CLASS.UserWorkStationsInformation)
+        #resp.dump()
+
+        resp = samr.hSamrQueryInformationUser2(dce, userHandle,samr.USER_INFORMATION_CLASS.UserControlInformation)
+        #resp.dump()
+
+        resp = samr.hSamrQueryInformationUser2(dce, userHandle,samr.USER_INFORMATION_CLASS.UserExpiresInformation)
+        #resp.dump()
+
+        resp = samr.hSamrQueryInformationUser2(dce, userHandle,samr.USER_INFORMATION_CLASS.UserParametersInformation)
+        #resp.dump()
+
+
+        ################################################################################ 
+        resp = samr.hSamrQueryInformationUser2(dce, userHandle,samr.USER_INFORMATION_CLASS.UserAllInformation)
+        #resp.dump()
+
     def test_SamrQueryInformationUser_SamrSetInformationUser(self):
         dce, rpctransport, domainHandle  = self.connect()
         request = samr.SamrOpenUser()
@@ -1460,6 +1820,35 @@ class SAMRTests(unittest.TestCase):
         request['Attributes'] = samr.SE_GROUP_ENABLED_BY_DEFAULT
         try:
             resp2 = dce.request(request)
+            #resp2.dump()
+        except Exception, e:
+            if str(e).find('STATUS_MEMBER_IN_GROUP') < 0:
+                raise
+
+    def test_hSamrAddMemberToGroup_hSamrRemoveMemberFromGroup(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        request = samr.SamrConnect()
+        request['DesiredAccess'] = dtypes.MAXIMUM_ALLOWED
+        request['ServerName'] = u'BETO\x00'
+        resp = dce.request(request)
+        request = samr.SamrOpenGroup()
+        request['DomainHandle'] = domainHandle
+        request['DesiredAccess'] =  dtypes.MAXIMUM_ALLOWED
+        request['GroupId'] = samr.DOMAIN_GROUP_RID_USERS
+        try:
+            resp = dce.request(request)
+            #resp.dump()
+        except Exception, e:
+            if str(e).find('STATUS_NO_SUCH_DOMAIN') < 0:
+                raise
+        try:
+            resp2 = samr.hSamrRemoveMemberFromGroup(dce, resp['GroupHandle'],samr.DOMAIN_USER_RID_ADMIN)
+            #resp2.dump()
+        except Exception, e:
+            if str(e).find('STATUS_MEMBERS_PRIMARY_GROUP') < 0:
+                raise
+        try:
+            resp2= samr.hSamrAddMemberToGroup(dce, resp['GroupHandle'] ,samr.DOMAIN_USER_RID_ADMIN, samr.SE_GROUP_ENABLED_BY_DEFAULT)
             #resp2.dump()
         except Exception, e:
             if str(e).find('STATUS_MEMBER_IN_GROUP') < 0:
@@ -1809,7 +2198,7 @@ class SAMRTests(unittest.TestCase):
         request['SecurityDescriptor'] = resp['SecurityDescriptor'] 
         #request.dump()
         resp = dce.request(request)
-        resp.dump()
+        #resp.dump()
 
     def test_SamrChangePasswordUser(self):
         dce, rpctransport, domainHandle  = self.connect()
@@ -2003,5 +2392,5 @@ if __name__ == '__main__':
         suite = unittest.TestLoader().loadTestsFromTestCase(globals()[testcase])
     else:
         suite = unittest.TestLoader().loadTestsFromTestCase(SMBTransport)
-        #suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport))
+        suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport))
     unittest.TextTestRunner(verbosity=1).run(suite)
