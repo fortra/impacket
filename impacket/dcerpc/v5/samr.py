@@ -662,22 +662,6 @@ class PSAMPR_DOMAIN_INFO_BUFFER(NDRPointer):
         ('Data', SAMPR_DOMAIN_INFO_BUFFER),
     )
 
-# 2.2.4.16 DOMAIN_INFORMATION_CLASS
-class DOMAIN_INFORMATION_CLASS(NDRENUM):
-    class enumItems(Enum):
-        DomainPasswordInformation    = 1
-        DomainGeneralInformation     = 2
-        DomainLogoffInformation      = 3
-        DomainOemInformation         = 4
-        DomainNameInformation        = 5
-        DomainReplicationInformation = 6
-        DomainServerRoleInformation  = 7
-        DomainModifiedInformation    = 8
-        DomainStateInformation       = 9
-        DomainGeneralInformation2    = 11
-        DomainLockoutInformation     = 12
-        DomainModifiedInformation2   = 13
-
 # 2.2.5.2 GROUP_ATTRIBUTE_INFORMATION
 class GROUP_ATTRIBUTE_INFORMATION(NDR):
     structure = (
@@ -1268,17 +1252,17 @@ class SAM_VALIDATE_PERSISTED_FIELDS(NDR):
 # 2.2.9.3 SAM_VALIDATE_VALIDATION_STATUS
 class SAM_VALIDATE_VALIDATION_STATUS(NDRENUM):
     class enumItems(Enum):
-        SamValidateSuccess                  = 1
-        SamValidatePasswordMustChange       = 2
-        SamValidateAccountLockedOut         = 3
+        SamValidateSuccess                  = 0
+        SamValidatePasswordMustChange       = 1
+        SamValidateAccountLockedOut         = 2
         SamValidatePasswordExpired          = 3
-        SamValidatePasswordIncorrect        = 3
-        SamValidatePasswordIsInHistory      = 3
-        SamValidatePasswordTooShort         = 3
-        SamValidatePasswordTooLong          = 3
-        SamValidatePasswordNotComplexEnough = 3
-        SamValidatePasswordTooRecent        = 3
-        SamValidatePasswordFilterError      = 3
+        SamValidatePasswordIncorrect        = 4
+        SamValidatePasswordIsInHistory      = 5
+        SamValidatePasswordTooShort         = 6
+        SamValidatePasswordTooLong          = 7
+        SamValidatePasswordNotComplexEnough = 8
+        SamValidatePasswordTooRecent        = 9
+        SamValidatePasswordFilterError      = 10
 
 # 2.2.9.4 SAM_VALIDATE_STANDARD_OUTPUT_ARG
 class SAM_VALIDATE_STANDARD_OUTPUT_ARG(NDR):
@@ -2463,5 +2447,168 @@ def hSamrRemoveMemberFromGroup(dce, groupHandle, memberId):
     request = SamrRemoveMemberFromGroup()
     request['GroupHandle'] = groupHandle
     request['MemberId'] = memberId
+    return dce.request(request)
+
+def hSamrGetMembersInGroup(dce, groupHandle):
+    request = SamrGetMembersInGroup()
+    request['GroupHandle'] = groupHandle
+    return dce.request(request)
+
+def hSamrAddMemberToAlias(dce, aliasHandle, memberId):
+    request = SamrAddMemberToAlias()
+    request['AliasHandle'] = aliasHandle
+    request['MemberId'] = memberId
+    return dce.request(request)
+
+def hSamrRemoveMemberFromAlias(dce, aliasHandle, memberId):
+    request = SamrRemoveMemberFromAlias()
+    request['AliasHandle'] = aliasHandle
+    request['MemberId'] = memberId
+    return dce.request(request)
+
+def hSamrGetMembersInAlias(dce, aliasHandle):
+    request = SamrGetMembersInAlias()
+    request['AliasHandle'] = aliasHandle
+    return dce.request(request)
+
+def hSamrRemoveMemberFromForeignDomain(dce, domainHandle, memberSid):
+    request = SamrRemoveMemberFromForeignDomain()
+    request['DomainHandle'] = domainHandle
+    request['MemberSid'] = memberSid
+    return dce.request(request)
+
+def hSamrAddMultipleMembersToAlias(dce, aliasHandle, membersBuffer):
+    request = SamrAddMultipleMembersToAlias()
+    request['AliasHandle'] = aliasHandle
+    request['MembersBuffer'] = membersBuffer
+    request['MembersBuffer']['Count'] = len(membersBuffer['Sids'])
+    return dce.request(request)
+
+def hSamrRemoveMultipleMembersFromAlias(dce, aliasHandle, membersBuffer):
+    request = SamrRemoveMultipleMembersFromAlias()
+    request['AliasHandle'] = aliasHandle
+    request['MembersBuffer'] = membersBuffer
+    request['MembersBuffer']['Count'] = len(membersBuffer['Sids'])
+    return dce.request(request)
+
+def hSamrGetGroupsForUser(dce, userHandle):
+    request = SamrGetGroupsForUser()
+    request['UserHandle'] = userHandle
+    return dce.request(request)
+
+def hSamrGetAliasMembership(dce, domainHandle, sidArray):
+    request = SamrGetAliasMembership()
+    request['DomainHandle'] = domainHandle
+    request['SidArray'] = sidArray
+    request['SidArray']['Count'] = len(sidArray['Sids'])
+    return dce.request(request)
+
+def hSamrChangePasswordUser(dce, userHandle, oldPassword, newPassword):
+    request = SamrChangePasswordUser()
+    request['UserHandle'] = userHandle
+
+    from impacket import crypto, ntlm
+
+    oldPwdHashNT = ntlm.NTOWFv1(oldPassword)
+    newPwdHashNT = ntlm.NTOWFv1(newPassword)
+    newPwdHashLM = ntlm.LMOWFv1(newPassword)
+
+    request['LmPresent'] = 0
+    request['OldLmEncryptedWithNewLm'] = NULL
+    request['NewLmEncryptedWithOldLm'] = NULL
+    request['NtPresent'] = 1
+    request['OldNtEncryptedWithNewNt'] = crypto.SamEncryptNTLMHash(oldPwdHashNT, newPwdHashNT)
+    request['NewNtEncryptedWithOldNt'] = crypto.SamEncryptNTLMHash(newPwdHashNT, oldPwdHashNT) 
+    request['NtCrossEncryptionPresent'] = 0
+    request['NewNtEncryptedWithNewLm'] = NULL
+    request['LmCrossEncryptionPresent'] = 1
+    request['NewLmEncryptedWithNewNt'] = crypto.SamEncryptNTLMHash(newPwdHashLM, newPwdHashNT)
+
+    return dce.request(request)
+
+def hSamrUnicodeChangePasswordUser2(dce, serverName='\x00', userName='', oldPassword='', newPassword=''):
+    request = SamrUnicodeChangePasswordUser2()
+    request['ServerName'] = serverName
+    request['UserName'] = userName
+
+    try:
+        from Crypto.Cipher import ARC4
+    except Exception:
+        print "Warning: You don't have any crypto installed. You need PyCrypto"
+        print "See http://www.pycrypto.org/"
+    from impacket import crypto, ntlm
+
+    oldPwdHashLM = ntlm.LMOWFv1(oldPassword)
+    oldPwdHashNT = ntlm.NTOWFv1(oldPassword)
+    newPwdHashNT = ntlm.NTOWFv1(newPassword)
+    newPwdHashLM = ntlm.LMOWFv1(newPassword)
+
+
+    samUser = SAMPR_USER_PASSWORD()
+    samUser['Buffer'] = 'A'*(512-len(newPassword)*2) + newPassword.encode('utf-16le')
+    samUser['Length'] = len(newPassword)*2
+    pwdBuff = str(samUser)
+
+    rc4 = ARC4.new(oldPwdHashNT)
+    encBuf = rc4.encrypt(pwdBuff)
+    request['NewPasswordEncryptedWithOldNt']['Buffer'] = encBuf
+    request['OldNtOwfPasswordEncryptedWithNewNt'] = crypto.SamEncryptNTLMHash(oldPwdHashNT, newPwdHashNT)
+    request['LmPresent'] = 0
+    request['NewPasswordEncryptedWithOldLm'] = NULL
+    request['OldLmOwfPasswordEncryptedWithNewNt'] = NULL
+
+    return dce.request(request)
+
+def hSamrLookupDomainInSamServer(dce, serverHandle, name):
+    request = SamrLookupDomainInSamServer()
+    request['ServerHandle'] = serverHandle
+    request['Name'] = name
+    return dce.request(request)
+
+def hSamrSetSecurityObject(dce, objectHandle, securityInformation, securityDescriptor):
+    request = SamrSetSecurityObject()
+    request['ObjectHandle'] =  objectHandle
+    request['SecurityInformation'] =  securityInformation
+    request['SecurityDescriptor'] = securityDescriptor
+    return dce.request(request)
+
+def hSamrQuerySecurityObject(dce, objectHandle, securityInformation):
+    request = SamrQuerySecurityObject()
+    request['ObjectHandle'] =  objectHandle
+    request['SecurityInformation'] =  securityInformation
+    return dce.request(request)
+
+def hSamrCloseHandle(dce, samHandle):
+    request = SamrCloseHandle()
+    request['SamHandle'] =  samHandle
+    return dce.request(request)
+
+def hSamrSetMemberAttributesOfGroup(dce, groupHandle, memberId, attributes):
+    request = SamrSetMemberAttributesOfGroup()
+    request['GroupHandle'] =  groupHandle
+    request['MemberId'] =  memberId
+    request['Attributes'] =  attributes
+    return dce.request(request)
+
+def hSamrGetUserDomainPasswordInformation(dce, userHandle):
+    request = SamrGetUserDomainPasswordInformation()
+    request['UserHandle'] =  userHandle
+    return dce.request(request)
+
+def hSamrGetDomainPasswordInformation(dce):
+    request = SamrGetDomainPasswordInformation()
+    request['Unused'] =  NULL
+    return dce.request(request)
+
+def hSamrRidToSid(dce, objectHandle, rid):
+    request = SamrRidToSid()
+    request['ObjectHandle'] = objectHandle
+    request['Rid'] =  rid
+    return dce.request(request)
+
+def hSamrValidatePassword(dce, inputArg):
+    request = SamrValidatePassword()
+    request['ValidationType'] =  inputArg['tag']
+    request['InputArg'] = inputArg
     return dce.request(request)
 

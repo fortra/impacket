@@ -96,7 +96,30 @@
 #  hSamrDeleteUser
 #  hSamrAddMemberToGroup
 #  hSamrRemoveMemberFromGroup
+#  hSamrGetMembersInGroup
+#  hSamrAddMemberToAlias
+#  hSamrRemoveMemberFromAlias
+#  hSamrGetMembersInAlias
+#  hSamrRemoveMemberFromForeignDomain
+#  hSamrAddMultipleMembersToAlias
+#  hSamrRemoveMultipleMembersFromAlias
+#  hSamrGetGroupsForUser 
+#  hSamrGetAliasMembership 
+#  hSamrChangePasswordUser 
+#  hSamrUnicodeChangePasswordUser2 
+#  hSamrLookupDomainInSamServer 
+#  hSamrSetSecurityObject 
+#  hSamrQuerySecurityObject 
+#  hSamrCloseHandle 
+#  hSamrGetUserDomainPasswordInformation 
+#  hSamrGetDomainPasswordInformation 
+#  hSamrRidToSid 
+#  hSamrValidatePassword
 #  
+# ToDo:
+#  SamrLookupNamesInDomain
+#  SamrLookupIdsInDomain
+# 
 # Shouldn't dump errors against a win7
 ################################################################################
 
@@ -157,6 +180,11 @@ class SAMRTests(unittest.TestCase):
         request = samr.SamrCloseHandle()
         request['SamHandle'] = domainHandle
         resp = dce.request(request)
+        #resp.dump()
+
+    def test_hSamrCloseHandle(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        resp = samr.hSamrCloseHandle(dce, domainHandle)
         #resp.dump()
 
     def test_SamrConnect5(self):
@@ -337,10 +365,7 @@ class SAMRTests(unittest.TestCase):
         resp = samr.hSamrConnect(dce, desiredAccess = samr.SAM_SERVER_ENUMERATE_DOMAINS | samr.SAM_SERVER_LOOKUP_DOMAIN)
         resp2 = samr.hSamrEnumerateDomainsInSamServer(dce, resp['ServerHandle'])
         #resp2.dump()
-        request = samr.SamrLookupDomainInSamServer()
-        request['ServerHandle'] = resp['ServerHandle']
-        request['Name'] = resp2['Buffer']['Buffer'][0]['Name']
-        resp3 = dce.request(request)
+        resp3 = samr.hSamrLookupDomainInSamServer(dce, resp['ServerHandle'],resp2['Buffer']['Buffer'][0]['Name'] )
         #resp3.dump()
         request = samr.SamrOpenDomain()
         request['ServerHandle'] = resp['ServerHandle']
@@ -458,6 +483,17 @@ class SAMRTests(unittest.TestCase):
         request['UserHandle'] = resp['UserHandle'] 
         resp = dce.request(request)
         ##resp.dump()
+
+    def test_hSamrGetGroupsForUser(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        request = samr.SamrOpenUser()
+        request['DomainHandle'] = domainHandle
+        request['DesiredAccess'] =  samr.USER_READ_GENERAL | samr.USER_READ_PREFERENCES | samr.USER_READ_ACCOUNT | samr.USER_LIST_GROUPS
+        request['UserId'] = samr.DOMAIN_USER_RID_ADMIN
+        resp = dce.request(request)
+        ##resp.dump()
+        resp = samr.hSamrGetGroupsForUser(dce, resp['UserHandle'])
+        #resp.dump()
 
     def test_SamrQueryDisplayInformation3(self):
         dce, rpctransport, domainHandle  = self.connect()
@@ -1872,6 +1908,22 @@ class SAMRTests(unittest.TestCase):
         resp = dce.request(request)
         #resp.dump()
 
+    def test_hSamrGetMembersInGroup(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        request = samr.SamrOpenGroup()
+        request['DomainHandle'] = domainHandle
+        request['DesiredAccess'] =  dtypes.MAXIMUM_ALLOWED
+        request['GroupId'] = samr.DOMAIN_GROUP_RID_USERS
+        try:
+            resp = dce.request(request)
+            #resp.dump()
+        except Exception, e:
+            if str(e).find('STATUS_NO_SUCH_DOMAIN') < 0:
+                raise
+
+        resp = samr.hSamrGetMembersInGroup(dce, resp['GroupHandle'])
+        #resp.dump()
+
     def test_SamrGetMembersInAlias(self):
         dce, rpctransport, domainHandle  = self.connect()
         request = samr.SamrEnumerateAliasesInDomain()
@@ -1900,6 +1952,34 @@ class SAMRTests(unittest.TestCase):
         request = samr.SamrGetMembersInAlias()
         request['AliasHandle'] = resp['AliasHandle']
         resp = dce.request(request)
+        #resp.dump()
+
+    def test_hSamrGetMembersInAlias(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        request = samr.SamrEnumerateAliasesInDomain()
+        request['DomainHandle'] = domainHandle
+        request['EnumerationContext'] =  0
+        request['PreferedMaximumLength'] = 500
+        status = nt_errors.STATUS_MORE_ENTRIES
+        while status == nt_errors.STATUS_MORE_ENTRIES:
+            try:
+                resp4 = dce.request(request)
+            except Exception, e:
+                if str(e).find('STATUS_MORE_ENTRIES') < 0:
+                    raise 
+                resp4 = e.get_packet()
+            #resp4['Buffer'].dump()
+            request['EnumerationContext'] = resp4['EnumerationContext'] 
+            status = resp4['ErrorCode']
+
+        request = samr.SamrOpenAlias()
+        request['DomainHandle'] = domainHandle
+        request['DesiredAccess'] =  dtypes.MAXIMUM_ALLOWED
+        request['AliasId'] = resp4['Buffer']['Buffer'][0]['RelativeId']
+        resp = dce.request(request)
+        #resp.dump()
+
+        resp = samr.hSamrGetMembersInAlias(dce, resp['AliasHandle'])
         #resp.dump()
 
     def test_SamrAddMemberToAlias_SamrRemoveMemberFromAlias(self):
@@ -1943,6 +2023,38 @@ class SAMRTests(unittest.TestCase):
         request = samr.SamrDeleteAlias()
         request['AliasHandle'] = aliasHandle
         resp = dce.request(request)
+
+    def test_hSamrAddMemberToAlias_hSamrRemoveMemberFromAlias(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        resp = samr.hSamrCreateAliasInDomain(dce, domainHandle, 'testGroup',  samr.GROUP_ALL_ACCESS | samr.DELETE)
+        #resp.dump()
+        aliasHandle = resp['AliasHandle']
+        relativeId = resp['RelativeId']
+        ##resp.dump()
+
+        request = samr.SamrRidToSid()
+        request['ObjectHandle'] = domainHandle
+        request['Rid'] =  relativeId
+        resp3 = dce.request(request)
+        #resp3.dump()
+
+        # Let's extract the SID and remove the RID from one entry
+        sp = resp3['Sid'].formatCanonical()
+        domainID = '-'.join(sp.split('-')[:-1])
+        adminSID = domainID + '-%d' % samr.DOMAIN_USER_RID_ADMIN
+
+        sid = samr.RPC_SID()
+        sid.fromCanonical(adminSID)
+
+        resp2 = samr.hSamrAddMemberToAlias(dce, aliasHandle, sid)
+        #resp2.dump()
+
+        resp2 = samr.hSamrRemoveMemberFromAlias(dce, aliasHandle, sid)
+        #resp2.dump()
+
+        resp = samr.hSamrDeleteAlias(dce, aliasHandle)
+        ##resp.dump()
+
 
     def test_SamrAddMultipleMembersToAlias_SamrRemoveMultipleMembersFromAliass(self):
         dce, rpctransport, domainHandle  = self.connect()
@@ -2008,9 +2120,66 @@ class SAMRTests(unittest.TestCase):
         request['AliasHandle'] = aliasHandle
         resp = dce.request(request)
 
+    def test_hSamrAddMultipleMembersToAlias_hSamrRemoveMultipleMembersFromAliass(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        #resp = samr.hSamrEnumerateAliasesInDomain(dce, domainHandle)
+        #resp.dump()
+        #resp = samr.hSamrOpenAlias(dce, domainHandle, samr.DELETE, 1257)
+        #resp = samr.hSamrDeleteAlias(dce, resp['AliasHandle'])
+        resp = samr.hSamrCreateAliasInDomain(dce, domainHandle, 'testGroup', samr.GROUP_ALL_ACCESS | samr.DELETE)
+        aliasHandle = resp['AliasHandle']
+        relativeId = resp['RelativeId']
+        ##resp.dump()
+
+        request = samr.SamrRidToSid()
+        request['ObjectHandle'] = domainHandle
+        request['Rid'] =  relativeId
+        resp3 = dce.request(request)
+        #resp3.dump()
+
+        # Let's extract the SID and remove the RID from one entry
+        sp = resp3['Sid'].formatCanonical()
+        domainID = '-'.join(sp.split('-')[:-1])
+        adminSID = domainID + '-%d' % samr.DOMAIN_USER_RID_ADMIN
+
+        sid = samr.RPC_SID()
+        sid.fromCanonical(adminSID)
+
+        sid = samr.RPC_SID()
+        sid.fromCanonical(adminSID)
+
+        guestSID = domainID + '-%d' % samr.DOMAIN_USER_RID_GUEST
+
+        sid1 = samr.RPC_SID()
+        sid1.fromCanonical(adminSID)
+
+        sid2 = samr.RPC_SID()
+        sid2.fromCanonical(guestSID)
+
+        si = samr.PSAMPR_SID_INFORMATION()
+        si['SidPointer'] = sid1
+
+        si2 = samr.PSAMPR_SID_INFORMATION()
+        si2['SidPointer'] = sid2
+
+        sidArray = samr.SAMPR_PSID_ARRAY()
+        sidArray['Sids'].append(si)
+        sidArray['Sids'].append(si2)
+
+        resp = samr.hSamrAddMultipleMembersToAlias(dce, aliasHandle, sidArray)
+        #resp.dump()
+
+        resp = samr.hSamrRemoveMultipleMembersFromAlias(dce, aliasHandle, sidArray)
+        #resp.dump()
+
+        request = samr.SamrDeleteAlias()
+        request['AliasHandle'] = aliasHandle
+        resp = dce.request(request)
+
 
     def test_SamrRemoveMemberFromForeignDomain(self):
         dce, rpctransport, domainHandle  = self.connect()
+
         request = samr.SamrCreateAliasInDomain()
         request['DomainHandle'] = domainHandle
         request['AccountName'] = 'testGroup'
@@ -2036,6 +2205,42 @@ class SAMRTests(unittest.TestCase):
         request['DomainHandle'] = domainHandle
         request['MemberSid'].fromCanonical(adminSID)
         try:
+            resp = dce.request(request)
+            #resp.dump()
+        except Exception, e:
+            if str(e).find('STATUS_SPECIAL_ACCOUNT') < 0:
+                raise
+
+        request = samr.SamrDeleteAlias()
+        request['AliasHandle'] = aliasHandle
+        resp = dce.request(request)
+
+    def test_hSamrRemoveMemberFromForeignDomain(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        request = samr.SamrCreateAliasInDomain()
+        request['DomainHandle'] = domainHandle
+        request['AccountName'] = 'testGroup'
+        request['DesiredAccess'] = samr.GROUP_ALL_ACCESS | samr.DELETE
+        #request.dump()
+        resp = dce.request(request)
+        aliasHandle = resp['AliasHandle']
+        relativeId = resp['RelativeId']
+        ##resp.dump()
+
+        request = samr.SamrRidToSid()
+        request['ObjectHandle'] = domainHandle
+        request['Rid'] =  relativeId
+        resp3 = dce.request(request)
+        #resp3.dump()
+
+        # Let's extract the SID and remove the RID from one entry
+        sp = resp3['Sid'].formatCanonical()
+        domainID = '-'.join(sp.split('-')[:-1])
+        adminSID = domainID + '-%d' % samr.DOMAIN_USER_RID_ADMIN
+        sid = samr.RPC_SID()
+        sid.fromCanonical(adminSID)
+        try:
+            resp= samr.hSamrRemoveMemberFromForeignDomain(dce, domainHandle, sid)
             resp = dce.request(request)
             #resp.dump()
         except Exception, e:
@@ -2099,6 +2304,68 @@ class SAMRTests(unittest.TestCase):
         request['AliasHandle'] = aliasHandle
         resp = dce.request(request)
 
+    def test_hSamrGetAliasMembership(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        #resp = samr.hSamrEnumerateAliasesInDomain(dce, domainHandle)
+        #resp.dump()
+        #resp = samr.hSamrOpenAlias(dce, domainHandle, samr.DELETE, 1268)
+        #resp = samr.hSamrDeleteAlias(dce, resp['AliasHandle'])
+
+        request = samr.SamrCreateAliasInDomain()
+        request['DomainHandle'] = domainHandle
+        request['AccountName'] = 'testGroup'
+        request['DesiredAccess'] = samr.GROUP_ALL_ACCESS | samr.DELETE
+        #request.dump()
+        resp = dce.request(request)
+        aliasHandle = resp['AliasHandle']
+        relativeId = resp['RelativeId']
+        ##resp.dump()
+
+        request = samr.SamrRidToSid()
+        request['ObjectHandle'] = domainHandle
+        request['Rid'] =  relativeId
+        resp3 = dce.request(request)
+        #resp3.dump()
+
+        # Let's extract the SID and remove the RID from one entry
+        sp = resp3['Sid'].formatCanonical()
+        domainID = '-'.join(sp.split('-')[:-1])
+        adminSID = domainID + '-%d' % samr.DOMAIN_USER_RID_ADMIN
+
+        sid = samr.RPC_SID()
+        sid.fromCanonical(adminSID)
+
+        guestSID = domainID + '-%d' % samr.DOMAIN_USER_RID_GUEST
+
+        sid1 = samr.RPC_SID()
+        sid1.fromCanonical(adminSID)
+
+        sid2 = samr.RPC_SID()
+        sid2.fromCanonical(guestSID)
+
+        si = samr.PSAMPR_SID_INFORMATION()
+        si['SidPointer'] = sid1
+
+        si2 = samr.PSAMPR_SID_INFORMATION()
+        si2['SidPointer'] = sid2
+
+        sidsArray = samr.SAMPR_PSID_ARRAY()
+        sidsArray['Sids'].append(si)
+        sidsArray['Sids'].append(si2)
+
+        try:
+            resp = samr.hSamrGetAliasMembership(dce, domainHandle, sidsArray)
+            #resp.dump()
+        except Exception, e:
+            request = samr.SamrDeleteAlias()
+            request['AliasHandle'] = aliasHandle
+            resp = dce.request(request)
+            raise
+
+        request = samr.SamrDeleteAlias()
+        request['AliasHandle'] = aliasHandle
+        resp = dce.request(request)
+
     def test_SamrSetMemberAttributesOfGroup(self):
         dce, rpctransport, domainHandle  = self.connect()
         request = samr.SamrConnect()
@@ -2118,6 +2385,22 @@ class SAMRTests(unittest.TestCase):
         resp = dce.request(request)
         #resp.dump()
 
+    def test_hSamrSetMemberAttributesOfGroup(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        request = samr.SamrConnect()
+        request['DesiredAccess'] = dtypes.MAXIMUM_ALLOWED
+        request['ServerName'] = u'BETO\x00'
+        resp = dce.request(request)
+        request = samr.SamrOpenGroup()
+        request['DomainHandle'] = domainHandle
+        request['DesiredAccess'] =  dtypes.MAXIMUM_ALLOWED
+        request['GroupId'] = samr.DOMAIN_GROUP_RID_USERS
+        resp = dce.request(request)
+
+        resp = samr.hSamrSetMemberAttributesOfGroup(dce, resp['GroupHandle'],samr.DOMAIN_USER_RID_ADMIN, samr.SE_GROUP_ENABLED_BY_DEFAULT)
+        #resp.dump()
+
+
     def test_SamrGetUserDomainPasswordInformation(self):
         dce, rpctransport, domainHandle  = self.connect()
         request = samr.SamrOpenUser()
@@ -2131,11 +2414,27 @@ class SAMRTests(unittest.TestCase):
         resp = dce.request(request)
         #resp.dump()
 
+    def test_hSamrGetUserDomainPasswordInformation(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        request = samr.SamrOpenUser()
+        request['DomainHandle'] = domainHandle
+        request['DesiredAccess'] =  samr.USER_READ_GENERAL | samr.USER_READ_PREFERENCES | samr.USER_READ_ACCOUNT
+        request['UserId'] = samr.DOMAIN_USER_RID_ADMIN
+        resp = dce.request(request)
+
+        resp = samr.hSamrGetUserDomainPasswordInformation(dce, resp['UserHandle'])
+        #resp.dump()
+
     def test_SamrGetDomainPasswordInformation(self):
         dce, rpctransport, domainHandle  = self.connect()
         request = samr.SamrGetDomainPasswordInformation()
         request['Unused'] = NULL
         resp = dce.request(request)
+        #resp.dump()
+
+    def test_hSamrGetDomainPasswordInformation(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        resp = samr.hSamrGetDomainPasswordInformation(dce)
         #resp.dump()
 
     def test_SamrRidToSid(self):
@@ -2144,6 +2443,11 @@ class SAMRTests(unittest.TestCase):
         request['ObjectHandle'] = domainHandle
         request['Rid'] =  samr.DOMAIN_USER_RID_ADMIN
         resp = dce.request(request)
+
+    def test_hSamrRidToSid(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        resp = samr.hSamrRidToSid(dce, domainHandle, samr.DOMAIN_USER_RID_ADMIN)
+        #resp.dump()
 
     def test_SamrSetDSRMPassword(self):
         dce, rpctransport, domainHandle  = self.connect()
@@ -2176,12 +2480,32 @@ class SAMRTests(unittest.TestCase):
             if str(e).find('rpc_s_access_denied') < 0:
                 raise
 
+    def test_hSamrValidatePassword(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        inputArg = samr.SAM_VALIDATE_INPUT_ARG()
+        inputArg['tag'] =  samr.PASSWORD_POLICY_VALIDATION_TYPE.SamValidatePasswordReset
+        inputArg['ValidatePasswordResetInput']['InputPersistedFields']['PresentFields'] = samr.SAM_VALIDATE_PASSWORD_HISTORY
+        inputArg['ValidatePasswordResetInput']['InputPersistedFields']['PasswordHistory'] = NULL
+        inputArg['ValidatePasswordResetInput']['ClearPassword'] = 'AAAAAAAAAAAAAAAA'
+        inputArg['ValidatePasswordResetInput']['UserAccountName'] = 'Administrator'
+        try:
+            resp = samr.hSamrValidatePassword(dce, inputArg)
+            #resp.dump()
+        except Exception, e:
+            if str(e).find('rpc_s_access_denied') < 0:
+                raise
+
     def test_SamrQuerySecurityObject(self):
         dce, rpctransport, domainHandle  = self.connect()
         request = samr.SamrQuerySecurityObject()
         request['ObjectHandle'] =  domainHandle
         request['SecurityInformation'] =  dtypes.OWNER_SECURITY_INFORMATION | dtypes.GROUP_SECURITY_INFORMATION | dtypes.SACL_SECURITY_INFORMATION | samr.DACL_SECURITY_INFORMATION
         resp = dce.request(request)
+        #resp.dump()
+
+    def test_hSamrQuerySecurityObject(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        resp = samr.hSamrQuerySecurityObject(dce, domainHandle,dtypes.OWNER_SECURITY_INFORMATION | dtypes.GROUP_SECURITY_INFORMATION | dtypes.SACL_SECURITY_INFORMATION | samr.DACL_SECURITY_INFORMATION)
         #resp.dump()
 
     def test_SamrSetSecurityObject(self):
@@ -2198,6 +2522,14 @@ class SAMRTests(unittest.TestCase):
         request['SecurityDescriptor'] = resp['SecurityDescriptor'] 
         #request.dump()
         resp = dce.request(request)
+        #resp.dump()
+
+    def test_hSamrSetSecurityObject(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        resp = samr.hSamrQuerySecurityObject(dce, domainHandle, dtypes.SACL_SECURITY_INFORMATION)
+        #resp.dump()
+
+        resp = samr.hSamrSetSecurityObject(dce, domainHandle,dtypes.SACL_SECURITY_INFORMATION ,resp['SecurityDescriptor']  )
         #resp.dump()
 
     def test_SamrChangePasswordUser(self):
@@ -2240,6 +2572,26 @@ class SAMRTests(unittest.TestCase):
         resp = dce.request(request)
         ##resp.dump()
 
+    def test_hSamrChangePasswordUser(self):
+        dce, rpctransport, domainHandle  = self.connect()
+
+        request = samr.SamrCreateUser2InDomain()
+        request['DomainHandle'] = domainHandle
+        request['Name'] = 'testAccount'
+        request['AccountType'] = samr.USER_NORMAL_ACCOUNT
+        request['DesiredAccess'] = dtypes.MAXIMUM_ALLOWED | samr.USER_READ_GENERAL | samr.DELETE
+        #request.dump()
+        resp0 = dce.request(request)
+        #resp0.dump()
+
+        resp = samr.hSamrChangePasswordUser(dce, resp0['UserHandle'], '', 'ADMIN')
+        #resp.dump()
+
+        # Delete the temp user
+        request = samr.SamrDeleteUser()
+        request['UserHandle'] = resp0['UserHandle']
+        resp = dce.request(request)
+        ##resp.dump()
 
     def test_SamrOemChangePasswordUser2(self):
         dce, rpctransport, domainHandle  = self.connect()
@@ -2344,6 +2696,53 @@ class SAMRTests(unittest.TestCase):
 
         try:
             resp = dce.request(request)
+            #resp.dump()
+        except Exception, e:
+            if str(e).find('STATUS_PASSWORD_RESTRICTION') < 0:
+                raise
+
+        # Delete the temp user
+        request = samr.SamrDeleteUser()
+        request['UserHandle'] = resp0['UserHandle']
+        resp = dce.request(request)
+        ##resp.dump()
+
+    def test_hSamrUnicodeChangePasswordUser2(self):
+        dce, rpctransport, domainHandle  = self.connect()
+
+        request = samr.SamrCreateUser2InDomain()
+        request['DomainHandle'] = domainHandle
+        request['Name'] = 'testAccount'
+        request['AccountType'] = samr.USER_NORMAL_ACCOUNT
+        request['DesiredAccess'] = dtypes.MAXIMUM_ALLOWED | samr.USER_READ_GENERAL | samr.DELETE
+        #request.dump()
+        resp0 = dce.request(request)
+        #resp0.dump()
+
+        oldPwd = ''
+        oldPwdHashNT = ntlm.NTOWFv1(oldPwd)
+        newPwd = 'ADMIN'
+        newPwdHashNT = ntlm.NTOWFv1(newPwd)
+        newPwdHashLM = ntlm.LMOWFv1(newPwd)
+
+        from impacket import crypto
+        request = samr.SamrChangePasswordUser()
+        request['UserHandle'] = resp0['UserHandle']
+        request['LmPresent'] = 0
+        request['OldLmEncryptedWithNewLm'] = NULL
+        request['NewLmEncryptedWithOldLm'] = NULL
+        request['NtPresent'] = 1
+        request['OldNtEncryptedWithNewNt'] = crypto.SamEncryptNTLMHash(oldPwdHashNT, newPwdHashNT)
+        request['NewNtEncryptedWithOldNt'] = crypto.SamEncryptNTLMHash(newPwdHashNT, oldPwdHashNT) 
+        request['NtCrossEncryptionPresent'] = 0
+        request['NewNtEncryptedWithNewLm'] = NULL
+        request['LmCrossEncryptionPresent'] = 1
+        request['NewLmEncryptedWithNewNt'] = crypto.SamEncryptNTLMHash(newPwdHashLM, newPwdHashNT)
+        resp = dce.request(request)
+        #resp.dump()
+
+        try:
+            resp = samr.hSamrUnicodeChangePasswordUser2(dce, '', 'testAccount', 'ADMIN', 'betus')
             #resp.dump()
         except Exception, e:
             if str(e).find('STATUS_PASSWORD_RESTRICTION') < 0:
