@@ -760,6 +760,12 @@ class MSRPCBindNak(Structure):
 
 class DCERPC:
     _max_ctx = 0
+    # Standard NDR Representation
+    NDRSyntax   = uuidtup_to_bin(('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0'))
+    # NDR 64
+    NDR64Syntax = uuidtup_to_bin(('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0'))
+    transfer_syntax =  NDRSyntax
+
     def __init__(self,transport):
         self._transport = transport
         self.set_ctx_id(0)
@@ -811,7 +817,7 @@ class DCERPC:
                 sessionErrorClass = request.__module__ + '.DCERPCSessionError'
                 try: 
                     # Try to unpack the answer, even if it is an error, it works most of the times
-                    response =  eval(respClass)(answer)
+                    response =  eval(respClass)(answer, isNDR64 = request._isNDR64)
                 except:
                     # No luck :(
                     exception = eval(sessionErrorClass)(error_code = error_code)
@@ -819,7 +825,7 @@ class DCERPC:
                     exception = eval(sessionErrorClass)(response)
             raise exception
         else:
-            response =  eval(respClass)(answer)
+            response =  eval(respClass)(answer, isNDR64 = request._isNDR64)
             return response
 
 class DCERPC_v5(DCERPC):
@@ -844,7 +850,7 @@ class DCERPC_v5(DCERPC):
         self.__serverSealingHandle = ''
         self.__sequence = 0   
 
-        self.__transfer_syntax = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
+        self.transfer_syntax = uuidtup_to_bin(('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0'))
         self.__callid = 1
         self._ctx = 0
 
@@ -880,10 +886,6 @@ class DCERPC_v5(DCERPC):
 
     def bind(self, uuid, alter = 0, bogus_binds = 0, transfer_syntax = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')):
         bind = MSRPCBind()
-        # Standard NDR Representation
-        NDRSyntax   = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
-        # NDR 64
-        NDR64Syntax = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0') 
         #item['TransferSyntax']['Version'] = 1
         ctx = self._ctx
         for i in range(bogus_binds):
@@ -920,8 +922,8 @@ class DCERPC_v5(DCERPC):
             if self.__auth_type == RPC_C_AUTHN_WINNT:
                 auth = ntlm.getNTLMSSPType1('', self.__domain, signingRequired = True, use_ntlmv2 = self._transport.doesSupportNTLMv2())
             elif self.__auth_type == RPC_C_AUTHN_NETLOGON:
-                from impacket.dcerpc import netlogon
-                auth = netlogon.getSSPType1(self.__username[:-1], self.__domain, signingRequired = True)
+                from impacket.dcerpc.v5 import nrpc
+                auth = nrpc.getSSPType1(self.__username[:-1], self.__domain, signingRequired = True)
 
             sec_trailer = SEC_TRAILER()
             sec_trailer['auth_type']   = self.__auth_type
@@ -973,7 +975,7 @@ class DCERPC_v5(DCERPC):
                 raise Exception(msg, ctxItems)
 
             # Save the transfer syntax for later use
-            self.__transfer_syntax = ctxItems['TransferSyntax'] 
+            self.transfer_syntax = ctxItems['TransferSyntax'] 
 
         self.__max_xmit_size = bindResp['max_tfrag']
 
@@ -1092,8 +1094,9 @@ class DCERPC_v5(DCERPC):
                                self.__sequence, 
                                self.__clientSealingHandle)
                 elif self.__auth_type == RPC_C_AUTHN_NETLOGON:
-                    from impacket.dcerpc import netlogon
-                    signature = netlogon.SIGN(rpc_packet.get_packet()[:-16], self.__sequence, '', self.__sessionKey)
+                    from impacket.dcerpc.v5 import nrpc
+                    #signature = nrpc.SIGN(rpc_packet.get_packet()[:-16], self.__sequence, '', self.__sessionKey)
+                    signature = nrpc.SIGN(rpc_packet.get_packet()[:-16], '', self.__sequence, self.__sessionKey, False)
 
             rpc_packet['sec_trailer'] = str(sec_trailer)
             rpc_packet['auth_data'] = str(signature)
