@@ -67,11 +67,11 @@ class NDR(object):
     structure      = ()
     structure64    = ()
     align          = 4
-    align64        = 4
     debug          = False
     _isNDR64       = False
 
     def __init__(self, data = None, isNDR64 = False):
+        object.__init__(self)
         self._isNDR64 = isNDR64
         self.fields = {}
         self.data = None
@@ -510,7 +510,7 @@ class NDR(object):
             if self.isNDR(self.item):
                 item = ':'
                 dataClass = self.item
-                self.fields['_tmpItem'] = dataClass()
+                self.fields['_tmpItem'] = dataClass(isNDR64=self._isNDR64)
             else:
                 item = self.item
                 dataClass = None
@@ -572,7 +572,7 @@ class NDR(object):
             if self.isNDR(self.item):
                 item = ':'
                 dataClassOrCode = self.item
-                self.fields['_tmpItem'] = dataClassOrCode()
+                self.fields['_tmpItem'] = dataClassOrCode(isNDR64=self._isNDR64)
             else:
                 item = self.item
                 dataClassOrCode = None
@@ -587,7 +587,7 @@ class NDR(object):
                     nsofar = soFarItems + calcsize(item)
                     answer.append(unpack(item, data[soFarItems:nsofar])[0])
                 else:
-                    itemn = dataClassOrCode()
+                    itemn = dataClassOrCode(isNDR64=self._isNDR64)
                     itemn.fromString(data[soFarItems:], soFar+soFarItems)
                     itemn.rawData = data[soFarItems+len(itemn.getData(soFar+soFarItems)):] 
                     answer.append(itemn)
@@ -696,7 +696,6 @@ class NDRCall(NDR):
     structure      = ()
     structure64    = ()
     align          = 4
-    align64        = 4
     debug          = False
     consistencyCheck = False
     def __init__(self, data = None, isNDR64 = False):
@@ -846,6 +845,7 @@ class NDRCall(NDR):
 
 class NDRSMALL(NDR):
     align = 1
+    #align64 = 1
     structure = (
         ('Data', 'b=0'),
     )
