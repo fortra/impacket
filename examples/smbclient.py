@@ -22,7 +22,8 @@ import string
 import time
 import logging
 from impacket import smb, version, smb3, nt_errors
-from impacket.dcerpc import transport, srvsvc
+from impacket.dcerpc.v5 import samr, transport
+from impacket.dcerpc import srvsvc
 from impacket.smbconnection import *
 import argparse
 import ntpath
@@ -44,6 +45,10 @@ class MiniImpacketShell(cmd.Cmd):
         self.pwd = ''
         self.share = None
         self.loggedIn = False
+        self.password = None
+        self.lmhash = None
+        self.nthash = None
+        self.username = None
         self.completion = []
 
     def emptyline(self):
@@ -78,6 +83,7 @@ class MiniImpacketShell(cmd.Cmd):
  use {sharename} - connect to an specific share
  cd {path} - changes the current directory to {path}
  pwd - shows current remote directory
+ password - changes the user password, the new password will be prompted for input
  ls {wildcard} - lists all the files in the current directory
  rm {file} - removes the selected file
  mkdir {dirname} - creates the directory under the current path
@@ -90,6 +96,21 @@ class MiniImpacketShell(cmd.Cmd):
  exit - terminates the server process (and this session)
 
 """
+
+    def do_password(self, line):
+        if self.loggedIn is False:
+            logging.error("Not logged in")
+            return
+        from getpass import getpass
+        newPassword = getpass("New Password:")
+        rpctransport = transport.SMBTransport(self.smb.getServerName(), self.smb.getRemoteHost(), filename = r'\samr', smb_connection = self.smb)
+        dce = rpctransport.get_dce_rpc()
+        dce.connect()                     
+        dce.bind(samr.MSRPC_UUID_SAMR)
+        resp = samr.hSamrUnicodeChangePasswordUser2(dce, '\x00', self.username, self.password, newPassword, self.lmhash, self.nthash)
+        self.password = newPassword
+        self.lmhash = None
+        self.nthash = None
 
     def do_open(self,line):
         l = line.split(' ')
@@ -119,6 +140,10 @@ class MiniImpacketShell(cmd.Cmd):
         self.tid = None
         self.pwd = ''
         self.loggedIn = False
+        self.password = None
+        self.lmhash = None
+        self.nthash = None
+        self.username = None
 
     def do_login(self,line):
         if self.smb is None:
@@ -141,6 +166,8 @@ class MiniImpacketShell(cmd.Cmd):
             password = getpass("Password:")
 
         self.smb.login(username, password, domain=domain)
+        self.password = password
+        self.username = username
 
         if self.smb.isGuestSession() > 0:
             logging.info("GUEST Session Granted")
@@ -168,6 +195,9 @@ class MiniImpacketShell(cmd.Cmd):
         lmhash, nthash = hashes.split(':')
 
         self.smb.login(username, '', domain,lmhash=lmhash, nthash=nthash)
+        self.username = username
+        self.lmhash = lmhash
+        self.nthash = nthash
 
         if self.smb.isGuestSession() > 0:
             logging.info("GUEST Session Granted")
@@ -185,6 +215,10 @@ class MiniImpacketShell(cmd.Cmd):
         self.tid = None
         self.pwd = ''
         self.loggedIn = False
+        self.password = None
+        self.lmhash = None
+        self.nthash = None
+        self.username = None
 
     def do_info(self, line):
         if self.loggedIn is False:
