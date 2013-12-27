@@ -58,6 +58,8 @@ POLICY_LOOKUP_NAMES             = 0x00000800
 ################################################################################
 # 2.2.12 LSAPR_REFERENCED_DOMAIN_LIST
 class LSAPR_REFERENCED_DOMAIN_LIST(NDR):
+    align = 4
+    align64 = 8
     structure = (
         ('Entries', ULONG),
         ('Domains', PLSAPR_TRUST_INFORMATION_ARRAY),
@@ -87,6 +89,8 @@ class PLSA_TRANSLATED_SID_ARRAY(NDRPointer):
     )
 
 class LSAPR_TRANSLATED_SIDS(NDR):
+    align = 4
+    align64 = 8
     structure = (
         ('Entries', ULONG),
         ('Sids', PLSA_TRANSLATED_SID_ARRAY),
@@ -119,6 +123,7 @@ class PLSAPR_SID_INFORMATION_ARRAY(NDRPointer):
     )
 
 class LSAPR_SID_ENUM_BUFFER(NDR):
+    align64=8
     structure = (
         ('Entries', ULONG),
         ('SidInfo', PLSAPR_SID_INFORMATION_ARRAY),

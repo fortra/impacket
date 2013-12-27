@@ -197,7 +197,7 @@ class LUID(ndr.NDR):
 # 2.3.8 RPC_UNICODE_STRING
 class RPC_UNICODE_STRING(ndr.NDR):
     align = 4
-    align64 = 4
+    align64 = 8
     commonHdr = (
         ('Length','<H=len(Data)-12'),
         ('MaximumLength','<H=len(Data)-12'),
@@ -284,17 +284,26 @@ class RPC_SID_IDENTIFIER_AUTHORITY(ndr.NDRUniFixedArray):
 
 class RPC_SID(ndr.NDR):
     align = 4
-    align64 = 4
+    align64 = 8
     structure = (
-        #('Count', '<L=0'),
-        ('Count', ndr.NDRLONG),
+        ('Count', '<L=0'),
+        #('Count', ndr.NDRLONG),
         ('Revision',ndr.NDRSMALL),
         ('SubAuthorityCount',ndr.NDRSMALL),
         ('IdentifierAuthority',RPC_SID_IDENTIFIER_AUTHORITY),
         ('SubAuthority',DWORD_ARRAY),
     )
+    structure64 = (
+        ('Count', '<Q=0'),
+        #('Count', ndr.NDRUHYPER),
+        ('Revision',ndr.NDRSMALL),
+        ('SubAuthorityCount',ndr.NDRSMALL),
+        ('IdentifierAuthority',RPC_SID_IDENTIFIER_AUTHORITY),
+        ('SubAuthority',DWORD_ARRAY),
+    )
+
     def __init__(self, data = None,isNDR64 = False):
-        ndr.NDR.__init__(self, None, isNDR64)
+        ndr.NDR.__init__(self, None, isNDR64=isNDR64)
         # SubAuthority Count is the second byte
         if data is not None:
             self.fromString(data)

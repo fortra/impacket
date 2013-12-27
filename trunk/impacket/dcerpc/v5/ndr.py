@@ -123,7 +123,7 @@ class NDR(object):
                     self.align = self.align64
         else:
             if self._isNDR64 is True:
-                # Ok, let's change everything
+                # Ok, nothing for now
                 raise
 
 
@@ -314,12 +314,17 @@ class NDR(object):
                     e.args += ("When packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__),)
                 raise
 
-        if self._isNDR64:
-            structLen = len(data)
+#        if self._isNDR64 and self.align > 0:
+#            structLen = len(data)
 #            hexdump(data)
 #            ndr64alignment = (self.align - (structLen % self.align)) % self.align
-#            data += '\xEE'*ndr64alignment
-#            soFar += ndr64alignment
+#            if ndr64alignment > 0:
+#                #print "PADDD! ", ndr64alignment
+#                #print "CLASS ", self.__class__.__name__, self.align, structLen
+#                import dtypes
+#                if type(self) != dtypes.WSTR:
+#                    data += '\xEE'*ndr64alignment
+#                    soFar += ndr64alignment
 
         self.data = data
 
@@ -436,10 +441,15 @@ class NDR(object):
                 e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data, size),)
                 raise
 
-#            if self._isNDR64:
-#                structLen = soFar - soFar0
-#                ndr64alignment = (self.align - (structLen % self.align)) % self.align
-#                soFar += ndr64alignment
+#        if self._isNDR64 and self.align > 0:
+#            structLen = soFar - soFar0
+#            ndr64alignment = (self.align - (structLen % self.align)) % self.align
+#            if ndr64alignment > 0:
+#                import dtypes
+#                if type(self) != dtypes.WSTR:
+#                    print "PADDD! ", ndr64alignment
+#                    print "CLASS ", self.__class__.__name__, self.align, structLen
+#                    soFar += ndr64alignment
 
         return self
 
@@ -845,7 +855,6 @@ class NDRCall(NDR):
 
 class NDRSMALL(NDR):
     align = 1
-    #align64 = 1
     structure = (
         ('Data', 'b=0'),
     )
@@ -975,9 +984,10 @@ class NDRArray(NDR):
     def changeTransferSyntax(self, newSyntax): 
         # Here we gotta go over each item in the array and change the TS 
         # Only if the item type is NDR
-        if self.isNDR(self.item):
-            for item in self.fields['Data']:
-                item.changeTransferSyntax(newSyntax)
+        if hasattr(self, 'item'):
+            if self.isNDR(self.item):
+                for item in self.fields['Data']:
+                    item.changeTransferSyntax(newSyntax)
         return NDR.changeTransferSyntax(self, newSyntax)
 
 class NDRUniFixedArray(NDRArray):
