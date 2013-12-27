@@ -805,6 +805,12 @@ class DCERPC:
     def call(self, function, body):
         return self.send(DCERPC_RawCall(function, str(body)))
     def request(self, request):
+        if self.transfer_syntax == self.NDR64Syntax:
+            request.changeTransferSyntax(self.NDR64Syntax)
+            isNDR64 = True
+        else:
+            isNDR64 = False
+
         self.call(request.opnum, request)
         answer = self.recv()
         respClass = request.__module__ + '.' + request.__class__.__name__ + 'Response'
@@ -817,7 +823,7 @@ class DCERPC:
                 sessionErrorClass = request.__module__ + '.DCERPCSessionError'
                 try: 
                     # Try to unpack the answer, even if it is an error, it works most of the times
-                    response =  eval(respClass)(answer, isNDR64 = request._isNDR64)
+                    response =  eval(respClass)(answer, isNDR64 = isNDR64)
                 except:
                     # No luck :(
                     exception = eval(sessionErrorClass)(error_code = error_code)
@@ -825,7 +831,7 @@ class DCERPC:
                     exception = eval(sessionErrorClass)(response)
             raise exception
         else:
-            response =  eval(respClass)(answer, isNDR64 = request._isNDR64)
+            response =  eval(respClass)(answer, isNDR64 = isNDR64)
             return response
 
 class DCERPC_v5(DCERPC):

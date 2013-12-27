@@ -13,8 +13,8 @@
 #     Alberto Solino
 #
 # ToDo:
-# [ ] Unions and rest of the structured types
-# [ ] Finalize documentation of NDR, especially the support for Arrays
+# [X] Unions and rest of the structured types
+# [ ] Documentation for this library, especially the support for Arrays
 #
 
 import random
@@ -23,6 +23,7 @@ from struct import *
 from impacket import uuid
 from impacket.winregistry import hexdump
 from impacket.dcerpc.v5.enum import Enum
+from impacket.uuid import uuidtup_to_bin
 
 # Something important to have in mind:
 # Diagrams do not depict the specified alignment gaps, which can appear in the octet stream
@@ -68,6 +69,7 @@ class NDR(object):
     align          = 4
     align64        = 4
     debug          = False
+    _isNDR64       = False
 
     def __init__(self, data = None, isNDR64 = False):
         self._isNDR64 = isNDR64
@@ -102,6 +104,28 @@ class NDR(object):
             self.data = None
 
         return None
+
+    def changeTransferSyntax(self, newSyntax): 
+        NDR64Syntax = uuidtup_to_bin(('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0'))
+        if newSyntax == NDR64Syntax:
+            if self._isNDR64 is False:
+                # Ok, let's change everything
+                self._isNDR64 = True
+                for fieldName in self.fields.keys():
+                    if isinstance(self.fields[fieldName], NDR):
+                        self.fields[fieldName].changeTransferSyntax(newSyntax)
+                # Finally, I change myself
+                if self.commonHdr64 != ():
+                    self.commonHdr = self.commonHdr64
+                if self.structure64 != ():
+                    self.structure = self.structure64
+                if hasattr(self, 'align64'):
+                    self.align = self.align64
+        else:
+            if self._isNDR64 is True:
+                # Ok, let's change everything
+                raise
+
 
     def __setitem__(self, key, value):
         if isinstance(value, NDRPointerNULL):
@@ -885,9 +909,21 @@ class EnumType(type):
     def __getattr__(self, attr):
         return self.enumItems[attr].value
 
-class NDRENUM(NDRUSHORT):
+class NDRENUM(NDR):
     __metaclass__ = EnumType
     align = 2
+    align64 = 4
+    structure = (
+        ('Data', '<H'),
+    )
+
+    # 2.2.5.2 NDR64 Simple Data Types
+    # NDR64 supports all simple types defined by NDR (as specified in [C706] section 14.2)
+    # with the same alignment requirements except for enumerated types, which MUST be 
+    # represented as signed long integers (4 octets) in NDR64.
+    structure64 = (
+        ('Data', '<L'),
+    )
     # enum MUST be an python enum (see enum.py)
     class enumItems(Enum):
         pass
@@ -928,6 +964,14 @@ class NDRArray(NDR):
             print "%s]" % ind[:-4],
         else:
             print " %r" % self['Data'],
+
+    def changeTransferSyntax(self, newSyntax): 
+        # Here we gotta go over each item in the array and change the TS 
+        # Only if the item type is NDR
+        if self.isNDR(self.item):
+            for item in self.fields['Data']:
+                item.changeTransferSyntax(newSyntax)
+        return NDR.changeTransferSyntax(self, newSyntax)
 
 class NDRUniFixedArray(NDRArray):
     structure = (
@@ -1169,6 +1213,8 @@ class NDRReferencePointer(NDR):
     )
 
 class NDRPointer(NDR):
+    align = 4
+    align64 = 8
     commonHdr = (
         ('ReferentID','<L=0xff'),
     )
