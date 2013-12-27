@@ -314,6 +314,13 @@ class NDR(object):
                     e.args += ("When packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__),)
                 raise
 
+        if self._isNDR64:
+            structLen = len(data)
+#            hexdump(data)
+#            ndr64alignment = (self.align - (structLen % self.align)) % self.align
+#            data += '\xEE'*ndr64alignment
+#            soFar += ndr64alignment
+
         self.data = data
 
         return data
@@ -365,6 +372,7 @@ class NDR(object):
         if self.rawData is None:
             self.rawData = data
 
+        soFar0 = soFar
         # 14.3.7.1 Structures Containing a Conformant Array
         # A structure can contain a conformant array only as its last member.
         # In the NDR representation of a structure that contains a conformant array, 
@@ -422,12 +430,16 @@ class NDR(object):
                 if isinstance(self.fields[fieldName], NDR):
                     #size = len(self.fields[fieldName])
                     size = len(self.fields[fieldName].getData(soFar))
-
                 data = data[size:]
                 soFar += size
             except Exception,e:
                 e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data, size),)
                 raise
+
+#            if self._isNDR64:
+#                structLen = soFar - soFar0
+#                ndr64alignment = (self.align - (structLen % self.align)) % self.align
+#                soFar += ndr64alignment
 
         return self
 
@@ -451,13 +463,12 @@ class NDR(object):
 
         for fieldName, fieldTypeOrClass in self.referent:
             size = self.calcUnPackSize(fieldTypeOrClass, data)
-            pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar = len(self.rawData) - len(data), packing = False)
+            pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar = soFar, packing = False)
             if pad > 0:
                 soFar += pad
                 data = data[pad:]
             try:
-                #self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
-                self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size], len(self.rawData) - len(data))
+                self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
             except Exception,e:
                 e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data, size),)
                 raise
@@ -465,10 +476,8 @@ class NDR(object):
             if isinstance(self.fields[fieldName], NDR):
                 size = len(self.fields[fieldName].getData(soFar))
                 res = self.fields[fieldName].fromStringReferents(data[size:], soFar+size)
-                self.fields[fieldName].fromStringReferent(data[size:], soFar + size + len(res))
-
-                size = len(self.fields[fieldName].getData(soFar)) + len(self.fields[fieldName].getDataReferents(len(self.rawData) - len(data)))+ len(self.fields[fieldName].getDataReferent(len(self.rawData) - len(data))) 
-
+                self.fields[fieldName].fromStringReferent(data[size:], soFar + size)
+                size += len(self.fields[fieldName].getDataReferents(soFar+size))+ len(self.fields[fieldName].getDataReferent(soFar+size)) 
             data = data[size:]
             soFar += size
         return data 
@@ -578,8 +587,9 @@ class NDR(object):
                     nsofar = soFarItems + calcsize(item)
                     answer.append(unpack(item, data[soFarItems:nsofar])[0])
                 else:
-                    itemn = dataClassOrCode(data[soFarItems:])
-                    itemn.rawData = data[soFarItems+len(itemn.getData(soFarItems)):] 
+                    itemn = dataClassOrCode()
+                    itemn.fromString(data[soFarItems:], soFar+soFarItems)
+                    itemn.rawData = data[soFarItems+len(itemn.getData(soFar+soFarItems)):] 
                     answer.append(itemn)
                     nsofar += len(itemn.getData(soFarItems)) + pad
                 numItems -= 1
@@ -593,19 +603,16 @@ class NDR(object):
                 # We gotta go over again, asking for the referents
                 data = data[soFarItems:]
                 answer2 = []
-                soFarItems = 0
+                #soFarItems = 0
                 for itemn in answer:
                     pad = self.calculatePad('_tmpItem', self.item, data, soFarItems+soFar, packing = False)
                     if pad > 0:
                         soFarItems += pad
                         data = data[pad:]
-                    itemn.fromStringReferents(data,soFarItems+soFar)
-                    #itemn.fromStringReferents(data)
-                    # ToDo, still to work out this
-                    itemn.fromStringReferent(data, soFar + soFarItems)
-                    soFarItems = len(itemn.getDataReferents(len(data)+soFar))
-                    itemn.rawData = data[len(itemn.getDataReferents(len(data)+soFar))+len(itemn.getDataReferent(len(data)+soFar)):] 
-                    data = itemn.rawData
+                    data = itemn.fromStringReferents(data, soFarItems+soFar)
+                    soFarItems += len(itemn.getDataReferents(soFarItems+soFar))
+                    data = itemn.fromStringReferent(data, soFarItems+soFar)
+                    soFarItems += len(itemn.getDataReferent(soFarItems+soFar))
                     answer2.append(itemn)
                     numItems -= 1
                 answer = answer2
