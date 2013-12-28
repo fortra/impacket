@@ -270,11 +270,8 @@ class LPDWORD(ndr.NDRPointer):
             self.fromString(data)
 
 # 2.4.2.3 RPC_SID
-class DWORD_ARRAY(ndr.NDRUniFixedArray):
-    align = 0
-    align64 = 0
-    def getDataLen(self, data):
-        return self.count * 4
+class DWORD_ARRAY(ndr.NDRUniConformantArray):
+    item = '<L'
 
 class RPC_SID_IDENTIFIER_AUTHORITY(ndr.NDRUniFixedArray):
     align = 0
@@ -286,36 +283,13 @@ class RPC_SID(ndr.NDR):
     align = 4
     align64 = 8
     structure = (
-        ('Count', '<L=0'),
-        #('Count', ndr.NDRLONG),
         ('Revision',ndr.NDRSMALL),
         ('SubAuthorityCount',ndr.NDRSMALL),
         ('IdentifierAuthority',RPC_SID_IDENTIFIER_AUTHORITY),
         ('SubAuthority',DWORD_ARRAY),
     )
-    structure64 = (
-        ('Count', '<Q=0'),
-        #('Count', ndr.NDRUHYPER),
-        ('Revision',ndr.NDRSMALL),
-        ('SubAuthorityCount',ndr.NDRSMALL),
-        ('IdentifierAuthority',RPC_SID_IDENTIFIER_AUTHORITY),
-        ('SubAuthority',DWORD_ARRAY),
-    )
-
-    def __init__(self, data = None,isNDR64 = False):
-        ndr.NDR.__init__(self, None, isNDR64=isNDR64)
-        # SubAuthority Count is the second byte
-        if data is not None:
-            self.fromString(data)
-
-    def fromString(self, data, soFar = 0 ):
-        count = unpack('<L', data[:4])[0]
-        self.fields['SubAuthority'].count = count
-        return ndr.NDR.fromString(self,data, soFar)
- 
     def getData(self, soFar = 0):
-        self['SubAuthorityCount'] = len(self['SubAuthority'])/4
-        self['Count'] = self['SubAuthorityCount']
+        self['SubAuthorityCount'] = len(self['SubAuthority'])
         return ndr.NDR.getData(self, soFar)
 
     def fromCanonical(self, canonical):
@@ -326,13 +300,12 @@ class RPC_SID(ndr.NDR):
         self['SubAuthorityCount'] = len(items) - 3
         ans = ''
         for i in range(self['SubAuthorityCount']):
-            ans += pack('<L', int(items[i+3]))
-        self['SubAuthority'] = ans
+            self['SubAuthority'].append(int(items[i+3]))
 
     def formatCanonical(self):
         ans = 'S-%d-%d' % (self['Revision'], ord(self['IdentifierAuthority'][5]))
         for i in range(self['SubAuthorityCount']):
-            ans += '-%d' % ( unpack('<L',self['SubAuthority'][i*4:i*4+4])[0])
+            ans += '-%d' % self['SubAuthority'][i]
         return ans
 
 class PRPC_SID(ndr.NDRPointer):
