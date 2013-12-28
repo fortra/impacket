@@ -253,6 +253,7 @@ class NDR(object):
     def getData(self, soFar = 0):
         data = ''
         soFar0 = soFar
+        pad0 = 0
         arrayPresent = False
         # 14.3.7.1 Structures Containing a Conformant Array
         # A structure can contain a conformant array only as its last member.
@@ -277,10 +278,10 @@ class NDR(object):
                 arrayItemSize = 4
 
             # We need to check whether we need padding or not
-            pad = (arrayItemSize - (soFar % arrayItemSize)) % arrayItemSize 
-            if pad > 0:
-                soFar += pad
-                data = data + '\xee'*pad
+            pad0 = (arrayItemSize - (soFar % arrayItemSize)) % arrayItemSize 
+            if pad0 > 0:
+                soFar += pad0
+                data = data + '\xee'*pad0
             # And now, let's pretend we put the item in
             soFar += arrayItemSize
 
@@ -314,17 +315,21 @@ class NDR(object):
                     e.args += ("When packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__),)
                 raise
 
-#        if self._isNDR64 and self.align > 0:
-#            structLen = len(data)
-#            hexdump(data)
-#            ndr64alignment = (self.align - (structLen % self.align)) % self.align
-#            if ndr64alignment > 0:
-#                #print "PADDD! ", ndr64alignment
-#                #print "CLASS ", self.__class__.__name__, self.align, structLen
-#                import dtypes
-#                if type(self) != dtypes.WSTR:
-#                    data += '\xEE'*ndr64alignment
-#                    soFar += ndr64alignment
+#        if self._isNDR64:
+#            structLen = len(data) - pad0
+#            self.calculateAlignment()
+#            nn = self.calculateAlignment()
+#            if arrayPresent and arrayItemSize > nn:
+#                nn = arrayItemSize
+#            if nn > 0:
+#                ndr64alignment = (nn - (structLen % nn)) % nn
+#                if ndr64alignment > 0:
+#                    #print "PADDD! ", ndr64alignment
+#                    #print "CLASS ", self.__class__.__name__, self.align, structLen
+#                    import dtypes
+#                    if type(self) != dtypes.WSTR and type(self) != dtypes.RPC_UNICODE_STRING:
+#                        data += '\xAB'*ndr64alignment
+#                        soFar += ndr64alignment
 
         self.data = data
 
@@ -378,6 +383,8 @@ class NDR(object):
             self.rawData = data
 
         soFar0 = soFar
+        pad0 = 0
+        arrayPresent = False
         # 14.3.7.1 Structures Containing a Conformant Array
         # A structure can contain a conformant array only as its last member.
         # In the NDR representation of a structure that contains a conformant array, 
@@ -401,10 +408,10 @@ class NDR(object):
                 arrayItemSize = 4
 
             # We need to check whether we need padding or not
-            pad = (arrayItemSize - (soFar % arrayItemSize)) % arrayItemSize 
-            if pad > 0:
-                soFar += pad
-                data = data[pad:]
+            pad0 = (arrayItemSize - (soFar % arrayItemSize)) % arrayItemSize 
+            if pad0 > 0:
+                soFar += pad0
+                data = data[pad0:]
             # And now, let's pretend we put the item in
             soFar += arrayItemSize
             # And let's extract the array size for later use, if it is a pointer, it is after the referent ID
@@ -441,18 +448,37 @@ class NDR(object):
                 e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data, size),)
                 raise
 
-#        if self._isNDR64 and self.align > 0:
-#            structLen = soFar - soFar0
-#            ndr64alignment = (self.align - (structLen % self.align)) % self.align
-#            if ndr64alignment > 0:
-#                import dtypes
-#                if type(self) != dtypes.WSTR:
-#                    print "PADDD! ", ndr64alignment
-#                    print "CLASS ", self.__class__.__name__, self.align, structLen
-#                    soFar += ndr64alignment
+#        if self._isNDR64:
+#            structLen = soFar - soFar0 - pad0
+#            nn = self.calculateAlignment()
+#            if arrayPresent and arrayItemSize > nn:
+#                nn = arrayItemSize
+#            if nn > 0:
+#                ndr64alignment = (nn - (structLen % nn)) % nn
+#                if ndr64alignment > 0:
+#                    import dtypes
+#                    if type(self) != dtypes.WSTR and type(self) != dtypes.RPC_UNICODE_STRING:
+#                        print "PADDD! ", ndr64alignment
+#                        print "CLASS ", self.__class__.__name__, ndr64alignment, structLen, nn
+#                        soFar += ndr64alignment
 
         return self
 
+    def calculateAlignment(self):
+        tmpAlign = 0
+        align = 0
+        for fieldName, fieldType in self.commonHdr+self.structure+self.referent:
+            if isinstance(self.fields[fieldName], NDR):
+                tmpAlign = self.fields[fieldName].align
+            else:
+                tmpAlign = self.calcPackSize(fieldType, '')
+
+            if tmpAlign <= 8:
+                if align < tmpAlign:
+                    align = tmpAlign
+
+        return align
+                
     def fromStringReferents(self, data, soFar = 0):
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             if isinstance(self.fields[fieldName], NDR):
@@ -465,7 +491,7 @@ class NDR(object):
     def fromStringReferent(self, data, soFar = 0):
         if hasattr(self, 'referent') is not True:
             return data
-
+        soFar0 = soFar
         if self.fields.has_key('ReferentID'):
             if self['ReferentID'] == 0:
                 # NULL Pointer, there's no referent for it
@@ -490,6 +516,7 @@ class NDR(object):
                 size += len(self.fields[fieldName].getDataReferents(soFar+size))+ len(self.fields[fieldName].getDataReferent(soFar+size)) 
             data = data[size:]
             soFar += size
+
         return data 
 
     def pack(self, fieldName, fieldTypeOrClass, soFar = 0):
@@ -534,7 +561,6 @@ class NDR(object):
                     answer += pack(item, each)
                 else:
                     answer += each.getData(len(answer)+soFar)
-
 
             if dataClass is not None:
                 for each in data:
