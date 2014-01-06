@@ -13,7 +13,7 @@
 #
 
 from impacket.dcerpc.v5 import ndr
-from impacket.dcerpc.v5.ndr import NDRCALL, NDR, NDRENUM, NDRPOINTER, NDRUniConformantArray
+from impacket.dcerpc.v5.ndr import NDRCALL, NDR, NDRSTRUCT, NDRENUM, NDRPOINTER, NDRUniConformantArray
 from impacket.dcerpc.v5.dtypes import *
 from impacket import nt_errors
 from impacket.uuid import uuidtup_to_bin
@@ -57,7 +57,7 @@ POLICY_LOOKUP_NAMES             = 0x00000800
 # STRUCTURES
 ################################################################################
 # 2.2.12 LSAPR_REFERENCED_DOMAIN_LIST
-class LSAPR_REFERENCED_DOMAIN_LIST(NDR):
+class LSAPR_REFERENCED_DOMAIN_LIST(NDRSTRUCT):
     align = 4
     align64 = 8
     structure = (
@@ -72,7 +72,7 @@ class PLSAPR_REFERENCED_DOMAIN_LIST(NDRPOINTER):
     )
 
 # 2.2.14 LSA_TRANSLATED_SID
-class LSA_TRANSLATED_SID(NDR):
+class LSA_TRANSLATED_SID(NDRSTRUCT):
     structure = (
         ('Use', SID_NAME_USE),
         ('RelativeId', ULONG),
@@ -88,7 +88,7 @@ class PLSA_TRANSLATED_SID_ARRAY(NDRPOINTER):
         ('Data', LSA_TRANSLATED_SID_ARRAY),
     )
 
-class LSAPR_TRANSLATED_SIDS(NDR):
+class LSAPR_TRANSLATED_SIDS(NDRSTRUCT):
     align = 4
     align64 = 8
     structure = (
@@ -108,7 +108,7 @@ class LSAP_LOOKUP_LEVEL(NDRENUM):
         LsapLookupRODCReferralToFullDC = 7
 
 # 2.2.17 LSAPR_SID_INFORMATION
-class LSAPR_SID_INFORMATION(NDR):
+class LSAPR_SID_INFORMATION(NDRSTRUCT):
     structure = (
         ('Sid', PRPC_SID),
     )
@@ -122,7 +122,7 @@ class PLSAPR_SID_INFORMATION_ARRAY(NDRPOINTER):
         ('Data', LSAPR_SID_INFORMATION_ARRAY),
     )
 
-class LSAPR_SID_ENUM_BUFFER(NDR):
+class LSAPR_SID_ENUM_BUFFER(NDRSTRUCT):
     align64=8
     structure = (
         ('Entries', ULONG),
@@ -130,7 +130,7 @@ class LSAPR_SID_ENUM_BUFFER(NDR):
     )
 
 # 2.2.19 LSAPR_TRANSLATED_NAME
-class LSAPR_TRANSLATED_NAME(NDR):
+class LSAPR_TRANSLATED_NAME(NDRSTRUCT):
     structure = (
         ('Use', SID_NAME_USE),
         ('Name', RPC_UNICODE_STRING),
@@ -146,14 +146,14 @@ class PLSAPR_TRANSLATED_NAME_ARRAY(NDRPOINTER):
         ('Data', LSAPR_TRANSLATED_NAME_ARRAY),
     )
 
-class LSAPR_TRANSLATED_NAMES(NDR):
+class LSAPR_TRANSLATED_NAMES(NDRSTRUCT):
     structure = (
         ('Entries', ULONG),
         ('Names', PLSAPR_TRANSLATED_NAME_ARRAY),
     )
 
 # 2.2.21 LSAPR_TRANSLATED_NAME_EX
-class LSAPR_TRANSLATED_NAME_EX(NDR):
+class LSAPR_TRANSLATED_NAME_EX(NDRSTRUCT):
     structure = (
         ('Use', SID_NAME_USE),
         ('Name', RPC_UNICODE_STRING),
@@ -170,14 +170,14 @@ class PLSAPR_TRANSLATED_NAME_EX_ARRAY(NDRPOINTER):
         ('Data', LSAPR_TRANSLATED_NAME_EX_ARRAY),
     )
 
-class LSAPR_TRANSLATED_NAMES_EX(NDR):
+class LSAPR_TRANSLATED_NAMES_EX(NDRSTRUCT):
     structure = (
         ('Entries', ULONG),
         ('Names', PLSAPR_TRANSLATED_NAME_EX_ARRAY),
     )
 
 # 2.2.23 LSAPR_TRANSLATED_SID_EX
-class LSAPR_TRANSLATED_SID_EX(NDR):
+class LSAPR_TRANSLATED_SID_EX(NDRSTRUCT):
     structure = (
         ('Use', SID_NAME_USE),
         ('RelativeId', ULONG),
@@ -194,14 +194,14 @@ class PLSAPR_TRANSLATED_SID_EX_ARRAY(NDRPOINTER):
         ('Data', LSAPR_TRANSLATED_SID_EX_ARRAY),
     )
 
-class LSAPR_TRANSLATED_SIDS_EX(NDR):
+class LSAPR_TRANSLATED_SIDS_EX(NDRSTRUCT):
     structure = (
         ('Entries', ULONG),
         ('Sids', PLSAPR_TRANSLATED_SID_EX_ARRAY),
     )
 
 # 2.2.25 LSAPR_TRANSLATED_SID_EX2
-class LSAPR_TRANSLATED_SID_EX2(NDR):
+class LSAPR_TRANSLATED_SID_EX2(NDRSTRUCT):
     structure = (
         ('Use', SID_NAME_USE),
         ('Sid', PRPC_SID),
@@ -218,7 +218,7 @@ class PLSAPR_TRANSLATED_SID_EX2_ARRAY(NDRPOINTER):
         ('Data', LSAPR_TRANSLATED_SID_EX2_ARRAY),
     )
 
-class LSAPR_TRANSLATED_SIDS_EX2(NDR):
+class LSAPR_TRANSLATED_SIDS_EX2(NDRSTRUCT):
     structure = (
         ('Entries', ULONG),
         ('Sids', PLSAPR_TRANSLATED_SID_EX2_ARRAY),

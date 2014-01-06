@@ -126,7 +126,6 @@ class NDR(object):
                 # Ok, nothing for now
                 raise
 
-
     def __setitem__(self, key, value):
         if isinstance(value, NDRPOINTERNULL):
             self.fields[key].fields['ReferentID'] = 0x00
@@ -223,6 +222,9 @@ class NDR(object):
         size = 0
         if isinstance(self.fields[fieldName], NDR):
             alignment = self.fields[fieldName].align
+            #alignment = self.fields[fieldName].calculateAlignment()
+            #if alignment != alignment2:
+            #    print "viejo: %d, nuevo:%d, fieldName:%s, class=%s" % (alignment, alignment2, fieldName, self.__class__.__name__)
         else:
             if fieldType == ':':
                 return 0
@@ -466,17 +468,24 @@ class NDR(object):
 
     def calculateAlignment(self):
         tmpAlign = 0
-        align = 0
+        align = -1
         for fieldName, fieldType in self.commonHdr+self.structure+self.referent:
             if isinstance(self.fields[fieldName], NDR):
-                tmpAlign = self.fields[fieldName].align
+                #tmpAlign = self.fields[fieldName].align
+                tmpAlign = self.fields[fieldName].calculateAlignment()
+                if tmpAlign == 0:
+                    tmpAlign = self.fields[fieldName].align
             else:
                 tmpAlign = self.calcPackSize(fieldType, '')
+                if tmpAlign == 0:
+                    tmpAlign = 4
 
             if tmpAlign <= 8:
                 if align < tmpAlign:
                     align = tmpAlign
 
+        if align == -1:
+            align = 4
         return align
                 
     def fromStringReferents(self, data, soFar = 0):
@@ -721,6 +730,28 @@ class NDR(object):
 
         # struct like specifier
         return calcsize(fieldTypeOrClass)
+
+class NDRSTRUCT(NDR):
+    # Now it does nothing, but we will need this to work on the NDR64 stuff
+    # We should do this:
+    # 2.2.5.3.4.1 Structure with Trailing Gap
+    # NDR64 represents a structure as an ordered sequence of representations of the 
+    # structure members. The trailing gap from the last nonconformant and nonvarying 
+    # field to the alignment of the structure MUST be represented as a trailing pad. 
+    # The size of the structure MUST be a multiple of its alignment. 
+    # See the following figure.
+
+    # 4.8 Example of Structure with Trailing Gap in NDR64
+    # This example shows a structure with a trailing gap in NDR64.
+    #     typedef struct _StructWithPad
+    #     {
+    #         long l;
+    #         short s;
+    #     } StructWithPad;
+    # The size of the structure in the octet stream MUST contain a 2-byte trailing 
+    # gap to make its size 8, a multiple of the structure's alignment, 4.
+
+    pass
 
 class NDRCALL(NDR):
     # This represents a group of NDR instances that conforms an NDR Call. 

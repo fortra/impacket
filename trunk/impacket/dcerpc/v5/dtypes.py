@@ -13,7 +13,7 @@
 #
 import random
 from struct import pack, unpack
-from impacket.dcerpc.v5.ndr import NDRULONG, NDRUHYPER, NDRUSMALL, NDRSHORT, NDRLONG, NDRPOINTER, NDRUniConformantArray, NDRUniFixedArray, NDR, NDRHYPER, NDRSMALL, NDRPOINTERNULL
+from impacket.dcerpc.v5.ndr import NDRULONG, NDRUHYPER, NDRUSMALL, NDRSHORT, NDRLONG, NDRPOINTER, NDRUniConformantArray, NDRUniFixedArray, NDR, NDRHYPER, NDRSMALL, NDRPOINTERNULL, NDRSTRUCT
 
 DWORD = NDRULONG
 ULONGLONG = NDRUHYPER
@@ -63,7 +63,7 @@ class WIDESTR(NDRUniFixedArray):
         else:
             return NDR.__getitem__(self,key)
 
-class STR(NDR):
+class STR(NDRSTRUCT):
     align = 4
     align64 = 8
     commonHdr = (
@@ -105,7 +105,7 @@ class LPSTR(NDRPOINTER):
         ('Data', STR),
     )
 
-class WSTR(NDR):
+class WSTR(NDRSTRUCT):
     align = 4
     align64 = 8
     commonHdr = (
@@ -160,7 +160,7 @@ LMSTR = LPWSTR
 NET_API_STATUS = DWORD
 
 # 2.3.2 GUID and UUID
-class GUID(NDR):
+class GUID(NDRSTRUCT):
     align = 0
     structure = (
         ('Data','16s=""'),
@@ -188,14 +188,14 @@ class PLARGE_INTEGER(NDRPOINTER):
     )
 
 # 2.3.5 LUID
-class LUID(NDR):
+class LUID(NDRSTRUCT):
     structure = (
         ('LowPart', DWORD),
         ('HighPart', LONG),
     )
 
 # 2.3.8 RPC_UNICODE_STRING
-class RPC_UNICODE_STRING(NDR):
+class RPC_UNICODE_STRING(NDRSTRUCT):
     align = 4
     align64 = 8
     commonHdr = (
@@ -279,7 +279,7 @@ class RPC_SID_IDENTIFIER_AUTHORITY(NDRUniFixedArray):
     def getDataLen(self, data):
         return 6
 
-class RPC_SID(NDR):
+class RPC_SID(NDRSTRUCT):
     align = 4
     align64 = 8
     structure = (
@@ -330,7 +330,7 @@ READ_CONTROL            = 0x00020000L
 DELETE                  = 0x00010000L
 
 # 2.4.5.1 ACL--RPC Representation
-class ACL(NDR):
+class ACL(NDRSTRUCT):
     structure = (
         ('AclRevision',NDRSMALL),
         ('Sbz1',NDRSMALL),
@@ -345,7 +345,7 @@ class PACL(NDRPOINTER):
     )
 
 # 2.4.6.1 SECURITY_DESCRIPTOR--RPC Representation
-class SECURITY_DESCRIPTOR(NDR):
+class SECURITY_DESCRIPTOR(NDRSTRUCT):
     structure = (
         ('Revision',UCHAR),
         ('Sbz1',UCHAR),

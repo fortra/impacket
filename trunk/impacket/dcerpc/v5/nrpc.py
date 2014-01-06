@@ -13,7 +13,7 @@
 #
 
 from impacket.dcerpc.v5 import ndr
-from impacket.dcerpc.v5.ndr import NDRCALL, NDR, NDRENUM, NDRUNION, NDRPOINTER, NDRUniConformantArray, NDRUniFixedArray, NDRUniConformantVaryingArray
+from impacket.dcerpc.v5.ndr import NDRCALL, NDR, NDRSTRUCT, NDRENUM, NDRUNION, NDRPOINTER, NDRUniConformantArray, NDRUniFixedArray, NDRUniConformantVaryingArray
 from impacket.dcerpc.v5.dtypes import *
 from impacket import system_errors, nt_errors
 from impacket.uuid import uuidtup_to_bin
@@ -137,7 +137,7 @@ LOGONSRV_HANDLE = WSTR
 PLOGONSRV_HANDLE = LPWSTR
 
 # 2.2.1.1.1 CYPHER_BLOCK
-class CYPHER_BLOCK(NDR):
+class CYPHER_BLOCK(NDRSTRUCT):
     structure = (
         ('Data', '8s=""'),
     )
@@ -152,7 +152,7 @@ class CYPHER_BLOCK_ARRAY(NDRUniFixedArray):
     def getDataLen(self, data):
         return len(CYPHER_BLOCK())*2
 
-class LM_OWF_PASSWORD(NDR):
+class LM_OWF_PASSWORD(NDRSTRUCT):
     structure = (
         ('Data', CYPHER_BLOCK_ARRAY),
     )
@@ -167,14 +167,14 @@ class UCHAR_FIXED_ARRAY(NDRUniFixedArray):
     def getDataLen(self, data):
         return len(CYPHER_BLOCK())
 
-class NETLOGON_CREDENTIAL(NDR):
+class NETLOGON_CREDENTIAL(NDRSTRUCT):
     align = 0
     structure = (
         ('Data',UCHAR_FIXED_ARRAY),
     )
 
 # 2.2.1.1.5 NETLOGON_AUTHENTICATOR
-class NETLOGON_AUTHENTICATOR(NDR):
+class NETLOGON_AUTHENTICATOR(NDRSTRUCT):
     structure = (
         ('Credential', NETLOGON_CREDENTIAL),
         ('Timestamp', DWORD),
@@ -186,7 +186,7 @@ class PNETLOGON_AUTHENTICATOR(NDRPOINTER):
     )
 
 # 2.2.1.2.1 DOMAIN_CONTROLLER_INFOW
-class DOMAIN_CONTROLLER_INFOW(NDR):
+class DOMAIN_CONTROLLER_INFOW(NDRSTRUCT):
     structure = (
         ('DomainControllerName', LPWSTR),
         ('DomainControllerAddress', LPWSTR),
@@ -213,7 +213,7 @@ class PRPC_UNICODE_STRING_ARRAY(NDRPOINTER):
         ('Data', RPC_UNICODE_STRING_ARRAY),
     )
 
-class NL_SITE_NAME_ARRAY(NDR):
+class NL_SITE_NAME_ARRAY(NDRSTRUCT):
     structure = (
         ('EntryCount', ULONG),
         ('SiteNames', PRPC_UNICODE_STRING_ARRAY),
@@ -233,7 +233,7 @@ class PRPC_UNICODE_STRING_ARRAY(NDRPOINTER):
         ('Data', RPC_UNICODE_STRING_ARRAY),
     )
 
-class NL_SITE_NAME_EX_ARRAY(NDR):
+class NL_SITE_NAME_EX_ARRAY(NDRSTRUCT):
     structure = (
         ('EntryCount', ULONG),
         ('SiteNames', PRPC_UNICODE_STRING_ARRAY),
@@ -263,7 +263,7 @@ class PUCHAR_ARRAY(NDRPOINTER):
         ('Data', UCHAR_ARRAY),
     )
 
-class NL_SOCKET_ADDRESS(NDR):
+class NL_SOCKET_ADDRESS(NDRSTRUCT):
     structure = (
         ('lpSockaddr', PUCHAR_ARRAY),
         ('iSockaddrLength', ULONG),
@@ -273,7 +273,7 @@ class NL_SOCKET_ADDRESS_ARRAY(NDRUniConformantArray):
     item = NL_SOCKET_ADDRESS
 
 # 2.2.1.2.5 NL_DNS_NAME_INFO
-class NL_DNS_NAME_INFO(NDR):
+class NL_DNS_NAME_INFO(NDRSTRUCT):
     structure = (
         ('Type', ULONG),
         ('DnsDomainInfoType', WSTR),
@@ -293,7 +293,7 @@ class PNL_DNS_NAME_INFO_ARRAY(NDRPOINTER):
         ('Data', NL_DNS_NAME_INFO_ARRAY),
     )
 
-class NL_DNS_NAME_INFO_ARRAY(NDR):
+class NL_DNS_NAME_INFO_ARRAY(NDRSTRUCT):
     structure = (
         ('EntryCount', ULONG),
         ('DnsNamesInfo', PNL_DNS_NAME_INFO_ARRAY),
@@ -303,7 +303,7 @@ class NL_DNS_NAME_INFO_ARRAY(NDR):
 # ToDo
 
 # 2.2.1.3.5 NETLOGON_LSA_POLICY_INFO
-class NETLOGON_LSA_POLICY_INFO(NDR):
+class NETLOGON_LSA_POLICY_INFO(NDRSTRUCT):
     structure = (
         ('LsaPolicySize', ULONG),
         ('LsaPolicy', PUCHAR_ARRAY),
@@ -315,7 +315,7 @@ class PNETLOGON_LSA_POLICY_INFO(NDRPOINTER):
     )
 
 # 2.2.1.3.6 NETLOGON_WORKSTATION_INFO
-class NETLOGON_WORKSTATION_INFO(NDR):
+class NETLOGON_WORKSTATION_INFO(NDRSTRUCT):
     structure = (
         ('LsaPolicy', NETLOGON_LSA_POLICY_INFO),
         ('DnsHostName', LPWSTR),
@@ -344,14 +344,14 @@ class WCHAR_ARRAY(NDRUniFixedArray):
     def getDataLen(self, data):
         return 512
 
-class NL_TRUST_PASSWORD(NDR):
+class NL_TRUST_PASSWORD(NDRSTRUCT):
     structure = (
         ('Buffer', WCHAR_ARRAY),
         ('Length', LPWSTR),
     )
 
 # 2.2.1.3.8 NL_PASSWORD_VERSION
-class NL_PASSWORD_VERSION(NDR):
+class NL_PASSWORD_VERSION(NDRSTRUCT):
     structure = (
         ('ReservedField', ULONG),
         ('PasswordVersionNumber', ULONG),
@@ -371,7 +371,7 @@ class NETLOGON_WORKSTATION_INFORMATION(NDRUNION):
     }
 
 # 2.2.1.3.10 NETLOGON_ONE_DOMAIN_INFO
-class NETLOGON_ONE_DOMAIN_INFO(NDR):
+class NETLOGON_ONE_DOMAIN_INFO(NDRSTRUCT):
     structure = (
         ('DomainName', RPC_UNICODE_STRING),
         ('DnsDomainName', RPC_UNICODE_STRING),
@@ -397,7 +397,7 @@ class PNETLOGON_ONE_DOMAIN_INFO_ARRAY(NDRPOINTER):
     )
 
 # 2.2.1.3.11 NETLOGON_DOMAIN_INFO
-class NETLOGON_DOMAIN_INFO(NDR):
+class NETLOGON_DOMAIN_INFO(NDRSTRUCT):
     structure = (
         ('PrimaryDomain', NETLOGON_ONE_DOMAIN_INFO),
         ('TrustedDomainCount', ULONG),
@@ -458,7 +458,7 @@ class UCHAR_FIXED_ARRAY(NDRUniFixedArray):
     def getDataLen(self, data):
         return 128
 
-class NL_OSVERSIONINFO_V1(NDR):
+class NL_OSVERSIONINFO_V1(NDRSTRUCT):
     structure = (
         ('dwOSVersionInfoSize', DWORD),
         ('dwMajorVersion', DWORD),
@@ -484,7 +484,7 @@ class PLPWSTR(NDRPOINTER):
         ('Data', LPWSTR),
     )
 
-class NL_IN_CHAIN_SET_CLIENT_ATTRIBUTES_V1(NDR):
+class NL_IN_CHAIN_SET_CLIENT_ATTRIBUTES_V1(NDRSTRUCT):
     structure = (
         ('ClientDnsHostName', PLPWSTR),
         ('OsVersionInfo', PNL_OSVERSIONINFO_V1),
@@ -503,7 +503,7 @@ class NL_IN_CHAIN_SET_CLIENT_ATTRIBUTES(NDRUNION):
     }
 
 # 2.2.1.3.18 NL_OUT_CHAIN_SET_CLIENT_ATTRIBUTES_V1
-class NL_OUT_CHAIN_SET_CLIENT_ATTRIBUTES_V1(NDR):
+class NL_OUT_CHAIN_SET_CLIENT_ATTRIBUTES_V1(NDRSTRUCT):
     structure = (
         ('HubName', PLPWSTR),
         ('OldDnsHostName', PLPWSTR),
@@ -526,13 +526,13 @@ class CHAR_FIXED_8_ARRAY(NDRUniFixedArray):
     def getDataLen(self, data):
         return 8
 
-class LM_CHALLENGE(NDR):
+class LM_CHALLENGE(NDRSTRUCT):
     structure = (
         ('Data', CHAR_FIXED_8_ARRAY),
     )
 
 # 2.2.1.4.15 NETLOGON_LOGON_IDENTITY_INFO
-class NETLOGON_LOGON_IDENTITY_INFO(NDR):
+class NETLOGON_LOGON_IDENTITY_INFO(NDRSTRUCT):
     structure = (
         ('LogonDomainName', RPC_UNICODE_STRING),
         ('ParameterControl', ULONG),
@@ -547,7 +547,7 @@ class PNETLOGON_LOGON_IDENTITY_INFO(NDRPOINTER):
     )
 
 # 2.2.1.4.2 NETLOGON_GENERIC_INFO
-class NETLOGON_GENERIC_INFO(NDR):
+class NETLOGON_GENERIC_INFO(NDRSTRUCT):
     structure = (
         ('Identity', NETLOGON_LOGON_IDENTITY_INFO),
         ('PackageName', RPC_UNICODE_STRING),
@@ -561,7 +561,7 @@ class PNETLOGON_GENERIC_INFO(NDRPOINTER):
     )
 
 # 2.2.1.4.3 NETLOGON_INTERACTIVE_INFO
-class NETLOGON_INTERACTIVE_INFO(NDR):
+class NETLOGON_INTERACTIVE_INFO(NDRSTRUCT):
     structure = (
         ('Identity', NETLOGON_LOGON_IDENTITY_INFO),
         ('LmOwfPassword', LM_OWF_PASSWORD),
@@ -574,7 +574,7 @@ class PNETLOGON_INTERACTIVE_INFO(NDRPOINTER):
     )
 
 # 2.2.1.4.4 NETLOGON_SERVICE_INFO
-class NETLOGON_SERVICE_INFO(NDR):
+class NETLOGON_SERVICE_INFO(NDRSTRUCT):
     structure = (
         ('Identity', NETLOGON_LOGON_IDENTITY_INFO),
         ('LmOwfPassword', LM_OWF_PASSWORD),
@@ -587,7 +587,7 @@ class PNETLOGON_SERVICE_INFO(NDRPOINTER):
     )
 
 # 2.2.1.4.5 NETLOGON_NETWORK_INFO
-class NETLOGON_NETWORK_INFO(NDR):
+class NETLOGON_NETWORK_INFO(NDRSTRUCT):
     structure = (
         ('Identity', NETLOGON_LOGON_IDENTITY_INFO),
         ('LmChallenge', LM_CHALLENGE),
@@ -624,14 +624,14 @@ class NETLOGON_LEVEL(NDRUNION):
     }
 
 # 2.2.1.4.7 NETLOGON_SID_AND_ATTRIBUTES
-class NETLOGON_SID_AND_ATTRIBUTES(NDR):
+class NETLOGON_SID_AND_ATTRIBUTES(NDRSTRUCT):
     structure = (
         ('Sid', PRPC_SID),
         ('Attributes', ULONG),
     )
 
 # 2.2.1.4.8 NETLOGON_VALIDATION_GENERIC_INFO2
-class NETLOGON_VALIDATION_GENERIC_INFO2(NDR):
+class NETLOGON_VALIDATION_GENERIC_INFO2(NDRSTRUCT):
     structure = (
         ('DataLength', ULONG),
         ('ValidationData', PUCHAR_ARRAY),
@@ -646,7 +646,7 @@ class PNETLOGON_VALIDATION_GENERIC_INFO2(NDRPOINTER):
 USER_SESSION_KEY = LM_OWF_PASSWORD
 
 # 2.2.1.4.10 GROUP_MEMBERSHIP
-class GROUP_MEMBERSHIP(NDR):
+class GROUP_MEMBERSHIP(NDRSTRUCT):
     structure = (
         ('RelativeId', ULONG),
         ('Attributes', ULONG),
@@ -665,7 +665,7 @@ class LONG_ARRAY(NDRUniFixedArray):
     def getDataLen(self, data):
         return 4*10
 
-class NETLOGON_VALIDATION_SAM_INFO(NDR):
+class NETLOGON_VALIDATION_SAM_INFO(NDRSTRUCT):
     structure = (
         ('LogonTime', OLD_LARGE_INTEGER),
         ('LogoffTime', OLD_LARGE_INTEGER),
@@ -707,7 +707,7 @@ class PNETLOGON_SID_AND_ATTRIBUTES_ARRAY(NDRPOINTER):
         ('Data', NETLOGON_SID_AND_ATTRIBUTES_ARRAY),
     )
 
-class NETLOGON_VALIDATION_SAM_INFO2(NDR):
+class NETLOGON_VALIDATION_SAM_INFO2(NDRSTRUCT):
     structure = (
         ('LogonTime', OLD_LARGE_INTEGER),
         ('LogoffTime', OLD_LARGE_INTEGER),
@@ -743,7 +743,7 @@ class PNETLOGON_VALIDATION_SAM_INFO2(NDRPOINTER):
     )
 
 # 2.2.1.4.13 NETLOGON_VALIDATION_SAM_INFO4
-class NETLOGON_VALIDATION_SAM_INFO4(NDR):
+class NETLOGON_VALIDATION_SAM_INFO4(NDRSTRUCT):
     structure = (
         ('LogonTime', OLD_LARGE_INTEGER),
         ('LogoffTime', OLD_LARGE_INTEGER),
@@ -818,7 +818,7 @@ class NETLOGON_VALIDATION(NDRUNION):
     }
 
 # 2.2.1.5.2 NLPR_QUOTA_LIMITS
-class NLPR_QUOTA_LIMITS(NDR):
+class NLPR_QUOTA_LIMITS(NDRSTRUCT):
     structure = (
         ('PagedPoolLimit', ULONG),
         ('NonPagedPoolLimit', ULONG),
@@ -837,7 +837,7 @@ class PULONG_ARRAY(NDRPOINTER):
         ('Data', ULONG_ARRAY),
     )
 
-class NETLOGON_DELTA_ACCOUNTS(NDR):
+class NETLOGON_DELTA_ACCOUNTS(NDRSTRUCT):
     structure = (
         ('PrivilegeEntries', ULONG),
         ('PrivilegeControl', ULONG),
@@ -864,7 +864,7 @@ class PNETLOGON_DELTA_ACCOUNTS(NDRPOINTER):
     )
 
 # 2.2.1.5.5 NLPR_SID_INFORMATION
-class NLPR_SID_INFORMATION(NDR):
+class NLPR_SID_INFORMATION(NDRSTRUCT):
     structure = (
         ('SidPointer', PRPC_SID),
     )
@@ -878,14 +878,14 @@ class PNLPR_SID_INFORMATION_ARRAY(NDRPOINTER):
         ('Data', NLPR_SID_INFORMATION_ARRAY),
     )
 
-class NLPR_SID_ARRAY(NDR):
+class NLPR_SID_ARRAY(NDRSTRUCT):
     referent = (
         ('Count', ULONG),
         ('Sids', PNLPR_SID_INFORMATION_ARRAY),
     )
 
 # 2.2.1.5.7 NETLOGON_DELTA_ALIAS_MEMBER
-class NETLOGON_DELTA_ALIAS_MEMBER(NDR):
+class NETLOGON_DELTA_ALIAS_MEMBER(NDRSTRUCT):
     structure = (
         ('Members', NLPR_SID_ARRAY),
         ('DummyLong1', ULONG),
@@ -900,7 +900,7 @@ class PNETLOGON_DELTA_ALIAS_MEMBER(NDRPOINTER):
     )
 
 # 2.2.1.5.8 NETLOGON_DELTA_DELETE_GROUP
-class NETLOGON_DELTA_DELETE_GROUP(NDR):
+class NETLOGON_DELTA_DELETE_GROUP(NDRSTRUCT):
     structure = (
         ('AccountName', LPWSTR),
         ('DummyString1', RPC_UNICODE_STRING),
@@ -919,7 +919,7 @@ class PNETLOGON_DELTA_DELETE_GROUP(NDRPOINTER):
     )
 
 # 2.2.1.5.9 NETLOGON_DELTA_DELETE_USER
-class NETLOGON_DELTA_DELETE_USER(NDR):
+class NETLOGON_DELTA_DELETE_USER(NDRSTRUCT):
     structure = (
         ('AccountName', LPWSTR),
         ('DummyString1', RPC_UNICODE_STRING),
@@ -938,7 +938,7 @@ class PNETLOGON_DELTA_DELETE_USER(NDRPOINTER):
     )
 
 # 2.2.1.5.10 NETLOGON_DELTA_DOMAIN
-class NETLOGON_DELTA_DOMAIN(NDR):
+class NETLOGON_DELTA_DOMAIN(NDRSTRUCT):
     structure = (
         ('DomainName', RPC_UNICODE_STRING),
         ('OemInformation', RPC_UNICODE_STRING),
@@ -968,7 +968,7 @@ class PNETLOGON_DELTA_DOMAIN(NDRPOINTER):
     )
 
 # 2.2.1.5.13 NETLOGON_DELTA_GROUP
-class NETLOGON_DELTA_GROUP(NDR):
+class NETLOGON_DELTA_GROUP(NDRSTRUCT):
     structure = (
         ('Name', RPC_UNICODE_STRING),
         ('RelativeId', ULONG),
@@ -993,7 +993,7 @@ class PNETLOGON_DELTA_GROUP(NDRPOINTER):
     )
 
 # 2.2.1.5.24 NETLOGON_RENAME_GROUP
-class NETLOGON_RENAME_GROUP(NDR):
+class NETLOGON_RENAME_GROUP(NDRSTRUCT):
     structure = (
         ('OldName', RPC_UNICODE_STRING),
         ('NewName', RPC_UNICODE_STRING),
@@ -1017,7 +1017,7 @@ from impacket.dcerpc.v5.samr import SAMPR_LOGON_HOURS
 NLPR_LOGON_HOURS = SAMPR_LOGON_HOURS
 
 # 2.2.1.5.15 NLPR_USER_PRIVATE_INFO
-class NLPR_USER_PRIVATE_INFO(NDR):
+class NLPR_USER_PRIVATE_INFO(NDRSTRUCT):
     structure = (
         ('SensitiveData', UCHAR),
         ('DataLength', ULONG),
@@ -1025,7 +1025,7 @@ class NLPR_USER_PRIVATE_INFO(NDR):
     )
 
 # 2.2.1.5.16 NETLOGON_DELTA_USER
-class NETLOGON_DELTA_USER(NDR):
+class NETLOGON_DELTA_USER(NDRSTRUCT):
     structure = (
         ('UserName', RPC_UNICODE_STRING),
         ('FullName', RPC_UNICODE_STRING),
@@ -1073,7 +1073,7 @@ class PNETLOGON_DELTA_USER(NDRPOINTER):
     )
 
 # 2.2.1.5.25 NETLOGON_RENAME_USER
-class NETLOGON_RENAME_USER(NDR):
+class NETLOGON_RENAME_USER(NDRSTRUCT):
     structure = (
         ('OldName', RPC_UNICODE_STRING),
         ('NewName', RPC_UNICODE_STRING),
@@ -1093,7 +1093,7 @@ class PNETLOGON_DELTA_RENAME_USER(NDRPOINTER):
     )
 
 # 2.2.1.5.17 NETLOGON_DELTA_GROUP_MEMBER
-class NETLOGON_DELTA_GROUP_MEMBER(NDR):
+class NETLOGON_DELTA_GROUP_MEMBER(NDRSTRUCT):
     structure = (
         ('Members', PULONG_ARRAY),
         ('Attributes', PULONG_ARRAY),
@@ -1110,7 +1110,7 @@ class PNETLOGON_DELTA_GROUP_MEMBER(NDRPOINTER):
     )
 
 # 2.2.1.5.4 NETLOGON_DELTA_ALIAS
-class NETLOGON_DELTA_ALIAS(NDR):
+class NETLOGON_DELTA_ALIAS(NDRSTRUCT):
     structure = (
         ('Name', RPC_UNICODE_STRING),
         ('RelativeId', ULONG),
@@ -1133,7 +1133,7 @@ class PNETLOGON_DELTA_ALIAS(NDRPOINTER):
     )
 
 # 2.2.1.5.23 NETLOGON_RENAME_ALIAS
-class NETLOGON_RENAME_ALIAS(NDR):
+class NETLOGON_RENAME_ALIAS(NDRSTRUCT):
     structure = (
         ('OldName', RPC_UNICODE_STRING),
         ('NewName', RPC_UNICODE_STRING),
@@ -1153,7 +1153,7 @@ class PNETLOGON_DELTA_RENAME_ALIAS(NDRPOINTER):
     )
 
 # 2.2.1.5.19 NETLOGON_DELTA_POLICY
-class NETLOGON_DELTA_POLICY(NDR):
+class NETLOGON_DELTA_POLICY(NDRSTRUCT):
     structure = (
         ('MaximumLogSize', ULONG),
         ('AuditRetentionPeriod', OLD_LARGE_INTEGER),
@@ -1184,7 +1184,7 @@ class PNETLOGON_DELTA_POLICY(NDRPOINTER):
     )
 
 # 2.2.1.5.22 NETLOGON_DELTA_TRUSTED_DOMAINS
-class NETLOGON_DELTA_TRUSTED_DOMAINS(NDR):
+class NETLOGON_DELTA_TRUSTED_DOMAINS(NDRSTRUCT):
     structure = (
         ('DomainName', RPC_UNICODE_STRING),
         ('NumControllerEntries', ULONG),
@@ -1216,7 +1216,7 @@ class PUCHAR_ARRAY2(NDRPOINTER):
         ('Data', UCHAR_ARRAY2),
     )
 
-class NLPR_CR_CIPHER_VALUE(NDR):
+class NLPR_CR_CIPHER_VALUE(NDRSTRUCT):
     structure = (
         ('Length', ULONG),
         ('MaximumLength', ULONG),
@@ -1224,7 +1224,7 @@ class NLPR_CR_CIPHER_VALUE(NDR):
     )
 
 # 2.2.1.5.21 NETLOGON_DELTA_SECRET
-class NETLOGON_DELTA_SECRET(NDR):
+class NETLOGON_DELTA_SECRET(NDRSTRUCT):
     structure = (
         ('CurrentValue', NLPR_CR_CIPHER_VALUE),
         ('CurrentValueSetTime', OLD_LARGE_INTEGER),
@@ -1249,7 +1249,7 @@ class PNETLOGON_DELTA_SECRET(NDRPOINTER):
     )
 
 # 2.2.1.5.26 NLPR_MODIFIED_COUNT
-class NLPR_MODIFIED_COUNT(NDR):
+class NLPR_MODIFIED_COUNT(NDRSTRUCT):
     structure = (
         ('ModifiedCount', OLD_LARGE_INTEGER),
     )
@@ -1333,7 +1333,7 @@ class NETLOGON_DELTA_ID_UNION(NDRUNION):
     }
 
 # 2.2.1.5.11 NETLOGON_DELTA_ENUM
-class NETLOGON_DELTA_ENUM(NDR):
+class NETLOGON_DELTA_ENUM(NDRSTRUCT):
     structure = (
         ('DeltaType', NETLOGON_DELTA_TYPE),
         ('DeltaID', NETLOGON_DELTA_ID_UNION),
@@ -1349,7 +1349,7 @@ class PNETLOGON_DELTA_ENUM_ARRAY(NDRPOINTER):
         ('Data', NETLOGON_DELTA_ENUM_ARRAY),
     )
 
-class NETLOGON_DELTA_ENUM_ARRAY(NDR):
+class NETLOGON_DELTA_ENUM_ARRAY(NDRSTRUCT):
     structure = (
         ('CountReturned', DWORD),
         ('Deltas', PNETLOGON_DELTA_ENUM_ARRAY),
@@ -1369,14 +1369,14 @@ class SYNC_STATE(NDRENUM):
         SamDoneState         = 8
 
 # 2.2.1.6.1 DOMAIN_NAME_BUFFER
-class DOMAIN_NAME_BUFFER(NDR):
+class DOMAIN_NAME_BUFFER(NDRSTRUCT):
     structure = (
         ('DomainNameByteCount', ULONG),
         ('DomainNames', PUCHAR_ARRAY),
     )
 
 # 2.2.1.6.2 DS_DOMAIN_TRUSTSW
-class DS_DOMAIN_TRUSTSW(NDR):
+class DS_DOMAIN_TRUSTSW(NDRSTRUCT):
     structure = (
         ('NetbiosDomainName', LPWSTR),
         ('DnsDomainName', LPWSTR),
@@ -1397,14 +1397,14 @@ class PDS_DOMAIN_TRUSTSW_ARRAY(NDRPOINTER):
         ('Data', DS_DOMAIN_TRUSTSW_ARRAY),
     )
 
-class NETLOGON_TRUSTED_DOMAIN_ARRAY(NDR):
+class NETLOGON_TRUSTED_DOMAIN_ARRAY(NDRSTRUCT):
     structure = (
         ('DomainCount', DWORD),
         ('Domains', PDS_DOMAIN_TRUSTSW_ARRAY),
     )
 
 # 2.2.1.6.4 NL_GENERIC_RPC_DATA
-class NL_GENERIC_RPC_DATA(NDR):
+class NL_GENERIC_RPC_DATA(NDRSTRUCT):
     structure = (
         ('UlongEntryCount', ULONG),
         ('UlongData', PULONG_ARRAY),
@@ -1434,7 +1434,7 @@ class NETLOGON_CONTROL_DATA_INFORMATION(NDRUNION):
     }
 
 # 2.2.1.7.2 NETLOGON_INFO_1
-class NETLOGON_INFO_1(NDR):
+class NETLOGON_INFO_1(NDRSTRUCT):
     structure = (
         ('netlog1_flags', DWORD),
         ('netlog1_pdc_connection_status', NET_API_STATUS),
@@ -1446,7 +1446,7 @@ class PNETLOGON_INFO_1(NDRPOINTER):
     )
 
 # 2.2.1.7.3 NETLOGON_INFO_2
-class NETLOGON_INFO_2(NDR):
+class NETLOGON_INFO_2(NDRSTRUCT):
     structure = (
         ('netlog2_flags', DWORD),
         ('netlog2_pdc_connection_status', NET_API_STATUS),
@@ -1460,7 +1460,7 @@ class PNETLOGON_INFO_2(NDRPOINTER):
     )
 
 # 2.2.1.7.4 NETLOGON_INFO_3
-class NETLOGON_INFO_3(NDR):
+class NETLOGON_INFO_3(NDRSTRUCT):
     structure = (
         ('netlog3_flags', DWORD),
         ('netlog3_logon_attempts', DWORD),
@@ -1477,7 +1477,7 @@ class PNETLOGON_INFO_3(NDRPOINTER):
     )
 
 # 2.2.1.7.5 NETLOGON_INFO_4
-class NETLOGON_INFO_4(NDR):
+class NETLOGON_INFO_4(NDRSTRUCT):
     structure = (
         ('netlog4_trusted_dc_name', LPWSTR),
         ('netlog4_trusted_domain_name', LPWSTR),
@@ -1503,7 +1503,7 @@ class NETLOGON_CONTROL_QUERY_INFORMATION(NDRUNION):
     }
 
 # 2.2.1.8.1 NETLOGON_VALIDATION_UAS_INFO
-class NETLOGON_VALIDATION_UAS_INFO(NDR):
+class NETLOGON_VALIDATION_UAS_INFO(NDRSTRUCT):
     structure = (
         ('usrlog1_eff_name', DWORD),
         ('usrlog1_priv', DWORD),
@@ -1529,14 +1529,14 @@ class PNETLOGON_VALIDATION_UAS_INFO(NDRPOINTER):
     )
 
 # 2.2.1.8.2 NETLOGON_LOGOFF_UAS_INFO
-class NETLOGON_LOGOFF_UAS_INFO(NDR):
+class NETLOGON_LOGOFF_UAS_INFO(NDRSTRUCT):
     structure = (
         ('Duration', DWORD),
         ('LogonCount', USHORT),
     )
 
 # 2.2.1.8.3 UAS_INFO_0
-class UAS_INFO_0(NDR):
+class UAS_INFO_0(NDRSTRUCT):
     structure = (
         ('ComputerName', '16s=""'),
         ('TimeCreated', ULONG),

@@ -16,7 +16,7 @@ from struct import unpack, pack
 from impacket import system_errors
 from impacket.uuid import uuidtup_to_bin
 from impacket.dcerpc.v5 import ndr
-from impacket.dcerpc.v5.ndr import NDRCALL, NDR, NDRPOINTER, NDRPOINTERNULL, NDRUniConformantArray, PNDRUniConformantArray, NDRBOOLEAN, NDRUniFixedArray, NDRUNION, NULL
+from impacket.dcerpc.v5.ndr import NDRCALL, NDR, NDRSTRUCT, NDRPOINTER, NDRPOINTERNULL, NDRUniConformantArray, PNDRUniConformantArray, NDRBOOLEAN, NDRUniFixedArray, NDRUNION, NULL
 from impacket.dcerpc.v5.dtypes import *
 
 MSRPC_UUID_SCMR = uuidtup_to_bin(('367ABB81-9844-35F1-AD32-98F038001003', '2.0'))
@@ -215,7 +215,7 @@ class SC_RPC_HANDLE(NDR):
 
 SC_NOTIFY_RPC_HANDLE = SC_RPC_HANDLE
 
-class SERVICE_STATUS(NDR):
+class SERVICE_STATUS(NDRSTRUCT):
     structure =  (
         ('dwServiceType',DWORD),
         ('dwCurrentState',DWORD),
@@ -226,7 +226,7 @@ class SERVICE_STATUS(NDR):
         ('dwWaitHint',DWORD),
     )
 
-class QUERY_SERVICE_CONFIGW(NDR):
+class QUERY_SERVICE_CONFIGW(NDRSTRUCT):
     structure = (
         ('dwServiceType',DWORD),
         ('dwStartType',DWORD),
@@ -239,7 +239,7 @@ class QUERY_SERVICE_CONFIGW(NDR):
         ('lpDisplayName',LPWSTR),
     )
 
-class SC_RPC_LOCK(NDR):
+class SC_RPC_LOCK(NDRSTRUCT):
     structure =  (
         ('Data','20s=""'),
     )
@@ -260,7 +260,7 @@ class LPBOUNDED_DWORD_256K(NDRPOINTER):
 
 SVCCTL_HANDLEW = LPWSTR
 
-class ENUM_SERVICE_STATUSW(NDR):
+class ENUM_SERVICE_STATUSW(NDRSTRUCT):
     structure = (
         ('lpServiceName',LPWSTR),
         ('lpDisplayName',LPWSTR),
@@ -275,7 +275,7 @@ class LPQUERY_SERVICE_CONFIGW(NDRPOINTER):
 BOUNDED_DWORD_8K = DWORD
 BOUNDED_DWORD_4K = DWORD
 
-class STRING_PTRSW(NDR):
+class STRING_PTRSW(NDRSTRUCT):
     structure = (
         ('Data',NDRUniConformantArray),
     )
@@ -290,19 +290,19 @@ class UNIQUE_STRING_PTRSW(NDRPOINTER):
         ('Data', STRING_PTRSW),
     )
 
-class QUERY_SERVICE_LOCK_STATUSW(NDR):
+class QUERY_SERVICE_LOCK_STATUSW(NDRSTRUCT):
     structure = (
         ('fIsLocked',DWORD),
         ('lpLockOwner',LPWSTR),
         ('dwLockDuration',DWORD),
     )
 
-class SERVICE_DESCRIPTION_WOW64(NDR):
+class SERVICE_DESCRIPTION_WOW64(NDRSTRUCT):
     structure = (
         ('dwDescriptionOffset', DWORD),
     )
 
-class SERVICE_DESCRIPTIONW(NDR):
+class SERVICE_DESCRIPTIONW(NDRSTRUCT):
     structure = (
         ('lpDescription', LPWSTR),
     )
@@ -312,7 +312,7 @@ class LPSERVICE_DESCRIPTIONW(NDRPOINTER):
         ('Data', SERVICE_DESCRIPTIONW),
     )
 
-class SERVICE_FAILURE_ACTIONS_WOW64(NDR):
+class SERVICE_FAILURE_ACTIONS_WOW64(NDRSTRUCT):
     structure = (
         ('dwResetPeriod', DWORD),
         ('dwRebootMsgOffset', DWORD),
@@ -321,13 +321,13 @@ class SERVICE_FAILURE_ACTIONS_WOW64(NDR):
         ('dwsaActionsOffset', DWORD),
     )
 
-class SC_ACTION(NDR):
+class SC_ACTION(NDRSTRUCT):
     structure = (
         ('Type', DWORD), 
         ('Delay', DWORD) , 
     )
 
-class SC_ACTIONS(NDR):
+class SC_ACTIONS(NDRSTRUCT):
     structure = (
        ('Data', NDRUniConformantArray),
     )
@@ -337,7 +337,7 @@ class SC_ACTIONS(NDR):
         if data is not None:
             self.fromString(data)
 
-class SERVICE_FAILURE_ACTIONSW(NDR):
+class SERVICE_FAILURE_ACTIONSW(NDRSTRUCT):
     structure = (
         ('dwResetPeriod', DWORD), 
         ('lpRebootMsg', LPWSTR) , 
@@ -351,7 +351,7 @@ class LPSERVICE_FAILURE_ACTIONSW(NDRPOINTER):
         ('Data', SERVICE_FAILURE_ACTIONSW),
     )
 
-class SERVICE_FAILURE_ACTIONS_FLAG(NDR):
+class SERVICE_FAILURE_ACTIONS_FLAG(NDRSTRUCT):
     structure = (
         ('fFailureActionsOnNonCrashFailures', BOOL),
     )
@@ -361,7 +361,7 @@ class LPSERVICE_FAILURE_ACTIONS_FLAG(NDRPOINTER):
         ('Data', SERVICE_FAILURE_ACTIONS_FLAG),
     )
 
-class SERVICE_DELAYED_AUTO_START_INFO(NDR):
+class SERVICE_DELAYED_AUTO_START_INFO(NDRSTRUCT):
     structure = (
         ('fDelayedAutostart', BOOL),
     )
@@ -371,7 +371,7 @@ class LPSERVICE_DELAYED_AUTO_START_INFO(NDRPOINTER):
         ('Data', SERVICE_DELAYED_AUTO_START_INFO),
     )
 
-class SERVICE_SID_INFO(NDR):
+class SERVICE_SID_INFO(NDRSTRUCT):
     structure = (
         ('dwServiceSidType', DWORD),
     )
@@ -382,7 +382,7 @@ class LPSERVICE_SID_INFO(NDRPOINTER):
     )
 
 
-class SERVICE_RPC_REQUIRED_PRIVILEGES_INFO(NDR):
+class SERVICE_RPC_REQUIRED_PRIVILEGES_INFO(NDRSTRUCT):
     structure = (
         ('cbRequiredPrivileges',DWORD),
         ('pRequiredPrivileges',LPBYTE),
@@ -397,12 +397,12 @@ class LPSERVICE_RPC_REQUIRED_PRIVILEGES_INFO(NDRPOINTER):
         ('Data', SERVICE_RPC_REQUIRED_PRIVILEGES_INFO),
     )
 
-class SERVICE_REQUIRED_PRIVILEGES_INFO_WOW64(NDR):
+class SERVICE_REQUIRED_PRIVILEGES_INFO_WOW64(NDRSTRUCT):
     structure = (
         ('dwRequiredPrivilegesOffset', DWORD),
     )
 
-class SERVICE_PRESHUTDOWN_INFO(NDR):
+class SERVICE_PRESHUTDOWN_INFO(NDRSTRUCT):
     structure = (
         ('dwPreshutdownTimeout', DWORD),
     )
@@ -412,7 +412,7 @@ class LPSERVICE_PRESHUTDOWN_INFO(NDRPOINTER):
         ('Data', SERVICE_PRESHUTDOWN_INFO),
     )
 
-class SERVICE_STATUS_PROCESS(NDR):
+class SERVICE_STATUS_PROCESS(NDRSTRUCT):
     structure = (
         ('dwServiceType', DWORD),
         ('dwCurrentState', DWORD),
@@ -425,12 +425,12 @@ class SERVICE_STATUS_PROCESS(NDR):
         ('dwServiceFlags', DWORD),
     )
 
-class UCHAR_16(NDR):
+class UCHAR_16(NDRSTRUCT):
     structure = (
         ('Data', '16s=""'),
     )
 
-class SERVICE_NOTIFY_STATUS_CHANGE_PARAMS_1(NDR):
+class SERVICE_NOTIFY_STATUS_CHANGE_PARAMS_1(NDRSTRUCT):
     structure = (
         ('ullThreadId',ULONGLONG),
         ('dwNotifyMask',DWORD),
@@ -441,7 +441,7 @@ class SERVICE_NOTIFY_STATUS_CHANGE_PARAMS_1(NDR):
         ('dwSequence',DWORD),
     )
 
-class SERVICE_NOTIFY_STATUS_CHANGE_PARAMS_2(NDR):
+class SERVICE_NOTIFY_STATUS_CHANGE_PARAMS_2(NDRSTRUCT):
     structure = (
         ('ullThreadId',ULONGLONG),
         ('dwNotifyMask',DWORD),
@@ -473,19 +473,19 @@ class SC_RPC_NOTIFY_PARAMS(NDRUNION):
 class SC_RPC_NOTIFY_PARAMS_ARRAY(NDRUniConformantArray):
      item = SC_RPC_NOTIFY_PARAMS
 
-class PSC_RPC_NOTIFY_PARAMS_LIST(NDR):
+class PSC_RPC_NOTIFY_PARAMS_LIST(NDRSTRUCT):
     structure = (
         ('cElements',BOUNDED_DWORD_4K),
         ('NotifyParamsArray', SC_RPC_NOTIFY_PARAMS_ARRAY),
     )
 
-class SERVICE_CONTROL_STATUS_REASON_IN_PARAMSW(NDR):
+class SERVICE_CONTROL_STATUS_REASON_IN_PARAMSW(NDRSTRUCT):
     structure = (
         ('dwReason', DWORD),
         ('pszComment', LPWSTR),
     )
 
-class SERVICE_TRIGGER_SPECIFIC_DATA_ITEM(NDR):
+class SERVICE_TRIGGER_SPECIFIC_DATA_ITEM(NDRSTRUCT):
     structure = (
         ('dwDataType',DWORD ),
         ('cbData',DWORD),
@@ -504,7 +504,7 @@ class PSERVICE_TRIGGER_SPECIFIC_DATA_ITEM(NDRPOINTER):
         ('Data', SERVICE_TRIGGER_SPECIFIC_DATA_ITEM_ARRAY),
     )
 
-class SERVICE_TRIGGER(NDR):
+class SERVICE_TRIGGER(NDRSTRUCT):
     structure = (
         ('dwTriggerType', DWORD),
         ('dwAction', DWORD),
@@ -525,12 +525,12 @@ class PSERVICE_TRIGGER(NDRPOINTER):
         ('Data', SERVICE_TRIGGER_ARRAY),
     )
 
-class SERVICE_CONTROL_STATUS_REASON_OUT_PARAMS(NDR):
+class SERVICE_CONTROL_STATUS_REASON_OUT_PARAMS(NDRSTRUCT):
     structure = (
        ('ServiceStatus', SERVICE_STATUS_PROCESS),
     )
 
-class SERVICE_TRIGGER_INFO(NDR):
+class SERVICE_TRIGGER_INFO(NDRSTRUCT):
     structure = (
         ('cTriggers', DWORD),
         ('pTriggers', PSERVICE_TRIGGER),
@@ -546,7 +546,7 @@ class PSERVICE_TRIGGER_INFO(NDRPOINTER):
         ('Data', SERVICE_TRIGGER_INFO),
     )
 
-class SERVICE_PREFERRED_NODE_INFO(NDR):
+class SERVICE_PREFERRED_NODE_INFO(NDRSTRUCT):
     structure = (
         ('usPreferredNode', USHORT),
         ('fDelete', BOOL),
@@ -557,7 +557,7 @@ class LPSERVICE_PREFERRED_NODE_INFO(NDRPOINTER):
         ('Data', SERVICE_PREFERRED_NODE_INFO),
     )
 
-class SERVICE_RUNLEVEL_INFO(NDR):
+class SERVICE_RUNLEVEL_INFO(NDRSTRUCT):
     structure = (
         ('eLowestRunLevel', DWORD),
     )
@@ -567,7 +567,7 @@ class PSERVICE_RUNLEVEL_INFO(NDRPOINTER):
         ('Data', SERVICE_RUNLEVEL_INFO),
     )
 
-class SERVICE_MANAGEDACCOUNT_INFO(NDR):
+class SERVICE_MANAGEDACCOUNT_INFO(NDRSTRUCT):
     structure = (
         ('fIsManagedAccount', DWORD),
     )
@@ -597,7 +597,7 @@ class SC_RPC_CONFIG_INFOW_UNION(NDRUNION):
         11: ('psma',PSERVICE_MANAGEDACCOUNT_INFO),
     }
 
-class SC_RPC_CONFIG_INFOW(NDR):
+class SC_RPC_CONFIG_INFOW(NDRSTRUCT):
     structure = (
         ('dwInfoLevel', DWORD),
         ('Union', SC_RPC_CONFIG_INFOW_UNION),
@@ -1206,7 +1206,7 @@ def hREnumDependentServicesW(dce, hService, dwServiceState, cbBufSize ):
     return dce.request(enumDependentServices)
 
 def hREnumServicesStatusW(dce, hSCManager, dwServiceType=SERVICE_WIN32_OWN_PROCESS|SERVICE_KERNEL_DRIVER|SERVICE_FILE_SYSTEM_DRIVER|SERVICE_WIN32_SHARE_PROCESS|SERVICE_INTERACTIVE_PROCESS, dwServiceState=SERVICE_STATE_ALL):
-    class ENUM_SERVICE_STATUSW2(NDR):
+    class ENUM_SERVICE_STATUSW2(NDRSTRUCT):
         # This is a little trick, since the original structure is slightly different
         # but instead of parsing the LPBYTE buffer at hand, we just do it with the aid
         # of the NDR library, although the pointers are swapped from the original specification.

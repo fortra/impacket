@@ -17,7 +17,7 @@ import random
 from struct import *
 from impacket.dcerpc.v5.dtypes import *
 from impacket.dcerpc.v5 import ndr
-from impacket.dcerpc.v5.ndr import NDR, NDRCALL, NDRLONG, PNDRUniConformantArray, NDRPOINTER, NDRSHORT
+from impacket.dcerpc.v5.ndr import NDR, NDRCALL, NDRSTRUCT, NDRLONG, PNDRUniConformantArray, NDRPOINTER, NDRSHORT
 from impacket.structure import Structure
 from impacket.dcerpc import ndrutils, dcerpc
 from impacket.uuid import uuidtup_to_bin
@@ -322,7 +322,7 @@ class NETLOGON_CREDENTIAL(NDR):
         ('Data','8s=""'),
     )
 
-class NETLOGON_AUTHENTICATOR(NDR):
+class NETLOGON_AUTHENTICATOR(NDRSTRUCT):
     align = 4
     structure = (
         ('Credential',NETLOGON_CREDENTIAL),
@@ -332,12 +332,12 @@ class NETLOGON_AUTHENTICATOR(NDR):
 class PNETLOGON_AUTHENTICATOR(ndrutils.NDRPointerNew):
     structure = NETLOGON_AUTHENTICATOR.structure
     
-class ENCRYPTED_NT_OWF_PASSWORD(NDR):
+class ENCRYPTED_NT_OWF_PASSWORD(NDRSTRUCT):
     structure = (
         ('Data','16s=""'),
     )
 
-class NL_GENERIC_RPC_DATA(NDR):
+class NL_GENERIC_RPC_DATA(NDRSTRUCT):
     structure = (
         ('UlongEntryCount',NDRLONG),
         ('UlongData', PNDRUniConformantArray),
@@ -357,7 +357,7 @@ class PNL_GENERIC_RPC_DATA(NDRPOINTER):
     def __init__(self, data = None, isNDR64 = False, topLevel = False):
         NDRPOINTER.__init__(self,data,isNDR64,topLevel)
 
-class NL_SITE_NAME_ARRAY(NDR):
+class NL_SITE_NAME_ARRAY(NDRSTRUCT):
     structure = (
        ('EntryCount',NDRLONG),
        ('SiteNames',PNDRUniConformantArray),

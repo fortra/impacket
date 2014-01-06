@@ -17,7 +17,7 @@ import socket
 from struct import unpack
 from impacket.uuid import uuidtup_to_bin, bin_to_string
 from impacket.dcerpc.v5 import ndr, transport
-from impacket.dcerpc.v5.ndr import NDR, NDRCALL, NDRPOINTER, NDRUniConformantVaryingArray, NDRUniVaryingArray, NDRUniConformantArray
+from impacket.dcerpc.v5.ndr import NDR, NDRCALL, NDRSTRUCT, NDRPOINTER, NDRUniConformantVaryingArray, NDRUniVaryingArray, NDRUniConformantArray
 from impacket.dcerpc.v5.dtypes import GUID, UUID, LPBYTE, PUUID, ULONG, USHORT
 from impacket.structure import Structure
 from impacket.uuid import string_to_bin
@@ -771,7 +771,7 @@ class EPMTower(Structure):
     #   ll += (4-ll%4) & 3
     #   return ll
 
-class RPC_IF_ID(NDR):
+class RPC_IF_ID(NDRSTRUCT):
     structure = (
         ('Uuid', UUID ),
         ('VersMajor', USHORT),
@@ -783,12 +783,12 @@ class PRPC_IF_ID(NDRPOINTER):
         ('Data', RPC_IF_ID),
     )
 
-class ept_lookup_handle_t(NDR):
+class ept_lookup_handle_t(NDRSTRUCT):
     structure =  (
         ('Data','20s=""'),
     )
 
-class twr_t(NDR):
+class twr_t(NDRSTRUCT):
     align = 4
     structure = (
         ('tower_length', ULONG),
@@ -800,25 +800,25 @@ class twr_p_t(NDRPOINTER):
         ('Data', twr_t),
     )
 
-class octet_string_t(NDR):
+class octet_string_t(NDRSTRUCT):
     structure = (
         ('count', USHORT),
         ('value', LPBYTE),
     )
 
-class prot_and_addr_t(NDR):
+class prot_and_addr_t(NDRSTRUCT):
     structure = (
         ('protocol_id', octet_string_t),
         ('address', octet_string_t),
     )
 
-class protocol_tower_t(NDR):
+class protocol_tower_t(NDRSTRUCT):
     structure = (
         ('count', USHORT),
         ('floors', prot_and_addr_t ),
     )
 
-class ept_entry_t(NDR):
+class ept_entry_t(NDRSTRUCT):
     align = 4
     structure = (
         ('object',UUID),
