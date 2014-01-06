@@ -13,7 +13,7 @@
 #
 
 from impacket.dcerpc.v5 import ndr
-from impacket.dcerpc.v5.ndr import NDRCall, NDR, NDRENUM, NDRUnion, NDRPointer, NDRUniConformantArray
+from impacket.dcerpc.v5.ndr import NDRCALL, NDR, NDRENUM, NDRPOINTER, NDRUniConformantArray
 from impacket.dcerpc.v5.dtypes import *
 from impacket import nt_errors
 from impacket.uuid import uuidtup_to_bin
@@ -66,7 +66,7 @@ class LSAPR_REFERENCED_DOMAIN_LIST(NDR):
         ('MaxEntries', ULONG),
     )
 
-class PLSAPR_REFERENCED_DOMAIN_LIST(NDRPointer):
+class PLSAPR_REFERENCED_DOMAIN_LIST(NDRPOINTER):
     referent = (
         ('Data', LSAPR_REFERENCED_DOMAIN_LIST),
     )
@@ -83,7 +83,7 @@ class LSA_TRANSLATED_SID(NDR):
 class LSA_TRANSLATED_SID_ARRAY(NDRUniConformantArray):
     item = LSA_TRANSLATED_SID
 
-class PLSA_TRANSLATED_SID_ARRAY(NDRPointer):
+class PLSA_TRANSLATED_SID_ARRAY(NDRPOINTER):
     referent = (
         ('Data', LSA_TRANSLATED_SID_ARRAY),
     )
@@ -117,7 +117,7 @@ class LSAPR_SID_INFORMATION(NDR):
 class LSAPR_SID_INFORMATION_ARRAY(NDRUniConformantArray):
     item = LSAPR_SID_INFORMATION
 
-class PLSAPR_SID_INFORMATION_ARRAY(NDRPointer):
+class PLSAPR_SID_INFORMATION_ARRAY(NDRPOINTER):
     referent = (
         ('Data', LSAPR_SID_INFORMATION_ARRAY),
     )
@@ -141,7 +141,7 @@ class LSAPR_TRANSLATED_NAME(NDR):
 class LSAPR_TRANSLATED_NAME_ARRAY(NDRUniConformantArray):
     item = LSAPR_TRANSLATED_NAME
 
-class PLSAPR_TRANSLATED_NAME_ARRAY(NDRPointer):
+class PLSAPR_TRANSLATED_NAME_ARRAY(NDRPOINTER):
     referent = (
         ('Data', LSAPR_TRANSLATED_NAME_ARRAY),
     )
@@ -165,7 +165,7 @@ class LSAPR_TRANSLATED_NAME_EX(NDR):
 class LSAPR_TRANSLATED_NAME_EX_ARRAY(NDRUniConformantArray):
     item = LSAPR_TRANSLATED_NAME_EX
 
-class PLSAPR_TRANSLATED_NAME_EX_ARRAY(NDRPointer):
+class PLSAPR_TRANSLATED_NAME_EX_ARRAY(NDRPOINTER):
     referent = (
         ('Data', LSAPR_TRANSLATED_NAME_EX_ARRAY),
     )
@@ -189,7 +189,7 @@ class LSAPR_TRANSLATED_SID_EX(NDR):
 class LSAPR_TRANSLATED_SID_EX_ARRAY(NDRUniConformantArray):
     item = LSAPR_TRANSLATED_SID_EX
 
-class PLSAPR_TRANSLATED_SID_EX_ARRAY(NDRPointer):
+class PLSAPR_TRANSLATED_SID_EX_ARRAY(NDRPOINTER):
     referent = (
         ('Data', LSAPR_TRANSLATED_SID_EX_ARRAY),
     )
@@ -213,7 +213,7 @@ class LSAPR_TRANSLATED_SID_EX2(NDR):
 class LSAPR_TRANSLATED_SID_EX2_ARRAY(NDRUniConformantArray):
     item = LSAPR_TRANSLATED_SID_EX2
 
-class PLSAPR_TRANSLATED_SID_EX2_ARRAY(NDRPointer):
+class PLSAPR_TRANSLATED_SID_EX2_ARRAY(NDRPOINTER):
     referent = (
         ('Data', LSAPR_TRANSLATED_SID_EX2_ARRAY),
     )
@@ -231,7 +231,7 @@ class RPC_UNICODE_STRING_ARRAY(NDRUniConformantArray):
 # RPC CALLS
 ################################################################################
 # 3.1.4.4 LsarGetUserName (Opnum 45)
-class LsarGetUserName(NDRCall):
+class LsarGetUserName(NDRCALL):
     opnum = 45
     structure = (
        ('SystemName', LPWSTR),
@@ -239,7 +239,7 @@ class LsarGetUserName(NDRCall):
        ('DomainName', PRPC_UNICODE_STRING),
     )
 
-class LsarGetUserNameResponse(NDRCall):
+class LsarGetUserNameResponse(NDRCALL):
     structure = (
        ('UserName', PRPC_UNICODE_STRING),
        ('DomainName', PRPC_UNICODE_STRING),
@@ -247,7 +247,7 @@ class LsarGetUserNameResponse(NDRCall):
     )
 
 # 3.1.4.5 LsarLookupNames4 (Opnum 77)
-class LsarLookupNames4(NDRCall):
+class LsarLookupNames4(NDRCALL):
     opnum = 77
     structure = (
        ('Count', ULONG),
@@ -259,7 +259,7 @@ class LsarLookupNames4(NDRCall):
        ('ClientRevision', ULONG),
     )
 
-class LsarLookupNames4Response(NDRCall):
+class LsarLookupNames4Response(NDRCALL):
     structure = (
        ('ReferencedDomains', PLSAPR_REFERENCED_DOMAIN_LIST),
        ('TranslatedSids', LSAPR_TRANSLATED_SIDS_EX2),
@@ -268,7 +268,7 @@ class LsarLookupNames4Response(NDRCall):
     )
 
 # 3.1.4.6 LsarLookupNames3 (Opnum 68)
-class LsarLookupNames3(NDRCall):
+class LsarLookupNames3(NDRCALL):
     opnum = 68
     structure = (
        ('PolicyHandle', LSAPR_HANDLE),
@@ -281,7 +281,7 @@ class LsarLookupNames3(NDRCall):
        ('ClientRevision', ULONG),
     )
 
-class LsarLookupNames3Response(NDRCall):
+class LsarLookupNames3Response(NDRCALL):
     structure = (
        ('ReferencedDomains', PLSAPR_REFERENCED_DOMAIN_LIST),
        ('TranslatedSids', LSAPR_TRANSLATED_SIDS_EX2),
@@ -290,7 +290,7 @@ class LsarLookupNames3Response(NDRCall):
     )
 
 # 3.1.4.7 LsarLookupNames2 (Opnum 58)
-class LsarLookupNames2(NDRCall):
+class LsarLookupNames2(NDRCALL):
     opnum = 58
     structure = (
        ('PolicyHandle', LSAPR_HANDLE),
@@ -303,7 +303,7 @@ class LsarLookupNames2(NDRCall):
        ('ClientRevision', ULONG),
     )
 
-class LsarLookupNames2Response(NDRCall):
+class LsarLookupNames2Response(NDRCALL):
     structure = (
        ('ReferencedDomains', PLSAPR_REFERENCED_DOMAIN_LIST),
        ('TranslatedSids', LSAPR_TRANSLATED_SIDS_EX),
@@ -312,7 +312,7 @@ class LsarLookupNames2Response(NDRCall):
     )
 
 # 3.1.4.8 LsarLookupNames (Opnum 14)
-class LsarLookupNames(NDRCall):
+class LsarLookupNames(NDRCALL):
     opnum = 14
     structure = (
        ('PolicyHandle', LSAPR_HANDLE),
@@ -323,7 +323,7 @@ class LsarLookupNames(NDRCall):
        ('MappedCount', ULONG),
     )
 
-class LsarLookupNamesResponse(NDRCall):
+class LsarLookupNamesResponse(NDRCALL):
     structure = (
        ('ReferencedDomains', PLSAPR_REFERENCED_DOMAIN_LIST),
        ('TranslatedSids', LSAPR_TRANSLATED_SIDS),
@@ -332,7 +332,7 @@ class LsarLookupNamesResponse(NDRCall):
     )
 
 # 3.1.4.9 LsarLookupSids3 (Opnum 76)
-class LsarLookupSids3(NDRCall):
+class LsarLookupSids3(NDRCALL):
     opnum = 76
     structure = (
        ('SidEnumBuffer', LSAPR_SID_ENUM_BUFFER),
@@ -343,7 +343,7 @@ class LsarLookupSids3(NDRCall):
        ('ClientRevision', ULONG),
     )
 
-class LsarLookupSids3Response(NDRCall):
+class LsarLookupSids3Response(NDRCALL):
     structure = (
        ('ReferencedDomains', PLSAPR_REFERENCED_DOMAIN_LIST),
        ('TranslatedNames', LSAPR_TRANSLATED_NAMES_EX),
@@ -352,7 +352,7 @@ class LsarLookupSids3Response(NDRCall):
     )
 
 # 3.1.4.10 LsarLookupSids2 (Opnum 57)
-class LsarLookupSids2(NDRCall):
+class LsarLookupSids2(NDRCALL):
     opnum = 57
     structure = (
        ('PolicyHandle', LSAPR_HANDLE),
@@ -364,7 +364,7 @@ class LsarLookupSids2(NDRCall):
        ('ClientRevision', ULONG),
     )
 
-class LsarLookupSids2Response(NDRCall):
+class LsarLookupSids2Response(NDRCALL):
     structure = (
        ('ReferencedDomains', PLSAPR_REFERENCED_DOMAIN_LIST),
        ('TranslatedNames', LSAPR_TRANSLATED_NAMES_EX),
@@ -373,7 +373,7 @@ class LsarLookupSids2Response(NDRCall):
     )
 
 # 3.1.4.11 LsarLookupSids (Opnum 15)
-class LsarLookupSids(NDRCall):
+class LsarLookupSids(NDRCALL):
     opnum = 15
     structure = (
        ('PolicyHandle', LSAPR_HANDLE),
@@ -383,7 +383,7 @@ class LsarLookupSids(NDRCall):
        ('MappedCount', ULONG),
     )
 
-class LsarLookupSidsResponse(NDRCall):
+class LsarLookupSidsResponse(NDRCALL):
     structure = (
        ('ReferencedDomains', PLSAPR_REFERENCED_DOMAIN_LIST),
        ('TranslatedNames', LSAPR_TRANSLATED_NAMES),

@@ -13,7 +13,7 @@
 #
 
 from impacket.dcerpc.v5 import ndr
-from impacket.dcerpc.v5.ndr import NDRCall, NDR, NDRUnion, NDRPointer, NDRUniConformantArray, NDRUniConformantVaryingArray, NDRENUM, NULL
+from impacket.dcerpc.v5.ndr import NDRCALL, NDR, NDRUNION, NDRPOINTER, NDRUniConformantArray, NDRUniConformantVaryingArray, NDRENUM, NULL
 from impacket.dcerpc.v5.dtypes import *
 from impacket import nt_errors
 from impacket.uuid import uuidtup_to_bin
@@ -296,7 +296,7 @@ class RPC_STRING(NDR):
         # Here just print the data
         print " %r" % (self['Data']),
 
-class PRPC_STRING(NDRPointer):
+class PRPC_STRING(NDRPOINTER):
     referent = (
         ('Data', RPC_STRING),
     )
@@ -327,7 +327,7 @@ class USHORT_ARRAY(NDRUniConformantVaryingArray):
     item = '<H'
     pass
 
-class PUSHORT_ARRAY(NDRPointer):
+class PUSHORT_ARRAY(NDRPOINTER):
     referent = (
         ('Data', USHORT_ARRAY),
     )
@@ -353,7 +353,7 @@ class ENCRYPTED_LM_OWF_PASSWORD(NDR):
 
 ENCRYPTED_NT_OWF_PASSWORD = ENCRYPTED_LM_OWF_PASSWORD
 
-class PENCRYPTED_LM_OWF_PASSWORD(NDRPointer):
+class PENCRYPTED_LM_OWF_PASSWORD(NDRPOINTER):
     referent = (
         ('Data', ENCRYPTED_LM_OWF_PASSWORD),
     )
@@ -370,7 +370,7 @@ class SAMPR_SID_INFORMATION(NDR):
         ('SidPointer', RPC_SID),
     )
 
-class PSAMPR_SID_INFORMATION(NDRPointer):
+class PSAMPR_SID_INFORMATION(NDRPOINTER):
     referent = (
         ('Data', SAMPR_SID_INFORMATION),
     )
@@ -378,7 +378,7 @@ class PSAMPR_SID_INFORMATION(NDRPointer):
 class SAMPR_SID_INFORMATION_ARRAY(NDRUniConformantArray):
     item = PSAMPR_SID_INFORMATION
 
-class PSAMPR_SID_INFORMATION_ARRAY(NDRPointer):
+class PSAMPR_SID_INFORMATION_ARRAY(NDRPOINTER):
     referent = (
         ('Data', SAMPR_SID_INFORMATION_ARRAY),
     )
@@ -407,7 +407,7 @@ class SAMPR_RID_ENUMERATION(NDR):
 class SAMPR_RID_ENUMERATION_ARRAY(NDRUniConformantArray):
     item = SAMPR_RID_ENUMERATION
 
-class PSAMPR_RID_ENUMERATION_ARRAY(NDRPointer):
+class PSAMPR_RID_ENUMERATION_ARRAY(NDRPOINTER):
     referent = (
         ('Data', SAMPR_RID_ENUMERATION_ARRAY),
     )
@@ -419,7 +419,7 @@ class SAMPR_ENUMERATION_BUFFER(NDR):
         ('Buffer',PSAMPR_RID_ENUMERATION_ARRAY ),
     )
 
-class PSAMPR_ENUMERATION_BUFFER(NDRPointer):
+class PSAMPR_ENUMERATION_BUFFER(NDRPOINTER):
     referent = (
         ('Data',SAMPR_ENUMERATION_BUFFER),
     )
@@ -428,7 +428,7 @@ class PSAMPR_ENUMERATION_BUFFER(NDRPointer):
 class CHAR_ARRAY(NDRUniConformantArray):
     pass
 
-class PCHAR_ARRAY(NDRPointer):
+class PCHAR_ARRAY(NDRPOINTER):
     referent = (
         ('Data', CHAR_ARRAY),
     )
@@ -439,7 +439,7 @@ class SAMPR_SR_SECURITY_DESCRIPTOR(NDR):
         ('SecurityDescriptor', PCHAR_ARRAY),
     )
 
-class PSAMPR_SR_SECURITY_DESCRIPTOR(NDRPointer):
+class PSAMPR_SR_SECURITY_DESCRIPTOR(NDRPOINTER):
     referent = (
         ('Data', SAMPR_SR_SECURITY_DESCRIPTOR),
     )
@@ -454,7 +454,7 @@ class GROUP_MEMBERSHIP(NDR):
 class GROUP_MEMBERSHIP_ARRAY(NDRUniConformantArray):
     item = GROUP_MEMBERSHIP
 
-class PGROUP_MEMBERSHIP_ARRAY(NDRPointer):
+class PGROUP_MEMBERSHIP_ARRAY(NDRPOINTER):
     referent = (
         ('Data',GROUP_MEMBERSHIP_ARRAY),
     ) 
@@ -466,7 +466,7 @@ class SAMPR_GET_GROUPS_BUFFER(NDR):
         ('Groups',PGROUP_MEMBERSHIP_ARRAY),
     )
 
-class PSAMPR_GET_GROUPS_BUFFER(NDRPointer):
+class PSAMPR_GET_GROUPS_BUFFER(NDRPOINTER):
     referent = (
         ('Data',SAMPR_GET_GROUPS_BUFFER),
     )
@@ -476,7 +476,7 @@ class ULONG_ARRAY(NDRUniConformantArray):
     item = ULONG
     pass
 
-class PULONG_ARRAY(NDRPointer):
+class PULONG_ARRAY(NDRPOINTER):
     referent = (
         ('Data', ULONG_ARRAY),
     )
@@ -488,7 +488,7 @@ class SAMPR_GET_MEMBERS_BUFFER(NDR):
         ('Attributes', PULONG_ARRAY),
     )
 
-class PSAMPR_GET_MEMBERS_BUFFER(NDRPointer):
+class PSAMPR_GET_MEMBERS_BUFFER(NDRPOINTER):
     referent = (
         ('Data', SAMPR_GET_MEMBERS_BUFFER),
     )
@@ -501,7 +501,7 @@ class SAMPR_REVISION_INFO_V1(NDR):
     )
 
 # 2.2.3.16 SAMPR_REVISION_INFO
-class SAMPR_REVISION_INFO(NDRUnion):
+class SAMPR_REVISION_INFO(NDRUNION):
     align = 4
     commonHdr = (
         ('tag', ULONG),
@@ -641,7 +641,7 @@ class DOMAIN_INFORMATION_CLASS(NDRENUM):
         DomainModifiedInformation2   = 13
 
 # 2.2.4.17 SAMPR_DOMAIN_INFO_BUFFER
-class SAMPR_DOMAIN_INFO_BUFFER(NDRUnion):
+class SAMPR_DOMAIN_INFO_BUFFER(NDRUNION):
     union = {
         DOMAIN_INFORMATION_CLASS.DomainPasswordInformation    : ('Password', DOMAIN_PASSWORD_INFORMATION),
         DOMAIN_INFORMATION_CLASS.DomainGeneralInformation     : ('General', SAMPR_DOMAIN_GENERAL_INFORMATION),
@@ -657,7 +657,7 @@ class SAMPR_DOMAIN_INFO_BUFFER(NDRUnion):
         DOMAIN_INFORMATION_CLASS.DomainModifiedInformation2   : ('Modified2', DOMAIN_MODIFIED_INFORMATION2),
     }
 
-class PSAMPR_DOMAIN_INFO_BUFFER(NDRPointer):
+class PSAMPR_DOMAIN_INFO_BUFFER(NDRPOINTER):
     referent = (
         ('Data', SAMPR_DOMAIN_INFO_BUFFER),
     )
@@ -699,7 +699,7 @@ class GROUP_INFORMATION_CLASS(NDRENUM):
         GroupReplicationInformation  = 5
 
 # 2.2.5.7 SAMPR_GROUP_INFO_BUFFER
-class SAMPR_GROUP_INFO_BUFFER(NDRUnion):
+class SAMPR_GROUP_INFO_BUFFER(NDRUNION):
     union = {
         GROUP_INFORMATION_CLASS.GroupGeneralInformation      : ('General', SAMPR_GROUP_GENERAL_INFORMATION),
         GROUP_INFORMATION_CLASS.GroupNameInformation         : ('Name', SAMPR_GROUP_NAME_INFORMATION),
@@ -708,7 +708,7 @@ class SAMPR_GROUP_INFO_BUFFER(NDRUnion):
         GROUP_INFORMATION_CLASS.GroupReplicationInformation  : ('DoNotUse', SAMPR_GROUP_GENERAL_INFORMATION),
     }
 
-class PSAMPR_GROUP_INFO_BUFFER(NDRPointer):
+class PSAMPR_GROUP_INFO_BUFFER(NDRPOINTER):
     referent = (
         ('Data', SAMPR_GROUP_INFO_BUFFER),
     )
@@ -741,14 +741,14 @@ class ALIAS_INFORMATION_CLASS(NDRENUM):
         AliasAdminCommentInformation = 3
 
 # 2.2.6.6 SAMPR_ALIAS_INFO_BUFFER
-class SAMPR_ALIAS_INFO_BUFFER(NDRUnion):
+class SAMPR_ALIAS_INFO_BUFFER(NDRUNION):
     union = {
         ALIAS_INFORMATION_CLASS.AliasGeneralInformation      : ('General', SAMPR_ALIAS_GENERAL_INFORMATION),
         ALIAS_INFORMATION_CLASS.AliasNameInformation         : ('Name', SAMPR_ALIAS_NAME_INFORMATION),
         ALIAS_INFORMATION_CLASS.AliasAdminCommentInformation : ('AdminComment', SAMPR_ALIAS_ADM_COMMENT_INFORMATION),
     }
  
-class PSAMPR_ALIAS_INFO_BUFFER(NDRPointer):
+class PSAMPR_ALIAS_INFO_BUFFER(NDRPOINTER):
     referent = (
         ('Data', SAMPR_ALIAS_INFO_BUFFER),
     )
@@ -775,7 +775,7 @@ class USER_EXPIRES_INFORMATION(NDR):
 class LOGON_HOURS_ARRAY(NDRUniConformantVaryingArray):
     pass
 
-class PLOGON_HOURS_ARRAY(NDRPointer):
+class PLOGON_HOURS_ARRAY(NDRPOINTER):
     referent = (
         ('Data', LOGON_HOURS_ARRAY),
     )
@@ -971,7 +971,7 @@ class SAMPR_ENCRYPTED_USER_PASSWORD(NDR):
         ('Buffer', '516s=""'),
     )
 
-class PSAMPR_ENCRYPTED_USER_PASSWORD(NDRPointer):
+class PSAMPR_ENCRYPTED_USER_PASSWORD(NDRPOINTER):
     referent = (
         ('Data', SAMPR_ENCRYPTED_USER_PASSWORD),
     )
@@ -1048,7 +1048,7 @@ class USER_INFORMATION_CLASS(NDRENUM):
         UserInternal5InformationNew = 26
 
 # 2.2.7.29 SAMPR_USER_INFO_BUFFER
-class SAMPR_USER_INFO_BUFFER(NDRUnion):
+class SAMPR_USER_INFO_BUFFER(NDRUNION):
     union = {
         USER_INFORMATION_CLASS.UserGeneralInformation     : ('General', SAMPR_USER_GENERAL_INFORMATION),
         USER_INFORMATION_CLASS.UserPreferencesInformation : ('Preferences', SAMPR_USER_PREFERENCES_INFORMATION),
@@ -1075,12 +1075,12 @@ class SAMPR_USER_INFO_BUFFER(NDRUnion):
         USER_INFORMATION_CLASS.UserInternal5InformationNew: ('Internal5New', SAMPR_USER_INTERNAL5_INFORMATION_NEW),
     }
  
-class PSAMPR_USER_INFO_BUFFER(NDRPointer):
+class PSAMPR_USER_INFO_BUFFER(NDRPOINTER):
     referent = (
         ('Data', SAMPR_USER_INFO_BUFFER),
     )
 
-class PSAMPR_SERVER_NAME2(NDRPointer):
+class PSAMPR_SERVER_NAME2(NDRPOINTER):
     align = 0
     referent = (
         ('Data', '4s=""'),
@@ -1100,7 +1100,7 @@ class SAMPR_DOMAIN_DISPLAY_USER(NDR):
 class SAMPR_DOMAIN_DISPLAY_USER_ARRAY(NDRUniConformantArray):
     item = SAMPR_DOMAIN_DISPLAY_USER
 
-class PSAMPR_DOMAIN_DISPLAY_USER_ARRAY(NDRPointer):
+class PSAMPR_DOMAIN_DISPLAY_USER_ARRAY(NDRPOINTER):
     referent = (
         ('Data',SAMPR_DOMAIN_DISPLAY_USER_ARRAY),
     )
@@ -1118,7 +1118,7 @@ class SAMPR_DOMAIN_DISPLAY_MACHINE(NDR):
 class SAMPR_DOMAIN_DISPLAY_MACHINE_ARRAY(NDRUniConformantArray):
     item = SAMPR_DOMAIN_DISPLAY_MACHINE
 
-class PSAMPR_DOMAIN_DISPLAY_MACHINE_ARRAY(NDRPointer):
+class PSAMPR_DOMAIN_DISPLAY_MACHINE_ARRAY(NDRPOINTER):
     referent = (
         ('Data',SAMPR_DOMAIN_DISPLAY_MACHINE_ARRAY),
     )
@@ -1136,7 +1136,7 @@ class SAMPR_DOMAIN_DISPLAY_GROUP(NDR):
 class SAMPR_DOMAIN_DISPLAY_GROUP_ARRAY(NDRUniConformantArray):
     item = SAMPR_DOMAIN_DISPLAY_GROUP
 
-class PSAMPR_DOMAIN_DISPLAY_GROUP_ARRAY(NDRPointer):
+class PSAMPR_DOMAIN_DISPLAY_GROUP_ARRAY(NDRPOINTER):
     referent = (
         ('Data',SAMPR_DOMAIN_DISPLAY_GROUP_ARRAY),
     )
@@ -1151,7 +1151,7 @@ class SAMPR_DOMAIN_DISPLAY_OEM_USER(NDR):
 class SAMPR_DOMAIN_DISPLAY_OEM_USER_ARRAY(NDRUniConformantArray):
     item = SAMPR_DOMAIN_DISPLAY_OEM_USER
 
-class PSAMPR_DOMAIN_DISPLAY_OEM_USER_ARRAY(NDRPointer):
+class PSAMPR_DOMAIN_DISPLAY_OEM_USER_ARRAY(NDRPOINTER):
     referent = (
         ('Data',SAMPR_DOMAIN_DISPLAY_OEM_USER_ARRAY),
     )
@@ -1166,7 +1166,7 @@ class SAMPR_DOMAIN_DISPLAY_OEM_GROUP(NDR):
 class SAMPR_DOMAIN_DISPLAY_OEM_GROUP_ARRAY(NDRUniConformantArray):
     item = SAMPR_DOMAIN_DISPLAY_OEM_GROUP
 
-class PSAMPR_DOMAIN_DISPLAY_OEM_GROUP_ARRAY(NDRPointer):
+class PSAMPR_DOMAIN_DISPLAY_OEM_GROUP_ARRAY(NDRPOINTER):
     referent = (
         ('Data',SAMPR_DOMAIN_DISPLAY_OEM_GROUP_ARRAY),
     )
@@ -1216,7 +1216,7 @@ class DOMAIN_DISPLAY_INFORMATION(NDRENUM):
         DomainDisplayOemGroup = 5
 
 # 2.2.8.13 SAMPR_DISPLAY_INFO_BUFFER
-class SAMPR_DISPLAY_INFO_BUFFER(NDRUnion):
+class SAMPR_DISPLAY_INFO_BUFFER(NDRUNION):
     union = {
         DOMAIN_DISPLAY_INFORMATION.DomainDisplayUser     : ('UserInformation', SAMPR_DOMAIN_DISPLAY_USER_BUFFER),
         DOMAIN_DISPLAY_INFORMATION.DomainDisplayMachine  : ('MachineInformation', SAMPR_DOMAIN_DISPLAY_MACHINE_BUFFER),
@@ -1232,7 +1232,7 @@ class SAM_VALIDATE_PASSWORD_HASH(NDR):
         ('Hash', LPBYTE),
     )
 
-class PSAM_VALIDATE_PASSWORD_HASH(NDRPointer):
+class PSAM_VALIDATE_PASSWORD_HASH(NDRPOINTER):
     referent = (
         ('Data', SAM_VALIDATE_PASSWORD_HASH),
     )
@@ -1271,7 +1271,7 @@ class SAM_VALIDATE_STANDARD_OUTPUT_ARG(NDR):
         ('ValidationStatus', SAM_VALIDATE_VALIDATION_STATUS),
     )
 
-class PSAM_VALIDATE_STANDARD_OUTPUT_ARG(NDRPointer):
+class PSAM_VALIDATE_STANDARD_OUTPUT_ARG(NDRPOINTER):
     referent = (
         ('Data', SAM_VALIDATE_STANDARD_OUTPUT_ARG),
     )
@@ -1315,7 +1315,7 @@ class PASSWORD_POLICY_VALIDATION_TYPE(NDRENUM):
         SamValidatePasswordReset    = 3
 
 # 2.2.9.9 SAM_VALIDATE_INPUT_ARG
-class SAM_VALIDATE_INPUT_ARG(NDRUnion):
+class SAM_VALIDATE_INPUT_ARG(NDRUNION):
     union = {
         PASSWORD_POLICY_VALIDATION_TYPE.SamValidateAuthentication : ('ValidateAuthenticationInput', SAM_VALIDATE_AUTHENTICATION_INPUT_ARG),
         PASSWORD_POLICY_VALIDATION_TYPE.SamValidatePasswordChange : ('ValidatePasswordChangeInput', SAM_VALIDATE_PASSWORD_CHANGE_INPUT_ARG),
@@ -1323,14 +1323,14 @@ class SAM_VALIDATE_INPUT_ARG(NDRUnion):
     }
 
 # 2.2.9.10 SAM_VALIDATE_OUTPUT_ARG
-class SAM_VALIDATE_OUTPUT_ARG(NDRUnion):
+class SAM_VALIDATE_OUTPUT_ARG(NDRUNION):
     union = {
         PASSWORD_POLICY_VALIDATION_TYPE.SamValidateAuthentication : ('ValidateAuthenticationOutput', SAM_VALIDATE_STANDARD_OUTPUT_ARG),
         PASSWORD_POLICY_VALIDATION_TYPE.SamValidatePasswordChange : ('ValidatePasswordChangeOutput', SAM_VALIDATE_STANDARD_OUTPUT_ARG),
         PASSWORD_POLICY_VALIDATION_TYPE.SamValidatePasswordReset  : ('ValidatePasswordResetOutput', SAM_VALIDATE_STANDARD_OUTPUT_ARG),
     }
 
-class PSAM_VALIDATE_OUTPUT_ARG(NDRPointer):
+class PSAM_VALIDATE_OUTPUT_ARG(NDRPOINTER):
     referent = (
         ('Data', SAM_VALIDATE_OUTPUT_ARG),
     )
@@ -1342,33 +1342,33 @@ class RPC_UNICODE_STRING_ARRAY(ndr.NDRUniConformantVaryingArray):
 # RPC CALLS
 ################################################################################
 
-class SamrConnect(NDRCall):
+class SamrConnect(NDRCALL):
     opnum = 0
     structure = (
        ('ServerName',PSAMPR_SERVER_NAME2),
        ('DesiredAccess', ULONG),
     )
 
-class SamrConnectResponse(NDRCall):
+class SamrConnectResponse(NDRCALL):
     structure = (
        ('ServerHandle',SAMPR_HANDLE),
        ('ErrorCode',ULONG),
     )
 
-class SamrCloseHandle(NDRCall):
+class SamrCloseHandle(NDRCALL):
     opnum = 1
     structure = (
        ('SamHandle',SAMPR_HANDLE),
        ('DesiredAccess', LONG),
     )
 
-class SamrCloseHandleResponse(NDRCall):
+class SamrCloseHandleResponse(NDRCALL):
     structure = (
        ('SamHandle',SAMPR_HANDLE),
        ('ErrorCode',ULONG),
     )
 
-class SamrSetSecurityObject(NDRCall):
+class SamrSetSecurityObject(NDRCALL):
     opnum = 2
     structure = (
        ('ObjectHandle',SAMPR_HANDLE),
@@ -1376,38 +1376,38 @@ class SamrSetSecurityObject(NDRCall):
        ('SecurityDescriptor', SAMPR_SR_SECURITY_DESCRIPTOR),
     )
 
-class SamrSetSecurityObjectResponse(NDRCall):
+class SamrSetSecurityObjectResponse(NDRCALL):
     structure = (
        ('ErrorCode',ULONG),
     )
 
-class SamrQuerySecurityObject(NDRCall):
+class SamrQuerySecurityObject(NDRCALL):
     opnum = 3
     structure = (
        ('ObjectHandle',SAMPR_HANDLE),
        ('SecurityInformation', SECURITY_INFORMATION),
     )
 
-class SamrQuerySecurityObjectResponse(NDRCall):
+class SamrQuerySecurityObjectResponse(NDRCALL):
     structure = (
        ('SecurityDescriptor',PSAMPR_SR_SECURITY_DESCRIPTOR),
        ('ErrorCode',ULONG),
     )
 
-class SamrLookupDomainInSamServer(NDRCall):
+class SamrLookupDomainInSamServer(NDRCALL):
     opnum = 5
     structure = (
        ('ServerHandle',SAMPR_HANDLE),
        ('Name', RPC_UNICODE_STRING),
     )
 
-class SamrLookupDomainInSamServerResponse(NDRCall):
+class SamrLookupDomainInSamServerResponse(NDRCALL):
     structure = (
        ('DomainId',PRPC_SID),
        ('ErrorCode',ULONG),
     )
 
-class SamrEnumerateDomainsInSamServer(NDRCall):
+class SamrEnumerateDomainsInSamServer(NDRCALL):
     opnum = 6
     structure = (
        ('ServerHandle',SAMPR_HANDLE),
@@ -1415,7 +1415,7 @@ class SamrEnumerateDomainsInSamServer(NDRCall):
        ('PreferedMaximumLength', ULONG),
     )
 
-class SamrEnumerateDomainsInSamServerResponse(NDRCall):
+class SamrEnumerateDomainsInSamServerResponse(NDRCALL):
     structure = (
        ('EnumerationContext',ULONG),
        ('Buffer',PSAMPR_ENUMERATION_BUFFER),
@@ -1423,7 +1423,7 @@ class SamrEnumerateDomainsInSamServerResponse(NDRCall):
        ('ErrorCode',ULONG),
     )
 
-class SamrOpenDomain(NDRCall):
+class SamrOpenDomain(NDRCALL):
     opnum = 7
     structure = (
        ('ServerHandle',SAMPR_HANDLE),
@@ -1431,26 +1431,26 @@ class SamrOpenDomain(NDRCall):
        ('DomainId', RPC_SID),
     )
 
-class SamrOpenDomainResponse(NDRCall):
+class SamrOpenDomainResponse(NDRCALL):
     structure = (
        ('DomainHandle',SAMPR_HANDLE),
        ('ErrorCode',ULONG),
     )
 
-class SamrQueryInformationDomain(NDRCall):
+class SamrQueryInformationDomain(NDRCALL):
     opnum = 8
     structure = (
        ('DomainHandle',SAMPR_HANDLE),
        ('DomainInformationClass', DOMAIN_INFORMATION_CLASS),
     )
 
-class SamrQueryInformationDomainResponse(NDRCall):
+class SamrQueryInformationDomainResponse(NDRCALL):
     structure = (
        ('Buffer',PSAMPR_DOMAIN_INFO_BUFFER),
        ('ErrorCode',ULONG),
     )
 
-class SamrSetInformationDomain(NDRCall):
+class SamrSetInformationDomain(NDRCALL):
     opnum = 9
     structure = (
        ('DomainHandle',SAMPR_HANDLE),
@@ -1458,12 +1458,12 @@ class SamrSetInformationDomain(NDRCall):
        ('DomainInformation', SAMPR_DOMAIN_INFO_BUFFER),
     )
 
-class SamrSetInformationDomainResponse(NDRCall):
+class SamrSetInformationDomainResponse(NDRCALL):
     structure = (
        ('ErrorCode',ULONG),
     )
 
-class SamrCreateGroupInDomain(NDRCall):
+class SamrCreateGroupInDomain(NDRCALL):
     opnum = 10
     structure = (
        ('DomainHandle',SAMPR_HANDLE),
@@ -1471,14 +1471,14 @@ class SamrCreateGroupInDomain(NDRCall):
        ('DesiredAccess', ULONG),
     )
 
-class SamrCreateGroupInDomainResponse(NDRCall):
+class SamrCreateGroupInDomainResponse(NDRCALL):
     structure = (
        ('GroupHandle',SAMPR_HANDLE),
        ('RelativeId',ULONG),
        ('ErrorCode',ULONG),
     )
 
-class SamrEnumerateGroupsInDomain(NDRCall):
+class SamrEnumerateGroupsInDomain(NDRCALL):
     opnum = 11
     structure = (
        ('DomainHandle',SAMPR_HANDLE),
@@ -1486,7 +1486,7 @@ class SamrEnumerateGroupsInDomain(NDRCall):
        ('PreferedMaximumLength', ULONG),
     )
 
-class SamrCreateUserInDomain(NDRCall):
+class SamrCreateUserInDomain(NDRCALL):
     opnum = 12
     structure = (
        ('DomainHandle',SAMPR_HANDLE),
@@ -1494,14 +1494,14 @@ class SamrCreateUserInDomain(NDRCall):
        ('DesiredAccess', ULONG),
     )
 
-class SamrCreateUserInDomainResponse(NDRCall):
+class SamrCreateUserInDomainResponse(NDRCALL):
     structure = (
        ('UserHandle',SAMPR_HANDLE),
        ('RelativeId',ULONG),
        ('ErrorCode',ULONG),
     )
 
-class SamrEnumerateGroupsInDomainResponse(NDRCall):
+class SamrEnumerateGroupsInDomainResponse(NDRCALL):
     structure = (
        ('EnumerationContext',ULONG),
        ('Buffer',PSAMPR_ENUMERATION_BUFFER),
@@ -1509,7 +1509,7 @@ class SamrEnumerateGroupsInDomainResponse(NDRCall):
        ('ErrorCode',ULONG),
     )
 
-class SamrEnumerateUsersInDomain(NDRCall):
+class SamrEnumerateUsersInDomain(NDRCALL):
     opnum = 13
     structure = (
        ('DomainHandle',SAMPR_HANDLE),
@@ -1518,7 +1518,7 @@ class SamrEnumerateUsersInDomain(NDRCall):
        ('PreferedMaximumLength', ULONG),
     )
 
-class SamrEnumerateUsersInDomainResponse(NDRCall):
+class SamrEnumerateUsersInDomainResponse(NDRCALL):
     structure = (
        ('EnumerationContext',ULONG),
        ('Buffer',PSAMPR_ENUMERATION_BUFFER),
@@ -1526,7 +1526,7 @@ class SamrEnumerateUsersInDomainResponse(NDRCall):
        ('ErrorCode',ULONG),
     )
 
-class SamrCreateAliasInDomain(NDRCall):
+class SamrCreateAliasInDomain(NDRCALL):
     opnum = 14
     structure = (
        ('DomainHandle',SAMPR_HANDLE),
@@ -1534,7 +1534,7 @@ class SamrCreateAliasInDomain(NDRCall):
        ('DesiredAccess', ULONG),
     )
 
-class SamrCreateAliasInDomainResponse(NDRCall):
+class SamrCreateAliasInDomainResponse(NDRCALL):
     structure = (
        ('AliasHandle',SAMPR_HANDLE),
        ('RelativeId',ULONG),
@@ -1542,7 +1542,7 @@ class SamrCreateAliasInDomainResponse(NDRCall):
     )
 
 
-class SamrEnumerateAliasesInDomain(NDRCall):
+class SamrEnumerateAliasesInDomain(NDRCALL):
     opnum = 15
     structure = (
        ('DomainHandle',SAMPR_HANDLE),
@@ -1550,7 +1550,7 @@ class SamrEnumerateAliasesInDomain(NDRCall):
        ('PreferedMaximumLength', ULONG),
     )
 
-class SamrEnumerateAliasesInDomainResponse(NDRCall):
+class SamrEnumerateAliasesInDomainResponse(NDRCALL):
     structure = (
        ('EnumerationContext',ULONG),
        ('Buffer',PSAMPR_ENUMERATION_BUFFER),
@@ -1558,20 +1558,20 @@ class SamrEnumerateAliasesInDomainResponse(NDRCall):
        ('ErrorCode',ULONG),
     )
 
-class SamrGetAliasMembership(NDRCall):
+class SamrGetAliasMembership(NDRCALL):
     opnum = 16
     structure = (
        ('DomainHandle',SAMPR_HANDLE),
        ('SidArray',SAMPR_PSID_ARRAY),
     )
 
-class SamrGetAliasMembershipResponse(NDRCall):
+class SamrGetAliasMembershipResponse(NDRCALL):
     structure = (
        ('Membership',SAMPR_ULONG_ARRAY),
        ('ErrorCode',ULONG),
     )
 
-class SamrLookupNamesInDomain(NDRCall):
+class SamrLookupNamesInDomain(NDRCALL):
     opnum = 17
     structure = (
        ('DomainHandle',SAMPR_HANDLE),
@@ -1579,14 +1579,14 @@ class SamrLookupNamesInDomain(NDRCall):
        ('Names',RPC_UNICODE_STRING_ARRAY),
     )
 
-class SamrLookupNamesInDomainResponse(NDRCall):
+class SamrLookupNamesInDomainResponse(NDRCALL):
     structure = (
        ('RelativeIds',ULONG),
        ('Use',SAMPR_ULONG_ARRAY),
        ('ErrorCode',ULONG),
     )
 
-class SamrLookupIdsInDomain(NDRCall):
+class SamrLookupIdsInDomain(NDRCALL):
     opnum = 18
     structure = (
        ('DomainHandle',SAMPR_HANDLE),
@@ -1594,7 +1594,7 @@ class SamrLookupIdsInDomain(NDRCall):
        ('RelativeIds',SAMPR_ULONG_ARRAY),
     )
 
-class SamrLookupIdsInDomainResponse(NDRCall):
+class SamrLookupIdsInDomainResponse(NDRCALL):
     structure = (
        #('Names',PSAMPR_RETURNED_USTRING_ARRAY),
        ('Names',RPC_UNICODE_STRING_ARRAY),
@@ -1602,7 +1602,7 @@ class SamrLookupIdsInDomainResponse(NDRCall):
        ('ErrorCode',ULONG),
     )
 
-class SamrOpenGroup(NDRCall):
+class SamrOpenGroup(NDRCALL):
     opnum = 19
     structure = (
        ('DomainHandle',SAMPR_HANDLE),
@@ -1610,26 +1610,26 @@ class SamrOpenGroup(NDRCall):
        ('GroupId', ULONG),
     )
 
-class SamrOpenGroupResponse(NDRCall):
+class SamrOpenGroupResponse(NDRCALL):
     structure = (
        ('GroupHandle',SAMPR_HANDLE),
        ('ErrorCode',ULONG),
     )
 
-class SamrQueryInformationGroup(NDRCall):
+class SamrQueryInformationGroup(NDRCALL):
     opnum = 20
     structure = (
        ('GroupHandle',SAMPR_HANDLE),
        ('GroupInformationClass', GROUP_INFORMATION_CLASS),
     )
 
-class SamrQueryInformationGroupResponse(NDRCall):
+class SamrQueryInformationGroupResponse(NDRCALL):
     structure = (
        ('Buffer',PSAMPR_GROUP_INFO_BUFFER),
        ('ErrorCode',ULONG),
     )
 
-class SamrSetInformationGroup(NDRCall):
+class SamrSetInformationGroup(NDRCALL):
     opnum = 21
     structure = (
        ('GroupHandle',SAMPR_HANDLE),
@@ -1637,12 +1637,12 @@ class SamrSetInformationGroup(NDRCall):
        ('Buffer', SAMPR_GROUP_INFO_BUFFER),
     )
 
-class SamrSetInformationGroupResponse(NDRCall):
+class SamrSetInformationGroupResponse(NDRCALL):
     structure = (
        ('ErrorCode',ULONG),
     )
 
-class SamrAddMemberToGroup(NDRCall):
+class SamrAddMemberToGroup(NDRCALL):
     opnum = 22
     structure = (
        ('GroupHandle',SAMPR_HANDLE),
@@ -1650,48 +1650,48 @@ class SamrAddMemberToGroup(NDRCall):
        ('Attributes', ULONG),
     )
 
-class SamrAddMemberToGroupResponse(NDRCall):
+class SamrAddMemberToGroupResponse(NDRCALL):
     structure = (
        ('ErrorCode',ULONG),
     )
 
-class SamrDeleteGroup(NDRCall):
+class SamrDeleteGroup(NDRCALL):
     opnum = 23
     structure = (
        ('GroupHandle',SAMPR_HANDLE),
     )
 
-class SamrDeleteGroupResponse(NDRCall):
+class SamrDeleteGroupResponse(NDRCALL):
     structure = (
        ('GroupHandle',SAMPR_HANDLE),
        ('ErrorCode',ULONG),
     )
 
-class SamrRemoveMemberFromGroup(NDRCall):
+class SamrRemoveMemberFromGroup(NDRCALL):
     opnum = 24
     structure = (
        ('GroupHandle',SAMPR_HANDLE),
        ('MemberId', ULONG),
     )
 
-class SamrRemoveMemberFromGroupResponse(NDRCall):
+class SamrRemoveMemberFromGroupResponse(NDRCALL):
     structure = (
        ('ErrorCode',ULONG),
     )
 
-class SamrGetMembersInGroup(NDRCall):
+class SamrGetMembersInGroup(NDRCALL):
     opnum = 25
     structure = (
        ('GroupHandle',SAMPR_HANDLE),
     )
 
-class SamrGetMembersInGroupResponse(NDRCall):
+class SamrGetMembersInGroupResponse(NDRCALL):
     structure = (
        ('Members',PSAMPR_GET_MEMBERS_BUFFER),
        ('ErrorCode',ULONG),
     )
 
-class SamrSetMemberAttributesOfGroup(NDRCall):
+class SamrSetMemberAttributesOfGroup(NDRCALL):
     opnum = 26
     structure = (
        ('GroupHandle',SAMPR_HANDLE),
@@ -1699,12 +1699,12 @@ class SamrSetMemberAttributesOfGroup(NDRCall):
        ('Attributes',ULONG),
     )
 
-class SamrSetMemberAttributesOfGroupResponse(NDRCall):
+class SamrSetMemberAttributesOfGroupResponse(NDRCALL):
     structure = (
        ('ErrorCode',ULONG),
     )
 
-class SamrOpenAlias(NDRCall):
+class SamrOpenAlias(NDRCALL):
     opnum = 27
     structure = (
        ('DomainHandle',SAMPR_HANDLE),
@@ -1712,26 +1712,26 @@ class SamrOpenAlias(NDRCall):
        ('AliasId', ULONG),
     )
 
-class SamrOpenAliasResponse(NDRCall):
+class SamrOpenAliasResponse(NDRCALL):
     structure = (
        ('AliasHandle',SAMPR_HANDLE),
        ('ErrorCode',ULONG),
     )
 
-class SamrQueryInformationAlias(NDRCall):
+class SamrQueryInformationAlias(NDRCALL):
     opnum = 28
     structure = (
        ('AliasHandle',SAMPR_HANDLE),
        ('AliasInformationClass', ALIAS_INFORMATION_CLASS),
     )
 
-class SamrQueryInformationAliasResponse(NDRCall):
+class SamrQueryInformationAliasResponse(NDRCALL):
     structure = (
        ('Buffer',PSAMPR_ALIAS_INFO_BUFFER),
        ('ErrorCode',ULONG),
     )
 
-class SamrSetInformationAlias(NDRCall):
+class SamrSetInformationAlias(NDRCALL):
     opnum = 29
     structure = (
        ('AliasHandle',SAMPR_HANDLE),
@@ -1739,60 +1739,60 @@ class SamrSetInformationAlias(NDRCall):
        ('Buffer',SAMPR_ALIAS_INFO_BUFFER),
     )
 
-class SamrSetInformationAliasResponse(NDRCall):
+class SamrSetInformationAliasResponse(NDRCALL):
     structure = (
        ('ErrorCode',ULONG),
     )
 
-class SamrDeleteAlias(NDRCall):
+class SamrDeleteAlias(NDRCALL):
     opnum = 30
     structure = (
        ('AliasHandle',SAMPR_HANDLE),
     )
 
-class SamrDeleteAliasResponse(NDRCall):
+class SamrDeleteAliasResponse(NDRCALL):
     structure = (
        ('AliasHandle',SAMPR_HANDLE),
        ('ErrorCode',ULONG),
     )
 
-class SamrAddMemberToAlias(NDRCall):
+class SamrAddMemberToAlias(NDRCALL):
     opnum = 31
     structure = (
        ('AliasHandle',SAMPR_HANDLE),
        ('MemberId', RPC_SID),
     )
 
-class SamrAddMemberToAliasResponse(NDRCall):
+class SamrAddMemberToAliasResponse(NDRCALL):
     structure = (
        ('ErrorCode',ULONG),
     )
 
-class SamrRemoveMemberFromAlias(NDRCall):
+class SamrRemoveMemberFromAlias(NDRCALL):
     opnum = 32
     structure = (
        ('AliasHandle',SAMPR_HANDLE),
        ('MemberId', RPC_SID),
     )
 
-class SamrRemoveMemberFromAliasResponse(NDRCall):
+class SamrRemoveMemberFromAliasResponse(NDRCALL):
     structure = (
        ('ErrorCode',ULONG),
     )
 
-class SamrGetMembersInAlias(NDRCall):
+class SamrGetMembersInAlias(NDRCALL):
     opnum = 33
     structure = (
        ('AliasHandle',SAMPR_HANDLE),
     )
 
-class SamrGetMembersInAliasResponse(NDRCall):
+class SamrGetMembersInAliasResponse(NDRCALL):
     structure = (
        ('Members',SAMPR_PSID_ARRAY_OUT),
        ('ErrorCode',ULONG),
     )
 
-class SamrOpenUser(NDRCall):
+class SamrOpenUser(NDRCALL):
     opnum = 34
     structure = (
        ('DomainHandle',SAMPR_HANDLE),
@@ -1800,38 +1800,38 @@ class SamrOpenUser(NDRCall):
        ('UserId', ULONG),
     )
 
-class SamrOpenUserResponse(NDRCall):
+class SamrOpenUserResponse(NDRCALL):
     structure = (
        ('UserHandle',SAMPR_HANDLE),
        ('ErrorCode',ULONG),
     )
 
-class SamrDeleteUser(NDRCall):
+class SamrDeleteUser(NDRCALL):
     opnum = 35
     structure = (
        ('UserHandle',SAMPR_HANDLE),
     )
 
-class SamrDeleteUserResponse(NDRCall):
+class SamrDeleteUserResponse(NDRCALL):
     structure = (
        ('UserHandle',SAMPR_HANDLE),
        ('ErrorCode',ULONG),
     )
 
-class SamrQueryInformationUser(NDRCall):
+class SamrQueryInformationUser(NDRCALL):
     opnum = 36
     structure = (
        ('UserHandle',SAMPR_HANDLE),
        ('UserInformationClass', USER_INFORMATION_CLASS ),
     )
 
-class SamrQueryInformationUserResponse(NDRCall):
+class SamrQueryInformationUserResponse(NDRCALL):
     structure = (
        ('Buffer',PSAMPR_USER_INFO_BUFFER),
        ('ErrorCode',ULONG),
     )
 
-class SamrSetInformationUser(NDRCall):
+class SamrSetInformationUser(NDRCALL):
     opnum = 37
     structure = (
        ('UserHandle',SAMPR_HANDLE),
@@ -1839,12 +1839,12 @@ class SamrSetInformationUser(NDRCall):
        ('Buffer',SAMPR_USER_INFO_BUFFER),
     )
 
-class SamrSetInformationUserResponse(NDRCall):
+class SamrSetInformationUserResponse(NDRCALL):
     structure = (
        ('ErrorCode',ULONG),
     )
 
-class SamrChangePasswordUser(NDRCall):
+class SamrChangePasswordUser(NDRCALL):
     opnum = 38
     structure = (
        ('UserHandle',SAMPR_HANDLE),
@@ -1860,24 +1860,24 @@ class SamrChangePasswordUser(NDRCall):
        ('NewLmEncryptedWithNewNt',PENCRYPTED_NT_OWF_PASSWORD),
     )
 
-class SamrChangePasswordUserResponse(NDRCall):
+class SamrChangePasswordUserResponse(NDRCALL):
     structure = (
        ('ErrorCode',ULONG),
     )
 
-class SamrGetGroupsForUser(NDRCall):
+class SamrGetGroupsForUser(NDRCALL):
     opnum = 39
     structure = (
        ('UserHandle',SAMPR_HANDLE),
     )
 
-class SamrGetGroupsForUserResponse(NDRCall):
+class SamrGetGroupsForUserResponse(NDRCALL):
     structure = (
        ('Groups',PSAMPR_GET_GROUPS_BUFFER),
        ('ErrorCode',ULONG),
     )
 
-class SamrQueryDisplayInformation(NDRCall):
+class SamrQueryDisplayInformation(NDRCALL):
     opnum = 40
     structure = (
        ('DomainHandle',SAMPR_HANDLE),
@@ -1887,7 +1887,7 @@ class SamrQueryDisplayInformation(NDRCall):
        ('PreferredMaximumLength',ULONG),
     )
 
-class SamrQueryDisplayInformationResponse(NDRCall):
+class SamrQueryDisplayInformationResponse(NDRCALL):
     structure = (
        ('TotalAvailable',ULONG),
        ('TotalReturned',ULONG),
@@ -1895,7 +1895,7 @@ class SamrQueryDisplayInformationResponse(NDRCall):
        ('ErrorCode',ULONG),
     )
 
-class SamrGetDisplayEnumerationIndex(NDRCall):
+class SamrGetDisplayEnumerationIndex(NDRCALL):
     opnum = 41
     structure = (
        ('DomainHandle',SAMPR_HANDLE),
@@ -1903,63 +1903,63 @@ class SamrGetDisplayEnumerationIndex(NDRCall):
        ('Prefix', RPC_UNICODE_STRING),
     )
 
-class SamrGetDisplayEnumerationIndexResponse(NDRCall):
+class SamrGetDisplayEnumerationIndexResponse(NDRCALL):
     structure = (
        ('Index',ULONG),
        ('ErrorCode',ULONG),
     )
 
-class SamrGetUserDomainPasswordInformation(NDRCall):
+class SamrGetUserDomainPasswordInformation(NDRCALL):
     opnum = 44
     structure = (
        ('UserHandle',SAMPR_HANDLE),
     )
 
-class SamrGetUserDomainPasswordInformationResponse(NDRCall):
+class SamrGetUserDomainPasswordInformationResponse(NDRCALL):
     structure = (
        ('PasswordInformation',USER_DOMAIN_PASSWORD_INFORMATION),
        ('ErrorCode',ULONG),
     )
 
-class SamrRemoveMemberFromForeignDomain(NDRCall):
+class SamrRemoveMemberFromForeignDomain(NDRCALL):
     opnum = 45
     structure = (
        ('DomainHandle',SAMPR_HANDLE),
        ('MemberSid', RPC_SID),
     )
 
-class SamrRemoveMemberFromForeignDomainResponse(NDRCall):
+class SamrRemoveMemberFromForeignDomainResponse(NDRCALL):
     structure = (
        ('ErrorCode',ULONG),
     )
 
-class SamrQueryInformationDomain2(NDRCall):
+class SamrQueryInformationDomain2(NDRCALL):
     opnum = 46
     structure = (
        ('DomainHandle',SAMPR_HANDLE),
        ('DomainInformationClass', DOMAIN_INFORMATION_CLASS),
     )
 
-class SamrQueryInformationDomain2Response(NDRCall):
+class SamrQueryInformationDomain2Response(NDRCALL):
     structure = (
        ('Buffer',PSAMPR_DOMAIN_INFO_BUFFER),
        ('ErrorCode',ULONG),
     )
 
-class SamrQueryInformationUser2(NDRCall):
+class SamrQueryInformationUser2(NDRCALL):
     opnum = 47
     structure = (
        ('UserHandle',SAMPR_HANDLE),
        ('UserInformationClass', USER_INFORMATION_CLASS ),
     )
 
-class SamrQueryInformationUser2Response(NDRCall):
+class SamrQueryInformationUser2Response(NDRCALL):
     structure = (
        ('Buffer',PSAMPR_USER_INFO_BUFFER),
        ('ErrorCode',ULONG),
     )
 
-class SamrQueryDisplayInformation2(NDRCall):
+class SamrQueryDisplayInformation2(NDRCALL):
     opnum = 48
     structure = (
        ('DomainHandle',SAMPR_HANDLE),
@@ -1969,7 +1969,7 @@ class SamrQueryDisplayInformation2(NDRCall):
        ('PreferredMaximumLength',ULONG),
     )
 
-class SamrQueryDisplayInformation2Response(NDRCall):
+class SamrQueryDisplayInformation2Response(NDRCALL):
     structure = (
        ('TotalAvailable',ULONG),
        ('TotalReturned',ULONG),
@@ -1977,7 +1977,7 @@ class SamrQueryDisplayInformation2Response(NDRCall):
        ('ErrorCode',ULONG),
     )
 
-class SamrGetDisplayEnumerationIndex2(NDRCall):
+class SamrGetDisplayEnumerationIndex2(NDRCALL):
     opnum = 49
     structure = (
        ('DomainHandle',SAMPR_HANDLE),
@@ -1985,13 +1985,13 @@ class SamrGetDisplayEnumerationIndex2(NDRCall):
        ('Prefix', RPC_UNICODE_STRING),
     )
 
-class SamrGetDisplayEnumerationIndex2Response(NDRCall):
+class SamrGetDisplayEnumerationIndex2Response(NDRCALL):
     structure = (
        ('Index',ULONG),
        ('ErrorCode',ULONG),
     )
 
-class SamrCreateUser2InDomain(NDRCall):
+class SamrCreateUser2InDomain(NDRCALL):
     opnum = 50
     structure = (
        ('DomainHandle',SAMPR_HANDLE),
@@ -2000,7 +2000,7 @@ class SamrCreateUser2InDomain(NDRCall):
        ('DesiredAccess', ULONG),
     )
 
-class SamrCreateUser2InDomainResponse(NDRCall):
+class SamrCreateUser2InDomainResponse(NDRCALL):
     structure = (
        ('UserHandle',SAMPR_HANDLE),
        ('GrantedAccess',ULONG),
@@ -2008,7 +2008,7 @@ class SamrCreateUser2InDomainResponse(NDRCall):
        ('ErrorCode',ULONG),
     )
 
-class SamrQueryDisplayInformation3(NDRCall):
+class SamrQueryDisplayInformation3(NDRCALL):
     opnum = 51
     structure = (
        ('DomainHandle',SAMPR_HANDLE),
@@ -2018,7 +2018,7 @@ class SamrQueryDisplayInformation3(NDRCall):
        ('PreferredMaximumLength',ULONG),
     )
 
-class SamrQueryDisplayInformation3Response(NDRCall):
+class SamrQueryDisplayInformation3Response(NDRCALL):
     structure = (
        ('TotalAvailable',ULONG),
        ('TotalReturned',ULONG),
@@ -2026,31 +2026,31 @@ class SamrQueryDisplayInformation3Response(NDRCall):
        ('ErrorCode',ULONG),
     )
 
-class SamrAddMultipleMembersToAlias(NDRCall):
+class SamrAddMultipleMembersToAlias(NDRCALL):
     opnum = 52
     structure = (
        ('AliasHandle',SAMPR_HANDLE),
        ('MembersBuffer', SAMPR_PSID_ARRAY),
     )
 
-class SamrAddMultipleMembersToAliasResponse(NDRCall):
+class SamrAddMultipleMembersToAliasResponse(NDRCALL):
     structure = (
        ('ErrorCode',ULONG),
     )
 
-class SamrRemoveMultipleMembersFromAlias(NDRCall):
+class SamrRemoveMultipleMembersFromAlias(NDRCALL):
     opnum = 53
     structure = (
        ('AliasHandle',SAMPR_HANDLE),
        ('MembersBuffer', SAMPR_PSID_ARRAY),
     )
 
-class SamrRemoveMultipleMembersFromAliasResponse(NDRCall):
+class SamrRemoveMultipleMembersFromAliasResponse(NDRCALL):
     structure = (
        ('ErrorCode',ULONG),
     )
 
-class SamrOemChangePasswordUser2(NDRCall):
+class SamrOemChangePasswordUser2(NDRCALL):
     opnum = 54
     structure = (
        ('ServerName', PRPC_STRING),
@@ -2059,12 +2059,12 @@ class SamrOemChangePasswordUser2(NDRCall):
        ('OldLmOwfPasswordEncryptedWithNewLm', PENCRYPTED_LM_OWF_PASSWORD),
     )
 
-class SamrOemChangePasswordUser2Response(NDRCall):
+class SamrOemChangePasswordUser2Response(NDRCALL):
     structure = (
        ('ErrorCode',ULONG),
     )
 
-class SamrUnicodeChangePasswordUser2(NDRCall):
+class SamrUnicodeChangePasswordUser2(NDRCALL):
     opnum = 55
     structure = (
        ('ServerName', PRPC_UNICODE_STRING),
@@ -2076,38 +2076,38 @@ class SamrUnicodeChangePasswordUser2(NDRCall):
        ('OldLmOwfPasswordEncryptedWithNewNt',PENCRYPTED_LM_OWF_PASSWORD),
     )
 
-class SamrUnicodeChangePasswordUser2Response(NDRCall):
+class SamrUnicodeChangePasswordUser2Response(NDRCALL):
     structure = (
        ('ErrorCode',ULONG),
     )
 
-class SamrGetDomainPasswordInformation(NDRCall):
+class SamrGetDomainPasswordInformation(NDRCALL):
     opnum = 56
     structure = (
        #('BindingHandle',SAMPR_HANDLE),
        ('Unused', PRPC_UNICODE_STRING),
     )
 
-class SamrGetDomainPasswordInformationResponse(NDRCall):
+class SamrGetDomainPasswordInformationResponse(NDRCALL):
     structure = (
        ('PasswordInformation',USER_DOMAIN_PASSWORD_INFORMATION),
        ('ErrorCode',ULONG),
     )
 
-class SamrConnect2(NDRCall):
+class SamrConnect2(NDRCALL):
     opnum = 57
     structure = (
        ('ServerName',PSAMPR_SERVER_NAME),
        ('DesiredAccess', ULONG),
     )
 
-class SamrConnect2Response(NDRCall):
+class SamrConnect2Response(NDRCALL):
     structure = (
        ('ServerHandle',SAMPR_HANDLE),
        ('ErrorCode',ULONG),
     )
 
-class SamrSetInformationUser2(NDRCall):
+class SamrSetInformationUser2(NDRCALL):
     opnum = 58
     structure = (
        ('UserHandle',SAMPR_HANDLE),
@@ -2115,12 +2115,12 @@ class SamrSetInformationUser2(NDRCall):
        ('Buffer', SAMPR_USER_INFO_BUFFER),
     )
 
-class SamrSetInformationUser2Response(NDRCall):
+class SamrSetInformationUser2Response(NDRCALL):
     structure = (
        ('ErrorCode',ULONG),
     )
 
-class SamrConnect4(NDRCall):
+class SamrConnect4(NDRCALL):
     opnum = 62
     structure = (
        ('ServerName',PSAMPR_SERVER_NAME),
@@ -2128,13 +2128,13 @@ class SamrConnect4(NDRCall):
        ('DesiredAccess', ULONG),
     )
 
-class SamrConnect4Response(NDRCall):
+class SamrConnect4Response(NDRCALL):
     structure = (
        ('ServerHandle',SAMPR_HANDLE),
        ('ErrorCode',ULONG),
     )
 
-class SamrConnect5(NDRCall):
+class SamrConnect5(NDRCALL):
     opnum = 64
     structure = (
        ('ServerName',PSAMPR_SERVER_NAME),
@@ -2143,7 +2143,7 @@ class SamrConnect5(NDRCall):
        ('InRevisionInfo',SAMPR_REVISION_INFO),
     )
 
-class SamrConnect5Response(NDRCall):
+class SamrConnect5Response(NDRCALL):
     structure = (
        ('OutVersion',ULONG),
        ('OutRevisionInfo',SAMPR_REVISION_INFO),
@@ -2151,20 +2151,20 @@ class SamrConnect5Response(NDRCall):
        ('ErrorCode',ULONG),
     )
 
-class SamrRidToSid(NDRCall):
+class SamrRidToSid(NDRCALL):
     opnum = 65
     structure = (
        ('ObjectHandle',SAMPR_HANDLE),
        ('Rid', ULONG),
     )
 
-class SamrRidToSidResponse(NDRCall):
+class SamrRidToSidResponse(NDRCALL):
     structure = (
        ('Sid',PRPC_SID),
        ('ErrorCode',ULONG),
     )
 
-class SamrSetDSRMPassword(NDRCall):
+class SamrSetDSRMPassword(NDRCALL):
     opnum = 66
     structure = (
        ('Unused', PRPC_UNICODE_STRING),
@@ -2172,19 +2172,19 @@ class SamrSetDSRMPassword(NDRCall):
        ('EncryptedNtOwfPassword',PENCRYPTED_NT_OWF_PASSWORD),
     )
 
-class SamrSetDSRMPasswordResponse(NDRCall):
+class SamrSetDSRMPasswordResponse(NDRCALL):
     structure = (
        ('ErrorCode',ULONG),
     )
 
-class SamrValidatePassword(NDRCall):
+class SamrValidatePassword(NDRCALL):
     opnum = 67
     structure = (
        ('ValidationType', PASSWORD_POLICY_VALIDATION_TYPE),
        ('InputArg',SAM_VALIDATE_INPUT_ARG),
     )
 
-class SamrValidatePasswordResponse(NDRCall):
+class SamrValidatePasswordResponse(NDRCALL):
     structure = (
        ('OutputArg',PSAM_VALIDATE_OUTPUT_ARG),
        ('ErrorCode',ULONG),

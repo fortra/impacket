@@ -17,7 +17,7 @@ import random
 from struct import *
 from impacket.dcerpc.v5.dtypes import *
 from impacket.dcerpc.v5 import ndr
-from impacket.dcerpc.v5.ndr import NDR, NDRCall, NDRLONG, PNDRUniConformantArray, NDRPointer, NDRSHORT
+from impacket.dcerpc.v5.ndr import NDR, NDRCALL, NDRLONG, PNDRUniConformantArray, NDRPOINTER, NDRSHORT
 from impacket.structure import Structure
 from impacket.dcerpc import ndrutils, dcerpc
 from impacket.uuid import uuidtup_to_bin
@@ -350,12 +350,12 @@ class NL_GENERIC_RPC_DATA(NDR):
         if data is not None:
             self.fromString(data)
 
-class PNL_GENERIC_RPC_DATA(NDRPointer):
+class PNL_GENERIC_RPC_DATA(NDRPOINTER):
     referent = (
         ('Data', NL_GENERIC_RPC_DATA),
     )
     def __init__(self, data = None, isNDR64 = False, topLevel = False):
-        NDRPointer.__init__(self,data,isNDR64,topLevel)
+        NDRPOINTER.__init__(self,data,isNDR64,topLevel)
 
 class NL_SITE_NAME_ARRAY(NDR):
     structure = (
@@ -369,59 +369,59 @@ class NL_SITE_NAME_ARRAY(NDR):
         if data is not None:
             self.fromString(data)
 
-class PNL_SITE_NAME_ARRAY(NDRPointer):
+class PNL_SITE_NAME_ARRAY(NDRPOINTER):
     referent = (
         ('Data', NL_SITE_NAME_ARRAY),
     )
 
-class NETLOGONGetDCName(NDRCall):
+class NETLOGONGetDCName(NDRCALL):
     opnum = 11
     structure = (
         ('ServerName', RPC_UNICODE_STRING),
         ('DomainName', PRPC_UNICODE_STRING),
     )
 
-class NETLOGONGetDCNameResponse(NDRCall):
+class NETLOGONGetDCNameResponse(NDRCALL):
     structure = (
         ('Buffer', PRPC_UNICODE_STRING),
     )
 
-class NETLOGONGetAnyDCName(NDRCall):
+class NETLOGONGetAnyDCName(NDRCALL):
     opnum = 13
     structure = (
         ('ServerName', PRPC_UNICODE_STRING),
         ('DomainName', PRPC_UNICODE_STRING),
     )
 
-class NETLOGONGetAnyDCNameResponse(NDRCall):
+class NETLOGONGetAnyDCNameResponse(NDRCALL):
     structure = (
         ('Buffer', PRPC_UNICODE_STRING),
     )
 
-class NETLOGONGetSiteName(NDRCall):
+class NETLOGONGetSiteName(NDRCALL):
     opnum = 28
     structure = (
         ('ComputerName', PRPC_UNICODE_STRING),
     )
 
-class NETLOGONGetSiteNameResponse(NDRCall):
+class NETLOGONGetSiteNameResponse(NDRCALL):
     structure = (
         ('SiteName', PRPC_UNICODE_STRING),
     )
 
 
-class NETLOGONGetDcSiteCoverageW(NDRCall):
+class NETLOGONGetDcSiteCoverageW(NDRCALL):
     opnum = 38
     structure = (
         ('ServerName', PRPC_UNICODE_STRING),
     )
 
-class NETLOGONGetDcSiteCoverageWResponse(NDRCall):
+class NETLOGONGetDcSiteCoverageWResponse(NDRCALL):
     structure = (
         ('SiteNames',PNL_SITE_NAME_ARRAY),
     )
 
-class NETLOGONServerAuthenticate3(NDRCall):
+class NETLOGONServerAuthenticate3(NDRCALL):
     opnum = 26
     structure = (
         ('PrimaryName', PRPC_UNICODE_STRING),
@@ -432,14 +432,14 @@ class NETLOGONServerAuthenticate3(NDRCall):
         ('NegotiateFlags',NDRLONG),
     )
 
-class NETLOGONServerAuthenticate3Response(NDRCall):
+class NETLOGONServerAuthenticate3Response(NDRCALL):
     structure = (
         ('ServerCredential',NETLOGON_CREDENTIAL),
         ('NegotiateFlags',NDRLONG),
         ('AccountRid',NDRLONG),
     )
 
-class NETLOGONServerReqChallenge(NDRCall):
+class NETLOGONServerReqChallenge(NDRCALL):
     opnum = 4
     alingment = 4
     structure = (
@@ -448,12 +448,12 @@ class NETLOGONServerReqChallenge(NDRCall):
         ('ClientChallenge', NETLOGON_CREDENTIAL),
     )
 
-class NETLOGONServerReqChallengeResponse(NDRCall):
+class NETLOGONServerReqChallengeResponse(NDRCALL):
     structure = (
         ('ServerChallenge', NETLOGON_CREDENTIAL),
     )
 
-class NETLOGONServerGetTrustInfo(NDRCall):
+class NETLOGONServerGetTrustInfo(NDRCALL):
     opnum = 46
     structure = (
         ('TrustedDcName',PRPC_UNICODE_STRING),
@@ -463,7 +463,7 @@ class NETLOGONServerGetTrustInfo(NDRCall):
         ('Authenticator', NETLOGON_AUTHENTICATOR),
     )
 
-class NETLOGONServerGetTrustInfoResponse(NDRCall):
+class NETLOGONServerGetTrustInfoResponse(NDRCALL):
     structure = (
         ('ReturnAuthenticator', NETLOGON_AUTHENTICATOR),
         ('EncryptedNewOwfPassword', ENCRYPTED_NT_OWF_PASSWORD),
@@ -471,7 +471,7 @@ class NETLOGONServerGetTrustInfoResponse(NDRCall):
         ('TrustInfo', PNL_GENERIC_RPC_DATA),
     )
 
-class NETLOGONServerPasswordGet(NDRCall):
+class NETLOGONServerPasswordGet(NDRCALL):
     opnum = 31
     structure = (
         ('PrimaryName', PRPC_UNICODE_STRING),
@@ -481,13 +481,13 @@ class NETLOGONServerPasswordGet(NDRCall):
         ('Authenticator', NETLOGON_AUTHENTICATOR),
     )
 
-class NETLOGONServerPasswordGetResponse(NDRCall):
+class NETLOGONServerPasswordGetResponse(NDRCALL):
     structure = (
         ('ReturnAuthenticator', NETLOGON_AUTHENTICATOR),
         ('EncryptedNtOwfPassword', ENCRYPTED_NT_OWF_PASSWORD),
     )
 
-class NETLOGONLogonGetDomainInfo(NDRCall):
+class NETLOGONLogonGetDomainInfo(NDRCALL):
     opnum = 29
     structure = (
         ('ServerName', RPC_UNICODE_STRING),
@@ -497,12 +497,12 @@ class NETLOGONLogonGetDomainInfo(NDRCall):
         ('Level',NDRLONG),
     )
 
-class NETLOGONLogonGetDomainInfoResponse(NDRCall):
+class NETLOGONLogonGetDomainInfoResponse(NDRCALL):
     structure = (
         ('ReturnAuthenticator', NETLOGON_AUTHENTICATOR),
     )
 
-class NETLOGONLogonGetCapabilities(NDRCall):
+class NETLOGONLogonGetCapabilities(NDRCALL):
     opnum = 21
     structure = (
         ('ServerName', RPC_UNICODE_STRING),
@@ -512,7 +512,7 @@ class NETLOGONLogonGetCapabilities(NDRCall):
         ('Level',NDRLONG),
     )
 
-class NETLOGONLogonGetCapabilitiesResponse(NDRCall):
+class NETLOGONLogonGetCapabilitiesResponse(NDRCALL):
     structure = (
         ('ReturnAuthenticator', NETLOGON_AUTHENTICATOR),
         ('SwitchIs',NDRLONG),
