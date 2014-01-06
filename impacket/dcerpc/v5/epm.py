@@ -785,8 +785,12 @@ class PRPC_IF_ID(NDRPOINTER):
 
 class ept_lookup_handle_t(NDRSTRUCT):
     structure =  (
-        ('Data','20s=""'),
+        ('context_handle_attributes',ULONG),
+        ('context_handle_uuid',UUID),
     )
+    def __init__(self, data = None,isNDR64 = False):
+        NDRSTRUCT.__init__(self, data, isNDR64)
+        self['context_handle_uuid'] = '\x00'*20
 
 class twr_t(NDRSTRUCT):
     align = 4
@@ -827,18 +831,10 @@ class ept_entry_t(NDRSTRUCT):
     )
 
 class ept_entry_t_array(NDRUniConformantVaryingArray):
-    def __init__(self, data = None,isNDR64 = False):
-        NDRUniConformantVaryingArray.__init__(self,None,isNDR64)
-        self.item = ept_entry_t
-        if data is not None:
-            self.fromString(data)
+    item = ept_entry_t
 
 class twr_p_t_array(NDRUniConformantVaryingArray):
-    def __init__(self, data = None,isNDR64 = False):
-        NDRUniConformantVaryingArray.__init__(self,None,isNDR64)
-        self.item = twr_p_t
-        if data is not None:
-            self.fromString(data)
+    item = twr_p_t
 
 error_status = ULONG
 
@@ -887,7 +883,7 @@ class ept_mapResponse(NDRCALL):
 # HELPER FUNCTIONS
 ################################################################################
 
-def hept_lookup(destHost, inquiry_type = RPC_C_EP_ALL_ELTS, objectUUID = NULL, ifId = NULL, vers_option = RPC_C_VERS_ALL,  entry_handle = '\x00'*20, max_ents = 499):
+def hept_lookup(destHost, inquiry_type = RPC_C_EP_ALL_ELTS, objectUUID = NULL, ifId = NULL, vers_option = RPC_C_VERS_ALL,  entry_handle = ept_lookup_handle_t(), max_ents = 499):
     stringBinding = r'ncacn_ip_tcp:%s[135]' % destHost
     rpctransport = transport.DCERPCTransportFactory(stringBinding)
     dce = rpctransport.get_dce_rpc()
