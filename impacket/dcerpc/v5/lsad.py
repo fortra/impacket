@@ -132,8 +132,6 @@ LSA_UNICODE_STRING = RPC_UNICODE_STRING
 
 # 2.2.3.1 STRING
 class STRING(NDRSTRUCT):
-    align = 4
-    align64 = 4
     commonHdr = (
         ('MaximumLength','<H=len(Data)-12'),
         ('Length','<H=len(Data)-12'),

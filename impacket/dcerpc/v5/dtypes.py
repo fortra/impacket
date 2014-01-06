@@ -39,8 +39,6 @@ class PBOOL(NDRPOINTER):
     )
 
 class LPBYTE(NDRPOINTER):
-    align = 4
-    align64 = 8
     referent = (
         ('Data', NDRUniConformantArray),
     )
@@ -64,8 +62,6 @@ class WIDESTR(NDRUniFixedArray):
             return NDR.__getitem__(self,key)
 
 class STR(NDRSTRUCT):
-    align = 4
-    align64 = 8
     commonHdr = (
         ('MaximumCount', '<L=len(Data)'),
         ('Offset','<L=0'),
@@ -106,8 +102,6 @@ class LPSTR(NDRPOINTER):
     )
 
 class WSTR(NDRSTRUCT):
-    align = 4
-    align64 = 8
     commonHdr = (
         ('MaximumCount', '<L=len(Data)/2'),
         ('Offset','<L=0'),
@@ -196,8 +190,6 @@ class LUID(NDRSTRUCT):
 
 # 2.3.8 RPC_UNICODE_STRING
 class RPC_UNICODE_STRING(NDRSTRUCT):
-    align = 4
-    align64 = 8
     commonHdr = (
         ('Length','<H=len(Data)-12'),
         ('MaximumLength','<H=len(Data)-12'),
@@ -257,8 +249,6 @@ class PRPC_UNICODE_STRING(NDRPOINTER):
     )
 
 class LPDWORD(NDRPOINTER):
-    align = 4
-    align64 = 8
     referent = (
         ('Data', NDRUniConformantArray),
     )
@@ -280,8 +270,6 @@ class RPC_SID_IDENTIFIER_AUTHORITY(NDRUniFixedArray):
         return 6
 
 class RPC_SID(NDRSTRUCT):
-    align = 4
-    align64 = 8
     structure = (
         ('Revision',NDRSMALL),
         ('SubAuthorityCount',NDRSMALL),
