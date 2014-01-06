@@ -13,7 +13,7 @@
 #
 
 from impacket.dcerpc.v5 import ndr
-from impacket.dcerpc.v5.ndr import NDRCall, NDR, NDRENUM, NDRUnion, NDRPointer, NDRUniConformantArray, NDRUniFixedArray, NDRBOOLEAN, NDRUniConformantVaryingArray, NDRUniVaryingArray, PNDRUniConformantArray
+from impacket.dcerpc.v5.ndr import NDRCALL, NDR, NDRENUM, NDRUNION, NDRPOINTER, NDRUniConformantArray, NDRUniFixedArray, NDRBOOLEAN, NDRUniConformantVaryingArray, NDRUniVaryingArray, PNDRUniConformantArray
 from impacket.dcerpc.v5.dtypes import *
 from impacket import system_errors
 from impacket.uuid import uuidtup_to_bin
@@ -51,7 +51,7 @@ class DCERPCSessionError(Exception):
 # 2.2.1.1 SRVSVC_HANDLE
 SRVSVC_HANDLE = WCHAR
 
-class PSRVSVC_HANDLE(NDRPointer):
+class PSRVSVC_HANDLE(NDRPOINTER):
     referent = (
         ('Data', SRVSVC_HANDLE),
     )
@@ -63,7 +63,7 @@ class SHARE_DEL_HANDLE(NDR):
     )
 
 # 2.2.1.3 PSHARE_DEL_HANDLE
-class PSHARE_DEL_HANDLE(NDRPointer):
+class PSHARE_DEL_HANDLE(NDRPOINTER):
     referent = (
         ('Data', SHARE_DEL_HANDLE),
     )
@@ -343,7 +343,7 @@ class CONNECTION_INFO_0(NDR):
 class CONNECTION_INFO_0_ARRAY(NDRUniConformantArray):
     item = CONNECTION_INFO_0
 
-class LPCONNECTION_INFO_0_ARRAY(NDRPointer):
+class LPCONNECTION_INFO_0_ARRAY(NDRPOINTER):
     referent = (
         ('Data', CONNECTION_INFO_0_ARRAY),
     )
@@ -363,7 +363,7 @@ class CONNECTION_INFO_1(NDR):
 class CONNECTION_INFO_1_ARRAY(NDRUniConformantArray):
     item = CONNECTION_INFO_1
 
-class LPCONNECTION_INFO_1_ARRAY(NDRPointer):
+class LPCONNECTION_INFO_1_ARRAY(NDRPOINTER):
     referent = (
         ('Data', CONNECTION_INFO_1_ARRAY),
     )
@@ -375,7 +375,7 @@ class CONNECT_INFO_0_CONTAINER(NDR):
         ('Buffer', LPCONNECTION_INFO_0_ARRAY),
     )
 
-class LPCONNECT_INFO_0_CONTAINER(NDRPointer):
+class LPCONNECT_INFO_0_CONTAINER(NDRPOINTER):
     referent = (
         ('Data', CONNECT_INFO_0_CONTAINER),
     )
@@ -387,13 +387,13 @@ class CONNECT_INFO_1_CONTAINER(NDR):
         ('Buffer', LPCONNECTION_INFO_1_ARRAY),
     )
 
-class LPCONNECT_INFO_1_CONTAINER(NDRPointer):
+class LPCONNECT_INFO_1_CONTAINER(NDRPOINTER):
     referent = (
         ('Data', CONNECT_INFO_1_CONTAINER),
     )
 
 # 2.2.3.1 CONNECT_ENUM_UNION
-class CONNECT_ENUM_UNION(NDRUnion):
+class CONNECT_ENUM_UNION(NDRUNION):
     align = 4
     commonHdr = (
         ('tag', DWORD),
@@ -417,7 +417,7 @@ class FILE_INFO_2(NDR):
         ('fi2_id', DWORD),
     )
 
-class LPFILE_INFO_2(NDRPointer):
+class LPFILE_INFO_2(NDRPOINTER):
     referent = (
         ('Data', FILE_INFO_2),
     )
@@ -425,7 +425,7 @@ class LPFILE_INFO_2(NDRPointer):
 class FILE_INFO_2_ARRAY(NDRUniConformantArray):
     item = FILE_INFO_2
 
-class LPFILE_INFO_2_ARRAY(NDRPointer):
+class LPFILE_INFO_2_ARRAY(NDRPOINTER):
     referent = (
         ('Data', FILE_INFO_2_ARRAY),
     )
@@ -440,7 +440,7 @@ class FILE_INFO_3(NDR):
         ('fi3_username', LPWSTR),
     )
 
-class LPFILE_INFO_3(NDRPointer):
+class LPFILE_INFO_3(NDRPOINTER):
     referent = (
         ('Data', FILE_INFO_3),
     )
@@ -448,7 +448,7 @@ class LPFILE_INFO_3(NDRPointer):
 class FILE_INFO_3_ARRAY(NDRUniConformantArray):
     item = FILE_INFO_3
 
-class LPFILE_INFO_3_ARRAY(NDRPointer):
+class LPFILE_INFO_3_ARRAY(NDRPOINTER):
     referent = (
         ('Data', FILE_INFO_3_ARRAY),
     )
@@ -460,7 +460,7 @@ class FILE_INFO_2_CONTAINER(NDR):
         ('Buffer', LPFILE_INFO_2_ARRAY),
     )
 
-class LPFILE_INFO_2_CONTAINER(NDRPointer):
+class LPFILE_INFO_2_CONTAINER(NDRPOINTER):
     referent = (
         ('Data', FILE_INFO_2_CONTAINER),
     )
@@ -472,13 +472,13 @@ class FILE_INFO_3_CONTAINER(NDR):
         ('Buffer', LPFILE_INFO_3_ARRAY),
     )
 
-class LPFILE_INFO_3_CONTAINER(NDRPointer):
+class LPFILE_INFO_3_CONTAINER(NDRPOINTER):
     referent = (
         ('Data', FILE_INFO_3_CONTAINER),
     )
 
 # 2.2.3.2 FILE_ENUM_UNION
-class FILE_ENUM_UNION(NDRUnion):
+class FILE_ENUM_UNION(NDRUNION):
     align = 4
     commonHdr = (
         ('tag', DWORD),
@@ -502,7 +502,7 @@ class SESSION_INFO_0(NDR):
         ('sesi0_cname', LPWSTR),
     )
 
-class LPSESSION_INFO_0(NDRPointer):
+class LPSESSION_INFO_0(NDRPOINTER):
     referent = (
         ('Data', SESSION_INFO_0),
     )
@@ -510,7 +510,7 @@ class LPSESSION_INFO_0(NDRPointer):
 class SESSION_INFO_0_ARRAY(NDRUniConformantArray):
     item = SESSION_INFO_0
 
-class LPSESSION_INFO_0_ARRAY(NDRPointer):
+class LPSESSION_INFO_0_ARRAY(NDRPOINTER):
     referent = (
         ('Data', SESSION_INFO_0_ARRAY),
     )
@@ -526,7 +526,7 @@ class SESSION_INFO_1(NDR):
         ('sesi1_user_flags', DWORD),
     )
 
-class LPSESSION_INFO_1(NDRPointer):
+class LPSESSION_INFO_1(NDRPOINTER):
     referent = (
         ('Data', SESSION_INFO_1),
     )
@@ -534,7 +534,7 @@ class LPSESSION_INFO_1(NDRPointer):
 class SESSION_INFO_1_ARRAY(NDRUniConformantArray):
     item = SESSION_INFO_1
 
-class LPSESSION_INFO_1_ARRAY(NDRPointer):
+class LPSESSION_INFO_1_ARRAY(NDRPOINTER):
     referent = (
         ('Data', SESSION_INFO_1_ARRAY),
     )
@@ -551,7 +551,7 @@ class SESSION_INFO_2(NDR):
         ('sesi2_cltype_name', LPWSTR),
     )
 
-class LPSESSION_INFO_2(NDRPointer):
+class LPSESSION_INFO_2(NDRPOINTER):
     referent = (
         ('Data', SESSION_INFO_2),
     )
@@ -559,7 +559,7 @@ class LPSESSION_INFO_2(NDRPointer):
 class SESSION_INFO_2_ARRAY(NDRUniConformantArray):
     item = SESSION_INFO_2
 
-class LPSESSION_INFO_2_ARRAY(NDRPointer):
+class LPSESSION_INFO_2_ARRAY(NDRPOINTER):
     referent = (
         ('Data', SESSION_INFO_2_ARRAY),
     )
@@ -573,7 +573,7 @@ class SESSION_INFO_10(NDR):
         ('sesi10_idle_time', DWORD),
     )
 
-class LPSESSION_INFO_10(NDRPointer):
+class LPSESSION_INFO_10(NDRPOINTER):
     referent = (
         ('Data', SESSION_INFO_10),
     )
@@ -581,7 +581,7 @@ class LPSESSION_INFO_10(NDRPointer):
 class SESSION_INFO_10_ARRAY(NDRUniConformantArray):
     item = SESSION_INFO_10
 
-class LPSESSION_INFO_10_ARRAY(NDRPointer):
+class LPSESSION_INFO_10_ARRAY(NDRPOINTER):
     referent = (
         ('Data', SESSION_INFO_10_ARRAY),
     )
@@ -599,7 +599,7 @@ class SESSION_INFO_502(NDR):
         ('sesi502_transport', LPWSTR),
     )
 
-class LPSESSION_INFO_502(NDRPointer):
+class LPSESSION_INFO_502(NDRPOINTER):
     referent = (
         ('Data', SESSION_INFO_502),
     )
@@ -607,7 +607,7 @@ class LPSESSION_INFO_502(NDRPointer):
 class SESSION_INFO_502_ARRAY(NDRUniConformantArray):
     item = SESSION_INFO_502
 
-class LPSESSION_INFO_502_ARRAY(NDRPointer):
+class LPSESSION_INFO_502_ARRAY(NDRPOINTER):
     referent = (
         ('Data', SESSION_INFO_502_ARRAY),
     )
@@ -619,7 +619,7 @@ class SESSION_INFO_0_CONTAINER(NDR):
         ('Buffer', LPSESSION_INFO_0_ARRAY),
     )
 
-class LPSESSION_INFO_0_CONTAINER(NDRPointer):
+class LPSESSION_INFO_0_CONTAINER(NDRPOINTER):
     referent = (
         ('Data', SESSION_INFO_0_CONTAINER),
     )
@@ -631,7 +631,7 @@ class SESSION_INFO_1_CONTAINER(NDR):
         ('Buffer', LPSESSION_INFO_1_ARRAY),
     )
 
-class LPSESSION_INFO_1_CONTAINER(NDRPointer):
+class LPSESSION_INFO_1_CONTAINER(NDRPOINTER):
     referent = (
         ('Data', SESSION_INFO_1_CONTAINER),
     )
@@ -643,7 +643,7 @@ class SESSION_INFO_2_CONTAINER(NDR):
         ('Buffer', LPSESSION_INFO_2_ARRAY),
     )
 
-class LPSESSION_INFO_2_CONTAINER(NDRPointer):
+class LPSESSION_INFO_2_CONTAINER(NDRPOINTER):
     referent = (
         ('Data', SESSION_INFO_2_CONTAINER),
     )
@@ -655,7 +655,7 @@ class SESSION_INFO_10_CONTAINER(NDR):
         ('Buffer', LPSESSION_INFO_10_ARRAY),
     )
 
-class LPSESSION_INFO_10_CONTAINER(NDRPointer):
+class LPSESSION_INFO_10_CONTAINER(NDRPOINTER):
     referent = (
         ('Data', SESSION_INFO_10_CONTAINER),
     )
@@ -667,13 +667,13 @@ class SESSION_INFO_502_CONTAINER(NDR):
         ('Buffer', LPSESSION_INFO_502_ARRAY),
     )
 
-class LPSESSION_INFO_502_CONTAINER(NDRPointer):
+class LPSESSION_INFO_502_CONTAINER(NDRPOINTER):
     referent = (
         ('Data', SESSION_INFO_502_CONTAINER),
     )
 
 # 2.2.3.4 SESSION_ENUM_UNION
-class SESSION_ENUM_UNION(NDRUnion):
+class SESSION_ENUM_UNION(NDRUNION):
     align = 4
     commonHdr = (
         ('tag', DWORD),
@@ -700,7 +700,7 @@ class SHARE_INFO_0(NDR):
         ('shi0_netname', LPWSTR),
     )
 
-class LPSHARE_INFO_0(NDRPointer):
+class LPSHARE_INFO_0(NDRPOINTER):
     referent = (
         ('Data', SHARE_INFO_0),
     )
@@ -708,7 +708,7 @@ class LPSHARE_INFO_0(NDRPointer):
 class SHARE_INFO_0_ARRAY(NDRUniConformantArray):
     item = SHARE_INFO_0
 
-class LPSHARE_INFO_0_ARRAY(NDRPointer):
+class LPSHARE_INFO_0_ARRAY(NDRPOINTER):
     referent = (
         ('Data', SHARE_INFO_0_ARRAY),
     )
@@ -721,7 +721,7 @@ class SHARE_INFO_1(NDR):
         ('shi1_remark', LPWSTR),
     )
 
-class LPSHARE_INFO_1(NDRPointer):
+class LPSHARE_INFO_1(NDRPOINTER):
     referent = (
         ('Data', SHARE_INFO_1),
     )
@@ -729,7 +729,7 @@ class LPSHARE_INFO_1(NDRPointer):
 class SHARE_INFO_1_ARRAY(NDRUniConformantArray):
     item = SHARE_INFO_1
 
-class LPSHARE_INFO_1_ARRAY(NDRPointer):
+class LPSHARE_INFO_1_ARRAY(NDRPOINTER):
     referent = (
         ('Data', SHARE_INFO_1_ARRAY),
     )
@@ -747,7 +747,7 @@ class SHARE_INFO_2(NDR):
         ('shi2_passwd', LPWSTR),
     )
 
-class LPSHARE_INFO_2(NDRPointer):
+class LPSHARE_INFO_2(NDRPOINTER):
     referent = (
         ('Data', SHARE_INFO_2),
     )
@@ -755,7 +755,7 @@ class LPSHARE_INFO_2(NDRPointer):
 class SHARE_INFO_2_ARRAY(NDRUniConformantArray):
     item = SHARE_INFO_2
 
-class LPSHARE_INFO_2_ARRAY(NDRPointer):
+class LPSHARE_INFO_2_ARRAY(NDRPOINTER):
     referent = (
         ('Data', SHARE_INFO_2_ARRAY),
     )
@@ -769,7 +769,7 @@ class SHARE_INFO_501(NDR):
         ('shi501_flags', DWORD),
     )
 
-class LPSHARE_INFO_501(NDRPointer):
+class LPSHARE_INFO_501(NDRPOINTER):
     referent = (
         ('Data', SHARE_INFO_501),
     )
@@ -777,7 +777,7 @@ class LPSHARE_INFO_501(NDRPointer):
 class SHARE_INFO_501_ARRAY(NDRUniConformantArray):
     item = SHARE_INFO_501
 
-class LPSHARE_INFO_501_ARRAY(NDRPointer):
+class LPSHARE_INFO_501_ARRAY(NDRPOINTER):
     referent = (
         ('Data', SHARE_INFO_501_ARRAY),
     )
@@ -797,7 +797,7 @@ class SHARE_INFO_502(NDR):
         ('shi502_security_descriptor', LPBYTE),
     )
 
-class LPSHARE_INFO_502(NDRPointer):
+class LPSHARE_INFO_502(NDRPOINTER):
     referent = (
         ('Data', SHARE_INFO_502),
     )
@@ -805,7 +805,7 @@ class LPSHARE_INFO_502(NDRPointer):
 class SHARE_INFO_502_ARRAY(NDRUniConformantArray):
     item = SHARE_INFO_502
 
-class LPSHARE_INFO_502_ARRAY(NDRPointer):
+class LPSHARE_INFO_502_ARRAY(NDRPOINTER):
     referent = (
         ('Data', SHARE_INFO_502_ARRAY),
     )
@@ -826,7 +826,7 @@ class SHARE_INFO_503(NDR):
         ('shi503_security_descriptor', LPBYTE),
     )
 
-class LPSHARE_INFO_503(NDRPointer):
+class LPSHARE_INFO_503(NDRPOINTER):
     referent = (
         ('Data', SHARE_INFO_503),
     )
@@ -834,7 +834,7 @@ class LPSHARE_INFO_503(NDRPointer):
 class SHARE_INFO_503_ARRAY(NDRUniConformantArray):
     item = SHARE_INFO_503
 
-class LPSHARE_INFO_503_ARRAY(NDRPointer):
+class LPSHARE_INFO_503_ARRAY(NDRPOINTER):
     referent = (
         ('Data', SHARE_INFO_503_ARRAY),
     )
@@ -845,7 +845,7 @@ class SHARE_INFO_1004(NDR):
         ('shi1004_remark', LPWSTR),
     )
 
-class LPSHARE_INFO_1004(NDRPointer):
+class LPSHARE_INFO_1004(NDRPOINTER):
     referent = (
         ('Data', SHARE_INFO_1004),
     )
@@ -853,7 +853,7 @@ class LPSHARE_INFO_1004(NDRPointer):
 class SHARE_INFO_1004_ARRAY(NDRUniConformantArray):
     item = SHARE_INFO_1004
 
-class LPSHARE_INFO_1004_ARRAY(NDRPointer):
+class LPSHARE_INFO_1004_ARRAY(NDRPOINTER):
     referent = (
         ('Data', SHARE_INFO_1004_ARRAY),
     )
@@ -864,7 +864,7 @@ class SHARE_INFO_1005(NDR):
         ('shi1005_flags', DWORD),
     )
 
-class LPSHARE_INFO_1005(NDRPointer):
+class LPSHARE_INFO_1005(NDRPOINTER):
     referent = (
         ('Data', SHARE_INFO_1005),
     )
@@ -872,7 +872,7 @@ class LPSHARE_INFO_1005(NDRPointer):
 class SHARE_INFO_1005_ARRAY(NDRUniConformantArray):
     item = SHARE_INFO_1004
 
-class LPSHARE_INFO_1005_ARRAY(NDRPointer):
+class LPSHARE_INFO_1005_ARRAY(NDRPOINTER):
     referent = (
         ('Data', SHARE_INFO_1005_ARRAY),
     )
@@ -883,7 +883,7 @@ class SHARE_INFO_1006(NDR):
         ('shi1006_max_uses', DWORD),
     )
 
-class LPSHARE_INFO_1006(NDRPointer):
+class LPSHARE_INFO_1006(NDRPOINTER):
     referent = (
         ('Data', SHARE_INFO_1006),
     )
@@ -891,7 +891,7 @@ class LPSHARE_INFO_1006(NDRPointer):
 class SHARE_INFO_1006_ARRAY(NDRUniConformantArray):
     item = SHARE_INFO_1006
 
-class LPSHARE_INFO_1006_ARRAY(NDRPointer):
+class LPSHARE_INFO_1006_ARRAY(NDRPOINTER):
     referent = (
         ('Data', SHARE_INFO_1006_ARRAY),
     )
@@ -903,7 +903,7 @@ class SHARE_INFO_1501(NDR):
         ('shi1501_security_descriptor', NDRUniConformantArray),
     )
 
-class LPSHARE_INFO_1501(NDRPointer):
+class LPSHARE_INFO_1501(NDRPOINTER):
     referent = (
         ('Data', SHARE_INFO_1501),
     )
@@ -911,7 +911,7 @@ class LPSHARE_INFO_1501(NDRPointer):
 class SHARE_INFO_1501_ARRAY(NDRUniConformantArray):
     item = SHARE_INFO_1501
 
-class LPSHARE_INFO_1501_ARRAY(NDRPointer):
+class LPSHARE_INFO_1501_ARRAY(NDRPOINTER):
     referent = (
         ('Data', SHARE_INFO_1501_ARRAY),
     )
@@ -923,7 +923,7 @@ class SHARE_INFO_0_CONTAINER(NDR):
         ('Buffer', LPSHARE_INFO_0_ARRAY),
     )
 
-class LPSHARE_INFO_0_CONTAINER(NDRPointer):
+class LPSHARE_INFO_0_CONTAINER(NDRPOINTER):
     referent = (
         ('Data', SHARE_INFO_0_CONTAINER),
     )
@@ -935,7 +935,7 @@ class SHARE_INFO_1_CONTAINER(NDR):
         ('Buffer', LPSHARE_INFO_1_ARRAY),
     )
 
-class LPSHARE_INFO_1_CONTAINER(NDRPointer):
+class LPSHARE_INFO_1_CONTAINER(NDRPOINTER):
     referent = (
         ('Data', SHARE_INFO_1_CONTAINER),
     )
@@ -947,7 +947,7 @@ class SHARE_INFO_2_CONTAINER(NDR):
         ('Buffer', LPSHARE_INFO_2_ARRAY),
     )
 
-class LPSHARE_INFO_2_CONTAINER(NDRPointer):
+class LPSHARE_INFO_2_CONTAINER(NDRPOINTER):
     referent = (
         ('Data', SHARE_INFO_2_CONTAINER),
     )
@@ -959,7 +959,7 @@ class SHARE_INFO_501_CONTAINER(NDR):
         ('Buffer', LPSHARE_INFO_501_ARRAY),
     )
 
-class LPSHARE_INFO_501_CONTAINER(NDRPointer):
+class LPSHARE_INFO_501_CONTAINER(NDRPOINTER):
     referent = (
         ('Data', SHARE_INFO_501_CONTAINER),
     )
@@ -971,7 +971,7 @@ class SHARE_INFO_502_CONTAINER(NDR):
         ('Buffer', LPSHARE_INFO_502_ARRAY),
     )
 
-class LPSHARE_INFO_502_CONTAINER(NDRPointer):
+class LPSHARE_INFO_502_CONTAINER(NDRPOINTER):
     referent = (
         ('Data', SHARE_INFO_502_CONTAINER),
     )
@@ -983,13 +983,13 @@ class SHARE_INFO_503_CONTAINER(NDR):
         ('Buffer', LPSHARE_INFO_503_ARRAY),
     )
 
-class LPSHARE_INFO_503_CONTAINER(NDRPointer):
+class LPSHARE_INFO_503_CONTAINER(NDRPOINTER):
     referent = (
         ('Data', SHARE_INFO_503_CONTAINER),
     )
 
 # 2.2.3.5 SHARE_ENUM_UNION
-class SHARE_ENUM_UNION(NDRUnion):
+class SHARE_ENUM_UNION(NDRUNION):
     align = 4
     commonHdr = (
         ('tag', DWORD),
@@ -1033,7 +1033,7 @@ class STAT_SERVER_0(NDR):
         ('sts0_bigbufneed', DWORD),
     )
 
-class LPSTAT_SERVER_0(NDRPointer):
+class LPSTAT_SERVER_0(NDRPOINTER):
     referent = (
         ('Data', STAT_SERVER_0),
     )
@@ -1045,7 +1045,7 @@ class SERVER_INFO_100(NDR):
         ('sv100_name', LPWSTR),
     )
 
-class LPSERVER_INFO_100(NDRPointer):
+class LPSERVER_INFO_100(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_100),
     )
@@ -1061,7 +1061,7 @@ class SERVER_INFO_101(NDR):
         ('sv101_comment', LPWSTR),
     )
 
-class LPSERVER_INFO_101(NDRPointer):
+class LPSERVER_INFO_101(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_101),
     )
@@ -1084,7 +1084,7 @@ class SERVER_INFO_102(NDR):
         ('sv102_userpath', LPWSTR),
     )
 
-class LPSERVER_INFO_102(NDRPointer):
+class LPSERVER_INFO_102(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_102),
     )
@@ -1108,7 +1108,7 @@ class SERVER_INFO_103(NDR):
         ('sv103_capabilities', DWORD),
     )
 
-class LPSERVER_INFO_103(NDRPointer):
+class LPSERVER_INFO_103(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_103),
     )
@@ -1136,7 +1136,7 @@ class SERVER_INFO_502(NDR):
         ('sv502_lmannounce', DWORD),
     )
 
-class LPSERVER_INFO_502(NDRPointer):
+class LPSERVER_INFO_502(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_502),
     )
@@ -1188,7 +1188,7 @@ class SERVER_INFO_503(NDR):
         ('sv503_maxfreeconnections', DWORD),
     )
 
-class LPSERVER_INFO_503(NDRPointer):
+class LPSERVER_INFO_503(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_503),
     )
@@ -1254,7 +1254,7 @@ class SERVER_INFO_599(NDR):
         ('sv599_maxworkitemidletime', DWORD),
     )
 
-class LPSERVER_INFO_599(NDRPointer):
+class LPSERVER_INFO_599(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_599),
     )
@@ -1265,7 +1265,7 @@ class SERVER_INFO_1005(NDR):
         ('sv1005_comment', LPWSTR),
     )
 
-class LPSERVER_INFO_1005(NDRPointer):
+class LPSERVER_INFO_1005(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1005),
     )
@@ -1276,7 +1276,7 @@ class SERVER_INFO_1107(NDR):
         ('sv1107_users', DWORD),
     )
 
-class LPSERVER_INFO_1107(NDRPointer):
+class LPSERVER_INFO_1107(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1107),
     )
@@ -1287,7 +1287,7 @@ class SERVER_INFO_1010(NDR):
         ('sv1010_disc', DWORD),
     )
 
-class LPSERVER_INFO_1010(NDRPointer):
+class LPSERVER_INFO_1010(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1010),
     )
@@ -1298,7 +1298,7 @@ class SERVER_INFO_1016(NDR):
         ('sv1016_hidden', DWORD),
     )
 
-class LPSERVER_INFO_1016(NDRPointer):
+class LPSERVER_INFO_1016(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1016),
     )
@@ -1309,7 +1309,7 @@ class SERVER_INFO_1017(NDR):
         ('sv1017_announce', DWORD),
     )
 
-class LPSERVER_INFO_1017(NDRPointer):
+class LPSERVER_INFO_1017(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1017),
     )
@@ -1320,7 +1320,7 @@ class SERVER_INFO_1018(NDR):
         ('sv1018_anndelta', DWORD),
     )
 
-class LPSERVER_INFO_1018(NDRPointer):
+class LPSERVER_INFO_1018(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1018),
     )
@@ -1331,7 +1331,7 @@ class SERVER_INFO_1501(NDR):
         ('sv1501_sessopens', DWORD),
     )
 
-class LPSERVER_INFO_1501(NDRPointer):
+class LPSERVER_INFO_1501(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1501),
     )
@@ -1342,7 +1342,7 @@ class SERVER_INFO_1502(NDR):
         ('sv1502_sessvcs', DWORD),
     )
 
-class LPSERVER_INFO_1502(NDRPointer):
+class LPSERVER_INFO_1502(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1502),
     )
@@ -1353,7 +1353,7 @@ class SERVER_INFO_1503(NDR):
         ('sv1503_opensearch', DWORD),
     )
 
-class LPSERVER_INFO_1503(NDRPointer):
+class LPSERVER_INFO_1503(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1503),
     )
@@ -1364,7 +1364,7 @@ class SERVER_INFO_1506(NDR):
         ('sv1506_maxworkitems', DWORD),
     )
 
-class LPSERVER_INFO_1506(NDRPointer):
+class LPSERVER_INFO_1506(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1506),
     )
@@ -1375,7 +1375,7 @@ class SERVER_INFO_1510(NDR):
         ('sv1510_sessusers', DWORD),
     )
 
-class LPSERVER_INFO_1510(NDRPointer):
+class LPSERVER_INFO_1510(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1510),
     )
@@ -1386,7 +1386,7 @@ class SERVER_INFO_1511(NDR):
         ('sv1511_sessconns', DWORD),
     )
 
-class LPSERVER_INFO_1511(NDRPointer):
+class LPSERVER_INFO_1511(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1511),
     )
@@ -1397,7 +1397,7 @@ class SERVER_INFO_1512(NDR):
         ('sv1512_maxnonpagedmemoryusage', DWORD),
     )
 
-class LPSERVER_INFO_1512(NDRPointer):
+class LPSERVER_INFO_1512(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1512),
     )
@@ -1408,7 +1408,7 @@ class SERVER_INFO_1513(NDR):
         ('sv1513_maxpagedmemoryusage', DWORD),
     )
 
-class LPSERVER_INFO_1513(NDRPointer):
+class LPSERVER_INFO_1513(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1513),
     )
@@ -1419,7 +1419,7 @@ class SERVER_INFO_1514(NDR):
         ('sv1514_enablesoftcompat', DWORD),
     )
 
-class LPSERVER_INFO_1514(NDRPointer):
+class LPSERVER_INFO_1514(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1514),
     )
@@ -1430,7 +1430,7 @@ class SERVER_INFO_1515(NDR):
         ('sv1515_enableforcedlogoff', DWORD),
     )
 
-class LPSERVER_INFO_1515(NDRPointer):
+class LPSERVER_INFO_1515(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1515),
     )
@@ -1441,7 +1441,7 @@ class SERVER_INFO_1516(NDR):
         ('sv1516_timesource', DWORD),
     )
 
-class LPSERVER_INFO_1516(NDRPointer):
+class LPSERVER_INFO_1516(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1516),
     )
@@ -1452,7 +1452,7 @@ class SERVER_INFO_1518(NDR):
         ('sv1518_lmannounce', DWORD),
     )
 
-class LPSERVER_INFO_1518(NDRPointer):
+class LPSERVER_INFO_1518(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1518),
     )
@@ -1463,7 +1463,7 @@ class SERVER_INFO_1523(NDR):
         ('sv1523_maxkeepsearch', DWORD),
     )
 
-class LPSERVER_INFO_1523(NDRPointer):
+class LPSERVER_INFO_1523(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1523),
     )
@@ -1474,7 +1474,7 @@ class SERVER_INFO_1528(NDR):
         ('sv1528_scavtimeout', DWORD),
     )
 
-class LPSERVER_INFO_1528(NDRPointer):
+class LPSERVER_INFO_1528(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1528),
     )
@@ -1485,7 +1485,7 @@ class SERVER_INFO_1529(NDR):
         ('sv1529_minrcvqueue', DWORD),
     )
 
-class LPSERVER_INFO_1529(NDRPointer):
+class LPSERVER_INFO_1529(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1529),
     )
@@ -1496,7 +1496,7 @@ class SERVER_INFO_1530(NDR):
         ('sv1530_minfreeworkitems', DWORD),
     )
 
-class LPSERVER_INFO_1530(NDRPointer):
+class LPSERVER_INFO_1530(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1530),
     )
@@ -1507,7 +1507,7 @@ class SERVER_INFO_1533(NDR):
         ('sv1533_maxmpxct', DWORD),
     )
 
-class LPSERVER_INFO_1533(NDRPointer):
+class LPSERVER_INFO_1533(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1533),
     )
@@ -1518,7 +1518,7 @@ class SERVER_INFO_1534(NDR):
         ('sv1534_oplockbreakwait', DWORD),
     )
 
-class LPSERVER_INFO_1534(NDRPointer):
+class LPSERVER_INFO_1534(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1534),
     )
@@ -1529,7 +1529,7 @@ class SERVER_INFO_1535(NDR):
         ('sv1535_oplockbreakresponsewait', DWORD),
     )
 
-class LPSERVER_INFO_1535(NDRPointer):
+class LPSERVER_INFO_1535(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1535),
     )
@@ -1540,7 +1540,7 @@ class SERVER_INFO_1536(NDR):
         ('sv1536_enableoplocks', DWORD),
     )
 
-class LPSERVER_INFO_1536(NDRPointer):
+class LPSERVER_INFO_1536(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1536),
     )
@@ -1551,7 +1551,7 @@ class SERVER_INFO_1538(NDR):
         ('sv1538_enablefcbopens', DWORD),
     )
 
-class LPSERVER_INFO_1538(NDRPointer):
+class LPSERVER_INFO_1538(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1538),
     )
@@ -1562,7 +1562,7 @@ class SERVER_INFO_1539(NDR):
         ('sv1539_enableraw', DWORD),
     )
 
-class LPSERVER_INFO_1539(NDRPointer):
+class LPSERVER_INFO_1539(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1539),
     )
@@ -1573,7 +1573,7 @@ class SERVER_INFO_1540(NDR):
         ('sv1540_enablesharednetdrives', DWORD),
     )
 
-class LPSERVER_INFO_1540(NDRPointer):
+class LPSERVER_INFO_1540(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1540),
     )
@@ -1584,7 +1584,7 @@ class SERVER_INFO_1541(NDR):
         ('sv1541_minfreeconnections', DWORD),
     )
 
-class LPSERVER_INFO_1541(NDRPointer):
+class LPSERVER_INFO_1541(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1541),
     )
@@ -1595,7 +1595,7 @@ class SERVER_INFO_1542(NDR):
         ('sv1542_maxfreeconnections', DWORD),
     )
 
-class LPSERVER_INFO_1542(NDRPointer):
+class LPSERVER_INFO_1542(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1542),
     )
@@ -1606,7 +1606,7 @@ class SERVER_INFO_1543(NDR):
         ('sv1543_initsesstable', DWORD),
     )
 
-class LPSERVER_INFO_1543(NDRPointer):
+class LPSERVER_INFO_1543(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1543),
     )
@@ -1617,7 +1617,7 @@ class SERVER_INFO_1544(NDR):
         ('sv1544_initconntable', DWORD),
     )
 
-class LPSERVER_INFO_1544(NDRPointer):
+class LPSERVER_INFO_1544(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1544),
     )
@@ -1628,7 +1628,7 @@ class SERVER_INFO_1545(NDR):
         ('sv1545_initfiletable', DWORD),
     )
 
-class LPSERVER_INFO_1545(NDRPointer):
+class LPSERVER_INFO_1545(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1545),
     )
@@ -1639,7 +1639,7 @@ class SERVER_INFO_1546(NDR):
         ('sv1546_initsearchtable', DWORD),
     )
 
-class LPSERVER_INFO_1546(NDRPointer):
+class LPSERVER_INFO_1546(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1546),
     )
@@ -1650,7 +1650,7 @@ class SERVER_INFO_1547(NDR):
         ('sv1547_alertschedule', DWORD),
     )
 
-class LPSERVER_INFO_1547(NDRPointer):
+class LPSERVER_INFO_1547(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1547),
     )
@@ -1661,7 +1661,7 @@ class SERVER_INFO_1548(NDR):
         ('sv1548_errorthreshold', DWORD),
     )
 
-class LPSERVER_INFO_1548(NDRPointer):
+class LPSERVER_INFO_1548(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1548),
     )
@@ -1672,7 +1672,7 @@ class SERVER_INFO_1549(NDR):
         ('sv1549_networkerrorthreshold', DWORD),
     )
 
-class LPSERVER_INFO_1549(NDRPointer):
+class LPSERVER_INFO_1549(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1549),
     )
@@ -1683,7 +1683,7 @@ class SERVER_INFO_1550(NDR):
         ('sv1550_diskspacethreshold', DWORD),
     )
 
-class LPSERVER_INFO_1550(NDRPointer):
+class LPSERVER_INFO_1550(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1550),
     )
@@ -1694,7 +1694,7 @@ class SERVER_INFO_1552(NDR):
         ('sv1552_maxlinkdelay', DWORD),
     )
 
-class LPSERVER_INFO_1552(NDRPointer):
+class LPSERVER_INFO_1552(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1552),
     )
@@ -1705,7 +1705,7 @@ class SERVER_INFO_1553(NDR):
         ('sv1553_minlinkthroughput', DWORD),
     )
 
-class LPSERVER_INFO_1553(NDRPointer):
+class LPSERVER_INFO_1553(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1553),
     )
@@ -1716,7 +1716,7 @@ class SERVER_INFO_1554(NDR):
         ('sv1554_linkinfovalidtime', DWORD),
     )
 
-class LPSERVER_INFO_1554(NDRPointer):
+class LPSERVER_INFO_1554(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1554),
     )
@@ -1727,7 +1727,7 @@ class SERVER_INFO_1555(NDR):
         ('sv1555_scavqosinfoupdatetime', DWORD),
     )
 
-class LPSERVER_INFO_1555(NDRPointer):
+class LPSERVER_INFO_1555(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1555),
     )
@@ -1738,7 +1738,7 @@ class SERVER_INFO_1556(NDR):
         ('sv1556_maxworkitemidletime', DWORD),
     )
 
-class LPSERVER_INFO_1556(NDRPointer):
+class LPSERVER_INFO_1556(NDRPOINTER):
     referent = (
         ('Data', SERVER_INFO_1556),
     )
@@ -1791,7 +1791,7 @@ class DISK_INFO(NDR):
         ('Disk', WCHAR_ARRAY),
     )
 
-class LPDISK_INFO(NDRPointer):
+class LPDISK_INFO(NDRPOINTER):
     referent = (
         ('Data', DISK_INFO),
     )
@@ -1799,7 +1799,7 @@ class LPDISK_INFO(NDRPointer):
 class DISK_INFO_ARRAY(NDRUniConformantVaryingArray):
     item = DISK_INFO
 
-class LPDISK_INFO_ARRAY(NDRPointer):
+class LPDISK_INFO_ARRAY(NDRPOINTER):
     referent = (
         ('Data', DISK_INFO_ARRAY),
     )
@@ -1811,7 +1811,7 @@ class DISK_ENUM_CONTAINER(NDR):
         ('Buffer', LPDISK_INFO_ARRAY),
     )
 
-class LPDISK_ENUM_CONTAINER(NDRPointer):
+class LPDISK_ENUM_CONTAINER(NDRPOINTER):
     referent = (
         ('Data', DISK_ENUM_CONTAINER),
     )
@@ -1826,7 +1826,7 @@ class SERVER_TRANSPORT_INFO_0(NDR):
         ('svti0_networkaddress', LPWSTR),
     )
 
-class LPSERVER_TRANSPORT_INFO_0(NDRPointer):
+class LPSERVER_TRANSPORT_INFO_0(NDRPOINTER):
     referent = (
         ('Data', SERVER_TRANSPORT_INFO_0),
     )
@@ -1834,7 +1834,7 @@ class LPSERVER_TRANSPORT_INFO_0(NDRPointer):
 class SERVER_TRANSPORT_INFO_0_ARRAY(NDRUniConformantArray):
     item = SERVER_TRANSPORT_INFO_0
 
-class LPSERVER_TRANSPORT_INFO_0_ARRAY(NDRPointer):
+class LPSERVER_TRANSPORT_INFO_0_ARRAY(NDRPOINTER):
     referent = (
         ('Data', SERVER_TRANSPORT_INFO_0_ARRAY),
     )
@@ -1850,7 +1850,7 @@ class SERVER_TRANSPORT_INFO_1(NDR):
         ('svti1_domain', LPWSTR),
     )
 
-class LPSERVER_TRANSPORT_INFO_1(NDRPointer):
+class LPSERVER_TRANSPORT_INFO_1(NDRPOINTER):
     referent = (
         ('Data', SERVER_TRANSPORT_INFO_1),
     )
@@ -1858,7 +1858,7 @@ class LPSERVER_TRANSPORT_INFO_1(NDRPointer):
 class SERVER_TRANSPORT_INFO_1_ARRAY(NDRUniConformantArray):
     item = SERVER_TRANSPORT_INFO_1
 
-class LPSERVER_TRANSPORT_INFO_1_ARRAY(NDRPointer):
+class LPSERVER_TRANSPORT_INFO_1_ARRAY(NDRPOINTER):
     referent = (
         ('Data', SERVER_TRANSPORT_INFO_1_ARRAY),
     )
@@ -1875,7 +1875,7 @@ class SERVER_TRANSPORT_INFO_2(NDR):
         ('svti2_flags', DWORD),
     )
 
-class LPSERVER_TRANSPORT_INFO_2(NDRPointer):
+class LPSERVER_TRANSPORT_INFO_2(NDRPOINTER):
     referent = (
         ('Data', SERVER_TRANSPORT_INFO_2),
     )
@@ -1883,7 +1883,7 @@ class LPSERVER_TRANSPORT_INFO_2(NDRPointer):
 class SERVER_TRANSPORT_INFO_2_ARRAY(NDRUniConformantArray):
     item = SERVER_TRANSPORT_INFO_2
 
-class LPSERVER_TRANSPORT_INFO_2_ARRAY(NDRPointer):
+class LPSERVER_TRANSPORT_INFO_2_ARRAY(NDRPOINTER):
     referent = (
         ('Data', SERVER_TRANSPORT_INFO_2_ARRAY),
     )
@@ -1906,7 +1906,7 @@ class SERVER_TRANSPORT_INFO_3(NDR):
         ('svti3_password', PASSWORD_ARRAY),
     )
 
-class LPSERVER_TRANSPORT_INFO_3(NDRPointer):
+class LPSERVER_TRANSPORT_INFO_3(NDRPOINTER):
     referent = (
         ('Data', SERVER_TRANSPORT_INFO_3),
     )
@@ -1914,7 +1914,7 @@ class LPSERVER_TRANSPORT_INFO_3(NDRPointer):
 class SERVER_TRANSPORT_INFO_3_ARRAY(NDRUniConformantArray):
     item = SERVER_TRANSPORT_INFO_3
 
-class LPSERVER_TRANSPORT_INFO_3_ARRAY(NDRPointer):
+class LPSERVER_TRANSPORT_INFO_3_ARRAY(NDRPOINTER):
     referent = (
         ('Data', SERVER_TRANSPORT_INFO_3_ARRAY),
     )
@@ -1926,7 +1926,7 @@ class SERVER_XPORT_INFO_0_CONTAINER(NDR):
         ('Buffer', LPSERVER_TRANSPORT_INFO_0_ARRAY),
     )
 
-class LPSERVER_XPORT_INFO_0_CONTAINER(NDRPointer):
+class LPSERVER_XPORT_INFO_0_CONTAINER(NDRPOINTER):
     referent = (
         ('Data', SERVER_XPORT_INFO_0_CONTAINER),
     )
@@ -1938,7 +1938,7 @@ class SERVER_XPORT_INFO_1_CONTAINER(NDR):
         ('Buffer', LPSERVER_TRANSPORT_INFO_1_ARRAY),
     )
 
-class LPSERVER_XPORT_INFO_1_CONTAINER(NDRPointer):
+class LPSERVER_XPORT_INFO_1_CONTAINER(NDRPOINTER):
     referent = (
         ('Data', SERVER_XPORT_INFO_1_CONTAINER),
     )
@@ -1950,7 +1950,7 @@ class SERVER_XPORT_INFO_2_CONTAINER(NDR):
         ('Buffer', LPSERVER_TRANSPORT_INFO_2_ARRAY),
     )
 
-class LPSERVER_XPORT_INFO_2_CONTAINER(NDRPointer):
+class LPSERVER_XPORT_INFO_2_CONTAINER(NDRPOINTER):
     referent = (
         ('Data', SERVER_XPORT_INFO_2_CONTAINER),
     )
@@ -1962,13 +1962,13 @@ class SERVER_XPORT_INFO_3_CONTAINER(NDR):
         ('Buffer', LPSERVER_TRANSPORT_INFO_3_ARRAY),
     )
 
-class LPSERVER_XPORT_INFO_3_CONTAINER(NDRPointer):
+class LPSERVER_XPORT_INFO_3_CONTAINER(NDRPOINTER):
     referent = (
         ('Data', SERVER_XPORT_INFO_3_CONTAINER),
     )
 
 # 2.2.3.8 SERVER_XPORT_ENUM_UNION
-class SERVER_XPORT_ENUM_UNION(NDRUnion):
+class SERVER_XPORT_ENUM_UNION(NDRUNION):
     align = 4
     commonHdr = (
         ('tag', DWORD),
@@ -1997,7 +1997,7 @@ class SERVER_ALIAS_INFO_0(NDR):
         ('srvai0_reserved', ULONG),
     )
 
-class LPSERVER_ALIAS_INFO_0(NDRPointer):
+class LPSERVER_ALIAS_INFO_0(NDRPOINTER):
     referent = (
         ('Data', SERVER_ALIAS_INFO_0),
     )
@@ -2005,7 +2005,7 @@ class LPSERVER_ALIAS_INFO_0(NDRPointer):
 class SERVER_ALIAS_INFO_0_ARRAY(NDRUniConformantArray):
     item = SERVER_ALIAS_INFO_0
 
-class LPSERVER_ALIAS_INFO_0_ARRAY(NDRPointer):
+class LPSERVER_ALIAS_INFO_0_ARRAY(NDRPOINTER):
     referent = (
         ('Data', SERVER_ALIAS_INFO_0_ARRAY),
     )
@@ -2017,13 +2017,13 @@ class SERVER_ALIAS_INFO_0_CONTAINER(NDR):
         ('Buffer', LPSERVER_ALIAS_INFO_0_ARRAY),
     )
 
-class LPSERVER_ALIAS_INFO_0_CONTAINER(NDRPointer):
+class LPSERVER_ALIAS_INFO_0_CONTAINER(NDRPOINTER):
     referent = (
         ('Data', SERVER_ALIAS_INFO_0_CONTAINER),
     )
 
 # 2.2.4.104 SERVER_ALIAS_ENUM_STRUCT
-class SERVER_ALIAS_ENUM_UNION(NDRUnion):
+class SERVER_ALIAS_ENUM_UNION(NDRUNION):
     align = 4
     commonHdr = (
         ('tag', DWORD),
@@ -2056,7 +2056,7 @@ class TIME_OF_DAY_INFO(NDR):
         ('tod_weekday', DWORD),
     )
 
-class LPTIME_OF_DAY_INFO(NDRPointer):
+class LPTIME_OF_DAY_INFO(NDRPOINTER):
     referent = (
         ('Data', TIME_OF_DAY_INFO),
     )
@@ -2068,7 +2068,7 @@ class ADT_SECURITY_DESCRIPTOR(NDR):
         ('Buffer', PNDRUniConformantArray),
     )
 
-class PADT_SECURITY_DESCRIPTOR(NDRPointer):
+class PADT_SECURITY_DESCRIPTOR(NDRPOINTER):
     referent = (
         ('Data', ADT_SECURITY_DESCRIPTOR),
     )
@@ -2083,7 +2083,7 @@ class NET_DFS_ENTRY_ID(NDR):
 class NET_DFS_ENTRY_ID_ARRAY(NDRUniConformantArray):
     item = NET_DFS_ENTRY_ID
 
-class LPNET_DFS_ENTRY_ID_ARRAY(NDRPointer):
+class LPNET_DFS_ENTRY_ID_ARRAY(NDRPOINTER):
      referent = (
          ('Data', NET_DFS_ENTRY_ID_ARRAY),
      )
@@ -2112,14 +2112,14 @@ class DFS_SITELIST_INFO(NDR):
         ('Site', DFS_SITENAME_INFO_ARRAY),
     )
 
-class LPDFS_SITELIST_INFO(NDRPointer):
+class LPDFS_SITELIST_INFO(NDRPOINTER):
     referent = (
         ('Data', DFS_SITELIST_INFO),
     )
 
 # 2.2.3 Unions
 # 2.2.3.3 FILE_INFO
-class FILE_INFO(NDRUnion):
+class FILE_INFO(NDRUNION):
     align = 4
     commonHdr = (
         ('tag', DWORD),
@@ -2131,7 +2131,7 @@ class FILE_INFO(NDRUnion):
     }
 
 # 2.2.3.6 SHARE_INFO
-class SHARE_INFO(NDRUnion):
+class SHARE_INFO(NDRUNION):
     align = 4
     commonHdr = (
         ('tag', DWORD),
@@ -2151,7 +2151,7 @@ class SHARE_INFO(NDRUnion):
     }
 
 # 2.2.3.7 SERVER_INFO
-class SERVER_INFO(NDRUnion):
+class SERVER_INFO(NDRUNION):
     align = 4
     commonHdr = (
         ('tag', DWORD),
@@ -2212,7 +2212,7 @@ class SERVER_INFO(NDRUnion):
     }
 
 # 2.2.3.9 TRANSPORT_INFO
-class TRANSPORT_INFO(NDRUnion):
+class TRANSPORT_INFO(NDRUNION):
     align = 4
     commonHdr = (
         ('tag', DWORD),
@@ -2226,7 +2226,7 @@ class TRANSPORT_INFO(NDRUnion):
     }
 
 # 2.2.3.10 SERVER_ALIAS_INFO
-class SERVER_ALIAS_INFO(NDRUnion):
+class SERVER_ALIAS_INFO(NDRUNION):
     align = 4
     commonHdr = (
         ('tag', DWORD),
@@ -2241,7 +2241,7 @@ class SERVER_ALIAS_INFO(NDRUnion):
 # RPC CALLS
 ################################################################################
 # 3.1.4.1 NetrConnectionEnum (Opnum 8)
-class NetrConnectionEnum(NDRCall):
+class NetrConnectionEnum(NDRCALL):
     opnum = 8
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
@@ -2251,7 +2251,7 @@ class NetrConnectionEnum(NDRCall):
        ('ResumeHandle', LPLONG),
     )
 
-class NetrConnectionEnumResponse(NDRCall):
+class NetrConnectionEnumResponse(NDRCALL):
     structure = (
        ('InfoStruct',CONNECT_ENUM_STRUCT),
        ('TotalEntries',DWORD),
@@ -2260,7 +2260,7 @@ class NetrConnectionEnumResponse(NDRCall):
     )
 
 # 3.1.4.2 NetrFileEnum (Opnum 9)
-class NetrFileEnum(NDRCall):
+class NetrFileEnum(NDRCALL):
     opnum = 9
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
@@ -2271,7 +2271,7 @@ class NetrFileEnum(NDRCall):
        ('ResumeHandle', LPLONG),
     )
 
-class NetrFileEnumResponse(NDRCall):
+class NetrFileEnumResponse(NDRCALL):
     structure = (
        ('InfoStruct',FILE_ENUM_STRUCT),
        ('TotalEntries',DWORD),
@@ -2280,7 +2280,7 @@ class NetrFileEnumResponse(NDRCall):
     )
 
 # 3.1.4.3 NetrFileGetInfo (Opnum 10)
-class NetrFileGetInfo(NDRCall):
+class NetrFileGetInfo(NDRCALL):
     opnum = 10
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
@@ -2288,27 +2288,27 @@ class NetrFileGetInfo(NDRCall):
        ('Level', DWORD),
     )
 
-class NetrFileGetInfoResponse(NDRCall):
+class NetrFileGetInfoResponse(NDRCALL):
     structure = (
        ('InfoStruct',FILE_INFO),
        ('ErrorCode',ULONG),
     )
 
 # 3.1.4.4 NetrFileClose (Opnum 11)
-class NetrFileClose(NDRCall):
+class NetrFileClose(NDRCALL):
     opnum = 11
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
        ('FileId', DWORD),
     )
 
-class NetrFileCloseResponse(NDRCall):
+class NetrFileCloseResponse(NDRCALL):
     structure = (
        ('ErrorCode',ULONG),
     )
 
 # 3.1.4.5 NetrSessionEnum (Opnum 12)
-class NetrSessionEnum(NDRCall):
+class NetrSessionEnum(NDRCALL):
     opnum = 12
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
@@ -2319,7 +2319,7 @@ class NetrSessionEnum(NDRCall):
        ('ResumeHandle', LPLONG),
     )
 
-class NetrSessionEnumResponse(NDRCall):
+class NetrSessionEnumResponse(NDRCALL):
     structure = (
        ('InfoStruct',SESSION_ENUM_STRUCT),
        ('TotalEntries',DWORD),
@@ -2328,7 +2328,7 @@ class NetrSessionEnumResponse(NDRCall):
     )
 
 # 3.1.4.6 NetrSessionDel (Opnum 13)
-class NetrSessionDel(NDRCall):
+class NetrSessionDel(NDRCALL):
     opnum = 13
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
@@ -2336,13 +2336,13 @@ class NetrSessionDel(NDRCall):
        ('UserName', LPWSTR),
     )
 
-class NetrSessionDelResponse(NDRCall):
+class NetrSessionDelResponse(NDRCALL):
     structure = (
        ('ErrorCode',ULONG),
     )
 
 # 3.1.4.7 NetrShareAdd (Opnum 14)
-class NetrShareAdd(NDRCall):
+class NetrShareAdd(NDRCALL):
     opnum = 14
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
@@ -2351,14 +2351,14 @@ class NetrShareAdd(NDRCall):
        ('ParmErr', LPLONG),
     )
 
-class NetrShareAddResponse(NDRCall):
+class NetrShareAddResponse(NDRCALL):
     structure = (
        ('ParmErr', LPLONG),
        ('ErrorCode',ULONG),
     )
 
 # 3.1.4.8 NetrShareEnum (Opnum 15)
-class NetrShareEnum(NDRCall):
+class NetrShareEnum(NDRCALL):
     opnum = 15
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
@@ -2367,7 +2367,7 @@ class NetrShareEnum(NDRCall):
        ('ResumeHandle', LPLONG),
     )
 
-class NetrShareEnumResponse(NDRCall):
+class NetrShareEnumResponse(NDRCALL):
     structure = (
        ('InfoStruct', SHARE_ENUM_STRUCT),
        ('TotalEntries',DWORD),
@@ -2376,7 +2376,7 @@ class NetrShareEnumResponse(NDRCall):
     )
 
 # 3.1.4.9 NetrShareEnumSticky (Opnum 36)
-class NetrShareEnumSticky(NDRCall):
+class NetrShareEnumSticky(NDRCALL):
     opnum = 36
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
@@ -2385,7 +2385,7 @@ class NetrShareEnumSticky(NDRCall):
        ('ResumeHandle', LPLONG),
     )
 
-class NetrShareEnumStickyResponse(NDRCall):
+class NetrShareEnumStickyResponse(NDRCALL):
     structure = (
        ('InfoStruct', SHARE_ENUM_STRUCT),
        ('TotalEntries',DWORD),
@@ -2394,7 +2394,7 @@ class NetrShareEnumStickyResponse(NDRCall):
     )
 
 # 3.1.4.10 NetrShareGetInfo (Opnum 16)
-class NetrShareGetInfo(NDRCall):
+class NetrShareGetInfo(NDRCALL):
     opnum = 16
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
@@ -2402,14 +2402,14 @@ class NetrShareGetInfo(NDRCall):
        ('Level', DWORD),
     )
 
-class NetrShareGetInfoResponse(NDRCall):
+class NetrShareGetInfoResponse(NDRCALL):
     structure = (
        ('InfoStruct', SHARE_INFO),
        ('ErrorCode',ULONG),
     )
 
 # 3.1.4.11 NetrShareSetInfo (Opnum 17)
-class NetrShareSetInfo(NDRCall):
+class NetrShareSetInfo(NDRCALL):
     opnum = 17
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
@@ -2419,14 +2419,14 @@ class NetrShareSetInfo(NDRCall):
        ('ParmErr', LPLONG),
     )
 
-class NetrShareSetInfoResponse(NDRCall):
+class NetrShareSetInfoResponse(NDRCALL):
     structure = (
        ('ParmErr', LPLONG),
        ('ErrorCode',ULONG),
     )
 
 # 3.1.4.12 NetrShareDel (Opnum 18)
-class NetrShareDel(NDRCall):
+class NetrShareDel(NDRCALL):
     opnum = 18
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
@@ -2434,13 +2434,13 @@ class NetrShareDel(NDRCall):
        ('Reserved', DWORD),
     )
 
-class NetrShareDelResponse(NDRCall):
+class NetrShareDelResponse(NDRCALL):
     structure = (
        ('ErrorCode',ULONG),
     )
 
 # 3.1.4.13 NetrShareDelSticky (Opnum 19)
-class NetrShareDelSticky(NDRCall):
+class NetrShareDelSticky(NDRCALL):
     opnum = 19
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
@@ -2448,13 +2448,13 @@ class NetrShareDelSticky(NDRCall):
        ('Reserved', DWORD),
     )
 
-class NetrShareDelStickyResponse(NDRCall):
+class NetrShareDelStickyResponse(NDRCALL):
     structure = (
        ('ErrorCode',ULONG),
     )
 
 # 3.1.4.14 NetrShareDelStart (Opnum 37)
-class NetrShareDelStart(NDRCall):
+class NetrShareDelStart(NDRCALL):
     opnum = 37
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
@@ -2462,40 +2462,40 @@ class NetrShareDelStart(NDRCall):
        ('Reserved', DWORD),
     )
 
-class NetrShareDelStartResponse(NDRCall):
+class NetrShareDelStartResponse(NDRCALL):
     structure = (
        ('ContextHandle',SHARE_DEL_HANDLE),
        ('ErrorCode',ULONG),
     )
 
 # 3.1.4.15 NetrShareDelCommit (Opnum 38)
-class NetrShareDelCommit(NDRCall):
+class NetrShareDelCommit(NDRCALL):
     opnum = 38
     structure = (
        ('ContextHandle',SHARE_DEL_HANDLE),
     )
 
-class NetrShareDelCommitResponse(NDRCall):
+class NetrShareDelCommitResponse(NDRCALL):
     structure = (
        ('ErrorCode',ULONG),
     )
 
 # 3.1.4.16 NetrShareCheck (Opnum 20)
-class NetrShareCheck(NDRCall):
+class NetrShareCheck(NDRCALL):
     opnum = 20
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
        ('Device', WSTR),
     )
 
-class NetrShareCheckResponse(NDRCall):
+class NetrShareCheckResponse(NDRCALL):
     structure = (
        ('Type',DWORD),
        ('ErrorCode',ULONG),
     )
 
 # 3.1.4.17 NetrServerGetInfo (Opnum 21)
-class NetrServerGetInfo(NDRCall):
+class NetrServerGetInfo(NDRCALL):
     opnum = 21
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
@@ -2503,14 +2503,14 @@ class NetrServerGetInfo(NDRCall):
        ('InfoStruct', SERVER_INFO),
     )
 
-class NetrServerGetInfoResponse(NDRCall):
+class NetrServerGetInfoResponse(NDRCALL):
     structure = (
        ('InfoStruct', SERVER_INFO),
        ('ErrorCode',ULONG),
     )
 
 # 3.1.4.18 NetrServerSetInfo (Opnum 22)
-class NetrServerSetInfo(NDRCall):
+class NetrServerSetInfo(NDRCALL):
     opnum = 22
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
@@ -2518,14 +2518,14 @@ class NetrServerSetInfo(NDRCall):
        ('InfoStruct', SERVER_INFO),
     )
 
-class NetrServerSetInfoResponse(NDRCall):
+class NetrServerSetInfoResponse(NDRCALL):
     structure = (
        ('ParmErr', LPLONG),
        ('ErrorCode',ULONG),
     )
 
 # 3.1.4.19 NetrServerDiskEnum (Opnum 23)
-class NetrServerDiskEnum(NDRCall):
+class NetrServerDiskEnum(NDRCALL):
     opnum = 23
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
@@ -2535,7 +2535,7 @@ class NetrServerDiskEnum(NDRCall):
        ('ResumeHandle', LPLONG),
     )
 
-class NetrServerDiskEnumResponse(NDRCall):
+class NetrServerDiskEnumResponse(NDRCALL):
     structure = (
        ('DiskInfoStruct', DISK_ENUM_CONTAINER),
        ('TotalEntries', DWORD),
@@ -2544,7 +2544,7 @@ class NetrServerDiskEnumResponse(NDRCall):
     )
 
 # 3.1.4.20 NetrServerStatisticsGet (Opnum 24)
-class NetrServerStatisticsGet(NDRCall):
+class NetrServerStatisticsGet(NDRCALL):
     opnum = 24
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
@@ -2553,27 +2553,27 @@ class NetrServerStatisticsGet(NDRCall):
        ('Options', DWORD),
     )
 
-class NetrServerStatisticsGetResponse(NDRCall):
+class NetrServerStatisticsGetResponse(NDRCALL):
     structure = (
        ('InfoStruct', LPSTAT_SERVER_0),
        ('ErrorCode',ULONG),
     )
 
 # 3.1.4.21 NetrRemoteTOD (Opnum 28)
-class NetrRemoteTOD(NDRCall):
+class NetrRemoteTOD(NDRCALL):
     opnum = 28
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
     )
 
-class NetrRemoteTODResponse(NDRCall):
+class NetrRemoteTODResponse(NDRCALL):
     structure = (
        ('BufferPtr', LPTIME_OF_DAY_INFO),
        ('ErrorCode',ULONG),
     )
 
 # 3.1.4.22 NetrServerTransportAdd (Opnum 25)
-class NetrServerTransportAdd(NDRCall):
+class NetrServerTransportAdd(NDRCALL):
     opnum = 25
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
@@ -2581,13 +2581,13 @@ class NetrServerTransportAdd(NDRCall):
        ('Buffer', SERVER_TRANSPORT_INFO_0),
     )
 
-class NetrServerTransportAddResponse(NDRCall):
+class NetrServerTransportAddResponse(NDRCALL):
     structure = (
        ('ErrorCode',ULONG),
     )
 
 # 3.1.4.23 NetrServerTransportAddEx (Opnum 41)
-class NetrServerTransportAddEx(NDRCall):
+class NetrServerTransportAddEx(NDRCALL):
     opnum = 41
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
@@ -2595,13 +2595,13 @@ class NetrServerTransportAddEx(NDRCall):
        ('Buffer', TRANSPORT_INFO),
     )
 
-class NetrServerTransportAddExResponse(NDRCall):
+class NetrServerTransportAddExResponse(NDRCALL):
     structure = (
        ('ErrorCode',ULONG),
     )
 
 # 3.1.4.24 NetrServerTransportEnum (Opnum 26)
-class NetrServerTransportEnum(NDRCall):
+class NetrServerTransportEnum(NDRCALL):
     opnum = 26
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
@@ -2610,7 +2610,7 @@ class NetrServerTransportEnum(NDRCall):
        ('ResumeHandle', LPLONG),
     )
 
-class NetrServerTransportEnumResponse(NDRCall):
+class NetrServerTransportEnumResponse(NDRCALL):
     structure = (
        ('InfoStruct', SERVER_XPORT_ENUM_STRUCT),
        ('TotalEntries', DWORD),
@@ -2619,7 +2619,7 @@ class NetrServerTransportEnumResponse(NDRCall):
     )
 
 # 3.1.4.25 NetrServerTransportDel (Opnum 27)
-class NetrServerTransportDel(NDRCall):
+class NetrServerTransportDel(NDRCALL):
     opnum = 27
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
@@ -2627,13 +2627,13 @@ class NetrServerTransportDel(NDRCall):
        ('Buffer', SERVER_TRANSPORT_INFO_0),
     )
 
-class NetrServerTransportDelResponse(NDRCall):
+class NetrServerTransportDelResponse(NDRCALL):
     structure = (
        ('ErrorCode',ULONG),
     )
 
 # 3.1.4.26 NetrServerTransportDelEx (Opnum 53)
-class NetrServerTransportDelEx(NDRCall):
+class NetrServerTransportDelEx(NDRCALL):
     opnum = 53
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
@@ -2641,13 +2641,13 @@ class NetrServerTransportDelEx(NDRCall):
        ('Buffer', TRANSPORT_INFO),
     )
 
-class NetrServerTransportDelExResponse(NDRCall):
+class NetrServerTransportDelExResponse(NDRCALL):
     structure = (
        ('ErrorCode',ULONG),
     )
 
 # 3.1.4.27 NetrpGetFileSecurity (Opnum 39)
-class NetrpGetFileSecurity(NDRCall):
+class NetrpGetFileSecurity(NDRCALL):
     opnum = 39
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
@@ -2656,14 +2656,14 @@ class NetrpGetFileSecurity(NDRCall):
        ('RequestedInformation', SECURITY_INFORMATION),
     )
 
-class NetrpGetFileSecurityResponse(NDRCall):
+class NetrpGetFileSecurityResponse(NDRCALL):
     structure = (
        ('SecurityDescriptor', PADT_SECURITY_DESCRIPTOR),
        ('ErrorCode',ULONG),
     )
 
 # 3.1.4.28 NetrpSetFileSecurity (Opnum 40)
-class NetrpSetFileSecurity(NDRCall):
+class NetrpSetFileSecurity(NDRCALL):
     opnum = 40
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
@@ -2673,13 +2673,13 @@ class NetrpSetFileSecurity(NDRCall):
        ('SecurityDescriptor', ADT_SECURITY_DESCRIPTOR),
     )
 
-class NetrpSetFileSecurityResponse(NDRCall):
+class NetrpSetFileSecurityResponse(NDRCALL):
     structure = (
        ('ErrorCode',ULONG),
     )
 
 # 3.1.4.29 NetprPathType (Opnum 30)
-class NetprPathType(NDRCall):
+class NetprPathType(NDRCALL):
     opnum = 30
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
@@ -2687,14 +2687,14 @@ class NetprPathType(NDRCall):
        ('Flags', DWORD),
     )
 
-class NetprPathTypeResponse(NDRCall):
+class NetprPathTypeResponse(NDRCALL):
     structure = (
        ('PathType', DWORD),
        ('ErrorCode',ULONG),
     )
 
 # 3.1.4.30 NetprPathCanonicalize (Opnum 31)
-class NetprPathCanonicalize(NDRCall):
+class NetprPathCanonicalize(NDRCALL):
     opnum = 31
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
@@ -2705,7 +2705,7 @@ class NetprPathCanonicalize(NDRCall):
        ('Flags', DWORD),
     )
 
-class NetprPathCanonicalizeResponse(NDRCall):
+class NetprPathCanonicalizeResponse(NDRCALL):
     structure = (
        ('Outbuf', NDRUniConformantArray),
        ('PathType', DWORD),
@@ -2713,7 +2713,7 @@ class NetprPathCanonicalizeResponse(NDRCall):
     )
 
 # 3.1.4.31 NetprPathCompare (Opnum 32)
-class NetprPathCompare(NDRCall):
+class NetprPathCompare(NDRCALL):
     opnum = 32
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
@@ -2723,13 +2723,13 @@ class NetprPathCompare(NDRCall):
        ('Flags', DWORD),
     )
 
-class NetprPathCompareResponse(NDRCall):
+class NetprPathCompareResponse(NDRCALL):
     structure = (
        ('ErrorCode',ULONG),
     )
 
 # 3.1.4.32 NetprNameValidate (Opnum 33)
-class NetprNameValidate(NDRCall):
+class NetprNameValidate(NDRCALL):
     opnum = 33
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
@@ -2738,13 +2738,13 @@ class NetprNameValidate(NDRCall):
        ('Flags', DWORD),
     )
 
-class NetprNameValidateResponse(NDRCall):
+class NetprNameValidateResponse(NDRCALL):
     structure = (
        ('ErrorCode',ULONG),
     )
 
 # 3.1.4.33 NetprNameCanonicalize (Opnum 34)
-class NetprNameCanonicalize(NDRCall):
+class NetprNameCanonicalize(NDRCALL):
     opnum = 34
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
@@ -2754,7 +2754,7 @@ class NetprNameCanonicalize(NDRCall):
        ('Flags', DWORD),
     )
 
-class NetprNameCanonicalizeResponse(NDRCall):
+class NetprNameCanonicalizeResponse(NDRCALL):
     structure = (
        ('Outbuf', NDRUniConformantArray),
        ('NameType', DWORD),
@@ -2762,7 +2762,7 @@ class NetprNameCanonicalizeResponse(NDRCall):
     )
 
 # 3.1.4.34 NetprNameCompare (Opnum 35)
-class NetprNameCompare(NDRCall):
+class NetprNameCompare(NDRCALL):
     opnum = 35
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
@@ -2772,26 +2772,26 @@ class NetprNameCompare(NDRCall):
        ('Flags', DWORD),
     )
 
-class NetprNameCompareResponse(NDRCall):
+class NetprNameCompareResponse(NDRCALL):
     structure = (
        ('ErrorCode',ULONG),
     )
 
 # 3.1.4.35 NetrDfsGetVersion (Opnum 43)
-class NetrDfsGetVersion(NDRCall):
+class NetrDfsGetVersion(NDRCALL):
     opnum = 43
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
     )
 
-class NetrDfsGetVersionResponse(NDRCall):
+class NetrDfsGetVersionResponse(NDRCALL):
     structure = (
        ('Version', DWORD),
        ('ErrorCode',ULONG),
     )
 
 # 3.1.4.36 NetrDfsCreateLocalPartition (Opnum 44)
-class NetrDfsCreateLocalPartition(NDRCall):
+class NetrDfsCreateLocalPartition(NDRCALL):
     opnum = 44
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
@@ -2803,13 +2803,13 @@ class NetrDfsCreateLocalPartition(NDRCall):
        ('Force', DWORD),
     )
 
-class NetrDfsCreateLocalPartitionResponse(NDRCall):
+class NetrDfsCreateLocalPartitionResponse(NDRCALL):
     structure = (
        ('ErrorCode',ULONG),
     )
 
 # 3.1.4.37 NetrDfsDeleteLocalPartition (Opnum 45)
-class NetrDfsDeleteLocalPartition(NDRCall):
+class NetrDfsDeleteLocalPartition(NDRCALL):
     opnum = 45
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
@@ -2817,13 +2817,13 @@ class NetrDfsDeleteLocalPartition(NDRCall):
        ('Prefix', WSTR),
     )
 
-class NetrDfsDeleteLocalPartitionResponse(NDRCall):
+class NetrDfsDeleteLocalPartitionResponse(NDRCALL):
     structure = (
        ('ErrorCode',ULONG),
     )
 
 # 3.1.4.38 NetrDfsSetLocalVolumeState (Opnum 46)
-class NetrDfsSetLocalVolumeState(NDRCall):
+class NetrDfsSetLocalVolumeState(NDRCALL):
     opnum = 46
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
@@ -2832,13 +2832,13 @@ class NetrDfsSetLocalVolumeState(NDRCall):
        ('State', DWORD),
     )
 
-class NetrDfsSetLocalVolumeStateResponse(NDRCall):
+class NetrDfsSetLocalVolumeStateResponse(NDRCALL):
     structure = (
        ('ErrorCode',ULONG),
     )
 
 # 3.1.4.39 NetrDfsCreateExitPoint (Opnum 48)
-class NetrDfsCreateExitPoint(NDRCall):
+class NetrDfsCreateExitPoint(NDRCALL):
     opnum = 48
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
@@ -2848,14 +2848,14 @@ class NetrDfsCreateExitPoint(NDRCall):
        ('ShortPrefixLen', DWORD),
     )
 
-class NetrDfsCreateExitPointResponse(NDRCall):
+class NetrDfsCreateExitPointResponse(NDRCALL):
     structure = (
        ('ShortPrefix',WCHAR_ARRAY),
        ('ErrorCode',ULONG),
     )
 
 # 3.1.4.40 NetrDfsModifyPrefix (Opnum 50)
-class NetrDfsModifyPrefix(NDRCall):
+class NetrDfsModifyPrefix(NDRCALL):
     opnum = 50
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
@@ -2863,13 +2863,13 @@ class NetrDfsModifyPrefix(NDRCall):
        ('Prefix', WSTR),
     )
 
-class NetrDfsModifyPrefixResponse(NDRCall):
+class NetrDfsModifyPrefixResponse(NDRCALL):
     structure = (
        ('ErrorCode',ULONG),
     )
 
 # 3.1.4.41 NetrDfsDeleteExitPoint (Opnum 49)
-class NetrDfsDeleteExitPoint(NDRCall):
+class NetrDfsDeleteExitPoint(NDRCALL):
     opnum = 49
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
@@ -2878,13 +2878,13 @@ class NetrDfsDeleteExitPoint(NDRCall):
        ('Type', DWORD),
     )
 
-class NetrDfsDeleteExitPointResponse(NDRCall):
+class NetrDfsDeleteExitPointResponse(NDRCALL):
     structure = (
        ('ErrorCode',ULONG),
     )
 
 # 3.1.4.42 NetrDfsFixLocalVolume (Opnum 51)
-class NetrDfsFixLocalVolume(NDRCall):
+class NetrDfsFixLocalVolume(NDRCALL):
     opnum = 51
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
@@ -2898,27 +2898,27 @@ class NetrDfsFixLocalVolume(NDRCall):
        ('CreateDisposition', DWORD),
     )
 
-class NetrDfsFixLocalVolumeResponse(NDRCall):
+class NetrDfsFixLocalVolumeResponse(NDRCALL):
     structure = (
        ('ErrorCode',ULONG),
     )
 
 # 3.1.4.43 NetrDfsManagerReportSiteInfo (Opnum 52)
-class NetrDfsManagerReportSiteInfo(NDRCall):
+class NetrDfsManagerReportSiteInfo(NDRCALL):
     opnum = 52
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
        ('ppSiteInfo', LPDFS_SITELIST_INFO),
     )
 
-class NetrDfsManagerReportSiteInfoResponse(NDRCall):
+class NetrDfsManagerReportSiteInfoResponse(NDRCALL):
     structure = (
        ('ppSiteInfo', LPDFS_SITELIST_INFO),
        ('ErrorCode',ULONG),
     )
 
 # 3.1.4.44 NetrServerAliasAdd (Opnum 54)
-class NetrServerAliasAdd(NDRCall):
+class NetrServerAliasAdd(NDRCALL):
     opnum = 54
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
@@ -2926,13 +2926,13 @@ class NetrServerAliasAdd(NDRCall):
        ('InfoStruct', SERVER_ALIAS_INFO),
     )
 
-class NetrServerAliasAddResponse(NDRCall):
+class NetrServerAliasAddResponse(NDRCALL):
     structure = (
        ('ErrorCode',ULONG),
     )
 
 # 3.1.4.45 NetrServerAliasEnum (Opnum 55)
-class NetrServerAliasEnum(NDRCall):
+class NetrServerAliasEnum(NDRCALL):
     opnum = 55
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
@@ -2941,7 +2941,7 @@ class NetrServerAliasEnum(NDRCall):
        ('ResumeHandle', LPLONG),
     )
 
-class NetrServerAliasEnumResponse(NDRCall):
+class NetrServerAliasEnumResponse(NDRCALL):
     structure = (
        ('InfoStruct',SERVER_ALIAS_ENUM_STRUCT),
        ('TotalEntries',DWORD),
@@ -2950,7 +2950,7 @@ class NetrServerAliasEnumResponse(NDRCall):
     )
 
 # 3.1.4.46 NetrServerAliasDel (Opnum 56)
-class NetrServerAliasDel(NDRCall):
+class NetrServerAliasDel(NDRCALL):
     opnum = 56
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
@@ -2958,13 +2958,13 @@ class NetrServerAliasDel(NDRCall):
        ('InfoStruct', SERVER_ALIAS_INFO),
     )
 
-class NetrServerAliasDelResponse(NDRCall):
+class NetrServerAliasDelResponse(NDRCALL):
     structure = (
        ('ErrorCode',ULONG),
     )
 
 # 3.1.4.47 NetrShareDelEx (Opnum 57)
-class NetrShareDelEx(NDRCall):
+class NetrShareDelEx(NDRCALL):
     opnum = 57
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
@@ -2972,7 +2972,7 @@ class NetrShareDelEx(NDRCall):
        ('ShareInfo', SHARE_INFO),
     )
 
-class NetrShareDelExResponse(NDRCall):
+class NetrShareDelExResponse(NDRCALL):
     structure = (
        ('ErrorCode',ULONG),
     )

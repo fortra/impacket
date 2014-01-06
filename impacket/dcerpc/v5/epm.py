@@ -17,7 +17,7 @@ import socket
 from struct import unpack
 from impacket.uuid import uuidtup_to_bin, bin_to_string
 from impacket.dcerpc.v5 import ndr, transport
-from impacket.dcerpc.v5.ndr import NDR, NDRCall, NDRPointer, NDRUniConformantVaryingArray, NDRUniVaryingArray, NDRUniConformantArray
+from impacket.dcerpc.v5.ndr import NDR, NDRCALL, NDRPOINTER, NDRUniConformantVaryingArray, NDRUniVaryingArray, NDRUniConformantArray
 from impacket.dcerpc.v5.dtypes import GUID, UUID, LPBYTE, PUUID, ULONG, USHORT
 from impacket.structure import Structure
 from impacket.uuid import string_to_bin
@@ -778,7 +778,7 @@ class RPC_IF_ID(NDR):
         ('VersMinor', USHORT),
     )
 
-class PRPC_IF_ID(NDRPointer):
+class PRPC_IF_ID(NDRPOINTER):
     referent = (
         ('Data', RPC_IF_ID),
     )
@@ -795,7 +795,7 @@ class twr_t(NDR):
         ('tower_octet_string', NDRUniConformantArray),
     )
 
-class twr_p_t(NDRPointer):
+class twr_p_t(NDRPOINTER):
     referent = (
         ('Data', twr_t),
     )
@@ -846,7 +846,7 @@ error_status = ULONG
 # RPC CALLS
 ################################################################################
 
-class ept_lookup(NDRCall):
+class ept_lookup(NDRCALL):
     opnum = 2
     structure = (
         ('inquiry_type',ULONG),
@@ -857,7 +857,7 @@ class ept_lookup(NDRCall):
         ('max_ents',ULONG),
     )
 
-class ept_lookupResponse(NDRCall):
+class ept_lookupResponse(NDRCALL):
     structure = (
         ('entry_handle',ept_lookup_handle_t),
         ('num_ents',ULONG),
@@ -865,7 +865,7 @@ class ept_lookupResponse(NDRCall):
         ('status',error_status),
     )
 
-class ept_map(NDRCall):
+class ept_map(NDRCALL):
     opnum = 3
     structure = (
         ('obj',PUUID),
@@ -874,7 +874,7 @@ class ept_map(NDRCall):
         ('max_towers',ULONG),
     )
 
-class ept_mapResponse(NDRCall):
+class ept_mapResponse(NDRCALL):
     structure = (
         ('entry_handle',ept_lookup_handle_t),
         ('num_towers',ULONG),

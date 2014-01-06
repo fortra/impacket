@@ -13,40 +13,40 @@
 #
 import random
 from struct import pack, unpack
-from impacket.dcerpc.v5 import ndr
+from impacket.dcerpc.v5.ndr import NDRULONG, NDRUHYPER, NDRUSMALL, NDRSHORT, NDRLONG, NDRPOINTER, NDRUniConformantArray, NDRUniFixedArray, NDR, NDRHYPER, NDRSMALL, NDRPOINTERNULL
 
-DWORD = ndr.NDRULONG
-ULONGLONG = ndr.NDRUHYPER
-BOOL = ndr.NDRULONG
-UCHAR = ndr.NDRUSMALL
-USHORT = ndr.NDRSHORT
-ULONG = ndr.NDRULONG
-LONG = ndr.NDRLONG
+DWORD = NDRULONG
+ULONGLONG = NDRUHYPER
+BOOL = NDRULONG
+UCHAR = NDRUSMALL
+USHORT = NDRSHORT
+ULONG = NDRULONG
+LONG = NDRLONG
 
-class LPLONG(ndr.NDRPointer):
+class LPLONG(NDRPOINTER):
     referent = (
         ('Data', LONG),
     )
 
-class LPULONG(ndr.NDRPointer):
+class LPULONG(NDRPOINTER):
     referent = (
         ('Data', ULONG),
     )
 
-class PBOOL(ndr.NDRPointer):
+class PBOOL(NDRPOINTER):
     referent = (
         ('Data', BOOL),
     )
 
-class LPBYTE(ndr.NDRPointer):
+class LPBYTE(NDRPOINTER):
     align = 4
     align64 = 8
     referent = (
-        ('Data', ndr.NDRUniConformantArray),
+        ('Data', NDRUniConformantArray),
     )
 PBYTE = LPBYTE
 
-class WIDESTR(ndr.NDRUniFixedArray):
+class WIDESTR(NDRUniFixedArray):
     def getDataLen(self, data):
         return data.find('\x00\x00\x00')+3
 
@@ -55,15 +55,15 @@ class WIDESTR(ndr.NDRUniFixedArray):
             self.fields[key] = value.encode('utf-16le')
             self.data = None        # force recompute
         else:
-            return ndr.NDR.__setitem__(self, key, value)
+            return NDR.__setitem__(self, key, value)
 
     def __getitem__(self, key):
         if key == 'Data':
             return self.fields[key].decode('utf-16le')
         else:
-            return ndr.NDR.__getitem__(self,key)
+            return NDR.__getitem__(self,key)
 
-class STR(ndr.NDR):
+class STR(NDR):
     align = 4
     align64 = 8
     commonHdr = (
@@ -95,17 +95,17 @@ class STR(ndr.NDR):
             self.fields['ActualCount'] = None
             self.data = None        # force recompute
         else:
-            return ndr.NDR.__setitem__(self, key, value)
+            return NDR.__setitem__(self, key, value)
 
     def getDataLen(self, data):
         return self["ActualCount"]
 
-class LPSTR(ndr.NDRPointer):
+class LPSTR(NDRPOINTER):
     referent = (
         ('Data', STR),
     )
 
-class WSTR(ndr.NDR):
+class WSTR(NDR):
     align = 4
     align64 = 8
     commonHdr = (
@@ -140,15 +140,15 @@ class WSTR(ndr.NDR):
             self.fields['ActualCount'] = None
             self.data = None        # force recompute
         else:
-            return ndr.NDR.__setitem__(self, key, value)
+            return NDR.__setitem__(self, key, value)
 
     def __getitem__(self, key):
         if key == 'Data':
             return self.fields[key].decode('utf-16le')
         else:
-            return ndr.NDR.__getitem__(self,key)
+            return NDR.__getitem__(self,key)
 
-class LPWSTR(ndr.NDRPointer):
+class LPWSTR(NDRPOINTER):
     referent = (
         ('Data', WSTR),
     )
@@ -160,13 +160,13 @@ LMSTR = LPWSTR
 NET_API_STATUS = DWORD
 
 # 2.3.2 GUID and UUID
-class GUID(ndr.NDR):
+class GUID(NDR):
     align = 0
     structure = (
         ('Data','16s=""'),
     )
 
-class PGUID(ndr.NDRPointer):
+class PGUID(NDRPOINTER):
     referent = (
         ('Data', GUID),
     )
@@ -181,21 +181,21 @@ NTSTATUS = DWORD
 WCHAR = WSTR
 
 # 2.3.3 LARGE_INTEGER
-LARGE_INTEGER = ndr.NDRHYPER
-class PLARGE_INTEGER(ndr.NDRPointer):
+LARGE_INTEGER = NDRHYPER
+class PLARGE_INTEGER(NDRPOINTER):
     referent = (
         ('Data', LARGE_INTEGER),
     )
 
 # 2.3.5 LUID
-class LUID(ndr.NDR):
+class LUID(NDR):
     structure = (
         ('LowPart', DWORD),
         ('HighPart', LONG),
     )
 
 # 2.3.8 RPC_UNICODE_STRING
-class RPC_UNICODE_STRING(ndr.NDR):
+class RPC_UNICODE_STRING(NDR):
     align = 4
     align64 = 8
     commonHdr = (
@@ -222,7 +222,7 @@ class RPC_UNICODE_STRING(ndr.NDR):
         print " %r" % (self['Data']),
 
     def __setitem__(self, key, value):
-        if isinstance(value, ndr.NDRPointerNULL):
+        if isinstance(value, NDRPOINTERNULL):
             self.fields['ReferentID'] = 0x00
             self.fields['Data'] = value
         if key == 'Data':
@@ -230,14 +230,14 @@ class RPC_UNICODE_STRING(ndr.NDR):
             self.fields['Length'] = None
             self.fields['MaximumLength'] = None
             self.data = None        # force recompute
-        return ndr.NDR.__setitem__(self, key, value)
+        return NDR.__setitem__(self, key, value)
 
     def getData(self, soFar = 0):
         # If we have a ReferentID == 0, means there's no data
         if self.fields['ReferentID'] == 0:
             self.fields['Data'].fields['Data']=''
 
-        return ndr.NDR.getData(self, soFar)
+        return NDR.getData(self, soFar)
 
     def dump(self, msg = None, indent = 0):
         if msg is None: msg = self.__class__.__name__
@@ -251,46 +251,46 @@ class RPC_UNICODE_STRING(ndr.NDR):
             return self.fields['Data'].dump( '', indent)
 
 
-class PRPC_UNICODE_STRING(ndr.NDRPointer):
+class PRPC_UNICODE_STRING(NDRPOINTER):
     referent = (
        ('Data', RPC_UNICODE_STRING ),
     )
 
-class LPDWORD(ndr.NDRPointer):
+class LPDWORD(NDRPOINTER):
     align = 4
     align64 = 8
     referent = (
-        ('Data', ndr.NDRUniConformantArray),
+        ('Data', NDRUniConformantArray),
     )
     def __init__(self, data = None,isNDR64 = False, topLevel = False):
-        ndr.NDRPointer.__init__(self, None, isNDR64, topLevel)
+        NDRPOINTER.__init__(self, None, isNDR64, topLevel)
         # ToDo: change this so it is DWORD instead of <H
         self.fields['Data'].item = '<L'
         if data is not None:
             self.fromString(data)
 
 # 2.4.2.3 RPC_SID
-class DWORD_ARRAY(ndr.NDRUniConformantArray):
+class DWORD_ARRAY(NDRUniConformantArray):
     item = '<L'
 
-class RPC_SID_IDENTIFIER_AUTHORITY(ndr.NDRUniFixedArray):
+class RPC_SID_IDENTIFIER_AUTHORITY(NDRUniFixedArray):
     align = 0
     align64 = 0
     def getDataLen(self, data):
         return 6
 
-class RPC_SID(ndr.NDR):
+class RPC_SID(NDR):
     align = 4
     align64 = 8
     structure = (
-        ('Revision',ndr.NDRSMALL),
-        ('SubAuthorityCount',ndr.NDRSMALL),
+        ('Revision',NDRSMALL),
+        ('SubAuthorityCount',NDRSMALL),
         ('IdentifierAuthority',RPC_SID_IDENTIFIER_AUTHORITY),
         ('SubAuthority',DWORD_ARRAY),
     )
     def getData(self, soFar = 0):
         self['SubAuthorityCount'] = len(self['SubAuthority'])
-        return ndr.NDR.getData(self, soFar)
+        return NDR.getData(self, soFar)
 
     def fromCanonical(self, canonical):
         items = canonical.split('-')
@@ -308,7 +308,7 @@ class RPC_SID(ndr.NDR):
             ans += '-%d' % self['SubAuthority'][i]
         return ans
 
-class PRPC_SID(ndr.NDRPointer):
+class PRPC_SID(NDRPOINTER):
     referent = (
         ('Data', RPC_SID),
     )
@@ -330,22 +330,22 @@ READ_CONTROL            = 0x00020000L
 DELETE                  = 0x00010000L
 
 # 2.4.5.1 ACL--RPC Representation
-class ACL(ndr.NDR):
+class ACL(NDR):
     structure = (
-        ('AclRevision',ndr.NDRSMALL),
-        ('Sbz1',ndr.NDRSMALL),
-        ('AclSize',ndr.NDRSHORT),
-        ('AceCount',ndr.NDRSHORT),
-        ('Sbz2',ndr.NDRSHORT),
+        ('AclRevision',NDRSMALL),
+        ('Sbz1',NDRSMALL),
+        ('AclSize',NDRSHORT),
+        ('AceCount',NDRSHORT),
+        ('Sbz2',NDRSHORT),
     )
 
-class PACL(ndr.NDRPointer):
+class PACL(NDRPOINTER):
     referent = (
         ('Data', ACL),
     )
 
 # 2.4.6.1 SECURITY_DESCRIPTOR--RPC Representation
-class SECURITY_DESCRIPTOR(ndr.NDR):
+class SECURITY_DESCRIPTOR(NDR):
     structure = (
         ('Revision',UCHAR),
         ('Sbz1',UCHAR),
@@ -371,7 +371,7 @@ SCOPE_SECURITY_INFORMATION            = 0x00000040
 BACKUP_SECURITY_INFORMATION           = 0x00010000
 
 SECURITY_INFORMATION = DWORD
-class PSECURITY_INFORMATION(ndr.NDRPointer):
+class PSECURITY_INFORMATION(NDRPOINTER):
     referent = (
         ('Data', SECURITY_INFORMATION),
     )

@@ -1,4 +1,4 @@
-# Copyright (c) 2003-2013 CORE Security Technologies
+# Copyright (c) 2003-2014 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -128,9 +128,9 @@ class NDR(object):
 
 
     def __setitem__(self, key, value):
-        if isinstance(value, NDRPointerNULL):
+        if isinstance(value, NDRPOINTERNULL):
             self.fields[key].fields['ReferentID'] = 0x00
-            if isinstance(self.fields[key], NDRPointer):
+            if isinstance(self.fields[key], NDRPOINTER):
                 self.fields[key] = value
         elif isinstance(value, NDR):
             # It's not a null pointer, ok. Another NDR type, but it 
@@ -300,7 +300,7 @@ class NDR(object):
                     # where we should go after the referent id
                     arraySize = res[:arrayItemSize]
                     res = res[arrayItemSize:]
-                    if isinstance(self, NDRPointer):
+                    if isinstance(self, NDRPOINTER):
                         pointerData = data[:arrayItemSize]    
                         data = data[arrayItemSize:]
                         data = pointerData + arraySize + data
@@ -415,7 +415,7 @@ class NDR(object):
             # And now, let's pretend we put the item in
             soFar += arrayItemSize
             # And let's extract the array size for later use, if it is a pointer, it is after the referent ID
-            if isinstance(self, NDRPointer):
+            if isinstance(self, NDRPOINTER):
                 arraySize = data[arrayItemSize:][:arrayItemSize]
             else:
                 arraySize = data[:arrayItemSize]
@@ -722,7 +722,7 @@ class NDR(object):
         # struct like specifier
         return calcsize(fieldTypeOrClass)
 
-class NDRCall(NDR):
+class NDRCALL(NDR):
     # This represents a group of NDR instances that conforms an NDR Call. 
     # The only different between a regular NDR instance is a NDR call must 
     # represent the referents when building the final octet stream
@@ -779,7 +779,7 @@ class NDRCall(NDR):
             print "isPointer %r" % field, type(field),
         if inspect.isclass(field):
             myClass = field
-            if issubclass(myClass, NDRPointer):
+            if issubclass(myClass, NDRPOINTER):
                 if self.debug:
                     print "True"
                 return True
@@ -792,7 +792,7 @@ class NDRCall(NDR):
             print "isUnion %r" % field, type(field),
         if inspect.isclass(field):
             myClass = field
-            if issubclass(myClass, NDRUnion):
+            if issubclass(myClass, NDRUNION):
                 if self.debug:
                     print "True"
                 return True
@@ -1116,7 +1116,7 @@ class NDRConformantVaryingString(NDRUniConformantVaryingArray):
 
 # Unions 
 
-class NDRUnion(NDR):
+class NDRUNION(NDR):
     align = 2
     commonHdr = (
         ('tag', NDRUSHORT),
@@ -1173,7 +1173,7 @@ class NDRUnion(NDR):
             print "isPointer %r" % field, type(field),
         if inspect.isclass(field):
             myClass = field
-            if issubclass(myClass, NDRPointer):
+            if issubclass(myClass, NDRPOINTER):
                 if self.debug:
                     print "True"
                 return True
@@ -1186,7 +1186,7 @@ class NDRUnion(NDR):
             print "isUnion %r" % field, type(field),
         if inspect.isclass(field):
             myClass = field
-            if issubclass(myClass, NDRUnion):
+            if issubclass(myClass, NDRUNION):
                 if self.debug:
                     print "True"
                 return True
@@ -1229,7 +1229,7 @@ class NDRUnion(NDR):
 # Pipes not implemented for now
 
 # Pointers
-class NDRPointerNULL(NDR):
+class NDRPOINTERNULL(NDR):
     align = 4
     align64 = 8
     structure = (
@@ -1247,7 +1247,7 @@ class NDRPointerNULL(NDR):
         # Here we just print NULL
         print " NULL",
 
-NULL = NDRPointerNULL()
+NULL = NDRPOINTERNULL()
 
 class NDRReferencePointer(NDR):
     structure = (
@@ -1255,7 +1255,7 @@ class NDRReferencePointer(NDR):
         ('Data',':'),
     )
 
-class NDRPointer(NDR):
+class NDRPOINTER(NDR):
     align = 4
     align64 = 8
     commonHdr = (
@@ -1344,17 +1344,17 @@ class NDRPointer(NDR):
 ################################################################################
 # Common RPC Data Types
 
-class PNDRUniConformantVaryingArray(NDRPointer):
+class PNDRUniConformantVaryingArray(NDRPOINTER):
     referent = (
         ('Data', NDRUniConformantVaryingArray),
     )
 
-class PNDRUniConformantArray(NDRPointer):
+class PNDRUniConformantArray(NDRPOINTER):
     referent = (
         ('Data', NDRUniConformantArray),
     )
     def __init__(self, data = None, isNDR64 = False, topLevel = False):
-        NDRPointer.__init__(self,data,isNDR64,topLevel)
+        NDRPOINTER.__init__(self,data,isNDR64,topLevel)
         
 ################################################################################
 # Tests
@@ -1461,7 +1461,7 @@ class TestConformantVaryingString(NDRTest):
 class TestPointerNULL(NDRTest):
     class theClass(NDR):
         structure = (
-            ('Array', NDRPointerNULL),
+            ('Array', NDRPOINTERNULL),
         )
     def populate(self, a):
         pass
