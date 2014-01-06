@@ -13,7 +13,7 @@
 #
 
 from impacket.dcerpc.v5 import ndr
-from impacket.dcerpc.v5.ndr import NDRCALL, NDR, NDRENUM, NDRUNION, NDRPOINTER, NDRUniConformantArray, NDRUniFixedArray, NDRBOOLEAN, NDRUniConformantVaryingArray, NDRUniVaryingArray, PNDRUniConformantArray
+from impacket.dcerpc.v5.ndr import NDRCALL, NDR, NDRSTRUCT, NDRENUM, NDRUNION, NDRPOINTER, NDRUniConformantArray, NDRUniFixedArray, NDRBOOLEAN, NDRUniConformantVaryingArray, NDRUniVaryingArray, PNDRUniConformantArray
 from impacket.dcerpc.v5.dtypes import *
 from impacket import system_errors
 from impacket.uuid import uuidtup_to_bin
@@ -335,7 +335,7 @@ FILE_CREATE    = 0x00000002
 # STRUCTURES
 ################################################################################
 # 2.2.4.1 CONNECTION_INFO_0
-class CONNECTION_INFO_0(NDR):
+class CONNECTION_INFO_0(NDRSTRUCT):
     structure = (
         ('coni0_id', DWORD),
     )
@@ -349,7 +349,7 @@ class LPCONNECTION_INFO_0_ARRAY(NDRPOINTER):
     )
 
 # 2.2.4.2 CONNECTION_INFO_1
-class CONNECTION_INFO_1(NDR):
+class CONNECTION_INFO_1(NDRSTRUCT):
     structure = (
         ('coni1_id', DWORD),
         ('coni1_type', DWORD),
@@ -369,7 +369,7 @@ class LPCONNECTION_INFO_1_ARRAY(NDRPOINTER):
     )
 
 # 2.2.4.3 CONNECT_INFO_0_CONTAINER
-class CONNECT_INFO_0_CONTAINER(NDR):
+class CONNECT_INFO_0_CONTAINER(NDRSTRUCT):
     structure = (
         ('EntriesRead', DWORD),
         ('Buffer', LPCONNECTION_INFO_0_ARRAY),
@@ -381,7 +381,7 @@ class LPCONNECT_INFO_0_CONTAINER(NDRPOINTER):
     )
 
 # 2.2.4.4 CONNECT_INFO_1_CONTAINER
-class CONNECT_INFO_1_CONTAINER(NDR):
+class CONNECT_INFO_1_CONTAINER(NDRSTRUCT):
     structure = (
         ('EntriesRead', DWORD),
         ('Buffer', LPCONNECTION_INFO_1_ARRAY),
@@ -405,14 +405,14 @@ class CONNECT_ENUM_UNION(NDRUNION):
     }
 
 # 2.2.4.5 CONNECT_ENUM_STRUCT
-class CONNECT_ENUM_STRUCT(NDR):
+class CONNECT_ENUM_STRUCT(NDRSTRUCT):
     structure = (
         ('Level', DWORD),
         ('ConnectInfo', CONNECT_ENUM_UNION),
     )
 
 # 2.2.4.6 FILE_INFO_2
-class FILE_INFO_2(NDR):
+class FILE_INFO_2(NDRSTRUCT):
     structure = (
         ('fi2_id', DWORD),
     )
@@ -431,7 +431,7 @@ class LPFILE_INFO_2_ARRAY(NDRPOINTER):
     )
 
 # 2.2.4.7 FILE_INFO_3
-class FILE_INFO_3(NDR):
+class FILE_INFO_3(NDRSTRUCT):
     structure = (
         ('fi3_id', DWORD),
         ('fi3_permissions', DWORD),
@@ -454,7 +454,7 @@ class LPFILE_INFO_3_ARRAY(NDRPOINTER):
     )
 
 # 2.2.4.8 FILE_INFO_2_CONTAINER
-class FILE_INFO_2_CONTAINER(NDR):
+class FILE_INFO_2_CONTAINER(NDRSTRUCT):
     structure = (
         ('EntriesRead', DWORD),
         ('Buffer', LPFILE_INFO_2_ARRAY),
@@ -466,7 +466,7 @@ class LPFILE_INFO_2_CONTAINER(NDRPOINTER):
     )
 
 # 2.2.4.9 FILE_INFO_3_CONTAINER
-class FILE_INFO_3_CONTAINER(NDR):
+class FILE_INFO_3_CONTAINER(NDRSTRUCT):
     structure = (
         ('EntriesRead', DWORD),
         ('Buffer', LPFILE_INFO_3_ARRAY),
@@ -490,14 +490,14 @@ class FILE_ENUM_UNION(NDRUNION):
     }
 
 # 2.2.4.10 FILE_ENUM_STRUCT
-class FILE_ENUM_STRUCT(NDR):
+class FILE_ENUM_STRUCT(NDRSTRUCT):
     structure = (
         ('Level', DWORD),
         ('FileInfo', FILE_ENUM_UNION),
     )
 
 # 2.2.4.11 SESSION_INFO_0
-class SESSION_INFO_0(NDR):
+class SESSION_INFO_0(NDRSTRUCT):
     structure = (
         ('sesi0_cname', LPWSTR),
     )
@@ -516,7 +516,7 @@ class LPSESSION_INFO_0_ARRAY(NDRPOINTER):
     )
 
 # 2.2.4.12 SESSION_INFO_1
-class SESSION_INFO_1(NDR):
+class SESSION_INFO_1(NDRSTRUCT):
     structure = (
         ('sesi1_cname', LPWSTR),
         ('sesi1_username', LPWSTR),
@@ -540,7 +540,7 @@ class LPSESSION_INFO_1_ARRAY(NDRPOINTER):
     )
 
 # 2.2.4.13 SESSION_INFO_2
-class SESSION_INFO_2(NDR):
+class SESSION_INFO_2(NDRSTRUCT):
     structure = (
         ('sesi2_cname', LPWSTR),
         ('sesi2_username', LPWSTR),
@@ -565,7 +565,7 @@ class LPSESSION_INFO_2_ARRAY(NDRPOINTER):
     )
 
 # 2.2.4.14 SESSION_INFO_10
-class SESSION_INFO_10(NDR):
+class SESSION_INFO_10(NDRSTRUCT):
     structure = (
         ('sesi10_cname', LPWSTR),
         ('sesi10_username', LPWSTR),
@@ -587,7 +587,7 @@ class LPSESSION_INFO_10_ARRAY(NDRPOINTER):
     )
 
 # 2.2.4.15 SESSION_INFO_502
-class SESSION_INFO_502(NDR):
+class SESSION_INFO_502(NDRSTRUCT):
     structure = (
         ('sesi502_cname', LPWSTR),
         ('sesi502_username', LPWSTR),
@@ -613,7 +613,7 @@ class LPSESSION_INFO_502_ARRAY(NDRPOINTER):
     )
 
 # 2.2.4.16 SESSION_INFO_0_CONTAINER
-class SESSION_INFO_0_CONTAINER(NDR):
+class SESSION_INFO_0_CONTAINER(NDRSTRUCT):
     structure = (
         ('EntriesRead', DWORD),
         ('Buffer', LPSESSION_INFO_0_ARRAY),
@@ -625,7 +625,7 @@ class LPSESSION_INFO_0_CONTAINER(NDRPOINTER):
     )
 
 # 2.2.4.17 SESSION_INFO_1_CONTAINER
-class SESSION_INFO_1_CONTAINER(NDR):
+class SESSION_INFO_1_CONTAINER(NDRSTRUCT):
     structure = (
         ('EntriesRead', DWORD),
         ('Buffer', LPSESSION_INFO_1_ARRAY),
@@ -637,7 +637,7 @@ class LPSESSION_INFO_1_CONTAINER(NDRPOINTER):
     )
 
 # 2.2.4.18 SESSION_INFO_2_CONTAINER
-class SESSION_INFO_2_CONTAINER(NDR):
+class SESSION_INFO_2_CONTAINER(NDRSTRUCT):
     structure = (
         ('EntriesRead', DWORD),
         ('Buffer', LPSESSION_INFO_2_ARRAY),
@@ -649,7 +649,7 @@ class LPSESSION_INFO_2_CONTAINER(NDRPOINTER):
     )
 
 # 2.2.4.19 SESSION_INFO_10_CONTAINER
-class SESSION_INFO_10_CONTAINER(NDR):
+class SESSION_INFO_10_CONTAINER(NDRSTRUCT):
     structure = (
         ('EntriesRead', DWORD),
         ('Buffer', LPSESSION_INFO_10_ARRAY),
@@ -661,7 +661,7 @@ class LPSESSION_INFO_10_CONTAINER(NDRPOINTER):
     )
 
 # 2.2.4.20 SESSION_INFO_502_CONTAINER
-class SESSION_INFO_502_CONTAINER(NDR):
+class SESSION_INFO_502_CONTAINER(NDRSTRUCT):
     structure = (
         ('EntriesRead', DWORD),
         ('Buffer', LPSESSION_INFO_502_ARRAY),
@@ -688,14 +688,14 @@ class SESSION_ENUM_UNION(NDRUNION):
     }
 
 # 2.2.4.21 SESSION_ENUM_STRUCT
-class SESSION_ENUM_STRUCT(NDR):
+class SESSION_ENUM_STRUCT(NDRSTRUCT):
     structure = (
         ('Level', DWORD),
         ('SessionInfo', SESSION_ENUM_UNION),
     )
 
 # 2.2.4.22 SHARE_INFO_0
-class SHARE_INFO_0(NDR):
+class SHARE_INFO_0(NDRSTRUCT):
     structure = (
         ('shi0_netname', LPWSTR),
     )
@@ -714,7 +714,7 @@ class LPSHARE_INFO_0_ARRAY(NDRPOINTER):
     )
 
 # 2.2.4.23 SHARE_INFO_1
-class SHARE_INFO_1(NDR):
+class SHARE_INFO_1(NDRSTRUCT):
     structure = (
         ('shi1_netname', LPWSTR),
         ('shi1_type', DWORD),
@@ -735,7 +735,7 @@ class LPSHARE_INFO_1_ARRAY(NDRPOINTER):
     )
 
 # 2.2.4.24 SHARE_INFO_2
-class SHARE_INFO_2(NDR):
+class SHARE_INFO_2(NDRSTRUCT):
     structure = (
         ('shi2_netname', LPWSTR),
         ('shi2_type', DWORD),
@@ -761,7 +761,7 @@ class LPSHARE_INFO_2_ARRAY(NDRPOINTER):
     )
 
 # 2.2.4.25 SHARE_INFO_501
-class SHARE_INFO_501(NDR):
+class SHARE_INFO_501(NDRSTRUCT):
     structure = (
         ('shi501_netname', LPWSTR),
         ('shi501_type', DWORD),
@@ -783,7 +783,7 @@ class LPSHARE_INFO_501_ARRAY(NDRPOINTER):
     )
 
 # 2.2.4.26 SHARE_INFO_502_I
-class SHARE_INFO_502(NDR):
+class SHARE_INFO_502(NDRSTRUCT):
     structure = (
         ('shi502_netname', LPWSTR),
         ('shi502_type', DWORD),
@@ -811,7 +811,7 @@ class LPSHARE_INFO_502_ARRAY(NDRPOINTER):
     )
 
 # 2.2.4.27 SHARE_INFO_503_I
-class SHARE_INFO_503(NDR):
+class SHARE_INFO_503(NDRSTRUCT):
     structure = (
         ('shi503_netname', LPWSTR),
         ('shi503_type', DWORD),
@@ -840,7 +840,7 @@ class LPSHARE_INFO_503_ARRAY(NDRPOINTER):
     )
 
 # 2.2.4.28 SHARE_INFO_1004
-class SHARE_INFO_1004(NDR):
+class SHARE_INFO_1004(NDRSTRUCT):
     structure = (
         ('shi1004_remark', LPWSTR),
     )
@@ -859,7 +859,7 @@ class LPSHARE_INFO_1004_ARRAY(NDRPOINTER):
     )
 
 # 2.2.4.29 SHARE_INFO_1005
-class SHARE_INFO_1005(NDR):
+class SHARE_INFO_1005(NDRSTRUCT):
     structure = (
         ('shi1005_flags', DWORD),
     )
@@ -878,7 +878,7 @@ class LPSHARE_INFO_1005_ARRAY(NDRPOINTER):
     )
 
 # 2.2.4.30 SHARE_INFO_1006
-class SHARE_INFO_1006(NDR):
+class SHARE_INFO_1006(NDRSTRUCT):
     structure = (
         ('shi1006_max_uses', DWORD),
     )
@@ -897,7 +897,7 @@ class LPSHARE_INFO_1006_ARRAY(NDRPOINTER):
     )
 
 # 2.2.4.31 SHARE_INFO_1501_I
-class SHARE_INFO_1501(NDR):
+class SHARE_INFO_1501(NDRSTRUCT):
     structure = (
         ('shi1501_reserved', DWORD),
         ('shi1501_security_descriptor', NDRUniConformantArray),
@@ -917,7 +917,7 @@ class LPSHARE_INFO_1501_ARRAY(NDRPOINTER):
     )
 
 # 2.2.4.32 SHARE_INFO_0_CONTAINER
-class SHARE_INFO_0_CONTAINER(NDR):
+class SHARE_INFO_0_CONTAINER(NDRSTRUCT):
     structure = (
         ('EntriesRead', DWORD),
         ('Buffer', LPSHARE_INFO_0_ARRAY),
@@ -929,7 +929,7 @@ class LPSHARE_INFO_0_CONTAINER(NDRPOINTER):
     )
 
 # 2.2.4.33 SHARE_INFO_1_CONTAINER
-class SHARE_INFO_1_CONTAINER(NDR):
+class SHARE_INFO_1_CONTAINER(NDRSTRUCT):
     structure = (
         ('EntriesRead', DWORD),
         ('Buffer', LPSHARE_INFO_1_ARRAY),
@@ -941,7 +941,7 @@ class LPSHARE_INFO_1_CONTAINER(NDRPOINTER):
     )
 
 # 2.2.4.34 SHARE_INFO_2_CONTAINER
-class SHARE_INFO_2_CONTAINER(NDR):
+class SHARE_INFO_2_CONTAINER(NDRSTRUCT):
     structure = (
         ('EntriesRead', DWORD),
         ('Buffer', LPSHARE_INFO_2_ARRAY),
@@ -953,7 +953,7 @@ class LPSHARE_INFO_2_CONTAINER(NDRPOINTER):
     )
 
 # 2.2.4.35 SHARE_INFO_501_CONTAINER
-class SHARE_INFO_501_CONTAINER(NDR):
+class SHARE_INFO_501_CONTAINER(NDRSTRUCT):
     structure = (
         ('EntriesRead', DWORD),
         ('Buffer', LPSHARE_INFO_501_ARRAY),
@@ -965,7 +965,7 @@ class LPSHARE_INFO_501_CONTAINER(NDRPOINTER):
     )
 
 # 2.2.4.36 SHARE_INFO_502_CONTAINER
-class SHARE_INFO_502_CONTAINER(NDR):
+class SHARE_INFO_502_CONTAINER(NDRSTRUCT):
     structure = (
         ('EntriesRead', DWORD),
         ('Buffer', LPSHARE_INFO_502_ARRAY),
@@ -977,7 +977,7 @@ class LPSHARE_INFO_502_CONTAINER(NDRPOINTER):
     )
 
 # 2.2.4.37 SHARE_INFO_503_CONTAINER
-class SHARE_INFO_503_CONTAINER(NDR):
+class SHARE_INFO_503_CONTAINER(NDRSTRUCT):
     structure = (
         ('EntriesRead', DWORD),
         ('Buffer', LPSHARE_INFO_503_ARRAY),
@@ -1005,14 +1005,14 @@ class SHARE_ENUM_UNION(NDRUNION):
     }
 
 # 2.2.4.38 SHARE_ENUM_STRUCT
-class SHARE_ENUM_STRUCT(NDR):
+class SHARE_ENUM_STRUCT(NDRSTRUCT):
     structure = (
         ('Level', DWORD),
         ('ShareInfo', SHARE_ENUM_UNION),
     )
 
 # 2.2.4.39 STAT_SERVER_0
-class STAT_SERVER_0(NDR):
+class STAT_SERVER_0(NDRSTRUCT):
     structure = (
         ('sts0_start', DWORD),
         ('sts0_fopens', DWORD),
@@ -1039,7 +1039,7 @@ class LPSTAT_SERVER_0(NDRPOINTER):
     )
 
 # 2.2.4.40 SERVER_INFO_100
-class SERVER_INFO_100(NDR):
+class SERVER_INFO_100(NDRSTRUCT):
     structure = (
         ('sv100_platform_id', DWORD),
         ('sv100_name', LPWSTR),
@@ -1051,7 +1051,7 @@ class LPSERVER_INFO_100(NDRPOINTER):
     )
 
 # 2.2.4.41 SERVER_INFO_101
-class SERVER_INFO_101(NDR):
+class SERVER_INFO_101(NDRSTRUCT):
     structure = (
         ('sv101_platform_id', DWORD),
         ('sv101_name', LPWSTR),
@@ -1067,7 +1067,7 @@ class LPSERVER_INFO_101(NDRPOINTER):
     )
 
 # 2.2.4.42 SERVER_INFO_102
-class SERVER_INFO_102(NDR):
+class SERVER_INFO_102(NDRSTRUCT):
     structure = (
         ('sv102_platform_id', DWORD),
         ('sv102_name', LPWSTR),
@@ -1090,7 +1090,7 @@ class LPSERVER_INFO_102(NDRPOINTER):
     )
 
 # 2.2.4.43 SERVER_INFO_103
-class SERVER_INFO_103(NDR):
+class SERVER_INFO_103(NDRSTRUCT):
     structure = (
         ('sv103_platform_id', DWORD),
         ('sv103_name', LPWSTR),
@@ -1114,7 +1114,7 @@ class LPSERVER_INFO_103(NDRPOINTER):
     )
 
 # 2.2.4.44 SERVER_INFO_502
-class SERVER_INFO_502(NDR):
+class SERVER_INFO_502(NDRSTRUCT):
     structure = (
         ('sv502_sessopens', DWORD),
         ('sv502_sessvcs', DWORD),
@@ -1142,7 +1142,7 @@ class LPSERVER_INFO_502(NDRPOINTER):
     )
 
 # 2.2.4.45 SERVER_INFO_503
-class SERVER_INFO_503(NDR):
+class SERVER_INFO_503(NDRSTRUCT):
     structure = (
         ('sv503_sessopens', DWORD),
         ('sv503_sessvcs', DWORD),
@@ -1194,7 +1194,7 @@ class LPSERVER_INFO_503(NDRPOINTER):
     )
 
 # 2.2.4.46 SERVER_INFO_599
-class SERVER_INFO_599(NDR):
+class SERVER_INFO_599(NDRSTRUCT):
     structure = (
         ('sv599_sessopens', DWORD),
         ('sv599_sessvcs', DWORD),
@@ -1260,7 +1260,7 @@ class LPSERVER_INFO_599(NDRPOINTER):
     )
 
 # 2.2.4.47 SERVER_INFO_1005
-class SERVER_INFO_1005(NDR):
+class SERVER_INFO_1005(NDRSTRUCT):
     structure = (
         ('sv1005_comment', LPWSTR),
     )
@@ -1271,7 +1271,7 @@ class LPSERVER_INFO_1005(NDRPOINTER):
     )
 
 # 2.2.4.48 SERVER_INFO_1107
-class SERVER_INFO_1107(NDR):
+class SERVER_INFO_1107(NDRSTRUCT):
     structure = (
         ('sv1107_users', DWORD),
     )
@@ -1282,7 +1282,7 @@ class LPSERVER_INFO_1107(NDRPOINTER):
     )
 
 # 2.2.4.49 SERVER_INFO_1010
-class SERVER_INFO_1010(NDR):
+class SERVER_INFO_1010(NDRSTRUCT):
     structure = (
         ('sv1010_disc', DWORD),
     )
@@ -1293,7 +1293,7 @@ class LPSERVER_INFO_1010(NDRPOINTER):
     )
 
 # 2.2.4.50 SERVER_INFO_1016
-class SERVER_INFO_1016(NDR):
+class SERVER_INFO_1016(NDRSTRUCT):
     structure = (
         ('sv1016_hidden', DWORD),
     )
@@ -1304,7 +1304,7 @@ class LPSERVER_INFO_1016(NDRPOINTER):
     )
 
 # 2.2.4.51 SERVER_INFO_1017
-class SERVER_INFO_1017(NDR):
+class SERVER_INFO_1017(NDRSTRUCT):
     structure = (
         ('sv1017_announce', DWORD),
     )
@@ -1315,7 +1315,7 @@ class LPSERVER_INFO_1017(NDRPOINTER):
     )
 
 # 2.2.4.52 SERVER_INFO_1018
-class SERVER_INFO_1018(NDR):
+class SERVER_INFO_1018(NDRSTRUCT):
     structure = (
         ('sv1018_anndelta', DWORD),
     )
@@ -1326,7 +1326,7 @@ class LPSERVER_INFO_1018(NDRPOINTER):
     )
 
 # 2.2.4.53 SERVER_INFO_1501
-class SERVER_INFO_1501(NDR):
+class SERVER_INFO_1501(NDRSTRUCT):
     structure = (
         ('sv1501_sessopens', DWORD),
     )
@@ -1337,7 +1337,7 @@ class LPSERVER_INFO_1501(NDRPOINTER):
     )
 
 # 2.2.4.54 SERVER_INFO_1502
-class SERVER_INFO_1502(NDR):
+class SERVER_INFO_1502(NDRSTRUCT):
     structure = (
         ('sv1502_sessvcs', DWORD),
     )
@@ -1348,7 +1348,7 @@ class LPSERVER_INFO_1502(NDRPOINTER):
     )
 
 # 2.2.4.55 SERVER_INFO_1503
-class SERVER_INFO_1503(NDR):
+class SERVER_INFO_1503(NDRSTRUCT):
     structure = (
         ('sv1503_opensearch', DWORD),
     )
@@ -1359,7 +1359,7 @@ class LPSERVER_INFO_1503(NDRPOINTER):
     )
 
 # 2.2.4.56 SERVER_INFO_1506
-class SERVER_INFO_1506(NDR):
+class SERVER_INFO_1506(NDRSTRUCT):
     structure = (
         ('sv1506_maxworkitems', DWORD),
     )
@@ -1370,7 +1370,7 @@ class LPSERVER_INFO_1506(NDRPOINTER):
     )
 
 # 2.2.4.57 SERVER_INFO_1510
-class SERVER_INFO_1510(NDR):
+class SERVER_INFO_1510(NDRSTRUCT):
     structure = (
         ('sv1510_sessusers', DWORD),
     )
@@ -1381,7 +1381,7 @@ class LPSERVER_INFO_1510(NDRPOINTER):
     )
 
 # 2.2.4.58 SERVER_INFO_1511
-class SERVER_INFO_1511(NDR):
+class SERVER_INFO_1511(NDRSTRUCT):
     structure = (
         ('sv1511_sessconns', DWORD),
     )
@@ -1392,7 +1392,7 @@ class LPSERVER_INFO_1511(NDRPOINTER):
     )
 
 # 2.2.4.59 SERVER_INFO_1512
-class SERVER_INFO_1512(NDR):
+class SERVER_INFO_1512(NDRSTRUCT):
     structure = (
         ('sv1512_maxnonpagedmemoryusage', DWORD),
     )
@@ -1403,7 +1403,7 @@ class LPSERVER_INFO_1512(NDRPOINTER):
     )
 
 # 2.2.4.60 SERVER_INFO_1513
-class SERVER_INFO_1513(NDR):
+class SERVER_INFO_1513(NDRSTRUCT):
     structure = (
         ('sv1513_maxpagedmemoryusage', DWORD),
     )
@@ -1414,7 +1414,7 @@ class LPSERVER_INFO_1513(NDRPOINTER):
     )
 
 # 2.2.4.61 SERVER_INFO_1514
-class SERVER_INFO_1514(NDR):
+class SERVER_INFO_1514(NDRSTRUCT):
     structure = (
         ('sv1514_enablesoftcompat', DWORD),
     )
@@ -1425,7 +1425,7 @@ class LPSERVER_INFO_1514(NDRPOINTER):
     )
 
 # 2.2.4.62 SERVER_INFO_1515
-class SERVER_INFO_1515(NDR):
+class SERVER_INFO_1515(NDRSTRUCT):
     structure = (
         ('sv1515_enableforcedlogoff', DWORD),
     )
@@ -1436,7 +1436,7 @@ class LPSERVER_INFO_1515(NDRPOINTER):
     )
 
 # 2.2.4.63 SERVER_INFO_1516
-class SERVER_INFO_1516(NDR):
+class SERVER_INFO_1516(NDRSTRUCT):
     structure = (
         ('sv1516_timesource', DWORD),
     )
@@ -1447,7 +1447,7 @@ class LPSERVER_INFO_1516(NDRPOINTER):
     )
 
 # 2.2.4.64 SERVER_INFO_1518
-class SERVER_INFO_1518(NDR):
+class SERVER_INFO_1518(NDRSTRUCT):
     structure = (
         ('sv1518_lmannounce', DWORD),
     )
@@ -1458,7 +1458,7 @@ class LPSERVER_INFO_1518(NDRPOINTER):
     )
 
 # 2.2.4.65 SERVER_INFO_1523
-class SERVER_INFO_1523(NDR):
+class SERVER_INFO_1523(NDRSTRUCT):
     structure = (
         ('sv1523_maxkeepsearch', DWORD),
     )
@@ -1469,7 +1469,7 @@ class LPSERVER_INFO_1523(NDRPOINTER):
     )
 
 # 2.2.4.66 SERVER_INFO_1528
-class SERVER_INFO_1528(NDR):
+class SERVER_INFO_1528(NDRSTRUCT):
     structure = (
         ('sv1528_scavtimeout', DWORD),
     )
@@ -1480,7 +1480,7 @@ class LPSERVER_INFO_1528(NDRPOINTER):
     )
 
 # 2.2.4.67 SERVER_INFO_1529
-class SERVER_INFO_1529(NDR):
+class SERVER_INFO_1529(NDRSTRUCT):
     structure = (
         ('sv1529_minrcvqueue', DWORD),
     )
@@ -1491,7 +1491,7 @@ class LPSERVER_INFO_1529(NDRPOINTER):
     )
 
 # 2.2.4.68 SERVER_INFO_1530
-class SERVER_INFO_1530(NDR):
+class SERVER_INFO_1530(NDRSTRUCT):
     structure = (
         ('sv1530_minfreeworkitems', DWORD),
     )
@@ -1502,7 +1502,7 @@ class LPSERVER_INFO_1530(NDRPOINTER):
     )
 
 # 2.2.4.69 SERVER_INFO_1533
-class SERVER_INFO_1533(NDR):
+class SERVER_INFO_1533(NDRSTRUCT):
     structure = (
         ('sv1533_maxmpxct', DWORD),
     )
@@ -1513,7 +1513,7 @@ class LPSERVER_INFO_1533(NDRPOINTER):
     )
 
 # 2.2.4.70 SERVER_INFO_1534
-class SERVER_INFO_1534(NDR):
+class SERVER_INFO_1534(NDRSTRUCT):
     structure = (
         ('sv1534_oplockbreakwait', DWORD),
     )
@@ -1524,7 +1524,7 @@ class LPSERVER_INFO_1534(NDRPOINTER):
     )
 
 # 2.2.4.71 SERVER_INFO_1535
-class SERVER_INFO_1535(NDR):
+class SERVER_INFO_1535(NDRSTRUCT):
     structure = (
         ('sv1535_oplockbreakresponsewait', DWORD),
     )
@@ -1535,7 +1535,7 @@ class LPSERVER_INFO_1535(NDRPOINTER):
     )
 
 # 2.2.4.72 SERVER_INFO_1536
-class SERVER_INFO_1536(NDR):
+class SERVER_INFO_1536(NDRSTRUCT):
     structure = (
         ('sv1536_enableoplocks', DWORD),
     )
@@ -1546,7 +1546,7 @@ class LPSERVER_INFO_1536(NDRPOINTER):
     )
 
 # 2.2.4.73 SERVER_INFO_1538
-class SERVER_INFO_1538(NDR):
+class SERVER_INFO_1538(NDRSTRUCT):
     structure = (
         ('sv1538_enablefcbopens', DWORD),
     )
@@ -1557,7 +1557,7 @@ class LPSERVER_INFO_1538(NDRPOINTER):
     )
 
 # 2.2.4.74 SERVER_INFO_1539
-class SERVER_INFO_1539(NDR):
+class SERVER_INFO_1539(NDRSTRUCT):
     structure = (
         ('sv1539_enableraw', DWORD),
     )
@@ -1568,7 +1568,7 @@ class LPSERVER_INFO_1539(NDRPOINTER):
     )
 
 # 2.2.4.75 SERVER_INFO_1540
-class SERVER_INFO_1540(NDR):
+class SERVER_INFO_1540(NDRSTRUCT):
     structure = (
         ('sv1540_enablesharednetdrives', DWORD),
     )
@@ -1579,7 +1579,7 @@ class LPSERVER_INFO_1540(NDRPOINTER):
     )
 
 # 2.2.4.76 SERVER_INFO_1541
-class SERVER_INFO_1541(NDR):
+class SERVER_INFO_1541(NDRSTRUCT):
     structure = (
         ('sv1541_minfreeconnections', DWORD),
     )
@@ -1590,7 +1590,7 @@ class LPSERVER_INFO_1541(NDRPOINTER):
     )
 
 # 2.2.4.77 SERVER_INFO_1542
-class SERVER_INFO_1542(NDR):
+class SERVER_INFO_1542(NDRSTRUCT):
     structure = (
         ('sv1542_maxfreeconnections', DWORD),
     )
@@ -1601,7 +1601,7 @@ class LPSERVER_INFO_1542(NDRPOINTER):
     )
 
 # 2.2.4.78 SERVER_INFO_1543
-class SERVER_INFO_1543(NDR):
+class SERVER_INFO_1543(NDRSTRUCT):
     structure = (
         ('sv1543_initsesstable', DWORD),
     )
@@ -1612,7 +1612,7 @@ class LPSERVER_INFO_1543(NDRPOINTER):
     )
 
 # 2.2.4.79 SERVER_INFO_1544
-class SERVER_INFO_1544(NDR):
+class SERVER_INFO_1544(NDRSTRUCT):
     structure = (
         ('sv1544_initconntable', DWORD),
     )
@@ -1623,7 +1623,7 @@ class LPSERVER_INFO_1544(NDRPOINTER):
     )
 
 # 2.2.4.80 SERVER_INFO_1545
-class SERVER_INFO_1545(NDR):
+class SERVER_INFO_1545(NDRSTRUCT):
     structure = (
         ('sv1545_initfiletable', DWORD),
     )
@@ -1634,7 +1634,7 @@ class LPSERVER_INFO_1545(NDRPOINTER):
     )
 
 # 2.2.4.81 SERVER_INFO_1546
-class SERVER_INFO_1546(NDR):
+class SERVER_INFO_1546(NDRSTRUCT):
     structure = (
         ('sv1546_initsearchtable', DWORD),
     )
@@ -1645,7 +1645,7 @@ class LPSERVER_INFO_1546(NDRPOINTER):
     )
 
 # 2.2.4.82 SERVER_INFO_1547
-class SERVER_INFO_1547(NDR):
+class SERVER_INFO_1547(NDRSTRUCT):
     structure = (
         ('sv1547_alertschedule', DWORD),
     )
@@ -1656,7 +1656,7 @@ class LPSERVER_INFO_1547(NDRPOINTER):
     )
 
 # 2.2.4.83 SERVER_INFO_1548
-class SERVER_INFO_1548(NDR):
+class SERVER_INFO_1548(NDRSTRUCT):
     structure = (
         ('sv1548_errorthreshold', DWORD),
     )
@@ -1667,7 +1667,7 @@ class LPSERVER_INFO_1548(NDRPOINTER):
     )
 
 # 2.2.4.84 SERVER_INFO_1549
-class SERVER_INFO_1549(NDR):
+class SERVER_INFO_1549(NDRSTRUCT):
     structure = (
         ('sv1549_networkerrorthreshold', DWORD),
     )
@@ -1678,7 +1678,7 @@ class LPSERVER_INFO_1549(NDRPOINTER):
     )
 
 # 2.2.4.85 SERVER_INFO_1550
-class SERVER_INFO_1550(NDR):
+class SERVER_INFO_1550(NDRSTRUCT):
     structure = (
         ('sv1550_diskspacethreshold', DWORD),
     )
@@ -1689,7 +1689,7 @@ class LPSERVER_INFO_1550(NDRPOINTER):
     )
 
 # 2.2.4.86 SERVER_INFO_1552
-class SERVER_INFO_1552(NDR):
+class SERVER_INFO_1552(NDRSTRUCT):
     structure = (
         ('sv1552_maxlinkdelay', DWORD),
     )
@@ -1700,7 +1700,7 @@ class LPSERVER_INFO_1552(NDRPOINTER):
     )
 
 # 2.2.4.87 SERVER_INFO_1553
-class SERVER_INFO_1553(NDR):
+class SERVER_INFO_1553(NDRSTRUCT):
     structure = (
         ('sv1553_minlinkthroughput', DWORD),
     )
@@ -1711,7 +1711,7 @@ class LPSERVER_INFO_1553(NDRPOINTER):
     )
 
 # 2.2.4.88 SERVER_INFO_1554
-class SERVER_INFO_1554(NDR):
+class SERVER_INFO_1554(NDRSTRUCT):
     structure = (
         ('sv1554_linkinfovalidtime', DWORD),
     )
@@ -1722,7 +1722,7 @@ class LPSERVER_INFO_1554(NDRPOINTER):
     )
 
 # 2.2.4.89 SERVER_INFO_1555
-class SERVER_INFO_1555(NDR):
+class SERVER_INFO_1555(NDRSTRUCT):
     structure = (
         ('sv1555_scavqosinfoupdatetime', DWORD),
     )
@@ -1733,7 +1733,7 @@ class LPSERVER_INFO_1555(NDRPOINTER):
     )
 
 # 2.2.4.90 SERVER_INFO_1556
-class SERVER_INFO_1556(NDR):
+class SERVER_INFO_1556(NDRSTRUCT):
     structure = (
         ('sv1556_maxworkitemidletime', DWORD),
     )
@@ -1744,7 +1744,7 @@ class LPSERVER_INFO_1556(NDRPOINTER):
     )
 
 # 2.2.4.91 DISK_INFO
-class WCHAR_ARRAY(NDR):
+class WCHAR_ARRAY(NDRSTRUCT):
     align = 4
     align64 = 8
 
@@ -1786,7 +1786,7 @@ class WCHAR_ARRAY(NDR):
         return self["ActualCount"]*2 
 
 
-class DISK_INFO(NDR):
+class DISK_INFO(NDRSTRUCT):
     structure = (
         ('Disk', WCHAR_ARRAY),
     )
@@ -1805,7 +1805,7 @@ class LPDISK_INFO_ARRAY(NDRPOINTER):
     )
 
 # 2.2.4.92 DISK_ENUM_CONTAINER
-class DISK_ENUM_CONTAINER(NDR):
+class DISK_ENUM_CONTAINER(NDRSTRUCT):
     structure = (
         ('EntriesRead', DWORD),
         ('Buffer', LPDISK_INFO_ARRAY),
@@ -1817,7 +1817,7 @@ class LPDISK_ENUM_CONTAINER(NDRPOINTER):
     )
 
 # 2.2.4.93 SERVER_TRANSPORT_INFO_0
-class SERVER_TRANSPORT_INFO_0(NDR):
+class SERVER_TRANSPORT_INFO_0(NDRSTRUCT):
     structure = (
         ('svti0_numberofvcs', DWORD),
         ('svti0_transportname', LPWSTR),
@@ -1840,7 +1840,7 @@ class LPSERVER_TRANSPORT_INFO_0_ARRAY(NDRPOINTER):
     )
 
 # 2.2.4.94 SERVER_TRANSPORT_INFO_1
-class SERVER_TRANSPORT_INFO_1(NDR):
+class SERVER_TRANSPORT_INFO_1(NDRSTRUCT):
     structure = (
         ('svti1_numberofvcs', DWORD),
         ('svti1_transportname', LPWSTR),
@@ -1864,7 +1864,7 @@ class LPSERVER_TRANSPORT_INFO_1_ARRAY(NDRPOINTER):
     )
 
 # 2.2.4.95 SERVER_TRANSPORT_INFO_2
-class SERVER_TRANSPORT_INFO_2(NDR):
+class SERVER_TRANSPORT_INFO_2(NDRSTRUCT):
     structure = (
         ('svti2_numberofvcs', DWORD),
         ('svti2_transportname', LPWSTR),
@@ -1893,7 +1893,7 @@ class PASSWORD_ARRAY(NDRUniFixedArray):
     def getDataLen(self, data):
         return 256
 
-class SERVER_TRANSPORT_INFO_3(NDR):
+class SERVER_TRANSPORT_INFO_3(NDRSTRUCT):
     structure = (
         ('svti3_numberofvcs', DWORD),
         ('svti3_transportname', LPWSTR),
@@ -1920,7 +1920,7 @@ class LPSERVER_TRANSPORT_INFO_3_ARRAY(NDRPOINTER):
     )
 
 # 2.2.4.97 SERVER_XPORT_INFO_0_CONTAINER
-class SERVER_XPORT_INFO_0_CONTAINER(NDR):
+class SERVER_XPORT_INFO_0_CONTAINER(NDRSTRUCT):
     structure = (
         ('EntriesRead', DWORD),
         ('Buffer', LPSERVER_TRANSPORT_INFO_0_ARRAY),
@@ -1932,7 +1932,7 @@ class LPSERVER_XPORT_INFO_0_CONTAINER(NDRPOINTER):
     )
 
 # 2.2.4.98 SERVER_XPORT_INFO_1_CONTAINER
-class SERVER_XPORT_INFO_1_CONTAINER(NDR):
+class SERVER_XPORT_INFO_1_CONTAINER(NDRSTRUCT):
     structure = (
         ('EntriesRead', DWORD),
         ('Buffer', LPSERVER_TRANSPORT_INFO_1_ARRAY),
@@ -1944,7 +1944,7 @@ class LPSERVER_XPORT_INFO_1_CONTAINER(NDRPOINTER):
     )
 
 # 2.2.4.99 SERVER_XPORT_INFO_2_CONTAINER
-class SERVER_XPORT_INFO_2_CONTAINER(NDR):
+class SERVER_XPORT_INFO_2_CONTAINER(NDRSTRUCT):
     structure = (
         ('EntriesRead', DWORD),
         ('Buffer', LPSERVER_TRANSPORT_INFO_2_ARRAY),
@@ -1956,7 +1956,7 @@ class LPSERVER_XPORT_INFO_2_CONTAINER(NDRPOINTER):
     )
 
 # 2.2.4.100 SERVER_XPORT_INFO_3_CONTAINER
-class SERVER_XPORT_INFO_3_CONTAINER(NDR):
+class SERVER_XPORT_INFO_3_CONTAINER(NDRSTRUCT):
     structure = (
         ('EntriesRead', DWORD),
         ('Buffer', LPSERVER_TRANSPORT_INFO_3_ARRAY),
@@ -1982,14 +1982,14 @@ class SERVER_XPORT_ENUM_UNION(NDRUNION):
     }
 
 # 2.2.4.101 SERVER_XPORT_ENUM_STRUCT
-class SERVER_XPORT_ENUM_STRUCT(NDR):
+class SERVER_XPORT_ENUM_STRUCT(NDRSTRUCT):
     structure = (
         ('Level', DWORD),
         ('XportInfo', SERVER_XPORT_ENUM_UNION),
     )
 
 # 2.2.4.102 SERVER_ALIAS_INFO_0
-class SERVER_ALIAS_INFO_0(NDR):
+class SERVER_ALIAS_INFO_0(NDRSTRUCT):
     structure = (
         ('srvai0_alias', LMSTR),
         ('srvai0_target', LMSTR),
@@ -2011,7 +2011,7 @@ class LPSERVER_ALIAS_INFO_0_ARRAY(NDRPOINTER):
     )
 
 # 2.2.4.103 SERVER_ALIAS_INFO_0_CONTAINER
-class SERVER_ALIAS_INFO_0_CONTAINER(NDR):
+class SERVER_ALIAS_INFO_0_CONTAINER(NDRSTRUCT):
     structure = (
         ('EntriesRead', DWORD),
         ('Buffer', LPSERVER_ALIAS_INFO_0_ARRAY),
@@ -2033,14 +2033,14 @@ class SERVER_ALIAS_ENUM_UNION(NDRUNION):
         0: ('Level0', LPSERVER_ALIAS_INFO_0_CONTAINER),
     }
 
-class SERVER_ALIAS_ENUM_STRUCT(NDR):
+class SERVER_ALIAS_ENUM_STRUCT(NDRSTRUCT):
     structure = (
         ('Level', DWORD),
         ('ServerAliasInfo', SERVER_ALIAS_ENUM_UNION),
     )
 
 # 2.2.4.105 TIME_OF_DAY_INFO
-class TIME_OF_DAY_INFO(NDR):
+class TIME_OF_DAY_INFO(NDRSTRUCT):
     structure = (
         ('tod_elapsedt', DWORD),
         ('tod_msecs', DWORD),
@@ -2062,7 +2062,7 @@ class LPTIME_OF_DAY_INFO(NDRPOINTER):
     )
 
 # 2.2.4.106 ADT_SECURITY_DESCRIPTOR
-class ADT_SECURITY_DESCRIPTOR(NDR):
+class ADT_SECURITY_DESCRIPTOR(NDRSTRUCT):
     structure = (
         ('Length', DWORD),
         ('Buffer', PNDRUniConformantArray),
@@ -2074,7 +2074,7 @@ class PADT_SECURITY_DESCRIPTOR(NDRPOINTER):
     )
 
 # 2.2.4.107 NET_DFS_ENTRY_ID
-class NET_DFS_ENTRY_ID(NDR):
+class NET_DFS_ENTRY_ID(NDRSTRUCT):
     structure = (
         ('Uid', GUID),
         ('Prefix', LPWSTR),
@@ -2089,14 +2089,14 @@ class LPNET_DFS_ENTRY_ID_ARRAY(NDRPOINTER):
      )
 
 # 2.2.4.108 NET_DFS_ENTRY_ID_CONTAINER
-class NET_DFS_ENTRY_ID_CONTAINER(NDR):
+class NET_DFS_ENTRY_ID_CONTAINER(NDRSTRUCT):
     structure = (
         ('Count', DWORD),
         ('Buffer', LPNET_DFS_ENTRY_ID_ARRAY),
     )
 
 # 2.2.4.109 DFS_SITENAME_INFO
-class DFS_SITENAME_INFO(NDR):
+class DFS_SITENAME_INFO(NDRSTRUCT):
     structure = (
         ('SiteFlags', DWORD),
         ('SiteName', LPWSTR),
@@ -2106,7 +2106,7 @@ class DFS_SITENAME_INFO(NDR):
 class DFS_SITENAME_INFO_ARRAY(NDRUniConformantArray):
     item = DFS_SITENAME_INFO
 
-class DFS_SITELIST_INFO(NDR):
+class DFS_SITELIST_INFO(NDRSTRUCT):
     structure = (
         ('cSites', DWORD),
         ('Site', DFS_SITENAME_INFO_ARRAY),

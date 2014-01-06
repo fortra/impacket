@@ -13,7 +13,7 @@
 #
 
 from impacket.dcerpc.v5 import ndr
-from impacket.dcerpc.v5.ndr import NDRCALL, NDR, NDRENUM, NDRUNION, NDRUniConformantArray, NDRUniFixedArray, NDRPOINTER
+from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRENUM, NDRUNION, NDRUniConformantArray, NDRUniFixedArray, NDRPOINTER
 from impacket.dcerpc.v5.dtypes import *
 from impacket import system_errors
 from impacket.uuid import uuidtup_to_bin
@@ -106,7 +106,7 @@ NETSETUP_DNS_NAME_CHANGES_ONLY = 0x00001000
 ################################################################################
 
 # 2.2.2.1 WKSSVC_IDENTIFY_HANDLE
-class WKSSVC_IDENTIFY_HANDLE(NDR):
+class WKSSVC_IDENTIFY_HANDLE(NDRSTRUCT):
     structure =  (
         ('Data', WSTR),
     )
@@ -117,7 +117,7 @@ class LPWKSSVC_IDENTIFY_HANDLE(NDRPOINTER):
     )
 
 # 2.2.2.2 WKSSVC_IMPERSONATE_HANDLE
-class WKSSVC_IMPERSONATE_HANDLE(NDR):
+class WKSSVC_IMPERSONATE_HANDLE(NDRSTRUCT):
     structure =  (
         ('Data',WSTR),
     )
@@ -154,7 +154,7 @@ class NET_COMPUTER_NAME_TYPE(NDRENUM):
         NetComputerNameTypeMax    = 3
 
 # 2.2.5.1 WKSTA_INFO_100
-class WKSTA_INFO_100(NDR):
+class WKSTA_INFO_100(NDRSTRUCT):
     structure = (
         ('wki100_platform_id', ULONG),
         ('wki100_computername', LPWSTR),
@@ -169,7 +169,7 @@ class LPWKSTA_INFO_100(NDRPOINTER):
     )
 
 # 2.2.5.2 WKSTA_INFO_101
-class WKSTA_INFO_101(NDR):
+class WKSTA_INFO_101(NDRSTRUCT):
     structure = (
         ('wki101_platform_id', ULONG),
         ('wki101_computername', LPWSTR),
@@ -185,7 +185,7 @@ class LPWKSTA_INFO_101(NDRPOINTER):
     )
 
 # 2.2.5.3 WKSTA_INFO_102
-class WKSTA_INFO_102(NDR):
+class WKSTA_INFO_102(NDRSTRUCT):
     structure = (
         ('wki102_platform_id', ULONG),
         ('wki102_computername', LPWSTR),
@@ -202,7 +202,7 @@ class LPWKSTA_INFO_102(NDRPOINTER):
     )
 
 # 2.2.5.4 WKSTA_INFO_502
-class WKSTA_INFO_502(NDR):
+class WKSTA_INFO_502(NDRSTRUCT):
     structure = (
         ('wki502_char_wait', ULONG),
         ('wki502_collection_time', ULONG),
@@ -247,7 +247,7 @@ class LPWKSTA_INFO_502(NDRPOINTER):
     )
 
 # 2.2.5.5 WKSTA_INFO_1013
-class WKSTA_INFO_1013(NDR):
+class WKSTA_INFO_1013(NDRSTRUCT):
     structure = (
         ('wki1013_keep_conn', ULONG),
     )
@@ -258,7 +258,7 @@ class LPWKSTA_INFO_1013(NDRPOINTER):
     )
 
 # 2.2.5.6 WKSTA_INFO_1018
-class WKSTA_INFO_1018(NDR):
+class WKSTA_INFO_1018(NDRSTRUCT):
     structure = (
         ('wki1018_sess_timeout', ULONG),
     )
@@ -269,7 +269,7 @@ class LPWKSTA_INFO_1018(NDRPOINTER):
     )
 
 # 2.2.5.7 WKSTA_INFO_1046
-class WKSTA_INFO_1046(NDR):
+class WKSTA_INFO_1046(NDRSTRUCT):
     structure = (
         ('wki1046_dormant_file_limit', ULONG),
     )
@@ -301,7 +301,7 @@ class LPWKSTA_INFO(NDRPOINTER):
     )
 
 # 2.2.5.8 WKSTA_TRANSPORT_INFO_0
-class WKSTA_TRANSPORT_INFO_0(NDR):
+class WKSTA_TRANSPORT_INFO_0(NDRSTRUCT):
     structure = (
         ('wkti0_quality_of_service', ULONG),
         ('wkti0_number_of_vcs', ULONG),
@@ -311,13 +311,13 @@ class WKSTA_TRANSPORT_INFO_0(NDR):
     )
 
 # 2.2.5.9 WKSTA_USER_INFO_0
-class WKSTA_USER_INFO_0(NDR):
+class WKSTA_USER_INFO_0(NDRSTRUCT):
     structure = (
         ('wkui0_username', LPWSTR),
     )
 
 # 2.2.5.10 WKSTA_USER_INFO_1
-class WKSTA_USER_INFO_1(NDR):
+class WKSTA_USER_INFO_1(NDRSTRUCT):
     structure = (
         ('wkui1_username', LPWSTR),
         ('wkui1_logon_domain', LPWSTR),
@@ -326,7 +326,7 @@ class WKSTA_USER_INFO_1(NDR):
     )
 
 # 2.2.5.11 STAT_WORKSTATION_0
-class STAT_WORKSTATION_0(NDR):
+class STAT_WORKSTATION_0(NDRSTRUCT):
     structure = (
         ('StatisticsStartTime', LARGE_INTEGER),
         ('BytesReceived', LARGE_INTEGER),
@@ -384,7 +384,7 @@ class LPWKSTA_USER_INFO_0_ARRAY(NDRPOINTER):
         ('Data', WKSTA_USER_INFO_0_ARRAY),
     )
 
-class WKSTA_USER_INFO_0_CONTAINER(NDR):
+class WKSTA_USER_INFO_0_CONTAINER(NDRSTRUCT):
     structure = (
         ('EntriesRead', ULONG),
         ('Buffer', LPWKSTA_USER_INFO_0_ARRAY),
@@ -404,7 +404,7 @@ class LPWKSTA_USER_INFO_1_ARRAY(NDRPOINTER):
         ('Data', WKSTA_USER_INFO_1_ARRAY),
     )
 
-class WKSTA_USER_INFO_1_CONTAINER(NDR):
+class WKSTA_USER_INFO_1_CONTAINER(NDRSTRUCT):
     structure = (
         ('EntriesRead', ULONG),
         ('Buffer', LPWKSTA_USER_INFO_1_ARRAY),
@@ -427,7 +427,7 @@ class WKSTA_USER_ENUM_UNION(NDRUNION):
         1: ('Level1', LPWKSTA_USER_INFO_1_CONTAINER),
     }
 
-class WKSTA_USER_ENUM_STRUCT(NDR):
+class WKSTA_USER_ENUM_STRUCT(NDRSTRUCT):
     structure = (
         ('Level', ULONG),
         ('WkstaUserInfo', WKSTA_USER_ENUM_UNION),
@@ -443,7 +443,7 @@ class LPWKSTA_TRANSPORT_INFO_0_ARRAY(NDRPOINTER):
         ('Data', WKSTA_TRANSPORT_INFO_0_ARRAY),
     )
 
-class WKSTA_TRANSPORT_INFO_0_CONTAINER(NDR):
+class WKSTA_TRANSPORT_INFO_0_CONTAINER(NDRSTRUCT):
     structure = (
         ('EntriesRead', ULONG),
         ('Buffer', LPWKSTA_TRANSPORT_INFO_0_ARRAY),
@@ -465,7 +465,7 @@ class WKSTA_TRANSPORT_ENUM_UNION(NDRUNION):
         0: ('Level0', LPWKSTA_TRANSPORT_INFO_0_CONTAINER),
     }
 
-class WKSTA_TRANSPORT_ENUM_STRUCT(NDR):
+class WKSTA_TRANSPORT_ENUM_STRUCT(NDRSTRUCT):
     structure = (
         ('Level', ULONG),
         ('WkstaTransportInfo', WKSTA_TRANSPORT_ENUM_UNION),
@@ -480,14 +480,14 @@ class CHAR_ARRAY(NDRUniFixedArray):
     def getDataLen(self, data):
         return JOIN_OBFUSCATOR_LENGTH
 
-class JOINPR_USER_PASSWORD(NDR):
+class JOINPR_USER_PASSWORD(NDRSTRUCT):
     structure = (
         ('Obfuscator', CHAR_ARRAY),
         ('Buffer', WCHAR_ARRAY),
     )
 
 # 2.2.5.18 JOINPR_ENCRYPTED_USER_PASSWORD
-class JOINPR_ENCRYPTED_USER_PASSWORD(NDR):
+class JOINPR_ENCRYPTED_USER_PASSWORD(NDRSTRUCT):
     align = 0
     structure = (
         ('Buffer', '524s=""'),
@@ -514,7 +514,7 @@ class PUNICODE_STRING_ARRAY(NDRPOINTER):
         ('Data', UNICODE_STRING_ARRAY),
     )
 
-class NET_COMPUTER_NAME_ARRAY(NDR):
+class NET_COMPUTER_NAME_ARRAY(NDRSTRUCT):
     structure = (
         ('EntriesRead', ULONG),
         ('ComputerNames', PUNICODE_STRING_ARRAY),
@@ -526,7 +526,7 @@ class PNET_COMPUTER_NAME_ARRAY(NDRPOINTER):
     )
 
 # 2.2.5.21 USE_INFO_0
-class USE_INFO_0(NDR):
+class USE_INFO_0(NDRSTRUCT):
     structure = (
         ('ui0_local', LPWSTR),
         ('ui0_remote', LPWSTR),
@@ -538,7 +538,7 @@ class LPUSE_INFO_0(NDRPOINTER):
     )
 
 # 2.2.5.22 USE_INFO_1
-class USE_INFO_1(NDR):
+class USE_INFO_1(NDRSTRUCT):
     structure = (
         ('ui1_local', LPWSTR),
         ('ui1_remote', LPWSTR),
@@ -555,7 +555,7 @@ class LPUSE_INFO_1(NDRPOINTER):
     )
 
 # 2.2.5.23 USE_INFO_2
-class USE_INFO_2(NDR):
+class USE_INFO_2(NDRSTRUCT):
     structure = (
         ('ui2_useinfo', USE_INFO_1),
         ('ui2_username', LPWSTR),
@@ -568,7 +568,7 @@ class LPUSE_INFO_2(NDRPOINTER):
     )
 
 # 2.2.5.24 USE_INFO_3
-class USE_INFO_3(NDR):
+class USE_INFO_3(NDRSTRUCT):
     structure = (
         ('ui3_ui2', USE_INFO_2),
         ('ui3_flags', ULONG),
@@ -594,21 +594,21 @@ class USE_INFO(NDRUNION):
     }
 
 # 2.2.5.25 USE_INFO_0_CONTAINER
-class USE_INFO_0_CONTAINER(NDR):
+class USE_INFO_0_CONTAINER(NDRSTRUCT):
     structure = (
         ('EntriesRead', ULONG),
         ('Buffer', LPUSE_INFO_0),
     )
 
 # 2.2.5.26 USE_INFO_1_CONTAINER
-class USE_INFO_1_CONTAINER(NDR):
+class USE_INFO_1_CONTAINER(NDRSTRUCT):
     structure = (
         ('EntriesRead', ULONG),
         ('Buffer', LPUSE_INFO_1),
     )
 
 # 2.2.5.27 USE_INFO_2_CONTAINER
-class USE_INFO_2_CONTAINER(NDR):
+class USE_INFO_2_CONTAINER(NDRSTRUCT):
     structure = (
         ('EntriesRead', ULONG),
         ('Buffer', LPUSE_INFO_2),
@@ -627,7 +627,7 @@ class USE_ENUM_UNION(NDRUNION):
         2: ('Level2', USE_INFO_2_CONTAINER),
     }
 
-class USE_ENUM_STRUCT(NDR):
+class USE_ENUM_STRUCT(NDRSTRUCT):
     structure = (
         ('Level', ULONG),
         ('UseInfo', USE_ENUM_UNION),
