@@ -220,11 +220,11 @@ class NDR(object):
             print "Calculate PAD: name: %s, type:%s, soFar:%d" % (fieldName, fieldType, soFar)
         alignment = 0
         size = 0
+#        if isinstance(self, NDRArray):
+#            return 0
         if isinstance(self.fields[fieldName], NDR):
             alignment = self.fields[fieldName].align
             #alignment = self.fields[fieldName].calculateAlignment()
-            #if alignment != alignment2:
-            #    print "viejo: %d, nuevo:%d, fieldName:%s, class=%s" % (alignment, alignment2, fieldName, self.__class__.__name__)
         else:
             if fieldType == ':':
                 return 0
@@ -286,6 +286,8 @@ class NDR(object):
                 data = data + '\xee'*pad0
             # And now, let's pretend we put the item in
             soFar += arrayItemSize
+        else:
+            arrayItemSize = 0
 
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             try:
@@ -308,8 +310,9 @@ class NDR(object):
                         data = pointerData + arraySize + data
                     else:
                         data = arraySize + data
+                    arrayItemSize = 0
                 data += res
-                soFar = soFar0 + len(data)
+                soFar = soFar0 + len(data) + arrayItemSize
             except Exception, e:
                 if self.fields.has_key(fieldName):
                     e.args += ("When packing field '%s | %s | %r' in %s" % (fieldName, fieldTypeOrClass, self.fields[fieldName], self.__class__),)
@@ -469,6 +472,9 @@ class NDR(object):
     def calculateAlignment(self):
         tmpAlign = 0
         align = -1
+        #if isinstance(self, NDRArray):
+        #    return 0
+
         for fieldName, fieldType in self.commonHdr+self.structure+self.referent:
             if isinstance(self.fields[fieldName], NDR):
                 #tmpAlign = self.fields[fieldName].align
@@ -485,7 +491,7 @@ class NDR(object):
                     align = tmpAlign
 
         if align == -1:
-            align = 4
+            raise
         return align
                 
     def fromStringReferents(self, data, soFar = 0):
@@ -750,8 +756,9 @@ class NDRSTRUCT(NDR):
     #     } StructWithPad;
     # The size of the structure in the octet stream MUST contain a 2-byte trailing 
     # gap to make its size 8, a multiple of the structure's alignment, 4.
-
-    pass
+    def getData(self, soFar = 0):
+        #print "STRUCT ALIGN ", self.calculateAlignment()
+        return NDR.getData(self, soFar)
 
 class NDRCALL(NDR):
     # This represents a group of NDR instances that conforms an NDR Call. 
