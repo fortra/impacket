@@ -278,7 +278,7 @@ class RPC_SID(NDRSTRUCT):
     )
     def getData(self, soFar = 0):
         self['SubAuthorityCount'] = len(self['SubAuthority'])
-        return NDR.getData(self, soFar)
+        return NDRSTRUCT.getData(self, soFar)
 
     def fromCanonical(self, canonical):
         items = canonical.split('-')
