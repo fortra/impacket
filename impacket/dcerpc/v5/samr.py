@@ -271,8 +271,6 @@ SAM_VALIDATE_PASSWORD_HISTORY        = 0x00000020
 
 # 2.2.2.1 RPC_STRING, PRPC_STRING
 class RPC_STRING(NDRSTRUCT):
-    align = 2
-    align64 = 2
     commonHdr = (
         ('MaximumLength','<H=len(Data)-12'),
         ('Length','<H=len(Data)-12'),
@@ -350,6 +348,8 @@ class ENCRYPTED_LM_OWF_PASSWORD(NDRSTRUCT):
     structure = (
         ('Data', '16s=""'),
     )
+    def getAlignment(self):
+        return 1
 
 ENCRYPTED_NT_OWF_PASSWORD = ENCRYPTED_LM_OWF_PASSWORD
 
@@ -502,7 +502,6 @@ class SAMPR_REVISION_INFO_V1(NDRSTRUCT):
 
 # 2.2.3.16 SAMPR_REVISION_INFO
 class SAMPR_REVISION_INFO(NDRUNION):
-    align = 4
     commonHdr = (
         ('tag', ULONG),
     )
@@ -965,11 +964,16 @@ class SAMPR_USER_PASSWORD(NDRSTRUCT):
         ('Buffer', '512s=""'),
         ('Length', ULONG),
     )
+    def getAlignment(self):
+        return 4
+
 
 class SAMPR_ENCRYPTED_USER_PASSWORD(NDRSTRUCT):
     structure = (
         ('Buffer', '516s=""'),
     )
+    def getAlignment(self):
+        return 1
 
 class PSAMPR_ENCRYPTED_USER_PASSWORD(NDRPOINTER):
     referent = (
@@ -981,6 +985,8 @@ class SAMPR_ENCRYPTED_USER_PASSWORD_NEW(NDRSTRUCT):
     structure = (
         ('Buffer', '522s=""'),
     )
+    def getAlignment(self):
+        return 1
 
 # 2.2.7.23 SAMPR_USER_INTERNAL1_INFORMATION
 class SAMPR_USER_INTERNAL1_INFORMATION(NDRSTRUCT):
@@ -1081,7 +1087,6 @@ class PSAMPR_USER_INFO_BUFFER(NDRPOINTER):
     )
 
 class PSAMPR_SERVER_NAME2(NDRPOINTER):
-    align = 0
     referent = (
         ('Data', '4s=""'),
     ) 
@@ -1278,7 +1283,6 @@ class PSAM_VALIDATE_STANDARD_OUTPUT_ARG(NDRPOINTER):
 
 # 2.2.9.5 SAM_VALIDATE_AUTHENTICATION_INPUT_ARG
 class SAM_VALIDATE_AUTHENTICATION_INPUT_ARG(NDRSTRUCT):
-    align = 8
     structure = (
         ('InputPersistedFields', SAM_VALIDATE_PERSISTED_FIELDS),
         ('PasswordMatched', UCHAR),
@@ -1286,7 +1290,6 @@ class SAM_VALIDATE_AUTHENTICATION_INPUT_ARG(NDRSTRUCT):
 
 # 2.2.9.6 SAM_VALIDATE_PASSWORD_CHANGE_INPUT_ARG
 class SAM_VALIDATE_PASSWORD_CHANGE_INPUT_ARG(NDRSTRUCT):
-    align = 8
     structure = (
         ('InputPersistedFields', SAM_VALIDATE_PERSISTED_FIELDS),
         ('ClearPassword', RPC_UNICODE_STRING),
@@ -1297,7 +1300,6 @@ class SAM_VALIDATE_PASSWORD_CHANGE_INPUT_ARG(NDRSTRUCT):
 
 # 2.2.9.7 SAM_VALIDATE_PASSWORD_RESET_INPUT_ARG
 class SAM_VALIDATE_PASSWORD_RESET_INPUT_ARG(NDRSTRUCT):
-    align = 8
     structure = (
         ('InputPersistedFields', SAM_VALIDATE_PERSISTED_FIELDS),
         ('ClearPassword', RPC_UNICODE_STRING),

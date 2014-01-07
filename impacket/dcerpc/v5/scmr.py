@@ -209,6 +209,7 @@ SERVICE_TRIGGER_DATA_TYPE_STRING = 0x00000002
 ################################################################################
 
 class SC_RPC_HANDLE(NDR):
+    align = 1
     structure =  (
         ('Data','20s=""'),
     )
@@ -243,6 +244,8 @@ class SC_RPC_LOCK(NDRSTRUCT):
     structure =  (
         ('Data','20s=""'),
     )
+    def getAlignment(self):
+        return 1
 
 class LPSERVICE_STATUS(NDRPOINTER):
     referent = (
@@ -429,6 +432,8 @@ class UCHAR_16(NDRSTRUCT):
     structure = (
         ('Data', '16s=""'),
     )
+    def getAlignment(self):
+        return 1
 
 class SERVICE_NOTIFY_STATUS_CHANGE_PARAMS_1(NDRSTRUCT):
     structure = (

@@ -58,6 +58,7 @@ class PSRVSVC_HANDLE(NDRPOINTER):
 
 # 2.2.1.2 SHARE_DEL_HANDLE
 class SHARE_DEL_HANDLE(NDR):
+    align = 1
     structure =  (
         ('Data','20s=""'),
     )

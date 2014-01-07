@@ -488,10 +488,11 @@ class JOINPR_USER_PASSWORD(NDRSTRUCT):
 
 # 2.2.5.18 JOINPR_ENCRYPTED_USER_PASSWORD
 class JOINPR_ENCRYPTED_USER_PASSWORD(NDRSTRUCT):
-    align = 0
     structure = (
         ('Buffer', '524s=""'),
     )
+    def getAlignment(self):
+        return 1
 
 class PJOINPR_ENCRYPTED_USER_PASSWORD(NDRPOINTER):
     referent = (
