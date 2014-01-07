@@ -793,7 +793,6 @@ class ept_lookup_handle_t(NDRSTRUCT):
         self['context_handle_uuid'] = '\x00'*20
 
 class twr_t(NDRSTRUCT):
-    align = 4
     structure = (
         ('tower_length', ULONG),
         ('tower_octet_string', NDRUniConformantArray),
@@ -823,7 +822,6 @@ class protocol_tower_t(NDRSTRUCT):
     )
 
 class ept_entry_t(NDRSTRUCT):
-    align = 4
     structure = (
         ('object',UUID),
         ('tower',twr_p_t),

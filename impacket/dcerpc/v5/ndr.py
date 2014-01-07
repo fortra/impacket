@@ -1092,11 +1092,11 @@ class NDRSTRUCT(NDR):
         # contains. These fields may also be constructed types. The same alignment rules apply 
         # recursively to nested constructed types.
         alignment = self.getAlignment()
-        pad = (alignment - (soFar % alignment)) % alignment
-        if pad > 0:
-            print "PAD! ", pad
-            soFar += pad
-            data = data + '\xAB'*pad
+        if alignment > 0:
+            pad = (alignment - (soFar % alignment)) % alignment
+            if pad > 0:
+                soFar += pad
+                data = data + '\xAB'*pad
  
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             try:
@@ -1187,10 +1187,11 @@ class NDRSTRUCT(NDR):
         # contains. These fields may also be constructed types. The same alignment rules apply 
         # recursively to nested constructed types.
         alignment = self.getAlignment()
-        pad = (alignment - (soFar % alignment)) % alignment
-        if pad > 0:
-            soFar += pad
-            data = data[pad:]
+        if alignment > 0:
+            pad = (alignment - (soFar % alignment)) % alignment
+            if pad > 0:
+                soFar += pad
+                data = data[pad:]
 
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             size = self.calcUnPackSize(fieldTypeOrClass, data)
@@ -1326,6 +1327,65 @@ class NDRUNION(NDR):
         else:
             return NDR.__setitem__(self,key,value)
 
+    def getData(self, soFar = 0):
+        data = ''
+        soFar0 = soFar
+        pad0 = 0
+        for fieldName, fieldTypeOrClass in self.commonHdr:
+            try:
+                pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar, packing = True)
+                if pad > 0:
+                    soFar += pad
+                    data = data + '\xbb'*pad
+                    #data = data + '\x00'*pad
+
+                res = self.pack(fieldName, fieldTypeOrClass, soFar)
+                data += res
+                soFar = soFar0 + len(data)
+            except Exception, e:
+                if self.fields.has_key(fieldName):
+                    e.args += ("When packing field '%s | %s | %r' in %s" % (fieldName, fieldTypeOrClass, self.fields[fieldName], self.__class__),)
+                else:
+                    e.args += ("When packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__),)
+                raise
+
+        # WARNING
+        # Now we need to align what's coming next.
+        # This doesn't come from the documentation but from seeing the packets in the wire
+        # for some reason, even if the next field is a SHORT, it should be aligned to
+        # a DWORD, or HYPER if NDR64
+        if self._isNDR64:
+            align = 8
+        else:
+            align = 4
+
+        pad = (align - (soFar % align)) % align
+        if pad > 0:
+            data = data + '\xbb'*pad
+            soFar += pad
+
+        for fieldName, fieldTypeOrClass in self.structure:
+            try:
+                pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar, packing = True)
+                if pad > 0:
+                    soFar += pad
+                    data = data + '\xbb'*pad
+                    #data = data + '\x00'*pad
+
+                res = self.pack(fieldName, fieldTypeOrClass, soFar)
+                data += res
+                soFar = soFar0 + len(data)
+            except Exception, e:
+                if self.fields.has_key(fieldName):
+                    e.args += ("When packing field '%s | %s | %r' in %s" % (fieldName, fieldTypeOrClass, self.fields[fieldName], self.__class__),)
+                else:
+                    e.args += ("When packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__),)
+                raise
+
+        self.data = data
+
+        return data
+
     def fromString(self, data, soFar = 0 ):
         if len(data) > 4:
             # First off, let's see what the tag is:
@@ -1336,10 +1396,61 @@ class NDRUNION(NDR):
                 self.structure = (self.union[tag]),
                 self.__init__(None, isNDR64=self._isNDR64, topLevel = self.topLevel)
                 #NDR.__init__(self, None, isNDR64=self._isNDR64)
-                return NDR.fromString(self, data, soFar)
             else:
                 raise Exception("Unknown tag %d for union!" % tag)
-        return NDR.fromString(self,data,soFar)
+
+        if self.rawData is None:
+            self.rawData = data
+
+        soFar0 = soFar
+        for fieldName, fieldTypeOrClass in self.commonHdr:
+            size = self.calcUnPackSize(fieldTypeOrClass, data)
+            pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar = soFar, packing = False)
+            if pad > 0:
+                soFar += pad
+                data = data[pad:]
+            try:
+                self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
+                if isinstance(self.fields[fieldName], NDR):
+                    size = len(self.fields[fieldName].getData(soFar))
+                data = data[size:]
+                soFar += size
+            except Exception,e:
+                e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data, size),)
+                raise
+
+        # WARNING
+        # Now we need to align what's coming next.
+        # This doesn't come from the documentation but from seeing the packets in the wire
+        # for some reason, even if the next field is a SHORT, it should be aligned to
+        # a DWORD, or HYPER if NDR64
+        if self._isNDR64:
+            align = 8
+        else:
+            align = 4
+
+        pad = (align - (soFar % align)) % align
+        if pad > 0:
+            data = data[size:]
+            soFar += pad
+
+        for fieldName, fieldTypeOrClass in self.structure:
+            size = self.calcUnPackSize(fieldTypeOrClass, data)
+            pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar = soFar, packing = False)
+            if pad > 0:
+                soFar += pad
+                data = data[pad:]
+            try:
+                self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
+                if isinstance(self.fields[fieldName], NDR):
+                    size = len(self.fields[fieldName].getData(soFar))
+                data = data[size:]
+                soFar += size
+            except Exception,e:
+                e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data, size),)
+                raise
+
+        return self
 
     def getAlignment(self):
         # Union alignment is the largest alignment of the union discriminator 

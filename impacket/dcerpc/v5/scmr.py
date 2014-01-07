@@ -583,7 +583,6 @@ class PSERVICE_MANAGEDACCOUNT_INFO(NDRPOINTER):
     )
 
 class SC_RPC_CONFIG_INFOW_UNION(NDRUNION):
-    align = 4
     commonHdr = (
         ('tag', ULONG),
     )

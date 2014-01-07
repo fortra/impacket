@@ -155,7 +155,6 @@ NET_API_STATUS = DWORD
 
 # 2.3.2 GUID and UUID
 class GUID(NDRSTRUCT):
-    align = 0
     structure = (
         ('Data','16s=""'),
     )
@@ -267,8 +266,8 @@ class DWORD_ARRAY(NDRUniConformantArray):
     item = '<L'
 
 class RPC_SID_IDENTIFIER_AUTHORITY(NDRUniFixedArray):
-    align = 0
-    align64 = 0
+    align = 1
+    align64 = 1
     def getDataLen(self, data):
         return 6
 

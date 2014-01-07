@@ -281,7 +281,6 @@ class LPWKSTA_INFO_1046(NDRPOINTER):
 
 # 2.2.4.1 WKSTA_INFO
 class WKSTA_INFO(NDRUNION):
-    align = 4
     commonHdr = (
         ('tag', ULONG),
     )
@@ -417,7 +416,6 @@ class LPWKSTA_USER_INFO_1_CONTAINER(NDRPOINTER):
 
 # 2.2.5.14 WKSTA_USER_ENUM_STRUCT
 class WKSTA_USER_ENUM_UNION(NDRUNION):
-    align = 4
     commonHdr = (
         ('tag', ULONG),
     )
@@ -456,7 +454,6 @@ class LPWKSTA_TRANSPORT_INFO_0_CONTAINER(NDRPOINTER):
 
 # 2.2.5.16 WKSTA_TRANSPORT_ENUM_STRUCT
 class WKSTA_TRANSPORT_ENUM_UNION(NDRUNION):
-    align = 4
     commonHdr = (
         ('tag', ULONG),
     )
@@ -582,7 +579,6 @@ class LPUSE_INFO_3(NDRPOINTER):
 
 # 2.2.4.2 USE_INFO
 class USE_INFO(NDRUNION):
-    align = 4
     commonHdr = (
         ('tag', ULONG),
     )
@@ -617,7 +613,6 @@ class USE_INFO_2_CONTAINER(NDRSTRUCT):
 
 # 2.2.5.28 USE_ENUM_STRUCT
 class USE_ENUM_UNION(NDRUNION):
-    align = 4
     commonHdr = (
         ('tag', ULONG),
     )
