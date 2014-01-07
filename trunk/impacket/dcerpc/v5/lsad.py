@@ -123,6 +123,7 @@ LSA_FTRECORD_DISABLED_REASONS = 0x0000FFFF
 ################################################################################
 # 2.2.2.1 LSAPR_HANDLE
 class LSAPR_HANDLE(NDR):
+    align = 1
     structure =  (
         ('Data','20s=""'),
     )

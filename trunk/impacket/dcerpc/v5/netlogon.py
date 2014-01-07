@@ -318,6 +318,7 @@ CdcServerSecureChannel = 7
 
 # Structures
 class NETLOGON_CREDENTIAL(NDR):
+    align = 1
     structure = (
         ('Data','8s=""'),
     )
@@ -336,6 +337,8 @@ class ENCRYPTED_NT_OWF_PASSWORD(NDRSTRUCT):
     structure = (
         ('Data','16s=""'),
     )
+    def getAlignment(self):
+        return 1
 
 class NL_GENERIC_RPC_DATA(NDRSTRUCT):
     structure = (

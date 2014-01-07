@@ -141,6 +141,8 @@ class CYPHER_BLOCK(NDRSTRUCT):
     structure = (
         ('Data', '8s=""'),
     )
+    def getAlignment(self):
+        return 1
 
 NET_API_STATUS = DWORD
 
@@ -1542,6 +1544,8 @@ class UAS_INFO_0(NDRSTRUCT):
         ('TimeCreated', ULONG),
         ('SerialNumber', ULONG),
     )
+    def getAlignment(self):
+        return 4
 
 # 2.2.1.8.4 NETLOGON_DUMMY1
 class NETLOGON_DUMMY1(NDRUNION):

@@ -160,6 +160,9 @@ class GUID(NDRSTRUCT):
         ('Data','16s=""'),
     )
 
+    def getAlignment(self):
+        return 4
+
 class PGUID(NDRPOINTER):
     referent = (
         ('Data', GUID),
