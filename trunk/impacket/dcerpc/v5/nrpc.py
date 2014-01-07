@@ -165,15 +165,16 @@ ENCRYPTED_NT_OWF_PASSWORD = NT_OWF_PASSWORD
 
 # 2.2.1.3.4 NETLOGON_CREDENTIAL
 class UCHAR_FIXED_ARRAY(NDRUniFixedArray):
-    align = 0
+    align = 1
     def getDataLen(self, data):
         return len(CYPHER_BLOCK())
 
 class NETLOGON_CREDENTIAL(NDRSTRUCT):
-    align = 0
     structure = (
         ('Data',UCHAR_FIXED_ARRAY),
     )
+    def getAlignment(self):
+        return 1
 
 # 2.2.1.1.5 NETLOGON_AUTHENTICATOR
 class NETLOGON_AUTHENTICATOR(NDRSTRUCT):
@@ -362,7 +363,6 @@ class NL_PASSWORD_VERSION(NDRSTRUCT):
 
 # 2.2.1.3.9 NETLOGON_WORKSTATION_INFORMATION
 class NETLOGON_WORKSTATION_INFORMATION(NDRUNION):
-    align = 4
     commonHdr = (
         ('tag', DWORD),
     )
@@ -422,7 +422,6 @@ class PNETLOGON_DOMAIN_INFO(NDRPOINTER):
 
 # 2.2.1.3.12 NETLOGON_DOMAIN_INFORMATION
 class NETLOGON_DOMAIN_INFORMATION(NDRUNION):
-    align = 4
     commonHdr = (
         ('tag', DWORD),
     )
@@ -446,7 +445,6 @@ class NETLOGON_SECURE_CHANNEL_TYPE(NDRENUM):
 
 # 2.2.1.3.14 NETLOGON_CAPABILITIES
 class NETLOGON_CAPABILITIES(NDRUNION):
-    align = 4
     commonHdr = (
         ('tag', DWORD),
     )
@@ -495,7 +493,6 @@ class NL_IN_CHAIN_SET_CLIENT_ATTRIBUTES_V1(NDRSTRUCT):
 
 # 2.2.1.3.17 NL_IN_CHAIN_SET_CLIENT_ATTRIBUTES
 class NL_IN_CHAIN_SET_CLIENT_ATTRIBUTES(NDRUNION):
-    align = 4
     commonHdr = (
         ('tag', DWORD),
     )
@@ -514,7 +511,6 @@ class NL_OUT_CHAIN_SET_CLIENT_ATTRIBUTES_V1(NDRSTRUCT):
 
 # 2.2.1.3.19 NL_OUT_CHAIN_SET_CLIENT_ATTRIBUTES
 class NL_OUT_CHAIN_SET_CLIENT_ATTRIBUTES(NDRUNION):
-    align = 4
     commonHdr = (
         ('tag', DWORD),
     )
@@ -1343,18 +1339,18 @@ class NETLOGON_DELTA_ENUM(NDRSTRUCT):
     )
 
 # 2.2.1.5.12 NETLOGON_DELTA_ENUM_ARRAY
-class NETLOGON_DELTA_ENUM_ARRAY(NDRUniConformantArray):
+class NETLOGON_DELTA_ENUM_ARRAY_ARRAY(NDRUniConformantArray):
     item = NETLOGON_DELTA_ENUM
 
-class PNETLOGON_DELTA_ENUM_ARRAY(NDRPOINTER):
+class PNETLOGON_DELTA_ENUM_ARRAY_ARRAY(NDRSTRUCT):
     referent = (
-        ('Data', NETLOGON_DELTA_ENUM_ARRAY),
+        ('Data', NETLOGON_DELTA_ENUM_ARRAY_ARRAY),
     )
 
-class NETLOGON_DELTA_ENUM_ARRAY(NDRSTRUCT):
+class PNETLOGON_DELTA_ENUM_ARRAY(NDRPOINTER):
     structure = (
         ('CountReturned', DWORD),
-        ('Deltas', PNETLOGON_DELTA_ENUM_ARRAY),
+        ('Deltas', PNETLOGON_DELTA_ENUM_ARRAY_ARRAY),
     )
 
 # 2.2.1.5.29 SYNC_STATE
@@ -1421,7 +1417,6 @@ class PNL_GENERIC_RPC_DATA(NDRPOINTER):
 
 # 2.2.1.7.1 NETLOGON_CONTROL_DATA_INFORMATION
 class NETLOGON_CONTROL_DATA_INFORMATION(NDRUNION):
-    align = 4
     commonHdr = (
         ('tag', DWORD),
     )
@@ -1492,7 +1487,6 @@ class PNETLOGON_INFO_4(NDRPOINTER):
 
 # 2.2.1.7.6 NETLOGON_CONTROL_QUERY_INFORMATION
 class NETLOGON_CONTROL_QUERY_INFORMATION(NDRUNION):
-    align = 4
     commonHdr = (
         ('tag', DWORD),
     )
@@ -1549,7 +1543,6 @@ class UAS_INFO_0(NDRSTRUCT):
 
 # 2.2.1.8.4 NETLOGON_DUMMY1
 class NETLOGON_DUMMY1(NDRUNION):
-    align = 4
     commonHdr = (
         ('tag', DWORD),
     )

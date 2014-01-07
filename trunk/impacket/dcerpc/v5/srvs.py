@@ -395,7 +395,6 @@ class LPCONNECT_INFO_1_CONTAINER(NDRPOINTER):
 
 # 2.2.3.1 CONNECT_ENUM_UNION
 class CONNECT_ENUM_UNION(NDRUNION):
-    align = 4
     commonHdr = (
         ('tag', DWORD),
     )
@@ -480,7 +479,6 @@ class LPFILE_INFO_3_CONTAINER(NDRPOINTER):
 
 # 2.2.3.2 FILE_ENUM_UNION
 class FILE_ENUM_UNION(NDRUNION):
-    align = 4
     commonHdr = (
         ('tag', DWORD),
     )
@@ -675,7 +673,6 @@ class LPSESSION_INFO_502_CONTAINER(NDRPOINTER):
 
 # 2.2.3.4 SESSION_ENUM_UNION
 class SESSION_ENUM_UNION(NDRUNION):
-    align = 4
     commonHdr = (
         ('tag', DWORD),
     )
@@ -991,7 +988,6 @@ class LPSHARE_INFO_503_CONTAINER(NDRPOINTER):
 
 # 2.2.3.5 SHARE_ENUM_UNION
 class SHARE_ENUM_UNION(NDRUNION):
-    align = 4
     commonHdr = (
         ('tag', DWORD),
     )
@@ -1746,9 +1742,6 @@ class LPSERVER_INFO_1556(NDRPOINTER):
 
 # 2.2.4.91 DISK_INFO
 class WCHAR_ARRAY(NDRSTRUCT):
-    align = 4
-    align64 = 8
-
     commonHdr = (
         ('Offset','<L=0'),
         ('ActualCount','<L=len(Data)/2'),
@@ -1970,7 +1963,6 @@ class LPSERVER_XPORT_INFO_3_CONTAINER(NDRPOINTER):
 
 # 2.2.3.8 SERVER_XPORT_ENUM_UNION
 class SERVER_XPORT_ENUM_UNION(NDRUNION):
-    align = 4
     commonHdr = (
         ('tag', DWORD),
     )
@@ -2025,7 +2017,6 @@ class LPSERVER_ALIAS_INFO_0_CONTAINER(NDRPOINTER):
 
 # 2.2.4.104 SERVER_ALIAS_ENUM_STRUCT
 class SERVER_ALIAS_ENUM_UNION(NDRUNION):
-    align = 4
     commonHdr = (
         ('tag', DWORD),
     )
@@ -2121,7 +2112,6 @@ class LPDFS_SITELIST_INFO(NDRPOINTER):
 # 2.2.3 Unions
 # 2.2.3.3 FILE_INFO
 class FILE_INFO(NDRUNION):
-    align = 4
     commonHdr = (
         ('tag', DWORD),
     )
@@ -2133,7 +2123,6 @@ class FILE_INFO(NDRUNION):
 
 # 2.2.3.6 SHARE_INFO
 class SHARE_INFO(NDRUNION):
-    align = 4
     commonHdr = (
         ('tag', DWORD),
     )
@@ -2153,7 +2142,6 @@ class SHARE_INFO(NDRUNION):
 
 # 2.2.3.7 SERVER_INFO
 class SERVER_INFO(NDRUNION):
-    align = 4
     commonHdr = (
         ('tag', DWORD),
     )
@@ -2214,7 +2202,6 @@ class SERVER_INFO(NDRUNION):
 
 # 2.2.3.9 TRANSPORT_INFO
 class TRANSPORT_INFO(NDRUNION):
-    align = 4
     commonHdr = (
         ('tag', DWORD),
     )
@@ -2228,7 +2215,6 @@ class TRANSPORT_INFO(NDRUNION):
 
 # 2.2.3.10 SERVER_ALIAS_INFO
 class SERVER_ALIAS_INFO(NDRUNION):
-    align = 4
     commonHdr = (
         ('tag', DWORD),
     )
