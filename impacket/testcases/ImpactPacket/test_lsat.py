@@ -45,7 +45,7 @@ class LSATTests(unittest.TestCase):
         dce = rpctransport.get_dce_rpc()
         #dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_INTEGRITY)
         dce.connect()
-        dce.bind(lsat.MSRPC_UUID_LSAT)
+        dce.bind(lsat.MSRPC_UUID_LSAT, transfer_syntax = self.ts)
         request = lsat.LsarOpenPolicy2()
         request['SystemName'] = NULL
         request['ObjectAttributes']['RootDirectory'] = NULL
@@ -237,8 +237,6 @@ class LSATTests(unittest.TestCase):
                 resp = e.get_packet()
                 #resp.dump()
 
-
-
 class SMBTransport(LSATTests):
     def setUp(self):
         LSATTests.setUp(self)
@@ -251,6 +249,22 @@ class SMBTransport(LSATTests):
         self.machine  = configFile.get('SMBTransport', 'machine')
         self.hashes   = configFile.get('SMBTransport', 'hashes')
         self.stringBinding = r'ncacn_np:%s[\PIPE\lsarpc]' % self.machine
+        self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
+
+class SMBTransport64(LSATTests):
+    def setUp(self):
+        LSATTests.setUp(self)
+        configFile = ConfigParser.ConfigParser()
+        configFile.read('dcetests.cfg')
+        self.username = configFile.get('SMBTransport', 'username')
+        self.domain   = configFile.get('SMBTransport', 'domain')
+        self.serverName = configFile.get('SMBTransport', 'servername')
+        self.password = configFile.get('SMBTransport', 'password')
+        self.machine  = configFile.get('SMBTransport', 'machine')
+        self.hashes   = configFile.get('SMBTransport', 'hashes')
+        self.stringBinding = r'ncacn_np:%s[\PIPE\lsarpc]' % self.machine
+        self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
+
 
 # Process command-line arguments.
 if __name__ == '__main__':
@@ -260,4 +274,5 @@ if __name__ == '__main__':
         suite = unittest.TestLoader().loadTestsFromTestCase(globals()[testcase])
     else:
         suite = unittest.TestLoader().loadTestsFromTestCase(SMBTransport)
+        suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMBTransport64))
     unittest.TextTestRunner(verbosity=1).run(suite)

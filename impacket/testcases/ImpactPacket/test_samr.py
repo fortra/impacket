@@ -153,7 +153,7 @@ class SAMRTests(unittest.TestCase):
         dce.connect()
         #dce.set_auth_level(ntlm.NTLM_AUTH_PKT_PRIVACY)
         dce.set_auth_level(ntlm.NTLM_AUTH_PKT_INTEGRITY)
-        dce.bind(samr.MSRPC_UUID_SAMR)
+        dce.bind(samr.MSRPC_UUID_SAMR, transfer_syntax = self.ts)
         request = samr.SamrConnect()
         request['ServerName'] = u'BETO\x00'
         request['DesiredAccess'] = samr.DELETE | samr.READ_CONTROL | samr.WRITE_DAC | samr.WRITE_OWNER | samr.ACCESS_SYSTEM_SECURITY | samr.GENERIC_READ | samr.GENERIC_WRITE | samr.GENERIC_EXECUTE | samr.SAM_SERVER_CONNECT | samr.SAM_SERVER_SHUTDOWN | samr.SAM_SERVER_INITIALIZE | samr.SAM_SERVER_CREATE_DOMAIN | samr.SAM_SERVER_ENUMERATE_DOMAINS | samr.SAM_SERVER_LOOKUP_DOMAIN | samr.SAM_SERVER_READ | samr.SAM_SERVER_WRITE | samr.SAM_SERVER_EXECUTE
@@ -2754,7 +2754,6 @@ class SAMRTests(unittest.TestCase):
         resp = dce.request(request)
         ##resp.dump()
 
-
 class SMBTransport(SAMRTests):
     def setUp(self):
         SAMRTests.setUp(self)
@@ -2767,6 +2766,7 @@ class SMBTransport(SAMRTests):
         self.machine  = configFile.get('SMBTransport', 'machine')
         self.hashes   = configFile.get('SMBTransport', 'hashes')
         self.stringBinding = epm.hept_map(self.machine, samr.MSRPC_UUID_SAMR, protocol = 'ncacn_np')
+        self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
 
 class TCPTransport(SAMRTests):
     def setUp(self):
@@ -2781,6 +2781,36 @@ class TCPTransport(SAMRTests):
         self.hashes   = configFile.get('TCPTransport', 'hashes')
         #print epm.hept_map(self.machine, samr.MSRPC_UUID_SAMR, protocol = 'ncacn_ip_tcp')
         self.stringBinding = epm.hept_map(self.machine, samr.MSRPC_UUID_SAMR, protocol = 'ncacn_ip_tcp')
+        self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
+
+class SMBTransport64(SAMRTests):
+    def setUp(self):
+        SAMRTests.setUp(self)
+        configFile = ConfigParser.ConfigParser()
+        configFile.read('dcetests.cfg')
+        self.username = configFile.get('SMBTransport', 'username')
+        self.domain   = configFile.get('SMBTransport', 'domain')
+        self.serverName = configFile.get('SMBTransport', 'servername')
+        self.password = configFile.get('SMBTransport', 'password')
+        self.machine  = configFile.get('SMBTransport', 'machine')
+        self.hashes   = configFile.get('SMBTransport', 'hashes')
+        self.stringBinding = epm.hept_map(self.machine, samr.MSRPC_UUID_SAMR, protocol = 'ncacn_np')
+        self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
+
+class TCPTransport64(SAMRTests):
+    def setUp(self):
+        SAMRTests.setUp(self)
+        configFile = ConfigParser.ConfigParser()
+        configFile.read('dcetests.cfg')
+        self.username = configFile.get('TCPTransport', 'username')
+        self.domain   = configFile.get('TCPTransport', 'domain')
+        self.serverName = configFile.get('TCPTransport', 'servername')
+        self.password = configFile.get('TCPTransport', 'password')
+        self.machine  = configFile.get('TCPTransport', 'machine')
+        self.hashes   = configFile.get('TCPTransport', 'hashes')
+        #print epm.hept_map(self.machine, samr.MSRPC_UUID_SAMR, protocol = 'ncacn_ip_tcp')
+        self.stringBinding = epm.hept_map(self.machine, samr.MSRPC_UUID_SAMR, protocol = 'ncacn_ip_tcp')
+        self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
 
 
 # Process command-line arguments.
@@ -2792,4 +2822,6 @@ if __name__ == '__main__':
     else:
         suite = unittest.TestLoader().loadTestsFromTestCase(SMBTransport)
         suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport))
+        suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMBTransport64))
+        suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport64))
     unittest.TextTestRunner(verbosity=1).run(suite)
