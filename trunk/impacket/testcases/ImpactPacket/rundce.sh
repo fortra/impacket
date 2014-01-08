@@ -12,3 +12,4 @@ python test_samr.py
 python test_wkst.py
 python test_srvs.py
 python test_lsad.py
+python test_lsat.py

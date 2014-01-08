@@ -81,7 +81,7 @@ class SRVSTests(unittest.TestCase):
             rpctransport.set_credentials(self.username,self.password, self.domain, lmhash, nthash)
         dce = rpctransport.get_dce_rpc()
         dce.connect()
-        dce.bind(srvs.MSRPC_UUID_SRVS)
+        dce.bind(srvs.MSRPC_UUID_SRVS, transfer_syntax = self.ts)
 
         return dce, rpctransport
 
@@ -858,6 +858,22 @@ class SMBTransport(SRVSTests):
         self.machine  = configFile.get('SMBTransport', 'machine')
         self.hashes   = configFile.get('SMBTransport', 'hashes')
         self.stringBinding = r'ncacn_np:%s[\PIPE\srvsvc]' % self.machine
+        self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
+
+class SMBTransport64(SRVSTests):
+    def setUp(self):
+        SRVSTests.setUp(self)
+        configFile = ConfigParser.ConfigParser()
+        configFile.read('dcetests.cfg')
+        self.username = configFile.get('SMBTransport', 'username')
+        self.domain   = configFile.get('SMBTransport', 'domain')
+        self.serverName = configFile.get('SMBTransport', 'servername')
+        self.password = configFile.get('SMBTransport', 'password')
+        self.machine  = configFile.get('SMBTransport', 'machine')
+        self.hashes   = configFile.get('SMBTransport', 'hashes')
+        self.stringBinding = r'ncacn_np:%s[\PIPE\srvsvc]' % self.machine
+        self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
+
 
 # Process command-line arguments.
 if __name__ == '__main__':
@@ -867,4 +883,5 @@ if __name__ == '__main__':
         suite = unittest.TestLoader().loadTestsFromTestCase(globals()[testcase])
     else:
         suite = unittest.TestLoader().loadTestsFromTestCase(SMBTransport)
+        suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMBTransport64))
     unittest.TextTestRunner(verbosity=1).run(suite)
