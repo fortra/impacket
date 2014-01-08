@@ -121,6 +121,19 @@ class NDR(object):
                     self.structure = self.structure64
                 if hasattr(self, 'align64'):
                     self.align = self.align64
+                # And check whether the changes changed the data types
+                # if so, I need to instantiate the new ones and copy the
+                # old values
+                for fieldName, fieldTypeOrClass in self.commonHdr+self.structure+self.referent:
+                    if isinstance(self.fields[fieldName], NDR):
+                        if fieldTypeOrClass != self.fields[fieldName].__class__ and isinstance(self.fields[fieldName], NDRPOINTERNULL) is False:
+                            backupData = self[fieldName]
+                            self.fields[fieldName] = fieldTypeOrClass(isNDR64 = self._isNDR64)
+                            if self.fields[fieldName].fields.has_key('Data'):
+                                self.fields[fieldName].fields['Data'] = backupData
+                            else:
+                                self[fieldName] = backupData
+  
         else:
             if self._isNDR64 is True:
                 # Ok, nothing for now
@@ -1417,10 +1430,8 @@ class NDRUNION(NDR):
             if self.union.has_key(value):
                 self.structure = (self.union[value]),
                 # Init again the structure
-                #NDR.__init__(self, None, isNDR64=self._isNDR64)
                 self.__init__(None, isNDR64=self._isNDR64, topLevel = self.topLevel)
                 self.fields['tag']['Data'] = value
-                #self.fields['SwitchValue']['Data'] = value
             else:
                 raise Exception("Unknown tag %d for union!" % value)
         else:
