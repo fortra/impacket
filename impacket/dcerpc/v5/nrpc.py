@@ -2233,7 +2233,7 @@ class NetrLogonSamLogoff(NDRCALL):
        ('LogonInformation',NETLOGON_LEVEL),
     )
 
-class NetrLogonSamLogonResponse(NDRCALL):
+class NetrLogonSamLogoffResponse(NDRCALL):
     structure = (
        ('ReturnAuthenticator',PNETLOGON_AUTHENTICATOR),
        ('ErrorCode',NTSTATUS),
@@ -2295,7 +2295,7 @@ class NetrDatabaseSync(NDRCALL):
        ('PreferredMaximumLength',DWORD),
     )
 
-class NetrDatabaseSync2Response(NDRCALL):
+class NetrDatabaseSyncResponse(NDRCALL):
     structure = (
        ('ReturnAuthenticator',NETLOGON_AUTHENTICATOR),
        ('SyncContext',ULONG),
@@ -2586,7 +2586,60 @@ class NetrLogonUasLogoffResponse(NDRCALL):
        ('ErrorCode',NET_API_STATUS),
     )
 
-
+################################################################################
+# OPNUMs and their corresponding structures
+################################################################################
+OPNUMS = {
+ 0 : (NetrLogonUasLogon, NetrLogonUasLogonResponse),
+ 1 : (NetrLogonUasLogoff, NetrLogonUasLogoffResponse),
+ 2 : (NetrLogonSamLogon, NetrLogonSamLogonResponse),
+ 3 : (NetrLogonSamLogoff, NetrLogonSamLogoffResponse),
+ 4 : (NetrServerReqChallenge, NetrServerReqChallengeResponse),
+ 5 : (NetrServerAuthenticate, NetrServerAuthenticateResponse),
+# 6 : (NetrServerPasswordSet, NetrServerPasswordSetResponse),
+ 7 : (NetrDatabaseDeltas, NetrDatabaseDeltasResponse),
+ 8 : (NetrDatabaseSync, NetrDatabaseSyncResponse),
+# 9 : (NetrAccountDeltas, NetrAccountDeltasResponse),
+# 10 : (NetrAccountSync, NetrAccountSyncResponse),
+ 11 : (NetrGetDCName, NetrGetDCNameResponse),
+ 12 : (NetrLogonControl, NetrLogonControlResponse),
+ 13 : (NetrGetAnyDCName, NetrGetAnyDCNameResponse),
+ 14 : (NetrLogonControl2, NetrLogonControl2Response),
+ 15 : (NetrServerAuthenticate2, NetrServerAuthenticate2Response),
+ 16 : (NetrDatabaseSync2, NetrDatabaseSync2Response),
+ 17 : (NetrDatabaseRedo, NetrDatabaseRedoResponse),
+ 18 : (NetrLogonControl2Ex, NetrLogonControl2ExResponse),
+ 19 : (NetrEnumerateTrustedDomains, NetrEnumerateTrustedDomainsResponse),
+ 20 : (DsrGetDcName, DsrGetDcNameResponse),
+ 21 : (NetrLogonGetCapabilities, NetrLogonGetCapabilitiesResponse),
+ 22 : (NetrLogonSetServiceBits, NetrLogonSetServiceBitsResponse),
+ 23 : (NetrLogonGetTrustRid, NetrLogonGetTrustRidResponse),
+ 24 : (NetrLogonComputeServerDigest, NetrLogonComputeServerDigestResponse),
+ 25 : (NetrLogonComputeClientDigest, NetrLogonComputeClientDigestResponse),
+ 26 : (NetrServerAuthenticate3, NetrServerAuthenticate3Response),
+ 27 : (DsrGetDcNameEx, DsrGetDcNameExResponse),
+ 28 : (DsrGetSiteName, DsrGetSiteNameResponse),
+ 29 : (NetrLogonGetDomainInfo, NetrLogonGetDomainInfoResponse),
+# 30 : (NetrServerPasswordSet2, NetrServerPasswordSet2Response),
+ 31 : (NetrServerPasswordGet, NetrServerPasswordGetResponse),
+ 32 : (NetrLogonSendToSam, NetrLogonSendToSamResponse),
+ 33 : (DsrAddressToSiteNamesW, DsrAddressToSiteNamesWResponse),
+ 34 : (DsrGetDcNameEx2, DsrGetDcNameEx2Response),
+ 35 : (NetrLogonGetTimeServiceParentDomain, NetrLogonGetTimeServiceParentDomainResponse),
+ 36 : (NetrEnumerateTrustedDomainsEx, NetrEnumerateTrustedDomainsExResponse),
+ 37 : (DsrAddressToSiteNamesExW, DsrAddressToSiteNamesExWResponse),
+ 38 : (DsrGetDcSiteCoverageW, DsrGetDcSiteCoverageWResponse),
+ 39 : (NetrLogonSamLogonEx, NetrLogonSamLogonExResponse),
+ 40 : (DsrEnumerateDomainTrusts, DsrEnumerateDomainTrustsResponse),
+ 41 : (DsrDeregisterDnsHostRecords, DsrDeregisterDnsHostRecordsResponse),
+ 42 : (NetrServerTrustPasswordsGet, NetrServerTrustPasswordsGetResponse),
+ 43 : (DsrGetForestTrustInformation, DsrGetForestTrustInformationResponse),
+ 44 : (NetrGetForestTrustInformation, NetrGetForestTrustInformationResponse),
+ 45 : (NetrLogonSamLogonWithFlags, NetrLogonSamLogonWithFlagsResponse),
+ 46 : (NetrServerGetTrustInfo, NetrServerGetTrustInfoResponse),
+# 48 : (DsrUpdateReadOnlyServerDnsRecords, DsrUpdateReadOnlyServerDnsRecordsResponse),
+# 49 : (NetrChainSetClientAttributes, NetrChainSetClientAttributesResponse),
+}
 
 ################################################################################
 # HELPER FUNCTIONS
