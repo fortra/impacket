@@ -122,7 +122,6 @@ class NRPCTests(unittest.TestCase):
         #dce2 = dce.alter_ctx(nrpc.MSRPC_UUID_NRPC)
         #dce2.set_session_key(self.sessionKey)
 
-
         return dce, rpctransport
 
 
@@ -888,5 +887,5 @@ if __name__ == '__main__':
         suite = unittest.TestLoader().loadTestsFromTestCase(globals()[testcase])
     else:
         suite = unittest.TestLoader().loadTestsFromTestCase(SMBTransport)
-        #suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport))
+        suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport))
     unittest.TextTestRunner(verbosity=1).run(suite)
