@@ -7,7 +7,7 @@
 #
 # $Id$
 #
-# SVCCTL services common functions for manipulating services
+# [MS-SCMR] services common functions for manipulating services
 #
 # Author:
 #  Alberto Solino
@@ -16,7 +16,6 @@
 #  DCE/RPC.
 # TODO: 
 # [ ] Check errors
-# [ ] Add Creating a Service
 
 import socket
 import string
@@ -24,7 +23,8 @@ import sys
 import types
 import argparse
 from impacket import uuid, ntlm, version
-from impacket.dcerpc import transport, svcctl
+from impacket.dcerpc.v5 import transport, scmr
+from impacket.dcerpc.v5.ndr import NULL
 from impacket.crypto import *
 
 class SVCCTL:
@@ -79,90 +79,91 @@ class SVCCTL:
         #dce.set_max_fragment_size(1)
         #dce.set_auth_level(ntlm.NTLM_AUTH_PKT_PRIVACY)
         #dce.set_auth_level(ntlm.NTLM_AUTH_PKT_INTEGRITY)
-        dce.bind(svcctl.MSRPC_UUID_SVCCTL)
-        rpc = svcctl.DCERPCSvcCtl(dce)
-        ans = rpc.OpenSCManagerW()
-        scManagerHandle = ans['ContextHandle']
+        dce.bind(scmr.MSRPC_UUID_SCMR)
+        #rpc = svcctl.DCERPCSvcCtl(dce)
+        rpc = dce
+        ans = scmr.hROpenSCManagerW(rpc)
+        scManagerHandle = ans['lpScHandle']
         if self.__action != 'LIST' and self.__action != 'CREATE':
-            ans = rpc.OpenServiceW(scManagerHandle, self.__options.name.encode('utf-16le'))
-            serviceHandle = ans['ContextHandle']
+            ans = scmr.hROpenServiceW(rpc, scManagerHandle, self.__options.name+'\x00')
+            serviceHandle = ans['lpServiceHandle']
 
         if self.__action == 'START':
             print "Starting service %s" % self.__options.name
-            rpc.StartServiceW(serviceHandle)
-            rpc.CloseServiceHandle(serviceHandle)
+            scmr.hRStartServiceW(rpc, serviceHandle)
+            scmr.hRCloseServiceHandle(rpc, serviceHandle)
         elif self.__action == 'STOP':
             print "Stopping service %s" % self.__options.name
-            rpc.StopService(serviceHandle)
-            rpc.CloseServiceHandle(serviceHandle)
+            scmr.hRControlService(rpc, serviceHandle, scmr.SERVICE_CONTROL_STOP)
+            scmr.hRCloseServiceHandle(rpc, serviceHandle)
         elif self.__action == 'DELETE':
             print "Deleting service %s" % self.__options.name
-            rpc.DeleteService(serviceHandle)
-            rpc.CloseServiceHandle(serviceHandle)
+            scmr.hRDeleteService(rpc, serviceHandle)
+            scmr.hRCloseServiceHandle(rpc, serviceHandle)
         elif self.__action == 'CONFIG':
             print "Querying service config for %s" % self.__options.name
-            resp = rpc.QueryServiceConfigW(serviceHandle)
-            print "TYPE              : %2d - " % resp['QueryConfig']['ServiceType'],
-            if resp['QueryConfig']['ServiceType'] & 0x1:
-                print "SERVICE_KERNLE_DRIVER ",
-            if resp['QueryConfig']['ServiceType'] & 0x2:
+            resp = scmr.hRQueryServiceConfigW(rpc, serviceHandle)
+            print "TYPE              : %2d - " % resp['lpServiceConfig']['dwServiceType'],
+            if resp['lpServiceConfig']['dwServiceType'] & 0x1:
+                print "SERVICE_KERNEL_DRIVER ",
+            if resp['lpServiceConfig']['dwServiceType'] & 0x2:
                 print "SERVICE_FILE_SYSTEM_DRIVER ",
-            if resp['QueryConfig']['ServiceType'] & 0x10:
+            if resp['lpServiceConfig']['dwServiceType'] & 0x10:
                 print "SERVICE_WIN32_OWN_PROCESS ",
-            if resp['QueryConfig']['ServiceType'] & 0x20:
+            if resp['lpServiceConfig']['dwServiceType'] & 0x20:
                 print "SERVICE_WIN32_SHARE_PROCESS ",
-            if resp['QueryConfig']['ServiceType'] & 0x100:
+            if resp['lpServiceConfig']['dwServiceType'] & 0x100:
                 print "SERVICE_INTERACTIVE_PROCESS ",
             print ""
-            print "START_TYPE        : %2d - " % resp['QueryConfig']['StartType'],
-            if resp['QueryConfig']['StartType'] == 0x0:
+            print "START_TYPE        : %2d - " % resp['lpServiceConfig']['dwStartType'],
+            if resp['lpServiceConfig']['dwStartType'] == 0x0:
                 print "BOOT START"
-            elif resp['QueryConfig']['StartType'] == 0x1:
+            elif resp['lpServiceConfig']['dwStartType'] == 0x1:
                 print "SYSTEM START"
-            elif resp['QueryConfig']['StartType'] == 0x2:
+            elif resp['lpServiceConfig']['dwStartType'] == 0x2:
                 print "AUTO START"
-            elif resp['QueryConfig']['StartType'] == 0x3:
+            elif resp['lpServiceConfig']['dwStartType'] == 0x3:
                 print "DEMAND START"
-            elif resp['QueryConfig']['StartType'] == 0x4:
+            elif resp['lpServiceConfig']['dwStartType'] == 0x4:
                 print "DISABLED"
             else:
                 print "UNKOWN"
 
-            print "ERROR_CONTROL     : %2d - " % resp['QueryConfig']['ErrorControl'],
-            if resp['QueryConfig']['ErrorControl'] == 0x0:
+            print "ERROR_CONTROL     : %2d - " % resp['lpServiceConfig']['dwErrorControl'],
+            if resp['lpServiceConfig']['dwErrorControl'] == 0x0:
                 print "IGNORE"
-            elif resp['QueryConfig']['ErrorControl'] == 0x1:
+            elif resp['lpServiceConfig']['dwErrorControl'] == 0x1:
                 print "NORMAL"
-            elif resp['QueryConfig']['ErrorControl'] == 0x2:
+            elif resp['lpServiceConfig']['dwErrorControl'] == 0x2:
                 print "SEVERE"
-            elif resp['QueryConfig']['ErrorControl'] == 0x3:
+            elif resp['lpServiceConfig']['dwErrorControl'] == 0x3:
                 print "CRITICAL"
             else:
                 print "UNKOWN"
-            print "BINARY_PATH_NAME  : %s" % resp['QueryConfig']['BinaryPathName'].decode('utf-16le')
-            print "LOAD_ORDER_GROUP  : %s" % resp['QueryConfig']['LoadOrderGroup'].decode('utf-16le')
-            print "TAG               : %d" % resp['QueryConfig']['TagID']
-            print "DISPLAY_NAME      : %s" % resp['QueryConfig']['DisplayName'].decode('utf-16le')
-            print "DEPENDENCIES      : %s" % resp['QueryConfig']['Dependencies'].decode('utf-16le').replace('/',' - ')
-            print "SERVICE_START_NAME: %s" % resp['QueryConfig']['ServiceStartName'].decode('utf-16le')
+            print "BINARY_PATH_NAME  : %s" % resp['lpServiceConfig']['lpBinaryPathName'][:-1]
+            print "LOAD_ORDER_GROUP  : %s" % resp['lpServiceConfig']['lpLoadOrderGroup'][:-1]
+            print "TAG               : %d" % resp['lpServiceConfig']['dwTagId']
+            print "DISPLAY_NAME      : %s" % resp['lpServiceConfig']['lpDisplayName'][:-1]
+            print "DEPENDENCIES      : %s" % resp['lpServiceConfig']['lpDependencies'][:-1]
+            print "SERVICE_START_NAME: %s" % resp['lpServiceConfig']['lpServiceStartName'][:-1]
         elif self.__action == 'STATUS':
             print "Querying status for %s" % self.__options.name
-            resp = rpc.QueryServiceStatus(serviceHandle)
+            resp = scmr.hRQueryServiceStatus(rpc, serviceHandle)
             print "%30s - " % (self.__options.name),
-            state = resp['CurrentState']
-            if state == svcctl.SERVICE_CONTINUE_PENDING:
+            state = resp['lpServiceStatus']['dwCurrentState']
+            if state == scmr.SERVICE_CONTINUE_PENDING:
                print "CONTINUE PENDING"
-            elif state == svcctl.SERVICE_PAUSE_PENDING:
+            elif state == scmr.SERVICE_PAUSE_PENDING:
                print "PAUSE PENDING"
-            elif state == svcctl.SERVICE_PAUSED:
+            elif state == scmr.SERVICE_PAUSED:
                print "PAUSED"
-            elif state == svcctl.SERVICE_RUNNING:
+            elif state == scmr.SERVICE_RUNNING:
                print "RUNNING"
-            elif state == svcctl.SERVICE_START_PENDING:
+            elif state == scmr.SERVICE_START_PENDING:
                print "START PENDING"
-            elif state == svcctl.SERVICE_STOP_PENDING:
+            elif state == scmr.SERVICE_STOP_PENDING:
                print "STOP PENDING"
-            elif state == svcctl.SERVICE_STOPPED:
+            elif state == scmr.SERVICE_STOPPED:
                print "STOPPED"
             else:
                print "UNKOWN"
@@ -171,55 +172,55 @@ class SVCCTL:
             #resp = rpc.EnumServicesStatusW(scManagerHandle, svcctl.SERVICE_WIN32_SHARE_PROCESS )
             #resp = rpc.EnumServicesStatusW(scManagerHandle, svcctl.SERVICE_WIN32_OWN_PROCESS )
             #resp = rpc.EnumServicesStatusW(scManagerHandle, serviceType = svcctl.SERVICE_FILE_SYSTEM_DRIVER, serviceState = svcctl.SERVICE_STATE_ALL )
-            resp = rpc.EnumServicesStatusW(scManagerHandle)
+            resp = scmr.hREnumServicesStatusW(rpc, scManagerHandle)
             for i in range(len(resp)):
-                print "%30s - %70s - " % (resp[i]['ServiceName'].decode('utf-16'), resp[i]['DisplayName'].decode('utf-16')),
-                state = resp[i]['CurrentState']
-                if state == svcctl.SERVICE_CONTINUE_PENDING:
+                print "%30s - %70s - " % (resp[i]['lpServiceName'][:-1], resp[i]['lpDisplayName'][:-1]),
+                state = resp[i]['ServiceStatus']['dwCurrentState']
+                if state == scmr.SERVICE_CONTINUE_PENDING:
                    print "CONTINUE PENDING"
-                elif state == svcctl.SERVICE_PAUSE_PENDING:
+                elif state == scmr.SERVICE_PAUSE_PENDING:
                    print "PAUSE PENDING"
-                elif state == svcctl.SERVICE_PAUSED:
+                elif state == scmr.SERVICE_PAUSED:
                    print "PAUSED"
-                elif state == svcctl.SERVICE_RUNNING:
+                elif state == scmr.SERVICE_RUNNING:
                    print "RUNNING"
-                elif state == svcctl.SERVICE_START_PENDING:
+                elif state == scmr.SERVICE_START_PENDING:
                    print "START PENDING"
-                elif state == svcctl.SERVICE_STOP_PENDING:
+                elif state == scmr.SERVICE_STOP_PENDING:
                    print "STOP PENDING"
-                elif state == svcctl.SERVICE_STOPPED:
+                elif state == scmr.SERVICE_STOPPED:
                    print "STOPPED"
                 else:
                    print "UNKOWN"
             print "Total Services: %d" % len(resp)
         elif self.__action == 'CREATE':
             print "Creating service %s" % self.__options.name
-            resp = rpc.CreateServiceW(scManagerHandle,self.__options.name.encode('utf-16le'), self.__options.display.encode('utf-16le'), self.__options.path.encode('utf-16le'))
+            resp = scmr.hRCreateServiceW(rpc, scManagerHandle,self.__options.name + '\x00', self.__options.display + '\x00', lpBinaryPathName=self.__options.path + '\x00')
         elif self.__action == 'CHANGE':
             print "Changing service config for %s" % self.__options.name
             if self.__options.start_type is not None:
                 start_type = int(self.__options.start_type)
             else:
-                start_type = None
+                start_type = scmr.SERVICE_NO_CHANGE
             if self.__options.service_type is not None:
                 service_type = int(self.__options.service_type)
             else:
-                service_type = None
+                service_type = scmr.SERVICE_NO_CHANGE
 
             if self.__options.display is not None:
-                display = self.__options.display.encode('utf-16le')
+                display = self.__options.display + '\x00'
             else:
-                display = None
+                display = NULL
  
             if self.__options.path is not None:
-                path = self.__options.path.encode('utf-16le')
+                path = self.__options.path + '\x00'
             else:
-                path = None
+                path = NULL
  
             if self.__options.start_name is not None:
-                start_name = self.__options.start_name.encode('utf-16le')
+                start_name = self.__options.start_name + '\x00'
             else:
-                start_name = None
+                start_name = NULL 
 
             if self.__options.password is not None:
                 s = rpctransport.get_smb_connection()
@@ -227,15 +228,16 @@ class SVCCTL:
                 password = (self.__options.password+'\x00').encode('utf-16le')
                 password = encryptSecret(key, password)
             else:
-                password = None
+                password = NULL
  
 
-            resp = rpc.ChangeServiceConfigW(serviceHandle,  display, path, service_type, start_type, start_name, password)
-            rpc.CloseServiceHandle(serviceHandle)
+            #resp = scmr.hRChangeServiceConfigW(rpc, serviceHandle,  display, path, service_type, start_type, start_name, password)
+            resp = scmr.hRChangeServiceConfigW(rpc, serviceHandle, service_type, start_type, scmr.SERVICE_ERROR_IGNORE, path, NULL, NULL, NULL, 0, start_name, password, 0, display)
+            scmr.hRCloseServiceHandle(rpc, serviceHandle)
         else:
             print "Unknown action %s" % self.__action
 
-        rpc.CloseServiceHandle(scManagerHandle)
+        scmr.hRCloseServiceHandle(rpc, scManagerHandle)
 
         dce.disconnect()
 
