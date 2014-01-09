@@ -21,7 +21,7 @@ import impacket
 from impacket import ntlm
 from impacket.structure import Structure,pack,unpack
 from impacket import uuid
-from impacket.uuid import uuidtup_to_bin, generate, stringver_to_bin
+from impacket.uuid import uuidtup_to_bin, generate, stringver_to_bin, bin_to_uuidtup
 
 # MS/RPC Constants
 MSRPC_REQUEST   = 0x00
@@ -1268,8 +1268,7 @@ class DCERPC_v5(DCERPC):
         self._max_ctx += 1
         answer.set_ctx_id(self._max_ctx)
         answer.__callid = self.__callid
-        
-        answer.bind(newUID, alter = 1, bogus_binds = bogus_binds)
+        answer.bind(newUID, alter = 1, bogus_binds = bogus_binds, transfer_syntax = bin_to_uuidtup(self.transfer_syntax))
         return answer
 
 class DCERPC_RawCall(MSRPCRequestHeader):
