@@ -128,7 +128,7 @@ class ServiceInstall():
                    self.connection.createDirectory(share,'BETO')
                except:
                    # Can't create, pass
-                   print 'print "[!] share "%s" is not writable." % share'
+                   print "[!] share '%s' is not writable." % share
                    pass
                else:
                    print '[*] Found writable share %s' % share
