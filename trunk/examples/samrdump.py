@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Copyright (c) 2003-2012 CORE Security Technologies
+# Copyright (c) 2003-2014 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -22,7 +22,8 @@ import sys
 import types
 
 from impacket import uuid, version
-from impacket.dcerpc import transport, samr
+from impacket.nt_errors import STATUS_MORE_ENTRIES
+from impacket.dcerpc.v5 import transport, samr
 import argparse
 
 
@@ -57,8 +58,6 @@ class SAMRDump:
         addr. Addr is a valid host name or IP address.
         """
 
-        encoding = sys.getdefaultencoding()
-
         print 'Retrieving endpoint list from %s' % addr
 
         # Try all requested protocols until one works.
@@ -78,27 +77,16 @@ class SAMRDump:
                 # Got a response. No need for further iterations.
                 break
 
-
         # Display results.
 
         for entry in entries:
             (username, uid, user) = entry
             base = "%s (%d)" % (username, uid)
-            print base + '/Enabled:', ('false', 'true')[user.is_enabled()]
-            print base + '/Last Logon:', user.get_logon_time()
-            print base + '/Last Logoff:', user.get_logoff_time()
-            print base + '/Kickoff:', user.get_kickoff_time()
-            print base + '/Last PWD Set:', user.get_pwd_last_set()
-            print base + '/PWD Can Change:', user.get_pwd_can_change()
-            print base + '/PWD Must Change:', user.get_pwd_must_change()
-            print base + '/Group id: %d' % user.get_group_id()
-            print base + '/Bad pwd count: %d' % user.get_bad_pwd_count()
-            print base + '/Logon count: %d' % user.get_logon_count()
-            items = user.get_items()
-            for i in samr.MSRPCUserInfo.ITEMS.keys():
-                name = items[samr.MSRPCUserInfo.ITEMS[i]].get_name()
-                name = name.encode(encoding, 'replace')
-                print base + '/' + i + ':', name
+            print base + '/FullName:', user['FullName']
+            print base + '/UserComment:', user['UserComment']
+            print base + '/PrimaryGroupId:', user['PrimaryGroupId']
+            print base + '/BadPasswordCount:', user['BadPasswordCount']
+            print base + '/LogonCount:', user['LogonCount']
 
         if entries:
             num = len(entries)
@@ -113,63 +101,53 @@ class SAMRDump:
     def __fetchList(self, rpctransport):
         dce = rpctransport.get_dce_rpc()
 
-        encoding = sys.getdefaultencoding()
         entries = []
 
         dce.connect()
         dce.bind(samr.MSRPC_UUID_SAMR)
-        rpcsamr = samr.DCERPCSamr(dce)
 
         try:
-            resp = rpcsamr.connect()
-            if resp.get_return_code() != 0:
-                raise ListUsersException, 'Connect error'
+            resp = samr.hSamrConnect(dce)
+            serverHandle = resp['ServerHandle'] 
 
-            _context_handle = resp.get_context_handle()
-            resp = rpcsamr.enumdomains(_context_handle)
-            if resp.get_return_code() != 0:
-                raise ListUsersException, 'EnumDomain error'
-
-            domains = resp.get_domains().elements()
+            resp = samr.hSamrEnumerateDomainsInSamServer(dce, serverHandle)
+            domains = resp['Buffer']['Buffer']
 
             print 'Found domain(s):'
-            for i in range(0, resp.get_entries_num()):
-                print " . %s" % domains[i].get_name()
+            for domain in domains:
+                print " . %s" % domain['Name']
 
-            print "Looking up users in domain %s" % domains[0].get_name()
-            resp = rpcsamr.lookupdomain(_context_handle, domains[0])
-            if resp.get_return_code() != 0:
-                raise ListUsersException, 'LookupDomain error'
+            print "Looking up users in domain %s" % domains[0]['Name']
 
-            resp = rpcsamr.opendomain(_context_handle, resp.get_domain_sid())
-            if resp.get_return_code() != 0:
-                raise ListUsersException, 'OpenDomain error'
+            resp = samr.hSamrLookupDomainInSamServer(dce, serverHandle,domains[0]['Name'] )
 
-            domain_context_handle = resp.get_context_handle()
-            resp = rpcsamr.enumusers(domain_context_handle)
-            if resp.get_return_code() != 0 and resp.get_return_code() != 0x105:
-                raise ListUsersException, 'OpenDomainUsers error'
+            resp = samr.hSamrOpenDomain(dce, serverHandle = serverHandle, domainId = resp['DomainId'])
+            domainHandle = resp['DomainHandle']
 
             done = False
-            while done is False:
-                for user in resp.get_users().elements():
-                    uname = user.get_name().encode(encoding, 'replace')
-                    uid = user.get_id()
+            
+            status = STATUS_MORE_ENTRIES
+            enumerationContext = 0
+            while status == STATUS_MORE_ENTRIES:
+                try:
+                    resp = samr.hSamrEnumerateUsersInDomain(dce, domainHandle, enumerationContext = enumerationContext)
+                except Exception, e:
+                    if str(e).find('STATUS_MORE_ENTRIES') < 0:
+                        raise 
+                    resp = e.get_packet()
 
-                    r = rpcsamr.openuser(domain_context_handle, uid)
-                    print "Found user: %s, uid = %d" % (uname, uid)
+                for user in resp['Buffer']['Buffer']:
+                    r = samr.hSamrOpenUser(dce, domainHandle, samr.USER_READ_GENERAL | samr.USER_READ_PREFERENCES | samr.USER_READ_ACCOUNT, user['RelativeId'])
+                    print "Found user: %s, uid = %d" % (user['Name'], user['RelativeId'] )
+    
+                    info = samr.hSamrQueryInformationUser2(dce, r['UserHandle'],samr.USER_INFORMATION_CLASS.UserAllInformation)
+                    entry = (user['Name'], user['RelativeId'], info['Buffer']['All'])
+                    entries.append(entry)
+                    samr.hSamrCloseHandle(dce, r['UserHandle'])
 
-                    if r.get_return_code() == 0:
-                        info = rpcsamr.queryuserinfo(r.get_context_handle()).get_user_info()
-                        entry = (uname, uid, info)
-                        entries.append(entry)
-                        c = rpcsamr.closerequest(r.get_context_handle())
+                enumerationContext = resp['EnumerationContext'] 
+                status = resp['ErrorCode']
 
-                # Do we have more users?
-                if resp.get_return_code() == 0x105:
-                    resp = rpcsamr.enumusers(domain_context_handle, resp.get_resume_handle())
-                else:
-                    done = True
         except ListUsersException, e:
             print "Error listing users: %s" % e
 
