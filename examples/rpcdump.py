@@ -22,7 +22,8 @@ import sys
 import types
 
 from impacket import uuid, ntlm, version
-from impacket.dcerpc import transport, epm, ndrutils
+from impacket.dcerpc.v5 import transport, epm
+from impacket.dcerpc import  ndrutils
 import argparse
 
 class RPCDump:
@@ -84,8 +85,8 @@ class RPCDump:
         endpoints = {}
         # Let's groups the UUIDS
         for entry in entries:
-            binding = epm.PrintStringBinding(entry['Tower']['Floors'], rpctransport.get_dip())
-            tmpUUID = str(entry['Tower']['Floors'][0])
+            binding = epm.PrintStringBinding(entry['tower']['Floors'], rpctransport.get_dip())
+            tmpUUID = str(entry['tower']['Floors'][0])
             if endpoints.has_key(tmpUUID) is not True:
                 endpoints[tmpUUID] = {}
                 endpoints[tmpUUID]['Bindings'] = list()
@@ -93,7 +94,7 @@ class RPCDump:
                 endpoints[tmpUUID]['EXE'] = ndrutils.KNOWN_UUIDS[uuid.uuidtup_to_bin(uuid.string_to_uuidtup(tmpUUID))[:18]]
             else:
                 endpoints[tmpUUID]['EXE'] = 'N/A'
-            endpoints[tmpUUID]['Annotation'] = entry['Annotation'][:-1]
+            endpoints[tmpUUID]['annotation'] = entry['annotation'][:-1]
             endpoints[tmpUUID]['Bindings'].append(binding)
 
             if epm.KNOWN_PROTOCOLS.has_key(tmpUUID[:36]):
@@ -105,7 +106,7 @@ class RPCDump:
         for endpoint in endpoints.keys():
             print "Protocol: %s " % endpoints[endpoint]['Protocol']
             print "Provider: %s " % endpoints[endpoint]['EXE']
-            print "UUID    : %s %s" % (endpoint, endpoints[endpoint]['Annotation'])
+            print "UUID    : %s %s" % (endpoint, endpoints[endpoint]['annotation'])
             print "Bindings: "
             for binding in endpoints[endpoint]['Bindings']:
                 print "          %s" % binding
@@ -126,11 +127,11 @@ class RPCDump:
         entries = []
 
         dce.connect()
-        dce.set_auth_level(ntlm.NTLM_AUTH_PKT_PRIVACY)
-        dce.bind(epm.MSRPC_UUID_PORTMAP)
-        rpcepm = epm.DCERPCEpm(dce)
+        #dce.set_auth_level(ntlm.NTLM_AUTH_PKT_INTEGRITY)
+        #dce.bind(epm.MSRPC_UUID_PORTMAP)
+        #rpcepm = epm.DCERPCEpm(dce)
 
-        resp = rpcepm.lookup('', inquireType = epm.RPC_C_EP_ALL_ELTS)
+        resp = epm.hept_lookup(rpctransport.get_dip())
 
         dce.disconnect()
 
