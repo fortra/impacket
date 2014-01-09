@@ -1755,6 +1755,8 @@ def SIGN(data, confounder, sequenceNum, key, aes = False):
         return signature
 
 def SEAL(data, confounder, sequenceNum, key, aes = False):
+    signature = SIGN(data, confounder, sequenceNum, key, aes)
+    sequenceNum = deriveSequenceNumber(sequenceNum)
     XorKey = []
     for i in key:
        XorKey.append(chr(ord(i) ^ 0xf0))
@@ -1770,23 +1772,30 @@ def SEAL(data, confounder, sequenceNum, key, aes = False):
         cipher = ARC4.new(encryptionKey)
         cfounder = cipher.encrypt(confounder)
         cipher = ARC4.new(encryptionKey)
-        plain = cipher.encrypt(data)
+        encrypted = cipher.encrypt(data)
 
-        return plain, cfounder
+        signature['Confounder'] = cfounder
+
+        return encrypted, signature
     else:
         IV = sequenceNum + sequenceNum
         cipher = AES.new(XorKey, AES.MODE_CFB, IV)
         cfounder = cipher.encrypt(confounder)
-        plain = cipher.encrypt(data)
-        return plain, cfounder
+        encrypted = cipher.encrypt(data)
+
+        signature['Confounder'] = cfounder
+
+        return encrypted, signature
         
-def UNSEAL(data, confounder, sequenceNum, key, aes = False):
+def UNSEAL(data, auth_data, key, aes = False):
+    auth_data = NL_AUTH_SIGNATURE(auth_data)
     XorKey = []
     for i in key:
        XorKey.append(chr(ord(i) ^ 0xf0))
 
     XorKey = ''.join(XorKey)
     if aes is False:
+        sequenceNum = decryptSequenceNumberRC4(auth_data['SequenceNumber'], auth_data['Checksum'],  key)
         hm = hmac.new(XorKey)
         hm.update('\x00'*4)
         hm2 = hmac.new(hm.digest())
@@ -1794,15 +1803,16 @@ def UNSEAL(data, confounder, sequenceNum, key, aes = False):
         encryptionKey = hm2.digest()
 
         cipher = ARC4.new(encryptionKey)
-        cfounder = cipher.encrypt(confounder)
+        cfounder = cipher.encrypt(auth_data['Confounder'])
         cipher = ARC4.new(encryptionKey)
         plain = cipher.encrypt(data)
 
         return plain, cfounder
     else:
+        sequenceNum = decryptSequenceNumberAES(auth_data['SequenceNumber'], auth_data['Checksum'],  key)
         IV = sequenceNum + sequenceNum
         cipher = AES.new(XorKey, AES.MODE_CFB, IV)
-        cfounder = cipher.decrypt(confounder)
+        cfounder = cipher.decrypt(auth_data['Confounder'])
         plain = cipher.decrypt(data)
         return plain, cfounder
         
