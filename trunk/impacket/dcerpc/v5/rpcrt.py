@@ -1016,7 +1016,10 @@ class DCERPC_v5(DCERPC):
                         self.__clientSealingHandle = cipher.encrypt
                         self.__serverSealingHandle = cipher.encrypt
                 elif self.__auth_type == RPC_C_AUTHN_NETLOGON:
-                    pass
+                    if self.__auth_level == RPC_C_AUTHN_LEVEL_PKT_INTEGRITY:
+                        self.__confounder = ''
+                    else:
+                        self.__confounder = '12345678'
 
             sec_trailer = SEC_TRAILER()
             sec_trailer['auth_type'] = self.__auth_type
@@ -1082,7 +1085,10 @@ class DCERPC_v5(DCERPC):
                                plain_data, 
                                self.__sequence, 
                                self.__clientSealingHandle)
-                    rpc_packet['pduData'] = sealedMessage
+                elif self.__auth_type == RPC_C_AUTHN_NETLOGON:
+                    from impacket.dcerpc.v5 import nrpc
+                    sealedMessage, signature = nrpc.SEAL(plain_data, self.__confounder, self.__sequence, self.__sessionKey, False)
+                rpc_packet['pduData'] = sealedMessage
             else: 
                 if self.__auth_type == RPC_C_AUTHN_WINNT:
                     if self.__flags & ntlm.NTLMSSP_NTLM2_KEY:
@@ -1101,8 +1107,11 @@ class DCERPC_v5(DCERPC):
                                self.__clientSealingHandle)
                 elif self.__auth_type == RPC_C_AUTHN_NETLOGON:
                     from impacket.dcerpc.v5 import nrpc
-                    #signature = nrpc.SIGN(rpc_packet.get_packet()[:-16], self.__sequence, '', self.__sessionKey)
-                    signature = nrpc.SIGN(rpc_packet.get_packet()[:-16], '', self.__sequence, self.__sessionKey, False)
+                    signature = nrpc.SIGN(plain_data, 
+                           self.__confounder, 
+                           self.__sequence, 
+                           self.__sessionKey, 
+                           False)
 
             rpc_packet['sec_trailer'] = str(sec_trailer)
             rpc_packet['auth_data'] = str(signature)
@@ -1207,6 +1216,13 @@ class DCERPC_v5(DCERPC):
                                     self.__sequence, 
                                     self.__serverSealingHandle)
                             self.__sequence += 1
+                    elif self.__auth_type == RPC_C_AUTHN_NETLOGON:
+                        from impacket.dcerpc.v5 import nrpc
+                        answer, cfounder = nrpc.UNSEAL(answer, 
+                               auth_data[len(sec_trailer):],
+                               self.__sessionKey, 
+                               False)
+                        self.__sequence += 1
                 else:
                     if self.__auth_type == RPC_C_AUTHN_WINNT:
                         ntlmssp = auth_data[12:]
@@ -1225,6 +1241,16 @@ class DCERPC_v5(DCERPC):
                             # Yes.. NTLM2 doesn't increment sequence when receiving
                             # the packet :P
                             self.__sequence += 1
+                    elif self.__auth_type == RPC_C_AUTHN_NETLOGON:
+                        from impacket.dcerpc.v5 import nrpc
+                        ntlmssp = auth_data[12:]
+                        signature = nrpc.SIGN(ntlmssp, 
+                               self.__confounder, 
+                               self.__sequence, 
+                               self.__sessionKey, 
+                               False)
+                        self.__sequence += 1
+
                 
                 if sec_trailer['auth_pad_len']:
                     answer = answer[:-sec_trailer['auth_pad_len']]
