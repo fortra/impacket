@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Copyright (c) 2012 CORE Security Technologies
+# Copyright (c) 2012-2014 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -13,7 +13,7 @@
 #  Alberto Solino
 #
 # Reference for:
-#  DCE/RPC LSARPC
+#  DCE/RPC [MS-LSAT]
 
 import socket
 import string
@@ -21,7 +21,10 @@ import sys
 import types
 
 from impacket import uuid, ntlm, version
-from impacket.dcerpc import transport, lsarpc
+from impacket.dcerpc.v5 import transport, lsat, lsad
+from impacket.dcerpc.v5.ndr import NULL
+from impacket.dcerpc.v5.samr import SID_NAME_USE
+from impacket.dcerpc.v5.dtypes import MAXIMUM_ALLOWED
 import argparse
 
 class LSALookupSid:
@@ -68,6 +71,8 @@ class LSALookupSid:
             try:
                 entries = self.__bruteForce(rpctransport, self.__maxRid)
             except Exception, e:
+                import traceback
+                print traceback.print_exc()
                 print e
                 raise
             else:
@@ -75,38 +80,66 @@ class LSALookupSid:
                 break
 
     def __bruteForce(self, rpctransport, maxRid):
-        # UDP only works over DCE/RPC version 4.
-        if isinstance(rpctransport, transport.UDPTransport):
-            dce = dcerpc_v4.DCERPC_v4(rpctransport)
-        else:
-            dce = rpctransport.get_dce_rpc()
-
+        dce = rpctransport.get_dce_rpc()
         entries = []
         dce.connect()
 
         # Want encryption? Uncomment next line
+        # But make SIMULTANEOUS variable <= 100
         #dce.set_auth_level(ntlm.NTLM_AUTH_PKT_PRIVACY)
 
         # Want fragmentation? Uncomment next line
         #dce.set_max_fragment_size(32)
 
-        dce.bind(lsarpc.MSRPC_UUID_LSARPC)
-        rpc = lsarpc.DCERPCLsarpc(dce)
+        dce.bind(lsat.MSRPC_UUID_LSAT)
+        request = lsat.LsarOpenPolicy2()
+        request['SystemName'] = NULL
+        request['ObjectAttributes']['RootDirectory'] = NULL
+        request['ObjectAttributes']['ObjectName'] = NULL
+        request['ObjectAttributes']['SecurityDescriptor'] = NULL
+        request['ObjectAttributes']['SecurityQualityOfService'] = NULL
+        request['DesiredAccess'] = MAXIMUM_ALLOWED | lsat.POLICY_LOOKUP_NAMES
+        resp = dce.request(request)
+        policyHandle = resp['PolicyHandle']
 
-        resp = rpc.LsarOpenPolicy2(rpctransport.get_dip(), 0x02000000)
+        request = lsad.LsarQueryInformationPolicy2()
+        request['PolicyHandle'] = policyHandle
+        request['InformationClass'] = lsad.POLICY_INFORMATION_CLASS.PolicyAccountDomainInformation
+        resp = dce.request(request)
 
-        try:
-          resp2 = rpc.LsarQueryInformationPolicy2(resp['ContextHandle'], lsarpc.POLICY_ACCOUNT_DOMAIN_INFORMATION)
-          rootsid = resp2.formatDict()['sid'].formatCanonical()
-        except Exception, e:
-          print e 
+        domainSid = resp['PolicyInformation']['PolicyAccountDomainInfo']['DomainSid'].formatCanonical()
 
-        for i in range(500,maxRid):
-            res = rpc.LsarLookupSids(resp['ContextHandle'], [rootsid + '-%d' % i])
-            # If SOME_NOT_MAPPED or SUCCESS, let's extract data
-            if res['ErrorCode'] == 0: 
-                item =  res.formatDict()
-                print "%d: %s\\%s (%d)" % (i, item[0]['domain'], item[0]['names'][0], item[0]['types'][0])
+        soFar = 0
+        SIMULTANEOUS = 1000
+        for j in range(maxRid/SIMULTANEOUS+1):
+            if (maxRid - soFar) / SIMULTANEOUS == 0:
+                sidsToCheck = (maxRid - soFar) % SIMULTANEOUS
+            else: 
+                sidsToCheck = SIMULTANEOUS
+            request = lsat.LsarLookupSids()
+            request['PolicyHandle'] = policyHandle
+            for i in xrange(soFar, soFar+sidsToCheck):
+                sid = lsat.LSAPR_SID_INFORMATION()
+                sid['Sid'].fromCanonical(domainSid + '-%d' % (i))
+                request['SidEnumBuffer']['SidInfo'].append(sid)
+                request['SidEnumBuffer']['Entries'] += 1
+            request['TranslatedNames']['Names'] = NULL
+            request['LookupLevel'] = lsat.LSAP_LOOKUP_LEVEL.LsapLookupWksta
+            try:
+                resp = dce.request(request)
+            except Exception, e:
+                if str(e).find('STATUS_NONE_MAPPED') >= 0:
+                    soFar += SIMULTANEOUS
+                    continue
+                elif str(e).find('STATUS_SOME_NOT_MAPPED') >= 0:
+                    resp = e.get_packet()
+                else: 
+                    raise
+
+            for n, item in enumerate(resp['TranslatedNames']['Names']):
+                if item['Use'] != SID_NAME_USE.SidTypeUnknown:
+                    print "%d: %s\\%s (%s)" % (soFar+n, resp['ReferencedDomains']['Domains'][item['DomainIndex']]['Name'], item['Name'], SID_NAME_USE.enumItems(item['Use']).name)
+            soFar += SIMULTANEOUS
 
         dce.disconnect()
 
