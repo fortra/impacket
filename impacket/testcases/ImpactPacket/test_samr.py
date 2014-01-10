@@ -2455,10 +2455,14 @@ class SAMRTests(unittest.TestCase):
         request['Unused'] =  NULL
         request['UserId'] =  samr.DOMAIN_USER_RID_ADMIN
         request['EncryptedNtOwfPassword'] =  '\x00'*16
+        # calls made to SamrSetDSRMPassword using NCACN_IP_TCP are rejected with RPC_S_ACCESS_DENIED.
         try:
             resp = dce.request(request)
         except Exception, e:
-            if str(e).find('STATUS_NOT_SUPPORTED') < 0:
+            if self.stringBinding.find('ncacn_ip_tcp') >=0:
+                if str(e).find('rpc_s_access_denied') < 0:
+                    raise
+            elif str(e).find('STATUS_NOT_SUPPORTED') < 0:
                 raise
         #resp.dump()
 
