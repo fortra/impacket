@@ -59,8 +59,8 @@ class MiniImpacketShell(cmd.Cmd):
         try:
            retVal = cmd.Cmd.onecmd(self,s)
         except Exception, e:
-           import traceback
-           print traceback.print_exc()
+           #import traceback
+           #print traceback.print_exc()
            logging.error(e)
 
         return retVal
