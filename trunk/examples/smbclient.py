@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Copyright (c) 2003-2012 CORE Security Technologies
+# Copyright (c) 2003-2014 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -22,8 +22,8 @@ import string
 import time
 import logging
 from impacket import smb, version, smb3, nt_errors
-from impacket.dcerpc.v5 import samr, transport
-from impacket.dcerpc import srvsvc
+from impacket.dcerpc.v5 import samr, transport, srvs
+from impacket.dcerpc.v5.dtypes import NULL
 from impacket.smbconnection import *
 import argparse
 import ntpath
@@ -59,8 +59,8 @@ class MiniImpacketShell(cmd.Cmd):
         try:
            retVal = cmd.Cmd.onecmd(self,s)
         except Exception, e:
-           #import traceback
-           #print traceback.print_exc()
+           import traceback
+           print traceback.print_exc()
            logging.error(e)
 
         return retVal
@@ -227,15 +227,20 @@ class MiniImpacketShell(cmd.Cmd):
         rpctransport = transport.SMBTransport(self.smb.getServerName(), self.smb.getRemoteHost(), filename = r'\srvsvc', smb_connection = self.smb)
         dce = rpctransport.get_dce_rpc()
         dce.connect()                     
-        dce.bind(srvsvc.MSRPC_UUID_SRVSVC)
-        srv_svc = srvsvc.DCERPCSrvSvc(dce)
-        resp = srv_svc.get_server_info_102(rpctransport.get_dip())
-        print "Version Major: %d" % resp['VersionMajor']
-        print "Version Minor: %d" % resp['VersionMinor']
-        print "Server Name: %s" % resp['Name']
-        print "Server Comment: %s" % resp['Comment']
-        print "Server UserPath: %s" % resp['UserPath']
-        print "Simultaneous Users: %d" % resp['Users']
+        dce.bind(srvs.MSRPC_UUID_SRVS)
+        request = srvs.NetrServerGetInfo()
+        request['ServerName'] = NULL
+        request['Level'] = 102
+        request['InfoStruct']['tag'] = 102
+        request['InfoStruct']['ServerInfo102'] = NULL
+        resp = dce.request(request)
+
+        print "Version Major: %d" % resp['InfoStruct']['ServerInfo102']['sv102_version_major']
+        print "Version Minor: %d" % resp['InfoStruct']['ServerInfo102']['sv102_version_minor']
+        print "Server Name: %s" % resp['InfoStruct']['ServerInfo102']['sv102_name']
+        print "Server Comment: %s" % resp['InfoStruct']['ServerInfo102']['sv102_comment']
+        print "Server UserPath: %s" % resp['InfoStruct']['ServerInfo102']['sv102_userpath']
+        print "Simultaneous Users: %d" % resp['InfoStruct']['ServerInfo102']['sv102_users']
          
     def do_who(self, line):
         if self.loggedIn is False:
@@ -244,11 +249,20 @@ class MiniImpacketShell(cmd.Cmd):
         rpctransport = transport.SMBTransport(self.smb.getServerName(), self.smb.getRemoteHost(), filename = r'\srvsvc', smb_connection = self.smb)
         dce = rpctransport.get_dce_rpc()
         dce.connect()                     
-        dce.bind(srvsvc.MSRPC_UUID_SRVSVC)
-        srv_svc = srvsvc.DCERPCSrvSvc(dce)
-        resp = srv_svc.NetrSessionEnum()
-        for session in resp:
-            print "host: %15s, user: %5s, active: %5d, idle: %5d, type: %5s, transport: %s" % (session['HostName'].decode('utf-16le')[:-1], session['UserName'].decode('utf-16le')[:-1], session['Active'], session['IDLE'], session['Type'].decode('utf-16le')[:-1],session['Transport'].decode('utf-16le')[:-1] )
+        dce.bind(srvs.MSRPC_UUID_SRVS)
+        request = srvs.NetrSessionEnum()
+        request['ServerName'] = NULL
+        request['ClientName'] = NULL
+        request['UserName'] = NULL
+        request['InfoStruct']['Level'] = 502
+        request['InfoStruct']['SessionInfo']['tag'] = 502
+        request['InfoStruct']['SessionInfo']['Level502']['Buffer'] = NULL
+        request['PreferedMaximumLength'] = 0xffffffff
+        request['ResumeHandle'] = NULL
+
+        resp = dce.request(request)
+        for session in resp['InfoStruct']['SessionInfo']['Level502']['Buffer']:
+            print "host: %15s, user: %5s, active: %5d, idle: %5d, type: %5s, transport: %s" % (session['sesi502_cname'][:-1], session['sesi502_username'][:-1], session['sesi502_time'], session['sesi502_idle_time'], session['sesi502_cltype_name'][:-1],session['sesi502_transport'][:-1] )
 
     def do_shares(self, line):
         if self.loggedIn is False:
