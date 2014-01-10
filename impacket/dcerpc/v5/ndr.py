@@ -191,6 +191,32 @@ class NDR(object):
             print 'False'
         return False
 
+    def isPointer(self, field):
+        if self.debug:
+            print "isPointer %r" % field, type(field),
+        if inspect.isclass(field):
+            myClass = field
+            if issubclass(myClass, NDRPOINTER):
+                if self.debug:
+                    print "True"
+                return True
+        if self.debug:
+            print 'False'
+        return False
+
+    def isUnion(self, field):
+        if self.debug:
+            print "isUnion %r" % field, type(field),
+        if inspect.isclass(field):
+            myClass = field
+            if issubclass(myClass, NDRUNION):
+                if self.debug:
+                    print "True"
+                return True
+        if self.debug:
+            print 'False'
+        return False
+
     def dumpRaw(self, msg = None, indent = 0):
         if msg is None: msg = self.__class__.__name__
         ind = ' '*indent
@@ -236,10 +262,7 @@ class NDR(object):
             print "Calculate PAD: name: %s, type:%s, soFar:%d" % (fieldName, fieldType, soFar)
         alignment = 0
         size = 0
-#        if isinstance(self, NDRArray):
-#            return 0
         if isinstance(self.fields[fieldName], NDR):
-            #alignment = self.fields[fieldName].align
             alignment = self.fields[fieldName].getAlignment()
         else:
             if fieldType == ':':
@@ -617,7 +640,6 @@ class NDRCALL(NDR):
     debug          = False
     consistencyCheck = False
     def __init__(self, data = None, isNDR64 = False):
-        #NDR.__init__(self,data, isNDR64, False) 
         self._isNDR64 = isNDR64
         self.fields = {}
         self.data = None
@@ -655,32 +677,6 @@ class NDRCALL(NDR):
             self.data = None
 
         return None
-
-    def isPointer(self, field):
-        if self.debug:
-            print "isPointer %r" % field, type(field),
-        if inspect.isclass(field):
-            myClass = field
-            if issubclass(myClass, NDRPOINTER):
-                if self.debug:
-                    print "True"
-                return True
-        if self.debug:
-            print 'False'
-        return False
-
-    def isUnion(self, field):
-        if self.debug:
-            print "isUnion %r" % field, type(field),
-        if inspect.isclass(field):
-            myClass = field
-            if issubclass(myClass, NDRUNION):
-                if self.debug:
-                    print "True"
-                return True
-        if self.debug:
-            print 'False'
-        return False
 
     def dump(self, msg = None, indent = 0):
         NDR.dump(self, msg, indent)
@@ -1357,7 +1353,7 @@ class NDRUNION(NDR):
         #2: ('pStatusChangeParams', PSERVICE_NOTIFY_STATUS_CHANGE_PARAMS_2),
     }
     def __init__(self, data = None, isNDR64=False, topLevel = False):
-        #ret = NDR.__init__(self,None, isNDR64=isNDR64, topLevel=topLevel)
+        #ret = NDR.__init__(self,None, isNDR64=isNDR64)
         self.topLevel = topLevel
         self._isNDR64 = isNDR64
         self.fields = {}
@@ -1396,32 +1392,6 @@ class NDRUNION(NDR):
             self.data = None
 
         return None
-
-    def isPointer(self, field):
-        if self.debug:
-            print "isPointer %r" % field, type(field),
-        if inspect.isclass(field):
-            myClass = field
-            if issubclass(myClass, NDRPOINTER):
-                if self.debug:
-                    print "True"
-                return True
-        if self.debug:
-            print 'False'
-        return False
-
-    def isUnion(self, field):
-        if self.debug:
-            print "isUnion %r" % field, type(field),
-        if inspect.isclass(field):
-            myClass = field
-            if issubclass(myClass, NDRUNION):
-                if self.debug:
-                    print "True"
-                return True
-        if self.debug:
-            print 'False'
-        return False
 
     def __setitem__(self, key, value):
         if key == 'tag':
@@ -1505,7 +1475,6 @@ class NDRUNION(NDR):
             if self.union.has_key(tag):
                 self.structure = (self.union[tag]),
                 self.__init__(None, isNDR64=self._isNDR64, topLevel = self.topLevel)
-                #NDR.__init__(self, None, isNDR64=self._isNDR64)
             else:
                 raise Exception("Unknown tag %d for union!" % tag)
 
