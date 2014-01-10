@@ -141,6 +141,7 @@ class NDR(object):
 
     def __setitem__(self, key, value):
         if isinstance(value, NDRPOINTERNULL):
+            value = NDRPOINTERNULL(isNDR64 = self._isNDR64)
             self.fields[key].fields['ReferentID'] = 0x00
             if isinstance(self.fields[key], NDRPOINTER):
                 self.fields[key] = value
