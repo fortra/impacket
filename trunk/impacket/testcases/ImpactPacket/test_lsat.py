@@ -25,7 +25,7 @@ from struct import pack, unpack
 from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import epm, lsat
 from impacket.dcerpc.v5.ndr import NULL
-from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_INTEGRITY
+from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_INTEGRITY, RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 from impacket.dcerpc.v5.dtypes import *
 from impacket.winregistry import hexdump
 from impacket.uuid import string_to_bin, uuidtup_to_bin
@@ -83,8 +83,18 @@ class LSATTests(unittest.TestCase):
         request['LookupLevel'] = lsat.LSAP_LOOKUP_LEVEL.LsapLookupWksta
         request['LookupOptions'] = 0x00000000
         request['ClientRevision'] = 0x00000001
-        resp = dce.request(request)
-        #resp.dump()
+        try:
+            resp = dce.request(request)
+            #resp.dump()
+        except Exception, e:
+            # The RPC server MUST ensure that the RPC_C_AUTHN_NETLOGON security provider 
+            # (as specified in [MS-RPCE] section 2.2.1.1.7) and at least 
+            # RPC_C_AUTHN_LEVEL_PKT_INTEGRITY authentication level (as specified in 
+            # [MS-RPCE] section 2.2.1.1.8) are used in this RPC message. 
+            # Otherwise, the RPC server MUST return STATUS_ACCESS_DENIED.
+            if str(e).find('rpc_s_access_denied') < 0:
+                raise
+
 
     def test_LsarLookupNames3(self):
         dce, rpctransport, policyHandle = self.connect()
@@ -169,8 +179,17 @@ class LSATTests(unittest.TestCase):
         request['LookupLevel'] = lsat.LSAP_LOOKUP_LEVEL.LsapLookupWksta
         request['LookupOptions'] = 0x00000000
         request['ClientRevision'] = 0x00000001
-        resp = dce.request(request)
-        #resp.dump()
+        try:
+            resp = dce.request(request)
+            #resp.dump()
+        except Exception, e:
+            # The RPC server MUST ensure that the RPC_C_AUTHN_NETLOGON security provider 
+            # (as specified in [MS-RPCE] section 2.2.1.1.7) and at least 
+            # RPC_C_AUTHN_LEVEL_PKT_INTEGRITY authentication level (as specified in 
+            # [MS-RPCE] section 2.2.1.1.8) are used in this RPC message. 
+            # Otherwise, the RPC server MUST return STATUS_ACCESS_DENIED.
+            if str(e).find('rpc_s_access_denied') < 0:
+                raise
 
     def test_LsarLookupSids2(self):
         dce, rpctransport, policyHandle = self.connect()
@@ -274,5 +293,5 @@ if __name__ == '__main__':
         suite = unittest.TestLoader().loadTestsFromTestCase(globals()[testcase])
     else:
         suite = unittest.TestLoader().loadTestsFromTestCase(SMBTransport)
-        suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMBTransport64))
+        #suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMBTransport64))
     unittest.TextTestRunner(verbosity=1).run(suite)
