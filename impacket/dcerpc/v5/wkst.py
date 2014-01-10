@@ -770,9 +770,10 @@ class NetrUseEnum(NDRCALL):
        ('ResumeHandle',LPULONG),
     )
 
-class NetrUseDelResponse(NDRCALL):
+class NetrUseEnumResponse(NDRCALL):
     structure = (
-       ('TotalEntries',ULONG),
+       ('InfoStruct',USE_ENUM_STRUCT),
+       ('TotalEntries',LPULONG),
        ('ResumeHandle',LPULONG),
        ('ErrorCode',ULONG),
     )
