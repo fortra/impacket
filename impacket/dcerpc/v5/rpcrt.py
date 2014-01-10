@@ -693,19 +693,9 @@ class MSRPCBind(Structure):
             self['ctx_items'] += i.getData()
         return Structure.getData(self)
 
-class MSRPCBindAck(Structure):
+class MSRPCBindAck(MSRPCHeader):
     _SIZE = 26 # Up to SecondaryAddr
     _CTX_ITEM_LEN = len(CtxItemResult())
-    commonHdr = ( 
-        ('ver_major','B=5'),                            # 0
-        ('ver_minor','B=0'),                            # 1
-        ('type','B=0'),                                 # 2
-        ('flags','B=0'),                                # 3
-        ('representation','<L=0x10'),                   # 4
-        ('frag_len','<H=0'),                            # 8
-        ('auth_len','<H=0'),                            # 10
-        ('call_id','<L=1'),                             # 12    <-- Common up to here (including this)
-    )
     structure = ( 
         ('max_tfrag','<H=0'),
         ('max_rfrag','<H=0'),
@@ -726,7 +716,7 @@ class MSRPCBindAck(Structure):
     )
     def __init__(self, data = None, alignment = 0):
         self.__ctx_items = []
-        Structure.__init__(self,data,alignment)
+        MSRPCHeader.__init__(self,data,alignment)
         if data is None:
             self['Pad'] = ''
             self['ctx_items'] = ''
