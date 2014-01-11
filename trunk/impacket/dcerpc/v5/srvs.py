@@ -1,4 +1,4 @@
-# Copyright (c) 2003-2013 CORE Security Technologies
+# Copyright (c) 2003-2014 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -2964,7 +2964,58 @@ class NetrShareDelExResponse(NDRCALL):
        ('ErrorCode',ULONG),
     )
 
-
+################################################################################
+# OPNUMs and their corresponding structures
+################################################################################
+OPNUMS = {
+ 8 : (NetrConnectionEnum, NetrConnectionEnumResponse),
+ 9 : (NetrFileEnum, NetrFileEnumResponse),
+10 : (NetrFileGetInfo, NetrFileGetInfoResponse),
+11 : (NetrFileClose, NetrFileCloseResponse),
+12 : (NetrSessionEnum, NetrSessionEnumResponse),
+13 : (NetrSessionDel, NetrSessionDelResponse),
+14 : (NetrShareAdd, NetrShareAddResponse),
+15 : (NetrShareEnum, NetrShareEnumResponse),
+16 : (NetrShareGetInfo, NetrShareGetInfoResponse),
+17 : (NetrShareSetInfo, NetrShareSetInfoResponse),
+18 : (NetrShareDel, NetrShareDelResponse),
+19 : (NetrShareDelSticky, NetrShareDelStickyResponse),
+20 : (NetrShareCheck, NetrShareCheckResponse),
+21 : (NetrServerGetInfo, NetrServerGetInfoResponse),
+22 : (NetrServerSetInfo, NetrServerSetInfoResponse),
+23 : (NetrServerDiskEnum, NetrServerDiskEnumResponse),
+24 : (NetrServerStatisticsGet, NetrServerStatisticsGetResponse),
+25 : (NetrServerTransportAdd, NetrServerTransportAddResponse),
+26 : (NetrServerTransportEnum, NetrServerTransportEnumResponse),
+27 : (NetrServerTransportDel, NetrServerTransportDelResponse),
+28 : (NetrRemoteTOD, NetrRemoteTODResponse),
+30 : (NetprPathType, NetprPathTypeResponse),
+31 : (NetprPathCanonicalize, NetprPathCanonicalizeResponse),
+32 : (NetprPathCompare, NetprPathCompareResponse),
+33 : (NetprNameValidate, NetprNameValidateResponse),
+34 : (NetprNameCanonicalize, NetprNameCanonicalizeResponse),
+35 : (NetprNameCompare, NetprNameCompareResponse),
+36 : (NetrShareEnumSticky, NetrShareEnumStickyResponse),
+37 : (NetrShareDelStart, NetrShareDelStartResponse),
+38 : (NetrShareDelCommit, NetrShareDelCommitResponse),
+39 : (NetrpGetFileSecurity, NetrpGetFileSecurityResponse),
+40 : (NetrpSetFileSecurity, NetrpSetFileSecurityResponse),
+41 : (NetrServerTransportAddEx, NetrServerTransportAddExResponse),
+43 : (NetrDfsGetVersion, NetrDfsGetVersionResponse),
+44 : (NetrDfsCreateLocalPartition, NetrDfsCreateLocalPartitionResponse),
+45 : (NetrDfsDeleteLocalPartition, NetrDfsDeleteLocalPartitionResponse),
+46 : (NetrDfsSetLocalVolumeState, NetrDfsSetLocalVolumeStateResponse),
+48 : (NetrDfsCreateExitPoint, NetrDfsCreateExitPointResponse),
+49 : (NetrDfsDeleteExitPoint, NetrDfsDeleteExitPointResponse),
+50 : (NetrDfsModifyPrefix, NetrDfsModifyPrefixResponse),
+51 : (NetrDfsFixLocalVolume, NetrDfsFixLocalVolumeResponse),
+52 : (NetrDfsManagerReportSiteInfo, NetrDfsManagerReportSiteInfoResponse),
+53 : (NetrServerTransportDelEx, NetrServerTransportDelExResponse),
+54 : (NetrServerAliasAdd, NetrServerAliasAddResponse),
+55 : (NetrServerAliasEnum, NetrServerAliasEnumResponse),
+56 : (NetrServerAliasDel, NetrServerAliasDelResponse),
+57 : (NetrShareDelEx, NetrShareDelExResponse),
+}
 
 ################################################################################
 # HELPER FUNCTIONS

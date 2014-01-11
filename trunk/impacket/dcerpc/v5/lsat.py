@@ -1,4 +1,4 @@
-# Copyright (c) 2003-2013 CORE Security Technologies
+# Copyright (c) 2003-2014 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -385,6 +385,20 @@ class LsarLookupSidsResponse(NDRCALL):
        ('MappedCount', ULONG),
        ('ErrorCode', NTSTATUS),
     )
+
+################################################################################
+# OPNUMs and their corresponding structures
+################################################################################
+OPNUMS = {
+ 14 : (LsarLookupNames, LsarLookupNamesResponse),
+ 15 : (LsarLookupSids, LsarLookupSidsResponse),
+ 45 : (LsarGetUserName, LsarGetUserNameResponse),
+ 57 : (LsarLookupSids2, LsarLookupSids2Response),
+ 58 : (LsarLookupNames2, LsarLookupNames2Response),
+ 68 : (LsarLookupNames3, LsarLookupNames3Response),
+ 76 : (LsarLookupSids3, LsarLookupSids3Response),
+ 77 : (LsarLookupNames4, LsarLookupNames4Response),
+}
 
 ################################################################################
 # HELPER FUNCTIONS
