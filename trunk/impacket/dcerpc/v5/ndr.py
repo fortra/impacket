@@ -142,7 +142,6 @@ class NDR(object):
     def __setitem__(self, key, value):
         if isinstance(value, NDRPOINTERNULL):
             value = NDRPOINTERNULL(isNDR64 = self._isNDR64)
-            self.fields[key].fields['ReferentID'] = 0x00
             if isinstance(self.fields[key], NDRPOINTER):
                 self.fields[key] = value
         elif isinstance(value, NDR):
@@ -770,7 +769,17 @@ class NDRUSMALL(NDR):
         ('Data', 'B=0'),
     )
 
-NDRBOOLEAN = NDRSMALL
+class NDRBOOLEAN(NDRSMALL):
+    def dump(self, msg = None, indent = 0):
+        if msg is None: msg = self.__class__.__name__
+        ind = ' '*indent
+        if msg != '':
+            print msg,
+
+        if self['Data'] > 0:
+            print " TRUE"
+        else:
+            print " FALSE"
 
 class NDRCHAR(NDR):
     align = 1
