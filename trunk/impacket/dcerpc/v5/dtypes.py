@@ -13,7 +13,7 @@
 #
 import random
 from struct import pack, unpack
-from impacket.dcerpc.v5.ndr import NDRULONG, NDRUHYPER, NDRUSMALL, NDRSHORT, NDRLONG, NDRPOINTER, NDRUniConformantArray, NDRUniFixedArray, NDR, NDRHYPER, NDRSMALL, NDRPOINTERNULL, NDRSTRUCT, NULL
+from impacket.dcerpc.v5.ndr import NDRULONG, NDRUHYPER, NDRUSMALL, NDRSHORT, NDRLONG, NDRPOINTER, NDRUniConformantArray, NDRUniFixedArray, NDR, NDRHYPER, NDRSMALL, NDRPOINTERNULL, NDRSTRUCT, NULL, NDRUSMALL, NDRBOOLEAN
 
 DWORD = NDRULONG
 ULONGLONG = NDRUHYPER
@@ -43,6 +43,12 @@ class LPBYTE(NDRPOINTER):
         ('Data', NDRUniConformantArray),
     )
 PBYTE = LPBYTE
+
+# 2.2.4 BOOLEAN
+BOOLEAN = NDRBOOLEAN
+
+# 2.2.6 BYTE
+BYTE = NDRUSMALL
 
 class WIDESTR(NDRUniFixedArray):
     def getDataLen(self, data):
@@ -175,6 +181,19 @@ NTSTATUS = DWORD
 
 # 2.2.59 WCHAR
 WCHAR = WSTR
+PWCHAR = LPWSTR
+
+# 2.3.1 FILETIME
+class FILETIME(NDRSTRUCT):
+    structure = (
+        ('dwLowDateTime', DWORD),
+        ('dwHighDateTime', LONG),
+    )
+
+class PFILETIME(NDRPOINTER):
+    referent = (
+        ('Data', FILETIME),
+    )
 
 # 2.3.3 LARGE_INTEGER
 LARGE_INTEGER = NDRHYPER
@@ -250,20 +269,15 @@ class PRPC_UNICODE_STRING(NDRPOINTER):
        ('Data', RPC_UNICODE_STRING ),
     )
 
-class LPDWORD(NDRPOINTER):
-    referent = (
-        ('Data', NDRUniConformantArray),
-    )
-    def __init__(self, data = None,isNDR64 = False, topLevel = False):
-        NDRPOINTER.__init__(self, None, isNDR64, topLevel)
-        # ToDo: change this so it is DWORD instead of <H
-        self.fields['Data'].item = '<L'
-        if data is not None:
-            self.fromString(data)
 
 # 2.4.2.3 RPC_SID
 class DWORD_ARRAY(NDRUniConformantArray):
     item = '<L'
+
+class LPDWORD(NDRPOINTER):
+    referent = (
+        ('Data', DWORD_ARRAY),
+    )
 
 class RPC_SID_IDENTIFIER_AUTHORITY(NDRUniFixedArray):
     align = 1
