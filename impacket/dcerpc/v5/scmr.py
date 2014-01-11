@@ -1,4 +1,4 @@
-# Copyright (c) 2003-2013 CORE Security Technologies
+# Copyright (c) 2003-2014 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -921,7 +921,6 @@ class RGetServiceKeyNameWResponse(NDRCALL):
         ('ErrorCode', DWORD),
     )
 
-
 class REnumServiceGroupW(NDRCALL):
     opnum = 35
     structure = (
@@ -1104,6 +1103,44 @@ class RQueryServiceConfigExResponse(NDRCALL):
         ('pInfo',SC_RPC_CONFIG_INFOW),
         ('ErrorCode', DWORD),
     )
+
+################################################################################
+# OPNUMs and their corresponding structures
+################################################################################
+OPNUMS = {
+ 0 : (RCloseServiceHandle, RCloseServiceHandleResponse),
+ 1 : (RControlService, RControlServiceResponse),
+ 2 : (RDeleteService, RDeleteServiceResponse),
+ 3 : (RLockServiceDatabase, RLockServiceDatabaseResponse),
+ 4 : (RQueryServiceObjectSecurity, RQueryServiceObjectSecurityResponse),
+ 5 : (RSetServiceObjectSecurity, RSetServiceObjectSecurityResponse),
+ 6 : (RQueryServiceStatus, RQueryServiceStatusResponse),
+ 7 : (RSetServiceStatus, RSetServiceStatusResponse),
+ 8 : (RUnlockServiceDatabase, RUnlockServiceDatabaseResponse),
+ 9 : (RNotifyBootConfigStatus, RNotifyBootConfigStatusResponse),
+11 : (RChangeServiceConfigW, RChangeServiceConfigWResponse),
+12 : (RCreateServiceW, RCreateServiceWResponse),
+13 : (REnumDependentServicesW, REnumDependentServicesWResponse),
+14 : (REnumServicesStatusW, REnumServicesStatusWResponse),
+15 : (ROpenSCManagerW, ROpenSCManagerWResponse),
+16 : (ROpenServiceW, ROpenServiceWResponse),
+17 : (RQueryServiceConfigW, RQueryServiceConfigWResponse),
+18 : (RQueryServiceLockStatusW, RQueryServiceLockStatusWResponse),
+19 : (RStartServiceW, RStartServiceWResponse),
+20 : (RGetServiceDisplayNameW, RGetServiceDisplayNameWResponse),
+21 : (RGetServiceKeyNameW, RGetServiceKeyNameWResponse),
+35 : (REnumServiceGroupW, REnumServiceGroupWResponse),
+37 : (RChangeServiceConfig2W, RChangeServiceConfig2WResponse),
+39 : (RQueryServiceConfig2W, RQueryServiceConfig2WResponse),
+40 : (RQueryServiceStatusEx, RQueryServiceStatusExResponse),
+42 : (REnumServicesStatusExW, REnumServicesStatusExWResponse),
+45 : (RCreateServiceWOW64W, RCreateServiceWOW64WResponse),
+47 : (RNotifyServiceStatusChange, RNotifyServiceStatusChangeResponse),
+48 : (RGetNotifyResults, RGetNotifyResultsResponse),
+49 : (RCloseNotifyHandle, RCloseNotifyHandleResponse),
+51 : (RControlServiceExW, RControlServiceExWResponse),
+56 : (RQueryServiceConfigEx, RQueryServiceConfigExResponse),
+}
 
 ################################################################################
 # HELPER FUNCTIONS

@@ -1,4 +1,4 @@
-# Copyright (c) 2003-2013 CORE Security Technologies
+# Copyright (c) 2003-2014 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -1170,6 +1170,7 @@ class LsarRetrievePrivateDataResponse(NDRCALL):
     )
 
 # 3.1.4.7.1 LsarOpenTrustedDomain (Opnum 25)
+# 3.1.4.7.1 LsarQueryInfoTrustedDomain (Opnum 26)
 # 3.1.4.7.2 LsarQueryTrustedDomainInfo (Opnum 39)
 # 3.1.4.7.3 LsarSetTrustedDomainInfo (Opnum 40)
 # 3.1.4.7.4 LsarDeleteTrustedDomain (Opnum 41)
@@ -1200,7 +1201,7 @@ class LsarEnumerateTrustedDomains(NDRCALL):
        ('PreferedMaximumLength', ULONG),
     )
 
-class LsarEnumerateTrustedDomainsExResponse(NDRCALL):
+class LsarEnumerateTrustedDomainsResponse(NDRCALL):
     structure = (
        ('EnumerationContext', ULONG),
        ('EnumerationBuffer',LSAPR_TRUSTED_ENUM_BUFFER_EX),
@@ -1343,6 +1344,62 @@ class LsarCloseResponse(NDRCALL):
        ('ObjectHandle', LSAPR_HANDLE),
        ('ErrorCode', NTSTATUS),
     )
+
+################################################################################
+# OPNUMs and their corresponding structures
+################################################################################
+OPNUMS = {
+ 0 : (LsarClose, LsarCloseResponse),
+ 2 : (LsarEnumeratePrivileges, LsarEnumeratePrivilegesResponse),
+ 3 : (LsarQuerySecurityObject, LsarQuerySecurityObjectResponse),
+ 4 : (LsarSetSecurityObject, LsarSetSecurityObjectResponse),
+ 6 : (LsarOpenPolicy, LsarOpenPolicyResponse),
+ 7 : (LsarQueryInformationPolicy, LsarQueryInformationPolicyResponse),
+ 8 : (LsarSetInformationPolicy, LsarSetInformationPolicyResponse),
+10 : (LsarCreateAccount, LsarCreateAccountResponse),
+11 : (LsarEnumerateAccounts, LsarEnumerateAccountsResponse),
+#12 : (LsarCreateTrustedDomain, LsarCreateTrustedDomainResponse),
+13 : (LsarEnumerateTrustedDomains, LsarEnumerateTrustedDomainsResponse),
+16 : (LsarCreateSecret, LsarCreateSecretResponse),
+17 : (LsarOpenAccount, LsarOpenAccountResponse),
+18 : (LsarEnumeratePrivilegesAccount, LsarEnumeratePrivilegesAccountResponse),
+19 : (LsarAddPrivilegesToAccount, LsarAddPrivilegesToAccountResponse),
+20 : (LsarRemovePrivilegesFromAccount, LsarRemovePrivilegesFromAccountResponse),
+23 : (LsarGetSystemAccessAccount, LsarGetSystemAccessAccountResponse),
+24 : (LsarSetSystemAccessAccount, LsarSetSystemAccessAccountResponse),
+#25 : (LsarOpenTrustedDomain, LsarOpenTrustedDomainResponse),
+#26 : (LsarQueryInfoTrustedDomain, LsarQueryInfoTrustedDomainResponse),
+#27 : (LsarSetInformationTrustedDomain, LsarSetInformationTrustedDomainResponse),
+28 : (LsarOpenSecret, LsarOpenSecretResponse),
+29 : (LsarSetSecret, LsarSetSecretResponse),
+30 : (LsarQuerySecret, LsarQuerySecretResponse),
+31 : (LsarLookupPrivilegeValue, LsarLookupPrivilegeValueResponse),
+32 : (LsarLookupPrivilegeName, LsarLookupPrivilegeNameResponse),
+33 : (LsarLookupPrivilegeDisplayName, LsarLookupPrivilegeDisplayNameResponse),
+34 : (LsarDeleteObject, LsarDeleteObjectResponse),
+35 : (LsarEnumerateAccountsWithUserRight, LsarEnumerateAccountsWithUserRightResponse),
+36 : (LsarEnumerateAccountRights, LsarEnumerateAccountRightsResponse),
+37 : (LsarAddAccountRights, LsarAddAccountRightsResponse),
+38 : (LsarRemoveAccountRights, LsarRemoveAccountRightsResponse),
+#39 : (LsarQueryTrustedDomainInfo, LsarQueryTrustedDomainInfoResponse),
+#40 : (LsarSetTrustedDomainInfo, LsarSetTrustedDomainInfoResponse),
+#41 : (LsarDeleteTrustedDomain, LsarDeleteTrustedDomainResponse),
+42 : (LsarStorePrivateData, LsarStorePrivateDataResponse),
+43 : (LsarRetrievePrivateData, LsarRetrievePrivateDataResponse),
+44 : (LsarOpenPolicy2, LsarOpenPolicy2Response),
+46 : (LsarQueryInformationPolicy2, LsarQueryInformationPolicy2Response),
+47 : (LsarSetInformationPolicy2, LsarSetInformationPolicy2Response),
+#48 : (LsarQueryTrustedDomainInfoByName, LsarQueryTrustedDomainInfoByNameResponse),
+#49 : (LsarSetTrustedDomainInfoByName, LsarSetTrustedDomainInfoByNameResponse),
+50 : (LsarEnumerateTrustedDomainsEx, LsarEnumerateTrustedDomainsExResponse),
+#51 : (LsarCreateTrustedDomainEx, LsarCreateTrustedDomainExResponse),
+53 : (LsarQueryDomainInformationPolicy, LsarQueryDomainInformationPolicyResponse),
+#54 : (LsarSetDomainInformationPolicy, LsarSetDomainInformationPolicyResponse),
+#55 : (LsarOpenTrustedDomainByName, LsarOpenTrustedDomainByNameResponse),
+#59 : (LsarCreateTrustedDomainEx2, LsarCreateTrustedDomainEx2Response),
+#73 : (LsarQueryForestTrustInformation, LsarQueryForestTrustInformationResponse),
+#74 : (LsarSetForestTrustInformation, LsarSetForestTrustInformationResponse),
+}
 
 ################################################################################
 # HELPER FUNCTIONS

@@ -1,4 +1,4 @@
-# Copyright (c) 2003-2013 CORE Security Technologies
+# Copyright (c) 2003-2014 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -954,6 +954,32 @@ class NetrEnumerateComputerNamesResponse(NDRCALL):
        ('ErrorCode',ULONG),
     )
 
+################################################################################
+# OPNUMs and their corresponding structures
+################################################################################
+OPNUMS = {
+ 0 : (NetrWkstaGetInfo, NetrWkstaGetInfoResponse),
+ 1 : (NetrWkstaSetInfo, NetrWkstaSetInfoResponse),
+ 2 : (NetrWkstaUserEnum, NetrWkstaUserEnumResponse),
+ 5 : (NetrWkstaTransportEnum, NetrWkstaTransportEnumResponse),
+ 6 : (NetrWkstaTransportAdd, NetrWkstaTransportAddResponse),
+# 7 : (NetrWkstaTransportDel, NetrWkstaTransportDelResponse),
+ 8 : (NetrUseAdd, NetrUseAddResponse),
+ 9 : (NetrUseGetInfo, NetrUseGetInfoResponse),
+10 : (NetrUseDel, NetrUseDelResponse),
+11 : (NetrUseEnum, NetrUseEnumResponse),
+13 : (NetrWorkstationStatisticsGet, NetrWorkstationStatisticsGetResponse),
+20 : (NetrGetJoinInformation, NetrGetJoinInformationResponse),
+22 : (NetrJoinDomain2, NetrJoinDomain2Response),
+23 : (NetrUnjoinDomain2, NetrUnjoinDomain2Response),
+24 : (NetrRenameMachineInDomain2, NetrRenameMachineInDomain2Response),
+25 : (NetrValidateName2, NetrValidateName2Response),
+26 : (NetrGetJoinableOUs2, NetrGetJoinableOUs2Response),
+27 : (NetrAddAlternateComputerName, NetrAddAlternateComputerNameResponse),
+28 : (NetrRemoveAlternateComputerName, NetrRemoveAlternateComputerNameResponse),
+29 : (NetrSetPrimaryComputerName, NetrSetPrimaryComputerNameResponse),
+30 : (NetrEnumerateComputerNames, NetrEnumerateComputerNamesResponse),
+}
 
 ################################################################################
 # HELPER FUNCTIONS

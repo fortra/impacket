@@ -1,4 +1,4 @@
-# Copyright (c) 2003-2013 CORE Security Technologies
+# Copyright (c) 2003-2014 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -2192,7 +2192,72 @@ class SamrValidatePasswordResponse(NDRCALL):
        ('ErrorCode',ULONG),
     )
 
-
+################################################################################
+# OPNUMs and their corresponding structures
+################################################################################
+OPNUMS = {
+ 0 : (SamrConnect, SamrConnectResponse),
+ 1 : (SamrCloseHandle, SamrCloseHandleResponse),
+ 2 : (SamrSetSecurityObject, SamrSetSecurityObjectResponse),
+ 3 : (SamrQuerySecurityObject, SamrQuerySecurityObjectResponse),
+ 5 : (SamrLookupDomainInSamServer, SamrLookupDomainInSamServerResponse),
+ 6 : (SamrEnumerateDomainsInSamServer, SamrEnumerateDomainsInSamServerResponse),
+ 7 : (SamrOpenDomain, SamrOpenDomainResponse),
+ 8 : (SamrQueryInformationDomain, SamrQueryInformationDomainResponse),
+ 9 : (SamrSetInformationDomain, SamrSetInformationDomainResponse),
+10 : (SamrCreateGroupInDomain, SamrCreateGroupInDomainResponse),
+11 : (SamrEnumerateGroupsInDomain, SamrEnumerateGroupsInDomainResponse),
+12 : (SamrCreateUserInDomain, SamrCreateUserInDomainResponse),
+13 : (SamrEnumerateUsersInDomain, SamrEnumerateUsersInDomainResponse),
+14 : (SamrCreateAliasInDomain, SamrCreateAliasInDomainResponse),
+15 : (SamrEnumerateAliasesInDomain, SamrEnumerateAliasesInDomainResponse),
+16 : (SamrGetAliasMembership, SamrGetAliasMembershipResponse),
+17 : (SamrLookupNamesInDomain, SamrLookupNamesInDomainResponse),
+18 : (SamrLookupIdsInDomain, SamrLookupIdsInDomainResponse),
+19 : (SamrOpenGroup, SamrOpenGroupResponse),
+20 : (SamrQueryInformationGroup, SamrQueryInformationGroupResponse),
+21 : (SamrSetInformationGroup, SamrSetInformationGroupResponse),
+22 : (SamrAddMemberToGroup, SamrAddMemberToGroupResponse),
+23 : (SamrDeleteGroup, SamrDeleteGroupResponse),
+24 : (SamrRemoveMemberFromGroup, SamrRemoveMemberFromGroupResponse),
+25 : (SamrGetMembersInGroup, SamrGetMembersInGroupResponse),
+26 : (SamrSetMemberAttributesOfGroup, SamrSetMemberAttributesOfGroupResponse),
+27 : (SamrOpenAlias, SamrOpenAliasResponse),
+28 : (SamrQueryInformationAlias, SamrQueryInformationAliasResponse),
+29 : (SamrSetInformationAlias, SamrSetInformationAliasResponse),
+30 : (SamrDeleteAlias, SamrDeleteAliasResponse),
+31 : (SamrAddMemberToAlias, SamrAddMemberToAliasResponse),
+32 : (SamrRemoveMemberFromAlias, SamrRemoveMemberFromAliasResponse),
+33 : (SamrGetMembersInAlias, SamrGetMembersInAliasResponse),
+34 : (SamrOpenUser, SamrOpenUserResponse),
+35 : (SamrDeleteUser, SamrDeleteUserResponse),
+36 : (SamrQueryInformationUser, SamrQueryInformationUserResponse),
+37 : (SamrSetInformationUser, SamrSetInformationUserResponse),
+38 : (SamrChangePasswordUser, SamrChangePasswordUserResponse),
+39 : (SamrGetGroupsForUser, SamrGetGroupsForUserResponse),
+40 : (SamrQueryDisplayInformation, SamrQueryDisplayInformationResponse),
+41 : (SamrGetDisplayEnumerationIndex, SamrGetDisplayEnumerationIndexResponse),
+44 : (SamrGetUserDomainPasswordInformation, SamrGetUserDomainPasswordInformationResponse),
+45 : (SamrRemoveMemberFromForeignDomain, SamrRemoveMemberFromForeignDomainResponse),
+46 : (SamrQueryInformationDomain2, SamrQueryInformationDomain2Response),
+47 : (SamrQueryInformationUser2, SamrQueryInformationUser2Response),
+48 : (SamrQueryDisplayInformation2, SamrQueryDisplayInformation2Response),
+49 : (SamrGetDisplayEnumerationIndex2, SamrGetDisplayEnumerationIndex2Response),
+50 : (SamrCreateUser2InDomain, SamrCreateUser2InDomainResponse),
+51 : (SamrQueryDisplayInformation3, SamrQueryDisplayInformation3Response),
+52 : (SamrAddMultipleMembersToAlias, SamrAddMultipleMembersToAliasResponse),
+53 : (SamrRemoveMultipleMembersFromAlias, SamrRemoveMultipleMembersFromAliasResponse),
+54 : (SamrOemChangePasswordUser2, SamrOemChangePasswordUser2Response),
+55 : (SamrUnicodeChangePasswordUser2, SamrUnicodeChangePasswordUser2Response),
+56 : (SamrGetDomainPasswordInformation, SamrGetDomainPasswordInformationResponse),
+57 : (SamrConnect2, SamrConnect2Response),
+58 : (SamrSetInformationUser2, SamrSetInformationUser2Response),
+62 : (SamrConnect4, SamrConnect4Response),
+64 : (SamrConnect5, SamrConnect5Response),
+65 : (SamrRidToSid, SamrRidToSidResponse),
+66 : (SamrSetDSRMPassword, SamrSetDSRMPasswordResponse),
+67 : (SamrValidatePassword, SamrValidatePasswordResponse),
+}
 
 ################################################################################
 # HELPER FUNCTIONS
