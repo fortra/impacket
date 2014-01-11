@@ -212,63 +212,27 @@ class LUID(NDRSTRUCT):
 # 2.3.8 RPC_UNICODE_STRING
 class RPC_UNICODE_STRING(NDRSTRUCT):
     commonHdr = (
-        ('Length','<H=len(Data)-12'),
-        ('MaximumLength','<H=len(Data)-12'),
-        ('ReferentID','<L=0xff'),
-    )
-    commonHdr64 = (
-        ('Length','<H=len(Data)-24'),
-        ('MaximumLength','<H=len(Data)-24'),
-        ('ReferentID','<Q=0xff'),
+        ('Length','<H=0'),
+        ('MaximumLength','<H=0'),
     )
 
-    referent = (
-        ('Data',WSTR),
+    structure = (
+        ('Data',LPWSTR),
     )
-
-    def dump(self, msg = None, indent = 0):
-        if msg is None: msg = self.__class__.__name__
-        ind = ' '*indent
-        if msg != '':
-            print "%s" % (msg),
-        # Here just print the data
-        print " %r" % (self['Data']),
-
-    def __setitem__(self, key, value):
-        if isinstance(value, NDRPOINTERNULL):
-            self.fields['ReferentID'] = 0x00
-            self.fields['Data'] = value
-        if key == 'Data':
-            self.fields['ReferentID'] = random.randint(1, 65535)
-            self.fields['Length'] = None
-            self.fields['MaximumLength'] = None
-            self.data = None        # force recompute
-        return NDR.__setitem__(self, key, value)
 
     def getData(self, soFar = 0):
-        # If we have a ReferentID == 0, means there's no data
-        if self.fields['ReferentID'] == 0:
-            self.fields['Data'].fields['Data']=''
-
-        return NDR.getData(self, soFar)
-
-    def dump(self, msg = None, indent = 0):
-        if msg is None: msg = self.__class__.__name__
-        ind = ' '*indent
-        if msg != '':
-            print "%s" % (msg),
-        # Here we just print the referent
-        if self['ReferentID'] == 0:
-            print " NULL",
+        if self._isNDR64 is False:
+            self['Length'] = len(self.fields['Data'].getData() + self.fields['Data'].getDataReferent()) - 16
+            self['MaximumLength'] = len(self.fields['Data'].getData() + self.fields['Data'].getDataReferent()) - 16
         else:
-            return self.fields['Data'].dump( '', indent)
-
+            self['Length'] = len(self.fields['Data'].getData() + self.fields['Data'].getDataReferent()) - 32
+            self['MaximumLength'] = len(self.fields['Data'].getData() + self.fields['Data'].getDataReferent()) - 32
+        return NDRSTRUCT.getData(self, soFar)
 
 class PRPC_UNICODE_STRING(NDRPOINTER):
     referent = (
        ('Data', RPC_UNICODE_STRING ),
     )
-
 
 # 2.4.2.3 RPC_SID
 class DWORD_ARRAY(NDRUniConformantArray):
