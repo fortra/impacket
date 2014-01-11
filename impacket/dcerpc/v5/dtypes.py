@@ -229,6 +229,18 @@ class RPC_UNICODE_STRING(NDRSTRUCT):
             self['MaximumLength'] = len(self.fields['Data'].getData() + self.fields['Data'].getDataReferent()) - 32
         return NDRSTRUCT.getData(self, soFar)
 
+    def dump(self, msg = None, indent = 0):
+        if msg is None: msg = self.__class__.__name__
+        ind = ' '*indent
+        if msg != '':
+            print "%s" % (msg),
+
+        if self.fields['Data']['ReferentID'] == 0:
+            print " NULL",
+        else:
+            return self.fields['Data'].dump('',indent)
+
+
 class PRPC_UNICODE_STRING(NDRPOINTER):
     referent = (
        ('Data', RPC_UNICODE_STRING ),
