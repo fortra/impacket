@@ -361,8 +361,22 @@ class PENCRYPTED_LM_OWF_PASSWORD(NDRPOINTER):
 PENCRYPTED_NT_OWF_PASSWORD = PENCRYPTED_LM_OWF_PASSWORD
 
 # 2.2.3.4 SAMPR_ULONG_ARRAY
-class SAMPR_ULONG_ARRAY(NDRUniConformantVaryingArray):
-    item = '<L'
+#class SAMPR_ULONG_ARRAY(NDRUniConformantVaryingArray):
+#    item = '<L'
+class ULONG_ARRAY(NDRUniConformantArray):
+    item = ULONG
+    pass
+
+class PULONG_ARRAY(NDRPOINTER):
+    referent = (
+        ('Data', ULONG_ARRAY),
+    )
+
+class SAMPR_ULONG_ARRAY(NDRSTRUCT):
+    structure = (
+        ('Count', ULONG),
+        ('Element', PULONG_ARRAY),
+    )
 
 # 2.2.3.5 SAMPR_SID_INFORMATION
 class SAMPR_SID_INFORMATION(NDRSTRUCT):
@@ -472,15 +486,6 @@ class PSAMPR_GET_GROUPS_BUFFER(NDRPOINTER):
     )
 
 # 2.2.3.14 SAMPR_GET_MEMBERS_BUFFER
-class ULONG_ARRAY(NDRUniConformantArray):
-    item = ULONG
-    pass
-
-class PULONG_ARRAY(NDRPOINTER):
-    referent = (
-        ('Data', ULONG_ARRAY),
-    )
-
 class SAMPR_GET_MEMBERS_BUFFER(NDRSTRUCT):
     structure = (
         ('MemberCount', ULONG),
