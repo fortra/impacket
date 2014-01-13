@@ -13,13 +13,13 @@
 #
 import random
 from struct import pack, unpack
-from impacket.dcerpc.v5.ndr import NDRULONG, NDRUHYPER, NDRUSMALL, NDRSHORT, NDRLONG, NDRPOINTER, NDRUniConformantArray, NDRUniFixedArray, NDR, NDRHYPER, NDRSMALL, NDRPOINTERNULL, NDRSTRUCT, NULL, NDRUSMALL, NDRBOOLEAN
+from impacket.dcerpc.v5.ndr import NDRULONG, NDRUHYPER, NDRUSMALL, NDRSHORT, NDRLONG, NDRPOINTER, NDRUniConformantArray, NDRUniFixedArray, NDR, NDRHYPER, NDRSMALL, NDRPOINTERNULL, NDRSTRUCT, NULL, NDRUSMALL, NDRBOOLEAN, NDRUSHORT
 
 DWORD = NDRULONG
 ULONGLONG = NDRUHYPER
 BOOL = NDRULONG
 UCHAR = NDRUSMALL
-USHORT = NDRSHORT
+USHORT = NDRUSHORT
 ULONG = NDRULONG
 LONG = NDRLONG
 
@@ -211,23 +211,31 @@ class LUID(NDRSTRUCT):
 
 # 2.3.8 RPC_UNICODE_STRING
 class RPC_UNICODE_STRING(NDRSTRUCT):
-    commonHdr = (
+    # Here we're doing some tricks to make this data type
+    # easier to use. It's exactly the same as defined. I changed the
+    # Buffer name for Data, so users can write directly to the datatype
+    # instead of writing to datatype['Buffer'].
+    # The drawback is you cannot directly access the Length and 
+    # MaximumLength fields. 
+    # If you really need it, you will need to do it this way:
+    # class TT(NDRCALL):
+    # structure = (
+    #     ('str1', RPC_UNICODE_STRING),
+    #  )
+    # 
+    # nn = TT()
+    # nn.fields['str1'].fields['MaximumLength'] = 30
+    structure = (
         ('Length','<H=0'),
         ('MaximumLength','<H=0'),
-    )
-
-    structure = (
         ('Data',LPWSTR),
     )
 
-    def getData(self, soFar = 0):
-        if self._isNDR64 is False:
-            self['Length'] = len(self.fields['Data'].getData() + self.fields['Data'].getDataReferent()) - 16
-            self['MaximumLength'] = len(self.fields['Data'].getData() + self.fields['Data'].getDataReferent()) - 16
-        else:
-            self['Length'] = len(self.fields['Data'].getData() + self.fields['Data'].getDataReferent()) - 32
-            self['MaximumLength'] = len(self.fields['Data'].getData() + self.fields['Data'].getDataReferent()) - 32
-        return NDRSTRUCT.getData(self, soFar)
+    def __setitem__(self, key, value):
+        if key == 'Data' and isinstance(value, NDR) is False:
+            self['Length'] = len(value)*2
+            self['MaximumLength'] = len(value)*2
+        return NDRSTRUCT.__setitem__(self, key, value)
 
     def dump(self, msg = None, indent = 0):
         if msg is None: msg = self.__class__.__name__
@@ -235,11 +243,12 @@ class RPC_UNICODE_STRING(NDRSTRUCT):
         if msg != '':
             print "%s" % (msg),
 
-        if self.fields['Data']['ReferentID'] == 0:
+        if isinstance(self.fields['Data'] , NDRPOINTERNULL):
+            print " NULL",
+        elif self.fields['Data']['ReferentID'] == 0:
             print " NULL",
         else:
             return self.fields['Data'].dump('',indent)
-
 
 class PRPC_UNICODE_STRING(NDRPOINTER):
     referent = (
