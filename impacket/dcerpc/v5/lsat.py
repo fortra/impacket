@@ -403,4 +403,97 @@ OPNUMS = {
 ################################################################################
 # HELPER FUNCTIONS
 ################################################################################
+def hLsarGetUserName(dce, userName = NULL, domainName = NULL):
+    request = LsarGetUserName()
+    request['SystemName'] = NULL
+    request['UserName'] = userName
+    request['DomainName'] = domainName
+    return dce.request(request)
+
+def hLsarLookupNames4(dce, names, lookupLevel = LSAP_LOOKUP_LEVEL.LsapLookupWksta, lookupOptions=0x00000000, clientRevision=0x00000001):
+    request = LsarLookupNames4()
+    request['Count'] = len(names)
+    for name in names:
+        itemn = RPC_UNICODE_STRING()
+        itemn['Data'] = name
+        request['Names'].append(itemn)
+    request['TranslatedSids']['Sids'] = NULL
+    request['LookupLevel'] = lookupLevel
+    request['LookupOptions'] = lookupOptions
+    request['ClientRevision'] = clientRevision
+
+    return dce.request(request)
+
+def hLsarLookupNames3(dce, policyHandle, names, lookupLevel = LSAP_LOOKUP_LEVEL.LsapLookupWksta, lookupOptions=0x00000000, clientRevision=0x00000001):
+    request = LsarLookupNames3()
+    request['PolicyHandle'] = policyHandle
+    request['Count'] = len(names)
+    for name in names:
+        itemn = RPC_UNICODE_STRING()
+        itemn['Data'] = name
+        request['Names'].append(itemn)
+    request['TranslatedSids']['Sids'] = NULL
+    request['LookupLevel'] = lookupLevel
+    request['LookupOptions'] = lookupOptions
+    request['ClientRevision'] = clientRevision
+
+    return dce.request(request)
+
+def hLsarLookupNames2(dce, policyHandle, names, lookupLevel = LSAP_LOOKUP_LEVEL.LsapLookupWksta, lookupOptions=0x00000000, clientRevision=0x00000001):
+    request = LsarLookupNames2()
+    request['PolicyHandle'] = policyHandle
+    request['Count'] = len(names)
+    for name in names:
+        itemn = RPC_UNICODE_STRING()
+        itemn['Data'] = name
+        request['Names'].append(itemn)
+    request['TranslatedSids']['Sids'] = NULL
+    request['LookupLevel'] = lookupLevel
+    request['LookupOptions'] = lookupOptions
+    request['ClientRevision'] = clientRevision
+
+    return dce.request(request)
+
+def hLsarLookupNames(dce, policyHandle, names, lookupLevel = LSAP_LOOKUP_LEVEL.LsapLookupWksta):
+    request = LsarLookupNames()
+    request['PolicyHandle'] = policyHandle
+    request['Count'] = len(names)
+    for name in names:
+        itemn = RPC_UNICODE_STRING()
+        itemn['Data'] = name
+        request['Names'].append(itemn)
+    request['TranslatedSids']['Sids'] = NULL
+    request['LookupLevel'] = lookupLevel
+
+    return dce.request(request)
+
+def hLsarLookupSids2(dce, policyHandle, sids, lookupLevel = LSAP_LOOKUP_LEVEL.LsapLookupWksta, lookupOptions=0x00000000, clientRevision=0x00000001):
+    request = LsarLookupSids2()
+    request['PolicyHandle'] = policyHandle
+    request['SidEnumBuffer']['Entries'] = len(sids)
+    for sid in sids:
+        itemn = LSAPR_SID_INFORMATION()
+        itemn['Sid'].fromCanonical(sid)
+        request['SidEnumBuffer']['SidInfo'].append(itemn)
+
+    request['TranslatedNames']['Names'] = NULL
+    request['LookupLevel'] = lookupLevel
+    request['LookupOptions'] = lookupOptions
+    request['ClientRevision'] = clientRevision
+
+    return dce.request(request)
+
+def hLsarLookupSids(dce, policyHandle, sids, lookupLevel = LSAP_LOOKUP_LEVEL.LsapLookupWksta):
+    request = LsarLookupSids()
+    request['PolicyHandle'] = policyHandle
+    request['SidEnumBuffer']['Entries'] = len(sids)
+    for sid in sids:
+        itemn = LSAPR_SID_INFORMATION()
+        itemn['Sid'].fromCanonical(sid)
+        request['SidEnumBuffer']['SidInfo'].append(itemn)
+
+    request['TranslatedNames']['Names'] = NULL
+    request['LookupLevel'] = lookupLevel
+
+    return dce.request(request)
 
