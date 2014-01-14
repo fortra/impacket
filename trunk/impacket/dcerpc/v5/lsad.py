@@ -1668,7 +1668,3 @@ def hLsarSetInformationPolicy(dce, policyHandle, informationClass, policyInforma
     request['PolicyInformation'] = policyInformation
     return dce.request(request)
 
-
-
-
-
