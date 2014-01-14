@@ -144,6 +144,9 @@ class NDR(object):
             value = NDRPOINTERNULL(isNDR64 = self._isNDR64)
             if isinstance(self.fields[key], NDRPOINTER):
                 self.fields[key] = value
+            elif self.fields[key].fields.has_key('Data'):
+                if isinstance(self.fields[key].fields['Data'], NDRPOINTER):
+                    self.fields[key].fields['Data'] = value
         elif isinstance(value, NDR):
             # It's not a null pointer, ok. Another NDR type, but it 
             # must be the same same as the iteam already in place

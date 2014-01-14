@@ -48,6 +48,49 @@ class DCERPCSessionError(Exception):
 ################################################################################
 # CONSTANTS
 ################################################################################
+# 2.2.2 PREGISTRY_SERVER_NAME
+PREGISTRY_SERVER_NAME = PWCHAR
+
+# 2.2.3 error_status_t
+error_status_t = ULONG
+
+# 2.2.5 RRP_UNICODE_STRING
+RRP_UNICODE_STRING = RPC_UNICODE_STRING
+PRRP_UNICODE_STRING = PRPC_UNICODE_STRING
+
+# 2.2.4 REGSAM
+REGSAM = ULONG
+
+KEY_QUERY_VALUE        = 0x00000001
+KEY_SET_VALUE          = 0x00000002
+KEY_CREATE_SUB_KEY     = 0x00000004
+KEY_ENUMERATE_SUB_KEYS = 0x00000008
+KEY_CREATE_LINK        = 0x00000020
+KEY_WOW64_64KEY        = 0x00000100
+KEY_WOW64_32KEY        = 0x00000200
+
+REG_BINARY              = 3
+REG_DWORD               = 4
+REG_DWORD_LITTLE_ENDIAN = 4
+REG_DWORD_BIG_ENDIAN    = 5
+REG_EXPAND_SZ           = 2
+REG_LINK                = 6
+REG_MULTI_SZ            = 7
+REG_NONE                = 0
+REG_QWORD               = 11
+REG_QWORD_LITTLE_ENDIAN = 11
+REG_SZ                  = 1 
+
+# 3.1.5.7 BaseRegCreateKey (Opnum 6)
+REG_CREATED_NEW_KEY     = 0x00000001
+REG_OPENED_EXISTING_KEY = 0x00000002
+
+# 3.1.5.19 BaseRegRestoreKey (Opnum 19)
+# Flags
+REG_WHOLE_HIVE_VOLATILE = 0x00000001
+REG_REFRESH_HIVE        = 0x00000002
+REG_NO_LAZY_FLUSH       = 0x00000004
+REG_FORCE_RESTORE       = 0x00000008
 
 ################################################################################
 # STRUCTURES
@@ -62,47 +105,17 @@ class RPC_HKEY(NDRSTRUCT):
         NDRSTRUCT.__init__(self, data, isNDR64)
         self['context_handle_uuid'] = '\x00'*20
 
-# 2.2.2 PREGISTRY_SERVER_NAME
-PREGISTRY_SERVER_NAME = PWCHAR
-
-# 2.2.3 error_status_t
-error_status_t = ULONG
-
-# 2.2.4 REGSAM
-REGSAM = ULONG
-
-KEY_QUERY_VALUE        = 0x00000001
-KEY_SET_VALUE          = 0x00000002
-KEY_CREATE_SUB_KEY     = 0x00000004
-KEY_ENUMERATE_SUB_KEYS = 0x00000008
-KEY_CREATE_LINK        = 0x00000020
-KEY_WOW64_64KEY        = 0x00000100
-KEY_WOW64_32KEY        = 0x00000200
-
-# 2.2.5 RRP_UNICODE_STRING
-RRP_UNICODE_STRING = RPC_UNICODE_STRING
-PRRP_UNICODE_STRING = PRPC_UNICODE_STRING
-
 # 2.2.6 RVALENT
 class RVALENT(NDRSTRUCT):
     structure =  (
         ('ve_valuename',PRRP_UNICODE_STRING),
         ('ve_valuelen',DWORD),
-        ('ve_valueptr',LPDWORD),
+        ('ve_valueptr',DWORD),
         ('ve_type',DWORD),
     )
 
-REG_BINARY              = 3
-REG_DWORD               = 4
-REG_DWORD_LITTLE_ENDIAN = 4
-REG_DWORD_BIG_ENDIAN    = 5
-REG_EXPAND_SZ           = 2
-REG_LINK                = 6
-REG_MULTI_SZ            = 7
-REG_NONE                = 0
-REG_QWORD               = 11
-REG_QWORD_LITTLE_ENDIAN = 11
-REG_SZ                  = 1 
+class RVALENT_ARRAY(NDRUniConformantVaryingArray):
+    item = RVALENT
 
 # 2.2.9 RPC_SECURITY_DESCRIPTOR
 class BYTE_ARRAY(NDRUniConformantVaryingArray):
@@ -132,17 +145,6 @@ class PRPC_SECURITY_ATTRIBUTES(NDRPOINTER):
     referent = (
         ('Data', RPC_SECURITY_ATTRIBUTES),
     )
-
-# 3.1.5.7 BaseRegCreateKey (Opnum 6)
-REG_CREATED_NEW_KEY     = 0x00000001
-REG_OPENED_EXISTING_KEY = 0x00000002
-
-# 3.1.5.19 BaseRegRestoreKey (Opnum 19)
-# Flags
-REG_WHOLE_HIVE_VOLATILE = 0x00000001
-REG_REFRESH_HIVE        = 0x00000002
-REG_NO_LAZY_FLUSH       = 0x00000004
-REG_FORCE_RESTORE       = 0x00000008
 
 ################################################################################
 # RPC CALLS
@@ -491,6 +493,143 @@ class BaseRegSetValueResponse(NDRCALL):
        ('ErrorCode', error_status_t),
     )
 
+# 3.1.5.23 BaseRegUnLoadKey (Opnum 23)
+class BaseRegUnLoadKey(NDRCALL):
+    opnum = 23
+    structure = (
+       ('hKey', RPC_HKEY),
+       ('lpSubKey', RRP_UNICODE_STRING),
+    )
+
+class BaseRegUnLoadKeyResponse(NDRCALL):
+    structure = (
+       ('ErrorCode', error_status_t),
+    )
+
+# 3.1.5.24 BaseRegGetVersion (Opnum 26)
+class BaseRegGetVersion(NDRCALL):
+    opnum = 26
+    structure = (
+       ('hKey', RPC_HKEY),
+    )
+
+class BaseRegGetVersionResponse(NDRCALL):
+    structure = (
+       ('lpdwVersion', DWORD),
+       ('ErrorCode', error_status_t),
+    )
+
+# 3.1.5.25 OpenCurrentConfig (Opnum 27)
+class OpenCurrentConfig(NDRCALL):
+    opnum = 27
+    structure = (
+       ('ServerName', PREGISTRY_SERVER_NAME),
+       ('samDesired', REGSAM),
+    )
+
+class OpenCurrentConfigResponse(NDRCALL):
+    structure = (
+       ('phKey', RPC_HKEY),
+       ('ErrorCode', error_status_t),
+    )
+
+# 3.1.5.26 BaseRegQueryMultipleValues (Opnum 29)
+class BaseRegQueryMultipleValues(NDRCALL):
+    opnum = 29
+    structure = (
+       ('hKey', RPC_HKEY),
+       ('val_listIn', RVALENT_ARRAY),
+       ('num_vals', DWORD),
+       ('lpvalueBuf', PBYTE_ARRAY),
+       ('ldwTotsize', DWORD),
+    )
+
+class BaseRegQueryMultipleValuesResponse(NDRCALL):
+    structure = (
+       ('val_listOut', RVALENT_ARRAY),
+       ('lpvalueBuf', PBYTE_ARRAY),
+       ('ldwTotsize', DWORD),
+       ('ErrorCode', error_status_t),
+    )
+
+# 3.1.5.27 BaseRegSaveKeyEx (Opnum 31)
+class BaseRegSaveKeyEx(NDRCALL):
+    opnum = 31
+    structure = (
+       ('hKey', RPC_HKEY),
+       ('lpFile', RRP_UNICODE_STRING),
+       ('pSecurityAttributes', PRPC_SECURITY_ATTRIBUTES),
+       ('Flags', DWORD),
+    )
+
+class BaseRegSaveKeyExResponse(NDRCALL):
+    structure = (
+       ('ErrorCode', error_status_t),
+    )
+
+# 3.1.5.28 OpenPerformanceText (Opnum 32)
+class OpenPerformanceText(NDRCALL):
+    opnum = 32
+    structure = (
+       ('ServerName', PREGISTRY_SERVER_NAME),
+       ('samDesired', REGSAM),
+    )
+
+class OpenPerformanceTextResponse(NDRCALL):
+    structure = (
+       ('phKey', RPC_HKEY),
+       ('ErrorCode', error_status_t),
+    )
+
+# 3.1.5.29 OpenPerformanceNlsText (Opnum 33)
+class OpenPerformanceNlsText(NDRCALL):
+    opnum = 33
+    structure = (
+       ('ServerName', PREGISTRY_SERVER_NAME),
+       ('samDesired', REGSAM),
+    )
+
+class OpenPerformanceNlsTextResponse(NDRCALL):
+    structure = (
+       ('phKey', RPC_HKEY),
+       ('ErrorCode', error_status_t),
+    )
+
+# 3.1.5.30 BaseRegQueryMultipleValues2 (Opnum 34)
+class BaseRegQueryMultipleValues2(NDRCALL):
+    opnum = 34
+    structure = (
+       ('hKey', RPC_HKEY),
+       ('val_listIn', RVALENT_ARRAY),
+       ('num_vals', DWORD),
+       ('lpvalueBuf', PBYTE_ARRAY),
+       ('ldwTotsize', DWORD),
+    )
+
+class BaseRegQueryMultipleValues2Response(NDRCALL):
+    structure = (
+       ('val_listOut', RVALENT_ARRAY),
+       ('lpvalueBuf', PBYTE_ARRAY),
+       ('ldwRequiredSize', DWORD),
+       ('ErrorCode', error_status_t),
+    )
+
+# 3.1.5.31 BaseRegDeleteKeyEx (Opnum 35)
+class BaseRegDeleteKeyEx(NDRCALL):
+    opnum = 35
+    structure = (
+       ('hKey', RPC_HKEY),
+       ('lpSubKey', RRP_UNICODE_STRING),
+       ('AccessMask', REGSAM),
+       ('Reserved', DWORD),
+    )
+
+class BaseRegDeleteKeyExResponse(NDRCALL):
+    structure = (
+       ('ErrorCode', error_status_t),
+    )
+
+
 
 
 ################################################################################
@@ -518,16 +657,16 @@ OPNUMS = {
 19 : (BaseRegRestoreKey, BaseRegRestoreKeyResponse),
 20 : (BaseRegSaveKey, BaseRegSaveKeyResponse),
 21 : (BaseRegSetKeySecurity, BaseRegSetKeySecurityResponse),
-#22 : (BaseRegSetValue, BaseRegSetValueResponse),
-#23 : (BaseRegUnLoadKey, BaseRegUnLoadKeyResponse),
-#26 : (BaseRegGetVersion, BaseRegGetVersionResponse),
-#27 : (OpenCurrentConfig, OpenCurrentConfigResponse),
-#29 : (BaseRegQueryMultipleValues, BaseRegQueryMultipleValuesResponse),
-#31 : (BaseRegSaveKeyEx, BaseRegSaveKeyExResponse),
-#32 : (OpenPerformanceText, OpenPerformanceTextResponse),
-#33 : (OpenPerformanceNlsText, OpenPerformanceNlsTextResponse),
-#34 : (BaseRegQueryMultipleValues2, BaseRegQueryMultipleValues2Response),
-#35 : (BaseRegDeleteKeyEx, BaseRegDeleteKeyExResponse),
+22 : (BaseRegSetValue, BaseRegSetValueResponse),
+23 : (BaseRegUnLoadKey, BaseRegUnLoadKeyResponse),
+26 : (BaseRegGetVersion, BaseRegGetVersionResponse),
+27 : (OpenCurrentConfig, OpenCurrentConfigResponse),
+29 : (BaseRegQueryMultipleValues, BaseRegQueryMultipleValuesResponse),
+31 : (BaseRegSaveKeyEx, BaseRegSaveKeyExResponse),
+32 : (OpenPerformanceText, OpenPerformanceTextResponse),
+33 : (OpenPerformanceNlsText, OpenPerformanceNlsTextResponse),
+34 : (BaseRegQueryMultipleValues2, BaseRegQueryMultipleValues2Response),
+35 : (BaseRegDeleteKeyEx, BaseRegDeleteKeyExResponse),
 }
 
 ################################################################################
