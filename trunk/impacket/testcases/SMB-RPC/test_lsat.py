@@ -67,6 +67,12 @@ class LSATTests(unittest.TestCase):
         resp = dce.request(request)
         #resp.dump()
 
+    def test_hLsarGetUserName(self):
+        dce, rpctransport, policyHandle = self.connect()
+
+        resp = lsat.hLsarGetUserName(dce)
+        #resp.dump()
+
     def test_LsarLookupNames4(self):
         # not working, I need netlogon here
         dce, rpctransport, policyHandle = self.connect()
@@ -95,6 +101,21 @@ class LSATTests(unittest.TestCase):
             if str(e).find('rpc_s_access_denied') < 0:
                 raise
 
+    def test_hLsarLookupNames4(self):
+        # not working, I need netlogon here
+        dce, rpctransport, policyHandle = self.connect()
+
+        try:
+            resp = lsat.hLsarLookupNames4(dce, ('Administrator', 'Guest'))
+            #resp.dump()
+        except Exception, e:
+            # The RPC server MUST ensure that the RPC_C_AUTHN_NETLOGON security provider 
+            # (as specified in [MS-RPCE] section 2.2.1.1.7) and at least 
+            # RPC_C_AUTHN_LEVEL_PKT_INTEGRITY authentication level (as specified in 
+            # [MS-RPCE] section 2.2.1.1.8) are used in this RPC message. 
+            # Otherwise, the RPC server MUST return STATUS_ACCESS_DENIED.
+            if str(e).find('rpc_s_access_denied') < 0:
+                raise
 
     def test_LsarLookupNames3(self):
         dce, rpctransport, policyHandle = self.connect()
@@ -115,6 +136,12 @@ class LSATTests(unittest.TestCase):
         resp = dce.request(request)
         #resp.dump()
 
+    def test_hLsarLookupNames3(self):
+        dce, rpctransport, policyHandle = self.connect()
+
+        resp = lsat.hLsarLookupNames3(dce, policyHandle, ('Administrator', 'Guest'))
+        #resp.dump()
+
     def test_LsarLookupNames2(self):
         dce, rpctransport, policyHandle = self.connect()
 
@@ -132,6 +159,18 @@ class LSATTests(unittest.TestCase):
         request['LookupOptions'] = 0x00000000
         request['ClientRevision'] = 0x00000001
         resp = dce.request(request)
+        #resp.dump()
+
+    def test_hLsarLookupNames2(self):
+        dce, rpctransport, policyHandle = self.connect()
+
+        resp = lsat.hLsarLookupNames2(dce, policyHandle, ('Administrator', 'Guest'))
+        #resp.dump()
+
+    def test_hLsarLookupNames(self):
+        dce, rpctransport, policyHandle = self.connect()
+
+        resp = lsat.hLsarLookupNames(dce, policyHandle, ('Administrator', 'Guest'))
         #resp.dump()
 
     def test_LsarLookupNames(self):
@@ -222,6 +261,18 @@ class LSATTests(unittest.TestCase):
         resp = dce.request(request)
         #resp.dump()
 
+    def test_hLsarLookupSids2(self):
+        dce, rpctransport, policyHandle = self.connect()
+
+        resp = lsat.hLsarLookupNames(dce, policyHandle, ('Administrator',))
+        #resp.dump()
+        domainSid = resp['ReferencedDomains']['Domains'][0]['Sid'].formatCanonical()
+        sids = list()
+        sids.append(domainSid + '-500')
+        sids.append(domainSid + '-501')
+        resp = lsat.hLsarLookupSids2(dce, policyHandle, sids)
+        #resp.dump()
+
     def test_LsarLookupSids(self):
         dce, rpctransport, policyHandle = self.connect()
 
@@ -255,6 +306,27 @@ class LSATTests(unittest.TestCase):
             else:
                 resp = e.get_packet()
                 #resp.dump()
+
+    def test_hLsarLookupSids(self):
+        dce, rpctransport, policyHandle = self.connect()
+
+        resp = lsat.hLsarLookupNames(dce, policyHandle, ('Administrator',))
+        #resp.dump()
+        domainSid = resp['ReferencedDomains']['Domains'][0]['Sid'].formatCanonical()
+
+        sids = list()
+        for i in range(1000):
+            sids.append(domainSid + '-%d' % (500+i))
+        try:
+            resp = lsat.hLsarLookupSids(dce, policyHandle, sids )
+            #resp.dump()
+        except Exception, e:
+            if str(e).find('STATUS_SOME_NOT_MAPPED') < 0:
+                raise
+            else:
+                resp = e.get_packet()
+                #resp.dump()
+
 
 class SMBTransport(LSATTests):
     def setUp(self):
@@ -293,5 +365,5 @@ if __name__ == '__main__':
         suite = unittest.TestLoader().loadTestsFromTestCase(globals()[testcase])
     else:
         suite = unittest.TestLoader().loadTestsFromTestCase(SMBTransport)
-        #suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMBTransport64))
+        suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMBTransport64))
     unittest.TextTestRunner(verbosity=1).run(suite)
