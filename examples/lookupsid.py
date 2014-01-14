@@ -92,20 +92,10 @@ class LSALookupSid:
         #dce.set_max_fragment_size(32)
 
         dce.bind(lsat.MSRPC_UUID_LSAT)
-        request = lsat.LsarOpenPolicy2()
-        request['SystemName'] = NULL
-        request['ObjectAttributes']['RootDirectory'] = NULL
-        request['ObjectAttributes']['ObjectName'] = NULL
-        request['ObjectAttributes']['SecurityDescriptor'] = NULL
-        request['ObjectAttributes']['SecurityQualityOfService'] = NULL
-        request['DesiredAccess'] = MAXIMUM_ALLOWED | lsat.POLICY_LOOKUP_NAMES
-        resp = dce.request(request)
+        resp = lsat.hLsarOpenPolicy2(dce, MAXIMUM_ALLOWED | lsat.POLICY_LOOKUP_NAMES)
         policyHandle = resp['PolicyHandle']
 
-        request = lsad.LsarQueryInformationPolicy2()
-        request['PolicyHandle'] = policyHandle
-        request['InformationClass'] = lsad.POLICY_INFORMATION_CLASS.PolicyAccountDomainInformation
-        resp = dce.request(request)
+        resp = lsad.hLsarQueryInformationPolicy2(dce, policyHandle, lsad.POLICY_INFORMATION_CLASS.PolicyAccountDomainInformation)
 
         domainSid = resp['PolicyInformation']['PolicyAccountDomainInfo']['DomainSid'].formatCanonical()
 
@@ -116,17 +106,11 @@ class LSALookupSid:
                 sidsToCheck = (maxRid - soFar) % SIMULTANEOUS
             else: 
                 sidsToCheck = SIMULTANEOUS
-            request = lsat.LsarLookupSids()
-            request['PolicyHandle'] = policyHandle
+            sids = list()
             for i in xrange(soFar, soFar+sidsToCheck):
-                sid = lsat.LSAPR_SID_INFORMATION()
-                sid['Sid'].fromCanonical(domainSid + '-%d' % (i))
-                request['SidEnumBuffer']['SidInfo'].append(sid)
-                request['SidEnumBuffer']['Entries'] += 1
-            request['TranslatedNames']['Names'] = NULL
-            request['LookupLevel'] = lsat.LSAP_LOOKUP_LEVEL.LsapLookupWksta
+                sids.append(domainSid + '-%d' % (i))
             try:
-                resp = dce.request(request)
+                request = lsat.hLsarLookupSids(dce, policyHandle, sids,lsat.LSAP_LOOKUP_LEVEL.LsapLookupWksta)
             except Exception, e:
                 if str(e).find('STATUS_NONE_MAPPED') >= 0:
                     soFar += SIMULTANEOUS
