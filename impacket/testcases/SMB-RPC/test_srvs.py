@@ -101,6 +101,14 @@ class SRVSTests(unittest.TestCase):
         resp = dce.request(request)
         #resp.dump()
 
+    def test_hNetrConnectionEnum(self):
+        dce, rpctransport = self.connect()
+        resp = srvs.hNetrConnectionEnum(dce, 'IPC$\x00', 1)
+        #resp.dump()
+
+        resp = srvs.hNetrConnectionEnum(dce, 'IPC$\x00', 0)
+        #resp.dump()
+
     def test_NetrFileEnum(self):
         dce, rpctransport = self.connect()
         request = srvs.NetrFileEnum()
@@ -115,6 +123,14 @@ class SRVSTests(unittest.TestCase):
         request['InfoStruct']['Level'] = 3
         request['InfoStruct']['FileInfo']['tag'] = 3
         resp = dce.request(request)
+        #resp.dump()
+
+    def test_hNetrFileEnum(self):
+        dce, rpctransport = self.connect()
+        resp = srvs.hNetrFileEnum(dce, NULL, NULL, 2)
+        #resp.dump()
+
+        resp = srvs.hNetrFileEnum(dce, NULL, NULL, 3)
         #resp.dump()
 
     def test_NetrFileGetInfo(self):
@@ -140,6 +156,17 @@ class SRVSTests(unittest.TestCase):
         resp = dce.request(request)
         #resp.dump()
 
+    def test_hNetrFileGetInfo(self):
+        dce, rpctransport = self.connect()
+        resp = srvs.hNetrFileEnum(dce, NULL, NULL, 2)
+        #resp.dump()
+
+        resp0 = srvs.hNetrFileGetInfo(dce, resp['InfoStruct']['FileInfo']['Level2']['Buffer'][0]['fi2_id'], 2)
+        #resp0.dump()
+
+        resp = srvs.hNetrFileGetInfo(dce, resp['InfoStruct']['FileInfo']['Level2']['Buffer'][0]['fi2_id'], 3)
+        #resp.dump()
+
     def test_NetrFileClose(self):
         dce, rpctransport = self.connect()
         request = srvs.NetrFileEnum()
@@ -157,6 +184,19 @@ class SRVSTests(unittest.TestCase):
         request['FileId'] = resp['InfoStruct']['FileInfo']['Level2']['Buffer'][0]['fi2_id']
         try:
             resp = dce.request(request)
+            #resp.dump()
+        except Exception, e:
+            # I might be closing myself ;)
+            if str(e).find('STATUS_PIPE_BROKEN') < 0:
+                raise
+
+    def test_hNetrFileClose(self):
+        dce, rpctransport = self.connect()
+        resp = srvs.hNetrFileEnum(dce, NULL, NULL, 2)
+        #resp.dump()
+
+        try:
+            resp = srvs.hNetrFileClose(dce, resp['InfoStruct']['FileInfo']['Level2']['Buffer'][0]['fi2_id'])
             #resp.dump()
         except Exception, e:
             # I might be closing myself ;)
@@ -183,7 +223,6 @@ class SRVSTests(unittest.TestCase):
         resp = dce.request(request)
         #resp.dump()
 
-        return
         request['InfoStruct']['Level'] = 2
         request['InfoStruct']['SessionInfo']['tag'] = 2
         request['InfoStruct']['SessionInfo']['Level2']['Buffer'] = NULL
@@ -200,6 +239,23 @@ class SRVSTests(unittest.TestCase):
         request['InfoStruct']['SessionInfo']['tag'] = 502
         request['InfoStruct']['SessionInfo']['Level502']['Buffer'] = NULL
         resp = dce.request(request)
+        #resp.dump()
+
+    def test_hNetrSessionEnum(self):
+        dce, rpctransport = self.connect()
+        resp = srvs.hNetrSessionEnum(dce, NULL, NULL, 0)
+        #resp.dump()
+
+        resp = srvs.hNetrSessionEnum(dce, NULL, NULL, 1)
+        #resp.dump()
+
+        resp = srvs.hNetrSessionEnum(dce, NULL, NULL, 2)
+        #resp.dump()
+
+        resp = srvs.hNetrSessionEnum(dce, NULL, NULL, 10)
+        #resp.dump()
+
+        resp = srvs.hNetrSessionEnum(dce, NULL, NULL, 502)
         #resp.dump()
 
     def test_NetrSessionDel(self):
@@ -227,6 +283,18 @@ class SRVSTests(unittest.TestCase):
             if e.get_error_code() != 0x908:
                 raise
 
+    def test_hNetrSessionDel(self):
+        dce, rpctransport = self.connect()
+        resp = srvs.hNetrSessionEnum(dce, NULL, NULL, 502)
+        #resp.dump()
+
+        try:
+            resp = srvs.hNetrSessionDel(dce, resp['InfoStruct']['SessionInfo']['Level502']['Buffer'][0]['sesi502_cname'], resp['InfoStruct']['SessionInfo']['Level502']['Buffer'][0]['sesi502_username'] )
+            resp.dump()
+        except Exception, e:
+            if e.get_error_code() != 0x908:
+                raise
+
     def test_NetrShareAdd_NetrShareDel(self):
         dce, rpctransport = self.connect()
         request = srvs.NetrShareAdd()
@@ -246,6 +314,21 @@ class SRVSTests(unittest.TestCase):
         request['ServerName'] = NULL
         request['NetName'] = 'BETUSHARE\x00'
         resp = dce.request(request)
+        #resp.dump()
+
+    def test_hNetrShareAdd_hNetrShareDel(self):
+        dce, rpctransport = self.connect()
+        shareInfo = srvs.SHARE_INFO_2()
+        shareInfo['shi2_netname'] = 'BETUSHARE\x00'
+        shareInfo['shi2_type'] = srvs.STYPE_TEMPORARY
+        shareInfo['shi2_remark'] = 'My Remark\x00'
+        shareInfo['shi2_max_uses'] = 0xFFFFFFFF
+        shareInfo['shi2_path'] = 'c:\\\x00'
+        shareInfo['shi2_passwd'] = NULL
+        resp = srvs.hNetrShareAdd(dce, 2, shareInfo)
+        #resp.dump()
+
+        resp = srvs.hNetrShareDel(dce,'BETUSHARE\x00')
         #resp.dump()
 
     def test_NetrShareEnum(self):
@@ -290,6 +373,26 @@ class SRVSTests(unittest.TestCase):
         resp = dce.request(request)
         #resp.dump()
 
+    def test_hNetrShareEnum(self):
+        dce, rpctransport = self.connect()
+        resp = srvs.hNetrShareEnum(dce, 0)
+        #resp.dump()
+
+        resp = srvs.hNetrShareEnum(dce, 1)
+        #resp.dump()
+
+        resp = srvs.hNetrShareEnum(dce, 2)
+        #resp.dump()
+
+        resp = srvs.hNetrShareEnum(dce, 501)
+        #resp.dump()
+
+        resp = srvs.hNetrShareEnum(dce, 502)
+        #resp.dump()
+
+        resp = srvs.hNetrShareEnum(dce, 503)
+        #resp.dump()
+
     def test_NetrShareEnumSticky(self):
         dce, rpctransport = self.connect()
         request = srvs.NetrShareEnumSticky()
@@ -306,6 +409,14 @@ class SRVSTests(unittest.TestCase):
         request['InfoStruct']['ShareInfo']['Level503']['Buffer'] = NULL
         request['InfoStruct']['Level'] = 503
         resp = dce.request(request)
+        #resp.dump()
+
+    def test_hNetrShareEnumSticky(self):
+        dce, rpctransport = self.connect()
+        resp = srvs.hNetrShareEnumSticky(dce, 502)
+        #resp.dump()
+
+        resp = srvs.hNetrShareEnumSticky(dce, 503)
         #resp.dump()
 
     def test_NetrShareGetInfo(self):
@@ -341,6 +452,29 @@ class SRVSTests(unittest.TestCase):
         resp = dce.request(request)
         #resp.dump()
 
+    def test_hNetrShareGetInfo(self):
+        dce, rpctransport = self.connect()
+        resp = srvs.hNetrShareGetInfo(dce, 'IPC$\x00', 0)
+        #resp.dump()
+
+        resp = srvs.hNetrShareGetInfo(dce, 'IPC$\x00', 1)
+        #resp.dump()
+
+        resp = srvs.hNetrShareGetInfo(dce, 'IPC$\x00', 2)
+        #resp.dump()
+
+        resp = srvs.hNetrShareGetInfo(dce, 'IPC$\x00', 501)
+        #resp.dump()
+
+        resp = srvs.hNetrShareGetInfo(dce, 'IPC$\x00', 502)
+        #resp.dump()
+
+        resp = srvs.hNetrShareGetInfo(dce, 'IPC$\x00', 503)
+        #resp.dump()
+
+        resp = srvs.hNetrShareGetInfo(dce, 'IPC$\x00', 1005)
+        #resp.dump()
+
     def test_NetrShareSetInfo(self):
         dce, rpctransport = self.connect()
         request = srvs.NetrShareGetInfo()
@@ -368,7 +502,42 @@ class SRVSTests(unittest.TestCase):
         resp = dce.request(req)
         #resp.dump()
 
+    def test_hNetrShareSetInfo(self):
+        dce, rpctransport = self.connect()
+        resp = srvs.hNetrShareGetInfo(dce, 'IPC$\x00', 1)
+        #resp.dump()
+        oldValue = resp['InfoStruct']['ShareInfo1']['shi1_remark']
 
+        shareInfo = resp['InfoStruct']['ShareInfo1']
+        shareInfo['shi1_remark'] = 'BETUS\x00'
+        resp = srvs.hNetrShareSetInfo(dce, 'IPC$\x00', 1, shareInfo)
+        #resp.dump()
+
+        resp = srvs.hNetrShareGetInfo(dce, 'IPC$\x00', 1)
+        #resp.dump()
+
+        shareInfo['shi1_remark'] = oldValue
+        resp = srvs.hNetrShareSetInfo(dce, 'IPC$\x00', 1, shareInfo)
+        #resp.dump()
+
+    def test_hNetrShareDelSticky(self):
+        dce, rpctransport = self.connect()
+
+        shareInfo = srvs.SHARE_INFO_2()
+        shareInfo['shi2_netname'] = 'BETUSHARE\x00'
+        shareInfo['shi2_type'] = 0
+        shareInfo['shi2_remark'] = 'My Remark\x00'
+        shareInfo['shi2_max_uses'] = 0xFFFFFFFF
+        shareInfo['shi2_path'] = 'c:\\\x00'
+        shareInfo['shi2_passwd'] = NULL
+        resp = srvs.hNetrShareAdd(dce, 2, shareInfo)
+        #resp.dump()
+
+        resp = srvs.hNetrShareDelSticky(dce, 'BETUSHARE\x00')
+        #resp.dump()
+
+        resp = srvs.hNetrShareDel(dce, 'BETUSHARE\x00')
+        #resp.dump()
 
     def test_NetrShareDelSticky(self):
         dce, rpctransport = self.connect()
@@ -423,12 +592,36 @@ class SRVSTests(unittest.TestCase):
         resp = dce.request(request)
         #resp.dump()
 
+    def test_hNetrShareDelStart_hNetrShareDelCommit(self):
+        dce, rpctransport = self.connect()
+
+        shareInfo = srvs.SHARE_INFO_2()
+        shareInfo['shi2_netname'] = 'BETUSHARE\x00'
+        shareInfo['shi2_type'] = 0
+        shareInfo['shi2_remark'] = 'My Remark\x00'
+        shareInfo['shi2_max_uses'] = 0xFFFFFFFF
+        shareInfo['shi2_path'] = 'c:\\\x00'
+        shareInfo['shi2_passwd'] = NULL
+        resp = srvs.hNetrShareAdd(dce, 2, shareInfo)
+        #resp.dump()
+
+        resp = srvs.hNetrShareDelStart(dce, 'BETUSHARE\x00')
+        #resp.dump()
+
+        resp = srvs.hNetrShareDelCommit(dce, resp['ContextHandle'])
+        #resp.dump()
+
     def test_NetrShareCheck(self):
         dce, rpctransport = self.connect()
         request = srvs.NetrShareCheck()
         request['ServerName'] = NULL
         request['Device'] = 'C:\\\x00'
         resp = dce.request(request)
+        #resp.dump()
+
+    def test_hNetrShareCheck(self):
+        dce, rpctransport = self.connect()
+        resp = srvs.hNetrShareCheck(dce, 'C:\\\x00')
         #resp.dump()
 
     def test_NetrServerGetInfo(self):
@@ -471,6 +664,26 @@ class SRVSTests(unittest.TestCase):
         resp = dce.request(request)
         #resp.dump()
 
+    def test_hNetrServerGetInfo(self):
+        dce, rpctransport = self.connect()
+        resp = srvs.hNetrServerGetInfo(dce, 100) 
+        #resp.dump()
+
+        resp = srvs.hNetrServerGetInfo(dce, 101) 
+        #resp.dump()
+
+        resp = srvs.hNetrServerGetInfo(dce, 102) 
+        #resp.dump()
+
+        resp = srvs.hNetrServerGetInfo(dce, 103) 
+        #resp.dump()
+
+        resp = srvs.hNetrServerGetInfo(dce, 502) 
+        #resp.dump()
+
+        resp = srvs.hNetrServerGetInfo(dce, 503) 
+        #resp.dump()
+
     def test_NetrServerDiskEnum(self):
         dce, rpctransport = self.connect()
         request = srvs.NetrServerDiskEnum()
@@ -480,6 +693,11 @@ class SRVSTests(unittest.TestCase):
         request['DiskInfoStruct']['Buffer'] = NULL
         request['PreferedMaximumLength'] = 0xffffffff
         resp = dce.request(request)
+        #resp.dump()
+
+    def test_hNetrServerDiskEnum(self):
+        dce, rpctransport = self.connect()
+        resp = srvs.hNetrServerDiskEnum(dce, 0)
         #resp.dump()
 
     def test_NetrServerStatisticsGet(self):
@@ -492,11 +710,21 @@ class SRVSTests(unittest.TestCase):
         resp = dce.request(request)
         #resp.dump()
 
+    def test_hNetrServerStatisticsGet(self):
+        dce, rpctransport = self.connect()
+        resp = srvs.hNetrServerStatisticsGet(dce, NULL, 0, 0)
+        #resp.dump()
+
     def test_NetrRemoteTOD(self):
         dce, rpctransport = self.connect()
         request = srvs.NetrRemoteTOD()
         request['ServerName'] = NULL
         resp = dce.request(request)
+        #resp.dump()
+
+    def test_hNetrRemoteTOD(self):
+        dce, rpctransport = self.connect()
+        resp = srvs.hNetrRemoteTOD(dce)
         #resp.dump()
 
     def test_NetrServerTransportEnum(self):
@@ -523,6 +751,17 @@ class SRVSTests(unittest.TestCase):
         resp = dce.request(request)
         #resp.dump()
 
+    def test_hNetrServerTransportEnum(self):
+        dce, rpctransport = self.connect()
+        resp = srvs.hNetrServerTransportEnum(dce, 0)
+        #resp.dump()
+
+        resp = srvs.hNetrServerTransportEnum(dce, 1)
+        #resp.dump()
+
+        resp = srvs.hNetrServerTransportEnum(dce, 2)
+        #resp.dump()
+
     def test_NetrpGetFileSecurity_NetrpSetFileSecurity(self):
         dce, rpctransport = self.connect()
         request = srvs.NetrpGetFileSecurity()
@@ -542,6 +781,13 @@ class SRVSTests(unittest.TestCase):
         resp = dce.request(req)
         #resp.dump()
 
+    def test_hNetrpGetFileSecurity_hNetrpSetFileSecurity(self):
+        dce, rpctransport = self.connect()
+        resp = srvs.hNetrpGetFileSecurity(dce, 'C$\x00',  '\\Windows\x00', OWNER_SECURITY_INFORMATION)
+        #hexdump(resp)
+
+        resp = srvs.hNetrpSetFileSecurity(dce,'C$\x00',  '\\Windows\x00', OWNER_SECURITY_INFORMATION, resp )
+        #resp.dump()
 
     def test_NetprPathType(self):
         dce, rpctransport = self.connect()
@@ -550,6 +796,11 @@ class SRVSTests(unittest.TestCase):
         request['PathName'] = '\\pagefile.sys\x00'
         request['Flags'] = 1
         resp = dce.request(request)
+        #resp.dump()
+
+    def test_hNetprPathType(self):
+        dce, rpctransport = self.connect()
+        resp = srvs.hNetprPathType(dce, '\\pagefile.sys\x00', 1)
         #resp.dump()
 
     def test_NetprPathCanonicalize(self):
@@ -564,6 +815,11 @@ class SRVSTests(unittest.TestCase):
         resp = dce.request(request)
         #resp.dump()
 
+    def test_hNetprPathCanonicalize(self):
+        dce, rpctransport = self.connect()
+        resp = srvs.hNetprPathCanonicalize(dce, '\\pagefile.sys\x00', 'c:\x00', 50, 0, 0)
+        #resp.dump()
+
     def test_NetprPathCompare(self):
         dce, rpctransport = self.connect()
         request = srvs.NetprPathCompare()
@@ -575,6 +831,11 @@ class SRVSTests(unittest.TestCase):
         resp = dce.request(request)
         #resp.dump()
 
+    def test_hNetprPathCompare(self):
+        dce, rpctransport = self.connect()
+        resp = srvs.hNetprPathCompare(dce, 'c:\\pagefile.sys\x00', 'c:\\pagefile.sys\x00')
+        #resp.dump()
+
     def test_NetprNameValidate(self):
         dce, rpctransport = self.connect()
         request = srvs.NetprNameValidate()
@@ -583,6 +844,11 @@ class SRVSTests(unittest.TestCase):
         request['NameType'] = srvs.NAMETYPE_USER
         request['Flags'] = 0
         resp = dce.request(request)
+        #resp.dump()
+
+    def test_hNetprNameValidate(self):
+        dce, rpctransport = self.connect()
+        resp = srvs.hNetprNameValidate(dce, 'Administrator\x00', srvs.NAMETYPE_USER)
         #resp.dump()
 
     def test_NetprNameCanonicalize(self):
@@ -596,6 +862,11 @@ class SRVSTests(unittest.TestCase):
         resp = dce.request(request)
         #resp.dump()
 
+    def test_hNetprNameCanonicalize(self):
+        dce, rpctransport = self.connect()
+        resp = srvs.hNetprNameCanonicalize(dce, 'Administrator\x00', 50, srvs.NAMETYPE_USER, 0x80000000)
+        #resp.dump()
+
     def test_NetprNameCompare(self):
         dce, rpctransport = self.connect()
         request = srvs.NetprNameCompare()
@@ -607,12 +878,26 @@ class SRVSTests(unittest.TestCase):
         resp = dce.request(request)
         #resp.dump()
 
+    def test_hNetprNameCompare(self):
+        dce, rpctransport = self.connect()
+        resp = srvs.hNetprNameCompare(dce,'Administrator\x00', 'Administrator\x00',srvs.NAMETYPE_USER, 0x80000000)
+        #resp.dump()
+
     def test_NetrDfsGetVersion(self):
         dce, rpctransport = self.connect()
         request = srvs.NetrDfsGetVersion()
         request['ServerName'] = NULL
         try:
             resp = dce.request(request)
+            #resp.dump()
+        except Exception, e:
+            if e.get_error_code() != 0x2:
+                raise
+
+    def test_hNetrDfsGetVersion(self):
+        dce, rpctransport = self.connect()
+        try:
+            resp = srvs.hNetrDfsGetVersion(dce)
             #resp.dump()
         except Exception, e:
             if e.get_error_code() != 0x2:
@@ -683,6 +968,18 @@ class SRVSTests(unittest.TestCase):
         resp = dce.request(request)
         #resp.dump()
 
+    def test_hNetrServerAliasAdd_hNetrServerAliasDel(self):
+        dce, rpctransport = self.connect()
+        aliasInfo = srvs.SERVER_ALIAS_INFO_0()
+        aliasInfo['srvai0_alias'] = 'BETOALIAS\x00'
+        aliasInfo['srvai0_target'] = '%s\x00' % self.machine
+        aliasInfo['srvai0_default'] = 0
+        resp = srvs.hNetrServerAliasAdd(dce, 0, aliasInfo)
+        #resp.dump()
+
+        resp = srvs.hNetrServerAliasDel(dce, 0, aliasInfo)
+        #resp.dump()
+
     def test_NetrServerAliasEnum(self):
         dce, rpctransport = self.connect()
         request = srvs.NetrServerAliasEnum()
@@ -696,6 +993,16 @@ class SRVSTests(unittest.TestCase):
             resp = dce.request(request)
             #resp.dump()
         except Exception, e:
+            if str(e) != 'ERROR_NOT_SUPPORTED':
+                raise
+
+    def test_hNetrServerAliasEnum(self):
+        dce, rpctransport = self.connect()
+        try:
+            resp = srvs.hNetrServerAliasEnum(dce, 0)
+            #resp.dump()
+        except Exception, e:
+            print e
             if str(e) != 'ERROR_NOT_SUPPORTED':
                 raise
 
