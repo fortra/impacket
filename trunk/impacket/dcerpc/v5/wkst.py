@@ -984,4 +984,147 @@ OPNUMS = {
 ################################################################################
 # HELPER FUNCTIONS
 ################################################################################
+def hNetrWkstaGetInfo(dce, level):
+    request = NetrWkstaGetInfo()
+    request['ServerName'] = '\x00'*10
+    request['Level'] = level
+    return dce.request(request)
+
+def hNetrWkstaUserEnum(dce, level, preferredMaximumLength=0xffffffff):
+    request = NetrWkstaUserEnum()
+    request['ServerName'] = '\x00'*10
+    request['UserInfo']['Level'] = level
+    request['UserInfo']['WkstaUserInfo']['tag'] = level
+    request['PreferredMaximumLength'] = preferredMaximumLength
+    return dce.request(request)
+
+def hNetrWkstaTransportEnum(dce, level, resumeHandle = 0, preferredMaximumLength = 0xffffffff):
+    request = NetrWkstaTransportEnum()
+    request['ServerName'] = '\x00'*10
+    request['TransportInfo']['Level'] = level
+    request['TransportInfo']['WkstaTransportInfo']['tag'] = level
+    request['ResumeHandle'] = resumeHandle
+    request['PreferredMaximumLength'] = preferredMaximumLength
+    return dce.request(request)
+
+def hNetrWkstaSetInfo(dce, level, wkstInfo):
+    request = NetrWkstaSetInfo()
+    request['ServerName'] = '\x00'*10
+    request['Level'] = level
+    request['WkstaInfo']['tag'] = level
+    request['WkstaInfo']['WkstaInfo%d'% level] = wkstInfo
+    return dce.request(request)
+
+def hNetrWorkstationStatisticsGet(dce, serviceName, level, options):
+    request = NetrWorkstationStatisticsGet()
+    request['ServerName'] = '\x00'*10
+    request['ServiceName'] = serviceName
+    request['Level'] = level
+    request['Options'] = options
+    return dce.request(request)
+
+def hNetrGetJoinInformation(dce, nameBuffer):
+    request = NetrGetJoinInformation()
+    request['ServerName'] = '\x00'*10
+    request['NameBuffer'] = nameBuffer
+    return dce.request(request)
+
+def hNetrJoinDomain2(dce, domainNameParam, machineAccountOU, accountName, password, options):
+    request = NetrJoinDomain2()
+    request['ServerName'] = '\x00'*10
+    request['DomainNameParam'] = domainNameParam
+    request['MachineAccountOU'] = machineAccountOU
+    request['AccountName'] = accountName
+    if password == NULL:
+        request['Password'] = NULL
+    else:
+        request['Password']['Buffer'] = password
+    request['Options'] = options
+    return dce.request(request)
+
+def hNetrUnjoinDomain2(dce, accountName, password, options):
+    request = NetrUnjoinDomain2()
+    request['ServerName'] = '\x00'*10
+    request['AccountName'] = accountName
+    if password == NULL:
+        request['Password'] = NULL
+    else:
+        request['Password']['Buffer'] = password
+    request['Options'] = options
+    return dce.request(request)
+
+def hNetrRenameMachineInDomain2(dce, machineName, accountName, password, options):
+    request = NetrRenameMachineInDomain2()
+    request['ServerName'] = '\x00'*10
+    request['MachineName'] = machineName
+    request['AccountName'] = accountName
+    if password == NULL:
+        request['Password'] = NULL
+    else:
+        request['Password']['Buffer'] = password
+    request['Options'] = options
+    return dce.request(request)
+
+def hNetrValidateName2(dce, nameToValidate, accountName, password, nameType):
+    request = NetrValidateName2()
+    request['ServerName'] = '\x00'*10
+    request['NameToValidate'] = nameToValidate
+    request['AccountName'] = accountName
+    if password == NULL:
+        request['Password'] = NULL
+    else:
+        request['Password']['Buffer'] = password
+    request['NameType'] = nameType
+    return dce.request(request)
+
+def hNetrGetJoinableOUs2(dce, domainNameParam, accountName, password, OUCount):
+    request = NetrGetJoinableOUs2()
+    request['ServerName'] = '\x00'*10
+    request['DomainNameParam'] = domainNameParam
+    request['AccountName'] = accountName
+    if password == NULL:
+        request['Password'] = NULL
+    else:
+        request['Password']['Buffer'] = password
+    request['OUCount'] = OUCount
+    return dce.request(request)
+
+def hNetrAddAlternateComputerName(dce, alternateName, domainAccount, encryptedPassword):
+    request = NetrAddAlternateComputerName()
+    request['ServerName'] = '\x00'*10
+    request['AlternateName'] = alternateName
+    request['DomainAccount'] = domainAccount
+    if encryptedPassword == NULL:
+        request['EncryptedPassword'] = NULL
+    else:
+        request['EncryptedPassword']['Buffer'] = encryptedPassword
+    return dce.request(request)
+
+def hNetrRemoveAlternateComputerName(dce, alternateName, domainAccount, encryptedPassword):
+    request = NetrRemoveAlternateComputerName()
+    request['ServerName'] = '\x00'*10
+    request['AlternateName'] = alternateName
+    request['DomainAccount'] = domainAccount
+    if encryptedPassword == NULL:
+        request['EncryptedPassword'] = NULL
+    else:
+        request['EncryptedPassword']['Buffer'] = encryptedPassword
+    return dce.request(request)
+
+def hNetrSetPrimaryComputerName(dce, primaryName, domainAccount, encryptedPassword):
+    request = NetrSetPrimaryComputerName()
+    request['ServerName'] = '\x00'*10
+    request['PrimaryName'] = primaryName
+    request['DomainAccount'] = domainAccount
+    if encryptedPassword == NULL:
+        request['EncryptedPassword'] = NULL
+    else:
+        request['EncryptedPassword']['Buffer'] = encryptedPassword
+    return dce.request(request)
+
+def hNetrEnumerateComputerNames(dce, nameType):
+    request = NetrEnumerateComputerNames()
+    request['ServerName'] = '\x00'*10
+    request['NameType'] = nameType
+    return dce.request(request)
 
