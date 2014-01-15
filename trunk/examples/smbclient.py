@@ -228,12 +228,7 @@ class MiniImpacketShell(cmd.Cmd):
         dce = rpctransport.get_dce_rpc()
         dce.connect()                     
         dce.bind(srvs.MSRPC_UUID_SRVS)
-        request = srvs.NetrServerGetInfo()
-        request['ServerName'] = NULL
-        request['Level'] = 102
-        request['InfoStruct']['tag'] = 102
-        request['InfoStruct']['ServerInfo102'] = NULL
-        resp = dce.request(request)
+        resp = srvs.hNetrServerGetInfo(dce, 102)
 
         print "Version Major: %d" % resp['InfoStruct']['ServerInfo102']['sv102_version_major']
         print "Version Minor: %d" % resp['InfoStruct']['ServerInfo102']['sv102_version_minor']
@@ -250,17 +245,8 @@ class MiniImpacketShell(cmd.Cmd):
         dce = rpctransport.get_dce_rpc()
         dce.connect()                     
         dce.bind(srvs.MSRPC_UUID_SRVS)
-        request = srvs.NetrSessionEnum()
-        request['ServerName'] = NULL
-        request['ClientName'] = NULL
-        request['UserName'] = NULL
-        request['InfoStruct']['Level'] = 502
-        request['InfoStruct']['SessionInfo']['tag'] = 502
-        request['InfoStruct']['SessionInfo']['Level502']['Buffer'] = NULL
-        request['PreferedMaximumLength'] = 0xffffffff
-        request['ResumeHandle'] = NULL
+        resp = srvs.hNetrSessionEnum(dce, NULL, NULL, 502)
 
-        resp = dce.request(request)
         for session in resp['InfoStruct']['SessionInfo']['Level502']['Buffer']:
             print "host: %15s, user: %5s, active: %5d, idle: %5d, type: %5s, transport: %s" % (session['sesi502_cname'][:-1], session['sesi502_username'][:-1], session['sesi502_time'], session['sesi502_idle_time'], session['sesi502_cltype_name'][:-1],session['sesi502_transport'][:-1] )
 

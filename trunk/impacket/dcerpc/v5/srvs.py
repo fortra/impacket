@@ -3020,4 +3020,276 @@ OPNUMS = {
 ################################################################################
 # HELPER FUNCTIONS
 ################################################################################
+def hNetrConnectionEnum(dce, qualifier, level, resumeHandle = 0, preferedMaximumLength = 0xffffffff):
+    request = NetrConnectionEnum()
+    request['ServerName'] = NULL
+    request['Qualifier'] = qualifier 
+    request['InfoStruct']['Level'] = level
+    request['InfoStruct']['ConnectInfo']['tag'] = level
+    request['PreferedMaximumLength'] = preferedMaximumLength
+    request['ResumeHandle'] = resumeHandle
+    return dce.request(request)
+
+def hNetrFileEnum(dce, basePath, userName, level, resumeHandle = 0, preferedMaximumLength = 0xffffffff):
+    request = NetrFileEnum()
+    request['ServerName'] = NULL
+    request['BasePath'] = basePath
+    request['UserName'] = userName
+    request['InfoStruct']['Level'] = level
+    request['InfoStruct']['FileInfo']['tag'] = level
+    request['PreferedMaximumLength'] = preferedMaximumLength
+    request['ResumeHandle'] = resumeHandle
+    return dce.request(request)
+
+def hNetrFileGetInfo(dce, fileId, level):
+    request = NetrFileGetInfo()
+    request['ServerName'] = NULL
+    request['FileId'] = fileId
+    request['Level'] = level
+    return dce.request(request)
+
+def hNetrFileClose(dce, fileId):
+    request = NetrFileClose()
+    request['ServerName'] = NULL
+    request['FileId'] = fileId
+    return dce.request(request)
+
+def hNetrSessionEnum(dce, clientName, userName, level, resumeHandle = 0, preferedMaximumLength = 0xffffffff):
+    request = NetrSessionEnum()
+    request['ServerName'] = NULL
+    request['ClientName'] = clientName
+    request['UserName'] = userName
+    request['InfoStruct']['Level'] = level
+    request['InfoStruct']['SessionInfo']['tag'] = level
+    request['InfoStruct']['SessionInfo']['Level%d'%level]['Buffer'] = NULL
+    request['PreferedMaximumLength'] = preferedMaximumLength
+    request['ResumeHandle'] = resumeHandle
+
+    return dce.request(request)
+
+def hNetrSessionDel(dce, clientName, userName):
+    request = NetrSessionDel()
+    request['ServerName'] = NULL
+    request['ClientName'] = clientName
+    request['UserName'] = userName
+    return dce.request(request)
+
+def hNetrShareAdd(dce, level, infoStruct):
+    request = NetrShareAdd()
+    request['ServerName'] = NULL
+    request['Level'] = level
+    request['InfoStruct']['tag'] = level
+    request['InfoStruct']['ShareInfo%d'%level] = infoStruct
+    return dce.request(request)
+
+def hNetrShareDel(dce, netName):
+    request = NetrShareDel()
+    request['ServerName'] = NULL
+    request['NetName'] = netName
+    return dce.request(request)
+
+def hNetrShareEnum(dce, level, resumeHandle = 0, preferedMaximumLength = 0xffffffff):
+    request = NetrShareEnum()
+    request['ServerName'] = NULL
+    request['PreferedMaximumLength'] = preferedMaximumLength
+    request['ResumeHandle'] = resumeHandle
+    request['InfoStruct']['Level'] = level
+    request['InfoStruct']['ShareInfo']['tag'] = level
+    request['InfoStruct']['ShareInfo']['Level%d'%level]['Buffer'] = NULL
+
+    return dce.request(request)
+
+def hNetrShareEnumSticky(dce, level, resumeHandle = 0, preferedMaximumLength = 0xffffffff):
+    request = NetrShareEnumSticky()
+    request['ServerName'] = NULL
+    request['PreferedMaximumLength'] = preferedMaximumLength
+    request['ResumeHandle'] = resumeHandle
+    request['InfoStruct']['Level'] = level
+    request['InfoStruct']['ShareInfo']['tag'] = level
+    request['InfoStruct']['ShareInfo']['Level%d'%level]['Buffer'] = NULL
+
+    return dce.request(request)
+
+def hNetrShareGetInfo(dce, netName, level):
+    request = NetrShareGetInfo()
+    request['ServerName'] = NULL
+    request['NetName'] = netName
+    request['Level'] = level
+    return dce.request(request)
+
+def hNetrShareSetInfo(dce, netName, level, shareInfo):
+    request = NetrShareSetInfo()
+    request['ServerName'] = NULL
+    request['NetName'] = netName
+    request['Level'] = level
+    request['ShareInfo']['tag'] = level
+    request['ShareInfo']['ShareInfo%d'%level] = shareInfo
+
+    return dce.request(request)
+
+def hNetrShareDelSticky(dce, netName):
+    request = NetrShareDelSticky()
+    request['ServerName'] = NULL
+    request['NetName'] = netName
+    return dce.request(request)
+
+# Sacala la h a estos 2, y tira todos los test cases juntos
+def hNetrShareDelStart(dce, netName):
+    request = NetrShareDelStart()
+    request['ServerName'] = NULL
+    request['NetName'] = netName
+    return dce.request(request)
+
+def hNetrShareDelCommit(dce, contextHandle):
+    request = NetrShareDelCommit()
+    request['ContextHandle'] = contextHandle
+    return dce.request(request)
+
+def hNetrShareCheck(dce, device):
+    request = NetrShareCheck()
+    request['ServerName'] = NULL
+    request['Device'] = device
+    return dce.request(request)
+
+def hNetrServerGetInfo(dce, level):
+    request = NetrServerGetInfo()
+    request['ServerName'] = NULL
+    request['Level'] = level
+    request['InfoStruct']['tag'] = level
+    request['InfoStruct']['ServerInfo%d'%level] = NULL
+    return dce.request(request)
+
+def hNetrServerDiskEnum(dce, level, resumeHandle = 0, preferedMaximumLength = 0xffffffff):
+    request = NetrServerDiskEnum()
+    request['ServerName'] = NULL
+    request['PreferedMaximumLength'] = preferedMaximumLength
+    request['ResumeHandle'] = resumeHandle
+    request['Level'] = level
+    request['DiskInfoStruct']['Buffer'] = NULL
+    return dce.request(request)
+
+def hNetrServerStatisticsGet(dce, service, level, options):
+    request = NetrServerStatisticsGet()
+    request['ServerName'] = NULL
+    request['Service'] = service
+    request['Level'] = level
+    request['Options'] = options
+    return dce.request(request)
+
+def hNetrRemoteTOD(dce):
+    request = NetrRemoteTOD()
+    request['ServerName'] = NULL
+    return dce.request(request)
+
+def hNetrServerTransportEnum(dce, level, resumeHandle = 0, preferedMaximumLength = 0xffffffff):
+    request = NetrServerTransportEnum()
+    request['ServerName'] = NULL
+    request['PreferedMaximumLength'] = preferedMaximumLength
+    request['ResumeHandle'] = resumeHandle
+    request['InfoStruct']['Level'] = level
+    request['InfoStruct']['XportInfo']['tag'] = level
+    request['InfoStruct']['XportInfo']['Level%d' % level]['Buffer'] = NULL
+    return dce.request(request)
+
+def hNetrpGetFileSecurity(dce, shareName, lpFileName, requestedInformation):
+    request = NetrpGetFileSecurity()
+    request['ServerName'] = NULL
+    request['ShareName'] = shareName
+    request['lpFileName'] = lpFileName
+    request['RequestedInformation'] = requestedInformation
+    retVal = dce.request(request)
+    return ''.join(retVal['SecurityDescriptor']['Buffer'])
+
+def hNetrpSetFileSecurity(dce, shareName, lpFileName, securityInformation, securityDescriptor):
+    request = NetrpSetFileSecurity()
+    request['ServerName'] = NULL
+    request['ShareName'] = shareName
+    request['lpFileName'] = lpFileName
+    request['SecurityInformation'] = securityInformation
+    request['SecurityDescriptor']['Length'] = len(securityDescriptor)
+    request['SecurityDescriptor']['Buffer'] = list(securityDescriptor)
+    return dce.request(request)
+
+def hNetprPathType(dce, pathName, flags):
+    request = NetprPathType()
+    request['ServerName'] = NULL
+    request['PathName'] = pathName
+    request['Flags'] = flags
+    return dce.request(request)
+
+def hNetprPathCanonicalize(dce, pathName, prefix, outbufLen=50, pathType=0, flags=0):
+    request = NetprPathCanonicalize()
+    request['ServerName'] = NULL
+    request['PathName'] = pathName
+    request['OutbufLen'] = outbufLen
+    request['Prefix'] = prefix
+    request['PathType'] = pathType
+    request['Flags'] = flags
+    return dce.request(request)
+
+def hNetprPathCompare(dce, pathName1, pathName2, pathType=0, flags=0):
+    request = NetprPathCompare()
+    request['ServerName'] = NULL
+    request['PathName1'] = pathName1
+    request['PathName2'] = pathName2
+    request['PathType'] = pathType
+    request['Flags'] = flags
+    return dce.request(request)
+
+def hNetprNameValidate(dce, name, nameType, flags=0):
+    request = NetprNameValidate()
+    request['ServerName'] = NULL
+    request['Name'] = name
+    request['NameType'] = nameType
+    request['Flags'] = flags
+    return dce.request(request)
+
+def hNetprNameCanonicalize(dce, name, outbufLen=50, nameType=0, flags=0):
+    request = NetprNameCanonicalize()
+    request['ServerName'] = NULL
+    request['Name'] = name
+    request['OutbufLen'] = outbufLen
+    request['NameType'] = nameType
+    request['Flags'] = flags
+    return dce.request(request)
+
+def hNetprNameCompare(dce, name1, name2, nameType=0, flags=0):
+    request = NetprNameCompare()
+    request['ServerName'] = NULL
+    request['Name1'] = name1
+    request['Name2'] = name2
+    request['NameType'] = nameType
+    request['Flags'] = flags
+    return dce.request(request)
+
+def hNetrDfsGetVersion(dce):
+    request = NetrDfsGetVersion()
+    request['ServerName'] = NULL
+    return dce.request(request)
+
+def hNetrServerAliasAdd(dce, level, aliasInfo):
+    request = NetrServerAliasAdd()
+    request['ServerName'] = NULL
+    request['Level'] = level
+    request['InfoStruct']['tag'] = level
+    request['InfoStruct']['ServerAliasInfo%d'%level] = aliasInfo
+    return dce.request(request)
+
+def hNetrServerAliasDel(dce, level, aliasInfo):
+    request = NetrServerAliasDel()
+    request['ServerName'] = NULL
+    request['Level'] = level
+    request['InfoStruct']['tag'] = level
+    request['InfoStruct']['ServerAliasInfo%d'%level] = aliasInfo
+    return dce.request(request)
+
+def hNetrServerAliasEnum(dce, level, resumeHandle = 0, preferedMaximumLength = 0xffffffff):
+    request = NetrServerAliasEnum()
+    request['ServerName'] = NULL
+    request['InfoStruct']['Level'] = level
+    request['InfoStruct']['ServerAliasInfo']['tag'] = level
+    request['InfoStruct']['ServerAliasInfo']['Level%d' % level]['Buffer'] = NULL
+    request['PreferedMaximumLength'] = preferedMaximumLength
+    request['ResumeHandle'] = resumeHandle
+    return dce.request(request)
 
