@@ -1145,6 +1145,14 @@ OPNUMS = {
 ################################################################################
 # HELPER FUNCTIONS
 ################################################################################
+def checkNullString(string):
+    if string == NULL:
+        return string
+
+    if string[-1:] != '\x00':
+        return string + '\x00'
+    else:
+        return string
 
 def hRCloseServiceHandle(dce, hSCObject):
     request = RCloseServiceHandle()
@@ -1209,32 +1217,34 @@ def hRChangeServiceConfigW(dce, hService, dwServiceType=SERVICE_NO_CHANGE, dwSta
     changeServiceConfig['dwServiceType'] = dwServiceType
     changeServiceConfig['dwStartType'] = dwStartType
     changeServiceConfig['dwErrorControl'] = dwErrorControl
-    changeServiceConfig['lpBinaryPathName'] = lpBinaryPathName
-    changeServiceConfig['lpLoadOrderGroup'] = lpLoadOrderGroup
+    changeServiceConfig['lpBinaryPathName'] = checkNullString(lpBinaryPathName)
+    changeServiceConfig['lpLoadOrderGroup'] = checkNullString(lpLoadOrderGroup)
     changeServiceConfig['lpdwTagId'] = lpdwTagId
     changeServiceConfig['lpDependencies'] = lpDependencies
+    # Strings MUST be NULL terminated for lpDependencies
     changeServiceConfig['dwDependSize'] = dwDependSize
-    changeServiceConfig['lpServiceStartName'] = lpServiceStartName
+    changeServiceConfig['lpServiceStartName'] = checkNullString(lpServiceStartName)
     changeServiceConfig['lpPassword'] = lpPassword
     changeServiceConfig['dwPwSize'] = dwPwSize
-    changeServiceConfig['lpDisplayName'] = lpDisplayName
+    changeServiceConfig['lpDisplayName'] = checkNullString(lpDisplayName)
     return dce.request(changeServiceConfig)
 
 def hRCreateServiceW(dce, hSCManager, lpServiceName, lpDisplayName, dwDesiredAccess=SERVICE_ALL_ACCESS, dwServiceType=SERVICE_WIN32_OWN_PROCESS, dwStartType=SERVICE_AUTO_START, dwErrorControl=SERVICE_ERROR_IGNORE, lpBinaryPathName=NULL, lpLoadOrderGroup=NULL, lpdwTagId=NULL, lpDependencies=NULL, dwDependSize=0, lpServiceStartName=NULL, lpPassword=NULL, dwPwSize=0):
     createService = RCreateServiceW()
     createService['hSCManager'] = hSCManager
-    createService['lpServiceName'] = lpServiceName
-    createService['lpDisplayName'] = lpDisplayName
+    createService['lpServiceName'] = checkNullString(lpServiceName)
+    createService['lpDisplayName'] = checkNullString(lpDisplayName)
     createService['dwDesiredAccess'] = dwDesiredAccess
     createService['dwServiceType'] = dwServiceType
     createService['dwStartType'] = dwStartType
     createService['dwErrorControl'] = dwErrorControl
-    createService['lpBinaryPathName'] = lpBinaryPathName
-    createService['lpLoadOrderGroup'] = lpLoadOrderGroup
+    createService['lpBinaryPathName'] = checkNullString(lpBinaryPathName)
+    createService['lpLoadOrderGroup'] = checkNullString(lpLoadOrderGroup)
     createService['lpdwTagId'] = lpdwTagId
+    # Strings MUST be NULL terminated for lpDependencies
     createService['lpDependencies'] = lpDependencies
     createService['dwDependSize'] = dwDependSize
-    createService['lpServiceStartName'] = lpServiceStartName
+    createService['lpServiceStartName'] = checkNullString(lpServiceStartName)
     createService['lpPassword'] = lpPassword
     createService['dwPwSize'] = dwPwSize
     return dce.request(createService)
@@ -1303,15 +1313,15 @@ def hREnumServicesStatusW(dce, hSCManager, dwServiceType=SERVICE_WIN32_OWN_PROCE
 
 def hROpenSCManagerW(dce, lpMachineName='DUMMY\x00', lpDatabaseName='ServicesActive\x00', dwDesiredAccess=SERVICE_START | SERVICE_STOP | SERVICE_CHANGE_CONFIG | SERVICE_QUERY_CONFIG | SERVICE_QUERY_STATUS | SERVICE_ENUMERATE_DEPENDENTS | SC_MANAGER_ENUMERATE_SERVICE):
     openSCManager = ROpenSCManagerW()
-    openSCManager['lpMachineName'] = lpMachineName
-    openSCManager['lpDatabaseName'] = lpDatabaseName
+    openSCManager['lpMachineName'] = checkNullString(lpMachineName)
+    openSCManager['lpDatabaseName'] = checkNullString(lpDatabaseName)
     openSCManager['dwDesiredAccess'] = dwDesiredAccess
     return dce.request(openSCManager)
 
 def hROpenServiceW(dce, hSCManager, lpServiceName, dwDesiredAccess= SERVICE_ALL_ACCESS):
     openService = ROpenServiceW()
     openService['hSCManager'] = hSCManager
-    openService['lpServiceName'] = lpServiceName
+    openService['lpServiceName'] = checkNullString(lpServiceName)
     openService['dwDesiredAccess'] = dwDesiredAccess
     return dce.request(openService)
 
@@ -1347,21 +1357,21 @@ def hRStartServiceW(dce, hService, argc=0, argv=NULL ):
         items = []
         for item in argv:
             itemn = LPWSTR()
-            itemn['Data'] = item
+            itemn['Data'] = checkNullString(item)
             startService['argv'].append(itemn)
     return dce.request(startService)
 
 def hRGetServiceDisplayNameW(dce, hSCManager, lpServiceName, lpcchBuffer ):
     getServiceDisplay = RGetServiceDisplayNameW()
     getServiceDisplay['hSCManager'] = hSCManager
-    getServiceDisplay['lpServiceName'] = lpServiceName
+    getServiceDisplay['lpServiceName'] = checkNullString(lpServiceName)
     getServiceDisplay['lpcchBuffer'] = lpcchBuffer
     return dce.request(getServiceDisplay)
 
 def hRGetServiceKeyNameW(dce, hSCManager, lpDisplayName, lpcchBuffer ):
     getServiceKeyName = RGetServiceKeyNameW()
     getServiceKeyName['hSCManager'] = hSCManager
-    getServiceKeyName['lpDisplayName'] = lpDisplayName
+    getServiceKeyName['lpDisplayName'] = checkNullString(lpDisplayName)
     getServiceKeyName['lpcchBuffer'] = lpcchBuffer
     return dce.request(getServiceKeyName)
 
