@@ -1,4 +1,4 @@
-# Copyright (c) 2003-2013 CORE Security Technologies
+# Copyright (c) 2003-2014 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -12,7 +12,15 @@
 #
 #   [MS-RPCE]-C706 Interface implementation for the remote portmapper
 #
-
+#   Best way to learn how to use these calls is to grab the protocol standard
+#   so you understand what the call does, and then read the test case located
+#   at https://code.google.com/p/impacket/source/browse/#svn%2Ftrunk%2Fimpacket%2Ftestcases%2FSMB-RPC
+#
+#   Some calls have helper functions, which makes it even easier to use.
+#   They are located at the end of this file. 
+#   Helper functions start with "h"<name of the call>.
+#   There are test cases for them too. 
+#
 import socket
 from struct import unpack
 from impacket.uuid import uuidtup_to_bin, bin_to_string
