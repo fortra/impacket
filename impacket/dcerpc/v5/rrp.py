@@ -669,6 +669,34 @@ OPNUMS = {
 ################################################################################
 # HELPER FUNCTIONS
 ################################################################################
+def checkNullString(string):
+    if string == NULL:
+        return string
+
+    if string[-1:] != '\x00':
+        return string + '\x00'
+    else:
+        return string
+
+def unpackValue(valueType, value):
+    if valueType == REG_DWORD:
+        retData = unpack('<L', ''.join(value))[0]
+    elif valueType == REG_DWORD_BIG_ENDIAN:
+        retData = unpack('>L', ''.join(value))[0]
+    elif valueType == REG_EXPAND_SZ:
+        retData = ''.join(value).decode('utf-16le')
+    elif valueType == REG_MULTI_SZ:
+        retData = ''.join(value).decode('utf-16le')
+    elif valueType == REG_QWORD:
+        retData = unpack('<Q', ''.join(value))[0]
+    elif valueType == REG_QWORD_LITTLE_ENDIAN:
+        retData = unpack('>Q', ''.join(value))[0]
+    elif valueType == REG_SZ:
+        retData = ''.join(value).decode('utf-16le')
+    else:
+        retData = ''.join(value)
+
+    return retData
 
 def hOpenClassesRoot(dce, samDesired = MAXIMUM_ALLOWED):
     request = OpenClassesRoot()
@@ -708,8 +736,8 @@ def hBaseRegCloseKey(dce, hKey):
 def hBaseRegCreateKey(dce, hKey, lpSubKey, lpClass = NULL, dwOptions = 0x00000001, samDesired = MAXIMUM_ALLOWED, lpSecurityAttributes = NULL, lpdwDisposition = REG_CREATED_NEW_KEY):
     request = BaseRegCreateKey()
     request['hKey'] = hKey
-    request['lpSubKey'] = lpSubKey
-    request['lpClass'] = lpClass
+    request['lpSubKey'] = checkNullString(lpSubKey)
+    request['lpClass'] = checkNullString(lpClass)
     request['dwOptions'] = dwOptions
     request['samDesired'] = samDesired
     if lpSecurityAttributes == NULL:
@@ -723,7 +751,7 @@ def hBaseRegCreateKey(dce, hKey, lpSubKey, lpClass = NULL, dwOptions = 0x0000000
 def hBaseRegDeleteKey(dce, hKey, lpSubKey):
     request = BaseRegDeleteKey()
     request['hKey'] = hKey
-    request['lpSubKey'] = lpSubKey
+    request['lpSubKey'] = checkNullString(lpSubKey)
     return dce.request(request)
 
 def hBaseRegEnumKey(dce, hKey, dwIndex, lpftLastWriteTime = NULL):
@@ -767,20 +795,20 @@ def hBaseRegGetKeySecurity(dce, hKey, securityInformation = OWNER_SECURITY_INFOR
 def hBaseRegLoadKey(dce, hKey, lpSubKey, lpFile):
     request = BaseRegLoadKey()
     request['hKey'] = hKey
-    request['lpSubKey'] = lpSubKey
-    request['lpFile'] = lpFile
+    request['lpSubKey'] = checkNullString(lpSubKey)
+    request['lpFile'] = checkNullString(lpFile)
     return dce.request(request)
 
 def hBaseRegUnLoadKey(dce, hKey, lpSubKey):
     request = BaseRegUnLoadKey()
     request['hKey'] = hKey
-    request['lpSubKey'] = lpSubKey
+    request['lpSubKey'] = checkNullString(lpSubKey)
     return dce.request(request)
 
 def hBaseRegOpenKey(dce, hKey, lpSubKey, dwOptions=0x00000001, samDesired = MAXIMUM_ALLOWED):
     request = BaseRegOpenKey()
     request['hKey'] = hKey
-    request['lpSubKey'] = lpSubKey
+    request['lpSubKey'] = checkNullString(lpSubKey)
     request['dwOptions'] = dwOptions
     request['samDesired'] = samDesired 
     return dce.request(request)
@@ -798,38 +826,41 @@ def hBaseRegQueryValue(dce, hKey, lpValueName):
     # have a bigger buffer for the data to receive
     request = BaseRegQueryValue()
     request['hKey'] = hKey
-    request['lpValueName'] = lpValueName
-    request['lpData'] = ' '*128
-    request['lpcbData'] = 128
-    request['lpcbLen'] = 128
-    return dce.request(request)
+    request['lpValueName'] = checkNullString(lpValueName)
+    request['lpData'] = ' '*512
+    request['lpcbData'] = 512
+    request['lpcbLen'] = 512
+    resp = dce.request(request)
+    # Returns 
+    # ( dataType, data )
+    return resp['lpType'], unpackValue(resp['lpType'], resp['lpData'])
 
 def hBaseRegReplaceKey(dce, hKey, lpSubKey, lpNewFile, lpOldFile):
     request = BaseRegReplaceKey()
     request['hKey'] = hKey
-    request['lpSubKey'] = lpSubKey
-    request['lpNewFile'] = lpNewFile
-    request['lpOldFile'] = lpOldFile
+    request['lpSubKey'] = checkNullString(lpSubKey)
+    request['lpNewFile'] = checkNullString(lpNewFile)
+    request['lpOldFile'] = checkNullString(lpOldFile)
     return dce.request(request)
 
 def hBaseRegRestoreKey(dce, hKey, lpFile, flags=REG_REFRESH_HIVE):
     request = BaseRegRestoreKey()
     request['hKey'] = hKey
-    request['lpFile'] = lpFile
+    request['lpFile'] = checkNullString(lpFile)
     request['Flags'] = flags
     return dce.request(request)
 
 def hBaseRegSaveKey(dce, hKey, lpFile, pSecurityAttributes = NULL):
     request = BaseRegSaveKey()
     request['hKey'] = hKey
-    request['lpFile'] = lpFile
+    request['lpFile'] = checkNullString(lpFile)
     request['pSecurityAttributes'] = pSecurityAttributes
     return dce.request(request)
 
 def hBaseRegSetValue(dce, hKey, lpValueName, dwType, lpData):
     request = BaseRegSetValue()
     request['hKey'] = hKey
-    request['lpValueName'] = lpValueName
+    request['lpValueName'] = checkNullString(lpValueName)
     request['dwType'] = dwType
     request['lpData'] = lpData.encode('utf-16le')
     request['cbData'] = len(request['lpData'])
@@ -854,8 +885,8 @@ def hBaseRegQueryMultipleValues(dce, hKey, val_listIn):
 
     for item in  val_listIn:
         itemn = RVALENT() 
-        itemn['ve_valuename'] = item['ValueName']
-        itemn['ve_valuelen'] = len(item['ValueName'])
+        itemn['ve_valuename'] = checkNullString(item['ValueName'])
+        itemn['ve_valuelen'] = len(itemn['ve_valuename'])
         itemn['ve_valueptr'] = NULL
         itemn['ve_type'] = item['ValueType']
         request['val_listIn'].append(itemn)
@@ -865,12 +896,11 @@ def hBaseRegQueryMultipleValues(dce, hKey, val_listIn):
     request['ldwTotsize'] = 128
 
     resp = dce.request(request)
-  
     retVal = list()
     for item in resp['val_listOut']:
         itemn = {}
         itemn['ValueName'] = item['ve_valuename'] 
-        itemn['ValueData'] = resp['lpvalueBuf'][item['ve_valueptr'] : item['ve_valueptr']+item['ve_valuelen']]
+        itemn['ValueData'] = unpackValue(item['ve_type'], resp['lpvalueBuf'][item['ve_valueptr'] : item['ve_valueptr']+item['ve_valuelen']])
         retVal.append(itemn)
  
     return retVal
@@ -878,7 +908,7 @@ def hBaseRegQueryMultipleValues(dce, hKey, val_listIn):
 def hBaseRegSaveKeyEx(dce, hKey, lpFile, pSecurityAttributes = NULL, flags=1):
     request = BaseRegSaveKeyEx()
     request['hKey'] = hKey
-    request['lpFile'] = lpFile
+    request['lpFile'] = checkNullString(lpFile)
     request['pSecurityAttributes'] = pSecurityAttributes
     request['Flags'] = flags
     return dce.request(request)
@@ -898,6 +928,6 @@ def hOpenPerformanceNlsText(dce, samDesired = MAXIMUM_ALLOWED):
 def hBaseRegDeleteValue(dce, hKey, lpValueName):
     request = BaseRegDeleteValue()
     request['hKey'] = hKey
-    request['lpValueName'] = lpValueName
+    request['lpValueName'] = checkNullString(lpValueName)
     return dce.request(request)
 
