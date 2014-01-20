@@ -135,16 +135,15 @@ class RRPTests(unittest.TestCase):
         except Exception, e:
             print e
 
-        resp = rrp.hBaseRegQueryValue(dce, phKey, 'BETO2\x00')
-        #resp.dump()
-        resData = resp['lpData']
+        type, data = rrp.hBaseRegQueryValue(dce, phKey, 'BETO2\x00')
+        #print data
 
         resp = rrp.hBaseRegDeleteValue(dce, phKey, 'BETO2\x00')
         #resp.dump()
 
         resp = rrp.hBaseRegDeleteKey(dce, regHandle, 'BETO\x00')
         #resp.dump()
-        self.assertTrue( 'HOLA COMO TE VA\x00' == ''.join(resData).decode('utf-16le'))
+        self.assertTrue( 'HOLA COMO TE VA\x00' == data )
 
     def test_BaseRegCreateKey_BaseRegSetValue_BaseRegDeleteKey(self):
         dce, rpctransport, phKey = self.connect()
@@ -288,7 +287,7 @@ class RRPTests(unittest.TestCase):
         resp = dce.request(request)
         #resp.dump()
 
-    def test_BaseRegQueryInfoKey(self):
+    def test_hBaseRegQueryInfoKey(self):
         dce, rpctransport, phKey = self.connect()
 
         resp = rrp.hBaseRegOpenKey(dce, phKey, 'SYSTEM\\CurrentControlSet\\Control\\Lsa\\JD\x00' )
@@ -470,8 +469,8 @@ class RRPTests(unittest.TestCase):
         request['val_listIn'].append(item2)
         request['val_listIn'].append(item3)
         request['num_vals'] = len(request['val_listIn'])
-        request['lpvalueBuf'] = list(' '*100)
-        request['ldwTotsize'] = 100
+        request['lpvalueBuf'] = list(' '*128)
+        request['ldwTotsize'] = 128
         resp = dce.request(request)
         #resp.dump()
 
@@ -489,14 +488,14 @@ class RRPTests(unittest.TestCase):
         valueIn.append(item1)
          
         item2 = {}
-        item2['ValueName'] = 'SystemRoot\x00'
-        item2['ValueType'] = rrp.REG_SZ
+        item2['ValueName'] = 'InstallDate\x00'
+        item2['ValueType'] = rrp.REG_DWORD
         valueIn.append(item2)
 
         item3 = {}
-        item3['ValueName'] = 'EditionID\x00'
-        item3['ValueType'] = rrp.REG_SZ
-        valueIn.append(item2)
+        item3['ValueName'] = 'DigitalProductId\x00'
+        item3['ValueType'] = rrp.REG_BINARY
+        #valueIn.append(item3)
 
         resp = rrp.hBaseRegQueryMultipleValues(dce, resp['phkResult'], valueIn)
         #print resp
@@ -599,8 +598,8 @@ class RRPTests(unittest.TestCase):
         request['val_listIn'].append(item2)
         request['val_listIn'].append(item3)
         request['num_vals'] = len(request['val_listIn'])
-        request['lpvalueBuf'] = list(' '*100)
-        request['ldwTotsize'] = 100
+        request['lpvalueBuf'] = list(' '*128)
+        request['ldwTotsize'] = 128
         resp = dce.request(request)
         #resp.dump()
 
