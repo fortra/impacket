@@ -9,7 +9,6 @@
 # Author: Alberto Solino
 #
 # Description:
-#
 #   [MS-RPCE]-C706 Interface implementation for the remote portmapper
 #
 #   Best way to learn how to use these calls is to grab the protocol standard
