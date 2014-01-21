@@ -38,28 +38,6 @@ class NDR(object):
     of specifying the NDR encoding to be used. Pads are automatically calculated
     Some data types are taken off as well.
 
-        format specifiers:
-          specifiers from module pack can be used with the same format 
-          see struct.__doc__ (pack/unpack is finally called)
-            c       [character]
-            b       [signed byte]
-            B       [unsigned byte]
-            h       [signed short]
-            H       [unsigned short]
-            l       [signed long]
-            L       [unsigned long]
-            i       [signed integer]
-            I       [unsigned integer]
-            q       [signed long long (quad)]
-            Q       [unsigned long long (quad)]
-            f       [float]
-            d       [double]
-            =       [native byte ordering, size and alignment]
-            @       [native byte ordering, standard size and alignment]
-            !       [network byte ordering]
-            <       [little endian]
-            >       [big endian]
-
     """
     referent       = ()
     commonHdr      = ()
