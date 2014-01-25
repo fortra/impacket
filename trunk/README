@@ -21,11 +21,11 @@ What protocols are featured?
 
  * Ethernet, Linux ``Cooked'' capture.
  * IP, TCP, UDP, ICMP, IGMP, ARP. (IPv4 and IPv6)
- * NMB and SMB (high-level implementations).
+ * NMB and SMB1/2/3 (high-level implementations).
  * DCE/RPC versions 4 and 5, over different transports: UDP (version 4
    exclusively), TCP, SMB/TCP, SMB/NetBIOS and HTTP.
  * Portions of the following DCE/RPC interfaces: Conv, DCOM, EPM,
-   SAMR, SVCCTL, WINREG, SRVSVC, LSARPC, WKSSVC.
+   SAMR, SCMR, RRP, SRVSC, LSAD, LSAT, WKST, NRPC.
 
 
 Getting Impacket
@@ -53,6 +53,8 @@ Requirements
    a) If you want to run the examples and you have Python < 2.7, you
       will need to install argparse package for them to work.
    b) For cryptographic operations you will need pycrypto package
+   c) For some examples you will need pyOpenSSL (rdp_check.py)
+   d) If you're under Windows, you will need pyReadline
  * A recent release of Impacket.
 
 Installing
