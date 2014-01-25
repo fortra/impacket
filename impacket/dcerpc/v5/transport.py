@@ -1,4 +1,4 @@
-# Copyright (c) 2003-2012 CORE Security Technologies
+# Copyright (c) 2003-2014 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -15,6 +15,7 @@
 import re
 import socket
 import binascii
+import os
 
 from impacket.smbconnection import *
 from impacket import nmb
@@ -107,6 +108,9 @@ def DCERPCTransportFactory(stringbinding):
             return SMBTransport(na, filename = named_pipe)
         else:
             return SMBTransport(na)
+    elif 'ncalocal' == ps:
+        named_pipe = sb.get_endpoint()
+        return LOCALTransport(filename = named_pipe)
     else:
         raise Exception, "Unknown protocol sequence."
 
@@ -171,10 +175,10 @@ class DCERPCTransport:
             self._max_send_frag = send_fragment_size
 
     def set_default_max_fragment_size(self):
-        # default is 0: don'fragment. 
+        # default is 0: don't fragment.
         # subclasses may override this method
         self._max_send_frag = 0
-     
+
     def get_credentials(self):
         return (
             self._username,
@@ -293,7 +297,7 @@ class SMBTransport(DCERPCTransport):
         if isinstance(smb_connection, smb.SMB):
             # Backward compatibility hack, let's return a
             # SMBBackwardCompatibilityTransport instance
-            return SMBBackwardCompatibilityTransport(filename = filename, smb_server = smb_connection)            
+            return SMBBackwardCompatibilityTransport(filename = filename, smb_server = smb_connection)
         else:
             self.__smb_connection = smb_connection
 
@@ -312,14 +316,14 @@ class SMBTransport(DCERPCTransport):
 
     def connect(self):
         # Check if we have a smb connection already setup
-        if self.__smb_connection == 0:  
+        if self.__smb_connection == 0:
            self.setup_smb_connection()
            self.__smb_connection.login(self._username, self._password, self._domain, self._lmhash, self._nthash)
         self.__tid = self.__smb_connection.connectTree('IPC$')
         self.__handle = self.__smb_connection.openFile(self.__tid, self.__filename)
         self.__socket = self.__smb_connection.getSMBServer().get_socket()
         return 1
-    
+
     def disconnect(self):
         self.__smb_connection.disconnectTree(self.__tid)
         # If we created the SMB connection, we close it, otherwise
@@ -344,7 +348,7 @@ class SMBTransport(DCERPCTransport):
                 self.__smb_connection.transactNamedPipe(self.__tid,self.__handle,data, waitAnswer = False)
         if forceRecv:
             self.__pending_recv += 1
-        
+
     def recv(self, forceRecv = 0, count = 0 ):
         if self._max_send_frag or self.__pending_recv:
             # _max_send_frag is checked because it's the same condition we checked
@@ -359,7 +363,7 @@ class SMBTransport(DCERPCTransport):
 
     def get_smb_connection(self):
         return self.__smb_connection
-    
+
     def set_smb_connection(self, smb_connection):
         self.__smb_connection = smb_connection
         user, passwd, domain, lm, nt = smb_connection.getCredentials()
@@ -376,3 +380,27 @@ class SMBTransport(DCERPCTransport):
     def doesSupportNTLMv2(self):
         return self.__smb_connection.doesSupportNTLMv2()
 
+class LOCALTransport(DCERPCTransport):
+    "Implementation of ncalocal protocol sequence, not the same"
+    "as ncalrpc (I'm not doing LPC just opening the local pipe)"
+
+    def __init__(self, filename = ''):
+        DCERPCTransport.__init__(self, '', 0)
+        self.__filename = filename
+        self.__handle = 0
+
+    def connect(self):
+        if self.__filename.upper().find('PIPE') < 0:
+            self.__filename = '\\PIPE\\%s' % self.__filename
+        self.__handle = os.open('\\\\.\\%s' % self.__filename, os.O_RDWR|os.O_BINARY)
+        return 1
+
+    def disconnect(self):
+        os.close(self.__handle)
+
+    def send(self,data, forceWriteAndx = 0, forceRecv = 0):
+        os.write(self.__handle, data)
+
+    def recv(self, forceRecv = 0, count = 0 ):
+        data = os.read(self.__handle, 65535)
+        return data
