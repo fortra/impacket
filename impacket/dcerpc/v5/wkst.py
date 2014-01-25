@@ -605,11 +605,21 @@ class USE_INFO_0_CONTAINER(NDRSTRUCT):
         ('Buffer', LPUSE_INFO_0),
     )
 
+class LPUSE_INFO_0_CONTAINER(NDRPOINTER):
+    referent = (
+        ('Data', USE_INFO_0_CONTAINER),
+    )
+
 # 2.2.5.26 USE_INFO_1_CONTAINER
 class USE_INFO_1_CONTAINER(NDRSTRUCT):
     structure = (
         ('EntriesRead', ULONG),
         ('Buffer', LPUSE_INFO_1),
+    )
+
+class LPUSE_INFO_1_CONTAINER(NDRPOINTER):
+    referent = (
+        ('Data', USE_INFO_1_CONTAINER),
     )
 
 # 2.2.5.27 USE_INFO_2_CONTAINER
@@ -619,6 +629,11 @@ class USE_INFO_2_CONTAINER(NDRSTRUCT):
         ('Buffer', LPUSE_INFO_2),
     )
 
+class LPUSE_INFO_2_CONTAINER(NDRPOINTER):
+    referent = (
+        ('Data', USE_INFO_2_CONTAINER),
+    )
+
 # 2.2.5.28 USE_ENUM_STRUCT
 class USE_ENUM_UNION(NDRUNION):
     commonHdr = (
@@ -626,9 +641,9 @@ class USE_ENUM_UNION(NDRUNION):
     )
 
     union = {
-        0: ('Level0', USE_INFO_0_CONTAINER),
-        1: ('Level1', USE_INFO_1_CONTAINER),
-        2: ('Level2', USE_INFO_2_CONTAINER),
+        0: ('Level0', LPUSE_INFO_0_CONTAINER),
+        1: ('Level1', LPUSE_INFO_1_CONTAINER),
+        2: ('Level2', LPUSE_INFO_2_CONTAINER),
     }
 
 class USE_ENUM_STRUCT(NDRSTRUCT):
@@ -781,7 +796,7 @@ class NetrUseEnum(NDRCALL):
 class NetrUseEnumResponse(NDRCALL):
     structure = (
        ('InfoStruct',USE_ENUM_STRUCT),
-       ('TotalEntries',LPULONG),
+       ('TotalEntries',ULONG),
        ('ResumeHandle',LPULONG),
        ('ErrorCode',ULONG),
     )
@@ -992,6 +1007,15 @@ OPNUMS = {
 ################################################################################
 # HELPER FUNCTIONS
 ################################################################################
+def checkNullString(string):
+    if string == NULL:
+        return string
+
+    if string[-1:] != '\x00':
+        return string + '\x00'
+    else:
+        return string
+
 def hNetrWkstaGetInfo(dce, level):
     request = NetrWkstaGetInfo()
     request['ServerName'] = '\x00'*10
@@ -1040,9 +1064,9 @@ def hNetrGetJoinInformation(dce, nameBuffer):
 def hNetrJoinDomain2(dce, domainNameParam, machineAccountOU, accountName, password, options):
     request = NetrJoinDomain2()
     request['ServerName'] = '\x00'*10
-    request['DomainNameParam'] = domainNameParam
-    request['MachineAccountOU'] = machineAccountOU
-    request['AccountName'] = accountName
+    request['DomainNameParam'] = checkNullString(domainNameParam)
+    request['MachineAccountOU'] = checkNullString(machineAccountOU)
+    request['AccountName'] = checkNullString(accountName)
     if password == NULL:
         request['Password'] = NULL
     else:
@@ -1053,7 +1077,7 @@ def hNetrJoinDomain2(dce, domainNameParam, machineAccountOU, accountName, passwo
 def hNetrUnjoinDomain2(dce, accountName, password, options):
     request = NetrUnjoinDomain2()
     request['ServerName'] = '\x00'*10
-    request['AccountName'] = accountName
+    request['AccountName'] = checkNullString(accountName)
     if password == NULL:
         request['Password'] = NULL
     else:
@@ -1064,8 +1088,8 @@ def hNetrUnjoinDomain2(dce, accountName, password, options):
 def hNetrRenameMachineInDomain2(dce, machineName, accountName, password, options):
     request = NetrRenameMachineInDomain2()
     request['ServerName'] = '\x00'*10
-    request['MachineName'] = machineName
-    request['AccountName'] = accountName
+    request['MachineName'] = checkNullString(machineName)
+    request['AccountName'] = checkNullString(accountName)
     if password == NULL:
         request['Password'] = NULL
     else:
@@ -1076,8 +1100,8 @@ def hNetrRenameMachineInDomain2(dce, machineName, accountName, password, options
 def hNetrValidateName2(dce, nameToValidate, accountName, password, nameType):
     request = NetrValidateName2()
     request['ServerName'] = '\x00'*10
-    request['NameToValidate'] = nameToValidate
-    request['AccountName'] = accountName
+    request['NameToValidate'] = checkNullString(nameToValidate)
+    request['AccountName'] = checkNullString(accountName)
     if password == NULL:
         request['Password'] = NULL
     else:
@@ -1088,8 +1112,8 @@ def hNetrValidateName2(dce, nameToValidate, accountName, password, nameType):
 def hNetrGetJoinableOUs2(dce, domainNameParam, accountName, password, OUCount):
     request = NetrGetJoinableOUs2()
     request['ServerName'] = '\x00'*10
-    request['DomainNameParam'] = domainNameParam
-    request['AccountName'] = accountName
+    request['DomainNameParam'] = checkNullString(domainNameParam)
+    request['AccountName'] = checkNullString(accountName)
     if password == NULL:
         request['Password'] = NULL
     else:
@@ -1100,8 +1124,8 @@ def hNetrGetJoinableOUs2(dce, domainNameParam, accountName, password, OUCount):
 def hNetrAddAlternateComputerName(dce, alternateName, domainAccount, encryptedPassword):
     request = NetrAddAlternateComputerName()
     request['ServerName'] = '\x00'*10
-    request['AlternateName'] = alternateName
-    request['DomainAccount'] = domainAccount
+    request['AlternateName'] = checkNullString(alternateName)
+    request['DomainAccount'] = checkNullString(domainAccount)
     if encryptedPassword == NULL:
         request['EncryptedPassword'] = NULL
     else:
@@ -1111,8 +1135,8 @@ def hNetrAddAlternateComputerName(dce, alternateName, domainAccount, encryptedPa
 def hNetrRemoveAlternateComputerName(dce, alternateName, domainAccount, encryptedPassword):
     request = NetrRemoveAlternateComputerName()
     request['ServerName'] = '\x00'*10
-    request['AlternateName'] = alternateName
-    request['DomainAccount'] = domainAccount
+    request['AlternateName'] = checkNullString(alternateName)
+    request['DomainAccount'] = checkNullString(domainAccount)
     if encryptedPassword == NULL:
         request['EncryptedPassword'] = NULL
     else:
@@ -1122,8 +1146,8 @@ def hNetrRemoveAlternateComputerName(dce, alternateName, domainAccount, encrypte
 def hNetrSetPrimaryComputerName(dce, primaryName, domainAccount, encryptedPassword):
     request = NetrSetPrimaryComputerName()
     request['ServerName'] = '\x00'*10
-    request['PrimaryName'] = primaryName
-    request['DomainAccount'] = domainAccount
+    request['PrimaryName'] = checkNullString(primaryName)
+    request['DomainAccount'] = checkNullString(domainAccount)
     if encryptedPassword == NULL:
         request['EncryptedPassword'] = NULL
     else:
@@ -1134,5 +1158,37 @@ def hNetrEnumerateComputerNames(dce, nameType):
     request = NetrEnumerateComputerNames()
     request['ServerName'] = '\x00'*10
     request['NameType'] = nameType
+    return dce.request(request)
+
+def hNetrUseAdd(dce, level, infoStruct):
+    request = NetrUseAdd()
+    request['ServerName'] = '\x00'*10
+    request['Level'] = level
+    request['InfoStruct']['tag'] = level
+    request['InfoStruct']['UseInfo%d' % level] = infoStruct
+    return dce.request(request)
+
+def hNetrUseEnum(dce, level, resumeHandle = 0, preferredMaximumLength = 0xffffffff):
+    request = NetrUseEnum()
+    request['ServerName'] = '\x00'*10
+    request['InfoStruct']['Level'] = level
+    request['InfoStruct']['UseInfo']['tag'] = level
+    request['InfoStruct']['UseInfo']['Level%d'%level]['Buffer'] = NULL
+    request['PreferredMaximumLength'] = preferredMaximumLength
+    request['ResumeHandle'] = resumeHandle
+    return dce.request(request)
+
+def hNetrUseGetInfo(dce, useName, level):
+    request = NetrUseGetInfo()
+    request['ServerName'] = '\x00'*10
+    request['UseName'] = checkNullString(useName)
+    request['Level'] = level
+    return dce.request(request)
+
+def hNetrUseDel(dce, useName, forceLevel=USE_LOTS_OF_FORCE):
+    request = NetrUseDel()
+    request['ServerName'] = '\x00'*10
+    request['UseName'] = checkNullString(useName)
+    request['ForceLevel'] = forceLevel
     return dce.request(request)
 

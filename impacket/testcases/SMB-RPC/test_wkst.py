@@ -187,75 +187,70 @@ class WKSTTests(unittest.TestCase):
             if str(e).find('ERROR_INVALID_FUNCTION') < 0: 
                 raise
 
-    def test_NetrUseAdd(self):
+    def test_hNetrUseAdd_hNetrUseDel_hNetrUseGetInfo_hNetrUseEnum(self):
         dce, rpctransport = self.connect()
 
-        # This one doesn't look to be working remotelly
-        req = wkst.NetrUseAdd()
-        req['ServerName'] = '\x00'*10
-        req['Level'] = 0
-        req['InfoStruct']['tag'] = 0 
-        req['InfoStruct']['UseInfo0']['ui0_local'] = 'LPT1\x00'
-        req['InfoStruct']['UseInfo0']['ui0_remote'] = '\\\\BETO\\ipc$\x00'
-        try:
-            resp2 = dce.request(req)
-            #resp2.dump()
-        except Exception, e:
-            if str(e).find('ERROR_INVALID_LEVEL') < 0:
-                raise
+        info1 = wkst.LPUSE_INFO_1()
 
-    def test_NetrUseGetInfo(self):
-        dce, rpctransport = self.connect()
-
-        # This one doesn't look to be working remotelly
-        req = wkst.NetrUseGetInfo()
-        req['ServerName'] = '\x00'*10
-        req['UseName'] = '\\\\192.168.66.244\\IPC$\x00'
-        #req['UseName'] = '\\\\vmware-host\\Shared Folders\x00'
-        req['Level'] = 3
-        try:
-            resp2 = dce.request(req)
-            #resp2.dump()
-        except Exception, e:
-            if str(e).find('ERROR_NOT_CONNECTED') < 0:
-                raise
-
-    def test_NetrUseDel(self):
-        dce, rpctransport = self.connect()
-
-        # This one doesn't look to be working remotelly
-        req = wkst.NetrUseDel()
-        req['ServerName'] = '\x00'*10
-        req['UseName'] = '\\\\192.168.66.244\\IPC$\x00'
-        req['ForceLevel'] = wkst.USE_LOTS_OF_FORCE
-        try:
-            resp2 = dce.request(req)
-            #resp2.dump()
-        except Exception, e:
-            if str(e).find('ERROR_NOT_CONNECTED') < 0:
-                raise
-
-    def test_NetrUseEnum(self):
-        dce, rpctransport = self.connect()
+        info1['ui1_local'] = 'Z:\x00'
+        info1['ui1_remote'] = '\\\\127.0.0.1\\c$\x00'
+        info1['ui1_password'] = NULL
+        resp = wkst.hNetrUseAdd(dce, 1, info1)
+        #resp.dump()
 
         # We're not testing this call with NDR64, it fails and I can't see the contents
         if self.ts == ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0'):
             return
 
-        # This one doesn't look to be working remotelly
+        resp = wkst.hNetrUseEnum(dce, 2)
+        #resp.dump()
+
+        resp2 = wkst.hNetrUseGetInfo(dce, 'Z:', 3)
+        #resp2.dump()
+
+        resp = wkst.hNetrUseDel(dce,'Z:')
+        #resp.dump()
+
+    def test_NetrUseAdd_NetrUseDel_NetrUseGetInfo_NetrUseEnum(self):
+        dce, rpctransport = self.connect()
+
+        req = wkst.NetrUseAdd()
+        req['ServerName'] = '\x00'*10
+        req['Level'] = 1
+        req['InfoStruct']['tag'] = 1 
+        req['InfoStruct']['UseInfo1']['ui1_local'] = 'Z:\x00'
+        req['InfoStruct']['UseInfo1']['ui1_remote'] = '\\\\127.0.0.1\\c$\x00'
+        req['InfoStruct']['UseInfo1']['ui1_password'] = NULL
+        resp2 = dce.request(req)
+        #resp2.dump()
+
+        # We're not testing this call with NDR64, it fails and I can't see the contents
+        if self.ts == ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0'):
+            return
+
         req = wkst.NetrUseEnum()
         req['ServerName'] = NULL
         req['InfoStruct']['Level'] = 2
         req['InfoStruct']['UseInfo']['tag'] = 2
         req['InfoStruct']['UseInfo']['Level2']['Buffer'] = NULL
-        req['PreferredMaximumLength'] = 10
+        req['PreferredMaximumLength'] = 0xffffffff
         req['ResumeHandle'] = NULL
-        try:
-            resp2 = dce.request(req)
-            #resp2.dump()
-        except Exception, e:
-            if str(e).find('ERROR_INVALID_PARAMETER') < 0:
-                raise
+        resp2 = dce.request(req)
+        #resp2.dump()
+
+        req = wkst.NetrUseGetInfo()
+        req['ServerName'] = '\x00'*10
+        req['UseName'] = 'Z:\x00'
+        req['Level'] = 3
+        resp2 = dce.request(req)
+        #resp2.dump()
+
+        req = wkst.NetrUseDel()
+        req['ServerName'] = '\x00'*10
+        req['UseName'] = 'Z:\x00'
+        req['ForceLevel'] = wkst.USE_LOTS_OF_FORCE
+        resp2 = dce.request(req)
+        #resp2.dump()
 
     def test_NetrWorkstationStatisticsGet(self):
         dce, rpctransport = self.connect()
