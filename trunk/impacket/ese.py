@@ -25,7 +25,10 @@
 # [ ] Support long values properly
 
 import logging
-from collections import OrderedDict
+try:
+    from collections import OrderedDict
+except:
+    from ordereddict.ordereddict import OrderedDict
 from impacket import structure, version
 from impacket.structure import Structure
 from struct import unpack
