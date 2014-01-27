@@ -24,11 +24,11 @@ February 2014: 0.9.11:
 5) Support for EAPOL, EAP and WPS decoders
 6) VLAN tagging (IEEE 802.1Q and 802.1ad) support for ImpactPacket, done by dan.pisi
 7) New examples:
-   * rdp_check.py: tests whether an account (pwd or hashes) is valid against an RDP server
-   * esentutl.py: ESE example to show how to interact with ESE databases (e.g. NTDS.dit)
-   * ntfs-read.py: mini shell for browsing an NTFS volume
-   * registry-read.py: Windows offline registry reader
-   * secretsdump.py: agent-less remote windows secrets dump (SAM, LSA, CDC, NTDS)
+  a. rdp_check.py: tests whether an account (pwd or hashes) is valid against an RDP server
+  b. esentutl.py: ESE example to show how to interact with ESE databases (e.g. NTDS.dit)
+  c. ntfs-read.py: mini shell for browsing an NTFS volume
+  d. registry-read.py: Windows offline registry reader
+  e. secretsdump.py: agent-less remote windows secrets dump (SAM, LSA, CDC, NTDS)
 
 March 2013: 0.9.10:
 1) SMB version 2 and 3 protocol support ([MS-SMB2]). Signing supported, encryption for SMB3 still pending.
