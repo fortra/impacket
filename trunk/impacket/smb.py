@@ -2779,6 +2779,9 @@ class SMB:
     def get_session_key(self):
         return self._SigningSessionKey
 
+    def set_session_key(self, key):
+        self._SigningSessionKey = key
+
     def get_encryption_key(self):
         if self._dialects_data.fields.has_key('Challenge'):
             return self._dialects_data['Challenge']

@@ -1038,6 +1038,12 @@ class SMB3:
         else:
            return self._Session['SessionKey']
 
+    def setSessionKey(self, key):
+        if self.getDialect() == SMB2_DIALECT_30:
+           self._Session['ApplicationKey'] = key
+        else:
+           self._Session['SessionKey'] = key
+
     ######################################################################
     # Higher level functions
 
