@@ -22,6 +22,6 @@ setup(name = PACKAGE_NAME,
       packages = ['impacket', 'impacket.dcerpc', 'impacket.examples', 'impacket.dcerpc.v5'],
       scripts = glob.glob(os.path.join('examples', '*.py')),
       data_files = [(os.path.join('share', 'doc', PACKAGE_NAME),
-                     ['README', 'LICENSE']+glob.glob('doc/*'))],
+                     ['README', 'LICENSE']+glob.glob('doc/*')+glob.glob('impacket/testcases/*/*'))],
 
       )
