@@ -3,8 +3,8 @@ http://code.google.com/p/impacket/source/list
 
 February 2014: 0.9.11:
 1) New RPC and NDR runtime (located at impacket.dcerpc.v5, old one still available):
-  a. Support marshaling/unmarshaling for NDR20 and NDR64
-  b. Support for RPC_C_AUTHN_NETLOGON
+  a. Support marshaling/unmarshaling for NDR20 and NDR64 (experimental)
+  b. Support for RPC_C_AUTHN_NETLOGON (experimental)
   c. The following interface were developed based on its standard definition:
     * [MS-LSAD] - Local Security Authority (Domain Policy) Remote Protocol (lsad.py)
     * [MS-LSAT] - Local Security Authority (Translation Methods) Remote Protocol (lsat.py)
