@@ -21,7 +21,8 @@ setup(name = PACKAGE_NAME,
       platforms = ["Unix","Windows"],
       packages = ['impacket', 'impacket.dcerpc', 'impacket.examples', 'impacket.dcerpc.v5'],
       scripts = glob.glob(os.path.join('examples', '*.py')),
-      data_files = [(os.path.join('share', 'doc', PACKAGE_NAME),
-                     ['README', 'LICENSE']+glob.glob('doc/*')+glob.glob('impacket/testcases/*/*'))],
-
+      data_files = [(os.path.join('share', 'doc', PACKAGE_NAME), ['README', 'LICENSE']+glob.glob('doc/*')),
+                    (os.path.join('share', 'doc', PACKAGE_NAME, 'testcases', 'dot11'),glob.glob('impacket/testcases/dot11/*')),
+                    (os.path.join('share', 'doc', PACKAGE_NAME, 'testcases', 'ImpactPacket'),glob.glob('impacket/testcases/ImpactPacket/*')),
+                    (os.path.join('share', 'doc', PACKAGE_NAME, 'testcases', 'SMB-RPC'),glob.glob('impacket/testcases/SMB-RPC/*'))],
       )
