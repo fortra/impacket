@@ -23,7 +23,7 @@ February 2014: 0.9.11:
 4) TDS protocol now supports SSL, can be used from mssqlclient
 5) Support for EAPOL, EAP and WPS decoders
 6) VLAN tagging (IEEE 802.1Q and 802.1ad) support for ImpactPacket, done by dan.pisi
-8) New examples:
+7) New examples:
    * rdp_check.py: tests whether an account (pwd or hashes) is valid against an RDP server
    * esentutl.py: ESE example to show how to interact with ESE databases (e.g. NTDS.dit)
    * ntfs-read.py: mini shell for browsing an NTFS volume
