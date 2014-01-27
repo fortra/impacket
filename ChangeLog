@@ -1,60 +1,82 @@
 Complete list of changes can be found at:
 http://code.google.com/p/impacket/source/list
 
-2009-11-08   gmoreira
-     Added WEP Encryption/Decryption
+February 2014: 0.9.11:
+1) New RPC and NDR runtime (located at impacket.dcerpc.v5, old one still available):
+  a. Support marshaling/unmarshaling for NDR20 and NDR64
+  b. Support for RPC_C_AUTHN_NETLOGON
+  c. The following interface were developed based on its standard definition:
+    * [MS-LSAD] - Local Security Authority (Domain Policy) Remote Protocol (lsad.py)
+    * [MS-LSAT] - Local Security Authority (Translation Methods) Remote Protocol (lsat.py)
+    * [MS-NRPC] - Netlogon Remote Protocol (nrpc.py) 
+    * [MS-RRP] - Windows Remote Registry Protocol (rrp.py)
+    * [MS-SAMR] - Security Account Manager (SAM) Remote Protocol (samr.py)
+    * [MS-SCMR] - Service Control Manager Remote Protocol (scmr.py)
+    * [MS-SRVS] - Server Service Remote Protocol (srvs.py) 
+    * [MS-WKST] - Workstation Service Remote Protocol (wkst.py) 
+    * [MS-RPCE]-C706 -  Remote Procedure Call Protocol Extensions (epm.py)
+    * [MS-DTYP] - Windows Data Types (dtypes.py)
+    Most of the DCE Calls have helper functions for easier use. Test cases added for 
+    all calls (check the test cases directory)
+2) ESE parser (Extensive Storage Engine) (ese.py)
+3) Windows Registry parser (winregistry.py)
+4) TDS protocol now supports SSL, can be used from mssqlclient
+5) Support for EAPOL, EAP and WPS decoders
+6) VLAN tagging (IEEE 802.1Q and 802.1ad) support for ImpactPacket, done by dan.pisi
+8) New examples:
+   * rdp_check.py: tests whether an account (pwd or hashes) is valid against an RDP server
+   * esentutl.py: ESE example to show how to interact with ESE databases (e.g. NTDS.dit)
+   * ntfs-read.py: mini shell for browsing an NTFS volume
+   * registry-read.py: Windows offline registry reader
+   * secretsdump.py: agent-less remote windows secrets dump (SAM, LSA, CDC, NTDS)
 
-2009-06-04   gera
-     added class PcapFile. it can be used to read and write pcap files
+March 2013: 0.9.10:
+1) SMB version 2 and 3 protocol support ([MS-SMB2]). Signing supported, encryption for SMB3 still pending.
+2) Added a SMBConnection layer on top of each SMB specific protocol. Much simpler and SMB version independent.  It will pick the best SMB Version when connecting against the target. Check smbconnection.py for a list of available methods across all the protocols.
+3) Partial TDS implementation ([MS-TDS] & [MC-SQLR]) so we could talk with MSSQL Servers.
+4) Unicode support for the smbserver. Newer OSX won't connect to a non unicode SMB Server.
+5) DCERPC Endpoints' new calls:
+  a. EPM: lookup(): It can work as a general portmapper, or just to find specific interfaces/objects.
+6) New examples:
+  a. mssqlclient.py: A MS SQL client, allowing to do MS SQL or Windows Authentication (accepts hashes) and then gives you an SQL prompt for your pleasure.
+  b. mssqlinstance.py: Lists the MS SQL instances running on a target machine.
+  c. rpcdump.py: Output changed. Hopefully more useful. Parsed all the Windows Protocol Specification looking for the UUIDs used and that information is included as well. This could be helpful when reading a portmap output and to develop new functionality to interact against a target interface.
+  d. smbexec.py: Another alternative to psexec. Less capabilities but might work on tight AV environments. Based on the technique described at http://www.accuvant.com/blog/2012/11/13/owning-computers-without-shell-access. It also supports instantiating a local smbserver to receive the output of the commandos executed for those situations where no share is available on the other end. 
+  e. smbrelayx.py: It now also listens on port 80 and forwards/reflects the credentials accordingly.
 
-2009-06-04   gmoreira
-     Added partial support for IEEE 802.11 Network packet codecs
+And finally tons of fixes :).
 
-2008-08-01   gera
-     Added patch to TCP.get_echo_ts() submited by Tim Coote
+July 2012: 0.9.9:
+1) Added 802.11 packets encoding/decoding
+2) Addition of support for IP6, ICMP6 and NDP packets. Addition of IP6_Address helper class.
+3) SMB/DCERPC:
+  a. GSS-API/SPNEGO Support.
+  b. SPN support in auth blob.
+  c. NTLM2 and NTLMv2 support.
+  d. Default SMB port now 445. If *SMBSERVER is specified the library will try to resolve the netbios name.
+  e. Pass the hash supported for SMB/DCE-RPC.
+  f. IPv6 support for SMB/NMB/DCERPC.
+  g. DOMAIN support for authentication. 
+  h. SMB signing support when server enforces it.
+  i. DCERPC signing/sealing for all NTLM flavours.
+  j. DCERPC transport now accepts an already established SMB connection.
+  k. Basic SMBServer implementation in Python. It allows third-party DCE-RPC servers to handle DCERPC Request (by forwarding named pipes requests).
+  l. Minimalistic SRVSVC dcerpc server to be used by SMBServer in order to avoidg Windows 7 nasty bug when that pipe's not functional.
 
-2006-10-23    <max _at_ coresecurity.com>
-      * impacket/dcerpc/samr.py: fixed bug in display_time (reported by grutz _at_ jingojango.net)
+4) DCERPC Endpoints' new calls:
+  a. SRVSVC: NetrShareEnum(Level1), NetrShareGetInfo(Level2), NetrServerGetInfo(Level2), NetrRemoteTOD(), NetprNameCanonicalize().
+  b. SVCCTL: CloseServiceHandle(), OpenSCManagerW(), CreateServiceW(), StartServiceW(), OpenServiceW(), OpenServiceA(), StopService(), DeleteService(), EnumServicesStatusW(), QueryServiceStatus(), QueryServiceConfigW().
+  c. WKSSVC: NetrWkstaTransportEnum().
+  d. SAMR: OpenAlias(), GetMembersInAlias().
+  e. LSARPC: LsarOpenPolicy2(), LsarLookupSids(), LsarClose().
 
-2006-09-25    <max _at_ coresecurity.com>
-	* setup.py: fixed bug where some doc files were installed on usr/bin (reported by jheath _at_ sourcefire.com)
-
-2006-06-23    <max _at_ coresecurity.com>
-	* impacket/ImpactPacket.py: fixed bug in TCP.get_th_sum() (reported by ranusy _at_ gmail.com)
-
-2006-04-03    <max _at_ coresecurity.com>
-	* impacket/ImpactPacket.py: applied patch to fix bug when parsing ARP packets.
-	* impacket/ImpactPacket.py: fixed byte ordering bug when using IP_HDRINCL in BSD systems (patch supplied by ginga _at_ ginganet.org).
-
-2005-07-28    <max _at_ coresecurity.com>
-
-	* impacket/ImpactDecoder.py: fixed a bug when processing ICMP unreachables.
-	* impacket/ImpactPacket.py: fixed bug in the set_icmp_nextmtu() method (reported by icbm _at_ 0x557.org).
-	
-2004-02-26    <jkohen _at_ coresecurity.com>
-
-	* impacket/ImpactPacket.py (ARP.as_pro): Fixed as_{hrd,pro} methods to not invoke the tolist method, because they were being called with array objects as input, and anyway it wasn't necessary to call that method for what they did.
-
-2003-12-16    <jkohen _at_ coresecurity.com>
-
-	* setup.py: Bumped version number to 0.9.5.1.
-
-	* impacket/dcerpc/dcerpc_v4.py (DCERPC_v4.send): fixed a problem in the fragmentation code caused by a misindented line that was introduced in the last release.
-
-2003-12-10  Javier Kohen  <jkohen _at_ coresecurity.com>
-
-	* impacket/dcerpc/dcerpc_v4.py (DCERPC_v4.bind): support idempotent flag.
-	(DCERPC_v4.send): reduced fragment size to avoid IP fragmentation on links with MTU = 1500. Added a method that allows the caller to configure this size.
-
-2003-12-02    <jkohen _at_ coresecurity.com>
-
-	* impacket/dcerpc/dcerpc_v4.py (DCERPC_v4.bind): made self.__bind protected
-	(DCERPC_v4.send): fragment outgoing packets.
-
-2003-12-01    <jkohen _at_ coresecurity.com>
-
-	* setup.py: Force linking with G++ if GCC was found, to avoid a missing symbol on some configurations.
-
-2003-11-28    <jkohen _at_ coresecurity.com>
-
-	* impacket/dcerpc/dcerpc_v4.py: Fixed self.bind variable having the same name than a method.
+5) New examples:
+  a. ifmap.py: First, this binds to the MGMT interface and gets a list of interface IDs. It adds to this a large list of interface UUIDs seen in the wild. It then tries to bind to each interface and reports whether the interface is listed and/or listening.
+  b. lookupsid.py: DCE/RPC lookup sid brute forcer example.
+  c. opdump.py: This binds to the given hostname:port and DCERPC interface. Then, it tries to call each of the first 256 operation numbers in turn and reports the outcome of each call.
+  d. services.py: SVCCTL services common functions for manipulating services (START/STOP/DELETE/STATUS/CONFIG/LIST).
+  e. test_wkssvc: DCE/RPC WKSSVC examples, playing with the functions Implemented.
+  f. smbrelayx: Passes credentials to a third party server when doing MiTM.
+  g. smbserver: Multiprocess/threading smbserver supporting common file server functions. Authentication all done but not enforced. Tested under Windows, Linux and MacOS clients.
+  h. smbclient.py: now supports history, new commands also added.
+  i. psexec.py: Execute remote commands on Windows machines
