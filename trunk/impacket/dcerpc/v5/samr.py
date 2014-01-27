@@ -801,7 +801,7 @@ class SAMPR_LOGON_HOURS(NDRSTRUCT):
 
     def getData(self, soFar = 0):
         self['UnitsPerWeek'] = len(self['LogonHours']) * 8 
-        return ndr.NDR.getData(self, soFar)
+        return NDR.getData(self, soFar)
 
 # 2.2.7.6 SAMPR_USER_ALL_INFORMATION
 class SAMPR_USER_ALL_INFORMATION(NDRSTRUCT):
@@ -1350,7 +1350,7 @@ class PSAM_VALIDATE_OUTPUT_ARG(NDRPOINTER):
         ('Data', SAM_VALIDATE_OUTPUT_ARG),
     )
 
-class RPC_UNICODE_STRING_ARRAY(ndr.NDRUniConformantVaryingArray):
+class RPC_UNICODE_STRING_ARRAY(NDRUniConformantVaryingArray):
     item = RPC_UNICODE_STRING
 
 ################################################################################
