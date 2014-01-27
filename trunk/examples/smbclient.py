@@ -256,7 +256,7 @@ class MiniImpacketShell(cmd.Cmd):
             return
         resp = self.smb.listShares()
         for i in range(len(resp)):                        
-            print resp[i]['NetName'].decode('utf-16le')[:-1]
+            print resp[i]['shi1_netname'][:-1]
 
     def do_use(self,line):
         if self.loggedIn is False:

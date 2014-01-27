@@ -183,14 +183,13 @@ class SMBConnection():
         :return: a list containing dict entries for each share, raises exception if error
         """
         # Get the shares through RPC
-        from impacket.dcerpc import transport, dcerpc, srvsvc
+        from impacket.dcerpc.v5 import transport, rpcrt, srvs
         rpctransport = transport.SMBTransport(self.getRemoteHost(), self.getRemoteHost(), filename = r'\srvsvc', smb_connection = self)
-        dce = dcerpc.DCERPC_v5(rpctransport)
+        dce = rpctransport.get_dce_rpc()
         dce.connect()
-        dce.bind(srvsvc.MSRPC_UUID_SRVSVC)
-        srv_svc = srvsvc.DCERPCSrvSvc(dce)
-        resp = srv_svc.NetrShareEnum()
-        return resp
+        dce.bind(srvs.MSRPC_UUID_SRVS)
+        resp = srvs.hNetrShareEnum(dce, 1)
+        return resp['InfoStruct']['ShareInfo']['Level1']['Buffer']
 
     def listPath(self, shareName, path, password = None):
         """
