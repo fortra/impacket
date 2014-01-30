@@ -824,6 +824,9 @@ class DCERPC:
             response =  eval(respClass)(answer, isNDR64 = isNDR64)
             return response
 
+class DCERPC_v4(DCERPC):
+    pass
+
 class DCERPC_v5(DCERPC):
     def __init__(self, transport):
         DCERPC.__init__(self, transport)
