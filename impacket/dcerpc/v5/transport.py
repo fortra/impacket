@@ -209,6 +209,47 @@ class DCERPCTransport:
     def get_dce_rpc(self):
         return rpcrt.DCERPC_v5(self)
 
+class UDPTransport(DCERPCTransport):
+    "Implementation of ncadg_ip_udp protocol sequence"
+
+    DCERPC_class = rpcrt.DCERPC_v4
+
+    def __init__(self,dstip, dstport = 135):
+        DCERPCTransport.__init__(self, dstip, dstport)
+        self.__socket = 0
+        self.set_connect_timeout(30)
+
+    def connect(self):
+        try:
+            af, socktype, proto, canonname, sa = socket.getaddrinfo(self.get_dip(), self.get_dport(), 0, socket.SOCK_DGRAM)[0]
+            self.__socket = socket.socket(af, socktype, proto)
+            self.__socket.settimeout(self.get_connect_timeout())
+        except socket.error, msg:
+            self.__socket = None
+            raise Exception, "Could not connect: %s" % msg
+
+        return 1
+
+    def disconnect(self):
+        try:
+            self.__socket.close()
+        except socket.error, msg:
+            self.__socket = None
+            return 0
+        return 1
+
+    def send(self,data, forceWriteAndx = 0, forceRecv = 0):
+        self.__socket.sendto(data,(self.get_dip(),self.get_dport()))
+
+    def recv(self, forceRecv = 0, count = 0):
+        buffer, self.__recv_addr = self.__socket.recvfrom(8192)
+        return buffer
+
+    def get_recv_addr(self):
+        return self.__recv_addr
+
+    def get_socket(self):
+        return self.__socket
 
 class TCPTransport(DCERPCTransport):
     "Implementation of ncacn_ip_tcp protocol sequence"
