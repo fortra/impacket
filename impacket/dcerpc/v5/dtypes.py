@@ -153,6 +153,9 @@ class LPWSTR(NDRPOINTER):
         ('Data', WSTR),
     )
 
+# 2.2.18 HRESULT
+HRESULT = LONG
+
 # 2.2.26 LMSTR
 LMSTR = LPWSTR
 
