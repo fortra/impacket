@@ -22,6 +22,8 @@ from impacket import ntlm
 from impacket.structure import Structure,pack,unpack
 from impacket import uuid
 from impacket.uuid import uuidtup_to_bin, generate, stringver_to_bin, bin_to_uuidtup
+from impacket.dcerpc.v5.dtypes import UCHAR, ULONG, USHORT
+from impacket.dcerpc.v5.ndr import NDRSTRUCT
 
 # MS/RPC Constants
 MSRPC_REQUEST   = 0x00
@@ -1272,3 +1274,39 @@ class DCERPC_RawCall(MSRPCRequestHeader):
 
     def setData(self, data):
         self['pduData'] = data
+
+# 2.2.6 Type Serialization Version 1
+class CommonHeader(NDRSTRUCT):
+    structure = (
+        ('Version', UCHAR),
+        ('Endianness', UCHAR),
+        ('CommonHeaderLength', USHORT),
+        ('Filler', ULONG),
+    )
+    def __init__(self, data = None,isNDR64 = False):
+        NDRSTRUCT.__init__(self, data, isNDR64)
+        if data is None:
+            self['Version'] = 1
+            self['Endianness'] = 0x10
+            self['CommonHeaderLength'] = 8
+            self['Filler'] = 0xcccccccc
+
+class PrivateHeader(NDRSTRUCT):
+    structure = (
+        ('ObjectBufferLength', ULONG),
+        ('Filler', ULONG),
+    )
+    def __init__(self, data = None,isNDR64 = False):
+        NDRSTRUCT.__init__(self, data, isNDR64)
+        if data is None:
+            self['Filler'] = 0xcccccccc
+
+class TypeSerialization1(NDRSTRUCT):
+    commonHdr = (
+        ('CommonHeader', CommonHeader),
+        ('PrivateHeader', PrivateHeader),
+    )
+    def getData(self, soFar = 0):
+        self['PrivateHeader']['ObjectBufferLength'] = len(NDRSTRUCT.getData(self, soFar))-len(self['CommonHeader'])-len(self['PrivateHeader'])
+        return NDRSTRUCT.getData(self, soFar)
+
