@@ -736,6 +736,9 @@ class NDRCALL(NDR):
 
         return self
 
+# Top Level Struct == NDRCALL 
+NDRTLSTRUCT = NDRCALL
+
 # NDR Primitives
 
 class NDRSMALL(NDR):
