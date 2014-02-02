@@ -1307,6 +1307,6 @@ class TypeSerialization1(NDRSTRUCT):
         ('PrivateHeader', PrivateHeader),
     )
     def getData(self, soFar = 0):
-        self['PrivateHeader']['ObjectBufferLength'] = len(NDRSTRUCT.getData(self, soFar))-len(self['CommonHeader'])-len(self['PrivateHeader'])
+        self['PrivateHeader']['ObjectBufferLength'] = len(NDRSTRUCT.getData(self, soFar))+len(NDRSTRUCT.getDataReferents(self, soFar))-len(self['CommonHeader'])-len(self['PrivateHeader'])
         return NDRSTRUCT.getData(self, soFar)
 
