@@ -805,25 +805,26 @@ class DCERPC:
 
         self.call(request.opnum, request)
         answer = self.recv()
-        respClass = request.__module__ + '.' + request.__class__.__name__ + 'Response'
+        module = __import__(request.__module__.split('.')[-1], globals(), locals(), -1)
+        respClass = getattr(module, request.__class__.__name__+'Response')
         if  answer[-4:] != '\x00\x00\x00\x00':
             error_code = unpack('<L', answer[-4:])[0]
             if rpc_status_codes.has_key(error_code):
                 # This is an error we can handle
                 exception = DCERPCException(error_code)
             else:    
-                sessionErrorClass = request.__module__ + '.DCERPCSessionError'
+                sessionErrorClass = getattr(module, 'DCERPCSessionError')
                 try: 
                     # Try to unpack the answer, even if it is an error, it works most of the times
-                    response =  eval(respClass)(answer, isNDR64 = isNDR64)
+                    response =  respClass(answer, isNDR64 = isNDR64)
                 except:
                     # No luck :(
-                    exception = eval(sessionErrorClass)(error_code = error_code)
+                    exception = sessionErrorClass(error_code = error_code)
                 else:
-                    exception = eval(sessionErrorClass)(response)
+                    exception = sessionErrorClass(response)
             raise exception
         else:
-            response =  eval(respClass)(answer, isNDR64 = isNDR64)
+            response =  respClass(answer, isNDR64 = isNDR64)
             return response
 
 class DCERPC_v4(DCERPC):
