@@ -634,8 +634,7 @@ class PcustomREMOTE_REPLY_SCM_INFO(NDRPOINTER):
 class ScmReplyInfoData(TypeSerialization1):
     structure = (
         ('pdwReserved',DWORD),
-        ('remoteReply',PCOSERVERINFO),
-        ('pdwReserved',PcustomREMOTE_REPLY_SCM_INFO),
+        ('remoteReply',PcustomREMOTE_REPLY_SCM_INFO),
     )
 
 # 2.2.22.2.9 PropsOutInfo
@@ -828,10 +827,6 @@ class RemoteGetClassObjectResponse(NDRCALL):
 # 3.1.2.5.2.3.3 IRemoteSCMActivator::RemoteCreateInstance (Opnum 4)
 class RemoteCreateInstance(NDRCALL):
     opnum = 4
-    #structure = (
-    #   ('ORPCthis', ORPCTHIS),
-    #   ('pUnkOuter', PMInterfacePointer),
-    #)
     structure = (
        ('ORPCthis', ORPCTHIS),
        ('pUnkOuter', PMInterfacePointer),
