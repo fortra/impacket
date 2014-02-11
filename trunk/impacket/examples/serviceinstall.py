@@ -171,6 +171,7 @@ class ServiceInstall():
                             pass
                         self.rpcsvc.CloseServiceHandle(service)
                     self.rpcsvc.CloseServiceHandle(svcManager)
+                    return True
             except Exception, e:
                 print "[!] Error performing the installation, cleaning up: %s" %e
                 try:
@@ -187,6 +188,7 @@ class ServiceInstall():
                         self.rpcsvc.DeleteService(service)
                     except:
                         pass
+            return False
       
     def uninstall(self):
         fileCopied = True
