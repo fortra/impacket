@@ -98,7 +98,7 @@ class ServiceInstall():
             resp = self.rpcsvc.OpenSCManagerW()
         except:
             print "[!] Error opening SVCManager on %s....." % self.connection.getRemoteHost()
-            return 0
+            raise Exception('Unable to open SVCManager')
         else:
             return resp['ContextHandle']
 
