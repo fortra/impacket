@@ -1,13 +1,14 @@
 # Copyright (c) 2003-2012 CORE Security Technologies
-#
+# 
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
-#
+# 
 # $Id$
 #
 
 from ImpactPacket import Header, Data
+from IP6_Address import IP6_Address
 #from impacket import ImpactPacket
 from IP6 import IP6
 import array, struct
@@ -27,6 +28,13 @@ class ICMP6(Header):
     PARAMETER_PROBLEM = 4    
     ECHO_REQUEST = 128
     ECHO_REPLY = 129
+    ROUTER_SOLICITATION = 133
+    ROUTER_ADVERTISEMENT = 134
+    NEIGHBOR_SOLICITATION = 135
+    NEIGHBOR_ADVERTISEMENT = 136
+    REDIRECT_MESSAGE = 137
+    NODE_INFORMATION_QUERY = 139
+    NODE_INFORMATION_REPLY = 140
     
     #Destination Unreachable codes
     NO_ROUTE_TO_DESTINATION = 0
@@ -45,7 +53,22 @@ class ICMP6(Header):
     ERRONEOUS_HEADER_FIELD_ENCOUNTERED = 0
     UNRECOGNIZED_NEXT_HEADER_TYPE_ENCOUNTERED = 1
     UNRECOGNIZED_IPV6_OPTION_ENCOUNTERED = 2
-
+    
+    #Node Information codes
+    NODE_INFORMATION_QUERY_IPV6 = 0
+    NODE_INFORMATION_QUERY_NAME_OR_EMPTY = 1
+    NODE_INFORMATION_QUERY_IPV4 = 2
+    NODE_INFORMATION_REPLY_SUCCESS = 0
+    NODE_INFORMATION_REPLY_REFUSED = 1
+    NODE_INFORMATION_REPLY_UNKNOWN_QTYPE = 2
+    
+    #Node Information qtypes
+    NODE_INFORMATION_QTYPE_NOOP = 0
+    NODE_INFORMATION_QTYPE_UNUSED = 1
+    NODE_INFORMATION_QTYPE_NODENAME = 2
+    NODE_INFORMATION_QTYPE_NODEADDRS = 3
+    NODE_INFORMATION_QTYPE_IPv4ADDRS = 4
+    
     #ICMP Message semantic types (error or informational)    
     ERROR_MESSAGE = 0
     INFORMATIONAL_MESSAGE = 1
@@ -84,7 +107,14 @@ class ICMP6(Header):
                                            UNRECOGNIZED_IPV6_OPTION_ENCOUNTERED : "Unrecognized IPv6 Option Encountered"
                                            }),
                      ECHO_REQUEST : (INFORMATIONAL_MESSAGE, "Echo request", None),
-                     ECHO_REPLY : (INFORMATIONAL_MESSAGE, "Echo reply", None)
+                     ECHO_REPLY : (INFORMATIONAL_MESSAGE, "Echo reply", None),
+                     ROUTER_SOLICITATION : (INFORMATIONAL_MESSAGE, "Router Solicitation", None),
+                     ROUTER_ADVERTISEMENT : (INFORMATIONAL_MESSAGE, "Router Advertisement", None),
+                     NEIGHBOR_SOLICITATION : (INFORMATIONAL_MESSAGE, "Neighbor Solicitation", None),
+                     NEIGHBOR_ADVERTISEMENT : (INFORMATIONAL_MESSAGE, "Neighbor Advertisement", None),
+                     REDIRECT_MESSAGE : (INFORMATIONAL_MESSAGE, "Redirect Message", None),
+                     NODE_INFORMATION_QUERY: (INFORMATIONAL_MESSAGE, "Node Information Query", None),
+                     NODE_INFORMATION_REPLY: (INFORMATIONAL_MESSAGE, "Node Information Reply", None),
                     } 
     
     
@@ -254,8 +284,230 @@ class ICMP6(Header):
         icmp_packet.contains(icmp_payload)
         
         return icmp_packet
+
 ############################################################################
 
+    @classmethod
+    def Neighbor_Solicitation(class_object, target_address):
+        return class_object.__build_neighbor_message(ICMP6.NEIGHBOR_SOLICITATION, target_address)
+    
+    @classmethod
+    def Neighbor_Advertisement(class_object, target_address):
+        return class_object.__build_neighbor_message(ICMP6.NEIGHBOR_ADVERTISEMENT, target_address)
+
+    @classmethod
+    def __build_neighbor_message(class_object, msg_type, target_address):
+        #Build ICMP6 header
+        icmp_packet = ICMP6()
+        icmp_packet.set_type(msg_type)
+        icmp_packet.set_code(0)
+        
+        # Flags + Reserved
+        icmp_bytes = array.array('B', [0x00] * 4).tostring()       
+        
+        # Target Address: The IP address of the target of the solicitation.
+        # It MUST NOT be a multicast address.
+        icmp_bytes += array.array('B', IP6_Address(target_address).as_bytes()).tostring()
+        
+        icmp_payload = Data()
+        icmp_payload.set_data(icmp_bytes)
+        
+        #Link payload to header
+        icmp_packet.contains(icmp_payload)
+        
+        return icmp_packet
+
+############################################################################
+
+    def get_target_address(self):
+        return IP6_Address(self.child().get_bytes()[4:20])
+
+    def set_target_address(self, target_address):
+        address = IP6_Address(target_address)
+        payload_bytes = self.child().get_bytes()
+        payload_bytes[4:20] = address.get_bytes()
+        self.child().set_bytes(payload_bytes)
+
+    #  0 1 2 3 4 5 6 7 
+    # +-+-+-+-+-+-+-+-+
+    # |R|S|O|reserved |
+    # +-+-+-+-+-+-+-+-+
+
+    def get_neighbor_advertisement_flags(self):
+        return self.child().get_byte(0)
+
+    def set_neighbor_advertisement_flags(self, flags):
+        self.child().set_byte(0, flags)
+
+    def get_router_flag(self):
+        return (self.get_neighbor_advertisement_flags() & 0x80) != 0
+    
+    def set_router_flag(self, flag_value):
+        curr_flags = self.get_neighbor_advertisement_flags()
+        if flag_value:
+            curr_flags |= 0x80
+        else:
+            curr_flags &= ~0x80
+        self.set_neighbor_advertisement_flags(curr_flags)
+    
+    def get_solicited_flag(self):
+        return (self.get_neighbor_advertisement_flags() & 0x40) != 0
+    
+    def set_solicited_flag(self, flag_value):
+        curr_flags = self.get_neighbor_advertisement_flags()
+        if flag_value:
+            curr_flags |= 0x40
+        else:
+            curr_flags &= ~0x40
+        self.set_neighbor_advertisement_flags(curr_flags)
+    
+    def get_override_flag(self):
+        return (self.get_neighbor_advertisement_flags() & 0x20) != 0
+    
+    def set_override_flag(self, flag_value):
+        curr_flags = self.get_neighbor_advertisement_flags()
+        if flag_value:
+            curr_flags |= 0x20
+        else:
+            curr_flags &= ~0x20
+        self.set_neighbor_advertisement_flags(curr_flags)
+
+############################################################################
+    @classmethod
+    def Node_Information_Query(class_object, code, payload = None):
+        return class_object.__build_node_information_message(ICMP6.NODE_INFORMATION_QUERY, code, payload)
+
+    @classmethod
+    def Node_Information_Reply(class_object, code, payload = None):
+        return class_object.__build_node_information_message(ICMP6.NODE_INFORMATION_REPLY, code, payload)
+        
+    @classmethod
+    def __build_node_information_message(class_object, type, code, payload = None):
+        #Build ICMP6 header
+        icmp_packet = ICMP6()
+        icmp_packet.set_type(type)
+        icmp_packet.set_code(code)
+        
+        #Pack ICMP payload
+        qtype = 0
+        flags = 0
+        nonce = [0x00] * 8
+        
+        icmp_bytes = struct.pack('>H', qtype)
+        icmp_bytes += struct.pack('>H', flags)
+        icmp_bytes += array.array('B', nonce).tostring()
+        
+        if payload is not None:
+            icmp_bytes += array.array('B', payload).tostring()
+        
+        icmp_payload = Data()
+        icmp_payload.set_data(icmp_bytes)
+        
+        #Link payload to header
+        icmp_packet.contains(icmp_payload)
+
+        return icmp_packet
+    
+    def get_qtype(self):
+        return self.child().get_word(0)
+
+    def set_qtype(self, qtype):
+        self.child().set_word(0, qtype)
+
+    def get_nonce(self):
+        return self.child().get_bytes()[4:12]
+
+    def set_nonce(self, nonce):
+        payload_bytes = self.child().get_bytes()
+        payload_bytes[4:12] = array.array('B', nonce)
+        self.child().set_bytes(payload_bytes)
+
+    #  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5
+    # +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    # |      unused       |G|S|L|C|A|T|
+    # +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+    def get_flags(self):
+        return self.child().get_word(2)
+
+    def set_flags(self, flags):
+        self.child().set_word(2, flags)
+
+    def get_flag_T(self):
+        return (self.get_flags() & 0x0001) != 0
+    
+    def set_flag_T(self, flag_value):
+        curr_flags = self.get_flags()
+        if flag_value:
+            curr_flags |= 0x0001
+        else:
+            curr_flags &= ~0x0001
+        self.set_flags(curr_flags)
+        
+    def get_flag_A(self):
+        return (self.get_flags() & 0x0002) != 0
+    
+    def set_flag_A(self, flag_value):
+        curr_flags = self.get_flags()
+        if flag_value:
+            curr_flags |= 0x0002
+        else:
+            curr_flags &= ~0x0002
+        self.set_flags(curr_flags)
+
+    def get_flag_C(self):
+        return (self.get_flags() & 0x0004) != 0
+    
+    def set_flag_C(self, flag_value):
+        curr_flags = self.get_flags()
+        if flag_value:
+            curr_flags |= 0x0004
+        else:
+            curr_flags &= ~0x0004
+        self.set_flags(curr_flags)
+
+    def get_flag_L(self):
+        return (self.get_flags() & 0x0008) != 0
+    
+    def set_flag_L(self, flag_value):
+        curr_flags = self.get_flags()
+        if flag_value:
+            curr_flags |= 0x0008
+        else:
+            curr_flags &= ~0x0008
+        self.set_flags(curr_flags)
+
+    def get_flag_S(self):
+        return (self.get_flags() & 0x0010) != 0
+    
+    def set_flag_S(self, flag_value):
+        curr_flags = self.get_flags()
+        if flag_value:
+            curr_flags |= 0x0010
+        else:
+            curr_flags &= ~0x0010
+        self.set_flags(curr_flags)
+
+    def get_flag_G(self):
+        return (self.get_flags() & 0x0020) != 0
+    
+    def set_flag_G(self, flag_value):
+        curr_flags = self.get_flags()
+        if flag_value:
+            curr_flags |= 0x0020
+        else:
+            curr_flags &= ~0x0020
+        self.set_flags(curr_flags)
+
+    def set_node_information_data(self, data):
+        payload_bytes = self.child().get_bytes()
+        payload_bytes[12:] = array.array('B', data)
+        self.child().set_bytes(payload_bytes)
+
+    def get_note_information_data(self):
+        return self.child().get_bytes()[12:]
+
+############################################################################
     def get_echo_id(self):
         return self.child().get_word(0)
     
