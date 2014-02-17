@@ -23,6 +23,7 @@
 
 from impacket import ntlm, uuid
 from impacket.structure import Structure
+from impacket.logger import ImpacketLogger
 import random
 import string
 import struct
@@ -78,7 +79,7 @@ class SQLR_Response(SQLR):
         ('_Data','_-Data','self["Size"]'),
         ('Data',':'),
     )
-
+    
 class SQLErrorException(Exception):
     pass
 
@@ -417,7 +418,7 @@ class TDS_COLMETADATA(Structure):
     )
 
 class MSSQL():
-    def __init__(self, address, port=1433):
+    def __init__(self, address, port=1433, logger=ImpacketLogger()):
         #self.packetSize = 32764
         self.packetSize = 32763
         self.server = address
@@ -431,6 +432,7 @@ class MSSQL():
         self.MAX_COL_LEN = 255
         self.lastError = False
         self.tlsSocket = None
+        self.__logger = logger
 
     def getInstances(self, timeout = 5):
         packet = SQLR()
@@ -490,14 +492,14 @@ class MSSQL():
     def connect(self):
         af, socktype, proto, canonname, sa = socket.getaddrinfo(self.server, self.port, 0, socket.SOCK_STREAM)[0]
         sock = socket.socket(af, socktype, proto)
-
+        
         try:
             sock.connect(sa)
         except Exception:
             import traceback
             traceback.print_exc()
             raise
-
+        
         self.socket = sock
         return sock
 
@@ -621,7 +623,7 @@ class MSSQL():
         resp = self.preLogin()
         # Test this!
         if resp['Encryption'] == TDS_ENCRYPT_REQ or resp['Encryption'] == TDS_ENCRYPT_OFF:
-            print "[!] Encryption required, switching to TLS"
+            self.__logger.logMessage("[!] Encryption required, switching to TLS")
 
             # Switching to TLS now
             ctx = SSL.Context(SSL.TLSv1_METHOD)
@@ -742,11 +744,10 @@ class MSSQL():
         if len(self.colMeta) == 0:
             return
         for col in self.colMeta:
-            print col['Format'] % col['Name'] + self.COL_SEPARATOR,
-        print ''
+            self.__logger.logMessage(col['Format'] % col['Name'] + self.COL_SEPARATOR + '\n')        
         for col in self.colMeta:
-            print '-'*col['Length'] + self.COL_SEPARATOR,
-        print ''
+            self.__logger.logMessage('-'*col['Length'] + self.COL_SEPARATOR + '\n')
+        
 
     def printRows(self):
         if self.lastError is True:
@@ -755,9 +756,7 @@ class MSSQL():
         self.printColumnsHeader()
         for row in self.rows:
             for col in self.colMeta:
-                print col['Format'] % row[col['Name']] + self.COL_SEPARATOR,
-            print ''
-
+                self.__logger.logMessage(col['Format'] % row[col['Name']] + self.COL_SEPARATOR)            
 
     def printReplies(self):
         for keys in self.replies.keys():
@@ -765,13 +764,13 @@ class MSSQL():
                 if key['TokenType'] == TDS_ERROR_TOKEN:
                     error =  "[!] ERROR(%s): Line %d: %s" % (key['ServerName'].decode('utf-16le'), key['LineNumber'], key['MsgText'].decode('utf-16le'))                                      
                     self.lastError = SQLErrorException("[!] ERROR: Line %d: %s" % (key['LineNumber'], key['MsgText'].decode('utf-16le')))
-                    print error
+                    self.__logger.logMessage(error)
 
                 elif key['TokenType'] == TDS_INFO_TOKEN:
-                    print "[*] INFO(%s): Line %d: %s" % (key['ServerName'].decode('utf-16le'), key['LineNumber'], key['MsgText'].decode('utf-16le'))
+                    self.__logger.logMessage("[*] INFO(%s): Line %d: %s" % (key['ServerName'].decode('utf-16le'), key['LineNumber'], key['MsgText'].decode('utf-16le')))
 
                 elif key['TokenType'] == TDS_LOGINACK_TOKEN:
-                    print "[*] ACK: Result: %s - %s (%d%d %d%d) " % (key['Interface'], key['ProgName'].decode('utf-16le'), key['MajorVer'], key['MinorVer'], key['BuildNumHi'], key['BuildNumLow'])
+                    self.__logger.logMessage("[*] ACK: Result: %s - %s (%d%d %d%d) " % (key['Interface'], key['ProgName'].decode('utf-16le'), key['MajorVer'], key['MinorVer'], key['BuildNumHi'], key['BuildNumLow']))
 
                 elif key['TokenType'] == TDS_ENVCHANGE_TOKEN:
                     if key['Type'] in (TDS_ENVCHANGE_DATABASE, TDS_ENVCHANGE_LANGUAGE, TDS_ENVCHANGE_CHARSET, TDS_ENVCHANGE_PACKETSIZE):
@@ -789,8 +788,8 @@ class MSSQL():
                         elif key['Type'] == TDS_ENVCHANGE_PACKETSIZE:
                             _type = 'PACKETSIZE'
                         else:
-                            _type = "%d" % key['Type']
-                        print "[*] ENVCHANGE(%s): Old Value: %s, New Value: %s" % (_type,record['OldValue'].decode('utf-16le'), record['NewValue'].decode('utf-16le'))
+                            _type = "%d" % key['Type']                 
+                        self.__logger.logMessage("[*] ENVCHANGE(%s): Old Value: %s, New Value: %s" % (_type,record['OldValue'].decode('utf-16le'), record['NewValue'].decode('utf-16le')))
        
     def parseRow(self,token,tuplemode=False):
         # TODO: This REALLY needs to be improved. Right now we don't support correctly all the data types
@@ -886,7 +885,7 @@ class MSSQL():
                 value = ''    
                 if _type == TDS_DATETIMNTYPE:
                     # For DATETIMNTYPE, the only valid lengths are 0x04 and 0x08, which map to smalldatetime and
-                    # datetime SQL data types respectively.
+                    # datetime SQL data _types respectively.
                     if ord(data[0]) == 4:
                         _type = TDS_DATETIM4TYPE
                     elif ord(data[0]) == 8:
@@ -1069,10 +1068,10 @@ class MSSQL():
                 else:
                     value = 'NULL'
             elif (_type == TDS_SSVARIANTTYPE):
-                print "ParseRow: SQL Variant type not yet supported :("
+                self.__logger.logMessage("ParseRow: SQL Variant type not yet supported :(")
                 raise
             else:
-                print "ParseROW: Unsupported data type: 0%x" % _type
+                self.__logger.logMessage("ParseROW: Unsupported data type: 0%x" % _type)
                 raise
 
             if tuplemode:
@@ -1153,7 +1152,7 @@ class MSSQL():
                 typeData = struct.unpack('<L',data[:4])[0]
                 data = data[4:]
             else:
-                print "Unsupported data type: 0x%x" % colType
+                self.__logger.logMessage("Unsupported data type: 0x%x" % colType)
                 raise
 
             # Collation exceptions:
@@ -1232,7 +1231,7 @@ class MSSQL():
             elif tokenID == TDS_DONE_TOKEN:
                 token = TDS_DONE(tokens)
             else:
-                print "Unknown Token %x" % tokenID
+                self.__logger.logMessage("Unknown Token %x" % tokenID)
                 return replies
 
             if replies.has_key(tokenID) is not True:
@@ -1245,15 +1244,19 @@ class MSSQL():
 
         return replies
 
-    def batch(self, cmd,tuplemode=False):
+    def batch(self, cmd,tuplemode=False,wait=True):
         # First of all we clear the rows, colMeta and lastError
         self.rows = []
         self.colMeta = []
         self.lastError = False
         self.sendTDS(TDS_SQL_BATCH, (cmd+'\r\n').encode('utf-16le'))
-        tds = self.recvTDS()
-        self.replies = self.parseReply(tds['Data'],tuplemode)
-        return self.rows
+        if wait:
+            tds = self.recvTDS()
+            self.replies = self.parseReply(tds['Data'],tuplemode)
+            return self.rows
+        else:
+            return True
+        
     
     def batchStatement(self, cmd,tuplemode=False):
         # First of all we clear the rows, colMeta and lastError
@@ -1263,24 +1266,31 @@ class MSSQL():
         self.sendTDS(TDS_SQL_BATCH, (cmd+'\r\n').encode('utf-16le'))
         #self.recvTDS()        
 
+            
     # Handy alias
     sql_query = batch
 
-    def changeDB(self, db):
+    def changeDB(self, db):        
         if db != self.currentDB:
             chdb = 'use %s' % db            
             self.batch(chdb)
             self.printReplies()
 
-    def RunSQLQuery(self,db,sql_query,tuplemode=False,**kwArgs):
+    def RunSQLQuery(self,db,sql_query,tuplemode=False,wait=True,**kwArgs):
+        db = db or 'master'
         self.changeDB(db)
         self.printReplies() 
-        ret = self.batch(sql_query,tuplemode)
-        self.printReplies()
+        ret = self.batch(sql_query,tuplemode,wait)
+        if wait:
+            self.printReplies()
+        if self.lastError:
+            raise self.lastError
         if self.lastError:
             raise self.lastError
         return ret
     
-    def RunSQLStatement(self,db,sql_query,**kwArgs):
-        self.RunSQLQuery(db, sql_query)        
+    def RunSQLStatement(self,db,sql_query,wait=True,**kwArgs):
+        self.RunSQLQuery(db,sql_query,wait=wait)
+        if self.lastError:
+            raise self.lastError
         return True

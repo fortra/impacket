@@ -17,7 +17,7 @@
 
 import ImpactPacket
 import dot11
-import IP6, ICMP6
+import IP6, ICMP6, IP6_Extension_Headers
 from cdp import CDP
 from Dot11KeyManager import KeyManager
 from Dot11Crypto import RC4
@@ -136,7 +136,34 @@ class IPDecoder(Decoder):
             packet = self.data_decoder.decode(aBuffer[off:end])
         i.contains(packet)
         return i
-    
+
+class IP6MultiProtocolDecoder(Decoder):
+    def __init__(self, a_protocol_id):
+        self.protocol_id = a_protocol_id
+
+    def decode(self, buffer):
+        if self.protocol_id == ImpactPacket.UDP.protocol:
+            self.udp_decoder = UDPDecoder()
+            packet = self.udp_decoder.decode(buffer)
+        elif self.protocol_id == ImpactPacket.TCP.protocol:
+            self.tcp_decoder = TCPDecoder()
+            packet = self.tcp_decoder.decode(buffer)
+        elif self.protocol_id == ICMP6.ICMP6.protocol:
+            self.icmp6_decoder = ICMP6Decoder()
+            packet = self.icmp6_decoder.decode(buffer)
+        else:
+            # IPv6 Extension Headers lookup
+            extension_headers = IP6_Extension_Headers.IP6_Extension_Header.get_extension_headers()
+            if buffer and self.protocol_id in extension_headers:
+                extension_header_decoder_class = extension_headers[self.protocol_id].get_decoder()
+                self.extension_header_decoder = extension_header_decoder_class()
+                packet = self.extension_header_decoder.decode(buffer)
+            else:
+                self.data_decoder = DataDecoder()
+                packet = self.data_decoder.decode(buffer)
+
+        return packet
+
 class IP6Decoder(Decoder):
     def __init__(self):
         pass
@@ -147,21 +174,61 @@ class IP6Decoder(Decoder):
         start_pos = ip6_packet.get_header_size() 
         end_pos = ip6_packet.get_payload_length() + start_pos
         contained_protocol = ip6_packet.get_next_header()
-        if contained_protocol == ImpactPacket.UDP.protocol:
-            self.udp_decoder = UDPDecoder()
-            child_packet = self.udp_decoder.decode(buffer[start_pos:end_pos])
-        elif contained_protocol == ImpactPacket.TCP.protocol:
-            self.tcp_decoder = TCPDecoder()
-            child_packet = self.tcp_decoder.decode(buffer[start_pos:end_pos])
-        elif contained_protocol == ICMP6.ICMP6.protocol:
-            self.icmp6_decoder = ICMP6Decoder()
-            child_packet = self.icmp6_decoder.decode(buffer[start_pos:end_pos])
-        else:
-            self.data_decoder = DataDecoder()
-            child_packet = self.data_decoder.decode(buffer[start_pos:end_pos])
+        
+        multi_protocol_decoder = IP6MultiProtocolDecoder(contained_protocol)
+        child_packet = multi_protocol_decoder.decode(buffer[start_pos:end_pos])
+        
         ip6_packet.contains(child_packet)
         return ip6_packet
-    
+
+class HopByHopDecoder(Decoder):
+    def __init__(self):
+        pass
+
+    def decode(self, buffer):
+        hop_by_hop = IP6_Extension_Headers.Hop_By_Hop(buffer)
+        self.set_decoded_protocol(hop_by_hop)
+        start_pos = hop_by_hop.get_header_size()
+        contained_protocol = hop_by_hop.get_next_header()
+
+        multi_protocol_decoder = IP6MultiProtocolDecoder(contained_protocol)
+        child_packet = multi_protocol_decoder.decode(buffer[start_pos:])
+        
+        hop_by_hop.contains(child_packet)
+        return hop_by_hop
+
+class DestinationOptionsDecoder(Decoder):
+    def __init__(self):
+        pass
+
+    def decode(self, buffer):
+        destination_options = IP6_Extension_Headers.Destination_Options(buffer)
+        self.set_decoded_protocol(destination_options)
+        start_pos = destination_options.get_header_size()
+        contained_protocol = destination_options.get_next_header()
+
+        multi_protocol_decoder = IP6MultiProtocolDecoder(contained_protocol)
+        child_packet = multi_protocol_decoder.decode(buffer[start_pos:])
+        
+        destination_options.contains(child_packet)
+        return destination_options
+
+class RoutingOptionsDecoder(Decoder):
+    def __init__(self):
+        pass
+
+    def decode(self, buffer):
+        routing_options = IP6_Extension_Headers.Routing_Options(buffer)
+        self.set_decoded_protocol(routing_options)
+        start_pos = routing_options.get_header_size()
+        contained_protocol = routing_options.get_next_header()
+
+        multi_protocol_decoder = IP6MultiProtocolDecoder(contained_protocol)
+        child_packet = multi_protocol_decoder.decode(buffer[start_pos:])
+        
+        routing_options.contains(child_packet)
+        return routing_options
+
 class ICMP6Decoder(Decoder):
     def __init__(self):
         pass
