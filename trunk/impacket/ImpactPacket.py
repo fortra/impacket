@@ -38,7 +38,7 @@ class ImpactPacketException(Exception):
     def __str__(self):
         return `self.value`
 
-class PacketBuffer:
+class PacketBuffer(object):
     """Implement the basic operations utilized to operate on a
     packet's raw buffer. All the packet classes derive from this one.
 
