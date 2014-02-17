@@ -9,6 +9,7 @@
 
 from ImpactPacket import Header
 from IP6_Address import IP6_Address
+from IP6_Extension_Headers import IP6_Extension_Header
 
 import struct
 import array
@@ -24,8 +25,12 @@ class IP6(Header):
         self.set_protocol_version(IP6.IP_PROTOCOL_VERSION)
         if (buffer):
             self.load_header(buffer)
-        
-    
+
+    def contains(self, aHeader):
+        Header.contains(self, aHeader)
+        if isinstance(aHeader, IP6_Extension_Header):
+            self.set_next_header(aHeader.get_header_type())
+
     def get_header_size(self):
         return IP6.HEADER_SIZE
 
@@ -53,20 +58,28 @@ class IP6(Header):
         source_address = self.get_source_address().as_bytes()
         #FIXME - Handle Routing header special case
         destination_address = self.get_destination_address().as_bytes()
-        #FIXME - Check if upper-layer protocol has a packet length field
-        #Else, compute it from the payload length subtracting the extension headers length
-        upper_layer_packet_length = struct.pack('!L', self.get_payload_length())
         reserved_bytes = [ 0x00, 0x00, 0x00 ]
-        #FIXME - If there are extension headers, fetch the correct upper-player protocol number by traversing the list
-        upper_layer_protocol_number = struct.pack('B', self.get_next_header())
+
+        upper_layer_packet_length = self.get_payload_length()
+        upper_layer_protocol_number = self.get_next_header()
         
+        next_header = self.child()
+        while isinstance(next_header, IP6_Extension_Header):
+            # The length used in the pseudo-header is the Payload Length from the IPv6 header, minus
+            # the length of any extension headers present between the IPv6 header and the upper-layer header
+            upper_layer_packet_length -= next_header.get_header_size()
+            
+            # If there are extension headers, fetch the correct upper-player protocol number by traversing the list
+            upper_layer_protocol_number = next_header.get_next_header()
+            
+            next_header = next_header.child()
         
         pseudo_header = array.array('B')        
         pseudo_header.extend(source_address)
         pseudo_header.extend(destination_address)
-        pseudo_header.fromstring(upper_layer_packet_length)
+        pseudo_header.fromstring(struct.pack('!L', upper_layer_packet_length))
         pseudo_header.fromlist(reserved_bytes)
-        pseudo_header.fromstring(upper_layer_protocol_number)
+        pseudo_header.fromstring(struct.pack('B', upper_layer_protocol_number))
         return pseudo_header
     
 ############################################################################
