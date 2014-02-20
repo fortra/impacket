@@ -1225,18 +1225,42 @@ class NTDSHashes():
                 self.__decryptHash(record)
             # Now let's keep moving through the NTDS file and decrypting what we find
             while True:
-                record = self.__ESEDB.getNextRow(self.__cursor)
+                try:
+                    record = self.__ESEDB.getNextRow(self.__cursor)
+                except: 
+                    logging.error('Error while calling getNextRow(), trying the next one')
+                    continue 
+
                 if record is None:
                     break
-                if record[self.NAME_TO_INTERNAL['sAMAccountType']] in self.ACCOUNT_TYPES: 
-                    self.__decryptHash(record)
+                try:
+                    if record[self.NAME_TO_INTERNAL['sAMAccountType']] in self.ACCOUNT_TYPES: 
+                        self.__decryptHash(record)
+                except Exception, e:
+                    #import traceback
+                    #print traceback.print_exc()
+                    try:
+                        logging.error("Error while processing row for user %s" % record[self.NAME_TO_INTERNAL['name']])
+                        logging.error(str(e))
+                    except: 
+                        logging.error("Error while processing row!")
+                        logging.error(str(e))
+                        pass
+         
 
     def export(self, fileName):
         if len(self.__itemsFound) > 0:
             items = sorted(self.__itemsFound)
             fd = open(fileName+'.ntds','w+')
             for item in items:
-                fd.write(self.__itemsFound[item]+'\n')
+                try:
+                    fd.write(self.__itemsFound[item]+'\n')
+                except Exception, e:
+                    try:
+                        logging.error("Error writing entry %d, skipping" % item)
+                    except:
+                        logging.error("Error writing entry, skipping")
+                    pass
             fd.close()
 
     def finish(self):
