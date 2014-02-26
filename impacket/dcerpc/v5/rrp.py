@@ -816,9 +816,10 @@ def hBaseRegOpenKey(dce, hKey, lpSubKey, dwOptions=0x00000001, samDesired = MAXI
 def hBaseRegQueryInfoKey(dce, hKey):
     request = BaseRegQueryInfoKey()
     request['hKey'] = hKey
-    request['lpClassIn'] = NULL
     # Not the cleanest way, but oh well
+    # Plus, Windows XP needs MaximumCount also set
     request.fields['lpClassIn'].fields['MaximumLength'] = 1024
+    request.fields['lpClassIn'].fields['Data'].fields['Data'].fields['MaximumCount'] = 1024/2
     return dce.request(request)
 
 def hBaseRegQueryValue(dce, hKey, lpValueName):
