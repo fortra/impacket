@@ -2355,7 +2355,7 @@ def hSamrEnumerateAliasesInDomain(dce, domainHandle, enumerationContext=0, prefe
 def hSamrEnumerateUsersInDomain(dce, domainHandle, userAccountControl=USER_NORMAL_ACCOUNT, enumerationContext=0, preferedMaximumLength=0xffffffff):
     request = SamrEnumerateUsersInDomain()
     request['DomainHandle'] = domainHandle
-    request['UserAccountControl'] = enumerationContext
+    request['UserAccountControl'] = userAccountControl
     request['EnumerationContext'] = enumerationContext
     request['PreferedMaximumLength'] = preferedMaximumLength
     return dce.request(request)
