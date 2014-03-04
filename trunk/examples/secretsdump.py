@@ -428,7 +428,11 @@ class RemoteOperations:
 
         ans = rrp.hBaseRegOpenKey(self.__rrp, self.__regHandle, 'SYSTEM\\CurrentControlSet\\Control\\Lsa')
         keyHandle = ans['phkResult']
-        dataType, noLMHash = rrp.hBaseRegQueryValue(self.__rrp, keyHandle, 'NoLmHash')
+        try: 
+            dataType, noLMHash = rrp.hBaseRegQueryValue(self.__rrp, keyHandle, 'NoLmHash')
+        except:
+            noLMHash = 0
+
         if noLMHash != 1:
             logging.debug('LMHashes are being stored')
             return False
@@ -1330,7 +1334,12 @@ class DumpSecrets:
         currentControlSet = winreg.getValue('\\Select\\Current')[1]
         currentControlSet = "ControlSet%03d" % currentControlSet
 
-        noLmHash = winreg.getValue('\\%s\\Control\\Lsa\\NoLmHash' % currentControlSet)[1]
+        #noLmHash = winreg.getValue('\\%s\\Control\\Lsa\\NoLmHash' % currentControlSet)[1]
+        noLmHash = winreg.getValue('\\%s\\Control\\Lsa\\NoLmHash' % currentControlSet)
+        if noLmHash is not None:
+            noLmHash = noLmHash[1]
+        else:
+            noLmHash = 0
 
         if noLmHash != 1:
             logging.debug('LMHashes are being stored')
