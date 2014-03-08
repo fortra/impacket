@@ -22,7 +22,7 @@
 #
 from impacket.dcerpc.v5 import ndr
 from impacket.dcerpc.v5.ndr import NDRCALL, NDR, NDRSTRUCT, NDRENUM, NDRPOINTER, NDRUniConformantArray, NDRUniFixedArray, NDRTLSTRUCT
-from impacket.dcerpc.v5.dtypes import LPWSTR, WCHAR, ULONGLONG, HRESULT, GUID, USHORT, WSTR, DWORD, LPLONG, LONG, PGUID, ULONG, UUID
+from impacket.dcerpc.v5.dtypes import LPWSTR, WCHAR, ULONGLONG, HRESULT, GUID, USHORT, WSTR, DWORD, LPLONG, LONG, PGUID, ULONG, UUID, WIDESTR
 from impacket import system_errors
 from impacket.uuid import uuidtup_to_bin, string_to_bin
 from impacket.dcerpc.v5.enum import Enum
@@ -312,12 +312,21 @@ class DATAELEMENT(NDRSTRUCT):
         ('Data',':'),
     )
 
+class DUALSTRINGARRAYPACKED(NDRSTRUCT):
+    structure = (
+        ('wNumEntries',USHORT),
+        ('wSecurityOffset',USHORT),
+        ('aStringArray',':'),
+    )
+    def getDataLen(self, data):
+        return self['wNumEntries']*2
+
 # 2.2.18.7 OBJREF_EXTENDED
 class OBJREF_EXTENDED(OBJREF):
     structure = (
         ('std',STDOBJREF),
         ('Signature1',ULONG),
-        ('saResAddr',ULONG),
+        ('saResAddr',DUALSTRINGARRAYPACKED),
         ('nElms',ULONG),
         ('Signature2',ULONG),
         ('ElmArray',DATAELEMENT),
@@ -355,7 +364,7 @@ class PDUALSTRINGARRAY(NDRPOINTER):
 class STRINGBINDING(NDRSTRUCT):
     structure = (
         ('wTowerId',USHORT),
-        ('aNetworkAddr',LPWSTR),
+        ('aNetworkAddr',WIDESTR),
     )
 
 # 2.2.19.4 SECURITYBINDING
@@ -363,7 +372,7 @@ class SECURITYBINDING(NDRSTRUCT):
     structure = (
         ('wAuthnSvc',USHORT),
         ('Reserved',USHORT),
-        ('aPrincName',LPWSTR),
+        ('aPrincName',WIDESTR),
     )
 
 # 2.2.20.1 PROPMARSHALHEADER
@@ -619,7 +628,7 @@ class SecurityInfoData(TypeSerialization1):
 class customREMOTE_REPLY_SCM_INFO(NDRSTRUCT):
     structure = (
         ('Oxid',OXID),
-        ('pdsaOxidBindings',DUALSTRINGARRAY),
+        ('pdsaOxidBindings',PDUALSTRINGARRAY),
         ('ipidRemUnknown',IPID),
         ('authnHint',DWORD),
         ('serverVersion',COMVERSION),
