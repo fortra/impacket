@@ -24,6 +24,7 @@ from impacket import uuid
 from impacket.uuid import uuidtup_to_bin, generate, stringver_to_bin, bin_to_uuidtup
 from impacket.dcerpc.v5.dtypes import UCHAR, ULONG, USHORT
 from impacket.dcerpc.v5.ndr import NDRSTRUCT
+from impacket import hresult_errors
 
 # MS/RPC Constants
 MSRPC_REQUEST   = 0x00
@@ -591,15 +592,15 @@ class MSRPCHeader(Structure):
         ('type','B=0'),                                   # 2
         ('flags','B=0'),                                  # 3
         ('representation','<L=0x10'),                     # 4
-        ('frag_len','<H=self._SIZE+len(pduData)+len(pad)+len(sec_trailer)+len(auth_data)'),  # 8
+        ('frag_len','<H=self._SIZE+len(auth_data)+(16 if (self["flags"] & 0x80) > 0 else 0)+len(pduData)+len(pad)+len(sec_trailer)'),  # 8
         ('auth_len','<H=len(auth_data)'),                 # 10
         ('call_id','<L=1'),                               # 12    <-- Common up to here (including this)
     )
 
     structure = ( 
-        ('dataLen','_-pduData','self["frag_len"]-self["auth_len"]-self._SIZE-(8 if self["auth_len"] > 0 else 0)'),  
+        ('dataLen','_-pduData','self["frag_len"]-self["auth_len"]-self._SIZE-(8 if self["auth_len"] > 0 else 0)'),
         ('pduData',':'),                                
-        ('_pad', '_-pad','(4 - ((self._SIZE + len(self["pduData"])) & 3) & 3)'),
+        ('_pad', '_-pad','(4 - ((self._SIZE + (16 if (self["flags"] & 0x80) > 0 else 0) + len(self["pduData"])) & 3) & 3)'),
         ('pad', ':'),
         ('_sec_trailer', '_-sec_trailer', '8 if self["auth_len"] > 0 else 0'),
         ('sec_trailer',':'),
@@ -622,7 +623,7 @@ class MSRPCHeader(Structure):
             self['pad'] = ''
 
     def get_header_size(self):
-        return self._SIZE
+        return self._SIZE + (16 if (self["flags"] & MSRPC_NOUUID) > 0 else 0)
 
     def get_packet(self):
         if self['auth_data'] != '':
@@ -640,6 +641,8 @@ class MSRPCRequestHeader(MSRPCHeader):
         ('alloc_hint','<L=0'),                            # 16
         ('ctx_id','<H=0'),                                # 20
         ('op_num','<H=0'),                                # 22
+        ('_uuid','_-uuid','16 if self["flags"] & MSRPC_NOUUID > 0 else 0' ), # 22
+        ('uuid',':'),                                # 22
     )
 
     def __init__(self, data = None, alignment = 0):
@@ -647,6 +650,7 @@ class MSRPCRequestHeader(MSRPCHeader):
         if data is None:
            self['type'] = MSRPC_REQUEST
            self['ctx_id'] = 0
+           self['uuid'] = ''
 
 class MSRPCRespHeader(MSRPCHeader):
     _SIZE = 24
@@ -794,16 +798,16 @@ class DCERPC:
     def set_auth_type(self, auth_type, callback = None): pass
     def get_idempotent(self): return 0
     def set_idempotent(self, flag): pass
-    def call(self, function, body):
-        return self.send(DCERPC_RawCall(function, str(body)))
-    def request(self, request):
+    def call(self, function, body, uuid=None):
+        return self.send(DCERPC_RawCall(function, str(body), uuid))
+    def request(self, request, uuid=None):
         if self.transfer_syntax == self.NDR64Syntax:
             request.changeTransferSyntax(self.NDR64Syntax)
             isNDR64 = True
         else:
             isNDR64 = False
 
-        self.call(request.opnum, request)
+        self.call(request.opnum, request, uuid)
         answer = self.recv()
         module = __import__(request.__module__.split('.')[-1], globals(), locals(), -1)
         respClass = getattr(module, request.__class__.__name__+'Response')
@@ -870,6 +874,9 @@ class DCERPC_v5(DCERPC):
     def set_max_tfrag(self, size):
         self.__max_xmit_size = size
     
+    def get_credentials(self):
+        return self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash
+
     def set_credentials(self, username, password, domain = '', lmhash = '', nthash = ''):
         self.set_auth_level(RPC_C_AUTHN_LEVEL_CONNECT)
         self.__username = username
@@ -1174,7 +1181,12 @@ class DCERPC_v5(DCERPC):
                 if rpc_status_codes.has_key(status_code):
                     raise Exception(rpc_status_codes[status_code])
                 else:
-                    raise Exception('Unknown DCE RPC fault status code: %.8x' % status_code)
+                    if hresult_errors.ERROR_MESSAGES.has_key(status_code):
+                        error_msg_short = hresult_errors.ERROR_MESSAGES[status_code][0]
+                        error_msg_verbose = hresult_errors.ERROR_MESSAGES[status_code][1] 
+                        raise Exception('%s - %s' % (error_msg_short, error_msg_verbose))
+                    else:
+                        raise Exception('Unknown DCE RPC fault status code: %.8x' % status_code)
 
             if self.response_header['flags'] & MSRPC_LASTFRAG:
                 # No need to reassembly DCERPC
@@ -1268,10 +1280,13 @@ class DCERPC_v5(DCERPC):
         return answer
 
 class DCERPC_RawCall(MSRPCRequestHeader):
-    def __init__(self, op_num, data = ''):
+    def __init__(self, op_num, data = '', uuid=None):
         MSRPCRequestHeader.__init__(self)
         self['op_num'] = op_num
         self['pduData'] = data
+        if uuid is not None:
+            self['flags'] |= MSRPC_NOUUID
+            self['uuid'] = uuid
 
     def setData(self, data):
         self['pduData'] = data
