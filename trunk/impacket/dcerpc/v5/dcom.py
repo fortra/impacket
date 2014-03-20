@@ -20,13 +20,16 @@
 #   Helper functions start with "h"<name of the call>.
 #   There are test cases for them too. 
 #
+from struct import pack
 from impacket.dcerpc.v5 import ndr
 from impacket.dcerpc.v5.ndr import NDRCALL, NDR, NDRSTRUCT, NDRENUM, NDRPOINTER, NDRUniConformantArray, NDRUniFixedArray, NDRTLSTRUCT
-from impacket.dcerpc.v5.dtypes import LPWSTR, WCHAR, ULONGLONG, HRESULT, GUID, USHORT, WSTR, DWORD, LPLONG, LONG, PGUID, ULONG, UUID, WIDESTR
-from impacket import system_errors
-from impacket.uuid import uuidtup_to_bin, string_to_bin
+from impacket.dcerpc.v5.dtypes import LPWSTR, WCHAR, ULONGLONG, HRESULT, GUID, USHORT, WSTR, DWORD, LPLONG, LONG, PGUID, ULONG, UUID, WIDESTR, NULL
+from impacket import hresult_errors
+from impacket.uuid import string_to_bin, uuidtup_to_bin, generate
 from impacket.dcerpc.v5.enum import Enum
 from impacket.dcerpc.v5.rpcrt import TypeSerialization1
+from impacket.dcerpc.v5 import transport
+from impacket import ntlm
 
 CLSID_ActivationContextInfo   = string_to_bin('000001a5-0000-0000-c000-000000000046')
 CLSID_ActivationPropertiesIn  = string_to_bin('00000338-0000-0000-c000-000000000046')
@@ -69,10 +72,9 @@ class DCERPCSessionError(Exception):
         return self.packet
 
     def __str__( self ):
-        key = self.error_code & 0xffff
-        if (system_errors.ERROR_MESSAGES.has_key(key)):
-            error_msg_short = system_errors.ERROR_MESSAGES[key][0]
-            error_msg_verbose = system_errors.ERROR_MESSAGES[key][1] 
+        if (hresult_errors.ERROR_MESSAGES.has_key(self.error_code)):
+            error_msg_short = hresult_errors.ERROR_MESSAGES[self.error_code][0]
+            error_msg_verbose = hresult_errors.ERROR_MESSAGES[self.error_code][1] 
             return 'DCOM SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
         else:
             return 'DCOM SessionError: unknown error code: 0x%x' % (self.error_code)
@@ -175,38 +177,38 @@ class PCOMVERSION(NDRPOINTER):
 class BYTE_ARRAY(NDRUniConformantArray):
     item = 'c'
 
-class PBYTE_ARRAY(NDRPOINTER):
-    referent = (
-        ('Data', BYTE_ARRAY),
-    )
-
 class ORPC_EXTENT(NDRSTRUCT):
     structure = (
         ('id',GUID),
         ('size',ULONG),
-        ('data',PBYTE_ARRAY),
+        ('data',BYTE_ARRAY),
     )
 
 # 2.2.13.2 ORPC_EXTENT_ARRAY
 # ThisMUSTbeanarrayofORPC_EXTENTs.ThearraysizeMUSTbeamultipleof2for alignment reasons.
-class ORPC_EXTENT_ARRAY(NDRUniConformantArray):
-    item = ORPC_EXTENT
-
-class PORPC_EXTENT_ARRAY(NDRPOINTER):
+class PORPC_EXTENT(NDRPOINTER):
     referent = (
-        ('Data', ORPC_EXTENT_ARRAY),
+        ('Data', ORPC_EXTENT),
     )
 
-class PPORPC_EXTENT_ARRAY(NDRPOINTER):
+class EXTENT_ARRAY(NDRUniConformantArray):
+    item = PORPC_EXTENT
+
+class PEXTENT_ARRAY(NDRPOINTER):
     referent = (
-        ('Data', PORPC_EXTENT_ARRAY),
+        ('Data', EXTENT_ARRAY),
     )
 
 class ORPC_EXTENT_ARRAY(NDRSTRUCT):
     structure = (
         ('size',ULONG),
         ('reserved',ULONG),
-        ('extent',PPORPC_EXTENT_ARRAY),
+        ('extent',PEXTENT_ARRAY),
+    )
+
+class PORPC_EXTENT_ARRAY(NDRPOINTER):
+    referent = (
+        ('Data', ORPC_EXTENT_ARRAY),
     )
 
 # 2.2.13.3 ORPCTHIS
@@ -216,14 +218,14 @@ class ORPCTHIS(NDRSTRUCT):
         ('flags',ULONG),
         ('reserved1',ULONG),
         ('cid',CID),
-        ('extensions',PPORPC_EXTENT_ARRAY),
+        ('extensions',PORPC_EXTENT_ARRAY),
     )
 
 # 2.2.13.4 ORPCTHAT
 class ORPCTHAT(NDRSTRUCT):
     structure = (
         ('flags',ULONG),
-        ('extensions',PPORPC_EXTENT_ARRAY),
+        ('extensions',PORPC_EXTENT_ARRAY),
     )
 
 # 2.2.14 MInterfacePointer
@@ -679,6 +681,9 @@ class REMINTERFACEREF(NDRSTRUCT):
         ('cPrivateRefs',LONG),
     )
 
+class REMINTERFACEREF_ARRAY(NDRUniConformantArray):
+    item = REMINTERFACEREF
+
 # 2.2.24 REMQIRESULT
 class REMQIRESULT(NDRSTRUCT):
     structure = (
@@ -693,11 +698,21 @@ class PREMQIRESULT(NDRPOINTER):
     )
 
 # 2.2.26 REFIPID
-REFIPID = PGUID
+REFIPID = GUID
 
 ################################################################################
 # RPC CALLS
 ################################################################################
+class DCOMCALL(NDRCALL):
+    commonHdr = (
+       ('ORPCthis', ORPCTHIS),
+    )
+
+class DCOMANSWER(NDRCALL):
+    commonHdr = (
+       ('ORPCthat', ORPCTHAT),
+    )
+
 # 3.1.2.5.1.1 IObjectExporter::ResolveOxid (Opnum 0)
 class ResolveOxid(NDRCALL):
     opnum = 0
@@ -850,7 +865,7 @@ class RemoteCreateInstanceResponse(NDRCALL):
     )
 
 # 3.1.1.5.6.1.1 IRemUnknown::RemQueryInterface (Opnum 3)
-class RemQueryInterface(NDRCALL):
+class RemQueryInterface(DCOMCALL):
     opnum = 3
     structure = (
        ('ripid', REFIPID),
@@ -859,19 +874,37 @@ class RemQueryInterface(NDRCALL):
        ('iids', IID_ARRAY),
     )
 
-class RemQueryInterfaceResponse(NDRCALL):
+class RemQueryInterfaceResponse(DCOMANSWER):
     structure = (
        ('ppQIResults', PREMQIRESULT),
        ('ErrorCode', error_status_t),
     )
 
-
-class test(NDRCALL):
-    opnum = 0
+# 3.1.1.5.6.1.2 IRemUnknown::RemAddRef (Opnum 4 )
+class RemAddRef(DCOMCALL):
+    opnum = 4
     structure = (
-        ('item1', ULONG),
-        ('item2', CustomHeader),
-        ('item3', USHORT),
+       ('cInterfaceRefs', USHORT),
+       ('InterfaceRefs', REMINTERFACEREF_ARRAY),
+    )
+
+class RemAddRefResponse(DCOMANSWER):
+    structure = (
+       ('pResults', DWORD_ARRAY),
+       ('ErrorCode', error_status_t),
+    )
+
+# 3.1.1.5.6.1.3 IRemUnknown::RemRelease (Opnum 5)
+class RemRelease(DCOMCALL):
+    opnum = 5
+    structure = (
+       ('cInterfaceRefs', USHORT),
+       ('InterfaceRefs', REMINTERFACEREF_ARRAY),
+    )
+
+class RemReleaseResponse(DCOMANSWER):
+    structure = (
+       ('ErrorCode', error_status_t),
     )
 
 ################################################################################
@@ -883,3 +916,332 @@ OPNUMS = {
 ################################################################################
 # HELPER FUNCTIONS
 ################################################################################
+class CLASS_INSTANCE():
+    def __init__(self, dce, ORPCthis):
+        self.__stringBindings = None
+        self.__dce = dce
+        self.__ORPCthis = ORPCthis
+    def get_dce_rpc(self):
+        return self.__dce
+    def get_ORPCthis(self):
+        return self.__ORPCthis
+    def set_string_bindings(self, sb):
+        self.__stringBindings = sb
+    def get_string_bindings(self):
+        return self.__stringBindings
+    def get_credentials(self):
+        return self.__dce.get_credentials()
+
+class INTERFACE():
+    def __init__(self, cinstance, objRef, ipidRemUnknown):
+        self.__dce = None
+        self.__iPid = None
+        self.__marshaled_iid = None
+        self.__cinstance = cinstance
+        self.__objRef = objRef
+        self.__ipidRemUnknown = ipidRemUnknown
+        return self.process_interface(objRef)
+
+    def process_interface(self, data):
+        objRefType = OBJREF(data)['flags']
+        if objRefType == FLAGS_OBJREF_CUSTOM:
+            objRef = OBJREF_CUSTOM(data)
+        elif objRefType == FLAGS_OBJREF_HANDLER:
+            objRef = OBJREF_HANDLER(data)
+        elif objRefType == FLAGS_OBJREF_STANDARD:
+            objRef = OBJREF_STANDARD(data)
+        elif objRefType == FLAGS_OBJREF_EXTENDED:
+            objRef = OBJREF_EXTENDED(data)
+        else:
+            print "Unknown OBJREF Type! 0x%x" % objRefType
+
+        self.__iPid = objRef['std']['ipid']
+        self.__marshaled_iid = objRef['iid']
+
+    def get_dce_rpc(self):
+        return self.__dce
+
+    def get_cinstance(self):
+        return self.__cinstance
+
+    def set_cinstance(self, cinstance):
+        self.__cinstance = cinstance
+
+    def connect(self, iid = None):
+	stringBindings = self.get_cinstance().get_string_bindings() 
+        if self.__dce is None:
+            # The current interface IID
+            stringBinding = 'ncacn_ip_tcp:' + stringBindings[1]['aNetworkAddr'][:-1]
+            dcomInterface = transport.DCERPCTransportFactory(stringBinding)
+            if hasattr(dcomInterface, 'set_credentials'):
+                # This method exists only for selected protocol sequences.
+                dcomInterface.set_credentials(*self.__cinstance.get_credentials())
+            dce = dcomInterface.get_dce_rpc()
+
+            #dce.set_auth_level(ntlm.NTLM_AUTH_PKT_INTEGRITY)
+            if iid is None:
+                dce.set_auth_level(ntlm.NTLM_AUTH_PKT_PRIVACY)
+            else:
+                dce.set_auth_level(ntlm.NTLM_AUTH_PKT_PRIVACY)
+
+            dce.connect()
+
+            if iid is None:
+                dce.bind(self.__marshaled_iid)
+            else:
+                dce.bind(iid)
+
+            self.__dce = dce
+        return self.__dce
+
+    def disconnect(self):
+        self.__dce.disconnect()
+        self.__dce = None
+
+        return self.__dce
+
+    def get_iPid(self):
+        return self.__iPid
+
+    def get_objRef(self):
+        return self.__objRef
+
+    def get_ipidRemUnknown(self):
+        return self.__ipidRemUnknown
+
+class IRemUnknown(INTERFACE):
+    def __init__(self, interface):
+        self.IID_Unknown = IID_IRemUnknown
+        INTERFACE.__init__(self, interface.get_cinstance(), interface.get_objRef(), interface.get_ipidRemUnknown())
+
+    def RemQueryInterface(self, cRefs, iids):
+        request = RemQueryInterface()
+        request['ORPCthis'] = self.get_cinstance().get_ORPCthis()
+        request['ORPCthis']['flags'] = 0
+        request['ripid'] = self.get_iPid()
+        request['cRefs'] = cRefs
+        request['cIids'] = len(iids)
+        for iid in iids:
+            _iid = IID()
+            _iid['Data'] = iid
+            request['iids'].append(_iid)
+
+        dce = self.connect(self.IID_Unknown)
+        resp = dce.request(request, uuid = self.get_ipidRemUnknown())
+        self.disconnect()
+        resp.dump()
+        return resp 
+
+    def RemAddRef(self):
+        request = RemAddRef()
+        request['ORPCthis'] = self.get_cinstance().get_ORPCthis()
+        request['ORPCthis']['flags'] = 0
+        request['cInterfaceRefs'] = 1
+        element = REMINTERFACEREF()
+        element['ipid'] = self.get_iPid()
+        element['cPublicRefs'] = 1
+        request['InterfaceRefs'].append(element)
+        dce = self.connect(self.IID_Unknown)
+        resp = dce.request(request, uuid = self.get_ipidRemUnknown())
+        self.disconnect()
+        resp.dump()
+        return resp 
+
+    def RemRelease(self):
+        request = RemRelease()
+        request['ORPCthis'] = self.get_cinstance().get_ORPCthis()
+        request['ORPCthis']['flags'] = 0
+        request['cInterfaceRefs'] = 1
+        element = REMINTERFACEREF()
+        element['ipid'] = self.get_iPid()
+        element['cPublicRefs'] = 1
+        request['InterfaceRefs'].append(element)
+        dce = self.connect(self.IID_Unknown)
+        print "RELEASE ", self.get_ipidRemUnknown()
+        resp = dce.request(request, uuid = self.get_ipidRemUnknown())
+        self.disconnect()
+        resp.dump()
+        return resp 
+
+class IRemUnknown2(IRemUnknown):
+    def __init__(self, interface):
+        IRemUnknown.__init__(self, interface)
+        self.IID_Unknown = IID_IRemUnknown2
+
+class IRemoteSCMActivator():
+    def RemoteGetClassObject(self):
+        pass
+
+    def RemoteCreateInstance(self, dce, clsId, iid):
+        dce.bind(IID_IRemoteSCMActivator)
+
+        ORPCthis = ORPCTHIS()
+        ORPCthis['cid'] = generate()
+        ORPCthis['extensions'] = NULL
+        ORPCthis['flags'] = 1
+
+        request = RemoteCreateInstance()
+        request['ORPCthis'] = ORPCthis
+        request['pUnkOuter'] = NULL
+
+        activationBLOB = ACTIVATION_BLOB()
+        activationBLOB['CustomHeader']['destCtx'] = 2
+        activationBLOB['CustomHeader']['pdwReserved'] = NULL
+        clsid = CLSID()
+        clsid['Data'] = CLSID_InstantiationInfo
+        activationBLOB['CustomHeader']['pclsid'].append(clsid)
+        clsid = CLSID()
+        clsid['Data'] = CLSID_ActivationContextInfo
+        activationBLOB['CustomHeader']['pclsid'].append(clsid)
+        clsid = CLSID()
+        clsid['Data'] = CLSID_ServerLocationInfo
+        activationBLOB['CustomHeader']['pclsid'].append(clsid)
+        clsid = CLSID()
+        clsid['Data'] = CLSID_ScmRequestInfo
+        activationBLOB['CustomHeader']['pclsid'].append(clsid)
+
+        properties = ''
+        # InstantiationInfo
+        instantiationInfo = InstantiationInfoData()
+        instantiationInfo['classId'] = clsId
+        instantiationInfo['cIID'] = 1
+
+        _iid = IID()
+        _iid['Data'] = iid
+
+        instantiationInfo['pIID'].append(_iid)
+
+        dword = DWORD()
+        marshaled = instantiationInfo.getData()+instantiationInfo.getDataReferents()
+        pad = (8 - (len(marshaled) % 8)) % 8
+        dword['Data'] = len(marshaled) + pad
+        activationBLOB['CustomHeader']['pSizes'].append(dword)
+        instantiationInfo['thisSize'] = dword['Data']
+
+        properties += marshaled + '\xFA'*pad
+
+        # ActivationContextInfoData
+        activationInfo = ActivationContextInfoData()
+        activationInfo['pIFDClientCtx'] = NULL
+        activationInfo['pIFDPrototypeCtx'] = NULL
+
+        dword = DWORD()
+        marshaled = activationInfo.getData()+activationInfo.getDataReferents()
+        pad = (8 - (len(marshaled) % 8)) % 8
+        dword['Data'] = len(marshaled) + pad
+        activationBLOB['CustomHeader']['pSizes'].append(dword)
+
+        properties += marshaled + '\xFA'*pad
+
+        # ServerLocation
+        locationInfo = LocationInfoData()
+        locationInfo['machineName'] = NULL
+
+        dword = DWORD()
+        dword['Data'] = len(locationInfo.getData())
+        activationBLOB['CustomHeader']['pSizes'].append(dword)
+
+        properties += locationInfo.getData()+locationInfo.getDataReferents()
+
+        # ScmRequestInfo
+        scmInfo = ScmRequestInfoData()
+        scmInfo['pdwReserved'] = NULL
+        #scmInfo['remoteRequest']['ClientImpLevel'] = 2
+        scmInfo['remoteRequest']['cRequestedProtseqs'] = 1
+        scmInfo['remoteRequest']['pRequestedProtseqs'].append(7)
+
+        dword = DWORD()
+        marshaled = scmInfo.getData()+scmInfo.getDataReferents()
+        pad = (8 - (len(marshaled) % 8)) % 8
+        dword['Data'] = len(marshaled) + pad
+        activationBLOB['CustomHeader']['pSizes'].append(dword)
+
+        properties += marshaled + '\xFA'*pad
+
+        activationBLOB['Property'] = properties
+
+
+        objrefcustom = OBJREF_CUSTOM()
+        objrefcustom['iid'] = IID_IActivationPropertiesIn[:-4]
+        objrefcustom['clsid'] = CLSID_ActivationPropertiesIn
+
+        objrefcustom['pObjectData'] = activationBLOB.getData()
+        objrefcustom['ObjectReferenceSize'] = len(objrefcustom['pObjectData'])+8
+
+        request['pActProperties']['ulCntData'] = len(str(objrefcustom))
+        request['pActProperties']['abData'] = list(str(objrefcustom))
+        resp = dce.request(request)
+
+        # Now let's parse the answer and build an Interface instance
+
+        objRefType = OBJREF(''.join(resp['ppActProperties']['abData']))['flags']
+        if objRefType == FLAGS_OBJREF_CUSTOM:
+            objRef = OBJREF_CUSTOM(''.join(resp['ppActProperties']['abData']))
+        elif objRefType == FLAGS_OBJREF_HANDLER:
+            objRef = OBJREF_HANDLER(''.join(resp['ppActProperties']['abData']))
+        elif objRefType == FLAGS_OBJREF_STANDARD:
+            objRef = OBJREF_STANDARD(''.join(resp['ppActProperties']['abData']))
+        elif objRefType == FLAGS_OBJREF_EXTENDED:
+            objRef = OBJREF_EXTENDED(''.join(resp['ppActProperties']['abData']))
+        else:
+            print "Unknown OBJREF Type! 0x%x" % objRefType
+
+
+        activationBlob = ACTIVATION_BLOB(objRef['pObjectData'])
+
+        propOutput = activationBlob['Property'][:activationBlob['CustomHeader']['pSizes'][0]['Data']]
+        scmReply = activationBlob['Property'][activationBlob['CustomHeader']['pSizes'][0]['Data']:activationBlob['CustomHeader']['pSizes'][0]['Data']+activationBlob['CustomHeader']['pSizes'][1]['Data']]
+
+        scmr = ScmReplyInfoData()
+        scmr.fromString(scmReply)
+        # Processing the scmReply
+        scmReply = scmReply[len(scmr.getData()):]
+        scmr.fromStringReferents(scmReply)
+        ipidRemUnknown = scmr['remoteReply']['ipidRemUnknown']
+        Oxids = ''.join(pack('<H', x) for x in scmr['remoteReply']['pdsaOxidBindings']['aStringArray'])
+        strBindings = Oxids[:scmr['remoteReply']['pdsaOxidBindings']['wSecurityOffset']*2]
+        securityBindings = Oxids[scmr['remoteReply']['pdsaOxidBindings']['wSecurityOffset']*2:]
+
+        done = False
+        stringBindings = list()
+        while not done:
+            if strBindings[0] == '\x00' and strBindings[1] == '\x00':
+                done = True
+            else:
+                binding = STRINGBINDING(strBindings)
+                stringBindings.append(binding)
+                strBindings = strBindings[len(binding):]
+
+        done = False
+        while not done:
+            if securityBindings[0] == '\x00' and securityBindings[1] == '\x00':
+                done = True
+            else:
+                secBinding = SECURITYBINDING(securityBindings)
+                securityBindings = securityBindings[len(secBinding):]
+
+        # Processing the Properties Output
+        propsOut = PropsOutInfo(propOutput)
+        propOutput2 = propOutput[len(propsOut):]
+        propsOut.fromStringReferents(propOutput2)
+
+        objRefType = OBJREF(''.join(propsOut['ppIntfData'][0]['abData'][4:]))['flags']
+        if objRefType == FLAGS_OBJREF_CUSTOM:
+            objRef = OBJREF_CUSTOM(''.join(propsOut['ppIntfData'][0]['abData'][4:]))
+        elif objRefType == FLAGS_OBJREF_HANDLER:
+            objRef = OBJREF_HANDLER(''.join(propsOut['ppIntfData'][0]['abData'][4:]))
+        elif objRefType == FLAGS_OBJREF_STANDARD:
+            objRef = OBJREF_STANDARD(''.join(propsOut['ppIntfData'][0]['abData'][4:]))
+        elif objRefType == FLAGS_OBJREF_EXTENDED:
+            objRef = OBJREF_EXTENDED(''.join(propsOut['ppIntfData'][0]['abData'][4:]))
+        else:
+            print "Unknown OBJREF Type! 0x%x" % objRefType
+
+        iPid = objRef['std']['ipid']
+        iid = objRef['iid']
+        stringBinding = 'ncacn_ip_tcp:' + stringBindings[1]['aNetworkAddr'][:-1]
+
+        classInstance = CLASS_INSTANCE(dce, ORPCthis)
+        classInstance.set_string_bindings(stringBindings)
+        return IRemUnknown2(INTERFACE(classInstance, ''.join(propsOut['ppIntfData'][0]['abData'][4:]), ipidRemUnknown))
+
