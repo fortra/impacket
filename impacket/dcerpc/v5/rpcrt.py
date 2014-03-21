@@ -1180,6 +1180,8 @@ class DCERPC_v5(DCERPC):
                 status_code = unpack("<L",self.response_data[off:off+4])[0]
                 if rpc_status_codes.has_key(status_code):
                     raise Exception(rpc_status_codes[status_code])
+                elif rpc_status_codes.has_key(status_code & 0xffff):
+                    raise Exception(rpc_status_codes[status_code & 0xffff])
                 else:
                     if hresult_errors.ERROR_MESSAGES.has_key(status_code):
                         error_msg_short = hresult_errors.ERROR_MESSAGES[status_code][0]
