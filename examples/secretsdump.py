@@ -307,7 +307,7 @@ class RemoteOperations:
     def getServiceAccount(self, serviceName):
         try:
             # Open the service
-            ans = scmr.hROpenServiceW(self.__scmr, self.__scManagerHandle, self.__serviceName)
+            ans = scmr.hROpenServiceW(self.__scmr, self.__scManagerHandle, serviceName)
             serviceHandle = ans['lpServiceHandle']
             resp = scmr.hRQueryServiceConfigW(self.__scmr, serviceHandle)
             account = resp['lpServiceConfig']['lpServiceStartName'][:-1]
