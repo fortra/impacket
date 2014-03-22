@@ -23,6 +23,7 @@ USHORT = NDRUSHORT
 SHORT = NDRSHORT
 ULONG = NDRULONG
 LONG = NDRLONG
+INT = NDRLONG
 
 class LPLONG(NDRPOINTER):
     referent = (
@@ -153,6 +154,9 @@ class LPWSTR(NDRPOINTER):
     referent = (
         ('Data', WSTR),
     )
+
+# 2.2.5 BSTR
+BSTR = LPWSTR
 
 # 2.2.18 HRESULT
 HRESULT = LONG
