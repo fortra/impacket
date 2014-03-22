@@ -22,7 +22,7 @@
 #
 from struct import pack
 from impacket.dcerpc.v5 import ndr
-from impacket.dcerpc.v5.ndr import NDRCALL, NDR, NDRSTRUCT, NDRENUM, NDRPOINTER, NDRUniConformantArray, NDRUniFixedArray, NDRTLSTRUCT
+from impacket.dcerpc.v5.ndr import NDRCALL, NDR, NDRSTRUCT, NDRPOINTER, NDRUniConformantArray, NDRUniFixedArray, NDRTLSTRUCT
 from impacket.dcerpc.v5.dtypes import LPWSTR, WCHAR, ULONGLONG, HRESULT, GUID, USHORT, WSTR, DWORD, LPLONG, LONG, PGUID, ULONG, UUID, WIDESTR, NULL
 from impacket import hresult_errors
 from impacket.uuid import string_to_bin, uuidtup_to_bin, generate
@@ -933,14 +933,17 @@ class CLASS_INSTANCE():
         return self.__dce.get_credentials()
 
 class INTERFACE():
-    def __init__(self, cinstance, objRef, ipidRemUnknown):
-        self.__dce = None
-        self.__iPid = None
-        self.__marshaled_iid = None
+    def __init__(self, cinstance, objRef, ipidRemUnknown, iPid = None, marshaled_iid = None, dce = None):
+        self.__dce = dce
+        self.__iPid = iPid
+        self.__marshaled_iid = marshaled_iid
         self.__cinstance = cinstance
         self.__objRef = objRef
         self.__ipidRemUnknown = ipidRemUnknown
-        return self.process_interface(objRef)
+        if objRef is not None:
+            return self.process_interface(objRef)
+        else:
+            return
 
     def process_interface(self, data):
         objRefType = OBJREF(data)['flags']
@@ -992,7 +995,22 @@ class INTERFACE():
                 dce.bind(iid)
 
             self.__dce = dce
+        else:
+            self.__dce = self.__dce.alter_ctx(self.__marshaled_iid)
+
         return self.__dce
+
+    def request(self, req, iid = None, uuid = None):
+        req['ORPCthis'] = self.get_cinstance().get_ORPCthis()
+        req['ORPCthis']['flags'] = 0
+        self.connect(iid)
+        try:
+            resp = self.__dce.request(req, uuid)
+        except:
+            self.disconnect()
+            raise 
+        self.disconnect()
+        return resp
 
     def disconnect(self):
         self.__dce.disconnect()
@@ -1009,12 +1027,17 @@ class INTERFACE():
     def get_ipidRemUnknown(self):
         return self.__ipidRemUnknown
 
+    def get_marshaled_iid(self):
+        return self.__marshaled_iid
+
+# 3.1.1.5.6.1 IRemUnknown Methods
 class IRemUnknown(INTERFACE):
     def __init__(self, interface):
         self.IID_Unknown = IID_IRemUnknown
-        INTERFACE.__init__(self, interface.get_cinstance(), interface.get_objRef(), interface.get_ipidRemUnknown())
+        INTERFACE.__init__(self, interface.get_cinstance(), interface.get_objRef(), interface.get_ipidRemUnknown(), interface.get_iPid(), interface.get_marshaled_iid(), dce = interface.get_dce_rpc())
 
     def RemQueryInterface(self, cRefs, iids):
+        # For now, it only supports a single IID
         request = RemQueryInterface()
         request['ORPCthis'] = self.get_cinstance().get_ORPCthis()
         request['ORPCthis']['flags'] = 0
@@ -1025,12 +1048,9 @@ class IRemUnknown(INTERFACE):
             _iid = IID()
             _iid['Data'] = iid
             request['iids'].append(_iid)
+        resp = self.request(request, self.IID_Unknown, self.get_ipidRemUnknown())         
 
-        dce = self.connect(self.IID_Unknown)
-        resp = dce.request(request, uuid = self.get_ipidRemUnknown())
-        self.disconnect()
-        resp.dump()
-        return resp 
+        return IRemUnknown2(INTERFACE(self.get_cinstance(), None, self.get_ipidRemUnknown(), resp['ppQIResults']['std']['ipid'], iids[0], self.get_dce_rpc()))
 
     def RemAddRef(self):
         request = RemAddRef()
@@ -1041,10 +1061,7 @@ class IRemUnknown(INTERFACE):
         element['ipid'] = self.get_iPid()
         element['cPublicRefs'] = 1
         request['InterfaceRefs'].append(element)
-        dce = self.connect(self.IID_Unknown)
-        resp = dce.request(request, uuid = self.get_ipidRemUnknown())
-        self.disconnect()
-        resp.dump()
+        resp = self.request(request, self.IID_Unknown, self.get_ipidRemUnknown())         
         return resp 
 
     def RemRelease(self):
@@ -1056,24 +1073,61 @@ class IRemUnknown(INTERFACE):
         element['ipid'] = self.get_iPid()
         element['cPublicRefs'] = 1
         request['InterfaceRefs'].append(element)
-        dce = self.connect(self.IID_Unknown)
-        print "RELEASE ", self.get_ipidRemUnknown()
-        resp = dce.request(request, uuid = self.get_ipidRemUnknown())
-        self.disconnect()
-        resp.dump()
+        resp = self.request(request, self.IID_Unknown, self.get_ipidRemUnknown())         
         return resp 
 
+# 3.1.1.5.7 IRemUnknown2 Interface
 class IRemUnknown2(IRemUnknown):
     def __init__(self, interface):
         IRemUnknown.__init__(self, interface)
         self.IID_Unknown = IID_IRemUnknown2
 
+# 3.1.2.5.1 IObjectExporter Methods
+class IObjectExporter():
+    def __init__(self, dce):
+        self.__dce = dce
+    # 3.1.2.5.1.1 IObjectExporter::ResolveOxid (Opnum 0)
+    def ResolveOxid(self):
+        raise
+    
+    # 3.1.2.5.1.2 IObjectExporter::SimplePing (Opnum 1)
+    def SimplePing(self, setId):
+        self.__dce.bind(IID_IObjectExporter)
+        request = SimplePing()
+        request['pSetId'] = setId
+        resp = dce.request(request)
+        return resp
+    
+    # 3.1.2.5.1.3 IObjectExporter::ComplexPing (Opnum 2)
+    def ComplexPing(self, setId = 0):
+        dce = self.__dce.bind(IID_IObjectExporter)
+        request = ComplexPing()
+        request['pSetId'] = setId
+        resp = self.__dce.request(request)
+        return resp
+    
+    # 3.1.2.5.1.4 IObjectExporter::ServerAlive (Opnum 3)
+    def ServerAlive(self):
+        raise
+
+    # 3.1.2.5.1.5 IObjectExporter::ResolveOxid2 (Opnum 4)
+    def ResolveOxid2(self):
+        raise
+
+    # 3.1.2.5.1.6 IObjectExporter::ServerAlive2 (Opnum 5)
+    def ServerAlive2(self):
+        raise
+
+# 3.1.2.5.2.2 IRemoteSCMActivator Methods
 class IRemoteSCMActivator():
+    def __init__(self, dce):
+        self.__dce = dce
+
     def RemoteGetClassObject(self):
         pass
 
-    def RemoteCreateInstance(self, dce, clsId, iid):
-        dce.bind(IID_IRemoteSCMActivator)
+    def RemoteCreateInstance(self, clsId, iid):
+        self.__dce.bind(IID_IRemoteSCMActivator)
 
         ORPCthis = ORPCTHIS()
         ORPCthis['cid'] = generate()
@@ -1170,7 +1224,7 @@ class IRemoteSCMActivator():
 
         request['pActProperties']['ulCntData'] = len(str(objrefcustom))
         request['pActProperties']['abData'] = list(str(objrefcustom))
-        resp = dce.request(request)
+        resp = self.__dce.request(request)
 
         # Now let's parse the answer and build an Interface instance
 
@@ -1241,7 +1295,7 @@ class IRemoteSCMActivator():
         iid = objRef['iid']
         stringBinding = 'ncacn_ip_tcp:' + stringBindings[1]['aNetworkAddr'][:-1]
 
-        classInstance = CLASS_INSTANCE(dce, ORPCthis)
+        classInstance = CLASS_INSTANCE(self.__dce, ORPCthis)
         classInstance.set_string_bindings(stringBindings)
         return IRemUnknown2(INTERFACE(classInstance, ''.join(propsOut['ppIntfData'][0]['abData'][4:]), ipidRemUnknown))
 
