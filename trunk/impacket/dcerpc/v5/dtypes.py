@@ -13,26 +13,16 @@
 #
 import random
 from struct import pack, unpack
-from impacket.dcerpc.v5.ndr import NDRULONG, NDRUHYPER, NDRUSMALL, NDRSHORT, NDRLONG, NDRPOINTER, NDRUniConformantArray, NDRUniFixedArray, NDR, NDRHYPER, NDRSMALL, NDRPOINTERNULL, NDRSTRUCT, NULL, NDRUSMALL, NDRBOOLEAN, NDRUSHORT
+from impacket.dcerpc.v5.ndr import NDRULONG, NDRUHYPER, NDRUSMALL, NDRSHORT, NDRLONG, NDRPOINTER, NDRUniConformantArray, NDRUniFixedArray, NDR, NDRHYPER, NDRSMALL, NDRPOINTERNULL, NDRSTRUCT, NULL, NDRUSMALL, NDRBOOLEAN, NDRUSHORT, NDRFLOAT, NDRDOUBLEFLOAT
 
 DWORD = NDRULONG
-ULONGLONG = NDRUHYPER
 BOOL = NDRULONG
 UCHAR = NDRUSMALL
-USHORT = NDRUSHORT
 SHORT = NDRSHORT
-ULONG = NDRULONG
-LONG = NDRLONG
-INT = NDRLONG
 
-class LPLONG(NDRPOINTER):
+class PSHORT(NDRPOINTER):
     referent = (
-        ('Data', LONG),
-    )
-
-class LPULONG(NDRPOINTER):
-    referent = (
-        ('Data', ULONG),
+        ('Data', SHORT),
     )
 
 class PBOOL(NDRPOINTER):
@@ -51,6 +41,13 @@ BOOLEAN = NDRBOOLEAN
 
 # 2.2.6 BYTE
 BYTE = NDRUSMALL
+
+# 2.2.7 CHAR
+CHAR = NDRSMALL
+class PCHAR(NDRPOINTER):
+    referent = (
+        ('Data', CHAR),
+    )
 
 class WIDESTR(NDRUniFixedArray):
     def getDataLen(self, data):
@@ -158,14 +155,53 @@ class LPWSTR(NDRPOINTER):
 # 2.2.5 BSTR
 BSTR = LPWSTR
 
+# 2.2.8 DOUBLE
+DOUBLE = NDRDOUBLEFLOAT
+class PDOUBLE(NDRPOINTER):
+    referent = (
+        ('Data', DOUBLE),
+    )
+
+# 2.2.15 FLOAT
+FLOAT = NDRFLOAT
+class PFLOAT(NDRPOINTER):
+    referent = (
+        ('Data', FLOAT),
+    )
+
 # 2.2.18 HRESULT
-HRESULT = LONG
+HRESULT = NDRLONG
+class PHRESULT(NDRPOINTER):
+    referent = (
+        ('Data', HRESULT),
+    )
+
+# 2.2.19 INT
+INT = NDRLONG
+class PINT(NDRPOINTER):
+    referent = (
+        ('Data', INT),
+    )
 
 # 2.2.26 LMSTR
 LMSTR = LPWSTR
 
+# 2.2.27 LONG
+LONG = NDRLONG
+class LPLONG(NDRPOINTER):
+    referent = (
+        ('Data', LONG),
+    )
+
+PLONG = LPLONG
+
 # 2.2.28 LONGLONG
 LONGLONG = NDRHYPER
+
+class PLONGLONG(NDRPOINTER):
+    referent = (
+        ('Data', LONGLONG),
+    )
 
 # 2.2.36 NET_API_STATUS
 NET_API_STATUS = DWORD
@@ -189,6 +225,36 @@ PUUID = PGUID
 
 # 2.2.37 NTSTATUS
 NTSTATUS = DWORD
+
+# 2.2.45 UINT
+UINT = NDRULONG
+class PUINT(NDRPOINTER):
+    referent = (
+        ('Data', UINT),
+    )
+
+# 2.2.50 ULONG
+ULONG = NDRULONG
+class PULONG(NDRPOINTER):
+    referent = (
+        ('Data', ULONG),
+    )
+
+LPULONG = PULONG
+
+# 2.2.54 ULONGLONG
+ULONGLONG = NDRUHYPER
+class PULONGLONG(NDRPOINTER):
+    referent = (
+        ('Data', ULONGLONG),
+    )
+
+# 2.2.57 USHORT
+USHORT = NDRUSHORT
+class PUSHORT(NDRPOINTER):
+    referent = (
+        ('Data', USHORT),
+    )
 
 # 2.2.59 WCHAR
 WCHAR = WSTR
