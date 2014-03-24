@@ -809,7 +809,11 @@ class DCERPC:
 
         self.call(request.opnum, request, uuid)
         answer = self.recv()
-        module = __import__(request.__module__.split('.')[-1], globals(), locals(), -1)
+        try:
+            module = __import__(request.__module__.split('.')[-1], globals(), locals(), -1)
+        except:
+            # Try the subdirectories
+            module = __import__('%s.%s' % (request.__module__.split('.')[-2],request.__module__.split('.')[-1]) , globals(), locals(), -1)
         respClass = getattr(module, request.__class__.__name__+'Response')
         if  answer[-4:] != '\x00\x00\x00\x00':
             error_code = unpack('<L', answer[-4:])[0]
