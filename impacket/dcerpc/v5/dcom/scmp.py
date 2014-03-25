@@ -291,7 +291,7 @@ class IVssSnapshotMgmt(IRemUnknown2):
         req['ProviderId'] = providerId
         req['InterfaceId'] = interfaceId
         resp = self.request(req, uuid = self.get_iPid())
-        return IVssDifferentialSoftwareSnapshotMgmt(INTERFACE(classInstance, ''.join(resp['ppItf']['abData']), self.get_ipidRemUnknown()))
+        return IVssDifferentialSoftwareSnapshotMgmt(INTERFACE(classInstance, ''.join(resp['ppItf']['abData']), self.get_ipidRemUnknown(), targetIP = self.get_target_ip()))
 
     def QueryVolumesSupportedForSnapshots(self, providerId, iContext):
         req = QueryVolumesSupportedForSnapshots()
@@ -301,7 +301,7 @@ class IVssSnapshotMgmt(IRemUnknown2):
         req['ProviderId'] = providerId
         req['IContext'] = iContext
         resp = self.request(req, uuid = self.get_iPid())
-        return IVssEnumMgmtObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(),self.get_dce_rpc()))
+        return IVssEnumMgmtObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(),targetIP = self.get_target_ip()))
 
     def QuerySnapshotsByVolume(self, volumeName, providerId = IID_ShadowCopyProvider):
         req = QuerySnapshotsByVolume()
@@ -320,7 +320,7 @@ class IVssSnapshotMgmt(IRemUnknown2):
             kk = QuerySnapshotsByVolumeResponse(data)
             kk.dump()
         #resp.dump()
-        return IVssEnumObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown()))
+        return IVssEnumObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(), targetIP = self.get_target_ip()))
 
 class IVssDifferentialSoftwareSnapshotMgmt(IRemUnknown2):
     def __init__(self, interface):
@@ -333,7 +333,7 @@ class IVssDifferentialSoftwareSnapshotMgmt(IRemUnknown2):
         req['ORPCthis']['flags'] = 0
         req['pwszVolumeName'] = pwszVolumeName
         resp = self.request(req, uuid = self.get_iPid())
-        return IVssEnumMgmtObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown()))
+        return IVssEnumMgmtObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(), targetIP = self.get_target_ip()))
 
     def QueryDiffAreasForVolume(self, pwszVolumeName):
         req = QueryDiffAreasForVolume()
@@ -342,7 +342,7 @@ class IVssDifferentialSoftwareSnapshotMgmt(IRemUnknown2):
         req['ORPCthis']['flags'] = 0
         req['pwszVolumeName'] = pwszVolumeName
         resp = self.request(req, uuid = self.get_iPid())
-        return IVssEnumMgmtObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown()))
+        return IVssEnumMgmtObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(), targetIP = self.get_target_ip()))
 
 
 

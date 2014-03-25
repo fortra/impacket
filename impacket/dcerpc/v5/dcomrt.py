@@ -933,8 +933,11 @@ class CLASS_INSTANCE():
         return self.__dce.get_credentials()
 
 class INTERFACE():
-    def __init__(self, cinstance, objRef, ipidRemUnknown, iPid = None, marshaled_iid = None, dce = None):
-        self.__dce = dce
+    def __init__(self, cinstance, objRef, ipidRemUnknown, iPid = None, marshaled_iid = None, targetIP = None):
+        if targetIP is None:
+            raise
+        self.__dce = None
+        self.__targetIP = targetIP
         self.__iPid = iPid
         self.__marshaled_iid = marshaled_iid
         self.__cinstance = cinstance
@@ -961,6 +964,9 @@ class INTERFACE():
         self.__iPid = objRef['std']['ipid']
         self.__marshaled_iid = objRef['iid']
 
+    def get_target_ip(self):
+        return self.__targetIP
+
     def get_dce_rpc(self):
         return self.__dce
 
@@ -974,7 +980,9 @@ class INTERFACE():
 	stringBindings = self.get_cinstance().get_string_bindings() 
         if self.__dce is None:
             # The current interface IID
-            stringBinding = 'ncacn_ip_tcp:' + stringBindings[1]['aNetworkAddr'][:-1]
+            for strBinding in stringBindings:
+                if strBinding['aNetworkAddr'].find(self.get_target_ip()) >= 0:
+                    stringBinding = 'ncacn_ip_tcp:' + strBinding['aNetworkAddr'][:-1]
             dcomInterface = transport.DCERPCTransportFactory(stringBinding)
             if hasattr(dcomInterface, 'set_credentials'):
                 # This method exists only for selected protocol sequences.
@@ -1034,7 +1042,7 @@ class INTERFACE():
 class IRemUnknown(INTERFACE):
     def __init__(self, interface):
         self._iid = IID_IRemUnknown
-        INTERFACE.__init__(self, interface.get_cinstance(), interface.get_objRef(), interface.get_ipidRemUnknown(), interface.get_iPid(), interface.get_marshaled_iid(), dce = interface.get_dce_rpc())
+        INTERFACE.__init__(self, interface.get_cinstance(), interface.get_objRef(), interface.get_ipidRemUnknown(), interface.get_iPid(), interface.get_marshaled_iid(), targetIP = interface.get_target_ip())
 
     def RemQueryInterface(self, cRefs, iids):
         # For now, it only supports a single IID
@@ -1050,7 +1058,7 @@ class IRemUnknown(INTERFACE):
             request['iids'].append(_iid)
         resp = self.request(request, IID_IRemUnknown, self.get_ipidRemUnknown())         
 
-        return IRemUnknown2(INTERFACE(self.get_cinstance(), None, self.get_ipidRemUnknown(), resp['ppQIResults']['std']['ipid'], iids[0], self.get_dce_rpc()))
+        return IRemUnknown2(INTERFACE(self.get_cinstance(), None, self.get_ipidRemUnknown(), resp['ppQIResults']['std']['ipid'], iids[0], targetIP = self.get_target_ip()))
 
     def RemAddRef(self):
         request = RemAddRef()
@@ -1297,5 +1305,5 @@ class IRemoteSCMActivator():
 
         classInstance = CLASS_INSTANCE(self.__dce, ORPCthis)
         classInstance.set_string_bindings(stringBindings)
-        return IRemUnknown2(INTERFACE(classInstance, ''.join(propsOut['ppIntfData'][0]['abData'][4:]), ipidRemUnknown))
+        return IRemUnknown2(INTERFACE(classInstance, ''.join(propsOut['ppIntfData'][0]['abData'][4:]), ipidRemUnknown, targetIP = self.__dce.get_rpc_transport().get_dip()))
 
