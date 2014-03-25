@@ -60,6 +60,7 @@ IID_IRemoteSCMActivator       = uuidtup_to_bin(('000001A0-0000-0000-C000-0000000
 IID_IRemUnknown               = uuidtup_to_bin(('00000131-0000-0000-C000-000000000046','0.0'))
 IID_IRemUnknown2              = uuidtup_to_bin(('00000143-0000-0000-C000-000000000046','0.0'))
 IID_IUnknown                  = uuidtup_to_bin(('00000000-0000-0000-C000-000000000046','0.0'))
+IID_IClassFactory             = uuidtup_to_bin(('00000001-0000-0000-C000-000000000046','0.0'))
 
 class DCERPCSessionError(Exception):
     def __init__( self, packet = None, error_code = None):
@@ -1285,8 +1286,7 @@ class IRemoteSCMActivator():
         self.__dce = dce
 
     def RemoteGetClassObject(self, clsId, iid):
-        # Not working at the moment, it returns E_NOINTERFACE while 
-        # it works with RemoteCreateInstance()
+        #  iid should be IID_IClassFactory
         self.__dce.bind(IID_IRemoteSCMActivator)
         ORPCthis = ORPCTHIS()
         ORPCthis['cid'] = generate()
