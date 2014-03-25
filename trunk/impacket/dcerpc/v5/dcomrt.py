@@ -20,6 +20,11 @@
 #   Helper functions start with "h"<name of the call>.
 #   There are test cases for them too. 
 #
+# ToDo:
+# [ ] Use the same DCE connection for all the calls. Right now is connecting to the remote machine
+#     for each call, making it slower.
+#
+
 from struct import pack
 from impacket.dcerpc.v5 import ndr
 from impacket.dcerpc.v5.ndr import NDRCALL, NDR, NDRSTRUCT, NDRPOINTER, NDRUniConformantArray, NDRUniFixedArray, NDRTLSTRUCT
@@ -660,9 +665,12 @@ class PHRESULT_ARRAY(NDRPOINTER):
 class MInterfacePointer_ARRAY(NDRUniConformantArray):
     item = MInterfacePointer
 
-class PMInterfacePointer_ARRAY(NDRPOINTER):
+class PMInterfacePointer_ARRAY(NDRUniConformantArray):
+    item = PMInterfacePointer
+
+class PPMInterfacePointer_ARRAY(NDRPOINTER):
     referent = (
-        ('Data', MInterfacePointer_ARRAY),
+        ('Data', PMInterfacePointer_ARRAY),
     )
 
 class PropsOutInfo(TypeSerialization1):
@@ -670,7 +678,7 @@ class PropsOutInfo(TypeSerialization1):
         ('cIfs',DWORD),
         ('piid',PIID_ARRAY),
         ('phresults',PHRESULT_ARRAY),
-        ('ppIntfData',PMInterfacePointer_ARRAY),
+        ('ppIntfData',PPMInterfacePointer_ARRAY),
     )
 
 # 2.2.23 REMINTERFACEREF
@@ -815,7 +823,7 @@ class RemoteActivation(NDRCALL):
        ('ClientImpLevel', DWORD),
        ('Mode', DWORD),
        ('Interfaces', DWORD),
-       ('pIIDs', PIID),
+       ('pIIDs', PIID_ARRAY),
        ('cRequestedProtseqs', USHORT),
        ('aRequestedProtseqs', USHORT_ARRAY),
     )
@@ -825,10 +833,11 @@ class RemoteActivationResponse(NDRCALL):
        ('ORPCthat', ORPCTHAT),
        ('pOxid', OXID),
        ('ppdsaOxidBindings', PDUALSTRINGARRAY),
-       ('pipidRemUnknown', DWORD),
+       ('pipidRemUnknown', IPID),
+       ('pAuthnHint', DWORD),
        ('pServerVersion', COMVERSION),
        ('phr', HRESULT),
-       ('ppInterfaceData', PMInterfacePointer),
+       ('ppInterfaceData', PMInterfacePointer_ARRAY),
        ('pResults', HRESULT_ARRAY),
        ('ErrorCode', error_status_t),
     )
@@ -939,6 +948,7 @@ class INTERFACE():
         self.__dce = None
         self.__targetIP = targetIP
         self.__iPid = iPid
+        self.__oxid = None
         self.__marshaled_iid = marshaled_iid
         self.__cinstance = cinstance
         self.__objRef = objRef
@@ -962,8 +972,11 @@ class INTERFACE():
             print "Unknown OBJREF Type! 0x%x" % objRefType
 
         self.__iPid = objRef['std']['ipid']
+        self.__oxid = objRef['std']['oxid']
         self.__marshaled_iid = objRef['iid']
 
+    def get_oxid(self):
+        return self.__oxid
     def get_target_ip(self):
         return self.__targetIP
 
@@ -1094,20 +1107,44 @@ class IRemUnknown2(IRemUnknown):
 class IObjectExporter():
     def __init__(self, dce):
         self.__dce = dce
+
     # 3.1.2.5.1.1 IObjectExporter::ResolveOxid (Opnum 0)
-    def ResolveOxid(self):
-        raise
+    def ResolveOxid(self, pOxid, arRequestedProtseqs):
+        self.__dce.connect()
+        self.__dce.bind(IID_IObjectExporter)
+        request = ResolveOxid()
+        request['pOxid'] = pOxid
+        request['cRequestedProtseqs'] = len(arRequestedProtseqs)
+        for protSeq in arRequestedProtseqs:
+            request['arRequestedProtseqs'].append(protSeq)
+        resp = self.__dce.request(request)
+        Oxids = ''.join(pack('<H', x) for x in resp['ppdsaOxidBindings']['aStringArray'])
+        strBindings = Oxids[:resp['ppdsaOxidBindings']['wSecurityOffset']*2]
+
+        done = False
+        stringBindings = list()
+        while not done:
+            if strBindings[0] == '\x00' and strBindings[1] == '\x00':
+                done = True
+            else:
+                binding = STRINGBINDING(strBindings)
+                stringBindings.append(binding)
+                strBindings = strBindings[len(binding):]
+
+        return stringBindings
     
     # 3.1.2.5.1.2 IObjectExporter::SimplePing (Opnum 1)
     def SimplePing(self, setId):
+        self.__dce.connect()
         self.__dce.bind(IID_IObjectExporter)
         request = SimplePing()
         request['pSetId'] = setId
-        resp = dce.request(request)
+        resp = self.__dce.request(request)
         return resp
     
     # 3.1.2.5.1.3 IObjectExporter::ComplexPing (Opnum 2)
     def ComplexPing(self, setId = 0):
+        self.__dce.connect()
         dce = self.__dce.bind(IID_IObjectExporter)
         request = ComplexPing()
         request['pSetId'] = setId
@@ -1116,25 +1153,243 @@ class IObjectExporter():
     
     # 3.1.2.5.1.4 IObjectExporter::ServerAlive (Opnum 3)
     def ServerAlive(self):
-        raise
+        self.__dce.connect()
+        dce = self.__dce.bind(IID_IObjectExporter)
+        request = ServerAlive()
+        resp = self.__dce.request(request)
+        return resp
 
     # 3.1.2.5.1.5 IObjectExporter::ResolveOxid2 (Opnum 4)
-    def ResolveOxid2(self):
-        raise
+    def ResolveOxid2(self,pOxid, arRequestedProtseqs):
+        self.__dce.connect()
+        self.__dce.bind(IID_IObjectExporter)
+        request = ResolveOxid2()
+        request['pOxid'] = pOxid
+        request['cRequestedProtseqs'] = len(arRequestedProtseqs)
+        for protSeq in arRequestedProtseqs:
+            request['arRequestedProtseqs'].append(protSeq)
+        resp = self.__dce.request(request)
+        Oxids = ''.join(pack('<H', x) for x in resp['ppdsaOxidBindings']['aStringArray'])
+        strBindings = Oxids[:resp['ppdsaOxidBindings']['wSecurityOffset']*2]
+
+        done = False
+        stringBindings = list()
+        while not done:
+            if strBindings[0] == '\x00' and strBindings[1] == '\x00':
+                done = True
+            else:
+                binding = STRINGBINDING(strBindings)
+                stringBindings.append(binding)
+                strBindings = strBindings[len(binding):]
+
+        return stringBindings
 
     # 3.1.2.5.1.6 IObjectExporter::ServerAlive2 (Opnum 5)
     def ServerAlive2(self):
-        raise
+        self.__dce.connect()
+        dce = self.__dce.bind(IID_IObjectExporter)
+        request = ServerAlive2()
+        resp = self.__dce.request(request)
+
+        Oxids = ''.join(pack('<H', x) for x in resp['ppdsaOrBindings']['aStringArray'])
+        strBindings = Oxids[:resp['ppdsaOrBindings']['wSecurityOffset']*2]
+
+        done = False
+        stringBindings = list()
+        while not done:
+            if strBindings[0] == '\x00' and strBindings[1] == '\x00':
+                done = True
+            else:
+                binding = STRINGBINDING(strBindings)
+                stringBindings.append(binding)
+                strBindings = strBindings[len(binding):]
+
+        return stringBindings
+
+# 3.1.2.5.2.1 IActivation Methods
+class IActivation():
+    def __init__(self, dce):
+        self.__dce = dce
+
+    # 3.1.2.5.2.3.1 IActivation:: RemoteActivation (Opnum 0)
+    def RemoteActivation(self, clsId, iid):
+        # Only supports one interface at a time
+        self.__dce.bind(IID_IActivation)
+        ORPCthis = ORPCTHIS()
+        ORPCthis['cid'] = generate()
+        ORPCthis['extensions'] = NULL
+        ORPCthis['flags'] = 1
+
+        request = RemoteActivation()
+        request['Clsid'] = clsId
+        request['pwszObjectName'] = NULL
+        request['pObjectStorage'] = NULL
+        request['ClientImpLevel'] = 2
+        request['Mode'] = 0
+        request['Interfaces'] = 1
+
+        _iid = IID()
+        _iid['Data'] = iid
+
+        request['pIIDs'].append(_iid)
+        request['cRequestedProtseqs'] = 1
+        request['aRequestedProtseqs'].append(7)
+
+        resp = self.__dce.request(request)
+
+        # Now let's parse the answer and build an Interface instance
+
+        ipidRemUnknown = resp['pipidRemUnknown']
+
+        Oxids = ''.join(pack('<H', x) for x in resp['ppdsaOxidBindings']['aStringArray'])
+        strBindings = Oxids[:resp['ppdsaOxidBindings']['wSecurityOffset']*2]
+        securityBindings = Oxids[resp['ppdsaOxidBindings']['wSecurityOffset']*2:]
+
+        done = False
+        stringBindings = list()
+        while not done:
+            if strBindings[0] == '\x00' and strBindings[1] == '\x00':
+                done = True
+            else:
+                binding = STRINGBINDING(strBindings)
+                stringBindings.append(binding)
+                strBindings = strBindings[len(binding):]
+
+        done = False
+        while not done:
+            if securityBindings[0] == '\x00' and securityBindings[1] == '\x00':
+                done = True
+            else:
+                secBinding = SECURITYBINDING(securityBindings)
+                securityBindings = securityBindings[len(secBinding):]
+
+        objRefType = OBJREF(''.join(resp['ppInterfaceData'][0]['abData']))['flags']
+        if objRefType == FLAGS_OBJREF_CUSTOM:
+            objRef = OBJREF_CUSTOM(''.join(resp['ppInterfaceData'][0]['abData']))
+        elif objRefType == FLAGS_OBJREF_HANDLER:
+            objRef = OBJREF_HANDLER(''.join(resp['ppInterfaceData'][0]['abData']))
+        elif objRefType == FLAGS_OBJREF_STANDARD:
+            objRef = OBJREF_STANDARD(''.join(resp['ppInterfaceData'][0]['abData']))
+        elif objRefType == FLAGS_OBJREF_EXTENDED:
+            objRef = OBJREF_EXTENDED(''.join(resp['ppInterfaceData'][0]['abData']))
+        else:
+            print "Unknown OBJREF Type! 0x%x" % objRefType
+
+        iPid = objRef['std']['ipid']
+        iid = objRef['iid']
+
+        classInstance = CLASS_INSTANCE(self.__dce, ORPCthis)
+        classInstance.set_string_bindings(stringBindings)
+        return IRemUnknown2(INTERFACE(classInstance, ''.join(resp['ppInterfaceData'][0]['abData']), ipidRemUnknown, targetIP = self.__dce.get_rpc_transport().get_dip()))
+
 
 # 3.1.2.5.2.2 IRemoteSCMActivator Methods
 class IRemoteSCMActivator():
     def __init__(self, dce):
         self.__dce = dce
 
-    def RemoteGetClassObject(self):
-        pass
+    def RemoteGetClassObject(self, clsId, iid):
+        # Not working at the moment, it returns E_NOINTERFACE while 
+        # it works with RemoteCreateInstance()
+        self.__dce.bind(IID_IRemoteSCMActivator)
+        ORPCthis = ORPCTHIS()
+        ORPCthis['cid'] = generate()
+        ORPCthis['extensions'] = NULL
+        ORPCthis['flags'] = 1
+
+        request = RemoteGetClassObject()
+        request['ORPCthis'] = ORPCthis
+        activationBLOB = ACTIVATION_BLOB()
+        activationBLOB['CustomHeader']['destCtx'] = 2
+        activationBLOB['CustomHeader']['pdwReserved'] = NULL
+        clsid = CLSID()
+        clsid['Data'] = CLSID_InstantiationInfo
+        activationBLOB['CustomHeader']['pclsid'].append(clsid)
+        clsid = CLSID()
+        clsid['Data'] = CLSID_ActivationContextInfo
+        activationBLOB['CustomHeader']['pclsid'].append(clsid)
+        clsid = CLSID()
+        clsid['Data'] = CLSID_ServerLocationInfo
+        activationBLOB['CustomHeader']['pclsid'].append(clsid)
+        clsid = CLSID()
+        clsid['Data'] = CLSID_ScmRequestInfo
+        activationBLOB['CustomHeader']['pclsid'].append(clsid)
+
+        properties = ''
+        # InstantiationInfo
+        instantiationInfo = InstantiationInfoData()
+        instantiationInfo['classId'] = clsId
+        instantiationInfo['cIID'] = 1
+
+        _iid = IID()
+        _iid['Data'] = iid
+
+        instantiationInfo['pIID'].append(_iid)
+
+        dword = DWORD()
+        marshaled = instantiationInfo.getData()+instantiationInfo.getDataReferents()
+        pad = (8 - (len(marshaled) % 8)) % 8
+        dword['Data'] = len(marshaled) + pad
+        activationBLOB['CustomHeader']['pSizes'].append(dword)
+        instantiationInfo['thisSize'] = dword['Data']
+
+        properties += marshaled + '\xFA'*pad
+
+        # ActivationContextInfoData
+        activationInfo = ActivationContextInfoData()
+        activationInfo['pIFDClientCtx'] = NULL
+        activationInfo['pIFDPrototypeCtx'] = NULL
+
+        dword = DWORD()
+        marshaled = activationInfo.getData()+activationInfo.getDataReferents()
+        pad = (8 - (len(marshaled) % 8)) % 8
+        dword['Data'] = len(marshaled) + pad
+        activationBLOB['CustomHeader']['pSizes'].append(dword)
+
+        properties += marshaled + '\xFA'*pad
+
+        # ServerLocation
+        locationInfo = LocationInfoData()
+        locationInfo['machineName'] = NULL
+
+        dword = DWORD()
+        dword['Data'] = len(locationInfo.getData())
+        activationBLOB['CustomHeader']['pSizes'].append(dword)
+
+        properties += locationInfo.getData()+locationInfo.getDataReferents()
+
+        # ScmRequestInfo
+        scmInfo = ScmRequestInfoData()
+        scmInfo['pdwReserved'] = NULL
+        #scmInfo['remoteRequest']['ClientImpLevel'] = 2
+        scmInfo['remoteRequest']['cRequestedProtseqs'] = 1
+        scmInfo['remoteRequest']['pRequestedProtseqs'].append(7)
+
+        dword = DWORD()
+        marshaled = scmInfo.getData()+scmInfo.getDataReferents()
+        pad = (8 - (len(marshaled) % 8)) % 8
+        dword['Data'] = len(marshaled) + pad
+        activationBLOB['CustomHeader']['pSizes'].append(dword)
+
+        properties += marshaled + '\xFA'*pad
+
+        activationBLOB['Property'] = properties
+
+
+        objrefcustom = OBJREF_CUSTOM()
+        objrefcustom['iid'] = IID_IActivationPropertiesIn[:-4]
+        objrefcustom['clsid'] = CLSID_ActivationPropertiesIn
+
+        objrefcustom['pObjectData'] = activationBLOB.getData()
+        objrefcustom['ObjectReferenceSize'] = len(objrefcustom['pObjectData'])+8
+
+        request['pActProperties']['ulCntData'] = len(str(objrefcustom))
+        request['pActProperties']['abData'] = list(str(objrefcustom))
+        resp = self.__dce.request(request)
+        return resp
 
     def RemoteCreateInstance(self, clsId, iid):
+        # Only supports one interface at a time
         self.__dce.bind(IID_IRemoteSCMActivator)
 
         ORPCthis = ORPCTHIS()
@@ -1287,23 +1542,22 @@ class IRemoteSCMActivator():
         propOutput2 = propOutput[len(propsOut):]
         propsOut.fromStringReferents(propOutput2)
 
-        objRefType = OBJREF(''.join(propsOut['ppIntfData'][0]['abData'][4:]))['flags']
+        objRefType = OBJREF(''.join(propsOut['ppIntfData'][0]['abData']))['flags']
         if objRefType == FLAGS_OBJREF_CUSTOM:
-            objRef = OBJREF_CUSTOM(''.join(propsOut['ppIntfData'][0]['abData'][4:]))
+            objRef = OBJREF_CUSTOM(''.join(propsOut['ppIntfData'][0]['abData']))
         elif objRefType == FLAGS_OBJREF_HANDLER:
-            objRef = OBJREF_HANDLER(''.join(propsOut['ppIntfData'][0]['abData'][4:]))
+            objRef = OBJREF_HANDLER(''.join(propsOut['ppIntfData'][0]['abData']))
         elif objRefType == FLAGS_OBJREF_STANDARD:
-            objRef = OBJREF_STANDARD(''.join(propsOut['ppIntfData'][0]['abData'][4:]))
+            objRef = OBJREF_STANDARD(''.join(propsOut['ppIntfData'][0]['abData']))
         elif objRefType == FLAGS_OBJREF_EXTENDED:
-            objRef = OBJREF_EXTENDED(''.join(propsOut['ppIntfData'][0]['abData'][4:]))
+            objRef = OBJREF_EXTENDED(''.join(propsOut['ppIntfData'][0]['abData']))
         else:
             print "Unknown OBJREF Type! 0x%x" % objRefType
 
         iPid = objRef['std']['ipid']
         iid = objRef['iid']
-        stringBinding = 'ncacn_ip_tcp:' + stringBindings[1]['aNetworkAddr'][:-1]
 
         classInstance = CLASS_INSTANCE(self.__dce, ORPCthis)
         classInstance.set_string_bindings(stringBindings)
-        return IRemUnknown2(INTERFACE(classInstance, ''.join(propsOut['ppIntfData'][0]['abData'][4:]), ipidRemUnknown, targetIP = self.__dce.get_rpc_transport().get_dip()))
+        return IRemUnknown2(INTERFACE(classInstance, ''.join(propsOut['ppIntfData'][0]['abData']), ipidRemUnknown, targetIP = self.__dce.get_rpc_transport().get_dip()))
 
