@@ -942,14 +942,13 @@ class CLASS_INSTANCE():
         return self.__dce.get_credentials()
 
 class INTERFACE():
-    def __init__(self, cinstance, objRef, ipidRemUnknown, iPid = None, marshaled_iid = None, targetIP = None):
+    def __init__(self, cinstance, objRef, ipidRemUnknown, iPid = None, targetIP = None):
         if targetIP is None:
             raise
         self.__dce = None
         self.__targetIP = targetIP
         self.__iPid = iPid
         self.__oxid = None
-        self.__marshaled_iid = marshaled_iid
         self.__cinstance = cinstance
         self.__objRef = objRef
         self.__ipidRemUnknown = ipidRemUnknown
@@ -973,7 +972,6 @@ class INTERFACE():
 
         self.__iPid = objRef['std']['ipid']
         self.__oxid = objRef['std']['oxid']
-        self.__marshaled_iid = objRef['iid']
 
     def get_oxid(self):
         return self.__oxid
@@ -1011,13 +1009,14 @@ class INTERFACE():
             dce.connect()
 
             if iid is None:
-                dce.bind(self.__marshaled_iid)
+                dce.bind(self._iid)
             else:
                 dce.bind(iid)
 
             self.__dce = dce
         else:
-            self.__dce = self.__dce.alter_ctx(self.__marshaled_iid)
+            print "Already connected DCE, not supported"
+            raise
 
         return self.__dce
 
@@ -1048,14 +1047,11 @@ class INTERFACE():
     def get_ipidRemUnknown(self):
         return self.__ipidRemUnknown
 
-    def get_marshaled_iid(self):
-        return self.__marshaled_iid
-
 # 3.1.1.5.6.1 IRemUnknown Methods
 class IRemUnknown(INTERFACE):
     def __init__(self, interface):
         self._iid = IID_IRemUnknown
-        INTERFACE.__init__(self, interface.get_cinstance(), interface.get_objRef(), interface.get_ipidRemUnknown(), interface.get_iPid(), interface.get_marshaled_iid(), targetIP = interface.get_target_ip())
+        INTERFACE.__init__(self, interface.get_cinstance(), interface.get_objRef(), interface.get_ipidRemUnknown(), interface.get_iPid(), targetIP = interface.get_target_ip())
 
     def RemQueryInterface(self, cRefs, iids):
         # For now, it only supports a single IID
@@ -1071,7 +1067,7 @@ class IRemUnknown(INTERFACE):
             request['iids'].append(_iid)
         resp = self.request(request, IID_IRemUnknown, self.get_ipidRemUnknown())         
 
-        return IRemUnknown2(INTERFACE(self.get_cinstance(), None, self.get_ipidRemUnknown(), resp['ppQIResults']['std']['ipid'], iids[0], targetIP = self.get_target_ip()))
+        return IRemUnknown2(INTERFACE(self.get_cinstance(), None, self.get_ipidRemUnknown(), resp['ppQIResults']['std']['ipid'], targetIP = self.get_target_ip()))
 
     def RemAddRef(self):
         request = RemAddRef()
