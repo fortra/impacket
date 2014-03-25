@@ -378,13 +378,26 @@ class HYPER_SIZEDARR(NDRSTRUCT):
 
 # 2.2.36 HREFTYPE
 HREFTYPE = DWORD
-# ToDo: Make this forward declarations to work
-VARIANT = LONG
-PVARIANT = NDRPOINTER
 
 # 2.2.30.5 SAFEARR_VARIANT
 class VARIANT_ARRAY(NDRUniConformantArray):
-    item = VARIANT
+    # In order to avoid the lack of forward declarations in Python
+    # I declare the item in the constructor
+    #item = VARIANT
+    def __init__(self, data = None, isNDR64 = False):
+        NDRUniConformantArray(self, data, isNDR64)
+        self.item = VARIANT
+
+class PVARIANT(NDRPOINTER):
+    # In order to avoid the lack of forward declarations in Python
+    # I declare the item in the constructor
+    #referent = (
+    #    ('Data', VARIANT),
+    #)
+    def __init__(self, data = None, isNDR64 = False):
+        NDRPOINTER(self, data, isNDR64)
+        self.referent = ( ('Data', VARIANT),)
+
 
 class SAFEARR_VARIANT(NDRSTRUCT):
     structure = (
