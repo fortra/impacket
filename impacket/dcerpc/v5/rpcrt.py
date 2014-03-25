@@ -768,6 +768,9 @@ class DCERPC:
         self._max_frag = None
         self.set_default_max_fragment_size()
 
+    def get_rpc_transport(self):
+        return self._transport
+
     def set_ctx_id(self, ctx_id):
         self._ctx = ctx_id
 
