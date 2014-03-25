@@ -171,6 +171,10 @@ class VARENUM(NDRENUM):
 
 # 2.2.8 SAFEARRAY Feature Constants
 class SF_TYPE(NDRENUM):
+    # [v1_enum] type
+    structure = (
+        ('Data', '<L'),
+    )
     class enumItems(Enum):
         SF_ERROR     = VARENUM.VT_ERROR
         SF_I1        = VARENUM.VT_I1
@@ -184,8 +188,47 @@ class SF_TYPE(NDRENUM):
         SF_RECORD    = VARENUM.VT_RECORD
         SF_HAVEIID   = VARENUM.VT_UNKNOWN | 0x8000
 
+# 2.2.10 CALLCONV Calling Convention Constants
+class CALLCONV(NDRENUM):
+    # [v1_enum] type
+    structure = (
+        ('Data', '<L'),
+    )
+    class enumItems(Enum):
+        CC_CDECL   = 1
+        CC_PASCAL  = 2
+        CC_STDCALL = 4
+
+
+# 2.2.12 FUNCKIND Function Access Constants
+class FUNCKIND(NDRENUM):
+    # [v1_enum] type
+    structure = (
+        ('Data', '<L'),
+    )
+    class enumItems(Enum):
+        FUNC_PUREVIRTUAL = 1
+        FUNC_STATIC      = 3
+        FUNC_DISPATCH    = 4
+
+# 2.2.14 INVOKEKIND Function Invocation Constants
+class INVOKEKIND(NDRENUM):
+    # [v1_enum] type
+    structure = (
+        ('Data', '<L'),
+    )
+    class enumItems(Enum):
+        INVOKE_FUNC           = 1
+        INVOKE_PROPERTYGET    = 2
+        INVOKE_PROPERTYPUT    = 4
+        INVOKE_PROPERTYPUTREF = 8
+
 # 2.2.17 TYPEKIND Type Kind Constants
 class TYPEKIND(NDRENUM):
+    # [v1_enum] type
+    structure = (
+        ('Data', '<L'),
+    )
     class enumItems(Enum):
         TKIND_ENUM      = 0
         TKIND_RECORD    = 1
@@ -524,16 +567,31 @@ class PVARIANT(NDRPOINTER):
         ('Data', VARIANT),
     )
 
+# 2.2.32 DISPID
+DISPID = LONG
+
+# 2.2.35 MEMBERID
+MEMBERID = DISPID
+
 # 2.2.38 ARRAYDESC
 class ARRAYDESC(NDRSTRUCT):
-    structure = (
-#        ('tdescElem',TYPEDESC),
-        ('cDims',USHORT),
-        ('rgbounds',SAFEARRAYBOUND_ARRAY),
-    )
+    # In order to avoid the lack of forward declarations in Python
+    # I declare the item in the constructor
+    #structure = (
+    #    ('tdescElem',TYPEDESC),
+    #    ('cDims',USHORT),
+    #    ('rgbounds',SAFEARRAYBOUND_ARRAY),
+    #)
+    def __init__(self, data = None, isNDR64 = False):
+        NDRSTRUCT(self, data, isNDR64)
+        self.structure = (
+            ('tdescElem',TYPEDESC),
+            ('cDims',USHORT),
+            ('rgbounds',SAFEARRAYBOUND_ARRAY),
+        )
 
 # 2.2.37 TYPEDESC
-class TYPEDESC(NDRUNION):
+class tdUnion(NDRUNION):
     commonHdr = (
         ('tag', USHORT),
     )
@@ -544,6 +602,79 @@ class TYPEDESC(NDRUNION):
         VARENUM.VT_USERDEFINED: ('hreftype', HREFTYPE),
     }
 
+class TYPEDESC(NDRSTRUCT):
+    structure = (
+        ('vt_type',VARENUM),
+        ('vt',VARENUM),
+    )
+
+# 2.2.48 SCODE
+SCODE = LONG
+
+class SCODE_ARRAY(NDRUniConformantArray):
+    item = SCODE
+
+class PSCODE_ARRAY(NDRPOINTER):
+    referent = (
+        ('Data', SCODE_ARRAY),
+    )
+
+# 2.2.39 PARAMDESCEX
+class PARAMDESCEX(NDRSTRUCT):
+    structure = (
+        ('cBytes',ULONG),
+        ('varDefaultValue',VARIANT),
+    )
+
+class PPARAMDESCEX(NDRPOINTER):
+    referent = (
+        ('Data', PARAMDESCEX),
+    )
+
+
+# 2.2.40 PARAMDESC
+class PARAMDESC(NDRSTRUCT):
+    structure = (
+        ('pparamdescex',PPARAMDESCEX),
+        ('wParamFlags',USHORT),
+    )
+
+# 2.2.41 ELEMDESC
+class ELEMDESC(NDRSTRUCT):
+    structure = (
+        ('tdesc',TYPEDESC),
+        ('paramdesc',PARAMDESC),
+    )
+
+class ELEMDESC_ARRAY(NDRUniConformantArray):
+    item = ELEMDESC
+
+class PELEMDESC_ARRAY(NDRPOINTER):
+    referent = (
+        ('Data', ELEMDESC_ARRAY),
+    )
+
+# 2.2.42 FUNCDESC
+class FUNCDESC(NDRSTRUCT):
+    structure = (
+        ('memid',MEMBERID),
+        ('lReserved1',PSCODE_ARRAY),
+        ('lprgelemdescParam',PELEMDESC_ARRAY),
+        ('funckind',FUNCKIND),
+        ('invkind',INVOKEKIND),
+        ('callconv',CALLCONV),
+        ('cParams',SHORT),
+        ('cParamsOpt',SHORT),
+        ('oVft',SHORT),
+        ('cReserved2',SHORT),
+        ('elemdescFunc',ELEMDESC),
+        ('wFuncFlags',WORD),
+    )
+
+class LPFUNCDESC(NDRPOINTER):
+    referent = (
+        ('Data', FUNCDESC),
+    )
 # 2.2.44 TYPEATTR
 class TYPEATTR(NDRSTRUCT):
     structure = (
@@ -551,9 +682,8 @@ class TYPEATTR(NDRSTRUCT):
         ('lcid',LCID),
         ('dwReserved1',DWORD),
         ('dwReserved2',DWORD),
-        #('dwReserved3',DWORD),
-        ('lpstrReserved4',DWORD),
-        #('lpstrReserved4',LPOLESTR),
+        ('dwReserved3',DWORD),
+        ('lpstrReserved4',LPOLESTR),
         ('cbSizeInstance',ULONG),
         ('typeKind',TYPEKIND),
         ('cFuncs',WORD),
@@ -564,10 +694,16 @@ class TYPEATTR(NDRSTRUCT):
         ('wTypeFlags',WORD),
         ('wMajorVerNum',WORD),
         ('wMinorVerNum',WORD),
-        #('tdescAlias',TYPEDESC),
-        #('dwReserved5',DWORD),
-        #('dwReserved6',WORD),
+        ('tdescAlias',TYPEDESC),
+        ('dwReserved5',DWORD),
+        ('dwReserved6',WORD),
     )
+
+class PTYPEATTR(NDRPOINTER):
+    referent = (
+        ('Data', TYPEATTR),
+    )
+
 
 ################################################################################
 # RPC CALLS
@@ -608,7 +744,21 @@ class ITypeInfo_GetTypeAttr(DCOMCALL):
 
 class ITypeInfo_GetTypeAttrResponse(DCOMANSWER):
     structure = (
-       ('ppTypeAttr', TYPEATTR),
+       ('ppTypeAttr', PTYPEATTR),
+       ('pReserved', DWORD),
+       ('ErrorCode', error_status_t),
+    )
+
+# 3.7.4.3 ITypeInfo::GetFuncDesc (Opnum 5)
+class ITypeInfo_GetFuncDesc(DCOMCALL):
+    opnum = 5
+    structure = (
+       ('index', UINT),
+    )
+
+class ITypeInfo_GetFuncDescResponse(DCOMANSWER):
+    structure = (
+       ('ppFuncDesc', LPFUNCDESC),
        ('pReserved', DWORD),
        ('ErrorCode', error_status_t),
     )
@@ -630,6 +780,13 @@ class ITypeInfo(IRemUnknown2):
 
     def GetTypeAttr(self):
         request = ITypeInfo_GetTypeAttr()
+        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
+        resp.dump()
+        return resp
+
+    def GetFuncDesc(self, index):
+        request = ITypeInfo_GetFuncDesc()
+        request['index'] = index
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
         resp.dump()
         return resp
