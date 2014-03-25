@@ -637,6 +637,6 @@ class IDispatch(IRemUnknown2):
         request['iTInfo'] = 0
         request['lcid'] = 0
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
-        return ITypeInfo(INTERFACE(self.get_cinstance(), ''.join(resp['ppTInfo']['abData']), self.get_ipidRemUnknown()))
+        return ITypeInfo(INTERFACE(self.get_cinstance(), ''.join(resp['ppTInfo']['abData']), self.get_ipidRemUnknown(), targetIP = self.get_target_ip()))
 
 

@@ -218,7 +218,7 @@ class IEnumVdsObject(IRemUnknown2):
                 raise
         interfaces = list()
         for interface in resp['ppObjectArray']:
-            interfaces.append(IRemUnknown2(INTERFACE(self.get_cinstance(), ''.join(interface['abData']), self.get_ipidRemUnknown())))
+            interfaces.append(IRemUnknown2(INTERFACE(self.get_cinstance(), ''.join(interface['abData']), self.get_ipidRemUnknown(), targetIP = self.get_target_ip())))
         return interfaces
 
 class IVdsProvider(IRemUnknown2):
@@ -275,7 +275,7 @@ class IVdsService(IRemUnknown2):
         request['ORPCthis']['flags'] = 0
         request['masks'] = masks
         resp = self.request(request, uuid = self.get_iPid())
-        return IEnumVdsObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown()))
+        return IEnumVdsObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(), targetIP = self.get_target_ip()))
 
 
 
