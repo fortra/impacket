@@ -11,10 +11,10 @@
 # ResolveOxid2
 # RemoteActivation
 # RemRelease
+# RemoteGetClassObject
 #
 #  Not yet:
 #
-# RemoteGetClassObject
 # 
 # Shouldn't dump errors against a win7
 #
@@ -96,6 +96,13 @@ class DCOMTests(unittest.TestCase):
         scm = dcomrt.IActivation(dce)
         iInterface = scm.RemoteActivation(comev.CLSID_EventSystem, comev.IID_IEventSystem)
 
+    def test_RemoteGetClassObject(self):
+        dce, rpctransport = self.connect()
+        IID_IClassFactory = uuidtup_to_bin(('00000001-0000-0000-C000-000000000046','0.0'))
+        scm = dcomrt.IRemoteSCMActivator(dce)
+        iInterface = scm.RemoteGetClassObject(comev.CLSID_EventSystem, IID_IClassFactory)
+
+
     def test_RemQueryInterface(self):
         dce, rpctransport = self.connect()
 
@@ -112,7 +119,7 @@ class DCOMTests(unittest.TestCase):
         iEventSystem = comev.IEventSystem(iInterface)
         iEventSystem.RemRelease()
 
-    def tes_hRemoteCreateInstance(self):
+    def test_RemoteCreateInstance(self):
         dce, rpctransport = self.connect()
 
         scm = dcomrt.IRemoteSCMActivator(dce)
