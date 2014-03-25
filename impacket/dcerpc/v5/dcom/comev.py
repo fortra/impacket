@@ -63,6 +63,7 @@ CLSID_EventClass           = string_to_bin('cdbec9c0-7a68-11d1-88f9-0080c7d771bf
 CLSID_EventSubscription    = string_to_bin('7542e960-79c7-11d1-88f9-0080c7d771bf')
 GUID_DefaultAppPartition   = string_to_bin('41E90F3E-56C1-4633-81C3-6E8BAC8BDD70')
 IID_IEventSystem           = uuidtup_to_bin(('4E14FB9F-2E22-11D1-9964-00C04FBBB345','0.0'))
+IID_IEventSystem2          = uuidtup_to_bin(('99CC098F-A48A-4e9c-8E58-965C0AFC19D5','0.0'))
 IID_IEventSystemInitialize = uuidtup_to_bin(('a0e8f27a-888c-11d1-b763-00c04fb926af','0.0'))
 IID_IEventObjectCollection = uuidtup_to_bin(('f89ac270-d4eb-11d1-b682-00805fc79216','0.0'))
 IID_IEnumEventObject       = uuidtup_to_bin(('F4A07D63-2E25-11D1-9964-00C04FBBB345','0.0'))
@@ -1387,7 +1388,7 @@ class IEventClass2(IEventClass):
 class IEventClass3(IEventClass2):
     def __init__(self, interface):
         IEventClass2.__init__(self,interface)
-        self._iid = IID_IEventClass2
+        self._iid = IID_IEventClass3
 
     def get_EventClassPartitionID(self):
         request = IEventClass3_get_EventClassPartitionID()
@@ -1803,13 +1804,13 @@ class IEventObjectCollection(IDispatch):
 class IEventSystem(IDispatch):
     def __init__(self, interface):
         IDispatch.__init__(self,interface)
-        self._iid = IEventSystem
+        self._iid = IID_IEventSystem
 
     def Query(self, progID, queryCriteria):
         request = IEventSystem_Query()
         request['progID']['asData']=progID
         request['queryCriteria']['asData']=queryCriteria
-        resp = self.request(request, uuid = self.get_iPid())
+        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
         iInterface = IDispatch(INTERFACE(self.get_cinstance(), ''.join(resp['ppInterface']['abData']), self.get_ipidRemUnknown(), targetIP = self.get_target_ip()))
         return IEventObjectCollection(iInterface.RemQueryInterface(1, (IID_IEventObjectCollection,)))
 
@@ -1817,7 +1818,7 @@ class IEventSystem(IDispatch):
         request = IEventSystem_Store()
         request['progID']['asData']=progID
         request['pInterface'] = pInterface
-        resp = self.request(request, uuid = self.get_iPid())
+        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
         return resp
 
     def Remove(self, progID, queryCriteria):
@@ -1850,7 +1851,7 @@ class IEventSystem(IDispatch):
 class IEventSystem2(IEventSystem):
     def __init__(self, interface):
         IEventSystem.__init__(self,interface)
-        self._iid = IEventSystem2
+        self._iid = IID_IEventSystem2
 
     def GetVersion(self):
         request = IEventSystem_GetVersion()
