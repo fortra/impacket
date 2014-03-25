@@ -1382,6 +1382,78 @@ class IRemoteSCMActivator():
         request['pActProperties']['ulCntData'] = len(str(objrefcustom))
         request['pActProperties']['abData'] = list(str(objrefcustom))
         resp = self.__dce.request(request)
+        # Now let's parse the answer and build an Interface instance
+
+        objRefType = OBJREF(''.join(resp['ppActProperties']['abData']))['flags']
+        if objRefType == FLAGS_OBJREF_CUSTOM:
+            objRef = OBJREF_CUSTOM(''.join(resp['ppActProperties']['abData']))
+        elif objRefType == FLAGS_OBJREF_HANDLER:
+            objRef = OBJREF_HANDLER(''.join(resp['ppActProperties']['abData']))
+        elif objRefType == FLAGS_OBJREF_STANDARD:
+            objRef = OBJREF_STANDARD(''.join(resp['ppActProperties']['abData']))
+        elif objRefType == FLAGS_OBJREF_EXTENDED:
+            objRef = OBJREF_EXTENDED(''.join(resp['ppActProperties']['abData']))
+        else:
+            print "Unknown OBJREF Type! 0x%x" % objRefType
+
+
+        activationBlob = ACTIVATION_BLOB(objRef['pObjectData'])
+
+        propOutput = activationBlob['Property'][:activationBlob['CustomHeader']['pSizes'][0]['Data']]
+        scmReply = activationBlob['Property'][activationBlob['CustomHeader']['pSizes'][0]['Data']:activationBlob['CustomHeader']['pSizes'][0]['Data']+activationBlob['CustomHeader']['pSizes'][1]['Data']]
+
+        scmr = ScmReplyInfoData()
+        scmr.fromString(scmReply)
+        # Processing the scmReply
+        scmReply = scmReply[len(scmr.getData()):]
+        scmr.fromStringReferents(scmReply)
+        ipidRemUnknown = scmr['remoteReply']['ipidRemUnknown']
+        Oxids = ''.join(pack('<H', x) for x in scmr['remoteReply']['pdsaOxidBindings']['aStringArray'])
+        strBindings = Oxids[:scmr['remoteReply']['pdsaOxidBindings']['wSecurityOffset']*2]
+        securityBindings = Oxids[scmr['remoteReply']['pdsaOxidBindings']['wSecurityOffset']*2:]
+
+        done = False
+        stringBindings = list()
+        while not done:
+            if strBindings[0] == '\x00' and strBindings[1] == '\x00':
+                done = True
+            else:
+                binding = STRINGBINDING(strBindings)
+                stringBindings.append(binding)
+                strBindings = strBindings[len(binding):]
+
+        done = False
+        while not done:
+            if securityBindings[0] == '\x00' and securityBindings[1] == '\x00':
+                done = True
+            else:
+                secBinding = SECURITYBINDING(securityBindings)
+                securityBindings = securityBindings[len(secBinding):]
+
+        # Processing the Properties Output
+        propsOut = PropsOutInfo(propOutput)
+        propOutput2 = propOutput[len(propsOut):]
+        propsOut.fromStringReferents(propOutput2)
+
+        objRefType = OBJREF(''.join(propsOut['ppIntfData'][0]['abData']))['flags']
+        if objRefType == FLAGS_OBJREF_CUSTOM:
+            objRef = OBJREF_CUSTOM(''.join(propsOut['ppIntfData'][0]['abData']))
+        elif objRefType == FLAGS_OBJREF_HANDLER:
+            objRef = OBJREF_HANDLER(''.join(propsOut['ppIntfData'][0]['abData']))
+        elif objRefType == FLAGS_OBJREF_STANDARD:
+            objRef = OBJREF_STANDARD(''.join(propsOut['ppIntfData'][0]['abData']))
+        elif objRefType == FLAGS_OBJREF_EXTENDED:
+            objRef = OBJREF_EXTENDED(''.join(propsOut['ppIntfData'][0]['abData']))
+        else:
+            print "Unknown OBJREF Type! 0x%x" % objRefType
+
+        iPid = objRef['std']['ipid']
+        iid = objRef['iid']
+
+        classInstance = CLASS_INSTANCE(self.__dce, ORPCthis)
+        classInstance.set_string_bindings(stringBindings)
+        return IRemUnknown2(INTERFACE(classInstance, ''.join(propsOut['ppIntfData'][0]['abData']), ipidRemUnknown, targetIP = self.__dce.get_rpc_transport().get_dip()))
+
         return resp
 
     def RemoteCreateInstance(self, clsId, iid):
