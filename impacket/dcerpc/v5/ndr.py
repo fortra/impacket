@@ -854,7 +854,7 @@ class NDRENUM(NDR):
         if msg != '':
             print msg,
 
-        print " %s" % self.enumItems(self.fields['Data']).name
+        print " %s" % self.enumItems(self.fields['Data']).name,
 
 # NDR Constructed Types (arrays, strings, structures, unions, variant structures, pipes and pointers)
 
