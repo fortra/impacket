@@ -1397,7 +1397,17 @@ class NDRUNION(NDR):
                 self.__init__(None, isNDR64=self._isNDR64, topLevel = self.topLevel)
                 self.fields['tag']['Data'] = value
             else:
-                raise Exception("Unknown tag %d for union!" % value)
+                # Let's see if we have a default value
+                if self.union.has_key('default'):
+                    if self.union['default'] is None:
+                        self.structure = ()
+                    else:
+                        self.structure = (self.union['default']),
+                        # Init again the structure
+                        self.__init__(None, isNDR64=self._isNDR64, topLevel = self.topLevel)
+                    self.fields['tag']['Data'] = 0xffff
+                else:
+                    raise Exception("Unknown tag %d for union!" % value)
         else:
             return NDR.__setitem__(self,key,value)
 
@@ -1427,16 +1437,21 @@ class NDRUNION(NDR):
         # Now we need to align what's coming next.
         # This doesn't come from the documentation but from seeing the packets in the wire
         # for some reason, even if the next field is a SHORT, it should be aligned to
-        # a DWORD, or HYPER if NDR64
+        # HYPER if NDR64. It thought NDR32 should be aligned to a DWORD, but looks like that's 
+        # not the case.
         if self._isNDR64:
             align = 8
         else:
-            align = 4
+            align = 1
 
         pad = (align - (soFar % align)) % align
         if pad > 0:
             data = data + '\xbb'*pad
             soFar += pad
+
+        if self.structure is ():
+            self.data = data
+            return data
 
         for fieldName, fieldTypeOrClass in self.structure:
             try:
@@ -1470,7 +1485,17 @@ class NDRUNION(NDR):
                 self.structure = (self.union[tag]),
                 self.__init__(None, isNDR64=self._isNDR64, topLevel = self.topLevel)
             else:
-                raise Exception("Unknown tag %d for union!" % tag)
+                # Let's see if we have a default value
+                if self.union.has_key('default'):
+                    if self.union['default'] is None:
+                        self.structure = ()
+                    else:
+                        self.structure = (self.union['default']),
+                        # Init again the structure
+                        self.__init__(None, isNDR64=self._isNDR64, topLevel = self.topLevel)
+                    self.fields['tag']['Data'] = 0xffff
+                else:
+                    raise Exception("Unknown tag %d for union!" % tag)
 
         if self.rawData is None:
             self.rawData = data
@@ -1496,16 +1521,20 @@ class NDRUNION(NDR):
         # Now we need to align what's coming next.
         # This doesn't come from the documentation but from seeing the packets in the wire
         # for some reason, even if the next field is a SHORT, it should be aligned to
-        # a DWORD, or HYPER if NDR64
+        # HYPER if NDR64. It thought NDR32 should be aligned to a DWORD, but looks like that's 
+        # not the case.
         if self._isNDR64:
             align = 8
         else:
-            align = 4
+            align = 1
 
         pad = (align - (soFar % align)) % align
         if pad > 0:
             data = data[pad:]
             soFar += pad
+
+        if self.structure is ():
+            return self
 
         for fieldName, fieldTypeOrClass in self.structure:
             size = self.calcUnPackSize(fieldTypeOrClass, data)
