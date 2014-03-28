@@ -1437,12 +1437,11 @@ class NDRUNION(NDR):
         # Now we need to align what's coming next.
         # This doesn't come from the documentation but from seeing the packets in the wire
         # for some reason, even if the next field is a SHORT, it should be aligned to
-        # HYPER if NDR64. It thought NDR32 should be aligned to a DWORD, but looks like that's 
-        # not the case.
+        # a DWORD, or HYPER if NDR64. 
         if self._isNDR64:
             align = 8
         else:
-            align = 1
+            align = 4
 
         pad = (align - (soFar % align)) % align
         if pad > 0:
@@ -1521,12 +1520,11 @@ class NDRUNION(NDR):
         # Now we need to align what's coming next.
         # This doesn't come from the documentation but from seeing the packets in the wire
         # for some reason, even if the next field is a SHORT, it should be aligned to
-        # HYPER if NDR64. It thought NDR32 should be aligned to a DWORD, but looks like that's 
-        # not the case.
+        # a DWORD, or HYPER if NDR64. 
         if self._isNDR64:
             align = 8
         else:
-            align = 1
+            align = 4
 
         pad = (align - (soFar % align)) % align
         if pad > 0:
