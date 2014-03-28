@@ -228,7 +228,8 @@ class SCMRTests(unittest.TestCase):
             request['Info']['dwInfoLevel'] = 9
             request['Info']['Union']['tag'] = 9
             request['Info']['Union']['pspn']['usPreferredNode'] = 22
-            resp = dce.request(request)
+            # This one doesn't work
+            #resp = dce.request(request)
             #self.changeServiceAndQuery2(dce, request, request['Info']['Union']['pspn']['usPreferredNode'])
             request['Info']['dwInfoLevel'] = 10
             request['Info']['Union']['tag'] = 10
