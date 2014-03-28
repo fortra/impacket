@@ -78,7 +78,7 @@ class RRPTests(unittest.TestCase):
         request['ServerName'] = NULL
         request['samDesired'] = MAXIMUM_ALLOWED
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_OpenCurrentUser(self):
         dce, rpctransport, phKey = self.connect()
@@ -86,7 +86,7 @@ class RRPTests(unittest.TestCase):
         request['ServerName'] = NULL
         request['samDesired'] = MAXIMUM_ALLOWED
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_OpenLocalMachine(self):
         dce, rpctransport, phKey = self.connect()
@@ -94,7 +94,7 @@ class RRPTests(unittest.TestCase):
         request['ServerName'] = NULL
         request['samDesired'] = MAXIMUM_ALLOWED
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_OpenPerformanceData(self):
         dce, rpctransport, phKey = self.connect()
@@ -102,7 +102,7 @@ class RRPTests(unittest.TestCase):
         request['ServerName'] = NULL
         request['samDesired'] = MAXIMUM_ALLOWED
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_OpenUsers(self):
         dce, rpctransport, phKey = self.connect()
@@ -110,28 +110,28 @@ class RRPTests(unittest.TestCase):
         request['ServerName'] = NULL
         request['samDesired'] = MAXIMUM_ALLOWED
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_BaseRegCloseKey(self):
         dce, rpctransport, phKey = self.connect()
         request = rrp.BaseRegCloseKey()
         request['hKey'] = phKey
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_hBaseRegCreateKey_hBaseRegSetValue_hBaseRegDeleteKey(self):
         dce, rpctransport, phKey = self.connect()
         resp = rrp.hOpenClassesRoot(dce)
-        #resp.dump()
+        resp.dump()
         regHandle = resp['phKey']
 
         resp = rrp.hBaseRegCreateKey(dce, regHandle, 'BETO\x00')
-        #resp.dump()
+        resp.dump()
         phKey = resp['phkResult']
 
         try: 
             resp = rrp.hBaseRegSetValue(dce, phKey, 'BETO2\x00',  rrp.REG_SZ, 'HOLA COMO TE VA\x00')
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             print e
 
@@ -139,10 +139,10 @@ class RRPTests(unittest.TestCase):
         #print data
 
         resp = rrp.hBaseRegDeleteValue(dce, phKey, 'BETO2\x00')
-        #resp.dump()
+        resp.dump()
 
         resp = rrp.hBaseRegDeleteKey(dce, regHandle, 'BETO\x00')
-        #resp.dump()
+        resp.dump()
         self.assertTrue( 'HOLA COMO TE VA\x00' == data )
 
     def test_BaseRegCreateKey_BaseRegSetValue_BaseRegDeleteKey(self):
@@ -151,7 +151,7 @@ class RRPTests(unittest.TestCase):
         request['ServerName'] = NULL
         request['samDesired'] = MAXIMUM_ALLOWED 
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
         regHandle = resp['phKey']
 
         request = rrp.BaseRegCreateKey()
@@ -163,7 +163,7 @@ class RRPTests(unittest.TestCase):
         request['lpSecurityAttributes']['RpcSecurityDescriptor']['lpSecurityDescriptor'] = NULL
         request['lpdwDisposition'] = rrp.REG_CREATED_NEW_KEY
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
         phKey = resp['phkResult']
 
         request = rrp.BaseRegSetValue()
@@ -175,7 +175,7 @@ class RRPTests(unittest.TestCase):
         
         try: 
             resp = dce.request(request)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             print e
 
@@ -186,14 +186,14 @@ class RRPTests(unittest.TestCase):
         request['lpcbData'] = 100
         request['lpcbLen'] = 100
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
         resData = resp['lpData']
 
         request = rrp.BaseRegDeleteKey()
         request['hKey'] = regHandle
         request['lpSubKey'] = 'BETO\x00'
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
         self.assertTrue( 'HOLA COMO TE VA\x00' == ''.join(resData).decode('utf-16le'))
 
     def test_BaseRegEnumKey(self):
@@ -215,7 +215,7 @@ class RRPTests(unittest.TestCase):
         request['lpClassIn'] = ' '*100
         request['lpftLastWriteTime'] = NULL
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_hBaseRegEnumKey(self):
         dce, rpctransport, phKey = self.connect()
@@ -228,7 +228,7 @@ class RRPTests(unittest.TestCase):
         resp = dce.request(request)
 
         resp = rrp.hBaseRegEnumKey(dce, resp['phkResult'], 1 )
-        #resp.dump()
+        resp.dump()
 
     def test_BaseRegEnumValue(self):
         dce, rpctransport, phKey = self.connect()
@@ -248,7 +248,7 @@ class RRPTests(unittest.TestCase):
         request['lpcbData'] = 100
         request['lpcbLen'] = 100
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_hBaseRegEnumValue(self):
         dce, rpctransport, phKey = self.connect()
@@ -261,20 +261,20 @@ class RRPTests(unittest.TestCase):
         resp = dce.request(request)
 
         resp = rrp.hBaseRegEnumValue(dce, resp['phkResult'], 7)
-        #resp.dump()
+        resp.dump()
 
 
     def test_BaseRegFlushKey(self):
         dce, rpctransport, phKey = self.connect()
 
         resp =  rrp.hBaseRegFlushKey(dce,phKey)
-        #resp.dump()
+        resp.dump()
 
     def test_BaseRegGetKeySecurity(self):
         dce, rpctransport, phKey = self.connect()
 
         resp = rrp.hBaseRegGetKeySecurity(dce, phKey, OWNER_SECURITY_INFORMATION)
-        #resp.dump()
+        resp.dump()
 
     def test_BaseRegOpenKey(self):
         dce, rpctransport, phKey = self.connect()
@@ -285,7 +285,7 @@ class RRPTests(unittest.TestCase):
         request['dwOptions'] = 0x00000001
         request['samDesired'] = MAXIMUM_ALLOWED
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_hBaseRegQueryInfoKey(self):
         dce, rpctransport, phKey = self.connect()
@@ -293,7 +293,7 @@ class RRPTests(unittest.TestCase):
         resp = rrp.hBaseRegOpenKey(dce, phKey, 'SYSTEM\\CurrentControlSet\\Control\\Lsa\\JD\x00' )
 
         resp = rrp.hBaseRegQueryInfoKey(dce,resp['phkResult'])
-        #resp.dump()
+        resp.dump()
 
     def test_BaseRegQueryValue(self):
         dce, rpctransport, phKey = self.connect()
@@ -304,7 +304,7 @@ class RRPTests(unittest.TestCase):
         request['dwOptions'] = 0x00000001
         request['samDesired'] = MAXIMUM_ALLOWED
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request = rrp.BaseRegQueryValue()
         request['hKey'] = resp['phkResult']
@@ -313,17 +313,16 @@ class RRPTests(unittest.TestCase):
         request['lpcbData'] = 100
         request['lpcbLen'] = 100
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_hBaseRegQueryValue(self):
         dce, rpctransport, phKey = self.connect()
 
         resp = rrp.hBaseRegOpenKey(dce, phKey, 'SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\x00' )
-        #resp.dump()
+        resp.dump()
 
         resp = rrp.hBaseRegQueryValue(dce, resp['phkResult'], 'ProductName\x00')
-        #resp.dump()
-
+        
     def test_BaseRegReplaceKey(self):
         dce, rpctransport, phKey = self.connect()
 
@@ -334,7 +333,7 @@ class RRPTests(unittest.TestCase):
         request['lpOldFile'] = 'SOFTWARE\x00'
         try:
             resp = dce.request(request)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('ERROR_FILE_NOT_FOUND') < 0:
                 raise
@@ -344,7 +343,7 @@ class RRPTests(unittest.TestCase):
 
         try:
             resp = rrp.hBaseRegReplaceKey(dce, phKey, 'SOFTWARE\x00', 'SOFTWARE\x00', 'SOFTWARE\x00')
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('ERROR_FILE_NOT_FOUND') < 0:
                 raise
@@ -358,7 +357,7 @@ class RRPTests(unittest.TestCase):
         request['Flags'] = rrp.REG_REFRESH_HIVE
         try:
             resp = dce.request(request)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('ERROR_FILE_NOT_FOUND') < 0:
                 raise
@@ -368,7 +367,7 @@ class RRPTests(unittest.TestCase):
 
         try:
             resp = rrp.hBaseRegRestoreKey(dce, phKey, 'SOFTWARE\x00')
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('ERROR_FILE_NOT_FOUND') < 0:
                 raise
@@ -380,14 +379,14 @@ class RRPTests(unittest.TestCase):
         request['ServerName'] = NULL
         request['samDesired'] = MAXIMUM_ALLOWED
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request = rrp.BaseRegSaveKey()
         request['hKey'] = resp['phKey']
         request['lpFile'] = 'BETUSFILE2\x00'
         request['pSecurityAttributes'] = NULL
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
         # I gotta remove the file now :s
         smb = rpctransport.get_smb_connection()
         smb.deleteFile('ADMIN$', 'System32\\BETUSFILE2')
@@ -396,10 +395,10 @@ class RRPTests(unittest.TestCase):
         dce, rpctransport, phKey = self.connect()
 
         resp = rrp.hOpenCurrentUser(dce)
-        #resp.dump()
+        resp.dump()
 
         resp = rrp.hBaseRegSaveKey(dce,resp['phKey'],'BETUSFILE2\x00')
-        #resp.dump()
+        resp.dump()
         # I gotta remove the file now :s
         smb = rpctransport.get_smb_connection()
         smb.deleteFile('ADMIN$', 'System32\\BETUSFILE2')
@@ -410,13 +409,13 @@ class RRPTests(unittest.TestCase):
         request = rrp.BaseRegGetVersion()
         request['hKey'] = phKey
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_hBaseRegGetVersion(self):
         dce, rpctransport, phKey = self.connect()
 
         resp = rrp.hBaseRegGetVersion(dce, phKey)
-        #resp.dump()
+        resp.dump()
 
     def test_OpenCurrentConfig(self):
         dce, rpctransport, phKey = self.connect()
@@ -425,13 +424,13 @@ class RRPTests(unittest.TestCase):
         request['ServerName'] = NULL
         request['samDesired'] = MAXIMUM_ALLOWED
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_hOpenCurrentConfig(self):
         dce, rpctransport, phKey = self.connect()
 
         resp = rrp.hOpenCurrentConfig(dce)
-        #resp.dump()
+        resp.dump()
 
     def test_BaseRegQueryMultipleValues(self):
         dce, rpctransport, phKey = self.connect()
@@ -442,7 +441,7 @@ class RRPTests(unittest.TestCase):
         request['dwOptions'] = 0x00000001
         request['samDesired'] = MAXIMUM_ALLOWED | rrp.KEY_QUERY_VALUE
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request = rrp.BaseRegQueryMultipleValues()
 
@@ -472,13 +471,13 @@ class RRPTests(unittest.TestCase):
         request['lpvalueBuf'] = list(' '*128)
         request['ldwTotsize'] = 128
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_hBaseRegQueryMultipleValues(self):
         dce, rpctransport, phKey = self.connect()
 
         resp = rrp.hBaseRegOpenKey(dce, phKey, 'SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\x00')
-        #resp.dump()
+        resp.dump()
 
 
         valueIn = list()
@@ -507,7 +506,7 @@ class RRPTests(unittest.TestCase):
         request['ServerName'] = NULL
         request['samDesired'] = MAXIMUM_ALLOWED
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request = rrp.BaseRegSaveKeyEx()
         request['hKey'] = resp['phKey']
@@ -515,7 +514,7 @@ class RRPTests(unittest.TestCase):
         request['pSecurityAttributes'] = NULL
         request['Flags'] = 4
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
         # I gotta remove the file now :s
         smb = rpctransport.get_smb_connection()
         smb.deleteFile('ADMIN$', 'System32\\BETUSFILE2')
@@ -524,10 +523,10 @@ class RRPTests(unittest.TestCase):
         dce, rpctransport, phKey = self.connect()
 
         resp = rrp.hOpenCurrentUser(dce)
-        #resp.dump()
+        resp.dump()
 
         resp = rrp.hBaseRegSaveKeyEx(dce, resp['phKey'], 'BETUSFILE2\x00')
-        #resp.dump()
+        resp.dump()
         # I gotta remove the file now :s
         smb = rpctransport.get_smb_connection()
         smb.deleteFile('ADMIN$', 'System32\\BETUSFILE2')
@@ -539,13 +538,13 @@ class RRPTests(unittest.TestCase):
         request['ServerName'] = NULL
         request['samDesired'] = MAXIMUM_ALLOWED
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_hOpenPerformanceText(self):
         dce, rpctransport, phKey = self.connect()
 
         resp = rrp.hOpenPerformanceText(dce)
-        #resp.dump()
+        resp.dump()
 
     def test_OpenPerformanceNlsText(self):
         dce, rpctransport, phKey = self.connect()
@@ -554,13 +553,13 @@ class RRPTests(unittest.TestCase):
         request['ServerName'] = NULL
         request['samDesired'] = MAXIMUM_ALLOWED
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_hOpenPerformanceNlsText(self):
         dce, rpctransport, phKey = self.connect()
 
         resp = rrp.hOpenPerformanceNlsText(dce)
-        #resp.dump()
+        resp.dump()
 
     def test_BaseRegQueryMultipleValues2(self):
         dce, rpctransport, phKey = self.connect()
@@ -571,7 +570,7 @@ class RRPTests(unittest.TestCase):
         request['dwOptions'] = 0x00000001
         request['samDesired'] = MAXIMUM_ALLOWED | rrp.KEY_QUERY_VALUE
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request = rrp.BaseRegQueryMultipleValues2()
 
@@ -601,7 +600,7 @@ class RRPTests(unittest.TestCase):
         request['lpvalueBuf'] = list(' '*128)
         request['ldwTotsize'] = 128
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_BaseRegDeleteKeyEx(self):
         dce, rpctransport, phKey = self.connect()
@@ -609,7 +608,7 @@ class RRPTests(unittest.TestCase):
         request['ServerName'] = NULL
         request['samDesired'] = MAXIMUM_ALLOWED 
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
         regHandle = resp['phKey']
 
         request = rrp.BaseRegCreateKey()
@@ -621,7 +620,7 @@ class RRPTests(unittest.TestCase):
         request['lpSecurityAttributes']['RpcSecurityDescriptor']['lpSecurityDescriptor'] = NULL
         request['lpdwDisposition'] = rrp.REG_CREATED_NEW_KEY
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
         phKey = resp['phkResult']
 
         request = rrp.BaseRegDeleteKeyEx()
@@ -630,7 +629,7 @@ class RRPTests(unittest.TestCase):
         request['AccessMask'] = rrp.KEY_WOW64_32KEY
         request['Reserved'] = 0
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_BaseRegLoadKey_BaseRegUnLoadKey(self):
         dce, rpctransport, phKey = self.connect()
@@ -641,27 +640,27 @@ class RRPTests(unittest.TestCase):
         request['dwOptions'] = 0x00000001
         request['samDesired'] = MAXIMUM_ALLOWED 
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request = rrp.BaseRegSaveKey()
         request['hKey'] = resp['phkResult']
         request['lpFile'] = 'SEC\x00'
         request['pSecurityAttributes'] = NULL
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request = rrp.BaseRegLoadKey()
         request['hKey'] = phKey
         request['lpSubKey'] = 'BETUS\x00'
         request['lpFile'] = 'SEC\x00'
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request = rrp.BaseRegUnLoadKey()
         request['hKey'] = phKey
         request['lpSubKey'] = 'BETUS\x00'
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         smb = rpctransport.get_smb_connection()
         smb.deleteFile('ADMIN$', 'System32\\SEC')
@@ -670,20 +669,20 @@ class RRPTests(unittest.TestCase):
         dce, rpctransport, phKey = self.connect()
 
         resp = rrp.hBaseRegOpenKey(dce,phKey, 'SECURITY\x00')
-        #resp.dump()
+        resp.dump()
 
         request = rrp.BaseRegSaveKey()
         request['hKey'] = resp['phkResult']
         request['lpFile'] = 'SEC\x00'
         request['pSecurityAttributes'] = NULL
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         resp = rrp.hBaseRegLoadKey(dce, phKey,'BETUS\x00', 'SEC\x00' )
-        #resp.dump()
+        resp.dump()
 
         resp = rrp.hBaseRegUnLoadKey(dce, phKey, 'BETUS\x00')
-        #resp.dump()
+        resp.dump()
 
         smb = rpctransport.get_smb_connection()
         smb.deleteFile('ADMIN$', 'System32\\SEC')

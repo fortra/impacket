@@ -84,12 +84,12 @@ class LSADTests(unittest.TestCase):
         request['ObjectAttributes']['SecurityQualityOfService'] = NULL
         request['DesiredAccess'] = MAXIMUM_ALLOWED
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_hLsarOpenPolicy(self):
         dce, rpctransport, policyHandle = self.connect()
         resp = lsad.hLsarOpenPolicy(dce)
-        #resp.dump()
+        resp.dump()
 
     def test_LsarQueryInformationPolicy2(self):
         dce, rpctransport, policyHandle = self.connect()
@@ -97,75 +97,75 @@ class LSADTests(unittest.TestCase):
         request['PolicyHandle'] = policyHandle
         request['InformationClass'] = lsad.POLICY_INFORMATION_CLASS.PolicyAuditLogInformation
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request['InformationClass'] = lsad.POLICY_INFORMATION_CLASS.PolicyAuditEventsInformation
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request['InformationClass'] = lsad.POLICY_INFORMATION_CLASS.PolicyPrimaryDomainInformation
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request['InformationClass'] = lsad.POLICY_INFORMATION_CLASS.PolicyPdAccountInformation
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request['InformationClass'] = lsad.POLICY_INFORMATION_CLASS.PolicyAccountDomainInformation
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request['InformationClass'] = lsad.POLICY_INFORMATION_CLASS.PolicyLsaServerRoleInformation
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request['InformationClass'] = lsad.POLICY_INFORMATION_CLASS.PolicyReplicaSourceInformation
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request['InformationClass'] = lsad.POLICY_INFORMATION_CLASS.PolicyDnsDomainInformation
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request['InformationClass'] = lsad.POLICY_INFORMATION_CLASS.PolicyDnsDomainInformationInt
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request['InformationClass'] = lsad.POLICY_INFORMATION_CLASS.PolicyLocalAccountDomainInformation
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_hLsarQueryInformationPolicy2(self):
         dce, rpctransport, policyHandle = self.connect()
         resp = lsad.hLsarQueryInformationPolicy2(dce, policyHandle, lsad.POLICY_INFORMATION_CLASS.PolicyAuditLogInformation)
-        #resp.dump()
+        resp.dump()
 
         resp = lsad.hLsarQueryInformationPolicy2(dce, policyHandle, lsad.POLICY_INFORMATION_CLASS.PolicyAuditEventsInformation)
-        #resp.dump()
+        resp.dump()
 
         resp = lsad.hLsarQueryInformationPolicy2(dce, policyHandle, lsad.POLICY_INFORMATION_CLASS.PolicyPrimaryDomainInformation)
-        #resp.dump()
+        resp.dump()
 
         resp = lsad.hLsarQueryInformationPolicy2(dce, policyHandle, lsad.POLICY_INFORMATION_CLASS.PolicyPdAccountInformation)
-        #resp.dump()
+        resp.dump()
 
         resp = lsad.hLsarQueryInformationPolicy2(dce, policyHandle, lsad.POLICY_INFORMATION_CLASS.PolicyAccountDomainInformation)
-        #resp.dump()
+        resp.dump()
 
         resp = lsad.hLsarQueryInformationPolicy2(dce, policyHandle, lsad.POLICY_INFORMATION_CLASS.PolicyLsaServerRoleInformation)
-        #resp.dump()
+        resp.dump()
 
         resp = lsad.hLsarQueryInformationPolicy2(dce, policyHandle, lsad.POLICY_INFORMATION_CLASS.PolicyReplicaSourceInformation)
-        #resp.dump()
+        resp.dump()
 
         resp = lsad.hLsarQueryInformationPolicy2(dce, policyHandle, lsad.POLICY_INFORMATION_CLASS.PolicyDnsDomainInformation)
-        #resp.dump()
+        resp.dump()
 
         resp = lsad.hLsarQueryInformationPolicy2(dce, policyHandle, lsad.POLICY_INFORMATION_CLASS.PolicyDnsDomainInformationInt)
-        #resp.dump()
+        resp.dump()
 
         resp = lsad.hLsarQueryInformationPolicy2(dce, policyHandle, lsad.POLICY_INFORMATION_CLASS.PolicyLocalAccountDomainInformation)
-        #resp.dump()
+        resp.dump()
 
     def test_LsarQueryInformationPolicy(self):
         dce, rpctransport, policyHandle = self.connect()
@@ -173,75 +173,75 @@ class LSADTests(unittest.TestCase):
         request['PolicyHandle'] = policyHandle
         request['InformationClass'] = lsad.POLICY_INFORMATION_CLASS.PolicyAuditLogInformation
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request['InformationClass'] = lsad.POLICY_INFORMATION_CLASS.PolicyAuditEventsInformation
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request['InformationClass'] = lsad.POLICY_INFORMATION_CLASS.PolicyPrimaryDomainInformation
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request['InformationClass'] = lsad.POLICY_INFORMATION_CLASS.PolicyPdAccountInformation
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request['InformationClass'] = lsad.POLICY_INFORMATION_CLASS.PolicyAccountDomainInformation
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request['InformationClass'] = lsad.POLICY_INFORMATION_CLASS.PolicyLsaServerRoleInformation
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request['InformationClass'] = lsad.POLICY_INFORMATION_CLASS.PolicyReplicaSourceInformation
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request['InformationClass'] = lsad.POLICY_INFORMATION_CLASS.PolicyDnsDomainInformation
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request['InformationClass'] = lsad.POLICY_INFORMATION_CLASS.PolicyDnsDomainInformationInt
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request['InformationClass'] = lsad.POLICY_INFORMATION_CLASS.PolicyLocalAccountDomainInformation
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_hLsarQueryInformationPolicy(self):
         dce, rpctransport, policyHandle = self.connect()
         resp = lsad.hLsarQueryInformationPolicy(dce, policyHandle, lsad.POLICY_INFORMATION_CLASS.PolicyAuditLogInformation)
-        #resp.dump()
+        resp.dump()
 
         resp = lsad.hLsarQueryInformationPolicy(dce, policyHandle, lsad.POLICY_INFORMATION_CLASS.PolicyAuditEventsInformation)
-        #resp.dump()
+        resp.dump()
 
         resp = lsad.hLsarQueryInformationPolicy(dce, policyHandle, lsad.POLICY_INFORMATION_CLASS.PolicyPrimaryDomainInformation)
-        #resp.dump()
+        resp.dump()
 
         resp = lsad.hLsarQueryInformationPolicy(dce, policyHandle, lsad.POLICY_INFORMATION_CLASS.PolicyPdAccountInformation)
-        #resp.dump()
+        resp.dump()
 
         resp = lsad.hLsarQueryInformationPolicy(dce, policyHandle, lsad.POLICY_INFORMATION_CLASS.PolicyAccountDomainInformation)
-        #resp.dump()
+        resp.dump()
 
         resp = lsad.hLsarQueryInformationPolicy(dce, policyHandle, lsad.POLICY_INFORMATION_CLASS.PolicyLsaServerRoleInformation)
-        #resp.dump()
+        resp.dump()
 
         resp = lsad.hLsarQueryInformationPolicy(dce, policyHandle, lsad.POLICY_INFORMATION_CLASS.PolicyReplicaSourceInformation)
-        #resp.dump()
+        resp.dump()
 
         resp = lsad.hLsarQueryInformationPolicy(dce, policyHandle, lsad.POLICY_INFORMATION_CLASS.PolicyDnsDomainInformation)
-        #resp.dump()
+        resp.dump()
 
         resp = lsad.hLsarQueryInformationPolicy(dce, policyHandle, lsad.POLICY_INFORMATION_CLASS.PolicyDnsDomainInformationInt)
-        #resp.dump()
+        resp.dump()
 
         resp = lsad.hLsarQueryInformationPolicy(dce, policyHandle, lsad.POLICY_INFORMATION_CLASS.PolicyLocalAccountDomainInformation)
-        #resp.dump()
+        resp.dump()
 
     def test_LsarQueryDomainInformationPolicy(self):
         dce, rpctransport, policyHandle = self.connect()
@@ -250,7 +250,7 @@ class LSADTests(unittest.TestCase):
         request['InformationClass'] = lsad.POLICY_DOMAIN_INFORMATION_CLASS.PolicyDomainQualityOfServiceInformation
         try:
             resp = dce.request(request)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('STATUS_INVALID_PARAMETER') < 0:
                 raise
@@ -258,7 +258,7 @@ class LSADTests(unittest.TestCase):
         request['InformationClass'] = lsad.POLICY_DOMAIN_INFORMATION_CLASS.PolicyDomainEfsInformation
         try:
             resp = dce.request(request)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('STATUS_OBJECT_NAME_NOT_FOUND') < 0:
                 raise
@@ -266,7 +266,7 @@ class LSADTests(unittest.TestCase):
         request['InformationClass'] = lsad.POLICY_DOMAIN_INFORMATION_CLASS.PolicyDomainKerberosTicketInformation
         try:
             resp = dce.request(request)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('STATUS_OBJECT_NAME_NOT_FOUND') < 0:
                 raise
@@ -275,21 +275,21 @@ class LSADTests(unittest.TestCase):
         dce, rpctransport, policyHandle = self.connect()
         try:
             resp = lsad.hLsarQueryDomainInformationPolicy(dce, policyHandle, lsad.POLICY_DOMAIN_INFORMATION_CLASS.PolicyDomainQualityOfServiceInformation)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('STATUS_INVALID_PARAMETER') < 0:
                 raise
 
         try:
             resp = lsad.hLsarQueryDomainInformationPolicy(dce, policyHandle, lsad.POLICY_DOMAIN_INFORMATION_CLASS.PolicyDomainEfsInformation)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('STATUS_OBJECT_NAME_NOT_FOUND') < 0:
                 raise
 
         try:
             resp = lsad.hLsarQueryDomainInformationPolicy(dce, policyHandle, lsad.POLICY_DOMAIN_INFORMATION_CLASS.PolicyDomainKerberosTicketInformation)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('STATUS_OBJECT_NAME_NOT_FOUND') < 0:
                 raise
@@ -300,14 +300,14 @@ class LSADTests(unittest.TestCase):
         request['PolicyHandle'] = policyHandle
         request['PreferedMaximumLength'] = 0xffffffff
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
         #for i in range(resp['EnumerationBuffer']['EntriesRead']):
         #    print resp['EnumerationBuffer']['Information'][i]['Sid'].formatCanonical()
 
     def test_hLsarEnumerateAccounts(self):
         dce, rpctransport, policyHandle = self.connect()
         resp = lsad.hLsarEnumerateAccounts(dce, policyHandle)
-        #resp.dump()
+        resp.dump()
         #for i in range(resp['EnumerationBuffer']['EntriesRead']):
         #    print resp['EnumerationBuffer']['Information'][i]['Sid'].formatCanonical()
 
@@ -317,12 +317,12 @@ class LSADTests(unittest.TestCase):
         request['PolicyHandle'] = policyHandle
         request['UserRight'] = 'SeSystemtimePrivilege'
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_hLsarEnumerateAccountsWithUserRight(self):
         dce, rpctransport, policyHandle = self.connect()
         resp = lsad.hLsarEnumerateAccountsWithUserRight(dce,policyHandle, 'SeSystemtimePrivilege')
-        #resp.dump()
+        resp.dump()
 
     def test_LsarEnumerateTrustedDomainsEx(self):
         dce, rpctransport, policyHandle = self.connect()
@@ -371,13 +371,13 @@ class LSADTests(unittest.TestCase):
     def test_hLsarOpenAccount(self):
         dce, rpctransport, policyHandle = self.connect()
         resp = lsad.hLsarEnumerateAccounts(dce, policyHandle)
-        #resp.dump()
+        resp.dump()
 
         resp = lsad.hLsarOpenAccount(dce, policyHandle, resp['EnumerationBuffer']['Information'][0]['Sid'].formatCanonical())
-        #resp.dump()
+        resp.dump()
 
         resp = lsad.hLsarClose(dce, resp['AccountHandle'])
-        #resp.dump()
+        resp.dump()
 
     def test_LsarOpenAccount(self):
         dce, rpctransport, policyHandle = self.connect()
@@ -385,19 +385,19 @@ class LSADTests(unittest.TestCase):
         request['PolicyHandle'] = policyHandle
         request['PreferedMaximumLength'] = 0xffffffff
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request = lsad.LsarOpenAccount()
         request['PolicyHandle'] = policyHandle
         request['AccountSid'] = resp['EnumerationBuffer']['Information'][0]['Sid']
         request['DesiredAccess'] = MAXIMUM_ALLOWED
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request = lsad.LsarClose()
         request['ObjectHandle'] = resp['AccountHandle']
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_LsarCreateAccount_LsarDeleteObject(self):
         dce, rpctransport, policyHandle = self.connect()
@@ -414,12 +414,12 @@ class LSADTests(unittest.TestCase):
         request['AccountSid'].fromCanonical(sid)
         request['DesiredAccess'] = MAXIMUM_ALLOWED
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request = lsad.LsarDeleteObject()
         request['ObjectHandle'] = resp['AccountHandle']
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_hLsarCreateAccount_hLsarDeleteObject(self):
         dce, rpctransport, policyHandle = self.connect()
@@ -429,10 +429,10 @@ class LSADTests(unittest.TestCase):
         sid = sid + '-9999'
 
         resp = lsad.hLsarCreateAccount(dce, policyHandle, sid)
-        #resp.dump()
+        resp.dump()
 
         resp = lsad.hLsarDeleteObject(dce,resp['AccountHandle'])
-        #resp.dump()
+        resp.dump()
 
     def test_LsarEnumeratePrivilegesAccount(self):
         dce, rpctransport, policyHandle = self.connect()
@@ -443,22 +443,22 @@ class LSADTests(unittest.TestCase):
         request['AccountSid'].fromCanonical(sid)
         request['DesiredAccess'] = MAXIMUM_ALLOWED
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request = lsad.LsarEnumeratePrivilegesAccount()
         request['AccountHandle'] = resp['AccountHandle']
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_hLsarEnumeratePrivilegesAccount(self):
         dce, rpctransport, policyHandle = self.connect()
         sid = 'S-1-5-32-544'
 
         resp = lsad.hLsarOpenAccount(dce, policyHandle, sid)
-        #resp.dump()
+        resp.dump()
 
         resp = lsad.hLsarEnumeratePrivilegesAccount(dce,resp['AccountHandle'] )
-        #resp.dump()
+        resp.dump()
 
     def test_LsarGetSystemAccessAccount_LsarSetSystemAccessAccount(self):
         dce, rpctransport, policyHandle = self.connect()
@@ -469,31 +469,31 @@ class LSADTests(unittest.TestCase):
         request['AccountSid'].fromCanonical(sid)
         request['DesiredAccess'] = MAXIMUM_ALLOWED
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request = lsad.LsarGetSystemAccessAccount()
         request['AccountHandle'] = resp['AccountHandle']
         resp2 = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request = lsad.LsarSetSystemAccessAccount()
         request['AccountHandle'] = resp['AccountHandle']
         request['SystemAccess'] = resp2['SystemAccess']
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_hLsarGetSystemAccessAccount_hLsarSetSystemAccessAccount(self):
         dce, rpctransport, policyHandle = self.connect()
         sid = 'S-1-5-32-544'
 
         resp = lsad.hLsarOpenAccount(dce, policyHandle, sid)
-        #resp.dump()
+        resp.dump()
 
         resp2 = lsad.hLsarGetSystemAccessAccount(dce, resp['AccountHandle'])
-        #resp2.dump()
+        resp2.dump()
 
         resp = lsad.hLsarSetSystemAccessAccount(dce,resp['AccountHandle'],resp2['SystemAccess'])
-        #resp.dump()
+        resp.dump()
 
     def test_LsarAddPrivilegesToAccount_LsarRemovePrivilegesFromAccount(self):
         dce, rpctransport, policyHandle = self.connect()
@@ -510,7 +510,7 @@ class LSADTests(unittest.TestCase):
         request['AccountSid'].fromCanonical(sid)
         request['DesiredAccess'] = MAXIMUM_ALLOWED | lsad.ACCOUNT_ADJUST_PRIVILEGES
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
         accountHandle = resp['AccountHandle']
 
         request = lsad.LsarAddPrivilegesToAccount()
@@ -524,7 +524,7 @@ class LSADTests(unittest.TestCase):
         request['Privileges']['Privilege'].append(attribute)
         try:
             resp = dce.request(request)
-            #resp.dump()
+            resp.dump()
         except:
             request = lsad.LsarDeleteObject()
             request['ObjectHandle'] = accountHandle
@@ -536,12 +536,12 @@ class LSADTests(unittest.TestCase):
         request['AllPrivileges'] = 1
         request['Privileges'] = NULL
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request = lsad.LsarDeleteObject()
         request['ObjectHandle'] = accountHandle
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_hLsarAddPrivilegesToAccount_hLsarRemovePrivilegesFromAccount(self):
         dce, rpctransport, policyHandle = self.connect()
@@ -562,7 +562,7 @@ class LSADTests(unittest.TestCase):
         attributes.append(attribute)
         try:
             resp = lsad.hLsarAddPrivilegesToAccount(dce,accountHandle, attributes)
-            #resp.dump()
+            resp.dump()
         except:
             resp = lsad.hLsarDeleteObject(dce, accountHandle)
             return
@@ -571,7 +571,7 @@ class LSADTests(unittest.TestCase):
         resp.dump()
 
         resp = lsad.hLsarDeleteObject(dce,accountHandle )
-        #resp.dump()
+        resp.dump()
 
     def test_LsarEnumerateAccountRights(self):
         dce, rpctransport, policyHandle = self.connect()
@@ -581,14 +581,14 @@ class LSADTests(unittest.TestCase):
         request['PolicyHandle'] = policyHandle
         request['AccountSid'].fromCanonical(sid)
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_hLsarEnumerateAccountRights(self):
         dce, rpctransport, policyHandle = self.connect()
         sid = 'S-1-5-32-544'
 
         resp = lsad.hLsarEnumerateAccountRights(dce, policyHandle, sid)
-        #resp.dump()
+        resp.dump()
 
     def test_LsarAddAccountRights_LsarRemoveAccountRights(self):
         dce, rpctransport, policyHandle = self.connect()
@@ -602,7 +602,7 @@ class LSADTests(unittest.TestCase):
         right['Data'] = 'SeChangeNotifyPrivilege'
         request['UserRights']['UserRights'].append(right)
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request = lsad.LsarRemoveAccountRights()
         request['PolicyHandle'] = policyHandle
@@ -612,16 +612,16 @@ class LSADTests(unittest.TestCase):
         right['Data'] = 'SeChangeNotifyPrivilege'
         request['UserRights']['UserRights'].append(right)
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_hLsarAddAccountRights_hLsarRemoveAccountRights(self):
         dce, rpctransport, policyHandle = self.connect()
         sid = 'S-1-5-32-504'
 
         resp = lsad.hLsarAddAccountRights(dce, policyHandle, sid, ('SeChangeNotifyPrivilege', ))
-        #resp.dump()
+        resp.dump()
         resp = lsad.hLsarRemoveAccountRights(dce, policyHandle, sid, ('SeChangeNotifyPrivilege', ))
-        #resp.dump()
+        resp.dump()
 
     def test_LsarCreateSecret_LsarOpenSecret(self):
         dce, rpctransport, policyHandle = self.connect()
@@ -631,14 +631,14 @@ class LSADTests(unittest.TestCase):
         request['SecretName'] = 'MYSECRET'
         request['DesiredAccess'] = MAXIMUM_ALLOWED
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request = lsad.LsarOpenSecret()
         request['PolicyHandle'] = policyHandle
         request['SecretName'] = 'MYSECRET'
         request['DesiredAccess'] = MAXIMUM_ALLOWED
         resp0 = dce.request(request)
-        #resp0.dump()
+        resp0.dump()
 
         request = lsad.LsarSetSecret()
         request['SecretHandle'] = resp0['SecretHandle']
@@ -652,32 +652,32 @@ class LSADTests(unittest.TestCase):
         #request['EncryptedOldValue'] = NULL
         try:
             resp = dce.request(request)
-            #resp.dump()
+            resp.dump()
         except: 
             pass
 
         request = lsad.LsarDeleteObject()
         request['ObjectHandle'] = resp0['SecretHandle']
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_hLsarCreateSecret_hLsarOpenSecret(self):
         dce, rpctransport, policyHandle = self.connect()
 
         resp = lsad.hLsarCreateSecret(dce, policyHandle, 'MYSECRET')
-        #resp.dump()
+        resp.dump()
 
         resp0 = lsad.hLsarOpenSecret(dce, policyHandle, 'MYSECRET')
-        #resp0.dump()
+        resp0.dump()
 
         try:
             resp = lsad.hLsarSetSecret(dce, resp0['SecretHandle'], 'A'*16, 'A'*16)
-            #resp.dump()
+            resp.dump()
         except: 
             pass
 
         resp = lsad.hLsarDeleteObject(dce,resp0['SecretHandle'])
-        #resp.dump()
+        resp.dump()
 
     def test_LsarQuerySecret(self):
         dce, rpctransport, policyHandle = self.connect()
@@ -687,7 +687,7 @@ class LSADTests(unittest.TestCase):
         request['SecretName'] = 'DPAPI_SYSTEM'
         request['DesiredAccess'] = MAXIMUM_ALLOWED
         resp0 = dce.request(request)
-        #resp0.dump()
+        resp0.dump()
 
         request = lsad.LsarQuerySecret()
         request['SecretHandle'] = resp0['SecretHandle']
@@ -695,16 +695,16 @@ class LSADTests(unittest.TestCase):
         request['EncryptedOldValue']['Buffer'] = NULL
         request['OldValueSetTime'] = NULL
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_hLsarQuerySecret(self):
         dce, rpctransport, policyHandle = self.connect()
 
         resp0 = lsad.hLsarOpenSecret(dce, policyHandle, 'DPAPI_SYSTEM')
-        #resp0.dump()
+        resp0.dump()
 
         resp = lsad.hLsarQuerySecret(dce, resp0['SecretHandle'])
-        #resp.dump()
+        resp.dump()
 
     def test_LsarRetrievePrivateData_LsarStorePrivateData(self):
         dce, rpctransport, policyHandle = self.connect()
@@ -713,21 +713,21 @@ class LSADTests(unittest.TestCase):
         request['PolicyHandle'] = policyHandle
         request['KeyName'] = 'DPAPI_SYSTEM'
         resp0 = dce.request(request)
-        #resp0.dump()
+        resp0.dump()
 
         request = lsad.LsarStorePrivateData()
         request['PolicyHandle'] = policyHandle
         request['KeyName'] = 'BETUS'
         request['EncryptedData'] = resp0['EncryptedData']
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request = lsad.LsarStorePrivateData()
         request['PolicyHandle'] = policyHandle
         request['KeyName'] = 'BETUS'
         request['EncryptedData'] = NULL
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_hLsarRetrievePrivateData_hLsarStorePrivateData(self):
         dce, rpctransport, policyHandle = self.connect()
@@ -736,10 +736,10 @@ class LSADTests(unittest.TestCase):
         #hexdump(resp0)
 
         resp = lsad.hLsarStorePrivateData(dce, policyHandle, 'BETUS', resp0)
-        #resp.dump()
+        resp.dump()
 
         resp = lsad.hLsarStorePrivateData(dce, policyHandle, 'BETUS', NULL)
-        #resp.dump()
+        resp.dump()
 
     def test_LsarEnumeratePrivileges(self):
         dce, rpctransport, policyHandle = self.connect()
@@ -749,7 +749,7 @@ class LSADTests(unittest.TestCase):
         request['EnumerationContext'] = 0
         request['PreferedMaximumLength'] = 0xffffffff
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         self.assertTrue( resp['EnumerationBuffer']['Entries'] == len(resp['EnumerationBuffer']['Privileges'] ) )
 
@@ -757,7 +757,7 @@ class LSADTests(unittest.TestCase):
         dce, rpctransport, policyHandle = self.connect()
 
         resp = lsad.hLsarEnumeratePrivileges(dce, policyHandle)
-        #resp.dump()
+        resp.dump()
 
         self.assertTrue( resp['EnumerationBuffer']['Entries'] == len(resp['EnumerationBuffer']['Privileges'] ) )
 
@@ -768,13 +768,13 @@ class LSADTests(unittest.TestCase):
         request['PolicyHandle'] = policyHandle
         request['Name'] = u'SeTimeZonePrivilege'
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request = lsad.LsarLookupPrivilegeName()
         request['PolicyHandle'] = policyHandle
         request['Value'] = resp['Value']
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         self.assertTrue( resp['Name'] == 'SeTimeZonePrivilege')
 
@@ -782,10 +782,10 @@ class LSADTests(unittest.TestCase):
         dce, rpctransport, policyHandle = self.connect()
 
         resp = lsad.hLsarLookupPrivilegeValue(dce, policyHandle,'SeTimeZonePrivilege' )
-        #resp.dump()
+        resp.dump()
 
         resp = lsad.hLsarLookupPrivilegeName(dce, policyHandle, resp['Value'])
-        #resp.dump()
+        resp.dump()
 
         self.assertTrue( resp['Name'] == 'SeTimeZonePrivilege')
 
@@ -798,7 +798,7 @@ class LSADTests(unittest.TestCase):
         request['ClientLanguage'] = 1
         request['ClientSystemDefaultLanguage'] = 1
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_LsarQuerySecurityObject_LsarSetSecurityObject(self):
         dce, rpctransport, policyHandle = self.connect()
@@ -807,7 +807,7 @@ class LSADTests(unittest.TestCase):
         request['PolicyHandle'] = policyHandle
         request['SecurityInformation'] = lsad.OWNER_SECURITY_INFORMATION
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         self.assertTrue( resp['SecurityDescriptor']['Length'] == len(resp['SecurityDescriptor']['SecurityDescriptor']) )
 
@@ -816,7 +816,7 @@ class LSADTests(unittest.TestCase):
         request['SecurityInformation'] = lsad.OWNER_SECURITY_INFORMATION
         request['SecurityDescriptor'] = resp['SecurityDescriptor']
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_hLsarQuerySecurityObject_hLsarSetSecurityObject(self):
         dce, rpctransport, policyHandle = self.connect()
@@ -825,7 +825,7 @@ class LSADTests(unittest.TestCase):
         #hexdump(resp)
 
         resp = lsad.hLsarSetSecurityObject(dce, policyHandle, lsad.OWNER_SECURITY_INFORMATION,resp)
-        #resp.dump()
+        resp.dump()
 
     def test_LsarQueryForestTrustInformation(self):
         dce, rpctransport, policyHandle = self.connect()
@@ -847,7 +847,7 @@ class LSADTests(unittest.TestCase):
         request['PolicyHandle'] = policyHandle
         request['InformationClass'] = lsad.POLICY_INFORMATION_CLASS.PolicyAuditEventsInformation
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
         oldValue = resp['PolicyInformation']['PolicyAuditEventsInfo']['AuditingMode']
 
         req = lsad.LsarSetInformationPolicy2()
@@ -856,19 +856,19 @@ class LSADTests(unittest.TestCase):
         req['PolicyInformation'] = resp['PolicyInformation']
         req['PolicyInformation']['PolicyAuditEventsInfo']['AuditingMode'] = 0
         resp2 = dce.request(req)
-        #resp2.dump()
+        resp2.dump()
 
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         req['PolicyInformation']['PolicyAuditEventsInfo']['AuditingMode'] = oldValue
         resp2 = dce.request(req)
-        #resp2.dump()
+        resp2.dump()
         ################################################################################ 
 
         request['InformationClass'] = lsad.POLICY_INFORMATION_CLASS.PolicyPrimaryDomainInformation
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
         oldValue = resp['PolicyInformation']['PolicyPrimaryDomainInfo']['Name']
 
         req = lsad.LsarSetInformationPolicy2()
@@ -877,22 +877,22 @@ class LSADTests(unittest.TestCase):
         req['PolicyInformation'] = resp['PolicyInformation']
         req['PolicyInformation']['PolicyPrimaryDomainInfo']['Name'] = 'BETUS'
         resp2 = dce.request(req)
-        #resp2.dump()
+        resp2.dump()
 
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         self.assertTrue( 'BETUS' == resp['PolicyInformation']['PolicyPrimaryDomainInfo']['Name'] )
 
         req['PolicyInformation']['PolicyPrimaryDomainInfo']['Name'] = oldValue
         resp2 = dce.request(req)
-        #resp2.dump()
+        resp2.dump()
 
         ################################################################################ 
 
         request['InformationClass'] = lsad.POLICY_INFORMATION_CLASS.PolicyAccountDomainInformation
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
         oldValue = resp['PolicyInformation']['PolicyAccountDomainInfo']['DomainName']
 
         req = lsad.LsarSetInformationPolicy2()
@@ -901,16 +901,16 @@ class LSADTests(unittest.TestCase):
         req['PolicyInformation'] = resp['PolicyInformation']
         req['PolicyInformation']['PolicyAccountDomainInfo']['DomainName'] = 'BETUS'
         resp2 = dce.request(req)
-        #resp2.dump()
+        resp2.dump()
 
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         self.assertTrue( 'BETUS' == resp['PolicyInformation']['PolicyAccountDomainInfo']['DomainName'] )
 
         req['PolicyInformation']['PolicyAccountDomainInfo']['DomainName'] = oldValue
         resp2 = dce.request(req)
-        #resp2.dump()
+        resp2.dump()
 
         ################################################################################ 
 
@@ -919,19 +919,19 @@ class LSADTests(unittest.TestCase):
     def test_hLsarSetInformationPolicy2(self):
         dce, rpctransport, policyHandle = self.connect()
         resp = lsad.hLsarQueryInformationPolicy2(dce, policyHandle, lsad.POLICY_INFORMATION_CLASS.PolicyAuditEventsInformation)
-        #resp.dump()
+        resp.dump()
         oldValue = resp['PolicyInformation']['PolicyAuditEventsInfo']['AuditingMode']
 
         resp['PolicyInformation']['PolicyAuditEventsInfo']['AuditingMode'] = 0
         resp2 = lsad.hLsarSetInformationPolicy2(dce, policyHandle, lsad.POLICY_INFORMATION_CLASS.PolicyAuditEventsInformation, resp['PolicyInformation'] )
-        #resp2.dump()
+        resp2.dump()
 
         resp = lsad.hLsarQueryInformationPolicy2(dce, policyHandle, lsad.POLICY_INFORMATION_CLASS.PolicyAuditEventsInformation)
-        #resp.dump()
+        resp.dump()
 
         resp['PolicyInformation']['PolicyAuditEventsInfo']['AuditingMode'] = oldValue
         resp2 = lsad.hLsarSetInformationPolicy2(dce, policyHandle, lsad.POLICY_INFORMATION_CLASS.PolicyAuditEventsInformation, resp['PolicyInformation'] )
-        #resp2.dump()
+        resp2.dump()
 
     def test_LsarSetInformationPolicy(self):
         dce, rpctransport, policyHandle = self.connect()
@@ -939,7 +939,7 @@ class LSADTests(unittest.TestCase):
         request['PolicyHandle'] = policyHandle
         request['InformationClass'] = lsad.POLICY_INFORMATION_CLASS.PolicyAuditEventsInformation
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
         oldValue = resp['PolicyInformation']['PolicyAuditEventsInfo']['AuditingMode']
 
         req = lsad.LsarSetInformationPolicy()
@@ -948,19 +948,19 @@ class LSADTests(unittest.TestCase):
         req['PolicyInformation'] = resp['PolicyInformation']
         req['PolicyInformation']['PolicyAuditEventsInfo']['AuditingMode'] = 0
         resp2 = dce.request(req)
-        #resp2.dump()
+        resp2.dump()
 
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         req['PolicyInformation']['PolicyAuditEventsInfo']['AuditingMode'] = oldValue
         resp2 = dce.request(req)
-        #resp2.dump()
+        resp2.dump()
         ################################################################################ 
 
         request['InformationClass'] = lsad.POLICY_INFORMATION_CLASS.PolicyPrimaryDomainInformation
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
         oldValue = resp['PolicyInformation']['PolicyPrimaryDomainInfo']['Name']
 
         req = lsad.LsarSetInformationPolicy()
@@ -969,21 +969,21 @@ class LSADTests(unittest.TestCase):
         req['PolicyInformation'] = resp['PolicyInformation']
         req['PolicyInformation']['PolicyPrimaryDomainInfo']['Name'] = 'BETUS'
         resp2 = dce.request(req)
-        #resp2.dump()
+        resp2.dump()
 
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
         self.assertTrue( 'BETUS' == resp['PolicyInformation']['PolicyPrimaryDomainInfo']['Name'] )
 
         req['PolicyInformation']['PolicyPrimaryDomainInfo']['Name'] = oldValue
         resp2 = dce.request(req)
-        #resp2.dump()
+        resp2.dump()
 
         ################################################################################ 
 
         request['InformationClass'] = lsad.POLICY_INFORMATION_CLASS.PolicyAccountDomainInformation
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
         oldValue = resp['PolicyInformation']['PolicyAccountDomainInfo']['DomainName']
 
         req = lsad.LsarSetInformationPolicy()
@@ -992,16 +992,16 @@ class LSADTests(unittest.TestCase):
         req['PolicyInformation'] = resp['PolicyInformation']
         req['PolicyInformation']['PolicyAccountDomainInfo']['DomainName'] = 'BETUS'
         resp2 = dce.request(req)
-        #resp2.dump()
+        resp2.dump()
 
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         self.assertTrue( 'BETUS' == resp['PolicyInformation']['PolicyAccountDomainInfo']['DomainName'] )
 
         req['PolicyInformation']['PolicyAccountDomainInfo']['DomainName'] = oldValue
         resp2 = dce.request(req)
-        #resp2.dump()
+        resp2.dump()
 
         ################################################################################ 
 
@@ -1010,19 +1010,19 @@ class LSADTests(unittest.TestCase):
     def test_hLsarSetInformationPolicy(self):
         dce, rpctransport, policyHandle = self.connect()
         resp = lsad.hLsarQueryInformationPolicy(dce, policyHandle, lsad.POLICY_INFORMATION_CLASS.PolicyAuditEventsInformation)
-        #resp.dump()
+        resp.dump()
         oldValue = resp['PolicyInformation']['PolicyAuditEventsInfo']['AuditingMode']
 
         resp['PolicyInformation']['PolicyAuditEventsInfo']['AuditingMode'] = 0
         resp2 = lsad.hLsarSetInformationPolicy2(dce, policyHandle, lsad.POLICY_INFORMATION_CLASS.PolicyAuditEventsInformation, resp['PolicyInformation'] )
-        #resp2.dump()
+        resp2.dump()
 
         resp = lsad.hLsarQueryInformationPolicy2(dce, policyHandle, lsad.POLICY_INFORMATION_CLASS.PolicyAuditEventsInformation)
-        #resp.dump()
+        resp.dump()
 
         resp['PolicyInformation']['PolicyAuditEventsInfo']['AuditingMode'] = oldValue
         resp2 = lsad.hLsarSetInformationPolicy2(dce, policyHandle, lsad.POLICY_INFORMATION_CLASS.PolicyAuditEventsInformation, resp['PolicyInformation'] )
-        #resp2.dump()
+        resp2.dump()
 
 class SMBTransport(LSADTests):
     def setUp(self):

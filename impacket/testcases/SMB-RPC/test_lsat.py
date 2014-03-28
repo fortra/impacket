@@ -65,13 +65,13 @@ class LSATTests(unittest.TestCase):
         request['UserName'] = NULL
         request['DomainName'] = NULL
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_hLsarGetUserName(self):
         dce, rpctransport, policyHandle = self.connect()
 
         resp = lsat.hLsarGetUserName(dce)
-        #resp.dump()
+        resp.dump()
 
     def test_LsarLookupNames4(self):
         # not working, I need netlogon here
@@ -91,7 +91,7 @@ class LSATTests(unittest.TestCase):
         request['ClientRevision'] = 0x00000001
         try:
             resp = dce.request(request)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             # The RPC server MUST ensure that the RPC_C_AUTHN_NETLOGON security provider 
             # (as specified in [MS-RPCE] section 2.2.1.1.7) and at least 
@@ -107,7 +107,7 @@ class LSATTests(unittest.TestCase):
 
         try:
             resp = lsat.hLsarLookupNames4(dce, ('Administrator', 'Guest'))
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             # The RPC server MUST ensure that the RPC_C_AUTHN_NETLOGON security provider 
             # (as specified in [MS-RPCE] section 2.2.1.1.7) and at least 
@@ -134,13 +134,13 @@ class LSATTests(unittest.TestCase):
         request['LookupOptions'] = 0x00000000
         request['ClientRevision'] = 0x00000001
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_hLsarLookupNames3(self):
         dce, rpctransport, policyHandle = self.connect()
 
         resp = lsat.hLsarLookupNames3(dce, policyHandle, ('Administrator', 'Guest'))
-        #resp.dump()
+        resp.dump()
 
     def test_LsarLookupNames2(self):
         dce, rpctransport, policyHandle = self.connect()
@@ -159,19 +159,19 @@ class LSATTests(unittest.TestCase):
         request['LookupOptions'] = 0x00000000
         request['ClientRevision'] = 0x00000001
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_hLsarLookupNames2(self):
         dce, rpctransport, policyHandle = self.connect()
 
         resp = lsat.hLsarLookupNames2(dce, policyHandle, ('Administrator', 'Guest'))
-        #resp.dump()
+        resp.dump()
 
     def test_hLsarLookupNames(self):
         dce, rpctransport, policyHandle = self.connect()
 
         resp = lsat.hLsarLookupNames(dce, policyHandle, ('Administrator', 'Guest'))
-        #resp.dump()
+        resp.dump()
 
     def test_LsarLookupNames(self):
         dce, rpctransport, policyHandle = self.connect()
@@ -188,7 +188,7 @@ class LSATTests(unittest.TestCase):
         request['TranslatedSids']['Sids'] = NULL
         request['LookupLevel'] = lsat.LSAP_LOOKUP_LEVEL.LsapLookupWksta
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_LsarLookupSids3(self):
         # not working, I need netlogon here
@@ -203,7 +203,7 @@ class LSATTests(unittest.TestCase):
         request['TranslatedSids']['Sids'] = NULL
         request['LookupLevel'] = lsat.LSAP_LOOKUP_LEVEL.LsapLookupWksta
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
         domainSid = resp['ReferencedDomains']['Domains'][0]['Sid'].formatCanonical()
 
         request = lsat.LsarLookupSids3()
@@ -220,7 +220,7 @@ class LSATTests(unittest.TestCase):
         request['ClientRevision'] = 0x00000001
         try:
             resp = dce.request(request)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             # The RPC server MUST ensure that the RPC_C_AUTHN_NETLOGON security provider 
             # (as specified in [MS-RPCE] section 2.2.1.1.7) and at least 
@@ -242,7 +242,7 @@ class LSATTests(unittest.TestCase):
         request['TranslatedSids']['Sids'] = NULL
         request['LookupLevel'] = lsat.LSAP_LOOKUP_LEVEL.LsapLookupWksta
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
         domainSid = resp['ReferencedDomains']['Domains'][0]['Sid'].formatCanonical()
 
         request = lsat.LsarLookupSids2()
@@ -259,19 +259,19 @@ class LSATTests(unittest.TestCase):
         request['LookupOptions'] = 0x00000000
         request['ClientRevision'] = 0x00000001
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_hLsarLookupSids2(self):
         dce, rpctransport, policyHandle = self.connect()
 
         resp = lsat.hLsarLookupNames(dce, policyHandle, ('Administrator',))
-        #resp.dump()
+        resp.dump()
         domainSid = resp['ReferencedDomains']['Domains'][0]['Sid'].formatCanonical()
         sids = list()
         sids.append(domainSid + '-500')
         sids.append(domainSid + '-501')
         resp = lsat.hLsarLookupSids2(dce, policyHandle, sids)
-        #resp.dump()
+        resp.dump()
 
     def test_LsarLookupSids(self):
         dce, rpctransport, policyHandle = self.connect()
@@ -285,7 +285,7 @@ class LSATTests(unittest.TestCase):
         request['TranslatedSids']['Sids'] = NULL
         request['LookupLevel'] = lsat.LSAP_LOOKUP_LEVEL.LsapLookupWksta
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
         domainSid = resp['ReferencedDomains']['Domains'][0]['Sid'].formatCanonical()
 
         request = lsat.LsarLookupSids()
@@ -299,19 +299,19 @@ class LSATTests(unittest.TestCase):
         request['LookupLevel'] = lsat.LSAP_LOOKUP_LEVEL.LsapLookupWksta
         try:
             resp = dce.request(request)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('STATUS_SOME_NOT_MAPPED') < 0:
                 raise
             else:
                 resp = e.get_packet()
-                #resp.dump()
+                resp.dump()
 
     def test_hLsarLookupSids(self):
         dce, rpctransport, policyHandle = self.connect()
 
         resp = lsat.hLsarLookupNames(dce, policyHandle, ('Administrator',))
-        #resp.dump()
+        resp.dump()
         domainSid = resp['ReferencedDomains']['Domains'][0]['Sid'].formatCanonical()
 
         sids = list()
@@ -319,13 +319,13 @@ class LSATTests(unittest.TestCase):
             sids.append(domainSid + '-%d' % (500+i))
         try:
             resp = lsat.hLsarLookupSids(dce, policyHandle, sids )
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('STATUS_SOME_NOT_MAPPED') < 0:
                 raise
             else:
                 resp = e.get_packet()
-                #resp.dump()
+                resp.dump()
 
 
 class SMBTransport(LSATTests):

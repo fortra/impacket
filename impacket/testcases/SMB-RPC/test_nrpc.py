@@ -83,7 +83,7 @@ class NRPCTests(unittest.TestCase):
         dce.connect()
         dce.bind(nrpc.MSRPC_UUID_NRPC)
         resp = nrpc.hNetrServerReqChallenge(dce, NULL, self.serverName + '\x00', '12345678')
-        #resp.dump()
+        resp.dump()
         serverChallenge = resp['ServerChallenge']
 
         if self.hashes == '':
@@ -97,7 +97,7 @@ class NRPCTests(unittest.TestCase):
 
         try:
             resp = nrpc.hNetrServerAuthenticate3(dce, NULL, self.username + '\x00', nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel,self.serverName + '\x00',ppp, 0x600FFFFF )
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('STATUS_DOWNGRADE_DETECTED') < 0:
                 raise
@@ -130,12 +130,12 @@ class NRPCTests(unittest.TestCase):
         request['Flags'] = 0
   
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_hDsrGetDcNameEx2(self):
         dce, rpctransport = self.connect()
         resp = nrpc.hDsrGetDcNameEx2(dce, NULL, 'Administrator\x00', 1 << 9, NULL, NULL, NULL, 0)
-        #resp.dump()
+        resp.dump()
 
     def test_DsrGetDcNameEx(self):
         dce, rpctransport = self.connect()
@@ -147,12 +147,12 @@ class NRPCTests(unittest.TestCase):
         request['Flags'] = 0
   
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_hDsrGetDcNameEx(self):
         dce, rpctransport = self.connect()
         resp = nrpc.hDsrGetDcNameEx(dce, NULL, NULL, NULL, NULL, 0)
-        #resp.dump()
+        resp.dump()
 
     def test_DsrGetDcName(self):
         dce, rpctransport = self.connect()
@@ -164,12 +164,12 @@ class NRPCTests(unittest.TestCase):
         request['Flags'] = 0
   
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_hDsrGetDcName(self):
         dce, rpctransport = self.connect()
         resp = nrpc.hDsrGetDcName(dce, NULL, NULL, NULL, NULL, 0)
-        #resp.dump()
+        resp.dump()
 
     def test_NetrGetDCName(self):
         dce, rpctransport = self.connect()
@@ -178,12 +178,12 @@ class NRPCTests(unittest.TestCase):
         request['DomainName'] = self.domain + '\x00'
   
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_hNetrGetDCName(self):
         dce, rpctransport = self.connect()
         resp = nrpc.hNetrGetDCName(dce, '\x00'*20, self.domain + '\x00')
-        #resp.dump()
+        resp.dump()
 
     def test_NetrGetAnyDCName(self):
         dce, rpctransport = self.connect()
@@ -193,7 +193,7 @@ class NRPCTests(unittest.TestCase):
   
         try:
             resp = dce.request(request)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('ERROR_NO_SUCH_DOMAIN') < 0:
                 raise
@@ -202,7 +202,7 @@ class NRPCTests(unittest.TestCase):
         dce, rpctransport = self.connect()
         try:
             resp = nrpc.hNetrGetAnyDCName(dce, '\x00'*20, self.domain + '\x00')
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('ERROR_NO_SUCH_DOMAIN') < 0:
                 raise
@@ -213,12 +213,12 @@ class NRPCTests(unittest.TestCase):
         request['ComputerName'] = NULL
   
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_hDsrGetSiteName(self):
         dce, rpctransport = self.connect()
         resp = nrpc.hDsrGetSiteName(dce, NULL)
-        #resp.dump()
+        resp.dump()
 
     def test_DsrGetDcSiteCoverageW(self):
         dce, rpctransport = self.connect()
@@ -226,12 +226,12 @@ class NRPCTests(unittest.TestCase):
         request['ServerName'] = NULL
   
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_hDsrGetDcSiteCoverageW(self):
         dce, rpctransport = self.connect()
         resp = nrpc.hDsrGetDcSiteCoverageW(dce, NULL)
-        #resp.dump()
+        resp.dump()
 
     def test_DsrAddressToSiteNamesW(self):
         dce, rpctransport = self.connect()
@@ -249,7 +249,7 @@ class NRPCTests(unittest.TestCase):
         request['SocketAddresses'].append(socketAddress)
   
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_hDsrAddressToSiteNamesW(self):
         dce, rpctransport = self.connect()
@@ -267,7 +267,7 @@ class NRPCTests(unittest.TestCase):
         request['SocketAddresses'].append(socketAddress)
   
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_DsrAddressToSiteNamesExW(self):
         dce, rpctransport = self.connect()
@@ -285,7 +285,7 @@ class NRPCTests(unittest.TestCase):
         request['SocketAddresses'].append(socketAddress)
   
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_DsrDeregisterDnsHostRecords(self):
         dce, rpctransport = self.connect()
@@ -298,7 +298,7 @@ class NRPCTests(unittest.TestCase):
   
         try:
             resp = dce.request(request)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('rpc_s_access_denied') < 0:
                 raise
@@ -311,7 +311,7 @@ class NRPCTests(unittest.TestCase):
         request['ClientChallenge'] = '12345678'
   
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
         serverChallenge = resp['ServerChallenge']
 
         if self.hashes == '':
@@ -332,12 +332,12 @@ class NRPCTests(unittest.TestCase):
         request['NegotiateFlags'] = 0x600FFFFF
   
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_hNetrServerReqChallenge_hNetrServerAuthenticate3(self):
         dce, rpctransport = self.connect()
         resp = nrpc.hNetrServerReqChallenge(dce, NULL,  self.serverName + '\x00','12345678' )
-        #resp.dump()
+        resp.dump()
         serverChallenge = resp['ServerChallenge']
 
         if self.hashes == '':
@@ -351,7 +351,7 @@ class NRPCTests(unittest.TestCase):
 
         resp = nrpc.hNetrServerAuthenticate3(dce, NULL,self.username + '\x00', nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel
 ,self.serverName + '\x00', ppp,0x600FFFFF )
-        #resp.dump()
+        resp.dump()
 
     def test_NetrServerReqChallenge_hNetrServerAuthenticate2(self):
         dce, rpctransport = self.connect()
@@ -361,7 +361,7 @@ class NRPCTests(unittest.TestCase):
         request['ClientChallenge'] = '12345678'
   
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
         serverChallenge = resp['ServerChallenge']
 
         if self.hashes == '':
@@ -375,12 +375,12 @@ class NRPCTests(unittest.TestCase):
 
         resp = nrpc.hNetrServerAuthenticate2(dce, NULL,self.username + '\x00', nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel
 ,self.serverName + '\x00', ppp,0x600FFFFF )
-        #resp.dump()
+        resp.dump()
 
     def test_hNetrServerReqChallenge_NetrServerAuthenticate2(self):
         dce, rpctransport = self.connect()
         resp = nrpc.hNetrServerReqChallenge(dce, NULL,  self.serverName + '\x00','12345678' )
-        #resp.dump()
+        resp.dump()
         serverChallenge = resp['ServerChallenge']
 
         if self.hashes == '':
@@ -401,7 +401,7 @@ class NRPCTests(unittest.TestCase):
         request['NegotiateFlags'] = 0x600FFFFF
   
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_NetrServerReqChallenge_NetrServerAuthenticate(self):
         dce, rpctransport = self.connect()
@@ -411,7 +411,7 @@ class NRPCTests(unittest.TestCase):
         request['ClientChallenge'] = '12345678'
   
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
         serverChallenge = resp['ServerChallenge']
 
         if self.hashes == '':
@@ -432,7 +432,7 @@ class NRPCTests(unittest.TestCase):
   
         try:
             resp = dce.request(request)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('STATUS_DOWNGRADE_DETECTED') < 0:
                 raise
@@ -440,7 +440,7 @@ class NRPCTests(unittest.TestCase):
     def test_hNetrServerReqChallenge_hNetrServerAuthenticate(self):
         dce, rpctransport = self.connect()
         resp = nrpc.hNetrServerReqChallenge(dce, NULL,  self.serverName + '\x00','12345678' )
-        #resp.dump()
+        resp.dump()
         serverChallenge = resp['ServerChallenge']
 
         if self.hashes == '':
@@ -452,10 +452,10 @@ class NRPCTests(unittest.TestCase):
 
         ppp = nrpc.ComputeNetlogonCredential('12345678', sessionKey)
 
-        #resp.dump()
+        resp.dump()
         try:
             resp = nrpc.hNetrServerAuthenticate(dce, NULL,self.username + '\x00', nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel ,self.serverName + '\x00', ppp)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('STATUS_DOWNGRADE_DETECTED') < 0:
                 raise
@@ -471,7 +471,7 @@ class NRPCTests(unittest.TestCase):
 
         try:
             resp = dce.request(request)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('STATUS_ACCESS_DENIED') < 0:
                 raise
@@ -480,7 +480,7 @@ class NRPCTests(unittest.TestCase):
         dce, rpctransport = self.connect()
         try:
             resp = nrpc.hNetrServerPasswordGet(dce, NULL, self.username + '\x00', nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel ,self.serverName + '\x00', self.update_authenticator())
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('STATUS_ACCESS_DENIED') < 0:
                 raise
@@ -495,12 +495,12 @@ class NRPCTests(unittest.TestCase):
         request['Authenticator'] = self.update_authenticator()
 
         resp = dce.request(request)
-        ##resp.dump()
+        resp.dump()
 
     def test_hNetrServerTrustPasswordsGet(self):
         dce, rpctransport = self.connect()
         resp = nrpc.hNetrServerTrustPasswordsGet(dce, NULL, self.username,nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel ,self.serverName, self.update_authenticator())
-        #resp.dump()
+        resp.dump()
 
     def test_NetrLogonGetDomainInfo(self):
         dce, rpctransport = self.connect()
@@ -520,12 +520,12 @@ class NRPCTests(unittest.TestCase):
         request['WkstaBuffer']['WorkstationInfo']['Dummy3'] = NULL 
         request['WkstaBuffer']['WorkstationInfo']['Dummy4'] = NULL  
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_hNetrLogonGetDomainInfo(self):
         dce, rpctransport = self.connect()
         resp = nrpc.hNetrLogonGetDomainInfo(dce,'\x00'*20, self.serverName,self.update_authenticator(), 0, 1)
-        #resp.dump()
+        resp.dump()
 
     def test_NetrLogonGetCapabilities(self):
         dce, rpctransport = self.connect()
@@ -537,12 +537,12 @@ class NRPCTests(unittest.TestCase):
         request['ReturnAuthenticator']['Timestamp'] = 0
         request['QueryLevel'] = 1
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_hNetrLogonGetCapabilities(self):
         dce, rpctransport = self.connect()
         resp = nrpc.hNetrLogonGetCapabilities(dce,'\x00'*20, self.serverName + '\x00',self.update_authenticator(), 0)
-        #resp.dump()
+        resp.dump()
 
     def test_NetrLogonSamLogonEx(self):
         dce, rpctransport = self.connect()
@@ -621,7 +621,7 @@ class NRPCTests(unittest.TestCase):
         request['ExtraFlags'] = 0
         try:
             resp = dce.request(request)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('STATUS_NO_SUCH_USER') < 0:
                 raise
@@ -665,7 +665,7 @@ class NRPCTests(unittest.TestCase):
         request['ReturnAuthenticator']['Timestamp'] = 0
         try:
             resp = dce.request(request)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('STATUS_NO_SUCH_USER') < 0:
                 raise
@@ -683,7 +683,7 @@ class NRPCTests(unittest.TestCase):
         request['PreferredMaximumLength'] = 0xffffffff
         try:
             resp = dce.request(request)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('STATUS_NOT_SUPPORTED') < 0:
                 raise
@@ -702,7 +702,7 @@ class NRPCTests(unittest.TestCase):
         request['PreferredMaximumLength'] = 0xffffffff
         try:
             resp = dce.request(request)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('STATUS_NOT_SUPPORTED') < 0:
                 raise
@@ -720,7 +720,7 @@ class NRPCTests(unittest.TestCase):
         request['PreferredMaximumLength'] = 0xffffffff
         try:
             resp = dce.request(request)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('STATUS_NOT_SUPPORTED') < 0:
                 raise
@@ -737,7 +737,7 @@ class NRPCTests(unittest.TestCase):
         request['ChangeLogEntrySize'] = 0
         try:
             resp = dce.request(request)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('STATUS_NOT_SUPPORTED') < 0:
                 raise
@@ -749,7 +749,7 @@ class NRPCTests(unittest.TestCase):
         request['Flags'] = 1
         try:
             resp = dce.request(request)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('STATUS_NOT_SUPPORTED') < 0:
                 raise
@@ -760,7 +760,7 @@ class NRPCTests(unittest.TestCase):
         request['ServerName'] = NULL
         try:
             resp = dce.request(request)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('STATUS_NOT_SUPPORTED') < 0:
                 raise
@@ -771,7 +771,7 @@ class NRPCTests(unittest.TestCase):
         request['ServerName'] = NULL
         try:
             resp = dce.request(request)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('STATUS_NOT_SUPPORTED') < 0:
                 raise
@@ -787,7 +787,7 @@ class NRPCTests(unittest.TestCase):
         request['Flags'] = 0
         try:
             resp = dce.request(request)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('STATUS_NOT_IMPLEMENTED') < 0:
                 raise
@@ -800,7 +800,7 @@ class NRPCTests(unittest.TestCase):
         request['Flags'] = 0
         try:
             resp = dce.request(request)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('ERROR_NO_SUCH_DOMAIN') < 0:
                 raise
@@ -815,7 +815,7 @@ class NRPCTests(unittest.TestCase):
         request['Authenticator'] = self.update_authenticator()
         try:
             resp = dce.request(request)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('ERROR_NO_SUCH_DOMAIN') < 0:
                 raise
@@ -824,7 +824,7 @@ class NRPCTests(unittest.TestCase):
         dce, rpctransport = self.connect()
         try:
             resp = nrpc.hNetrServerGetTrustInfo(dce, NULL, self.username, nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel,self.serverName,self.update_authenticator())
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('ERROR_NO_SUCH_DOMAIN') < 0:
                 raise
@@ -836,7 +836,7 @@ class NRPCTests(unittest.TestCase):
         request['DomainName'] = self.domain+ '\x00'
         try:
             resp = dce.request(request)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('rpc_s_access_denied') < 0:
                 raise
@@ -850,7 +850,7 @@ class NRPCTests(unittest.TestCase):
         request['MessageSize'] = len('HOLABETOCOMOANDAS\x00')
         try:
             resp = dce.request(request)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('rpc_s_access_denied') < 0:
                 raise
@@ -864,7 +864,7 @@ class NRPCTests(unittest.TestCase):
         request['MessageSize'] = len('HOLABETOCOMOANDAS\x00')
         try:
             resp = dce.request(request)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('rpc_s_access_denied') < 0:
                 raise
@@ -879,7 +879,7 @@ class NRPCTests(unittest.TestCase):
         request['OpaqueBufferSize'] = len('HOLABETOCOMOANDAS\x00')
         try:
             resp = dce.request(request)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('STATUS_ACCESS_DENIED') < 0:
                 raise
@@ -892,7 +892,7 @@ class NRPCTests(unittest.TestCase):
         request['ServiceBits'] = 1 << 7
         try:
             resp = dce.request(request)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('rpc_s_access_denied') < 0:
                 raise
@@ -903,7 +903,7 @@ class NRPCTests(unittest.TestCase):
         request['ServerName'] = self.domain + '\x00'
         try:
             resp = dce.request(request)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('rpc_s_access_denied') < 0:
                 raise
@@ -919,7 +919,7 @@ class NRPCTests(unittest.TestCase):
         
         try:
             resp = dce.request(request)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('rpc_s_access_denied') < 0:
                 raise
@@ -935,7 +935,7 @@ class NRPCTests(unittest.TestCase):
         
         try:
             resp = dce.request(request)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('rpc_s_access_denied') < 0:
                 raise
@@ -950,7 +950,7 @@ class NRPCTests(unittest.TestCase):
         request['Data']['DebugFlag'] = 1
         try:
             resp = dce.request(request)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('ERROR_INVALID_LEVEL') < 0:
                 raise
@@ -963,7 +963,7 @@ class NRPCTests(unittest.TestCase):
         request['Workstation'] = self.serverName + '\x00'
         try:
             resp = dce.request(request)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('rpc_s_access_denied') < 0:
                 raise
@@ -976,7 +976,7 @@ class NRPCTests(unittest.TestCase):
         request['Workstation'] = self.serverName + '\x00'
         try:
             resp = dce.request(request)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('rpc_s_access_denied') < 0:
                 raise
