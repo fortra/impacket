@@ -1441,7 +1441,10 @@ class NDRUNION(NDR):
         if self._isNDR64:
             align = 8
         else:
-            align = 4
+            if hasattr(self, 'notAlign'):
+                align = 1
+            else:
+                align = 4
 
         pad = (align - (soFar % align)) % align
         if pad > 0:
@@ -1524,7 +1527,10 @@ class NDRUNION(NDR):
         if self._isNDR64:
             align = 8
         else:
-            align = 4
+            if hasattr(self, 'notAlign'):
+                align = 1
+            else:
+                align = 4
 
         pad = (align - (soFar % align)) % align
         if pad > 0:
