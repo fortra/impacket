@@ -111,7 +111,7 @@ class EPMTests(unittest.TestCase):
         request['map_tower']['tower_octet_string'] = str(tower)
         #request.dumpRaw()
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
 class SMBTransport(EPMTests):
     def setUp(self):

@@ -62,33 +62,33 @@ class WKSTTests(unittest.TestCase):
         request['ServerName'] = '\x00'*10
         request['Level'] = 100
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request['Level'] = 101
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request['Level'] = 102
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request['Level'] = 502
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_hNetrWkstaGetInfo(self):
         dce, rpctransport = self.connect()
         resp = wkst.hNetrWkstaGetInfo(dce, 100)
-        #resp.dump()
+        resp.dump()
 
         resp = wkst.hNetrWkstaGetInfo(dce, 101)
-        #resp.dump()
+        resp.dump()
 
         resp = wkst.hNetrWkstaGetInfo(dce, 102)
-        #resp.dump()
+        resp.dump()
 
         resp = wkst.hNetrWkstaGetInfo(dce, 502)
-        #resp.dump()
+        resp.dump()
 
     def test_NetrWkstaUserEnum(self):
         dce, rpctransport = self.connect()
@@ -98,20 +98,20 @@ class WKSTTests(unittest.TestCase):
         request['UserInfo']['WkstaUserInfo']['tag'] = 0
         request['PreferredMaximumLength'] = 8192
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request['UserInfo']['Level'] = 1
         request['UserInfo']['WkstaUserInfo']['tag'] = 1
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_hNetrWkstaUserEnum(self):
         dce, rpctransport = self.connect()
         resp = wkst.hNetrWkstaUserEnum(dce, 0)
-        #resp.dump()
+        resp.dump()
 
         resp = wkst.hNetrWkstaUserEnum(dce, 1)
-        #resp.dump()
+        resp.dump()
 
     def test_NetrWkstaTransportEnum(self):
         dce, rpctransport = self.connect()
@@ -122,12 +122,12 @@ class WKSTTests(unittest.TestCase):
         request['PreferredMaximumLength'] = 500
         request['ResumeHandle'] = NULL
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_hNetrWkstaTransportEnum(self):
         dce, rpctransport = self.connect()
         resp = wkst.hNetrWkstaTransportEnum(dce, 0)
-        #resp.dump()
+        resp.dump()
 
     def test_NetrWkstaSetInfo(self):
         dce, rpctransport = self.connect()
@@ -135,7 +135,7 @@ class WKSTTests(unittest.TestCase):
         request['ServerName'] = '\x00'*10
         request['Level'] = 502
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
         oldVal = resp['WkstaInfo']['WkstaInfo502']['wki502_dormant_file_limit'] 
 
         req = wkst.NetrWkstaSetInfo()
@@ -144,33 +144,33 @@ class WKSTTests(unittest.TestCase):
         req['WkstaInfo'] = resp['WkstaInfo']
         req['WkstaInfo']['WkstaInfo502']['wki502_dormant_file_limit'] = 500
         resp2 = dce.request(req)
-        #resp2.dump()
+        resp2.dump()
 
         resp = dce.request(request)
         self.assertTrue(500 == resp['WkstaInfo']['WkstaInfo502']['wki502_dormant_file_limit'] )
 
         req['WkstaInfo']['WkstaInfo502']['wki502_dormant_file_limit'] = oldVal
         resp2 = dce.request(req)
-        #resp2.dump()
+        resp2.dump()
 
     def test_hNetrWkstaSetInfo(self):
         dce, rpctransport = self.connect()
         resp = wkst.hNetrWkstaGetInfo(dce, 502)
-        #resp.dump()
+        resp.dump()
         oldVal = resp['WkstaInfo']['WkstaInfo502']['wki502_dormant_file_limit'] 
 
  
         resp['WkstaInfo']['WkstaInfo502']['wki502_dormant_file_limit'] = 500
         resp2 = wkst.hNetrWkstaSetInfo(dce, 502,resp['WkstaInfo']['WkstaInfo502'])
-        #resp2.dump()
+        resp2.dump()
 
         resp = wkst.hNetrWkstaGetInfo(dce, 502)
-        #resp.dump()
+        resp.dump()
         self.assertTrue(500 == resp['WkstaInfo']['WkstaInfo502']['wki502_dormant_file_limit'] )
 
         resp['WkstaInfo']['WkstaInfo502']['wki502_dormant_file_limit'] = oldVal
         resp2 = wkst.hNetrWkstaSetInfo(dce, 502,resp['WkstaInfo']['WkstaInfo502'])
-        #resp2.dump()
+        resp2.dump()
 
     def test_NetrWkstaTransportAdd(self):
         dce, rpctransport = self.connect()
@@ -182,7 +182,7 @@ class WKSTTests(unittest.TestCase):
         req['TransportInfo']['wkti0_transport_address'] = '000C29BC5CE5\x00'
         try:
             resp2 = dce.request(req)
-            #resp2.dump()
+            resp2.dump()
         except Exception, e:
             if str(e).find('ERROR_INVALID_FUNCTION') < 0: 
                 raise
@@ -196,20 +196,20 @@ class WKSTTests(unittest.TestCase):
         info1['ui1_remote'] = '\\\\127.0.0.1\\c$\x00'
         info1['ui1_password'] = NULL
         resp = wkst.hNetrUseAdd(dce, 1, info1)
-        #resp.dump()
+        resp.dump()
 
         # We're not testing this call with NDR64, it fails and I can't see the contents
         if self.ts == ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0'):
             return
 
         resp = wkst.hNetrUseEnum(dce, 2)
-        #resp.dump()
+        resp.dump()
 
         resp2 = wkst.hNetrUseGetInfo(dce, 'Z:', 3)
-        #resp2.dump()
+        resp2.dump()
 
         resp = wkst.hNetrUseDel(dce,'Z:')
-        #resp.dump()
+        resp.dump()
 
     def test_NetrUseAdd_NetrUseDel_NetrUseGetInfo_NetrUseEnum(self):
         dce, rpctransport = self.connect()
@@ -222,7 +222,7 @@ class WKSTTests(unittest.TestCase):
         req['InfoStruct']['UseInfo1']['ui1_remote'] = '\\\\127.0.0.1\\c$\x00'
         req['InfoStruct']['UseInfo1']['ui1_password'] = NULL
         resp2 = dce.request(req)
-        #resp2.dump()
+        resp2.dump()
 
         # We're not testing this call with NDR64, it fails and I can't see the contents
         if self.ts == ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0'):
@@ -236,21 +236,21 @@ class WKSTTests(unittest.TestCase):
         req['PreferredMaximumLength'] = 0xffffffff
         req['ResumeHandle'] = NULL
         resp2 = dce.request(req)
-        #resp2.dump()
+        resp2.dump()
 
         req = wkst.NetrUseGetInfo()
         req['ServerName'] = '\x00'*10
         req['UseName'] = 'Z:\x00'
         req['Level'] = 3
         resp2 = dce.request(req)
-        #resp2.dump()
+        resp2.dump()
 
         req = wkst.NetrUseDel()
         req['ServerName'] = '\x00'*10
         req['UseName'] = 'Z:\x00'
         req['ForceLevel'] = wkst.USE_LOTS_OF_FORCE
         resp2 = dce.request(req)
-        #resp2.dump()
+        resp2.dump()
 
     def test_NetrWorkstationStatisticsGet(self):
         dce, rpctransport = self.connect()
@@ -262,7 +262,7 @@ class WKSTTests(unittest.TestCase):
         req['Options'] = 0
         try:
             resp2 = dce.request(req)
-            #resp2.dump()
+            resp2.dump()
         except Exception, e:
             if str(e).find('ERROR_INVALID_PARAMETER') < 0:
                 raise
@@ -272,7 +272,7 @@ class WKSTTests(unittest.TestCase):
 
         try:
             resp2 = wkst.hNetrWorkstationStatisticsGet(dce, '\x00', 0, 0)
-            #resp2.dump()
+            resp2.dump()
         except Exception, e:
             if str(e).find('ERROR_INVALID_PARAMETER') < 0:
                 raise
@@ -283,10 +283,10 @@ class WKSTTests(unittest.TestCase):
         req = wkst.NetrGetJoinInformation()
         req['ServerName'] = '\x00'*10
         req['NameBuffer'] = '\x00'
-        #req.dump()
+
         try:
             resp2 = dce.request(req)
-            #resp2.dump()
+            resp2.dump()
         except Exception, e:
             if str(e).find('ERROR_INVALID_PARAMETER') < 0:
                 raise
@@ -296,7 +296,7 @@ class WKSTTests(unittest.TestCase):
 
         try:
             resp = wkst.hNetrGetJoinInformation(dce, '\x00')
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('ERROR_INVALID_PARAMETER') < 0:
                 raise
@@ -314,7 +314,7 @@ class WKSTTests(unittest.TestCase):
         #req.dump()
         try:
             resp2 = dce.request(req)
-            #resp2.dump()
+            resp2.dump()
         except Exception, e:
             if str(e).find('ERROR_INVALID_PASSWORD') < 0:
                 raise
@@ -324,7 +324,7 @@ class WKSTTests(unittest.TestCase):
 
         try:
             resp = wkst.hNetrJoinDomain2(dce,'172.16.123.1\\FREEFLY\x00','OU=BETUS,DC=FREEFLY\x00',NULL,'\x00'*512, wkst.NETSETUP_DOMAIN_JOIN_IF_JOINED)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('ERROR_INVALID_PASSWORD') < 0:
                 raise
@@ -340,7 +340,7 @@ class WKSTTests(unittest.TestCase):
         req['Options'] = wkst.NETSETUP_ACCT_DELETE
         try:
             resp2 = dce.request(req)
-            #resp2.dump()
+            resp2.dump()
         except Exception, e:
             if str(e).find('ERROR_INVALID_PASSWORD') < 0:
                 raise
@@ -350,7 +350,7 @@ class WKSTTests(unittest.TestCase):
 
         try:
             resp = wkst.hNetrUnjoinDomain2(dce, NULL, '\x00'*512, wkst.NETSETUP_ACCT_DELETE)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('ERROR_INVALID_PASSWORD') < 0:
                 raise
@@ -367,7 +367,7 @@ class WKSTTests(unittest.TestCase):
         req['Options'] = wkst.NETSETUP_ACCT_CREATE
         try:
             resp2 = dce.request(req)
-            #resp2.dump()
+            resp2.dump()
         except Exception, e:
             if str(e).find('ERROR_INVALID_PASSWORD') < 0:
                 raise
@@ -393,7 +393,7 @@ class WKSTTests(unittest.TestCase):
         req['NameType'] = wkst.NETSETUP_NAME_TYPE.NetSetupDomain
         try:
             resp2 = dce.request(req)
-            #resp2.dump()
+            resp2.dump()
         except Exception, e:
             if str(e).find('0x8001011c') < 0:
                 raise
@@ -403,7 +403,7 @@ class WKSTTests(unittest.TestCase):
 
         try:
             resp2 = wkst.hNetrValidateName2(dce, 'BETO\x00', NULL, NULL, wkst.NETSETUP_NAME_TYPE.NetSetupDomain)
-            #resp2.dump()
+            resp2.dump()
         except Exception, e:
             if str(e).find('0x8001011c') < 0:
                 raise
@@ -420,7 +420,7 @@ class WKSTTests(unittest.TestCase):
         #req.dump()
         try:
             resp2 = dce.request(req)
-            #resp2.dump()
+            resp2.dump()
         except Exception, e:
             if str(e).find('0x8001011c') < 0:
                 raise
@@ -430,7 +430,7 @@ class WKSTTests(unittest.TestCase):
 
         try:
             resp = wkst.hNetrGetJoinableOUs2(dce,'FREEFLY\x00', NULL, NULL,0 )
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('0x8001011c') < 0:
                 raise
@@ -446,7 +446,7 @@ class WKSTTests(unittest.TestCase):
         #req.dump()
         try:
             resp2 = dce.request(req)
-            #resp2.dump()
+            resp2.dump()
         except Exception, e:
             if str(e).find('ERROR_NOT_SUPPORTED') < 0 and str(e).find('ERROR_INVALID_PASSWORD') < 0:
                 raise
@@ -456,7 +456,7 @@ class WKSTTests(unittest.TestCase):
 
         try:
             resp2= wkst.hNetrAddAlternateComputerName(dce, 'FREEFLY\x00', NULL, NULL)
-            #resp2.dump()
+            resp2.dump()
         except Exception, e:
             if str(e).find('ERROR_NOT_SUPPORTED') < 0 and str(e).find('ERROR_INVALID_PASSWORD') < 0:
                 raise
@@ -472,7 +472,7 @@ class WKSTTests(unittest.TestCase):
         #req.dump()
         try:
             resp2 = dce.request(req)
-            #resp2.dump()
+            resp2.dump()
         except Exception, e:
             if str(e).find('ERROR_NOT_SUPPORTED') < 0 and str(e).find('ERROR_INVALID_PASSWORD') < 0:
                 raise
@@ -482,7 +482,7 @@ class WKSTTests(unittest.TestCase):
 
         try:
             resp2 = wkst.hNetrRemoveAlternateComputerName(dce,'FREEFLY\x00', NULL, NULL )
-            #resp2.dump()
+            resp2.dump()
         except Exception, e:
             if str(e).find('ERROR_NOT_SUPPORTED') < 0 and str(e).find('ERROR_INVALID_PASSWORD') < 0:
                 raise
@@ -498,7 +498,7 @@ class WKSTTests(unittest.TestCase):
         #req.dump()
         try:
             resp2 = dce.request(req)
-            #resp2.dump()
+            resp2.dump()
         except Exception, e:
             if str(e).find('ERROR_NOT_SUPPORTED') < 0:
                 raise
@@ -508,7 +508,7 @@ class WKSTTests(unittest.TestCase):
 
         try:
             resp2 = wkst.hNetrSetPrimaryComputerName(dce,'FREEFLY\x00', NULL, NULL )
-            #resp2.dump()
+            resp2.dump()
         except Exception, e:
             if str(e).find('ERROR_NOT_SUPPORTED') < 0:
                 raise

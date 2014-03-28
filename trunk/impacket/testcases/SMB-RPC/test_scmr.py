@@ -60,7 +60,7 @@ class SCMRTests(unittest.TestCase):
             resp = scmr.hRChangeServiceConfigW( dce, hService, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName)
 
             resp = scmr.hRQueryServiceConfigW(dce, hService)
-            #resp.dump()
+            resp.dump()
             # Now let's compare all the results
             if dwServiceType != scmr.SERVICE_NO_CHANGE:
                 self.assertTrue( resp['lpServiceConfig']['dwServiceType'] == dwServiceType )
@@ -166,7 +166,7 @@ class SCMRTests(unittest.TestCase):
         lpPassword = NULL
         dwPwSize = 0
         resp = scmr.hRCreateServiceW(dce, scHandle, lpServiceName, lpDisplayName, dwDesiredAccess, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize)
-        #resp.dump()
+        resp.dump()
         newHandle = resp['lpServiceHandle'] 
         error = False
         try:
@@ -176,14 +176,14 @@ class SCMRTests(unittest.TestCase):
             request['Info']['Union']['tag'] = 1
             request['Info']['Union']['psd']['lpDescription'] = u'betobeto\x00'
             resp = dce.request(request)
-            #resp.dump()
+            resp.dump()
             self.changeServiceAndQuery2(dce, request, request['Info']['Union']['psd']['lpDescription'])
             request['Info']['dwInfoLevel'] = 2
             request['Info']['Union']['tag'] = 2
             request['Info']['Union']['psfa']['lpRebootMsg'] = u'rebootMsg\00'
             request['Info']['Union']['psfa']['lpCommand'] = u'lpCommand\00'
             resp = dce.request(request)
-            #resp.dump()
+            resp.dump()
             self.changeServiceAndQuery2(dce, request, request['Info']['Union']['psfa']['lpRebootMsg'])
             request['Info']['dwInfoLevel'] = 3
             request['Info']['Union']['tag'] = 3
@@ -228,7 +228,7 @@ class SCMRTests(unittest.TestCase):
             request['Info']['dwInfoLevel'] = 9
             request['Info']['Union']['tag'] = 9
             request['Info']['Union']['pspn']['usPreferredNode'] = 22
-            #resp = dce.request(request)
+            resp = dce.request(request)
             #self.changeServiceAndQuery2(dce, request, request['Info']['Union']['pspn']['usPreferredNode'])
             request['Info']['dwInfoLevel'] = 10
             request['Info']['Union']['tag'] = 10
@@ -278,10 +278,10 @@ class SCMRTests(unittest.TestCase):
                 raise
             else: 
                 resp = e.get_packet()
-        #resp.dump()
+        resp.dump()
         request['cbBufSize'] = resp['pcbBytesNeeded']
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_RQueryServiceStatusEx(self):
         dce, rpctransport, scHandle  = self.connect()
@@ -289,7 +289,7 @@ class SCMRTests(unittest.TestCase):
         desiredAccess = scmr.SERVICE_START | scmr.SERVICE_STOP | scmr.SERVICE_CHANGE_CONFIG | scmr.SERVICE_QUERY_CONFIG | scmr.SERVICE_QUERY_STATUS | scmr.SERVICE_ENUMERATE_DEPENDENTS
 
         resp = scmr.hROpenServiceW(dce, scHandle, lpServiceName, desiredAccess )
-        #resp.dump()
+        resp.dump()
 
         serviceHandle = resp['lpServiceHandle']
   
@@ -316,7 +316,7 @@ class SCMRTests(unittest.TestCase):
 
         try:
             resp = scmr.hREnumServiceGroupW(dce, scHandle, dwServiceType, dwServiceState, cbBufSize, lpResumeIndex, pszGroupName )
-            #resp.dump()
+            resp.dump()
         except Exception, e:
            if str(e).find('ERROR_SERVICE_DOES_NOT_EXISTS') <= 0:
                raise
@@ -329,7 +329,7 @@ class SCMRTests(unittest.TestCase):
         desiredAccess = scmr.SERVICE_START | scmr.SERVICE_STOP | scmr.SERVICE_CHANGE_CONFIG | scmr.SERVICE_QUERY_CONFIG | scmr.SERVICE_QUERY_STATUS | scmr.SERVICE_ENUMERATE_DEPENDENTS
 
         resp = scmr.hROpenServiceW(dce, scHandle, lpServiceName, desiredAccess )
-        #resp.dump()
+        resp.dump()
         serviceHandle = resp['lpServiceHandle']
 
         request = scmr.RQueryServiceConfigEx()
@@ -338,7 +338,7 @@ class SCMRTests(unittest.TestCase):
         #request.dump()
 
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     # ToDo
     def te_RControlServiceExW(self):
@@ -347,7 +347,7 @@ class SCMRTests(unittest.TestCase):
         desiredAccess = scmr.SERVICE_START | scmr.SERVICE_STOP | scmr.SERVICE_CHANGE_CONFIG | scmr.SERVICE_QUERY_CONFIG | scmr.SERVICE_QUERY_STATUS | scmr.SERVICE_ENUMERATE_DEPENDENTS
 
         resp = scmr.hROpenServiceW(dce, scHandle, lpServiceName, desiredAccess )
-        #resp.dump()
+        resp.dump()
         serviceHandle = resp['lpServiceHandle']
 
         request = scmr.RControlServiceExW()
@@ -361,7 +361,7 @@ class SCMRTests(unittest.TestCase):
 
         resp = dce.request(request)
 
-        #resp.dump()
+        resp.dump()
 
     # ToDo
     def te_RNotifyServiceStatusChange(self):
@@ -370,7 +370,7 @@ class SCMRTests(unittest.TestCase):
         desiredAccess = scmr.SERVICE_START | scmr.SERVICE_STOP | scmr.SERVICE_CHANGE_CONFIG | scmr.SERVICE_QUERY_CONFIG | scmr.SERVICE_QUERY_STATUS | scmr.SERVICE_ENUMERATE_DEPENDENTS
 
         resp = scmr.hROpenServiceW(dce, scHandle, lpServiceName, desiredAccess )
-        #resp.dump()
+        resp.dump()
         serviceHandle = resp['lpServiceHandle']
 
         request = scmr.RNotifyServiceStatusChange()
@@ -380,19 +380,19 @@ class SCMRTests(unittest.TestCase):
         request['pClientProcessGuid'] = '0'*16
         #request.dump()
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request = scmr.RCloseNotifyHandle()
         request['phNotify'] = resp['phNotify']
 
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
         request = scmr.RGetNotifyResults()
         request['hNotify'] = resp['phNotify']
 
         resp = dce.request(request)
-        #resp.dump()
+        resp.dump()
 
     def test_RGetServiceDisplayNameW(self):
         dce, rpctransport, scHandle  = self.connect()
@@ -421,7 +421,7 @@ class SCMRTests(unittest.TestCase):
         desiredAccess = scmr.SERVICE_START | scmr.SERVICE_STOP | scmr.SERVICE_CHANGE_CONFIG | scmr.SERVICE_QUERY_CONFIG | scmr.SERVICE_QUERY_STATUS | scmr.SERVICE_ENUMERATE_DEPENDENTS
 
         resp = scmr.hROpenServiceW(dce, scHandle, lpServiceName, desiredAccess )
-        #resp.dump()
+        resp.dump()
         serviceHandle = resp['lpServiceHandle']
   
         try:
@@ -471,7 +471,7 @@ class SCMRTests(unittest.TestCase):
         lpPassword = NULL
         dwPwSize = 0
         resp = scmr.hRCreateServiceW(dce, scHandle, lpServiceName, lpDisplayName, dwDesiredAccess, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize)
-        #resp.dump()
+        resp.dump()
         newHandle = resp['lpServiceHandle'] 
 
         # Aca hay que chequear cada uno de los items
@@ -484,7 +484,7 @@ class SCMRTests(unittest.TestCase):
             else: 
                 resp = e.get_packet()
 
-        #resp.dump()
+        resp.dump()
         cbBufSize = resp['pcbBytesNeeded']+100
 
         # Now that we have cbBufSize, let's start changing everything on the service
@@ -561,7 +561,7 @@ class SCMRTests(unittest.TestCase):
         desiredAccess = scmr.SERVICE_START | scmr.SERVICE_STOP | scmr.SERVICE_CHANGE_CONFIG | scmr.SERVICE_QUERY_CONFIG | scmr.SERVICE_QUERY_STATUS | scmr.SERVICE_ENUMERATE_DEPENDENTS
 
         resp = scmr.hROpenServiceW(dce, scHandle, lpServiceName, desiredAccess )
-        #resp.dump()
+        resp.dump()
 
         serviceHandle = resp['lpServiceHandle']
  
@@ -570,17 +570,17 @@ class SCMRTests(unittest.TestCase):
         cbBufSize = 0
         try:
             resp = scmr.hREnumDependentServicesW(dce, serviceHandle, scmr.SERVICE_STATE_ALL,cbBufSize )
-            #resp.dump()
+            resp.dump()
         except scmr.DCERPCSessionError, e:
            if str(e).find('ERROR_MORE_DATA') <= 0:
                raise
            else:
                resp = e.get_packet()
 
-        #resp.dump()
+        resp.dump()
         cbBufSize = resp['pcbBytesNeeded']
         resp = scmr.hREnumDependentServicesW(dce, serviceHandle, scmr.SERVICE_STATE_ALL,cbBufSize )
-        #resp.dump()
+        resp.dump()
         resp = scmr.hRCloseServiceHandle(dce, serviceHandle)
         resp = scmr.hRCloseServiceHandle(dce, scHandle)
 
@@ -598,7 +598,7 @@ class SCMRTests(unittest.TestCase):
         
         try:
             resp = scmr.hRQueryServiceObjectSecurity(dce, scHandle, scmr.DACL_SECURITY_INFORMATION, 0)
-            #resp.dump()
+            resp.dump()
         except Exception, e:
            if str(e).find('rpc_s_access_denied') <= 0:
                raise
@@ -611,7 +611,7 @@ class SCMRTests(unittest.TestCase):
         
         try:
             resp = scmr.hRNotifyBootConfigStatus(dce, lpMachineName, 0x0)
-            #resp.dump()
+            resp.dump()
         except scmr.DCERPCSessionError, e:
            if str(e).find('ERROR_BOOT_ALREADY_ACCEPTED') <= 0:
                raise
@@ -624,7 +624,7 @@ class SCMRTests(unittest.TestCase):
         desiredAccess = scmr.SERVICE_START | scmr.SERVICE_STOP | scmr.SERVICE_CHANGE_CONFIG | scmr.SERVICE_QUERY_CONFIG | scmr.SERVICE_QUERY_STATUS | scmr.SERVICE_ENUMERATE_DEPENDENTS
 
         resp = scmr.hROpenServiceW(dce, scHandle, lpServiceName, desiredAccess )
-        #resp.dump()
+        resp.dump()
 
         serviceHandle = resp['lpServiceHandle']
  
@@ -642,13 +642,13 @@ class SCMRTests(unittest.TestCase):
         import time
         time.sleep(1)
         resp = scmr.hROpenServiceW(dce, scHandle, lpServiceName, desiredAccess )
-        #resp.dump()
+        resp.dump()
 
         serviceHandle = resp['lpServiceHandle']
 
         try:
             resp = scmr.hRStartServiceW(dce, serviceHandle, 0, NULL )
-            #resp.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('ERROR_SERVICE_ALREADY_RUNNING') < 0:
                 raise
