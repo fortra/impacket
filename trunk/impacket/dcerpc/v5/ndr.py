@@ -365,22 +365,26 @@ class NDR(object):
         return self
 
     def fromStringReferents(self, data, soFar = 0):
+        soFar0 = soFar
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             if isinstance(self.fields[fieldName], NDR):
-                data = self.fields[fieldName].fromStringReferents(data, soFar)
-                soFar += len(self.fields[fieldName].getDataReferents(soFar))
-                data = self.fields[fieldName].fromStringReferent(data, soFar)
-                soFar += len(self.fields[fieldName].getDataReferent(soFar))
-        return data
+                nSoFar = self.fields[fieldName].fromStringReferents(data, soFar)
+                soFar += nSoFar
+                nSoFar2 = self.fields[fieldName].fromStringReferent(data[nSoFar:], soFar)
+                soFar += nSoFar2
+                data = data[nSoFar+nSoFar2:]
+        return soFar - soFar0
 
     def fromStringReferent(self, data, soFar = 0):
         if hasattr(self, 'referent') is not True:
-            return data
+            return 0
+
         soFar0 = soFar
+
         if self.fields.has_key('ReferentID'):
             if self['ReferentID'] == 0:
                 # NULL Pointer, there's no referent for it
-                return data
+                return 0
 
         for fieldName, fieldTypeOrClass in self.referent:
             size = self.calcUnPackSize(fieldTypeOrClass, data)
@@ -396,13 +400,13 @@ class NDR(object):
 
             if isinstance(self.fields[fieldName], NDR):
                 size = len(self.fields[fieldName].getData(soFar))
-                res = self.fields[fieldName].fromStringReferents(data[size:], soFar+size)
-                self.fields[fieldName].fromStringReferent(data[size:], soFar + size)
-                size += len(self.fields[fieldName].getDataReferents(soFar+size))+ len(self.fields[fieldName].getDataReferent(soFar+size)) 
+                nSoFar = self.fields[fieldName].fromStringReferents(data[size:], soFar + size)
+                nSoFar2 = self.fields[fieldName].fromStringReferent(data[size + nSoFar:], soFar + size + nSoFar)
+                size += nSoFar + nSoFar2 
             data = data[size:]
             soFar += size
 
-        return data 
+        return soFar-soFar0
 
     def pack(self, fieldName, fieldTypeOrClass, soFar = 0):
         if self.debug:
@@ -531,12 +535,13 @@ class NDR(object):
                     if pad > 0:
                         soFarItems += pad
                         data = data[pad:]
-                    data = itemn.fromStringReferents(data, soFarItems+soFar)
-                    soFarItems += len(itemn.getDataReferents(soFarItems+soFar))
-                    data = itemn.fromStringReferent(data, soFarItems+soFar)
-                    soFarItems += len(itemn.getDataReferent(soFarItems+soFar))
+                    nsoFar = itemn.fromStringReferents(data, soFarItems+soFar)
+                    soFarItems += nsoFar
+                    data = data[nsoFar:]
+                    nsoFar2 = itemn.fromStringReferent(data, soFarItems+soFar)
+                    soFarItems += nsoFar2
+                    data = data[nsoFar2:]
                     answer2.append(itemn)
-                    numItems -= 1
                 answer = answer2
                 del(answer2)
 
@@ -712,9 +717,9 @@ class NDRCALL(NDR):
                     size = len(self.fields[fieldName].getData(soFar))
                     # Any referent information to unpack?
                     if isinstance(self.fields[fieldName], NDR):
-                        res = self.fields[fieldName].fromStringReferents(data[size:], soFar+size)
-                        self.fields[fieldName].fromStringReferent(data[size:], soFar + size + len(res))
-                    size+= len(data[size:]) - len(res)
+                        nsoFar = self.fields[fieldName].fromStringReferents(data[size:], soFar + size)
+                        nsoFar2 = self.fields[fieldName].fromStringReferent(data[size + nsoFar:], soFar + size + nsoFar)
+                        size += nsoFar + nsoFar2 
 
                 data = data[size:]
                 soFar += size
