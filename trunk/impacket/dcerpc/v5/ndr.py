@@ -535,12 +535,12 @@ class NDR(object):
                     if pad > 0:
                         soFarItems += pad
                         data = data[pad:]
-                    nsoFar = itemn.fromStringReferents(data, soFarItems+soFar)
-                    soFarItems += nsoFar
-                    data = data[nsoFar:]
-                    nsoFar2 = itemn.fromStringReferent(data, soFarItems+soFar)
-                    soFarItems += nsoFar2
-                    data = data[nsoFar2:]
+                    nSoFar = itemn.fromStringReferents(data, soFarItems+soFar)
+                    soFarItems += nSoFar
+                    data = data[nSoFar:]
+                    nSoFar2 = itemn.fromStringReferent(data, soFarItems+soFar)
+                    soFarItems += nSoFar2
+                    data = data[nSoFar2:]
                     answer2.append(itemn)
                 answer = answer2
                 del(answer2)
@@ -717,9 +717,9 @@ class NDRCALL(NDR):
                     size = len(self.fields[fieldName].getData(soFar))
                     # Any referent information to unpack?
                     if isinstance(self.fields[fieldName], NDR):
-                        nsoFar = self.fields[fieldName].fromStringReferents(data[size:], soFar + size)
-                        nsoFar2 = self.fields[fieldName].fromStringReferent(data[size + nsoFar:], soFar + size + nsoFar)
-                        size += nsoFar + nsoFar2 
+                        nSoFar = self.fields[fieldName].fromStringReferents(data[size:], soFar + size)
+                        nSoFar2 = self.fields[fieldName].fromStringReferent(data[size + nSoFar:], soFar + size + nSoFar)
+                        size += nSoFar + nSoFar2 
 
                 data = data[size:]
                 soFar += size
