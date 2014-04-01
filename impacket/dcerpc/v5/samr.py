@@ -276,6 +276,16 @@ SAM_VALIDATE_PASSWORD_HISTORY        = 0x00000020
 ################################################################################
 # STRUCTURES
 ################################################################################
+class RPC_UNICODE_STRING_ARRAY(NDRUniConformantVaryingArray):
+    item = RPC_UNICODE_STRING
+
+class RPC_UNICODE_STRING_ARRAY_C(NDRUniConformantArray):
+    item = RPC_UNICODE_STRING
+
+class PRPC_UNICODE_STRING_ARRAY(NDRPOINTER):
+    referent = (
+        ('Data',RPC_UNICODE_STRING_ARRAY_C),
+    )
 
 # 2.2.2.1 RPC_STRING, PRPC_STRING
 class RPC_STRING(NDRSTRUCT):
@@ -373,12 +383,14 @@ PENCRYPTED_NT_OWF_PASSWORD = PENCRYPTED_LM_OWF_PASSWORD
 #    item = '<L'
 class ULONG_ARRAY(NDRUniConformantArray):
     item = ULONG
-    pass
 
 class PULONG_ARRAY(NDRPOINTER):
     referent = (
         ('Data', ULONG_ARRAY),
     )
+
+class ULONG_ARRAY_CV(NDRUniConformantVaryingArray):
+    item = ULONG
 
 class SAMPR_ULONG_ARRAY(NDRSTRUCT):
     structure = (
@@ -417,6 +429,13 @@ class SAMPR_PSID_ARRAY_OUT(NDRSTRUCT):
     structure = (
         ('Count', ULONG),
         ('Sids', PSAMPR_SID_INFORMATION_ARRAY),
+    )
+
+# 2.2.3.8 SAMPR_RETURNED_USTRING_ARRAY
+class SAMPR_RETURNED_USTRING_ARRAY(NDRSTRUCT):
+    structure = (
+        ('Count', ULONG),
+        ('Element', PRPC_UNICODE_STRING_ARRAY),
     )
 
 # 2.2.3.9 SAMPR_RID_ENUMERATION
@@ -1350,9 +1369,6 @@ class PSAM_VALIDATE_OUTPUT_ARG(NDRPOINTER):
         ('Data', SAM_VALIDATE_OUTPUT_ARG),
     )
 
-class RPC_UNICODE_STRING_ARRAY(NDRUniConformantVaryingArray):
-    item = RPC_UNICODE_STRING
-
 ################################################################################
 # RPC CALLS
 ################################################################################
@@ -1596,7 +1612,7 @@ class SamrLookupNamesInDomain(NDRCALL):
 
 class SamrLookupNamesInDomainResponse(NDRCALL):
     structure = (
-       ('RelativeIds',ULONG),
+       ('RelativeIds',SAMPR_ULONG_ARRAY),
        ('Use',SAMPR_ULONG_ARRAY),
        ('ErrorCode',ULONG),
     )
@@ -1606,13 +1622,12 @@ class SamrLookupIdsInDomain(NDRCALL):
     structure = (
        ('DomainHandle',SAMPR_HANDLE),
        ('Count',ULONG),
-       ('RelativeIds',SAMPR_ULONG_ARRAY),
+       ('RelativeIds',ULONG_ARRAY_CV),
     )
 
 class SamrLookupIdsInDomainResponse(NDRCALL):
     structure = (
-       #('Names',PSAMPR_RETURNED_USTRING_ARRAY),
-       ('Names',RPC_UNICODE_STRING_ARRAY),
+       ('Names',SAMPR_RETURNED_USTRING_ARRAY),
        ('Use',SAMPR_ULONG_ARRAY),
        ('ErrorCode',ULONG),
     )
@@ -2702,5 +2717,33 @@ def hSamrValidatePassword(dce, inputArg):
     request = SamrValidatePassword()
     request['ValidationType'] =  inputArg['tag']
     request['InputArg'] = inputArg
+    return dce.request(request)
+
+def hSamrLookupNamesInDomain(dce, domainHandle, names):
+    request = SamrLookupNamesInDomain()
+    request['DomainHandle'] =  domainHandle
+    request['Count'] = len(names)
+    for name in names:
+        entry = RPC_UNICODE_STRING()
+        entry['Data'] = name
+        request['Names'].append(entry)
+
+    request.fields['Names'].fields['MaximumCount'] = 1000
+    request.dump()
+
+    return dce.request(request)
+
+def hSamrLookupIdsInDomain(dce, domainHandle, ids):
+    request = SamrLookupIdsInDomain()
+    request['DomainHandle'] =  domainHandle
+    request['Count'] = len(ids)
+    for id in ids:
+        entry = ULONG()
+        entry['Data'] = id
+        request['RelativeIds'].append(entry)
+
+    request.fields['RelativeIds'].fields['MaximumCount'] = 1000
+    request.dump()
+
     return dce.request(request)
 
