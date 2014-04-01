@@ -115,10 +115,10 @@
 #  hSamrGetDomainPasswordInformation 
 #  hSamrRidToSid 
 #  hSamrValidatePassword
+#  hSamrLookupNamesInDomain
+#  hSamrLookupIdsInDomain
 #  
 # ToDo:
-#  SamrLookupNamesInDomain
-#  SamrLookupIdsInDomain
 # 
 # Shouldn't dump errors against a win7
 ################################################################################
@@ -374,32 +374,45 @@ class SAMRTests(unittest.TestCase):
         resp4 = dce.request(request)
         resp4.dump()
 
-    # ToDo
-    def te_SamrLookupNamesInDomain(self):
+    def test_SamrLookupNamesInDomain(self):
         dce, rpctransport, domainHandle  = self.connect()
         request = samr.SamrLookupNamesInDomain()
         request['DomainHandle'] = domainHandle
-        request['Count'] = 2
+        request['Count'] = 1
         entry = dtypes.RPC_UNICODE_STRING()
         entry['Data'] = 'Administrator'
+        #entry.fields['MaximumLength'] = len('Administrator\x00')*2
+        #entry.fields['Data'].fields['Data'].fields['MaximumCount'] = len('Administrator\x00')
         request['Names'].append(entry)
-        entry = dtypes.RPC_UNICODE_STRING()
-        entry['Data'] = 'beto'
-        request['Names'].append(entry)
-
+        request.fields['Names'].fields['MaximumCount'] = 1000
         resp5 = dce.request(request)
         resp5.dump()
 
-    # ToDo
-    def te_SamrLookupIdsInDomain(self):
+    def test_hSamrLookupNamesInDomain(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        resp = samr.hSamrLookupNamesInDomain(dce, domainHandle, ('Administrator','Guest'))
+        resp.dump()
+
+    def test_SamrLookupIdsInDomain(self):
         dce, rpctransport, domainHandle  = self.connect()
         request = samr.SamrLookupIdsInDomain()
+        request.dump()
         request['DomainHandle'] = domainHandle
         request['Count'] = 2
-        request['RelativeIds'].append(500)
-        request['RelativeIds'].append(501)
+        entry = dtypes.ULONG()
+        entry['Data'] = 500
+        request['RelativeIds'].append(entry)
+        entry = dtypes.ULONG()
+        entry['Data'] = 501
+        request['RelativeIds'].append(entry)
+        request.fields['RelativeIds'].fields['MaximumCount'] = 1000
         resp5 = dce.request(request)
         resp5.dump()
+
+    def test_hSamrLookupIdsInDomain(self):
+        dce, rpctransport, domainHandle  = self.connect()
+        resp = samr.hSamrLookupIdsInDomain(dce, domainHandle, (500,501))
+        resp.dump()
 
     def test_SamrEnumerateGroupsInDomain(self):
         dce, rpctransport, domainHandle  = self.connect()
