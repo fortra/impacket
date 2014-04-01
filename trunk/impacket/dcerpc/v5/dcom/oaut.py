@@ -22,9 +22,10 @@
 #   Helper functions start with "h"<name of the call>.
 #   There are test cases for them too. 
 #
-from impacket.dcerpc.v5.ndr import NDRSTRUCT, NDRUniConformantArray, NDRPOINTER, NDRENUM, NDRUSHORT, NDRUNION
+import random
+from impacket.dcerpc.v5.ndr import NDRSTRUCT, NDRUniConformantArray, NDRPOINTER, NDRENUM, NDRUSHORT, NDRUNION, NDRUniConformantVaryingArray
 from impacket.dcerpc.v5.dcomrt import DCOMCALL, DCOMANSWER, IRemUnknown2, PMInterfacePointer, INTERFACE, MInterfacePointer, MInterfacePointer_ARRAY, BYTE_ARRAY
-from impacket.dcerpc.v5.dtypes import LPWSTR, ULONG, DWORD, SHORT, GUID, USHORT, LONG, WSTR, BYTE, LONGLONG, FLOAT, DOUBLE, HRESULT, PSHORT, PLONG, PLONGLONG, PFLOAT, PDOUBLE, PHRESULT, CHAR, ULONGLONG, INT, UINT, PCHAR, PUSHORT, PULONG, PULONGLONG, PINT, PUINT
+from impacket.dcerpc.v5.dtypes import LPWSTR, ULONG, DWORD, SHORT, GUID, USHORT, LONG, WSTR, BYTE, LONGLONG, FLOAT, DOUBLE, HRESULT, PSHORT, PLONG, PLONGLONG, PFLOAT, PDOUBLE, PHRESULT, CHAR, ULONGLONG, INT, UINT, PCHAR, PUSHORT, PULONG, PULONGLONG, PINT, PUINT, NULL
 from impacket.dcerpc.v5.enum import Enum
 from impacket import hresult_errors
 from impacket.uuid import string_to_bin
@@ -59,6 +60,8 @@ class DCERPCSessionError(Exception):
 # 1.9 Standards Assignments
 IID_IDispatch = string_to_bin('00020400-0000-0000-C000-000000000046')
 IID_ITypeInfo = string_to_bin('00020401-0000-0000-C000-000000000046')
+IID_ITypeComp = string_to_bin('00020403-0000-0000-C000-000000000046')
+IID_NULL      = string_to_bin('00000000-0000-0000-0000-000000000000')
 
 error_status_t = ULONG
 
@@ -71,6 +74,9 @@ IID = GUID
 # 2.2.3 LPOLESTR
 LPOLESTR = LPWSTR
 OLESTR = WSTR
+
+# 2.2.4 REFIID
+REFIID = IID
 
 # 2.2.25 DATE
 DATE = DOUBLE
@@ -86,6 +92,16 @@ class PVARIANT_BOOL(NDRPOINTER):
     referent = (
         ('Data', VARIANT_BOOL),
     )
+
+# 3.1.4.4 IDispatch::Invoke (Opnum 6)
+# dwFlags
+DISPATCH_METHOD         = 0x00000001
+DISPATCH_PROPERTYGET    = 0x00000002
+DISPATCH_PROPERTYPUT    = 0x00000004
+DISPATCH_PROPERTYPUTREF = 0x00000008
+DISPATCH_zeroVarResult  = 0x00020000
+DISPATCH_zeroExcepInfo  = 0x00040000
+DISPATCH_zeroArgErr     = 0x00080000
 
 ################################################################################
 # STRUCTURES
@@ -268,7 +284,7 @@ class FLAGGED_WORD_BLOB(NDRSTRUCT):
         if key == 'asData':
             value = ''
             for letter in self.fields['asData']['Data']:
-                value += pack('<H', letter).encode('utf-16le')
+                value += pack('<H', letter).decode('utf-16le')
             return value
         else:
             return NDRSTRUCT.__getitem__(self,key)
@@ -279,9 +295,7 @@ class FLAGGED_WORD_BLOB(NDRSTRUCT):
         if msg != '':
             print "%s" % (msg)
         value = ''
-        #for letter in self['asData']:
-        #    value += pack('<H', letter).encode('utf-16le')
-        print '\n%sasData: %s' % (ind,self['asData']),
+        print '%sasData: %s' % (ind,self['asData']),
 
 # 2.2.23.2 BSTR Type Definition
 class BSTR(NDRPOINTER):
@@ -570,6 +584,32 @@ class PVARIANT(NDRPOINTER):
 # 2.2.32 DISPID
 DISPID = LONG
 
+# 2.2.33 DISPPARAMS
+class DISPID_ARRAY(NDRUniConformantArray):
+    item = '<L'
+
+class DISPPARAMS(NDRSTRUCT):
+    structure = (
+        ('rgvarg',VARIANT_ARRAY),
+        ('rgdispidNamedArgs', DISPID_ARRAY),
+        ('cArgs', UINT),
+        ('cNamedArgs', UINT),
+    )
+
+# 2.2.34 EXCEPINFO
+class EXCEPINFO(NDRSTRUCT):
+    structure = (
+        ('wCode',WORD),
+        ('wReserved', WORD),
+        ('bstrSource', BSTR),
+        ('bstrDescription', BSTR),
+        ('bstrHelpFile', BSTR),
+        ('dwHelpContext', DWORD),
+        ('pvReserved', ULONG),
+        ('pfnDeferredFillIn', ULONG),
+        ('scode', HRESULT),
+    )
+
 # 2.2.35 MEMBERID
 MEMBERID = DISPID
 
@@ -592,21 +632,49 @@ class ARRAYDESC(NDRSTRUCT):
 
 # 2.2.37 TYPEDESC
 class tdUnion(NDRUNION):
+    notAlign = True
     commonHdr = (
         ('tag', USHORT),
     )
-    union = {
-        VARENUM.VT_PTR: ('lptdesc', HREFTYPE),
-        VARENUM.VT_SAFEARRAY: ('lptdesc', HREFTYPE),
-        VARENUM.VT_CARRAY: ('lpadesc', ARRAYDESC),
-        VARENUM.VT_USERDEFINED: ('hreftype', HREFTYPE),
-    }
+    # In order to avoid the lack of forward declarations in Python
+    # I declare the item in the constructor
+    #union = {
+    #    VARENUM.VT_PTR: ('lptdesc', tdUnion),
+    #    VARENUM.VT_SAFEARRAY: ('lptdesc', tdUnion),
+    #    VARENUM.VT_CARRAY: ('lpadesc', ARRAYDESC),
+    #    VARENUM.VT_USERDEFINED: ('hreftype', HREFTYPE),
+    #}
+    def __init__(self, data = None, isNDR64=False, topLevel = False):
+        NDRUNION.__init__(self,None, isNDR64=isNDR64, topLevel=topLevel)
+        self.union = {
+            VARENUM.VT_PTR: ('lptdesc', PTYPEDESC),
+            VARENUM.VT_SAFEARRAY: ('lptdesc', PTYPEDESC),
+            VARENUM.VT_CARRAY: ('lpadesc', ARRAYDESC),
+            VARENUM.VT_USERDEFINED: ('hreftype', HREFTYPE),
+            'default': None,
+        }
 
 class TYPEDESC(NDRSTRUCT):
     structure = (
-        ('vt_type',VARENUM),
-        ('vt',VARENUM),
+        ('vtType',tdUnion),
+        ('vt', VARENUM),
     )
+
+    def getAlignment(self):
+        return 4
+
+class PTYPEDESC(NDRPOINTER):
+    referent = (
+        ('Data', TYPEDESC),
+    )
+    def __init__(self, data = None, isNDR64=False, topLevel = False):
+        ret = NDRPOINTER.__init__(self,None, isNDR64=isNDR64, topLevel = False)
+        # We're forcing the pointer not to be topLevel
+        if data is None:
+            self.fields['ReferentID'] = random.randint(1,65535)
+        else:
+           self.fromString(data)
+
 
 # 2.2.48 SCODE
 SCODE = LONG
@@ -704,11 +772,19 @@ class PTYPEATTR(NDRPOINTER):
         ('Data', TYPEATTR),
     )
 
+class BSTR_ARRAY_CV(NDRUniConformantVaryingArray):
+    item = BSTR
+
+class UINT_ARRAY(NDRUniConformantArray):
+    item = '<L'
+
+class OLESTR_ARRAY(NDRUniConformantArray):
+    item = LPOLESTR
+
 
 ################################################################################
 # RPC CALLS
 ################################################################################
-
 # 3.1.4.1 IDispatch::GetTypeInfoCount (Opnum 3)
 class IDispatch_GetTypeInfoCount(DCOMCALL):
     opnum = 3
@@ -736,6 +812,44 @@ class IDispatch_GetTypeInfoResponse(DCOMANSWER):
        ('ErrorCode', error_status_t),
     )
 
+# 3.1.4.3 IDispatch::GetIDsOfNames (Opnum 5)
+class IDispatch_GetIDsOfNames(DCOMCALL):
+    opnum = 5
+    structure = (
+       ('riid', REFIID),
+       ('rgszNames', OLESTR_ARRAY),
+       ('cNames', UINT),
+       ('lcid', LCID),
+    )
+
+class IDispatch_GetIDsOfNamesResponse(DCOMANSWER):
+    structure = (
+       ('rgDispId', DISPID_ARRAY),
+       ('ErrorCode', error_status_t),
+    )
+
+# 3.1.4.4 IDispatch::Invoke (Opnum 6)
+class IDispatch_Invoke(DCOMCALL):
+    opnum = 6
+    structure = (
+       ('dispIdMember', DISPID),
+       ('riid', REFIID),
+       ('lcid', LCID),
+       ('dwFlags', DWORD),
+       ('pDispParams', DISPPARAMS),
+       ('cVarRef', UINT),
+       ('rgVarRefIdx', UINT_ARRAY),
+       ('rgVarRef', VARIANT_ARRAY),
+    )
+
+class IDispatch_InvokeResponse(DCOMANSWER):
+    structure = (
+       ('pVarResult', VARIANT),
+       ('pExcepInfo', EXCEPINFO),
+       ('pArgErr', UINT),
+       ('ErrorCode', error_status_t),
+    )
+
 # 3.7.4.1 ITypeInfo::GetTypeAttr (Opnum 3)
 class ITypeInfo_GetTypeAttr(DCOMCALL):
     opnum = 3
@@ -746,6 +860,18 @@ class ITypeInfo_GetTypeAttrResponse(DCOMANSWER):
     structure = (
        ('ppTypeAttr', PTYPEATTR),
        ('pReserved', DWORD),
+       ('ErrorCode', error_status_t),
+    )
+
+# 3.7.4.2 ITypeInfo::GetTypeComp (Opnum 4)
+class ITypeInfo_GetTypeComp(DCOMCALL):
+    opnum = 4
+    structure = (
+    )
+
+class ITypeInfo_GetTypeCompResponse(DCOMANSWER):
+    structure = (
+       ('ppTComp', PMInterfacePointer),
        ('ErrorCode', error_status_t),
     )
 
@@ -763,6 +889,37 @@ class ITypeInfo_GetFuncDescResponse(DCOMANSWER):
        ('ErrorCode', error_status_t),
     )
 
+# 3.7.4.5 ITypeInfo::GetNames (Opnum 7)
+class ITypeInfo_GetNames(DCOMCALL):
+    opnum = 7
+    structure = (
+       ('memid', MEMBERID),
+       ('cMaxNames', UINT),
+    )
+
+class ITypeInfo_GetNamesResponse(DCOMANSWER):
+    structure = (
+       ('rgBstrNames', BSTR_ARRAY_CV),
+       ('pcNames', UINT),
+       ('ErrorCode', error_status_t),
+    )
+
+# 3.7.4.8 ITypeInfo::GetDocumentation (Opnum 12)
+class ITypeInfo_GetDocumentation(DCOMCALL):
+    opnum = 12
+    structure = (
+       ('memid', MEMBERID),
+       ('refPtrFlags', DWORD),
+    )
+
+class ITypeInfo_GetDocumentationResponse(DCOMANSWER):
+    structure = (
+       ('pBstrName', BSTR),
+       ('pBstrDocString', BSTR),
+       ('pdwHelpContext', DWORD),
+       ('ErrorCode', error_status_t),
+    )
+
 
 ################################################################################
 # OPNUMs and their corresponding structures
@@ -773,6 +930,20 @@ OPNUMS = {
 ################################################################################
 # HELPER FUNCTIONS
 ################################################################################
+def checkNullString(string):
+    if string == NULL:
+        return string
+
+    if string[-1:] != '\x00':
+        return string + '\x00'
+    else:
+        return string
+
+class ITypeComp(IRemUnknown2):
+    def __init__(self, interface):
+        IRemUnknown2.__init__(self,interface)
+        self._iid = IID_ITypeComp
+
 class ITypeInfo(IRemUnknown2):
     def __init__(self, interface):
         IRemUnknown2.__init__(self,interface)
@@ -781,14 +952,31 @@ class ITypeInfo(IRemUnknown2):
     def GetTypeAttr(self):
         request = ITypeInfo_GetTypeAttr()
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
-        resp.dump()
         return resp
+
+    def GetTypeComp(self):
+        request = ITypeInfo_GetTypeComp()
+        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
+        return ITypeComp(INTERFACE(self.get_cinstance(), ''.join(resp['ppTComp']['abData']), self.get_ipidRemUnknown(), targetIP = self.get_target_ip()))
 
     def GetFuncDesc(self, index):
         request = ITypeInfo_GetFuncDesc()
         request['index'] = index
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
-        resp.dump()
+        return resp
+
+    def GetNames(self, memid, cMaxNames=10):
+        request = ITypeInfo_GetNames()
+        request['memid'] = memid
+        request['cMaxNames'] = cMaxNames
+        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
+        return resp
+
+    def GetDocumentation(self, memid, refPtrFlags=15):
+        request = ITypeInfo_GetDocumentation()
+        request['memid'] = memid
+        request['refPtrFlags'] = refPtrFlags
+        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
         return resp
 
 
@@ -808,5 +996,34 @@ class IDispatch(IRemUnknown2):
         request['lcid'] = 0
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
         return ITypeInfo(INTERFACE(self.get_cinstance(), ''.join(resp['ppTInfo']['abData']), self.get_ipidRemUnknown(), targetIP = self.get_target_ip()))
+
+    def GetIDsOfNames(self, rgszNames, lcid = 0):
+        request = IDispatch_GetIDsOfNames()
+        request['riid'] = IID_NULL
+        for name in rgszNames:
+            tmpName = LPOLESTR()
+            tmpName['Data'] = checkNullString(name)
+            request['rgszNames'].append(tmpName)
+        request['cNames'] = len(rgszNames)
+        request['lcid'] = lcid
+        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
+        IDs = list()
+        for id in resp['rgDispId']:
+            IDs.append(id)
+
+        return IDs
+
+    def Invoke(self, dispIdMember, lcid, dwFlags, pDispParams, cVarRef, rgVarRefIdx, rgVarRef):
+        request = IDispatch_Invoke()
+        request['dispIdMember'] = dispIdMember
+        request['riid'] = IID_NULL
+        request['lcid'] = lcid
+        request['dwFlags'] = dwFlags 
+        request['pDispParams'] = pDispParams
+        request['cVarRef'] = cVarRef
+        request['rgVarRefIdx'] = rgVarRefIdx
+        request['rgVarRef'] = rgVarRefIdx
+        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
+        return resp
 
 
