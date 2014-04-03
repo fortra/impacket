@@ -253,6 +253,11 @@ class PMInterfacePointer(NDRPOINTER):
         ('Data', MInterfacePointer),
     )
 
+class PPMInterfacePointer(NDRPOINTER):
+    referent = (
+        ('Data', PMInterfacePointer),
+    )
+
 # 2.2.18 OBJREF
 class OBJREF(NDRSTRUCT):
     commonHdr = (
@@ -943,7 +948,7 @@ class CLASS_INSTANCE():
         return self.__dce.get_credentials()
 
 class INTERFACE():
-    def __init__(self, cinstance, objRef, ipidRemUnknown, iPid = None, targetIP = None):
+    def __init__(self, cinstance, objRef, ipidRemUnknown, iPid = None, targetIP = None, dce = None):
         if targetIP is None:
             raise
         self.__dce = None
