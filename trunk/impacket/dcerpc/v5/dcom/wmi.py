@@ -9,7 +9,7 @@
 # Author: Alberto Solino
 #
 # Description:
-#   [MS-WMI] : Windows Management Instrumentation Remote Protocol. Partial implementation
+#   [MS-WMI]/[MS-WMIO] : Windows Management Instrumentation Remote Protocol. Partial implementation
 #
 #   Best way to learn how to use these calls is to grab the protocol standard
 #   so you understand what the call does, and then read the test case located
@@ -59,107 +59,292 @@ class DCERPCSessionError(Exception):
 ################################################################################
 # WMIO Structures
 ################################################################################
-# 2.2.1 EncodingUnit
-class EncodingUnit(Structure):
+# 2.2.6 ObjectFlags
+ObjectFlags = 'B=0'
+
+#2.2.77 Signature
+Signature = '<L=0x12345678'
+
+# 2.2.4 ObjectEncodingLength
+ObjectEncodingLength = '<L=0'
+
+# 2.2.73 EncodingLength
+EncodingLength = '<L=0'
+
+# 2.2.78 Encoded-String
+Encoded_String_Flag = 'B=0'
+
+# 2.2.76 ReservedOctet
+ReservedOctet = 'B=0'
+
+# 2.2.28 NdTableValueTableLength
+NdTableValueTableLength = '<L=0'
+
+class Encoded_String(Structure):
     structure = (
-        ('Signature', '<L=0x12345678'),
-        ('ObjectEncodingLength', '<L=0'),
-        ('_ObjectBlock', '_-ObjectBlock', 'self["ObjectEncodingLength"]'),
-        ('ObjectBlock', ':'),
+        ('Encoded_String_Flag', Encoded_String_Flag),
+        ('Character', 'z'),
     )
 
-# 2.2.2 EncodingUnitObjectBlock
+# 2.2.8 DecServerName
+DecServerName = Encoded_String
+# 2.2.9 DecNamespaceName
+DecNamespaceName = Encoded_String
+
+# 2.2.7 Decoration
+class Decoration(Structure):
+    structure = (
+        ('DecServerName', ':', DecServerName),
+        ('DecNamespaceName', ':', DecNamespaceName),
+    )
+
+
+# 2.2.69 HeapRef
+HeapRef = '<L=0'
+
+# 2.2.68 HeapStringRef
+HeapStringRef = HeapRef
+
+# 2.2.19 ClassNameRef
+ClassNameRef = HeapStringRef
+
+# 2.2.16 ClassHeader
+class ClassHeader(Structure):
+    structure = (
+        ('EncodingLength', EncodingLength),
+        ('ReservedOctet', ReservedOctet),
+        ('ClassNameRef', ClassNameRef),
+        ('NdTableValueTableLength', NdTableValueTableLength),
+    )
+
+# 2.2.17 DerivationList
+class DerivationList(Structure):
+    structure = (
+        ('EncodingLength', EncodingLength),
+        ('_ClassNameEncoding','_-ClassNameEncoding', 'self["EncodingLength"]-4'),
+        ('ClassNameEncoding', ':'),
+    )
+
+# 2.2.59 QualifierSet
+class QualifierSet(Structure):
+    structure = (
+        ('EncodingLength', EncodingLength),
+        ('_Qualifier','_-Qualifier', 'self["EncodingLength"]-4'),
+        ('Qualifier', ':'),
+    )
+      
+# 2.2.20 ClassQualifierSet
+ClassQualifierSet = QualifierSet
+
+# 2.2.22 PropertyCount
+PropertyCount = '<L=0'
+
+# 2.2.24 PropertyNameRef
+PropertyNameRef = HeapStringRef
+
+# 2.2.25 PropertyInfoRef
+PropertyInfoRef = HeapRef
+
+# 2.2.23 PropertyLookup
+class PropertyLookup(Structure):
+    structure = (
+        ('PropertyNameRef', PropertyNameRef),
+        ('PropertyInfoRef', PropertyInfoRef),
+    )
+
+# 2.2.21 PropertyLookupTable
+class PropertyLookupTable(Structure):
+    PropertyLookupSize = len(PropertyLookup())
+    structure = (
+        ('PropertyCount', PropertyCount),
+        ('_PropertyLookup','_-PropertyLookup', 'self["PropertyCount"]*self.PropertyLookupSize'),
+        ('PropertyLookup', ':'),
+    )
+
+# 2.2.66 Heap
+HeapLength = '<L=0'
+
+class Heap(Structure):
+    structure = (
+        ('HeapLength', HeapLength),
+        # HeapLength is a 32-bit value with the most significant bit always set 
+        # (using little-endian binary encoding for the 32-bit value), so that the 
+        # length is actually only 31 bits.
+        ('_HeapItem','_-HeapItem', 'self["HeapLength"]&0x7fffffff'),
+        ('HeapItem', ':'),
+    )
+
+# 2.2.37 ClassHeap
+ClassHeap = Heap
+
+# 2.2.15 ClassPart
+class ClassPart(Structure):
+    commonHdr = (
+        ('ClassHeader', ':', ClassHeader),
+        ('DerivationList', ':', DerivationList),
+        ('ClassQualifierSet', ':', ClassQualifierSet),
+        ('PropertyLookupTable', ':', PropertyLookupTable),
+        ('_NdTable_ValueTable','_-NdTable_ValueTable', 'self["ClassHeader"]["NdTableValueTableLength"]'),
+        ('NdTable_ValueTable',':'),
+        ('ClassHeap', ':', ClassHeap),
+    )
+#    def __init__(self, data = None, alignment = 0):
+#        Structure.__init__(self, data, alignment)
+#        if data is not None:
+#            # Let's first check the commonHdr
+#            self.fromString(data)
+#            self.structure = ()
+#            if self['ClassHeader']['NdTableValueTableLength'] > 0:
+#                self.structure += self.optionals+self.tail
+#            else:
+#                self.structure = self.tail
+#            self.fromString(data)
+#        else:
+#            self.data = None
+
+# 2.2.39 MethodCount
+MethodCount = '<H=0'
+
+# 2.2.40 MethodCountPadding
+MethodCountPadding = '<H=0'
+
+# 2.2.42 MethodName
+MethodName = HeapStringRef
+
+# 2.2.43 MethodFlags
+MethodFlags = 'B=0'
+
+# 2.2.44 MethodPadding
+MethodPadding = "3s=''"
+
+# 2.2.45 MethodOrigin
+MethodOrigin = '<L=0'
+
+# 2.2.47 HeapQualifierSetRef
+HeapQualifierSetRef = HeapRef
+
+# 2.2.46 MethodQualifiers
+MethodQualifiers = HeapQualifierSetRef
+
+# 2.2.51 HeapMethodSignatureBlockRef
+HeapMethodSignatureBlockRef = HeapRef
+
+# 2.2.50 MethodSignature
+MethodSignature = HeapMethodSignatureBlockRef
+
+# 2.2.48 InputSignature
+InputSignature = MethodSignature
+
+# 2.2.49 OutputSignature
+OutputSignature = MethodSignature
+
+# 2.2.52 MethodHeap
+MethodHeap = Heap
+
+# 2.2.41 MethodDescription
+class MethodDescription(Structure):
+    structure = (
+        ('MethodName',MethodName),
+        ('MethodFlags', MethodFlags),
+        ('MethodPadding', MethodPadding),
+        ('MethodOrigin', MethodOrigin),
+        ('MethodQualifiers', MethodQualifiers),
+        ('InputSignature', InputSignature),
+        ('OutputSignature', OutputSignature),
+    )
+
+# 2.2.38 MethodsPart
+class MethodsPart(Structure):
+    MethodDescriptionSize = len(MethodDescription())
+    structure = (
+        ('EncodingLength',EncodingLength),
+        ('MethodCount', MethodCount),
+        ('MethodCountPadding', MethodCountPadding),
+        ('_MethodDescription', '_-MethodDescription', 'self["MethodCount"]*self.MethodDescriptionSize'),
+        ('MethodDescription', ':'),
+        ('MethodHeap', ':', MethodHeap),
+    )
+
+
+# 2.2.14 ClassAndMethodsPart
+class ClassAndMethodsPart(Structure):
+    structure = (
+        ('ClassPart', ':', ClassPart),
+        ('MethodsPart', ':', MethodsPart),
+    )
+
+# 2.2.13 CurrentClass
+CurrentClass = ClassAndMethodsPart
+
+# 2.2.53 InstanceType
+class InstanceType(Structure):
+    structure = (
+        ('CurrentClass', ':', CurrentClass),
+        #('EncodingLength', ':', DecNamespaceName),
+        #('InstanceFlags', ':', DecNamespaceName),
+        #('InstanceClassName', ':', DecNamespaceName),
+        #('NdTable', ':', DecNamespaceName),
+        #('InstanceData', ':', DecNamespaceName),
+        #('InstanceQualifierSet', ':', DecNamespaceName),
+        #('InstanceHeap', ':', DecNamespaceName),
+    )
+
+# 2.2.12 ParentClass
+ParentClass = ClassAndMethodsPart
+
+# 2.2.13 CurrentClass
+CurrentClass = ClassAndMethodsPart
+
+class ClassType(Structure):
+    structure = (
+        ('ParentClass', ':', ParentClass),
+        ('CurrentClass', ':', CurrentClass),
+    )
+
+# 2.2.5 ObjectBlock
 class ObjectBlock(Structure):
-    structureDecorated = (
-        ('ObjectFlags', 'B=0'),
-        ('Decoration', 'B=0'),
-        ('Encoding', ':'),
-
+    commonHdr = (
+        ('ObjectFlags', ObjectFlags),
     )
-    structure = (
-        ('ObjectFlags', 'B=0'),
-        ('Encoding', ':'),
+
+    decoration = (
+        ('Decoration', ':', Decoration),
+    )
+
+    instanceType = (
+        ('InstanceType', ':', InstanceType),
+    )
+
+    classType = (
+        ('ClassType', ':', ClassType),
     )
     def __init__(self, data = None, alignment = 0):
         Structure.__init__(self, data, alignment)
         if data is not None:
-            # WMIO - 2.2.6 - 0x04 If this flag is set, the object has a Decoration block.
+            self.structure = ()
             if ord(data[0]) & 0x4: 
-                self.structure = self.structureDecorated
+                # WMIO - 2.2.6 - 0x04 If this flag is set, the object has a Decoration block.
+                self.structure += self.decoration
+            if ord(data[0]) & 0x01:
+                # The object is a CIM class. 
+                self.structure += self.classType
+            else:
+                self.structure += self.instanceType
+
             self.fromString(data)
         else:
             self.data = None
 
-EncodingUnitObjectBlock = ObjectBlock
 
-class ClassType(Structure):
-    pass
-
-class HeapRef(Structure):
+# 2.2.1 EncodingUnit
+class EncodingUnit(Structure):
     structure = (
-        ('HeapRef', '<L=0'),
+        ('Signature', Signature),
+        ('ObjectEncodingLength', ObjectEncodingLength),
+        ('_ObjectBlock', '_-ObjectBlock', 'self["ObjectEncodingLength"]'),
+        ('ObjectBlock', ':', ObjectBlock),
     )
 
-class HeapStringRef(Structure):
-    structure = (
-        ('HeapRef', ':', HeapRef),
-    )
-
-class ClassNameRef(HeapStringRef):
-    pass
-
-class ClassHeader(Structure):
-    structure = (
-        ('EncodingLength', '<L=0'),
-        ('ReservedOctet', 'B=0'),
-        ('ClassNameRef', ':', ClassNameRef),
-        ('NdTableValueTableLength', '<L=0'),
-    )
-
-class DerivationList(Structure):
-    structure = (
-        ('EncodingLength', '<L=0'),
-        ('_ClassNameEncoding', '_-ClassNameEncoding', 'self["EncodingLength"]-4'),
-        ('ClassNameEncoding', ':'),
-    )
-
-class ClassPart(Structure):
-    structure = (
-        ('ClassHeader',':', ClassHeader),
-        #('DerivationList', DerivationList),
-        #('ClassQualifierSet', ClassQualifierSet),
-        #('PropertyLookupTable', PropertyLookupTable),
-        #('NdTable', NdTable),
-        #('ValueTable', ValueTable),
-        #('ClassHeap', ClassHeap),
-    )
-
-class MethodsPart(Structure):
-    structure = (
-    )
-
-class ClassAndMethodsPart(Structure):
-    structure = (
-        ('ClassPart',':', ClassPart),
-        #('MethodsPart', MethodsPart),
-    )
-
-class CurrentClass(ClassAndMethodsPart):
-    pass
-
-class InstanceType(Structure):
-    structure = (
-        ('CurrentClass', ':',CurrentClass),
-        #('EncodingLength', ':'),
-        #('InstanceFlags', ':'),
-        #('InstanceClassName', ':'),
-        #('NdTable', ':'),
-        #('InstanceData', ':'),
-        #('InstanceQualifierSet', ':'),
-        #('InstanceHeap', ':'),
-    )
-
- 
 ################################################################################
 # CONSTANTS
 ################################################################################
@@ -1435,8 +1620,7 @@ class IWbemClassObject(IRemUnknown):
         from impacket.winregistry import hexdump
         #hexdump(objRef['pObjectData'])
         encodingUnit = EncodingUnit(objRef['pObjectData'])
-        objectBlock = ObjectBlock(encodingUnit['ObjectBlock'])
-        objectBlock.dump()
+        encodingUnit.dump()
         #instanceType = InstanceType(objectBlock['Encoding'])
         #instanceType.dump()
  
@@ -1827,3 +2011,10 @@ class IWbemLevel1Login(IRemUnknown):
         return  IWbemServices(INTERFACE(self.get_cinstance(), ''.join(resp['ppNamespace']['abData']), self.get_ipidRemUnknown(), targetIP = self.get_target_ip(), dce = self.get_dce_rpc()))
 
 
+if __name__ == '__main__':
+
+    # Example 1
+    baseClass = '\x78\x56\x34\x12\xD0\x00\x00\x00\x05\x00\x44\x50\x52\x41\x56\x41\x54\x2D\x44\x45\x56\x00\x00\x52\x4F\x4F\x54\x00\x1D\x00\x00\x00\x00\xFF\xFF\xFF\xFF\x00\x00\x00\x00\x04\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x80\x0C\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x80\x66\x00\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00\x04\x00\x00\x00\x04\x00\x00\x00\x01\x00\x00\x00\x06\x00\x00\x00\x0A\x00\x00\x00\x05\xFF\xFF\xFF\xFF\x3C\x00\x00\x80\x00\x42\x61\x73\x65\x00\x00\x49\x64\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x1C\x00\x00\x00\x0A\x00\x00\x80\x03\x08\x00\x00\x00\x34\x00\x00\x00\x01\x00\x00\x80\x13\x0B\x00\x00\x00\xFF\xFF\x00\x73\x69\x6E\x74\x33\x32\x00\x0C\x00\x00\x00\x00\x00\x34\x00\x00\x00\x00\x80\x00\x80\x13\x0B\x00\x00\x00\xFF\xFF\x00\x73\x69\x6E\x74\x33\x32\x00'
+
+    encodingUnit = EncodingUnit(baseClass)
+    encodingUnit.dump()
