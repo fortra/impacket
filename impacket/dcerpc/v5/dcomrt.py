@@ -976,8 +976,9 @@ class INTERFACE():
         else:
             print "Unknown OBJREF Type! 0x%x" % objRefType
 
-        self.__iPid = objRef['std']['ipid']
-        self.__oxid = objRef['std']['oxid']
+        if objRefType != FLAGS_OBJREF_CUSTOM:
+            self.__iPid = objRef['std']['ipid']
+            self.__oxid = objRef['std']['oxid']
 
     def get_oxid(self):
         return self.__oxid
