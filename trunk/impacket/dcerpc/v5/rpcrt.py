@@ -755,7 +755,6 @@ class MSRPCBindNak(Structure):
             self['SupportedVersions'] = ''
 
 class DCERPC:
-    _max_ctx = 0
     # Standard NDR Representation
     NDRSyntax   = uuidtup_to_bin(('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0'))
     # NDR 64
@@ -1282,8 +1281,7 @@ class DCERPC_v5(DCERPC):
         answer.set_auth_type(self.__auth_type)
         answer.set_auth_level(self.__auth_level)
 
-        self._max_ctx += 1
-        answer.set_ctx_id(self._max_ctx)
+        answer.set_ctx_id(self._ctx+1)
         answer.__callid = self.__callid
         answer.bind(newUID, alter = 1, bogus_binds = bogus_binds, transfer_syntax = bin_to_uuidtup(self.transfer_syntax))
         return answer
