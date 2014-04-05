@@ -139,7 +139,6 @@ class WMITests(unittest.TestCase):
         iWbemLevel1Login.RemRelease()
 
         classObject,_ = iWbemServices.GetObject('win32_process')
-        print classObject
        
         dce.disconnect()
 
@@ -149,7 +148,9 @@ class WMITests(unittest.TestCase):
         iInterface = scm.RemoteCreateInstance(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
         iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
         iWbemServices= iWbemLevel1Login.NTLMLogin('//./root/cimv2', NULL, NULL)
-        iEnumWbemClassObject = iWbemServices.ExecQuery('SELECT * from Win32_Share')
+        #iEnumWbemClassObject = iWbemServices.ExecQuery('SELECT * from Win32_BIOS')
+        #iEnumWbemClassObject = iWbemServices.ExecQuery('SELECT * from Win32_NetworkAdapter')
+        iEnumWbemClassObject = iWbemServices.ExecQuery('SELECT * from Win32_OperatingSystem')
         iEnumWbemClassObject.Next(0xffffffff,1)
         dce.disconnect()
 

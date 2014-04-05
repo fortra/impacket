@@ -20,6 +20,7 @@
 #   Helper functions start with "h"<name of the call>.
 #   There are test cases for them too. 
 #
+from struct import unpack, calcsize
 from impacket.dcerpc.v5.ndr import NDRSTRUCT, NDRUniConformantArray, NDRPOINTER, NDRUniConformantVaryingArray, NDRUNION, NDRENUM
 from impacket.dcerpc.v5.dcomrt import DCOMCALL, DCOMANSWER, IRemUnknown, PMInterfacePointer, INTERFACE, PMInterfacePointer_ARRAY, BYTE_ARRAY, OBJREF_CUSTOM, PPMInterfacePointer
 from impacket.dcerpc.v5.dcom.oaut import BSTR
@@ -28,6 +29,7 @@ from impacket.dcerpc.v5.enum import Enum
 from impacket import hresult_errors
 from impacket.uuid import string_to_bin, uuidtup_to_bin
 from impacket.structure import Structure
+from impacket.winregistry import hexdump
 
 class DCERPCSessionError(Exception):
     def __init__( self, packet = None, error_code = None):
@@ -57,8 +59,15 @@ class DCERPCSessionError(Exception):
                 return 'WMI SessionError: unknown error code: 0x%x' % (self.error_code)
 
 ################################################################################
-# WMIO Structures
+# WMIO Structures and Constants
 ################################################################################
+WBEM_FLAVOR_FLAG_PROPAGATE_O_INSTANCE      = 0x01
+WBEM_FLAVOR_FLAG_PROPAGATE_O_DERIVED_CLASS = 0x02
+WBEM_FLAVOR_NOT_OVERRIDABLE                = 0x10
+WBEM_FLAVOR_ORIGIN_PROPAGATED              = 0x20
+WBEM_FLAVOR_ORIGIN_SYSTEM                  = 0x40
+WBEM_FLAVOR_AMENDED                        = 0x80
+
 # 2.2.6 ObjectFlags
 ObjectFlags = 'B=0'
 
@@ -80,11 +89,48 @@ ReservedOctet = 'B=0'
 # 2.2.28 NdTableValueTableLength
 NdTableValueTableLength = '<L=0'
 
+# 2.2.80 DictionaryReference
+DictionaryReference = {
+    0 : '"',
+    1 : 'key',
+    2 : 'NADA',
+    3 : 'read',
+    4 : 'write',
+    5 : 'volatile',
+    6 : 'provider',
+    7 : 'dynamic',
+    8 : 'cimwin32',
+    9 : 'DWORD',
+   10 : 'CIMTYPE',
+}
+
 class Encoded_String(Structure):
-    structure = (
+    commonHdr = (
         ('Encoded_String_Flag', Encoded_String_Flag),
+    )
+
+    tascii = (
         ('Character', 'z'),
     )
+
+    tunicode = (
+        ('Character', 'u'),
+    )
+
+    def __init__(self, data = None, alignment = 0):
+        Structure.__init__(self, data, alignment)
+        if data is not None:
+            # Let's first check the commonHdr
+            self.fromString(data)
+            self.structure = ()
+            if self['Encoded_String_Flag'] == 0:
+                self.structure += self.tascii
+            else:
+                self.structure = self.tunicode
+            self.fromString(data)
+        else:
+            self.data = None
+
 
 # 2.2.8 DecServerName
 DecServerName = Encoded_String
@@ -125,6 +171,122 @@ class DerivationList(Structure):
         ('ClassNameEncoding', ':'),
     )
 
+# 2.2.82 CimType
+CimType = '<L=0'
+CimArrayFlag = 0x2000
+
+class EnumType(type):
+    def __getattr__(self, attr):
+        return self.enumItems[attr].value
+
+class CimTypeEnum(Enum):
+#    __metaclass__ = EnumType
+    CIM_TYPE_SINT8      = 16
+    CIM_TYPE_UINT8      = 17
+    CIM_TYPE_SINT16     = 2
+    CIM_TYPE_UINT16     = 18
+    CIM_TYPE_SINT32     = 3
+    CIM_TYPE_UINT32     = 19
+    CIM_TYPE_SINT64     = 20
+    CIM_TYPE_UINT64     = 21
+    CIM_TYPE_REAL32     = 4
+    CIM_TYPE_REAL64     = 5
+    CIM_TYPE_BOOLEAN    = 11
+    CIM_TYPE_STRING     = 8
+    CIM_TYPE_DATETIME   = 101
+    CIM_TYPE_REFERENCE  = 102
+    CIM_TYPE_CHAR16     = 103
+    CIM_TYPE_OBJECT     = 13
+    CIM_ARRAY_SINT8     = 8208
+    CIM_ARRAY_UINT8     = 8209
+    CIM_ARRAY_SINT16    = 8194
+    CIM_ARRAY_UINT16    = 8210
+    CIM_ARRAY_SINT32    = 8195
+    CIM_ARRAY_UINT32    = 8201
+    CIM_ARRAY_SINT64    = 8202
+    CIM_ARRAY_UINT64    = 8203
+    CIM_ARRAY_REAL32    = 8196
+    CIM_ARRAY_REAL64    = 8197
+    CIM_ARRAY_BOOLEAN   = 8203
+    CIM_ARRAY_STRING    = 8200
+    CIM_ARRAY_DATETIME  = 8293
+    CIM_ARRAY_REFERENCE = 8294
+    CIM_ARRAY_CHAR16    = 8295
+    CIM_ARRAY_OBJECT    = 8205
+
+CimTypesRef = {
+    CimTypeEnum.CIM_TYPE_SINT8.value    : 'B=0',
+    CimTypeEnum.CIM_TYPE_UINT8.value    : 'b=0',
+    CimTypeEnum.CIM_TYPE_SINT16.value   : '<h=0',
+    CimTypeEnum.CIM_TYPE_UINT16.value   : '<H=0',
+    CimTypeEnum.CIM_TYPE_SINT32.value   : '<l=0',
+    CimTypeEnum.CIM_TYPE_UINT32.value   : '<L=0',
+    CimTypeEnum.CIM_TYPE_SINT64.value   : '<q=0',
+    CimTypeEnum.CIM_TYPE_UINT64.value   : '<Q=0',
+    CimTypeEnum.CIM_TYPE_REAL32.value   : '<f=0',
+    CimTypeEnum.CIM_TYPE_REAL64.value   : '<d=0',
+    CimTypeEnum.CIM_TYPE_BOOLEAN.value  : '<H=0',
+    CimTypeEnum.CIM_TYPE_STRING.value   : HeapRef,
+    CimTypeEnum.CIM_TYPE_DATETIME.value : HeapRef,
+    CimTypeEnum.CIM_TYPE_REFERENCE.value: HeapRef,
+    CimTypeEnum.CIM_TYPE_CHAR16.value   : '<H=0',
+    CimTypeEnum.CIM_TYPE_OBJECT.value   : HeapRef,
+}
+
+CimTypeToName = {
+    CimTypeEnum.CIM_TYPE_SINT8.value    : 'sint8',
+    CimTypeEnum.CIM_TYPE_UINT8.value    : 'uint8',
+    CimTypeEnum.CIM_TYPE_SINT16.value   : 'sint16',
+    CimTypeEnum.CIM_TYPE_UINT16.value   : 'uint16',
+    CimTypeEnum.CIM_TYPE_SINT32.value   : 'sint32',
+    CimTypeEnum.CIM_TYPE_UINT32.value   : 'uint32',
+    CimTypeEnum.CIM_TYPE_SINT64.value   : 'sint64',
+    CimTypeEnum.CIM_TYPE_UINT64.value   : 'uint64',
+    CimTypeEnum.CIM_TYPE_REAL32.value   : 'real32',
+    CimTypeEnum.CIM_TYPE_REAL64.value   : 'real64',
+    CimTypeEnum.CIM_TYPE_BOOLEAN.value  : 'bool',
+    CimTypeEnum.CIM_TYPE_STRING.value   : 'string',
+    CimTypeEnum.CIM_TYPE_DATETIME.value : 'datetime',
+    CimTypeEnum.CIM_TYPE_REFERENCE.value: 'reference',
+    CimTypeEnum.CIM_TYPE_CHAR16.value   : 'char16',
+    CimTypeEnum.CIM_TYPE_OBJECT.value   : 'object',
+}
+
+# 2.2.61 QualifierName
+QualifierName = HeapStringRef
+
+# 2.2.62 QualifierFlavor
+QualifierFlavor = 'B=0'
+
+# 2.2.63 QualifierType
+QualifierType = CimType
+
+# 2.2.71 EncodedValue
+class EncodedValue(Structure):
+    structure = (
+        ('QualifierName', QualifierName),
+    )
+
+# 2.2.64 QualifierValue
+QualifierValue = EncodedValue
+
+# 2.2.60 Qualifier
+class Qualifier(Structure):
+    commonHdr = (
+        ('QualifierName', QualifierName),
+        ('QualifierFlavor', QualifierFlavor),
+        ('QualifierType', QualifierType),
+    )
+    def __init__(self, data = None, alignment = 0):
+        Structure.__init__(self, data, alignment)
+        if data is not None:
+            # Let's first check the commonHdr
+            self.fromString(data)
+            self.structure = (('QualifierValue', CimTypesRef[self["QualifierType"] & (~CimArrayFlag)]),)
+            self.fromString(data)
+        else:
+            self.data = None
+
 # 2.2.59 QualifierSet
 class QualifierSet(Structure):
     structure = (
@@ -132,7 +294,33 @@ class QualifierSet(Structure):
         ('_Qualifier','_-Qualifier', 'self["EncodingLength"]-4'),
         ('Qualifier', ':'),
     )
-      
+
+    def getQualifiers(self, heap):
+        data = self['Qualifier']
+        qualifiers = list()
+        while len(data) > 0:
+            itemn = Qualifier(data)
+            if itemn['QualifierName'] == 0xffffffff:
+                qName = ''
+            elif itemn['QualifierName'] & 0x80000000:
+                qName = DictionaryReference[itemn['QualifierName'] & 0x7fffffff]
+            else:
+                qName = Encoded_String(heap[itemn['QualifierName']:])['Character']
+
+            # Now let's get the value
+            if itemn['QualifierType'] not in (CimTypeEnum.CIM_TYPE_STRING.value, CimTypeEnum.CIM_TYPE_DATETIME.value, CimTypeEnum.CIM_TYPE_REFERENCE.value, CimTypeEnum.CIM_TYPE_OBJECT.value):
+                qValue = "%s" % itemn['QualifierValue']
+            elif itemn['QualifierType'] == CimTypeEnum.CIM_TYPE_STRING.value:
+                qValue = Encoded_String(heap[itemn['QualifierValue']:])['Character']
+            else:
+                raise
+                        
+            qualifiers.append('%s("%s")' % (qName, qValue))
+
+            data = data[len(itemn):]
+
+        return qualifiers
+ 
 # 2.2.20 ClassQualifierSet
 ClassQualifierSet = QualifierSet
 
@@ -152,6 +340,34 @@ class PropertyLookup(Structure):
         ('PropertyInfoRef', PropertyInfoRef),
     )
 
+# 2.2.31 PropertyType
+PropertyType = '<L=0'
+
+# 2.2.33 DeclarationOrder
+DeclarationOrder = '<H=0'
+
+# 2.2.34 ValueTableOffset
+ValueTableOffset = '<L=0'
+
+# 2.2.35 ClassOfOrigin
+ClassOfOrigin = '<L=0'
+
+# 2.2.36 PropertyQualifierSet
+PropertyQualifierSet = QualifierSet
+
+# 2.2.30 PropertyInfo
+class PropertyInfo(Structure):
+    structure = (
+        ('PropertyType', PropertyType),
+        ('DeclarationOrder', DeclarationOrder),
+        ('ValueTableOffset', ValueTableOffset),
+        ('ClassOfOrigin', ClassOfOrigin),
+        ('PropertyQualifierSet', ':', PropertyQualifierSet),
+    )
+
+# 2.2.32 Inherited
+Inherited = 0x4000
+
 # 2.2.21 PropertyLookupTable
 class PropertyLookupTable(Structure):
     PropertyLookupSize = len(PropertyLookup())
@@ -160,6 +376,35 @@ class PropertyLookupTable(Structure):
         ('_PropertyLookup','_-PropertyLookup', 'self["PropertyCount"]*self.PropertyLookupSize'),
         ('PropertyLookup', ':'),
     )
+
+    def getProperties(self, heap):
+        propTable = self['PropertyLookup']
+        #self.dump()
+        properties = list()
+        for property in range(self['PropertyCount']):
+            propItemDict = {}
+            propItem = PropertyLookup(propTable)
+            propName = Encoded_String(heap[propItem['PropertyNameRef']:])['Character']
+            propInfo = PropertyInfo(heap[propItem['PropertyInfoRef']:])
+            pType = propInfo['PropertyType']
+            isArray = pType & CimArrayFlag
+            pType = pType & (~CimArrayFlag)
+            pType = pType & (~Inherited)
+            sType = CimTypeToName[pType]
+            if isArray > 0:
+                propName += '[]'
+ 
+            propItemDict['stype'] = sType
+            propItemDict['name'] = propName
+            propItemDict['type'] = propInfo['PropertyType']
+            propItemDict['order'] = propInfo['DeclarationOrder']
+            propItemDict['inherited'] = propInfo['PropertyType'] & Inherited
+            propItemDict['value'] = None
+
+            properties.append(propItemDict)
+
+            propTable = propTable[self.PropertyLookupSize:]
+        return properties
 
 # 2.2.66 Heap
 HeapLength = '<L=0'
@@ -188,20 +433,39 @@ class ClassPart(Structure):
         ('NdTable_ValueTable',':'),
         ('ClassHeap', ':', ClassHeap),
     )
-#    def __init__(self, data = None, alignment = 0):
-#        Structure.__init__(self, data, alignment)
-#        if data is not None:
-#            # Let's first check the commonHdr
-#            self.fromString(data)
-#            self.structure = ()
-#            if self['ClassHeader']['NdTableValueTableLength'] > 0:
-#                self.structure += self.optionals+self.tail
-#            else:
-#                self.structure = self.tail
-#            self.fromString(data)
-#        else:
-#            self.data = None
+    def getQualifiers(self):
+        return self["ClassQualifierSet"].getQualifiers(self["ClassHeap"]["HeapItem"])
 
+    def getProperties(self):
+        heap = self["ClassHeap"]["HeapItem"]
+        properties =  self["PropertyLookupTable"].getProperties(self["ClassHeap"]["HeapItem"])
+        valueTableOff = (len(properties) - 1) / 4 + 1
+        valueTable = self['NdTable_ValueTable'][valueTableOff:]
+        sorted_props = sorted(properties, key=lambda k: k['order'])
+        for property in sorted_props:
+            # Let's get the default Values
+            pType = property['type'] & (~(CimArrayFlag|Inherited))
+            unpackStr = CimTypesRef[pType][:-2]
+            dataSize = calcsize(unpackStr)
+            #print unpackStr
+            try:
+                itemValue = unpack(unpackStr, valueTable[:dataSize])[0]
+            except: 
+                print "getProperties: Error unpacking!!"
+                itemValue = 0xffffffff
+
+            if itemValue != 0xffffffff:
+                heapData = heap[itemValue:]
+                
+                # There's a default value, let's get the value
+                if pType not in (CimTypeEnum.CIM_TYPE_STRING.value, CimTypeEnum.CIM_TYPE_DATETIME.value, CimTypeEnum.CIM_TYPE_REFERENCE.value, CimTypeEnum.CIM_TYPE_OBJECT.value):
+                    defaultValue = itemValue
+                else:
+                    defaultValue = Encoded_String(heapData)['Character']
+                property['value'] = "%s" % defaultValue
+            valueTable = valueTable[dataSize:]
+        return properties
+             
 # 2.2.39 MethodCount
 MethodCount = '<H=0'
 
@@ -265,7 +529,37 @@ class MethodsPart(Structure):
         ('MethodHeap', ':', MethodHeap),
     )
 
+    def getMethods(self):
+        methods = list()
+        data = self['MethodDescription']
+        heap = self['MethodHeap']['HeapItem']
 
+        for method in range(self['MethodCount']):
+            methodDict = {}
+            itemn = MethodDescription(data)
+            #itemn.dump()
+            if itemn['MethodFlags'] & WBEM_FLAVOR_ORIGIN_PROPAGATED:
+               raise
+            methodDict['name'] = Encoded_String(heap[itemn['MethodName']:])['Character']
+            methodDict['origin'] = itemn['MethodOrigin']
+            if itemn['MethodQualifiers'] != 0xffffffff:
+                # There are qualifiers
+                qualifiersSet = QualifierSet(heap[itemn['MethodQualifiers']:])
+                #qualifiersSet.dump()
+                qualifiers = qualifiersSet.getQualifiers(heap)
+                methodDict['qualifiers'] = qualifiers
+            if itemn['InputSignature'] != 0xffffffff:
+                #hexdump(heap[itemn['InputSignature']:])
+                inputSignature = MethodSignatureBlock(heap[itemn['InputSignature']:])
+                #inputSignature.dump()
+            if itemn['OutputSignature'] != 0xffffffff:
+                #hexdump(heap[itemn['InputSignature']:])
+                outputSignature = MethodSignatureBlock(heap[itemn['OutputSignature']:])
+                #outputSignature.dump()
+            data = data[len(itemn):]
+            methods.append(methodDict)
+
+        return methods
 # 2.2.14 ClassAndMethodsPart
 class ClassAndMethodsPart(Structure):
     structure = (
@@ -273,21 +567,155 @@ class ClassAndMethodsPart(Structure):
         ('MethodsPart', ':', MethodsPart),
     )
 
+    def getClassName(self):
+        pClassName = self['ClassPart']['ClassHeader']['ClassNameRef']
+        cHeap = self['ClassPart']['ClassHeap']['HeapItem']
+        if pClassName == 0xffffffff:
+            return 'None'
+        else:
+            className = Encoded_String(cHeap[pClassName:])['Character']
+            derivationList = self['ClassPart']['DerivationList']['ClassNameEncoding']
+            while len(derivationList) > 0:
+                superClass = Encoded_String(derivationList)['Character']
+                className += ' : %s ' % superClass
+                derivationList = derivationList[len(Encoded_String(derivationList))+4:]
+            return className
+
+    def getQualifiers(self):
+        return self["ClassPart"].getQualifiers()
+
+    def getProperties(self):
+        return self["ClassPart"].getProperties()
+
+    def getMethods(self):
+        return self["MethodsPart"].getMethods()
+
 # 2.2.13 CurrentClass
 CurrentClass = ClassAndMethodsPart
 
+# 2.2.54 InstanceFlags
+InstanceFlags = 'B=0'
+
+# 2.2.55 InstanceClassName
+InstanceClassName = HeapStringRef
+
+# 2.2.27 NullAndDefaultFlag
+
+NullAndDefaultFlag = 'B=0'
+
+# 2.2.26 NdTable
+NdTable = NullAndDefaultFlag
+
+# 2.2.56 InstanceData
+#InstanceData = ValueTable
+
+class CurrentClassNoMethods(ClassAndMethodsPart):
+    structure = (
+        ('ClassPart', ':', ClassPart),
+    )
+
+    def getMethods(self):
+        return ()
+
+# 2.2.65 InstancePropQualifierSet
+InstPropQualSetFlag = 'B=0'
+class InstancePropQualifierSet(Structure):
+    commonHdr = (
+        ('InstPropQualSetFlag', InstPropQualSetFlag),
+    )
+    tail = (
+        # ToDo: this is wrong.. this should be an array of QualifierSet, see documentation
+        #('QualifierSet', ':', QualifierSet),
+        ('QualifierSet', ':', QualifierSet),
+    )
+
+    def __init__(self, data = None, alignment = 0):
+        Structure.__init__(self, data, alignment)
+        self.structure = ()
+        if data is not None:
+            # Let's first check the commonHdr
+            self.fromString(data)
+            if self['InstPropQualSetFlag'] == 2:
+                # We don't support this yet!
+                raise
+            self.fromString(data)
+        else:
+            self.data = None
+
+
+# 2.2.57 InstanceQualifierSet
+class InstanceQualifierSet(Structure):
+    structure = (
+        ('QualifierSet', ':', QualifierSet),
+        ('InstancePropQualifierSet', ':', InstancePropQualifierSet),
+    )
+
+# 2.2.58 InstanceHeap
+InstanceHeap = Heap
+
 # 2.2.53 InstanceType
 class InstanceType(Structure):
-    structure = (
-        ('CurrentClass', ':', CurrentClass),
-        #('EncodingLength', ':', DecNamespaceName),
-        #('InstanceFlags', ':', DecNamespaceName),
-        #('InstanceClassName', ':', DecNamespaceName),
-        #('NdTable', ':', DecNamespaceName),
-        #('InstanceData', ':', DecNamespaceName),
-        #('InstanceQualifierSet', ':', DecNamespaceName),
-        #('InstanceHeap', ':', DecNamespaceName),
+    commonHdr = (
+        ('CurrentClass', ':', CurrentClassNoMethods),
+        ('EncodingLength', EncodingLength),
+        ('InstanceFlags', InstanceFlags),
+        ('InstanceClassName', InstanceClassName),
+        ('_NdTable_ValueTable','_-NdTable_ValueTable', 'self["CurrentClass"]["ClassPart"]["ClassHeader"]["NdTableValueTableLength"]'),
+        ('NdTable_ValueTable',':'),
+        ('InstanceQualifierSet', ':', InstanceQualifierSet),
+        ('InstanceHeap', ':', InstanceHeap),
     )
+
+    def __init__(self, data = None, alignment = 0):
+        Structure.__init__(self, data, alignment)
+        self.structure = ()
+        if data is not None:
+            # Let's first check the commonHdr
+            self.fromString(data)
+            #hexdump(data[len(self.getData()):])
+            self.NdTableSize = (self['CurrentClass']['ClassPart']['PropertyLookupTable']['PropertyCount'] - 1) /4 + 1
+            #self.InstanceDataSize = self['CurrentClass']['ClassPart']['PropertyLookupTable']['PropertyCount'] * len(InstanceData())
+            self.fromString(data)
+        else:
+            self.data = None
+
+    def getValues(self, properties):
+        heap = self["InstanceHeap"]["HeapItem"]
+        valueTableOff = (len(properties) - 1) / 4 + 1
+        valueTable = self['NdTable_ValueTable'][valueTableOff:]
+        sorted_props = sorted(properties, key=lambda k: k['order'])
+        for property in sorted_props:
+            pType = property['type'] & (~(CimArrayFlag|Inherited))
+            unpackStr = CimTypesRef[pType][:-2]
+            dataSize = calcsize(unpackStr)
+            declaration = property['order']
+            try:
+                itemValue = unpack(unpackStr, valueTable[:dataSize])[0]
+            except:
+                print "getValues: Error Unpacking!"
+                itemValue = 0
+
+            # if itemValue == 0, default value remains
+            if itemValue != 0:
+                heapData = heap[itemValue:]
+                # There's a default value, let's get the value
+                if property['type'] & CimArrayFlag:
+                    # We have an array
+                    numItems = unpack(unpackStr, heapData[:dataSize])[0]
+                    heapData = heapData[dataSize:]
+                    array = list()
+                    for item in range(numItems):
+                        array.append(unpack(unpackStr, heapData[:dataSize])[0])
+                        heapData = heapData[dataSize:]
+                    value = array
+                elif pType not in (CimTypeEnum.CIM_TYPE_STRING.value, CimTypeEnum.CIM_TYPE_DATETIME.value, CimTypeEnum.CIM_TYPE_REFERENCE.value, CimTypeEnum.CIM_TYPE_OBJECT.value):
+                    value = itemValue
+                else:
+                    value = Encoded_String(heapData)['Character']
+
+                property['value'] = value
+            valueTable = valueTable[dataSize:] 
+        return properties
 
 # 2.2.12 ParentClass
 ParentClass = ClassAndMethodsPart
@@ -335,6 +763,100 @@ class ObjectBlock(Structure):
         else:
             self.data = None
 
+    def printClass(self, pClass, cInstance = None):
+        qualifiers = pClass.getQualifiers()
+
+        for qualifier in qualifiers:
+            print "[%s]" % qualifier
+
+        className = pClass.getClassName()
+
+        print "class %s \n{" % className
+
+        properties = pClass.getProperties()
+        if cInstance is not None:
+            properties = cInstance.getValues(properties)
+        for property in properties:
+            #if property['inherited'] == 0:
+                print "\t%s %s" % (property['stype'], property['name']),
+                if property['value'] is not None:
+                    print '= %s' % property['value']
+                else:
+                    print
+
+        print 
+        methods = pClass.getMethods()
+        for method in methods:
+            for qualifier in method['qualifiers']:
+                print '\t[%s]' % qualifier
+            print '\t%s();\n' % method['name'] 
+
+        print "}"
+
+    def printInformation(self):
+        # First off, do we have a class?
+        if (self['ObjectFlags'] & 0x01) == 0:
+            # instance
+            ctCurrent = self['InstanceType']['CurrentClass']
+            currentName = ctCurrent.getClassName()
+            if currentName is not None:
+                self.printClass(ctCurrent, self['InstanceType'])
+            return
+        else: 
+            ctParent = self['ClassType']['ParentClass']
+            ctCurrent = self['ClassType']['CurrentClass']
+
+            parentName = ctParent.getClassName()
+            if parentName is not None:
+                self.printClass(ctParent)
+
+            currentName = ctCurrent.getClassName()
+            if currentName is not None:
+                self.printClass(ctCurrent)
+
+class ObjectBlockTemp(ObjectBlock):
+    commonHdr = (
+        ('ObjectFlags', ObjectFlags),
+        ('Decoration', ':', Decoration),
+    )
+    decoration = (
+        ('Decoration', ':', Decoration),
+    )
+
+    instanceType = (
+        ('InstanceType', ':', InstanceType),
+    )
+
+    classType = (
+        ('ClassType', ':', ClassType),
+    )
+
+    def __init__(self, data = None, alignment = 0):
+        print repr(data)
+        Structure.__init__(self, data, alignment)
+
+
+# 2.2.70 MethodSignatureBlock
+class MethodSignatureBlock(Structure):
+    commonHdr = (
+        ('EncodingLength', EncodingLength),
+    )
+    tail = (
+        ('_ObjectBlock', '_-ObjectBlock', 'self["EncodingLength"]'),
+        #('ObjectBlock', ':', ObjectBlockTemp),
+        ('ObjectBlock', ':', ObjectBlock),
+    )
+    def __init__(self, data = None, alignment = 0):
+        Structure.__init__(self, data, alignment)
+        if data is not None:
+            self.fromString(data)
+            if self['EncodingLength'] > 0:
+                self.structure = ()
+                self.structure += self.tail
+            self.fromString(data)
+        else:
+            self.data = None
+
 
 # 2.2.1 EncodingUnit
 class EncodingUnit(Structure):
@@ -344,6 +866,7 @@ class EncodingUnit(Structure):
         ('_ObjectBlock', '_-ObjectBlock', 'self["ObjectEncodingLength"]'),
         ('ObjectBlock', ':', ObjectBlock),
     )
+
 
 ################################################################################
 # CONSTANTS
@@ -1618,9 +2141,9 @@ class IWbemClassObject(IRemUnknown):
         objRef = self.get_objRef()
         objRef = OBJREF_CUSTOM(objRef)
         from impacket.winregistry import hexdump
-        #hexdump(objRef['pObjectData'])
         encodingUnit = EncodingUnit(objRef['pObjectData'])
-        encodingUnit.dump()
+        #encodingUnit.dump()
+        encodingUnit['ObjectBlock'].printInformation()
         #instanceType = InstanceType(objectBlock['Encoding'])
         #instanceType.dump()
  
@@ -2012,9 +2535,25 @@ class IWbemLevel1Login(IRemUnknown):
 
 
 if __name__ == '__main__':
+    from impacket.winregistry import hexdump
 
     # Example 1
-    baseClass = '\x78\x56\x34\x12\xD0\x00\x00\x00\x05\x00\x44\x50\x52\x41\x56\x41\x54\x2D\x44\x45\x56\x00\x00\x52\x4F\x4F\x54\x00\x1D\x00\x00\x00\x00\xFF\xFF\xFF\xFF\x00\x00\x00\x00\x04\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x80\x0C\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x80\x66\x00\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00\x04\x00\x00\x00\x04\x00\x00\x00\x01\x00\x00\x00\x06\x00\x00\x00\x0A\x00\x00\x00\x05\xFF\xFF\xFF\xFF\x3C\x00\x00\x80\x00\x42\x61\x73\x65\x00\x00\x49\x64\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x1C\x00\x00\x00\x0A\x00\x00\x80\x03\x08\x00\x00\x00\x34\x00\x00\x00\x01\x00\x00\x80\x13\x0B\x00\x00\x00\xFF\xFF\x00\x73\x69\x6E\x74\x33\x32\x00\x0C\x00\x00\x00\x00\x00\x34\x00\x00\x00\x00\x80\x00\x80\x13\x0B\x00\x00\x00\xFF\xFF\x00\x73\x69\x6E\x74\x33\x32\x00'
+    baseClass = 'xV4\x12\xd0\x00\x00\x00\x05\x00DPRAVAT-DEV\x00\x00ROOT\x00\x1d\x00\x00\x00\x00\xff\xff\xff\xff\x00\x00\x00\x00\x04\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x80\x0c\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x80f\x00\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00\x04\x00\x00\x00\x04\x00\x00\x00\x01\x00\x00\x00\x06\x00\x00\x00\n\x00\x00\x00\x05\xff\xff\xff\xff<\x00\x00\x80\x00Base\x00\x00Id\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x1c\x00\x00\x00\n\x00\x00\x80\x03\x08\x00\x00\x004\x00\x00\x00\x01\x00\x00\x80\x13\x0b\x00\x00\x00\xff\xff\x00sint32\x00\x0c\x00\x00\x00\x00\x004\x00\x00\x00\x00\x80\x00\x80\x13\x0b\x00\x00\x00\xff\xff\x00sint32\x00'
 
-    encodingUnit = EncodingUnit(baseClass)
-    encodingUnit.dump()
+    #encodingUnit = EncodingUnit(baseClass)
+    #encodingUnit.dump()
+    #encodingUnit['ObjectBlock'].printInformation()
+    #print "LEN ", len(baseClass), len(encodingUnit)
+
+    myClass = "xV4\x12.\x02\x00\x00\x05\x00DPRAVAT-DEV\x00\x00ROOT\x00f\x00\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00\x04\x00\x00\x00\x04\x00\x00\x00\x01\x00\x00\x00\x06\x00\x00\x00\n\x00\x00\x00\x05\xff\xff\xff\xff<\x00\x00\x80\x00Base\x00\x00Id\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x1c\x00\x00\x00\n\x00\x00\x80\x03\x08\x00\x00\x004\x00\x00\x00\x01\x00\x00\x80\x13\x0b\x00\x00\x00\xff\xff\x00sint32\x00\x0c\x00\x00\x00\x00\x004\x00\x00\x00\x00\x80v\x01\x00\x00\x00\x00\x00\x00\x00\x11\x00\x00\x00\x0e\x00\x00\x00\x00Base\x00\x06\x00\x00\x00\x11\x00\x00\x00\t\x00\x00\x00\x00\x08\x00\x00\x00\x16\x00\x00\x00\x04\x00\x00\x00'\x00\x00\x00.\x00\x00\x00U\x00\x00\x00\\\x00\x00\x00\x99\x00\x00\x00\xa0\x00\x00\x00\xc7\x00\x00\x00\xcb\x00\x00\x00G\xff\xff\xff\xff\xff\xff\xff\xff\xfd\x00\x00\x00\xff\xff\xff\xff\x11\x01\x00\x80\x00MyClass\x00\x00Description\x00\x00MyClass Example\x00\x00Array\x00\x13 \x00\x00\x03\x00\x0c\x00\x00\x00\x01\x00\x00\x00\x11\x00\x00\x00\n\x00\x00\x80\x03\x08\x00\x00\x00M\x00\x00\x00\x00uint32\x00\x00Data1\x00\x08\x00\x00\x00\x01\x00\x04\x00\x00\x00\x01\x00\x00\x00'\x00\x00\x00\n\x00\x00\x80\x03\x08\x00\x00\x00\x91\x00\x00\x00\x03\x00\x00\x80\x00\x0b\x00\x00\x00\xff\xff\x04\x00\x00\x80\x00\x0b\x00\x00\x00\xff\xff\x00string\x00\x00Data2\x00\x08\x00\x00\x00\x02\x00\x08\x00\x00\x00\x01\x00\x00\x00\x11\x00\x00\x00\n\x00\x00\x80\x03\x08\x00\x00\x00\xbf\x00\x00\x00\x00string\x00\x00Id\x00\x03@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x1c\x00\x00\x00\n\x00\x00\x80#\x08\x00\x00\x00\xf5\x00\x00\x00\x01\x00\x00\x803\x0b\x00\x00\x00\xff\xff\x00sint32\x00\x00defaultValue\x00\x00\x00\x00\x00\x00\x00\x0c\x00\x00\x00\x00\x00\x00s\x00\x00\x00\x802\x00\x00defaultValue\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x80\x00\x00\x00\x00"
+    #hexdump(myClass)
+    #encodingUnit = EncodingUnit(myClass)
+    #print "LEN ", len(myClass), len(encodingUnit)
+    #encodingUnit.dump()
+    #encodingUnit['ObjectBlock'].printInformation()
+
+    instanceMyClass = "xV4\x12\xd3\x01\x00\x00\x06\x00DPRAVAT-DEV\x00\x00ROOT\x00v\x01\x00\x00\x00\x00\x00\x00\x00\x11\x00\x00\x00\x0e\x00\x00\x00\x00Base\x00\x06\x00\x00\x00\x11\x00\x00\x00\t\x00\x00\x00\x00\x08\x00\x00\x00\x16\x00\x00\x00\x04\x00\x00\x00'\x00\x00\x00.\x00\x00\x00U\x00\x00\x00\\\x00\x00\x00\x99\x00\x00\x00\xa0\x00\x00\x00\xc7\x00\x00\x00\xcb\x00\x00\x00G\xff\xff\xff\xff\xff\xff\xff\xff\xfd\x00\x00\x00\xff\xff\xff\xff\x11\x01\x00\x80\x00MyClass\x00\x00Description\x00\x00MyClass Example\x00\x00Array\x00\x13 \x00\x00\x03\x00\x0c\x00\x00\x00\x01\x00\x00\x00\x11\x00\x00\x00\n\x00\x00\x80\x03\x08\x00\x00\x00M\x00\x00\x00\x00uint32\x00\x00Data1\x00\x08\x00\x00\x00\x01\x00\x04\x00\x00\x00\x01\x00\x00\x00'\x00\x00\x00\n\x00\x00\x80\x03\x08\x00\x00\x00\x91\x00\x00\x00\x03\x00\x00\x80\x00\x0b\x00\x00\x00\xff\xff\x04\x00\x00\x80\x00\x0b\x00\x00\x00\xff\xff\x00string\x00\x00Data2\x00\x08\x00\x00\x00\x02\x00\x08\x00\x00\x00\x01\x00\x00\x00\x11\x00\x00\x00\n\x00\x00\x80\x03\x08\x00\x00\x00\xbf\x00\x00\x00\x00string\x00\x00Id\x00\x03@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x1c\x00\x00\x00\n\x00\x00\x80#\x08\x00\x00\x00\xf5\x00\x00\x00\x01\x00\x00\x803\x0b\x00\x00\x00\xff\xff\x00sint32\x00\x00defaultValue\x00\x00\x00\x00\x00\x00\x00I\x00\x00\x00\x00\x00\x00\x00\x00 {\x00\x00\x00\x19\x00\x00\x00\x00\x00\x00\x00\t\x00\x00\x00\x04\x00\x00\x00\x01&\x00\x00\x80\x00MyClass\x00\x03\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x03\x00\x00\x00\x00StringField\x00"
+    #encodingUnit = EncodingUnit(instanceMyClass)
+    #encodingUnit.dump()
+    #encodingUnit['ObjectBlock'].printInformation()
+
