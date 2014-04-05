@@ -384,7 +384,10 @@ class PropertyLookupTable(Structure):
         for property in range(self['PropertyCount']):
             propItemDict = {}
             propItem = PropertyLookup(propTable)
-            propName = Encoded_String(heap[propItem['PropertyNameRef']:])['Character']
+            if propItem['PropertyNameRef'] & 0x80000000:
+                propName = DictionaryReference[propItem['PropertyNameRef'] & 0x7fffffff]
+            else:
+                propName = Encoded_String(heap[propItem['PropertyNameRef']:])['Character']
             propInfo = PropertyInfo(heap[propItem['PropertyInfoRef']:])
             pType = propInfo['PropertyType']
             isArray = pType & CimArrayFlag
@@ -439,15 +442,17 @@ class ClassPart(Structure):
     def getProperties(self):
         heap = self["ClassHeap"]["HeapItem"]
         properties =  self["PropertyLookupTable"].getProperties(self["ClassHeap"]["HeapItem"])
+        sorted_props = sorted(properties, key=lambda k: k['order'])
         valueTableOff = (len(properties) - 1) / 4 + 1
         valueTable = self['NdTable_ValueTable'][valueTableOff:]
-        sorted_props = sorted(properties, key=lambda k: k['order'])
         for property in sorted_props:
             # Let's get the default Values
             pType = property['type'] & (~(CimArrayFlag|Inherited))
-            unpackStr = CimTypesRef[pType][:-2]
+            if property['type'] & CimArrayFlag:
+                unpackStr = HeapRef[:-2]
+            else:
+                unpackStr = CimTypesRef[pType][:-2]
             dataSize = calcsize(unpackStr)
-            #print unpackStr
             try:
                 itemValue = unpack(unpackStr, valueTable[:dataSize])[0]
             except: 
@@ -456,9 +461,18 @@ class ClassPart(Structure):
 
             if itemValue != 0xffffffff:
                 heapData = heap[itemValue:]
-                
-                # There's a default value, let's get the value
-                if pType not in (CimTypeEnum.CIM_TYPE_STRING.value, CimTypeEnum.CIM_TYPE_DATETIME.value, CimTypeEnum.CIM_TYPE_REFERENCE.value, CimTypeEnum.CIM_TYPE_OBJECT.value):
+                if property['type'] & CimArrayFlag:
+                    # We have an array, let's set the right unpackStr and dataSize for the array contents
+                    numItems = unpack(unpackStr, heapData[:dataSize])[0]
+                    heapData = heapData[dataSize:]
+                    array = list()
+                    unpackStrArray =  CimTypesRef[pType][:-2]
+                    dataSizeArray = calcsize(unpackStrArray)
+                    for item in range(numItems):
+                        array.append(unpack(unpackStrArray, heapData[:dataSizeArray])[0])
+                        heapData = heapData[dataSizeArray:]
+                    defaultValue = array
+                elif pType not in (CimTypeEnum.CIM_TYPE_STRING.value, CimTypeEnum.CIM_TYPE_DATETIME.value, CimTypeEnum.CIM_TYPE_REFERENCE.value, CimTypeEnum.CIM_TYPE_OBJECT.value):
                     defaultValue = itemValue
                 else:
                     defaultValue = Encoded_String(heapData)['Character']
@@ -686,9 +700,11 @@ class InstanceType(Structure):
         sorted_props = sorted(properties, key=lambda k: k['order'])
         for property in sorted_props:
             pType = property['type'] & (~(CimArrayFlag|Inherited))
-            unpackStr = CimTypesRef[pType][:-2]
+            if property['type'] & CimArrayFlag:
+                unpackStr = HeapRef[:-2]
+            else:
+                unpackStr = CimTypesRef[pType][:-2]
             dataSize = calcsize(unpackStr)
-            declaration = property['order']
             try:
                 itemValue = unpack(unpackStr, valueTable[:dataSize])[0]
             except:
@@ -700,13 +716,15 @@ class InstanceType(Structure):
                 heapData = heap[itemValue:]
                 # There's a default value, let's get the value
                 if property['type'] & CimArrayFlag:
-                    # We have an array
+                    # We have an array, let's set the right unpackStr and dataSize for the array contents
                     numItems = unpack(unpackStr, heapData[:dataSize])[0]
                     heapData = heapData[dataSize:]
                     array = list()
+                    unpackStrArray =  CimTypesRef[pType][:-2]
+                    dataSizeArray = calcsize(unpackStrArray)
                     for item in range(numItems):
-                        array.append(unpack(unpackStr, heapData[:dataSize])[0])
-                        heapData = heapData[dataSize:]
+                        array.append(unpack(unpackStrArray, heapData[:dataSizeArray])[0])
+                        heapData = heapData[dataSizeArray:]
                     value = array
                 elif pType not in (CimTypeEnum.CIM_TYPE_STRING.value, CimTypeEnum.CIM_TYPE_DATETIME.value, CimTypeEnum.CIM_TYPE_REFERENCE.value, CimTypeEnum.CIM_TYPE_OBJECT.value):
                     value = itemValue
