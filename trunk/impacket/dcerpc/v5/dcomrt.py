@@ -1005,6 +1005,7 @@ class INTERFACE():
             if hasattr(dcomInterface, 'set_credentials'):
                 # This method exists only for selected protocol sequences.
                 dcomInterface.set_credentials(*self.__cinstance.get_credentials())
+            dcomInterface.set_connect_timeout(300)
             dce = dcomInterface.get_dce_rpc()
 
             #dce.set_auth_level(ntlm.NTLM_AUTH_PKT_INTEGRITY)
