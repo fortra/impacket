@@ -565,10 +565,18 @@ class MethodsPart(Structure):
             if itemn['InputSignature'] != 0xffffffff:
                 #hexdump(heap[itemn['InputSignature']:])
                 inputSignature = MethodSignatureBlock(heap[itemn['InputSignature']:])
+                if inputSignature['EncodingLength'] > 0:
+                    methodDict['InParams'] = inputSignature['ObjectBlock']['ClassType']['CurrentClass'].getProperties()
+                else:
+                    methodDict['InParams'] = None
                 #inputSignature.dump()
             if itemn['OutputSignature'] != 0xffffffff:
                 #hexdump(heap[itemn['InputSignature']:])
                 outputSignature = MethodSignatureBlock(heap[itemn['OutputSignature']:])
+                if outputSignature['EncodingLength'] > 0:
+                    methodDict['OutParams'] = outputSignature['ObjectBlock']['ClassType']['CurrentClass'].getProperties()
+                else:
+                    methodDict['OutParams'] = None
                 #outputSignature.dump()
             data = data[len(itemn):]
             methods.append(methodDict)
@@ -807,7 +815,32 @@ class ObjectBlock(Structure):
         for method in methods:
             for qualifier in method['qualifiers']:
                 print '\t[%s]' % qualifier
-            print '\t%s();\n' % method['name'] 
+
+            if method['InParams'] is None and method['OutParams'] is None: 
+                print '\t%s %s();' % ('void', method['name'])
+            if method['InParams'] is None and len(method['OutParams']) == 1:
+                print '\t%s %s();' % (method['OutParams'][0]['stype'], method['name'])
+                if method['OutParams'][0]['name'] != 'ReturnValue':
+                    raise
+            else:
+                returnValue = ''
+                if method['OutParams'] is not None:
+                    # Search the Return Value
+                    returnValue = (item for item in method['OutParams'] if item["name"] == "ReturnValue").next()
+                    if returnValue is not None:
+                        returnValue = returnValue['stype']
+ 
+                print '\t%s %s(\n' % (returnValue, method['name']),
+                if method['InParams'] is not None:
+                    for param  in method['InParams']:
+                        print '\t\t[in]    %s %s,' % (param['stype'], param['name'])
+
+                if method['OutParams'] is not None:
+                    for param in method['OutParams']:
+                        if param['name'] != 'ReturnValue':
+                            print '\t\t[out]    %s %s,' % (param['stype'], param['name'])
+
+                print '\t);\n'
 
         print "}"
 
