@@ -123,22 +123,19 @@ class WMITests(unittest.TestCase):
         print resp
         dce.disconnect()
 
-    def tes_IWbemServices_GetObject(self):
+    def test_IWbemServices_GetObject(self):
         dce, rpctransport = self.connect()
         scm = dcomrt.IRemoteSCMActivator(dce)
         iInterface = scm.RemoteCreateInstance(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
         iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
 
-        #iInterface2 = iWbemLevel1Login.RemQueryInterface(1, (wmi.IID_IWbemLoginClientID,))
-        #iWbemLoginClientID = wmi.IWbemLoginClientID(iInterface2)
-        #iWbemLoginClientID.SetClientInfo('BETS')
-        #iWbemLoginClientID.RemRelease()
-         
-        #print iWbemLevel1Login.EstablishPosition()
         iWbemServices= iWbemLevel1Login.NTLMLogin('\\\\%s\\root\\cimv2' % self.machine, NULL, NULL)
         iWbemLevel1Login.RemRelease()
 
-        classObject,_ = iWbemServices.GetObject('win32_process')
+        #classObject,_ = iWbemServices.GetObject('Win32_Process')
+        # This one is not working 'cause WBEM_FLAVOR_ORIGIN_PROPAGATED must be implemented
+        #classObject,_ = iWbemServices.GetObject('Win32_Service')
+        classObject,_ = iWbemServices.GetObject('Win32_Product')
        
         dce.disconnect()
 
@@ -148,10 +145,24 @@ class WMITests(unittest.TestCase):
         iInterface = scm.RemoteCreateInstance(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
         iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
         iWbemServices= iWbemLevel1Login.NTLMLogin('//./root/cimv2', NULL, NULL)
-        #iEnumWbemClassObject = iWbemServices.ExecQuery('SELECT * from Win32_BIOS')
-        #iEnumWbemClassObject = iWbemServices.ExecQuery('SELECT * from Win32_NetworkAdapter')
-        iEnumWbemClassObject = iWbemServices.ExecQuery('SELECT * from Win32_OperatingSystem')
-        iEnumWbemClassObject.Next(0xffffffff,1)
+        classes = [ 'Win32_Account', 'Win32_UserAccount', 'Win32_Group', 'Win32_SystemAccount', 'Win32_Service']
+        for classn in classes:
+            print "Reading %s " % classn
+            try:
+                iEnumWbemClassObject = iWbemServices.ExecQuery('SELECT * from %s' % classn)
+                done = False
+                while done is False:
+                    try:
+                        iEnumWbemClassObject.Next(0xffffffff,1)
+                    except Exception, e:
+                        if str(e).find('S_FALSE') < 0:
+                            print e
+                        else:
+                            done = True
+                            pass
+            except Exception, e:
+                if str(e).find('S_FALSE') < 0:
+                    print e
         dce.disconnect()
 
 
