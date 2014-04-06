@@ -553,6 +553,7 @@ class MethodsPart(Structure):
             itemn = MethodDescription(data)
             #itemn.dump()
             if itemn['MethodFlags'] & WBEM_FLAVOR_ORIGIN_PROPAGATED:
+               print "WBEM_FLAVOR_ORIGIN_PROPAGATED not yet supported!"
                raise
             methodDict['name'] = Encoded_String(heap[itemn['MethodName']:])['Character']
             methodDict['origin'] = itemn['MethodOrigin']
@@ -774,6 +775,9 @@ class ObjectBlock(Structure):
     )
     def __init__(self, data = None, alignment = 0):
         Structure.__init__(self, data, alignment)
+        self.ctParent  = None
+        self.ctCurrent = None
+
         if data is not None:
             self.structure = ()
             if ord(data[0]) & 0x4: 
@@ -843,6 +847,39 @@ class ObjectBlock(Structure):
                 print '\t);\n'
 
         print "}"
+
+    def parseClass(self, pClass, cInstance = None):
+        classDict = {}
+        classDict['name'] = pClass.getClassName()
+        classDict['qualifiers'] = pClass.getQualifiers()
+        classDict['properties'] = pClass.getProperties()
+        classDict['methods'] = pClass.getMethods()
+        if cInstance is not None:
+            classDict['values'] = cInstance.getValues(classDict['properties'])
+        else:
+            classDict['values'] = None
+
+        return classDict
+
+    def parseObject(self):
+        if (self['ObjectFlags'] & 0x01) == 0:
+            # instance
+            ctCurrent = self['InstanceType']['CurrentClass']
+            currentName = ctCurrent.getClassName()
+            if currentName is not None:
+                self.ctCurrent = self.parseClass(ctCurrent, self['InstanceType'])
+            return
+        else: 
+            ctParent = self['ClassType']['ParentClass']
+            ctCurrent = self['ClassType']['CurrentClass']
+
+            parentName = ctParent.getClassName()
+            if parentName is not None:
+                self.ctParent = self.parseClass(ctParent)
+
+            currentName = ctCurrent.getClassName()
+            if currentName is not None:
+                self.ctCurrent = self.parseClass(ctCurrent)
 
     def printInformation(self):
         # First off, do we have a class?
@@ -2192,11 +2229,18 @@ class IWbemClassObject(IRemUnknown):
         objRef = self.get_objRef()
         objRef = OBJREF_CUSTOM(objRef)
         from impacket.winregistry import hexdump
-        encodingUnit = EncodingUnit(objRef['pObjectData'])
+        self.encodingUnit = EncodingUnit(objRef['pObjectData'])
         #encodingUnit.dump()
-        encodingUnit['ObjectBlock'].printInformation()
+        #encodingUnit['ObjectBlock'].printInformation()
         #instanceType = InstanceType(objectBlock['Encoding'])
         #instanceType.dump()
+        self.parseObject()
+
+    def parseObject(self):
+        self.encodingUnit['ObjectBlock'].parseObject()
+
+    def getObject(self):
+        return self.encodingUnit['ObjectBlock']
  
 
 class IWbemLoginClientID(IRemUnknown):
