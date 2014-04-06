@@ -164,4 +164,5 @@ if __name__ == '__main__':
             print "WQL> %s" % line,
             shell.onecmd(line)
 
+    iWbemServices.RemRelease()
     dce.disconnect()
