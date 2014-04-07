@@ -83,13 +83,15 @@ if __name__ == '__main__':
                     for value in record.ctCurrent['values']:
                         print '%s|' % value['value'],
                     print 
-                    pEnum.RemRelease()
                 except Exception, e:
+                    #import traceback
+                    #print traceback.print_exc()
                     if str(e).find('S_FALSE') < 0:
                         raise
                     else:
                         break
-       
+            iEnum.RemRelease() 
+
         def default(self, line):
             line = line.strip('\n')
             if line[-1:] == ';':
