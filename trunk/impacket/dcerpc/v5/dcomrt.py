@@ -950,12 +950,12 @@ class CLASS_INSTANCE():
 class INTERFACE():
     # class variable holding the transport connections, organized by target IP
     CONNECTIONS = {}
-    def __init__(self, cinstance, objRef, ipidRemUnknown, iPid = None, targetIP = None):
+    def __init__(self, cinstance, objRef, ipidRemUnknown, iPid = None, oxid = None, targetIP = None):
         if targetIP is None:
             raise
         self.__targetIP = targetIP
         self.__iPid = iPid
-        self.__oxid = None
+        self.__oxid = oxid
         self.__cinstance = cinstance
         self.__objRef = objRef
         self.__ipidRemUnknown = ipidRemUnknown
@@ -1058,6 +1058,9 @@ class INTERFACE():
                     dce.bind(iid)
 
                 if self.__oxid is None:
+                    import traceback
+                    print traceback.print_stack()
+
                     print "OXID NONE, something wrong!!!"
                     raise
 
@@ -1106,9 +1109,7 @@ class IRemUnknown(INTERFACE):
             request['iids'].append(_iid)
         resp = self.request(request, IID_IRemUnknown, self.get_ipidRemUnknown())         
 
-        iRU =  IRemUnknown2(INTERFACE(self.get_cinstance(), None, self.get_ipidRemUnknown(), resp['ppQIResults']['std']['ipid'], targetIP = self.get_target_ip()))
-        iRU.set_oxid(resp['ppQIResults']['std']['oxid'])
-        return iRU
+        return IRemUnknown2(INTERFACE(self.get_cinstance(), None, self.get_ipidRemUnknown(), resp['ppQIResults']['std']['ipid'], oxid = resp['ppQIResults']['std']['oxid'], targetIP = self.get_target_ip()))
 
     def RemAddRef(self):
         request = RemAddRef()
