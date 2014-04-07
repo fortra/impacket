@@ -2626,7 +2626,7 @@ class IWbemLevel1Login(IRemUnknown):
         request['lFlags'] = 0
         request['pCtx'] = pCtx
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
-        return  IWbemServices(INTERFACE(self.get_cinstance(), ''.join(resp['ppNamespace']['abData']), self.get_ipidRemUnknown(), targetIP = self.get_target_ip(), dce = self.get_dce_rpc()))
+        return  IWbemServices(INTERFACE(self.get_cinstance(), ''.join(resp['ppNamespace']['abData']), self.get_ipidRemUnknown(), targetIP = self.get_target_ip()))
 
 
 if __name__ == '__main__':
