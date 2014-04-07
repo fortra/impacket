@@ -2346,7 +2346,7 @@ class IEnumWbemClassObject(IRemUnknown):
         #resp.dump()
         interfaces = list()
         for interface in resp['apObjects']:
-            interfaces.append( IWbemClassObject(INTERFACE(self.get_cinstance(), ''.join(interface['abData']), self.get_ipidRemUnknown(), targetIP = self.get_target_ip())) )
+            interfaces.append( IWbemClassObject(INTERFACE(self.get_cinstance(), ''.join(interface['abData']), self.get_ipidRemUnknown(), oxid = self.get_oxid(), targetIP = self.get_target_ip())) )
 
         return interfaces
 
@@ -2404,7 +2404,7 @@ class IWbemServices(IRemUnknown):
         request['lFlags'] = lFlags
         request['pCtx'] = pCtx
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
-        ppObject =  IWbemClassObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppObject']['abData']), self.get_ipidRemUnknown(), targetIP = self.get_target_ip()))
+        ppObject =  IWbemClassObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppObject']['abData']), self.get_ipidRemUnknown(), oxid = self.get_oxid(), targetIP = self.get_target_ip()))
         if resp['ppCallResult'] != NULL:
             ppcallResult = IWbemCallResult(INTERFACE(self.get_cinstance(), ''.join(resp['ppObject']['abData']), self.get_ipidRemUnknown(), targetIP = self.get_target_ip()))
         else:
