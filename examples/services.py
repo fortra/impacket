@@ -43,7 +43,7 @@ class SVCCTL:
         self.__lmhash = ''
         self.__nthash = ''
         if options.hashes is not None:
-            self.__lmhash, self.__nthash = hashes.split(':')
+            self.__lmhash, self.__nthash = options.hashes.split(':')
 
     def run(self, addr):
 
