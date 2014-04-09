@@ -27,7 +27,7 @@ from struct import pack, unpack
 
 from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import epm, dcomrt
-from impacket.dcerpc.v5.dcom import comev, scmp, vds, oaut, comev
+from impacket.dcerpc.v5.dcom import comev, scmp, vds, oaut, comev, ie
 from impacket.dcerpc.v5.ndr import NULL
 from impacket.dcerpc.v5.dtypes import *
 from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_NONE
@@ -101,23 +101,22 @@ class DCOMTests(unittest.TestCase):
         IID_IClassFactory = uuidtup_to_bin(('00000001-0000-0000-C000-000000000046','0.0'))
         scm = dcomrt.IRemoteSCMActivator(dce)
         iInterface = scm.RemoteGetClassObject(comev.CLSID_EventSystem, IID_IClassFactory)
+        iInterface.RemRelease()
 
 
     def test_RemQueryInterface(self):
-        dce, rpctransport = self.connect()
-
-        scm = dcomrt.IRemoteSCMActivator(dce)
-        iInterface = scm.RemoteCreateInstance(comev.CLSID_EventSystem, comev.IID_IEventSystem)
+        dcom = dcomrt.DCOMConnection(self.machine, self.username, self.password, self.domain)
+        iInterface = dcom.CoCreateInstanceEx(comev.CLSID_EventSystem, comev.IID_IEventSystem)
         iEventSystem = comev.IEventSystem(iInterface)
         iEventSystem.RemQueryInterface(1, (comev.IID_IEventSystem,))
+        dcom.disconnect()
 
     def test_RemRelease(self):
-        dce, rpctransport = self.connect()
-
-        scm = dcomrt.IRemoteSCMActivator(dce)
-        iInterface = scm.RemoteCreateInstance(comev.CLSID_EventSystem, comev.IID_IEventSystem)
+        dcom = dcomrt.DCOMConnection(self.machine, self.username, self.password, self.domain)
+        iInterface = dcom.CoCreateInstanceEx(comev.CLSID_EventSystem, comev.IID_IEventSystem)
         iEventSystem = comev.IEventSystem(iInterface)
         iEventSystem.RemRelease()
+        dcom.disconnect()
 
     def test_RemoteCreateInstance(self):
         dce, rpctransport = self.connect()
@@ -187,13 +186,37 @@ class DCOMTests(unittest.TestCase):
         iTypeInfo.GetTypeAttr()
 
     def tes_comev(self):
-        dce, rpctransport = self.connect()
-        scm = dcomrt.IActivation(dce)
-        iInterface = scm.RemoteActivation(comev.CLSID_EventSystem, comev.IID_IEventSystem)
+        if len(self.hashes) > 0:
+            lmhash, nthash = self.hashes.split(':')
+        else:
+            lmhash = ''
+            nthash = ''
+
+        dcom = dcomrt.DCOMConnection(self.machine, self.username, self.password, self.domain, lmhash, nthash)
+        iInterface = dcom.CoCreateInstanceEx(comev.CLSID_EventSystem, comev.IID_IEventSystem)
+
         #scm = dcomrt.IRemoteSCMActivator(dce)
+        
         #iInterface = scm.RemoteCreateInstance(comev.CLSID_EventSystem, comev.IID_IEventSystem)
+        #iInterface = scm.RemoteCreateInstance(comev.CLSID_EventSystem,oaut.IID_IDispatch)
+        iDispatch = oaut.IDispatch(iInterface)
+        #scm = dcomrt.IRemoteSCMActivator(dce)
+        #resp = iDispatch.GetIDsOfNames(('Navigate\x00', 'ExecWB\x00'))
+        #resp.dump()
         iEventSystem = comev.IEventSystem(iInterface)
-        iEventSystem.get_EventObjectChangeEventClassID()
+        iTypeInfo = iEventSystem.GetTypeInfo()
+        resp = iTypeInfo.GetTypeAttr()
+        #resp.dump()
+        for i in range(1,resp['ppTypeAttr']['cFuncs']):
+            resp = iTypeInfo.GetFuncDesc(i)
+            #resp.dump()
+            resp2 = iTypeInfo.GetNames(resp['ppFuncDesc']['memid'])
+            #resp2.dump()
+            resp = iTypeInfo.GetDocumentation(resp['ppFuncDesc']['memid'])
+            #resp.dump()
+        #iEventSystem.get_EventObjectChangeEventClassID()
+        iEventSystem.RemRelease()
+        iTypeInfo.RemRelease()
 
         objCollection = iEventSystem.Query('EventSystem.EventSubscriptionCollection', 'ALL')
 
@@ -259,8 +282,37 @@ class DCOMTests(unittest.TestCase):
 
         print "="*80
 
+        dcom.disconnect()
         #eventSubscription.get_SubscriptionID()
 
+
+    def tes_ie(self):
+        dce, rpctransport = self.connect()
+        scm = dcomrt.IRemoteSCMActivator(dce)
+        
+        #iInterface = scm.RemoteCreateInstance(string_to_bin('0002DF01-0000-0000-C000-000000000046'),ie.IID_WebBrowser)
+        iInterface = scm.RemoteCreateInstance(string_to_bin('72C24DD5-D70A-438B-8A42-98424B88AFB8'),dcomrt.IID_IRemUnknown)
+
+        iDispatch = ie.IWebBrowser(iInterface)
+        resp = iDispatch.GetIDsOfNames(('Navigate',))
+        print resp
+        #sys.exit(1)
+        iTypeInfo = iDispatch.GetTypeInfo()
+        resp = iTypeInfo.GetTypeAttr()
+        #resp.dump()
+        for i in range(0,resp['ppTypeAttr']['cFuncs']):
+            resp = iTypeInfo.GetFuncDesc(i)
+            #resp.dump()
+            #resp2 = iTypeInfo.GetNames(resp['ppFuncDesc']['memid'])
+            #print resp2['rgBstrNames'][0]['asData']
+            resp = iTypeInfo.GetDocumentation(resp['ppFuncDesc']['memid'])
+            print resp['pBstrName']['asData']
+        #iEventSystem.get_EventObjectChangeEventClassID()
+        print "ACA"
+        iTypeInfo.RemRelease()
+        iDispatch.RemRelease()
+
+        sys.exit(1)
 
 class TCPTransport(DCOMTests):
     def setUp(self):

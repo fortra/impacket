@@ -21,16 +21,20 @@
 #   There are test cases for them too. 
 #
 # ToDo:
-# [ ] Use the same DCE connection for all the calls. Right now is connecting to the remote machine
+# [X] Use the same DCE connection for all the calls. Right now is connecting to the remote machine
 #     for each call, making it slower.
+#
+# [X] Implement a ping mechanism, otherwise the garbage collector at the server shuts down the objects if 
+#    not used, returning RPC_E_DISCONNECTED
 #
 
 from struct import pack
+from threading import Timer
 from impacket.dcerpc.v5 import ndr
 from impacket.dcerpc.v5.ndr import NDRCALL, NDR, NDRSTRUCT, NDRPOINTER, NDRUniConformantArray, NDRUniFixedArray, NDRTLSTRUCT
 from impacket.dcerpc.v5.dtypes import LPWSTR, WCHAR, ULONGLONG, HRESULT, GUID, USHORT, WSTR, DWORD, LPLONG, LONG, PGUID, ULONG, UUID, WIDESTR, NULL
 from impacket import hresult_errors
-from impacket.uuid import string_to_bin, uuidtup_to_bin, generate
+from impacket.uuid import string_to_bin, uuidtup_to_bin, generate, bin_to_string
 from impacket.dcerpc.v5.enum import Enum
 from impacket.dcerpc.v5.rpcrt import TypeSerialization1
 from impacket.dcerpc.v5 import transport
@@ -93,6 +97,11 @@ OID = ULONGLONG
 
 class OID_ARRAY(NDRUniConformantArray):
     item = OID
+
+class POID_ARRAY(NDRPOINTER):
+    referent = (
+        ('Data', OID_ARRAY),
+    )
 
 # 2.2.2 SETID
 SETID = ULONGLONG
@@ -764,8 +773,8 @@ class ComplexPing(NDRCALL):
        ('SequenceNum', USHORT),
        ('cAddToSet', USHORT),
        ('cDelFromSet', USHORT),
-       ('AddToSet', OID_ARRAY),
-       ('DelFromSet', OID_ARRAY),
+       ('AddToSet', POID_ARRAY),
+       ('DelFromSet', POID_ARRAY),
     )
 
 class ComplexPingResponse(NDRCALL):
@@ -931,42 +940,150 @@ OPNUMS = {
 ################################################################################
 # HELPER FUNCTIONS
 ################################################################################
-class CLASS_INSTANCE():
-    def __init__(self, dce, ORPCthis):
-        self.__stringBindings = None
-        self.__portmap = dce
-        self.__ORPCthis = ORPCthis
+class DCOMConnection():
+    """
+    This class represents a DCOM Connection. It is in charge of establishing the 
+    DCE connection against the portmap, and then launch a thread that will be 
+    pinging the objects created against the target.
+    In theory, there should be a single instance of this class for every targetIP
+    """
+    PINGTIMER = None
+    OID_ADD = {}
+    OID_DEL = {}
+    OID_SET = {}
+    PORTMAPS = {}
+    def __init__(self, targetIP, username = '', password = '', domain = '', lmhash = '', nthash = '', authLevel = ntlm.NTLM_AUTH_PKT_INTEGRITY):
+        self.__targetIP = targetIP
+        self.__userName = username
+        self.__password = password
+        self.__domain = domain
+        self.__lmhash = lmhash
+        self.__nthash = nthash
+        self.__authLevel = authLevel
+        self.__portmap = None
+        self.initConnection()
+
+    @classmethod
+    def addOid(self, targetIP, oid):
+        if DCOMConnection.OID_ADD.has_key(targetIP) is False:
+            DCOMConnection.OID_ADD[targetIP] = set()
+        DCOMConnection.OID_ADD[targetIP].add(oid)
+        if DCOMConnection.OID_SET.has_key(targetIP) is False:
+            DCOMConnection.OID_SET[targetIP] = {}
+            DCOMConnection.OID_SET[targetIP]['oids'] = set()
+            DCOMConnection.OID_SET[targetIP]['setid'] = 0
+
+    @classmethod
+    def delOid(self, targetIP, oid):
+        if DCOMConnection.OID_DEL.has_key(targetIP) is False:
+            DCOMConnection.OID_DEL[targetIP] = set()
+        DCOMConnection.OID_DEL[targetIP].add(oid)
+        if DCOMConnection.OID_SET.has_key(targetIP) is False:
+            DCOMConnection.OID_SET[targetIP] = {}
+            DCOMConnection.OID_SET[targetIP]['oids'] = set()
+            DCOMConnection.OID_SET[targetIP]['setid'] = 0
+
+    @classmethod
+    def pingServer(self):
+        # Here we need to go through all the objects opened and ping them.
+        # ToDo: locking for avoiding race conditions
+        for target in DCOMConnection.OID_SET:
+            addedOids = set()
+            deletedOids = set()
+            if DCOMConnection.OID_ADD.has_key(target):
+                addedOids = DCOMConnection.OID_ADD[target]
+                del(DCOMConnection.OID_ADD[target])
+            
+            if DCOMConnection.OID_DEL.has_key(target):
+                deletedOids = DCOMConnection.OID_DEL[target]
+                del(DCOMConnection.OID_DEL[target])
+
+            objExporter = IObjectExporter(DCOMConnection.PORTMAPS[target])
+
+            if len(addedOids) > 0 or len(deletedOids) > 0:
+                if DCOMConnection.OID_SET[target].has_key('setid'):
+                    setId = DCOMConnection.OID_SET[target]['setid'] 
+                else:
+                    setId = 0
+                resp = objExporter.ComplexPing(setId, 0, addedOids, deletedOids)
+                DCOMConnection.OID_SET[target]['oids'] -= deletedOids
+                DCOMConnection.OID_SET[target]['oids'] |= addedOids
+                DCOMConnection.OID_SET[target]['setid'] = resp['pSetId']
+            else:
+                resp = objExporter.SimplePing(DCOMConnection.OID_SET[target]['setid'])
+            
+        DCOMConnection.PINGTIMER = Timer(120,DCOMConnection.pingServer)
+        DCOMConnection.PINGTIMER.start()
+
+    def initTimer(self):
+        if DCOMConnection.PINGTIMER is None:
+            DCOMConnection.PINGTIMER = Timer(120, DCOMConnection.pingServer)
+        DCOMConnection.PINGTIMER.start()
+
+    def initConnection(self):
+        stringBinding = r'ncacn_ip_tcp:%s' % self.__targetIP
+        rpctransport = transport.DCERPCTransportFactory(stringBinding)
+
+        if hasattr(rpctransport, 'set_credentials') and len(self.__userName) >=0:
+            # This method exists only for selected protocol sequences.
+            rpctransport.set_credentials(self.__userName,self.__password, self.__domain, self.__lmhash, self.__nthash)
+        self.__portmap = rpctransport.get_dce_rpc()
+        self.__portmap.set_auth_level(self.__authLevel)
+        self.__portmap.connect()
+        DCOMConnection.PORTMAPS[self.__targetIP] = self.__portmap
+
+    def CoCreateInstanceEx(self, clsid, iid):
+        scm = IRemoteSCMActivator(self.__portmap)
+        iInterface = scm.RemoteCreateInstance(clsid, iid)
+        self.initTimer()
+        return iInterface
+
     def get_dce_rpc(self):
-        return self.__portmap
+        return DCOMConnection.PORTMAPS[self.__targetIP]
+
+    def disconnect(self):
+        DCOMConnection.PINGTIMER.cancel()
+        DCOMConnection.PINGTIMER = None
+
+class CLASS_INSTANCE():
+    def __init__(self, ORPCthis, stringBinding):
+        self.__stringBindings = stringBinding
+        self.__ORPCthis = ORPCthis
     def get_ORPCthis(self):
         return self.__ORPCthis
-    def set_string_bindings(self, sb):
-        self.__stringBindings = sb
     def get_string_bindings(self):
         return self.__stringBindings
-    def get_credentials(self):
-        return self.__portmap.get_credentials()
 
 class INTERFACE():
     # class variable holding the transport connections, organized by target IP
     CONNECTIONS = {}
-    def __init__(self, cinstance, objRef, ipidRemUnknown, iPid = None, oxid = None, targetIP = None):
-        if targetIP is None:
-            raise
-        self.__targetIP = targetIP
-        self.__iPid = iPid
-        self.__oxid = oxid
-        self.__cinstance = cinstance
-        self.__objRef = objRef
-        self.__ipidRemUnknown = ipidRemUnknown
-        # We gotta check if we have a container inside our connection list, if not, create
-        if INTERFACE.CONNECTIONS.has_key(self.__targetIP) is not True:
-            INTERFACE.CONNECTIONS[self.__targetIP] = {}
-
-        if objRef is not None:
-            return self.process_interface(objRef)
+    def __init__(self, cinstance=None, objRef=None, ipidRemUnknown=None, iPid = None, oxid = None, oid = None, targetIP = None, interfaceInstance=None):
+        if interfaceInstance is not None:
+            self.__targetIP = interfaceInstance.get_target_ip()
+            self.__iPid = interfaceInstance.get_iPid()
+            self.__oid  = interfaceInstance.get_oid()
+            self.__oxid = interfaceInstance.get_oxid()
+            self.__cinstance = interfaceInstance.get_cinstance()
+            self.__objRef = interfaceInstance.get_objRef()
+            self.__ipidRemUnknown = interfaceInstance.get_ipidRemUnknown()
         else:
-            return
+            if targetIP is None:
+                raise
+            self.__targetIP = targetIP
+            self.__iPid = iPid
+            self.__oid  = oid
+            self.__oxid = oxid
+            self.__cinstance = cinstance
+            self.__objRef = objRef
+            self.__ipidRemUnknown = ipidRemUnknown
+            # We gotta check if we have a container inside our connection list, if not, create
+            if INTERFACE.CONNECTIONS.has_key(self.__targetIP) is not True:
+                INTERFACE.CONNECTIONS[self.__targetIP] = {}
+
+            if objRef is not None:
+                return self.process_interface(objRef)
+            else:
+                return
 
     def process_interface(self, data):
         objRefType = OBJREF(data)['flags']
@@ -982,7 +1099,10 @@ class INTERFACE():
             print "Unknown OBJREF Type! 0x%x" % objRefType
 
         if objRefType != FLAGS_OBJREF_CUSTOM:
+            if objRef['std']['flags'] & SORF_NOPING == 0:
+                DCOMConnection.addOid(self.__targetIP, objRef['std']['oid'])
             self.__iPid = objRef['std']['ipid']
+            self.__oid  = objRef['std']['oid']
             self.__oxid = objRef['std']['oxid']
             if self.__oxid is None:
                 objRef.dump()
@@ -993,6 +1113,12 @@ class INTERFACE():
 
     def set_oxid(self, oxid):
         self.__oxid = oxid
+
+    def get_oid(self):
+        return self.__oid
+
+    def set_oid(self, oid):
+        self.__oid = oid
 
     def get_target_ip(self):
         return self.__targetIP
@@ -1040,7 +1166,7 @@ class INTERFACE():
                 dcomInterface = transport.DCERPCTransportFactory(stringBinding)
                 if hasattr(dcomInterface, 'set_credentials'):
                     # This method exists only for selected protocol sequences.
-                    dcomInterface.set_credentials(*self.__cinstance.get_credentials())
+                    dcomInterface.set_credentials(*DCOMConnection.PORTMAPS[self.__targetIP].get_credentials())
                 dcomInterface.set_connect_timeout(300)
                 dce = dcomInterface.get_dce_rpc()
 
@@ -1060,7 +1186,6 @@ class INTERFACE():
                 if self.__oxid is None:
                     import traceback
                     print traceback.print_stack()
-
                     print "OXID NONE, something wrong!!!"
                     raise
 
@@ -1075,13 +1200,17 @@ class INTERFACE():
         req['ORPCthis'] = self.get_cinstance().get_ORPCthis()
         req['ORPCthis']['flags'] = 0
         self.connect(iid)
-        #print "ACTIVE CONNECTIONS"
-        #print INTERFACE.CONNECTIONS
         dce = self.get_dce_rpc()
         try:
             resp = dce.request(req, uuid)
-        except:
-            raise 
+        except Exception, e:
+            if str(e).find('RPC_E_DISCONNECTED') >= 0:
+                msg = str(e) + '\n'
+                msg += "DCOM keep-alive pinging it might not be working as expected. You can't be idle for more than 14 minutes!\n"
+                msg += "You should exit the app and start again\n"
+                raise Exception(msg)
+            else:
+                raise 
         return resp
 
     def disconnect(self):
@@ -1092,7 +1221,8 @@ class INTERFACE():
 class IRemUnknown(INTERFACE):
     def __init__(self, interface):
         self._iid = IID_IRemUnknown
-        INTERFACE.__init__(self, interface.get_cinstance(), interface.get_objRef(), interface.get_ipidRemUnknown(), interface.get_iPid(), targetIP = interface.get_target_ip())
+        #INTERFACE.__init__(self, interface.get_cinstance(), interface.get_objRef(), interface.get_ipidRemUnknown(), interface.get_iPid(), targetIP = interface.get_target_ip())
+        INTERFACE.__init__(self, interfaceInstance=interface)
         self.set_oxid(interface.get_oxid())
 
     def RemQueryInterface(self, cRefs, iids):
@@ -1108,8 +1238,9 @@ class IRemUnknown(INTERFACE):
             _iid['Data'] = iid
             request['iids'].append(_iid)
         resp = self.request(request, IID_IRemUnknown, self.get_ipidRemUnknown())         
+        resp.dump()
 
-        return IRemUnknown2(INTERFACE(self.get_cinstance(), None, self.get_ipidRemUnknown(), resp['ppQIResults']['std']['ipid'], oxid = resp['ppQIResults']['std']['oxid'], targetIP = self.get_target_ip()))
+        return IRemUnknown2(INTERFACE(self.get_cinstance(), None, self.get_ipidRemUnknown(), resp['ppQIResults']['std']['ipid'], oxid = resp['ppQIResults']['std']['oxid'], oid = resp['ppQIResults']['std']['oxid'], targetIP = self.get_target_ip()))
 
     def RemAddRef(self):
         request = RemAddRef()
@@ -1133,6 +1264,7 @@ class IRemUnknown(INTERFACE):
         element['cPublicRefs'] = 1
         request['InterfaceRefs'].append(element)
         resp = self.request(request, IID_IRemUnknown, self.get_ipidRemUnknown())         
+        DCOMConnection.delOid(self.get_target_ip(), self.get_oid())
         return resp 
 
 # 3.1.1.5.7 IRemUnknown2 Interface
@@ -1181,11 +1313,29 @@ class IObjectExporter():
         return resp
     
     # 3.1.2.5.1.3 IObjectExporter::ComplexPing (Opnum 2)
-    def ComplexPing(self, setId = 0):
+    def ComplexPing(self, setId = 0, sequenceNum = 0, addToSet = [], delFromSet = []):
         self.__portmap.connect()
         dce = self.__portmap.bind(IID_IObjectExporter)
         request = ComplexPing()
         request['pSetId'] = setId
+        request['SequenceNum'] = setId
+        request['cAddToSet'] = len(addToSet)
+        request['cDelFromSet'] = len(delFromSet)
+        if len(addToSet) > 0:
+            for oid in addToSet:
+                oidn = OID()
+                oidn['Data'] = oid
+                request['AddToSet'].append(oidn)
+        else:
+            request['AddToSet'] = NULL
+
+        if len(delFromSet) > 0:
+            for oid in delFromSet:
+                oidn = OID()
+                oidn['Data'] = oid
+                request['DelFromSet'].append(oidn)
+        else:
+            request['DelFromSet'] = NULL
         resp = self.__portmap.request(request)
         return resp
     
@@ -1316,8 +1466,7 @@ class IActivation():
         iPid = objRef['std']['ipid']
         iid = objRef['iid']
 
-        classInstance = CLASS_INSTANCE(self.__portmap, ORPCthis)
-        classInstance.set_string_bindings(stringBindings)
+        classInstance = CLASS_INSTANCE(ORPCthis, stringBindings)
         return IRemUnknown2(INTERFACE(classInstance, ''.join(resp['ppInterfaceData'][0]['abData']), ipidRemUnknown, targetIP = self.__portmap.get_rpc_transport().get_dip()))
 
 
@@ -1491,8 +1640,7 @@ class IRemoteSCMActivator():
         iPid = objRef['std']['ipid']
         iid = objRef['iid']
 
-        classInstance = CLASS_INSTANCE(self.__portmap, ORPCthis)
-        classInstance.set_string_bindings(stringBindings)
+        classInstance = CLASS_INSTANCE(ORPCthis, stringBindings)
         return IRemUnknown2(INTERFACE(classInstance, ''.join(propsOut['ppIntfData'][0]['abData']), ipidRemUnknown, targetIP = self.__portmap.get_rpc_transport().get_dip()))
 
         return resp
@@ -1666,7 +1814,6 @@ class IRemoteSCMActivator():
         iPid = objRef['std']['ipid']
         iid = objRef['iid']
 
-        classInstance = CLASS_INSTANCE(self.__portmap, ORPCthis)
-        classInstance.set_string_bindings(stringBindings)
+        classInstance = CLASS_INSTANCE(ORPCthis, stringBindings)
         return IRemUnknown2(INTERFACE(classInstance, ''.join(propsOut['ppIntfData'][0]['abData']), ipidRemUnknown, targetIP = self.__portmap.get_rpc_transport().get_dip()))
 
