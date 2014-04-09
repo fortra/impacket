@@ -735,7 +735,14 @@ class InstanceType(Structure):
                         array.append(unpack(unpackStrArray, heapData[:dataSizeArray])[0])
                         heapData = heapData[dataSizeArray:]
                     value = array
-                elif pType not in (CimTypeEnum.CIM_TYPE_STRING.value, CimTypeEnum.CIM_TYPE_DATETIME.value, CimTypeEnum.CIM_TYPE_REFERENCE.value, CimTypeEnum.CIM_TYPE_OBJECT.value):
+                elif pType == CimTypeEnum.CIM_TYPE_OBJECT.value:
+                    # If the value type is CIM-TYPE-OBJECT, the EncodedValue is a HeapRef
+                    # to the object encoded as an ObjectEncodingLength (section 2.2.4) 
+                    # followed by an ObjectBlock (section 2.2.5).
+                    objectLen = unpack(unpackStr, heapData[:dataSize])[0]
+                    heapData = heapData[dataSize:]
+                    value = heapData[:objectLen]
+                elif pType not in (CimTypeEnum.CIM_TYPE_STRING.value, CimTypeEnum.CIM_TYPE_DATETIME.value, CimTypeEnum.CIM_TYPE_REFERENCE.value):
                     value = itemValue
                 else:
                     value = Encoded_String(heapData)['Character']
@@ -1768,8 +1775,8 @@ class IWbemServices_ExecMethod(DCOMCALL):
        ('lFlags', LONG),
        ('pCtx', PMInterfacePointer),
        ('pInParams', PMInterfacePointer),
-       ('ppOutParams', PMInterfacePointer),
-       ('ppCallResult', PMInterfacePointer),
+       ('ppOutParams', PPMInterfacePointer),
+       ('ppCallResult', PPMInterfacePointer),
     )
 
 class IWbemServices_ExecMethodResponse(DCOMANSWER):
@@ -1791,7 +1798,7 @@ class IWbemServices_ExecMethodAsync(DCOMCALL):
        ('pResponseHandler', PMInterfacePointer),
     )
 
-class IWbemServices_ExecMethodResponse(DCOMANSWER):
+class IWbemServices_ExecMethodAsyncResponse(DCOMANSWER):
     structure = (
        ('ErrorCode', error_status_t),
     )
@@ -2569,20 +2576,21 @@ class IWbemServices(IRemUnknown):
 
     def ExecMethod(self, strObjectPath, strMethodName, lFlags=0, pCtx=NULL, pInParams=NULL):
         request = IWbemServices_ExecMethod()
-        request['strObjectPath']['asData'] = checkNullString('strObjectPath')
-        request['strMethodName']['asData'] = checkNullString('strMethodName')
-        request['strQuery']['asData'] = checkNullString(strQuery)
+        request['strObjectPath']['asData'] = checkNullString(strObjectPath)
+        request['strMethodName']['asData'] = checkNullString(strMethodName)
         request['lFlags'] = lFlags
         request['pCtx'] = pCtx
         request['pInParams'] = pInParams
+        request.fields['ppCallResult'].fields['Data'] = NULL
+        request.fields['ppOutParams'].fields['Data'] = NULL
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
         resp.dump()
         return resp
 
     def ExecMethodAsync(self, strObjectPath, strMethodName, lFlags=0, pCtx=NULL, pInParams=NULL):
         request = IWbemServices_ExecMethodAsync()
-        request['strObjectPath']['asData'] = checkNullString('strObjectPath')
-        request['strMethodName']['asData'] = checkNullString('strMethodName')
+        request['strObjectPath']['asData'] = checkNullString(strObjectPath)
+        request['strMethodName']['asData'] = checkNullString(strMethodName)
         request['strQuery']['asData'] = checkNullString(strQuery)
         request['lFlags'] = lFlags
         request['pCtx'] = pCtx
