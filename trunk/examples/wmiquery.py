@@ -23,6 +23,7 @@ from impacket import version, ntlm
 from impacket.dcerpc.v5 import transport, dcomrt
 from impacket.dcerpc.v5.dtypes import NULL
 from impacket.dcerpc.v5.dcom import wmi
+from impacket.dcerpc.v5.dcomrt import DCOMConnection
 import argparse
 import sys
 import os
@@ -138,22 +139,15 @@ if __name__ == '__main__':
         password = getpass("Password:")
 
 
-    rpctransport = transport.DCERPCTransportFactory(r'ncacn_ip_tcp:%s' % address)
     if options.hashes is not None:
         lmhash, nthash = self.hashes.split(':')
     else:
         lmhash = ''
         nthash = ''
-    if hasattr(rpctransport, 'set_credentials'):
-        # This method exists only for selected protocol sequences.
-        rpctransport.set_credentials(username, password, domain, lmhash, nthash)
 
-    dce = rpctransport.get_dce_rpc()
-    dce.set_auth_level(ntlm.NTLM_AUTH_PKT_INTEGRITY)
-    dce.connect()
+    dcom = DCOMConnection(address, username, password, domain, lmhash, nthash)
 
-    scm = dcomrt.IRemoteSCMActivator(dce)
-    iInterface = scm.RemoteCreateInstance(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
+    iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
     iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
     iWbemServices= iWbemLevel1Login.NTLMLogin(options.namespace, NULL, NULL)
     iWbemLevel1Login.RemRelease()
@@ -167,4 +161,4 @@ if __name__ == '__main__':
             shell.onecmd(line)
 
     iWbemServices.RemRelease()
-    dce.disconnect()
+    dcom.disconnect()
