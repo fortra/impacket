@@ -6,6 +6,7 @@
 # IWbemLevel1Login::NTLMLogin 
 # IWbemServices::OpenNamespace  
 # IWbemServices::ExecQuery
+# IWbemServices::GetObject
 #
 # Since DCOM is more high level, I'll always use the helper classes
 #
@@ -13,7 +14,6 @@
 #
 # IWbemServices::CancelAsyncCall
 # IWbemServices::QueryObjectSink
-# IWbemServices::GetObject
 # IWbemServices::GetObjectAsync
 # IWbemServices::PutClass
 # IWbemServices::PutClassAsync
@@ -48,87 +48,77 @@ from impacket.dcerpc.v5.dcom import wmi
 from impacket.dcerpc.v5.ndr import NULL
 from impacket.dcerpc.v5.dtypes import *
 from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_NONE
+from impacket.dcerpc.v5.dcomrt import DCOMConnection
 from impacket.winregistry import hexdump
 from impacket.uuid import string_to_bin, uuidtup_to_bin, generate
 from impacket import system_errors, ntlm
 
 class WMITests(unittest.TestCase):
-    def connect(self):
-        rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
-        if len(self.hashes) > 0:
-            lmhash, nthash = self.hashes.split(':')
-        else:
-            lmhash = ''
-            nthash = ''
-        if hasattr(rpctransport, 'set_credentials'):
-            # This method exists only for selected protocol sequences.
-            rpctransport.set_credentials(self.username,self.password, self.domain, lmhash, nthash)
-        dce = rpctransport.get_dce_rpc()
-        dce.set_auth_level(ntlm.NTLM_AUTH_PKT_INTEGRITY)
-        dce.connect()
+    def test_activation(self):
+        dcom = DCOMConnection(self.machine, self.username, self.password, self.domain, self.lmhash, self.nthash)
+        iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLoginClientID)
+        dcom.disconnect()
 
-        return dce, rpctransport
-
-    def tes_activation(self):
-        dce, rpctransport = self.connect()
-        scm = dcomrt.IRemoteSCMActivator(dce)
-        iInterface = scm.RemoteCreateInstance(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLoginClientID)
-        dce.disconnect()
-        print iInterface
-
-    def tes_IWbemLevel1Login_EstablishPosition(self):
-        dce, rpctransport = self.connect()
-        scm = dcomrt.IRemoteSCMActivator(dce)
-        iInterface = scm.RemoteCreateInstance(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
+    def test_IWbemLevel1Login_EstablishPosition(self):
+        dcom = DCOMConnection(self.machine, self.username, self.password, self.domain, self.lmhash, self.nthash)
+        iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
         iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
         resp = iWbemLevel1Login.EstablishPosition()
         print resp
-        dce.disconnect()
+        dcom.disconnect()
 
-    def tes_IWbemLevel1Login_RequestChallenge(self):
-        dce, rpctransport = self.connect()
-        scm = dcomrt.IRemoteSCMActivator(dce)
-        iInterface = scm.RemoteCreateInstance(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
+    def test_IWbemLevel1Login_RequestChallenge(self):
+        dcom = DCOMConnection(self.machine, self.username, self.password, self.domain, self.lmhash, self.nthash)
+        iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
         iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
-        resp = iWbemLevel1Login.RequestChallenge()
-        print resp
-        dce.disconnect()
+        try:
+            resp = iWbemLevel1Login.RequestChallenge()
+            print resp
+        except Exception, e:
+            if str(e).find('WBEM_E_NOT_SUPPORTED') < 0:
+                dcom.disconnect()
+                raise
+        dcom.disconnect()
 
-    def tes_IWbemLevel1Login_WBEMLogin(self):
-        dce, rpctransport = self.connect()
-        scm = dcomrt.IRemoteSCMActivator(dce)
-        iInterface = scm.RemoteCreateInstance(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
+    def test_IWbemLevel1Login_WBEMLogin(self):
+        dcom = DCOMConnection(self.machine, self.username, self.password, self.domain, self.lmhash, self.nthash)
+        iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
         iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
-        resp = iWbemLevel1Login.WBEMLogin()
-        print resp
-        dce.disconnect()
+        try:
+            resp = iWbemLevel1Login.WBEMLogin()
+            print resp
+        except Exception, e:
+            if str(e).find('E_NOTIMPL') < 0:
+                dcom.disconnect()
+                raise
+        dcom.disconnect()
 
-    def tes_IWbemLevel1Login_NTLMLogin(self):
-        dce, rpctransport = self.connect()
-        scm = dcomrt.IRemoteSCMActivator(dce)
-        iInterface = scm.RemoteCreateInstance(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
+    def test_IWbemLevel1Login_NTLMLogin(self):
+        dcom = DCOMConnection(self.machine, self.username, self.password, self.domain, self.lmhash, self.nthash)
+        iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
         iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
         resp = iWbemLevel1Login.NTLMLogin('\\\\%s\\root\\cimv2' % self.machine, NULL, NULL)
         print resp
-        dce.disconnect()
+        dcom.disconnect()
 
     def tes_IWbemServices_OpenNamespace(self):
         # Not working
-        dce, rpctransport = self.connect()
-        scm = dcomrt.IRemoteSCMActivator(dce)
-        iInterface = scm.RemoteCreateInstance(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
+        dcom = DCOMConnection(self.machine, self.username, self.password, self.domain, self.lmhash, self.nthash)
+        iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
         iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
         iWbemServices= iWbemLevel1Login.NTLMLogin('//./ROOT', NULL, NULL)
-        iWbemServices.OpenNamespace('__Namespace')
-        print resp
-        dce.disconnect()
+        try:
+            iWbemServices.OpenNamespace('__Namespace')
+            print resp
+        except Exception, e:
+            dcom.disconnect()
+            raise
+        dcom.disconnect()
 
     def test_IWbemServices_GetObject(self):
-        dce, rpctransport = self.connect()
-        scm = dcomrt.IRemoteSCMActivator(dce)
-        iInterface = scm.RemoteCreateInstance(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
+        dcom = DCOMConnection(self.machine, self.username, self.password, self.domain, self.lmhash, self.nthash)
+        iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
         iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
-
         iWbemServices= iWbemLevel1Login.NTLMLogin('\\\\%s\\root\\cimv2' % self.machine, NULL, NULL)
         iWbemLevel1Login.RemRelease()
 
@@ -137,14 +127,13 @@ class WMITests(unittest.TestCase):
         #classObject,_ = iWbemServices.GetObject('Win32_Service')
         classObject,_ = iWbemServices.GetObject('Win32_Product')
        
-        dce.disconnect()
+        dcom.disconnect()
 
     def test_IWbemServices_ExecQuery(self):
-        dce, rpctransport = self.connect()
-        scm = dcomrt.IRemoteSCMActivator(dce)
-        iInterface = scm.RemoteCreateInstance(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
+        dcom = DCOMConnection(self.machine, self.username, self.password, self.domain, self.lmhash, self.nthash)
+        iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
         iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
-        iWbemServices= iWbemLevel1Login.NTLMLogin('//./root/cimv2', NULL, NULL)
+        iWbemServices= iWbemLevel1Login.NTLMLogin('\\\\%s\\root\\cimv2' % self.machine, NULL, NULL)
         classes = [ 'Win32_Account', 'Win32_UserAccount', 'Win32_Group', 'Win32_SystemAccount', 'Win32_Service']
         for classn in classes:
             print "Reading %s " % classn
@@ -163,8 +152,18 @@ class WMITests(unittest.TestCase):
             except Exception, e:
                 if str(e).find('S_FALSE') < 0:
                     print e
-        dce.disconnect()
+        dcom.disconnect()
 
+    def tes_IWbemServices_ExecMethod(self):
+        dce, rpctransport = self.connect()
+        scm = dcomrt.IRemoteSCMActivator(dce)
+        iInterface = scm.RemoteCreateInstance(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
+        iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
+        iWbemServices= iWbemLevel1Login.NTLMLogin('//./root/cimv2', NULL, NULL)
+        iWbemServices.RemRelease()
+        classObject,_ = iWbemServices.ExecMethod('Win32_Process', 'GetOwnerSid')
+        #print classObject
+        dce.disconnect()
 
 class TCPTransport(WMITests):
     def setUp(self):
@@ -179,6 +178,11 @@ class TCPTransport(WMITests):
         self.hashes   = configFile.get('TCPTransport', 'hashes')
         self.stringBinding = r'ncacn_ip_tcp:%s' % self.machine
         self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
+        if len(self.hashes) > 0:
+            self.lmhash, self.nthash = self.hashes.split(':')
+        else:
+            self.lmhash = ''
+            self.nthash = ''
 
 class TCPTransport64(WMITests):
     def setUp(self):
@@ -193,7 +197,11 @@ class TCPTransport64(WMITests):
         self.hashes   = configFile.get('TCPTransport', 'hashes')
         self.stringBinding = r'ncacn_ip_tcp:%s' % self.machine
         self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
-
+        if len(self.hashes) > 0:
+            self.lmhash, self.nthash = self.hashes.split(':')
+        else:
+            self.lmhash = ''
+            self.nthash = ''
 
 # Process command-line arguments.
 if __name__ == '__main__':
