@@ -620,7 +620,7 @@ class SAMRTests(unittest.TestCase):
         resp = dce.request(request)
         resp.dump()
 
-    def test_SamrQueryDisplayInformation(self):
+    def test_hSamrQueryDisplayInformation(self):
         dce, rpctransport, domainHandle  = self.connect()
 
         resp = samr.hSamrQueryDisplayInformation(dce, domainHandle,  samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayUser)
