@@ -952,7 +952,7 @@ class DCOMConnection():
     OID_DEL = {}
     OID_SET = {}
     PORTMAPS = {}
-    def __init__(self, targetIP, username = '', password = '', domain = '', lmhash = '', nthash = '', authLevel = ntlm.NTLM_AUTH_PKT_INTEGRITY):
+    def __init__(self, targetIP, username = '', password = '', domain = '', lmhash = '', nthash = '', authLevel = ntlm.NTLM_AUTH_PKT_INTEGRITY, oxidResolver = False):
         self.__targetIP = targetIP
         self.__userName = username
         self.__password = password
@@ -961,6 +961,7 @@ class DCOMConnection():
         self.__nthash = nthash
         self.__authLevel = authLevel
         self.__portmap = None
+        self.__oxidResolver = oxidResolver
         self.initConnection()
 
     @classmethod
@@ -987,38 +988,55 @@ class DCOMConnection():
     def pingServer(self):
         # Here we need to go through all the objects opened and ping them.
         # ToDo: locking for avoiding race conditions
-        for target in DCOMConnection.OID_SET:
-            addedOids = set()
-            deletedOids = set()
-            if DCOMConnection.OID_ADD.has_key(target):
-                addedOids = DCOMConnection.OID_ADD[target]
-                del(DCOMConnection.OID_ADD[target])
+        #print DCOMConnection.PORTMAPS
+        #print DCOMConnection.OID_SET
+        try:
+            for target in DCOMConnection.OID_SET:
+                addedOids = set()
+                deletedOids = set()
+                if DCOMConnection.OID_ADD.has_key(target):
+                    addedOids = DCOMConnection.OID_ADD[target]
+                    del(DCOMConnection.OID_ADD[target])
             
-            if DCOMConnection.OID_DEL.has_key(target):
-                deletedOids = DCOMConnection.OID_DEL[target]
-                del(DCOMConnection.OID_DEL[target])
+                if DCOMConnection.OID_DEL.has_key(target):
+                    deletedOids = DCOMConnection.OID_DEL[target]
+                    del(DCOMConnection.OID_DEL[target])
 
-            objExporter = IObjectExporter(DCOMConnection.PORTMAPS[target])
+                objExporter = IObjectExporter(DCOMConnection.PORTMAPS[target])
 
-            if len(addedOids) > 0 or len(deletedOids) > 0:
-                if DCOMConnection.OID_SET[target].has_key('setid'):
-                    setId = DCOMConnection.OID_SET[target]['setid'] 
+                if len(addedOids) > 0 or len(deletedOids) > 0:
+                    if DCOMConnection.OID_SET[target].has_key('setid'):
+                        setId = DCOMConnection.OID_SET[target]['setid'] 
+                    else:
+                        setId = 0
+                    resp = objExporter.ComplexPing(setId, 0, addedOids, deletedOids)
+                    DCOMConnection.OID_SET[target]['oids'] -= deletedOids
+                    DCOMConnection.OID_SET[target]['oids'] |= addedOids
+                    DCOMConnection.OID_SET[target]['setid'] = resp['pSetId']
                 else:
-                    setId = 0
-                resp = objExporter.ComplexPing(setId, 0, addedOids, deletedOids)
-                DCOMConnection.OID_SET[target]['oids'] -= deletedOids
-                DCOMConnection.OID_SET[target]['oids'] |= addedOids
-                DCOMConnection.OID_SET[target]['setid'] = resp['pSetId']
-            else:
-                resp = objExporter.SimplePing(DCOMConnection.OID_SET[target]['setid'])
+                    resp = objExporter.SimplePing(DCOMConnection.OID_SET[target]['setid'])
+        except Exception, e:
+            # There might be exceptions when sending packets 
+            # We should try to continue tho.
+            print str(e)
+            pass
             
         DCOMConnection.PINGTIMER = Timer(120,DCOMConnection.pingServer)
-        DCOMConnection.PINGTIMER.start()
+        try:
+            DCOMConnection.PINGTIMER.start()
+        except Exception, e:
+            if str(e).find('threads can only be started once') < 0:
+                raise e
 
     def initTimer(self):
-        if DCOMConnection.PINGTIMER is None:
-            DCOMConnection.PINGTIMER = Timer(120, DCOMConnection.pingServer)
-        DCOMConnection.PINGTIMER.start()
+        if self.__oxidResolver is True:
+            if DCOMConnection.PINGTIMER is None:
+                DCOMConnection.PINGTIMER = Timer(120, DCOMConnection.pingServer)
+            try:
+                DCOMConnection.PINGTIMER.start()
+            except Exception, e:
+                if str(e).find('threads can only be started once') < 0:
+                    raise e
 
     def initConnection(self):
         stringBinding = r'ncacn_ip_tcp:%s' % self.__targetIP
@@ -1042,7 +1060,13 @@ class DCOMConnection():
         return DCOMConnection.PORTMAPS[self.__targetIP]
 
     def disconnect(self):
-        DCOMConnection.PINGTIMER.cancel()
+        if DCOMConnection.PINGTIMER is not None:
+            if len(DCOMConnection.PORTMAPS) > 1:
+                # This means there are more clients using this object, can't kill
+                del(DCOMConnection.PORTMAPS[self.__targetIP])
+                del(DCOMConnection.OID_SET[self.__targetIP])
+            else:
+                DCOMConnection.PINGTIMER.cancel()
         DCOMConnection.PINGTIMER = None
 
 class CLASS_INSTANCE():
