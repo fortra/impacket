@@ -145,7 +145,7 @@ if __name__ == '__main__':
         lmhash = ''
         nthash = ''
 
-    dcom = DCOMConnection(address, username, password, domain, lmhash, nthash)
+    dcom = DCOMConnection(address, username, password, domain, lmhash, nthash, oxidResolver = True)
 
     iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
     iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
