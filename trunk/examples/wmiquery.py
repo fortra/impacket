@@ -55,7 +55,7 @@ if __name__ == '__main__':
                 sClass = sClass[:-1]
             try:
                 iObject, _ = self.iWbemServices.GetObject(sClass)
-                iObject.getObject().printInformation()
+                iObject.printInformation()
                 iObject.RemRelease()
             except Exception, e:
                 #import traceback
@@ -73,16 +73,16 @@ if __name__ == '__main__':
             while True:
                 try:
                     pEnum = iEnum.Next(0xffffffff,1)[0]
-                    record = pEnum.getObject()
+                    record = pEnum.getProperties()
                     if printHeader is True:
                         print '|', 
-                        for col in record.ctCurrent['properties']:
-                            print '%s |' % col['name'],
+                        for col in record:
+                            print '%s |' % col,
                         print
                         printHeader = False
                     print '|', 
-                    for value in record.ctCurrent['values']:
-                        print '%s|' % value['value'],
+                    for key in record:
+                        print '%s|' % record[key]['value'],
                     print 
                 except Exception, e:
                     #import traceback
