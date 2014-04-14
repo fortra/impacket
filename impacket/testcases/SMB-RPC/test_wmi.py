@@ -54,7 +54,7 @@ from impacket.uuid import string_to_bin, uuidtup_to_bin, generate
 from impacket import system_errors, ntlm
 
 class WMITests(unittest.TestCase):
-    def test_activation(self):
+    def tes_activation(self):
         dcom = DCOMConnection(self.machine, self.username, self.password, self.domain, self.lmhash, self.nthash)
         iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLoginClientID)
         dcom.disconnect()
@@ -122,10 +122,7 @@ class WMITests(unittest.TestCase):
         iWbemServices= iWbemLevel1Login.NTLMLogin('\\\\%s\\root\\cimv2' % self.machine, NULL, NULL)
         iWbemLevel1Login.RemRelease()
 
-        #classObject,_ = iWbemServices.GetObject('Win32_Process')
-        # This one is not working 'cause WBEM_FLAVOR_ORIGIN_PROPAGATED must be implemented
-        #classObject,_ = iWbemServices.GetObject('Win32_Service')
-        classObject,_ = iWbemServices.GetObject('Win32_Product')
+        classObject,_ = iWbemServices.GetObject('Win32_Process')
        
         dcom.disconnect()
 
@@ -154,16 +151,48 @@ class WMITests(unittest.TestCase):
                     print e
         dcom.disconnect()
 
-    def tes_IWbemServices_ExecMethod(self):
-        dce, rpctransport = self.connect()
-        scm = dcomrt.IRemoteSCMActivator(dce)
-        iInterface = scm.RemoteCreateInstance(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
+    def test_IWbemServices_ExecMethod(self):
+        dcom = DCOMConnection(self.machine, self.username, self.password, self.domain, self.lmhash, self.nthash)        
+        iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
         iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
-        iWbemServices= iWbemLevel1Login.NTLMLogin('//./root/cimv2', NULL, NULL)
-        iWbemServices.RemRelease()
-        classObject,_ = iWbemServices.ExecMethod('Win32_Process', 'GetOwnerSid')
-        #print classObject
-        dce.disconnect()
+        iWbemServices= iWbemLevel1Login.NTLMLogin('\\\\%s\\root\\cimv2' % self.machine, NULL, NULL)
+
+        #classObject,_ = iWbemServices.GetObject('WinMgmts:Win32_LogicalDisk='C:'')
+        classObject,_ = iWbemServices.GetObject('Win32_Process')
+        obj = classObject.Create('notepad.exe', 'c:\\', None)
+        handle = obj.getProperties()['ProcessId']['value']
+        
+        iEnumWbemClassObject = iWbemServices.ExecQuery('SELECT * from Win32_Process where handle = %s' % handle)
+        oooo = iEnumWbemClassObject.Next(0xffffffff,1)[0]
+        #import time
+        #time.sleep(5)
+        owner = oooo.Terminate(1)
+
+        #iEnumWbemClassObject = iWbemServices.ExecQuery('SELECT * from Win32_Group where name = "testGroup0"')
+        #oooo = iEnumWbemClassObject.Next(0xffffffff,1)[0]
+        #import time
+        #owner = oooo.Rename('testGroup1')
+
+        #iEnumWbemClassObject = iWbemServices.ExecQuery('SELECT * from Win32_Share where name = "Users"')
+        #oooo = iEnumWbemClassObject.Next(0xffffffff,1)[0]
+        #import time
+        #owner = oooo.GetAccessMask()
+        #print owner.getProperties()
+
+        #iEnumWbemClassObject = iWbemServices.ExecQuery('SELECT * from Win32_Share where name = "Users"')
+        #oooo = iEnumWbemClassObject.Next(0xffffffff,1)[0]
+        #obj = oooo.SetShareInfo(0, 'HOLA BETO', None)
+
+        #classObject,_ = iWbemServices.GetObject('Win32_ShadowCopy')
+        #obj = classObject.Create('C:\\', 'ClientAccessible')
+        #print obj.getProperties()
+
+        # this one doesn't work
+        #classObject,_ = iWbemServices.GetObject('Win32_Service')
+        #obj = classObject.Create('BETOSERVICE', 'Beto Service', 'c:\\beto', 16, 0, 'Manual', 0, None, None, None, None, None)
+        #print obj.getProperties()
+
+        dcom.disconnect()
 
 class TCPTransport(WMITests):
     def setUp(self):

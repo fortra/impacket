@@ -21,6 +21,7 @@
 #   There are test cases for them too. 
 #
 from struct import unpack, calcsize, pack
+from functools import partial
 from impacket.dcerpc.v5.ndr import NDRSTRUCT, NDRUniConformantArray, NDRPOINTER, NDRUniConformantVaryingArray, NDRUNION, NDRENUM
 from impacket.dcerpc.v5.dcomrt import DCOMCALL, DCOMANSWER, IRemUnknown, PMInterfacePointer, INTERFACE, PMInterfacePointer_ARRAY, BYTE_ARRAY, OBJREF_CUSTOM, PPMInterfacePointer, OBJREF_CUSTOM
 from impacket.dcerpc.v5.dcom.oaut import BSTR
@@ -30,6 +31,24 @@ from impacket import hresult_errors
 from impacket.uuid import string_to_bin, uuidtup_to_bin
 from impacket.structure import Structure
 from impacket.winregistry import hexdump
+import collections
+def format_structure(d, level=0):
+    x = ""
+    if isinstance(d, collections.Mapping):
+        lenk = max(map(lambda x: len(str(x)), d.keys()))
+        for k, v in d.items():
+            key_text = "\n" + " "*level + " "*(lenk - len(str(k))) + str(k)
+            x += key_text + ": " + format_structure(v, level=level+lenk)
+    elif isinstance(d, collections.Iterable) and not isinstance(d, basestring):
+        for e in d:
+            x += "\n" + " "*level + "- " + format_structure(e, level=level+4)
+    else:
+        x = str(d)
+    return x
+try:
+    from collections import OrderedDict
+except:
+    from ordereddict.ordereddict import OrderedDict
 
 class DCERPCSessionError(Exception):
     def __init__( self, packet = None, error_code = None):
@@ -69,28 +88,28 @@ WBEM_FLAVOR_ORIGIN_SYSTEM                  = 0x40
 WBEM_FLAVOR_AMENDED                        = 0x80
 
 # 2.2.6 ObjectFlags
-ObjectFlags = 'B=0'
+OBJECT_FLAGS = 'B=0'
 
 #2.2.77 Signature
-Signature = '<L=0x12345678'
+SIGNATURE = '<L=0x12345678'
 
 # 2.2.4 ObjectEncodingLength
-ObjectEncodingLength = '<L=0'
+OBJECT_ENCODING_LENGTH = '<L=0'
 
 # 2.2.73 EncodingLength
-EncodingLength = '<L=0'
+ENCODING_LENGTH = '<L=0'
 
 # 2.2.78 Encoded-String
-Encoded_String_Flag = 'B=0'
+ENCODED_STRING_FLAG = 'B=0'
 
 # 2.2.76 ReservedOctet
-ReservedOctet = 'B=0'
+RESERVED_OCTET = 'B=0'
 
 # 2.2.28 NdTableValueTableLength
-NdTableValueTableLength = '<L=0'
+NDTABLE_VALUE_TABLE_LENGTH = '<L=0'
 
 # 2.2.80 DictionaryReference
-DictionaryReference = {
+DICTIONARY_REFERENCE = {
     0 : '"',
     1 : 'key',
     2 : 'NADA',
@@ -104,9 +123,9 @@ DictionaryReference = {
    10 : 'CIMTYPE',
 }
 
-class Encoded_String(Structure):
+class ENCODED_STRING(Structure):
     commonHdr = (
-        ('Encoded_String_Flag', Encoded_String_Flag),
+        ('Encoded_String_Flag', ENCODED_STRING_FLAG),
     )
 
     tascii = (
@@ -134,53 +153,53 @@ class Encoded_String(Structure):
 
 
 # 2.2.8 DecServerName
-DecServerName = Encoded_String
+DEC_SERVER_NAME = ENCODED_STRING
+
 # 2.2.9 DecNamespaceName
-DecNamespaceName = Encoded_String
+DEC_NAMESPACE_NAME = ENCODED_STRING
 
 # 2.2.7 Decoration
-class Decoration(Structure):
+class DECORATION(Structure):
     structure = (
-        ('DecServerName', ':', DecServerName),
-        ('DecNamespaceName', ':', DecNamespaceName),
+        ('DecServerName', ':', DEC_SERVER_NAME),
+        ('DecNamespaceName', ':', DEC_NAMESPACE_NAME),
     )
 
-
 # 2.2.69 HeapRef
-HeapRef = '<L=0'
+HEAPREF = '<L=0'
 
 # 2.2.68 HeapStringRef
-HeapStringRef = HeapRef
+HEAP_STRING_REF = HEAPREF
 
 # 2.2.19 ClassNameRef
-ClassNameRef = HeapStringRef
+CLASS_NAME_REF = HEAP_STRING_REF
 
 # 2.2.16 ClassHeader
-class ClassHeader(Structure):
+class CLASS_HEADER(Structure):
     structure = (
-        ('EncodingLength', EncodingLength),
-        ('ReservedOctet', ReservedOctet),
-        ('ClassNameRef', ClassNameRef),
-        ('NdTableValueTableLength', NdTableValueTableLength),
+        ('EncodingLength', ENCODING_LENGTH),
+        ('ReservedOctet', RESERVED_OCTET),
+        ('ClassNameRef', CLASS_NAME_REF),
+        ('NdTableValueTableLength', NDTABLE_VALUE_TABLE_LENGTH),
     )
 
 # 2.2.17 DerivationList
-class DerivationList(Structure):
+class DERIVATION_LIST(Structure):
     structure = (
-        ('EncodingLength', EncodingLength),
+        ('EncodingLength', ENCODING_LENGTH),
         ('_ClassNameEncoding','_-ClassNameEncoding', 'self["EncodingLength"]-4'),
         ('ClassNameEncoding', ':'),
     )
 
 # 2.2.82 CimType
-CimType = '<L=0'
-CimArrayFlag = 0x2000
+CIM_TYPE = '<L=0'
+CIM_ARRAY_FLAG = 0x2000
 
 class EnumType(type):
     def __getattr__(self, attr):
         return self.enumItems[attr].value
 
-class CimTypeEnum(Enum):
+class CIM_TYPE_ENUM(Enum):
 #    __metaclass__ = EnumType
     CIM_TYPE_SINT8      = 16
     CIM_TYPE_UINT8      = 17
@@ -215,210 +234,208 @@ class CimTypeEnum(Enum):
     CIM_ARRAY_CHAR16    = 8295
     CIM_ARRAY_OBJECT    = 8205
 
-CimTypesRef = {
-    CimTypeEnum.CIM_TYPE_SINT8.value    : 'B=0',
-    CimTypeEnum.CIM_TYPE_UINT8.value    : 'b=0',
-    CimTypeEnum.CIM_TYPE_SINT16.value   : '<h=0',
-    CimTypeEnum.CIM_TYPE_UINT16.value   : '<H=0',
-    CimTypeEnum.CIM_TYPE_SINT32.value   : '<l=0',
-    CimTypeEnum.CIM_TYPE_UINT32.value   : '<L=0',
-    CimTypeEnum.CIM_TYPE_SINT64.value   : '<q=0',
-    CimTypeEnum.CIM_TYPE_UINT64.value   : '<Q=0',
-    CimTypeEnum.CIM_TYPE_REAL32.value   : '<f=0',
-    CimTypeEnum.CIM_TYPE_REAL64.value   : '<d=0',
-    CimTypeEnum.CIM_TYPE_BOOLEAN.value  : '<H=0',
-    CimTypeEnum.CIM_TYPE_STRING.value   : HeapRef,
-    CimTypeEnum.CIM_TYPE_DATETIME.value : HeapRef,
-    CimTypeEnum.CIM_TYPE_REFERENCE.value: HeapRef,
-    CimTypeEnum.CIM_TYPE_CHAR16.value   : '<H=0',
-    CimTypeEnum.CIM_TYPE_OBJECT.value   : HeapRef,
+CIM_TYPES_REF = {
+    CIM_TYPE_ENUM.CIM_TYPE_SINT8.value    : 'B=0',
+    CIM_TYPE_ENUM.CIM_TYPE_UINT8.value    : 'b=0',
+    CIM_TYPE_ENUM.CIM_TYPE_SINT16.value   : '<h=0',
+    CIM_TYPE_ENUM.CIM_TYPE_UINT16.value   : '<H=0',
+    CIM_TYPE_ENUM.CIM_TYPE_SINT32.value   : '<l=0',
+    CIM_TYPE_ENUM.CIM_TYPE_UINT32.value   : '<L=0',
+    CIM_TYPE_ENUM.CIM_TYPE_SINT64.value   : '<q=0',
+    CIM_TYPE_ENUM.CIM_TYPE_UINT64.value   : '<Q=0',
+    CIM_TYPE_ENUM.CIM_TYPE_REAL32.value   : '<f=0',
+    CIM_TYPE_ENUM.CIM_TYPE_REAL64.value   : '<d=0',
+    CIM_TYPE_ENUM.CIM_TYPE_BOOLEAN.value  : '<H=0',
+    CIM_TYPE_ENUM.CIM_TYPE_STRING.value   : HEAPREF,
+    CIM_TYPE_ENUM.CIM_TYPE_DATETIME.value : HEAPREF,
+    CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value: HEAPREF,
+    CIM_TYPE_ENUM.CIM_TYPE_CHAR16.value   : '<H=0',
+    CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value   : HEAPREF,
 }
 
-CimTypeToName = {
-    CimTypeEnum.CIM_TYPE_SINT8.value    : 'sint8',
-    CimTypeEnum.CIM_TYPE_UINT8.value    : 'uint8',
-    CimTypeEnum.CIM_TYPE_SINT16.value   : 'sint16',
-    CimTypeEnum.CIM_TYPE_UINT16.value   : 'uint16',
-    CimTypeEnum.CIM_TYPE_SINT32.value   : 'sint32',
-    CimTypeEnum.CIM_TYPE_UINT32.value   : 'uint32',
-    CimTypeEnum.CIM_TYPE_SINT64.value   : 'sint64',
-    CimTypeEnum.CIM_TYPE_UINT64.value   : 'uint64',
-    CimTypeEnum.CIM_TYPE_REAL32.value   : 'real32',
-    CimTypeEnum.CIM_TYPE_REAL64.value   : 'real64',
-    CimTypeEnum.CIM_TYPE_BOOLEAN.value  : 'bool',
-    CimTypeEnum.CIM_TYPE_STRING.value   : 'string',
-    CimTypeEnum.CIM_TYPE_DATETIME.value : 'datetime',
-    CimTypeEnum.CIM_TYPE_REFERENCE.value: 'reference',
-    CimTypeEnum.CIM_TYPE_CHAR16.value   : 'char16',
-    CimTypeEnum.CIM_TYPE_OBJECT.value   : 'object',
+CIM_TYPE_TO_NAME = {
+    CIM_TYPE_ENUM.CIM_TYPE_SINT8.value    : 'sint8',
+    CIM_TYPE_ENUM.CIM_TYPE_UINT8.value    : 'uint8',
+    CIM_TYPE_ENUM.CIM_TYPE_SINT16.value   : 'sint16',
+    CIM_TYPE_ENUM.CIM_TYPE_UINT16.value   : 'uint16',
+    CIM_TYPE_ENUM.CIM_TYPE_SINT32.value   : 'sint32',
+    CIM_TYPE_ENUM.CIM_TYPE_UINT32.value   : 'uint32',
+    CIM_TYPE_ENUM.CIM_TYPE_SINT64.value   : 'sint64',
+    CIM_TYPE_ENUM.CIM_TYPE_UINT64.value   : 'uint64',
+    CIM_TYPE_ENUM.CIM_TYPE_REAL32.value   : 'real32',
+    CIM_TYPE_ENUM.CIM_TYPE_REAL64.value   : 'real64',
+    CIM_TYPE_ENUM.CIM_TYPE_BOOLEAN.value  : 'bool',
+    CIM_TYPE_ENUM.CIM_TYPE_STRING.value   : 'string',
+    CIM_TYPE_ENUM.CIM_TYPE_DATETIME.value : 'datetime',
+    CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value: 'reference',
+    CIM_TYPE_ENUM.CIM_TYPE_CHAR16.value   : 'char16',
+    CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value   : 'object',
 }
 
 # 2.2.61 QualifierName
-QualifierName = HeapStringRef
+QUALIFIER_NAME = HEAP_STRING_REF
 
 # 2.2.62 QualifierFlavor
-QualifierFlavor = 'B=0'
+QUALIFIER_FLAVOR = 'B=0'
 
 # 2.2.63 QualifierType
-QualifierType = CimType
+QUALIFIER_TYPE = CIM_TYPE
 
 # 2.2.71 EncodedValue
-class EncodedValue(Structure):
+class ENCODED_VALUE(Structure):
     structure = (
-        ('QualifierName', QualifierName),
+        ('QualifierName', QUALIFIER_NAME),
     )
 
     @classmethod
     def getValue(self, cimType, entry, heap):
         # Let's get the default Values
-        pType = cimType & (~(CimArrayFlag|Inherited))
+        pType = cimType & (~(CIM_ARRAY_FLAG|Inherited))
 
         if entry != 0xffffffff:
             heapData = heap[entry:]
-            if cimType & CimArrayFlag:
+            if cimType & CIM_ARRAY_FLAG:
                 # We have an array, let's set the right unpackStr and dataSize for the array contents
-                dataSize = calcsize(HeapRef[:-2])
-                numItems = unpack(HeapRef[:-2], heapData[:dataSize])[0]
+                dataSize = calcsize(HEAPREF[:-2])
+                numItems = unpack(HEAPREF[:-2], heapData[:dataSize])[0]
                 heapData = heapData[dataSize:]
                 array = list()
-                unpackStrArray =  CimTypesRef[pType][:-2]
+                unpackStrArray =  CIM_TYPES_REF[pType][:-2]
                 dataSizeArray = calcsize(unpackStrArray)
                 for item in range(numItems):
                     array.append(unpack(unpackStrArray, heapData[:dataSizeArray])[0])
                     heapData = heapData[dataSizeArray:]
                 value = array
-            elif pType == CimTypeEnum.CIM_TYPE_BOOLEAN.value:
+            elif pType == CIM_TYPE_ENUM.CIM_TYPE_BOOLEAN.value:
                 if entry == 0xffff:
                     value = 'True'
                 else:
                     value = 'False'
-            elif pType not in (CimTypeEnum.CIM_TYPE_STRING.value, CimTypeEnum.CIM_TYPE_DATETIME.value, CimTypeEnum.CIM_TYPE_REFERENCE.value, CimTypeEnum.CIM_TYPE_OBJECT.value):
+            elif pType not in (CIM_TYPE_ENUM.CIM_TYPE_STRING.value, CIM_TYPE_ENUM.CIM_TYPE_DATETIME.value, CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value, CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value):
                 value = entry
             else:
-                value = Encoded_String(heapData)['Character']
+                value = ENCODED_STRING(heapData)['Character']
 
             return value
 
 # 2.2.64 QualifierValue
-QualifierValue = EncodedValue
+QUALIFIER_VALUE = ENCODED_VALUE
 
 # 2.2.60 Qualifier
-class Qualifier(Structure):
+class QUALIFIER(Structure):
     commonHdr = (
-        ('QualifierName', QualifierName),
-        ('QualifierFlavor', QualifierFlavor),
-        ('QualifierType', QualifierType),
+        ('QualifierName', QUALIFIER_NAME),
+        ('QualifierFlavor', QUALIFIER_FLAVOR),
+        ('QualifierType', QUALIFIER_TYPE),
     )
     def __init__(self, data = None, alignment = 0):
         Structure.__init__(self, data, alignment)
         if data is not None:
             # Let's first check the commonHdr
             self.fromString(data)
-            self.structure = (('QualifierValue', CimTypesRef[self["QualifierType"] & (~CimArrayFlag)]),)
+            self.structure = (('QualifierValue', CIM_TYPES_REF[self["QualifierType"] & (~CIM_ARRAY_FLAG)]),)
             self.fromString(data)
         else:
             self.data = None
 
 # 2.2.59 QualifierSet
-class QualifierSet(Structure):
+class QUALIFIER_SET(Structure):
     structure = (
-        ('EncodingLength', EncodingLength),
+        ('EncodingLength', ENCODING_LENGTH),
         ('_Qualifier','_-Qualifier', 'self["EncodingLength"]-4'),
         ('Qualifier', ':'),
     )
 
     def getQualifiers(self, heap):
         data = self['Qualifier']
-        qualifiers = list()
+        qualifiers = dict()
         while len(data) > 0:
-            itemn = Qualifier(data)
+            itemn = QUALIFIER(data)
             if itemn['QualifierName'] == 0xffffffff:
                 qName = ''
             elif itemn['QualifierName'] & 0x80000000:
-                qName = DictionaryReference[itemn['QualifierName'] & 0x7fffffff]
+                qName = DICTIONARY_REFERENCE[itemn['QualifierName'] & 0x7fffffff]
             else:
-                qName = Encoded_String(heap[itemn['QualifierName']:])['Character']
+                qName = ENCODED_STRING(heap[itemn['QualifierName']:])['Character']
 
-            value = EncodedValue.getValue(itemn['QualifierType'], itemn['QualifierValue'], heap)
-            qualifiers.append('%s("%s")' % (qName, value))
-
+            value = ENCODED_VALUE.getValue(itemn['QualifierType'], itemn['QualifierValue'], heap)
+            qualifiers[qName] = value
             data = data[len(itemn):]
 
         return qualifiers
  
 # 2.2.20 ClassQualifierSet
-ClassQualifierSet = QualifierSet
+CLASS_QUALIFIER_SET = QUALIFIER_SET
 
 # 2.2.22 PropertyCount
-PropertyCount = '<L=0'
+PROPERTY_COUNT = '<L=0'
 
 # 2.2.24 PropertyNameRef
-PropertyNameRef = HeapStringRef
+PROPERTY_NAME_REF = HEAP_STRING_REF
 
 # 2.2.25 PropertyInfoRef
-PropertyInfoRef = HeapRef
+PROPERTY_INFO_REF = HEAPREF
 
 # 2.2.23 PropertyLookup
 class PropertyLookup(Structure):
     structure = (
-        ('PropertyNameRef', PropertyNameRef),
-        ('PropertyInfoRef', PropertyInfoRef),
+        ('PropertyNameRef', PROPERTY_NAME_REF),
+        ('PropertyInfoRef', PROPERTY_INFO_REF),
     )
 
 # 2.2.31 PropertyType
-PropertyType = '<L=0'
+PROPERTY_TYPE = '<L=0'
 
 # 2.2.33 DeclarationOrder
-DeclarationOrder = '<H=0'
+DECLARATION_ORDER = '<H=0'
 
 # 2.2.34 ValueTableOffset
-ValueTableOffset = '<L=0'
+VALUE_TABLE_OFFSET = '<L=0'
 
 # 2.2.35 ClassOfOrigin
-ClassOfOrigin = '<L=0'
+CLASS_OF_ORIGIN = '<L=0'
 
 # 2.2.36 PropertyQualifierSet
-PropertyQualifierSet = QualifierSet
+PROPERTY_QUALIFIER_SET = QUALIFIER_SET
 
 # 2.2.30 PropertyInfo
-class PropertyInfo(Structure):
+class PROPERTY_INFO(Structure):
     structure = (
-        ('PropertyType', PropertyType),
-        ('DeclarationOrder', DeclarationOrder),
-        ('ValueTableOffset', ValueTableOffset),
-        ('ClassOfOrigin', ClassOfOrigin),
-        ('PropertyQualifierSet', ':', PropertyQualifierSet),
+        ('PropertyType', PROPERTY_TYPE),
+        ('DeclarationOrder', DECLARATION_ORDER),
+        ('ValueTableOffset', VALUE_TABLE_OFFSET),
+        ('ClassOfOrigin', CLASS_OF_ORIGIN),
+        ('PropertyQualifierSet', ':', PROPERTY_QUALIFIER_SET),
     )
 
 # 2.2.32 Inherited
 Inherited = 0x4000
 
 # 2.2.21 PropertyLookupTable
-class PropertyLookupTable(Structure):
+class PROPERTY_LOOKUP_TABLE(Structure):
     PropertyLookupSize = len(PropertyLookup())
     structure = (
-        ('PropertyCount', PropertyCount),
+        ('PropertyCount', PROPERTY_COUNT),
         ('_PropertyLookup','_-PropertyLookup', 'self["PropertyCount"]*self.PropertyLookupSize'),
         ('PropertyLookup', ':'),
     )
 
     def getProperties(self, heap):
         propTable = self['PropertyLookup']
-        #self.dump()
-        properties = list()
+        properties = dict()
         for property in range(self['PropertyCount']):
-            propItemDict = {}
+            propItemDict = dict()
             propItem = PropertyLookup(propTable)
             if propItem['PropertyNameRef'] & 0x80000000:
-                propName = DictionaryReference[propItem['PropertyNameRef'] & 0x7fffffff]
+                propName = DICTIONARY_REFERENCE[propItem['PropertyNameRef'] & 0x7fffffff]
             else:
-                propName = Encoded_String(heap[propItem['PropertyNameRef']:])['Character']
-            propInfo = PropertyInfo(heap[propItem['PropertyInfoRef']:])
+                propName = ENCODED_STRING(heap[propItem['PropertyNameRef']:])['Character']
+            propInfo = PROPERTY_INFO(heap[propItem['PropertyInfoRef']:])
             pType = propInfo['PropertyType']
-            isArray = pType & CimArrayFlag
-            pType = pType & (~CimArrayFlag)
+            isArray = pType & CIM_ARRAY_FLAG
+            pType = pType & (~CIM_ARRAY_FLAG)
             pType = pType & (~Inherited)
-            sType = CimTypeToName[pType]
+            sType = CIM_TYPE_TO_NAME[pType]
             if isArray > 0:
                 propName += '[]'
  
@@ -429,30 +446,32 @@ class PropertyLookupTable(Structure):
             propItemDict['inherited'] = propInfo['PropertyType'] & Inherited
             propItemDict['value'] = None
 
-            qualifiers = list()
+            qualifiers = dict() 
             qualifiersBuf = propInfo['PropertyQualifierSet']['Qualifier']
             while len(qualifiersBuf) > 0:
-                record = Qualifier(qualifiersBuf)
+                record = QUALIFIER(qualifiersBuf)
                 if record['QualifierName'] & 0x80000000:
-                    qualifierName = DictionaryReference[record['QualifierName'] & 0x7fffffff]
+                    qualifierName = DICTIONARY_REFERENCE[record['QualifierName'] & 0x7fffffff]
                 else:
-                    qualifierName = Encoded_String(heap[record['QualifierName']:])['Character']
-                qualifierValue = EncodedValue.getValue(record['QualifierType'], record['QualifierValue'], heap)
+                    qualifierName = ENCODED_STRING(heap[record['QualifierName']:])['Character']
+                qualifierValue = ENCODED_VALUE.getValue(record['QualifierType'], record['QualifierValue'], heap)
                 qualifiersBuf = qualifiersBuf[len(record):]
-                qualifiers.append((qualifierName , qualifierValue))
+                qualifiers[qualifierName] = qualifierValue
 
             propItemDict['qualifiers'] = qualifiers
-            properties.append(propItemDict)
+            properties[propName] = propItemDict
 
             propTable = propTable[self.PropertyLookupSize:]
-        return properties
+
+        return OrderedDict(sorted(properties.items(), key=lambda x:x[1]['order']))
+        #return properties
 
 # 2.2.66 Heap
-HeapLength = '<L=0'
+HEAP_LENGTH = '<L=0'
 
-class Heap(Structure):
+class HEAP(Structure):
     structure = (
-        ('HeapLength', HeapLength),
+        ('HeapLength', HEAP_LENGTH),
         # HeapLength is a 32-bit value with the most significant bit always set 
         # (using little-endian binary encoding for the 32-bit value), so that the 
         # length is actually only 31 bits.
@@ -461,18 +480,18 @@ class Heap(Structure):
     )
 
 # 2.2.37 ClassHeap
-ClassHeap = Heap
+CLASS_HEAP = HEAP
 
 # 2.2.15 ClassPart
-class ClassPart(Structure):
+class CLASS_PART(Structure):
     commonHdr = (
-        ('ClassHeader', ':', ClassHeader),
-        ('DerivationList', ':', DerivationList),
-        ('ClassQualifierSet', ':', ClassQualifierSet),
-        ('PropertyLookupTable', ':', PropertyLookupTable),
+        ('ClassHeader', ':', CLASS_HEADER),
+        ('DerivationList', ':', DERIVATION_LIST),
+        ('ClassQualifierSet', ':', CLASS_QUALIFIER_SET),
+        ('PropertyLookupTable', ':', PROPERTY_LOOKUP_TABLE),
         ('_NdTable_ValueTable','_-NdTable_ValueTable', 'self["ClassHeader"]["NdTableValueTableLength"]'),
         ('NdTable_ValueTable',':'),
-        ('ClassHeap', ':', ClassHeap),
+        ('ClassHeap', ':', CLASS_HEAP),
         ('_Garbage', '_-Garbage', 'self["ClassHeader"]["EncodingLength"]-len(self)'),
         ('Garbage', ':=""'),
     )
@@ -482,16 +501,16 @@ class ClassPart(Structure):
     def getProperties(self):
         heap = self["ClassHeap"]["HeapItem"]
         properties =  self["PropertyLookupTable"].getProperties(self["ClassHeap"]["HeapItem"])
-        sorted_props = sorted(properties, key=lambda k: k['order'])
+        sorted_props = sorted(properties.keys(), key=lambda k: properties[k]['order'])
         valueTableOff = (len(properties) - 1) / 4 + 1
         valueTable = self['NdTable_ValueTable'][valueTableOff:]
-        for property in sorted_props:
+        for key in sorted_props:
             # Let's get the default Values
-            pType = property['type'] & (~(CimArrayFlag|Inherited))
-            if property['type'] & CimArrayFlag:
-                unpackStr = HeapRef[:-2]
+            pType = properties[key]['type'] & (~(CIM_ARRAY_FLAG|Inherited))
+            if properties[key]['type'] & CIM_ARRAY_FLAG:
+                unpackStr = HEAPREF[:-2]
             else:
-                unpackStr = CimTypesRef[pType][:-2]
+                unpackStr = CIM_TYPES_REF[pType][:-2]
             dataSize = calcsize(unpackStr)
             try:
                 itemValue = unpack(unpackStr, valueTable[:dataSize])[0]
@@ -500,121 +519,119 @@ class ClassPart(Structure):
                 itemValue = 0xffffffff
 
             if itemValue != 0xffffffff:
-                value = EncodedValue.getValue(property['type'], itemValue, heap)
-                property['value'] = "%s" % value
+                value = ENCODED_VALUE.getValue(properties[key]['type'], itemValue, heap)
+                properties[key]['value'] = "%s" % value
             valueTable = valueTable[dataSize:]
         return properties
              
 # 2.2.39 MethodCount
-MethodCount = '<H=0'
+METHOD_COUNT = '<H=0'
 
 # 2.2.40 MethodCountPadding
-MethodCountPadding = '<H=0'
+METHOD_COUNT_PADDING = '<H=0'
 
 # 2.2.42 MethodName
-MethodName = HeapStringRef
+METHOD_NAME = HEAP_STRING_REF
 
 # 2.2.43 MethodFlags
-MethodFlags = 'B=0'
+METHOD_FLAGS = 'B=0'
 
 # 2.2.44 MethodPadding
-MethodPadding = "3s=''"
+METHOD_PADDING = "3s=''"
 
 # 2.2.45 MethodOrigin
-MethodOrigin = '<L=0'
+METHOD_ORIGIN = '<L=0'
 
 # 2.2.47 HeapQualifierSetRef
-HeapQualifierSetRef = HeapRef
+HEAP_QUALIFIER_SET_REF = HEAPREF
 
 # 2.2.46 MethodQualifiers
-MethodQualifiers = HeapQualifierSetRef
+METHOD_QUALIFIERS = HEAP_QUALIFIER_SET_REF
 
 # 2.2.51 HeapMethodSignatureBlockRef
-HeapMethodSignatureBlockRef = HeapRef
+HEAP_METHOD_SIGNATURE_BLOCK_REF = HEAPREF
 
 # 2.2.50 MethodSignature
-MethodSignature = HeapMethodSignatureBlockRef
+METHOD_SIGNATURE = HEAP_METHOD_SIGNATURE_BLOCK_REF
 
 # 2.2.48 InputSignature
-InputSignature = MethodSignature
+INPUT_SIGNATURE = METHOD_SIGNATURE
 
 # 2.2.49 OutputSignature
-OutputSignature = MethodSignature
+OUTPUT_SIGNATURE = METHOD_SIGNATURE
 
 # 2.2.52 MethodHeap
-MethodHeap = Heap
+METHOD_HEAP = HEAP
 
 # 2.2.41 MethodDescription
-class MethodDescription(Structure):
+class METHOD_DESCRIPTION(Structure):
     structure = (
-        ('MethodName',MethodName),
-        ('MethodFlags', MethodFlags),
-        ('MethodPadding', MethodPadding),
-        ('MethodOrigin', MethodOrigin),
-        ('MethodQualifiers', MethodQualifiers),
-        ('InputSignature', InputSignature),
-        ('OutputSignature', OutputSignature),
+        ('MethodName',METHOD_NAME),
+        ('MethodFlags', METHOD_FLAGS),
+        ('MethodPadding', METHOD_PADDING),
+        ('MethodOrigin', METHOD_ORIGIN),
+        ('MethodQualifiers', METHOD_QUALIFIERS),
+        ('InputSignature', INPUT_SIGNATURE),
+        ('OutputSignature', OUTPUT_SIGNATURE),
     )
 
 # 2.2.38 MethodsPart
-class MethodsPart(Structure):
-    MethodDescriptionSize = len(MethodDescription())
+class METHODS_PART(Structure):
+    MethodDescriptionSize = len(METHOD_DESCRIPTION())
     structure = (
-        ('EncodingLength',EncodingLength),
-        ('MethodCount', MethodCount),
-        ('MethodCountPadding', MethodCountPadding),
+        ('EncodingLength',ENCODING_LENGTH),
+        ('MethodCount', METHOD_COUNT),
+        ('MethodCountPadding', METHOD_COUNT_PADDING),
         ('_MethodDescription', '_-MethodDescription', 'self["MethodCount"]*self.MethodDescriptionSize'),
         ('MethodDescription', ':'),
-        ('MethodHeap', ':', MethodHeap),
+        ('MethodHeap', ':', METHOD_HEAP),
     )
 
     def getMethods(self):
-        methods = list()
+        methods = OrderedDict()
         data = self['MethodDescription']
         heap = self['MethodHeap']['HeapItem']
 
         for method in range(self['MethodCount']):
-            methodDict = {}
-            itemn = MethodDescription(data)
-            #itemn.dump()
+            methodDict = OrderedDict()
+            itemn = METHOD_DESCRIPTION(data)
             if itemn['MethodFlags'] & WBEM_FLAVOR_ORIGIN_PROPAGATED:
-               print "WBEM_FLAVOR_ORIGIN_PROPAGATED not yet supported!"
-               raise
-            methodDict['name'] = Encoded_String(heap[itemn['MethodName']:])['Character']
+               # ToDo
+               #print "WBEM_FLAVOR_ORIGIN_PROPAGATED not yet supported!"
+               #raise
+               pass
+            methodDict['name'] = ENCODED_STRING(heap[itemn['MethodName']:])['Character']
             methodDict['origin'] = itemn['MethodOrigin']
             if itemn['MethodQualifiers'] != 0xffffffff:
                 # There are qualifiers
-                qualifiersSet = QualifierSet(heap[itemn['MethodQualifiers']:])
-                #qualifiersSet.dump()
+                qualifiersSet = QUALIFIER_SET(heap[itemn['MethodQualifiers']:])
                 qualifiers = qualifiersSet.getQualifiers(heap)
                 methodDict['qualifiers'] = qualifiers
             if itemn['InputSignature'] != 0xffffffff:
-                #hexdump(heap[itemn['InputSignature']:])
-                inputSignature = MethodSignatureBlock(heap[itemn['InputSignature']:])
+                inputSignature = METHOD_SIGNATURE_BLOCK(heap[itemn['InputSignature']:])
                 if inputSignature['EncodingLength'] > 0:
                     methodDict['InParams'] = inputSignature['ObjectBlock']['ClassType']['CurrentClass'].getProperties()
                     methodDict['InParamsRaw'] = inputSignature['ObjectBlock']
+                    #print methodDict['InParams'] 
                 else:
                     methodDict['InParams'] = None
-                #inputSignature.dump()
             if itemn['OutputSignature'] != 0xffffffff:
-                #hexdump(heap[itemn['OutputSignature']:])
-                outputSignature = MethodSignatureBlock(heap[itemn['OutputSignature']:])
+                outputSignature = METHOD_SIGNATURE_BLOCK(heap[itemn['OutputSignature']:])
                 if outputSignature['EncodingLength'] > 0:
                     methodDict['OutParams'] = outputSignature['ObjectBlock']['ClassType']['CurrentClass'].getProperties()
                     methodDict['OutParamsRaw'] = outputSignature['ObjectBlock']
                 else:
                     methodDict['OutParams'] = None
-                #outputSignature.dump()
             data = data[len(itemn):]
-            methods.append(methodDict)
+            methods[methodDict['name']] = methodDict
 
         return methods
+
 # 2.2.14 ClassAndMethodsPart
-class ClassAndMethodsPart(Structure):
+class CLASS_AND_METHODS_PART(Structure):
     structure = (
-        ('ClassPart', ':', ClassPart),
-        ('MethodsPart', ':', MethodsPart),
+        ('ClassPart', ':', CLASS_PART),
+        ('MethodsPart', ':', METHODS_PART),
     )
 
     def getClassName(self):
@@ -623,60 +640,59 @@ class ClassAndMethodsPart(Structure):
         if pClassName == 0xffffffff:
             return 'None'
         else:
-            className = Encoded_String(cHeap[pClassName:])['Character']
+            className = ENCODED_STRING(cHeap[pClassName:])['Character']
             derivationList = self['ClassPart']['DerivationList']['ClassNameEncoding']
             while len(derivationList) > 0:
-                superClass = Encoded_String(derivationList)['Character']
+                superClass = ENCODED_STRING(derivationList)['Character']
                 className += ' : %s ' % superClass
-                derivationList = derivationList[len(Encoded_String(derivationList))+4:]
+                derivationList = derivationList[len(ENCODED_STRING(derivationList))+4:]
             return className
 
     def getQualifiers(self):
         return self["ClassPart"].getQualifiers()
 
     def getProperties(self):
+        #print format_structure(self["ClassPart"].getProperties())
         return self["ClassPart"].getProperties()
 
     def getMethods(self):
         return self["MethodsPart"].getMethods()
 
 # 2.2.13 CurrentClass
-CurrentClass = ClassAndMethodsPart
+CURRENT_CLASS = CLASS_AND_METHODS_PART
 
 # 2.2.54 InstanceFlags
-InstanceFlags = 'B=0'
+INSTANCE_FLAGS = 'B=0'
 
 # 2.2.55 InstanceClassName
-InstanceClassName = HeapStringRef
+INSTANCE_CLASS_NAME = HEAP_STRING_REF
 
 # 2.2.27 NullAndDefaultFlag
-
-NullAndDefaultFlag = 'B=0'
+NULL_AND_DEFAULT_FLAG = 'B=0'
 
 # 2.2.26 NdTable
-NdTable = NullAndDefaultFlag
+NDTABLE = NULL_AND_DEFAULT_FLAG
 
 # 2.2.56 InstanceData
 #InstanceData = ValueTable
 
-class CurrentClassNoMethods(ClassAndMethodsPart):
+class CURRENT_CLASS_NO_METHODS(CLASS_AND_METHODS_PART):
     structure = (
-        ('ClassPart', ':', ClassPart),
+        ('ClassPart', ':', CLASS_PART),
     )
-
     def getMethods(self):
         return ()
 
 # 2.2.65 InstancePropQualifierSet
-InstPropQualSetFlag = 'B=0'
-class InstancePropQualifierSet(Structure):
+INST_PROP_QUAL_SET_FLAG = 'B=0'
+class INSTANCE_PROP_QUALIFIER_SET(Structure):
     commonHdr = (
-        ('InstPropQualSetFlag', InstPropQualSetFlag),
+        ('InstPropQualSetFlag', INST_PROP_QUAL_SET_FLAG),
     )
     tail = (
         # ToDo: this is wrong.. this should be an array of QualifierSet, see documentation
         #('QualifierSet', ':', QualifierSet),
-        ('QualifierSet', ':', QualifierSet),
+        ('QualifierSet', ':', QUALIFIER_SET),
     )
 
     def __init__(self, data = None, alignment = 0):
@@ -692,28 +708,27 @@ class InstancePropQualifierSet(Structure):
         else:
             self.data = None
 
-
 # 2.2.57 InstanceQualifierSet
-class InstanceQualifierSet(Structure):
+class INSTANCE_QUALIFIER_SET(Structure):
     structure = (
-        ('QualifierSet', ':', QualifierSet),
-        ('InstancePropQualifierSet', ':', InstancePropQualifierSet),
+        ('QualifierSet', ':', QUALIFIER_SET),
+        ('InstancePropQualifierSet', ':', INSTANCE_PROP_QUALIFIER_SET),
     )
 
 # 2.2.58 InstanceHeap
-InstanceHeap = Heap
+INSTANCE_HEAP = HEAP
 
 # 2.2.53 InstanceType
-class InstanceType(Structure):
+class INSTANCE_TYPE(Structure):
     commonHdr = (
-        ('CurrentClass', ':', CurrentClassNoMethods),
-        ('EncodingLength', EncodingLength),
-        ('InstanceFlags', InstanceFlags),
-        ('InstanceClassName', InstanceClassName),
+        ('CurrentClass', ':', CURRENT_CLASS_NO_METHODS),
+        ('EncodingLength', ENCODING_LENGTH),
+        ('InstanceFlags', INSTANCE_FLAGS),
+        ('InstanceClassName', INSTANCE_CLASS_NAME),
         ('_NdTable_ValueTable','_-NdTable_ValueTable', 'self["CurrentClass"]["ClassPart"]["ClassHeader"]["NdTableValueTableLength"]'),
         ('NdTable_ValueTable',':'),
-        ('InstanceQualifierSet', ':', InstanceQualifierSet),
-        ('InstanceHeap', ':', InstanceHeap),
+        ('InstanceQualifierSet', ':', INSTANCE_QUALIFIER_SET),
+        ('InstanceHeap', ':', INSTANCE_HEAP),
     )
 
     def __init__(self, data = None, alignment = 0):
@@ -733,13 +748,13 @@ class InstanceType(Structure):
         heap = self["InstanceHeap"]["HeapItem"]
         valueTableOff = (len(properties) - 1) / 4 + 1
         valueTable = self['NdTable_ValueTable'][valueTableOff:]
-        sorted_props = sorted(properties, key=lambda k: k['order'])
-        for property in sorted_props:
-            pType = property['type'] & (~(CimArrayFlag|Inherited))
-            if property['type'] & CimArrayFlag:
-                unpackStr = HeapRef[:-2]
+        sorted_props = sorted(properties.keys(), key=lambda k: properties[k]['order'])
+        for key in sorted_props:
+            pType = properties[key]['type'] & (~(CIM_ARRAY_FLAG|Inherited))
+            if properties[key]['type'] & CIM_ARRAY_FLAG:
+                unpackStr = HEAPREF[:-2]
             else:
-                unpackStr = CimTypesRef[pType][:-2]
+                unpackStr = CIM_TYPES_REF[pType][:-2]
             dataSize = calcsize(unpackStr)
             try:
                 itemValue = unpack(unpackStr, valueTable[:dataSize])[0]
@@ -749,41 +764,41 @@ class InstanceType(Structure):
 
             # if itemValue == 0, default value remains
             if itemValue != 0:
-                value = EncodedValue.getValue( property['type'], itemValue, heap)
+                value = ENCODED_VALUE.getValue( properties[key]['type'], itemValue, heap)
             else:
                 value = None
-            property['value'] = value
+            properties[key]['value'] = value
             valueTable = valueTable[dataSize:] 
         return properties
 
 # 2.2.12 ParentClass
-ParentClass = ClassAndMethodsPart
+PARENT_CLASS = CLASS_AND_METHODS_PART
 
 # 2.2.13 CurrentClass
-CurrentClass = ClassAndMethodsPart
+CURRENT_CLASS = CLASS_AND_METHODS_PART
 
-class ClassType(Structure):
+class CLASS_TYPE(Structure):
     structure = (
-        ('ParentClass', ':', ParentClass),
-        ('CurrentClass', ':', CurrentClass),
+        ('ParentClass', ':', PARENT_CLASS),
+        ('CurrentClass', ':', CURRENT_CLASS),
     )
 
 # 2.2.5 ObjectBlock
-class ObjectBlock(Structure):
+class OBJECT_BLOCK(Structure):
     commonHdr = (
-        ('ObjectFlags', ObjectFlags),
+        ('ObjectFlags', OBJECT_FLAGS),
     )
 
     decoration = (
-        ('Decoration', ':', Decoration),
+        ('Decoration', ':', DECORATION),
     )
 
     instanceType = (
-        ('InstanceType', ':', InstanceType),
+        ('InstanceType', ':', INSTANCE_TYPE),
     )
 
     classType = (
-        ('ClassType', ':', ClassType),
+        ('ClassType', ':', CLASS_TYPE),
     )
     def __init__(self, data = None, alignment = 0):
         Structure.__init__(self, data, alignment)
@@ -805,6 +820,11 @@ class ObjectBlock(Structure):
         else:
             self.data = None
 
+    def isInstance(self):
+        if self['ObjectFlags'] & 0x01:
+            return False
+        return True
+
     def printClass(self, pClass, cInstance = None):
         qualifiers = pClass.getQualifiers()
 
@@ -818,53 +838,53 @@ class ObjectBlock(Structure):
         properties = pClass.getProperties()
         if cInstance is not None:
             properties = cInstance.getValues(properties)
-        for property in properties:
+
+        for pName in properties:
             #if property['inherited'] == 0:
-                # Skipping the first qualifier since it's the type
-                for qualifier in property['qualifiers'][1:]:
-                    print '\t[%s(%s)]' % (qualifier[0], qualifier[1])
-                print "\t%s %s" % (property['stype'], property['name']),
-                if property['value'] is not None:
-                    print '= %s\n' % property['value']
+                qualifiers = properties[pName]['qualifiers']
+                for qName in qualifiers:
+                    if qName != 'CIMTYPE':
+                        print '\t[%s(%s)]' % (qName, qualifiers[qName])
+                print "\t%s %s" % (properties[pName]['stype'], properties[pName]['name']),
+                if properties[pName]['value'] is not None:
+                    print '= %s\n' % properties[pName]['value']
                 else:
                     print '\n'
 
         print 
         methods = pClass.getMethods()
-        for method in methods:
-            for qualifier in method['qualifiers']:
+        for methodName in methods:
+            for qualifier in methods[methodName]['qualifiers']:
                 print '\t[%s]' % qualifier
 
-            if method['InParams'] is None and method['OutParams'] is None: 
-                print '\t%s %s();' % ('void', method['name'])
-            if method['InParams'] is None and len(method['OutParams']) == 1:
-                print '\t%s %s();' % (method['OutParams'][0]['stype'], method['name'])
-                if method['OutParams'][0]['name'] != 'ReturnValue':
-                    raise
+            if methods[methodName]['InParams'] is None and methods[methodName]['OutParams'] is None: 
+                print '\t%s %s();\n' % ('void', methodName)
+            if methods[methodName]['InParams'] is None and len(methods[methodName]['OutParams']) == 1:
+                print '\t%s %s();\n' % (methods[methodName]['OutParams']['ReturnValue']['stype'], methodName)
             else:
                 returnValue = ''
-                if method['OutParams'] is not None:
+                if methods[methodName]['OutParams'] is not None:
                     # Search the Return Value
-                    returnValue = (item for item in method['OutParams'] if item["name"] == "ReturnValue").next()
-                    if returnValue is not None:
-                        returnValue = returnValue['stype']
+                    #returnValue = (item for item in method['OutParams'] if item["name"] == "ReturnValue").next()
+                    if methods[methodName]['OutParams'].has_key('ReturnValue'):
+                        returnValue = methods[methodName]['OutParams']['ReturnValue']['stype']
  
-                print '\t%s %s(\n' % (returnValue, method['name']),
-                if method['InParams'] is not None:
-                    for param  in method['InParams']:
-                        print '\t\t[in]    %s %s,' % (param['stype'], param['name'])
+                print '\t%s %s(\n' % (returnValue, methodName),
+                if methods[methodName]['InParams'] is not None:
+                    for pName  in methods[methodName]['InParams']:
+                        print '\t\t[in]    %s %s,' % (methods[methodName]['InParams'][pName]['stype'], pName)
 
-                if method['OutParams'] is not None:
-                    for param in method['OutParams']:
-                        if param['name'] != 'ReturnValue':
-                            print '\t\t[out]    %s %s,' % (param['stype'], param['name'])
+                if methods[methodName]['OutParams'] is not None:
+                    for pName in methods[methodName]['OutParams']:
+                        if pName != 'ReturnValue':
+                            print '\t\t[out]    %s %s,' % (methods[methodName]['OutParams'][pName]['stype'], pName)
 
                 print '\t);\n'
 
         print "}"
 
     def parseClass(self, pClass, cInstance = None):
-        classDict = {}
+        classDict = OrderedDict()
         classDict['name'] = pClass.getClassName()
         classDict['qualifiers'] = pClass.getQualifiers()
         classDict['properties'] = pClass.getProperties()
@@ -917,36 +937,14 @@ class ObjectBlock(Structure):
             if currentName is not None:
                 self.printClass(ctCurrent)
 
-class ObjectBlockTemp(ObjectBlock):
-    commonHdr = (
-        ('ObjectFlags', ObjectFlags),
-        ('Decoration', ':', Decoration),
-    )
-    decoration = (
-        ('Decoration', ':', Decoration),
-    )
-
-    instanceType = (
-        ('InstanceType', ':', InstanceType),
-    )
-
-    classType = (
-        ('ClassType', ':', ClassType),
-    )
-
-    def __init__(self, data = None, alignment = 0):
-        Structure.__init__(self, data, alignment)
-
-
 # 2.2.70 MethodSignatureBlock
-class MethodSignatureBlock(Structure):
+class METHOD_SIGNATURE_BLOCK(Structure):
     commonHdr = (
-        ('EncodingLength', EncodingLength),
+        ('EncodingLength', ENCODING_LENGTH),
     )
     tail = (
         ('_ObjectBlock', '_-ObjectBlock', 'self["EncodingLength"]'),
-        #('ObjectBlock', ':', ObjectBlockTemp),
-        ('ObjectBlock', ':', ObjectBlock),
+        ('ObjectBlock', ':', OBJECT_BLOCK),
     )
     def __init__(self, data = None, alignment = 0):
         Structure.__init__(self, data, alignment)
@@ -959,16 +957,14 @@ class MethodSignatureBlock(Structure):
         else:
             self.data = None
 
-
 # 2.2.1 EncodingUnit
-class EncodingUnit(Structure):
+class ENCODING_UNIT(Structure):
     structure = (
-        ('Signature', Signature),
-        ('ObjectEncodingLength', ObjectEncodingLength),
+        ('Signature', SIGNATURE),
+        ('ObjectEncodingLength', OBJECT_ENCODING_LENGTH),
         ('_ObjectBlock', '_-ObjectBlock', 'self["ObjectEncodingLength"]'),
-        ('ObjectBlock', ':', ObjectBlock),
+        ('ObjectBlock', ':', OBJECT_BLOCK),
     )
-
 
 ################################################################################
 # CONSTANTS
@@ -2241,12 +2237,44 @@ class IWbemClassObject(IRemUnknown):
         IRemUnknown.__init__(self,interface)
         self._iid = IID_IWbemClassObject
         self.__iWbemServices = iWbemServices
+        self.__methods = None
+
         objRef = self.get_objRef()
         objRef = OBJREF_CUSTOM(objRef)
-        self.encodingUnit = EncodingUnit(objRef['pObjectData'])
-        #self.encodingUnit.dump()
+        self.encodingUnit = ENCODING_UNIT(objRef['pObjectData'])
         self.parseObject()
-        self.createMethods()
+        if self.encodingUnit['ObjectBlock'].isInstance() is False:
+            self.createMethods(self.getClassName(), self.getMethods())
+
+    def __getattr__(self, attr):
+        if attr.startswith('__') is not True:
+            properties = self.getProperties()
+            # Let's see if there's a key property so we can ExecMethod
+            keyProperty = None
+            for pName in properties:
+                if properties[pName]['qualifiers'].has_key('key'):
+                    keyProperty = pName
+
+            if keyProperty is None:
+                print "I don't have a key property in this set!"
+            else:
+                if self.__methods is None:
+                    classObject,_ = self.__iWbemServices.GetObject(self.getClassName())
+                    self.__methods = classObject.getMethods()
+
+                if self.__methods.has_key(attr):
+                    # Now we gotta build the class name to be called through ExecMethod
+                    if self.getProperties()[keyProperty]['stype'] != 'string':
+                        instanceName = '%s.%s=%s' % (self.getClassName(),keyProperty,self.getProperties()[keyProperty]['value'] )
+                    else:
+                        instanceName = '%s.%s="%s"' % (self.getClassName(),keyProperty,self.getProperties()[keyProperty]['value'] )
+
+                    self.createMethods(instanceName , self.__methods)
+                    #print dir(self)
+                    return getattr(self, attr)
+
+        raise AttributeError("%r object has no attribute %r" %
+                             (self.__class__, attr))
 
     def parseObject(self):
         self.encodingUnit['ObjectBlock'].parseObject()
@@ -2254,7 +2282,26 @@ class IWbemClassObject(IRemUnknown):
     def getObject(self):
         return self.encodingUnit['ObjectBlock']
 
-    def createMethods(self):
+    def getClassName(self):
+        if self.encodingUnit['ObjectBlock'].isInstance() is False:
+            return self.encodingUnit['ObjectBlock']['ClassType']['CurrentClass'].getClassName().split(' ')[0]
+        else:
+            return self.encodingUnit['ObjectBlock']['InstanceType']['CurrentClass'].getClassName().split(' ')[0]
+
+    def printInformation(self):
+        return self.encodingUnit['ObjectBlock'].printInformation()
+
+    def getProperties(self):
+        if self.encodingUnit['ObjectBlock'].ctCurrent is None:
+            return ()
+        return self.encodingUnit['ObjectBlock'].ctCurrent['properties']
+    
+    def getMethods(self):
+        if self.encodingUnit['ObjectBlock'].ctCurrent is None:
+            return ()
+        return self.encodingUnit['ObjectBlock'].ctCurrent['methods']
+
+    def createMethods(self, classOrInstance, methods):
         from functools import partial
         class FunctionPool:
             def __init__(self,function):
@@ -2263,52 +2310,59 @@ class IWbemClassObject(IRemUnknown):
                 return partial(self.function,item)
 
         @FunctionPool
-        def innerMethod(methodDefinition, *args):
-            className =  self.getObject()['ClassType']['CurrentClass'].getClassName().split(' ')[0]
+        def innerMethod(staticArgs, *args):
+            classOrInstance = staticArgs[0] 
+            methodDefinition = staticArgs[1] 
             if methodDefinition['InParams'] is not None:
                 if (len(args) != len(methodDefinition['InParams'])):
                     print "Function called with %d parameters instead of %d!" % (len(args), len(methodDefinition['InParams']))
                     return None
                 # In Params
-                encodingUnit = EncodingUnit()
+                encodingUnit = ENCODING_UNIT()
 
-                inParams = ObjectBlock()
-                inParams.structure += ObjectBlock.instanceType
+                inParams = OBJECT_BLOCK()
+                inParams.structure += OBJECT_BLOCK.instanceType
                 inParams['ObjectFlags'] = 2
                 inParams['Decoration'] = ''
 
-                instanceType = InstanceType()
+                instanceType = INSTANCE_TYPE()
                 instanceType['CurrentClass'] = ''
                 instanceType['InstanceQualifierSet'] = '\x04\x00\x00\x00\x01'
 
                 # Let's create the heap for the parameters
                 instanceHeap = ''
                 valueTable = ''
-                parametersClass = Encoded_String()
+                parametersClass = ENCODED_STRING()
                 parametersClass['Character'] = '__PARAMETERS'
                 instanceHeap += str(parametersClass)
                 curHeapPtr = len(instanceHeap)
                 # Max 16 parameters!!!
                 ndTable = 0
                 for i in range(len(args)):
-                    paramDefinition = methodDefinition['InParams'][i]
+                    paramDefinition = methodDefinition['InParams'].values()[i]
                     inArg = args[i]
 
-                    pType = paramDefinition['type'] & (~(CimArrayFlag|Inherited)) 
-                    if paramDefinition['type'] & CimArrayFlag:
+                    pType = paramDefinition['type'] & (~(CIM_ARRAY_FLAG|Inherited)) 
+                    if paramDefinition['type'] & CIM_ARRAY_FLAG:
                         # Not yet ready
-                        raise
-                        packStr = HeapRef[:-2]
+                        #print paramDefinition
+                        #raise
+                        packStr = HEAPREF[:-2]
                     else:
-                        packStr = CimTypesRef[pType][:-2]
+                        packStr = CIM_TYPES_REF[pType][:-2]
                     dataSize = calcsize(packStr)
 
-                    if paramDefinition['type'] & CimArrayFlag:
-                        # Not yet ready
-                        raise 
-                    elif pType not in (CimTypeEnum.CIM_TYPE_STRING.value, CimTypeEnum.CIM_TYPE_DATETIME.value, CimTypeEnum.CIM_TYPE_REFERENCE.value, CimTypeEnum.CIM_TYPE_OBJECT.value):
+                    if paramDefinition['type'] & CIM_ARRAY_FLAG:
+                        
+                        if inArg is None:
+                            valueTable += pack(packStr, 0)
+                        else:
+                            # ToDo
+                            # Not yet ready
+                            raise 
+                    elif pType not in (CIM_TYPE_ENUM.CIM_TYPE_STRING.value, CIM_TYPE_ENUM.CIM_TYPE_DATETIME.value, CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value, CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value):
                         valueTable += pack(packStr, inArg)
-                    elif pType == CimTypeEnum.CIM_TYPE_OBJECT.value:
+                    elif pType == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value:
                         # For now we just pack None
                         valueTable += '\x00'*4 
                         # The default property value is NULL, and it is 
@@ -2316,7 +2370,7 @@ class IWbemClassObject(IRemUnknown):
                         if inArg == None:
                             ndTable |= 3 << (2*i)
                     else:
-                        strIn = Encoded_String()
+                        strIn = ENCODED_STRING()
                         strIn['Character'] = inArg
                         valueTable += pack('<L', curHeapPtr)
                         instanceHeap += str(strIn)
@@ -2333,7 +2387,7 @@ class IWbemClassObject(IRemUnknown):
                 ndTable = pack(packStr, ndTable)
  
                 instanceType['NdTable_ValueTable'] = ndTable + valueTable
-                heapRecord = Heap()
+                heapRecord = HEAP()
                 heapRecord['HeapLength'] = len(instanceHeap) | 0x80000000
                 heapRecord['HeapItem'] = instanceHeap
                 
@@ -2359,14 +2413,14 @@ class IWbemClassObject(IRemUnknown):
                 objRefCustomIn = NULL
 
             ### OutParams
-            encodingUnit = EncodingUnit()
+            encodingUnit = ENCODING_UNIT()
 
-            outParams = ObjectBlock()
-            outParams.structure += ObjectBlock.instanceType
+            outParams = OBJECT_BLOCK()
+            outParams.structure += OBJECT_BLOCK.instanceType
             outParams['ObjectFlags'] = 2
             outParams['Decoration'] = ''
 
-            instanceType = InstanceType()
+            instanceType = INSTANCE_TYPE()
             instanceType['CurrentClass'] = ''
             instanceType['NdTable_ValueTable'] = ''
             instanceType['InstanceQualifierSet'] = ''
@@ -2386,18 +2440,17 @@ class IWbemClassObject(IRemUnknown):
             objRefCustom['ObjectReferenceSize'] = len(encodingUnit)
             objRefCustom['pObjectData'] = encodingUnit
             try:
-                return self.__iWbemServices.ExecMethod(className, methodDefinition['name'], pInParams = objRefCustomIn ).getObject().ctCurrent['properties']
+                return self.__iWbemServices.ExecMethod(classOrInstance, methodDefinition['name'], pInParams = objRefCustomIn )
                 #return self.__iWbemServices.ExecMethod('Win32_Process.Handle="436"', methodDefinition['name'], pInParams = objRefCustomIn ).getObject().ctCurrent['properties']
             except Exception, e:
+                import traceback
+                print traceback.print_exc()
                 print str(e)
 
-        obj = self.getObject()
-        if obj.ctCurrent is not None:
-            for method in obj.ctCurrent['methods']:
-               #pprint.pprint(method)
-               innerMethod.__name__ = method['name']
-               setattr(self,innerMethod.__name__,innerMethod[method])
-        methods = self.encodingUnit['ObjectBlock']
+        for methodName in methods:
+           innerMethod.__name__ = methodName
+           setattr(self,innerMethod.__name__,innerMethod[classOrInstance,methods[methodName]])
+        #methods = self.encodingUnit['ObjectBlock']
  
 
 class IWbemLoginClientID(IRemUnknown):
@@ -2485,9 +2538,10 @@ class IWbemCallResult(IRemUnknown):
         return resp['plStatus']
 
 class IEnumWbemClassObject(IRemUnknown):
-    def __init__(self, interface):
+    def __init__(self, interface, iWbemServices = None):
         IRemUnknown.__init__(self,interface)
         self._iid = IID_IEnumWbemClassObject
+        self.__iWbemServices = iWbemServices
 
     def Reset(self):
         request = IEnumWbemClassObject_Reset()
@@ -2503,7 +2557,7 @@ class IEnumWbemClassObject(IRemUnknown):
         #resp.dump()
         interfaces = list()
         for interface in resp['apObjects']:
-            interfaces.append( IWbemClassObject(INTERFACE(self.get_cinstance(), ''.join(interface['abData']), self.get_ipidRemUnknown(), oxid = self.get_oxid(), targetIP = self.get_target_ip())) )
+            interfaces.append( IWbemClassObject(INTERFACE(self.get_cinstance(), ''.join(interface['abData']), self.get_ipidRemUnknown(), oxid = self.get_oxid(), targetIP = self.get_target_ip()), self.__iWbemServices) )
 
         return interfaces
 
@@ -2693,7 +2747,7 @@ class IWbemServices(IRemUnknown):
         request['lFlags'] = lFlags
         request['pCtx'] = pCtx
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
-        return IEnumWbemClassObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(), targetIP = self.get_target_ip()))
+        return IEnumWbemClassObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(), targetIP = self.get_target_ip()), self)
 
     def ExecQueryAsync(self, strQuery, lFlags=0, pCtx=NULL):
         request = IWbemServices_ExecQueryAsync()
