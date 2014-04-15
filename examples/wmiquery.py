@@ -82,7 +82,7 @@ if __name__ == '__main__':
                         printHeader = False
                     print '|', 
                     for key in record:
-                        print '%s|' % record[key]['value'],
+                        print '%s |' % record[key]['value'],
                     print 
                 except Exception, e:
                     #import traceback
