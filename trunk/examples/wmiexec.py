@@ -5,7 +5,7 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id: wmiexec.py 1213 2014-04-16 17:48:38Z bethus@gmail.com $
+# $Id$
 #
 # A similar approach to smbexec but executing commands through WMI.
 # Main advantage here is it runs under the user (has to be Admin) 
