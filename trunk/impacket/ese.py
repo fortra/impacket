@@ -28,7 +28,10 @@ import logging
 try:
     from collections import OrderedDict
 except:
-    from ordereddict.ordereddict import OrderedDict
+    try:
+        from ordereddict.ordereddict import OrderedDict
+    except:
+        from ordereddict import OrderedDict
 from impacket import structure, version
 from impacket.structure import Structure
 from struct import unpack
