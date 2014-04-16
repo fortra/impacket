@@ -48,7 +48,10 @@ def format_structure(d, level=0):
 try:
     from collections import OrderedDict
 except:
-    from ordereddict.ordereddict import OrderedDict
+    try:
+        from ordereddict.ordereddict import OrderedDict
+    except:
+        from ordereddict import OrderedDict
 
 class DCERPCSessionError(Exception):
     def __init__( self, packet = None, error_code = None):
