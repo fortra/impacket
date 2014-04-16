@@ -76,8 +76,8 @@ class WMIEXEC:
             else:
                 self.shell.cmdloop()
         except  (Exception, KeyboardInterrupt), e:
-            import traceback
-            traceback.print_exc()
+            #import traceback
+            #traceback.print_exc()
             print e
             smbConnection.logoff()
             dcom.disconnect()
@@ -158,7 +158,7 @@ class RemoteShell(cmd.Cmd):
                     time.sleep(1)
                     pass
                 else:
-                    print str(e)
+                    #print str(e)
                     pass 
         self.__transferClient.deleteFile(self.__share, self.__output)
 
