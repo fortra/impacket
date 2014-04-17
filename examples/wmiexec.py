@@ -37,7 +37,7 @@ from impacket.dcerpc.v5.dtypes import NULL
 OUTPUT_FILENAME = '__'
 
 class WMIEXEC:
-    def __init__(self, command = '', username = '', password = '', domain = '', hashes = None, share = None):
+    def __init__(self, command = '', username = '', password = '', domain = '', hashes = None, share = None, noOutput=False):
         self.__command = command
         self.__username = username
         self.__password = password
@@ -45,10 +45,26 @@ class WMIEXEC:
         self.__lmhash = ''
         self.__nthash = ''
         self.__share = share
+        self.__noOutput = noOutput
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
 
     def run(self, addr):
+        if self.__noOutput is False:
+            smbConnection = SMBConnection(addr, addr)
+            smbConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
+            dialect = smbConnection.getDialect()
+            if dialect == SMB_DIALECT:
+                print("SMBv1 dialect used")
+            elif dialect == SMB2_DIALECT_002:
+                print("SMBv2.0 dialect used")
+            elif dialect == SMB2_DIALECT_21:
+                print("SMBv2.1 dialect used")
+            else:
+                print("SMBv3.0 dialect used")
+        else:
+            smbConnection = None
+
         dcom = DCOMConnection(addr, self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, oxidResolver = True)
 
         iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
@@ -57,17 +73,6 @@ class WMIEXEC:
         iWbemLevel1Login.RemRelease()
 
         win32Process,_ = iWbemServices.GetObject('Win32_Process')
-        smbConnection = SMBConnection(addr, addr)
-        smbConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
-        dialect = smbConnection.getDialect()
-        if dialect == SMB_DIALECT:
-            print("SMBv1 dialect used")
-        elif dialect == SMB2_DIALECT_002:
-            print("SMBv2.0 dialect used")
-        elif dialect == SMB2_DIALECT_21:
-            print("SMBv2.1 dialect used")
-        else:
-            print("SMBv3.0 dialect used")
 
         try:
             self.shell = RemoteShell(self.__share, win32Process, smbConnection)
@@ -79,12 +84,14 @@ class WMIEXEC:
             #import traceback
             #traceback.print_exc()
             print e
-            smbConnection.logoff()
+            if smbConnection is not None:
+                smbConnection.logoff()
             dcom.disconnect()
             sys.stdout.flush()
             sys.exit(1)
 
-        smbConnection.logoff()
+        if smbConnection is not None:
+            smbConnection.logoff()
         dcom.disconnect()
 
 class RemoteShell(cmd.Cmd):
@@ -97,11 +104,15 @@ class RemoteShell(cmd.Cmd):
         self.__win32Process = win32Process
         self.__transferClient = smbConnection
         self.__pwd = 'C:\\'
+        self.__noOutput = False
         self.intro = '[!] Launching semi-interactive shell - Careful what you execute'
 
         # We don't wanna deal with timeouts from now on.
-        self.__transferClient.setTimeout(100000)
-        self.do_cd('\\')
+        if self.__transferClient is not None:
+            self.__transferClient.setTimeout(100000)
+            self.do_cd('\\')
+        else:
+            self.__noOutput = True
 
     def do_shell(self, s):
         os.system(s)
@@ -148,6 +159,10 @@ class RemoteShell(cmd.Cmd):
         def output_callback(data):
             self.__outputBuffer += data
 
+        if self.__noOutput is True:
+            self.__outputBuffer = ''
+            return
+
         while True:
             try:
                 self.__transferClient.getFile(self.__share, self.__output, output_callback)
@@ -163,7 +178,9 @@ class RemoteShell(cmd.Cmd):
         self.__transferClient.deleteFile(self.__share, self.__output)
 
     def execute_remote(self, data):
-        command = self.__shell + data + ' 1> ' + '\\\\127.0.0.1\\%s' % self.__share + self.__output  + ' 2>&1'
+        command = self.__shell + data 
+        if self.__noOutput is False:
+            command += ' 1> ' + '\\\\127.0.0.1\\%s' % self.__share + self.__output  + ' 2>&1'
         obj = self.__win32Process.Create(command, self.__pwd, None)
         self.get_output()
 
@@ -181,6 +198,8 @@ if __name__ == '__main__':
 
     parser.add_argument('target', action='store', help='[domain/][username[:password]@]<address>')
     parser.add_argument('-share', action='store', default = 'ADMIN$', help='share where the output will be grabbed from (default C$)')
+    parser.add_argument('-nooutput', action='store_true', default = False, help='whether or not to print the output (no SMB connection created)')
+
     parser.add_argument('command', nargs='*', default = ' ', help='command to execute at the target. If empty it will launch a semi-interactive shell')
 
     group = parser.add_argument_group('authentication')
@@ -193,6 +212,11 @@ if __name__ == '__main__':
 
     options = parser.parse_args()
 
+    if ' '.join(options.command) == ' ' and options.nooutput is True:
+        print "ERROR: -nooutput switch and interactive shell not supported"
+        sys.exit(1)
+    
+
     import re
     domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(options.target).groups('')
 
@@ -204,8 +228,10 @@ if __name__ == '__main__':
             from getpass import getpass
             password = getpass("Password:")
 
-        executer = WMIEXEC(' '.join(options.command), username, password, domain, options.hashes, options.share)
+        executer = WMIEXEC(' '.join(options.command), username, password, domain, options.hashes, options.share, options.nooutput)
         executer.run(address)
     except (Exception, KeyboardInterrupt), e:
+        #import traceback
+        #print traceback.print_exc()
         print '\nERROR: %s' % e
     sys.exit(0)
