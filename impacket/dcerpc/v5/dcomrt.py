@@ -1073,10 +1073,17 @@ class CLASS_INSTANCE():
     def __init__(self, ORPCthis, stringBinding):
         self.__stringBindings = stringBinding
         self.__ORPCthis = ORPCthis
+        self.__authLevel = ntlm.NTLM_AUTH_PKT_INTEGRITY
     def get_ORPCthis(self):
         return self.__ORPCthis
     def get_string_bindings(self):
         return self.__stringBindings
+    def get_auth_level(self):
+        if self.__authLevel > ntlm.NTLM_AUTH_NONE and self.__authLevel < ntlm.NTLM_AUTH_PKT_PRIVACY:
+            return ntlm.NTLM_AUTH_PKT_INTEGRITY
+        return self.__authLevel
+    def set_auth_level(self, level):
+        self.__authLevel = level
 
 class INTERFACE():
     # class variable holding the transport connections, organized by target IP
@@ -1198,7 +1205,7 @@ class INTERFACE():
                 if iid is None:
                     raise
                 else:
-                    dce.set_auth_level(ntlm.NTLM_AUTH_PKT_INTEGRITY)
+                    dce.set_auth_level(self.__cinstance.get_auth_level())
 
                 dce.connect()
 
@@ -1262,7 +1269,7 @@ class IRemUnknown(INTERFACE):
             _iid['Data'] = iid
             request['iids'].append(_iid)
         resp = self.request(request, IID_IRemUnknown, self.get_ipidRemUnknown())         
-        resp.dump()
+        #resp.dump()
 
         return IRemUnknown2(INTERFACE(self.get_cinstance(), None, self.get_ipidRemUnknown(), resp['ppQIResults']['std']['ipid'], oxid = resp['ppQIResults']['std']['oxid'], oid = resp['ppQIResults']['std']['oxid'], targetIP = self.get_target_ip()))
 
@@ -1665,6 +1672,7 @@ class IRemoteSCMActivator():
         iid = objRef['iid']
 
         classInstance = CLASS_INSTANCE(ORPCthis, stringBindings)
+        classInstance.set_auth_level(scmr['remoteReply']['authnHint'])
         return IRemUnknown2(INTERFACE(classInstance, ''.join(propsOut['ppIntfData'][0]['abData']), ipidRemUnknown, targetIP = self.__portmap.get_rpc_transport().get_dip()))
 
         return resp
@@ -1839,5 +1847,6 @@ class IRemoteSCMActivator():
         iid = objRef['iid']
 
         classInstance = CLASS_INSTANCE(ORPCthis, stringBindings)
+        classInstance.set_auth_level(scmr['remoteReply']['authnHint'])
         return IRemUnknown2(INTERFACE(classInstance, ''.join(propsOut['ppIntfData'][0]['abData']), ipidRemUnknown, targetIP = self.__portmap.get_rpc_transport().get_dip()))
 

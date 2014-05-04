@@ -17,9 +17,8 @@
 #   so you understand what the call does, and then read the test case located
 #   at https://code.google.com/p/impacket/source/browse/#svn%2Ftrunk%2Fimpacket%2Ftestcases%2FSMB-RPC
 #
-#   Some calls have helper functions, which makes it even easier to use.
-#   They are located at the end of this file. 
-#   Helper functions start with "h"<name of the call>.
+#   Since DCOM is like an OO RPC, instead of helper functions you will see the 
+#   classes described in the standards developed. 
 #   There are test cases for them too. 
 #
 from impacket.dcerpc.v5.ndr import NDRCALL, NDRENUM, NDRSTRUCT, NDRUNION 
@@ -251,24 +250,25 @@ OPNUMS = {
 }
 
 ################################################################################
-# HELPER FUNCTIONS
+# HELPER FUNCTIONS AND INTERFACES
 ################################################################################
 class IVssEnumMgmtObject(IRemUnknown2):
     def __init__(self, interface):
         IRemUnknown2.__init__(self, interface)
+        self._iid = IID_IVssEnumMgmtObject
 
     def Next(self, celt):
         request = IVssEnumMgmtObject_Next()
         request['ORPCthis'] = self.get_cinstance().get_ORPCthis()
         request['ORPCthis']['flags'] = 0
         request['celt'] = celt
-        dce = self.connect()
-        resp = dce.request(request, uuid = self.get_iPid())
+        resp = self.request(request, self._iid, uuid = self.get_iPid())
         return resp 
 
 class IVssEnumObject(IRemUnknown2):
     def __init__(self, interface):
         IRemUnknown2.__init__(self, interface)
+        self._iid = IID_IVssEnumObject
 
     def Next(self, celt):
         request = IVssEnumObject_Next()
@@ -276,12 +276,13 @@ class IVssEnumObject(IRemUnknown2):
         request['ORPCthis']['flags'] = 0
         request['celt'] = celt
         dce = self.connect()
-        resp = dce.request(request, uuid = self.get_iPid())
+        resp = dce.request(request, self._iid, uuid = self.get_iPid())
         return resp 
 
 class IVssSnapshotMgmt(IRemUnknown2):
     def __init__(self, interface):
         IRemUnknown2.__init__(self, interface)
+        self._iid = IID_IVssSnapshotMgmt
 
     def GetProviderMgmtInterface(self, providerId = IID_ShadowCopyProvider, interfaceId = IID_IVssDifferentialSoftwareSnapshotMgmt):
         req = GetProviderMgmtInterface()
@@ -290,7 +291,7 @@ class IVssSnapshotMgmt(IRemUnknown2):
         req['ORPCthis']['flags'] = 0
         req['ProviderId'] = providerId
         req['InterfaceId'] = interfaceId
-        resp = self.request(req, uuid = self.get_iPid())
+        resp = self.request(req, self._iid, uuid = self.get_iPid())
         return IVssDifferentialSoftwareSnapshotMgmt(INTERFACE(classInstance, ''.join(resp['ppItf']['abData']), self.get_ipidRemUnknown(), targetIP = self.get_target_ip()))
 
     def QueryVolumesSupportedForSnapshots(self, providerId, iContext):
@@ -300,7 +301,7 @@ class IVssSnapshotMgmt(IRemUnknown2):
         req['ORPCthis']['flags'] = 0
         req['ProviderId'] = providerId
         req['IContext'] = iContext
-        resp = self.request(req, uuid = self.get_iPid())
+        resp = self.request(req, self._iid, uuid = self.get_iPid())
         return IVssEnumMgmtObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(),targetIP = self.get_target_ip()))
 
     def QuerySnapshotsByVolume(self, volumeName, providerId = IID_ShadowCopyProvider):
@@ -311,7 +312,7 @@ class IVssSnapshotMgmt(IRemUnknown2):
         req['pwszVolumeName'] = volumeName
         req['ProviderId'] = providerId
         try:
-            resp = self.request(req, uuid = self.get_iPid())
+            resp = self.request(req, self._iid, uuid = self.get_iPid())
         except Exception, e:
             print e
             from impacket.winregistry import hexdump
@@ -325,6 +326,7 @@ class IVssSnapshotMgmt(IRemUnknown2):
 class IVssDifferentialSoftwareSnapshotMgmt(IRemUnknown2):
     def __init__(self, interface):
         IRemUnknown2.__init__(self, interface)
+        self._iid = IID_IVssDifferentialSoftwareSnapshotMgmt
 
     def QueryDiffAreasOnVolume(self, pwszVolumeName):
         req = QueryDiffAreasOnVolume()
@@ -332,7 +334,7 @@ class IVssDifferentialSoftwareSnapshotMgmt(IRemUnknown2):
         req['ORPCthis'] = classInstance.get_ORPCthis()
         req['ORPCthis']['flags'] = 0
         req['pwszVolumeName'] = pwszVolumeName
-        resp = self.request(req, uuid = self.get_iPid())
+        resp = self.request(req, self._iid, uuid = self.get_iPid())
         return IVssEnumMgmtObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(), targetIP = self.get_target_ip()))
 
     def QueryDiffAreasForVolume(self, pwszVolumeName):
@@ -341,7 +343,7 @@ class IVssDifferentialSoftwareSnapshotMgmt(IRemUnknown2):
         req['ORPCthis'] = classInstance.get_ORPCthis()
         req['ORPCthis']['flags'] = 0
         req['pwszVolumeName'] = pwszVolumeName
-        resp = self.request(req, uuid = self.get_iPid())
+        resp = self.request(req, self._iid, uuid = self.get_iPid())
         return IVssEnumMgmtObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(), targetIP = self.get_target_ip()))
 
 

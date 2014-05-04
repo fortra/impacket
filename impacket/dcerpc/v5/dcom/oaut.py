@@ -17,9 +17,8 @@
 #   so you understand what the call does, and then read the test case located
 #   at https://code.google.com/p/impacket/source/browse/#svn%2Ftrunk%2Fimpacket%2Ftestcases%2FSMB-RPC
 #
-#   Some calls have helper functions, which makes it even easier to use.
-#   They are located at the end of this file. 
-#   Helper functions start with "h"<name of the call>.
+#   Since DCOM is like an OO RPC, instead of helper functions you will see the 
+#   classes described in the standards developed. 
 #   There are test cases for them too. 
 #
 import random
@@ -928,7 +927,7 @@ OPNUMS = {
 }
 
 ################################################################################
-# HELPER FUNCTIONS
+# HELPER FUNCTIONS AND INTERFACES
 ################################################################################
 def checkNullString(string):
     if string == NULL:
