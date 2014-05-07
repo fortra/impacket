@@ -1067,6 +1067,7 @@ class DCOMConnection():
                 del(DCOMConnection.OID_SET[self.__targetIP])
             else:
                 DCOMConnection.PINGTIMER.cancel()
+                DCOMConnection.PINGTIMER.join()
         DCOMConnection.PINGTIMER = None
 
 class CLASS_INSTANCE():
