@@ -106,6 +106,10 @@ class LSALookupSid:
                 sidsToCheck = (maxRid - soFar) % SIMULTANEOUS
             else: 
                 sidsToCheck = SIMULTANEOUS
+ 
+            if sidsToCheck == 0:
+                break
+
             sids = list()
             for i in xrange(soFar, soFar+sidsToCheck):
                 sids.append(domainSid + '-%d' % (i))
