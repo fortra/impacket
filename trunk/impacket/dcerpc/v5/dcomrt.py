@@ -1164,6 +1164,9 @@ class INTERFACE():
     def get_objRef(self):
         return self.__objRef
 
+    def set_objRef(self, objRef):
+        self.__objRef = objRef
+
     def get_ipidRemUnknown(self):
         return self.__ipidRemUnknown
 
