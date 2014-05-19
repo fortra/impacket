@@ -163,7 +163,7 @@ class NBResourceRecord:
                 self.rr_class = unpack('>H', self._data[offset+2: offset+4])[0]
                 self.ttl = unpack('>L',self._data[offset+4:offset+8])[0]
                 self.rdlength = unpack('>H', self._data[offset+8:offset+10])[0]
-                self.rdata = data[offset+10:self.rdlength]
+                self.rdata = self._data[offset+10:offset+10+self.rdlength]
                 offset = self.rdlength - 2
                 self.unit_id = data[offset:offset+6]
             else:
@@ -182,7 +182,7 @@ class NBResourceRecord:
     def set_rr_type(self, name):
         self.rr_type = name
     def set_rr_class(self,cl):
-        self_rr_class = cl
+        self.rr_class = cl
     def set_ttl(self,ttl):
         self.ttl = ttl
     def set_rdata(self,rdata):
@@ -250,32 +250,49 @@ class NBNodeStatusResponse(NBResourceRecord):
             res += self.node_names[i].rawData()
 
 class NBPositiveNameQueryResponse(NBResourceRecord):
-    def __init__(self,data = 0):
-        NBResourceRecord.__init__(self,data)
-        self.add_entries = [ ]
+    def __init__(self, data = 0):
+        NBResourceRecord.__init__(self, data)
+        self.addr_entries = [ ]
         if data:
                 self._data = self.get_rdata()
+                _qn_length, qn_name, qn_scope = decode_name(data)
+                self._netbios_name = string.rstrip(qn_name[:-1]) + qn_scope
+                self._name_type = ord(qn_name[-1])
+                self._nb_flags = unpack('!H', self._data[:2])
+                offset = 2
+                while offset<len(self._data):
+                    self.addr_entries.append('%d.%d.%d.%d' % unpack('4B', (self._data[offset:offset+4])))
+                    offset += 4
+    
+    def get_netbios_name(self):
+        return self._netbios_name
+    
+    def get_name_type(self):
+        return self._name_type
+    
+    def get_addr_entries(self):
+        return self.addr_entries
                 
 class NetBIOSPacket:
     """ This is a packet as defined in RFC 1002 """
     def __init__(self, data = 0):
-        self.name_trn_id = 0x0 # Transaction ID for Name Service Transaction.
-                             #   Requestor places a unique value for each active
-                             #   transaction.  Responder puts NAME_TRN_ID value
-                             #   from request packet in response packet.
-        self.opcode = 0      # Packet type code
-        self.nm_flags = 0    # Flags for operation
-        self.rcode = 0       # Result codes of request.
-        self.qdcount = 0     # Unsigned 16 bit integer specifying the number of entries in the question section of a Name
-        self.ancount = 0     # Unsigned 16 bit integer specifying the number of
-                             # resource records in the answer section of a Name
-                             # Service packet.
-        self.nscount = 0     # Unsigned 16 bit integer specifying the number of
-                             # resource records in the authority section of a
-                             # Name Service packet.
-        self.arcount = 0     # Unsigned 16 bit integer specifying the number of
-                             # resource records in the additional records
-                             # section of a Name Service packeT.
+        self.name_trn_id = 0x0  # Transaction ID for Name Service Transaction.
+                                #   Requestor places a unique value for each active
+                                #   transaction.  Responder puts NAME_TRN_ID value
+                                #   from request packet in response packet.
+        self.opcode = 0         # Packet type code
+        self.nm_flags = 0       # Flags for operation
+        self.rcode = 0          # Result codes of request.
+        self.qdcount = 0        # Unsigned 16 bit integer specifying the number of entries in the question section of a Name
+        self.ancount = 0        # Unsigned 16 bit integer specifying the number of
+                                # resource records in the answer section of a Name
+                                # Service packet.
+        self.nscount = 0        # Unsigned 16 bit integer specifying the number of
+                                # resource records in the authority section of a
+                                # Name Service packet.
+        self.arcount = 0        # Unsigned 16 bit integer specifying the number of
+                                # resource records in the additional records
+                                # section of a Name Service packeT.
         self.questions = ''
         self.answers = ''
         if data == 0:
@@ -311,7 +328,7 @@ class NetBIOSPacket:
     def get_rcode(self):
         return self.rcode
     def get_nm_flags(self):
-        return self.name_trn_id
+        return self.nm_flags
     def get_opcode(self):
         return self.opcode
     def get_qdcount(self):
@@ -440,16 +457,16 @@ class NetBIOS:
 
     def _setup_connection(self, dstaddr):
         port = randint(10000, 60000)
-        af, socktype, proto, canonname, sa = socket.getaddrinfo(dstaddr, port, 0, socket.SOCK_DGRAM)[0]
+        af, socktype, proto, _canonname, _sa = socket.getaddrinfo(dstaddr, port, socket.AF_INET, socket.SOCK_DGRAM)[0]
         s = socket.socket(af, socktype, proto)
         has_bind = 1
-        for i in range(0, 10):
+        for _i in range(0, 10):
         # We try to bind to a port for 10 tries
             try:
                 s.bind(( INADDR_ANY, randint(10000, 60000) ))
                 s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
                 has_bind = 1
-            except socket.error, ex:
+            except socket.error, _ex:
                 pass
         if not has_bind:
             raise NetBIOSError, ( 'Cannot bind to a good UDP port', ERRCLASS_OS, errno.EAGAIN )
@@ -471,11 +488,11 @@ class NetBIOS:
     def get_broadcastaddr(self):
         return self.__broadcastaddr
 
-    # Returns a list of NBHostEntry instances containing the host information for nbname.
+    # Returns a NBPositiveNameQueryResponse instance containing the host information for nbname.
     # If a NetBIOS domain nameserver has been specified, it will be used for the query.
     # Otherwise, the query is broadcasted on the broadcast address.
-    def gethostbyname(self, nbname, type = TYPE_WORKSTATION, scope = None, timeout = 1):
-        return self.__queryname(nbname, self.__nameserver, type, scope, timeout)
+    def gethostbyname(self, nbname, qtype = TYPE_WORKSTATION, scope = None, timeout = 1):
+        return self.__queryname(nbname, self.__nameserver, qtype, scope, timeout)
 
     # Returns a list of NBNodeEntry instances containing node status information for nbname.
     # If destaddr contains an IP address, then this will become an unicast query on the destaddr.
@@ -495,39 +512,36 @@ class NetBIOS:
     def getmacaddress(self):
         return self.mac
 
-    def __queryname(self, nbname, destaddr, type, scope, timeout):
+    def __queryname(self, nbname, destaddr, qtype, scope, timeout, retries = 0):
         self._setup_connection(destaddr)
-        netbios_name = string.upper(nbname)
         trn_id = randint(1, 32000)
         p = NetBIOSPacket()
         p.set_trn_id(trn_id)
-        netbios_name = string.upper(nbname)
-        qn_label = encode_name(netbios_name, type, scope)
+        netbios_name = nbname.upper()
+        qn_label = encode_name(netbios_name, qtype, scope)
         p.addQuestion(qn_label, QUESTION_TYPE_NB, QUESTION_CLASS_IN)
-        qn_label = encode_name(netbios_name, type, scope)
+        qn_label = encode_name(netbios_name, qtype, scope)
+        p.set_nm_flags(NM_FLAGS_RD)
         if not destaddr:
-            p.set_nm_flags(NM_FLAGS_BROADCAST)
+            p.set_nm_flags(p.get_nm_flags() | NM_FLAGS_BROADCAST)
             destaddr = self.__broadcastaddr            
-        wildcard_query = netbios_name == '*'
         req = p.rawData()
-        self.__sock.sendto(req, 0, ( destaddr, self.__servport ))
-        addrs = [ ]
-        tries = 3
+        
+        data = ""
+        tries = retries
         while 1:
+            self.__sock.sendto(req, ( destaddr, self.__servport ))
             try:
                 ready, _, _ = select.select([ self.__sock.fileno() ], [ ] , [ ], timeout)
                 if not ready:
-                    if tries and not wildcard_query:
+                    if tries:
                         # Retry again until tries == 0
-                        self.__sock.sendto(req, 0, ( destaddr, self.__servport ))
                         tries = tries - 1
-                    elif wildcard_query:
-                        return addrs
                     else:
                         raise NetBIOSTimeout
                 else:
                     data, _ = self.__sock.recvfrom(65536, 0)
-                    self.__sock.close()
+                    
                     res = NetBIOSPacket(data)
                     if res.get_trn_id() == p.get_trn_id():
                         if res.get_rcode():
@@ -535,14 +549,16 @@ class NetBIOS:
                                 return None
                             else:
                                 raise NetBIOSError, ( 'Negative name query response', ERRCLASS_QUERY, res.get_rcode() )
-                        answ = NBPositiveNameQueryResponse(res.get_answers())
-                        if not wildcard_query:
-                            return addrs
+                        
+                        if res.get_ancount() != 1:
+                            raise NetBIOSError( 'Malformed response')
+                        
+                        return NBPositiveNameQueryResponse(res.get_answers())
             except select.error, ex:
                 if ex[0] != errno.EINTR and ex[0] != errno.EAGAIN:
                     raise NetBIOSError, ( 'Error occurs while waiting for response', ERRCLASS_OS, ex[0] )
-            except socket.error, ex:
-                pass
+                raise
+
 
     def __querynodestatus(self, nbname, destaddr, type, scope, timeout):
         self._setup_connection(destaddr)
@@ -691,16 +707,16 @@ class NetBIOSSession:
             remote_name = remote_host 
         # If remote name is *SMBSERVER let's try to query its name.. if can't be guessed, continue and hope for the best
         if remote_name == '*SMBSERVER':
-           nb = NetBIOS()
-
-           try:
-              res = nb.getnetbiosname(remote_host)
-           except:
-              res = None
-              pass 
-
-           if res is not None:
-              remote_name = res
+            nb = NetBIOS()
+            
+            try:
+                res = nb.getnetbiosname(remote_host)
+            except:
+                res = None
+                pass 
+            
+            if res is not None:
+                remote_name = res
 
         if len(remote_name) > 15:
             self.__remote_name = string.upper(remote_name[:15])
@@ -958,7 +974,22 @@ SESSION_ERRORS = { 0x80: 'Not listening on called name',
                    }
 
 def main():
-    print
+    def get_netbios_host_by_name(name):
+        n = NetBIOS()
+        n.set_broadcastaddr('255.255.255.255') # To avoid use "<broadcast>" in socket
+        addrs = None
+        for qtype in (TYPE_WORKSTATION, TYPE_CLIENT, TYPE_SERVER, TYPE_DOMAIN_MASTER, TYPE_DOMAIN_CONTROLLER):
+            try:
+                addrs = n.gethostbyname(name, qtype = qtype).get_addr_entries()
+            except NetBIOSTimeout:
+                continue
+            else:
+                return addrs
+        raise Exception("Host not found")
+                
+    
+    n = get_netbios_host_by_name("some-host")
+    print n
 
 if __name__ == '__main__':
     main()
