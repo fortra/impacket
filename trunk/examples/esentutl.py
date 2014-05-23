@@ -37,7 +37,12 @@ def exportTable(ese, tableName):
     i = 1
     print "Table: %s" % tableName
     while True:
-        record = ese.getNextRow(cursor)
+        try:
+            record = ese.getNextRow(cursor)
+        except:
+            logging.error('Error while calling getNextRow(), trying the next one')
+            continue
+
         if record is None:
             break
         print "*** %d" % i
@@ -90,6 +95,8 @@ def main():
             logging.error('Unknown action %s ' % options.action)
             raise
     except Exception, e:
+        #import traceback
+        #print traceback.print_exc()
         print e
     ese.close()
 
