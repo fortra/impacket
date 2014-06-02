@@ -228,7 +228,11 @@ class RemoteShell(cmd.Cmd):
         return False
 
     def do_cd(self, s):
-        self.execute_remote('cd ' + s)
+        # We just can't CD or mantain track of the target dir.
+        if len(s) > 0:
+            print "[!] You can't CD under SMBEXEC. Use full paths."
+
+        self.execute_remote('cd ' )
         if len(self.__outputBuffer) > 0:
             # Stripping CR/LF
             self.prompt = string.replace(self.__outputBuffer,'\r\n','') + '>'
@@ -255,7 +259,7 @@ class RemoteShell(cmd.Cmd):
             os.unlink(SMBSERVER_DIR + '/' + OUTPUT_FILENAME)
 
     def execute_remote(self, data):
-        command = self.__shell + 'echo ' + data + ' ^> ' + self.__output + ' > ' + self.__batchFile + ' & ' + self.__shell + self.__batchFile 
+        command = self.__shell + 'echo ' + data + ' ^> ' + self.__output + ' 2^>^&1 > ' + self.__batchFile + ' & ' + self.__shell + self.__batchFile 
         if self.__mode == 'SERVER':
             command += ' & ' + self.__copyBack
         command += ' & ' + 'del ' + self.__batchFile 
