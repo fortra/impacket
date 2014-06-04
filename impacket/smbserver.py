@@ -462,7 +462,6 @@ class TRANSCommands():
         if connData['OpenedFiles'].has_key(fid):
             fileHandle = connData['OpenedFiles'][fid]['FileHandle']
             if fileHandle != PIPE_FILE_DESCRIPTOR:
-                (mode, ino, dev, nlink, uid, gid, size, atime, mtime, ctime) = os.fstat(fileHandle)
                 os.write(fileHandle,data)
                 respData = os.read(fileHandle,data)
             else:
@@ -1263,10 +1262,9 @@ class SMBCommands():
              try:
                  if fileHandle != PIPE_FILE_DESCRIPTOR:
                      # TODO: Handle big size files
-                     (mode, ino, dev, nlink, uid, gid, size, atime, mtime, ctime) = os.fstat(fileHandle)
                      # If we're trying to write past the file end we just skip the write call (Vista does this)
-                     if os.lseek(fileHandle, 0, os.SEEK_END) >= comWriteParameters['Offset']: 
-                         os.lseek(fileHandle,comWriteParameters['Offset'],os.SEEK_SET)
+                     if os.lseek(fileHandle, 0, 2) >= comWriteParameters['Offset']: 
+                         os.lseek(fileHandle,comWriteParameters['Offset'],0)
                          os.write(fileHandle,comWriteData['Data'])
                  else:
                      sock = connData['OpenedFiles'][comWriteParameters['Fid']]['Socket']
@@ -1500,13 +1498,12 @@ class SMBCommands():
              errorCode = STATUS_SUCCESS
              try:
                  if fileHandle != PIPE_FILE_DESCRIPTOR:
-                     (mode, ino, dev, nlink, uid, gid, size, atime, mtime, ctime) = os.fstat(fileHandle)
                      offset = writeAndX['Offset']
                      if writeAndX.fields.has_key('HighOffset'):
                          offset += (writeAndX['HighOffset'] << 32)
                      # If we're trying to write past the file end we just skip the write call (Vista does this)
-                     if os.lseek(fileHandle, 0, os.SEEK_END) >= offset:
-                         os.lseek(fileHandle,offset,os.SEEK_SET)
+                     if os.lseek(fileHandle, 0, 2) >= offset:
+                         os.lseek(fileHandle,offset,0)
                          os.write(fileHandle,writeAndXData['Data'])
                  else:
                      sock = connData['OpenedFiles'][writeAndX['Fid']]['Socket']
@@ -1546,8 +1543,7 @@ class SMBCommands():
              try:
                  if fileHandle != PIPE_FILE_DESCRIPTOR:
                      # TODO: Handle big size files
-                     (mode, ino, dev, nlink, uid, gid, size, atime, mtime, ctime) = os.fstat(fileHandle)
-                     os.lseek(fileHandle,comReadParameters['Offset'],os.SEEK_SET)
+                     os.lseek(fileHandle,comReadParameters['Offset'],0)
                      content = os.read(fileHandle,comReadParameters['Count'])
                  else:
                      sock = connData['OpenedFiles'][comReadParameters['Fid']]['Socket']
@@ -1589,12 +1585,10 @@ class SMBCommands():
              errorCode = 0
              try:
                  if fileHandle != PIPE_FILE_DESCRIPTOR:
-                     (mode, ino, dev, nlink, uid, gid, size, atime, mtime, ctime) = os.fstat(fileHandle)
-                     
                      offset = readAndX['Offset']
                      if readAndX.fields.has_key('HighOffset'):
                          offset += (readAndX['HighOffset'] << 32)
-                     os.lseek(fileHandle,offset,os.SEEK_SET)
+                     os.lseek(fileHandle,offset,0)
                      content = os.read(fileHandle,readAndX['MaxCount'])
                  else:
                      sock = connData['OpenedFiles'][readAndX['Fid']]['Socket']
