@@ -3564,7 +3564,7 @@ class SMB:
            return transResponse['Data'][-transParameters['TotalDataCount']:] # Remove Potential Prefix Padding
         return None
 
-    def nt_create_andx(self,tid,filename, smb_packet=None, cmd = None, shareAccessMode = FILE_SHARE_READ | FILE_SHARE_WRITE, disposition = FILE_OPEN):
+    def nt_create_andx(self,tid,filename, smb_packet=None, cmd = None, shareAccessMode = FILE_SHARE_READ | FILE_SHARE_WRITE, disposition = FILE_OPEN, accessMask = 0x2019f):
         filename = string.replace(filename,'/', '\\')
         if smb_packet == None:
             smb = NewSMBPacket()
@@ -3580,7 +3580,7 @@ class SMB:
             ntCreate['Data']       = SMBNtCreateAndX_Data()
             ntCreate['Parameters']['FileNameLength'] = len(filename)
             ntCreate['Parameters']['CreateFlags'] = 0x16
-            ntCreate['Parameters']['AccessMask'] = 0x2019f
+            ntCreate['Parameters']['AccessMask'] = accessMask
             ntCreate['Parameters']['CreateOptions'] = 0x40
             ntCreate['Parameters']['ShareAccess'] = shareAccessMode
             ntCreate['Parameters']['Disposition'] = disposition
@@ -3693,7 +3693,7 @@ class SMB:
         fid = -1
         tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\' + service, password)
         try:
-            fid = self.nt_create_andx(tid, filename, shareAccessMode = shareAccessMode)
+            fid = self.nt_create_andx(tid, filename, shareAccessMode = shareAccessMode, accessMask = 0x20089)
 
             datasize = self.query_file_info(tid, fid)
 
