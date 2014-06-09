@@ -2340,6 +2340,7 @@ class SMB:
     CAP_NT_SMBS                             = 0x10
     CAP_LARGE_READX                         = 0x00004000
     CAP_LARGE_WRITEX                        = 0x00008000
+    CAP_RPC_REMOTE_APIS                     = 0x20
 
     # Flags1 Mask
     FLAGS1_LOCK_AND_READ_OK                 = 0x01

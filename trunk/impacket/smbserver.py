@@ -26,6 +26,8 @@ from impacket import nmb
 from impacket import ntlm
 from impacket.spnego import *
 from structure import Structure
+from threading import Thread
+from impacket.dcerpc.srvsvcserver import SRVSVCServer
 import traceback
 import sys
 import calendar
@@ -43,6 +45,7 @@ import os
 import fnmatch
 import errno
 import sys
+import random
 
 # For signing
 import hashlib
@@ -2020,7 +2023,8 @@ class SMBCommands():
 
         resp = smb.NewSMBPacket()
         resp['Flags1'] = smb.SMB.FLAGS1_REPLY
-        resp['Flags2'] = smb.SMB.FLAGS2_EXTENDED_SECURITY | smb.SMB.FLAGS2_NT_STATUS
+        resp['Flags2'] = smb.SMB.FLAGS2_EXTENDED_SECURITY | smb.SMB.FLAGS2_NT_STATUS | smb.SMB.FLAGS2_LONG_NAMES | recvPacket['Flags2'] & smb.SMB.FLAGS2_UNICODE
+
         resp['Tid'] = recvPacket['Tid']
         resp['Mid'] = recvPacket['Mid']
         resp['Pid'] = connData['Pid']
@@ -2065,7 +2069,7 @@ class SMBCommands():
         if path == 'IPC$':
             respData['Service']               = 'IPC'
         else:
-            respData['Service']               = 'A:'
+            respData['Service']               = path
         respData['PadLen']                = 0
         respData['NativeFileSystem']      = encodeSMBString(recvPacket['Flags2'], 'NTFS' )
 
@@ -2264,8 +2268,7 @@ class SMBCommands():
                     _dialects_data['SecurityBlob'] = blob.getData()
         
                     _dialects_parameters = smb.SMBExtended_Security_Parameters()
-                    _dialects_parameters['Capabilities']    = smb.SMB.CAP_EXTENDED_SECURITY | smb.SMB.CAP_USE_NT_ERRORS | smb.SMB.CAP_NT_SMBS | smb.SMB.CAP_UNICODE
-                    #_dialects_parameters['Capabilities']    = smb.SMB.CAP_EXTENDED_SECURITY | smb.SMB.CAP_USE_NT_ERRORS | smb.SMB.CAP_NT_SMBS 
+                    _dialects_parameters['Capabilities']    = smb.SMB.CAP_EXTENDED_SECURITY | smb.SMB.CAP_USE_NT_ERRORS | smb.SMB.CAP_NT_SMBS | smb.SMB.CAP_UNICODE #| smb.SMB.CAP_RPC_REMOTE_APIS
                     _dialects_parameters['ChallengeLength'] = 0
 
            else:
@@ -2280,11 +2283,11 @@ class SMBCommands():
                         # TODO: Handle random challenges, now one that can be used with rainbow tables
                         _dialects_data['Challenge'] = '\x11\x22\x33\x44\x55\x66\x77\x88'
                         _dialects_parameters['ChallengeLength'] = 8
-                    _dialects_parameters['Capabilities']    = smb.SMB.CAP_USE_NT_ERRORS | smb.SMB.CAP_NT_SMBS
+                    _dialects_parameters['Capabilities']    = smb.SMB.CAP_USE_NT_ERRORS | smb.SMB.CAP_NT_SMBS #| smb.SMB.CAP_RPC_REMOTE_APIS
 
            _dialects_parameters['DialectIndex']    = index
            _dialects_parameters['SecurityMode']    = smb.SMB.SECURITY_AUTH_ENCRYPTED | smb.SMB.SECURITY_SHARE_USER
-           _dialects_parameters['MaxMpxCount']     = 50
+           _dialects_parameters['MaxMpxCount']     = 1
            _dialects_parameters['MaxNumberVcs']    = 1
            if sys.platform == 'win32':
                _dialects_parameters['MaxBufferSize']   = 1500
@@ -2399,10 +2402,7 @@ class SMBSERVER(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
         self.__serverDomain = ''
 
         # Our ConfigParser data
-        self.__serverConfig = None
-
-        # Explicit configuration data, specified as an already-modified ConfigParser
-        self.__configParser = config_parser
+        self.__serverConfig = config_parser
 
         # Our credentials to be used during the server's lifetime
         self.__credentials = {}
@@ -2760,22 +2760,21 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
 
     def processConfigFile(self, configFile = None):
         # TODO: Do a real config parser
-        if self.__configParser is None:
+        if self.__serverConfig is None:
             if configFile is None:
-                configFile = self.__configFile
+                configFile = 'smb.conf'
             self.__serverConfig = ConfigParser.ConfigParser()
             self.__serverConfig.read(configFile)
-        else:
-           self.__serverConfig = self.__configParser
 
         self.__serverName   = self.__serverConfig.get('global','server_name')
         self.__serverOS     = self.__serverConfig.get('global','server_os')
         self.__serverDomain = self.__serverConfig.get('global','server_domain')
         self.__logFile      = self.__serverConfig.get('global','log_file')
-        logging.basicConfig(filename = self.__logFile, 
-                         level = logging.DEBUG, 
-                         format="%(asctime)s: %(levelname)s: %(message)s", 
-                         datefmt = '%m/%d/%Y %I:%M:%S %p')
+        if self.__logFile != 'None':
+            logging.basicConfig(filename = self.__logFile, 
+                             level = logging.DEBUG, 
+                             format="%(asctime)s: %(levelname)s: %(message)s", 
+                             datefmt = '%m/%d/%Y %I:%M:%S %p')
         self.__log        = logging.getLogger()
 
         # Process the credentials
@@ -2810,3 +2809,92 @@ STATUS_LOGON_FAILURE                 = 0xC000006d
 # For windows platforms, opening a directory is not an option, so we set a void FD
 VOID_FILE_DESCRIPTOR = -1
 PIPE_FILE_DESCRIPTOR = -2
+
+######################################################################
+# HELPER CLASSES
+######################################################################
+
+class SRVSServer(Thread):
+    def __init__(self):
+        Thread.__init__(self)
+        self.__srvsServer = SRVSVCServer()
+
+    def getListenPort(self):
+        return self.__srvsServer.getListenPort()
+
+    def setServerConfig(self, config):
+        return self.__srvsServer.setServerConfig(config)
+
+    def processConfigFile(self, configFile=None):
+        return self.__srvsServer.processConfigFile(configFile)
+
+    def run(self):
+        self.__srvsServer.run()
+
+
+class SimpleSMBServer():
+    def __init__(self, listenAddress = '0.0.0.0', listenPort=445, configFile=''):
+        if configFile != '':
+            self.__server = SMBSERVER((listenAddress,listenPort))
+            self.__server.processConfigFile(configFile)
+            self.__smbConfig = None
+        else:
+            # Here we write a mini config for the server
+            self.__smbConfig = ConfigParser.ConfigParser()
+            self.__smbConfig.add_section('global')
+            self.__smbConfig.set('global','server_name',''.join([random.choice(string.letters) for i in range(8)]))
+            self.__smbConfig.set('global','server_os',''.join([random.choice(string.letters) for i in range(8)])
+)
+            self.__smbConfig.set('global','server_domain',''.join([random.choice(string.letters) for i in range(8)])
+)
+            self.__smbConfig.set('global','log_file','None')
+            self.__smbConfig.set('global','credentials_file','')
+
+            # IPC always needed
+            self.__smbConfig.add_section('IPC$')
+            self.__smbConfig.set('IPC$','comment','')
+            self.__smbConfig.set('IPC$','read only','yes')
+            self.__smbConfig.set('IPC$','share type','3')
+            self.__smbConfig.set('IPC$','path','')
+            self.__server = SMBSERVER((listenAddress,listenPort), config_parser = self.__smbConfig)
+            self.__server.processConfigFile()
+
+        # Now we have to register the MS-SRVS server. This specially important for 
+        # Windows 7+ and Mavericks clients since they WONT (specially OSX) 
+        # ask for shares using MS-RAP.
+
+        self.__srvsServer = SRVSServer()
+        self.__srvsServer.daemon = True
+        self.__server.registerNamedPipe('srvsvc',('',self.__srvsServer.getListenPort()))
+
+    def start(self):
+        self.__srvsServer.start()
+        self.__server.serve_forever()
+
+    def addShare(self, shareName, sharePath, shareComment='', shareType = 0, readOnly = 'no'):
+        self.__smbConfig.add_section(shareName)
+        self.__smbConfig.set(shareName, 'comment', shareComment)
+        self.__smbConfig.set(shareName, 'read only', readOnly)
+        self.__smbConfig.set(shareName, 'share type', shareType)
+        self.__smbConfig.set(shareName, 'path', sharePath)
+        self.__server.setServerConfig(self.__smbConfig)
+        self.__srvsServer.setServerConfig(self.__smbConfig)
+        self.__server.processConfigFile()
+        self.__srvsServer.processConfigFile()
+
+    def removeShare(self, shareName):
+        self.__smbConfig.remove_section(shareName)
+        self.__server.setServerConfig(self.__smbConfig)
+        self.__srvsServer.setServerConfig(self.__smbConfig)
+        self.__server.processConfigFile()
+        self.__srvsServer.processConfigFile()
+        
+    def setLogFile(self, logFile):
+        self.__smbConfig.set('global','log_file',logFile)
+        self.__server.setServerConfig(self.__smbConfig)
+        self.__server.processConfigFile()
+
+    def setCredentialsFile(self, logFile):
+        self.__smbConfig.set('global','credentials_file',logFile)
+        self.__server.setServerConfig(self.__smbConfig)
+        self.__server.processConfigFile()
