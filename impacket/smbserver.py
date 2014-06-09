@@ -2865,7 +2865,7 @@ class SimpleSMBServer():
 
         self.__srvsServer = SRVSServer()
         self.__srvsServer.daemon = True
-        self.__server.registerNamedPipe('srvsvc',('',self.__srvsServer.getListenPort()))
+        self.__server.registerNamedPipe('srvsvc',('127.0.0.1',self.__srvsServer.getListenPort()))
 
     def start(self):
         self.__srvsServer.start()

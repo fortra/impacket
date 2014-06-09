@@ -30,7 +30,7 @@ import struct
 class DCERPCServer():
     def __init__(self):
         self._listenPort    = 0
-        self._listenAddress = ''
+        self._listenAddress = '127.0.0.1'
         self._listenUUIDS   = []
         self._callbacks     = {}
         self._boundUUID     = ''
