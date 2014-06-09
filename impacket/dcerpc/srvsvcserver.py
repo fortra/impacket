@@ -16,6 +16,7 @@
 
 
 import array
+import logging
 from impacket.dcerpc import dcerpc
 from impacket.dcerpc.dcerpc import SEC_TRAILER
 from impacket import ntlm
@@ -28,8 +29,8 @@ import struct
 
 class DCERPCServer():
     def __init__(self):
-        self._listenPort    = 4343
-        self._listenAddress = '0.0.0.0'
+        self._listenPort    = 0
+        self._listenAddress = ''
         self._listenUUIDS   = []
         self._callbacks     = {}
         self._boundUUID     = ''
@@ -38,16 +39,26 @@ class DCERPCServer():
         self._callid        = 1
         self._max_frag       = None
         self._max_xmit_size = 4280
- 
+        self.__log = logging.getLogger()
+        self._sock = socket.socket()
+        self._sock.bind((self._listenAddress,self._listenPort))
+
+    def log(self, msg, level=logging.INFO):
+        self.__log.log(level,msg)
 
     def addCallbacks(self, UUID, callbacks):
         # Format is [opnum] =  callback
         self._callbacks[uuidtup_to_bin(UUID)] = callbacks
         self._listenUUIDS.append(uuidtup_to_bin(UUID))
-        print "Callback added for UUID %s V:%s" % UUID
+        self.log("Callback added for UUID %s V:%s" % UUID)
 
     def setListenPort(self, portNum):
         self._listenPort = portNum
+        self._sock = socket.socket()
+        self._sock.bind((self._listenAddress,self._listenPort))
+
+    def getListenPort(self):
+        return self._sock.getsockname()[1]
 
     def recv(self):
         finished = False
@@ -85,12 +96,9 @@ class DCERPCServer():
         return self.response_data
     
     def run(self):
-        self._sock = socket.socket()
-        self._sock.bind((self._listenAddress,self._listenPort))
         self._sock.listen(10)
         while True:
             self._clientSock, address = self._sock.accept()
-            print "Connected from ", address
             try:
                 while True:
                     data = self.recv()
@@ -102,7 +110,7 @@ class DCERPCServer():
                         self.send(answer)
             except Exception, e:
                 #print e 
-                print "Connection Finished!"
+                pass
             self._clientSock.close()
 
     def send(self, data):
@@ -146,8 +154,8 @@ class DCERPCServer():
         resp['max_tfrag']        = bind['max_tfrag']
         resp['max_rfrag']        = bind['max_rfrag']
         resp['assoc_group']      = 0x1234
-        resp['SecondaryAddrLen'] = 4
-        resp['SecondaryAddr']    = '135'
+        resp['SecondaryAddrLen'] = 13
+        resp['SecondaryAddr']    = '\\PIPE\\srvsvc'
         resp['Pad']              ='A'*((4-((resp["SecondaryAddrLen"]+dcerpc.MSRPCBindAck._SIZE) % 4))%4)
         resp['ctx_num']          = 0
 
@@ -218,7 +226,6 @@ class DCERPCServer():
         return packet
 
 from impacket.dcerpc import srvsvc
-from impacket import smbserver
 import ConfigParser
 import struct
 
@@ -349,18 +356,31 @@ class SRVSVCServer(DCERPCServer):
 
         self.addCallbacks(('4B324FC8-1670-01D3-1278-5A47BF6EE188', '3.0'), self.srvsvcCallBacks)
 
-    def processConfigFile(self, configFile):
-       serverConfig = ConfigParser.ConfigParser()
-       serverConfig.read(configFile)
-       sections = serverConfig.sections()
+    def setServerConfig(self, config):
+        self.__serverConfig = config
+
+    def processConfigFile(self, configFile=None):
+       if configFile is not None:
+           self.__serverConfig = ConfigParser.ConfigParser()
+           self.__serverConfig.read(configFile)
+       sections = self.__serverConfig.sections()
+       # Let's check the log file
+       self.__logFile      = self.__serverConfig.get('global','log_file')
+       if self.__logFile != 'None':
+            logging.basicConfig(filename = self.__logFile, 
+                             level = logging.DEBUG, 
+                             format="%(asctime)s: %(levelname)s: %(message)s", 
+                             datefmt = '%m/%d/%Y %I:%M:%S %p')
+
        # Remove the global one
        del(sections[sections.index('global')])
+       self._shares = {}
        for i in sections:
-           self._shares[i] = dict(serverConfig.items(i))
+           self._shares[i] = dict(self.__serverConfig.items(i))
 
     def NetrGetShareInfo(self,data):
        request = SRVSVCShareGetInfo(data)
-       print "NetrGetShareInfo Level: %d" % request['Level']
+       self.log("NetrGetShareInfo Level: %d" % request['Level'])
        s = request['NetName'].decode('utf-16le')[:-1].upper().strip()
        share  = self._shares[s]
        answer = SRVSVCSwitchpShareInfo2()
@@ -380,7 +400,7 @@ class SRVSVCServer(DCERPCServer):
 
     def NetrServerGetInfo(self,data):
        request = SRVSVCServerGetInfo(data)
-       print "NetrServerGetInfo Level: %d" % request['Level']
+       self.log("NetrServerGetInfo Level: %d" % request['Level'])
        answer = SRVSVCServerpInfo101()
        answer['ServerInfo'] = SRVSVCServerInfo101()
        answer['ServerInfo']['Name']    = request['ServerName']
@@ -390,7 +410,7 @@ class SRVSVCServer(DCERPCServer):
 
     def NetShareEnumAll(self, data):
        request = SRVSVCNetrShareEnum(data)
-       print "NetrShareEnumAll Level: %d" % request['Level']
+       self.log("NetrShareEnumAll Level: %d" % request['Level'])
        shareEnum = SRVSVCNetrShareEnum1_answer()
        shareEnum['Info'] = SRVSVCShareEnumStruct()
        shareEnum['Info']['Level']    = 1
