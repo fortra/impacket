@@ -629,38 +629,26 @@ class SRVSTests(unittest.TestCase):
         request = srvs.NetrServerGetInfo()
         request['ServerName'] = NULL
         request['Level'] = 100
-        request['InfoStruct']['tag'] = 100
-        request['InfoStruct']['ServerInfo100'] = NULL
         resp = dce.request(request)
         resp.dump()
 
         request['Level'] = 101
-        request['InfoStruct']['tag'] = 101
-        request['InfoStruct']['ServerInfo101'] = NULL
         resp = dce.request(request)
         resp.dump()
 
         request['Level'] = 102
-        request['InfoStruct']['tag'] = 102
-        request['InfoStruct']['ServerInfo102'] = NULL
         resp = dce.request(request)
         resp.dump()
 
         request['Level'] = 103
-        request['InfoStruct']['tag'] = 103
-        request['InfoStruct']['ServerInfo103'] = NULL
         resp = dce.request(request)
         resp.dump()
 
         request['Level'] = 502
-        request['InfoStruct']['tag'] = 502
-        request['InfoStruct']['ServerInfo502'] = NULL
         resp = dce.request(request)
         resp.dump()
 
         request['Level'] = 503
-        request['InfoStruct']['tag'] = 503
-        request['InfoStruct']['ServerInfo503'] = NULL
         resp = dce.request(request)
         resp.dump()
 

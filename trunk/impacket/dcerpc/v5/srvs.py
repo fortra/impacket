@@ -3162,8 +3162,6 @@ def hNetrServerGetInfo(dce, level):
     request = NetrServerGetInfo()
     request['ServerName'] = NULL
     request['Level'] = level
-    request['InfoStruct']['tag'] = level
-    request['InfoStruct']['ServerInfo%d'%level] = NULL
     return dce.request(request)
 
 def hNetrServerDiskEnum(dce, level, resumeHandle = 0, preferedMaximumLength = 0xffffffff):
