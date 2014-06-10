@@ -2297,12 +2297,8 @@ class SMBCommands():
            _dialects_parameters['SecurityMode']    = smb.SMB.SECURITY_AUTH_ENCRYPTED | smb.SMB.SECURITY_SHARE_USER
            _dialects_parameters['MaxMpxCount']     = 1
            _dialects_parameters['MaxNumberVcs']    = 1
-           if sys.platform == 'win32':
-               _dialects_parameters['MaxBufferSize']   = 1500
-               _dialects_parameters['MaxRawSize']      = 1500
-           else:
-               _dialects_parameters['MaxBufferSize']   = 64000
-               _dialects_parameters['MaxRawSize']      = 65536
+           _dialects_parameters['MaxBufferSize']   = 64000
+           _dialects_parameters['MaxRawSize']      = 65536
            _dialects_parameters['SessionKey']      = 0
            _dialects_parameters['LowDateTime']     = 0
            _dialects_parameters['HighDateTime']    = 0
