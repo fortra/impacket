@@ -1,4 +1,4 @@
-# Copyright (c) 2003-2012 CORE Security Technologies)
+# Copyright (c) 2003-2014 CORE Security Technologies)
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -566,8 +566,10 @@ class TRANS2Commands():
                         mtime = getUnixTime(mtime)
                     os.utime(fileName,(atime,mtime))
                 elif informationLevel == smb.SMB_SET_FILE_END_OF_FILE_INFO:
-                    # We do nothing here, end of file will be set alone
+                    fileHandle = connData['OpenedFiles'][setFileInfoParameters['FID']]['FileHandle']
                     infoRecord = smb.SMBSetFileEndOfFileInfo(data)
+                    fileSize = os.lseek(fileHandle, infoRecord['EndOfFile']-1, 0)
+                    os.write(fileHandle, '\x00')
                 else:
                     smbServer.log('Unknown level for set file info! 0x%x' % setFileInfoParameters['InformationLevel'], logging.ERROR)
                     # UNSUPPORTED
@@ -1854,11 +1856,11 @@ class SMBCommands():
                      mode |= os.O_RDONLY
                  if desiredAccess & smb.FILE_WRITE_DATA:
                      if desiredAccess & smb.FILE_READ_DATA:
-                         mode |= os.O_RDWR | os.O_APPEND
+                         mode |= os.O_RDWR #| os.O_APPEND
                      else: 
-                         mode |= os.O_WRONLY | os.O_APPEND
+                         mode |= os.O_WRONLY #| os.O_APPEND
                  if desiredAccess & smb.GENERIC_ALL:
-                     mode |= os.O_RDWR | os.O_APPEND
+                     mode |= os.O_RDWR #| os.O_APPEND
 
                  createOptions =  ntCreateAndXParameters['CreateOptions']
                  if mode & os.O_CREAT == os.O_CREAT:
@@ -2833,6 +2835,13 @@ class SRVSServer(Thread):
 
 
 class SimpleSMBServer():
+    """
+    SimpleSMBServer class - Implements a simple, customizable SMB Server
+
+    :param string listenAddress: the address you want the server to listen on
+    :param integer listenPort: the port number you want the server to listen on
+    :param string configFile: a file with all the servers' configuration. If no file specified, this class will create the basic parameters needed to run. You will need to add your shares manually tho. See addShare() method
+    """
     def __init__(self, listenAddress = '0.0.0.0', listenPort=445, configFile=''):
         if configFile != '':
             self.__server = SMBSERVER((listenAddress,listenPort))
