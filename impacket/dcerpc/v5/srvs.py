@@ -2495,7 +2495,6 @@ class NetrServerGetInfo(NDRCALL):
     structure = (
        ('ServerName', PSRVSVC_HANDLE),
        ('Level', DWORD),
-       ('InfoStruct', SERVER_INFO),
     )
 
 class NetrServerGetInfoResponse(NDRCALL):
