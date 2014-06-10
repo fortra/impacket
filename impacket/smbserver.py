@@ -567,8 +567,9 @@ class TRANS2Commands():
                 elif informationLevel == smb.SMB_SET_FILE_END_OF_FILE_INFO:
                     fileHandle = connData['OpenedFiles'][setFileInfoParameters['FID']]['FileHandle']
                     infoRecord = smb.SMBSetFileEndOfFileInfo(data)
-                    fileSize = os.lseek(fileHandle, infoRecord['EndOfFile']-1, 0)
-                    os.write(fileHandle, '\x00')
+                    if infoRecord['EndOfFile'] > 0:
+                        fileSize = os.lseek(fileHandle, infoRecord['EndOfFile']-1, 0)
+                        os.write(fileHandle, '\x00')
                 else:
                     smbServer.log('Unknown level for set file info! 0x%x' % setFileInfoParameters['InformationLevel'], logging.ERROR)
                     # UNSUPPORTED
