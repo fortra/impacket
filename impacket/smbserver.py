@@ -27,7 +27,6 @@ from impacket import ntlm
 from impacket.spnego import *
 from structure import Structure
 from threading import Thread
-from impacket.dcerpc.srvsvcserver import SRVSVCServer
 import traceback
 import sys
 import calendar
@@ -2816,23 +2815,97 @@ PIPE_FILE_DESCRIPTOR = -2
 # HELPER CLASSES
 ######################################################################
 
-class SRVSServer(Thread):
-    def __init__(self):
-        Thread.__init__(self)
-        self.__srvsServer = SRVSVCServer()
+from impacket.dcerpc.v5.rpcrt import DCERPCServer
+from impacket.dcerpc.v5.dtypes import NULL
+from impacket.dcerpc.v5.srvs import NetrShareEnum, NetrShareEnumResponse, SHARE_INFO_1, NetrServerGetInfo, NetrServerGetInfoResponse, NetrShareGetInfo, NetrShareGetInfoResponse
 
-    def getListenPort(self):
-        return self.__srvsServer.getListenPort()
+class SRVSServer(DCERPCServer):
+    def __init__(self):
+        DCERPCServer.__init__(self)
+
+        self._shares = {}
+
+        self.srvsvcCallBacks = {
+            15: self.NetrShareEnum,
+            16: self.NetrShareGetInfo,
+            21: self.NetrServerGetInfo,
+        }
+
+        self.addCallbacks(('4B324FC8-1670-01D3-1278-5A47BF6EE188', '3.0'),'\\PIPE\\srvsvc', self.srvsvcCallBacks)
 
     def setServerConfig(self, config):
-        return self.__srvsServer.setServerConfig(config)
+        self.__serverConfig = config
 
     def processConfigFile(self, configFile=None):
-        return self.__srvsServer.processConfigFile(configFile)
+       if configFile is not None:
+           self.__serverConfig = ConfigParser.ConfigParser()
+           self.__serverConfig.read(configFile)
+       sections = self.__serverConfig.sections()
+       # Let's check the log file
+       self.__logFile      = self.__serverConfig.get('global','log_file')
+       if self.__logFile != 'None':
+            logging.basicConfig(filename = self.__logFile, 
+                             level = logging.DEBUG, 
+                             format="%(asctime)s: %(levelname)s: %(message)s", 
+                             datefmt = '%m/%d/%Y %I:%M:%S %p')
 
-    def run(self):
-        self.__srvsServer.run()
+       # Remove the global one
+       del(sections[sections.index('global')])
+       self._shares = {}
+       for i in sections:
+           self._shares[i] = dict(self.__serverConfig.items(i))
 
+    def NetrShareGetInfo(self,data):
+       request = NetrShareGetInfo(data)
+       self.log("NetrGetShareInfo Level: %d" % request['Level'])
+
+       s = request['NetName'][:-1].upper()
+       share  = self._shares[s]
+
+       answer = NetrShareGetInfoResponse()
+       answer['InfoStruct']['tag'] = 1
+       answer['InfoStruct']['ShareInfo1']['shi1_netname']= s+'\x00'
+       answer['InfoStruct']['ShareInfo1']['shi1_type']   = share['share type']
+       answer['InfoStruct']['ShareInfo1']['shi1_remark'] = share['comment']+'\x00' 
+       answer['ErrorCode'] = 0
+
+       return answer
+
+    def NetrServerGetInfo(self,data):
+       request = NetrServerGetInfo(data)
+       self.log("NetrServerGetInfo Level: %d" % request['Level'])
+       answer = NetrServerGetInfoResponse()
+       answer['InfoStruct']['tag'] = 101
+       # PLATFORM_ID_NT = 500
+       answer['InfoStruct']['ServerInfo101']['sv101_platform_id'] = 500
+       answer['InfoStruct']['ServerInfo101']['sv101_name'] = request['ServerName']
+       # Windows 7 = 6.1
+       answer['InfoStruct']['ServerInfo101']['sv101_version_major'] = 6
+       answer['InfoStruct']['ServerInfo101']['sv101_version_minor'] = 1
+       # Workstation = 1
+       answer['InfoStruct']['ServerInfo101']['sv101_type'] = 1
+       answer['InfoStruct']['ServerInfo101']['sv101_comment'] = NULL
+       answer['ErrorCode'] = 0
+       return answer
+
+    def NetrShareEnum(self, data):
+       request = NetrShareEnum(data)
+       self.log("NetrShareEnum Level: %d" % request['InfoStruct']['Level'])
+       shareEnum = NetrShareEnumResponse()
+       shareEnum['InfoStruct']['Level'] = 1
+       shareEnum['InfoStruct']['ShareInfo']['tag'] = 1
+       shareEnum['TotalEntries'] = len(self._shares)
+       shareEnum['InfoStruct']['ShareInfo']['Level1']['EntriesRead'] = len(self._shares)
+       shareEnum['ErrorCode'] = 0
+
+       for i in self._shares:
+           shareInfo = SHARE_INFO_1()
+           shareInfo['shi1_netname'] = i+'\x00'
+           shareInfo['shi1_type'] = self._shares[i]['share type']
+           shareInfo['shi1_remark'] = self._shares[i]['comment']+'\x00'
+           shareEnum['InfoStruct']['ShareInfo']['Level1']['Buffer'].append(shareInfo)
+
+       return shareEnum
 
 class SimpleSMBServer():
     """

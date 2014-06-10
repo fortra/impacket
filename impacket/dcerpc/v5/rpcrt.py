@@ -1,4 +1,4 @@
-# Copyright (c) 2003-2012 CORE Security Technologies
+# Copyright (c) 2003-2014 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -14,6 +14,8 @@
 #     more SSP (e.g. NETLOGON)
 # 
 
+import logging
+import socket
 from binascii import a2b_hex
 from Crypto.Cipher import ARC4
 
@@ -25,6 +27,7 @@ from impacket.uuid import uuidtup_to_bin, generate, stringver_to_bin, bin_to_uui
 from impacket.dcerpc.v5.dtypes import UCHAR, ULONG, USHORT
 from impacket.dcerpc.v5.ndr import NDRSTRUCT
 from impacket import hresult_errors
+from threading import Thread
 
 # MS/RPC Constants
 MSRPC_REQUEST   = 0x00
@@ -641,7 +644,7 @@ class MSRPCRequestHeader(MSRPCHeader):
         ('alloc_hint','<L=0'),                            # 16
         ('ctx_id','<H=0'),                                # 20
         ('op_num','<H=0'),                                # 22
-        ('_uuid','_-uuid','16 if self["flags"] & MSRPC_NOUUID > 0 else 0' ), # 22
+        ('_uuid','_-uuid','16 if self["flags"] & 0x80 > 0 else 0' ), # 22
         ('uuid',':'),                                # 22
     )
 
@@ -1332,4 +1335,210 @@ class TypeSerialization1(NDRSTRUCT):
     def getData(self, soFar = 0):
         self['PrivateHeader']['ObjectBufferLength'] = len(NDRSTRUCT.getData(self, soFar))+len(NDRSTRUCT.getDataReferents(self, soFar))-len(self['CommonHeader'])-len(self['PrivateHeader'])
         return NDRSTRUCT.getData(self, soFar)
+
+class DCERPCServer(Thread):
+    """
+    A minimalistic DCERPC Server, mainly used by the smbserver, for now. Might be useful
+    for other purposes in the future, but we should do it way stronger.
+    If you want to implement a DCE Interface Server, use this class as the base class
+    """
+    def __init__(self):
+        Thread.__init__(self)
+        self._listenPort    = 0
+        self._listenAddress = '127.0.0.1'
+        self._listenUUIDS   = {}
+        self._boundUUID     = ''
+        self._sock          = None
+        self._clientSock    = None
+        self._callid        = 1
+        self._max_frag       = None
+        self._max_xmit_size = 4280
+        self.__log = logging.getLogger()
+        self._sock = socket.socket()
+        self._sock.bind((self._listenAddress,self._listenPort))
+
+    def log(self, msg, level=logging.INFO):
+        self.__log.log(level,msg)
+
+    def addCallbacks(self, UUID, secondaryAddr, callbacks):
+        """
+        adds a call back to a UUID/opnum call
+        
+        :param uuid UUID: the interface UUID
+        :param string secondaryAddr: the secondary address to answer as part of the bind request (e.g. \\\\PIPE\\\\srvsvc)
+        :param dict callbacks: the callbacks for each opnum. Format is [opnum] = callback
+        """
+        self._listenUUIDS[uuidtup_to_bin(UUID)] = {}
+        self._listenUUIDS[uuidtup_to_bin(UUID)]['SecondaryAddr'] = secondaryAddr
+        self._listenUUIDS[uuidtup_to_bin(UUID)]['CallBacks'] = callbacks
+        self.log("Callback added for UUID %s V:%s" % UUID)
+
+    def setListenPort(self, portNum):
+        self._listenPort = portNum
+        self._sock = socket.socket()
+        self._sock.bind((self._listenAddress,self._listenPort))
+
+    def getListenPort(self):
+        return self._sock.getsockname()[1]
+
+    def recv(self):
+        finished = False
+        forceRecv = 0
+        retAnswer = ''
+        while not finished:
+            # At least give me the MSRPCRespHeader, especially important for TCP/UDP Transports
+            self.response_data = self._clientSock.recv(MSRPCRespHeader._SIZE)
+            # No data?, connection might have closed
+            if self.response_data == '':
+                return None
+            self.response_header = MSRPCRespHeader(self.response_data)
+            # Ok, there might be situation, especially with large packets, 
+            # that the transport layer didn't send us the full packet's contents
+            # So we gotta check we received it all
+            while ( len(self.response_data) < self.response_header['frag_len'] ):
+               self.response_data += self._clientSock.recv(self.response_header['frag_len']-len(self.response_data))
+            self.response_header = MSRPCRespHeader(self.response_data)
+            if self.response_header['flags'] & MSRPC_LASTFRAG:
+                # No need to reassembly DCERPC
+                finished = True
+            else:
+                # Forcing Read Recv, we need more packets!
+                forceRecv = 1
+            answer = self.response_header['pduData']
+            auth_len = self.response_header['auth_len']
+            if auth_len:
+                auth_len += 8
+                auth_data = answer[-auth_len:]
+                sec_trailer = SEC_TRAILER(data = auth_data)
+                answer = answer[:-auth_len]
+                if sec_trailer['auth_pad_len']:
+                    answer = answer[:-sec_trailer['auth_pad_len']]
+              
+            retAnswer += answer
+        return self.response_data
+    
+    def run(self):
+        self._sock.listen(10)
+        while True:
+            self._clientSock, address = self._sock.accept()
+            try:
+                while True:
+                    data = self.recv()
+                    if data is None:
+                        # No data.. connection closed
+                        break
+                    answer = self.processRequest(data)
+                    if answer != None:
+                        self.send(answer)
+            except Exception, e:
+                import traceback
+                print traceback.print_exc()
+                pass
+            self._clientSock.close()
+
+    def send(self, data):
+        max_frag       = self._max_frag
+        if len(data['pduData']) > self._max_xmit_size - 32:
+            max_frag   = self._max_xmit_size - 32    # XXX: 32 is a safe margin for auth data
+
+        if self._max_frag:
+            max_frag   = min(max_frag, self._max_frag)
+        if max_frag and len(data['pduData']) > 0:
+            packet     = data['pduData']
+            offset     = 0
+            while 1:
+                toSend = packet[offset:offset+max_frag]
+                if not toSend:
+                    break
+                flags  = 0
+                if offset == 0:
+                    flags |= MSRPC_FIRSTFRAG
+                offset += len(toSend)
+                if offset == len(packet):
+                    flags |= MSRPC_LASTFRAG
+                data['flags']   = flags
+                data['pduData'] = toSend
+                self._clientSock.send(data.get_packet())
+        else:
+            self._clientSock.send(data.get_packet())
+        self._callid += 1
+
+    def bind(self,packet, bind):
+        # Standard NDR Representation
+        NDRSyntax   = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
+        resp = MSRPCBindAck()
+
+        resp['type']             = MSRPC_BINDACK
+        resp['flags']            = packet['flags']
+        resp['frag_len']         = 0
+        resp['auth_len']         = 0
+        resp['auth_data']        = ''
+        resp['call_id']          = packet['call_id'] 
+        resp['max_tfrag']        = bind['max_tfrag']
+        resp['max_rfrag']        = bind['max_rfrag']
+        resp['assoc_group']      = 0x1234
+        resp['ctx_num']          = 0
+
+        data      = bind['ctx_items']
+        ctx_items = ''
+        for i in range(bind['ctx_num']):
+            result = MSRPC_CONT_RESULT_USER_REJECT
+            item   = CtxItem(data)
+            data   = data[len(item):]
+
+            # First we check the Transfer Syntax is NDR32, what we support
+            if item['TransferSyntax'] == uuidtup_to_bin(NDRSyntax):
+                # Now Check if the interface is what we listen
+                reason = 1 # Default, Abstract Syntax not supported
+                for i in self._listenUUIDS:
+                    if item['AbstractSyntax'] == i:
+                        # Match, we accept the bind request
+                        resp['SecondaryAddr']    = self._listenUUIDS[item['AbstractSyntax']]['SecondaryAddr']
+                        resp['SecondaryAddrLen'] = len(resp['SecondaryAddr'])+1
+                        reason           = 0
+                        self._boundUUID = i
+            else:
+                # Fail the bind request for this context
+                reason = 2 # Transfer Syntax not supported
+            if reason == 0:
+               result = MSRPC_CONT_RESULT_ACCEPT
+            resp['ctx_num']             += 1
+            itemResult                   = CtxItemResult()
+            itemResult['Result']         = result
+            itemResult['Reason']         = reason
+            itemResult['TransferSyntax'] = uuidtup_to_bin(NDRSyntax)
+            ctx_items                   += str(itemResult)
+
+        resp['Pad']              ='A'*((4-((resp["SecondaryAddrLen"]+MSRPCBindAck._SIZE) % 4))%4)
+        resp['ctx_items'] = ctx_items
+        resp['frag_len']  = len(str(resp))
+
+        self._clientSock.send(str(resp)) 
+        return None
+
+    def processRequest(self,data):
+        packet = MSRPCHeader(data)
+        if packet['type'] == MSRPC_BIND:
+            bind   = MSRPCBind(packet['pduData'])
+            packet = self.bind(packet, bind)
+        elif packet['type'] == MSRPC_REQUEST:
+            request          = MSRPCRequestHeader(data)
+            response         = MSRPCRespHeader(data)
+            response['type'] = MSRPC_RESPONSE
+            # Serve the opnum requested, if not, fails
+            if self._listenUUIDS[self._boundUUID]['CallBacks'].has_key(request['op_num']):
+                # Call the function 
+                returnData          = self._listenUUIDS[self._boundUUID]['CallBacks'][request['op_num']](request['pduData'])
+                response['pduData'] = returnData
+            else:
+                response['type']    = MSRPC_FAULT
+                response['pduData'] = struct.pack('<L',0x000006E4L)
+            response['frag_len'] = len(response)
+            return response
+        else:
+            # Defaults to a fault
+            packet         = MSRPCRespHeader(data)
+            packet['type'] = MSRPC_FAULT
+
+        return packet
 
