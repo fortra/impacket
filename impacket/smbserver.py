@@ -2269,7 +2269,7 @@ class SMBCommands():
                     _dialects_data['SecurityBlob'] = blob.getData()
         
                     _dialects_parameters = smb.SMBExtended_Security_Parameters()
-                    _dialects_parameters['Capabilities']    = smb.SMB.CAP_EXTENDED_SECURITY | smb.SMB.CAP_USE_NT_ERRORS | smb.SMB.CAP_NT_SMBS | smb.SMB.CAP_UNICODE #| smb.SMB.CAP_RPC_REMOTE_APIS
+                    _dialects_parameters['Capabilities']    = smb.SMB.CAP_EXTENDED_SECURITY | smb.SMB.CAP_USE_NT_ERRORS | smb.SMB.CAP_NT_SMBS | smb.SMB.CAP_UNICODE 
                     _dialects_parameters['ChallengeLength'] = 0
 
            else:
@@ -2284,7 +2284,13 @@ class SMBCommands():
                         # TODO: Handle random challenges, now one that can be used with rainbow tables
                         _dialects_data['Challenge'] = '\x11\x22\x33\x44\x55\x66\x77\x88'
                         _dialects_parameters['ChallengeLength'] = 8
-                    _dialects_parameters['Capabilities']    = smb.SMB.CAP_USE_NT_ERRORS | smb.SMB.CAP_NT_SMBS #| smb.SMB.CAP_RPC_REMOTE_APIS
+                    _dialects_parameters['Capabilities']    = smb.SMB.CAP_USE_NT_ERRORS | smb.SMB.CAP_NT_SMBS 
+
+           # Let's see if we need to support RPC_REMOTE_APIS
+           config = smbServer.getServerConfig()
+           if config.has_option('global','rpc_apis'):
+               if config.getboolean('global', 'rpc_apis') is True:
+                  _dialects_parameters['Capabilities'] |= smb.SMB.CAP_RPC_REMOTE_APIS
 
            _dialects_parameters['DialectIndex']    = index
            _dialects_parameters['SecurityMode']    = smb.SMB.SECURITY_AUTH_ENCRYPTED | smb.SMB.SECURITY_SHARE_USER
@@ -2930,6 +2936,7 @@ class SimpleSMBServer():
             self.__smbConfig.set('global','server_domain',''.join([random.choice(string.letters) for i in range(8)])
 )
             self.__smbConfig.set('global','log_file','None')
+            self.__smbConfig.set('global','rpc_apis','yes')
             self.__smbConfig.set('global','credentials_file','')
 
             # IPC always needed
