@@ -2087,6 +2087,12 @@ class SMBClose_Parameters(SMBCommand_Parameters):
         ('Time','<L=0'),
    )
 
+############# SMB_COM_FLUSH (0x05)
+class SMBFlush_Parameters(SMBCommand_Parameters):
+   structure = (
+        ('FID','<H'),
+   )
+
 ############# SMB_COM_CREATE_DIRECTORY (0x00)
 class SMBCreateDirectory_Data(AsciiOrUnicodeStructure):
     AsciiStructure = (

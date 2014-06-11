@@ -55,6 +55,19 @@ import hashlib
 # command (or either TRANSACTION). That's why I'm putting them here
 # TODO: Return NT ERROR Codes
 
+def outputJohn(challenge, username, domain, lmresponse, ntresponse):
+    # We don't want to add a possible failure here, since this is an 
+    # extra bonus. We try, if it fails, returns nothing
+    try:
+        if len(ntresponse) > 24:
+            # Extended Security
+            retval =  '%s::%s:%s:%s:%s' % (username.decode('utf-16le'), domain.decode('utf-16le'), challenge.encode('hex'), ntresponse.encode('hex')[:32], ntresponse.encode('hex')[32:])
+        else:
+            retval = '%s::%s:%s:%s:%s' % (username.decode('utf-16le'), domain.decode('utf-16le'), lmresponse.encode('hex'), ntresponse.encode('hex'), challenge.encode('hex'))
+        return retval
+    except:
+        return ''
+
 def decodeSMBString( flags, text ):
     if flags & smb.SMB.FLAGS2_UNICODE:
         return text.decode('utf-16le')
@@ -1292,6 +1305,38 @@ class SMBCommands():
 
         return [respSMBCommand], None, errorCode
 
+    def smbComFlush(self, connId, smbServer, SMBCommand,recvPacket ):
+        connData = smbServer.getConnectionData(connId)
+
+        respSMBCommand        = smb.SMBCommand(smb.SMB.SMB_COM_FLUSH)
+        respParameters        = ''
+        respData              = ''
+
+        comFlush =  smb.SMBFlush_Parameters(SMBCommand['Parameters'])
+
+        errorCode = 0xFF
+        if connData['OpenedFiles'].has_key(comFlush['FID']):
+             errorCode = STATUS_SUCCESS
+             fileHandle = connData['OpenedFiles'][comFlush['FID']]['FileHandle']
+             try:
+                 os.fsync(fileHandle)
+             except Exception, e:
+                 smbServer.log("comFlush %s" % e, logging.ERROR)
+                 errorCode = STATUS_ACCESS_DENIED
+        else:
+            errorCode = STATUS_INVALID_HANDLE
+
+        if errorCode > 0:
+            respParameters = ''
+            respData       = ''
+
+        respSMBCommand['Parameters']             = respParameters
+        respSMBCommand['Data']                   = respData 
+        smbServer.setConnectionData(connId, connData)
+
+        return [respSMBCommand], None, errorCode
+
+
     def smbComCreateDirectory(self, connId, smbServer, SMBCommand,recvPacket ):
         connData = smbServer.getConnectionData(connId)
 
@@ -2202,11 +2247,12 @@ class SMBCommands():
                 smbServer.log('User %s\\%s authenticated successfully' % (authenticateMessage['user_name'], authenticateMessage['host_name']))
                 # Let's store it in the connection data
                 connData['AUTHENTICATE_MESSAGE'] = authenticateMessage
+                output = outputJohn( connData['CHALLENGE_MESSAGE']['challenge'], connData['AUTHENTICATE_MESSAGE']['user_name'], connData['AUTHENTICATE_MESSAGE']['domain_name'], connData['AUTHENTICATE_MESSAGE']['lanman'], connData['AUTHENTICATE_MESSAGE']['ntlm'] ) 
+                smbServer.log(output)
             else:
                 raise("Unknown NTLMSSP MessageType %d" % messageType)
 
             respParameters['SecurityBlobLength'] = len(respToken)
-
             respData['SecurityBlobLength'] = respParameters['SecurityBlobLength'] 
             respData['SecurityBlob']       = respToken.getData()
 
@@ -2226,6 +2272,8 @@ class SMBCommands():
             connData['Uid'] = 10
             respParameters['Action'] = 0
             smbServer.log('User %s\\%s authenticated successfully (basic)' % (sessionSetupData['PrimaryDomain'], sessionSetupData['Account']))
+            output = outputJohn( '', sessionSetupData['Account'], sessionSetupData['PrimaryDomain'], sessionSetupData['AnsiPwd'], sessionSetupData['UnicodePwd'] ) 
+            smbServer.log(output)
 
 
         respData['NativeOS']     = encodeSMBString(recvPacket['Flags2'], smbServer.getServerOS())
@@ -2445,6 +2493,7 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
         }
 
         self.__smbCommands = { 
+ #smb.SMB.SMB_COM_FLUSH:              self.__smbCommandsHandler.smbComFlush, 
  smb.SMB.SMB_COM_CREATE_DIRECTORY:   self.__smbCommandsHandler.smbComCreateDirectory, 
  smb.SMB.SMB_COM_DELETE_DIRECTORY:   self.__smbCommandsHandler.smbComDeleteDirectory, 
  smb.SMB.SMB_COM_RENAME:             self.__smbCommandsHandler.smbComRename, 
