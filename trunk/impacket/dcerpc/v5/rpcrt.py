@@ -6,7 +6,12 @@
 #
 # $Id$
 #
-# Partial C706.pdf + [MS-RPCE] implementation
+# Description:
+#   Partial C706.pdf + [MS-RPCE] implementation
+#
+#   Best way to learn how to use these calls is to grab the protocol standard
+#   so you understand what the call does, and then read the test case located
+#   at https://code.google.com/p/impacket/source/browse/#svn%2Ftrunk%2Fimpacket%2Ftestcases%2FSMB_RPC
 #
 # ToDo: 
 # [ ] Take out all the security provider stuff out of here (e.g. RPC_C_AUTHN_WINNT)
