@@ -9,7 +9,7 @@ from distutils.core import setup
 PACKAGE_NAME = "impacket"
 
 setup(name = PACKAGE_NAME,
-      version = "0.9.12-dev",
+      version = "0.9.12",
       description = "Network protocols Constructors and Dissectors",
       url = "http://corelabs.coresecurity.com/index.php?module=Wiki&action=view&type=tool&name=Impacket",
       author = "CORE Security Technologies",
@@ -25,4 +25,5 @@ setup(name = PACKAGE_NAME,
                     (os.path.join('share', 'doc', PACKAGE_NAME, 'testcases', 'dot11'),glob.glob('impacket/testcases/dot11/*')),
                     (os.path.join('share', 'doc', PACKAGE_NAME, 'testcases', 'ImpactPacket'),glob.glob('impacket/testcases/ImpactPacket/*')),
                     (os.path.join('share', 'doc', PACKAGE_NAME, 'testcases', 'SMB_RPC'),glob.glob('impacket/testcases/SMB_RPC/*'))],
+      requires=['pycrypto (>=2.6)'],
       )
