@@ -1,6 +1,17 @@
 Complete list of changes can be found at:
 http://code.google.com/p/impacket/source/list
 
+July 2014: 0.9.12:
+1) The following protocols were added based on its standard definition:
+   * [MS-DCOM] - Distributed Component Object module Protocol (dcom.py)
+   * [MS-OAUT] - OLE Automation Protocol (dcom/oaut.py)
+   * [MS-WMI]/[MS-WMIO] : Windows Management Instrumentation Remote Protocol (dcom/wmi.py)
+
+2) New examples:
+   a. wmiquery.py: executes WMI queries and get WMI object's descriptions.
+   b. wmiexec.py: agent-less, semi-interactive shell using WMI.
+   c. smbserver.py: quick an easy way to share files using the SMB protocol.
+
 February 2014: 0.9.11:
 1) New RPC and NDR runtime (located at impacket.dcerpc.v5, old one still available):
   a. Support marshaling/unmarshaling for NDR20 and NDR64 (experimental)
