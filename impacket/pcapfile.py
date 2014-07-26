@@ -18,9 +18,11 @@ O_ICMP = 2
 O_UDP_DATA = 3
 O_ICMP_DATA = 3
 
+MAGIC = "\xD4\xC3\xB2\xA1"
+
 class PCapFileHeader(structure.Structure):
     structure = (
-        ('magic', '"\xd4\xc3\xb2\xa1'),
+        ('magic', MAGIC),
         ('versionMajor', '<H=2'),
         ('versionMinor', '<H=4'),
         ('GMT2localCorrection', '<l=0'),
