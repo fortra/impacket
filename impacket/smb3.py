@@ -358,9 +358,9 @@ class SMB3:
              # that the client MUST allocate sequence number 1 from Connection.SequenceWindow, and MUST set
              # MessageId field of the SMB2 header to 1. Otherwise, the client MUST proceed as follows.
             negResp = SMB2Negotiate_Response(ans['Data'])
-            self._Connection['MaxTransactSize']   = negResp['MaxTransactSize']
-            self._Connection['MaxReadSize']       = negResp['MaxReadSize']
-            self._Connection['MaxWriteSize']      = negResp['MaxWriteSize']
+            self._Connection['MaxTransactSize']   = min(0x100000,negResp['MaxTransactSize'])
+            self._Connection['MaxReadSize']       = min(0x100000,negResp['MaxReadSize'])
+            self._Connection['MaxWriteSize']      = min(0x100000,negResp['MaxWriteSize'])
             self._Connection['ServerGuid']        = negResp['ServerGuid']
             self._Connection['GSSNegotiateToken'] = negResp['Buffer']
             self._Connection['Dialect']           = negResp['DialectRevision']
