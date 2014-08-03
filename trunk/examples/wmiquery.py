@@ -140,7 +140,7 @@ if __name__ == '__main__':
 
 
     if options.hashes is not None:
-        lmhash, nthash = self.hashes.split(':')
+        lmhash, nthash = options.hashes.split(':')
     else:
         lmhash = ''
         nthash = ''
