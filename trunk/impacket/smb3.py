@@ -497,7 +497,7 @@ class SMB3:
             packet = self.recvSMB(packetID)
             try:
                 if packet.isValidAnswer(STATUS_SUCCESS):
-                    sessionSetupResponse = SMB2SessionSetup_Response(ans['Data'])
+                    sessionSetupResponse = SMB2SessionSetup_Response(packet['Data'])
                     self._Session['SessionFlags'] = sessionSetupResponse['SessionFlags']
 
                     # Calculate the key derivations for dialect 3.0
