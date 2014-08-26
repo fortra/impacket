@@ -161,7 +161,7 @@ CODEPAGE_WESTERN = 1252
 StringCodePages = {
     CODEPAGE_UNICODE : 'utf-16le', 
     CODEPAGE_ASCII   : 'ascii',
-    CODEPAGE_WESTERN : 'ascii',
+    CODEPAGE_WESTERN : 'cp1252'
 }
 
 # Structures
