@@ -942,7 +942,7 @@ class LSASecrets(OfflineRegistry):
                         secret =  "%s:" % account
                 else:
                     # We don't support getting this info for local targets at the moment
-                    secret = '(Unknown User):',
+                    secret = '(Unknown User):'
                 secret += strDecoded       
         elif upperName.startswith('DEFAULTPASSWORD'):
             # defaults password for winlogon
