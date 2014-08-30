@@ -927,9 +927,8 @@ class SMBFindFileBothDirectoryInfo(AsciiOrUnicodeStructure):
         ('ShortNameLength','<B=0'),
         ('Reserved','<B=0'),
         ('ShortName','24s'),
-        ('FileName','u'),
+        ('FileName',':'),
     )
-
 
 # SMB_FIND_FILE_ID_FULL_DIRECTORY_INFO level
 class SMBFindFileIdFullDirectoryInfo(AsciiOrUnicodeStructure):
@@ -954,7 +953,7 @@ class SMBFindFileIdFullDirectoryInfo(AsciiOrUnicodeStructure):
         ('FileNameLength','<L-FileName','len(FileName)*2'),
         ('EaSize','<L=0'),
         ('FileID','<q=0'),
-        ('FileName','u'),
+        ('FileName',':'),
     )
 
 # SMB_FIND_FILE_ID_BOTH_DIRECTORY_INFO level
@@ -988,7 +987,7 @@ class SMBFindFileIdBothDirectoryInfo(AsciiOrUnicodeStructure):
         ('ShortName','24s'),
         ('Reserved','<H=0'),
         ('FileID','<q=0'),
-        ('FileName','u'),
+        ('FileName',':'),
     )
 
 # SMB_FIND_FILE_DIRECTORY_INFO level
@@ -1010,7 +1009,7 @@ class SMBFindFileDirectoryInfo(AsciiOrUnicodeStructure):
     )
     UnicodeStructure = (
         ('FileNameLength','<L-FileName','len(FileName)*2'),
-        ('FileName','u'),
+        ('FileName',':'),
     )
 
 # SMB_FIND_FILE_NAMES_INFO level
@@ -1072,7 +1071,7 @@ class SMBFindInfoStandard(AsciiOrUnicodeStructure):
     )
     UnicodeStructure = (
         ('FileNameLength','<B-FileName','len(FileName)*2'),
-        ('FileName','u'),
+        ('FileName',':'),
     )
 
 # SET_FILE_INFORMATION structures
