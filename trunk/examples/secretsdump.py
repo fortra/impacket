@@ -682,7 +682,7 @@ class SAMHashes(OfflineRegistry):
         checkSum = self.MD5( self.__hashedBootKey[:16] + DIGITS + self.__hashedBootKey[:16] + QWERTY)
 
         if checkSum != self.__hashedBootKey[16:]:
-            raise Exception('hashedBootKey CheckSum failed!')
+            raise Exception('hashedBootKey CheckSum failed, Syskey startup password probably in use! :(')
 
     def __decryptHash(self, rid, cryptedHash, constant):
         # Section 2.2.11.1.1 Encrypting an NT or LM Hash Value with a Specified Key
