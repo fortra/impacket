@@ -54,6 +54,10 @@ class MiniImpacketShell(cmd.Cmd):
     def emptyline(self):
         pass
 
+    def precmd(self,line):
+        # switch to unicode
+        return line.decode('utf-8')
+
     def onecmd(self,s):
         retVal = False
         try:
@@ -287,12 +291,15 @@ class MiniImpacketShell(cmd.Cmd):
             self.smb.closeFile(self.tid,fid)
             self.pwd = oldpwd
             logging.error("Invalid directory")
-        except Exception, e:
+        except SessionError, e:
             if e.getErrorCode() == nt_errors.STATUS_FILE_IS_A_DIRECTORY: 
                pass
             else:
                self.pwd = oldpwd
                raise
+        except Exception, e:
+            self.pwd = oldpwd
+            raise
 
     def do_pwd(self,line):
         if self.loggedIn is False:
