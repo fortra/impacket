@@ -292,6 +292,15 @@ def findFirst2(path, fileName, level, searchAttributes):
            item['ShortName']         = '\x00'*24
            item['FileName']          = os.path.basename(i).encode(encoding)
            item['NextEntryOffset']   = len(item)
+        elif level == smb.SMB_FIND_FILE_DIRECTORY_INFO:
+           item['EndOfFile']         = size
+           item['AllocationSize']    = size
+           item['CreationTime']      = getFileTime(ctime)
+           item['LastAccessTime']    = getFileTime(atime)
+           item['LastWriteTime']     = getFileTime(mtime)
+           item['LastChangeTime']    = getFileTime(mtime)
+           item['FileName']          = os.path.basename(i).encode(encoding)
+           item['NextEntryOffset']   = len(item)
         elif level == smb.SMB_FIND_FILE_FULL_DIRECTORY_INFO or level == smb.SMB_FIND_FILE_ID_FULL_DIRECTORY_INFO:
            item['EaSize']            = 0
            item['EndOfFile']         = size
@@ -1897,10 +1906,10 @@ class SMBCommands():
 
              if errorCode == STATUS_SUCCESS:
                  desiredAccess = ntCreateAndXParameters['AccessMask']
-                 if desiredAccess & smb.FILE_READ_DATA:
+                 if (desiredAccess & smb.FILE_READ_DATA) or (desiredAccess & smb.GENERIC_READ):
                      mode |= os.O_RDONLY
-                 if desiredAccess & smb.FILE_WRITE_DATA:
-                     if desiredAccess & smb.FILE_READ_DATA:
+                 if (desiredAccess & smb.FILE_WRITE_DATA) or (desiredAccess & smb.GENERIC_WRITE):
+                     if (desiredAccess & smb.FILE_READ_DATA) or (desiredAccess & smb.GENERIC_READ):
                          mode |= os.O_RDWR #| os.O_APPEND
                      else: 
                          mode |= os.O_WRONLY #| os.O_APPEND
@@ -2149,14 +2158,19 @@ class SMBCommands():
             sessionSetupData.fromString(SMBCommand['Data'])
             connData['Capabilities'] = sessionSetupParameters['Capabilities']
 
-            if struct.unpack('B',sessionSetupData['SecurityBlob'][0])[0] != smb.ASN1_AID:
-               # If there no GSSAPI ID, it must be an AUTH packet
-               blob = SPNEGO_NegTokenResp(sessionSetupData['SecurityBlob'])
-               token = blob['ResponseToken']
-            else:
+            rawNTLM = False
+            if struct.unpack('B',sessionSetupData['SecurityBlob'][0])[0] == smb.ASN1_AID:
                # NEGOTIATE packet
                blob =  SPNEGO_NegTokenInit(sessionSetupData['SecurityBlob'])
                token = blob['MechToken']
+            elif struct.unpack('B',sessionSetupData['SecurityBlob'][0])[0] == smb.ASN1_SUPPORTED_MECH:
+               # AUTH packet
+               blob = SPNEGO_NegTokenResp(sessionSetupData['SecurityBlob'])
+               token = blob['ResponseToken']
+            else:
+               # No GSSAPI stuff, raw NTLMSSP
+               rawNTLM = True
+               token = sessionSetupData['SecurityBlob']
 
             # Here we only handle NTLMSSP, depending on what stage of the 
             # authentication we are, we act on it
@@ -2211,12 +2225,15 @@ class SMBCommands():
                 challengeMessage['Version']          = '\xff'*8
                 challengeMessage['VersionLen']       = 8
 
-                respToken = SPNEGO_NegTokenResp()
-                # accept-incomplete. We want more data
-                respToken['NegResult'] = '\x01'  
-                respToken['SupportedMech'] = TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']
+                if rawNTLM is False:
+                    respToken = SPNEGO_NegTokenResp()
+                    # accept-incomplete. We want more data
+                    respToken['NegResult'] = '\x01'  
+                    respToken['SupportedMech'] = TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']
 
-                respToken['ResponseToken'] = challengeMessage.getData()
+                    respToken['ResponseToken'] = challengeMessage.getData()
+                else:
+                    respToken = challengeMessage
 
                 # Setting the packet to STATUS_MORE_PROCESSING
                 errorCode = STATUS_MORE_PROCESSING_REQUIRED
