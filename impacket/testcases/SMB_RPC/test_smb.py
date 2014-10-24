@@ -16,6 +16,13 @@ import time, ntpath
 
 class SMBTests(unittest.TestCase):
 
+    def test_connectTree(self):
+        smb = SMBConnection('*SMBSERVER', self.machine, preferredDialect = self.dialects)
+        smb.login(self.username, self.password, self.domain)
+        tid = smb.connectTree(self.share)
+        UNC = '\\\\%s\\%s' % (self.machine, self.share)
+        tid = smb.connectTree(UNC)
+
     def test_connection(self):
         smb = SMBConnection('*SMBSERVER', self.machine, preferredDialect = self.dialects)
         smb.login(self.username, self.password, self.domain)
