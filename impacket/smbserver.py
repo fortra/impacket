@@ -2101,7 +2101,13 @@ class SMBCommands():
         errorCode = STATUS_SUCCESS
 
         ## Process here the request, does the share exist?
-        path = ntpath.basename(decodeSMBString(recvPacket['Flags2'], treeConnectAndXData['Path']))
+        UNCOrShare = decodeSMBString(recvPacket['Flags2'], treeConnectAndXData['Path'])
+
+        # Is this a UNC?
+        if ntpath.ismount(UNCOrShare):
+            path = UNCOrShare.split('\\')[3]
+        else:
+            path = ntpath.basename(UNCOrShare)
 
         share = searchShare(connId, path, smbServer) 
         if share is not None:
