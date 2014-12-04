@@ -38,8 +38,11 @@ def sendReceive(data, host, kdcHost):
     s.connect((targetHost, 88))
     s.sendall(messageLen + data)
 
-    recvData = s.recv(4)
-    r = s.recv(struct.unpack('!i', recvData)[0])
+    recvDataLen = struct.unpack('!i', s.recv(4))[0]
+
+    r = s.recv(recvDataLen)
+    while len(r) < recvDataLen:
+        r += s.recv(recvDataLen-len(r))
 
     try:
         krbError = KerberosError(packet = decoder.decode(r, asn1Spec = KRB_ERROR())[0])
