@@ -286,7 +286,7 @@ class SMB3:
         if self._Connection['SequenceWindow'] > 3:
             packet['CreditRequestResponse'] = 127
 
-        if self._Session['SigningActivated'] is True and self._Connection['SequenceWindow'] > 3:
+        if self._Session['SigningActivated'] is True and self._Connection['SequenceWindow'] > 2:
             if packet['TreeID'] > 0 and self._Session['TreeConnectTable'].has_key(packet['TreeID']) is True:
                 if self._Session['TreeConnectTable'][packet['TreeID']]['EncryptData'] is False:
                     packet['Flags'] = SMB2_FLAGS_SIGNED
@@ -393,6 +393,142 @@ class SMB3:
             self.__domain,
             self.__lmhash,
             self.__nthash)
+
+    def kerberosLogin(self, user, password, domain = '', lmhash = '', nthash = '', kdcHost = ''):
+        # If we have hashes, normalize them
+        if ( lmhash != '' or nthash != ''):
+            if len(lmhash) % 2:     lmhash = '0%s' % lmhash
+            if len(nthash) % 2:     nthash = '0%s' % nthash
+            try: # just in case they were converted already
+                lmhash = a2b_hex(lmhash)
+                nthash = a2b_hex(nthash)
+            except:
+                pass
+
+        self.__userName = user
+        self.__password = password
+        self.__domain   = domain
+        self.__lmhash   = lmhash
+        self.__nthash   = nthash
+        self.__kdc      = kdcHost
+       
+        sessionSetup = SMB2SessionSetup()
+        if self.RequireMessageSigning is True:
+           sessionSetup['SecurityMode'] = SMB2_NEGOTIATE_SIGNING_REQUIRED
+        else:
+           sessionSetup['SecurityMode'] = SMB2_NEGOTIATE_SIGNING_ENABLED
+
+        sessionSetup['Flags'] = 0
+        #sessionSetup['Capabilities'] = SMB2_GLOBAL_CAP_LARGE_MTU | SMB2_GLOBAL_CAP_LEASING | SMB2_GLOBAL_CAP_DFS
+
+        # Importing down here so pyasn1 is not required if kerberos is not used.
+        from impacket.krb5.asn1 import AP_REQ, Authenticator, TGS_REP, seq_set, seq_set_dict
+        from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS
+        from impacket.krb5 import constants
+        from impacket.krb5.types import Principal, KerberosTime, Ticket
+        from impacket.winregistry import hexdump
+        from pyasn1.codec.der import decoder, encoder
+        import datetime
+
+        # First of all, we need to get a TGT for the user
+        userName = Principal(user, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
+        tgt, cipher, sessionKey = getKerberosTGT(userName, password, domain, lmhash, nthash, kdcHost)
+
+        # Now that we have the TGT, we should ask for a TGS for cifs
+
+        serverName = Principal('cifs/%s.%s' % (self._Connection['ServerName'],domain), type=constants.PrincipalNameType.NT_SRV_INST.value)
+        tgs, cipher, sessionKey = getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey)
+
+        # Let's build a NegTokenInit with a Kerberos REQ_AP
+
+        blob = SPNEGO_NegTokenInit() 
+
+        # Kerberos
+        blob['MechTypes'] = [TypesMech['MS KRB5 - Microsoft Kerberos 5']]
+
+        # Let's extract the ticket from the TGS
+        tgs = decoder.decode(tgs, asn1Spec = TGS_REP())[0]
+        ticket = Ticket()
+        ticket.from_asn1(tgs.getComponentByName('ticket'))
+        
+        # Now let's build the AP_REQ
+        apReq = AP_REQ()
+        apReq.setComponentByName('pvno', 5)
+        apReq.setComponentByName('msg-type', int(constants.ApplicationTagNumbers.AP_REQ.value))
+
+        opts = list()
+        apReq.setComponentByName('ap-options', constants.encodeFlags(opts))
+        seq_set(apReq,'ticket', ticket.to_asn1)
+
+        authenticator = Authenticator()
+        authenticator.setComponentByName('authenticator-vno',5)
+        authenticator.setComponentByName('crealm',domain)
+        seq_set(authenticator, 'cname', userName.components_to_asn1)
+        #authenticator.setComponentByName('cksum',)
+        now = datetime.datetime.utcnow()
+
+        authenticator.setComponentByName('cusec', now.microsecond)
+        authenticator.setComponentByName('ctime', KerberosTime.to_asn1(now))
+
+        encodedAuthenticator = encoder.encode(authenticator)
+
+        # Key Usage 11
+        # AP-REQ Authenticator (includes application authenticator
+        # subkey), encrypted with the application session key
+        # (Section 5.5.1)
+        encryptedEncodedAuthenticator = cipher.encrypt(sessionKey, 11, encodedAuthenticator, None)
+
+        encryptedData = {
+             'etype': int(constants.EncriptionTypes.rc4_hmac.value),
+             'cipher': encryptedEncodedAuthenticator 
+        }
+
+        seq_set_dict(apReq, 'authenticator', encryptedData)
+
+        blob['MechToken'] = encoder.encode(apReq)
+
+        sessionSetup['SecurityBufferLength'] = len(blob)
+        sessionSetup['Buffer']               = blob.getData()
+
+        packet = self.SMB_PACKET()
+        packet['Command'] = SMB2_SESSION_SETUP
+        packet['Data']    = sessionSetup
+
+        packetID = self.sendSMB(packet)
+        ans = self.recvSMB(packetID)
+        if ans.isValidAnswer(STATUS_SUCCESS):
+            self._Session['SessionID']       = ans['SessionID']
+            self._Session['SigningRequired'] = self._Connection['RequireSigning']
+            self._Session['UserCredentials'] = (user, password, domain, lmhash, nthash)
+            self._Session['Connection']      = self._NetBIOSSession.get_socket()
+            sessionSetupResponse = SMB2SessionSetup_Response(ans['Data'])
+
+            self._Session['SessionKey']  = sessionKey
+            if self._Session['SigningRequired'] is True and self._Connection['Dialect'] == SMB2_DIALECT_30:
+                self._Session['SigningKey']  = crypto.KDF_CounterMode(sessKey, "SMB2AESCMAC\x00", "SmbSign\x00", 128)
+
+            # Calculate the key derivations for dialect 3.0
+            if self._Session['SigningRequired'] is True:
+                self._Session['SigningActivated'] = True
+            if self._Connection['Dialect'] == SMB2_DIALECT_30:
+                self._Session['ApplicationKey']  = crypto.KDF_CounterMode(sessKey, "SMB2APP\x00", "SmbRpc\x00", 128)
+            if self._Session['EncryptData'] is True:
+                self._Session['EncryptionKey']  = crypto.KDF_CounterMode(sessKey, "SMB2AESCCM\x00", "ServerIn \x00", 128)
+                self._Session['DecryptionKey']  = crypto.KDF_CounterMode(sessKey, "SMB2AESCCM\x00", "ServerOut\x00", 128)
+       
+            return True
+        else:
+            # We clean the stuff we used in case we want to authenticate again
+            # within the same connection
+            self._Session['UserCredentials']   = ''
+            self._Session['Connection']        = 0
+            self._Session['SessionID']         = 0
+            self._Session['SigningRequired']   = False
+            self._Session['SigningKey']        = ''
+            self._Session['SessionKey']        = ''
+            self._Session['SigningActivated']  = False
+            raise
+
 
     def login(self, user, password, domain = '', lmhash = '', nthash = ''):
         # If we have hashes, normalize them
