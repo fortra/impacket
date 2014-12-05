@@ -146,6 +146,27 @@ class SMBConnection():
         except (smb.SessionError, smb3.SessionError), e:
             raise SessionError(e.get_error_code())
 
+    def kerberosLogin(self, user, password, domain = '', lmhash = '', nthash = '', kdcHost=None):
+        """
+        logins into the target system explicitly using Kerberos. Hashes are used if RC4_HMAC is supported.
+
+        :param string user: username
+        :param string password: password for the user
+        :param string domain: domain where the account is valid for (required)
+        :param string lmhash: LMHASH used to authenticate using hashes (password is not used)
+        :param string nthash: NTHASH used to authenticate using hashes (password is not used)
+        :param string kdcHost: hostname or IP Address for the KDC. If None, the domain will be used (it needs to resolve tho)
+
+        :return: None, raises a Session Error if error.
+        """
+
+        if self.getDialect() == smb.SMB_DIALECT:
+            raise "SMB1 Kerberos Login still not supported"
+        try: 
+            return self._SMBConnection.kerberosLogin(user, password, domain, lmhash, nthash, kdcHost)
+        except (smb.SessionError, smb3.SessionError), e:
+            raise SessionError(e.get_error_code())
+
     def isGuestSession(self):
         try:
             return self._SMBConnection.isGuestSession()

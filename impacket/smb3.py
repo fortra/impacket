@@ -449,26 +449,26 @@ class SMB3:
         # Let's extract the ticket from the TGS
         tgs = decoder.decode(tgs, asn1Spec = TGS_REP())[0]
         ticket = Ticket()
-        ticket.from_asn1(tgs.getComponentByName('ticket'))
+        ticket.from_asn1(tgs['ticket'])
         
         # Now let's build the AP_REQ
         apReq = AP_REQ()
-        apReq.setComponentByName('pvno', 5)
-        apReq.setComponentByName('msg-type', int(constants.ApplicationTagNumbers.AP_REQ.value))
+        apReq['pvno'] = 5
+        apReq['msg-type'] = int(constants.ApplicationTagNumbers.AP_REQ.value)
 
         opts = list()
-        apReq.setComponentByName('ap-options', constants.encodeFlags(opts))
+        apReq['ap-options'] = constants.encodeFlags(opts)
         seq_set(apReq,'ticket', ticket.to_asn1)
 
         authenticator = Authenticator()
-        authenticator.setComponentByName('authenticator-vno',5)
-        authenticator.setComponentByName('crealm',domain)
+        authenticator['authenticator-vno'] = 5
+        authenticator['crealm'] = domain
         seq_set(authenticator, 'cname', userName.components_to_asn1)
         #authenticator.setComponentByName('cksum',)
         now = datetime.datetime.utcnow()
 
-        authenticator.setComponentByName('cusec', now.microsecond)
-        authenticator.setComponentByName('ctime', KerberosTime.to_asn1(now))
+        authenticator['cusec'] = now.microsecond
+        authenticator['ctime'] = KerberosTime.to_asn1(now)
 
         encodedAuthenticator = encoder.encode(authenticator)
 
@@ -478,12 +478,9 @@ class SMB3:
         # (Section 5.5.1)
         encryptedEncodedAuthenticator = cipher.encrypt(sessionKey, 11, encodedAuthenticator, None)
 
-        encryptedData = {
-             'etype': int(constants.EncriptionTypes.rc4_hmac.value),
-             'cipher': encryptedEncodedAuthenticator 
-        }
-
-        seq_set_dict(apReq, 'authenticator', encryptedData)
+        apReq['authenticator'] = None
+        apReq['authenticator']['etype'] = int(constants.EncriptionTypes.rc4_hmac.value)
+        apReq['authenticator']['cipher'] = encryptedEncodedAuthenticator
 
         blob['MechToken'] = encoder.encode(apReq)
 
