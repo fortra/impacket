@@ -81,6 +81,7 @@ class MiniImpacketShell(cmd.Cmd):
         print """
  open {host,port=445} - opens a SMB connection against the target host/port
  login {domain/username,passwd} - logs into the current SMB connection, no parameters for NULL connection. If no password specified, it'll be prompted
+ kerberos_login {domain/username,passwd} - logs into the current SMB connection using Kerberos. If no password specified, it'll be prompted. Use the DNS resolvable domain name
  login_hash {domain/username,lmhash:nthash} - logs into the current SMB connection using the password hashes
  logoff - logs off
  shares - list available shares
@@ -170,6 +171,40 @@ class MiniImpacketShell(cmd.Cmd):
             password = getpass("Password:")
 
         self.smb.login(username, password, domain=domain)
+        self.password = password
+        self.username = username
+
+        if self.smb.isGuestSession() > 0:
+            logging.info("GUEST Session Granted")
+        else:
+            logging.info("USER Session Granted")
+        self.loggedIn = True
+
+    def do_kerberos_login(self,line):
+        if self.smb is None:
+            logging.error("No connection open")
+            return
+        l = line.split(' ')
+        username = ''
+        password = ''
+        domain = ''
+        if len(l) > 0:
+           username = l[0]
+        if len(l) > 1:
+           password = l[1]
+
+        if username.find('/') > 0:
+           domain, username = username.split('/')
+
+        if domain == '': 
+            logging.error("Domain must be specified for Kerberos login")
+            return
+
+        if password == '' and username != '':
+            from getpass import getpass
+            password = getpass("Password:")
+
+        self.smb.kerberosLogin(username, password, domain=domain)
         self.password = password
         self.username = username
 
