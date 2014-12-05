@@ -2729,7 +2729,6 @@ def hSamrLookupNamesInDomain(dce, domainHandle, names):
         request['Names'].append(entry)
 
     request.fields['Names'].fields['MaximumCount'] = 1000
-    request.dump()
 
     return dce.request(request)
 
@@ -2743,7 +2742,6 @@ def hSamrLookupIdsInDomain(dce, domainHandle, ids):
         request['RelativeIds'].append(entry)
 
     request.fields['RelativeIds'].fields['MaximumCount'] = 1000
-    request.dump()
 
     return dce.request(request)
 
