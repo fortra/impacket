@@ -11,7 +11,7 @@
 # Description:
 #   Helper functions for kerberos
 #   Just starting, TONS of things to do
-#
+#   In fact, make it easier
 #
 
 import datetime
@@ -55,22 +55,21 @@ def sendReceive(data, host, kdcHost):
     return r
 
 def getKerberosTGT(clientName, password, domain, lmhash, nthash, kdcHost):
-    pacRequest = KERB_PA_PAC_REQUEST()
-    pacRequest.setComponentByName('include-pac', True)
     
-    encodedPacRequest = encoder.encode(pacRequest)
-    paPacRequest = {
-        'padata-type': int(constants.PreAuthenticationDataTypes.PA_PAC_REQUEST.value),
-        'padata-value': encodedPacRequest
-        }
-
     asReq = AS_REQ()
 
     serverName = Principal('krbtgt', type=constants.PrincipalNameType.NT_PRINCIPAL.value)  
 
-    asReq.setComponentByName('pvno', 5)
-    asReq.setComponentByName('msg-type', int(constants.ApplicationTagNumbers.AS_REQ.value))
-    seq_append(asReq, 'padata', paPacRequest)
+    pacRequest = KERB_PA_PAC_REQUEST()
+    pacRequest['include-pac'] = True
+    encodedPacRequest = encoder.encode(pacRequest)
+
+    asReq['pvno'] = 5
+    asReq['msg-type'] =  int(constants.ApplicationTagNumbers.AS_REQ.value)
+    asReq['padata'] = None
+    asReq['padata'][0] = None
+    asReq['padata'][0]['padata-type'] = int(constants.PreAuthenticationDataTypes.PA_PAC_REQUEST.value)
+    asReq['padata'][0]['padata-value'] = encodedPacRequest
 
     reqBody = seq_set(asReq, 'req-body')
 
@@ -79,7 +78,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, kdcHost):
     opts.append( constants.KDCOptions.renewable.value )
     opts.append( constants.KDCOptions.renewable_ok.value )
     opts.append( constants.KDCOptions.canonicalize.value )
-    reqBody.setComponentByName('kdc-options', constants.encodeFlags(opts))
+    reqBody['kdc-options']  = constants.encodeFlags(opts)
 
     seq_set(reqBody, 'sname', serverName.components_to_asn1)
     seq_set(reqBody, 'cname', clientName.components_to_asn1)
@@ -87,16 +86,15 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, kdcHost):
     if domain == '':
         raise 'Empty Domain not allowed in Kerberos'
 
-    reqBody.setComponentByName('realm', domain)
+    reqBody['realm'] = domain
 
     now = datetime.datetime.utcnow() + datetime.timedelta(days=1)
-    reqBody.setComponentByName('till', KerberosTime.to_asn1(now))
-    reqBody.setComponentByName('rtime', KerberosTime.to_asn1(now))
-    reqBody.setComponentByName('nonce', random.SystemRandom().getrandbits(31))
+    reqBody['till'] = KerberosTime.to_asn1(now)
+    reqBody['rtime'] = KerberosTime.to_asn1(now)
+    reqBody['nonce'] =  random.SystemRandom().getrandbits(31)
     seq_set_iter(reqBody, 'etype',
                       (int(constants.EncriptionTypes.des3_cbc_sha1_kd.value),
                        int(constants.EncriptionTypes.rc4_hmac.value)))
-
 
     message = encoder.encode(asReq)
 
@@ -113,14 +111,12 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, kdcHost):
     timeStamp = PA_ENC_TS_ENC()
 
     now = datetime.datetime.utcnow() 
-    timeStamp.setComponentByName('patimestamp',
-                      KerberosTime.to_asn1(now))
-    timeStamp.setComponentByName('pausec', now.microsecond)
+    timeStamp['patimestamp'] = KerberosTime.to_asn1(now)
+    timeStamp['pausec'] = now.microsecond
 
     # Retrieve the salt from here.. ToDo. no salt usually
 
     # Encrypt the shyte
-
     cipher = _RC4()
     key = cipher.string_to_key(password, None, None)
     encodedTimeStamp = encoder.encode(timeStamp)
@@ -131,23 +127,24 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, kdcHost):
     encriptedTimeStamp = cipher.encrypt(key, 1, encodedTimeStamp, None)
 
     encryptedData = EncryptedData()
-    encryptedData.setComponentByName('etype', int(constants.EncriptionTypes.rc4_hmac.value))
-    encryptedData.setComponentByName('cipher', encriptedTimeStamp )
+    encryptedData['etype'] = int(constants.EncriptionTypes.rc4_hmac.value)
+    encryptedData['cipher'] = encriptedTimeStamp
     encodedEncryptedData = encoder.encode(encryptedData)
-
-    paTimeStamp = {
-        'padata-type': int(constants.PreAuthenticationDataTypes.PA_ENC_TIMESTAMP.value),
-        'padata-value': encodedEncryptedData
-    }
 
     # Now prepare the new AS_REQ again with the PADATA 
     # ToDo: cannot we reuse the previous one?
     asReq = AS_REQ()
 
-    asReq.setComponentByName('pvno', 5)
-    asReq.setComponentByName('msg-type', int(constants.ApplicationTagNumbers.AS_REQ.value))
-    seq_append(asReq, 'padata', paTimeStamp)
-    seq_append(asReq, 'padata', paPacRequest)
+    asReq['pvno'] = 5
+    asReq['msg-type'] =  int(constants.ApplicationTagNumbers.AS_REQ.value)
+    asReq['padata'] = None
+    asReq['padata'][0] = None
+    asReq['padata'][0]['padata-type'] = int(constants.PreAuthenticationDataTypes.PA_ENC_TIMESTAMP.value)
+    asReq['padata'][0]['padata-value'] = encodedEncryptedData
+ 
+    asReq['padata'][1] = None
+    asReq['padata'][1]['padata-type'] = int(constants.PreAuthenticationDataTypes.PA_PAC_REQUEST.value)
+    asReq['padata'][1]['padata-value'] = encodedPacRequest
 
     reqBody = seq_set(asReq, 'req-body')
 
@@ -156,17 +153,17 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, kdcHost):
     opts.append( constants.KDCOptions.renewable.value )
     opts.append( constants.KDCOptions.renewable_ok.value )
     opts.append( constants.KDCOptions.canonicalize.value )
-    reqBody.setComponentByName('kdc-options', constants.encodeFlags(opts))
+    reqBody['kdc-options'] = constants.encodeFlags(opts)
 
     seq_set(reqBody, 'sname', serverName.components_to_asn1)
     seq_set(reqBody, 'cname', clientName.components_to_asn1)
 
-    reqBody.setComponentByName('realm', domain)
+    reqBody['realm'] =  domain
 
     now = datetime.datetime.utcnow() + datetime.timedelta(days=1)
-    reqBody.setComponentByName('till', KerberosTime.to_asn1(now))
-    reqBody.setComponentByName('rtime', KerberosTime.to_asn1(now))
-    reqBody.setComponentByName('nonce', random.SystemRandom().getrandbits(31))
+    reqBody['till'] = KerberosTime.to_asn1(now)
+    reqBody['rtime'] =  KerberosTime.to_asn1(now)
+    reqBody['nonce'] = random.SystemRandom().getrandbits(31)
 
     seq_set_iter(reqBody, 'etype', ( (int(constants.EncriptionTypes.rc4_hmac.value),)))
 
@@ -175,7 +172,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, kdcHost):
     # So, we have the TGT, now extract the new session key and finish
 
     asRep = decoder.decode(tgt, asn1Spec = AS_REP())[0]
-    cipherText = asRep.getComponentByName('enc-part').getComponentByName('cipher')
+    cipherText = asRep['enc-part']['cipher']
 
     # Key Usage 3
     # AS-REP encrypted part (includes TGS session key or
@@ -188,7 +185,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, kdcHost):
     # We're assuming the cipher for this session key is the same
     # as the one we used before.
     # ToDo: change this
-    sessionKey = Key(cipher.enctype,str(encASRepPart.getComponentByName('key').getComponentByName('keyvalue')))
+    sessionKey = Key(cipher.enctype,str(encASRepPart['key']['keyvalue']))
 
     # ToDo: Check Nonces!
 
@@ -201,19 +198,19 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
 
     # Extract the ticket from the TGT
     ticket = Ticket()
-    ticket.from_asn1(decodedTGT.getComponentByName('ticket'))
+    ticket.from_asn1(decodedTGT['ticket'])
 
     apReq = AP_REQ()
-    apReq.setComponentByName('pvno', 5)
-    apReq.setComponentByName('msg-type', int(constants.ApplicationTagNumbers.AP_REQ.value))
+    apReq['pvno'] = 5
+    apReq['msg-type'] = int(constants.ApplicationTagNumbers.AP_REQ.value)
 
     opts = list()
-    apReq.setComponentByName('ap-options', constants.encodeFlags(opts))
+    apReq['ap-options'] =  constants.encodeFlags(opts)
     seq_set(apReq,'ticket', ticket.to_asn1)
 
     authenticator = Authenticator()
-    authenticator.setComponentByName('authenticator-vno',5)
-    authenticator.setComponentByName('crealm',str(decodedTGT.getComponentByName('crealm')))
+    authenticator['authenticator-vno'] = 5
+    authenticator['crealm'] = str(decodedTGT['crealm'])
 
     clientName = Principal()
     clientName.from_asn1( decodedTGT, 'crealm', 'cname')
@@ -222,8 +219,8 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
     #authenticator.setComponentByName('cksum',)
 
     now = datetime.datetime.utcnow()
-    authenticator.setComponentByName('cusec', now.microsecond)
-    authenticator.setComponentByName('ctime', KerberosTime.to_asn1(now))
+    authenticator['cusec'] =  now.microsecond
+    authenticator['ctime'] = KerberosTime.to_asn1(now)
 
     encodedAuthenticator = encoder.encode(authenticator)
 
@@ -233,26 +230,20 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
     # key (Section 5.5.1)
     encryptedEncodedAuthenticator = cipher.encrypt(sessionKey, 7, encodedAuthenticator, None)
 
-    encryptedData = {
-         'etype': int(constants.EncriptionTypes.rc4_hmac.value),
-         'cipher': encryptedEncodedAuthenticator 
-    }
-
-    seq_set_dict(apReq, 'authenticator', encryptedData)
+    apReq['authenticator'] = None
+    apReq['authenticator']['etype'] = int(constants.EncriptionTypes.rc4_hmac.value)
+    apReq['authenticator']['cipher'] = encryptedEncodedAuthenticator
 
     encodedApReq = encoder.encode(apReq)
 
-    paTGSData = {
-        'padata-type': int(constants.PreAuthenticationDataTypes.PA_TGS_REQ.value),
-        'padata-value': encodedApReq
-        }
-
     tgsReq = TGS_REQ()
 
-
-    tgsReq.setComponentByName('pvno', 5)
-    tgsReq.setComponentByName('msg-type', int(constants.ApplicationTagNumbers.TGS_REQ.value))
-    seq_append(tgsReq, 'padata', paTGSData)
+    tgsReq['pvno'] =  5
+    tgsReq['msg-type'] = int(constants.ApplicationTagNumbers.TGS_REQ.value)
+    tgsReq['padata'] = None
+    tgsReq['padata'][0] = None
+    tgsReq['padata'][0]['padata-type'] = int(constants.PreAuthenticationDataTypes.PA_TGS_REQ.value)
+    tgsReq['padata'][0]['padata-value'] = encodedApReq
 
     reqBody = seq_set(tgsReq, 'req-body')
 
@@ -262,14 +253,14 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
     opts.append( constants.KDCOptions.renewable_ok.value )
     opts.append( constants.KDCOptions.canonicalize.value )
 
-    reqBody.setComponentByName('kdc-options', constants.encodeFlags(opts))
+    reqBody['kdc-options'] = constants.encodeFlags(opts)
     seq_set(reqBody, 'sname', serverName.components_to_asn1)
-    reqBody.setComponentByName('realm', str(decodedTGT.getComponentByName('crealm')))
+    reqBody['realm'] = str(decodedTGT['crealm'])
 
     now = datetime.datetime.utcnow() + datetime.timedelta(days=1)
 
-    reqBody.setComponentByName('till', KerberosTime.to_asn1(now))
-    reqBody.setComponentByName('nonce', random.SystemRandom().getrandbits(31))
+    reqBody['till'] = KerberosTime.to_asn1(now)
+    reqBody['nonce'] = random.SystemRandom().getrandbits(31)
     seq_set_iter(reqBody, 'etype',
                       (int(constants.EncriptionTypes.des3_cbc_sha1_kd.value),
                        int(constants.EncriptionTypes.rc4_hmac.value)))
@@ -283,7 +274,7 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
 
     tgs = decoder.decode(r, asn1Spec = TGS_REP())[0]
 
-    cipherText = tgs.getComponentByName('enc-part').getComponentByName('cipher')
+    cipherText = tgs['enc-part']['cipher']
 
     # Key Usage 3
     # AS-REP encrypted part (includes TGS session key or
@@ -293,7 +284,7 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
 
     encTGSRepPart = decoder.decode(plainText, asn1Spec = EncTGSRepPart())[0]
 
-    newSessionKey = Key(cipher.enctype, str(encTGSRepPart.getComponentByName('key').getComponentByName('keyvalue')))
+    newSessionKey = Key(cipher.enctype, str(encTGSRepPart['key']['keyvalue']))
     
     return r, cipher, newSessionKey
 
@@ -308,7 +299,7 @@ class KerberosError(SessionError):
         self.error = error
         self.packet = packet
         if packet != 0:
-            self.error = self.packet.getComponentByName('error-code')
+            self.error = self.packet['error-code']
        
     def getErrorCode( self ):
         return self.error
