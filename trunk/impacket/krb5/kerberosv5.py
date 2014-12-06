@@ -54,14 +54,14 @@ def sendReceive(data, host, kdcHost):
 
     return r
 
-def getKerberosTGT(clientName, password, domain, lmhash, nthash, kdcHost):
+def getKerberosTGT(clientName, password, domain, lmhash, nthash, kdcHost, requestPAC=True):
     
     asReq = AS_REQ()
 
-    serverName = Principal('krbtgt', type=constants.PrincipalNameType.NT_PRINCIPAL.value)  
+    serverName = Principal('krbtgt/%s'%domain, type=constants.PrincipalNameType.NT_PRINCIPAL.value)  
 
     pacRequest = KERB_PA_PAC_REQUEST()
-    pacRequest['include-pac'] = True
+    pacRequest['include-pac'] = requestPAC
     encodedPacRequest = encoder.encode(pacRequest)
 
     asReq['pvno'] = 5
@@ -76,8 +76,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, kdcHost):
     opts = list()
     opts.append( constants.KDCOptions.forwardable.value )
     opts.append( constants.KDCOptions.renewable.value )
-    opts.append( constants.KDCOptions.renewable_ok.value )
-    opts.append( constants.KDCOptions.canonicalize.value )
+    opts.append( constants.KDCOptions.proxiable.value )
     reqBody['kdc-options']  = constants.encodeFlags(opts)
 
     seq_set(reqBody, 'sname', serverName.components_to_asn1)
@@ -151,8 +150,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, kdcHost):
     opts = list()
     opts.append( constants.KDCOptions.forwardable.value )
     opts.append( constants.KDCOptions.renewable.value )
-    opts.append( constants.KDCOptions.renewable_ok.value )
-    opts.append( constants.KDCOptions.canonicalize.value )
+    opts.append( constants.KDCOptions.proxiable.value )
     reqBody['kdc-options'] = constants.encodeFlags(opts)
 
     seq_set(reqBody, 'sname', serverName.components_to_asn1)
@@ -194,7 +192,10 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, kdcHost):
 def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
 
     # Decode the TGT
-    decodedTGT = decoder.decode(tgt, asn1Spec = AS_REP())[0]
+    try:
+        decodedTGT = decoder.decode(tgt, asn1Spec = AS_REP())[0]
+    except:
+        decodedTGT = decoder.decode(tgt, asn1Spec = TGS_REP())[0]
 
     # Extract the ticket from the TGT
     ticket = Ticket()
