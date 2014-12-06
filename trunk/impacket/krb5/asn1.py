@@ -138,7 +138,7 @@ class HostAddresses(univ.SequenceOf):
 class AuthorizationData(univ.SequenceOf):
     componentType = univ.Sequence(componentType=namedtype.NamedTypes(
         _sequence_component('ad-type', 0, Int32()),
-        _sequence_component('ad-data', 1, KerberosTime())
+        _sequence_component('ad-data', 1, univ.OctetString())
         ))
 
 class PA_DATA(univ.Sequence):
