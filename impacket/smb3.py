@@ -394,7 +394,11 @@ class SMB3:
             self.__lmhash,
             self.__nthash)
 
-    def kerberosLogin(self, user, password, domain = '', lmhash = '', nthash = '', kdcHost = ''):
+    def kerberosLogin(self, user, password, domain = '', lmhash = '', nthash = '', kdcHost = '', TGT=None, TGS=None):
+        # If TGT or TGS are specified, they are in the form of:
+        # TGS['KDC_REP'] = the response from the server
+        # TGS['cipher'] = the cipher used
+        # TGS['sessionKey'] = the sessionKey
         # If we have hashes, normalize them
         if ( lmhash != '' or nthash != ''):
             if len(lmhash) % 2:     lmhash = '0%s' % lmhash
@@ -431,13 +435,24 @@ class SMB3:
         import datetime
 
         # First of all, we need to get a TGT for the user
-        userName = Principal(user, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
-        tgt, cipher, sessionKey = getKerberosTGT(userName, password, domain, lmhash, nthash, kdcHost)
+        if TGT is None:
+            userName = Principal(user, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
+            if TGS is None:
+                tgt, cipher, sessionKey = getKerberosTGT(userName, password, domain, lmhash, nthash, kdcHost)
+        else:
+            tgt = TGT['KDC_REP']
+            cipher = TGT['cipher']
+            sessionKey = TGT['sessionKey'] 
 
         # Now that we have the TGT, we should ask for a TGS for cifs
 
-        serverName = Principal('cifs/%s.%s' % (self._Connection['ServerName'],domain), type=constants.PrincipalNameType.NT_SRV_INST.value)
-        tgs, cipher, sessionKey = getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey)
+        if TGS is None:
+            serverName = Principal('cifs/%s.%s' % (self._Connection['ServerName'],domain), type=constants.PrincipalNameType.NT_SRV_INST.value)
+            tgs, cipher, sessionKey = getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey)
+        else:
+            tgs = TGS['KDC_REP']
+            cipher = TGS['cipher']
+            sessionKey = TGS['sessionKey'] 
 
         # Let's build a NegTokenInit with a Kerberos REQ_AP
 
@@ -464,7 +479,6 @@ class SMB3:
         authenticator['authenticator-vno'] = 5
         authenticator['crealm'] = domain
         seq_set(authenticator, 'cname', userName.components_to_asn1)
-        #authenticator.setComponentByName('cksum',)
         now = datetime.datetime.utcnow()
 
         authenticator['cusec'] = now.microsecond
@@ -500,18 +514,18 @@ class SMB3:
             self._Session['Connection']      = self._NetBIOSSession.get_socket()
             sessionSetupResponse = SMB2SessionSetup_Response(ans['Data'])
 
-            self._Session['SessionKey']  = sessionKey
+            self._Session['SessionKey']  = sessionKey.contents
             if self._Session['SigningRequired'] is True and self._Connection['Dialect'] == SMB2_DIALECT_30:
-                self._Session['SigningKey']  = crypto.KDF_CounterMode(sessKey, "SMB2AESCMAC\x00", "SmbSign\x00", 128)
+                self._Session['SigningKey']  = crypto.KDF_CounterMode(sessionKey.contents, "SMB2AESCMAC\x00", "SmbSign\x00", 128)
 
             # Calculate the key derivations for dialect 3.0
             if self._Session['SigningRequired'] is True:
                 self._Session['SigningActivated'] = True
             if self._Connection['Dialect'] == SMB2_DIALECT_30:
-                self._Session['ApplicationKey']  = crypto.KDF_CounterMode(sessKey, "SMB2APP\x00", "SmbRpc\x00", 128)
+                self._Session['ApplicationKey']  = crypto.KDF_CounterMode(sessionKey.contents, "SMB2APP\x00", "SmbRpc\x00", 128)
             if self._Session['EncryptData'] is True:
-                self._Session['EncryptionKey']  = crypto.KDF_CounterMode(sessKey, "SMB2AESCCM\x00", "ServerIn \x00", 128)
-                self._Session['DecryptionKey']  = crypto.KDF_CounterMode(sessKey, "SMB2AESCCM\x00", "ServerOut\x00", 128)
+                self._Session['EncryptionKey']  = crypto.KDF_CounterMode(sessionKey.contents, "SMB2AESCCM\x00", "ServerIn \x00", 128)
+                self._Session['DecryptionKey']  = crypto.KDF_CounterMode(sessionKey.contents, "SMB2AESCCM\x00", "ServerOut\x00", 128)
        
             return True
         else:
