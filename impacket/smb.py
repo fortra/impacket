@@ -3037,6 +3037,158 @@ class SMB:
         challenge = self._dialects_data['Challenge']
         return ntlm.get_ntlmv1_response(key, challenge)
 
+    def kerberos_login(self, user, password, domain = '', lmhash = '', nthash = '', kdcHost = '', TGT=None, TGS=None):
+        # Importing down here so pyasn1 is not required if kerberos is not used.
+        from impacket.krb5.asn1 import AP_REQ, Authenticator, TGS_REP, seq_set, seq_set_dict
+        from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS
+        from impacket.krb5 import constants
+        from impacket.krb5.types import Principal, KerberosTime, Ticket
+        from impacket.winregistry import hexdump
+        from pyasn1.codec.der import decoder, encoder
+        import datetime
+
+        # If TGT or TGS are specified, they are in the form of:
+        # TGS['KDC_REP'] = the response from the server
+        # TGS['cipher'] = the cipher used
+        # TGS['sessionKey'] = the sessionKey
+        # If we have hashes, normalize them
+        if ( lmhash != '' or nthash != ''):
+            if len(lmhash) % 2:     lmhash = '0%s' % lmhash
+            if len(nthash) % 2:     nthash = '0%s' % nthash
+            try: # just in case they were converted already
+                lmhash = a2b_hex(lmhash)
+                nthash = a2b_hex(nthash)
+            except:
+                pass
+
+        self.__userName = user
+        self.__password = password
+        self.__domain   = domain
+        self.__lmhash   = lmhash
+        self.__nthash   = nthash
+        self.__kdc      = kdcHost
+
+        # First of all, we need to get a TGT for the user
+        if TGT is None:
+            userName = Principal(user, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
+            if TGS is None:
+                tgt, cipher, sessionKey = getKerberosTGT(userName, password, domain, lmhash, nthash, kdcHost)
+        else:
+            tgt = TGT['KDC_REP']
+            cipher = TGT['cipher']
+            sessionKey = TGT['sessionKey'] 
+
+        # Now that we have the TGT, we should ask for a TGS for cifs
+
+        if TGS is None:
+            serverName = Principal('cifs/%s' % (self.__remote_host), type=constants.PrincipalNameType.NT_SRV_INST.value)
+            tgs, cipher, sessionKey = getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey)
+        else:
+            tgs = TGS['KDC_REP']
+            cipher = TGS['cipher']
+            sessionKey = TGS['sessionKey'] 
+
+        smb = NewSMBPacket()
+        smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
+        smb['Flags2'] = SMB.FLAGS2_EXTENDED_SECURITY 
+        # Are we required to sign SMB? If so we do it, if not we skip it
+        if self._SignatureRequired: 
+           smb['Flags2'] |= SMB.FLAGS2_SMB_SECURITY_SIGNATURE
+          
+
+        sessionSetup = SMBCommand(SMB.SMB_COM_SESSION_SETUP_ANDX)
+        sessionSetup['Parameters'] = SMBSessionSetupAndX_Extended_Parameters()
+        sessionSetup['Data']       = SMBSessionSetupAndX_Extended_Data()
+
+        sessionSetup['Parameters']['MaxBufferSize']        = 61440
+        sessionSetup['Parameters']['MaxMpxCount']          = 2
+        sessionSetup['Parameters']['VcNumber']             = 1
+        sessionSetup['Parameters']['SessionKey']           = 0
+        sessionSetup['Parameters']['Capabilities']         = SMB.CAP_EXTENDED_SECURITY | SMB.CAP_USE_NT_ERRORS | SMB.CAP_UNICODE | SMB.CAP_LARGE_READX | SMB.CAP_LARGE_WRITEX
+
+
+        # Let's build a NegTokenInit with the NTLMSSP
+        # TODO: In the future we should be able to choose different providers
+
+        blob = SPNEGO_NegTokenInit() 
+
+        # Kerberos v5 mech
+        blob['MechTypes'] = [TypesMech['MS KRB5 - Microsoft Kerberos 5']]
+
+        # Let's extract the ticket from the TGS
+        tgs = decoder.decode(tgs, asn1Spec = TGS_REP())[0]
+        ticket = Ticket()
+        ticket.from_asn1(tgs['ticket'])
+        
+        # Now let's build the AP_REQ
+        apReq = AP_REQ()
+        apReq['pvno'] = 5
+        apReq['msg-type'] = int(constants.ApplicationTagNumbers.AP_REQ.value)
+
+        opts = list()
+        apReq['ap-options'] = constants.encodeFlags(opts)
+        seq_set(apReq,'ticket', ticket.to_asn1)
+
+        authenticator = Authenticator()
+        authenticator['authenticator-vno'] = 5
+        authenticator['crealm'] = domain
+        seq_set(authenticator, 'cname', userName.components_to_asn1)
+        now = datetime.datetime.utcnow()
+
+        authenticator['cusec'] = now.microsecond
+        authenticator['ctime'] = KerberosTime.to_asn1(now)
+
+        encodedAuthenticator = encoder.encode(authenticator)
+
+        # Key Usage 11
+        # AP-REQ Authenticator (includes application authenticator
+        # subkey), encrypted with the application session key
+        # (Section 5.5.1)
+        encryptedEncodedAuthenticator = cipher.encrypt(sessionKey, 11, encodedAuthenticator, None)
+
+        apReq['authenticator'] = None
+        apReq['authenticator']['etype'] = int(constants.EncriptionTypes.rc4_hmac.value)
+        apReq['authenticator']['cipher'] = encryptedEncodedAuthenticator
+
+        blob['MechToken'] = encoder.encode(apReq)
+        
+        sessionSetup['Parameters']['SecurityBlobLength']  = len(blob)
+        sessionSetup['Parameters'].getData()
+        sessionSetup['Data']['SecurityBlob']       = blob.getData()
+
+        # Fake Data here, don't want to get us fingerprinted
+        sessionSetup['Data']['NativeOS']      = 'Unix'
+        sessionSetup['Data']['NativeLanMan']  = 'Samba'
+
+        smb.addCommand(sessionSetup)
+        self.sendSMB(smb)
+
+        smb = self.recvSMB()
+        if smb.isValidAnswer(SMB.SMB_COM_SESSION_SETUP_ANDX):
+            # We will need to use this uid field for all future requests/responses
+            self._uid = smb['Uid']
+
+            # Now we have to extract the blob to continue the auth process
+            sessionResponse   = SMBCommand(smb['Data'][0])
+            sessionParameters = SMBSessionSetupAndX_Extended_Response_Parameters(sessionResponse['Parameters'])
+            sessionData       = SMBSessionSetupAndX_Extended_Response_Data(flags = smb['Flags2'])
+            sessionData['SecurityBlobLength'] = sessionParameters['SecurityBlobLength']
+            sessionData.fromString(sessionResponse['Data'])
+
+            self._action = sessionParameters['Action']
+            # If smb sign required, let's enable it for the rest of the connection
+            if self._dialects_parameters['SecurityMode'] & SMB.SECURITY_SIGNATURES_REQUIRED:
+               self._SigningSessionKey = sessionKey.contents
+               self._SignSequenceNumber = 2
+               self._SignatureEnabled = True
+            # Set up the flags to be used from now on
+            self.__flags1 = SMB.FLAGS1_PATHCASELESS
+            self.__flags2 = SMB.FLAGS2_EXTENDED_SECURITY
+            return 1
+        else:
+            raise Exception('Error: Could not login successfully')
+
+
     def login_extended(self, user, password, domain = '', lmhash = '', nthash = '', use_ntlmv2 = True ):
         # Once everything's working we should join login methods into a single one
         smb = NewSMBPacket()
