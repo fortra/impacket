@@ -163,7 +163,7 @@ class SMBConnection():
         """
 
         if self.getDialect() == smb.SMB_DIALECT:
-            raise "SMB1 Kerberos Login still not supported"
+            return self._SMBConnection.kerberos_login(user, password, domain, lmhash, nthash, kdcHost, TGT, TGS)
         try: 
             return self._SMBConnection.kerberosLogin(user, password, domain, lmhash, nthash, kdcHost, TGT, TGS)
         except (smb.SessionError, smb3.SessionError), e:
