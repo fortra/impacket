@@ -361,7 +361,7 @@ class PSEXEC:
             LastDataSent = ''
 
             # Create the pipes threads
-            stdin_pipe  = RemoteStdInPipe(rpctransport,'\%s%s%d' % (RemComSTDIN ,packet['Machine'],packet['ProcessID']), smb.FILE_WRITE_DATA | smb.FILE_APPEND_DATA, installService.getShare() )
+            stdin_pipe  = RemoteStdInPipe(rpctransport,'\%s%s%d' % (RemComSTDIN ,packet['Machine'],packet['ProcessID']), smb.FILE_WRITE_DATA | smb.FILE_APPEND_DATA, self.__TGS, installService.getShare() )
             stdin_pipe.start()
             stdout_pipe = RemoteStdOutPipe(rpctransport,'\%s%s%d' % (RemComSTDOUT,packet['Machine'],packet['ProcessID']), smb.FILE_READ_DATA )
             stdout_pipe.start()
@@ -412,7 +412,7 @@ class PSEXEC:
         return fid
 
 class Pipes(Thread):
-    def __init__(self, transport, pipe, permissions, share=None):
+    def __init__(self, transport, pipe, permissions, TGS=None, share=None):
         Thread.__init__(self)
         self.server = 0
         self.transport = transport
@@ -423,6 +423,7 @@ class Pipes(Thread):
         self.port = transport.get_dport()
         self.pipe = pipe
         self.permissions = permissions
+        self.TGS = TGS
         self.daemon = True
 
     def connectPipe(self):
@@ -488,7 +489,7 @@ class RemoteStdErrPipe(Pipes):
                     pass
 
 class RemoteShell(cmd.Cmd):
-    def __init__(self, server, port, credentials, tid, fid, share):
+    def __init__(self, server, port, credentials, tid, fid, TGS, share):
         cmd.Cmd.__init__(self, False)
         self.prompt = '\x08'
         self.server = server
@@ -498,12 +499,13 @@ class RemoteShell(cmd.Cmd):
         self.credentials = credentials
         self.share = share
         self.port = port
+        self.TGS = TGS
         self.intro = '[!] Press help for extra shell commands'
 
     def connect_transferClient(self):
         self.transferClient = SMBConnection('*SMBSERVER', self.server.getRemoteHost(), sess_port = self.port, preferredDialect = dialect)
         user, passwd, domain, lm, nt = self.credentials
-        self.transferClient.login(user, passwd, domain, lm, nt)
+        self.transferClient.kerberosLogin(user, passwd, domain, lm, nt, TGS=self.TGS)
 
     def do_help(self, line):
         print """
@@ -586,12 +588,12 @@ class RemoteShell(cmd.Cmd):
 
 
 class RemoteStdInPipe(Pipes):
-    def __init__(self, transport, pipe, permisssions, share=None):
-        Pipes.__init__(self, transport, pipe, permisssions, share)
+    def __init__(self, transport, pipe, permisssions, TGS=None, share=None):
+        Pipes.__init__(self, transport, pipe, permisssions, TGS, share)
 
     def run(self):
         self.connectPipe()
-        self.shell = RemoteShell(self.server, self.port, self.credentials, self.tid, self.fid, self.share)
+        self.shell = RemoteShell(self.server, self.port, self.credentials, self.tid, self.fid, self.TGS, self.share)
         self.shell.cmdloop()
 
 
