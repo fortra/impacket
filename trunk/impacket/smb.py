@@ -2385,6 +2385,7 @@ class SMB:
         self.__server_os = ''
         self.__server_lanman = ''
         self.__server_domain = ''
+        self.__server_dns_domain_name = ''
         self.__remote_name = string.upper(remote_name)
         self.__remote_host = remote_host
         self.__is_pathcaseless = 0
@@ -3018,6 +3019,9 @@ class SMB:
     def get_server_domain(self):
         return self.__server_domain
 
+    def get_server_dns_domain_name(self):
+        return self.__server_dns_domain_name
+
     def get_server_os(self):
         return self.__server_os
 
@@ -3259,6 +3263,12 @@ class SMB:
                    try:
                        if self.__server_name != av_pairs[ntlm.NTLMSSP_AV_DOMAINNAME][1].decode('utf-16le'): 
                            self.__server_domain = av_pairs[ntlm.NTLMSSP_AV_DOMAINNAME][1].decode('utf-16le')
+                   except:
+                       # For some reason, we couldn't decode Unicode here.. silently discard the operation
+                       pass 
+                if av_pairs[ntlm.NTLMSSP_AV_DNS_DOMAINNAME] is not None:
+                   try:
+                       self.__server_dns_domain_name = av_pairs[ntlm.NTLMSSP_AV_DNS_DOMAINNAME][1].decode('utf-16le')
                    except:
                        # For some reason, we couldn't decode Unicode here.. silently discard the operation
                        pass 

@@ -177,6 +177,7 @@ class SMB3:
             'SessionFlags'             : 0,     # 
             'ServerName'               : '',    #
             'ServerDomain'             : '',    #
+            'ServerDNSDomainName'      : '',    #
             'ServerOS'                 : '',    #
             'SigningActivated'         : False, #
         }
@@ -230,6 +231,9 @@ class SMB3:
 
     def getServerDomain(self):
         return self._Session['ServerDomain']
+
+    def getServerDNSDomainName(self):
+        return self._Session['ServerDNSDomainName']
 
     def getServerOS(self):
         return self._Session['ServerOS']
@@ -617,6 +621,12 @@ class SMB3:
                    try:
                        if self._Session['ServerName'] != av_pairs[ntlm.NTLMSSP_AV_DOMAINNAME][1].decode('utf-16le'): 
                            self._Session['ServerDomain'] = av_pairs[ntlm.NTLMSSP_AV_DOMAINNAME][1].decode('utf-16le')
+                   except:
+                       # For some reason, we couldn't decode Unicode here.. silently discard the operation
+                       pass 
+                if av_pairs[ntlm.NTLMSSP_AV_DNS_DOMAINNAME] is not None:
+                   try:
+                       self._Session['ServerDNSDomainName'] = av_pairs[ntlm.NTLMSSP_AV_DNS_DOMAINNAME][1].decode('utf-16le')
                    except:
                        # For some reason, we couldn't decode Unicode here.. silently discard the operation
                        pass 
@@ -1408,20 +1418,21 @@ class SMB3:
     # Backward compatibility functions and alias for SMB1 and DCE Transports
     # NOTE: It is strongly recommended not to use these commands
     # when implementing new client calls.
-    get_server_name   = getServerName
-    get_server_domain = getServerDomain
-    get_remote_name   = getServerName
-    get_remote_host   = getServerIP
-    get_server_os     = getServerOS
-    tree_connect_andx = connectTree
-    tree_connect      = connectTree
-    connect_tree      = connectTree
-    disconnect_tree   = disconnectTree 
-    set_timeout       = setTimeout
-    use_timeout       = useTimeout
-    stor_file         = storeFile
-    retr_file         = retrieveFile
-    list_path         = listPath
+    get_server_name            = getServerName
+    get_server_domain          = getServerDomain
+    get_server_dns_domain_name = getServerDNSDomainName
+    get_remote_name            = getServerName
+    get_remote_host            = getServerIP
+    get_server_os              = getServerOS
+    tree_connect_andx          = connectTree
+    tree_connect               = connectTree
+    connect_tree               = connectTree
+    disconnect_tree            = disconnectTree 
+    set_timeout                = setTimeout
+    use_timeout                = useTimeout
+    stor_file                  = storeFile
+    retr_file                  = retrieveFile
+    list_path                  = listPath
 
     def __del__(self):
         if self._NetBIOSSession:

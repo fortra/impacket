@@ -117,6 +117,9 @@ class SMBConnection():
     def getServerDomain(self):
         return self._SMBConnection.get_server_domain()
 
+    def getServerDNSDomainName(self):
+        return self._SMBConnection.get_server_dns_domain_name()
+
     def getServerOS(self):
         return self._SMBConnection.get_server_os()
 
