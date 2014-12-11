@@ -483,4 +483,10 @@ class KERB_PA_PAC_REQUEST(univ.Sequence):
     namedtype.NamedType('include-pac', univ.Boolean().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0))),
     )
 
+class KERB_ERROR_DATA(univ.Sequence):
+    componentType = namedtype.NamedTypes(
+        _sequence_component('data-type', 1, Int32()),
+        _sequence_component('data-value', 2, univ.OctetString()))
+
+
 
