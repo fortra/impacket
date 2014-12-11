@@ -19,12 +19,13 @@ import random
 import socket
 import struct
 from pyasn1.codec.der import decoder, encoder
-from impacket.krb5.asn1 import AS_REQ, AP_REQ, TGS_REQ, KERB_PA_PAC_REQUEST, KRB_ERROR, PA_ENC_TS_ENC, METHOD_DATA, AS_REP, TGS_REP, EncryptedData, Authenticator, EncASRepPart, EncTGSRepPart, seq_append, seq_set, seq_set_iter, seq_set_dict
+from impacket.krb5.asn1 import AS_REQ, AP_REQ, TGS_REQ, KERB_PA_PAC_REQUEST, KRB_ERROR, PA_ENC_TS_ENC, METHOD_DATA, AS_REP, TGS_REP, EncryptedData, Authenticator, EncASRepPart, EncTGSRepPart, seq_append, seq_set, seq_set_iter, seq_set_dict, KERB_ERROR_DATA
 from impacket.krb5.types import KerberosTime, Principal, Ticket
 from impacket.krb5 import constants
 from impacket.krb5.crypto import _RC4, Key
 from impacket.smbconnection import SessionError
 from impacket.winregistry import hexdump
+from impacket import nt_errors
 
 def sendReceive(data, host, kdcHost):
     if kdcHost is None:
@@ -312,5 +313,15 @@ class KerberosError(SessionError):
         return constants.ERROR_MESSAGES[self.error]
 
     def __str__( self ):
-        return 'Kerberos SessionError: %s(%s)' % (constants.ERROR_MESSAGES[self.error])
+        retString = 'Kerberos SessionError: %s(%s)' % (constants.ERROR_MESSAGES[self.error])
+        try:
+            # Let's try to get the NT ERROR, if not, we quit and give the general one
+            if self.error == constants.ErrorCodes.KRB_ERR_GENERIC.value:
+                eData = decoder.decode(str(self.packet['e-data']), asn1Spec = KERB_ERROR_DATA())[0]
+                nt_error = struct.unpack('<L', str(eData['data-value'])[:4])[0]
+                retString += '\nNT ERROR: %s(%s)' % (nt_errors.ERROR_MESSAGES[nt_error])
+        except:
+            pass
+
+        return retString
 
