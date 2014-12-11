@@ -958,7 +958,11 @@ class MS14_068():
         # application session key), encrypted with the client key
         # (Section 5.4.2)
         cipher = _RC4()
-        key = cipher.string_to_key(self.__password, None, None)
+        if self.__nthash != '':
+            key = Key(cipher.enctype,self.__nthash.decode('hex'))
+        else:
+            key = cipher.string_to_key(self.__password, None, None)
+
         plainText = cipher.decrypt(key, 3, str(cipherText))
         encASRepPart = decoder.decode(plainText, asn1Spec = EncASRepPart())[0]
         authTime = encASRepPart['authtime']
@@ -1022,7 +1026,7 @@ if __name__ == '__main__':
 
     group = parser.add_argument_group('authentication')
 
-    #group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
+    group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
     if len(sys.argv)==1:
         parser.print_help()
         print "\nExamples: "
@@ -1036,7 +1040,6 @@ if __name__ == '__main__':
  
     options = parser.parse_args()
 
-    options.hashes = None
     import re
     domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(options.target).groups('')
 
