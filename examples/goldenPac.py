@@ -624,6 +624,8 @@ class MS14_068():
         self.__kdcHost = None
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
+            self.__lmhash = self.__lmhash.decode('hex')
+            self.__nthash = self.__nthash.decode('hex')
 
     def getGoldenPAC(self, authTime):
         # Ok.. we need to build a PAC_TYPE with the following items
@@ -959,7 +961,7 @@ class MS14_068():
         # (Section 5.4.2)
         cipher = _RC4()
         if self.__nthash != '':
-            key = Key(cipher.enctype,self.__nthash.decode('hex'))
+            key = Key(cipher.enctype,self.__nthash)
         else:
             key = cipher.string_to_key(self.__password, None, None)
 
