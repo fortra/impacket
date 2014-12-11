@@ -118,7 +118,10 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, kdcHost, reques
 
     # Encrypt the shyte
     cipher = _RC4()
-    key = cipher.string_to_key(password, None, None)
+    if nthash != '':
+        key = Key(cipher.enctype, nthash)
+    else:
+        key = cipher.string_to_key(password, None, None)
     encodedTimeStamp = encoder.encode(timeStamp)
 
     # Key Usage 1
