@@ -265,6 +265,7 @@ class PAC_DEVICE_CLAIMS_INFO(Structure):
 
 import os
 import cmd
+import time
 from impacket.smbconnection import *
 from impacket.dcerpc import transport, svcctl
 from impacket.structure import Structure
