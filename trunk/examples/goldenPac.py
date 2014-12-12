@@ -682,10 +682,10 @@ class MS14_068():
         kerbdata['BadPasswordCount']   = 0
         kerbdata['UserId']             = self.__rid
         kerbdata['PrimaryGroupId']     = 513
-        kerbdata['GroupCount']         = 5
         
         # Our Golden Well-known groups! :)
         groups = (513, 512, 520, 518, 519)
+        kerbdata['GroupCount']         = len(groups)
 
         for group in groups:
             groupMembership = GROUP_MEMBERSHIP()
