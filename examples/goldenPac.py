@@ -640,11 +640,24 @@ class MS14_068():
         kerbdata['LogonTime']['dwLowDateTime']           = unixTime & 0xffffffff
         kerbdata['LogonTime']['dwHighDateTime']          = unixTime >>32
 
-        kerbdata['LogoffTime']['dwLowDateTime']          = 4294967295
-        kerbdata['LogoffTime']['dwHighDateTime']         = 2147483647
+        # LogoffTime: A FILETIME structure that contains the time the client's logon 
+        # session should expire. If the session should not expire, this structure 
+        # SHOULD have the dwHighDateTime member set to 0x7FFFFFFF and the dwLowDateTime 
+        # member set to 0xFFFFFFFF. A recipient of the PAC SHOULD<7> use this value as 
+        # an indicator of when to warn the user that the allowed time is due to expire.
+        kerbdata['LogoffTime']['dwLowDateTime']          = 0xFFFFFFFF
+        kerbdata['LogoffTime']['dwHighDateTime']         = 0x7FFFFFFF
 
-        kerbdata['KickOffTime']['dwLowDateTime']         = 4294967295
-        kerbdata['KickOffTime']['dwHighDateTime']        = 2147483647
+        # KickOffTime: A FILETIME structure that contains LogoffTime minus the user 
+        # account's forceLogoff attribute ([MS-ADA1] section 2.233) value. If the 
+        # client should not be logged off, this structure SHOULD have the dwHighDateTime 
+        # member set to 0x7FFFFFFF and the dwLowDateTime member set to 0xFFFFFFFF. 
+        # The Kerberos service ticket end time is a replacement for KickOffTime. 
+        # The service ticket lifetime SHOULD NOT be set longer than the KickOffTime of 
+        # an account. A recipient of the PAC SHOULD<8> use this value as the indicator 
+        # of when the client should be forcibly disconnected.
+        kerbdata['KickOffTime']['dwLowDateTime']         = 0xFFFFFFFF
+        kerbdata['KickOffTime']['dwHighDateTime']        = 0x7FFFFFFF
 
         kerbdata['PasswordLastSet']['dwLowDateTime']     = 0
         kerbdata['PasswordLastSet']['dwHighDateTime']    = 0
@@ -652,8 +665,12 @@ class MS14_068():
         kerbdata['PasswordCanChange']['dwLowDateTime']   = 0
         kerbdata['PasswordCanChange']['dwHighDateTime']  = 0
         
-        kerbdata['PasswordMustChange']['dwLowDateTime']  = 4294967295
-        kerbdata['PasswordMustChange']['dwHighDateTime'] = 2147483647
+        # PasswordMustChange: A FILETIME structure that contains the time at which
+        # theclient's password expires. If the password will not expire, this 
+        # structure MUST have the dwHighDateTime member set to 0x7FFFFFFF and the 
+        # dwLowDateTime member set to 0xFFFFFFFF.
+        kerbdata['PasswordMustChange']['dwLowDateTime']  = 0xFFFFFFFF
+        kerbdata['PasswordMustChange']['dwHighDateTime'] = 0x7FFFFFFF
 
         kerbdata['EffectiveName']      = self.__username
         kerbdata['FullName']           = ''
@@ -692,8 +709,21 @@ class MS14_068():
         kerbdata['LastFailedILogon']['dwHighDateTime']     = 0
         kerbdata['FailedILogonCount'] = 0
         kerbdata['Reserved3']         = 0
-        kerbdata['SidCount']          = 0
-        kerbdata['ExtraSids']         = NULL
+
+        # AUTHENTICATION_AUTHORITY_ASSERTED_IDENTITY: A SID that means the client's identity is 
+        # asserted by an authentication authority based on proof of possession of client credentials.
+        #extraSids = ('S-1-18-1',)
+        extraSids = ()
+        kerbdata['SidCount']          = len(extraSids)
+        
+        for extraSid in extraSids:
+            sidRecord = KERB_SID_AND_ATTRIBUTES()
+            sid = RPC_SID()
+            sid.fromCanonical(extraSid)
+            sidRecord['Sid'] = sid
+            sidRecord['Attributes'] = SE_GROUP_MANDATORY | SE_GROUP_ENABLED_BY_DEFAULT | SE_GROUP_ENABLED
+            kerbdata['ExtraSids'].append(sidRecord)
+
         kerbdata['ResourceGroupDomainSid'] = NULL
         kerbdata['ResourceGroupCount'] = 0
         kerbdata['ResourceGroupIds'] = NULL
