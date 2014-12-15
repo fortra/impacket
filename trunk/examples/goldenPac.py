@@ -973,6 +973,7 @@ class MS14_068():
         resp = samr.hSamrLookupNamesInDomain(dce, domainHandle, (self.__username,))
         # Let's pick the relative ID
         rid = resp['RelativeIds']['Element'][0]['Data']
+        print "UserSID: %s-%s"% (domainId.formatCanonical(), rid)
         return domainId, rid
 
     def exploit(self):
