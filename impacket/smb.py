@@ -3073,8 +3073,8 @@ class SMB:
         self.__kdc      = kdcHost
 
         # First of all, we need to get a TGT for the user
+        userName = Principal(user, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
         if TGT is None:
-            userName = Principal(user, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
             if TGS is None:
                 tgt, cipher, sessionKey = getKerberosTGT(userName, password, domain, lmhash, nthash, kdcHost)
         else:
@@ -3151,7 +3151,7 @@ class SMB:
         encryptedEncodedAuthenticator = cipher.encrypt(sessionKey, 11, encodedAuthenticator, None)
 
         apReq['authenticator'] = None
-        apReq['authenticator']['etype'] = int(constants.EncriptionTypes.rc4_hmac.value)
+        apReq['authenticator']['etype'] = cipher.enctype
         apReq['authenticator']['cipher'] = encryptedEncodedAuthenticator
 
         blob['MechToken'] = encoder.encode(apReq)
