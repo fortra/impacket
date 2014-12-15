@@ -20,7 +20,7 @@ from struct import pack, unpack, calcsize
 from impacket.winregistry import hexdump
 from impacket.structure import Structure
 from impacket.krb5 import crypto, constants, types
-from impacket.krb5.asn1 import AS_REP, seq_set, EncryptedData
+from impacket.krb5.asn1 import AS_REP, seq_set, EncryptedData, TGS_REP
 from pyasn1.codec.der import decoder, encoder
 
 
@@ -242,12 +242,26 @@ class Credential():
         return tgt
         
     def toTGS(self):
-        raise
-        tgs = []
-        tgs['KDC_REP'] = 1
-        cipher = crypto._enctype_table(self['key']['keytype'])()
+        tgs_rep = TGS_REP()
+        tgs_rep['pvno'] = 5
+        tgs_rep['msg-type'] = int(constants.ApplicationTagNumbers.TGS_REP.value)
+        tgs_rep['crealm'] = self['server'].realm['data']
+
+        # Fake EncryptedData
+        tgs_rep['enc-part'] = None
+        tgs_rep['enc-part']['etype'] = 1 
+        tgs_rep['enc-part']['cipher'] = '' 
+        seq_set(tgs_rep, 'cname', self['client'].toPrincipal().components_to_asn1)
+        ticket = types.Ticket()
+        ticket.from_asn1(self.ticket['data'])
+        seq_set(tgs_rep,'ticket', ticket.to_asn1)
+
+        cipher = crypto._enctype_table[self['key']['keytype']]()
+
+        tgs = dict()
+        tgs['KDC_REP'] = encoder.encode(tgs_rep)
         tgs['cipher'] = cipher
-        tgt['sessionKey'] = crypto.Key(cipher.enctype, str(self['key']['keyvalue']))
+        tgs['sessionKey'] = crypto.Key(cipher.enctype, str(self['key']['keyvalue']))
         return tgs
         
 class CCache():

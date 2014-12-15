@@ -518,18 +518,18 @@ class SMB3:
             self._Session['Connection']      = self._NetBIOSSession.get_socket()
             sessionSetupResponse = SMB2SessionSetup_Response(ans['Data'])
 
-            self._Session['SessionKey']  = sessionKey.contents
+            self._Session['SessionKey']  = sessionKey.contents[:16]
             if self._Session['SigningRequired'] is True and self._Connection['Dialect'] == SMB2_DIALECT_30:
-                self._Session['SigningKey']  = crypto.KDF_CounterMode(sessionKey.contents, "SMB2AESCMAC\x00", "SmbSign\x00", 128)
+                self._Session['SigningKey']  = crypto.KDF_CounterMode(self._Session['SessionKey'], "SMB2AESCMAC\x00", "SmbSign\x00", 128)
 
             # Calculate the key derivations for dialect 3.0
             if self._Session['SigningRequired'] is True:
                 self._Session['SigningActivated'] = True
             if self._Connection['Dialect'] == SMB2_DIALECT_30:
-                self._Session['ApplicationKey']  = crypto.KDF_CounterMode(sessionKey.contents, "SMB2APP\x00", "SmbRpc\x00", 128)
+                self._Session['ApplicationKey']  = crypto.KDF_CounterMode(self._Session['SessionKey'], "SMB2APP\x00", "SmbRpc\x00", 128)
             if self._Session['EncryptData'] is True:
-                self._Session['EncryptionKey']  = crypto.KDF_CounterMode(sessionKey.contents, "SMB2AESCCM\x00", "ServerIn \x00", 128)
-                self._Session['DecryptionKey']  = crypto.KDF_CounterMode(sessionKey.contents, "SMB2AESCCM\x00", "ServerOut\x00", 128)
+                self._Session['EncryptionKey']  = crypto.KDF_CounterMode(self._Session['SessionKey'], "SMB2AESCCM\x00", "ServerIn \x00", 128)
+                self._Session['DecryptionKey']  = crypto.KDF_CounterMode(self._Session['SessionKey'], "SMB2AESCCM\x00", "ServerOut\x00", 128)
        
             return True
         else:
