@@ -221,7 +221,6 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
     clientName.from_asn1( decodedTGT, 'crealm', 'cname')
 
     seq_set(authenticator, 'cname', clientName.components_to_asn1)
-    #authenticator.setComponentByName('cksum',)
 
     now = datetime.datetime.utcnow()
     authenticator['cusec'] =  now.microsecond
@@ -236,7 +235,7 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
     encryptedEncodedAuthenticator = cipher.encrypt(sessionKey, 7, encodedAuthenticator, None)
 
     apReq['authenticator'] = None
-    apReq['authenticator']['etype'] = int(constants.EncriptionTypes.rc4_hmac.value)
+    apReq['authenticator']['etype'] = cipher.enctype
     apReq['authenticator']['cipher'] = encryptedEncodedAuthenticator
 
     encodedApReq = encoder.encode(apReq)
@@ -268,8 +267,7 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
     reqBody['nonce'] = random.SystemRandom().getrandbits(31)
     seq_set_iter(reqBody, 'etype',
                       (int(constants.EncriptionTypes.des3_cbc_sha1_kd.value),
-                       int(constants.EncriptionTypes.rc4_hmac.value)))
-
+                       int(cipher.enctype)))
 
     message = encoder.encode(tgsReq)
 
