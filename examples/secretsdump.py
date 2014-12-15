@@ -1294,7 +1294,7 @@ class NTDSHashes():
 
 
 class DumpSecrets:
-    def __init__(self, address, username = '', password = '', domain='', hashes = None, system=False, security=False, sam=False, ntds=False, outputFileName = None, history=False):
+    def __init__(self, address, username = '', password = '', domain='', hashes = None, doKerberos=False, system=False, security=False, sam=False, ntds=False, outputFileName = None, history=False):
         self.__remoteAddr = address
         self.__username = username
         self.__password = password
@@ -1314,6 +1314,7 @@ class DumpSecrets:
         self.__noLMHash = True
         self.__isRemote = True
         self.__outputFileName = outputFileName
+        self.__doKerberos = doKerberos
 
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
@@ -1321,7 +1322,10 @@ class DumpSecrets:
 
     def connect(self):
         self.__smbConnection = SMBConnection(self.__remoteAddr, self.__remoteAddr)
-        self.__smbConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
+        if self.__doKerberos:
+            self.__smbConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
+        else:
+            self.__smbConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
 
     def getBootKey(self):
         # Local Version whenever we are given the files directly
@@ -1460,6 +1464,7 @@ if __name__ == '__main__':
     group = parser.add_argument_group('authentication')
 
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
+    group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line, in this case you will need to explicitly provide the user\'s password (password will not be prompted for Kerberos)')
     if len(sys.argv)==1:
         parser.print_help()
         sys.exit(1)
@@ -1483,11 +1488,11 @@ if __name__ == '__main__':
         if domain is None:
             domain = ''
     
-        if password == '' and username != '' and options.hashes is None:
+        if password == '' and username != '' and options.hashes is None and options.k is False:
             from getpass import getpass
             password = getpass("Password:")
 
-    dumper = DumpSecrets(address, username, password, domain, options.hashes, options.system, options.security, options.sam, options.ntds, options.outputfile, options.history)
+    dumper = DumpSecrets(address, username, password, domain, options.hashes, options.k, options.system, options.security, options.sam, options.ntds, options.outputfile, options.history)
 
     try:
         dumper.dump()
