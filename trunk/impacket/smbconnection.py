@@ -149,7 +149,7 @@ class SMBConnection():
         except (smb.SessionError, smb3.SessionError), e:
             raise SessionError(e.get_error_code())
 
-    def kerberosLogin(self, user, password, domain = '', lmhash = '', nthash = '', kdcHost=None, TGT=None, TGS=None, useCache = False):
+    def kerberosLogin(self, user, password, domain = '', lmhash = '', nthash = '', kdcHost=None, TGT=None, TGS=None, useCache = True):
         """
         logins into the target system explicitly using Kerberos. Hashes are used if RC4_HMAC is supported.
 
@@ -176,17 +176,21 @@ class SMBConnection():
                 pass
             else:
                 print "Using Kerberos Cache: %s" % os.getenv('KRB5CCNAME')
-                domainFDN = ccache.principal.prettyPrint().split('@')[1]
-                principal = 'cifs/%s@%s' % (self.getRemoteHost(), domainFDN)
+                principal = 'cifs/%s@%s' % (self.getRemoteHost().upper(), domain.upper())
                 creds = ccache.getCredential(principal)
                 if creds is None:
                     # Let's try for the TGT and go from there
-                    principal = 'krbtgt/%s@%s' % (domainFDN,domainFDN)
+                    principal = 'krbtgt/%s@%s' % (domain.upper(),domain.upper())
                     creds =  ccache.getCredential(principal)
                     if creds is not None:
                         TGT = creds.toTGT()
+                        print 'Using TGT from cache'
+                    else:
+                        print "No valid credentials found in cache. "
                 else:
                     TGS = creds.toTGS()
+                    print 'Using TGS from cache'
+                
 
         if self.getDialect() == smb.SMB_DIALECT:
             return self._SMBConnection.kerberos_login(user, password, domain, lmhash, nthash, kdcHost, TGT, TGS)

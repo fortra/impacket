@@ -19,10 +19,10 @@ import random
 import socket
 import struct
 from pyasn1.codec.der import decoder, encoder
-from impacket.krb5.asn1 import AS_REQ, AP_REQ, TGS_REQ, KERB_PA_PAC_REQUEST, KRB_ERROR, PA_ENC_TS_ENC, METHOD_DATA, AS_REP, TGS_REP, EncryptedData, Authenticator, EncASRepPart, EncTGSRepPart, seq_append, seq_set, seq_set_iter, seq_set_dict, KERB_ERROR_DATA
+from impacket.krb5.asn1 import AS_REQ, AP_REQ, TGS_REQ, KERB_PA_PAC_REQUEST, KRB_ERROR, PA_ENC_TS_ENC, METHOD_DATA, AS_REP, TGS_REP, EncryptedData, Authenticator, EncASRepPart, EncTGSRepPart, seq_append, seq_set, seq_set_iter, seq_set_dict, KERB_ERROR_DATA, METHOD_DATA, ETYPE_INFO2_ENTRY
 from impacket.krb5.types import KerberosTime, Principal, Ticket
 from impacket.krb5 import constants
-from impacket.krb5.crypto import _RC4, Key
+from impacket.krb5.crypto import _RC4, Key, _enctype_table
 from impacket.smbconnection import SessionError
 from impacket.winregistry import hexdump
 from impacket import nt_errors
@@ -92,19 +92,31 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, kdcHost, reques
     reqBody['till'] = KerberosTime.to_asn1(now)
     reqBody['rtime'] = KerberosTime.to_asn1(now)
     reqBody['nonce'] =  random.SystemRandom().getrandbits(31)
-    seq_set_iter(reqBody, 'etype',
-                      (int(constants.EncriptionTypes.des3_cbc_sha1_kd.value),
-                       int(constants.EncriptionTypes.rc4_hmac.value)))
+    if nthash == '':
+        seq_set_iter(reqBody, 'etype',
+                          (int(constants.EncriptionTypes.des3_cbc_sha1_kd.value),
+                           int(constants.EncriptionTypes.rc4_hmac.value), 
+                           int(constants.EncriptionTypes.aes128_cts_hmac_sha1_96.value),
+                           int(constants.EncriptionTypes.aes256_cts_hmac_sha1_96.value)))
+    else:
+        # We have hashes to try, only way is to request RC4 only
+        seq_set_iter(reqBody, 'etype',
+                          (int(constants.EncriptionTypes.rc4_hmac.value),))
 
     message = encoder.encode(asReq)
 
     r = sendReceive(message, domain, kdcHost)
 
-    # ToDo: Check the encryption types
-    #rep = decoder.decode(r, asn1Spec=KRB_ERROR())[0]
-    #error_code = rep.getComponentByName('error-code')
-    #e_data = rep.getComponentByName('e-data')
-    #method_data = decoder.decode(e_data, asn1Spec=METHOD_DATA())[0]
+    # This should be the PREAUTH_FAILED packet
+    
+    asRep = decoder.decode(r, asn1Spec = KRB_ERROR())[0]
+    methods = decoder.decode(str(asRep['e-data']), asn1Spec=METHOD_DATA())[0]
+    salt = ''
+    for method in methods:
+        if method['padata-type'] == constants.PreAuthenticationDataTypes.PA_ETYPE_INFO2.value:
+            etype2 = decoder.decode(str(method['padata-value'])[2:], asn1Spec = ETYPE_INFO2_ENTRY())[0]
+            enctype = etype2['etype']
+            salt = str(etype2['salt']) 
 
     # Let's build the timestamp
 
@@ -114,14 +126,12 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, kdcHost, reques
     timeStamp['patimestamp'] = KerberosTime.to_asn1(now)
     timeStamp['pausec'] = now.microsecond
 
-    # Retrieve the salt from here.. ToDo. no salt usually
-
     # Encrypt the shyte
-    cipher = _RC4()
+    cipher = _enctype_table[enctype]
     if nthash != '':
         key = Key(cipher.enctype, nthash)
     else:
-        key = cipher.string_to_key(password, None, None)
+        key = cipher.string_to_key(password, salt, None)
     encodedTimeStamp = encoder.encode(timeStamp)
 
     # Key Usage 1
@@ -130,7 +140,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, kdcHost, reques
     encriptedTimeStamp = cipher.encrypt(key, 1, encodedTimeStamp, None)
 
     encryptedData = EncryptedData()
-    encryptedData['etype'] = int(constants.EncriptionTypes.rc4_hmac.value)
+    encryptedData['etype'] = cipher.enctype
     encryptedData['cipher'] = encriptedTimeStamp
     encodedEncryptedData = encoder.encode(encryptedData)
 
@@ -167,7 +177,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, kdcHost, reques
     reqBody['rtime'] =  KerberosTime.to_asn1(now)
     reqBody['nonce'] = random.SystemRandom().getrandbits(31)
 
-    seq_set_iter(reqBody, 'etype', ( (int(constants.EncriptionTypes.rc4_hmac.value),)))
+    seq_set_iter(reqBody, 'etype', ( (int(cipher.enctype),)))
 
     tgt = sendReceive(encoder.encode(asReq), domain, kdcHost) 
 
@@ -279,11 +289,10 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
 
     cipherText = tgs['enc-part']['cipher']
 
-    # Key Usage 3
-    # AS-REP encrypted part (includes TGS session key or
-    # application session key), encrypted with the client key
-    # (Section 5.4.2)
-    plainText = cipher.decrypt(sessionKey, 3, str(cipherText))
+    # Key Usage 8
+    # TGS-REP encrypted part (includes application session
+    # key), encrypted with the TGS session key (Section 5.4.2)
+    plainText = cipher.decrypt(sessionKey, 8, str(cipherText))
 
     encTGSRepPart = decoder.decode(plainText, asn1Spec = EncTGSRepPart())[0]
 
