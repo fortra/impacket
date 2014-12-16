@@ -19,7 +19,7 @@ import random
 import socket
 import struct
 from pyasn1.codec.der import decoder, encoder
-from impacket.krb5.asn1 import AS_REQ, AP_REQ, TGS_REQ, KERB_PA_PAC_REQUEST, KRB_ERROR, PA_ENC_TS_ENC, METHOD_DATA, AS_REP, TGS_REP, EncryptedData, Authenticator, EncASRepPart, EncTGSRepPart, seq_append, seq_set, seq_set_iter, seq_set_dict, KERB_ERROR_DATA, METHOD_DATA, ETYPE_INFO2_ENTRY
+from impacket.krb5.asn1 import AS_REQ, AP_REQ, TGS_REQ, KERB_PA_PAC_REQUEST, KRB_ERROR, PA_ENC_TS_ENC, METHOD_DATA, AS_REP, TGS_REP, EncryptedData, Authenticator, EncASRepPart, EncTGSRepPart, seq_append, seq_set, seq_set_iter, seq_set_dict, KERB_ERROR_DATA, METHOD_DATA, ETYPE_INFO2_ENTRY, ETYPE_INFO_ENTRY
 from impacket.krb5.types import KerberosTime, Principal, Ticket
 from impacket.krb5 import constants
 from impacket.krb5.crypto import _RC4, Key, _enctype_table
@@ -94,10 +94,9 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, kdcHost, reques
     reqBody['nonce'] =  random.SystemRandom().getrandbits(31)
     if nthash == '':
         seq_set_iter(reqBody, 'etype',
-                          (int(constants.EncriptionTypes.des3_cbc_sha1_kd.value),
-                           int(constants.EncriptionTypes.rc4_hmac.value), 
-                           int(constants.EncriptionTypes.aes128_cts_hmac_sha1_96.value),
-                           int(constants.EncriptionTypes.aes256_cts_hmac_sha1_96.value)))
+                          (int(constants.EncriptionTypes.rc4_hmac.value),)) 
+                           #int(constants.EncriptionTypes.aes128_cts_hmac_sha1_96.value),
+                           #int(constants.EncriptionTypes.aes256_cts_hmac_sha1_96.value)))
     else:
         # We have hashes to try, only way is to request RC4 only
         seq_set_iter(reqBody, 'etype',
@@ -116,7 +115,14 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, kdcHost, reques
         if method['padata-type'] == constants.PreAuthenticationDataTypes.PA_ETYPE_INFO2.value:
             etype2 = decoder.decode(str(method['padata-value'])[2:], asn1Spec = ETYPE_INFO2_ENTRY())[0]
             enctype = etype2['etype']
-            salt = str(etype2['salt']) 
+            if etype2['salt'] is None:
+                salt = ''
+            else:
+                salt = str(etype2['salt']) 
+        elif method['padata-type'] == constants.PreAuthenticationDataTypes.PA_ETYPE_INFO.value:
+            etype = decoder.decode(str(method['padata-value'])[2:], asn1Spec = ETYPE_INFO_ENTRY())[0]
+            enctype = etype['etype']
+            salt = str(etype['salt']) 
 
     # Let's build the timestamp
 
