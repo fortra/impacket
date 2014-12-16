@@ -308,7 +308,7 @@ class CCache():
 
     @classmethod
     def loadFile(cls, fileName):
-        f = open(fileName)
+        f = open(fileName,'rb')
         data = f.read()
         f.close()
         return cls(data)
