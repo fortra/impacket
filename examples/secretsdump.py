@@ -41,7 +41,7 @@
 from impacket import version, smbconnection, winregistry, ntlm
 from impacket.smbconnection import SMBConnection
 from impacket.dcerpc import dcerpc, transport, winreg
-from impacket.dcerpc.v5 import rpcrt, transport, rrp, scmr
+from impacket.dcerpc.v5 import rpcrt, transport, rrp, scmr, wkst
 from impacket.winregistry import hexdump
 from impacket.structure import Structure
 from impacket.ese import ESENT_DB
@@ -286,7 +286,20 @@ class RemoteOperations:
         self.__rrp.bind(rrp.MSRPC_UUID_RRP)
 
     def getMachineNameAndDomain(self):
-        return self.__smbConnection.getServerName(), self.__smbConnection.getServerDomain()
+        if self.__smbConnection.getServerName() == '':
+            # No serverName.. this is either because we're doing Kerberos
+            # or not receiving that data during the login process.
+            # Let's try getting it through RPC
+            rpc = transport.DCERPCTransportFactory(r'ncacn_np:445[\pipe\wkssvc]')
+            rpc.set_smb_connection(self.__smbConnection)
+            dce = rpc.get_dce_rpc()
+            dce.connect()
+            dce.bind(wkst.MSRPC_UUID_WKST)
+            resp = wkst.hNetrWkstaGetInfo(dce, 100)
+            dce.disconnect()
+            return resp['WkstaInfo']['WkstaInfo100']['wki100_computername'][:-1], resp['WkstaInfo']['WkstaInfo100']['wki100_langroup'][:-1]
+        else:
+            return self.__smbConnection.getServerName(), self.__smbConnection.getServerDomain()
 
     def getDefaultLoginAccount(self):
         try:
