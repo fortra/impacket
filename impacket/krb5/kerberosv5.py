@@ -59,6 +59,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, kdcHost, reques
     
     asReq = AS_REQ()
 
+    domain = domain.upper()
     serverName = Principal('krbtgt/%s'%domain, type=constants.PrincipalNameType.NT_PRINCIPAL.value)  
 
     pacRequest = KERB_PA_PAC_REQUEST()
@@ -245,6 +246,7 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
     except:
         decodedTGT = decoder.decode(tgt, asn1Spec = TGS_REP())[0]
 
+    domain = domain.upper()
     # Extract the ticket from the TGT
     ticket = Ticket()
     ticket.from_asn1(decodedTGT['ticket'])
