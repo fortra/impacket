@@ -19,7 +19,7 @@ import random
 import socket
 import struct
 from pyasn1.codec.der import decoder, encoder
-from impacket.krb5.asn1 import AS_REQ, AP_REQ, TGS_REQ, KERB_PA_PAC_REQUEST, KRB_ERROR, PA_ENC_TS_ENC, METHOD_DATA, AS_REP, TGS_REP, EncryptedData, Authenticator, EncASRepPart, EncTGSRepPart, seq_append, seq_set, seq_set_iter, seq_set_dict, KERB_ERROR_DATA, METHOD_DATA, ETYPE_INFO2_ENTRY, ETYPE_INFO_ENTRY
+from impacket.krb5.asn1 import AS_REQ, AP_REQ, TGS_REQ, KERB_PA_PAC_REQUEST, KRB_ERROR, PA_ENC_TS_ENC, METHOD_DATA, AS_REP, TGS_REP, EncryptedData, Authenticator, EncASRepPart, EncTGSRepPart, seq_append, seq_set, seq_set_iter, seq_set_dict, KERB_ERROR_DATA, METHOD_DATA, ETYPE_INFO2_ENTRY, ETYPE_INFO_ENTRY, ETYPE_INFO2, ETYPE_INFO
 from impacket.krb5.types import KerberosTime, Principal, Ticket
 from impacket.krb5 import constants
 from impacket.krb5.crypto import _RC4, Key, _enctype_table
@@ -93,14 +93,19 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, kdcHost, reques
     reqBody['rtime'] = KerberosTime.to_asn1(now)
     reqBody['nonce'] =  random.SystemRandom().getrandbits(31)
     if nthash == '':
-        seq_set_iter(reqBody, 'etype',
-                          (int(constants.EncriptionTypes.rc4_hmac.value),)) 
-                           #int(constants.EncriptionTypes.aes128_cts_hmac_sha1_96.value),
-                           #int(constants.EncriptionTypes.aes256_cts_hmac_sha1_96.value)))
+        # For now, I'll keep this commented, until I figure out 
+        # a way to detect when a cypher is not accepted on the other 
+        # end. I thought KDC_ERR_ETYPE_NOSUPP was enough, but I found
+        # some systems that accepts it, and trigger an error when requesting
+        # subsequent TGS :(. More research needed.
+        #supportedCiphers = (int(constants.EncriptionTypes.rc4_hmac.value),
+        #                   int(constants.EncriptionTypes.aes256_cts_hmac_sha1_96.value))
+        supportedCiphers = (int(constants.EncriptionTypes.rc4_hmac.value),)
     else:
         # We have hashes to try, only way is to request RC4 only
-        seq_set_iter(reqBody, 'etype',
-                          (int(constants.EncriptionTypes.rc4_hmac.value),))
+        supportedCiphers = (int(constants.EncriptionTypes.rc4_hmac.value),)
+
+    seq_set_iter(reqBody, 'etype', supportedCiphers)
 
     message = encoder.encode(asReq)
 
@@ -111,82 +116,105 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, kdcHost, reques
     asRep = decoder.decode(r, asn1Spec = KRB_ERROR())[0]
     methods = decoder.decode(str(asRep['e-data']), asn1Spec=METHOD_DATA())[0]
     salt = ''
+    encryptionTypesData = dict()
     for method in methods:
         if method['padata-type'] == constants.PreAuthenticationDataTypes.PA_ETYPE_INFO2.value:
-            etype2 = decoder.decode(str(method['padata-value'])[2:], asn1Spec = ETYPE_INFO2_ENTRY())[0]
-            enctype = etype2['etype']
-            if etype2['salt'] is None:
-                salt = ''
-            else:
-                salt = str(etype2['salt']) 
+            etypes2 = decoder.decode(str(method['padata-value']), asn1Spec = ETYPE_INFO2())[0]
+            for etype2 in etypes2:
+                if etype2['salt'] is None:
+                    salt = ''
+                else: 
+                    salt = str(etype2['salt'])  
+                encryptionTypesData[etype2['etype']] = salt
         elif method['padata-type'] == constants.PreAuthenticationDataTypes.PA_ETYPE_INFO.value:
-            etype = decoder.decode(str(method['padata-value'])[2:], asn1Spec = ETYPE_INFO_ENTRY())[0]
-            enctype = etype['etype']
-            salt = str(etype['salt']) 
+            etypes = decoder.decode(str(method['padata-value']), asn1Spec = ETYPE_INFO())[0]
+            for etype in etypes:
+                if etype['salt'] is None:
+                    salt = ''
+                else: 
+                    salt = str(etype['salt'])  
+                encryptionTypesData[etype['etype']] = salt
 
-    # Let's build the timestamp
+    # Now let's cycle through all the available ciphers
+    done = False
+    for enctype in supportedCiphers:
+        if encryptionTypesData.has_key(enctype) is False:
+            continue
 
-    timeStamp = PA_ENC_TS_ENC()
+        # Let's build the timestamp
+        timeStamp = PA_ENC_TS_ENC()
 
-    now = datetime.datetime.utcnow() 
-    timeStamp['patimestamp'] = KerberosTime.to_asn1(now)
-    timeStamp['pausec'] = now.microsecond
+        now = datetime.datetime.utcnow() 
+        timeStamp['patimestamp'] = KerberosTime.to_asn1(now)
+        timeStamp['pausec'] = now.microsecond
 
-    # Encrypt the shyte
-    cipher = _enctype_table[enctype]
-    if nthash != '':
-        key = Key(cipher.enctype, nthash)
-    else:
-        key = cipher.string_to_key(password, salt, None)
-    encodedTimeStamp = encoder.encode(timeStamp)
+        # Encrypt the shyte
+        cipher = _enctype_table[enctype]
+        if nthash != '':
+            key = Key(cipher.enctype, nthash)
+        else:
+            key = cipher.string_to_key(password, encryptionTypesData[enctype], None)
+        encodedTimeStamp = encoder.encode(timeStamp)
 
-    # Key Usage 1
-    # AS-REQ PA-ENC-TIMESTAMP padata timestamp, encrypted with the 
-    # client key (Section 5.2.7.2)
-    encriptedTimeStamp = cipher.encrypt(key, 1, encodedTimeStamp, None)
+        # Key Usage 1
+        # AS-REQ PA-ENC-TIMESTAMP padata timestamp, encrypted with the 
+        # client key (Section 5.2.7.2)
+        encriptedTimeStamp = cipher.encrypt(key, 1, encodedTimeStamp, None)
 
-    encryptedData = EncryptedData()
-    encryptedData['etype'] = cipher.enctype
-    encryptedData['cipher'] = encriptedTimeStamp
-    encodedEncryptedData = encoder.encode(encryptedData)
+        encryptedData = EncryptedData()
+        encryptedData['etype'] = cipher.enctype
+        encryptedData['cipher'] = encriptedTimeStamp
+        encodedEncryptedData = encoder.encode(encryptedData)
 
-    # Now prepare the new AS_REQ again with the PADATA 
-    # ToDo: cannot we reuse the previous one?
-    asReq = AS_REQ()
+        # Now prepare the new AS_REQ again with the PADATA 
+        # ToDo: cannot we reuse the previous one?
+        asReq = AS_REQ()
 
-    asReq['pvno'] = 5
-    asReq['msg-type'] =  int(constants.ApplicationTagNumbers.AS_REQ.value)
-    asReq['padata'] = None
-    asReq['padata'][0] = None
-    asReq['padata'][0]['padata-type'] = int(constants.PreAuthenticationDataTypes.PA_ENC_TIMESTAMP.value)
-    asReq['padata'][0]['padata-value'] = encodedEncryptedData
+        asReq['pvno'] = 5
+        asReq['msg-type'] =  int(constants.ApplicationTagNumbers.AS_REQ.value)
+        asReq['padata'] = None
+        asReq['padata'][0] = None
+        asReq['padata'][0]['padata-type'] = int(constants.PreAuthenticationDataTypes.PA_ENC_TIMESTAMP.value)
+        asReq['padata'][0]['padata-value'] = encodedEncryptedData
  
-    asReq['padata'][1] = None
-    asReq['padata'][1]['padata-type'] = int(constants.PreAuthenticationDataTypes.PA_PAC_REQUEST.value)
-    asReq['padata'][1]['padata-value'] = encodedPacRequest
+        asReq['padata'][1] = None
+        asReq['padata'][1]['padata-type'] = int(constants.PreAuthenticationDataTypes.PA_PAC_REQUEST.value)
+        asReq['padata'][1]['padata-value'] = encodedPacRequest
 
-    reqBody = seq_set(asReq, 'req-body')
+        reqBody = seq_set(asReq, 'req-body')
 
-    opts = list()
-    opts.append( constants.KDCOptions.forwardable.value )
-    opts.append( constants.KDCOptions.renewable.value )
-    opts.append( constants.KDCOptions.proxiable.value )
-    reqBody['kdc-options'] = constants.encodeFlags(opts)
+        opts = list()
+        opts.append( constants.KDCOptions.forwardable.value )
+        opts.append( constants.KDCOptions.renewable.value )
+        opts.append( constants.KDCOptions.proxiable.value )
+        reqBody['kdc-options'] = constants.encodeFlags(opts)
 
-    seq_set(reqBody, 'sname', serverName.components_to_asn1)
-    seq_set(reqBody, 'cname', clientName.components_to_asn1)
+        seq_set(reqBody, 'sname', serverName.components_to_asn1)
+        seq_set(reqBody, 'cname', clientName.components_to_asn1)
 
-    reqBody['realm'] =  domain
+        reqBody['realm'] =  domain
 
-    now = datetime.datetime.utcnow() + datetime.timedelta(days=1)
-    reqBody['till'] = KerberosTime.to_asn1(now)
-    reqBody['rtime'] =  KerberosTime.to_asn1(now)
-    reqBody['nonce'] = random.SystemRandom().getrandbits(31)
+        now = datetime.datetime.utcnow() + datetime.timedelta(days=1)
+        reqBody['till'] = KerberosTime.to_asn1(now)
+        reqBody['rtime'] =  KerberosTime.to_asn1(now)
+        reqBody['nonce'] = random.SystemRandom().getrandbits(31)
 
-    seq_set_iter(reqBody, 'etype', ( (int(cipher.enctype),)))
+        seq_set_iter(reqBody, 'etype', ( (int(cipher.enctype),)))
 
-    tgt = sendReceive(encoder.encode(asReq), domain, kdcHost) 
+        try:
+            tgt = sendReceive(encoder.encode(asReq), domain, kdcHost) 
+            done = True
+        except Exception, e:
+            if str(e).find('KDC_ERR_ETYPE_NOSUPP') < 0:
+                raise e
+            pass
+        else:
+            break        
 
+    if done is False:
+        # Something failed, let's trigger the error and leave
+        tgt = sendReceive(encoder.encode(asReq), domain, kdcHost) 
+    
     # So, we have the TGT, now extract the new session key and finish
 
     asRep = decoder.decode(tgt, asn1Spec = AS_REP())[0]
@@ -207,7 +235,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, kdcHost, reques
 
     # ToDo: Check Nonces!
 
-    return tgt, cipher, sessionKey
+    return tgt, cipher, key, sessionKey
 
 def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
 
@@ -304,7 +332,7 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
 
     newSessionKey = Key(cipher.enctype, str(encTGSRepPart['key']['keyvalue']))
     
-    return r, cipher, newSessionKey
+    return r, cipher, sessionKey, newSessionKey
 
 class KerberosError(SessionError):
     """
