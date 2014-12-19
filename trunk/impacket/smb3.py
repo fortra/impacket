@@ -442,17 +442,31 @@ class SMB3:
         userName = Principal(user, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
         if TGT is None:
             if TGS is None:
-                tgt, cipher, sessionKey = getKerberosTGT(userName, password, domain, lmhash, nthash, kdcHost)
+                tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, password, domain, lmhash, nthash, kdcHost)
         else:
             tgt = TGT['KDC_REP']
             cipher = TGT['cipher']
             sessionKey = TGT['sessionKey'] 
 
+        # Save the ticket
+        # If you want, for debugging purposes
+#        from impacket.krb5.ccache import CCache
+#        ccache = CCache()
+#        try:
+#            if TGS is None:
+#                ccache.fromTGT(tgt, oldSessionKey, sessionKey)
+#            else:
+#                ccache.fromTGS(TGS['KDC_REP'], TGS['oldSessionKey'], TGS['sessionKey'] )
+#            ccache.saveFile('/tmp/ticket.bin')
+#        except Exception, e:
+#            print e
+#            pass
+
         # Now that we have the TGT, we should ask for a TGS for cifs
 
         if TGS is None:
             serverName = Principal('cifs/%s' % (self._Connection['ServerName']), type=constants.PrincipalNameType.NT_SRV_INST.value)
-            tgs, cipher, sessionKey = getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey)
+            tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey)
         else:
             tgs = TGS['KDC_REP']
             cipher = TGS['cipher']

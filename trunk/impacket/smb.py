@@ -3076,7 +3076,7 @@ class SMB:
         userName = Principal(user, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
         if TGT is None:
             if TGS is None:
-                tgt, cipher, sessionKey = getKerberosTGT(userName, password, domain, lmhash, nthash, kdcHost)
+                tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, password, domain, lmhash, nthash, kdcHost)
         else:
             tgt = TGT['KDC_REP']
             cipher = TGT['cipher']
@@ -3086,7 +3086,7 @@ class SMB:
 
         if TGS is None:
             serverName = Principal('cifs/%s' % (self.__remote_host), type=constants.PrincipalNameType.NT_SRV_INST.value)
-            tgs, cipher, sessionKey = getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey)
+            tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey)
         else:
             tgs = TGS['KDC_REP']
             cipher = TGS['cipher']
