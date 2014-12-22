@@ -316,7 +316,7 @@ class HTTPTransport(TCPTransport):
 class SMBTransport(DCERPCTransport):
     "Implementation of ncacn_np protocol sequence"
 
-    def __init__(self, dstip, dstport = 445, filename = '', username='', password='', domain = '', lmhash='', nthash='', remote_name='', smb_connection = 0):
+    def __init__(self, dstip, dstport = 445, filename = '', username='', password='', domain = '', lmhash='', nthash='', remote_name='', smb_connection = 0, doKerberos = False):
         DCERPCTransport.__init__(self, dstip, dstport)
         self.__socket = None
         self.__tid = 0
@@ -325,6 +325,7 @@ class SMBTransport(DCERPCTransport):
         self.__pending_recv = 0
         self.set_credentials(username, password, domain, lmhash, nthash)
         self.__remote_name = remote_name
+        self.__doKerberos = doKerberos
 
         if smb_connection == 0:
             self.__existing_smb = False
@@ -359,7 +360,10 @@ class SMBTransport(DCERPCTransport):
         # Check if we have a smb connection already setup
         if self.__smb_connection == 0:
            self.setup_smb_connection()
-           self.__smb_connection.login(self._username, self._password, self._domain, self._lmhash, self._nthash)
+           if self.__doKerberos is False:
+               self.__smb_connection.login(self._username, self._password, self._domain, self._lmhash, self._nthash)
+           else:
+               self.__smb_connection.kerberosLogin(self._username, self._password, self._domain, self._lmhash, self._nthash)
         self.__tid = self.__smb_connection.connectTree('IPC$')
         self.__handle = self.__smb_connection.openFile(self.__tid, self.__filename)
         self.__socket = self.__smb_connection.getSMBServer().get_socket()
