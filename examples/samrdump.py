@@ -38,7 +38,7 @@ class SAMRDump:
 
 
     def __init__(self, protocols = None,
-                 username = '', password = '', domain = '', hashes = None):
+                 username = '', password = '', domain = '', hashes = None, doKerberos = False):
         if not protocols:
             self.__protocols = SAMRDump.KNOWN_PROTOCOLS.keys()
         else:
@@ -49,6 +49,7 @@ class SAMRDump:
         self.__domain = domain
         self.__lmhash = ''
         self.__nthash = ''
+        self.__doKerberos = doKerberos
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
 
@@ -67,7 +68,7 @@ class SAMRDump:
             port = protodef[1]
 
             print "Trying protocol %s..." % protocol
-            rpctransport = transport.SMBTransport(addr, port, r'\samr', self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
+            rpctransport = transport.SMBTransport(addr, port, r'\samr', self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, doKerberos = self.__doKerberos)
 
             try:
                 entries = self.__fetchList(rpctransport)
@@ -168,6 +169,8 @@ if __name__ == '__main__':
     group = parser.add_argument_group('authentication')
 
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
+    group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line, in this case you will need to explicitly provide the user\'s password (password will not be prompted for Kerberos)')
+
     if len(sys.argv)==1:
         parser.print_help()
         sys.exit(1)
@@ -181,9 +184,9 @@ if __name__ == '__main__':
     if domain is None:
         domain = ''
 
-    if password == '' and username != '' and options.hashes is None:
+    if password == '' and username != '' and options.hashes is None and options.k is False:
         from getpass import getpass
         password = getpass("Password:")
 
-    dumper = SAMRDump(options.protocol, username, password, domain, options.hashes)
+    dumper = SAMRDump(options.protocol, username, password, domain, options.hashes, options.k)
     dumper.dump(address)
