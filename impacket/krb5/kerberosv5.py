@@ -19,13 +19,25 @@ import random
 import socket
 import struct
 from pyasn1.codec.der import decoder, encoder
-from impacket.krb5.asn1 import AS_REQ, AP_REQ, TGS_REQ, KERB_PA_PAC_REQUEST, KRB_ERROR, PA_ENC_TS_ENC, METHOD_DATA, AS_REP, TGS_REP, EncryptedData, Authenticator, EncASRepPart, EncTGSRepPart, seq_append, seq_set, seq_set_iter, seq_set_dict, KERB_ERROR_DATA, METHOD_DATA, ETYPE_INFO2_ENTRY, ETYPE_INFO_ENTRY, ETYPE_INFO2, ETYPE_INFO
+from impacket.krb5.asn1 import AS_REQ, AP_REQ, TGS_REQ, KERB_PA_PAC_REQUEST, KRB_ERROR, PA_ENC_TS_ENC, METHOD_DATA, AS_REP, TGS_REP, EncryptedData, Authenticator, EncASRepPart, EncTGSRepPart, seq_append, seq_set, seq_set_iter, seq_set_dict, KERB_ERROR_DATA, METHOD_DATA, ETYPE_INFO2_ENTRY, ETYPE_INFO_ENTRY, ETYPE_INFO2, ETYPE_INFO, AP_REP, EncAPRepPart
 from impacket.krb5.types import KerberosTime, Principal, Ticket
 from impacket.krb5 import constants
 from impacket.krb5.crypto import _RC4, Key, _enctype_table
 from impacket.smbconnection import SessionError
+from impacket.spnego import SPNEGO_NegTokenInit, TypesMech, SPNEGO_NegTokenResp
 from impacket.winregistry import hexdump
 from impacket import nt_errors
+from impacket.structure import Structure
+
+# Constants
+GSS_C_DCE_STYLE     = 0x1000
+GSS_C_DELEG_FLAG    = 1
+GSS_C_MUTUAL_FLAG   = 2
+GSS_C_REPLAY_FLAG   = 4
+GSS_C_SEQUENCE_FLAG = 8
+GSS_C_CONF_FLAG     = 0x10
+GSS_C_INTEG_FLAG    = 0x20
+
 
 def sendReceive(data, host, kdcHost):
     if kdcHost is None:
@@ -335,6 +347,133 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
     newSessionKey = Key(cipher.enctype, str(encTGSRepPart['key']['keyvalue']))
     
     return r, cipher, sessionKey, newSessionKey
+
+################################################################################
+# DCE RPC Helpers
+################################################################################
+class CheckSumField(Structure):
+    structure = (
+        ('Lgth','<L=16'),
+        ('Bnd','16s=""'),
+        ('Flags','<L=0'),
+    )
+
+def getKerberosType3(cipher, sessionKey, auth_data):
+    negTokenResp = SPNEGO_NegTokenResp(auth_data)
+    ap_rep = decoder.decode(negTokenResp['ResponseToken'], asn1Spec=AP_REP())[0]
+
+    cipherText = str(ap_rep['enc-part']['cipher'])
+
+    # Key Usage 12
+    # AP-REP encrypted part (includes application session
+    # subkey), encrypted with the application session key
+    # (Section 5.5.2)
+    plainText = cipher.decrypt(sessionKey, 12, cipherText)
+
+    encAPRepPart = decoder.decode(plainText, asn1Spec = EncAPRepPart())[0]
+
+    cipher = _enctype_table[int(encAPRepPart['subkey']['keytype'])]()
+    sessionKey2 = Key(cipher.enctype, str(encAPRepPart['subkey']['keyvalue']))
+
+    sequenceNumber = str(encAPRepPart['seq-number'])
+
+    encAPRepPart['subkey'].clear()
+    encAPRepPart = encAPRepPart.clone()
+
+    now = datetime.datetime.utcnow()
+    encAPRepPart['cusec'] = now.microsecond
+    encAPRepPart['ctime'] = KerberosTime.to_asn1(now)
+    encAPRepPart['seq-number'] = sequenceNumber
+    encodedAuthenticator = encoder.encode(encAPRepPart)
+
+    encryptedEncodedAuthenticator = cipher.encrypt(sessionKey, 12, encodedAuthenticator, None)
+
+    ap_rep['enc-part'].clear()
+    ap_rep['enc-part']['etype'] = cipher.enctype
+    ap_rep['enc-part']['cipher'] = encryptedEncodedAuthenticator
+
+    resp = SPNEGO_NegTokenResp()
+    resp['ResponseToken'] = encoder.encode(ap_rep)
+
+    return cipher, sessionKey2, resp.getData()
+
+def getKerberosType1(username, password, domain, lmhash, nthash, targetName, kdcHost = None, TGT=None, TGS=None, ):
+    # First of all, we need to get a TGT for the user
+    userName = Principal(username, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
+    if TGT is None:
+        if TGS is None:
+            tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, password, domain, lmhash, nthash, kdcHost)
+    else:
+        tgt = TGT['KDC_REP']
+        cipher = TGT['cipher']
+        sessionKey = TGT['sessionKey'] 
+
+    # Now that we have the TGT, we should ask for a TGS for cifs
+
+    if TGS is None:
+        serverName = Principal('LDAP/%s' % (targetName), type=constants.PrincipalNameType.NT_SRV_INST.value)
+        tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey)
+    else:
+        tgs = TGS['KDC_REP']
+        cipher = TGS['cipher']
+        sessionKey = TGS['sessionKey'] 
+
+    # Let's build a NegTokenInit with a Kerberos REQ_AP
+
+    blob = SPNEGO_NegTokenInit() 
+
+    # Kerberos
+    blob['MechTypes'] = [TypesMech['MS KRB5 - Microsoft Kerberos 5']]
+
+    # Let's extract the ticket from the TGS
+    tgs = decoder.decode(tgs, asn1Spec = TGS_REP())[0]
+    ticket = Ticket()
+    ticket.from_asn1(tgs['ticket'])
+    
+    # Now let's build the AP_REQ
+    apReq = AP_REQ()
+    apReq['pvno'] = 5
+    apReq['msg-type'] = int(constants.ApplicationTagNumbers.AP_REQ.value)
+
+    opts = list()
+    opts.append(constants.APOptions.mutual_required.value)
+    apReq['ap-options'] = constants.encodeFlags(opts)
+    seq_set(apReq,'ticket', ticket.to_asn1)
+
+    authenticator = Authenticator()
+    authenticator['authenticator-vno'] = 5
+    authenticator['crealm'] = domain
+    seq_set(authenticator, 'cname', userName.components_to_asn1)
+    now = datetime.datetime.utcnow()
+
+    authenticator['cusec'] = now.microsecond
+    authenticator['ctime'] = KerberosTime.to_asn1(now)
+
+    
+    authenticator['cksum'] = None
+    authenticator['cksum']['cksumtype'] = 0x8003
+
+    chkField = CheckSumField()
+    chkField['Lgth'] = 16
+
+    chkField['Flags'] = GSS_C_CONF_FLAG | GSS_C_INTEG_FLAG | GSS_C_SEQUENCE_FLAG | GSS_C_REPLAY_FLAG | GSS_C_MUTUAL_FLAG | GSS_C_DCE_STYLE
+    authenticator['cksum']['checksum'] = chkField.getData()
+    authenticator['seq-number'] = 10
+    encodedAuthenticator = encoder.encode(authenticator)
+
+    # Key Usage 11
+    # AP-REQ Authenticator (includes application authenticator
+    # subkey), encrypted with the application session key
+    # (Section 5.5.1)
+    encryptedEncodedAuthenticator = cipher.encrypt(sessionKey, 11, encodedAuthenticator, None)
+
+    apReq['authenticator'] = None
+    apReq['authenticator']['etype'] = cipher.enctype
+    apReq['authenticator']['cipher'] = encryptedEncodedAuthenticator
+
+    blob['MechToken'] = encoder.encode(apReq)
+
+    return cipher, sessionKey, blob.getData()
 
 class KerberosError(SessionError):
     """

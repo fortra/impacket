@@ -27,6 +27,7 @@ from Crypto.Cipher import ARC4
 import impacket
 from impacket import ntlm
 from impacket.structure import Structure,pack,unpack
+from impacket.krb5 import kerberosv5
 from impacket import uuid
 from impacket.uuid import uuidtup_to_bin, generate, stringver_to_bin, bin_to_uuidtup
 from impacket.dcerpc.v5.dtypes import UCHAR, ULONG, USHORT
@@ -942,11 +943,16 @@ class DCERPC_v5(DCERPC):
         if (self.__auth_level != RPC_C_AUTHN_LEVEL_NONE):
             if (self.__username is None) or (self.__password is None):
                 self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash = self._transport.get_credentials()
+
             if self.__auth_type == RPC_C_AUTHN_WINNT:
                 auth = ntlm.getNTLMSSPType1('', self.__domain, signingRequired = True, use_ntlmv2 = self._transport.doesSupportNTLMv2())
             elif self.__auth_type == RPC_C_AUTHN_NETLOGON:
                 from impacket.dcerpc.v5 import nrpc
                 auth = nrpc.getSSPType1(self.__username[:-1], self.__domain, signingRequired = True)
+            elif self.__auth_type == RPC_C_AUTHN_GSS_NEGOTIATE:
+                self.__cipher, self.__sessionKey, auth = kerberosv5.getKerberosType1(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self._transport.get_dip())  
+            else:
+                raise Exception('Unsupported auth_type 0x%x' % self.__auth_type)
 
             sec_trailer = SEC_TRAILER()
             sec_trailer['auth_type']   = self.__auth_type
@@ -1008,6 +1014,8 @@ class DCERPC_v5(DCERPC):
                 self.__flags = response['flags']
             elif self.__auth_type == RPC_C_AUTHN_NETLOGON:
                 response = None
+            elif self.__auth_type == RPC_C_AUTHN_GSS_NEGOTIATE:
+                self.__cipher, self.__sessionKey, response = kerberosv5.getKerberosType3(self.__cipher, self.__sessionKey, bindResp['auth_data'])
 
             self.__sequence = 0
 
@@ -1044,20 +1052,29 @@ class DCERPC_v5(DCERPC):
             sec_trailer['auth_ctx_id'] = self._ctx + 79231 
 
             if response is not None:
-                auth3 = MSRPCHeader()
-                auth3['type'] = MSRPC_AUTH3
-                # pad (4 bytes): Can be set to any arbitrary value when set and MUST be 
-                # ignored on receipt. The pad field MUST be immediately followed by a 
-                # sec_trailer structure whose layout, location, and alignment are as 
-                # specified in section 2.2.2.11
-                auth3['pduData'] = '    '
-                auth3['sec_trailer'] = sec_trailer
-                auth3['auth_data'] = str(response)
+                if self.__auth_type == RPC_C_AUTHN_GSS_NEGOTIATE:
+                    alter_ctx = MSRPCHeader()
+                    alter_ctx['type'] = MSRPC_ALTERCTX
+                    alter_ctx['pduData'] = str(bind)
+                    alter_ctx['sec_trailer'] = sec_trailer
+                    alter_ctx['auth_data'] = str(response)
+                    self._transport.send(alter_ctx.get_packet(), forceWriteAndx = 1)
+                    s = self.recv()
+                else:
+                    auth3 = MSRPCHeader()
+                    auth3['type'] = MSRPC_AUTH3
+                    # pad (4 bytes): Can be set to any arbitrary value when set and MUST be 
+                    # ignored on receipt. The pad field MUST be immediately followed by a 
+                    # sec_trailer structure whose layout, location, and alignment are as 
+                    # specified in section 2.2.2.11
+                    auth3['pduData'] = '    '
+                    auth3['sec_trailer'] = sec_trailer
+                    auth3['auth_data'] = str(response)
 
-                # Use the same call_id
-                self.__callid = resp['call_id']
-                auth3['call_id'] = self.__callid
-                self._transport.send(auth3.get_packet(), forceWriteAndx = 1)
+                    # Use the same call_id
+                    self.__callid = resp['call_id']
+                    auth3['call_id'] = self.__callid
+                    self._transport.send(auth3.get_packet(), forceWriteAndx = 1)
 
             self.__callid += 1
 
