@@ -27,7 +27,7 @@ from Crypto.Cipher import ARC4
 import impacket
 from impacket import ntlm
 from impacket.structure import Structure,pack,unpack
-from impacket.krb5 import kerberosv5
+from impacket.krb5 import kerberosv5, gssapi
 from impacket import uuid
 from impacket.uuid import uuidtup_to_bin, generate, stringver_to_bin, bin_to_uuidtup
 from impacket.dcerpc.v5.dtypes import UCHAR, ULONG, USHORT
@@ -1059,7 +1059,10 @@ class DCERPC_v5(DCERPC):
                     alter_ctx['sec_trailer'] = sec_trailer
                     alter_ctx['auth_data'] = str(response)
                     self._transport.send(alter_ctx.get_packet(), forceWriteAndx = 1)
+                    self.__gss = gssapi.GSSAPI_RC4()
+                    self.__sequence = 0
                     s = self.recv()
+                    self.__sequence = 0
                 else:
                     auth3 = MSRPCHeader()
                     auth3['type'] = MSRPC_AUTH3
@@ -1122,8 +1125,11 @@ class DCERPC_v5(DCERPC):
                 elif self.__auth_type == RPC_C_AUTHN_NETLOGON:
                     from impacket.dcerpc.v5 import nrpc
                     sealedMessage, signature = nrpc.SEAL(plain_data, self.__confounder, self.__sequence, self.__sessionKey, False)
+                elif self.__auth_type == RPC_C_AUTHN_GSS_NEGOTIATE:
+                    sealedMessage, signature = self.__gss.GSS_Wrap(self.__sessionKey, plain_data, self.__sequence)
+
                 rpc_packet['pduData'] = sealedMessage
-            else: 
+            elif self.__auth_level == RPC_C_AUTHN_LEVEL_PKT_INTEGRITY: 
                 if self.__auth_type == RPC_C_AUTHN_WINNT:
                     if self.__flags & ntlm.NTLMSSP_NTLM2_KEY:
                         # Interesting thing.. with NTLM2, what is is signed is the 
@@ -1146,6 +1152,8 @@ class DCERPC_v5(DCERPC):
                            self.__sequence, 
                            self.__sessionKey, 
                            False)
+                elif self.__auth_type == RPC_C_AUTHN_GSS_NEGOTIATE:
+                    signature = self.__gss.GSS_GetMIC(self.__sessionKey, plain_data, self.__sequence)
 
             rpc_packet['sec_trailer'] = str(sec_trailer)
             rpc_packet['auth_data'] = str(signature)
@@ -1264,7 +1272,11 @@ class DCERPC_v5(DCERPC):
                                self.__sessionKey, 
                                False)
                         self.__sequence += 1
-                else:
+                    elif self.__auth_type == RPC_C_AUTHN_GSS_NEGOTIATE:
+                        if self.__sequence > 0:
+                            answer, cfounder = self.__gss.GSS_Wrap(self.__sessionKey, answer, self.__sequence, direction='init', authData=auth_data)
+
+                elif sec_trailer['auth_level'] == RPC_C_AUTHN_LEVEL_PKT_INTEGRITY:
                     if self.__auth_type == RPC_C_AUTHN_WINNT:
                         ntlmssp = auth_data[12:]
                         if self.__flags & ntlm.NTLMSSP_NTLM2_KEY:
@@ -1291,6 +1303,10 @@ class DCERPC_v5(DCERPC):
                                self.__sessionKey, 
                                False)
                         self.__sequence += 1
+                    elif self.__auth_type == RPC_C_AUTHN_GSS_NEGOTIATE:
+                        # Do NOT increment the sequence number when Signing Kerberos
+                        #self.__sequence += 1
+                        pass
 
                 
                 if sec_trailer['auth_pad_len']:
