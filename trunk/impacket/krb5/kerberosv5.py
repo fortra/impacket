@@ -21,6 +21,7 @@ import struct
 from pyasn1.codec.der import decoder, encoder
 from impacket.krb5.asn1 import AS_REQ, AP_REQ, TGS_REQ, KERB_PA_PAC_REQUEST, KRB_ERROR, PA_ENC_TS_ENC, METHOD_DATA, AS_REP, TGS_REP, EncryptedData, Authenticator, EncASRepPart, EncTGSRepPart, seq_append, seq_set, seq_set_iter, seq_set_dict, KERB_ERROR_DATA, METHOD_DATA, ETYPE_INFO2_ENTRY, ETYPE_INFO_ENTRY, ETYPE_INFO2, ETYPE_INFO, AP_REP, EncAPRepPart
 from impacket.krb5.types import KerberosTime, Principal, Ticket
+from impacket.krb5.gssapi import CheckSumField, GSS_C_DCE_STYLE, GSS_C_DELEG_FLAG, GSS_C_MUTUAL_FLAG, GSS_C_REPLAY_FLAG, GSS_C_SEQUENCE_FLAG, GSS_C_CONF_FLAG, GSS_C_INTEG_FLAG 
 from impacket.krb5 import constants
 from impacket.krb5.crypto import _RC4, Key, _enctype_table
 from impacket.smbconnection import SessionError
@@ -28,16 +29,6 @@ from impacket.spnego import SPNEGO_NegTokenInit, TypesMech, SPNEGO_NegTokenResp
 from impacket.winregistry import hexdump
 from impacket import nt_errors
 from impacket.structure import Structure
-
-# Constants
-GSS_C_DCE_STYLE     = 0x1000
-GSS_C_DELEG_FLAG    = 1
-GSS_C_MUTUAL_FLAG   = 2
-GSS_C_REPLAY_FLAG   = 4
-GSS_C_SEQUENCE_FLAG = 8
-GSS_C_CONF_FLAG     = 0x10
-GSS_C_INTEG_FLAG    = 0x20
-
 
 def sendReceive(data, host, kdcHost):
     if kdcHost is None:
@@ -351,15 +342,10 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
 ################################################################################
 # DCE RPC Helpers
 ################################################################################
-class CheckSumField(Structure):
-    structure = (
-        ('Lgth','<L=16'),
-        ('Bnd','16s=""'),
-        ('Flags','<L=0'),
-    )
-
 def getKerberosType3(cipher, sessionKey, auth_data):
     negTokenResp = SPNEGO_NegTokenResp(auth_data)
+    # If DCE_STYLE = FALSE
+    #ap_rep = decoder.decode(negTokenResp['ResponseToken'][16:], asn1Spec=AP_REP())[0]
     ap_rep = decoder.decode(negTokenResp['ResponseToken'], asn1Spec=AP_REP())[0]
 
     cipherText = str(ap_rep['enc-part']['cipher'])
@@ -457,8 +443,9 @@ def getKerberosType1(username, password, domain, lmhash, nthash, targetName, kdc
     chkField['Lgth'] = 16
 
     chkField['Flags'] = GSS_C_CONF_FLAG | GSS_C_INTEG_FLAG | GSS_C_SEQUENCE_FLAG | GSS_C_REPLAY_FLAG | GSS_C_MUTUAL_FLAG | GSS_C_DCE_STYLE
+    #chkField['Flags'] = GSS_C_INTEG_FLAG | GSS_C_SEQUENCE_FLAG | GSS_C_REPLAY_FLAG | GSS_C_MUTUAL_FLAG | GSS_C_DCE_STYLE
     authenticator['cksum']['checksum'] = chkField.getData()
-    authenticator['seq-number'] = 10
+    authenticator['seq-number'] = 0
     encodedAuthenticator = encoder.encode(authenticator)
 
     # Key Usage 11
