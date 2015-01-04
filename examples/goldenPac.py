@@ -839,7 +839,7 @@ class MS14_068():
 
         authorizationData = AuthorizationData()
         authorizationData[0] = None
-        authorizationData[0]['ad-type'] = int(constants.PreAuthenticationDataTypes.PA_PAC_REQUEST.value)
+        authorizationData[0]['ad-type'] = int(constants.AuthorizationDataType.AD_WIN2K_PAC.value)
         authorizationData[0]['ad-data'] = str(pacType)
         return encoder.encode(authorizationData)
 
