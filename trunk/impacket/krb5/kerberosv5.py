@@ -97,13 +97,14 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, kdcHost, reques
     reqBody['rtime'] = KerberosTime.to_asn1(now)
     reqBody['nonce'] =  random.SystemRandom().getrandbits(31)
     if nthash == '':
-        # For now, I'll keep this commented, until I figure out 
-        # a way to detect when a cypher is not accepted on the other 
-        # end. I thought KDC_ERR_ETYPE_NOSUPP was enough, but I found
-        # some systems that accepts it, and trigger an error when requesting
-        # subsequent TGS :(. More research needed.
-        #supportedCiphers = (int(constants.EncriptionTypes.rc4_hmac.value),
-        #                   int(constants.EncriptionTypes.aes256_cts_hmac_sha1_96.value))
+        # This is still confusing. I thought KDC_ERR_ETYPE_NOSUPP was enough, 
+        # but I found some systems that accepts all ciphers, and trigger an error 
+        # when requesting subsequent TGS :(. More research needed.
+        # So, in order to support more than one cypher, I'm setting aes first
+        # since most of the systems would accept it. If we're lucky and 
+        # KDC_ERR_ETYPE_NOSUPP is returned, we will later try rc4.
+        #supportedCiphers = (int(constants.EncriptionTypes.aes256_cts_hmac_sha1_96.value),
+        #                   int(constants.EncriptionTypes.rc4_hmac.value))
         supportedCiphers = (int(constants.EncriptionTypes.rc4_hmac.value),)
     else:
         # We have hashes to try, only way is to request RC4 only
