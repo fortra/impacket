@@ -11,6 +11,7 @@
 # Description:
 #   RFC 1964 Partial Implementation
 #   RFC 4757 Partial Implementation
+#   RFC 4121 Partial Implementation
 #   RFC 3962 Partial Implementation
 
 import sys
@@ -20,6 +21,7 @@ from Crypto.Hash import HMAC, MD5
 from Crypto.Cipher import ARC4
 from impacket.structure import Structure
 from impacket.winregistry import hexdump
+from impacket.krb5 import constants, crypto
 
 # Constants
 GSS_C_DCE_STYLE     = 0x1000
@@ -35,6 +37,12 @@ GSS_HMAC = 0x11
 # Wrap Semantics
 GSS_RC4  = 0x10
 
+# 2.  Key Derivation for Per-Message Tokens
+KG_USAGE_ACCEPTOR_SEAL  = 22
+KG_USAGE_ACCEPTOR_SIGN  = 23
+KG_USAGE_INITIATOR_SEAL = 24
+KG_USAGE_INITIATOR_SIGN = 25
+
 # 1.1.1. Initial Token - Checksum field
 class CheckSumField(Structure):
     structure = (
@@ -43,33 +51,40 @@ class CheckSumField(Structure):
         ('Flags','<L=0'),
     )
 
-# 1.2.1. Per-message Tokens - MIC
-class MIC(Structure):
-    structure = (
-        ('TOK_ID','<H=0x0101'),
-        ('SGN_ALG','<H=0'),
-        ('Filler','<L=0xffffffff'),
-        ('SND_SEQ','8s=""'),
-        ('SGN_CKSUM','8s=""'),
-    )
-
-# 1.2.2. Per-message Tokens - Wrap
-class WRAP(Structure):
-    structure = (
-        ('TOK_ID','<H=0x0102'),
-        ('SGN_ALG','<H=0'),
-        ('SEAL_ALG','<H=0'),
-        ('Filler','<H=0xffff'),
-        ('SND_SEQ','8s=""'),
-        ('SGN_CKSUM','8s=""'),
-        ('Confounder','8s=""'),
-    )
-
+def GSSAPI(cipher):
+    if cipher.enctype == constants.EncriptionTypes.aes256_cts_hmac_sha1_96.value:
+        return GSSAPI_AES256()
+    elif cipher.enctype == constants.EncriptionTypes.rc4_hmac.value:
+        return GSSAPI_RC4()
+    else:
+        raise Exception('Unsupported etype 0x%x' % cipher.enctype)
 
 # 7.2.   GSS-API MIC Semantics
 class GSSAPI_RC4():
+    # 1.2.1. Per-message Tokens - MIC
+    class MIC(Structure):
+        structure = (
+            ('TOK_ID','<H=0x0101'),
+            ('SGN_ALG','<H=0'),
+            ('Filler','<L=0xffffffff'),
+            ('SND_SEQ','8s=""'),
+            ('SGN_CKSUM','8s=""'),
+        )
+
+    # 1.2.2. Per-message Tokens - Wrap
+    class WRAP(Structure):
+        structure = (
+            ('TOK_ID','<H=0x0102'),
+            ('SGN_ALG','<H=0'),
+            ('SEAL_ALG','<H=0'),
+            ('Filler','<H=0xffff'),
+            ('SND_SEQ','8s=""'),
+            ('SGN_CKSUM','8s=""'),
+            ('Confounder','8s=""'),
+        )
+
     def GSS_GetMIC(self, sessionKey, data, sequenceNumber, direction = 'init'):
-        token = MIC()
+        token = self.MIC()
 
         # Let's pad the data
         pad = (8 - (len(data) % 8)) & 0x7
@@ -98,7 +113,7 @@ class GSSAPI_RC4():
         # https://social.msdn.microsoft.com/Forums/en-US/fb98e8f4-e697-4652-bcb7-604e027e14cc/gsswrap-token-size-kerberos-and-rc4hmac?forum=os_windowsprotocols
         # and here
         # http://www.rfc-editor.org/errata_search.php?rfc=4757
-        token = WRAP()
+        token = self.WRAP()
 
         # Let's pad the data
         pad = (8 - (len(data) % 8)) & 0x7
@@ -135,7 +150,7 @@ class GSSAPI_RC4():
         token['SND_SEQ'] = ARC4.new(Kseq).encrypt(token['SND_SEQ'])
 
         if authData is not None:
-            wrap = WRAP(authData[21:])
+            wrap = self.WRAP(authData[21:])
             snd_seq = wrap['SND_SEQ']
 
             Kseq = HMAC.new(sessionKey.contents, struct.pack('<L',0), MD5).digest()
@@ -156,4 +171,64 @@ class GSSAPI_RC4():
 
         finalData = '\x60\x2b\x06\x09\x2a\x86\x48\x86\xf7\x12\x01\x02\x02' + token.getData()
         return cipherText, finalData
+
+class GSSAPI_AES256():
+    class MIC(Structure):
+        structure = (
+            ('TOK_ID','>H=0x0404'),
+            ('Flags','B=0'),
+            ('Filler0','B=0xff'),
+            ('Filler','>L=0xffffffff'),
+            ('SND_SEQ','8s=""'),
+            ('SGN_CKSUM','12s=""'),
+        )
+
+    # 1.2.2. Per-message Tokens - Wrap
+    class WRAP(Structure):
+        structure = (
+            ('TOK_ID','>H=0x0504'),
+            ('Flags','B=0'),
+            ('Filler','B=0xff'),
+            ('EC','>H=0'),
+            ('RRC','>H=0'),
+            ('SND_SEQ','8s=""'),
+        )
+
+    def GSS_GetMIC(self, sessionKey, data, sequenceNumber, direction = 'init'):
+        token = self.MIC()
+
+        # Let's pad the data
+        pad = (8 - (len(data) % 8)) & 0x7
+        padStr = chr(pad) * pad
+        data = data + padStr
+
+        checkSumProfile = crypto._SHA1AES256()
+
+        token['Flags'] = 4
+        token['SND_SEQ'] = struct.pack('>Q',sequenceNumber)
+        token['SGN_CKSUM'] = checkSumProfile.checksum(sessionKey, KG_USAGE_INITIATOR_SIGN, data + token.getData()[:16])
+ 
+        return token.getData()
+   
+    def GSS_Wrap(self, sessionKey, data, sequenceNumber, direction = 'init', encrypt=True, authData=None):
+        raise Exception("GSS_Wrap for AES still not implemented!")
+        token = self.WRAP()
+
+        # Let's pad the data
+        pad = (8 - (len(data) % 8)) & 0x7
+        padStr = chr(pad) * pad
+        data = data + padStr
+
+        cipher = crypto._AES256CTS()
+        token['Flags'] = 6
+        token['EC'] = 0 
+        token['RRC'] = 0
+        token['SND_SEQ'] = struct.pack('>Q',sequenceNumber)
+
+        #cipherText = cipher.encrypt(sessionKey, KG_USAGE_INITIATOR_SEAL, data + "\xff"*16 + token.getData(), None)
+        cipherText = cipher.encrypt(sessionKey, KG_USAGE_INITIATOR_SEAL,  data + token.getData(), None)
+
+        encryptedToken = cipher.encrypt(sessionKey, KG_USAGE_INITIATOR_SEAL, token.getData() + '\x00'*16, None)
+
+        return cipherText, token.getData() + encryptedToken
 

@@ -1059,7 +1059,7 @@ class DCERPC_v5(DCERPC):
                     alter_ctx['sec_trailer'] = sec_trailer
                     alter_ctx['auth_data'] = str(response)
                     self._transport.send(alter_ctx.get_packet(), forceWriteAndx = 1)
-                    self.__gss = gssapi.GSSAPI_RC4()
+                    self.__gss = gssapi.GSSAPI(self.__cipher)
                     self.__sequence = 0
                     s = self.recv()
                     self.__sequence = 0
