@@ -13,7 +13,7 @@ import sys
 VER_MAJOR = "0"
 VER_MINOR = "9.13-dev"
 
-BANNER = "Impacket v%s.%s - Copyright 2002-2014 Core Security Technologies\n" % (VER_MAJOR,VER_MINOR)
+BANNER = "Impacket v%s.%s - Copyright 2002-2015 Core Security Technologies\n" % (VER_MAJOR,VER_MINOR)
 
 # Here we also change the levelnames
 logging.addLevelName(logging.ERROR,'[!]')
