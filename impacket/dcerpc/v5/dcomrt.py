@@ -36,9 +36,8 @@ from impacket.dcerpc.v5.dtypes import LPWSTR, WCHAR, ULONGLONG, HRESULT, GUID, U
 from impacket import hresult_errors
 from impacket.uuid import string_to_bin, uuidtup_to_bin, generate, bin_to_string
 from impacket.dcerpc.v5.enum import Enum
-from impacket.dcerpc.v5.rpcrt import TypeSerialization1
+from impacket.dcerpc.v5.rpcrt import TypeSerialization1, RPC_C_AUTHN_LEVEL_PKT_INTEGRITY, RPC_C_AUTHN_LEVEL_NONE, RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 from impacket.dcerpc.v5 import transport
-from impacket import ntlm
 
 CLSID_ActivationContextInfo   = string_to_bin('000001a5-0000-0000-c000-000000000046')
 CLSID_ActivationPropertiesIn  = string_to_bin('00000338-0000-0000-c000-000000000046')
@@ -952,7 +951,7 @@ class DCOMConnection():
     OID_DEL = {}
     OID_SET = {}
     PORTMAPS = {}
-    def __init__(self, targetIP, username = '', password = '', domain = '', lmhash = '', nthash = '', authLevel = ntlm.NTLM_AUTH_PKT_INTEGRITY, oxidResolver = False):
+    def __init__(self, targetIP, username = '', password = '', domain = '', lmhash = '', nthash = '', authLevel = RPC_C_AUTHN_LEVEL_PKT_INTEGRITY, oxidResolver = False):
         self.__targetIP = targetIP
         self.__userName = username
         self.__password = password
@@ -1074,14 +1073,14 @@ class CLASS_INSTANCE():
     def __init__(self, ORPCthis, stringBinding):
         self.__stringBindings = stringBinding
         self.__ORPCthis = ORPCthis
-        self.__authLevel = ntlm.NTLM_AUTH_PKT_INTEGRITY
+        self.__authLevel = RPC_C_AUTHN_LEVEL_PKT_INTEGRITY
     def get_ORPCthis(self):
         return self.__ORPCthis
     def get_string_bindings(self):
         return self.__stringBindings
     def get_auth_level(self):
-        if self.__authLevel > ntlm.NTLM_AUTH_NONE and self.__authLevel < ntlm.NTLM_AUTH_PKT_PRIVACY:
-            return ntlm.NTLM_AUTH_PKT_INTEGRITY
+        if self.__authLevel > RPC_C_AUTHN_LEVEL_NONE and self.__authLevel < RPC_C_AUTHN_LEVEL_PKT_PRIVACY:
+            return RPC_C_AUTHN_LEVEL_PKT_INTEGRITY
         return self.__authLevel
     def set_auth_level(self, level):
         self.__authLevel = level
@@ -1195,7 +1194,7 @@ class INTERFACE():
 	        stringBindings = self.get_cinstance().get_string_bindings() 
                 # No OXID present, we should create a new connection and store it
                 for strBinding in stringBindings:
-                    if strBinding['aNetworkAddr'].find(self.get_target_ip()) >= 0:
+                    if strBinding['aNetworkAddr'].find(self.get_target_ip().upper()) >= 0 and strBinding['wTowerId'] == 7 :
                         stringBinding = 'ncacn_ip_tcp:' + strBinding['aNetworkAddr'][:-1]
 
                 dcomInterface = transport.DCERPCTransportFactory(stringBinding)
@@ -1205,7 +1204,6 @@ class INTERFACE():
                 dcomInterface.set_connect_timeout(300)
                 dce = dcomInterface.get_dce_rpc()
 
-                #dce.set_auth_level(ntlm.NTLM_AUTH_PKT_INTEGRITY)
                 if iid is None:
                     raise
                 else:
