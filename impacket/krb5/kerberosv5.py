@@ -18,6 +18,7 @@ import datetime
 import random
 import socket
 import struct
+import os
 from pyasn1.codec.der import decoder, encoder
 from impacket.krb5.asn1 import AS_REQ, AP_REQ, TGS_REQ, KERB_PA_PAC_REQUEST, KRB_ERROR, PA_ENC_TS_ENC, METHOD_DATA, AS_REP, TGS_REP, EncryptedData, Authenticator, EncASRepPart, EncTGSRepPart, seq_append, seq_set, seq_set_iter, seq_set_dict, KERB_ERROR_DATA, METHOD_DATA, ETYPE_INFO2_ENTRY, ETYPE_INFO_ENTRY, ETYPE_INFO2, ETYPE_INFO, AP_REP, EncAPRepPart
 from impacket.krb5.types import KerberosTime, Principal, Ticket
@@ -29,6 +30,7 @@ from impacket.spnego import SPNEGO_NegTokenInit, TypesMech, SPNEGO_NegTokenResp
 from impacket.winregistry import hexdump
 from impacket import nt_errors
 from impacket.structure import Structure
+from impacket.krb5.ccache import CCache
 
 def sendReceive(data, host, kdcHost):
     if kdcHost is None:
@@ -384,7 +386,32 @@ def getKerberosType3(cipher, sessionKey, auth_data):
 
     return cipher, sessionKey2, resp.getData()
 
-def getKerberosType1(username, password, domain, lmhash, nthash, targetName, kdcHost = None, TGT=None, TGS=None, ):
+def getKerberosType1(username, password, domain, lmhash, nthash, targetName, kdcHost = None, useCache = True):
+    TGS = None
+    TGT = None
+    if useCache is True:
+        try:
+            ccache = CCache.loadFile(os.getenv('KRB5CCNAME'))
+        except Exception, e:
+            # No cache present
+            pass
+        else:
+            print "Using Kerberos Cache: %s" % os.getenv('KRB5CCNAME')
+            principal = 'host/%s@%s' % (targetName.upper(), domain.upper())
+            creds = ccache.getCredential(principal)
+            if creds is None:
+                # Let's try for the TGT and go from there
+                principal = 'krbtgt/%s@%s' % (domain.upper(),domain.upper())
+                creds =  ccache.getCredential(principal)
+                if creds is not None:
+                    TGT = creds.toTGT()
+                    print 'Using TGT from cache'
+                else:
+                    print "No valid credentials found in cache. "
+            else:
+                TGS = creds.toTGS()
+                print 'Using TGS from cache'
+
     # First of all, we need to get a TGT for the user
     userName = Principal(username, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
     if TGT is None:
@@ -398,7 +425,7 @@ def getKerberosType1(username, password, domain, lmhash, nthash, targetName, kdc
     # Now that we have the TGT, we should ask for a TGS for cifs
 
     if TGS is None:
-        serverName = Principal('LDAP/%s' % (targetName), type=constants.PrincipalNameType.NT_SRV_INST.value)
+        serverName = Principal('host/%s' % (targetName), type=constants.PrincipalNameType.NT_SRV_INST.value)
         tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey)
     else:
         tgs = TGS['KDC_REP']
