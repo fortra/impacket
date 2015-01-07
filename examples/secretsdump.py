@@ -1477,7 +1477,8 @@ if __name__ == '__main__':
     group = parser.add_argument_group('authentication')
 
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
-    group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line, in this case you will need to explicitly provide the user\'s password (password will not be prompted for Kerberos)')
+    group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
+    group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line')
     if len(sys.argv)==1:
         parser.print_help()
         sys.exit(1)
@@ -1501,7 +1502,7 @@ if __name__ == '__main__':
         if domain is None:
             domain = ''
     
-        if password == '' and username != '' and options.hashes is None and options.k is False:
+        if password == '' and username != '' and options.hashes is None and options.no_pass is False:
             from getpass import getpass
             password = getpass("Password:")
 
