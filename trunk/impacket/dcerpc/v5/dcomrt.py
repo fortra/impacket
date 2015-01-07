@@ -36,7 +36,7 @@ from impacket.dcerpc.v5.dtypes import LPWSTR, WCHAR, ULONGLONG, HRESULT, GUID, U
 from impacket import hresult_errors
 from impacket.uuid import string_to_bin, uuidtup_to_bin, generate, bin_to_string
 from impacket.dcerpc.v5.enum import Enum
-from impacket.dcerpc.v5.rpcrt import TypeSerialization1, RPC_C_AUTHN_LEVEL_PKT_INTEGRITY, RPC_C_AUTHN_LEVEL_NONE, RPC_C_AUTHN_LEVEL_PKT_PRIVACY
+from impacket.dcerpc.v5.rpcrt import TypeSerialization1, RPC_C_AUTHN_LEVEL_PKT_INTEGRITY, RPC_C_AUTHN_LEVEL_NONE, RPC_C_AUTHN_LEVEL_PKT_PRIVACY, RPC_C_AUTHN_GSS_NEGOTIATE, RPC_C_AUTHN_WINNT
 from impacket.dcerpc.v5 import transport
 
 CLSID_ActivationContextInfo   = string_to_bin('000001a5-0000-0000-c000-000000000046')
@@ -951,7 +951,7 @@ class DCOMConnection():
     OID_DEL = {}
     OID_SET = {}
     PORTMAPS = {}
-    def __init__(self, targetIP, username = '', password = '', domain = '', lmhash = '', nthash = '', authLevel = RPC_C_AUTHN_LEVEL_PKT_INTEGRITY, oxidResolver = False):
+    def __init__(self, targetIP, username = '', password = '', domain = '', lmhash = '', nthash = '', authLevel = RPC_C_AUTHN_LEVEL_PKT_PRIVACY, oxidResolver = False, doKerberos=False):
         self.__targetIP = targetIP
         self.__userName = username
         self.__password = password
@@ -961,6 +961,7 @@ class DCOMConnection():
         self.__authLevel = authLevel
         self.__portmap = None
         self.__oxidResolver = oxidResolver
+        self.__doKerberos = doKerberos
         self.initConnection()
 
     @classmethod
@@ -1046,6 +1047,8 @@ class DCOMConnection():
             rpctransport.set_credentials(self.__userName,self.__password, self.__domain, self.__lmhash, self.__nthash)
         self.__portmap = rpctransport.get_dce_rpc()
         self.__portmap.set_auth_level(self.__authLevel)
+        if self.__doKerberos is True:
+            self.__portmap.set_auth_type(RPC_C_AUTHN_GSS_NEGOTIATE)
         self.__portmap.connect()
         DCOMConnection.PORTMAPS[self.__targetIP] = self.__portmap
 
@@ -1073,17 +1076,26 @@ class CLASS_INSTANCE():
     def __init__(self, ORPCthis, stringBinding):
         self.__stringBindings = stringBinding
         self.__ORPCthis = ORPCthis
-        self.__authLevel = RPC_C_AUTHN_LEVEL_PKT_INTEGRITY
+        self.__authType = RPC_C_AUTHN_WINNT
+        self.__authLevel = RPC_C_AUTHN_LEVEL_PKT_PRIVACY
     def get_ORPCthis(self):
         return self.__ORPCthis
     def get_string_bindings(self):
         return self.__stringBindings
     def get_auth_level(self):
         if self.__authLevel > RPC_C_AUTHN_LEVEL_NONE and self.__authLevel < RPC_C_AUTHN_LEVEL_PKT_PRIVACY:
-            return RPC_C_AUTHN_LEVEL_PKT_INTEGRITY
+            if self.__authType == RPC_C_AUTHN_WINNT:
+                return RPC_C_AUTHN_LEVEL_PKT_INTEGRITY
+            else:
+                return RPC_C_AUTHN_LEVEL_PKT_PRIVACY
         return self.__authLevel
     def set_auth_level(self, level):
         self.__authLevel = level
+    def get_auth_type(self):
+        return self.__authType
+    def set_auth_type(self, authType):
+        self.__authType = authType
+
 
 class INTERFACE():
     # class variable holding the transport connections, organized by target IP
@@ -1194,7 +1206,16 @@ class INTERFACE():
 	        stringBindings = self.get_cinstance().get_string_bindings() 
                 # No OXID present, we should create a new connection and store it
                 for strBinding in stringBindings:
-                    if strBinding['aNetworkAddr'].find(self.get_target_ip().upper()) >= 0 and strBinding['wTowerId'] == 7 :
+                    # Here, depending on the get_target_ip() value several things can happen
+                    # 1) it's an IPv4 address
+                    # 2) it's an IPv6 address
+                    # 3) it's a NetBios Name
+                    # we should handle all this cases accordingly
+                    # Does this match exactly what get_target_ip() returns?
+                    if strBinding['aNetworkAddr'].find(self.get_target_ip().upper()) >= 0 and strBinding['wTowerId'] == 7:
+                        stringBinding = 'ncacn_ip_tcp:' + strBinding['aNetworkAddr'][:-1]
+                    # If get_target_ip() is a FQDN, does it match the hostname?
+                    elif strBinding['aNetworkAddr'].find(self.get_target_ip().upper().partition('.')[0]) >= 0 and strBinding['wTowerId'] == 7:
                         stringBinding = 'ncacn_ip_tcp:' + strBinding['aNetworkAddr'][:-1]
 
                 dcomInterface = transport.DCERPCTransportFactory(stringBinding)
@@ -1208,7 +1229,7 @@ class INTERFACE():
                     raise
                 else:
                     dce.set_auth_level(self.__cinstance.get_auth_level())
-
+                    dce.set_auth_type(self.__cinstance.get_auth_type())
                 dce.connect()
 
                 if iid is None:
@@ -1675,6 +1696,7 @@ class IRemoteSCMActivator():
 
         classInstance = CLASS_INSTANCE(ORPCthis, stringBindings)
         classInstance.set_auth_level(scmr['remoteReply']['authnHint'])
+        classInstance.set_auth_type(self.__portmap.get_auth_type())
         return IRemUnknown2(INTERFACE(classInstance, ''.join(propsOut['ppIntfData'][0]['abData']), ipidRemUnknown, targetIP = self.__portmap.get_rpc_transport().get_dip()))
 
         return resp
@@ -1850,5 +1872,6 @@ class IRemoteSCMActivator():
 
         classInstance = CLASS_INSTANCE(ORPCthis, stringBindings)
         classInstance.set_auth_level(scmr['remoteReply']['authnHint'])
+        classInstance.set_auth_type(self.__portmap.get_auth_type())
         return IRemUnknown2(INTERFACE(classInstance, ''.join(propsOut['ppIntfData'][0]['abData']), ipidRemUnknown, targetIP = self.__portmap.get_rpc_transport().get_dip()))
 
