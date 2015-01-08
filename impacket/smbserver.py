@@ -2572,6 +2572,8 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
         # SID results for findfirst2
         self.__activeConnections[name]['SIDs']            = {}
 
+    def getActiveConnections(self):
+        return self.__activeConnections
 
     def setConnectionData(self, connId, data):
         self.__activeConnections[connId] = data
