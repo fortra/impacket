@@ -129,6 +129,7 @@ class DCERPCTransport:
         self._nthash = ''
         self.set_credentials('','')
         self.__connect_timeout = None
+        self._doKerberos = False
 
     def connect(self):
         raise RuntimeError, 'virtual function'
@@ -164,6 +165,12 @@ class DCERPCTransport:
         "This method only makes sense before connection for most protocols."
         self.set_dip(addr[0])
         self.set_dport(addr[1])
+
+    def set_kerberos(self, flag):
+        self._doKerberos = flag
+
+    def get_kerberos(self):
+        return self._doKerberos
 
     def set_max_fragment_size(self, send_fragment_size):
         # -1 is default fragment size: 0 (don't fragment)
@@ -325,7 +332,7 @@ class SMBTransport(DCERPCTransport):
         self.__pending_recv = 0
         self.set_credentials(username, password, domain, lmhash, nthash)
         self.__remote_name = remote_name
-        self.__doKerberos = doKerberos
+        self._doKerberos = doKerberos
 
         if smb_connection == 0:
             self.__existing_smb = False
@@ -360,7 +367,7 @@ class SMBTransport(DCERPCTransport):
         # Check if we have a smb connection already setup
         if self.__smb_connection == 0:
            self.setup_smb_connection()
-           if self.__doKerberos is False:
+           if self._doKerberos is False:
                self.__smb_connection.login(self._username, self._password, self._domain, self._lmhash, self._nthash)
            else:
                self.__smb_connection.kerberosLogin(self._username, self._password, self._domain, self._lmhash, self._nthash)
