@@ -351,8 +351,8 @@ class NTLMAuthChallengeResponse(Structure, NTLMAuthMixin):
         return 16
                                                                                 
     def getData(self):
-        self['domain_offset']=64
-        self['user_offset']=64+len(self['domain_name'])
+        self['domain_offset']=64+self.checkMIC(self["flags"])+self.checkVersion(self["flags"])
+        self['user_offset']=64+self.checkMIC(self["flags"])+self.checkVersion(self["flags"])+len(self['domain_name'])
         self['host_offset']=self['user_offset']+len(self['user_name'])
         self['lanman_offset']=self['host_offset']+len(self['host_name'])
         self['ntlm_offset']=self['lanman_offset']+len(self['lanman'])
