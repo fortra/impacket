@@ -709,7 +709,13 @@ class SMB3:
             return treeEntry['TreeConnectId']
 
         #path = share
-        path = '\\\\' + self._Connection['ServerName'] + '\\' +share
+        try:
+            _, _, _, _, sockaddr = socket.getaddrinfo(self._Connection['ServerName'], 80, 0, 0, socket.IPPROTO_TCP)[0]
+            remoteHost = sockaddr[0]
+        except:
+            remoteHost = self._Connection['ServerName']
+        path = '\\\\' + remoteHost + '\\' +share
+
         treeConnect = SMB2TreeConnect()
         treeConnect['Buffer']     = path.encode('utf-16le')
         treeConnect['PathLength'] = len(path)*2

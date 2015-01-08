@@ -2738,7 +2738,13 @@ class SMB:
         # the sharename, we'll take care of the rest
 
         share = path.split('\\')[-1]
-        path = '\\\\' + self.get_remote_host() + '\\' +share 
+        try:
+            _, _, _, _, sockaddr = socket.getaddrinfo(self.get_remote_host(), 80, 0, 0, socket.IPPROTO_TCP)[0]
+            remote_host = sockaddr[0]
+        except Exception, e:
+            remote_host =  self.get_remote_host()
+
+        path = '\\\\' + remote_host + '\\' +share 
 
         treeConnect = SMBCommand(SMB.SMB_COM_TREE_CONNECT_ANDX)
         treeConnect['Parameters'] = SMBTreeConnectAndX_Parameters()
