@@ -267,7 +267,6 @@ import os
 import cmd
 import time
 from impacket.smbconnection import *
-from impacket.dcerpc import transport, svcctl
 from impacket.structure import Structure
 from threading import Thread, Lock
 from impacket.examples import remcomsvc, serviceinstall
