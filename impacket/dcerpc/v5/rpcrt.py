@@ -1019,7 +1019,7 @@ class DCERPC_v5(DCERPC):
             elif self.__auth_type == RPC_C_AUTHN_GSS_NEGOTIATE:
                 self.__cipher, self.__sessionKey, response = kerberosv5.getKerberosType3(self.__cipher, self.__sessionKey, bindResp['auth_data'])
 
-            #self.__sequence = 0
+            self.__sequence = 0
 
             if self.__auth_level in (RPC_C_AUTHN_LEVEL_CONNECT, RPC_C_AUTHN_LEVEL_PKT_INTEGRITY, RPC_C_AUTHN_LEVEL_PKT_PRIVACY):
                 if self.__auth_type == RPC_C_AUTHN_WINNT:
@@ -1062,9 +1062,9 @@ class DCERPC_v5(DCERPC):
                     alter_ctx['auth_data'] = str(response)
                     self._transport.send(alter_ctx.get_packet(), forceWriteAndx = 1)
                     self.__gss = gssapi.GSSAPI(self.__cipher)
-                    #self.__sequence = 0
+                    self.__sequence = 0
                     s = self.recv()
-                    #self.__sequence = 0
+                    self.__sequence = 0
                 else:
                     auth3 = MSRPCHeader()
                     auth3['type'] = MSRPC_AUTH3
