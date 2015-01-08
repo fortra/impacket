@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Copyright (c) 2003-2013 CORE Security Technologies
+# Copyright (c) 2003-2015 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -41,7 +41,6 @@ except ImportError:
 from datetime import datetime
 from impacket import structure, version
 from impacket.structure import Structure
-from impacket.dcerpc.samr import SAMR_RPC_SID_IDENTIFIER_AUTHORITY, SAMR_RPC_SID
 
 import string
 def pretty_print(x):
