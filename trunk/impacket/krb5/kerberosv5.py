@@ -396,7 +396,6 @@ def getKerberosType1(username, password, domain, lmhash, nthash, targetName, kdc
             # No cache present
             pass
         else:
-            print "Using Kerberos Cache: %s" % os.getenv('KRB5CCNAME')
             principal = 'host/%s@%s' % (targetName.upper(), domain.upper())
             creds = ccache.getCredential(principal)
             if creds is None:
@@ -405,12 +404,8 @@ def getKerberosType1(username, password, domain, lmhash, nthash, targetName, kdc
                 creds =  ccache.getCredential(principal)
                 if creds is not None:
                     TGT = creds.toTGT()
-                    print 'Using TGT from cache'
-                else:
-                    print "No valid credentials found in cache. "
             else:
                 TGS = creds.toTGS()
-                print 'Using TGS from cache'
 
     # First of all, we need to get a TGT for the user
     userName = Principal(username, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
