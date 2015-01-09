@@ -107,7 +107,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, kdcHost, reques
         # KDC_ERR_ETYPE_NOSUPP is returned, we will later try rc4.
         #supportedCiphers = (int(constants.EncriptionTypes.aes256_cts_hmac_sha1_96.value),
         #                   int(constants.EncriptionTypes.rc4_hmac.value))
-        supportedCiphers = (int(constants.EncriptionTypes.rc4_hmac.value),)
+        supportedCiphers = (int(constants.EncriptionTypes.aes256_cts_hmac_sha1_96.value),)
     else:
         # We have hashes to try, only way is to request RC4 only
         supportedCiphers = (int(constants.EncriptionTypes.rc4_hmac.value),)
