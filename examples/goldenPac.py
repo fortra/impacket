@@ -20,7 +20,7 @@
 #   3) As of right now, it only supports SMB > 1, sorry old systems - DONE
 #   4) Lots of things might not work, testing needed!
 #   5) Ohh.. hashes still not working.. but that'll be easy - DONE
-#   6) Just RC4 at the moment - DONE (aes128 and aes256 added)
+#   6) Just RC4 at the moment - DONE (aes256 added)
 #   7) It won't work on Kerberos-only Domains (but can be fixed)
 #   8) Use WMIEXEC approach instead
 #
