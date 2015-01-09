@@ -1276,7 +1276,7 @@ class DCERPC_v5(DCERPC):
                         self.__sequence += 1
                     elif self.__auth_type == RPC_C_AUTHN_GSS_NEGOTIATE:
                         if self.__sequence > 0:
-                            answer, cfounder = self.__gss.GSS_Wrap(self.__sessionKey, answer, self.__sequence, direction='init', authData=auth_data)
+                            answer, cfounder = self.__gss.GSS_Unwrap(self.__sessionKey, answer, self.__sequence, direction='init', authData=auth_data)
 
                 elif sec_trailer['auth_level'] == RPC_C_AUTHN_LEVEL_PKT_INTEGRITY:
                     if self.__auth_type == RPC_C_AUTHN_WINNT:
