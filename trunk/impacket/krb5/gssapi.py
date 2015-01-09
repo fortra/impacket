@@ -172,6 +172,9 @@ class GSSAPI_RC4():
         finalData = '\x60\x2b\x06\x09\x2a\x86\x48\x86\xf7\x12\x01\x02\x02' + token.getData()
         return cipherText, finalData
 
+    def GSS_Unwrap(self, sessionKey, data, sequenceNumber, direction = 'init', encrypt=True, authData=None):
+        return self.GSS_Wrap(sessionKey, data, sequenceNumber, direction, encrypt, authData)
+
 class GSSAPI_AES256():
     class MIC(Structure):
         structure = (
@@ -210,25 +213,58 @@ class GSSAPI_AES256():
  
         return token.getData()
    
-    def GSS_Wrap(self, sessionKey, data, sequenceNumber, direction = 'init', encrypt=True, authData=None):
-        raise Exception("GSS_Wrap for AES still not implemented!")
+    def rotate(self, data, numBytes):
+        numBytes = numBytes % len(data)
+        left = len(data) - numBytes
+        result = data[left:] + data[:left]
+        return result
+
+    def unrotate(self, data, numBytes):
+        numBytes = numBytes % len(data)
+        result = data[numBytes:] + data[:numBytes]
+        return result
+        
+    def GSS_Wrap(self, sessionKey, data, sequenceNumber, direction = 'init', encrypt=True):
+        #raise Exception("GSS_Wrap for AES still not implemented!")
         token = self.WRAP()
 
+        cipher = crypto._AES256CTS()
+
         # Let's pad the data
-        pad = (8 - (len(data) % 8)) & 0x7
-        padStr = chr(pad) * pad
+        pad = (cipher.blocksize - (len(data) % cipher.blocksize)) & 15
+        padStr = '\xFF' * pad
         data = data + padStr
 
-        cipher = crypto._AES256CTS()
+        # The RRC field ([RFC4121] section 4.2.5) is 12 if no encryption is requested or 28 if encryption 
+        # is requested. The RRC field is chosen such that all the data can be encrypted in place.
+        rrc = 28
+
         token['Flags'] = 6
-        token['EC'] = 0 
+        token['EC'] = pad
         token['RRC'] = 0
         token['SND_SEQ'] = struct.pack('>Q',sequenceNumber)
 
-        #cipherText = cipher.encrypt(sessionKey, KG_USAGE_INITIATOR_SEAL, data + "\xff"*16 + token.getData(), None)
         cipherText = cipher.encrypt(sessionKey, KG_USAGE_INITIATOR_SEAL,  data + token.getData(), None)
+        token['RRC'] = rrc
 
-        encryptedToken = cipher.encrypt(sessionKey, KG_USAGE_INITIATOR_SEAL, token.getData() + '\x00'*16, None)
+        cipherText = self.rotate(cipherText, token['RRC'] + token['EC'])
 
-        return cipherText, token.getData() + encryptedToken
+        nn = self.unrotate(cipherText, token['RRC'] + token['EC'])
+        ret1 = cipherText[len(self.WRAP()) + token['RRC'] + token['EC']:]
+        ret2 = token.getData() + cipherText[:len(self.WRAP()) + token['RRC'] + token['EC']]
+
+        return ret1, ret2
+
+    def GSS_Unwrap(self, sessionKey, data, sequenceNumber, direction = 'init', encrypt=True, authData=None):
+        from impacket.dcerpc.v5.rpcrt import SEC_TRAILER
+
+        cipher = crypto._AES256CTS()
+        token = self.WRAP(authData[len(SEC_TRAILER()):])
+
+        rotated = authData[len(self.WRAP())+len(SEC_TRAILER()):] + data
+ 
+        cipherText = self.unrotate(rotated, token['RRC'] + token['EC'])
+        plainText = cipher.decrypt(sessionKey, KG_USAGE_ACCEPTOR_SEAL,  cipherText)
+
+        return plainText[:-(token['EC']+len(self.WRAP()))], None
 
