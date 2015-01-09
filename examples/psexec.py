@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Copyright (c) 2003-2012 CORE Security Technologies
+# Copyright (c) 2003-2015 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -21,7 +21,7 @@ import cmd
 
 from impacket import version
 from impacket.smbconnection import *
-from impacket.dcerpc import transport, svcctl
+from impacket.dcerpc.v5 import transport
 from impacket.structure import Structure
 from threading import Thread, Lock
 from impacket.examples import remcomsvc, serviceinstall
@@ -58,9 +58,8 @@ class PSEXEC:
         '445/SMB': (r'ncacn_np:%s[\pipe\svcctl]', 445),
         }
 
-
     def __init__(self, command, path, exeFile, copyFile, protocols = None, 
-                 username = '', password = '', domain = '', hashes = None):
+                 username = '', password = '', domain = '', hashes = None, doKerberos = False):
         self.__username = username
         self.__password = password
         if protocols is None:
@@ -74,6 +73,7 @@ class PSEXEC:
         self.__nthash = ''
         self.__exeFile = exeFile
         self.__copyFile = copyFile
+        self.__doKerberos = doKerberos
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
 
@@ -93,6 +93,7 @@ class PSEXEC:
                 # This method exists only for selected protocol sequences.
                 rpctransport.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
 
+            rpctransport.set_kerberos(self.__doKerberos)
             self.doStuff(rpctransport)
 
     def openPipe(self, s, tid, pipe, accessMask):
@@ -204,8 +205,6 @@ class PSEXEC:
             sys.stdout.flush()
             sys.exit(1)
 
-
-
 class Pipes(Thread):
     def __init__(self, transport, pipe, permissions, share=None):
         Thread.__init__(self)
@@ -227,7 +226,10 @@ class Pipes(Thread):
             #self.server = SMBConnection('*SMBSERVER', self.transport.get_smb_connection().getRemoteHost(), sess_port = self.port, preferredDialect = SMB_DIALECT)
             self.server = SMBConnection('*SMBSERVER', self.transport.get_smb_connection().getRemoteHost(), sess_port = self.port, preferredDialect = dialect)
             user, passwd, domain, lm, nt = self.credentials
-            self.server.login(user, passwd, domain, lm, nt)
+            if self.transport.get_kerberos() is True:
+                self.server.kerberosLogin(user, passwd, domain, lm, nt)
+            else:
+                self.server.login(user, passwd, domain, lm, nt)
             lock.release()
             self.tid = self.server.connectTree('IPC$') 
 
@@ -251,17 +253,17 @@ class RemoteStdOutPipe(Pipes):
                 pass
             else:
                 try:
-                        global LastDataSent
-                        if ans != LastDataSent:
-                            sys.stdout.write(ans)
-                            sys.stdout.flush()
-                        else:
-                            # Don't echo what I sent, and clear it up
-                            LastDataSent = ''
-                        # Just in case this got out of sync, i'm cleaning it up if there are more than 10 chars, 
-                        # it will give false positives tho.. we should find a better way to handle this.
-                        if LastDataSent > 10:
-                            LastDataSent = ''
+                    global LastDataSent
+                    if ans != LastDataSent:
+                        sys.stdout.write(ans)
+                        sys.stdout.flush()
+                    else:
+                        # Don't echo what I sent, and clear it up
+                        LastDataSent = ''
+                    # Just in case this got out of sync, i'm cleaning it up if there are more than 10 chars, 
+                    # it will give false positives tho.. we should find a better way to handle this.
+                    if LastDataSent > 10:
+                        LastDataSent = ''
                 except:
                     pass
 
@@ -284,7 +286,7 @@ class RemoteStdErrPipe(Pipes):
                     pass
 
 class RemoteShell(cmd.Cmd):
-    def __init__(self, server, port, credentials, tid, fid, share):
+    def __init__(self, server, port, credentials, tid, fid, share, transport):
         cmd.Cmd.__init__(self, False)
         self.prompt = '\x08'
         self.server = server
@@ -294,13 +296,17 @@ class RemoteShell(cmd.Cmd):
         self.credentials = credentials
         self.share = share
         self.port = port
+        self.transport = transport
         self.intro = '[!] Press help for extra shell commands'
 
     def connect_transferClient(self):
         #self.transferClient = SMBConnection('*SMBSERVER', self.server.getRemoteHost(), sess_port = self.port, preferredDialect = SMB_DIALECT)
         self.transferClient = SMBConnection('*SMBSERVER', self.server.getRemoteHost(), sess_port = self.port, preferredDialect = dialect)
         user, passwd, domain, lm, nt = self.credentials
-        self.transferClient.login(user, passwd, domain, lm, nt)
+        if self.transport.get_kerberos() is True:
+            self.transferClient.kerberosLogin(user, passwd, domain, lm, nt)
+        else:
+            self.transferClient.login(user, passwd, domain, lm, nt)
 
     def do_help(self, line):
         print """
@@ -358,7 +364,6 @@ class RemoteShell(cmd.Cmd):
 
         self.send_data('\r\n')
 
-
     def do_lcd(self, s):
         if s == '':
             print os.getcwd()
@@ -381,16 +386,14 @@ class RemoteShell(cmd.Cmd):
             LastDataSent = ''
         self.server.writeFile(self.tid, self.fid, data)
 
-
 class RemoteStdInPipe(Pipes):
     def __init__(self, transport, pipe, permisssions, share=None):
         Pipes.__init__(self, transport, pipe, permisssions, share)
 
     def run(self):
         self.connectPipe()
-        self.shell = RemoteShell(self.server, self.port, self.credentials, self.tid, self.fid, self.share)
+        self.shell = RemoteShell(self.server, self.port, self.credentials, self.tid, self.fid, self.share, self.transport)
         self.shell.cmdloop()
-
 
 # Process command-line arguments.
 if __name__ == '__main__':
@@ -407,7 +410,9 @@ if __name__ == '__main__':
     group = parser.add_argument_group('authentication')
 
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
- 
+    group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
+    group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line')
+
     if len(sys.argv)==1:
         parser.print_help()
         sys.exit(1)
@@ -420,9 +425,9 @@ if __name__ == '__main__':
     if domain is None:
         domain = ''
 
-    if password == '' and username != '' and options.hashes is None:
+    if password == '' and username != '' and options.hashes is None and options.no_pass is False:
         from getpass import getpass
         password = getpass("Password:")
 
-    executer = PSEXEC(' '.join(options.command), options.path, options.file, options.c, None, username, password, domain, options.hashes)
+    executer = PSEXEC(' '.join(options.command), options.path, options.file, options.c, None, username, password, domain, options.hashes, options.k)
     executer.run(address)
