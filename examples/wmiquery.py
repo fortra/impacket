@@ -122,6 +122,9 @@ if __name__ == '__main__':
     group = parser.add_argument_group('authentication')
 
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
+    group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
+    group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line')
+
     if len(sys.argv)==1:
         parser.print_help()
         sys.exit(1)
@@ -134,7 +137,7 @@ if __name__ == '__main__':
     if domain is None:
         domain = ''
 
-    if password == '' and username != '' and options.hashes is None:
+    if password == '' and username != '' and options.hashes is None and options.no_pass is False:
         from getpass import getpass
         password = getpass("Password:")
 
@@ -145,7 +148,7 @@ if __name__ == '__main__':
         lmhash = ''
         nthash = ''
 
-    dcom = DCOMConnection(address, username, password, domain, lmhash, nthash, oxidResolver = True)
+    dcom = DCOMConnection(address, username, password, domain, lmhash, nthash, oxidResolver = True, doKerberos=options.k)
 
     iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
     iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
