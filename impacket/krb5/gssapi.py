@@ -84,6 +84,7 @@ class GSSAPI_RC4():
         )
 
     def GSS_GetMIC(self, sessionKey, data, sequenceNumber, direction = 'init'):
+        GSS_GETMIC_HEADER = '\x60\x23\x06\x09\x2a\x86\x48\x86\xf7\x12\x01\x02\x02'
         token = self.MIC()
 
         # Let's pad the data
@@ -105,7 +106,7 @@ class GSSAPI_RC4():
         Kseq = HMAC.new(sessionKey.contents, struct.pack('<L',0), MD5).digest()
         Kseq = HMAC.new(Kseq, token['SGN_CKSUM'], MD5).digest()
         token['SND_SEQ'] = ARC4.new(Kseq).encrypt(token['SND_SEQ'])
-        finalData = '\x60\x23\x06\x09\x2a\x86\x48\x86\xf7\x12\x01\x02\x02' + token.getData()
+        finalData = GSS_GETMIC_HEADER + token.getData()
         return finalData
    
     def GSS_Wrap(self, sessionKey, data, sequenceNumber, direction = 'init', encrypt=True, authData=None):
@@ -113,6 +114,7 @@ class GSSAPI_RC4():
         # https://social.msdn.microsoft.com/Forums/en-US/fb98e8f4-e697-4652-bcb7-604e027e14cc/gsswrap-token-size-kerberos-and-rc4hmac?forum=os_windowsprotocols
         # and here
         # http://www.rfc-editor.org/errata_search.php?rfc=4757
+        GSS_WRAP_HEADER = '\x60\x2b\x06\x09\x2a\x86\x48\x86\xf7\x12\x01\x02\x02'
         token = self.WRAP()
 
         # Let's pad the data
@@ -150,7 +152,8 @@ class GSSAPI_RC4():
         token['SND_SEQ'] = ARC4.new(Kseq).encrypt(token['SND_SEQ'])
 
         if authData is not None:
-            wrap = self.WRAP(authData[21:])
+            from impacket.dcerpc.v5.rpcrt import SEC_TRAILER
+            wrap = self.WRAP(authData[len(SEC_TRAILER()) + len(GSS_WRAP_HEADER):])
             snd_seq = wrap['SND_SEQ']
 
             Kseq = HMAC.new(sessionKey.contents, struct.pack('<L',0), MD5).digest()
@@ -169,7 +172,7 @@ class GSSAPI_RC4():
         else:
             cipherText = data
 
-        finalData = '\x60\x2b\x06\x09\x2a\x86\x48\x86\xf7\x12\x01\x02\x02' + token.getData()
+        finalData = GSS_WRAP_HEADER + token.getData()
         return cipherText, finalData
 
     def GSS_Unwrap(self, sessionKey, data, sequenceNumber, direction = 'init', encrypt=True, authData=None):
@@ -225,7 +228,6 @@ class GSSAPI_AES256():
         return result
         
     def GSS_Wrap(self, sessionKey, data, sequenceNumber, direction = 'init', encrypt=True):
-        #raise Exception("GSS_Wrap for AES still not implemented!")
         token = self.WRAP()
 
         cipher = crypto._AES256CTS()
