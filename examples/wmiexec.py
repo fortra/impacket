@@ -27,6 +27,7 @@ import cmd
 import argparse
 import time
 import ntpath
+import logging
 
 from impacket import version, ntlm
 from impacket.smbconnection import *
@@ -203,6 +204,7 @@ if __name__ == '__main__':
     parser.add_argument('target', action='store', help='[domain/][username[:password]@]<address>')
     parser.add_argument('-share', action='store', default = 'ADMIN$', help='share where the output will be grabbed from (default ADMIN$)')
     parser.add_argument('-nooutput', action='store_true', default = False, help='whether or not to print the output (no SMB connection created)')
+    parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
     parser.add_argument('command', nargs='*', default = ' ', help='command to execute at the target. If empty it will launch a semi-interactive shell')
 
@@ -222,6 +224,10 @@ if __name__ == '__main__':
         print "ERROR: -nooutput switch and interactive shell not supported"
         sys.exit(1)
     
+    if options.debug is True:
+        logging.getLogger().setLevel(logging.DEBUG)
+    else:
+        logging.getLogger().setLevel(logging.INFO)
 
     import re
     domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(options.target).groups('')
