@@ -2769,7 +2769,7 @@ class IEnumWbemClassObject(IRemUnknown):
         #resp.dump()
         interfaces = list()
         for interface in resp['apObjects']:
-            interfaces.append( IWbemClassObject(INTERFACE(self.get_cinstance(), ''.join(interface['abData']), self.get_ipidRemUnknown(), oxid = self.get_oxid(), targetIP = self.get_target_ip()), self.__iWbemServices) )
+            interfaces.append( IWbemClassObject(INTERFACE(self.get_cinstance(), ''.join(interface['abData']), self.get_ipidRemUnknown(), oxid = self.get_oxid(), target = self.get_target()), self.__iWbemServices) )
 
         return interfaces
 
@@ -2819,7 +2819,7 @@ class IWbemServices(IRemUnknown):
         request = IWbemServices_QueryObjectSink()
         request['lFlags'] = 0
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
-        return  (INTERFACE(self.get_cinstance(), ''.join(resp['ppResponseHandler']['abData']), self.get_ipidRemUnknown(), targetIP = self.get_target_ip()))
+        return  (INTERFACE(self.get_cinstance(), ''.join(resp['ppResponseHandler']['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
 
     def GetObject(self, strObjectPath, lFlags=0, pCtx=NULL):
         request = IWbemServices_GetObject()
@@ -2827,9 +2827,9 @@ class IWbemServices(IRemUnknown):
         request['lFlags'] = lFlags
         request['pCtx'] = pCtx
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
-        ppObject =  IWbemClassObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppObject']['abData']), self.get_ipidRemUnknown(), oxid = self.get_oxid(), targetIP = self.get_target_ip()), self)
+        ppObject =  IWbemClassObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppObject']['abData']), self.get_ipidRemUnknown(), oxid = self.get_oxid(), target = self.get_target()), self)
         if resp['ppCallResult'] != NULL:
-            ppcallResult = IWbemCallResult(INTERFACE(self.get_cinstance(), ''.join(resp['ppObject']['abData']), self.get_ipidRemUnknown(), targetIP = self.get_target_ip()))
+            ppcallResult = IWbemCallResult(INTERFACE(self.get_cinstance(), ''.join(resp['ppObject']['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
         else:
             ppcallResult = NULL
         return ppObject, ppcallResult
@@ -2943,7 +2943,7 @@ class IWbemServices(IRemUnknown):
         request['pCtx'] = pCtx
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
         resp.dump()
-        return IEnumWbemClassObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(), targetIP = self.get_target_ip()))
+        return IEnumWbemClassObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
 
     def CreateInstanceEnumAsync(self, strSuperClass, lFlags=0, pCtx=NULL):
         request = IWbemServices_CreateInstanceEnumAsync()
@@ -2962,7 +2962,7 @@ class IWbemServices(IRemUnknown):
         request['lFlags'] = lFlags
         request['pCtx'] = pCtx
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
-        return IEnumWbemClassObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(), targetIP = self.get_target_ip()), self)
+        return IEnumWbemClassObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(), target = self.get_target()), self)
 
     def ExecQueryAsync(self, strQuery, lFlags=0, pCtx=NULL):
         request = IWbemServices_ExecQueryAsync()
@@ -3013,7 +3013,7 @@ class IWbemServices(IRemUnknown):
             request['ppOutParams']['ulCntData'] = len(str(ppOutParams))
             request['ppOutParams']['abData'] = list(str(ppOutParams))
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
-        return IWbemClassObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppOutParams']['abData']), self.get_ipidRemUnknown(), oxid = self.get_oxid(), targetIP = self.get_target_ip()))
+        return IWbemClassObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppOutParams']['abData']), self.get_ipidRemUnknown(), oxid = self.get_oxid(), target = self.get_target()))
 
     def ExecMethodAsync(self, strObjectPath, strMethodName, lFlags=0, pCtx=NULL, pInParams=NULL):
         request = IWbemServices_ExecMethodAsync()
@@ -3062,7 +3062,7 @@ class IWbemLevel1Login(IRemUnknown):
         request['lFlags'] = 0
         request['pCtx'] = pCtx
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
-        return  IWbemServices(INTERFACE(self.get_cinstance(), ''.join(resp['ppNamespace']['abData']), self.get_ipidRemUnknown(), targetIP = self.get_target_ip()))
+        return  IWbemServices(INTERFACE(self.get_cinstance(), ''.join(resp['ppNamespace']['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
 
 
 if __name__ == '__main__':
