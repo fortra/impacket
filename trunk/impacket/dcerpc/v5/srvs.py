@@ -3097,7 +3097,7 @@ def hNetrShareDel(dce, netName):
 
 def hNetrShareEnum(dce, level, resumeHandle = 0, preferedMaximumLength = 0xffffffff):
     request = NetrShareEnum()
-    request['ServerName'] = NULL
+    request['ServerName'] = '\x00'
     request['PreferedMaximumLength'] = preferedMaximumLength
     request['ResumeHandle'] = resumeHandle
     request['InfoStruct']['Level'] = level
