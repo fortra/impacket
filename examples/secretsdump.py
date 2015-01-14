@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Copyright (c) 2003-2014 CORE Security Technologies
+# Copyright (c) 2003-2015 CORE Security Technologies
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -40,7 +40,6 @@
 #
 from impacket import version, smbconnection, winregistry, ntlm
 from impacket.smbconnection import SMBConnection
-from impacket.dcerpc import dcerpc, transport, winreg
 from impacket.dcerpc.v5 import rpcrt, transport, rrp, scmr, wkst
 from impacket.winregistry import hexdump
 from impacket.structure import Structure
