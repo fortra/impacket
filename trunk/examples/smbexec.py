@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Copyright (c) 2003-2013 CORE Security Technologies
+# Copyright (c) 2003-2015 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -42,8 +42,7 @@ from threading import Thread
 
 from impacket import version, smbserver
 from impacket.smbconnection import *
-from impacket.dcerpc import transport, svcctl, srvsvc
-
+from impacket.dcerpc.v5 import transport, scmr
 
 OUTPUT_FILENAME = '__output'
 BATCH_FILENAME  = 'execute.bat'
@@ -179,9 +178,9 @@ class RemoteShell(cmd.Cmd):
         self.__rpc = rpc
         self.intro = '[!] Launching semi-interactive shell - Careful what you execute'
 
-        dce = rpc.get_dce_rpc()
+        self.__scmr = rpc.get_dce_rpc()
         try:
-            dce.connect()
+            self.__scmr.connect()
         except Exception, e:
             print e
             sys.exit(1)
@@ -194,27 +193,25 @@ class RemoteShell(cmd.Cmd):
             myIPaddr = s.getSMBServer().get_socket().getsockname()[0]
             self.__copyBack = 'copy %s \\\\%s\\%s' % (self.__output, myIPaddr, DUMMY_SHARE)
 
-        dce.bind(svcctl.MSRPC_UUID_SVCCTL)
-        self.rpcsvc = svcctl.DCERPCSvcCtl(dce)
-        resp = self.rpcsvc.OpenSCManagerW()
-        self.__scHandle = resp['ContextHandle']
+        self.__scmr.bind(scmr.MSRPC_UUID_SCMR)
+        resp = scmr.hROpenSCManagerW(self.__scmr)
+        self.__scHandle = resp['lpScHandle']
         self.transferClient = rpc.get_smb_connection()
         self.do_cd('')
 
     def finish(self):
         # Just in case the service is still created
         try:
-           dce = self.__rpc.get_dce_rpc()
-           dce.connect() 
-           dce.bind(svcctl.MSRPC_UUID_SVCCTL)
-           self.rpcsvc = svcctl.DCERPCSvcCtl(dce)
-           resp = self.rpcsvc.OpenSCManagerW()
-           self.__scHandle = resp['ContextHandle']
-           resp = self.rpcsvc.OpenServiceW(self.__scHandle, self.__serviceName)
-           service = resp['ContextHandle']
-           self.rpcsvc.DeleteService(service)
-           self.rpcsvc.StopService(service)
-           self.rpcsvc.CloseServiceHandle(service)
+           self.__scmr = self.__rpc.get_dce_rpc()
+           self.__scmr.connect() 
+           self.__scmr.bind(svcctl.MSRPC_UUID_SVCCTL)
+           resp = scmr.hROpenSCManagerW(self.__scmr)
+           self.__scHandle = resp['lpScHandle']
+           resp = scmr.hROpenServiceW(self.__scmr, self.__scHandle, self.__serviceName)
+           service = resp['lpServiceHandle']
+           scmr.hRDeleteService(self.__scmr, service)
+           scmr.hRControlService(self.__scmr, service, scmr.SERVICE_CONTROL_STOP)
+           scmr.hRCloseServiceHandle(self.__scmr, service)
         except Exception, e:
            pass
 
@@ -264,14 +261,15 @@ class RemoteShell(cmd.Cmd):
             command += ' & ' + self.__copyBack
         command += ' & ' + 'del ' + self.__batchFile 
 
-        resp = self.rpcsvc.CreateServiceW(self.__scHandle, self.__serviceName, self.__serviceName, command.encode('utf-16le'))
-        service = resp['ContextHandle']
+        resp = scmr.hRCreateServiceW(self.__scmr, self.__scHandle, self.__serviceName, self.__serviceName, lpBinaryPathName=command)
+        service = resp['lpServiceHandle']
+
         try:
-           self.rpcsvc.StartServiceW(service)
+           scmr.hRStartServiceW(self.__scmr, service)
         except:
            pass
-        self.rpcsvc.DeleteService(service)
-        self.rpcsvc.CloseServiceHandle(service)
+        scmr.hRDeleteService(self.__scmr, service)
+        scmr.hRCloseServiceHandle(self.__scmr, service)
         self.get_output()
 
     def send_data(self, data):
