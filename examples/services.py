@@ -67,8 +67,8 @@ class SVCCTL:
             try:
                 self.doStuff(rpctransport)
             except Exception, e:
-                ##import traceback
-                ##traceback.print_exc()
+                #import traceback
+                #traceback.print_exc()
                 print e
                 break
             else:
@@ -254,7 +254,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<address>')
+    parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     subparsers = parser.add_subparsers(help='actions', dest='action')
  
     # A start command

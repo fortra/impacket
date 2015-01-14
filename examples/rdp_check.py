@@ -546,7 +546,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('target', action='store', help='[domain/][username[:password]@]<address>')
+    parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
 
     group = parser.add_argument_group('authentication')
 

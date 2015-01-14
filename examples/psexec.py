@@ -401,7 +401,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('target', action='store', help='[domain/][username[:password]@]<address>')
+    parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('command', nargs='*', default = ' ', help='command (or arguments if -c is used) to execute at the target (w/o path)')
     parser.add_argument('-c', action='store',metavar = "pathname",  help='copy the filename for later execution, arguments are passed in the command option')
     parser.add_argument('-path', action='store', help='path of the command to execute')
