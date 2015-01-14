@@ -25,7 +25,7 @@ Author: Catalin Patulea <cat@vv.carleton.ca>
 """
 import sys
 from impacket import uuid
-from impacket.dcerpc import transport, dcerpc
+from impacket.dcerpc.v5 import transport
 
 def main(args):
   if len(args) != 4:
@@ -49,7 +49,7 @@ def main(args):
     dce.call(i, "")
     try:
       resp = dce.recv()
-    except dcerpc.Exception, e:
+    except Exception, e:
       result = str(e)
     else:
       result = "success"
