@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Copyright (c) 2003-2013 CORE Security Technologies
+# Copyright (c) 2003-2015 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -8,7 +8,7 @@
 # $Id$
 #
 # Author:
-#  Alberto Solino (beto@coresecurity.com or bethus@gmail.com)
+#  Alberto Solino (@agsolino)
 #
 # Description: [MS-RDPBCGR] and [MS-CREDSSP] partial implementation 
 #              just to reach CredSSP auth. This example test whether

@@ -22,7 +22,7 @@
 #              original state.
 #
 # Author:
-#  Alberto Solino
+#  Alberto Solino (@agsolino)
 #
 # References: Most of the work done by these guys. I just put all
 #             the pieces together, plus some extra magic.
