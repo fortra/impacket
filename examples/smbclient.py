@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Copyright (c) 2003-2014 CORE Security Technologies
+# Copyright (c) 2003-2015 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -10,7 +10,7 @@
 # Description: Mini shell using some of the SMB funcionality of the library
 #
 # Author:
-#  Alberto Solino
+#  Alberto Solino (@agsolino)
 #
 # 
 # Reference for:

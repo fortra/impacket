@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Copyright (c) 2003-2012 CORE Security Technologies
+# Copyright (c) 2003-2015 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -18,7 +18,7 @@
 # socket, which this program requires.
 #
 # Authors:
-#  Alberto Solino <bethus@gmail.com>
+#  Alberto Solino (@agsolino)
 #
 # Reference for:
 #  ImpactPacket: ICMP6

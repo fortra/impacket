@@ -10,7 +10,7 @@
 # Description: Mini shell for browsing an NTFS volume
 #
 # Author:
-#  Alberto Solino
+#  Alberto Solino (@agsolino)
 #
 #
 # Reference for:

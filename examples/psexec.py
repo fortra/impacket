@@ -10,7 +10,7 @@
 # PSEXEC like functionality example using RemComSvc (https://github.com/kavika13/RemCom)
 #
 # Author:
-#  beto (bethus@gmail.com)
+#  beto (@agsolino)
 #
 # Reference for:
 #  DCE/RPC and SMB.

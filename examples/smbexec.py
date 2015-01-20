@@ -25,7 +25,7 @@
 #    in the local machine.
 # 
 # Author:
-#  beto (bethus@gmail.com)
+#  beto (@agsolino)
 #
 # Reference for:
 #  DCE/RPC and SMB.

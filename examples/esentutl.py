@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Copyright (c) 2003-2013 CORE Security Technologies
+# Copyright (c) 2003-2015 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -11,7 +11,7 @@
 #             ESE utility. Allows dumping catalog, pages and tables.
 #
 # Author:
-#  Alberto Solino
+#  Alberto Solino (@agsolino)
 #
 #
 # Reference for:
