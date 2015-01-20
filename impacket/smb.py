@@ -3091,7 +3091,7 @@ class SMB:
         # Now that we have the TGT, we should ask for a TGS for cifs
 
         if TGS is None:
-            serverName = Principal('cifs/%s' % (self.__remote_host), type=constants.PrincipalNameType.NT_SRV_INST.value)
+            serverName = Principal('cifs/%s' % (self.__remote_name), type=constants.PrincipalNameType.NT_SRV_INST.value)
             tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey)
         else:
             tgs = TGS['KDC_REP']

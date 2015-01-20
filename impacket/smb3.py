@@ -710,10 +710,10 @@ class SMB3:
 
         #path = share
         try:
-            _, _, _, _, sockaddr = socket.getaddrinfo(self._Connection['ServerName'], 80, 0, 0, socket.IPPROTO_TCP)[0]
+            _, _, _, _, sockaddr = socket.getaddrinfo(self._Connection['ServerIP'], 80, 0, 0, socket.IPPROTO_TCP)[0]
             remoteHost = sockaddr[0]
         except:
-            remoteHost = self._Connection['ServerName']
+            remoteHost = self._Connection['ServerIP']
         path = '\\\\' + remoteHost + '\\' +share
 
         treeConnect = SMB2TreeConnect()
