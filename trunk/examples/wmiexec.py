@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Copyright (c) 2003-2014 CORE Security Technologies
+# Copyright (c) 2003-2015 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -15,7 +15,7 @@
 # DCOM ports at the target machine.
 #
 # Author:
-#  beto (bethus@gmail.com)
+#  beto (@agsolino)
 #
 # Reference for:
 #  DCOM
@@ -110,7 +110,7 @@ class RemoteShell(cmd.Cmd):
         self.__transferClient = smbConnection
         self.__pwd = 'C:\\'
         self.__noOutput = False
-        self.intro = '[!] Launching semi-interactive shell - Careful what you execute'
+        self.intro = '[!] Launching semi-interactive shell - Careful what you execute\n[!] Press help for extra shell commands'
 
         # We don't wanna deal with timeouts from now on.
         if self.__transferClient is not None:
@@ -121,6 +121,59 @@ class RemoteShell(cmd.Cmd):
 
     def do_shell(self, s):
         os.system(s)
+
+    def do_help(self, line):
+        print """
+ lcd {path}                 - changes the current local directory to {path}
+ exit                       - terminates the server process (and this session)
+ put {src_file, dst_path}   - uploads a local file to the dst_path (dst_path = default current directory)
+ get {file}                 - downloads pathname to the current local dir 
+ ! {cmd}                    - executes a local shell cmd
+""" 
+
+    def do_lcd(self, s):
+        if s == '':
+            print os.getcwd()
+        else:
+            os.chdir(s)
+
+    def do_get(self, src_path):
+        try:
+            import ntpath
+            newPath = ntpath.normpath(ntpath.join(self.__pwd, src_path))
+            drive, tail = ntpath.splitdrive(newPath) 
+            filename = ntpath.basename(tail)
+            fh = open(filename,'wb')
+            print "[*] Downloading %s\\%s" % (drive, tail)
+            self.__transferClient.getFile(drive[:-1]+'$', tail, fh.write)
+            fh.close()
+        except Exception, e:
+            print e
+            os.remove(filename)
+            pass
+
+    def do_put(self, s):
+        try:
+            params = s.split(' ')
+            if len(params) > 1:
+                src_path = params[0]
+                dst_path = params[1]
+            elif len(params) == 1:
+                src_path = params[0]
+                dst_path = ''
+
+            src_file = os.path.basename(src_path)
+            fh = open(src_path, 'rb')
+            dst_path = string.replace(dst_path, '/','\\')
+            import ntpath
+            pathname = ntpath.join(ntpath.join(self.__pwd,dst_path), src_file)
+            drive, tail = ntpath.splitdrive(pathname)
+            print "[*] Uploading %s to %s" % (src_file, pathname)
+            self.__transferClient.putFile(drive[:-1]+'$', tail, fh.read)
+            fh.close()
+        except Exception, e:
+            print e
+            pass
 
     def do_exit(self, s):
         return True
