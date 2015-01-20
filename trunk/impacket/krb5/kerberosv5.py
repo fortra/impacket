@@ -90,7 +90,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, kdcHost, reques
     seq_set(reqBody, 'cname', clientName.components_to_asn1)
 
     if domain == '':
-        raise Exception('ERROR: Empty Domain not allowed in Kerberos')
+        raise Exception('Empty Domain not allowed in Kerberos')
 
     reqBody['realm'] = domain
 
