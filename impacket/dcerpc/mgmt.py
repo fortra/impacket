@@ -1,3 +1,8 @@
+################################################################################
+# DEPRECATION WARNING!                                                         #
+# This library will be deprecated soon. You should use impacket.dcerpc.v5      #
+# classes instead                                                              #
+################################################################################
 # Copyright (c) 2003-2010 CORE Security Technologies
 # Copyright (c) 2011 Catalin Patulea
 #
