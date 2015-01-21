@@ -811,7 +811,7 @@ class DCERPC:
     def set_idempotent(self, flag): pass
     def call(self, function, body, uuid=None):
         return self.send(DCERPC_RawCall(function, str(body), uuid))
-    def request(self, request, uuid=None):
+    def request(self, request, uuid=None, checkError=True):
         if self.transfer_syntax == self.NDR64Syntax:
             request.changeTransferSyntax(self.NDR64Syntax)
             isNDR64 = True
@@ -826,7 +826,7 @@ class DCERPC:
             # Try the subdirectories
             module = __import__('%s.%s' % (request.__module__.split('.')[-2],request.__module__.split('.')[-1]) , globals(), locals(), -1)
         respClass = getattr(module, request.__class__.__name__+'Response')
-        if  answer[-4:] != '\x00\x00\x00\x00':
+        if  answer[-4:] != '\x00\x00\x00\x00' and checkError is True:
             error_code = unpack('<L', answer[-4:])[0]
             if rpc_status_codes.has_key(error_code):
                 # This is an error we can handle
