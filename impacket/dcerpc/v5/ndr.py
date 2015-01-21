@@ -531,10 +531,12 @@ class NDR(object):
                 answer2 = []
                 #soFarItems = 0
                 for itemn in answer:
-                    pad = self.calculatePad('_tmpItem', self.item, data, soFarItems+soFar, packing = False)
-                    if pad > 0:
-                        soFarItems += pad
-                        data = data[pad:]
+                    # ToDo: I'm not sure about this is right
+                    if self._isNDR64 is False:
+                        pad = self.calculatePad('_tmpItem', self.item, data, soFarItems+soFar, packing = False)
+                        if pad > 0:
+                            soFarItems += pad
+                            data = data[pad:]
                     nSoFar = itemn.fromStringReferents(data, soFarItems+soFar)
                     soFarItems += nSoFar
                     data = data[nSoFar:]
