@@ -35,8 +35,9 @@ Author: Catalin Patulea <cat@vv.carleton.ca>
 """
 import sys, struct
 from impacket import uuid
-from impacket.dcerpc import transport, dcerpc, ndrutils
-from impacket.dcerpc import mgmt
+from impacket.dcerpc import ndrutils
+from impacket.dcerpc.v5 import transport, rpcrt, epm
+from impacket.dcerpc.v5 import mgmt
 
 uuid_database = set(uuid.string_to_uuidtup(line) for line in """
 00000001-0000-0000-c000-000000000046 v0.0
@@ -303,15 +304,13 @@ def main(args):
   dce = trans.get_dce_rpc()
   dce.connect()
 
-  iid = uuid.uuidtup_to_bin(("afa8bd80-7d8a-11c9-bef4-08002b102989", "1.0"))
-  dce.bind(iid)
+  dce.bind(mgmt.MSRPC_UUID_MGMT)
 
-  dcemgmt = mgmt.DCERPCMgmt(dce)
-  ifids = dcemgmt.inq_if_ids()
+  ifids = mgmt.hinq_if_ids(dce)
 
   uuidtups = set(
-    uuid.bin_to_uuidtup(ifids.get_if_binuuid(index))
-    for index in range(ifids.get_ifcount())
+    uuid.bin_to_uuidtup(ifids['if_id_vector']['if_id'][index]['Data'].getData())
+    for index in range(ifids['if_id_vector']['count'])
   )
 
   dce.disconnect()
@@ -326,9 +325,9 @@ def main(args):
     binuuid = uuid.uuidtup_to_bin(tup)
     try:
       dce.bind(binuuid)
-    except dcerpc.Exception, e:
-      resp = dcerpc.MSRPCBindAck(str(e.args[1]))
-      if (resp.getCtxItem(1)['Result'], resp.getCtxItem(1)['Reason']) == (2, 1):
+    except rpcrt.Exception, e:
+      resp = e[1]
+      if (resp['Result'], resp['Reason']) == (2, 1):
         listening = False
       else:
         raise
@@ -343,6 +342,16 @@ def main(args):
         "listed" if listed else "other version listed" if otherversion else "not listed",
         "listening" if listening else "not listening"
       )
+      if epm.KNOWN_PROTOCOLS.has_key(tup[0]):
+          print "Protocol: %s" % (epm.KNOWN_PROTOCOLS[tup[0]])
+      else:
+          print "Procotol: N/A"
+
+      if ndrutils.KNOWN_UUIDS.has_key(uuid.uuidtup_to_bin(tup)[:18]):
+          print "Provider: %s" % (ndrutils.KNOWN_UUIDS[uuid.uuidtup_to_bin(tup)[:18]])
+      else:
+          print "Provider: N/A"
+
 
 if __name__ == "__main__":
   sys.exit(main(sys.argv[1:]))
