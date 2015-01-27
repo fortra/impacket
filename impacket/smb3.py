@@ -28,6 +28,7 @@
 #
 
 import socket, string, ntpath
+import random
 from impacket import nmb, smb3structs, nt_errors, spnego, ntlm, uuid, crypto
 from impacket.smb3structs import *
 from impacket.nt_errors import *
@@ -168,7 +169,8 @@ class SMB3:
             # it MUST also implement the following
             'ChannelList'              : [],
             'ChannelSequence'          : 0,
-            'EncryptData'              : False,
+            #'EncryptData'              : False,
+            'EncryptData'              : True,
             'EncryptionKey'            : '',
             'DecryptionKey'            : '',
             'SigningKey'               : '',  
@@ -290,6 +292,8 @@ class SMB3:
         if self._Connection['SequenceWindow'] > 3:
             packet['CreditRequestResponse'] = 127
 
+        messageId = packet['MessageID']
+
         if self._Session['SigningActivated'] is True and self._Connection['SequenceWindow'] > 2:
             if packet['TreeID'] > 0 and self._Session['TreeConnectTable'].has_key(packet['TreeID']) is True:
                 if self._Session['TreeConnectTable'][packet['TreeID']]['EncryptData'] is False:
@@ -299,8 +303,27 @@ class SMB3:
                 packet['Flags'] = SMB2_FLAGS_SIGNED
                 self.signSMB(packet)
 
+        if (self._Session['SessionFlags'] & SMB2_SESSION_FLAG_ENCRYPT_DATA) or ( packet['TreeID'] != 0 and self._Session['TreeConnectTable'][packet['TreeID']]['EncryptData'] is True):
+            plainText = str(packet)
+            transformHeader = SMB2_TRANSFORM_HEADER()
+            transformHeader['Nonce'] = ''.join([random.choice(string.letters) for i in range(11)])
+            transformHeader['OriginalMessageSize'] = len(plainText)
+            transformHeader['EncryptionAlgorithm'] = SMB2_ENCRYPTION_AES128_CCM
+            transformHeader['SessionID'] = self._Session['SessionID'] 
+            from Crypto.Cipher import AES
+            try: 
+                AES.MODE_CCM
+            except:
+                print "Your pycrypto doesn't support AES.MODE_CCM. Currently only pycrypto experimental supports this mode.\nDownload it from https://www.dlitz.net/software/pycrypto "
+                raise 
+            cipher = AES.new(self._Session['EncryptionKey'], AES.MODE_CCM,  transformHeader['Nonce'])
+            cipher.update(str(transformHeader)[20:])
+            cipherText = cipher.encrypt(plainText)
+            transformHeader['Signature'] = cipher.digest()
+            packet = str(transformHeader) + cipherText
+
         self._NetBIOSSession.send_packet(str(packet))
-        return packet['MessageID']
+        return messageId
 
     def recvSMB(self, packetID = None):
         # First, verify we don't have the packet already
@@ -309,17 +332,48 @@ class SMB3:
 
         data = self._NetBIOSSession.recv_packet(self._timeout) 
 
-        # In all SMB dialects for a response this field is interpreted as the Status field. 
-        # This field can be set to any value. For a list of valid status codes, 
-        # see [MS-ERREF] section 2.3.
-        packet = SMB2Packet(data.get_trailer())
+        if data.get_trailer().startswith('\xfdSMB'):
+            # Packet is encrypted
+            transformHeader = SMB2_TRANSFORM_HEADER(data.get_trailer())
+            from Crypto.Cipher import AES
+            try: 
+                AES.MODE_CCM
+            except:
+                print "Your pycrypto doesn't support AES.MODE_CCM. Currently only pycrypto experimental supports this mode.\nDownload it from https://www.dlitz.net/software/pycrypto "
+                raise 
+            cipher = AES.new(self._Session['DecryptionKey'], AES.MODE_CCM,  transformHeader['Nonce'][:11])
+            cipher.update(str(transformHeader)[20:])
+            plainText = cipher.decrypt(data.get_trailer()[len(SMB2_TRANSFORM_HEADER()):])
+            #cipher.verify(transformHeader['Signature'])
+            packet = SMB2Packet(plainText)
+        else:
+            # In all SMB dialects for a response this field is interpreted as the Status field. 
+            # This field can be set to any value. For a list of valid status codes, 
+            # see [MS-ERREF] section 2.3.
+            packet = SMB2Packet(data.get_trailer())
 
         # Loop while we receive pending requests
         if packet['Status'] == STATUS_PENDING:
             status = STATUS_PENDING
             while status == STATUS_PENDING:
                 data = self._NetBIOSSession.recv_packet(self._timeout) 
-                packet = SMB2Packet(data.get_trailer())
+                if data.get_trailer().startswith('\xfeSMB'):
+                    packet = SMB2Packet(data.get_trailer())
+                else:
+                    packet = SMB2_TRANSFORM_HEADER(data.get_trailer())
+                    # Packet is encrypted
+                    transformHeader = SMB2_TRANSFORM_HEADER(data.get_trailer())
+                    from Crypto.Cipher import AES
+                    try: 
+                        AES.MODE_CCM
+                    except:
+                        print "Your pycrypto doesn't support AES.MODE_CCM. Currently only pycrypto experimental supports this mode.\nDownload it from https://www.dlitz.net/software/pycrypto "
+                        raise 
+                    cipher = AES.new(self._Session['DecryptionKey'], AES.MODE_CCM,  transformHeader['Nonce'][:11])
+                    cipher.update(str(transformHeader)[20:])
+                    plainText = cipher.decrypt(data.get_trailer()[len(SMB2_TRANSFORM_HEADER()):])
+                    #cipher.verify(transformHeader['Signature'])
+                    packet = SMB2Packet(plainText)
                 status = packet['Status']
 
         if packet['MessageID'] == packetID or packetID is None:
@@ -340,7 +394,7 @@ class SMB3:
         negSession['SecurityMode'] = SMB2_NEGOTIATE_SIGNING_ENABLED 
         if self.RequireMessageSigning is True:
             negSession['SecurityMode'] |= SMB2_NEGOTIATE_SIGNING_REQUIRED
-        negSession['Capabilities'] = 0
+        negSession['Capabilities'] = SMB2_GLOBAL_CAP_ENCRYPTION
         negSession['ClientGuid'] = self.ClientGuid
         if preferredDialect is not None:
             negSession['Dialects'] = [preferredDialect]
@@ -541,9 +595,8 @@ class SMB3:
                 self._Session['SigningActivated'] = True
             if self._Connection['Dialect'] == SMB2_DIALECT_30:
                 self._Session['ApplicationKey']  = crypto.KDF_CounterMode(self._Session['SessionKey'], "SMB2APP\x00", "SmbRpc\x00", 128)
-            if self._Session['EncryptData'] is True:
-                self._Session['EncryptionKey']  = crypto.KDF_CounterMode(self._Session['SessionKey'], "SMB2AESCCM\x00", "ServerIn \x00", 128)
-                self._Session['DecryptionKey']  = crypto.KDF_CounterMode(self._Session['SessionKey'], "SMB2AESCCM\x00", "ServerOut\x00", 128)
+                self._Session['EncryptionKey']   = crypto.KDF_CounterMode(self._Session['SessionKey'], "SMB2AESCCM\x00", "ServerIn \x00", 128)
+                self._Session['DecryptionKey']   = crypto.KDF_CounterMode(self._Session['SessionKey'], "SMB2AESCCM\x00", "ServerOut\x00", 128)
        
             return True
         else:
@@ -677,9 +730,8 @@ class SMB3:
                         self._Session['SigningActivated'] = True
                     if self._Connection['Dialect'] == SMB2_DIALECT_30:
                         self._Session['ApplicationKey']  = crypto.KDF_CounterMode(exportedSessionKey, "SMB2APP\x00", "SmbRpc\x00", 128)
-                    if self._Session['EncryptData'] is True:
-                        self._Session['EncryptionKey']  = crypto.KDF_CounterMode(exportedSessionKey, "SMB2AESCCM\x00", "ServerIn \x00", 128)
-                        self._Session['DecryptionKey']  = crypto.KDF_CounterMode(exportedSessionKey, "SMB2AESCCM\x00", "ServerOut\x00", 128)
+                        self._Session['EncryptionKey']   = crypto.KDF_CounterMode(exportedSessionKey, "SMB2AESCCM\x00", "ServerIn \x00", 128)
+                        self._Session['DecryptionKey']   = crypto.KDF_CounterMode(exportedSessionKey, "SMB2AESCCM\x00", "ServerOut\x00", 128)
  
                     return True
             except:
