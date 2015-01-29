@@ -1,4 +1,4 @@
-# Copyright (c) 2003-2014 CORE Security Technologies)
+# Copyright (c) 2003-2015 CORE Security Technologies)
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -55,18 +55,34 @@ import hashlib
 # command (or either TRANSACTION). That's why I'm putting them here
 # TODO: Return NT ERROR Codes
 
-def outputJohn(challenge, username, domain, lmresponse, ntresponse):
-    # We don't want to add a possible failure here, since this is an 
-    # extra bonus. We try, if it fails, returns nothing
+def outputToJohnFormat(challenge, username, domain, lmresponse, ntresponse):
+# We don't want to add a possible failure here, since this is an
+# extra bonus. We try, if it fails, returns nothing
+    ret_value = ''
     try:
         if len(ntresponse) > 24:
-            # Extended Security
-            retval =  '%s::%s:%s:%s:%s' % (username.decode('utf-16le'), domain.decode('utf-16le'), challenge.encode('hex'), ntresponse.encode('hex')[:32], ntresponse.encode('hex')[32:])
+            # Extended Security - NTLMv2
+            ret_value = {'hash_string':'%s::%s:%s:%s:%s' % (username.decode('utf-16le'), domain.decode('utf-16le'), challenge.encode('hex'), ntresponse.encode('hex')[:32], ntresponse.encode('hex')[32:]), 'hash_version':'ntlmv2'}
         else:
-            retval = '%s::%s:%s:%s:%s' % (username.decode('utf-16le'), domain.decode('utf-16le'), lmresponse.encode('hex'), ntresponse.encode('hex'), challenge.encode('hex'))
-        return retval
+            # NTLMv1
+            ret_value = {'hash_string':'%s::%s:%s:%s:%s' % (username.decode('utf-16le'), domain.decode('utf-16le'), lmresponse.encode('hex'), ntresponse.encode('hex'), challenge.encode('hex')), 'hash_version':'ntlm'}
     except:
-        return ''
+        #TODO: log some information about the error
+        pass
+
+    return ret_value
+
+def writeJohnOutputToFile(hash_string, hash_version, file_name):
+    fn_data = os.path.splitext(file_name)
+    if hash_version == "ntlmv2":
+        output_filename = fn_data[0] + "_ntlmv2" + fn_data[1]
+    else:
+        output_filename = fn_data[0] + "_ntlm" + fn_data[1]
+
+    with open(output_filename,"a") as f:
+            f.write(hash_string)
+            f.write('\n')		        
+
 
 def decodeSMBString( flags, text ):
     if flags & smb.SMB.FLAGS2_UNICODE:
@@ -2270,8 +2286,14 @@ class SMBCommands():
                 smbServer.log('User %s\\%s authenticated successfully' % (authenticateMessage['user_name'], authenticateMessage['host_name']))
                 # Let's store it in the connection data
                 connData['AUTHENTICATE_MESSAGE'] = authenticateMessage
-                output = outputJohn( connData['CHALLENGE_MESSAGE']['challenge'], connData['AUTHENTICATE_MESSAGE']['user_name'], connData['AUTHENTICATE_MESSAGE']['domain_name'], connData['AUTHENTICATE_MESSAGE']['lanman'], connData['AUTHENTICATE_MESSAGE']['ntlm'] ) 
-                smbServer.log(output)
+                try:
+                    jtr_dump_path = smbServer.getJTRdumpPath()
+                    ntlm_hash_data = outputToJohnFormat( connData['CHALLENGE_MESSAGE']['challenge'], authenticateMessage['user_name'], authenticateMessage['domain_name'], authenticateMessage['lanman'], authenticateMessage['ntlm'] )
+                    smbServer.log(ntlm_hash_data['hash_string'])
+                    if jtr_dump_path is not '':
+                        writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], jtr_dump_path)
+                except:
+                    smbServer.log("Could not write NTLM Hashes to the specified JTR_Dump_Path %s" % jtr_dump_path)
             else:
                 raise("Unknown NTLMSSP MessageType %d" % messageType)
 
@@ -2295,9 +2317,14 @@ class SMBCommands():
             connData['Uid'] = 10
             respParameters['Action'] = 0
             smbServer.log('User %s\\%s authenticated successfully (basic)' % (sessionSetupData['PrimaryDomain'], sessionSetupData['Account']))
-            output = outputJohn( '', sessionSetupData['Account'], sessionSetupData['PrimaryDomain'], sessionSetupData['AnsiPwd'], sessionSetupData['UnicodePwd'] ) 
-            smbServer.log(output)
-
+            try:
+                jtr_dump_path = smbServer.getJTRdumpPath()
+                ntlm_hash_data = outputToJohnFormat( '', sessionSetupData['Account'], sessionSetupData['PrimaryDomain'], sessionSetupData['AnsiPwd'], sessionSetupData['UnicodePwd'] )
+                smbServer.log(ntlm_hash_data['hash_string'])
+                if jtr_dump_path is not '':
+                    writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], jtr_dump_path)
+            except:
+                smbServer.log("Could not write NTLM Hashes to the specified JTR_Dump_Path %s" % jtr_dump_path)
 
         respData['NativeOS']     = encodeSMBString(recvPacket['Flags2'], smbServer.getServerOS())
         respData['NativeLanMan'] = encodeSMBString(recvPacket['Flags2'], smbServer.getServerOS())
@@ -2456,7 +2483,6 @@ class SMBSERVERHandler(SocketServer.BaseRequestHandler):
                        session.send_packet(str(i))
             except Exception, e:
                 self.__SMB.log("Handle: %s" % e)
-                #raise
                 break
 
     def finish(self):
@@ -2487,6 +2513,9 @@ class SMBSERVER(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
 
         # Registered Named Pipes, format is PipeName,Socket
         self.__registeredNamedPipes = {}
+
+        # JTR dump path
+        self.__jtr_dump_path = ''
  
         # Our list of commands we will answer, by default the NOT IMPLEMENTED one
         self.__smbCommandsHandler = SMBCommands()
@@ -2719,6 +2748,8 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
     def setServerConfig(self, config):
         self.__serverConfig = config
 
+    def getJTRdumpPath(self):
+        return self.__jtr_dump_path
 
     def verify_request(self, request, client_address):
         # TODO: Control here the max amount of processes we want to launch
@@ -2848,6 +2879,10 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
         self.__serverOS     = self.__serverConfig.get('global','server_os')
         self.__serverDomain = self.__serverConfig.get('global','server_domain')
         self.__logFile      = self.__serverConfig.get('global','log_file')
+
+        if self.__serverConfig.has_option("global", "jtr_dump_path"):
+            self.__jtr_dump_path = self.__serverConfig.get("global", "jtr_dump_path")
+
         if self.__logFile != 'None':
             logging.basicConfig(filename = self.__logFile, 
                              level = logging.DEBUG, 
