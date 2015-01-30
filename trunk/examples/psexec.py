@@ -59,7 +59,7 @@ class PSEXEC:
         }
 
     def __init__(self, command, path, exeFile, copyFile, protocols = None, 
-                 username = '', password = '', domain = '', hashes = None, doKerberos = False):
+                 username = '', password = '', domain = '', hashes = None, aesKey = None, doKerberos = False):
         self.__username = username
         self.__password = password
         if protocols is None:
@@ -71,6 +71,7 @@ class PSEXEC:
         self.__domain = domain
         self.__lmhash = ''
         self.__nthash = ''
+        self.__aesKey = aesKey
         self.__exeFile = exeFile
         self.__copyFile = copyFile
         self.__doKerberos = doKerberos
@@ -91,7 +92,7 @@ class PSEXEC:
             #   rpctransport.preferred_dialect(SMB_DIALECT)
             if hasattr(rpctransport, 'set_credentials'):
                 # This method exists only for selected protocol sequences.
-                rpctransport.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
+                rpctransport.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey)
 
             rpctransport.set_kerberos(self.__doKerberos)
             self.doStuff(rpctransport)
@@ -225,9 +226,9 @@ class Pipes(Thread):
             global dialect
             #self.server = SMBConnection('*SMBSERVER', self.transport.get_smb_connection().getRemoteHost(), sess_port = self.port, preferredDialect = SMB_DIALECT)
             self.server = SMBConnection('*SMBSERVER', self.transport.get_smb_connection().getRemoteHost(), sess_port = self.port, preferredDialect = dialect)
-            user, passwd, domain, lm, nt = self.credentials
+            user, passwd, domain, lm, nt, aesKey = self.credentials
             if self.transport.get_kerberos() is True:
-                self.server.kerberosLogin(user, passwd, domain, lm, nt)
+                self.server.kerberosLogin(user, passwd, domain, lm, nt, aesKey)
             else:
                 self.server.login(user, passwd, domain, lm, nt)
             lock.release()
@@ -302,9 +303,9 @@ class RemoteShell(cmd.Cmd):
     def connect_transferClient(self):
         #self.transferClient = SMBConnection('*SMBSERVER', self.server.getRemoteHost(), sess_port = self.port, preferredDialect = SMB_DIALECT)
         self.transferClient = SMBConnection('*SMBSERVER', self.server.getRemoteHost(), sess_port = self.port, preferredDialect = dialect)
-        user, passwd, domain, lm, nt = self.credentials
+        user, passwd, domain, lm, nt, aesKey = self.credentials
         if self.transport.get_kerberos() is True:
-            self.transferClient.kerberosLogin(user, passwd, domain, lm, nt)
+            self.transferClient.kerberosLogin(user, passwd, domain, lm, nt, aesKey)
         else:
             self.transferClient.login(user, passwd, domain, lm, nt)
 
@@ -412,6 +413,7 @@ if __name__ == '__main__':
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
     group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
     group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line')
+    group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication (128 or 256 bits)')
 
     if len(sys.argv)==1:
         parser.print_help()
@@ -425,9 +427,12 @@ if __name__ == '__main__':
     if domain is None:
         domain = ''
 
-    if password == '' and username != '' and options.hashes is None and options.no_pass is False:
+    if password == '' and username != '' and options.hashes is None and options.no_pass is False and options.aesKey is None:
         from getpass import getpass
         password = getpass("Password:")
 
-    executer = PSEXEC(' '.join(options.command), options.path, options.file, options.c, None, username, password, domain, options.hashes, options.k)
+    if options.aesKey is not None:
+        options.k = True
+
+    executer = PSEXEC(' '.join(options.command), options.path, options.file, options.c, None, username, password, domain, options.hashes, options.aesKey, options.k)
     executer.run(address)

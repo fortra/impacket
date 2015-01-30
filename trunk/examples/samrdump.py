@@ -38,7 +38,7 @@ class SAMRDump:
 
 
     def __init__(self, protocols = None,
-                 username = '', password = '', domain = '', hashes = None, doKerberos = False):
+                 username = '', password = '', domain = '', hashes = None, aesKey=None, doKerberos = False):
         if not protocols:
             self.__protocols = SAMRDump.KNOWN_PROTOCOLS.keys()
         else:
@@ -49,6 +49,7 @@ class SAMRDump:
         self.__domain = domain
         self.__lmhash = ''
         self.__nthash = ''
+        self.__aesKey = aesKey
         self.__doKerberos = doKerberos
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
@@ -68,7 +69,7 @@ class SAMRDump:
             port = protodef[1]
 
             print "Trying protocol %s..." % protocol
-            rpctransport = transport.SMBTransport(addr, port, r'\samr', self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, doKerberos = self.__doKerberos)
+            rpctransport = transport.SMBTransport(addr, port, r'\samr', self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey, doKerberos = self.__doKerberos)
 
             try:
                 entries = self.__fetchList(rpctransport)
@@ -171,6 +172,7 @@ if __name__ == '__main__':
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
     group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
     group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line')
+    group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication (128 or 256 bits)')
 
     if len(sys.argv)==1:
         parser.print_help()
@@ -185,9 +187,12 @@ if __name__ == '__main__':
     if domain is None:
         domain = ''
 
-    if password == '' and username != '' and options.hashes is None and options.no_pass is False:
+    if options.aesKey is not None:
+        options.k = True
+
+    if password == '' and username != '' and options.hashes is None and options.no_pass is False and options.aesKey is None:
         from getpass import getpass
         password = getpass("Password:")
 
-    dumper = SAMRDump(options.protocol, username, password, domain, options.hashes, options.k)
+    dumper = SAMRDump(options.protocol, username, password, domain, options.hashes, options.aesKey, options.k)
     dumper.dump(address)

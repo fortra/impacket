@@ -316,6 +316,9 @@ if __name__ == '__main__':
     if domain is None:
         domain = ''
 
+    if options.aesKey is not None:
+        options.k = True
+
     if password == '' and username != '' and options.hashes is None and options.no_pass is False and options.aesKey is None:
         from getpass import getpass
         password = getpass("Password:")
