@@ -17,7 +17,7 @@
 #
 
 import random
-from impacket.dcerpc import srvsvc, dcerpc, svcctl, transport
+from impacket.dcerpc.v5 import transport, srvs, scmr
 from impacket import smb,smb3
 from impacket.smbconnection import *
 import string
@@ -45,14 +45,13 @@ class ServiceInstall():
         # Setup up a DCE SMBTransport with the connection already in place
         print "[*] Requesting shares on %s....." % (self.connection.getRemoteHost())
         try: 
-            self._rpctransport = transport.SMBTransport('','',filename = r'\srvsvc', smb_connection = self.connection)
-            self._dce = dcerpc.DCERPC_v5(self._rpctransport)
-            self._dce.connect()
+            self._rpctransport = transport.SMBTransport(self.connection.getRemoteHost(), self.connection.getRemoteHost(),filename = r'\srvsvc', smb_connection = self.connection)
+            dce_srvs = self._rpctransport.get_dce_rpc()
+            dce_srvs.connect()
 
-            self._dce.bind(srvsvc.MSRPC_UUID_SRVSVC)
-            srv_svc = srvsvc.DCERPCSrvSvc(self._dce)
-            resp = srv_svc.get_share_enum_1(self._rpctransport.get_dip())
-            return resp
+            dce_srvs.bind(srvs.MSRPC_UUID_SRVS)
+            resp = srvs.hNetrShareEnum(dce_srvs, 1)
+            return resp['InfoStruct']['ShareInfo']['Level1']
         except:
             print "[!] Error requesting shares on %s, aborting....." % (self.connection.getRemoteHost())
             raise
@@ -61,46 +60,44 @@ class ServiceInstall():
     def createService(self, handle, share, path):
         print "[*] Creating service %s on %s....." % (self.__service_name, self.connection.getRemoteHost())
 
-
         # First we try to open the service in case it exists. If it does, we remove it.
         try:
-            resp = self.rpcsvc.OpenServiceW(handle, self.__service_name.encode('utf-16le'))
+            resp =  scmr.hROpenServiceW(self.rpcsvc, handle, self.__service_name+'\x00')
         except Exception, e:
-            if e.get_error_code() == svcctl.ERROR_SERVICE_DOES_NOT_EXISTS:
+            if str(e).find('ERROR_SERVICE_DOES_NOT_EXIST') >= 0:
                 # We're good, pass the exception
                 pass
             else:
-                raise
+                raise e
         else:
             # It exists, remove it
-            self.rpcsvc.DeleteService(resp['ContextHandle'])
-            self.rpcsvc.CloseServiceHandle(resp['ContextHandle'])
+            scmr.hRDeleteService(self.rpcsvc, resp['lpServiceHandle'])
+            scmr.hRCloseServiceHandle(self.rpcsvc, resp['lpServiceHandle'])
 
         # Create the service
         command = '%s\\%s' % (path, self.__binary_service_name)
         try: 
-            resp = self.rpcsvc.CreateServiceW(handle, self.__service_name.encode('utf-16le'), self.__service_name.encode('utf-16le'), command.encode('utf-16le'))
+            resp = scmr.hRCreateServiceW(self.rpcsvc, handle,self.__service_name + '\x00', self.__service_name + '\x00', lpBinaryPathName=command + '\x00')
         except:
             print "[!] Error creating service %s on %s" % (self.__service_name, self.connection.getRemoteHost())
             raise
         else:
-            return resp['ContextHandle']
+            return resp['lpServiceHandle']
 
     def openSvcManager(self):
         print "[*] Opening SVCManager on %s....." % self.connection.getRemoteHost()
         # Setup up a DCE SMBTransport with the connection already in place
-        self._rpctransport = transport.SMBTransport('','',filename = r'\svcctl', smb_connection = self.connection)
-        self._dce = dcerpc.DCERPC_v5(self._rpctransport)
-        self._dce.connect()
-        self._dce.bind(svcctl.MSRPC_UUID_SVCCTL)
-        self.rpcsvc = svcctl.DCERPCSvcCtl(self._dce)
+        self._rpctransport = transport.SMBTransport(self.connection.getRemoteHost(), self.connection.getRemoteHost(),filename = r'\svcctl', smb_connection = self.connection)
+        self.rpcsvc = self._rpctransport.get_dce_rpc()
+        self.rpcsvc.connect()
+        self.rpcsvc.bind(scmr.MSRPC_UUID_SCMR)
         try:
-            resp = self.rpcsvc.OpenSCManagerW()
+            resp = scmr.hROpenSCManagerW(self.rpcsvc)
         except:
             print "[!] Error opening SVCManager on %s....." % self.connection.getRemoteHost()
             raise Exception('Unable to open SVCManager')
         else:
-            return resp['ContextHandle']
+            return resp['lpScHandle']
 
     def copy_file(self, src, tree, dst):
         print "[*] Uploading file %s" % dst
@@ -121,9 +118,9 @@ class ServiceInstall():
 
     def findWritableShare(self, shares):
         # Check we can write a file on the shares, stop in the first one
-        for i in shares:
-            if i['Type'] == smb.SHARED_DISK or i['Type'] == smb.SHARED_DISK_HIDDEN:
-               share = i['NetName'].decode('utf-16le')[:-1]
+        for i in shares['Buffer']:
+            if i['shi1_type'] == srvs.STYPE_DISKTREE or i['shi1_type'] == srvs.STYPE_SPECIAL:
+               share = i['shi1_netname'][:-1]
                try:
                    self.connection.createDirectory(share,'BETO')
                except:
@@ -166,16 +163,16 @@ class ServiceInstall():
                         # Start service
                         print '[*] Starting service %s.....' % self.__service_name
                         try:
-                            self.rpcsvc.StartServiceW(service)
+                            scmr.hRStartServiceW(self.rpcsvc, service)
                         except:
                             pass
-                        self.rpcsvc.CloseServiceHandle(service)
-                    self.rpcsvc.CloseServiceHandle(svcManager)
+                        scmr.hRCloseServiceHandle(self.rpcsvc, service)
+                    scmr.hRCloseServiceHandle(self.rpcsvc, svcManager)
                     return True
             except Exception, e:
                 print "[!] Error performing the installation, cleaning up: %s" %e
                 try:
-                    self.rpcsvc.StopService(service)
+                    scmr.hRControlService(self.rpcsvc, service, scmr.SERVICE_CONTROL_STOP)
                 except:
                     pass
                 if fileCopied is True:
@@ -185,7 +182,7 @@ class ServiceInstall():
                         pass
                 if serviceCreated is True:
                     try:
-                        self.rpcsvc.DeleteService(service)
+                        scmr.hRDeleteService(self.rpcsvc, service)
                     except:
                         pass
             return False
@@ -198,23 +195,23 @@ class ServiceInstall():
             # Let's get the shares
             svcManager = self.openSvcManager()
             if svcManager != 0:
-                resp = self.rpcsvc.OpenServiceA(svcManager, self.__service_name)
-                service = resp['ContextHandle'] 
+                resp = scmr.hROpenServiceW(self.rpcsvc, svcManager, self.__service_name+'\x00')
+                service = resp['lpServiceHandle'] 
                 print '[*] Stoping service %s.....' % self.__service_name
                 try:
-                    self.rpcsvc.StopService(service)
+                    scmr.hRControlService(self.rpcsvc, service, scmr.SERVICE_CONTROL_STOP)
                 except:
                     pass
                 print '[*] Removing service %s.....' % self.__service_name
-                self.rpcsvc.DeleteService(service)
-                self.rpcsvc.CloseServiceHandle(service)
-                self.rpcsvc.CloseServiceHandle(svcManager)
+                scmr.hRDeleteService(self.rpcsvc, service)
+                scmr.hRCloseServiceHandle(self.rpcsvc, service)
+                scmr.hRCloseServiceHandle(self.rpcsvc, svcManager)
             print '[*] Removing file %s.....' % self.__binary_service_name
             self.connection.deleteFile(self.share, self.__binary_service_name)
         except Exception, e:
             print "[!] Error performing the uninstallation, cleaning up" 
             try:
-                self.rpcsvc.StopService(service)
+                scmr.hRControlService(self.rpcsvc, service, scmr.SERVICE_CONTROL_STOP)
             except:
                 pass
             if fileCopied is True:
@@ -228,7 +225,7 @@ class ServiceInstall():
                     pass
             if serviceCreated is True:
                 try:
-                    self.rpcsvc.DeleteService(service)
+                    scmr.hRDeleteService(self.rpcsvc, service)
                 except:
                     pass
 
