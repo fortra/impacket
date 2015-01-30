@@ -2396,6 +2396,7 @@ class SMB:
         self.__domain   = ''
         self.__lmhash   = ''
         self.__nthash   = ''
+        self.__aesKey   = ''
 
         # Negotiate Protocol Result, used everywhere
         # Could be extended or not, flags should be checked before 
@@ -3047,7 +3048,7 @@ class SMB:
         challenge = self._dialects_data['Challenge']
         return ntlm.get_ntlmv1_response(key, challenge)
 
-    def kerberos_login(self, user, password, domain = '', lmhash = '', nthash = '', kdcHost = '', TGT=None, TGS=None):
+    def kerberos_login(self, user, password, domain = '', lmhash = '', nthash = '', aesKey = '', kdcHost = '', TGT=None, TGS=None):
         # Importing down here so pyasn1 is not required if kerberos is not used.
         from impacket.krb5.asn1 import AP_REQ, Authenticator, TGS_REP, seq_set, seq_set_dict
         from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS
@@ -3076,13 +3077,14 @@ class SMB:
         self.__domain   = domain
         self.__lmhash   = lmhash
         self.__nthash   = nthash
+        self.__aesKey   = aesKey
         self.__kdc      = kdcHost
 
         # First of all, we need to get a TGT for the user
         userName = Principal(user, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
         if TGT is None:
             if TGS is None:
-                tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, password, domain, lmhash, nthash, kdcHost)
+                tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, password, domain, lmhash, nthash, aesKey, kdcHost)
         else:
             tgt = TGT['KDC_REP']
             cipher = TGT['cipher']
@@ -3332,7 +3334,8 @@ class SMB:
             self.__password,
             self.__domain,
             self.__lmhash,
-            self.__nthash)
+            self.__nthash,
+            self.__aesKey)
 
     def login(self, user, password, domain = '', lmhash = '', nthash = ''):
 
@@ -3351,6 +3354,7 @@ class SMB:
         self.__domain   = domain
         self.__lmhash   = lmhash
         self.__nthash   = nthash
+        self.__aesKey   = ''
 
         if self._dialects_parameters['Capabilities'] & SMB.CAP_EXTENDED_SECURITY:
             try:

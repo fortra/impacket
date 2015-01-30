@@ -60,7 +60,7 @@ def sendReceive(data, host, kdcHost):
 
     return r
 
-def getKerberosTGT(clientName, password, domain, lmhash, nthash, kdcHost, requestPAC=True):
+def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcHost=None, requestPAC=True):
     
     asReq = AS_REQ()
 
@@ -98,6 +98,11 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, kdcHost, reques
     reqBody['till'] = KerberosTime.to_asn1(now)
     reqBody['rtime'] = KerberosTime.to_asn1(now)
     reqBody['nonce'] =  random.SystemRandom().getrandbits(31)
+
+    # Yes.. this shouldn't happend but it's inherited from the past
+    if aesKey is None:
+        aesKey = ''
+
     if nthash == '':
         # This is still confusing. I thought KDC_ERR_ETYPE_NOSUPP was enough, 
         # but I found some systems that accepts all ciphers, and trigger an error 
@@ -107,7 +112,13 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, kdcHost, reques
         # KDC_ERR_ETYPE_NOSUPP is returned, we will later try rc4.
         #supportedCiphers = (int(constants.EncriptionTypes.aes256_cts_hmac_sha1_96.value),
         #                   int(constants.EncriptionTypes.rc4_hmac.value))
-        supportedCiphers = (int(constants.EncriptionTypes.aes256_cts_hmac_sha1_96.value),)
+        if aesKey != '':
+            if len(aesKey) == 64:
+                supportedCiphers = (int(constants.EncriptionTypes.aes256_cts_hmac_sha1_96.value),)
+            else:
+                supportedCiphers = (int(constants.EncriptionTypes.aes128_cts_hmac_sha1_96.value),)
+        else:
+            supportedCiphers = (int(constants.EncriptionTypes.aes256_cts_hmac_sha1_96.value),)
     else:
         # We have hashes to try, only way is to request RC4 only
         supportedCiphers = (int(constants.EncriptionTypes.rc4_hmac.value),)
@@ -157,8 +168,12 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, kdcHost, reques
 
         # Encrypt the shyte
         cipher = _enctype_table[enctype]
+
+        # Pass the hash/aes key :P
         if nthash != '':
             key = Key(cipher.enctype, nthash)
+        elif aesKey != '':
+            key = Key(cipher.enctype, aesKey.decode('hex'))
         else:
             key = cipher.string_to_key(password, encryptionTypesData[enctype], None)
         encodedTimeStamp = encoder.encode(timeStamp)
@@ -386,7 +401,7 @@ def getKerberosType3(cipher, sessionKey, auth_data):
 
     return cipher, sessionKey2, resp.getData()
 
-def getKerberosType1(username, password, domain, lmhash, nthash, targetName, kdcHost = None, useCache = True):
+def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', targetName='', kdcHost = None, useCache = True):
     TGS = None
     TGT = None
     if useCache is True:
@@ -411,7 +426,7 @@ def getKerberosType1(username, password, domain, lmhash, nthash, targetName, kdc
     userName = Principal(username, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
     if TGT is None:
         if TGS is None:
-            tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, password, domain, lmhash, nthash, kdcHost)
+            tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, password, domain, lmhash, nthash, aesKey, kdcHost)
     else:
         tgt = TGT['KDC_REP']
         cipher = TGT['cipher']
