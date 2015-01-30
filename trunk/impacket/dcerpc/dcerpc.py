@@ -406,7 +406,7 @@ class DCERPC:
     def send(self, data): raise RuntimeError, 'virtual method. Not implemented in subclass'
     def recv(self): raise RuntimeError, 'virtual method. Not implemented in subclass'
     def alter_ctx(self, newUID, bogus_binds = ''): raise RuntimeError, 'virtual method. Not implemented in subclass'
-    def set_credentials(self, username, password, domain = '', lmhash = '', nthash = ''): pass
+    def set_credentials(self, username, password, domain = '', lmhash = '', nthash = '', aesKey=''): pass
     def set_auth_level(self, auth_level): pass
     def set_auth_type(self, auth_type, callback = None): pass
     def get_idempotent(self): return 0
@@ -427,6 +427,7 @@ class DCERPC_v5(DCERPC):
         self.__domain = ''
         self.__lmhash = ''
         self.__nthash = ''
+        self.__aesKey = ''
         
         self.__clientSigningKey = ''
         self.__serverSigningKey = ''
@@ -453,11 +454,12 @@ class DCERPC_v5(DCERPC):
     def set_max_tfrag(self, size):
         self.__max_xmit_size = size
     
-    def set_credentials(self, username, password, domain = '', lmhash = '', nthash = ''):
+    def set_credentials(self, username, password, domain = '', lmhash = '', nthash = '', aesKey=''):
         self.set_auth_level(RPC_C_AUTHN_LEVEL_CONNECT)
         self.__username = username
         self.__password = password
         self.__domain   = domain
+        self.__aesKey   = aesKey
         if ( lmhash != '' or nthash != ''):
             if len(lmhash) % 2:     lmhash = '0%s' % lmhash
             if len(nthash) % 2:     nthash = '0%s' % nthash
@@ -507,7 +509,7 @@ class DCERPC_v5(DCERPC):
 
         if (self.__auth_level != RPC_C_AUTHN_LEVEL_NONE):
             if (self.__username is None) or (self.__password is None):
-                self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash = self._transport.get_credentials()
+                self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey = self._transport.get_credentials()
             if self.__auth_type == RPC_C_AUTHN_WINNT:
                 auth = ntlm.getNTLMSSPType1('', self.__domain, signingRequired = True, use_ntlmv2 = self._transport.doesSupportNTLMv2())
             elif self.__auth_type == RPC_C_AUTHN_NETLOGON:
@@ -814,7 +816,7 @@ class DCERPC_v5(DCERPC):
     def alter_ctx(self, newUID, bogus_binds = 0):
         answer = self.__class__(self._transport)
 
-        answer.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash )
+        answer.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey )
         answer.set_auth_type(self.__auth_type)
         answer.set_auth_level(self.__auth_level)
 

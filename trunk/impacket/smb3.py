@@ -450,9 +450,10 @@ class SMB3:
             self.__password,
             self.__domain,
             self.__lmhash,
-            self.__nthash)
+            self.__nthash,
+            self.__aesKey)
 
-    def kerberosLogin(self, user, password, domain = '', lmhash = '', nthash = '', kdcHost = '', TGT=None, TGS=None):
+    def kerberosLogin(self, user, password, domain = '', lmhash = '', nthash = '', aesKey='', kdcHost = '', TGT=None, TGS=None):
         # If TGT or TGS are specified, they are in the form of:
         # TGS['KDC_REP'] = the response from the server
         # TGS['cipher'] = the cipher used
@@ -473,6 +474,7 @@ class SMB3:
         self.__lmhash   = lmhash
         self.__nthash   = nthash
         self.__kdc      = kdcHost
+        self.__aesKey   = aesKey
        
         sessionSetup = SMB2SessionSetup()
         if self.RequireMessageSigning is True:
@@ -496,7 +498,7 @@ class SMB3:
         userName = Principal(user, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
         if TGT is None:
             if TGS is None:
-                tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, password, domain, lmhash, nthash, kdcHost)
+                tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, password, domain, lmhash, nthash, aesKey, kdcHost)
         else:
             tgt = TGT['KDC_REP']
             cipher = TGT['cipher']
@@ -628,6 +630,7 @@ class SMB3:
         self.__domain   = domain
         self.__lmhash   = lmhash
         self.__nthash   = nthash
+        self.__aesKey   = ''
        
         sessionSetup = SMB2SessionSetup()
         if self.RequireMessageSigning is True:

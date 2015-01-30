@@ -128,6 +128,7 @@ class DCERPCTransport:
         self._domain = ''
         self._lmhash = ''
         self._nthash = ''
+        self._aesKey = ''
         self.set_credentials('','')
         self.__connect_timeout = None
 
@@ -186,12 +187,14 @@ class DCERPCTransport:
             self._password,
             self._domain,
             self._lmhash,
-            self._nthash)
+            self._nthash, 
+            self._aesKey)
 
-    def set_credentials(self, username, password, domain='', lmhash='', nthash=''):
+    def set_credentials(self, username, password, domain='', lmhash='', nthash='', aesKey=''):
         self._username = username
         self._password = password
         self._domain   = domain
+        self._aesKey   = aesKey
         if ( lmhash != '' or nthash != ''):
             if len(lmhash) % 2:     lmhash = '0%s' % lmhash
             if len(nthash) % 2:     nthash = '0%s' % nthash
@@ -321,22 +324,21 @@ class HTTPTransport(TCPTransport):
 class SMBTransport(DCERPCTransport):
     "Implementation of ncacn_np protocol sequence"
 
-    def __init__(self, dstip, dstport = 445, filename = '', username='', password='', domain = '', lmhash='', nthash='', remote_name='', smb_connection = 0):
+    def __init__(self, dstip, dstport = 445, filename = '', username='', password='', domain = '', lmhash='', nthash='', aesKey='', remote_name='', smb_connection = 0):
         DCERPCTransport.__init__(self, dstip, dstport)
         self.__socket = None
         self.__tid = 0
         self.__filename = filename
         self.__handle = 0
         self.__pending_recv = 0
-        self.set_credentials(username, password, domain, lmhash, nthash)
+        self.set_credentials(username, password, domain, lmhash, nthash, aesKey)
         self.__remote_name = remote_name
 
         if smb_connection == 0:
             self.__existing_smb = False
         else:
             self.__existing_smb = True
-            user, passwd, domain, lm, nt = smb_connection.getCredentials()
-            self.set_credentials(user, passwd, domain, lm, nt)
+            self.set_credentials(*smb_connection.getCredentials())
 
         self.__prefDialect = None
 
@@ -412,8 +414,7 @@ class SMBTransport(DCERPCTransport):
     
     def set_smb_connection(self, smb_connection):
         self.__smb_connection = smb_connection
-        user, passwd, domain, lm, nt = smb_connection.getCredentials()
-        self.set_credentials(user, passwd, domain, lm, nt)
+        self.set_credentials(*smb_connection.getCredentials())
         self.__existing_smb = True
 
     def get_smb_server(self):

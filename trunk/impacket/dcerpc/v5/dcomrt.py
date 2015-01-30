@@ -952,13 +952,14 @@ class DCOMConnection():
     OID_DEL = {}
     OID_SET = {}
     PORTMAPS = {}
-    def __init__(self, target, username = '', password = '', domain = '', lmhash = '', nthash = '', authLevel = RPC_C_AUTHN_LEVEL_PKT_PRIVACY, oxidResolver = False, doKerberos=False):
+    def __init__(self, target, username = '', password = '', domain = '', lmhash = '', nthash = '', aesKey = '', authLevel = RPC_C_AUTHN_LEVEL_PKT_PRIVACY, oxidResolver = False, doKerberos=False):
         self.__target = target
         self.__userName = username
         self.__password = password
         self.__domain = domain
         self.__lmhash = lmhash
         self.__nthash = nthash
+        self.__aesKey = aesKey
         self.__authLevel = authLevel
         self.__portmap = None
         self.__oxidResolver = oxidResolver
@@ -1045,7 +1046,7 @@ class DCOMConnection():
 
         if hasattr(rpctransport, 'set_credentials') and len(self.__userName) >=0:
             # This method exists only for selected protocol sequences.
-            rpctransport.set_credentials(self.__userName,self.__password, self.__domain, self.__lmhash, self.__nthash)
+            rpctransport.set_credentials(self.__userName,self.__password, self.__domain, self.__lmhash, self.__nthash,self.__aesKey)
         self.__portmap = rpctransport.get_dce_rpc()
         self.__portmap.set_auth_level(self.__authLevel)
         if self.__doKerberos is True:
