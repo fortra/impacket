@@ -296,6 +296,9 @@ if __name__ == '__main__':
             from getpass import getpass
             password = getpass("Password:")
 
+        if options.aesKey is not None:
+            options.k = True
+
         executer = WMIEXEC(' '.join(options.command), username, password, domain, options.hashes, options.aesKey, options.share, options.nooutput, options.k)
         executer.run(address)
     except (Exception, KeyboardInterrupt), e:

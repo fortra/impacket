@@ -1577,6 +1577,9 @@ if __name__ == '__main__':
             from getpass import getpass
             password = getpass("Password:")
 
+        if options.aesKey is not None:
+            options.k = True
+
     dumper = DumpSecrets(address, username, password, domain, options.hashes, options.aesKey, options.k, options.system, options.security, options.sam, options.ntds, options.outputfile, options.history)
 
     try:
