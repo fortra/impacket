@@ -26,6 +26,7 @@ from impacket.dcerpc.v5.dtypes import *
 from impacket import nt_errors
 from impacket.uuid import uuidtup_to_bin
 from impacket.dcerpc.v5.enum import Enum
+from impacket.structure import Structure
 
 MSRPC_UUID_SAMR   = uuidtup_to_bin(('12345778-1234-ABCD-EF00-0123456789AC', '1.0'))
 
@@ -1367,6 +1368,136 @@ class SAM_VALIDATE_OUTPUT_ARG(NDRUNION):
 class PSAM_VALIDATE_OUTPUT_ARG(NDRPOINTER):
     referent = (
         ('Data', SAM_VALIDATE_OUTPUT_ARG),
+    )
+
+# 2.2.10 Supplemental Credentials Structures
+
+# 2.2.10.1 USER_PROPERTIES
+class USER_PROPERTIES(Structure):
+    structure = (
+        ('Reserved1','<L=0'),
+        ('Length','<L=0'),
+        ('Reserved2','<H=0'),
+        ('Reserved3','<H=0'),
+        ('Reserved4','96s=""'),
+        ('PropertySignature','<H=0x50'),
+        ('PropertyCount','<H=0'),
+        ('UserProperties',':'),
+    )
+
+# 2.2.10.2 USER_PROPERTY
+class USER_PROPERTY(Structure):
+    structure = (
+        ('NameLength','<H=0'),
+        ('ValueLength','<H=0'),
+        ('Reserved','<H=0'),
+        ('_PropertyName','_-PropertyName', "self['NameLength']"),
+        ('PropertyName',':'),
+        ('_PropertyValue','_-PropertyValue', "self['ValueLength']"),
+        ('PropertyValue',':'),
+    )
+
+# 2.2.10.3 Primary:WDigest - WDIGEST_CREDENTIALS
+class WDIGEST_CREDENTIALS(Structure):
+    structure = (
+        ('Reserved1','B=0'),
+        ('Reserved2','B=0'),
+        ('Version','B=1'),
+        ('NumberOfHashes','B=29'),
+        ('Reserved3','12s=""'),
+        ('Hash1', '16s=""'),
+        ('Hash2', '16s=""'),
+        ('Hash3', '16s=""'),
+        ('Hash4', '16s=""'),
+        ('Hash5', '16s=""'),
+        ('Hash6', '16s=""'),
+        ('Hash7', '16s=""'),
+        ('Hash8', '16s=""'),
+        ('Hash9', '16s=""'),
+        ('Hash10', '16s=""'),
+        ('Hash11', '16s=""'),
+        ('Hash12', '16s=""'),
+        ('Hash13', '16s=""'),
+        ('Hash14', '16s=""'),
+        ('Hash15', '16s=""'),
+        ('Hash16', '16s=""'),
+        ('Hash17', '16s=""'),
+        ('Hash18', '16s=""'),
+        ('Hash19', '16s=""'),
+        ('Hash20', '16s=""'),
+        ('Hash21', '16s=""'),
+        ('Hash22', '16s=""'),
+        ('Hash23', '16s=""'),
+        ('Hash24', '16s=""'),
+        ('Hash25', '16s=""'),
+        ('Hash26', '16s=""'),
+        ('Hash27', '16s=""'),
+        ('Hash28', '16s=""'),
+        ('Hash29', '16s=""'),
+    )
+
+# 2.2.10.5 KERB_KEY_DATA
+class KERB_KEY_DATA(Structure):
+    structure = (
+        ('Reserved1','<H=0'),
+        ('Reserved2','<H=0'),
+        ('Reserved3','<H=0'),
+        ('KeyType','<L=0'),
+        ('KeyLength','<L=0'),
+        ('KeyOffset','<L=0'),
+    )
+
+# 2.2.10.4 Primary:Kerberos - KERB_STORED_CREDENTIAL
+class KERB_STORED_CREDENTIAL(Structure):
+    structure = (
+        ('Revision','<H=3'),
+        ('Flags','<H=0'),
+        ('CredentialCount','<H=0'),
+        ('OldCredentialCount','<H=0'),
+        ('DefaultSaltLength','<H=0'),
+        ('DefaultSaltMaximumLength','<H=0'),
+        ('DefaultSaltOffset','<L=0'),
+        #('Credentials',':'),
+        #('OldCredentials',':'),
+        #('DefaultSalt',':'),
+        #('KeyValues',':'),
+        # All the preceding stuff inside this Buffer
+        ('Buffer',':'),
+    )
+
+# 2.2.10.7 KERB_KEY_DATA_NEW
+class KERB_KEY_DATA_NEW(Structure):
+    structure = (
+        ('Reserved1','<H=0'),
+        ('Reserved2','<H=0'),
+        ('Reserved3','<L=0'),
+        ('IterationCount','<L=0'),
+        ('KeyType','<L=0'),
+        ('KeyLength','<L=0'),
+        ('KeyOffset','<L=0'),
+    )
+
+# 2.2.10.6 Primary:Kerberos-Newer-Keys - KERB_STORED_CREDENTIAL_NEW
+class KERB_STORED_CREDENTIAL_NEW(Structure):
+    structure = (
+        ('Revision','<H=4'),
+        ('Flags','<H=0'),
+        ('CredentialCount','<H=0'),
+        ('ServiceCredentialCount','<H=0'),
+        ('OldCredentialCount','<H=0'),
+        ('OlderCredentialCount','<H=0'),
+        ('DefaultSaltLength','<H=0'),
+        ('DefaultSaltMaximumLength','<H=0'),
+        ('DefaultSaltOffset','<L=0'),
+        ('DefaultIterationCount','<L=0'),
+        #('Credentials',':'),
+        #('ServiceCredentials',':'),
+        #('OldCredentials',':'),
+        #('OlderCredentials',':'),
+        #('DefaultSalt',':'),
+        #('KeyValues',':'),
+        # All the preceding stuff inside this Buffer
+        ('Buffer',':'),
     )
 
 ################################################################################
