@@ -1203,7 +1203,11 @@ class NTDSHashes():
     def __decryptSupplementalInfo(self, record):
         # This is based on [MS-SAMR] 2.2.10 Supplemental Credentials Structures
         if record[self.NAME_TO_INTERNAL['supplementalCredentials']] is not None:
-            userName = record[self.NAME_TO_INTERNAL['sAMAccountName']]
+            if record[self.NAME_TO_INTERNAL['userPrincipalName']] is not None:
+                domain = record[self.NAME_TO_INTERNAL['userPrincipalName']].split('@')[-1]
+                userName = '%s\\%s' % (domain, record[self.NAME_TO_INTERNAL['sAMAccountName']])
+            else: 
+                userName = '%s' % record[self.NAME_TO_INTERNAL['sAMAccountName']]
             cipherText = self.CRYPTED_BLOB(record[self.NAME_TO_INTERNAL['supplementalCredentials']].decode('hex'))
             plainText = self.__removeRC4Layer(cipherText)
             userProperties = samr.USER_PROPERTIES(plainText)
