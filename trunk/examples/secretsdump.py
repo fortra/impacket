@@ -40,11 +40,12 @@
 #
 from impacket import version, smbconnection, winregistry, ntlm
 from impacket.smbconnection import SMBConnection
-from impacket.dcerpc.v5 import rpcrt, transport, rrp, scmr, wkst
+from impacket.dcerpc.v5 import rpcrt, transport, rrp, scmr, wkst, samr
 from impacket.winregistry import hexdump
 from impacket.structure import Structure
 from impacket.ese import ESENT_DB
 from struct import unpack, pack
+from collections import OrderedDict
 import sys
 import random
 import hashlib
@@ -1093,6 +1094,14 @@ class NTDSHashes():
         'ntPwdHistory':'ATTk589918',
         'lmPwdHistory':'ATTk589984',
         'pekList':'ATTk590689',
+        'supplementalCredentials':'ATTk589949',
+    }
+
+    KERBEROS_TYPE = {
+        1:'dec-cbc-crc',
+        3:'des-cbc-md5',
+        17:'aes128-cts-hmac-sha1-96',
+        18:'aes256-cts-hmac-sha1-96',
     }
 
     INTERNAL_TO_NAME = dict((v,k) for k,v in NAME_TO_INTERNAL.iteritems())
@@ -1124,6 +1133,13 @@ class NTDSHashes():
             ('EncryptedHash',':'),
         )
 
+    class CRYPTED_BLOB(Structure):
+        structure = (
+            ('Header','8s=""'),
+            ('KeyMaterial','16s=""'),
+            ('EncryptedHash',':'),
+        )
+
     def __init__(self, ntdsFile, bootKey, isRemote = False, history = False, noLMHash = True):
         self.__bootKey = bootKey
         self.__NTDS = ntdsFile
@@ -1135,7 +1151,8 @@ class NTDSHashes():
         self.__tmpUsers = list()
         self.__PEK = None
         self.__cryptoCommon = CryptoCommon()
-        self.__itemsFound = {}
+        self.__hashesFound = {}
+        self.__kerberosKeys = OrderedDict()
 
     def __getPek(self):
         logging.info('Searching for pekList, be patient')
@@ -1183,6 +1200,33 @@ class NTDSHashes():
 
         return decryptedHash
 
+    def __decryptSupplementalInfo(self, record):
+        # This is based on [MS-SAMR] 2.2.10 Supplemental Credentials Structures
+        if record[self.NAME_TO_INTERNAL['supplementalCredentials']] is not None:
+            userName = record[self.NAME_TO_INTERNAL['sAMAccountName']]
+            cipherText = self.CRYPTED_BLOB(record[self.NAME_TO_INTERNAL['supplementalCredentials']].decode('hex'))
+            plainText = self.__removeRC4Layer(cipherText)
+            userProperties = samr.USER_PROPERTIES(plainText)
+            propertiesData = userProperties['UserProperties']
+            for propertyCount in range(userProperties['PropertyCount']):
+                userProperty = samr.USER_PROPERTY(propertiesData)   
+                propertiesData = propertiesData[len(userProperty):]
+                # For now, we will only process Newer Kerberos Keys. 
+                if userProperty['PropertyName'].decode('utf-16le') == 'Primary:Kerberos-Newer-Keys':
+                    propertyValueBuffer = userProperty['PropertyValue'].decode('hex')
+                    kerbStoredCredentialNew = samr.KERB_STORED_CREDENTIAL_NEW(propertyValueBuffer)
+                    data = kerbStoredCredentialNew['Buffer']
+                    for credential in range(kerbStoredCredentialNew['CredentialCount']):
+                        keyDataNew = samr.KERB_KEY_DATA_NEW(data)
+                        data = data[len(keyDataNew):]
+                        keyValue = propertyValueBuffer[keyDataNew['KeyOffset']:][:keyDataNew['KeyLength']]
+
+                        answer =  "%s:%s:%s" % (userName, self.KERBEROS_TYPE[keyDataNew['KeyType']],keyValue.encode('hex'))
+                        # We're just storing the keys, not printing them, to make the output more readable
+                        # This is kind of ugly... but it's what I came up with tonight to get an ordered
+                        # set :P. Better ideas welcomed ;)
+                        self.__kerberosKeys[answer] = None
+
     def __decryptHash(self, record):
         logging.debug('Decrypting hash for user: %s' % record[self.NAME_TO_INTERNAL['name']])
         
@@ -1212,7 +1256,7 @@ class NTDSHashes():
             userName = '%s' % record[self.NAME_TO_INTERNAL['sAMAccountName']]
  
         answer =  "%s:%s:%s:%s:::" % (userName, rid, LMHash.encode('hex'), NTHash.encode('hex'))
-        self.__itemsFound[record[self.NAME_TO_INTERNAL['objectSid']].decode('hex')] = answer
+        self.__hashesFound[record[self.NAME_TO_INTERNAL['objectSid']].decode('hex')] = answer
         print answer
       
         if self.__history:
@@ -1241,7 +1285,7 @@ class NTDSHashes():
                     lmhash = LMHash.encode('hex')
             
                 answer =  "%s_history%d:%s:%s:%s:::" % (userName, i, rid, lmhash, NTHash.encode('hex'))
-                self.__itemsFound[record[self.NAME_TO_INTERNAL['objectSid']].decode('hex')+str(i)] = answer
+                self.__hashesFound[record[self.NAME_TO_INTERNAL['objectSid']].decode('hex')+str(i)] = answer
                 print answer
         
 
@@ -1259,7 +1303,21 @@ class NTDSHashes():
             logging.info('Reading and decrypting hashes from %s ' % self.__NTDS)
             # First of all, if we have users already cached, let's decrypt their hashes
             for record in self.__tmpUsers:
-                self.__decryptHash(record)
+                try:
+                    self.__decryptHash(record)
+                    self.__decryptSupplementalInfo(record)
+                except Exception, e:
+                    #import traceback
+                    #print traceback.print_exc()
+                    try:
+                        logging.error("Error while processing row for user %s" % record[self.NAME_TO_INTERNAL['name']])
+                        logging.error(str(e))
+                        pass
+                    except: 
+                        logging.error("Error while processing row!")
+                        logging.error(str(e))
+                        pass
+
             # Now let's keep moving through the NTDS file and decrypting what we find
             while True:
                 try:
@@ -1273,31 +1331,42 @@ class NTDSHashes():
                 try:
                     if record[self.NAME_TO_INTERNAL['sAMAccountType']] in self.ACCOUNT_TYPES: 
                         self.__decryptHash(record)
+                        self.__decryptSupplementalInfo(record)
                 except Exception, e:
                     #import traceback
                     #print traceback.print_exc()
                     try:
                         logging.error("Error while processing row for user %s" % record[self.NAME_TO_INTERNAL['name']])
                         logging.error(str(e))
+                        pass
                     except: 
                         logging.error("Error while processing row!")
                         logging.error(str(e))
                         pass
+        # Now we'll print the Kerberos keys. So we don't mix things up in the output. 
+        if len(self.__kerberosKeys) > 0:
+            logging.info('Kerberos keys from %s ' % self.__NTDS)
+            for itemKey in self.__kerberosKeys.keys():
+                print itemKey
          
-
     def export(self, fileName):
-        if len(self.__itemsFound) > 0:
-            items = sorted(self.__itemsFound)
+        if len(self.__hashesFound) > 0:
+            items = sorted(self.__hashesFound)
             fd = open(fileName+'.ntds','w+')
             for item in items:
                 try:
-                    fd.write(self.__itemsFound[item]+'\n')
+                    fd.write(self.__hashesFound[item]+'\n')
                 except Exception, e:
                     try:
                         logging.error("Error writing entry %d, skipping" % item)
                     except:
                         logging.error("Error writing entry, skipping")
                     pass
+            fd.close()
+        if len(self.__kerberosKeys) > 0:
+            fd = open(fileName+'.ntds.kerberos','w+')
+            for itemKey in self.__kerberosKeys.keys():
+                fd.write(itemKey+'\n')
             fd.close()
 
     def finish(self):
