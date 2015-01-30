@@ -1375,13 +1375,14 @@ class NTDSHashes():
 
 
 class DumpSecrets:
-    def __init__(self, address, username = '', password = '', domain='', hashes = None, doKerberos=False, system=False, security=False, sam=False, ntds=False, outputFileName = None, history=False):
+    def __init__(self, address, username = '', password = '', domain='', hashes = None, aesKey=None, doKerberos=False, system=False, security=False, sam=False, ntds=False, outputFileName = None, history=False):
         self.__remoteAddr = address
         self.__username = username
         self.__password = password
         self.__domain = domain
         self.__lmhash = ''
         self.__nthash = ''
+        self.__aesKey = aesKey
         self.__smbConnection = None
         self.__remoteOps = None
         self.__SAMHashes = None
@@ -1404,7 +1405,7 @@ class DumpSecrets:
     def connect(self):
         self.__smbConnection = SMBConnection(self.__remoteAddr, self.__remoteAddr)
         if self.__doKerberos:
-            self.__smbConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
+            self.__smbConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey)
         else:
             self.__smbConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
 
@@ -1547,6 +1548,8 @@ if __name__ == '__main__':
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
     group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
     group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line')
+    group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication (128 or 256 bits)')
+
     if len(sys.argv)==1:
         parser.print_help()
         sys.exit(1)
@@ -1570,11 +1573,11 @@ if __name__ == '__main__':
         if domain is None:
             domain = ''
     
-        if password == '' and username != '' and options.hashes is None and options.no_pass is False:
+        if password == '' and username != '' and options.hashes is None and options.no_pass is False and options.aesKey is None:
             from getpass import getpass
             password = getpass("Password:")
 
-    dumper = DumpSecrets(address, username, password, domain, options.hashes, options.k, options.system, options.security, options.sam, options.ntds, options.outputfile, options.history)
+    dumper = DumpSecrets(address, username, password, domain, options.hashes, options.aesKey, options.k, options.system, options.security, options.sam, options.ntds, options.outputfile, options.history)
 
     try:
         dumper.dump()
