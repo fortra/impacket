@@ -38,13 +38,14 @@ from impacket.dcerpc.v5.dtypes import NULL
 OUTPUT_FILENAME = '__'
 
 class WMIEXEC:
-    def __init__(self, command = '', username = '', password = '', domain = '', hashes = None, share = None, noOutput=False, doKerberos=False):
+    def __init__(self, command = '', username = '', password = '', domain = '', hashes = None, aesKey = None, share = None, noOutput=False, doKerberos=False):
         self.__command = command
         self.__username = username
         self.__password = password
         self.__domain = domain
         self.__lmhash = ''
         self.__nthash = ''
+        self.__aesKey = aesKey
         self.__share = share
         self.__noOutput = noOutput
         self.__doKerberos = doKerberos
@@ -57,7 +58,7 @@ class WMIEXEC:
             if self.__doKerberos is False:
                 smbConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
             else:
-                smbConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
+                smbConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey)
 
             dialect = smbConnection.getDialect()
             if dialect == SMB_DIALECT:
@@ -71,7 +72,7 @@ class WMIEXEC:
         else:
             smbConnection = None
 
-        dcom = DCOMConnection(addr, self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, oxidResolver = True, doKerberos=self.__doKerberos)
+        dcom = DCOMConnection(addr, self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey, oxidResolver = True, doKerberos=self.__doKerberos)
         iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
         iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
         iWbemServices= iWbemLevel1Login.NTLMLogin('//./root/cimv2', NULL, NULL)
@@ -266,6 +267,8 @@ if __name__ == '__main__':
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
     group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
     group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line')
+    group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication (128 or 256 bits)')
+
  
     if len(sys.argv)==1:
         parser.print_help()
@@ -289,14 +292,14 @@ if __name__ == '__main__':
         if domain is None:
             domain = ''
 
-        if password == '' and username != '' and options.hashes is None and options.no_pass is False:
+        if password == '' and username != '' and options.hashes is None and options.no_pass is False and options.aesKey is None:
             from getpass import getpass
             password = getpass("Password:")
 
-        executer = WMIEXEC(' '.join(options.command), username, password, domain, options.hashes, options.share, options.nooutput, options.k)
+        executer = WMIEXEC(' '.join(options.command), username, password, domain, options.hashes, options.aesKey, options.share, options.nooutput, options.k)
         executer.run(address)
     except (Exception, KeyboardInterrupt), e:
-        #import traceback
-        #print traceback.print_exc()
+        import traceback
+        print traceback.print_exc()
         print '\nERROR: %s' % e
     sys.exit(0)

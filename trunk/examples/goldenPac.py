@@ -430,7 +430,7 @@ class Pipes(Thread):
             lock.acquire()
             global dialect
             self.server = SMBConnection('*SMBSERVER', self.transport.get_smb_connection().getRemoteHost(), sess_port = self.port, preferredDialect = dialect)
-            user, passwd, domain, lm, nt = self.credentials
+            user, passwd, domain, lm, nt, aesKey = self.credentials
             self.server.login(user, passwd, domain, lm, nt)
             lock.release()
             self.tid = self.server.connectTree('IPC$') 
@@ -503,8 +503,8 @@ class RemoteShell(cmd.Cmd):
 
     def connect_transferClient(self):
         self.transferClient = SMBConnection('*SMBSERVER', self.server.getRemoteHost(), sess_port = self.port, preferredDialect = dialect)
-        user, passwd, domain, lm, nt = self.credentials
-        self.transferClient.kerberosLogin(user, passwd, domain, lm, nt, TGS=self.TGS, useCache=False)
+        user, passwd, domain, lm, nt, aesKey = self.credentials
+        self.transferClient.kerberosLogin(user, passwd, domain, lm, nt, aesKey, TGS=self.TGS, useCache=False)
 
     def do_help(self, line):
         print """
@@ -983,7 +983,7 @@ class MS14_068():
         self.__domainSid, self.__rid = self.getUserSID()
 
         userName = Principal(self.__username, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
-        tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__kdcHost, requestPAC=False)
+        tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain, self.__lmhash, self.__nthash, None, self.__kdcHost, requestPAC=False)
         # So, we have the TGT, now extract the new session key and finish
         asRep = decoder.decode(tgt, asn1Spec = AS_REP())[0]
 
