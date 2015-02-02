@@ -8,7 +8,7 @@
 # $Id$
 #
 # A similar approach to psexec w/o using RemComSvc. The technique is described here
-# http://www.accuvant.com/blog/2012/11/13/owning-computers-without-shell-access
+# http://www.accuvant.com/blog/owning-computers-without-shell-access
 # Our implementation goes one step further, instantiating a local smbserver to receive the 
 # output of the commands. This is useful in the situation where the target machine does NOT
 # have a writeable share available.
@@ -114,7 +114,7 @@ class CMDEXEC:
 
 
     def __init__(self, protocols = None, 
-                 username = '', password = '', domain = '', hashes = None, mode = None, share = None):
+                 username = '', password = '', domain = '', hashes = None, aesKey = None, doKerberos = None, mode = None, share = None):
         if not protocols:
             protocols = PSEXEC.KNOWN_PROTOCOLS.keys()
 
@@ -125,6 +125,8 @@ class CMDEXEC:
         self.__domain = domain
         self.__lmhash = ''
         self.__nthash = ''
+        self.__aesKey = aesKey
+        self.__doKerberos = doKerberos
         self.__share = share
         self.__mode  = mode
         if hashes is not None:
@@ -147,7 +149,8 @@ class CMDEXEC:
                rpctransport.preferred_dialect(SMB_DIALECT)
             if hasattr(rpctransport, 'set_credentials'):
                 # This method exists only for selected protocol sequences.
-                rpctransport.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
+                rpctransport.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey)
+            rpctransport.set_kerberos(self.__doKerberos)
 
             try:
                 if self.__mode == 'SERVER':
@@ -159,6 +162,8 @@ class CMDEXEC:
                 if self.__mode == 'SERVER':
                     serverThread.stop()
             except  (Exception, KeyboardInterrupt), e:
+                import traceback
+                traceback.print_exc()
                 print e
                 self.shell.finish()
                 sys.stdout.flush()
@@ -292,6 +297,10 @@ if __name__ == '__main__':
     group = parser.add_argument_group('authentication')
 
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
+    group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
+    group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line')
+    group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication (128 or 256 bits)')
+
  
     if len(sys.argv)==1:
         parser.print_help()
@@ -305,10 +314,13 @@ if __name__ == '__main__':
     if domain is None:
         domain = ''
 
-    if password == '' and username != '' and options.hashes is None:
+    if password == '' and username != '' and options.hashes is None and options.no_pass is False and options.aesKey is None:
         from getpass import getpass
         password = getpass("Password:")
 
-    executer = CMDEXEC(options.protocol, username, password, domain, options.hashes, options.mode, options.share)
+    if options.aesKey is not None:
+        options.k = True
+
+    executer = CMDEXEC(options.protocol, username, password, domain, options.hashes, options.aesKey, options.k, options.mode, options.share)
     executer.run(address)
     sys.exit(0)
