@@ -302,7 +302,7 @@ if __name__ == '__main__':
         executer = WMIEXEC(' '.join(options.command), username, password, domain, options.hashes, options.aesKey, options.share, options.nooutput, options.k)
         executer.run(address)
     except (Exception, KeyboardInterrupt), e:
-        import traceback
-        print traceback.print_exc()
+        #import traceback
+        #print traceback.print_exc()
         print '\nERROR: %s' % e
     sys.exit(0)
