@@ -54,6 +54,8 @@ class CheckSumField(Structure):
 def GSSAPI(cipher):
     if cipher.enctype == constants.EncriptionTypes.aes256_cts_hmac_sha1_96.value:
         return GSSAPI_AES256()
+    if cipher.enctype == constants.EncriptionTypes.aes128_cts_hmac_sha1_96.value:
+        return GSSAPI_AES128()
     elif cipher.enctype == constants.EncriptionTypes.rc4_hmac.value:
         return GSSAPI_RC4()
     else:
@@ -178,7 +180,10 @@ class GSSAPI_RC4():
     def GSS_Unwrap(self, sessionKey, data, sequenceNumber, direction = 'init', encrypt=True, authData=None):
         return self.GSS_Wrap(sessionKey, data, sequenceNumber, direction, encrypt, authData)
 
-class GSSAPI_AES256():
+class GSSAPI_AES():
+    checkSumProfile = None
+    cipherType = None
+
     class MIC(Structure):
         structure = (
             ('TOK_ID','>H=0x0404'),
@@ -208,7 +213,7 @@ class GSSAPI_AES256():
         padStr = chr(pad) * pad
         data = data + padStr
 
-        checkSumProfile = crypto._SHA1AES256()
+        checkSumProfile = self.checkSumProfile()
 
         token['Flags'] = 4
         token['SND_SEQ'] = struct.pack('>Q',sequenceNumber)
@@ -230,7 +235,7 @@ class GSSAPI_AES256():
     def GSS_Wrap(self, sessionKey, data, sequenceNumber, direction = 'init', encrypt=True):
         token = self.WRAP()
 
-        cipher = crypto._AES256CTS()
+        cipher = self.cipherType()
 
         # Let's pad the data
         pad = (cipher.blocksize - (len(data) % cipher.blocksize)) & 15
@@ -260,7 +265,7 @@ class GSSAPI_AES256():
     def GSS_Unwrap(self, sessionKey, data, sequenceNumber, direction = 'init', encrypt=True, authData=None):
         from impacket.dcerpc.v5.rpcrt import SEC_TRAILER
 
-        cipher = crypto._AES256CTS()
+        cipher = self.cipherType()
         token = self.WRAP(authData[len(SEC_TRAILER()):])
 
         rotated = authData[len(self.WRAP())+len(SEC_TRAILER()):] + data
@@ -270,3 +275,10 @@ class GSSAPI_AES256():
 
         return plainText[:-(token['EC']+len(self.WRAP()))], None
 
+class GSSAPI_AES256(GSSAPI_AES):
+    checkSumProfile = crypto._SHA1AES256
+    cipherType = crypto._AES256CTS
+
+class GSSAPI_AES128(GSSAPI_AES):
+    checkSumProfile = crypto._SHA1AES128
+    cipherType = crypto._AES128CTS
