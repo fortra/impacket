@@ -36,19 +36,16 @@ except ImportError:
   import readline
 
 class MiniImpacketShell(cmd.Cmd):    
-    def __init__(self):
+    def __init__(self, smbClient):
         cmd.Cmd.__init__(self)
         self.prompt = '# '
-        self.smb = None
+        self.smb = smbClient
+        self.username, self.password, self.domain, self.lmhash, self.nthash, self.aesKey = smbClient.getCredentials()
         self.tid = None
         self.intro = 'Type help for list of commands'
         self.pwd = ''
         self.share = None
-        self.loggedIn = False
-        self.password = None
-        self.lmhash = None
-        self.nthash = None
-        self.username = None
+        self.loggedIn = True
         self.completion = []
 
     def emptyline(self):
@@ -249,6 +246,7 @@ class MiniImpacketShell(cmd.Cmd):
             logging.error("No connection open")
             return
         self.smb.logoff()
+        del(self.smb)
         self.share = None
         self.smb = None
         self.tid = None
@@ -343,6 +341,9 @@ class MiniImpacketShell(cmd.Cmd):
         print self.pwd
 
     def do_ls(self, wildcard, display = True):
+        if self.loggedIn is False:
+            logging.error("Not logged in")
+            return
         if self.tid is None:
             logging.error("No share selected")
             return
@@ -434,33 +435,70 @@ class MiniImpacketShell(cmd.Cmd):
         fh.close()
 
     def do_close(self, line):
-        if self.loggedIn is False:
-            logging.error("Not logged in")
-            return
-        del(self.smb);
+        self.do_logoff(line)
 
 def main():
-    print version.BANNER
+    parser = argparse.ArgumentParser()
 
-    shell = MiniImpacketShell()
+    parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
+    parser.add_argument('-file', type=argparse.FileType('r'), help='input file with commands to execute in the mini shell')
+
+    group = parser.add_argument_group('authentication')
+
+    group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
+    group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
+    group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line')
+    group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication (128 or 256 bits)')
+
     if len(sys.argv)==1:
-        shell.cmdloop()
+        parser.print_help()
+        sys.exit(1)
+
+    options = parser.parse_args()
+
+    import re
+    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(options.target).groups('')
+
+    if domain is None:
+        domain = ''
+    
+    if password == '' and username != '' and options.hashes is None and options.no_pass is False and options.aesKey is None:
+        from getpass import getpass
+        password = getpass("Password:")
+
+    if options.aesKey is not None:
+        options.k = True
+
+    if options.hashes is not None:
+        lmhash, nthash = options.hashes.split(':')
     else:
-        parser = argparse.ArgumentParser()
-        parser.add_argument('-file', type=argparse.FileType('r'), help='input file with commands to execute in the mini shell')
-        options = parser.parse_args()
-        logging.info("Executing commands from %s" % options.file.name)
-        for line in options.file.readlines():
-            if line[0] != '#':
-                print "# %s" % line,
-                shell.onecmd(line)
-            else:
-                print line,
+        lmhash = ''
+        nthash = ''
+ 
+    try: 
+        smbClient = SMBConnection(address, address)
+        if options.k is True:
+            smbClient.kerberosLogin(username, password, domain, lmhash, nthash, options.aesKey )
+        else:
+            smbClient.login(username, password, domain, lmhash, nthash)
+
+        shell = MiniImpacketShell(smbClient)
+
+        if options.file is not None:
+            logging.info("Executing commands from %s" % options.file.name)
+            for line in options.file.readlines():
+                if line[0] != '#':
+                    print "# %s" % line,
+                    shell.onecmd(line)
+                else:
+                    print line,
+        else:
+            shell.cmdloop()
+    except Exception, e:
+        #import traceback
+        #print traceback.print_exc()
+        logging.error(str(e))
 
 if __name__ == "__main__":
-    try:
-        main()
-    except:
-        print "\n"
-        pass
+    main()
 
