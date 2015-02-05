@@ -45,7 +45,12 @@ from struct import pack, unpack
 from Crypto.Cipher import AES, DES3, ARC4
 from Crypto.Hash import HMAC, MD4, MD5, SHA
 from Crypto.Protocol.KDF import PBKDF2
-from Crypto.Random import get_random_bytes
+import string
+import random
+
+def get_random_bytes(lenBytes):
+    # We don't really need super strong randomness here to use PyCrypto.Random
+    return "".join([random.choice(string.digits+string.letters) for i in xrange(lenBytes)])
 
 
 class Enctype(object):
