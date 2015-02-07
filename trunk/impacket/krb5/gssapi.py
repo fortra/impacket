@@ -52,11 +52,11 @@ class CheckSumField(Structure):
     )
 
 def GSSAPI(cipher):
-    if cipher.enctype == constants.EncriptionTypes.aes256_cts_hmac_sha1_96.value:
+    if cipher.enctype == constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value:
         return GSSAPI_AES256()
-    if cipher.enctype == constants.EncriptionTypes.aes128_cts_hmac_sha1_96.value:
+    if cipher.enctype == constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value:
         return GSSAPI_AES128()
-    elif cipher.enctype == constants.EncriptionTypes.rc4_hmac.value:
+    elif cipher.enctype == constants.EncryptionTypes.rc4_hmac.value:
         return GSSAPI_RC4()
     else:
         raise Exception('Unsupported etype 0x%x' % cipher.enctype)

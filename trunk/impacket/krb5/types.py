@@ -185,7 +185,7 @@ class EncryptedData(object):
 
     def from_asn1(self, data):
         data = _asn1_decode(data, asn1.EncryptedData())
-        self.etype = constants.EncriptionTypes(data.getComponentByName('etype')).value
+        self.etype = constants.EncryptionTypes(data.getComponentByName('etype')).value
         kvno = data.getComponentByName('kvno')
         self.kvno = kvno and int(kvno)
         self.ciphertext = str(data.getComponentByName('cipher'))
