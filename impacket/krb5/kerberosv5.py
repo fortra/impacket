@@ -110,18 +110,18 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
         # So, in order to support more than one cypher, I'm setting aes first
         # since most of the systems would accept it. If we're lucky and 
         # KDC_ERR_ETYPE_NOSUPP is returned, we will later try rc4.
-        #supportedCiphers = (int(constants.EncriptionTypes.aes256_cts_hmac_sha1_96.value),
-        #                   int(constants.EncriptionTypes.rc4_hmac.value))
+        #supportedCiphers = (int(constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value),
+        #                   int(constants.EncryptionTypes.rc4_hmac.value))
         if aesKey != '':
             if len(aesKey) == 64:
-                supportedCiphers = (int(constants.EncriptionTypes.aes256_cts_hmac_sha1_96.value),)
+                supportedCiphers = (int(constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value),)
             else:
-                supportedCiphers = (int(constants.EncriptionTypes.aes128_cts_hmac_sha1_96.value),)
+                supportedCiphers = (int(constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value),)
         else:
-            supportedCiphers = (int(constants.EncriptionTypes.aes256_cts_hmac_sha1_96.value),)
+            supportedCiphers = (int(constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value),)
     else:
         # We have hashes to try, only way is to request RC4 only
-        supportedCiphers = (int(constants.EncriptionTypes.rc4_hmac.value),)
+        supportedCiphers = (int(constants.EncryptionTypes.rc4_hmac.value),)
 
     seq_set_iter(reqBody, 'etype', supportedCiphers)
 
@@ -333,7 +333,7 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
     reqBody['till'] = KerberosTime.to_asn1(now)
     reqBody['nonce'] = random.SystemRandom().getrandbits(31)
     seq_set_iter(reqBody, 'etype',
-                      (int(constants.EncriptionTypes.des3_cbc_sha1_kd.value),
+                      (int(constants.EncryptionTypes.des3_cbc_sha1_kd.value),
                        int(cipher.enctype)))
 
     message = encoder.encode(tgsReq)

@@ -398,7 +398,7 @@ class APOptions(Enum):
     use_session_key = 1
     mutual_required = 2
 
-class EncriptionTypes(Enum):
+class EncryptionTypes(Enum):
     des_cbc_crc                  = 1
     des_cbc_md4                  = 2
     des_cbc_md5                  = 3
