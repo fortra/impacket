@@ -1031,6 +1031,8 @@ class MS14_068():
                         self.__nthash = compute_nthash(self.__password) 
                     else:
                         raise e
+                else:
+                    raise e
             else:
                 # Everything went well, let's save the ticket if asked and leave
                 if self.__writeTGT is not None:
