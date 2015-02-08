@@ -364,6 +364,13 @@ def getKerberosType3(cipher, sessionKey, auth_data):
     negTokenResp = SPNEGO_NegTokenResp(auth_data)
     # If DCE_STYLE = FALSE
     #ap_rep = decoder.decode(negTokenResp['ResponseToken'][16:], asn1Spec=AP_REP())[0]
+    try:
+        krbError = KerberosError(packet = decoder.decode(negTokenResp['ResponseToken'][15:], asn1Spec = KRB_ERROR())[0])
+    except Exception, e:
+        pass
+    else:
+        raise krbError
+
     ap_rep = decoder.decode(negTokenResp['ResponseToken'], asn1Spec=AP_REP())[0]
 
     cipherText = str(ap_rep['enc-part']['cipher'])
