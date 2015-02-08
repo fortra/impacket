@@ -431,23 +431,42 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', targ
 
     # First of all, we need to get a TGT for the user
     userName = Principal(username, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
-    if TGT is None:
+    while True:
+        if TGT is None:
+            if TGS is None:
+                tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, password, domain, lmhash, nthash, aesKey, kdcHost)
+        else:
+            tgt = TGT['KDC_REP']
+            cipher = TGT['cipher']
+            sessionKey = TGT['sessionKey'] 
+
+        # Now that we have the TGT, we should ask for a TGS for cifs
+
         if TGS is None:
-            tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, password, domain, lmhash, nthash, aesKey, kdcHost)
-    else:
-        tgt = TGT['KDC_REP']
-        cipher = TGT['cipher']
-        sessionKey = TGT['sessionKey'] 
-
-    # Now that we have the TGT, we should ask for a TGS for cifs
-
-    if TGS is None:
-        serverName = Principal('host/%s' % (targetName), type=constants.PrincipalNameType.NT_SRV_INST.value)
-        tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey)
-    else:
-        tgs = TGS['KDC_REP']
-        cipher = TGS['cipher']
-        sessionKey = TGS['sessionKey'] 
+            serverName = Principal('host/%s' % (targetName), type=constants.PrincipalNameType.NT_SRV_INST.value)
+            try:
+                tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey)
+            except KerberosError, e:
+                if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
+                    # We might face this if the target does not support AES (most probably
+                    # Windows XP). So, if that's the case we'll force using RC4 by converting
+                    # the password to lm/nt hashes and hope for the best. If that's already
+                    # done, byebye.
+                    if lmhash is '' and nthash is '' and (aesKey is '' or aesKey is None) and TGT is None and TGS is None:
+                        from impacket.ntlm import compute_lmhash, compute_nthash
+                        lmhash = compute_lmhash(password) 
+                        nthash = compute_nthash(password) 
+                    else:
+                        raise e
+                else:
+                    raise e
+            else:
+                break
+        else:
+            tgs = TGS['KDC_REP']
+            cipher = TGS['cipher']
+            sessionKey = TGS['sessionKey'] 
+            break
 
     # Let's build a NegTokenInit with a Kerberos REQ_AP
 

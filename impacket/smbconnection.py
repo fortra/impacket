@@ -168,6 +168,9 @@ class SMBConnection():
         """
         import os
         from impacket.krb5.ccache import CCache
+        from impacket.krb5.kerberosv5 import KerberosError
+        from impacket.krb5 import constants
+        from impacket.ntlm import compute_lmhash, compute_nthash
 
         if useCache is True:
             try:
@@ -193,12 +196,29 @@ class SMBConnection():
                     print 'Using TGS from cache'
                 
 
-        if self.getDialect() == smb.SMB_DIALECT:
-            return self._SMBConnection.kerberos_login(user, password, domain, lmhash, nthash, aesKey, kdcHost, TGT, TGS)
-        try: 
-            return self._SMBConnection.kerberosLogin(user, password, domain, lmhash, nthash, aesKey, kdcHost, TGT, TGS)
-        except (smb.SessionError, smb3.SessionError), e:
-            raise SessionError(e.get_error_code())
+        while True:
+            try:
+                if self.getDialect() == smb.SMB_DIALECT:
+                    return self._SMBConnection.kerberos_login(user, password, domain, lmhash, nthash, aesKey, kdcHost, TGT, TGS)
+                return self._SMBConnection.kerberosLogin(user, password, domain, lmhash, nthash, aesKey, kdcHost, TGT, TGS)
+            except (smb.SessionError, smb3.SessionError), e:
+                raise SessionError(e.get_error_code())
+            except KerberosError, e:
+                if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
+                    # We might face this if the target does not support AES (most probably
+                    # Windows XP). So, if that's the case we'll force using RC4 by converting
+                    # the password to lm/nt hashes and hope for the best. If that's already
+                    # done, byebye.
+                    if lmhash is '' and nthash is '' and (aesKey is '' or aesKey is None) and TGT is None and TGS is None:
+                        from impacket.ntlm import compute_lmhash, compute_nthash
+                        lmhash = compute_lmhash(password) 
+                        nthash = compute_nthash(password) 
+                    else:
+                        raise e
+                else:
+                    raise e
+            else:
+                break
 
     def isGuestSession(self):
         try:
