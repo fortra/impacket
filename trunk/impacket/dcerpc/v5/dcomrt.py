@@ -1215,10 +1215,10 @@ class INTERFACE():
                     # we should handle all this cases accordingly
                     # Does this match exactly what get_target() returns?
                     logging.debug('StringBinding: %s' % strBinding['aNetworkAddr'])
-                    if strBinding['aNetworkAddr'].find(self.get_target().upper()) >= 0 and strBinding['wTowerId'] == 7:
+                    if strBinding['aNetworkAddr'].upper().find(self.get_target().upper()) >= 0 and strBinding['wTowerId'] == 7:
                         stringBinding = 'ncacn_ip_tcp:' + strBinding['aNetworkAddr'][:-1]
                     # If get_target() is a FQDN, does it match the hostname?
-                    elif strBinding['aNetworkAddr'].find(self.get_target().upper().partition('.')[0]) >= 0 and strBinding['wTowerId'] == 7:
+                    elif strBinding['aNetworkAddr'].upper().find(self.get_target().upper().partition('.')[0]) >= 0 and strBinding['wTowerId'] == 7:
                         stringBinding = 'ncacn_ip_tcp:' + strBinding['aNetworkAddr'][:-1]
 
                 dcomInterface = transport.DCERPCTransportFactory(stringBinding)
