@@ -127,7 +127,19 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
 
     message = encoder.encode(asReq)
 
-    r = sendReceive(message, domain, kdcHost)
+    try:
+        r = sendReceive(message, domain, kdcHost)
+    except KerberosError, e:
+        if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
+            if supportedCiphers[0] in (constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value, constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value) and aesKey is '':
+                supportedCiphers = (int(constants.EncryptionTypes.rc4_hmac.value),)
+                seq_set_iter(reqBody, 'etype', supportedCiphers)
+                message = encoder.encode(asReq)
+                r = sendReceive(message, domain, kdcHost)
+            else: 
+                raise e
+        else:
+            raise e
 
     # This should be the PREAUTH_FAILED packet
     
