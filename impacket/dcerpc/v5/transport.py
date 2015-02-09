@@ -395,10 +395,7 @@ class SMBTransport(DCERPCTransport):
                 self.__smb_connection.writeFile(self.__tid, self.__handle, toSend, offset = offset)
                 offset += len(toSend)
         else:
-            if forceWriteAndx:
-                self.__smb_connection.writeNamedPipe(self.__tid, self.__handle, data)
-            else:
-                self.__smb_connection.transactNamedPipe(self.__tid,self.__handle,data, waitAnswer = False)
+            self.__smb_connection.writeFile(self.__tid, self.__handle, data)
         if forceRecv:
             self.__pending_recv += 1
 
@@ -408,11 +405,9 @@ class SMBTransport(DCERPCTransport):
             # to decide whether to use write_andx() or send_trans() in send() above.
             if self.__pending_recv:
                 self.__pending_recv -= 1
-            return self.__smb_connection.readNamedPipe(self.__tid, self.__handle, self._max_recv_frag)
-        elif forceRecv:
-            return self.__smb_connection.readNamedPipe(self.__tid, self.__handle, self._max_recv_frag)
+            return self.__smb_connection.readFile(self.__tid, self.__handle, self._max_recv_frag)
         else:
-            return self.__smb_connection.transactNamedPipeRecv()
+            return self.__smb_connection.readFile(self.__tid, self.__handle)
 
     def get_smb_connection(self):
         return self.__smb_connection
