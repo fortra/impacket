@@ -1203,33 +1203,39 @@ class NTDSHashes():
     def __decryptSupplementalInfo(self, record):
         # This is based on [MS-SAMR] 2.2.10 Supplemental Credentials Structures
         if record[self.NAME_TO_INTERNAL['supplementalCredentials']] is not None:
-            if record[self.NAME_TO_INTERNAL['userPrincipalName']] is not None:
-                domain = record[self.NAME_TO_INTERNAL['userPrincipalName']].split('@')[-1]
-                userName = '%s\\%s' % (domain, record[self.NAME_TO_INTERNAL['sAMAccountName']])
-            else: 
-                userName = '%s' % record[self.NAME_TO_INTERNAL['sAMAccountName']]
-            cipherText = self.CRYPTED_BLOB(record[self.NAME_TO_INTERNAL['supplementalCredentials']].decode('hex'))
-            plainText = self.__removeRC4Layer(cipherText)
-            userProperties = samr.USER_PROPERTIES(plainText)
-            propertiesData = userProperties['UserProperties']
-            for propertyCount in range(userProperties['PropertyCount']):
-                userProperty = samr.USER_PROPERTY(propertiesData)   
-                propertiesData = propertiesData[len(userProperty):]
-                # For now, we will only process Newer Kerberos Keys. 
-                if userProperty['PropertyName'].decode('utf-16le') == 'Primary:Kerberos-Newer-Keys':
-                    propertyValueBuffer = userProperty['PropertyValue'].decode('hex')
-                    kerbStoredCredentialNew = samr.KERB_STORED_CREDENTIAL_NEW(propertyValueBuffer)
-                    data = kerbStoredCredentialNew['Buffer']
-                    for credential in range(kerbStoredCredentialNew['CredentialCount']):
-                        keyDataNew = samr.KERB_KEY_DATA_NEW(data)
-                        data = data[len(keyDataNew):]
-                        keyValue = propertyValueBuffer[keyDataNew['KeyOffset']:][:keyDataNew['KeyLength']]
-
-                        answer =  "%s:%s:%s" % (userName, self.KERBEROS_TYPE[keyDataNew['KeyType']],keyValue.encode('hex'))
-                        # We're just storing the keys, not printing them, to make the output more readable
-                        # This is kind of ugly... but it's what I came up with tonight to get an ordered
-                        # set :P. Better ideas welcomed ;)
-                        self.__kerberosKeys[answer] = None
+            if len(record[self.NAME_TO_INTERNAL['supplementalCredentials']].decode('hex')) > 24:
+                if record[self.NAME_TO_INTERNAL['userPrincipalName']] is not None:
+                    domain = record[self.NAME_TO_INTERNAL['userPrincipalName']].split('@')[-1]
+                    userName = '%s\\%s' % (domain, record[self.NAME_TO_INTERNAL['sAMAccountName']])
+                else: 
+                    userName = '%s' % record[self.NAME_TO_INTERNAL['sAMAccountName']]
+                cipherText = self.CRYPTED_BLOB(record[self.NAME_TO_INTERNAL['supplementalCredentials']].decode('hex'))
+                plainText = self.__removeRC4Layer(cipherText)
+                try:
+                    userProperties = samr.USER_PROPERTIES(plainText)
+                except:
+                    # On some old w2k3 there might be user properties that don't 
+                    # match [MS-SAMR] structure, discarding them
+                    return
+                propertiesData = userProperties['UserProperties']
+                for propertyCount in range(userProperties['PropertyCount']):
+                    userProperty = samr.USER_PROPERTY(propertiesData)   
+                    propertiesData = propertiesData[len(userProperty):]
+                    # For now, we will only process Newer Kerberos Keys. 
+                    if userProperty['PropertyName'].decode('utf-16le') == 'Primary:Kerberos-Newer-Keys':
+                        propertyValueBuffer = userProperty['PropertyValue'].decode('hex')
+                        kerbStoredCredentialNew = samr.KERB_STORED_CREDENTIAL_NEW(propertyValueBuffer)
+                        data = kerbStoredCredentialNew['Buffer']
+                        for credential in range(kerbStoredCredentialNew['CredentialCount']):
+                            keyDataNew = samr.KERB_KEY_DATA_NEW(data)
+                            data = data[len(keyDataNew):]
+                            keyValue = propertyValueBuffer[keyDataNew['KeyOffset']:][:keyDataNew['KeyLength']]
+    
+                            answer =  "%s:%s:%s" % (userName, self.KERBEROS_TYPE[keyDataNew['KeyType']],keyValue.encode('hex'))
+                            # We're just storing the keys, not printing them, to make the output more readable
+                            # This is kind of ugly... but it's what I came up with tonight to get an ordered
+                            # set :P. Better ideas welcomed ;)
+                            self.__kerberosKeys[answer] = None
 
     def __decryptHash(self, record):
         logging.debug('Decrypting hash for user: %s' % record[self.NAME_TO_INTERNAL['name']])
