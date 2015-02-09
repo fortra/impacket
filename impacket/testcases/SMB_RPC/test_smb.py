@@ -27,7 +27,7 @@ class SMBTests(unittest.TestCase):
         smb = SMBConnection('*SMBSERVER', self.machine, preferredDialect = self.dialects)
         smb.login(self.username, self.password, self.domain)
         credentials = smb.getCredentials()
-        self.assertTrue( credentials == (self.username, self.password, self.domain, '',''))
+        self.assertTrue( credentials == (self.username, self.password, self.domain, '','',''))
         smb.logoff()
         del(smb)
 
@@ -36,7 +36,37 @@ class SMBTests(unittest.TestCase):
         smb = SMBConnection('*SMBSERVER', self.machine, preferredDialect = self.dialects)    
         smb.login(self.username, '', self.domain, lmhash, nthash)
         credentials = smb.getCredentials()
-        self.assertTrue( credentials == (self.username, '', self.domain, lmhash.decode('hex'), nthash.decode('hex')) )
+        self.assertTrue( credentials == (self.username, '', self.domain, lmhash.decode('hex'), nthash.decode('hex'), '') )
+        smb.logoff()
+
+    def test_loginKerberosHashes(self):
+        lmhash, nthash = self.hashes.split(':')
+        smb = SMBConnection('*SMBSERVER', self.machine, preferredDialect = self.dialects)    
+        smb.kerberosLogin(self.username, '', self.domain, lmhash, nthash, '')
+        credentials = smb.getCredentials()
+        self.assertTrue( credentials == (self.username, '', self.domain, lmhash.decode('hex'), nthash.decode('hex'), '') )
+        UNC = '\\\\%s\\%s' % (self.machine, self.share)
+        tid = smb.connectTree(UNC)
+        smb.logoff()
+
+    def test_loginKerberos(self):
+        lmhash, nthash = self.hashes.split(':')
+        smb = SMBConnection('*SMBSERVER', self.machine, preferredDialect = self.dialects)    
+        smb.kerberosLogin(self.username, self.password, self.domain, '', '', '')
+        credentials = smb.getCredentials()
+        self.assertTrue( credentials == (self.username, self.password, self.domain, '','','') )
+        UNC = '\\\\%s\\%s' % (self.machine, self.share)
+        tid = smb.connectTree(UNC)
+        smb.logoff()
+
+    def test_loginKerberosAES(self):
+        lmhash, nthash = self.hashes.split(':')
+        smb = SMBConnection('*SMBSERVER', self.machine, preferredDialect = self.dialects)    
+        smb.kerberosLogin(self.username, '', self.domain, '', '', self.aesKey)
+        credentials = smb.getCredentials()
+        self.assertTrue( credentials == (self.username, '', self.domain, '','',self.aesKey) )
+        UNC = '\\\\%s\\%s' % (self.machine, self.share)
+        tid = smb.connectTree(UNC)
         smb.logoff()
 
     def test_listPath(self):
@@ -103,7 +133,7 @@ class SMBTests(unittest.TestCase):
         smb = SMBConnection('*SMBSERVER', self.machine, preferredDialect = self.dialects)
         smb.login(self.username, self.password, self.domain)
         serverDomain = smb.getServerDomain()
-        self.assertTrue( serverDomain == self.domain)
+        self.assertTrue( serverDomain.upper() == self.domain.upper())
         smb.logoff()
 
     def test_getRemoteHost(self):
@@ -153,8 +183,9 @@ class SMB1Tests(SMBTests):
         self.domain   = 'FREEFLY'
         self.serverName = 'ULTIMATE64'
         self.password = 'Admin123456'
-        self.machine  = '192.168.88.105'
         self.hashes   = 'aad3b435b51404eeaad3b435b51404ee:ae4c0d5fb959fda8f4cb1d14a8376af4'
+        self.aesKey   = ''
+        self.machine  = '192.168.88.105'
         self.share    = 'C$'
         self.file     = '/TEST'
         self.directory= '/BETO'
@@ -170,6 +201,7 @@ class SMB002Tests(SMBTests):
         self.serverName = 'ULTIMATE64'
         self.password = 'Admin123456'
         self.hashes   = 'aad3b435b51404eeaad3b435b51404ee:ae4c0d5fb959fda8f4cb1d14a8376af4'
+        self.aesKey   = ''
         self.machine  = '192.168.88.105'
         self.share    = 'C$'
         self.file     = '/TEST'
@@ -186,6 +218,7 @@ class SMB21Tests(SMBTests):
         self.serverName = 'ULTIMATE64'
         self.password = 'Admin123456'
         self.hashes   = 'aad3b435b51404eeaad3b435b51404ee:ae4c0d5fb959fda8f4cb1d14a8376af4'
+        self.aesKey   = ''
         self.machine  = '192.168.88.105'
         self.share    = 'C$'
         self.file     = '/TEST'
