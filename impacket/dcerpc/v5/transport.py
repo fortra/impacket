@@ -405,7 +405,7 @@ class SMBTransport(DCERPCTransport):
             # to decide whether to use write_andx() or send_trans() in send() above.
             if self.__pending_recv:
                 self.__pending_recv -= 1
-            return self.__smb_connection.readFile(self.__tid, self.__handle, self._max_recv_frag)
+            return self.__smb_connection.readFile(self.__tid, self.__handle, bytesToRead = self._max_recv_frag)
         else:
             return self.__smb_connection.readFile(self.__tid, self.__handle)
 
