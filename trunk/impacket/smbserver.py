@@ -2656,18 +2656,18 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
         # respData: the data reponse of the transaction
         # errorCode: the NT error code 
 
-        if self.__smbTransCommands[transCommand].has_key(str(transCommand)):
-           originalCommand = self.__smbTransCommands[str(transCommand)]
+        if self.__smbTransCommands.has_key(transCommand):
+           originalCommand = self.__smbTransCommands[transCommand]
         else:
            originalCommand = None 
 
-        self.__smbTransCommands[str(transCommand)] = callback
+        self.__smbTransCommands[transCommand] = callback
         return originalCommand
 
     def hookTransaction2(self, transCommand, callback):
         # Here we should add to __smbTrans2Commands
         # Same description as Transaction
-        if self.__smbTrans2Commands[transCommand].has_key(transCommand):
+        if self.__smbTrans2Commands.has_key(transCommand):
            originalCommand = self.__smbTrans2Commands[transCommand]
         else:
            originalCommand = None 
@@ -2678,7 +2678,7 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
     def hookNTTransaction(self, transCommand, callback):
         # Here we should add to __smbNTTransCommands
         # Same description as Transaction
-        if self.__smbNTTransCommands[transCommand].has_key(transCommand):
+        if self.__smbNTTransCommands.has_key(transCommand):
            originalCommand = self.__smbNTTransCommands[transCommand]
         else:
            originalCommand = None 
@@ -2808,6 +2808,8 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
                    respCommands, respPackets, errorCode = self.__smbCommands[255](connId, self, SMBCommand, packet)   
 
         except Exception, e:
+            #import traceback
+            #traceback.print_exc()
             # Something wen't wrong, defaulting to Bad user ID
             self.log('processRequest (0x%x,%s)' % (packet['Command'],e), logging.ERROR)
             raise
