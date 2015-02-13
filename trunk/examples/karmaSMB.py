@@ -87,6 +87,14 @@ class KarmaSMBServer(Thread):
         self.server = smbserver.SMBSERVER(('0.0.0.0',445), config_parser = smbConfig)
         self.server.processConfigFile()
 
+        # Unregistering some dangerous and unwanted commands
+        self.server.unregisterSmbCommand(smb.SMB.SMB_COM_CREATE_DIRECTORY)
+        self.server.unregisterSmbCommand(smb.SMB.SMB_COM_DELETE_DIRECTORY)
+        self.server.unregisterSmbCommand(smb.SMB.SMB_COM_RENAME)
+        self.server.unregisterSmbCommand(smb.SMB.SMB_COM_DELETE)
+        self.server.unregisterSmbCommand(smb.SMB.SMB_COM_WRITE)
+        self.server.unregisterSmbCommand(smb.SMB.SMB_COM_WRITE_ANDX)
+
         self.origsmbComNtCreateAndX = self.server.hookSmbCommand(smb.SMB.SMB_COM_NT_CREATE_ANDX, self.smbComNtCreateAndX)
         self.origsmbComTreeConnectAndX = self.server.hookSmbCommand(smb.SMB.SMB_COM_TREE_CONNECT_ANDX, self.smbComTreeConnectAndX)
         self.origQueryPathInformation = self.server.hookTransaction2(smb.SMB.TRANS2_QUERY_PATH_INFORMATION, self.queryPathInformation)
