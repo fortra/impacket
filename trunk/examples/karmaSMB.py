@@ -62,10 +62,24 @@ class KarmaSMBServer(Thread):
 
         # IPC always needed
         smbConfig.add_section('IPC$')
-        smbConfig.set('IPC$','comment','')
+        smbConfig.set('IPC$','comment','Logon server share')
         smbConfig.set('IPC$','read only','yes')
         smbConfig.set('IPC$','share type','3')
         smbConfig.set('IPC$','path','')
+
+        # NETLOGON always needed
+        smbConfig.add_section('NETLOGON')
+        smbConfig.set('NETLOGON','comment','Logon server share')
+        smbConfig.set('NETLOGON','read only','no')
+        smbConfig.set('NETLOGON','share type','0')
+        smbConfig.set('NETLOGON','path','')
+
+        # SYSVOL always needed
+        smbConfig.add_section('SYSVOL')
+        smbConfig.set('SYSVOL','comment','')
+        smbConfig.set('SYSVOL','read only','no')
+        smbConfig.set('SYSVOL','share type','0')
+        smbConfig.set('SYSVOL','path','')
 
         self.server = smbserver.SMBSERVER(('0.0.0.0',445), config_parser = smbConfig)
         self.server.processConfigFile()
