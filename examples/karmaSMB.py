@@ -33,6 +33,9 @@
 #       (e.g. \\IP\share\file) - DONE
 #   [ ] Add support for other SMB read commands. Right now just
 #       covering SMB_COM_NT_CREATE_ANDX
+#   [ ] Disable write request, now if the client tries to copy 
+#       a file back to us, it will overwrite the files we're 
+#       hosting. *CAREFUL!!!*
 #
 
 
