@@ -237,6 +237,7 @@ def findFirst2(path, fileName, level, searchAttributes):
      if len(fileName) > 0:
         # strip leading '/'
         fileName = fileName[1:]
+
      pathName = os.path.join(path,fileName)
      files = []
 
@@ -2624,6 +2625,10 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
         self.__registeredNamedPipes[unicode(pipeName)] = address
         return True
 
+    def unregisterTransaction(self, transCommand):
+        if self.__smbTransCommands.has_key(transCommand):
+           del(self.__smbTransCommands[transCommand])
+
     def hookTransaction(self, transCommand, callback):
         # If you call this function, callback will replace 
         # the current Transaction sub command.
@@ -2664,6 +2669,10 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
         self.__smbTransCommands[transCommand] = callback
         return originalCommand
 
+    def unregisterTransaction2(self, transCommand):
+        if self.__smbTrans2Commands.has_key(transCommand):
+           del(self.__smbTrans2Commands[transCommand])
+
     def hookTransaction2(self, transCommand, callback):
         # Here we should add to __smbTrans2Commands
         # Same description as Transaction
@@ -2675,6 +2684,10 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
         self.__smbTrans2Commands[transCommand] = callback
         return originalCommand
 
+    def unregisterNTTransaction(self, transCommand):
+        if self.__smbNTTransCommands.has_key(transCommand):
+           del(self.__smbNTTransCommands[transCommand])
+
     def hookNTTransaction(self, transCommand, callback):
         # Here we should add to __smbNTTransCommands
         # Same description as Transaction
@@ -2685,6 +2698,10 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
 
         self.__smbNTTransCommands[transCommand] = callback
         return originalCommand
+
+    def unregisterSmbCommand(self, smbCommand):
+        if self.__smbCommands.has_key(smbCommand):
+           del(self.__smbCommands[smbCommand])
 
     def hookSmbCommand(self, smbCommand, callback):
         # Here we should add to self.__smbCommands
