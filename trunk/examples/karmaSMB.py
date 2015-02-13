@@ -184,6 +184,34 @@ class KarmaSMBServer(Thread):
         ntCreateAndXParameters = smb.SMBNtCreateAndX_Parameters(SMBCommand['Parameters'])
         ntCreateAndXData       = smb.SMBNtCreateAndX_Data( flags = recvPacket['Flags2'], data = SMBCommand['Data'])
 
+        respSMBCommand        = smb.SMBCommand(smb.SMB.SMB_COM_NT_CREATE_ANDX)
+
+        #ntCreateAndXParameters.dump()
+
+        # Let's try to avoid allowing write requests from the client back to us
+        # not 100% bulletproof, plus also the client might be using other SMB
+        # calls (e.g. SMB_COM_WRITE)
+        createOptions =  ntCreateAndXParameters['CreateOptions']
+        if createOptions & smb.FILE_DELETE_ON_CLOSE == smb.FILE_DELETE_ON_CLOSE:
+            errorCode = STATUS_ACCESS_DENIED
+        elif ntCreateAndXParameters['Disposition'] & smb.FILE_OVERWRITE == FILE_OVERWRITE:
+            errorCode = STATUS_ACCESS_DENIED
+        elif ntCreateAndXParameters['Disposition'] & smb.FILE_OVERWRITE_IF == FILE_OVERWRITE_IF:
+            errorCode = STATUS_ACCESS_DENIED
+        elif ntCreateAndXParameters['AccessMask'] & smb.FILE_WRITE_DATA == FILE_WRITE_DATA:
+            errorCode = STATUS_ACCESS_DENIED
+        elif ntCreateAndXParameters['AccessMask'] & smb.FILE_APPEND_DATA == FILE_APPEND_DATA:
+            errorCode = STATUS_ACCESS_DENIED
+        elif ntCreateAndXParameters['AccessMask'] & smb.GENERIC_WRITE == GENERIC_WRITE:
+            errorCode = STATUS_ACCESS_DENIED
+        elif ntCreateAndXParameters['AccessMask'] & 0x10000 == 0x10000:
+            errorCode = STATUS_ACCESS_DENIED
+        else:
+            errorCode = STATUS_SUCCESS
+
+        if errorCode == STATUS_ACCESS_DENIED:
+            return [respSMBCommand], None, errorCode
+
         # 1. Let's grab the extension and map the file's contents we will deliver
         origPathName = os.path.normpath(decodeSMBString(recvPacket['Flags2'],ntCreateAndXData['FileName']).replace('\\','/'))
 
