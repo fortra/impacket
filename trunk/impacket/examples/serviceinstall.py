@@ -152,10 +152,13 @@ class ServiceInstall():
                 svcManager = self.openSvcManager()
                 if svcManager != 0:
                     serverName = self.connection.getServerName()
-                    if serverName != '':
-                       path = '\\\\%s\\%s' % (serverName, self.share)
+                    if self.share.lower() == 'admin$':
+                        path = '%systemroot%'
                     else:
-                       path = '\\\\127.0.0.1\\' + self.share 
+                        if serverName != '':
+                           path = '\\\\%s\\%s' % (serverName, self.share)
+                        else:
+                           path = '\\\\127.0.0.1\\' + self.share 
                     service = self.createService(svcManager, self.share, path)
                     serviceCreated = True
                     if service != 0:
