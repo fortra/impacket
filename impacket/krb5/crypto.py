@@ -40,7 +40,7 @@
 #   - Cipher state only needed for kcmd suite
 #   - Nonstandard enctypes and cksumtypes like des-hmac-sha1
 
-from fractions import gcd
+from Crypto.Util.number import GCD as gcd
 from struct import pack, unpack
 from Crypto.Cipher import AES, DES3, ARC4
 from Crypto.Hash import HMAC, MD4, MD5, SHA
