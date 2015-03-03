@@ -1092,6 +1092,29 @@ class SMBSetFileBasicInfo(Structure):
         ('Reserved','<L'),
     )
 
+# FILE_STREAM_INFORMATION
+class SMBFileStreamInformation(Structure):
+    commonHdr = (
+        ('NextEntryOffset','<L=0'),
+        ('StreamNameLength','<L=0'),
+        ('StreamSize','<q=0'),
+        ('StreamAllocationSize','<q=0'),
+        ('StreamName',':=""'),
+    )
+
+# FILE_NETWORK_OPEN_INFORMATION
+class SMBFileNetworkOpenInfo(Structure):
+    structure = (
+        ('CreationTime','<q=0'),
+        ('LastAccessTime','<q=0'),
+        ('LastWriteTime','<q=0'),
+        ('ChangeTime','<q=0'),
+        ('AllocationSize','<q=0'),
+        ('EndOfFile','<q=0'),
+        ('FileAttributes','<L=0'),
+        ('Reserved','<L=0'),
+    )
+
 # SMB_SET_FILE_END_OF_FILE_INFO
 class SMBSetFileEndOfFileInfo(Structure):
     structure = (
