@@ -391,7 +391,19 @@ SMB2_FILE_STREAM_INFO                 = 22
 SMB2_FILE_TRACKING_INFO               = 36
 SMB2_FILE_VALID_DATA_LENGTH_INFO      = 39
 
-
+# File System Information Classes
+SMB2_FILESYSTEM_VOLUME_INFO           = 1
+SMB2_FILESYSTEM_LABEL_INFO            = 2
+SMB2_FILESYSTEM_SIZE_INFO             = 3
+SMB2_FILESYSTEM_DEVICE_INFO           = 4
+SMB2_FILESYSTEM_ATTRIBUTE_INFO        = 5
+SMB2_FILESYSTEM_CONTROL_INFO          = 6
+SMB2_FILESYSTEM_FULL_SIZE_INFO        = 7
+SMB2_FILESYSTEM_OBJECT_ID_INFO        = 8
+SMB2_FILESYSTEM_OBJECT_ID_INFO        = 8
+SMB2_FILESYSTEM_OBJECT_ID_INFO        = 8
+SMB2_FILESYSTEM_DRIVER_PATH_INFO      = 9
+SMB2_FILESYSTEM_SECTOR_SIZE_INFO      = 11
 
 # Additional information
 OWNER_SECURITY_INFORMATION  = 0x00000001
@@ -502,11 +514,11 @@ class SMB3Packet(SMBPacketBase):
 
 class SMB2Error(Structure):
     structure = (
-        ('StructureSize','<H=0'),
+        ('StructureSize','<H=9'),
         ('Reserved','<H=0'),
         ('ByteCount','<L=0'),
         ('_ErrorData','_-ErrorData','self["ByteCount"]'),
-        ('ErrorData',':'),
+        ('ErrorData','"\x00'),
     )
 
 class SMB2ErrorSymbolicLink(Structure):
@@ -1355,5 +1367,4 @@ class SMB2_TRANSFORM_HEADER(Structure):
         ('EncryptionAlgorithm','<H=0'),
         ('SessionID','<Q=0'),
     )
-
 
