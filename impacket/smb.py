@@ -897,7 +897,7 @@ class SMBQueryFsVolumeInfo(Structure):
         ('VolumeCreationTime','<q'),
         ('SerialNumber','<L=0xABCDEFAA'),
         ('VolumeLabelSize','<L=len(VolumeLabel)'),
-        ('Reserved','<H=0'),
+        ('Reserved','<H=0x10'),
         ('VolumeLabel',':')
     )
 # SMB_FIND_FILE_BOTH_DIRECTORY_INFO level

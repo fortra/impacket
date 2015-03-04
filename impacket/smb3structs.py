@@ -518,7 +518,7 @@ class SMB2Error(Structure):
         ('Reserved','<H=0'),
         ('ByteCount','<L=0'),
         ('_ErrorData','_-ErrorData','self["ByteCount"]'),
-        ('ErrorData','"\x00'),
+        ('ErrorData','"\xff'),
     )
 
 class SMB2ErrorSymbolicLink(Structure):
@@ -1054,8 +1054,8 @@ class SMB2Ioctl(Structure):
         ('MaxOutputResponse','<L=0'),
         ('Flags','<L=0'),
         ('Reserved2','<L=0'),
-        ('_AlignPad','_-AlignPad','self["InputOffset"] + self["OutputOffset"] - (64 + self["StructureSize"] - 1)'),
-        ('AlignPad',':=""'),
+        #('_AlignPad','_-AlignPad','self["InputOffset"] + self["OutputOffset"] - (64 + self["StructureSize"] - 1)'),
+        #('AlignPad',':=""'),
         ('_Buffer','_-Buffer','self["InputCount"]+self["OutputCount"]'),
         ('Buffer',':'),
     )
