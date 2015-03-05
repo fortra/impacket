@@ -2040,7 +2040,7 @@ class SMBReadAndX_Parameters(SMBAndXCommand_Parameters):
         ('Offset','<L'),
         ('MaxCount','<H'),
         ('MinCount','<H=MaxCount'),
-        ('_reserved','<L=0xffffffff'),
+        ('_reserved','<L=0x0'),
         ('Remaining','<H=MaxCount'),
         ('HighOffset','<L=0'),
     )
