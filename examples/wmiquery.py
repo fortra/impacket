@@ -27,6 +27,7 @@ from impacket.dcerpc.v5.dcomrt import DCOMConnection
 import argparse
 import sys
 import os
+import logging
 
 if __name__ == '__main__':
     import cmd
@@ -150,20 +151,28 @@ if __name__ == '__main__':
         lmhash = ''
         nthash = ''
 
-    dcom = DCOMConnection(address, username, password, domain, lmhash, nthash, options.aesKey, oxidResolver = True, doKerberos=options.k)
+    try:
+        dcom = DCOMConnection(address, username, password, domain, lmhash, nthash, options.aesKey, oxidResolver = True, doKerberos=options.k)
 
-    iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
-    iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
-    iWbemServices= iWbemLevel1Login.NTLMLogin(options.namespace, NULL, NULL)
-    iWbemLevel1Login.RemRelease()
+        iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
+        iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
+        iWbemServices= iWbemLevel1Login.NTLMLogin(options.namespace, NULL, NULL)
+        iWbemLevel1Login.RemRelease()
 
-    shell = WMIQUERY(iWbemServices)
-    if options.file is None:
-        shell.cmdloop()
-    else:
-        for line in options.file.readlines():
-            print "WQL> %s" % line,
-            shell.onecmd(line)
+        shell = WMIQUERY(iWbemServices)
+        if options.file is None:
+            shell.cmdloop()
+        else:
+            for line in options.file.readlines():
+                print "WQL> %s" % line,
+                shell.onecmd(line)
 
-    iWbemServices.RemRelease()
-    dcom.disconnect()
+        iWbemServices.RemRelease()
+        dcom.disconnect()
+    except Exception, e:
+        logging.error(str(e))
+        try:
+            dcom.disconnect()
+        except:
+            pass
+
