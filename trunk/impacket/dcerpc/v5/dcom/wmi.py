@@ -2746,7 +2746,6 @@ class IWbemCallResult(IRemUnknown):
         request = IWbemCallResult_GetCallStatus()
         request['lTimeout'] = lTimeout
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
-        resp.dump()
         return resp['plStatus']
 
 class IEnumWbemClassObject(IRemUnknown):
@@ -2908,7 +2907,7 @@ class IWbemServices(IRemUnknown):
         request['lFlags'] = lFlags
         request['pCtx'] = pCtx
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
-        return resp
+        return IWbemCallResult(INTERFACE(self.get_cinstance(), ''.join(resp['ppCallResult']['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
 
     def PutInstanceAsync(self, pInst, lFlags=0, pCtx=NULL):
         request = IWbemServices_PutInstanceAsync()
@@ -2925,7 +2924,7 @@ class IWbemServices(IRemUnknown):
         request['lFlags'] = lFlags
         request['pCtx'] = pCtx
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
-        return resp
+        return IWbemCallResult(INTERFACE(self.get_cinstance(), ''.join(resp['ppCallResult']['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
 
     def DeleteInstanceAsync(self, strObjectPath, lFlags=0, pCtx=NULL):
         request = IWbemServices_DeleteInstanceAsync()
