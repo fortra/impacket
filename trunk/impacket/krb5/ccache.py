@@ -340,7 +340,7 @@ class CCache():
 
     def getCredential(self, server):
         for c in self.credentials:
-            if c['server'].prettyPrint() == server:
+            if c['server'].prettyPrint().upper() == server.upper():
                 return c
         return None
 
