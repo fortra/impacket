@@ -1725,7 +1725,7 @@ class IWbemServices_ExecQueryAsync(DCOMCALL):
     opnum = 21
     structure = (
        ('strQueryLanguage', BSTR),
-       ('strQueryLanguage', BSTR),
+       ('strQuery', BSTR),
        ('lFlags', LONG),
        ('pCtx', PMInterfacePointer),
        ('pResponseHandler', PMInterfacePointer),
@@ -1741,7 +1741,7 @@ class IWbemServices_ExecNotificationQuery(DCOMCALL):
     opnum = 22
     structure = (
        ('strQueryLanguage', BSTR),
-       ('strQueryLanguage', BSTR),
+       ('strQuery', BSTR),
        ('lFlags', LONG),
        ('pCtx', PMInterfacePointer),
     )
@@ -1757,7 +1757,7 @@ class IWbemServices_ExecNotificationQueryAsync(DCOMCALL):
     opnum = 23
     structure = (
        ('strQueryLanguage', BSTR),
-       ('strQueryLanguage', BSTR),
+       ('strQuery', BSTR),
        ('lFlags', LONG),
        ('pCtx', PMInterfacePointer),
        ('pResponseHandler', PMInterfacePointer),
@@ -1821,7 +1821,7 @@ class IEnumWbemClassObject_ResetResponse(DCOMANSWER):
 class IEnumWbemClassObject_Next(DCOMCALL):
     opnum = 4
     structure = (
-       ('lTimeout', LONG),
+       ('lTimeout', ULONG),
        ('uCount', ULONG),
     )
 
@@ -2765,7 +2765,6 @@ class IEnumWbemClassObject(IRemUnknown):
         request['lTimeout'] = lTimeout
         request['uCount'] = uCount
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
-        #resp.dump()
         interfaces = list()
         for interface in resp['apObjects']:
             interfaces.append( IWbemClassObject(INTERFACE(self.get_cinstance(), ''.join(interface['abData']), self.get_ipidRemUnknown(), oxid = self.get_oxid(), target = self.get_target()), self.__iWbemServices) )
@@ -2980,8 +2979,7 @@ class IWbemServices(IRemUnknown):
         request['lFlags'] = lFlags
         request['pCtx'] = pCtx
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
-        resp.dump()
-        return resp
+        return IEnumWbemClassObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(), target = self.get_target()), self)
 
     def ExecNotificationQueryAsync(self, strQuery, lFlags=0, pCtx=NULL):
         request = IWbemServices_ExecNotificationQueryAsync()
