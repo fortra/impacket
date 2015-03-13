@@ -821,6 +821,10 @@ class LSASecrets(OfflineRegistry):
     def __decryptSecret(self, key, value):
         # [MS-LSAD] Section 5.1.2
         plainText = ''
+
+        encryptedSecretSize = unpack('<I', value[:4])[0]
+        value = value[len(value)-encryptedSecretSize:]
+
         key0 = key
         for i in range(0, len(value), 8):
             cipherText = value[:8]
@@ -890,7 +894,7 @@ class LSASecrets(OfflineRegistry):
             tmpKey = self.__sha256(self.__LSAKey, record['EncryptedData'][:32])
             self.__NKLMKey = self.__decryptAES(tmpKey, record['EncryptedData'][32:])
         else:
-            self.__NKLMKey = self.__decryptSecret(self.__LSAKey,value[1][0xc:])
+            self.__NKLMKey = self.__decryptSecret(self.__LSAKey, value[1])
 
     def __pad(self, data):
         if (data & 0x3) > 0:
@@ -1055,7 +1059,7 @@ class LSASecrets(OfflineRegistry):
                     record = LSA_SECRET_BLOB(plainText)
                     secret = record['Secret']
                 else:
-                    secret = self.__decryptSecret(self.__LSAKey,value[1][0xc:])
+                    secret = self.__decryptSecret(self.__LSAKey, value[1])
 
                 self.__printSecret(key, secret)
         
