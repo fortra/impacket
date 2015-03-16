@@ -223,9 +223,9 @@ class SMBClient(smb.SMB):
             resp = dce.request(request)
             #resp.dump()
         except Exception, e:
-            import traceback
-            print traceback.print_exc()
-            print "[!] %s ", e
+            #import traceback
+            #print traceback.print_exc()
+            print "[!] %s " % e
             return e.get_error_code()
 
         print "[*] %s\\%s successfully validated through NETLOGON" % (domainName, authenticateMessage['user_name'].decode('utf-16le'))
