@@ -1065,14 +1065,13 @@ class DCOMConnection():
 
     def disconnect(self):
         if DCOMConnection.PINGTIMER is not None:
-            if len(DCOMConnection.PORTMAPS) > 1:
-                # This means there are more clients using this object, can't kill
-                del(DCOMConnection.PORTMAPS[self.__target])
-                del(DCOMConnection.OID_SET[self.__target])
-            else:
+            del(DCOMConnection.PORTMAPS[self.__target])
+            del(DCOMConnection.OID_SET[self.__target])
+            if len(DCOMConnection.PORTMAPS) == 0:
+                # This means there are no more clients using this object, kill it
                 DCOMConnection.PINGTIMER.cancel()
                 DCOMConnection.PINGTIMER.join()
-        DCOMConnection.PINGTIMER = None
+                DCOMConnection.PINGTIMER = None
 
 class CLASS_INSTANCE():
     def __init__(self, ORPCthis, stringBinding):
