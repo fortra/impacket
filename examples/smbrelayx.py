@@ -148,7 +148,8 @@ class SMBClient(smb.SMB):
         respToken2 = SPNEGO_NegTokenResp(authenticateMessageBlob)
         authenticateMessage = ntlm.NTLMAuthChallengeResponse()
         authenticateMessage.fromString(respToken2['ResponseToken'] )
-        domainName, machineAccount = self.machineAccount.split('/')
+        _, machineAccount = self.machineAccount.split('/')
+        domainName = authenticateMessage['domain_name'].decode('utf-16le')
 
         try:
             av_pairs = authenticateMessage['ntlm'][44:]
