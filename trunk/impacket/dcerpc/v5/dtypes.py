@@ -203,6 +203,13 @@ class PLONGLONG(NDRPOINTER):
         ('Data', LONGLONG),
     )
 
+# 2.2.31 LONG64
+LONG64 = NDRUHYPER
+class PLONG64(NDRPOINTER):
+    referent = (
+        ('Data', LONG64),
+    )
+
 # 2.2.32 LPCSTR
 LPCSTR = LPSTR
 
@@ -262,6 +269,14 @@ class PUSHORT(NDRPOINTER):
 # 2.2.59 WCHAR
 WCHAR = WSTR
 PWCHAR = LPWSTR
+
+# 2.2.61 WORD
+WORD = NDRUSHORT
+class PWORD(NDRPOINTER):
+    referent = (
+        ('Data', WORD),
+    )
+LPWORD = PWORD
 
 # 2.3.1 FILETIME
 class FILETIME(NDRSTRUCT):
@@ -333,6 +348,20 @@ class RPC_UNICODE_STRING(NDRSTRUCT):
 class PRPC_UNICODE_STRING(NDRPOINTER):
     referent = (
        ('Data', RPC_UNICODE_STRING ),
+    )
+
+# 2.3.9 OBJECT_TYPE_LIST
+ACCESS_MASK = DWORD
+class OBJECT_TYPE_LIST(NDRSTRUCT):
+    structure = (
+        ('Level', WORD),
+        ('Remaining',ACCESS_MASK),
+        ('ObjectType',PGUID),
+    )
+
+class POBJECT_TYPE_LIST(NDRPOINTER):
+    referent = (
+       ('Data', OBJECT_TYPE_LIST ),
     )
 
 # 2.4.2.3 RPC_SID
