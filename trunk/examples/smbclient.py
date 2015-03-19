@@ -40,7 +40,7 @@ class MiniImpacketShell(cmd.Cmd):
         cmd.Cmd.__init__(self)
         self.prompt = '# '
         self.smb = smbClient
-        self.username, self.password, self.domain, self.lmhash, self.nthash, self.aesKey = smbClient.getCredentials()
+        self.username, self.password, self.domain, self.lmhash, self.nthash, self.aesKey, self.TGT, self.TGS = smbClient.getCredentials()
         self.tid = None
         self.intro = 'Type help for list of commands'
         self.pwd = ''
