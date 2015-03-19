@@ -451,7 +451,9 @@ class SMB3:
             self.__domain,
             self.__lmhash,
             self.__nthash,
-            self.__aesKey)
+            self.__aesKey, 
+            self.__TGT, 
+            self.__TGS)
 
     def kerberosLogin(self, user, password, domain = '', lmhash = '', nthash = '', aesKey='', kdcHost = '', TGT=None, TGS=None):
         # If TGT or TGS are specified, they are in the form of:
@@ -475,6 +477,8 @@ class SMB3:
         self.__nthash   = nthash
         self.__kdc      = kdcHost
         self.__aesKey   = aesKey
+        self.__TGT      = TGT
+        self.__TGS      = TGS
        
         sessionSetup = SMB2SessionSetup()
         if self.RequireMessageSigning is True:
@@ -631,6 +635,8 @@ class SMB3:
         self.__lmhash   = lmhash
         self.__nthash   = nthash
         self.__aesKey   = ''
+        self.__TGT      = None
+        self.__TGS      = None
        
         sessionSetup = SMB2SessionSetup()
         if self.RequireMessageSigning is True:

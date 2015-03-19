@@ -2420,6 +2420,8 @@ class SMB:
         self.__lmhash   = ''
         self.__nthash   = ''
         self.__aesKey   = ''
+        self.__TGT      = None
+        self.__TGS      = None
 
         # Negotiate Protocol Result, used everywhere
         # Could be extended or not, flags should be checked before 
@@ -3102,6 +3104,8 @@ class SMB:
         self.__nthash   = nthash
         self.__aesKey   = aesKey
         self.__kdc      = kdcHost
+        self.__TGT      = TGT
+        self.__TGS      = TGS
 
         # First of all, we need to get a TGT for the user
         userName = Principal(user, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
@@ -3358,7 +3362,9 @@ class SMB:
             self.__domain,
             self.__lmhash,
             self.__nthash,
-            self.__aesKey)
+            self.__aesKey,
+            self.__TGT,
+            self.__TGS)
 
     def login(self, user, password, domain = '', lmhash = '', nthash = ''):
 
@@ -3378,6 +3384,8 @@ class SMB:
         self.__lmhash   = lmhash
         self.__nthash   = nthash
         self.__aesKey   = ''
+        self.__TGT      = None
+        self.__TGS      = None
 
         if self._dialects_parameters['Capabilities'] & SMB.CAP_EXTENDED_SECURITY:
             try:

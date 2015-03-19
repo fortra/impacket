@@ -162,7 +162,7 @@ class SMBConnection():
         :param string kdcHost: hostname or IP Address for the KDC. If None, the domain will be used (it needs to resolve tho)
         :param struct TGT: If there's a TGT available, send the structure here and it will be used
         :param struct TGS: same for TGS. See smb3.py for the format
-        :param bool useCache: whether or not we should use the ccache for credentials lookup
+        :param bool useCache: whether or not we should use the ccache for credentials lookup. If TGT or TGS are specified this is False
 
         :return: None, raises a Session Error if error.
         """
@@ -171,6 +171,9 @@ class SMBConnection():
         from impacket.krb5.kerberosv5 import KerberosError
         from impacket.krb5 import constants
         from impacket.ntlm import compute_lmhash, compute_nthash
+
+        if TGT is not None or TGS is not None:
+            useCache = False
 
         if useCache is True:
             try:
@@ -194,7 +197,6 @@ class SMBConnection():
                 else:
                     TGS = creds.toTGS()
                     print 'Using TGS from cache'
-                
 
         while True:
             try:
