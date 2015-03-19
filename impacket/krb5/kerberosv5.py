@@ -420,26 +420,25 @@ def getKerberosType3(cipher, sessionKey, auth_data):
 
     return cipher, sessionKey2, resp.getData()
 
-def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', targetName='', kdcHost = None, useCache = True):
-    TGS = None
-    TGT = None
-    if useCache is True:
-        try:
-            ccache = CCache.loadFile(os.getenv('KRB5CCNAME'))
-        except Exception, e:
-            # No cache present
-            pass
-        else:
-            principal = 'host/%s@%s' % (targetName.upper(), domain.upper())
-            creds = ccache.getCredential(principal)
-            if creds is None:
-                # Let's try for the TGT and go from there
-                principal = 'krbtgt/%s@%s' % (domain.upper(),domain.upper())
-                creds =  ccache.getCredential(principal)
-                if creds is not None:
-                    TGT = creds.toTGT()
+def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT = None, TGS = None, targetName='', kdcHost = None, useCache = True):
+    if TGT is None and TGS is None:
+        if useCache is True:
+            try:
+                ccache = CCache.loadFile(os.getenv('KRB5CCNAME'))
+            except Exception, e:
+                # No cache present
+                pass
             else:
-                TGS = creds.toTGS()
+                principal = 'host/%s@%s' % (targetName.upper(), domain.upper())
+                creds = ccache.getCredential(principal)
+                if creds is None:
+                    # Let's try for the TGT and go from there
+                    principal = 'krbtgt/%s@%s' % (domain.upper(),domain.upper())
+                    creds =  ccache.getCredential(principal)
+                    if creds is not None:
+                        TGT = creds.toTGT()
+                else:
+                    TGS = creds.toTGS()
 
     # First of all, we need to get a TGT for the user
     userName = Principal(username, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
