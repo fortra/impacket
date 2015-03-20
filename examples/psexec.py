@@ -228,7 +228,7 @@ class Pipes(Thread):
             self.server = SMBConnection('*SMBSERVER', self.transport.get_smb_connection().getRemoteHost(), sess_port = self.port, preferredDialect = dialect)
             user, passwd, domain, lm, nt, aesKey, TGT, TGS = self.credentials
             if self.transport.get_kerberos() is True:
-                self.server.kerberosLogin(user, passwd, domain, lm, nt, aesKey, TGT, TGS)
+                self.server.kerberosLogin(user, passwd, domain, lm, nt, aesKey, TGT=TGT, TGS=TGS)
             else:
                 self.server.login(user, passwd, domain, lm, nt)
             lock.release()
@@ -303,9 +303,9 @@ class RemoteShell(cmd.Cmd):
     def connect_transferClient(self):
         #self.transferClient = SMBConnection('*SMBSERVER', self.server.getRemoteHost(), sess_port = self.port, preferredDialect = SMB_DIALECT)
         self.transferClient = SMBConnection('*SMBSERVER', self.server.getRemoteHost(), sess_port = self.port, preferredDialect = dialect)
-        user, passwd, domain, lm, nt, aesKey = self.credentials
+        user, passwd, domain, lm, nt, aesKey, TGT, TGS = self.credentials
         if self.transport.get_kerberos() is True:
-            self.transferClient.kerberosLogin(user, passwd, domain, lm, nt, aesKey)
+            self.transferClient.kerberosLogin(user, passwd, domain, lm, nt, aesKey, TGT=TGT, TGS=TGS)
         else:
             self.transferClient.login(user, passwd, domain, lm, nt)
 
