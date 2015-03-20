@@ -253,8 +253,7 @@ class RemoteShell(cmd.Cmd):
 if __name__ == '__main__':
     print version.BANNER
 
-    parser = argparse.ArgumentParser()
-
+    parser = argparse.ArgumentParser(add_help = True, description = "Executes a semi-interactive shell using Windows Management Instrumentation.")
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('-share', action='store', default = 'ADMIN$', help='share where the output will be grabbed from (default ADMIN$)')
     parser.add_argument('-nooutput', action='store_true', default = False, help='whether or not to print the output (no SMB connection created)')
