@@ -113,8 +113,7 @@ if __name__ == '__main__':
 
     print version.BANNER
 
-    parser = argparse.ArgumentParser()
-
+    parser = argparse.ArgumentParser(add_help = True, description = "Executes WQL queries and gets object descriptions using Windows Management Instrumentation.")
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('-namespace', action='store', default='//./root/cimv2', help='namespace name (default //./root/cimv2)')
     parser.add_argument('-file', type=argparse.FileType('r'), help='input file with commands to execute in the WQL shell')

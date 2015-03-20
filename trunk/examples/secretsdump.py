@@ -1547,7 +1547,7 @@ class DumpSecrets:
 if __name__ == '__main__':
     print version.BANNER
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(add_help = True, description = "Performs various techniques to secrets from the remote machine without executing any agent there.")
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address> or LOCAL (if you want to parse local files)')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')

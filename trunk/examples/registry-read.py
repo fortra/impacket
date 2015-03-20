@@ -111,7 +111,8 @@ def walk(reg, keyName):
 def main():
     print version.BANNER
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(add_help = True, description = "Reads data from registry hives.")
+
     parser.add_argument('hive', action='store', help='registry hive to open')
     subparsers = parser.add_subparsers(help='actions', dest='action')
     # A enum_key command

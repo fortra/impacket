@@ -21,7 +21,7 @@ import sys
 import string
 import time
 import logging
-from impacket import smb, version, smb3, nt_errors
+from impacket import smb, version, smb3, nt_errors, version
 from impacket.dcerpc.v5 import samr, transport, srvs
 from impacket.dcerpc.v5.dtypes import NULL
 from impacket.smbconnection import *
@@ -438,7 +438,8 @@ class MiniImpacketShell(cmd.Cmd):
         self.do_logoff(line)
 
 def main():
-    parser = argparse.ArgumentParser()
+    print version.BANNER
+    parser = argparse.ArgumentParser(add_help = True, description = "SMB client implementation.")
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('-file', type=argparse.FileType('r'), help='input file with commands to execute in the mini shell')

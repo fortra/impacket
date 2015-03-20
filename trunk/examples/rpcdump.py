@@ -142,8 +142,7 @@ class RPCDump:
 if __name__ == '__main__':
     print version.BANNER
 
-    parser = argparse.ArgumentParser()
-
+    parser = argparse.ArgumentParser(add_help = True, description = "Dumps the remote RPC enpoints information.")
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('protocol', choices=RPCDump.KNOWN_PROTOCOLS.keys(), nargs='?', default='135/TCP', help='transport protocol (default 135/TCP)')
 

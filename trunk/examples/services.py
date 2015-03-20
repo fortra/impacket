@@ -253,7 +253,7 @@ if __name__ == '__main__':
 
     print version.BANNER
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(add_help = True, description = "Windows Service manipulation script.")
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     subparsers = parser.add_subparsers(help='actions', dest='action')

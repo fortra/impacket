@@ -544,7 +544,7 @@ if __name__ == '__main__':
 
     print version.BANNER
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(add_help = True, description = "Test whether an account is valid on the target host using the RDP protocol.")
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
 

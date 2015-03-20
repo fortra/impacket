@@ -27,13 +27,12 @@ if __name__ == '__main__':
 
     print version.BANNER
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(add_help = True, description = "Asks the remote host for its running MSSQL Instances.")
 
     parser.add_argument('host', action='store', help='target host')
     parser.add_argument('-timeout', action='store', default='5', help='timeout to wait for an answer')
 
     if len(sys.argv)==1:
-        print "description: asks the remote host for its running MSSQL Instances\n"
         parser.print_help()
         sys.exit(1)
  
