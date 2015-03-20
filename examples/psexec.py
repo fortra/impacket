@@ -226,9 +226,9 @@ class Pipes(Thread):
             global dialect
             #self.server = SMBConnection('*SMBSERVER', self.transport.get_smb_connection().getRemoteHost(), sess_port = self.port, preferredDialect = SMB_DIALECT)
             self.server = SMBConnection('*SMBSERVER', self.transport.get_smb_connection().getRemoteHost(), sess_port = self.port, preferredDialect = dialect)
-            user, passwd, domain, lm, nt, aesKey = self.credentials
+            user, passwd, domain, lm, nt, aesKey, TGT, TGS = self.credentials
             if self.transport.get_kerberos() is True:
-                self.server.kerberosLogin(user, passwd, domain, lm, nt, aesKey)
+                self.server.kerberosLogin(user, passwd, domain, lm, nt, aesKey, TGT, TGS)
             else:
                 self.server.login(user, passwd, domain, lm, nt)
             lock.release()
@@ -400,7 +400,7 @@ class RemoteStdInPipe(Pipes):
 if __name__ == '__main__':
     print version.BANNER
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(add_help = True, description = "PSEXEC like functionality example using RemComSvc.")
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('command', nargs='*', default = ' ', help='command (or arguments if -c is used) to execute at the target (w/o path)')
