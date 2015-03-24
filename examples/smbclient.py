@@ -282,10 +282,10 @@ class MiniImpacketShell(cmd.Cmd):
         dce = rpctransport.get_dce_rpc()
         dce.connect()                     
         dce.bind(srvs.MSRPC_UUID_SRVS)
-        resp = srvs.hNetrSessionEnum(dce, NULL, NULL, 502)
+        resp = srvs.hNetrSessionEnum(dce, NULL, NULL, 10)
 
-        for session in resp['InfoStruct']['SessionInfo']['Level502']['Buffer']:
-            print "host: %15s, user: %5s, active: %5d, idle: %5d, type: %5s, transport: %s" % (session['sesi502_cname'][:-1], session['sesi502_username'][:-1], session['sesi502_time'], session['sesi502_idle_time'], session['sesi502_cltype_name'][:-1],session['sesi502_transport'][:-1] )
+        for session in resp['InfoStruct']['SessionInfo']['Level10']['Buffer']:
+            print "host: %15s, user: %5s, active: %5d, idle: %5d" % (session['sesi10_cname'][:-1], session['sesi10_username'][:-1], session['sesi10_time'], session['sesi10_idle_time'])
 
     def do_shares(self, line):
         if self.loggedIn is False:
