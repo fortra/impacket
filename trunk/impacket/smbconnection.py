@@ -18,7 +18,8 @@
 import ntpath
 import string
 import socket
-from impacket import smb, smb3, nmb, nt_errors
+import logging
+from impacket import smb, smb3, nmb, nt_errors, version
 from smb3structs import *
 
 # So the user doesn't need to import smb, the smb3 are already in here
@@ -182,7 +183,7 @@ class SMBConnection():
                 # No cache present
                 pass
             else:
-                print "Using Kerberos Cache: %s" % os.getenv('KRB5CCNAME')
+                logging.debug("Using Kerberos Cache: %s" % os.getenv('KRB5CCNAME'))
                 principal = 'cifs/%s@%s' % (self.getRemoteHost().upper(), domain.upper())
                 creds = ccache.getCredential(principal)
                 if creds is None:
@@ -191,12 +192,12 @@ class SMBConnection():
                     creds =  ccache.getCredential(principal)
                     if creds is not None:
                         TGT = creds.toTGT()
-                        print 'Using TGT from cache'
+                        logging.debug('Using TGT from cache')
                     else:
-                        print "No valid credentials found in cache. "
+                        logging.debug("No valid credentials found in cache. ")
                 else:
                     TGS = creds.toTGS()
-                    print 'Using TGS from cache'
+                    logging.debug('Using TGS from cache')
 
         while True:
             try:
