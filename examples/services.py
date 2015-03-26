@@ -22,6 +22,7 @@ import string
 import sys
 import types
 import argparse
+import logging
 from impacket import uuid, ntlm, version
 from impacket.dcerpc.v5 import transport, scmr
 from impacket.dcerpc.v5.ndr import NULL
@@ -256,6 +257,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(add_help = True, description = "Windows Service manipulation script.")
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
+    parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     subparsers = parser.add_subparsers(help='actions', dest='action')
  
     # A start command
@@ -309,6 +311,11 @@ if __name__ == '__main__':
         sys.exit(1)
 
     options = parser.parse_args()
+
+    if options.debug is True:
+        logging.getLogger().setLevel(logging.DEBUG)
+    else:
+        logging.getLogger().setLevel(logging.INFO)
 
     import re
     domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(options.target).groups('')
