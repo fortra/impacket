@@ -20,6 +20,7 @@ import socket
 import string
 import sys
 import types
+import logging
 
 from impacket import uuid, version
 from impacket.nt_errors import STATUS_MORE_ENTRIES
@@ -166,6 +167,7 @@ if __name__ == '__main__':
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('protocol', choices=SAMRDump.KNOWN_PROTOCOLS.keys(), nargs='?', default='445/SMB', help='transport protocol (default 445/SMB)')
+    parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
     group = parser.add_argument_group('authentication')
 
@@ -179,6 +181,11 @@ if __name__ == '__main__':
         sys.exit(1)
 
     options = parser.parse_args()
+
+    if options.debug is True:
+        logging.getLogger().setLevel(logging.DEBUG)
+    else:
+        logging.getLogger().setLevel(logging.INFO)
 
     import re
 

@@ -18,6 +18,7 @@
 import sys
 import os
 import cmd
+import logging
 
 from impacket import version
 from impacket.smbconnection import *
@@ -407,6 +408,7 @@ if __name__ == '__main__':
     parser.add_argument('-c', action='store',metavar = "pathname",  help='copy the filename for later execution, arguments are passed in the command option')
     parser.add_argument('-path', action='store', help='path of the command to execute')
     parser.add_argument('-file', action='store', help="alternative RemCom binary (be sure it doesn't require CRT)")
+    parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
     group = parser.add_argument_group('authentication')
 
@@ -420,6 +422,11 @@ if __name__ == '__main__':
         sys.exit(1)
 
     options = parser.parse_args()
+
+    if options.debug is True:
+        logging.getLogger().setLevel(logging.DEBUG)
+    else:
+        logging.getLogger().setLevel(logging.INFO)
 
     import re
     domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(options.target).groups('')

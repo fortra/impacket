@@ -38,6 +38,7 @@ import random
 import string
 import time
 import ConfigParser
+import logging
 from threading import Thread
 
 from impacket import version, smbserver
@@ -292,6 +293,8 @@ if __name__ == '__main__':
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('-share', action='store', default = 'C$', help='share where the output will be grabbed from (default C$)')
     parser.add_argument('-mode', action='store', choices = {'SERVER','SHARE'}, default='SHARE', help='mode to use (default SHARE, SERVER needs root!)')
+    parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
+
     parser.add_argument('protocol', choices=CMDEXEC.KNOWN_PROTOCOLS.keys(), nargs='?', default='445/SMB', help='transport protocol (default 445/SMB)')
 
     group = parser.add_argument_group('authentication')
@@ -307,6 +310,11 @@ if __name__ == '__main__':
         sys.exit(1)
 
     options = parser.parse_args()
+
+    if options.debug is True:
+        logging.getLogger().setLevel(logging.DEBUG)
+    else:
+        logging.getLogger().setLevel(logging.INFO)
 
     import re
     domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(options.target).groups('')
