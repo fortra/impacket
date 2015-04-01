@@ -97,7 +97,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
     now = datetime.datetime.utcnow() + datetime.timedelta(days=1)
     reqBody['till'] = KerberosTime.to_asn1(now)
     reqBody['rtime'] = KerberosTime.to_asn1(now)
-    reqBody['nonce'] =  random.SystemRandom().getrandbits(31)
+    reqBody['nonce'] =  random.getrandbits(31)
 
     # Yes.. this shouldn't happend but it's inherited from the past
     if aesKey is None:
@@ -231,7 +231,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
         now = datetime.datetime.utcnow() + datetime.timedelta(days=1)
         reqBody['till'] = KerberosTime.to_asn1(now)
         reqBody['rtime'] =  KerberosTime.to_asn1(now)
-        reqBody['nonce'] = random.SystemRandom().getrandbits(31)
+        reqBody['nonce'] = random.getrandbits(31)
 
         seq_set_iter(reqBody, 'etype', ( (int(cipher.enctype),)))
 
@@ -343,7 +343,7 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
     now = datetime.datetime.utcnow() + datetime.timedelta(days=1)
 
     reqBody['till'] = KerberosTime.to_asn1(now)
-    reqBody['nonce'] = random.SystemRandom().getrandbits(31)
+    reqBody['nonce'] = random.getrandbits(31)
     seq_set_iter(reqBody, 'etype',
                       (int(constants.EncryptionTypes.des3_cbc_sha1_kd.value),
                        int(cipher.enctype)))
