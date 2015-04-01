@@ -224,8 +224,7 @@ class Ticket(object):
         return component
 
     def __str__(self):
-        return "<Ticket for {0} vno {1}>".format(self.service_principal,
-                                                 self.encrypted_part.kvno)
+        return "<Ticket for %s vno %s>" % (str(self.service_principal), str(self.encrypted_part.kvno)) 
 
 class KerberosTime(object):
     INDEFINITE = datetime.datetime(1970, 1, 1, 0, 0, 0)
@@ -235,13 +234,7 @@ class KerberosTime(object):
         # A KerberosTime is really just a string, so we can return a
         # string here, and the asn1 library will convert it correctly.
 
-        return "{year:04}{month:02}{day:02}{hour:02}{minute:02}{second:02}Z".format(
-            year=dt.year,
-            month=dt.month,
-            day=dt.day,
-            hour=dt.hour,
-            minute=dt.minute,
-            second=dt.second)
+        return "%04d%02d%02d%02d%02d%02dZ" % (dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second)
 
     @staticmethod
     def from_asn1(data):
@@ -253,7 +246,7 @@ class KerberosTime(object):
         minute = int(data[10:12])
         second = int(data[12:14])
         if data[14] != 'Z':
-            raise types.KerberosException("timezone in KerberosTime is not Z")
+            raise KerberosException("timezone in KerberosTime is not Z")
         return datetime.datetime(year, month, day, hour, minute, second)
 
 if __name__ == '__main__':
