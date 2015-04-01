@@ -90,7 +90,7 @@ class GSSAPI_RC4():
         token = self.MIC()
 
         # Let's pad the data
-        pad = (8 - (len(data) % 8)) & 0x7
+        pad = (4 - (len(data) % 4)) & 0x3
         padStr = chr(pad) * pad
         data = data + padStr
  
@@ -209,7 +209,7 @@ class GSSAPI_AES():
         token = self.MIC()
 
         # Let's pad the data
-        pad = (8 - (len(data) % 8)) & 0x7
+        pad = (4 - (len(data) % 4)) & 0x3
         padStr = chr(pad) * pad
         data = data + padStr
 
