@@ -20,6 +20,11 @@ BOOL = NDRULONG
 UCHAR = NDRUSMALL
 SHORT = NDRSHORT
 
+class LPDWORD(NDRPOINTER):
+    referent = (
+        ('Data', DWORD),
+    )
+
 class PSHORT(NDRPOINTER):
     referent = (
         ('Data', SHORT),
@@ -367,11 +372,6 @@ class POBJECT_TYPE_LIST(NDRPOINTER):
 # 2.4.2.3 RPC_SID
 class DWORD_ARRAY(NDRUniConformantArray):
     item = '<L'
-
-class LPDWORD(NDRPOINTER):
-    referent = (
-        ('Data', DWORD_ARRAY),
-    )
 
 class RPC_SID_IDENTIFIER_AUTHORITY(NDRUniFixedArray):
     align = 1
