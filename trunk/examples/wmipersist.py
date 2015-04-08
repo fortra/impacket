@@ -27,18 +27,21 @@
 # then excute this script this way, VBS will be triggered once
 # somebody opens calc.exe:
 #
-#  wmipersist.py domain.net/normaluser:mypwd@domain-dc install -name ASEC 
+#  wmipersist.py domain.net/adminuser:mypwd@targetHost install -name ASEC 
 #   -vbs toexec.vbs 
 #   -filter 'SELECT * FROM __InstanceCreationEvent WITHIN 5 WHERE TargetInstance 
 #            ISA "Win32_Process" AND TargetInstance.Name = "calc.exe"'
 #
 # or, if you just want to execute the VBS every XXX milliseconds:
 #
-#  wmipersist.py domain.net/normaluser:mypwd@domain-dc install -name ASEC 
+#  wmipersist.py domain.net/adminuser:mypwd@targetHost install -name ASEC 
 #   -vbs toexec.vbs -timer XXX 
 #
 # to remove the event:
-#	wmipersist.py domain.net/normaluser:mypwd@domain-dc remove -name ASEC
+#	wmipersist.py domain.net/adminuser:mypwd@targetHost remove -name ASEC
+#
+# if you don't specify the password, it will be asked by the script.
+# domain is optional.
 #
 # Reference for:
 #  DCOM/WMI
