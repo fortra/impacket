@@ -8,7 +8,8 @@
 # $Id$
 #
 # This script creates/removes a WMI Event Consumer/Filter and link 
-# between both to execute Visual Basic based on the WQL filter specified.
+# between both to execute Visual Basic based on the WQL filter 
+# or timer specified.
 #
 # Author:
 #  beto (@agsolino)
@@ -148,7 +149,7 @@ class WMIPERSISTENCE:
 if __name__ == '__main__':
     print version.BANNER
 
-    parser = argparse.ArgumentParser(add_help = True, description = "Creates/Removes a WMI Event Consumer/Filter and link between both to execute Visual Basic based on the WQL filter specified.")
+    parser = argparse.ArgumentParser(add_help = True, description = "Creates/Removes a WMI Event Consumer/Filter and link between both to execute Visual Basic based on the WQL filter or timer specified.")
 
     parser.add_argument('target', action='store', help='[domain/][username[:password]@]<address>')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
