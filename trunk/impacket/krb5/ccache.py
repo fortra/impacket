@@ -392,8 +392,9 @@ class CCache():
         tmpServer = Principal()
         tmpServer.fromPrincipal(server)
         
-        credential['client'] = self.principal.getData()
-        credential['server'] = tmpServer.getData()
+        credential['client'] = self.principal
+        credential['server'] = tmpServer
+        credential['is_skey'] = 0
 
         credential['key'] = KeyBlock()
         credential['key']['keytype'] = int(encASRepPart['key']['keytype'])
@@ -451,8 +452,9 @@ class CCache():
         tmpServer = Principal()
         tmpServer.fromPrincipal(server)
         
-        credential['client'] = self.principal.getData()
-        credential['server'] = tmpServer.getData()
+        credential['client'] = self.principal
+        credential['server'] = tmpServer
+        credential['is_skey'] = 0 
 
         credential['key'] = KeyBlock()
         credential['key']['keytype'] = int(encTGSRepPart['key']['keytype'])
