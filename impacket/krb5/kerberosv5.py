@@ -110,8 +110,6 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
         # So, in order to support more than one cypher, I'm setting aes first
         # since most of the systems would accept it. If we're lucky and 
         # KDC_ERR_ETYPE_NOSUPP is returned, we will later try rc4.
-        #supportedCiphers = (int(constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value),
-        #                   int(constants.EncryptionTypes.rc4_hmac.value))
         if aesKey != '':
             if len(aesKey) == 64:
                 supportedCiphers = (int(constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value),)
@@ -137,9 +135,9 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
                 message = encoder.encode(asReq)
                 r = sendReceive(message, domain, kdcHost)
             else: 
-                raise e
+                raise 
         else:
-            raise e
+            raise 
 
     # This should be the PREAUTH_FAILED packet
     
@@ -445,7 +443,24 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT 
     while True:
         if TGT is None:
             if TGS is None:
-                tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, password, domain, lmhash, nthash, aesKey, kdcHost)
+                try:
+                    tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, password, domain, lmhash, nthash, aesKey, kdcHost)
+                except KerberosError, e:
+                    if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
+                        # We might face this if the target does not support AES 
+                        # So, if that's the case we'll force using RC4 by converting
+                        # the password to lm/nt hashes and hope for the best. If that's already
+                        # done, byebye.
+                        if lmhash is '' and nthash is '' and (aesKey is '' or aesKey is None) and TGT is None and TGS is None:
+                            from impacket.ntlm import compute_lmhash, compute_nthash
+                            lmhash = compute_lmhash(password) 
+                            nthash = compute_nthash(password) 
+                            continue
+                        else:
+                            raise 
+                    else:
+                        raise
+
         else:
             tgt = TGT['KDC_REP']
             cipher = TGT['cipher']
@@ -459,8 +474,8 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT 
                 tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey)
             except KerberosError, e:
                 if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
-                    # We might face this if the target does not support AES (most probably
-                    # Windows XP). So, if that's the case we'll force using RC4 by converting
+                    # We might face this if the target does not support AES 
+                    # So, if that's the case we'll force using RC4 by converting
                     # the password to lm/nt hashes and hope for the best. If that's already
                     # done, byebye.
                     if lmhash is '' and nthash is '' and (aesKey is '' or aesKey is None) and TGT is None and TGS is None:
@@ -468,9 +483,9 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT 
                         lmhash = compute_lmhash(password) 
                         nthash = compute_nthash(password) 
                     else:
-                        raise e
+                        raise 
                 else:
-                    raise e
+                    raise 
             else:
                 break
         else:

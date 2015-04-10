@@ -208,8 +208,8 @@ class SMBConnection():
                 raise SessionError(e.get_error_code())
             except KerberosError, e:
                 if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
-                    # We might face this if the target does not support AES (most probably
-                    # Windows XP). So, if that's the case we'll force using RC4 by converting
+                    # We might face this if the target does not support AES
+                    # So, if that's the case we'll force using RC4 by converting
                     # the password to lm/nt hashes and hope for the best. If that's already
                     # done, byebye.
                     if lmhash is '' and nthash is '' and (aesKey is '' or aesKey is None) and TGT is None and TGS is None:
