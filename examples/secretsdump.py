@@ -1106,6 +1106,7 @@ class NTDSHashes():
         3:'des-cbc-md5',
         17:'aes128-cts-hmac-sha1-96',
         18:'aes256-cts-hmac-sha1-96',
+        0xffffff74:'rc4_hmac',
     }
 
     INTERNAL_TO_NAME = dict((v,k) for k,v in NAME_TO_INTERNAL.iteritems())
