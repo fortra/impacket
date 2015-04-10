@@ -1235,7 +1235,10 @@ class NTDSHashes():
                             data = data[len(keyDataNew):]
                             keyValue = propertyValueBuffer[keyDataNew['KeyOffset']:][:keyDataNew['KeyLength']]
     
-                            answer =  "%s:%s:%s" % (userName, self.KERBEROS_TYPE[keyDataNew['KeyType']],keyValue.encode('hex'))
+                            if  self.KERBEROS_TYPE.has_key(keyDataNew['KeyType']):
+                                answer =  "%s:%s:%s" % (userName, self.KERBEROS_TYPE[keyDataNew['KeyType']],keyValue.encode('hex'))
+                            else:
+                                answer =  "%s:%s:%s" % (userName, hex(keyDataNew['KeyType']),keyValue.encode('hex'))
                             # We're just storing the keys, not printing them, to make the output more readable
                             # This is kind of ugly... but it's what I came up with tonight to get an ordered
                             # set :P. Better ideas welcomed ;)
