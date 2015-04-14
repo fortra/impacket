@@ -97,6 +97,7 @@ class PreAuthenticationDataTypes(Enum):
     TD_REQ_NONCE               = 107
     TD_REQ_SEQ                 = 108
     PA_PAC_REQUEST             = 128
+    PA_FOR_USER                = 129
     PA_FX_COOKIE               = 133 
     PA_FX_FAST                 = 136
     PA_FX_ERROR                = 137
@@ -386,6 +387,7 @@ class KDCOptions(Enum):
     opt_hardware_auth       = 11
     unused12                = 12
     unused13                = 13
+    cname_in_addl_tkt       = 14
     canonicalize            = 15
     disable_transited_check = 26
     renewable_ok            = 27

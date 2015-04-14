@@ -483,10 +483,20 @@ class KERB_PA_PAC_REQUEST(univ.Sequence):
     namedtype.NamedType('include-pac', univ.Boolean().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0))),
     )
 
+class PA_FOR_USER_ENC(univ.Sequence):
+    componentType = namedtype.NamedTypes(
+        _sequence_component('userName', 0, PrincipalName()),
+        _sequence_optional_component('userRealm', 1, Realm()),
+        _sequence_optional_component('cksum', 2, Checksum()),
+        _sequence_optional_component('auth-package', 3, KerberosString()))
+
 class KERB_ERROR_DATA(univ.Sequence):
     componentType = namedtype.NamedTypes(
         _sequence_component('data-type', 1, Int32()),
         _sequence_component('data-value', 2, univ.OctetString()))
+
+class PA_PAC_OPTIONS(univ.SequenceOf):
+    componentType = KerberosFlags()
 
 
 
