@@ -1,20 +1,17 @@
-This file is an extract from the the online documentation at
-http://oss.coresecurity.com/pcapy/.
-
 What is Impacket?
 =================
 
 Impacket is a collection of Python classes for working with network
-protocols. Impacket is mostly focused on providing low-level
-programmatic access to the packets, however some protocols (for
-instance NMB and SMB) are implemented in a higher level as a
-foundation for other protocols. Packets can be constructed from
-scratch, as well as parsed from raw data, and the object oriented API
-makes it simple to work with deep hierarchies of protocols.
+protocols. Impacket is focused on providing low-level
+programmatic access to the packets and for some protocols (for
+instance NMB, SMB1-3 and MS-DCERPC) the protocol implementation itself.
+Packets can be constructed from scratch, as well as parsed from 
+raw data, and the object oriented API makes it simple to work with 
+deep hierarchies of protocols. The library provides a set of tools
+as examples of what can be done within the context of this library.
 
-Impacket is most useful when used together with a packet capture
-utility or package such as Pcapy, an object oriented Python extension
-for capturing network packets.
+A description of some of the tools can be found at:
+http://corelabs.coresecurity.com/index.php?module=Wiki&action=view&type=tool&name=Impacket
 
 What protocols are featured?
 ----------------------------
@@ -24,8 +21,8 @@ What protocols are featured?
  * NMB and SMB1/2/3 (high-level implementations).
  * DCE/RPC versions 4 and 5, over different transports: UDP (version 4
    exclusively), TCP, SMB/TCP, SMB/NetBIOS and HTTP.
- * Portions of the following DCE/RPC interfaces: Conv, DCOM, EPM,
-   SAMR, SCMR, RRP, SRVSC, LSAD, LSAT, WKST, NRPC.
+ * Portions of the following DCE/RPC interfaces: Conv, DCOM (WMI, OAUTH),
+   EPM, SAMR, SCMR, RRP, SRVSC, LSAD, LSAT, WKST, NRPC.
 
 
 Getting Impacket
@@ -86,4 +83,3 @@ Whether you want to report a bug, send a patch or give some
 suggestions on this package, drop us a few lines at
 oss@coresecurity.com.
 
-$Id$
