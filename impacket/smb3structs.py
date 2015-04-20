@@ -1118,8 +1118,8 @@ class VALIDATE_NEGOTIATE_INFO(Structure):
         ('Capabilities','<L=0'),
         ('Guid','16s=""'),
         ('SecurityMode','<H=0'),
-        ('DialectCount','<H=0'),
-        ('Dialects','*<H'),
+        #('DialectCount','<H=0'),
+        ('Dialects','<H*<H'),
     )
 
 class SRV_SNAPSHOT_ARRAY(Structure):
@@ -1180,14 +1180,6 @@ class NETWORK_INTERFACE_INFO(Structure):
         ('Reserved','<L=0'),
         ('LinkSpeed','<Q=0'),
         ('SockAddr_Storage','128s=""'),
-    )
-
-class VALIDATE_NEGOTIATE_INFO(Structure):
-    structure = (
-        ('Capabilities','<L=0'),
-        ('Guid','16s=""'),
-        ('SecurityMode','<H=0'),
-        ('Dialect','<H=0'),
     )
 
 class SMB2Ioctl_Response(Structure):

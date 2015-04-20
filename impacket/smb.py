@@ -168,6 +168,7 @@ SMB_SETUP_USE_LANMAN_KEY         = 0x02
 # QUERY_INFORMATION levels
 SMB_INFO_ALLOCATION              = 0x0001
 SMB_INFO_VOLUME                  = 0x0002
+FILE_FS_SIZE_INFORMATION         = 0x0003
 SMB_QUERY_FS_VOLUME_INFO         = 0x0102
 SMB_QUERY_FS_SIZE_INFO           = 0x0103
 SMB_QUERY_FILE_EA_INFO           = 0x0103
@@ -176,6 +177,7 @@ SMB_QUERY_FS_ATTRIBUTE_INFO      = 0x0105
 SMB_QUERY_FILE_BASIC_INFO        = 0x0101
 SMB_QUERY_FILE_STANDARD_INFO     = 0x0102
 SMB_QUERY_FILE_ALL_INFO          = 0x0107
+FILE_FS_FULL_SIZE_INFORMATION    = 0x03EF
 
 # SET_INFORMATION levels
 SMB_SET_FILE_DISPOSITION_INFO    = 0x0102
@@ -883,6 +885,15 @@ class SMBQueryFsInfoVolume(AsciiOrUnicodeStructure):
         ('VolumeLabel','u'),
     )
 
+# FILE_FS_SIZE_INFORMATION
+class FileFsSizeInformation(Structure):
+    structure = (
+        ('TotalAllocationUnits','<q=148529400'),
+        ('AvailableAllocationUnits','<q=14851044'),
+        ('SectorsPerAllocationUnit','<L=2'),
+        ('BytesPerSector','<L=512'),
+    )
+
 # SMB_QUERY_FS_SIZE_INFO
 class SMBQueryFsSizeInfo(Structure):
     structure = (
@@ -890,6 +901,15 @@ class SMBQueryFsSizeInfo(Structure):
         ('TotalFreeAllocationUnits','<q=14851044'),
         ('SectorsPerAllocationUnit','<L=2'),
         ('BytesPerSector','<L=512'),
+    )
+# FILE_FS_FULL_SIZE_INFORMATION
+class SMBFileFsFullSizeInformation(Structure):
+    structure = (
+        ('TotalAllocationUnits','<q=148529400'),
+        ('CallerAvailableAllocationUnits','<q=148529400'),
+        ('ActualAvailableAllocationUnits','<q=148529400'),
+        ('SectorsPerAllocationUnit','<L=15'),
+        ('BytesPerSector','<L=512')
     )
 # SMB_QUERY_FS_VOLUME_INFO
 class SMBQueryFsVolumeInfo(Structure):

@@ -15,6 +15,7 @@
 
 import sys
 import argparse
+import logging
 from impacket import smbserver, version
 
 if __name__ == '__main__':
@@ -26,6 +27,8 @@ if __name__ == '__main__':
     parser.add_argument('shareName', action='store', help='name of the share to add')
     parser.add_argument('sharePath', action='store', help='path of the share to add')
     parser.add_argument('-comment', action='store', help='share\'s comment to display when asked for shares')
+    parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
+    parser.add_argument('-smb2support', action='store_true', default=False, help='SMB2 Support (experimental!)')
 
     if len(sys.argv)==1:
         parser.print_help()
@@ -37,6 +40,11 @@ if __name__ == '__main__':
        print e
        sys.exit(1)
 
+    if options.debug is True:
+        logging.getLogger().setLevel(logging.DEBUG)
+    else:
+        logging.getLogger().setLevel(logging.INFO)
+
     if options.comment is None:
         comment = ''
     else:
@@ -45,6 +53,7 @@ if __name__ == '__main__':
     server = smbserver.SimpleSMBServer()
 
     server.addShare(options.shareName.upper(), options.sharePath, comment)
+    server.setSMB2Support(options.smb2support)
 
     # If you don't want log to stdout, comment the following line
     # If you want log dumped to a file, enter the filename
