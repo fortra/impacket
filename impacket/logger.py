@@ -10,8 +10,28 @@
 # custom logging implementation.
 #
 
-class ImpacketLogger:        
-    def logMessage(self,message):
-        print message
-        
-    
+import logging
+
+class ImpacketFormatter(logging.Formatter):
+  '''
+  Prefixing logged messages through the custom attribute 'bullet'.
+  '''
+  def format(self, record):
+    if record.levelno in (logging.INFO, logging.DEBUG):
+      record.bullet = '[*]'
+    else:
+      record.bullet = '[!]'
+
+    return logging.Formatter.format(self, record)
+
+class NullHandler(logging.Handler):
+  '''
+  Backporting logging.NullHandler, only available since python 2.7.
+  https://docs.python.org/release/2.6/library/logging.html#configuring-logging-for-a-library
+  '''
+  def emit(self, record):
+    pass
+
+logger = logging.getLogger('impacket')
+logger.addHandler(NullHandler())
+
