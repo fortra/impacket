@@ -4186,11 +4186,7 @@ class SimpleSMBServer():
 
     def setSMBChallenge(self, challenge):
         if challenge != '':
-            chal = ''
-            for i in range(0,len(challenge),2):
-                chal += challenge[i:i+2].decode("hex")
-            
-            self.__smbConfig.set('global', 'challenge', chal)
+            self.__smbConfig.set('global', 'challenge', challenge.decode('hex'))
             self.__server.setServerConfig(self.__smbConfig)
             self.__server.processConfigFile()
         
