@@ -2263,7 +2263,6 @@ class SMBCommands():
                 av_pairs[ntlm.NTLMSSP_AV_DOMAINNAME] = av_pairs[ntlm.NTLMSSP_AV_DNS_DOMAINNAME] = smbServer.getServerDomain().encode('utf-16le')
                 av_pairs[ntlm.NTLMSSP_AV_TIME] = struct.pack('<q', (116444736000000000 + calendar.timegm(time.gmtime()) * 10000000) )
 
-                print smbServer.getSMBChallenge()
                 challengeMessage = ntlm.NTLMAuthChallenge()
                 challengeMessage['flags']            = ansFlags
                 challengeMessage['domain_len']       = len(smbServer.getServerDomain().encode('utf-16le'))
@@ -2581,7 +2580,6 @@ class SMB2Commands():
             av_pairs[ntlm.NTLMSSP_AV_DOMAINNAME] = av_pairs[ntlm.NTLMSSP_AV_DNS_DOMAINNAME] = smbServer.getServerDomain().encode('utf-16le')
             av_pairs[ntlm.NTLMSSP_AV_TIME] = struct.pack('<q', (116444736000000000 + calendar.timegm(time.gmtime()) * 10000000) )
 
-            print smbServer.getSMBChallenge()
             challengeMessage = ntlm.NTLMAuthChallenge()
             challengeMessage['flags']            = ansFlags
             challengeMessage['domain_len']       = len(smbServer.getServerDomain().encode('utf-16le'))
