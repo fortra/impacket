@@ -3419,8 +3419,7 @@ class SMBSERVERHandler(SocketServer.BaseRequestHandler):
                        session.send_packet(str(i))
             except Exception, e:
                 self.__SMB.log("Handle: %s" % e)
-                import traceback
-                traceback.print_exc()
+                #traceback.print_exc()
                 break
 
     def finish(self):
@@ -3879,8 +3878,7 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
                         done = True 
 
         except Exception, e:
-            import traceback
-            traceback.print_exc()
+            #traceback.print_exc()
             # Something wen't wrong, defaulting to Bad user ID
             self.log('processRequest (0x%x,%s)' % (packet['Command'],e), logging.ERROR)
             raise

