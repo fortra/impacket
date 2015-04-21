@@ -54,7 +54,7 @@ if __name__ == '__main__':
 
     server.addShare(options.shareName.upper(), options.sharePath, comment)
     server.setSMB2Support(options.smb2support)
-    server.setSMBChallenge('') #here you can set a custom smb challenge, if empty defaults to 'A'*8 (remember: must be 16 bytes long)
+    server.setSMBChallenge('') #here you can set a custom smb challenge, if empty defaults to 'A'*8 (remember: must be 8 bytes (16 chars) long)
 
     # If you don't want log to stdout, comment the following line
     # If you want log dumped to a file, enter the filename
