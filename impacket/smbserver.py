@@ -2268,9 +2268,7 @@ class SMBCommands():
                 challengeMessage['domain_len']       = len(smbServer.getServerDomain().encode('utf-16le'))
                 challengeMessage['domain_max_len']   = challengeMessage['domain_len']
                 challengeMessage['domain_offset']    = 40 + 16
-                # TODO: Use a real challenge
-                # TODO: let the user choose the challenge :)
-                challengeMessage['challenge']        = 'A' * 8 
+                challengeMessage['challenge']        = smbServer.getSMBChallenge()
                 challengeMessage['domain_name']      = smbServer.getServerDomain().encode('utf-16le')
                 challengeMessage['TargetInfoFields_len']     = len(av_pairs)
                 challengeMessage['TargetInfoFields_max_len'] = len(av_pairs)
@@ -2587,9 +2585,7 @@ class SMB2Commands():
             challengeMessage['domain_len']       = len(smbServer.getServerDomain().encode('utf-16le'))
             challengeMessage['domain_max_len']   = challengeMessage['domain_len']
             challengeMessage['domain_offset']    = 40 + 16
-            # TODO: Use a real challenge
-            # TODO: let the user choose the challenge :)
-            challengeMessage['challenge']        = 'A' * 8 
+            challengeMessage['challenge']        = smbServer.getSMBChallenge()
             challengeMessage['domain_name']      = smbServer.getServerDomain().encode('utf-16le')
             challengeMessage['TargetInfoFields_len']     = len(av_pairs)
             challengeMessage['TargetInfoFields_max_len'] = len(av_pairs)
@@ -3438,6 +3434,7 @@ class SMBSERVER(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
         self.__serverName   = ''
         self.__serverOS     = ''
         self.__serverDomain = ''
+        self.__challenge    = ''
 
         # Our ConfigParser data
         self.__serverConfig = config_parser
@@ -3755,6 +3752,9 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
   
     def getServerDomain(self):
         return self.__serverDomain
+
+    def getSMBChallenge(self):
+        return self.__challenge
   
     def getServerConfig(self):
         return self.__serverConfig
@@ -3989,6 +3989,7 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
         self.__serverOS     = self.__serverConfig.get('global','server_os')
         self.__serverDomain = self.__serverConfig.get('global','server_domain')
         self.__logFile      = self.__serverConfig.get('global','log_file')
+        self.__challenge    = self.__serverConfig.get('global', 'challenge')
 
         if self.__serverConfig.has_option("global", "jtr_dump_path"):
             self.__jtr_dump_path = self.__serverConfig.get("global", "jtr_dump_path")
@@ -4142,6 +4143,7 @@ class SimpleSMBServer():
             self.__smbConfig.set('global','log_file','None')
             self.__smbConfig.set('global','rpc_apis','yes')
             self.__smbConfig.set('global','credentials_file','')
+            self.__smbConfig.set('global', 'challenge', "A"*8)
 
             # IPC always needed
             self.__smbConfig.add_section('IPC$')
@@ -4181,6 +4183,12 @@ class SimpleSMBServer():
         self.__srvsServer.setServerConfig(self.__smbConfig)
         self.__server.processConfigFile()
         self.__srvsServer.processConfigFile()
+
+    def setSMBChallenge(self, challenge):
+        if challenge != '':
+            self.__smbConfig.set('global', 'challenge', challenge.decode('hex'))
+            self.__server.setServerConfig(self.__smbConfig)
+            self.__server.processConfigFile()
         
     def setLogFile(self, logFile):
         self.__smbConfig.set('global','log_file',logFile)

@@ -54,6 +54,12 @@ if __name__ == '__main__':
 
     server.addShare(options.shareName.upper(), options.sharePath, comment)
     server.setSMB2Support(options.smb2support)
+   
+    # Here you can set a custom SMB challenge in hex format
+    # If empty defaults to '4141414141414141'
+    # (remember: must be 16 hex bytes long)
+    # e.g. server.setSMBChallenge('12345678abcdef00')
+    server.setSMBChallenge('')
 
     # If you don't want log to stdout, comment the following line
     # If you want log dumped to a file, enter the filename
