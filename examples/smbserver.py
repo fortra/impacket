@@ -58,7 +58,7 @@ if __name__ == '__main__':
     # Here you can set a custom SMB challenge in hex format
     # If empty defaults to '4141414141414141'
     # (remember: must be 16 hex bytes long)
-    # e.g. server.setSMBChallenge('12345678abcdef00'
+    # e.g. server.setSMBChallenge('12345678abcdef00')
     server.setSMBChallenge('')
 
     # If you don't want log to stdout, comment the following line
