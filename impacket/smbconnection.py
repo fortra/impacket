@@ -19,7 +19,7 @@ import ntpath
 import string
 import socket
 import logging
-from impacket import smb, smb3, nmb, nt_errors, version
+from impacket import smb, smb3, nmb, nt_errors, LOG
 from smb3structs import *
 
 # So the user doesn't need to import smb, the smb3 are already in here
@@ -45,6 +45,7 @@ class SMBConnection():
         self._nmbSession    = 0
         hostType = nmb.TYPE_SERVER
 
+        LOG.info('A'*80)
         if existingConnection is not None:
             # Existing Connection must be a smb or smb3 instance
             assert ( isinstance(existingConnection,smb.SMB) or isinstance(existingConnection, smb3.SMB3))
@@ -183,7 +184,7 @@ class SMBConnection():
                 # No cache present
                 pass
             else:
-                logging.debug("Using Kerberos Cache: %s" % os.getenv('KRB5CCNAME'))
+                LOG.debug("Using Kerberos Cache: %s" % os.getenv('KRB5CCNAME'))
                 principal = 'cifs/%s@%s' % (self.getRemoteHost().upper(), domain.upper())
                 creds = ccache.getCredential(principal)
                 if creds is None:
@@ -192,12 +193,12 @@ class SMBConnection():
                     creds =  ccache.getCredential(principal)
                     if creds is not None:
                         TGT = creds.toTGT()
-                        logging.debug('Using TGT from cache')
+                        LOG.debug('Using TGT from cache')
                     else:
-                        logging.debug("No valid credentials found in cache. ")
+                        LOG.debug("No valid credentials found in cache. ")
                 else:
                     TGS = creds.toTGS()
-                    logging.debug('Using TGS from cache')
+                    LOG.debug('Using TGS from cache')
 
         while True:
             try:
