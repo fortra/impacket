@@ -18,6 +18,7 @@
 
 
 from impacket import version, tds
+from impacket.examples import logger
 import argparse
 import sys
 import string
@@ -41,10 +42,10 @@ if __name__ == '__main__':
     ms_sql = tds.MSSQL(options.host)
     instances = ms_sql.getInstances(string.atoi(options.timeout))
     if len(instances) == 0:
-        print "No MSSQL Instances found"
+        "No MSSQL Instances found"
     else:
         for i, instance in enumerate(instances):
-            print "[*] Instance %d" % i
+            logging.info("Instance %d" % i)
             for key in instance.keys():
                print key + ":" + instance[key]
  

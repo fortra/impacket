@@ -58,6 +58,7 @@ from impacket import smbserver, smb, version
 import impacket.smb3structs as smb2
 from impacket.smb import *
 from impacket.smbserver import *
+from impacket.examples import logger
 
 class KarmaSMBServer(Thread):
     def __init__(self, smb2Support = False):
@@ -567,7 +568,7 @@ class KarmaSMBServer(Thread):
         self.server.serve_forever()
 
     def run(self):
-        print "[*] Setting up SMB Server"
+        logging.info("Setting up SMB Server")
         self._start()
 
     def setDefaultFile(self, filename):
@@ -597,7 +598,7 @@ if __name__ == '__main__':
     try:
        options = parser.parse_args()
     except Exception, e:
-       print e
+       logging.critical(str(e))
        sys.exit(1)
 
     s = KarmaSMBServer(options.smb2support)
@@ -607,8 +608,7 @@ if __name__ == '__main__':
 
     s.start()
         
-    print ""
-    print "[*] Servers started, waiting for connections"
+    logging.info("Servers started, waiting for connections")
     while True:
         try:
             sys.stdin.read()

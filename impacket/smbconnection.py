@@ -18,7 +18,6 @@
 import ntpath
 import string
 import socket
-import logging
 from impacket import smb, smb3, nmb, nt_errors, LOG
 from smb3structs import *
 
@@ -45,7 +44,6 @@ class SMBConnection():
         self._nmbSession    = 0
         hostType = nmb.TYPE_SERVER
 
-        LOG.info('A'*80)
         if existingConnection is not None:
             # Existing Connection must be a smb or smb3 instance
             assert ( isinstance(existingConnection,smb.SMB) or isinstance(existingConnection, smb3.SMB3))
@@ -68,7 +66,7 @@ class SMBConnection():
             elif preferredDialect in [SMB2_DIALECT_002, SMB2_DIALECT_21, SMB2_DIALECT_30]:
                 self._SMBConnection = smb3.SMB3(remoteName, remoteHost, myName, hostType, sess_port, timeout, preferredDialect = preferredDialect)
             else:
-                print "Unknown dialect ", preferredDialect
+                LOG.critical("Unknown dialect ", preferredDialect)
                 raise
 
     def _negotiateSession(self, myName, remoteName, remoteHost, sess_port, timeout, extended_security = True):
@@ -311,7 +309,7 @@ class SMBConnection():
             ntCreate['Data']['FileName'] = pathName
 
             if createContexts is not None:
-                print "CreateContexts not supported in SMB1"
+                LOG.error("CreateContexts not supported in SMB1")
 
             try:
                 return self._SMBConnection.nt_create_andx(treeId, pathName, cmd = ntCreate)
@@ -350,7 +348,7 @@ class SMBConnection():
             ntCreate['Data']['FileName'] = pathName
 
             if createContexts is not None:
-                print "CreateContexts not supported in SMB1"
+                LOG.error("CreateContexts not supported in SMB1")
 
             try:
                 return self._SMBConnection.nt_create_andx(treeId, pathName, cmd = ntCreate)

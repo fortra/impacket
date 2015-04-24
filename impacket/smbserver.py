@@ -20,7 +20,7 @@
 # [ ] Hence.. implement locking
 # estamos en la B
 
-from impacket import smb, nmb, ntlm, uuid
+from impacket import smb, nmb, ntlm, uuid, LOG
 from impacket import smb3structs as smb2
 from impacket.spnego import *
 from impacket.nt_errors import *
@@ -4007,7 +4007,7 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
                              level = logging.DEBUG, 
                              format="%(asctime)s: %(levelname)s: %(message)s", 
                              datefmt = '%m/%d/%Y %I:%M:%S %p')
-        self.__log        = logging.getLogger()
+        self.__log        = LOG
 
         # Process the credentials
         credentials_fname = self.__serverConfig.get('global','credentials_file')

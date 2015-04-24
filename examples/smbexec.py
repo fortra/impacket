@@ -44,6 +44,7 @@ from threading import Thread
 from impacket import version, smbserver
 from impacket.smbconnection import *
 from impacket.dcerpc.v5 import transport, scmr
+from impacket.examples import logger
 
 OUTPUT_FILENAME = '__output'
 BATCH_FILENAME  = 'execute.bat'
@@ -55,7 +56,7 @@ class SMBServer(Thread):
         Thread.__init__(self)
 
     def cleanup_server(self):
-        print '[*] Cleaning up..'
+        logging.info('Cleaning up..')
         try:
             os.unlink(SMBSERVER_DIR + '/smb.log')
         except:
@@ -87,15 +88,15 @@ class SMBServer(Thread):
         smbConfig.set('IPC$','path')
 
         self.smb = smbserver.SMBSERVER(('0.0.0.0',445), config_parser = smbConfig)
-        print '[*] Creating tmp directory'
+        logging.info('Creating tmp directory')
         try:
             os.mkdir(SMBSERVER_DIR)
         except Exception, e:
-            print e
+            logging.critical(str(e))
             pass
-        print '[*] Setting up SMB Server'
+        logging.info('Setting up SMB Server')
         self.smb.processConfigFile()
-        print '[*] Ready to listen...'
+        logging.info('Ready to listen...')
         try:
             self.smb.serve_forever()
         except:
@@ -138,8 +139,8 @@ class CMDEXEC:
             protodef = CMDEXEC.KNOWN_PROTOCOLS[protocol]
             port = protodef[1]
 
-            print "Trying protocol %s..." % protocol
-            print "Creating service %s..." % self.__serviceName
+            logging.info("Trying protocol %s..." % protocol)
+            logging.info("Creating service %s..." % self.__serviceName)
 
             stringbinding = protodef[0] % addr
 
@@ -165,7 +166,7 @@ class CMDEXEC:
             except  (Exception, KeyboardInterrupt), e:
                 import traceback
                 traceback.print_exc()
-                print e
+                logging.critical(str(e))
                 self.shell.finish()
                 sys.stdout.flush()
                 sys.exit(1)
@@ -188,7 +189,7 @@ class RemoteShell(cmd.Cmd):
         try:
             self.__scmr.connect()
         except Exception, e:
-            print e
+            logging.critical(str(e))
             sys.exit(1)
 
         s = rpc.get_smb_connection()
@@ -233,7 +234,7 @@ class RemoteShell(cmd.Cmd):
     def do_cd(self, s):
         # We just can't CD or mantain track of the target dir.
         if len(s) > 0:
-            print "[!] You can't CD under SMBEXEC. Use full paths."
+            logging.error("You can't CD under SMBEXEC. Use full paths.")
 
         self.execute_remote('cd ' )
         if len(self.__outputBuffer) > 0:

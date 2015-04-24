@@ -23,6 +23,7 @@ import logging
 import argparse
 from impacket import version, ese
 from impacket.ese import ESENT_DB
+from impacket.examples import logger
 
 def dumpPage(ese, pageNum):
     data = ese.getPage(pageNum)

@@ -26,6 +26,7 @@ import logging
 from impacket import uuid, ntlm, version
 from impacket.dcerpc.v5 import transport, scmr
 from impacket.dcerpc.v5.ndr import NULL
+from impacket.examples import logger
 from impacket.crypto import *
 
 class SVCCTL:
@@ -56,7 +57,7 @@ class SVCCTL:
             protodef = SVCCTL.KNOWN_PROTOCOLS[protocol]
             port = protodef[1]
 
-            print "Trying protocol %s..." % protocol
+            logging.info("Trying protocol %s..." % protocol)
             stringbinding = protodef[0] % addr
 
             rpctransport = transport.DCERPCTransportFactory(stringbinding)
@@ -71,7 +72,7 @@ class SVCCTL:
             except Exception, e:
                 #import traceback
                 #traceback.print_exc()
-                print e
+                logging.critical(str(e))
                 break
             else:
                 # Got a response. No need for further iterations.
@@ -94,19 +95,19 @@ class SVCCTL:
             serviceHandle = ans['lpServiceHandle']
 
         if self.__action == 'START':
-            print "Starting service %s" % self.__options.name
+            logging.info("Starting service %s" % self.__options.name)
             scmr.hRStartServiceW(rpc, serviceHandle)
             scmr.hRCloseServiceHandle(rpc, serviceHandle)
         elif self.__action == 'STOP':
-            print "Stopping service %s" % self.__options.name
+            logging.info("Stopping service %s" % self.__options.name)
             scmr.hRControlService(rpc, serviceHandle, scmr.SERVICE_CONTROL_STOP)
             scmr.hRCloseServiceHandle(rpc, serviceHandle)
         elif self.__action == 'DELETE':
-            print "Deleting service %s" % self.__options.name
+            logging.info("Deleting service %s" % self.__options.name)
             scmr.hRDeleteService(rpc, serviceHandle)
             scmr.hRCloseServiceHandle(rpc, serviceHandle)
         elif self.__action == 'CONFIG':
-            print "Querying service config for %s" % self.__options.name
+            logging.info("Querying service config for %s" % self.__options.name)
             resp = scmr.hRQueryServiceConfigW(rpc, serviceHandle)
             print "TYPE              : %2d - " % resp['lpServiceConfig']['dwServiceType'],
             if resp['lpServiceConfig']['dwServiceType'] & 0x1:
@@ -173,7 +174,7 @@ class SVCCTL:
             else:
                print "UNKOWN"
         elif self.__action == 'LIST':
-            print "Listing services available on target"
+            logging.info("Listing services available on target")
             #resp = rpc.EnumServicesStatusW(scManagerHandle, svcctl.SERVICE_WIN32_SHARE_PROCESS )
             #resp = rpc.EnumServicesStatusW(scManagerHandle, svcctl.SERVICE_WIN32_OWN_PROCESS )
             #resp = rpc.EnumServicesStatusW(scManagerHandle, serviceType = svcctl.SERVICE_FILE_SYSTEM_DRIVER, serviceState = svcctl.SERVICE_STATE_ALL )
@@ -199,10 +200,10 @@ class SVCCTL:
                    print "UNKOWN"
             print "Total Services: %d" % len(resp)
         elif self.__action == 'CREATE':
-            print "Creating service %s" % self.__options.name
+            logging.info("Creating service %s" % self.__options.name)
             resp = scmr.hRCreateServiceW(rpc, scManagerHandle,self.__options.name + '\x00', self.__options.display + '\x00', lpBinaryPathName=self.__options.path + '\x00')
         elif self.__action == 'CHANGE':
-            print "Changing service config for %s" % self.__options.name
+            logging.info("Changing service config for %s" % self.__options.name)
             if self.__options.start_type is not None:
                 start_type = int(self.__options.start_type)
             else:
@@ -240,7 +241,7 @@ class SVCCTL:
             resp = scmr.hRChangeServiceConfigW(rpc, serviceHandle, service_type, start_type, scmr.SERVICE_ERROR_IGNORE, path, NULL, NULL, NULL, 0, start_name, password, 0, display)
             scmr.hRCloseServiceHandle(rpc, serviceHandle)
         else:
-            print "Unknown action %s" % self.__action
+            logging.error("Unknown action %s" % self.__action)
 
         scmr.hRCloseServiceHandle(rpc, scManagerHandle)
 
@@ -334,4 +335,4 @@ if __name__ == '__main__':
     try:
         services.run(address)
     except Exception, e:
-        print e
+        logging.error(str(e))

@@ -26,6 +26,7 @@ Author: Catalin Patulea <cat@vv.carleton.ca>
 import sys
 from impacket import uuid
 from impacket.dcerpc.v5 import transport
+from impacket.examples import logging
 
 def main(args):
   if len(args) != 4:

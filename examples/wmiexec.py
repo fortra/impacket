@@ -34,6 +34,7 @@ from impacket.smbconnection import *
 from impacket.dcerpc.v5.dcomrt import DCOMConnection
 from impacket.dcerpc.v5.dcom import wmi
 from impacket.dcerpc.v5.dtypes import NULL
+from impacket.examples import logger
 
 OUTPUT_FILENAME = '__'
 
@@ -62,13 +63,13 @@ class WMIEXEC:
 
             dialect = smbConnection.getDialect()
             if dialect == SMB_DIALECT:
-                print("SMBv1 dialect used")
+                logging.info("SMBv1 dialect used")
             elif dialect == SMB2_DIALECT_002:
-                print("SMBv2.0 dialect used")
+                logging.info("SMBv2.0 dialect used")
             elif dialect == SMB2_DIALECT_21:
-                print("SMBv2.1 dialect used")
+                logging.info("SMBv2.1 dialect used")
             else:
-                print("SMBv3.0 dialect used")
+                logging.info("SMBv3.0 dialect used")
         else:
             smbConnection = None
 
@@ -89,7 +90,7 @@ class WMIEXEC:
         except  (Exception, KeyboardInterrupt), e:
             #import traceback
             #traceback.print_exc()
-            print e
+            logging.error(str(e))
             if smbConnection is not None:
                 smbConnection.logoff()
             dcom.disconnect()
@@ -145,11 +146,11 @@ class RemoteShell(cmd.Cmd):
             drive, tail = ntpath.splitdrive(newPath) 
             filename = ntpath.basename(tail)
             fh = open(filename,'wb')
-            print "[*] Downloading %s\\%s" % (drive, tail)
+            logging.info("Downloading %s\\%s" % (drive, tail))
             self.__transferClient.getFile(drive[:-1]+'$', tail, fh.write)
             fh.close()
         except Exception, e:
-            print e
+            logging.error(str(e))
             os.remove(filename)
             pass
 
@@ -169,11 +170,11 @@ class RemoteShell(cmd.Cmd):
             import ntpath
             pathname = ntpath.join(ntpath.join(self.__pwd,dst_path), src_file)
             drive, tail = ntpath.splitdrive(pathname)
-            print "[*] Uploading %s to %s" % (src_file, pathname)
+            logging.info("Uploading %s to %s" % (src_file, pathname))
             self.__transferClient.putFile(drive[:-1]+'$', tail, fh.read)
             fh.close()
         except Exception, e:
-            print e
+            logging.critical(str(e))
             pass
 
     def do_exit(self, s):
@@ -276,7 +277,7 @@ if __name__ == '__main__':
     options = parser.parse_args()
 
     if ' '.join(options.command) == ' ' and options.nooutput is True:
-        print "ERROR: -nooutput switch and interactive shell not supported"
+        logging.error("-nooutput switch and interactive shell not supported")
         sys.exit(1)
     
     if options.debug is True:
@@ -303,5 +304,5 @@ if __name__ == '__main__':
     except (Exception, KeyboardInterrupt), e:
         #import traceback
         #print traceback.print_exc()
-        print '\nERROR: %s' % e
+        logging.error(str(e))
     sys.exit(0)

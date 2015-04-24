@@ -20,13 +20,12 @@
 
 
 import impacket
-from impacket import structure
+from impacket import structure, LOG
 from impacket.structure import Structure
 import sys
 import struct
 from struct import unpack, pack, calcsize
 import ntpath
-import logging
 
 # Constants
 
@@ -157,7 +156,6 @@ StructMappings = {'nk': REG_NK,
 
 class Registry():
     def __init__(self, hive, isRemote = False):
-        logging.basicConfig(format='%(levelname)s:%(message)s',level = logging.WARNING)
         self.__hive = hive
         if isRemote is True:
             self.fd = self.__hive
@@ -169,10 +167,10 @@ class Registry():
         self.indent = ''
         self.rootKey = self.__findRootKey()
         if self.rootKey is None:
-            logging.error("Can't find root key!")
+            LOG.error("Can't find root key!")
             return None
         elif self.__regf['MajorVersion'] != 1 and self.__regf['MinorVersion'] > 5:
-            logging.warning("Unsupported version (%d.%d) - things might not work!" % (self.__regf['MajorVersion'], self.__regf['MinorVersion']))
+            LOG.warning("Unsupported version (%d.%d) - things might not work!" % (self.__regf['MajorVersion'], self.__regf['MinorVersion']))
             return None
 
     def close(self):
@@ -213,7 +211,7 @@ class Registry():
             if StructMappings.has_key(block['Data'][:2]):
                 return StructMappings[block['Data'][:2]](block['Data'])
             else:
-                logging.debug("Unknown type 0x%s" % block['Data'][:2])
+                LOG.debug("Unknown type 0x%s" % block['Data'][:2])
                 return block
             return None
 
@@ -288,7 +286,7 @@ class Registry():
             if nk['KeyName'] == key:
                 return offset
         else:
-            logging.error("UNKNOWN Magic %s" % magic)
+            LOG.critical("UNKNOWN Magic %s" % magic)
             sys.exit(1)
 
         return None
@@ -379,7 +377,7 @@ class Registry():
                 if res is not None:
                     parentKey = res
                 else:
-                    #logging.error("Key %s not found!" % key)
+                    #LOG.error("Key %s not found!" % key)
                     return None
 
         return parentKey

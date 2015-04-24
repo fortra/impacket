@@ -44,6 +44,7 @@ from impacket.dcerpc.v5 import rpcrt, transport, rrp, scmr, wkst, samr
 from impacket.winregistry import hexdump
 from impacket.structure import Structure
 from impacket.ese import ESENT_DB
+from impacket.examples import logger
 from struct import unpack, pack
 from collections import OrderedDict
 import sys
@@ -62,8 +63,8 @@ try:
     from Crypto.Cipher import DES, ARC4, AES
     from Crypto.Hash import HMAC, MD4
 except Exception:
-    print "Warning: You don't have any crypto installed. You need PyCrypto"
-    print "See http://www.pycrypto.org/"
+    logging.critical("Warning: You don't have any crypto installed. You need PyCrypto")
+    logging.critical("See http://www.pycrypto.org/")
 
 
 # Structures

@@ -21,6 +21,7 @@ import sys
 import types
 
 from impacket import uuid, ntlm, version
+from impacket.examples import logger
 from impacket.dcerpc.v5 import transport, lsat, lsad
 from impacket.dcerpc.v5.ndr import NULL
 from impacket.dcerpc.v5.samr import SID_NAME_USE
@@ -51,7 +52,7 @@ class LSALookupSid:
 
     def dump(self, addr):
 
-        print 'Brute forcing SIDs at %s' % addr
+        logging.info('Brute forcing SIDs at %s' % addr)
 
         # Try all requested protocols until one works.
         entries = []
@@ -59,7 +60,7 @@ class LSALookupSid:
             protodef = LSALookupSid.KNOWN_PROTOCOLS[protocol]
             port = protodef[1]
 
-            print "Trying protocol %s..." % protocol
+            logging.info("Trying protocol %s..." % protocol)
             stringbinding = protodef[0] % addr
 
             rpctransport = transport.DCERPCTransportFactory(stringbinding)
@@ -71,9 +72,9 @@ class LSALookupSid:
             try:
                 entries = self.__bruteForce(rpctransport, self.__maxRid)
             except Exception, e:
-                import traceback
-                print traceback.print_exc()
-                print e
+                #import traceback
+                #print traceback.print_exc()
+                logging.critical(str(e))
                 raise
             else:
                 # Got a response. No need for further iterations.

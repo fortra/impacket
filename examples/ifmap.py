@@ -38,6 +38,7 @@ from impacket import uuid
 from impacket.dcerpc import ndrutils
 from impacket.dcerpc.v5 import transport, rpcrt, epm
 from impacket.dcerpc.v5 import mgmt
+from impacket.examples import logger
 
 uuid_database = set(uuid.string_to_uuidtup(line) for line in """
 00000001-0000-0000-c000-000000000046 v0.0

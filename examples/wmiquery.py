@@ -19,15 +19,16 @@
 # Reference for:
 #  DCOM
 #
+import argparse
+import sys
+import os
+import logging
 from impacket import version, ntlm
 from impacket.dcerpc.v5 import transport, dcomrt
 from impacket.dcerpc.v5.dtypes import NULL
 from impacket.dcerpc.v5.dcom import wmi
 from impacket.dcerpc.v5.dcomrt import DCOMConnection
-import argparse
-import sys
-import os
-import logging
+from impacket.examples import logger
 
 if __name__ == '__main__':
     import cmd
@@ -61,7 +62,7 @@ if __name__ == '__main__':
             except Exception, e:
                 #import traceback
                 #print traceback.print_exc()
-                print e
+                logging.error(str(e))
 
         def do_lcd(self, s):
             if s == '':
@@ -103,7 +104,7 @@ if __name__ == '__main__':
                 self.printReply(iEnumWbemClassObject)
                 iEnumWbemClassObject.RemRelease()
             except Exception, e:
-                print str(e)
+                logging.error(str(e))
          
         def emptyline(self):
             pass

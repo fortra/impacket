@@ -17,6 +17,7 @@ import sys
 import argparse
 import logging
 from impacket import smbserver, version
+from impacket.examples import logger
 
 if __name__ == '__main__':
 
@@ -37,7 +38,7 @@ if __name__ == '__main__':
     try:
        options = parser.parse_args()
     except Exception, e:
-       print e
+       logging.critical(str(e))
        sys.exit(1)
 
     if options.debug is True:

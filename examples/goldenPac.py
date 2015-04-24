@@ -33,6 +33,7 @@
 
 import struct
 import binascii
+import logging
 from impacket.dcerpc.v5 import ndr
 from impacket.dcerpc.v5.ndr import NDRCALL, NDR
 from impacket.dcerpc.v5.dtypes import *
@@ -40,6 +41,7 @@ from impacket.dcerpc.v5.nrpc import USER_SESSION_KEY, CHAR_FIXED_8_ARRAY, PUCHAR
 from impacket.dcerpc.v5.enum import Enum
 from impacket.dcerpc.v5.rpcrt import TypeSerialization1
 from impacket.structure import Structure
+from impacket.examples import logger
 
 
 ################################################################################
@@ -307,7 +309,7 @@ class PSEXEC:
         try:
             dce.connect()
         except Exception, e:
-            print e
+            logging.critical(str(e))
             sys.exit(1)
 
         global dialect
@@ -325,7 +327,7 @@ class PSEXEC:
                 try:
                     f = open(self.__exeFile)
                 except Exception, e:
-                    print e
+                    logging.critical(str(e))
                     sys.exit(1)
                 installService = serviceinstall.ServiceInstall(rpctransport.get_smb_connection(), f)
     
@@ -372,7 +374,7 @@ class PSEXEC:
 
             if len(ans):
                retCode = RemComResponse(ans)
-               print "[*] Process %s finished with ErrorCode: %d, ReturnCode: %d" % (self.__command, retCode['ErrorCode'], retCode['ReturnCode'])
+               logging.info("Process %s finished with ErrorCode: %d, ReturnCode: %d" % (self.__command, retCode['ErrorCode'], retCode['ReturnCode']))
             installService.uninstall()
             if self.__copyFile is not None:
                 # We copied a file for execution, let's remove it
@@ -403,7 +405,7 @@ class PSEXEC:
                 pass
 
         if tries == 0:
-            print '[!] Pipe not ready, aborting'
+            logging.critical('Pipe not ready, aborting')
             raise
 
         fid = s.openFile(tid,pipe,accessMask, creationOption = 0x40, fileAttributes = 0x80)
@@ -439,7 +441,7 @@ class Pipes(Thread):
             self.fid = self.server.openFile(self.tid,self.pipe,self.permissions, creationOption = 0x40, fileAttributes = 0x80)
             self.server.setTimeout(1000000)
         except:
-            print "[!] Something wen't wrong connecting the pipes(%s), try again" % self.__class__
+            logging.critical("Something wen't wrong connecting the pipes(%s), try again" % self.__class__)
 
 
 class RemoteStdOutPipe(Pipes):
@@ -528,11 +530,11 @@ class RemoteShell(cmd.Cmd):
             import ntpath
             filename = ntpath.basename(src_path)
             fh = open(filename,'wb')
-            print "[*] Downloading %s\%s" % (self.share, src_path)
+            logging.info("Downloading %s\%s" % (self.share, src_path))
             self.transferClient.getFile(self.share, src_path, fh.write)
             fh.close()
         except Exception, e:
-            print e
+            logging.error(str(e))
             pass
 
         self.send_data('\r\n')
@@ -553,11 +555,11 @@ class RemoteShell(cmd.Cmd):
             fh = open(src_path, 'rb')
             f = dst_path + '/' + src_file
             pathname = string.replace(f,'/','\\')
-            print "[*] Uploading %s to %s\%s" % (src_file, self.share, dst_path)
+            logging.info("Uploading %s to %s\%s" % (src_file, self.share, dst_path))
             self.transferClient.putFile(self.share, pathname, fh.read)
             fh.close()
         except Exception, e:
-            print e
+            logging.error(str(e))
             pass
 
         self.send_data('\r\n')
@@ -570,7 +572,7 @@ class RemoteShell(cmd.Cmd):
             try:
                 os.chdir(s)
             except Exception, e:
-                print e 
+                logging.error(str(e))
         self.send_data('\r\n')
 
     def emptyline(self):
@@ -977,7 +979,7 @@ class MS14_068():
         resp = samr.hSamrLookupNamesInDomain(dce, domainHandle, (self.__username,))
         # Let's pick the relative ID
         rid = resp['RelativeIds']['Element'][0]['Data']
-        print "UserSID: %s-%s"% (domainId.formatCanonical(), rid)
+        logging.info("UserSID: %s-%s"% (domainId.formatCanonical(), rid))
         return domainId, rid
 
     def exploit(self):
@@ -1087,8 +1089,8 @@ if __name__ == '__main__':
     try:
         import pyasn1
     except:
-         print 'This module needs pyasn1 installed'
-         print 'You can get it from https://pypi.python.org/pypi/pyasn1'
+         logging.critical('This module needs pyasn1 installed')
+         logging.critical('You can get it from https://pypi.python.org/pypi/pyasn1')
          sys.exit(1)
     import datetime
     from calendar import timegm
@@ -1142,7 +1144,7 @@ if __name__ == '__main__':
     domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(options.target).groups('')
 
     if domain is None:
-        print 'Domain should be specified!'
+        logging.critical('Domain should be specified!')
         sys.exit(1)
 
     if password == '' and username != '' and options.hashes is None:
@@ -1160,5 +1162,5 @@ if __name__ == '__main__':
     except Exception, e:
         #import traceback
         #print traceback.print_exc()
-        print e
+        logging.critical(str(e))
 

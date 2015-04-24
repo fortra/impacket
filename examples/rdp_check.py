@@ -22,6 +22,7 @@
 from impacket.structure import Structure
 from impacket.spnego import *
 from struct import pack, unpack
+from impacket.examples import logger
 
 TDPU_CONNECTION_REQUEST  = 0xe0
 TPDU_CONNECTION_CONFIRM  = 0xd0
@@ -284,7 +285,7 @@ if __name__ == '__main__':
         import OpenSSL
         from OpenSSL import SSL, crypto
     except:
-        print "pyOpenSSL is not installed, can't continue"
+        logging.critical("pyOpenSSL is not installed, can't continue")
         sys.exit(1)
     
 
@@ -488,7 +489,7 @@ if __name__ == '__main__':
            buff = tls.recv(1024)
        except Exception, err:
            if str(err).find("denied") > 0:
-               print "[*] Access Denied"
+               logging.error("Access Denied")
            else:
                logging.error(err)
            return
@@ -540,7 +541,7 @@ if __name__ == '__main__':
        ts_request['authInfo'] = str(signature) + cripted_creds
        tls.send(ts_request.getData())
        tls.close()
-       print "[*] Access Granted"
+       logging.info("Access Granted")
 
     print version.BANNER
 

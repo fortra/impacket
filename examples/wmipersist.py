@@ -59,6 +59,7 @@ from impacket.smbconnection import *
 from impacket.dcerpc.v5.dcomrt import DCOMConnection
 from impacket.dcerpc.v5.dcom import wmi
 from impacket.dcerpc.v5.dtypes import NULL
+from impacket.examples import logger
 
 class WMIPERSISTENCE:
     def __init__(self, username = '', password = '', domain = '', options= None):
@@ -213,5 +214,5 @@ if __name__ == '__main__':
     except (Exception, KeyboardInterrupt), e:
         #import traceback
         #print traceback.print_exc()
-        print '\nERROR: %s' % e
+        logging.error(e)
     sys.exit(0)

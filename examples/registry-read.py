@@ -16,6 +16,7 @@
 #
 
 import impacket
+from impacket.examples import logger
 from impacket import version
 from impacket import winregistry
 import sys

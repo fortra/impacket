@@ -1,4 +1,5 @@
 from impacket import smb
+from impacket.examples import logger
 import time
 
 class lotsSMB(smb.SMB):

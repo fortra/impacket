@@ -24,6 +24,7 @@ import types
 from impacket import uuid, ntlm, version
 from impacket.dcerpc.v5 import transport, epm
 from impacket.dcerpc import  ndrutils
+from impacket.examples import logger
 import argparse
 
 class RPCDump:
@@ -54,7 +55,7 @@ class RPCDump:
         string format.
         """
 
-        print 'Retrieving endpoint list from %s' % addr
+        logging.info('Retrieving endpoint list from %s' % addr)
 
         # Try all requested protocols until one works.
         entries = []
@@ -62,7 +63,7 @@ class RPCDump:
             protodef = RPCDump.KNOWN_PROTOCOLS[protocol]
             port = protodef[1]
 
-            print "Trying protocol %s..." % protocol
+            logging.info("Trying protocol %s..." % protocol)
             stringbinding = protodef[0] % addr
 
             rpctransport = transport.DCERPCTransportFactory(stringbinding)
@@ -74,7 +75,7 @@ class RPCDump:
             try:
                 entries = self.__fetchList(rpctransport)
             except Exception, e:
-                print 'Protocol failed: %s' % e
+                logging.critical('Protocol failed: %s' % e)
             else:
                 # Got a response. No need for further iterations.
                 break
@@ -115,11 +116,11 @@ class RPCDump:
         if entries:
             num = len(entries)
             if 1 == num:
-                print 'Received one endpoint.'
+                logging.info('Received one endpoint.')
             else:
-                print 'Received %d endpoints.' % num
+                logging.info('Received %d endpoints.' % num)
         else:
-            print 'No endpoints found.'
+            logging.info('No endpoints found.')
 
 
     def __fetchList(self, rpctransport):

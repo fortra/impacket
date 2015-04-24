@@ -25,6 +25,7 @@ import logging
 from impacket import uuid, version
 from impacket.nt_errors import STATUS_MORE_ENTRIES
 from impacket.dcerpc.v5 import transport, samr
+from impacket.examples import logger
 import argparse
 
 
@@ -61,7 +62,7 @@ class SAMRDump:
         addr. Addr is a valid host name or IP address.
         """
 
-        print 'Retrieving endpoint list from %s' % addr
+        logging.info('Retrieving endpoint list from %s' % addr)
 
         # Try all requested protocols until one works.
         entries = []
@@ -69,13 +70,13 @@ class SAMRDump:
             protodef = SAMRDump.KNOWN_PROTOCOLS[protocol]
             port = protodef[1]
 
-            print "Trying protocol %s..." % protocol
+            logging.info("Trying protocol %s..." % protocol)
             rpctransport = transport.SMBTransport(addr, port, r'\samr', self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey, doKerberos = self.__doKerberos)
 
             try:
                 entries = self.__fetchList(rpctransport)
             except Exception, e:
-                print 'Protocol failed: %s' % e
+                logging.critical('Protocol failed: %s' % e)
             else:
                 # Got a response. No need for further iterations.
                 break
@@ -94,11 +95,11 @@ class SAMRDump:
         if entries:
             num = len(entries)
             if 1 == num:
-                print 'Received one entry.'
+                logging.info('Received one entry.')
             else:
-                print 'Received %d entries.' % num
+                logging.info('Received %d entries.' % num)
         else:
-            print 'No entries received.'
+            logging.info('No entries received.')
 
 
     def __fetchList(self, rpctransport):
@@ -120,7 +121,7 @@ class SAMRDump:
             for domain in domains:
                 print " . %s" % domain['Name']
 
-            print "Looking up users in domain %s" % domains[0]['Name']
+            logging.info("Looking up users in domain %s" % domains[0]['Name'])
 
             resp = samr.hSamrLookupDomainInSamServer(dce, serverHandle,domains[0]['Name'] )
 
@@ -152,7 +153,7 @@ class SAMRDump:
                 status = resp['ErrorCode']
 
         except ListUsersException, e:
-            print "Error listing users: %s" % e
+            logging.critical("Error listing users: %s" % e)
 
         dce.disconnect()
 

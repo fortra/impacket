@@ -18,6 +18,7 @@
 
 
 from impacket import version, tds
+from impacket.examples import logger
 import argparse
 import sys
 import string

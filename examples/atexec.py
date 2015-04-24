@@ -24,9 +24,11 @@ import types
 import argparse
 import time
 import random
+import logging
 
 from impacket import uuid, ntlm, version
 from impacket.dcerpc import transport, ndrutils, atsvc
+from impacket.examples import logger
 from struct import unpack
 
 class ATSVC_EXEC:
@@ -55,7 +57,7 @@ class ATSVC_EXEC:
             protodef = ATSVC_EXEC.KNOWN_PROTOCOLS[protocol]
             port = protodef[1]
 
-            print "Trying protocol %s..." % protocol
+            logging.info("Trying protocol %s..." % protocol)
             stringbinding = protodef[0] % addr
 
             rpctransport = transport.DCERPCTransportFactory(stringbinding)
@@ -66,7 +68,7 @@ class ATSVC_EXEC:
             try:
                 self.doStuff(rpctransport)
             except Exception, e:
-                print 'Protocol failed: %s' % e
+                logging.error(e)
             else:
                 # Got a response. No need for further iterations.
                 break
@@ -152,7 +154,7 @@ class ATSVC_EXEC:
 # Process command-line arguments.
 if __name__ == '__main__':
     print version.BANNER
-    print "WARNING: This will work ONLY on Windows >= Vista"
+    logging.warning("This will work ONLY on Windows >= Vista")
 
     parser = argparse.ArgumentParser()
 

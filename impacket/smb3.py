@@ -29,7 +29,7 @@
 
 import socket, string, ntpath
 import random
-from impacket import nmb, smb3structs, nt_errors, spnego, ntlm, uuid, crypto
+from impacket import nmb, smb3structs, nt_errors, spnego, ntlm, uuid, crypto, LOG
 from impacket.smb3structs import *
 from impacket.nt_errors import *
 from impacket.spnego import *
@@ -314,7 +314,7 @@ class SMB3:
             try: 
                 AES.MODE_CCM
             except:
-                print "Your pycrypto doesn't support AES.MODE_CCM. Currently only pycrypto experimental supports this mode.\nDownload it from https://www.dlitz.net/software/pycrypto "
+                LOG.critical("Your pycrypto doesn't support AES.MODE_CCM. Currently only pycrypto experimental supports this mode.\nDownload it from https://www.dlitz.net/software/pycrypto ")
                 raise 
             cipher = AES.new(self._Session['EncryptionKey'], AES.MODE_CCM,  transformHeader['Nonce'])
             cipher.update(str(transformHeader)[20:])
@@ -339,7 +339,7 @@ class SMB3:
             try: 
                 AES.MODE_CCM
             except:
-                print "Your pycrypto doesn't support AES.MODE_CCM. Currently only pycrypto experimental supports this mode.\nDownload it from https://www.dlitz.net/software/pycrypto "
+                LOG.critical("Your pycrypto doesn't support AES.MODE_CCM. Currently only pycrypto experimental supports this mode.\nDownload it from https://www.dlitz.net/software/pycrypto ")
                 raise 
             cipher = AES.new(self._Session['DecryptionKey'], AES.MODE_CCM,  transformHeader['Nonce'][:11])
             cipher.update(str(transformHeader)[20:])
@@ -367,7 +367,7 @@ class SMB3:
                     try: 
                         AES.MODE_CCM
                     except:
-                        print "Your pycrypto doesn't support AES.MODE_CCM. Currently only pycrypto experimental supports this mode.\nDownload it from https://www.dlitz.net/software/pycrypto "
+                        LOG.critical("Your pycrypto doesn't support AES.MODE_CCM. Currently only pycrypto experimental supports this mode.\nDownload it from https://www.dlitz.net/software/pycrypto ")
                         raise 
                     cipher = AES.new(self._Session['DecryptionKey'], AES.MODE_CCM,  transformHeader['Nonce'][:11])
                     cipher.update(str(transformHeader)[20:])
@@ -863,7 +863,7 @@ class SMB3:
            if len(fileName.split('\\')) > 2:
                parentDir = ntpath.dirname(pathName)
            if self.GlobalFileTable.has_key(parentDir):
-               print "Don't know what to do now! :-o"
+               log.critical("Don't know what to do now! :-o")
                raise
            else:
                parentEntry = copy.deepcopy(FILE)

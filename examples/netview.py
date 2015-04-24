@@ -65,6 +65,7 @@ from impacket.dcerpc.v5 import transport, wkst, srvs, samr
 from impacket.dcerpc.v5.ndr import NULL
 from impacket.dcerpc.v5.rpcrt import DCERPCException
 from impacket.nt_errors import STATUS_MORE_ENTRIES
+from impacket.examples import logger
 
 machinesAliveQueue = Queue()
 machinesDownQueue = Queue()

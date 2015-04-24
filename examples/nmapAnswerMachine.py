@@ -9,6 +9,7 @@ except: import pcapy
 from impacket import ImpactPacket
 from impacket import ImpactDecoder
 from impacket.ImpactPacket import TCPOption
+from impacket.examples import logger
 
 #defaults
 

@@ -41,6 +41,7 @@ except ImportError:
 from datetime import datetime
 from impacket import structure, version
 from impacket.structure import Structure
+from impacket.examples import logger
 
 import string
 def pretty_print(x):
@@ -1034,7 +1035,7 @@ class MiniShell(cmd.Cmd):
         try:
            retVal = cmd.Cmd.onecmd(self,s)
         except Exception, e:
-           print "ERROR: %s" % e
+           logging.error(str(e))
 
         return retVal
 
@@ -1081,11 +1082,11 @@ class MiniShell(cmd.Cmd):
             res = self.findPathName(newPath)
 
         if res is None:
-            print "Directory not found"
+            logging.error("Directory not found")
             self.pwd = oldpwd
             return 
         if res.isDirectory() == 0:
-            print "Not a directory!"
+            logging.error("Not a directory!")
             self.pwd = oldpwd
             return
         else:
@@ -1165,10 +1166,10 @@ class MiniShell(cmd.Cmd):
         pathName = ntpath.normpath(ntpath.join(self.pwd,pathName))
         res = self.findPathName(pathName)
         if res is None:
-            print "Not found!"
+            logging.error("Not found!")
             return
         if res.isDirectory() > 0:
-            print "It's a directory!"
+            logging.error("It's a directory!")
             return
         if res.isCompressed() or res.isEncrypted() or res.isSparse():
             logging.error('Cannot handle compressed/encrypted/sparse files! :(')
@@ -1183,7 +1184,7 @@ class MiniShell(cmd.Cmd):
         if stream.getDataSize() % chunks:
             buf = stream.read(written, stream.getDataSize() % chunks)
             command(buf)
-        print "%d bytes read" % stream.getDataSize()
+        logging.info("%d bytes read" % stream.getDataSize())
 
     def do_get(self, line):
         pathName = string.replace(line,'/','\\')
