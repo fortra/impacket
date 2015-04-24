@@ -3989,7 +3989,10 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
         self.__serverOS     = self.__serverConfig.get('global','server_os')
         self.__serverDomain = self.__serverConfig.get('global','server_domain')
         self.__logFile      = self.__serverConfig.get('global','log_file')
-        self.__challenge    = self.__serverConfig.get('global', 'challenge')
+        if self.__serverConfig.has_option('global', 'challenge'):
+            self.__challenge    = self.__serverConfig.get('global', 'challenge')
+        else:
+            self.__challenge    = 'A'*8
 
         if self.__serverConfig.has_option("global", "jtr_dump_path"):
             self.__jtr_dump_path = self.__serverConfig.get("global", "jtr_dump_path")
