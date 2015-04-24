@@ -4,8 +4,6 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id$
-#
 # Description:
 #   Partial C706.pdf + [MS-RPCE] implementation
 #
@@ -25,7 +23,7 @@ from binascii import a2b_hex
 from Crypto.Cipher import ARC4
 
 import impacket
-from impacket import ntlm
+from impacket import ntlm, LOG
 from impacket.structure import Structure,pack,unpack
 from impacket.krb5 import kerberosv5, gssapi
 from impacket import uuid
@@ -1399,7 +1397,7 @@ class DCERPCServer(Thread):
         self._callid        = 1
         self._max_frag       = None
         self._max_xmit_size = 4280
-        self.__log = logging.getLogger()
+        self.__log = LOG
         self._sock = socket.socket()
         self._sock.bind((self._listenAddress,self._listenPort))
 
@@ -1477,8 +1475,8 @@ class DCERPCServer(Thread):
                     if answer != None:
                         self.send(answer)
             except Exception, e:
-                import traceback
-                print traceback.print_exc()
+                #import traceback
+                #print traceback.print_exc()
                 pass
             self._clientSock.close()
 

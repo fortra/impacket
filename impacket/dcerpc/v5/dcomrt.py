@@ -4,8 +4,6 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id$
-#
 # Author: Alberto Solino
 #
 # Description:
@@ -28,13 +26,12 @@
 #    not used, returning RPC_E_DISCONNECTED
 #
 
-import logging
 from struct import pack
 from threading import Timer
 from impacket.dcerpc.v5 import ndr
 from impacket.dcerpc.v5.ndr import NDRCALL, NDR, NDRSTRUCT, NDRPOINTER, NDRUniConformantArray, NDRUniFixedArray, NDRTLSTRUCT
 from impacket.dcerpc.v5.dtypes import LPWSTR, WCHAR, ULONGLONG, HRESULT, GUID, USHORT, WSTR, DWORD, LPLONG, LONG, PGUID, ULONG, UUID, WIDESTR, NULL
-from impacket import hresult_errors
+from impacket import hresult_errors, LOG
 from impacket.uuid import string_to_bin, uuidtup_to_bin, generate, bin_to_string
 from impacket.dcerpc.v5.enum import Enum
 from impacket.dcerpc.v5.rpcrt import TypeSerialization1, RPC_C_AUTHN_LEVEL_PKT_INTEGRITY, RPC_C_AUTHN_LEVEL_NONE, RPC_C_AUTHN_LEVEL_PKT_PRIVACY, RPC_C_AUTHN_GSS_NEGOTIATE, RPC_C_AUTHN_WINNT
@@ -1022,7 +1019,7 @@ class DCOMConnection():
         except Exception, e:
             # There might be exceptions when sending packets 
             # We should try to continue tho.
-            print str(e)
+            LOG.error(str(e))
             pass
             
         DCOMConnection.PINGTIMER = Timer(120,DCOMConnection.pingServer)
@@ -1142,7 +1139,7 @@ class INTERFACE():
         elif objRefType == FLAGS_OBJREF_EXTENDED:
             objRef = OBJREF_EXTENDED(data)
         else:
-            print "Unknown OBJREF Type! 0x%x" % objRefType
+            LOG.error("Unknown OBJREF Type! 0x%x" % objRefType)
 
         if objRefType != FLAGS_OBJREF_CUSTOM:
             if objRef['std']['flags'] & SORF_NOPING == 0:
@@ -1215,7 +1212,7 @@ class INTERFACE():
                     # 3) it's a NetBios Name
                     # we should handle all this cases accordingly
                     # Does this match exactly what get_target() returns?
-                    logging.debug('StringBinding: %s' % strBinding['aNetworkAddr'])
+                    LOG.debug('StringBinding: %s' % strBinding['aNetworkAddr'])
                     if strBinding['aNetworkAddr'].upper().find(self.get_target().upper()) >= 0 and strBinding['wTowerId'] == 7:
                         stringBinding = 'ncacn_ip_tcp:' + strBinding['aNetworkAddr'][:-1]
                     # If get_target() is a FQDN, does it match the hostname?
@@ -1242,9 +1239,9 @@ class INTERFACE():
                     dce.bind(iid)
 
                 if self.__oxid is None:
-                    import traceback
-                    print traceback.print_stack()
-                    print "OXID NONE, something wrong!!!"
+                    #import traceback
+                    #print traceback.print_stack()
+                    LOG.critical("OXID NONE, something wrong!!!")
                     raise
 
                 INTERFACE.CONNECTIONS[self.__target][self.__oxid] = {}
@@ -1519,7 +1516,7 @@ class IActivation():
         elif objRefType == FLAGS_OBJREF_EXTENDED:
             objRef = OBJREF_EXTENDED(''.join(resp['ppInterfaceData'][0]['abData']))
         else:
-            print "Unknown OBJREF Type! 0x%x" % objRefType
+            LOG.error("Unknown OBJREF Type! 0x%x" % objRefType)
 
         iPid = objRef['std']['ipid']
         iid = objRef['iid']
@@ -1642,7 +1639,7 @@ class IRemoteSCMActivator():
         elif objRefType == FLAGS_OBJREF_EXTENDED:
             objRef = OBJREF_EXTENDED(''.join(resp['ppActProperties']['abData']))
         else:
-            print "Unknown OBJREF Type! 0x%x" % objRefType
+            LOG.error("Unknown OBJREF Type! 0x%x" % objRefType)
 
 
         activationBlob = ACTIVATION_BLOB(objRef['pObjectData'])
@@ -1693,7 +1690,7 @@ class IRemoteSCMActivator():
         elif objRefType == FLAGS_OBJREF_EXTENDED:
             objRef = OBJREF_EXTENDED(''.join(propsOut['ppIntfData'][0]['abData']))
         else:
-            print "Unknown OBJREF Type! 0x%x" % objRefType
+            LOG.error("Unknown OBJREF Type! 0x%x" % objRefType)
 
         iPid = objRef['std']['ipid']
         iid = objRef['iid']
@@ -1818,7 +1815,7 @@ class IRemoteSCMActivator():
         elif objRefType == FLAGS_OBJREF_EXTENDED:
             objRef = OBJREF_EXTENDED(''.join(resp['ppActProperties']['abData']))
         else:
-            print "Unknown OBJREF Type! 0x%x" % objRefType
+            LOG.error("Unknown OBJREF Type! 0x%x" % objRefType)
 
 
         activationBlob = ACTIVATION_BLOB(objRef['pObjectData'])
@@ -1869,7 +1866,7 @@ class IRemoteSCMActivator():
         elif objRefType == FLAGS_OBJREF_EXTENDED:
             objRef = OBJREF_EXTENDED(''.join(propsOut['ppIntfData'][0]['abData']))
         else:
-            print "Unknown OBJREF Type! 0x%x" % objRefType
+            LOG.error("Unknown OBJREF Type! 0x%x" % objRefType)
 
         iPid = objRef['std']['ipid']
         iid = objRef['iid']

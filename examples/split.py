@@ -5,8 +5,6 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id$
-#
 # Pcap dump splitter.
 #
 # This tools splits pcap capture files into smaller ones, one for each

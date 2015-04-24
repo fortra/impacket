@@ -4,8 +4,6 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id$
-#
 # Author: Alberto Solino
 #
 # Description:
@@ -26,7 +24,7 @@ from impacket.dcerpc.v5.dcomrt import DCOMCALL, DCOMANSWER, IRemUnknown, PMInter
 from impacket.dcerpc.v5.dcom.oaut import BSTR
 from impacket.dcerpc.v5.dtypes import ULONG, DWORD, NULL, LPWSTR, LONG, HRESULT, PGUID, LPCSTR, GUID
 from impacket.dcerpc.v5.enum import Enum
-from impacket import hresult_errors
+from impacket import hresult_errors, LOG
 from impacket.uuid import string_to_bin, uuidtup_to_bin
 from impacket.structure import Structure
 from impacket.winregistry import hexdump
@@ -514,7 +512,7 @@ class CLASS_PART(Structure):
             try:
                 itemValue = unpack(unpackStr, valueTable[:dataSize])[0]
             except: 
-                print "getProperties: Error unpacking!!"
+                LOG.error("getProperties: Error unpacking!!")
                 itemValue = 0xffffffff
 
             if itemValue != 0xffffffff:
@@ -758,7 +756,7 @@ class INSTANCE_TYPE(Structure):
             try:
                 itemValue = unpack(unpackStr, valueTable[:dataSize])[0]
             except:
-                print "getValues: Error Unpacking!"
+                LOG.error("getValues: Error Unpacking!")
                 itemValue = 0xffffffff
 
             # if itemValue == 0, default value remains
@@ -2257,7 +2255,7 @@ class IWbemClassObject(IRemUnknown):
                     keyProperty = pName
 
             if keyProperty is None:
-                print "I don't have a key property in this set!"
+                LOG.error("I don't have a key property in this set!")
             else:
                 if self.__methods is None:
                     classObject,_ = self.__iWbemServices.GetObject(self.getClassName())
@@ -2527,7 +2525,7 @@ class IWbemClassObject(IRemUnknown):
             methodDefinition = staticArgs[1] 
             if methodDefinition['InParams'] is not None:
                 if (len(args) != len(methodDefinition['InParams'])):
-                    print "Function called with %d parameters instead of %d!" % (len(args), len(methodDefinition['InParams']))
+                    LOG.error("Function called with %d parameters instead of %d!" % (len(args), len(methodDefinition['InParams'])))
                     return None
                 # In Params
                 encodingUnit = ENCODING_UNIT()
@@ -2655,9 +2653,9 @@ class IWbemClassObject(IRemUnknown):
                 return self.__iWbemServices.ExecMethod(classOrInstance, methodDefinition['name'], pInParams = objRefCustomIn )
                 #return self.__iWbemServices.ExecMethod('Win32_Process.Handle="436"', methodDefinition['name'], pInParams = objRefCustomIn ).getObject().ctCurrent['properties']
             except Exception, e:
-                import traceback
-                print traceback.print_exc()
-                print str(e)
+                #import traceback
+                #print traceback.print_exc()
+                LOG.error(str(e))
 
         for methodName in methods:
            innerMethod.__name__ = methodName

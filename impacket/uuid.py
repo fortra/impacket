@@ -4,8 +4,6 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id$
-#
 # Description:
 #   Generate UUID compliant with http://www.webdav.org/specs/draft-leach-uuids-guids-01.txt.
 #   A different, much simpler (not necessarily better) algorithm is used.

@@ -5,8 +5,6 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id$
-#
 # PSEXEC like functionality example using RemComSvc (https://github.com/kavika13/RemCom)
 #
 # Author:

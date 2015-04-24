@@ -4,8 +4,6 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id$
-#
 # Service Install Helper library used by psexec and smbrelayx
 # You provide an already established connection and an exefile 
 # (or class that mimics a file class) and this will install and 

@@ -4,8 +4,6 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id$
-#
 # Author: Alberto Solino
 #
 # Description:
@@ -29,14 +27,13 @@ from impacket.dcerpc.v5.enum import Enum
 from impacket.dcerpc.v5.samr import OLD_LARGE_INTEGER
 from impacket.dcerpc.v5.lsad import PLSA_FOREST_TRUST_INFORMATION
 from impacket.structure import Structure
-from impacket import ntlm
-from impacket import crypto
+from impacket import ntlm, crypto, LOG
 import hmac, hashlib
 try:
  from Crypto.Cipher import DES, AES, ARC4
 except Exception:
-    print "Warning: You don't have any crypto installed. You need PyCrypto"
-    print "See http://www.pycrypto.org/"
+    LOG.critical("Warning: You don't have any crypto installed. You need PyCrypto")
+    LOG.critical("See http://www.pycrypto.org/")
 
 MSRPC_UUID_NRPC = uuidtup_to_bin(('12345678-1234-ABCD-EF00-01234567CFFB', '1.0'))
 

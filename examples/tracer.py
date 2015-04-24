@@ -5,8 +5,6 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id$
-#
 # Parallel Coordinates traffic grapher.
 #
 # This grapher uses the pcap library to listen for packets in transit

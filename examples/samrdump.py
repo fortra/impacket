@@ -5,8 +5,6 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id$
-#
 # Description: DCE/RPC SAMR dumper.
 #
 # Author:
@@ -76,7 +74,7 @@ class SAMRDump:
             try:
                 entries = self.__fetchList(rpctransport)
             except Exception, e:
-                logging.critical('Protocol failed: %s' % e)
+                logging.critical(str(e))
             else:
                 # Got a response. No need for further iterations.
                 break

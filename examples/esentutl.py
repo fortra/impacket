@@ -5,8 +5,6 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id$
-#
 # Description:
 #             ESE utility. Allows dumping catalog, pages and tables.
 #

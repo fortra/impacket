@@ -4,8 +4,6 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id$
-#
 
 from ImpactPacket import Header
 from impacket import ImpactPacket

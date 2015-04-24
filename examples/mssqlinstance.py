@@ -5,8 +5,6 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id$
-#
 # Description: [MC-SQLR] example. Retrieves the instances names from the target host
 #
 # Author:

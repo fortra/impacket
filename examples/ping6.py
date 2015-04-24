@@ -5,8 +5,6 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id$
-#
 # Simple ICMP6 ping.
 #
 # This implementation of ping uses the ICMP echo and echo-reply packets

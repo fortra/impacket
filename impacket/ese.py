@@ -5,8 +5,6 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id$
-#
 # Description:
 #             Microsoft Extensive Storage Engine parser, just focused on trying 
 #             to parse NTDS.dit files (not meant as a full parser, although it might work)

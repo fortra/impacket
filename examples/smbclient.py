@@ -5,8 +5,6 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id$
-#
 # Description: Mini shell using some of the SMB funcionality of the library
 #
 # Author:
@@ -106,7 +104,7 @@ class MiniImpacketShell(cmd.Cmd):
             return
         from getpass import getpass
         newPassword = getpass("New Password:")
-        rpctransport = transport.SMBTransport(self.smb.getServerName(), self.smb.getRemoteHost(), filename = r'\samr', smb_connection = self.smb)
+        rpctransport = transport.SMBTransport(self.smb.getRemoteHost(), filename = r'\samr', smb_connection = self.smb)
         dce = rpctransport.get_dce_rpc()
         dce.connect()                     
         dce.bind(samr.MSRPC_UUID_SAMR)
@@ -262,7 +260,7 @@ class MiniImpacketShell(cmd.Cmd):
         if self.loggedIn is False:
             logging.error("Not logged in")
             return
-        rpctransport = transport.SMBTransport(self.smb.getServerName(), self.smb.getRemoteHost(), filename = r'\srvsvc', smb_connection = self.smb)
+        rpctransport = transport.SMBTransport(self.smb.getRemoteHost(), filename = r'\srvsvc', smb_connection = self.smb)
         dce = rpctransport.get_dce_rpc()
         dce.connect()                     
         dce.bind(srvs.MSRPC_UUID_SRVS)
@@ -279,7 +277,7 @@ class MiniImpacketShell(cmd.Cmd):
         if self.loggedIn is False:
             logging.error("Not logged in")
             return
-        rpctransport = transport.SMBTransport(self.smb.getServerName(), self.smb.getRemoteHost(), filename = r'\srvsvc', smb_connection = self.smb)
+        rpctransport = transport.SMBTransport(self.smb.getRemoteHost(), filename = r'\srvsvc', smb_connection = self.smb)
         dce = rpctransport.get_dce_rpc()
         dce.connect()                     
         dce.bind(srvs.MSRPC_UUID_SRVS)

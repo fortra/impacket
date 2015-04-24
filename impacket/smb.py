@@ -4,8 +4,6 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id$
-#
 # Copyright (C) 2001 Michael Teo <michaelteo@bigfoot.com>
 # smb.py - SMB/CIFS library
 #
@@ -2717,7 +2715,7 @@ class SMB:
 
 
     def tree_connect(self, path, password = '', service = SERVICE_ANY):
-        print "[MS-CIFS] This is an original Core Protocol command.\nThis command has been deprecated.\nClient Implementations SHOULD use SMB_COM_TREE_CONNECT_ANDX"
+        LOG.warning("[MS-CIFS] This is an original Core Protocol command.This command has been deprecated.Client Implementations SHOULD use SMB_COM_TREE_CONNECT_ANDX")
 
         # return 0x800
         if password:
@@ -3017,7 +3015,7 @@ class SMB:
             read_offset += len(data)
 
     def __raw_retr_file(self, tid, fid, offset, datasize, callback):
-        print "[MS-CIFS] This command was introduced in the CorePlus dialect, but is often listed as part of the LAN Manager 1.0 dialect.\nThis command has been deprecated.\nClients SHOULD use SMB_COM_READ_ANDX"
+        LOG.warning("[MS-CIFS] This command was introduced in the CorePlus dialect, but is often listed as part of the LAN Manager 1.0 dialect.This command has been deprecated.Clients SHOULD use SMB_COM_READ_ANDX")
 
         max_buf_size = self._dialects_parameters['MaxBufferSize'] & ~0x3ff  # Write in multiple KB blocks
         read_offset = offset
@@ -3048,7 +3046,7 @@ class SMB:
             write_offset += writeResponseParameters['Count']
 
     def __raw_stor_file(self, tid, fid, offset, datasize, callback):
-        print "[MS-CIFS] This command was introduced in the CorePlus dialect, but is often listed as part of the LAN Manager 1.0 dialect.\nThis command has been deprecated.\nClients SHOULD use SMB_COM_WRITE_ANDX"
+        LOG.warning("[MS-CIFS] This command was introduced in the CorePlus dialect, but is often listed as part of the LAN Manager 1.0 dialect.This command has been deprecated.Clients SHOULD use SMB_COM_WRITE_ANDX")
         write_offset = offset
         while 1:
             max_raw_size = self._dialects_parameters['MaxRawSize']
@@ -3748,7 +3746,7 @@ class SMB:
         return None
 
     def write_raw(self,tid,fid,data, offset = 0, wait_answer=1):
-        print "[MS-CIFS] This command was introduced in the CorePlus dialect, but is often listed as part of the LAN Manager 1.0 dialect.\nThis command has been deprecated.\nClients SHOULD use SMB_COM_WRITE_ANDX"
+        LOG.warning("[MS-CIFS] This command was introduced in the CorePlus dialect, but is often listed as part of the LAN Manager 1.0 dialect.This command has been deprecated.Clients SHOULD use SMB_COM_WRITE_ANDX")
         smb = NewSMBPacket()
         smb['Flags1'] = SMB.FLAGS1_CANONICALIZED_PATHS | SMB.FLAGS1_PATHCASELESS 
         smb['Flags2'] = 0

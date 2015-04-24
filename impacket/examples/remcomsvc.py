@@ -4,8 +4,6 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id$
-#
 # REMCOMSVC library. It provides a way to retrieve the RemComSvc binary file to be
 # uploaded to the target machine. This is used by psexec and smbrelayx
 #

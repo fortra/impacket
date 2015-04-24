@@ -5,8 +5,6 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id$
-#
 # Description: [MS-WMI] example. It allows to issue WQL queries and
 #              get description of the objects.
 #

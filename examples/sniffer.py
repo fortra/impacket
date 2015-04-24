@@ -5,8 +5,6 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id$
-#
 # Simple packet sniffer.
 #
 # This packet sniffer uses a raw socket to listen for packets

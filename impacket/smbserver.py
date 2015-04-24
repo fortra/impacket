@@ -170,7 +170,7 @@ def openFile(path,fileName, accessMode, fileAttributes, openMode):
             mode |= os.O_BINARY
         fid = os.open(pathName, mode)
     except Exception, e:
-        print "openFile: %s,%s" % (pathName, mode) ,e
+        LOG.error("openFile: %s,%s" % (pathName, mode) ,e)
         fid = 0
         errorCode = STATUS_ACCESS_DENIED
 
@@ -300,7 +300,7 @@ def findFirst2(path, fileName, level, searchAttributes, isSMB2 = False):
         elif level == smb2.SMB2_FILE_BOTH_DIRECTORY_INFO:
             item = smb.SMBFindFileBothDirectoryInfo( flags = flags )
         else:
-            print "Wrong level %d!" % level
+            LOG.error("Wrong level %d!" % level)
             
         (mode, ino, dev, nlink, uid, gid, size, atime, mtime, ctime) = os.stat(i)
         if os.path.isdir(i):
@@ -426,7 +426,7 @@ def queryPathInformation(path, filename, level):
         elif level == smb2.SMB2_FILE_STREAM_INFO:
             infoRecord = smb.SMBFileStreamInformation()
         else:
-            print 'Unknown level for query path info! 0x%x' % level
+            LOG.error('Unknown level for query path info! 0x%x' % level)
             # UNSUPPORTED
             return None, STATUS_NOT_SUPPORTED
 
@@ -435,7 +435,7 @@ def queryPathInformation(path, filename, level):
         # NOT FOUND
         return None, STATUS_OBJECT_NAME_NOT_FOUND
   except Exception, e:
-      print 'queryPathInfo: %s' % e
+      LOG.error('queryPathInfo: %s' % e)
       raise
 
 def queryDiskInformation(path):
@@ -926,7 +926,7 @@ class SMBCommands():
                        # TODO: Do the same for parameters
                        if len(data) >  transParameters['MaxDataCount']:
                            # Answer doesn't fit in this packet
-                           print "Lowering answer from %d to %d" % (len(data),transParameters['MaxDataCount']) 
+                           LOG.debug("Lowering answer from %d to %d" % (len(data),transParameters['MaxDataCount']) )
                            respParameters['DataCount'] = transParameters['MaxDataCount']
                        else:
                            respParameters['DataCount'] = len(data)
@@ -1064,7 +1064,7 @@ class SMBCommands():
                        # TODO: Do the same for parameters
                        if len(data) >  NTTransParameters['MaxDataCount']:
                            # Answer doesn't fit in this packet
-                           print "Lowering answer from %d to %d" % (len(data),NTTransParameters['MaxDataCount']) 
+                           LOG.debug("Lowering answer from %d to %d" % (len(data),NTTransParameters['MaxDataCount']) )
                            respParameters['DataCount'] = NTTransParameters['MaxDataCount']
                        else:
                            respParameters['DataCount'] = len(data)
@@ -1203,7 +1203,7 @@ class SMBCommands():
                        # TODO: Do the same for parameters
                        if len(data) >  trans2Parameters['MaxDataCount']:
                            # Answer doesn't fit in this packet
-                           print "Lowering answer from %d to %d" % (len(data),trans2Parameters['MaxDataCount']) 
+                           LOG.debug("Lowering answer from %d to %d" % (len(data),trans2Parameters['MaxDataCount']) )
                            respParameters['DataCount'] = trans2Parameters['MaxDataCount']
                        else:
                            respParameters['DataCount'] = len(data)
@@ -1911,7 +1911,7 @@ class SMBCommands():
              errorCode = STATUS_SUCCESS
              if ntCreateAndXParameters['RootFid'] > 0:
                  path = connData['OpenedFiles'][ntCreateAndXParameters['RootFid']]['FileName']
-                 print "RootFid present %s!" % path
+                 LOG.debug("RootFid present %s!" % path)
              else:
                  if connData['ConnectedShares'][recvPacket['Tid']].has_key('path'):
                      path = connData['ConnectedShares'][recvPacket['Tid']]['path']
@@ -1999,7 +1999,7 @@ class SMBCommands():
                                 fid = os.open(pathName, mode)
                      except Exception, e:
                          smbServer.log("NTCreateAndX: %s,%s,%s" % (pathName,mode,e),logging.ERROR)
-                         print e
+                         #print e
                          fid = 0
                          errorCode = STATUS_ACCESS_DENIED
         else:
@@ -2820,7 +2820,7 @@ class SMB2Commands():
                                 fid = os.open(pathName, mode)
                      except Exception, e:
                          smbServer.log("SMB2_CREATE: %s,%s,%s" % (pathName,mode,e),logging.ERROR)
-                         print e
+                         #print e
                          fid = 0
                          errorCode = STATUS_ACCESS_DENIED
         else:

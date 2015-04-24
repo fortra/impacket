@@ -25,7 +25,7 @@ class ImpacketFormatter(logging.Formatter):
   Prefixing logged messages through the custom attribute 'bullet'.
   '''
   def __init__(self):
-      logging.Formatter.__init__(self,'%(bullet)s:%(name)s:%(message)s', None)
+      logging.Formatter.__init__(self,'%(bullet)s %(message)s', None)
 
   def format(self, record):
     if record.levelno == logging.INFO:

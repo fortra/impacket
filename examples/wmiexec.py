@@ -5,8 +5,6 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id$
-#
 # A similar approach to smbexec but executing commands through WMI.
 # Main advantage here is it runs under the user (has to be Admin) 
 # account, not SYSTEM, plus, it doesn't generate noisy messages

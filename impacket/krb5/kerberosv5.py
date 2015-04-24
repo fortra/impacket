@@ -4,8 +4,6 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id$
-#
 # Author: Alberto Solino (beto@coresecurity.com, bethus@gmail.com)
 #
 # Description:
@@ -28,7 +26,7 @@ from impacket.krb5.crypto import _RC4, Key, _enctype_table
 from impacket.smbconnection import SessionError
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech, SPNEGO_NegTokenResp
 from impacket.winregistry import hexdump
-from impacket import nt_errors
+from impacket import nt_errors, LOG
 from impacket.structure import Structure
 from impacket.krb5.ccache import CCache
 
@@ -423,6 +421,7 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT 
                 # No cache present
                 pass
             else:
+                LOG.debug("Using Kerberos Cache: %s" % os.getenv('KRB5CCNAME'))
                 principal = 'host/%s@%s' % (targetName.upper(), domain.upper())
                 creds = ccache.getCredential(principal)
                 if creds is None:
@@ -431,6 +430,9 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT 
                     creds =  ccache.getCredential(principal)
                     if creds is not None:
                         TGT = creds.toTGT()
+                        LOG.debug('Using TGT from cache')
+                    else:
+                        LOG.debug("No valid credentials found in cache. ")
                 else:
                     TGS = creds.toTGS()
 

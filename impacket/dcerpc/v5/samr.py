@@ -4,8 +4,6 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id$
-#
 # Author: Alberto Solino
 #
 # Description:
@@ -23,7 +21,7 @@
 from impacket.dcerpc.v5 import ndr
 from impacket.dcerpc.v5.ndr import NDRCALL, NDR, NDRSTRUCT, NDRUNION, NDRPOINTER, NDRUniConformantArray, NDRUniConformantVaryingArray, NDRENUM, NULL
 from impacket.dcerpc.v5.dtypes import *
-from impacket import nt_errors
+from impacket import nt_errors, LOG
 from impacket.uuid import uuidtup_to_bin
 from impacket.dcerpc.v5.enum import Enum
 from impacket.structure import Structure
@@ -2760,8 +2758,8 @@ def hSamrUnicodeChangePasswordUser2(dce, serverName='\x00', userName='', oldPass
     try:
         from Crypto.Cipher import ARC4
     except Exception:
-        print "Warning: You don't have any crypto installed. You need PyCrypto"
-        print "See http://www.pycrypto.org/"
+        LOG.critical("Warning: You don't have any crypto installed. You need PyCrypto")
+        LOG.critical("See http://www.pycrypto.org/")
     from impacket import crypto, ntlm
 
     if oldPwdHashLM is None and oldPwdHashNT is None:

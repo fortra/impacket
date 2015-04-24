@@ -5,8 +5,6 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id$
-#
 # Parses a pcap file or sniffes traffic from the net and checks the SMB structs for errors. 
 # Log the error packets in outFile
 #

@@ -1,6 +1,4 @@
 #--
-# $Id$
-#
 # Copyright (c) 2001-2003 CORE Security Technologies, CORE SDI Inc.
 # All rights reserved.
 #

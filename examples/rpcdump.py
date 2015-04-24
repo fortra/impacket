@@ -5,8 +5,6 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id$
-#
 # DCE/RPC endpoint mapper dumper.
 #
 # Author:
@@ -20,6 +18,7 @@ import socket
 import string
 import sys
 import types
+import logging
 
 from impacket import uuid, ntlm, version
 from impacket.dcerpc.v5 import transport, epm
@@ -145,6 +144,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(add_help = True, description = "Dumps the remote RPC enpoints information.")
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
+    parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('protocol', choices=RPCDump.KNOWN_PROTOCOLS.keys(), nargs='?', default='135/TCP', help='transport protocol (default 135/TCP)')
 
     group = parser.add_argument_group('authentication')
@@ -155,6 +155,11 @@ if __name__ == '__main__':
         sys.exit(1)
  
     options = parser.parse_args()
+
+    if options.debug is True:
+        logging.getLogger().setLevel(logging.DEBUG)
+    else:
+        logging.getLogger().setLevel(logging.INFO)
 
     import re
     domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(options.target).groups('')

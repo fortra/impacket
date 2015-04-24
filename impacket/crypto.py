@@ -4,8 +4,6 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id$
-#
 # Author: Alberto Solino (beto@coresecurity.com)
 #
 # Description:
@@ -18,11 +16,12 @@
 #   [MS-LSAD] Section 5.1.2
 #   [MS-SAMR] Section 2.2.11.1.1
 
+from impacket import LOG
 try:
     from Crypto.Cipher import DES, AES, ARC4
 except Exception:
-    print "Warning: You don't have any crypto installed. You need PyCrypto"
-    print "See http://www.pycrypto.org/"
+    LOG.error("Warning: You don't have any crypto installed. You need PyCrypto")
+    LOG.error("See http://www.pycrypto.org/")
 from struct import pack, unpack
 from impacket.structure import Structure
 from impacket import ntlm

@@ -4,8 +4,6 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id$
-#
 # Description:
 #    Cisco Discovery Protocol packet codecs.
 #
@@ -14,6 +12,7 @@
 #  martincad at corest.com
 
 from ImpactPacket import ProtocolLayer, PacketBuffer, Header
+from impacket import LOG
 from struct import unpack
 import socket
 
@@ -213,7 +212,7 @@ class AddressDetails():
         if  self.get_protocol()==AddressDetails.PROTOCOL_IP:
             return socket.inet_ntoa(address)
         else:
-            print "Address not IP"
+            LOG.error("Address not IP")
             return address            
             
     def is_protocol_IP(self):

@@ -5,8 +5,6 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id$
-#
 # Author:
 #  beto (@agsolino)
 #
@@ -484,6 +482,6 @@ if __name__ == '__main__':
         logging.error(e)
         executer.stop()
     except KeyboardInterrupt:
-        logging.info('Quiting.. please wait') 
+        logging.info('Quitting.. please wait') 
         executer.stop()
     sys.exit(0)

@@ -5,8 +5,6 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id$
-#
 # This script creates/removes a WMI Event Consumer/Filter and link 
 # between both to execute Visual Basic based on the WQL filter 
 # or timer specified.

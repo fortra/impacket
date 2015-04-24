@@ -5,8 +5,6 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id$
-#
 # ATSVC example for some functions implemented, creates, enums, runs, delete jobs
 # This example executes a command on the target machine through the Task Scheduler 
 # service. Returns the output of such command

@@ -5,8 +5,6 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id$
-#
 # Description: Performs various techniques to dump hashes from the
 #              remote machine without executing any agent there.
 #              For SAM and LSA Secrets (including cached creds)

@@ -5,8 +5,6 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id$
-#
 # Description: [MS-TDS] & [MC-SQLR] example.
 #
 # Author:
@@ -17,12 +15,13 @@
 #
 
 
-from impacket import version, tds
-from impacket.examples import logger
 import argparse
 import sys
 import string
 import os
+import logging
+from impacket import version, tds
+from impacket.examples import logger
 
 if __name__ == '__main__':
     import cmd
@@ -100,6 +99,7 @@ if __name__ == '__main__':
     parser.add_argument('-port', action='store', default='1433', help='target MSSQL port (default 1433)')
     parser.add_argument('-db', action='store', help='MSSQL database instance (default None)')
     parser.add_argument('-windows-auth', action='store_true', default = 'False', help='whether or not to use Windows Authentication (default False)')
+    parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-file', type=argparse.FileType('r'), help='input file with commands to execute in the SQL shell')
 
     group = parser.add_argument_group('authentication')
@@ -110,6 +110,11 @@ if __name__ == '__main__':
         sys.exit(1)
  
     options = parser.parse_args()
+
+    if options.debug is True:
+        logging.getLogger().setLevel(logging.DEBUG)
+    else:
+        logging.getLogger().setLevel(logging.INFO)
 
     import re
     domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(options.target).groups('')

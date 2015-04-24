@@ -5,8 +5,6 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id$
-#
 # A similar approach to psexec w/o using RemComSvc. The technique is described here
 # http://www.accuvant.com/blog/owning-computers-without-shell-access
 # Our implementation goes one step further, instantiating a local smbserver to receive the 

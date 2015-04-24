@@ -4,8 +4,6 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id$
-#
 # [C706] Transfer NDR Syntax implementation
 # 
 # Author:
@@ -20,7 +18,7 @@
 import random
 import inspect
 from struct import *
-from impacket import uuid
+from impacket import uuid, LOG
 from impacket.winregistry import hexdump
 from impacket.dcerpc.v5.enum import Enum
 from impacket.uuid import uuidtup_to_bin
@@ -134,9 +132,9 @@ class NDR(object):
                 if self.fields[key]['Data'].__class__.__name__ == value.__class__.__name__:
                     self.fields[key]['Data'] = value
                 else:
-                    print "Can't setitem with class specified, should be %s" % self.fields[key]['Data'].__class__.__name__
+                    LOG.error("Can't setitem with class specified, should be %s" % self.fields[key]['Data'].__class__.__name__)
             else:
-                print "Can't setitem with class specified, should be %s" % self.fields[key].__class__.__name__
+                LOG.error("Can't setitem with class specified, should be %s" % self.fields[key].__class__.__name__)
         elif isinstance(self.fields[key], NDR):
             self.fields[key]['Data'] = value
         else:
@@ -735,10 +733,10 @@ class NDRCALL(NDR):
             res = res + '\x00' * (4 - (len(res) & 3) & 3)
             # Stripping the return code, if it's there
             if res != self.rawData[:-4]:
-                    print "Pack/Unpack doesnt match!"
-                    print "UNPACKED"
+                    LOG.error("Pack/Unpack doesnt match!")
+                    LOG.error("UNPACKED")
                     hexdump(self.rawData)
-                    print "PACKED"
+                    LOG.error("PACKED")
                     hexdump(res)
 
         return self

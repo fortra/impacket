@@ -4,8 +4,6 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# $Id$
-#
 import base64
 import array
 import struct
@@ -16,6 +14,7 @@ import random
 import string
 import binascii
 from impacket.structure import Structure
+from impacket import LOG
 
 # This is important. NTLMv2 is not negotiated by the client or server. 
 # It is used if set locally on both sides. Change this item if you don't want to use 
@@ -42,8 +41,8 @@ except Exception:
     try:
         import POW
     except Exception:
-        print "Warning: You don't have any crypto installed. You need PyCrypto"
-        print "See http://www.pycrypto.org/"
+        LOG.critical("Warning: You don't have any crypto installed. You need PyCrypto")
+        LOG.critical("See http://www.pycrypto.org/")
 
 NTLM_AUTH_NONE          = 1
 NTLM_AUTH_CONNECT       = 2
