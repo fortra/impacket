@@ -16,6 +16,8 @@
 #  Structure
 #
 
+import logging.config
+logging.config.fileConfig('logging.conf')
 
 from impacket import version, tds
 import argparse

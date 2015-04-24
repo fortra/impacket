@@ -23,7 +23,7 @@
 
 from impacket import ntlm, uuid
 from impacket.structure import Structure
-from impacket.logger import ImpacketLogger
+from impacket.logger import logger
 import random
 import string
 import struct
@@ -418,7 +418,7 @@ class TDS_COLMETADATA(Structure):
     )
 
 class MSSQL():
-    def __init__(self, address, port=1433, logger=ImpacketLogger()):
+    def __init__(self, address, port=1433):
         #self.packetSize = 32764
         self.packetSize = 32763
         self.server = address
@@ -432,7 +432,6 @@ class MSSQL():
         self.MAX_COL_LEN = 255
         self.lastError = False
         self.tlsSocket = None
-        self.__logger = logger
 
     def getInstances(self, timeout = 5):
         packet = SQLR()
@@ -623,7 +622,7 @@ class MSSQL():
         resp = self.preLogin()
         # Test this!
         if resp['Encryption'] == TDS_ENCRYPT_REQ or resp['Encryption'] == TDS_ENCRYPT_OFF:
-            self.__logger.logMessage("[!] Encryption required, switching to TLS")
+            logger.warn("Encryption required, switching to TLS")
 
             # Switching to TLS now
             ctx = SSL.Context(SSL.TLSv1_METHOD)
@@ -744,9 +743,9 @@ class MSSQL():
         if len(self.colMeta) == 0:
             return
         for col in self.colMeta:
-            self.__logger.logMessage(col['Format'] % col['Name'] + self.COL_SEPARATOR + '\n')        
+            logger.info(col['Format'] % col['Name'] + self.COL_SEPARATOR + '\n')
         for col in self.colMeta:
-            self.__logger.logMessage('-'*col['Length'] + self.COL_SEPARATOR + '\n')
+            logger.info('-'*col['Length'] + self.COL_SEPARATOR + '\n')
         
 
     def printRows(self):
@@ -756,21 +755,21 @@ class MSSQL():
         self.printColumnsHeader()
         for row in self.rows:
             for col in self.colMeta:
-                self.__logger.logMessage(col['Format'] % row[col['Name']] + self.COL_SEPARATOR)            
+                logger.info(col['Format'] % row[col['Name']] + self.COL_SEPARATOR)
 
     def printReplies(self):
         for keys in self.replies.keys():
             for i, key in enumerate(self.replies[keys]):
                 if key['TokenType'] == TDS_ERROR_TOKEN:
-                    error =  "[!] ERROR(%s): Line %d: %s" % (key['ServerName'].decode('utf-16le'), key['LineNumber'], key['MsgText'].decode('utf-16le'))                                      
-                    self.lastError = SQLErrorException("[!] ERROR: Line %d: %s" % (key['LineNumber'], key['MsgText'].decode('utf-16le')))
-                    self.__logger.logMessage(error)
+                    error =  "ERROR(%s): Line %d: %s" % (key['ServerName'].decode('utf-16le'), key['LineNumber'], key['MsgText'].decode('utf-16le'))
+                    self.lastError = SQLErrorException("ERROR: Line %d: %s" % (key['LineNumber'], key['MsgText'].decode('utf-16le')))
+                    logger.error(error)
 
                 elif key['TokenType'] == TDS_INFO_TOKEN:
-                    self.__logger.logMessage("[*] INFO(%s): Line %d: %s" % (key['ServerName'].decode('utf-16le'), key['LineNumber'], key['MsgText'].decode('utf-16le')))
+                    logger.info("INFO(%s): Line %d: %s" % (key['ServerName'].decode('utf-16le'), key['LineNumber'], key['MsgText'].decode('utf-16le')))
 
                 elif key['TokenType'] == TDS_LOGINACK_TOKEN:
-                    self.__logger.logMessage("[*] ACK: Result: %s - %s (%d%d %d%d) " % (key['Interface'], key['ProgName'].decode('utf-16le'), key['MajorVer'], key['MinorVer'], key['BuildNumHi'], key['BuildNumLow']))
+                    logger.info("ACK: Result: %s - %s (%d%d %d%d) " % (key['Interface'], key['ProgName'].decode('utf-16le'), key['MajorVer'], key['MinorVer'], key['BuildNumHi'], key['BuildNumLow']))
 
                 elif key['TokenType'] == TDS_ENVCHANGE_TOKEN:
                     if key['Type'] in (TDS_ENVCHANGE_DATABASE, TDS_ENVCHANGE_LANGUAGE, TDS_ENVCHANGE_CHARSET, TDS_ENVCHANGE_PACKETSIZE):
@@ -789,7 +788,7 @@ class MSSQL():
                             _type = 'PACKETSIZE'
                         else:
                             _type = "%d" % key['Type']                 
-                        self.__logger.logMessage("[*] ENVCHANGE(%s): Old Value: %s, New Value: %s" % (_type,record['OldValue'].decode('utf-16le'), record['NewValue'].decode('utf-16le')))
+                        logger.info("ENVCHANGE(%s): Old Value: %s, New Value: %s" % (_type,record['OldValue'].decode('utf-16le'), record['NewValue'].decode('utf-16le')))
        
     def parseRow(self,token,tuplemode=False):
         # TODO: This REALLY needs to be improved. Right now we don't support correctly all the data types
@@ -1068,10 +1067,10 @@ class MSSQL():
                 else:
                     value = 'NULL'
             elif (_type == TDS_SSVARIANTTYPE):
-                self.__logger.logMessage("ParseRow: SQL Variant type not yet supported :(")
+                logger.warno("ParseRow: SQL Variant type not yet supported :(")
                 raise
             else:
-                self.__logger.logMessage("ParseROW: Unsupported data type: 0%x" % _type)
+                logger.warn("ParseROW: Unsupported data type: 0%x" % _type)
                 raise
 
             if tuplemode:
@@ -1152,7 +1151,7 @@ class MSSQL():
                 typeData = struct.unpack('<L',data[:4])[0]
                 data = data[4:]
             else:
-                self.__logger.logMessage("Unsupported data type: 0x%x" % colType)
+                logger.warn("Unsupported data type: 0x%x" % colType)
                 raise
 
             # Collation exceptions:
@@ -1231,7 +1230,7 @@ class MSSQL():
             elif tokenID == TDS_DONE_TOKEN:
                 token = TDS_DONE(tokens)
             else:
-                self.__logger.logMessage("Unknown Token %x" % tokenID)
+                logger.warn("Unknown Token %x" % tokenID)
                 return replies
 
             if replies.has_key(tokenID) is not True:
