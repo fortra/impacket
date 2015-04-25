@@ -1341,7 +1341,7 @@ class FILE_RENAME_INFORMATION_TYPE_2(Structure):
     structure = (
         ('ReplaceIfExists','<B=0'),
         ('Reserved','7s=""'),
-        ('RootDirectory',':',SMB2_FILEID),
+        ('RootDirectory','<Q=0'),
         ('FileNameLength','<L=0'),
         ('_FileName','_-FileName','self["FileNameLength"]'),
         ('FileName',':'),

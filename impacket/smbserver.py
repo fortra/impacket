@@ -2985,7 +2985,7 @@ class SMB2Commands():
         if connData['ConnectedShares'].has_key(recvPacket['TreeID']):
             path     = connData['ConnectedShares'][recvPacket['TreeID']]['path']
             if connData['OpenedFiles'].has_key(str(setInfo['FileID'])):
-                fileName = connData['OpenedFiles'][str(setInfo['FileID'])]['FileName']
+                pathName = connData['OpenedFiles'][str(setInfo['FileID'])]['FileName']
 
                 if setInfo['InfoType'] == smb2.SMB2_0_INFO_FILE:
                     # The file information is being set
@@ -3009,13 +3009,23 @@ class SMB2Commands():
                         else:
                             mtime = getUnixTime(mtime)
                         if atime > 0 and mtime > 0:
-                            os.utime(fileName,(atime,mtime))
+                            os.utime(pathName,(atime,mtime))
                     elif informationLevel == smb2.SMB2_FILE_END_OF_FILE_INFO:
                         fileHandle = connData['OpenedFiles'][str(setInfo['FileID'])]['FileHandle']
                         infoRecord = smb.SMBSetFileEndOfFileInfo(setInfo['Buffer'])
                         if infoRecord['EndOfFile'] > 0:
                             fileSize = os.lseek(fileHandle, infoRecord['EndOfFile']-1, 0)
                             os.write(fileHandle, '\x00')
+                    elif informationLevel == smb2.SMB2_FILE_RENAME_INFO:
+                        renameInfo = smb2.FILE_RENAME_INFORMATION_TYPE_2(setInfo['Buffer'])
+                        newPathName = os.path.join(os.path.dirname(pathName),renameInfo['FileName'].decode('utf-16le')) 
+                        if renameInfo['ReplaceIfExists'] == 0 and os.path.exists(newPathName):
+                            return [smb2.SMB2Error()], None, STATUS_OBJECT_NAME_COLLISION
+                        try:
+                             os.rename(pathName,newPathName)
+                        except Exception, e:
+                             smbServer.log("smb2SetInfo: %s" % e, logging.ERROR)
+                             errorCode = STATUS_ACCESS_DENIED
                     else:
                         smbServer.log('Unknown level for set file info! 0x%x' % informationLevel, logging.ERROR)
                         # UNSUPPORTED
