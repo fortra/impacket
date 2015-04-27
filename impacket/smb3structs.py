@@ -1358,3 +1358,8 @@ class SMB2_TRANSFORM_HEADER(Structure):
         ('SessionID','<Q=0'),
     )
 
+# SMB2_FILE_INTERNAL_INFO
+class FileInternalInformation(Structure):
+    structure = (
+        ('IndexNumber','<q=0'),
+    )
