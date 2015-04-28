@@ -4179,14 +4179,19 @@ class SRVSServer(DCERPCServer):
        self.log("NetrGetShareInfo Level: %d" % request['Level'])
 
        s = request['NetName'][:-1].upper()
-       share  = self._shares[s]
-
        answer = NetrShareGetInfoResponse()
-       answer['InfoStruct']['tag'] = 1
-       answer['InfoStruct']['ShareInfo1']['shi1_netname']= s+'\x00'
-       answer['InfoStruct']['ShareInfo1']['shi1_type']   = share['share type']
-       answer['InfoStruct']['ShareInfo1']['shi1_remark'] = share['comment']+'\x00' 
-       answer['ErrorCode'] = 0
+       if self._shares.has_key(s):
+           share  = self._shares[s]
+
+           answer['InfoStruct']['tag'] = 1
+           answer['InfoStruct']['ShareInfo1']['shi1_netname']= s+'\x00'
+           answer['InfoStruct']['ShareInfo1']['shi1_type']   = share['share type']
+           answer['InfoStruct']['ShareInfo1']['shi1_remark'] = share['comment']+'\x00' 
+           answer['ErrorCode'] = 0
+       else:
+           answer['InfoStruct']['tag'] = 1
+           answer['InfoStruct']['ShareInfo1']= NULL
+           answer['ErrorCode'] = 0x0906 #WERR_NET_NAME_NOT_FOUND
 
        return answer
 
