@@ -995,22 +995,22 @@ class SMB2LeaseBreakAcknowledgement(Structure):
 SMB2LeaseBreakResponse = SMB2LeaseBreakAcknowledgement
 
 # SMB2_LOCK
-class SMB2Lock(Structure):
-    structure = (
-        ('StructureSize','<H=48'),
-        ('LockCount','<H=0'),
-        ('LockSequence','<L=0'),
-        ('FileID',':',SMB2_FILEID),
-        ('_Locks','_-Locks','self["LockCount"]*len(SMB2_LOCK_ELEMENT)'),
-        ('Locks',':'),
-    )
-
 class SMB2_LOCK_ELEMENT(Structure):
     structure = (
         ('Offset','<Q=0'),
         ('Length','<Q=0'),
         ('Flags','<L=0'),
         ('Reserved','<L=0'),
+    )
+
+class SMB2Lock(Structure):
+    structure = (
+        ('StructureSize','<H=48'),
+        ('LockCount','<H=0'),
+        ('LockSequence','<L=0'),
+        ('FileID',':',SMB2_FILEID),
+        ('_Locks','_-Locks','self["LockCount"]*24'),
+        ('Locks',':'),
     )
 
 class SMB2Lock_Response(Structure):

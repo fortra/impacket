@@ -3059,6 +3059,7 @@ class SMB2Commands():
                             return [smb2.SMB2Error()], None, STATUS_OBJECT_NAME_COLLISION
                         try:
                              os.rename(pathName,newPathName)
+                             connData['OpenedFiles'][fileID]['FileName'] = newPathName
                         except Exception, e:
                              smbServer.log("smb2SetInfo: %s" % e, logging.ERROR)
                              errorCode = STATUS_ACCESS_DENIED
