@@ -279,28 +279,23 @@ def findFirst2(path, fileName, level, searchAttributes, isSMB2 = False):
      eaErrorOffset = 0
 
      for i in files:
-        if level == smb.SMB_FIND_FILE_BOTH_DIRECTORY_INFO:
+        if level == smb.SMB_FIND_FILE_BOTH_DIRECTORY_INFO or level == smb2.SMB2_FILE_BOTH_DIRECTORY_INFO:
             item = smb.SMBFindFileBothDirectoryInfo( flags = flags )
-        elif level == smb.SMB_FIND_FILE_DIRECTORY_INFO:
+        elif level == smb.SMB_FIND_FILE_DIRECTORY_INFO or level == smb2.SMB2_FILE_DIRECTORY_INFO:
             item = smb.SMBFindFileDirectoryInfo( flags = flags )
-        elif level == smb.SMB_FIND_FILE_FULL_DIRECTORY_INFO:
+        elif level == smb.SMB_FIND_FILE_FULL_DIRECTORY_INFO or level == smb2.SMB2_FULL_DIRECTORY_INFO:
             item = smb.SMBFindFileFullDirectoryInfo( flags = flags )
         elif level == smb.SMB_FIND_INFO_STANDARD:
             item = smb.SMBFindInfoStandard( flags = flags )
-        elif level == smb.SMB_FIND_FILE_ID_FULL_DIRECTORY_INFO:
+        elif level == smb.SMB_FIND_FILE_ID_FULL_DIRECTORY_INFO or level == smb2.SMB2_FILE_ID_FULL_DIRECTORY_INFO:
             item = smb.SMBFindFileIdFullDirectoryInfo( flags = flags )
-        elif level == smb.SMB_FIND_FILE_ID_BOTH_DIRECTORY_INFO:
+        elif level == smb.SMB_FIND_FILE_ID_BOTH_DIRECTORY_INFO or level == smb2.SMB2_FILE_ID_BOTH_DIRECTORY_INFO:
             item = smb.SMBFindFileIdBothDirectoryInfo( flags = flags )
-        elif level == smb.SMB_FIND_FILE_NAMES_INFO:
+        elif level == smb.SMB_FIND_FILE_NAMES_INFO or level == smb2.SMB2_FILE_NAMES_INFO:
             item = smb.SMBFindFileNamesInfo( flags = flags )
-        elif level == smb2.SMB2_FILE_ID_BOTH_DIRECTORY_INFO:
-            item = smb.SMBFindFileIdBothDirectoryInfo( flags = flags )
-        elif level == smb2.SMB2_FULL_DIRECTORY_INFO:
-            item = smb.SMBFindFileFullDirectoryInfo( flags = flags )
-        elif level == smb2.SMB2_FILE_BOTH_DIRECTORY_INFO:
-            item = smb.SMBFindFileBothDirectoryInfo( flags = flags )
         else:
             LOG.error("Wrong level %d!" % level)
+            return  searchResult, searchCount, STATUS_NOT_SUPPORTED
             
         (mode, ino, dev, nlink, uid, gid, size, atime, mtime, ctime) = os.stat(i)
         if os.path.isdir(i):
@@ -353,7 +348,7 @@ def findFirst2(path, fileName, level, searchAttributes, isSMB2 = False):
         searchResult.append(item)
 
      # No more files
-     if (level >= smb.SMB_FIND_FILE_DIRECTORY_INFO or level == smb2.SMB2_FILE_ID_BOTH_DIRECTORY_INFO or level == smb2.SMB2_FULL_DIRECTORY_INFO or level == smb2.SMB2_FILE_BOTH_DIRECTORY_INFO) and searchCount > 0:
+     if (level >= smb.SMB_FIND_FILE_DIRECTORY_INFO or isSMB2 == True) and searchCount > 0:
          searchResult[-1]['NextEntryOffset'] = 0
 
      return searchResult, searchCount, errorCode
@@ -3297,7 +3292,10 @@ class SMB2Commands():
         searchResult, searchCount, errorCode = findFirst2('/', 
                   pathName, 
                   queryDirectoryRequest['FileInformationClass'], 
-                  smb.ATTR_DIRECTORY )
+                  smb.ATTR_DIRECTORY, isSMB2 = True )
+
+        if errorCode != STATUS_SUCCESS:
+            return [smb2.SMB2Error()], None, errorCode
 
         if searchCount > 2 and pattern == '*':
             # strip . and ..
@@ -3430,7 +3428,7 @@ class SMB2Commands():
     def default(self, connId, smbServer, recvPacket):
         # By default we return an SMB Packet with error not implemented
         smbServer.log("Not implemented command: 0x%x" % recvPacket['Command'],logging.DEBUG)
-        return [smb2.SMB2Error()], None, STATUS_NOT_IMPLEMENTED
+        return [smb2.SMB2Error()], None, STATUS_NOT_SUPPORTED
 
 class Ioctls():
    def fsctlDfsGetReferrals(self, connId, smbServer, ioctlRequest):
