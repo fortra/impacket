@@ -2217,6 +2217,17 @@ class SMBCommands():
                # NEGOTIATE packet
                blob =  SPNEGO_NegTokenInit(sessionSetupData['SecurityBlob'])
                token = blob['MechToken']
+               if len(blob['MechTypes'][0]) > 0:
+                   # Is this GSSAPI NTLM or something else we don't support?
+                   mechType = blob['MechTypes'][0]
+                   if mechType != TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']:
+                       # Nope, do we know it?
+                       if MechTypes.has_key(mechType):
+                           mechStr = MechTypes[mechType]
+                       else:
+                           mechStr = mechType.encode('hex')
+                       smbServer.log("Unsupported MechType '%s'" % mechStr, logging.CRITICAL)
+                       return [respSMBCommand], None, STATUS_NOT_SUPPORTED
             elif struct.unpack('B',sessionSetupData['SecurityBlob'][0])[0] == smb.ASN1_SUPPORTED_MECH:
                # AUTH packet
                blob = SPNEGO_NegTokenResp(sessionSetupData['SecurityBlob'])
@@ -2325,7 +2336,7 @@ class SMBCommands():
                 except:
                     smbServer.log("Could not write NTLM Hashes to the specified JTR_Dump_Path %s" % jtr_dump_path)
             else:
-                raise("Unknown NTLMSSP MessageType %d" % messageType)
+                raise Exception("Unknown NTLMSSP MessageType %d" % messageType)
 
             respParameters['SecurityBlobLength'] = len(respToken)
             respData['SecurityBlobLength'] = respParameters['SecurityBlobLength'] 
@@ -2497,7 +2508,7 @@ class SMB2Commands():
                 respSMBCommand['DialectRevision'] = smb2.SMB2_DIALECT_002
             else:
                 # Client does not support SMB2 fallbacking
-                raise
+                raise Exception('SMB2 not supported, fallbacking')
         else:
             respSMBCommand['DialectRevision'] = smb2.SMB2_DIALECT_002
         respSMBCommand['ServerGuid'] = 'A'*16
@@ -2537,6 +2548,17 @@ class SMB2Commands():
            # NEGOTIATE packet
            blob =  SPNEGO_NegTokenInit(securityBlob)
            token = blob['MechToken']
+           if len(blob['MechTypes'][0]) > 0:
+               # Is this GSSAPI NTLM or something else we don't support?
+               mechType = blob['MechTypes'][0]
+               if mechType != TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']:
+                   # Nope, do we know it?
+                   if MechTypes.has_key(mechType):
+                       mechStr = MechTypes[mechType]
+                   else:
+                       mechStr = mechType.encode('hex')
+                   smbServer.log("Unsupported MechType '%s'" % mechStr, logging.CRITICAL)
+                   return [respSMBCommand], None, STATUS_NOT_SUPPORTED
         elif struct.unpack('B',securityBlob[0])[0] == smb.ASN1_SUPPORTED_MECH:
            # AUTH packet
            blob = SPNEGO_NegTokenResp(securityBlob)
@@ -2646,7 +2668,7 @@ class SMB2Commands():
                 smbServer.log("Could not write NTLM Hashes to the specified JTR_Dump_Path %s" % jtr_dump_path)
             respSMBCommand['SessionFlags'] = 1
         else:
-            raise("Unknown NTLMSSP MessageType %d" % messageType)
+            raise Exception("Unknown NTLMSSP MessageType %d" % messageType)
 
         respSMBCommand['SecurityBufferOffset'] = 0x48
         respSMBCommand['SecurityBufferLength'] = len(respToken)
