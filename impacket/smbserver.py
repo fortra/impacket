@@ -20,12 +20,7 @@
 # [ ] Hence.. implement locking
 # estamos en la B
 
-from impacket import smb, nmb, ntlm, uuid, LOG
-from impacket import smb3structs as smb2
-from impacket.spnego import *
-from impacket.nt_errors import *
-from structure import Structure
-from threading import Thread
+from __future__ import with_statement
 import traceback
 import sys
 import calendar
@@ -45,9 +40,14 @@ import errno
 import sys
 import random
 import shutil
-
 # For signing
 import hashlib
+from impacket import smb, nmb, ntlm, uuid, LOG
+from impacket import smb3structs as smb2
+from impacket.spnego import *
+from impacket.nt_errors import *
+from structure import Structure
+from threading import Thread
 
 # Utility functions
 # and general functions. 
