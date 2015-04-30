@@ -32,8 +32,10 @@ class ImpacketFormatter(logging.Formatter):
       record.bullet = '[*]'
     elif record.levelno == logging.DEBUG:
       record.bullet = '[+]'
-    else:
+    elif record.levelno == logging.WARNING:
       record.bullet = '[!]'
+    else:
+      record.bullet = '[-]'
 
     return logging.Formatter.format(self, record)    
 

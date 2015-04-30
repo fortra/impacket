@@ -152,6 +152,7 @@ class CMDEXEC:
                 rpctransport.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey)
             rpctransport.set_kerberos(self.__doKerberos)
 
+            self.shell = None
             try:
                 if self.__mode == 'SERVER':
                     serverThread = SMBServer()
@@ -162,10 +163,11 @@ class CMDEXEC:
                 if self.__mode == 'SERVER':
                     serverThread.stop()
             except  (Exception, KeyboardInterrupt), e:
-                import traceback
-                traceback.print_exc()
+                #import traceback
+                #traceback.print_exc()
                 logging.critical(str(e))
-                self.shell.finish()
+                if self.shell is not None:
+                    self.shell.finish()
                 sys.stdout.flush()
                 sys.exit(1)
 
@@ -328,6 +330,9 @@ if __name__ == '__main__':
     if options.aesKey is not None:
         options.k = True
 
-    executer = CMDEXEC(options.protocol, username, password, domain, options.hashes, options.aesKey, options.k, options.mode, options.share)
-    executer.run(address)
+    try:
+        executer = CMDEXEC(options.protocol, username, password, domain, options.hashes, options.aesKey, options.k, options.mode, options.share)
+        executer.run(address)
+    except Exception, e:
+        logging.critical(str(e))
     sys.exit(0)
