@@ -121,7 +121,7 @@ class CMDEXEC:
         self.__username = username
         self.__password = password
         self.__protocols = [protocols]
-        self.__serviceName = 'BTOBTO'.encode('utf-16le')
+        self.__serviceName = 'BTOBTO'
         self.__domain = domain
         self.__lmhash = ''
         self.__nthash = ''
