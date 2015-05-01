@@ -402,7 +402,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(add_help = True, description = "PSEXEC like functionality example using RemComSvc.")
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
-    parser.add_argument('command', nargs='*', default = ' ', help='command (or arguments if -c is used) to execute at the target (w/o path)')
+    parser.add_argument('command', nargs='*', default = ' ', help='command (or arguments if -c is used) to execute at the target (w/o path) - (default:cmd.exe)')
     parser.add_argument('-c', action='store',metavar = "pathname",  help='copy the filename for later execution, arguments are passed in the command option')
     parser.add_argument('-path', action='store', help='path of the command to execute')
     parser.add_argument('-file', action='store', help="alternative RemCom binary (be sure it doesn't require CRT)")
@@ -439,5 +439,9 @@ if __name__ == '__main__':
     if options.aesKey is not None:
         options.k = True
 
-    executer = PSEXEC(' '.join(options.command), options.path, options.file, options.c, None, username, password, domain, options.hashes, options.aesKey, options.k)
+    command = ' '.join(options.command)
+    if command == ' ':
+        command = 'cmd.exe'
+
+    executer = PSEXEC(command, options.path, options.file, options.c, None, username, password, domain, options.hashes, options.aesKey, options.k)
     executer.run(address)
