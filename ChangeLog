@@ -1,6 +1,39 @@
 Complete list of changes can be found at:
 https://github.com/CoreSecurity/impacket/commits/master
 
+May 2015: 0.9.13:
+1) Library improvements
+   * Kerberos support for SMB and DCERPC featuring:
+      a. kerberosLogin() added to SMBConnection (all SMB versions).
+      b. Support for RPC_C_AUTHN_GSS_NEGOTIATE at the DCERPC layer. This will 
+         negotiate Kerberos. This also includes DCOM.
+      c. Pass-the-hash, pass-the-ticket and pass-the-key support.
+      d. Ccache support, compatible with Kerberos utilities (kinit, klist, etc).
+      e. Support for RC4, AES128_CTS_HMAC_SHA1_96 and AES256_CTS_HMAC_SHA1_96 ciphers.
+      f. Support for RPC_C_AUTHN_LEVEL_PKT_PRIVACY/RPC_C_AUTHN_LEVEL_PKT_INTEGRITY.
+   * SMB3 encryption support. Pycrypto experimental version that supports
+     AES_CCM is required.
+   * [MS-SAMR]: Supplemental Credentials support (used by secretsdump.py)
+   * SMBSERVER improvements:
+      a. SMB2 (2.002) dialect experimental support. 
+      b. Adding capability to export to John The Ripper format files
+   * Library logging overhaul. Now there's a single logger called 'impacket'.
+
+2) Examples improvements:
+   * Added Kerberos support to all modules (incl. pass-the-ticket/key)
+   * Ported most of the modules to the new dcerpc.v5 runtime.
+   * secretsdump.py: Added dumping Kerberos keys when parsing NTDS.DIT
+   * smbserver.py: support for SMB2 (not enabled by default)
+   * smbrelayx.py: Added support for MS15-027 exploitation.
+
+3) New examples:
+   * goldenPac.py: MS14-068 exploit. Saves the golden ticket and also launches a 
+     psexec session at the target.
+   * karmaSMB.py: SMB Server that answers specific file contents regardless of
+     the SMB share and pathname requested. 
+   * wmipersist.py: Creates persistence over WMI. Adds/Removes WMI Event 
+     Consumers/Filters to execute VBS based on a WQL filter or timer specified.
+
 July 2014: 0.9.12:
 1) The following protocols were added based on its standard definition:
    * [MS-DCOM] - Distributed Component Object module Protocol (dcom.py)
