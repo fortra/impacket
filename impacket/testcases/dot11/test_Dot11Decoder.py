@@ -59,7 +59,7 @@ class TestDot11Decoder(unittest.TestCase):
         else:
             dataclass=self.in3.__class__
 
-        self.assertEqual(str(dataclass), "ImpactPacket.Data")
+        self.assertTrue(str(dataclass).find('ImpactPacket.Data') > 0)
       
 suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11Decoder)
 unittest.TextTestRunner(verbosity=2).run(suite)

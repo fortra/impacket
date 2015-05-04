@@ -28,9 +28,6 @@ for file in `ls *.py` ; do
 	elif [ "$result" = "OK" ]
 	then
 		(( ok++ ))
-	else
-    		echo "WARNING: Unknown result!!!!!"
-		(( failed++ ))
 	fi
 
 	(( total++ ))
