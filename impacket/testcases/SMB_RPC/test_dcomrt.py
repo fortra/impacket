@@ -27,7 +27,7 @@ from struct import pack, unpack
 
 from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import epm, dcomrt
-from impacket.dcerpc.v5.dcom import comev, scmp, vds, oaut, comev, ie
+from impacket.dcerpc.v5.dcom import comev, scmp, vds, oaut, comev
 from impacket.dcerpc.v5.ndr import NULL
 from impacket.dcerpc.v5.dtypes import *
 from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_NONE

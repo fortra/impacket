@@ -187,7 +187,7 @@ class SRVSTests(unittest.TestCase):
             resp.dump()
         except Exception, e:
             # I might be closing myself ;)
-            if str(e).find('STATUS_PIPE_BROKEN') < 0:
+            if str(e).find('STATUS_PIPE_BROKEN') < 0 and str(e).find('STATUS_FILE_CLOSED') < 0:
                 raise
 
     def test_hNetrFileClose(self):
@@ -200,7 +200,7 @@ class SRVSTests(unittest.TestCase):
             resp.dump()
         except Exception, e:
             # I might be closing myself ;)
-            if str(e).find('STATUS_PIPE_BROKEN') < 0:
+            if str(e).find('STATUS_PIPE_BROKEN') < 0 and str(e).find('STATUS_FILE_CLOSED') < 0:
                 raise
 
     def test_NetrSessionEnum(self):
