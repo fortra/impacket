@@ -10,7 +10,7 @@
 # Description:
 #   MS14-068 Exploit. Kudos to @BiDOrD for pulling it up first! 
 #   Well done :).
-#   This one also established an SMBConnection and PSEXEcs the 
+#   This one also established a SMBConnection and PSEXEcs the 
 #   target.
 #   A few important things:
 #   1) you must use the domain FQDN or use -dc-ip switch
@@ -1111,7 +1111,7 @@ if __name__ == '__main__':
 
     print version.BANNER
 
-    parser = argparse.ArgumentParser(add_help = True, description = "MS14-068 Exploit. It established an SMBConnection and PSEXEcs the target or saves the TGT for later use.")
+    parser = argparse.ArgumentParser(add_help = True, description = "MS14-068 Exploit. It establishes a SMBConnection and PSEXEcs the target or saves the TGT for later use.")
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName>')
     parser.add_argument('command', nargs='*', default = ' ', help='command (or arguments if -c is used) to execute at the target (w/o path). Defaults to cmd.exe. \'None\' will not execute PSEXEC (handy if you just want to save the ticket)')
