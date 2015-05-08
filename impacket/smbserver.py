@@ -2222,7 +2222,19 @@ class SMBCommands():
                        else:
                            mechStr = mechType.encode('hex')
                        smbServer.log("Unsupported MechType '%s'" % mechStr, logging.CRITICAL)
-                       return [respSMBCommand], None, STATUS_NOT_SUPPORTED
+                       # We don't know the token, we answer back again saying 
+                       # we just support NTLM.
+                       # ToDo: Build this into a SPNEGO_NegTokenResp()
+                       respToken = '\xa1\x15\x30\x13\xa0\x03\x0a\x01\x03\xa1\x0c\x06\x0a\x2b\x06\x01\x04\x01\x82\x37\x02\x02\x0a'
+                       respParameters['SecurityBlobLength'] = len(respToken)
+                       respData['SecurityBlobLength'] = respParameters['SecurityBlobLength'] 
+                       respData['SecurityBlob']       = respToken
+                       respData['NativeOS']     = encodeSMBString(recvPacket['Flags2'], smbServer.getServerOS())
+                       respData['NativeLanMan'] = encodeSMBString(recvPacket['Flags2'], smbServer.getServerOS())
+                       respSMBCommand['Parameters'] = respParameters
+                       respSMBCommand['Data']       = respData 
+                       return [respSMBCommand], None, STATUS_MORE_PROCESSING_REQUIRED
+
             elif struct.unpack('B',sessionSetupData['SecurityBlob'][0])[0] == smb.ASN1_SUPPORTED_MECH:
                # AUTH packet
                blob = SPNEGO_NegTokenResp(sessionSetupData['SecurityBlob'])
@@ -2553,7 +2565,15 @@ class SMB2Commands():
                    else:
                        mechStr = mechType.encode('hex')
                    smbServer.log("Unsupported MechType '%s'" % mechStr, logging.CRITICAL)
-                   return [respSMBCommand], None, STATUS_NOT_SUPPORTED
+                   # We don't know the token, we answer back again saying 
+                   # we just support NTLM.
+                   # ToDo: Build this into a SPNEGO_NegTokenResp()
+                   respToken = '\xa1\x15\x30\x13\xa0\x03\x0a\x01\x03\xa1\x0c\x06\x0a\x2b\x06\x01\x04\x01\x82\x37\x02\x02\x0a'
+                   respSMBCommand['SecurityBufferOffset'] = 0x48
+                   respSMBCommand['SecurityBufferLength'] = len(respToken)
+                   respSMBCommand['Buffer'] = respToken
+
+                   return [respSMBCommand], None, STATUS_MORE_PROCESSING_REQUIRED
         elif struct.unpack('B',securityBlob[0])[0] == smb.ASN1_SUPPORTED_MECH:
            # AUTH packet
            blob = SPNEGO_NegTokenResp(securityBlob)

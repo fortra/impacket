@@ -41,7 +41,6 @@
 
 import os, sys, socket, string, re, select, errno
 from impacket import nmb, ntlm, nt_errors
-from impacket.dcerpc import samr
 from impacket.structure import Structure
 from impacket.spnego import *
 import types
