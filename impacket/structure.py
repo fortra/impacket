@@ -270,7 +270,7 @@ class Structure:
             l = pack('<L', int(len(data)/2))
             if sys.version >= '3':
                 l = "".join(map(chr,l))
-            return '%s\0\0\0\0%s%s' % (l,l,data)
+            return b('%s\0\0\0\0%s%s' % (l,l,data))
                     
         if data is None:
             raise Exception("Trying to pack None")
@@ -339,7 +339,6 @@ class Structure:
                 number = self.unpack(two[0], data[:sofar])
             else:
                 number = -1
-
             while number and sofar < len(data):
                 nsofar = sofar + self.calcUnpackSize(two[1],data[sofar:])
                 answer.append(self.unpack(two[1], data[sofar:nsofar], dataClassOrCode))
@@ -377,7 +376,7 @@ class Structure:
         return unpack(format, b(data))[0]
 
     def calcPackSize(self, format, data, field = None):
-#        # print "  calcPackSize  %s:%r" %  (format, data)
+        #print( "  calcPackSize  %s:%r" %  (format, data))
         if field:
             addressField = self.findAddressFieldFor(field)
             if addressField is not None:
@@ -438,7 +437,7 @@ class Structure:
         # DCE-RPC/NDR string specifier
         if format[:1] == 'w':
             l = len(data)
-            return int((12+l+l) % 2)
+            return int((12+l+(l % 2)))
 
         # literal specifier
         if format[:1] == ':':
@@ -462,7 +461,7 @@ class Structure:
 
         try:
             lengthField = self.findLengthFieldFor(field)
-            return self[lengthField]
+            return int(self[lengthField])
         except:
             pass
 
@@ -693,7 +692,7 @@ class _Test_Optional(_StructureTest):
             
     def populate(self, a):
         a['Name'] = 'Optional test'
-        #a['List'] = (1,2,3,4)
+        a['List'] = (1,2,3,4)
         
 class _Test_Optional_sparse(_Test_Optional):
     def populate(self, a):
@@ -762,4 +761,4 @@ if __name__ == '__main__':
     _Test_Optional_sparse().run()
     _Test_AsciiZArray().run()
     _Test_UnpackCode().run()
-    #_Test_AAA().run()
+    _Test_AAA().run()
