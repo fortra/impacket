@@ -22,6 +22,7 @@
 # [ ] Parse multi-values properly
 # [ ] Support long values properly
 
+from __future__ import print_function
 from impacket import LOG
 try:
     from collections import OrderedDict
@@ -31,8 +32,10 @@ except:
     except:
         from ordereddict import OrderedDict
 from impacket import structure, version
-from impacket.structure import Structure
+from impacket.structure import Structure, b
 from struct import unpack
+from binascii import hexlify
+import codecs
 
 # Constants
 
@@ -402,7 +405,7 @@ class ESENT_CATALOG_DATA_DEFINITION_ENTRY(Structure):
 
     def __init__(self,data):
         # Depending on the type of data we'll end up building a different struct
-        dataType = unpack('<H', data[4:][:2])[0]
+        dataType = unpack('<H', b(data[4:][:2]))[0]
         self.structure = self.fixed
 
         if dataType == CATALOG_TYPE_TABLE:
@@ -437,17 +440,17 @@ def hexdump(data):
     strLen = len(x)
     i = 0
     while i < strLen:
-        print "%04x  " % i,
+        print("%04x  " % i, end=' ')
         for j in range(16):
             if i+j < strLen:
-                print "%02X" % ord(x[i+j]),
+                print("%02X" % ord(x[i+j]), end=' ')
 
             else:
-                print "  ",
+                print("  ", end=' ')
             if j%16 == 7:
-                print "",
-        print " ",
-        print ''.join(pretty_print(x) for x in x[i:i+16] )
+                print("", end=' ')
+        print(" ", end=' ')
+        print(''.join(pretty_print(x) for x in x[i:i+16] ))
         i += 16
 
 def getUnixTime(t):
@@ -466,51 +469,51 @@ class ESENT_PAGE():
     def printFlags(self):
         flags = self.record['PageFlags']
         if flags & FLAGS_EMPTY:
-            print "\tEmpty"
+            print("\tEmpty")
         if flags & FLAGS_INDEX:
-            print "\tIndex"
+            print("\tIndex")
         if flags & FLAGS_LEAF:
-            print "\tLeaf"
+            print("\tLeaf")
         else:
-            print "\tBranch"
+            print("\tBranch")
         if flags & FLAGS_LONG_VALUE:
-            print "\tLong Value"
+            print("\tLong Value")
         if flags & FLAGS_NEW_CHECKSUM:
-            print "\tNew Checksum"
+            print("\tNew Checksum")
         if flags & FLAGS_NEW_FORMAT:
-            print "\tNew Format"
+            print("\tNew Format")
         if flags & FLAGS_PARENT:
-            print "\tParent"
+            print("\tParent")
         if flags & FLAGS_ROOT:
-            print "\tRoot"
+            print("\tRoot")
         if flags & FLAGS_SPACE_TREE:
-            print "\tSpace Tree"
+            print("\tSpace Tree")
 
     def dump(self):
         baseOffset = len(self.record)
         self.record.dump()
         tags = self.data[-4*self.record['FirstAvailablePageTag']:]
 
-        print "FLAGS: "
+        print("FLAGS: ")
         self.printFlags()
 
-        print
+        print()
 
         for i in range(self.record['FirstAvailablePageTag']):
             tag = tags[-4:]
             if self.__DBHeader['Version'] == 0x620 and self.__DBHeader['FileFormatRevision'] > 11 and self.__DBHeader['PageSize'] > 8192:
-                valueSize = unpack('<H', tag[:2])[0] & 0x7fff
-                valueOffset = unpack('<H',tag[2:])[0] & 0x7fff
+                valueSize = unpack('<H', b(tag[:2]))[0] & 0x7fff
+                valueOffset = unpack('<H',b(tag[2:]))[0] & 0x7fff
                 hexdump((self.data[baseOffset+valueOffset:][:6]))
                 pageFlags = ord(self.data[baseOffset+valueOffset:][1]) >> 5
                 #print "TAG FLAG: 0x%x " % (unpack('<L', self.data[baseOffset+valueOffset:][:4]) ) >> 5
                 #print "TAG FLAG: 0x " , ord(self.data[baseOffset+valueOffset:][0])
             else:
-                valueSize = unpack('<H', tag[:2])[0] & 0x1fff
-                pageFlags = (unpack('<H', tag[2:])[0] & 0xe000) >> 13
-                valueOffset = unpack('<H',tag[2:])[0] & 0x1fff
+                valueSize = unpack('<H', b(tag[:2]))[0] & 0x1fff
+                pageFlags = (unpack('<H', b(tag[2:]))[0] & 0xe000) >> 13
+                valueOffset = unpack('<H',b(tag[2:]))[0] & 0x1fff
                 
-            print "TAG %-8d offset:0x%-6x flags:0x%-4x valueSize:0x%x" % (i,valueOffset,pageFlags,valueSize)
+            print("TAG %-8d offset:0x%-6x flags:0x%-4x valueSize:0x%x" % (i,valueOffset,pageFlags,valueSize))
             #hexdump(self.getTag(i)[1])
             tags = tags[:-4]
 
@@ -577,16 +580,16 @@ class ESENT_PAGE():
         tag = tags[-4:]
 
         if self.__DBHeader['Version'] == 0x620 and self.__DBHeader['FileFormatRevision'] >= 17 and self.__DBHeader['PageSize'] > 8192:
-            valueSize = unpack('<H', tag[:2])[0] & 0x7fff
-            valueOffset = unpack('<H',tag[2:])[0] & 0x7fff
+            valueSize = unpack('<H', b(tag[:2]))[0] & 0x7fff
+            valueOffset = unpack('<H',b(tag[2:]))[0] & 0x7fff
             tmpData = list(self.data[baseOffset+valueOffset:][:valueSize])
             pageFlags = ord(tmpData[1]) >> 5
             tmpData[1] = chr(ord(tmpData[1]) & 0x1f)
             tagData = "".join(tmpData)
         else:
-            valueSize = unpack('<H', tag[:2])[0] & 0x1fff
-            pageFlags = (unpack('<H', tag[2:])[0] & 0xe000) >> 13
-            valueOffset = unpack('<H',tag[2:])[0] & 0x1fff
+            valueSize = unpack('<H', b(tag[:2]))[0] & 0x1fff
+            pageFlags = (unpack('<H', b(tag[2:]))[0] & 0xe000) >> 13
+            valueOffset = unpack('<H',b(tag[2:]))[0] & 0x1fff
             tagData = self.data[baseOffset+valueOffset:][:valueSize]
 
         #return pageFlags, self.data[baseOffset+valueOffset:][:valueSize]
@@ -624,21 +627,21 @@ class ESENT_DB:
     def printCatalog(self):
         indent = '    '
 
-        print "Database version: 0x%x, 0x%x" % (self.__DBHeader['Version'], self.__DBHeader['FileFormatRevision'] )
-        print "Page size: %d " % (self.__pageSize)
-        print "Number of pages: %d" % self.__totalPages
-        print 
-        print "Catalog for %s" % self.__fileName
-        for table in self.__tables.keys():
-            print "[%s]" % table
-            print "%sColumns " % indent
-            for column in self.__tables[table]['Columns'].keys():
+        print("Database version: 0x%x, 0x%x" % (self.__DBHeader['Version'], self.__DBHeader['FileFormatRevision'] ))
+        print("Page size: %d " % (self.__pageSize))
+        print("Number of pages: %d" % self.__totalPages)
+        print() 
+        print("Catalog for %s" % self.__fileName)
+        for table in list(self.__tables.keys()):
+            print("[%s]" % table)
+            print("%sColumns " % indent)
+            for column in list(self.__tables[table]['Columns'].keys()):
                 record = self.__tables[table]['Columns'][column]['Record']
-                print "%s%-5d%-30s%s" % (indent*2, record['Identifier'], column,ColumnTypeToName[record['ColumnType']])
-            print "%sIndexes"% indent
-            for index in self.__tables[table]['Indexes'].keys():
-                print "%s%s" % (indent*2, index)
-            print ""
+                print("%s%-5d%-30s%s" % (indent*2, record['Identifier'], column,ColumnTypeToName[record['ColumnType']]))
+            print("%sIndexes"% indent)
+            for index in list(self.__tables[table]['Indexes'].keys()):
+                print("%s%s" % (indent*2, index))
+            print("")
 
     def __addItem(self, entry):
         dataDefinitionHeader = ESENT_DATA_DEFINITION_HEADER(entry['EntryData'])
@@ -672,14 +675,14 @@ class ESENT_DB:
         else:
             numEntries =  dataDefinitionHeader['LastVariableDataType']
 
-        itemLen = unpack('<H',entry['EntryData'][dataDefinitionHeader['VariableSizeOffset']:][:2])[0]
+        itemLen = unpack('<H',b(entry['EntryData'][dataDefinitionHeader['VariableSizeOffset']:][:2]))[0]
         itemName = entry['EntryData'][dataDefinitionHeader['VariableSizeOffset']:][2*numEntries:][:itemLen]
         return itemName
 
     def __addLongValue(self, entry):
         dataDefinitionHeader = ESENT_DATA_DEFINITION_HEADER(entry['EntryData'])
         catalogEntry = ESENT_CATALOG_DATA_DEFINITION_ENTRY(entry['EntryData'][len(dataDefinitionHeader):])
-        lvLen = unpack('<H',entry['EntryData'][dataDefinitionHeader['VariableSizeOffset']:][:2])[0]
+        lvLen = unpack('<H',b(entry['EntryData'][dataDefinitionHeader['VariableSizeOffset']:][:2]))[0]
         lvName = entry['EntryData'][dataDefinitionHeader['VariableSizeOffset']:][7:][:lvLen]
         self.__tables[self.__currentTable]['LongValues'][lvName] = entry
 
@@ -854,7 +857,7 @@ class ESENT_DB:
  
         columns = cursor['TableData']['Columns'] 
         
-        for column in columns.keys():
+        for column in list(columns.keys()):
             columnRecord = columns[column]['Record']
             #columnRecord.dump()
             if columnRecord['Identifier'] <= dataDefinitionHeader['LastFixedSize']:
@@ -865,7 +868,7 @@ class ESENT_DB:
             elif columnRecord['Identifier'] > 127 and columnRecord['Identifier'] <= dataDefinitionHeader['LastVariableDataType']:
                 # Variable data type
                 index = columnRecord['Identifier'] - 127 - 1
-                itemLen = unpack('<H',tag[variableSizeOffset+index*2:][:2])[0]
+                itemLen = unpack('<H',b(tag[variableSizeOffset+index*2:][:2]))[0]
 
                 if itemLen & 0x8000:
                     # Empty item
@@ -886,17 +889,17 @@ class ESENT_DB:
                     index = variableDataBytesProcessed+variableSizeOffset
                     #hexdump(tag[index:])
                     endOfVS = self.__pageSize
-                    firstOffsetTag = (unpack('<H', tag[index+2:][:2])[0] & 0x3fff) + variableDataBytesProcessed+variableSizeOffset
+                    firstOffsetTag = (unpack('<H', b(tag[index+2:][:2]))[0] & 0x3fff) + variableDataBytesProcessed+variableSizeOffset
                     while True:
-                        taggedIdentifier = unpack('<H', tag[index:][:2])[0]
+                        taggedIdentifier = unpack('<H', b(tag[index:][:2]))[0]
                         index += 2
-                        taggedOffset = (unpack('<H', tag[index:][:2])[0] & 0x3fff) 
+                        taggedOffset = (unpack('<H', b(tag[index:][:2]))[0] & 0x3fff) 
                         # As of Windows 7 and later ( version 0x620 revision 0x11) the 
                         # tagged data type flags are always present
                         if self.__DBHeader['Version'] == 0x620 and self.__DBHeader['FileFormatRevision'] >= 17 and self.__DBHeader['PageSize'] > 8192: 
                             flagsPresent = 1
                         else:
-                            flagsPresent = (unpack('<H', tag[index:][:2])[0] & 0x4000)
+                            flagsPresent = (unpack('<H', b(tag[index:][:2]))[0] & 0x4000)
                         index += 2
                         if taggedOffset < endOfVS:
                             endOfVS = taggedOffset
@@ -908,17 +911,17 @@ class ESENT_DB:
                 
                     # Calculate length of variable items
                     # Ugly.. should be redone
-                    prevKey = taggedItems.keys()[0]
+                    prevKey = list(taggedItems.keys())[0]
                     for i in range(1,len(taggedItems)):
                         offset0, length, flags = taggedItems[prevKey]
-                        offset, _, _ = taggedItems.items()[i][1]
+                        offset, _, _ = list(taggedItems.items())[i][1]
                         taggedItems[prevKey] = (offset0, offset-offset0, flags)
                         #print "ID: %d, Offset: %d, Len: %d, flags: %d" % (prevKey, offset0, offset-offset0, flags)
-                        prevKey = taggedItems.keys()[i]
+                        prevKey = list(taggedItems.keys())[i]
                     taggedItemsParsed = True
  
                 # Tagged data type
-                if taggedItems.has_key(columnRecord['Identifier']):
+                if columnRecord['Identifier'] in taggedItems:
                     offsetItem = variableDataBytesProcessed + variableSizeOffset + taggedItems[columnRecord['Identifier']][0] 
                     itemSize = taggedItems[columnRecord['Identifier']][1]
                     # If item have flags, we should skip them
@@ -936,7 +939,7 @@ class ESENT_DB:
                     elif itemFlag & TAGGED_DATA_TYPE_MULTI_VALUE:
                         # ToDo: Parse multi-values properly
                         LOG.debug('Multivalue detected in column %s, returning raw results' % (column))
-                        record[column] = (tag[offsetItem:][:itemSize].encode('hex'),)
+                        record[column] = (hexlify(b(tag[offsetItem:][:itemSize])).decode('utf-8'),)
                     else:
                         record[column] = tag[offsetItem:][:itemSize]
 
@@ -957,18 +960,17 @@ class ESENT_DB:
                         LOG.error('Unknown codepage 0x%x'% columnRecord['CodePage'])
                         raise
                     stringDecoder = StringCodePages[columnRecord['CodePage']]
-
-                    record[column] = record[column].decode(stringDecoder)
+                    record[column] = codecs.decode(b(record[column]), stringDecoder)
                 
             else:
                 unpackData = ColumnTypeSize[columnRecord['ColumnType']]
                 if record[column] is not None:
                     if unpackData is None:
-                        record[column] = record[column].encode('hex')
+                        record[column] = hexlify(b(record[column])).decode('utf-8')
                     else:
                         unpackStr = unpackData[1]
                         unpackSize = unpackData[0]
-                        record[column] = unpack(unpackStr, record[column])[0]
+                        record[column] = unpack(unpackStr, b(record[column]))[0]
 
         return record
 

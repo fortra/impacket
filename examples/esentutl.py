@@ -34,24 +34,27 @@ def exportTable(ese, tableName):
         return
 
     i = 1
-    print "Table: %s" % tableName
+    print("Table: %s" % tableName)
     while True:
         try:
             record = ese.getNextRow(cursor)
-        except:
+        except Exception as e:
+            #import traceback
+            #print(traceback.print_exc())
+            #print(e)
             logging.error('Error while calling getNextRow(), trying the next one')
             continue
 
         if record is None:
             break
-        print "*** %d" % i
-        for j in record.keys():
+        print("*** %d" % i)
+        for j in list(record.keys()):
            if record[j] is not None:
-               print "%-30s: %r" % (j, record[j])
+               print("%-30s: %r" % (j, record[j]))
         i += 1
 
 def main():
-    print version.BANNER
+    print(version.BANNER)
     parser = argparse.ArgumentParser(add_help = True, description = "Extensive Storage Engine utility. Allows dumping catalog, pages and tables.")
     parser.add_argument('databaseFile', action='store', help='ESE to open')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
@@ -70,11 +73,17 @@ def main():
     export_parser = subparsers.add_parser('export', help='dumps the catalog info for the DB')
     export_parser.add_argument('-table', action='store', required=True, help='table to dump')
 
+
     if len(sys.argv)==1:
         parser.print_help()
         sys.exit(1)
 
     options = parser.parse_args()
+
+    # Taking care of a Python3 argparse bug until fixed
+    if options.action is None:
+        parser.print_help()
+        sys.exit(1)
 
     if options.debug is True:
         logging.getLogger().setLevel(logging.DEBUG)
@@ -93,10 +102,10 @@ def main():
         else:
             logging.error('Unknown action %s ' % options.action)
             raise
-    except Exception, e:
+    except Exception as e:
         #import traceback
-        #print traceback.print_exc()
-        print e
+        #print(traceback.print_exc())
+        print(e)
     ese.close()
 
 

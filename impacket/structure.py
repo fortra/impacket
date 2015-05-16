@@ -149,6 +149,9 @@ class Structure:
 
     def fromString(self, data):
         self.rawData = data
+        if isinstance(data, bytes) and sys.version >='3':
+            data = "".join(map(chr,data))
+
         for field in self.commonHdr+self.structure:
             if self.debug:
                 print("fromString( %s | %s | %r )" % (field[0], field[1], data))
