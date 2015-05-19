@@ -10,8 +10,11 @@ from struct import pack, unpack, calcsize
 # Trying to support both Python 2 and 3
 import sys
 
-if sys.version < '3':
+if sys.version_info[0] == 2:
+    # Python 2.x
     def b(x):
+        return x
+    def buildStr(x):
         return x
 else:
     import codecs
@@ -19,6 +22,12 @@ else:
         if isinstance(x, bytes) is False:
             return codecs.latin_1_encode(x)[0]
         return x
+    def buildStr(x):
+        if isinstance(x, bytes):
+            return "".join(map(chr,x))
+        else:
+            return x
+
 
 class Structure:
     """ sublcasses can define commonHdr and/or structure.
@@ -145,12 +154,11 @@ class Structure:
         #if len(data) % self.alignment: data += ('\x00'*self.alignment)[:-(len(data) % self.alignment)]
         if isinstance(data,str):
             return data
-        return "".join(map(chr,data))
+        return buildStr(data)
 
     def fromString(self, data):
         self.rawData = data
-        if isinstance(data, bytes) and sys.version >='3':
-            data = "".join(map(chr,data))
+        data = buildStr(data)
 
         for field in self.commonHdr+self.structure:
             if self.debug:
@@ -271,8 +279,7 @@ class Structure:
             elif len(data) % 2:
                 data += '\0'
             l = pack('<L', int(len(data)/2))
-            if sys.version >= '3':
-                l = "".join(map(chr,l))
+            l = buildStr(l)
             return b('%s\0\0\0\0%s%s' % (l,l,data))
                     
         if data is None:
@@ -282,12 +289,14 @@ class Structure:
         if format[:1] == ':':
             # Inner Structures?
             if isinstance(data,Structure):
-                return data.getData()
-       
+                return b(data.getData())
             return b(data)
 
         # struct like specifier
-        return pack(format, data)
+        if isinstance(data, str):
+            return pack(format, b(data))
+        else:
+            return pack(format, data)
 
     def unpack(self, format, data, dataClassOrCode = str, field = None):
         if self.debug:
@@ -376,7 +385,10 @@ class Structure:
             return dataClassOrCode(data)
 
         # struct like specifier
-        return unpack(format, b(data))[0]
+        if format.find('s') >=0:
+            return buildStr(unpack(format, b(data))[0])
+        else:
+            return unpack(format, b(data))[0]
 
     def calcPackSize(self, format, data, field = None):
         #print( "  calcPackSize  %s:%r" %  (format, data))

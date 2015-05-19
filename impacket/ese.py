@@ -32,10 +32,11 @@ except:
     except:
         from ordereddict import OrderedDict
 from impacket import structure, version
-from impacket.structure import Structure, b
+from impacket.structure import Structure, b, buildStr
 from struct import unpack
 from binascii import hexlify
 import codecs
+import sys
 
 # Constants
 
@@ -504,8 +505,11 @@ class ESENT_PAGE():
             if self.__DBHeader['Version'] == 0x620 and self.__DBHeader['FileFormatRevision'] > 11 and self.__DBHeader['PageSize'] > 8192:
                 valueSize = unpack('<H', b(tag[:2]))[0] & 0x7fff
                 valueOffset = unpack('<H',b(tag[2:]))[0] & 0x7fff
-                hexdump((self.data[baseOffset+valueOffset:][:6]))
-                pageFlags = ord(self.data[baseOffset+valueOffset:][1]) >> 5
+                hexdump(buildStr(self.data[baseOffset+valueOffset:][:6]))
+                if sys.version_info[0] == 3:
+                    pageFlags = self.data[baseOffset+valueOffset:][1] >> 5
+                else:
+                    pageFlags = ord(self.data[baseOffset+valueOffset:][1]) >> 5
                 #print "TAG FLAG: 0x%x " % (unpack('<L', self.data[baseOffset+valueOffset:][:4]) ) >> 5
                 #print "TAG FLAG: 0x " , ord(self.data[baseOffset+valueOffset:][0])
             else:
@@ -583,9 +587,14 @@ class ESENT_PAGE():
             valueSize = unpack('<H', b(tag[:2]))[0] & 0x7fff
             valueOffset = unpack('<H',b(tag[2:]))[0] & 0x7fff
             tmpData = list(self.data[baseOffset+valueOffset:][:valueSize])
-            pageFlags = ord(tmpData[1]) >> 5
-            tmpData[1] = chr(ord(tmpData[1]) & 0x1f)
-            tagData = "".join(tmpData)
+            if sys.version_info[0] == 3:
+                pageFlags = tmpData[1] >> 5
+                tmpData[1] = tmpData[1] & 0x1f
+                tagData = "".join(map(chr,tmpData))
+            else:
+                pageFlags = ord(tmpData[1]) >> 5
+                tmpData[1] = chr(ord(tmpData[1]) & 0x1f)
+                tagData = "".join(tmpData)
         else:
             valueSize = unpack('<H', b(tag[:2]))[0] & 0x1fff
             pageFlags = (unpack('<H', b(tag[2:]))[0] & 0xe000) >> 13
