@@ -42,7 +42,7 @@ import string
 # For signing
 from impacket import smb, nmb, ntlm, uuid, LOG
 from impacket import smb3structs as smb2
-from impacket.spnego import SPNEGO_NegTokenInit, TypesMech, MechTypes, SPNEGO_NegTokenResp
+from impacket.spnego import SPNEGO_NegTokenInit, TypesMech, MechTypes, SPNEGO_NegTokenResp, ASN1_AID, ASN1_SUPPORTED_MECH
 from impacket.nt_errors import STATUS_NO_MORE_FILES, STATUS_NETWORK_NAME_DELETED, STATUS_INVALID_PARAMETER, \
     STATUS_FILE_CLOSED, STATUS_MORE_PROCESSING_REQUIRED, STATUS_OBJECT_PATH_NOT_FOUND, STATUS_DIRECTORY_NOT_EMPTY, \
     STATUS_FILE_IS_A_DIRECTORY, STATUS_NOT_IMPLEMENTED, STATUS_INVALID_HANDLE, STATUS_OBJECT_NAME_COLLISION, \
@@ -2213,7 +2213,7 @@ class SMBCommands():
             connData['Capabilities'] = sessionSetupParameters['Capabilities']
 
             rawNTLM = False
-            if struct.unpack('B',sessionSetupData['SecurityBlob'][0])[0] == smb.ASN1_AID:
+            if struct.unpack('B',sessionSetupData['SecurityBlob'][0])[0] == ASN1_AID:
                # NEGOTIATE packet
                blob =  SPNEGO_NegTokenInit(sessionSetupData['SecurityBlob'])
                token = blob['MechToken']
@@ -2240,7 +2240,7 @@ class SMBCommands():
                        respSMBCommand['Data']       = respData 
                        return [respSMBCommand], None, STATUS_MORE_PROCESSING_REQUIRED
 
-            elif struct.unpack('B',sessionSetupData['SecurityBlob'][0])[0] == smb.ASN1_SUPPORTED_MECH:
+            elif struct.unpack('B',sessionSetupData['SecurityBlob'][0])[0] == ASN1_SUPPORTED_MECH:
                # AUTH packet
                blob = SPNEGO_NegTokenResp(sessionSetupData['SecurityBlob'])
                token = blob['ResponseToken']
@@ -2556,7 +2556,7 @@ class SMB2Commands():
         securityBlob = sessionSetupData['Buffer']
 
         rawNTLM = False
-        if struct.unpack('B',securityBlob[0])[0] == smb.ASN1_AID:
+        if struct.unpack('B',securityBlob[0])[0] == ASN1_AID:
            # NEGOTIATE packet
            blob =  SPNEGO_NegTokenInit(securityBlob)
            token = blob['MechToken']
@@ -2579,7 +2579,7 @@ class SMB2Commands():
                    respSMBCommand['Buffer'] = respToken
 
                    return [respSMBCommand], None, STATUS_MORE_PROCESSING_REQUIRED
-        elif struct.unpack('B',securityBlob[0])[0] == smb.ASN1_SUPPORTED_MECH:
+        elif struct.unpack('B',securityBlob[0])[0] == ASN1_SUPPORTED_MECH:
            # AUTH packet
            blob = SPNEGO_NegTokenResp(securityBlob)
            token = blob['ResponseToken']
