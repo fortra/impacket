@@ -34,30 +34,20 @@
 # programmatically.
 #
 
-import socket
-import string
-import sys
-import types
-import os
-import random
-import time
 import argparse
 import SimpleHTTPServer
-import SocketServer
 import logging
 import base64
+from threading import Thread
 
-from impacket import smbserver, smb, ntlm, version
-from impacket.examples import serviceinstall, logger
-from impacket.spnego import *
+from impacket.examples import logger
+from impacket import version
+from impacket.examples import serviceinstall
 from impacket.smb import *
 from impacket.smbserver import *
 from impacket.dcerpc.v5 import transport
-from impacket.dcerpc.v5 import epm, nrpc
+from impacket.dcerpc.v5 import nrpc
 from impacket.dcerpc.v5.ndr import NULL
-
-
-from threading import Thread
 
 try:
  from Crypto.Cipher import DES, AES, ARC4

@@ -7,17 +7,12 @@
 #  
 ################################################################################
 
-import sys
 import unittest
 import ConfigParser
-from struct import pack, unpack
 
 from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import mgmt
-from impacket.dcerpc.v5.ndr import NULL
-from impacket.winregistry import hexdump
-from impacket.uuid import string_to_bin, uuidtup_to_bin, bin_to_uuidtup
-from impacket import system_errors
+
 
 class MGMTTests(unittest.TestCase):
     def connect(self):

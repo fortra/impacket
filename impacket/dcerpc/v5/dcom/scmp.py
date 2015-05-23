@@ -1,10 +1,10 @@
-# Copyright (c) 2003-2014 CORE Security Technologies
+# Copyright (c) 2003-2015 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Author: Alberto Solino
+# Author: Alberto Solino (@agsolino)
 #
 # Description:
 #   [MS-SCMP]: Shadow Copy Management Protocol Interface implementation
@@ -19,9 +19,9 @@
 #   classes described in the standards developed. 
 #   There are test cases for them too. 
 #
-from impacket.dcerpc.v5.ndr import NDRCALL, NDRENUM, NDRSTRUCT, NDRUNION 
-from impacket.dcerpc.v5.dcomrt import ORPCTHIS, ORPCTHAT, MInterfacePointer, PMInterfacePointer, INTERFACE, DCOMCALL, DCOMANSWER, IRemUnknown2
-from impacket.dcerpc.v5.dtypes import LONG, LPWSTR, LONGLONG, ULONG, WSTR
+from impacket.dcerpc.v5.ndr import NDRENUM, NDRSTRUCT, NDRUNION
+from impacket.dcerpc.v5.dcomrt import PMInterfacePointer, INTERFACE, DCOMCALL, DCOMANSWER, IRemUnknown2
+from impacket.dcerpc.v5.dtypes import LONG, LONGLONG, ULONG, WSTR
 from impacket.dcerpc.v5.enum import Enum
 from impacket import hresult_errors
 from impacket.uuid import string_to_bin

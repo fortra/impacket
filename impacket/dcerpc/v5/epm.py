@@ -1,10 +1,10 @@
-# Copyright (c) 2003-2014 CORE Security Technologies
+# Copyright (c) 2003-2015 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Author: Alberto Solino
+# Author: Alberto Solino (@agsolino)
 #
 # Description:
 #   [MS-RPCE]-C706 Interface implementation for the remote portmapper
@@ -20,12 +20,13 @@
 #
 import socket
 from struct import unpack
+
 from impacket.uuid import uuidtup_to_bin, bin_to_string
-from impacket.dcerpc.v5 import ndr, transport
-from impacket.dcerpc.v5.ndr import NDR, NDRCALL, NDRSTRUCT, NDRPOINTER, NDRUniConformantVaryingArray, NDRUniVaryingArray, NDRUniConformantArray
-from impacket.dcerpc.v5.dtypes import GUID, UUID, LPBYTE, PUUID, ULONG, USHORT
+from impacket.dcerpc.v5 import transport
+from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRPOINTER, NDRUniConformantVaryingArray, NDRUniVaryingArray, \
+    NDRUniConformantArray
+from impacket.dcerpc.v5.dtypes import UUID, LPBYTE, PUUID, ULONG, USHORT
 from impacket.structure import Structure
-from impacket.uuid import string_to_bin
 from impacket.dcerpc.v5.ndr import NULL
 
 MSRPC_UUID_PORTMAP = uuidtup_to_bin(('E1AF8308-5D1F-11C9-91A4-08002B14A0FA', '3.0'))

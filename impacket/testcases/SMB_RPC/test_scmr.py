@@ -40,18 +40,17 @@
 #
 ################################################################################
 
-import sys
 import unittest
 import ConfigParser
-from struct import pack, unpack
+from struct import unpack
 
 from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import scmr, epm
 from impacket.dcerpc.v5.ndr import NULL
 from impacket.crypto import encryptSecret
-from impacket.winregistry import hexdump
 from impacket.uuid import string_to_bin
-from impacket import system_errors, ntlm
+from impacket import ntlm
+
 
 class SCMRTests(unittest.TestCase):
     def changeServiceAndQuery(self, dce, cbBufSize, hService, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName):

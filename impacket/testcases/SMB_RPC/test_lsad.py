@@ -43,18 +43,14 @@
 #
 ################################################################################
 
-import sys
 import unittest
 import ConfigParser
-from struct import pack, unpack
 
 from impacket.dcerpc.v5 import transport
-from impacket.dcerpc.v5 import epm, lsad
+from impacket.dcerpc.v5 import lsad
 from impacket.dcerpc.v5.ndr import NULL
-from impacket.dcerpc.v5.dtypes import *
-from impacket.winregistry import hexdump
-from impacket.uuid import string_to_bin, uuidtup_to_bin
-from impacket import system_errors
+from impacket.dcerpc.v5.dtypes import MAXIMUM_ALLOWED, RPC_UNICODE_STRING, DELETE
+
 
 class LSADTests(unittest.TestCase):
     def connect(self):

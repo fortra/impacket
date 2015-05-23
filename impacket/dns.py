@@ -1,4 +1,4 @@
-# Copyright (c) 2003-2012 CORE Security Technologies
+# Copyright (c) 2003-2015 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -30,7 +30,9 @@
 
 import socket
 import struct
+
 from ImpactPacket import ProtocolPacket
+
 
 class DNSFlags():
     'Bitmap with the flags of a dns packet.'

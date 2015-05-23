@@ -20,20 +20,15 @@
 #
 ################################################################################
 
-import sys
 import unittest
 import ConfigParser
-from struct import pack, unpack
 
 from impacket.dcerpc.v5 import transport
-from impacket.dcerpc.v5 import epm, dcomrt
-from impacket.dcerpc.v5.dcom import comev, scmp, vds, oaut, comev
-from impacket.dcerpc.v5.ndr import NULL
-from impacket.dcerpc.v5.dtypes import *
-from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_NONE
-from impacket.winregistry import hexdump
-from impacket.uuid import string_to_bin, uuidtup_to_bin, generate
-from impacket import system_errors, ntlm
+from impacket.dcerpc.v5 import dcomrt
+from impacket.dcerpc.v5.dcom import scmp, vds, oaut, comev
+from impacket.uuid import string_to_bin, uuidtup_to_bin
+from impacket import ntlm
+
 
 class DCOMTests(unittest.TestCase):
     def connect(self):

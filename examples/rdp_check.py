@@ -17,10 +17,11 @@
 #        authentication process (check [MS-CSSP] section 3.1.5)
 #
 
-from impacket.structure import Structure
-from impacket.spnego import *
 from struct import pack, unpack
+
 from impacket.examples import logger
+from impacket.structure import Structure
+from impacket.spnego import GSSAPI, ASN1_SEQUENCE, ASN1_OCTET_STRING, asn1decode, asn1encode
 
 TDPU_CONNECTION_REQUEST  = 0xe0
 TPDU_CONNECTION_CONFIRM  = 0xd0
@@ -274,7 +275,6 @@ if __name__ == '__main__':
     import socket
     import argparse
     import sys
-    import ssl
     import logging
     from binascii import a2b_hex
     from Crypto.Cipher import ARC4

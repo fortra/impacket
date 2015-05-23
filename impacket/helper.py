@@ -11,9 +11,11 @@
 # Aureliano Calvo
 
 
-import impacket.ImpactPacket as ip
 import struct
 import functools
+
+import impacket.ImpactPacket as ip
+
 
 def rebind(f):
     functools.wraps(f)

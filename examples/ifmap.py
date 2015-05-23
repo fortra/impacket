@@ -33,12 +33,14 @@ listening on any port. This is imposed by the DCERPC spec.
 
 Author: Catalin Patulea <cat@vv.carleton.ca>
 """
-import sys, struct
+import sys
+import struct
+
+from impacket.examples import logger
 from impacket import uuid
 from impacket.dcerpc import ndrutils
 from impacket.dcerpc.v5 import transport, rpcrt, epm
 from impacket.dcerpc.v5 import mgmt
-from impacket.examples import logger
 
 uuid_database = set(uuid.string_to_uuidtup(line) for line in """
 00000001-0000-0000-c000-000000000046 v0.0

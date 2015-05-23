@@ -4,10 +4,9 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-from ImpactPacket import Header, ImpactPacketException, PacketBuffer
-
-import struct
 import array
+
+from ImpactPacket import Header, ImpactPacketException, PacketBuffer
 
 class IP6_Extension_Header(Header):
 # --------------------------------- - - - - - - -
@@ -249,7 +248,7 @@ class Basic_Extension_Header(IP6_Extension_Header):
     def add_padding(self):
         required_octets = 8 - (self.get_header_size() % 8)
         if self.get_header_size() + required_octets > Basic_Extension_Header.MAX_HEADER_LEN:
-            raise Excetion("Not enough space for the padding")
+            raise Exception("Not enough space for the padding")
 
         # Insert Pad1 or PadN to fill the necessary octets
         if 0 < required_octets < 8:

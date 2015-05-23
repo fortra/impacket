@@ -29,17 +29,17 @@
 #       to the hosts file or use the -dc-ip and -target-ip parameters
 #
 
-import struct
-import binascii
+import random
+import string
 import logging
-from impacket.dcerpc.v5 import ndr
-from impacket.dcerpc.v5.ndr import NDRCALL, NDR
-from impacket.dcerpc.v5.dtypes import *
+
+from impacket.examples import logger
+from impacket.dcerpc.v5.ndr import NDRSTRUCT, NDRUniConformantArray, NDRPOINTER
+from impacket.dcerpc.v5.dtypes import ULONG, RPC_SID, RPC_UNICODE_STRING, FILETIME, PRPC_SID, USHORT
 from impacket.dcerpc.v5.nrpc import USER_SESSION_KEY, CHAR_FIXED_8_ARRAY, PUCHAR_ARRAY, PRPC_UNICODE_STRING_ARRAY
-from impacket.dcerpc.v5.enum import Enum
 from impacket.dcerpc.v5.rpcrt import TypeSerialization1
 from impacket.structure import Structure
-from impacket.examples import logger
+
 
 
 ################################################################################
@@ -77,7 +77,7 @@ class PKERB_SID_AND_ATTRIBUTES_ARRAY(NDRPOINTER):
     )
 
 # 2.2.2 GROUP_MEMBERSHIP
-from impacket.dcerpc.v5.nrpc import GROUP_MEMBERSHIP, PGROUP_MEMBERSHIP_ARRAY
+from impacket.dcerpc.v5.nrpc import PGROUP_MEMBERSHIP_ARRAY
 
 # 2.2.3 DOMAIN_GROUP_MEMBERSHIP
 class DOMAIN_GROUP_MEMBERSHIP(NDRSTRUCT):
@@ -263,7 +263,7 @@ class PAC_DEVICE_CLAIMS_INFO(Structure):
 import os
 import cmd
 import time
-from impacket.smbconnection import *
+from impacket.smbconnection import SMBConnection, smb
 from impacket.structure import Structure
 from threading import Thread, Lock
 from impacket.examples import remcomsvc, serviceinstall
@@ -1095,19 +1095,18 @@ if __name__ == '__main__':
     from time import strptime
     from impacket import version
     from impacket.smbserver import getFileTime
-    from impacket.winregistry import hexdump
-    from impacket.dcerpc.v5 import samr, epm
+    from impacket.dcerpc.v5 import samr
     from impacket.dcerpc.v5 import transport
     from impacket.krb5.types import Principal, Ticket, KerberosTime
     from impacket.krb5 import constants
     from impacket.krb5.kerberosv5 import sendReceive, getKerberosTGT, getKerberosTGS, KerberosError
-    from impacket.krb5.asn1 import AS_REP, AS_REQ, TGS_REQ, AP_REQ, TGS_REP, Authenticator, EncASRepPart, AuthorizationData, AD_IF_RELEVANT, seq_set, seq_set_iter, KERB_PA_PAC_REQUEST, PA_ENC_TS_ENC, EncryptedData, EncTGSRepPart, ETYPE_INFO2_ENTRY
-    from impacket.krb5.crypto import _RC4, Key
+    from impacket.krb5.asn1 import AS_REP, TGS_REQ, AP_REQ, TGS_REP, Authenticator, EncASRepPart, AuthorizationData, AD_IF_RELEVANT, seq_set, seq_set_iter, KERB_PA_PAC_REQUEST, \
+        EncTGSRepPart, ETYPE_INFO2_ENTRY
+    from impacket.krb5.crypto import Key
     from impacket.dcerpc.v5.ndr import NDRULONG
     from impacket.dcerpc.v5.samr import NULL, GROUP_MEMBERSHIP, SE_GROUP_MANDATORY, SE_GROUP_ENABLED_BY_DEFAULT, SE_GROUP_ENABLED, USER_NORMAL_ACCOUNT, USER_DONT_EXPIRE_PASSWORD
     from pyasn1.codec.der import decoder, encoder
-    from Crypto.Hash import MD5, MD4
-
+    from Crypto.Hash import MD5
 
     print version.BANNER
 

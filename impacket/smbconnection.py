@@ -1,10 +1,10 @@
-# Copyright (c) 2003-2012 CORE Security Technologies)
+# Copyright (c) 2003-2015 CORE Security Technologies)
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Author: Alberto Solino (beto@coresecurity.com)
+# Author: Alberto Solino (@agsolino)
 #
 # Description:
 #
@@ -16,8 +16,10 @@
 import ntpath
 import string
 import socket
+
 from impacket import smb, smb3, nmb, nt_errors, LOG
 from smb3structs import *
+
 
 # So the user doesn't need to import smb, the smb3 are already in here
 SMB_DIALECT = smb.SMB_DIALECT
@@ -257,7 +259,7 @@ class SMBConnection():
         :return: a list containing dict entries for each share, raises exception if error
         """
         # Get the shares through RPC
-        from impacket.dcerpc.v5 import transport, rpcrt, srvs
+        from impacket.dcerpc.v5 import transport, srvs
         rpctransport = transport.SMBTransport(self.getRemoteHost(), self.getRemoteHost(), filename = r'\srvsvc', smb_connection = self)
         dce = rpctransport.get_dce_rpc()
         dce.connect()

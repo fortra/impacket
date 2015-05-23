@@ -1,8 +1,9 @@
 import unittest
-from impacket import smb
-from impacket.smbconnection import *
+import os
+
+from impacket.smbconnection import SMBConnection, smb
 from impacket.smb3structs import *
-import time, ntpath
+
 
 # IMPORTANT NOTE:
 # For some reason, under Windows 8, you cannot switch between
@@ -129,11 +130,18 @@ class SMBTests(unittest.TestCase):
         self.assertTrue( serverName == self.serverName )
         smb.logoff()
 
+    def test_getServerDNSDomainName(self):
+        smb = SMBConnection('*SMBSERVER', self.machine, preferredDialect = self.dialects)
+        smb.login(self.username, self.password, self.domain)
+        serverDomain = smb.getServerDNSDomainName()
+        self.assertTrue( serverDomain.upper() == self.domain.upper())
+        smb.logoff()
+
     def test_getServerDomain(self):
         smb = SMBConnection('*SMBSERVER', self.machine, preferredDialect = self.dialects)
         smb.login(self.username, self.password, self.domain)
         serverDomain = smb.getServerDomain()
-        self.assertTrue( serverDomain.upper() == self.domain.upper())
+        self.assertTrue( serverDomain.upper() == self.domain.upper().split('.')[0])
         smb.logoff()
 
     def test_getRemoteHost(self):
@@ -159,6 +167,7 @@ class SMBTests(unittest.TestCase):
         f = open(self.upload + '2', 'w+')
         smb.getFile(self.share, self.file, f.write)
         f.close()
+        os.unlink(self.upload + '2')
         smb.deleteFile(self.share, self.file)
         smb.logoff()
 
@@ -235,6 +244,7 @@ class SMB3Tests(SMBTests):
         self.serverName = 'WINDOWS81'
         self.password = 'admin'
         self.hashes   = 'aad3b435b51404eeaad3b435b51404ee:209c6174da490caeb422f3fa5a7ae634'
+        self.aesKey   = ''
         self.machine  = '192.168.88.114'
         self.share    = 'C$'
         self.file     = '/TEST'

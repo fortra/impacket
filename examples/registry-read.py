@@ -13,13 +13,14 @@
 #  winregistry.py
 #
 
-import impacket
-from impacket.examples import logger
-from impacket import version
-from impacket import winregistry
 import sys
 import argparse
 import ntpath
+
+from impacket.examples import logger
+from impacket import version
+from impacket import winregistry
+
 
 def bootKey(reg):
     baseClass = 'ControlSet001\\Control\\Lsa\\'

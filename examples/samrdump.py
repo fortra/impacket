@@ -9,22 +9,19 @@
 #
 # Author:
 #  Javier Kohen <jkohen@coresecurity.com>
-#  Alberto Solino <bethus@gmail.com>
+#  Alberto Solino (@agsolino)
 #
 # Reference for:
 #  DCE/RPC for SAMR
 
-import socket
-import string
 import sys
-import types
 import logging
+import argparse
 
-from impacket import uuid, version
+from impacket.examples import logger
+from impacket import version
 from impacket.nt_errors import STATUS_MORE_ENTRIES
 from impacket.dcerpc.v5 import transport, samr
-from impacket.examples import logger
-import argparse
 
 
 class ListUsersException(Exception):

@@ -27,17 +27,13 @@
 #  
 ################################################################################
 
-import sys
 import unittest
 import ConfigParser
-from struct import pack, unpack
 
 from impacket.dcerpc.v5 import transport
-from impacket.dcerpc.v5 import epm, wkst
+from impacket.dcerpc.v5 import wkst
 from impacket.dcerpc.v5.ndr import NULL
-from impacket.winregistry import hexdump
-from impacket.uuid import string_to_bin, uuidtup_to_bin
-from impacket import system_errors
+
 
 class WKSTTests(unittest.TestCase):
     def connect(self):
@@ -377,7 +373,7 @@ class WKSTTests(unittest.TestCase):
 
         try:
             resp = wkst.hNetrRenameMachineInDomain2(dce, 'BETUS\x00', NULL, '\x00'*512, wkst.NETSETUP_ACCT_CREATE)
-            resp2.dump()
+            resp.dump()
         except Exception, e:
             if str(e).find('ERROR_INVALID_PASSWORD') < 0:
                 raise

@@ -1,6 +1,8 @@
-from impacket import smb
-from impacket.examples import logger
 import time
+
+from impacket.examples import logger
+from impacket import smb
+
 
 class lotsSMB(smb.SMB):
     def loop_write_andx(self,tid,fid,data, offset = 0, wait_answer=1):

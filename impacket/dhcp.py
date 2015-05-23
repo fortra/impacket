@@ -1,11 +1,17 @@
-# Copyright (c) 2003-2012 CORE Security Technologies
+# Copyright (c) 2003-2015 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
 
-from impacket import structure
+import pcapy
+import socket
+import time
+from random import randint
+
+from impacket import structure, ImpactDecoder
+
 
 class BootpPacket(structure.Structure):
     commonHdr = (
@@ -197,7 +203,7 @@ class DhcpPacket(BootpPacket):
 
 class DHCPTool:
     def initialize(self):
-        self.pcap = pcap.open_live(pcap.lookupdev(), -1, 1, 1)
+        self.pcap = pcapy.open_live(pcapy.lookupdev(), -1, 1, 1)
         self.pcap.setfilter("port 67", 1, 0xffffff00)
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.connect(('192.168.1.1',67))

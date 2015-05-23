@@ -1,10 +1,10 @@
-# Copyright (c) 2003-2013 CORE Security Technologies)
+# Copyright (c) 2003-2015 CORE Security Technologies)
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Author: Alberto Solino (beto@coresecurity.com)
+# Author: Alberto Solino (@agsolino)
 #
 # Description: A Windows Registry Library Parser
 #
@@ -17,13 +17,13 @@
 # [ ] Parse li records, probable the same as the ri but couldn't find any to probe
 
 
-import impacket
-from impacket import structure, LOG
-from impacket.structure import Structure
 import sys
-import struct
-from struct import unpack, pack, calcsize
+from struct import unpack
 import ntpath
+
+from impacket import LOG
+from impacket.structure import Structure
+
 
 # Constants
 

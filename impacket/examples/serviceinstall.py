@@ -1,4 +1,4 @@
-# Copyright (c) 2003-2012 CORE Security Technologies
+# Copyright (c) 2003-2015 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -11,14 +11,15 @@
 # It tries to take care as much as possible to leave everything clean.
 #
 # Author:
-#  Alberto Solino (bethus@gmail.com)
+#  Alberto Solino (@agsolino)
 #
 
 import random
+import string
+
 from impacket.dcerpc.v5 import transport, srvs, scmr
 from impacket import smb,smb3, LOG
-from impacket.smbconnection import *
-import string
+from impacket.smbconnection import SMBConnection
 
 class ServiceInstall():
     def __init__(self, SMBObject, exeFile):

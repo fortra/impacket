@@ -18,11 +18,11 @@
 #   Helper functions start with "h"<name of the call>.
 #   There are test cases for them too. 
 #
-from impacket.dcerpc.v5 import ndr
 from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRPOINTER, NDRUniConformantArray, NDRUniConformantVaryingArray
 from impacket.dcerpc.v5.epm import PRPC_IF_ID
 from impacket.dcerpc.v5.dtypes import ULONG, DWORD_ARRAY, ULONGLONG
 from impacket.uuid import uuidtup_to_bin
+from impacket import nt_errors
 
 MSRPC_UUID_MGMT  = uuidtup_to_bin(('afa8bd80-7d8a-11c9-bef4-08002b102989','1.0'))
 

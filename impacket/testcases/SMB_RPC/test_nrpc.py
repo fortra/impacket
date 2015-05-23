@@ -52,20 +52,15 @@
 #
 ################################################################################
 
-import sys
 import unittest
 import ConfigParser
 from struct import pack, unpack
 
 from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import epm, nrpc
-from impacket.dcerpc.v5.ndr import NULL
-from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_INTEGRITY,RPC_C_AUTHN_NETLOGON
-from impacket.dcerpc.v5.dtypes import *
-from impacket.winregistry import hexdump
-from impacket.uuid import string_to_bin, uuidtup_to_bin
-from impacket import system_errors
+from impacket.dcerpc.v5.dtypes import NULL
 from impacket import ntlm
+
 
 class NRPCTests(unittest.TestCase):
     def connect(self):
@@ -568,7 +563,6 @@ class NRPCTests(unittest.TestCase):
             print "Warning: You don't have any crypto installed. You need PyCrypto"
             print "See http://www.pycrypto.org/"
 
-        from impacket import crypto
         rc4 = ARC4.new(self.sessionKey)
         lmhash = rc4.encrypt(lmhash)
         rc4 = ARC4.new(self.sessionKey)
@@ -606,7 +600,6 @@ class NRPCTests(unittest.TestCase):
             print "Warning: You don't have any crypto installed. You need PyCrypto"
             print "See http://www.pycrypto.org/"
 
-        from impacket import crypto
         rc4 = ARC4.new(self.sessionKey)
         lmhash = rc4.encrypt(lmhash)
         rc4 = ARC4.new(self.sessionKey)
@@ -651,7 +644,6 @@ class NRPCTests(unittest.TestCase):
             print "Warning: You don't have any crypto installed. You need PyCrypto"
             print "See http://www.pycrypto.org/"
 
-        from impacket import crypto
         rc4 = ARC4.new(self.sessionKey)
         lmhash = rc4.encrypt(lmhash)
         rc4 = ARC4.new(self.sessionKey)

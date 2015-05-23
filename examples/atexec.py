@@ -15,19 +15,17 @@
 # Reference for:
 #  DCE/RPC for ATSVC
 
-import socket
 import string
 import sys
-import types
 import argparse
 import time
 import random
 import logging
 
-from impacket import uuid, ntlm, version
-from impacket.dcerpc import transport, ndrutils, atsvc
 from impacket.examples import logger
-from struct import unpack
+from impacket import version
+from impacket.dcerpc import transport, ndrutils, atsvc
+
 
 class ATSVC_EXEC:
     KNOWN_PROTOCOLS = {

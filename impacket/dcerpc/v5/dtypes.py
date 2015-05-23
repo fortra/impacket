@@ -1,22 +1,25 @@
-# Copyright (c) 2003-2013 CORE Security Technologies
+# Copyright (c) 2003-2015 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Author: Alberto Solino
+# Author: Alberto Solino (@agsolino)
 #
 # Description:
 #   [MS-DTYP] Interface mini implementation
 #
-import random
-from struct import pack, unpack
-from impacket.dcerpc.v5.ndr import NDRULONG, NDRUHYPER, NDRUSMALL, NDRSHORT, NDRLONG, NDRPOINTER, NDRUniConformantArray, NDRUniFixedArray, NDR, NDRHYPER, NDRSMALL, NDRPOINTERNULL, NDRSTRUCT, NULL, NDRUSMALL, NDRBOOLEAN, NDRUSHORT, NDRFLOAT, NDRDOUBLEFLOAT
+from struct import pack
+
+from impacket.dcerpc.v5.ndr import NDRULONG, NDRUHYPER, NDRSHORT, NDRLONG, NDRPOINTER, NDRUniConformantArray, \
+    NDRUniFixedArray, NDR, NDRHYPER, NDRSMALL, NDRPOINTERNULL, NDRSTRUCT, \
+    NDRUSMALL, NDRBOOLEAN, NDRUSHORT, NDRFLOAT, NDRDOUBLEFLOAT, NULL
 
 DWORD = NDRULONG
 BOOL = NDRULONG
 UCHAR = NDRUSMALL
 SHORT = NDRSHORT
+NULL = NULL
 
 class LPDWORD(NDRPOINTER):
     referent = (

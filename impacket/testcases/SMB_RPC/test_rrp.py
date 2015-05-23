@@ -40,18 +40,13 @@
 #
 ################################################################################
 
-import sys
 import unittest
 import ConfigParser
-from struct import pack, unpack
 
 from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import epm, rrp
-from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_INTEGRITY, RPC_C_AUTHN_LEVEL_PKT_PRIVACY
-from impacket.dcerpc.v5.dtypes import *
-from impacket.winregistry import hexdump
-from impacket.uuid import string_to_bin, uuidtup_to_bin
-from impacket import nt_errors
+from impacket.dcerpc.v5.dtypes import NULL, MAXIMUM_ALLOWED, OWNER_SECURITY_INFORMATION
+
 
 class RRPTests(unittest.TestCase):
     def connect(self):

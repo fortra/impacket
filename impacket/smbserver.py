@@ -21,8 +21,6 @@
 # estamos en la B
 
 from __future__ import with_statement
-import traceback
-import sys
 import calendar
 import socket
 import time
@@ -40,14 +38,20 @@ import errno
 import sys
 import random
 import shutil
+import string
 # For signing
-import hashlib
 from impacket import smb, nmb, ntlm, uuid, LOG
 from impacket import smb3structs as smb2
-from impacket.spnego import *
-from impacket.nt_errors import *
-from structure import Structure
-from threading import Thread
+from impacket.spnego import SPNEGO_NegTokenInit, TypesMech, MechTypes, SPNEGO_NegTokenResp
+from impacket.nt_errors import STATUS_NO_MORE_FILES, STATUS_NETWORK_NAME_DELETED, STATUS_INVALID_PARAMETER, \
+    STATUS_FILE_CLOSED, STATUS_MORE_PROCESSING_REQUIRED, STATUS_OBJECT_PATH_NOT_FOUND, STATUS_DIRECTORY_NOT_EMPTY, \
+    STATUS_FILE_IS_A_DIRECTORY, STATUS_NOT_IMPLEMENTED, STATUS_INVALID_HANDLE, STATUS_OBJECT_NAME_COLLISION, \
+    STATUS_NO_SUCH_FILE, STATUS_CANCELLED, STATUS_OBJECT_NAME_NOT_FOUND, STATUS_SUCCESS, STATUS_ACCESS_DENIED, \
+    STATUS_NOT_SUPPORTED, STATUS_INVALID_DEVICE_REQUEST, STATUS_FS_DRIVER_REQUIRED, STATUS_INVALID_INFO_CLASS
+
+# These ones not defined in nt_errors
+STATUS_SMB_BAD_UID = 0x005B0002
+STATUS_SMB_BAD_TID = 0x00050002
 
 # Utility functions
 # and general functions. 
@@ -221,7 +225,7 @@ def queryFsInformation(path, filename, level=0):
         lastWriteTime = mtime
         attribs = 0
         if os.path.isdir(pathName):
-            attribs |= smb.SMB_FILE_ATTRIBUTE_DIRECORY
+            attribs |= smb.SMB_FILE_ATTRIBUTE_DIRECTORY
         if os.path.isfile(pathName):
             attribs |= smb.SMB_FILE_ATTRIBUTE_NORMAL
         fileAttributes = attribs
@@ -1169,6 +1173,7 @@ class SMBCommands():
                                 trans2Parameters['MaxDataCount'])
                except Exception, e:
                    smbServer.log('Transaction2: (0x%x,%s)' % (command, e), logging.ERROR)
+                   #import traceback
                    #traceback.print_exc()
                    errorCode = STATUS_ACCESS_DENIED
                    raise
@@ -1866,7 +1871,7 @@ class SMBCommands():
                  respParameters['FileAllocationSize'] = size
                  attribs = 0
                  if os.path.isdir(pathName):
-                     attribs = smb.SMB_FILE_ATTRIBUTE_DIRECORY
+                     attribs = smb.SMB_FILE_ATTRIBUTE_DIRECTORY
                  if os.path.isfile(pathName):
                      attribs = smb.SMB_FILE_ATTRIBUTE_NORMAL
                  respParameters['FileAttributes'] = attribs
@@ -2021,7 +2026,7 @@ class SMBCommands():
                 respParameters['IPCState']       = 0x5ff
             else:
                 if os.path.isdir(pathName):
-                    respParameters['FileAttributes'] = smb.SMB_FILE_ATTRIBUTE_DIRECORY
+                    respParameters['FileAttributes'] = smb.SMB_FILE_ATTRIBUTE_DIRECTORY
                     respParameters['IsDirectory'] = 1
                 else:
                     respParameters['IsDirectory'] = 0
@@ -2884,7 +2889,7 @@ class SMB2Commands():
 
             else:
                 if os.path.isdir(pathName):
-                    respSMBCommand['FileAttributes'] = smb.SMB_FILE_ATTRIBUTE_DIRECORY
+                    respSMBCommand['FileAttributes'] = smb.SMB_FILE_ATTRIBUTE_DIRECTORY
                 else:
                     respSMBCommand['FileAttributes'] = ntCreateRequest['FileAttributes']
                 # Let's get this file's information
@@ -3537,6 +3542,7 @@ class SMBSERVERHandler(SocketServer.BaseRequestHandler):
                        session.send_packet(str(i))
             except Exception, e:
                 self.__SMB.log("Handle: %s" % e)
+                #import traceback
                 #traceback.print_exc()
                 break
 
@@ -4001,6 +4007,7 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
                         done = True 
 
         except Exception, e:
+            #import traceback
             #traceback.print_exc()
             # Something wen't wrong, defaulting to Bad user ID
             self.log('processRequest (0x%x,%s)' % (packet['Command'],e), logging.ERROR)

@@ -45,8 +45,7 @@ from struct import pack, unpack
 from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import epm, dcomrt
 from impacket.dcerpc.v5.dcom import wmi
-from impacket.dcerpc.v5.ndr import NULL
-from impacket.dcerpc.v5.dtypes import *
+from impacket.dcerpc.v5.dtypes import NULL
 from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_NONE
 from impacket.dcerpc.v5.dcomrt import DCOMConnection
 from impacket.winregistry import hexdump
@@ -108,7 +107,7 @@ class WMITests(unittest.TestCase):
         iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
         iWbemServices= iWbemLevel1Login.NTLMLogin('//./ROOT', NULL, NULL)
         try:
-            iWbemServices.OpenNamespace('__Namespace')
+            resp = iWbemServices.OpenNamespace('__Namespace')
             print resp
         except Exception, e:
             dcom.disconnect()

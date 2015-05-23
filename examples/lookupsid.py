@@ -13,19 +13,16 @@
 # Reference for:
 #  DCE/RPC [MS-LSAT]
 
-import socket
-import string
 import sys
-import types
 import logging
+import argparse
 
-from impacket import uuid, ntlm, version
 from impacket.examples import logger
+from impacket import version
 from impacket.dcerpc.v5 import transport, lsat, lsad
-from impacket.dcerpc.v5.ndr import NULL
 from impacket.dcerpc.v5.samr import SID_NAME_USE
 from impacket.dcerpc.v5.dtypes import MAXIMUM_ALLOWED
-import argparse
+
 
 class LSALookupSid:
     KNOWN_PROTOCOLS = {

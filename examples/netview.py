@@ -47,23 +47,20 @@
 #
 #
 import sys
-import os
-import cmd
 import argparse
-import time
-import ntpath
 import logging
+import socket
 from threading import Thread, Event
 from Queue import Queue
 from time import sleep
 
-from impacket import version, ntlm
-from impacket.smbconnection import *
+from impacket.examples import logger
+from impacket import version
+from impacket.smbconnection import SessionError
 from impacket.dcerpc.v5 import transport, wkst, srvs, samr
 from impacket.dcerpc.v5.ndr import NULL
 from impacket.dcerpc.v5.rpcrt import DCERPCException
 from impacket.nt_errors import STATUS_MORE_ENTRIES
-from impacket.examples import logger
 
 machinesAliveQueue = Queue()
 machinesDownQueue = Queue()

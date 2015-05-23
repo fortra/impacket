@@ -1,10 +1,10 @@
-# Copyright (c) 2003-2014 CORE Security Technologies
+# Copyright (c) 2003-2015 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Author: Alberto Solino
+# Author: Alberto Solino (@agsolino)
 #
 # Description:
 #   [MS-SCMR] Interface implementation
@@ -18,12 +18,13 @@
 #   Helper functions start with "h"<name of the call>.
 #   There are test cases for them too. 
 #
-from struct import unpack, pack
+from struct import pack
+
 from impacket import system_errors
 from impacket.uuid import uuidtup_to_bin
-from impacket.dcerpc.v5 import ndr
-from impacket.dcerpc.v5.ndr import NDRCALL, NDR, NDRSTRUCT, NDRPOINTER, NDRPOINTERNULL, NDRUniConformantArray, PNDRUniConformantArray, NDRBOOLEAN, NDRUniFixedArray, NDRUNION, NULL
-from impacket.dcerpc.v5.dtypes import *
+from impacket.dcerpc.v5.ndr import NDRCALL, NDR, NDRSTRUCT, NDRPOINTER, NDRPOINTERNULL, NDRUniConformantArray, NDRUNION
+from impacket.dcerpc.v5.dtypes import NULL, DWORD, LPWSTR, ULONG, BOOL, LPBYTE, ULONGLONG, PGUID, USHORT, LPDWORD, WSTR, \
+    GUID, PBOOL, WIDESTR
 
 MSRPC_UUID_SCMR = uuidtup_to_bin(('367ABB81-9844-35F1-AD32-98F038001003', '2.0'))
 
@@ -1189,7 +1190,7 @@ def hRQueryServiceObjectSecurity(dce, hService, dwSecurityInformation, cbBufSize
     return dce.request(request)
 
 def hRSetServiceObjectSecurity(dce, hService, dwSecurityInformation, lpSecurityDescriptor, cbBufSize ):
-    request = RSetServiceObjectSecurityCall()
+    request = RSetServiceObjectSecurity()
     request['hService'] = hService
     request['dwSecurityInformation'] = dwSecurityInformation
     request['cbBufSize'] = cbBufSize

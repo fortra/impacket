@@ -15,14 +15,14 @@
 #
 
 
-from impacket import version, tds
-from impacket.examples import logger
 import argparse
 import sys
 import string
 
+from impacket.examples import logger
+from impacket import version, tds
+
 if __name__ == '__main__':
-    import cmd
 
     print version.BANNER
 

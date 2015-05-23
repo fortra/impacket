@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Copyright (c) 2003-2013 CORE Security Technologies
+# Copyright (c) 2003-2015 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -10,7 +10,7 @@
 #             to parse NTDS.dit files (not meant as a full parser, although it might work)
 #
 # Author:
-#  Alberto Solino
+#  Alberto Solino (@agsolino)
 #
 # Reference for:
 #  Structure.
@@ -30,7 +30,6 @@ except:
         from ordereddict.ordereddict import OrderedDict
     except:
         from ordereddict import OrderedDict
-from impacket import structure, version
 from impacket.structure import Structure
 from struct import unpack
 
@@ -425,7 +424,7 @@ class ESENT_CATALOG_DATA_DEFINITION_ENTRY(Structure):
 
         return Structure.__init__(self,data)
 
-import string
+
 def pretty_print(x):
     if x in '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~ ':
        return x

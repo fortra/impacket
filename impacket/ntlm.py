@@ -1,11 +1,10 @@
-# Copyright (c) 2003-2012 CORE Security Technologies:
+# Copyright (c) 2003-2015 CORE Security Technologies:
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
 import base64
-import array
 import struct
 import calendar
 import time
@@ -13,8 +12,10 @@ import hashlib
 import random
 import string
 import binascii
+
 from impacket.structure import Structure
 from impacket import LOG
+
 
 # This is important. NTLMv2 is not negotiated by the client or server. 
 # It is used if set locally on both sides. Change this item if you don't want to use 

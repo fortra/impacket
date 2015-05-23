@@ -26,7 +26,6 @@
 import os
 import sys
 import logging
-import datetime
 import struct
 import argparse
 import cmd
@@ -37,9 +36,10 @@ try:
 except ImportError:
   import readline
 from datetime import datetime
-from impacket import structure, version
-from impacket.structure import Structure
 from impacket.examples import logger
+from impacket import version
+from impacket.structure import Structure
+
 
 import string
 def pretty_print(x):

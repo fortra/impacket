@@ -1,7 +1,9 @@
 import unittest
 import ConfigParser
+
 from impacket.dcerpc.v5 import transport, epm, rpcrt
 from impacket.dcerpc.v5.dtypes import NULL
+
 
 # aimed at testing just the DCERPC engine, not the particular
 # endpoints (we should do specific tests for endpoints)

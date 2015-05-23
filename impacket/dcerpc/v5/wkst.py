@@ -1,4 +1,4 @@
-# Copyright (c) 2003-2014 CORE Security Technologies
+# Copyright (c) 2003-2015 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -18,9 +18,10 @@
 #   Helper functions start with "h"<name of the call>.
 #   There are test cases for them too. 
 #
-from impacket.dcerpc.v5 import ndr
-from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRENUM, NDRUNION, NDRUniConformantArray, NDRUniFixedArray, NDRPOINTER
-from impacket.dcerpc.v5.dtypes import *
+from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRENUM, NDRUNION, NDRUniConformantArray, NDRUniFixedArray, \
+    NDRPOINTER
+from impacket.dcerpc.v5.dtypes import NULL, WSTR, ULONG, LPWSTR, LONG, LARGE_INTEGER, WIDESTR, RPC_UNICODE_STRING, \
+    LPULONG, LPLONG
 from impacket import system_errors
 from impacket.uuid import uuidtup_to_bin
 from impacket.dcerpc.v5.enum import Enum

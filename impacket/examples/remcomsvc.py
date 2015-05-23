@@ -1,4 +1,4 @@
-# Copyright (c) 2003-2012 CORE Security Technologies
+# Copyright (c) 2003-2015 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -12,7 +12,7 @@
 # dump the binary (hexlify) in this file, on the REMCOMSVC variable
 #
 # Author:
-#  Alberto Solino (bethus@gmail.com)
+#  Alberto Solino (@agsolino)
 #
 # Copyright note in remcomsvc.cpp:
 #

@@ -1,4 +1,4 @@
-# Copyright (c) 2003-2012 CORE Security Technologies
+# Copyright (c) 2003-2015 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -11,10 +11,11 @@
 #  Martin Candurra
 #  martincad at corest.com
 
-from ImpactPacket import ProtocolLayer, PacketBuffer, Header
-from impacket import LOG
 from struct import unpack
 import socket
+
+from ImpactPacket import Header
+from impacket import LOG
 
 IP_ADDRESS_LENGTH = 4
 

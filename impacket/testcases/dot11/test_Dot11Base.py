@@ -5,7 +5,6 @@ import sys
 sys.path.insert(0,"../..")
 
 from dot11 import Dot11, Dot11Types
-from binascii import hexlify
 import unittest
 
 class TestDot11Common(unittest.TestCase):

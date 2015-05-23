@@ -1,10 +1,10 @@
-# Copyright (c) 2003-2014 CORE Security Technologies
+# Copyright (c) 2003-2015 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Author: Alberto Solino
+# Author: Alberto Solino (@agsolino)
 #
 # Description:
 #   [MS-LSAD] Interface implementation
@@ -18,9 +18,11 @@
 #   Helper functions start with "h"<name of the call>.
 #   There are test cases for them too. 
 #
-from impacket.dcerpc.v5 import ndr
-from impacket.dcerpc.v5.ndr import NDRCALL, NDR, NDRSTRUCT, NDRENUM, NDRUNION, NDRPOINTER, NDRUniConformantArray, NDRUniConformantVaryingArray
-from impacket.dcerpc.v5.dtypes import *
+from impacket.dcerpc.v5.ndr import NDRCALL, NDRENUM, NDRUNION, NDRUniConformantVaryingArray, NDRPOINTER, NDR, NDRSTRUCT, \
+    NDRUniConformantArray
+from impacket.dcerpc.v5.dtypes import DWORD, LPWSTR, STR, LUID, LONG, ULONG, RPC_UNICODE_STRING, PRPC_SID, LPBYTE, \
+    LARGE_INTEGER, NTSTATUS, RPC_SID, ACCESS_MASK, UCHAR, PRPC_UNICODE_STRING, PLARGE_INTEGER, USHORT, \
+    SECURITY_INFORMATION, NULL, MAXIMUM_ALLOWED, GUID, SECURITY_DESCRIPTOR, OWNER_SECURITY_INFORMATION
 from impacket import nt_errors
 from impacket.uuid import uuidtup_to_bin
 from impacket.dcerpc.v5.enum import Enum

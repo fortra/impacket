@@ -45,19 +45,15 @@
 #  DCOM/WMI
 
 import sys
-import os
-import cmd
 import argparse
-import time
-import ntpath
 import logging
 
-from impacket import version, ntlm
-from impacket.smbconnection import *
+from impacket.examples import logger
+from impacket import version
 from impacket.dcerpc.v5.dcomrt import DCOMConnection
 from impacket.dcerpc.v5.dcom import wmi
 from impacket.dcerpc.v5.dtypes import NULL
-from impacket.examples import logger
+
 
 class WMIPERSISTENCE:
     def __init__(self, username = '', password = '', domain = '', options= None):

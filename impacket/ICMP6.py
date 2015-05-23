@@ -5,11 +5,12 @@
 # for more information.
 # 
 
+import array
+import struct
+
 from ImpactPacket import Header, Data
 from IP6_Address import IP6_Address
-#from impacket import ImpactPacket
-from IP6 import IP6
-import array, struct
+
 
 class ICMP6(Header):    
     #IP Protocol number for ICMP6

@@ -123,19 +123,17 @@
 # Shouldn't dump errors against a win7
 ################################################################################
 
-import sys
 import unittest
 import ConfigParser
 import string
 import random
-from struct import pack, unpack
 
 from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import samr, epm
-from impacket.winregistry import hexdump
 from impacket.dcerpc.v5 import dtypes
 from impacket import nt_errors, ntlm
 from impacket.dcerpc.v5.ndr import NULL
+
 
 class SAMRTests(unittest.TestCase):
     def connect(self):
@@ -2513,13 +2511,13 @@ class SAMRTests(unittest.TestCase):
         dce, rpctransport, domainHandle  = self.connect()
         request = samr.SamrQuerySecurityObject()
         request['ObjectHandle'] =  domainHandle
-        request['SecurityInformation'] =  dtypes.OWNER_SECURITY_INFORMATION | dtypes.GROUP_SECURITY_INFORMATION | dtypes.SACL_SECURITY_INFORMATION | samr.DACL_SECURITY_INFORMATION
+        request['SecurityInformation'] =  dtypes.OWNER_SECURITY_INFORMATION | dtypes.GROUP_SECURITY_INFORMATION | dtypes.SACL_SECURITY_INFORMATION | dtypes.DACL_SECURITY_INFORMATION
         resp = dce.request(request)
         resp.dump()
 
     def test_hSamrQuerySecurityObject(self):
         dce, rpctransport, domainHandle  = self.connect()
-        resp = samr.hSamrQuerySecurityObject(dce, domainHandle,dtypes.OWNER_SECURITY_INFORMATION | dtypes.GROUP_SECURITY_INFORMATION | dtypes.SACL_SECURITY_INFORMATION | samr.DACL_SECURITY_INFORMATION)
+        resp = samr.hSamrQuerySecurityObject(dce, domainHandle,dtypes.OWNER_SECURITY_INFORMATION | dtypes.GROUP_SECURITY_INFORMATION | dtypes.SACL_SECURITY_INFORMATION | dtypes.DACL_SECURITY_INFORMATION)
         resp.dump()
 
     def test_SamrSetSecurityObject(self):

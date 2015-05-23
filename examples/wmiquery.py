@@ -21,12 +21,12 @@ import argparse
 import sys
 import os
 import logging
-from impacket import version, ntlm
-from impacket.dcerpc.v5 import transport, dcomrt
+
+from impacket.examples import logger
+from impacket import version
 from impacket.dcerpc.v5.dtypes import NULL
 from impacket.dcerpc.v5.dcom import wmi
 from impacket.dcerpc.v5.dcomrt import DCOMConnection
-from impacket.examples import logger
 
 if __name__ == '__main__':
     import cmd

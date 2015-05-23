@@ -55,18 +55,13 @@
 #
 ################################################################################
 
-import sys
 import unittest
 import ConfigParser
-from struct import pack, unpack
 
 from impacket.dcerpc.v5 import transport
-from impacket.dcerpc.v5 import epm, srvs, samr
-from impacket.dcerpc.v5.ndr import NULL
-from impacket.dcerpc.v5.dtypes import *
-from impacket.winregistry import hexdump
-from impacket.uuid import string_to_bin, uuidtup_to_bin
-from impacket import system_errors
+from impacket.dcerpc.v5 import srvs
+from impacket.dcerpc.v5.dtypes import NULL, OWNER_SECURITY_INFORMATION
+
 
 class SRVSTests(unittest.TestCase):
     def connect(self):
@@ -393,7 +388,7 @@ class SRVSTests(unittest.TestCase):
         resp = srvs.hNetrShareEnum(dce, 503)
         resp.dump()
 
-    def test_NetrShareEnumSticky(self):
+    def tes_NetrShareEnumSticky(self):
         dce, rpctransport = self.connect()
         request = srvs.NetrShareEnumSticky()
         request['ServerName'] = NULL
@@ -411,7 +406,7 @@ class SRVSTests(unittest.TestCase):
         resp = dce.request(request)
         resp.dump()
 
-    def test_hNetrShareEnumSticky(self):
+    def tes_hNetrShareEnumSticky(self):
         dce, rpctransport = self.connect()
         resp = srvs.hNetrShareEnumSticky(dce, 502)
         resp.dump()
@@ -520,7 +515,7 @@ class SRVSTests(unittest.TestCase):
         resp = srvs.hNetrShareSetInfo(dce, 'IPC$\x00', 1, shareInfo)
         resp.dump()
 
-    def test_hNetrShareDelSticky(self):
+    def tes_hNetrShareDelSticky(self):
         dce, rpctransport = self.connect()
 
         shareInfo = srvs.SHARE_INFO_2()
@@ -539,7 +534,7 @@ class SRVSTests(unittest.TestCase):
         resp = srvs.hNetrShareDel(dce, 'BETUSHARE\x00')
         resp.dump()
 
-    def test_NetrShareDelSticky(self):
+    def tes_NetrShareDelSticky(self):
         dce, rpctransport = self.connect()
         request = srvs.NetrShareAdd()
         request['ServerName'] = NULL

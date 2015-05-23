@@ -1,10 +1,10 @@
-# Copyright (c) 2003-2012 CORE Security Technologies)
+# Copyright (c) 2003-2015 CORE Security Technologies)
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Author: Alberto Solino (beto@coresecurity.com)
+# Author: Alberto Solino (@agsolino)
 #
 # Description:
 #   SMB 2 and 3 Protocol Structures and constants [MS-SMB2]

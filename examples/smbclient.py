@@ -16,18 +16,19 @@
 #
 
 import sys
-import string
 import time
 import logging
-from impacket.examples import logger 
-from impacket import smb, version, smb3, nt_errors, version
+import argparse
+import cmd
+import os
+
+from impacket.examples import logger
+from impacket import version
 from impacket.dcerpc.v5 import samr, transport, srvs
 from impacket.dcerpc.v5.dtypes import NULL
 from impacket.smbconnection import *
-import argparse
-import ntpath
-import cmd
-import os
+
+
 # If you wanna have readline like functionality in Windows, install pyreadline
 try:
   import pyreadline as readline

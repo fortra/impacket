@@ -1,10 +1,10 @@
-# Copyright (c) 2003-2014 CORE Security Technologies
+# Copyright (c) 2003-2015 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Author: Alberto Solino
+# Author: Alberto Solino (@agsolino)
 #
 # Description:
 #   [MS-DCOM] Interface implementation
@@ -28,13 +28,14 @@
 
 from struct import pack
 from threading import Timer
-from impacket.dcerpc.v5 import ndr
-from impacket.dcerpc.v5.ndr import NDRCALL, NDR, NDRSTRUCT, NDRPOINTER, NDRUniConformantArray, NDRUniFixedArray, NDRTLSTRUCT
-from impacket.dcerpc.v5.dtypes import LPWSTR, WCHAR, ULONGLONG, HRESULT, GUID, USHORT, WSTR, DWORD, LPLONG, LONG, PGUID, ULONG, UUID, WIDESTR, NULL
+
+from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRPOINTER, NDRUniConformantArray, NDRTLSTRUCT
+from impacket.dcerpc.v5.dtypes import LPWSTR, ULONGLONG, HRESULT, GUID, USHORT, WSTR, DWORD, LPLONG, LONG, PGUID, ULONG, \
+    UUID, WIDESTR, NULL
 from impacket import hresult_errors, LOG
-from impacket.uuid import string_to_bin, uuidtup_to_bin, generate, bin_to_string
-from impacket.dcerpc.v5.enum import Enum
-from impacket.dcerpc.v5.rpcrt import TypeSerialization1, RPC_C_AUTHN_LEVEL_PKT_INTEGRITY, RPC_C_AUTHN_LEVEL_NONE, RPC_C_AUTHN_LEVEL_PKT_PRIVACY, RPC_C_AUTHN_GSS_NEGOTIATE, RPC_C_AUTHN_WINNT
+from impacket.uuid import string_to_bin, uuidtup_to_bin, generate
+from impacket.dcerpc.v5.rpcrt import TypeSerialization1, RPC_C_AUTHN_LEVEL_PKT_INTEGRITY, RPC_C_AUTHN_LEVEL_NONE, \
+    RPC_C_AUTHN_LEVEL_PKT_PRIVACY, RPC_C_AUTHN_GSS_NEGOTIATE, RPC_C_AUTHN_WINNT
 from impacket.dcerpc.v5 import transport
 
 CLSID_ActivationContextInfo   = string_to_bin('000001a5-0000-0000-c000-000000000046')
@@ -295,7 +296,7 @@ class OBJREF_STANDARD(OBJREF):
     def __init__(self, data = None,isNDR64 = False):
         OBJREF.__init__(self, data, isNDR64)
         if data is None:
-            self['flags'] = FLAGS_OBJREF_STANDARD5
+            self['flags'] = FLAGS_OBJREF_STANDARD
 
 # 2.2.18.5 OBJREF_HANDLER
 class OBJREF_HANDLER(OBJREF):

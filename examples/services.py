@@ -15,17 +15,16 @@
 # TODO: 
 # [ ] Check errors
 
-import socket
-import string
 import sys
-import types
 import argparse
 import logging
-from impacket import uuid, ntlm, version
+
+from impacket.examples import logger
+from impacket import version
 from impacket.dcerpc.v5 import transport, scmr
 from impacket.dcerpc.v5.ndr import NULL
-from impacket.examples import logger
 from impacket.crypto import *
+
 
 class SVCCTL:
     KNOWN_PROTOCOLS = {

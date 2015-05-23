@@ -1,4 +1,4 @@
-# Copyright (c) 2003-2014 CORE Security Technologies
+# Copyright (c) 2003-2015 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -22,7 +22,6 @@ import socket
 from binascii import a2b_hex
 from Crypto.Cipher import ARC4
 
-import impacket
 from impacket import ntlm, LOG
 from impacket.structure import Structure,pack,unpack
 from impacket.krb5 import kerberosv5, gssapi
@@ -1576,7 +1575,7 @@ class DCERPCServer(Thread):
                 response['pduData'] = returnData
             else:
                 response['type']    = MSRPC_FAULT
-                response['pduData'] = struct.pack('<L',0x000006E4L)
+                response['pduData'] = pack('<L',0x000006E4L)
             response['frag_len'] = len(response)
             return response
         else:

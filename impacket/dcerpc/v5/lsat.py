@@ -1,10 +1,10 @@
-# Copyright (c) 2003-2014 CORE Security Technologies
+# Copyright (c) 2003-2015 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Author: Alberto Solino
+# Author: Alberto Solino (@agsolino)
 #
 # Description:
 #   [MS-LSAT] Interface implementation
@@ -18,13 +18,16 @@
 #   Helper functions start with "h"<name of the call>.
 #   There are test cases for them too. 
 #
-from impacket.dcerpc.v5 import ndr
-from impacket.dcerpc.v5.ndr import NDRCALL, NDR, NDRSTRUCT, NDRENUM, NDRPOINTER, NDRUniConformantArray
-from impacket.dcerpc.v5.dtypes import *
+from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRENUM, NDRPOINTER, NDRUniConformantArray
+from impacket.dcerpc.v5.dtypes import ULONG, LONG, PRPC_SID, RPC_UNICODE_STRING, LPWSTR, PRPC_UNICODE_STRING, NTSTATUS, \
+    NULL
 from impacket import nt_errors
 from impacket.uuid import uuidtup_to_bin
 from impacket.dcerpc.v5.enum import Enum
-from impacket.dcerpc.v5.lsad import LSAPR_HANDLE, LSAPR_ACL, SECURITY_DESCRIPTOR_CONTROL, LSAPR_SECURITY_DESCRIPTOR, PLSAPR_SECURITY_DESCRIPTOR, SECURITY_IMPERSONATION_LEVEL, SECURITY_CONTEXT_TRACKING_MODE, SECURITY_QUALITY_OF_SERVICE, LSAPR_OBJECT_ATTRIBUTES, LSAPR_TRUST_INFORMATION, PLSAPR_TRUST_INFORMATION_ARRAY, PRPC_UNICODE_STRING_ARRAY, LsarOpenPolicy2, LsarOpenPolicy, LsarClose, hLsarOpenPolicy2, hLsarOpenPolicy, hLsarClose
+from impacket.dcerpc.v5.lsad import LSAPR_HANDLE, LSAPR_ACL, SECURITY_DESCRIPTOR_CONTROL, LSAPR_SECURITY_DESCRIPTOR, \
+    PLSAPR_SECURITY_DESCRIPTOR, SECURITY_IMPERSONATION_LEVEL, SECURITY_CONTEXT_TRACKING_MODE, \
+    SECURITY_QUALITY_OF_SERVICE, LSAPR_OBJECT_ATTRIBUTES, LSAPR_TRUST_INFORMATION, PLSAPR_TRUST_INFORMATION_ARRAY, \
+    PRPC_UNICODE_STRING_ARRAY, LsarOpenPolicy2, LsarOpenPolicy, LsarClose, hLsarOpenPolicy2, hLsarOpenPolicy, hLsarClose
 from impacket.dcerpc.v5.samr import SID_NAME_USE
 
 MSRPC_UUID_LSAT  = uuidtup_to_bin(('12345778-1234-ABCD-EF00-0123456789AB','0.0'))

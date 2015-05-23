@@ -19,14 +19,12 @@
 #  ImpactDecoder.
 
 import sys
-import string
 from exceptions import Exception
-from threading import Thread
-
 import pcapy
 from pcapy import open_offline
-import impacket
+
 from impacket.ImpactDecoder import EthDecoder, LinuxSLLDecoder
+
 
 class Connection:
     """This class can be used as a key in a dictionary to select a connection

@@ -24,7 +24,6 @@ from select import select
 import socket
 import sys
 
-import impacket
 from impacket import ImpactDecoder
 
 DEFAULT_PROTOCOLS = ('icmp', 'tcp', 'udp')

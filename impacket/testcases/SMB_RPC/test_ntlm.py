@@ -1,8 +1,9 @@
-from impacket import ntlm
 import struct
+
+from impacket import ntlm
+
 # Hexdump packets
 
-import string
 def pretty_print(x):
     if x in '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~ ':
        return x

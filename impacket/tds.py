@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Copyright (c) 2003-2012 CORE Security Technologies
+# Copyright (c) 2003-2015 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -15,21 +15,22 @@
 #     rewritten to output like a normal SQL client
 #
 # Author:
-#  Alberto Solino (beto@coresecurity.com)
+#  Alberto Solino (@agsolino)
 #
 
 
-from impacket import ntlm, uuid, LOG
-from impacket.structure import Structure
-import random
-import string
 import struct
-import socket, select
+import socket
+import select
 import random
-import binascii 
+import binascii
 import math
 import datetime
 import sys
+import string
+
+from impacket import ntlm, uuid, LOG
+from impacket.structure import Structure
 
 try:
     import OpenSSL

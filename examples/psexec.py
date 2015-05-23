@@ -17,17 +17,19 @@ import sys
 import os
 import cmd
 import logging
-
-from impacket import version
-from impacket.smbconnection import *
-from impacket.dcerpc.v5 import transport
-from impacket.structure import Structure
 from threading import Thread, Lock
-from impacket.examples import remcomsvc, serviceinstall, logger
 import argparse
 import random
 import string
 import time
+
+from impacket.examples import logger
+from impacket import version, smb
+from impacket.smbconnection import SMBConnection
+from impacket.dcerpc.v5 import transport
+from impacket.structure import Structure
+from impacket.examples import remcomsvc, serviceinstall
+
 
 class RemComMessage(Structure):
     structure = (

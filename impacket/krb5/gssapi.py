@@ -1,10 +1,10 @@
-# Copyright (c) 2003-2014 CORE Security Technologies
+# Copyright (c) 2003-2015 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Author: Alberto Solino (bethus@gmail.com, @agsolino)
+# Author: Alberto Solino (@agsolino)
 #
 # Description:
 #   RFC 1964 Partial Implementation
@@ -12,14 +12,14 @@
 #   RFC 4121 Partial Implementation
 #   RFC 3962 Partial Implementation
 
-import sys
 import struct
-from pyasn1.codec.der import decoder, encoder
+
 from Crypto.Hash import HMAC, MD5
 from Crypto.Cipher import ARC4
+
 from impacket.structure import Structure
-from impacket.winregistry import hexdump
 from impacket.krb5 import constants, crypto
+
 
 # Constants
 GSS_C_DCE_STYLE     = 0x1000

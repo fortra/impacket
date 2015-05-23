@@ -1,14 +1,12 @@
-# Copyright (c) 2003-2014 CORE Security Technologies
+# Copyright (c) 2003-2015 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
 # [C706] Transfer NDR Syntax implementation
-# 
-# Author:
 #
-#     Alberto Solino
+# Author: Alberto Solino (@agsolino)
 #
 # ToDo:
 # [X] Unions and rest of the structured types
@@ -17,11 +15,13 @@
 
 import random
 import inspect
-from struct import *
-from impacket import uuid, LOG
+from struct import pack, unpack, calcsize
+
+from impacket import LOG
 from impacket.winregistry import hexdump
 from impacket.dcerpc.v5.enum import Enum
 from impacket.uuid import uuidtup_to_bin
+
 
 # Something important to have in mind:
 # Diagrams do not depict the specified alignment gaps, which can appear in the octet stream
@@ -551,7 +551,7 @@ class NDR(object):
         # literal specifier
         if fieldTypeOrClass == ':':
             if isinstance(fieldTypeOrClass, NDR):
-                return self.fields[field].fromString(data, soFar)
+                return self.fields[fieldName].fromString(data, soFar)
             else:
                 return data[:self.getDataLen(data)]
 

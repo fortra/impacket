@@ -1,10 +1,10 @@
-# Copyright (c) 2003-2014 CORE Security Technologies
+# Copyright (c) 2003-2015 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Author: Alberto Solino
+# Author: Alberto Solino (@agsolino)
 #
 # Description:
 #   [MS-COMEV]: Component Object Model Plus (COM+) Event System Protocol. 
@@ -22,7 +22,7 @@
 from impacket.dcerpc.v5.ndr import NDRSTRUCT, NDRENUM, NDRUniConformantVaryingArray
 from impacket.dcerpc.v5.dcomrt import DCOMCALL, DCOMANSWER, INTERFACE, PMInterfacePointer, IRemUnknown
 from impacket.dcerpc.v5.dcom.oaut import IDispatch, BSTR, VARIANT
-from impacket.dcerpc.v5.dtypes import INT, ULONG, GUID, LONG, BOOLEAN
+from impacket.dcerpc.v5.dtypes import INT, ULONG, LONG, BOOLEAN
 from impacket.dcerpc.v5.enum import Enum
 from impacket import hresult_errors
 from impacket.uuid import string_to_bin, uuidtup_to_bin
@@ -371,13 +371,13 @@ class IEventClass2_get_PublisherIDResponse(DCOMANSWER):
     )
 
 # 3.1.4.3.2 put_PublisherID (Opnum 22)
-class IEventClass_put_PublisherID(DCOMCALL):
+class IEventClass2_put_PublisherID(DCOMCALL):
     opnum = 22
     structure = (
        ('bstrPublisherID', BSTR),
     )
 
-class IEventClass_put_PublisherIDResponse(DCOMANSWER):
+class IEventClass2_put_PublisherIDResponse(DCOMANSWER):
     structure = (
        ('ErrorCode', error_status_t),
     )
@@ -395,13 +395,13 @@ class IEventClass2_get_MultiInterfacePublisherFilterCLSIDResponse(DCOMANSWER):
     )
 
 # 3.1.4.3.4 put_MultiInterfacePublisherFilterCLSID (Opnum 24)
-class IEventClass_put_MultiInterfacePublisherFilterCLSID(DCOMCALL):
+class IEventClass2_put_MultiInterfacePublisherFilterCLSID(DCOMCALL):
     opnum = 24
     structure = (
        ('bstrPubFilCLSID', BSTR),
     )
 
-class IEventClass_put_MultiInterfacePublisherFilterCLSIDResponse(DCOMANSWER):
+class IEventClass2_put_MultiInterfacePublisherFilterCLSIDResponse(DCOMANSWER):
     structure = (
        ('ErrorCode', error_status_t),
     )
@@ -419,13 +419,13 @@ class IEventClass2_get_AllowInprocActivationResponse(DCOMANSWER):
     )
 
 # 3.1.4.3.6 put_AllowInprocActivation (Opnum 26)
-class IEventClass_put_AllowInprocActivation(DCOMCALL):
+class IEventClass2_put_AllowInprocActivation(DCOMCALL):
     opnum = 26
     structure = (
        ('fAllowInprocActivation', BOOLEAN),
     )
 
-class IEventClass_put_AllowInprocActivationResponse(DCOMANSWER):
+class IEventClass2_put_AllowInprocActivationResponse(DCOMANSWER):
     structure = (
        ('ErrorCode', error_status_t),
     )
@@ -443,13 +443,13 @@ class IEventClass2_get_FireInParallelResponse(DCOMANSWER):
     )
 
 # 3.1.4.3.8 put_FireInParallel (Opnum 28)
-class IEventClass_put_FireInParallel(DCOMCALL):
+class IEventClass2_put_FireInParallel(DCOMCALL):
     opnum = 28
     structure = (
        ('pfFireInParallel', BOOLEAN),
     )
 
-class IEventClass_put_FireInParallelResponse(DCOMANSWER):
+class IEventClass2_put_FireInParallelResponse(DCOMANSWER):
     structure = (
        ('ErrorCode', error_status_t),
     )
@@ -1268,7 +1268,7 @@ class IEventClass(IDispatch):
 
     def put_EventClassName(self, bstrEventClassName):
         request = IEventClass_put_EventClassName()
-        request['bstrEventClassName'] = bstrEventClassID
+        request['bstrEventClassName'] = bstrEventClassName
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
         resp.dump()
         return resp
@@ -1362,7 +1362,7 @@ class IEventClass2(IEventClass):
         resp.dump()
         return resp
 
-    def put_AllowInprocActivation(self, bstrPublisherID):
+    def put_AllowInprocActivation(self, fAllowInprocActivation):
         request = IEventClass2_put_AllowInprocActivation()
         request['fAllowInprocActivation '] = fAllowInprocActivation
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
@@ -1737,7 +1737,7 @@ class IEnumEventObject(IDispatch):
     def Clone(self):
         request = IEnumEventObject_Clone()
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
-        return IEnumEventObject(INTERFACE(self.get_cinstance(), ''.join(ppInterface['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
+        return IEnumEventObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppInterface']['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
 
     def Next(self, cReqElem):
         request = IEnumEventObject_Next()
@@ -1851,12 +1851,12 @@ class IEventSystem2(IEventSystem):
         self._iid = IID_IEventSystem2
 
     def GetVersion(self):
-        request = IEventSystem_GetVersion()
+        request = IEventSystem2_GetVersion()
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
         return resp
 
     def VerifyTransientSubscribers(self):
-        request = IEventSystem_GetVersion()
+        request = IEventSystem2_GetVersion()
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
         return resp
 
@@ -1866,7 +1866,7 @@ class IEventSystemInitialize(IRemUnknown):
         self._iid = IID_IEventSystemInitialize
 
     def SetCOMCatalogBehaviour(self, bRetainSubKeys):
-        request = IEventSystem_GetVersion()
+        request = IEventSystem2_GetVersion()
         request['bRetainSubKeys'] = bRetainSubKeys
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
         return resp

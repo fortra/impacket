@@ -1,4 +1,4 @@
-# Copyright (c) 2003-2012 CORE Security Technologies)
+# Copyright (c) 2003-2015 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -24,7 +24,6 @@ except Exception:
     LOG.error("See http://www.pycrypto.org/")
 from struct import pack, unpack
 from impacket.structure import Structure
-from impacket import ntlm
 import hmac, hashlib
 
 def Generate_Subkey(K):

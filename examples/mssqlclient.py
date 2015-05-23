@@ -20,8 +20,9 @@ import sys
 import string
 import os
 import logging
-from impacket import version, tds
+
 from impacket.examples import logger
+from impacket import version, tds
 
 if __name__ == '__main__':
     import cmd

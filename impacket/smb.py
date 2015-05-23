@@ -1,4 +1,4 @@
-# Copyright (c) 2003-2012 CORE Security Technologies)
+# Copyright (c) 2003-2015 CORE Security Technologies)
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -25,7 +25,7 @@
 #
 # 3. This notice cannot be removed or altered from any source distribution.
 #
-# Altered source done by Alberto Solino
+# Altered source done by Alberto Solino (@agsolino)
 
 # Todo:
 # [ ] Try [SMB]transport fragmentation using Transact requests
@@ -39,18 +39,20 @@
 # [ ] Transform the rest of the calls to structure
 # [ ] Implement TRANS/TRANS2 reassembly for list_path 
 
-import os, sys, socket, string, re, select, errno
-from impacket import nmb, ntlm, nt_errors
-from impacket.structure import Structure
-from impacket.spnego import *
+import os
+import socket
 import types
+import string
 from binascii import a2b_hex
-import random
-import datetime, time
-from random import randint
-from struct import *
-import struct
+import datetime
+from struct import pack, unpack
 from contextlib import contextmanager
+
+from impacket import nmb, ntlm, nt_errors, LOG
+from impacket.structure import Structure
+from impacket.spnego import SPNEGO_NegTokenInit, TypesMech, SPNEGO_NegTokenResp
+
+
 
 # For signing
 import hashlib
@@ -150,7 +152,7 @@ SMB_FILE_ATTRIBUTE_READONLY      = 0x0001
 SMB_FILE_ATTRIBUTE_HIDDEN        = 0x0002
 SMB_FILE_ATTRIBUTE_SYSTEM        = 0x0004
 SMB_FILE_ATTRIBUTE_VOLUME        = 0x0008
-SMB_FILE_ATTRIBUTE_DIRECORY      = 0x0010
+SMB_FILE_ATTRIBUTE_DIRECTORY     = 0x0010
 SMB_FILE_ATTRIBUTE_ARCHIVE       = 0x0020
 SMB_SEARCH_ATTRIBUTE_READONLY    = 0x0100
 SMB_SEARCH_ATTRIBUTE_HIDDEN      = 0x0200
@@ -2595,7 +2597,7 @@ class SMB:
         # after which the message can be transmitted.
 
         #print "seq(%d) signingSessionKey %r, signingChallengeResponse %r" % (self._SignSequenceNumber, signingSessionKey, signingChallengeResponse)
-        packet['SecurityFeatures'] = struct.pack('<q',self._SignSequenceNumber)
+        packet['SecurityFeatures'] = pack('<q',self._SignSequenceNumber)
         # Sign with the sequence
         m = hashlib.md5()
         m.update( signingSessionKey )
@@ -3092,11 +3094,10 @@ class SMB:
 
     def kerberos_login(self, user, password, domain = '', lmhash = '', nthash = '', aesKey = '', kdcHost = '', TGT=None, TGS=None):
         # Importing down here so pyasn1 is not required if kerberos is not used.
-        from impacket.krb5.asn1 import AP_REQ, Authenticator, TGS_REP, seq_set, seq_set_dict
+        from impacket.krb5.asn1 import AP_REQ, Authenticator, TGS_REP, seq_set
         from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS
         from impacket.krb5 import constants
         from impacket.krb5.types import Principal, KerberosTime, Ticket
-        from impacket.winregistry import hexdump
         from pyasn1.codec.der import decoder, encoder
         import datetime
 

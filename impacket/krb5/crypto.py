@@ -40,13 +40,15 @@
 #   - Cipher state only needed for kcmd suite
 #   - Nonstandard enctypes and cksumtypes like des-hmac-sha1
 
-from Crypto.Util.number import GCD as gcd
 from struct import pack, unpack
+import string
+import random
+
+from Crypto.Util.number import GCD as gcd
 from Crypto.Cipher import AES, DES3, ARC4
 from Crypto.Hash import HMAC, MD4, MD5, SHA
 from Crypto.Protocol.KDF import PBKDF2
-import string
-import random
+
 
 def get_random_bytes(lenBytes):
     # We don't really need super strong randomness here to use PyCrypto.Random

@@ -1,10 +1,10 @@
-# Copyright (c) 2003-2012 CORE Security Technologies)
+# Copyright (c) 2003-2015 CORE Security Technologies)
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Author: Alberto Solino (beto@coresecurity.com)
+# Author: Alberto Solino (@agsolino)
 #
 # Description:
 #   [MS-SMB2] Protocol Implementation (SMB2 and SMB3)
@@ -25,14 +25,21 @@
 # [ ] Fix up all the 'ToDo' comments inside the code
 #
 
-import socket, string, ntpath
+import socket
+import ntpath
 import random
-from impacket import nmb, smb3structs, nt_errors, spnego, ntlm, uuid, crypto, LOG
-from impacket.smb3structs import *
-from impacket.nt_errors import *
-from impacket.spnego import *
+import string
+import struct
 from binascii import a2b_hex
 from contextlib import contextmanager
+
+from impacket import nmb, ntlm, uuid, crypto, LOG
+from impacket.smb3structs import *
+from impacket.nt_errors import STATUS_SUCCESS, STATUS_MORE_PROCESSING_REQUIRED, STATUS_INVALID_PARAMETER, \
+    STATUS_NO_MORE_FILES, STATUS_PENDING, STATUS_NOT_IMPLEMENTED, ERROR_MESSAGES
+from impacket.spnego import SPNEGO_NegTokenInit, TypesMech, SPNEGO_NegTokenResp
+
+
 # For signing
 import hashlib, hmac, copy
 
@@ -488,11 +495,10 @@ class SMB3:
         #sessionSetup['Capabilities'] = SMB2_GLOBAL_CAP_LARGE_MTU | SMB2_GLOBAL_CAP_LEASING | SMB2_GLOBAL_CAP_DFS
 
         # Importing down here so pyasn1 is not required if kerberos is not used.
-        from impacket.krb5.asn1 import AP_REQ, Authenticator, TGS_REP, seq_set, seq_set_dict
+        from impacket.krb5.asn1 import AP_REQ, Authenticator, TGS_REP, seq_set
         from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS
         from impacket.krb5 import constants
         from impacket.krb5.types import Principal, KerberosTime, Ticket
-        from impacket.winregistry import hexdump
         from pyasn1.codec.der import decoder, encoder
         import datetime
 
@@ -861,7 +867,7 @@ class SMB3:
            if len(fileName.split('\\')) > 2:
                parentDir = ntpath.dirname(pathName)
            if self.GlobalFileTable.has_key(parentDir):
-               log.critical("Don't know what to do now! :-o")
+               LOG.critical("Don't know what to do now! :-o")
                raise
            else:
                parentEntry = copy.deepcopy(FILE)

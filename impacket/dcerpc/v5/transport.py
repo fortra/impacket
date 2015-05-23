@@ -1,4 +1,4 @@
-# Copyright (c) 2003-2014 CORE Security Technologies
+# Copyright (c) 2003-2015 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -15,11 +15,11 @@ import socket
 import binascii
 import os
 
-from impacket.smbconnection import *
+from impacket.smbconnection import smb, SMBConnection
 from impacket import nmb
 from impacket import ntlm
-from impacket.structure import pack
 from impacket.dcerpc.v5 import rpcrt
+
 
 class DCERPCStringBinding:
     parser = re.compile(r'(?:([a-fA-F0-9-]{8}(?:-[a-fA-F0-9-]{4}){3}-[a-fA-F0-9-]{12})@)?' # UUID (opt.)
@@ -327,7 +327,8 @@ class HTTPTransport(TCPTransport):
 class SMBTransport(DCERPCTransport):
     "Implementation of ncacn_np protocol sequence"
 
-    def __init__(self, dstip, dstport = 445, filename = '', username='', password='', domain = '', lmhash='', nthash='', aesKey = '', TGT = None, TGS = None, remote_name='', smb_connection = 0, doKerberos = False):
+    def __init__(self, dstip, dstport=445, filename='', username='', password='', domain='', lmhash='', nthash='',
+                 aesKey='', TGT=None, TGS=None, remote_name='', smb_connection=0, doKerberos=False):
         DCERPCTransport.__init__(self, dstip, dstport)
         self.__socket = None
         self.__tid = 0

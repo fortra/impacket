@@ -1,10 +1,10 @@
-# Copyright (c) 2003-2014 CORE Security Technologies
+# Copyright (c) 2003-2015 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Author: Alberto Solino (bethus@gmail.com, @agsolino)
+# Author: Alberto Solino (@agsolino)
 #
 # Description:
 #   Kerberos Credential Cache format implementation
@@ -14,15 +14,14 @@
 #   Contribution is welcome to make it the right way
 #
 
-import sys
 from datetime import datetime
 from struct import pack, unpack, calcsize
-from impacket.winregistry import hexdump
-from impacket.structure import Structure
-from impacket.krb5 import crypto, constants, types
-from impacket.krb5.asn1 import AS_REP, seq_set, EncryptedData, TGS_REP, EncTGSRepPart, EncASRepPart, Ticket
+
 from pyasn1.codec.der import decoder, encoder
 
+from impacket.structure import Structure
+from impacket.krb5 import crypto, constants, types
+from impacket.krb5.asn1 import AS_REP, seq_set, TGS_REP, EncTGSRepPart, EncASRepPart, Ticket
 
 DELTA_TIME = 1
 

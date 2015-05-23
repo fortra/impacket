@@ -1,4 +1,4 @@
-# Copyright (c) 2003-2012 CORE Security Technologies)
+# Copyright (c) 2003-2015 CORE Security Technologies)
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -10,8 +10,6 @@
 #   SPNEGO functions used by SMB, SMB2/3 and DCERPC
 #
 
-import string
-import struct
 from struct import pack, unpack, calcsize
 
 ############### GSS Stuff ################

@@ -14,8 +14,9 @@
 import sys
 import argparse
 import logging
-from impacket import smbserver, version
+
 from impacket.examples import logger
+from impacket import smbserver, version
 
 if __name__ == '__main__':
 

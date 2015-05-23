@@ -1,4 +1,4 @@
-# Copyright (c) 2003-2012 CORE Security Technologies
+# Copyright (c) 2003-2015 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -29,14 +29,18 @@
 #
 # 3. This notice cannot be removed or altered from any source distribution.
 #
-# Altered source done by Alberto Solino
+# Altered source done by Alberto Solino (@agsolino)
 
-import socket, string, re, select, errno
-from structure import Structure
+import socket
+import string
+import re
+import select
+import errno
 from random import randint
-from struct import *
+from struct import pack, unpack
 import time
 
+from structure import Structure
 
 CVS_REVISION = '$Revision: 526 $'
 

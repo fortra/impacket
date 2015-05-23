@@ -1,10 +1,10 @@
-# Copyright (c) 2003-2014 CORE Security Technologies
+# Copyright (c) 2003-2015 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Author: Alberto Solino
+# Author: Alberto Solino (@agsolino)
 #
 # Description:
 #   [MS-NRPC] Interface implementation
@@ -18,9 +18,11 @@
 #   Helper functions start with "h"<name of the call>.
 #   There are test cases for them too. 
 #
-from impacket.dcerpc.v5 import ndr
-from impacket.dcerpc.v5.ndr import NDRCALL, NDR, NDRSTRUCT, NDRENUM, NDRUNION, NDRPOINTER, NDRUniConformantArray, NDRUniFixedArray, NDRUniConformantVaryingArray
-from impacket.dcerpc.v5.dtypes import *
+from struct import pack
+from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRENUM, NDRUNION, NDRPOINTER, NDRUniConformantArray, \
+    NDRUniFixedArray, NDRUniConformantVaryingArray
+from impacket.dcerpc.v5.dtypes import WSTR, LPWSTR, DWORD, ULONG, USHORT, PGUID, NTSTATUS, NULL, LONG, UCHAR, PRPC_SID, \
+    GUID, RPC_UNICODE_STRING, SECURITY_INFORMATION, LPULONG
 from impacket import system_errors, nt_errors
 from impacket.uuid import uuidtup_to_bin
 from impacket.dcerpc.v5.enum import Enum
@@ -30,7 +32,7 @@ from impacket.structure import Structure
 from impacket import ntlm, crypto, LOG
 import hmac, hashlib
 try:
- from Crypto.Cipher import DES, AES, ARC4
+    from Crypto.Cipher import DES, AES, ARC4
 except Exception:
     LOG.critical("Warning: You don't have any crypto installed. You need PyCrypto")
     LOG.critical("See http://www.pycrypto.org/")

@@ -36,13 +36,6 @@
 # http://www.ntdsxtract.com/downloads/ActiveDirectoryOfflineHashDumpAndForensics.pdf
 # http://www.passcape.com/index.php?section=blog&cmd=details&id=15
 #
-from impacket import version, smbconnection, winregistry, ntlm
-from impacket.smbconnection import SMBConnection
-from impacket.dcerpc.v5 import rpcrt, transport, rrp, scmr, wkst, samr
-from impacket.winregistry import hexdump
-from impacket.structure import Structure
-from impacket.ese import ESENT_DB
-from impacket.examples import logger
 from struct import unpack, pack
 from collections import OrderedDict
 import sys
@@ -50,12 +43,17 @@ import random
 import hashlib
 import argparse
 import logging
-import tempfile
-import os
-import traceback
 import ntpath
 import time
 import string
+
+from impacket.examples import logger
+from impacket import version, winregistry, ntlm
+from impacket.smbconnection import SMBConnection
+from impacket.dcerpc.v5 import transport, rrp, scmr, wkst, samr
+from impacket.winregistry import hexdump
+from impacket.structure import Structure
+from impacket.ese import ESENT_DB
 
 try:
     from Crypto.Cipher import DES, ARC4, AES

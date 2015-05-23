@@ -5,11 +5,12 @@
 # for more information.
 #
 
-from ImpactPacket import Header
+import array
+import struct
+
 from impacket import ImpactPacket
-from IP6 import IP6
 from ICMP6 import ICMP6
-import array, struct
+
 
 class NDP(ICMP6):
     #ICMP message type numbers

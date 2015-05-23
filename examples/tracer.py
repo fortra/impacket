@@ -42,18 +42,13 @@ fast_draws = 1
 ## End of user configurable section.
 
 
-import os
 import socket
 import sys
 import time
-
 import Tkinter
-from Tkconstants import *
-
 import pcapy
 from pcapy import open_live, findalldevs, PcapError
-import impacket
-from impacket import ImpactPacket
+
 from impacket.ImpactDecoder import EthDecoder, LinuxSLLDecoder
 
 

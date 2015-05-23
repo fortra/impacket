@@ -1,4 +1,4 @@
-# Copyright (c) 2003-2012 CORE Security Technologies
+# Copyright (c) 2003-2015 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -10,16 +10,12 @@
 # Author:
 #  Gustavo Moreira
 
-import array
 import struct
-import socket
 import string
-import sys
-import types
-from ImpactPacket import ProtocolPacket
-from binascii import hexlify,crc32
-from Dot11Crypto import RC4
+from binascii import crc32
 
+from ImpactPacket import ProtocolPacket
+from Dot11Crypto import RC4
 
 frequency = {
     2412: 1,    2417: 2,    2422: 3,    2427: 4,    2432: 5,    2437: 6,    2442: 7,    2447: 8,    2452: 9,
@@ -1695,7 +1691,6 @@ class RadioTap(ProtocolPacket):
             raise Exception("arg 'values' is not iterable")
         
         # It's for to known the qty of argument of a structure
-        from string import maketrans
         num_fields=len(field.STRUCTURE.translate(string.maketrans("",""), '=@!<>'))
 
         if len(values)!=num_fields:

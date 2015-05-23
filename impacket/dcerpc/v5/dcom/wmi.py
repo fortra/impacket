@@ -1,10 +1,10 @@
-# Copyright (c) 2003-2014 CORE Security Technologies
+# Copyright (c) 2003-2015 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Author: Alberto Solino
+# Author: Alberto Solino (@agsolino)
 #
 # Description:
 #   [MS-WMI]/[MS-WMIO] : Windows Management Instrumentation Remote Protocol. Partial implementation
@@ -19,16 +19,20 @@
 #
 from struct import unpack, calcsize, pack
 from functools import partial
-from impacket.dcerpc.v5.ndr import NDRSTRUCT, NDRUniConformantArray, NDRPOINTER, NDRUniConformantVaryingArray, NDRUNION, NDRENUM
-from impacket.dcerpc.v5.dcomrt import DCOMCALL, DCOMANSWER, IRemUnknown, PMInterfacePointer, INTERFACE, PMInterfacePointer_ARRAY, BYTE_ARRAY, OBJREF_CUSTOM, PPMInterfacePointer, OBJREF_CUSTOM
+import collections
+
+from impacket.dcerpc.v5.ndr import NDRSTRUCT, NDRUniConformantArray, NDRPOINTER, NDRUniConformantVaryingArray, NDRUNION, \
+    NDRENUM
+from impacket.dcerpc.v5.dcomrt import DCOMCALL, DCOMANSWER, IRemUnknown, PMInterfacePointer, INTERFACE, \
+    PMInterfacePointer_ARRAY, BYTE_ARRAY, PPMInterfacePointer, OBJREF_CUSTOM
 from impacket.dcerpc.v5.dcom.oaut import BSTR
 from impacket.dcerpc.v5.dtypes import ULONG, DWORD, NULL, LPWSTR, LONG, HRESULT, PGUID, LPCSTR, GUID
 from impacket.dcerpc.v5.enum import Enum
 from impacket import hresult_errors, LOG
 from impacket.uuid import string_to_bin, uuidtup_to_bin
 from impacket.structure import Structure
-from impacket.winregistry import hexdump
-import collections
+
+
 def format_structure(d, level=0):
     x = ""
     if isinstance(d, collections.Mapping):
@@ -1923,12 +1927,12 @@ class IWbemCallResult_GetCallStatusResponse(DCOMANSWER):
 
 # 3.1.4.6 IWbemFetchSmartEnum Interface
 # 3.1.4.6.1 IWbemFetchSmartEnum::GetSmartEnum (Opnum 3)
-class IWbemCallResult_GetSmartEnum(DCOMCALL):
+class IWbemFetchSmartEnum_GetSmartEnum(DCOMCALL):
     opnum = 3
     structure = (
     )
 
-class IWbemCallResult_GetSmartEnumResponse(DCOMANSWER):
+class IWbemFetchSmartEnum_GetSmartEnumResponse(DCOMANSWER):
     structure = (
        ('ppSmartEnum', PMInterfacePointer),
        ('ErrorCode', error_status_t),
@@ -2512,7 +2516,6 @@ class IWbemClassObject(IRemUnknown):
             setattr(self, property, properties[property]['value'])
 
     def createMethods(self, classOrInstance, methods):
-        from functools import partial
         class FunctionPool:
             def __init__(self,function):
                 self.function = function
@@ -2830,7 +2833,7 @@ class IWbemServices(IRemUnknown):
             ppcallResult = NULL
         return ppObject, ppcallResult
 
-    def GetObjectAsync(self, strObjectPath, lFlags=0, pCtx = NULL):
+    def GetObjectAsync(self, strNamespace, lFlags=0, pCtx = NULL):
         request = IWbemServices_GetObjectAsync()
         request['strObjectPath']['asData'] = checkNullString(strNamespace)
         request['lFlags'] = lFlags
@@ -3014,7 +3017,6 @@ class IWbemServices(IRemUnknown):
         request = IWbemServices_ExecMethodAsync()
         request['strObjectPath']['asData'] = checkNullString(strObjectPath)
         request['strMethodName']['asData'] = checkNullString(strMethodName)
-        request['strQuery']['asData'] = checkNullString(strQuery)
         request['lFlags'] = lFlags
         request['pCtx'] = pCtx
         request['pInParams'] = pInParams
@@ -3061,8 +3063,6 @@ class IWbemLevel1Login(IRemUnknown):
 
 
 if __name__ == '__main__':
-    from impacket.winregistry import hexdump
-
     # Example 1
     baseClass = 'xV4\x12\xd0\x00\x00\x00\x05\x00DPRAVAT-DEV\x00\x00ROOT\x00\x1d\x00\x00\x00\x00\xff\xff\xff\xff\x00\x00\x00\x00\x04\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x80\x0c\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x80f\x00\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00\x04\x00\x00\x00\x04\x00\x00\x00\x01\x00\x00\x00\x06\x00\x00\x00\n\x00\x00\x00\x05\xff\xff\xff\xff<\x00\x00\x80\x00Base\x00\x00Id\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x1c\x00\x00\x00\n\x00\x00\x80\x03\x08\x00\x00\x004\x00\x00\x00\x01\x00\x00\x80\x13\x0b\x00\x00\x00\xff\xff\x00sint32\x00\x0c\x00\x00\x00\x00\x004\x00\x00\x00\x00\x80\x00\x80\x13\x0b\x00\x00\x00\xff\xff\x00sint32\x00'
 

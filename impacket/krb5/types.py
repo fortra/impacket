@@ -25,14 +25,15 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import datetime
+import socket
 import re
 import struct
 
-from pyasn1.codec.der import decoder, encoder
-from pyasn1.type import useful
+from pyasn1.codec.der import decoder
 
 import asn1
 import constants
+
 
 class KerberosException(Exception): pass
 

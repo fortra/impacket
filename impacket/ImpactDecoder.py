@@ -13,15 +13,19 @@
 #  Bruce Leidl (brl)
 #  Aureliano Calvo
 
+import array
+
 import ImpactPacket
 import dot11
-import IP6, ICMP6, IP6_Extension_Headers
+import IP6
+import ICMP6
+import IP6_Extension_Headers
 from cdp import CDP
-from Dot11KeyManager import KeyManager
 from Dot11Crypto import RC4
 import eap
 from impacket import wps
-import array
+from impacket.dot11 import Dot11WEPData
+
 
 """Classes to convert from raw packets into a hierarchy of
 ImpactPacket derived objects.

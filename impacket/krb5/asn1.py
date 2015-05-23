@@ -24,7 +24,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
-# Altered source by Alberto Solino
+# Altered source by Alberto Solino (@agsolino)
 #
 # Changed some of the classes names to match the RFC 4120
 # Added [MS-KILE] data
@@ -32,8 +32,10 @@
 #
 
 
-from pyasn1.type import tag, namedtype, namedval, univ, constraint, char, useful
+from pyasn1.type import tag, namedtype, univ, constraint, char, useful
+
 import constants
+
 
 def _application_tag(tag_value):
     return univ.Sequence.tagSet.tagExplicitly(

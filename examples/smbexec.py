@@ -32,17 +32,14 @@ import sys
 import os
 import cmd
 import argparse
-import random
-import string
-import time
 import ConfigParser
 import logging
 from threading import Thread
 
+from impacket.examples import logger
 from impacket import version, smbserver
 from impacket.smbconnection import *
 from impacket.dcerpc.v5 import transport, scmr
-from impacket.examples import logger
 
 OUTPUT_FILENAME = '__output'
 BATCH_FILENAME  = 'execute.bat'
