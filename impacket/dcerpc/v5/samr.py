@@ -18,6 +18,8 @@
 #   Helper functions start with "h"<name of the call>.
 #   There are test cases for them too. 
 #
+from binascii import unhexlify
+
 from impacket.dcerpc.v5.ndr import NDRCALL, NDR, NDRSTRUCT, NDRUNION, NDRPOINTER, NDRUniConformantArray, \
     NDRUniConformantVaryingArray, NDRENUM
 from impacket.dcerpc.v5.dtypes import NULL, RPC_UNICODE_STRING, ULONG, USHORT, UCHAR, LARGE_INTEGER, RPC_SID, LONG, STR, \
@@ -46,12 +48,12 @@ class DCERPCSessionError(Exception):
 
     def __str__( self ):
         key = self.error_code
-        if (nt_errors.ERROR_MESSAGES.has_key(key)):
+        if nt_errors.ERROR_MESSAGES.has_key(key):
             error_msg_short = nt_errors.ERROR_MESSAGES[key][0]
             error_msg_verbose = nt_errors.ERROR_MESSAGES[key][1] 
             return 'SAMR SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
         else:
-            return 'SAMR SessionError: unknown error code: 0x%x' % (self.error_code)
+            return 'SAMR SessionError: unknown error code: 0x%x' % self.error_code
 
 ################################################################################
 # CONSTANTS
@@ -306,9 +308,8 @@ class RPC_STRING(NDRSTRUCT):
 
     def dump(self, msg = None, indent = 0):
         if msg is None: msg = self.__class__.__name__
-        ind = ' '*indent
         if msg != '':
-            print "%s" % (msg),
+            print "%s" % msg,
         # Here just print the data
         print " %r" % (self['Data']),
 
@@ -2769,11 +2770,11 @@ def hSamrUnicodeChangePasswordUser2(dce, serverName='\x00', userName='', oldPass
     else:
         # Let's convert the hashes to binary form, if not yet
         try:
-            oldPwdHashLM = oldPwdHashLM.decode('hex')
+            oldPwdHashLM = unhexlify(oldPwdHashLM)
         except:
             pass
         try: 
-            oldPwdHashNT = oldPwdHashNT.decode('hex')
+            oldPwdHashNT = unhexlify(oldPwdHashNT)
         except:
             pass
 
@@ -2866,9 +2867,9 @@ def hSamrLookupIdsInDomain(dce, domainHandle, ids):
     request = SamrLookupIdsInDomain()
     request['DomainHandle'] =  domainHandle
     request['Count'] = len(ids)
-    for id in ids:
+    for dId in ids:
         entry = ULONG()
-        entry['Data'] = id
+        entry['Data'] = dId
         request['RelativeIds'].append(entry)
 
     request.fields['RelativeIds'].fields['MaximumCount'] = 1000

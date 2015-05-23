@@ -971,6 +971,7 @@ def hept_map(destHost, remoteIf, dataRepresentation = uuidtup_to_bin(('8a885d04-
 
     tower = EPMTower(''.join(resp['ITowers'][0]['Data']['tower_octet_string']))
     # Now let's parse the result and return an stringBinding
+    result = None
     if protocol == 'ncacn_np':
         # Pipe Name should be the 4th floor
         pipeName = EPMPipeName(tower['Floors'][3].getData())
@@ -985,7 +986,6 @@ def hept_map(destHost, remoteIf, dataRepresentation = uuidtup_to_bin(('8a885d04-
 
 def PrintStringBinding(floors, serverAddr = '0.0.0.0'):
     tmp_address = ''
-    tmp_address2 = ''
     for floor in floors[3:]:
         if floor['ProtocolData'] == chr(0x07):
             tmp_address = 'ncacn_ip_tcp:%%s[%d]' % unpack('!H',floor['RelatedData'])

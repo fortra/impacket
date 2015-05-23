@@ -80,12 +80,12 @@ class DCERPCSessionError(Exception):
         return self.packet
 
     def __str__( self ):
-        if (hresult_errors.ERROR_MESSAGES.has_key(self.error_code)):
+        if hresult_errors.ERROR_MESSAGES.has_key(self.error_code):
             error_msg_short = hresult_errors.ERROR_MESSAGES[self.error_code][0]
             error_msg_verbose = hresult_errors.ERROR_MESSAGES[self.error_code][1] 
             return 'DCOM SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
         else:
-            return 'DCOM SessionError: unknown error code: 0x%x' % (self.error_code)
+            return 'DCOM SessionError: unknown error code: 0x%x' % self.error_code
 
 ################################################################################
 # CONSTANTS
@@ -525,7 +525,7 @@ class ACTIVATION_BLOB(NDRTLSTRUCT):
     def getData(self, soFar = 0):
         self['dwSize'] = len(self['CustomHeader'].getData(soFar))+len(self['CustomHeader'].getDataReferents(soFar))+len(self['Property'])
         self['CustomHeader']['totalSize'] = self['dwSize']
-        return NDRTLSTRUCT.getData(self, soFar)
+        return NDRTLSTRUCT.getData(self)
 
 # 2.2.22.2.1 InstantiationInfoData
 class IID_ARRAY(NDRUniConformantArray):
@@ -938,7 +938,7 @@ OPNUMS = {
 ################################################################################
 # HELPER FUNCTIONS
 ################################################################################
-class DCOMConnection():
+class DCOMConnection:
     """
     This class represents a DCOM Connection. It is in charge of establishing the 
     DCE connection against the portmap, and then launch a thread that will be 
@@ -967,7 +967,7 @@ class DCOMConnection():
         self.initConnection()
 
     @classmethod
-    def addOid(self, target, oid):
+    def addOid(cls, target, oid):
         if DCOMConnection.OID_ADD.has_key(target) is False:
             DCOMConnection.OID_ADD[target] = set()
         DCOMConnection.OID_ADD[target].add(oid)
@@ -977,7 +977,7 @@ class DCOMConnection():
             DCOMConnection.OID_SET[target]['setid'] = 0
 
     @classmethod
-    def delOid(self, target, oid):
+    def delOid(cls, target, oid):
         if DCOMConnection.OID_DEL.has_key(target) is False:
             DCOMConnection.OID_DEL[target] = set()
         DCOMConnection.OID_DEL[target].add(oid)
@@ -987,7 +987,7 @@ class DCOMConnection():
             DCOMConnection.OID_SET[target]['setid'] = 0
 
     @classmethod
-    def pingServer(self):
+    def pingServer(cls):
         # Here we need to go through all the objects opened and ping them.
         # ToDo: locking for avoiding race conditions
         #print DCOMConnection.PORTMAPS
@@ -1016,7 +1016,7 @@ class DCOMConnection():
                     DCOMConnection.OID_SET[target]['oids'] |= addedOids
                     DCOMConnection.OID_SET[target]['setid'] = resp['pSetId']
                 else:
-                    resp = objExporter.SimplePing(DCOMConnection.OID_SET[target]['setid'])
+                    objExporter.SimplePing(DCOMConnection.OID_SET[target]['setid'])
         except Exception, e:
             # There might be exceptions when sending packets 
             # We should try to continue tho.
@@ -1073,7 +1073,7 @@ class DCOMConnection():
                 DCOMConnection.PINGTIMER.join()
                 DCOMConnection.PINGTIMER = None
 
-class CLASS_INSTANCE():
+class CLASS_INSTANCE:
     def __init__(self, ORPCthis, stringBinding):
         self.__stringBindings = stringBinding
         self.__ORPCthis = ORPCthis
@@ -1084,7 +1084,7 @@ class CLASS_INSTANCE():
     def get_string_bindings(self):
         return self.__stringBindings
     def get_auth_level(self):
-        if self.__authLevel > RPC_C_AUTHN_LEVEL_NONE and self.__authLevel < RPC_C_AUTHN_LEVEL_PKT_PRIVACY:
+        if RPC_C_AUTHN_LEVEL_NONE < self.__authLevel < RPC_C_AUTHN_LEVEL_PKT_PRIVACY:
             if self.__authType == RPC_C_AUTHN_WINNT:
                 return RPC_C_AUTHN_LEVEL_PKT_INTEGRITY
             else:
@@ -1098,7 +1098,7 @@ class CLASS_INSTANCE():
         self.__authType = authType
 
 
-class INTERFACE():
+class INTERFACE:
     # class variable holding the transport connections, organized by target IP
     CONNECTIONS = {}
     def __init__(self, cinstance=None, objRef=None, ipidRemUnknown=None, iPid = None, oxid = None, oid = None, target = None, interfaceInstance=None):
@@ -1125,12 +1125,11 @@ class INTERFACE():
                 INTERFACE.CONNECTIONS[self.__target] = {}
 
             if objRef is not None:
-                return self.process_interface(objRef)
-            else:
-                return
+                self.process_interface(objRef)
 
     def process_interface(self, data):
         objRefType = OBJREF(data)['flags']
+        objRef = None
         if objRefType == FLAGS_OBJREF_CUSTOM:
             objRef = OBJREF_CUSTOM(data)
         elif objRefType == FLAGS_OBJREF_HANDLER:
@@ -1204,8 +1203,9 @@ class INTERFACE():
                     INTERFACE.CONNECTIONS[self.__target][self.__oxid]['dce'] = newDce
                     INTERFACE.CONNECTIONS[self.__target][self.__oxid]['currentBinding'] = iid
             else:
-	        stringBindings = self.get_cinstance().get_string_bindings() 
+                stringBindings = self.get_cinstance().get_string_bindings()
                 # No OXID present, we should create a new connection and store it
+                stringBinding = None
                 for strBinding in stringBindings:
                     # Here, depending on the get_target() value several things can happen
                     # 1) it's an IPv4 address
@@ -1330,7 +1330,7 @@ class IRemUnknown2(IRemUnknown):
         self._iid = IID_IRemUnknown2
 
 # 3.1.2.5.1 IObjectExporter Methods
-class IObjectExporter():
+class IObjectExporter:
     def __init__(self, dce):
         self.__portmap = dce
 
@@ -1371,7 +1371,7 @@ class IObjectExporter():
     # 3.1.2.5.1.3 IObjectExporter::ComplexPing (Opnum 2)
     def ComplexPing(self, setId = 0, sequenceNum = 0, addToSet = [], delFromSet = []):
         self.__portmap.connect()
-        dce = self.__portmap.bind(IID_IObjectExporter)
+        self.__portmap.bind(IID_IObjectExporter)
         request = ComplexPing()
         request['pSetId'] = setId
         request['SequenceNum'] = setId
@@ -1398,7 +1398,7 @@ class IObjectExporter():
     # 3.1.2.5.1.4 IObjectExporter::ServerAlive (Opnum 3)
     def ServerAlive(self):
         self.__portmap.connect()
-        dce = self.__portmap.bind(IID_IObjectExporter)
+        self.__portmap.bind(IID_IObjectExporter)
         request = ServerAlive()
         resp = self.__portmap.request(request)
         return resp
@@ -1431,7 +1431,7 @@ class IObjectExporter():
     # 3.1.2.5.1.6 IObjectExporter::ServerAlive2 (Opnum 5)
     def ServerAlive2(self):
         self.__portmap.connect()
-        dce = self.__portmap.bind(IID_IObjectExporter)
+        self.__portmap.bind(IID_IObjectExporter)
         request = ServerAlive2()
         resp = self.__portmap.request(request)
 
@@ -1451,7 +1451,7 @@ class IObjectExporter():
         return stringBindings
 
 # 3.1.2.5.2.1 IActivation Methods
-class IActivation():
+class IActivation:
     def __init__(self, dce):
         self.__portmap = dce
 
@@ -1507,27 +1507,12 @@ class IActivation():
                 secBinding = SECURITYBINDING(securityBindings)
                 securityBindings = securityBindings[len(secBinding):]
 
-        objRefType = OBJREF(''.join(resp['ppInterfaceData'][0]['abData']))['flags']
-        if objRefType == FLAGS_OBJREF_CUSTOM:
-            objRef = OBJREF_CUSTOM(''.join(resp['ppInterfaceData'][0]['abData']))
-        elif objRefType == FLAGS_OBJREF_HANDLER:
-            objRef = OBJREF_HANDLER(''.join(resp['ppInterfaceData'][0]['abData']))
-        elif objRefType == FLAGS_OBJREF_STANDARD:
-            objRef = OBJREF_STANDARD(''.join(resp['ppInterfaceData'][0]['abData']))
-        elif objRefType == FLAGS_OBJREF_EXTENDED:
-            objRef = OBJREF_EXTENDED(''.join(resp['ppInterfaceData'][0]['abData']))
-        else:
-            LOG.error("Unknown OBJREF Type! 0x%x" % objRefType)
-
-        iPid = objRef['std']['ipid']
-        iid = objRef['iid']
-
         classInstance = CLASS_INSTANCE(ORPCthis, stringBindings)
         return IRemUnknown2(INTERFACE(classInstance, ''.join(resp['ppInterfaceData'][0]['abData']), ipidRemUnknown, target = self.__portmap.get_rpc_transport().get_dip()))
 
 
 # 3.1.2.5.2.2 IRemoteSCMActivator Methods
-class IRemoteSCMActivator():
+class IRemoteSCMActivator:
     def __init__(self, dce):
         self.__portmap = dce
 
@@ -1631,6 +1616,7 @@ class IRemoteSCMActivator():
         # Now let's parse the answer and build an Interface instance
 
         objRefType = OBJREF(''.join(resp['ppActProperties']['abData']))['flags']
+        objRef = None
         if objRefType == FLAGS_OBJREF_CUSTOM:
             objRef = OBJREF_CUSTOM(''.join(resp['ppActProperties']['abData']))
         elif objRefType == FLAGS_OBJREF_HANDLER:
@@ -1681,27 +1667,10 @@ class IRemoteSCMActivator():
         propOutput2 = propOutput[len(propsOut):]
         propsOut.fromStringReferents(propOutput2)
 
-        objRefType = OBJREF(''.join(propsOut['ppIntfData'][0]['abData']))['flags']
-        if objRefType == FLAGS_OBJREF_CUSTOM:
-            objRef = OBJREF_CUSTOM(''.join(propsOut['ppIntfData'][0]['abData']))
-        elif objRefType == FLAGS_OBJREF_HANDLER:
-            objRef = OBJREF_HANDLER(''.join(propsOut['ppIntfData'][0]['abData']))
-        elif objRefType == FLAGS_OBJREF_STANDARD:
-            objRef = OBJREF_STANDARD(''.join(propsOut['ppIntfData'][0]['abData']))
-        elif objRefType == FLAGS_OBJREF_EXTENDED:
-            objRef = OBJREF_EXTENDED(''.join(propsOut['ppIntfData'][0]['abData']))
-        else:
-            LOG.error("Unknown OBJREF Type! 0x%x" % objRefType)
-
-        iPid = objRef['std']['ipid']
-        iid = objRef['iid']
-
         classInstance = CLASS_INSTANCE(ORPCthis, stringBindings)
         classInstance.set_auth_level(scmr['remoteReply']['authnHint'])
         classInstance.set_auth_type(self.__portmap.get_auth_type())
         return IRemUnknown2(INTERFACE(classInstance, ''.join(propsOut['ppIntfData'][0]['abData']), ipidRemUnknown, target = self.__portmap.get_rpc_transport().get_dip()))
-
-        return resp
 
     def RemoteCreateInstance(self, clsId, iid):
         # Only supports one interface at a time
@@ -1807,6 +1776,7 @@ class IRemoteSCMActivator():
         # Now let's parse the answer and build an Interface instance
 
         objRefType = OBJREF(''.join(resp['ppActProperties']['abData']))['flags']
+        objRef = None
         if objRefType == FLAGS_OBJREF_CUSTOM:
             objRef = OBJREF_CUSTOM(''.join(resp['ppActProperties']['abData']))
         elif objRefType == FLAGS_OBJREF_HANDLER:
@@ -1856,21 +1826,6 @@ class IRemoteSCMActivator():
         propsOut = PropsOutInfo(propOutput)
         propOutput2 = propOutput[len(propsOut):]
         propsOut.fromStringReferents(propOutput2)
-
-        objRefType = OBJREF(''.join(propsOut['ppIntfData'][0]['abData']))['flags']
-        if objRefType == FLAGS_OBJREF_CUSTOM:
-            objRef = OBJREF_CUSTOM(''.join(propsOut['ppIntfData'][0]['abData']))
-        elif objRefType == FLAGS_OBJREF_HANDLER:
-            objRef = OBJREF_HANDLER(''.join(propsOut['ppIntfData'][0]['abData']))
-        elif objRefType == FLAGS_OBJREF_STANDARD:
-            objRef = OBJREF_STANDARD(''.join(propsOut['ppIntfData'][0]['abData']))
-        elif objRefType == FLAGS_OBJREF_EXTENDED:
-            objRef = OBJREF_EXTENDED(''.join(propsOut['ppIntfData'][0]['abData']))
-        else:
-            LOG.error("Unknown OBJREF Type! 0x%x" % objRefType)
-
-        iPid = objRef['std']['ipid']
-        iid = objRef['iid']
 
         classInstance = CLASS_INSTANCE(ORPCthis, stringBindings)
         classInstance.set_auth_level(scmr['remoteReply']['authnHint'])

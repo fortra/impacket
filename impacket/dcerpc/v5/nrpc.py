@@ -238,11 +238,6 @@ class PNL_SITE_NAME_ARRAY(NDRPOINTER):
 class RPC_UNICODE_STRING_ARRAY(NDRUniConformantArray):
     item = RPC_UNICODE_STRING
 
-class PRPC_UNICODE_STRING_ARRAY(NDRPOINTER):
-    referent = (
-        ('Data', RPC_UNICODE_STRING_ARRAY),
-    )
-
 class NL_SITE_NAME_EX_ARRAY(NDRSTRUCT):
     structure = (
         ('EntryCount', ULONG),
@@ -1678,8 +1673,6 @@ def ComputeSessionKeyStrongKey(sharedSecret, clientChallenge, serverChallenge, s
     return hm.digest()
 
 def deriveSequenceNumber(sequenceNum):
-    res = ''
-
     sequenceLow = sequenceNum & 0xffffffff
     sequenceHigh = (sequenceNum >> 32) & 0xffffffff
     sequenceHigh |= 0x80000000
@@ -1832,13 +1825,13 @@ def getSSPType1(workstation='', domain='', signingRequired=False):
     if domain != '':
         auth['Buffer'] = auth['Buffer'] + domain + '\x00'
     else:
-        auth['Buffer'] = auth['Buffer'] + 'WORKGROUP\x00'
+        auth['Buffer'] += 'WORKGROUP\x00'
 
     auth['Flags'] |= NL_AUTH_MESSAGE_NETBIOS_HOST 
     if workstation != '':
         auth['Buffer'] = auth['Buffer'] + workstation + '\x00'
     else:
-        auth['Buffer'] = auth['Buffer'] + 'MYHOST\x00'
+        auth['Buffer'] += 'MYHOST\x00'
 
     auth['Flags'] |= NL_AUTH_MESSAGE_NETBIOS_HOST_UTF8 
     if workstation != '':

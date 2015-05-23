@@ -45,12 +45,12 @@ class DCERPCSessionError(Exception):
 
     def __str__( self ):
         key = self.error_code
-        if (system_errors.ERROR_MESSAGES.has_key(key)):
+        if system_errors.ERROR_MESSAGES.has_key(key):
             error_msg_short = system_errors.ERROR_MESSAGES[key][0]
             error_msg_verbose = system_errors.ERROR_MESSAGES[key][1] 
             return 'RRP SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
         else:
-            return 'RRP SessionError: unknown error code: 0x%x' % (self.error_code)
+            return 'RRP SessionError: unknown error code: 0x%x' % self.error_code
 
 ################################################################################
 # CONSTANTS
@@ -906,7 +906,7 @@ def hBaseRegQueryMultipleValues(dce, hKey, val_listIn):
     resp = dce.request(request)
     retVal = list()
     for item in resp['val_listOut']:
-        itemn = {}
+        itemn = dict()
         itemn['ValueName'] = item['ve_valuename'] 
         itemn['ValueData'] = unpackValue(item['ve_type'], resp['lpvalueBuf'][item['ve_valueptr'] : item['ve_valueptr']+item['ve_valuelen']])
         retVal.append(itemn)

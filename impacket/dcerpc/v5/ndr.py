@@ -43,6 +43,7 @@ class NDR(object):
     structure      = ()
     structure64    = ()
     align          = 4
+    item           = None
     debug          = False
     _isNDR64       = False
 
@@ -78,8 +79,6 @@ class NDR(object):
             self.fromString(data)
         else:
             self.data = None
-
-        return None
 
     def changeTransferSyntax(self, newSyntax): 
         NDR64Syntax = uuidtup_to_bin(('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0'))
@@ -199,7 +198,7 @@ class NDR(object):
     def dumpRaw(self, msg = None, indent = 0):
         if msg is None: msg = self.__class__.__name__
         ind = ' '*indent
-        print "\n%s" % (msg)
+        print "\n%s" % msg
         for field in self.commonHdr+self.structure+self.referent:
             i = field[0] 
             if i in self.fields:
@@ -224,7 +223,7 @@ class NDR(object):
         if msg is None: msg = self.__class__.__name__
         ind = ' '*indent
         if msg != '':
-            print "%s" % (msg),
+            print "%s" % msg,
         for fieldName, fieldType in self.commonHdr+self.structure+self.referent:
             if fieldName in self.fields:
                 if isinstance(self.fields[fieldName], NDR):
@@ -239,8 +238,6 @@ class NDR(object):
         # PAD Calculation
         if self.debug:
             print "Calculate PAD: name: %s, type:%s, soFar:%d" % (fieldName, fieldType, soFar)
-        alignment = 0
-        size = 0
         if isinstance(self.fields[fieldName], NDR):
             alignment = self.fields[fieldName].getAlignment()
         else:
@@ -249,8 +246,7 @@ class NDR(object):
             # Special case for arrays, fieldType is the array item type
             if len(fieldType.split('*')) == 2:
                 if self.isNDR(self.item):
-                    fieldType = ':'
-                    # ToDo: Careful here.. I don't know this is right.. 
+                    # ToDo: Careful here.. I don't know this is right..
                     # But, if we're inside an array, data should be aligned already, by means
                     # of the previous fields
                     return 0
@@ -260,7 +256,7 @@ class NDR(object):
                 alignment = self.calcPackSize(fieldType, self.fields[fieldName])
             else:
                 alignment = self.calcUnPackSize(fieldType, data)
-        if alignment > 0 and alignment <= 8:
+        if 0 < alignment <= 8:
             # Ok, here we gotta see if we're aligned with the size of the field
             # we're about to unpack.
             #print "field: %s, soFar:%d, size:%d, align: %d " % (fieldName, soFar, size, alignment)
@@ -273,14 +269,12 @@ class NDR(object):
     def getData(self, soFar = 0):
         data = ''
         soFar0 = soFar
-        pad0 = 0
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             try:
                 pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar, packing = True)
                 if pad > 0:
                     soFar += pad
-                    data = data + '\xbb'*pad
-                    #data = data + '\x00'*pad
+                    data += '\xbb'*pad
 
                 res = self.pack(fieldName, fieldTypeOrClass, soFar)
                 data += res
@@ -320,8 +314,7 @@ class NDR(object):
                 pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar, packing = True)
                 if pad > 0:
                     soFar += pad
-                    data = data + '\xcc'*pad
-                    #data = data + '\x00'*pad
+                    data += '\xcc'*pad
 
                 data += self.pack(fieldName, fieldTypeOrClass, soFar)
                 soFar = soFar0 + len(data)
@@ -343,7 +336,6 @@ class NDR(object):
         if self.rawData is None:
             self.rawData = data
 
-        soFar0 = soFar
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             size = self.calcUnPackSize(fieldTypeOrClass, data)
             pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar = soFar, packing = False)
@@ -543,7 +535,7 @@ class NDR(object):
                     data = data[nSoFar2:]
                     answer2.append(itemn)
                 answer = answer2
-                del(answer2)
+                del answer2
 
             del(self.fields['_tmpItem'])
             return answer
@@ -662,8 +654,6 @@ class NDRCALL(NDR):
         else:
             self.data = None
 
-        return None
-
     def dump(self, msg = None, indent = 0):
         NDR.dump(self, msg, indent)
         print '\n\n'
@@ -676,8 +666,7 @@ class NDRCALL(NDR):
                 pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar, packing = True)
                 if pad > 0:
                     soFar += pad
-                    data = data + '\xaa'*pad
-                    #data = data + '\x00'*pad
+                    data += '\xaa'*pad
 
                 data += self.pack(fieldName, fieldTypeOrClass, soFar)
                 soFar = soFar0 + len(data)
@@ -730,7 +719,7 @@ class NDRCALL(NDR):
         if self.consistencyCheck is True:
             res = self.getData()
             # Padding PDU to 4
-            res = res + '\x00' * (4 - (len(res) & 3) & 3)
+            res += '\x00' * (4 - (len(res) & 3) & 3)
             # Stripping the return code, if it's there
             if res != self.rawData[:-4]:
                     LOG.error("Pack/Unpack doesnt match!")
@@ -761,7 +750,6 @@ class NDRUSMALL(NDR):
 class NDRBOOLEAN(NDRSMALL):
     def dump(self, msg = None, indent = 0):
         if msg is None: msg = self.__class__.__name__
-        ind = ' '*indent
         if msg != '':
             print msg,
 
@@ -855,7 +843,6 @@ class NDRENUM(NDR):
 
     def dump(self, msg = None, indent = 0):
         if msg is None: msg = self.__class__.__name__
-        ind = ' '*indent
         if msg != '':
             print msg,
 
@@ -887,7 +874,7 @@ class NDRArray(NDR):
     def changeTransferSyntax(self, newSyntax): 
         # Here we gotta go over each item in the array and change the TS 
         # Only if the item type is NDR
-        if hasattr(self, 'item'):
+        if hasattr(self, 'item') and self.item is not None:
             if self.isNDR(self.item):
                 for item in self.fields['Data']:
                     item.changeTransferSyntax(newSyntax)
@@ -896,7 +883,6 @@ class NDRArray(NDR):
     def getAlignment(self):
         # Array alignment is the largest alignment of the array element type and 
         # the size information type, if any.
-        tmpAlign = 0
         align = 0
         #for fieldName, fieldTypeOrClass in self.structure:
         ##    if isinstance(self.fields[fieldName], NDR):
@@ -907,7 +893,7 @@ class NDRArray(NDR):
         #        align = tmpAlign
 
         # And now the item
-        if hasattr(self, "item"):
+        if hasattr(self, "item") and self.item is not None:
             if isinstance(self.item, NDR):
                 tmpAlign = self.item.getAlignment()
             else:
@@ -944,7 +930,6 @@ class NDRUniConformantArray(NDRArray):
         # hence, we don't have to calculate the pad again.
         data = ''
         soFar0 = soFar
-        pad0 = 0
         fieldNum = 0
         for fieldName, fieldTypeOrClass in self.structure:
             try:
@@ -952,7 +937,7 @@ class NDRUniConformantArray(NDRArray):
                     pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar, packing = True)
                     if pad > 0:
                         soFar += pad
-                        data = data + '\xbb'*pad
+                        data += '\xbb'*pad
 
                 res = self.pack(fieldName, fieldTypeOrClass, soFar)
                 data += res
@@ -974,7 +959,6 @@ class NDRUniConformantArray(NDRArray):
         if self.rawData is None:
             self.rawData = data
 
-        soFar0 = soFar
         fieldNum = 0
         for fieldName, fieldTypeOrClass in self.structure:
             size = self.calcUnPackSize(fieldTypeOrClass, data)
@@ -1045,7 +1029,6 @@ class NDRUniConformantVaryingArray(NDRArray):
         # hence, we don't have to calculate the pad again.
         data = ''
         soFar0 = soFar
-        pad0 = 0
         fieldNum = 0
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             try:
@@ -1053,7 +1036,7 @@ class NDRUniConformantVaryingArray(NDRArray):
                     pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar, packing = True)
                     if pad > 0:
                         soFar += pad
-                        data = data + '\xbb'*pad
+                        data += '\xbb'*pad
 
                 res = self.pack(fieldName, fieldTypeOrClass, soFar)
                 data += res
@@ -1076,7 +1059,6 @@ class NDRUniConformantVaryingArray(NDRArray):
         if self.rawData is None:
             self.rawData = data
 
-        soFar0 = soFar
         fieldNum = 0
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             size = self.calcUnPackSize(fieldTypeOrClass, data)
@@ -1147,8 +1129,6 @@ class NDRSTRUCT(NDR):
     def getData(self, soFar = 0):
         data = ''
         soFar0 = soFar
-        pad0 = 0
-        arrayPresent = False
         # 14.3.7.1 Structures Containing a Conformant Array
         # A structure can contain a conformant array only as its last member.
         # In the NDR representation of a structure that contains a conformant array, 
@@ -1165,7 +1145,6 @@ class NDRSTRUCT(NDR):
         if isinstance(self.fields[lastItem], NDRUniConformantArray) or isinstance(self.fields[lastItem], NDRUniConformantVaryingArray):
             # So we have an array, first item in the structure must be the array size, although we
             # will need to build it later.
-            arrayPresent = True 
             if self._isNDR64:
                 arrayItemSize = 8
             else:
@@ -1197,14 +1176,14 @@ class NDRSTRUCT(NDR):
             pad = (alignment - (soFar % alignment)) % alignment
             if pad > 0:
                 soFar += pad
-                data = data + '\xAB'*pad
+                data += '\xAB'*pad
  
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             try:
                 pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar, packing = True)
                 if pad > 0:
                     soFar += pad
-                    data = data + '\xbb'*pad
+                    data += '\xbb'*pad
                     #data = data + '\x00'*pad
 
                 if isinstance(self.fields[fieldName], NDRUniConformantArray) or isinstance(self.fields[fieldName], NDRUniConformantVaryingArray):
@@ -1240,9 +1219,6 @@ class NDRSTRUCT(NDR):
         if self.rawData is None:
             self.rawData = data
 
-        soFar0 = soFar
-        pad0 = 0
-        arrayPresent = False
         # 14.3.7.1 Structures Containing a Conformant Array
         # A structure can contain a conformant array only as its last member.
         # In the NDR representation of a structure that contains a conformant array, 
@@ -1259,7 +1235,6 @@ class NDRSTRUCT(NDR):
         if isinstance(self.fields[lastItem], NDRUniConformantArray) or isinstance(self.fields[lastItem], NDRUniConformantVaryingArray):
             # So we have an array, first item in the structure must be the array size, although we
             # will need to build it later.
-            arrayPresent = True 
             if self._isNDR64:
                 arrayItemSize = 8
             else:
@@ -1326,7 +1301,6 @@ class NDRSTRUCT(NDR):
         return self
 
     def getAlignment(self):
-        tmpAlign = 0
         align = 0
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure+self.referent:
             if isinstance(self.fields[fieldName], NDR):
@@ -1390,8 +1364,6 @@ class NDRUNION(NDR):
         else:
             self.data = None
 
-        return None
-
     def __setitem__(self, key, value):
         if key == 'tag':
             # We're writing the tag, we now should set the right item for the structure
@@ -1419,13 +1391,12 @@ class NDRUNION(NDR):
     def getData(self, soFar = 0):
         data = ''
         soFar0 = soFar
-        pad0 = 0
         for fieldName, fieldTypeOrClass in self.commonHdr:
             try:
                 pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar, packing = True)
                 if pad > 0:
                     soFar += pad
-                    data = data + '\xbb'*pad
+                    data += '\xbb'*pad
                     #data = data + '\x00'*pad
 
                 res = self.pack(fieldName, fieldTypeOrClass, soFar)
@@ -1453,7 +1424,7 @@ class NDRUNION(NDR):
 
         pad = (align - (soFar % align)) % align
         if pad > 0:
-            data = data + '\xbb'*pad
+            data += '\xbb'*pad
             soFar += pad
 
         if self.structure is ():
@@ -1465,8 +1436,7 @@ class NDRUNION(NDR):
                 pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar, packing = True)
                 if pad > 0:
                     soFar += pad
-                    data = data + '\xbb'*pad
-                    #data = data + '\x00'*pad
+                    data += '\xbb'*pad
 
                 res = self.pack(fieldName, fieldTypeOrClass, soFar)
                 data += res
@@ -1507,7 +1477,6 @@ class NDRUNION(NDR):
         if self.rawData is None:
             self.rawData = data
 
-        soFar0 = soFar
         for fieldName, fieldTypeOrClass in self.commonHdr:
             size = self.calcUnPackSize(fieldTypeOrClass, data)
             pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar = soFar, packing = False)
@@ -1569,7 +1538,6 @@ class NDRUNION(NDR):
         # WRONG, I'm calculating it just with the tag, if I do it with the 
         # arms I get bad stub data. Something wrong I'm doing or the standard
         # is wrong (most probably it's me :s )
-        tmpAlign = 0
         align = 0
         if self._isNDR64:
             fields =  self.commonHdr+self.structure
@@ -1605,9 +1573,8 @@ class NDRPOINTERNULL(NDR):
 
     def dump(self, msg = None, indent = 0):
         if msg is None: msg = self.__class__.__name__
-        ind = ' '*indent
         if msg != '':
-            print "%s" % (msg),
+            print "%s" % msg,
         # Here we just print NULL
         print " NULL",
 
@@ -1628,7 +1595,7 @@ class NDRPOINTER(NDR):
         ('Data',':'),
     )
     def __init__(self, data = None, isNDR64=False, topLevel = False):
-        ret = NDR.__init__(self,None, isNDR64=isNDR64)
+        NDR.__init__(self,None, isNDR64=isNDR64)
         # If we are being called from a NDRCall, it's a TopLevelPointer, 
         # if not, it's a embeeded pointer.
         # It is *very* important, for every subclass of NDRPointer
@@ -1684,9 +1651,8 @@ class NDRPOINTER(NDR):
 
     def dump(self, msg = None, indent = 0):
         if msg is None: msg = self.__class__.__name__
-        ind = ' '*indent
         if msg != '':
-            print "%s" % (msg),
+            print "%s" % msg,
         # Here we just print the referent
         if isinstance(self.fields['Data'], NDR):
             self.fields['Data'].dump('', indent = indent)

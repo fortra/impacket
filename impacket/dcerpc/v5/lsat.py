@@ -49,12 +49,12 @@ class DCERPCSessionError(Exception):
 
     def __str__( self ):
         key = self.error_code
-        if (nt_errors.ERROR_MESSAGES.has_key(key)):
+        if nt_errors.ERROR_MESSAGES.has_key(key):
             error_msg_short = nt_errors.ERROR_MESSAGES[key][0]
             error_msg_verbose = nt_errors.ERROR_MESSAGES[key][1] 
             return 'LSAT SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
         else:
-            return 'LSAT SessionError: unknown error code: 0x%x' % (self.error_code)
+            return 'LSAT SessionError: unknown error code: 0x%x' % self.error_code
 
 ################################################################################
 # CONSTANTS

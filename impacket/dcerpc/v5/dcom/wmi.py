@@ -70,7 +70,7 @@ class DCERPCSessionError(Exception):
         return self.packet
 
     def __str__( self ):
-        if (hresult_errors.ERROR_MESSAGES.has_key(self.error_code)):
+        if hresult_errors.ERROR_MESSAGES.has_key(self.error_code):
             error_msg_short = hresult_errors.ERROR_MESSAGES[self.error_code][0]
             error_msg_verbose = hresult_errors.ERROR_MESSAGES[self.error_code][1] 
             return 'WMI SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
@@ -79,7 +79,7 @@ class DCERPCSessionError(Exception):
             try:
                 return 'WMI Session Error: code: 0x%x - %s' % (self.error_code, WBEMSTATUS.enumItems(self.error_code).name)
             except:
-                return 'WMI SessionError: unknown error code: 0x%x' % (self.error_code)
+                return 'WMI SessionError: unknown error code: 0x%x' % self.error_code
 
 ################################################################################
 # WMIO Structures and Constants
@@ -436,8 +436,8 @@ class PROPERTY_LOOKUP_TABLE(Structure):
                 propName = ENCODED_STRING(heap[propItem['PropertyNameRef']:])['Character']
             propInfo = PROPERTY_INFO(heap[propItem['PropertyInfoRef']:])
             pType = propInfo['PropertyType']
-            pType = pType & (~CIM_ARRAY_FLAG)
-            pType = pType & (~Inherited)
+            pType &= (~CIM_ARRAY_FLAG)
+            pType &= (~Inherited)
             sType = CIM_TYPE_TO_NAME[pType]
  
             propItemDict['stype'] = sType
@@ -2328,7 +2328,6 @@ class IWbemClassObject(IRemUnknown):
                 packStr = HEAPREF[:-2]
             else:
                 packStr = CIM_TYPES_REF[pType][:-2]
-            dataSize = calcsize(packStr)
 
             if propRecord['type'] & CIM_ARRAY_FLAG:
                 if itemValue is None:
@@ -2338,8 +2337,8 @@ class IWbemClassObject(IRemUnknown):
                     arraySize = pack(HEAPREF[:-2], len(itemValue))
                     packStrArray =  CIM_TYPES_REF[pType][:-2]
                     arrayItems = ''
-                    for i in range(len(itemValue)):
-                        arrayItems += pack(packStrArray, itemValue[i])
+                    for j in range(len(itemValue)):
+                        arrayItems += pack(packStrArray, itemValue[j])
                     instanceHeap += arraySize + str(arrayItems)
                     curHeapPtr = len(instanceHeap)
             elif pType not in (CIM_TYPE_ENUM.CIM_TYPE_STRING.value, CIM_TYPE_ENUM.CIM_TYPE_DATETIME.value, CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value, CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value):
@@ -2352,7 +2351,7 @@ class IWbemClassObject(IRemUnknown):
                 valueTable += '\x00'*4 
                 # The default property value is NULL, and it is 
                 # inherited from a parent class.
-                if itemValue == None:
+                if itemValue is None:
                     ndTable |= 3 << (2*i)
             else:
                 if itemValue is '':
@@ -2441,8 +2440,6 @@ class IWbemClassObject(IRemUnknown):
                 else:
                     packStr = CIM_TYPES_REF[pType][:-2]
 
-                dataSize = calcsize(packStr)
-
                 if propRecord['type'] & CIM_ARRAY_FLAG:
                     valueTable += pack(packStr, 0)
                 elif pType not in (CIM_TYPE_ENUM.CIM_TYPE_STRING.value, CIM_TYPE_ENUM.CIM_TYPE_DATETIME.value, CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value, CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value):
@@ -2527,7 +2524,7 @@ class IWbemClassObject(IRemUnknown):
             classOrInstance = staticArgs[0] 
             methodDefinition = staticArgs[1] 
             if methodDefinition['InParams'] is not None:
-                if (len(args) != len(methodDefinition['InParams'])):
+                if len(args) != len(methodDefinition['InParams']):
                     LOG.error("Function called with %d parameters instead of %d!" % (len(args), len(methodDefinition['InParams'])))
                     return None
                 # In Params
@@ -2563,7 +2560,6 @@ class IWbemClassObject(IRemUnknown):
                         packStr = HEAPREF[:-2]
                     else:
                         packStr = CIM_TYPES_REF[pType][:-2]
-                    dataSize = calcsize(packStr)
 
                     if paramDefinition['type'] & CIM_ARRAY_FLAG:
                         
@@ -2580,7 +2576,7 @@ class IWbemClassObject(IRemUnknown):
                         valueTable += '\x00'*4 
                         # The default property value is NULL, and it is 
                         # inherited from a parent class.
-                        if inArg == None:
+                        if inArg is None:
                             ndTable |= 3 << (2*i)
                     else:
                         strIn = ENCODED_STRING()
@@ -2818,7 +2814,7 @@ class IWbemServices(IRemUnknown):
         request = IWbemServices_QueryObjectSink()
         request['lFlags'] = 0
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
-        return  (INTERFACE(self.get_cinstance(), ''.join(resp['ppResponseHandler']['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
+        return  INTERFACE(self.get_cinstance(), ''.join(resp['ppResponseHandler']['abData']), self.get_ipidRemUnknown(), target = self.get_target())
 
     def GetObject(self, strObjectPath, lFlags=0, pCtx=NULL):
         request = IWbemServices_GetObject()

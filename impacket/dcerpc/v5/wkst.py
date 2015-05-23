@@ -45,12 +45,12 @@ class DCERPCSessionError(Exception):
 
     def __str__( self ):
         key = self.error_code
-        if (system_errors.ERROR_MESSAGES.has_key(key)):
+        if system_errors.ERROR_MESSAGES.has_key(key):
             error_msg_short = system_errors.ERROR_MESSAGES[key][0]
             error_msg_verbose = system_errors.ERROR_MESSAGES[key][1] 
             return 'WKST SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
         else:
-            return 'WKST SessionError: unknown error code: 0x%x' % (self.error_code)
+            return 'WKST SessionError: unknown error code: 0x%x' % self.error_code
 
 ################################################################################
 # CONSTANTS

@@ -19,7 +19,7 @@
 
 import logging
 import socket
-from binascii import a2b_hex
+from binascii import unhexlify
 from Crypto.Cipher import ARC4
 
 from impacket import ntlm, LOG
@@ -558,11 +558,11 @@ class DCERPCException(Exception):
 
     def __str__( self ):
         key = self.error_code
-        if (rpc_status_codes.has_key(key)):
+        if rpc_status_codes.has_key(key):
             error_msg_short = rpc_status_codes[key]
             return 'DCERPC Runtime Error: code: 0x%x - %s ' % (self.error_code, error_msg_short)
         else:
-            return 'DCERPC Runtime Error: unknown error code: 0x%x' % (self.error_code)
+            return 'DCERPC Runtime Error: unknown error code: 0x%x' % self.error_code
 
 # Context Item
 class CtxItem(Structure):
@@ -772,6 +772,7 @@ class DCERPC:
         self.set_ctx_id(0)
         self._max_frag = None
         self.set_default_max_fragment_size()
+        self._ctx = None
 
     def get_rpc_transport(self):
         return self._transport
@@ -874,6 +875,12 @@ class DCERPC_v5(DCERPC):
         self.transfer_syntax = uuidtup_to_bin(('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0'))
         self.__callid = 1
         self._ctx = 0
+        self.__sessionKey = None
+        self.__max_xmit_size  = 0
+        self.__flags = 0
+        self.__cipher = None
+        self.__confounder = ''
+        self.__gss = None
 
     def set_session_key(self, session_key):
         self.__sessionKey = session_key
@@ -902,18 +909,18 @@ class DCERPC_v5(DCERPC):
         self.__aesKey   = aesKey
         self.__TGT      = TGT
         self.__TGS      = TGS
-        if ( lmhash != '' or nthash != ''):
+        if lmhash != '' or nthash != '':
             if len(lmhash) % 2:     lmhash = '0%s' % lmhash
             if len(nthash) % 2:     nthash = '0%s' % nthash
             try: # just in case they were converted already
-                self.__lmhash = a2b_hex(lmhash)
-                self.__nthash = a2b_hex(nthash)
+                self.__lmhash = unhexlify(lmhash)
+                self.__nthash = unhexlify(nthash)
             except:
                 self.__lmhash = lmhash
                 self.__nthash = nthash
                 pass
 
-    def bind(self, uuid, alter = 0, bogus_binds = 0, transfer_syntax = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')):
+    def bind(self, iface_uuid, alter = 0, bogus_binds = 0, transfer_syntax = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')):
         bind = MSRPCBind()
         #item['TransferSyntax']['Version'] = 1
         ctx = self._ctx
@@ -931,7 +938,7 @@ class DCERPC_v5(DCERPC):
 
         # The true one :)
         item = CtxItem()
-        item['AbstractSyntax'] = uuid
+        item['AbstractSyntax'] = iface_uuid
         item['TransferSyntax'] = uuidtup_to_bin(transfer_syntax)
         item['ContextID'] = ctx
         item['TransItems'] = 1
@@ -945,7 +952,7 @@ class DCERPC_v5(DCERPC):
         if alter:
             packet['type'] = MSRPC_ALTERCTX
 
-        if (self.__auth_level != RPC_C_AUTHN_LEVEL_NONE):
+        if self.__auth_level != RPC_C_AUTHN_LEVEL_NONE:
             if (self.__username is None) or (self.__password is None):
                 self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey, self.__TGT, self.__TGS = self._transport.get_credentials()
 
@@ -966,7 +973,7 @@ class DCERPC_v5(DCERPC):
 
             pad = (4 - (len(packet.get_packet()) % 4)) % 4
             if pad != 0:
-               packet['pduData'] = packet['pduData'] + '\xFF'*pad
+               packet['pduData'] += '\xFF'*pad
                sec_trailer['auth_pad_len']=pad
 
             packet['sec_trailer'] = sec_trailer
@@ -1066,7 +1073,7 @@ class DCERPC_v5(DCERPC):
                     self._transport.send(alter_ctx.get_packet(), forceWriteAndx = 1)
                     self.__gss = gssapi.GSSAPI(self.__cipher)
                     self.__sequence = 0
-                    s = self.recv()
+                    self.recv()
                     self.__sequence = 0
                 else:
                     auth3 = MSRPCHeader()
@@ -1100,7 +1107,7 @@ class DCERPC_v5(DCERPC):
 
             pad = (4 - (len(rpc_packet.get_packet()) % 4)) % 4
             if pad != 0:
-               rpc_packet['pduData'] = rpc_packet['pduData'] + '\xBB'*pad
+               rpc_packet['pduData'] += '\xBB'*pad
                sec_trailer['auth_pad_len']=pad
 
             rpc_packet['sec_trailer'] = str(sec_trailer)
@@ -1184,7 +1191,7 @@ class DCERPC_v5(DCERPC):
         if max_frag and len(data['pduData']) > 0:
             packet = data['pduData']
             offset = 0
-            rawcall = DCERPC_RawCall(data['op_num'])
+            DCERPC_RawCall(data['op_num'])
 
             while 1:
                 toSend = packet[offset:offset+max_frag]
@@ -1210,18 +1217,18 @@ class DCERPC_v5(DCERPC):
         while not finished:
             # At least give me the MSRPCRespHeader, especially important for 
             # TCP/UDP Transports
-            self.response_data = self._transport.recv(forceRecv, count=MSRPCRespHeader._SIZE)
-            self.response_header = MSRPCRespHeader(self.response_data)
+            response_data = self._transport.recv(forceRecv, count=MSRPCRespHeader._SIZE)
+            response_header = MSRPCRespHeader(response_data)
             # Ok, there might be situation, especially with large packets, that 
             # the transport layer didn't send us the full packet's contents
             # So we gotta check we received it all
-            while ( len(self.response_data) < self.response_header['frag_len'] ):
-               self.response_data += self._transport.recv(forceRecv, count=(self.response_header['frag_len']-len(self.response_data)))
+            while len(response_data) < response_header['frag_len']:
+               response_data += self._transport.recv(forceRecv, count=(response_header['frag_len']-len(response_data)))
 
-            off = self.response_header.get_header_size()
+            off = response_header.get_header_size()
 
-            if self.response_header['type'] == MSRPC_FAULT and self.response_header['frag_len'] >= off+4:
-                status_code = unpack("<L",self.response_data[off:off+4])[0]
+            if response_header['type'] == MSRPC_FAULT and response_header['frag_len'] >= off+4:
+                status_code = unpack("<L",response_data[off:off+4])[0]
                 if rpc_status_codes.has_key(status_code):
                     raise Exception(rpc_status_codes[status_code])
                 elif rpc_status_codes.has_key(status_code & 0xffff):
@@ -1234,15 +1241,15 @@ class DCERPC_v5(DCERPC):
                     else:
                         raise Exception('Unknown DCE RPC fault status code: %.8x' % status_code)
 
-            if self.response_header['flags'] & MSRPC_LASTFRAG:
+            if response_header['flags'] & MSRPC_LASTFRAG:
                 # No need to reassembly DCERPC
                 finished = True
             else:
                 # Forcing Read Recv, we need more packets!
                 forceRecv = 1
 
-            answer = self.response_data[off:]
-            auth_len = self.response_header['auth_len']
+            answer = response_data[off:]
+            auth_len = response_header['auth_len']
             if auth_len:
                 auth_len += 8
                 auth_data = answer[-auth_len:]
@@ -1426,29 +1433,26 @@ class DCERPCServer(Thread):
 
     def recv(self):
         finished = False
-        forceRecv = 0
         retAnswer = ''
+        response_data = ''
         while not finished:
             # At least give me the MSRPCRespHeader, especially important for TCP/UDP Transports
-            self.response_data = self._clientSock.recv(MSRPCRespHeader._SIZE)
+            response_data = self._clientSock.recv(MSRPCRespHeader._SIZE)
             # No data?, connection might have closed
-            if self.response_data == '':
+            if response_data == '':
                 return None
-            self.response_header = MSRPCRespHeader(self.response_data)
+            response_header = MSRPCRespHeader(response_data)
             # Ok, there might be situation, especially with large packets, 
             # that the transport layer didn't send us the full packet's contents
             # So we gotta check we received it all
-            while ( len(self.response_data) < self.response_header['frag_len'] ):
-               self.response_data += self._clientSock.recv(self.response_header['frag_len']-len(self.response_data))
-            self.response_header = MSRPCRespHeader(self.response_data)
-            if self.response_header['flags'] & MSRPC_LASTFRAG:
+            while len(response_data) < response_header['frag_len']:
+               response_data += self._clientSock.recv(response_header['frag_len']-len(response_data))
+            response_header = MSRPCRespHeader(response_data)
+            if response_header['flags'] & MSRPC_LASTFRAG:
                 # No need to reassembly DCERPC
                 finished = True
-            else:
-                # Forcing Read Recv, we need more packets!
-                forceRecv = 1
-            answer = self.response_header['pduData']
-            auth_len = self.response_header['auth_len']
+            answer = response_header['pduData']
+            auth_len = response_header['auth_len']
             if auth_len:
                 auth_len += 8
                 auth_data = answer[-auth_len:]
@@ -1458,7 +1462,7 @@ class DCERPCServer(Thread):
                     answer = answer[:-sec_trailer['auth_pad_len']]
               
             retAnswer += answer
-        return self.response_data
+        return response_data
     
     def run(self):
         self._sock.listen(10)
@@ -1471,9 +1475,9 @@ class DCERPCServer(Thread):
                         # No data.. connection closed
                         break
                     answer = self.processRequest(data)
-                    if answer != None:
+                    if answer is not None:
                         self.send(answer)
-            except Exception, e:
+            except Exception:
                 #import traceback
                 #print traceback.print_exc()
                 pass
@@ -1533,13 +1537,13 @@ class DCERPCServer(Thread):
             if item['TransferSyntax'] == uuidtup_to_bin(NDRSyntax):
                 # Now Check if the interface is what we listen
                 reason = 1 # Default, Abstract Syntax not supported
-                for i in self._listenUUIDS:
-                    if item['AbstractSyntax'] == i:
+                for j in self._listenUUIDS:
+                    if item['AbstractSyntax'] == j:
                         # Match, we accept the bind request
                         resp['SecondaryAddr']    = self._listenUUIDS[item['AbstractSyntax']]['SecondaryAddr']
                         resp['SecondaryAddrLen'] = len(resp['SecondaryAddr'])+1
                         reason           = 0
-                        self._boundUUID = i
+                        self._boundUUID = j
             else:
                 # Fail the bind request for this context
                 reason = 2 # Transfer Syntax not supported
@@ -1563,7 +1567,8 @@ class DCERPCServer(Thread):
         packet = MSRPCHeader(data)
         if packet['type'] == MSRPC_BIND:
             bind   = MSRPCBind(packet['pduData'])
-            packet = self.bind(packet, bind)
+            self.bind(packet, bind)
+            packet = None
         elif packet['type'] == MSRPC_REQUEST:
             request          = MSRPCRequestHeader(data)
             response         = MSRPCRespHeader(data)

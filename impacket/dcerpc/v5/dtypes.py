@@ -89,9 +89,8 @@ class STR(NDRSTRUCT):
 
     def dump(self, msg = None, indent = 0):
         if msg is None: msg = self.__class__.__name__
-        ind = ' '*indent
         if msg != '':
-            print "%s" % (msg),
+            print "%s" % msg,
         # Here just print the data
         print " %r" % (self['Data']),
 
@@ -129,9 +128,8 @@ class WSTR(NDRSTRUCT):
 
     def dump(self, msg = None, indent = 0):
         if msg is None: msg = self.__class__.__name__
-        ind = ' '*indent
         if msg != '':
-            print "%s" % (msg),
+            print "%s" % msg,
         # Here just print the data
         print " %r" % (self['Data']),
 
@@ -340,9 +338,8 @@ class RPC_UNICODE_STRING(NDRSTRUCT):
 
     def dump(self, msg = None, indent = 0):
         if msg is None: msg = self.__class__.__name__
-        ind = ' '*indent
         if msg != '':
-            print "%s" % (msg),
+            print "%s" % msg,
 
         if isinstance(self.fields['Data'] , NDRPOINTERNULL):
             print " NULL",
@@ -397,7 +394,6 @@ class RPC_SID(NDRSTRUCT):
         self['IdentifierAuthority'] = RPC_SID_IDENTIFIER_AUTHORITY()
         self['IdentifierAuthority'] = '\x00\x00\x00\x00\x00' + pack('B',int(items[2]))
         self['SubAuthorityCount'] = len(items) - 3
-        ans = ''
         for i in range(self['SubAuthorityCount']):
             self['SubAuthority'].append(int(items[i+3]))
 
@@ -415,7 +411,6 @@ class PRPC_SID(NDRPOINTER):
 PSID = PRPC_SID
 
 # 2.4.3 ACCESS_MASK
-ACCESS_MASK = DWORD
 GENERIC_READ            = 0x80000000L
 GENERIC_WRITE           = 0x4000000L
 GENERIC_EXECUTE         = 0x20000000L

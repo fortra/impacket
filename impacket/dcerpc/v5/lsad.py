@@ -1591,14 +1591,10 @@ def hLsarSetSecret(dce, secretHandle, encryptedCurrentValue, encryptedOldValue):
         request['EncryptedCurrentValue']['Length'] = len(encryptedCurrentValue)
         request['EncryptedCurrentValue']['MaximumLength'] = len(encryptedCurrentValue)
         request['EncryptedCurrentValue']['Buffer'] = list(encryptedCurrentValue)
-    else:
-        encryptedCurrentValue = NULL
     if encryptedOldValue != NULL:
         request['EncryptedOldValue']['Length'] = len(encryptedOldValue)
         request['EncryptedOldValue']['MaximumLength'] = len(encryptedOldValue)
         request['EncryptedOldValue']['Buffer'] = list(encryptedOldValue)
-    else:
-        encryptedOldValue = NULL
     return dce.request(request)
 
 def hLsarQuerySecret(dce, secretHandle):

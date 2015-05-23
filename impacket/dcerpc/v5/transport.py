@@ -125,9 +125,15 @@ class DCERPCTransport:
         self._domain = ''
         self._lmhash = ''
         self._nthash = ''
-        self.set_credentials('','')
         self.__connect_timeout = None
         self._doKerberos = False
+        self._username = ''
+        self._password = ''
+        self._domain   = ''
+        self._aesKey   = None
+        self._TGT      = None
+        self._TGS      = None
+        self.set_credentials('','')
 
     def connect(self):
         raise RuntimeError, 'virtual function'
@@ -148,19 +154,19 @@ class DCERPCTransport:
     def get_dip(self):
         return self.__dstip
     def set_dip(self, dip):
-        "This method only makes sense before connection for most protocols."
+        """This method only makes sense before connection for most protocols."""
         self.__dstip = dip
 
     def get_dport(self):
         return self.__dstport
     def set_dport(self, dport):
-        "This method only makes sense before connection for most protocols."
+        """This method only makes sense before connection for most protocols."""
         self.__dstport = dport
 
     def get_addr(self):
-        return (self.get_dip(), self.get_dport())
+        return self.get_dip(), self.get_dport()
     def set_addr(self, addr):
-        "This method only makes sense before connection for most protocols."
+        """This method only makes sense before connection for most protocols."""
         self.set_dip(addr[0])
         self.set_dport(addr[1])
 
@@ -202,12 +208,12 @@ class DCERPCTransport:
         self._aesKey   = aesKey
         self._TGT      = TGT
         self._TGS      = TGS
-        if ( lmhash != '' or nthash != ''):
+        if lmhash != '' or nthash != '':
             if len(lmhash) % 2:     lmhash = '0%s' % lmhash
             if len(nthash) % 2:     nthash = '0%s' % nthash
             try: # just in case they were converted already
-               self._lmhash = binascii.a2b_hex(lmhash)
-               self._nthash = binascii.a2b_hex(nthash)
+               self._lmhash = binascii.unhexlify(lmhash)
+               self._nthash = binascii.unhexlify(nthash)
             except:
                self._lmhash = lmhash
                self._nthash = nthash
@@ -229,6 +235,7 @@ class UDPTransport(DCERPCTransport):
         DCERPCTransport.__init__(self, dstip, dstport)
         self.__socket = 0
         self.set_connect_timeout(30)
+        self.__recv_addr = ''
 
     def connect(self):
         try:
@@ -244,7 +251,7 @@ class UDPTransport(DCERPCTransport):
     def disconnect(self):
         try:
             self.__socket.close()
-        except socket.error, msg:
+        except socket.error:
             self.__socket = None
             return 0
         return 1
@@ -263,7 +270,7 @@ class UDPTransport(DCERPCTransport):
         return self.__socket
 
 class TCPTransport(DCERPCTransport):
-    "Implementation of ncacn_ip_tcp protocol sequence"
+    """Implementation of ncacn_ip_tcp protocol sequence"""
 
     def __init__(self, dstip, dstport = 135):
         DCERPCTransport.__init__(self, dstip, dstport)
@@ -314,7 +321,7 @@ class TCPTransport(DCERPCTransport):
         return self.__socket
 
 class HTTPTransport(TCPTransport):
-    "Implementation of ncacn_http protocol sequence"
+    """Implementation of ncacn_http protocol sequence"""
 
     def connect(self):
         TCPTransport.connect(self)
@@ -325,7 +332,7 @@ class HTTPTransport(TCPTransport):
             raise Exception("Service not supported.")
 
 class SMBTransport(DCERPCTransport):
-    "Implementation of ncacn_np protocol sequence"
+    """Implementation of ncacn_np protocol sequence"""
 
     def __init__(self, dstip, dstport=445, filename='', username='', password='', domain='', lmhash='', nthash='',
                  aesKey='', TGT=None, TGS=None, remote_name='', smb_connection=0, doKerberos=False):
@@ -384,7 +391,7 @@ class SMBTransport(DCERPCTransport):
         self.__smb_connection.disconnectTree(self.__tid)
         # If we created the SMB connection, we close it, otherwise
         # that's up for the caller
-        if self.__existing_smb == False:
+        if self.__existing_smb is False:
             self.__smb_connection.logoff()
             self.__smb_connection = 0
 
@@ -431,8 +438,10 @@ class SMBTransport(DCERPCTransport):
         return self.__smb_connection.doesSupportNTLMv2()
 
 class LOCALTransport(DCERPCTransport):
-    "Implementation of ncalocal protocol sequence, not the same"
-    "as ncalrpc (I'm not doing LPC just opening the local pipe)"
+    """
+    Implementation of ncalocal protocol sequence, not the same
+    as ncalrpc (I'm not doing LPC just opening the local pipe)
+    """
 
     def __init__(self, filename = ''):
         DCERPCTransport.__init__(self, '', 0)
