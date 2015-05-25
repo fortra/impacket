@@ -110,6 +110,8 @@ if __name__ == '__main__':
         def do_exit(self, line):
             return True
 
+    # Init the example's logger theme
+    logger.init()
     print version.BANNER
 
     parser = argparse.ArgumentParser(add_help = True, description = "Executes WQL queries and gets object descriptions using Windows Management Instrumentation.")

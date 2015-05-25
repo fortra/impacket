@@ -51,7 +51,6 @@ class LSALookupSid:
         logging.info('Brute forcing SIDs at %s' % addr)
 
         # Try all requested protocols until one works.
-        entries = []
         for protocol in self.__protocols:
             protodef = LSALookupSid.KNOWN_PROTOCOLS[protocol]
             port = protodef[1]
@@ -66,7 +65,7 @@ class LSALookupSid:
                 rpctransport.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
 
             try:
-                entries = self.__bruteForce(rpctransport, self.__maxRid)
+                self.__bruteForce(rpctransport, self.__maxRid)
             except Exception, e:
                 #import traceback
                 #print traceback.print_exc()
@@ -109,9 +108,9 @@ class LSALookupSid:
 
             sids = list()
             for i in xrange(soFar, soFar+sidsToCheck):
-                sids.append(domainSid + '-%d' % (i))
+                sids.append(domainSid + '-%d' % i)
             try:
-                request = lsat.hLsarLookupSids(dce, policyHandle, sids,lsat.LSAP_LOOKUP_LEVEL.LsapLookupWksta)
+                lsat.hLsarLookupSids(dce, policyHandle, sids,lsat.LSAP_LOOKUP_LEVEL.LsapLookupWksta)
             except Exception, e:
                 if str(e).find('STATUS_NONE_MAPPED') >= 0:
                     soFar += SIMULTANEOUS
@@ -133,6 +132,8 @@ class LSALookupSid:
 
 # Process command-line arguments.
 if __name__ == '__main__':
+    # Init the example's logger theme
+    logger.init()
     print version.BANNER
 
     parser = argparse.ArgumentParser()
@@ -164,5 +165,5 @@ if __name__ == '__main__':
     lookup = LSALookupSid(username, password, domain, options.protocol, options.hashes, options.maxRid)
     try:
         lookup.dump(address)
-    except Exception, e:
+    except:
         pass

@@ -18,6 +18,7 @@
 import argparse
 import sys
 import string
+import logging
 
 from impacket.examples import logger
 from impacket import version, tds
@@ -25,6 +26,8 @@ from impacket import version, tds
 if __name__ == '__main__':
 
     print version.BANNER
+    # Init the example's logger theme
+    logger.init()
 
     parser = argparse.ArgumentParser(add_help = True, description = "Asks the remote host for its running MSSQL Instances.")
 

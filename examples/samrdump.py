@@ -123,8 +123,6 @@ class SAMRDump:
             resp = samr.hSamrOpenDomain(dce, serverHandle = serverHandle, domainId = resp['DomainId'])
             domainHandle = resp['DomainHandle']
 
-            done = False
-            
             status = STATUS_MORE_ENTRIES
             enumerationContext = 0
             while status == STATUS_MORE_ENTRIES:
@@ -157,6 +155,8 @@ class SAMRDump:
 
 # Process command-line arguments.
 if __name__ == '__main__':
+    # Init the example's logger theme
+    logger.init()
     print version.BANNER
 
     parser = argparse.ArgumentParser(add_help = True, description = "This script downloads the list of users for the target system.")

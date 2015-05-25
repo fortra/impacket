@@ -271,7 +271,7 @@ class ESENT_PAGE_HEADER(Structure):
         if (version < 0x620) or (version == 0x620 and revision < 0x0b):
             # For sure the old format
             self.structure = self.structure_2003_SP0 + self.common
-        elif (version == 0x620 and revision < 0x11):
+        elif version == 0x620 and revision < 0x11:
             # Exchange 2003 SP1 and Windows Vista and later
             self.structure = self.structure_0x620_0x0b + self.common
         else:
@@ -280,7 +280,7 @@ class ESENT_PAGE_HEADER(Structure):
             if pageSize > 8192:
                 self.structure += self.extended_win7
 
-        return Structure.__init__(self,data)
+        Structure.__init__(self,data)
 
 class ESENT_ROOT_HEADER(Structure):
     structure = (
@@ -309,7 +309,7 @@ class ESENT_BRANCH_ENTRY(Structure):
         if flags & TAG_COMMON > 0:
             # Include the common header
             self.structure = self.common + self.structure
-        return Structure.__init__(self,data)
+        Structure.__init__(self,data)
 
 class ESENT_LEAF_HEADER(Structure):
     structure = (
@@ -330,7 +330,7 @@ class ESENT_LEAF_ENTRY(Structure):
         if flags & TAG_COMMON > 0:
             # Include the common header
             self.structure = self.common + self.structure
-        return Structure.__init__(self,data)
+        Structure.__init__(self,data)
 
 class ESENT_SPACE_TREE_HEADER(Structure):
     structure = (
@@ -418,11 +418,11 @@ class ESENT_CATALOG_DATA_DEFINITION_ENTRY(Structure):
         else:
             LOG.error('Unknown catalog type 0x%x' % dataType)
             self.structure = ()
-            return Structure.__init__(self,data)
+            Structure.__init__(self,data)
 
         self.structure += self.common
 
-        return Structure.__init__(self,data)
+        Structure.__init__(self,data)
 
 
 def pretty_print(x):
@@ -454,7 +454,7 @@ def getUnixTime(t):
     t /= 10000000
     return t
 
-class ESENT_PAGE():
+class ESENT_PAGE:
     def __init__(self, db, data=None):
         self.__DBHeader = db
         self.data = data
@@ -624,7 +624,7 @@ class ESENT_DB:
         indent = '    '
 
         print "Database version: 0x%x, 0x%x" % (self.__DBHeader['Version'], self.__DBHeader['FileFormatRevision'] )
-        print "Page size: %d " % (self.__pageSize)
+        print "Page size: %d " % self.__pageSize
         print "Number of pages: %d" % self.__totalPages
         print 
         print "Catalog for %s" % self.__fileName
@@ -798,7 +798,7 @@ class ESENT_DB:
         tag = self.__getNextTag(cursor)
         #hexdump(tag)
 
-        if tag == None:
+        if tag is None:
             # No more tags in this page, search for the next one on the right
             page = cursor['CurrentPageData']
             if page.record['NextPageNumber'] == 0:
@@ -861,7 +861,7 @@ class ESENT_DB:
                 record[column] = tag[fixedSizeOffset:][:columnRecord['SpaceUsage']]
                 fixedSizeOffset += columnRecord['SpaceUsage']
 
-            elif columnRecord['Identifier'] > 127 and columnRecord['Identifier'] <= dataDefinitionHeader['LastVariableDataType']:
+            elif 127 < columnRecord['Identifier'] <= dataDefinitionHeader['LastVariableDataType']:
                 # Variable data type
                 index = columnRecord['Identifier'] - 127 - 1
                 itemLen = unpack('<H',tag[variableSizeOffset+index*2:][:2])[0]

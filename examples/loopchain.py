@@ -23,11 +23,11 @@ class lotsSMB(smb.SMB):
         writeAndX['Parameters']['DataOffset'] = len(pkt)
         writeAndX['Data'] = data+('A'*4000)
 
-	saved_offset = len(pkt)
+        saved_offset = len(pkt)
 
         writeAndX2 = smb.SMBCommand(self.SMB_COM_WRITE_ANDX)
         pkt.addCommand(writeAndX2)
-        
+
         writeAndX2['Parameters'] = smb.SMBWriteAndX_Parameters()
         writeAndX2['Parameters']['Fid'] = fid
         writeAndX2['Parameters']['Offset'] = offset
@@ -37,8 +37,8 @@ class lotsSMB(smb.SMB):
         writeAndX2['Parameters']['DataOffset'] = len(pkt)
         writeAndX2['Data'] = '<pata>\n'
 
-	writeAndX2['Parameters']['AndXCommand'] = self.SMB_COM_WRITE_ANDX
-	writeAndX2['Parameters']['AndXOffset']  = saved_offset
+        writeAndX2['Parameters']['AndXCommand'] = self.SMB_COM_WRITE_ANDX
+        writeAndX2['Parameters']['AndXOffset'] = saved_offset
 
         self.sendSMB(pkt)
 
@@ -48,6 +48,8 @@ class lotsSMB(smb.SMB):
                 return pkt
         return None
 
+# Init the example's logger theme
+logger.init()
 s = lotsSMB('*SMBSERVER','192.168.1.1')
 s.login('Administrator','pasword')
 tid = s.tree_connect(r'\\*SMBSERVER\IPC$')

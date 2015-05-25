@@ -152,7 +152,7 @@ class SVCCTL:
         elif self.__action == 'STATUS':
             print "Querying status for %s" % self.__options.name
             resp = scmr.hRQueryServiceStatus(rpc, serviceHandle)
-            print "%30s - " % (self.__options.name),
+            print "%30s - " % self.__options.name,
             state = resp['lpServiceStatus']['dwCurrentState']
             if state == scmr.SERVICE_CONTINUE_PENDING:
                print "CONTINUE PENDING"
@@ -198,7 +198,7 @@ class SVCCTL:
             print "Total Services: %d" % len(resp)
         elif self.__action == 'CREATE':
             logging.info("Creating service %s" % self.__options.name)
-            resp = scmr.hRCreateServiceW(rpc, scManagerHandle,self.__options.name + '\x00', self.__options.display + '\x00', lpBinaryPathName=self.__options.path + '\x00')
+            scmr.hRCreateServiceW(rpc, scManagerHandle,self.__options.name + '\x00', self.__options.display + '\x00', lpBinaryPathName=self.__options.path + '\x00')
         elif self.__action == 'CHANGE':
             logging.info("Changing service config for %s" % self.__options.name)
             if self.__options.start_type is not None:
@@ -235,7 +235,7 @@ class SVCCTL:
  
 
             #resp = scmr.hRChangeServiceConfigW(rpc, serviceHandle,  display, path, service_type, start_type, start_name, password)
-            resp = scmr.hRChangeServiceConfigW(rpc, serviceHandle, service_type, start_type, scmr.SERVICE_ERROR_IGNORE, path, NULL, NULL, NULL, 0, start_name, password, 0, display)
+            scmr.hRChangeServiceConfigW(rpc, serviceHandle, service_type, start_type, scmr.SERVICE_ERROR_IGNORE, path, NULL, NULL, NULL, 0, start_name, password, 0, display)
             scmr.hRCloseServiceHandle(rpc, serviceHandle)
         else:
             logging.error("Unknown action %s" % self.__action)
@@ -250,6 +250,8 @@ class SVCCTL:
 # Process command-line arguments.
 if __name__ == '__main__':
 
+    # Init the example's logger theme
+    logger.init()
     print version.BANNER
 
     parser = argparse.ArgumentParser(add_help = True, description = "Windows Service manipulation script.")

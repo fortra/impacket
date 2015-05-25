@@ -1037,6 +1037,8 @@ def main():
    machine.run()
 
 if __name__ == '__main__':
+   # Init the example's logger theme
+   logger.init()
    main()
 
 # All Probes

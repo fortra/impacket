@@ -423,7 +423,7 @@ class TDS_COLMETADATA(Structure):
         ('Data',':'),
     )
 
-class MSSQL():
+class MSSQL:
     def __init__(self, address, port=1433, rowsPrinter=DummyPrint()):
         #self.packetSize = 32764
         self.packetSize = 32763
@@ -470,9 +470,9 @@ class MSSQL():
         for i, entry in enumerate(entries):
             fields = entry.split(';')
             ret = {}
-            for i, field in enumerate(fields):
-                if (i & 0x1) == 0:
-                    ret[field] = fields[i+1]
+            for j, field in enumerate(fields):
+                if (j & 0x1) == 0:
+                    ret[field] = fields[j+1]
             resp.append(ret)
 
         return resp
@@ -595,8 +595,7 @@ class MSSQL():
         while status != TDS_STATUS_EOM:
             if remaining is not None:
                 tmpPacket = TDSPacket(remaining)
-                remaining = None
-            else: 
+            else:
                 tmpPacket = TDSPacket(self.socketRecv(packetSize))
 
             packetLen = tmpPacket['Length'] - 8
@@ -820,7 +819,7 @@ class MSSQL():
                 else:
                     value = 'NULL'
 
-            elif (_type == TDS_BIGVARCHRTYPE): 
+            elif _type == TDS_BIGVARCHRTYPE:
                 charLen = struct.unpack('<H',data[:struct.calcsize('<H')])[0]
                 data = data[struct.calcsize('<H'):]
                 if charLen != 0xFFFF:
@@ -829,7 +828,7 @@ class MSSQL():
                 else:
                     value = 'NULL'
 
-            elif (_type == TDS_GUIDTYPE):
+            elif _type == TDS_GUIDTYPE:
                 uuidLen = ord(data[0])
                 data = data[1:]
                 if uuidLen > 0:
@@ -859,7 +858,7 @@ class MSSQL():
                     else:
                         value = 'NULL'
                 
-            elif (_type == TDS_TEXTTYPE): 
+            elif _type == TDS_TEXTTYPE:
                 # Skip the pointer data
                 charLen = ord(data[0])
                 if charLen == 0:
@@ -899,7 +898,7 @@ class MSSQL():
                     else:
                         value = 'NULL'
                     data = data[1:]
-                if (_type == TDS_DATETIMETYPE):
+                if _type == TDS_DATETIMETYPE:
                     # datetime is represented in the following sequence:
                     # * One 4-byte signed integer that represents the number of days since January 1, 1900. Negative
                     #   numbers are allowed to represents dates since January 1, 1753.
@@ -913,7 +912,7 @@ class MSSQL():
                         baseDate = datetime.date(1900,1,1)
                     timeValue = struct.unpack('<L',data[:4])[0]
                     data = data[4:] 
-                elif (_type == TDS_DATETIM4TYPE):
+                elif _type == TDS_DATETIM4TYPE:
                     # Small datetime
                     # 2.2.5.5.1.8
                     # Date/Times
@@ -939,7 +938,7 @@ class MSSQL():
                 value = struct.unpack('<l',data[:struct.calcsize('<l')])[0]
                 data = data[struct.calcsize('<l'):]
 
-            elif (_type == TDS_FLTNTYPE):
+            elif _type == TDS_FLTNTYPE:
                 valueSize = ord(data[:1])
                 if valueSize == 4:
                     fmt = '<f'
@@ -989,12 +988,12 @@ class MSSQL():
                 data = data[struct.calcsize('<q'):]
 
 
-            elif (_type == TDS_INT2TYPE):
+            elif _type == TDS_INT2TYPE:
                 #print "INT2TYPE"
                 value = struct.unpack('<H',(data[:2]))[0]
                 data = data[2:]
 
-            elif (_type == TDS_DATENTYPE):
+            elif _type == TDS_DATENTYPE:
                 # date is represented as one 3-byte unsigned integer that represents the number of days since
                 # January 1, year 1.
                 valueSize = ord(data[:1])
@@ -1040,7 +1039,7 @@ class MSSQL():
                 else:
                     value = 'NULL'
 
-            elif (_type == TDS_BITNTYPE):
+            elif _type == TDS_BITNTYPE:
                 #print "BITNTYPE"
                 valueSize = ord(data[:1])
                 data = data[1:]
@@ -1053,7 +1052,7 @@ class MSSQL():
                     value = 'NULL'
                 data = data[valueSize:]
 
-            elif (_type == TDS_INTNTYPE):
+            elif _type == TDS_INTNTYPE:
                 valueSize = ord(data[:1])
                 if valueSize == 1:
                     fmt = '<B'
@@ -1073,7 +1072,7 @@ class MSSQL():
                     data = data[valueSize:]
                 else:
                     value = 'NULL'
-            elif (_type == TDS_SSVARIANTTYPE):
+            elif _type == TDS_SSVARIANTTYPE:
                 LOG.critical("ParseRow: SQL Variant type not yet supported :(")
                 raise
             else:
@@ -1088,7 +1087,7 @@ class MSSQL():
 
         self.rows.append(row)
 
-        return (origDataLen - len(data))
+        return origDataLen - len(data)
 
     def parseColMetaData(self, token):
         # TODO Add support for more data types!
@@ -1131,7 +1130,7 @@ class MSSQL():
                 typeData = ord(data[0])
                 data = data[1:]
 
-            elif (colType == TDS_DATETIMNTYPE): 
+            elif colType == TDS_DATETIMNTYPE:
                 # For DATETIMNTYPE, the only valid lengths are 0x04 and 0x08, which map to smalldatetime and
                 # datetime SQL data types respectively.
                 typeData = ord(data[0])
@@ -1193,7 +1192,7 @@ class MSSQL():
             column['Flags'] = flags
             self.colMeta.append(column)
 
-        return (origDataLen - len(data))
+        return origDataLen - len(data)
 
     def parseReply(self, tokens,tuplemode=False):
         if len(tokens) == 0:

@@ -49,6 +49,7 @@ class WMIEXEC:
         self.__share = share
         self.__noOutput = noOutput
         self.__doKerberos = doKerberos
+        self.shell = None
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
 
@@ -240,7 +241,7 @@ class RemoteShell(cmd.Cmd):
         command = self.__shell + data 
         if self.__noOutput is False:
             command += ' 1> ' + '\\\\127.0.0.1\\%s' % self.__share + self.__output  + ' 2>&1'
-        obj = self.__win32Process.Create(command, self.__pwd, None)
+        self.__win32Process.Create(command, self.__pwd, None)
         self.get_output()
 
     def send_data(self, data):
@@ -251,6 +252,8 @@ class RemoteShell(cmd.Cmd):
 
 # Process command-line arguments.
 if __name__ == '__main__':
+    # Init the example's logger theme
+    logger.init()
     print version.BANNER
 
     parser = argparse.ArgumentParser(add_help = True, description = "Executes a semi-interactive shell using Windows Management Instrumentation.")

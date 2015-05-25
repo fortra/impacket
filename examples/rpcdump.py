@@ -122,7 +122,6 @@ class RPCDump:
 
     def __fetchList(self, rpctransport):
         dce = rpctransport.get_dce_rpc()
-        entries = []
 
         dce.connect()
         #dce.set_auth_level(ntlm.NTLM_AUTH_PKT_INTEGRITY)
@@ -138,6 +137,8 @@ class RPCDump:
 
 # Process command-line arguments.
 if __name__ == '__main__':
+    # Init the example's logger theme
+    logger.init()
     print version.BANNER
 
     parser = argparse.ArgumentParser(add_help = True, description = "Dumps the remote RPC enpoints information.")

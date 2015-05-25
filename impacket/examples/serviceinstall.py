@@ -21,7 +21,7 @@ from impacket.dcerpc.v5 import transport, srvs, scmr
 from impacket import smb,smb3, LOG
 from impacket.smbconnection import SMBConnection
 
-class ServiceInstall():
+class ServiceInstall:
     def __init__(self, SMBObject, exeFile):
         self._rpctransport = 0
         self.__service_name = ''.join([random.choice(string.letters) for i in range(4)])
@@ -137,7 +137,7 @@ class ServiceInstall():
         if self.connection.isGuestSession():
             LOG.critical("Authenticated as Guest. Aborting")
             self.connection.logoff()
-            del(self.connection)
+            del self.connection
         else:
             fileCopied = False
             serviceCreated = False
@@ -146,7 +146,7 @@ class ServiceInstall():
                 # Let's get the shares
                 shares = self.getShares()
                 self.share = self.findWritableShare(shares)
-                res = self.copy_file(self.__exeFile ,self.share,self.__binary_service_name)
+                self.copy_file(self.__exeFile ,self.share,self.__binary_service_name)
                 fileCopied = True
                 svcManager = self.openSvcManager()
                 if svcManager != 0:
@@ -161,7 +161,6 @@ class ServiceInstall():
                     service = self.createService(svcManager, self.share, path)
                     serviceCreated = True
                     if service != 0:
-                        parameters = [ '%s\\%s' % (path,self.__binary_service_name), '%s\\%s' % (path, '') ]            
                         # Start service
                         LOG.info('Starting service %s.....' % self.__service_name)
                         try:
@@ -210,7 +209,7 @@ class ServiceInstall():
                 scmr.hRCloseServiceHandle(self.rpcsvc, svcManager)
             LOG.info('Removing file %s.....' % self.__binary_service_name)
             self.connection.deleteFile(self.share, self.__binary_service_name)
-        except Exception, e:
+        except Exception:
             LOG.critical("Error performing the uninstallation, cleaning up" )
             try:
                 scmr.hRControlService(self.rpcsvc, service, scmr.SERVICE_CONTROL_STOP)

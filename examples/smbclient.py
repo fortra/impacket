@@ -46,6 +46,7 @@ class MiniImpacketShell(cmd.Cmd):
         self.pwd = ''
         self.share = None
         self.loggedIn = True
+        self.last_output = None
         self.completion = []
 
     def emptyline(self):
@@ -109,7 +110,7 @@ class MiniImpacketShell(cmd.Cmd):
         dce = rpctransport.get_dce_rpc()
         dce.connect()                     
         dce.bind(samr.MSRPC_UUID_SAMR)
-        resp = samr.hSamrUnicodeChangePasswordUser2(dce, '\x00', self.username, self.password, newPassword, self.lmhash, self.nthash)
+        samr.hSamrUnicodeChangePasswordUser2(dce, '\x00', self.username, self.password, newPassword, self.lmhash, self.nthash)
         self.password = newPassword
         self.lmhash = None
         self.nthash = None
@@ -246,7 +247,7 @@ class MiniImpacketShell(cmd.Cmd):
             logging.error("No connection open")
             return
         self.smb.logoff()
-        del(self.smb)
+        del self.smb
         self.share = None
         self.smb = None
         self.tid = None
@@ -438,6 +439,8 @@ class MiniImpacketShell(cmd.Cmd):
         self.do_logoff(line)
 
 def main():
+    # Init the example's logger theme
+    logger.init()
     print version.BANNER
     parser = argparse.ArgumentParser(add_help = True, description = "SMB client implementation.")
 

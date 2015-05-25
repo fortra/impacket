@@ -194,7 +194,16 @@ class SMB3:
         self._timeout = timeout
         self._Connection['ServerIP'] = remote_host
         self._NetBIOSSession = None
-        
+
+        self.__userName = ''
+        self.__password = ''
+        self.__domain   = ''
+        self.__lmhash   = ''
+        self.__nthash   = ''
+        self.__kdc      = ''
+        self.__aesKey   = ''
+        self.__TGT      = None
+        self.__TGS      = None
 
         if sess_port == 445 and remote_name == '*SMBSERVER':
            self._Connection['ServerName'] = remote_host
@@ -253,7 +262,7 @@ class SMB3:
 
     @contextmanager
     def useTimeout(self, timeout):
-        prev_timeout = self.setTimeout(timeout)
+        prev_timeout = self.getTimeout(timeout)
         try:
             yield
         finally:
@@ -365,7 +374,6 @@ class SMB3:
                 if data.get_trailer().startswith('\xfeSMB'):
                     packet = SMB2Packet(data.get_trailer())
                 else:
-                    packet = SMB2_TRANSFORM_HEADER(data.get_trailer())
                     # Packet is encrypted
                     transformHeader = SMB2_TRANSFORM_HEADER(data.get_trailer())
                     from Crypto.Cipher import AES
@@ -466,7 +474,7 @@ class SMB3:
         # TGS['cipher'] = the cipher used
         # TGS['sessionKey'] = the sessionKey
         # If we have hashes, normalize them
-        if ( lmhash != '' or nthash != ''):
+        if lmhash != '' or nthash != '':
             if len(lmhash) % 2:     lmhash = '0%s' % lmhash
             if len(nthash) % 2:     nthash = '0%s' % nthash
             try: # just in case they were converted already
@@ -594,7 +602,6 @@ class SMB3:
             self._Session['SigningRequired'] = self._Connection['RequireSigning']
             self._Session['UserCredentials'] = (user, password, domain, lmhash, nthash)
             self._Session['Connection']      = self._NetBIOSSession.get_socket()
-            sessionSetupResponse = SMB2SessionSetup_Response(ans['Data'])
 
             self._Session['SessionKey']  = sessionKey.contents[:16]
             if self._Session['SigningRequired'] is True and self._Connection['Dialect'] == SMB2_DIALECT_30:
@@ -624,7 +631,7 @@ class SMB3:
 
     def login(self, user, password, domain = '', lmhash = '', nthash = ''):
         # If we have hashes, normalize them
-        if ( lmhash != '' or nthash != ''):
+        if lmhash != '' or nthash != '':
             if len(lmhash) % 2:     lmhash = '0%s' % lmhash
             if len(nthash) % 2:     nthash = '0%s' % nthash
             try: # just in case they were converted already
@@ -689,8 +696,7 @@ class SMB3:
             # Let's parse some data and keep it to ourselves in case it is asked
             ntlmChallenge = ntlm.NTLMAuthChallenge(respToken['ResponseToken'])
             if ntlmChallenge['TargetInfoFields_len'] > 0:
-                infoFields = ntlmChallenge['TargetInfoFields']
-                av_pairs = ntlm.AV_PAIRS(ntlmChallenge['TargetInfoFields'][:ntlmChallenge['TargetInfoFields_len']]) 
+                av_pairs = ntlm.AV_PAIRS(ntlmChallenge['TargetInfoFields'][:ntlmChallenge['TargetInfoFields_len']])
                 if av_pairs[ntlm.NTLMSSP_AV_HOSTNAME] is not None:
                    try:
                        self._Session['ServerName'] = av_pairs[ntlm.NTLMSSP_AV_HOSTNAME][1].decode('utf-16le')
@@ -1037,7 +1043,7 @@ class SMB3:
         packet['Data'] = smbWrite
 
         packetID = self.sendSMB(packet)
-        if waitAnswer == True:
+        if waitAnswer is True:
             ans = self.recvSMB(packetID)
         else:
             return maxBytesToWrite
@@ -1100,7 +1106,7 @@ class SMB3:
         smbCancel = SMB2Cancel()
 
         packet['Data']      = smbCancel
-        packetID = self.sendSMB(packet)
+        self.sendSMB(packet)
 
     def ioctl(self, treeId, fileId = None, ctlCode = -1, flags = 0, inputBlob = '',  maxInputResponse = None, maxOutputResponse = None, waitAnswer = 1):
         if self._Session['TreeConnectTable'].has_key(treeId) is False:
@@ -1162,7 +1168,6 @@ class SMB3:
         ans = self.recvSMB(packetID)
 
         if ans.isValidAnswer(STATUS_SUCCESS):
-            smbFlushResponse = SMB2Flush_Response(ans['Data'])
             return True
 
     def lock(self, treeId, fileId, locks, lockSequence = 0):

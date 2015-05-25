@@ -15,7 +15,6 @@ from struct import pack, unpack, calcsize
 ############### GSS Stuff ################
 GSS_API_SPNEGO_UUID              = '\x2b\x06\x01\x05\x05\x02' 
 ASN1_SEQUENCE                    = 0x30
-ASN1_SEQUENCE                    = 0x30
 ASN1_AID                         = 0x60
 ASN1_OID                         = 0x06
 ASN1_OCTET_STRING                = 0x04
@@ -37,15 +36,15 @@ def asn1encode(data = ''):
         #res = asn1.SEQUENCE(str).encode()
         #import binascii
         #print '\nalex asn1encode str: %s\n' % binascii.hexlify(str)
-        if len(data) >= 0 and len(data) <= 0x7F:
+        if 0 <= len(data) <= 0x7F:
             res = pack('B', len(data)) + data
-        elif len(data) >= 0x80 and len(data) <= 0xFF:
+        elif 0x80 <= len(data) <= 0xFF:
             res = pack('BB', 0x81, len(data)) + data
-        elif len(data) >= 0x100 and len(data) <= 0xFFFF:
+        elif 0x100 <= len(data) <= 0xFFFF:
             res = pack('!BH', 0x82, len(data)) + data
-        elif len(data) >= 0x10000 and len(data) <= 0xffffff:
+        elif 0x10000 <= len(data) <= 0xffffff:
             res = pack('!BBH', 0x83, len(data) >> 16, len(data) & 0xFFFF) + data
-        elif len(data) >= 0x1000000 and len(data) <= 0xffffffff:
+        elif 0x1000000 <= len(data) <= 0xffffffff:
             res = pack('!BL', 0x84, len(data)) + data
         else:
             raise Exception('Error in asn1encode')
@@ -80,7 +79,7 @@ def asn1decode(data = ''):
             ans = data[:len1]
         return ans, len(ans)+pad+1
 
-class GSSAPI():
+class GSSAPI:
 # Generic GSSAPI Header Format 
     def __init__(self, data = None):
         self.fields = {}
@@ -105,7 +104,7 @@ class GSSAPI():
         return len(self.getData())
 
     def fromString(self, data = None):
-       	# Manual parse of the GSSAPI Header Format
+        # Manual parse of the GSSAPI Header Format
         # It should be something like
         # AID = 0x60 TAG, BER Length
         # OID = 0x06 TAG
@@ -141,7 +140,7 @@ class GSSAPI():
                self['Payload'] )
         return ans
 
-class SPNEGO_NegTokenResp():
+class SPNEGO_NegTokenResp:
     # http://tools.ietf.org/html/rfc4178#page-9
     # NegTokenResp ::= SEQUENCE {
     #     negState       [0] ENUMERATED {
@@ -189,7 +188,7 @@ class SPNEGO_NegTokenResp():
             raise Exception('NegTokenResp not found %x' % next_byte)
         payload = payload[1:]
         decode_data, total_bytes = asn1decode(payload)
-	next_byte = unpack('B', decode_data[:1])[0]
+        next_byte = unpack('B', decode_data[:1])[0]
         if next_byte != ASN1_SEQUENCE:
             raise Exception('SEQUENCE tag not found %x' % next_byte)
         decode_data = decode_data[1:]
@@ -206,7 +205,6 @@ class SPNEGO_NegTokenResp():
             next_byte = unpack('B', decode_data2[:1])[0]
             if next_byte != ASN1_ENUMERATED:
                 raise Exception('Enumerated tag not found %x' % next_byte)
-            decode_data2 = decode_data2[1:]
             item, total_bytes2 = asn1decode(decode_data)
             self['NegResult'] = item
             decode_data = decode_data[1:]
@@ -319,10 +317,9 @@ class SPNEGO_NegTokenInit(GSSAPI):
         if next_byte != ASN1_SEQUENCE:
             raise Exception('SEQUENCE tag not found %x' % next_byte)
         decode_data = decode_data[1:]
-	decode_data, total_bytes4 = asn1decode(decode_data)
+        decode_data, total_bytes4 = asn1decode(decode_data)
         # And finally we should have the MechTypes
         self['MechTypes'] = []
-        i = 1
         while decode_data:
            next_byte = unpack('B', decode_data[:1])[0]
            if next_byte != ASN1_OID:    
@@ -353,12 +350,12 @@ class SPNEGO_NegTokenInit(GSSAPI):
             mechTypes += pack('B', ASN1_OID)
             mechTypes += asn1encode(i)
 
-	mechToken = ''
+        mechToken = ''
         # Do we have tokens to send?
         if self.fields.has_key('MechToken'):
-           mechToken = pack('B', ASN1_MECH_TOKEN) + asn1encode(
-                       pack('B', ASN1_OCTET_STRING) + asn1encode(
-                       self['MechToken']))
+            mechToken = pack('B', ASN1_MECH_TOKEN) + asn1encode(
+                pack('B', ASN1_OCTET_STRING) + asn1encode(
+                    self['MechToken']))
 
         ans = pack('B',SPNEGO_NegTokenInit.SPNEGO_NEG_TOKEN_INIT)
         ans += asn1encode(

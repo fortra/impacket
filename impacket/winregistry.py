@@ -152,7 +152,7 @@ StructMappings = {'nk': REG_NK,
                   'sk': REG_SK,
                  }
 
-class Registry():
+class Registry:
     def __init__(self, hive, isRemote = False):
         self.__hive = hive
         if isRemote is True:
@@ -166,10 +166,8 @@ class Registry():
         self.rootKey = self.__findRootKey()
         if self.rootKey is None:
             LOG.error("Can't find root key!")
-            return None
         elif self.__regf['MajorVersion'] != 1 and self.__regf['MinorVersion'] > 5:
             LOG.warning("Unsupported version (%d.%d) - things might not work!" % (self.__regf['MajorVersion'], self.__regf['MinorVersion']))
-            return None
 
     def close(self):
         self.fd.close()
@@ -184,14 +182,14 @@ class Registry():
             try:
                 hbin = REG_HBIN(data[:0x20])
                 # Read the remaining bytes for this hbin
-                data = data + self.fd.read(hbin['OffsetNextHBin']-4096)
+                data += self.fd.read(hbin['OffsetNextHBin']-4096)
                 data = data[0x20:]
                 blocks = self.__processDataBlocks(data)
                 for block in blocks:
                     if isinstance(block, REG_NK):
                         if block['Type'] == ROOT_KEY:
                             return block
-            except Exception, e:
+            except:
                  pass
             data = self.fd.read(4096)
 
@@ -265,7 +263,7 @@ class Registry():
         res = 0
         for b in key.upper():
             res *= 37
-            res = res + ord(b)
+            res += ord(b)
         return res % 0x100000000
 
     def __compareHash(self, magic, hashData, key):
@@ -321,7 +319,7 @@ class Registry():
         nk = self.__getBlock(rec['OffsetNk'])
         if isinstance(nk, REG_NK):
             print "%s%s" % (self.indent, nk['KeyName'])
-            self.indent = self.indent + '  '
+            self.indent += '  '
             if nk['OffsetSubKeyLf'] < 0:
                 self.indent = self.indent[:-2]
                 return
@@ -390,7 +388,7 @@ class Registry():
             print ''
             hexdump(valueData, self.indent)
         elif valueType == REG_DWORD:
-            print "%d" % (valueData)
+            print "%d" % valueData
         elif valueType == REG_QWORD:
             print "%d" % (unpack('<Q',valueData)[0])
         elif valueType == REG_NONE:
@@ -463,9 +461,9 @@ class Registry():
 
             for value in valueList:
                 if value['Name'] == regValue:
-                    return (value['ValueType'], self.__getValueData(value))
+                    return value['ValueType'], self.__getValueData(value)
                 elif regValue == 'default' and value['Flag'] <=0:
-                    return (value['ValueType'], self.__getValueData(value))
+                    return value['ValueType'], self.__getValueData(value)
 
         return None
 

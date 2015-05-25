@@ -147,7 +147,6 @@ class KarmaSMBServer(Thread):
         respSetup = ''
         respParameters = ''
         respData = ''
-        errorCode = STATUS_SUCCESS
         findFirst2Parameters = smb.SMBFindFirst2_Parameters( recvPacket['Flags2'], data = parameters)
 
         # 1. Let's grab the extension and map the file's contents we will deliver
@@ -161,11 +160,6 @@ class KarmaSMBServer(Thread):
             targetFile = self.extensions[origPathNameExtension.upper()]
         else:
             targetFile = self.defaultFile
-
-        if (len(data) > 0):
-            findFirst2Data = smb.SMBFindFirst2_Data(data)
-        else:
-            findFirst2Data = ''
 
         if connData['ConnectedShares'].has_key(recvPacket['Tid']):
             path = connData['ConnectedShares'][recvPacket['Tid']]['path']
@@ -285,9 +279,7 @@ class KarmaSMBServer(Thread):
         errorCode = 0
 
         queryPathInfoParameters = smb.SMBQueryPathInformation_Parameters(flags = recvPacket['Flags2'], data = parameters)
-        if len(data) > 0: 
-           queryPathInfoData = smb.SMBQueryPathInformation_Data(data)
-  
+
         if connData['ConnectedShares'].has_key(recvPacket['Tid']):
             path = ''
             try:
@@ -330,7 +322,7 @@ class KarmaSMBServer(Thread):
         connData = smbServer.getConnectionData(connId)
         # We're closing the connection trying to flush the client's
         # cache.
-        if connData['MS15011']['StopConnection'] == True:
+        if connData['MS15011']['StopConnection'] is True:
             return [smb2.SMB2Error()], None, STATUS_USER_SESSION_DELETED
         return self.origsmb2Close(connId, smbServer, recvPacket)
 
@@ -394,7 +386,7 @@ class KarmaSMBServer(Thread):
         connData = smbServer.getConnectionData(connId)
 
         respSMBCommand = smb2.SMB2QueryDirectory_Response()
-        queryDirectoryRequest   = smb2.SMB2QueryDirectory(recvPacket['Data'])
+        #queryDirectoryRequest   = smb2.SMB2QueryDirectory(recvPacket['Data'])
 
         errorCode = 0xff
         respSMBCommand['Buffer'] = '\x00' 
@@ -591,6 +583,8 @@ class KarmaSMBServer(Thread):
 
 # Process command-line arguments.
 if __name__ == '__main__':
+    # Init the example's logger theme
+    logger.init()
     print version.BANNER
     parser = argparse.ArgumentParser(add_help = False, description = "For every file request received, this module will return the pathname contents")
     parser.add_argument("--help", action="help", help='show this help message and exit')

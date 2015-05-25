@@ -78,7 +78,7 @@ def enumValues(reg, searchKey):
     values = reg.enumValues(key)
 
     for value in values:
-        print "  %-30s: " % (value),
+        print "  %-30s: " % value,
         data = reg.getValue('%s\\%s'%(searchKey,value))
         # Special case for binary string.. so it looks better formatted
         if data[0] == winregistry.REG_BINARY:
@@ -100,7 +100,7 @@ def enumKey(reg, searchKey, isRecursive, indent='  '):
         print "%s%s" %(indent, key)
         if isRecursive is True:
             if searchKey == '\\':
-                enumKey(reg, '\\%s'%(key),isRecursive,indent+'  ')
+                enumKey(reg, '\\%s'%key,isRecursive,indent+'  ')
             else:
                 enumKey(reg, '%s\\%s'%(searchKey,key),isRecursive,indent+'  ')
 
@@ -109,6 +109,8 @@ def walk(reg, keyName):
 
 
 def main():
+    # Init the example's logger theme
+    logger.init()
     print version.BANNER
 
     parser = argparse.ArgumentParser(add_help = True, description = "Reads data from registry hives.")

@@ -49,6 +49,7 @@ DUMMY_SHARE     = 'TMP'
 class SMBServer(Thread):
     def __init__(self):
         Thread.__init__(self)
+        self.smb = None
 
     def cleanup_server(self):
         logging.info('Cleaning up..')
@@ -113,7 +114,7 @@ class CMDEXEC:
     def __init__(self, protocols = None, 
                  username = '', password = '', domain = '', hashes = None, aesKey = None, doKerberos = None, mode = None, share = None):
         if not protocols:
-            protocols = PSEXEC.KNOWN_PROTOCOLS.keys()
+            protocols = CMDEXEC.KNOWN_PROTOCOLS.keys()
 
         self.__username = username
         self.__password = password
@@ -126,6 +127,7 @@ class CMDEXEC:
         self.__doKerberos = doKerberos
         self.__share = share
         self.__mode  = mode
+        self.shell = None
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
 
@@ -208,7 +210,7 @@ class RemoteShell(cmd.Cmd):
         try:
            self.__scmr = self.__rpc.get_dce_rpc()
            self.__scmr.connect() 
-           self.__scmr.bind(svcctl.MSRPC_UUID_SVCCTL)
+           self.__scmr.bind(scmr.MSRPC_UUID_SCMR)
            resp = scmr.hROpenSCManagerW(self.__scmr)
            self.__scHandle = resp['lpScHandle']
            resp = scmr.hROpenServiceW(self.__scmr, self.__scHandle, self.__serviceName)
@@ -216,7 +218,7 @@ class RemoteShell(cmd.Cmd):
            scmr.hRDeleteService(self.__scmr, service)
            scmr.hRControlService(self.__scmr, service, scmr.SERVICE_CONTROL_STOP)
            scmr.hRCloseServiceHandle(self.__scmr, service)
-        except Exception, e:
+        except:
            pass
 
     def do_shell(self, s):
@@ -284,6 +286,8 @@ class RemoteShell(cmd.Cmd):
 
 # Process command-line arguments.
 if __name__ == '__main__':
+    # Init the example's logger theme
+    logger.init()
     print version.BANNER
 
     parser = argparse.ArgumentParser()

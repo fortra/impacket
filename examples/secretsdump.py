@@ -58,7 +58,7 @@ from impacket.ese import ESENT_DB
 try:
     from Crypto.Cipher import DES, ARC4, AES
     from Crypto.Hash import HMAC, MD4
-except Exception:
+except ImportError:
     logging.critical("Warning: You don't have any crypto installed. You need PyCrypto")
     logging.critical("See http://www.pycrypto.org/")
 
@@ -211,7 +211,7 @@ class LSA_SECRET_XP(Structure):
     )
 
 # Classes
-class RemoteFile():
+class RemoteFile:
     def __init__(self, smbConnection, fileName):
         self.__smbConnection = smbConnection
         self.__fileName = fileName
@@ -304,14 +304,14 @@ class RemoteOperations:
             keyHandle = ans['phkResult']
             dataType, dataValue = rrp.hBaseRegQueryValue(self.__rrp, keyHandle, 'DefaultUserName')
             username = dataValue[:-1]
-            dataType, dataValue = rrp.hBaseRegQueryValue(self.__rrp, 'DefaultDomainName')
+            dataType, dataValue = rrp.hBaseRegQueryValue(self.__rrp, keyHandle, 'DefaultDomainName')
             domain = dataValue[:-1]
             rrp.hBaseRegCloseKey(self.__rrp, keyHandle)
             if len(domain) > 0:
                 return '%s\\%s' % (domain,username)
             else:
                 return username
-        except Exception, e:
+        except:
             return None
 
     def getServiceAccount(self, serviceName):
@@ -388,7 +388,7 @@ class RemoteOperations:
                 ans = scmr.hROpenSCManagerW(self.__scmr)
                 self.__scManagerHandle = ans['lpScHandle']
                 # Now let's open the service
-                scmr.hROpenServiceW(self.__scmr, self.__scManagerHandle, self.__tmpServiceName)
+                resp = scmr.hROpenServiceW(self.__scmr, self.__scManagerHandle, self.__tmpServiceName)
                 service = resp['lpServiceHandle']
                 scmr.hRDeleteService(self.__scmr, service)
                 scmr.hRControlService(self.__scmr, service, scmr.SERVICE_CONTROL_STOP)
@@ -451,7 +451,7 @@ class RemoteOperations:
         return True
 
     def __retrieveHive(self, hiveName):
-        tmpFileName = ''.join([random.choice(string.letters) for i in range(8)]) + '.tmp'
+        tmpFileName = ''.join([random.choice(string.letters) for _ in range(8)]) + '.tmp'
         ans = rrp.hOpenLocalMachine(self.__rrp)
         regHandle = ans['phKey']
         try:
@@ -459,7 +459,7 @@ class RemoteOperations:
         except:
             raise Exception("Can't open %s hive" % hiveName)
         keyHandle = ans['phkResult']
-        resp = rrp.hBaseRegSaveKey(self.__rrp, keyHandle, tmpFileName)
+        rrp.hBaseRegSaveKey(self.__rrp, keyHandle, tmpFileName)
         rrp.hBaseRegCloseKey(self.__rrp, keyHandle)
         rrp.hBaseRegCloseKey(self.__rrp, regHandle)
         # Now let's open the remote file, so it can be read later
@@ -554,7 +554,7 @@ class RemoteOperations:
         rrp.hBaseRegCloseKey(self.__rrp, keyHandle)
         rrp.hBaseRegCloseKey(self.__rrp, regHandle)
         
-        logging.info('Registry says NTDS.dit is at %s. Calling vssadmin to get a copy. This might take some time' % (ntdsLocation))
+        logging.info('Registry says NTDS.dit is at %s. Calling vssadmin to get a copy. This might take some time' % ntdsLocation)
         # Get the list of remote shadows
         shadow, shadowFor = self.__getLastVSS()
         if shadow == '' or (shadow != '' and shadowFor != ntdsDrive):
@@ -568,7 +568,7 @@ class RemoteOperations:
             shouldRemove = False
 
         # Now copy the ntds.dit to the temp directory
-        tmpFileName = ''.join([random.choice(string.letters) for i in range(8)]) + '.tmp'
+        tmpFileName = ''.join([random.choice(string.letters) for _ in range(8)]) + '.tmp'
 
         self.__executeRemote('%%COMSPEC%% /C copy %s%s %%SYSTEMROOT%%\\Temp\\%s' % (shadow, ntdsLocation[2:], tmpFileName))
       
@@ -735,8 +735,6 @@ class SAMHashes(OfflineRegistry):
             userAccount = USER_ACCOUNT_V(self.getValue(ntpath.join(usersKey,rid,'V'))[1])
             rid = int(rid,16)
 
-            baseOffset = len(USER_ACCOUNT_V())
-
             V = userAccount['Data']
 
             userName = V[userAccount['NameOffset']:userAccount['NameOffset']+userAccount['NameLength']].decode('utf-16le')
@@ -829,7 +827,6 @@ class LSASecrets(OfflineRegistry):
             tmpKey = self.__cryptoCommon.transformKey(tmpStrKey)
             Crypt1 = DES.new(tmpKey, DES.MODE_ECB)
             plainText += Crypt1.decrypt(cipherText) 
-            cipherText = cipherText[8:]
             key0 = key0[7:]
             value = value[8:]
             # AdvanceKey
@@ -837,7 +834,7 @@ class LSASecrets(OfflineRegistry):
                 key0 = key[len(key0):]
 
         secret = LSA_SECRET_XP(plainText)
-        return (secret['Secret'])
+        return secret['Secret']
 
     def __decryptHash(self, key, value, iv):
         hmac_md5 = HMAC.new(key,iv)
@@ -908,7 +905,7 @@ class LSASecrets(OfflineRegistry):
 
         # Let's first see if there are cached entries
         values = self.enumValues('\\Cache')
-        if values == None:
+        if values is None:
             # No cache entries
             return
         try:
@@ -1032,7 +1029,7 @@ class LSASecrets(OfflineRegistry):
 
         # Let's first see if there are cached entries
         keys = self.enumKey('\\Policy\\Secrets')
-        if keys == None:
+        if keys is None:
             # No entries
             return
         try:
@@ -1075,7 +1072,7 @@ class LSASecrets(OfflineRegistry):
             fd.close()
              
 
-class NTDSHashes():
+class NTDSHashes:
     NAME_TO_INTERNAL = { 
         'uSNCreated':'ATTq131091',
         'uSNChanged':'ATTq131192',
@@ -1254,7 +1251,6 @@ class NTDSHashes():
             LMHash = self.__removeDESLayer(tmpLMHash, rid)
         else:
             LMHash = ntlm.LMOWFv1('','')
-            encryptedLMHash = None
 
         if record[self.NAME_TO_INTERNAL['unicodePwd']] is not None:
             encryptedNTHash = self.CRYPTED_HASH(record[self.NAME_TO_INTERNAL['unicodePwd']].decode('hex'))
@@ -1262,7 +1258,6 @@ class NTDSHashes():
             NTHash = self.__removeDESLayer(tmpNTHash, rid)
         else:
             NTHash = ntlm.NTOWFv1('','')
-            encryptedNTHash = None
 
         if record[self.NAME_TO_INTERNAL['userPrincipalName']] is not None:
             domain = record[self.NAME_TO_INTERNAL['userPrincipalName']].split('@')[-1]
@@ -1278,7 +1273,6 @@ class NTDSHashes():
             LMHistory = []
             NTHistory = []
             if record[self.NAME_TO_INTERNAL['lmPwdHistory']] is not None:
-                lmPwdHistory = record[self.NAME_TO_INTERNAL['lmPwdHistory']]
                 encryptedLMHistory = self.CRYPTED_HISTORY(record[self.NAME_TO_INTERNAL['lmPwdHistory']].decode('hex'))
                 tmpLMHistory = self.__removeRC4Layer(encryptedLMHistory)
                 for i in range(0, len(tmpLMHistory)/16):
@@ -1286,7 +1280,6 @@ class NTDSHashes():
                     LMHistory.append(LMHash)
 
             if record[self.NAME_TO_INTERNAL['ntPwdHistory']] is not None:
-                ntPwdHistory = record[self.NAME_TO_INTERNAL['ntPwdHistory']]
                 encryptedNTHistory = self.CRYPTED_HISTORY(record[self.NAME_TO_INTERNAL['ntPwdHistory']].decode('hex'))
                 tmpNTHistory = self.__removeRC4Layer(encryptedNTHistory)
                 for i in range(0, len(tmpNTHistory)/16):
@@ -1371,7 +1364,7 @@ class NTDSHashes():
             for item in items:
                 try:
                     fd.write(self.__hashesFound[item]+'\n')
-                except Exception, e:
+                except:
                     try:
                         logging.error("Error writing entry %d, skipping" % item)
                     except:
@@ -1486,7 +1479,7 @@ class DumpSecrets:
                     # Let's check whether target system stores LM Hashes
                     self.__noLMHash = self.__remoteOps.checkNoLMHashPolicy()
 
-                if self.__isRemote == True:
+                if self.__isRemote is True:
                     SAMFileName         = self.__remoteOps.saveSAM()
                 else:
                     SAMFileName         = self.__samHive
@@ -1496,7 +1489,7 @@ class DumpSecrets:
                 if self.__outputFileName is not None:
                     self.__SAMHashes.export(self.__outputFileName)
 
-                if self.__isRemote == True:
+                if self.__isRemote is True:
                     SECURITYFileName    = self.__remoteOps.saveSECURITY()
                 else:
                     SECURITYFileName    = self.__securityHive
@@ -1509,7 +1502,7 @@ class DumpSecrets:
                 if self.__outputFileName is not None:
                     self.__LSASecrets.exportSecrets(self.__outputFileName)
 
-                if self.__isRemote == True:
+                if self.__isRemote is True:
                     NTDSFileName        = self.__remoteOps.saveNTDS()
                 else:
                     NTDSFileName        = self.__ntdsFile
@@ -1540,12 +1533,14 @@ class DumpSecrets:
             self.__LSASecrets.finish()
         if self.__NTDSHashes:
             self.__NTDSHashes.finish()
-        if self.__isRemote == True:
+        if self.__isRemote is True:
             self.__smbConnection.logoff()
 
 
 # Process command-line arguments.
 if __name__ == '__main__':
+    # Init the example's logger theme
+    logger.init()
     print version.BANNER
 
     parser = argparse.ArgumentParser(add_help = True, description = "Performs various techniques to dump secrets from the remote machine without executing any agent there.")

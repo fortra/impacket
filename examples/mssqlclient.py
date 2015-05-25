@@ -49,11 +49,11 @@ if __name__ == '__main__':
 
         def do_xp_cmdshell(self, s):
             try:
-                replies = self.sql.sql_query("exec master..xp_cmdshell '%s'" % s)
+                self.sql.sql_query("exec master..xp_cmdshell '%s'" % s)
                 self.sql.printReplies()
                 self.sql.colMeta[0]['TypeData'] = 80*2
                 self.sql.printRows()
-            except Exception, e:
+            except:
                 pass
 
         def do_lcd(self, s):
@@ -64,26 +64,26 @@ if __name__ == '__main__':
     
         def do_enable_xp_cmdshell(self, line):
             try:
-                replies = self.sql.sql_query("exec master.dbo.sp_configure 'show advanced options',1;RECONFIGURE;exec master.dbo.sp_configure 'xp_cmdshell', 1;RECONFIGURE;")
+                self.sql.sql_query("exec master.dbo.sp_configure 'show advanced options',1;RECONFIGURE;exec master.dbo.sp_configure 'xp_cmdshell', 1;RECONFIGURE;")
                 self.sql.printReplies()
                 self.sql.printRows()
-            except Exception, e:
+            except:
                 pass
 
         def do_disable_xp_cmdshell(self, line):
             try:
-                replies = self.sql.sql_query("exec sp_configure 'xp_cmdshell', 0 ;RECONFIGURE;exec sp_configure 'show advanced options', 0 ;RECONFIGURE;")
+                self.sql.sql_query("exec sp_configure 'xp_cmdshell', 0 ;RECONFIGURE;exec sp_configure 'show advanced options', 0 ;RECONFIGURE;")
                 self.sql.printReplies()
                 self.sql.printRows()
-            except Exception, e:
+            except:
                 pass
 
         def default(self, line):
             try:
-                replies = self.sql.sql_query(line)
+                self.sql.sql_query(line)
                 self.sql.printReplies()
                 self.sql.printRows()
-            except Exception, e:
+            except:
                 pass
          
         def emptyline(self):
@@ -92,6 +92,8 @@ if __name__ == '__main__':
         def do_exit(self, line):
             return True
 
+    # Init the example's logger theme
+    logger.init()
     print version.BANNER
 
     parser = argparse.ArgumentParser(add_help = True, description = "TDS client implementation (SSL supported).")
@@ -131,7 +133,7 @@ if __name__ == '__main__':
     ms_sql.connect()
     res = ms_sql.login(options.db, username, password, domain, options.hashes, options.windows_auth)
     ms_sql.printReplies()
-    if res == True:
+    if res is True:
         shell = SQLSHELL(ms_sql)
         if options.file is None:
             shell.cmdloop()

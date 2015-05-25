@@ -24,7 +24,7 @@ from smb3structs import *
 # So the user doesn't need to import smb, the smb3 are already in here
 SMB_DIALECT = smb.SMB_DIALECT
 
-class SMBConnection():
+class SMBConnection:
     """
     SMBConnection class - beto
 
@@ -88,7 +88,7 @@ class SMBConnection():
 
         smbp = smb.NewSMBPacket()
         negSession = smb.SMBCommand(smb.SMB.SMB_COM_NEGOTIATE)
-        if extended_security == True:
+        if extended_security is True:
             smbp['Flags2']=smb.SMB.FLAGS2_EXTENDED_SECURITY
         negSession['Data'] = '\x02NT LM 0.12\x00\x02SMB 2.002\x00\x02SMB 2.???\x00'
         smbp.addCommand(negSession)
@@ -219,8 +219,6 @@ class SMBConnection():
                         raise e
                 else:
                     raise e
-            else:
-                break
 
     def isGuestSession(self):
         try:
@@ -527,8 +525,7 @@ class SMBConnection():
 
         :param HANDLE treeId: a valid handle for the share where the pipe resides
         :param HANDLE fileId: a valid handle for the pipe
-        :param integer bytestToRead: amount of data to read
-        :param boolean waitAnswer: whether or not to wait for an answer
+        :param integer bytesToRead: amount of data to read
 
         :return: None, raises a SessionError exception if error.
 
@@ -552,11 +549,11 @@ class SMBConnection():
 
         """
         try:
-	    if shareAccessMode is None:
-		# if share access mode is none, let's the underlying API deals with it
-            	return self._SMBConnection.retr_file(shareName, pathName, callback)
-	    else:
-            	return self._SMBConnection.retr_file(shareName, pathName, callback, shareAccessMode = shareAccessMode)
+            if shareAccessMode is None:
+                # if share access mode is none, let's the underlying API deals with it
+                return self._SMBConnection.retr_file(shareName, pathName, callback)
+            else:
+                return self._SMBConnection.retr_file(shareName, pathName, callback, shareAccessMode=shareAccessMode)
         except (smb.SessionError, smb3.SessionError), e:
             raise SessionError(e.get_error_code())
 
@@ -572,11 +569,11 @@ class SMBConnection():
 
         """
         try:
-	    if shareAccessMode is None:
-		# if share access mode is none, let's the underlying API deals with it
-            	return self._SMBConnection.stor_file(shareName, pathName, callback)
-	    else: 
-            	return self._SMBConnection.stor_file(shareName, pathName, callback, shareAccessMode)
+            if shareAccessMode is None:
+                # if share access mode is none, let's the underlying API deals with it
+                return self._SMBConnection.stor_file(shareName, pathName, callback)
+            else:
+                return self._SMBConnection.stor_file(shareName, pathName, callback, shareAccessMode)
         except (smb.SessionError, smb3.SessionError), e:
             raise SessionError(e.get_error_code())
 

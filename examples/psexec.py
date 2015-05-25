@@ -163,7 +163,7 @@ class PSEXEC:
             packet = RemComMessage()
             pid = os.getpid()
 
-            packet['Machine'] = ''.join([random.choice(string.letters) for i in range(4)])
+            packet['Machine'] = ''.join([random.choice(string.letters) for _ in range(4)])
             if self.__path is not None:
                 packet['WorkingDir'] = self.__path
             packet['Command'] = self.__command
@@ -251,7 +251,7 @@ class RemoteStdOutPipe(Pipes):
         while True:
             try:
                 ans = self.server.readFile(self.tid,self.fid, 0, 1024)
-            except Exception, e: 
+            except:
                 pass
             else:
                 try:
@@ -278,7 +278,7 @@ class RemoteStdErrPipe(Pipes):
         while True:
             try:
                 ans = self.server.readFile(self.tid,self.fid, 0, 1024)
-            except Exception, e: 
+            except:
                 pass
             else:
                 try:
@@ -390,6 +390,7 @@ class RemoteShell(cmd.Cmd):
 
 class RemoteStdInPipe(Pipes):
     def __init__(self, transport, pipe, permisssions, share=None):
+        self.shell = None
         Pipes.__init__(self, transport, pipe, permisssions, share)
 
     def run(self):
@@ -399,6 +400,8 @@ class RemoteStdInPipe(Pipes):
 
 # Process command-line arguments.
 if __name__ == '__main__':
+    # Init the example's logger theme
+    logger.init()
     print version.BANNER
 
     parser = argparse.ArgumentParser(add_help = True, description = "PSEXEC like functionality example using RemComSvc.")

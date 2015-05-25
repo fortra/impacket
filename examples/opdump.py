@@ -51,7 +51,7 @@ def main(args):
 
     dce.call(i, "")
     try:
-      resp = dce.recv()
+      dce.recv()
     except Exception, e:
       result = str(e)
     else:
@@ -72,4 +72,6 @@ def main(args):
   print "ops %d-%d: %s" % (len(results), 255, suffix)
 
 if __name__ == "__main__":
+  # Init the example's logger theme
+  logger.init()
   sys.exit(main(sys.argv[1:]))

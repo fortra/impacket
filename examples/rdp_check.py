@@ -287,7 +287,7 @@ if __name__ == '__main__':
         sys.exit(1)
     
 
-    class SPNEGOCipher():
+    class SPNEGOCipher:
         def __init__(self, flags, randomSessionKey):
             self.__flags = flags
             if self.__flags & ntlm.NTLMSSP_NTLM2_KEY:
@@ -458,7 +458,7 @@ if __name__ == '__main__':
        # in the pubKeyAuth field.
 
        # Last SPNEGO token calculation
-       ntlmChallenge = ntlm.NTLMAuthChallenge(ts_request['NegoData'])
+       #ntlmChallenge = ntlm.NTLMAuthChallenge(ts_request['NegoData'])
        type3, exportedSessionKey = ntlm.getNTLMSSPType3(auth, ts_request['NegoData'], username, password, domain, lmhash, nthash, use_ntlmv2 = True)
 
        # Get server public key
@@ -541,6 +541,8 @@ if __name__ == '__main__':
        tls.close()
        logging.info("Access Granted")
 
+    # Init the example's logger theme
+    logger.init()
     print version.BANNER
 
     parser = argparse.ArgumentParser(add_help = True, description = "Test whether an account is valid on the target host using the RDP protocol.")

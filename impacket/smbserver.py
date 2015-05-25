@@ -694,9 +694,7 @@ class TRANS2Commands():
         errorCode = 0
 
         queryPathInfoParameters = smb.SMBQueryPathInformation_Parameters(flags = recvPacket['Flags2'], data = parameters)
-        if len(data) > 0: 
-           queryPathInfoData = smb.SMBQueryPathInformation_Data(data)
-  
+
         if connData['ConnectedShares'].has_key(recvPacket['Tid']):
             path = connData['ConnectedShares'][recvPacket['Tid']]['path']
             try:

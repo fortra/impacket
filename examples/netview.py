@@ -116,6 +116,7 @@ class USERENUM:
         self.__targets = dict()
         self.__filterUsers = None
         self.__targetsThreadEvent = None
+        self.__targetsThread = None
         self.__maxConnections = int(options.max_connections)
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
@@ -423,6 +424,8 @@ class USERENUM:
 # Process command-line arguments.
 if __name__ == '__main__':
     print version.BANNER
+    # Init the example's logger theme
+    logger.init()
 
     parser = argparse.ArgumentParser()
 

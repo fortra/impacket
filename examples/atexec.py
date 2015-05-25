@@ -48,7 +48,6 @@ class ATSVC_EXEC:
     def play(self, addr):
 
         # Try all requested protocols until one works.
-        entries = []
         for protocol in self.__protocols:
             protodef = ATSVC_EXEC.KNOWN_PROTOCOLS[protocol]
             port = protodef[1]
@@ -82,7 +81,7 @@ class ATSVC_EXEC:
         #dce.set_max_fragment_size(16)
         dce.bind(atsvc.MSRPC_UUID_ATSVC)
         at = atsvc.DCERPCAtSvc(dce)
-        tmpFileName = ''.join([random.choice(string.letters) for i in range(8)]) + '.tmp'
+        tmpFileName = ''.join([random.choice(string.letters) for _ in range(8)]) + '.tmp'
 
         # Check [MS-TSCH] Section 2.3.4
         atInfo = atsvc.AT_INFO()
@@ -123,14 +122,14 @@ class ATSVC_EXEC:
         #            elif resp['ErrorCode'] != atsvc.S_FALSE:
         #                done = True
 
-        resp = at.SchRpcRun('\\At%d' % jobId)
+        at.SchRpcRun('\\At%d' % jobId)
         # On the first run, it takes a while the remote target to start executing the job
         # so I'm setting this sleep.. I don't like sleeps.. but this is just an example
         # Best way would be to check the task status before attempting to read the file
         time.sleep(3)
         # Switching back to the old ctx_id
         at = atsvc.DCERPCAtSvc(dce)
-        resp = at.NetrJobDel('\\\\%s'% rpctransport.get_dip(), jobId, jobId)
+        at.NetrJobDel('\\\\%s'% rpctransport.get_dip(), jobId, jobId)
 
         smbConnection = rpctransport.get_smb_connection()
         while True:
@@ -150,6 +149,9 @@ class ATSVC_EXEC:
 # Process command-line arguments.
 if __name__ == '__main__':
     print version.BANNER
+    # Init the example's logger theme
+    logger.init()
+
     logging.warning("This will work ONLY on Windows >= Vista")
 
     parser = argparse.ArgumentParser()

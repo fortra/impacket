@@ -293,6 +293,8 @@ uuid_database.update(
 )
 
 def main(args):
+  # Init the example's logger theme
+  logger.init()
   if len(args) != 2:
     print "usage: ./ifmap.py <host> <port>"
     return 1
@@ -321,7 +323,6 @@ def main(args):
   probes = uuidtups | uuid_database
 
   for tup in sorted(probes):
-    listed = tup in uuidtups
 
     dce.connect()
 

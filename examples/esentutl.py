@@ -54,6 +54,9 @@ def exportTable(ese, tableName):
 
 def main():
     print version.BANNER
+    # Init the example's logger theme
+    logger.init()
+
     parser = argparse.ArgumentParser(add_help = True, description = "Extensive Storage Engine utility. Allows dumping catalog, pages and tables.")
     parser.add_argument('databaseFile', action='store', help='ESE to open')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
@@ -66,7 +69,7 @@ def main():
     dump_parser.add_argument('-page', action='store', required=True, help='page to dump')
 
     # info page
-    info_parser = subparsers.add_parser('info', help='dumps the catalog info for the DB')
+    subparsers.add_parser('info', help='dumps the catalog info for the DB')
 
     # export page
     export_parser = subparsers.add_parser('export', help='dumps the catalog info for the DB')

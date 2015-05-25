@@ -334,7 +334,7 @@ def getUnixTime(t):
     return t
 
 
-class Attribute():
+class Attribute:
     def __init__(self, iNode, data):
         self.AttributeName = None
         self.NTFSVolume = iNode.NTFSVolume
@@ -362,7 +362,7 @@ class Attribute():
 
 class AttributeResident(Attribute):
     def __init__(self, iNode, data):
-        logging.debug("Inside AttributeResident: iNode: %s" % (iNode.INodeNumber))
+        logging.debug("Inside AttributeResident: iNode: %s" % iNode.INodeNumber)
         Attribute.__init__(self,iNode,data)
         self.ResidentHeader = NTFS_ATTRIBUTE_RECORD_RESIDENT(data[len(self.AttributeHeader):])
         self.AttrValue = data[self.ResidentHeader['ValueOffset']:][:self.ResidentHeader['ValueLen']]
@@ -385,11 +385,12 @@ class AttributeResident(Attribute):
 
 class AttributeNonResident(Attribute):
     def __init__(self, iNode, data):
-        logging.debug("Inside AttributeNonResident: iNode: %s" % (iNode.INodeNumber))
+        logging.debug("Inside AttributeNonResident: iNode: %s" % iNode.INodeNumber)
         Attribute.__init__(self,iNode,data)
         self.NonResidentHeader = NTFS_ATTRIBUTE_RECORD_NON_RESIDENT(data[len(self.AttributeHeader):])
         self.AttrValue = data[self.NonResidentHeader['DataRunsOffset']:][:self.NonResidentHeader['AllocatedSize']]
         self.DataRuns = []
+        self.ClusterSize = 0
         self.parseDataRuns()
 
     def dump(self):
@@ -423,7 +424,7 @@ class AttributeNonResident(Attribute):
                 value = value[lengthBytes:]
 
                 fillWith = '\x00'
-                if (struct.unpack('B',value[offsetBytes-1])[0] & 0x80):
+                if struct.unpack('B',value[offsetBytes-1])[0] & 0x80:
                     fillWith = '\xff'
                 LCNOffset = value[:offsetBytes]+fillWith*(8-len(value[:offsetBytes]))
                 LCNOffset = struct.unpack('<q',LCNOffset)[0]
@@ -473,7 +474,7 @@ class AttributeNonResident(Attribute):
 
                 tmpBuf = self.readClusters(clustersToRead,dr['LCN']+(vcn-dr['StartVCN']))
                 if tmpBuf is not None:
-                    buf = buf + tmpBuf
+                    buf += tmpBuf
                     clustersLeft -= clustersToRead
                     vcn += clustersToRead
                 else:
@@ -491,10 +492,10 @@ class AttributeNonResident(Attribute):
 
         # Given the offset, let's calculate what VCN should be the first one to read
         vcnToStart = offset / self.ClusterSize
-        vcnOffset  = self.ClusterSize - (offset % self.ClusterSize)
+        #vcnOffset  = self.ClusterSize - (offset % self.ClusterSize)
 
         # Do we have to read partial VCNs?
-        if (offset % self.ClusterSize):
+        if offset % self.ClusterSize:
             # Read the whole VCN
             bufTemp = self.readVCN(vcnToStart, 1)
             if bufTemp is '':
@@ -510,7 +511,7 @@ class AttributeNonResident(Attribute):
 
         # First partial cluster read.. now let's keep reading full clusters
         # Data left to be read is bigger than a Cluster?
-        if (curLength / self.ClusterSize):
+        if curLength / self.ClusterSize:
             # Yep.. so let's read full clusters
             bufTemp = self.readVCN(vcnToStart, curLength / self.ClusterSize)
             if bufTemp is '':
@@ -534,7 +535,7 @@ class AttributeNonResident(Attribute):
         else:
             return buf
 
-class AttributeStandardInfo():
+class AttributeStandardInfo:
     def __init__(self, attribute):
         logging.debug("Inside AttributeStandardInfo")
         self.Attribute = attribute
@@ -552,7 +553,7 @@ class AttributeStandardInfo():
     def dump(self):
         return self.StandardInfo.dump()
 
-class AttributeFileName():
+class AttributeFileName:
     def __init__(self, attribute):
         logging.debug("Inside AttributeFileName")
         self.Attribute = attribute
@@ -576,7 +577,7 @@ class AttributeFileName():
     def dump(self):
         return self.FileNameRecord.dump()
 
-class AttributeIndexAllocation():
+class AttributeIndexAllocation:
     def __init__(self, attribute):
         logging.debug("Inside AttributeIndexAllocation")
         self.Attribute = attribute
@@ -590,7 +591,7 @@ class AttributeIndexAllocation():
         return self.Attribute.read(offset, length)
 
 
-class AttributeIndexRoot():
+class AttributeIndexRoot:
     def __init__(self, attribute):
         logging.debug("Inside AttributeIndexRoot")
         self.Attribute = attribute
@@ -615,7 +616,7 @@ class AttributeIndexRoot():
     def getType(self):
         return self.IndexRootRecord['Type']
 
-class IndexEntry():
+class IndexEntry:
     def __init__(self, entry):
         self.entry = NTFS_INDEX_ENTRY(entry)
 
@@ -640,7 +641,7 @@ class IndexEntry():
     def dump(self):
         self.entry.dump()
 
-class INODE():
+class INODE:
     def __init__(self, NTFSVolume):
         self.NTFSVolume = NTFSVolume
         # This is the entire file record
@@ -714,7 +715,7 @@ class INODE():
 
         # Parse Filename
         attr = self.searchAttribute(FILE_NAME, None)
-        while (attr is not None):
+        while attr is not None:
             fn = AttributeFileName(attr)
             if fn.getFileNameType() != FILE_NAME_DOS:
                 self.FileName = fn.getFileName()
@@ -783,14 +784,13 @@ class INODE():
         # RSTR Records in the $LogFile
 
         logging.debug("Inside PerformFixUp..." )
-        data = None
         magicNum = struct.unpack('<H',buf[record['USROffset']:][:2])[0]
         sequenceArray = buf[record['USROffset']+2:][:record['USRSize']*2]
 
         dataList = list(buf)
         index = 0
         for i in range(0,numSectors*2, 2):
-            index += (self.NTFSVolume.SectorSize)-2
+            index += self.NTFSVolume.SectorSize-2
             # Let's get the last two bytes of the sector
             lastBytes = struct.unpack('<H', buf[index:][:2])[0]
             # Is it the same as the magicNum?
@@ -807,7 +807,7 @@ class INODE():
 
     def parseIndexBlocks(self, vcn):
         IndexEntries = []
-        sectors = self.NTFSVolume.IndexBlockSize / self.NTFSVolume.SectorSize
+        #sectors = self.NTFSVolume.IndexBlockSize / self.NTFSVolume.SectorSize
         if self.Attributes.has_key(INDEX_ALLOCATION):
             ia = self.Attributes[INDEX_ALLOCATION]
             data = ia.read(vcn*self.NTFSVolume.IndexBlockSize, self.NTFSVolume.IndexBlockSize)
@@ -958,7 +958,7 @@ class NTFS:
         if attr is None:
             # It's not
             del self.MFTINode
-            self.MFTInode = None
+            self.MFTINode = None
 
     def readBootSector(self):
         logging.debug("Reading Boot Sector for %s" % self.__volumeName)
@@ -1024,6 +1024,7 @@ class MiniShell(cmd.Cmd):
         self.completion = []
         self.pwd = '\\'
         self.do_ls('',False)
+        self.last_output = ''
 
     def emptyline(self):
         pass
@@ -1193,7 +1194,8 @@ class MiniShell(cmd.Cmd):
 
 def main():
     print version.BANNER
-    logging.getLogger().setLevel(logging.WARNING)
+    # Init the example's logger theme
+    logger.init()
     parser = argparse.ArgumentParser(add_help = True, description = "NTFS explorer (read-only)")
     parser.add_argument('volume', action='store', help='NTFS volume to open (e.g. \\\\.\\C: or /dev/disk1s1)')
     parser.add_argument('-extract', action='store', help='extracts pathname (e.g. \windows\system32\config\sam)')

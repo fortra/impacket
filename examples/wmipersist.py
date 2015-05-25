@@ -70,7 +70,7 @@ class WMIPERSISTENCE:
         if resp.GetCallStatus(0) != 0:
             logging.error('%s - ERROR (0x%x)' % (banner, resp.GetCallStatus(0)))
         else:
-            logging.info('%s - OK' % (banner))
+            logging.info('%s - OK' % banner)
 
     def run(self, addr):
         dcom = DCOMConnection(addr, self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, options.aesKey, oxidResolver = False, doKerberos=options.k)
@@ -145,6 +145,8 @@ class WMIPERSISTENCE:
 
 # Process command-line arguments.
 if __name__ == '__main__':
+    # Init the example's logger theme
+    logger.init()
     print version.BANNER
 
     parser = argparse.ArgumentParser(add_help = True, description = "Creates/Removes a WMI Event Consumer/Filter and link between both to execute Visual Basic based on the WQL filter or timer specified.")

