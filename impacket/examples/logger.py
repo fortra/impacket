@@ -39,8 +39,9 @@ class ImpacketFormatter(logging.Formatter):
 
     return logging.Formatter.format(self, record)    
 
-# We add a StreamHandler and formatter to the root logger
-handler = logging.StreamHandler(sys.stdout)
-handler.setFormatter(ImpacketFormatter())
-logging.getLogger().addHandler(handler)
-logging.getLogger().setLevel(logging.INFO)
+def init():
+    # We add a StreamHandler and formatter to the root logger
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(ImpacketFormatter())
+    logging.getLogger().addHandler(handler)
+    logging.getLogger().setLevel(logging.INFO)
