@@ -32,6 +32,7 @@ except:
         from ordereddict import OrderedDict
 from impacket.structure import Structure
 from struct import unpack
+from binascii import hexlify
 
 # Constants
 
@@ -935,7 +936,7 @@ class ESENT_DB:
                     elif itemFlag & TAGGED_DATA_TYPE_MULTI_VALUE:
                         # ToDo: Parse multi-values properly
                         LOG.debug('Multivalue detected in column %s, returning raw results' % (column))
-                        record[column] = (tag[offsetItem:][:itemSize].encode('hex'),)
+                        record[column] = (hexlify(tag[offsetItem:][:itemSize]),)
                     else:
                         record[column] = tag[offsetItem:][:itemSize]
 
@@ -963,7 +964,7 @@ class ESENT_DB:
                 unpackData = ColumnTypeSize[columnRecord['ColumnType']]
                 if record[column] is not None:
                     if unpackData is None:
-                        record[column] = record[column].encode('hex')
+                        record[column] = hexlify(record[column])
                     else:
                         unpackStr = unpackData[1]
                         unpackSize = unpackData[0]

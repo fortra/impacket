@@ -55,6 +55,7 @@
 import unittest
 import ConfigParser
 from struct import pack, unpack
+from binascii import unhexlify
 
 from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import epm, nrpc
@@ -84,7 +85,7 @@ class NRPCTests(unittest.TestCase):
         if self.hashes == '':
             ntHash = None
         else:
-            ntHash = self.hashes.split(':')[1].decode('hex')
+            ntHash = unhexlify(self.hashes.split(':')[1])
 
         self.sessionKey = nrpc.ComputeSessionKeyStrongKey(self.password, '12345678', serverChallenge, ntHash)
 
@@ -312,7 +313,7 @@ class NRPCTests(unittest.TestCase):
         if self.hashes == '':
             ntHash = None
         else:
-            ntHash = self.hashes.split(':')[1].decode('hex')
+            ntHash = unhexlify(self.hashes.split(':')[1])
 
         sessionKey = nrpc.ComputeSessionKeyStrongKey(self.password, '12345678', serverChallenge, ntHash)
 
@@ -338,7 +339,7 @@ class NRPCTests(unittest.TestCase):
         if self.hashes == '':
             ntHash = None
         else:
-            ntHash = self.hashes.split(':')[1].decode('hex')
+            ntHash = unhexlify(self.hashes.split(':')[1])
 
         sessionKey = nrpc.ComputeSessionKeyStrongKey(self.password, '12345678', serverChallenge, ntHash)
 
@@ -362,7 +363,7 @@ class NRPCTests(unittest.TestCase):
         if self.hashes == '':
             ntHash = None
         else:
-            ntHash = self.hashes.split(':')[1].decode('hex')
+            ntHash = unhexlify(self.hashes.split(':')[1])
 
         sessionKey = nrpc.ComputeSessionKeyStrongKey(self.password, '12345678', serverChallenge, ntHash)
 
@@ -381,7 +382,7 @@ class NRPCTests(unittest.TestCase):
         if self.hashes == '':
             ntHash = None
         else:
-            ntHash = self.hashes.split(':')[1].decode('hex')
+            ntHash = unhexlify(self.hashes.split(':')[1])
 
         sessionKey = nrpc.ComputeSessionKeyStrongKey(self.password, '12345678', serverChallenge, ntHash)
 
@@ -412,7 +413,7 @@ class NRPCTests(unittest.TestCase):
         if self.hashes == '':
             ntHash = None
         else:
-            ntHash = self.hashes.split(':')[1].decode('hex')
+            ntHash = unhexlify(self.hashes.split(':')[1])
 
         sessionKey = nrpc.ComputeSessionKeyStrongKey(self.password, '12345678', serverChallenge, ntHash)
 
@@ -441,7 +442,7 @@ class NRPCTests(unittest.TestCase):
         if self.hashes == '':
             ntHash = None
         else:
-            ntHash = self.hashes.split(':')[1].decode('hex')
+            ntHash = unhexlify(self.hashes.split(':')[1])
 
         sessionKey = nrpc.ComputeSessionKeyStrongKey(self.password, '12345678', serverChallenge, ntHash)
 
@@ -552,8 +553,8 @@ class NRPCTests(unittest.TestCase):
         request['LogonInformation']['LogonInteractive']['Identity']['Workstation'] = ''
         if len(self.hashes) > 0:
             lmhash, nthash = self.hashes.split(':')
-            lmhash = lmhash.decode('hex')
-            nthash = nthash.decode('hex')
+            lmhash = unhexlify(lmhash)
+            nthash = unhexlify(nthash)
         else:
             lmhash = ntlm.LMOWFv1(self.password)
             nthash = ntlm.NTOWFv1(self.password)
@@ -588,8 +589,8 @@ class NRPCTests(unittest.TestCase):
         request['LogonInformation']['LogonInteractive']['Identity']['Workstation'] = ''
         if len(self.hashes) > 0:
             lmhash, nthash = self.hashes.split(':')
-            lmhash = lmhash.decode('hex')
-            nthash = nthash.decode('hex')
+            lmhash = unhexlify(lmhash)
+            nthash = unhexlify(nthash)
         else:
             lmhash = ntlm.LMOWFv1(self.password)
             nthash = ntlm.NTOWFv1(self.password)
@@ -632,8 +633,8 @@ class NRPCTests(unittest.TestCase):
         request['LogonInformation']['LogonInteractive']['Identity']['Workstation'] = ''
         if len(self.hashes) > 0:
             lmhash, nthash = self.hashes.split(':')
-            lmhash = lmhash.decode('hex')
-            nthash = nthash.decode('hex')
+            lmhash = unhexlify(lmhash)
+            nthash = unhexlify(nthash)
         else:
             lmhash = ntlm.LMOWFv1(self.password)
             nthash = ntlm.NTOWFv1(self.password)

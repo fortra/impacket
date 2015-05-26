@@ -19,6 +19,7 @@ import struct
 import os
 
 from pyasn1.codec.der import decoder, encoder
+from binascii import unhexlify
 
 from impacket.krb5.asn1 import AS_REQ, AP_REQ, TGS_REQ, KERB_PA_PAC_REQUEST, KRB_ERROR, PA_ENC_TS_ENC, AS_REP, TGS_REP, \
     EncryptedData, Authenticator, EncASRepPart, EncTGSRepPart, seq_set, seq_set_iter, KERB_ERROR_DATA, METHOD_DATA, \
@@ -184,7 +185,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
     if nthash != '':
         key = Key(cipher.enctype, nthash)
     elif aesKey != '':
-        key = Key(cipher.enctype, aesKey.decode('hex'))
+        key = Key(cipher.enctype, unhexlify(aesKey))
     else:
         key = cipher.string_to_key(password, encryptionTypesData[enctype], None)
     encodedTimeStamp = encoder.encode(timeStamp)

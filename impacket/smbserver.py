@@ -39,6 +39,8 @@ import sys
 import random
 import shutil
 import string
+from binascii import unhexlify, hexlify
+
 # For signing
 from impacket import smb, nmb, ntlm, uuid, LOG
 from impacket import smb3structs as smb2
@@ -66,10 +68,10 @@ def outputToJohnFormat(challenge, username, domain, lmresponse, ntresponse):
     try:
         if len(ntresponse) > 24:
             # Extended Security - NTLMv2
-            ret_value = {'hash_string':'%s::%s:%s:%s:%s' % (username.decode('utf-16le'), domain.decode('utf-16le'), challenge.encode('hex'), ntresponse.encode('hex')[:32], ntresponse.encode('hex')[32:]), 'hash_version':'ntlmv2'}
+            ret_value = {'hash_string':'%s::%s:%s:%s:%s' % (username.decode('utf-16le'), domain.decode('utf-16le'), hexlify(challenge), hexlify(ntresponse)[:32], hexlify(ntresponse)[32:]), 'hash_version':'ntlmv2'}
         else:
             # NTLMv1
-            ret_value = {'hash_string':'%s::%s:%s:%s:%s' % (username.decode('utf-16le'), domain.decode('utf-16le'), lmresponse.encode('hex'), ntresponse.encode('hex'), challenge.encode('hex')), 'hash_version':'ntlm'}
+            ret_value = {'hash_string':'%s::%s:%s:%s:%s' % (username.decode('utf-16le'), domain.decode('utf-16le'), hexlify(lmresponse), hexlify(ntresponse), hexlify(challenge)), 'hash_version':'ntlm'}
     except:
         #TODO: log some information about the error
         pass
@@ -2223,7 +2225,7 @@ class SMBCommands():
                        if MechTypes.has_key(mechType):
                            mechStr = MechTypes[mechType]
                        else:
-                           mechStr = mechType.encode('hex')
+                           mechStr = hexlify(mechType)
                        smbServer.log("Unsupported MechType '%s'" % mechStr, logging.CRITICAL)
                        # We don't know the token, we answer back again saying 
                        # we just support NTLM.
@@ -2566,7 +2568,7 @@ class SMB2Commands():
                    if MechTypes.has_key(mechType):
                        mechStr = MechTypes[mechType]
                    else:
-                       mechStr = mechType.encode('hex')
+                       mechStr = hexlify(mechType)
                    smbServer.log("Unsupported MechType '%s'" % mechStr, logging.CRITICAL)
                    # We don't know the token, we answer back again saying 
                    # we just support NTLM.
@@ -4322,7 +4324,7 @@ class SimpleSMBServer():
 
     def setSMBChallenge(self, challenge):
         if challenge != '':
-            self.__smbConfig.set('global', 'challenge', challenge.decode('hex'))
+            self.__smbConfig.set('global', 'challenge', unhexlify(challenge))
             self.__server.setServerConfig(self.__smbConfig)
             self.__server.processConfigFile()
         

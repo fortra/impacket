@@ -38,6 +38,7 @@
 #
 from struct import unpack, pack
 from collections import OrderedDict
+from binascii import unhexlify, hexlify
 import sys
 import random
 import hashlib
@@ -350,7 +351,7 @@ class RemoteOperations:
             raise Exception('Unknown service state 0x%x - Aborting' % ans['CurrentState'])
 
         # Let's check its configuration if service is stopped, maybe it's disabled :s
-        if self.__started == False:
+        if self.__started is False:
             ans = scmr.hRQueryServiceConfigW(self.__scmr,self.__serviceHandle)
             if ans['lpServiceConfig']['dwStartType'] == 0x4:
                 logging.info('Service %s is disabled, enabling it'% self.__serviceName)
@@ -422,12 +423,12 @@ class RemoteOperations:
 
         transforms = [ 8, 5, 4, 2, 11, 9, 13, 3, 0, 6, 1, 12, 14, 10, 15, 7 ]
 
-        bootKey = bootKey.decode('hex')
+        bootKey = unhexlify(bootKey)
 
         for i in xrange(len(bootKey)):
             self.__bootKey += bootKey[transforms[i]]
 
-        logging.info('Target system bootKey: 0x%s' % self.__bootKey.encode('hex'))
+        logging.info('Target system bootKey: 0x%s' % hexlify(self.__bootKey))
 
         return self.__bootKey
 
@@ -475,7 +476,7 @@ class RemoteOperations:
         return self.__retrieveHive('SECURITY')
 
     def __executeRemote(self, data):
-        self.__tmpServiceName = ''.join([random.choice(string.letters) for i in range(8)]).encode('utf-16le')
+        self.__tmpServiceName = ''.join([random.choice(string.letters) for _ in range(8)]).encode('utf-16le')
         command = self.__shell + 'echo ' + data + ' ^> ' + self.__output + ' > ' + self.__batchFile + ' & ' + self.__shell + self.__batchFile 
         command += ' & ' + 'del ' + self.__batchFile 
 
@@ -757,7 +758,7 @@ class SAMHashes(OfflineRegistry):
             if ntHash == '':
                 ntHash = ntlm.NTOWFv1('','')
 
-            answer =  "%s:%d:%s:%s:::" % (userName, rid, lmHash.encode('hex'), ntHash.encode('hex'))
+            answer =  "%s:%d:%s:%s:::" % (userName, rid, hexlify(lmHash), hexlify(ntHash))
             self.__itemsFound[rid] = answer
             print answer
 
@@ -933,7 +934,7 @@ class LSASecrets(OfflineRegistry):
                 domain = plainText[:record['DomainNameLength']].decode('utf-16le')
                 plainText = plainText[self.__pad(record['DomainNameLength']):]
                 domainLong = plainText[:self.__pad(record['FullDomainLength'])].decode('utf-16le')
-                answer = "%s:%s:%s:%s:::" % (userName, encHash.encode('hex'), domainLong, domain)
+                answer = "%s:%s:%s:%s:::" % (userName, hexlify(encHash), domainLong, domain)
                 self.__cachedItems.append(answer)
                 print answer
 
@@ -1008,16 +1009,16 @@ class LSASecrets(OfflineRegistry):
             md4.update(secretItem)
             if self.__isRemote is True:
                 machine, domain = self.__remoteOps.getMachineNameAndDomain()
-                secret = "%s\\%s$:%s:%s:::" % (domain, machine, ntlm.LMOWFv1('','').encode('hex'), md4.digest().encode('hex'))
+                secret = "%s\\%s$:%s:%s:::" % (domain, machine, hexlify(ntlm.LMOWFv1('','')), hexlify(md4.digest()))
             else: 
-                secret = "$MACHINE.ACC: %s:%s" % (ntlm.LMOWFv1('','').encode('hex'), md4.digest().encode('hex'))
+                secret = "$MACHINE.ACC: %s:%s" % (hexlify(ntlm.LMOWFv1('','')), hexlify(md4.digest()))
             
         if secret != '':
             print secret
             self.__secretItems.append(secret)
         else:
             # Default print, hexdump
-            self.__secretItems.append('%s:%s' % (name, secretItem.encode('hex')))
+            self.__secretItems.append('%s:%s' % (name, hexlify(secretItem)))
             hexdump(secretItem)
 
     def dumpSecrets(self):
@@ -1161,7 +1162,7 @@ class NTDSHashes:
             if record is None:
                 break
             elif record[self.NAME_TO_INTERNAL['pekList']] is not None:
-                pek =  record[self.NAME_TO_INTERNAL['pekList']].decode('hex')
+                pek =  unhexlify(record[self.NAME_TO_INTERNAL['pekList']])
                 break
             elif record[self.NAME_TO_INTERNAL['sAMAccountType']] in self.ACCOUNT_TYPES:
                 # Okey.. we found some users, but we're not yet ready to process them.
@@ -1202,13 +1203,13 @@ class NTDSHashes:
     def __decryptSupplementalInfo(self, record):
         # This is based on [MS-SAMR] 2.2.10 Supplemental Credentials Structures
         if record[self.NAME_TO_INTERNAL['supplementalCredentials']] is not None:
-            if len(record[self.NAME_TO_INTERNAL['supplementalCredentials']].decode('hex')) > 24:
+            if len(unhexlify(record[self.NAME_TO_INTERNAL['supplementalCredentials']])) > 24:
                 if record[self.NAME_TO_INTERNAL['userPrincipalName']] is not None:
                     domain = record[self.NAME_TO_INTERNAL['userPrincipalName']].split('@')[-1]
                     userName = '%s\\%s' % (domain, record[self.NAME_TO_INTERNAL['sAMAccountName']])
                 else: 
                     userName = '%s' % record[self.NAME_TO_INTERNAL['sAMAccountName']]
-                cipherText = self.CRYPTED_BLOB(record[self.NAME_TO_INTERNAL['supplementalCredentials']].decode('hex'))
+                cipherText = self.CRYPTED_BLOB(unhexlify(record[self.NAME_TO_INTERNAL['supplementalCredentials']]))
                 plainText = self.__removeRC4Layer(cipherText)
                 try:
                     userProperties = samr.USER_PROPERTIES(plainText)
@@ -1222,7 +1223,7 @@ class NTDSHashes:
                     propertiesData = propertiesData[len(userProperty):]
                     # For now, we will only process Newer Kerberos Keys. 
                     if userProperty['PropertyName'].decode('utf-16le') == 'Primary:Kerberos-Newer-Keys':
-                        propertyValueBuffer = userProperty['PropertyValue'].decode('hex')
+                        propertyValueBuffer = unhexlify(userProperty['PropertyValue'])
                         kerbStoredCredentialNew = samr.KERB_STORED_CREDENTIAL_NEW(propertyValueBuffer)
                         data = kerbStoredCredentialNew['Buffer']
                         for credential in range(kerbStoredCredentialNew['CredentialCount']):
@@ -1231,9 +1232,9 @@ class NTDSHashes:
                             keyValue = propertyValueBuffer[keyDataNew['KeyOffset']:][:keyDataNew['KeyLength']]
     
                             if  self.KERBEROS_TYPE.has_key(keyDataNew['KeyType']):
-                                answer =  "%s:%s:%s" % (userName, self.KERBEROS_TYPE[keyDataNew['KeyType']],keyValue.encode('hex'))
+                                answer =  "%s:%s:%s" % (userName, self.KERBEROS_TYPE[keyDataNew['KeyType']],hexlify(keyValue))
                             else:
-                                answer =  "%s:%s:%s" % (userName, hex(keyDataNew['KeyType']),keyValue.encode('hex'))
+                                answer =  "%s:%s:%s" % (userName, hex(keyDataNew['KeyType']),hexlify(keyValue))
                             # We're just storing the keys, not printing them, to make the output more readable
                             # This is kind of ugly... but it's what I came up with tonight to get an ordered
                             # set :P. Better ideas welcomed ;)
@@ -1242,18 +1243,18 @@ class NTDSHashes:
     def __decryptHash(self, record):
         logging.debug('Decrypting hash for user: %s' % record[self.NAME_TO_INTERNAL['name']])
         
-        sid = SAMR_RPC_SID(record[self.NAME_TO_INTERNAL['objectSid']].decode('hex'))
+        sid = SAMR_RPC_SID(unhexlify(record[self.NAME_TO_INTERNAL['objectSid']]))
         rid = sid.formatCanonical().split('-')[-1]
 
         if record[self.NAME_TO_INTERNAL['dBCSPwd']] is not None:
-            encryptedLMHash = self.CRYPTED_HASH(record[self.NAME_TO_INTERNAL['dBCSPwd']].decode('hex'))
+            encryptedLMHash = self.CRYPTED_HASH(unhexlify(record[self.NAME_TO_INTERNAL['dBCSPwd']]))
             tmpLMHash = self.__removeRC4Layer(encryptedLMHash)
             LMHash = self.__removeDESLayer(tmpLMHash, rid)
         else:
             LMHash = ntlm.LMOWFv1('','')
 
         if record[self.NAME_TO_INTERNAL['unicodePwd']] is not None:
-            encryptedNTHash = self.CRYPTED_HASH(record[self.NAME_TO_INTERNAL['unicodePwd']].decode('hex'))
+            encryptedNTHash = self.CRYPTED_HASH(unhexlify(record[self.NAME_TO_INTERNAL['unicodePwd']]))
             tmpNTHash = self.__removeRC4Layer(encryptedNTHash)
             NTHash = self.__removeDESLayer(tmpNTHash, rid)
         else:
@@ -1265,22 +1266,22 @@ class NTDSHashes:
         else: 
             userName = '%s' % record[self.NAME_TO_INTERNAL['sAMAccountName']]
  
-        answer =  "%s:%s:%s:%s:::" % (userName, rid, LMHash.encode('hex'), NTHash.encode('hex'))
-        self.__hashesFound[record[self.NAME_TO_INTERNAL['objectSid']].decode('hex')] = answer
+        answer =  "%s:%s:%s:%s:::" % (userName, rid, hexlify(LMHash), hexlify(NTHash))
+        self.__hashesFound[unhexlify(record[self.NAME_TO_INTERNAL['objectSid']])] = answer
         print answer
       
         if self.__history:
             LMHistory = []
             NTHistory = []
             if record[self.NAME_TO_INTERNAL['lmPwdHistory']] is not None:
-                encryptedLMHistory = self.CRYPTED_HISTORY(record[self.NAME_TO_INTERNAL['lmPwdHistory']].decode('hex'))
+                encryptedLMHistory = self.CRYPTED_HISTORY(unhexlify(record[self.NAME_TO_INTERNAL['lmPwdHistory']]))
                 tmpLMHistory = self.__removeRC4Layer(encryptedLMHistory)
                 for i in range(0, len(tmpLMHistory)/16):
                     LMHash = self.__removeDESLayer(tmpLMHistory[i*16:(i+1)*16], rid)
                     LMHistory.append(LMHash)
 
             if record[self.NAME_TO_INTERNAL['ntPwdHistory']] is not None:
-                encryptedNTHistory = self.CRYPTED_HISTORY(record[self.NAME_TO_INTERNAL['ntPwdHistory']].decode('hex'))
+                encryptedNTHistory = self.CRYPTED_HISTORY(unhexlify(record[self.NAME_TO_INTERNAL['ntPwdHistory']]))
                 tmpNTHistory = self.__removeRC4Layer(encryptedNTHistory)
                 for i in range(0, len(tmpNTHistory)/16):
                     NTHash = self.__removeDESLayer(tmpNTHistory[i*16:(i+1)*16], rid)
@@ -1288,12 +1289,12 @@ class NTDSHashes:
 
             for i, (LMHash, NTHash) in enumerate(map(lambda l,n: (l,n) if l else ('',n), LMHistory[1:], NTHistory[1:])):
                 if self.__noLMHash:
-                    lmhash = ntlm.LMOWFv1('','').encode('hex')
+                    lmhash = hexlify(ntlm.LMOWFv1('',''))
                 else:
-                    lmhash = LMHash.encode('hex')
+                    lmhash = hexlify(LMHash)
             
-                answer =  "%s_history%d:%s:%s:%s:::" % (userName, i, rid, lmhash, NTHash.encode('hex'))
-                self.__hashesFound[record[self.NAME_TO_INTERNAL['objectSid']].decode('hex')+str(i)] = answer
+                answer =  "%s_history%d:%s:%s:%s:::" % (userName, i, rid, lmhash, hexlify(NTHash))
+                self.__hashesFound[unhexlify(record[self.NAME_TO_INTERNAL['objectSid']])+str(i)] = answer
                 print answer
         
 
@@ -1307,7 +1308,7 @@ class NTDSHashes:
         # in a temp list for later process.
         self.__getPek()
         if self.__PEK is not None:
-            logging.info('Pek found and decrypted: 0x%s' % self.__PEK.encode('hex'))
+            logging.info('Pek found and decrypted: 0x%s' % hexlify(self.__PEK))
             logging.info('Reading and decrypting hashes from %s ' % self.__NTDS)
             # First of all, if we have users already cached, let's decrypt their hashes
             for record in self.__tmpUsers:
@@ -1433,12 +1434,12 @@ class DumpSecrets:
 
         transforms = [ 8, 5, 4, 2, 11, 9, 13, 3, 0, 6, 1, 12, 14, 10, 15, 7 ]
 
-        tmpKey = tmpKey.decode('hex')
+        tmpKey = unhexlify(tmpKey)
 
         for i in xrange(len(tmpKey)):
             bootKey += tmpKey[transforms[i]]
 
-        logging.info('Target system bootKey: 0x%s' % bootKey.encode('hex'))
+        logging.info('Target system bootKey: 0x%s' % hexlify(bootKey))
 
         return bootKey
 

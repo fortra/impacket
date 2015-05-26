@@ -32,6 +32,7 @@
 import random
 import string
 import logging
+from binascii import unhexlify
 
 from impacket.examples import logger
 from impacket.dcerpc.v5.ndr import NDRSTRUCT, NDRUniConformantArray, NDRPOINTER
@@ -631,8 +632,8 @@ class MS14_068:
             self.__kdcHost = domain
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
-            self.__lmhash = self.__lmhash.decode('hex')
-            self.__nthash = self.__nthash.decode('hex')
+            self.__lmhash = unhexlify(self.__lmhash)
+            self.__nthash = unhexlify(self.__nthash)
 
     def getGoldenPAC(self, authTime):
         # Ok.. we need to build a PAC_TYPE with the following items

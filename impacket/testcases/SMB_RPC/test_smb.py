@@ -1,6 +1,7 @@
 import unittest
 import os
 
+from binascii import unhexlify
 from impacket.smbconnection import SMBConnection, smb
 from impacket.smb3structs import *
 
@@ -37,7 +38,7 @@ class SMBTests(unittest.TestCase):
         smb = SMBConnection('*SMBSERVER', self.machine, preferredDialect = self.dialects)    
         smb.login(self.username, '', self.domain, lmhash, nthash)
         credentials = smb.getCredentials()
-        self.assertTrue( credentials == (self.username, '', self.domain, lmhash.decode('hex'), nthash.decode('hex'), '', None, None) )
+        self.assertTrue( credentials == (self.username, '', self.domain, unhexlify(lmhash), unhexlify(nthash), '', None, None) )
         smb.logoff()
 
     def test_loginKerberosHashes(self):
@@ -45,7 +46,7 @@ class SMBTests(unittest.TestCase):
         smb = SMBConnection('*SMBSERVER', self.machine, preferredDialect = self.dialects)    
         smb.kerberosLogin(self.username, '', self.domain, lmhash, nthash, '')
         credentials = smb.getCredentials()
-        self.assertTrue( credentials == (self.username, '', self.domain, lmhash.decode('hex'), nthash.decode('hex'), '', None, None) )
+        self.assertTrue( credentials == (self.username, '', self.domain, unhexlify(lmhash), unhexlify(nthash), '', None, None) )
         UNC = '\\\\%s\\%s' % (self.machine, self.share)
         tid = smb.connectTree(UNC)
         smb.logoff()

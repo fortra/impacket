@@ -39,6 +39,7 @@ import SimpleHTTPServer
 import logging
 import base64
 from threading import Thread
+from binascii import unhexlify, hexlify
 
 from impacket.examples import logger
 from impacket import version
@@ -174,7 +175,7 @@ class SMBClient(smb.SMB):
         if self.machineHashes == '':
             ntHash = None
         else:
-            ntHash = self.machineHashes.split(':')[1].decode('hex')
+            ntHash = unhexlify(self.machineHashes.split(':')[1])
 
         sessionKey = nrpc.ComputeSessionKeyStrongKey('', '12345678', serverChallenge, ntHash)
 
@@ -227,7 +228,7 @@ class SMBClient(smb.SMB):
         else:
             signingKey = resp['ValidationInformation']['ValidationSam4']['UserSessionKey'] 
 
-        logging.info("SMB Signing key: %s " % signingKey.encode('hex'))
+        logging.info("SMB Signing key: %s " % hexlify(signingKey))
 
         self.set_session_key(signingKey)
 

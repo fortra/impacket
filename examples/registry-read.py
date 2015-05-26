@@ -16,6 +16,7 @@
 import sys
 import argparse
 import ntpath
+from binascii import unhexlify, hexlify
 
 from impacket.examples import logger
 from impacket import version
@@ -28,7 +29,7 @@ def bootKey(reg):
     tmpKey = ''
 
     for key in keys:
-        tmpKey = tmpKey + reg.getClass(baseClass + key).decode('utf-16le')[:8].decode('hex')
+        tmpKey = tmpKey + unhexlify(reg.getClass(baseClass + key).decode('utf-16le')[:8])
 
     transforms = [ 8, 5, 4, 2, 11, 9, 13, 3, 0, 6, 1, 12, 14, 10, 15, 7 ]
 
@@ -36,7 +37,7 @@ def bootKey(reg):
     for i in xrange(len(tmpKey)):
         syskey += tmpKey[transforms[i]]
 
-    print syskey.encode('hex')
+    print hexlify(syskey)
 
 def getClass(reg, className):
     regKey = ntpath.dirname(className)

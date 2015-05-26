@@ -41,6 +41,7 @@
 #   - Nonstandard enctypes and cksumtypes like des-hmac-sha1
 
 from struct import pack, unpack
+from binascii import unhexlify
 import string
 import random
 
@@ -567,7 +568,7 @@ def cf2(enctype, key1, key2, pepper1, pepper2):
 
 if __name__ == '__main__':
     def h(hexstr):
-        return hexstr.decode('hex')
+        return unhexlify(hexstr)
 
     # AES128 encrypt and decrypt
     kb = h('9062430C8CDA3388922E6D6A509F5B7A')

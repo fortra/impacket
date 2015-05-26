@@ -18,6 +18,7 @@ from datetime import datetime
 from struct import pack, unpack, calcsize
 
 from pyasn1.codec.der import decoder, encoder
+from binascii import hexlify
 
 from impacket.structure import Structure
 from impacket.krb5 import crypto, constants, types
@@ -47,7 +48,7 @@ class CountedOctetString(Structure):
     )
 
     def prettyPrint(self, indent=''):
-        return "%s%s" % (indent, self['data'].encode('hex'))
+        return "%s%s" % (indent, hexlify(self['data']))
 
 class KeyBlock(Structure):
     structure = (
@@ -59,7 +60,7 @@ class KeyBlock(Structure):
     )
 
     def prettyPrint(self):
-        return "Key: (0x%x)%s" % (self['keytype'], self['keyvalue'].encode('hex'))
+        return "Key: (0x%x)%s" % (self['keytype'], hexlify(self['keyvalue']))
 
 class Times(Structure):
     structure = (
