@@ -45,12 +45,12 @@ Requirements
 ============
 
  * A Python interpreter. Versions 2.0.1 and newer are known to work. 
-   a) If you want to run the examples and you have Python < 2.7, you
+   1. If you want to run the examples and you have Python < 2.7, you
       will need to install the `argparse` package for them to work.
-   b) For Kerberos support you will need `pyasn1` package
-   c) For cryptographic operations you will need `pycrypto` package
-   d) For some examples you will need pyOpenSSL (rdp_check.py)
-   e) If you're under Windows, you will need pyReadline
+   2. For Kerberos support you will need `pyasn1` package
+   3. For cryptographic operations you will need `pycrypto` package
+   4. For some examples you will need pyOpenSSL (rdp_check.py)
+   5. If you're under Windows, you will need pyReadline
  * A recent release of Impacket.
 
 Installing
