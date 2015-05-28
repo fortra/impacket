@@ -1344,9 +1344,9 @@ class NDRUNION(NDR):
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure+self.referent:
             if self.isNDR(fieldTypeOrClass):
                if self.isPointer(fieldTypeOrClass):
-                   self.fields[fieldName] = fieldTypeOrClass(isNDR64 = self._isNDR64, topLevel = True)
+                   self.fields[fieldName] = fieldTypeOrClass(isNDR64 = self._isNDR64, topLevel = topLevel)
                elif self.isUnion(fieldTypeOrClass):
-                   self.fields[fieldName] = fieldTypeOrClass(isNDR64 = self._isNDR64, topLevel = True)
+                   self.fields[fieldName] = fieldTypeOrClass(isNDR64 = self._isNDR64, topLevel = topLevel)
                else:
                    self.fields[fieldName] = fieldTypeOrClass(isNDR64 = self._isNDR64)
             elif fieldTypeOrClass == ':':
