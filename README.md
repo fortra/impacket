@@ -16,7 +16,7 @@ http://corelabs.coresecurity.com/index.php?module=Wiki&action=view&type=tool&nam
 What protocols are featured?
 ----------------------------
 
- * Ethernet, Linux ``Cooked'' capture.
+ * Ethernet, Linux "Cooked" capture.
  * IP, TCP, UDP, ICMP, IGMP, ARP. (IPv4 and IPv6)
  * NMB and SMB1/2/3 (high-level implementations).
  * DCE/RPC versions 4 and 5, over different transports: UDP (version 4
@@ -28,10 +28,8 @@ What protocols are featured?
 Getting Impacket
 ================
 
-Current and past releases are available from
-http://corelabs.coresecurity.com/index.php?module=Wiki&action=view&type=tool&name=Impacket
-Trunk available from
-https://github.com/CoreSecurity/impacket
+* [Current and past releases](http://corelabs.coresecurity.com/index.php?module=Wiki&action=view&type=tool&name=Impacket)
+* [Trunk](https://github.com/CoreSecurity/impacket)
 
 Setup
 =====
@@ -39,31 +37,31 @@ Setup
 Quick start
 -----------
 
-Grab the latest stable release, unpack it and run 'python setup.py
-install' from the directory where you placed it. Isn't that easy?
+Grab the latest stable release, unpack it and run `python setup.py
+install` from the directory where you placed it. Isn't that easy?
 
 
 Requirements
 ============
 
  * A Python interpreter. Versions 2.0.1 and newer are known to work. 
-   a) If you want to run the examples and you have Python < 2.7, you
-      will need to install argparse package for them to work.
-   b) For Kerberos support you will need pyasn1 package
-   c) For cryptographic operations you will need pycrypto package
-   d) For some examples you will need pyOpenSSL (rdp_check.py)
-   e) If you're under Windows, you will need pyReadline
+   1. If you want to run the examples and you have Python < 2.7, you
+      will need to install the `argparse` package for them to work.
+   2. For Kerberos support you will need `pyasn1` package
+   3. For cryptographic operations you will need `pycrypto` package
+   4. For some examples you will need pyOpenSSL (rdp_check.py)
+   5. If you're under Windows, you will need pyReadline
  * A recent release of Impacket.
 
 Installing
 ----------
 
 In order to install the source execute the following command from the
-directory where the Impacket's distribution has been unpacked: 'python
-setup.py install'. This will install the classes into the default
-Python's modules path; note that you might need special permissions to
+directory where the Impacket's distribution has been unpacked: `python
+setup.py install`. This will install the classes into the default
+Python modules path; note that you might need special permissions to
 write there. For more information on what commands and options are
-available from setup.py, run 'python setup.py --help-commands'.
+available from setup.py, run `python setup.py --help-commands`.
 
 
 Licensing
@@ -82,4 +80,3 @@ Contact Us
 Whether you want to report a bug, send a patch or give some
 suggestions on this package, drop us a few lines at
 oss@coresecurity.com.
-
