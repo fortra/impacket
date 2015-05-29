@@ -1,4 +1,4 @@
-#!/usr/bin/py#thon
+#!/usr/bin/python3
 # $Id$
 
 import glob
