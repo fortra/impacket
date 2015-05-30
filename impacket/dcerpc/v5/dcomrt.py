@@ -1501,7 +1501,9 @@ class IActivation:
 
         done = False
         while not done:
-            if securityBindings[0] == '\x00' and securityBindings[1] == '\x00':
+            if len(securityBindings) < 2:
+                done = True
+            elif securityBindings[0] == '\x00' and securityBindings[1] == '\x00':
                 done = True
             else:
                 secBinding = SECURITYBINDING(securityBindings)
@@ -1656,7 +1658,9 @@ class IRemoteSCMActivator:
 
         done = False
         while not done:
-            if securityBindings[0] == '\x00' and securityBindings[1] == '\x00':
+            if len(securityBindings) < 2:
+                done = True
+            elif securityBindings[0] == '\x00' and securityBindings[1] == '\x00':
                 done = True
             else:
                 secBinding = SECURITYBINDING(securityBindings)
@@ -1816,7 +1820,9 @@ class IRemoteSCMActivator:
 
         done = False
         while not done:
-            if securityBindings[0] == '\x00' and securityBindings[1] == '\x00':
+            if len(securityBindings) < 2:
+                done = True
+            elif securityBindings[0] == '\x00' and securityBindings[1] == '\x00':
                 done = True
             else:
                 secBinding = SECURITYBINDING(securityBindings)
