@@ -447,12 +447,12 @@ def queryDiskInformation(path):
    return totalUnits, freeUnits
 
 # Here we implement the NT transaction handlers
-class NTTRANSCommands():
+class NTTRANSCommands:
     def default(self, connId, smbServer, recvPacket, parameters, data, maxDataCount = 0):
         pass
 
 # Here we implement the NT transaction handlers
-class TRANSCommands():
+class TRANSCommands:
     def lanMan(self, connId, smbServer, recvPacket, parameters, data, maxDataCount = 0):
         # Minimal [MS-RAP] implementation, just to return the shares
         connData = smbServer.getConnectionData(connId)
@@ -547,7 +547,7 @@ class TRANSCommands():
         return respSetup, respParameters, respData, errorCode
 
 # Here we implement the transaction2 handlers
-class TRANS2Commands():
+class TRANS2Commands:
     # All these commands return setup, parameters, data, errorCode
     def setPathInformation(self, connId, smbServer, recvPacket, parameters, data, maxDataCount = 0):
         connData = smbServer.getConnectionData(connId)
@@ -837,7 +837,7 @@ class TRANS2Commands():
         return respSetup, respParameters, respData, errorCode
 
 # Here we implement the commands handlers
-class SMBCommands():
+class SMBCommands:
 
     def smbTransaction(self, connId, smbServer, SMBCommand, recvPacket, transCommands):
         connData = smbServer.getConnectionData(connId)
@@ -2003,7 +2003,7 @@ class SMBCommands():
                          fid = 0
                          errorCode = STATUS_ACCESS_DENIED
         else:
-            errorCode == STATUS_SMB_BAD_TID
+            errorCode = STATUS_SMB_BAD_TID
 
         if errorCode == STATUS_SUCCESS:
             # Simple way to generate a fid
@@ -2491,7 +2491,7 @@ class SMBCommands():
 
         return None, [packet], errorCode
 
-class SMB2Commands():
+class SMB2Commands:
     def smb2Negotiate(self, connId, smbServer, recvPacket, isSMB1 = False):
         connData = smbServer.getConnectionData(connId, checkStatus = False)
 
@@ -2869,7 +2869,7 @@ class SMB2Commands():
                          fid = 0
                          errorCode = STATUS_ACCESS_DENIED
         else:
-            errorCode == STATUS_SMB_BAD_TID
+            errorCode = STATUS_SMB_BAD_TID
 
         if errorCode == STATUS_SUCCESS:
             # Simple way to generate a fid
@@ -3455,7 +3455,7 @@ class SMB2Commands():
         smbServer.log("Not implemented command: 0x%x" % recvPacket['Command'],logging.DEBUG)
         return [smb2.SMB2Error()], None, STATUS_NOT_SUPPORTED
 
-class Ioctls():
+class Ioctls:
    def fsctlDfsGetReferrals(self, connId, smbServer, ioctlRequest):
         return smb2.SMB2Error(), STATUS_FS_DRIVER_REQUIRED
 
@@ -4012,13 +4012,6 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
             # Something wen't wrong, defaulting to Bad user ID
             self.log('processRequest (0x%x,%s)' % (packet['Command'],e), logging.ERROR)
             raise
-            if isSMB2 is False:
-                packet['Flags1'] |= smb.SMB.FLAGS1_REPLY
-                packet['Flags2'] = 0
-                errorCode = STATUS_SMB_BAD_UID
-                packet['ErrorCode']   = errorCode >> 16
-                packet['ErrorClass']  = errorCode & 0xff
-                return [packet]
 
         # We prepare the response packet to commands don't need to bother about that.
         connData    = self.getConnectionData(connId, False)
@@ -4072,8 +4065,8 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
                         respPacket['Flags']     = smb2.SMB2_FLAGS_SERVER_TO_REDIR
                         if packetNum > 0:
                             respPacket['Flags'] |= smb2.SMB2_FLAGS_RELATED_OPERATIONS
-		        respPacket['Status']    = errorCode
-		        respPacket['CreditRequestResponse'] = packet['CreditRequestResponse']
+                        respPacket['Status']    = errorCode
+                        respPacket['CreditRequestResponse'] = packet['CreditRequestResponse']
                         respPacket['Command']   = packet['Command']
                         respPacket['CreditCharge'] = packet['CreditCharge']
                         #respPacket['CreditCharge'] = 0
@@ -4168,6 +4161,8 @@ class SRVSServer(DCERPCServer):
         DCERPCServer.__init__(self)
 
         self._shares = {}
+        self.__serverConfig = None
+        self.__logFile = None
 
         self.srvsvcCallBacks = {
             15: self.NetrShareEnum,
@@ -4256,7 +4251,7 @@ class SRVSServer(DCERPCServer):
 
        return shareEnum
 
-class SimpleSMBServer():
+class SimpleSMBServer:
     """
     SimpleSMBServer class - Implements a simple, customizable SMB Server
 
@@ -4273,10 +4268,10 @@ class SimpleSMBServer():
             # Here we write a mini config for the server
             self.__smbConfig = ConfigParser.ConfigParser()
             self.__smbConfig.add_section('global')
-            self.__smbConfig.set('global','server_name',''.join([random.choice(string.letters) for i in range(8)]))
-            self.__smbConfig.set('global','server_os',''.join([random.choice(string.letters) for i in range(8)])
+            self.__smbConfig.set('global','server_name',''.join([random.choice(string.letters) for _ in range(8)]))
+            self.__smbConfig.set('global','server_os',''.join([random.choice(string.letters) for _ in range(8)])
 )
-            self.__smbConfig.set('global','server_domain',''.join([random.choice(string.letters) for i in range(8)])
+            self.__smbConfig.set('global','server_domain',''.join([random.choice(string.letters) for _ in range(8)])
 )
             self.__smbConfig.set('global','log_file','None')
             self.__smbConfig.set('global','rpc_apis','yes')
