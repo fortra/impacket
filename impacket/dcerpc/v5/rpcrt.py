@@ -1410,18 +1410,18 @@ class DCERPCServer(Thread):
     def log(self, msg, level=logging.INFO):
         self.__log.log(level,msg)
 
-    def addCallbacks(self, UUID, secondaryAddr, callbacks):
+    def addCallbacks(self, ifaceUUID, secondaryAddr, callbacks):
         """
         adds a call back to a UUID/opnum call
         
-        :param uuid UUID: the interface UUID
+        :param uuid ifaceUUID: the interface UUID
         :param string secondaryAddr: the secondary address to answer as part of the bind request (e.g. \\\\PIPE\\\\srvsvc)
         :param dict callbacks: the callbacks for each opnum. Format is [opnum] = callback
         """
-        self._listenUUIDS[uuidtup_to_bin(UUID)] = {}
-        self._listenUUIDS[uuidtup_to_bin(UUID)]['SecondaryAddr'] = secondaryAddr
-        self._listenUUIDS[uuidtup_to_bin(UUID)]['CallBacks'] = callbacks
-        self.log("Callback added for UUID %s V:%s" % UUID)
+        self._listenUUIDS[uuidtup_to_bin(ifaceUUID)] = {}
+        self._listenUUIDS[uuidtup_to_bin(ifaceUUID)]['SecondaryAddr'] = secondaryAddr
+        self._listenUUIDS[uuidtup_to_bin(ifaceUUID)]['CallBacks'] = callbacks
+        self.log("Callback added for UUID %s V:%s" % ifaceUUID)
 
     def setListenPort(self, portNum):
         self._listenPort = portNum
