@@ -1528,6 +1528,7 @@ class DCERPCServer(Thread):
 
         data      = bind['ctx_items']
         ctx_items = ''
+        resp['SecondaryAddrLen'] = 0
         for i in range(bind['ctx_num']):
             result = MSRPC_CONT_RESULT_USER_REJECT
             item   = CtxItem(data)
@@ -1579,6 +1580,7 @@ class DCERPCServer(Thread):
                 returnData          = self._listenUUIDS[self._boundUUID]['CallBacks'][request['op_num']](request['pduData'])
                 response['pduData'] = returnData
             else:
+                LOG.error('Unsupported DCERPC opnum %d called for interface %s' % (request['op_num'], bin_to_uuidtup(self._boundUUID)))
                 response['type']    = MSRPC_FAULT
                 response['pduData'] = pack('<L',0x000006E4L)
             response['frag_len'] = len(response)
