@@ -1564,7 +1564,7 @@ class SMBTreeConnectAndX_Data(AsciiOrUnicodeStructure):
     )
 
     UnicodeStructure = (
-        ('_PasswordLength','_-Password','self["_PasswordLength"]'),
+        ('_PasswordLength','_-Password','self["_PasswordLength"] if self["_PasswordLength"] > 0 else 1'),
         ('Password',':'),
         ('Path','u'),
         ('Service','z'),
