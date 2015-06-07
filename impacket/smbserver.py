@@ -4155,6 +4155,46 @@ PIPE_FILE_DESCRIPTOR = -2
 from impacket.dcerpc.v5.rpcrt import DCERPCServer
 from impacket.dcerpc.v5.dtypes import NULL
 from impacket.dcerpc.v5.srvs import NetrShareEnum, NetrShareEnumResponse, SHARE_INFO_1, NetrServerGetInfo, NetrServerGetInfoResponse, NetrShareGetInfo, NetrShareGetInfoResponse
+from impacket.dcerpc.v5.wkst import NetrWkstaGetInfo, NetrWkstaGetInfoResponse
+from impacket.system_errors import ERROR_INVALID_LEVEL
+
+class WKSTServer(DCERPCServer):
+    def __init__(self):
+        DCERPCServer.__init__(self)
+        self.wkssvcCallBacks = {
+            0: self.NetrWkstaGetInfo,
+        }
+        self.addCallbacks(('6BFFD098-A112-3610-9833-46C3F87E345A', '1.0'),'\\PIPE\\wkssvc', self.wkssvcCallBacks)
+
+    def NetrWkstaGetInfo(self,data):
+        request = NetrWkstaGetInfo(data)
+        self.log("NetrWkstaGetInfo Level: %d" % request['Level'])
+
+        answer = NetrWkstaGetInfoResponse()
+
+        if request['Level'] not in (100, 101):
+            answer['ErrorCode'] = ERROR_INVALID_LEVEL
+            return answer
+
+        answer['WkstaInfo']['tag'] = request['Level']
+
+        if request['Level'] == 100:
+            # Windows. Decimal value 500.
+            answer['WkstaInfo']['WkstaInfo100']['wki100_platform_id'] = 0x000001F4
+            answer['WkstaInfo']['WkstaInfo100']['wki100_computername'] = NULL
+            answer['WkstaInfo']['WkstaInfo100']['wki100_langroup'] = NULL
+            answer['WkstaInfo']['WkstaInfo100']['wki100_ver_major'] = 5
+            answer['WkstaInfo']['WkstaInfo100']['wki100_ver_minor'] = 0
+        else:
+            # Windows. Decimal value 500.
+            answer['WkstaInfo']['WkstaInfo101']['wki101_platform_id'] = 0x000001F4
+            answer['WkstaInfo']['WkstaInfo101']['wki101_computername'] = NULL
+            answer['WkstaInfo']['WkstaInfo101']['wki101_langroup'] = NULL
+            answer['WkstaInfo']['WkstaInfo101']['wki101_ver_major'] = 5
+            answer['WkstaInfo']['WkstaInfo101']['wki101_ver_minor'] = 0
+            answer['WkstaInfo']['WkstaInfo101']['wki101_lanroot'] = NULL
+
+        return answer
 
 class SRVSServer(DCERPCServer):
     def __init__(self):
@@ -4293,10 +4333,14 @@ class SimpleSMBServer:
 
         self.__srvsServer = SRVSServer()
         self.__srvsServer.daemon = True
+        self.__wkstServer = WKSTServer()
+        self.__wkstServer.daemon = True
         self.__server.registerNamedPipe('srvsvc',('127.0.0.1',self.__srvsServer.getListenPort()))
+        self.__server.registerNamedPipe('wkssvc',('127.0.0.1',self.__wkstServer.getListenPort()))
 
     def start(self):
         self.__srvsServer.start()
+        self.__wkstServer.start()
         self.__server.serve_forever()
 
     def addShare(self, shareName, sharePath, shareComment='', shareType = 0, readOnly = 'no'):
