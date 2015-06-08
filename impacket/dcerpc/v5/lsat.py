@@ -29,23 +29,13 @@ from impacket.dcerpc.v5.lsad import LSAPR_HANDLE, LSAPR_ACL, SECURITY_DESCRIPTOR
     SECURITY_QUALITY_OF_SERVICE, LSAPR_OBJECT_ATTRIBUTES, LSAPR_TRUST_INFORMATION, PLSAPR_TRUST_INFORMATION_ARRAY, \
     PRPC_UNICODE_STRING_ARRAY, LsarOpenPolicy2, LsarOpenPolicy, LsarClose, hLsarOpenPolicy2, hLsarOpenPolicy, hLsarClose
 from impacket.dcerpc.v5.samr import SID_NAME_USE
+from impacket.dcerpc.v5.rpcrt import DCERPCException
 
 MSRPC_UUID_LSAT  = uuidtup_to_bin(('12345778-1234-ABCD-EF00-0123456789AB','0.0'))
 
-class DCERPCSessionError(Exception):
-    def __init__( self, packet = None, error_code = None):
-        Exception.__init__(self)
-        self.packet = packet
-        if packet is not None:
-            self.error_code = packet['ErrorCode']
-        else:
-            self.error_code = error_code
-       
-    def get_error_code( self ):
-        return self.error_code
- 
-    def get_packet( self ):
-        return self.packet
+class DCERPCSessionError(DCERPCException):
+    def __init__(self, error_string=None, error_code=None, packet=None):
+        DCERPCException.__init__(self, error_string, error_code, packet)
 
     def __str__( self ):
         key = self.error_code

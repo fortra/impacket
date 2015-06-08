@@ -22,27 +22,17 @@
 from impacket.dcerpc.v5.ndr import NDRSTRUCT, NDRUniConformantVaryingArray, NDRENUM
 from impacket.dcerpc.v5.dcomrt import DCOMCALL, DCOMANSWER, IRemUnknown2, PMInterfacePointer, INTERFACE
 from impacket.dcerpc.v5.dtypes import LPWSTR, ULONG, DWORD, SHORT, GUID
+from impacket.dcerpc.v5.rpcrt import DCERPCException
 from impacket.dcerpc.v5.enum import Enum
 from impacket import hresult_errors
 from impacket.uuid import string_to_bin
 
-class DCERPCSessionError(Exception):
-    def __init__( self, packet = None, error_code = None):
-        Exception.__init__(self)
-        self.packet = packet
-        if packet is not None:
-            self.error_code = packet['ErrorCode']
-        else:
-            self.error_code = error_code
-       
-    def get_error_code( self ):
-        return self.error_code
- 
-    def get_packet( self ):
-        return self.packet
+class DCERPCSessionError(DCERPCException):
+    def __init__(self, error_string=None, error_code=None, packet=None):
+        DCERPCException.__init__(self, error_string, error_code, packet)
 
     def __str__( self ):
-        if (hresult_errors.ERROR_MESSAGES.has_key(self.error_code)):
+        if hresult_errors.ERROR_MESSAGES.has_key(self.error_code):
             error_msg_short = hresult_errors.ERROR_MESSAGES[self.error_code][0]
             error_msg_verbose = hresult_errors.ERROR_MESSAGES[self.error_code][1] 
             return 'VDS SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)

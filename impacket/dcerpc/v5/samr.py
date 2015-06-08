@@ -24,6 +24,7 @@ from impacket.dcerpc.v5.ndr import NDRCALL, NDR, NDRSTRUCT, NDRUNION, NDRPOINTER
     NDRUniConformantVaryingArray, NDRENUM
 from impacket.dcerpc.v5.dtypes import NULL, RPC_UNICODE_STRING, ULONG, USHORT, UCHAR, LARGE_INTEGER, RPC_SID, LONG, STR, \
     LPBYTE, SECURITY_INFORMATION, PRPC_SID, PRPC_UNICODE_STRING, LPWSTR
+from impacket.dcerpc.v5.rpcrt import DCERPCException
 from impacket import nt_errors, LOG
 from impacket.uuid import uuidtup_to_bin
 from impacket.dcerpc.v5.enum import Enum
@@ -31,20 +32,9 @@ from impacket.structure import Structure
 
 MSRPC_UUID_SAMR   = uuidtup_to_bin(('12345778-1234-ABCD-EF00-0123456789AC', '1.0'))
 
-class DCERPCSessionError(Exception):
-    def __init__( self, packet = None, error_code = None):
-        Exception.__init__(self)
-        self.packet = packet
-        if packet is not None:
-            self.error_code = packet['ErrorCode']
-        else:
-            self.error_code = error_code
-       
-    def get_error_code( self ):
-        return self.error_code
- 
-    def get_packet( self ):
-        return self.packet
+class DCERPCSessionError(DCERPCException):
+    def __init__(self, error_string=None, error_code=None, packet=None):
+        DCERPCException.__init__(self, error_string, error_code, packet)
 
     def __str__( self ):
         key = self.error_code

@@ -35,7 +35,7 @@ from impacket.dcerpc.v5.dtypes import LPWSTR, ULONGLONG, HRESULT, GUID, USHORT, 
 from impacket import hresult_errors, LOG
 from impacket.uuid import string_to_bin, uuidtup_to_bin, generate
 from impacket.dcerpc.v5.rpcrt import TypeSerialization1, RPC_C_AUTHN_LEVEL_PKT_INTEGRITY, RPC_C_AUTHN_LEVEL_NONE, \
-    RPC_C_AUTHN_LEVEL_PKT_PRIVACY, RPC_C_AUTHN_GSS_NEGOTIATE, RPC_C_AUTHN_WINNT
+    RPC_C_AUTHN_LEVEL_PKT_PRIVACY, RPC_C_AUTHN_GSS_NEGOTIATE, RPC_C_AUTHN_WINNT, DCERPCException
 from impacket.dcerpc.v5 import transport
 
 CLSID_ActivationContextInfo   = string_to_bin('000001a5-0000-0000-c000-000000000046')
@@ -64,20 +64,9 @@ IID_IRemUnknown2              = uuidtup_to_bin(('00000143-0000-0000-C000-0000000
 IID_IUnknown                  = uuidtup_to_bin(('00000000-0000-0000-C000-000000000046','0.0'))
 IID_IClassFactory             = uuidtup_to_bin(('00000001-0000-0000-C000-000000000046','0.0'))
 
-class DCERPCSessionError(Exception):
-    def __init__( self, packet = None, error_code = None):
-        Exception.__init__(self)
-        self.packet = packet
-        if packet is not None:
-            self.error_code = packet['ErrorCode']
-        else:
-            self.error_code = error_code
-       
-    def get_error_code( self ):
-        return self.error_code
- 
-    def get_packet( self ):
-        return self.packet
+class DCERPCSessionError(DCERPCException):
+    def __init__(self, error_string=None, error_code=None, packet=None):
+        DCERPCException.__init__(self, error_string, error_code, packet)
 
     def __str__( self ):
         if hresult_errors.ERROR_MESSAGES.has_key(self.error_code):
@@ -1264,7 +1253,7 @@ class INTERFACE:
                 msg = str(e) + '\n'
                 msg += "DCOM keep-alive pinging it might not be working as expected. You can't be idle for more than 14 minutes!\n"
                 msg += "You should exit the app and start again\n"
-                raise Exception(msg)
+                raise DCERPCException(msg)
             else:
                 raise 
         return resp

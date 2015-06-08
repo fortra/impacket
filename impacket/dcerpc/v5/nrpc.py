@@ -28,6 +28,7 @@ from impacket.uuid import uuidtup_to_bin
 from impacket.dcerpc.v5.enum import Enum
 from impacket.dcerpc.v5.samr import OLD_LARGE_INTEGER
 from impacket.dcerpc.v5.lsad import PLSA_FOREST_TRUST_INFORMATION
+from impacket.dcerpc.v5.rpcrt import DCERPCException
 from impacket.structure import Structure
 from impacket import ntlm, crypto, LOG
 import hmac, hashlib
@@ -39,28 +40,17 @@ except Exception:
 
 MSRPC_UUID_NRPC = uuidtup_to_bin(('12345678-1234-ABCD-EF00-01234567CFFB', '1.0'))
 
-class DCERPCSessionError(Exception):
-    def __init__( self, packet = None, error_code = None):
-        Exception.__init__(self)
-        self.packet = packet
-        if packet is not None:
-            self.error_code = packet['ErrorCode']
-        else:
-            self.error_code = error_code
-       
-    def get_error_code( self ):
-        return self.error_code
- 
-    def get_packet( self ):
-        return self.packet
+class DCERPCSessionError(DCERPCException):
+    def __init__(self, error_string=None, error_code=None, packet=None):
+        DCERPCException.__init__(self, error_string, error_code, packet)
 
     def __str__( self ):
         key = self.error_code
-        if (system_errors.ERROR_MESSAGES.has_key(key)):
+        if system_errors.ERROR_MESSAGES.has_key(key):
             error_msg_short = system_errors.ERROR_MESSAGES[key][0]
             error_msg_verbose = system_errors.ERROR_MESSAGES[key][1] 
             return 'NRPC SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
-        elif (nt_errors.ERROR_MESSAGES.has_key(key)):
+        elif nt_errors.ERROR_MESSAGES.has_key(key):
             error_msg_short = nt_errors.ERROR_MESSAGES[key][0]
             error_msg_verbose = nt_errors.ERROR_MESSAGES[key][1] 
             return 'NRPC SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)

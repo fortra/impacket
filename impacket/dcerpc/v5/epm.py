@@ -28,25 +28,19 @@ from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRPOINTER, NDRUniConform
 from impacket.dcerpc.v5.dtypes import UUID, LPBYTE, PUUID, ULONG, USHORT
 from impacket.structure import Structure
 from impacket.dcerpc.v5.ndr import NULL
+from impacket.dcerpc.v5.rpcrt import DCERPCException
 
 MSRPC_UUID_PORTMAP = uuidtup_to_bin(('E1AF8308-5D1F-11C9-91A4-08002B14A0FA', '3.0'))
 
-class DCERPCSessionError(Exception):
+class DCERPCSessionError(DCERPCException):
     error_messages = {}
-    def __init__( self, packet):
-        Exception.__init__(self)
-        self.packet = packet
+    def __init__(self, error_string=None, error_code=None, packet=None):
+        DCERPCException.__init__(self, error_string, error_code, packet)
         self.error_code = packet['status']
-       
-    def get_error_code( self ):
-        return self.error_code
- 
-    def get_packet( self ):
-        return self.packet
 
     def __str__( self ):
         key = self.error_code
-        if (self.error_messages.has_key(key)):
+        if self.error_messages.has_key(key):
             error_msg_short = self.error_messages[key]
             return 'EPM SessionError: code: 0x%x - %s ' % (self.error_code, error_msg_short)
         else:

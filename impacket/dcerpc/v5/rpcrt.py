@@ -542,14 +542,29 @@ rpc_status_codes = {
     0x16c9a171L : "rpc_s_no_context_available",
 }
 
-class Exception(Exception):
-    pass
-
 class DCERPCException(Exception):
-    def __init__( self, error_code):
+    """
+    This is the exception every client should catch regardless of the underlying
+    DCERPC Transport used.
+    """
+    def __init__(self, error_string=None, error_code=None, packet=None):
+        """
+        :param string error_string: A string you want to show explaining the exception. Otherwise the default ones will be used
+        :param integer error_code: the error_code if we're using a dictionary with error's descriptions
+        :param NDR packet: if successfully decoded, the NDR packet of the response call. This could probably have useful
+        information
+        """
         Exception.__init__(self)
-        self.error_code = error_code
-       
+        self.packet = packet
+        self.error_string = error_string
+        if packet is not None:
+            try:
+                self.error_code = packet['ErrorCode']
+            except:
+                self.error_code = error_code
+        else:
+            self.error_code = error_code
+
     def get_error_code( self ):
         return self.error_code
  
@@ -558,6 +573,8 @@ class DCERPCException(Exception):
 
     def __str__( self ):
         key = self.error_code
+        if self.error_string is not None:
+            return self.error_string
         if rpc_status_codes.has_key(key):
             error_msg_short = rpc_status_codes[key]
             return 'DCERPC Runtime Error: code: 0x%x - %s ' % (self.error_code, error_msg_short)
@@ -828,17 +845,18 @@ class DCERPC:
             error_code = unpack('<L', answer[-4:])[0]
             if rpc_status_codes.has_key(error_code):
                 # This is an error we can handle
-                exception = DCERPCException(error_code)
+                exception = DCERPCException(error_code = error_code)
             else:    
                 sessionErrorClass = getattr(module, 'DCERPCSessionError')
-                try: 
+                try:
                     # Try to unpack the answer, even if it is an error, it works most of the times
                     response =  respClass(answer, isNDR64 = isNDR64)
                 except:
                     # No luck :(
+                    print "B"*80
                     exception = sessionErrorClass(error_code = error_code)
                 else:
-                    exception = sessionErrorClass(response)
+                    exception = sessionErrorClass(packet = response)
             raise exception
         else:
             response =  respClass(answer, isNDR64 = isNDR64)
@@ -964,7 +982,7 @@ class DCERPC_v5(DCERPC):
             elif self.__auth_type == RPC_C_AUTHN_GSS_NEGOTIATE:
                 self.__cipher, self.__sessionKey, auth = kerberosv5.getKerberosType1(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey, self.__TGT, self.__TGS, self._transport.get_dip())  
             else:
-                raise Exception('Unsupported auth_type 0x%x' % self.__auth_type)
+                raise DCERPCException('Unsupported auth_type 0x%x' % self.__auth_type)
 
             sec_trailer = SEC_TRAILER()
             sec_trailer['auth_type']   = self.__auth_type
@@ -994,13 +1012,13 @@ class DCERPC_v5(DCERPC):
             resp = MSRPCBindNak(resp['pduData'])
             status_code = resp['RejectedReason']
             if rpc_status_codes.has_key(status_code):
-                raise Exception(rpc_status_codes[status_code], resp)
+                raise DCERPCException(error_code = status_code)
             elif rpc_provider_reason.has_key(status_code):
-                raise Exception("Bind context rejected: %s" % rpc_provider_reason[status_code])
+                raise DCERPCException("Bind context rejected: %s" % rpc_provider_reason[status_code])
             else:
-                raise Exception('Unknown DCE RPC fault status code: %.8x' % status_code, resp)
+                raise DCERPCException('Unknown DCE RPC fault status code: %.8x' % status_code)
         else:
-            raise Exception('Unknown DCE RPC packet type received: %d' % resp['type'])
+            raise DCERPCException('Unknown DCE RPC packet type received: %d' % resp['type'])
 
         # check ack results for each context, except for the bogus ones
         for ctx in range(bogus_binds+1,bindResp['ctx_num']+1):
@@ -1013,7 +1031,7 @@ class DCERPC_v5(DCERPC):
                 msg += rpc_provider_reason.get(reason, 'Unknown reason code: %.4x' % reason)
                 if (ctxItems['Result'], reason) == (2, 1): # provider_rejection, abstract syntax not supported
                     msg += " (this usually means the interface isn't listening on the given endpoint)"
-                raise Exception(msg, ctxItems)
+                raise DCERPCException(msg)
 
             # Save the transfer syntax for later use
             self.transfer_syntax = ctxItems['TransferSyntax'] 
@@ -1230,16 +1248,16 @@ class DCERPC_v5(DCERPC):
             if response_header['type'] == MSRPC_FAULT and response_header['frag_len'] >= off+4:
                 status_code = unpack("<L",response_data[off:off+4])[0]
                 if rpc_status_codes.has_key(status_code):
-                    raise Exception(rpc_status_codes[status_code])
+                    raise DCERPCException(rpc_status_codes[status_code])
                 elif rpc_status_codes.has_key(status_code & 0xffff):
-                    raise Exception(rpc_status_codes[status_code & 0xffff])
+                    raise DCERPCException(rpc_status_codes[status_code & 0xffff])
                 else:
                     if hresult_errors.ERROR_MESSAGES.has_key(status_code):
                         error_msg_short = hresult_errors.ERROR_MESSAGES[status_code][0]
                         error_msg_verbose = hresult_errors.ERROR_MESSAGES[status_code][1] 
-                        raise Exception('%s - %s' % (error_msg_short, error_msg_verbose))
+                        raise DCERPCException('%s - %s' % (error_msg_short, error_msg_verbose))
                     else:
-                        raise Exception('Unknown DCE RPC fault status code: %.8x' % status_code)
+                        raise DCERPCException('Unknown DCE RPC fault status code: %.8x' % status_code)
 
             if response_header['flags'] & MSRPC_LASTFRAG:
                 # No need to reassembly DCERPC

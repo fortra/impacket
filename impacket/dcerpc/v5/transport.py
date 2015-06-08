@@ -18,7 +18,7 @@ import os
 from impacket.smbconnection import smb, SMBConnection
 from impacket import nmb
 from impacket import ntlm
-from impacket.dcerpc.v5 import rpcrt
+from impacket.dcerpc.v5.rpcrt import DCERPCException, DCERPC_v5, DCERPC_v4
 
 
 class DCERPCStringBinding:
@@ -110,12 +110,12 @@ def DCERPCTransportFactory(stringbinding):
         named_pipe = sb.get_endpoint()
         return LOCALTransport(filename = named_pipe)
     else:
-        raise Exception, "Unknown protocol sequence."
+        raise DCERPCException("Unknown protocol sequence.")
 
 
 class DCERPCTransport:
 
-    DCERPC_class = rpcrt.DCERPC_v5
+    DCERPC_class = DCERPC_v5
 
     def __init__(self, dstip, dstport):
         self.__dstip = dstip
@@ -224,12 +224,12 @@ class DCERPCTransport:
         return ntlm.USE_NTLMv2
 
     def get_dce_rpc(self):
-        return rpcrt.DCERPC_v5(self)
+        return DCERPC_v5(self)
 
 class UDPTransport(DCERPCTransport):
     "Implementation of ncadg_ip_udp protocol sequence"
 
-    DCERPC_class = rpcrt.DCERPC_v4
+    DCERPC_class = DCERPC_v4
 
     def __init__(self,dstip, dstport = 135):
         DCERPCTransport.__init__(self, dstip, dstport)
@@ -244,7 +244,7 @@ class UDPTransport(DCERPCTransport):
             self.__socket.settimeout(self.get_connect_timeout())
         except socket.error, msg:
             self.__socket = None
-            raise Exception, "Could not connect: %s" % msg
+            raise DCERPCException("Could not connect: %s" % msg)
 
         return 1
 
@@ -285,7 +285,7 @@ class TCPTransport(DCERPCTransport):
             self.__socket.connect((self.get_dip(), self.get_dport()))
         except socket.error, msg:
             self.__socket.close()
-            raise Exception, "Could not connect: %s" % msg
+            raise DCERPCException("Could not connect: %s" % msg)
         return 1
 
     def disconnect(self):
@@ -329,7 +329,7 @@ class HTTPTransport(TCPTransport):
         self.get_socket().send('RPC_CONNECT ' + self.get_dip() + ':593 HTTP/1.0\r\n\r\n')
         data = self.get_socket().recv(8192)
         if data[10:13] != '200':
-            raise Exception("Service not supported.")
+            raise DCERPCException("Service not supported.")
 
 class SMBTransport(DCERPCTransport):
     """Implementation of ncacn_np protocol sequence"""
