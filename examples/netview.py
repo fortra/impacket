@@ -153,7 +153,7 @@ class USERENUM:
             while status == STATUS_MORE_ENTRIES:
                 try:
                     resp = samr.hSamrEnumerateUsersInDomain(dce, domainHandle, samr.USER_WORKSTATION_TRUST_ACCOUNT, enumerationContext = enumerationContext)
-                except Exception, e:
+                except DCERPCException, e:
                     if str(e).find('STATUS_MORE_ENTRIES') < 0:
                         raise 
                     resp = e.get_packet()

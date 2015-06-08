@@ -22,6 +22,7 @@ from impacket import version
 from impacket.dcerpc.v5 import transport, lsat, lsad
 from impacket.dcerpc.v5.samr import SID_NAME_USE
 from impacket.dcerpc.v5.dtypes import MAXIMUM_ALLOWED
+from impacket.dcerpc.v5.rpcrt import DCERPCException
 
 
 class LSALookupSid:
@@ -111,7 +112,7 @@ class LSALookupSid:
                 sids.append(domainSid + '-%d' % i)
             try:
                 lsat.hLsarLookupSids(dce, policyHandle, sids,lsat.LSAP_LOOKUP_LEVEL.LsapLookupWksta)
-            except Exception, e:
+            except DCERPCException, e:
                 if str(e).find('STATUS_NONE_MAPPED') >= 0:
                     soFar += SIMULTANEOUS
                     continue

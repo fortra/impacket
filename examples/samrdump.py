@@ -22,6 +22,7 @@ from impacket.examples import logger
 from impacket import version
 from impacket.nt_errors import STATUS_MORE_ENTRIES
 from impacket.dcerpc.v5 import transport, samr
+from impacket.dcerpc.v5.rpcrt import DCERPCException
 
 
 class ListUsersException(Exception):
@@ -128,7 +129,7 @@ class SAMRDump:
             while status == STATUS_MORE_ENTRIES:
                 try:
                     resp = samr.hSamrEnumerateUsersInDomain(dce, domainHandle, enumerationContext = enumerationContext)
-                except Exception, e:
+                except DCERPCException, e:
                     if str(e).find('STATUS_MORE_ENTRIES') < 0:
                         raise 
                     resp = e.get_packet()
