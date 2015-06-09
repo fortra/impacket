@@ -84,19 +84,35 @@ class SMBConnection:
         if sess_port == 445 and remoteName == '*SMBSERVER':
            remoteName = remoteHost
 
-        self._nmbSession = nmb.NetBIOSTCPSession(myName, remoteName, remoteHost, nmb.TYPE_SERVER, sess_port, timeout)
-
+        tries = 0
         smbp = smb.NewSMBPacket()
-        negSession = smb.SMBCommand(smb.SMB.SMB_COM_NEGOTIATE)
-        if extended_security is True:
-            smbp['Flags2']=smb.SMB.FLAGS2_EXTENDED_SECURITY
-        negSession['Data'] = '\x02NT LM 0.12\x00\x02SMB 2.002\x00\x02SMB 2.???\x00'
-        smbp.addCommand(negSession)
-        self._nmbSession.send_packet(str(smbp))
+        smbp['Flags2'] = 0
+        resp = None
+        while tries < 2:
+            self._nmbSession = nmb.NetBIOSTCPSession(myName, remoteName, remoteHost, nmb.TYPE_SERVER, sess_port, timeout)
 
-        r = self._nmbSession.recv_packet(timeout)
+            negSession = smb.SMBCommand(smb.SMB.SMB_COM_NEGOTIATE)
+            if extended_security is True:
+                smbp['Flags2'] |= smb.SMB.FLAGS2_EXTENDED_SECURITY
+            negSession['Data'] = '\x02NT LM 0.12\x00\x02SMB 2.002\x00\x02SMB 2.???\x00'
+            smbp.addCommand(negSession)
+            self._nmbSession.send_packet(str(smbp))
 
-        return r.get_trailer()
+            try:
+                resp = self._nmbSession.recv_packet(timeout)
+                break
+            except nmb.NetBIOSError, e:
+                # OSX Yosemite asks for more Flags. Let's give it a try and see what happens
+                smbp['Flags2'] += smb.SMB.FLAGS2_NT_STATUS | smb.SMB.FLAGS2_LONG_NAMES | smb.SMB.FLAGS2_UNICODE
+                smbp['Data'] = []
+
+            tries += 1
+
+        if resp is None:
+            # No luck, quitting
+            raise
+
+        return resp.get_trailer()
 
 
     def getSMBServer(self):
