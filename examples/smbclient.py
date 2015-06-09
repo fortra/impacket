@@ -321,17 +321,9 @@ class MiniImpacketShell(cmd.Cmd):
         self.pwd = ntpath.normpath(self.pwd)
         # Let's try to open the directory to see if it's valid
         try:
-            fid = self.smb.openFile(self.tid, self.pwd)
+            fid = self.smb.openFile(self.tid, self.pwd, creationOption = FILE_DIRECTORY_FILE)
             self.smb.closeFile(self.tid,fid)
-            self.pwd = oldpwd
-            logging.error("Invalid directory")
-        except SessionError, e:
-            if e.getErrorCode() == nt_errors.STATUS_FILE_IS_A_DIRECTORY: 
-               pass
-            else:
-               self.pwd = oldpwd
-               raise
-        except Exception, e:
+        except SessionError:
             self.pwd = oldpwd
             raise
 
