@@ -132,7 +132,7 @@ class WKSTTests(unittest.TestCase):
         request['Level'] = 502
         resp = dce.request(request)
         resp.dump()
-        oldVal = resp['WkstaInfo']['WkstaInfo502']['wki502_dormant_file_limit'] 
+        oldVal = resp['WkstaInfo']['WkstaInfo502']['wki502_dormant_file_limit']
 
         req = wkst.NetrWkstaSetInfo()
         req['ServerName'] = '\x00'*10
@@ -153,9 +153,9 @@ class WKSTTests(unittest.TestCase):
         dce, rpctransport = self.connect()
         resp = wkst.hNetrWkstaGetInfo(dce, 502)
         resp.dump()
-        oldVal = resp['WkstaInfo']['WkstaInfo502']['wki502_dormant_file_limit'] 
+        oldVal = resp['WkstaInfo']['WkstaInfo502']['wki502_dormant_file_limit']
 
- 
+
         resp['WkstaInfo']['WkstaInfo502']['wki502_dormant_file_limit'] = 500
         resp2 = wkst.hNetrWkstaSetInfo(dce, 502,resp['WkstaInfo']['WkstaInfo502'])
         resp2.dump()
@@ -180,7 +180,7 @@ class WKSTTests(unittest.TestCase):
             resp2 = dce.request(req)
             resp2.dump()
         except Exception, e:
-            if str(e).find('ERROR_INVALID_FUNCTION') < 0: 
+            if str(e).find('ERROR_INVALID_FUNCTION') < 0:
                 raise
 
     def test_hNetrUseAdd_hNetrUseDel_hNetrUseGetInfo_hNetrUseEnum(self):
@@ -213,7 +213,7 @@ class WKSTTests(unittest.TestCase):
         req = wkst.NetrUseAdd()
         req['ServerName'] = '\x00'*10
         req['Level'] = 1
-        req['InfoStruct']['tag'] = 1 
+        req['InfoStruct']['tag'] = 1
         req['InfoStruct']['UseInfo1']['ui1_local'] = 'Z:\x00'
         req['InfoStruct']['UseInfo1']['ui1_remote'] = '\\\\127.0.0.1\\c$\x00'
         req['InfoStruct']['UseInfo1']['ui1_password'] = NULL
@@ -497,7 +497,8 @@ class WKSTTests(unittest.TestCase):
             resp2.dump()
         except Exception, e:
             if str(e).find('ERROR_NOT_SUPPORTED') < 0:
-                raise
+                if str(e).find('ERROR_INVALID_PARAMETER') < 0:
+                    raise
 
     def test_hNetrSetPrimaryComputerName(self):
         dce, rpctransport = self.connect()
@@ -507,7 +508,8 @@ class WKSTTests(unittest.TestCase):
             resp2.dump()
         except Exception, e:
             if str(e).find('ERROR_NOT_SUPPORTED') < 0:
-                raise
+                if str(e).find('ERROR_INVALID_PARAMETER') < 0:
+                    raise
 
     def test_NetrEnumerateComputerNames(self):
         dce, rpctransport = self.connect()
