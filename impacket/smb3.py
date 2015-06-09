@@ -1402,7 +1402,7 @@ class SMB3:
 
         fileId = None
         try:
-            fileId = self.create(treeId, pathName,GENERIC_ALL | DELETE, FILE_SHARE_READ | FILE_SHARE_WRITE |FILE_SHARE_DELETE, FILE_DIRECTORY_FILE | FILE_DELETE_ON_CLOSE, FILE_OPEN, 0)          
+            fileId = self.create(treeId, pathName, DELETE, FILE_SHARE_DELETE, FILE_DIRECTORY_FILE | FILE_DELETE_ON_CLOSE, FILE_OPEN, 0)
         finally:
             if fileId is not None:
                 self.close(treeId, fileId)
@@ -1421,7 +1421,7 @@ class SMB3:
 
         fileId = None
         try:
-            fileId = self.create(treeId, pathName,GENERIC_ALL | DELETE, FILE_SHARE_READ | FILE_SHARE_WRITE |FILE_SHARE_DELETE, FILE_NON_DIRECTORY_FILE | FILE_DELETE_ON_CLOSE, FILE_OPEN, 0)          
+            fileId = self.create(treeId, pathName,DELETE | FILE_READ_ATTRIBUTES, FILE_SHARE_DELETE, FILE_NON_DIRECTORY_FILE | FILE_DELETE_ON_CLOSE, FILE_OPEN, 0)
         finally:
             if fileId is not None:
                 self.close(treeId, fileId)
