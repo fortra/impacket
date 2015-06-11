@@ -2972,6 +2972,9 @@ class SMB:
         # are allowed.
         return (self._dialects_parameters['SecurityMode'] & SMB.SECURITY_SHARE_MASK) == SMB.SECURITY_SHARE_USER
 
+    def is_signing_required(self):
+	return self._SignatureRequired
+
     def get_ntlmv1_response(self, key):
         challenge = self._dialects_data['Challenge']
         return ntlm.get_ntlmv1_response(key, challenge)

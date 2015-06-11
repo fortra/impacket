@@ -145,6 +145,9 @@ class SMBConnection:
     def isLoginRequired(self):
         return self._SMBConnection.is_login_required()
 
+    def isSigningRequired(self):
+        return self._SMBConnection.is_signing_required()
+
     def getCredentials(self):
         return self._SMBConnection.getCredentials()
 
