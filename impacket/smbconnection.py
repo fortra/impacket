@@ -642,7 +642,7 @@ class SMBConnection:
 	self._SMBConnection.talk_unicode(value)
  
     def isTalkingUnicode(self):
-	self._SMBConnection.is_talking_unicode()
+	return self._SMBConnection.is_talking_unicode()
 
     def getSessionKey(self):
         if self.getDialect() == smb.SMB_DIALECT:
