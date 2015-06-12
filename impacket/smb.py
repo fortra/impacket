@@ -2437,6 +2437,9 @@ class SMB:
     def talk_unicode(self, value):
 	self.__unicode_flag = SMB.FLAGS2_UNICODE if value else 0
 
+    def is_talking_unicode(self):
+	return self.__unicode_flag == SMB.FLAGS2_UNICODE
+
     def get_timeout(self):
         return self.__timeout
 

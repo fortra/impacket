@@ -320,9 +320,11 @@ class SMBConnection:
 
         if self.getDialect() == smb.SMB_DIALECT:
 	    pathName = pathName.replace('/', '\\').encode('utf-16le')
+	    pathName = pathName.encode('utf-16le') if self._SMBConnection.isTalkingUnicode() else pathName
+
             ntCreate = smb.SMBCommand(smb.SMB.SMB_COM_NT_CREATE_ANDX)
             ntCreate['Parameters'] = smb.SMBNtCreateAndX_Parameters()
-	    ntCreate['Data']       = smb.SMBNtCreateAndX_Data(flags=smb.SMB.FLAGS2_UNICODE)
+	    ntCreate['Data']       = smb.SMBNtCreateAndX_Data(flags=self._SMBConnection.isTalkingUnicode())
             ntCreate['Parameters']['FileNameLength']= len(pathName)
             ntCreate['Parameters']['AccessMask']    = desiredAccess
             ntCreate['Parameters']['FileAttributes']= fileAttributes
@@ -333,7 +335,9 @@ class SMBConnection:
             ntCreate['Parameters']['SecurityFlags'] = securityFlags
             ntCreate['Parameters']['CreateFlags']   = 0x16
             ntCreate['Data']['FileName'] = pathName
-	    ntCreate['Data']['Pad'] = 0x0
+
+	    if self._SMBConnection.isTalkingUnicode():
+	    	ntCreate['Data']['Pad'] = 0x0
 
             if createContexts is not None:
                 LOG.error("CreateContexts not supported in SMB1")
@@ -360,9 +364,11 @@ class SMBConnection:
 
         if self.getDialect() == smb.SMB_DIALECT:
 	    pathName = pathName.replace('/', '\\').encode('utf-16le')
+	    pathName = pathName.encode('utf-16le') if self._SMBConnection.isTalkingUnicode() else pathName
+
             ntCreate = smb.SMBCommand(smb.SMB.SMB_COM_NT_CREATE_ANDX)
             ntCreate['Parameters'] = smb.SMBNtCreateAndX_Parameters()
-	    ntCreate['Data']       = smb.SMBNtCreateAndX_Data(flags=smb.SMB.FLAGS2_UNICODE)
+	    ntCreate['Data']       = smb.SMBNtCreateAndX_Data(flags=self._SMBConnection.isTalkingUnicode())
             ntCreate['Parameters']['FileNameLength']= len(pathName)
             ntCreate['Parameters']['AccessMask']    = desiredAccess
             ntCreate['Parameters']['FileAttributes']= fileAttributes
@@ -373,7 +379,9 @@ class SMBConnection:
             ntCreate['Parameters']['SecurityFlags'] = securityFlags
             ntCreate['Parameters']['CreateFlags']   = 0x16
             ntCreate['Data']['FileName'] = pathName
-	    ntCreate['Data']['Pad'] = 0x0
+
+	    if self._SMBConnection.isTalkingUnicode():
+	    	ntCreate['Data']['Pad'] = 0x0
 
             if createContexts is not None:
                 LOG.error("CreateContexts not supported in SMB1")
