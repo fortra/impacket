@@ -139,6 +139,15 @@ class SMBConnection:
     def getServerOS(self):
         return self._SMBConnection.get_server_os()
 
+    def getServerOSMajor(self):
+        return self._SMBConnection.get_server_os_major()
+
+    def getServerOSMinor(self):
+        return self._SMBConnection.get_server_os_minor()
+
+    def getServerOSBuild(self):
+        return self._SMBConnection.get_server_os_build()
+
     def doesSupportNTLMv2(self):
         return self._SMBConnection.doesSupportNTLMv2()
 
@@ -310,10 +319,10 @@ class SMBConnection:
         """
 
         if self.getDialect() == smb.SMB_DIALECT:
-            pathName = string.replace(pathName, '/', '\\')
+	    pathName = pathName.replace('/', '\\').encode('utf-16le')
             ntCreate = smb.SMBCommand(smb.SMB.SMB_COM_NT_CREATE_ANDX)
             ntCreate['Parameters'] = smb.SMBNtCreateAndX_Parameters()
-            ntCreate['Data']       = smb.SMBNtCreateAndX_Data()
+	    ntCreate['Data']       = smb.SMBNtCreateAndX_Data(flags=smb.SMB.FLAGS2_UNICODE)
             ntCreate['Parameters']['FileNameLength']= len(pathName)
             ntCreate['Parameters']['AccessMask']    = desiredAccess
             ntCreate['Parameters']['FileAttributes']= fileAttributes
@@ -324,6 +333,7 @@ class SMBConnection:
             ntCreate['Parameters']['SecurityFlags'] = securityFlags
             ntCreate['Parameters']['CreateFlags']   = 0x16
             ntCreate['Data']['FileName'] = pathName
+	    ntCreate['Data']['Pad'] = 0x0
 
             if createContexts is not None:
                 LOG.error("CreateContexts not supported in SMB1")
@@ -349,10 +359,10 @@ class SMBConnection:
         """
 
         if self.getDialect() == smb.SMB_DIALECT:
-            pathName = string.replace(pathName, '/', '\\')
+	    pathName = pathName.replace('/', '\\').encode('utf-16le')
             ntCreate = smb.SMBCommand(smb.SMB.SMB_COM_NT_CREATE_ANDX)
             ntCreate['Parameters'] = smb.SMBNtCreateAndX_Parameters()
-            ntCreate['Data']       = smb.SMBNtCreateAndX_Data()
+	    ntCreate['Data']       = smb.SMBNtCreateAndX_Data(flags=smb.SMB.FLAGS2_UNICODE)
             ntCreate['Parameters']['FileNameLength']= len(pathName)
             ntCreate['Parameters']['AccessMask']    = desiredAccess
             ntCreate['Parameters']['FileAttributes']= fileAttributes
@@ -363,6 +373,7 @@ class SMBConnection:
             ntCreate['Parameters']['SecurityFlags'] = securityFlags
             ntCreate['Parameters']['CreateFlags']   = 0x16
             ntCreate['Data']['FileName'] = pathName
+	    ntCreate['Data']['Pad'] = 0x0
 
             if createContexts is not None:
                 LOG.error("CreateContexts not supported in SMB1")
@@ -618,6 +629,9 @@ class SMBConnection:
             return self._SMBConnection.set_timeout(timeout)
         except (smb.SessionError, smb3.SessionError), e:
             raise SessionError(e.get_error_code())
+
+    def talkUnicode(self, value):
+	self._SMBConnection.talk_unicode(value)
 
     def getSessionKey(self):
         if self.getDialect() == smb.SMB_DIALECT:

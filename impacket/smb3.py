@@ -254,11 +254,24 @@ class SMB3:
     def getServerOS(self):
         return self._Session['ServerOS']
 
+    def getServerOSMajor(self):
+        return self._Session['ServerOSMajor']
+
+    def getServerOSMinor(self):
+        return self._Session['ServerOSMinor']
+
+    def getServerOSBuild(self):
+        return self._Session['ServerOSBuild']
+
     def isGuestSession(self):
         return self._Session['SessionFlags'] & SMB2_SESSION_FLAG_IS_GUEST 
 
     def setTimeout(self, timeout):
         self._timeout = timeout
+
+    def talkUnicode(self, value):
+	# smb2 always use unicode
+	pass
 
     @contextmanager
     def useTimeout(self, timeout):
@@ -720,6 +733,11 @@ class SMB3:
                 # Parse Version to know the target Operating system name. Not provided elsewhere anymore
                 if ntlmChallenge.fields.has_key('Version'):
                     version = ntlmChallenge['Version']
+
+		    self._Session["ServerOSMajor"] = ord(version[0])
+		    self._Session["ServerOSMinor"] = ord(version[1])
+		    self._Session["ServerOSBuild"] = struct.unpack('<H',version[2:4])[0]
+
                     if len(version) >= 4:
                         self._Session['ServerOS'] = "Windows %d.%d Build %d" % (ord(version[0]), ord(version[1]), struct.unpack('<H',version[2:4])[0])
 
@@ -1514,12 +1532,16 @@ class SMB3:
     get_remote_name            = getServerName
     get_remote_host            = getServerIP
     get_server_os              = getServerOS
+    get_server_os_major        = getServerOSMajor
+    get_server_os_minor        = getServerOSMinor
+    get_server_os_build        = getServerOSBuild
     tree_connect_andx          = connectTree
     tree_connect               = connectTree
     connect_tree               = connectTree
     disconnect_tree            = disconnectTree 
     set_timeout                = setTimeout
     use_timeout                = useTimeout
+    talk_unicode               = talkUnicode
     stor_file                  = storeFile
     retr_file                  = retrieveFile
     list_path                  = listPath
