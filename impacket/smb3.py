@@ -254,6 +254,15 @@ class SMB3:
     def getServerOS(self):
         return self._Session['ServerOS']
 
+    def getServerOSMajor(self):
+        return self._Session['ServerOSMajor']
+
+    def getServerOSMinor(self):
+        return self._Session['ServerOSMinor']
+
+    def getServerOSBuild(self):
+        return self._Session['ServerOSBuild']
+
     def isGuestSession(self):
         return self._Session['SessionFlags'] & SMB2_SESSION_FLAG_IS_GUEST 
 
@@ -722,6 +731,9 @@ class SMB3:
                     version = ntlmChallenge['Version']
                     if len(version) >= 4:
                         self._Session['ServerOS'] = "Windows %d.%d Build %d" % (ord(version[0]), ord(version[1]), struct.unpack('<H',version[2:4])[0])
+                        self._Session["ServerOSMajor"] = ord(version[0])
+                        self._Session["ServerOSMinor"] = ord(version[1])
+                        self._Session["ServerOSBuild"] = struct.unpack('<H',version[2:4])[0]
 
             type3, exportedSessionKey = ntlm.getNTLMSSPType3(auth, respToken['ResponseToken'], user, password, domain, lmhash, nthash)
    
@@ -1514,6 +1526,9 @@ class SMB3:
     get_remote_name            = getServerName
     get_remote_host            = getServerIP
     get_server_os              = getServerOS
+    get_server_os_major        = getServerOSMajor
+    get_server_os_minor        = getServerOSMinor
+    get_server_os_build        = getServerOSBuild
     tree_connect_andx          = connectTree
     tree_connect               = connectTree
     connect_tree               = connectTree

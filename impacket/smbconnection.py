@@ -75,7 +75,7 @@ class SMBConnection:
         hostType = nmb.TYPE_SERVER
         if preferredDialect is None:
             # If no preferredDialect sent, we try the highest available one.
-            packet = self._negotiateSession(self._myName, self._remoteName, self._remoteHost, self._sess_port, self._timeout, flags1=flags1, flags2=flags2, data=negoData)
+            packet = self._negotiateSession(self._myName, self._remoteName, self._remoteHost, self._sess_port, self._timeout, True, flags1=flags1, flags2=flags2, data=negoData)
             if packet[0] == '\xfe':
                 # Answer is SMB2 packet
                 self._SMBConnection = smb3.SMB3(self._remoteName, self._remoteHost, self._myName, hostType, self._sess_port, self._timeout, session = self._nmbSession )
@@ -125,7 +125,7 @@ class SMBConnection:
             try:
                 resp = self._nmbSession.recv_packet(timeout)
                 break
-            except nmb.NetBIOSError, e:
+            except nmb.NetBIOSError:
                 # OSX Yosemite asks for more Flags. Let's give it a try and see what happens
                 smbp['Flags2'] += smb.SMB.FLAGS2_NT_STATUS | smb.SMB.FLAGS2_LONG_NAMES | smb.SMB.FLAGS2_UNICODE
                 smbp['Data'] = []
@@ -162,6 +162,15 @@ class SMBConnection:
 
     def getServerOS(self):
         return self._SMBConnection.get_server_os()
+
+    def getServerOSMajor(self):
+        return self._SMBConnection.get_server_os_major()
+
+    def getServerOSMinor(self):
+        return self._SMBConnection.get_server_os_minor()
+
+    def getServerOSBuild(self):
+        return self._SMBConnection.get_server_os_build()
 
     def doesSupportNTLMv2(self):
         return self._SMBConnection.doesSupportNTLMv2()

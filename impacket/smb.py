@@ -2327,6 +2327,9 @@ class SMB:
         self._uid = 0
         self.__server_name = ''
         self.__server_os = ''
+        self.__server_os_major = None
+        self.__server_os_minor = None
+        self.__server_os_build = None
         self.__server_lanman = ''
         self.__server_domain = ''
         self.__server_dns_domain_name = ''
@@ -2617,7 +2620,6 @@ class SMB:
         smb = NewSMBPacket()
         smb['Flags1']  = SMB.FLAGS1_PATHCASELESS
         smb['Flags2'] = 0
-        smb['Tid'] = tid
 
         treeConnect = SMBCommand(SMB.SMB_COM_TREE_CONNECT)
         treeConnect['Parameters'] = SMBTreeConnect_Parameters()
@@ -2959,6 +2961,15 @@ class SMB:
     def get_server_os(self):
         return self.__server_os
 
+    def get_server_os_major(self):
+        return self.__server_os_major
+
+    def get_server_os_minor(self):
+        return self.__server_os_minor
+
+    def get_server_os_build(self):
+        return self.__server_os_build
+
     def set_server_os(self, os):
         self.__server_os = os
 
@@ -3209,6 +3220,14 @@ class SMB:
                    except:
                        # For some reason, we couldn't decode Unicode here.. silently discard the operation
                        pass
+
+            # Parse Version to know the target Operating system name. Not provided elsewhere anymore
+            if ntlmChallenge.fields.has_key('Version'):
+                version = ntlmChallenge['Version']
+
+                self.__server_os_major = ord(version[0])
+                self.__server_os_minor = ord(version[1])
+                self.__server_os_build = unpack('<H',version[2:4])[0]
 
             type3, exportedSessionKey = ntlm.getNTLMSSPType3(auth, respToken['ResponseToken'], user, password, domain, lmhash, nthash, use_ntlmv2 = use_ntlmv2)
 
