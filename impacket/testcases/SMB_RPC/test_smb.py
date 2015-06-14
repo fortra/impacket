@@ -33,6 +33,15 @@ class SMBTests(unittest.TestCase):
         smb.logoff()
         del(smb)
 
+    def test_manualNego(self):
+        smb = SMBConnection('*SMBSERVER', self.machine, preferredDialect = self.dialects, manualNegotiate = True )
+        smb.negotiateSession(self.dialects)
+        smb.login(self.username, self.password, self.domain)
+        credentials = smb.getCredentials()
+        self.assertTrue( credentials == (self.username, self.password, self.domain, '','','', None, None))
+        smb.logoff()
+        del(smb)
+
     def test_loginHashes(self):
         lmhash, nthash = self.hashes.split(':')
         smb = SMBConnection('*SMBSERVER', self.machine, preferredDialect = self.dialects)    
