@@ -2377,9 +2377,6 @@ class SMB:
         self.__flags1 = 0
         self.__flags2 = 0
 
-	# encoding stuff
-	self.__unicode_flag = 0
-
         if timeout is None:
             self.__timeout = 60
         else:
@@ -2444,12 +2441,6 @@ class SMB:
         prev_timeout = self.__timeout
         self.__timeout = timeout
         return prev_timeout
-
-    def talk_unicode(self, value):
-	self.__unicode_flag = (SMB.FLAGS2_UNICODE if value else 0)
-
-    def is_talking_unicode(self):
-	return self.__unicode_flag == SMB.FLAGS2_UNICODE
 
     def get_timeout(self):
         return self.__timeout
@@ -2677,7 +2668,7 @@ class SMB:
         if smb_packet is None:
             smb = NewSMBPacket()
             smb['Flags1']  = SMB.FLAGS1_PATHCASELESS
-            smb['Flags2']  = self.__unicode_flag
+            smb['Flags2']  = self.__flags2
         else:
             smb = smb_packet
 
@@ -2692,17 +2683,17 @@ class SMB:
             remote_host =  self.get_remote_host()
 
         path = '\\\\' + remote_host + '\\' +share
-	path = path.upper().encode('utf-16le') if self.__unicode_flag else path
+	path = path.upper().encode('utf-16le') if self.__flags2 & SMB.FLAGS2_UNICODE else path
 
         treeConnect = SMBCommand(SMB.SMB_COM_TREE_CONNECT_ANDX)
         treeConnect['Parameters'] = SMBTreeConnectAndX_Parameters()
-        treeConnect['Data']       = SMBTreeConnectAndX_Data(flags=self.__unicode_flag)
+        treeConnect['Data']       = SMBTreeConnectAndX_Data(flags=self.__flags2)
         treeConnect['Parameters']['PasswordLength'] = len(password)
         treeConnect['Data']['Password'] = password
         treeConnect['Data']['Path'] = path
         treeConnect['Data']['Service'] = service
 
-	if self.__unicode_flag:
+	if self.__flags2 & SMB.FLAGS2_UNICODE:
 		treeConnect['Data']['Pad'] = 0x0
 
         smb.addCommand(treeConnect)
@@ -2773,11 +2764,11 @@ class SMB:
 
     def open(self, tid, filename, open_mode, desired_access):
         filename = string.replace(filename,'/', '\\')
-	filename = filename.encode('utf-16le') if self.__unicode_flag else filename
+	filename = filename.encode('utf-16le') if self.__flags2 & SMB.FLAGS2_UNICODE else filename
 
         smb = NewSMBPacket()
-        smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
-        smb['Flags2'] = SMB.FLAGS2_LONG_NAMES | self.__unicode_flag
+        smb['Flags1'] = SMB.FLAGS1_PATHCASELESS | self.__flags1
+        smb['Flags2'] = SMB.FLAGS2_LONG_NAMES | self.__flags2
         smb['Tid']    = tid
 
         openFile = SMBCommand(SMB.SMB_COM_OPEN)
@@ -2785,10 +2776,10 @@ class SMB:
         openFile['Parameters']['DesiredAccess']    = desired_access
         openFile['Parameters']['OpenMode']         = open_mode
         openFile['Parameters']['SearchAttributes'] = ATTR_READONLY | ATTR_HIDDEN | ATTR_ARCHIVE
-        openFile['Data']       = SMBOpen_Data(flags=self.__unicode_flag)
+        openFile['Data']       = SMBOpen_Data(flags=self.__flags2)
         openFile['Data']['FileName'] = filename
 
-	if self.__unicode_flag:
+	if self.__flags2 & SMB.FLAGS2_UNICODE:
 		openFile['Data']['Pad'] = 0x0
 
         smb.addCommand(openFile)
@@ -2811,11 +2802,11 @@ class SMB:
 
     def open_andx(self, tid, filename, open_mode, desired_access):
         filename = string.replace(filename,'/', '\\')
-	filename = filename.encode('utf-16le') if self.__unicode_flag else filename
+	filename = filename.encode('utf-16le') if self.__flags2 & SMB.FLAGS2_UNICODE else filename
 
         smb = NewSMBPacket()
-        smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
-        smb['Flags2'] = SMB.FLAGS2_LONG_NAMES | self.__unicode_flag
+        smb['Flags1'] = SMB.FLAGS1_PATHCASELESS | self.__flags1
+        smb['Flags2'] = SMB.FLAGS2_LONG_NAMES | self.__flags2
         smb['Tid']    = tid
 
         openFile = SMBCommand(SMB.SMB_COM_OPEN_ANDX)
@@ -2823,10 +2814,10 @@ class SMB:
         openFile['Parameters']['DesiredAccess']    = desired_access
         openFile['Parameters']['OpenMode']         = open_mode
         openFile['Parameters']['SearchAttributes'] = ATTR_READONLY | ATTR_HIDDEN | ATTR_ARCHIVE
-        openFile['Data']       = SMBOpenAndX_Data(flags=self.__unicode_flag)
+        openFile['Data']       = SMBOpenAndX_Data(flags=self.__flags2)
         openFile['Data']['FileName'] = filename
 
-	if self.__unicode_flag:
+	if self.__flags2 & SMB.FLAGS2_UNICODE:
 		openFile['Data']['Pad'] = 0x0
 
         smb.addCommand(openFile)
@@ -2870,8 +2861,8 @@ class SMB:
 
     def send_trans(self, tid, setup, name, param, data, noAnswer = 0):
         smb = NewSMBPacket()
-        smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
-        smb['Flags2'] = SMB.FLAGS2_LONG_NAMES | self.__unicode_flag
+        smb['Flags1'] = SMB.FLAGS1_PATHCASELESS | self.__flags1
+        smb['Flags2'] = SMB.FLAGS2_LONG_NAMES | self.__flags2
         smb['Tid']    = tid
 
         transCommand = SMBCommand(SMB.SMB_COM_TRANSACTION)
@@ -2901,8 +2892,8 @@ class SMB:
 
     def send_trans2(self, tid, setup, name, param, data):
         smb = NewSMBPacket()
-        smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
-        smb['Flags2'] = SMB.FLAGS2_LONG_NAMES | self.__unicode_flag
+        smb['Flags1'] = SMB.FLAGS1_PATHCASELESS | self.__flags1
+        smb['Flags2'] = SMB.FLAGS2_LONG_NAMES | self.__flags2
         smb['Tid']    = tid
 
         command = pack('<H', setup)
@@ -3031,6 +3022,12 @@ class SMB:
         from pyasn1.codec.der import decoder, encoder
         import datetime
 
+        # login feature does not support unicode
+        # disable it if enabled
+	flags2 = self.__flags2
+        if flags2 & SMB.FLAGS2_UNICODE:
+	   self.__flags2 = flags2 & (flags2 ^ SMB.FLAGS2_UNICODE) 
+
         # If TGT or TGS are specified, they are in the form of:
         # TGS['KDC_REP'] = the response from the server
         # TGS['cipher'] = the cipher used
@@ -3076,8 +3073,9 @@ class SMB:
             sessionKey = TGS['sessionKey']
 
         smb = NewSMBPacket()
-        smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
-        smb['Flags2'] = SMB.FLAGS2_EXTENDED_SECURITY
+        smb['Flags1'] = self.__flags1 | SMB.FLAGS1_PATHCASELESS
+        smb['Flags2'] = self.__flags2 | SMB.FLAGS2_EXTENDED_SECURITY
+
         # Are we required to sign SMB? If so we do it, if not we skip it
         if self._SignatureRequired:
            smb['Flags2'] |= SMB.FLAGS2_SMB_SECURITY_SIGNATURE
@@ -3168,22 +3166,33 @@ class SMB:
                self._SigningSessionKey = sessionKey.contents
                self._SignSequenceNumber = 2
                self._SignatureEnabled = True
+
+            # restore unicode flag if needed
+            if flags2 & SMB.FLAGS2_UNICODE:
+	       self.__flags2 |= SMB.FLAGS2_UNICODE
+
             # Set up the flags to be used from now on
-            self.__flags1 = SMB.FLAGS1_PATHCASELESS
-            self.__flags2 = SMB.FLAGS2_EXTENDED_SECURITY
+            self.__flags1 |= SMB.FLAGS1_PATHCASELESS
+            self.__flags2 |= SMB.FLAGS2_EXTENDED_SECURITY
             return 1
         else:
             raise Exception('Error: Could not login successfully')
 
     def login_extended(self, user, password, domain = '', lmhash = '', nthash = '', use_ntlmv2 = True ):
+
+        # login feature does not support unicode
+        # disable it if enabled
+	flags2 = self.__flags2
+        if flags2 & SMB.FLAGS2_UNICODE:
+	   self.__flags2 = flags2 & (flags2 ^ SMB.FLAGS2_UNICODE) 
+
         # Once everything's working we should join login methods into a single one
         smb = NewSMBPacket()
-        smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
-        smb['Flags2'] = SMB.FLAGS2_EXTENDED_SECURITY
+        smb['Flags1'] = self.__flags1 | SMB.FLAGS1_PATHCASELESS
+        smb['Flags2'] = self.__flags2 | SMB.FLAGS2_EXTENDED_SECURITY
         # Are we required to sign SMB? If so we do it, if not we skip it
         if self._SignatureRequired:
            smb['Flags2'] |= SMB.FLAGS2_SMB_SECURITY_SIGNATURE
-
 
         sessionSetup = SMBCommand(SMB.SMB_COM_SESSION_SETUP_ANDX)
         sessionSetup['Parameters'] = SMBSessionSetupAndX_Extended_Parameters()
@@ -3268,8 +3277,8 @@ class SMB:
                 self._SigningSessionKey = exportedSessionKey
 
             smb = NewSMBPacket()
-            smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
-            smb['Flags2'] = SMB.FLAGS2_EXTENDED_SECURITY |  SMB.FLAGS2_NT_STATUS
+            smb['Flags1'] = self.__flags1 | SMB.FLAGS1_PATHCASELESS
+            smb['Flags2'] = self.__flags2 | SMB.FLAGS2_EXTENDED_SECURITY |  SMB.FLAGS2_NT_STATUS
 
             # Are we required to sign SMB? If so we do it, if not we skip it
             if self._SignatureRequired:
@@ -3301,9 +3310,15 @@ class SMB:
                 if self._dialects_parameters['SecurityMode'] & SMB.SECURITY_SIGNATURES_REQUIRED:
                    self._SignSequenceNumber = 2
                    self._SignatureEnabled = True
+
+                # restore unicode flag if needed
+                if flags2 & SMB.FLAGS2_UNICODE:
+		   self.__flags2 |= SMB.FLAGS2_UNICODE
+
                 # Set up the flags to be used from now on
-                self.__flags1 = SMB.FLAGS1_PATHCASELESS
-                self.__flags2 = SMB.FLAGS2_EXTENDED_SECURITY
+                self.__flags1 |= SMB.FLAGS1_PATHCASELESS
+                self.__flags2 |= SMB.FLAGS2_EXTENDED_SECURITY
+
                 return 1
         else:
             raise Exception('Error: Could not login successfully')
@@ -3355,6 +3370,13 @@ class SMB:
             self.__isNTLMv2 = False
 
     def login_standard(self, user, password, domain = '', lmhash = '', nthash = ''):
+
+        # login feature does not support unicode
+        # disable it if enabled
+	flags2 = self.__flags2
+        if flags2 & SMB.FLAGS2_UNICODE:
+	   self.__flags2 = flags2 & (flags2 ^ SMB.FLAGS2_UNICODE) 
+
         # Only supports NTLMv1
         # Password is only encrypted if the server passed us an "encryption key" during protocol dialect negotiation
         if self._dialects_parameters['ChallengeLength'] > 0:
@@ -3374,7 +3396,8 @@ class SMB:
             pwd_unicode = ''
 
         smb = NewSMBPacket()
-        smb['Flags1']  = SMB.FLAGS1_PATHCASELESS
+        smb['Flags1']  = self.__flags1 | SMB.FLAGS1_PATHCASELESS
+        smb['Flags2']  = self.__flags2 
 
         sessionSetup = SMBCommand(SMB.SMB_COM_SESSION_SETUP_ANDX)
         sessionSetup['Parameters'] = SMBSessionSetupAndX_Parameters()
@@ -3423,16 +3446,19 @@ class SMB:
             self.__server_lanman = sessionData['NativeLanMan']
             self.__server_domain = sessionData['PrimaryDomain']
 
+            # restore unicode flag if needed
+            if flags2 & SMB.FLAGS2_UNICODE:
+	         self.__flags2 |= SMB.FLAGS2_UNICODE
+
             # Set up the flags to be used from now on
-            self.__flags1 = SMB.FLAGS1_PATHCASELESS
-            self.__flags2 = 0
+            self.__flags1 |= SMB.FLAGS1_PATHCASELESS
             return 1
         else: raise Exception('Error: Could not login successfully')
 
     def waitNamedPipe(self, tid, pipe, timeout = 5, noAnswer = 0):
         smb = NewSMBPacket()
-        smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
-        smb['Flags2'] = SMB.FLAGS2_LONG_NAMES
+        smb['Flags1'] = self.__flags1 | SMB.FLAGS1_PATHCASELESS
+        smb['Flags2'] = self.__flags2 | SMB.FLAGS2_LONG_NAMES
         smb['Tid']    = tid
 
         transCommand = SMBCommand(SMB.SMB_COM_TRANSACTION)
@@ -3476,8 +3502,8 @@ class SMB:
         # max_size is not working, because although it would, the server returns an error (More data avail)
 
         smb = NewSMBPacket()
-        smb['Flags1'] = SMB.FLAGS1_CANONICALIZED_PATHS | SMB.FLAGS1_PATHCASELESS
-        smb['Flags2'] = 0
+        smb['Flags1'] = self.__flags1 | SMB.FLAGS1_CANONICALIZED_PATHS | SMB.FLAGS1_PATHCASELESS
+        smb['Flags2'] = self.__flags2
         smb['Tid']    = tid
 
         read = SMBCommand(SMB.SMB_COM_READ)
@@ -3511,8 +3537,8 @@ class SMB:
 
         if smb_packet is None:
             smb = NewSMBPacket()
-            smb['Flags1'] = SMB.FLAGS1_CANONICALIZED_PATHS | SMB.FLAGS1_PATHCASELESS
-            smb['Flags2'] = 0
+            smb['Flags1'] = self.__flags1 | SMB.FLAGS1_CANONICALIZED_PATHS | SMB.FLAGS1_PATHCASELESS
+            smb['Flags2'] = self.__flags2
             smb['Tid']    = tid
 
             readAndX = SMBCommand(SMB.SMB_COM_READ_ANDX)
@@ -3562,8 +3588,8 @@ class SMB:
 
         # max_size is not working, because although it would, the server returns an error (More data avail)
         smb = NewSMBPacket()
-        smb['Flags1'] = SMB.FLAGS1_CANONICALIZED_PATHS | SMB.FLAGS1_PATHCASELESS
-        smb['Flags2'] = 0
+        smb['Flags1'] = self.__flags1 | SMB.FLAGS1_CANONICALIZED_PATHS | SMB.FLAGS1_PATHCASELESS
+        smb['Flags2'] = self.__flags2
         smb['Tid']    = tid
 
         readRaw = SMBCommand(SMB.SMB_COM_READ_RAW)
@@ -3585,8 +3611,8 @@ class SMB:
 
     def write(self,tid,fid,data, offset = 0, wait_answer=1):
         smb = NewSMBPacket()
-        smb['Flags1'] = SMB.FLAGS1_CANONICALIZED_PATHS | SMB.FLAGS1_PATHCASELESS
-        smb['Flags2'] = 0
+        smb['Flags1'] = self.__flags1 | SMB.FLAGS1_CANONICALIZED_PATHS | SMB.FLAGS1_PATHCASELESS
+        smb['Flags2'] = self.__flags2
         smb['Tid']    = tid
 
         write = SMBCommand(SMB.SMB_COM_WRITE)
@@ -3610,8 +3636,8 @@ class SMB:
     def write_andx(self,tid,fid,data, offset = 0, wait_answer=1, write_pipe_mode = False, smb_packet=None):
         if smb_packet is None:
             smb = NewSMBPacket()
-            smb['Flags1'] = SMB.FLAGS1_CANONICALIZED_PATHS | SMB.FLAGS1_PATHCASELESS
-            smb['Flags2'] = 0
+            smb['Flags1'] = self.__flags1 | SMB.FLAGS1_CANONICALIZED_PATHS | SMB.FLAGS1_PATHCASELESS
+            smb['Flags2'] = self.__flags2 
             smb['Tid']    = tid
 
             writeAndX = SMBCommand(SMB.SMB_COM_WRITE_ANDX)
@@ -3673,8 +3699,8 @@ class SMB:
     def write_raw(self,tid,fid,data, offset = 0, wait_answer=1):
         LOG.warning("[MS-CIFS] This command was introduced in the CorePlus dialect, but is often listed as part of the LAN Manager 1.0 dialect.This command has been deprecated.Clients SHOULD use SMB_COM_WRITE_ANDX")
         smb = NewSMBPacket()
-        smb['Flags1'] = SMB.FLAGS1_CANONICALIZED_PATHS | SMB.FLAGS1_PATHCASELESS
-        smb['Flags2'] = 0
+        smb['Flags1'] = self.__flags1 | SMB.FLAGS1_CANONICALIZED_PATHS | SMB.FLAGS1_PATHCASELESS
+        smb['Flags2'] = self.__flags2
         smb['Tid']    = tid
 
         writeRaw = SMBCommand(SMB.SMB_COM_WRITE_RAW)
@@ -3717,12 +3743,12 @@ class SMB:
 
     def nt_create_andx(self,tid,filename, smb_packet=None, cmd = None, shareAccessMode = FILE_SHARE_READ | FILE_SHARE_WRITE, disposition = FILE_OPEN, accessMask = 0x2019f):
         filename = filename.replace('/', '\\')
-	filename = filename.encode('utf-16le') if self.__unicode_flag else filename
+	filename = filename.encode('utf-16le') if self.__flags2 & SMB.FLAGS2_UNICODE else filename
 
         if smb_packet is None:
             smb = NewSMBPacket()
-            smb['Flags1'] = SMB.FLAGS1_CANONICALIZED_PATHS | SMB.FLAGS1_PATHCASELESS
-            smb['Flags2'] = SMB.FLAGS2_LONG_NAMES | self.__unicode_flag
+            smb['Flags1'] = self.__flags1 | SMB.FLAGS1_CANONICALIZED_PATHS | SMB.FLAGS1_PATHCASELESS
+            smb['Flags2'] = self.__flags2 | SMB.FLAGS2_LONG_NAMES
             smb['Tid']    = tid
         else:
             smb = smb_packet
@@ -3730,7 +3756,7 @@ class SMB:
         if cmd is None:
             ntCreate = SMBCommand(SMB.SMB_COM_NT_CREATE_ANDX)
             ntCreate['Parameters'] = SMBNtCreateAndX_Parameters()
-            ntCreate['Data']       = SMBNtCreateAndX_Data(flags=self.__unicode_flag)
+            ntCreate['Data']       = SMBNtCreateAndX_Data(flags=self.__flags2)
             ntCreate['Parameters']['FileNameLength'] = len(filename)
             ntCreate['Parameters']['CreateFlags'] = 0x16
             ntCreate['Parameters']['AccessMask'] = accessMask
@@ -3739,7 +3765,7 @@ class SMB:
             ntCreate['Parameters']['Disposition'] = disposition
             ntCreate['Data']['FileName'] = filename
 
-	    if self.__unicode_flag:
+	    if self.__flags2 & SMB.FLAGS2_UNICODE:
 	 	ntCreate['Data']['Pad'] = 0x0
         else:
             ntCreate = cmd
@@ -3772,7 +3798,7 @@ class SMB:
 
     def list_path(self, service, path = '*', password = None):
         path = path.replace('/', '\\')
-	path = path.encode('utf-16le') if self.__unicode_flag else path
+	path = path.encode('utf-16le') if self.__flags2 & SMB.FLAGS2_UNICODE else path
 
         tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\' + service, password)
         try:
@@ -3784,7 +3810,7 @@ class SMB:
             findFirstParameter['Flags'] = SMB_FIND_RETURN_RESUME_KEYS | SMB_FIND_CLOSE_AT_EOS
             findFirstParameter['InformationLevel'] = SMB_FIND_FILE_BOTH_DIRECTORY_INFO
             findFirstParameter['SearchStorageType'] = 0
-            findFirstParameter['FileName'] = path + '\x00\x00' if self.__unicode_flag else '\x00'
+            findFirstParameter['FileName'] = path + '\x00\x00' if self.__flags2 & SMB.FLAGS2_UNICODE else '\x00'
             self.send_trans2(tid, SMB.TRANS2_FIND_FIRST2, '\x00', findFirstParameter, '')
             files = [ ]
 
@@ -3808,8 +3834,8 @@ class SMB:
             while True:
                 record = SMBFindFileBothDirectoryInfo(data = findData)
 
-		shortname = record['ShortName'].decode('utf-16le') if self.__unicode_flag else record['ShortName']
-		filename = record['FileName'].decode('utf-16le') if self.__unicode_flag else record['FileName']
+		shortname = record['ShortName'].decode('utf-16le') if self.__flags2 & SMB.FLAGS2_UNICODE else record['ShortName']
+		filename = record['FileName'].decode('utf-16le') if self.__flags2 & SMB.FLAGS2_UNICODE else record['FileName']
 
                 fileRecord = SharedFile(record['CreationTime'], record['LastAccessTime'], record['LastChangeTime'],
                                   record['EndOfFile'], record['AllocationSize'], record['ExtFileAttributes'],
@@ -3897,8 +3923,8 @@ class SMB:
         tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\' + service, password)
         try:
             smb = NewSMBPacket()
-            smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
-            smb['Flags2'] = 0
+            smb['Flags1'] = self.__flags1 | SMB.FLAGS1_PATHCASELESS
+            smb['Flags2'] = self.__flags2
             smb['Tid'] = tid
             smb['Mid'] = 0
 
@@ -3925,8 +3951,8 @@ class SMB:
         tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\' + service, password)
         try:
             smb = NewSMBPacket()
-            smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
-            smb['Flags2'] = 0
+            smb['Flags1'] = self.__flags1 | SMB.FLAGS1_PATHCASELESS
+            smb['Flags2'] = self.__flags2
             smb['Tid'] = tid
             smb['Mid'] = 0
 
@@ -3953,14 +3979,14 @@ class SMB:
 
         tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\' + service, password)
         try:
-	    path = path.encode('utf-16le') if self.__unicode_flag else path
+	    path = path.encode('utf-16le') if self.__flags2 & SMB.FLAGS2_UNICODE else path
 
             smb = NewSMBPacket()
             smb['Tid'] = tid
-            smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
-            smb['Flags2'] = self.__unicode_flag
+            smb['Flags1'] = self.__flags1 | SMB.FLAGS1_PATHCASELESS
+            smb['Flags2'] = self.__flags2
             createDir = SMBCommand(SMB.SMB_COM_DELETE_DIRECTORY)
-            createDir['Data'] = SMBDeleteDirectory_Data(flags=self.__unicode_flag)
+            createDir['Data'] = SMBDeleteDirectory_Data(flags=self.__flags2)
             createDir['Data']['DirectoryName'] = path
             smb.addCommand(createDir)
 
@@ -3977,16 +4003,16 @@ class SMB:
         path = string.replace(path,'/', '\\')
         tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\' + service, password)
         try:
-	    path = path.encode('utf-16le') if self.__unicode_flag else path
+	    path = path.encode('utf-16le') if self.__flags2 & SMB.FLAGS2_UNICODE else path
 
             smb = NewSMBPacket()
-            smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
-            smb['Flags2'] = self.__unicode_flag
+            smb['Flags1'] = self.__flags1 | SMB.FLAGS1_PATHCASELESS
+            smb['Flags2'] = self.__flags2
             smb['Tid'] = tid
             smb['Mid'] = 0
 
             createDir = SMBCommand(SMB.SMB_COM_CREATE_DIRECTORY)
-            createDir['Data'] = SMBCreateDirectory_Data(flags=self.__unicode_flag)
+            createDir['Data'] = SMBCreateDirectory_Data(flags=self.__flags2)
             createDir['Data']['DirectoryName'] = path
             smb.addCommand(createDir)
 
@@ -4005,8 +4031,8 @@ class SMB:
         tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\' + service, password)
         try:
             smb = NewSMBPacket()
-            smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
-            smb['Flags2'] = 0
+            smb['Flags1'] = self.__flags1 | SMB.FLAGS1_PATHCASELESS
+            smb['Flags2'] = self.__flags2
             smb['Tid'] = tid
             smb['Mid'] = 0
 

@@ -90,6 +90,12 @@ class SMBConnection:
             else:
                 LOG.critical("Unknown dialect ", preferredDialect)
                 raise
+
+        # propagate flags to the smb sub-object
+        # does not affect smb3 objects
+        if isinstance(self._SMBConnection, smb.SMB):
+	    self._SMBConnection.set_flags(flags1=flags1, flags2=flags2)
+
         return True
 
     def _negotiateSession(self, myName, remoteName, remoteHost, sess_port, timeout, extended_security = True, flags1=0, flags2=0, data=None):
@@ -127,7 +133,7 @@ class SMBConnection:
                 break
             except nmb.NetBIOSError:
                 # OSX Yosemite asks for more Flags. Let's give it a try and see what happens
-                smbp['Flags2'] += smb.SMB.FLAGS2_NT_STATUS | smb.SMB.FLAGS2_LONG_NAMES | smb.SMB.FLAGS2_UNICODE
+                smbp['Flags2'] |= smb.SMB.FLAGS2_NT_STATUS | smb.SMB.FLAGS2_LONG_NAMES | smb.SMB.FLAGS2_UNICODE
                 smbp['Data'] = []
 
             tries += 1
@@ -343,12 +349,14 @@ class SMBConnection:
         """
 
         if self.getDialect() == smb.SMB_DIALECT:
-	    pathName = pathName.replace('/', '\\').encode('utf-16le')
-	    pathName = pathName.encode('utf-16le') if self.isTalkingUnicode() else pathName
+            _, flags2 = self._SMBConnection.get_flags()
+
+	    pathName = pathName.replace('/', '\\')
+	    pathName = pathName.encode('utf-16le') if flags2 & smb.SMB.FLAGS2_UNICODE else pathName
 
             ntCreate = smb.SMBCommand(smb.SMB.SMB_COM_NT_CREATE_ANDX)
             ntCreate['Parameters'] = smb.SMBNtCreateAndX_Parameters()
-	    ntCreate['Data']       = smb.SMBNtCreateAndX_Data(flags=self.isTalkingUnicode())
+	    ntCreate['Data']       = smb.SMBNtCreateAndX_Data(flags=flags2)
             ntCreate['Parameters']['FileNameLength']= len(pathName)
             ntCreate['Parameters']['AccessMask']    = desiredAccess
             ntCreate['Parameters']['FileAttributes']= fileAttributes
@@ -360,7 +368,7 @@ class SMBConnection:
             ntCreate['Parameters']['CreateFlags']   = 0x16
             ntCreate['Data']['FileName'] = pathName
 
-	    if self.isTalkingUnicode():
+	    if flags2 & smb.SMB.FLAGS2_UNICODE:
 	    	ntCreate['Data']['Pad'] = 0x0
 
             if createContexts is not None:
@@ -387,12 +395,14 @@ class SMBConnection:
         """
 
         if self.getDialect() == smb.SMB_DIALECT:
-	    pathName = pathName.replace('/', '\\').encode('utf-16le')
-	    pathName = pathName.encode('utf-16le') if self.isTalkingUnicode() else pathName
+            _, flags2 = self._SMBConnection.get_flags()
+
+	    pathName = pathName.replace('/', '\\')
+	    pathName = pathName.encode('utf-16le') if flags2 & smb.SMB.FLAGS2_UNICODE else pathName
 
             ntCreate = smb.SMBCommand(smb.SMB.SMB_COM_NT_CREATE_ANDX)
             ntCreate['Parameters'] = smb.SMBNtCreateAndX_Parameters()
-	    ntCreate['Data']       = smb.SMBNtCreateAndX_Data(flags=self.isTalkingUnicode())
+	    ntCreate['Data']       = smb.SMBNtCreateAndX_Data(flags=flags2)
             ntCreate['Parameters']['FileNameLength']= len(pathName)
             ntCreate['Parameters']['AccessMask']    = desiredAccess
             ntCreate['Parameters']['FileAttributes']= fileAttributes
@@ -404,7 +414,7 @@ class SMBConnection:
             ntCreate['Parameters']['CreateFlags']   = 0x16
             ntCreate['Data']['FileName'] = pathName
 
-	    if self.isTalkingUnicode():
+	    if flags2 & smb.SMB.FLAGS2_UNICODE:
 	    	ntCreate['Data']['Pad'] = 0x0
 
             if createContexts is not None:
@@ -661,12 +671,6 @@ class SMBConnection:
             return self._SMBConnection.set_timeout(timeout)
         except (smb.SessionError, smb3.SessionError), e:
             raise SessionError(e.get_error_code())
-
-    def talkUnicode(self, value):
-	self._SMBConnection.talk_unicode(value)
- 
-    def isTalkingUnicode(self):
-	return self._SMBConnection.is_talking_unicode()
 
     def getSessionKey(self):
         if self.getDialect() == smb.SMB_DIALECT:

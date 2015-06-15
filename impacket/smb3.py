@@ -269,13 +269,6 @@ class SMB3:
     def setTimeout(self, timeout):
         self._timeout = timeout
 
-    def talkUnicode(self, value):
-	# smb2 always use unicode
-	pass
-
-    def isTalkingUnicode(self):
-	return True
-
     @contextmanager
     def useTimeout(self, timeout):
         prev_timeout = self.getTimeout(timeout)
@@ -1547,8 +1540,6 @@ class SMB3:
     disconnect_tree            = disconnectTree 
     set_timeout                = setTimeout
     use_timeout                = useTimeout
-    talk_unicode               = talkUnicode
-    is_talking_unicode         = isTalkingUnicode
     stor_file                  = storeFile
     retr_file                  = retrieveFile
     list_path                  = listPath
