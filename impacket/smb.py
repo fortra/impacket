@@ -3960,7 +3960,7 @@ class SMB:
             smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
             smb['Flags2'] = self.__unicode_flag
             createDir = SMBCommand(SMB.SMB_COM_DELETE_DIRECTORY)
-            createDir['Data'] = SMBDeleteDirectory_Data(flags=self.__unicode_path)
+            createDir['Data'] = SMBDeleteDirectory_Data(flags=self.__unicode_flag)
             createDir['Data']['DirectoryName'] = path
             smb.addCommand(createDir)
 
