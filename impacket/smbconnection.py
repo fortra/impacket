@@ -34,15 +34,20 @@ class SMBConnection:
     :param integer/optional sess_port: target port to connect
     :param integer/optional timeout: timeout in seconds when receiving packets
     :param optional preferredDialect: the dialect desired to talk with the target server. If not specified the highest one available will be used
+    :param optional boolean manualNegotiate: the user manually performs SMB_COM_NEGOTIATE
 
     :return: a SMBConnection instance, if not raises a SessionError exception
     """
-    def __init__(self, remoteName='', remoteHost='', myName = None, sess_port = 445, timeout=60, preferredDialect = None, existingConnection = None):
+    def __init__(self, remoteName='', remoteHost='', myName = None, sess_port = 445, timeout=60, preferredDialect = None, existingConnection = None, manualNegotiate = False):
 
         self._SMBConnection = 0
         self._dialect       = ''
         self._nmbSession    = 0
-        hostType = nmb.TYPE_SERVER
+        self._sess_port     = sess_port
+        self._myName        = myName
+        self._remoteHost    = remoteHost
+        self._remoteName    = remoteName
+        self._timeout       = timeout
 
         if existingConnection is not None:
             # Existing Connection must be a smb or smb3 instance
@@ -51,25 +56,43 @@ class SMBConnection:
             return
 
         ##preferredDialect = smb.SMB_DIALECT
+
+        if manualNegotiate is False:
+            self.negotiateSession(preferredDialect)
+
+    def negotiateSession(self, preferredDialect=None, flags1=0, flags2=0,
+                         negoData='\x02NT LM 0.12\x00\x02SMB 2.002\x00\x02SMB 2.???\x00'):
+        """
+        Perform protocol negotiation
+
+        :param string preferredDialect: the dialect desired to talk with the target server. If None is specified the highest one available will be used
+        :param string flags1: the SMB FLAGS capabilities
+        :param string flags2: the SMB FLAGS2 capabilities
+        :param string negoData: data to be sent as part of the nego handshake
+
+        :return: True, raises a Session Error if error.
+        """
+        hostType = nmb.TYPE_SERVER
         if preferredDialect is None:
             # If no preferredDialect sent, we try the highest available one.
-            packet = self._negotiateSession(myName, remoteName, remoteHost, sess_port, timeout)
+            packet = self._negotiateSession(self._myName, self._remoteName, self._remoteHost, self._sess_port, self._timeout, True, flags1=flags1, flags2=flags2, data=negoData)
             if packet[0] == '\xfe':
                 # Answer is SMB2 packet
-                self._SMBConnection = smb3.SMB3(remoteName, remoteHost, myName, hostType, sess_port, timeout, session = self._nmbSession )
+                self._SMBConnection = smb3.SMB3(self._remoteName, self._remoteHost, self._myName, hostType, self._sess_port, self._timeout, session = self._nmbSession )
             else:
                 # Answer is SMB packet, sticking to SMBv1
-                self._SMBConnection = smb.SMB(remoteName, remoteHost, myName, hostType, sess_port, timeout, session = self._nmbSession, negPacket = packet)
+                self._SMBConnection = smb.SMB(self._remoteName, self._remoteHost, self._myName, hostType, self._sess_port, self._timeout, session = self._nmbSession, negPacket = packet)
         else:
             if preferredDialect == smb.SMB_DIALECT:
-                self._SMBConnection = smb.SMB(remoteName, remoteHost, myName, hostType, sess_port, timeout)
+                self._SMBConnection = smb.SMB(self._remoteName, self._remoteHost, self._myName, hostType, self._sess_port, self._timeout)
             elif preferredDialect in [SMB2_DIALECT_002, SMB2_DIALECT_21, SMB2_DIALECT_30]:
-                self._SMBConnection = smb3.SMB3(remoteName, remoteHost, myName, hostType, sess_port, timeout, preferredDialect = preferredDialect)
+                self._SMBConnection = smb3.SMB3(self._remoteName, self._remoteHost, self._myName, hostType, self._sess_port, self._timeout, preferredDialect = preferredDialect)
             else:
                 LOG.critical("Unknown dialect ", preferredDialect)
                 raise
+        return True
 
-    def _negotiateSession(self, myName, remoteName, remoteHost, sess_port, timeout, extended_security = True):
+    def _negotiateSession(self, myName, remoteName, remoteHost, sess_port, timeout, extended_security = True, flags1=0, flags2=0, data=None):
         # Here we follow [MS-SMB2] negotiation handshake trying to understand what dialects
         # (including SMB1) is supported on the other end.
 
@@ -86,7 +109,8 @@ class SMBConnection:
 
         tries = 0
         smbp = smb.NewSMBPacket()
-        smbp['Flags2'] = 0
+        smbp['Flags1'] = flags1
+        smbp['Flags2'] = flags2
         resp = None
         while tries < 2:
             self._nmbSession = nmb.NetBIOSTCPSession(myName, remoteName, remoteHost, nmb.TYPE_SERVER, sess_port, timeout)
@@ -94,14 +118,14 @@ class SMBConnection:
             negSession = smb.SMBCommand(smb.SMB.SMB_COM_NEGOTIATE)
             if extended_security is True:
                 smbp['Flags2'] |= smb.SMB.FLAGS2_EXTENDED_SECURITY
-            negSession['Data'] = '\x02NT LM 0.12\x00\x02SMB 2.002\x00\x02SMB 2.???\x00'
+            negSession['Data'] = data
             smbp.addCommand(negSession)
             self._nmbSession.send_packet(str(smbp))
 
             try:
                 resp = self._nmbSession.recv_packet(timeout)
                 break
-            except nmb.NetBIOSError, e:
+            except nmb.NetBIOSError:
                 # OSX Yosemite asks for more Flags. Let's give it a try and see what happens
                 smbp['Flags2'] += smb.SMB.FLAGS2_NT_STATUS | smb.SMB.FLAGS2_LONG_NAMES | smb.SMB.FLAGS2_UNICODE
                 smbp['Data'] = []

@@ -743,6 +743,9 @@ class SMB3:
 
                     if len(version) >= 4:
                         self._Session['ServerOS'] = "Windows %d.%d Build %d" % (ord(version[0]), ord(version[1]), struct.unpack('<H',version[2:4])[0])
+                        self._Session["ServerOSMajor"] = ord(version[0])
+                        self._Session["ServerOSMinor"] = ord(version[1])
+                        self._Session["ServerOSBuild"] = struct.unpack('<H',version[2:4])[0]
 
             type3, exportedSessionKey = ntlm.getNTLMSSPType3(auth, respToken['ResponseToken'], user, password, domain, lmhash, nthash)
    

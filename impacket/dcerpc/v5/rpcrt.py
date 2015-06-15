@@ -1568,6 +1568,9 @@ class DCERPCServer(Thread):
                 reason = 2 # Transfer Syntax not supported
             if reason == 0:
                result = MSRPC_CONT_RESULT_ACCEPT
+            if reason == 1:
+                LOG.error('Bind request for an unsupported interface %s' % bin_to_uuidtup(item['AbstractSyntax']))
+
             resp['ctx_num']             += 1
             itemResult                   = CtxItemResult()
             itemResult['Result']         = result

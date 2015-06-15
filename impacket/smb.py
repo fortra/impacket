@@ -2066,6 +2066,17 @@ class SMBDeleteDirectory_Data(AsciiOrUnicodeStructure):
         ('DirectoryName','u'),
     )
 
+############# SMB_COM_CHECK_DIRECTORY (0x10)
+class SMBCheckDirectory_Data(AsciiOrUnicodeStructure):
+    AsciiStructure = (
+        ('BufferFormat','<B=4'),
+        ('DirectoryName','z'),
+    )
+    UnicodeStructure = (
+        ('BufferFormat','<B=4'),
+        ('DirectoryName','u'),
+    )
+
 ############# SMB_COM_RENAME (0x07)
 class SMBRename_Parameters(SMBCommand_Parameters):
     structure = (
@@ -2541,19 +2552,6 @@ class SMB:
             self.signSMB(smb, self._SigningSessionKey, self._SigningChallengeResponse)
         self._sess.send_packet(str(smb))
 
-    def __send_smb_packet(self, cmd, flags, flags2, tid, mid, params = '', data = ''):
-        smb = NewSMBPacket()
-        smb['Flags1'] = flags
-        smb['Flags2'] = flags2
-        smb['Tid'] = tid
-        smb['Mid'] = mid
-        cmd = SMBCommand(cmd)
-        smb.addCommand(cmd)
-
-        cmd['Parameters'] = params
-        cmd['Data'] = data
-        self.sendSMB(smb)
-
     @staticmethod
     def isValidAnswer(s, cmd):
         while 1:
@@ -2636,6 +2634,7 @@ class SMB:
 
         smb = NewSMBPacket()
         smb['Flags1']  = SMB.FLAGS1_PATHCASELESS
+        smb['Flags2'] = 0
 
         treeConnect = SMBCommand(SMB.SMB_COM_TREE_CONNECT)
         treeConnect['Parameters'] = SMBTreeConnect_Parameters()
@@ -2643,7 +2642,6 @@ class SMB:
         treeConnect['Data']['Path'] = path.upper()
         treeConnect['Data']['Password'] = password
         treeConnect['Data']['Service'] = service
-
         smb.addCommand(treeConnect)
 
         self.sendSMB(smb)
@@ -2767,7 +2765,9 @@ class SMB:
     def disconnect_tree(self, tid):
         smb = NewSMBPacket()
         smb['Tid']  = tid
+
         smb.addCommand(SMBCommand(SMB.SMB_COM_TREE_DISCONNECT))
+
         self.sendSMB(smb)
         self.recvSMB()
 
@@ -2896,6 +2896,7 @@ class SMB:
            transCommand['Parameters']['Flags'] = TRANS_NO_RESPONSE
 
         smb.addCommand(transCommand)
+
         self.sendSMB(smb)
 
     def send_trans2(self, tid, setup, name, param, data):
@@ -2939,8 +2940,8 @@ class SMB:
         transCommand['Data']['Name'] = name
         transCommand['Data']['Trans_Parameters'] = param
         transCommand['Data']['Trans_Data'] = data
-
         smb.addCommand(transCommand)
+
         self.sendSMB(smb)
 
     def query_file_info(self, tid, fid):
@@ -3015,7 +3016,7 @@ class SMB:
         return (self._dialects_parameters['SecurityMode'] & SMB.SECURITY_SHARE_MASK) == SMB.SECURITY_SHARE_USER
 
     def is_signing_required(self):
-	return self._SignatureRequired
+        return self._SignatureRequired
 
     def get_ntlmv1_response(self, key):
         challenge = self._dialects_data['Challenge']
@@ -3253,13 +3254,13 @@ class SMB:
                        # For some reason, we couldn't decode Unicode here.. silently discard the operation
                        pass
 
-                # Parse Version to know the target Operating system name. Not provided elsewhere anymore
-                if ntlmChallenge.fields.has_key('Version'):
-                    version = ntlmChallenge['Version']
+            # Parse Version to know the target Operating system name. Not provided elsewhere anymore
+            if ntlmChallenge.fields.has_key('Version'):
+                version = ntlmChallenge['Version']
 
-		    self.__server_os_major = ord(version[0])
-		    self.__server_os_minor = ord(version[1])
-		    self.__server_os_build = struct.unpack('<H',version[2:4])[0]
+                self.__server_os_major = ord(version[0])
+                self.__server_os_minor = ord(version[1])
+                self.__server_os_build = unpack('<H',version[2:4])[0]
 
             type3, exportedSessionKey = ntlm.getNTLMSSPType3(auth, respToken['ResponseToken'], user, password, domain, lmhash, nthash, use_ntlmv2 = use_ntlmv2)
 
@@ -3393,7 +3394,6 @@ class SMB:
         sessionSetup['Data']['PrimaryDomain'] = str(domain)
         sessionSetup['Data']['NativeOS']      = str(os.name)
         sessionSetup['Data']['NativeLanMan']  = 'pysmb'
-
         smb.addCommand(sessionSetup)
 
         self.sendSMB(smb)
@@ -3481,12 +3481,10 @@ class SMB:
         smb['Tid']    = tid
 
         read = SMBCommand(SMB.SMB_COM_READ)
-
         read['Parameters'] = SMBRead_Parameters()
         read['Parameters']['Fid'] = fid
         read['Parameters']['Offset'] = offset
         read['Parameters']['Count'] = max_size
-
         smb.addCommand(read)
 
         if wait_answer:
@@ -3522,7 +3520,6 @@ class SMB:
             readAndX['Parameters']['Fid'] = fid
             readAndX['Parameters']['Offset'] = offset
             readAndX['Parameters']['MaxCount'] = max_size
-
             smb.addCommand(readAndX)
         else:
             smb = smb_packet
@@ -3570,12 +3567,10 @@ class SMB:
         smb['Tid']    = tid
 
         readRaw = SMBCommand(SMB.SMB_COM_READ_RAW)
-
         readRaw['Parameters'] = SMBReadRaw_Parameters()
         readRaw['Parameters']['Fid'] = fid
         readRaw['Parameters']['Offset'] = offset
         readRaw['Parameters']['MaxCount'] = max_size
-
         smb.addCommand(readRaw)
 
         self.sendSMB(smb)
@@ -3595,8 +3590,6 @@ class SMB:
         smb['Tid']    = tid
 
         write = SMBCommand(SMB.SMB_COM_WRITE)
-        smb.addCommand(write)
-
         write['Parameters'] = SMBWrite_Parameters()
         write['Data'] = SMBWrite_Data()
         write['Parameters']['Fid'] = fid
@@ -3604,6 +3597,7 @@ class SMB:
         write['Parameters']['Offset'] = offset
         write['Parameters']['Remaining'] = len(data)
         write['Data']['Data'] = data
+        smb.addCommand(write)
 
         self.sendSMB(smb)
 
@@ -3684,14 +3678,13 @@ class SMB:
         smb['Tid']    = tid
 
         writeRaw = SMBCommand(SMB.SMB_COM_WRITE_RAW)
-        smb.addCommand(writeRaw)
-
         writeRaw['Parameters'] = SMBWriteRaw_Parameters()
         writeRaw['Parameters']['Fid'] = fid
         writeRaw['Parameters']['Offset'] = offset
         writeRaw['Parameters']['Count'] = len(data)
         writeRaw['Parameters']['DataLength'] = 0
         writeRaw['Parameters']['DataOffset'] = 0
+        smb.addCommand(writeRaw)
 
         self.sendSMB(smb)
         self._sess.send_packet(data)
@@ -3767,9 +3760,11 @@ class SMB:
 
     def logoff(self):
         smb = NewSMBPacket()
+
         logOff = SMBCommand(SMB.SMB_COM_LOGOFF_ANDX)
         logOff['Parameters'] = SMBLogOffAndX()
         smb.addCommand(logOff)
+
         self.sendSMB(smb)
         self.recvSMB()
         # Let's clear some fields so you can login again under the same session
@@ -3901,7 +3896,19 @@ class SMB:
         path = string.replace(path,'/', '\\')
         tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\' + service, password)
         try:
-            self.__send_smb_packet(SMB.SMB_COM_CHECK_DIRECTORY, 0x08, 0, tid, 0, '', '\x04' + path + '\x00')
+            smb = NewSMBPacket()
+            smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
+            smb['Flags2'] = 0
+            smb['Tid'] = tid
+            smb['Mid'] = 0
+
+            cmd = SMBCommand(SMB.SMB_COM_CHECK_DIRECTORY)
+            cmd['Parameters'] = ''
+            cmd['Data'] = SMBCheckDirectory_Data()
+            cmd['Data']['DirectoryName'] = path
+            smb.addCommand(cmd)
+
+            self.sendSMB(smb)
 
             while 1:
                 s = self.recvSMB()
@@ -3917,7 +3924,20 @@ class SMB:
 
         tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\' + service, password)
         try:
-            self.__send_smb_packet(SMB.SMB_COM_DELETE, 0x08, 0, tid, 0, pack('<H', ATTR_HIDDEN | ATTR_SYSTEM | ATTR_ARCHIVE), '\x04' + path + '\x00')
+            smb = NewSMBPacket()
+            smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
+            smb['Flags2'] = 0
+            smb['Tid'] = tid
+            smb['Mid'] = 0
+
+            cmd = SMBCommand(SMB.SMB_COM_DELETE)
+            cmd['Parameters'] = SMBDelete_Parameters()
+            cmd['Parameters']['SearchAttributes'] = ATTR_HIDDEN | ATTR_SYSTEM | ATTR_ARCHIVE
+            cmd['Data'] = SMBDelete_Data()
+            cmd['Data']['FileName'] = path + '\x00'
+            smb.addCommand(cmd)
+
+            self.sendSMB(smb)
 
             while 1:
                 s = self.recvSMB()
@@ -3937,11 +3957,13 @@ class SMB:
 
             smb = NewSMBPacket()
             smb['Tid'] = tid
-            smb['Flags2'] = SMB.FLAGS1_PATHCASELESS | self.__unicode_flag
+            smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
+            smb['Flags2'] = self.__unicode_flag
             createDir = SMBCommand(SMB.SMB_COM_DELETE_DIRECTORY)
             createDir['Data'] = SMBDeleteDirectory_Data(flags=self.__unicode_path)
             createDir['Data']['DirectoryName'] = path
             smb.addCommand(createDir)
+
             self.sendSMB(smb)
 
             while 1:
@@ -3958,12 +3980,16 @@ class SMB:
 	    path = path.encode('utf-16le') if self.__unicode_flag else path
 
             smb = NewSMBPacket()
+            smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
+            smb['Flags2'] = self.__unicode_flag
             smb['Tid'] = tid
-            smb['Flags2'] = SMB.FLAGS1_PATHCASELESS | self.__unicode_flag
+            smb['Mid'] = 0
+
             createDir = SMBCommand(SMB.SMB_COM_CREATE_DIRECTORY)
             createDir['Data'] = SMBCreateDirectory_Data(flags=self.__unicode_flag)
             createDir['Data']['DirectoryName'] = path
             smb.addCommand(createDir)
+
             self.sendSMB(smb)
 
             smb = self.recvSMB()
@@ -3979,17 +4005,21 @@ class SMB:
         tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\' + service, password)
         try:
             smb = NewSMBPacket()
+            smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
+            smb['Flags2'] = 0
             smb['Tid'] = tid
-            smb['Flags'] = SMB.FLAGS1_PATHCASELESS
+            smb['Mid'] = 0
+
             renameCmd = SMBCommand(SMB.SMB_COM_RENAME)
             renameCmd['Parameters'] = SMBRename_Parameters()
             renameCmd['Parameters']['SearchAttributes'] = ATTR_SYSTEM | ATTR_HIDDEN | ATTR_DIRECTORY
             renameCmd['Data'] = SMBRename_Data()
             renameCmd['Data']['OldFileName'] = old_path
             renameCmd['Data']['NewFileName'] = new_path
-
             smb.addCommand(renameCmd)
+
             self.sendSMB(smb)
+
             smb = self.recvSMB()
             if smb.isValidAnswer(SMB.SMB_COM_RENAME):
                return 1
