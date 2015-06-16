@@ -60,7 +60,7 @@ class SMBConnection:
         if manualNegotiate is False:
             self.negotiateSession(preferredDialect)
 
-    def negotiateSession(self, preferredDialect=None, flags1=0, flags2=0,
+    def negotiateSession(self, preferredDialect=None, flags1=smb.SMB.FLAGS1_PATHCASELESS | smb.SMB.FLAGS1_CANONICALIZED_PATHS, flags2=smb.SMB.FLAGS2_EXTENDED_SECURITY | smb.SMB.FLAGS2_NT_STATUS | smb.SMB.FLAGS2_LONG_NAMES,
                          negoData='\x02NT LM 0.12\x00\x02SMB 2.002\x00\x02SMB 2.???\x00'):
         """
         Perform protocol negotiation
