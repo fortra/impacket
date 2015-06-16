@@ -3761,7 +3761,7 @@ class SMB:
             findFirstParameter['Flags'] = SMB_FIND_RETURN_RESUME_KEYS | SMB_FIND_CLOSE_AT_EOS
             findFirstParameter['InformationLevel'] = SMB_FIND_FILE_BOTH_DIRECTORY_INFO
             findFirstParameter['SearchStorageType'] = 0
-            findFirstParameter['FileName'] = path + '\x00\x00' if self.__flags2 & SMB.FLAGS2_UNICODE else '\x00'
+            findFirstParameter['FileName'] = path + ('\x00\x00' if self.__flags2 & SMB.FLAGS2_UNICODE else '\x00')
             self.send_trans2(tid, SMB.TRANS2_FIND_FIRST2, '\x00', findFirstParameter, '')
             files = [ ]
 
@@ -3804,7 +3804,7 @@ class SMB:
                         findNextParameter['InformationLevel'] = SMB_FIND_FILE_BOTH_DIRECTORY_INFO
                         findNextParameter['ResumeKey'] = 0
                         findNextParameter['Flags'] = SMB_FIND_RETURN_RESUME_KEYS | SMB_FIND_CLOSE_AT_EOS
-                        findNextParameter['FileName'] = resume_filename + '\x00'
+                        findNextParameter['FileName'] = resume_filename + ('\x00\x00' if self.__flags2 & SMB.FLAGS2_UNICODE else '\x00')
                         self.send_trans2(tid, SMB.TRANS2_FIND_NEXT2, '\x00', findNextParameter, '')
                         findData = ''
                         findNext2ParameterBlock = ''
