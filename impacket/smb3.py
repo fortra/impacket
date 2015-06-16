@@ -730,10 +730,6 @@ class SMB3:
                 if ntlmChallenge.fields.has_key('Version'):
                     version = ntlmChallenge['Version']
 
-		    self._Session["ServerOSMajor"] = ord(version[0])
-		    self._Session["ServerOSMinor"] = ord(version[1])
-		    self._Session["ServerOSBuild"] = struct.unpack('<H',version[2:4])[0]
-
                     if len(version) >= 4:
                         self._Session['ServerOS'] = "Windows %d.%d Build %d" % (ord(version[0]), ord(version[1]), struct.unpack('<H',version[2:4])[0])
                         self._Session["ServerOSMajor"] = ord(version[0])
