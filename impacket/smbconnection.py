@@ -26,7 +26,7 @@ SMB_DIALECT = smb.SMB_DIALECT
 
 class SMBConnection:
     """
-    SMBConnection class - beto
+    SMBConnection class
 
     :param string remoteName: name of the remote host, can be it's NETBIOS name, IP or *\*SMBSERVER*.  If the later, and port is 139, the library will try to get the target's server name.
     :param string remoteHost: target server's remote address (IPv4, IPv6)
@@ -94,7 +94,7 @@ class SMBConnection:
         # propagate flags to the smb sub-object
         # does not affect smb3 objects
         if isinstance(self._SMBConnection, smb.SMB):
-	    self._SMBConnection.set_flags(flags1=flags1, flags2=flags2)
+            self._SMBConnection.set_flags(flags1=flags1, flags2=flags2)
 
         return True
 
@@ -351,12 +351,12 @@ class SMBConnection:
         if self.getDialect() == smb.SMB_DIALECT:
             _, flags2 = self._SMBConnection.get_flags()
 
-	    pathName = pathName.replace('/', '\\')
-	    pathName = pathName.encode('utf-16le') if flags2 & smb.SMB.FLAGS2_UNICODE else pathName
+            pathName = pathName.replace('/', '\\')
+            pathName = pathName.encode('utf-16le') if flags2 & smb.SMB.FLAGS2_UNICODE else pathName
 
             ntCreate = smb.SMBCommand(smb.SMB.SMB_COM_NT_CREATE_ANDX)
             ntCreate['Parameters'] = smb.SMBNtCreateAndX_Parameters()
-	    ntCreate['Data']       = smb.SMBNtCreateAndX_Data(flags=flags2)
+            ntCreate['Data']       = smb.SMBNtCreateAndX_Data(flags=flags2)
             ntCreate['Parameters']['FileNameLength']= len(pathName)
             ntCreate['Parameters']['AccessMask']    = desiredAccess
             ntCreate['Parameters']['FileAttributes']= fileAttributes
@@ -368,8 +368,8 @@ class SMBConnection:
             ntCreate['Parameters']['CreateFlags']   = 0x16
             ntCreate['Data']['FileName'] = pathName
 
-	    if flags2 & smb.SMB.FLAGS2_UNICODE:
-	    	ntCreate['Data']['Pad'] = 0x0
+            if flags2 & smb.SMB.FLAGS2_UNICODE:
+                ntCreate['Data']['Pad'] = 0x0
 
             if createContexts is not None:
                 LOG.error("CreateContexts not supported in SMB1")
@@ -397,12 +397,12 @@ class SMBConnection:
         if self.getDialect() == smb.SMB_DIALECT:
             _, flags2 = self._SMBConnection.get_flags()
 
-	    pathName = pathName.replace('/', '\\')
-	    pathName = pathName.encode('utf-16le') if flags2 & smb.SMB.FLAGS2_UNICODE else pathName
+            pathName = pathName.replace('/', '\\')
+            pathName = pathName.encode('utf-16le') if flags2 & smb.SMB.FLAGS2_UNICODE else pathName
 
             ntCreate = smb.SMBCommand(smb.SMB.SMB_COM_NT_CREATE_ANDX)
             ntCreate['Parameters'] = smb.SMBNtCreateAndX_Parameters()
-	    ntCreate['Data']       = smb.SMBNtCreateAndX_Data(flags=flags2)
+            ntCreate['Data']       = smb.SMBNtCreateAndX_Data(flags=flags2)
             ntCreate['Parameters']['FileNameLength']= len(pathName)
             ntCreate['Parameters']['AccessMask']    = desiredAccess
             ntCreate['Parameters']['FileAttributes']= fileAttributes
@@ -414,8 +414,8 @@ class SMBConnection:
             ntCreate['Parameters']['CreateFlags']   = 0x16
             ntCreate['Data']['FileName'] = pathName
 
-	    if flags2 & smb.SMB.FLAGS2_UNICODE:
-	    	ntCreate['Data']['Pad'] = 0x0
+            if flags2 & smb.SMB.FLAGS2_UNICODE:
+                ntCreate['Data']['Pad'] = 0x0
 
             if createContexts is not None:
                 LOG.error("CreateContexts not supported in SMB1")
