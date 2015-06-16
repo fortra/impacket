@@ -215,7 +215,7 @@ class SMB1Tests(SMBTests):
         self.file     = '/TEST'
         self.directory= '/BETO'
         self.upload   = '../../nt_errors.py'
-        self.flags2   = smb.SMB.FLAGS2_NT_STATUS | smb.SMB.FLAGS2_EXTENDED_SECURITY
+        self.flags2   = smb.SMB.FLAGS2_NT_STATUS | smb.SMB.FLAGS2_EXTENDED_SECURITY | smb.SMB.FLAGS2_LONG_NAMES
         self.dialects = smb.SMB_DIALECT
 
 class SMB1TestsUnicode(SMBTests):
@@ -233,7 +233,7 @@ class SMB1TestsUnicode(SMBTests):
         self.file     = '/TEST'
         self.directory= '/BETO'
         self.upload   = '../../nt_errors.py'
-        self.flags2   = smb.SMB.FLAGS2_UNICODE | smb.SMB.FLAGS2_NT_STATUS | smb.SMB.FLAGS2_EXTENDED_SECURITY
+        self.flags2   = smb.SMB.FLAGS2_UNICODE | smb.SMB.FLAGS2_NT_STATUS | smb.SMB.FLAGS2_EXTENDED_SECURITY | smb.SMB.FLAGS2_LONG_NAMES
         self.dialects = smb.SMB_DIALECT
 
 class SMB002Tests(SMBTests):

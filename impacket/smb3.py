@@ -729,6 +729,7 @@ class SMB3:
                 # Parse Version to know the target Operating system name. Not provided elsewhere anymore
                 if ntlmChallenge.fields.has_key('Version'):
                     version = ntlmChallenge['Version']
+
                     if len(version) >= 4:
                         self._Session['ServerOS'] = "Windows %d.%d Build %d" % (ord(version[0]), ord(version[1]), struct.unpack('<H',version[2:4])[0])
                         self._Session["ServerOSMajor"] = ord(version[0])
