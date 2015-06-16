@@ -2607,7 +2607,6 @@ class SMB:
             return parsePacket( NewSMBPacket( data = negPacket))
 
     def tree_connect(self, path, password = '', service = SERVICE_ANY):
-	# SMB_COM_TREE_CONNECT shouldn't encode unicode, from [MS-CIFS], 2.2.4.50.1 -> no unicode here!
         LOG.warning("[MS-CIFS] This is an original Core Protocol command.This command has been deprecated.Client Implementations SHOULD use SMB_COM_TREE_CONNECT_ANDX")
 
         # return 0x800
