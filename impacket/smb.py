@@ -1140,7 +1140,7 @@ class SMBQueryFileInformation_Parameters(Structure):
 
 class SMBQueryFileInformationResponse_Parameters(Structure):
     structure = (
-        ('EaErrorOffset','<H=0')
+        ('EaErrorOffset','<H=0'),
     )
 
 class SMBQueryFileInformation_Data(Structure):
