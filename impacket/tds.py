@@ -615,6 +615,219 @@ class MSSQL:
         #print packet['Length']
         return packet
 
+    def kerberosLogin(self, database, username, password='', domain='', hashes=None, aesKey='', kdcHost=None, TGT=None, TGS=None, useCache=True):
+
+        if hashes is not None:
+            lmhash, nthash = hashes.split(':')
+            lmhash = binascii.a2b_hex(lmhash)
+            nthash = binascii.a2b_hex(nthash)
+        else:
+            lmhash = ''
+            nthash = ''
+
+        resp = self.preLogin()
+        # Test this!
+        if resp['Encryption'] == TDS_ENCRYPT_REQ or resp['Encryption'] == TDS_ENCRYPT_OFF:
+            LOG.info("Encryption required, switching to TLS")
+
+            # Switching to TLS now
+            ctx = SSL.Context(SSL.TLSv1_METHOD)
+            ctx.set_cipher_list('RC4')
+            tls = SSL.Connection(ctx,None)
+            tls.set_connect_state()
+            while True:
+                try:
+                    tls.do_handshake()
+                except SSL.WantReadError:
+                    data = tls.bio_read(4096)
+                    self.sendTDS(TDS_PRE_LOGIN, data,0)
+                    tds = self.recvTDS()
+                    tls.bio_write(tds['Data'])
+                else:
+                    break
+
+            # SSL and TLS limitation: Secure Socket Layer (SSL) and its replacement,
+            # Transport Layer Security(TLS), limit data fragments to 16k in size.
+            self.packetSize = 16*1024-1
+            self.tlsSocket = tls
+
+
+        login = TDS_LOGIN()
+
+        login['HostName'] = (''.join([random.choice(string.letters) for _ in range(8)])).encode('utf-16le')
+        login['AppName']  = (''.join([random.choice(string.letters) for _ in range(8)])).encode('utf-16le')
+        login['ServerName'] = self.server.encode('utf-16le')
+        login['CltIntName']  = login['AppName']
+        login['ClientPID'] = random.randint(0,1024)
+        login['PacketSize'] = self.packetSize
+        if database is not None:
+            login['Database'] = database.encode('utf-16le')
+        login['OptionFlags2'] = TDS_INIT_LANG_FATAL | TDS_ODBC_ON
+
+        from impacket.spnego import SPNEGO_NegTokenInit, TypesMech
+        # Importing down here so pyasn1 is not required if kerberos is not used.
+        from impacket.krb5.asn1 import AP_REQ, Authenticator, TGS_REP, seq_set
+        from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS, KerberosError
+        from impacket.krb5 import constants
+        from impacket.krb5.types import Principal, KerberosTime, Ticket
+        from pyasn1.codec.der import decoder, encoder
+        from impacket.krb5.ccache import CCache
+        import os
+        import datetime
+
+        if useCache is True:
+            try:
+                ccache = CCache.loadFile(os.getenv('KRB5CCNAME'))
+            except:
+                # No cache present
+                pass
+            else:
+                LOG.debug("Using Kerberos Cache: %s" % os.getenv('KRB5CCNAME'))
+                principal = 'MSSQLSvc/%s.%s:%d' % (self.server, domain, self.port)
+                creds = ccache.getCredential(principal)
+                if creds is None:
+                    # Let's try for the TGT and go from there
+                    principal = 'krbtgt/%s@%s' % (domain.upper(),domain.upper())
+                    creds =  ccache.getCredential(principal)
+                    if creds is not None:
+                        TGT = creds.toTGT()
+                        LOG.debug('Using TGT from cache')
+                    else:
+                        LOG.debug("No valid credentials found in cache. ")
+                else:
+                    TGS = creds.toTGS()
+                    LOG.debug('Using TGS from cache')
+
+        # First of all, we need to get a TGT for the user
+        userName = Principal(username, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
+        while True:
+            if TGT is None:
+                if TGS is None:
+                    try:
+                        tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, password, domain, lmhash, nthash, aesKey, kdcHost)
+                    except KerberosError, e:
+                        if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
+                            # We might face this if the target does not support AES
+                            # So, if that's the case we'll force using RC4 by converting
+                            # the password to lm/nt hashes and hope for the best. If that's already
+                            # done, byebye.
+                            if lmhash is '' and nthash is '' and (aesKey is '' or aesKey is None) and TGT is None and TGS is None:
+                                from impacket.ntlm import compute_lmhash, compute_nthash
+                                LOG.debug('Got KDC_ERR_ETYPE_NOSUPP, fallback to RC4')
+                                lmhash = compute_lmhash(password)
+                                nthash = compute_nthash(password)
+                                continue
+                            else:
+                                raise
+                        else:
+                            raise
+            else:
+                tgt = TGT['KDC_REP']
+                cipher = TGT['cipher']
+                sessionKey = TGT['sessionKey']
+
+            if TGS is None:
+                # From https://msdn.microsoft.com/en-us/library/ms191153.aspx?f=255&MSPPError=-2147217396
+                # Beginning with SQL Server 2008, the SPN format is changed in order to support Kerberos authentication
+                # on TCP/IP, named pipes, and shared memory. The supported SPN formats for named and default instances
+                # are as follows.
+                # Named instance
+                #     MSSQLSvc/FQDN:[port | instancename], where:
+                #         MSSQLSvc is the service that is being registered.
+                #         FQDN is the fully qualified domain name of the server.
+                #         port is the TCP port number.
+                #         instancename is the name of the SQL Server instance.
+                serverName = Principal('MSSQLSvc/%s.%s:%d' % (self.server, domain, self.port), type=constants.PrincipalNameType.NT_SRV_INST.value)
+                try:
+                    tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey)
+                except KerberosError, e:
+                    if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
+                        # We might face this if the target does not support AES
+                        # So, if that's the case we'll force using RC4 by converting
+                        # the password to lm/nt hashes and hope for the best. If that's already
+                        # done, byebye.
+                        if lmhash is '' and nthash is '' and (aesKey is '' or aesKey is None) and TGT is None and TGS is None:
+                            from impacket.ntlm import compute_lmhash, compute_nthash
+                            LOG.debug('Got KDC_ERR_ETYPE_NOSUPP, fallback to RC4')
+                            lmhash = compute_lmhash(password)
+                            nthash = compute_nthash(password)
+                        else:
+                            raise
+                    else:
+                        raise
+                else:
+                    break
+            else:
+                tgs = TGS['KDC_REP']
+                cipher = TGS['cipher']
+                sessionKey = TGS['sessionKey']
+
+        # Let's build a NegTokenInit with a Kerberos REQ_AP
+
+        blob = SPNEGO_NegTokenInit()
+
+        # Kerberos
+        blob['MechTypes'] = [TypesMech['MS KRB5 - Microsoft Kerberos 5']]
+
+        # Let's extract the ticket from the TGS
+        tgs = decoder.decode(tgs, asn1Spec = TGS_REP())[0]
+        ticket = Ticket()
+        ticket.from_asn1(tgs['ticket'])
+
+        # Now let's build the AP_REQ
+        apReq = AP_REQ()
+        apReq['pvno'] = 5
+        apReq['msg-type'] = int(constants.ApplicationTagNumbers.AP_REQ.value)
+
+        opts = list()
+        apReq['ap-options'] = constants.encodeFlags(opts)
+        seq_set(apReq,'ticket', ticket.to_asn1)
+
+        authenticator = Authenticator()
+        authenticator['authenticator-vno'] = 5
+        authenticator['crealm'] = domain
+        seq_set(authenticator, 'cname', userName.components_to_asn1)
+        now = datetime.datetime.utcnow()
+
+        authenticator['cusec'] = now.microsecond
+        authenticator['ctime'] = KerberosTime.to_asn1(now)
+
+        encodedAuthenticator = encoder.encode(authenticator)
+
+        # Key Usage 11
+        # AP-REQ Authenticator (includes application authenticator
+        # subkey), encrypted with the application session key
+        # (Section 5.5.1)
+        encryptedEncodedAuthenticator = cipher.encrypt(sessionKey, 11, encodedAuthenticator, None)
+
+        apReq['authenticator'] = None
+        apReq['authenticator']['etype'] = cipher.enctype
+        apReq['authenticator']['cipher'] = encryptedEncodedAuthenticator
+
+        blob['MechToken'] = encoder.encode(apReq)
+
+        login['OptionFlags2'] |= TDS_INTEGRATED_SECURITY_ON
+
+        login['SSPI'] = blob.getData()
+        login['Length'] = len(str(login))
+
+        # Send the NTLMSSP Negotiate or SQL Auth Packet
+        self.sendTDS(TDS_LOGIN7, str(login))
+
+        # According to the spects, if encryption is not required, we must encrypt just
+        # the first Login packet :-o
+        if resp['Encryption'] == TDS_ENCRYPT_OFF:
+            self.tlsSocket = None
+
+        tds = self.recvTDS()
+
+        self.replies = self.parseReply(tds['Data'])
+
+        if self.replies.has_key(TDS_LOGINACK_TOKEN):
+            return True
+        else:
+            return False
+
     def login(self, database, username, password='', domain='', hashes = None, useWindowsAuth = False):
 
         if hashes is not None:
