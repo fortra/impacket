@@ -138,11 +138,15 @@ if __name__ == '__main__':
 
     ms_sql = tds.MSSQL(address, string.atoi(options.port))
     ms_sql.connect()
-    if options.k is True:
-        res = ms_sql.kerberosLogin(options.db, username, password, domain, options.hashes, options.aesKey)
-    else:
-        res = ms_sql.login(options.db, username, password, domain, options.hashes, options.windows_auth)
-    ms_sql.printReplies()
+    try:
+        if options.k is True:
+            res = ms_sql.kerberosLogin(options.db, username, password, domain, options.hashes, options.aesKey)
+        else:
+            res = ms_sql.login(options.db, username, password, domain, options.hashes, options.windows_auth)
+        ms_sql.printReplies()
+    except Exception, e:
+        logging.error(str(e))
+        res = False
     if res is True:
         shell = SQLSHELL(ms_sql)
         if options.file is None:
