@@ -456,7 +456,8 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT 
                         # done, byebye.
                         if lmhash is '' and nthash is '' and (aesKey is '' or aesKey is None) and TGT is None and TGS is None:
                             from impacket.ntlm import compute_lmhash, compute_nthash
-                            lmhash = compute_lmhash(password) 
+                            LOG.debug('Got KDC_ERR_ETYPE_NOSUPP, fallback to RC4')
+                            lmhash = compute_lmhash(password)
                             nthash = compute_nthash(password) 
                             continue
                         else:
@@ -472,7 +473,7 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT 
         # Now that we have the TGT, we should ask for a TGS for cifs
 
         if TGS is None:
-            serverName = Principal('host/%s' % (targetName), type=constants.PrincipalNameType.NT_SRV_INST.value)
+            serverName = Principal('host/%s' % targetName, type=constants.PrincipalNameType.NT_SRV_INST.value)
             try:
                 tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey)
             except KerberosError, e:
@@ -483,7 +484,8 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT 
                     # done, byebye.
                     if lmhash is '' and nthash is '' and (aesKey is '' or aesKey is None) and TGT is None and TGS is None:
                         from impacket.ntlm import compute_lmhash, compute_nthash
-                        lmhash = compute_lmhash(password) 
+                        LOG.debug('Got KDC_ERR_ETYPE_NOSUPP, fallback to RC4')
+                        lmhash = compute_lmhash(password)
                         nthash = compute_nthash(password) 
                     else:
                         raise 
