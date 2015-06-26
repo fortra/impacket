@@ -761,6 +761,7 @@ class MSSQL:
                 tgs = TGS['KDC_REP']
                 cipher = TGS['cipher']
                 sessionKey = TGS['sessionKey']
+                break
 
         # Let's build a NegTokenInit with a Kerberos REQ_AP
 
