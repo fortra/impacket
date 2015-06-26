@@ -499,7 +499,8 @@ class CustomHeader(TypeSerialization1):
         #('pdwReserved',LONG),
     )
     def getData(self, soFar = 0):
-        self['headerSize'] = len(TypeSerialization1.getData(self, soFar))+len(TypeSerialization1.getDataReferents(self, soFar))
+        self['headerSize'] = len(TypeSerialization1.getData(self, soFar)) + len(
+            TypeSerialization1.getDataReferents(self, soFar))
         self['cIfs'] = len(self['pclsid'])
         return TypeSerialization1.getData(self, soFar)
 
@@ -512,7 +513,8 @@ class ACTIVATION_BLOB(NDRTLSTRUCT):
         ('Property',':'),
     )
     def getData(self, soFar = 0):
-        self['dwSize'] = len(self['CustomHeader'].getData(soFar))+len(self['CustomHeader'].getDataReferents(soFar))+len(self['Property'])
+        self['dwSize'] = len(self['CustomHeader'].getData(soFar)) + len(
+            self['CustomHeader'].getDataReferents(soFar)) + len(self['Property'])
         self['CustomHeader']['totalSize'] = self['dwSize']
         return NDRTLSTRUCT.getData(self)
 
@@ -939,7 +941,9 @@ class DCOMConnection:
     OID_DEL = {}
     OID_SET = {}
     PORTMAPS = {}
-    def __init__(self, target, username = '', password = '', domain = '', lmhash = '', nthash = '', aesKey = '', TGT=None, TGS=None, authLevel = RPC_C_AUTHN_LEVEL_PKT_PRIVACY, oxidResolver = False, doKerberos=False):
+
+    def __init__(self, target, username='', password='', domain='', lmhash='', nthash='', aesKey='', TGT=None, TGS=None,
+                 authLevel=RPC_C_AUTHN_LEVEL_PKT_PRIVACY, oxidResolver=False, doKerberos=False):
         self.__target = target
         self.__userName = username
         self.__password = password
@@ -1035,7 +1039,8 @@ class DCOMConnection:
 
         if hasattr(rpctransport, 'set_credentials') and len(self.__userName) >=0:
             # This method exists only for selected protocol sequences.
-            rpctransport.set_credentials(self.__userName,self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey, self.__TGT, self.__TGS)
+            rpctransport.set_credentials(self.__userName, self.__password, self.__domain, self.__lmhash, self.__nthash,
+                                         self.__aesKey, self.__TGT, self.__TGS)
         self.__portmap = rpctransport.get_dce_rpc()
         self.__portmap.set_auth_level(self.__authLevel)
         if self.__doKerberos is True:
@@ -1061,6 +1066,9 @@ class DCOMConnection:
                 DCOMConnection.PINGTIMER.cancel()
                 DCOMConnection.PINGTIMER.join()
                 DCOMConnection.PINGTIMER = None
+        if INTERFACE.CONNECTIONS.has_key(self.__target):
+            INTERFACE.CONNECTIONS[self.__target] = {}
+        #print INTERFACE.CONNECTIONS
 
 class CLASS_INSTANCE:
     def __init__(self, ORPCthis, stringBinding):
@@ -1090,7 +1098,9 @@ class CLASS_INSTANCE:
 class INTERFACE:
     # class variable holding the transport connections, organized by target IP
     CONNECTIONS = {}
-    def __init__(self, cinstance=None, objRef=None, ipidRemUnknown=None, iPid = None, oxid = None, oid = None, target = None, interfaceInstance=None):
+
+    def __init__(self, cinstance=None, objRef=None, ipidRemUnknown=None, iPid=None, oxid=None, oid=None, target=None,
+                 interfaceInstance=None):
         if interfaceInstance is not None:
             self.__target = interfaceInstance.get_target()
             self.__iPid = interfaceInstance.get_iPid()
@@ -1203,11 +1213,20 @@ class INTERFACE:
                     # we should handle all this cases accordingly
                     # Does this match exactly what get_target() returns?
                     LOG.debug('StringBinding: %s' % strBinding['aNetworkAddr'])
-                    if strBinding['aNetworkAddr'].upper().find(self.get_target().upper()) >= 0 and strBinding['wTowerId'] == 7:
-                        stringBinding = 'ncacn_ip_tcp:' + strBinding['aNetworkAddr'][:-1]
-                    # If get_target() is a FQDN, does it match the hostname?
-                    elif strBinding['aNetworkAddr'].upper().find(self.get_target().upper().partition('.')[0]) >= 0 and strBinding['wTowerId'] == 7:
-                        stringBinding = 'ncacn_ip_tcp:' + strBinding['aNetworkAddr'][:-1]
+                    if strBinding['wTowerId'] == 7:
+                        # If there's port information, let's strip it for now.
+                        if strBinding['aNetworkAddr'].find('[') >= 0:
+                            binding = strBinding['aNetworkAddr'].partition('[')[0]
+                        else:
+                            binding = strBinding['aNetworkAddr']
+
+                        if binding.upper().find(self.get_target().upper()) >= 0:
+                            stringBinding = 'ncacn_ip_tcp:' + strBinding['aNetworkAddr'][:-1]
+                            break
+                        # If get_target() is a FQDN, does it match the hostname?
+                        elif binding.upper().find(self.get_target().upper().partition('.')[0]) >= 0:
+                            stringBinding = 'ncacn_ip_tcp:' + strBinding['aNetworkAddr'][:-1]
+                            break
 
                 dcomInterface = transport.DCERPCTransportFactory(stringBinding)
                 if hasattr(dcomInterface, 'set_credentials'):
@@ -1266,7 +1285,8 @@ class INTERFACE:
 class IRemUnknown(INTERFACE):
     def __init__(self, interface):
         self._iid = IID_IRemUnknown
-        #INTERFACE.__init__(self, interface.get_cinstance(), interface.get_objRef(), interface.get_ipidRemUnknown(), interface.get_iPid(), target = interface.get_target())
+        #INTERFACE.__init__(self, interface.get_cinstance(), interface.get_objRef(), interface.get_ipidRemUnknown(),
+        #                   interface.get_iPid(), target=interface.get_target())
         INTERFACE.__init__(self, interfaceInstance=interface)
         self.set_oxid(interface.get_oxid())
 
@@ -1285,7 +1305,10 @@ class IRemUnknown(INTERFACE):
         resp = self.request(request, IID_IRemUnknown, self.get_ipidRemUnknown())         
         #resp.dump()
 
-        return IRemUnknown2(INTERFACE(self.get_cinstance(), None, self.get_ipidRemUnknown(), resp['ppQIResults']['std']['ipid'], oxid = resp['ppQIResults']['std']['oxid'], oid = resp['ppQIResults']['std']['oxid'], target = self.get_target()))
+        return IRemUnknown2(
+            INTERFACE(self.get_cinstance(), None, self.get_ipidRemUnknown(), resp['ppQIResults']['std']['ipid'],
+                      oxid=resp['ppQIResults']['std']['oxid'], oid=resp['ppQIResults']['std']['oxid'],
+                      target=self.get_target()))
 
     def RemAddRef(self):
         request = RemAddRef()
@@ -1499,7 +1522,8 @@ class IActivation:
                 securityBindings = securityBindings[len(secBinding):]
 
         classInstance = CLASS_INSTANCE(ORPCthis, stringBindings)
-        return IRemUnknown2(INTERFACE(classInstance, ''.join(resp['ppInterfaceData'][0]['abData']), ipidRemUnknown, target = self.__portmap.get_rpc_transport().get_dip()))
+        return IRemUnknown2(INTERFACE(classInstance, ''.join(resp['ppInterfaceData'][0]['abData']), ipidRemUnknown,
+                                      target=self.__portmap.get_rpc_transport().get_dip()))
 
 
 # 3.1.2.5.2.2 IRemoteSCMActivator Methods
@@ -1623,7 +1647,11 @@ class IRemoteSCMActivator:
         activationBlob = ACTIVATION_BLOB(objRef['pObjectData'])
 
         propOutput = activationBlob['Property'][:activationBlob['CustomHeader']['pSizes'][0]['Data']]
-        scmReply = activationBlob['Property'][activationBlob['CustomHeader']['pSizes'][0]['Data']:activationBlob['CustomHeader']['pSizes'][0]['Data']+activationBlob['CustomHeader']['pSizes'][1]['Data']]
+        scmReply = activationBlob['Property'][
+                   activationBlob['CustomHeader']['pSizes'][0]['Data']:activationBlob['CustomHeader']['pSizes'][0][
+                                                                           'Data'] +
+                                                                       activationBlob['CustomHeader']['pSizes'][1][
+                                                                           'Data']]
 
         scmr = ScmReplyInfoData()
         scmr.fromString(scmReply)
@@ -1663,7 +1691,8 @@ class IRemoteSCMActivator:
         classInstance = CLASS_INSTANCE(ORPCthis, stringBindings)
         classInstance.set_auth_level(scmr['remoteReply']['authnHint'])
         classInstance.set_auth_type(self.__portmap.get_auth_type())
-        return IRemUnknown2(INTERFACE(classInstance, ''.join(propsOut['ppIntfData'][0]['abData']), ipidRemUnknown, target = self.__portmap.get_rpc_transport().get_dip()))
+        return IRemUnknown2(INTERFACE(classInstance, ''.join(propsOut['ppIntfData'][0]['abData']), ipidRemUnknown,
+                                      target=self.__portmap.get_rpc_transport().get_dip()))
 
     def RemoteCreateInstance(self, clsId, iid):
         # Only supports one interface at a time
@@ -1785,7 +1814,11 @@ class IRemoteSCMActivator:
         activationBlob = ACTIVATION_BLOB(objRef['pObjectData'])
 
         propOutput = activationBlob['Property'][:activationBlob['CustomHeader']['pSizes'][0]['Data']]
-        scmReply = activationBlob['Property'][activationBlob['CustomHeader']['pSizes'][0]['Data']:activationBlob['CustomHeader']['pSizes'][0]['Data']+activationBlob['CustomHeader']['pSizes'][1]['Data']]
+        scmReply = activationBlob['Property'][
+                   activationBlob['CustomHeader']['pSizes'][0]['Data']:activationBlob['CustomHeader']['pSizes'][0][
+                                                                           'Data'] +
+                                                                       activationBlob['CustomHeader']['pSizes'][1][
+                                                                           'Data']]
 
         scmr = ScmReplyInfoData()
         scmr.fromString(scmReply)
@@ -1825,5 +1858,5 @@ class IRemoteSCMActivator:
         classInstance = CLASS_INSTANCE(ORPCthis, stringBindings)
         classInstance.set_auth_level(scmr['remoteReply']['authnHint'])
         classInstance.set_auth_type(self.__portmap.get_auth_type())
-        return IRemUnknown2(INTERFACE(classInstance, ''.join(propsOut['ppIntfData'][0]['abData']), ipidRemUnknown, target = self.__portmap.get_rpc_transport().get_dip()))
-
+        return IRemUnknown2(INTERFACE(classInstance, ''.join(propsOut['ppIntfData'][0]['abData']), ipidRemUnknown,
+                                      target=self.__portmap.get_rpc_transport().get_dip()))
