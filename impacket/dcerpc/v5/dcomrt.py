@@ -1216,16 +1216,23 @@ class INTERFACE:
                     if strBinding['wTowerId'] == 7:
                         # If there's port information, let's strip it for now.
                         if strBinding['aNetworkAddr'].find('[') >= 0:
-                            binding = strBinding['aNetworkAddr'].partition('[')[0]
+                            binding, _, bindingPort = strBinding['aNetworkAddr'].partition('[')
+                            bindingPort = '[' + bindingPort
                         else:
                             binding = strBinding['aNetworkAddr']
+                            bindingPort = ''
 
                         if binding.upper().find(self.get_target().upper()) >= 0:
                             stringBinding = 'ncacn_ip_tcp:' + strBinding['aNetworkAddr'][:-1]
                             break
                         # If get_target() is a FQDN, does it match the hostname?
                         elif binding.upper().find(self.get_target().upper().partition('.')[0]) >= 0:
-                            stringBinding = 'ncacn_ip_tcp:' + strBinding['aNetworkAddr'][:-1]
+                            # Here we replace the aNetworkAddr with self.get_target()
+                            # This is to help resolving the target system name.
+                            # self.get_target() has been resolved already otherwise we wouldn't be here whereas
+                            # aNetworkAddr is usually the NetBIOS name and unless you have your DNS resolver
+                            # with the right suffixes it will probably not resolve right.
+                            stringBinding = 'ncacn_ip_tcp:%s%s' % (self.get_target(), bindingPort)
                             break
 
                 LOG.debug('StringBinding chosen: %s' % stringBinding)
