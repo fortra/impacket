@@ -90,7 +90,7 @@ class ATSVC_EXEC:
         atInfo['DaysOfWeek']         = 0
         atInfo['Flags']              = 0
         atInfo['Command']            = ndrutils.NDRUniqueStringW()
-        atInfo['Command']['Data']    = ('%%COMSPEC%% /C %s > %%SYSTEMROOT%%\\Temp\\%s\x00' % (self.__command, tmpFileName)).encode('utf-16le')
+        atInfo['Command']['Data']    = ('%%COMSPEC%% /C %s > %%SYSTEMROOT%%\\Temp\\%s 2>&1\x00' % (self.__command, tmpFileName)).encode('utf-16le')
 
         resp = at.NetrJobAdd(('\\\\%s'% rpctransport.get_dip()),atInfo)
         jobId = resp['JobID']
