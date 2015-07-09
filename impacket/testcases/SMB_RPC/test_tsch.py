@@ -9,6 +9,12 @@
 # hNetrJobAdd
 # hNetrJobDel
 # hNetrJobGetInfo
+# SASetAccountInformation
+# hSASetAccountInformation
+# SASetNSAccountInformation
+# hSASetNSAccountInformation
+# SAGetNSAccountInformation
+# hSAGetNSAccountInformation
 #
 #  Not yet:
 #
@@ -20,7 +26,7 @@ import unittest
 import ConfigParser
 
 from impacket.dcerpc.v5 import transport
-from impacket.dcerpc.v5 import tsch, atsvc
+from impacket.dcerpc.v5 import tsch, atsvc, sasec
 from impacket.dcerpc.v5.atsvc import AT_INFO
 from impacket.dcerpc.v5.dtypes import NULL
 from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_INTEGRITY, RPC_C_AUTHN_LEVEL_PKT_PRIVACY
@@ -153,6 +159,90 @@ class TSCHTests(unittest.TestCase):
         resp = atsvc.hNetrJobDel(dce, NULL, resp['pJobId'], resp['pJobId'])
         resp.dump()
 
+    def test_SASetAccountInformation(self):
+        dce, rpctransport = self.connect(self.stringBindingAtSvc, sasec.MSRPC_UUID_SASEC)
+
+        request = sasec.SASetAccountInformation()
+        request['Handle'] = NULL
+        request['pwszJobName'] = 'MyJob.job\x00'
+        request['pwszAccount'] = self.username + '\0'
+        request['pwszPassword'] = self.password + '\0'
+        request['dwJobFlags'] = sasec.TASK_FLAG_RUN_ONLY_IF_LOGGED_ON
+        try:
+            resp = dce.request(request)
+            resp.dump()
+        except Exception, e:
+            if e.get_error_code() != 0x80070002:
+                raise
+
+    def test_hSASetAccountInformation(self):
+        dce, rpctransport = self.connect(self.stringBindingAtSvc, sasec.MSRPC_UUID_SASEC)
+
+        try:
+            resp = sasec.hSASetAccountInformation(dce, NULL, 'MyJob.job', self.username, self.password, 0)
+            resp.dump()
+        except Exception, e:
+            if e.get_error_code() != 0x80070002:
+                raise
+
+    def test_SASetNSAccountInformation(self):
+        dce, rpctransport = self.connect(self.stringBindingAtSvc, sasec.MSRPC_UUID_SASEC)
+
+        request = sasec.SASetNSAccountInformation()
+        request['Handle'] = NULL
+        request['pwszAccount'] = self.username + '\0'
+        request['pwszPassword'] = self.password + '\0'
+        resp = dce.request(request)
+        resp.dump()
+
+    def test_hSASetNSAccountInformation(self):
+        dce, rpctransport = self.connect(self.stringBindingAtSvc, sasec.MSRPC_UUID_SASEC)
+
+        resp = sasec.hSASetNSAccountInformation(dce, NULL, self.username, self.password)
+        resp.dump()
+
+    def test_SAGetNSAccountInformation(self):
+        dce, rpctransport = self.connect(self.stringBindingAtSvc, sasec.MSRPC_UUID_SASEC)
+
+        request = sasec.SAGetNSAccountInformation()
+        request['Handle'] = NULL
+        request['ccBufferSize'] = 15
+        for i in range(request['ccBufferSize'] ):
+            request['wszBuffer'].append(0)
+        resp = dce.request(request)
+        resp.dump()
+
+    def test_hSAGetNSAccountInformation(self):
+        dce, rpctransport = self.connect(self.stringBindingAtSvc, sasec.MSRPC_UUID_SASEC)
+
+        resp = sasec.hSAGetNSAccountInformation(dce, NULL, 15)
+        resp.dump()
+
+    def test_SAGetAccountInformation(self):
+        dce, rpctransport = self.connect(self.stringBindingAtSvc, sasec.MSRPC_UUID_SASEC)
+
+        request = sasec.SAGetAccountInformation()
+        request['Handle'] = NULL
+        request['pwszJobName'] = 'MyJob.job\x00'
+        request['ccBufferSize'] = 15
+        for i in range(request['ccBufferSize'] ):
+            request['wszBuffer'].append(0)
+        try:
+            resp = dce.request(request)
+            resp.dump()
+        except Exception, e:
+            if e.get_error_code() != 0x80070002:
+                raise
+
+    def test_hSAGetAccountInformation(self):
+        dce, rpctransport = self.connect(self.stringBindingAtSvc, sasec.MSRPC_UUID_SASEC)
+
+        try:
+            resp = sasec.hSAGetAccountInformation(dce, NULL, 'MyJob.job', 15)
+            resp.dump()
+        except Exception, e:
+            if e.get_error_code() != 0x80070002:
+                raise
 
     def tes_SchRpcHighestVersion(self):
         dce, rpctransport = self.connect(self.stringBindingAtSvc, tsch.MSRPC_UUID_TSCHS)
