@@ -24,50 +24,38 @@ import logging
 
 from impacket.examples import logger
 from impacket import version
-from impacket.dcerpc import transport, ndrutils, atsvc
+from impacket.dcerpc.v5 import tsch, atsvc, transport
+from impacket.dcerpc.v5.dtypes import NULL
 
 
 class ATSVC_EXEC:
-    KNOWN_PROTOCOLS = {
-        '139/SMB': (r'ncacn_np:%s[\pipe\atsvc]', 139),
-        '445/SMB': (r'ncacn_np:%s[\pipe\atsvc]', 445),
-        }
-
-
-    def __init__(self, username = '', password = '', domain = '', hashes = None, command = None):
+    def __init__(self, username='', password='', domain='', hashes=None, aesKey=None, doKerberos=False, command=None):
         self.__username = username
         self.__password = password
-        self.__protocols = ATSVC_EXEC.KNOWN_PROTOCOLS.keys()
         self.__domain = domain
         self.__lmhash = ''
         self.__nthash = ''
+        self.__aesKey = aesKey
+        self.__doKerberos = doKerberos
         self.__command = command
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
 
     def play(self, addr):
+        stringbinding = r'ncacn_np:%s[\pipe\atsvc]' % addr
+        rpctransport = transport.DCERPCTransportFactory(stringbinding)
 
-        # Try all requested protocols until one works.
-        for protocol in self.__protocols:
-            protodef = ATSVC_EXEC.KNOWN_PROTOCOLS[protocol]
-            port = protodef[1]
-
-            logging.info("Trying protocol %s..." % protocol)
-            stringbinding = protodef[0] % addr
-
-            rpctransport = transport.DCERPCTransportFactory(stringbinding)
-            rpctransport.set_dport(port)
-            if hasattr(rpctransport, 'set_credentials'):
-                # This method exists only for selected protocol sequences.
-                rpctransport.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
-            try:
-                self.doStuff(rpctransport)
-            except Exception, e:
-                logging.error(e)
-            else:
-                # Got a response. No need for further iterations.
-                break
-
+        if hasattr(rpctransport, 'set_credentials'):
+            # This method exists only for selected protocol sequences.
+            rpctransport.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
+                                         self.__aesKey)
+            rpctransport.set_kerberos(self.__doKerberos)
+        try:
+            self.doStuff(rpctransport)
+        except Exception, e:
+            #import traceback
+            #traceback.print_exc()
+            logging.error(e)
 
     def doStuff(self, rpctransport):
         def output_callback(data):
@@ -80,27 +68,23 @@ class ATSVC_EXEC:
         #dce.set_auth_level(ntlm.NTLM_AUTH_PKT_PRIVACY)
         #dce.set_max_fragment_size(16)
         dce.bind(atsvc.MSRPC_UUID_ATSVC)
-        at = atsvc.DCERPCAtSvc(dce)
         tmpFileName = ''.join([random.choice(string.letters) for _ in range(8)]) + '.tmp'
 
         # Check [MS-TSCH] Section 2.3.4
         atInfo = atsvc.AT_INFO()
-        atInfo['JobTime']            = 0
-        atInfo['DaysOfMonth']        = 0
-        atInfo['DaysOfWeek']         = 0
-        atInfo['Flags']              = 0
-        atInfo['Command']            = ndrutils.NDRUniqueStringW()
-        atInfo['Command']['Data']    = ('%%COMSPEC%% /C %s > %%SYSTEMROOT%%\\Temp\\%s 2>&1\x00' % (self.__command, tmpFileName)).encode('utf-16le')
+        atInfo['JobTime']    = NULL
+        atInfo['DaysOfMonth']= 0
+        atInfo['DaysOfWeek'] = 0
+        atInfo['Flags']      = 0
+        atInfo['Command']    = ('%%COMSPEC%% /C %s > %%SYSTEMROOT%%\\Temp\\%s 2>&1\x00' % (self.__command, tmpFileName))
 
-        resp = at.NetrJobAdd(('\\\\%s'% rpctransport.get_dip()),atInfo)
-        jobId = resp['JobID']
+        resp = atsvc.hNetrJobAdd(dce, NULL ,atInfo)
+        jobId = resp['pJobId']
 
         #resp = at.NetrJobEnum(rpctransport.get_dip())
 
         # Switching context to TSS
-        dce2 = dce.alter_ctx(atsvc.MSRPC_UUID_TSS)
-        # Now atsvc should use that new context
-        at = atsvc.DCERPCAtSvc(dce2)
+        dce2 = dce.alter_ctx(tsch.MSRPC_UUID_TSCHS)
 
         # Leaving this code to show how to enumerate jobs
         #path = '\\'
@@ -122,14 +106,13 @@ class ATSVC_EXEC:
         #            elif resp['ErrorCode'] != atsvc.S_FALSE:
         #                done = True
 
-        at.SchRpcRun('\\At%d' % jobId)
+        tsch.hSchRpcRun(dce2, '\\At%d' % jobId)
         # On the first run, it takes a while the remote target to start executing the job
         # so I'm setting this sleep.. I don't like sleeps.. but this is just an example
         # Best way would be to check the task status before attempting to read the file
         time.sleep(3)
         # Switching back to the old ctx_id
-        at = atsvc.DCERPCAtSvc(dce)
-        at.NetrJobDel('\\\\%s'% rpctransport.get_dip(), jobId, jobId)
+        atsvc.hNetrJobDel(dce, NULL, jobId, jobId)
 
         smbConnection = rpctransport.get_smb_connection()
         while True:
@@ -158,16 +141,25 @@ if __name__ == '__main__':
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('command', action='store', nargs='*', default = ' ', help='command to execute at the target ')
+    parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
     group = parser.add_argument_group('authentication')
 
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
- 
+    group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
+    group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line')
+    group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication (128 or 256 bits)')
+
     if len(sys.argv)==1:
         parser.print_help()
         sys.exit(1)
 
     options = parser.parse_args()
+
+    if options.debug is True:
+        logging.getLogger().setLevel(logging.DEBUG)
+    else:
+        logging.getLogger().setLevel(logging.INFO)
 
     import re
     domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(options.target).groups('')
@@ -175,9 +167,12 @@ if __name__ == '__main__':
     if domain is None:
         domain = ''
 
-    if password == '' and username != '' and options.hashes is None:
+    if password == '' and username != '' and options.hashes is None and options.no_pass is False and options.aesKey is None:
         from getpass import getpass
         password = getpass("Password:")
 
-    atsvc_exec = ATSVC_EXEC(username, password, domain, options.hashes, ' '.join(options.command))
+    if options.aesKey is not None:
+        options.k = True
+
+    atsvc_exec = ATSVC_EXEC(username, password, domain, options.hashes, options.aesKey, options.k, ' '.join(options.command))
     atsvc_exec.play(address)
