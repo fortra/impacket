@@ -305,7 +305,8 @@ class ENCODED_VALUE(Structure):
                     value = 'True'
                 else:
                     value = 'False'
-            elif pType not in (CIM_TYPE_ENUM.CIM_TYPE_STRING.value, CIM_TYPE_ENUM.CIM_TYPE_DATETIME.value, CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value, CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value):
+            elif pType not in (CIM_TYPE_ENUM.CIM_TYPE_STRING.value, CIM_TYPE_ENUM.CIM_TYPE_DATETIME.value,
+                               CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value, CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value):
                 value = entry
             else:
                 value = ENCODED_STRING(heapData)['Character']
@@ -716,7 +717,8 @@ class INSTANCE_TYPE(Structure):
         ('EncodingLength', ENCODING_LENGTH),
         ('InstanceFlags', INSTANCE_FLAGS),
         ('InstanceClassName', INSTANCE_CLASS_NAME),
-        ('_NdTable_ValueTable','_-NdTable_ValueTable', 'self["CurrentClass"]["ClassPart"]["ClassHeader"]["NdTableValueTableLength"]'),
+        ('_NdTable_ValueTable', '_-NdTable_ValueTable',
+         'self["CurrentClass"]["ClassPart"]["ClassHeader"]["NdTableValueTableLength"]'),
         ('NdTable_ValueTable',':'),
         ('InstanceQualifierSet', ':', INSTANCE_QUALIFIER_SET),
         ('InstanceHeap', ':', INSTANCE_HEAP),
@@ -2258,9 +2260,11 @@ class IWbemClassObject(IRemUnknown):
                 if self.__methods.has_key(attr):
                     # Now we gotta build the class name to be called through ExecMethod
                     if self.getProperties()[keyProperty]['stype'] != 'string':
-                        instanceName = '%s.%s=%s' % (self.getClassName(),keyProperty,self.getProperties()[keyProperty]['value'] )
+                        instanceName = '%s.%s=%s' % (
+                        self.getClassName(), keyProperty, self.getProperties()[keyProperty]['value'])
                     else:
-                        instanceName = '%s.%s="%s"' % (self.getClassName(),keyProperty,self.getProperties()[keyProperty]['value'] )
+                        instanceName = '%s.%s="%s"' % (
+                        self.getClassName(), keyProperty, self.getProperties()[keyProperty]['value'])
 
                     self.createMethods(instanceName , self.__methods)
                     #print dir(self)
@@ -2331,7 +2335,8 @@ class IWbemClassObject(IRemUnknown):
                         arrayItems += pack(packStrArray, itemValue[j])
                     instanceHeap += arraySize + str(arrayItems)
                     curHeapPtr = len(instanceHeap)
-            elif pType not in (CIM_TYPE_ENUM.CIM_TYPE_STRING.value, CIM_TYPE_ENUM.CIM_TYPE_DATETIME.value, CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value, CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value):
+            elif pType not in (CIM_TYPE_ENUM.CIM_TYPE_STRING.value, CIM_TYPE_ENUM.CIM_TYPE_DATETIME.value,
+                               CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value, CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value):
                 if itemValue is None:
                     valueTable += pack(packStr, -1)
                 else:
@@ -2432,7 +2437,8 @@ class IWbemClassObject(IRemUnknown):
 
                 if propRecord['type'] & CIM_ARRAY_FLAG:
                     valueTable += pack(packStr, 0)
-                elif pType not in (CIM_TYPE_ENUM.CIM_TYPE_STRING.value, CIM_TYPE_ENUM.CIM_TYPE_DATETIME.value, CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value, CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value):
+                elif pType not in (CIM_TYPE_ENUM.CIM_TYPE_STRING.value, CIM_TYPE_ENUM.CIM_TYPE_DATETIME.value,
+                                   CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value, CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value):
                     valueTable += pack(packStr, 0)
                 elif pType == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value:
                     # For now we just pack None
@@ -2558,8 +2564,9 @@ class IWbemClassObject(IRemUnknown):
                         else:
                             # ToDo
                             # Not yet ready
-                            raise 
-                    elif pType not in (CIM_TYPE_ENUM.CIM_TYPE_STRING.value, CIM_TYPE_ENUM.CIM_TYPE_DATETIME.value, CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value, CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value):
+                            raise
+                    elif pType not in (CIM_TYPE_ENUM.CIM_TYPE_STRING.value, CIM_TYPE_ENUM.CIM_TYPE_DATETIME.value,
+                                       CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value, CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value):
                         valueTable += pack(packStr, inArg)
                     elif pType == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value:
                         # For now we just pack None
@@ -2594,7 +2601,8 @@ class IWbemClassObject(IRemUnknown):
 
                 instanceType['EncodingLength'] = len(instanceType)
                 inMethods = methodDefinition['InParamsRaw']['ClassType']['CurrentClass']['ClassPart']
-                inMethods['ClassHeader']['EncodingLength'] = len(str(methodDefinition['InParamsRaw']['ClassType']['CurrentClass']['ClassPart']))
+                inMethods['ClassHeader']['EncodingLength'] = len(
+                    str(methodDefinition['InParamsRaw']['ClassType']['CurrentClass']['ClassPart']))
                 instanceType['CurrentClass'] = inMethods
 
                 inParams['InstanceType'] = str(instanceType)
@@ -2640,7 +2648,8 @@ class IWbemClassObject(IRemUnknown):
             objRefCustom['pObjectData'] = encodingUnit
             try:
                 return self.__iWbemServices.ExecMethod(classOrInstance, methodDefinition['name'], pInParams = objRefCustomIn )
-                #return self.__iWbemServices.ExecMethod('Win32_Process.Handle="436"', methodDefinition['name'], pInParams = objRefCustomIn ).getObject().ctCurrent['properties']
+                #return self.__iWbemServices.ExecMethod('Win32_Process.Handle="436"', methodDefinition['name'],
+                #                                       pInParams=objRefCustomIn).getObject().ctCurrent['properties']
             except Exception, e:
                 #import traceback
                 #print traceback.print_exc()
@@ -2754,7 +2763,9 @@ class IEnumWbemClassObject(IRemUnknown):
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
         interfaces = list()
         for interface in resp['apObjects']:
-            interfaces.append( IWbemClassObject(INTERFACE(self.get_cinstance(), ''.join(interface['abData']), self.get_ipidRemUnknown(), oxid = self.get_oxid(), target = self.get_target()), self.__iWbemServices) )
+            interfaces.append(IWbemClassObject(
+                INTERFACE(self.get_cinstance(), ''.join(interface['abData']), self.get_ipidRemUnknown(),
+                          oxid=self.get_oxid(), target=self.get_target()), self.__iWbemServices))
 
         return interfaces
 
@@ -2804,7 +2815,8 @@ class IWbemServices(IRemUnknown):
         request = IWbemServices_QueryObjectSink()
         request['lFlags'] = 0
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
-        return  INTERFACE(self.get_cinstance(), ''.join(resp['ppResponseHandler']['abData']), self.get_ipidRemUnknown(), target = self.get_target())
+        return INTERFACE(self.get_cinstance(), ''.join(resp['ppResponseHandler']['abData']), self.get_ipidRemUnknown(),
+                         target=self.get_target())
 
     def GetObject(self, strObjectPath, lFlags=0, pCtx=NULL):
         request = IWbemServices_GetObject()
@@ -2812,9 +2824,13 @@ class IWbemServices(IRemUnknown):
         request['lFlags'] = lFlags
         request['pCtx'] = pCtx
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
-        ppObject =  IWbemClassObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppObject']['abData']), self.get_ipidRemUnknown(), oxid = self.get_oxid(), target = self.get_target()), self)
+        ppObject = IWbemClassObject(
+            INTERFACE(self.get_cinstance(), ''.join(resp['ppObject']['abData']), self.get_ipidRemUnknown(),
+                      oxid=self.get_oxid(), target=self.get_target()), self)
         if resp['ppCallResult'] != NULL:
-            ppcallResult = IWbemCallResult(INTERFACE(self.get_cinstance(), ''.join(resp['ppObject']['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
+            ppcallResult = IWbemCallResult(
+                INTERFACE(self.get_cinstance(), ''.join(resp['ppObject']['abData']), self.get_ipidRemUnknown(),
+                          target=self.get_target()))
         else:
             ppcallResult = NULL
         return ppObject, ppcallResult
@@ -2893,7 +2909,9 @@ class IWbemServices(IRemUnknown):
         request['lFlags'] = lFlags
         request['pCtx'] = pCtx
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
-        return IWbemCallResult(INTERFACE(self.get_cinstance(), ''.join(resp['ppCallResult']['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
+        return IWbemCallResult(
+            INTERFACE(self.get_cinstance(), ''.join(resp['ppCallResult']['abData']), self.get_ipidRemUnknown(),
+                      target=self.get_target()))
 
     def PutInstanceAsync(self, pInst, lFlags=0, pCtx=NULL):
         request = IWbemServices_PutInstanceAsync()
@@ -2910,7 +2928,9 @@ class IWbemServices(IRemUnknown):
         request['lFlags'] = lFlags
         request['pCtx'] = pCtx
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
-        return IWbemCallResult(INTERFACE(self.get_cinstance(), ''.join(resp['ppCallResult']['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
+        return IWbemCallResult(
+            INTERFACE(self.get_cinstance(), ''.join(resp['ppCallResult']['abData']), self.get_ipidRemUnknown(),
+                      target=self.get_target()))
 
     def DeleteInstanceAsync(self, strObjectPath, lFlags=0, pCtx=NULL):
         request = IWbemServices_DeleteInstanceAsync()
@@ -2928,7 +2948,9 @@ class IWbemServices(IRemUnknown):
         request['pCtx'] = pCtx
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
         resp.dump()
-        return IEnumWbemClassObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
+        return IEnumWbemClassObject(
+            INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(),
+                      target=self.get_target()))
 
     def CreateInstanceEnumAsync(self, strSuperClass, lFlags=0, pCtx=NULL):
         request = IWbemServices_CreateInstanceEnumAsync()
@@ -2947,7 +2969,9 @@ class IWbemServices(IRemUnknown):
         request['lFlags'] = lFlags
         request['pCtx'] = pCtx
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
-        return IEnumWbemClassObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(), target = self.get_target()), self)
+        return IEnumWbemClassObject(
+            INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(),
+                      target=self.get_target()), self)
 
     def ExecQueryAsync(self, strQuery, lFlags=0, pCtx=NULL):
         request = IWbemServices_ExecQueryAsync()
@@ -2966,7 +2990,9 @@ class IWbemServices(IRemUnknown):
         request['lFlags'] = lFlags
         request['pCtx'] = pCtx
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
-        return IEnumWbemClassObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(), target = self.get_target()), self)
+        return IEnumWbemClassObject(
+            INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(),
+                      target=self.get_target()), self)
 
     def ExecNotificationQueryAsync(self, strQuery, lFlags=0, pCtx=NULL):
         request = IWbemServices_ExecNotificationQueryAsync()
@@ -2997,7 +3023,9 @@ class IWbemServices(IRemUnknown):
             request['ppOutParams']['ulCntData'] = len(str(ppOutParams))
             request['ppOutParams']['abData'] = list(str(ppOutParams))
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
-        return IWbemClassObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppOutParams']['abData']), self.get_ipidRemUnknown(), oxid = self.get_oxid(), target = self.get_target()))
+        return IWbemClassObject(
+            INTERFACE(self.get_cinstance(), ''.join(resp['ppOutParams']['abData']), self.get_ipidRemUnknown(),
+                      oxid=self.get_oxid(), target=self.get_target()))
 
     def ExecMethodAsync(self, strObjectPath, strMethodName, lFlags=0, pCtx=NULL, pInParams=NULL):
         request = IWbemServices_ExecMethodAsync()
@@ -3045,7 +3073,9 @@ class IWbemLevel1Login(IRemUnknown):
         request['lFlags'] = 0
         request['pCtx'] = pCtx
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
-        return  IWbemServices(INTERFACE(self.get_cinstance(), ''.join(resp['ppNamespace']['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
+        return IWbemServices(
+            INTERFACE(self.get_cinstance(), ''.join(resp['ppNamespace']['abData']), self.get_ipidRemUnknown(),
+                      target=self.get_target()))
 
 
 if __name__ == '__main__':
