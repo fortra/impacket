@@ -372,6 +372,24 @@ class POBJECT_TYPE_LIST(NDRPOINTER):
        ('Data', OBJECT_TYPE_LIST ),
     )
 
+# 2.3.13 SYSTEMTIME
+class SYSTEMTIME(NDRSTRUCT):
+    structure = (
+        ('wYear', WORD),
+        ('wMonth', WORD),
+        ('wDayOfWeek', WORD),
+        ('wDay', WORD),
+        ('wHour', WORD),
+        ('wMinute', WORD),
+        ('wSecond', WORD),
+        ('wMilliseconds', WORD),
+    )
+
+class PSYSTEMTIME(NDRPOINTER):
+    referent = (
+       ('Data', SYSTEMTIME ),
+    )
+
 # 2.4.2.3 RPC_SID
 class DWORD_ARRAY(NDRUniConformantArray):
     item = '<L'
