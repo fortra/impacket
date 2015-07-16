@@ -135,6 +135,14 @@ LAST_WEEK   = 5
 # 2.3.12 TASK_NAMES
 TASK_NAMES = LPWSTR
 
+# 3.2.5.4.2 SchRpcRegisterTask (Opnum 1)
+TASK_VALIDATE_ONLY                = 1<<(31-31)
+TASK_CREATE                       = 1<<(31-30)
+TASK_UPDATE                       = 1<<(31-29)
+TASK_DISABLE                      = 1<<(31-28)
+TASK_DON_ADD_PRINCIPAL_ACE        = 1<<(31-27)
+TASK_IGNORE_REGISTRATION_TRIGGERS = 1<<(31-26)
+
 # 3.2.5.4.7 SchRpcEnumFolders (Opnum 6)
 TASK_ENUM_HIDDEN = 1
 
@@ -219,7 +227,7 @@ class TASK_XML_ERROR_INFO(NDRSTRUCT):
 
 class PTASK_XML_ERROR_INFO(NDRPOINTER):
     referent = (
-        ('Data',TASK_USER_CRED),
+        ('Data',TASK_XML_ERROR_INFO),
     )
 
 # 2.4.1 FIXDLEN_DATA
@@ -620,6 +628,21 @@ def checkNullString(string):
 
 def hSchRpcHighestVersion(dce):
     return dce.request(SchRpcHighestVersion())
+
+def hSchRpcRegisterTask(dce, path, xml, flags, sddl, logonType, pCreds = ()):
+    request = SchRpcRegisterTask()
+    request['path'] = checkNullString(path)
+    request['xml'] = checkNullString(xml)
+    request['flags'] = flags
+    request['sddl'] = sddl
+    request['logonType'] = logonType
+    request['cCreds'] = len(pCreds)
+    if len(pCreds) == 0:
+        request['pCreds'] = NULL
+    else:
+        for cred in pCreds:
+            request['pCreds'].append(cred)
+    return dce.request(request)
 
 def hSchRpcRetrieveTask(dce, path, lpcwszLanguagesBuffer = '\x00', pulNumLanguages=0 ):
     schRpcRetrieveTask = SchRpcRetrieveTask()
