@@ -13,7 +13,7 @@
 #  Alberto Solino (@agsolino)
 #
 # Reference for:
-#  DCE/RPC for ATSVC
+#  DCE/RPC for TSCH
 
 import string
 import sys
@@ -24,11 +24,11 @@ import logging
 
 from impacket.examples import logger
 from impacket import version
-from impacket.dcerpc.v5 import tsch, atsvc, transport
+from impacket.dcerpc.v5 import tsch, transport
 from impacket.dcerpc.v5.dtypes import NULL
 
 
-class ATSVC_EXEC:
+class TSCH_EXEC:
     def __init__(self, username='', password='', domain='', hashes=None, aesKey=None, doKerberos=False, command=None):
         self.__username = username
         self.__password = password
@@ -56,6 +56,8 @@ class ATSVC_EXEC:
             #import traceback
             #traceback.print_exc()
             logging.error(e)
+            if str(e).find('STATUS_OBJECT_NAME_NOT_FOUND') >=0:
+                logging.info('When STATUS_OBJECT_NAME_NOT_FOUND is received, try running again. It might work')
 
     def doStuff(self, rpctransport):
         def output_callback(data):
@@ -66,64 +68,101 @@ class ATSVC_EXEC:
         dce.set_credentials(*rpctransport.get_credentials())
         dce.connect()
         #dce.set_auth_level(ntlm.NTLM_AUTH_PKT_PRIVACY)
-        #dce.set_max_fragment_size(16)
-        dce.bind(atsvc.MSRPC_UUID_ATSVC)
-        tmpFileName = ''.join([random.choice(string.letters) for _ in range(8)]) + '.tmp'
+        dce.bind(tsch.MSRPC_UUID_TSCHS)
+        tmpName = ''.join([random.choice(string.letters) for _ in range(8)])
+        tmpFileName = tmpName + '.tmp'
 
-        # Check [MS-TSCH] Section 2.3.4
-        atInfo = atsvc.AT_INFO()
-        atInfo['JobTime']    = NULL
-        atInfo['DaysOfMonth']= 0
-        atInfo['DaysOfWeek'] = 0
-        atInfo['Flags']      = 0
-        atInfo['Command']    = ('%%COMSPEC%% /C %s > %%SYSTEMROOT%%\\Temp\\%s 2>&1\x00' % (self.__command, tmpFileName))
+        xml = """<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <Triggers>
+    <CalendarTrigger>
+      <StartBoundary>2015-07-15T20:35:13.2757294</StartBoundary>
+      <Enabled>true</Enabled>
+      <ScheduleByDay>
+        <DaysInterval>1</DaysInterval>
+      </ScheduleByDay>
+    </CalendarTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="LocalSystem">
+      <UserId>S-1-5-18</UserId>
+      <RunLevel>HighestAvailable</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
+    <IdleSettings>
+      <StopOnIdleEnd>true</StopOnIdleEnd>
+      <RestartOnIdle>false</RestartOnIdle>
+    </IdleSettings>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>true</Hidden>
+    <RunOnlyIfIdle>false</RunOnlyIfIdle>
+    <WakeToRun>false</WakeToRun>
+    <ExecutionTimeLimit>P3D</ExecutionTimeLimit>
+    <Priority>7</Priority>
+  </Settings>
+  <Actions Context="LocalSystem">
+    <Exec>
+      <Command>cmd.exe</Command>
+      <Arguments>/C %s &gt; %%windir%%\\Temp\\%s 2&gt;&amp;1</Arguments>
+    </Exec>
+  </Actions>
+</Task>
+        """ % (self.__command, tmpFileName)
+        taskCreated = False
+        try:
+            logging.info('Creating task \\%s' % tmpName)
+            tsch.hSchRpcRegisterTask(dce, '\\%s' % tmpName, xml, tsch.TASK_CREATE, NULL, tsch.TASK_LOGON_NONE)
+            taskCreated = True
 
-        resp = atsvc.hNetrJobAdd(dce, NULL ,atInfo)
-        jobId = resp['pJobId']
+            logging.info('Running task \\%s' % tmpName)
+            tsch.hSchRpcRun(dce, '\\%s' % tmpName)
 
-        #resp = at.NetrJobEnum(rpctransport.get_dip())
+            done = False
+            while not done:
+                logging.debug('Calling SchRpcGetLastRunInfo for \\%s' % tmpName)
+                resp = tsch.hSchRpcGetLastRunInfo(dce, '\\%s' % tmpName)
+                if resp['pLastRuntime']['wYear'] != 0:
+                    done = True
+                else:
+                    time.sleep(2)
 
-        # Switching context to TSS
-        dce2 = dce.alter_ctx(tsch.MSRPC_UUID_TSCHS)
-
-        # Leaving this code to show how to enumerate jobs
-        #path = '\\'
-        #resp = at.SchRpcEnumTasks(path)
-        #if resp['Count'] == 1:
-        #    print resp['TaskName']['Data']
-        #    if resp['ErrorCode'] == atsvc.S_FALSE:
-        #        i = 1
-        #        done = False
-        #        while done is not True:
-        #            # More items
-        #            try:
-        #                resp = at.SchRpcEnumTasks(path,startIndex=i)
-        #            except:
-        #                break
-        #            if resp['Count'] == 1:
-        #                 print resp['TaskName']['Data'] 
-        #                 i += 1
-        #            elif resp['ErrorCode'] != atsvc.S_FALSE:
-        #                done = True
-
-        tsch.hSchRpcRun(dce2, '\\At%d' % jobId)
-        # On the first run, it takes a while the remote target to start executing the job
-        # so I'm setting this sleep.. I don't like sleeps.. but this is just an example
-        # Best way would be to check the task status before attempting to read the file
-        time.sleep(3)
-        # Switching back to the old ctx_id
-        atsvc.hNetrJobDel(dce, NULL, jobId, jobId)
+            logging.info('Deleting task \\%s' % tmpName)
+            tsch.hSchRpcDelete(dce, '\\%s' % tmpName)
+            taskCreated = False
+        except tsch.DCERPCSessionError, e:
+            logging.error(e)
+            e.get_packet().dump()
+        finally:
+            if taskCreated is True:
+                tsch.hSchRpcDelete(dce, '\\%s' % tmpName)
 
         smbConnection = rpctransport.get_smb_connection()
+        waitOnce = True
         while True:
             try:
+                logging.info('Attempting to read ADMIN$\\Temp\\%s' % tmpFileName)
                 smbConnection.getFile('ADMIN$', 'Temp\\%s' % tmpFileName, output_callback)
                 break
             except Exception, e:
                 if str(e).find('SHARING') > 0:
                     time.sleep(3)
+                elif str(e).find('STATUS_OBJECT_NAME_NOT_FOUND') >= 0:
+                    if waitOnce is True:
+                        # We're giving it the chance to flush the file before giving up
+                        time.sleep(3)
+                        waitOnce = False
+                    else:
+                        raise
                 else:
                     raise
+        logging.debug('Deleting file ADMIN$\\Temp\\%s' % tmpFileName)
         smbConnection.deleteFile('ADMIN$', 'Temp\\%s' % tmpFileName)
  
         dce.disconnect()
@@ -174,5 +213,5 @@ if __name__ == '__main__':
     if options.aesKey is not None:
         options.k = True
 
-    atsvc_exec = ATSVC_EXEC(username, password, domain, options.hashes, options.aesKey, options.k, ' '.join(options.command))
+    atsvc_exec = TSCH_EXEC(username, password, domain, options.hashes, options.aesKey, options.k, ' '.join(options.command))
     atsvc_exec.play(address)
