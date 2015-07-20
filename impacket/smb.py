@@ -3788,7 +3788,7 @@ class SMB:
                                   record['EndOfFile'], record['AllocationSize'], record['ExtFileAttributes'],
                                   shortname, filename)
                 files.append(fileRecord)
-                if record['NextEntryOffset'] > 0:
+                if record['NextEntryOffset'] > 0 and len(findData[record['NextEntryOffset']:]) > 0:
                     findData = findData[record['NextEntryOffset']:]
                 else:
                     # More data to search?
