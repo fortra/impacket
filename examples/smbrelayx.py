@@ -82,6 +82,7 @@ class doAttack(Thread):
         else:
             from secretsdump import RemoteOperations, SAMHashes
             samHashes = None
+            remoteOps = None
             try:
                 remoteOps  = RemoteOperations(self.__SMBConnection)
                 remoteOps.enableRegistry()
@@ -95,6 +96,8 @@ class doAttack(Thread):
             finally:
                 if samHashes is not None:
                     samHashes.finish()
+                if remoteOps is not None:
+                    remoteOps.finish()
 
 
 class SMBClient(smb.SMB):
