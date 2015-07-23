@@ -406,8 +406,10 @@ class RemoteOperations:
 
     def finish(self):
         self.__restore()
-        self.__rrp.disconnect()
-        self.__scmr.disconnect()
+        if self.__rrp is not None:
+            self.__rrp.disconnect()
+        if self.__scmr is not None:
+            self.__scmr.disconnect()
 
     def getBootKey(self):
         bootKey = ''
