@@ -390,6 +390,17 @@ class PSYSTEMTIME(NDRPOINTER):
        ('Data', SYSTEMTIME ),
     )
 
+# 2.3.15 ULARGE_INTEGER
+class ULARGE_INTEGER(NDRSTRUCT):
+    structure = (
+        ('QuadPart', LONG64),
+    )
+
+class PULARGE_INTEGER(NDRPOINTER):
+    referent = (
+        ('Data', ULARGE_INTEGER),
+    )
+
 # 2.4.2.3 RPC_SID
 class DWORD_ARRAY(NDRUniConformantArray):
     item = '<L'
