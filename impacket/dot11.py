@@ -1451,7 +1451,9 @@ class Dot11WPA2Data(ProtocolPacket):
         self.tail.set_bytes_from_string(value)
 
 class RadioTap(ProtocolPacket):
-    __HEADER_BASE_SIZE = 8 # minimal header size
+    __HEADER_BASE_SIZE = 8  # minimal header size
+    _PRESENT_FLAGS_SIZE = 4
+    _BASE_PRESENT_FLAGS_OFFSET = 4
 
     class __RadioTapField(object):
         ALIGNMENT = 1
@@ -1615,18 +1617,18 @@ class RadioTap(ProtocolPacket):
         
         nb = (value & 0xFF)
         
-    def get_present(self):
+    def get_present(self, offset=_BASE_PRESENT_FLAGS_OFFSET):
         "Return RadioTap present bitmap field"
-        present = self.header.get_long(4, "<")
+        present = self.header.get_long(offset, "<")
         return present
 
     def __set_present(self, value):
         "Set RadioTap present field bit"
         self.header.set_long(4, value)
 
-    def get_present_bit(self, field):
+    def get_present_bit(self, field, offset=4):
         'Get a \'present\' field bit'
-        present=self.get_present()
+        present=self.get_present(offset)
         return not not (2**field.BIT_NUMBER & present)
 
     def __set_present_bit(self, field):
@@ -1642,19 +1644,27 @@ class RadioTap(ProtocolPacket):
     def __align(self, val, align):
         return ( (((val) + ((align) - 1)) & ~((align) - 1)) - val )
 
-    def __get_field_position(self, field):        
-        field_position=self.__HEADER_BASE_SIZE
+    def __get_field_position(self, field):
+
+        offset = RadioTap._BASE_PRESENT_FLAGS_OFFSET
+        extra_present_flags_count = 0
+        while self.get_present_bit(RadioTap.RTF_EXT, offset):
+            offset += RadioTap._PRESENT_FLAGS_SIZE
+            extra_present_flags_count += 1
+
+        field_position = self.__HEADER_BASE_SIZE + (RadioTap._BASE_PRESENT_FLAGS_OFFSET * extra_present_flags_count)
+
         for f in self.radiotap_fields:
-            field_position+=self.__align(field_position,f.ALIGNMENT)
-            if f==field:
+            field_position += self.__align(field_position, f.ALIGNMENT)
+            if f == field:
                 return field_position
-            
+
             if self.get_present_bit(f):
-                total_length=struct.calcsize(f.STRUCTURE)
-                field_position+=total_length
-            
+                total_length = struct.calcsize(f.STRUCTURE)
+                field_position += total_length
+
         return None
-    
+
     def unset_field( self, field):
         is_present=self.get_present_bit(field)
         if is_present is False:
