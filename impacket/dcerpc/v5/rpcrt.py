@@ -853,7 +853,6 @@ class DCERPC:
                     response =  respClass(answer, isNDR64 = isNDR64)
                 except:
                     # No luck :(
-                    print "B"*80
                     exception = sessionErrorClass(error_code = error_code)
                 else:
                     exception = sessionErrorClass(packet = response)
