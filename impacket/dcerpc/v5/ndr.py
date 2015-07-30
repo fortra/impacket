@@ -505,9 +505,10 @@ class NDR(object):
                 else:
                     itemn = dataClassOrCode(isNDR64=self._isNDR64)
                     itemn.fromString(data[soFarItems:], soFar+soFarItems)
-                    itemn.rawData = data[soFarItems+len(itemn.getData(soFar+soFarItems)):] 
+                    itemnLen = len(itemn.getData(soFar+soFarItems))
+                    itemn.rawData = data[soFarItems+itemnLen:]
                     answer.append(itemn)
-                    nsofar += len(itemn.getData(soFarItems)) + pad
+                    nsofar += itemnLen + pad
                 numItems -= 1
                 soFarItems = nsofar
 
@@ -895,7 +896,8 @@ class NDRArray(NDR):
         # And now the item
         if hasattr(self, "item") and self.item is not None:
             if isinstance(self.item, NDR):
-                tmpAlign = self.item.getAlignment()
+            #if self.isNDR(self.item):
+                tmpAlign = self.item().getAlignment()
             else:
                 tmpAlign = self.calcPackSize(self.item, '')
             if tmpAlign > align:
@@ -1190,7 +1192,7 @@ class NDRSTRUCT(NDR):
                     # Okey.. here it is.. so we should remove the first arrayItemSize bytes from res
                     # and stick them at the beginning of the data, except when we're inside a pointer
                     # where we should go after the referent id
-                    res = self.fields[fieldName].getDataArray(soFar)
+                    res = self.fields[fieldName].getDataArray(soFar-arrayItemSize)
                     arraySize = res[:arrayItemSize]
                     res = res[arrayItemSize:]
                     if isinstance(self, NDRPOINTER):
@@ -1246,7 +1248,7 @@ class NDRSTRUCT(NDR):
             # In other words, the size information precedes the structure and is aligned 
             # independently of the structure alignment.
             # We need to check whether we need padding or not
-            pad0 = (arrayItemSize - (soFar % arrayItemSize)) % arrayItemSize 
+            pad0 = (arrayItemSize - (soFar % arrayItemSize)) % arrayItemSize
             if pad0 > 0:
                 soFar += pad0
                 data = data[pad0:]
@@ -1260,7 +1262,7 @@ class NDRSTRUCT(NDR):
             # And move on data
             data = data[arrayItemSize:]
 
-        # Now we need to align the structure 
+        # Now we need to align the structure
         # The alignment of a structure in the octet stream is the largest of the alignments of the fields it
         # contains. These fields may also be constructed types. The same alignment rules apply 
         # recursively to nested constructed types.
