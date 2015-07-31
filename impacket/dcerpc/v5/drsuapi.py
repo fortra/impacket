@@ -19,7 +19,7 @@
 #   There are test cases for them too. 
 #
 from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRPOINTER, NDRUniConformantArray, NDRUNION, NDR, NDRENUM
-from impacket.dcerpc.v5.dtypes import PUUID, DWORD, NULL, GUID, PGUID, LPWSTR, BOOL, WSTR, ULONG, UUID, LONGLONG, ULARGE_INTEGER, LARGE_INTEGER, WIDESTR
+from impacket.dcerpc.v5.dtypes import PUUID, DWORD, NULL, GUID, LPWSTR, BOOL, ULONG, UUID, LONGLONG, ULARGE_INTEGER, LARGE_INTEGER
 from impacket import hresult_errors, system_errors
 from impacket.structure import Structure
 from impacket.uuid import uuidtup_to_bin, string_to_bin
@@ -48,6 +48,15 @@ class DCERPCSessionError(DCERPCException):
 ################################################################################
 # CONSTANTS
 ################################################################################
+# 4.1.10.2.18 EXOP_REQ Codes
+EXOP_FSMO_REQ_ROLE = 0x00000001
+EXOP_FSMO_REQ_RID_ALLOC = 0x00000002
+EXOP_FSMO_RID_REQ_ROLE = 0x00000003
+EXOP_FSMO_REQ_PDC = 0x00000004
+EXOP_FSMO_ABANDON_ROLE = 0x00000005
+EXOP_REPL_OBJ = 0x00000006
+EXOP_REPL_SECRETS = 0x00000007
+
 # 5.14 ATTRTYP
 ATTRTYP = ULONG
 
@@ -238,7 +247,6 @@ class PDRS_EXTENSIONS(NDRPOINTER):
 # 5.39 DRS_EXTENSIONS_INT
 class DRS_EXTENSIONS_INT(Structure):
     structure =  (
-        ('cb','<L=0'),
         ('dwFlags','<L=0'),
         ('SiteObjGuid','16s=""'),
         ('Pid','<L=0'),
@@ -520,6 +528,20 @@ class USN_VECTOR(NDRSTRUCT):
     )
 
 # 5.50 DSNAME
+class WCHAR_ARRAY(NDRUniConformantArray):
+    item  = 'H'
+
+    def __setitem__(self, key, value):
+        self.fields['MaximumCount'] = None
+        self.data = None        # force recompute
+        return NDRUniConformantArray.__setitem__(self, key, [ord(c) for c in value])
+
+    def __getitem__(self, key):
+        if key == 'Data':
+            return ''.join([chr(i) for i in self.fields[key]])
+        else:
+            return NDR.__getitem__(self,key)
+
 class DSNAME(NDRSTRUCT):
     structure =  (
         ('structLen',ULONG),
@@ -527,24 +549,12 @@ class DSNAME(NDRSTRUCT):
         ('Guid',GUID),
         ('Sid',NT4SID),
         ('NameLen',ULONG),
-        # No se si es conformant o conformantVarying
-        #('StringName', NDRUniFixedArray),
-        ('StringName', WIDESTR),
+        ('StringName', WCHAR_ARRAY),
     )
     def getDataLen(self, data):
         return self['NameLen']
-
-#class DSNAME(Structure):
-#    structure =  (
-#        ('structLen','<L=0'),
-#        ('SidLen','<L=len(Sid)'),
-#        ('Guid','16s=""'),
-#        ('_Sid', '_-Sid', "self['SidLen']"),
-#        ('Sid',':'),
-#        ('NameLen','<L=len(StringName)'),
-#        ('_StringName', '_-StringName', "self['NameLen']"),
-#        ('StringName',':'),
-#    )
+    def getData(self, soFar = 0):
+        return NDRSTRUCT.getData(self, soFar)
 
 class PDSNAME(NDRPOINTER):
     referent = (
@@ -796,18 +806,27 @@ class PROPERTY_META_DATA_EXT_VECTOR(NDRSTRUCT):
         ('rgMetaData',PROPERTY_META_DATA_EXT_ARRAY),
     )
 
+class PPROPERTY_META_DATA_EXT_VECTOR(NDRPOINTER):
+    referent = (
+        ('Data',PROPERTY_META_DATA_EXT_VECTOR),
+    )
+
 # 5.161 REPLENTINFLIST
-PREPLENTINFLIST = NDRPOINTER
 
 class REPLENTINFLIST(NDRSTRUCT):
     structure =  (
         ('pNextEntInf',NDRPOINTER),
         ('Entinf',ENTINF),
         ('fIsNCPrefix',BOOL),
-        ('pParentGuidm',UUID),
-        ('pMetaDataExt',PROPERTY_META_DATA_EXT_VECTOR),
+        ('pParentGuidm',PUUID),
+        ('pMetaDataExt',PPROPERTY_META_DATA_EXT_VECTOR),
     )
     # ToDo: Here we should work with getData and fromString beacuse we're cheating with pNextEntInf
+    def fromString(self, data, soFar = 0 ):
+        # Here we're changing the struct so we can represent a linked list with NDR
+        self.fields['pNextEntInf'] = PREPLENTINFLIST(isNDR64 = self._isNDR64)
+        retVal = NDRSTRUCT.fromString(self, data, soFar)
+        return retVal
 
 class PREPLENTINFLIST(NDRPOINTER):
     referent = (
@@ -891,6 +910,11 @@ class REPLVALINF(NDRSTRUCT):
 class REPLVALINF_ARRAY(NDRUniConformantArray):
     item = REPLVALINF
 
+class PREPLVALINF_ARRAY(NDRPOINTER):
+    referent = (
+        ('Data',REPLVALINF_ARRAY),
+    )
+
 # 4.1.10.2.11 DRS_MSG_GETCHGREPLY_V6
 class DRS_MSG_GETCHGREPLY_V6(NDRSTRUCT):
     structure =  (
@@ -906,10 +930,10 @@ class DRS_MSG_GETCHGREPLY_V6(NDRSTRUCT):
         ('cNumBytes',ULONG),
         ('pObjects',PREPLENTINFLIST),
         ('fMoreData',BOOL),
-        ('pUpToDateVecSrc',ULONG),
+        ('cNumNcSizeObjectsc',ULONG),
         ('cNumNcSizeValues',ULONG),
         ('cNumValues',DWORD),
-        ('rgValues',REPLVALINF_ARRAY),
+        ('rgValues',PREPLVALINF_ARRAY),
         ('dwDRSError',DWORD),
     )
 
