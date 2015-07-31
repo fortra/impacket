@@ -85,6 +85,7 @@ class MiniImpacketShell(cmd.Cmd):
  shares - list available shares
  use {sharename} - connect to an specific share
  cd {path} - changes the current directory to {path}
+ lcd {path} - changes the current local directory to {path}
  pwd - shows current remote directory
  password - changes the user password, the new password will be prompted for input
  ls {wildcard} - lists all the files in the current directory
@@ -326,6 +327,13 @@ class MiniImpacketShell(cmd.Cmd):
         except SessionError:
             self.pwd = oldpwd
             raise
+
+    def do_lcd(self, s):
+        print s
+        if s == '':
+           print os.getcwd()
+        else:
+           os.chdir(s)
 
     def do_pwd(self,line):
         if self.loggedIn is False:
