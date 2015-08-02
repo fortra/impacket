@@ -860,8 +860,8 @@ class NetBIOSTCPSession(NetBIOSSession):
             af, socktype, proto, canonname, sa = socket.getaddrinfo(peer[0], peer[1], 0, socket.SOCK_STREAM)[0]
             sock = socket.socket(af, socktype, proto)
             sock.connect(sa)
-        except Exception, e:
-            raise Exception("%s (%s:%s)" % (e, peer[0], peer[1]))
+        except socket.error, e:
+            raise socket.error("Connection error (%s:%s)" % (peer[0], peer[1]), e)
         return sock
 
     def send_packet(self, data):
