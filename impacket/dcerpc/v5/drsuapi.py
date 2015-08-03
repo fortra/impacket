@@ -25,6 +25,15 @@ from impacket.structure import Structure
 from impacket.uuid import uuidtup_to_bin, string_to_bin
 from impacket.dcerpc.v5.enum import Enum
 from impacket.dcerpc.v5.rpcrt import DCERPCException
+from binascii import crc32
+from struct import pack
+
+import hashlib
+try:
+    from Crypto.Cipher import ARC4, DES
+except Exception:
+    LOG.critical("Warning: You don't have any crypto installed. You need PyCrypto")
+    LOG.critical("See http://www.pycrypto.org/")
 
 MSRPC_UUID_DRSUAPI = uuidtup_to_bin(('E3514235-4B06-11D1-AB04-00C04FC2DCD2','4.0'))
 
@@ -207,6 +216,14 @@ DRS_NT4_CHGLOG_GET_SERIAL_NUMBERS = 0x00000002
 ################################################################################
 # STRUCTURES
 ################################################################################
+# 4.1.10.2.16 ENCRYPTED_PAYLOAD
+class ENCRYPTED_PAYLOAD(Structure):
+    structure = (
+        ('Salt','16s'),
+        ('CheckSum','<L'),
+        ('EncryptedData',':'),
+    )
+
 # 5.136 NT4SID
 class NT4SID(NDR):
     structure =  (
@@ -900,12 +917,17 @@ class VALUE_META_DATA_EXT_V1(NDRSTRUCT):
 # 5.166 REPLVALINF
 class REPLVALINF(NDRSTRUCT):
     structure =  (
-        ('pObject',DSNAME),
+        ('pObject',PDSNAME),
         ('attrTyp',ATTRTYP),
         ('Aval',ATTRVAL),
         ('fIsPresent',BOOL),
         ('MetaData',VALUE_META_DATA_EXT_V1),
     )
+
+    def fromString(self, data, soFar = 0):
+        retVal = NDRSTRUCT.fromString(self, data, soFar)
+        #self.dumpRaw()
+        return retVal
 
 class REPLVALINF_ARRAY(NDRUniConformantArray):
     item = REPLVALINF
@@ -917,6 +939,26 @@ class PREPLVALINF_ARRAY(NDRPOINTER):
 
 # 4.1.10.2.11 DRS_MSG_GETCHGREPLY_V6
 class DRS_MSG_GETCHGREPLY_V6(NDRSTRUCT):
+    structure =  (
+        ('uuidDsaObjSrc',UUID),
+        ('uuidInvocIdSrc',UUID),
+        ('pNC',PDSNAME),
+        ('usnvecFrom',USN_VECTOR),
+        ('usnvecTo',USN_VECTOR),
+        ('pUpToDateVecSrc',PUPTODATE_VECTOR_V2_EXT),
+        ('PrefixTableSrc',SCHEMA_PREFIX_TABLE),
+        ('ulExtendedRet',ULONG),
+        ('cNumObjects',ULONG),
+        ('cNumBytes',ULONG),
+        ('pObjects',PREPLENTINFLIST),
+        ('fMoreData',BOOL),
+        ('cNumNcSizeObjectsc',ULONG),
+        ('cNumNcSizeValues',ULONG),
+        ('cNumValues',DWORD),
+        ('rgValues',PREPLVALINF_ARRAY),
+        ('dwDRSError',DWORD),
+    )
+
     structure =  (
         ('uuidDsaObjSrc',UUID),
         ('uuidInvocIdSrc',UUID),
@@ -1198,4 +1240,58 @@ def hDRSCrackNames(dce, hDrs, flags, formatOffered, formatDesired, rpNames = ())
         request['pmsgIn']['V1']['rpNames'].append(record)
 
     return dce.request(request)
+
+def transformKey(InputKey):
+        # Section 2.2.11.1.2 Encrypting a 64-Bit Block with a 7-Byte Key
+        OutputKey = []
+        OutputKey.append( chr(ord(InputKey[0]) >> 0x01) )
+        OutputKey.append( chr(((ord(InputKey[0])&0x01)<<6) | (ord(InputKey[1])>>2)) )
+        OutputKey.append( chr(((ord(InputKey[1])&0x03)<<5) | (ord(InputKey[2])>>3)) )
+        OutputKey.append( chr(((ord(InputKey[2])&0x07)<<4) | (ord(InputKey[3])>>4)) )
+        OutputKey.append( chr(((ord(InputKey[3])&0x0F)<<3) | (ord(InputKey[4])>>5)) )
+        OutputKey.append( chr(((ord(InputKey[4])&0x1F)<<2) | (ord(InputKey[5])>>6)) )
+        OutputKey.append( chr(((ord(InputKey[5])&0x3F)<<1) | (ord(InputKey[6])>>7)) )
+        OutputKey.append( chr(ord(InputKey[6]) & 0x7F) )
+
+        for i in range(8):
+            OutputKey[i] = chr((ord(OutputKey[i]) << 1) & 0xfe)
+
+        return "".join(OutputKey)
+
+def deriveKey(baseKey):
+        # 2.2.11.1.3 Deriving Key1 and Key2 from a Little-Endian, Unsigned Integer Key
+        # Let I be the little-endian, unsigned integer.
+        # Let I[X] be the Xth byte of I, where I is interpreted as a zero-base-index array of bytes.
+        # Note that because I is in little-endian byte order, I[0] is the least significant byte.
+        # Key1 is a concatenation of the following values: I[0], I[1], I[2], I[3], I[0], I[1], I[2].
+        # Key2 is a concatenation of the following values: I[3], I[0], I[1], I[2], I[3], I[0], I[1]
+        key = pack('<L',baseKey)
+        key1 = key[0] + key[1] + key[2] + key[3] + key[0] + key[1] + key[2]
+        key2 = key[3] + key[0] + key[1] + key[2] + key[3] + key[0] + key[1]
+        return transformKey(key1),transformKey(key2)
+
+def removeDESLayer(cryptedHash, rid):
+        Key1,Key2 = deriveKey(rid)
+
+        Crypt1 = DES.new(Key1, DES.MODE_ECB)
+        Crypt2 = DES.new(Key2, DES.MODE_ECB)
+
+        decryptedHash = Crypt1.decrypt(cryptedHash[:8]) + Crypt2.decrypt(cryptedHash[8:])
+
+        return decryptedHash
+
+def DecryptAttributeValue(dce, attribute):
+    sessionKey = dce.get_session_key()
+
+    encryptedPayload = ENCRYPTED_PAYLOAD(attribute)
+
+    md5 = hashlib.new('md5')
+    md5.update(sessionKey)
+    md5.update(encryptedPayload['Salt'])
+    finalMD5 = md5.digest()
+
+    cipher = ARC4.new(finalMD5)
+    plainText = cipher.decrypt(attribute[16:])
+
+    return plainText[4:]
 
