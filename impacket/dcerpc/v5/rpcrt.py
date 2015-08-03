@@ -902,6 +902,9 @@ class DCERPC_v5(DCERPC):
     def set_session_key(self, session_key):
         self.__sessionKey = session_key
 
+    def get_session_key(self):
+        return self.__sessionKey
+
     def set_auth_level(self, auth_level):
         self.__auth_level = auth_level
 
@@ -1039,7 +1042,7 @@ class DCERPC_v5(DCERPC):
 
         if self.__auth_level != RPC_C_AUTHN_LEVEL_NONE:
             if self.__auth_type == RPC_C_AUTHN_WINNT:
-                response, randomSessionKey = ntlm.getNTLMSSPType3(auth, bindResp['auth_data'], self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, use_ntlmv2 = self._transport.doesSupportNTLMv2())
+                response, self.__sessionKey = ntlm.getNTLMSSPType3(auth, bindResp['auth_data'], self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, use_ntlmv2 = self._transport.doesSupportNTLMv2())
                 self.__flags = response['flags']
             elif self.__auth_type == RPC_C_AUTHN_NETLOGON:
                 response = None
@@ -1051,10 +1054,10 @@ class DCERPC_v5(DCERPC):
             if self.__auth_level in (RPC_C_AUTHN_LEVEL_CONNECT, RPC_C_AUTHN_LEVEL_PKT_INTEGRITY, RPC_C_AUTHN_LEVEL_PKT_PRIVACY):
                 if self.__auth_type == RPC_C_AUTHN_WINNT:
                     if self.__flags & ntlm.NTLMSSP_NTLM2_KEY:
-                        self.__clientSigningKey = ntlm.SIGNKEY(self.__flags, randomSessionKey)
-                        self.__serverSigningKey = ntlm.SIGNKEY(self.__flags, randomSessionKey,"Server")
-                        self.__clientSealingKey = ntlm.SEALKEY(self.__flags, randomSessionKey)
-                        self.__serverSealingKey = ntlm.SEALKEY(self.__flags, randomSessionKey,"Server")
+                        self.__clientSigningKey = ntlm.SIGNKEY(self.__flags, self.__sessionKey)
+                        self.__serverSigningKey = ntlm.SIGNKEY(self.__flags, self.__sessionKey,"Server")
+                        self.__clientSealingKey = ntlm.SEALKEY(self.__flags, self.__sessionKey)
+                        self.__serverSealingKey = ntlm.SEALKEY(self.__flags, self.__sessionKey,"Server")
                         # Preparing the keys handle states
                         cipher3 = ARC4.new(self.__clientSealingKey)
                         self.__clientSealingHandle = cipher3.encrypt
@@ -1062,10 +1065,10 @@ class DCERPC_v5(DCERPC):
                         self.__serverSealingHandle = cipher4.encrypt
                     else:
                         # Same key for everything
-                        self.__clientSigningKey = randomSessionKey
-                        self.__serverSigningKey = randomSessionKey
-                        self.__clientSealingKey = randomSessionKey
-                        self.__serverSealingKey = randomSessionKey
+                        self.__clientSigningKey = self.__sessionKey
+                        self.__serverSigningKey = self.__sessionKey
+                        self.__clientSealingKey = self.__sessionKey
+                        self.__serverSealingKey = self.__sessionKey
                         cipher = ARC4.new(self.__clientSigningKey)
                         self.__clientSealingHandle = cipher.encrypt
                         self.__serverSealingHandle = cipher.encrypt
