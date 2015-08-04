@@ -361,7 +361,7 @@ class RemoteOperations:
             logging.error("Couldn't get DC info for domain %s" % self.__domainName)
             raise Exception('Fatal, aborting')
 
-    def getDrds(self):
+    def getDrsr(self):
         return self.__drsr
 
     def DRSCrackNames(self, formatOffered=drsuapi.DS_NAME_FORMAT.DS_DISPLAY_NAME,
@@ -1468,14 +1468,14 @@ class NTDSHashes:
                 if attr['attrTyp'] == self.NAME_TO_ATTRTYP['dBCSPwd']:
                     if attr['AttrVal']['valCount'] > 0:
                         encrypteddBCSPwd = ''.join(attr['AttrVal']['pAVal'][0]['pVal'])
-                        encryptedLMHash = drsuapi.DecryptAttributeValue(self.__remoteOps.getDrds(), encrypteddBCSPwd)
+                        encryptedLMHash = drsuapi.DecryptAttributeValue(self.__remoteOps.getDrsr(), encrypteddBCSPwd)
                         LMHash = drsuapi.removeDESLayer(encryptedLMHash, rid)
                     else:
                         LMHash = ntlm.LMOWFv1('', '')
                 elif attr['attrTyp'] == self.NAME_TO_ATTRTYP['unicodePwd']:
                     if attr['AttrVal']['valCount'] > 0:
                         encryptedUnicodePwd = ''.join(attr['AttrVal']['pAVal'][0]['pVal'])
-                        encryptedNTHash = drsuapi.DecryptAttributeValue(self.__remoteOps.getDrds(), encryptedUnicodePwd)
+                        encryptedNTHash = drsuapi.DecryptAttributeValue(self.__remoteOps.getDrsr(), encryptedUnicodePwd)
                         NTHash = drsuapi.removeDESLayer(encryptedNTHash, rid)
                     else:
                         NTHash = ntlm.NTOWFv1('', '')
