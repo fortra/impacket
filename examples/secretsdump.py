@@ -272,7 +272,7 @@ class RemoteOperations:
         self.__domainHandle = None
         self.__domainName = None
 
-        self.__drds = None
+        self.__drsr = None
         self.__hDrs = None
         self.__NtdsDsaObjectGuid = None
         self.__doKerberos = doKerberos
@@ -328,12 +328,12 @@ class RemoteOperations:
             # This method exists only for selected protocol sequences.
             rpc.set_credentials(*(self.__smbConnection.getCredentials()))
             rpc.set_kerberos(self.__doKerberos)
-        self.__drds = rpc.get_dce_rpc()
-        self.__drds.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
+        self.__drsr = rpc.get_dce_rpc()
+        self.__drsr.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
         if self.__doKerberos:
-            self.__drds.set_auth_type(RPC_C_AUTHN_GSS_NEGOTIATE)
-        self.__drds.connect()
-        self.__drds.bind(drsuapi.MSRPC_UUID_DRSUAPI)
+            self.__drsr.set_auth_type(RPC_C_AUTHN_GSS_NEGOTIATE)
+        self.__drsr.connect()
+        self.__drsr.bind(drsuapi.MSRPC_UUID_DRSUAPI)
 
         request = drsuapi.DRSBind()
         request['puuidClientDsa'] = drsuapi.NTDSAPI_CLIENT_GUID
@@ -348,12 +348,12 @@ class RemoteOperations:
         drs['dwExtCaps'] = 0
         request['pextClient']['cb'] = len(drs)
         request['pextClient']['rgb'] = list(str(drs))
-        resp = self.__drds.request(request)
+        resp = self.__drsr.request(request)
 
         self.__hDrs = resp['phDrs']
 
         # Now let's get the NtdsDsaObjectGuid UUID to use when querying NCChanges
-        resp = drsuapi.hDRSDomainControllerInfo(self.__drds, self.__hDrs, self.__domainName, 2)
+        resp = drsuapi.hDRSDomainControllerInfo(self.__drsr, self.__hDrs, self.__domainName, 2)
 
         if resp['pmsgOut']['V2']['cItems'] > 0:
             self.__NtdsDsaObjectGuid = resp['pmsgOut']['V2']['rItems'][0]['NtdsDsaObjectGuid']
@@ -362,18 +362,18 @@ class RemoteOperations:
             raise Exception('Fatal, aborting')
 
     def getDrds(self):
-        return self.__drds
+        return self.__drsr
 
     def DRSCrackNames(self, formatOffered=drsuapi.DS_NAME_FORMAT.DS_DISPLAY_NAME,
                       formatDesired=drsuapi.DS_NAME_FORMAT.DS_FQDN_1779_NAME, name=''):
-        if self.__drds is None:
+        if self.__drsr is None:
             self.__connectDrds()
 
-        resp = drsuapi.hDRSCrackNames(self.__drds, self.__hDrs, 0, formatOffered, formatDesired, (name,))
+        resp = drsuapi.hDRSCrackNames(self.__drsr, self.__hDrs, 0, formatOffered, formatDesired, (name,))
         return resp
 
     def DRSGetNCChanges(self, userEntry):
-        if self.__drds is None:
+        if self.__drsr is None:
             self.__connectDrds()
 
         request = drsuapi.DRSGetNCChanges()
@@ -408,7 +408,7 @@ class RemoteOperations:
         request['pmsgIn']['V8']['pPartialAttrSetEx1'] = NULL
         request['pmsgIn']['V8']['PrefixTableDest']['pPrefixEntry'] = NULL
 
-        return self.__drds.request(request)
+        return self.__drsr.request(request)
 
     def getDomainUsers(self, enumerationContext=0):
         if self.__samr is None:
@@ -551,8 +551,8 @@ class RemoteOperations:
         self.__restore()
         if self.__rrp is not None:
             self.__rrp.disconnect()
-        if self.__drds is not None:
-            self.__drds.disconnect()
+        if self.__drsr is not None:
+            self.__drsr.disconnect()
         if self.__samr is not None:
             self.__samr.disconnect()
         if self.__scmr is not None:
