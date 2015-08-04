@@ -84,6 +84,9 @@ OID = ULONGLONG
 
 class OID_ARRAY(NDRUniConformantArray):
     item = OID
+    # ToDo: We don't need this. The reason it's here is because we must be  aligning wrong somewhere
+    def getAlignment(self):
+        return 4
 
 class POID_ARRAY(NDRPOINTER):
     referent = (
@@ -1391,6 +1394,7 @@ class IObjectExporter:
     # 3.1.2.5.1.3 IObjectExporter::ComplexPing (Opnum 2)
     def ComplexPing(self, setId = 0, sequenceNum = 0, addToSet = [], delFromSet = []):
         self.__portmap.connect()
+        #self.__portmap.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_INTEGRITY)
         self.__portmap.bind(IID_IObjectExporter)
         request = ComplexPing()
         request['pSetId'] = setId
