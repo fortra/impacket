@@ -18,6 +18,9 @@
 #   Helper functions start with "h"<name of the call>.
 #   There are test cases for them too. 
 #
+import hashlib
+from struct import pack
+
 from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRPOINTER, NDRUniConformantArray, NDRUNION, NDR, NDRENUM
 from impacket.dcerpc.v5.dtypes import PUUID, DWORD, NULL, GUID, LPWSTR, BOOL, ULONG, UUID, LONGLONG, ULARGE_INTEGER, LARGE_INTEGER
 from impacket import hresult_errors, system_errors
@@ -25,10 +28,8 @@ from impacket.structure import Structure
 from impacket.uuid import uuidtup_to_bin, string_to_bin
 from impacket.dcerpc.v5.enum import Enum
 from impacket.dcerpc.v5.rpcrt import DCERPCException
-from binascii import crc32
-from struct import pack
+from impacket.krb5 import crypto
 
-import hashlib
 try:
     from Crypto.Cipher import ARC4, DES
 except Exception:
@@ -1282,6 +1283,10 @@ def removeDESLayer(cryptedHash, rid):
 
 def DecryptAttributeValue(dce, attribute):
     sessionKey = dce.get_session_key()
+    # Is it a Kerberos Session Key?
+    if isinstance(sessionKey, crypto.Key):
+        # Extract its contents and move on
+        sessionKey = sessionKey.contents
 
     encryptedPayload = ENCRYPTED_PAYLOAD(attribute)
 
@@ -1292,6 +1297,11 @@ def DecryptAttributeValue(dce, attribute):
 
     cipher = ARC4.new(finalMD5)
     plainText = cipher.decrypt(attribute[16:])
+
+    #chkSum = (binascii.crc32(plainText[4:])) & 0xffffffff
+    #if unpack('<L',plainText[:4])[0] != chkSum:
+    #    print "RECEIVED 0x%x" % unpack('<L',plainText[:4])[0]
+    #    print "CALCULATED 0x%x" % chkSum
 
     return plainText[4:]
 
