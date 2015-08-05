@@ -2742,7 +2742,7 @@ def hSamrChangePasswordUser(dce, userHandle, oldPassword, newPassword):
 
     return dce.request(request)
 
-def hSamrUnicodeChangePasswordUser2(dce, serverName='\x00', userName='', oldPassword='', newPassword='', oldPwdHashLM = None, oldPwdHashNT = None):
+def hSamrUnicodeChangePasswordUser2(dce, serverName='\x00', userName='', oldPassword='', newPassword='', oldPwdHashLM = '', oldPwdHashNT = ''):
     request = SamrUnicodeChangePasswordUser2()
     request['ServerName'] = serverName
     request['UserName'] = userName
@@ -2754,7 +2754,7 @@ def hSamrUnicodeChangePasswordUser2(dce, serverName='\x00', userName='', oldPass
         LOG.critical("See http://www.pycrypto.org/")
     from impacket import crypto, ntlm
 
-    if oldPwdHashLM is None and oldPwdHashNT is None:
+    if oldPwdHashLM == '' and oldPwdHashNT == '':
         oldPwdHashLM = ntlm.LMOWFv1(oldPassword)
         oldPwdHashNT = ntlm.NTOWFv1(oldPassword)
     else:
