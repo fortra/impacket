@@ -58,6 +58,26 @@ class DCERPCSessionError(DCERPCException):
 ################################################################################
 # CONSTANTS
 ################################################################################
+# 4.1.10.2.17 EXOP_ERR Codes
+class EXOP_ERR(NDRENUM):
+    class enumItems(Enum):
+        EXOP_ERR_SUCCESS               = 0x00000001
+        EXOP_ERR_UNKNOWN_OP            = 0x00000002
+        EXOP_ERR_FSMO_NOT_OWNER        = 0x00000003
+        EXOP_ERR_UPDATE_ERR            = 0x00000004
+        EXOP_ERR_EXCEPTION             = 0x00000005
+        EXOP_ERR_UNKNOWN_CALLER        = 0x00000006
+        EXOP_ERR_RID_ALLOC             = 0x00000007
+        EXOP_ERR_FSMO_OWNER_DELETED    = 0x00000008
+        EXOP_ERR_FSMO_PENDING_OP       = 0x00000009
+        EXOP_ERR_MISMATCH              = 0x0000000A
+        EXOP_ERR_COULDNT_CONTACT       = 0x0000000B
+        EXOP_ERR_FSMO_REFUSING_ROLES   = 0x0000000C
+        EXOP_ERR_DIR_ERROR             = 0x0000000D
+        EXOP_ERR_FSMO_MISSING_SETTINGS = 0x0000000E
+        EXOP_ERR_ACCESS_DENIED         = 0x0000000F
+        EXOP_ERR_PARAM_ERROR           = 0x00000010
+
 # 4.1.10.2.18 EXOP_REQ Codes
 EXOP_FSMO_REQ_ROLE = 0x00000001
 EXOP_FSMO_REQ_RID_ALLOC = 0x00000002
@@ -861,7 +881,7 @@ class DRS_MSG_GETCHGREPLY_V1(NDRSTRUCT):
         ('usnvecTo',USN_VECTOR),
         ('pUpToDateVecSrcV1',PUPTODATE_VECTOR_V1_EXT),
         ('PrefixTableSrc',SCHEMA_PREFIX_TABLE),
-        ('ulExtendedRet',ULONG),
+        ('ulExtendedRet',EXOP_ERR),
         ('cNumObjects',ULONG),
         ('cNumBytes',ULONG),
         ('pObjects',PREPLENTINFLIST),
@@ -948,27 +968,7 @@ class DRS_MSG_GETCHGREPLY_V6(NDRSTRUCT):
         ('usnvecTo',USN_VECTOR),
         ('pUpToDateVecSrc',PUPTODATE_VECTOR_V2_EXT),
         ('PrefixTableSrc',SCHEMA_PREFIX_TABLE),
-        ('ulExtendedRet',ULONG),
-        ('cNumObjects',ULONG),
-        ('cNumBytes',ULONG),
-        ('pObjects',PREPLENTINFLIST),
-        ('fMoreData',BOOL),
-        ('cNumNcSizeObjectsc',ULONG),
-        ('cNumNcSizeValues',ULONG),
-        ('cNumValues',DWORD),
-        ('rgValues',PREPLVALINF_ARRAY),
-        ('dwDRSError',DWORD),
-    )
-
-    structure =  (
-        ('uuidDsaObjSrc',UUID),
-        ('uuidInvocIdSrc',UUID),
-        ('pNC',PDSNAME),
-        ('usnvecFrom',USN_VECTOR),
-        ('usnvecTo',USN_VECTOR),
-        ('pUpToDateVecSrc',PUPTODATE_VECTOR_V2_EXT),
-        ('PrefixTableSrc',SCHEMA_PREFIX_TABLE),
-        ('ulExtendedRet',ULONG),
+        ('ulExtendedRet',EXOP_ERR),
         ('cNumObjects',ULONG),
         ('cNumBytes',ULONG),
         ('pObjects',PREPLENTINFLIST),
