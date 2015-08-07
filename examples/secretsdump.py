@@ -306,7 +306,7 @@ class RemoteOperations:
         self.__rrp.connect()
         self.__rrp.bind(rrp.MSRPC_UUID_RRP)
 
-    def __connectSamr(self, domain):
+    def connectSamr(self, domain):
         rpc = transport.DCERPCTransportFactory(self.__stringBindingSamr)
         rpc.set_smb_connection(self.__smbConnection)
         self.__samr = rpc.get_dce_rpc()
@@ -412,13 +412,14 @@ class RemoteOperations:
 
     def getDomainUsers(self, enumerationContext=0):
         if self.__samr is None:
-            self.__connectSamr(self.getMachineNameAndDomain()[1])
+            self.connectSamr(self.getMachineNameAndDomain()[1])
 
         try:
             resp = samr.hSamrEnumerateUsersInDomain(self.__samr, self.__domainHandle,
-                                                    userAccountControl=samr.USER_NORMAL_ACCOUNT |\
-                                                                       samr.USER_WORKSTATION_TRUST_ACCOUNT |\
-                                                                       samr.USER_INTERDOMAIN_TRUST_ACCOUNT,
+                                                    userAccountControl=samr.USER_NORMAL_ACCOUNT | \
+                                                                       samr.USER_WORKSTATION_TRUST_ACCOUNT | \
+                                                                       #samr.USER_SERVER_TRUST_ACCOUNT |\
+                                                                       #samr.USER_INTERDOMAIN_TRUST_ACCOUNT,
                                                     enumerationContext=enumerationContext)
         except DCERPCException, e:
             if str(e).find('STATUS_MORE_ENTRIES') < 0:
@@ -525,6 +526,7 @@ class RemoteOperations:
                 if hasattr(rpc, 'set_credentials'):
                     # This method exists only for selected protocol sequences.
                     rpc.set_credentials(*self.__smbConnection.getCredentials())
+                    rpc.set_kerberos(self.__doKerberos)
                 self.__scmr = rpc.get_dce_rpc()
                 self.__scmr.connect()
                 self.__scmr.bind(scmr.MSRPC_UUID_SCMR)
@@ -1363,45 +1365,80 @@ class NTDSHashes:
 
         return decryptedHash
 
-    def __decryptSupplementalInfo(self, record):
+    def __decryptSupplementalInfo(self, record, rid=None):
         # This is based on [MS-SAMR] 2.2.10 Supplemental Credentials Structures
-        if record[self.NAME_TO_INTERNAL['supplementalCredentials']] is not None:
-            if len(unhexlify(record[self.NAME_TO_INTERNAL['supplementalCredentials']])) > 24:
-                if record[self.NAME_TO_INTERNAL['userPrincipalName']] is not None:
-                    domain = record[self.NAME_TO_INTERNAL['userPrincipalName']].split('@')[-1]
-                    userName = '%s\\%s' % (domain, record[self.NAME_TO_INTERNAL['sAMAccountName']])
-                else:
-                    userName = '%s' % record[self.NAME_TO_INTERNAL['sAMAccountName']]
-                cipherText = self.CRYPTED_BLOB(unhexlify(record[self.NAME_TO_INTERNAL['supplementalCredentials']]))
-                plainText = self.__removeRC4Layer(cipherText)
-                try:
-                    userProperties = samr.USER_PROPERTIES(plainText)
-                except:
-                    # On some old w2k3 there might be user properties that don't 
-                    # match [MS-SAMR] structure, discarding them
-                    return
-                propertiesData = userProperties['UserProperties']
-                for propertyCount in range(userProperties['PropertyCount']):
-                    userProperty = samr.USER_PROPERTY(propertiesData)
-                    propertiesData = propertiesData[len(userProperty):]
-                    # For now, we will only process Newer Kerberos Keys. 
-                    if userProperty['PropertyName'].decode('utf-16le') == 'Primary:Kerberos-Newer-Keys':
-                        propertyValueBuffer = unhexlify(userProperty['PropertyValue'])
-                        kerbStoredCredentialNew = samr.KERB_STORED_CREDENTIAL_NEW(propertyValueBuffer)
-                        data = kerbStoredCredentialNew['Buffer']
-                        for credential in range(kerbStoredCredentialNew['CredentialCount']):
-                            keyDataNew = samr.KERB_KEY_DATA_NEW(data)
-                            data = data[len(keyDataNew):]
-                            keyValue = propertyValueBuffer[keyDataNew['KeyOffset']:][:keyDataNew['KeyLength']]
+        haveInfo = False
+        if self.__useVSSMethod is True:
+            if record[self.NAME_TO_INTERNAL['supplementalCredentials']] is not None:
+                if len(unhexlify(record[self.NAME_TO_INTERNAL['supplementalCredentials']])) > 24:
+                    if record[self.NAME_TO_INTERNAL['userPrincipalName']] is not None:
+                        domain = record[self.NAME_TO_INTERNAL['userPrincipalName']].split('@')[-1]
+                        userName = '%s\\%s' % (domain, record[self.NAME_TO_INTERNAL['sAMAccountName']])
+                    else:
+                        userName = '%s' % record[self.NAME_TO_INTERNAL['sAMAccountName']]
+                    cipherText = self.CRYPTED_BLOB(unhexlify(record[self.NAME_TO_INTERNAL['supplementalCredentials']]))
+                    plainText = self.__removeRC4Layer(cipherText)
+                    haveInfo = True
+        else:
+            domain = None
+            userName = None
+            for attr in record['pmsgOut']['V6']['pObjects']['Entinf']['AttrBlock']['pAttr']:
+                if attr['attrTyp'] == self.NAME_TO_ATTRTYP['userPrincipalName']:
+                    if attr['AttrVal']['valCount'] > 0:
+                        try:
+                            domain = ''.join(attr['AttrVal']['pAVal'][0]['pVal']).decode('utf-16le').split('@')[-1]
+                        except:
+                            domain = None
+                    else:
+                        domain = None
+                elif attr['attrTyp'] == self.NAME_TO_ATTRTYP['sAMAccountName']:
+                    if attr['AttrVal']['valCount'] > 0:
+                        try:
+                            userName = ''.join(attr['AttrVal']['pAVal'][0]['pVal']).decode('utf-16le')
+                        except:
+                            logging.error('Cannot get sAMAccountName for %s' % record['pmsgOut']['V6']['pNC']['StringName'][:-1])
+                            userName = 'unknown'
+                    else:
+                        logging.error('Cannot get sAMAccountName for %s' % record['pmsgOut']['V6']['pNC']['StringName'][:-1])
+                        userName = 'unknown'
+                if attr['attrTyp'] == self.NAME_TO_ATTRTYP['supplementalCredentials']:
+                    if attr['AttrVal']['valCount'] > 0:
+                        blob = ''.join(attr['AttrVal']['pAVal'][0]['pVal'])
+                        plainText = drsuapi.DecryptAttributeValue(self.__remoteOps.getDrsr(), blob)
+                        if len(plainText) > 24:
+                            haveInfo = True
+            if domain is not None:
+                userName = '%s\\%s' % (domain, userName)
 
-                            if  self.KERBEROS_TYPE.has_key(keyDataNew['KeyType']):
-                                answer =  "%s:%s:%s" % (userName, self.KERBEROS_TYPE[keyDataNew['KeyType']],hexlify(keyValue))
-                            else:
-                                answer =  "%s:%s:%s" % (userName, hex(keyDataNew['KeyType']),hexlify(keyValue))
-                            # We're just storing the keys, not printing them, to make the output more readable
-                            # This is kind of ugly... but it's what I came up with tonight to get an ordered
-                            # set :P. Better ideas welcomed ;)
-                            self.__kerberosKeys[answer] = None
+        if haveInfo is True:
+            try:
+                userProperties = samr.USER_PROPERTIES(plainText)
+            except:
+                # On some old w2k3 there might be user properties that don't
+                # match [MS-SAMR] structure, discarding them
+                return
+            propertiesData = userProperties['UserProperties']
+            for propertyCount in range(userProperties['PropertyCount']):
+                userProperty = samr.USER_PROPERTY(propertiesData)
+                propertiesData = propertiesData[len(userProperty):]
+                # For now, we will only process Newer Kerberos Keys.
+                if userProperty['PropertyName'].decode('utf-16le') == 'Primary:Kerberos-Newer-Keys':
+                    propertyValueBuffer = unhexlify(userProperty['PropertyValue'])
+                    kerbStoredCredentialNew = samr.KERB_STORED_CREDENTIAL_NEW(propertyValueBuffer)
+                    data = kerbStoredCredentialNew['Buffer']
+                    for credential in range(kerbStoredCredentialNew['CredentialCount']):
+                        keyDataNew = samr.KERB_KEY_DATA_NEW(data)
+                        data = data[len(keyDataNew):]
+                        keyValue = propertyValueBuffer[keyDataNew['KeyOffset']:][:keyDataNew['KeyLength']]
+
+                        if  self.KERBEROS_TYPE.has_key(keyDataNew['KeyType']):
+                            answer =  "%s:%s:%s" % (userName, self.KERBEROS_TYPE[keyDataNew['KeyType']],hexlify(keyValue))
+                        else:
+                            answer =  "%s:%s:%s" % (userName, hex(keyDataNew['KeyType']),hexlify(keyValue))
+                        # We're just storing the keys, not printing them, to make the output more readable
+                        # This is kind of ugly... but it's what I came up with tonight to get an ordered
+                        # set :P. Better ideas welcomed ;)
+                        self.__kerberosKeys[answer] = None
 
     def __decryptHash(self, record, rid=None):
         if self.__useVSSMethod is True:
@@ -1462,8 +1499,11 @@ class NTDSHashes:
                     self.__hashesFound[unhexlify(record[self.NAME_TO_INTERNAL['objectSid']]) + str(i)] = answer
                     print answer
         else:
-            logging.debug('Decrypting hash for user: %s' % record['pmsgOut']['V6']['pNC']['StringName'][:1])
+            logging.debug('Decrypting hash for user: %s' % record['pmsgOut']['V6']['pNC']['StringName'][:-1])
             domain = None
+            if self.__history:
+                LMHistory = []
+                NTHistory = []
             for attr in record['pmsgOut']['V6']['pObjects']['Entinf']['AttrBlock']['pAttr']:
                 if attr['attrTyp'] == self.NAME_TO_ATTRTYP['dBCSPwd']:
                     if attr['AttrVal']['valCount'] > 0:
@@ -1492,17 +1532,37 @@ class NTDSHashes:
                         try:
                             userName = ''.join(attr['AttrVal']['pAVal'][0]['pVal']).decode('utf-16le')
                         except:
-                            logging.error('Cannot get sAMAccountName for %s' % record['pmsgOut']['V6']['pNC']['StringName'][:1])
+                            logging.error('Cannot get sAMAccountName for %s' % record['pmsgOut']['V6']['pNC']['StringName'][:-1])
                             userName = 'unknown'
                     else:
-                        logging.error('Cannot get sAMAccountName for %s' % record['pmsgOut']['V6']['pNC']['StringName'][:1])
+                        logging.error('Cannot get sAMAccountName for %s' % record['pmsgOut']['V6']['pNC']['StringName'][:-1])
                         userName = 'unknown'
                 elif attr['attrTyp'] == self.NAME_TO_ATTRTYP['objectSid']:
                     if attr['AttrVal']['valCount'] > 0:
                         objectSid = ''.join(attr['AttrVal']['pAVal'][0]['pVal'])
                     else:
-                        logging.error('Cannot get objectSid for %s' % record['pmsgOut']['V6']['pNC']['StringName'][:1])
+                        logging.error('Cannot get objectSid for %s' % record['pmsgOut']['V6']['pNC']['StringName'][:-1])
                         objectSid = rid
+
+                if self.__history:
+                    if attr['attrTyp'] == self.NAME_TO_ATTRTYP['lmPwdHistory']:
+                        if attr['AttrVal']['valCount'] > 0:
+                            encryptedLMHistory = ''.join(attr['AttrVal']['pAVal'][0]['pVal'])
+                            tmpLMHistory = drsuapi.DecryptAttributeValue(self.__remoteOps.getDrsr(), encryptedLMHistory)
+                            for i in range(0, len(tmpLMHistory) / 16):
+                                LMHashHistory = drsuapi.removeDESLayer(tmpLMHistory[i * 16:(i + 1) * 16], rid)
+                                LMHistory.append(LMHashHistory)
+                        else:
+                            logging.debug('No lmPwdHistory for user %s' % record['pmsgOut']['V6']['pNC']['StringName'][:-1])
+                    elif attr['attrTyp'] == self.NAME_TO_ATTRTYP['ntPwdHistory']:
+                        if attr['AttrVal']['valCount'] > 0:
+                            encryptedNTHistory = ''.join(attr['AttrVal']['pAVal'][0]['pVal'])
+                            tmpNTHistory = drsuapi.DecryptAttributeValue(self.__remoteOps.getDrsr(), encryptedNTHistory)
+                            for i in range(0, len(tmpNTHistory) / 16):
+                                NTHashHistory = drsuapi.removeDESLayer(tmpNTHistory[i * 16:(i + 1) * 16], rid)
+                                NTHistory.append(NTHashHistory)
+                        else:
+                            logging.debug('No ntPwdHistory for user %s' % record['pmsgOut']['V6']['pNC']['StringName'][:-1])
 
             if domain is not None:
                 userName = '%s\\%s' % (domain, userName)
@@ -1511,13 +1571,28 @@ class NTDSHashes:
             self.__hashesFound[objectSid] = answer
             print answer
 
-            # ToDo get History and Kerberos Keys using DRSUAPI
+            if self.__history:
+                for i, (LMHashHistory, NTHashHistory) in enumerate(
+                        map(lambda l, n: (l, n) if l else ('', n), LMHistory[1:], NTHistory[1:])):
+                    if self.__noLMHash:
+                        lmhash = hexlify(ntlm.LMOWFv1('', ''))
+                    else:
+                        lmhash = hexlify(LMHashHistory)
 
+                    answer = "%s_history%d:%s:%s:%s:::" % (userName, i, rid, lmhash, hexlify(NTHashHistory))
+                    self.__hashesFound[objectSid + str(i)] = answer
+                    print answer
 
     def dump(self):
         if self.__NTDS is None and self.__useVSSMethod is True:
             # No NTDS.dit file provided and were asked to use VSS
             return
+        else:
+            try:
+                self.__remoteOps.connectSamr(self.__remoteOps.getMachineNameAndDomain()[1])
+            except:
+                # Target's not a DC
+                return
 
         logging.info('Dumping Domain Credentials (domain\\uid:rid:lmhash:nthash)')
         if self.__useVSSMethod:
@@ -1592,20 +1667,23 @@ class NTDSHashes:
                     if crackedName is not None:
                         if crackedName['pmsgOut']['V1']['pResult']['cItems'] == 1:
                             userRecord = self.__remoteOps.DRSGetNCChanges(crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['pName'][:-1])
+                            if userRecord['pmsgOut']['V6']['cNumObjects'] == 0:
+                                raise Exception('DRSGetNCChanges didn\'t return any object!')
                         else:
                             logging.warning('DRSCrackNames returned %d items for user %s, skipping' %(crackedName['pmsgOut']['V1']['pResult']['cItems'], userName))
-
                         try:
                             self.__decryptHash(userRecord, user['RelativeId'])
-                        except:
-                            import traceback
-                            traceback.print_exc()
-                        #self.__decryptSupplementalInfo(record)
+                            self.__decryptSupplementalInfo(userRecord, user['RelativeId'])
+                        except Exception, e:
+                            #import traceback
+                            #traceback.print_exc()
+                            logging.error("Error while processing user!")
+                            logging.error(str(e))
 
                 enumerationContext = resp['EnumerationContext']
                 status = resp['ErrorCode']
 
-        # Now we'll print the Kerberos keys. So we don't mix things up in the output. 
+        # Now we'll print the Kerberos keys. So we don't mix things up in the output.
         if len(self.__kerberosKeys) > 0:
             if self.__useVSSMethod is True:
                 logging.info('Kerberos keys from %s ' % self.__NTDS)
@@ -1775,11 +1853,15 @@ class DumpSecrets:
             self.__NTDSHashes = NTDSHashes(NTDSFileName, bootKey, isRemote=self.__isRemote, history=self.__history,
                                            noLMHash=self.__noLMHash, remoteOps=self.__remoteOps,
                                            useVSSMethod=self.__useVSSMethod)
-            self.__NTDSHashes.dump()
-
-            if self.__outputFileName is not None:
-                self.__NTDSHashes.export(self.__outputFileName)
-
+            try:
+                self.__NTDSHashes.dump()
+            except Exception, e:
+                logging.error(e)
+                if self.__useVSSMethod is False:
+                    logging.info('Something wen\'t wrong with the DRSUAPI approach. Try again with -use-vss parameter')
+            else:
+                if self.__outputFileName is not None:
+                    self.__NTDSHashes.export(self.__outputFileName)
             self.cleanup()
         except (Exception, KeyboardInterrupt), e:
             #import traceback
