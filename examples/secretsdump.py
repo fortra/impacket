@@ -417,7 +417,7 @@ class RemoteOperations:
         try:
             resp = samr.hSamrEnumerateUsersInDomain(self.__samr, self.__domainHandle,
                                                     userAccountControl=samr.USER_NORMAL_ACCOUNT | \
-                                                                       samr.USER_WORKSTATION_TRUST_ACCOUNT | \
+                                                                       samr.USER_WORKSTATION_TRUST_ACCOUNT, #| \
                                                                        #samr.USER_SERVER_TRUST_ACCOUNT |\
                                                                        #samr.USER_INTERDOMAIN_TRUST_ACCOUNT,
                                                     enumerationContext=enumerationContext)
