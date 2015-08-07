@@ -961,6 +961,13 @@ def hept_map(destHost, remoteIf, dataRepresentation = uuidtup_to_bin(('8a885d04-
     request['max_towers'] = 1
     request['map_tower']['tower_length'] = len(tower)
     request['map_tower']['tower_octet_string'] = str(tower)
+
+    # Under Windows 2003 the Referent IDs cannot be random
+    # they must have the following specific values
+    # otherwise we get a rpc_x_bad_stub_data exception
+    request.fields['obj'].fields['ReferentID'] = 1
+    request.fields['map_tower'].fields['ReferentID'] = 2
+
     resp = dce.request(request)
 
     tower = EPMTower(''.join(resp['ITowers'][0]['Data']['tower_octet_string']))
