@@ -515,8 +515,14 @@ class SAMRTests(unittest.TestCase):
         request['EntryCount'] = 100
         request['PreferredMaximumLength'] = 8192
         #request.dump()
-        resp = dce.request(request)
-        resp.dump()
+        try:
+            resp = dce.request(request)
+            resp.dump()
+        except Exception, e:
+            if str(e).find('STATUS_MORE_ENTRIES') >=0:
+                e.get_packet().dump()
+            else:
+                raise
 
         request = samr.SamrQueryDisplayInformation3()
         request['DomainHandle'] = domainHandle
@@ -550,8 +556,14 @@ class SAMRTests(unittest.TestCase):
 
     def test_hSamrQueryDisplayInformation3(self):
         dce, rpctransport, domainHandle  = self.connect()
-        resp = samr.hSamrQueryDisplayInformation3(dce, domainHandle,  samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayUser)
-        resp.dump()
+        try:
+            resp = samr.hSamrQueryDisplayInformation3(dce, domainHandle,  samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayUser)
+            resp.dump()
+        except Exception, e:
+            if str(e).find('STATUS_MORE_ENTRIES') >=0:
+                e.get_packet().dump()
+            else:
+                raise
 
         resp = samr.hSamrQueryDisplayInformation3(dce, domainHandle,  samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayMachine)
         resp.dump()
@@ -564,8 +576,14 @@ class SAMRTests(unittest.TestCase):
 
     def test_SamrQueryDisplayInformation2(self):
         dce, rpctransport, domainHandle  = self.connect()
-        resp = samr.hSamrQueryDisplayInformation2(dce, domainHandle,  samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayUser)
-        resp.dump()
+        try:
+            resp = samr.hSamrQueryDisplayInformation2(dce, domainHandle,  samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayUser)
+            resp.dump()
+        except Exception, e:
+            if str(e).find('STATUS_MORE_ENTRIES') >=0:
+                e.get_packet().dump()
+            else:
+                raise
 
         resp = samr.hSamrQueryDisplayInformation2(dce, domainHandle,  samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayMachine)
         resp.dump()
@@ -585,8 +603,14 @@ class SAMRTests(unittest.TestCase):
         request['EntryCount'] = 100
         request['PreferredMaximumLength'] = 8192
         #request.dump()
-        resp = dce.request(request)
-        resp.dump()
+        try:
+            resp = dce.request(request)
+            resp.dump()
+        except Exception, e:
+            if str(e).find('STATUS_MORE_ENTRIES') >=0:
+                e.get_packet().dump()
+            else:
+                raise
 
         request = samr.SamrQueryDisplayInformation()
         request['DomainHandle'] = domainHandle
@@ -621,8 +645,15 @@ class SAMRTests(unittest.TestCase):
     def test_hSamrQueryDisplayInformation(self):
         dce, rpctransport, domainHandle  = self.connect()
 
-        resp = samr.hSamrQueryDisplayInformation(dce, domainHandle,  samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayUser)
-        resp.dump()
+        try:
+            resp = samr.hSamrQueryDisplayInformation(dce, domainHandle,  samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayUser)
+            resp.dump()
+        except Exception, e:
+            if str(e).find('STATUS_MORE_ENTRIES') >=0:
+                e.get_packet().dump()
+            else:
+                raise
+
 
         resp = samr.hSamrQueryDisplayInformation(dce, domainHandle,  samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayMachine)
         resp.dump()
