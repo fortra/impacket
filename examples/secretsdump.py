@@ -1658,27 +1658,23 @@ class NTDSHashes:
                     userName = user['Name']
 
                     # Let's crack the user name into DS_FQDN_1779_NAME
-                    try:
-                        crackedName = self.__remoteOps.DRSCrackNames(drsuapi.DS_NT4_ACCOUNT_NAME_SANS_DOMAIN, name = userName)
-                    except DCERPCException, e:
-                        logging.warning(str(e))
-                        crackedName = None
+                    crackedName = self.__remoteOps.DRSCrackNames(drsuapi.DS_NT4_ACCOUNT_NAME_SANS_DOMAIN, name = userName)
 
-                    if crackedName is not None:
-                        if crackedName['pmsgOut']['V1']['pResult']['cItems'] == 1:
-                            userRecord = self.__remoteOps.DRSGetNCChanges(crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['pName'][:-1])
-                            if userRecord['pmsgOut']['V6']['cNumObjects'] == 0:
-                                raise Exception('DRSGetNCChanges didn\'t return any object!')
-                        else:
-                            logging.warning('DRSCrackNames returned %d items for user %s, skipping' %(crackedName['pmsgOut']['V1']['pResult']['cItems'], userName))
-                        try:
-                            self.__decryptHash(userRecord, user['RelativeId'])
-                            self.__decryptSupplementalInfo(userRecord, user['RelativeId'])
-                        except Exception, e:
-                            #import traceback
-                            #traceback.print_exc()
-                            logging.error("Error while processing user!")
-                            logging.error(str(e))
+                    if crackedName['pmsgOut']['V1']['pResult']['cItems'] == 1:
+                        userRecord = self.__remoteOps.DRSGetNCChanges(crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['pName'][:-1])
+                        #userRecord.dump()
+                        if userRecord['pmsgOut']['V6']['cNumObjects'] == 0:
+                            raise Exception('DRSGetNCChanges didn\'t return any object!')
+                    else:
+                        logging.warning('DRSCrackNames returned %d items for user %s, skipping' %(crackedName['pmsgOut']['V1']['pResult']['cItems'], userName))
+                    try:
+                        self.__decryptHash(userRecord, user['RelativeId'])
+                        self.__decryptSupplementalInfo(userRecord, user['RelativeId'])
+                    except Exception, e:
+                        #import traceback
+                        #traceback.print_exc()
+                        logging.error("Error while processing user!")
+                        logging.error(str(e))
 
                 enumerationContext = resp['EnumerationContext']
                 status = resp['ErrorCode']
