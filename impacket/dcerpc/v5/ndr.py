@@ -288,7 +288,7 @@ class NDR(object):
                 pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar, packing = True)
                 if pad > 0:
                     soFar += pad
-                    data += '\xbb'*pad
+                    data += '\xbf'*pad
 
                 res = self.pack(fieldName, fieldTypeOrClass, soFar)
                 data += res
@@ -976,7 +976,7 @@ class NDRUniConformantArray(NDRArray):
                     pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar, packing = True)
                     if pad > 0:
                         soFar += pad
-                        data += '\xbb'*pad
+                        data += '\xca'*pad
 
                 res = self.pack(fieldName, fieldTypeOrClass, soFar)
                 data += res
@@ -1083,7 +1083,7 @@ class NDRUniConformantVaryingArray(NDRArray):
                     pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar, packing = True)
                     if pad > 0:
                         soFar += pad
-                        data += '\xbb'*pad
+                        data += '\xcb'*pad
 
                 res = self.pack(fieldName, fieldTypeOrClass, soFar)
                 data += res
@@ -1231,7 +1231,7 @@ class NDRSTRUCT(NDR):
                 pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar, packing = True)
                 if pad > 0:
                     soFar += pad
-                    data += '\xbb'*pad
+                    data += '\xbc'*pad
                     #data = data + '\x00'*pad
 
                 if isinstance(self.fields[fieldName], NDRUniConformantArray) or isinstance(self.fields[fieldName], NDRUniConformantVaryingArray):
@@ -1487,7 +1487,7 @@ class NDRUNION(NDR):
 
         pad = (align - (soFar % align)) % align
         if pad > 0:
-            data += '\xbb'*pad
+            data += '\xbd'*pad
             soFar += pad
 
         if self.structure is ():
@@ -1499,7 +1499,7 @@ class NDRUNION(NDR):
                 pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar, packing = True)
                 if pad > 0:
                     soFar += pad
-                    data += '\xbb'*pad
+                    data += '\xbe'*pad
 
                 res = self.pack(fieldName, fieldTypeOrClass, soFar)
                 data += res
