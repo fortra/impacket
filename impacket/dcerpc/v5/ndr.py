@@ -1176,6 +1176,7 @@ class NDRSTRUCT(NDR):
     # gap to make its size 8, a multiple of the structure's alignment, 4.
     def getData(self, soFar = 0):
         data = ''
+        arrayPadding = ''
         soFar0 = soFar
         # 14.3.7.1 Structures Containing a Conformant Array
         # A structure can contain a conformant array only as its last member.
