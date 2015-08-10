@@ -60,6 +60,11 @@ class DCERPCSessionError(DCERPCException):
 ################################################################################
 # 4.1.10.2.17 EXOP_ERR Codes
 class EXOP_ERR(NDRENUM):
+    align = 4
+    align64 = 4
+    structure = (
+        ('Data', '<L'),
+    )
     class enumItems(Enum):
         EXOP_ERR_SUCCESS               = 0x00000001
         EXOP_ERR_UNKNOWN_OP            = 0x00000002
@@ -77,6 +82,16 @@ class EXOP_ERR(NDRENUM):
         EXOP_ERR_FSMO_MISSING_SETTINGS = 0x0000000E
         EXOP_ERR_ACCESS_DENIED         = 0x0000000F
         EXOP_ERR_PARAM_ERROR           = 0x00000010
+
+    def dump(self, msg = None, indent = 0):
+        if msg is None: msg = self.__class__.__name__
+        if msg != '':
+            print msg,
+
+        try:
+            print " %s" % self.enumItems(self.fields['Data']).name,
+        except ValueError:
+            print " %d" % self.fields['Data']
 
 # 4.1.10.2.18 EXOP_REQ Codes
 EXOP_FSMO_REQ_ROLE = 0x00000001
@@ -1305,3 +1320,106 @@ def DecryptAttributeValue(dce, attribute):
 
     return plainText[4:]
 
+# 5.16.4 ATTRTYP-to-OID Conversion
+def MakeAttid(prefixTable, oid):
+    # get the last value in the original OID: the value * after the last '.'
+    lastValue = int(oid.split('.')[-1])
+
+    # convert the dotted form of OID into a BER encoded binary * format.
+    # The BER encoding of OID is described in section * 8.19 of [ITUX690]
+    from pyasn1.type import univ
+    from pyasn1.codec.ber import encoder
+    binaryOID = encoder.encode(univ.ObjectIdentifier(oid))[2:]
+
+    # get the prefix of the OID
+    if lastValue < 128:
+        oidPrefix = list(binaryOID[:-1])
+    else:
+        oidPrefix = list(binaryOID[:-2])
+
+    # search the prefix in the prefix table, if none found, add
+    # one entry for the new prefix.
+    fToAdd = True
+    pos = len(prefixTable)
+    for j, item in enumerate(prefixTable):
+        if item['prefix']['elements'] == oidPrefix:
+            fToAdd = False
+            pos = j
+            break
+
+    if fToAdd is True:
+        entry = PrefixTableEntry()
+        entry['ndx'] = pos
+        entry['prefix']['length'] = len(oidPrefix)
+        entry['prefix']['elements'] = oidPrefix
+        prefixTable.append(entry)
+
+    # compose the attid
+    lowerWord = lastValue % 16384
+    if lastValue >= 16384:
+        # mark it so that it is known to not be the whole lastValue
+        lowerWord += 32768
+
+    upperWord = pos
+
+    attrTyp = ATTRTYP()
+    attrTyp['Data'] = (upperWord << 16) + lowerWord
+    return attrTyp
+
+def OidFromAttid(prefixTable, attr):
+    # separate the ATTRTYP into two parts
+    upperWord = attr / 65536
+    lowerWord = attr % 65536
+
+    # search in the prefix table to find the upperWord, if found,
+    # construct the binary OID by appending lowerWord to the end of
+    # found prefix.
+
+    binaryOID = None
+    for j, item in enumerate(prefixTable):
+        if item['ndx'] == upperWord:
+            binaryOID = item['prefix']['elements'][:item['prefix']['length']]
+            if lowerWord < 128:
+                binaryOID.append(chr(lowerWord))
+            else:
+                if lowerWord >= 32768:
+                    lowerWord -= 32768
+                binaryOID.append(chr(((lowerWord/128) % 128)+128))
+                binaryOID.append(chr(lowerWord%128))
+            break
+
+    if binaryOID is None:
+        return None
+
+    from pyasn1.type import univ
+    from pyasn1.codec.ber import decoder
+    return decoder.decode('\x06' + chr(len(binaryOID)) + ''.join(binaryOID), asn1Spec = univ.ObjectIdentifier())[0]
+
+if __name__ == '__main__':
+    prefixTable = []
+    oid0 = '1.2.840.113556.1.4.94'
+    oid1 = '2.5.6.2'
+    oid2 = '1.2.840.113556.1.2.1'
+    oid3 = '1.2.840.113556.1.3.223'
+    oid4 = '1.2.840.113556.1.5.7000.53'
+
+    o0 = MakeAttid(prefixTable, oid0)
+    print hex(o0)
+    o1 = MakeAttid(prefixTable, oid1)
+    print hex(o1)
+    o2 = MakeAttid(prefixTable, oid2)
+    print hex(o2)
+    o3 = MakeAttid(prefixTable, oid3)
+    print hex(o3)
+    o4 = MakeAttid(prefixTable, oid4)
+    print hex(o4)
+    jj = OidFromAttid(prefixTable, o0)
+    print jj
+    jj = OidFromAttid(prefixTable, o1)
+    print jj
+    jj = OidFromAttid(prefixTable, o2)
+    print jj
+    jj = OidFromAttid(prefixTable, o3)
+    print jj
+    jj = OidFromAttid(prefixTable, o4)
+    print jj
