@@ -1393,7 +1393,7 @@ def OidFromAttid(prefixTable, attr):
 
     from pyasn1.type import univ
     from pyasn1.codec.ber import decoder
-    return decoder.decode('\x06' + chr(len(binaryOID)) + ''.join(binaryOID), asn1Spec = univ.ObjectIdentifier())[0]
+    return str(decoder.decode('\x06' + chr(len(binaryOID)) + ''.join(binaryOID), asn1Spec = univ.ObjectIdentifier())[0])
 
 if __name__ == '__main__':
     prefixTable = []
