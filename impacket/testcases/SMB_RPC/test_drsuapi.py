@@ -4,9 +4,10 @@
 # DRSBind
 # DRSDomainControllerInfo
 # hDRSDomainControllerInfo
-# DRSCrackNames(
+# DRSCrackNames
 # hDRSCrackNames
 # DRSGetNT4ChangeLog
+# DRSVerifyName
 #
 #  Not yet:
 #
@@ -19,10 +20,8 @@ import ConfigParser
 
 from impacket.dcerpc.v5 import transport, epm
 from impacket.dcerpc.v5 import drsuapi
-from impacket.dcerpc.v5.dtypes import NULL, LPWSTR, WSTR, RPC_SID
+from impacket.dcerpc.v5.dtypes import NULL, LPWSTR
 from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_INTEGRITY, RPC_C_AUTHN_LEVEL_PKT_PRIVACY
-from impacket.winregistry import hexdump
-from impacket.uuid import uuidtup_to_bin, string_to_bin
 
 
 class DRSRTests(unittest.TestCase):
@@ -57,7 +56,9 @@ class DRSRTests(unittest.TestCase):
         request['pextClient']['rgb'] = list(str(drs))
         resp = dce.request(request)
 
-        return dce, rpctransport, resp['phDrs']
+        resp2 = drsuapi.hDRSDomainControllerInfo(dce,  resp['phDrs'], self.domain, 2)
+
+        return dce, rpctransport, resp['phDrs'], resp2['pmsgOut']['V2']['rItems'][0]['NtdsDsaObjectGuid']
 
     def connect2(self):
         rpctransport = transport.DCERPCTransportFactory(self.stringBinding )
@@ -78,7 +79,7 @@ class DRSRTests(unittest.TestCase):
         return dce, rpctransport
 
     def test_DRSBind(self):
-        dce, rpctransport, _ = self.connect()
+        dce, rpctransport, _,_ = self.connect()
 
         request = drsuapi.DRSBind()
         request['puuidClientDsa'] = drsuapi.NTDSAPI_CLIENT_GUID
@@ -100,7 +101,7 @@ class DRSRTests(unittest.TestCase):
         extension.dump()
 
     def test_DRSDomainControllerInfo(self):
-        dce, rpctransport, hDrs = self.connect()
+        dce, rpctransport, hDrs, DsaObjDest = self.connect()
 
         request = drsuapi.DRSDomainControllerInfo()
         request['hDrs'] = hDrs
@@ -126,10 +127,10 @@ class DRSRTests(unittest.TestCase):
         resp.dump()
 
     def test_hDRSDomainControllerInfo(self):
-        dce, rpctransport, hDrs = self.connect()
+        dce, rpctransport, hDrs, DsaObjDest = self.connect()
 
         resp = drsuapi.hDRSDomainControllerInfo(dce, hDrs, self.domain, 1)
-        resp.dumpRaw()
+        resp.dump()
 
         resp = drsuapi.hDRSDomainControllerInfo(dce, hDrs, self.domain, 2)
         resp.dump()
@@ -141,7 +142,7 @@ class DRSRTests(unittest.TestCase):
         resp.dump()
 
     def test_DRSCrackNames(self):
-        dce, rpctransport, hDrs = self.connect()
+        dce, rpctransport, hDrs, DsaObjDest = self.connect()
 
         request = drsuapi.DRSCrackNames()
         request['hDrs'] = hDrs
@@ -161,16 +162,15 @@ class DRSRTests(unittest.TestCase):
         name['Data'] = 'Administrator\x00'
         request['pmsgIn']['V1']['rpNames'].append(name)
 
-        request.dumpRaw()
         resp = dce.request(request)
         resp.dump()
 
     def test_hDRSCrackNames(self):
-        dce, rpctransport, hDrs = self.connect()
+        dce, rpctransport, hDrs, DsaObjDest = self.connect()
 
         name = 'Administrator'
         formatOffered = drsuapi.DS_NT4_ACCOUNT_NAME_SANS_DOMAIN
-        formatDesired = drsuapi.DS_NAME_FORMAT.DS_FQDN_1779_NAME
+        formatDesired = drsuapi.DS_STRING_SID_NAME
 
         resp = drsuapi.hDRSCrackNames(dce, hDrs, 0, formatOffered, formatDesired, (name,))
         resp.dump()
@@ -183,8 +183,13 @@ class DRSRTests(unittest.TestCase):
         resp = drsuapi.hDRSCrackNames(dce, hDrs, 0, drsuapi.DS_NAME_FORMAT.DS_FQDN_1779_NAME, drsuapi.DS_STRING_SID_NAME, (name,))
         resp.dump()
 
+        name = 'FREEFLY.NET'
+        #name = ''
+        resp = drsuapi.hDRSCrackNames(dce, hDrs, 0, drsuapi.DS_LIST_ROLES, drsuapi.DS_NAME_FORMAT.DS_FQDN_1779_NAME, (name,))
+        resp.dump()
+
     def test_DRSGetNT4ChangeLog(self):
-        dce, rpctransport, hDrs = self.connect()
+        dce, rpctransport, hDrs, DsaObjDest = self.connect()
 
         request = drsuapi.DRSGetNT4ChangeLog()
         request['hDrs'] = hDrs
@@ -203,150 +208,110 @@ class DRSRTests(unittest.TestCase):
             if str(e).find('ERROR_NOT_SUPPORTED') <0:
                 raise
 
+    def test_DRSVerifyNames(self):
+        dce, rpctransport, hDrs, DsaObjDest = self.connect()
+        request = drsuapi.DRSVerifyNames()
+
+        request['hDrs'] = hDrs
+        request['dwInVersion'] = 1
+
+        request['pmsgIn']['tag'] = 1
+        request['pmsgIn']['V1']['dwFlags'] = drsuapi.DRS_VERIFY_DSNAMES
+        request['pmsgIn']['V1']['cNames'] = 1
+        request['pmsgIn']['V1']['PrefixTable']['pPrefixEntry'] = NULL
+
+        dsName = drsuapi.PDSNAME()
+        dsName['SidLen'] = 0
+        dsName['Guid'] = drsuapi.NULLGUID
+        dsName['Sid'] = ''
+        name = 'DC=FREEFLY,DC=NET'
+
+        dsName['NameLen'] = len(name)
+        dsName['StringName'] = (name + '\x00')
+        dsName['structLen'] = len(dsName.getDataReferent())-4
+
+        request['pmsgIn']['V1']['rpNames'].append(dsName)
+
+        resp = dce.request(request)
+        resp.dump()
+
     def test_DRSGetNCChanges(self):
         # Not yet working
-        dce, rpctransport, hDrs = self.connect()
+        dce, rpctransport, hDrs, DsaObjDest = self.connect()
 
         request = drsuapi.DRSGetNCChanges()
         request['hDrs'] = hDrs
-        request['dwInVersion'] = 10
+        request['dwInVersion'] = 8
 
-        request['pmsgIn']['tag'] =10
-        request['pmsgIn']['V10']['uuidDsaObjDest'] = string_to_bin('e85bbad7-0923-41cb-911e-3691d2014815')
-        request['pmsgIn']['V10']['uuidInvocIdSrc'] = string_to_bin('e85bbad7-0923-41cb-911e-3691d2014815')
-        #request['pmsgIn']['V10']['pNC'] = NULL
+        request['pmsgIn']['tag'] = 8
+        request['pmsgIn']['V8']['uuidDsaObjDest'] = DsaObjDest
+        request['pmsgIn']['V8']['uuidInvocIdSrc'] = DsaObjDest
+        #request['pmsgIn']['V8']['pNC'] = NULL
 
         dsName = drsuapi.DSNAME()
         dsName['SidLen'] = 0
         dsName['Guid'] = drsuapi.NULLGUID
         dsName['Sid'] = ''
-        #name = 'CN=NTDS Settings,CN=FREEFLY-DC,CN=Servers,CN=Default-First-Site-Name,CN=Sites,CN=Configuration,DC=FREEFLY,DC=NET'
-        #name = 'CN=admin,CN=Users,DC=FREEFLY,DC=NET'
-        name = 'CN=krbtgt,CN=Users,DC=FREEFLY,DC=NET'
-        #name = 'DC=FREEFLY,DC=NET'
-        #name = 'CN=Schema,CN=Configuration,DC=FREEFLY,DC=NET'
-        #name = 'CN=Aggregate,CN=Schema,CN=Configuration,DC=FREEFLY,DC=NET'
+        name = 'DC=FREEFLY,DC=NET'
         dsName['NameLen'] = len(name)
         dsName['StringName'] = (name + '\x00')
 
         dsName['structLen'] = len(dsName.getData())
 
-        request['pmsgIn']['V10']['pNC'] = dsName
+        request['pmsgIn']['V8']['pNC'] = dsName
 
-        request['pmsgIn']['V10']['usnvecFrom']['usnHighObjUpdate'] = 0
-        request['pmsgIn']['V10']['usnvecFrom']['usnHighPropUpdate'] = 0
+        request['pmsgIn']['V8']['usnvecFrom']['usnHighObjUpdate'] = 0
+        request['pmsgIn']['V8']['usnvecFrom']['usnHighPropUpdate'] = 0
 
-        request['pmsgIn']['V10']['pUpToDateVecDest'] = NULL
+        request['pmsgIn']['V8']['pUpToDateVecDest'] = NULL
 
-        request['pmsgIn']['V10']['ulFlags'] =  drsuapi.DRS_INIT_SYNC | drsuapi.DRS_PER_SYNC  #| drsuapi.DRS_CRITICAL_ONLY
-        request['pmsgIn']['V10']['cMaxObjects'] = 50
-        request['pmsgIn']['V10']['cMaxBytes'] = 0
-        request['pmsgIn']['V10']['ulExtendedOp'] = drsuapi.EXOP_REPL_OBJ | drsuapi.EXOP_REPL_SECRETS
-        request['pmsgIn']['V10']['pPartialAttrSet'] = NULL
-        request['pmsgIn']['V10']['pPartialAttrSetEx1'] = NULL
-        request['pmsgIn']['V10']['PrefixTableDest']['pPrefixEntry'] = NULL
-        #request['pmsgIn']['V10']['ulMoreFlags'] = 0
+        request['pmsgIn']['V8']['ulFlags'] =  drsuapi.DRS_INIT_SYNC | drsuapi.DRS_PER_SYNC  #| drsuapi.DRS_CRITICAL_ONLY
+        request['pmsgIn']['V8']['cMaxObjects'] = 100
+        request['pmsgIn']['V8']['cMaxBytes'] = 0
+        request['pmsgIn']['V8']['ulExtendedOp'] = drsuapi.EXOP_REPL_OBJ | drsuapi.EXOP_REPL_SECRETS
 
-        from impacket.winregistry import hexdump
-        print 'SESSION KEY'
-        hexdump(dce.get_session_key())
+        prefixTable = []
+        oid1 = drsuapi.MakeAttid(prefixTable, '1.2.840.113556.1.4.656') # principalName
+        oid2 = drsuapi.MakeAttid(prefixTable, '1.2.840.113556.1.4.221') #'sAMAccountName'
+        oid3 = drsuapi.MakeAttid(prefixTable, '1.2.840.113556.1.4.90') # 'unicodePwd'
+        oid4 = drsuapi.MakeAttid(prefixTable, '1.2.840.113556.1.4.94') # ntPwdHistory
+        oid5 = drsuapi.MakeAttid(prefixTable, '1.2.840.113556.1.4.160') # lmPwdHistory
+        oid6 = drsuapi.MakeAttid(prefixTable, '1.2.840.113556.1.4.125') # supplementalCreds
+        oid7 = drsuapi.MakeAttid(prefixTable, '1.2.840.113556.1.4.146') # objectSid
+
+        request['pmsgIn']['V8']['pPartialAttrSet']['dwVersion'] = 1
+        request['pmsgIn']['V8']['pPartialAttrSet']['cAttrs'] = 7
+        request['pmsgIn']['V8']['pPartialAttrSet']['rgPartialAttr'].append(oid1)
+        request['pmsgIn']['V8']['pPartialAttrSet']['rgPartialAttr'].append(oid2)
+        request['pmsgIn']['V8']['pPartialAttrSet']['rgPartialAttr'].append(oid3)
+        request['pmsgIn']['V8']['pPartialAttrSet']['rgPartialAttr'].append(oid4)
+        request['pmsgIn']['V8']['pPartialAttrSet']['rgPartialAttr'].append(oid5)
+        request['pmsgIn']['V8']['pPartialAttrSet']['rgPartialAttr'].append(oid6)
+        request['pmsgIn']['V8']['pPartialAttrSet']['rgPartialAttr'].append(oid7)
+        request['pmsgIn']['V8']['pPartialAttrSetEx1'] = NULL
+        request['pmsgIn']['V8']['PrefixTableDest']['PrefixCount'] = len(prefixTable)
+        request['pmsgIn']['V8']['PrefixTableDest']['pPrefixEntry'] = prefixTable
+
         resp = dce.request(request)
         resp.dump()
-        unicodePwdAttr = 589914
-        for attr in resp['pmsgOut']['V6']['pObjects']['Entinf']['AttrBlock']['pAttr']:
-            if attr['attrTyp'] == unicodePwdAttr:
-                print "Found encrypted unicodePwd"
-                encryptedUnicodePwd = ''.join(attr['AttrVal']['pAVal'][0]['pVal'])
-            elif attr['attrTyp'] == 0x00090092:
-                import struct
-                userSid = ''.join(attr['AttrVal']['pAVal'][0]['pVal'])[-4:]
-                userRid = struct.unpack('<L', userSid)[0]
-                print "Found RID ", userRid
 
-        ntHash = drsuapi.DecryptAttributeValue(dce, encryptedUnicodePwd)
-        # Now remove the DES layer
-        ntHash = drsuapi.removeDESLayer(ntHash, userRid)
-        print "User: %s" % name
-        print "HTHASH ", ntHash.encode('hex')
-
-        #userHash =
-
-        # Bien con esto
-        #from pyasn1.type import univ
-        #from pyasn1.codec.ber import decoder, encoder
-        #for entry in resp['pmsgOut']['V6']['PrefixTableSrc']['pPrefixEntry']:
-        #    print decoder.decode('\x06' + chr(entry['prefix']['length']) + ''.join(entry['prefix']['elements']), asn1Spec = univ.ObjectIdentifier())[0]
-            #entry.dump()
-        #resp.dump()
-        #AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-        #while resp['pmsgOut']['V6']['fMoreData'] > 0:
+        #moreData = 1
+        #while moreData > 0:
         #    thisObject = resp['pmsgOut']['V6']['pObjects']
         #    done = False
         #    while not done:
         #        nextObject = thisObject['pNextEntInf']
         #        thisObject['pNextEntInf'] = NULL
-        #        #thisObject.dump()
-        #        #print thisObject['Entinf']['pName']['StringName']
-        #        if thisObject['Entinf']['pName']['StringName'].find('CN=admin')>=0:
-        #            #print repr(resp['pmsgOut']['V6']['usnvecTo']['usnHighObjUpdate'])
-        #            #print repr(resp['pmsgOut']['V6']['usnvecTo']['usnHighPropUpdate'])
-        #            thisObject.dump()
-        #            import sys
-        #            sys.exit(1)
+        #        thisObject.dump()
+        #        print thisObject['Entinf']['pName']['StringName']
         #        thisObject = nextObject
-        #        #print '\n'
         #        if nextObject is '':
         #            done = True
-        #
-        #    print "B"*80
-        #    request['pmsgIn']['V8']['uuidInvocIdSrc'] = resp['pmsgOut']['V6']
+        #    request['pmsgIn']['V8']['uuidInvocIdSrc'] = resp['pmsgOut']['V6']['uuidInvocIdSrc']
         #    request['pmsgIn']['V8']['usnvecFrom'] = resp['pmsgOut']['V6']['usnvecTo']
         #    resp = dce.request(request)
+        #    moreData = resp['pmsgOut']['V6']['fMoreData']
         #print "OBJECTS ", resp['pmsgOut']['V6']['cNumObjects']
-
-    def aaaa_DRSVerifyNames(self):
-        # Not Yet working
-        dce, rpctransport, hDrs = self.connect()
-
-        name = 'CN=Administrator,CN=Users,DC=FREEFLY,DC=NET'
-        formatOffered = drsuapi.DS_NT4_ACCOUNT_NAME_SANS_DOMAIN_EX
-        formatDesired = drsuapi.DS_USER_PRINCIPAL_NAME_FOR_LOGON
-        resp = drsuapi.hDRSCrackNames(dce, hDrs, 0, formatOffered, formatDesired, (name,))
-        #resp.dump()
-
-        request = drsuapi.DRSVerifyNames()
-        request['hDrs'] = hDrs
-        request['dwInVersion'] = 1
-
-        request['pmsgIn']['tag'] = 1
-        request['pmsgIn']['V1']['dwFlags'] = drsuapi.DRS_VERIFY_SAM_ACCOUNT_NAMES
-        request['pmsgIn']['V1']['cNames'] = 1
-        #pDsName = drsuapi.PDSNAME()
-        dsName = drsuapi.DSNAME()
-        dsName['SidLen'] = 0
-        dsName['Guid'] = drsuapi.NULLGUID
-        dsName['Sid'] = ''
-        dsName['NameLen'] = len(name)
-        dsName['StringName'] = name + '\x00'
-        dsName['structLen'] = len(dsName.getData())
-        request['pmsgIn']['V1']['rpNames'].append(dsName)
-        request['pmsgIn']['V1']['RequiredAttrs']['pAttr'] = NULL
-        #request['pmsgIn']['V1']['RequiredAttrs']['attrCount'] = 3
-
-        #attr = drsuapi.ATTR()
-        #attr[''] =
-        #attr[''] =
-        #attr[''] =
-        #request['pmsgIn']['V1']['RequiredAttrs']['pAttr'].append(attr)
-
-        request['pmsgIn']['V1']['PrefixTable']['pPrefixEntry'] = NULL
-
-        #request.dump()
-        resp = dce.request(request)
-        for entry in resp['pmsgOut']['V6']['PrefixTableSrc']['pPrefixEntry']:
-            entry.dump()
-        #resp.dump()
-
 
 class SMBTransport(DRSRTests):
     def setUp(self):
@@ -415,7 +380,6 @@ if __name__ == '__main__':
     else:
         #suite = unittest.TestLoader().loadTestsFromTestCase(SMBTransport)
         suite  = unittest.TestLoader().loadTestsFromTestCase(TCPTransport)
-        #suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport))
-        #suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport64))
+        suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport64))
         #suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMBTransport64))
     unittest.TextTestRunner(verbosity=1).run(suite)
