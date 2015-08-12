@@ -136,10 +136,16 @@ class ENCODED_STRING(Structure):
             # Let's first check the commonHdr
             self.fromString(data)
             self.structure = ()
-            if self['Encoded_String_Flag'] == 0:
-                self.structure += self.tascii
-            else:
-                self.structure = self.tunicode
+            if len(data) > 1:
+                if self['Encoded_String_Flag'] == 0:
+                    self.structure += self.tascii
+                    # Let's search for the end of the string
+                    index = data[1:].find('\x00')
+                    data  = data[:index+1+1]
+                else:
+                    self.structure = self.tunicode
+                    index = data[1:].find('\x00\x00')
+                    data = data[:index+1+2]
             self.fromString(data)
         else:
             self.structure = self.tascii
@@ -229,8 +235,8 @@ class CIM_TYPE_ENUM(Enum):
     CIM_ARRAY_OBJECT    = 8205
 
 CIM_TYPES_REF = {
-    CIM_TYPE_ENUM.CIM_TYPE_SINT8.value    : 'B=0',
-    CIM_TYPE_ENUM.CIM_TYPE_UINT8.value    : 'b=0',
+    CIM_TYPE_ENUM.CIM_TYPE_SINT8.value    : 'b=0',
+    CIM_TYPE_ENUM.CIM_TYPE_UINT8.value    : 'B=0',
     CIM_TYPE_ENUM.CIM_TYPE_SINT16.value   : '<h=0',
     CIM_TYPE_ENUM.CIM_TYPE_UINT16.value   : '<H=0',
     CIM_TYPE_ENUM.CIM_TYPE_SINT32.value   : '<l=0',
@@ -282,7 +288,7 @@ class ENCODED_VALUE(Structure):
     )
 
     @classmethod
-    def getValue(self, cimType, entry, heap):
+    def getValue(cls, cimType, entry, heap):
         # Let's get the default Values
         pType = cimType & (~(CIM_ARRAY_FLAG|Inherited))
 
@@ -296,9 +302,21 @@ class ENCODED_VALUE(Structure):
                 array = list()
                 unpackStrArray =  CIM_TYPES_REF[pType][:-2]
                 dataSizeArray = calcsize(unpackStrArray)
-                for item in range(numItems):
-                    array.append(unpack(unpackStrArray, heapData[:dataSizeArray])[0])
-                    heapData = heapData[dataSizeArray:]
+                if cimType == CIM_TYPE_ENUM.CIM_ARRAY_STRING.value:
+                    # We have an array of strings
+                    # First items are DWORDs with the string pointers
+                    # inside the heap. We don't need those ones
+                    heapData = heapData[4*numItems:]
+                    # Let's now grab the strings
+                    for _ in range(numItems):
+                        item = ENCODED_STRING(heapData)
+                        array.append(item['Character'])
+                        heapData = heapData[len(str(item)):]
+                else:
+                    for item in range(numItems):
+                        # ToDo: Learn to unpack the rest of the array of things
+                        array.append(unpack(unpackStrArray, heapData[:dataSizeArray])[0])
+                        heapData = heapData[dataSizeArray:]
                 value = array
             elif pType == CIM_TYPE_ENUM.CIM_TYPE_BOOLEAN.value:
                 if entry == 0xffff:
@@ -510,7 +528,7 @@ class CLASS_PART(Structure):
                 LOG.error("getProperties: Error unpacking!!")
                 itemValue = 0xffffffff
 
-            if itemValue != 0xffffffff:
+            if itemValue != 0xffffffff and itemValue > 0:
                 value = ENCODED_VALUE.getValue(properties[key]['type'], itemValue, heap)
                 properties[key]['value'] = "%s" % value
             valueTable = valueTable[dataSize:]
