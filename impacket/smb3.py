@@ -1234,6 +1234,15 @@ class SMB3:
         ans = self.recvSMB(packetID)
 
         if ans.isValidAnswer(STATUS_SUCCESS):
+            # We clean the stuff we used in case we want to authenticate again
+            # within the same connection
+            self._Session['UserCredentials']   = ''
+            self._Session['Connection']        = 0
+            self._Session['SessionID']         = 0
+            self._Session['SigningRequired']   = False
+            self._Session['SigningKey']        = ''
+            self._Session['SessionKey']        = ''
+            self._Session['SigningActivated']  = False
             return True
 
     def queryInfo(self, treeId, fileId, inputBlob = '', infoType = SMB2_0_INFO_FILE, fileInfoClass = SMB2_FILE_STANDARD_INFO, additionalInformation = 0, flags = 0 ):
