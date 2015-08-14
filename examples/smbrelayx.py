@@ -84,7 +84,7 @@ class doAttack(Thread):
             samHashes = None
             remoteOps = None
             try:
-                remoteOps  = RemoteOperations(self.__SMBConnection)
+                remoteOps  = RemoteOperations(self.__SMBConnection, False)
                 remoteOps.enableRegistry()
                 bootKey = remoteOps.getBootKey()
                 samFileName = remoteOps.saveSAM()
