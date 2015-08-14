@@ -135,9 +135,8 @@ class SAMRDump:
                     resp = e.get_packet()
 
                 for user in resp['Buffer']['Buffer']:
-                    r = samr.hSamrOpenUser(dce, domainHandle, samr.USER_READ_GENERAL | samr.USER_READ_PREFERENCES | samr.USER_READ_ACCOUNT, user['RelativeId'])
+                    r = samr.hSamrOpenUser(dce, domainHandle, samr.MAXIMUM_ALLOWED, user['RelativeId'])
                     print "Found user: %s, uid = %d" % (user['Name'], user['RelativeId'] )
-    
                     info = samr.hSamrQueryInformationUser2(dce, r['UserHandle'],samr.USER_INFORMATION_CLASS.UserAllInformation)
                     entry = (user['Name'], user['RelativeId'], info['Buffer']['All'])
                     entries.append(entry)
