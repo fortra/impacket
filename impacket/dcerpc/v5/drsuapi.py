@@ -991,7 +991,10 @@ class DRS_MSG_GETCHGREPLY_V6(NDRSTRUCT):
         ('cNumNcSizeObjectsc',ULONG),
         ('cNumNcSizeValues',ULONG),
         ('cNumValues',DWORD),
-        ('rgValues',PREPLVALINF_ARRAY),
+        #('rgValues',PREPLVALINF_ARRAY),
+        # ToDo: Once we find out what's going on with PREPLVALINF_ARRAY get it back
+        # Seems there's something in there that is not being parsed correctly
+        ('rgValues',DWORD),
         ('dwDRSError',DWORD),
     )
 
