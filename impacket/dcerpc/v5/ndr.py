@@ -380,7 +380,7 @@ class NDR(object):
                 data = data[size:]
                 soFar += size
             except Exception,e:
-                e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data, size),)
+                e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size),)
                 raise
         self.fromStringSize = soFar - soFar0
         return self
@@ -430,7 +430,7 @@ class NDR(object):
             try:
                 self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
             except Exception,e:
-                e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data, size),)
+                e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size),)
                 raise
 
             if isinstance(self.fields[fieldName], NDR):
@@ -759,7 +759,7 @@ class NDRCALL(NDR):
                 data = data[size:]
                 soFar += size
             except Exception,e:
-                e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data, size),)
+                e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size),)
                 raise
 
         self.fromStringSize = soFar - soFar0
@@ -1021,7 +1021,7 @@ class NDRUniConformantArray(NDRArray):
                 soFar += size
                 fieldNum += 1
             except Exception,e:
-                e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data, size),)
+                e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size),)
                 raise
 
         self.fromStringSize = soFar - soFar0
@@ -1123,7 +1123,7 @@ class NDRUniConformantVaryingArray(NDRArray):
                 soFar += size
                 fieldNum += 1
             except Exception,e:
-                e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data, size),)
+                e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size),)
                 raise
         self.fromStringSize = soFar - soFar0
         return self
@@ -1356,7 +1356,7 @@ class NDRSTRUCT(NDR):
                 data = data[size:]
                 soFar += size
             except Exception,e:
-                e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data, size),)
+                e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size),)
                 raise
 
         self.fromStringSize = soFar - soFar0
@@ -1555,7 +1555,7 @@ class NDRUNION(NDR):
                 data = data[size:]
                 soFar += size
             except Exception,e:
-                e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data, size),)
+                e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size),)
                 raise
 
         # WARNING
@@ -1592,7 +1592,7 @@ class NDRUNION(NDR):
                 data = data[size:]
                 soFar += size
             except Exception,e:
-                e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data, size),)
+                e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size),)
                 raise
 
         self.fromStringSize = soFar - soFar0
