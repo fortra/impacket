@@ -427,6 +427,13 @@ class RemoteOperations:
             resp = e.get_packet()
         return resp
 
+    def ridToSid(self, rid):
+        if self.__samr is None:
+            self.connectSamr(self.getMachineNameAndDomain()[1])
+        resp = samr.hSamrRidToSid(self.__samr, self.__domainHandle , rid)
+        return resp['Sid']
+
+
     def getMachineNameAndDomain(self):
         if self.__smbConnection.getServerName() == '':
             # No serverName.. this is either because we're doing Kerberos
@@ -1657,8 +1664,13 @@ class NTDSHashes:
                 for user in resp['Buffer']['Buffer']:
                     userName = user['Name']
 
-                    # Let's crack the user name into DS_FQDN_1779_NAME
-                    crackedName = self.__remoteOps.DRSCrackNames(drsuapi.DS_NT4_ACCOUNT_NAME_SANS_DOMAIN, name = userName)
+                    userSid = self.__remoteOps.ridToSid(user['RelativeId'])
+
+                    # Let's crack the user sid into DS_FQDN_1779_NAME
+                    # In theory I shouldn't need to crack the sid. Instead
+                    # I could use it when calling DRSGetNCChanges inside the DSNAME parameter.
+                    # For some reason tho, I get ERROR_DS_DRA_BAD_DN when doing so.
+                    crackedName = self.__remoteOps.DRSCrackNames(drsuapi.DS_NAME_FORMAT.DS_SID_OR_SID_HISTORY_NAME, drsuapi.DS_NAME_FORMAT.DS_FQDN_1779_NAME, name = userSid.formatCanonical())
 
                     if crackedName['pmsgOut']['V1']['pResult']['cItems'] == 1:
                         userRecord = self.__remoteOps.DRSGetNCChanges(crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['pName'][:-1])
