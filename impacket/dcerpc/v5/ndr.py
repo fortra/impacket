@@ -62,8 +62,6 @@ class NDR(object):
         object.__init__(self)
         self._isNDR64 = isNDR64
         self.fields = {}
-        self.data = None
-        self.rawData = None
         self.fromStringSize = None
         self.arraySoFar = None
 
@@ -90,8 +88,6 @@ class NDR(object):
 
         if data is not None:
             self.fromString(data)
-        else:
-            self.data = None
 
     def changeTransferSyntax(self, newSyntax): 
         NDR64Syntax = uuidtup_to_bin(('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0'))
@@ -151,7 +147,6 @@ class NDR(object):
             self.fields[key]['Data'] = value
         else:
             self.fields[key] = value
-        self.data = None        # force recompute
         self.fromStringSize = None
 
     def __getitem__(self, key):
@@ -170,43 +165,28 @@ class NDR(object):
     def getDataLen(self, data):
         return len(data)
 
-    def isNDR(self, field):
-        if self.debug:
-            print "isNDR %r" % field, type(field),
+    @staticmethod
+    def isNDR(field):
         if inspect.isclass(field):
             myClass = field
             if issubclass(myClass, NDR):
-                if self.debug:
-                    print "True"
                 return True
-        if self.debug:
-            print 'False'
         return False
 
-    def isPointer(self, field):
-        if self.debug:
-            print "isPointer %r" % field, type(field),
+    @staticmethod
+    def isPointer(field):
         if inspect.isclass(field):
             myClass = field
             if issubclass(myClass, NDRPOINTER):
-                if self.debug:
-                    print "True"
                 return True
-        if self.debug:
-            print 'False'
         return False
 
-    def isUnion(self, field):
-        if self.debug:
-            print "isUnion %r" % field, type(field),
+    @staticmethod
+    def isUnion(field):
         if inspect.isclass(field):
             myClass = field
             if issubclass(myClass, NDRUNION):
-                if self.debug:
-                    print "True"
                 return True
-        if self.debug:
-            print 'False'
         return False
 
     def dumpRaw(self, msg = None, indent = 0):
@@ -250,8 +230,6 @@ class NDR(object):
 
     def calculatePad(self, fieldName, fieldType, data, soFar, packing):
         # PAD Calculation
-        if self.debug:
-            print "Calculate PAD: name: %s, type:%s, soFar:%d" % (fieldName, fieldType, soFar)
         if isinstance(self.fields[fieldName], NDR):
             alignment = self.fields[fieldName].getAlignment()
         else:
@@ -294,13 +272,9 @@ class NDR(object):
                 data += res
                 soFar = soFar0 + len(data)
             except Exception, e:
-                if self.fields.has_key(fieldName):
-                    e.args += ("When packing field '%s | %s | %r' in %s" % (fieldName, fieldTypeOrClass, self.fields[fieldName], self.__class__),)
-                else:
-                    e.args += ("When packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__),)
+                LOG.error(str(e))
+                LOG.error("Error packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__))
                 raise
-
-        self.data = data
 
         return data
 
@@ -310,7 +284,6 @@ class NDR(object):
             if isinstance(self.fields[fieldName], NDR):
                data += self.fields[fieldName].getDataReferents(len(data)+soFar)
                data += self.fields[fieldName].getDataReferent(len(data)+soFar)
-        self.data = data
         return data
 
     def getDataReferent(self, soFar=0):
@@ -338,10 +311,8 @@ class NDR(object):
                     data += self.fields[fieldName].getDataReferent(len(data)+soFar)
                 soFar = soFar0 + len(data)
             except Exception, e:
-                if self.fields.has_key(fieldName):
-                    e.args += ("When packing field '%s | %s | %r' in %s" % (fieldName, fieldTypeOrClass, self.fields[fieldName], self.__class__),)
-                else:
-                    e.args += ("When packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__),)
+                LOG.error(str(e))
+                LOG.error("Error packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__))
                 raise
 
         return data
@@ -352,9 +323,6 @@ class NDR(object):
         return self.fromStringSize
 
     def fromString(self, data, soFar = 0):
-        if self.rawData is None:
-            self.rawData = data
-
         soFar0 = soFar
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             size = self.calcUnPackSize(fieldTypeOrClass, data)
@@ -380,7 +348,8 @@ class NDR(object):
                 data = data[size:]
                 soFar += size
             except Exception,e:
-                e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size),)
+                LOG.error(str(e))
+                LOG.error("Error unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size))
                 raise
         self.fromStringSize = soFar - soFar0
         return self
@@ -430,7 +399,8 @@ class NDR(object):
             try:
                 self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
             except Exception,e:
-                e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size),)
+                LOG.error(str(e))
+                LOG.error("Error unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size))
                 raise
 
             if isinstance(self.fields[fieldName], NDR):
@@ -444,9 +414,6 @@ class NDR(object):
         return soFar-soFar0
 
     def pack(self, fieldName, fieldTypeOrClass, soFar = 0):
-        if self.debug:
-            print "  pack( %s | %s | %d )" %  (fieldName, fieldTypeOrClass, soFar)
-
         if isinstance(self.fields[fieldName], NDR):
             return self.fields[fieldName].getData(soFar)
 
@@ -552,7 +519,6 @@ class NDR(object):
                     itemn = dataClassOrCode(isNDR64=self._isNDR64)
                     itemn.fromString(data[soFarItems:], soFar+soFarItems)
                     itemnLen = itemn.getFromStringSize(soFar+soFarItems)
-                    itemn.rawData = data[soFarItems+itemnLen:]
                     answer.append(itemn)
                     nsofar += itemnLen + pad
                 numItems -= 1
@@ -659,8 +625,6 @@ class NDRCALL(NDR):
     def __init__(self, data = None, isNDR64 = False):
         self._isNDR64 = isNDR64
         self.fields = {}
-        self.data = None
-        self.rawData = None
         self.fromStringSize = None
 
         if isNDR64 is True:
@@ -691,8 +655,6 @@ class NDRCALL(NDR):
 
         if data is not None:
             self.fromString(data)
-        else:
-            self.data = None
 
     def dump(self, msg = None, indent = 0):
         NDR.dump(self, msg, indent)
@@ -720,20 +682,13 @@ class NDRCALL(NDR):
                     data += self.fields[fieldName].getDataReferent(soFar)
                     soFar = soFar0 + len(data)
             except Exception, e:
-                if self.fields.has_key(fieldName):
-                    e.args += ("When packing field '%s | %s | %r' in %s" % (fieldName, fieldTypeOrClass, self.fields[fieldName], self.__class__),)
-                else:
-                    e.args += ("When packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__),)
+                LOG.error(str(e))
+                LOG.error("Error packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__))
                 raise
-
-        self.data = data
 
         return data
 
     def fromString(self, data, soFar = 0):
-        if self.rawData is None:
-            self.rawData = data
-
         soFar0 = soFar
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             size = self.calcUnPackSize(fieldTypeOrClass, data)
@@ -759,7 +714,8 @@ class NDRCALL(NDR):
                 data = data[size:]
                 soFar += size
             except Exception,e:
-                e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size),)
+                LOG.error(str(e))
+                LOG.error("Error unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size))
                 raise
 
         self.fromStringSize = soFar - soFar0
@@ -961,7 +917,6 @@ class NDRUniConformantArray(NDRArray):
 
     def __setitem__(self, key, value):
         self.fields['MaximumCount'] = None
-        self.data = None        # force recompute
         return NDRArray.__setitem__(self, key, value)
 
     def getDataArray(self, soFar = 0):
@@ -982,22 +937,16 @@ class NDRUniConformantArray(NDRArray):
                 data += res
                 soFar = soFar0 + len(data)
             except Exception, e:
-                if self.fields.has_key(fieldName):
-                    e.args += ("When packing field '%s | %s | %r' in %s" % (fieldName, fieldTypeOrClass, self.fields[fieldName], self.__class__),)
-                else:
-                    e.args += ("When packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__),)
+                LOG.error(str(e))
+                LOG.error("Error packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__))
                 raise
 
-        self.data = data
 
         return data
 
     def fromStringArray(self, data, soFar = 0):
         # Since we're unpacking an array, the MaximumCount was already processed
         # hence, we don't have to calculate the pad again.
-        if self.rawData is None:
-            self.rawData = data
-
         fieldNum = 0
         soFar0 = soFar
         for fieldName, fieldTypeOrClass in self.structure:
@@ -1021,7 +970,8 @@ class NDRUniConformantArray(NDRArray):
                 soFar += size
                 fieldNum += 1
             except Exception,e:
-                e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size),)
+                LOG.error(str(e))
+                LOG.error("Error unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size))
                 raise
 
         self.fromStringSize = soFar - soFar0
@@ -1043,7 +993,6 @@ class NDRUniVaryingArray(NDRArray):
 
     def __setitem__(self, key, value):
         self.fields['ActualCount'] = None
-        self.data = None        # force recompute
         return NDRArray.__setitem__(self, key, value)
 
 # Uni-dimensional Conformant-varying Arrays
@@ -1067,7 +1016,6 @@ class NDRUniConformantVaryingArray(NDRArray):
     def __setitem__(self, key, value):
         self.fields['MaximumCount'] = None
         self.fields['ActualCount'] = None
-        self.data = None        # force recompute
         return NDRArray.__setitem__(self, key, value)
 
     def getDataArray(self, soFar = 0):
@@ -1089,13 +1037,9 @@ class NDRUniConformantVaryingArray(NDRArray):
                 data += res
                 soFar = soFar0 + len(data)
             except Exception, e:
-                if self.fields.has_key(fieldName):
-                    e.args += ("When packing field '%s | %s | %r' in %s" % (fieldName, fieldTypeOrClass, self.fields[fieldName], self.__class__),)
-                else:
-                    e.args += ("When packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__),)
+                LOG.error(str(e))
+                LOG.error("Error packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__))
                 raise
-
-        self.data = data
 
         return data
 
@@ -1103,9 +1047,6 @@ class NDRUniConformantVaryingArray(NDRArray):
         # Since we're unpacking an array, the MaximumCount/Offset/ActualCount
         # was already processed
         # hence, we don't have to calculate the pad again.
-        if self.rawData is None:
-            self.rawData = data
-
         fieldNum = 0
         soFar0 = soFar
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
@@ -1123,7 +1064,8 @@ class NDRUniConformantVaryingArray(NDRArray):
                 soFar += size
                 fieldNum += 1
             except Exception,e:
-                e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size),)
+                LOG.error(str(e))
+                LOG.error("Error unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size))
                 raise
         self.fromStringSize = soFar - soFar0
         return self
@@ -1254,20 +1196,13 @@ class NDRSTRUCT(NDR):
                 data += res
                 soFar = soFar0 + len(data) + arrayItemSize
             except Exception, e:
-                if self.fields.has_key(fieldName):
-                    e.args += ("When packing field '%s | %s | %r' in %s" % (fieldName, fieldTypeOrClass, self.fields[fieldName], self.__class__),)
-                else:
-                    e.args += ("When packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__),)
+                LOG.error(str(e))
+                LOG.error("Error packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__))
                 raise
-
-        self.data = data
 
         return data
 
     def fromString(self, data, soFar = 0 ):
-        if self.rawData is None:
-            self.rawData = data
-
         soFar0 = soFar
         # 14.3.7.1 Structures Containing a Conformant Array
         # A structure can contain a conformant array only as its last member.
@@ -1356,7 +1291,8 @@ class NDRSTRUCT(NDR):
                 data = data[size:]
                 soFar += size
             except Exception,e:
-                e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size),)
+                LOG.error(str(e))
+                LOG.error("Error unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size))
                 raise
 
         self.fromStringSize = soFar - soFar0
@@ -1393,8 +1329,6 @@ class NDRUNION(NDR):
         self.topLevel = topLevel
         self._isNDR64 = isNDR64
         self.fields = {}
-        self.data = None
-        self.rawData = None
         self.fromStringSize = None
 
         if isNDR64 is True:
@@ -1425,8 +1359,6 @@ class NDRUNION(NDR):
 
         if data is not None:
             self.fromString(data)
-        else:
-            self.data = None
 
     def __setitem__(self, key, value):
         if key == 'tag':
@@ -1467,10 +1399,8 @@ class NDRUNION(NDR):
                 data += res
                 soFar = soFar0 + len(data)
             except Exception, e:
-                if self.fields.has_key(fieldName):
-                    e.args += ("When packing field '%s | %s | %r' in %s" % (fieldName, fieldTypeOrClass, self.fields[fieldName], self.__class__),)
-                else:
-                    e.args += ("When packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__),)
+                LOG.error(str(e))
+                LOG.error("Error packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__))
                 raise
 
         # WARNING
@@ -1492,7 +1422,6 @@ class NDRUNION(NDR):
             soFar += pad
 
         if self.structure is ():
-            self.data = data
             return data
 
         for fieldName, fieldTypeOrClass in self.structure:
@@ -1506,13 +1435,9 @@ class NDRUNION(NDR):
                 data += res
                 soFar = soFar0 + len(data)
             except Exception, e:
-                if self.fields.has_key(fieldName):
-                    e.args += ("When packing field '%s | %s | %r' in %s" % (fieldName, fieldTypeOrClass, self.fields[fieldName], self.__class__),)
-                else:
-                    e.args += ("When packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__),)
+                LOG.error(str(e))
+                LOG.error("Error packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__))
                 raise
-
-        self.data = data
 
         return data
 
@@ -1539,9 +1464,6 @@ class NDRUNION(NDR):
                 else:
                     raise Exception("Unknown tag %d for union!" % tag)
 
-        if self.rawData is None:
-            self.rawData = data
-
         for fieldName, fieldTypeOrClass in self.commonHdr:
             size = self.calcUnPackSize(fieldTypeOrClass, data)
             pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar = soFar, packing = False)
@@ -1555,7 +1477,8 @@ class NDRUNION(NDR):
                 data = data[size:]
                 soFar += size
             except Exception,e:
-                e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size),)
+                LOG.error(str(e))
+                LOG.error("Error unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size))
                 raise
 
         # WARNING
@@ -1592,7 +1515,8 @@ class NDRUNION(NDR):
                 data = data[size:]
                 soFar += size
             except Exception,e:
-                e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size),)
+                LOG.error(str(e))
+                LOG.error("Error unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size))
                 raise
 
         self.fromStringSize = soFar - soFar0
