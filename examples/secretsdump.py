@@ -400,10 +400,10 @@ class RemoteOperations:
 
         request['pmsgIn']['V8']['pUpToDateVecDest'] = NULL
 
-        request['pmsgIn']['V8']['ulFlags'] =  drsuapi.DRS_INIT_SYNC | drsuapi.DRS_PER_SYNC
+        request['pmsgIn']['V8']['ulFlags'] =  drsuapi.DRS_INIT_SYNC | drsuapi.DRS_WRIT_REP
         request['pmsgIn']['V8']['cMaxObjects'] = 1
         request['pmsgIn']['V8']['cMaxBytes'] = 0
-        request['pmsgIn']['V8']['ulExtendedOp'] = drsuapi.EXOP_REPL_OBJ | drsuapi.EXOP_REPL_SECRETS
+        request['pmsgIn']['V8']['ulExtendedOp'] = drsuapi.EXOP_REPL_OBJ
         request['pmsgIn']['V8']['pPartialAttrSet'] = NULL
         request['pmsgIn']['V8']['pPartialAttrSetEx1'] = NULL
         request['pmsgIn']['V8']['PrefixTableDest']['pPrefixEntry'] = NULL
