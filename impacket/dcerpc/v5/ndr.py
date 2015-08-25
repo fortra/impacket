@@ -215,36 +215,6 @@ class NDR(object):
 
         return pad
 
-    def calculatePadOld(self, fieldName, fieldType, data, soFar, packing):
-        # PAD Calculation
-        if isinstance(self.fields[fieldName], NDR):
-            alignment = self.fields[fieldName].getAlignment()
-        else:
-            if fieldType == ':':
-                return 0
-            # Special case for arrays, fieldType is the array item type
-            if len(fieldType.split('*')) == 2:
-                if self.isNDR(self.item):
-                    # ToDo: Careful here.. I don't know this is right..
-                    # But, if we're inside an array, data should be aligned already, by means
-                    # of the previous fields
-                    return 0
-                else:
-                    fieldType = self.item
-            if packing:
-                alignment = self.calcPackSize(fieldType, self.fields[fieldName])
-            else:
-                alignment = self.calcUnPackSize(fieldType, data)
-        if 0 < alignment <= 8:
-            # Ok, here we gotta see if we're aligned with the size of the field
-            # we're about to unpack.
-            #print "field: %s, soFar:%d, size:%d, align: %d " % (fieldName, soFar, size, alignment)
-            alignment = (alignment - (soFar % alignment)) % alignment
-        else:
-            alignment = 0
-
-        return alignment
-
     def getData(self, soFar = 0):
         data = ''
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
@@ -297,43 +267,6 @@ class NDR(object):
                 data = data[pad:]
             try:
                 self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
-                data = data[size:]
-                soFar += size
-            except Exception,e:
-                LOG.error(str(e))
-                LOG.error("Error unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size))
-                raise
-        self.fromStringSize = soFar - soFar0
-        return self
-
-    def fromStringOld(self, data, soFar = 0):
-        soFar0 = soFar
-        for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
-            size = self.calcUnPackSize(fieldTypeOrClass, data)
-            # Alignment of Primitive Types
-
-            # NDR enforces NDR alignment of primitive data; that is, any primitive of size n
-            # octets is aligned at a octet stream index that is a multiple of n.
-            # (In this version of NDR, n is one of {1, 2, 4, 8}.) An octet stream index indicates
-            # the number of an octet in an octet stream when octets are numbered, beginning with 0,
-            # from the first octet in the stream. Where necessary, an alignment gap, consisting of
-            # octets of unspecified value, precedes the representation of a primitive. The gap is
-            # of the smallest size sufficient to align the primitive.
-            pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar = soFar, packing = False)
-            self.arraySoFar = None
-            if pad > 0:
-                soFar += pad
-                data = data[pad:]
-            try:
-                self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
-                if isinstance(self.fields[fieldName], NDR):
-                    size = self.fields[fieldName].getFromStringSize(soFar)
-
-                # Did we just unpacked an array?
-                if self.arraySoFar is not None:
-                    # Yes, get its size
-                    size = self.arraySoFar
-
                 data = data[size:]
                 soFar += size
             except Exception,e:
@@ -405,18 +338,6 @@ class NDR(object):
         two = fieldTypeOrClass.split('=')
         if len(two) >= 2:
             return self.calcPackSize(two[0], data)
-
-        # array specifier
-        two = fieldTypeOrClass.split('*')
-        if len(two) == 2:
-            answer = 0
-            for each in data:
-                if self.isNDR(self.item):
-                    item = ':'
-                else:
-                    item = self.item
-                answer += self.calcPackSize(item, each)
-            return answer
 
         # literal specifier
         if fieldTypeOrClass[:1] == ':':
@@ -620,6 +541,24 @@ class NDRCONSTRUCTEDTYPE(NDR):
 
         return data
 
+    def calcPackSize(self, fieldTypeOrClass, data):
+        if isinstance(fieldTypeOrClass, str) is False:
+            raise
+
+        # array specifier
+        two = fieldTypeOrClass.split('*')
+        if len(two) == 2:
+            answer = 0
+            for each in data:
+                if self.isNDR(self.item):
+                    item = ':'
+                else:
+                    item = self.item
+                answer += self.calcPackSize(item, each)
+            return answer
+        else:
+            return NDR.calcPackSize(self, fieldTypeOrClass, data)
+
     def fromStringReferents(self, data, soFar = 0):
         soFar0 = soFar
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
@@ -678,6 +617,16 @@ class NDRCONSTRUCTEDTYPE(NDR):
             soFar += size
 
         return soFar-soFar0
+
+    def calcUnPackSize(self, fieldTypeOrClass, data):
+        if isinstance(fieldTypeOrClass, str) is False:
+            return len(data)
+
+        two = fieldTypeOrClass.split('*')
+        if len(two) == 2:
+            return len(data)
+        else:
+            return NDR.calcUnPackSize(self, fieldTypeOrClass, data)
 
 # Uni-dimensional Fixed Arrays
 class NDRArray(NDRCONSTRUCTEDTYPE):
@@ -1019,7 +968,6 @@ class NDRConformantVaryingString(NDRUniConformantVaryingArray):
 # Structures Containing a Conformant Array 
 # Structures Containing a Conformant and Varying Array 
 class NDRSTRUCT(NDRCONSTRUCTEDTYPE):
-
     def getData(self, soFar = 0):
         data = ''
         arrayPadding = ''
