@@ -351,6 +351,11 @@ class SAMPR_HANDLE(NDRSTRUCT):
     structure =  (
         ('Data','20s=""'),
     )
+    def getAlignment(self):
+        if self._isNDR64 is True:
+            return 8
+        else:
+            return 4
 
 # 2.2.3.3 ENCRYPTED_LM_OWF_PASSWORD, ENCRYPTED_NT_OWF_PASSWORD
 class ENCRYPTED_LM_OWF_PASSWORD(NDRSTRUCT):
