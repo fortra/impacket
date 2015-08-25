@@ -263,13 +263,13 @@ class ENCRYPTED_PAYLOAD(Structure):
     )
 
 # 5.136 NT4SID
-class NT4SID(NDR):
+class NT4SID(NDRSTRUCT):
     structure =  (
         ('Data','28s=""'),
     )
 
 # 5.40 DRS_HANDLE
-class DRS_HANDLE(NDR):
+class DRS_HANDLE(NDRSTRUCT):
     structure =  (
         ('Data','20s=""'),
     )

@@ -289,45 +289,6 @@ class NDR(object):
 
         return data
 
-    def getDataReferents(self, soFar = 0):
-        data = ''
-        for fieldName, fieldTypeOrClass in self.commonHdr+self.structure: 
-            if isinstance(self.fields[fieldName], NDR):
-               data += self.fields[fieldName].getDataReferents(len(data)+soFar)
-               data += self.fields[fieldName].getDataReferent(len(data)+soFar)
-        return data
-
-    def getDataReferent(self, soFar=0):
-        data = ''
-        soFar0 = soFar
-        if hasattr(self,'referent') is False:
-            return ''
-
-        if self.fields.has_key('ReferentID'):
-            if self['ReferentID'] == 0:
-                return ''
-
-        for fieldName, fieldTypeOrClass in self.referent:
-            try:
-                pad = self.calculatePad(fieldTypeOrClass, soFar)
-                if pad > 0:
-                    soFar += pad
-                    data += '\xcc'*pad
-
-                data += self.pack(fieldName, fieldTypeOrClass, soFar)
-                soFar = soFar0 + len(data)
-                # Any referent information to pack?
-                if isinstance(self.fields[fieldName], NDR):
-                    data += self.fields[fieldName].getDataReferents(soFar)
-                    data += self.fields[fieldName].getDataReferent(len(data)+soFar)
-                soFar = soFar0 + len(data)
-            except Exception, e:
-                LOG.error(str(e))
-                LOG.error("Error packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__))
-                raise
-
-        return data
-
     def getFromStringSize(self, soFar=0):
         if self.fromStringSize is None:
             self.fromStringSize = len(self.getData(soFar))
@@ -397,65 +358,6 @@ class NDR(object):
                 raise
         self.fromStringSize = soFar - soFar0
         return self
-
-    def fromStringReferents(self, data, soFar = 0):
-        soFar0 = soFar
-        for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
-            if isinstance(self.fields[fieldName], NDR):
-                nSoFar = self.fields[fieldName].fromStringReferents(data, soFar)
-                soFar += nSoFar
-                nSoFar2 = self.fields[fieldName].fromStringReferent(data[nSoFar:], soFar)
-                soFar += nSoFar2
-                data = data[nSoFar+nSoFar2:]
-        return soFar - soFar0
-
-    def fromStringReferent(self, data, soFar = 0):
-        if hasattr(self, 'referent') is not True:
-            return 0
-
-        soFar0 = soFar
-
-        if self.fields.has_key('ReferentID'):
-            if self['ReferentID'] == 0:
-                # NULL Pointer, there's no referent for it
-                return 0
-
-        # Let's check if we have an Array in the struct. If so, align ourselves with the size argument
-        arrayAlign = 0
-        lastItem = (self.commonHdr+self.structure)[-1][0]
-        if isinstance(self.fields[lastItem], NDRUniConformantArray) or isinstance(self.fields[lastItem], NDRUniConformantVaryingArray):
-            # So we have an array, first item in the structure must be the array size, although we
-            # will need to build it later.
-            if self._isNDR64:
-                arrayAlign = (8 - (soFar % 8)) % 8
-            else:
-                arrayAlign = (4 - (soFar % 4)) % 4
-
-        for fieldName, fieldTypeOrClass in self.referent:
-            size = self.calcUnPackSize(fieldTypeOrClass, data)
-            if arrayAlign != 0:
-                pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar = soFar, packing = False)
-            else:
-                pad = arrayAlign
-            if pad > 0:
-                soFar += pad
-                data = data[pad:]
-            try:
-                self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
-            except Exception,e:
-                LOG.error(str(e))
-                LOG.error("Error unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size))
-                raise
-
-            if isinstance(self.fields[fieldName], NDR):
-                size = self.fields[fieldName].getFromStringSize(soFar)
-                nSoFar = self.fields[fieldName].fromStringReferents(data[size:], soFar + size)
-                nSoFar2 = self.fields[fieldName].fromStringReferent(data[size + nSoFar:], soFar + size + nSoFar)
-                size += nSoFar + nSoFar2 
-            data = data[size:]
-            soFar += size
-
-        return soFar-soFar0
 
     def pack(self, fieldName, fieldTypeOrClass, soFar = 0):
         if isinstance(self.fields[fieldName], NDR):
@@ -715,9 +617,107 @@ class NDRENUM(NDR):
         print " %s" % self.enumItems(self.fields['Data']).name,
 
 # NDR Constructed Types (arrays, strings, structures, unions, variant structures, pipes and pointers)
+class NDRCONSTRUCTEDTYPE(NDR):
+    def getDataReferents(self, soFar = 0):
+        data = ''
+        for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
+            if isinstance(self.fields[fieldName], NDRCONSTRUCTEDTYPE):
+               data += self.fields[fieldName].getDataReferents(len(data)+soFar)
+               data += self.fields[fieldName].getDataReferent(len(data)+soFar)
+        return data
+
+    def getDataReferent(self, soFar=0):
+        data = ''
+        soFar0 = soFar
+        if hasattr(self,'referent') is False:
+            return ''
+
+        if self.fields.has_key('ReferentID'):
+            if self['ReferentID'] == 0:
+                return ''
+
+        for fieldName, fieldTypeOrClass in self.referent:
+            try:
+                pad = self.calculatePad(fieldTypeOrClass, soFar)
+                if pad > 0:
+                    soFar += pad
+                    data += '\xcc'*pad
+
+                data += self.pack(fieldName, fieldTypeOrClass, soFar)
+                soFar = soFar0 + len(data)
+                # Any referent information to pack?
+                if isinstance(self.fields[fieldName], NDRCONSTRUCTEDTYPE):
+                    data += self.fields[fieldName].getDataReferents(soFar)
+                    data += self.fields[fieldName].getDataReferent(len(data)+soFar)
+                soFar = soFar0 + len(data)
+            except Exception, e:
+                LOG.error(str(e))
+                LOG.error("Error packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__))
+                raise
+
+        return data
+
+    def fromStringReferents(self, data, soFar = 0):
+        soFar0 = soFar
+        for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
+            if isinstance(self.fields[fieldName], NDRCONSTRUCTEDTYPE):
+                nSoFar = self.fields[fieldName].fromStringReferents(data, soFar)
+                soFar += nSoFar
+                nSoFar2 = self.fields[fieldName].fromStringReferent(data[nSoFar:], soFar)
+                soFar += nSoFar2
+                data = data[nSoFar+nSoFar2:]
+        return soFar - soFar0
+
+    def fromStringReferent(self, data, soFar = 0):
+        if hasattr(self, 'referent') is not True:
+            return 0
+
+        soFar0 = soFar
+
+        if self.fields.has_key('ReferentID'):
+            if self['ReferentID'] == 0:
+                # NULL Pointer, there's no referent for it
+                return 0
+
+        # Let's check if we have an Array in the struct. If so, align ourselves with the size argument
+        arrayAlign = 0
+        lastItem = (self.commonHdr+self.structure)[-1][0]
+        if isinstance(self.fields[lastItem], NDRUniConformantArray) or isinstance(self.fields[lastItem], NDRUniConformantVaryingArray):
+            # So we have an array, first item in the structure must be the array size, although we
+            # will need to build it later.
+            if self._isNDR64:
+                arrayAlign = (8 - (soFar % 8)) % 8
+            else:
+                arrayAlign = (4 - (soFar % 4)) % 4
+
+        for fieldName, fieldTypeOrClass in self.referent:
+            size = self.calcUnPackSize(fieldTypeOrClass, data)
+            if arrayAlign != 0:
+                pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar = soFar, packing = False)
+            else:
+                pad = arrayAlign
+            if pad > 0:
+                soFar += pad
+                data = data[pad:]
+            try:
+                self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
+            except Exception,e:
+                LOG.error(str(e))
+                LOG.error("Error unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size))
+                raise
+
+            if isinstance(self.fields[fieldName], NDRCONSTRUCTEDTYPE):
+                size = self.fields[fieldName].getFromStringSize(soFar)
+                nSoFar = self.fields[fieldName].fromStringReferents(data[size:], soFar + size)
+                nSoFar2 = self.fields[fieldName].fromStringReferent(data[size + nSoFar:], soFar + size + nSoFar)
+                size += nSoFar + nSoFar2
+            data = data[size:]
+            soFar += size
+
+        return soFar-soFar0
 
 # Uni-dimensional Fixed Arrays
-class NDRArray(NDR):
+class NDRArray(NDRCONSTRUCTEDTYPE):
     def dump(self, msg = None, indent = 0):
         if msg is None: msg = self.__class__.__name__
         ind = ' '*indent
@@ -744,7 +744,7 @@ class NDRArray(NDR):
             if self.isNDR(self.item):
                 for item in self.fields['Data']:
                     item.changeTransferSyntax(newSyntax)
-        return NDR.changeTransferSyntax(self, newSyntax)
+        return NDRCONSTRUCTEDTYPE.changeTransferSyntax(self, newSyntax)
 
     def getAlignment(self):
         # Array alignment is the largest alignment of the array element type and 
@@ -798,7 +798,7 @@ class NDRArray(NDR):
             self.fields[two[1]] = len(self.fields[fieldName])
             return answer
         else:
-            return NDR.pack(self, fieldName, fieldTypeOrClass, soFar)
+            return NDRCONSTRUCTEDTYPE.pack(self, fieldName, fieldTypeOrClass, soFar)
 
     def unpack(self, fieldName, fieldTypeOrClass, data, soFar = 0):
         # array specifier
@@ -857,7 +857,7 @@ class NDRArray(NDR):
             self.arraySoFar = soFarItems + soFar - soFar0
             return answer
         else:
-            return NDR.unpack(self, fieldName, fieldTypeOrClass, data, soFar)
+            return NDRCONSTRUCTEDTYPE.unpack(self, fieldName, fieldTypeOrClass, data, soFar)
 
 class NDRUniFixedArray(NDRArray):
     structure = (
@@ -1055,7 +1055,7 @@ class NDRConformantVaryingString(NDRUniConformantVaryingArray):
 # Structures
 # Structures Containing a Conformant Array 
 # Structures Containing a Conformant and Varying Array 
-class NDRSTRUCT(NDR):
+class NDRSTRUCT(NDRCONSTRUCTEDTYPE):
 
     def getData(self, soFar = 0):
         data = ''
@@ -1286,7 +1286,7 @@ class NDRSTRUCT(NDR):
         return align
 
 # Unions 
-class NDRUNION(NDR):
+class NDRUNION(NDRCONSTRUCTEDTYPE):
     commonHdr = (
         ('tag', NDRUSHORT),
     )
@@ -1357,7 +1357,7 @@ class NDRUNION(NDR):
                 else:
                     raise Exception("Unknown tag %d for union!" % value)
         else:
-            return NDR.__setitem__(self,key,value)
+            return NDRCONSTRUCTEDTYPE.__setitem__(self,key,value)
 
     def getData(self, soFar = 0):
         data = ''
@@ -1673,7 +1673,7 @@ class PNDRUniConformantArray(NDRPOINTER):
     def __init__(self, data = None, isNDR64 = False, topLevel = False):
         NDRPOINTER.__init__(self,data,isNDR64,topLevel)
 
-class NDRCALL(NDR):
+class NDRCALL(NDRCONSTRUCTEDTYPE):
     # This represents a group of NDR instances that conforms an NDR Call.
     # The only different between a regular NDR instance is a NDR call must
     # represent the referents when building the final octet stream
@@ -1719,7 +1719,7 @@ class NDRCALL(NDR):
             self.fromString(data)
 
     def dump(self, msg = None, indent = 0):
-        NDR.dump(self, msg, indent)
+        NDRCONSTRUCTEDTYPE.dump(self, msg, indent)
         print '\n\n'
 
     def getData(self, soFar = 0):
@@ -1738,7 +1738,7 @@ class NDRCALL(NDR):
                 # I'm still not sure whether this should go after processing
                 # all the fields at the call level.
                 # Guess we'll figure it out testing.
-                if isinstance(self.fields[fieldName], NDR):
+                if isinstance(self.fields[fieldName], NDRCONSTRUCTEDTYPE):
                     data += self.fields[fieldName].getDataReferents(soFar)
                     soFar = soFar0 + len(data)
                     data += self.fields[fieldName].getDataReferent(soFar)
@@ -1759,9 +1759,10 @@ class NDRCALL(NDR):
                 size = self.fields[fieldName].getFromStringSize(soFar)
 
                 # Any referent information to unpack?
-                nSoFar = self.fields[fieldName].fromStringReferents(data[size:], soFar + size)
-                nSoFar2 = self.fields[fieldName].fromStringReferent(data[size + nSoFar:], soFar + size + nSoFar)
-                size += nSoFar + nSoFar2
+                if isinstance(self.fields[fieldName], NDRCONSTRUCTEDTYPE):
+                    nSoFar = self.fields[fieldName].fromStringReferents(data[size:], soFar + size)
+                    nSoFar2 = self.fields[fieldName].fromStringReferent(data[size + nSoFar:], soFar + size + nSoFar)
+                    size += nSoFar + nSoFar2
                 data = data[size:]
                 soFar += size
             except Exception,e:

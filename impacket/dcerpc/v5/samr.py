@@ -347,7 +347,7 @@ class RPC_SHORT_BLOB(NDRSTRUCT):
     )
 
 # 2.2.3.2 SAMPR_HANDLE
-class SAMPR_HANDLE(NDR):
+class SAMPR_HANDLE(NDRSTRUCT):
     structure =  (
         ('Data','20s=""'),
     )
