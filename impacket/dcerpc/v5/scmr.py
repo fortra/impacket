@@ -205,7 +205,7 @@ SERVICE_TRIGGER_DATA_TYPE_STRING = 0x00000002
 # STRUCTURES
 ################################################################################
 
-class SC_RPC_HANDLE(NDR):
+class SC_RPC_HANDLE(NDRSTRUCT):
     align = 1
     structure =  (
         ('Data','20s=""'),
