@@ -1729,7 +1729,7 @@ class NDRPOINTER(NDRSTRUCT):
         else:
             unpackStr = '<L'
 
-        if unpack(unpackStr, data[:4])[0] == 0:
+        if unpack(unpackStr, data[:calcsize(unpackStr)])[0] == 0:
             # Let's save the value
             fromStringSize = self.fromStringSize
             self['ReferentID'] = 0
