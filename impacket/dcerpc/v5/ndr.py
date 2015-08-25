@@ -656,7 +656,7 @@ class NDRCALL(NDR):
                 pad = self.calculatePad(fieldTypeOrClass, soFar)
                 if pad > 0:
                     soFar += pad
-                    data += '\xaa'*pad
+                    data += '\xab'*pad
 
                 data += self.pack(fieldName, fieldTypeOrClass, soFar)
                 soFar = soFar0 + len(data)
@@ -994,11 +994,10 @@ class NDRUniConformantArray(NDRArray):
         fieldNum = 0
         for fieldName, fieldTypeOrClass in self.structure:
             try:
-                if fieldNum > 0:
-                    pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar, packing = True)
-                    if pad > 0:
-                        soFar += pad
-                        data += '\xca'*pad
+                pad = self.calculatePad(fieldTypeOrClass, soFar)
+                if pad > 0:
+                    soFar += pad
+                    data += '\xca'*pad
 
                 res = self.pack(fieldName, fieldTypeOrClass, soFar)
                 data += res
@@ -1019,11 +1018,10 @@ class NDRUniConformantArray(NDRArray):
         for fieldName, fieldTypeOrClass in self.structure:
             size = self.calcUnPackSize(fieldTypeOrClass, data)
             self.arraySoFar = None
-            if fieldNum > 0:
-                pad = self.calculatePad(fieldTypeOrClass, soFar)
-                if pad > 0:
-                    soFar += pad
-                    data = data[pad:]
+            pad = self.calculatePad(fieldTypeOrClass, soFar)
+            if pad > 0:
+                soFar += pad
+                data = data[pad:]
             try:
                 self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
                 if isinstance(self.fields[fieldName], NDR):
@@ -1230,11 +1228,12 @@ class NDRSTRUCT(NDR):
                         data = pointerData + arrayPadding + arraySize + data
                     else:
                         data = arrayPadding + arraySize + data
+                    arrayPadding = ''
                     arrayItemSize = 0
                 else:
                     res = self.pack(fieldName, fieldTypeOrClass, soFar)
                 data += res
-                soFar = soFar0 + len(data) + arrayItemSize
+                soFar = soFar0 + len(data) + len(arrayPadding) + arrayItemSize
             except Exception, e:
                 LOG.error(str(e))
                 LOG.error("Error packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__))
@@ -1256,13 +1255,14 @@ class NDRSTRUCT(NDR):
         #     } StructWithPad;
         # The size of the structure in the octet stream MUST contain a 2-byte trailing
         # gap to make its size 8, a multiple of the structure's alignment, 4.
-        if self._isNDR64 is True:
-            # ToDo add trailing gap here
-            if alignment > 0:
-                pad = (alignment - (soFar % alignment)) % alignment
-                if pad > 0:
-                    soFar += pad
-                    data += '\xcd'*pad
+#        if self._isNDR64 is True:
+#            # ToDo add trailing gap here
+#            if alignment > 0:
+#                pad = (alignment - (soFar % alignment)) % alignment
+#                if pad > 0:
+#                    soFar += pad
+#                    data += '\xcd'*pad
+#            print self.__class__ , alignment, pad, hex(soFar)
         return data
 
     def fromString(self, data, soFar = 0 ):
@@ -1470,7 +1470,6 @@ class NDRUNION(NDR):
                 if pad > 0:
                     soFar += pad
                     data += '\xbb'*pad
-                    #data = data + '\x00'*pad
 
                 res = self.pack(fieldName, fieldTypeOrClass, soFar)
                 data += res
@@ -1741,7 +1740,9 @@ class NDRPOINTER(NDRSTRUCT):
                 self.fromStringSize += 4
             return self
         else:
-            return NDRSTRUCT.fromString(self,data, soFar)
+            retVal =  NDRSTRUCT.fromString(self,data, soFar)
+            self.fromStringSize += pad
+            return retVal
 
     def dump(self, msg = None, indent = 0):
         if msg is None: msg = self.__class__.__name__
