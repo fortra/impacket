@@ -162,22 +162,6 @@ class NDR(object):
                 return True
         return False
 
-    @staticmethod
-    def isPointer(field):
-        if inspect.isclass(field):
-            myClass = field
-            if issubclass(myClass, NDRPOINTER):
-                return True
-        return False
-
-    @staticmethod
-    def isUnion(field):
-        if inspect.isclass(field):
-            myClass = field
-            if issubclass(myClass, NDRUNION):
-                return True
-        return False
-
     def dumpRaw(self, msg = None, indent = 0):
         if msg is None: msg = self.__class__.__name__
         ind = ' '*indent
@@ -377,42 +361,6 @@ class NDR(object):
                 self.fields[fieldName] = eval(two[1], {}, self.fields)
                 return self.pack(fieldName, two[0], soFar)
 
-        # array specifier
-        two = fieldTypeOrClass.split('*')
-        if len(two) == 2:
-            answer = ''
-            if self.isNDR(self.item):
-                item = ':'
-                dataClass = self.item
-                self.fields['_tmpItem'] = dataClass(isNDR64=self._isNDR64)
-            else:
-                item = self.item
-                dataClass = None
-                self.fields['_tmpItem'] = item
-
-            for each in data:
-                pad = self.calculatePad(self.item, len(answer)+soFar)
-                if pad > 0:
-                    answer += '\xdd' * pad
-                if dataClass is None:
-                    answer += pack(item, each)
-                else:
-                    answer += each.getData(len(answer)+soFar)
-
-            if dataClass is not None:
-                for each in data:
-                    # ToDo: I'm not sure about commenting this
-                    #pad = self.calculatePad('_tmpItem', self.item, answer, len(answer)+soFar, packing = True)
-                    #if pad > 0:
-                    #    answer += '\xda' * pad
-                    answer += each.getDataReferents(len(answer)+soFar)
-                    # ToDo, still to work out this
-                    answer += each.getDataReferent(len(answer)+soFar)
-
-            del(self.fields['_tmpItem'])
-            self.fields[two[1]] = len(data)
-            return answer
-
         if data is None:
             raise Exception, "Trying to pack None"
         
@@ -502,7 +450,6 @@ class NDR(object):
         return calcsize(fieldTypeOrClass)
 
 # NDR Primitives
-
 class NDRSMALL(NDR):
     align = 1
     structure = (
@@ -618,6 +565,22 @@ class NDRENUM(NDR):
 
 # NDR Constructed Types (arrays, strings, structures, unions, variant structures, pipes and pointers)
 class NDRCONSTRUCTEDTYPE(NDR):
+    @staticmethod
+    def isPointer(field):
+        if inspect.isclass(field):
+            myClass = field
+            if issubclass(myClass, NDRPOINTER):
+                return True
+        return False
+
+    @staticmethod
+    def isUnion(field):
+        if inspect.isclass(field):
+            myClass = field
+            if issubclass(myClass, NDRUNION):
+                return True
+        return False
+
     def getDataReferents(self, soFar = 0):
         data = ''
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
