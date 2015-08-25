@@ -543,7 +543,7 @@ class NDRCONSTRUCTEDTYPE(NDR):
 
     def calcPackSize(self, fieldTypeOrClass, data):
         if isinstance(fieldTypeOrClass, str) is False:
-            raise
+            return len(data)
 
         # array specifier
         two = fieldTypeOrClass.split('*')
@@ -581,23 +581,9 @@ class NDRCONSTRUCTEDTYPE(NDR):
                 # NULL Pointer, there's no referent for it
                 return 0
 
-        # Let's check if we have an Array in the struct. If so, align ourselves with the size argument
-        arrayAlign = 0
-        lastItem = (self.commonHdr+self.structure)[-1][0]
-        if isinstance(self.fields[lastItem], NDRUniConformantArray) or isinstance(self.fields[lastItem], NDRUniConformantVaryingArray):
-            # So we have an array, first item in the structure must be the array size, although we
-            # will need to build it later.
-            if self._isNDR64:
-                arrayAlign = (8 - (soFar % 8)) % 8
-            else:
-                arrayAlign = (4 - (soFar % 4)) % 4
-
         for fieldName, fieldTypeOrClass in self.referent:
             size = self.calcUnPackSize(fieldTypeOrClass, data)
-            if arrayAlign != 0:
-                pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar = soFar, packing = False)
-            else:
-                pad = arrayAlign
+            pad = self.calculatePad(fieldTypeOrClass, soFar)
             if pad > 0:
                 soFar += pad
                 data = data[pad:]
@@ -1551,6 +1537,12 @@ class NDRPOINTER(NDRSTRUCT):
                 print " NULL",
             else:
                 print " %r" % (self['Data']),
+
+    def getAlignment(self):
+        if self._isNDR64 is True:
+            return 8
+        else:
+            return 4
 
 
 # Embedded Reference Pointers not implemented for now
