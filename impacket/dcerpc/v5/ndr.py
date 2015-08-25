@@ -698,12 +698,7 @@ class NDRArray(NDRCONSTRUCTEDTYPE):
 
             if dataClass is not None:
                 for each in self.fields[fieldName]:
-                    # ToDo: I'm not sure about commenting this
-                    #pad = self.calculatePad('_tmpItem', self.item, answer, len(answer)+soFar, packing = True)
-                    #if pad > 0:
-                    #    answer += '\xda' * pad
                     answer += each.getDataReferents(len(answer)+soFar)
-                    # ToDo, still to work out this
                     answer += each.getDataReferent(len(answer)+soFar)
 
             del(self.fields['_tmpItem'])
@@ -752,7 +747,6 @@ class NDRArray(NDRCONSTRUCTEDTYPE):
                 # We gotta go over again, asking for the referents
                 data = data[soFarItems:]
                 answer2 = []
-                #soFarItems = 0
                 for itemn in answer:
                     nSoFar = itemn.fromStringReferents(data, soFarItems+soFar)
                     soFarItems += nSoFar
@@ -801,7 +795,6 @@ class NDRUniConformantArray(NDRArray):
         # hence, we don't have to calculate the pad again.
         data = ''
         soFar0 = soFar
-        fieldNum = 0
         for fieldName, fieldTypeOrClass in self.structure:
             try:
                 pad = self.calculatePad(fieldTypeOrClass, soFar)
@@ -823,7 +816,6 @@ class NDRUniConformantArray(NDRArray):
     def fromString(self, data, soFar = 0):
         # Since we're unpacking an array, the MaximumCount was already processed
         # hence, we don't have to calculate the pad again.
-        fieldNum = 0
         soFar0 = soFar
         for fieldName, fieldTypeOrClass in self.structure:
             size = self.calcUnPackSize(fieldTypeOrClass, data)
@@ -843,7 +835,6 @@ class NDRUniConformantArray(NDRArray):
                     size = self.arraySoFar
                 data = data[size:]
                 soFar += size
-                fieldNum += 1
             except Exception,e:
                 LOG.error(str(e))
                 LOG.error("Error unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size))
@@ -896,14 +887,12 @@ class NDRUniConformantVaryingArray(NDRArray):
     def getData(self, soFar = 0):
         data = ''
         soFar0 = soFar
-        fieldNum = 0
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             try:
-                if fieldNum > 1:
-                    pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar, packing = True)
-                    if pad > 0:
-                        soFar += pad
-                        data += '\xcb'*pad
+                pad = self.calculatePad(fieldTypeOrClass, soFar)
+                if pad > 0:
+                    soFar += pad
+                    data += '\xcb'*pad
 
                 res = self.pack(fieldName, fieldTypeOrClass, soFar)
                 data += res
@@ -916,23 +905,20 @@ class NDRUniConformantVaryingArray(NDRArray):
         return data
 
     def fromString(self, data, soFar = 0):
-        fieldNum = 0
         soFar0 = soFar
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             print fieldName
             size = self.calcUnPackSize(fieldTypeOrClass, data)
-            if fieldNum > 1:
-                pad = self.calculatePad(fieldTypeOrClass, soFar)
-                if pad > 0:
-                    soFar += pad
-                    data = data[pad:]
+            pad = self.calculatePad(fieldTypeOrClass, soFar)
+            if pad > 0:
+                soFar += pad
+                data = data[pad:]
             try:
                 self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
                 if isinstance(self.fields[fieldName], NDR):
                     size = self.fields[fieldName].getFromStringSize(soFar)
                 data = data[size:]
                 soFar += size
-                fieldNum += 1
             except Exception,e:
                 LOG.error(str(e))
                 LOG.error("Error unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size))
@@ -1471,7 +1457,7 @@ class NDRPOINTER(NDRSTRUCT):
     )
     def __init__(self, data = None, isNDR64=False, topLevel = False):
         NDRSTRUCT.__init__(self,None, isNDR64=isNDR64)
-        # If we are being called from a NDRCall, it's a TopLevelPointer, 
+        # If we are being called from a NDRCALL, it's a TopLevelPointer,
         # if not, it's a embeeded pointer.
         # It is *very* important, for every subclass of NDRPointer
         # you have to declare the referent in the referent variable
