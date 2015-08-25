@@ -1724,7 +1724,12 @@ class NDRPOINTER(NDRSTRUCT):
             self.fromStringSize += pad
 
         # Do we have a Referent ID == 0?
-        if unpack('<L', data[:4])[0] == 0:
+        if self._isNDR64 is True:
+            unpackStr = '<Q'
+        else:
+            unpackStr = '<L'
+
+        if unpack(unpackStr, data[:4])[0] == 0:
             # Let's save the value
             fromStringSize = self.fromStringSize
             self['ReferentID'] = 0
