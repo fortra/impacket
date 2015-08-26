@@ -1253,6 +1253,17 @@ class NDRUNION(NDRCONSTRUCTEDTYPE):
     def getData(self, soFar = 0):
         data = ''
         soFar0 = soFar
+
+        # Let's align ourselves
+        alignment = self.getAlignment()
+        if alignment > 0:
+            pad = (alignment - (soFar % alignment)) % alignment
+        else:
+            pad = 0
+        if pad > 0:
+            soFar += pad
+            data += '\xbc'*pad
+
         for fieldName, fieldTypeOrClass in self.commonHdr:
             try:
                 pad = self.calculatePad(fieldTypeOrClass, soFar)
@@ -1308,6 +1319,16 @@ class NDRUNION(NDRCONSTRUCTEDTYPE):
 
     def fromString(self, data, soFar = 0 ):
         soFar0 = soFar
+        # Let's align ourselves
+        alignment = self.getAlignment()
+        if alignment > 0:
+            pad = (alignment - (soFar % alignment)) % alignment
+        else:
+            pad = 0
+        if pad > 0:
+            soFar += pad
+            data = data[pad:]
+
         if len(data) > 4:
             # First off, let's see what the tag is:
             # We need to know the tag type and unpack it
