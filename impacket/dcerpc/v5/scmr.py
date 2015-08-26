@@ -206,10 +206,11 @@ SERVICE_TRIGGER_DATA_TYPE_STRING = 0x00000002
 ################################################################################
 
 class SC_RPC_HANDLE(NDRSTRUCT):
-    align = 1
     structure =  (
         ('Data','20s=""'),
     )
+    def getAlignment(self):
+        return 1
 
 SC_NOTIFY_RPC_HANDLE = SC_RPC_HANDLE
 
