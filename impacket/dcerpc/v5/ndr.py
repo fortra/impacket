@@ -684,8 +684,9 @@ class NDRArray(NDRCONSTRUCTEDTYPE):
 
             if dataClass is not None:
                 for each in self.fields[fieldName]:
-                    answer += each.getDataReferents(len(answer)+soFar)
-                    answer += each.getDataReferent(len(answer)+soFar)
+                    if isinstance(each, NDRCONSTRUCTEDTYPE):
+                        answer += each.getDataReferents(len(answer)+soFar)
+                        answer += each.getDataReferent(len(answer)+soFar)
 
             del(self.fields['_tmpItem'])
             self.fields[two[1]] = len(self.fields[fieldName])
@@ -729,7 +730,7 @@ class NDRArray(NDRCONSTRUCTEDTYPE):
                 numItems -= 1
                 soFarItems = nsofar
 
-            if dataClassOrCode is not None:
+            if dataClassOrCode is not None and isinstance(dataClassOrCode(), NDRCONSTRUCTEDTYPE):
                 # We gotta go over again, asking for the referents
                 data = data[soFarItems:]
                 answer2 = []
