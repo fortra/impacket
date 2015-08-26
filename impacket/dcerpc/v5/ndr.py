@@ -893,7 +893,6 @@ class NDRUniConformantVaryingArray(NDRArray):
     def fromString(self, data, soFar = 0):
         soFar0 = soFar
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
-            print fieldName
             size = self.calcUnPackSize(fieldTypeOrClass, data)
             pad = self.calculatePad(fieldTypeOrClass, soFar)
             if pad > 0:
