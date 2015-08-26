@@ -659,6 +659,26 @@ class NDRArray(NDRCONSTRUCTEDTYPE):
                 align = tmpAlign
         return align
 
+    def getData(self, soFar = 0):
+        data = ''
+        soFar0 = soFar
+        for fieldName, fieldTypeOrClass in self.structure:
+            try:
+                pad = self.calculatePad(fieldTypeOrClass, soFar)
+                if pad > 0:
+                    soFar += pad
+                    data += '\xca'*pad
+
+                res = self.pack(fieldName, fieldTypeOrClass, soFar)
+                data += res
+                soFar = soFar0 + len(data)
+            except Exception, e:
+                LOG.error(str(e))
+                LOG.error("Error packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__))
+                raise
+
+        return data
+
     def pack(self, fieldName, fieldTypeOrClass, soFar = 0):
         # array specifier
         two = fieldTypeOrClass.split('*')
@@ -693,6 +713,33 @@ class NDRArray(NDRCONSTRUCTEDTYPE):
             return answer
         else:
             return NDRCONSTRUCTEDTYPE.pack(self, fieldName, fieldTypeOrClass, soFar)
+
+    def fromString(self, data, soFar = 0):
+        soFar0 = soFar
+        for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
+            size = self.calcUnPackSize(fieldTypeOrClass, data)
+            self.arraySoFar = None
+            pad = self.calculatePad(fieldTypeOrClass, soFar)
+            if pad > 0:
+                soFar += pad
+                data = data[pad:]
+            try:
+                self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
+                if isinstance(self.fields[fieldName], NDR):
+                    size = self.fields[fieldName].getFromStringSize(soFar)
+
+                # Did we just unpacked an array?
+                if self.arraySoFar is not None:
+                    # Yes, get its size
+                    size = self.arraySoFar
+                data = data[size:]
+                soFar += size
+            except Exception,e:
+                LOG.error(str(e))
+                LOG.error("Error unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size))
+                raise
+        self.fromStringSize = soFar - soFar0
+        return self
 
     def unpack(self, fieldName, fieldTypeOrClass, data, soFar = 0):
         # array specifier
@@ -777,58 +824,6 @@ class NDRUniConformantArray(NDRArray):
         self.fields['MaximumCount'] = None
         return NDRArray.__setitem__(self, key, value)
 
-    def getData(self, soFar = 0):
-        # Since we're unpacking an array, the MaximumCount was already processed
-        # hence, we don't have to calculate the pad again.
-        data = ''
-        soFar0 = soFar
-        for fieldName, fieldTypeOrClass in self.structure:
-            try:
-                pad = self.calculatePad(fieldTypeOrClass, soFar)
-                if pad > 0:
-                    soFar += pad
-                    data += '\xca'*pad
-
-                res = self.pack(fieldName, fieldTypeOrClass, soFar)
-                data += res
-                soFar = soFar0 + len(data)
-            except Exception, e:
-                LOG.error(str(e))
-                LOG.error("Error packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__))
-                raise
-
-
-        return data
-
-    def fromString(self, data, soFar = 0):
-        # Since we're unpacking an array, the MaximumCount was already processed
-        # hence, we don't have to calculate the pad again.
-        soFar0 = soFar
-        for fieldName, fieldTypeOrClass in self.structure:
-            size = self.calcUnPackSize(fieldTypeOrClass, data)
-            self.arraySoFar = None
-            pad = self.calculatePad(fieldTypeOrClass, soFar)
-            if pad > 0:
-                soFar += pad
-                data = data[pad:]
-            try:
-                self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
-                if isinstance(self.fields[fieldName], NDR):
-                    size = self.fields[fieldName].getFromStringSize(soFar)
-
-                # Did we just unpacked an array?
-                if self.arraySoFar is not None:
-                    # Yes, get its size
-                    size = self.arraySoFar
-                data = data[size:]
-                soFar += size
-            except Exception,e:
-                LOG.error(str(e))
-                LOG.error("Error unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size))
-                raise
-
-        self.fromStringSize = soFar - soFar0
-        return self
 
 # Uni-dimensional Varying Arrays
 class NDRUniVaryingArray(NDRArray):
@@ -890,34 +885,6 @@ class NDRUniConformantVaryingArray(NDRArray):
                 raise
 
         return data
-
-    def fromString(self, data, soFar = 0):
-        soFar0 = soFar
-        for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
-            size = self.calcUnPackSize(fieldTypeOrClass, data)
-            self.arraySoFar = None
-            pad = self.calculatePad(fieldTypeOrClass, soFar)
-            if pad > 0:
-                soFar += pad
-                data = data[pad:]
-            try:
-                self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
-                if isinstance(self.fields[fieldName], NDR):
-                    size = self.fields[fieldName].getFromStringSize(soFar)
-
-                # Did we just unpacked an array?
-                if self.arraySoFar is not None:
-                    # Yes, get its size
-                    size = self.arraySoFar
-                data = data[size:]
-                soFar += size
-            except Exception,e:
-                LOG.error(str(e))
-                LOG.error("Error unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size))
-                raise
-        self.fromStringSize = soFar - soFar0
-        return self
-
 
 # Multidimensional arrays not implemented for now
 
