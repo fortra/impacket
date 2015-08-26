@@ -1088,11 +1088,14 @@ class NDRSTRUCT(NDRCONSTRUCTEDTYPE):
             soFar += arrayItemSize
             # And let's extract the array size for later use, if it is a pointer, it is after the referent ID
             if isinstance(self, NDRPOINTER):
+                # ToDo: Check if we have to align the arrayItemSize
+                # I guess is it aligned since the NDRPOINTER is aligned already
+                pointerData = data[:arrayItemSize]
                 arraySize = data[arrayItemSize:][:arrayItemSize]
+                data = pointerData + data[arrayItemSize*2:]
             else:
                 arraySize = data[:arrayItemSize]
-            # And move on data
-            data = data[arrayItemSize:]
+                data = data[arrayItemSize:]
 
         # Now we need to align the structure
         # The alignment of a structure in the octet stream is the largest of the alignments of the fields it
