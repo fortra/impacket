@@ -267,12 +267,16 @@ class NT4SID(NDRSTRUCT):
     structure =  (
         ('Data','28s=""'),
     )
+    def getAlignment(self):
+        return 4
 
 # 5.40 DRS_HANDLE
 class DRS_HANDLE(NDRSTRUCT):
     structure =  (
         ('Data','20s=""'),
     )
+    def getAlignment(self):
+        return 4
 
 class PDRS_HANDLE(NDRPOINTER):
     referent = (
