@@ -894,6 +894,7 @@ class NDRUniConformantVaryingArray(NDRArray):
         soFar0 = soFar
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             size = self.calcUnPackSize(fieldTypeOrClass, data)
+            self.arraySoFar = None
             pad = self.calculatePad(fieldTypeOrClass, soFar)
             if pad > 0:
                 soFar += pad
@@ -902,6 +903,11 @@ class NDRUniConformantVaryingArray(NDRArray):
                 self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
                 if isinstance(self.fields[fieldName], NDR):
                     size = self.fields[fieldName].getFromStringSize(soFar)
+
+                # Did we just unpacked an array?
+                if self.arraySoFar is not None:
+                    # Yes, get its size
+                    size = self.arraySoFar
                 data = data[size:]
                 soFar += size
             except Exception,e:
