@@ -1331,7 +1331,7 @@ class NTDSHashes:
         )
 
     def __init__(self, ntdsFile, bootKey, isRemote=False, history=False, noLMHash=True, remoteOps=None,
-                 useVSSMethod=False):
+                 useVSSMethod=False, justNTLM=False):
         self.__bootKey = bootKey
         self.__NTDS = ntdsFile
         self.__history = history
@@ -1346,6 +1346,7 @@ class NTDSHashes:
         self.__cryptoCommon = CryptoCommon()
         self.__hashesFound = {}
         self.__kerberosKeys = OrderedDict()
+        self.__justNTLM = justNTLM
 
     def __getPek(self):
         logging.info('Searching for pekList, be patient')
@@ -1630,15 +1631,18 @@ class NTDSHashes:
                     print answer
 
     def dump(self):
-        if self.__NTDS is None and self.__useVSSMethod is True:
-            # No NTDS.dit file provided and were asked to use VSS
-            return
-        else:
-            try:
-                self.__remoteOps.connectSamr(self.__remoteOps.getMachineNameAndDomain()[1])
-            except:
-                # Target's not a DC
+        if self.__useVSSMethod is True:
+            if self.__NTDS is None:
+                # No NTDS.dit file provided and were asked to use VSS
                 return
+        else:
+            if self.__NTDS is None:
+                # DRSUAPI method, checking whether target is a DC
+                try:
+                    self.__remoteOps.connectSamr(self.__remoteOps.getMachineNameAndDomain()[1])
+                except:
+                    # Target's not a DC
+                    return
 
         logging.info('Dumping Domain Credentials (domain\\uid:rid:lmhash:nthash)')
         if self.__useVSSMethod:
@@ -1653,7 +1657,8 @@ class NTDSHashes:
                 for record in self.__tmpUsers:
                     try:
                         self.__decryptHash(record)
-                        self.__decryptSupplementalInfo(record)
+                        if self.__justNTLM is False:
+                            self.__decryptSupplementalInfo(record)
                     except Exception, e:
                         # import traceback
                         # print traceback.print_exc()
@@ -1680,7 +1685,8 @@ class NTDSHashes:
                     try:
                         if record[self.NAME_TO_INTERNAL['sAMAccountType']] in self.ACCOUNT_TYPES:
                             self.__decryptHash(record)
-                            self.__decryptSupplementalInfo(record)
+                            if self.__justNTLM is False:
+                                self.__decryptSupplementalInfo(record)
                     except Exception, e:
                         # import traceback
                         # print traceback.print_exc()
@@ -1720,7 +1726,8 @@ class NTDSHashes:
                         logging.warning('DRSCrackNames returned %d items for user %s, skipping' %(crackedName['pmsgOut']['V1']['pResult']['cItems'], userName))
                     try:
                         self.__decryptHash(userRecord, user['RelativeId'], userRecord['pmsgOut']['V6']['PrefixTableSrc']['pPrefixEntry'])
-                        self.__decryptSupplementalInfo(userRecord, userRecord['pmsgOut']['V6']['PrefixTableSrc']['pPrefixEntry'])
+                        if self.__justNTLM is False:
+                            self.__decryptSupplementalInfo(userRecord, userRecord['pmsgOut']['V6']['PrefixTableSrc']['pPrefixEntry'])
                     except Exception, e:
                         #import traceback
                         #traceback.print_exc()
@@ -1768,7 +1775,7 @@ class NTDSHashes:
 class DumpSecrets:
     def __init__(self, address, username='', password='', domain='', hashes=None, aesKey=None, doKerberos=False,
                  system=False, security=False, sam=False, ntds=False, outputFileName=None, history=False,
-                 useVSSMethod=False):
+                 useVSSMethod=False, justDC=False, justDCNTLM=False):
         self.__useVSSMethod = useVSSMethod
         self.__remoteAddr = address
         self.__username = username
@@ -1791,6 +1798,8 @@ class DumpSecrets:
         self.__isRemote = True
         self.__outputFileName = outputFileName
         self.__doKerberos = doKerberos
+        self.__justDC = justDC
+        self.__justDCNTLM = justDCNTLM
 
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
@@ -1861,33 +1870,37 @@ class DumpSecrets:
                 self.__isRemote = True
                 self.connect()
                 self.__remoteOps  = RemoteOperations(self.__smbConnection, self.__doKerberos)
-                self.__remoteOps.enableRegistry()
-                bootKey             = self.__remoteOps.getBootKey()
-                # Let's check whether target system stores LM Hashes
-                self.__noLMHash = self.__remoteOps.checkNoLMHashPolicy()
+                if self.__justDC is False and self.__justDCNTLM is False or self.__useVSSMethod is True:
+                    self.__remoteOps.enableRegistry()
+                    bootKey             = self.__remoteOps.getBootKey()
+                    # Let's check whether target system stores LM Hashes
+                    self.__noLMHash = self.__remoteOps.checkNoLMHashPolicy()
+                else:
+                    bootKey = None
 
-            if self.__isRemote is True:
-                SAMFileName         = self.__remoteOps.saveSAM()
-            else:
-                SAMFileName         = self.__samHive
+            if self.__justDC is False and self.__justDCNTLM is False:
+                if self.__isRemote is True:
+                    SAMFileName         = self.__remoteOps.saveSAM()
+                else:
+                    SAMFileName         = self.__samHive
 
-            self.__SAMHashes    = SAMHashes(SAMFileName, bootKey, isRemote = self.__isRemote)
-            self.__SAMHashes.dump()
-            if self.__outputFileName is not None:
-                self.__SAMHashes.export(self.__outputFileName)
+                self.__SAMHashes    = SAMHashes(SAMFileName, bootKey, isRemote = self.__isRemote)
+                self.__SAMHashes.dump()
+                if self.__outputFileName is not None:
+                    self.__SAMHashes.export(self.__outputFileName)
 
-            if self.__isRemote is True:
-                SECURITYFileName = self.__remoteOps.saveSECURITY()
-            else:
-                SECURITYFileName = self.__securityHive
+                if self.__isRemote is True:
+                    SECURITYFileName = self.__remoteOps.saveSECURITY()
+                else:
+                    SECURITYFileName = self.__securityHive
 
-            self.__LSASecrets = LSASecrets(SECURITYFileName, bootKey, self.__remoteOps, isRemote=self.__isRemote)
-            self.__LSASecrets.dumpCachedHashes()
-            if self.__outputFileName is not None:
-                self.__LSASecrets.exportCached(self.__outputFileName)
-            self.__LSASecrets.dumpSecrets()
-            if self.__outputFileName is not None:
-                self.__LSASecrets.exportSecrets(self.__outputFileName)
+                self.__LSASecrets = LSASecrets(SECURITYFileName, bootKey, self.__remoteOps, isRemote=self.__isRemote)
+                self.__LSASecrets.dumpCachedHashes()
+                if self.__outputFileName is not None:
+                    self.__LSASecrets.exportCached(self.__outputFileName)
+                self.__LSASecrets.dumpSecrets()
+                if self.__outputFileName is not None:
+                    self.__LSASecrets.exportSecrets(self.__outputFileName)
 
             if self.__isRemote is True:
                 if self.__useVSSMethod:
@@ -1899,7 +1912,7 @@ class DumpSecrets:
 
             self.__NTDSHashes = NTDSHashes(NTDSFileName, bootKey, isRemote=self.__isRemote, history=self.__history,
                                            noLMHash=self.__noLMHash, remoteOps=self.__remoteOps,
-                                           useVSSMethod=self.__useVSSMethod)
+                                           useVSSMethod=self.__useVSSMethod, justNTLM=self.__justDCNTLM)
             try:
                 self.__NTDSHashes.dump()
             except Exception, e:
@@ -1952,6 +1965,10 @@ if __name__ == '__main__':
                         help='base output filename. Extensions will be added for sam, secrets, cached and ntds')
     parser.add_argument('-use-vss', action='store_true', default=False,
                         help='Use the VSS method insead of default DRSUAPI')
+    parser.add_argument('-just-dc', action='store_true', default=False,
+                        help='Extract only NTDS.DIT data (NTLM hashes and Kerberos keys)')
+    parser.add_argument('-just-dc-ntlm', action='store_true', default=False,
+                        help='Extract only NTDS.DIT data (NTLM hashes only)')
     group = parser.add_argument_group('authentication')
 
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
@@ -1993,7 +2010,7 @@ if __name__ == '__main__':
 
     dumper = DumpSecrets(address, username, password, domain, options.hashes, options.aesKey, options.k, options.system,
                          options.security, options.sam, options.ntds, options.outputfile, options.history,
-                         options.use_vss)
+                         options.use_vss, options.just_dc, options.just_dc_ntlm)
     try:
         dumper.dump()
     except Exception, e:
