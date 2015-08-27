@@ -29,6 +29,8 @@ from impacket.uuid import uuidtup_to_bin, string_to_bin
 from impacket.dcerpc.v5.enum import Enum
 from impacket.dcerpc.v5.rpcrt import DCERPCException
 from impacket.krb5 import crypto
+from pyasn1.type import univ
+from pyasn1.codec.ber import decoder
 
 try:
     from Crypto.Cipher import ARC4, DES
@@ -1394,8 +1396,6 @@ def OidFromAttid(prefixTable, attr):
     if binaryOID is None:
         return None
 
-    from pyasn1.type import univ
-    from pyasn1.codec.ber import decoder
     return str(decoder.decode('\x06' + chr(len(binaryOID)) + ''.join(binaryOID), asn1Spec = univ.ObjectIdentifier())[0])
 
 if __name__ == '__main__':

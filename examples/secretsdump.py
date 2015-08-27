@@ -275,6 +275,8 @@ class RemoteOperations:
         self.__drsr = None
         self.__hDrs = None
         self.__NtdsDsaObjectGuid = None
+        self.__ppartialAttrSet = None
+        self.__prefixTable = []
         self.__doKerberos = doKerberos
 
         self.__bootKey = ''
@@ -404,9 +406,17 @@ class RemoteOperations:
         request['pmsgIn']['V8']['cMaxObjects'] = 1
         request['pmsgIn']['V8']['cMaxBytes'] = 0
         request['pmsgIn']['V8']['ulExtendedOp'] = drsuapi.EXOP_REPL_OBJ
-        request['pmsgIn']['V8']['pPartialAttrSet'] = NULL
+        if self.__ppartialAttrSet is None:
+            self.__prefixTable = []
+            self.__ppartialAttrSet = drsuapi.PARTIAL_ATTR_VECTOR_V1_EXT()
+            self.__ppartialAttrSet['dwVersion'] = 1
+            self.__ppartialAttrSet['cAttrs'] = len(NTDSHashes.ATTRTYP_TO_ATTID)
+            for attId in NTDSHashes.ATTRTYP_TO_ATTID.values():
+                self.__ppartialAttrSet['rgPartialAttr'].append(drsuapi.MakeAttid(self.__prefixTable , attId))
+        request['pmsgIn']['V8']['pPartialAttrSet'] = self.__ppartialAttrSet
+        request['pmsgIn']['V8']['PrefixTableDest']['PrefixCount'] = len(self.__prefixTable)
+        request['pmsgIn']['V8']['PrefixTableDest']['pPrefixEntry'] = self.__prefixTable
         request['pmsgIn']['V8']['pPartialAttrSetEx1'] = NULL
-        request['pmsgIn']['V8']['PrefixTableDest']['pPrefixEntry'] = NULL
 
         return self.__drsr.request(request)
 
@@ -1265,6 +1275,17 @@ class NTDSHashes:
         'objectSid': 0x90092,
     }
 
+    ATTRTYP_TO_ATTID = {
+        'userPrincipalName': '1.2.840.113556.1.4.656',
+        'sAMAccountName': '1.2.840.113556.1.4.221',
+        'unicodePwd': '1.2.840.113556.1.4.90',
+        'dBCSPwd': '1.2.840.113556.1.4.55',
+        'ntPwdHistory': '1.2.840.113556.1.4.94',
+        'lmPwdHistory': '1.2.840.113556.1.4.160',
+        'supplementalCredentials': '1.2.840.113556.1.4.125',
+        'objectSid': '1.2.840.113556.1.4.146',
+    }
+
     KERBEROS_TYPE = {
         1:'dec-cbc-crc',
         3:'des-cbc-md5',
@@ -1372,7 +1393,7 @@ class NTDSHashes:
 
         return decryptedHash
 
-    def __decryptSupplementalInfo(self, record, rid=None):
+    def __decryptSupplementalInfo(self, record, prefixTable=None):
         # This is based on [MS-SAMR] 2.2.10 Supplemental Credentials Structures
         haveInfo = False
         if self.__useVSSMethod is True:
@@ -1390,7 +1411,16 @@ class NTDSHashes:
             domain = None
             userName = None
             for attr in record['pmsgOut']['V6']['pObjects']['Entinf']['AttrBlock']['pAttr']:
-                if attr['attrTyp'] == self.NAME_TO_ATTRTYP['userPrincipalName']:
+                try:
+                    attId = drsuapi.OidFromAttid(prefixTable, attr['attrTyp'])
+                    LOOKUP_TABLE = self.ATTRTYP_TO_ATTID
+                except Exception, e:
+                    logging.debug('Failed to execute OidFromAttid with error %s' % e)
+                    # Fallbacking to fixed table and hope for the best
+                    attId = attr['attrTyp']
+                    LOOKUP_TABLE = self.NAME_TO_ATTRTYP
+
+                if attId == LOOKUP_TABLE['userPrincipalName']:
                     if attr['AttrVal']['valCount'] > 0:
                         try:
                             domain = ''.join(attr['AttrVal']['pAVal'][0]['pVal']).decode('utf-16le').split('@')[-1]
@@ -1398,7 +1428,7 @@ class NTDSHashes:
                             domain = None
                     else:
                         domain = None
-                elif attr['attrTyp'] == self.NAME_TO_ATTRTYP['sAMAccountName']:
+                elif attId == LOOKUP_TABLE['sAMAccountName']:
                     if attr['AttrVal']['valCount'] > 0:
                         try:
                             userName = ''.join(attr['AttrVal']['pAVal'][0]['pVal']).decode('utf-16le')
@@ -1408,7 +1438,7 @@ class NTDSHashes:
                     else:
                         logging.error('Cannot get sAMAccountName for %s' % record['pmsgOut']['V6']['pNC']['StringName'][:-1])
                         userName = 'unknown'
-                if attr['attrTyp'] == self.NAME_TO_ATTRTYP['supplementalCredentials']:
+                if attId == LOOKUP_TABLE['supplementalCredentials']:
                     if attr['AttrVal']['valCount'] > 0:
                         blob = ''.join(attr['AttrVal']['pAVal'][0]['pVal'])
                         plainText = drsuapi.DecryptAttributeValue(self.__remoteOps.getDrsr(), blob)
@@ -1447,7 +1477,7 @@ class NTDSHashes:
                         # set :P. Better ideas welcomed ;)
                         self.__kerberosKeys[answer] = None
 
-    def __decryptHash(self, record, rid=None):
+    def __decryptHash(self, record, rid=None, prefixTable=None):
         if self.__useVSSMethod is True:
             logging.debug('Decrypting hash for user: %s' % record[self.NAME_TO_INTERNAL['name']])
 
@@ -1512,21 +1542,30 @@ class NTDSHashes:
                 LMHistory = []
                 NTHistory = []
             for attr in record['pmsgOut']['V6']['pObjects']['Entinf']['AttrBlock']['pAttr']:
-                if attr['attrTyp'] == self.NAME_TO_ATTRTYP['dBCSPwd']:
+                try:
+                    attId = drsuapi.OidFromAttid(prefixTable, attr['attrTyp'])
+                    LOOKUP_TABLE = self.ATTRTYP_TO_ATTID
+                except Exception, e:
+                    logging.debug('Failed to execute OidFromAttid with error %s, fallbacking to fixed table' % e)
+                    # Fallbacking to fixed table and hope for the best
+                    attId = attr['attrTyp']
+                    LOOKUP_TABLE = self.NAME_TO_ATTRTYP
+
+                if attId == LOOKUP_TABLE['dBCSPwd']:
                     if attr['AttrVal']['valCount'] > 0:
                         encrypteddBCSPwd = ''.join(attr['AttrVal']['pAVal'][0]['pVal'])
                         encryptedLMHash = drsuapi.DecryptAttributeValue(self.__remoteOps.getDrsr(), encrypteddBCSPwd)
                         LMHash = drsuapi.removeDESLayer(encryptedLMHash, rid)
                     else:
                         LMHash = ntlm.LMOWFv1('', '')
-                elif attr['attrTyp'] == self.NAME_TO_ATTRTYP['unicodePwd']:
+                elif attId == LOOKUP_TABLE['unicodePwd']:
                     if attr['AttrVal']['valCount'] > 0:
                         encryptedUnicodePwd = ''.join(attr['AttrVal']['pAVal'][0]['pVal'])
                         encryptedNTHash = drsuapi.DecryptAttributeValue(self.__remoteOps.getDrsr(), encryptedUnicodePwd)
                         NTHash = drsuapi.removeDESLayer(encryptedNTHash, rid)
                     else:
                         NTHash = ntlm.NTOWFv1('', '')
-                elif attr['attrTyp'] == self.NAME_TO_ATTRTYP['userPrincipalName']:
+                elif attId == LOOKUP_TABLE['userPrincipalName']:
                     if attr['AttrVal']['valCount'] > 0:
                         try:
                             domain = ''.join(attr['AttrVal']['pAVal'][0]['pVal']).decode('utf-16le').split('@')[-1]
@@ -1534,7 +1573,7 @@ class NTDSHashes:
                             domain = None
                     else:
                         domain = None
-                elif attr['attrTyp'] == self.NAME_TO_ATTRTYP['sAMAccountName']:
+                elif attId == LOOKUP_TABLE['sAMAccountName']:
                     if attr['AttrVal']['valCount'] > 0:
                         try:
                             userName = ''.join(attr['AttrVal']['pAVal'][0]['pVal']).decode('utf-16le')
@@ -1544,7 +1583,7 @@ class NTDSHashes:
                     else:
                         logging.error('Cannot get sAMAccountName for %s' % record['pmsgOut']['V6']['pNC']['StringName'][:-1])
                         userName = 'unknown'
-                elif attr['attrTyp'] == self.NAME_TO_ATTRTYP['objectSid']:
+                elif attId == LOOKUP_TABLE['objectSid']:
                     if attr['AttrVal']['valCount'] > 0:
                         objectSid = ''.join(attr['AttrVal']['pAVal'][0]['pVal'])
                     else:
@@ -1552,7 +1591,7 @@ class NTDSHashes:
                         objectSid = rid
 
                 if self.__history:
-                    if attr['attrTyp'] == self.NAME_TO_ATTRTYP['lmPwdHistory']:
+                    if attId == LOOKUP_TABLE['lmPwdHistory']:
                         if attr['AttrVal']['valCount'] > 0:
                             encryptedLMHistory = ''.join(attr['AttrVal']['pAVal'][0]['pVal'])
                             tmpLMHistory = drsuapi.DecryptAttributeValue(self.__remoteOps.getDrsr(), encryptedLMHistory)
@@ -1561,7 +1600,7 @@ class NTDSHashes:
                                 LMHistory.append(LMHashHistory)
                         else:
                             logging.debug('No lmPwdHistory for user %s' % record['pmsgOut']['V6']['pNC']['StringName'][:-1])
-                    elif attr['attrTyp'] == self.NAME_TO_ATTRTYP['ntPwdHistory']:
+                    elif attId == LOOKUP_TABLE['ntPwdHistory']:
                         if attr['AttrVal']['valCount'] > 0:
                             encryptedNTHistory = ''.join(attr['AttrVal']['pAVal'][0]['pVal'])
                             tmpNTHistory = drsuapi.DecryptAttributeValue(self.__remoteOps.getDrsr(), encryptedNTHistory)
@@ -1680,8 +1719,8 @@ class NTDSHashes:
                     else:
                         logging.warning('DRSCrackNames returned %d items for user %s, skipping' %(crackedName['pmsgOut']['V1']['pResult']['cItems'], userName))
                     try:
-                        self.__decryptHash(userRecord, user['RelativeId'])
-                        self.__decryptSupplementalInfo(userRecord, user['RelativeId'])
+                        self.__decryptHash(userRecord, user['RelativeId'], userRecord['pmsgOut']['V6']['PrefixTableSrc']['pPrefixEntry'])
+                        self.__decryptSupplementalInfo(userRecord, userRecord['pmsgOut']['V6']['PrefixTableSrc']['pPrefixEntry'])
                     except Exception, e:
                         #import traceback
                         #traceback.print_exc()
