@@ -84,9 +84,6 @@ OID = ULONGLONG
 
 class OID_ARRAY(NDRUniConformantArray):
     item = OID
-    # ToDo: We don't need this. The reason it's here is because we must be  aligning wrong somewhere
-    def getAlignment(self):
-        return 4
 
 class POID_ARRAY(NDRPOINTER):
     referent = (
