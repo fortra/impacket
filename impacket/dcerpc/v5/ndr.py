@@ -648,37 +648,37 @@ class NDRCONSTRUCTEDTYPE(NDR):
 
         for fieldName, fieldTypeOrClass in self.referent:
             size = self.calcUnPackSize(fieldTypeOrClass, data)
-            if isinstance(self.fields[fieldName], NDRUniConformantArray) or isinstance(self.fields[fieldName], NDRUniConformantVaryingArray):
-                # Get the array size
-                arraySize, advanceStream = self.getArraySize(fieldName, data, soFar)
-                self.fields[fieldName].setArraySize(arraySize)
-                soFar += advanceStream
-                data = data[advanceStream:]
+            try:
+                if isinstance(self.fields[fieldName], NDRUniConformantArray) or isinstance(self.fields[fieldName], NDRUniConformantVaryingArray):
+                    # Get the array size
+                    arraySize, advanceStream = self.getArraySize(fieldName, data, soFar)
+                    self.fields[fieldName].setArraySize(arraySize)
+                    soFar += advanceStream
+                    data = data[advanceStream:]
 
-                # Let's tell the array how many items are available
-                self.fields[fieldName].setArraySize(arraySize)
-                self.fields[fieldName].fromString(data[:size], soFar)
-            else:
-                # ToDo: Align only if not NDR
-                #size = self.calcUnPackSize(fieldTypeOrClass, data)
-                pad = self.calculatePad(fieldTypeOrClass, soFar)
-                if pad > 0:
-                    soFar += pad
-                    data = data[pad:]
-                try:
+                    # Let's tell the array how many items are available
+                    self.fields[fieldName].setArraySize(arraySize)
+                    self.fields[fieldName].fromString(data[:size], soFar)
+                else:
+                    # ToDo: Align only if not NDR
+                    #size = self.calcUnPackSize(fieldTypeOrClass, data)
+                    pad = self.calculatePad(fieldTypeOrClass, soFar)
+                    if pad > 0:
+                        soFar += pad
+                        data = data[pad:]
                     self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
-                except Exception,e:
-                    LOG.error(str(e))
-                    LOG.error("Error unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size))
-                    raise
 
-            if isinstance(self.fields[fieldName], NDRCONSTRUCTEDTYPE):
-                size = self.fields[fieldName].getFromStringSize(soFar)
-                nSoFar = self.fields[fieldName].fromStringReferents(data[size:], soFar + size)
-                nSoFar2 = self.fields[fieldName].fromStringReferent(data[size + nSoFar:], soFar + size + nSoFar)
-                size += nSoFar + nSoFar2
-            data = data[size:]
-            soFar += size
+                if isinstance(self.fields[fieldName], NDRCONSTRUCTEDTYPE):
+                    size = self.fields[fieldName].getFromStringSize(soFar)
+                    nSoFar = self.fields[fieldName].fromStringReferents(data[size:], soFar + size)
+                    nSoFar2 = self.fields[fieldName].fromStringReferent(data[size + nSoFar:], soFar + size + nSoFar)
+                    size += nSoFar + nSoFar2
+                data = data[size:]
+                soFar += size
+            except Exception,e:
+                LOG.error(str(e))
+                LOG.error("Error unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size))
+                raise
 
         return soFar-soFar0
 
