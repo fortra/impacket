@@ -843,9 +843,15 @@ class NDRArray(NDRCONSTRUCTEDTYPE):
         soFarItems = 0
         soFar0 = soFar
         if len(two) == 2:
-            if isinstance(self, NDRUniConformantArray) or isinstance(self, NDRUniConformantVaryingArray):
+            if isinstance(self, NDRUniConformantArray):
                 # First field points to a field with the amount of items
                 numItems = self.getArraySize()
+            elif isinstance(self, NDRUniConformantVaryingArray):
+                # In this case we have the MaximumCount but it could be different from the ActualCount.
+                # Let's make the unpack figure this out. Let's just save this number if we later
+                # want to repack
+                self.fields['MaximumCount'] = self.getArraySize()
+                numItems = self[two[1]]
             else:
                 numItems = self[two[1]]
 
@@ -1547,7 +1553,7 @@ class NDRPOINTER(NDRSTRUCT):
         # if not, it's a embeeded pointer.
         # It is *very* important, for every subclass of NDRPointer
         # you have to declare the referent in the referent variable
-        # Not in the structure one! 
+        # Not in the structure one!
         if topLevel is True:
             self.structure = self.referent
             self.referent = ()
