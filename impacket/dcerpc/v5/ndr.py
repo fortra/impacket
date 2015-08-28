@@ -1793,7 +1793,13 @@ class NDRCALL(NDRCONSTRUCTEDTYPE):
 
 # Top Level Struct == NDRCALL
 NDRTLSTRUCT = NDRCALL
-        
+
+class UNKNOWNDATA(NDR):
+    align = 1
+    structure = (
+        ('Data', ':'),
+    )
+
 ################################################################################
 # Tests
 
