@@ -1724,15 +1724,21 @@ class NDRCALL(NDRCONSTRUCTEDTYPE):
                 # Are we dealing with an array?
                 if isinstance(self.fields[fieldName], NDRUniConformantArray) or isinstance(self.fields[fieldName],
                               NDRUniConformantVaryingArray):
+                    # Align size item
+                    if self._isNDR64:
+                        pad = (8 - (soFar % 8)) % 8
+                    else:
+                        pad = (4 - (soFar % 4)) % 4
                     # Pack the item
-                    self.fields[fieldName].dumpRaw()
-                    res = self.pack(fieldName, fieldTypeOrClass, soFar)
+                    res = self.pack(fieldName, fieldTypeOrClass, soFar+pad)
                     # Yes, get the array size
                     arraySize = self.getArrayMaximumSize(fieldName)
                     if self._isNDR64:
-                        data += pack('<Q', arraySize) + res
+                        pad = (8 - (soFar % 8)) % 8
+                        data += '\xce'*pad + pack('<Q', arraySize) + res
                     else:
-                        data += pack('<L', arraySize) + res
+                        pad = (4 - (soFar % 4)) % 4
+                        data += '\xce'*pad + pack('<L', arraySize) + res
                 else:
                     data += self.pack(fieldName, fieldTypeOrClass, soFar)
 
