@@ -18,7 +18,7 @@
 #   Helper functions start with "h"<name of the call>.
 #   There are test cases for them too. 
 #
-from struct import pack
+from struct import pack, unpack
 
 from impacket import system_errors
 from impacket.uuid import uuidtup_to_bin
@@ -1291,10 +1291,13 @@ def hREnumServicesStatusW(dce, hSCManager, dwServiceType=SERVICE_WIN32_OWN_PROCE
             raise
     
     # Now we're supposed to have all services returned. Now we gotta parse them
+
     enumArray = NDRUniConformantArray()
     enumArray.item = ENUM_SERVICE_STATUSW2
+
+    enumArray.setArraySize(resp['lpServicesReturned'])
+
     data = ''.join(resp['lpBuffer'])
-    data = pack('<L', resp['lpServicesReturned']) + data
     enumArray.fromString(data)
     data = data[4:]
     # Since the pointers here are pointing to the actual data, we have to reparse

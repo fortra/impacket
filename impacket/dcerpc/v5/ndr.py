@@ -522,18 +522,47 @@ class NDRCONSTRUCTEDTYPE(NDR):
 
         for fieldName, fieldTypeOrClass in self.referent:
             try:
-                pad = self.calculatePad(fieldTypeOrClass, soFar)
-                if pad > 0:
-                    soFar += pad
-                    data += '\xcc'*pad
+                if isinstance(self.fields[fieldName], NDRUniConformantArray) or isinstance(self.fields[fieldName], NDRUniConformantVaryingArray):
+                    # So we have an array, first item in the structure must be the array size, although we
+                    # will need to build it later.
+                    if self._isNDR64:
+                        arrayItemSize = 8
+                        arrayPackStr = '<Q'
+                    else:
+                        arrayItemSize = 4
+                        arrayPackStr = '<L'
 
-                data += self.pack(fieldName, fieldTypeOrClass, soFar)
+                    # The size information is itself aligned according to the alignment rules for
+                    # primitive data types. (See Section 14.2.2 on page 620.) The data of the constructed
+                    # type is then aligned according to the alignment rules for the constructed type.
+                    # In other words, the size information precedes the structure and is aligned
+                    # independently of the structure alignment.
+                    # We need to check whether we need padding or not
+                    pad0 = (arrayItemSize - (soFar % arrayItemSize)) % arrayItemSize
+                    if pad0 > 0:
+                        soFar += pad0
+                        arrayPadding = '\xef'*pad0
+                    else:
+                        arrayPadding = ''
+                    # And now, let's pretend we put the item in
+                    soFar += arrayItemSize
+                    data = self.fields[fieldName].getData(soFar)
+                    data = arrayPadding + pack(arrayPackStr, self.fields[fieldName].getArraySize()) + data
+                else:
+                    pad = self.calculatePad(fieldTypeOrClass, soFar)
+                    if pad > 0:
+                        soFar += pad
+                        data += '\xcc'*pad
+
+                    data += self.pack(fieldName, fieldTypeOrClass, soFar)
+
                 soFar = soFar0 + len(data)
                 # Any referent information to pack?
                 if isinstance(self.fields[fieldName], NDRCONSTRUCTEDTYPE):
                     data += self.fields[fieldName].getDataReferents(soFar)
                     data += self.fields[fieldName].getDataReferent(len(data)+soFar)
                 soFar = soFar0 + len(data)
+
             except Exception, e:
                 LOG.error(str(e))
                 LOG.error("Error packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__))
@@ -559,6 +588,31 @@ class NDRCONSTRUCTEDTYPE(NDR):
         else:
             return NDR.calcPackSize(self, fieldTypeOrClass, data)
 
+    def getArraySize(self,fieldName, data, soFar):
+        if self._isNDR64:
+            arrayItemSize = 8
+            arrayUnPackStr = '<Q'
+        else:
+            arrayItemSize = 4
+            arrayUnPackStr = '<L'
+
+        pad0 = (arrayItemSize - (soFar % arrayItemSize)) % arrayItemSize
+        if pad0 > 0:
+            soFar += pad0
+            data = data[pad0:]
+
+        if isinstance(self.fields[fieldName], NDRUniConformantArray):
+            # Array Size is at the very begining
+            arraySize = unpack(arrayUnPackStr, data[:arrayItemSize])[0]
+        elif isinstance(self.fields[fieldName], NDRUniConformantVaryingArray):
+            # NDRUniConformantVaryingArray Array
+            arraySize = unpack(arrayUnPackStr, data[arrayItemSize*2:][:arrayItemSize])[0]
+        else:
+            # NDRUniVaryingArray Array
+            arraySize = unpack(arrayUnPackStr, data[arrayItemSize:][:arrayItemSize])[0]
+
+        return arraySize, arrayItemSize+pad0
+
     def fromStringReferents(self, data, soFar = 0):
         soFar0 = soFar
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
@@ -583,16 +637,49 @@ class NDRCONSTRUCTEDTYPE(NDR):
 
         for fieldName, fieldTypeOrClass in self.referent:
             size = self.calcUnPackSize(fieldTypeOrClass, data)
-            pad = self.calculatePad(fieldTypeOrClass, soFar)
-            if pad > 0:
-                soFar += pad
-                data = data[pad:]
-            try:
-                self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
-            except Exception,e:
-                LOG.error(str(e))
-                LOG.error("Error unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size))
-                raise
+            if isinstance(self.fields[fieldName], NDRUniConformantArray) or isinstance(self.fields[fieldName], NDRUniConformantVaryingArray):
+                # So we have an array, first item in the structure must be the array size, although we
+                # will need to build it later.
+                if self._isNDR64:
+                    arrayItemSize = 8
+                    arrayUnpackStr = '<Q'
+                else:
+                    arrayItemSize = 4
+                    arrayUnpackStr = '<L'
+
+                # The size information is itself aligned according to the alignment rules for
+                # primitive data types. (See Section 14.2.2 on page 620.) The data of the constructed
+                # type is then aligned according to the alignment rules for the constructed type.
+                # In other words, the size information precedes the structure and is aligned
+                # independently of the structure alignment.
+                # We need to check whether we need padding or not
+                pad0 = (arrayItemSize - (soFar % arrayItemSize)) % arrayItemSize
+                if pad0 > 0:
+                    soFar += pad0
+                    data = data[pad0:]
+
+                soFar += arrayItemSize
+                # Let's extract the array size
+                arraySize = data[:arrayItemSize]
+                # Let's advance on the stream
+                data = data[arrayItemSize:]
+                # Let's tell the array how many items are available
+                self.fields[fieldName].setArraySize(unpack(arrayUnpackStr, arraySize)[0])
+                self.fields[fieldName].fromString(data[:size], soFar)
+            else:
+                # ToDo: Align only if not NDR
+                #size = self.calcUnPackSize(fieldTypeOrClass, data)
+                pad = self.calculatePad(fieldTypeOrClass, soFar)
+                if pad > 0:
+                    soFar += pad
+                    data = data[pad:]
+                try:
+                    print "Unpacking ", fieldName, fieldTypeOrClass, self.__class__, hex(soFar)
+                    self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
+                except Exception,e:
+                    LOG.error(str(e))
+                    LOG.error("Error unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size))
+                    raise
 
             if isinstance(self.fields[fieldName], NDRCONSTRUCTEDTYPE):
                 size = self.fields[fieldName].getFromStringSize(soFar)
@@ -635,6 +722,12 @@ class NDRArray(NDRCONSTRUCTEDTYPE):
         else:
             print " %r" % self['Data'],
 
+    def setArraySize(self, size):
+        self.arraySize = size
+
+    def getArraySize(self):
+        return self.arraySize
+
     def changeTransferSyntax(self, newSyntax): 
         # Here we gotta go over each item in the array and change the TS 
         # Only if the item type is NDR
@@ -664,10 +757,13 @@ class NDRArray(NDRCONSTRUCTEDTYPE):
         soFar0 = soFar
         for fieldName, fieldTypeOrClass in self.structure:
             try:
-                pad = self.calculatePad(fieldTypeOrClass, soFar)
-                if pad > 0:
-                    soFar += pad
-                    data += '\xca'*pad
+                if self.isNDR(fieldTypeOrClass) is False:
+                    # If the item is not NDR (e.g. ('MaximumCount', '<L=len(Data)'))
+                    # we have to align it
+                    pad = self.calculatePad(fieldTypeOrClass, soFar)
+                    if pad > 0:
+                        soFar += pad
+                        data += '\xca'*pad
 
                 res = self.pack(fieldName, fieldTypeOrClass, soFar)
                 data += res
@@ -709,7 +805,12 @@ class NDRArray(NDRCONSTRUCTEDTYPE):
                         answer += each.getDataReferent(len(answer)+soFar)
 
             del(self.fields['_tmpItem'])
-            self.fields[two[1]] = len(self.fields[fieldName])
+            if isinstance(self, NDRUniConformantArray) or isinstance(self, NDRUniConformantVaryingArray):
+                # First field points to a field with the amount of items
+                self.setArraySize(len(self.fields[fieldName]))
+            else:
+                self.fields[two[1]] = len(self.fields[fieldName])
+
             return answer
         else:
             return NDRCONSTRUCTEDTYPE.pack(self, fieldName, fieldTypeOrClass, soFar)
@@ -719,10 +820,13 @@ class NDRArray(NDRCONSTRUCTEDTYPE):
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             size = self.calcUnPackSize(fieldTypeOrClass, data)
             self.arraySoFar = None
-            pad = self.calculatePad(fieldTypeOrClass, soFar)
-            if pad > 0:
-                soFar += pad
-                data = data[pad:]
+            if self.isNDR(fieldTypeOrClass) is False:
+                # If the item is not NDR (e.g. ('MaximumCount', '<L=len(Data)'))
+                # we have to align it
+                pad = self.calculatePad(fieldTypeOrClass, soFar)
+                if pad > 0:
+                    soFar += pad
+                    data = data[pad:]
             try:
                 self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
                 if isinstance(self.fields[fieldName], NDR):
@@ -748,8 +852,12 @@ class NDRArray(NDRCONSTRUCTEDTYPE):
         soFarItems = 0
         soFar0 = soFar
         if len(two) == 2:
-            # First field points to a field with the amount of items
-            numItems = self[two[1]]
+            if isinstance(self, NDRUniConformantArray) or isinstance(self, NDRUniConformantVaryingArray):
+                # First field points to a field with the amount of items
+                numItems = self.getArraySize()
+            else:
+                numItems = self[two[1]]
+
             # The item type is determined by self.item
             if self.isNDR(self.item):
                 item = ':'
@@ -811,12 +919,12 @@ class NDRUniFixedArray(NDRArray):
 class NDRUniConformantArray(NDRArray):
     item = 'c'
     structure = (
-        ('MaximumCount', '<L=len(Data)'),
+        #('MaximumCount', '<L=len(Data)'),
         ('Data', '*MaximumCount'),
     )
 
     structure64 = (
-        ('MaximumCount', '<Q=len(Data)'),
+        #('MaximumCount', '<Q=len(Data)'),
         ('Data', '*MaximumCount'),
     )
 
@@ -847,12 +955,12 @@ class NDRUniVaryingArray(NDRArray):
 class NDRUniConformantVaryingArray(NDRArray):
     item = 'c'
     commonHdr = (
-        ('MaximumCount', '<L=len(Data)'),
+        #('MaximumCount', '<L=len(Data)'),
         ('Offset','<L=0'),
         ('ActualCount','<L=len(Data)'),
     )
     commonHdr64 = (
-        ('MaximumCount', '<Q=len(Data)'),
+        #('MaximumCount', '<Q=len(Data)'),
         ('Offset','<Q=0'),
         ('ActualCount','<Q=len(Data)'),
     )
@@ -935,8 +1043,10 @@ class NDRSTRUCT(NDRCONSTRUCTEDTYPE):
             # will need to build it later.
             if self._isNDR64:
                 arrayItemSize = 8
+                arrayPackStr = '<Q'
             else:
                 arrayItemSize = 4
+                arrayPackStr = '<L'
 
             # The size information is itself aligned according to the alignment rules for 
             # primitive data types. (See Section 14.2.2 on page 620.) The data of the constructed 
@@ -970,18 +1080,13 @@ class NDRSTRUCT(NDRCONSTRUCTEDTYPE):
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             try:
                 if isinstance(self.fields[fieldName], NDRUniConformantArray) or isinstance(self.fields[fieldName], NDRUniConformantVaryingArray):
-                    # Okey.. here it is.. so we should remove the first arrayItemSize bytes from res
-                    # and stick them at the beginning of the data, except when we're inside a pointer
-                    # where we should go after the referent id
-                    res = self.fields[fieldName].getData(soFar-arrayItemSize)
-                    arraySize = res[:arrayItemSize]
-                    res = res[arrayItemSize:]
+                    res = self.fields[fieldName].getData(soFar)
                     if isinstance(self, NDRPOINTER):
-                        pointerData = data[:arrayItemSize]    
+                        pointerData = data[:arrayItemSize]
                         data = data[arrayItemSize:]
-                        data = pointerData + arrayPadding + arraySize + data
+                        data = pointerData + arrayPadding + pack(arrayPackStr ,self.fields[fieldName].getArraySize()) + data
                     else:
-                        data = arrayPadding + arraySize + data
+                        data = arrayPadding + pack(arrayPackStr, self.fields[fieldName].getArraySize()) + data
                     arrayPadding = ''
                     arrayItemSize = 0
                 else:
@@ -1039,8 +1144,10 @@ class NDRSTRUCT(NDRCONSTRUCTEDTYPE):
             # will need to build it later.
             if self._isNDR64:
                 arrayItemSize = 8
+                arrayUnpackStr = '<Q'
             else:
                 arrayItemSize = 4
+                arrayUnpackStr = '<L'
 
             # The size information is itself aligned according to the alignment rules for 
             # primitive data types. (See Section 14.2.2 on page 620.) The data of the constructed 
@@ -1064,6 +1171,8 @@ class NDRSTRUCT(NDRCONSTRUCTEDTYPE):
             else:
                 arraySize = data[:arrayItemSize]
                 data = data[arrayItemSize:]
+            # Let's tell the array how many items are available
+            self.fields[lastItem].setArraySize(unpack(arrayUnpackStr, arraySize)[0])
 
         # Now we need to align the structure
         # The alignment of a structure in the octet stream is the largest of the alignments of the fields it
@@ -1081,13 +1190,6 @@ class NDRSTRUCT(NDRCONSTRUCTEDTYPE):
                 size = self.calcUnPackSize(fieldTypeOrClass, data)
                 self.arraySoFar = None
                 if isinstance(self.fields[fieldName], NDRUniConformantArray) or isinstance(self.fields[fieldName], NDRUniConformantVaryingArray):
-                    # Okey.. here it is.. so we should add the first arrayItemSize bytes to data
-                    # and move from there
-                    data = arraySize + data
-                    # and substract soFar times arrayItemSize (that we already counted at the beggining)
-                    soFar -= arrayItemSize
-                    # and add sizeItemSize to the size variable
-                    size += arrayItemSize
                     self.fields[fieldName].fromString(data[:size], soFar)
                 else:
                     self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
@@ -1618,7 +1720,20 @@ class NDRCALL(NDRCONSTRUCTEDTYPE):
                     soFar += pad
                     data += '\xab'*pad
 
-                data += self.pack(fieldName, fieldTypeOrClass, soFar)
+                # Are we dealing with an array?
+                if isinstance(self.fields[fieldName], NDRUniConformantArray) or isinstance(self.fields[fieldName],
+                              NDRUniConformantVaryingArray):
+                    # Pack the item
+                    res = self.pack(fieldName, fieldTypeOrClass, soFar)
+                    # Yes, get the array size
+                    arraySize = self.fields[fieldName].getArraySize()
+                    if self._isNDR64:
+                        data += pack('<Q', arraySize) + res
+                    else:
+                        data += pack('<L', arraySize) + res
+                else:
+                    data += self.pack(fieldName, fieldTypeOrClass, soFar)
+
                 soFar = soFar0 + len(data)
                 # Any referent information to pack?
                 # I'm still not sure whether this should go after processing
@@ -1641,6 +1756,15 @@ class NDRCALL(NDRCONSTRUCTEDTYPE):
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             size = self.calcUnPackSize(fieldTypeOrClass, data)
             try:
+                # Are we dealing with an array?
+                if isinstance(self.fields[fieldName], NDRUniConformantArray) or isinstance(self.fields[fieldName],
+                              NDRUniConformantVaryingArray):
+                    # Yes, get the array size
+                    arraySize, advanceStream = self.getArraySize(fieldName, data, soFar)
+                    self.fields[fieldName].setArraySize(arraySize)
+                    soFar += advanceStream
+                    data = data[advanceStream:]
+
                 self.fields[fieldName] = self.fields[fieldName].fromString(data, soFar)
                 size = self.fields[fieldName].getFromStringSize(soFar)
 
