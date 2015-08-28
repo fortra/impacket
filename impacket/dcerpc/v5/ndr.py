@@ -638,33 +638,14 @@ class NDRCONSTRUCTEDTYPE(NDR):
         for fieldName, fieldTypeOrClass in self.referent:
             size = self.calcUnPackSize(fieldTypeOrClass, data)
             if isinstance(self.fields[fieldName], NDRUniConformantArray) or isinstance(self.fields[fieldName], NDRUniConformantVaryingArray):
-                # So we have an array, first item in the structure must be the array size, although we
-                # will need to build it later.
-                if self._isNDR64:
-                    arrayItemSize = 8
-                    arrayUnpackStr = '<Q'
-                else:
-                    arrayItemSize = 4
-                    arrayUnpackStr = '<L'
+                # Get the array size
+                arraySize, advanceStream = self.getArraySize(fieldName, data, soFar)
+                self.fields[fieldName].setArraySize(arraySize)
+                soFar += advanceStream
+                data = data[advanceStream:]
 
-                # The size information is itself aligned according to the alignment rules for
-                # primitive data types. (See Section 14.2.2 on page 620.) The data of the constructed
-                # type is then aligned according to the alignment rules for the constructed type.
-                # In other words, the size information precedes the structure and is aligned
-                # independently of the structure alignment.
-                # We need to check whether we need padding or not
-                pad0 = (arrayItemSize - (soFar % arrayItemSize)) % arrayItemSize
-                if pad0 > 0:
-                    soFar += pad0
-                    data = data[pad0:]
-
-                soFar += arrayItemSize
-                # Let's extract the array size
-                arraySize = data[:arrayItemSize]
-                # Let's advance on the stream
-                data = data[arrayItemSize:]
                 # Let's tell the array how many items are available
-                self.fields[fieldName].setArraySize(unpack(arrayUnpackStr, arraySize)[0])
+                self.fields[fieldName].setArraySize(arraySize)
                 self.fields[fieldName].fromString(data[:size], soFar)
             else:
                 # ToDo: Align only if not NDR
@@ -674,7 +655,6 @@ class NDRCONSTRUCTEDTYPE(NDR):
                     soFar += pad
                     data = data[pad:]
                 try:
-                    print "Unpacking ", fieldName, fieldTypeOrClass, self.__class__, hex(soFar)
                     self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
                 except Exception,e:
                     LOG.error(str(e))
