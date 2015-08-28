@@ -547,7 +547,7 @@ class NDRCONSTRUCTEDTYPE(NDR):
                     # And now, let's pretend we put the item in
                     soFar += arrayItemSize
                     data = self.fields[fieldName].getData(soFar)
-                    data = arrayPadding + pack(arrayPackStr, self.fields[fieldName].getArraySize()) + data
+                    data = arrayPadding + pack(arrayPackStr, self.getArrayMaximumSize(fieldName)) + data
                 else:
                     pad = self.calculatePad(fieldTypeOrClass, soFar)
                     if pad > 0:
@@ -588,6 +588,12 @@ class NDRCONSTRUCTEDTYPE(NDR):
         else:
             return NDR.calcPackSize(self, fieldTypeOrClass, data)
 
+    def getArrayMaximumSize(self, fieldName):
+        if self.fields[fieldName].fields['MaximumCount'] > 0:
+            return self.fields[fieldName].fields['MaximumCount']
+        else:
+            return self.fields[fieldName].getArraySize()
+
     def getArraySize(self,fieldName, data, soFar):
         if self._isNDR64:
             arrayItemSize = 8
@@ -606,6 +612,11 @@ class NDRCONSTRUCTEDTYPE(NDR):
             arraySize = unpack(arrayUnPackStr, data[:arrayItemSize])[0]
         elif isinstance(self.fields[fieldName], NDRUniConformantVaryingArray):
             # NDRUniConformantVaryingArray Array
+            # Unpack the Maximum Count
+            maximumCount = unpack(arrayUnPackStr, data[:arrayItemSize])[0]
+            # Let's store the Maximum Count for later use
+            self.fields[fieldName].fields['MaximumCount'] = maximumCount
+            # Unpack the Actual Count
             arraySize = unpack(arrayUnPackStr, data[arrayItemSize*2:][:arrayItemSize])[0]
         else:
             # NDRUniVaryingArray Array
@@ -908,6 +919,11 @@ class NDRUniConformantArray(NDRArray):
         ('Data', '*MaximumCount'),
     )
 
+    def __init__(self, data = None, isNDR64 = False):
+        NDRArray.__init__(self, data, isNDR64)
+        # Let's store the hidden MaximumCount field
+        self.fields['MaximumCount'] = 0
+
     def __setitem__(self, key, value):
         self.fields['MaximumCount'] = None
         return NDRArray.__setitem__(self, key, value)
@@ -948,6 +964,11 @@ class NDRUniConformantVaryingArray(NDRArray):
     structure = (
         ('Data','*ActualCount'),
     )
+
+    def __init__(self, data = None, isNDR64 = False):
+        NDRArray.__init__(self, data, isNDR64)
+        # Let's store the hidden MaximumCount field
+        self.fields['MaximumCount'] = 0
 
     def __setitem__(self, key, value):
         self.fields['MaximumCount'] = None
@@ -1064,9 +1085,9 @@ class NDRSTRUCT(NDRCONSTRUCTEDTYPE):
                     if isinstance(self, NDRPOINTER):
                         pointerData = data[:arrayItemSize]
                         data = data[arrayItemSize:]
-                        data = pointerData + arrayPadding + pack(arrayPackStr ,self.fields[fieldName].getArraySize()) + data
+                        data = pointerData + arrayPadding + pack(arrayPackStr ,self.getArrayMaximumSize(fieldName)) + data
                     else:
-                        data = arrayPadding + pack(arrayPackStr, self.fields[fieldName].getArraySize()) + data
+                        data = arrayPadding + pack(arrayPackStr, self.getArrayMaximumSize(fieldName)) + data
                     arrayPadding = ''
                     arrayItemSize = 0
                 else:
@@ -1704,9 +1725,10 @@ class NDRCALL(NDRCONSTRUCTEDTYPE):
                 if isinstance(self.fields[fieldName], NDRUniConformantArray) or isinstance(self.fields[fieldName],
                               NDRUniConformantVaryingArray):
                     # Pack the item
+                    self.fields[fieldName].dumpRaw()
                     res = self.pack(fieldName, fieldTypeOrClass, soFar)
                     # Yes, get the array size
-                    arraySize = self.fields[fieldName].getArraySize()
+                    arraySize = self.getArrayMaximumSize(fieldName)
                     if self._isNDR64:
                         data += pack('<Q', arraySize) + res
                     else:
