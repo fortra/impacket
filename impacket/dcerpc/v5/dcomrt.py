@@ -29,7 +29,7 @@
 from struct import pack
 from threading import Timer
 
-from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRPOINTER, NDRUniConformantArray, NDRTLSTRUCT
+from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRPOINTER, NDRUniConformantArray, NDRTLSTRUCT, UNKNOWNDATA
 from impacket.dcerpc.v5.dtypes import LPWSTR, ULONGLONG, HRESULT, GUID, USHORT, WSTR, DWORD, LPLONG, LONG, PGUID, ULONG, \
     UUID, WIDESTR, NULL
 from impacket import hresult_errors, LOG
@@ -513,7 +513,7 @@ class ACTIVATION_BLOB(NDRTLSTRUCT):
         ('dwSize',ULONG),
         ('dwReserved',ULONG),
         ('CustomHeader',CustomHeader),
-        ('Property',':'),
+        ('Property',UNKNOWNDATA),
     )
     def getData(self, soFar = 0):
         self['dwSize'] = len(self['CustomHeader'].getData(soFar)) + len(
