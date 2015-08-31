@@ -44,7 +44,6 @@ class NDR(object):
     structure64    = ()
     align          = 4
     item           = None
-    debug          = False
     _isNDR64       = False
 
     def __init__(self, data = None, isNDR64 = False):
@@ -1666,7 +1665,6 @@ class NDRCALL(NDRCONSTRUCTEDTYPE):
     structure      = ()
     structure64    = ()
     align          = 4
-    debug          = False
     def __init__(self, data = None, isNDR64 = False):
         self._isNDR64 = isNDR64
         self.fields = {}
