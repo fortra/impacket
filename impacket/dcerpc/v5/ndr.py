@@ -848,9 +848,8 @@ class NDRArray(NDRCONSTRUCTEDTYPE):
                 numItems = self.getArraySize()
             elif isinstance(self, NDRUniConformantVaryingArray):
                 # In this case we have the MaximumCount but it could be different from the ActualCount.
-                # Let's make the unpack figure this out. Let's just save this number if we later
-                # want to repack
-                self.fields['MaximumCount'] = self.getArraySize()
+                # Let's make the unpack figure this out.
+                #self.fields['MaximumCount'] = self.getArraySize()
                 numItems = self[two[1]]
             else:
                 numItems = self[two[1]]
@@ -1151,12 +1150,10 @@ class NDRSTRUCT(NDRCONSTRUCTEDTYPE):
             # will need to build it later.
             if self._isNDR64:
                 arrayItemSize = 8
-                arrayUnpackStr = '<Q'
             else:
                 arrayItemSize = 4
-                arrayUnpackStr = '<L'
 
-            # The size information is itself aligned according to the alignment rules for 
+            # The size information is itself aligned according to the alignment rules for
             # primitive data types. (See Section 14.2.2 on page 620.) The data of the constructed 
             # type is then aligned according to the alignment rules for the constructed type. 
             # In other words, the size information precedes the structure and is aligned 
@@ -1173,13 +1170,13 @@ class NDRSTRUCT(NDRCONSTRUCTEDTYPE):
                 # ToDo: Check if we have to align the arrayItemSize
                 # I guess is it aligned since the NDRPOINTER is aligned already
                 pointerData = data[:arrayItemSize]
-                arraySize = data[arrayItemSize:][:arrayItemSize]
+                arraySize, advanceStream = self.getArraySize(lastItem, data[arrayItemSize:], soFar+arrayItemSize)
                 data = pointerData + data[arrayItemSize*2:]
             else:
-                arraySize = data[:arrayItemSize]
+                arraySize, advanceStream = self.getArraySize(lastItem, data, soFar)
                 data = data[arrayItemSize:]
             # Let's tell the array how many items are available
-            self.fields[lastItem].setArraySize(unpack(arrayUnpackStr, arraySize)[0])
+            self.fields[lastItem].setArraySize(arraySize)
 
         # Now we need to align the structure
         # The alignment of a structure in the octet stream is the largest of the alignments of the fields it
