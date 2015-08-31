@@ -295,8 +295,8 @@ class NDR(object):
                 return self.pack(fieldName, two[0], soFar)
 
         if data is None:
-            raise Exception, "Trying to pack None"
-        
+            raise Exception('Trying to pack None')
+
         # literal specifier
         if fieldTypeOrClass[:1] == ':':
             return str(data)
@@ -305,9 +305,6 @@ class NDR(object):
         return pack(fieldTypeOrClass, data)
 
     def unpack(self, fieldName, fieldTypeOrClass, data, soFar = 0):
-        if self.debug:
-            print "  unpack( %s | %s | %r | %d)" %  (fieldName, fieldTypeOrClass, data, soFar)
-
         if isinstance(self.fields[fieldName], NDR):
             return self.fields[fieldName].fromString(data, soFar)
 
@@ -328,9 +325,6 @@ class NDR(object):
         return unpack(fieldTypeOrClass, data)[0]
 
     def calcPackSize(self, fieldTypeOrClass, data):
-        if self.debug:
-            print "  calcPackSize  %s:%r" %  (fieldTypeOrClass, data)
-
         if isinstance(fieldTypeOrClass, str) is False:
             return len(data)
 
@@ -347,9 +341,6 @@ class NDR(object):
         return calcsize(fieldTypeOrClass)
 
     def calcUnPackSize(self, fieldTypeOrClass, data):
-        if self.debug:
-            print "  calcUnPackSize  %s:%r" %  (fieldTypeOrClass, data)
-
         if isinstance(fieldTypeOrClass, str) is False:
             return len(data)
 
