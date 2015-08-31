@@ -313,6 +313,103 @@ class DRSRTests(unittest.TestCase):
         #    moreData = resp['pmsgOut']['V6']['fMoreData']
         #print "OBJECTS ", resp['pmsgOut']['V6']['cNumObjects']
 
+    def test_DRSGetNCChanges2(self):
+        # Not yet working
+        dce, rpctransport, hDrs, DsaObjDest = self.connect()
+
+        request = drsuapi.DRSGetNCChanges()
+        request['hDrs'] = hDrs
+        request['dwInVersion'] = 10
+
+        request['pmsgIn']['tag'] =10
+        request['pmsgIn']['V10']['uuidDsaObjDest'] = DsaObjDest
+        request['pmsgIn']['V10']['uuidInvocIdSrc'] = drsuapi.NULLGUID
+        #request['pmsgIn']['V10']['pNC'] = NULL
+
+        dsName = drsuapi.DSNAME()
+        dsName['SidLen'] = 0
+        dsName['Guid'] = drsuapi.NULLGUID
+        dsName['Sid'] = ''
+
+        name = 'CN=Schema,CN=Configuration,DC=FREEFLY,DC=NET'
+        dsName['NameLen'] = len(name)
+        dsName['StringName'] = (name + '\x00')
+
+        dsName['structLen'] = len(dsName.getData())
+
+        request['pmsgIn']['V10']['pNC'] = dsName
+
+        request['pmsgIn']['V10']['usnvecFrom']['usnHighObjUpdate'] = 0
+        request['pmsgIn']['V10']['usnvecFrom']['usnHighPropUpdate'] = 0
+
+        request['pmsgIn']['V10']['pUpToDateVecDest'] = NULL
+
+        request['pmsgIn']['V10']['ulFlags'] =  drsuapi.DRS_INIT_SYNC | drsuapi.DRS_PER_SYNC  | drsuapi.DRS_WRIT_REP
+        request['pmsgIn']['V10']['cMaxObjects'] = 100
+        request['pmsgIn']['V10']['cMaxBytes'] = 0
+        request['pmsgIn']['V10']['ulExtendedOp'] = 0
+        request['pmsgIn']['V10']['pPartialAttrSet'] = NULL
+        request['pmsgIn']['V10']['pPartialAttrSetEx1'] = NULL
+        request['pmsgIn']['V10']['PrefixTableDest']['pPrefixEntry'] = NULL
+        #request['pmsgIn']['V10']['ulMoreFlags'] = 0
+        resp = dce.request(request)
+        print resp['pmsgOut']['V6']['pNC']['StringName']
+        resp.dump()
+        print '\n'
+
+        dsName = drsuapi.DSNAME()
+        dsName['SidLen'] = 0
+        dsName['Guid'] = drsuapi.NULLGUID
+        dsName['Sid'] = ''
+
+        name = 'DC=FREEFLY,DC=NET'
+        dsName['NameLen'] = len(name)
+        dsName['StringName'] = (name + '\x00')
+
+        dsName['structLen'] = len(dsName.getData())
+
+        request['pmsgIn']['V10']['pNC'] = dsName
+        resp = dce.request(request)
+        print resp['pmsgOut']['V6']['pNC']['StringName']
+        resp.dump()
+        print '\n'
+
+        dsName = drsuapi.DSNAME()
+        dsName['SidLen'] = 0
+        dsName['Guid'] = drsuapi.NULLGUID
+        dsName['Sid'] = ''
+
+        name = 'CN=Configuration,DC=FREEFLY,DC=NET'
+        dsName['NameLen'] = len(name)
+        dsName['StringName'] = (name + '\x00')
+
+        dsName['structLen'] = len(dsName.getData())
+
+        request['pmsgIn']['V10']['pNC'] = dsName
+        resp = dce.request(request)
+        print resp['pmsgOut']['V6']['pNC']['StringName']
+        resp.dump()
+        print '\n'
+
+        #while resp['pmsgOut']['V6']['fMoreData'] > 0:
+        #    thisObject = resp['pmsgOut']['V6']['pObjects']
+        #    done = False
+        #    while not done:
+        #        nextObject = thisObject['pNextEntInf']
+        #        thisObject['pNextEntInf'] = NULL
+        #        #thisObject.dump()
+        #        #print '\n'
+        #        #print thisObject['Entinf']['pName']['StringName']
+        #        thisObject = nextObject
+        #        if nextObject is '':
+        #            done = True
+#
+#            print "B"*80
+#            request['pmsgIn']['V10']['uuidInvocIdSrc'] = resp['pmsgOut']['V6']
+#            request['pmsgIn']['V10']['usnvecFrom'] = resp['pmsgOut']['V6']['usnvecTo']
+#            resp = dce.request(request)
+
+
 class SMBTransport(DRSRTests):
     def setUp(self):
         DRSRTests.setUp(self)
