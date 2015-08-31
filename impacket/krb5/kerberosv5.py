@@ -335,7 +335,7 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
 
     reqBody['kdc-options'] = constants.encodeFlags(opts)
     seq_set(reqBody, 'sname', serverName.components_to_asn1)
-    reqBody['realm'] = str(decodedTGT['crealm'])
+    reqBody['realm'] = domain
 
     now = datetime.datetime.utcnow() + datetime.timedelta(days=1)
 
@@ -363,6 +363,19 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
     encTGSRepPart = decoder.decode(plainText, asn1Spec = EncTGSRepPart())[0]
 
     newSessionKey = Key(cipher.enctype, str(encTGSRepPart['key']['keyvalue']))
+
+    # Check we've got what we asked for
+    res = decoder.decode(r, asn1Spec = TGS_REP())[0]
+    spn = Principal()
+    spn.from_asn1(res['ticket'], 'realm', 'sname')
+
+    if spn.components[0] == serverName.components[0]:
+        # Yes.. bye bye
+        return r, cipher, sessionKey, newSessionKey
+    else:
+        # Let's extract the Ticket, change the domain and keep asking
+        domain = spn.components[1]
+        return getKerberosTGS(serverName, domain, kdcHost, r, cipher, newSessionKey)
     
     return r, cipher, sessionKey, newSessionKey
 
