@@ -425,3 +425,5 @@ class ChecksumTypes(Enum):
     rsa_md4_des       = 4
     hmac_md5          = -138
     hmac_sha1_des3_kd = 12
+    hmac_sha1_96_aes128 = 15
+    hmac_sha1_96_aes256 = 16

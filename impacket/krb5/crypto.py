@@ -482,7 +482,8 @@ _checksum_table = {
     Cksumtype.SHA1_DES3: _SHA1DES3,
     Cksumtype.SHA1_AES128: _SHA1AES128,
     Cksumtype.SHA1_AES256: _SHA1AES256,
-    Cksumtype.HMAC_MD5: _HMACMD5
+    Cksumtype.HMAC_MD5: _HMACMD5,
+    0xffffff76: _HMACMD5
 }
 
 
