@@ -837,8 +837,7 @@ class LSADTests(unittest.TestCase):
             if str(e).find('STATUS_NO_SUCH_DOMAIN') < 0:
                 raise
 
-    def atest_LsarSetInformationPolicy2(self):
-        # Not running it by default
+    def test_LsarSetInformationPolicy2(self):
         dce, rpctransport, policyHandle = self.connect()
         request = lsad.LsarQueryInformationPolicy2()
         request['PolicyHandle'] = policyHandle
@@ -913,8 +912,7 @@ class LSADTests(unittest.TestCase):
 
         # ToDo rest of the Information Classes
 
-    def atest_hLsarSetInformationPolicy2(self):
-        # Not running it by default
+    def test_hLsarSetInformationPolicy2(self):
         dce, rpctransport, policyHandle = self.connect()
         resp = lsad.hLsarQueryInformationPolicy2(dce, policyHandle, lsad.POLICY_INFORMATION_CLASS.PolicyAuditEventsInformation)
         resp.dump()
@@ -931,8 +929,7 @@ class LSADTests(unittest.TestCase):
         resp2 = lsad.hLsarSetInformationPolicy2(dce, policyHandle, lsad.POLICY_INFORMATION_CLASS.PolicyAuditEventsInformation, resp['PolicyInformation'] )
         resp2.dump()
 
-    def atest_LsarSetInformationPolicy(self):
-        # Not running it by default
+    def test_LsarSetInformationPolicy(self):
         dce, rpctransport, policyHandle = self.connect()
         request = lsad.LsarQueryInformationPolicy()
         request['PolicyHandle'] = policyHandle
@@ -1006,8 +1003,7 @@ class LSADTests(unittest.TestCase):
 
         # ToDo rest of the Information Classes
 
-    def atest_hLsarSetInformationPolicy(self):
-        # Not running it by default
+    def test_hLsarSetInformationPolicy(self):
         dce, rpctransport, policyHandle = self.connect()
         resp = lsad.hLsarQueryInformationPolicy(dce, policyHandle, lsad.POLICY_INFORMATION_CLASS.PolicyAuditEventsInformation)
         resp.dump()
