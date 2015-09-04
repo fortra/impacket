@@ -1202,7 +1202,7 @@ class LsarEnumerateTrustedDomains(NDRCALL):
 class LsarEnumerateTrustedDomainsResponse(NDRCALL):
     structure = (
        ('EnumerationContext', ULONG),
-       ('EnumerationBuffer',LSAPR_TRUSTED_ENUM_BUFFER_EX),
+       ('EnumerationBuffer',LSAPR_TRUSTED_ENUM_BUFFER),
        ('ErrorCode', NTSTATUS),
     )
 
