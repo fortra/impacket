@@ -15,3 +15,7 @@ python test_lsad.py
 python test_lsat.py
 python test_rrp.py
 python test_mgmt.py
+python test_ndr.py
+python test_drsuapi.py
+python test_wmi.py
+python test_dcomrt.py
