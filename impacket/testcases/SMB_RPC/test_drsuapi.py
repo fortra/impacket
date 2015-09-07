@@ -344,7 +344,7 @@ class DRSRTests(unittest.TestCase):
 
         request['pmsgIn']['V10']['pUpToDateVecDest'] = NULL
 
-        request['pmsgIn']['V10']['ulFlags'] =  drsuapi.DRS_INIT_SYNC | drsuapi.DRS_PER_SYNC  | drsuapi.DRS_WRIT_REP
+        request['pmsgIn']['V10']['ulFlags'] =  drsuapi.DRS_INIT_SYNC | drsuapi.DRS_PER_SYNC  | drsuapi.DRS_WRIT_REP | drsuapi.DRS_FULL_SYNC_NOW
         request['pmsgIn']['V10']['cMaxObjects'] = 100
         request['pmsgIn']['V10']['cMaxBytes'] = 0
         request['pmsgIn']['V10']['ulExtendedOp'] = 0
@@ -357,7 +357,7 @@ class DRSRTests(unittest.TestCase):
         resp.dump()
         print '\n'
 
-        dsName = drsuapi.DSNAME()
+        dsName = drsuapi.DSNAME(isNDR64=request._isNDR64)
         dsName['SidLen'] = 0
         dsName['Guid'] = drsuapi.NULLGUID
         dsName['Sid'] = ''
@@ -374,7 +374,7 @@ class DRSRTests(unittest.TestCase):
         resp.dump()
         print '\n'
 
-        dsName = drsuapi.DSNAME()
+        dsName = drsuapi.DSNAME(isNDR64=request._isNDR64)
         dsName['SidLen'] = 0
         dsName['Guid'] = drsuapi.NULLGUID
         dsName['Sid'] = ''
@@ -477,6 +477,6 @@ if __name__ == '__main__':
     else:
         #suite = unittest.TestLoader().loadTestsFromTestCase(SMBTransport)
         suite  = unittest.TestLoader().loadTestsFromTestCase(TCPTransport)
-        #suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport64))
+        suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport64))
         #suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMBTransport64))
     unittest.TextTestRunner(verbosity=1).run(suite)
