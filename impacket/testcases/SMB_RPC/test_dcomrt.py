@@ -346,5 +346,5 @@ if __name__ == '__main__':
         suite = unittest.TestLoader().loadTestsFromTestCase(globals()[testcase])
     else:
         suite = unittest.TestLoader().loadTestsFromTestCase(TCPTransport)
-        #suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMBTransport64))
+        suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport64))
     unittest.TextTestRunner(verbosity=1).run(suite)
