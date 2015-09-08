@@ -31,11 +31,6 @@ from impacket.uuid import uuidtup_to_bin
 class NDR(object):
     """
     This will be the base class for all DCERPC NDR Types and represents a NDR Primitive Type
-
-    It changes the structure behaviour, plus it adds the possibility
-    of specifying the NDR encoding to be used. Pads are automatically calculated
-    Some data types are taken off as well.
-
     """
     referent       = ()
     commonHdr      = ()
@@ -250,21 +245,21 @@ class NDR(object):
     def fromString(self, data, soFar = 0):
         soFar0 = soFar
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
-            size = self.calcUnPackSize(fieldTypeOrClass, data)
-            # Alignment of Primitive Types
-
-            # NDR enforces NDR alignment of primitive data; that is, any primitive of size n
-            # octets is aligned at a octet stream index that is a multiple of n.
-            # (In this version of NDR, n is one of {1, 2, 4, 8}.) An octet stream index indicates
-            # the number of an octet in an octet stream when octets are numbered, beginning with 0,
-            # from the first octet in the stream. Where necessary, an alignment gap, consisting of
-            # octets of unspecified value, precedes the representation of a primitive. The gap is
-            # of the smallest size sufficient to align the primitive.
-            pad = self.calculatePad(fieldTypeOrClass, soFar)
-            if pad > 0:
-                soFar += pad
-                data = data[pad:]
             try:
+                size = self.calcUnPackSize(fieldTypeOrClass, data)
+                # Alignment of Primitive Types
+
+                # NDR enforces NDR alignment of primitive data; that is, any primitive of size n
+                # octets is aligned at a octet stream index that is a multiple of n.
+                # (In this version of NDR, n is one of {1, 2, 4, 8}.) An octet stream index indicates
+                # the number of an octet in an octet stream when octets are numbered, beginning with 0,
+                # from the first octet in the stream. Where necessary, an alignment gap, consisting of
+                # octets of unspecified value, precedes the representation of a primitive. The gap is
+                # of the smallest size sufficient to align the primitive.
+                pad = self.calculatePad(fieldTypeOrClass, soFar)
+                if pad > 0:
+                    soFar += pad
+                    data = data[pad:]
                 self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
                 data = data[size:]
                 soFar += size
@@ -637,8 +632,8 @@ class NDRCONSTRUCTEDTYPE(NDR):
                 return 0
 
         for fieldName, fieldTypeOrClass in self.referent:
-            size = self.calcUnPackSize(fieldTypeOrClass, data)
             try:
+                size = self.calcUnPackSize(fieldTypeOrClass, data)
                 if isinstance(self.fields[fieldName], NDRUniConformantArray) or isinstance(self.fields[fieldName], NDRUniConformantVaryingArray):
                     # Get the array size
                     arraySize, advanceStream = self.getArraySize(fieldName, data, soFar)
@@ -724,7 +719,6 @@ class NDRArray(NDRCONSTRUCTEDTYPE):
         align = 0
         # And now the item
         if hasattr(self, "item") and self.item is not None:
-            #if isinstance(self.item, NDR):
             if self.isNDR(self.item):
                 tmpAlign = self.item().getAlignment()
             else:
@@ -799,16 +793,16 @@ class NDRArray(NDRCONSTRUCTEDTYPE):
     def fromString(self, data, soFar = 0):
         soFar0 = soFar
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
-            size = self.calcUnPackSize(fieldTypeOrClass, data)
-            self.arraySoFar = None
-            if self.isNDR(fieldTypeOrClass) is False:
-                # If the item is not NDR (e.g. ('MaximumCount', '<L=len(Data)'))
-                # we have to align it
-                pad = self.calculatePad(fieldTypeOrClass, soFar)
-                if pad > 0:
-                    soFar += pad
-                    data = data[pad:]
             try:
+                size = self.calcUnPackSize(fieldTypeOrClass, data)
+                self.arraySoFar = None
+                if self.isNDR(fieldTypeOrClass) is False:
+                    # If the item is not NDR (e.g. ('MaximumCount', '<L=len(Data)'))
+                    # we have to align it
+                    pad = self.calculatePad(fieldTypeOrClass, soFar)
+                    if pad > 0:
+                        soFar += pad
+                        data = data[pad:]
                 self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
                 if isinstance(self.fields[fieldName], NDR):
                     size = self.fields[fieldName].getFromStringSize(soFar)
@@ -1415,12 +1409,12 @@ class NDRUNION(NDRCONSTRUCTEDTYPE):
                     raise Exception("Unknown tag %d for union!" % tag)
 
         for fieldName, fieldTypeOrClass in self.commonHdr:
-            size = self.calcUnPackSize(fieldTypeOrClass, data)
-            pad = self.calculatePad(fieldTypeOrClass, soFar)
-            if pad > 0:
-                soFar += pad
-                data = data[pad:]
             try:
+                size = self.calcUnPackSize(fieldTypeOrClass, data)
+                pad = self.calculatePad(fieldTypeOrClass, soFar)
+                if pad > 0:
+                    soFar += pad
+                    data = data[pad:]
                 self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
                 if isinstance(self.fields[fieldName], NDR):
                     size = self.fields[fieldName].getFromStringSize(soFar)
@@ -1453,12 +1447,12 @@ class NDRUNION(NDRCONSTRUCTEDTYPE):
             return self
 
         for fieldName, fieldTypeOrClass in self.structure:
-            size = self.calcUnPackSize(fieldTypeOrClass, data)
-            pad = self.calculatePad(fieldTypeOrClass, soFar)
-            if pad > 0:
-                soFar += pad
-                data = data[pad:]
             try:
+                size = self.calcUnPackSize(fieldTypeOrClass, data)
+                pad = self.calculatePad(fieldTypeOrClass, soFar)
+                if pad > 0:
+                    soFar += pad
+                    data = data[pad:]
                 self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
                 if isinstance(self.fields[fieldName], NDR):
                     size = self.fields[fieldName].getFromStringSize(soFar)
@@ -1616,6 +1610,7 @@ class NDRPOINTER(NDRSTRUCT):
         else:
             retVal =  NDRSTRUCT.fromString(self,data, soFar)
             self.fromStringSize += pad
+            # ACA
             return retVal
 
     def dump(self, msg = None, indent = 0):
@@ -1754,8 +1749,8 @@ class NDRCALL(NDRCONSTRUCTEDTYPE):
     def fromString(self, data, soFar = 0):
         soFar0 = soFar
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
-            size = self.calcUnPackSize(fieldTypeOrClass, data)
             try:
+                size = self.calcUnPackSize(fieldTypeOrClass, data)
                 # Are we dealing with an array?
                 if isinstance(self.fields[fieldName], NDRUniConformantArray) or isinstance(self.fields[fieldName],
                               NDRUniConformantVaryingArray):
