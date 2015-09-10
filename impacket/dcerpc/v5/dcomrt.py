@@ -1663,10 +1663,9 @@ class IRemoteSCMActivator:
                                                                            'Data']]
 
         scmr = ScmReplyInfoData()
-        scmr.fromString(scmReply)
+        size = scmr.fromString(scmReply)
         # Processing the scmReply
-        scmReply = scmReply[len(scmr.getData()):]
-        scmr.fromStringReferents(scmReply)
+        scmr.fromStringReferents(scmReply[size:])
         ipidRemUnknown = scmr['remoteReply']['ipidRemUnknown']
         Oxids = ''.join(pack('<H', x) for x in scmr['remoteReply']['pdsaOxidBindings']['aStringArray'])
         strBindings = Oxids[:scmr['remoteReply']['pdsaOxidBindings']['wSecurityOffset']*2]
@@ -1693,9 +1692,9 @@ class IRemoteSCMActivator:
                 securityBindings = securityBindings[len(secBinding):]
 
         # Processing the Properties Output
-        propsOut = PropsOutInfo(propOutput)
-        propOutput2 = propOutput[len(propsOut):]
-        propsOut.fromStringReferents(propOutput2)
+        propsOut = PropsOutInfo()
+        size = propsOut.fromString(propOutput)
+        propsOut.fromStringReferents(propOutput[size:])
 
         classInstance = CLASS_INSTANCE(ORPCthis, stringBindings)
         classInstance.set_auth_level(scmr['remoteReply']['authnHint'])
@@ -1830,10 +1829,9 @@ class IRemoteSCMActivator:
                                                                            'Data']]
 
         scmr = ScmReplyInfoData()
-        scmr.fromString(scmReply)
+        size = scmr.fromString(scmReply)
         # Processing the scmReply
-        scmReply = scmReply[len(scmr.getData()):]
-        scmr.fromStringReferents(scmReply)
+        scmr.fromStringReferents(scmReply[size:])
         ipidRemUnknown = scmr['remoteReply']['ipidRemUnknown']
         Oxids = ''.join(pack('<H', x) for x in scmr['remoteReply']['pdsaOxidBindings']['aStringArray'])
         strBindings = Oxids[:scmr['remoteReply']['pdsaOxidBindings']['wSecurityOffset']*2]
@@ -1860,9 +1858,9 @@ class IRemoteSCMActivator:
                 securityBindings = securityBindings[len(secBinding):]
 
         # Processing the Properties Output
-        propsOut = PropsOutInfo(propOutput)
-        propOutput2 = propOutput[len(propsOut):]
-        propsOut.fromStringReferents(propOutput2)
+        propsOut = PropsOutInfo()
+        size = propsOut.fromString(propOutput)
+        propsOut.fromStringReferents(propOutput[size:])
 
         classInstance = CLASS_INSTANCE(ORPCthis, stringBindings)
         classInstance.set_auth_level(scmr['remoteReply']['authnHint'])
