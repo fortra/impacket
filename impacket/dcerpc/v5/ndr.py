@@ -633,7 +633,6 @@ class NDRCONSTRUCTEDTYPE(NDR):
                 if isinstance(self.fields[fieldName], NDRUniConformantArray) or isinstance(self.fields[fieldName], NDRUniConformantVaryingArray):
                     # Get the array size
                     arraySize, advanceStream = self.getArraySize(fieldName, data, soFar)
-                    self.fields[fieldName].setArraySize(arraySize)
                     soFar += advanceStream
                     data = data[advanceStream:]
 
