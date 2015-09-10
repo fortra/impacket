@@ -538,11 +538,10 @@ class NDRCONSTRUCTEDTYPE(NDR):
 
                     data += self.pack(fieldName, fieldTypeOrClass, soFar)
 
-                soFar = soFar0 + len(data)
                 # Any referent information to pack?
                 if isinstance(self.fields[fieldName], NDRCONSTRUCTEDTYPE):
-                    data += self.fields[fieldName].getDataReferents(soFar)
-                    data += self.fields[fieldName].getDataReferent(len(data)+soFar)
+                    data += self.fields[fieldName].getDataReferents(soFar0 + len(data))
+                    data += self.fields[fieldName].getDataReferent(soFar0 + len(data))
                 soFar = soFar0 + len(data)
 
             except Exception, e:
@@ -610,11 +609,12 @@ class NDRCONSTRUCTEDTYPE(NDR):
         soFar0 = soFar
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             if isinstance(self.fields[fieldName], NDRCONSTRUCTEDTYPE):
-                nSoFar = self.fields[fieldName].fromStringReferents(data, soFar)
-                soFar += nSoFar
-                nSoFar2 = self.fields[fieldName].fromStringReferent(data[nSoFar:], soFar)
-                soFar += nSoFar2
-                data = data[nSoFar+nSoFar2:]
+                size = self.fields[fieldName].fromStringReferents(data, soFar)
+                data = data[size:]
+                soFar += size
+                size = self.fields[fieldName].fromStringReferent(data, soFar)
+                soFar += size
+                data = data[size:]
         return soFar - soFar0
 
     def fromStringReferent(self, data, soFar = 0):
@@ -646,12 +646,12 @@ class NDRCONSTRUCTEDTYPE(NDR):
                     if pad > 0:
                         soFar += pad
                         data = data[pad:]
+
                     size = self.unpack(fieldName, fieldTypeOrClass, data, soFar)
 
                 if isinstance(self.fields[fieldName], NDRCONSTRUCTEDTYPE):
-                    nSoFar = self.fields[fieldName].fromStringReferents(data[size:], soFar + size)
-                    nSoFar2 = self.fields[fieldName].fromStringReferent(data[size + nSoFar:], soFar + size + nSoFar)
-                    size += nSoFar + nSoFar2
+                    size += self.fields[fieldName].fromStringReferents(data[size:], soFar + size)
+                    size += self.fields[fieldName].fromStringReferent(data[size:], soFar + size)
                 data = data[size:]
                 soFar += size
             except Exception,e:
@@ -844,9 +844,9 @@ class NDRArray(NDRCONSTRUCTEDTYPE):
                     answer.append(unpack(item, data[soFarItems:nsofar])[0])
                 else:
                     itemn = dataClassOrCode(isNDR64=self._isNDR64)
-                    itemnLen = itemn.fromString(data[soFarItems:], soFar+soFarItems)
+                    size = itemn.fromString(data[soFarItems:], soFar+soFarItems)
                     answer.append(itemn)
-                    nsofar += itemnLen + pad
+                    nsofar += size + pad
                 numItems -= 1
                 soFarItems = nsofar
 
@@ -855,12 +855,12 @@ class NDRArray(NDRCONSTRUCTEDTYPE):
                 data = data[soFarItems:]
                 answer2 = []
                 for itemn in answer:
-                    nSoFar = itemn.fromStringReferents(data, soFarItems+soFar)
-                    soFarItems += nSoFar
-                    data = data[nSoFar:]
-                    nSoFar2 = itemn.fromStringReferent(data, soFarItems+soFar)
-                    soFarItems += nSoFar2
-                    data = data[nSoFar2:]
+                    size = itemn.fromStringReferents(data, soFarItems+soFar)
+                    soFarItems += size
+                    data = data[size:]
+                    size = itemn.fromStringReferent(data, soFarItems+soFar)
+                    soFarItems += size
+                    data = data[size:]
                     answer2.append(itemn)
                 answer = answer2
                 del answer2
@@ -1717,9 +1717,8 @@ class NDRCALL(NDRCONSTRUCTEDTYPE):
 
                 # Any referent information to unpack?
                 if isinstance(self.fields[fieldName], NDRCONSTRUCTEDTYPE):
-                    nSoFar = self.fields[fieldName].fromStringReferents(data[size:], soFar + size)
-                    nSoFar2 = self.fields[fieldName].fromStringReferent(data[size + nSoFar:], soFar + size + nSoFar)
-                    size += nSoFar + nSoFar2
+                    size += self.fields[fieldName].fromStringReferents(data[size:], soFar + size)
+                    size += self.fields[fieldName].fromStringReferent(data[size:], soFar + size)
                 data = data[size:]
                 soFar += size
             except Exception,e:
