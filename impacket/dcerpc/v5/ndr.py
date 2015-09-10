@@ -225,6 +225,7 @@ class NDR(object):
                     data += '\xbf'*pad
 
                 res = self.pack(fieldName, fieldTypeOrClass, soFar)
+
                 data += res
                 soFar += len(res)
             except Exception, e:
@@ -236,10 +237,8 @@ class NDR(object):
 
     def fromString(self, data, soFar = 0):
         soFar0 = soFar
-        size = 0
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             try:
-                size = self.calcUnPackSize(fieldTypeOrClass, data)
                 # Alignment of Primitive Types
 
                 # NDR enforces NDR alignment of primitive data; that is, any primitive of size n
@@ -253,15 +252,14 @@ class NDR(object):
                 if pad > 0:
                     soFar += pad
                     data = data[pad:]
-                if isinstance(self.fields[fieldName], NDR):
-                    size = self.fields[fieldName].fromString(data, soFar)
-                else:
-                    size = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
+
+                size = self.unpack(fieldName, fieldTypeOrClass, data, soFar)
+
                 data = data[size:]
                 soFar += size
             except Exception,e:
                 LOG.error(str(e))
-                LOG.error("Error unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size))
+                LOG.error("Error unpacking field '%s | %s | %r'" % (fieldName, fieldTypeOrClass, data[:256]))
                 raise
         return soFar - soFar0
 
@@ -294,6 +292,8 @@ class NDR(object):
         return pack(fieldTypeOrClass, data)
 
     def unpack(self, fieldName, fieldTypeOrClass, data, soFar = 0):
+        size = self.calcUnPackSize(fieldTypeOrClass, data)
+        data = data[:size]
         if isinstance(self.fields[fieldName], NDR):
             return self.fields[fieldName].fromString(data, soFar)
 
@@ -313,7 +313,7 @@ class NDR(object):
 
         # struct like specifier
         self.fields[fieldName] = unpack(fieldTypeOrClass, data)[0]
-        return self.calcUnPackSize(fieldTypeOrClass, data)
+        return size
 
     def calcPackSize(self, fieldTypeOrClass, data):
         if isinstance(fieldTypeOrClass, str) is False:
@@ -630,7 +630,6 @@ class NDRCONSTRUCTEDTYPE(NDR):
 
         for fieldName, fieldTypeOrClass in self.referent:
             try:
-                size = self.calcUnPackSize(fieldTypeOrClass, data)
                 if isinstance(self.fields[fieldName], NDRUniConformantArray) or isinstance(self.fields[fieldName], NDRUniConformantVaryingArray):
                     # Get the array size
                     arraySize, advanceStream = self.getArraySize(fieldName, data, soFar)
@@ -640,15 +639,14 @@ class NDRCONSTRUCTEDTYPE(NDR):
 
                     # Let's tell the array how many items are available
                     self.fields[fieldName].setArraySize(arraySize)
-                    size = self.fields[fieldName].fromString(data[:size], soFar)
+                    size = self.fields[fieldName].fromString(data, soFar)
                 else:
                     # ToDo: Align only if not NDR
-                    #size = self.calcUnPackSize(fieldTypeOrClass, data)
                     pad = self.calculatePad(fieldTypeOrClass, soFar)
                     if pad > 0:
                         soFar += pad
                         data = data[pad:]
-                    size = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
+                    size = self.unpack(fieldName, fieldTypeOrClass, data, soFar)
 
                 if isinstance(self.fields[fieldName], NDRCONSTRUCTEDTYPE):
                     nSoFar = self.fields[fieldName].fromStringReferents(data[size:], soFar + size)
@@ -658,7 +656,7 @@ class NDRCONSTRUCTEDTYPE(NDR):
                 soFar += size
             except Exception,e:
                 LOG.error(str(e))
-                LOG.error("Error unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size))
+                LOG.error("Error unpacking field '%s | %s | %r'" % (fieldName, fieldTypeOrClass, data[:256]))
                 raise
 
         return soFar-soFar0
@@ -790,7 +788,6 @@ class NDRArray(NDRCONSTRUCTEDTYPE):
         soFar0 = soFar
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             try:
-                size = self.calcUnPackSize(fieldTypeOrClass, data)
                 if self.isNDR(fieldTypeOrClass) is False:
                     # If the item is not NDR (e.g. ('MaximumCount', '<L=len(Data)'))
                     # we have to align it
@@ -798,13 +795,14 @@ class NDRArray(NDRCONSTRUCTEDTYPE):
                     if pad > 0:
                         soFar += pad
                         data = data[pad:]
-                size = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
+
+                size = self.unpack(fieldName, fieldTypeOrClass, data, soFar)
 
                 data = data[size:]
                 soFar += size
             except Exception,e:
                 LOG.error(str(e))
-                LOG.error("Error unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size))
+                LOG.error("Error unpacking field '%s | %s | %r'" % (fieldName, fieldTypeOrClass, data[:256]))
                 raise
         return soFar - soFar0
 
@@ -981,7 +979,6 @@ class NDRVaryingString(NDRUniVaryingArray):
         return NDRUniVaryingArray.getData(self, soFar)
 
     def fromString(self, data, soFar = 0):
-        #ret = NDRUniVaryingArray.fromString(self,data, soFar = 0)
         ret = NDRUniVaryingArray.fromString(self,data)
         # Let's take out the last item
         self["Data"] = self["Data"][:-1] 
@@ -1159,17 +1156,13 @@ class NDRSTRUCT(NDRCONSTRUCTEDTYPE):
 
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             try:
-                size = self.calcUnPackSize(fieldTypeOrClass, data)
-                if isinstance(self.fields[fieldName], NDR):
-                    size = self.fields[fieldName].fromString(data[:size], soFar)
-                else:
-                    size = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
+                size = self.unpack(fieldName, fieldTypeOrClass, data, soFar)
 
                 data = data[size:]
                 soFar += size
             except Exception,e:
                 LOG.error(str(e))
-                LOG.error("Error unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size))
+                LOG.error("Error unpacking field '%s | %s | %r'" % (fieldName, fieldTypeOrClass, data[:256]))
                 raise
 
         return soFar - soFar0
@@ -1383,17 +1376,18 @@ class NDRUNION(NDRCONSTRUCTEDTYPE):
 
         for fieldName, fieldTypeOrClass in self.commonHdr:
             try:
-                size = self.calcUnPackSize(fieldTypeOrClass, data)
                 pad = self.calculatePad(fieldTypeOrClass, soFar)
                 if pad > 0:
                     soFar += pad
                     data = data[pad:]
-                size = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
+
+                size = self.unpack(fieldName, fieldTypeOrClass, data, soFar)
+
                 data = data[size:]
                 soFar += size
             except Exception,e:
                 LOG.error(str(e))
-                LOG.error("Error unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size))
+                LOG.error("Error unpacking field '%s | %s | %r'" % (fieldName, fieldTypeOrClass, data[:256]))
                 raise
 
         # WARNING
@@ -1419,17 +1413,18 @@ class NDRUNION(NDRCONSTRUCTEDTYPE):
 
         for fieldName, fieldTypeOrClass in self.structure:
             try:
-                size = self.calcUnPackSize(fieldTypeOrClass, data)
                 pad = self.calculatePad(fieldTypeOrClass, soFar)
                 if pad > 0:
                     soFar += pad
                     data = data[pad:]
-                size = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
+
+                size = self.unpack(fieldName, fieldTypeOrClass, data, soFar)
+
                 data = data[size:]
                 soFar += size
             except Exception,e:
                 LOG.error(str(e))
-                LOG.error("Error unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size))
+                LOG.error("Error unpacking field '%s | %s | %r'" % (fieldName, fieldTypeOrClass, data[:256]))
                 raise
 
         return soFar - soFar0
@@ -1549,7 +1544,6 @@ class NDRPOINTER(NDRSTRUCT):
         return data + NDRSTRUCT.getData(self, soFar)
 
     def fromString(self,data,soFar = 0):
-
         # First of all we need to align ourselves
         pad = self.calculatePad(self.commonHdr[0][1], soFar)
         if pad > 0:
@@ -1710,7 +1704,6 @@ class NDRCALL(NDRCONSTRUCTEDTYPE):
         soFar0 = soFar
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             try:
-                size = self.calcUnPackSize(fieldTypeOrClass, data)
                 # Are we dealing with an array?
                 if isinstance(self.fields[fieldName], NDRUniConformantArray) or isinstance(self.fields[fieldName],
                               NDRUniConformantVaryingArray):
@@ -1720,7 +1713,7 @@ class NDRCALL(NDRCONSTRUCTEDTYPE):
                     soFar += advanceStream
                     data = data[advanceStream:]
 
-                size = self.fields[fieldName].fromString(data, soFar)
+                size = self.unpack(fieldName, fieldTypeOrClass, data, soFar)
 
                 # Any referent information to unpack?
                 if isinstance(self.fields[fieldName], NDRCONSTRUCTEDTYPE):
@@ -1731,7 +1724,7 @@ class NDRCALL(NDRCONSTRUCTEDTYPE):
                 soFar += size
             except Exception,e:
                 LOG.error(str(e))
-                LOG.error("Error unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size))
+                LOG.error("Error unpacking field '%s | %s | %r'" % (fieldName, fieldTypeOrClass, data[:256]))
                 raise
 
         return soFar - soFar0
