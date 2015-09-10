@@ -45,8 +45,6 @@ class NDR(object):
         object.__init__(self)
         self._isNDR64 = isNDR64
         self.fields = {}
-        self.fromStringSize = None
-        self.arraySoFar = None
 
         if isNDR64 is True:
             if self.commonHdr64 != ():
@@ -130,7 +128,6 @@ class NDR(object):
             self.fields[key]['Data'] = value
         else:
             self.fields[key] = value
-        self.fromStringSize = None
 
     def __getitem__(self, key):
         if isinstance(self.fields[key], NDR):
@@ -237,13 +234,9 @@ class NDR(object):
 
         return data
 
-    def getFromStringSize(self, soFar=0):
-        if self.fromStringSize is None:
-            self.fromStringSize = len(self.getData(soFar))
-        return self.fromStringSize
-
     def fromString(self, data, soFar = 0):
         soFar0 = soFar
+        size = 0
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             try:
                 size = self.calcUnPackSize(fieldTypeOrClass, data)
@@ -260,15 +253,17 @@ class NDR(object):
                 if pad > 0:
                     soFar += pad
                     data = data[pad:]
-                self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
+                if isinstance(self.fields[fieldName], NDR):
+                    size = self.fields[fieldName].fromString(data, soFar)
+                else:
+                    size = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
                 data = data[size:]
                 soFar += size
             except Exception,e:
                 LOG.error(str(e))
                 LOG.error("Error unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size))
                 raise
-        self.fromStringSize = soFar - soFar0
-        return self
+        return soFar - soFar0
 
     def pack(self, fieldName, fieldTypeOrClass, soFar = 0):
         if isinstance(self.fields[fieldName], NDR):
@@ -312,11 +307,13 @@ class NDR(object):
             if isinstance(fieldTypeOrClass, NDR):
                 return self.fields[fieldName].fromString(data, soFar)
             else:
-                self.arraySoFar = self.getDataLen(data)
-                return data[:self.getDataLen(data)]
+                dataLen = self.getDataLen(data)
+                self.fields[fieldName] =  data[:dataLen]
+                return dataLen
 
         # struct like specifier
-        return unpack(fieldTypeOrClass, data)[0]
+        self.fields[fieldName] = unpack(fieldTypeOrClass, data)[0]
+        return self.calcUnPackSize(fieldTypeOrClass, data)
 
     def calcPackSize(self, fieldTypeOrClass, data):
         if isinstance(fieldTypeOrClass, str) is False:
@@ -643,7 +640,7 @@ class NDRCONSTRUCTEDTYPE(NDR):
 
                     # Let's tell the array how many items are available
                     self.fields[fieldName].setArraySize(arraySize)
-                    self.fields[fieldName].fromString(data[:size], soFar)
+                    size = self.fields[fieldName].fromString(data[:size], soFar)
                 else:
                     # ToDo: Align only if not NDR
                     #size = self.calcUnPackSize(fieldTypeOrClass, data)
@@ -651,10 +648,9 @@ class NDRCONSTRUCTEDTYPE(NDR):
                     if pad > 0:
                         soFar += pad
                         data = data[pad:]
-                    self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
+                    size = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
 
                 if isinstance(self.fields[fieldName], NDRCONSTRUCTEDTYPE):
-                    size = self.fields[fieldName].getFromStringSize(soFar)
                     nSoFar = self.fields[fieldName].fromStringReferents(data[size:], soFar + size)
                     nSoFar2 = self.fields[fieldName].fromStringReferent(data[size + nSoFar:], soFar + size + nSoFar)
                     size += nSoFar + nSoFar2
@@ -795,7 +791,6 @@ class NDRArray(NDRCONSTRUCTEDTYPE):
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             try:
                 size = self.calcUnPackSize(fieldTypeOrClass, data)
-                self.arraySoFar = None
                 if self.isNDR(fieldTypeOrClass) is False:
                     # If the item is not NDR (e.g. ('MaximumCount', '<L=len(Data)'))
                     # we have to align it
@@ -803,22 +798,15 @@ class NDRArray(NDRCONSTRUCTEDTYPE):
                     if pad > 0:
                         soFar += pad
                         data = data[pad:]
-                self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
-                if isinstance(self.fields[fieldName], NDR):
-                    size = self.fields[fieldName].getFromStringSize(soFar)
+                size = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
 
-                # Did we just unpacked an array?
-                if self.arraySoFar is not None:
-                    # Yes, get its size
-                    size = self.arraySoFar
                 data = data[size:]
                 soFar += size
             except Exception,e:
                 LOG.error(str(e))
                 LOG.error("Error unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size))
                 raise
-        self.fromStringSize = soFar - soFar0
-        return self
+        return soFar - soFar0
 
     def unpack(self, fieldName, fieldTypeOrClass, data, soFar = 0):
         # array specifier
@@ -858,8 +846,7 @@ class NDRArray(NDRCONSTRUCTEDTYPE):
                     answer.append(unpack(item, data[soFarItems:nsofar])[0])
                 else:
                     itemn = dataClassOrCode(isNDR64=self._isNDR64)
-                    itemn.fromString(data[soFarItems:], soFar+soFarItems)
-                    itemnLen = itemn.getFromStringSize(soFar+soFarItems)
+                    itemnLen = itemn.fromString(data[soFarItems:], soFar+soFarItems)
                     answer.append(itemn)
                     nsofar += itemnLen + pad
                 numItems -= 1
@@ -882,8 +869,8 @@ class NDRArray(NDRCONSTRUCTEDTYPE):
 
             del(self.fields['_tmpItem'])
 
-            self.arraySoFar = soFarItems + soFar - soFar0
-            return answer
+            self.fields[fieldName] = answer
+            return soFarItems + soFar - soFar0
         else:
             return NDRCONSTRUCTEDTYPE.unpack(self, fieldName, fieldTypeOrClass, data, soFar)
 
@@ -891,9 +878,6 @@ class NDRUniFixedArray(NDRArray):
     structure = (
         ('Data',':'),
     )
-
-    def getFromStringSize(self, soFar=0):
-        return self.getDataLen('')
 
 # Uni-dimensional Conformant Arrays
 class NDRUniConformantArray(NDRArray):
@@ -1176,18 +1160,10 @@ class NDRSTRUCT(NDRCONSTRUCTEDTYPE):
         for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
             try:
                 size = self.calcUnPackSize(fieldTypeOrClass, data)
-                self.arraySoFar = None
-                if isinstance(self.fields[fieldName], NDRUniConformantArray) or isinstance(self.fields[fieldName], NDRUniConformantVaryingArray):
-                    self.fields[fieldName].fromString(data[:size], soFar)
-                else:
-                    self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
                 if isinstance(self.fields[fieldName], NDR):
-                    size = self.fields[fieldName].getFromStringSize(soFar)
-
-                # Did we just unpacked an array?
-                if self.arraySoFar is not None:
-                    # Yes, get its size
-                    size = self.arraySoFar
+                    size = self.fields[fieldName].fromString(data[:size], soFar)
+                else:
+                    size = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
 
                 data = data[size:]
                 soFar += size
@@ -1196,8 +1172,7 @@ class NDRSTRUCT(NDRCONSTRUCTEDTYPE):
                 LOG.error("Error unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size))
                 raise
 
-        self.fromStringSize = soFar - soFar0
-        return self
+        return soFar - soFar0
 
     def getAlignment(self):
         # Alignment of Constructed Types
@@ -1208,7 +1183,6 @@ class NDRSTRUCT(NDRCONSTRUCTEDTYPE):
         # on an NDR octet stream index of n.
 
         # The rules for calculating the alignment of constructed types are as follows:
-
 
         # 1) If a conformant structure-that is, a conformant or conformant varying array, or a structure containing
         # a conformant or conformant varying array-is embedded in the constructed type, and is the outermost
@@ -1253,7 +1227,6 @@ class NDRUNION(NDRCONSTRUCTEDTYPE):
         self.topLevel = topLevel
         self._isNDR64 = isNDR64
         self.fields = {}
-        self.fromStringSize = None
 
         if isNDR64 is True:
             if self.commonHdr64 != ():
@@ -1415,9 +1388,7 @@ class NDRUNION(NDRCONSTRUCTEDTYPE):
                 if pad > 0:
                     soFar += pad
                     data = data[pad:]
-                self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
-                if isinstance(self.fields[fieldName], NDR):
-                    size = self.fields[fieldName].getFromStringSize(soFar)
+                size = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
                 data = data[size:]
                 soFar += size
             except Exception,e:
@@ -1453,9 +1424,7 @@ class NDRUNION(NDRCONSTRUCTEDTYPE):
                 if pad > 0:
                     soFar += pad
                     data = data[pad:]
-                self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
-                if isinstance(self.fields[fieldName], NDR):
-                    size = self.fields[fieldName].getFromStringSize(soFar)
+                size = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
                 data = data[size:]
                 soFar += size
             except Exception,e:
@@ -1463,8 +1432,7 @@ class NDRUNION(NDRCONSTRUCTEDTYPE):
                 LOG.error("Error unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size))
                 raise
 
-        self.fromStringSize = soFar - soFar0
-        return self
+        return soFar - soFar0
 
     def getAlignment(self):
         # Union alignment is the largest alignment of the union discriminator 
@@ -1581,14 +1549,12 @@ class NDRPOINTER(NDRSTRUCT):
         return data + NDRSTRUCT.getData(self, soFar)
 
     def fromString(self,data,soFar = 0):
-        self.fromStringSize = 0
 
         # First of all we need to align ourselves
         pad = self.calculatePad(self.commonHdr[0][1], soFar)
         if pad > 0:
             soFar += pad
             data = data[pad:]
-            self.fromStringSize += pad
 
         # Do we have a Referent ID == 0?
         if self._isNDR64 is True:
@@ -1598,20 +1564,15 @@ class NDRPOINTER(NDRSTRUCT):
 
         if unpack(unpackStr, data[:calcsize(unpackStr)])[0] == 0:
             # Let's save the value
-            fromStringSize = self.fromStringSize
             self['ReferentID'] = 0
-            self.fromStringSize = fromStringSize
             self.fields['Data'] = ''
             if self._isNDR64 is True:
-                self.fromStringSize += 8
+                return pad + 8
             else:
-                self.fromStringSize += 4
-            return self
+                return pad + 4
         else:
             retVal =  NDRSTRUCT.fromString(self,data, soFar)
-            self.fromStringSize += pad
-            # ACA
-            return retVal
+            return retVal + pad
 
     def dump(self, msg = None, indent = 0):
         if msg is None: msg = self.__class__.__name__
@@ -1663,7 +1624,6 @@ class NDRCALL(NDRCONSTRUCTEDTYPE):
     def __init__(self, data = None, isNDR64 = False):
         self._isNDR64 = isNDR64
         self.fields = {}
-        self.fromStringSize = None
 
         if isNDR64 is True:
             if self.commonHdr64 != ():
@@ -1760,8 +1720,7 @@ class NDRCALL(NDRCONSTRUCTEDTYPE):
                     soFar += advanceStream
                     data = data[advanceStream:]
 
-                self.fields[fieldName] = self.fields[fieldName].fromString(data, soFar)
-                size = self.fields[fieldName].getFromStringSize(soFar)
+                size = self.fields[fieldName].fromString(data, soFar)
 
                 # Any referent information to unpack?
                 if isinstance(self.fields[fieldName], NDRCONSTRUCTEDTYPE):
@@ -1775,8 +1734,7 @@ class NDRCALL(NDRCONSTRUCTEDTYPE):
                 LOG.error("Error unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data[:256], size))
                 raise
 
-        self.fromStringSize = soFar - soFar0
-        return self
+        return soFar - soFar0
 
 # Top Level Struct == NDRCALL
 NDRTLSTRUCT = NDRCALL
