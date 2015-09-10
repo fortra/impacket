@@ -313,6 +313,27 @@ class DRSRTests(unittest.TestCase):
         #    moreData = resp['pmsgOut']['V6']['fMoreData']
         #print "OBJECTS ", resp['pmsgOut']['V6']['cNumObjects']
 
+    def getMoreData(self, dce, request, resp):
+        while resp['pmsgOut']['V6']['fMoreData'] > 0:
+            #thisObject = resp['pmsgOut']['V6']['pObjects']
+            #done = False
+            #while not done:
+            #    nextObject = thisObject['pNextEntInf']
+            #    thisObject['pNextEntInf'] = NULL
+                #thisObject.dump()
+                #print '\n'
+                #print thisObject['Entinf']['pName']['StringName']
+            #    thisObject = nextObject
+            #    if nextObject is '':
+            #        done = True
+
+            request['pmsgIn']['V10']['uuidInvocIdSrc'] = resp['pmsgOut']['V6']
+            request['pmsgIn']['V10']['usnvecFrom'] = resp['pmsgOut']['V6']['usnvecTo']
+            resp = dce.request(request)
+            resp.dump()
+            print '\n'
+
+
     def test_DRSGetNCChanges2(self):
         # Not yet working
         dce, rpctransport, hDrs, DsaObjDest = self.connect()
@@ -356,6 +377,7 @@ class DRSRTests(unittest.TestCase):
         print resp['pmsgOut']['V6']['pNC']['StringName']
         resp.dump()
         print '\n'
+        self.getMoreData(dce, request, resp)
 
         dsName = drsuapi.DSNAME(isNDR64=request._isNDR64)
         dsName['SidLen'] = 0
@@ -373,6 +395,7 @@ class DRSRTests(unittest.TestCase):
         print resp['pmsgOut']['V6']['pNC']['StringName']
         resp.dump()
         print '\n'
+        self.getMoreData(dce, request, resp)
 
         dsName = drsuapi.DSNAME(isNDR64=request._isNDR64)
         dsName['SidLen'] = 0
@@ -390,6 +413,7 @@ class DRSRTests(unittest.TestCase):
         print resp['pmsgOut']['V6']['pNC']['StringName']
         resp.dump()
         print '\n'
+        self.getMoreData(dce, request, resp)
 
         #while resp['pmsgOut']['V6']['fMoreData'] > 0:
         #    thisObject = resp['pmsgOut']['V6']['pObjects']
