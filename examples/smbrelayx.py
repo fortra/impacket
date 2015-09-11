@@ -84,6 +84,12 @@ class doAttack(Thread):
             samHashes = None
             remoteOps = None
             try:
+                # We have to add some flags just in case the original client did not
+                # Why? needed for avoiding INVALID_PARAMETER
+                flags1, flags2 = self.__SMBConnection.getSMBServer().get_flags()
+                flags2 |= smb.SMB.FLAGS2_LONG_NAMES
+                self.__SMBConnection.getSMBServer().set_flags(flags2=flags2)
+
                 remoteOps  = RemoteOperations(self.__SMBConnection, False)
                 remoteOps.enableRegistry()
                 bootKey = remoteOps.getBootKey()
