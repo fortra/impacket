@@ -2415,6 +2415,46 @@ class Dot11ManagementBeacon(Dot11ManagementHelper):
         "Set the 802.11 Management Robust Security Network element."
         self._set_element(DOT11_MANAGEMENT_ELEMENTS.RSN, data)
 
+    def get_erp(self):
+        "Get the 802.11 Management ERP (extended rate PHY) Information element."
+        s = self._get_element(DOT11_MANAGEMENT_ELEMENTS.ERP_INFO)
+        if s is None:
+            return None
+
+        (erp,) = struct.unpack('B',s)
+        
+        return erp
+
+    def set_erp(self, erp):
+        "Set the 802.11 Management ERP (extended rate PHY) Inforamation "\
+        "element."
+        erp_string = struct.pack('B',erp)
+        self._set_element(DOT11_MANAGEMENT_ELEMENTS.ERP_INFO, erp_string)
+
+    def get_country(self):
+        "Get the 802.11 Management Country element." \
+        "Returnes a tuple containing Country code, frist channel number, "\
+        "number of channels and maximum transmit power level"
+        s = self._get_element(DOT11_MANAGEMENT_ELEMENTS.COUNTRY)
+        if s is None:
+            return None
+
+        code, first, num, max = struct.unpack('3sBBB',s)
+        code = code.strip(' ')
+        return code, first, num, max
+
+    def set_country(self, code, first_channel, number_of_channels, max_power):
+        "Set the 802.11 Management Country element."
+        if len(code) > 3:
+            raise Exception("Country code must be up to 3 bytes long")
+
+        #Padding the country code
+        code += ' ' * (3-len(code))
+
+        country_string = struct.pack('3sBBB', code, first_channel,
+                number_of_channels, max_power)
+        self._set_element(DOT11_MANAGEMENT_ELEMENTS.COUNTRY, country_string)
+
     def get_vendor_specific(self):
         "Get the 802.11 Management Vendor Specific elements "\
         "as a list of tuples."
