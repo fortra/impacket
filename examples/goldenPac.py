@@ -1040,9 +1040,9 @@ class MS14_068:
         drs['SiteObjGuid'] = NULLGUID
         drs['Pid'] = 0
         drs['dwReplEpoch'] = 0
-        drs['dwFlagsExt'] = DRS_EXT_RECYCLE_BIN
+        drs['dwFlagsExt'] = 0
         drs['ConfigObjGUID'] = NULLGUID
-        drs['dwExtCaps'] = 0
+        drs['dwExtCaps'] = 127
         request['pextClient']['cb'] = len(drs)
         request['pextClient']['rgb'] = list(str(drs))
         resp = dce.request(request)
@@ -1072,7 +1072,7 @@ class MS14_068:
         serverHandle = resp['ServerHandle']
         resp = samr.hSamrLookupDomainInSamServer(dce, serverHandle, self.__domain)
         domainId = resp['DomainId']
-        resp = samr.hSamrOpenDomain(dce, serverHandle, domainId = domainId) 
+        resp = samr.hSamrOpenDomain(dce, serverHandle, domainId = domainId)
         domainHandle = resp['DomainHandle']
         resp = samr.hSamrLookupNamesInDomain(dce, domainHandle, (self.__username,))
         # Let's pick the relative ID
