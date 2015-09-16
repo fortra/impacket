@@ -22,8 +22,7 @@ import ICMP6
 import IP6_Extension_Headers
 from cdp import CDP
 from Dot11Crypto import RC4
-import eap
-from impacket import wps
+from impacket import wps, eap
 from impacket.dot11 import Dot11WEPData
 
 
@@ -81,6 +80,9 @@ class EthDecoder(Decoder):
         elif e.get_ether_type() == ImpactPacket.ARP.ethertype:
             self.arp_decoder = ARPDecoder()
             packet = self.arp_decoder.decode(aBuffer[off:])
+        elif e.get_ether_type() == eap.DOT1X_AUTHENTICATION:
+            self.eapol_decoder = EAPOLDecoder()
+            packet = self.eapol_decoder.decode(aBuffer[off:])
         # LLC ?
         elif e.get_ether_type() < 1500:
             self.llc_decoder = LLCDecoder()
@@ -108,6 +110,9 @@ class LinuxSLLDecoder(Decoder):
         elif e.get_ether_type() == ImpactPacket.ARP.ethertype:
             self.arp_decoder = ARPDecoder()
             packet = self.arp_decoder.decode(aBuffer[off:])
+        elif e.get_ether_type() == eap.DOT1X_AUTHENTICATION:
+            self.eapol_decoder = EAPOLDecoder()
+            packet = self.eapol_decoder.decode(aBuffer[off:])
         else:
             self.data_decoder = DataDecoder()
             packet = self.data_decoder.decode(aBuffer[off:])
