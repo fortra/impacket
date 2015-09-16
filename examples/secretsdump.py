@@ -351,11 +351,19 @@ class RemoteOperations:
         request['pextClient']['cb'] = len(drs)
         request['pextClient']['rgb'] = list(str(drs))
         resp = self.__drsr.request(request)
+        if logging.getLogger().level == logging.DEBUG:
+            logging.debug('DRSBind() answer')
+            resp.dump()
+            drs = drsuapi.DRS_EXTENSIONS_INT(''.join(resp['ppextServer']['rgb']))
+            drs.dump()
 
         self.__hDrs = resp['phDrs']
 
         # Now let's get the NtdsDsaObjectGuid UUID to use when querying NCChanges
         resp = drsuapi.hDRSDomainControllerInfo(self.__drsr, self.__hDrs, self.__domainName, 2)
+        if logging.getLogger().level == logging.DEBUG:
+            logging.debug('DRSDomainControllerInfo() answer')
+            resp.dump()
 
         if resp['pmsgOut']['V2']['cItems'] > 0:
             self.__NtdsDsaObjectGuid = resp['pmsgOut']['V2']['rItems'][0]['NtdsDsaObjectGuid']
