@@ -345,9 +345,9 @@ class RemoteOperations:
         drs['SiteObjGuid'] = drsuapi.NULLGUID
         drs['Pid'] = 0
         drs['dwReplEpoch'] = 0
-        drs['dwFlagsExt'] = drsuapi.DRS_EXT_RECYCLE_BIN
+        drs['dwFlagsExt'] = 0
         drs['ConfigObjGUID'] = drsuapi.NULLGUID
-        drs['dwExtCaps'] = 0
+        drs['dwExtCaps'] = 127
         request['pextClient']['cb'] = len(drs)
         request['pextClient']['rgb'] = list(str(drs))
         resp = self.__drsr.request(request)
