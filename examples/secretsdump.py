@@ -46,6 +46,7 @@
 from struct import unpack, pack
 from collections import OrderedDict
 from binascii import unhexlify, hexlify
+from datetime import datetime
 import sys
 import random
 import hashlib
@@ -1270,6 +1271,7 @@ class NTDSHashes:
         'lmPwdHistory':'ATTk589984',
         'pekList':'ATTk590689',
         'supplementalCredentials':'ATTk589949',
+        'pwdLastSet':'ATTq589920',
     }
 
     NAME_TO_ATTRTYP = {
@@ -1292,6 +1294,7 @@ class NTDSHashes:
         'lmPwdHistory': '1.2.840.113556.1.4.160',
         'supplementalCredentials': '1.2.840.113556.1.4.125',
         'objectSid': '1.2.840.113556.1.4.146',
+        'pwdLastSet': '1.2.840.113556.1.4.96',
     }
 
     KERBEROS_TYPE = {
@@ -1339,13 +1342,14 @@ class NTDSHashes:
         )
 
     def __init__(self, ntdsFile, bootKey, isRemote=False, history=False, noLMHash=True, remoteOps=None,
-                 useVSSMethod=False, justNTLM=False):
+                 useVSSMethod=False, justNTLM=False, pwdLastSet=False):
         self.__bootKey = bootKey
         self.__NTDS = ntdsFile
         self.__history = history
         self.__noLMHash = noLMHash
         self.__useVSSMethod = useVSSMethod
         self.__remoteOps = remoteOps
+        self.__pwdLastSet = pwdLastSet
         if self.__NTDS is not None:
             self.__ESEDB = ESENT_DB(ntdsFile, isRemote = isRemote)
             self.__cursor = self.__ESEDB.openTable('datatable')
@@ -1401,6 +1405,15 @@ class NTDSHashes:
         decryptedHash = Crypt1.decrypt(cryptedHash[:8]) + Crypt2.decrypt(cryptedHash[8:])
 
         return decryptedHash
+
+    def __fileTimeToDateTime(self, t):
+        t -= 116444736000000000
+        t /= 10000000
+        dt = datetime.fromtimestamp(t)
+        if dt.year == 1600:
+            return 'never'
+        else:
+            return dt.strftime("%Y-%m-%d %H:%M")
 
     def __decryptSupplementalInfo(self, record, prefixTable=None):
         # This is based on [MS-SAMR] 2.2.10 Supplemental Credentials Structures
@@ -1513,8 +1526,15 @@ class NTDSHashes:
             else:
                 userName = '%s' % record[self.NAME_TO_INTERNAL['sAMAccountName']]
 
+            if record[self.NAME_TO_INTERNAL['pwdLastSet']] is not None:
+                pwdLastSet = self.__fileTimeToDateTime(record[self.NAME_TO_INTERNAL['pwdLastSet']])
+            else:
+                pwdLastSet = 'N/A'
+
             answer = "%s:%s:%s:%s:::" % (userName, rid, hexlify(LMHash), hexlify(NTHash))
             self.__hashesFound[unhexlify(record[self.NAME_TO_INTERNAL['objectSid']])] = answer
+            if self.__pwdLastSet is True:
+                answer = "%s (pwdLastSet=%s)" % (answer, pwdLastSet)
             print answer
 
             if self.__history:
@@ -1598,6 +1618,13 @@ class NTDSHashes:
                     else:
                         logging.error('Cannot get objectSid for %s' % record['pmsgOut']['V6']['pNC']['StringName'][:-1])
                         objectSid = rid
+                elif attId == LOOKUP_TABLE['pwdLastSet']:
+                    if attr['AttrVal']['valCount'] > 0:
+                        try:
+                            pwdLastSet = self.__fileTimeToDateTime(unpack('<Q', ''.join(attr['AttrVal']['pAVal'][0]['pVal']))[0])
+                        except:
+                            logging.error('Cannot get pwdLastSet for %s' % record['pmsgOut']['V6']['pNC']['StringName'][:-1])
+                            pwdLastSet = 'N/A'
 
                 if self.__history:
                     if attId == LOOKUP_TABLE['lmPwdHistory']:
@@ -1624,6 +1651,8 @@ class NTDSHashes:
 
             answer = "%s:%s:%s:%s:::" % (userName, rid, hexlify(LMHash), hexlify(NTHash))
             self.__hashesFound[objectSid] = answer
+            if self.__pwdLastSet is True:
+                answer = "%s (pwdLastSet=%s)" % (answer, pwdLastSet)
             print answer
 
             if self.__history:
@@ -1781,37 +1810,35 @@ class NTDSHashes:
 
 
 class DumpSecrets:
-    def __init__(self, address, username='', password='', domain='', hashes=None, aesKey=None, doKerberos=False,
-                 system=False, security=False, sam=False, ntds=False, outputFileName=None, history=False,
-                 useVSSMethod=False, justDC=False, justDCNTLM=False):
-        self.__useVSSMethod = useVSSMethod
+    def __init__(self, address, username='', password='', domain='', options=None):
+        self.__useVSSMethod = options.use_vss
         self.__remoteAddr = address
         self.__username = username
         self.__password = password
         self.__domain = domain
         self.__lmhash = ''
         self.__nthash = ''
-        self.__aesKey = aesKey
+        self.__aesKey = options.aesKey
         self.__smbConnection = None
         self.__remoteOps = None
         self.__SAMHashes = None
         self.__NTDSHashes = None
         self.__LSASecrets = None
-        self.__systemHive = system
-        self.__securityHive = security
-        self.__samHive = sam
-        self.__ntdsFile = ntds
-        self.__history = history
+        self.__systemHive = options.system
+        self.__securityHive = options.security
+        self.__samHive = options.sam
+        self.__ntdsFile = options.ntds
+        self.__history = options.history
         self.__noLMHash = True
         self.__isRemote = True
-        self.__outputFileName = outputFileName
-        self.__doKerberos = doKerberos
-        self.__justDC = justDC
-        self.__justDCNTLM = justDCNTLM
+        self.__outputFileName = options.outputfile
+        self.__doKerberos = options.k
+        self.__justDC = options.just_dc
+        self.__justDCNTLM = options.just_dc_ntlm
+        self.__pwdLastSet = options.pwd_last_set
 
-        if hashes is not None:
-            self.__lmhash, self.__nthash = hashes.split(':')
-
+        if options.hashes is not None:
+            self.__lmhash, self.__nthash = options.hashes.split(':')
 
     def connect(self):
         self.__smbConnection = SMBConnection(self.__remoteAddr, self.__remoteAddr)
@@ -1920,7 +1947,7 @@ class DumpSecrets:
 
             self.__NTDSHashes = NTDSHashes(NTDSFileName, bootKey, isRemote=self.__isRemote, history=self.__history,
                                            noLMHash=self.__noLMHash, remoteOps=self.__remoteOps,
-                                           useVSSMethod=self.__useVSSMethod, justNTLM=self.__justDCNTLM)
+                                           useVSSMethod=self.__useVSSMethod, justNTLM=self.__justDCNTLM, pwdLastSet=self.__pwdLastSet)
             try:
                 self.__NTDSHashes.dump()
             except Exception, e:
@@ -1973,10 +2000,13 @@ if __name__ == '__main__':
                         help='base output filename. Extensions will be added for sam, secrets, cached and ntds')
     parser.add_argument('-use-vss', action='store_true', default=False,
                         help='Use the VSS method insead of default DRSUAPI')
-    parser.add_argument('-just-dc', action='store_true', default=False,
+    group = parser.add_argument_group('display options')
+    group.add_argument('-just-dc', action='store_true', default=False,
                         help='Extract only NTDS.DIT data (NTLM hashes and Kerberos keys)')
-    parser.add_argument('-just-dc-ntlm', action='store_true', default=False,
-                        help='Extract only NTDS.DIT data (NTLM hashes only)')
+    group.add_argument('-just-dc-ntlm', action='store_true', default=False,
+                       help='Extract only NTDS.DIT data (NTLM hashes only)')
+    group.add_argument('-pwd-last-set', action='store_true', default=False,
+                        help='Shows pwdLastSet attribute for each NTDS.DIT account. Doesn\'t apply to -outputfile data')
     group = parser.add_argument_group('authentication')
 
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
@@ -2016,9 +2046,7 @@ if __name__ == '__main__':
         if options.aesKey is not None:
             options.k = True
 
-    dumper = DumpSecrets(address, username, password, domain, options.hashes, options.aesKey, options.k, options.system,
-                         options.security, options.sam, options.ntds, options.outputfile, options.history,
-                         options.use_vss, options.just_dc, options.just_dc_ntlm)
+    dumper = DumpSecrets(address, username, password, domain, options)
     try:
         dumper.dump()
     except Exception, e:
