@@ -1759,7 +1759,11 @@ class WCHAR_ARRAY(NDRSTRUCT):
 
     def __setitem__(self, key, value):
         if key == 'Data':
-            self.fields[key] = value.encode('utf-16le')
+            try:
+                self.fields[key] = value.encode('utf-16le')
+            except UnicodeDecodeError:
+                import sys
+                self.fields[key] = value.decode(sys.stdin.encoding).encode('utf-16le')
             self.fields['ActualCount'] = None
             self.data = None        # force recompute
         else:

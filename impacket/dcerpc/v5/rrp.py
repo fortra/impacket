@@ -860,7 +860,11 @@ def hBaseRegSetValue(dce, hKey, lpValueName, dwType, lpData):
     request['hKey'] = hKey
     request['lpValueName'] = checkNullString(lpValueName)
     request['dwType'] = dwType
-    request['lpData'] = lpData.encode('utf-16le')
+    try:
+        request['lpData'] = lpData.encode('utf-16le')
+    except UnicodeDecodeError:
+        import sys
+        request['lpData'] = lpData.decode(sys.stdin.encoding).encode('utf-16le')
     request['cbData'] = len(request['lpData'])
     return dce.request(request)
 

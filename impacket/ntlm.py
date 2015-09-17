@@ -469,6 +469,24 @@ def getNTLMSSPType1(workstation='', domain='', signingRequired = False, use_ntlm
 
 def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = '', use_ntlmv2 = USE_NTLMv2):
 
+    # Let's do some encoding checks before moving on. Kind of dirty, but found effective when dealing with
+    # international characters.
+    import sys
+    encoding = sys.stdin.encoding
+    if encoding is not None:
+        try:
+            user.encode('utf-16le')
+        except:
+            user = user.decode(encoding)
+        try:
+            password.encode('utf-16le')
+        except:
+            password = password.decode(encoding)
+        try:
+            domain.encode('utf-16le')
+        except:
+            domain = user.decode(encoding)
+
     ntlmChallenge = NTLMAuthChallenge(type2)
 
     # Let's start with the original flags sent in the type1 message
@@ -603,7 +621,12 @@ def LMOWFv1(password, lmhash = '', nthash=''):
 
 def compute_nthash(password):
     # This is done according to Samba's encryption specification (docs/html/ENCRYPTION.html)
-    password = unicode(password).encode('utf_16le')
+    try:
+        password = unicode(password).encode('utf_16le')
+    except UnicodeDecodeError:
+        import sys
+        password = password.decode(sys.stdin.encoding).encode('utf_16le')
+
     if POW:
         hash = POW.Digest(POW.MD4_DIGEST)
     else:        

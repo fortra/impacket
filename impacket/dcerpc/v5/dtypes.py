@@ -61,7 +61,12 @@ class WIDESTR(NDRUniFixedArray):
 
     def __setitem__(self, key, value):
         if key == 'Data':
-            self.fields[key] = value.encode('utf-16le')
+            try:
+                self.fields[key] = value.encode('utf-16le')
+            except UnicodeDecodeError:
+                import sys
+                self.fields[key] = value.decode(sys.stdin.encoding).encode('utf-16le')
+
             self.data = None        # force recompute
         else:
             return NDR.__setitem__(self, key, value)
@@ -138,7 +143,11 @@ class WSTR(NDRSTRUCT):
 
     def __setitem__(self, key, value):
         if key == 'Data':
-            self.fields[key] = value.encode('utf-16le')
+            try:
+                self.fields[key] = value.encode('utf-16le')
+            except UnicodeDecodeError:
+                import sys
+                self.fields[key] = value.decode(sys.stdin.encoding).encode('utf-16le')
             self.fields['MaximumCount'] = None
             self.fields['ActualCount'] = None
             self.data = None        # force recompute
@@ -337,6 +346,11 @@ class RPC_UNICODE_STRING(NDRSTRUCT):
 
     def __setitem__(self, key, value):
         if key == 'Data' and isinstance(value, NDR) is False:
+            try:
+                value.encode('utf-16le')
+            except UnicodeDecodeError:
+                import sys
+                value = value.decode(sys.stdin.encoding)
             self['Length'] = len(value)*2
             self['MaximumLength'] = len(value)*2
         return NDRSTRUCT.__setitem__(self, key, value)
