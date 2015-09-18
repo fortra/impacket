@@ -758,8 +758,13 @@ class MS14_068:
         # 2) PAC_CLIENT_INFO
         pacClientInfo = PAC_CLIENT_INFO()
         pacClientInfo['ClientId'] = unixTime
-        pacClientInfo['NameLength'] = len(self.__username.encode('utf-16le'))
-        pacClientInfo['Name'] = self.__username.encode('utf-16le')
+        try:
+            name = self.__username.encode('utf-16le')
+        except UnicodeDecodeError:
+            import sys
+            name = self.__username.decode(sys.getfilesystemencoding()).encode('utf-16le')
+        pacClientInfo['NameLength'] = len(name)
+        pacClientInfo['Name'] = name
         pacClientInfoBlob = str(pacClientInfo)
         pacClientInfoAlignment = '\x00'*(((len(pacClientInfoBlob)+7)/8*8)-len(pacClientInfoBlob))
 

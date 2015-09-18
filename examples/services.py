@@ -228,7 +228,11 @@ class SVCCTL:
             if self.__options.password is not None:
                 s = rpctransport.get_smb_connection()
                 key = s.getSessionKey()
-                password = (self.__options.password+'\x00').encode('utf-16le')
+                try:
+                    password = (self.__options.password+'\x00').encode('utf-16le')
+                except UnicodeDecodeError:
+                    import sys
+                    password = (self.__options.password+'\x00').decode(sys.getfilesystemencoding()).encode('utf-16le')
                 password = encryptSecret(key, password)
             else:
                 password = NULL
