@@ -356,8 +356,6 @@ class RemoteOperations:
         if logging.getLogger().level == logging.DEBUG:
             logging.debug('DRSBind() answer')
             resp.dump()
-            drs = drsuapi.DRS_EXTENSIONS_INT(''.join(resp['ppextServer']['rgb']))
-            drs.dump()
 
         self.__hDrs = resp['phDrs']
 
