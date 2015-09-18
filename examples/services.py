@@ -18,6 +18,7 @@
 import sys
 import argparse
 import logging
+import codecs
 
 from impacket.examples import logger
 from impacket import version
@@ -256,6 +257,10 @@ if __name__ == '__main__':
 
     # Init the example's logger theme
     logger.init()
+    # Explicitly changing the stdout encoding format
+    if sys.stdout.encoding is None:
+        # Output is redirected to a file
+        sys.stdout = codecs.getwriter('utf8')(sys.stdout)
     print version.BANNER
 
     parser = argparse.ArgumentParser(add_help = True, description = "Windows Service manipulation script.")
