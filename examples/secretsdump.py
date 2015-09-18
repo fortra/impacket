@@ -55,6 +55,7 @@ import logging
 import ntpath
 import time
 import string
+import codecs
 
 from impacket.examples import logger
 from impacket import version, winregistry, ntlm
@@ -942,7 +943,7 @@ class SAMHashes(OfflineRegistry):
     def export(self, fileName):
         if len(self.__itemsFound) > 0:
             items = sorted(self.__itemsFound)
-            fd = open(fileName+'.sam','w+')
+            fd = codecs.open(fileName+'.sam','w+', encoding='utf-8')
             for item in items:
                 fd.write(self.__itemsFound[item]+'\n')
             fd.close()
@@ -1237,14 +1238,14 @@ class LSASecrets(OfflineRegistry):
 
     def exportSecrets(self, fileName):
         if len(self.__secretItems) > 0:
-            fd = open(fileName+'.secrets','w+')
+            fd = codecs.open(fileName+'.secrets','w+', encoding='utf-8')
             for item in self.__secretItems:
                 fd.write(item+'\n')
             fd.close()
 
     def exportCached(self, fileName):
         if len(self.__cachedItems) > 0:
-            fd = open(fileName+'.cached','w+')
+            fd = codecs.open(fileName+'.cached','w+', encoding='utf-8')
             for item in self.__cachedItems:
                 fd.write(item+'\n')
             fd.close()
@@ -1787,7 +1788,7 @@ class NTDSHashes:
     def export(self, fileName):
         if len(self.__hashesFound) > 0:
             items = sorted(self.__hashesFound)
-            fd = open(fileName+'.ntds','w+')
+            fd = codecs.open(fileName+'.ntds','w+', encoding='utf-8')
             for item in items:
                 try:
                     fd.write(self.__hashesFound[item]+'\n')
@@ -1799,7 +1800,7 @@ class NTDSHashes:
                     pass
             fd.close()
         if len(self.__kerberosKeys) > 0:
-            fd = open(fileName+'.ntds.kerberos','w+')
+            fd = codecs.open(fileName+'.ntds.kerberos','w+', encoding='utf-8')
             for itemKey in self.__kerberosKeys.keys():
                 fd.write(itemKey+'\n')
             fd.close()
