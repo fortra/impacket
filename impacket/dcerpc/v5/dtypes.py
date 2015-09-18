@@ -65,7 +65,7 @@ class WIDESTR(NDRUniFixedArray):
                 self.fields[key] = value.encode('utf-16le')
             except UnicodeDecodeError:
                 import sys
-                self.fields[key] = value.decode(sys.stdin.encoding).encode('utf-16le')
+                self.fields[key] = value.decode(sys.getfilesystemencoding()).encode('utf-16le')
 
             self.data = None        # force recompute
         else:
@@ -147,7 +147,7 @@ class WSTR(NDRSTRUCT):
                 self.fields[key] = value.encode('utf-16le')
             except UnicodeDecodeError:
                 import sys
-                self.fields[key] = value.decode(sys.stdin.encoding).encode('utf-16le')
+                self.fields[key] = value.decode(sys.getfilesystemencoding()).encode('utf-16le')
             self.fields['MaximumCount'] = None
             self.fields['ActualCount'] = None
             self.data = None        # force recompute
@@ -350,7 +350,7 @@ class RPC_UNICODE_STRING(NDRSTRUCT):
                 value.encode('utf-16le')
             except UnicodeDecodeError:
                 import sys
-                value = value.decode(sys.stdin.encoding)
+                value = value.decode(sys.getfilesystemencoding())
             self['Length'] = len(value)*2
             self['MaximumLength'] = len(value)*2
         return NDRSTRUCT.__setitem__(self, key, value)

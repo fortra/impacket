@@ -1763,7 +1763,7 @@ class WCHAR_ARRAY(NDRSTRUCT):
                 self.fields[key] = value.encode('utf-16le')
             except UnicodeDecodeError:
                 import sys
-                self.fields[key] = value.decode(sys.stdin.encoding).encode('utf-16le')
+                self.fields[key] = value.decode(sys.getfilesystemencoding()).encode('utf-16le')
             self.fields['ActualCount'] = None
             self.data = None        # force recompute
         else:
