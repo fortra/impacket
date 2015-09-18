@@ -1986,6 +1986,9 @@ class DumpSecrets:
 if __name__ == '__main__':
     # Init the example's logger theme
     logger.init()
+    # Explicitly changing the stdout encoding format
+    sys.stdout = codecs.getwriter('utf8')(sys.stdout)
+
     print version.BANNER
 
     parser = argparse.ArgumentParser(add_help = True, description = "Performs various techniques to dump secrets from the remote machine without executing any agent there.")
