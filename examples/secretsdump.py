@@ -1987,7 +1987,9 @@ if __name__ == '__main__':
     # Init the example's logger theme
     logger.init()
     # Explicitly changing the stdout encoding format
-    sys.stdout = codecs.getwriter('utf8')(sys.stdout)
+    if sys.stdout.encoding is None:
+        # Output is redirected to a file
+        sys.stdout = codecs.getwriter('utf8')(sys.stdout)
 
     print version.BANNER
 
