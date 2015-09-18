@@ -472,7 +472,7 @@ def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = 
     # Let's do some encoding checks before moving on. Kind of dirty, but found effective when dealing with
     # international characters.
     import sys
-    encoding = sys.stdin.encoding
+    encoding = sys.getfilesystemencoding()
     if encoding is not None:
         try:
             user.encode('utf-16le')
@@ -625,7 +625,7 @@ def compute_nthash(password):
         password = unicode(password).encode('utf_16le')
     except UnicodeDecodeError:
         import sys
-        password = password.decode(sys.stdin.encoding).encode('utf_16le')
+        password = password.decode(sys.getfilesystemencoding()).encode('utf_16le')
 
     if POW:
         hash = POW.Digest(POW.MD4_DIGEST)
