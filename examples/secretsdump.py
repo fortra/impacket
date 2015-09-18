@@ -1410,10 +1410,10 @@ class NTDSHashes:
     def __fileTimeToDateTime(self, t):
         t -= 116444736000000000
         t /= 10000000
-        dt = datetime.fromtimestamp(t)
-        if dt.year == 1600:
+        if t < 0:
             return 'never'
         else:
+            dt = datetime.fromtimestamp(t)
             return dt.strftime("%Y-%m-%d %H:%M")
 
     def __decryptSupplementalInfo(self, record, prefixTable=None):
