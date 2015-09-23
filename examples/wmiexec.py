@@ -137,7 +137,10 @@ class RemoteShell(cmd.Cmd):
         if s == '':
             print os.getcwd()
         else:
-            os.chdir(s)
+            try:
+                os.chdir(s)
+            except Exception, e:
+                logging.error(str(e))
 
     def do_get(self, src_path):
         try:
