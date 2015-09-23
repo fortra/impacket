@@ -1303,10 +1303,10 @@ def hREnumServicesStatusW(dce, hSCManager, dwServiceType=SERVICE_WIN32_OWN_PROCE
     # Since the pointers here are pointing to the actual data, we have to reparse
     # the referents
     for record in enumArray['Data']:
-        offset =  record.fields['lpDisplayName'].fields['ReferentID']
+        offset =  record.fields['lpDisplayName'].fields['ReferentID']-4
         name = WIDESTR(data[offset:])
         record['lpDisplayName'] = name['Data']
-        offset =  record.fields['lpServiceName'].fields['ReferentID']
+        offset =  record.fields['lpServiceName'].fields['ReferentID']-4
         name = WIDESTR(data[offset:])
         record['lpServiceName'] = name['Data']
 
