@@ -1068,6 +1068,7 @@ class DCOMConnection:
                 DCOMConnection.PINGTIMER = None
         if INTERFACE.CONNECTIONS.has_key(self.__target):
             INTERFACE.CONNECTIONS[self.__target] = {}
+        self.__portmap.disconnect()
         #print INTERFACE.CONNECTIONS
 
 class CLASS_INSTANCE:
