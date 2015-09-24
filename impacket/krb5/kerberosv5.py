@@ -43,6 +43,7 @@ def sendReceive(data, host, kdcHost):
 
     messageLen = struct.pack('!i', len(data))
 
+    LOG.debug('Trying to connect to KDC at %s' % targetHost)
     s = socket.socket()
     s.connect((targetHost, 88))
     s.sendall(messageLen + data)
