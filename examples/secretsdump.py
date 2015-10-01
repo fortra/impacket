@@ -56,6 +56,7 @@ import ntpath
 import time
 import string
 import codecs
+import os
 
 from impacket.examples import logger
 from impacket import version, winregistry, ntlm
@@ -1341,7 +1342,7 @@ class NTDSHashes:
         )
 
     def __init__(self, ntdsFile, bootKey, isRemote=False, history=False, noLMHash=True, remoteOps=None,
-                 useVSSMethod=False, justNTLM=False, pwdLastSet=False):
+                 useVSSMethod=False, justNTLM=False, pwdLastSet=False, resumeSession=None):
         self.__bootKey = bootKey
         self.__NTDS = ntdsFile
         self.__history = history
@@ -1358,6 +1359,7 @@ class NTDSHashes:
         self.__hashesFound = {}
         self.__kerberosKeys = OrderedDict()
         self.__justNTLM = justNTLM
+        self.__savedSessionFile = resumeSession
 
     def __getPek(self):
         logging.info('Searching for pekList, be patient')
@@ -1739,6 +1741,29 @@ class NTDSHashes:
             logging.info('Using the DRSUAPI method to get NTDS.DIT secrets')
             status = STATUS_MORE_ENTRIES
             enumerationContext = 0
+
+            tmpName = 'sessionresume_%s' % ''.join([random.choice(string.letters) for i in range(8)])
+            logging.debug('Session resume file will be %s' % tmpName)
+
+            # Do we have to resume from a previously saved session?
+            if self.__savedSessionFile is not None:
+                # Yes
+                try:
+                    savedSession = open(self.__savedSessionFile, 'r')
+                except Exception, e:
+                    raise Exception('Cannot open resume session file name %s' % str(e))
+                resumeSid = savedSession.read().strip('\n')
+                savedSession.close()
+                logging.info('Resuming from SID %s, be patient' % resumeSid)
+            else:
+                resumeSid = None
+
+            # Creating the resume session file
+            try:
+                resumeFile = open(tmpName, 'wb+')
+            except Exception, e:
+                raise Exception('Cannot create resume session file %s' % str(e))
+
             while status == STATUS_MORE_ENTRIES:
                 resp = self.__remoteOps.getDomainUsers(enumerationContext)
 
@@ -1746,6 +1771,12 @@ class NTDSHashes:
                     userName = user['Name']
 
                     userSid = self.__remoteOps.ridToSid(user['RelativeId'])
+                    if resumeSid is not None:
+                        # Means we're looking for a SID before start processing back again
+                        if resumeSid == userSid.formatCanonical():
+                            # Match!, next round we will back processing
+                            resumeSid = None
+                        continue
 
                     # Let's crack the user sid into DS_FQDN_1779_NAME
                     # In theory I shouldn't need to crack the sid. Instead
@@ -1770,8 +1801,19 @@ class NTDSHashes:
                         logging.error("Error while processing user!")
                         logging.error(str(e))
 
+                    # Saving the session state
+                    resumeFile.seek(0,0)
+                    resumeFile.truncate(0)
+                    resumeFile.write(userSid.formatCanonical())
+                    resumeFile.flush()
+
                 enumerationContext = resp['EnumerationContext']
                 status = resp['ErrorCode']
+
+            # Everything went well and we covered all the users
+            # Let's remove the resume file
+            resumeFile.close()
+            os.remove(tmpName)
 
         # Now we'll print the Kerberos keys. So we don't mix things up in the output.
         if len(self.__kerberosKeys) > 0:
@@ -1835,6 +1877,7 @@ class DumpSecrets:
         self.__justDC = options.just_dc
         self.__justDCNTLM = options.just_dc_ntlm
         self.__pwdLastSet = options.pwd_last_set
+        self.__resumeFileName = options.resumefile
 
         if options.hashes is not None:
             self.__lmhash, self.__nthash = options.hashes.split(':')
@@ -1946,7 +1989,8 @@ class DumpSecrets:
 
             self.__NTDSHashes = NTDSHashes(NTDSFileName, bootKey, isRemote=self.__isRemote, history=self.__history,
                                            noLMHash=self.__noLMHash, remoteOps=self.__remoteOps,
-                                           useVSSMethod=self.__useVSSMethod, justNTLM=self.__justDCNTLM, pwdLastSet=self.__pwdLastSet)
+                                           useVSSMethod=self.__useVSSMethod, justNTLM=self.__justDCNTLM,
+                                           pwdLastSet=self.__pwdLastSet, resumeSession=self.__resumeFileName)
             try:
                 self.__NTDSHashes.dump()
             except Exception, e:
@@ -1999,7 +2043,7 @@ if __name__ == '__main__':
     parser.add_argument('-security', action='store', help='SECURITY hive to parse')
     parser.add_argument('-sam', action='store', help='SAM hive to parse')
     parser.add_argument('-ntds', action='store', help='NTDS.DIT file to parse')
-    parser.add_argument('-history', action='store_true', help='Dump password history')
+    parser.add_argument('-resumefile', action='store', help='resume file name to resume NTDS.DIT session dump (only available to DRSUAPI approach)')
     parser.add_argument('-outputfile', action='store',
                         help='base output filename. Extensions will be added for sam, secrets, cached and ntds')
     parser.add_argument('-use-vss', action='store_true', default=False,
@@ -2011,6 +2055,7 @@ if __name__ == '__main__':
                        help='Extract only NTDS.DIT data (NTLM hashes only)')
     group.add_argument('-pwd-last-set', action='store_true', default=False,
                         help='Shows pwdLastSet attribute for each NTDS.DIT account. Doesn\'t apply to -outputfile data')
+    group.add_argument('-history', action='store_true', help='Dump password history')
     group = parser.add_argument_group('authentication')
 
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
@@ -2033,6 +2078,14 @@ if __name__ == '__main__':
 
     domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
         options.target).groups('')
+
+    if options.use_vss is True and options.resumefile is not None:
+        logging.error('resuming a previous NTDS.DIT dump session is not supported in VSS mode')
+        sys.exit(1)
+
+    if address.upper() == 'LOCAL' and username == '' and options.resumefile is not None:
+        logging.error('resuming a previous NTDS.DIT dump session is not supported in VSS mode')
+        sys.exit(1)
 
     if address.upper() == 'LOCAL' and username == '':
         if options.system is None:
