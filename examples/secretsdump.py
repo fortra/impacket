@@ -1358,6 +1358,7 @@ class NTDSHashes:
         self.__cryptoCommon = CryptoCommon()
         self.__hashesFound = {}
         self.__kerberosKeys = OrderedDict()
+        self.__clearTextPwds = OrderedDict()
         self.__justNTLM = justNTLM
         self.__savedSessionFile = resumeSession
 
@@ -1481,7 +1482,7 @@ class NTDSHashes:
             for propertyCount in range(userProperties['PropertyCount']):
                 userProperty = samr.USER_PROPERTY(propertiesData)
                 propertiesData = propertiesData[len(userProperty):]
-                # For now, we will only process Newer Kerberos Keys.
+                # For now, we will only process Newer Kerberos Keys and CLEARTEXT
                 if userProperty['PropertyName'].decode('utf-16le') == 'Primary:Kerberos-Newer-Keys':
                     propertyValueBuffer = unhexlify(userProperty['PropertyValue'])
                     kerbStoredCredentialNew = samr.KERB_STORED_CREDENTIAL_NEW(propertyValueBuffer)
@@ -1499,6 +1500,11 @@ class NTDSHashes:
                         # This is kind of ugly... but it's what I came up with tonight to get an ordered
                         # set :P. Better ideas welcomed ;)
                         self.__kerberosKeys[answer] = None
+                elif userProperty['PropertyName'].decode('utf-16le') == 'Primary:CLEARTEXT':
+                    # [MS-SAMR] 3.1.1.8.11.5 Primary:CLEARTEXT Property
+                    # This credential type is the cleartext password. The value format is the UTF-16 encoded cleartext password.
+                    answer = "%s:CLEARTEXT:%s" % (userName, unhexlify(userProperty['PropertyValue']).decode('utf-16le'))
+                    self.__clearTextPwds[answer] = None
 
     def __decryptHash(self, record, rid=None, prefixTable=None):
         if self.__useVSSMethod is True:
@@ -1825,6 +1831,16 @@ class NTDSHashes:
             for itemKey in self.__kerberosKeys.keys():
                 print itemKey
 
+        # And finally the cleartext pwds
+        if len(self.__clearTextPwds) > 0:
+            if self.__useVSSMethod is True:
+                logging.info('ClearText password from %s ' % self.__NTDS)
+            else:
+                logging.info('ClearText passwords grabbed')
+
+            for itemKey in self.__clearTextPwds.keys():
+                print itemKey
+
     def export(self, fileName):
         if len(self.__hashesFound) > 0:
             items = sorted(self.__hashesFound)
@@ -1842,6 +1858,12 @@ class NTDSHashes:
         if len(self.__kerberosKeys) > 0:
             fd = codecs.open(fileName+'.ntds.kerberos','w+', encoding='utf-8')
             for itemKey in self.__kerberosKeys.keys():
+                fd.write(itemKey+'\n')
+            fd.close()
+
+        if len(self.__clearTextPwds) > 0:
+            fd = codecs.open(fileName+'.ntds.cleartext','w+', encoding='utf-8')
+            for itemKey in self.__clearTextPwds.keys():
                 fd.write(itemKey+'\n')
             fd.close()
 
