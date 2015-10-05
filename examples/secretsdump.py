@@ -1342,7 +1342,7 @@ class NTDSHashes:
         )
 
     def __init__(self, ntdsFile, bootKey, isRemote=False, history=False, noLMHash=True, remoteOps=None,
-                 useVSSMethod=False, justNTLM=False, pwdLastSet=False, resumeSession=None):
+                 useVSSMethod=False, justNTLM=False, pwdLastSet=False, resumeSession=None, outputFileName=None):
         self.__bootKey = bootKey
         self.__NTDS = ntdsFile
         self.__history = history
@@ -1356,11 +1356,11 @@ class NTDSHashes:
         self.__tmpUsers = list()
         self.__PEK = None
         self.__cryptoCommon = CryptoCommon()
-        self.__hashesFound = {}
         self.__kerberosKeys = OrderedDict()
         self.__clearTextPwds = OrderedDict()
         self.__justNTLM = justNTLM
         self.__savedSessionFile = resumeSession
+        self.__outputFileName = outputFileName
 
     def __getPek(self):
         logging.info('Searching for pekList, be patient')
@@ -1417,7 +1417,7 @@ class NTDSHashes:
             dt = datetime.fromtimestamp(t)
             return dt.strftime("%Y-%m-%d %H:%M")
 
-    def __decryptSupplementalInfo(self, record, prefixTable=None):
+    def __decryptSupplementalInfo(self, record, prefixTable=None, keysFile=None, clearTextFile=None):
         # This is based on [MS-SAMR] 2.2.10 Supplemental Credentials Structures
         haveInfo = False
         if self.__useVSSMethod is True:
@@ -1500,13 +1500,22 @@ class NTDSHashes:
                         # This is kind of ugly... but it's what I came up with tonight to get an ordered
                         # set :P. Better ideas welcomed ;)
                         self.__kerberosKeys[answer] = None
+                        if keysFile is not None:
+                            self.__writeOutput(keysFile, answer + '\n')
                 elif userProperty['PropertyName'].decode('utf-16le') == 'Primary:CLEARTEXT':
                     # [MS-SAMR] 3.1.1.8.11.5 Primary:CLEARTEXT Property
                     # This credential type is the cleartext password. The value format is the UTF-16 encoded cleartext password.
                     answer = "%s:CLEARTEXT:%s" % (userName, unhexlify(userProperty['PropertyValue']).decode('utf-16le'))
                     self.__clearTextPwds[answer] = None
+                    if clearTextFile is not None:
+                        self.__writeOutput(clearTextFile, answer + '\n')
 
-    def __decryptHash(self, record, rid=None, prefixTable=None):
+            if clearTextFile is not None:
+                clearTextFile.flush()
+            if keysFile is not None:
+                keysFile.flush()
+
+    def __decryptHash(self, record, rid=None, prefixTable=None, outputFile=None):
         if self.__useVSSMethod is True:
             logging.debug('Decrypting hash for user: %s' % record[self.NAME_TO_INTERNAL['name']])
 
@@ -1539,7 +1548,9 @@ class NTDSHashes:
                 pwdLastSet = 'N/A'
 
             answer = "%s:%s:%s:%s:::" % (userName, rid, hexlify(LMHash), hexlify(NTHash))
-            self.__hashesFound[unhexlify(record[self.NAME_TO_INTERNAL['objectSid']])] = answer
+            if outputFile is not None:
+                self.__writeOutput(outputFile, answer + '\n')
+
             if self.__pwdLastSet is True:
                 answer = "%s (pwdLastSet=%s)" % (answer, pwdLastSet)
             print answer
@@ -1569,7 +1580,8 @@ class NTDSHashes:
                         lmhash = hexlify(LMHash)
 
                     answer = "%s_history%d:%s:%s:%s:::" % (userName, i, rid, lmhash, hexlify(NTHash))
-                    self.__hashesFound[unhexlify(record[self.NAME_TO_INTERNAL['objectSid']]) + str(i)] = answer
+                    if outputFile is not None:
+                        self.__writeOutput(outputFile, answer + '\n')
                     print answer
         else:
             logging.debug('Decrypting hash for user: %s' % record['pmsgOut']['V6']['pNC']['StringName'][:-1])
@@ -1657,7 +1669,10 @@ class NTDSHashes:
                 userName = '%s\\%s' % (domain, userName)
 
             answer = "%s:%s:%s:%s:::" % (userName, rid, hexlify(LMHash), hexlify(NTHash))
-            self.__hashesFound[objectSid] = answer
+
+            if outputFile is not None:
+                self.__writeOutput(outputFile, answer + '\n')
+
             if self.__pwdLastSet is True:
                 answer = "%s (pwdLastSet=%s)" % (answer, pwdLastSet)
             print answer
@@ -1671,8 +1686,12 @@ class NTDSHashes:
                         lmhash = hexlify(LMHashHistory)
 
                     answer = "%s_history%d:%s:%s:%s:::" % (userName, i, rid, lmhash, hexlify(NTHashHistory))
-                    self.__hashesFound[objectSid + str(i)] = answer
                     print answer
+                    if outputFile is not None:
+                        self.__writeOutput(outputFile, answer + '\n')
+
+        if outputFile is not None:
+            outputFile.flush()
 
     def dump(self):
         if self.__useVSSMethod is True:
@@ -1688,6 +1707,23 @@ class NTDSHashes:
                     # Target's not a DC
                     return
 
+        # Let's check if we need to save results in a file
+        if self.__outputFileName is not None:
+            logging.debug('Saving output to %s' % self.__outputFileName)
+            # We have to export. Are we resuming a session?
+            if self.__savedSessionFile is not None:
+                mode = 'a+'
+            else:
+                mode = 'w+'
+            hashesOutputFile = codecs.open(self.__outputFileName+'.ntds',mode, encoding='utf-8')
+            if self.__justNTLM is False:
+                keysOutputFile = codecs.open(self.__outputFileName+'.kerberos',mode, encoding='utf-8')
+                clearTextOutputFile = codecs.open(self.__outputFileName+'.cleartext',mode, encoding='utf-8')
+        else:
+            hashesOutputFile = None
+            keysOutputFile = None
+            clearTextOutputFile = None
+
         logging.info('Dumping Domain Credentials (domain\\uid:rid:lmhash:nthash)')
         if self.__useVSSMethod:
             # We start getting rows from the table aiming at reaching
@@ -1700,9 +1736,9 @@ class NTDSHashes:
                 # First of all, if we have users already cached, let's decrypt their hashes
                 for record in self.__tmpUsers:
                     try:
-                        self.__decryptHash(record)
+                        self.__decryptHash(record, outputFile=hashesOutputFile)
                         if self.__justNTLM is False:
-                            self.__decryptSupplementalInfo(record)
+                            self.__decryptSupplementalInfo(record, keysOutputFile, clearTextOutputFile)
                     except Exception, e:
                         # import traceback
                         # print traceback.print_exc()
@@ -1730,7 +1766,7 @@ class NTDSHashes:
                         if record[self.NAME_TO_INTERNAL['sAMAccountType']] in self.ACCOUNT_TYPES:
                             self.__decryptHash(record)
                             if self.__justNTLM is False:
-                                self.__decryptSupplementalInfo(record)
+                                self.__decryptSupplementalInfo(record, keysOutputFile, clearTextOutputFile)
                     except Exception, e:
                         # import traceback
                         # print traceback.print_exc()
@@ -1798,9 +1834,13 @@ class NTDSHashes:
                     else:
                         logging.warning('DRSCrackNames returned %d items for user %s, skipping' %(crackedName['pmsgOut']['V1']['pResult']['cItems'], userName))
                     try:
-                        self.__decryptHash(userRecord, user['RelativeId'], userRecord['pmsgOut']['V6']['PrefixTableSrc']['pPrefixEntry'])
+                        self.__decryptHash(userRecord, user['RelativeId'],
+                                           userRecord['pmsgOut']['V6']['PrefixTableSrc']['pPrefixEntry'],
+                                           hashesOutputFile)
                         if self.__justNTLM is False:
-                            self.__decryptSupplementalInfo(userRecord, userRecord['pmsgOut']['V6']['PrefixTableSrc']['pPrefixEntry'])
+                            self.__decryptSupplementalInfo(userRecord, userRecord['pmsgOut']['V6']['PrefixTableSrc'][
+                                'pPrefixEntry'], keysOutputFile, clearTextOutputFile)
+
                     except Exception, e:
                         #import traceback
                         #traceback.print_exc()
@@ -1841,31 +1881,20 @@ class NTDSHashes:
             for itemKey in self.__clearTextPwds.keys():
                 print itemKey
 
-    def export(self, fileName):
-        if len(self.__hashesFound) > 0:
-            items = sorted(self.__hashesFound)
-            fd = codecs.open(fileName+'.ntds','w+', encoding='utf-8')
-            for item in items:
-                try:
-                    fd.write(self.__hashesFound[item]+'\n')
-                except:
-                    try:
-                        logging.error("Error writing entry %d, skipping" % item)
-                    except:
-                        logging.error("Error writing entry, skipping")
-                    pass
-            fd.close()
-        if len(self.__kerberosKeys) > 0:
-            fd = codecs.open(fileName+'.ntds.kerberos','w+', encoding='utf-8')
-            for itemKey in self.__kerberosKeys.keys():
-                fd.write(itemKey+'\n')
-            fd.close()
+        # Closing output file
+        if self.__outputFileName is not None:
+            hashesOutputFile.close()
+            if self.__justNTLM is False:
+                keysOutputFile.close()
+                clearTextOutputFile.close()
 
-        if len(self.__clearTextPwds) > 0:
-            fd = codecs.open(fileName+'.ntds.cleartext','w+', encoding='utf-8')
-            for itemKey in self.__clearTextPwds.keys():
-                fd.write(itemKey+'\n')
-            fd.close()
+    @classmethod
+    def __writeOutput(cls, fd, data):
+        try:
+            fd.write(data)
+        except Exception, e:
+            logging.error("Error writing entry, skippingi (%s)" % str(e))
+            pass
 
     def finish(self):
         if self.__NTDS is not None:
@@ -2022,16 +2051,14 @@ class DumpSecrets:
             self.__NTDSHashes = NTDSHashes(NTDSFileName, bootKey, isRemote=self.__isRemote, history=self.__history,
                                            noLMHash=self.__noLMHash, remoteOps=self.__remoteOps,
                                            useVSSMethod=self.__useVSSMethod, justNTLM=self.__justDCNTLM,
-                                           pwdLastSet=self.__pwdLastSet, resumeSession=self.__resumeFileName)
+                                           pwdLastSet=self.__pwdLastSet, resumeSession=self.__resumeFileName,
+                                           outputFileName=self.__outputFileName)
             try:
                 self.__NTDSHashes.dump()
             except Exception, e:
                 logging.error(e)
                 if self.__useVSSMethod is False:
                     logging.info('Something wen\'t wrong with the DRSUAPI approach. Try again with -use-vss parameter')
-            else:
-                if self.__outputFileName is not None:
-                    self.__NTDSHashes.export(self.__outputFileName)
             self.cleanup()
         except (Exception, KeyboardInterrupt), e:
             #import traceback
