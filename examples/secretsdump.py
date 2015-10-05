@@ -1717,8 +1717,8 @@ class NTDSHashes:
                 mode = 'w+'
             hashesOutputFile = codecs.open(self.__outputFileName+'.ntds',mode, encoding='utf-8')
             if self.__justNTLM is False:
-                keysOutputFile = codecs.open(self.__outputFileName+'.kerberos',mode, encoding='utf-8')
-                clearTextOutputFile = codecs.open(self.__outputFileName+'.cleartext',mode, encoding='utf-8')
+                keysOutputFile = codecs.open(self.__outputFileName+'.ntds.kerberos',mode, encoding='utf-8')
+                clearTextOutputFile = codecs.open(self.__outputFileName+'.ntds.cleartext',mode, encoding='utf-8')
         else:
             hashesOutputFile = None
             keysOutputFile = None
@@ -1738,7 +1738,7 @@ class NTDSHashes:
                     try:
                         self.__decryptHash(record, outputFile=hashesOutputFile)
                         if self.__justNTLM is False:
-                            self.__decryptSupplementalInfo(record, keysOutputFile, clearTextOutputFile)
+                            self.__decryptSupplementalInfo(record, None, keysOutputFile, clearTextOutputFile)
                     except Exception, e:
                         # import traceback
                         # print traceback.print_exc()
@@ -1764,9 +1764,9 @@ class NTDSHashes:
                         break
                     try:
                         if record[self.NAME_TO_INTERNAL['sAMAccountType']] in self.ACCOUNT_TYPES:
-                            self.__decryptHash(record)
+                            self.__decryptHash(record, outputFile=hashesOutputFile)
                             if self.__justNTLM is False:
-                                self.__decryptSupplementalInfo(record, keysOutputFile, clearTextOutputFile)
+                                self.__decryptSupplementalInfo(record, None, keysOutputFile, clearTextOutputFile)
                     except Exception, e:
                         # import traceback
                         # print traceback.print_exc()
