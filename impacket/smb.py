@@ -2916,16 +2916,15 @@ class SMB:
 
         self.sendSMB(smb)
 
-    def query_file_info(self, tid, fid):
-        self.send_trans2(tid, SMB.TRANS2_QUERY_FILE_INFORMATION, '\x00', pack('<HH', fid, SMB_QUERY_FILE_ALL_INFO), '')
+    def query_file_info(self, tid, fid, fileInfoClass = SMB_QUERY_FILE_STANDARD_INFO):
+        self.send_trans2(tid, SMB.TRANS2_QUERY_FILE_INFORMATION, '\x00', pack('<HH', fid, fileInfoClass), '')
 
         resp = self.recvSMB()
         if resp.isValidAnswer(SMB.SMB_COM_TRANSACTION2):
             trans2Response = SMBCommand(resp['Data'][0])
             trans2Parameters = SMBTransaction2Response_Parameters(trans2Response['Parameters'])
             # Remove Potential Prefix Padding
-            queryFileAllInfo = SMBQueryFileAllInfo(trans2Response['Data'][-trans2Parameters['TotalDataCount']:])
-            return queryFileAllInfo['EndOfFile']
+            return trans2Response['Data'][-trans2Parameters['TotalDataCount']:]
 
     def __nonraw_retr_file(self, tid, fid, offset, datasize, callback):
         if (self._dialects_parameters['Capabilities'] & SMB.CAP_LARGE_READX) and self._SignatureEnabled is False:
@@ -3830,7 +3829,8 @@ class SMB:
         try:
             fid = self.nt_create_andx(tid, filename, shareAccessMode = shareAccessMode, accessMask = 0x20089)
 
-            datasize = self.query_file_info(tid, fid)
+            res = self.query_file_info(tid, fid)
+            datasize = SMBQueryFileStandardInfo(res)['EndOfFile']
 
             self.__nonraw_retr_file(tid, fid, offset, datasize, callback)
         finally:
