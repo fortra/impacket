@@ -497,6 +497,25 @@ class SMBConnection:
         except (smb.SessionError, smb3.SessionError), e:
             raise SessionError(e.get_error_code())
 
+    def queryInfo(self, treeId, fileId):
+        """
+        queries basic information about an opened file/directory
+
+        :param HANDLE treeId: a valid handle for the share where the file is to be opened
+        :param HANDLE fileId: a valid handle for the file/directory to be closed
+
+        :return: a smb.SMBQueryFileBasicInfo structure.  raises a SessionError exception if error.
+
+        """
+        try:
+            if self.getDialect() == smb.SMB_DIALECT:
+                res = self._SMBConnection.query_file_info(treeId, fileId)
+            else:
+                res = self._SMBConnection.queryInfo(treeId, fileId)
+            return smb.SMBQueryFileStandardInfo(res)
+        except (smb.SessionError, smb3.SessionError), e:
+            raise SessionError(e.get_error_code())
+
     def createDirectory(self, shareName, pathName ):
         """
         creates a directory
