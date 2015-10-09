@@ -293,8 +293,11 @@ class SMBConnection:
 
     def connectTree(self,share):
         if self.getDialect() == smb.SMB_DIALECT:
-            share = ntpath.basename(share)
-            share = '\\\\' + self.getRemoteHost() + '\\' + share
+            # If we already have a UNC we do nothing.
+            if ntpath.ismount(share) is False:
+                # Else we build it
+                share = ntpath.basename(share)
+                share = '\\\\' + self.getRemoteHost() + '\\' + share
         try:
             return self._SMBConnection.connect_tree(share)
         except (smb.SessionError, smb3.SessionError), e:
