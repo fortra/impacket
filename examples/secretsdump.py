@@ -1313,11 +1313,24 @@ class NTDSHashes:
 
     ACCOUNT_TYPES = ( SAM_NORMAL_USER_ACCOUNT, SAM_MACHINE_ACCOUNT, SAM_TRUST_ACCOUNT)
 
-    class PEK_KEY(Structure):
+    class PEKLIST_ENC(Structure):
         structure = (
             ('Header','8s=""'),
             ('KeyMaterial','16s=""'),
-            ('EncryptedPek','52s=""'),
+            ('EncryptedPek',':'),
+        )
+
+    class PEKLIST_PLAIN(Structure):
+        structure = (
+            ('Header','32s=""'),
+            ('DecryptedPek',':'),
+        )
+
+    class PEK_KEY(Structure):
+        structure = (
+            ('Header','1s=""'),
+            ('Padding','3s=""'),
+            ('Key','16s=""'),
         )
 
     class CRYPTED_HASH(Structure):
@@ -1354,7 +1367,7 @@ class NTDSHashes:
             self.__ESEDB = ESENT_DB(ntdsFile, isRemote = isRemote)
             self.__cursor = self.__ESEDB.openTable('datatable')
         self.__tmpUsers = list()
-        self.__PEK = None
+        self.__PEK = list() 
         self.__cryptoCommon = CryptoCommon()
         self.__kerberosKeys = OrderedDict()
         self.__clearTextPwds = OrderedDict()
@@ -1364,33 +1377,40 @@ class NTDSHashes:
 
     def __getPek(self):
         logging.info('Searching for pekList, be patient')
-        pek = None
+        peklist = None
         while True:
             record = self.__ESEDB.getNextRow(self.__cursor)
             if record is None:
                 break
             elif record[self.NAME_TO_INTERNAL['pekList']] is not None:
-                pek =  unhexlify(record[self.NAME_TO_INTERNAL['pekList']])
+                peklist =  record[self.NAME_TO_INTERNAL['pekList']].decode('hex')
                 break
             elif record[self.NAME_TO_INTERNAL['sAMAccountType']] in self.ACCOUNT_TYPES:
                 # Okey.. we found some users, but we're not yet ready to process them.
                 # Let's just store them in a temp list
                 self.__tmpUsers.append(record)
-
-        if pek is not None:
-            encryptedPek = self.PEK_KEY(pek)
+        
+        if peklist is not None:
+            encryptedPekList = self.PEKLIST_ENC(peklist)
             md5 = hashlib.new('md5')
             md5.update(self.__bootKey)
             for i in range(1000):
-                md5.update(encryptedPek['KeyMaterial'])
+                md5.update(encryptedPekList['KeyMaterial'])
             tmpKey = md5.digest()
             rc4 = ARC4.new(tmpKey)
-            plainText = rc4.encrypt(encryptedPek['EncryptedPek'])
-            self.__PEK = plainText[36:]
+            decryptedPekList = self.PEKLIST_PLAIN(rc4.encrypt(encryptedPekList['EncryptedPek']))
+            PEKLen = 20
+            for i in range(len( decryptedPekList['DecryptedPek'] ) / PEKLen ):
+                cursor = i * PEKLen
+                pek = self.PEK_KEY(decryptedPekList['DecryptedPek'][cursor:cursor+PEKLen])
+                logging.info("PEK # %d found and decrypted: %s", i, pek['Key'].encode('hex'))
+                self.__PEK.append(pek['Key'])
 
     def __removeRC4Layer(self, cryptedHash):
         md5 = hashlib.new('md5')
-        md5.update(self.__PEK)
+        # PEK index can be found on header of each ciphered blob (pos 8-10)
+        pek_index = cryptedHash['Header'].encode('hex')
+        md5.update(self.__PEK[int(pek_index[8:10])])
         md5.update(cryptedHash['KeyMaterial'])
         tmpKey = md5.digest()
         rc4 = ARC4.new(tmpKey)
@@ -1731,7 +1751,6 @@ class NTDSHashes:
             # in a temp list for later process.
             self.__getPek()
             if self.__PEK is not None:
-                logging.info('Pek found and decrypted: 0x%s' % hexlify(self.__PEK))
                 logging.info('Reading and decrypting hashes from %s ' % self.__NTDS)
                 # First of all, if we have users already cached, let's decrypt their hashes
                 for record in self.__tmpUsers:
