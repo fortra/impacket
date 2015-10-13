@@ -1373,7 +1373,11 @@ class NTDSHashes:
         self.__clearTextPwds = OrderedDict()
         self.__justNTLM = justNTLM
         self.__savedSessionFile = resumeSession
+        self.__resumeSessionFile = None
         self.__outputFileName = outputFileName
+
+    def getResumeSessionFile(self):
+        return self.__resumeSessionFile
 
     def __getPek(self):
         logging.info('Searching for pekList, be patient')
@@ -1822,6 +1826,7 @@ class NTDSHashes:
             # Creating the resume session file
             try:
                 resumeFile = open(tmpName, 'wb+')
+                self.__resumeSessionFile = tmpName
             except Exception, e:
                 raise Exception('Cannot create resume session file %s' % str(e))
 
@@ -1879,6 +1884,7 @@ class NTDSHashes:
             # Let's remove the resume file
             resumeFile.close()
             os.remove(tmpName)
+            self.__resumeSessionFile = None
 
         # Now we'll print the Kerberos keys. So we don't mix things up in the output.
         if len(self.__kerberosKeys) > 0:
@@ -2083,6 +2089,20 @@ class DumpSecrets:
             #import traceback
             #print traceback.print_exc()
             logging.error(e)
+            if self.__NTDSHashes is not None:
+                if isinstance(e, KeyboardInterrupt):
+                    while True:
+                        answer =  raw_input("Delete resume session file? [y/N] ")
+                        if answer.upper() == '':
+                            answer = 'N'
+                            break
+                        elif answer.upper() == 'Y':
+                            answer = 'Y'
+                            break
+                    if answer == 'Y':
+                        resumeFile = self.__NTDSHashes.getResumeSessionFile()
+                        if resumeFile is not None:
+                            os.unlink(resumeFile)
             try:
                 self.cleanup()
             except:
