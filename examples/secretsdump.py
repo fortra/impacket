@@ -1383,7 +1383,7 @@ class NTDSHashes:
             if record is None:
                 break
             elif record[self.NAME_TO_INTERNAL['pekList']] is not None:
-                peklist =  record[self.NAME_TO_INTERNAL['pekList']].decode('hex')
+                peklist =  unhexlify(record[self.NAME_TO_INTERNAL['pekList']])
                 break
             elif record[self.NAME_TO_INTERNAL['sAMAccountType']] in self.ACCOUNT_TYPES:
                 # Okey.. we found some users, but we're not yet ready to process them.
@@ -1399,18 +1399,18 @@ class NTDSHashes:
             tmpKey = md5.digest()
             rc4 = ARC4.new(tmpKey)
             decryptedPekList = self.PEKLIST_PLAIN(rc4.encrypt(encryptedPekList['EncryptedPek']))
-            PEKLen = 20
+            PEKLen = len(self.PEK_KEY())
             for i in range(len( decryptedPekList['DecryptedPek'] ) / PEKLen ):
                 cursor = i * PEKLen
                 pek = self.PEK_KEY(decryptedPekList['DecryptedPek'][cursor:cursor+PEKLen])
-                logging.info("PEK # %d found and decrypted: %s", i, pek['Key'].encode('hex'))
+                logging.info("PEK # %d found and decrypted: %s", i, hexlify(pek['Key']))
                 self.__PEK.append(pek['Key'])
 
     def __removeRC4Layer(self, cryptedHash):
         md5 = hashlib.new('md5')
         # PEK index can be found on header of each ciphered blob (pos 8-10)
-        pek_index = cryptedHash['Header'].encode('hex')
-        md5.update(self.__PEK[int(pek_index[8:10])])
+        pekIndex = hexlify(cryptedHash['Header'])
+        md5.update(self.__PEK[int(pekIndex[8:10])])
         md5.update(cryptedHash['KeyMaterial'])
         tmpKey = md5.digest()
         rc4 = ARC4.new(tmpKey)
