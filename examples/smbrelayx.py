@@ -359,9 +359,9 @@ class SMBClient(smb.SMB):
 
         try:
             smb.isValidAnswer(SMB.SMB_COM_SESSION_SETUP_ANDX)
-        except:
+        except Exception:
             logging.error("SessionSetup Error!")
-            return None
+            raise
         else:
             # We will need to use this uid field for all future requests/responses
             self._uid = smb['Uid']
