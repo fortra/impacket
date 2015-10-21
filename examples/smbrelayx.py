@@ -716,7 +716,7 @@ class SMBRelayServer(Thread):
                 # Let's store it in the connection data
                 connData['AUTHENTICATE_MESSAGE'] = authenticateMessage
             else:
-                raise("Unknown NTLMSSP MessageType %d" % messageType)
+                raise Exception("Unknown NTLMSSP MessageType %d" % messageType)
 
             respParameters['SecurityBlobLength'] = len(respToken)
 
