@@ -1807,28 +1807,27 @@ class NTDSHashes:
             status = STATUS_MORE_ENTRIES
             enumerationContext = 0
 
-            tmpName = 'sessionresume_%s' % ''.join([random.choice(string.letters) for i in range(8)])
-            logging.debug('Session resume file will be %s' % tmpName)
-
             # Do we have to resume from a previously saved session?
             if self.__savedSessionFile is not None:
                 # Yes
                 try:
-                    savedSession = open(self.__savedSessionFile, 'r')
+                    resumeFile = open(self.__savedSessionFile, 'rwb+')
                 except Exception, e:
                     raise Exception('Cannot open resume session file name %s' % str(e))
-                resumeSid = savedSession.read().strip('\n')
-                savedSession.close()
+                resumeSid = resumeFile.read().strip('\n')
                 logging.info('Resuming from SID %s, be patient' % resumeSid)
+                # The resume session file is the same as the savedSessionFile
+                tmpName = self.__savedSessionFile
             else:
                 resumeSid = None
-
-            # Creating the resume session file
-            try:
-                resumeFile = open(tmpName, 'wb+')
-                self.__resumeSessionFile = tmpName
-            except Exception, e:
-                raise Exception('Cannot create resume session file %s' % str(e))
+                tmpName = 'sessionresume_%s' % ''.join([random.choice(string.letters) for i in range(8)])
+                logging.debug('Session resume file will be %s' % tmpName)
+                # Creating the resume session file
+                try:
+                    resumeFile = open(tmpName, 'wb+')
+                    self.__resumeSessionFile = tmpName
+                except Exception, e:
+                    raise Exception('Cannot create resume session file %s' % str(e))
 
             while status == STATUS_MORE_ENTRIES:
                 resp = self.__remoteOps.getDomainUsers(enumerationContext)
@@ -2099,6 +2098,9 @@ class DumpSecrets:
                         elif answer.upper() == 'Y':
                             answer = 'Y'
                             break
+                        elif answer.upper() == 'N':
+                            answer = 'N'
+                            break
                     if answer == 'Y':
                         resumeFile = self.__NTDSHashes.getResumeSessionFile()
                         if resumeFile is not None:
@@ -2141,7 +2143,7 @@ if __name__ == '__main__':
     parser.add_argument('-security', action='store', help='SECURITY hive to parse')
     parser.add_argument('-sam', action='store', help='SAM hive to parse')
     parser.add_argument('-ntds', action='store', help='NTDS.DIT file to parse')
-    parser.add_argument('-resumefile', action='store', help='resume file name to resume NTDS.DIT session dump (only available to DRSUAPI approach)')
+    parser.add_argument('-resumefile', action='store', help='resume file name to resume NTDS.DIT session dump (only available to DRSUAPI approach). This file will also be used to keep updating the session\'s state')
     parser.add_argument('-outputfile', action='store',
                         help='base output filename. Extensions will be added for sam, secrets, cached and ntds')
     parser.add_argument('-use-vss', action='store_true', default=False,
