@@ -176,7 +176,7 @@ class NBResourceRecord:
                 self.rdlength = 0
                 self.rdata = ''
                 self.unit_id = ''
-        except Exception,e:
+        except Exception:
                 raise NetBIOSError( 'Wrong packet format ' )
 
     def set_rr_name(self, name):
@@ -223,7 +223,7 @@ class NBNodeStatusResponse(NBResourceRecord):
                     offset += 18
                     self.node_names.append(NBNodeEntry(name, type ,flags))
                 self.set_mac_in_hexa(self.get_unit_id())
-        except Exception,e:
+        except Exception:
             raise NetBIOSError( 'Wrong packet format ' )
 
     def set_mac_in_hexa(self, data):
@@ -311,7 +311,7 @@ class NetBIOSPacket:
                 self.nscount = unpack('>H', self._data[8:10])[0]
                 self.arcount = unpack('>H', self._data[10:12])[0]
                 self.answers = self._data[12:]
-            except Exception,e:
+            except Exception:
                 raise NetBIOSError( 'Wrong packet format ' )
             
     def set_opcode(self, opcode):
@@ -323,7 +323,7 @@ class NetBIOSPacket:
     def set_rcode(self, rcode):
         self.rcode = rcode
     def addQuestion(self, question, qtype, qclass):
-        self.qdcount = self.qdcount + 1
+        self.qdcount += 1
         self.questions += question + pack('!HH',qtype,qclass)
     def get_trn_id(self):
         return self.name_trn_id
@@ -343,8 +343,8 @@ class NetBIOSPacket:
         return self.arcount
     def rawData(self):
         secondWord = self.opcode << 11
-        secondWord = secondWord | (self.nm_flags << 4)
-        secondWord = secondWord | self.rcode
+        secondWord |= self.nm_flags << 4
+        secondWord |= self.rcode
         data = pack('!HHHHHH', self.name_trn_id, secondWord , self.qdcount, self.ancount, self.nscount, self.arcount) + self.questions + self.answers
         return data
     def get_answers(self):
@@ -368,8 +368,6 @@ class NBHostEntry:
 
     def __repr__(self):
         return '<NBHostEntry instance: NBname="' + self.__nbname + '", IP="' + self.__ip + '">'
-
-
 
 class NBNodeEntry:
     
@@ -420,13 +418,13 @@ class NBNodeEntry:
     def __repr__(self):
         s = '<NBNodeEntry instance: NBname="' + self.__nbname + '" NameType="' + NAME_TYPES[self.__nametype] + '"'
         if self.__isactive:
-            s = s + ' ACTIVE'
+            s += ' ACTIVE'
         if self.__isgroup:
-            s = s + ' GROUP'
+            s += ' GROUP'
         if self.__isconflict:
-            s = s + ' CONFLICT'
+            s += ' CONFLICT'
         if self.__deleting:
-            s = s + ' DELETING'
+            s += ' DELETING'
         return s
     def rawData(self):
         return self.__nbname + pack('!BH',self.__nametype, self.__flags)
@@ -437,21 +435,6 @@ class NetBIOS:
     # Creates a NetBIOS instance without specifying any default NetBIOS domain nameserver.
     # All queries will be sent through the servport.
     def __init__(self, servport = NETBIOS_NS_PORT):
-        #s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-#        s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        #has_bind = 1
-        #for i in range(0, 10):
-        # We try to bind to a port for 10 tries
-        #    try:
-        #        s.bind(( INADDR_ANY, randint(10000, 60000) ))
-        #        s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        #        has_bind = 1
-        #    except socket.error, ex:
-        #        pass
-        #if not has_bind:
-        #    raise NetBIOSError, ( 'Cannot bind to a good UDP port', ERRCLASS_OS, errno.EAGAIN )
-
-        #self.__sock = s
         self.__servport = NETBIOS_NS_PORT
         self.__nameserver = None
         self.__broadcastaddr = BROADCAST_ADDR
@@ -468,7 +451,7 @@ class NetBIOS:
                 s.bind(( INADDR_ANY, randint(10000, 60000) ))
                 s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
                 has_bind = 1
-            except socket.error, _ex:
+            except socket.error:
                 pass
         if not has_bind:
             raise NetBIOSError, ( 'Cannot bind to a good UDP port', ERRCLASS_OS, errno.EAGAIN )
@@ -522,14 +505,12 @@ class NetBIOS:
         netbios_name = nbname.upper()
         qn_label = encode_name(netbios_name, qtype, scope)
         p.addQuestion(qn_label, QUESTION_TYPE_NB, QUESTION_CLASS_IN)
-        qn_label = encode_name(netbios_name, qtype, scope)
         p.set_nm_flags(NM_FLAGS_RD)
         if not destaddr:
             p.set_nm_flags(p.get_nm_flags() | NM_FLAGS_BROADCAST)
             destaddr = self.__broadcastaddr            
         req = p.rawData()
         
-        data = ""
         tries = retries
         while 1:
             self.__sock.sendto(req, ( destaddr, self.__servport ))
@@ -538,7 +519,7 @@ class NetBIOS:
                 if not ready:
                     if tries:
                         # Retry again until tries == 0
-                        tries = tries - 1
+                        tries -= 1
                     else:
                         raise NetBIOSTimeout
                 else:
@@ -583,7 +564,7 @@ class NetBIOS:
                 if not ready:
                     if tries:
                         # Retry again until tries == 0
-                        tries = tries - 1
+                        tries -= 1
                     else:
                         raise NetBIOSTimeout
                 else:
@@ -612,7 +593,7 @@ class NetBIOS:
 # Perform first and second level encoding of name as specified in RFC 1001 (Section 4)
 def encode_name(name, type, scope):
     if name == '*':
-        name = name + '\0' * 15
+        name += '\0' * 15
     elif len(name) > 15:
         name = name[:15] + chr(type)
     else:
@@ -647,7 +628,7 @@ def decode_name(name):
             if domain_length == 0:
                 break
             decoded_domain = '.' + name[offset:offset + domain_length]
-            offset = offset + domain_length
+            offset += domain_length
         return offset + 1, decoded_name, decoded_domain
 
 def _do_first_level_decoding(m):
@@ -848,7 +829,7 @@ class NetBIOSUDPSession(NetBIOSSession):
 class NetBIOSTCPSession(NetBIOSSession):
     def __init__(self, myname, remote_name, remote_host, remote_type = TYPE_SERVER, sess_port = NETBIOS_SESSION_PORT, timeout = None, local_type = TYPE_WORKSTATION, sock = None, select_poll = False):
         self.__select_poll = select_poll
-        if (self.__select_poll):
+        if self.__select_poll:
             self.read_function = self.polling_read
         else:
             self.read_function = self.non_polling_read
@@ -894,7 +875,7 @@ class NetBIOSTCPSession(NetBIOSSession):
 
     def polling_read(self, read_length, timeout):
         data = ''
-        if (timeout is None):
+        if timeout is None:
             timeout = 3600
 
         time_left = timeout
@@ -910,7 +891,7 @@ class NetBIOSTCPSession(NetBIOSSession):
                         raise NetBIOSTimeout
                     else:
                         time.sleep(CHUNK_TIME)
-                        time_left = time_left - CHUNK_TIME
+                        time_left -= CHUNK_TIME
                         continue
 
                 received = self._sock.recv(bytes_left)
@@ -952,10 +933,10 @@ class NetBIOSTCPSession(NetBIOSSession):
         data = self.read_function(4, timeout)
         type, flags, length = unpack('>ccH', data)
         if ord(type) == NETBIOS_SESSION_MESSAGE:
-            length = ord(flags) << 16 | length
+            length |= ord(flags) << 16
         else:
             if ord(flags) & 0x01:
-                length = length | 0x10000
+                length |= 0x10000
         data2 = self.read_function(length, timeout)
 
         return data + data2
@@ -982,7 +963,6 @@ def main():
     def get_netbios_host_by_name(name):
         n = NetBIOS()
         n.set_broadcastaddr('255.255.255.255') # To avoid use "<broadcast>" in socket
-        addrs = None
         for qtype in (TYPE_WORKSTATION, TYPE_CLIENT, TYPE_SERVER, TYPE_DOMAIN_MASTER, TYPE_DOMAIN_CONTROLLER):
             try:
                 addrs = n.gethostbyname(name, qtype = qtype).get_addr_entries()
