@@ -3334,6 +3334,8 @@ class SMB:
         elif ntlm_fallback:
             self.login_standard(user, password, domain, lmhash, nthash)
             self.__isNTLMv2 = False
+        else:
+            raise SessionError('Cannot authenticate against target, enable ntlm_fallback')
 
     def login_standard(self, user, password, domain = '', lmhash = '', nthash = ''):
 

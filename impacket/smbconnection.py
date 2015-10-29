@@ -190,7 +190,7 @@ class SMBConnection:
     def getCredentials(self):
         return self._SMBConnection.getCredentials()
 
-    def login(self, user, password, domain = '', lmhash = '', nthash = ''):
+    def login(self, user, password, domain = '', lmhash = '', nthash = '', ntlmFallback = True):
         """
         logins into the target system
 
@@ -199,11 +199,15 @@ class SMBConnection:
         :param string domain: domain where the account is valid for
         :param string lmhash: LMHASH used to authenticate using hashes (password is not used)
         :param string nthash: NTHASH used to authenticate using hashes (password is not used)
+        :param bool ntlmFallback: If True it will try NTLMv1 authentication if NTLMv2 fails. Only available for SMBv1
 
         :return: None, raises a Session Error if error.
         """
-        try: 
-            return self._SMBConnection.login(user, password, domain, lmhash, nthash)
+        try:
+            if self.getDialect() == smb.SMB_DIALECT:
+                return self._SMBConnection.login(user, password, domain, lmhash, nthash, ntlmFallback)
+            else:
+                return self._SMBConnection.login(user, password, domain, lmhash, nthash)
         except (smb.SessionError, smb3.SessionError), e:
             raise SessionError(e.get_error_code())
 
