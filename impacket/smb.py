@@ -3300,7 +3300,7 @@ class SMB:
             self.__TGT,
             self.__TGS)
 
-    def login(self, user, password, domain = '', lmhash = '', nthash = ''):
+    def login(self, user, password, domain = '', lmhash = '', nthash = '', ntlm_fallback = True):
 
         # If we have hashes, normalize them
         if lmhash != '' or nthash != '':
@@ -3326,14 +3326,16 @@ class SMB:
                 self.login_extended(user, password, domain, lmhash, nthash, use_ntlmv2 = True)
             except:
                 # If the target OS is Windows 5.0 or Samba, let's try using NTLMv1
-                if (self.get_server_lanman().find('Windows 2000') != -1) or (self.get_server_lanman().find('Samba') != -1):
+                if ntlm_fallback and ((self.get_server_lanman().find('Windows 2000') != -1) or (self.get_server_lanman().find('Samba') != -1)):
                     self.login_extended(user, password, domain, lmhash, nthash, use_ntlmv2 = False)
                     self.__isNTLMv2 = False
                 else:
                     raise
-        else:
+        elif ntlm_fallback:
             self.login_standard(user, password, domain, lmhash, nthash)
             self.__isNTLMv2 = False
+        else:
+            raise SessionError('Cannot authenticate against target, enable ntlm_fallback')
 
     def login_standard(self, user, password, domain = '', lmhash = '', nthash = ''):
 
