@@ -2948,7 +2948,7 @@ class SMB2Commands:
                      connData['OpenedFiles'][fileID]['Socket'].close()
                  elif fileHandle != VOID_FILE_DESCRIPTOR:
                      os.close(fileHandle)
-                     infoRecord, errorCode = queryFileInformation('/', pathName, smb2.SMB2_FILE_NETWORK_OPEN_INFO)
+                     infoRecord, errorCode = queryFileInformation(os.path.dirname(pathName), os.path.basename(pathName), smb2.SMB2_FILE_NETWORK_OPEN_INFO)
              except Exception, e:
                  smbServer.log("SMB2_CLOSE %s" % e, logging.ERROR)
                  errorCode = STATUS_INVALID_HANDLE
@@ -3013,9 +3013,9 @@ class SMB2Commands:
                         infoRecord = smb2.FileInternalInformation()
                         infoRecord['IndexNumber'] = fileID
                     else:
-                        infoRecord, errorCode = queryFileInformation('/', fileName, queryInfo['FileInfoClass'])
+                        infoRecord, errorCode = queryFileInformation(os.path.dirname(fileName), os.path.basename(fileName), queryInfo['FileInfoClass'])
                 elif queryInfo['InfoType'] == smb2.SMB2_0_INFO_FILESYSTEM:
-                    infoRecord = queryFsInformation('/', fileName, queryInfo['FileInfoClass'])
+                    infoRecord = queryFsInformation(os.path.dirname(fileName), os.path.basename(fileName), queryInfo['FileInfoClass'])
                 elif queryInfo['InfoType'] == smb2.SMB2_0_INFO_SECURITY:
                     # Failing for now, until we support it
                     infoRecord = None
@@ -3305,8 +3305,8 @@ class SMB2Commands:
             connData['OpenedFiles'][fileID]['Open']['EnumerationSearchPattern'] = pattern
 
         pathName = os.path.join(os.path.normpath(connData['OpenedFiles'][fileID]['FileName']),pattern)
-        searchResult, searchCount, errorCode = findFirst2('/', 
-                  pathName, 
+        searchResult, searchCount, errorCode = findFirst2(os.path.dirname(pathName),
+                  os.path.basename(pathName),
                   queryDirectoryRequest['FileInformationClass'], 
                   smb.ATTR_DIRECTORY, isSMB2 = True )
 
