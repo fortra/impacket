@@ -144,7 +144,7 @@ def searchShare(connId, share, smbServer):
 def openFile(path,fileName, accessMode, fileAttributes, openMode):
     fileName = os.path.normpath(fileName.replace('\\','/'))
     errorCode = 0
-    if len(fileName) > 0:
+    if len(fileName) > 0 and fileName[0] == '/':
        # strip leading '/'
        fileName = fileName[1:]
     pathName = os.path.join(path,fileName)
@@ -192,7 +192,7 @@ def queryFsInformation(path, filename, level=0):
          flags    = 0
 
     fileName = os.path.normpath(filename.replace('\\','/'))
-    if len(fileName) > 0:
+    if len(fileName) > 0 and fileName[0] == '/':
        # strip leading '/'
        fileName = fileName[1:]
     pathName = os.path.join(path,fileName)
@@ -246,7 +246,7 @@ def findFirst2(path, fileName, level, searchAttributes, isSMB2 = False):
          encoding = 'ascii'
          flags    = 0
 
-     if len(fileName) > 0:
+     if len(fileName) > 0 and fileName[0] == '/':
         # strip leading '/'
         fileName = fileName[1:]
 
@@ -368,7 +368,7 @@ def queryPathInformation(path, filename, level):
   try:
     errorCode = 0
     fileName = os.path.normpath(filename.replace('\\','/'))
-    if len(fileName) > 0 and path != '':
+    if len(fileName) > 0 and fileName[0] == '/' and path != '':
        # strip leading '/'
        fileName = fileName[1:]
     pathName = os.path.join(path,fileName)
@@ -562,7 +562,7 @@ class TRANS2Commands:
             path     = connData['ConnectedShares'][recvPacket['Tid']]['path']
             fileName = decodeSMBString(recvPacket['Flags2'], setPathInfoParameters['FileName'])
             fileName = os.path.normpath(fileName.replace('\\','/'))
-            if len(fileName) > 0 and path != '':
+            if len(fileName) > 0 and fileName[0] == '/' and path != '':
                # strip leading '/'
                fileName = fileName[1:]
             pathName = os.path.join(path,fileName)
@@ -1441,11 +1441,11 @@ class SMBCommands:
              path = connData['ConnectedShares'][recvPacket['Tid']]['path']
              oldFileName = os.path.normpath(decodeSMBString(recvPacket['Flags2'],comRenameData['OldFileName']).replace('\\','/'))
              newFileName = os.path.normpath(decodeSMBString(recvPacket['Flags2'],comRenameData['NewFileName']).replace('\\','/'))
-             if len(oldFileName) > 0:
+             if len(oldFileName) > 0 and oldFileName[0] == '/':
                 # strip leading '/'
                 oldFileName = oldFileName[1:]
              oldPathName = os.path.join(path,oldFileName)
-             if len(newFileName) > 0:
+             if len(newFileName) > 0 and newFileName[0] == '/':
                 # strip leading '/'
                 newFileName = newFileName[1:]
              newPathName = os.path.join(path,newFileName)
@@ -1490,7 +1490,7 @@ class SMBCommands:
              errorCode = STATUS_SUCCESS
              path = connData['ConnectedShares'][recvPacket['Tid']]['path']
              fileName = os.path.normpath(decodeSMBString(recvPacket['Flags2'],comDeleteData['FileName']).replace('\\','/'))
-             if len(fileName) > 0:
+             if len(fileName) > 0 and fileName[0] == '/':
                 # strip leading '/'
                 fileName = fileName[1:]
              pathName = os.path.join(path,fileName)
@@ -1534,7 +1534,7 @@ class SMBCommands:
              errorCode = STATUS_SUCCESS
              path = connData['ConnectedShares'][recvPacket['Tid']]['path']
              fileName = os.path.normpath(decodeSMBString(recvPacket['Flags2'],comDeleteDirectoryData['DirectoryName']).replace('\\','/'))
-             if len(fileName) > 0:
+             if len(fileName) > 0 and fileName[0] == '/':
                 # strip leading '/'
                 fileName = fileName[1:]
              pathName = os.path.join(path,fileName)
@@ -1912,7 +1912,7 @@ class SMBCommands:
              deleteOnClose = False
 
              fileName = os.path.normpath(decodeSMBString(recvPacket['Flags2'],ntCreateAndXData['FileName']).replace('\\','/'))
-             if len(fileName) > 0:
+             if len(fileName) > 0 and fileName[0] == '/':
                 # strip leading '/'
                 fileName = fileName[1:]
              pathName = os.path.join(path,fileName)
@@ -2730,7 +2730,7 @@ class SMB2Commands:
         else:
             path = ntpath.basename(UNCOrShare)
 
-        share = searchShare(connId, path.upper(), smbServer) 
+        share = searchShare(connId, path.upper(), smbServer)
         if share is not None:
             # Simple way to generate a Tid
             if len(connData['ConnectedShares']) == 0:
