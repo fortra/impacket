@@ -190,6 +190,9 @@ class SMBConnection:
     def getCredentials(self):
         return self._SMBConnection.getCredentials()
 
+    def getIOCapabilities(self):
+        return self._SMBConnection.getIOCapabilities()
+
     def login(self, user, password, domain = '', lmhash = '', nthash = '', ntlmFallback = True):
         """
         logins into the target system
@@ -465,11 +468,35 @@ class SMBConnection:
 
         :return: the data read, if not raises a SessionError exception.
         """
-        try:
-            return self._SMBConnection.read_andx(treeId, fileId, offset, bytesToRead)
-        except (smb.SessionError, smb3.SessionError), e:
-            raise SessionError(e.get_error_code())
+        finished = False
+        data = ''
+        maxReadSize = self._SMBConnection.getIOCapabilities()['MaxReadSize']
+        remainingBytesToRead = bytesToRead
+        while not finished:
+            if remainingBytesToRead > maxReadSize:
+                toRead = maxReadSize
+            else:
+                toRead = remainingBytesToRead
+            try:
+                bytesRead = self._SMBConnection.read_andx(treeId, fileId, offset, toRead)
+            except (smb.SessionError, smb3.SessionError), e:
+                if e.get_error_code() == nt_errors.STATUS_END_OF_FILE:
+                    toRead = ''
+                    pass
+                else:
+                    raise SessionError(e.get_error_code())
 
+            data += bytesRead
+            if len(data) >= bytesToRead:
+                finished = True
+            elif len(bytesRead) == 0:
+                # End of the file achieved.
+                finished = True
+            else:
+                offset += len(bytesRead)
+                remainingBytesToRead -= len(bytesRead)
+
+        return data
 
     def closeFile(self, treeId, fileId):
         """
