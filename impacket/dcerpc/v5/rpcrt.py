@@ -977,7 +977,7 @@ class DCERPC_v5(DCERPC):
                 self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey, self.__TGT, self.__TGS = self._transport.get_credentials()
 
             if self.__auth_type == RPC_C_AUTHN_WINNT:
-                auth = ntlm.getNTLMSSPType1('', self.__domain, signingRequired = True, use_ntlmv2 = self._transport.doesSupportNTLMv2())
+                auth = ntlm.getNTLMSSPType1('', '', signingRequired = True, use_ntlmv2 = self._transport.doesSupportNTLMv2())
             elif self.__auth_type == RPC_C_AUTHN_NETLOGON:
                 from impacket.dcerpc.v5 import nrpc
                 auth = nrpc.getSSPType1(self.__username[:-1], self.__domain, signingRequired = True)

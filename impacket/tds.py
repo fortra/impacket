@@ -881,7 +881,7 @@ class MSSQL:
         if useWindowsAuth is True:
             login['OptionFlags2'] |= TDS_INTEGRATED_SECURITY_ON
             # NTLMSSP Negotiate
-            auth = ntlm.getNTLMSSPType1('WORKSTATION','')
+            auth = ntlm.getNTLMSSPType1('','')
             login['SSPI'] = str(auth)
         else:
             login['UserName'] = username.encode('utf-16le')

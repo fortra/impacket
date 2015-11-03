@@ -3185,7 +3185,7 @@ class SMB:
 
         # NTLMSSP
         blob['MechTypes'] = [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
-        auth = ntlm.getNTLMSSPType1('',domain,self._SignatureRequired, use_ntlmv2 = use_ntlmv2)
+        auth = ntlm.getNTLMSSPType1('','',self._SignatureRequired, use_ntlmv2 = use_ntlmv2)
         blob['MechToken'] = str(auth)
 
         sessionSetup['Parameters']['SecurityBlobLength']  = len(blob)
