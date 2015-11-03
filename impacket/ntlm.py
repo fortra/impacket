@@ -456,6 +456,20 @@ def ntlmssp_DES_encrypt(key, challenge):
 # High level functions to use NTLMSSP
 
 def getNTLMSSPType1(workstation='', domain='', signingRequired = False, use_ntlmv2 = USE_NTLMv2):
+    # Let's do some encoding checks before moving on. Kind of dirty, but found effective when dealing with
+    # international characters.
+    import sys
+    encoding = sys.getfilesystemencoding()
+    if encoding is not None:
+        try:
+            workstation.encode('utf-16le')
+        except:
+            workstation = workstation.decode(encoding)
+        try:
+            domain.encode('utf-16le')
+        except:
+            domain = domain.decode(encoding)
+
     # Let's prepare a Type 1 NTLMSSP Message
     auth = NTLMAuthNegotiate()
     auth['flags']=0
@@ -464,7 +478,7 @@ def getNTLMSSPType1(workstation='', domain='', signingRequired = False, use_ntlm
     if use_ntlmv2:
        auth['flags'] |= NTLMSSP_TARGET_INFO
     auth['flags'] |= NTLMSSP_NTLM_KEY | NTLMSSP_NTLM2_KEY | NTLMSSP_UNICODE | NTLMSSP_TARGET |  NTLMSSP_KEY_128 | NTLMSSP_KEY_56 
-    auth['domain_name'] = domain
+    auth['domain_name'] = domain.encode('utf-16le')
     return auth
 
 def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = '', use_ntlmv2 = USE_NTLMv2):
