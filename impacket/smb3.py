@@ -1474,7 +1474,7 @@ class SMB3:
             else:
                 written = 0
                 toBeRead = fileSize-offset
-                while written < (toBeRead):
+                while written < toBeRead:
                     data = self.read(treeId, fileId, offset, self._Connection['MaxReadSize'])
                     written += len(data)
                     offset  += len(data)
@@ -1523,7 +1523,12 @@ class SMB3:
 
         return self.ioctl(treeId, None, FSCTL_PIPE_WAIT,flags=SMB2_0_IOCTL_IS_FSCTL, inputBlob=pipeWait, maxInputResponse = 0, maxOutputResponse=0)
         
+    def getIOCapabilities(self):
+        res = dict()
 
+        res['MaxReadSize'] = self._Connection['MaxReadSize']
+        res['MaxWriteSize'] = self._Connection['MaxWriteSize']
+        return res
         
 
     ######################################################################

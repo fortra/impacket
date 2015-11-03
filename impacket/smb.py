@@ -3300,6 +3300,16 @@ class SMB:
             self.__TGT,
             self.__TGS)
 
+    def getIOCapabilities(self):
+        res = dict()
+        if (self._dialects_parameters['Capabilities'] & SMB.CAP_LARGE_READX) and self._SignatureEnabled is False:
+            max_size = 65000
+        else:
+            max_size = self._dialects_parameters['MaxBufferSize'] # Read in multiple KB blocks
+        res['MaxReadSize'] = max_size
+        res['MaxWriteSize'] = max_size
+        return res
+
     def login(self, user, password, domain = '', lmhash = '', nthash = '', ntlm_fallback = True):
 
         # If we have hashes, normalize them
