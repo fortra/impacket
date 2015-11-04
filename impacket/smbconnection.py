@@ -457,16 +457,17 @@ class SMBConnection:
             raise SessionError(e.get_error_code())
 
 
-    def readFile(self, treeId, fileId, offset = 0, bytesToRead = None):
+    def readFile(self, treeId, fileId, offset = 0, bytesToRead = None, singleCall = True):
         """
         reads data from a file
 
         :param HANDLE treeId: a valid handle for the share where the file is to be read
         :param HANDLE fileId: a valid handle for the file to be read
         :param integer offset: offset where to start reading the data
-        :param integer bytesToRead: amount of bytes to read. If None, it will read Dialect['MaxBufferSize'] bytes.
+        :param integer bytesToRead: amount of bytes to attempt reading. If None, it will attempt to read Dialect['MaxBufferSize'] bytes.
+        :param boolean singleCall: If True it won't attempt to read all bytesToRead. It will only make a single read call
 
-        :return: the data read, if not raises a SessionError exception.
+        :return: the data read, if not raises a SessionError exception. Length of data read is not always bytesToRead
         """
         finished = False
         data = ''
@@ -491,6 +492,8 @@ class SMBConnection:
                 finished = True
             elif len(bytesRead) == 0:
                 # End of the file achieved.
+                finished = True
+            elif singleCall is True:
                 finished = True
             else:
                 offset += len(bytesRead)
@@ -657,7 +660,7 @@ class SMBConnection:
         """
 
         try:
-            return self.readFile(treeId, fileId, bytesToRead = bytesToRead)
+            return self.readFile(treeId, fileId, bytesToRead = bytesToRead, singleCall = True)
         except (smb.SessionError, smb3.SessionError), e:
             raise SessionError(e.get_error_code())
 
