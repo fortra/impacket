@@ -2178,6 +2178,11 @@ if __name__ == '__main__':
 
     domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
         options.target).groups('')
+        
+    #In case the password contains '@'
+    if '@' in address:
+        password = password + '@' + address.rpartition('@')[0]
+        address = address.rpartition('@')[2]
 
     if options.use_vss is True and options.resumefile is not None:
         logging.error('resuming a previous NTDS.DIT dump session is not supported in VSS mode')
