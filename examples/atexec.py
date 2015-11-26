@@ -203,6 +203,11 @@ if __name__ == '__main__':
     import re
     domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(options.target).groups('')
 
+    #In case the password contains '@'
+    if '@' in address:
+        password = password + '@' + address.rpartition('@')[0]
+        address = address.rpartition('@')[2]
+
     if domain is None:
         domain = ''
 

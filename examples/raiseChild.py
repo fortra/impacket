@@ -1415,7 +1415,12 @@ if __name__ == '__main__':
     # This is because I'm lazy with regex
     # ToDo: We need to change the regex to fullfil domain/username[:password]
     targetParam = options.target+'@'
-    domain, username, password, _= re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(targetParam).groups('')
+    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(targetParam).groups('')
+
+    #In case the password contains '@'
+    if '@' in address:
+        password = password + '@' + address.rpartition('@')[0]
+        address = address.rpartition('@')[2]
 
     if options.debug is True:
         logging.getLogger().setLevel(logging.DEBUG)
