@@ -35,7 +35,7 @@ from impacket.dcerpc.v5.dcomrt import DCOMConnection
 from impacket.dcerpc.v5.dcom import wmi
 from impacket.dcerpc.v5.dtypes import NULL
 
-OUTPUT_FILENAME = '__'
+OUTPUT_FILENAME = '__' + str(time.time())
 
 class WMIEXEC:
     def __init__(self, command = '', username = '', password = '', domain = '', hashes = None, aesKey = None, share = None, noOutput=False, doKerberos=False):
