@@ -887,8 +887,6 @@ def hept_lookup(destHost, inquiry_type = RPC_C_EP_ALL_ELTS, objectUUID = NULL, i
         rpctransport = transport.DCERPCTransportFactory(stringBinding)
         dce = rpctransport.get_dce_rpc()
         dce.connect()
-    else:
-        destHost = None
 
     dce.bind(MSRPC_UUID_PORTMAP)
     request = ept_lookup()
@@ -915,7 +913,7 @@ def hept_lookup(destHost, inquiry_type = RPC_C_EP_ALL_ELTS, objectUUID = NULL, i
         tmpEntry['tower'] = EPMTower(''.join(entry['tower']['tower_octet_string']))
         entries.append(tmpEntry)
 
-    if destHost is not None:
+    if dce is None:
         dce.disconnect()
 
     return entries
