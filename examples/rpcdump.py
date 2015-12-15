@@ -128,7 +128,7 @@ class RPCDump:
         #dce.bind(epm.MSRPC_UUID_PORTMAP)
         #rpcepm = epm.DCERPCEpm(dce)
 
-        resp = epm.hept_lookup(rpctransport.get_dip())
+        resp = epm.hept_lookup(None, dce=dce)
 
         dce.disconnect()
 
