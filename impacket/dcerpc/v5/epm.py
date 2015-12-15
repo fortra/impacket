@@ -881,11 +881,13 @@ class ept_mapResponse(NDRCALL):
 # HELPER FUNCTIONS
 ################################################################################
 
-def hept_lookup(destHost, inquiry_type = RPC_C_EP_ALL_ELTS, objectUUID = NULL, ifId = NULL, vers_option = RPC_C_VERS_ALL,  entry_handle = ept_lookup_handle_t(), max_ents = 499):
-    stringBinding = r'ncacn_ip_tcp:%s[135]' % destHost
-    rpctransport = transport.DCERPCTransportFactory(stringBinding)
-    dce = rpctransport.get_dce_rpc()
-    dce.connect()
+def hept_lookup(destHost, inquiry_type = RPC_C_EP_ALL_ELTS, objectUUID = NULL, ifId = NULL, vers_option = RPC_C_VERS_ALL,  entry_handle = ept_lookup_handle_t(), max_ents = 499, dce = None):
+    if dce is None:
+        stringBinding = r'ncacn_ip_tcp:%s[135]' % destHost
+        rpctransport = transport.DCERPCTransportFactory(stringBinding)
+        dce = rpctransport.get_dce_rpc()
+        dce.connect()
+
     dce.bind(MSRPC_UUID_PORTMAP)
     request = ept_lookup()
     request['inquiry_type'] = inquiry_type
@@ -909,11 +911,14 @@ def hept_lookup(destHost, inquiry_type = RPC_C_EP_ALL_ELTS, objectUUID = NULL, i
         tmpEntry['object'] = entry['object'] 
         tmpEntry['annotation'] = ''.join(entry['annotation'])
         tmpEntry['tower'] = EPMTower(''.join(entry['tower']['tower_octet_string']))
-        entries.append(tmpEntry)        
-    dce.disconnect()
+        entries.append(tmpEntry)
+
+    if dce is None:
+        dce.disconnect()
+
     return entries
 
-def hept_map(destHost, remoteIf, dataRepresentation = uuidtup_to_bin(('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')), protocol = 'ncacn_np'): 
+def hept_map(destHost, remoteIf, dataRepresentation = uuidtup_to_bin(('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')), protocol = 'ncacn_np'):
     stringBinding = r'ncacn_ip_tcp:%s[135]' % destHost
     rpctransport = transport.DCERPCTransportFactory(stringBinding)
     dce = rpctransport.get_dce_rpc()
