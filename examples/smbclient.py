@@ -322,7 +322,10 @@ class MiniImpacketShell(cmd.Cmd):
         self.pwd = ntpath.normpath(self.pwd)
         # Let's try to open the directory to see if it's valid
         try:
-            fid = self.smb.openFile(self.tid, self.pwd, creationOption = FILE_DIRECTORY_FILE)
+            fid = self.smb.openFile(self.tid, self.pwd, creationOption = FILE_DIRECTORY_FILE \
+                                    , desiredAccess = FILE_READ_DATA | FILE_LIST_DIRECTORY \
+                                    , shareMode = FILE_SHARE_READ | FILE_SHARE_WRITE \
+                                    )
             self.smb.closeFile(self.tid,fid)
         except SessionError:
             self.pwd = oldpwd
