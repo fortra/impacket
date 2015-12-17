@@ -60,7 +60,7 @@ def GSSAPI(cipher):
         raise Exception('Unsupported etype 0x%x' % cipher.enctype)
 
 # 7.2.   GSS-API MIC Semantics
-class GSSAPI_RC4():
+class GSSAPI_RC4:
     # 1.2.1. Per-message Tokens - MIC
     class MIC(Structure):
         structure = (
@@ -90,7 +90,7 @@ class GSSAPI_RC4():
         # Let's pad the data
         pad = (4 - (len(data) % 4)) & 0x3
         padStr = chr(pad) * pad
-        data = data + padStr
+        data += padStr
  
         token['SGN_ALG'] = GSS_HMAC
         if direction == 'init':
@@ -120,7 +120,7 @@ class GSSAPI_RC4():
         # Let's pad the data
         pad = (8 - (len(data) % 8)) & 0x7
         padStr = chr(pad) * pad
-        data = data + padStr
+        data += padStr
 
         token['SGN_ALG'] = GSS_HMAC
         token['SEAL_ALG'] = GSS_RC4
@@ -209,7 +209,7 @@ class GSSAPI_AES():
         # Let's pad the data
         pad = (4 - (len(data) % 4)) & 0x3
         padStr = chr(pad) * pad
-        data = data + padStr
+        data += padStr
 
         checkSumProfile = self.checkSumProfile()
 
@@ -220,13 +220,13 @@ class GSSAPI_AES():
         return token.getData()
    
     def rotate(self, data, numBytes):
-        numBytes = numBytes % len(data)
+        numBytes %= len(data)
         left = len(data) - numBytes
         result = data[left:] + data[:left]
         return result
 
     def unrotate(self, data, numBytes):
-        numBytes = numBytes % len(data)
+        numBytes %= len(data)
         result = data[numBytes:] + data[:numBytes]
         return result
         
@@ -238,7 +238,7 @@ class GSSAPI_AES():
         # Let's pad the data
         pad = (cipher.blocksize - (len(data) % cipher.blocksize)) & 15
         padStr = '\xFF' * pad
-        data = data + padStr
+        data += padStr
 
         # The RRC field ([RFC4121] section 4.2.5) is 12 if no encryption is requested or 28 if encryption 
         # is requested. The RRC field is chosen such that all the data can be encrypted in place.
