@@ -38,7 +38,7 @@ import struct
 
 from impacket.examples import logger
 from impacket import uuid
-from impacket.dcerpc import ndrutils
+from impacket.dcerpc.v5.epm import KNOWN_UUIDS
 from impacket.dcerpc.v5 import transport, rpcrt, epm
 from impacket.dcerpc.v5 import mgmt
 
@@ -282,14 +282,14 @@ ffe561b8-bf15-11cf-8c5e-08002bb49649 v2.0
 uuid_database = set((uuidstr.upper(), ver) for uuidstr, ver in uuid_database)
 
 # add the ones from ndrutils
-k = ndrutils.KNOWN_UUIDS.keys()[0]
+k = KNOWN_UUIDS.keys()[0]
 def fix_ndr_uuid(ndruuid):
   assert len(ndruuid) == 18
   uuid = ndruuid[:16]
   maj, min = struct.unpack("BB", ndruuid[16:])
   return uuid + struct.pack("<HH", maj, min)
 uuid_database.update(
-  uuid.bin_to_uuidtup(fix_ndr_uuid(bin)) for bin in ndrutils.KNOWN_UUIDS.keys()
+  uuid.bin_to_uuidtup(fix_ndr_uuid(bin)) for bin in KNOWN_UUIDS.keys()
 )
 
 def main(args):
@@ -329,9 +329,8 @@ def main(args):
     binuuid = uuid.uuidtup_to_bin(tup)
     try:
       dce.bind(binuuid)
-    except rpcrt.Exception, e:
-      resp = e[1]
-      if (resp['Result'], resp['Reason']) == (2, 1):
+    except rpcrt.DCERPCException, e:
+      if str(e).find('abstract_syntax_not_supported') >= 0:
         listening = False
       else:
         raise
@@ -351,8 +350,8 @@ def main(args):
       else:
           print "Procotol: N/A"
 
-      if ndrutils.KNOWN_UUIDS.has_key(uuid.uuidtup_to_bin(tup)[:18]):
-          print "Provider: %s" % (ndrutils.KNOWN_UUIDS[uuid.uuidtup_to_bin(tup)[:18]])
+      if KNOWN_UUIDS.has_key(uuid.uuidtup_to_bin(tup)[:18]):
+          print "Provider: %s" % (KNOWN_UUIDS[uuid.uuidtup_to_bin(tup)[:18]])
       else:
           print "Provider: N/A"
 
