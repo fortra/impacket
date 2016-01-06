@@ -21,7 +21,6 @@ import argparse
 from impacket.examples import logger
 from impacket import uuid, version
 from impacket.dcerpc.v5 import transport, epm
-from impacket.dcerpc import  ndrutils
 
 
 class RPCDump:
@@ -88,8 +87,8 @@ class RPCDump:
             if endpoints.has_key(tmpUUID) is not True:
                 endpoints[tmpUUID] = {}
                 endpoints[tmpUUID]['Bindings'] = list()
-            if ndrutils.KNOWN_UUIDS.has_key(uuid.uuidtup_to_bin(uuid.string_to_uuidtup(tmpUUID))[:18]):
-                endpoints[tmpUUID]['EXE'] = ndrutils.KNOWN_UUIDS[uuid.uuidtup_to_bin(uuid.string_to_uuidtup(tmpUUID))[:18]]
+            if epm.KNOWN_UUIDS.has_key(uuid.uuidtup_to_bin(uuid.string_to_uuidtup(tmpUUID))[:18]):
+                endpoints[tmpUUID]['EXE'] = epm.KNOWN_UUIDS[uuid.uuidtup_to_bin(uuid.string_to_uuidtup(tmpUUID))[:18]]
             else:
                 endpoints[tmpUUID]['EXE'] = 'N/A'
             endpoints[tmpUUID]['annotation'] = entry['annotation'][:-1]
