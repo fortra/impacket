@@ -1,5 +1,5 @@
 #--
-# Copyright (c) 2001-2003 CORE Security Technologies, CORE SDI Inc.
+# Copyright (c) 2001-2016 CORE Security Technologies, CORE SDI Inc.
 # All rights reserved.
 #
 # This computer software is owned by Core SDI Inc. and is
