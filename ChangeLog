@@ -1,8 +1,40 @@
 Complete list of changes can be found at:
 https://github.com/CoreSecurity/impacket/commits/master
 
+January 2016: 0.9.14:
+1) Library improvements:
+   * [MS-TSCH] - ATSVC, SASec and ITaskSchedulerService Interface implementations
+   * [MS-DRSR] - Directory Replication Service DRSUAPI Interface implementation
+   * Network Data Representation (NDR) runtime overhaul. Big performance and reliability improvements achieved
+   * Unicode support (optional) for the SMBv1 stack (by @rdubourguais)
+   * NTLMv2 enforcement option on SMBv1 client stack (by @scriptjunkie)
+   * Kerberos support for TDS (MSSQL)
+   * Extended present flags support on RadioTap class
+   * Old DCERPC runtime code removed
+
+2) Examples improvements:
+   * mssqlclient.py: Added Kerberos authentication support
+   * atexec.py: It now uses ITaskSchedulerService interface, adding support for Windows 2012 R2
+   * smbrelayx.py:
+     * If no file to upload and execute is specified (-E) it just dumps the target user's hashes by default
+     * Added -c option to execute custom commands in the target (by @byt3bl33d3r)
+   * secretsdump.py:
+       a. Active Directory hashes/Kerberos keys are dumped using [MS-DRSR] (IDL_DRSGetNCChanges method)
+          by default. VSS method is still available by using the -use-vss switch
+       b. Added -just-dc (Extract only NTDS.DIT NTLM Hashes and Kerberos) and
+          -just-dc-ntlm ( only NTDS.DIT NTLM Hashes ) options
+       c. Added resume capability (only for NTDS in DRSUAPI mode) in case the connection drops. Use -resumefile option
+       d. Added Primary:CLEARTEXT Property from supplementalCredentials attribute dump ([MS-SAMR] 3.1.1.8.11.5)
+       e. Add support for multiple password encryption keys (PEK) (by @s0crat)
+   * goldenPac.py: Tests all DCs in domain and adding forest's enterprise admin group inside PAC
+
+3) New examples:
+   * raiseChild.py: Child domain to forest privilege escalation exploit. Implements a child-domain to forest privilege
+     escalation as detailed by Sean Metcalf at https://adsecurity.org/?p=1640
+   * netview.py: Gets a list of the sessions opened at the remote hosts and keep track of them (original idea by @mubix)
+
 May 2015: 0.9.13:
-1) Library improvements
+1) Library improvements:
    * Kerberos support for SMB and DCERPC featuring:
       a. kerberosLogin() added to SMBConnection (all SMB versions).
       b. Support for RPC_C_AUTHN_GSS_NEGOTIATE at the DCERPC layer. This will 
