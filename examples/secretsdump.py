@@ -1345,7 +1345,7 @@ class NTDSHashes:
         structure = (
             ('Header','8s=""'),
             ('KeyMaterial','16s=""'),
-            ('Uknown','<L=0'),
+            ('Unknown','<L=0'),
             ('EncryptedHash','32s=""'),
         )
 
