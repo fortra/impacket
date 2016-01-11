@@ -790,6 +790,23 @@ class CryptoCommon:
         key2 = key[3] + key[0] + key[1] + key[2] + key[3] + key[0] + key[1]
         return self.transformKey(key1),self.transformKey(key2)
 
+    @staticmethod
+    def decryptAES(key, value, iv='\x00'*16):
+        plainText = ''
+        if iv != '\x00'*16:
+            aes256 = AES.new(key,AES.MODE_CBC, iv)
+
+        for index in range(0, len(value), 16):
+            if iv == '\x00'*16:
+                aes256 = AES.new(key,AES.MODE_CBC, iv)
+            cipherBuffer = value[index:index+16]
+            # Pad buffer to 16 bytes
+            if len(cipherBuffer) < 16:
+                cipherBuffer += '\x00' * (16-len(cipherBuffer))
+            plainText += aes256.decrypt(cipherBuffer)
+
+        return plainText
+
 
 class OfflineRegistry:
     def __init__(self, hiveFile = None, isRemote = False):
@@ -975,22 +992,6 @@ class LSASecrets(OfflineRegistry):
             sha.update(value)
         return sha.digest()
 
-    def __decryptAES(self, key, value, iv='\x00'*16):
-        plainText = ''
-        if iv != '\x00'*16:
-            aes256 = AES.new(key,AES.MODE_CBC, iv)
-
-        for index in range(0, len(value), 16):
-            if iv == '\x00'*16:
-                aes256 = AES.new(key,AES.MODE_CBC, iv)
-            cipherBuffer = value[index:index+16]
-            # Pad buffer to 16 bytes
-            if len(cipherBuffer) < 16:
-                cipherBuffer += '\x00' * (16-len(cipherBuffer))
-            plainText += aes256.decrypt(cipherBuffer)
-
-        return plainText
-
     def __decryptSecret(self, key, value):
         # [MS-LSAD] Section 5.1.2
         plainText = ''
@@ -1027,7 +1028,7 @@ class LSASecrets(OfflineRegistry):
             # ToDo: There could be more than one LSA Keys
             record = LSA_SECRET(value)
             tmpKey = self.__sha256(self.__bootKey, record['EncryptedData'][:32])
-            plainText = self.__decryptAES(tmpKey, record['EncryptedData'][32:])
+            plainText = self.__cryptoCommon.decryptAES(tmpKey, record['EncryptedData'][32:])
             record = LSA_SECRET_BLOB(plainText)
             self.__LSAKey = record['Secret'][52:][:32]
 
@@ -1064,7 +1065,7 @@ class LSASecrets(OfflineRegistry):
         if self.__vistaStyle is True:
             record = LSA_SECRET(value[1])
             tmpKey = self.__sha256(self.__LSAKey, record['EncryptedData'][:32])
-            self.__NKLMKey = self.__decryptAES(tmpKey, record['EncryptedData'][32:])
+            self.__NKLMKey = self.__cryptoCommon.decryptAES(tmpKey, record['EncryptedData'][32:])
         else:
             self.__NKLMKey = self.__decryptSecret(self.__LSAKey, value[1])
 
@@ -1100,7 +1101,7 @@ class LSASecrets(OfflineRegistry):
             record = NL_RECORD(self.getValue(ntpath.join('\\Cache',value))[1])
             if record['CH'] != 16 * '\x00':
                 if self.__vistaStyle is True:
-                    plainText = self.__decryptAES(self.__NKLMKey[16:32], record['EncryptedData'], record['CH'])
+                    plainText = self.__cryptoCommon.decryptAES(self.__NKLMKey[16:32], record['EncryptedData'], record['CH'])
                 else:
                     plainText = self.__decryptHash(self.__NKLMKey, record['EncryptedData'], record['CH'])
                     pass
@@ -1227,7 +1228,7 @@ class LSASecrets(OfflineRegistry):
                 if self.__vistaStyle is True:
                     record = LSA_SECRET(value[1])
                     tmpKey = self.__sha256(self.__LSAKey, record['EncryptedData'][:32])
-                    plainText = self.__decryptAES(tmpKey, record['EncryptedData'][32:])
+                    plainText = self.__cryptoCommon.decryptAES(tmpKey, record['EncryptedData'][32:])
                     record = LSA_SECRET_BLOB(plainText)
                     secret = record['Secret']
                 else:
@@ -1340,6 +1341,14 @@ class NTDSHashes:
             ('EncryptedHash','16s=""'),
         )
 
+    class CRYPTED_HASHW16(Structure):
+        structure = (
+            ('Header','8s=""'),
+            ('KeyMaterial','16s=""'),
+            ('Uknown','<L=0'),
+            ('EncryptedHash','32s=""'),
+        )
+
     class CRYPTED_HISTORY(Structure):
         structure = (
             ('Header','8s=""'),
@@ -1396,19 +1405,32 @@ class NTDSHashes:
         
         if peklist is not None:
             encryptedPekList = self.PEKLIST_ENC(peklist)
-            md5 = hashlib.new('md5')
-            md5.update(self.__bootKey)
-            for i in range(1000):
-                md5.update(encryptedPekList['KeyMaterial'])
-            tmpKey = md5.digest()
-            rc4 = ARC4.new(tmpKey)
-            decryptedPekList = self.PEKLIST_PLAIN(rc4.encrypt(encryptedPekList['EncryptedPek']))
-            PEKLen = len(self.PEK_KEY())
-            for i in range(len( decryptedPekList['DecryptedPek'] ) / PEKLen ):
-                cursor = i * PEKLen
-                pek = self.PEK_KEY(decryptedPekList['DecryptedPek'][cursor:cursor+PEKLen])
-                logging.info("PEK # %d found and decrypted: %s", i, hexlify(pek['Key']))
-                self.__PEK.append(pek['Key'])
+            if encryptedPekList['Header'][:4] == '\x02\x00\x00\x00':
+                # Up to Windows 2012 R2 looks like header starts this way
+                md5 = hashlib.new('md5')
+                md5.update(self.__bootKey)
+                for i in range(1000):
+                    md5.update(encryptedPekList['KeyMaterial'])
+                tmpKey = md5.digest()
+                rc4 = ARC4.new(tmpKey)
+                decryptedPekList = self.PEKLIST_PLAIN(rc4.encrypt(encryptedPekList['EncryptedPek']))
+                PEKLen = len(self.PEK_KEY())
+                for i in range(len( decryptedPekList['DecryptedPek'] ) / PEKLen ):
+                    cursor = i * PEKLen
+                    pek = self.PEK_KEY(decryptedPekList['DecryptedPek'][cursor:cursor+PEKLen])
+                    logging.info("PEK # %d found and decrypted: %s", i, hexlify(pek['Key']))
+                    self.__PEK.append(pek['Key'])
+
+            elif encryptedPekList['Header'][:4] == '\x03\x00\x00\x00':
+                # Windows 2016 TP4 header starts this way
+                # Encrypted PEK Key seems to be different, but actually similar to decrypting LSA Secrets.
+                # using AES:
+                # Key: the bootKey
+                # CipherText: PEKLIST_ENC['EncryptedPek']
+                # IV: PEKLIST_ENC['KeyMaterial']
+                decryptedPekList = self.PEKLIST_PLAIN(self.__cryptoCommon.decryptAES(self.__bootKey, encryptedPekList['EncryptedPek'], encryptedPekList['KeyMaterial']))
+                self.__PEK.append(decryptedPekList['DecryptedPek'][4:][:16])
+                logging.info("PEK # 0 found and decrypted: %s", hexlify(decryptedPekList['DecryptedPek'][4:][:16]))
 
     def __removeRC4Layer(self, cryptedHash):
         md5 = hashlib.new('md5')
@@ -1453,6 +1475,13 @@ class NTDSHashes:
                     else:
                         userName = '%s' % record[self.NAME_TO_INTERNAL['sAMAccountName']]
                     cipherText = self.CRYPTED_BLOB(unhexlify(record[self.NAME_TO_INTERNAL['supplementalCredentials']]))
+
+                if cipherText['Header'][:4] == '\x13\x00\x00\x00':
+                    # Win2016 TP4 decryption is different
+                    pekIndex = hexlify(cipherText['Header'])
+                    plainText = self.__cryptoCommon.decryptAES(self.__PEK[int(pekIndex[8:10])], cipherText['EncryptedHash'][4:], cipherText['KeyMaterial'])
+                    haveInfo = True
+                else:
                     plainText = self.__removeRC4Layer(cipherText)
                     haveInfo = True
         else:
@@ -1555,7 +1584,13 @@ class NTDSHashes:
 
             if record[self.NAME_TO_INTERNAL['unicodePwd']] is not None:
                 encryptedNTHash = self.CRYPTED_HASH(unhexlify(record[self.NAME_TO_INTERNAL['unicodePwd']]))
-                tmpNTHash = self.__removeRC4Layer(encryptedNTHash)
+                if encryptedNTHash['Header'][:4] == '\x13\x00\x00\x00':
+                    # Win2016 TP4 decryption is different
+                    encryptedNTHash = self.CRYPTED_HASHW16(unhexlify(record[self.NAME_TO_INTERNAL['unicodePwd']]))
+                    pekIndex = hexlify(encryptedNTHash['Header'])
+                    tmpNTHash = self.__cryptoCommon.decryptAES(self.__PEK[int(pekIndex[8:10])], encryptedNTHash['EncryptedHash'][:16], encryptedNTHash['KeyMaterial'])
+                else:
+                    tmpNTHash = self.__removeRC4Layer(encryptedNTHash)
                 NTHash = self.__removeDESLayer(tmpNTHash, rid)
             else:
                 NTHash = ntlm.NTOWFv1('', '')
@@ -1591,7 +1626,14 @@ class NTDSHashes:
 
                 if record[self.NAME_TO_INTERNAL['ntPwdHistory']] is not None:
                     encryptedNTHistory = self.CRYPTED_HISTORY(unhexlify(record[self.NAME_TO_INTERNAL['ntPwdHistory']]))
-                    tmpNTHistory = self.__removeRC4Layer(encryptedNTHistory)
+
+                    if encryptedNTHistory['Header'][:4] == '\x13\x00\x00\x00':
+                        # Win2016 TP4 decryption is different
+                        pekIndex = hexlify(encryptedNTHistory['Header'])
+                        tmpNTHistory = self.__cryptoCommon.decryptAES(self.__PEK[int(pekIndex[8:10])], encryptedNTHistory['EncryptedHash'], encryptedNTHistory['KeyMaterial'])
+                    else:
+                        tmpNTHistory = self.__removeRC4Layer(encryptedNTHistory)
+
                     for i in range(0, len(tmpNTHistory) / 16):
                         NTHash = self.__removeDESLayer(tmpNTHistory[i * 16:(i + 1) * 16], rid)
                         NTHistory.append(NTHash)
