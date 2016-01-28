@@ -2257,20 +2257,20 @@ class SMBCommands:
 
                 ansFlags = 0
 
-                if negotiateMessage['flags'] & ntlm.NTLMSSP_KEY_56:
-                   ansFlags |= ntlm.NTLMSSP_KEY_56
-                if negotiateMessage['flags'] & ntlm.NTLMSSP_KEY_128:
-                   ansFlags |= ntlm.NTLMSSP_KEY_128
-                if negotiateMessage['flags'] & ntlm.NTLMSSP_KEY_EXCHANGE:
-                   ansFlags |= ntlm.NTLMSSP_KEY_EXCHANGE
-                if negotiateMessage['flags'] & ntlm.NTLMSSP_NTLM2_KEY:
-                   ansFlags |= ntlm.NTLMSSP_NTLM2_KEY
-                if negotiateMessage['flags'] & ntlm.NTLMSSP_UNICODE:
-                   ansFlags |= ntlm.NTLMSSP_UNICODE
-                if negotiateMessage['flags'] & ntlm.NTLMSSP_OEM:
-                   ansFlags |= ntlm.NTLMSSP_OEM
+                if negotiateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_56:
+                   ansFlags |= ntlm.NTLMSSP_NEGOTIATE_56
+                if negotiateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_128:
+                   ansFlags |= ntlm.NTLMSSP_NEGOTIATE_128
+                if negotiateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_KEY_EXCH:
+                   ansFlags |= ntlm.NTLMSSP_NEGOTIATE_KEY_EXCH
+                if negotiateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_NTLM2:
+                   ansFlags |= ntlm.NTLMSSP_NEGOTIATE_NTLM2
+                if negotiateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
+                   ansFlags |= ntlm.NTLMSSP_NEGOTIATE_UNICODE
+                if negotiateMessage['flags'] & ntlm.NTLM_NEGOTIATE_OEM:
+                   ansFlags |= ntlm.NTLM_NEGOTIATE_OEM
 
-                ansFlags |= ntlm.NTLMSSP_VERSION | ntlm.NTLMSSP_TARGET_INFO | ntlm.NTLMSSP_TARGET_TYPE_SERVER | ntlm.NTLMSSP_NTLM_KEY | ntlm.NTLMSSP_TARGET
+                ansFlags |= ntlm.NTLMSSP_NEGOTIATE_VERSION | ntlm.NTLMSSP_NEGOTIATE_TARGET_INFO | ntlm.NTLMSSP_TARGET_TYPE_SERVER | ntlm.NTLMSSP_NEGOTIATE_NTLM | ntlm.NTLMSSP_REQUEST_TARGET
 
                 # Generate the AV_PAIRS
                 av_pairs = ntlm.AV_PAIRS()
@@ -2600,20 +2600,20 @@ class SMB2Commands:
 
             ansFlags = 0
 
-            if negotiateMessage['flags'] & ntlm.NTLMSSP_KEY_56:
-               ansFlags |= ntlm.NTLMSSP_KEY_56
-            if negotiateMessage['flags'] & ntlm.NTLMSSP_KEY_128:
-               ansFlags |= ntlm.NTLMSSP_KEY_128
-            if negotiateMessage['flags'] & ntlm.NTLMSSP_KEY_EXCHANGE:
-               ansFlags |= ntlm.NTLMSSP_KEY_EXCHANGE
-            if negotiateMessage['flags'] & ntlm.NTLMSSP_NTLM2_KEY:
-               ansFlags |= ntlm.NTLMSSP_NTLM2_KEY
-            if negotiateMessage['flags'] & ntlm.NTLMSSP_UNICODE:
-               ansFlags |= ntlm.NTLMSSP_UNICODE
-            if negotiateMessage['flags'] & ntlm.NTLMSSP_OEM:
-               ansFlags |= ntlm.NTLMSSP_OEM
+            if negotiateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_56:
+               ansFlags |= ntlm.NTLMSSP_NEGOTIATE_56
+            if negotiateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_128:
+               ansFlags |= ntlm.NTLMSSP_NEGOTIATE_128
+            if negotiateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_KEY_EXCH:
+               ansFlags |= ntlm.NTLMSSP_NEGOTIATE_KEY_EXCH
+            if negotiateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_NTLM2:
+               ansFlags |= ntlm.NTLMSSP_NEGOTIATE_NTLM2
+            if negotiateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
+               ansFlags |= ntlm.NTLMSSP_NEGOTIATE_UNICODE
+            if negotiateMessage['flags'] & ntlm.NTLM_NEGOTIATE_OEM:
+               ansFlags |= ntlm.NTLM_NEGOTIATE_OEM
 
-            ansFlags |= ntlm.NTLMSSP_VERSION | ntlm.NTLMSSP_TARGET_INFO | ntlm.NTLMSSP_TARGET_TYPE_SERVER | ntlm.NTLMSSP_NTLM_KEY | ntlm.NTLMSSP_TARGET
+            ansFlags |= ntlm.NTLMSSP_NEGOTIATE_VERSION | ntlm.NTLMSSP_NEGOTIATE_TARGET_INFO | ntlm.NTLMSSP_TARGET_TYPE_SERVER | ntlm.NTLMSSP_NEGOTIATE_NTLM | ntlm.NTLMSSP_REQUEST_TARGET
 
             # Generate the AV_PAIRS
             av_pairs = ntlm.AV_PAIRS()

@@ -40,7 +40,7 @@ randomSessionKey = "U"*16
 time = "\x00"*8
 clientChallenge = "\xaa"*8
 serverChallenge = "\x01\x23\x45\x67\x89\xab\xcd\xef"
-flags =  ntlm.NTLMSSP_KEY_EXCHANGE | ntlm.NTLMSSP_KEY_56 | ntlm.NTLMSSP_KEY_128 | ntlm.NTLMSSP_VERSION | ntlm.NTLMSSP_TARGET_TYPE_SERVER | ntlm.NTLMSSP_ALWAYS_SIGN | ntlm.NTLMSSP_NTLM_KEY | ntlm.NTLMSSP_SEAL | ntlm.NTLMSSP_SIGN | ntlm.NTLMSSP_OEM | ntlm.NTLMSSP_UNICODE
+flags =  ntlm.NTLMSSP_NEGOTIATE_KEY_EXCH | ntlm.NTLMSSP_NEGOTIATE_56 | ntlm.NTLMSSP_NEGOTIATE_128 | ntlm.NTLMSSP_NEGOTIATE_VERSION | ntlm.NTLMSSP_TARGET_TYPE_SERVER | ntlm.NTLMSSP_NEGOTIATE_ALWAYS_SIGN | ntlm.NTLMSSP_NEGOTIATE_NTLM | ntlm.NTLMSSP_NEGOTIATE_SEAL | ntlm.NTLMSSP_NEGOTIATE_SIGN | ntlm.NTLM_NEGOTIATE_OEM | ntlm.NTLMSSP_NEGOTIATE_UNICODE
 seqNum = 0
 nonce = '\x00' * 4
 plaintext = 'Plaintext'.encode('utf-16le')
@@ -82,14 +82,14 @@ encryptedSessionKey = ntlm.generateEncryptedSessionKey(keyExchangeKey,randomSess
 hexdump(encryptedSessionKey)
 print "\n"
 print "4.2.2.2.3 Encrypted Session Key (NTLMSSP_NON_NT_KEY)"
-flags2 = flags | ntlm.NTLMSSP_NOT_NT_KEY
+flags2 = flags | ntlm.NTLMSSP_REQUEST_NON_NT_SESSION_KEY
 #hexdump(struct.pack('<L',flags2))
 keyExchangeKey = ntlm.KXKEY(flags2, sessionBaseKey, lmResponse, serverChallenge, password,'','')
 encryptedSessionKey = ntlm.generateEncryptedSessionKey(keyExchangeKey,randomSessionKey)
 hexdump(encryptedSessionKey)
 print "\n"
 print "4.2.2.2.3 Encrypted Session Key (NTLMSSP_LM_KEY)"
-flags2 = flags | ntlm.NTLMSSP_LM_KEY
+flags2 = flags | ntlm.NTLMSSP_NEGOTIATE_LM_KEY
 #hexdump(struct.pack('<L',flags2))
 keyExchangeKey = ntlm.KXKEY(flags2, sessionBaseKey, lmResponse, serverChallenge, password,'','')
 encryptedSessionKey = ntlm.generateEncryptedSessionKey(keyExchangeKey,randomSessionKey)
@@ -125,7 +125,7 @@ hexdump(signature.getData())
 print "\n"
 
 print "####### 4.2.3 NTLMv1 with Client Challenge"
-flags =  ntlm.NTLMSSP_KEY_56 | ntlm.NTLMSSP_VERSION | ntlm.NTLMSSP_NTLM2_KEY | ntlm.NTLMSSP_TARGET_TYPE_SERVER | ntlm.NTLMSSP_ALWAYS_SIGN | ntlm.NTLMSSP_NTLM_KEY | ntlm.NTLMSSP_SEAL | ntlm.NTLMSSP_SIGN | ntlm.NTLMSSP_OEM | ntlm.NTLMSSP_UNICODE
+flags =  ntlm.NTLMSSP_NEGOTIATE_56 | ntlm.NTLMSSP_NEGOTIATE_VERSION | ntlm.NTLMSSP_NEGOTIATE_NTLM2 | ntlm.NTLMSSP_TARGET_TYPE_SERVER | ntlm.NTLMSSP_NEGOTIATE_ALWAYS_SIGN | ntlm.NTLMSSP_NEGOTIATE_NTLM | ntlm.NTLMSSP_NEGOTIATE_SEAL | ntlm.NTLMSSP_NEGOTIATE_SIGN | ntlm.NTLM_NEGOTIATE_OEM | ntlm.NTLMSSP_NEGOTIATE_UNICODE
 print "Flags"
 hexdump(struct.pack('<L',flags))
 print "\n"
@@ -195,7 +195,7 @@ ntlm.USE_NTLMv2 = True
 serverName = '\x02\x00\x0c\x00\x44\x00\x6f\x00\x6d\x00\x61\x00\x69\x00\x6e\x00\x01\x00\x0c\x00\x53\x00\x65\x00\x72\x00\x76\x00\x65\x00\x72\x00\x00\x00\x00\x00'
 # Still the aTime won't be set to zero. that must be changed in ntlm.computeResponseNTLM2. Gotta make this more automated
 
-flags =  ntlm.NTLMSSP_KEY_EXCHANGE | ntlm.NTLMSSP_KEY_56 | ntlm.NTLMSSP_KEY_128 | ntlm.NTLMSSP_VERSION | ntlm.NTLMSSP_TARGET_INFO | ntlm.NTLMSSP_NTLM2_KEY | ntlm.NTLMSSP_TARGET_TYPE_SERVER | ntlm.NTLMSSP_ALWAYS_SIGN | ntlm.NTLMSSP_NTLM_KEY | ntlm.NTLMSSP_SEAL | ntlm.NTLMSSP_SIGN | ntlm.NTLMSSP_OEM | ntlm.NTLMSSP_UNICODE
+flags =  ntlm.NTLMSSP_NEGOTIATE_KEY_EXCH | ntlm.NTLMSSP_NEGOTIATE_56 | ntlm.NTLMSSP_NEGOTIATE_128 | ntlm.NTLMSSP_NEGOTIATE_VERSION | ntlm.NTLMSSP_NEGOTIATE_TARGET_INFO | ntlm.NTLMSSP_NEGOTIATE_NTLM2 | ntlm.NTLMSSP_TARGET_TYPE_SERVER | ntlm.NTLMSSP_NEGOTIATE_ALWAYS_SIGN | ntlm.NTLMSSP_NEGOTIATE_NTLM | ntlm.NTLMSSP_NEGOTIATE_SEAL | ntlm.NTLMSSP_NEGOTIATE_SIGN | ntlm.NTLM_NEGOTIATE_OEM | ntlm.NTLMSSP_NEGOTIATE_UNICODE
 print "Flags"
 hexdump(struct.pack('<L',flags))
 print "\n"
