@@ -2263,8 +2263,8 @@ class SMBCommands:
                    ansFlags |= ntlm.NTLMSSP_NEGOTIATE_128
                 if negotiateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_KEY_EXCH:
                    ansFlags |= ntlm.NTLMSSP_NEGOTIATE_KEY_EXCH
-                if negotiateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_NTLM2:
-                   ansFlags |= ntlm.NTLMSSP_NEGOTIATE_NTLM2
+                if negotiateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY:
+                   ansFlags |= ntlm.NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY
                 if negotiateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
                    ansFlags |= ntlm.NTLMSSP_NEGOTIATE_UNICODE
                 if negotiateMessage['flags'] & ntlm.NTLM_NEGOTIATE_OEM:
@@ -2606,8 +2606,8 @@ class SMB2Commands:
                ansFlags |= ntlm.NTLMSSP_NEGOTIATE_128
             if negotiateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_KEY_EXCH:
                ansFlags |= ntlm.NTLMSSP_NEGOTIATE_KEY_EXCH
-            if negotiateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_NTLM2:
-               ansFlags |= ntlm.NTLMSSP_NEGOTIATE_NTLM2
+            if negotiateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY:
+               ansFlags |= ntlm.NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY
             if negotiateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
                ansFlags |= ntlm.NTLMSSP_NEGOTIATE_UNICODE
             if negotiateMessage['flags'] & ntlm.NTLM_NEGOTIATE_OEM:

@@ -107,6 +107,7 @@ NTLMSSP_NEGOTIATE_IDENTIFY                 = 0x00100000
 # client. NTLM v2 authentication session key generation MUST be supported by both the client and the DC in order to be
 # used, and extended session security signing and sealing requires support from the client and the server in order to
 # be used.<23> An alternate name for this field is NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY
+NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY = 0x00080000
 NTLMSSP_NEGOTIATE_NTLM2                    = 0x00080000
 NTLMSSP_TARGET_TYPE_SHARE                  = 0x00040000
 
@@ -502,7 +503,7 @@ class ImpacketStructure(Structure):
 
 class ExtendedOrNotMessageSignature(Structure):
     def __init__(self, flags = 0, **kargs):
-        if flags & NTLMSSP_NEGOTIATE_NTLM2:
+        if flags & NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY:
             self.structure = self.extendedMessageSignature
         else:
             self.structure = self.MessageSignature
@@ -577,7 +578,7 @@ def getNTLMSSPType1(workstation='', domain='', signingRequired = False, use_ntlm
        auth['flags'] = NTLMSSP_NEGOTIATE_KEY_EXCH | NTLMSSP_NEGOTIATE_SIGN | NTLMSSP_NEGOTIATE_ALWAYS_SIGN | NTLMSSP_NEGOTIATE_SEAL
     if use_ntlmv2:
        auth['flags'] |= NTLMSSP_NEGOTIATE_TARGET_INFO
-    auth['flags'] |= NTLMSSP_NEGOTIATE_NTLM | NTLMSSP_NEGOTIATE_NTLM2 | NTLMSSP_NEGOTIATE_UNICODE | NTLMSSP_REQUEST_TARGET |  NTLMSSP_NEGOTIATE_128 | NTLMSSP_NEGOTIATE_56
+    auth['flags'] |= NTLMSSP_NEGOTIATE_NTLM | NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY | NTLMSSP_NEGOTIATE_UNICODE | NTLMSSP_REQUEST_TARGET |  NTLMSSP_NEGOTIATE_128 | NTLMSSP_NEGOTIATE_56
     auth['domain_name'] = domain.encode('utf-16le')
     return auth
 
@@ -617,9 +618,9 @@ def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = 
     ntResponse, lmResponse, sessionBaseKey = computeResponse(ntlmChallenge['flags'], ntlmChallenge['challenge'], clientChallenge, serverName, domain, user, password, lmhash, nthash, use_ntlmv2 )
 
     # Let's check the return flags
-    if (ntlmChallenge['flags'] & NTLMSSP_NEGOTIATE_NTLM2) == 0:
+    if (ntlmChallenge['flags'] & NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY) == 0:
         # No extended session security, taking it out
-        responseFlags &= 0xffffffff ^ NTLMSSP_NEGOTIATE_NTLM2
+        responseFlags &= 0xffffffff ^ NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY
     if (ntlmChallenge['flags'] & NTLMSSP_NEGOTIATE_128 ) == 0:
         # No support for 128 key len, taking it out
         responseFlags &= 0xffffffff ^ NTLMSSP_NEGOTIATE_128
@@ -703,7 +704,7 @@ def computeResponseNTLMv1(flags, serverChallenge, clientChallenge, serverName, d
         if flags & NTLMSSP_NEGOTIATE_LM_KEY:
            ntResponse = ''
            lmResponse = get_ntlmv1_response(lmhash, serverChallenge)
-        elif flags & NTLMSSP_NEGOTIATE_NTLM2:
+        elif flags & NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY:
            md5 = hashlib.new('md5')
            chall = (serverChallenge + clientChallenge)
            md5.update(chall)
@@ -759,7 +760,7 @@ def MAC(flags, handle, signingKey, seqNum, message):
    # [MS-NLMP] Section 3.4.4
    # Returns the right messageSignature depending on the flags
    messageSignature = NTLMMessageSignature(flags)
-   if flags & NTLMSSP_NEGOTIATE_NTLM2:
+   if flags & NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY:
        if flags & NTLMSSP_NEGOTIATE_KEY_EXCH:
            messageSignature['Version'] = 1
            messageSignature['Checksum'] = struct.unpack('<q',handle(hmac_md5(signingKey, struct.pack('<i',seqNum)+message)[:8]))[0]
@@ -791,7 +792,7 @@ def SIGN(flags, signingKey, message, seqNum, handle):
    return MAC(flags, handle, signingKey, seqNum, message)
 
 def SIGNKEY(flags, randomSessionKey, mode = 'Client'):
-   if flags & NTLMSSP_NEGOTIATE_NTLM2:
+   if flags & NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY:
        if mode == 'Client':
            md5 = hashlib.new('md5')
            md5.update(randomSessionKey + "session key to client-to-server signing key magic constant\x00")
@@ -805,7 +806,7 @@ def SIGNKEY(flags, randomSessionKey, mode = 'Client'):
    return signKey
 
 def SEALKEY(flags, randomSessionKey, mode = 'Client'):
-   if flags & NTLMSSP_NEGOTIATE_NTLM2:
+   if flags & NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY:
        if flags & NTLMSSP_NEGOTIATE_128:
            sealKey = randomSessionKey
        elif flags & NTLMSSP_NEGOTIATE_56:
@@ -846,7 +847,7 @@ def KXKEY(flags, sessionBaseKey, lmChallengeResponse, serverChallenge, password,
    if use_ntlmv2:
        return sessionBaseKey
 
-   if flags & NTLMSSP_NEGOTIATE_NTLM2:
+   if flags & NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY:
        if flags & NTLMSSP_NEGOTIATE_NTLM:
           keyExchangeKey = hmac_md5(sessionBaseKey, serverChallenge + lmChallengeResponse[:8])
        else:

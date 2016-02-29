@@ -1053,7 +1053,7 @@ class DCERPC_v5(DCERPC):
 
             if self.__auth_level in (RPC_C_AUTHN_LEVEL_CONNECT, RPC_C_AUTHN_LEVEL_PKT_INTEGRITY, RPC_C_AUTHN_LEVEL_PKT_PRIVACY):
                 if self.__auth_type == RPC_C_AUTHN_WINNT:
-                    if self.__flags & ntlm.NTLMSSP_NEGOTIATE_NTLM2:
+                    if self.__flags & ntlm.NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY:
                         self.__clientSigningKey = ntlm.SIGNKEY(self.__flags, self.__sessionKey)
                         self.__serverSigningKey = ntlm.SIGNKEY(self.__flags, self.__sessionKey,"Server")
                         self.__clientSealingKey = ntlm.SEALKEY(self.__flags, self.__sessionKey)
@@ -1136,7 +1136,7 @@ class DCERPC_v5(DCERPC):
             plain_data = rpc_packet['pduData']
             if self.__auth_level == RPC_C_AUTHN_LEVEL_PKT_PRIVACY:
                 if self.__auth_type == RPC_C_AUTHN_WINNT:
-                    if self.__flags & ntlm.NTLMSSP_NEGOTIATE_NTLM2:
+                    if self.__flags & ntlm.NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY:
                         # When NTLM2 is on, we sign the whole pdu, but encrypt just
                         # the data, not the dcerpc header. Weird..
                         sealedMessage, signature =  ntlm.SEAL(self.__flags, 
@@ -1163,7 +1163,7 @@ class DCERPC_v5(DCERPC):
                 rpc_packet['pduData'] = sealedMessage
             elif self.__auth_level == RPC_C_AUTHN_LEVEL_PKT_INTEGRITY: 
                 if self.__auth_type == RPC_C_AUTHN_WINNT:
-                    if self.__flags & ntlm.NTLMSSP_NEGOTIATE_NTLM2:
+                    if self.__flags & ntlm.NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY:
                         # Interesting thing.. with NTLM2, what is is signed is the 
                         # whole PDU, not just the data
                         signature =  ntlm.SIGN(self.__flags, 
@@ -1278,7 +1278,7 @@ class DCERPC_v5(DCERPC):
 
                 if sec_trailer['auth_level'] == RPC_C_AUTHN_LEVEL_PKT_PRIVACY:
                     if self.__auth_type == RPC_C_AUTHN_WINNT:
-                        if self.__flags & ntlm.NTLMSSP_NEGOTIATE_NTLM2:
+                        if self.__flags & ntlm.NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY:
                             # TODO: FIX THIS, it's not calculating the signature well
                             # Since I'm not testing it we don't care... yet
                             answer, signature =  ntlm.SEAL(self.__flags, 
@@ -1311,7 +1311,7 @@ class DCERPC_v5(DCERPC):
                 elif sec_trailer['auth_level'] == RPC_C_AUTHN_LEVEL_PKT_INTEGRITY:
                     if self.__auth_type == RPC_C_AUTHN_WINNT:
                         ntlmssp = auth_data[12:]
-                        if self.__flags & ntlm.NTLMSSP_NEGOTIATE_NTLM2:
+                        if self.__flags & ntlm.NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY:
                             signature =  ntlm.SIGN(self.__flags, 
                                     self.__serverSigningKey, 
                                     answer, 

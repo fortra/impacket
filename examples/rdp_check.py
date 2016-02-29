@@ -290,7 +290,7 @@ if __name__ == '__main__':
     class SPNEGOCipher:
         def __init__(self, flags, randomSessionKey):
             self.__flags = flags
-            if self.__flags & ntlm.NTLMSSP_NEGOTIATE_NTLM2:
+            if self.__flags & ntlm.NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY:
                 self.__clientSigningKey = ntlm.SIGNKEY(self.__flags, randomSessionKey)
                 self.__serverSigningKey = ntlm.SIGNKEY(self.__flags, randomSessionKey,"Server")
                 self.__clientSealingKey = ntlm.SEALKEY(self.__flags, randomSessionKey)
@@ -312,7 +312,7 @@ if __name__ == '__main__':
             self.__sequence = 0
 
         def encrypt(self, plain_data):
-            if self.__flags & ntlm.NTLMSSP_NEGOTIATE_NTLM2:
+            if self.__flags & ntlm.NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY:
                 # When NTLM2 is on, we sign the whole pdu, but encrypt just
                 # the data, not the dcerpc header. Weird..
                 sealedMessage, signature =  ntlm.SEAL(self.__flags, 
@@ -336,7 +336,7 @@ if __name__ == '__main__':
             return signature, sealedMessage
 
         def decrypt(self, answer):
-            if self.__flags & ntlm.NTLMSSP_NEGOTIATE_NTLM2:
+            if self.__flags & ntlm.NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY:
                 # TODO: FIX THIS, it's not calculating the signature well
                 # Since I'm not testing it we don't care... yet
                 answer, signature =  ntlm.SEAL(self.__flags, 
