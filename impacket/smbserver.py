@@ -3733,6 +3733,12 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
         self.__registeredNamedPipes[unicode(pipeName)] = address
         return True
 
+    def unregisterNamedPipe(self, pipeName):
+        if self.__registeredNamedPipes.has_key(pipeName):
+            del(self.__registeredNamedPipes[unicode(pipeName)])
+            return True
+        return False
+
     def unregisterTransaction(self, transCommand):
         if self.__smbTransCommands.has_key(transCommand):
            del(self.__smbTransCommands[transCommand])
@@ -4342,6 +4348,15 @@ class SimpleSMBServer:
         self.__srvsServer.start()
         self.__wkstServer.start()
         self.__server.serve_forever()
+
+    def registerNamedPipe(self, pipeName, address):
+        return self.__server.registerNamedPipe(pipeName, address)
+
+    def unregisterNamedPipe(self, pipeName):
+        return self.__server.unregisterNamedPipe(pipeName)
+
+    def getRegisteredNamedPipes(self):
+        return self.__server.getRegisteredNamedPipes()
 
     def addShare(self, shareName, sharePath, shareComment='', shareType = 0, readOnly = 'no'):
         self.__smbConfig.add_section(shareName)
