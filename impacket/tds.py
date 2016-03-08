@@ -37,7 +37,7 @@ try:
     from OpenSSL import SSL, crypto
 except:
     LOG.critical("pyOpenSSL is not installed, can't continue")
-    sys.exit(1)
+    raise
 
 # We need to have a fake Logger to be compatible with the way Impact 
 # prints information. Outside Impact it's just a print. Inside 
