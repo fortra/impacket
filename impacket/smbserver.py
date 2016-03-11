@@ -2683,7 +2683,9 @@ class SMB2Commands:
                     writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], jtr_dump_path)
             except:
                 smbServer.log("Could not write NTLM Hashes to the specified JTR_Dump_Path %s" % jtr_dump_path)
-            respSMBCommand['SessionFlags'] = 1
+            if authenticateMessage['user_name'] == 'GUEST':
+                # OSx specific, we need to set the Guest flag on
+                respSMBCommand['SessionFlags'] = 1
         else:
             raise Exception("Unknown NTLMSSP MessageType %d" % messageType)
 
