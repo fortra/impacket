@@ -3268,7 +3268,9 @@ class SMB2Commands:
         # If any other information class is specified in the FileInformationClass 
         # field of the SMB2 QUERY_DIRECTORY Request, the server MUST fail the 
         # operation with STATUS_INVALID_INFO_CLASS. 
-        if queryDirectoryRequest['FileInformationClass'] not in (smb2.FILE_DIRECTORY_INFORMATION,smb2.FILE_FULL_DIRECTORY_INFORMATION,smb2.FILEID_FULL_DIRECTORY_INFORMATION, smb2.FILE_BOTH_DIRECTORY_INFORMATION, smb2.FILEID_BOTH_DIRECTORY_INFORMATION, smb2.FILENAMES_INFORMATION):
+        if queryDirectoryRequest['FileInformationClass'] not in (
+        smb2.FILE_DIRECTORY_INFORMATION, smb2.FILE_FULL_DIRECTORY_INFORMATION, smb2.FILEID_FULL_DIRECTORY_INFORMATION,
+        smb2.FILE_BOTH_DIRECTORY_INFORMATION, smb2.FILEID_BOTH_DIRECTORY_INFORMATION, smb2.FILENAMES_INFORMATION):
             return [smb2.SMB2Error()], None, STATUS_INVALID_INFO_CLASS
 
         # If SMB2_REOPEN is set in the Flags field of the SMB2 QUERY_DIRECTORY 
@@ -3328,6 +3330,9 @@ class SMB2Commands:
         respData = ''
         for nItem in range(connData['OpenedFiles'][fileID]['Open']['EnumerationLocation'], searchCount):
             connData['OpenedFiles'][fileID]['Open']['EnumerationLocation'] += 1
+            if queryDirectoryRequest['Flags'] & smb2.SL_RETURN_SINGLE_ENTRY:
+                # If single entry is requested we must clear the NextEntryOffset
+                searchResult[nItem]['NextEntryOffset'] = 0
             data = searchResult[nItem].getData()
             lenData = len(data)
             padLen = (8-(lenData % 8)) %8
