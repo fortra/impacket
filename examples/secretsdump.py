@@ -906,7 +906,7 @@ class SAMHashes(OfflineRegistry):
 
         return decryptedHash
 
-    def dump(self):
+    def dump(self, dumpFile):
         NTPASSWORD = "NTPASSWORD\0"
         LMPASSWORD = "LMPASSWORD\0"
 
@@ -956,6 +956,7 @@ class SAMHashes(OfflineRegistry):
             answer =  "%s:%d:%s:%s:::" % (userName, rid, hexlify(lmHash), hexlify(ntHash))
             self.__itemsFound[rid] = answer
             print answer
+	    self.export(dumpFile)
 
     def export(self, fileName):
         if len(self.__itemsFound) > 0:
