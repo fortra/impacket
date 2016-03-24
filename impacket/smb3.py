@@ -918,8 +918,7 @@ class SMB3:
 
         if createContexts is not None:
             smb2Create['Buffer'] += createContexts
-            # Offset = SMB2_HEADER (64) + CREATE_REQUEST_HEADER (56) + NameLength
-            smb2Create['CreateContextsOffset'] = 64 + 56 + smb2Create['NameLength']
+            smb2Create['CreateContextsOffset'] = len(SMB2Packet()) + SMB2Create.SIZE + smb2Create['NameLength']
             smb2Create['CreateContextsLength'] = len(createContexts)
         else:
             smb2Create['CreateContextsOffset'] = 0
