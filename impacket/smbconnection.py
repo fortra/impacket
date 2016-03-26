@@ -761,6 +761,9 @@ class SessionError(Exception):
         return nt_errors.ERROR_MESSAGES[self.error]
 
     def __str__( self ):
-        return 'SMB SessionError: %s(%s)' % (nt_errors.ERROR_MESSAGES[self.error])
+        if nt_errors.ERROR_MESSAGES.has_key(self.error):
+            return 'SMB SessionError: %s(%s)' % (nt_errors.ERROR_MESSAGES[self.error])
+        else:
+            return 'SMB SessionError: 0x%x' % self.error
 
 
