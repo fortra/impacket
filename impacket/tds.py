@@ -682,6 +682,11 @@ class MSSQL:
                 # No cache present
                 pass
             else:
+                # retrieve user and domain information from CCache file if needed
+                if user == '' and len(ccache.principal.components) > 0:
+                    user=ccache.principal.components[0]['data']
+                if domain == '':
+                    domain = ccache.principal.realm['data']
                 LOG.debug("Using Kerberos Cache: %s" % os.getenv('KRB5CCNAME'))
                 principal = 'MSSQLSvc/%s.%s:%d' % (self.server, domain, self.port)
                 creds = ccache.getCredential(principal)
