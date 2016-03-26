@@ -73,8 +73,17 @@ def outputToJohnFormat(challenge, username, domain, lmresponse, ntresponse):
             # NTLMv1
             ret_value = {'hash_string':'%s::%s:%s:%s:%s' % (username.decode('utf-16le'), domain.decode('utf-16le'), hexlify(lmresponse), hexlify(ntresponse), hexlify(challenge)), 'hash_version':'ntlm'}
     except:
-        #TODO: log some information about the error
-        pass
+        # Let's try w/o decoding Unicode
+        try:
+            if len(ntresponse) > 24:
+                # Extended Security - NTLMv2
+                ret_value = {'hash_string':'%s::%s:%s:%s:%s' % (username, domain, hexlify(challenge), hexlify(ntresponse)[:32], hexlify(ntresponse)[32:]), 'hash_version':'ntlmv2'}
+            else:
+                # NTLMv1
+                ret_value = {'hash_string':'%s::%s:%s:%s:%s' % (username, domain, hexlify(lmresponse), hexlify(ntresponse), hexlify(challenge)), 'hash_version':'ntlm'}
+        except Exception, e:
+            LOG.error("outputToJohnFormat: %s" % e)
+            pass
 
     return ret_value
 
