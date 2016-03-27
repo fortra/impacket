@@ -2591,8 +2591,12 @@ class SMB:
         if negPacket is None:
             smb = NewSMBPacket()
             negSession = SMBCommand(SMB.SMB_COM_NEGOTIATE)
+            flags2 = self.get_flags()[1]
             if extended_security is True:
-                smb['Flags2']=SMB.FLAGS2_EXTENDED_SECURITY
+                self.set_flags(flags2=flags2|SMB.FLAGS2_EXTENDED_SECURITY)
+            else:
+                self.set_flags(flags2=flags2 & (~SMB.FLAGS2_EXTENDED_SECURITY))
+
             negSession['Data'] = '\x02NT LM 0.12\x00'
             smb.addCommand(negSession)
             self.sendSMB(smb)
