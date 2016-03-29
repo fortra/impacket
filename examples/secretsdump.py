@@ -2092,6 +2092,37 @@ class DumpSecrets:
         logging.debug('LMHashes are NOT being stored')
         return True
 
+    def _dump_sam(self, bootKey):
+        try:
+            if self.__isRemote is True:
+                SAMFileName         = self.__remoteOps.saveSAM()
+            else:
+                SAMFileName         = self.__samHive
+
+            self.__SAMHashes    = SAMHashes(SAMFileName, bootKey, isRemote = self.__isRemote)
+            self.__SAMHashes.dump()
+            if self.__outputFileName is not None:
+                self.__SAMHashes.export(self.__outputFileName)
+        except Exception, e:
+            logging.error('SAM hashes extraction failed: %s' % str(e))
+
+    def _dump_lsa(self, bootKey):
+        try:
+            if self.__isRemote is True:
+                SECURITYFileName = self.__remoteOps.saveSECURITY()
+            else:
+                SECURITYFileName = self.__securityHive
+
+            self.__LSASecrets = LSASecrets(SECURITYFileName, bootKey, self.__remoteOps, isRemote=self.__isRemote)
+            self.__LSASecrets.dumpCachedHashes()
+            if self.__outputFileName is not None:
+                self.__LSASecrets.exportCached(self.__outputFileName)
+            self.__LSASecrets.dumpSecrets()
+            if self.__outputFileName is not None:
+                self.__LSASecrets.exportSecrets(self.__outputFileName)
+        except Exception, e:
+            logging.error('LSA hashes extraction failed: %s' % str(e))
+
     def dump(self):
         try:
             if self.__remoteAddr.upper() == 'LOCAL' and self.__username == '':
@@ -2101,6 +2132,10 @@ class DumpSecrets:
                 if self.__ntdsFile is not None:
                     # Let's grab target's configuration about LM Hashes storage
                     self.__noLMHash = self.checkNoLMHashPolicy()
+                if self.__samHive is not None:
+                    self._dump_sam(bootKey)
+                if self.__securityHive is not None:
+                    self._dump_lsa(bootKey)
             else:
                 self.__isRemote = True
                 bootKey = None
@@ -2117,34 +2152,8 @@ class DumpSecrets:
                 else:
                     # If RemoteOperations succeeded, then we can extract SAM and LSA
                     if self.__justDC is False and self.__justDCNTLM is False:
-                        try:
-                            if self.__isRemote is True:
-                                SAMFileName         = self.__remoteOps.saveSAM()
-                            else:
-                                SAMFileName         = self.__samHive
-
-                            self.__SAMHashes    = SAMHashes(SAMFileName, bootKey, isRemote = self.__isRemote)
-                            self.__SAMHashes.dump()
-                            if self.__outputFileName is not None:
-                                self.__SAMHashes.export(self.__outputFileName)
-                        except Exception, e:
-                            logging.error('SAM hashes extraction failed: %s' % str(e))
-
-                        try:
-                            if self.__isRemote is True:
-                                SECURITYFileName = self.__remoteOps.saveSECURITY()
-                            else:
-                                SECURITYFileName = self.__securityHive
-
-                            self.__LSASecrets = LSASecrets(SECURITYFileName, bootKey, self.__remoteOps, isRemote=self.__isRemote)
-                            self.__LSASecrets.dumpCachedHashes()
-                            if self.__outputFileName is not None:
-                                self.__LSASecrets.exportCached(self.__outputFileName)
-                            self.__LSASecrets.dumpSecrets()
-                            if self.__outputFileName is not None:
-                                self.__LSASecrets.exportSecrets(self.__outputFileName)
-                        except Exception, e:
-                            logging.error('LSA hashes extraction failed: %s' % str(e))
+                        self._dump_sam(bootKey)
+                        self._dump_lsa(bootKey)
 
             # NTDS Extraction we can try regardless of RemoteOperations failing. It might still work
             if self.__isRemote is True:
