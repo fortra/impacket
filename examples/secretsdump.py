@@ -2036,6 +2036,7 @@ class DumpSecrets:
         self.__justUser = options.just_dc_user
         self.__pwdLastSet = options.pwd_last_set
         self.__resumeFileName = options.resumefile
+        self.__canProcessSAMLSA = True
 
         if options.hashes is not None:
             self.__lmhash, self.__nthash = options.hashes.split(':')
@@ -2113,38 +2114,39 @@ class DumpSecrets:
                         # Let's check whether target system stores LM Hashes
                         self.__noLMHash = self.__remoteOps.checkNoLMHashPolicy()
                 except Exception, e:
+                    self.__canProcessSAMLSA = False
                     logging.error('RemoteOperations failed: %s' % str(e))
-                else:
-                    # If RemoteOperations succeeded, then we can extract SAM and LSA
-                    if self.__justDC is False and self.__justDCNTLM is False:
-                        try:
-                            if self.__isRemote is True:
-                                SAMFileName         = self.__remoteOps.saveSAM()
-                            else:
-                                SAMFileName         = self.__samHive
 
-                            self.__SAMHashes    = SAMHashes(SAMFileName, bootKey, isRemote = self.__isRemote)
-                            self.__SAMHashes.dump()
-                            if self.__outputFileName is not None:
-                                self.__SAMHashes.export(self.__outputFileName)
-                        except Exception, e:
-                            logging.error('SAM hashes extraction failed: %s' % str(e))
+            # If RemoteOperations succeeded, then we can extract SAM and LSA
+            if self.__justDC is False and self.__justDCNTLM is False and self.__canProcessSAMLSA:
+                try:
+                    if self.__isRemote is True:
+                        SAMFileName         = self.__remoteOps.saveSAM()
+                    else:
+                        SAMFileName         = self.__samHive
 
-                        try:
-                            if self.__isRemote is True:
-                                SECURITYFileName = self.__remoteOps.saveSECURITY()
-                            else:
-                                SECURITYFileName = self.__securityHive
+                    self.__SAMHashes    = SAMHashes(SAMFileName, bootKey, isRemote = self.__isRemote)
+                    self.__SAMHashes.dump()
+                    if self.__outputFileName is not None:
+                        self.__SAMHashes.export(self.__outputFileName)
+                except Exception, e:
+                    logging.error('SAM hashes extraction failed: %s' % str(e))
 
-                            self.__LSASecrets = LSASecrets(SECURITYFileName, bootKey, self.__remoteOps, isRemote=self.__isRemote)
-                            self.__LSASecrets.dumpCachedHashes()
-                            if self.__outputFileName is not None:
-                                self.__LSASecrets.exportCached(self.__outputFileName)
-                            self.__LSASecrets.dumpSecrets()
-                            if self.__outputFileName is not None:
-                                self.__LSASecrets.exportSecrets(self.__outputFileName)
-                        except Exception, e:
-                            logging.error('LSA hashes extraction failed: %s' % str(e))
+                try:
+                    if self.__isRemote is True:
+                        SECURITYFileName = self.__remoteOps.saveSECURITY()
+                    else:
+                        SECURITYFileName = self.__securityHive
+
+                    self.__LSASecrets = LSASecrets(SECURITYFileName, bootKey, self.__remoteOps, isRemote=self.__isRemote)
+                    self.__LSASecrets.dumpCachedHashes()
+                    if self.__outputFileName is not None:
+                        self.__LSASecrets.exportCached(self.__outputFileName)
+                    self.__LSASecrets.dumpSecrets()
+                    if self.__outputFileName is not None:
+                        self.__LSASecrets.exportSecrets(self.__outputFileName)
+                except Exception, e:
+                    logging.error('LSA hashes extraction failed: %s' % str(e))
 
             # NTDS Extraction we can try regardless of RemoteOperations failing. It might still work
             if self.__isRemote is True:
