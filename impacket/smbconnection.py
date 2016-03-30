@@ -488,7 +488,7 @@ class SMBConnection:
             except (smb.SessionError, smb3.SessionError), e:
                 if e.get_error_code() == nt_errors.STATUS_END_OF_FILE:
                     toRead = ''
-                    pass
+                    break
                 else:
                     raise SessionError(e.get_error_code())
 
