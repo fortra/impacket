@@ -440,6 +440,11 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT 
                 # No cache present
                 pass
             else:
+                # retrieve user and domain information from CCache file if needed
+                if username == '' and len(ccache.principal.components) > 0:
+                    username = ccache.principal.components[0]['data']
+                if domain == '':
+                    domain = ccache.principal.realm['data']
                 LOG.debug("Using Kerberos Cache: %s" % os.getenv('KRB5CCNAME'))
                 principal = 'host/%s@%s' % (targetName.upper(), domain.upper())
                 creds = ccache.getCredential(principal)
