@@ -122,7 +122,7 @@ class SMB3:
         self.RequireMessageSigning = False    #
         self.ConnectionTable = {}
         self.GlobalFileTable = {}
-        self.ClientGuid = ''                  #
+        self.ClientGuid = ''.join([random.choice(string.letters) for i in range(16)])
         # Only for SMB 3.0
         self.EncryptionAlgorithmList = ['AES-CCM']
         self.MaxDialect = []
