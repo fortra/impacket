@@ -369,7 +369,6 @@ class RemoteOperations:
 
         if drsExtensionsInt['dwReplEpoch'] != 0:
             # Different epoch, we have to call DRSBind again
-
             if logging.getLogger().level == logging.DEBUG:
                 logging.debug("DC's dwReplEpoch != 0, setting it to %d and calling DRSBind again" % drsExtensionsInt['dwReplEpoch'] )
             drs['dwReplEpoch'] = drsExtensionsInt['dwReplEpoch']
