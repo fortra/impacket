@@ -1632,12 +1632,12 @@ class NTDSHashes:
                 pwdLastSet = 'N/A'
 
             answer = "%s:%s:%s:%s:::" % (userName, rid, hexlify(LMHash), hexlify(NTHash))
-            if outputFile is not None:
-                self.__writeOutput(outputFile, answer + '\n')
-
             if self.__pwdLastSet is True:
                 answer = "%s (pwdLastSet=%s)" % (answer, pwdLastSet)
             print answer
+
+            if outputFile is not None:
+                self.__writeOutput(outputFile, answer + '\n')
 
             if self.__history:
                 LMHistory = []
@@ -1763,13 +1763,12 @@ class NTDSHashes:
                 userName = '%s\\%s' % (domain, userName)
 
             answer = "%s:%s:%s:%s:::" % (userName, rid, hexlify(LMHash), hexlify(NTHash))
-
-            if outputFile is not None:
-                self.__writeOutput(outputFile, answer + '\n')
-
             if self.__pwdLastSet is True:
                 answer = "%s (pwdLastSet=%s)" % (answer, pwdLastSet)
             print answer
+
+            if outputFile is not None:
+                self.__writeOutput(outputFile, answer + '\n')
 
             if self.__history:
                 for i, (LMHashHistory, NTHashHistory) in enumerate(
