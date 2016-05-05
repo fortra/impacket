@@ -398,6 +398,7 @@ class RemoteOperations:
         if self.__drsr is None:
             self.__connectDrds()
 
+        logging.debug('Calling DRSCrackNames for %s ' % name)
         resp = drsuapi.hDRSCrackNames(self.__drsr, self.__hDrs, 0, formatOffered, formatDesired, (name,))
         return resp
 
@@ -405,6 +406,7 @@ class RemoteOperations:
         if self.__drsr is None:
             self.__connectDrds()
 
+        logging.debug('Calling DRSGetNCChanges for %s ' % userEntry)
         request = drsuapi.DRSGetNCChanges()
         request['hDrs'] = self.__hDrs
         request['dwInVersion'] = 8
@@ -1935,7 +1937,10 @@ class NTDSHashes:
                             # Means we're looking for a SID before start processing back again
                             if resumeSid == userSid.formatCanonical():
                                 # Match!, next round we will back processing
+                                logging.debug('resumeSid %s reached! processing users from now on' % userSid.formatCanonical())
                                 resumeSid = None
+                            else:
+                                logging.debug('Skipping SID %s since it was processed already' % userSid.formatCanonical())
                             continue
 
                         # Let's crack the user sid into DS_FQDN_1779_NAME
