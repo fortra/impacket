@@ -1487,6 +1487,7 @@ class NTDSHashes:
     def __decryptSupplementalInfo(self, record, prefixTable=None, keysFile=None, clearTextFile=None):
         # This is based on [MS-SAMR] 2.2.10 Supplemental Credentials Structures
         haveInfo = False
+        logging.debug('Entering NTDSHashes.__decryptSupplementalInfo')
         if self.__useVSSMethod is True:
             if record[self.NAME_TO_INTERNAL['supplementalCredentials']] is not None:
                 if len(unhexlify(record[self.NAME_TO_INTERNAL['supplementalCredentials']])) > 24:
@@ -1589,7 +1590,10 @@ class NTDSHashes:
             if keysFile is not None:
                 keysFile.flush()
 
+        logging.debug('Leaving NTDSHashes.__decryptSupplementalInfo')
+
     def __decryptHash(self, record, prefixTable=None, outputFile=None):
+        logging.debug('Entering NTDSHashes.__decryptHash')
         if self.__useVSSMethod is True:
             logging.debug('Decrypting hash for user: %s' % record[self.NAME_TO_INTERNAL['name']])
 
@@ -1782,6 +1786,8 @@ class NTDSHashes:
 
         if outputFile is not None:
             outputFile.flush()
+
+        logging.debug('Leaving NTDSHashes.__decryptHash')
 
     def dump(self):
         if self.__useVSSMethod is True:
@@ -1989,6 +1995,7 @@ class NTDSHashes:
                 os.remove(tmpName)
                 self.__resumeSessionFile = None
 
+        logging.debug("Finished processing and printing user's hashes, now printing supplemental information")
         # Now we'll print the Kerberos keys. So we don't mix things up in the output.
         if len(self.__kerberosKeys) > 0:
             if self.__useVSSMethod is True:
