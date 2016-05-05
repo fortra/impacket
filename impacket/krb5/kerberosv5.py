@@ -343,8 +343,12 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
     reqBody['till'] = KerberosTime.to_asn1(now)
     reqBody['nonce'] = random.getrandbits(31)
     seq_set_iter(reqBody, 'etype',
-                      (int(constants.EncryptionTypes.des3_cbc_sha1_kd.value),
-                       int(cipher.enctype)))
+                      (
+                          int(constants.EncryptionTypes.rc4_hmac.value),
+                          int(constants.EncryptionTypes.des3_cbc_sha1_kd.value),
+                          int(cipher.enctype)
+                       )
+                )
 
     message = encoder.encode(tgsReq)
 
