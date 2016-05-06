@@ -56,6 +56,22 @@ class DRSRTests(unittest.TestCase):
         request['pextClient']['rgb'] = list(str(drs))
         resp = dce.request(request)
 
+        # Let's dig into the answer to check the dwReplEpoch. This field should match the one we send as part of
+        # DRSBind's DRS_EXTENSIONS_INT(). If not, it will fail later when trying to sync data.
+        drsExtensionsInt = drsuapi.DRS_EXTENSIONS_INT()
+
+        # If dwExtCaps is not included in the answer, let's just add it so we can unpack DRS_EXTENSIONS_INT right.
+        ppextServer = ''.join(resp['ppextServer']['rgb']) + '\x00' * (
+            len(drsuapi.DRS_EXTENSIONS_INT()) - resp['ppextServer']['cb'])
+        drsExtensionsInt.fromString(ppextServer)
+
+        if drsExtensionsInt['dwReplEpoch'] != 0:
+            # Different epoch, we have to call DRSBind again
+            drs['dwReplEpoch'] = drsExtensionsInt['dwReplEpoch']
+            request['pextClient']['cb'] = len(drs)
+            request['pextClient']['rgb'] = list(str(drs))
+            resp = dce.request(request)
+
         resp2 = drsuapi.hDRSDomainControllerInfo(dce,  resp['phDrs'], self.domain, 2)
 
         return dce, rpctransport, resp['phDrs'], resp2['pmsgOut']['V2']['rItems'][0]['NtdsDsaObjectGuid']
@@ -501,6 +517,6 @@ if __name__ == '__main__':
     else:
         #suite = unittest.TestLoader().loadTestsFromTestCase(SMBTransport)
         suite  = unittest.TestLoader().loadTestsFromTestCase(TCPTransport)
-        suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport64))
+        #suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport64))
         #suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMBTransport64))
     unittest.TextTestRunner(verbosity=1).run(suite)

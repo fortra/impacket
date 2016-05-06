@@ -838,6 +838,25 @@ class RAISECHILD:
         request['pextClient']['rgb'] = list(str(drs))
         resp = self.__drsr.request(request)
 
+        # Let's dig into the answer to check the dwReplEpoch. This field should match the one we send as part of
+        # DRSBind's DRS_EXTENSIONS_INT(). If not, it will fail later when trying to sync data.
+        drsExtensionsInt = drsuapi.DRS_EXTENSIONS_INT()
+
+        # If dwExtCaps is not included in the answer, let's just add it so we can unpack DRS_EXTENSIONS_INT right.
+        ppextServer = ''.join(resp['ppextServer']['rgb']) + '\x00' * (
+        len(drsuapi.DRS_EXTENSIONS_INT()) - resp['ppextServer']['cb'])
+        drsExtensionsInt.fromString(ppextServer)
+
+        if drsExtensionsInt['dwReplEpoch'] != 0:
+            # Different epoch, we have to call DRSBind again
+            if logging.getLogger().level == logging.DEBUG:
+                logging.debug("DC's dwReplEpoch != 0, setting it to %d and calling DRSBind again" % drsExtensionsInt[
+                    'dwReplEpoch'])
+            drs['dwReplEpoch'] = drsExtensionsInt['dwReplEpoch']
+            request['pextClient']['cb'] = len(drs)
+            request['pextClient']['rgb'] = list(str(drs))
+            resp = self.__drsr.request(request)
+
         self.__hDrs = resp['phDrs']
 
         # Now let's get the NtdsDsaObjectGuid UUID to use when querying NCChanges
