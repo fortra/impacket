@@ -46,11 +46,9 @@
 import unittest
 import ConfigParser
 
-from impacket.dcerpc.v5 import transport
-from impacket.dcerpc.v5 import lsad
+from impacket.dcerpc.v5 import transport, epm, lsad
 from impacket.dcerpc.v5.ndr import NULL
 from impacket.dcerpc.v5.dtypes import MAXIMUM_ALLOWED, RPC_UNICODE_STRING, DELETE
-
 
 class LSADTests(unittest.TestCase):
     def connect(self):
@@ -862,51 +860,51 @@ class LSADTests(unittest.TestCase):
         resp2.dump()
         ################################################################################ 
 
-        request['InformationClass'] = lsad.POLICY_INFORMATION_CLASS.PolicyPrimaryDomainInformation
-        resp = dce.request(request)
-        resp.dump()
-        oldValue = resp['PolicyInformation']['PolicyPrimaryDomainInfo']['Name']
+        #request['InformationClass'] = lsad.POLICY_INFORMATION_CLASS.PolicyPrimaryDomainInformation
+        #resp = dce.request(request)
+        #resp.dump()
+        #oldValue = resp['PolicyInformation']['PolicyPrimaryDomainInfo']['Name']
 
-        req = lsad.LsarSetInformationPolicy2()
-        req['PolicyHandle'] = policyHandle
-        req['InformationClass'] = request['InformationClass']
-        req['PolicyInformation'] = resp['PolicyInformation']
-        req['PolicyInformation']['PolicyPrimaryDomainInfo']['Name'] = 'BETUS'
-        resp2 = dce.request(req)
-        resp2.dump()
+        #req = lsad.LsarSetInformationPolicy2()
+        #req['PolicyHandle'] = policyHandle
+        #req['InformationClass'] = request['InformationClass']
+        #req['PolicyInformation'] = resp['PolicyInformation']
+        #req['PolicyInformation']['PolicyPrimaryDomainInfo']['Name'] = 'BETUS'
+        #resp2 = dce.request(req)
+        #resp2.dump()
 
-        resp = dce.request(request)
-        resp.dump()
+        #resp = dce.request(request)
+        #resp.dump()
 
-        self.assertTrue( 'BETUS' == resp['PolicyInformation']['PolicyPrimaryDomainInfo']['Name'] )
+        #self.assertTrue( 'BETUS' == resp['PolicyInformation']['PolicyPrimaryDomainInfo']['Name'] )
 
-        req['PolicyInformation']['PolicyPrimaryDomainInfo']['Name'] = oldValue
-        resp2 = dce.request(req)
-        resp2.dump()
+        #req['PolicyInformation']['PolicyPrimaryDomainInfo']['Name'] = oldValue
+        #resp2 = dce.request(req)
+        #resp2.dump()
 
         ################################################################################ 
 
-        request['InformationClass'] = lsad.POLICY_INFORMATION_CLASS.PolicyAccountDomainInformation
-        resp = dce.request(request)
-        resp.dump()
-        oldValue = resp['PolicyInformation']['PolicyAccountDomainInfo']['DomainName']
+        #request['InformationClass'] = lsad.POLICY_INFORMATION_CLASS.PolicyAccountDomainInformation
+        #resp = dce.request(request)
+        #resp.dump()
+        #oldValue = resp['PolicyInformation']['PolicyAccountDomainInfo']['DomainName']
 
-        req = lsad.LsarSetInformationPolicy2()
-        req['PolicyHandle'] = policyHandle
-        req['InformationClass'] = request['InformationClass']
-        req['PolicyInformation'] = resp['PolicyInformation']
-        req['PolicyInformation']['PolicyAccountDomainInfo']['DomainName'] = 'BETUS'
-        resp2 = dce.request(req)
-        resp2.dump()
+        #req = lsad.LsarSetInformationPolicy2()
+        #req['PolicyHandle'] = policyHandle
+        #req['InformationClass'] = request['InformationClass']
+        #req['PolicyInformation'] = resp['PolicyInformation']
+        #req['PolicyInformation']['PolicyAccountDomainInfo']['DomainName'] = 'BETUS'
+        #resp2 = dce.request(req)
+        #resp2.dump()
 
-        resp = dce.request(request)
-        resp.dump()
+        #resp = dce.request(request)
+        #resp.dump()
 
-        self.assertTrue( 'BETUS' == resp['PolicyInformation']['PolicyAccountDomainInfo']['DomainName'] )
+        #self.assertTrue( 'BETUS' == resp['PolicyInformation']['PolicyAccountDomainInfo']['DomainName'] )
 
-        req['PolicyInformation']['PolicyAccountDomainInfo']['DomainName'] = oldValue
-        resp2 = dce.request(req)
-        resp2.dump()
+        #req['PolicyInformation']['PolicyAccountDomainInfo']['DomainName'] = oldValue
+        #resp2 = dce.request(req)
+        #resp2.dump()
 
         ################################################################################ 
 
@@ -954,50 +952,50 @@ class LSADTests(unittest.TestCase):
         resp2.dump()
         ################################################################################ 
 
-        request['InformationClass'] = lsad.POLICY_INFORMATION_CLASS.PolicyPrimaryDomainInformation
-        resp = dce.request(request)
-        resp.dump()
-        oldValue = resp['PolicyInformation']['PolicyPrimaryDomainInfo']['Name']
+        #request['InformationClass'] = lsad.POLICY_INFORMATION_CLASS.PolicyPrimaryDomainInformation
+        #resp = dce.request(request)
+        #resp.dump()
+        #oldValue = resp['PolicyInformation']['PolicyPrimaryDomainInfo']['Name']
 
-        req = lsad.LsarSetInformationPolicy()
-        req['PolicyHandle'] = policyHandle
-        req['InformationClass'] = request['InformationClass']
-        req['PolicyInformation'] = resp['PolicyInformation']
-        req['PolicyInformation']['PolicyPrimaryDomainInfo']['Name'] = 'BETUS'
-        resp2 = dce.request(req)
-        resp2.dump()
+        #req = lsad.LsarSetInformationPolicy()
+        #req['PolicyHandle'] = policyHandle
+        #req['InformationClass'] = request['InformationClass']
+        #req['PolicyInformation'] = resp['PolicyInformation']
+        #req['PolicyInformation']['PolicyPrimaryDomainInfo']['Name'] = 'BETUS'
+        #resp2 = dce.request(req)
+        #resp2.dump()
 
-        resp = dce.request(request)
-        resp.dump()
-        self.assertTrue( 'BETUS' == resp['PolicyInformation']['PolicyPrimaryDomainInfo']['Name'] )
+        #resp = dce.request(request)
+        #resp.dump()
+        #self.assertTrue( 'BETUS' == resp['PolicyInformation']['PolicyPrimaryDomainInfo']['Name'] )
 
-        req['PolicyInformation']['PolicyPrimaryDomainInfo']['Name'] = oldValue
-        resp2 = dce.request(req)
-        resp2.dump()
+        #req['PolicyInformation']['PolicyPrimaryDomainInfo']['Name'] = oldValue
+        #resp2 = dce.request(req)
+        #resp2.dump()
 
         ################################################################################ 
 
-        request['InformationClass'] = lsad.POLICY_INFORMATION_CLASS.PolicyAccountDomainInformation
-        resp = dce.request(request)
-        resp.dump()
-        oldValue = resp['PolicyInformation']['PolicyAccountDomainInfo']['DomainName']
+        #request['InformationClass'] = lsad.POLICY_INFORMATION_CLASS.PolicyAccountDomainInformation
+        #resp = dce.request(request)
+        #resp.dump()
+        #oldValue = resp['PolicyInformation']['PolicyAccountDomainInfo']['DomainName']
 
-        req = lsad.LsarSetInformationPolicy()
-        req['PolicyHandle'] = policyHandle
-        req['InformationClass'] = request['InformationClass']
-        req['PolicyInformation'] = resp['PolicyInformation']
-        req['PolicyInformation']['PolicyAccountDomainInfo']['DomainName'] = 'BETUS'
-        resp2 = dce.request(req)
-        resp2.dump()
+        #req = lsad.LsarSetInformationPolicy()
+        #req['PolicyHandle'] = policyHandle
+        #req['InformationClass'] = request['InformationClass']
+        #req['PolicyInformation'] = resp['PolicyInformation']
+        #req['PolicyInformation']['PolicyAccountDomainInfo']['DomainName'] = 'BETUS'
+        #resp2 = dce.request(req)
+        #resp2.dump()
 
-        resp = dce.request(request)
-        resp.dump()
+        #resp = dce.request(request)
+        #resp.dump()
 
-        self.assertTrue( 'BETUS' == resp['PolicyInformation']['PolicyAccountDomainInfo']['DomainName'] )
+        #self.assertTrue( 'BETUS' == resp['PolicyInformation']['PolicyAccountDomainInfo']['DomainName'] )
 
-        req['PolicyInformation']['PolicyAccountDomainInfo']['DomainName'] = oldValue
-        resp2 = dce.request(req)
-        resp2.dump()
+        #req['PolicyInformation']['PolicyAccountDomainInfo']['DomainName'] = oldValue
+        #resp2 = dce.request(req)
+        #resp2.dump()
 
         ################################################################################ 
 

@@ -605,7 +605,7 @@ class SCMRTests(unittest.TestCase):
  
         resp = scmr.hRCloseServiceHandle(dce, scHandle)
 
-    def test_notify_config(self):
+    def atest_notify_config(self):
         dce, rpctransport, scHandle  = self.connect()
         lpMachineName = 'DUMMY\x00'
         
