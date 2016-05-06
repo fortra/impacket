@@ -368,6 +368,8 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
     encTGSRepPart = decoder.decode(plainText, asn1Spec = EncTGSRepPart())[0]
 
     newSessionKey = Key(encTGSRepPart['key']['keytype'], str(encTGSRepPart['key']['keyvalue']))
+    # Creating new cipher based on received keytype
+    cipher = _enctype_table[encTGSRepPart['key']['keytype']]
 
     # Check we've got what we asked for
     res = decoder.decode(r, asn1Spec = TGS_REP())[0]
