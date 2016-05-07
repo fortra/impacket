@@ -175,7 +175,7 @@ class RemoteShell(cmd.Cmd):
         cmd.Cmd.__init__(self)
         self.__share = share
         self.__mode = mode
-        self.__output = '\\Windows\\Temp\\' + OUTPUT_FILENAME 
+        self.__output = '\\\\127.0.0.1\\' + self.__share + '\\' + OUTPUT_FILENAME
         self.__batchFile = '%TEMP%\\' + BATCH_FILENAME 
         self.__outputBuffer = ''
         self.__command = ''
@@ -253,8 +253,8 @@ class RemoteShell(cmd.Cmd):
             self.__outputBuffer += data
 
         if self.__mode == 'SHARE':
-            self.transferClient.getFile(self.__share, self.__output, output_callback)
-            self.transferClient.deleteFile(self.__share, self.__output)
+            self.transferClient.getFile(self.__share, OUTPUT_FILENAME, output_callback)
+            self.transferClient.deleteFile(self.__share, OUTPUT_FILENAME)
         else:
             fd = open(SMBSERVER_DIR + '/' + OUTPUT_FILENAME,'r')
             output_callback(fd.read())
@@ -267,6 +267,7 @@ class RemoteShell(cmd.Cmd):
             command += ' & ' + self.__copyBack
         command += ' & ' + 'del ' + self.__batchFile 
 
+        logging.debug('Executing %s' % command)
         resp = scmr.hRCreateServiceW(self.__scmr, self.__scHandle, self.__serviceName, self.__serviceName, lpBinaryPathName=command)
         service = resp['lpServiceHandle']
 
