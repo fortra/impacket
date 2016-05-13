@@ -1580,7 +1580,12 @@ class NTDSHashes:
                 elif userProperty['PropertyName'].decode('utf-16le') == 'Primary:CLEARTEXT':
                     # [MS-SAMR] 3.1.1.8.11.5 Primary:CLEARTEXT Property
                     # This credential type is the cleartext password. The value format is the UTF-16 encoded cleartext password.
-                    answer = "%s:CLEARTEXT:%s" % (userName, unhexlify(userProperty['PropertyValue']).decode('utf-16le'))
+                    try:
+                        answer = "%s:CLEARTEXT:%s" % (userName, unhexlify(userProperty['PropertyValue']).decode('utf-16le'))
+                    except UnicodeDecodeError:
+                        # This could be because we're decoding a machine password. Printing it hex
+                        answer = "%s:CLEARTEXT:0x%s" % (userName, userProperty['PropertyValue'])
+
                     self.__clearTextPwds[answer] = None
                     if clearTextFile is not None:
                         self.__writeOutput(clearTextFile, answer + '\n')
