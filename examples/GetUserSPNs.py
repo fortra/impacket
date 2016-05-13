@@ -34,7 +34,7 @@ import logging
 import os
 import sys
 from datetime import datetime
-from binascii import hexlify
+from binascii import hexlify, unhexlify
 
 from pyasn1.codec.der import decoder
 from impacket import version
@@ -80,7 +80,7 @@ class GetUserSPNs:
         self.__target = None
         self.__requestTGS = options.request
         if cmdLineOptions.hashes is not None:
-            self.__lmhash, self.__nthash = cmdLineOptions.split(':')
+            self.__lmhash, self.__nthash = cmdLineOptions.hashes.split(':')
 
         # Create the baseDN
         domainParts = self.__domain.split('.')
@@ -130,8 +130,9 @@ class GetUserSPNs:
 
         # No TGT in cache, request it
         userName = Principal(self.__username, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
-        tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain, self.__lmhash,
-                                                                self.__nthash, self.__aesKey)
+        tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain,
+                                                                unhexlify(self.__lmhash),
+                                                                unhexlify(self.__nthash), self.__aesKey)
         TGT = {}
         TGT['KDC_REP'] = tgt
         TGT['cipher'] = cipher
