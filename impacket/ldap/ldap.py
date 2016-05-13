@@ -38,12 +38,13 @@ except:
     raise
 
 class LDAPConnection:
-    def __init__(self,url, baseDN='dc=net'):
+    def __init__(self,url, baseDN='dc=net', dstIp = None):
         """
         LDAPConnection class
 
         :param string url:
         :param string baseDN:
+        :param string dstIp:
 
         :return: a LDAP instance, if not raises a LDAPSessionError exception
         """
@@ -52,6 +53,7 @@ class LDAPConnection:
         self._socket = None
         self._baseDN = baseDN
         self._messageId = 1
+        self._dstIp = dstIp
 
         if url.startswith("ldap://"):
             self._dstPort = 389
@@ -76,13 +78,19 @@ class LDAPConnection:
         LOG.debug('Connecting to %s, port %s, SSL %s' % (self._dstHost, self._dstPort, self._SSL))
         self._socket = socket.socket()
         if self._SSL is False:
-            self._socket.connect((self._dstHost, self._dstPort))
+            if self._dstIp is not None:
+                self._socket.connect((self._dstIp, self._dstPort))
+            else:
+                self._socket.connect((self._dstHost, self._dstPort))
         else:
             # Switching to TLS now
             ctx = SSL.Context(SSL.TLSv1_METHOD)
             #ctx.set_cipher_list('RC4')
             self._socket = SSL.Connection(ctx, self._socket)
-            self._socket.connect((self._dstHost, self._dstPort))
+            if self._dstIp is not None:
+                self._socket.connect((self._dstIp, self._dstPort))
+            else:
+                self._socket.connect((self._dstHost, self._dstPort))
             self._socket.do_handshake()
 
     def kerberosLogin(self, user, password, domain='', lmhash='', nthash='', aesKey='', kdcHost=None, TGT=None,

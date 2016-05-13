@@ -184,11 +184,12 @@ class GetUserSPNs:
                 self.__target = self.__domain
 
         # Connect to LDAP
-        ldapConnection = ldap.LDAPConnection('ldap://%s'%self.__target, self.baseDN)
+        ldapConnection = ldap.LDAPConnection('ldap://%s'%self.__target, self.baseDN, self.__kdcHost)
         if self.__doKerberos is not True:
             ldapConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
         else:
-            ldapConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey)
+            ldapConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
+                                         self.__aesKey, kdcHost=self.__kdcHost)
 
         searchFilter = ldapasn1.Filter()
         searchFilter['present'] = ldapasn1.Present('servicePrincipalName')
