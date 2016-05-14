@@ -87,15 +87,15 @@ class AuthData(Structure):
         ('authdata',':', CountedOctetString),
     )
 
-class Principal():
+class Principal:
     class PrincipalHeader(Structure):
         structure = (
             ('name_type','!L=0'),
             ('num_components','!L=0'),
         )
-    components = []
-    realm = None
     def __init__(self, data=None):
+        self.components = []
+        self.realm = None
         if data is not None:
             self.header = self.PrincipalHeader(data)
             data = data[len(self.header):]
@@ -150,7 +150,7 @@ class Principal():
     def toPrincipal(self):
         return types.Principal(self.prettyPrint(), type=self.header['name_type'])
 
-class Credential():
+class Credential:
     class CredentialHeader(Structure):
         structure = (
             ('client',':', Principal),
@@ -162,13 +162,13 @@ class Credential():
             ('num_address','!L=0'),
         )
 
-    addresses = ()
-    authData = ()
-    header = None
-    ticket = None
-    secondTicket = None
- 
     def __init__(self, data=None):
+        self.addresses = ()
+        self.authData = ()
+        self.header = None
+        self.ticket = None
+        self.secondTicket = None
+
         if data is not None:
             self.header = self.CredentialHeader(data)
             data = data[len(self.header):]
@@ -290,11 +290,7 @@ class Credential():
         tgs['sessionKey'] = crypto.Key(cipher.enctype, str(self['key']['keyvalue']))
         return tgs
         
-class CCache():
-    headers = None
-    principal = None
-    credentials = []
-    miniHeader = None
+class CCache:
     class MiniHeader(Structure):
         structure = (
             ('file_format_version','!H=0x0504'),
@@ -302,6 +298,10 @@ class CCache():
         )
 
     def __init__(self, data = None):
+        self.headers = None
+        self.principal = None
+        self.credentials = []
+        self.miniHeader = None
         if data is not None:
             miniHeader = self.MiniHeader(data)
             data = data[len(str(miniHeader)):]
