@@ -1260,6 +1260,10 @@ class INTERFACE:
                             break
 
                 LOG.debug('StringBinding chosen: %s' % stringBinding)
+                if stringBinding is None:
+                    # Something wen't wrong, let's just report it
+                    raise Exception('Can\'t find a valid stringBinding to connect')
+
                 dcomInterface = transport.DCERPCTransportFactory(stringBinding)
                 if hasattr(dcomInterface, 'set_credentials'):
                     # This method exists only for selected protocol sequences.
