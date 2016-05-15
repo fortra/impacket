@@ -319,7 +319,7 @@ if __name__ == '__main__':
         password = password + '@' + address.rpartition('@')[0]
         address = address.rpartition('@')[2]
 
-    if domain is None:
+    if domain is '':
         logging.critical('Domain should be specified!')
         sys.exit(1)
 

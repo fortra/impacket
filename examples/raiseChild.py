@@ -1446,7 +1446,7 @@ if __name__ == '__main__':
     else:
         logging.getLogger().setLevel(logging.INFO)
 
-    if domain is None:
+    if domain is '':
         logging.critical('Domain should be specified!')
         sys.exit(1)
 
