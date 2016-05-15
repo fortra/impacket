@@ -26,6 +26,7 @@
 #    not used, returning RPC_E_DISCONNECTED
 #
 
+import socket
 from struct import pack
 from threading import Timer, currentThread
 
@@ -1191,6 +1192,24 @@ class INTERFACE:
     def set_cinstance(self, cinstance):
         self.__cinstance = cinstance
 
+    def is_fdqn(self):
+        # I will assume the following
+        # If I can't socket.inet_aton() then it's not an IPv4 address
+        # Same for ipv6, but since socket.inet_pton is not available in Windows, I'll look for ':'. There can't be
+        # an FQDN with ':'
+        # Is it isn't both, then it is a FDQN
+        try:
+            socket.inet_aton(self.__target)
+        except:
+            # Not an IPv4
+            try:
+                self.__target.index(':')
+            except:
+                # Not an IPv6, it's a FDQN
+                return True
+        return False
+
+
     def connect(self, iid = None):
         if INTERFACE.CONNECTIONS.has_key(self.__target) is True:
             if INTERFACE.CONNECTIONS[self.__target].has_key(currentThread().getName()) and \
@@ -1208,6 +1227,8 @@ class INTERFACE:
                 stringBindings = self.get_cinstance().get_string_bindings()
                 # No OXID present, we should create a new connection and store it
                 stringBinding = None
+                isTargetFDQN = self.is_fdqn()
+                LOG.debug('Target system is %s and isFDQN is %s' % (self.get_target(), isTargetFDQN))
                 for strBinding in stringBindings:
                     # Here, depending on the get_target() value several things can happen
                     # 1) it's an IPv4 address
@@ -1229,7 +1250,7 @@ class INTERFACE:
                             stringBinding = 'ncacn_ip_tcp:' + strBinding['aNetworkAddr'][:-1]
                             break
                         # If get_target() is a FQDN, does it match the hostname?
-                        elif binding.upper().find(self.get_target().upper().partition('.')[0]) >= 0:
+                        elif isTargetFDQN and binding.upper().find(self.get_target().upper().partition('.')[0]) >= 0:
                             # Here we replace the aNetworkAddr with self.get_target()
                             # This is to help resolving the target system name.
                             # self.get_target() has been resolved already otherwise we wouldn't be here whereas
