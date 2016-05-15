@@ -282,7 +282,7 @@ class TCPTransport(DCERPCTransport):
         self.__socket = socket.socket(af, socktype, proto)
         try:
             self.__socket.settimeout(self.get_connect_timeout())
-            self.__socket.connect((self.get_dip(), self.get_dport()))
+            self.__socket.connect(sa)
         except socket.error, msg:
             self.__socket.close()
             raise DCERPCException("Could not connect: %s" % msg)

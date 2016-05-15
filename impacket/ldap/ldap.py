@@ -50,6 +50,7 @@ class LDAPConnection:
         """
         self._SSL = False
         self._dstPort = 0
+        self._dstHost = 0
         self._socket = None
         self._baseDN = baseDN
         self._messageId = 1
@@ -58,39 +59,33 @@ class LDAPConnection:
         if url.startswith("ldap://"):
             self._dstPort = 389
             self._SSL = False
-            url = url[7:]
+            self._dstHost = url[7:]
         elif url.startswith("ldaps://"):
             #raise LDAPSessionError(errorString = 'LDAPS still not supported')
             self._dstPort = 636
             self._SSL = True
-            url = url[8:]
+            self._dstHost = url[8:]
         else:
             raise LDAPSessionError(errorString = 'Unknown URL prefix %s' % url)
 
-        # Port specified?
-        if url.find(':') >= 0:
-            self._dstPort = int(url[url.index(':'):])
-            self._dstHost = url.split(':')[0]
-        else:
-            self._dstHost = url
-
         # Try to connect
         LOG.debug('Connecting to %s, port %s, SSL %s' % (self._dstHost, self._dstPort, self._SSL))
-        self._socket = socket.socket()
+        af, socktype, proto, canonname, sa = socket.getaddrinfo(self._dstIp, self._dstPort, 0, socket.SOCK_STREAM)[0]
+        self._socket = socket.socket(af, socktype, proto)
         if self._SSL is False:
             if self._dstIp is not None:
-                self._socket.connect((self._dstIp, self._dstPort))
+                self._socket.connect(sa)
             else:
-                self._socket.connect((self._dstHost, self._dstPort))
+                self._socket.connect(sa)
         else:
             # Switching to TLS now
             ctx = SSL.Context(SSL.TLSv1_METHOD)
             #ctx.set_cipher_list('RC4')
             self._socket = SSL.Connection(ctx, self._socket)
             if self._dstIp is not None:
-                self._socket.connect((self._dstIp, self._dstPort))
+                self._socket.connect(sa)
             else:
-                self._socket.connect((self._dstHost, self._dstPort))
+                self._socket.connect(sa)
             self._socket.do_handshake()
 
     def kerberosLogin(self, user, password, domain='', lmhash='', nthash='', aesKey='', kdcHost=None, TGT=None,
