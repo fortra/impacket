@@ -69,23 +69,22 @@ class LDAPConnection:
             raise LDAPSessionError(errorString = 'Unknown URL prefix %s' % url)
 
         # Try to connect
-        LOG.debug('Connecting to %s, port %s, SSL %s' % (self._dstHost, self._dstPort, self._SSL))
-        af, socktype, proto, canonname, sa = socket.getaddrinfo(self._dstIp, self._dstPort, 0, socket.SOCK_STREAM)[0]
+        if self._dstIp is not None:
+            targetHost = self._dstIp
+        else:
+            targetHost = self._dstHost
+
+        LOG.debug('Connecting to %s, port %s, SSL %s' % (targetHost, self._dstPort, self._SSL))
+        af, socktype, proto, canonname, sa = socket.getaddrinfo(targetHost, self._dstPort, 0, socket.SOCK_STREAM)[0]
         self._socket = socket.socket(af, socktype, proto)
         if self._SSL is False:
-            if self._dstIp is not None:
-                self._socket.connect(sa)
-            else:
-                self._socket.connect(sa)
+            self._socket.connect(sa)
         else:
             # Switching to TLS now
             ctx = SSL.Context(SSL.TLSv1_METHOD)
             #ctx.set_cipher_list('RC4')
             self._socket = SSL.Connection(ctx, self._socket)
-            if self._dstIp is not None:
-                self._socket.connect(sa)
-            else:
-                self._socket.connect(sa)
+            self._socket.connect(sa)
             self._socket.do_handshake()
 
     def kerberosLogin(self, user, password, domain='', lmhash='', nthash='', aesKey='', kdcHost=None, TGT=None,
