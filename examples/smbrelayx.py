@@ -396,11 +396,12 @@ class SMBClient(smb.SMB):
 
 class HTTPRelayServer(Thread):
     class HTTPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
-        def __init__(self, server_address, RequestHandlerClass, target, exeFile, command, mode, outputFile):
+        def __init__(self, server_address, RequestHandlerClass, target, exeFile, command, mode, outputFile, returnStatus = STATUS_SUCCESS):
             self.target = target
             self.exeFile = exeFile
             self.command = command
             self.mode = mode
+            self.returnStatus = returnStatus
             self.outputFile = outputFile
 
             SocketServer.TCPServer.__init__(self,server_address, RequestHandlerClass)
@@ -558,6 +559,7 @@ class SMBRelayServer(Thread):
         self.machineAccount = None
         self.machineHashes = None
         self.exeFile = None
+        self.returnStatus = STATUS_SUCCESS
         self.command = None
 
         # Here we write a mini config for the server
