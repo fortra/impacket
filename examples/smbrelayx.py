@@ -743,6 +743,12 @@ class SMBRelayServer(Thread):
 
                 # Return status code of the authentication process.
                 errorCode = self.returnStatus
+                errorCodeTxt = {
+                    STATUS_SUCCESS : 'STATUS_SUCCESS',
+                    STATUS_ACCESS_DENIED : 'STATUS_ACCESS_DENIED',
+                    STATUS_LOGON_FAILURE : 'STATUS_LOGON_FAILURE'
+                }[errorCode]
+                logging.info("Sending status code after authentication %s to the %s" % (errorCodeTxt, connData['ClientIP']))
 
                 respToken = SPNEGO_NegTokenResp()
                 # accept-completed
@@ -812,6 +818,12 @@ class SMBRelayServer(Thread):
             # Do the verification here, for just now we grant access
             # TODO: Manage more UIDs for the same session
             errorCode = self.returnStatus
+            errorCodeTxt = {
+                STATUS_SUCCESS : 'STATUS_SUCCESS',
+                STATUS_ACCESS_DENIED : 'STATUS_ACCESS_DENIED',
+                STATUS_LOGON_FAILURE : 'STATUS_LOGON_FAILURE'
+            }[errorCode]
+            logging.info("Sending status code after authentication %s to the %s" % (errorCodeTxt, connData['ClientIP']))
             connData['Uid'] = 10
             respParameters['Action'] = 0
 
