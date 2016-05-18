@@ -847,6 +847,15 @@ class SMBRelayServer(Thread):
         self.command = command
 
     def setReturnStatus(self, returnStatus):
+        # Specifies return status after successful relayed authentication to return
+        # to the connecting client. This comes useful when we don't want the connecting
+        # client to store successful credentials in his memory. Valid statuses:
+        # STATUS_SUCCESS - denotes that the connecting client passed valid credentials,
+        #                   which will make him store them accordingly.
+        # STATUS_ACCESS_DENIED - may occur for instance when the client is not a Domain Admin,
+        #                       and got configured Remote UAC, thus preventing connection to ADMIN$
+        # STATUS_LOGON_FAILURE - which will tell the connecting client that the passed credentials
+        #                       are invalid.
         self.returnStatus = {
             'success' : STATUS_SUCCESS,
             'denied' : STATUS_ACCESS_DENIED,
@@ -898,6 +907,10 @@ if __name__ == '__main__':
     exeFile = options.e
     Command = options.c
     returnStatus = options.s
+
+    if returnStatus.lower() not in ['success', 'denied', 'logon_failure']:
+        logging.error("Invalid return status code specified. Please use on of the following:\n\tsuccess, denied or logon_failure")
+        sys.exit(1)
 
     for server in RELAY_SERVERS:
         s = server(options.outputfile)
