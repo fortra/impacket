@@ -51,6 +51,7 @@ from impacket.dcerpc.v5 import nrpc
 from impacket.dcerpc.v5.ndr import NULL
 from impacket.spnego import ASN1_AID
 from impacket.smbconnection import SMBConnection
+from impacket.nt_errors import ERROR_MESSAGES
 
 try:
  from Crypto.Cipher import DES, AES, ARC4
@@ -745,12 +746,7 @@ class SMBRelayServer(Thread):
 
                 # Return status code of the authentication process.
                 errorCode = self.returnStatus
-                errorCodeTxt = {
-                    STATUS_SUCCESS : 'STATUS_SUCCESS',
-                    STATUS_ACCESS_DENIED : 'STATUS_ACCESS_DENIED',
-                    STATUS_LOGON_FAILURE : 'STATUS_LOGON_FAILURE'
-                }[errorCode]
-                logging.info("Sending status code after authentication %s to the %s" % (errorCodeTxt, connData['ClientIP']))
+                logging.info("Sending status code %s after authentication to %s" % (ERROR_MESSAGES[self.returnStatus][0], connData['ClientIP']))
 
                 respToken = SPNEGO_NegTokenResp()
                 # accept-completed
@@ -820,12 +816,7 @@ class SMBRelayServer(Thread):
             # Do the verification here, for just now we grant access
             # TODO: Manage more UIDs for the same session
             errorCode = self.returnStatus
-            errorCodeTxt = {
-                STATUS_SUCCESS : 'STATUS_SUCCESS',
-                STATUS_ACCESS_DENIED : 'STATUS_ACCESS_DENIED',
-                STATUS_LOGON_FAILURE : 'STATUS_LOGON_FAILURE'
-            }[errorCode]
-            logging.info("Sending status code after authentication %s to the %s" % (errorCodeTxt, connData['ClientIP']))
+            logging.info("Sending status code %s after authentication to %s" % (ERROR_MESSAGES[self.returnStatus][0], connData['ClientIP']))
             connData['Uid'] = 10
             respParameters['Action'] = 0
 
