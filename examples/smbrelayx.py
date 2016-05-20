@@ -885,7 +885,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(add_help = False, description = "For every connection received, this module will try to SMB relay that connection to the target system or the original client")
     parser.add_argument("--help", action="help", help='show this help message and exit')
     parser.add_argument('-h', action='store', metavar = 'HOST', help='Host to relay the credentials to, if not it will relay it back to the client')
-    parser.add_argument('-s', action='store', metavar = 'STATUS', help='Status to return after client performed authentication. Valid ones: "success", "denied", "logon_failure".', required=False, type=str, default="success" )
+    parser.add_argument('-s', action='store', choices = {'success','denied','logon_failure' }, default='success', help='Status to return after client performed authentication. Default: "success".')
     parser.add_argument('-e', action='store', required=False, metavar = 'FILE', help='File to execute on the target system. If not specified, hashes will be dumped (secretsdump.py must be in the same directory)')
     parser.add_argument('-c', action='store', type=str, required=False, metavar = 'COMMAND', help='Command to execute on target system. If not specified, hashes will be dumped (secretsdump.py must be in the same directory)')
     parser.add_argument('-outputfile', action='store',
@@ -912,10 +912,6 @@ if __name__ == '__main__':
     exeFile = options.e
     Command = options.c
     returnStatus = options.s
-
-    if returnStatus.lower() not in ['success', 'denied', 'logon_failure']:
-        logging.error("Invalid return status code specified. Please use on of the following:\n\tsuccess, denied or logon_failure")
-        sys.exit(1)
 
     for server in RELAY_SERVERS:
         s = server(options.outputfile)
