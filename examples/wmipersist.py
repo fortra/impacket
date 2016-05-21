@@ -73,7 +73,8 @@ class WMIPERSISTENCE:
             logging.info('%s - OK' % banner)
 
     def run(self, addr):
-        dcom = DCOMConnection(addr, self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, options.aesKey, oxidResolver = False, doKerberos=options.k)
+        dcom = DCOMConnection(addr, self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
+                              options.aesKey, oxidResolver=False, doKerberos=options.k)
 
         iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
         iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
@@ -81,17 +82,20 @@ class WMIPERSISTENCE:
         iWbemLevel1Login.RemRelease()
 
         if self.__options.action.upper() == 'REMOVE':
-            self.checkError( 'Removing ActiveScriptEventConsumer %s'% self.__options.name, 
-                  iWbemServices.DeleteInstance('ActiveScriptEventConsumer.Name="%s"' % self.__options.name))
+            self.checkError('Removing ActiveScriptEventConsumer %s' % self.__options.name,
+                            iWbemServices.DeleteInstance('ActiveScriptEventConsumer.Name="%s"' % self.__options.name))
 
-            self.checkError( 'Removing EventFilter EF_%s'% self.__options.name,
-                  iWbemServices.DeleteInstance('__EventFilter.Name="EF_%s"'% self.__options.name))
+            self.checkError('Removing EventFilter EF_%s' % self.__options.name,
+                            iWbemServices.DeleteInstance('__EventFilter.Name="EF_%s"' % self.__options.name))
 
-            self.checkError( 'Removing IntervalTimerInstruction TI_%s'% self.__options.name,
-                  iWbemServices.DeleteInstance('__IntervalTimerInstruction.TimerId="TI_%s"'% self.__options.name))
+            self.checkError('Removing IntervalTimerInstruction TI_%s' % self.__options.name,
+                            iWbemServices.DeleteInstance(
+                                '__IntervalTimerInstruction.TimerId="TI_%s"' % self.__options.name))
 
-            self.checkError( 'Removing FilterToConsumerBinding %s'% self.__options.name,
-                  iWbemServices.DeleteInstance(r'__FilterToConsumerBinding.Consumer="ActiveScriptEventConsumer.Name=\"%s\"",Filter="__EventFilter.Name=\"EF_%s\""' % (self.__options.name, self.__options.name)))
+            self.checkError('Removing FilterToConsumerBinding %s' % self.__options.name,
+                            iWbemServices.DeleteInstance(
+                                r'__FilterToConsumerBinding.Consumer="ActiveScriptEventConsumer.Name=\"%s\"",Filter="__EventFilter.Name=\"EF_%s\""' % (
+                                self.__options.name, self.__options.name)))
         else:
             activeScript ,_ = iWbemServices.GetObject('ActiveScriptEventConsumer')
             activeScript =  activeScript.SpawnInstance()
@@ -192,7 +196,9 @@ if __name__ == '__main__':
             sys.exit(1)
 
     import re
-    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(options.target).groups('')
+
+    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
+        options.target).groups('')
 
     #In case the password contains '@'
     if '@' in address:

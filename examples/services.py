@@ -63,7 +63,8 @@ class SVCCTL:
             rpctransport.set_kerberos(self.__doKerberos)
             if hasattr(rpctransport, 'set_credentials'):
                 # This method exists only for selected protocol sequences.
-                rpctransport.set_credentials(self.__username,self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey)
+                rpctransport.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash,
+                                             self.__nthash, self.__aesKey)
 
             try:
                 self.doStuff(rpctransport)
@@ -199,7 +200,8 @@ class SVCCTL:
             print "Total Services: %d" % len(resp)
         elif self.__action == 'CREATE':
             logging.info("Creating service %s" % self.__options.name)
-            scmr.hRCreateServiceW(rpc, scManagerHandle,self.__options.name + '\x00', self.__options.display + '\x00', lpBinaryPathName=self.__options.path + '\x00')
+            scmr.hRCreateServiceW(rpc, scManagerHandle, self.__options.name + '\x00', self.__options.display + '\x00',
+                                  lpBinaryPathName=self.__options.path + '\x00')
         elif self.__action == 'CHANGE':
             logging.info("Changing service config for %s" % self.__options.name)
             if self.__options.start_type is not None:
@@ -240,7 +242,8 @@ class SVCCTL:
  
 
             #resp = scmr.hRChangeServiceConfigW(rpc, serviceHandle,  display, path, service_type, start_type, start_name, password)
-            scmr.hRChangeServiceConfigW(rpc, serviceHandle, service_type, start_type, scmr.SERVICE_ERROR_IGNORE, path, NULL, NULL, NULL, 0, start_name, password, 0, display)
+            scmr.hRChangeServiceConfigW(rpc, serviceHandle, service_type, start_type, scmr.SERVICE_ERROR_IGNORE, path,
+                                        NULL, NULL, NULL, 0, start_name, password, 0, display)
             scmr.hRCloseServiceHandle(rpc, serviceHandle)
         else:
             logging.error("Unknown action %s" % self.__action)
@@ -327,7 +330,9 @@ if __name__ == '__main__':
         logging.getLogger().setLevel(logging.INFO)
 
     import re
-    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(options.target).groups('')
+
+    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
+        options.target).groups('')
 
     #In case the password contains '@'
     if '@' in address:

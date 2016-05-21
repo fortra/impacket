@@ -130,7 +130,9 @@ class USERENUM:
             raise Exception('A domain is needed!')
 
         logging.info('Getting machine\'s list from %s' % domainController)
-        rpctransport = transport.SMBTransport(domainController, 445, r'\samr', self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey, doKerberos = self.__doKerberos)
+        rpctransport = transport.SMBTransport(domainController, 445, r'\samr', self.__username, self.__password,
+                                              self.__domain, self.__lmhash, self.__nthash, self.__aesKey,
+                                              doKerberos=self.__doKerberos)
         dce = rpctransport.get_dce_rpc()
         dce.connect()
         dce.bind(samr.MSRPC_UUID_SAMR)
@@ -152,10 +154,11 @@ class USERENUM:
             enumerationContext = 0
             while status == STATUS_MORE_ENTRIES:
                 try:
-                    resp = samr.hSamrEnumerateUsersInDomain(dce, domainHandle, samr.USER_WORKSTATION_TRUST_ACCOUNT, enumerationContext = enumerationContext)
+                    resp = samr.hSamrEnumerateUsersInDomain(dce, domainHandle, samr.USER_WORKSTATION_TRUST_ACCOUNT,
+                                                            enumerationContext=enumerationContext)
                 except DCERPCException, e:
                     if str(e).find('STATUS_MORE_ENTRIES') < 0:
-                        raise 
+                        raise
                     resp = e.get_packet()
 
                 for user in resp['Buffer']['Buffer']:
@@ -270,7 +273,8 @@ class USERENUM:
             rpctransportSrvs = transport.DCERPCTransportFactory(stringSrvsBinding)
             if hasattr(rpctransportSrvs, 'set_credentials'):
             # This method exists only for selected protocol sequences.
-                rpctransportSrvs.set_credentials(self.__username,self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey)
+                rpctransportSrvs.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash,
+                                                 self.__nthash, self.__aesKey)
                 rpctransportSrvs.set_kerberos(self.__doKerberos)
 
             dce = rpctransportSrvs.get_dce_rpc()
@@ -314,11 +318,13 @@ class USERENUM:
                     # Are we filtering users?
                     if self.__filterUsers is not None:
                         if userName in self.__filterUsers:
-                            print "%s: user %s logged from host %s - active: %d, idle: %d" % (target,userName, sourceIP, session['sesi10_time'], session['sesi10_idle_time'])
-                            printCRLF=True
+                            print "%s: user %s logged from host %s - active: %d, idle: %d" % (
+                            target, userName, sourceIP, session['sesi10_time'], session['sesi10_idle_time'])
+                            printCRLF = True
                     else:
-                        print "%s: user %s logged from host %s - active: %d, idle: %d" % (target,userName, sourceIP, session['sesi10_time'], session['sesi10_idle_time'])
-                        printCRLF=True
+                        print "%s: user %s logged from host %s - active: %d, idle: %d" % (
+                        target, userName, sourceIP, session['sesi10_time'], session['sesi10_idle_time'])
+                        printCRLF = True
 
         # Let's see who deleted a connection since last check
         for nItem, session in enumerate(self.__targets[target]['Sessions']):
@@ -345,8 +351,9 @@ class USERENUM:
             stringWkstBinding = r'ncacn_np:%s[\PIPE\wkssvc]' % target
             rpctransportWkst = transport.DCERPCTransportFactory(stringWkstBinding)
             if hasattr(rpctransportWkst, 'set_credentials'):
-            # This method exists only for selected protocol sequences.
-                rpctransportWkst.set_credentials(self.__username,self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey)
+                # This method exists only for selected protocol sequences.
+                rpctransportWkst.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash,
+                                                 self.__nthash, self.__aesKey)
                 rpctransportWkst.set_kerberos(self.__doKerberos)
 
             dce = rpctransportWkst.get_dce_rpc()
@@ -461,7 +468,9 @@ if __name__ == '__main__':
         logging.getLogger().setLevel(logging.INFO)
 
     import re
-    domain, username, password = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::([^@]*))?)?').match(options.identity).groups('')
+
+    domain, username, password = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::([^@]*))?)?').match(options.identity).groups(
+        '')
 
     try:
         if domain is None:

@@ -38,7 +38,8 @@ from impacket.dcerpc.v5.dtypes import NULL
 OUTPUT_FILENAME = '__' + str(time.time())
 
 class WMIEXEC:
-    def __init__(self, command = '', username = '', password = '', domain = '', hashes = None, aesKey = None, share = None, noOutput=False, doKerberos=False):
+    def __init__(self, command='', username='', password='', domain='', hashes=None, aesKey=None, share=None,
+                 noOutput=False, doKerberos=False):
         self.__command = command
         self.__username = username
         self.__password = password
@@ -59,7 +60,8 @@ class WMIEXEC:
             if self.__doKerberos is False:
                 smbConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
             else:
-                smbConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey)
+                smbConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash,
+                                            self.__nthash, self.__aesKey)
 
             dialect = smbConnection.getDialect()
             if dialect == SMB_DIALECT:
@@ -73,7 +75,8 @@ class WMIEXEC:
         else:
             smbConnection = None
 
-        dcom = DCOMConnection(addr, self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey, oxidResolver = True, doKerberos=self.__doKerberos)
+        dcom = DCOMConnection(addr, self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
+                              self.__aesKey, oxidResolver=True, doKerberos=self.__doKerberos)
         try:
             iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
             iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
@@ -291,7 +294,9 @@ if __name__ == '__main__':
         logging.getLogger().setLevel(logging.INFO)
 
     import re
-    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(options.target).groups('')
+
+    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
+        options.target).groups('')
 
     #In case the password contains '@'
     if '@' in address:
@@ -309,7 +314,8 @@ if __name__ == '__main__':
         if options.aesKey is not None:
             options.k = True
 
-        executer = WMIEXEC(' '.join(options.command), username, password, domain, options.hashes, options.aesKey, options.share, options.nooutput, options.k)
+        executer = WMIEXEC(' '.join(options.command), username, password, domain, options.hashes, options.aesKey,
+                           options.share, options.nooutput, options.k)
         executer.run(address)
     except (Exception, KeyboardInterrupt), e:
         #import traceback

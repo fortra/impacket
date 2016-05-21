@@ -287,7 +287,9 @@ class MiniImpacketShell(cmd.Cmd):
         resp = srvs.hNetrSessionEnum(dce, NULL, NULL, 10)
 
         for session in resp['InfoStruct']['SessionInfo']['Level10']['Buffer']:
-            print "host: %15s, user: %5s, active: %5d, idle: %5d" % (session['sesi10_cname'][:-1], session['sesi10_username'][:-1], session['sesi10_time'], session['sesi10_idle_time'])
+            print "host: %15s, user: %5s, active: %5d, idle: %5d" % (
+            session['sesi10_cname'][:-1], session['sesi10_username'][:-1], session['sesi10_time'],
+            session['sesi10_idle_time'])
 
     def do_shares(self, line):
         if self.loggedIn is False:
@@ -359,9 +361,11 @@ class MiniImpacketShell(cmd.Cmd):
         pwd = string.replace(pwd,'/','\\')
         pwd = ntpath.normpath(pwd)
         for f in self.smb.listPath(self.share, pwd):
-           if display is True:
-               print "%crw-rw-rw- %10d  %s %s" % ('d' if f.is_directory() > 0 else '-', f.get_filesize(),  time.ctime(float(f.get_mtime_epoch())) ,f.get_longname() )
-           self.completion.append((f.get_longname(),f.is_directory()))
+            if display is True:
+                print "%crw-rw-rw- %10d  %s %s" % (
+                'd' if f.is_directory() > 0 else '-', f.get_filesize(), time.ctime(float(f.get_mtime_epoch())),
+                f.get_longname())
+            self.completion.append((f.get_longname(), f.is_directory()))
 
 
     def do_rm(self, filename):
@@ -470,7 +474,8 @@ def main():
         logging.getLogger().setLevel(logging.INFO)
 
     import re
-    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(options.target).groups('')
+    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
+        options.target).groups('')
 
     #In case the password contains '@'
     if '@' in address:

@@ -68,7 +68,9 @@ class SAMRDump:
             port = protodef[1]
 
             logging.info("Trying protocol %s..." % protocol)
-            rpctransport = transport.SMBTransport(addr, port, r'\samr', self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey, doKerberos = self.__doKerberos)
+            rpctransport = transport.SMBTransport(addr, port, r'\samr', self.__username, self.__password, self.__domain,
+                                                  self.__lmhash, self.__nthash, self.__aesKey,
+                                                  doKerberos=self.__doKerberos)
 
             try:
                 entries = self.__fetchList(rpctransport)
@@ -190,7 +192,8 @@ if __name__ == '__main__':
 
     import re
 
-    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(options.target).groups('')
+    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
+        options.target).groups('')
 
     #In case the password contains '@'
     if '@' in address:
