@@ -69,6 +69,9 @@ class AuthSimple(OctetString):
     tagSet = OctetString.tagSet.tagImplicitly(Tag(tagClassContext, tagFormatSimple, 0))
     encoding = 'utf-8'
 
+class Credentials(OctetString):
+    encoding = 'utf-8'
+
 class SaslCredentials(Sequence):
     """
         SaslCredentials ::= SEQUENCE {
@@ -78,7 +81,7 @@ class SaslCredentials(Sequence):
     tagSet = Sequence.tagSet.tagImplicitly(Tag(tagClassContext, tagFormatConstructed, 3))
     componentType = NamedTypes(
         NamedType('mechanism', LDAPString()),
-        OptionalNamedType('credentials', OctetString())
+        OptionalNamedType('credentials', Credentials())
     )
 
 class SicilyPackageDiscovery(OctetString):

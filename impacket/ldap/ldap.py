@@ -26,7 +26,7 @@ from pyasn1.error import SubstrateUnderrunError
 
 from impacket import LOG
 from impacket.ldap.ldapasn1 import BindRequest, Integer7Bit, LDAPDN, AuthenticationChoice, AuthSimple, LDAPMessage, \
-    SCOPE_SUB, SearchRequest, Scope, DEREF_NEVER, DeRefAliases, IntegerPositive, Boolean, AttributeSelection, SaslCredentials, LDAPString
+    SCOPE_SUB, SearchRequest, Scope, DEREF_NEVER, DeRefAliases, IntegerPositive, Boolean, AttributeSelection, SaslCredentials, LDAPString, ProtocolOp, Credentials
 from impacket.ntlm import getNTLMSSPType1, getNTLMSSPType3
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech
 
@@ -75,8 +75,12 @@ class LDAPConnection:
             targetHost = self._dstHost
 
         LOG.debug('Connecting to %s, port %s, SSL %s' % (targetHost, self._dstPort, self._SSL))
-        af, socktype, proto, canonname, sa = socket.getaddrinfo(targetHost, self._dstPort, 0, socket.SOCK_STREAM)[0]
-        self._socket = socket.socket(af, socktype, proto)
+        try:
+            af, socktype, proto, canonname, sa = socket.getaddrinfo(targetHost, self._dstPort, 0, socket.SOCK_STREAM)[0]
+            self._socket = socket.socket(af, socktype, proto)
+        except socket.error, e:
+            raise socket.error("Connection error (%s:%s)" % (targetHost, 88), e)
+
         if self._SSL is False:
             self._socket.connect(sa)
         else:
@@ -228,10 +232,10 @@ class LDAPConnection:
         bindRequest['name'] = LDAPDN(user)
         credentials = SaslCredentials()
         credentials['mechanism'] = LDAPString('GSSAPI')
-        credentials['credentials'] = blob.getData()
+        credentials['credentials'] = Credentials(blob.getData())
         bindRequest['authentication'] = AuthenticationChoice().setComponentByName('sasl', credentials)
 
-        resp = self.sendReceive(bindRequest)[0]['protocolOp']
+        resp = self.sendReceive('bindRequest', bindRequest)[0]['protocolOp']
 
         if resp['bindResponse']['resultCode'] != 0:
             raise LDAPSessionError(errorString='%s:%s' % (
@@ -258,10 +262,10 @@ class LDAPConnection:
 
         if authenticationChoice == 'simple':
             bindRequest['authentication'] = AuthenticationChoice().setComponentByName(authenticationChoice, AuthSimple(password))
-            resp = self.sendReceive(bindRequest)[0]['protocolOp']
+            resp = self.sendReceive('bindRequest', bindRequest)[0]['protocolOp']
         elif authenticationChoice == 'sicilyPackageDiscovery':
             bindRequest['authentication'] = AuthenticationChoice().setComponentByName(authenticationChoice, '')
-            resp = self.sendReceive(bindRequest)[0]['protocolOp']
+            resp = self.sendReceive('bindRequest', bindRequest)[0]['protocolOp']
         elif authenticationChoice == 'sicilyNegotiate':
             # Deal with NTLM Authentication
             if lmhash != '' or nthash != '':
@@ -276,7 +280,7 @@ class LDAPConnection:
             # NTLM Negotiate
             negotiate = getNTLMSSPType1('',domain)
             bindRequest['authentication'] = AuthenticationChoice().setComponentByName('sicilyNegotiate', negotiate)
-            resp = self.sendReceive(bindRequest)[0]['protocolOp']
+            resp = self.sendReceive('bindRequest', bindRequest)[0]['protocolOp']
 
             # NTLM Challenge
             type2 = resp['bindResponse']['matchedDN']
@@ -284,7 +288,7 @@ class LDAPConnection:
             # NTLM Auth
             type3, exportedSessionKey = getNTLMSSPType3(negotiate, str(type2), user, password, domain, lmhash, nthash)
             bindRequest['authentication'] = AuthenticationChoice().setComponentByName('sicilyResponse', type3)
-            resp = self.sendReceive(bindRequest)[0]['protocolOp']
+            resp = self.sendReceive('bindRequest', bindRequest)[0]['protocolOp']
         else:
             raise LDAPSessionError(errorString='Unknown authenticationChoice %s' % authenticationChoice)
 
@@ -315,7 +319,7 @@ class LDAPConnection:
         answers = []
         # We keep asking records until we get a searchResDone packet
         while not done:
-            resp = self.sendReceive(searchRequest)
+            resp = self.sendReceive('searchRequest', searchRequest)
             for item in resp:
                 protocolOp = item['protocolOp']
                 if protocolOp.getName() == 'searchResDone':
@@ -332,10 +336,10 @@ class LDAPConnection:
         if self._socket is not None:
             self._socket.close()
 
-    def send(self, message):
+    def send(self, protocolOp, message):
         ldapMessage = LDAPMessage( )
         ldapMessage['messageID'] = IntegerPositive(self._messageId)
-        ldapMessage['protocolOp'] = message
+        ldapMessage['protocolOp'] = ProtocolOp().setComponentByName(protocolOp, message)
 
         data = encoder.encode(ldapMessage)
 
@@ -366,8 +370,8 @@ class LDAPConnection:
         self._messageId += 1
         return answers
 
-    def sendReceive(self, message):
-        self.send(message)
+    def sendReceive(self, protocolOp, message):
+        self.send(protocolOp, message)
         return self.recv()
 
 
