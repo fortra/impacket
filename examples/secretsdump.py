@@ -2264,8 +2264,6 @@ class DumpSecrets:
             self.__LSASecrets.finish()
         if self.__NTDSHashes:
             self.__NTDSHashes.finish()
-        if self.__isRemote is True:
-            self.__smbConnection.logoff()
 
 
 # Process command-line arguments.
