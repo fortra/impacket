@@ -44,9 +44,13 @@ def sendReceive(data, host, kdcHost):
     messageLen = struct.pack('!i', len(data))
 
     LOG.debug('Trying to connect to KDC at %s' % targetHost)
-    af, socktype, proto, canonname, sa = socket.getaddrinfo(targetHost, 88, 0, socket.SOCK_STREAM)[0]
-    s = socket.socket(af, socktype, proto)
-    s.connect(sa)
+    try:
+        af, socktype, proto, canonname, sa = socket.getaddrinfo(targetHost, 88, 0, socket.SOCK_STREAM)[0]
+        s = socket.socket(af, socktype, proto)
+        s.connect(sa)
+    except socket.error, e:
+        raise socket.error("Connection error (%s:%s)" % (targetHost, 88), e)
+
     s.sendall(messageLen + data)
 
     recvDataLen = struct.unpack('!i', s.recv(4))[0]
