@@ -38,7 +38,7 @@ from binascii import hexlify, unhexlify
 
 from pyasn1.codec.der import decoder
 from impacket import version
-from impacket.dcerpc.v5.samr import UF_ACCOUNTDISABLE
+from impacket.dcerpc.v5.samr import UF_ACCOUNTDISABLE, UF_NORMAL_ACCOUNT
 from impacket.examples import logger
 from impacket.krb5 import constants
 from impacket.krb5.asn1 import TGS_REP
@@ -201,12 +201,42 @@ class GetUserSPNs:
             ldapConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
                                          self.__aesKey, kdcHost=self.__kdcHost)
 
+        # Building the following filter:
+        # (&(servicePrincipalName=*)(UserAccountControl:1.2.840.113556.1.4.803:=512)(!(UserAccountControl:1.2.840.113556.1.4.803:=2)))
+
+        # (servicePrincipalName=*)
+        and0 = ldapasn1.Filter()
+        and0['present'] = ldapasn1.Present('servicePrincipalName')
+
+        # (UserAccountControl:1.2.840.113556.1.4.803:=512)
+        and1 = ldapasn1.Filter()
+        and1['extensibleMatch'] = ldapasn1.MatchingRuleAssertion()
+        and1['extensibleMatch']['matchingRule'] = ldapasn1.MatchingRuleId('1.2.840.113556.1.4.803')
+        and1['extensibleMatch']['type'] = ldapasn1.TypeDescription('UserAccountControl')
+        and1['extensibleMatch']['matchValue'] = ldapasn1.matchValueAssertion(UF_NORMAL_ACCOUNT)
+        and1['extensibleMatch']['dnAttributes'] = False
+
+        # !(UserAccountControl:1.2.840.113556.1.4.803:=2)
+        and2 = ldapasn1.Not()
+        and2['notFilter'] = ldapasn1.Filter()
+        and2['notFilter']['extensibleMatch'] = ldapasn1.MatchingRuleAssertion()
+        and2['notFilter']['extensibleMatch']['matchingRule'] = ldapasn1.MatchingRuleId('1.2.840.113556.1.4.803')
+        and2['notFilter']['extensibleMatch']['type'] = ldapasn1.TypeDescription('UserAccountControl')
+        and2['notFilter']['extensibleMatch']['matchValue'] = ldapasn1.matchValueAssertion(UF_ACCOUNTDISABLE)
+        and2['notFilter']['extensibleMatch']['dnAttributes'] = False
+
         searchFilter = ldapasn1.Filter()
-        searchFilter['present'] = ldapasn1.Present('servicePrincipalName')
+        searchFilter['and'] = ldapasn1.And()
+        searchFilter['and'][0] = and0
+        searchFilter['and'][1] = and1
+        # searchFilter['and'][2] = and2
+        # Exception here, setting verifyConstraints to False so pyasn1 doesn't warn about incompatible tags
+        searchFilter['and'].setComponentByPosition(2,and2,  verifyConstraints=False)
 
         resp = ldapConnection.search(searchFilter=searchFilter,
                                      attributes=['servicePrincipalName', 'sAMAccountName',
-                                                 'pwdLastSet', 'MemberOf', 'userAccountControl'])
+                                                 'pwdLastSet', 'MemberOf', 'userAccountControl'],
+                                     sizeLimit=9999)
         answers = []
         logging.debug('Total of records returned %d' % len(resp))
         for item in resp:
