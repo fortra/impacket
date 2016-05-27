@@ -11,9 +11,14 @@
 # Description: 
 # MSSQL client for relaying NTLMSSP authentication to MSSQL servers
 #
-from impacket import tds
-from impacket.tds import *
 import logging
+import random
+import string
+
+from impacket import tds
+from impacket.tds import DummyPrint, TDS_ENCRYPT_REQ, TDS_ENCRYPT_OFF, TDS_PRE_LOGIN, TDS_LOGIN, TDS_INIT_LANG_FATAL, \
+    TDS_ODBC_ON, TDS_INTEGRATED_SECURITY_ON, TDS_LOGIN7, TDS_SSPI, TDS_LOGINACK_TOKEN
+
 try:
     import OpenSSL
     from OpenSSL import SSL, crypto
@@ -21,6 +26,10 @@ except Exception:
     logging.critical("pyOpenSSL is not installed, can't continue")
 
 class MSSQLRelayClient(tds.MSSQL):
+    def __init__(self, address, port=1433, rowsPrinter=DummyPrint()):
+        tds.MSSQL.__init__(self,address, port, rowsPrinter)
+        self.resp = None
+
     def init_connection(self):
         self.connect()
         #This is copied from tds.py
@@ -55,8 +64,8 @@ class MSSQLRelayClient(tds.MSSQL):
         #Also partly copied from tds.py
         login = TDS_LOGIN()
 
-        login['HostName'] = (''.join([random.choice(string.letters) for i in range(8)])).encode('utf-16le')
-        login['AppName']  = (''.join([random.choice(string.letters) for i in range(8)])).encode('utf-16le')
+        login['HostName'] = (''.join([random.choice(string.letters) for _ in range(8)])).encode('utf-16le')
+        login['AppName']  = (''.join([random.choice(string.letters) for _ in range(8)])).encode('utf-16le')
         login['ServerName'] = self.server.encode('utf-16le')
         login['CltIntName']  = login['AppName']
         login['ClientPID'] = random.randint(0,1024)
@@ -94,5 +103,6 @@ class MSSQLRelayClient(tds.MSSQL):
             return False
 
     #SMB Relay server needs this
-    def get_encryption_key(self):
+    @staticmethod
+    def get_encryption_key():
         return None

@@ -14,12 +14,21 @@
 # Description:
 #             This is the HTTP server which relays the NTLMSSP 
 #   messages to other protocols
-from threading import Thread
 import SimpleHTTPServer
+import SocketServer
+import base64
 import logging
-import string, random, time, base64
-from impacket.ntlmrelayx.clients import *
-from impacket.smbserver import *
+import random
+import struct
+import string
+from threading import Thread
+
+from impacket import ntlm
+from impacket.ntlmrelayx.clients import SMBRelayClient, MSSQLRelayClient, LDAPRelayClient
+from impacket.spnego import SPNEGO_NegTokenResp
+from impacket.smbserver import outputToJohnFormat, writeJohnOutputToFile
+from impacket.nt_errors import STATUS_ACCESS_DENIED, STATUS_SUCCESS
+
 
 class HTTPRelayServer(Thread):
     class HTTPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
@@ -47,6 +56,7 @@ class HTTPRelayServer(Thread):
             self.machineAccount = None
             self.machineHashes = None
             self.domainIp = None
+            self.authUser = None
             if self.server.mode != 'REDIRECT':
                 if self.server.target is not None:
                     self.target = self.server.target.get_target(client_address[0])
@@ -198,7 +208,7 @@ class HTTPRelayServer(Thread):
             #print repr(authenticateMessage['flags'])
 
             #For some attacks it is important to know the authenticated username, so we store it
-            self.authuser = authenticateMessage['user_name']
+            self.authUser = authenticateMessage['user_name']
             
             #TODO: What is this 127.0.0.1 doing here? Maybe document specific use case
             if authenticateMessage['user_name'] != '' or self.target[1] == '127.0.0.1':
@@ -223,7 +233,7 @@ class HTTPRelayServer(Thread):
                         if result['result'] == 0 and result['description'] == 'success':
                             return True
                         else:
-                            logging.error("LDAP bind against %s as %s FAILED" % (self.target[1],self.authuser))
+                            logging.error("LDAP bind against %s as %s FAILED" % (self.target[1],self.authUser))
                             logging.error('Error: %s. Message: %s' % (result['description'],str(result['message'])))
                             return False
                         #Failed example:
@@ -248,7 +258,7 @@ class HTTPRelayServer(Thread):
                 clientThread = self.server.config.attacks['SMB'](self.server.config,self.client,self.server.exeFile,self.server.command)
                 clientThread.start()
             if self.target[0] == 'LDAP' or self.target[0] == 'LDAPS':
-                clientThread = self.server.config.attacks['LDAP'](self.server.config,self.client,self.authuser)
+                clientThread = self.server.config.attacks['LDAP'](self.server.config, self.client, self.authUser)
                 clientThread.start()                
 
     def __init__(self, config):

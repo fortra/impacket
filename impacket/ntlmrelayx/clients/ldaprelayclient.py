@@ -14,20 +14,18 @@
 # way to make the lib do things it wasn't designed to without touching
 # its code
 #
-import sys
-import ldap3
-from ldap3 import Server, Connection, SIMPLE, SYNC, ALL, SASL, NTLM, RESULT_SUCCESS, MODIFY_ADD
+from ldap3 import Server, Connection, ALL, NTLM, RESULT_SUCCESS, MODIFY_ADD
 from ldap3.operation import bind
-from ldap3.core.exceptions import *
-
-import logging
 
 
-class LDAPRelayClient():
+class LDAPRelayClient:
     MODIFY_ADD = MODIFY_ADD
     def __init__(self,server,port=None):
         self.target = server
         self.negotiateMessage = None
+        self.authenticateMessageBlob = None
+        self.s = None
+        self.c = None
 
     def init_connection(self):
         self.s = Server(self.target, get_info=ALL)
@@ -78,5 +76,6 @@ class LDAPRelayClient():
         pass
 
     #SMB Relay server needs this
-    def get_encryption_key(self):
+    @staticmethod
+    def get_encryption_key():
         return None
