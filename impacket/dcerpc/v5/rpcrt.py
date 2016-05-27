@@ -1009,9 +1009,13 @@ class DCERPC_v5(DCERPC):
 
         if resp['type'] == MSRPC_BINDACK or resp['type'] == MSRPC_ALTERCTX_R:
             bindResp = MSRPCBindAck(str(resp))
-        elif resp['type'] == MSRPC_BINDNAK:
-            resp = MSRPCBindNak(resp['pduData'])
-            status_code = resp['RejectedReason']
+        elif resp['type'] == MSRPC_BINDNAK or resp['type'] == MSRPC_FAULT:
+            if resp['type'] == MSRPC_FAULT:
+                resp = MSRPCRespHeader(str(resp))
+                status_code = unpack('<L', resp['pduData'][:4])[0]
+            else:
+                resp = MSRPCBindNak(resp['pduData'])
+                status_code = resp['RejectedReason']
             if rpc_status_codes.has_key(status_code):
                 raise DCERPCException(error_code = status_code)
             elif rpc_provider_reason.has_key(status_code):
