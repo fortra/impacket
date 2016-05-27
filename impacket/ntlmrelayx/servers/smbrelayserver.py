@@ -16,15 +16,18 @@
 #   to other protocols
 
 from threading import Thread
-from impacket.smb import *
-from impacket.smbserver import *
-from impacket.smbserver import *
-from impacket.dcerpc.v5 import transport
-from impacket.dcerpc.v5 import nrpc
-from impacket.dcerpc.v5.ndr import NULL
+import ConfigParser
+import struct
+import logging
+
+from impacket import smb, ntlm
+from impacket.nt_errors import STATUS_MORE_PROCESSING_REQUIRED, STATUS_ACCESS_DENIED, STATUS_SUCCESS
+from impacket.spnego import SPNEGO_NegTokenResp, SPNEGO_NegTokenInit, TypesMech
+from impacket.ntlmrelayx.clients import SMBRelayClient, MSSQLRelayClient, LDAPRelayClient
+from impacket.smbserver import SMBSERVER, outputToJohnFormat, writeJohnOutputToFile
 from impacket.spnego import ASN1_AID
-from impacket.smbconnection import SMBConnection
-from impacket.ntlmrelayx.clients import *
+from impacket.ntlmrelayx.utils.targetsutils import ProxyIpTranslator
+
 
 class SMBRelayServer(Thread):
     def __init__(self,config):
@@ -49,6 +52,9 @@ class SMBRelayServer(Thread):
         self.domainIp = self.config.domainIp
         self.machineAccount = self.config.machineAccount
         self.machineHashes = self.config.machineHashes
+        self.authUser = None
+        self.proxyTranslator = None
+        self.lootDir = None
 
         # Here we write a mini config for the server
         smbConfig = ConfigParser.ConfigParser()
@@ -60,7 +66,7 @@ class SMBRelayServer(Thread):
         smbConfig.set('global','credentials_file','')
 
         if self.outputFile is not None:
-            smbConfig.set('global','jtr_dump_path',outputFile)
+            smbConfig.set('global','jtr_dump_path',self.outputFile)
 
         # IPC always needed
         smbConfig.add_section('IPC$')
@@ -209,7 +215,7 @@ class SMBRelayServer(Thread):
                 if authenticateMessage['user_name'] != '':
                     #For some attacks it is important to know the authenticated username, so we store it
                     connData['AUTHUSER'] = authenticateMessage['user_name']
-                    self.authuser = connData['AUTHUSER']
+                    self.authUser = connData['AUTHUSER']
                     clientResponse, errorCode = self.do_ntlm_auth(client,sessionSetupData['SecurityBlob'],connData['CHALLENGE_MESSAGE']['challenge'])
                     #clientResponse, errorCode = smbClient.sendAuth(sessionSetupData['SecurityBlob'],connData['CHALLENGE_MESSAGE']['challenge'])
                 else:
@@ -220,7 +226,7 @@ class SMBRelayServer(Thread):
                     # Let's return what the target returned, hope the client connects back again
                     packet = smb.NewSMBPacket()
                     packet['Flags1']  = smb.SMB.FLAGS1_REPLY | smb.SMB.FLAGS1_PATHCASELESS
-                    packet['Flags2']  = smb.SMB.FLAGS2_NT_STATUS | SMB.FLAGS2_EXTENDED_SECURITY 
+                    packet['Flags2']  = smb.SMB.FLAGS2_NT_STATUS | smb.SMB.FLAGS2_EXTENDED_SECURITY
                     packet['Command'] = recvPacket['Command']
                     packet['Pid']     = recvPacket['Pid']
                     packet['Tid']     = recvPacket['Tid']
@@ -293,7 +299,7 @@ class SMBRelayServer(Thread):
                 # Let's return what the target returned, hope the client connects back again
                 packet = smb.NewSMBPacket()
                 packet['Flags1']  = smb.SMB.FLAGS1_REPLY | smb.SMB.FLAGS1_PATHCASELESS
-                packet['Flags2']  = smb.SMB.FLAGS2_NT_STATUS | SMB.FLAGS2_EXTENDED_SECURITY 
+                packet['Flags2']  = smb.SMB.FLAGS2_NT_STATUS | smb.SMB.FLAGS2_EXTENDED_SECURITY
                 packet['Command'] = recvPacket['Command']
                 packet['Pid']     = recvPacket['Pid']
                 packet['Tid']     = recvPacket['Tid']
@@ -384,7 +390,7 @@ class SMBRelayServer(Thread):
         token = respToken2['ResponseToken']
         clientResponse = None
         if self.target[0] == 'SMB':
-            clientResponse, errorCode = client.sendAuth(rawtoken,authenticateMessage)
+            clientResponse, errorCode = client.sendAuth(SPNEGO_token,authenticateMessage)
         if self.target[0] == 'MSSQL':
             #This client needs a proper response code
             try:
@@ -404,7 +410,7 @@ class SMBRelayServer(Thread):
                 if result['result'] == 0 and result['description'] == 'success':
                     errorCode = STATUS_SUCCESS
                 else:
-                    logging.error("LDAP bind against %s as %s FAILED" % (self.target[1],self.authuser))
+                    logging.error("LDAP bind against %s as %s FAILED" % (self.target[1],self.authUser))
                     logging.error('Error: %s. Message: %s' % (result['description'],str(result['message'])))
                     errorCode = STATUS_ACCESS_DENIED
                 print errorCode
@@ -425,7 +431,7 @@ class SMBRelayServer(Thread):
             clientThread = self.config.attacks['SMB'](self.config,client,self.exeFile,self.command)
             clientThread.start()
         if self.target[0] == 'LDAP' or self.target[0] == 'LDAPS':
-            clientThread = self.config.attacks['LDAP'](self.config,client,self.authuser)
+            clientThread = self.config.attacks['LDAP'](self.config, client, self.authUser)
             clientThread.start()    
 
     def _start(self):
@@ -449,16 +455,16 @@ class SMBRelayServer(Thread):
     def setMode(self,mode):
         self.mode = mode
         if self.mode == 'TRANSPARENT':
-            self.proxytranslator = ProxyIpTranslator()
-            self.proxytranslator.start()
+            self.proxyTranslator = ProxyIpTranslator()
+            self.proxyTranslator.start()
         else:
-            self.proxytranslator = None
+            self.proxyTranslator = None
 
     def setAttacks(self,attacks):
         self.attacks = attacks
 
     def setLootdir(self,lootdir):
-        self.lootdir = lootdir
+        self.lootDir = lootdir
  
     def setDomainAccount( self, machineAccount,  machineHashes, domainIp):
         self.machineAccount = machineAccount
