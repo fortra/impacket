@@ -288,7 +288,7 @@ class Or(SetOf):
     tagSet = SetOf.tagSet.tagImplicitly(Tag(tagClassContext, tagFormatConstructed, 1))
     subtypeSpec = SetOf.subtypeSpec + ValueSizeConstraint(1, MAXINT)
 
-class Not(SetOf):
+class Not(Choice):
     # not             [2] Filter
     pass
 
@@ -396,7 +396,7 @@ class SubstringFilter(Sequence):
 
 class TypeDescription(AttributeDescription):
     # type            [2] AttributeDescription OPTIONAL
-    tagSet = AttributeDescription.tagSet.tagImplicitly(Tag(tagClassContext, tagFormatConstructed, 2))
+    tagSet = AttributeDescription.tagSet.tagImplicitly(Tag(tagClassContext, tagFormatSimple, 2))
 
 class matchValueAssertion(AssertionValue):
     # matchValue      [3] AssertionValue
@@ -407,6 +407,11 @@ class MatchingRuleId(LDAPString):
     tagSet = LDAPString.tagSet.tagImplicitly(Tag(tagClassContext, tagFormatSimple, 1))
     pass
 
+class DnAttributes(Boolean):
+    # dnAttributes    [4] BOOLEAN DEFAULT FALSE }
+    tagSet = Boolean.tagSet.tagImplicitly(Tag(tagClassContext, tagFormatSimple, 4))
+    defaultValue = Boolean(False)
+
 class MatchingRuleAssertion(Sequence):
     """
         MatchingRuleAssertion ::= SEQUENCE {
@@ -415,11 +420,12 @@ class MatchingRuleAssertion(Sequence):
              matchValue      [3] AssertionValue,
              dnAttributes    [4] BOOLEAN DEFAULT FALSE }
     """
+    tagSet = Sequence.tagSet.tagImplicitly(Tag(tagClassContext, tagFormatConstructed, 9))
     componentType = NamedTypes(
         OptionalNamedType('matchingRule', MatchingRuleId()),
         OptionalNamedType('type', TypeDescription()),
         NamedType('matchValue', matchValueAssertion()),
-        NamedType('dnAttributes', Boolean(False)),
+        NamedType('dnAttributes', DnAttributes()),
     )
 class Filter(Choice):
     """

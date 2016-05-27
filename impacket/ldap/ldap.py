@@ -26,7 +26,8 @@ from pyasn1.error import SubstrateUnderrunError
 
 from impacket import LOG
 from impacket.ldap.ldapasn1 import BindRequest, Integer7Bit, LDAPDN, AuthenticationChoice, AuthSimple, LDAPMessage, \
-    SCOPE_SUB, SearchRequest, Scope, DEREF_NEVER, DeRefAliases, IntegerPositive, Boolean, AttributeSelection, SaslCredentials, LDAPString, ProtocolOp, Credentials
+    SCOPE_SUB, SearchRequest, Scope, DEREF_NEVER, DeRefAliases, IntegerPositive, Boolean, AttributeSelection, \
+    SaslCredentials, LDAPString, ProtocolOp, Credentials
 from impacket.ntlm import getNTLMSSPType1, getNTLMSSPType3
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech
 
@@ -231,14 +232,14 @@ class LDAPConnection:
         bindRequest['version'] = Integer7Bit(3)
         bindRequest['name'] = LDAPDN(user)
         credentials = SaslCredentials()
-        credentials['mechanism'] = LDAPString('GSSAPI')
+        credentials['mechanism'] = LDAPString('GSS-SPNEGO')
         credentials['credentials'] = Credentials(blob.getData())
         bindRequest['authentication'] = AuthenticationChoice().setComponentByName('sasl', credentials)
 
         resp = self.sendReceive('bindRequest', bindRequest)[0]['protocolOp']
 
         if resp['bindResponse']['resultCode'] != 0:
-            raise LDAPSessionError(errorString='%s:%s' % (
+            raise LDAPSessionError(errorString='Error in bindRequest -> %s:%s' % (
             resp['bindResponse']['resultCode'].prettyPrint(), resp['bindResponse']['diagnosticMessage']))
 
         return True
@@ -293,11 +294,12 @@ class LDAPConnection:
             raise LDAPSessionError(errorString='Unknown authenticationChoice %s' % authenticationChoice)
 
         if resp['bindResponse']['resultCode'] != 0:
-            raise LDAPSessionError(errorString = '%s:%s' % (resp['bindResponse']['resultCode'].prettyPrint(), resp['bindResponse']['diagnosticMessage'] ))
+            raise LDAPSessionError(errorString = 'Error in bindRequest -> %s:%s' % (resp['bindResponse']['resultCode'].prettyPrint(), resp['bindResponse']['diagnosticMessage'] ))
 
         return True
 
-    def search(self, searchBase=None, searchFilter=None, scope = SCOPE_SUB, attributes = None, derefAliases = DEREF_NEVER):
+    def search(self, searchBase=None, searchFilter=None, scope=SCOPE_SUB, attributes=None, derefAliases=DEREF_NEVER,
+               sizeLimit=0):
         # ToDo: For now we need to specify a filter as a Filter instance, meaning, we have to programmatically build it
         # ToDo: We have to create functions to parse and compile a text searchFilter into a Filter instance.
         if searchBase is None:
@@ -307,7 +309,7 @@ class LDAPConnection:
         searchRequest['baseObject'] = LDAPDN(searchBase)
         searchRequest['scope'] = Scope(scope)
         searchRequest['derefAliases'] = DeRefAliases(derefAliases)
-        searchRequest['sizeLimit'] = IntegerPositive(0)
+        searchRequest['sizeLimit'] = IntegerPositive(sizeLimit)
         searchRequest['timeLimit'] = IntegerPositive(0)
         searchRequest['typesOnly'] = Boolean(False)
         searchRequest['filter'] = searchFilter
@@ -325,7 +327,7 @@ class LDAPConnection:
                 if protocolOp.getName() == 'searchResDone':
                     done = True
                     if protocolOp['searchResDone']['resultCode'] != 0:
-                        raise LDAPSessionError(errorString = '%s:%s' % (protocolOp['searchResDone']['resultCode'].prettyPrint(), protocolOp['searchResDone']['diagnosticMessage'] ))
+                        raise LDAPSessionError(errorString = 'Error in searchRequest -> %s:%s' % (protocolOp['searchResDone']['resultCode'].prettyPrint(), protocolOp['searchResDone']['diagnosticMessage'] ))
                 else:
                     answers.append(item['protocolOp'][protocolOp.getName()])
 
