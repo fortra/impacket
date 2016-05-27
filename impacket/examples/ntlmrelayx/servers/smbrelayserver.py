@@ -23,10 +23,10 @@ import logging
 from impacket import smb, ntlm
 from impacket.nt_errors import STATUS_MORE_PROCESSING_REQUIRED, STATUS_ACCESS_DENIED, STATUS_SUCCESS
 from impacket.spnego import SPNEGO_NegTokenResp, SPNEGO_NegTokenInit, TypesMech
-from impacket.ntlmrelayx.clients import SMBRelayClient, MSSQLRelayClient, LDAPRelayClient
+from impacket.examples.ntlmrelayx.clients import SMBRelayClient, MSSQLRelayClient, LDAPRelayClient
 from impacket.smbserver import SMBSERVER, outputToJohnFormat, writeJohnOutputToFile
 from impacket.spnego import ASN1_AID
-from impacket.ntlmrelayx.utils.targetsutils import ProxyIpTranslator
+from impacket.examples.ntlmrelayx.utils.targetsutils import ProxyIpTranslator
 
 
 class SMBRelayServer(Thread):

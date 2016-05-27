@@ -36,29 +36,21 @@
 #
 
 import argparse
-import SimpleHTTPServer
-import logging
-import base64
-import string, random, time
-from threading import Thread
-import thread
-from binascii import unhexlify, hexlify
-
-from impacket.examples import logger
-from impacket import version, smb3, tds
-from impacket.examples import serviceinstall
-from impacket.smb import *
-from impacket.smbserver import *
-from impacket.dcerpc.v5 import transport
-from impacket.dcerpc.v5 import nrpc
-from impacket.dcerpc.v5.ndr import NULL
-from impacket.spnego import ASN1_AID
-from impacket.smbconnection import SMBConnection
-from impacket.ntlmrelayx.servers import *
-from impacket.ntlmrelayx.utils.targetsutils import TargetsProcessor, TargetsFileWatcher
-from impacket.ntlmrelayx.utils.config import ntlmrelayxConfig
-
 import sys
+import thread
+import logging
+import random
+import string
+from threading import Thread
+
+from impacket import version, smb3, smb
+from impacket.examples import logger
+from impacket.examples import serviceinstall
+from impacket.examples.ntlmrelayx.servers import SMBRelayServer, HTTPRelayServer
+from impacket.examples.ntlmrelayx.utils.config import NTLMRelayxConfig
+from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor, TargetsFileWatcher
+from impacket.smbconnection import SMBConnection
+
 
 class SMBAttack(Thread):
     def __init__(self, config, SMBClient, exeFile, command):
@@ -261,7 +253,7 @@ if __name__ == '__main__':
 
     for server in RELAY_SERVERS:
         #Set up config
-        c = ntlmrelayxConfig()
+        c = NTLMRelayxConfig()
         c.setTargets(targetSystem)
         c.setExeFile(exeFile)
         c.setCommand(Command)

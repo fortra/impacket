@@ -26,7 +26,6 @@ from impacket.dcerpc.v5.dtypes import NULL
 from impacket.smb import SMB, NewSMBPacket, SMBCommand, SMBSessionSetupAndX_Extended_Parameters, \
     SMBSessionSetupAndX_Extended_Data, SMBSessionSetupAndX_Extended_Response_Data, \
     SMBSessionSetupAndX_Extended_Response_Parameters
-#from impacket.smbserver import *
 
 class SMBRelayClient(smb.SMB):
     def __init__(self, remote_name, extended_security = True, sess_port = 445):

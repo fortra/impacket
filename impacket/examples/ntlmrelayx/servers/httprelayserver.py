@@ -24,7 +24,7 @@ import string
 from threading import Thread
 
 from impacket import ntlm
-from impacket.ntlmrelayx.clients import SMBRelayClient, MSSQLRelayClient, LDAPRelayClient
+from impacket.examples.ntlmrelayx.clients import SMBRelayClient, MSSQLRelayClient, LDAPRelayClient
 from impacket.spnego import SPNEGO_NegTokenResp
 from impacket.smbserver import outputToJohnFormat, writeJohnOutputToFile
 from impacket.nt_errors import STATUS_ACCESS_DENIED, STATUS_SUCCESS

@@ -13,7 +13,7 @@
 # Description:
 #     Configuration class which holds the config specified on the 
 # command line, this can be passed to the tools' servers and clients
-class ntlmrelayxConfig:
+class NTLMRelayxConfig:
     def __init__(self):
         self.daemon = True
         self.domainIp = None
