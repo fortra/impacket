@@ -18,7 +18,7 @@
 #   Helper functions start with "h"<name of the call>.
 #   There are test cases for them too. 
 #
-from struct import unpack
+from struct import unpack, pack
 
 from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRPOINTER, NDRUniConformantVaryingArray, NDRUniConformantArray
 from impacket.dcerpc.v5.dtypes import DWORD, UUID, ULONG, LPULONG, BOOLEAN, SECURITY_INFORMATION, PFILETIME, \
@@ -675,6 +675,38 @@ def checkNullString(string):
     else:
         return string
 
+def packValue(valueType, value):
+    if valueType == REG_DWORD:
+        retData = pack('<L', value)
+    elif valueType == REG_DWORD_BIG_ENDIAN:
+        retData = pack('>L', value)
+    elif valueType == REG_EXPAND_SZ:
+        try:
+            retData = value.encode('utf-16le')
+        except UnicodeDecodeError:
+            import sys
+            retData = value.decode(sys.getfilesystemencoding()).encode('utf-16le')
+    elif valueType == REG_MULTI_SZ:
+        try:
+            retData = value.encode('utf-16le')
+        except UnicodeDecodeError:
+            import sys
+            retData = value.decode(sys.getfilesystemencoding()).encode('utf-16le')
+    elif valueType == REG_QWORD:
+        retData = pack('<Q', value)
+    elif valueType == REG_QWORD_LITTLE_ENDIAN:
+        retData = pack('>Q', value)
+    elif valueType == REG_SZ:
+        try:
+            retData = value.encode('utf-16le')
+        except UnicodeDecodeError:
+            import sys
+            retData = value.decode(sys.getfilesystemencoding()).encode('utf-16le')
+    else:
+        retData = value
+
+    return retData
+
 def unpackValue(valueType, value):
     if valueType == REG_DWORD:
         retData = unpack('<L', ''.join(value))[0]
@@ -829,7 +861,7 @@ def hBaseRegQueryValue(dce, hKey, lpValueName):
     request['lpcbData'] = 512
     request['lpcbLen'] = 512
     resp = dce.request(request)
-    # Returns 
+    # Returns
     # ( dataType, data )
     return resp['lpType'], unpackValue(resp['lpType'], resp['lpData'])
 
@@ -860,11 +892,7 @@ def hBaseRegSetValue(dce, hKey, lpValueName, dwType, lpData):
     request['hKey'] = hKey
     request['lpValueName'] = checkNullString(lpValueName)
     request['dwType'] = dwType
-    try:
-        request['lpData'] = lpData.encode('utf-16le')
-    except UnicodeDecodeError:
-        import sys
-        request['lpData'] = lpData.decode(sys.getfilesystemencoding()).encode('utf-16le')
+    request['lpData'] = packValue(dwType,lpData)
     request['cbData'] = len(request['lpData'])
     return dce.request(request)
 
