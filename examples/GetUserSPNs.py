@@ -194,12 +194,24 @@ class GetUserSPNs:
                 self.__target = self.__domain
 
         # Connect to LDAP
-        ldapConnection = ldap.LDAPConnection('ldap://%s'%self.__target, self.baseDN, self.__kdcHost)
-        if self.__doKerberos is not True:
-            ldapConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
-        else:
-            ldapConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
-                                         self.__aesKey, kdcHost=self.__kdcHost)
+        try:
+            ldapConnection = ldap.LDAPConnection('ldap://%s'%self.__target, self.baseDN, self.__kdcHost)
+            if self.__doKerberos is not True:
+                ldapConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
+            else:
+                ldapConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
+                                             self.__aesKey, kdcHost=self.__kdcHost)
+        except ldap.LDAPSessionError, e:
+            if str(e).find('strongerAuthRequired') >= 0:
+                # We need to try SSL
+                ldapConnection = ldap.LDAPConnection('ldaps://%s' % self.__target, self.baseDN, self.__kdcHost)
+                if self.__doKerberos is not True:
+                    ldapConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
+                else:
+                    ldapConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
+                                                 self.__aesKey, kdcHost=self.__kdcHost)
+            else:
+                raise
 
         # Building the following filter:
         # (&(servicePrincipalName=*)(UserAccountControl:1.2.840.113556.1.4.803:=512)(!(UserAccountControl:1.2.840.113556.1.4.803:=2)))
@@ -248,6 +260,7 @@ class GetUserSPNs:
             SPNs = []
             pwdLastSet = ''
             userAccountControl = 0
+            lastLogon = 'N/A'
             for attribute in item['attributes']:
                 if attribute['type'] == 'sAMAccountName':
                     if str(attribute['vals'][0]).endswith('$') is False:
