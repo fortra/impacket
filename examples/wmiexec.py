@@ -39,7 +39,7 @@ OUTPUT_FILENAME = '__' + str(time.time())
 
 class WMIEXEC:
     def __init__(self, command='', username='', password='', domain='', hashes=None, aesKey=None, share=None,
-                 noOutput=False, doKerberos=False):
+                 noOutput=False, doKerberos=False, kdcHost=None):
         self.__command = command
         self.__username = username
         self.__password = password
@@ -50,6 +50,7 @@ class WMIEXEC:
         self.__share = share
         self.__noOutput = noOutput
         self.__doKerberos = doKerberos
+        self.__kdcHost = kdcHost
         self.shell = None
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
@@ -61,7 +62,7 @@ class WMIEXEC:
                 smbConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
             else:
                 smbConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash,
-                                            self.__nthash, self.__aesKey)
+                                            self.__nthash, self.__aesKey, kdcHost=self.__kdcHost)
 
             dialect = smbConnection.getDialect()
             if dialect == SMB_DIALECT:
@@ -76,7 +77,7 @@ class WMIEXEC:
             smbConnection = None
 
         dcom = DCOMConnection(addr, self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
-                              self.__aesKey, oxidResolver=True, doKerberos=self.__doKerberos)
+                              self.__aesKey, oxidResolver=True, doKerberos=self.__doKerberos, kdcHost=self.__kdcHost)
         try:
             iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
             iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
@@ -276,8 +277,8 @@ if __name__ == '__main__':
     group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
     group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line')
     group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication (128 or 256 bits)')
+    group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. If ommited it use the domain part (FQDN) specified in the target parameter')
 
- 
     if len(sys.argv)==1:
         parser.print_help()
         sys.exit(1)
@@ -315,7 +316,7 @@ if __name__ == '__main__':
             options.k = True
 
         executer = WMIEXEC(' '.join(options.command), username, password, domain, options.hashes, options.aesKey,
-                           options.share, options.nooutput, options.k)
+                           options.share, options.nooutput, options.k, options.dc_ip)
         executer.run(address)
     except (Exception, KeyboardInterrupt), e:
         #import traceback

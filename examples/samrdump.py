@@ -35,9 +35,8 @@ class SAMRDump:
         '445/SMB': (r'ncacn_np:%s[\pipe\samr]', 445),
         }
 
-
-    def __init__(self, protocols = None,
-                 username = '', password = '', domain = '', hashes = None, aesKey=None, doKerberos = False):
+    def __init__(self, protocols=None,
+                 username='', password='', domain='', hashes=None, aesKey=None, doKerberos=False, kdcHost=None):
         if not protocols:
             self.__protocols = SAMRDump.KNOWN_PROTOCOLS.keys()
         else:
@@ -50,6 +49,7 @@ class SAMRDump:
         self.__nthash = ''
         self.__aesKey = aesKey
         self.__doKerberos = doKerberos
+        self.__kdcHost = kdcHost
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
 
@@ -70,7 +70,7 @@ class SAMRDump:
             logging.info("Trying protocol %s..." % protocol)
             rpctransport = transport.SMBTransport(addr, port, r'\samr', self.__username, self.__password, self.__domain,
                                                   self.__lmhash, self.__nthash, self.__aesKey,
-                                                  doKerberos=self.__doKerberos)
+                                                  doKerberos=self.__doKerberos, kdcHost=self.__kdcHost)
 
             try:
                 entries = self.__fetchList(rpctransport)
@@ -178,6 +178,7 @@ if __name__ == '__main__':
     group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
     group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line')
     group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication (128 or 256 bits)')
+    group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. If ommited it use the domain part (FQDN) specified in the target parameter')
 
     if len(sys.argv)==1:
         parser.print_help()
@@ -210,5 +211,5 @@ if __name__ == '__main__':
         from getpass import getpass
         password = getpass("Password:")
 
-    dumper = SAMRDump(options.protocol, username, password, domain, options.hashes, options.aesKey, options.k)
+    dumper = SAMRDump(options.protocol, username, password, domain, options.hashes, options.aesKey, options.k, options.dc_ip)
     dumper.dump(address)

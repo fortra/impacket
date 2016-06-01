@@ -39,10 +39,10 @@
 #   to be up. There is a background thread checking aliveness of the targets
 #   at all times.
 #
-#   netview.py -users /tmp/users -domainController freefly-dc.freefly.net -k FREEFLY.NET/beto
+#   netview.py -users /tmp/users -dc-ip freefly-dc.freefly.net -k FREEFLY.NET/beto
 #  
 #   This will download all machines from FREEFLY.NET, authenticating using
-#   Kerberos (that's why domainController parameter is needed), and filter
+#   Kerberos (that's why -dc-ip parameter is needed), and filter
 #   the output based on the list of users specified in /tmp/users file.
 #
 #
@@ -103,7 +103,7 @@ def checkMachines(machines, stopEvent, singlePass=False):
                 deadMachines.append(machinesDownQueue.get())
 
 class USERENUM:
-    def __init__(self, username = '', password = '', domain = '', hashes = None, aesKey = None, doKerberos=False, options=None):
+    def __init__(self, username='', password='', domain='', hashes=None, aesKey=None, doKerberos=False, options=None):
         self.__username = username
         self.__password = password
         self.__domain = domain
@@ -111,6 +111,7 @@ class USERENUM:
         self.__nthash = ''
         self.__aesKey = aesKey
         self.__doKerberos = doKerberos
+        self.__kdcHost = options.dc_ip
         self.__options = options
         self.__machinesList = list()
         self.__targets = dict()
@@ -122,8 +123,8 @@ class USERENUM:
             self.__lmhash, self.__nthash = hashes.split(':')
 
     def getDomainMachines(self):
-        if self.__options.domainController is not None:
-            domainController = self.__options.domainController
+        if self.__kdcHost is not None:
+            domainController = self.__kdcHost
         elif self.__domain is not '':
             domainController = self.__domain
         else:
@@ -132,7 +133,7 @@ class USERENUM:
         logging.info('Getting machine\'s list from %s' % domainController)
         rpctransport = transport.SMBTransport(domainController, 445, r'\samr', self.__username, self.__password,
                                               self.__domain, self.__lmhash, self.__nthash, self.__aesKey,
-                                              doKerberos=self.__doKerberos)
+                                              doKerberos=self.__doKerberos, kdcHost = self.__kdcHost)
         dce = rpctransport.get_dce_rpc()
         dce.connect()
         dce.bind(samr.MSRPC_UUID_SAMR)
@@ -275,7 +276,7 @@ class USERENUM:
             # This method exists only for selected protocol sequences.
                 rpctransportSrvs.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash,
                                                  self.__nthash, self.__aesKey)
-                rpctransportSrvs.set_kerberos(self.__doKerberos)
+                rpctransportSrvs.set_kerberos(self.__doKerberos, self.__kdcHost)
 
             dce = rpctransportSrvs.get_dce_rpc()
             dce.connect()
@@ -354,7 +355,7 @@ class USERENUM:
                 # This method exists only for selected protocol sequences.
                 rpctransportWkst.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash,
                                                  self.__nthash, self.__aesKey)
-                rpctransportWkst.set_kerberos(self.__doKerberos)
+                rpctransportWkst.set_kerberos(self.__doKerberos, self.__kdcHost)
 
             dce = rpctransportWkst.get_dce_rpc()
             dce.connect()
@@ -446,7 +447,6 @@ if __name__ == '__main__':
     parser.add_argument('-noloop', action='store_true', default=False, help='Stop after the first probe')
     parser.add_argument('-delay', action='store', default = '10', help='seconds delay between starting each batch probe (default 10 seconds)')
     parser.add_argument('-max-connections', action='store', default='1000', help='Max amount of connections to keep opened (default 1000)')
-    parser.add_argument('-domainController', action='store', help='IP address of the domain controller to download users from. If not specified, the domain part of the identity will be used, but it must be the domain FQDN (Kerberos will NOT work on unless you specify this parameter with the DC FQDN)')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
     group = parser.add_argument_group('authentication')
@@ -455,6 +455,7 @@ if __name__ == '__main__':
     group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
     group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line')
     group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication (128 or 256 bits)')
+    group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. If ommited it use the domain part (FQDN) specified in the target parameter')
 
     if len(sys.argv)==1:
         parser.print_help()

@@ -263,7 +263,7 @@ class RemoteFile:
 
 
 class RemoteOperations:
-    def __init__(self, smbConnection, doKerberos):
+    def __init__(self, smbConnection, doKerberos, kdcHost=None):
         self.__smbConnection = smbConnection
         self.__smbConnection.setTimeout(5*60)
         self.__serviceName = 'RemoteRegistry'
@@ -282,6 +282,7 @@ class RemoteOperations:
         self.__ppartialAttrSet = None
         self.__prefixTable = []
         self.__doKerberos = doKerberos
+        self.__kdcHost = kdcHost
 
         self.__bootKey = ''
         self.__disabled = False
@@ -333,7 +334,7 @@ class RemoteOperations:
         if hasattr(rpc, 'set_credentials'):
             # This method exists only for selected protocol sequences.
             rpc.set_credentials(*(self.__smbConnection.getCredentials()))
-            rpc.set_kerberos(self.__doKerberos)
+            rpc.set_kerberos(self.__doKerberos, self.__kdcHost)
         self.__drsr = rpc.get_dce_rpc()
         self.__drsr.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
         if self.__doKerberos:
@@ -576,7 +577,7 @@ class RemoteOperations:
                 if hasattr(rpc, 'set_credentials'):
                     # This method exists only for selected protocol sequences.
                     rpc.set_credentials(*self.__smbConnection.getCredentials())
-                    rpc.set_kerberos(self.__doKerberos)
+                    rpc.set_kerberos(self.__doKerberos, self.__kdcHost)
                 self.__scmr = rpc.get_dce_rpc()
                 self.__scmr.connect()
                 self.__scmr.bind(scmr.MSRPC_UUID_SCMR)
@@ -2095,6 +2096,7 @@ class DumpSecrets:
         self.__pwdLastSet = options.pwd_last_set
         self.__resumeFileName = options.resumefile
         self.__canProcessSAMLSA = True
+        self.__kdcHost = options.dc_ip
 
         if options.hashes is not None:
             self.__lmhash, self.__nthash = options.hashes.split(':')
@@ -2103,7 +2105,7 @@ class DumpSecrets:
         self.__smbConnection = SMBConnection(self.__remoteAddr, self.__remoteAddr)
         if self.__doKerberos:
             self.__smbConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash,
-                                               self.__nthash, self.__aesKey)
+                                               self.__nthash, self.__aesKey, self.__kdcHost)
         else:
             self.__smbConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
 
@@ -2166,7 +2168,7 @@ class DumpSecrets:
                 bootKey = None
                 try:
                     self.connect()
-                    self.__remoteOps  = RemoteOperations(self.__smbConnection, self.__doKerberos)
+                    self.__remoteOps  = RemoteOperations(self.__smbConnection, self.__doKerberos, self.__kdcHost)
                     if self.__justDC is False and self.__justDCNTLM is False or self.__useVSSMethod is True:
                         self.__remoteOps.enableRegistry()
                         bootKey             = self.__remoteOps.getBootKey()
@@ -2306,6 +2308,7 @@ if __name__ == '__main__':
     group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
     group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line')
     group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication (128 or 256 bits)')
+    group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. If ommited it use the domain part (FQDN) specified in the target parameter')
 
     if len(sys.argv)==1:
         parser.print_help()

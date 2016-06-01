@@ -29,7 +29,8 @@ from impacket.dcerpc.v5.dtypes import NULL
 
 
 class TSCH_EXEC:
-    def __init__(self, username='', password='', domain='', hashes=None, aesKey=None, doKerberos=False, command=None):
+    def __init__(self, username='', password='', domain='', hashes=None, aesKey=None, doKerberos=False, kdcHost=None,
+                 command=None):
         self.__username = username
         self.__password = password
         self.__domain = domain
@@ -37,6 +38,7 @@ class TSCH_EXEC:
         self.__nthash = ''
         self.__aesKey = aesKey
         self.__doKerberos = doKerberos
+        self.__kdcHost = kdcHost
         self.__command = command
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
@@ -49,7 +51,7 @@ class TSCH_EXEC:
             # This method exists only for selected protocol sequences.
             rpctransport.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
                                          self.__aesKey)
-            rpctransport.set_kerberos(self.__doKerberos)
+            rpctransport.set_kerberos(self.__doKerberos, self.__kdcHost)
         try:
             self.doStuff(rpctransport)
         except Exception, e:
@@ -188,6 +190,7 @@ if __name__ == '__main__':
     group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
     group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line')
     group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication (128 or 256 bits)')
+    group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. If ommited it use the domain part (FQDN) specified in the target parameter')
 
     if len(sys.argv)==1:
         parser.print_help()
@@ -201,7 +204,9 @@ if __name__ == '__main__':
         logging.getLogger().setLevel(logging.INFO)
 
     import re
-    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(options.target).groups('')
+
+    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
+        options.target).groups('')
 
     #In case the password contains '@'
     if '@' in address:
@@ -213,10 +218,12 @@ if __name__ == '__main__':
 
     if password == '' and username != '' and options.hashes is None and options.no_pass is False and options.aesKey is None:
         from getpass import getpass
+
         password = getpass("Password:")
 
     if options.aesKey is not None:
         options.k = True
 
-    atsvc_exec = TSCH_EXEC(username, password, domain, options.hashes, options.aesKey, options.k, ' '.join(options.command))
+    atsvc_exec = TSCH_EXEC(username, password, domain, options.hashes, options.aesKey, options.k, options.dc_ip,
+                           ' '.join(options.command))
     atsvc_exec.play(address)

@@ -110,9 +110,9 @@ class CMDEXEC:
         '445/SMB': (r'ncacn_np:%s[\pipe\svcctl]', 445),
         }
 
-
-    def __init__(self, protocols = None, 
-                 username = '', password = '', domain = '', hashes = None, aesKey = None, doKerberos = None, mode = None, share = None):
+    def __init__(self, protocols=None,
+                 username='', password='', domain='', hashes=None, aesKey=None, doKerberos=None, kdcHost=None,
+                 mode=None, share=None):
         if not protocols:
             protocols = CMDEXEC.KNOWN_PROTOCOLS.keys()
 
@@ -125,6 +125,7 @@ class CMDEXEC:
         self.__nthash = ''
         self.__aesKey = aesKey
         self.__doKerberos = doKerberos
+        self.__kdcHost = kdcHost
         self.__share = share
         self.__mode  = mode
         self.shell = None
@@ -148,8 +149,9 @@ class CMDEXEC:
                rpctransport.preferred_dialect(SMB_DIALECT)
             if hasattr(rpctransport, 'set_credentials'):
                 # This method exists only for selected protocol sequences.
-                rpctransport.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey)
-            rpctransport.set_kerberos(self.__doKerberos)
+                rpctransport.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash,
+                                             self.__nthash, self.__aesKey)
+            rpctransport.set_kerberos(self.__doKerberos, self.__kdcHost)
 
             self.shell = None
             try:
@@ -262,7 +264,8 @@ class RemoteShell(cmd.Cmd):
             os.unlink(SMBSERVER_DIR + '/' + OUTPUT_FILENAME)
 
     def execute_remote(self, data):
-        command = self.__shell + 'echo ' + data + ' ^> ' + self.__output + ' 2^>^&1 > ' + self.__batchFile + ' & ' + self.__shell + self.__batchFile 
+        command = self.__shell + 'echo ' + data + ' ^> ' + self.__output + ' 2^>^&1 > ' + self.__batchFile + ' & ' + \
+                  self.__shell + self.__batchFile
         if self.__mode == 'SERVER':
             command += ' & ' + self.__copyBack
         command += ' & ' + 'del ' + self.__batchFile 
@@ -306,6 +309,7 @@ if __name__ == '__main__':
     group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
     group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line')
     group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication (128 or 256 bits)')
+    group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. If ommited it use the domain part (FQDN) specified in the target parameter')
 
  
     if len(sys.argv)==1:
@@ -338,7 +342,8 @@ if __name__ == '__main__':
         options.k = True
 
     try:
-        executer = CMDEXEC(options.protocol, username, password, domain, options.hashes, options.aesKey, options.k, options.mode, options.share)
+        executer = CMDEXEC(options.protocol, username, password, domain, options.hashes, options.aesKey, options.k,
+                           options.dc_ip, options.mode, options.share)
         executer.run(address)
     except Exception, e:
         logging.critical(str(e))

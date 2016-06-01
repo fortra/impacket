@@ -59,8 +59,8 @@ class PSEXEC:
         '445/SMB': (r'ncacn_np:%s[\pipe\svcctl]', 445),
         }
 
-    def __init__(self, command, path, exeFile, copyFile, protocols = None, 
-                 username = '', password = '', domain = '', hashes = None, aesKey = None, doKerberos = False):
+    def __init__(self, command, path, exeFile, copyFile, protocols=None,
+                 username='', password='', domain='', hashes=None, aesKey=None, doKerberos=False, kdcHost=None):
         self.__username = username
         self.__password = password
         if protocols is None:
@@ -76,6 +76,7 @@ class PSEXEC:
         self.__exeFile = exeFile
         self.__copyFile = copyFile
         self.__doKerberos = doKerberos
+        self.__kdcHost = kdcHost
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
 
@@ -96,7 +97,7 @@ class PSEXEC:
                 rpctransport.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash,
                                              self.__nthash, self.__aesKey)
 
-            rpctransport.set_kerberos(self.__doKerberos)
+            rpctransport.set_kerberos(self.__doKerberos, self.__kdcHost)
             self.doStuff(rpctransport)
 
     def openPipe(self, s, tid, pipe, accessMask):
@@ -238,7 +239,7 @@ class Pipes(Thread):
                                         sess_port=self.port, preferredDialect=dialect)
             user, passwd, domain, lm, nt, aesKey, TGT, TGS = self.credentials
             if self.transport.get_kerberos() is True:
-                self.server.kerberosLogin(user, passwd, domain, lm, nt, aesKey, TGT=TGT, TGS=TGS)
+                self.server.kerberosLogin(user, passwd, domain, lm, nt, aesKey, kdcHost=self.transport.get_kdcHost(), TGT=TGT, TGS=TGS)
             else:
                 self.server.login(user, passwd, domain, lm, nt)
             lock.release()
@@ -316,7 +317,8 @@ class RemoteShell(cmd.Cmd):
                                             preferredDialect=dialect)
         user, passwd, domain, lm, nt, aesKey, TGT, TGS = self.credentials
         if self.transport.get_kerberos() is True:
-            self.transferClient.kerberosLogin(user, passwd, domain, lm, nt, aesKey, TGT=TGT, TGS=TGS)
+            self.transferClient.kerberosLogin(user, passwd, domain, lm, nt, aesKey,
+                                              kdcHost=self.transport.get_kdcHost(), TGT=TGT, TGS=TGS)
         else:
             self.transferClient.login(user, passwd, domain, lm, nt)
 
@@ -429,6 +431,7 @@ if __name__ == '__main__':
     group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
     group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line')
     group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication (128 or 256 bits)')
+    group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. If ommited it use the domain part (FQDN) specified in the target parameter')
 
     if len(sys.argv)==1:
         parser.print_help()
@@ -466,5 +469,5 @@ if __name__ == '__main__':
         command = 'cmd.exe'
 
     executer = PSEXEC(command, options.path, options.file, options.c, None, username, password, domain, options.hashes,
-                      options.aesKey, options.k)
+                      options.aesKey, options.k, options.dc_ip)
     executer.run(address)
