@@ -28,7 +28,7 @@ What protocols are featured?
 Getting Impacket
 ================
 
-* [Current and past releases](http://corelabs.coresecurity.com/index.php?module=Wiki&action=view&type=tool&name=Impacket)
+* [Current and past releases](https://github.com/CoreSecurity/impacket/releases)
 * [Trunk](https://github.com/CoreSecurity/impacket)
 
 Setup
@@ -49,7 +49,7 @@ Requirements
       will need to install the `argparse` package for them to work.
    2. For Kerberos support you will need `pyasn1` package
    3. For cryptographic operations you will need `pycrypto` package
-   4. For some examples you will need pyOpenSSL (rdp_check.py)
+   4. For some examples you will need pyOpenSSL (rdp_check.py) and ldap3 (ntlmrelayx.py)
    5. If you're under Windows, you will need pyReadline
  * A recent release of Impacket.
 
