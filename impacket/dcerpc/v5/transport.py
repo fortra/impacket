@@ -133,6 +133,7 @@ class DCERPCTransport:
         self._aesKey   = None
         self._TGT      = None
         self._TGS      = None
+        self._kdcHost  = None
         self.set_credentials('','')
 
     def connect(self):
@@ -170,11 +171,15 @@ class DCERPCTransport:
         self.set_dip(addr[0])
         self.set_dport(addr[1])
 
-    def set_kerberos(self, flag):
+    def set_kerberos(self, flag, kdcHost = None):
         self._doKerberos = flag
+        self._kdcHost = kdcHost
 
     def get_kerberos(self):
         return self._doKerberos
+
+    def get_kdcHost(self):
+        return self._kdcHost
 
     def set_max_fragment_size(self, send_fragment_size):
         # -1 is default fragment size: 0 (don't fragment)
@@ -335,7 +340,7 @@ class SMBTransport(DCERPCTransport):
     """Implementation of ncacn_np protocol sequence"""
 
     def __init__(self, dstip, dstport=445, filename='', username='', password='', domain='', lmhash='', nthash='',
-                 aesKey='', TGT=None, TGS=None, remote_name='', smb_connection=0, doKerberos=False):
+                 aesKey='', TGT=None, TGS=None, remote_name='', smb_connection=0, doKerberos=False, kdcHost=None):
         DCERPCTransport.__init__(self, dstip, dstport)
         self.__socket = None
         self.__tid = 0
@@ -345,6 +350,7 @@ class SMBTransport(DCERPCTransport):
         self.set_credentials(username, password, domain, lmhash, nthash, aesKey, TGT, TGS)
         self.__remote_name = remote_name
         self._doKerberos = doKerberos
+        self._kdcHost = kdcHost
 
         if smb_connection == 0:
             self.__existing_smb = False
@@ -368,20 +374,25 @@ class SMBTransport(DCERPCTransport):
         if not self.__smb_connection:
             if self.__remote_name == '':
                 if self.get_dport() == nmb.NETBIOS_SESSION_PORT:
-                    self.__smb_connection = SMBConnection('*SMBSERVER', self.get_dip(), sess_port = self.get_dport(),preferredDialect = self.__prefDialect)
+                    self.__smb_connection = SMBConnection('*SMBSERVER', self.get_dip(), sess_port=self.get_dport(),
+                                                          preferredDialect=self.__prefDialect)
                 else:
-                    self.__smb_connection = SMBConnection(self.get_dip(), self.get_dip(), sess_port = self.get_dport(),preferredDialect = self.__prefDialect)
+                    self.__smb_connection = SMBConnection(self.get_dip(), self.get_dip(), sess_port=self.get_dport(),
+                                                          preferredDialect=self.__prefDialect)
             else:
-                self.__smb_connection = SMBConnection(self.__remote_name, self.get_dip(), sess_port = self.get_dport(),preferredDialect = self.__prefDialect)
+                self.__smb_connection = SMBConnection(self.__remote_name, self.get_dip(), sess_port=self.get_dport(),
+                                                      preferredDialect=self.__prefDialect)
 
     def connect(self):
         # Check if we have a smb connection already setup
         if self.__smb_connection == 0:
-           self.setup_smb_connection()
-           if self._doKerberos is False:
-               self.__smb_connection.login(self._username, self._password, self._domain, self._lmhash, self._nthash)
-           else:
-               self.__smb_connection.kerberosLogin(self._username, self._password, self._domain, self._lmhash, self._nthash, self._aesKey, TGT=self._TGT, TGS=self._TGS)
+            self.setup_smb_connection()
+            if self._doKerberos is False:
+                self.__smb_connection.login(self._username, self._password, self._domain, self._lmhash, self._nthash)
+            else:
+                self.__smb_connection.kerberosLogin(self._username, self._password, self._domain, self._lmhash,
+                                                    self._nthash, self._aesKey, kdcHost=self._kdcHost, TGT=self._TGT,
+                                                    TGS=self._TGS)
         self.__tid = self.__smb_connection.connectTree('IPC$')
         self.__handle = self.__smb_connection.openFile(self.__tid, self.__filename)
         self.__socket = self.__smb_connection.getSMBServer().get_socket()

@@ -944,7 +944,7 @@ class DCOMConnection:
     PORTMAPS = {}
 
     def __init__(self, target, username='', password='', domain='', lmhash='', nthash='', aesKey='', TGT=None, TGS=None,
-                 authLevel=RPC_C_AUTHN_LEVEL_PKT_PRIVACY, oxidResolver=False, doKerberos=False):
+                 authLevel=RPC_C_AUTHN_LEVEL_PKT_PRIVACY, oxidResolver=False, doKerberos=False, kdcHost=None):
         self.__target = target
         self.__userName = username
         self.__password = password
@@ -958,6 +958,7 @@ class DCOMConnection:
         self.__portmap = None
         self.__oxidResolver = oxidResolver
         self.__doKerberos = doKerberos
+        self.__kdcHost = kdcHost
         self.initConnection()
 
     @classmethod
@@ -1042,6 +1043,7 @@ class DCOMConnection:
             # This method exists only for selected protocol sequences.
             rpctransport.set_credentials(self.__userName, self.__password, self.__domain, self.__lmhash, self.__nthash,
                                          self.__aesKey, self.__TGT, self.__TGS)
+            rpctransport.set_kerberos(self.__doKerberos, self.__kdcHost)
         self.__portmap = rpctransport.get_dce_rpc()
         self.__portmap.set_auth_level(self.__authLevel)
         if self.__doKerberos is True:
@@ -1268,6 +1270,8 @@ class INTERFACE:
                 if hasattr(dcomInterface, 'set_credentials'):
                     # This method exists only for selected protocol sequences.
                     dcomInterface.set_credentials(*DCOMConnection.PORTMAPS[self.__target].get_credentials())
+                    dcomInterface.set_kerberos(DCOMConnection.PORTMAPS[self.__target].get_rpc_transport().get_kerberos(),
+                                               DCOMConnection.PORTMAPS[self.__target].get_rpc_transport().get_kdcHost())
                 dcomInterface.set_connect_timeout(300)
                 dce = dcomInterface.get_dce_rpc()
 

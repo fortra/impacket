@@ -838,8 +838,9 @@ class DCERPC:
             module = __import__(request.__module__.split('.')[-1], globals(), locals(), -1)
         except:
             # Try the subdirectories
-            module = __import__('%s.%s' % (request.__module__.split('.')[-2],request.__module__.split('.')[-1]) , globals(), locals(), -1)
-        respClass = getattr(module, request.__class__.__name__+'Response')
+            module = __import__('%s.%s' % (request.__module__.split('.')[-2], request.__module__.split('.')[-1]),
+                                globals(), locals(), -1)
+        respClass = getattr(module, request.__class__.__name__ + 'Response')
         if  answer[-4:] != '\x00\x00\x00\x00' and checkError is True:
             error_code = unpack('<L', answer[-4:])[0]
             if rpc_status_codes.has_key(error_code):
@@ -976,12 +977,18 @@ class DCERPC_v5(DCERPC):
                 self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey, self.__TGT, self.__TGS = self._transport.get_credentials()
 
             if self.__auth_type == RPC_C_AUTHN_WINNT:
-                auth = ntlm.getNTLMSSPType1('', '', signingRequired = True, use_ntlmv2 = self._transport.doesSupportNTLMv2())
+                auth = ntlm.getNTLMSSPType1('', '', signingRequired=True,
+                                            use_ntlmv2=self._transport.doesSupportNTLMv2())
             elif self.__auth_type == RPC_C_AUTHN_NETLOGON:
                 from impacket.dcerpc.v5 import nrpc
-                auth = nrpc.getSSPType1(self.__username[:-1], self.__domain, signingRequired = True)
+                auth = nrpc.getSSPType1(self.__username[:-1], self.__domain, signingRequired=True)
             elif self.__auth_type == RPC_C_AUTHN_GSS_NEGOTIATE:
-                self.__cipher, self.__sessionKey, auth = kerberosv5.getKerberosType1(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey, self.__TGT, self.__TGS, self._transport.get_dip())  
+                self.__cipher, self.__sessionKey, auth = kerberosv5.getKerberosType1(self.__username, self.__password,
+                                                                                     self.__domain, self.__lmhash,
+                                                                                     self.__nthash, self.__aesKey,
+                                                                                     self.__TGT, self.__TGS,
+                                                                                     self._transport.get_dip(),
+                                                                                     self._transport.get_kdcHost())
             else:
                 raise DCERPCException('Unsupported auth_type 0x%x' % self.__auth_type)
 
@@ -1046,12 +1053,17 @@ class DCERPC_v5(DCERPC):
 
         if self.__auth_level != RPC_C_AUTHN_LEVEL_NONE:
             if self.__auth_type == RPC_C_AUTHN_WINNT:
-                response, self.__sessionKey = ntlm.getNTLMSSPType3(auth, bindResp['auth_data'], self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, use_ntlmv2 = self._transport.doesSupportNTLMv2())
+                response, self.__sessionKey = ntlm.getNTLMSSPType3(auth, bindResp['auth_data'], self.__username,
+                                                                   self.__password, self.__domain, self.__lmhash,
+                                                                   self.__nthash,
+                                                                   use_ntlmv2=self._transport.doesSupportNTLMv2())
                 self.__flags = response['flags']
             elif self.__auth_type == RPC_C_AUTHN_NETLOGON:
                 response = None
             elif self.__auth_type == RPC_C_AUTHN_GSS_NEGOTIATE:
-                self.__cipher, self.__sessionKey, response = kerberosv5.getKerberosType3(self.__cipher, self.__sessionKey, bindResp['auth_data'])
+                self.__cipher, self.__sessionKey, response = kerberosv5.getKerberosType3(self.__cipher,
+                                                                                         self.__sessionKey,
+                                                                                         bindResp['auth_data'])
 
             self.__sequence = 0
 
@@ -1341,7 +1353,8 @@ class DCERPC_v5(DCERPC):
                         self.__sequence += 1
                     elif self.__auth_type == RPC_C_AUTHN_GSS_NEGOTIATE:
                         if self.__sequence > 0:
-                            answer, cfounder = self.__gss.GSS_Unwrap(self.__sessionKey, answer, self.__sequence, direction='init', authData=auth_data)
+                            answer, cfounder = self.__gss.GSS_Unwrap(self.__sessionKey, answer, self.__sequence,
+                                                                     direction='init', authData=auth_data)
 
                 elif sec_trailer['auth_level'] == RPC_C_AUTHN_LEVEL_PKT_INTEGRITY:
                     if self.__auth_type == RPC_C_AUTHN_WINNT:
@@ -1385,7 +1398,8 @@ class DCERPC_v5(DCERPC):
     def alter_ctx(self, newUID, bogus_binds = 0):
         answer = self.__class__(self._transport)
 
-        answer.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey, self.__TGT, self.__TGS )
+        answer.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
+                               self.__aesKey, self.__TGT, self.__TGS)
         answer.set_auth_type(self.__auth_type)
         answer.set_auth_level(self.__auth_level)
 
@@ -1438,7 +1452,8 @@ class TypeSerialization1(NDRSTRUCT):
         ('PrivateHeader', PrivateHeader),
     )
     def getData(self, soFar = 0):
-        self['PrivateHeader']['ObjectBufferLength'] = len(NDRSTRUCT.getData(self, soFar))+len(NDRSTRUCT.getDataReferents(self, soFar))-len(self['CommonHeader'])-len(self['PrivateHeader'])
+        self['PrivateHeader']['ObjectBufferLength'] = len(NDRSTRUCT.getData(self, soFar)) + len(
+            NDRSTRUCT.getDataReferents(self, soFar)) - len(self['CommonHeader']) - len(self['PrivateHeader'])
         return NDRSTRUCT.getData(self, soFar)
 
 class DCERPCServer(Thread):
