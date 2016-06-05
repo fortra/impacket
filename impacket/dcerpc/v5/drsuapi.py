@@ -251,6 +251,8 @@ DRS_VERIFY_FPOS = 0x00000003
 DRS_NT4_CHGLOG_GET_CHANGE_LOG = 0x00000001
 DRS_NT4_CHGLOG_GET_SERIAL_NUMBERS = 0x00000002
 
+# 4.1.10.2.15 DRS_MSG_GETCHGREPLY_NATIVE_VERSION_NUMBER
+DRS_MSG_GETCHGREPLY_NATIVE_VERSION_NUMBER = 9
 ################################################################################
 # STRUCTURES
 ################################################################################
@@ -956,8 +958,19 @@ class VALUE_META_DATA_EXT_V1(NDRSTRUCT):
         ('MetaData',PROPERTY_META_DATA_EXT),
     )
 
-# 5.166 REPLVALINF
-class REPLVALINF(NDRSTRUCT):
+# 5.215 VALUE_META_DATA_EXT_V3
+class VALUE_META_DATA_EXT_V3(NDRSTRUCT):
+    structure =  (
+        ('timeCreated',DSTIME),
+        ('MetaData',PROPERTY_META_DATA_EXT),
+        ('unused1',DWORD),
+        ('unused1',DWORD),
+        ('unused1',DWORD),
+        ('timeExpired',DSTIME),
+    )
+
+# 5.167 REPLVALINF_V1
+class REPLVALINF_V1(NDRSTRUCT):
     structure =  (
         ('pObject',PDSNAME),
         ('attrTyp',ATTRTYP),
@@ -971,13 +984,39 @@ class REPLVALINF(NDRSTRUCT):
         #self.dumpRaw()
         return retVal
 
-class REPLVALINF_ARRAY(NDRUniConformantArray):
-    item = REPLVALINF
+class REPLVALINF_V1_ARRAY(NDRUniConformantArray):
+    item = REPLVALINF_V1
 
-class PREPLVALINF_ARRAY(NDRPOINTER):
+class PREPLVALINF_V1_ARRAY(NDRPOINTER):
     referent = (
-        ('Data',REPLVALINF_ARRAY),
+        ('Data', REPLVALINF_V1_ARRAY),
     )
+
+# 5.168 REPLVALINF_V3
+class REPLVALINF_V3(NDRSTRUCT):
+    structure = (
+        ('pObject', PDSNAME),
+        ('attrTyp', ATTRTYP),
+        ('Aval', ATTRVAL),
+        ('fIsPresent', BOOL),
+        ('MetaData', VALUE_META_DATA_EXT_V3),
+    )
+
+    def fromString(self, data, soFar=0):
+        retVal = NDRSTRUCT.fromString(self, data, soFar)
+        # self.dumpRaw()
+        return retVal
+
+class REPLVALINF_V3_ARRAY(NDRUniConformantArray):
+    item = REPLVALINF_V3
+
+class PREPLVALINF_V3_ARRAY(NDRPOINTER):
+    referent = (
+        ('Data', REPLVALINF_V3_ARRAY),
+    )
+
+# 5.169 REPLVALINF_NATIVE
+REPLVALINF_NATIVE = REPLVALINF_V3
 
 # 4.1.10.2.11 DRS_MSG_GETCHGREPLY_V6
 class DRS_MSG_GETCHGREPLY_V6(NDRSTRUCT):
@@ -997,7 +1036,7 @@ class DRS_MSG_GETCHGREPLY_V6(NDRSTRUCT):
         ('cNumNcSizeObjectsc',ULONG),
         ('cNumNcSizeValues',ULONG),
         ('cNumValues',DWORD),
-        #('rgValues',PREPLVALINF_ARRAY),
+        #('rgValues',PREPLVALINF_V1_ARRAY),
         # ToDo: Once we find out what's going on with PREPLVALINF_ARRAY get it back
         # Seems there's something in there that is not being parsed correctly
         ('rgValues',DWORD),
@@ -1020,6 +1059,34 @@ class DRS_MSG_GETCHGREPLY_V7(NDRSTRUCT):
         ('CompressedAny',DRS_COMPRESSED_BLOB),
     )
 
+# 4.1.10.2.13 DRS_MSG_GETCHGREPLY_V9
+class DRS_MSG_GETCHGREPLY_V9(NDRSTRUCT):
+    structure =  (
+        ('uuidDsaObjSrc',UUID),
+        ('uuidInvocIdSrc',UUID),
+        ('pNC',PDSNAME),
+        ('usnvecFrom',USN_VECTOR),
+        ('usnvecTo',USN_VECTOR),
+        ('pUpToDateVecSrc',PUPTODATE_VECTOR_V2_EXT),
+        ('PrefixTableSrc',SCHEMA_PREFIX_TABLE),
+        ('ulExtendedRet',EXOP_ERR),
+        ('cNumObjects',ULONG),
+        ('cNumBytes',ULONG),
+        ('pObjects',PREPLENTINFLIST),
+        ('fMoreData',BOOL),
+        ('cNumNcSizeObjectsc',ULONG),
+        ('cNumNcSizeValues',ULONG),
+        ('cNumValues',DWORD),
+        #('rgValues',PREPLVALINF_V3_ARRAY),
+        # ToDo: Once we find out what's going on with PREPLVALINF_ARRAY get it back
+        # Seems there's something in there that is not being parsed correctly
+        ('rgValues',DWORD),
+        ('dwDRSError',DWORD),
+    )
+
+# 4.1.10.2.14 DRS_MSG_GETCHGREPLY_NATIVE
+DRS_MSG_GETCHGREPLY_NATIVE = DRS_MSG_GETCHGREPLY_V9
+
 # 4.1.10.2.8 DRS_MSG_GETCHGREPLY
 class DRS_MSG_GETCHGREPLY(NDRUNION):
     commonHdr = (
@@ -1030,6 +1097,7 @@ class DRS_MSG_GETCHGREPLY(NDRUNION):
         2  : ('V2', DRS_MSG_GETCHGREPLY_V2),
         6  : ('V6', DRS_MSG_GETCHGREPLY_V6),
         7  : ('V7', DRS_MSG_GETCHGREPLY_V7),
+        9  : ('V9', DRS_MSG_GETCHGREPLY_V9),
     }
 
 # 4.1.27.1.2 DRS_MSG_VERIFYREQ_V1
