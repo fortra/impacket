@@ -347,7 +347,7 @@ class RemoteOperations:
         drs = drsuapi.DRS_EXTENSIONS_INT()
         drs['cb'] = len(drs) #- 4
         drs['dwFlags'] = drsuapi.DRS_EXT_GETCHGREQ_V6 | drsuapi.DRS_EXT_GETCHGREPLY_V6 | drsuapi.DRS_EXT_GETCHGREQ_V8 | \
-                         drsuapi.DRS_EXT_STRONG_ENCRYPTION
+                         drsuapi.DRS_EXT_STRONG_ENCRYPTION | drsuapi.DRS_EXT_GETCHGREPLY_V9
         drs['SiteObjGuid'] = drsuapi.NULLGUID
         drs['Pid'] = 0
         drs['dwReplEpoch'] = 0
@@ -1521,7 +1521,8 @@ class NTDSHashes:
         else:
             domain = None
             userName = None
-            for attr in record['pmsgOut']['V6']['pObjects']['Entinf']['AttrBlock']['pAttr']:
+            replyVersion = 'V%d' % record['pdwOutVersion']
+            for attr in record['pmsgOut'][replyVersion]['pObjects']['Entinf']['AttrBlock']['pAttr']:
                 try:
                     attId = drsuapi.OidFromAttid(prefixTable, attr['attrTyp'])
                     LOOKUP_TABLE = self.ATTRTYP_TO_ATTID
@@ -1545,10 +1546,10 @@ class NTDSHashes:
                             userName = ''.join(attr['AttrVal']['pAVal'][0]['pVal']).decode('utf-16le')
                         except:
                             logging.error(
-                                'Cannot get sAMAccountName for %s' % record['pmsgOut']['V6']['pNC']['StringName'][:-1])
+                                'Cannot get sAMAccountName for %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
                             userName = 'unknown'
                     else:
-                        logging.error('Cannot get sAMAccountName for %s' % record['pmsgOut']['V6']['pNC']['StringName'][:-1])
+                        logging.error('Cannot get sAMAccountName for %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
                         userName = 'unknown'
                 if attId == LOOKUP_TABLE['supplementalCredentials']:
                     if attr['AttrVal']['valCount'] > 0:
@@ -1697,15 +1698,16 @@ class NTDSHashes:
                         self.__writeOutput(outputFile, answer + '\n')
                     print answer
         else:
-            logging.debug('Decrypting hash for user: %s' % record['pmsgOut']['V6']['pNC']['StringName'][:-1])
+            replyVersion = 'V%d' %record['pdwOutVersion']
+            logging.debug('Decrypting hash for user: %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
             domain = None
             if self.__history:
                 LMHistory = []
                 NTHistory = []
 
-            rid = unpack('<L', record['pmsgOut']['V6']['pObjects']['Entinf']['pName']['Sid'][-4:])[0]
+            rid = unpack('<L', record['pmsgOut'][replyVersion]['pObjects']['Entinf']['pName']['Sid'][-4:])[0]
 
-            for attr in record['pmsgOut']['V6']['pObjects']['Entinf']['AttrBlock']['pAttr']:
+            for attr in record['pmsgOut'][replyVersion]['pObjects']['Entinf']['AttrBlock']['pAttr']:
                 try:
                     attId = drsuapi.OidFromAttid(prefixTable, attr['attrTyp'])
                     LOOKUP_TABLE = self.ATTRTYP_TO_ATTID
@@ -1742,23 +1744,23 @@ class NTDSHashes:
                         try:
                             userName = ''.join(attr['AttrVal']['pAVal'][0]['pVal']).decode('utf-16le')
                         except:
-                            logging.error('Cannot get sAMAccountName for %s' % record['pmsgOut']['V6']['pNC']['StringName'][:-1])
+                            logging.error('Cannot get sAMAccountName for %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
                             userName = 'unknown'
                     else:
-                        logging.error('Cannot get sAMAccountName for %s' % record['pmsgOut']['V6']['pNC']['StringName'][:-1])
+                        logging.error('Cannot get sAMAccountName for %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
                         userName = 'unknown'
                 elif attId == LOOKUP_TABLE['objectSid']:
                     if attr['AttrVal']['valCount'] > 0:
                         objectSid = ''.join(attr['AttrVal']['pAVal'][0]['pVal'])
                     else:
-                        logging.error('Cannot get objectSid for %s' % record['pmsgOut']['V6']['pNC']['StringName'][:-1])
+                        logging.error('Cannot get objectSid for %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
                         objectSid = rid
                 elif attId == LOOKUP_TABLE['pwdLastSet']:
                     if attr['AttrVal']['valCount'] > 0:
                         try:
                             pwdLastSet = self.__fileTimeToDateTime(unpack('<Q', ''.join(attr['AttrVal']['pAVal'][0]['pVal']))[0])
                         except:
-                            logging.error('Cannot get pwdLastSet for %s' % record['pmsgOut']['V6']['pNC']['StringName'][:-1])
+                            logging.error('Cannot get pwdLastSet for %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
                             pwdLastSet = 'N/A'
 
                 if self.__history:
@@ -1770,7 +1772,7 @@ class NTDSHashes:
                                 LMHashHistory = drsuapi.removeDESLayer(tmpLMHistory[i * 16:(i + 1) * 16], rid)
                                 LMHistory.append(LMHashHistory)
                         else:
-                            logging.debug('No lmPwdHistory for user %s' % record['pmsgOut']['V6']['pNC']['StringName'][:-1])
+                            logging.debug('No lmPwdHistory for user %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
                     elif attId == LOOKUP_TABLE['ntPwdHistory']:
                         if attr['AttrVal']['valCount'] > 0:
                             encryptedNTHistory = ''.join(attr['AttrVal']['pAVal'][0]['pVal'])
@@ -1779,7 +1781,7 @@ class NTDSHashes:
                                 NTHashHistory = drsuapi.removeDESLayer(tmpNTHistory[i * 16:(i + 1) * 16], rid)
                                 NTHistory.append(NTHashHistory)
                         else:
-                            logging.debug('No ntPwdHistory for user %s' % record['pmsgOut']['V6']['pNC']['StringName'][:-1])
+                            logging.debug('No ntPwdHistory for user %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
 
             if domain is not None:
                 userName = '%s\\%s' % (domain, userName)
@@ -1938,17 +1940,18 @@ class NTDSHashes:
 
                     userRecord = self.__remoteOps.DRSGetNCChanges(crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['pName'][:-1])
                     #userRecord.dump()
-                    if userRecord['pmsgOut']['V6']['cNumObjects'] == 0:
+                    replyVersion = 'V%d' % userRecord['pdwOutVersion']
+                    if userRecord['pmsgOut'][replyVersion]['cNumObjects'] == 0:
                         raise Exception('DRSGetNCChanges didn\'t return any object!')
                 else:
                     logging.warning('DRSCrackNames returned %d items for user %s, skipping' % (
                     crackedName['pmsgOut']['V1']['pResult']['cItems'], self.__justUser))
                 try:
                     self.__decryptHash(userRecord,
-                                       userRecord['pmsgOut']['V6']['PrefixTableSrc']['pPrefixEntry'],
+                                       userRecord['pmsgOut'][replyVersion]['PrefixTableSrc']['pPrefixEntry'],
                                        hashesOutputFile)
                     if self.__justNTLM is False:
-                        self.__decryptSupplementalInfo(userRecord, userRecord['pmsgOut']['V6']['PrefixTableSrc'][
+                        self.__decryptSupplementalInfo(userRecord, userRecord['pmsgOut'][replyVersion]['PrefixTableSrc'][
                             'pPrefixEntry'], keysOutputFile, clearTextOutputFile)
 
                 except Exception, e:
@@ -1990,17 +1993,18 @@ class NTDSHashes:
                             userRecord = self.__remoteOps.DRSGetNCChanges(
                                 crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['pName'][:-1])
                             # userRecord.dump()
-                            if userRecord['pmsgOut']['V6']['cNumObjects'] == 0:
+                            replyVersion = 'V%d' % userRecord['pdwOutVersion']
+                            if userRecord['pmsgOut'][replyVersion]['cNumObjects'] == 0:
                                 raise Exception('DRSGetNCChanges didn\'t return any object!')
                         else:
                             logging.warning('DRSCrackNames returned %d items for user %s, skipping' % (
                             crackedName['pmsgOut']['V1']['pResult']['cItems'], userName))
                         try:
                             self.__decryptHash(userRecord,
-                                               userRecord['pmsgOut']['V6']['PrefixTableSrc']['pPrefixEntry'],
+                                               userRecord['pmsgOut'][replyVersion]['PrefixTableSrc']['pPrefixEntry'],
                                                hashesOutputFile)
                             if self.__justNTLM is False:
-                                self.__decryptSupplementalInfo(userRecord, userRecord['pmsgOut']['V6']['PrefixTableSrc'][
+                                self.__decryptSupplementalInfo(userRecord, userRecord['pmsgOut'][replyVersion]['PrefixTableSrc'][
                                     'pPrefixEntry'], keysOutputFile, clearTextOutputFile)
 
                         except Exception, e:
