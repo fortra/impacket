@@ -347,13 +347,14 @@ class RemoteOperations:
         drs = drsuapi.DRS_EXTENSIONS_INT()
         drs['cb'] = len(drs) #- 4
         drs['dwFlags'] = drsuapi.DRS_EXT_GETCHGREQ_V6 | drsuapi.DRS_EXT_GETCHGREPLY_V6 | drsuapi.DRS_EXT_GETCHGREQ_V8 | \
-                         drsuapi.DRS_EXT_STRONG_ENCRYPTION | drsuapi.DRS_EXT_GETCHGREPLY_V9
+                         drsuapi.DRS_EXT_STRONG_ENCRYPTION
         drs['SiteObjGuid'] = drsuapi.NULLGUID
         drs['Pid'] = 0
         drs['dwReplEpoch'] = 0
         drs['dwFlagsExt'] = 0
         drs['ConfigObjGUID'] = drsuapi.NULLGUID
-        drs['dwExtCaps'] = 127
+        # I'm uber potential (c) Ben
+        drs['dwExtCaps'] = 0xffffffff
         request['pextClient']['cb'] = len(drs)
         request['pextClient']['rgb'] = list(str(drs))
         resp = self.__drsr.request(request)
