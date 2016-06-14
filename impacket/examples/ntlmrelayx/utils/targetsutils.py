@@ -24,7 +24,7 @@ from threading import Thread
 class TargetsProcessor():
     supported_protocols = ['SMB','HTTP','LDAP','MSSQL','LDAPS']
     def __init__(self,targetlistfile=None,singletarget=None):        
-        self.targetregex = re.compile(r'([a-zA-Z]+)://([a-zA-Z0-9\.\-_]+)(:[0-9]+)?')
+        self.targetregex = re.compile(r'([a-zA-Z]+)://([a-zA-Z0-9\.\-_]+)(:[0-9]+)?/?(.*)?')
         self.targetipregex = re.compile(r'[a-zA-Z\.\-_0-9]+')
         self.clients_targets = {}
         if targetlistfile is None:
@@ -50,7 +50,7 @@ class TargetsProcessor():
             logging.critical("Warning: no valid targets specified!")
 
     def parse_target(self,targetline):
-        #Try a full target match in the form of protocol://target:port first
+        #Try a full target match in the form of protocol://target:port/path first
         ftm = self.targetregex.match(targetline)
         if ftm is not None:
             if ftm.group(1).upper() not in self.supported_protocols:
@@ -60,14 +60,20 @@ class TargetsProcessor():
             if ftm.group(3) is None:
                 port = self.get_default_port(ftm.group(1))
             else:
-                port = int(ftm.group(3))
+                #Port regex includes the : remove this
+                port = int(ftm.group(3)[1:])
+            #Check if the path was specified
+            if ftm.group(4) is None:
+                path = ''
+            else:
+                path = ftm.group(4)
             #Targets are always a tuple (protocol,host,port)
             #TODO: Change this to an object so we can have proper representation as string?
-            return (ftm.group(1).upper(),ftm.group(2),port)
+            return (ftm.group(1).upper(),ftm.group(2),port,path)
         #Maybe the target is just an IP, this assumes its an SMB target
         itm = self.targetipregex.match(targetline)
         if itm is not None:
-            return ('SMB',itm.group(0),445)
+            return ('SMB',itm.group(0),445,'')
         #If both dont match, it is probably an invalid target
         logging.error("Invalid target specification: " % targetline)
         return None
