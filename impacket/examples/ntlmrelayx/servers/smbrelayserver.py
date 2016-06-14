@@ -105,7 +105,6 @@ class SMBRelayServer(Thread):
         # SMBRelay
         #Get the data for all connections
         smbData = smbServer.getConnectionData('SMBRelay', False)
-        print self.target
         if smbData.has_key(self.target):
             # Remove the previous connection and use the last one
             smbClient = smbData[self.target]['SMBClient']
@@ -365,7 +364,7 @@ class SMBRelayServer(Thread):
         if self.target[0] == 'LDAP' or self.target[0] == 'LDAPS':
             client = LDAPRelayClient("%s://%s:%d" % (self.target[0].lower(),self.target[1],self.target[2]))
         if self.target[0] == 'HTTP' or self.target[0] == 'HTTPS':
-            self.client = HTTPRelayClient("%s://%s:%d/%s" % (self.target[0].lower(),self.target[1],self.target[2],self.target[3]))
+            client = HTTPRelayClient("%s://%s:%d/%s" % (self.target[0].lower(),self.target[1],self.target[2],self.target[3]))
         return client
 
     #Do the NTLM negotiate

