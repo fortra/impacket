@@ -195,7 +195,7 @@ class HTTPRelayServer(Thread):
 
             if self.target[0] == 'HTTP' or self.target[0] == 'HTTPS':
                 try:
-                    self.client = HTTPRelayClient("%s://%s:%d" % (self.target[0].lower(),self.target[1],self.target[2]))
+                    self.client = HTTPRelayClient("%s://%s:%d/%s" % (self.target[0].lower(),self.target[1],self.target[2],self.target[3]))
                     clientChallengeMessage = self.client.sendNegotiate(token)
                 except Exception, e:
                     logging.error("Connection against target %s FAILED" % self.target[1])

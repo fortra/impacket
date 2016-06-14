@@ -365,7 +365,7 @@ class SMBRelayServer(Thread):
         if self.target[0] == 'LDAP' or self.target[0] == 'LDAPS':
             client = LDAPRelayClient("%s://%s:%d" % (self.target[0].lower(),self.target[1],self.target[2]))
         if self.target[0] == 'HTTP' or self.target[0] == 'HTTPS':
-            client = HTTPRelayClient("%s://%s:%d" % (self.target[0].lower(),self.target[1],self.target[2]))
+            self.client = HTTPRelayClient("%s://%s:%d/%s" % (self.target[0].lower(),self.target[1],self.target[2],self.target[3]))
         return client
 
     #Do the NTLM negotiate
