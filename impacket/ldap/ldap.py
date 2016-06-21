@@ -327,7 +327,7 @@ class LDAPConnection:
                 if protocolOp.getName() == 'searchResDone':
                     done = True
                     if protocolOp['searchResDone']['resultCode'] != 0:
-                        raise LDAPSessionError(errorString = 'Error in searchRequest -> %s:%s' % (protocolOp['searchResDone']['resultCode'].prettyPrint(), protocolOp['searchResDone']['diagnosticMessage'] ))
+                        raise LDAPSearchError(error = int(protocolOp['searchResDone']['resultCode']), errorString = 'Error in searchRequest -> %s:%s' % (protocolOp['searchResDone']['resultCode'].prettyPrint(), protocolOp['searchResDone']['diagnosticMessage'] ), answers=answers)
                 else:
                     answers.append(item['protocolOp'][protocolOp.getName()])
 
@@ -376,7 +376,6 @@ class LDAPConnection:
         self.send(protocolOp, message)
         return self.recv()
 
-
 class LDAPSessionError(Exception):
     """
     This is the exception every client should catch
@@ -398,3 +397,13 @@ class LDAPSessionError(Exception):
 
     def __str__( self ):
         return self.errorString
+
+class LDAPSearchError(LDAPSessionError):
+    def __init__( self, error = 0, packet=0, errorString='', answers = []):
+        LDAPSessionError.__init__(self, error, packet, errorString)
+        self.answers = answers
+
+    def getAnswers( self ):
+        return self.answers
+
+

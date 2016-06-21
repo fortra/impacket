@@ -245,12 +245,24 @@ class GetUserSPNs:
         # Exception here, setting verifyConstraints to False so pyasn1 doesn't warn about incompatible tags
         searchFilter['and'].setComponentByPosition(2,and2,  verifyConstraints=False)
 
-        resp = ldapConnection.search(searchFilter=searchFilter,
-                                     attributes=['servicePrincipalName', 'sAMAccountName',
-                                                 'pwdLastSet', 'MemberOf', 'userAccountControl', 'lastLogon'],
-                                     sizeLimit=9999)
+        try:
+            resp = ldapConnection.search(searchFilter=searchFilter,
+                                         attributes=['servicePrincipalName', 'sAMAccountName',
+                                                     'pwdLastSet', 'MemberOf', 'userAccountControl', 'lastLogon'],
+                                         sizeLimit=999)
+        except ldap.LDAPSearchError, e:
+            if e.getErrorString().find('sizeLimitExceeded') >= 0:
+                logging.debug('sizeLimitExceeded exception caught, giving up and processing the data received')
+                # We reached the sizeLimit, process the answers we have already and that's it. Until we implement
+                # paged queries
+                resp = e.getAnswers()
+                pass
+            else:
+                raise
+
         answers = []
         logging.debug('Total of records returned %d' % len(resp))
+
         for item in resp:
             if isinstance(item, ldapasn1.SearchResultEntry) is not True:
                 continue
