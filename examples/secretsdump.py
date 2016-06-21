@@ -1509,16 +1509,16 @@ class NTDSHashes:
                         userName = '%s' % record[self.NAME_TO_INTERNAL['sAMAccountName']]
                     cipherText = self.CRYPTED_BLOB(unhexlify(record[self.NAME_TO_INTERNAL['supplementalCredentials']]))
 
-                if cipherText['Header'][:4] == '\x13\x00\x00\x00':
-                    # Win2016 TP4 decryption is different
-                    pekIndex = hexlify(cipherText['Header'])
-                    plainText = self.__cryptoCommon.decryptAES(self.__PEK[int(pekIndex[8:10])],
-                                                               cipherText['EncryptedHash'][4:],
-                                                               cipherText['KeyMaterial'])
-                    haveInfo = True
-                else:
-                    plainText = self.__removeRC4Layer(cipherText)
-                    haveInfo = True
+                    if cipherText['Header'][:4] == '\x13\x00\x00\x00':
+                        # Win2016 TP4 decryption is different
+                        pekIndex = hexlify(cipherText['Header'])
+                        plainText = self.__cryptoCommon.decryptAES(self.__PEK[int(pekIndex[8:10])],
+                                                                   cipherText['EncryptedHash'][4:],
+                                                                   cipherText['KeyMaterial'])
+                        haveInfo = True
+                    else:
+                        plainText = self.__removeRC4Layer(cipherText)
+                        haveInfo = True
         else:
             domain = None
             userName = None
