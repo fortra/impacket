@@ -146,7 +146,7 @@ class GetUserSPNs:
 
         return TGT
 
-    def outputTGS(self, tgs, oldSessionKey, sessionKey, username, fd=None):
+    def outputTGS(self, tgs, oldSessionKey, sessionKey, username, spn, fd=None):
         decodedTGS = decoder.decode(tgs, asn1Spec=TGS_REP())[0]
 
         # According to RFC4757 the cipher part is like:
@@ -161,8 +161,8 @@ class GetUserSPNs:
         # In short, we're interested in splitting the checksum and the rest of the encrypted data
         #
         if decodedTGS['ticket']['enc-part']['etype'] == constants.EncryptionTypes.rc4_hmac.value:
-            entry = '$krb5tgs$%d$*%s$%s$SPN*$%s$%s' % (
-                constants.EncryptionTypes.rc4_hmac.value, username, decodedTGS['ticket']['realm'],
+            entry = '$krb5tgs$%d$*%s$%s$%s*$%s$%s' % (
+                constants.EncryptionTypes.rc4_hmac.value, username, decodedTGS['ticket']['realm'], spn,
                 hexlify(str(decodedTGS['ticket']['enc-part']['cipher'][:16])),
                 hexlify(str(decodedTGS['ticket']['enc-part']['cipher'][16:])))
             if fd is None:
@@ -329,7 +329,7 @@ class GetUserSPNs:
                                                                                 self.__kdcHost,
                                                                                 TGT['KDC_REP'], TGT['cipher'],
                                                                                 TGT['sessionKey'])
-                        self.outputTGS(tgs, oldSessionKey, sessionKey, user, fd)
+                        self.outputTGS(tgs, oldSessionKey, sessionKey, user, SPN, fd)
                     except Exception , e:
                         logging.error(str(e))
                 if fd is not None:
@@ -397,7 +397,7 @@ if __name__ == '__main__':
     if options.aesKey is not None:
         options.k = True
 
-    if options.save is True:
+    if options.save is True or options.outputfile is not None:
         options.request = True
 
     try:
