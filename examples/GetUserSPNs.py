@@ -273,33 +273,40 @@ class GetUserSPNs:
             pwdLastSet = ''
             userAccountControl = 0
             lastLogon = 'N/A'
-            for attribute in item['attributes']:
-                if attribute['type'] == 'sAMAccountName':
-                    if str(attribute['vals'][0]).endswith('$') is False:
-                        # User Account
-                        sAMAccountName = str(attribute['vals'][0])
-                        mustCommit = True
-                elif attribute['type'] == 'userAccountControl':
-                    userAccountControl = str(attribute['vals'][0])
-                elif attribute['type'] == 'memberOf':
-                    memberOf = str(attribute['vals'][0])
-                elif attribute['type'] == 'pwdLastSet':
-                    pwdLastSet = str(datetime.fromtimestamp(self.getUnixTime(int(str(attribute['vals'][0])))))
-                elif attribute['type'] == 'lastLogon':
-                    if str(attribute['vals'][0]) == '0':
-                        lastLogon = '<never>'
-                    else:
-                        lastLogon = str(datetime.fromtimestamp(self.getUnixTime(int(str(attribute['vals'][0])))))
-                elif attribute['type'] == 'servicePrincipalName':
-                    for spn in attribute['vals']:
-                        SPNs.append(str(spn))
+            try:
+                for attribute in item['attributes']:
+                    if attribute['type'] == 'sAMAccountName':
+                        if str(attribute['vals'][0]).endswith('$') is False:
+                            # User Account
+                            sAMAccountName = str(attribute['vals'][0])
+                            mustCommit = True
+                    elif attribute['type'] == 'userAccountControl':
+                        userAccountControl = str(attribute['vals'][0])
+                    elif attribute['type'] == 'memberOf':
+                        memberOf = str(attribute['vals'][0])
+                    elif attribute['type'] == 'pwdLastSet':
+                        if str(attribute['vals'][0]) == '0':
+                            pwdLastSet = '<never>'
+                        else:
+                            pwdLastSet = str(datetime.fromtimestamp(self.getUnixTime(int(str(attribute['vals'][0])))))
+                    elif attribute['type'] == 'lastLogon':
+                        if str(attribute['vals'][0]) == '0':
+                            lastLogon = '<never>'
+                        else:
+                            lastLogon = str(datetime.fromtimestamp(self.getUnixTime(int(str(attribute['vals'][0])))))
+                    elif attribute['type'] == 'servicePrincipalName':
+                        for spn in attribute['vals']:
+                            SPNs.append(str(spn))
 
-            if mustCommit is True:
-                if int(userAccountControl) & UF_ACCOUNTDISABLE:
-                    logging.debug('Bypassing disabled account %s ' % sAMAccountName)
-                else:
-                    for spn in SPNs:
-                        answers.append([spn, sAMAccountName,memberOf, pwdLastSet, lastLogon])
+                if mustCommit is True:
+                    if int(userAccountControl) & UF_ACCOUNTDISABLE:
+                        logging.debug('Bypassing disabled account %s ' % sAMAccountName)
+                    else:
+                        for spn in SPNs:
+                            answers.append([spn, sAMAccountName,memberOf, pwdLastSet, lastLogon])
+            except Exception, e:
+                logging.error('Skipping item, cannot process due to error %s' % str(e))
+                pass
 
         if len(answers)>0:
             self.printTable(answers, header=[ "ServicePrincipalName", "Name", "MemberOf", "PasswordLastSet", "LastLogon"])
