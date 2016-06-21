@@ -2216,7 +2216,7 @@ class DumpSecrets:
 
             # NTDS Extraction we can try regardless of RemoteOperations failing. It might still work
             if self.__isRemote is True:
-                if self.__useVSSMethod:
+                if self.__useVSSMethod and self.__remoteOps is not None:
                     NTDSFileName = self.__remoteOps.saveNTDS()
                 else:
                     NTDSFileName = None
