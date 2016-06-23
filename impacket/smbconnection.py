@@ -129,7 +129,8 @@ class SMBConnection:
         tries = 0
         smbp = smb.NewSMBPacket()
         smbp['Flags1'] = flags1
-        smbp['Flags2'] = flags2
+        # FLAGS2_UNICODE is required by some stacks to continue, regardless of subsequent support
+        smbp['Flags2'] = flags2 | smb.SMB.FLAGS2_UNICODE
         resp = None
         while tries < 2:
             self._nmbSession = nmb.NetBIOSTCPSession(myName, remoteName, remoteHost, nmb.TYPE_SERVER, sess_port,
