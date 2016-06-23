@@ -863,16 +863,28 @@ def hBaseRegQueryInfoKey(dce, hKey):
     request.fields['lpClassIn'].fields['Data'].fields['Data'].fields['MaximumCount'] = 1024/2
     return dce.request(request)
 
-def hBaseRegQueryValue(dce, hKey, lpValueName):
-    # ToDo, check the result to see whether we need to 
-    # have a bigger buffer for the data to receive
+def hBaseRegQueryValue(dce, hKey, lpValueName, dataLen=512):
     request = BaseRegQueryValue()
     request['hKey'] = hKey
     request['lpValueName'] = checkNullString(lpValueName)
-    request['lpData'] = ' '*512
-    request['lpcbData'] = 512
-    request['lpcbLen'] = 512
-    resp = dce.request(request)
+
+    # We need to be aware the size might not be enough, so let's catch ERROR_MORE_DATA exception
+    while True:
+        try:
+            request['lpData'] = ' ' * dataLen
+            request['lpcbData'] = dataLen
+            request['lpcbLen'] = dataLen
+            resp = dce.request(request)
+        except DCERPCSessionError, e:
+            if e.get_error_code() == system_errors.ERROR_MORE_DATA:
+                # We need to adjust the size
+                dataLen = e.get_packet()['lpcbData']
+                continue
+            else:
+                raise
+        else:
+            break
+
     # Returns
     # ( dataType, data )
     return resp['lpType'], unpackValue(resp['lpType'], resp['lpData'])
