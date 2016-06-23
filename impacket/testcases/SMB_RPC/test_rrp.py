@@ -255,7 +255,7 @@ class RRPTests(unittest.TestCase):
         request['samDesired'] = MAXIMUM_ALLOWED
         resp = dce.request(request)
 
-        resp = rrp.hBaseRegEnumValue(dce, resp['phkResult'], 7)
+        resp = rrp.hBaseRegEnumValue(dce, resp['phkResult'], 7, 10)
         resp.dump()
 
 

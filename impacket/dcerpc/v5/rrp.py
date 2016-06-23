@@ -794,18 +794,30 @@ def hBaseRegEnumKey(dce, hKey, dwIndex, lpftLastWriteTime = NULL):
 
     return dce.request(request)
 
-def hBaseRegEnumValue(dce, hKey, dwIndex):
-    # ToDo, check the result to see whether we need to 
-    # have a bigger buffer for the data to receive
+def hBaseRegEnumValue(dce, hKey, dwIndex, dataLen=128):
     request = BaseRegEnumValue()
     request['hKey'] = hKey
     request['dwIndex'] = dwIndex
-    request['lpValueNameIn'] = ' '*128
-    request['lpData'] = ' '*128
-    request['lpcbData'] = 128
-    request['lpcbLen'] = 128
 
-    return dce.request(request)
+    # We need to be aware the size might not be enough, so let's catch ERROR_MORE_DATA exception
+    while True:
+        try:
+            request['lpValueNameIn'] = ' ' * dataLen
+            request['lpData'] = ' ' * dataLen
+            request['lpcbData'] = dataLen
+            request['lpcbLen'] = dataLen
+            resp = dce.request(request)
+        except DCERPCSessionError, e:
+            if e.get_error_code() == system_errors.ERROR_MORE_DATA:
+                # We need to adjust the size
+                dataLen = e.get_packet()['lpcbData']
+                continue
+            else:
+                raise
+        else:
+            break
+
+    return resp
 
 def hBaseRegFlushKey(dce, hKey):
     request = BaseRegFlushKey()
