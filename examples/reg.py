@@ -143,22 +143,22 @@ if __name__ == '__main__':
     stop_parser = subparsers.add_parser('compare', help='Compares specified registry subkeys or entries')
     # stop_parser.add_argument('-name', action='store', required=True, help='service name')
 
-    # A delete command
+    # A copy command
     delete_parser = subparsers.add_parser('copy', help='Copies a registry entry to a specified location in the remote '
                                                        'computer')
     # delete_parser.add_argument('-name', action='copy', required=True, help='service name')
 
-    # A status command
+    # A export command
     status_parser = subparsers.add_parser('export', help='Creates a copy of specified subkeys, entries, and values into'
                                                          'a file')
     # status_parser.add_argument('-name', action='store', required=True, help='service name')
 
-    # A config command
+    # A import command
     config_parser = subparsers.add_parser('import', help='Copies a file containing exported registry subkeys, entries, '
                                                          'and values into the remote computer\'s registry')
     # config_parser.add_argument('-name', action='store', required=True, help='service name')
 
-    # A list command
+    # A load command
     list_parser = subparsers.add_parser('load', help='Writes saved subkeys and entries back to a different subkey in '
                                                      'the registry.')
 
@@ -171,16 +171,16 @@ if __name__ == '__main__':
                                                                           'tiers')
 
     # A change command
-    create_parser = subparsers.add_parser('restore', help='change a service configuration')
-    create_parser.add_argument('-name', action='store', required=True, help='service name')
-    create_parser.add_argument('-display', action='store', required=False, help='display name')
-    create_parser.add_argument('-path', action='store', required=False, help='binary path')
-    create_parser.add_argument('-service_type', action='store', required=False, help='service type')
-    create_parser.add_argument('-start_type', action='store', required=False, help='service start type')
-    create_parser.add_argument('-start_name', action='store', required=False,
-                               help='string that specifies the name of the account under which the service should run')
-    create_parser.add_argument('-password', action='store', required=False,
-                               help='string that contains the password of the account whose name was specified by the start_name parameter')
+    # create_parser = subparsers.add_parser('restore', help='change a service configuration')
+    # create_parser.add_argument('-name', action='store', required=True, help='service name')
+    # create_parser.add_argument('-display', action='store', required=False, help='display name')
+    # create_parser.add_argument('-path', action='store', required=False, help='binary path')
+    # create_parser.add_argument('-service_type', action='store', required=False, help='service type')
+    # create_parser.add_argument('-start_type', action='store', required=False, help='service start type')
+    # create_parser.add_argument('-start_name', action='store', required=False,
+    #                            help='string that specifies the name of the account under which the service should run')
+    # create_parser.add_argument('-password', action='store', required=False,
+    #                            help='string that contains the password of the account whose name was specified by the start_name parameter')
 
     # A save command
     save_parser = subparsers.add_parser('save', help='Saves a copy of specified subkeys, entries, and values of the '
