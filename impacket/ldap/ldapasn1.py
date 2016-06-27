@@ -389,6 +389,7 @@ class SubstringFilter(Sequence):
                   final   [2] AssertionValue } -- can occur at most once
              }
     """
+    tagSet = Sequence.tagSet.tagImplicitly(Tag(tagClassContext, tagFormatConstructed, 4))
     componentType = NamedTypes(
         NamedType('type', AttributeDescription()),
         NamedType('substrings', SubStrings()),
