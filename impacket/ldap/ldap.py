@@ -314,8 +314,9 @@ class LDAPConnection:
         searchRequest['typesOnly'] = Boolean(False)
         searchRequest['filter'] = searchFilter
         searchRequest['attributes'] = AttributeSelection()
-        for i,item in enumerate(attributes):
-            searchRequest['attributes'][i] = item
+        if attributes is not None:
+            for i,item in enumerate(attributes):
+                searchRequest['attributes'][i] = item
 
         done = False
         answers = []
