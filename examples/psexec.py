@@ -467,7 +467,7 @@ if __name__ == '__main__':
 
     if options.p is not None:
 	if options.p not in PSEXEC.KNOWN_PROTOCOLS.keys():
-		print '[!] Ignoring unknown protocol {} (Supported: {}'.format(options.p, PSEXEC.KNOWN_PROTOCOLS.keys())
+		print '[!] Ignoring unknown protocol {} (Supported: {})'.format(options.p, PSEXEC.KNOWN_PROTOCOLS.keys())
 		options.p = None
 
     command = ' '.join(options.command)
