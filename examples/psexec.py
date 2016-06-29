@@ -421,6 +421,7 @@ if __name__ == '__main__':
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('command', nargs='*', default = ' ', help='command (or arguments if -c is used) to execute at the target (w/o path) - (default:cmd.exe)')
     parser.add_argument('-c', action='store',metavar = "pathname",  help='copy the filename for later execution, arguments are passed in the command option')
+    parser.add_argument('-p','-protocol', action='store', help='which port/protocol to use (445/SMB, 139/SMB)')
     parser.add_argument('-path', action='store', help='path of the command to execute')
     parser.add_argument('-file', action='store', help="alternative RemCom binary (be sure it doesn't require CRT)")
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
@@ -464,10 +465,15 @@ if __name__ == '__main__':
     if options.aesKey is not None:
         options.k = True
 
+    if options.p is not None:
+	if options.p not in PSEXEC.KNOWN_PROTOCOLS.keys():
+		print '[!] Ignoring unknown protocol {} (Supported: {}'.format(options.p, PSEXEC.KNOWN_PROTOCOLS.keys())
+		options.p = None
+
     command = ' '.join(options.command)
     if command == ' ':
         command = 'cmd.exe'
 
-    executer = PSEXEC(command, options.path, options.file, options.c, None, username, password, domain, options.hashes,
+    executer = PSEXEC(command, options.path, options.file, options.c, options.p, username, password, domain, options.hashes,
                       options.aesKey, options.k, options.dc_ip)
     executer.run(address)
