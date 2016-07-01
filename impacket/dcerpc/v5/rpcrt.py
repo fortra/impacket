@@ -19,6 +19,7 @@
 
 import logging
 import socket
+import sys
 from binascii import unhexlify
 from Crypto.Cipher import ARC4
 
@@ -834,13 +835,11 @@ class DCERPC:
 
         self.call(request.opnum, request, uuid)
         answer = self.recv()
-        try:
-            module = __import__(request.__module__.split('.')[-1], globals(), locals(), -1)
-        except:
-            # Try the subdirectories
-            module = __import__('%s.%s' % (request.__module__.split('.')[-2], request.__module__.split('.')[-1]),
-                                globals(), locals(), -1)
+
+        __import__(request.__module__)
+        module = sys.modules[request.__module__]
         respClass = getattr(module, request.__class__.__name__ + 'Response')
+
         if  answer[-4:] != '\x00\x00\x00\x00' and checkError is True:
             error_code = unpack('<L', answer[-4:])[0]
             if rpc_status_codes.has_key(error_code):
