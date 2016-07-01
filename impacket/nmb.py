@@ -866,7 +866,7 @@ class NetBIOSTCPSession(NetBIOSSession):
         while 1:
             p = self.recv_packet(timeout)
             if p.get_type() == NETBIOS_SESSION_NEGATIVE_RESPONSE:
-                raise NetBIOSError, ( 'Cannot request session', ERRCLASS_SESSION, ord(p.get_trailer()[0]) )
+                raise NetBIOSError, ( 'Cannot request session (Called Name:%s)' % self.get_remote_name())
             elif p.get_type() == NETBIOS_SESSION_POSITIVE_RESPONSE:
                 break
             else:
