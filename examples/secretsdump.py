@@ -1823,7 +1823,8 @@ class NTDSHashes:
                 # DRSUAPI method, checking whether target is a DC
                 try:
                     self.__remoteOps.connectSamr(self.__remoteOps.getMachineNameAndDomain()[1])
-                except:
+                except Exception, e:
+                    logging.debug('Exiting NTDSHashes.dump() because %s' % e)
                     # Target's not a DC
                     return
 
