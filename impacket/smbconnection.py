@@ -28,18 +28,20 @@ class SMBConnection:
     """
     SMBConnection class
 
-    :param string remoteName: name of the remote host, can be it's NETBIOS name, IP or *\*SMBSERVER*.  If the later, and port is 139, the library will try to get the target's server name.
+    :param string remoteName: name of the remote host, can be its NETBIOS name, IP or *\*SMBSERVER*.  If the later,
+           and port is 139, the library will try to get the target's server name.
     :param string remoteHost: target server's remote address (IPv4, IPv6) or FQDN
     :param string/optional myName: client's NETBIOS name
     :param integer/optional sess_port: target port to connect
     :param integer/optional timeout: timeout in seconds when receiving packets
-    :param optional preferredDialect: the dialect desired to talk with the target server. If not specified the highest one available will be used
+    :param optional preferredDialect: the dialect desired to talk with the target server. If not specified the highest
+           one available will be used
     :param optional boolean manualNegotiate: the user manually performs SMB_COM_NEGOTIATE
 
     :return: a SMBConnection instance, if not raises a SessionError exception
     """
 
-    def __init__(self, remoteName='', remoteHost='', myName=None, sess_port=445, timeout=60, preferredDialect=None,
+    def __init__(self, remoteName='', remoteHost='', myName=None, sess_port=nmb.SMB_SESSION_PORT, timeout=60, preferredDialect=None,
                  existingConnection=None, manualNegotiate=False):
 
         self._SMBConnection = 0
@@ -76,6 +78,23 @@ class SMBConnection:
 
         :return: True, raises a Session Error if error.
         """
+
+        # If port 445 and the name sent is *SMBSERVER we're setting the name to the IP. This is to help some old
+        # applications still believing
+        # *SMSBSERVER will work against modern OSes. If port is NETBIOS_SESSION_PORT the user better know about i
+        # *SMBSERVER's limitations
+        if self._sess_port == nmb.SMB_SESSION_PORT and self._remoteName == '*SMBSERVER':
+            self._remoteName = self._remoteHost
+        elif self._sess_port == nmb.NETBIOS_SESSION_PORT and self._remoteName == '*SMBSERVER':
+            # If remote name is *SMBSERVER let's try to query its name.. if can't be guessed, continue and hope for the best
+            nb = nmb.NetBIOS()
+            try:
+                res = nb.getnetbiosname(self._remoteHost)
+            except:
+                pass
+            else:
+                self._remoteName = res
+
         hostType = nmb.TYPE_SERVER
         if preferredDialect is None:
             # If no preferredDialect sent, we try the highest available one.
@@ -118,13 +137,6 @@ class SMBConnection:
             i = string.find(myName, '.')
             if i > -1:
                 myName = myName[:i]
-
-        # If port 445 and the name sent is *SMBSERVER we're setting the name to the IP. This is to help some old
-        # applications still believing
-        # *SMSBSERVER will work against modern OSes. If port is NETBIOS_SESSION_PORT the user better know about i
-        # *SMBSERVER's limitations
-        if sess_port == 445 and remoteName == '*SMBSERVER':
-            remoteName = remoteHost
 
         tries = 0
         smbp = smb.NewSMBPacket()
@@ -177,6 +189,9 @@ class SMBConnection:
 
     def getRemoteName(self):
         return self._SMBConnection.get_remote_name()
+
+    def setRemoteName(self, name):
+        return self._SMBConnection.set_remote_name(name)
 
     def getServerDomain(self):
         return self._SMBConnection.get_server_domain()
@@ -272,7 +287,7 @@ class SMBConnection:
                 if domain == '':
                     domain = ccache.principal.realm['data']
                 LOG.debug("Using Kerberos Cache: %s" % os.getenv('KRB5CCNAME'))
-                principal = 'cifs/%s@%s' % (self.getRemoteHost().upper(), domain.upper())
+                principal = 'cifs/%s@%s' % (self.getRemoteName().upper(), domain.upper())
                 creds = ccache.getCredential(principal)
                 if creds is None:
                     # Let's try for the TGT and go from there
@@ -352,7 +367,7 @@ class SMBConnection:
         """
         # Get the shares through RPC
         from impacket.dcerpc.v5 import transport, srvs
-        rpctransport = transport.SMBTransport(self.getRemoteHost(), self.getRemoteHost(), filename=r'\srvsvc',
+        rpctransport = transport.SMBTransport(self.getRemoteName(), self.getRemoteHost(), filename=r'\srvsvc',
                                               smb_connection=self)
         dce = rpctransport.get_dce_rpc()
         dce.connect()

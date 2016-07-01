@@ -117,8 +117,9 @@ class DCERPCTransport:
 
     DCERPC_class = DCERPC_v5
 
-    def __init__(self, dstHost, dstport):
-        self.__dstHost = dstHost
+    def __init__(self, remoteName, dstport):
+        self.__remoteName = remoteName
+        self.__remoteHost = remoteName
         self.__dstport = dstport
         self._max_send_frag = None
         self._max_recv_frag = None
@@ -152,12 +153,19 @@ class DCERPCTransport:
     def set_connect_timeout(self, timeout):
         self.__connect_timeout = timeout
 
+    def getRemoteName(self):
+        return self.__remoteName
+
+    def setRemoteName(self, remoteName):
+        """This method only makes sense before connection for most protocols."""
+        self.__remoteName = remoteName
+
     def getRemoteHost(self):
-        return self.__dstHost
+        return self.__remoteHost
 
     def setRemoteHost(self, remoteHost):
         """This method only makes sense before connection for most protocols."""
-        self.__dstHost = remoteHost
+        self.__remoteHost = remoteHost
 
     def get_dport(self):
         return self.__dstport
@@ -237,8 +245,8 @@ class UDPTransport(DCERPCTransport):
 
     DCERPC_class = DCERPC_v4
 
-    def __init__(self, dstHost, dstport = 135):
-        DCERPCTransport.__init__(self, dstHost, dstport)
+    def __init__(self, remoteName, dstport = 135):
+        DCERPCTransport.__init__(self, remoteName, dstport)
         self.__socket = 0
         self.set_connect_timeout(30)
         self.__recv_addr = ''
@@ -278,8 +286,8 @@ class UDPTransport(DCERPCTransport):
 class TCPTransport(DCERPCTransport):
     """Implementation of ncacn_ip_tcp protocol sequence"""
 
-    def __init__(self, dstHost, dstport = 135):
-        DCERPCTransport.__init__(self, dstHost, dstport)
+    def __init__(self, remoteName, dstport = 135):
+        DCERPCTransport.__init__(self, remoteName, dstport)
         self.__socket = 0
         self.set_connect_timeout(30)
 
@@ -340,18 +348,20 @@ class HTTPTransport(TCPTransport):
 class SMBTransport(DCERPCTransport):
     """Implementation of ncacn_np protocol sequence"""
 
-    def __init__(self, dstHost, dstport=445, filename='', username='', password='', domain='', lmhash='', nthash='',
-                 aesKey='', TGT=None, TGS=None, remote_name='', smb_connection=0, doKerberos=False, kdcHost=None):
-        DCERPCTransport.__init__(self, dstHost, dstport)
+    def __init__(self, remoteName, dstport=445, filename='', username='', password='', domain='', lmhash='', nthash='',
+                 aesKey='', TGT=None, TGS=None, remote_host='', smb_connection=0, doKerberos=False, kdcHost=None):
+        DCERPCTransport.__init__(self, remoteName, dstport)
         self.__socket = None
         self.__tid = 0
         self.__filename = filename
         self.__handle = 0
         self.__pending_recv = 0
         self.set_credentials(username, password, domain, lmhash, nthash, aesKey, TGT, TGS)
-        self.__remote_name = remote_name
         self._doKerberos = doKerberos
         self._kdcHost = kdcHost
+
+        if remote_host != '':
+            self.setRemoteHost(remote_host)
 
         if smb_connection == 0:
             self.__existing_smb = False
@@ -373,16 +383,8 @@ class SMBTransport(DCERPCTransport):
 
     def setup_smb_connection(self):
         if not self.__smb_connection:
-            if self.__remote_name == '':
-                if self.get_dport() == nmb.NETBIOS_SESSION_PORT:
-                    self.__smb_connection = SMBConnection('*SMBSERVER', self.getRemoteHost(), sess_port=self.get_dport(),
-                                                          preferredDialect=self.__prefDialect)
-                else:
-                    self.__smb_connection = SMBConnection(self.getRemoteHost(), self.getRemoteHost(), sess_port=self.get_dport(),
-                                                          preferredDialect=self.__prefDialect)
-            else:
-                self.__smb_connection = SMBConnection(self.__remote_name, self.getRemoteHost(), sess_port=self.get_dport(),
-                                                      preferredDialect=self.__prefDialect)
+            self.__smb_connection = SMBConnection(self.getRemoteName(), self.getRemoteHost(), sess_port=self.get_dport(),
+                                                  preferredDialect=self.__prefDialect)
 
     def connect(self):
         # Check if we have a smb connection already setup

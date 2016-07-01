@@ -2422,6 +2422,10 @@ class SMB:
     def get_remote_name(self):
         return self.__remote_name
 
+    def set_remote_name(self, name):
+        self.__remote_name = name
+        return True
+
     def get_remote_host(self):
         return self.__remote_host
 

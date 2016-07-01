@@ -240,7 +240,18 @@ class SMB3:
             print "%-40s : %s" % i
 
     def getServerName(self):
+        if self._Session['ServerName'] == '':
+            return self._Connection['ServerName']
         return self._Session['ServerName']
+
+    def getRemoteName(self):
+        if self._Session['ServerName'] == '':
+            return self._Connection['ServerName']
+        return self._Session['ServerName']
+
+    def setRemoteName(self, name):
+        self._Session['ServerName'] = name
+        return True
 
     def getServerIP(self):
         return self._Connection['ServerIP']
@@ -1540,7 +1551,8 @@ class SMB3:
     get_server_name            = getServerName
     get_server_domain          = getServerDomain
     get_server_dns_domain_name = getServerDNSDomainName
-    get_remote_name            = getServerName
+    get_remote_name            = getRemoteName
+    set_remote_name            = setRemoteName
     get_remote_host            = getServerIP
     get_server_os              = getServerOS
     get_server_os_major        = getServerOSMajor
