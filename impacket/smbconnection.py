@@ -29,7 +29,7 @@ class SMBConnection:
     SMBConnection class
 
     :param string remoteName: name of the remote host, can be it's NETBIOS name, IP or *\*SMBSERVER*.  If the later, and port is 139, the library will try to get the target's server name.
-    :param string remoteHost: target server's remote address (IPv4, IPv6)
+    :param string remoteHost: target server's remote address (IPv4, IPv6) or FQDN
     :param string/optional myName: client's NETBIOS name
     :param integer/optional sess_port: target port to connect
     :param integer/optional timeout: timeout in seconds when receiving packets
@@ -174,6 +174,9 @@ class SMBConnection:
 
     def getRemoteHost(self):
         return self._SMBConnection.get_remote_host()
+
+    def getRemoteName(self):
+        return self._SMBConnection.get_remote_name()
 
     def getServerDomain(self):
         return self._SMBConnection.get_server_domain()
