@@ -240,8 +240,6 @@ class SMB3:
             print "%-40s : %s" % i
 
     def getServerName(self):
-        if self._Session['ServerName'] == '':
-            return self._Connection['ServerName']
         return self._Session['ServerName']
 
     def getRemoteName(self):
