@@ -54,19 +54,11 @@ RemComSTDERR         = "RemCom_stderr"
 lock = Lock()
 
 class PSEXEC:
-    KNOWN_PROTOCOLS = {
-        '139/SMB': (r'ncacn_np:%s[\pipe\svcctl]', 139),
-        '445/SMB': (r'ncacn_np:%s[\pipe\svcctl]', 445),
-        }
-
-    def __init__(self, command, path, exeFile, copyFile, protocols=None,
+    def __init__(self, command, path, exeFile, copyFile, port=445,
                  username='', password='', domain='', hashes=None, aesKey=None, doKerberos=False, kdcHost=None):
         self.__username = username
         self.__password = password
-        if protocols is None:
-            self.__protocols = PSEXEC.KNOWN_PROTOCOLS.keys()
-        else:
-            self.__protocols = [protocols]
+        self.__port = port
         self.__command = command
         self.__path = path
         self.__domain = domain
@@ -80,25 +72,21 @@ class PSEXEC:
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
 
-    def run(self, addr):
-        for protocol in self.__protocols:
-            protodef = PSEXEC.KNOWN_PROTOCOLS[protocol]
-            port = protodef[1]
+    def run(self, remoteName, remoteHost):
 
-            logging.info("Trying protocol %s...\n" % protocol)
-            stringbinding = protodef[0] % addr
+        stringbinding = 'ncacn_np:%s[\pipe\svcctl]' % remoteName
+        logging.debug('StringBinding %s'%stringbinding)
+        rpctransport = transport.DCERPCTransportFactory(stringbinding)
+        rpctransport.set_dport(self.__port)
+        rpctransport.setRemoteHost(remoteHost)
 
-            rpctransport = transport.DCERPCTransportFactory(stringbinding)
-            rpctransport.set_dport(port)
-            #if hasattr(rpctransport,'preferred_dialect'):
-            #   rpctransport.preferred_dialect(SMB_DIALECT)
-            if hasattr(rpctransport, 'set_credentials'):
-                # This method exists only for selected protocol sequences.
-                rpctransport.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash,
-                                             self.__nthash, self.__aesKey)
+        if hasattr(rpctransport, 'set_credentials'):
+            # This method exists only for selected protocol sequences.
+            rpctransport.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash,
+                                         self.__nthash, self.__aesKey)
 
-            rpctransport.set_kerberos(self.__doKerberos, self.__kdcHost)
-            self.doStuff(rpctransport)
+        rpctransport.set_kerberos(self.__doKerberos, self.__kdcHost)
+        self.doStuff(rpctransport)
 
     def openPipe(self, s, tid, pipe, accessMask):
         pipeReady = False
@@ -126,6 +114,8 @@ class PSEXEC:
         try:
             dce.connect()
         except Exception, e:
+            #import traceback
+            #traceback.print_exc()
             logging.critical(str(e))
             sys.exit(1)
 
@@ -209,6 +199,8 @@ class PSEXEC:
         except SystemExit:
             raise
         except:
+            #import traceback
+            #traceback.print_exc()
             if unInstalled is False:
                 installService.uninstall()
                 if self.__copyFile is not None:
@@ -235,7 +227,7 @@ class Pipes(Thread):
             lock.acquire()
             global dialect
             #self.server = SMBConnection('*SMBSERVER', self.transport.get_smb_connection().getRemoteHost(), sess_port = self.port, preferredDialect = SMB_DIALECT)
-            self.server = SMBConnection('*SMBSERVER', self.transport.get_smb_connection().getRemoteHost(),
+            self.server = SMBConnection(self.transport.get_smb_connection().getRemoteName(), self.transport.get_smb_connection().getRemoteHost(),
                                         sess_port=self.port, preferredDialect=dialect)
             user, passwd, domain, lm, nt, aesKey, TGT, TGS = self.credentials
             if self.transport.get_kerberos() is True:
@@ -249,6 +241,8 @@ class Pipes(Thread):
             self.fid = self.server.openFile(self.tid,self.pipe,self.permissions, creationOption = 0x40, fileAttributes = 0x80)
             self.server.setTimeout(1000000)
         except:
+            import traceback
+            traceback.print_exc()
             logging.error("Something wen't wrong connecting the pipes(%s), try again" % self.__class__)
 
 
@@ -431,7 +425,16 @@ if __name__ == '__main__':
     group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
     group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line')
     group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication (128 or 256 bits)')
-    group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. If ommited it use the domain part (FQDN) specified in the target parameter')
+
+    group = parser.add_argument_group('connection')
+
+    group.add_argument('-dc-ip', action='store', metavar="ip address",
+                       help='IP Address of the domain controller. If ommited it use the domain part (FQDN) specified in the target parameter')
+    group.add_argument('-target-ip', action='store', metavar="ip address",
+                       help='IP Address of the target machine. If ommited it will use whatever was specified as target. '
+                            'This is useful when target is the NetBIOS name and you cannot resolve it')
+    group.add_argument('-port', choices=['139', '445'], nargs='?', default='445', metavar="destination port",
+                       help='Destination port to connect to SMB Server')
 
     if len(sys.argv)==1:
         parser.print_help()
@@ -446,16 +449,19 @@ if __name__ == '__main__':
 
     import re
 
-    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
+    domain, username, password, remoteName = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
         options.target).groups('')
     
     #In case the password contains '@'
-    if '@' in address:
-        password = password + '@' + address.rpartition('@')[0]
-        address = address.rpartition('@')[2]
+    if '@' in remoteName:
+        password = password + '@' + remoteName.rpartition('@')[0]
+        remoteName = remoteName.rpartition('@')[2]
 
     if domain is None:
         domain = ''
+
+    if options.target_ip is None:
+        options.target_ip = remoteName
 
     if password == '' and username != '' and options.hashes is None and options.no_pass is False and options.aesKey is None:
         from getpass import getpass
@@ -468,6 +474,6 @@ if __name__ == '__main__':
     if command == ' ':
         command = 'cmd.exe'
 
-    executer = PSEXEC(command, options.path, options.file, options.c, None, username, password, domain, options.hashes,
+    executer = PSEXEC(command, options.path, options.file, options.c, int(options.port), username, password, domain, options.hashes,
                       options.aesKey, options.k, options.dc_ip)
-    executer.run(address)
+    executer.run(remoteName, options.target_ip)
