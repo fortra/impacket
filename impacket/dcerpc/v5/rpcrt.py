@@ -986,7 +986,7 @@ class DCERPC_v5(DCERPC):
                                                                                      self.__domain, self.__lmhash,
                                                                                      self.__nthash, self.__aesKey,
                                                                                      self.__TGT, self.__TGS,
-                                                                                     self._transport.get_dip(),
+                                                                                     self._transport.getRemoteHost(),
                                                                                      self._transport.get_kdcHost())
             else:
                 raise DCERPCException('Unsupported auth_type 0x%x' % self.__auth_type)

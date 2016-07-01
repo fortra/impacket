@@ -117,8 +117,8 @@ class DCERPCTransport:
 
     DCERPC_class = DCERPC_v5
 
-    def __init__(self, dstip, dstport):
-        self.__dstip = dstip
+    def __init__(self, dstHost, dstport):
+        self.__dstHost = dstHost
         self.__dstport = dstport
         self._max_send_frag = None
         self._max_recv_frag = None
@@ -152,11 +152,12 @@ class DCERPCTransport:
     def set_connect_timeout(self, timeout):
         self.__connect_timeout = timeout
 
-    def get_dip(self):
-        return self.__dstip
-    def set_dip(self, dip):
+    def getRemoteHost(self):
+        return self.__dstHost
+
+    def setRemoteHost(self, remoteHost):
         """This method only makes sense before connection for most protocols."""
-        self.__dstip = dip
+        self.__dstHost = remoteHost
 
     def get_dport(self):
         return self.__dstport
@@ -165,10 +166,10 @@ class DCERPCTransport:
         self.__dstport = dport
 
     def get_addr(self):
-        return self.get_dip(), self.get_dport()
+        return self.getRemoteHost(), self.get_dport()
     def set_addr(self, addr):
         """This method only makes sense before connection for most protocols."""
-        self.set_dip(addr[0])
+        self.setRemoteHost(addr[0])
         self.set_dport(addr[1])
 
     def set_kerberos(self, flag, kdcHost = None):
@@ -236,15 +237,15 @@ class UDPTransport(DCERPCTransport):
 
     DCERPC_class = DCERPC_v4
 
-    def __init__(self,dstip, dstport = 135):
-        DCERPCTransport.__init__(self, dstip, dstport)
+    def __init__(self, dstHost, dstport = 135):
+        DCERPCTransport.__init__(self, dstHost, dstport)
         self.__socket = 0
         self.set_connect_timeout(30)
         self.__recv_addr = ''
 
     def connect(self):
         try:
-            af, socktype, proto, canonname, sa = socket.getaddrinfo(self.get_dip(), self.get_dport(), 0, socket.SOCK_DGRAM)[0]
+            af, socktype, proto, canonname, sa = socket.getaddrinfo(self.getRemoteHost(), self.get_dport(), 0, socket.SOCK_DGRAM)[0]
             self.__socket = socket.socket(af, socktype, proto)
             self.__socket.settimeout(self.get_connect_timeout())
         except socket.error, msg:
@@ -262,7 +263,7 @@ class UDPTransport(DCERPCTransport):
         return 1
 
     def send(self,data, forceWriteAndx = 0, forceRecv = 0):
-        self.__socket.sendto(data,(self.get_dip(),self.get_dport()))
+        self.__socket.sendto(data, (self.getRemoteHost(), self.get_dport()))
 
     def recv(self, forceRecv = 0, count = 0):
         buffer, self.__recv_addr = self.__socket.recvfrom(8192)
@@ -277,13 +278,13 @@ class UDPTransport(DCERPCTransport):
 class TCPTransport(DCERPCTransport):
     """Implementation of ncacn_ip_tcp protocol sequence"""
 
-    def __init__(self, dstip, dstport = 135):
-        DCERPCTransport.__init__(self, dstip, dstport)
+    def __init__(self, dstHost, dstport = 135):
+        DCERPCTransport.__init__(self, dstHost, dstport)
         self.__socket = 0
         self.set_connect_timeout(30)
 
     def connect(self):
-        af, socktype, proto, canonname, sa = socket.getaddrinfo(self.get_dip(), self.get_dport(), 0, socket.SOCK_STREAM)[0]
+        af, socktype, proto, canonname, sa = socket.getaddrinfo(self.getRemoteHost(), self.get_dport(), 0, socket.SOCK_STREAM)[0]
         self.__socket = socket.socket(af, socktype, proto)
         try:
             self.__socket.settimeout(self.get_connect_timeout())
@@ -331,7 +332,7 @@ class HTTPTransport(TCPTransport):
     def connect(self):
         TCPTransport.connect(self)
 
-        self.get_socket().send('RPC_CONNECT ' + self.get_dip() + ':593 HTTP/1.0\r\n\r\n')
+        self.get_socket().send('RPC_CONNECT ' + self.getRemoteHost() + ':593 HTTP/1.0\r\n\r\n')
         data = self.get_socket().recv(8192)
         if data[10:13] != '200':
             raise DCERPCException("Service not supported.")
@@ -339,9 +340,9 @@ class HTTPTransport(TCPTransport):
 class SMBTransport(DCERPCTransport):
     """Implementation of ncacn_np protocol sequence"""
 
-    def __init__(self, dstip, dstport=445, filename='', username='', password='', domain='', lmhash='', nthash='',
+    def __init__(self, dstHost, dstport=445, filename='', username='', password='', domain='', lmhash='', nthash='',
                  aesKey='', TGT=None, TGS=None, remote_name='', smb_connection=0, doKerberos=False, kdcHost=None):
-        DCERPCTransport.__init__(self, dstip, dstport)
+        DCERPCTransport.__init__(self, dstHost, dstport)
         self.__socket = None
         self.__tid = 0
         self.__filename = filename
@@ -374,13 +375,13 @@ class SMBTransport(DCERPCTransport):
         if not self.__smb_connection:
             if self.__remote_name == '':
                 if self.get_dport() == nmb.NETBIOS_SESSION_PORT:
-                    self.__smb_connection = SMBConnection('*SMBSERVER', self.get_dip(), sess_port=self.get_dport(),
+                    self.__smb_connection = SMBConnection('*SMBSERVER', self.getRemoteHost(), sess_port=self.get_dport(),
                                                           preferredDialect=self.__prefDialect)
                 else:
-                    self.__smb_connection = SMBConnection(self.get_dip(), self.get_dip(), sess_port=self.get_dport(),
+                    self.__smb_connection = SMBConnection(self.getRemoteHost(), self.getRemoteHost(), sess_port=self.get_dport(),
                                                           preferredDialect=self.__prefDialect)
             else:
-                self.__smb_connection = SMBConnection(self.__remote_name, self.get_dip(), sess_port=self.get_dport(),
+                self.__smb_connection = SMBConnection(self.__remote_name, self.getRemoteHost(), sess_port=self.get_dport(),
                                                       preferredDialect=self.__prefDialect)
 
     def connect(self):
