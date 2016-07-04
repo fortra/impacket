@@ -21,14 +21,103 @@ import argparse
 import codecs
 import logging
 import sys
+import time
 from struct import unpack
 
 from impacket import version
-from impacket.dcerpc.v5 import transport, rrp
+from impacket.dcerpc.v5 import transport, rrp, scmr
 from impacket.examples import logger
 from impacket.system_errors import ERROR_NO_MORE_ITEMS
 from impacket.winregistry import hexdump
+from impacket.smbconnection import SMBConnection
 
+class RemoteOperations:
+    def __init__(self, smbConnection, doKerberos, kdcHost=None):
+        self.__smbConnection = smbConnection
+        self.__smbConnection.setTimeout(5*60)
+        self.__serviceName = 'RemoteRegistry'
+        self.__stringBindingWinReg = r'ncacn_np:445[\pipe\winreg]'
+        self.__rrp = None
+        self.__regHandle = None
+
+        self.__doKerberos = doKerberos
+        self.__kdcHost = kdcHost
+
+        self.__disabled = False
+        self.__shouldStop = False
+        self.__started = False
+
+        self.__stringBindingSvcCtl = r'ncacn_np:445[\pipe\svcctl]'
+        self.__scmr = None
+
+    def getRRP(self):
+        return self.__rrp
+
+    def __connectSvcCtl(self):
+        rpc = transport.DCERPCTransportFactory(self.__stringBindingSvcCtl)
+        rpc.set_smb_connection(self.__smbConnection)
+        self.__scmr = rpc.get_dce_rpc()
+        self.__scmr.connect()
+        self.__scmr.bind(scmr.MSRPC_UUID_SCMR)
+
+    def __connectWinReg(self):
+        rpc = transport.DCERPCTransportFactory(self.__stringBindingWinReg)
+        rpc.set_smb_connection(self.__smbConnection)
+        self.__rrp = rpc.get_dce_rpc()
+        self.__rrp.connect()
+        self.__rrp.bind(rrp.MSRPC_UUID_RRP)
+
+    def __checkServiceStatus(self):
+        # Open SC Manager
+        ans = scmr.hROpenSCManagerW(self.__scmr)
+        self.__scManagerHandle = ans['lpScHandle']
+        # Now let's open the service
+        ans = scmr.hROpenServiceW(self.__scmr, self.__scManagerHandle, self.__serviceName)
+        self.__serviceHandle = ans['lpServiceHandle']
+        # Let's check its status
+        ans = scmr.hRQueryServiceStatus(self.__scmr, self.__serviceHandle)
+        if ans['lpServiceStatus']['dwCurrentState'] == scmr.SERVICE_STOPPED:
+            logging.info('Service %s is in stopped state'% self.__serviceName)
+            self.__shouldStop = True
+            self.__started = False
+        elif ans['lpServiceStatus']['dwCurrentState'] == scmr.SERVICE_RUNNING:
+            logging.debug('Service %s is already running'% self.__serviceName)
+            self.__shouldStop = False
+            self.__started  = True
+        else:
+            raise Exception('Unknown service state 0x%x - Aborting' % ans['CurrentState'])
+
+        # Let's check its configuration if service is stopped, maybe it's disabled :s
+        if self.__started is False:
+            ans = scmr.hRQueryServiceConfigW(self.__scmr,self.__serviceHandle)
+            if ans['lpServiceConfig']['dwStartType'] == 0x4:
+                logging.info('Service %s is disabled, enabling it'% self.__serviceName)
+                self.__disabled = True
+                scmr.hRChangeServiceConfigW(self.__scmr, self.__serviceHandle, dwStartType = 0x3)
+            logging.info('Starting service %s' % self.__serviceName)
+            scmr.hRStartServiceW(self.__scmr,self.__serviceHandle)
+            time.sleep(1)
+
+    def enableRegistry(self):
+        self.__connectSvcCtl()
+        self.__checkServiceStatus()
+        self.__connectWinReg()
+
+    def __restore(self):
+        # First of all stop the service if it was originally stopped
+        if self.__shouldStop is True:
+            logging.info('Stopping service %s' % self.__serviceName)
+            scmr.hRControlService(self.__scmr, self.__serviceHandle, scmr.SERVICE_CONTROL_STOP)
+        if self.__disabled is True:
+            logging.info('Restoring the disabled state for service %s' % self.__serviceName)
+            scmr.hRChangeServiceConfigW(self.__scmr, self.__serviceHandle, dwStartType = 0x4)
+
+    def finish(self):
+        self.__restore()
+        if self.__rrp is not None:
+            self.__rrp.disconnect()
+        if self.__scmr is not None:
+            self.__scmr.disconnect()
 
 class RegHandler:
     def __init__(self, username, password, domain, options):
@@ -42,6 +131,9 @@ class RegHandler:
         self.__aesKey = options.aesKey
         self.__doKerberos = options.k
         self.__kdcHost = options.dc_ip
+        self.__smbConnection = None
+        self.__remoteOps = None
+
         # It's possible that this is defined somewhere, but I couldn't find where
         self.__regValues = {0: 'REG_NONE', 1: 'REG_SZ', 2: 'REG_EXPAND_SZ', 3: 'REG_BINARY', 4: 'REG_DWORD',
                             5: 'REG_DWORD_BIG_ENDIAN', 6: 'REG_LINK', 7: 'REG_MULTI_SZ', 11: 'REG_QWORD'}
@@ -49,32 +141,34 @@ class RegHandler:
         if options.hashes is not None:
             self.__lmhash, self.__nthash = options.hashes.split(':')
 
+    def connect(self, remoteName, remoteHost):
+        self.__smbConnection = SMBConnection(remoteName, remoteHost, sess_port=int(self.__options.port))
+
+        if self.__doKerberos:
+            self.__smbConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash,
+                                               self.__nthash, self.__aesKey, self.__kdcHost)
+        else:
+            self.__smbConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
+
     def run(self, remoteName, remoteHost):
-        # Try all requested protocols until one works.
-        stringbinding = r'ncacn_np:%s[\PIPE\winreg]' % remoteName
-
-        rpctransport = transport.DCERPCTransportFactory(stringbinding)
-        rpctransport.set_dport(int(self.__options.port))
-        rpctransport.setRemoteHost(remoteHost)
-
-        if hasattr(rpctransport, 'set_credentials'):
-            # This method exists only for selected protocol sequences.
-            rpctransport.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash,
-                                         self.__nthash, self.__aesKey)
-            rpctransport.set_kerberos(self.__doKerberos, self.__kdcHost)
+        self.connect(remoteName, remoteHost)
+        self.__remoteOps = RemoteOperations(self.__smbConnection, self.__doKerberos, self.__kdcHost)
 
         try:
-            dce = rpctransport.get_dce_rpc()
-            dce.connect()
-            dce.bind(rrp.MSRPC_UUID_RRP)
+            self.__remoteOps.enableRegistry()
+            dce = self.__remoteOps.getRRP()
+
             if self.__action == 'QUERY':
                 self.query(dce, self.__options.keyName)
             else:
                 logging.error('Method %s not implemented yet!' % self.__action)
-        except Exception, e:
-            import traceback
-            traceback.print_exc()
+        except (Exception, KeyboardInterrupt), e:
+            #import traceback
+            #traceback.print_exc()
             logging.critical(str(e))
+        finally:
+            if self.__remoteOps:
+                self.__remoteOps.finish()
 
     def query(self, dce, keyName):
         # Let's strip the root key
@@ -204,37 +298,37 @@ if __name__ == '__main__':
                                                                              'names recursively.')
 
     # An add command
-    add_parser = subparsers.add_parser('add', help='Adds a new subkey or entry to the registry')
+    #add_parser = subparsers.add_parser('add', help='Adds a new subkey or entry to the registry')
 
     # An delete command
-    delete_parser = subparsers.add_parser('delete', help='Deletes a subkey or entries from the registry')
+    #delete_parser = subparsers.add_parser('delete', help='Deletes a subkey or entries from the registry')
 
     # A copy command
-    copy_parser = subparsers.add_parser('copy', help='Copies a registry entry to a specified location in the remote '
-                                                       'computer')
+    #copy_parser = subparsers.add_parser('copy', help='Copies a registry entry to a specified location in the remote '
+    #                                                   'computer')
 
     # A save command
-    save_parser = subparsers.add_parser('save', help='Saves a copy of specified subkeys, entries, and values of the '
-                                                     'registry in a specified file.')
+    #save_parser = subparsers.add_parser('save', help='Saves a copy of specified subkeys, entries, and values of the '
+    #                                                 'registry in a specified file.')
 
     # A load command
-    load_parser = subparsers.add_parser('load', help='Writes saved subkeys and entries back to a different subkey in '
-                                                     'the registry.')
+    #load_parser = subparsers.add_parser('load', help='Writes saved subkeys and entries back to a different subkey in '
+    #                                                 'the registry.')
 
     # An unload command
-    unload_parser = subparsers.add_parser('unload', help='Removes a section of the registry that was loaded using the '
-                                                         'reg load operation.')
+    #unload_parser = subparsers.add_parser('unload', help='Removes a section of the registry that was loaded using the '
+    #                                                     'reg load operation.')
 
     # A compare command
-    compare_parser = subparsers.add_parser('compare', help='Compares specified registry subkeys or entries')
+    #compare_parser = subparsers.add_parser('compare', help='Compares specified registry subkeys or entries')
 
     # A export command
-    status_parser = subparsers.add_parser('export', help='Creates a copy of specified subkeys, entries, and values into'
-                                                         'a file')
+    #status_parser = subparsers.add_parser('export', help='Creates a copy of specified subkeys, entries, and values into'
+    #                                                     'a file')
 
     # A import command
-    import_parser = subparsers.add_parser('import', help='Copies a file containing exported registry subkeys, entries, '
-                                                         'and values into the remote computer\'s registry')
+    #import_parser = subparsers.add_parser('import', help='Copies a file containing exported registry subkeys, entries, '
+    #                                                     'and values into the remote computer\'s registry')
 
 
     group = parser.add_argument_group('authentication')
