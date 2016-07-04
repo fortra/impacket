@@ -1,15 +1,36 @@
+#!/usr/bin/python
+# Copyright (c) 2003-2016 CORE Security Technologies
+#
+# This software is provided under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
+# Description: Remote registry manipulation tool.
+#              The idea is to provide similar functionality as the REG.EXE Windows utility.
+#
+# e.g:
+#    ./reg.py Administrator:password@targetMachine query -keyName HKLM\\Software\\Microsoft\\WBEM -s
+#
+# Author:
+#  Manuel Porto (@manuporto)
+#  Alberto Solino (@agsolino)
+#
+# Reference for: [MS-RRP]
+#
 import argparse
 import codecs
 import logging
 import sys
+from struct import unpack
 
 from impacket import version
 from impacket.dcerpc.v5 import transport, rrp
 from impacket.examples import logger
+from impacket.system_errors import ERROR_NO_MORE_ITEMS
+from impacket.winregistry import hexdump
 
 
 class RegHandler:
-
     def __init__(self, username, password, domain, options):
         self.__username = username
         self.__password = password
@@ -22,101 +43,137 @@ class RegHandler:
         self.__doKerberos = options.k
         self.__kdcHost = options.dc_ip
         # It's possible that this is defined somewhere, but I couldn't find where
-        self.__regValues = {0: 'REG_NONE', 1: 'REG_SZ', 2: 'REG_EXPAND_SZ', 3: 'REG_BINARY', 4: 'REG_DWORD'}
-        self.__keyName = self.__options.name
+        self.__regValues = {0: 'REG_NONE', 1: 'REG_SZ', 2: 'REG_EXPAND_SZ', 3: 'REG_BINARY', 4: 'REG_DWORD',
+                            5: 'REG_DWORD_BIG_ENDIAN', 6: 'REG_LINK', 7: 'REG_MULTI_SZ', 11: 'REG_QWORD'}
 
         if options.hashes is not None:
             self.__lmhash, self.__nthash = options.hashes.split(':')
 
-    def run(self, addr):
+    def run(self, remoteName, remoteHost):
         # Try all requested protocols until one works.
-        stringbinding = r'ncacn_np:%s[\PIPE\winreg]' % addr
+        stringbinding = r'ncacn_np:%s[\PIPE\winreg]' % remoteName
 
         rpctransport = transport.DCERPCTransportFactory(stringbinding)
-        rpctransport.set_kerberos(self.__doKerberos, self.__kdcHost)
+        rpctransport.set_dport(int(self.__options.port))
+        rpctransport.setRemoteHost(remoteHost)
+
         if hasattr(rpctransport, 'set_credentials'):
             # This method exists only for selected protocol sequences.
             rpctransport.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash,
                                          self.__nthash, self.__aesKey)
+            rpctransport.set_kerberos(self.__doKerberos, self.__kdcHost)
 
         try:
-            self.do_stuff(rpctransport)
+            dce = rpctransport.get_dce_rpc()
+            dce.connect()
+            dce.bind(rrp.MSRPC_UUID_RRP)
+            if self.__action == 'QUERY':
+                self.query(dce, self.__options.keyName)
+            else:
+                logging.error('Method %s not implemented yet!' % self.__action)
         except Exception, e:
-            # import traceback
-            # traceback.print_exc()
+            import traceback
+            traceback.print_exc()
             logging.critical(str(e))
 
-    def do_stuff(self, rpctransport):
-        dce = rpctransport.get_dce_rpc()
-        dce.connect()
-        dce.bind(rrp.MSRPC_UUID_RRP)
-        rpc = dce
-        if self.__action == 'QUERY':
-            self.query(rpc, self.__options.name)
+    def query(self, dce, keyName):
+        # Let's strip the root key
+        try:
+            rootKey = keyName.split('\\')[0]
+            subKey = '\\'.join(keyName.split('\\')[1:])
+        except Exception:
+            raise Exception('Error parsing keyName %s' % keyName)
 
-    def query(self, rpc, key_name):
-        ans = rrp.hOpenLocalMachine(rpc)
-        ans2 = rrp.hBaseRegOpenKey(rpc, ans['phKey'], key_name, 1, rrp.MAXIMUM_ALLOWED | rrp.KEY_ENUMERATE_SUB_KEYS)
-        if self.__options.v:
-            print key_name
-            ans3 = rrp.hBaseRegQueryValue(rpc, ans2['phkResult'], self.__options.v)
-            print self.__options.v + '\t' + self.__regValues.get(ans3[0], 'KEY_NOT_FOUND') + '\t' + str(ans3[1])
-        elif self.__options.s:
-            self.__print_all_subkeys_and_entries(rpc, ans2['phkResult'], 0)
+        if rootKey.upper() == 'HKLM':
+            ans = rrp.hOpenLocalMachine(dce)
+        elif rootKey.upper() == 'HKU':
+            ans = rrp.hOpenCurrentUser(dce)
         else:
-            print key_name
-            self.__print_key_values(rpc, ans2['phkResult'])
+            raise Exception('Invalid root key %s ' % rootKey)
+
+        hRootKey = ans['phKey']
+
+        ans2 = rrp.hBaseRegOpenKey(dce, hRootKey, subKey, samDesired=rrp.MAXIMUM_ALLOWED | rrp.KEY_ENUMERATE_SUB_KEYS)
+
+        if self.__options.v:
+            print keyName
+            value = rrp.hBaseRegQueryValue(dce, ans2['phkResult'], self.__options.v)
+            print '\t' + self.__options.v + '\t' + self.__regValues.get(value[0], 'KEY_NOT_FOUND') + '\t', str(value[1])
+        elif self.__options.s:
+            self.__print_all_subkeys_and_entries(dce, subKey+'\\', ans2['phkResult'], 0)
+        else:
+            print keyName
+            self.__print_key_values(dce, ans2['phkResult'])
             i = 0
             while True:
                 try:
-                    key = rrp.hBaseRegEnumKey(rpc, ans2['phkResult'], i)
-                    print key_name + '\\' + key['lpNameOut']
+                    key = rrp.hBaseRegEnumKey(dce, ans2['phkResult'], i)
+                    print keyName + '\\' + key['lpNameOut']
                     i += 1
                 except Exception:
                     break
             # ans5 = rrp.hBaseRegGetVersion(rpc, ans2['phkResult'])
         # ans3 = rrp.hBaseRegEnumKey(rpc, ans2['phkResult'], 0)
 
-    def __print_key_values(self, rpc, key_handler):
+    def __print_key_values(self, rpc, keyHandler):
         i = 0
         while True:
             try:
-                ans4 = rrp.hBaseRegEnumValue(rpc, key_handler, i)
-                lp_value_name = ans4['lpValueNameOut']
+                ans4 = rrp.hBaseRegEnumValue(rpc, keyHandler, i)
+                lp_value_name = ans4['lpValueNameOut'][:-1]
+                if len(lp_value_name) == 0:
+                    lp_value_name = '(Default)'
                 lp_type = ans4['lpType']
-                lp_data = ans4['lpData']
-                data = self.__parse_lp_data(lp_type, lp_data)
-                print '\t' + lp_value_name + '\t' + self.__regValues.get(lp_type, 'KEY_NOT_FOUND') + '\t', data
+                lp_data = ''.join(ans4['lpData'])
+                print '\t' + lp_value_name + '\t' + self.__regValues.get(lp_type, 'KEY_NOT_FOUND') + '\t',
+                self.__parse_lp_data(lp_type, lp_data)
                 i += 1
-            except Exception, e:
-                # e.get_packet().dump()
-                # logging.critical(str(e))
-                break
+            except rrp.DCERPCSessionError, e:
+                if e.get_error_code() == ERROR_NO_MORE_ITEMS:
+                    break
 
-    def __print_all_subkeys_and_entries(self, rpc, key_handler, index):
+    def __print_all_subkeys_and_entries(self, rpc, keyName, keyHandler, index):
         try:
-            subkey = rrp.hBaseRegEnumKey(rpc, key_handler, index)
-            ans = rrp.hBaseRegOpenKey(rpc, key_handler, subkey['lpNameOut'], 1,
-                                      rrp.MAXIMUM_ALLOWED | rrp.KEY_ENUMERATE_SUB_KEYS)
-            self.__keyName += subkey['lpNameOut'] + '\\'
-            print self.__keyName
+            subkey = rrp.hBaseRegEnumKey(rpc, keyHandler, index)
+            ans = rrp.hBaseRegOpenKey(rpc, keyHandler, subkey['lpNameOut'],
+                                      samDesired=rrp.MAXIMUM_ALLOWED | rrp.KEY_ENUMERATE_SUB_KEYS)
+            keyName += subkey['lpNameOut'][:-1] + '\\'
+            print keyName
             self.__print_key_values(rpc, ans['phkResult'])
-            self.__print_all_subkeys_and_entries(rpc, ans['phkResult'], 0)
-            # name = self.__keyName[:self.__keyName.rfind('\\')]
-            # self.__keyName = name[:name.rfind('\\')]
-            self.__keyName = self.__options.name
-            self.__print_all_subkeys_and_entries(rpc, key_handler, index + 1)
-            # self.__keyName = self.__options.name
-        except:
-            return
+            self.__print_all_subkeys_and_entries(rpc, keyName, ans['phkResult'], 0)
+            self.__print_all_subkeys_and_entries(rpc, keyName, keyHandler, index + 1)
+        except rrp.DCERPCSessionError, e:
+            if e.get_error_code() == ERROR_NO_MORE_ITEMS:
+                return
 
-    def __parse_lp_data(self, lp_type, lp_data):
-        if self.__regValues.get(lp_type) == 'REG_DWORD':
-            return ord(lp_data[0])
-        elif self.__regValues.get(lp_type) == 'REG_BINARY':
-            j_data = ''.join(lp_data)
-            return ''.join('{:02x}'.format(ord(c)) for c in j_data)
-        return ''.join(lp_data)
+    @staticmethod
+    def __parse_lp_data(valueType, valueData):
+        if valueType == rrp.REG_SZ or valueType == rrp.REG_EXPAND_SZ:
+            if type(valueData) is int:
+                print 'NULL'
+            else:
+                print "%s" % (valueData.decode('utf-16le')[:-1])
+        elif valueType == rrp.REG_BINARY:
+            print ''
+            hexdump(valueData, '\t')
+        elif valueType == rrp. REG_DWORD:
+            print "0x%x" % (unpack('<L',valueData)[0])
+        elif valueType == rrp.REG_QWORD:
+            print "0x%x" % (unpack('<Q',valueData)[0])
+        elif valueType == rrp.REG_NONE:
+            try:
+                if len(valueData) > 1:
+                    print ''
+                    hexdump(valueData, '\t')
+                else:
+                    print " NULL"
+            except:
+                print " NULL"
+        elif valueType == rrp.REG_MULTI_SZ:
+            print "%s" % (valueData.decode('utf-16le')[:-2])
+        else:
+            print "Unkown Type 0x%x!" % valueType
+            hexdump(valueData)
 
 
 if __name__ == '__main__':
@@ -135,60 +192,50 @@ if __name__ == '__main__':
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     subparsers = parser.add_subparsers(help='actions', dest='action')
 
-    # An add command
-    start_parser = subparsers.add_parser('add', help='Adds a new subkey or entry to the registry.')
-    # start_parser.add_argument('-name', action='store', required=True, help='service name')
+    # A query command
+    query_parser = subparsers.add_parser('query', help='Returns a list of the next tier of subkeys and entries that '
+                                                        'are located under a specified subkey in the registry.')
+    query_parser.add_argument('-keyName', action='store', required=True, help='Specifies the full path of the subkey. The '
+                              'keyName must include a valid root key. Valid root keys for the local computer are: HKLM,'
+                              ' HKU.')
+    query_parser.add_argument('-v', action='store', metavar = "VALUENAME", required=False, help='Specifies the registry '
+                              'value name that is to be queried. If omitted, all value names for keyName are returned. ')
+    query_parser.add_argument('-s', action='store_true', default=False, help='Specifies to query all subkeys and value '
+                                                                             'names recursively.')
 
-    # A compare command
-    stop_parser = subparsers.add_parser('compare', help='Compares specified registry subkeys or entries')
-    # stop_parser.add_argument('-name', action='store', required=True, help='service name')
+    # An add command
+    add_parser = subparsers.add_parser('add', help='Adds a new subkey or entry to the registry')
+
+    # An delete command
+    delete_parser = subparsers.add_parser('delete', help='Deletes a subkey or entries from the registry')
 
     # A copy command
-    delete_parser = subparsers.add_parser('copy', help='Copies a registry entry to a specified location in the remote '
+    copy_parser = subparsers.add_parser('copy', help='Copies a registry entry to a specified location in the remote '
                                                        'computer')
-    # delete_parser.add_argument('-name', action='copy', required=True, help='service name')
-
-    # A export command
-    status_parser = subparsers.add_parser('export', help='Creates a copy of specified subkeys, entries, and values into'
-                                                         'a file')
-    # status_parser.add_argument('-name', action='store', required=True, help='service name')
-
-    # A import command
-    config_parser = subparsers.add_parser('import', help='Copies a file containing exported registry subkeys, entries, '
-                                                         'and values into the remote computer\'s registry')
-    # config_parser.add_argument('-name', action='store', required=True, help='service name')
-
-    # A load command
-    list_parser = subparsers.add_parser('load', help='Writes saved subkeys and entries back to a different subkey in '
-                                                     'the registry.')
-
-    # A query command
-    create_parser = subparsers.add_parser('query', help='Returns a list of the next tier of subkeys and entries that '
-                                                        'are located under a specified subkey in the registry.')
-    create_parser.add_argument('-name', action='store', required=True, help='Key name')
-    create_parser.add_argument('-v', action='store', required=False, help='Returns a specific entry and its value')
-    create_parser.add_argument('-s', action='store', required=False, help='Returns all subkeys and entries in all '
-                                                                          'tiers')
-
-    # A change command
-    # create_parser = subparsers.add_parser('restore', help='change a service configuration')
-    # create_parser.add_argument('-name', action='store', required=True, help='service name')
-    # create_parser.add_argument('-display', action='store', required=False, help='display name')
-    # create_parser.add_argument('-path', action='store', required=False, help='binary path')
-    # create_parser.add_argument('-service_type', action='store', required=False, help='service type')
-    # create_parser.add_argument('-start_type', action='store', required=False, help='service start type')
-    # create_parser.add_argument('-start_name', action='store', required=False,
-    #                            help='string that specifies the name of the account under which the service should run')
-    # create_parser.add_argument('-password', action='store', required=False,
-    #                            help='string that contains the password of the account whose name was specified by the start_name parameter')
 
     # A save command
     save_parser = subparsers.add_parser('save', help='Saves a copy of specified subkeys, entries, and values of the '
                                                      'registry in a specified file.')
 
+    # A load command
+    load_parser = subparsers.add_parser('load', help='Writes saved subkeys and entries back to a different subkey in '
+                                                     'the registry.')
+
     # An unload command
     unload_parser = subparsers.add_parser('unload', help='Removes a section of the registry that was loaded using the '
                                                          'reg load operation.')
+
+    # A compare command
+    compare_parser = subparsers.add_parser('compare', help='Compares specified registry subkeys or entries')
+
+    # A export command
+    status_parser = subparsers.add_parser('export', help='Creates a copy of specified subkeys, entries, and values into'
+                                                         'a file')
+
+    # A import command
+    import_parser = subparsers.add_parser('import', help='Copies a file containing exported registry subkeys, entries, '
+                                                         'and values into the remote computer\'s registry')
+
 
     group = parser.add_argument_group('authentication')
 
@@ -198,8 +245,16 @@ if __name__ == '__main__':
                        help='Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line')
     group.add_argument('-aesKey', action="store", metavar="hex key",
                        help='AES key to use for Kerberos Authentication (128 or 256 bits)')
+
+    group = parser.add_argument_group('connection')
+
     group.add_argument('-dc-ip', action='store', metavar="ip address",
                        help='IP Address of the domain controller. If ommited it use the domain part (FQDN) specified in the target parameter')
+    group.add_argument('-target-ip', action='store', metavar="ip address",
+                       help='IP Address of the target machine. If ommited it will use whatever was specified as target. '
+                            'This is useful when target is the NetBIOS name and you cannot resolve it')
+    group.add_argument('-port', choices=['139', '445'], nargs='?', default='445', metavar="destination port",
+                       help='Destination port to connect to SMB Server')
 
     if len(sys.argv) == 1:
         parser.print_help()
@@ -214,13 +269,16 @@ if __name__ == '__main__':
 
     import re
 
-    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
+    domain, username, password, remoteName = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
         options.target).groups('')
 
     # In case the password contains '@'
-    if '@' in address:
-        password = password + '@' + address.rpartition('@')[0]
-        address = address.rpartition('@')[2]
+    if '@' in remoteName:
+        password = password + '@' + remoteName.rpartition('@')[0]
+        remoteName = remoteName.rpartition('@')[2]
+
+    if options.target_ip is None:
+        options.target_ip = remoteName
 
     if domain is None:
         domain = ''
@@ -233,8 +291,8 @@ if __name__ == '__main__':
 
         password = getpass("Password:")
 
-    services = RegHandler(username, password, domain, options)
+    regHandler = RegHandler(username, password, domain, options)
     try:
-        services.run(address)
+        regHandler.run(remoteName, options.target_ip)
     except Exception, e:
         logging.error(str(e))
