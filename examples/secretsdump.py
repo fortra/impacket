@@ -2232,6 +2232,12 @@ class DumpSecrets:
             try:
                 self.__NTDSHashes.dump()
             except Exception, e:
+                if str(e).find('ERROR_DS_DRA_BAD_DN') >= 0:
+                    # We don't store the resume file if this error happened, since this error is related to lack
+                    # of enough privileges to access DRSUAPI.
+                    resumeFile = self.__NTDSHashes.getResumeSessionFile()
+                    if resumeFile is not None:
+                        os.unlink(resumeFile)
                 logging.error(e)
                 if self.__useVSSMethod is False:
                     logging.info('Something wen\'t wrong with the DRSUAPI approach. Try again with -use-vss parameter')
