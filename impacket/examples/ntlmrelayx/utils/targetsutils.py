@@ -24,7 +24,7 @@ from threading import Thread
 class TargetsProcessor():
     supported_protocols = ['SMB','HTTP','LDAP','MSSQL','LDAPS']
     def __init__(self,targetlistfile=None,singletarget=None):        
-        self.targetregex = re.compile(r'([a-zA-Z]+)://([a-zA-Z0-9\.\-_]+)(:[0-9]+)?/?(.*)?')
+        self.targetregex = re.compile(r'([a-zA-Z]+)://([a-zA-Z0-9\.\-_]+)(:[0-9]+)?/?(.+)?')
         self.targetipregex = re.compile(r'[a-zA-Z\.\-_0-9]+')
         self.clients_targets = {}
         if targetlistfile is None:
