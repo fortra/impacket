@@ -116,7 +116,8 @@ class SessionError(Exception):
 
 
 class SMB3:
-    def __init__(self, remote_name, remote_host, my_name = None, host_type = nmb.TYPE_SERVER, sess_port = 445, timeout=60, UDP = 0, preferredDialect = None, session = None):
+    def __init__(self, remote_name, remote_host, my_name=None, host_type=nmb.TYPE_SERVER, sess_port=445, timeout=60,
+                 UDP=0, preferredDialect=None, session=None):
 
         # [MS-SMB2] Section 3
         self.RequireMessageSigning = False    #
@@ -194,6 +195,8 @@ class SMB3:
         self._timeout = timeout
         self._Connection['ServerIP'] = remote_host
         self._NetBIOSSession = None
+        self._preferredDialect = preferredDialect
+        self._doKerberos = False
 
         self.__userName = ''
         self.__password = ''
@@ -238,6 +241,9 @@ class SMB3:
         print "SESSION"
         for i in self._Session.items():
             print "%-40s : %s" % i
+
+    def getKerberos(self):
+        return self._doKerberos
 
     def getServerName(self):
         return self._Session['ServerName']
@@ -288,7 +294,6 @@ class SMB3:
 
     def getDialect(self):
         return self._Connection['Dialect']
-
 
     def signSMB(self, packet):
         packet['Signature'] = '\x00'*16
@@ -510,6 +515,7 @@ class SMB3:
         self.__aesKey   = aesKey
         self.__TGT      = TGT
         self.__TGS      = TGS
+        self._doKerberos= True
        
         sessionSetup = SMB2SessionSetup()
         if self.RequireMessageSigning is True:

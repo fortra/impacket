@@ -2325,7 +2325,8 @@ class SMB:
     SMB_SUPPORT_SEARCH_BITS                 = 0x01
     SMB_SHARE_IS_IN_DFS                     = 0x02
 
-    def __init__(self, remote_name, remote_host, my_name = None, host_type = nmb.TYPE_SERVER, sess_port = 445, timeout=None, UDP = 0, session = None, negPacket = None):
+    def __init__(self, remote_name, remote_host, my_name=None, host_type=nmb.TYPE_SERVER, sess_port=445, timeout=None,
+                 UDP=0, session=None, negPacket=None):
         # The uid attribute will be set when the client calls the login() method
         self._uid = 0
         self.__server_name = ''
@@ -2341,6 +2342,8 @@ class SMB:
         self.__isNTLMv2 = True
         self._dialects_parameters = None
         self._dialects_data = None
+        self._doKerberos = False
+
         # Credentials
         self.__userName = ''
         self.__password = ''
@@ -2418,6 +2421,9 @@ class SMB:
     @staticmethod
     def ntlm_supported():
         return False
+
+    def getKerberos(self):
+        return self._doKerberos
 
     def get_remote_name(self):
         return self.__remote_name
@@ -3039,6 +3045,7 @@ class SMB:
         self.__kdc      = kdcHost
         self.__TGT      = TGT
         self.__TGS      = TGS
+        self._doKerberos= True
 
         # First of all, we need to get a TGT for the user
         userName = Principal(user, type=constants.PrincipalNameType.NT_PRINCIPAL.value)

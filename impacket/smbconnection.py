@@ -52,11 +52,20 @@ class SMBConnection:
         self._remoteHost    = remoteHost
         self._remoteName    = remoteName
         self._timeout       = timeout
+        self._preferredDialect = preferredDialect
+        self._existingConnection = existingConnection
+        self._manualNegotiate = manualNegotiate
+        self._doKerberos = False
+        self._kdcHost = None
+        self._useCache = True
+        self._ntlmFallback = True
 
         if existingConnection is not None:
             # Existing Connection must be a smb or smb3 instance
             assert ( isinstance(existingConnection,smb.SMB) or isinstance(existingConnection, smb3.SMB3))
             self._SMBConnection = existingConnection
+            self._preferredDialect = self._SMBConnection.getDialect()
+            self._doKerberos = self._SMBConnection.getKerberos()
             return
 
         ##preferredDialect = smb.SMB_DIALECT
@@ -239,6 +248,7 @@ class SMBConnection:
 
         :return: None, raises a Session Error if error.
         """
+        self._ntlmFallback = ntlmFallback
         try:
             if self.getDialect() == smb.SMB_DIALECT:
                 return self._SMBConnection.login(user, password, domain, lmhash, nthash, ntlmFallback)
@@ -270,6 +280,9 @@ class SMBConnection:
         from impacket.krb5.kerberosv5 import KerberosError
         from impacket.krb5 import constants
         from impacket.ntlm import compute_lmhash, compute_nthash
+
+        self._kdcHost = kdcHost
+        self._useCache = useCache
 
         if TGT is not None or TGS is not None:
             useCache = False
@@ -759,7 +772,7 @@ class SMBConnection:
 
     def rename(self, shareName, oldPath, newPath):
         """
-        rename a file/directory
+        renames a file/directory
 
         :param string shareName: name for the share where the files/directories are
         :param string oldPath: the old path name or the directory/file to rename
@@ -773,6 +786,24 @@ class SMBConnection:
             return self._SMBConnection.rename(shareName, oldPath, newPath)
         except (smb.SessionError, smb3.SessionError), e:
             raise SessionError(e.get_error_code())
+
+    def reconnect(self):
+        """
+        reconnects the SMB object based on the original options and credentials used. Only exception is that
+        manualNegotiate will not be honored.
+        Not only the connection will be created but also a login attempt using the original credentials and
+        method (Kerberos, PtH, etc)
+
+        :return: True, raises a SessionError exception if error
+        """
+        userName, password, domain, lmhash, nthash, aesKey, TGT, TGS = self.getCredentials()
+        self.negotiateSession(self._preferredDialect)
+        if self._doKerberos is True:
+            self.kerberosLogin(userName, password, domain, lmhash, nthash, aesKey, self._kdcHost, TGT, TGS, self._useCache)
+        else:
+            self.login(userName, password, domain, lmhash, nthash, self._ntlmFallback)
+
+        return True
 
     def setTimeout(self, timeout):
         try:

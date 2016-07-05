@@ -27,6 +27,32 @@ class SMBTests(unittest.TestCase):
             s = SMBConnection('*SMBSERVER', self.machine, preferredDialect = self.dialects)
         return s
 
+    def test_reconnect(self):
+        smb = self.create_connection()
+        smb.login(self.username, self.password, self.domain)
+        smb.listPath(self.share, '*')
+        smb.logoff()
+        smb.reconnect()
+        smb.listPath(self.share, '*')
+        smb.logoff()
+
+    def test_reconnectKerberosHashes(self):
+        lmhash, nthash = self.hashes.split(':')
+        smb = self.create_connection()
+        smb.kerberosLogin(self.username, '', self.domain, lmhash, nthash, '')
+        credentials = smb.getCredentials()
+        self.assertTrue( credentials == (self.username, '', self.domain, unhexlify(lmhash), unhexlify(nthash), '', None, None) )
+        UNC = '\\\\%s\\%s' % (self.machine, self.share)
+        tid = smb.connectTree(UNC)
+        smb.logoff()
+        smb.reconnect()
+        credentials = smb.getCredentials()
+        self.assertTrue(
+            credentials == (self.username, '', self.domain, unhexlify(lmhash), unhexlify(nthash), '', None, None))
+        UNC = '\\\\%s\\%s' % (self.machine, self.share)
+        tid = smb.connectTree(UNC)
+        smb.logoff()
+
     def test_connectTree(self):
         smb = self.create_connection()
         smb.login(self.username, self.password, self.domain)
