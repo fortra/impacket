@@ -440,7 +440,7 @@ class NetBIOS:
         self.__broadcastaddr = BROADCAST_ADDR
         self.mac = '00-00-00-00-00-00'
 
-    def _setup_connection(self, dstaddr):
+    def _setup_connection(self, dstaddr, timeout=None):
         port = randint(10000, 60000)
         af, socktype, proto, _canonname, _sa = socket.getaddrinfo(dstaddr, port, socket.AF_INET, socket.SOCK_DGRAM)[0]
         s = socket.socket(af, socktype, proto)
@@ -676,7 +676,8 @@ class NetBIOSSessionPacket:
         return self._trailer
         
 class NetBIOSSession:
-    def __init__(self, myname, remote_name, remote_host, remote_type = TYPE_SERVER, sess_port = NETBIOS_SESSION_PORT, timeout = None, local_type = TYPE_WORKSTATION, sock = None):
+    def __init__(self, myname, remote_name, remote_host, remote_type=TYPE_SERVER, sess_port=NETBIOS_SESSION_PORT,
+                 timeout=None, local_type=TYPE_WORKSTATION, sock=None):
         if len(myname) > 15:
             self.__myname = string.upper(myname[:15])
         else:
@@ -713,7 +714,7 @@ class NetBIOSSession:
             # We are acting as a server
             self._sock = sock
         else:
-            self._sock = self._setup_connection((remote_host, sess_port))
+            self._sock = self._setup_connection((remote_host, sess_port), timeout)
 
         if sess_port == NETBIOS_SESSION_PORT:
             self._request_session(remote_type, local_type, timeout)
@@ -827,20 +828,25 @@ class NetBIOSUDPSession(NetBIOSSession):
         return NetBIOSUDPSessionPacket(data)
 
 class NetBIOSTCPSession(NetBIOSSession):
-    def __init__(self, myname, remote_name, remote_host, remote_type = TYPE_SERVER, sess_port = NETBIOS_SESSION_PORT, timeout = None, local_type = TYPE_WORKSTATION, sock = None, select_poll = False):
+    def __init__(self, myname, remote_name, remote_host, remote_type=TYPE_SERVER, sess_port=NETBIOS_SESSION_PORT,
+                 timeout=None, local_type=TYPE_WORKSTATION, sock=None, select_poll=False):
         self.__select_poll = select_poll
         if self.__select_poll:
             self.read_function = self.polling_read
         else:
             self.read_function = self.non_polling_read
-        NetBIOSSession.__init__(self, myname, remote_name, remote_host, remote_type = remote_type, sess_port = sess_port, timeout = timeout, local_type = local_type, sock=sock)                
+        NetBIOSSession.__init__(self, myname, remote_name, remote_host, remote_type=remote_type, sess_port=sess_port,
+                                timeout=timeout, local_type=local_type, sock=sock)
 
 
-    def _setup_connection(self, peer):
+    def _setup_connection(self, peer, timeout=None):
         try:
             af, socktype, proto, canonname, sa = socket.getaddrinfo(peer[0], peer[1], 0, socket.SOCK_STREAM)[0]
             sock = socket.socket(af, socktype, proto)
+            oldtimeout = sock.gettimeout()
+            sock.settimeout(timeout)
             sock.connect(sa)
+            sock.settimeout(oldtimeout)
         except socket.error, e:
             raise socket.error("Connection error (%s:%s)" % (peer[0], peer[1]), e)
         return sock
