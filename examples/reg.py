@@ -25,7 +25,7 @@ import time
 from struct import unpack
 
 from impacket import version
-from impacket.dcerpc.v5 import transport, rrp, scmr
+from impacket.dcerpc.v5 import transport, rrp, scmr, rpcrt
 from impacket.examples import logger
 from impacket.system_errors import ERROR_NO_MORE_ITEMS
 from impacket.winregistry import hexdump
@@ -243,6 +243,10 @@ class RegHandler:
             self.__print_all_subkeys_and_entries(rpc, keyName, keyHandler, index + 1)
         except rrp.DCERPCSessionError, e:
             if e.get_error_code() == ERROR_NO_MORE_ITEMS:
+                return
+        except rpcrt.DCERPCException,e:
+            if str(e).find('access_denied')>=0:
+                logging.error('Cannot access subkey %s, bypassing it' % subkey['lpNameOut'])
                 return
 
     @staticmethod
