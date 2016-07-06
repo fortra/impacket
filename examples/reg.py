@@ -60,7 +60,7 @@ class RemoteOperations:
         self.__scmr.connect()
         self.__scmr.bind(scmr.MSRPC_UUID_SCMR)
 
-    def __connectWinReg(self):
+    def connectWinReg(self):
         rpc = transport.DCERPCTransportFactory(self.__stringBindingWinReg)
         rpc.set_smb_connection(self.__smbConnection)
         self.__rrp = rpc.get_dce_rpc()
@@ -99,9 +99,9 @@ class RemoteOperations:
             time.sleep(1)
 
     def enableRegistry(self):
+        self.connectWinReg()
         self.__connectSvcCtl()
         self.__checkServiceStatus()
-        self.__connectWinReg()
 
     def __restore(self):
         # First of all stop the service if it was originally stopped
@@ -156,6 +156,11 @@ class RegHandler:
 
         try:
             self.__remoteOps.enableRegistry()
+        except Exception, e:
+            logging.debug(str(e))
+            self.__remoteOps.connectWinReg()
+
+        try:
             dce = self.__remoteOps.getRRP()
 
             if self.__action == 'QUERY':
