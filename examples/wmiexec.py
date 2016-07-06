@@ -239,9 +239,11 @@ class RemoteShell(cmd.Cmd):
                     # Output not finished, let's wait
                     time.sleep(1)
                     pass
-                else:
-                    #print str(e)
-                    pass 
+                elif str(e).find('Broken') >= 0:
+                    # The SMB Connection might have timed out, let's try reconnecting
+                    logging.debug('Connection broken, trying to recreate it')
+                    self.__transferClient.reconnect()
+                    return self.get_output()
         self.__transferClient.deleteFile(self.__share, self.__output)
 
     def execute_remote(self, data):
