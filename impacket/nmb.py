@@ -606,7 +606,7 @@ def encode_name(name, type, scope):
             encoded_scope = encoded_scope + chr(len(s)) + s
         return encoded_name + encoded_scope + '\0'
     else:
-        return encoded_name + '\0'
+        return encoded_name.encode('ascii') + '\0'
 
 # Internal method for use in encode_name()
 def _do_first_level_encoding(m):
