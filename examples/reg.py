@@ -236,17 +236,17 @@ class RegHandler:
             subkey = rrp.hBaseRegEnumKey(rpc, keyHandler, index)
             ans = rrp.hBaseRegOpenKey(rpc, keyHandler, subkey['lpNameOut'],
                                       samDesired=rrp.MAXIMUM_ALLOWED | rrp.KEY_ENUMERATE_SUB_KEYS)
-            keyName += subkey['lpNameOut'][:-1] + '\\'
-            print keyName
+            newKeyName = keyName + subkey['lpNameOut'][:-1] + '\\'
+            print newKeyName
             self.__print_key_values(rpc, ans['phkResult'])
-            self.__print_all_subkeys_and_entries(rpc, keyName, ans['phkResult'], 0)
+            self.__print_all_subkeys_and_entries(rpc, newKeyName, ans['phkResult'], 0)
             self.__print_all_subkeys_and_entries(rpc, keyName, keyHandler, index + 1)
         except rrp.DCERPCSessionError, e:
             if e.get_error_code() == ERROR_NO_MORE_ITEMS:
                 return
         except rpcrt.DCERPCException,e:
             if str(e).find('access_denied')>=0:
-                logging.error('Cannot access subkey %s, bypassing it' % subkey['lpNameOut'])
+                logging.error('Cannot access subkey %s, bypassing it' % subkey['lpNameOut'][:-1])
                 return
 
     @staticmethod
