@@ -99,9 +99,9 @@ class RemoteOperations:
             time.sleep(1)
 
     def enableRegistry(self):
-        self.connectWinReg()
         self.__connectSvcCtl()
         self.__checkServiceStatus()
+        self.connectWinReg()
 
     def __restore(self):
         # First of all stop the service if it was originally stopped
@@ -157,6 +157,8 @@ class RegHandler:
         try:
             self.__remoteOps.enableRegistry()
         except Exception, e:
+            print str(e)
+            logging.warning('Cannot check RemoteRegistry status. Hoping it is started...')
             logging.debug(str(e))
             self.__remoteOps.connectWinReg()
 
