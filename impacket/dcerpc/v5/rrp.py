@@ -24,7 +24,7 @@ from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRPOINTER, NDRUniConform
 from impacket.dcerpc.v5.dtypes import DWORD, UUID, ULONG, LPULONG, BOOLEAN, SECURITY_INFORMATION, PFILETIME, \
     RPC_UNICODE_STRING, FILETIME, NULL, MAXIMUM_ALLOWED, OWNER_SECURITY_INFORMATION, PWCHAR, PRPC_UNICODE_STRING
 from impacket.dcerpc.v5.rpcrt import DCERPCException
-from impacket import system_errors
+from impacket import system_errors, LOG
 from impacket.uuid import uuidtup_to_bin
 
 MSRPC_UUID_RRP = uuidtup_to_bin(('338CD001-2244-31F1-AAAA-900038001003', '1.0'))
@@ -794,22 +794,32 @@ def hBaseRegEnumKey(dce, hKey, dwIndex, lpftLastWriteTime = NULL):
 
     return dce.request(request)
 
-def hBaseRegEnumValue(dce, hKey, dwIndex, dataLen=128):
+def hBaseRegEnumValue(dce, hKey, dwIndex, dataLen=256):
     request = BaseRegEnumValue()
     request['hKey'] = hKey
     request['dwIndex'] = dwIndex
+    retries = 1
 
     # We need to be aware the size might not be enough, so let's catch ERROR_MORE_DATA exception
     while True:
         try:
-            request['lpValueNameIn'] = ' ' * dataLen
+            # Only the maximum length field of the lpValueNameIn is used to determine the buffer length to be allocated
+            # by the service. Specify a string with a zero length but maximum length set to the largest buffer size
+            # needed to hold the value names.
+            request.fields['lpValueNameIn'].fields['MaximumLength'] = dataLen*2
+            request.fields['lpValueNameIn'].fields['Data'].fields['Data'].fields['MaximumCount'] = dataLen
+
             request['lpData'] = ' ' * dataLen
             request['lpcbData'] = dataLen
             request['lpcbLen'] = dataLen
             resp = dce.request(request)
         except DCERPCSessionError, e:
+            if retries > 1:
+                LOG.debug('Too many retries when calling hBaseRegEnumValue, aborting')
+                raise
             if e.get_error_code() == system_errors.ERROR_MORE_DATA:
                 # We need to adjust the size
+                retries +=1
                 dataLen = e.get_packet()['lpcbData']
                 continue
             else:
@@ -867,6 +877,7 @@ def hBaseRegQueryValue(dce, hKey, lpValueName, dataLen=512):
     request = BaseRegQueryValue()
     request['hKey'] = hKey
     request['lpValueName'] = checkNullString(lpValueName)
+    retries = 1
 
     # We need to be aware the size might not be enough, so let's catch ERROR_MORE_DATA exception
     while True:
@@ -876,6 +887,9 @@ def hBaseRegQueryValue(dce, hKey, lpValueName, dataLen=512):
             request['lpcbLen'] = dataLen
             resp = dce.request(request)
         except DCERPCSessionError, e:
+            if retries > 1:
+                LOG.debug('Too many retries when calling hBaseRegQueryValue, aborting')
+                raise
             if e.get_error_code() == system_errors.ERROR_MORE_DATA:
                 # We need to adjust the size
                 dataLen = e.get_packet()['lpcbData']
