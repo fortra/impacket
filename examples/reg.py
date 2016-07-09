@@ -209,7 +209,7 @@ class RegHandler:
             while True:
                 try:
                     key = rrp.hBaseRegEnumKey(dce, ans2['phkResult'], i)
-                    print keyName + '\\' + key['lpNameOut']
+                    print keyName + '\\' + key['lpNameOut'][:-1]
                     i += 1
                 except Exception:
                     break
@@ -234,51 +234,63 @@ class RegHandler:
                     break
 
     def __print_all_subkeys_and_entries(self, rpc, keyName, keyHandler, index):
-        try:
-            subkey = rrp.hBaseRegEnumKey(rpc, keyHandler, index)
-            ans = rrp.hBaseRegOpenKey(rpc, keyHandler, subkey['lpNameOut'],
+        index = 0
+        while True:
+            try:
+                subkey = rrp.hBaseRegEnumKey(rpc, keyHandler, index)
+                index +=1
+                ans = rrp.hBaseRegOpenKey(rpc, keyHandler, subkey['lpNameOut'],
                                       samDesired=rrp.MAXIMUM_ALLOWED | rrp.KEY_ENUMERATE_SUB_KEYS)
-            newKeyName = keyName + subkey['lpNameOut'][:-1] + '\\'
-            print newKeyName
-            self.__print_key_values(rpc, ans['phkResult'])
-            self.__print_all_subkeys_and_entries(rpc, newKeyName, ans['phkResult'], 0)
-            self.__print_all_subkeys_and_entries(rpc, keyName, keyHandler, index + 1)
-        except rrp.DCERPCSessionError, e:
-            if e.get_error_code() == ERROR_NO_MORE_ITEMS:
-                return
-        except rpcrt.DCERPCException,e:
-            if str(e).find('access_denied')>=0:
-                logging.error('Cannot access subkey %s, bypassing it' % subkey['lpNameOut'][:-1])
-                return
+                newKeyName = keyName + subkey['lpNameOut'][:-1] + '\\'
+                print newKeyName
+                self.__print_key_values(rpc, ans['phkResult'])
+                self.__print_all_subkeys_and_entries(rpc, newKeyName, ans['phkResult'], 0)
+            except rrp.DCERPCSessionError, e:
+                if e.get_error_code() == ERROR_NO_MORE_ITEMS:
+                    break
+            except rpcrt.DCERPCException,e:
+                if str(e).find('access_denied')>=0:
+                    logging.error('Cannot access subkey %s, bypassing it' % subkey['lpNameOut'][:-1])
+                    continue
+                elif str(e).find('rpc_x_bad_stub_data')>=0:
+                    logging.error('Fault call, cannot retrieve value for %s, bypassing it' % subkey['lpNameOut'][:-1])
+                    return
+                raise
 
     @staticmethod
     def __parse_lp_data(valueType, valueData):
-        if valueType == rrp.REG_SZ or valueType == rrp.REG_EXPAND_SZ:
-            if type(valueData) is int:
-                print 'NULL'
-            else:
-                print "%s" % (valueData.decode('utf-16le')[:-1])
-        elif valueType == rrp.REG_BINARY:
-            print ''
-            hexdump(valueData, '\t')
-        elif valueType == rrp. REG_DWORD:
-            print "0x%x" % (unpack('<L',valueData)[0])
-        elif valueType == rrp.REG_QWORD:
-            print "0x%x" % (unpack('<Q',valueData)[0])
-        elif valueType == rrp.REG_NONE:
-            try:
-                if len(valueData) > 1:
-                    print ''
-                    hexdump(valueData, '\t')
+        try:
+            if valueType == rrp.REG_SZ or valueType == rrp.REG_EXPAND_SZ:
+                if type(valueData) is int:
+                    print 'NULL'
                 else:
+                    print "%s" % (valueData.decode('utf-16le')[:-1])
+            elif valueType == rrp.REG_BINARY:
+                print ''
+                hexdump(valueData, '\t')
+            elif valueType == rrp. REG_DWORD:
+                print "0x%x" % (unpack('<L',valueData)[0])
+            elif valueType == rrp.REG_QWORD:
+                print "0x%x" % (unpack('<Q',valueData)[0])
+            elif valueType == rrp.REG_NONE:
+                try:
+                    if len(valueData) > 1:
+                        print ''
+                        hexdump(valueData, '\t')
+                    else:
+                        print " NULL"
+                except:
                     print " NULL"
-            except:
-                print " NULL"
-        elif valueType == rrp.REG_MULTI_SZ:
-            print "%s" % (valueData.decode('utf-16le')[:-2])
-        else:
-            print "Unkown Type 0x%x!" % valueType
-            hexdump(valueData)
+            elif valueType == rrp.REG_MULTI_SZ:
+                print "%s" % (valueData.decode('utf-16le')[:-2])
+            else:
+                print "Unkown Type 0x%x!" % valueType
+                hexdump(valueData)
+        except Exception, e:
+            logging.debug('Exception thrown when printing reg value %s', str(e))
+            print 'Invalid data'
+            pass
+
 
 
 if __name__ == '__main__':
