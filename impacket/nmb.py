@@ -126,6 +126,12 @@ NAME_FLAGS_ACT = 0x0400       # Active Name Flag.  All entries have this flag se
 NAME_FLAG_CNF  = 0x0800       # Conflict Flag.  If one (1) then name on this node is in conflict.
 NAME_FLAG_DRG  = 0x1000       # Deregister Flag.  If one (1) then this name is in the process of being deleted.
 
+# NB_FLAGS
+NB_FLAGS_ONT_B = 0
+NB_FLAGS_ONT_P = 1 << 13
+NB_FLAGS_ONT_M = 2 << 13
+NB_FLAGS_G     = 1 << 15
+
 NAME_TYPES = {TYPE_UNKNOWN: 'Unknown', TYPE_WORKSTATION: 'Workstation', TYPE_CLIENT: 'Client',
               TYPE_SERVER: 'Server', TYPE_DOMAIN_MASTER: 'Domain Master', TYPE_DOMAIN_CONTROLLER: 'Domain Controller',
               TYPE_MASTER_BROWSER: 'Master Browser', TYPE_BROWSER: 'Browser Server', TYPE_NETDDE: 'NetDDE Server',
@@ -191,11 +197,14 @@ ERRCLASS_QUERY = 0x00
 ERRCLASS_SESSION = 0xf0
 ERRCLASS_OS = 0xff
 
-QUERY_ERRORS = {0x01: 'Request format error. Please file a bug report.',
-                0x02: 'Internal server error',
+QUERY_ERRORS = {0x01: 'Format Error. Request was invalidly formatted',
+                0x02: 'Server failure. Problem with NBNS, cannot process name.',
                 0x03: 'Name does not exist',
-                0x04: 'Unsupported request',
-                0x05: 'Request refused'
+                0x04: 'Unsupported request error.  Allowable only for challenging NBNS when gets an Update type registration request.',
+                0x05: 'Refused error.  For policy reasons server will not register this name from this host.',
+                0x06: 'Active error.  Name is owned by another node.',
+                0x07: 'Name in conflict error.  A UNIQUE name is owned by more than one node.',
+
                 }
 
 SESSION_ERRORS = {0x80: 'Not listening on called name',
@@ -205,7 +214,35 @@ SESSION_ERRORS = {0x80: 'Not listening on called name',
                   0x8f: 'Unspecified error'
                   }
 
-class NetBIOSError(Exception): pass
+class NetBIOSError(Exception):
+    def __init__(self, error_message='', error_class=None, error_code=None):
+        self.error_class = error_class
+        self.error_code = error_code
+        self.error_msg = error_message
+
+    def get_error_code(self):
+        return self.error
+
+    def getErrorCode(self):
+        return self.get_error_code()
+
+    def get_error_string(self):
+        return str(self)
+
+    def getErrorString(self):
+        return str(self)
+
+    def __str__(self):
+        if self.error_code is not None:
+            if QUERY_ERRORS.has_key(self.error_code):
+                return '%s-%s(%s)' % (self.error_msg, QUERY_ERRORS[self.error_code], self.error_code)
+            elif SESSION_ERRORS.has_key(self.error_code):
+                return '%s-%s(%s)' % (self.error_msg, SESSION_ERRORS[self.error_code], self.error_code)
+            else:
+                return '%s(%s)' % (self.error_msg, self.error_code)
+        else:
+            return '%s' % self.error_msg
+
 class NetBIOSTimeout(Exception):
     def __init__(self, message = 'The NETBIOS connection with the remote host timed out.'):
         Exception.__init__(self, message)
@@ -309,11 +346,11 @@ class NAME_REGISTRATION_REQUEST(NAME_SERVICE_PACKET):
         ('TTL', '>L=0'),
         ('RDLENGTH', '>H=6'),
         ('NB_FLAGS', '>H=0'),
-        ('NB_ADDRESS', '>L=0'),
+        ('NB_ADDRESS', '4s=""'),
     )
     def __init__(self, data=None):
         NAME_SERVICE_PACKET.__init__(self,data)
-        self['FLAGS'] = OPCODE_REQUEST | NM_FLAGS_RD
+        self['FLAGS'] = OPCODE_REQUEST | NM_FLAGS_RD | OPCODE_REGISTRATION
         self['QDCOUNT'] = 1
         self['ANCOUNT'] = 0
         self['NSCOUNT'] = 0
@@ -456,6 +493,37 @@ class NetBIOS:
             raise NetBIOSError, ('Cannot bind to a good UDP port', ERRCLASS_OS, errno.EAGAIN)
         self.__sock = s
 
+    def send(self, request, destaddr, timeout):
+        self._setup_connection(destaddr)
+
+        tries = 3
+        while 1:
+            try:
+                self.__sock.sendto(request.getData(), 0, (destaddr, self.__servport))
+                ready, _, _ = select.select([self.__sock.fileno()], [], [], timeout)
+                if not ready:
+                    if tries:
+                        # Retry again until tries == 0
+                        tries -= 1
+                    else:
+                        raise NetBIOSTimeout
+                else:
+                    try:
+                        data, _ = self.__sock.recvfrom(65536, 0)
+                    except Exception, e:
+                        raise NetBIOSError, "recvfrom error: %s" % str(e)
+                    self.__sock.close()
+                    res = NAME_SERVICE_PACKET(data)
+                    if res['NAME_TRN_ID'] == request['NAME_TRN_ID']:
+                        if (res['FLAGS'] & 0xf) > 0:
+                            raise NetBIOSError, ('Negative response', ERRCLASS_QUERY, res['FLAGS'] & 0xf)
+                        return res
+            except select.error, ex:
+                if ex[0] != errno.EINTR and ex[0] != errno.EAGAIN:
+                    raise NetBIOSError, ('Error occurs while waiting for response', ERRCLASS_OS, ex[0])
+            except socket.error, ex:
+                raise NetBIOSError, 'Connection error: %s' % str(ex)
+
     # Set the default NetBIOS domain nameserver.
     def set_nameserver(self, nameserver):
         self.__nameserver = nameserver
@@ -497,8 +565,26 @@ class NetBIOS:
     def getmacaddress(self):
         return self.mac
 
-    def name_query_request(self, nbname, destaddr, qtype, scope, timeout, retries=0):
-        self._setup_connection(destaddr)
+    def name_registration_request(self, nbname, destaddr, qtype, scope, nb_flags=0, nb_address='0.0.0.0'):
+        netbios_name = nbname.upper()
+        qn_label = encode_name(netbios_name, qtype, scope)
+
+        p = NAME_REGISTRATION_REQUEST()
+        p['NAME_TRN_ID'] = randint(1, 32000)
+        p['QUESTION_NAME'] = qn_label[:-1]
+        p['RR_NAME'] = qn_label[:-1]
+        p['TTL'] = 0xffff
+        p['NB_FLAGS'] = nb_flags
+        p['NB_ADDRESS'] = socket.inet_aton(nb_address)
+        if not destaddr:
+            p['FLAGS'] |= NM_FLAGS_BROADCAST
+            destaddr = self.__broadcastaddr
+        req = p.getData()
+
+        res = self.send(p, destaddr, 1)
+        print res
+
+    def name_query_request(self, nbname, destaddr = None, qtype = TYPE_SERVER, scope = None, timeout = 1):
         netbios_name = nbname.upper()
         qn_label = encode_name(netbios_name, qtype, scope)
 
@@ -512,39 +598,10 @@ class NetBIOS:
             destaddr = self.__broadcastaddr
         req = p.getData()
 
-        tries = retries
-        while 1:
-            self.__sock.sendto(req, (destaddr, self.__servport))
-            try:
-                ready, _, _ = select.select([self.__sock.fileno()], [], [], timeout)
-                if not ready:
-                    if tries:
-                        # Retry again until tries == 0
-                        tries -= 1
-                    else:
-                        raise NetBIOSTimeout
-                else:
-                    data, _ = self.__sock.recvfrom(65536, 0)
-
-                    res = NAME_SERVICE_PACKET(data)
-                    if res['NAME_TRN_ID'] == p['NAME_TRN_ID']:
-                        if (res['FLAGS'] & 0xf) > 0:
-                            if (res['FLAGS'] & 0xf) == 0x03:
-                                return None
-                            else:
-                                raise NetBIOSError, ('Negative name query response', ERRCLASS_QUERY, res['FLAGS'] & 0xf)
-
-                        if res['ANCOUNT'] != 1:
-                            raise NetBIOSError('Malformed response')
-
-                        return NBPositiveNameQueryResponse(res['ANSWERS'])
-            except select.error, ex:
-                if ex[0] != errno.EINTR and ex[0] != errno.EAGAIN:
-                    raise NetBIOSError, ('Error occurs while waiting for response', ERRCLASS_OS, ex[0])
-                raise
+        res = self.send(p, destaddr, timeout)
+        return NBPositiveNameQueryResponse(res['ANSWERS'])
 
     def node_status_request(self, nbname, destaddr, type, scope, timeout):
-        self._setup_connection(destaddr)
         netbios_name = string.upper(nbname)
         qn_label = encode_name(netbios_name, type, scope)
         p = NODE_STATUS_REQUEST()
@@ -554,41 +611,11 @@ class NetBIOS:
         if not destaddr:
             p['FLAGS'] = NM_FLAGS_BROADCAST
             destaddr = self.__broadcastaddr
-        req = p.getData()
-        tries = 3
-        while 1:
-            try:
-                self.__sock.sendto(req, 0, (destaddr, self.__servport))
-                ready, _, _ = select.select([self.__sock.fileno()], [], [], timeout)
-                if not ready:
-                    if tries:
-                        # Retry again until tries == 0
-                        tries -= 1
-                    else:
-                        raise NetBIOSTimeout
-                else:
-                    try:
-                        data, _ = self.__sock.recvfrom(65536, 0)
-                    except Exception, e:
-                        raise NetBIOSError, "recvfrom error: %s" % str(e)
-                    self.__sock.close()
-                    res = NAME_SERVICE_PACKET(data)
-                    if res['NAME_TRN_ID'] == p['NAME_TRN_ID']:
-                        if (res['FLAGS'] & 0xf) > 0:
-                            if (res['FLAGS'] & 0xf) == 0x03:
-                                # I'm just guessing here
-                                raise NetBIOSError, "Cannot get data from server"
-                            else:
-                                raise NetBIOSError, ('Negative name query response', ERRCLASS_QUERY, res['FLAGS'] & 0xf)
 
-                        answ = NBNodeStatusResponse(res['ANSWERS'])
-                        self.mac = answ.get_mac()
-                        return answ.entries
-            except select.error, ex:
-                if ex[0] != errno.EINTR and ex[0] != errno.EAGAIN:
-                    raise NetBIOSError, ('Error occurs while waiting for response', ERRCLASS_OS, ex[0])
-            except socket.error, ex:
-                raise NetBIOSError, 'Connection error: %s' % str(ex)
+        res = self.send(p, destaddr, timeout)
+        answ = NBNodeStatusResponse(res['ANSWERS'])
+        self.mac = answ.get_mac()
+        return answ.entries
 
 ################################################################################
 # 4.2 SESSION SERVICE PACKETS
