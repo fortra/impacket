@@ -25,6 +25,20 @@ class NMBTests(unittest.TestCase):
         resp = n.gethostbyname(self.serverName, nmb.TYPE_SERVER)
         print resp.entries
 
+    def test_name_registration_request(self):
+        n = nmb.NetBIOS()
+        # ToDo: Look at this
+        #resp = n.name_registration_request('*SMBSERVER', self.serverName, nmb.TYPE_WORKSTATION, None,nmb.NB_FLAGS_G, '1.1.1.1')
+        resp = n.name_registration_request('*JSMBSERVER', self.serverName, nmb.TYPE_WORKSTATION, None,nmb.NB_FLAGS_ONT_P, '1.1.1.2')
+        resp.dump()
+
+    def test_name_query_request(self):
+        n = nmb.NetBIOS()
+        # ToDo: Look at this
+        # resp = n.name_registration_request('*SMBSERVER', self.serverName, nmb.TYPE_WORKSTATION, None,nmb.NB_FLAGS_G, '1.1.1.1')
+        resp = n.name_query_request(self.serverName, self.machine)
+        print resp.entries
+
 class NetBIOSTests(NMBTests):
     def setUp(self):
         NMBTests.setUp(self)

@@ -582,7 +582,7 @@ class NetBIOS:
         req = p.getData()
 
         res = self.send(p, destaddr, 1)
-        print res
+        return res
 
     def name_query_request(self, nbname, destaddr = None, qtype = TYPE_SERVER, scope = None, timeout = 1):
         netbios_name = nbname.upper()
