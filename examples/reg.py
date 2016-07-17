@@ -31,10 +31,11 @@ from impacket.system_errors import ERROR_NO_MORE_ITEMS
 from impacket.winregistry import hexdump
 from impacket.smbconnection import SMBConnection
 
+
 class RemoteOperations:
     def __init__(self, smbConnection, doKerberos, kdcHost=None):
         self.__smbConnection = smbConnection
-        self.__smbConnection.setTimeout(5*60)
+        self.__smbConnection.setTimeout(5 * 60)
         self.__serviceName = 'RemoteRegistry'
         self.__stringBindingWinReg = r'ncacn_np:445[\pipe\winreg]'
         self.__rrp = None
@@ -77,25 +78,25 @@ class RemoteOperations:
         # Let's check its status
         ans = scmr.hRQueryServiceStatus(self.__scmr, self.__serviceHandle)
         if ans['lpServiceStatus']['dwCurrentState'] == scmr.SERVICE_STOPPED:
-            logging.info('Service %s is in stopped state'% self.__serviceName)
+            logging.info('Service %s is in stopped state' % self.__serviceName)
             self.__shouldStop = True
             self.__started = False
         elif ans['lpServiceStatus']['dwCurrentState'] == scmr.SERVICE_RUNNING:
-            logging.debug('Service %s is already running'% self.__serviceName)
+            logging.debug('Service %s is already running' % self.__serviceName)
             self.__shouldStop = False
-            self.__started  = True
+            self.__started = True
         else:
             raise Exception('Unknown service state 0x%x - Aborting' % ans['CurrentState'])
 
         # Let's check its configuration if service is stopped, maybe it's disabled :s
         if self.__started is False:
-            ans = scmr.hRQueryServiceConfigW(self.__scmr,self.__serviceHandle)
+            ans = scmr.hRQueryServiceConfigW(self.__scmr, self.__serviceHandle)
             if ans['lpServiceConfig']['dwStartType'] == 0x4:
-                logging.info('Service %s is disabled, enabling it'% self.__serviceName)
+                logging.info('Service %s is disabled, enabling it' % self.__serviceName)
                 self.__disabled = True
-                scmr.hRChangeServiceConfigW(self.__scmr, self.__serviceHandle, dwStartType = 0x3)
+                scmr.hRChangeServiceConfigW(self.__scmr, self.__serviceHandle, dwStartType=0x3)
             logging.info('Starting service %s' % self.__serviceName)
-            scmr.hRStartServiceW(self.__scmr,self.__serviceHandle)
+            scmr.hRStartServiceW(self.__scmr, self.__serviceHandle)
             time.sleep(1)
 
     def enableRegistry(self):
@@ -110,7 +111,7 @@ class RemoteOperations:
             scmr.hRControlService(self.__scmr, self.__serviceHandle, scmr.SERVICE_CONTROL_STOP)
         if self.__disabled is True:
             logging.info('Restoring the disabled state for service %s' % self.__serviceName)
-            scmr.hRChangeServiceConfigW(self.__scmr, self.__serviceHandle, dwStartType = 0x4)
+            scmr.hRChangeServiceConfigW(self.__scmr, self.__serviceHandle, dwStartType=0x4)
 
     def finish(self):
         self.__restore()
@@ -118,6 +119,7 @@ class RemoteOperations:
             self.__rrp.disconnect()
         if self.__scmr is not None:
             self.__scmr.disconnect()
+
 
 class RegHandler:
     def __init__(self, username, password, domain, options):
@@ -157,9 +159,8 @@ class RegHandler:
         try:
             self.__remoteOps.enableRegistry()
         except Exception, e:
-            print str(e)
-            logging.warning('Cannot check RemoteRegistry status. Hoping it is started...')
             logging.debug(str(e))
+            logging.warning('Cannot check RemoteRegistry status. Hoping it is started...')
             self.__remoteOps.connectWinReg()
 
         try:
@@ -170,8 +171,8 @@ class RegHandler:
             else:
                 logging.error('Method %s not implemented yet!' % self.__action)
         except (Exception, KeyboardInterrupt), e:
-            #import traceback
-            #traceback.print_exc()
+            # import traceback
+            # traceback.print_exc()
             logging.critical(str(e))
         finally:
             if self.__remoteOps:
@@ -194,14 +195,19 @@ class RegHandler:
 
         hRootKey = ans['phKey']
 
-        ans2 = rrp.hBaseRegOpenKey(dce, hRootKey, subKey, samDesired=rrp.MAXIMUM_ALLOWED | rrp.KEY_ENUMERATE_SUB_KEYS)
+        ans2 = rrp.hBaseRegOpenKey(dce, hRootKey, subKey,
+                                   samDesired=rrp.MAXIMUM_ALLOWED | rrp.KEY_ENUMERATE_SUB_KEYS | rrp.KEY_QUERY_VALUE)
 
         if self.__options.v:
             print keyName
             value = rrp.hBaseRegQueryValue(dce, ans2['phkResult'], self.__options.v)
             print '\t' + self.__options.v + '\t' + self.__regValues.get(value[0], 'KEY_NOT_FOUND') + '\t', str(value[1])
+        elif self.__options.ve:
+            print keyName
+            value = rrp.hBaseRegQueryValue(dce, ans2['phkResult'], '')
+            print '\t' + '(Default)' + '\t' + self.__regValues.get(value[0], 'KEY_NOT_FOUND') + '\t', str(value[1])
         elif self.__options.s:
-            self.__print_all_subkeys_and_entries(dce, subKey+'\\', ans2['phkResult'], 0)
+            self.__print_all_subkeys_and_entries(dce, subKey + '\\', ans2['phkResult'], 0)
         else:
             print keyName
             self.__print_key_values(dce, ans2['phkResult'])
@@ -213,8 +219,8 @@ class RegHandler:
                     i += 1
                 except Exception:
                     break
-            # ans5 = rrp.hBaseRegGetVersion(rpc, ans2['phkResult'])
-        # ans3 = rrp.hBaseRegEnumKey(rpc, ans2['phkResult'], 0)
+                    # ans5 = rrp.hBaseRegGetVersion(rpc, ans2['phkResult'])
+                    # ans3 = rrp.hBaseRegEnumKey(rpc, ans2['phkResult'], 0)
 
     def __print_key_values(self, rpc, keyHandler):
         i = 0
@@ -238,9 +244,9 @@ class RegHandler:
         while True:
             try:
                 subkey = rrp.hBaseRegEnumKey(rpc, keyHandler, index)
-                index +=1
+                index += 1
                 ans = rrp.hBaseRegOpenKey(rpc, keyHandler, subkey['lpNameOut'],
-                                      samDesired=rrp.MAXIMUM_ALLOWED | rrp.KEY_ENUMERATE_SUB_KEYS)
+                                          samDesired=rrp.MAXIMUM_ALLOWED | rrp.KEY_ENUMERATE_SUB_KEYS)
                 newKeyName = keyName + subkey['lpNameOut'][:-1] + '\\'
                 print newKeyName
                 self.__print_key_values(rpc, ans['phkResult'])
@@ -248,11 +254,11 @@ class RegHandler:
             except rrp.DCERPCSessionError, e:
                 if e.get_error_code() == ERROR_NO_MORE_ITEMS:
                     break
-            except rpcrt.DCERPCException,e:
-                if str(e).find('access_denied')>=0:
+            except rpcrt.DCERPCException, e:
+                if str(e).find('access_denied') >= 0:
                     logging.error('Cannot access subkey %s, bypassing it' % subkey['lpNameOut'][:-1])
                     continue
-                elif str(e).find('rpc_x_bad_stub_data')>=0:
+                elif str(e).find('rpc_x_bad_stub_data') >= 0:
                     logging.error('Fault call, cannot retrieve value for %s, bypassing it' % subkey['lpNameOut'][:-1])
                     return
                 raise
@@ -268,10 +274,10 @@ class RegHandler:
             elif valueType == rrp.REG_BINARY:
                 print ''
                 hexdump(valueData, '\t')
-            elif valueType == rrp. REG_DWORD:
-                print "0x%x" % (unpack('<L',valueData)[0])
+            elif valueType == rrp.REG_DWORD:
+                print "0x%x" % (unpack('<L', valueData)[0])
             elif valueType == rrp.REG_QWORD:
-                print "0x%x" % (unpack('<Q',valueData)[0])
+                print "0x%x" % (unpack('<Q', valueData)[0])
             elif valueType == rrp.REG_NONE:
                 try:
                     if len(valueData) > 1:
@@ -292,7 +298,6 @@ class RegHandler:
             pass
 
 
-
 if __name__ == '__main__':
 
     # Init the example's logger theme
@@ -311,46 +316,49 @@ if __name__ == '__main__':
 
     # A query command
     query_parser = subparsers.add_parser('query', help='Returns a list of the next tier of subkeys and entries that '
-                                                        'are located under a specified subkey in the registry.')
-    query_parser.add_argument('-keyName', action='store', required=True, help='Specifies the full path of the subkey. The '
-                              'keyName must include a valid root key. Valid root keys for the local computer are: HKLM,'
-                              ' HKU.')
-    query_parser.add_argument('-v', action='store', metavar = "VALUENAME", required=False, help='Specifies the registry '
-                              'value name that is to be queried. If omitted, all value names for keyName are returned. ')
+                                                       'are located under a specified subkey in the registry.')
+    query_parser.add_argument('-keyName', action='store', required=True,
+                              help='Specifies the full path of the subkey. The '
+                                   'keyName must include a valid root key. Valid root keys for the local computer are: HKLM,'
+                                   ' HKU.')
+    query_parser.add_argument('-v', action='store', metavar="VALUENAME", required=False, help='Specifies the registry '
+                           'value name that is to be queried. If omitted, all value names for keyName are returned. ')
+    query_parser.add_argument('-ve', action='store_true', default=False, required=False, help='Queries for the default '
+                                                                         'value or empty value name')
     query_parser.add_argument('-s', action='store_true', default=False, help='Specifies to query all subkeys and value '
                                                                              'names recursively.')
 
     # An add command
-    #add_parser = subparsers.add_parser('add', help='Adds a new subkey or entry to the registry')
+    # add_parser = subparsers.add_parser('add', help='Adds a new subkey or entry to the registry')
 
     # An delete command
-    #delete_parser = subparsers.add_parser('delete', help='Deletes a subkey or entries from the registry')
+    # delete_parser = subparsers.add_parser('delete', help='Deletes a subkey or entries from the registry')
 
     # A copy command
-    #copy_parser = subparsers.add_parser('copy', help='Copies a registry entry to a specified location in the remote '
+    # copy_parser = subparsers.add_parser('copy', help='Copies a registry entry to a specified location in the remote '
     #                                                   'computer')
 
     # A save command
-    #save_parser = subparsers.add_parser('save', help='Saves a copy of specified subkeys, entries, and values of the '
+    # save_parser = subparsers.add_parser('save', help='Saves a copy of specified subkeys, entries, and values of the '
     #                                                 'registry in a specified file.')
 
     # A load command
-    #load_parser = subparsers.add_parser('load', help='Writes saved subkeys and entries back to a different subkey in '
+    # load_parser = subparsers.add_parser('load', help='Writes saved subkeys and entries back to a different subkey in '
     #                                                 'the registry.')
 
     # An unload command
-    #unload_parser = subparsers.add_parser('unload', help='Removes a section of the registry that was loaded using the '
+    # unload_parser = subparsers.add_parser('unload', help='Removes a section of the registry that was loaded using the '
     #                                                     'reg load operation.')
 
     # A compare command
-    #compare_parser = subparsers.add_parser('compare', help='Compares specified registry subkeys or entries')
+    # compare_parser = subparsers.add_parser('compare', help='Compares specified registry subkeys or entries')
 
     # A export command
-    #status_parser = subparsers.add_parser('export', help='Creates a copy of specified subkeys, entries, and values into'
+    # status_parser = subparsers.add_parser('export', help='Creates a copy of specified subkeys, entries, and values into'
     #                                                     'a file')
 
     # A import command
-    #import_parser = subparsers.add_parser('import', help='Copies a file containing exported registry subkeys, entries, '
+    # import_parser = subparsers.add_parser('import', help='Copies a file containing exported registry subkeys, entries, '
     #                                                     'and values into the remote computer\'s registry')
 
 
