@@ -81,6 +81,7 @@ class GetUserSPNs:
         self.__requestTGS = options.request
         self.__kdcHost = cmdLineOptions.dc_ip
         self.__saveTGS = cmdLineOptions.save
+        self.__requestUser = cmdLineOptions.request_user
         if cmdLineOptions.hashes is not None:
             self.__lmhash, self.__nthash = cmdLineOptions.hashes.split(':')
 
@@ -244,6 +245,15 @@ class GetUserSPNs:
         # searchFilter['and'][2] = and2
         # Exception here, setting verifyConstraints to False so pyasn1 doesn't warn about incompatible tags
         searchFilter['and'].setComponentByPosition(2,and2,  verifyConstraints=False)
+        if self.__requestUser is not None:
+            #(sAMAccountName:=userSuppliedName)
+            logging.info('Gathering data for user %s' % self.__requestUser)
+            and3 = ldapasn1.EqualityMatch()
+            and3['attributeDesc'] = ldapasn1.AttributeDescription('sAMAccountName')
+            and3['assertionValue'] = ldapasn1.AssertionValue(self.__requestUser)
+            # searchFilter['and'][3] = and3
+            # Exception here, setting verifyConstraints to False so pyasn1 doesn't warn about incompatible tags
+            searchFilter['and'].setComponentByPosition(3, and3, verifyConstraints=False)
 
         try:
             resp = ldapConnection.search(searchFilter=searchFilter,
@@ -312,8 +322,8 @@ class GetUserSPNs:
             self.printTable(answers, header=[ "ServicePrincipalName", "Name", "MemberOf", "PasswordLastSet", "LastLogon"])
             print '\n\n'
 
-            if self.__requestTGS is True:
-                # Let's get unique user names an a SPN to request a TGS for
+            if self.__requestTGS is True or self.__requestUser is not None:
+                # Let's get unique user names and a SPN to request a TGS for
                 users = dict( (vals[1], vals[0]) for vals in answers)
 
                 # Get a TGT for the current user
@@ -339,19 +349,22 @@ class GetUserSPNs:
             print "No entries found!"
 
 
-
-
 # Process command-line arguments.
 if __name__ == '__main__':
     # Init the example's logger theme
     logger.init()
     print version.BANNER
 
-    parser = argparse.ArgumentParser(add_help = True, description = "Queries target domain for SPNs that are running under a user account")
+    parser = argparse.ArgumentParser(add_help = True, description = "Queries target domain for SPNs that are running "
+                                                                    "under a user account")
 
     parser.add_argument('target', action='store', help='domain/username[:password]')
-    parser.add_argument('-request', action='store_true', default='False', help='Requests TGS for users and output them in JtR/hashcat format (default False)')
-    parser.add_argument('-save', action='store_true', default='False', help='Saves TGS requested to disk. Format is <username>.ccache. Auto selects -request')
+    parser.add_argument('-request', action='store_true', default='False', help='Requests TGS for users and output them '
+                                                                               'in JtR/hashcat format (default False)')
+    parser.add_argument('-request-user', action='store', metavar='username', help='Requests TGS for the SPN associated '
+                                                          'to the user specified (just the username, no domain needed)')
+    parser.add_argument('-save', action='store_true', default='False', help='Saves TGS requested to disk. Format is '
+                                                                            '<username>.ccache. Auto selects -request')
     parser.add_argument('-outputfile', action='store',
                         help='Output filename to write ciphers in JtR/hashcat format')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
@@ -360,9 +373,15 @@ if __name__ == '__main__':
 
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
     group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
-    group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line')
-    group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication (128 or 256 bits)')
-    group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. If ommited it use the domain part (FQDN) specified in the target parameter')
+    group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file '
+                                                       '(KRB5CCNAME) based on target parameters. If valid credentials '
+                                                       'cannot be found, it will use the ones specified in the command '
+                                                       'line')
+    group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication '
+                                                                            '(128 or 256 bits)')
+    group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. If '
+                                                                              'ommited it use the domain part (FQDN) '
+                                                                              'specified in the target parameter')
 
     if len(sys.argv)==1:
         parser.print_help()
