@@ -331,7 +331,7 @@ class LessOrEqual(AttributeValueAssertion):
     tagSet = AttributeValueAssertion.tagSet.tagImplicitly(Tag(tagClassContext, tagFormatConstructed, 6))
 
 class Present(AttributeDescription):
-    # Present   [7] AttributeValueAssertion
+    # Present   [7] AttributeDescription
     tagSet = AttributeDescription.tagSet.tagImplicitly(Tag(tagClassContext, tagFormatConstructed, 7))
 
 class ApproxMatch(AttributeValueAssertion):
