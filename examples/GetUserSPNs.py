@@ -162,7 +162,7 @@ class GetUserSPNs:
         #
         if decodedTGS['ticket']['enc-part']['etype'] == constants.EncryptionTypes.rc4_hmac.value:
             entry = '$krb5tgs$%d$*%s$%s$%s*$%s$%s' % (
-                constants.EncryptionTypes.rc4_hmac.value, username, decodedTGS['ticket']['realm'], spn,
+                constants.EncryptionTypes.rc4_hmac.value, username, decodedTGS['ticket']['realm'], spn.replace(':', '~'),
                 hexlify(str(decodedTGS['ticket']['enc-part']['cipher'][:16])),
                 hexlify(str(decodedTGS['ticket']['enc-part']['cipher'][16:])))
             if fd is None:
