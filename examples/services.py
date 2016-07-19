@@ -28,16 +28,12 @@ from impacket.crypto import *
 
 
 class SVCCTL:
-    KNOWN_PROTOCOLS = {
-        '139/SMB': (r'ncacn_np:%s[\pipe\svcctl]', 139),
-        '445/SMB': (r'ncacn_np:%s[\pipe\svcctl]', 445),
-        }
 
-    def __init__(self, username, password, domain, options):
+    def __init__(self, username, password, domain, options, port=445):
         self.__username = username
         self.__password = password
-        self.__protocol = SVCCTL.KNOWN_PROTOCOLS.keys()
         self.__options = options
+        self.__port = port
         self.__action = options.action.upper()
         self.__domain = domain
         self.__lmhash = ''
@@ -49,34 +45,19 @@ class SVCCTL:
         if options.hashes is not None:
             self.__lmhash, self.__nthash = options.hashes.split(':')
 
-    def run(self, addr):
+    def run(self, remoteName, remoteHost):
 
-        # Try all requested protocols until one works.
-        for protocol in self.__protocol:
-            protodef = SVCCTL.KNOWN_PROTOCOLS[protocol]
-            port = protodef[1]
+        stringbinding = 'ncacn_np:%s[\pipe\svcctl]' % remoteName
+        logging.debug('StringBinding %s'%stringbinding)
+        rpctransport = transport.DCERPCTransportFactory(stringbinding)
+        rpctransport.set_dport(self.__port)
+        rpctransport.setRemoteHost(remoteHost)
+        if hasattr(rpctransport, 'set_credentials'):
+            # This method exists only for selected protocol sequences.
+            rpctransport.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey)
 
-            logging.info("Trying protocol %s..." % protocol)
-            stringbinding = protodef[0] % addr
-
-            rpctransport = transport.DCERPCTransportFactory(stringbinding)
-            rpctransport.set_dport(port)
-            rpctransport.set_kerberos(self.__doKerberos, self.__kdcHost)
-            if hasattr(rpctransport, 'set_credentials'):
-                # This method exists only for selected protocol sequences.
-                rpctransport.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash,
-                                             self.__nthash, self.__aesKey)
-
-            try:
-                self.doStuff(rpctransport)
-            except Exception, e:
-                #import traceback
-                #traceback.print_exc()
-                logging.critical(str(e))
-                break
-            else:
-                # Got a response. No need for further iterations.
-                break
+        rpctransport.set_kerberos(self.__doKerberos, self.__kdcHost)
+        self.doStuff(rpctransport)
 
     def doStuff(self, rpctransport):
         dce = rpctransport.get_dce_rpc()
@@ -318,7 +299,12 @@ if __name__ == '__main__':
     group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
     group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line')
     group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication (128 or 256 bits)')
-    group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. If ommited it use the domain part (FQDN) specified in the target parameter')
+
+    group = parser.add_argument_group('connection')
+
+    group.add_argument('-dc-ip', action='store',metavar = "ip address", help='IP Address of the domain controller. If ommited it use the domain part (FQDN) specified in the target parameter')
+    group.add_argument('-target-ip', action='store', metavar="ip address", help='IP Address of the target machine. If ommited it will use whatever was specified as target. This is useful when target is the NetBIOS name and you cannot resolve it')
+    group.add_argument('-port', choices=['139', '445'], nargs='?', default='445', metavar="destination port", help='Destination port to connect to SMB Server')
  
     if len(sys.argv)==1:
         parser.print_help()
@@ -333,16 +319,19 @@ if __name__ == '__main__':
 
     import re
 
-    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
+    domain, username, password, remoteName = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
         options.target).groups('')
 
     #In case the password contains '@'
-    if '@' in address:
-        password = password + '@' + address.rpartition('@')[0]
-        address = address.rpartition('@')[2]
+    if '@' in remoteName:
+        password = password + '@' + remoteName.rpartition('@')[0]
+        remoteName = remoteName.rpartition('@')[2]
 
     if domain is None:
         domain = ''
+
+    if options.target_ip is None:
+        options.target_ip = remoteName
 
     if options.aesKey is not None:
         options.k = True
@@ -351,8 +340,8 @@ if __name__ == '__main__':
         from getpass import getpass
         password = getpass("Password:")
 
-    services = SVCCTL(username, password, domain, options)
+    services = SVCCTL(username, password, domain, options, int(options.port))
     try:
-        services.run(address)
+        services.run(remoteName, options.target_ip)
     except Exception, e:
         logging.error(str(e))
