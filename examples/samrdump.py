@@ -58,8 +58,8 @@ class SAMRDump:
         stringbinding = 'ncacn_np:%s[\pipe\samr]' % remoteName
         logging.debug('StringBinding %s'%stringbinding)
         rpctransport = transport.DCERPCTransportFactory(stringbinding)
-	rpctransport.set_dport(self.__port)
-	rpctransport.setRemoteHost(remoteHost)
+        rpctransport.set_dport(self.__port)
+        rpctransport.setRemoteHost(remoteHost)
 
         if hasattr(rpctransport,'preferred_dialect'):
             rpctransport.preferred_dialect(SMB_DIALECT)
