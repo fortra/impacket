@@ -28,19 +28,17 @@ from impacket.dcerpc.v5.rpcrt import DCERPCException
 
 class LSALookupSid:
     KNOWN_PROTOCOLS = {
-        '139/SMB': (r'ncacn_np:%s[\pipe\lsarpc]', 139),
-        '445/SMB': (r'ncacn_np:%s[\pipe\lsarpc]', 445),
-        '135/TCP': (r'ncacn_ip_tcp:%s', 135),
+        135: {'bindstr': r'ncacn_ip_tcp:%s',           'set_host': False},
+        139: {'bindstr': r'ncacn_np:%s[\pipe\lsarpc]', 'set_host': True},
+        445: {'bindstr': r'ncacn_np:%s[\pipe\lsarpc]', 'set_host': True},
         }
 
-    def __init__(self, username, password, domain, protocols = None,
+    def __init__(self, username, password, domain, port = None,
                  hashes = None, maxRid=4000):
-        if not protocols:
-            protocols = LSALookupSid.KNOWN_PROTOCOLS.keys()
 
         self.__username = username
         self.__password = password
-        self.__protocols = [protocols]
+        self.__port = port
         self.__maxRid = int(maxRid)
         self.__domain = domain
         self.__lmhash = ''
@@ -48,34 +46,29 @@ class LSALookupSid:
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
 
-    def dump(self, addr):
+    def dump(self, remoteName, remoteHost):
 
-        logging.info('Brute forcing SIDs at %s' % addr)
+        logging.info('Brute forcing SIDs at %s' % remoteName)
 
-        # Try all requested protocols until one works.
-        for protocol in self.__protocols:
-            protodef = LSALookupSid.KNOWN_PROTOCOLS[protocol]
-            port = protodef[1]
+        stringbinding = self.KNOWN_PROTOCOLS[self.__port]['bindstr'] % remoteName
+        logging.info('StringBinding %s'%stringbinding)
+        rpctransport = transport.DCERPCTransportFactory(stringbinding)
+        rpctransport.set_dport(self.__port)
 
-            logging.info("Trying protocol %s..." % protocol)
-            stringbinding = protodef[0] % addr
+        if self.KNOWN_PROTOCOLS[self.__port]['set_host']:
+            rpctransport.setRemoteHost(remoteHost)
 
-            rpctransport = transport.DCERPCTransportFactory(stringbinding)
-            rpctransport.set_dport(port)
-            if hasattr(rpctransport, 'set_credentials'):
-                # This method exists only for selected protocol sequences.
-                rpctransport.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
+        if hasattr(rpctransport, 'set_credentials'):
+            # This method exists only for selected protocol sequences.
+            rpctransport.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
 
-            try:
-                self.__bruteForce(rpctransport, self.__maxRid)
-            except Exception, e:
-                #import traceback
-                #print traceback.print_exc()
-                logging.critical(str(e))
-                raise
-            else:
-                # Got a response. No need for further iterations.
-                break
+        try:
+            self.__bruteForce(rpctransport, self.__maxRid)
+        except Exception, e:
+            #import traceback
+            #print traceback.print_exc()
+            logging.critical(str(e))
+            raise
 
     def __bruteForce(self, rpctransport, maxRid):
         dce = rpctransport.get_dce_rpc()
@@ -148,7 +141,11 @@ if __name__ == '__main__':
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('maxRid', action='store', default = '4000', nargs='?', help='max Rid to check (default 4000)')
-    parser.add_argument('protocol', choices=LSALookupSid.KNOWN_PROTOCOLS.keys(), nargs='?', default='445/SMB', help='transport protocol (default 445/SMB)')
+
+    group = parser.add_argument_group('connection')
+
+    group.add_argument('-target-ip', action='store', metavar="ip address", help='IP Address of the target machine. If ommited it will use whatever was specified as target. This is useful when target is the NetBIOS name and you cannot resolve it')
+    group.add_argument('-port', choices=['135', '139', '445'], nargs='?', default='445', metavar="destination port", help='Destination port to connect to SMB Server')
 
     group = parser.add_argument_group('authentication')
 
@@ -162,13 +159,13 @@ if __name__ == '__main__':
 
     import re
 
-    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
+    domain, username, password, remoteName = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
         options.target).groups('')
 
     #In case the password contains '@'
-    if '@' in address:
-        password = password + '@' + address.rpartition('@')[0]
-        address = address.rpartition('@')[2]
+    if '@' in remoteName:
+        password = password + '@' + remoteName.rpartition('@')[0]
+        remoteName = remoteName.rpartition('@')[2]
 
     if domain is None:
         domain = ''
@@ -177,8 +174,11 @@ if __name__ == '__main__':
         from getpass import getpass
         password = getpass("Password:")
 
-    lookup = LSALookupSid(username, password, domain, options.protocol, options.hashes, options.maxRid)
+    if options.target_ip is None:
+        options.target_ip = remoteName
+
+    lookup = LSALookupSid(username, password, domain, int(options.port), options.hashes, options.maxRid)
     try:
-        lookup.dump(address)
+        lookup.dump(remoteName, options.target_ip)
     except:
         pass
