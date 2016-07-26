@@ -170,7 +170,7 @@ if __name__ == '__main__':
         password = getpass("Password:")
 
     if options.target_ip is None:
-        options.taget_ip = remoteName
+        options.target_ip = remoteName
 
     dumper = RPCDump(username, password, domain, options.hashes, int(options.port))
 
