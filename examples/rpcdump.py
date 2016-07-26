@@ -22,60 +22,51 @@ from impacket.examples import logger
 from impacket import uuid, version
 from impacket.dcerpc.v5 import transport, epm
 
-
 class RPCDump:
     KNOWN_PROTOCOLS = {
-        '139/SMB': (r'ncacn_np:%s[\pipe\epmapper]', 139),
-        '445/SMB': (r'ncacn_np:%s[\pipe\epmapper]', 445),
-        '135/TCP': (r'ncacn_ip_tcp:%s', 135),
+        135: {'bindstr': r'ncacn_ip_tcp:%s',             'set_host': False},
+        139: {'bindstr': r'ncacn_np:%s[\pipe\epmapper]', 'set_host': True},
+        445: {'bindstr': r'ncacn_np:%s[\pipe\epmapper]', 'set_host': True}
         }
 
-
-    def __init__(self, protocols = None,
-                 username = '', password = '', domain='', hashes = None):
-        if not protocols:
-            protocols = RPCDump.KNOWN_PROTOCOLS.keys()
+    def __init__(self, username = '', password = '', domain='', hashes = None, port=135):
 
         self.__username = username
         self.__password = password
-        self.__protocols = [protocols]
         self.__domain = domain
         self.__lmhash = ''
         self.__nthash = ''
+        self.__port = port
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
 
-    def dump(self, addr):
+    def dump(self, remoteName, remoteHost):
         """Dumps the list of endpoints registered with the mapper
-        listening at addr. Addr is a valid host name or IP address in
-        string format.
+        listening at addr. remoteName is a valid host name or IP
+        address in string format.
         """
 
-        logging.info('Retrieving endpoint list from %s' % addr)
+        logging.info('Retrieving endpoint list from %s' % remoteName)
 
-        # Try all requested protocols until one works.
         entries = []
-        for protocol in self.__protocols:
-            protodef = RPCDump.KNOWN_PROTOCOLS[protocol]
-            port = protodef[1]
 
-            logging.info("Trying protocol %s..." % protocol)
-            stringbinding = protodef[0] % addr
+        stringbinding = self.KNOWN_PROTOCOLS[self.__port]['bindstr'] % remoteName
+        logging.debug('StringBinding %s'%stringbinding)
+        rpctransport = transport.DCERPCTransportFactory(stringbinding)
+        rpctransport.set_dport(self.__port)
 
-            rpctransport = transport.DCERPCTransportFactory(stringbinding)
-            rpctransport.set_dport(port)
-            if hasattr(rpctransport, 'set_credentials'):
-                # This method exists only for selected protocol sequences.
-                rpctransport.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
+        if self.KNOWN_PROTOCOLS[self.__port]['set_host']:
+            rpctransport.setRemoteHost(remoteHost)
 
-            try:
-                entries = self.__fetchList(rpctransport)
-            except Exception, e:
-                logging.critical('Protocol failed: %s' % e)
-            else:
-                # Got a response. No need for further iterations.
-                break
+        if hasattr(rpctransport, 'set_credentials'):
+            # This method exists only for selected protocol sequences.
+            rpctransport.set_credentials(self.__username, self.__password, self.__domain,
+                                         self.__lmhash, self.__nthash)
 
+        try:
+            entries = self.__fetchList(rpctransport)
+        except Exception, e:
+            logging.critical('Protocol failed: %s' % e)
 
         # Display results.
 
@@ -143,7 +134,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(add_help = True, description = "Dumps the remote RPC enpoints information.")
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
-    parser.add_argument('protocol', choices=RPCDump.KNOWN_PROTOCOLS.keys(), nargs='?', default='135/TCP', help='transport protocol (default 135/TCP)')
+
+    group = parser.add_argument_group('connection')
+
+    #group.add_argument('-dc-ip', action='store',metavar = "ip address", help='IP Address of the domain controller. If ommited it use the domain part (FQDN) specified in the target parameter')
+    group.add_argument('-target-ip', action='store', metavar="ip address", help='IP Address of the target machine. If ommited it will use whatever was specified as target. This is useful when target is the NetBIOS name and you cannot resolve it')
+    group.add_argument('-port', choices=['135', '139', '445'], nargs='?', default='135', metavar="destination port", help='Destination port to connect to SMB Server')
 
     group = parser.add_argument_group('authentication')
 
@@ -160,12 +156,12 @@ if __name__ == '__main__':
         logging.getLogger().setLevel(logging.INFO)
 
     import re
-    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(options.target).groups('')
+    domain, username, password, remoteName = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(options.target).groups('')
 
     #In case the password contains '@'
-    if '@' in address:
-        password = password + '@' + address.rpartition('@')[0]
-        address = address.rpartition('@')[2]
+    if '@' in remoteName:
+        password = password + '@' + remoteName.rpartition('@')[0]
+        remoteName = remoteName.rpartition('@')[2]
 
     if domain is None:
         domain = ''
@@ -174,6 +170,9 @@ if __name__ == '__main__':
         from getpass import getpass
         password = getpass("Password:")
 
-    dumper = RPCDump(options.protocol, username, password, domain, options.hashes)
+    if options.target_ip is None:
+        options.taget_ip = remoteName
 
-    dumper.dump(address)
+    dumper = RPCDump(username, password, domain, options.hashes, int(options.port))
+
+    dumper.dump(remoteName, options.target_ip)
