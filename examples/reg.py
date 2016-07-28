@@ -190,6 +190,8 @@ class RegHandler:
             ans = rrp.hOpenLocalMachine(dce)
         elif rootKey.upper() == 'HKU':
             ans = rrp.hOpenCurrentUser(dce)
+        elif rootKey.upper() == 'HKCR':
+            ans = rrp.hOpenClassesRoot(dce)
         else:
             raise Exception('Invalid root key %s ' % rootKey)
 
