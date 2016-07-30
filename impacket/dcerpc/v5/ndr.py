@@ -1408,7 +1408,7 @@ class NDRUNION(NDRCONSTRUCTEDTYPE):
             soFar += pad
 
         if self.structure is ():
-            return self
+            return soFar-soFar0
 
         for fieldName, fieldTypeOrClass in self.structure:
             try:
