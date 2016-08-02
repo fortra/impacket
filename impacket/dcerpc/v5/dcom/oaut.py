@@ -20,18 +20,20 @@
 #   There are test cases for them too. 
 #
 import random
-from impacket.dcerpc.v5.ndr import NDRSTRUCT, NDRUniConformantArray, NDRPOINTER, NDRENUM, NDRUSHORT, NDRUNION, \
-    NDRUniConformantVaryingArray
+from struct import pack, unpack
+
+from impacket import LOG
+from impacket import hresult_errors
 from impacket.dcerpc.v5.dcomrt import DCOMCALL, DCOMANSWER, IRemUnknown2, PMInterfacePointer, INTERFACE, \
     MInterfacePointer, MInterfacePointer_ARRAY, BYTE_ARRAY
 from impacket.dcerpc.v5.dtypes import LPWSTR, ULONG, DWORD, SHORT, GUID, USHORT, LONG, WSTR, BYTE, LONGLONG, FLOAT, \
     DOUBLE, HRESULT, PSHORT, PLONG, PLONGLONG, PFLOAT, PDOUBLE, PHRESULT, CHAR, ULONGLONG, INT, UINT, PCHAR, PUSHORT, \
     PULONG, PULONGLONG, PINT, PUINT, NULL
 from impacket.dcerpc.v5.enum import Enum
+from impacket.dcerpc.v5.ndr import NDRSTRUCT, NDRUniConformantArray, NDRPOINTER, NDRENUM, NDRUSHORT, NDRUNION, \
+    NDRUniConformantVaryingArray
 from impacket.dcerpc.v5.rpcrt import DCERPCException
-from impacket import hresult_errors
 from impacket.uuid import string_to_bin
-from struct import pack, unpack
 
 class DCERPCSessionError(DCERPCException):
     def __init__(self, error_string=None, error_code=None, packet=None):
@@ -921,6 +923,57 @@ OPNUMS = {
 ################################################################################
 # HELPER FUNCTIONS AND INTERFACES
 ################################################################################
+# 4.8.5 Enumerating All Methods in an Interface
+# INPUT: IDispatch pointer from the automation server
+# CALL IDispatch::GetTypeInfoCount and OBTAIN pcTInfo
+# COMMENT see Section 3.1.4.1 for information on pcTInfo i
+# IF pcTInfo = 0 THEN
+#     PRINT Automation Server does not support type information for this object
+# ELSE
+#     CALL IDispatch::GetTypeInfo with correct LocaleID and OBTAIN ITypeInfo pointer
+#     CALL ITypeInfo::GetDocumentation(MEMBERID_NIL, 1, &BstrName, NULL, NULL, NULL)
+#     PRINT Name of the Interface is BstrName
+#     CALL ITypeInfo::GetTypeAttr and OBTAIN TYPEATTR pointer
+#
+#     FOR X = 0 to TYPEATTR:: cFuncs -1
+#         CALL ITypeInfo::GetFuncDesc with X and OBTAIN FUNCDESC pointer
+#         CALL ITypeInfo::GetNames with FUNCDESC::memid and appropriate values for
+#             rgBstrNames, cMaxNames and pcNames
+#         COMMENT see Section 3.7.4.5 for more information regarding the parameters
+#                 to ITypeinfo::GetNames
+#         IF pcNames > 0 THEN
+#             PRINT Name of the method is rgBstrNames[0]
+#             PRINT Parameters to above method are following
+#             FOR Y = 1 to pcNames -1
+#                 PRINT rgBstrNames[Y]
+#             END FOR
+#         END IF
+#     END FOR i
+# ENDIF
+def enumerateMethods(iInterface):
+    methods = dict()
+    typeInfoCount = iInterface.GetTypeInfoCount()
+    if typeInfoCount['pctinfo'] == 0:
+        LOG.error('Automation Server does not support type information for this object')
+        return {}
+    iTypeInfo = iInterface.GetTypeInfo()
+    iTypeAttr = iTypeInfo.GetTypeAttr()
+    for x in range(iTypeAttr['ppTypeAttr']['cFuncs']):
+        funcDesc = iTypeInfo.GetFuncDesc(x)
+        names = iTypeInfo.GetNames(funcDesc['ppFuncDesc']['memid'], 255)
+        print names['rgBstrNames'][0]['asData']
+        funcDesc.dump()
+        print '='*80
+        if names['pcNames'] > 0:
+            name = names['rgBstrNames'][0]['asData']
+            methods[name] = {}
+            for param in range(1, names['pcNames']):
+                methods[name][names['rgBstrNames'][param]['asData']] = ''
+        if funcDesc['ppFuncDesc']['elemdescFunc'] != NULL:
+            methods[name]['ret'] = funcDesc['ppFuncDesc']['elemdescFunc']['tdesc']['vt']
+
+    return methods
+
 def checkNullString(string):
     if string == NULL:
         return string
