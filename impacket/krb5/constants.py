@@ -114,6 +114,10 @@ class AddressType(Enum):
     NetBios         = 20
     IPv6            = 24
 
+# 3.1.5.9 Key Usage Numbers
+KERB_NON_KERB_SALT       = 16
+KERB_NON_KERB_CKSUM_SALT = 17
+
 # 7.5.4.  Authorization Data Types
 class AuthorizationDataType(Enum):
     AD_IF_RELEVANT                     = 1
