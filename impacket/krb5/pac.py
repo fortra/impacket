@@ -182,7 +182,7 @@ class PAC_CLIENT_INFO(Structure):
 # 2.8 PAC_SIGNATURE_DATA
 class PAC_SIGNATURE_DATA(Structure):
     structure = (
-        ('SignatureType', '<L=0'),
+        ('SignatureType', '<l=0'),
         ('Signature', ':'),
     )
 

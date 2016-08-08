@@ -1018,7 +1018,7 @@ class RAISECHILD:
         checkSumFunctionServer = _checksum_table[serverChecksum['SignatureType']]
         if serverChecksum['SignatureType'] == constants.ChecksumTypes.hmac_sha1_96_aes256.value:
             keyServer = Key(Enctype.AES256, unhexlify(aesKey))
-        elif serverChecksum['SignatureType'] == 0xffffff76:
+        elif serverChecksum['SignatureType'] == constants.ChecksumTypes.hmac_md5.value:
             keyServer = Key(Enctype.RC4, unhexlify(ntHash))
         else:
             raise Exception('Invalid Server checksum type 0x%x' % serverChecksum['SignatureType'] )
@@ -1026,7 +1026,7 @@ class RAISECHILD:
         checkSumFunctionPriv= _checksum_table[privSvrChecksum['SignatureType']]
         if privSvrChecksum['SignatureType'] == constants.ChecksumTypes.hmac_sha1_96_aes256.value:
             keyPriv = Key(Enctype.AES256, unhexlify(aesKey))
-        elif privSvrChecksum['SignatureType'] == 0xffffff76:
+        elif privSvrChecksum['SignatureType'] == constants.ChecksumTypes.hmac_md5.value:
             keyPriv = Key(Enctype.RC4, unhexlify(ntHash))
         else:
             raise Exception('Invalid Priv checksum type 0x%x' % serverChecksum['SignatureType'] )
