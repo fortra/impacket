@@ -43,6 +43,8 @@
 import argparse
 import datetime
 import logging
+import random
+import string
 import sys
 from calendar import timegm
 from time import strptime
@@ -204,7 +206,7 @@ class TICKETER:
 
         return pacInfos
 
-    def createSkeletonTicket(self):
+    def createBasicTicket(self):
         if self.__options.request is True:
             logging.info('Requesting TGT to target domain to use as basis')
             if self.__options.hashes is not None:
@@ -268,9 +270,9 @@ class TICKETER:
                 etype2 = ETYPE_INFO2()
                 etype2[0] = None
                 if len(self.__options.aesKey) == 64:
-                    etype2[0]['etype'] = int(EncryptionTypes.aes256_cts_hmac_sha1_96.value)
+                    etype2[0]['etype'] = EncryptionTypes.aes256_cts_hmac_sha1_96.value
                 else:
-                    etype2[0]['etype'] = int(EncryptionTypes.aes128_cts_hmac_sha1_96.value)
+                    etype2[0]['etype'] = EncryptionTypes.aes128_cts_hmac_sha1_96.value
                 etype2[0]['salt'] = '%s%s' % (self.__domain.upper(), self.__target)
                 encodedEtype2 = encoder.encode(etype2)
 
@@ -296,11 +298,11 @@ class TICKETER:
             kdcRep['enc-part'] = None
             if self.__options.nthash is None:
                 if len(self.__options.aesKey) == 64:
-                    kdcRep['ticket']['enc-part']['etype'] = int(EncryptionTypes.aes256_cts_hmac_sha1_96.value)
-                    kdcRep['enc-part']['etype'] = int(EncryptionTypes.aes256_cts_hmac_sha1_96.value)
+                    kdcRep['ticket']['enc-part']['etype'] = EncryptionTypes.aes256_cts_hmac_sha1_96.value
+                    kdcRep['enc-part']['etype'] = EncryptionTypes.aes256_cts_hmac_sha1_96.value
                 else:
-                    kdcRep['ticket']['enc-part']['etype'] = int(EncryptionTypes.aes128_cts_hmac_sha1_96.value)
-                    kdcRep['enc-part']['etype'] = int(EncryptionTypes.aes128_cts_hmac_sha1_96.value)
+                    kdcRep['ticket']['enc-part']['etype'] = EncryptionTypes.aes128_cts_hmac_sha1_96.value
+                    kdcRep['enc-part']['etype'] = EncryptionTypes.aes128_cts_hmac_sha1_96.value
             else:
                 kdcRep['ticket']['enc-part']['etype'] = EncryptionTypes.rc4_hmac.value
                 kdcRep['enc-part']['etype'] = EncryptionTypes.rc4_hmac.value
@@ -327,11 +329,11 @@ class TICKETER:
         encTicketPart['key']['keytype'] = kdcRep['ticket']['enc-part']['etype']
 
         if encTicketPart['key']['keytype'] == EncryptionTypes.aes128_cts_hmac_sha1_96.value:
-            encTicketPart['key']['keyvalue'] = '\x01' * 16
+            encTicketPart['key']['keyvalue'] = ''.join([random.choice(string.letters) for _ in range(16)])
         elif encTicketPart['key']['keytype'] == EncryptionTypes.aes256_cts_hmac_sha1_96.value:
-            encTicketPart['key']['keyvalue'] = '\x01' * 32
+            encTicketPart['key']['keyvalue'] = ''.join([random.choice(string.letters) for _ in range(32)])
         else:
-            encTicketPart['key']['keyvalue'] = '\x01' * 16
+            encTicketPart['key']['keyvalue'] = ''.join([random.choice(string.letters) for _ in range(16)])
 
         encTicketPart['crealm'] = self.__domain.upper()
         encTicketPart['cname'] = None
@@ -420,6 +422,7 @@ class TICKETER:
             raise Exception('PAC_LOGON_INFO not found! Aborting')
 
         logging.info('\tPAC_LOGON_INFO')
+
         # Let's now clear the checksums
         if pacInfos.has_key(PAC_SERVER_CHECKSUM):
             serverChecksum = PAC_SIGNATURE_DATA(pacInfos[PAC_SERVER_CHECKSUM])
@@ -452,6 +455,7 @@ class TICKETER:
             pacInfos[PAC_CLIENT_INFO_TYPE] = pacClientInfo.getData()
         else:
             raise Exception('PAC_CLIENT_INFO_TYPE not found! Aborting')
+
         logging.info('\tPAC_CLIENT_INFO_TYPE')
         logging.info('\tEncTicketPart')
 
@@ -482,6 +486,7 @@ class TICKETER:
 
     def signEncryptTicket(self, kdcRep, encASRepPart, encTicketPart, pacInfos):
         logging.info('Signing/Encrypting final ticket')
+        
         # We changed everything we needed to make us special. Now let's repack and calculate checksums
         validationInfoBlob = pacInfos[PAC_LOGON_INFO]
         validationInfoAlignment = '\x00' * (((len(validationInfoBlob) + 7) / 8 * 8) - len(validationInfoBlob))
@@ -633,7 +638,7 @@ class TICKETER:
         ccache.saveFile(self.__target.replace('/','.') + '.ccache')
 
     def run(self):
-        ticket, adIfRelevant = self.createSkeletonTicket()
+        ticket, adIfRelevant = self.createBasicTicket()
         if ticket is not None:
             encASRepPart, encTicketPart, pacInfos = self.customizeTicket(ticket, adIfRelevant)
             ticket, cipher, sessionKey = self.signEncryptTicket(ticket, encASRepPart, encTicketPart, pacInfos)
