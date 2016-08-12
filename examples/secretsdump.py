@@ -1422,7 +1422,12 @@ class NTDSHashes:
         logging.info('Searching for pekList, be patient')
         peklist = None
         while True:
-            record = self.__ESEDB.getNextRow(self.__cursor)
+            try:
+                record = self.__ESEDB.getNextRow(self.__cursor)
+            except:
+                logging.error('Error while calling getNextRow(), trying the next one')
+                continue
+
             if record is None:
                 break
             elif record[self.NAME_TO_INTERNAL['pekList']] is not None:
