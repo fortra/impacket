@@ -348,9 +348,9 @@ class TICKETER:
         encTicketPart['authtime'] = KerberosTime.to_asn1(datetime.datetime.utcnow())
         encTicketPart['starttime'] = KerberosTime.to_asn1(datetime.datetime.utcnow())
         # Let's extend the ticket's validity a lil bit
-        tenYearsFromNow = datetime.datetime.utcnow() + datetime.timedelta(days=365 * 10)
-        encTicketPart['endtime'] = KerberosTime.to_asn1(tenYearsFromNow)
-        encTicketPart['renew-till'] = KerberosTime.to_asn1(tenYearsFromNow)
+        ticketDuration = datetime.datetime.utcnow() + datetime.timedelta(days=int(self.__options.duration))
+        encTicketPart['endtime'] = KerberosTime.to_asn1(ticketDuration)
+        encTicketPart['renew-till'] = KerberosTime.to_asn1(ticketDuration)
         encTicketPart['authorization-data'] = None
         encTicketPart['authorization-data'][0] = None
         encTicketPart['authorization-data'][0]['ad-type'] = AuthorizationDataType.AD_IF_RELEVANT.value
@@ -468,7 +468,7 @@ class TICKETER:
         encASRepPart['last-req'][0]['lr-type'] = 0
         encASRepPart['last-req'][0]['lr-value'] = KerberosTime.to_asn1(datetime.datetime.utcnow())
         encASRepPart['nonce'] = 123456789
-        encASRepPart['key-expiration'] = KerberosTime.to_asn1(tenYearsFromNow)
+        encASRepPart['key-expiration'] = KerberosTime.to_asn1(ticketDuration)
         encASRepPart['flags'] = encodeFlags(flags)
         encASRepPart['authtime'] = encTicketPart['authtime']
         encASRepPart['endtime'] = encTicketPart['endtime']
@@ -486,7 +486,7 @@ class TICKETER:
 
     def signEncryptTicket(self, kdcRep, encASRepPart, encTicketPart, pacInfos):
         logging.info('Signing/Encrypting final ticket')
-        
+
         # We changed everything we needed to make us special. Now let's repack and calculate checksums
         validationInfoBlob = pacInfos[PAC_LOGON_INFO]
         validationInfoAlignment = '\x00' * (((len(validationInfoBlob) + 7) / 8 * 8) - len(validationInfoBlob))
@@ -652,15 +652,16 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(add_help = True, description = "Creates a Kerberos golden/silver tickets based on user options")
 
     parser.add_argument('target', action='store', help='username or SPN for the newly created ticket (if \'/\' present it is assumed it\'s a SPN and a silver ticket will be created')
-    parser.add_argument('-domain', action='store', help='the fully qualified domain name (e.g. contoso.com)')
     parser.add_argument('-request', action='store_true', default=False, help='Requests ticket to domain and clones it '
                         'changing only the supplied information. It requires specifying -user')
+    parser.add_argument('-domain', action='store', help='the fully qualified domain name (e.g. contoso.com)')
     parser.add_argument('-domain-sid', action='store', help='Domain SID of the target domain the ticker will be generated for')
     parser.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key used for signing the ticket (128 or 256 bits)')
     parser.add_argument('-nthash', action="store", help='NT hash used for signing the ticket')
     parser.add_argument('-groups', action="store", default = '513, 512, 520, 518, 519', help='comma separated list of groups user will belong to (default = 513, 512, 520, 518, 519)')
     parser.add_argument('-user-id', action="store", default = '500', help='user id for the user the ticket will be created for (default = 500)')
     parser.add_argument('-extra-sid', action="store", help='Optional ExtraSid to be included inside the ticket\'s PAC')
+    parser.add_argument('-duration', action="store", default = '3650', help='Amount of days till the ticket expires (default = 365*10)')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
     group = parser.add_argument_group('authentication')
@@ -723,6 +724,6 @@ if __name__ == '__main__':
         executer = TICKETER(options.target, password, options.domain, options)
         executer.run()
     except Exception, e:
-        import traceback
-        print traceback.print_exc()
+        #import traceback
+        #print traceback.print_exc()
         print str(e)
