@@ -67,7 +67,7 @@ class LDAPRelayClient:
 
         if result['result'] == RESULT_SUCCESS:
             self.connection.bound = True
-            #self.connection.refresh_server_info()
+            self.connection.refresh_server_info()
         return result
 
     #This is a fake function for ldap3 which wants an NTLM client with specific methods
