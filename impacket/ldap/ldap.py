@@ -40,8 +40,9 @@ except:
     LOG.critical("pyOpenSSL is not installed, can't continue")
     raise
 
+
 class LDAPConnection:
-    def __init__(self,url, baseDN='dc=net', dstIp = None):
+    def __init__(self, url, baseDN='dc=net', dstIp=None):
         """
         LDAPConnection class
 
@@ -64,12 +65,12 @@ class LDAPConnection:
             self._SSL = False
             self._dstHost = url[7:]
         elif url.startswith("ldaps://"):
-            #raise LDAPSessionError(errorString = 'LDAPS still not supported')
+            # raise LDAPSessionError(errorString = 'LDAPS still not supported')
             self._dstPort = 636
             self._SSL = True
             self._dstHost = url[8:]
         else:
-            raise LDAPSessionError(errorString = 'Unknown URL prefix %s' % url)
+            raise LDAPSessionError(errorString='Unknown URL prefix %s' % url)
 
         # Try to connect
         if self._dstIp is not None:
@@ -89,7 +90,7 @@ class LDAPConnection:
         else:
             # Switching to TLS now
             ctx = SSL.Context(SSL.TLSv1_METHOD)
-            #ctx.set_cipher_list('RC4')
+            # ctx.set_cipher_list('RC4')
             self._socket = SSL.Connection(ctx, self._socket)
             self._socket.connect(sa)
             self._socket.do_handshake()
@@ -112,7 +113,6 @@ class LDAPConnection:
 
         :return: True, raises a LDAPSessionError if error.
         """
-
 
         if lmhash != '' or nthash != '':
             if len(lmhash) % 2:     lmhash = '0%s' % lmhash
@@ -242,11 +242,11 @@ class LDAPConnection:
 
         if resp['bindResponse']['resultCode'] != 0:
             raise LDAPSessionError(errorString='Error in bindRequest -> %s:%s' % (
-            resp['bindResponse']['resultCode'].prettyPrint(), resp['bindResponse']['diagnosticMessage']))
+                resp['bindResponse']['resultCode'].prettyPrint(), resp['bindResponse']['diagnosticMessage']))
 
         return True
 
-    def login(self, user='', password='', domain = '', lmhash = '', nthash = '', authenticationChoice = 'sicilyNegotiate'):
+    def login(self, user='', password='', domain='', lmhash='', nthash='', authenticationChoice='sicilyNegotiate'):
         """
         logins into the target system
 
@@ -264,7 +264,8 @@ class LDAPConnection:
         bindRequest['name'] = LDAPDN(user)
 
         if authenticationChoice == 'simple':
-            bindRequest['authentication'] = AuthenticationChoice().setComponentByName(authenticationChoice, AuthSimple(password))
+            bindRequest['authentication'] = AuthenticationChoice().setComponentByName(authenticationChoice,
+                                                                                      AuthSimple(password))
             resp = self.sendReceive('bindRequest', bindRequest)[0]['protocolOp']
         elif authenticationChoice == 'sicilyPackageDiscovery':
             bindRequest['authentication'] = AuthenticationChoice().setComponentByName(authenticationChoice, '')
@@ -281,7 +282,7 @@ class LDAPConnection:
                     pass
 
             # NTLM Negotiate
-            negotiate = getNTLMSSPType1('',domain)
+            negotiate = getNTLMSSPType1('', domain)
             bindRequest['authentication'] = AuthenticationChoice().setComponentByName('sicilyNegotiate', negotiate)
             resp = self.sendReceive('bindRequest', bindRequest)[0]['protocolOp']
 
@@ -296,7 +297,8 @@ class LDAPConnection:
             raise LDAPSessionError(errorString='Unknown authenticationChoice %s' % authenticationChoice)
 
         if resp['bindResponse']['resultCode'] != 0:
-            raise LDAPSessionError(errorString = 'Error in bindRequest -> %s:%s' % (resp['bindResponse']['resultCode'].prettyPrint(), resp['bindResponse']['diagnosticMessage'] ))
+            raise LDAPSessionError(errorString='Error in bindRequest -> %s:%s' % (
+            resp['bindResponse']['resultCode'].prettyPrint(), resp['bindResponse']['diagnosticMessage']))
 
         return True
 
@@ -317,7 +319,7 @@ class LDAPConnection:
         searchRequest['filter'] = searchFilter  # could do self.parseFilter(searchFilter) or leave it for the user
         searchRequest['attributes'] = AttributeSelection()
         if attributes is not None:
-            for i,item in enumerate(attributes):
+            for i, item in enumerate(attributes):
                 searchRequest['attributes'][i] = item
 
         done = False
@@ -330,19 +332,21 @@ class LDAPConnection:
                 if protocolOp.getName() == 'searchResDone':
                     done = True
                     if protocolOp['searchResDone']['resultCode'] != 0:
-                        raise LDAPSearchError(error = int(protocolOp['searchResDone']['resultCode']), errorString = 'Error in searchRequest -> %s:%s' % (protocolOp['searchResDone']['resultCode'].prettyPrint(), protocolOp['searchResDone']['diagnosticMessage'] ), answers=answers)
+                        raise LDAPSearchError(error=int(protocolOp['searchResDone']['resultCode']),
+                                              errorString='Error in searchRequest -> %s:%s' % (
+                                              protocolOp['searchResDone']['resultCode'].prettyPrint(),
+                                              protocolOp['searchResDone']['diagnosticMessage']), answers=answers)
                 else:
                     answers.append(item['protocolOp'][protocolOp.getName()])
 
         return answers
-
 
     def close(self):
         if self._socket is not None:
             self._socket.close()
 
     def send(self, protocolOp, message):
-        ldapMessage = LDAPMessage( )
+        ldapMessage = LDAPMessage()
         ldapMessage['messageID'] = IntegerPositive(self._messageId)
         ldapMessage['protocolOp'] = ProtocolOp().setComponentByName(protocolOp, message)
 
@@ -364,7 +368,7 @@ class LDAPConnection:
 
         while len(data) > 0:
             try:
-                ldapMessage, remaining = decoder.decode(data, asn1Spec = LDAPMessage())
+                ldapMessage, remaining = decoder.decode(data, asn1Spec=LDAPMessage())
             except SubstrateUnderrunError:
                 # We need more data
                 remaining = data + self._socket.recv(REQUEST_SIZE)
@@ -393,7 +397,6 @@ class LDAPConnection:
             c = filterList.pop()
         except IndexError:
             raise LDAPFilterSyntaxError('EOL while parsing search filter')
-
         if c != u'(':  # filter must start with '('
             filterList.append(c)
             raise LDAPFilterSyntaxError("unexpected token: '{0}'".format(c))
@@ -402,7 +405,6 @@ class LDAPConnection:
             operator = filterList.pop()
         except IndexError:
             raise LDAPFilterSyntaxError('EOL while parsing search filter')
-
         if operator not in [u'!', u'&', u'|']:  # must be simple filter
             filterList.extend([operator, c])
             return self._consumeSimpleFilter(filterList)
@@ -418,12 +420,11 @@ class LDAPConnection:
             c = filterList.pop()
         except IndexError:
             raise LDAPFilterSyntaxError('EOL while parsing search filter')
-
-        if c == u')':  # filter must end with ')'
-            return self._compileCompositeFilter(operator, filters)
-        else:
+        if c != u')':  # filter must end with ')'
             filterList.append(c)
             raise LDAPFilterSyntaxError("unexpected token: '{0}'".format(c))
+
+        return self._compileCompositeFilter(operator, filters)
 
     def _consumeSimpleFilter(self, filterList):
         try:
@@ -452,9 +453,14 @@ class LDAPConnection:
 
         filterStr = u''.join(filter)
         try:
+            # https://tools.ietf.org/search/rfc4515#section-3
             attribute, operator, value = re.split(ur'([<>~]?=)', filterStr, 1)
         except ValueError:
             raise LDAPInvalidFilterException("invalid filter: '({0})'".format(filterStr))
+        if not re.match(ur'^(?:(?:[a-z][a-z0-9\-]*)|(?:\d|[1-9]\d)(?:\.(?:\d|[1-9]\d))*)(?:;[a-z0-9\-]+)*$',
+                        attribute, re.IGNORECASE):
+            raise LDAPInvalidFilterException("invalid filter attribute description: '{0}'".format(attribute))
+
         return self._compileSimpleFilter(attribute, operator, value)
 
     @staticmethod
@@ -475,6 +481,7 @@ class LDAPConnection:
                 raise LDAPInvalidFilterException("'or' filter must have at least one element")
             choice = Or().setComponents(*filters)
             searchFilter.setComponentByName('or', choice)
+
         return searchFilter
 
     @staticmethod
@@ -518,40 +525,43 @@ class LDAPConnection:
 
         return searchFilter
 
+
 class LDAPFilterSyntaxError(SyntaxError):
     pass
 
+
 class LDAPInvalidFilterException(Exception):
     pass
+
 
 class LDAPSessionError(Exception):
     """
     This is the exception every client should catch
     """
-    def __init__( self, error = 0, packet=0, errorString=''):
+
+    def __init__(self, error=0, packet=0, errorString=''):
         Exception.__init__(self)
         self.error = error
         self.packet = packet
         self.errorString = errorString
 
-    def getErrorCode( self ):
+    def getErrorCode(self):
         return self.error
 
-    def getErrorPacket( self ):
+    def getErrorPacket(self):
         return self.packet
 
-    def getErrorString( self ):
+    def getErrorString(self):
         return self.errorString
 
-    def __str__( self ):
+    def __str__(self):
         return self.errorString
+
 
 class LDAPSearchError(LDAPSessionError):
-    def __init__( self, error = 0, packet=0, errorString='', answers = []):
+    def __init__(self, error=0, packet=0, errorString='', answers=[]):
         LDAPSessionError.__init__(self, error, packet, errorString)
         self.answers = answers
 
-    def getAnswers( self ):
+    def getAnswers(self):
         return self.answers
-
-
