@@ -462,17 +462,17 @@ class LDAPConnection:
         searchFilter = Filter()
         if operator == u'!':
             if len(filters) != 1:
-                raise LDAPInvalidFilterException("'not' filter must have exactly one element")
+                raise LDAPInvalidFilterException("'not' filter should be explicit")
             choice = Not().setComponentByName('notFilter', filters[0])
             searchFilter.setComponentByName('not', choice, verifyConstraints=False)
         elif operator == u'&':
             if len(filters) == 0:
-                raise LDAPInvalidFilterException("'and' filter must have at least one element")
+                raise LDAPInvalidFilterException("'and' filter should have at least one element")
             choice = And().setComponents(*filters)
             searchFilter.setComponentByName('and', choice)
         elif operator == u'|':
             if len(filters) == 0:
-                raise LDAPInvalidFilterException("'or' filter must have at least one element")
+                raise LDAPInvalidFilterException("'or' filter should have at least one element")
             choice = Or().setComponents(*filters)
             searchFilter.setComponentByName('or', choice)
         return searchFilter
