@@ -29,7 +29,7 @@ from impacket import LOG
 from impacket.ldap.ldapasn1 import BindRequest, Integer7Bit, LDAPDN, AuthenticationChoice, AuthSimple, LDAPMessage, \
     SCOPE_SUB, SearchRequest, Scope, DEREF_NEVER, DeRefAliases, IntegerPositive, Boolean, AttributeSelection, \
     SaslCredentials, LDAPString, ProtocolOp, Credentials, Filter, SubstringFilter, Present, EqualityMatch, \
-    ApproxMatch, GreaterOrEqual, LessOrEqual, SubStrings, SubString, And, Or
+    ApproxMatch, GreaterOrEqual, LessOrEqual, SubStrings, SubString, And, Or, Not
 from impacket.ntlm import getNTLMSSPType1, getNTLMSSPType3
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech
 
@@ -463,7 +463,8 @@ class LDAPConnection:
         if operator == u'!':
             if len(filters) != 1:
                 raise LDAPInvalidFilterException("'not' filter should be explicit")
-            searchFilter.setComponentByName('not', filters[0])
+            choice = Not().setComponentByName('notFilter', filters[0])
+            searchFilter.setComponentByName('not', choice, verifyConstraints=False)
         elif operator == u'&':
             if len(filters) == 0:
                 raise LDAPInvalidFilterException("'and' filter should have at least one element")
