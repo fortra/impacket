@@ -19,6 +19,7 @@
 
 import socket
 import os
+import re
 from binascii import unhexlify
 
 from pyasn1.codec.der import decoder, encoder
@@ -27,7 +28,8 @@ from pyasn1.error import SubstrateUnderrunError
 from impacket import LOG
 from impacket.ldap.ldapasn1 import BindRequest, Integer7Bit, LDAPDN, AuthenticationChoice, AuthSimple, LDAPMessage, \
     SCOPE_SUB, SearchRequest, Scope, DEREF_NEVER, DeRefAliases, IntegerPositive, Boolean, AttributeSelection, \
-    SaslCredentials, LDAPString, ProtocolOp, Credentials
+    SaslCredentials, LDAPString, ProtocolOp, Credentials, Filter, SubstringFilter, Present, EqualityMatch, \
+    ApproxMatch, GreaterOrEqual, LessOrEqual, SubStrings, SubString, And, Or
 from impacket.ntlm import getNTLMSSPType1, getNTLMSSPType3
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech
 
@@ -312,7 +314,7 @@ class LDAPConnection:
         searchRequest['sizeLimit'] = IntegerPositive(sizeLimit)
         searchRequest['timeLimit'] = IntegerPositive(0)
         searchRequest['typesOnly'] = Boolean(False)
-        searchRequest['filter'] = searchFilter
+        searchRequest['filter'] = searchFilter  # could do self.parseFilter(searchFilter) or leave it for the user
         searchRequest['attributes'] = AttributeSelection()
         if attributes is not None:
             for i,item in enumerate(attributes):
@@ -376,6 +378,150 @@ class LDAPConnection:
     def sendReceive(self, protocolOp, message):
         self.send(protocolOp, message)
         return self.recv()
+
+    def parseFilter(self, filterStr):
+        filterList = list(reversed(unicode(filterStr)))
+        searchFilter = self._consumeCompositeFilter(filterList)
+
+        if not filterList:  # have we consumed the whole filter string?
+            return searchFilter
+        else:
+            raise LDAPFilterSyntaxError("unexpected token: '{0}'".format(filterList[-1]))
+
+    def _consumeCompositeFilter(self, filterList):
+        try:
+            c = filterList.pop()
+        except IndexError:
+            raise LDAPFilterSyntaxError('EOL while parsing search filter')
+
+        if c != u'(':  # filter must start with '('
+            filterList.append(c)
+            raise LDAPFilterSyntaxError("unexpected token: '{0}'".format(c))
+
+        try:
+            operator = filterList.pop()
+        except IndexError:
+            raise LDAPFilterSyntaxError('EOL while parsing search filter')
+
+        if operator not in [u'!', u'&', u'|']:  # must be simple filter
+            filterList.extend([operator, c])
+            return self._consumeSimpleFilter(filterList)
+
+        filters = []
+        while True:
+            try:
+                filters.append(self._consumeCompositeFilter(filterList))
+            except LDAPFilterSyntaxError:
+                break
+
+        try:
+            c = filterList.pop()
+        except IndexError:
+            raise LDAPFilterSyntaxError('EOL while parsing search filter')
+
+        if c == u')':  # filter must end with ')'
+            return self._compileCompositeFilter(operator, filters)
+        else:
+            filterList.append(c)
+            raise LDAPFilterSyntaxError("unexpected token: '{0}'".format(c))
+
+    def _consumeSimpleFilter(self, filterList):
+        try:
+            c = filterList.pop()
+        except IndexError:
+            raise LDAPFilterSyntaxError('EOL while parsing search filter')
+
+        if c != u'(':  # filter must start with '('
+            filterList.append(c)
+            raise LDAPFilterSyntaxError("unexpected token: '{0}'".format(c))
+
+        filter = []
+        while True:
+            try:
+                c = filterList.pop()
+            except IndexError:
+                raise LDAPFilterSyntaxError('EOL while parsing search filter')
+
+            if c == u')':  # we pop till we find a ')'
+                break
+            elif c == u'(':  # should be no unencoded parenthesis
+                filterList.append(c)
+                raise LDAPFilterSyntaxError("unexpected token: '('")
+            else:
+                filter.append(c)
+
+        filterStr = u''.join(filter)
+        try:
+            attribute, operator, value = re.split(ur'([<>~]?=)', filterStr, 1)
+        except ValueError:
+            raise LDAPInvalidFilterException("invalid filter: '({0})'".format(filterStr))
+        return self._compileSimpleFilter(attribute, operator, value)
+
+    @staticmethod
+    def _compileCompositeFilter(operator, filters):
+        searchFilter = Filter()
+        if operator == u'!':
+            if len(filters) != 1:
+                raise LDAPInvalidFilterException("'not' filter should be explicit")
+            searchFilter.setComponentByName('not', filters[0])
+        elif operator == u'&':
+            if len(filters) == 0:
+                raise LDAPInvalidFilterException("'and' filter should have at least one element")
+            choice = And().setComponents(*filters)
+            searchFilter.setComponentByName('and', choice)
+        elif operator == u'|':
+            if len(filters) == 0:
+                raise LDAPInvalidFilterException("'or' filter should have at least one element")
+            choice = Or().setComponents(*filters)
+            searchFilter.setComponentByName('or', choice)
+        return searchFilter
+
+    @staticmethod
+    def _compileSimpleFilter(attribute, operator, value):
+        # ToDo: extensibleMatch
+        searchFilter = Filter()
+        if value == u'*' and operator == u'=':  # present
+            choice = Present(attribute)
+            searchFilter.setComponentByName('present', choice)
+        elif u'*' in value and operator == u'=':  # substring
+            components = []
+
+            assertions = value.split(u'*')
+            initial = assertions[0]
+            if initial:
+                components.append(SubString().setComponentByName('initial', initial))
+            for assertion in assertions[1:-1]:
+                if not assertion:
+                    raise LDAPInvalidFilterException("consecutive '*' in filter")
+                components.append(SubString().setComponentByName('any', assertion))
+            final = assertions[-1]
+            if final:
+                components.append(SubString().setComponentByName('final', final))
+
+            subStrings = SubStrings().setComponents(*components)
+            choice = SubstringFilter().setComponents(attribute, subStrings)
+            searchFilter.setComponentByName('substrings', choice)
+        elif u'*' not in value:  # simple
+            if operator == u'=':
+                choice = EqualityMatch().setComponents(attribute, value)
+                searchFilter.setComponentByName('equalityMatch', choice)
+            elif operator == u'~=':
+                choice = ApproxMatch().setComponents(attribute, value)
+                searchFilter.setComponentByName('approxMatch', choice)
+            elif operator == u'>=':
+                choice = GreaterOrEqual().setComponents(attribute, value)
+                searchFilter.setComponentByName('greaterOrEqual', choice)
+            elif operator == u'<=':
+                choice = LessOrEqual().setComponents(attribute, value)
+                searchFilter.setComponentByName('lessOrEqual', choice)
+
+        return searchFilter
+
+class LDAPFilterSyntaxError(SyntaxError):
+    pass
+
+class LDAPInvalidFilterException(Exception):
+    pass
 
 class LDAPSessionError(Exception):
     """
