@@ -29,7 +29,7 @@ from impacket import LOG
 from impacket.ldap.ldapasn1 import BindRequest, Integer7Bit, LDAPDN, AuthenticationChoice, AuthSimple, LDAPMessage, \
     SCOPE_SUB, SearchRequest, Scope, DEREF_NEVER, DeRefAliases, IntegerPositive, Boolean, AttributeSelection, \
     SaslCredentials, LDAPString, ProtocolOp, Credentials, Filter, SubstringFilter, Present, EqualityMatch, \
-    ApproxMatch, GreaterOrEqual, LessOrEqual, SubStrings, SubString, And, Or
+    ApproxMatch, GreaterOrEqual, LessOrEqual, SubStrings, SubString, And, Or, Not
 from impacket.ntlm import getNTLMSSPType1, getNTLMSSPType3
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech
 
@@ -462,16 +462,17 @@ class LDAPConnection:
         searchFilter = Filter()
         if operator == u'!':
             if len(filters) != 1:
-                raise LDAPInvalidFilterException("'not' filter should be explicit")
-            searchFilter.setComponentByName('not', filters[0])
+                raise LDAPInvalidFilterException("'not' filter must have exactly one element")
+            choice = Not().setComponentByName('notFilter', filters[0])
+            searchFilter.setComponentByName('not', choice, verifyConstraints=False)
         elif operator == u'&':
             if len(filters) == 0:
-                raise LDAPInvalidFilterException("'and' filter should have at least one element")
+                raise LDAPInvalidFilterException("'and' filter must have at least one element")
             choice = And().setComponents(*filters)
             searchFilter.setComponentByName('and', choice)
         elif operator == u'|':
             if len(filters) == 0:
-                raise LDAPInvalidFilterException("'or' filter should have at least one element")
+                raise LDAPInvalidFilterException("'or' filter must have at least one element")
             choice = Or().setComponents(*filters)
             searchFilter.setComponentByName('or', choice)
         return searchFilter
