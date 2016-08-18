@@ -42,7 +42,7 @@ except:
 
 # https://tools.ietf.org/search/rfc4515#section-3
 DESC = ur'(?:[a-z][a-z0-9\-]*)'
-NUM_OID = ur'(?:\d|[1-9]\d)(?:\.(?:\d|[1-9]\d+))*'
+NUM_OID = ur'(?:\d|[1-9]\d+)(?:\.(?:\d|[1-9]\d+))*'
 OID = ur'(?:{0}|{1})'.format(DESC, NUM_OID)
 OPTIONS = ur'(?:(?:;[a-z0-9\-]+)*)'
 ATTR = ur'({0}{1})'.format(OID, OPTIONS)
