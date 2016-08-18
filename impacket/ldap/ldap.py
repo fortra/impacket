@@ -316,7 +316,7 @@ class LDAPConnection:
         return True
 
     def search(self, searchBase=None, searchFilter=u'', scope=SCOPE_SUB, attributes=None, derefAliases=DEREF_NEVER,
-               sizeLimit=0):
+               sizeLimit=0, manualFilter=None):
         if searchBase is None:
             searchBase = self._baseDN
 
@@ -327,7 +327,10 @@ class LDAPConnection:
         searchRequest['sizeLimit'] = IntegerPositive(sizeLimit)
         searchRequest['timeLimit'] = IntegerPositive(0)
         searchRequest['typesOnly'] = Boolean(False)
-        searchRequest['filter'] = self.parseFilter(searchFilter)
+        if manualFilter is not None:
+            searchRequest['filter'] = manualFilter
+        else:
+            searchRequest['filter'] = self._parseFilter(searchFilter)
         searchRequest['attributes'] = AttributeSelection()
         if attributes is not None:
             for i, item in enumerate(attributes):
@@ -394,7 +397,7 @@ class LDAPConnection:
         self.send(protocolOp, message)
         return self.recv()
 
-    def parseFilter(self, filterStr):
+    def _parseFilter(self, filterStr):
         filterList = list(reversed(unicode(filterStr)))
         searchFilter = self._consumeCompositeFilter(filterList)
         if filterList:  # we have not consumed the whole filter string
