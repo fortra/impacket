@@ -214,46 +214,13 @@ class GetUserSPNs:
             else:
                 raise
 
-        # Building the following filter:
-        # (&(servicePrincipalName=*)(UserAccountControl:1.2.840.113556.1.4.803:=512)(!(UserAccountControl:1.2.840.113556.1.4.803:=2)))
+        # Building the search filter
+        searchFilter = "(&(servicePrincipalName=*)(UserAccountControl:1.2.840.113556.1.4.803:=512)(!(UserAccountControl:1.2.840.113556.1.4.803:=2))"
 
-        # (servicePrincipalName=*)
-        and0 = ldapasn1.Filter()
-        and0['present'] = ldapasn1.Present('servicePrincipalName')
-
-        # (UserAccountControl:1.2.840.113556.1.4.803:=512)
-        and1 = ldapasn1.Filter()
-        and1['extensibleMatch'] = ldapasn1.MatchingRuleAssertion()
-        and1['extensibleMatch']['matchingRule'] = ldapasn1.MatchingRuleId('1.2.840.113556.1.4.803')
-        and1['extensibleMatch']['type'] = ldapasn1.TypeDescription('UserAccountControl')
-        and1['extensibleMatch']['matchValue'] = ldapasn1.matchValueAssertion(UF_NORMAL_ACCOUNT)
-        and1['extensibleMatch']['dnAttributes'] = False
-
-        # !(UserAccountControl:1.2.840.113556.1.4.803:=2)
-        and2 = ldapasn1.Not()
-        and2['notFilter'] = ldapasn1.Filter()
-        and2['notFilter']['extensibleMatch'] = ldapasn1.MatchingRuleAssertion()
-        and2['notFilter']['extensibleMatch']['matchingRule'] = ldapasn1.MatchingRuleId('1.2.840.113556.1.4.803')
-        and2['notFilter']['extensibleMatch']['type'] = ldapasn1.TypeDescription('UserAccountControl')
-        and2['notFilter']['extensibleMatch']['matchValue'] = ldapasn1.matchValueAssertion(UF_ACCOUNTDISABLE)
-        and2['notFilter']['extensibleMatch']['dnAttributes'] = False
-
-        searchFilter = ldapasn1.Filter()
-        searchFilter['and'] = ldapasn1.And()
-        searchFilter['and'][0] = and0
-        searchFilter['and'][1] = and1
-        # searchFilter['and'][2] = and2
-        # Exception here, setting verifyConstraints to False so pyasn1 doesn't warn about incompatible tags
-        searchFilter['and'].setComponentByPosition(2,and2,  verifyConstraints=False)
         if self.__requestUser is not None:
-            #(sAMAccountName:=userSuppliedName)
-            logging.info('Gathering data for user %s' % self.__requestUser)
-            and3 = ldapasn1.EqualityMatch()
-            and3['attributeDesc'] = ldapasn1.AttributeDescription('sAMAccountName')
-            and3['assertionValue'] = ldapasn1.AssertionValue(self.__requestUser)
-            # searchFilter['and'][3] = and3
-            # Exception here, setting verifyConstraints to False so pyasn1 doesn't warn about incompatible tags
-            searchFilter['and'].setComponentByPosition(3, and3, verifyConstraints=False)
+            searchFilter += '(sAMAccountName:=%s))' % self.__requestUser
+        else:
+            searchFilter += ')'
 
         try:
             resp = ldapConnection.search(searchFilter=searchFilter,
