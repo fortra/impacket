@@ -464,7 +464,7 @@ class LDAPConnection:
         filterStr = u''.join(filter)
         try:
             # https://tools.ietf.org/search/rfc4515#section-3
-            attribute, operator, value = re.split(RE_OPERATOR, filterStr, 1)
+            attribute, operator, value = RE_OPERATOR.split(filterStr, 1)
         except ValueError:
             raise LDAPFilterInvalidException("invalid filter: '({0})'".format(filterStr))
 
@@ -521,7 +521,7 @@ class LDAPConnection:
                     components.append(SubString().setComponentByName('initial', initial))
                 for assertion in assertions[1:-1]:
                     if not assertion:
-                        raise LDAPFilterInvalidException("consecutive '*' in filter")
+                        raise LDAPFilterInvalidException("consecutive '*' in filter assertion")
                     components.append(SubString().setComponentByName('any', assertion))
                 final = assertions[-1]
                 if final:
