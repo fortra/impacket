@@ -22,7 +22,7 @@ import os
 import re
 from binascii import unhexlify
 
-from pyasn1.codec.der import decoder, encoder
+from pyasn1.codec.ber import decoder, encoder
 from pyasn1.error import SubstrateUnderrunError
 
 from impacket import LOG

@@ -19,7 +19,7 @@
 
 from pyasn1.type.univ import Sequence, Integer, Choice, SequenceOf, OctetString, Boolean, Enumerated, SetOf
 from pyasn1.type.constraint import ValueRangeConstraint, ValueSizeConstraint
-from pyasn1.type.namedtype import NamedType, OptionalNamedType, NamedTypes
+from pyasn1.type.namedtype import NamedType, OptionalNamedType, NamedTypes, DefaultedNamedType
 from pyasn1.type.tag import Tag, tagClassContext, tagFormatConstructed, tagClassApplication, tagFormatSimple
 from pyasn1.type.namedval import NamedValues
 
@@ -426,7 +426,7 @@ class MatchingRuleAssertion(Sequence):
         OptionalNamedType('matchingRule', MatchingRuleId()),
         OptionalNamedType('type', TypeDescription()),
         NamedType('matchValue', matchValueAssertion()),
-        NamedType('dnAttributes', DnAttributes()),
+        DefaultedNamedType('dnAttributes', DnAttributes(False)),
     )
 class Filter(Choice):
     """
@@ -675,7 +675,7 @@ class Control(Sequence):
     """
     componentType = NamedTypes(
         NamedType('controlType', LDAPOID()),
-        NamedType('criticality', Boolean(False)),
+        DefaultedNamedType('criticality', Boolean(False)),
         OptionalNamedType('controlValue', OctetString()),
     )
 
