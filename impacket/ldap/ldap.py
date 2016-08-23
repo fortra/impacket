@@ -528,7 +528,7 @@ class LDAPConnection:
             choice = MatchingRuleAssertion()
             if attribute:
                 choice.setComponentByName('type', attribute)
-            choice.setComponentByName('dnAttributes', bool(True))
+            choice.setComponentByName('dnAttributes', bool(dn))
             if matchingRule:
                 choice.setComponentByName('matchingRule', matchingRule)
             choice.setComponentByName('matchValue', value)

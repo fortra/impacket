@@ -831,7 +831,7 @@ KNOWN_CONTROLS[CONTROL_PAGEDRESULTS] = SimplePagedResultsControl
 
 class Controls(SequenceOf):
     # Controls ::= SEQUENCE OF Control
-    tagSet = SequenceOf.tagSet.tagImplicitly(Tag(tagClassContext, tagFormatSimple, 0))
+    tagSet = SequenceOf.tagSet.tagImplicitly(Tag(tagClassContext, tagFormatConstructed, 0))
     componentType = Control()
 
 
