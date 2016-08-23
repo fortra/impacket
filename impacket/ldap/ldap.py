@@ -342,7 +342,6 @@ class LDAPConnection:
             for item in resp:
                 protocolOp = item['protocolOp']
                 if protocolOp.getName() == 'searchResDone':
-                    done = True
                     if protocolOp['searchResDone']['resultCode'] == ResultCode('success'):
                         done = self._handleControls(searchControls, item['controls'])
                     else:
