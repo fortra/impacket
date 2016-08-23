@@ -343,7 +343,7 @@ class LDAPConnection:
                 protocolOp = message['protocolOp']
                 if protocolOp.getName() == 'searchResDone':
                     if protocolOp['searchResDone']['resultCode'] == ResultCode('success'):
-                        done = self._handleSearchControls(searchControls, message['controls'])
+                        done = self._handleControls(searchControls, message['controls'])
                     else:
                         raise LDAPSearchError(error=int(protocolOp['searchResDone']['resultCode']),
                                               errorString='Error in searchRequest -> %s:%s' % (
@@ -355,23 +355,21 @@ class LDAPConnection:
 
         return results  # ToDo: sorted(results) ?
 
-    def _handleSearchControls(self, requestControls, resultControls):
+    def _handleControls(self, requestControls, resultControls):
         done = True
-        if resultControls is not None:
-            for resultControl in resultControls:
-                for requestControl in requestControls:
-                    if resultControl['controlType'] == CONTROL_PAGEDRESULTS:
+        if requestControls is not None:
+            for requestControl in requestControls:
+                if resultControls is not None:
+                    for resultControl in resultControls:
                         if requestControl['controlType'] == CONTROL_PAGEDRESULTS:
-                            if resultControl.getCookie():
-                                done = False
-                            requestControl.setCookie(resultControl.getCookie())
-                            break
-                    else:
-                        # ToDo: handle different controls here
-                        pass
-                else:
-                    # ToDo: got an unhandled control
-                    pass
+                            if resultControl['controlType'] == CONTROL_PAGEDRESULTS:
+                                if resultControl.getCookie():
+                                    done = False
+                                requestControl.setCookie(resultControl.getCookie())
+                                break
+                        else:
+                            # handle different controls here
+                            pass
         return done
 
     def close(self):
@@ -415,8 +413,7 @@ class LDAPConnection:
 
     def sendReceive(self, protocolOp, request, controls=None):
         self.send(protocolOp, request, controls)
-        response = self.recv()
-        return response
+        return self.recv()
 
     def _parseFilter(self, filterStr):
         filterList = list(reversed(unicode(filterStr)))
