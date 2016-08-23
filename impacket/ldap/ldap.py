@@ -335,66 +335,57 @@ class LDAPConnection:
             searchRequest['attributes'].setComponents(*attributes)
 
         done = False
-        answers = []
+        results = []
         # We keep asking records until we get a searchResDone packet
         while not done:
-            resp = self.sendReceive('searchRequest', searchRequest, searchControls)
-            for item in resp:
-                protocolOp = item['protocolOp']
+            response = self.sendReceive('searchRequest', searchRequest, searchControls)
+            for message in response:
+                protocolOp = message['protocolOp']
                 if protocolOp.getName() == 'searchResDone':
                     if protocolOp['searchResDone']['resultCode'] == ResultCode('success'):
-                        done = self._handleControls(searchControls, item['controls'])
+                        done = self._handleSearchControls(searchControls, message['controls'])
                     else:
                         raise LDAPSearchError(error=int(protocolOp['searchResDone']['resultCode']),
                                               errorString='Error in searchRequest -> %s:%s' % (
                                                   protocolOp['searchResDone']['resultCode'].prettyPrint(),
                                                   protocolOp['searchResDone']['diagnosticMessage']),
-                                              answers=answers)
+                                              answers=results)
                 else:
-                    answers.append(item['protocolOp'][protocolOp.getName()])
+                    results.append(message['protocolOp'][protocolOp.getName()])
 
-        return answers  # ToDo: sorted(answers) ?
+        return results  # ToDo: sorted(results) ?
 
-    def _handleControls(self, requestedControls, receivedControls):
+    def _handleSearchControls(self, requestControls, resultControls):
         done = True
-        if receivedControls is not None:
-            for receivedControl in receivedControls:
-                for requestedControl in requestedControls:
-                    controlDone, controlHandled = self._handleControl(requestedControl, receivedControl)
-                    done = done and controlDone
-                    if controlHandled:
-                        break
+        if resultControls is not None:
+            for resultControl in resultControls:
+                for requestControl in requestControls:
+                    if resultControl['controlType'] == CONTROL_PAGEDRESULTS:
+                        if requestControl['controlType'] == CONTROL_PAGEDRESULTS:
+                            if resultControl.getCookie():
+                                done = False
+                            requestControl.setCookie(resultControl.getCookie())
+                            break
+                    else:
+                        # ToDo: handle different controls here
+                        pass
                 else:
-                    # ToDo: got an unhandeled control
+                    # ToDo: got an unhandled control
                     pass
         return done
-
-    def _handleControl(self, requestedControl, receivedControl):
-        done = True
-        handled = False
-        if requestedControl['controlType'] == CONTROL_PAGEDRESULTS:
-            if receivedControl['controlType'] == CONTROL_PAGEDRESULTS:
-                if receivedControl.getCookie():
-                    done = False
-                requestedControl.setCookie(receivedControl.getCookie())
-                handled = True
-        else:
-            # ToDo: handle different controls here
-            pass
-        return done, handled
 
     def close(self):
         if self._socket is not None:
             self._socket.close()
 
-    def send(self, protocolOp, message, controls=None):
-        ldapMessage = LDAPMessage()
-        ldapMessage['messageID'] = IntegerPositive(self._messageId)
-        ldapMessage['protocolOp'] = ProtocolOp().setComponentByName(protocolOp, message)
+    def send(self, protocolOp, request, controls=None):
+        message = LDAPMessage()
+        message['messageID'] = IntegerPositive(self._messageId)
+        message['protocolOp'] = ProtocolOp().setComponentByName(protocolOp, request)
         if controls is not None:
-            ldapMessage['controls'] = Controls().setComponents(*controls)
+            message['controls'] = Controls().setComponents(*controls)
 
-        data = encoder.encode(ldapMessage)
+        data = encoder.encode(message)
 
         return self._socket.sendall(data)
 
@@ -408,23 +399,24 @@ class LDAPConnection:
                 done = True
             data += recvData
 
-        answers = []
+        response = []
         while len(data) > 0:
             try:
-                ldapMessage, remaining = decoder.decode(data, asn1Spec=LDAPMessage())
+                message, remaining = decoder.decode(data, asn1Spec=LDAPMessage())
             except SubstrateUnderrunError:
                 # We need more data
                 remaining = data + self._socket.recv(REQUEST_SIZE)
             else:
-                answers.append(ldapMessage)
+                response.append(message)
             data = remaining
 
         self._messageId += 1
-        return answers
+        return response
 
-    def sendReceive(self, protocolOp, message, controls=None):
-        self.send(protocolOp, message, controls)
-        return self.recv()
+    def sendReceive(self, protocolOp, request, controls=None):
+        self.send(protocolOp, request, controls)
+        response = self.recv()
+        return response
 
     def _parseFilter(self, filterStr):
         filterList = list(reversed(unicode(filterStr)))
