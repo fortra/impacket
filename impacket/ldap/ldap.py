@@ -363,7 +363,7 @@ class LDAPConnection:
                 for requestedControl in requestedControls:
                     if receivedControl['controlType'] == requestedControl['controlType']:
                         done = self._handleControl(requestedControl, receivedControl)
-                    break
+                        break
                 else:
                     # ToDo: received unwanted control
                     pass
