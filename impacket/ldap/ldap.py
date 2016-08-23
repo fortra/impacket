@@ -360,24 +360,28 @@ class LDAPConnection:
         if receivedControls is not None:
             for receivedControl in receivedControls:
                 for requestedControl in requestedControls:
-                    if receivedControl['controlType'] == requestedControl['controlType']:
-                        done = done and self._handleControl(requestedControl, receivedControl)
+                    controlDone, controlHandled = self._handleControl(requestedControl, receivedControl)
+                    done = done and controlDone
+                    if controlHandled:
                         break
                 else:
-                    # ToDo: received unwanted control
+                    # ToDo: got an unhandeled control
                     pass
         return done
 
     def _handleControl(self, requestedControl, receivedControl):
         done = True
+        handled = False
         if requestedControl['controlType'] == CONTROL_PAGEDRESULTS:
-            if receivedControl.getCookie():
-                done = False
-            requestedControl.setCookie(receivedControl.getCookie())
+            if receivedControl['controlType'] == CONTROL_PAGEDRESULTS:
+                if receivedControl.getCookie():
+                    done = False
+                requestedControl.setCookie(receivedControl.getCookie())
+                handled = True
         else:
             # ToDo: handle different controls here
             pass
-        return done
+        return done, handled
 
     def close(self):
         if self._socket is not None:
