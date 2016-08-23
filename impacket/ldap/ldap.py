@@ -22,14 +22,15 @@ import os
 import re
 from binascii import unhexlify
 
-from pyasn1.codec.der import decoder, encoder
+from pyasn1.codec.ber import decoder, encoder
 from pyasn1.error import SubstrateUnderrunError
 
 from impacket import LOG
 from impacket.ldap.ldapasn1 import BindRequest, Integer7Bit, LDAPDN, AuthenticationChoice, AuthSimple, LDAPMessage, \
     SCOPE_SUB, SearchRequest, Scope, DEREF_NEVER, DeRefAliases, IntegerPositive, Boolean, AttributeSelection, \
     SaslCredentials, LDAPString, ProtocolOp, Credentials, Filter, SubstringFilter, Present, EqualityMatch, \
-    ApproxMatch, GreaterOrEqual, LessOrEqual, MatchingRuleAssertion, SubStrings, SubString, And, Or, Not
+    ApproxMatch, GreaterOrEqual, LessOrEqual, MatchingRuleAssertion, SubStrings, SubString, And, Or, Not, LDAPOID, \
+    Controls, ResultCode, CONTROL_PAGEDRESULTS
 from impacket.ntlm import getNTLMSSPType1, getNTLMSSPType3
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech
 
@@ -42,12 +43,13 @@ except:
 
 # https://tools.ietf.org/search/rfc4515#section-3
 DESC = ur'(?:[a-z][a-z0-9\-]*)'
-NUM_OID = ur'(?:\d|[1-9]\d+)(?:\.(?:\d|[1-9]\d+))*'
+NUM_OID = ur'(?:(?:\d|[1-9]\d+)(?:\.(?:\d|[1-9]\d+))*)'
 OID = ur'(?:{0}|{1})'.format(DESC, NUM_OID)
 OPTIONS = ur'(?:(?:;[a-z0-9\-]+)*)'
 ATTR = ur'({0}{1})'.format(OID, OPTIONS)
 DN = ur'(?::(dn))'
 RULE = ur'(?::({0}))'.format(OID)
+
 RE_OPERATOR = re.compile(ur'([:<>~]?=)')
 RE_ATTRIBUTE = re.compile(ur'^{0}$'.format(ATTR), re.I)
 RE_EX_ATTRIBUTE_1 = re.compile(ur'^{0}{1}?{2}?$'.format(ATTR, DN, RULE), re.I)
@@ -315,8 +317,8 @@ class LDAPConnection:
 
         return True
 
-    def search(self, searchBase=None, searchFilter=u'', scope=SCOPE_SUB, attributes=None, derefAliases=DEREF_NEVER,
-               sizeLimit=0, manualFilter=None):
+    def search(self, searchBase=None, searchFilter=u'(objectClass=*)', scope=SCOPE_SUB, attributes=None,
+               derefAliases=DEREF_NEVER, sizeLimit=0, searchControls=None):
         if searchBase is None:
             searchBase = self._baseDN
 
@@ -327,42 +329,67 @@ class LDAPConnection:
         searchRequest['sizeLimit'] = IntegerPositive(sizeLimit)
         searchRequest['timeLimit'] = IntegerPositive(0)
         searchRequest['typesOnly'] = Boolean(False)
-        if manualFilter is not None:
-            searchRequest['filter'] = manualFilter
-        else:
-            searchRequest['filter'] = self._parseFilter(searchFilter)
+        searchRequest['filter'] = self._parseFilter(searchFilter)
         searchRequest['attributes'] = AttributeSelection()
         if attributes is not None:
-            for i, item in enumerate(attributes):
-                searchRequest['attributes'][i] = item
+            searchRequest['attributes'].setComponents(*attributes)
 
         done = False
         answers = []
         # We keep asking records until we get a searchResDone packet
         while not done:
-            resp = self.sendReceive('searchRequest', searchRequest)
-            for item in resp:
+            resp = self.sendReceive('searchRequest', searchRequest, searchControls)
+            for i, item in enumerate(resp):
                 protocolOp = item['protocolOp']
                 if protocolOp.getName() == 'searchResDone':
                     done = True
-                    if protocolOp['searchResDone']['resultCode'] != 0:
+                    if protocolOp['searchResDone']['resultCode'] == ResultCode('success'):
+                        done = self._handleControls(searchControls, item['controls'])
+                    else:
                         raise LDAPSearchError(error=int(protocolOp['searchResDone']['resultCode']),
                                               errorString='Error in searchRequest -> %s:%s' % (
                                                   protocolOp['searchResDone']['resultCode'].prettyPrint(),
-                                                  protocolOp['searchResDone']['diagnosticMessage']), answers=answers)
+                                                  protocolOp['searchResDone']['diagnosticMessage']),
+                                              answers=answers)
                 else:
                     answers.append(item['protocolOp'][protocolOp.getName()])
 
-        return answers
+        return answers  # ToDo: sorted(answers) ?
+
+    def _handleControls(self, requestedControls, receivedControls):
+        done = True
+        if receivedControls is not None:
+            for receivedControl in receivedControls:
+                for requestedControl in requestedControls:
+                    if receivedControl['controlType'] == requestedControl['controlType']:
+                        done = self._handleControl(requestedControl, receivedControl)
+                    break
+                else:
+                    # ToDo: received unwanted control
+                    pass
+        return done
+
+    def _handleControl(self, requestedControl, receivedControl):
+        done = True
+        if requestedControl['controlType'] == CONTROL_PAGEDRESULTS:
+            if receivedControl.getCookie():
+                done = False
+            requestedControl.setCookie(receivedControl.getCookie())
+        else:
+            # ToDo: handle different controls here
+            pass
+        return done
 
     def close(self):
         if self._socket is not None:
             self._socket.close()
 
-    def send(self, protocolOp, message):
+    def send(self, protocolOp, message, controls=None):
         ldapMessage = LDAPMessage()
         ldapMessage['messageID'] = IntegerPositive(self._messageId)
         ldapMessage['protocolOp'] = ProtocolOp().setComponentByName(protocolOp, message)
+        if controls is not None:
+            ldapMessage['controls'] = Controls().setComponents(*controls)
 
         data = encoder.encode(ldapMessage)
 
@@ -379,7 +406,6 @@ class LDAPConnection:
             data += recvData
 
         answers = []
-
         while len(data) > 0:
             try:
                 ldapMessage, remaining = decoder.decode(data, asn1Spec=LDAPMessage())
@@ -393,8 +419,8 @@ class LDAPConnection:
         self._messageId += 1
         return answers
 
-    def sendReceive(self, protocolOp, message):
-        self.send(protocolOp, message)
+    def sendReceive(self, protocolOp, message, controls=None):
+        self.send(protocolOp, message, controls)
         return self.recv()
 
     def _parseFilter(self, filterStr):
@@ -502,7 +528,7 @@ class LDAPConnection:
             choice = MatchingRuleAssertion()
             if attribute:
                 choice.setComponentByName('type', attribute)
-            choice.setComponentByName('dnAttributes', bool(dn))
+            choice.setComponentByName('dnAttributes', bool(True))
             if matchingRule:
                 choice.setComponentByName('matchingRule', matchingRule)
             choice.setComponentByName('matchValue', value)

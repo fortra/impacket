@@ -16,10 +16,10 @@
 # ToDo:
 # [ ]
 #
-
+from pyasn1.codec.ber import encoder, decoder
 from pyasn1.type.univ import Sequence, Integer, Choice, SequenceOf, OctetString, Boolean, Enumerated, SetOf
 from pyasn1.type.constraint import ValueRangeConstraint, ValueSizeConstraint
-from pyasn1.type.namedtype import NamedType, OptionalNamedType, NamedTypes
+from pyasn1.type.namedtype import NamedType, DefaultedNamedType, OptionalNamedType, NamedTypes
 from pyasn1.type.tag import Tag, tagClassContext, tagFormatConstructed, tagClassApplication, tagFormatSimple
 from pyasn1.type.namedval import NamedValues
 
@@ -29,15 +29,20 @@ from pyasn1.type.namedval import NamedValues
 MAXINT = 2147483647
 
 # Search Scope constants
-SCOPE_BASE  = 0
-SCOPE_ONE   = 1
-SCOPE_SUB   = 2
+SCOPE_BASE = 0
+SCOPE_ONE = 1
+SCOPE_SUB = 2
 
 # Search deref
-DEREF_NEVER  = 0
-DEREF_SEARC  = 1
-DEREF_FIND   = 2
+DEREF_NEVER = 0
+DEREF_SEARC = 1
+DEREF_FIND = 2
 DEREF_ALWAYS = 3
+
+CONTROL_PAGEDRESULTS = '1.2.840.113556.1.4.319'
+
+KNOWN_CONTROLS = {}
+
 
 ################################################################################
 # CLASSES
@@ -47,8 +52,10 @@ class Integer7Bit(Integer):
     # INTEGER (1 ..  127)
     subtypeSpec = ValueRangeConstraint(1, 127)
 
+
 class IntegerPositive(Integer):
     subtypeSpec = Integer.subtypeSpec + ValueRangeConstraint(0, MAXINT)
+
 
 class LDAPString(OctetString):
     """
@@ -58,6 +65,7 @@ class LDAPString(OctetString):
     encoding = 'utf-8'
     pass
 
+
 class LDAPDN(LDAPString):
     """
         LDAPDN ::= LDAPString -- Constrained to <distinguishedName>
@@ -65,12 +73,15 @@ class LDAPDN(LDAPString):
     """
     pass
 
+
 class AuthSimple(OctetString):
     tagSet = OctetString.tagSet.tagImplicitly(Tag(tagClassContext, tagFormatSimple, 0))
     encoding = 'utf-8'
 
+
 class Credentials(OctetString):
     encoding = 'utf-8'
+
 
 class SaslCredentials(Sequence):
     """
@@ -84,17 +95,21 @@ class SaslCredentials(Sequence):
         OptionalNamedType('credentials', Credentials())
     )
 
+
 class SicilyPackageDiscovery(OctetString):
     tagSet = OctetString.tagSet.tagImplicitly(Tag(tagClassContext, tagFormatSimple, 9))
     encoding = 'utf-8'
+
 
 class SicilyNegotiate(OctetString):
     tagSet = OctetString.tagSet.tagImplicitly(Tag(tagClassContext, tagFormatSimple, 10))
     encoding = 'utf-8'
 
+
 class SicilyResponse(OctetString):
     tagSet = OctetString.tagSet.tagImplicitly(Tag(tagClassContext, tagFormatSimple, 11))
     encoding = 'utf-8'
+
 
 class AuthenticationChoice(Choice):
     """
@@ -113,6 +128,7 @@ class AuthenticationChoice(Choice):
         NamedType('sicilyResponse', SicilyResponse()),
     )
 
+
 class BindRequest(Sequence):
     """
         BindRequest ::= [APPLICATION 0] SEQUENCE {
@@ -127,8 +143,10 @@ class BindRequest(Sequence):
         NamedType('authentication', AuthenticationChoice()),
     )
 
+
 class URI(LDAPString):
     pass
+
 
 class Referral(SequenceOf):
     """
@@ -136,6 +154,7 @@ class Referral(SequenceOf):
     """
     tagSet = SequenceOf.tagSet.tagImplicitly(Tag(tagClassContext, tagFormatConstructed, 3))
     componentType = URI()
+
 
 class ResultCode(Enumerated):
     """
@@ -230,9 +249,11 @@ class ResultCode(Enumerated):
         ('other', 80),
     )
 
+
 class ServerSaslCreds(OctetString):
     # serverSaslCreds    [7] OCTET STRING OPTIONAL
     tagSet = OctetString.tagSet.tagImplicitly(Tag(tagClassContext, tagFormatSimple, 7))
+
 
 class BindResponse(Sequence):
     """
@@ -249,6 +270,7 @@ class BindResponse(Sequence):
         OptionalNamedType('serverSaslCreds', ServerSaslCreds()),
     )
 
+
 class Scope(Enumerated):
     """
          scope           ENUMERATED {
@@ -262,6 +284,7 @@ class Scope(Enumerated):
         ('singleLevel', 1),
         ('wholeSubtree', 2),
     )
+
 
 class DeRefAliases(Enumerated):
     """
@@ -278,19 +301,23 @@ class DeRefAliases(Enumerated):
         ('derefAlways', 3),
     )
 
+
 class And(SetOf):
     # and             [0] SET SIZE (1..MAX) OF filter Filter
     tagSet = SetOf.tagSet.tagImplicitly(Tag(tagClassContext, tagFormatConstructed, 0))
     subtypeSpec = SetOf.subtypeSpec + ValueSizeConstraint(1, MAXINT)
+
 
 class Or(SetOf):
     # or              [1] SET SIZE (1..MAX) OF filter Filter
     tagSet = SetOf.tagSet.tagImplicitly(Tag(tagClassContext, tagFormatConstructed, 1))
     subtypeSpec = SetOf.subtypeSpec + ValueSizeConstraint(1, MAXINT)
 
+
 class Not(Choice):
     # not             [2] Filter
     pass
+
 
 class AttributeDescription(LDAPString):
     """
@@ -306,6 +333,7 @@ class AttributeValue(OctetString):
     # AttributeValue::= OCTET STRING
     pass
 
+
 class AttributeValueAssertion(Sequence):
     """
     AttributeValueAssertion::= SEQUENCE
@@ -318,41 +346,51 @@ class AttributeValueAssertion(Sequence):
         NamedType('assertionValue', AttributeValue()),
     )
 
+
 class EqualityMatch(AttributeValueAssertion):
     # equalityMatch   [3] AttributeValueAssertion
     tagSet = AttributeValueAssertion.tagSet.tagImplicitly(Tag(tagClassContext, tagFormatConstructed, 3))
+
 
 class GreaterOrEqual(AttributeValueAssertion):
     # greaterOrEqual   [5] AttributeValueAssertion
     tagSet = AttributeValueAssertion.tagSet.tagImplicitly(Tag(tagClassContext, tagFormatConstructed, 5))
 
+
 class LessOrEqual(AttributeValueAssertion):
     # lessOrEqual   [6] AttributeValueAssertion
     tagSet = AttributeValueAssertion.tagSet.tagImplicitly(Tag(tagClassContext, tagFormatConstructed, 6))
+
 
 class Present(AttributeDescription):
     # Present   [7] AttributeDescription
     tagSet = AttributeDescription.tagSet.tagImplicitly(Tag(tagClassContext, tagFormatConstructed, 7))
 
+
 class ApproxMatch(AttributeValueAssertion):
     # approxMatch   [8] AttributeValueAssertion
     tagSet = AttributeValueAssertion.tagSet.tagImplicitly(Tag(tagClassContext, tagFormatConstructed, 7))
+
 
 class AssertionValue(OctetString):
     # AssertionValue ::= OCTET STRING
     encoding = 'utf-8'
 
+
 class InitialAssertion(AssertionValue):
     # initial [0] AssertionValue,  -- can occur at most once
     tagSet = AssertionValue.tagSet.tagImplicitly(Tag(tagClassContext, tagFormatSimple, 0))
+
 
 class AnyAssertion(AssertionValue):
     # any     [1] AssertionValue
     tagSet = AssertionValue.tagSet.tagImplicitly(Tag(tagClassContext, tagFormatSimple, 1))
 
+
 class FinalAssertion(AssertionValue):
     # final   [2] AssertionValue } -- can occur at most once
     tagSet = AssertionValue.tagSet.tagImplicitly(Tag(tagClassContext, tagFormatSimple, 2))
+
 
 class SubString(Choice):
     """
@@ -368,6 +406,7 @@ class SubString(Choice):
         NamedType('final', FinalAssertion()),
     )
 
+
 class SubStrings(SequenceOf):
     """
          substrings     SEQUENCE SIZE (1..MAX) OF substring CHOICE {
@@ -378,6 +417,7 @@ class SubStrings(SequenceOf):
     """
     componentType = SubString()
     subtypeSpec = SequenceOf.subtypeSpec + ValueSizeConstraint(1, MAXINT)
+
 
 class SubstringFilter(Sequence):
     """
@@ -395,23 +435,28 @@ class SubstringFilter(Sequence):
         NamedType('substrings', SubStrings()),
     )
 
+
 class TypeDescription(AttributeDescription):
     # type            [2] AttributeDescription OPTIONAL
     tagSet = AttributeDescription.tagSet.tagImplicitly(Tag(tagClassContext, tagFormatSimple, 2))
 
+
 class matchValueAssertion(AssertionValue):
     # matchValue      [3] AssertionValue
     tagSet = AssertionValue.tagSet.tagImplicitly(Tag(tagClassContext, tagFormatSimple, 3))
+
 
 class MatchingRuleId(LDAPString):
     # matchingRule    [1] MatchingRuleId OPTIONAL
     tagSet = LDAPString.tagSet.tagImplicitly(Tag(tagClassContext, tagFormatSimple, 1))
     pass
 
+
 class DnAttributes(Boolean):
     # dnAttributes    [4] BOOLEAN DEFAULT FALSE }
     tagSet = Boolean.tagSet.tagImplicitly(Tag(tagClassContext, tagFormatSimple, 4))
     defaultValue = Boolean(False)
+
 
 class MatchingRuleAssertion(Sequence):
     """
@@ -426,8 +471,10 @@ class MatchingRuleAssertion(Sequence):
         OptionalNamedType('matchingRule', MatchingRuleId()),
         OptionalNamedType('type', TypeDescription()),
         NamedType('matchValue', matchValueAssertion()),
-        NamedType('dnAttributes', DnAttributes()),
+        DefaultedNamedType('dnAttributes', DnAttributes(False)),
     )
+
+
 class Filter(Choice):
     """
         Filter ::= CHOICE {
@@ -456,6 +503,7 @@ class Filter(Choice):
         NamedType('extensibleMatch', MatchingRuleAssertion()),
     )
 
+
 # Similar trick to what we did with DRSUAPI (pNextEntInf). Trying to cheat Python, using Filter() now with And(),
 # Or() and Not() now that is defined
 And.componentType = Filter()
@@ -463,8 +511,10 @@ Or.componentType = Filter()
 Not.componentType = NamedTypes(NamedType('notFilter', Filter()))
 Not.tagSet = Filter.tagSet.tagExplicitly(Tag(tagClassContext, tagFormatConstructed, 2))
 
+
 class Selector(LDAPString):
     pass
+
 
 class AttributeSelection(SequenceOf):
     """
@@ -473,6 +523,7 @@ class AttributeSelection(SequenceOf):
                        -- <attributeSelector> in Section 4.5.1.8
     """
     componentType = Selector()
+
 
 class SearchRequest(Sequence):
     """
@@ -506,12 +557,15 @@ class SearchRequest(Sequence):
         NamedType('attributes', AttributeSelection()),
     )
 
+
 class AttributeValue(OctetString):
     # AttributeValue ::= OCTET STRING
     encoding = 'utf-8'
 
+
 class Vals(SetOf):
     componentType = AttributeValue()
+
 
 class PartialAttribute(Sequence):
     """
@@ -525,6 +579,7 @@ class PartialAttribute(Sequence):
         NamedType('vals', Vals()),
     )
 
+
 class PartialAttributeList(SequenceOf):
     """
         PartialAttributeList ::= SEQUENCE OF
@@ -532,8 +587,10 @@ class PartialAttributeList(SequenceOf):
     """
     componentType = PartialAttribute()
 
+
 class Attributes(PartialAttributeList):
     pass
+
 
 class SearchResultEntry(Sequence):
     """
@@ -546,6 +603,7 @@ class SearchResultEntry(Sequence):
         NamedType('objectName', LDAPDN()),
         NamedType('attributes', Attributes()),
     )
+
 
 class LDAPResult(Sequence):
     """
@@ -609,9 +667,11 @@ class LDAPResult(Sequence):
         OptionalNamedType('referral', Referral()),
     )
 
+
 class SearchResultDone(LDAPResult):
     # SearchResultDone ::= [APPLICATION 5] LDAPResult
     tagSet = LDAPResult.tagSet.tagImplicitly(Tag(tagClassApplication, tagFormatConstructed, 5))
+
 
 class SearchResultReference(SequenceOf):
     """
@@ -622,6 +682,7 @@ class SearchResultReference(SequenceOf):
     tagSet = SequenceOf.tagSet.tagImplicitly(Tag(tagClassApplication, tagFormatConstructed, 19))
     componentType = URI()
     subtypeSpec = SequenceOf.subtypeSpec + ValueSizeConstraint(1, MAXINT)
+
 
 class ProtocolOp(Choice):
     """
@@ -659,12 +720,14 @@ class ProtocolOp(Choice):
         NamedType('searchResRef', SearchResultReference()),
     )
 
+
 class LDAPOID(OctetString):
     """
         LDAPOID ::= OCTET STRING -- Constrained to <numericoid>
                                  -- [RFC4512]
     """
     pass
+
 
 class Control(Sequence):
     """
@@ -675,18 +738,106 @@ class Control(Sequence):
     """
     componentType = NamedTypes(
         NamedType('controlType', LDAPOID()),
-        NamedType('criticality', Boolean(False)),
+        DefaultedNamedType('criticality', Boolean(False)),
         OptionalNamedType('controlValue', OctetString()),
     )
 
+    def setComponentByPosition(self, idx, value=None,
+                               verifyConstraints=True,
+                               exactTypes=False,
+                               matchTags=True,
+                               matchConstraints=True):
+        if idx == 0:  # controlType
+            try:
+                cls = KNOWN_CONTROLS[value]
+                if self.__class__ != cls:
+                    self.__class__ = cls
+            except KeyError:
+                pass
+        return Sequence.setComponentByPosition(self, idx, value,
+                                               verifyConstraints,
+                                               exactTypes,
+                                               matchTags,
+                                               matchConstraints)
+
+
+class SimplePagedSearchControlValue(Sequence):
+    """
+        pagedSearchControlValue ::= SEQUENCE {
+            size            INTEGER (0..maxInt),
+                                    -- requested page size from client
+                                    -- result set size estimate from server
+            cookie          OCTET STRING }
+                            -- [RFC2696]
+    """
+    componentType = NamedTypes(
+        NamedType('size', IntegerPositive()),
+        NamedType('cookie', OctetString()),
+    )
+
+
+class SimplePagedResultsControl(Control):
+    """
+        pagedResultsControl ::= SEQUENCE {
+                controlType     1.2.840.113556.1.4.319,
+                criticality     BOOLEAN DEFAULT FALSE,
+                controlValue    pagedSearchControlValue }
+    """
+    componentType = NamedTypes(
+        NamedType('controlType', LDAPOID()),
+        DefaultedNamedType('criticality', Boolean(False)),
+        OptionalNamedType('controlValue', OctetString()),
+    )
+
+    def __init__(self, criticality=False, size=1000, cookie='', **kwargs):
+        Control.__init__(self, **kwargs)
+        self['controlType'] = CONTROL_PAGEDRESULTS
+        self['criticality'] = criticality
+        self._size = size
+        self._cookie = cookie
+        self._encodeControlValue()
+
+    def _encodeControlValue(self):
+        self['controlValue'] = encoder.encode(SimplePagedSearchControlValue().setComponents(self._size, self._cookie))
+
+    def _decodeControlValue(self):
+        self._size, self._cookie = decoder.decode(self['controlValue'], asn1Spec=SimplePagedSearchControlValue())[0]
+
+    def getCriticality(self):
+        return self['criticality']
+
+    def setCriticality(self, value):
+        self['criticality'] = value
+
+    def getSize(self):
+        self._decodeControlValue()
+        return self._size
+
+    def setSize(self, value):
+        self._size = value
+        self._encodeControlValue()
+
+    def getCookie(self):
+        self._decodeControlValue()
+        return self._cookie
+
+    def setCookie(self, value):
+        self._cookie = value
+        self._encodeControlValue()
+
+KNOWN_CONTROLS[CONTROL_PAGEDRESULTS] = SimplePagedResultsControl
+
+
 class Controls(SequenceOf):
-    # Controls ::= SEQUENCE OF control Control
-    tagSet = SequenceOf.tagSet.tagImplicitly(Tag(tagClassContext, tagFormatConstructed, 0))
+    # Controls ::= SEQUENCE OF Control
+    tagSet = SequenceOf.tagSet.tagImplicitly(Tag(tagClassContext, tagFormatSimple, 0))
     componentType = Control()
+
 
 class MessageID(IntegerPositive):
     # MessageID ::= INTEGER (0 ..  maxInt)
     pass
+
 
 class LDAPMessage(Sequence):
     """
@@ -717,7 +868,7 @@ class LDAPMessage(Sequence):
                   intermediateResponse  IntermediateResponse },
              controls       [0] Controls OPTIONAL }
 
-        MessageID ::= INTEGER (0 ..  maxInt)
+        MessageID ::= INTEGER (0 .. maxInt)
 
         maxInt INTEGER ::= 2147483647 -- (2^^31 - 1) --
     """
@@ -725,4 +876,4 @@ class LDAPMessage(Sequence):
         NamedType('messageID', MessageID()),
         NamedType('protocolOp', ProtocolOp()),
         OptionalNamedType('controls', Controls())
-        )
+    )
