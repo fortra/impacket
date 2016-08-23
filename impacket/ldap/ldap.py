@@ -339,7 +339,7 @@ class LDAPConnection:
         # We keep asking records until we get a searchResDone packet
         while not done:
             resp = self.sendReceive('searchRequest', searchRequest, searchControls)
-            for i, item in enumerate(resp):
+            for item in resp:
                 protocolOp = item['protocolOp']
                 if protocolOp.getName() == 'searchResDone':
                     done = True
