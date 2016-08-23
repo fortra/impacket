@@ -335,7 +335,7 @@ class LDAPConnection:
             searchRequest['attributes'].setComponents(*attributes)
 
         done = False
-        results = []
+        answers = []
         # We keep asking records until we get a searchResDone packet
         while not done:
             response = self.sendReceive('searchRequest', searchRequest, searchControls)
@@ -349,11 +349,11 @@ class LDAPConnection:
                                               errorString='Error in searchRequest -> %s:%s' % (
                                                   protocolOp['searchResDone']['resultCode'].prettyPrint(),
                                                   protocolOp['searchResDone']['diagnosticMessage']),
-                                              answers=results)
+                                              answers=answers)
                 else:
-                    results.append(message['protocolOp'][protocolOp.getName()])
+                    answers.append(message['protocolOp'][protocolOp.getName()])
 
-        return results  # ToDo: sorted(results) ?
+        return answers  # ToDo: sorted(answers) ?
 
     def _handleControls(self, requestControls, resultControls):
         done = True
