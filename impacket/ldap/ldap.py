@@ -340,8 +340,9 @@ class LDAPConnection:
         while not done:
             response = self.sendReceive('searchRequest', searchRequest, searchControls)
             for message in response:
-                searchResult = message['protocolOp'].getComponent()
-                if message['protocolOp'].getName() == 'searchResDone':
+                protocolOp = message['protocolOp']
+                searchResult = protocolOp.getComponent()
+                if protocolOp.getName() == 'searchResDone':
                     if searchResult['resultCode'] == ResultCode('success'):
                         done = self._handleControls(searchControls, message['controls'])
                     else:
