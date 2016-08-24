@@ -807,7 +807,7 @@ class SimplePagedResultsControl(Control):
     def getCriticality(self):
         return self['criticality']
 
-    def setCritical(self, value):
+    def setCriticality(self, value):
         self['criticality'] = value
 
     def getSize(self):

@@ -30,7 +30,7 @@ from impacket.ldap.ldapasn1 import BindRequest, Integer7Bit, LDAPDN, Authenticat
     SCOPE_SUB, SearchRequest, Scope, DEREF_NEVER, DeRefAliases, IntegerPositive, Boolean, AttributeSelection, \
     SaslCredentials, LDAPString, ProtocolOp, Credentials, Filter, SubstringFilter, Present, EqualityMatch, \
     ApproxMatch, GreaterOrEqual, LessOrEqual, MatchingRuleAssertion, SubStrings, SubString, And, Or, Not, \
-    Controls, ResultCode, CONTROL_PAGEDRESULTS
+    Controls, ResultCode, SearchResultDone, CONTROL_PAGEDRESULTS
 from impacket.ntlm import getNTLMSSPType1, getNTLMSSPType3
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech
 
@@ -336,24 +336,24 @@ class LDAPConnection:
 
         done = False
         answers = []
-        # We keep asking records until we get a searchResDone packet
+        # We keep asking records until we get a searchResDone packet and all controls are handled
         while not done:
             response = self.sendReceive('searchRequest', searchRequest, searchControls)
             for message in response:
-                protocolOp = message['protocolOp']
-                if protocolOp.getName() == 'searchResDone':
-                    if protocolOp['searchResDone']['resultCode'] == ResultCode('success'):
+                searchResult = message['protocolOp'].getComponent()
+                if searchResult.isSameTypeWith(SearchResultDone()):
+                    if searchResult['resultCode'] == ResultCode('success'):
                         done = self._handleControls(searchControls, message['controls'])
                     else:
-                        raise LDAPSearchError(error=int(protocolOp['searchResDone']['resultCode']),
-                                              errorString='Error in searchRequest -> %s:%s' % (
-                                                  protocolOp['searchResDone']['resultCode'].prettyPrint(),
-                                                  protocolOp['searchResDone']['diagnosticMessage']),
+                        raise LDAPSearchError(error=int(searchResult['resultCode']),
+                                              errorString='Error in searchRequest -> {0}:{1}'.format(
+                                                  searchResult['resultCode'].prettyPrint(),
+                                                  searchResult['diagnosticMessage']),
                                               answers=answers)
                 else:
-                    answers.append(message['protocolOp'][protocolOp.getName()])
+                    answers.append(searchResult)
 
-        return answers  # ToDo: sorted(answers) ?
+        return answers
 
     def _handleControls(self, requestControls, resultControls):
         done = True
