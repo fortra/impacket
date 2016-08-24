@@ -30,7 +30,7 @@ from impacket.ldap.ldapasn1 import BindRequest, Integer7Bit, LDAPDN, Authenticat
     SCOPE_SUB, SearchRequest, Scope, DEREF_NEVER, DeRefAliases, IntegerPositive, Boolean, AttributeSelection, \
     SaslCredentials, LDAPString, ProtocolOp, Credentials, Filter, SubstringFilter, Present, EqualityMatch, \
     ApproxMatch, GreaterOrEqual, LessOrEqual, MatchingRuleAssertion, SubStrings, SubString, And, Or, Not, \
-    Controls, ResultCode, SearchResultDone, CONTROL_PAGEDRESULTS
+    Controls, ResultCode, CONTROL_PAGEDRESULTS
 from impacket.ntlm import getNTLMSSPType1, getNTLMSSPType3
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech
 
@@ -341,7 +341,7 @@ class LDAPConnection:
             response = self.sendReceive('searchRequest', searchRequest, searchControls)
             for message in response:
                 searchResult = message['protocolOp'].getComponent()
-                if searchResult.isSameTypeWith(SearchResultDone()):
+                if message['protocolOp'].getName() == 'searchResDone':
                     if searchResult['resultCode'] == ResultCode('success'):
                         done = self._handleControls(searchControls, message['controls'])
                     else:
