@@ -853,7 +853,6 @@ class SimplePagedResultsControl(Control):
         self._cookie = value
         self._encodeControlValue()
 
-
 KNOWN_CONTROLS[CONTROL_PAGEDRESULTS] = SimplePagedResultsControl
 
 
