@@ -5,12 +5,7 @@
 # for more information.
 #
 
-import pcapy
-import socket
-import time
-from random import randint
-
-from impacket import structure, ImpactDecoder
+from impacket import structure
 
 
 class BootpPacket(structure.Structure):
