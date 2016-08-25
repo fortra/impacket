@@ -23,7 +23,7 @@ import re
 from binascii import unhexlify
 
 from pyasn1.codec.ber import decoder, encoder
-from pyasn1.error import SubstrateUnderrunError
+from pyasn1.error import SubstrateUnderrunError, PyAsn1Error
 
 from impacket import LOG
 from impacket.ldap.ldapasn1 import BindRequest, Integer7Bit, LDAPDN, AuthenticationChoice, AuthSimple, LDAPMessage, \
@@ -347,7 +347,7 @@ class LDAPConnection:
                         done = self._handleControls(searchControls, message['controls'])
                     else:
                         raise LDAPSearchError(error=int(searchResult['resultCode']),
-                                              errorString='Error in searchRequest -> {0}:{1}'.format(
+                                              errorString='Error in searchRequest -> {0}: {1}'.format(
                                                   searchResult['resultCode'].prettyPrint(),
                                                   searchResult['diagnosticMessage']),
                                               answers=answers)
@@ -406,6 +406,13 @@ class LDAPConnection:
                 # We need more data
                 remaining = data + self._socket.recv(REQUEST_SIZE)
             else:
+                if message['messageID'] == 0:  # unsolicited notification
+                    extendedResponse = message['protocolOp']['extendedResp']
+                    raise LDAPSessionError(error=int(extendedResponse['resultCode']),
+                                           errorString="Unsolicited notification '{0}' -> {1}: {2}".format(
+                                               message['responseName'],
+                                               extendedResponse['resultCode'].prettyPrint(),
+                                               extendedResponse['diagnosticMessage']))
                 response.append(message)
             data = remaining
 
