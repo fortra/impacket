@@ -539,8 +539,6 @@ class LDAPConnection:
                 if initial:
                     components.append(SubString().setComponentByName('initial', initial))
                 for assertion in assertions[1:-1]:
-                    if not assertion:
-                        raise LDAPFilterInvalidException("consecutive '*' in filter assertion")
                     components.append(SubString().setComponentByName('any', assertion))
                 final = assertions[-1]
                 if final:
@@ -561,6 +559,8 @@ class LDAPConnection:
                 elif operator == u'<=':
                     choice = LessOrEqual().setComponents(attribute, value)
                     searchFilter.setComponentByName('lessOrEqual', choice)
+            else:
+                raise LDAPFilterInvalidException("invalid filter '({0}{1}{2})'".format(attribute, operator, value))
 
         return searchFilter
 
