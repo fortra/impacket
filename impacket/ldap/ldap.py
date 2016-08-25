@@ -23,7 +23,7 @@ import re
 from binascii import unhexlify
 
 from pyasn1.codec.ber import decoder, encoder
-from pyasn1.error import SubstrateUnderrunError, PyAsn1Error
+from pyasn1.error import SubstrateUnderrunError
 
 from impacket import LOG
 from impacket.ldap.ldapasn1 import BindRequest, Integer7Bit, LDAPDN, AuthenticationChoice, AuthSimple, LDAPMessage, \
