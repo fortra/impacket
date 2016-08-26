@@ -4,7 +4,8 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Author: Alberto Solino (@agsolino)
+# Authors: Alberto Solino (@agsolino)
+#          Kacper Nowak (@kacpern)
 #
 # Description:
 #   RFC 4511 Minimalistic implementation. We don't need much functionality yet
