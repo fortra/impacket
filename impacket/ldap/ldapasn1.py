@@ -40,9 +40,15 @@ DEREF_SEARC = 1
 DEREF_FIND = 2
 DEREF_ALWAYS = 3
 
+# LDAP Controls
 CONTROL_PAGEDRESULTS = '1.2.840.113556.1.4.319'
 
 KNOWN_CONTROLS = {}
+
+# LDAP Unsolicited Notifications
+NOTIFICATION_DISCONNECT = '1.3.6.1.4.1.1466.20036'
+
+KNOWN_NOTIFICATIONS = {NOTIFICATION_DISCONNECT: 'Notice of Disconnection'}
 
 
 ################################################################################
