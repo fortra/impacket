@@ -30,7 +30,7 @@ from impacket.ldap.ldapasn1 import BindRequest, Integer7Bit, LDAPDN, Authenticat
     SCOPE_SUB, SearchRequest, Scope, DEREF_NEVER, DeRefAliases, IntegerPositive, Boolean, AttributeSelection, \
     SaslCredentials, LDAPString, ProtocolOp, Credentials, Filter, SubstringFilter, Present, EqualityMatch, \
     ApproxMatch, GreaterOrEqual, LessOrEqual, MatchingRuleAssertion, SubStrings, SubString, And, Or, Not, \
-    Controls, ResultCode, CONTROL_PAGEDRESULTS
+    Controls, ResultCode, CONTROL_PAGEDRESULTS, KNOWN_NOTIFICATIONS, NOTIFICATION_DISCONNECT
 from impacket.ntlm import getNTLMSSPType1, getNTLMSSPType3
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech
 
@@ -408,9 +408,14 @@ class LDAPConnection:
             else:
                 if message['messageID'] == 0:  # unsolicited notification
                     extendedResponse = message['protocolOp']['extendedResp']
+                    responseName = extendedResponse['responseName'] or message['responseName']
+                    notification = KNOWN_NOTIFICATIONS.get(responseName,
+                                                           "Unsolicited Notification '{0}'".format(responseName))
+                    if responseName == NOTIFICATION_DISCONNECT:  # Server has disconnected
+                        self.close()
                     raise LDAPSessionError(error=int(extendedResponse['resultCode']),
-                                           errorString="Unsolicited notification '{0}' -> {1}: {2}".format(
-                                               message['responseName'],
+                                           errorString="{0} -> {1}: {2}".format(
+                                               notification,
                                                extendedResponse['resultCode'].prettyPrint(),
                                                extendedResponse['diagnosticMessage']))
                 response.append(message)
