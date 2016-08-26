@@ -347,7 +347,7 @@ class LDAPConnection:
                         done = self._handleControls(searchControls, message['controls'])
                     else:
                         raise LDAPSearchError(error=int(searchResult['resultCode']),
-                                              errorString='Error in searchRequest -> {0}:{1}'.format(
+                                              errorString='Error in searchRequest -> {0}: {1}'.format(
                                                   searchResult['resultCode'].prettyPrint(),
                                                   searchResult['diagnosticMessage']),
                                               answers=answers)
@@ -406,6 +406,13 @@ class LDAPConnection:
                 # We need more data
                 remaining = data + self._socket.recv(REQUEST_SIZE)
             else:
+                if message['messageID'] == 0:  # unsolicited notification
+                    extendedResponse = message['protocolOp']['extendedResp']
+                    raise LDAPSessionError(error=int(extendedResponse['resultCode']),
+                                           errorString="Unsolicited notification '{0}' -> {1}: {2}".format(
+                                               message['responseName'],
+                                               extendedResponse['resultCode'].prettyPrint(),
+                                               extendedResponse['diagnosticMessage']))
                 response.append(message)
             data = remaining
 
@@ -539,8 +546,6 @@ class LDAPConnection:
                 if initial:
                     components.append(SubString().setComponentByName('initial', initial))
                 for assertion in assertions[1:-1]:
-                    if not assertion:
-                        raise LDAPFilterInvalidException("consecutive '*' in filter assertion")
                     components.append(SubString().setComponentByName('any', assertion))
                 final = assertions[-1]
                 if final:
@@ -561,6 +566,8 @@ class LDAPConnection:
                 elif operator == u'<=':
                     choice = LessOrEqual().setComponents(attribute, value)
                     searchFilter.setComponentByName('lessOrEqual', choice)
+            else:
+                raise LDAPFilterInvalidException("invalid filter '({0}{1}{2})'".format(attribute, operator, value))
 
         return searchFilter
 

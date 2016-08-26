@@ -21,7 +21,7 @@ from pyasn1.type.univ import Sequence, Integer, Choice, SequenceOf, OctetString,
 from pyasn1.type.constraint import ValueRangeConstraint, ValueSizeConstraint
 from pyasn1.type.namedtype import NamedType, DefaultedNamedType, OptionalNamedType, NamedTypes
 
-from pyasn1.type.tag import Tag, tagClassContext, tagFormatConstructed, tagClassApplication, tagFormatSimple
+from pyasn1.type.tag import Tag, tagClassApplication, tagClassContext, tagFormatSimple, tagFormatConstructed
 from pyasn1.type.namedval import NamedValues
 
 ################################################################################
@@ -155,6 +155,7 @@ class Referral(SequenceOf):
     """
     tagSet = SequenceOf.tagSet.tagImplicitly(Tag(tagClassContext, tagFormatConstructed, 3))
     componentType = URI()
+    subtypeSpec = SequenceOf.subtypeSpec + ValueSizeConstraint(1, MAXINT)
 
 
 class ResultCode(Enumerated):
@@ -370,7 +371,7 @@ class Present(AttributeDescription):
 
 class ApproxMatch(AttributeValueAssertion):
     # approxMatch   [8] AttributeValueAssertion
-    tagSet = AttributeValueAssertion.tagSet.tagImplicitly(Tag(tagClassContext, tagFormatConstructed, 7))
+    tagSet = AttributeValueAssertion.tagSet.tagImplicitly(Tag(tagClassContext, tagFormatConstructed, 8))
 
 
 class AssertionValue(OctetString):
@@ -685,6 +686,39 @@ class SearchResultReference(SequenceOf):
     subtypeSpec = SequenceOf.subtypeSpec + ValueSizeConstraint(1, MAXINT)
 
 
+class LDAPOID(OctetString):
+    """
+        LDAPOID ::= OCTET STRING -- Constrained to <numericoid>
+                                 -- [RFC4512]
+    """
+    pass
+
+
+class ExtendedResponseName(LDAPOID):
+    tagSet = LDAPOID.tagSet.tagImplicitly(Tag(tagClassContext, tagFormatSimple, 10))
+
+
+class ExtendedResponeValue(OctetString):
+    tagSet = OctetString.tagSet.tagImplicitly(Tag(tagClassContext, tagFormatSimple, 11))
+
+
+class ExtendedResponse(Sequence):
+    """
+        ExtendedResponse ::= [APPLICATION 24] SEQUENCE {
+            COMPONENTS OF LDAPResult,
+            responseName     [10] LDAPOID OPTIONAL,
+            response         [11] OCTET STRING OPTIONAL }
+    """
+    tagSet = Sequence.tagSet.tagImplicitly(Tag(tagClassApplication, tagFormatConstructed, 24))
+    componentType = NamedTypes(
+        NamedType('resultCode', ResultCode()),
+        NamedType('matchedDN', LDAPDN()),
+        NamedType('diagnosticMessage', LDAPString()),
+        OptionalNamedType('responseName', ExtendedResponseName()),
+        OptionalNamedType('responseValue', ExtendedResponeValue()),
+    )
+
+
 class ProtocolOp(Choice):
     """
         protocolOp      CHOICE {
@@ -719,15 +753,8 @@ class ProtocolOp(Choice):
         NamedType('searchResEntry', SearchResultEntry()),
         NamedType('searchResDone', SearchResultDone()),
         NamedType('searchResRef', SearchResultReference()),
+        NamedType('extendedResp', ExtendedResponse()),
     )
-
-
-class LDAPOID(OctetString):
-    """
-        LDAPOID ::= OCTET STRING -- Constrained to <numericoid>
-                                 -- [RFC4512]
-    """
-    pass
 
 
 class Control(Sequence):
@@ -802,7 +829,7 @@ class SimplePagedResultsControl(Control):
         self['controlValue'] = encoder.encode(SimplePagedSearchControlValue().setComponents(self._size, self._cookie))
 
     def _decodeControlValue(self):
-        self._size, self._cookie = decoder.decode(self['controlValue'], asn1Spec=SimplePagedSearchControlValue())[0]
+        (self._size, self._cookie), _ = decoder.decode(self['controlValue'], asn1Spec=SimplePagedSearchControlValue())
 
     def getCriticality(self):
         return self['criticality']
@@ -876,5 +903,8 @@ class LDAPMessage(Sequence):
     componentType = NamedTypes(
         NamedType('messageID', MessageID()),
         NamedType('protocolOp', ProtocolOp()),
-        OptionalNamedType('controls', Controls())
+        OptionalNamedType('controls', Controls()),
+        # fix AD nonconforming to RFC
+        OptionalNamedType('responseName', ExtendedResponseName()),
+        OptionalNamedType('responseValue', ExtendedResponeValue()),
     )
