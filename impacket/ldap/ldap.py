@@ -15,23 +15,18 @@
 #   Adding [MS-ADTS] specific functionality
 #
 # ToDo:
-# [ ] Implement Paging Search, especially important for big requests
+# [x] Implement Paging Search, especially important for big requests
 #
 
-import socket
 import os
 import re
-from binascii import unhexlify
+import socket
 
-from pyasn1.codec.ber import decoder, encoder
+from pyasn1.codec.ber import encoder, decoder
 from pyasn1.error import SubstrateUnderrunError
 
 from impacket import LOG
-from impacket.ldap.ldapasn1 import BindRequest, Integer7Bit, LDAPDN, AuthenticationChoice, AuthSimple, LDAPMessage, \
-    SCOPE_SUB, SearchRequest, Scope, DEREF_NEVER, DeRefAliases, IntegerPositive, Boolean, AttributeSelection, \
-    SaslCredentials, LDAPString, ProtocolOp, Credentials, Filter, SubstringFilter, Present, EqualityMatch, \
-    ApproxMatch, GreaterOrEqual, LessOrEqual, MatchingRuleAssertion, SubStrings, SubString, And, Or, Not, \
-    Controls, ResultCode, CONTROL_PAGEDRESULTS, KNOWN_NOTIFICATIONS, NOTIFICATION_DISCONNECT
+from impacket.ldap.ldapasn1 import *
 from impacket.ntlm import getNTLMSSPType1, getNTLMSSPType3
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech
 
@@ -42,23 +37,41 @@ except:
     LOG.critical("pyOpenSSL is not installed, can't continue")
     raise
 
-# https://tools.ietf.org/search/rfc4515#section-3
-DESC = ur'(?:[a-z][a-z0-9\-]*)'
-NUM_OID = ur'(?:(?:\d|[1-9]\d+)(?:\.(?:\d|[1-9]\d+))*)'
-OID = ur'(?:{0}|{1})'.format(DESC, NUM_OID)
-OPTIONS = ur'(?:(?:;[a-z0-9\-]+)*)'
-ATTR = ur'({0}{1})'.format(OID, OPTIONS)
-DN = ur'(?::(dn))'
-RULE = ur'(?::({0}))'.format(OID)
+__all__ = [
+    'LDAPConnection', 'LDAPFilterSyntaxError', 'LDAPFilterInvalidException', 'LDAPSessionError', 'LDAPSearchError',
+    'Control', 'SimplePagedResultsControl',
+    'RESULT_SUCCESS', 'RESULT_OPERATIONSERROR', 'RESULT_PROTOCOLERROR', 'RESULT_TIMELIMITEXCEEDED',
+    'RESULT_SIZELIMITEXCEEDED', 'RESULT_COMPAREFALSE', 'RESULT_COMPARETRUE', 'RESULT_AUTHMETHODNOTSUPPORTED',
+    'RESULT_STRONGERAUTHREQUIRED', 'RESULT_REFERRAL', 'RESULT_ADMINLIMITEXCEEDED',
+    'RESULT_UNAVAILABLECRITICALEXTENSION', 'RESULT_CONFIDENTIALITYREQUIRED', 'RESULT_SASLBINDINPROGRESS',
+    'RESULT_NOSUCHATTRIBUTE', 'RESULT_UNDEFINEDATTRIBUTETYPE', 'RESULT_INAPPROPRIATEMATCHING',
+    'RESULT_CONSTRAINTVIOLATION', 'RESULT_ATTRIBUTEORVALUEEXISTS', 'RESULT_INVALIDATTRIBUTESYNTAX',
+    'RESULT_NOSUCHOBJECT', 'RESULT_ALIASPROBLEM', 'RESULT_INVALIDDNSYNTAX', 'RESULT_ALIASDEREFERENCINGPROBLEM',
+    'RESULT_INAPPROPRIATEAUTHENTICATION', 'RESULT_INVALIDCREDENTIALS', 'RESULT_INSUFFICIENTACCESSRIGHTS',
+    'RESULT_BUSY', 'RESULT_UNAVAILABLE', 'RESULT_UNWILLINGTOPERFORM', 'RESULT_LOOPDETECT', 'RESULT_NAMINGVIOLATION',
+    'RESULT_OBJECTCLASSVIOLATION', 'RESULT_NOTALLOWEDONNONLEAF', 'RESULT_NOTALLOWEDONRDN', 'RESULT_ENTRYALREADYEXISTS',
+    'RESULT_OBJECTCLASSMODSPROHIBITED', 'RESULT_AFFECTSMULTIPLEDSAS', 'RESULT_OTHER', 'SCOPE_BASE', 'SCOPE_ONE',
+    'SCOPE_SUB', 'DEREF_NEVER', 'DEREF_SEARCH', 'DEREF_FIND', 'DEREF_ALWAYS', 'OPERATION_ADD', 'OPERATION_DELETE',
+    'OPERATION_REPLACE', 'CONTROL_PAGEDRESULTS', 'KNOWN_CONTROLS', 'NOTIFICATION_DISCONNECT', 'KNOWN_NOTIFICATIONS',
+]
 
-RE_OPERATOR = re.compile(ur'([:<>~]?=)')
-RE_ATTRIBUTE = re.compile(ur'^{0}$'.format(ATTR), re.I)
-RE_EX_ATTRIBUTE_1 = re.compile(ur'^{0}{1}?{2}?$'.format(ATTR, DN, RULE), re.I)
-RE_EX_ATTRIBUTE_2 = re.compile(ur'^(){{0}}{0}?{1}$'.format(DN, RULE), re.I)
+# https://tools.ietf.org/search/rfc4515#section-3
+DESC = r'(?:[a-z][a-z0-9\-]*)'
+NUM_OID = r'(?:(?:\d|[1-9]\d+)(?:\.(?:\d|[1-9]\d+))*)'
+OID = r'(?:{0}|{1})'.format(DESC, NUM_OID)
+OPTIONS = r'(?:(?:;[a-z0-9\-]+)*)'
+ATTR = r'({0}{1})'.format(OID, OPTIONS)
+DN = r'(?::(dn))'
+RULE = r'(?::({0}))'.format(OID)
+
+RE_OPERATOR = re.compile(r'([:<>~]?=)')
+RE_ATTRIBUTE = re.compile(r'^{0}$'.format(ATTR), re.I)
+RE_EX_ATTRIBUTE_1 = re.compile(r'^{0}{1}?{2}?$'.format(ATTR, DN, RULE), re.I)
+RE_EX_ATTRIBUTE_2 = re.compile(r'^(){{0}}{0}?{1}$'.format(DN, RULE), re.I)
 
 
 class LDAPConnection:
-    def __init__(self, url, baseDN='dc=net', dstIp=None):
+    def __init__(self, url, baseDN='', dstIp=None):
         """
         LDAPConnection class
 
@@ -76,17 +89,16 @@ class LDAPConnection:
         self._messageId = 1
         self._dstIp = dstIp
 
-        if url.startswith("ldap://"):
+        if url.startswith('ldap://'):
             self._dstPort = 389
             self._SSL = False
             self._dstHost = url[7:]
-        elif url.startswith("ldaps://"):
-            # raise LDAPSessionError(errorString = 'LDAPS still not supported')
+        elif url.startswith('ldaps://'):
             self._dstPort = 636
             self._SSL = True
             self._dstHost = url[8:]
         else:
-            raise LDAPSessionError(errorString='Unknown URL prefix %s' % url)
+            raise LDAPSessionError(errorString='Unknown URL prefix {0}'.format(url))
 
         # Try to connect
         if self._dstIp is not None:
@@ -94,12 +106,12 @@ class LDAPConnection:
         else:
             targetHost = self._dstHost
 
-        LOG.debug('Connecting to %s, port %s, SSL %s' % (targetHost, self._dstPort, self._SSL))
+        LOG.debug('Connecting to {0}, port {1:d}, SSL {2}'.format(targetHost, self._dstPort, self._SSL))
         try:
-            af, socktype, proto, canonname, sa = socket.getaddrinfo(targetHost, self._dstPort, 0, socket.SOCK_STREAM)[0]
+            af, socktype, proto, _, sa = socket.getaddrinfo(targetHost, self._dstPort, 0, socket.SOCK_STREAM)[0]
             self._socket = socket.socket(af, socktype, proto)
-        except socket.error, e:
-            raise socket.error("Connection error (%s:%s)" % (targetHost, 88), e)
+        except socket.error as e:
+            raise socket.error('Connection error ({0}:{1})'.format(targetHost, 88), e)
 
         if self._SSL is False:
             self._socket.connect(sa)
@@ -131,12 +143,14 @@ class LDAPConnection:
         """
 
         if lmhash != '' or nthash != '':
-            if len(lmhash) % 2:     lmhash = '0%s' % lmhash
-            if len(nthash) % 2:     nthash = '0%s' % nthash
+            if len(lmhash) % 2:
+                lmhash = '0' + lmhash
+            if len(nthash) % 2:
+                nthash = '0' + nthash
             try:  # just in case they were converted already
-                lmhash = unhexlify(lmhash)
-                nthash = unhexlify(nthash)
-            except:
+                lmhash = lmhash.decode('hex')
+                nthash = nthash.decode('hex')
+            except TypeError:
                 pass
 
         # Importing down here so pyasn1 is not required if kerberos is not used.
@@ -145,13 +159,12 @@ class LDAPConnection:
         from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS
         from impacket.krb5 import constants
         from impacket.krb5.types import Principal, KerberosTime, Ticket
-        from pyasn1.codec.der import decoder, encoder
         import datetime
 
         if TGT is not None or TGS is not None:
             useCache = False
 
-        if useCache is True:
+        if useCache:
             try:
                 ccache = CCache.loadFile(os.getenv('KRB5CCNAME'))
             except:
@@ -163,18 +176,18 @@ class LDAPConnection:
                     user = ccache.principal.components[0]['data']
                 if domain == '':
                     domain = ccache.principal.realm['data']
-                LOG.debug("Using Kerberos Cache: %s" % os.getenv('KRB5CCNAME'))
-                principal = 'ldap/%s@%s' % (self._dstHost.upper(), domain.upper())
+                LOG.debug('Using Kerberos Cache: {0}'.format(os.getenv('KRB5CCNAME')))
+                principal = 'ldap/{0}@{1}'.format(self._dstHost.upper(), domain.upper())
                 creds = ccache.getCredential(principal)
                 if creds is None:
                     # Let's try for the TGT and go from there
-                    principal = 'krbtgt/%s@%s' % (domain.upper(), domain.upper())
+                    principal = 'krbtgt/{0}@{1}'.format(domain.upper(), domain.upper())
                     creds = ccache.getCredential(principal)
                     if creds is not None:
                         TGT = creds.toTGT()
                         LOG.debug('Using TGT from cache')
                     else:
-                        LOG.debug("No valid credentials found in cache. ")
+                        LOG.debug('No valid credentials found in cache')
                 else:
                     TGS = creds.toTGS()
                     LOG.debug('Using TGS from cache')
@@ -191,7 +204,7 @@ class LDAPConnection:
             sessionKey = TGT['sessionKey']
 
         if TGS is None:
-            serverName = Principal('ldap/%s' % self._dstHost,
+            serverName = Principal('ldap/{0}'.format(self._dstHost),
                                    type=constants.PrincipalNameType.NT_SRV_INST.value)
             tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, kdcHost, tgt, cipher,
                                                                     sessionKey)
@@ -217,7 +230,7 @@ class LDAPConnection:
         apReq['pvno'] = 5
         apReq['msg-type'] = int(constants.ApplicationTagNumbers.AP_REQ.value)
 
-        opts = list()
+        opts = []
         apReq['ap-options'] = constants.encodeFlags(opts)
         seq_set(apReq, 'ticket', ticket.to_asn1)
 
@@ -247,17 +260,15 @@ class LDAPConnection:
         # Done with the Kerberos saga, now let's get into LDAP
 
         bindRequest = BindRequest()
-        bindRequest['version'] = Integer7Bit(3)
-        bindRequest['name'] = LDAPDN(user)
-        credentials = SaslCredentials()
-        credentials['mechanism'] = LDAPString('GSS-SPNEGO')
-        credentials['credentials'] = Credentials(blob.getData())
-        bindRequest['authentication'] = AuthenticationChoice().setComponentByName('sasl', credentials)
+        bindRequest['version'] = 3
+        bindRequest['name'] = user
+        bindRequest['authentication']['sasl']['mechanism'] = 'GSS-SPNEGO'
+        bindRequest['authentication']['sasl']['credentials'] = blob.getData()
 
-        resp = self.sendReceive('bindRequest', bindRequest)[0]['protocolOp']
+        resp = self.sendReceive(bindRequest)[0]['protocolOp']
 
-        if resp['bindResponse']['resultCode'] != 0:
-            raise LDAPSessionError(errorString='Error in bindRequest -> %s:%s' % (
+        if resp['bindResponse']['resultCode'] != RESULT_SUCCESS:
+            raise LDAPSessionError(errorString='Error in bindRequest -> {0}: {1}'.format(
                 resp['bindResponse']['resultCode'].prettyPrint(), resp['bindResponse']['diagnosticMessage']))
 
         return True
@@ -276,75 +287,80 @@ class LDAPConnection:
         :return: True, raises a LDAPSessionError if error.
         """
         bindRequest = BindRequest()
-        bindRequest['version'] = Integer7Bit(3)
-        bindRequest['name'] = LDAPDN(user)
+        bindRequest['version'] = 3
+        bindRequest['name'] = user
 
         if authenticationChoice == 'simple':
-            bindRequest['authentication'] = AuthenticationChoice().setComponentByName(authenticationChoice,
-                                                                                      AuthSimple(password))
-            resp = self.sendReceive('bindRequest', bindRequest)[0]['protocolOp']
+            if '.' in domain:
+                name = user + '@' + domain
+            else:
+                name = domain + '\\' + user
+            bindRequest['name'] = name
+            bindRequest['authentication']['simple'] = password
+            resp = self.sendReceive(bindRequest)[0]['protocolOp']
         elif authenticationChoice == 'sicilyPackageDiscovery':
-            bindRequest['authentication'] = AuthenticationChoice().setComponentByName(authenticationChoice, '')
-            resp = self.sendReceive('bindRequest', bindRequest)[0]['protocolOp']
+            bindRequest['authentication']['sicilyPackageDiscovery'] = ''
+            resp = self.sendReceive(bindRequest)[0]['protocolOp']
         elif authenticationChoice == 'sicilyNegotiate':
             # Deal with NTLM Authentication
             if lmhash != '' or nthash != '':
-                if len(lmhash) % 2:     lmhash = '0%s' % lmhash
-                if len(nthash) % 2:     nthash = '0%s' % nthash
+                if len(lmhash) % 2:
+                    lmhash = '0' + lmhash
+                if len(nthash) % 2:
+                    nthash = '0' + nthash
                 try:  # just in case they were converted already
-                    lmhash = unhexlify(lmhash)
-                    nthash = unhexlify(nthash)
-                except:
+                    lmhash = lmhash.decode('hex')
+                    nthash = nthash.decode('hex')
+                except TypeError:
                     pass
 
             # NTLM Negotiate
             negotiate = getNTLMSSPType1('', domain)
-            bindRequest['authentication'] = AuthenticationChoice().setComponentByName('sicilyNegotiate', negotiate)
-            resp = self.sendReceive('bindRequest', bindRequest)[0]['protocolOp']
+            bindRequest['authentication']['sicilyNegotiate'] = negotiate
+            resp = self.sendReceive(bindRequest)[0]['protocolOp']
 
             # NTLM Challenge
             type2 = resp['bindResponse']['matchedDN']
 
             # NTLM Auth
             type3, exportedSessionKey = getNTLMSSPType3(negotiate, str(type2), user, password, domain, lmhash, nthash)
-            bindRequest['authentication'] = AuthenticationChoice().setComponentByName('sicilyResponse', type3)
-            resp = self.sendReceive('bindRequest', bindRequest)[0]['protocolOp']
+            bindRequest['authentication']['sicilyResponse'] = type3
+            resp = self.sendReceive(bindRequest)[0]['protocolOp']
         else:
-            raise LDAPSessionError(errorString='Unknown authenticationChoice %s' % authenticationChoice)
+            raise LDAPSessionError(errorString='Unknown authenticationChoice {0}'.format(authenticationChoice))
 
-        if resp['bindResponse']['resultCode'] != 0:
-            raise LDAPSessionError(errorString='Error in bindRequest -> %s:%s' % (
+        if resp['bindResponse']['resultCode'] != RESULT_SUCCESS:
+            raise LDAPSessionError(errorString='Error in bindRequest -> {0}: {1}'.format(
                 resp['bindResponse']['resultCode'].prettyPrint(), resp['bindResponse']['diagnosticMessage']))
 
         return True
 
-    def search(self, searchBase=None, searchFilter=u'(objectClass=*)', scope=SCOPE_SUB, attributes=None,
+    def search(self, searchBase=None, scope=SCOPE_SUB, searchFilter='(objectClass=*)', attributes=None,
                derefAliases=DEREF_NEVER, sizeLimit=0, searchControls=None):
         if searchBase is None:
             searchBase = self._baseDN
+        if attributes is None:
+            attributes = []
 
         searchRequest = SearchRequest()
-        searchRequest['baseObject'] = LDAPDN(searchBase)
-        searchRequest['scope'] = Scope(scope)
-        searchRequest['derefAliases'] = DeRefAliases(derefAliases)
-        searchRequest['sizeLimit'] = IntegerPositive(sizeLimit)
-        searchRequest['timeLimit'] = IntegerPositive(0)
-        searchRequest['typesOnly'] = Boolean(False)
+        searchRequest['baseObject'] = searchBase
+        searchRequest['scope'] = scope
+        searchRequest['derefAliases'] = derefAliases
+        searchRequest['sizeLimit'] = sizeLimit
+        searchRequest['timeLimit'] = 0
+        searchRequest['typesOnly'] = False
         searchRequest['filter'] = self._parseFilter(searchFilter)
-        searchRequest['attributes'] = AttributeSelection()
-        if attributes is not None:
-            searchRequest['attributes'].setComponents(*attributes)
+        searchRequest['attributes'].setComponents(*attributes)
 
         done = False
         answers = []
-        # We keep asking records until we get a searchResDone packet and all controls are handled
+        # We keep asking records until we get a SearchResultDone packet and all controls are handled
         while not done:
-            response = self.sendReceive('searchRequest', searchRequest, searchControls)
+            response = self.sendReceive(searchRequest, searchControls)
             for message in response:
-                protocolOp = message['protocolOp']
-                searchResult = protocolOp.getComponent()
-                if protocolOp.getName() == 'searchResDone':
-                    if searchResult['resultCode'] == ResultCode('success'):
+                searchResult = message['protocolOp'].getComponent()
+                if searchResult.isSameTypeWith(SearchResultDone()):
+                    if searchResult['resultCode'] == RESULT_SUCCESS:
                         done = self._handleControls(searchControls, message['controls'])
                     else:
                         raise LDAPSearchError(error=int(searchResult['resultCode']),
@@ -378,12 +394,14 @@ class LDAPConnection:
         if self._socket is not None:
             self._socket.close()
 
-    def send(self, protocolOp, request, controls=None):
+    def send(self, request, controls=None):
+        if controls is None:
+            controls = []
+
         message = LDAPMessage()
-        message['messageID'] = IntegerPositive(self._messageId)
-        message['protocolOp'] = ProtocolOp().setComponentByName(protocolOp, request)
-        if controls is not None:
-            message['controls'] = Controls().setComponents(*controls)
+        message['messageID'] = self._messageId
+        message['protocolOp'].setComponentByType(request.tagSet, request)
+        message['controls'].setComponents(*controls)
 
         data = encoder.encode(message)
 
@@ -425,8 +443,8 @@ class LDAPConnection:
         self._messageId += 1
         return response
 
-    def sendReceive(self, protocolOp, request, controls=None):
-        self.send(protocolOp, request, controls)
+    def sendReceive(self, request, controls=None):
+        self.send(request, controls)
         return self.recv()
 
     def _parseFilter(self, filterStr):
@@ -441,7 +459,7 @@ class LDAPConnection:
             c = filterList.pop()
         except IndexError:
             raise LDAPFilterSyntaxError('EOL while parsing search filter')
-        if c != u'(':  # filter must start with a '('
+        if c != '(':  # filter must start with a '('
             filterList.append(c)
             raise LDAPFilterSyntaxError("unexpected token: '{0}'".format(c))
 
@@ -449,7 +467,7 @@ class LDAPConnection:
             operator = filterList.pop()
         except IndexError:
             raise LDAPFilterSyntaxError('EOL while parsing search filter')
-        if operator not in [u'!', u'&', u'|']:  # must be simple filter in this case
+        if operator not in ['!', '&', '|']:  # must be simple filter in this case
             filterList.extend([operator, c])
             return self._consumeSimpleFilter(filterList)
 
@@ -464,7 +482,7 @@ class LDAPConnection:
             c = filterList.pop()
         except IndexError:
             raise LDAPFilterSyntaxError('EOL while parsing search filter')
-        if c != u')':  # filter must end with a ')'
+        if c != ')':  # filter must end with a ')'
             filterList.append(c)
             raise LDAPFilterSyntaxError("unexpected token: '{0}'".format(c))
 
@@ -475,7 +493,7 @@ class LDAPConnection:
             c = filterList.pop()
         except IndexError:
             raise LDAPFilterSyntaxError('EOL while parsing search filter')
-        if c != u'(':  # filter must start with a '('
+        if c != '(':  # filter must start with a '('
             filterList.append(c)
             raise LDAPFilterSyntaxError("unexpected token: '{0}'".format(c))
 
@@ -485,15 +503,15 @@ class LDAPConnection:
                 c = filterList.pop()
             except IndexError:
                 raise LDAPFilterSyntaxError('EOL while parsing search filter')
-            if c == u')':  # we pop till we find a ')'
+            if c == ')':  # we pop till we find a ')'
                 break
-            elif c == u'(':  # should be no unencoded parenthesis
+            elif c == '(':  # should be no unencoded parenthesis
                 filterList.append(c)
                 raise LDAPFilterSyntaxError("unexpected token: '('")
             else:
                 filter.append(c)
 
-        filterStr = u''.join(filter)
+        filterStr = ''.join(filter)
         try:
             # https://tools.ietf.org/search/rfc4515#section-3
             attribute, operator, value = RE_OPERATOR.split(filterStr, 1)
@@ -505,73 +523,67 @@ class LDAPConnection:
     @staticmethod
     def _compileCompositeFilter(operator, filters):
         searchFilter = Filter()
-        if operator == u'!':
+        if operator == '!':
             if len(filters) != 1:
                 raise LDAPFilterInvalidException("'not' filter must have exactly one element")
-            choice = Not().setComponentByName('notFilter', filters[0])
-            searchFilter.setComponentByName('not', choice, verifyConstraints=False)
-        elif operator == u'&':
+            name = 'not'
+        elif operator == '&':
             if len(filters) == 0:
                 raise LDAPFilterInvalidException("'and' filter must have at least one element")
-            choice = And().setComponents(*filters)
-            searchFilter.setComponentByName('and', choice)
-        elif operator == u'|':
+            name = 'and'
+        elif operator == '|':
             if len(filters) == 0:
                 raise LDAPFilterInvalidException("'or' filter must have at least one element")
-            choice = Or().setComponents(*filters)
-            searchFilter.setComponentByName('or', choice)
+            name = 'or'
+        searchFilter[name].setComponents(*filters)
 
         return searchFilter
 
     @staticmethod
     def _compileSimpleFilter(attribute, operator, value):
         searchFilter = Filter()
-        if operator == u':=':  # extensibleMatch
+        if operator == ':=':  # extensibleMatch
             match = RE_EX_ATTRIBUTE_1.match(attribute) or RE_EX_ATTRIBUTE_2.match(attribute)
             if not match:
                 raise LDAPFilterInvalidException("invalid filter attribute: '{0}'".format(attribute))
             attribute, dn, matchingRule = match.groups()
-            choice = MatchingRuleAssertion()
             if attribute:
-                choice.setComponentByName('type', attribute)
-            choice.setComponentByName('dnAttributes', bool(dn))
+                searchFilter['extensibleMatch']['type'] = attribute
+            if dn:
+                searchFilter['extensibleMatch']['dnAttributes'] = bool(dn)
             if matchingRule:
-                choice.setComponentByName('matchingRule', matchingRule)
-            choice.setComponentByName('matchValue', value)
-            searchFilter.setComponentByName('extensibleMatch', choice)
+                searchFilter['extensibleMatch']['matchingRule'] = matchingRule
+            searchFilter['extensibleMatch']['matchValue'] = value
         else:
             if not RE_ATTRIBUTE.match(attribute):
                 raise LDAPFilterInvalidException("invalid filter attribute: '{0}'".format(attribute))
-            if value == u'*' and operator == u'=':  # present
-                choice = Present(attribute)
-                searchFilter.setComponentByName('present', choice)
-            elif u'*' in value and operator == u'=':  # substring
-                components = []
-                assertions = value.split(u'*')
-                initial = assertions[0]
-                if initial:
-                    components.append(SubString().setComponentByName('initial', initial))
-                for assertion in assertions[1:-1]:
-                    components.append(SubString().setComponentByName('any', assertion))
-                final = assertions[-1]
-                if final:
-                    components.append(SubString().setComponentByName('final', final))
-                subStrings = SubStrings().setComponents(*components)
-                choice = SubstringFilter().setComponents(attribute, subStrings)
-                searchFilter.setComponentByName('substrings', choice)
-            elif u'*' not in value:  # simple
-                if operator == u'=':
-                    choice = EqualityMatch().setComponents(attribute, value)
-                    searchFilter.setComponentByName('equalityMatch', choice)
-                elif operator == u'~=':
-                    choice = ApproxMatch().setComponents(attribute, value)
-                    searchFilter.setComponentByName('approxMatch', choice)
-                elif operator == u'>=':
-                    choice = GreaterOrEqual().setComponents(attribute, value)
-                    searchFilter.setComponentByName('greaterOrEqual', choice)
-                elif operator == u'<=':
-                    choice = LessOrEqual().setComponents(attribute, value)
-                    searchFilter.setComponentByName('lessOrEqual', choice)
+            if value == '*' and operator == '=':  # present
+                searchFilter['present'] = attribute
+            elif '*' in value and operator == '=':  # substring
+                assertions = value.split('*')
+                choice = searchFilter['substrings']['substrings'].getComponentType()
+                substrings = []
+                for i, assertion in enumerate(assertions):
+                    if i == 0:
+                        name = 'initial'
+                    elif i == len(assertions) - 1:
+                        name = 'final'
+                    else:
+                        name = 'any'
+                    if assertion or name == 'any':
+                        substrings.append(choice.clone().setComponentByName(name, assertion))
+                searchFilter['substrings']['type'] = attribute
+                searchFilter['substrings']['substrings'].setComponents(*substrings)
+            elif '*' not in value:  # simple
+                if operator == '=':
+                    name = 'equalityMatch'
+                elif operator == '~=':
+                    name = 'approxMatch'
+                elif operator == '>=':
+                    name = 'greaterOrEqual'
+                elif operator == '<=':
+                    name = 'lessOrEqual'
+                searchFilter[name].setComponents(attribute, value)
             else:
                 raise LDAPFilterInvalidException("invalid filter '({0}{1}{2})'".format(attribute, operator, value))
 
