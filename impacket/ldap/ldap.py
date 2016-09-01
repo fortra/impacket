@@ -293,8 +293,10 @@ class LDAPConnection:
         if authenticationChoice == 'simple':
             if '.' in domain:
                 name = user + '@' + domain
-            else:
+            elif domain:
                 name = domain + '\\' + user
+            else:
+                name = user
             bindRequest['name'] = name
             bindRequest['authentication']['simple'] = password
             resp = self.sendReceive(bindRequest)[0]['protocolOp']
