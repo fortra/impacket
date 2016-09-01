@@ -747,7 +747,7 @@ class ESENT_DB:
             done = False
             while done is False:
                 page = self.getPage(pageNum)
-                if page.record['FirstAvailablePageTag'] == 1:
+                if page.record['FirstAvailablePageTag'] <= 1:
                     # There are no records
                     done = True
                 for i in range(1, page.record['FirstAvailablePageTag']):
