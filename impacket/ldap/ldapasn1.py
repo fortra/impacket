@@ -478,8 +478,7 @@ class SearchResultEntry(univ.Sequence):
 
 
 class SearchResultReference(univ.SequenceOf):
-    tagSet = univ.SequenceOf.tagSet.tagImplicitly(
-        tag.Tag(tag.tagClassApplication, tag.tagFormatSimple, 19))
+    tagSet = univ.SequenceOf.tagSet.tagImplicitly(tag.Tag(tag.tagClassApplication, tag.tagFormatSimple, 19))
     componentType = URI()
     subtypeSpec = constraint.ValueSizeConstraint(1, maxInt)
 
