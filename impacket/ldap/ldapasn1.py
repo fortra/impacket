@@ -19,20 +19,7 @@ from pyasn1.codec.ber import encoder, decoder
 from pyasn1.type import univ, namedtype, namedval, tag, constraint
 
 __all__ = [
-    # constants
-    'RESULT_SUCCESS', 'RESULT_OPERATIONSERROR', 'RESULT_PROTOCOLERROR', 'RESULT_TIMELIMITEXCEEDED',
-    'RESULT_SIZELIMITEXCEEDED', 'RESULT_COMPAREFALSE', 'RESULT_COMPARETRUE', 'RESULT_AUTHMETHODNOTSUPPORTED',
-    'RESULT_STRONGERAUTHREQUIRED', 'RESULT_REFERRAL', 'RESULT_ADMINLIMITEXCEEDED',
-    'RESULT_UNAVAILABLECRITICALEXTENSION', 'RESULT_CONFIDENTIALITYREQUIRED', 'RESULT_SASLBINDINPROGRESS',
-    'RESULT_NOSUCHATTRIBUTE', 'RESULT_UNDEFINEDATTRIBUTETYPE', 'RESULT_INAPPROPRIATEMATCHING',
-    'RESULT_CONSTRAINTVIOLATION', 'RESULT_ATTRIBUTEORVALUEEXISTS', 'RESULT_INVALIDATTRIBUTESYNTAX',
-    'RESULT_NOSUCHOBJECT', 'RESULT_ALIASPROBLEM', 'RESULT_INVALIDDNSYNTAX', 'RESULT_ALIASDEREFERENCINGPROBLEM',
-    'RESULT_INAPPROPRIATEAUTHENTICATION', 'RESULT_INVALIDCREDENTIALS', 'RESULT_INSUFFICIENTACCESSRIGHTS',
-    'RESULT_BUSY', 'RESULT_UNAVAILABLE', 'RESULT_UNWILLINGTOPERFORM', 'RESULT_LOOPDETECT', 'RESULT_NAMINGVIOLATION',
-    'RESULT_OBJECTCLASSVIOLATION', 'RESULT_NOTALLOWEDONNONLEAF', 'RESULT_NOTALLOWEDONRDN', 'RESULT_ENTRYALREADYEXISTS',
-    'RESULT_OBJECTCLASSMODSPROHIBITED', 'RESULT_AFFECTSMULTIPLEDSAS', 'RESULT_OTHER', 'SCOPE_BASE', 'SCOPE_ONE',
-    'SCOPE_SUB', 'DEREF_NEVER', 'DEREF_SEARCH', 'DEREF_FIND', 'DEREF_ALWAYS', 'OPERATION_ADD', 'OPERATION_DELETE',
-    'OPERATION_REPLACE', 'CONTROL_PAGEDRESULTS', 'KNOWN_CONTROLS', 'NOTIFICATION_DISCONNECT', 'KNOWN_NOTIFICATIONS',
+    'CONTROL_PAGEDRESULTS', 'KNOWN_CONTROLS', 'NOTIFICATION_DISCONNECT', 'KNOWN_NOTIFICATIONS',
     # classes
     'ResultCode', 'Scope', 'DerefAliases', 'Operation', 'MessageID', 'LDAPString', 'LDAPOID', 'LDAPDN',
     'RelativeLDAPDN', 'AttributeDescription', 'AttributeValue', 'AssertionValue', 'MatchingRuleID', 'URI',
@@ -45,63 +32,6 @@ __all__ = [
     'Controls', 'SimplePagedSearchControlValue', 'SimplePagedResultsControl', 'LDAPMessage'
 ]
 
-# Result code
-RESULT_SUCCESS = 0
-RESULT_OPERATIONSERROR = 1
-RESULT_PROTOCOLERROR = 2
-RESULT_TIMELIMITEXCEEDED = 3
-RESULT_SIZELIMITEXCEEDED = 4
-RESULT_COMPAREFALSE = 5
-RESULT_COMPARETRUE = 6
-RESULT_AUTHMETHODNOTSUPPORTED = 7
-RESULT_STRONGERAUTHREQUIRED = 8
-RESULT_REFERRAL = 10
-RESULT_ADMINLIMITEXCEEDED = 11
-RESULT_UNAVAILABLECRITICALEXTENSION = 12
-RESULT_CONFIDENTIALITYREQUIRED = 13
-RESULT_SASLBINDINPROGRESS = 14
-RESULT_NOSUCHATTRIBUTE = 16
-RESULT_UNDEFINEDATTRIBUTETYPE = 17
-RESULT_INAPPROPRIATEMATCHING = 18
-RESULT_CONSTRAINTVIOLATION = 19
-RESULT_ATTRIBUTEORVALUEEXISTS = 20
-RESULT_INVALIDATTRIBUTESYNTAX = 21
-RESULT_NOSUCHOBJECT = 32
-RESULT_ALIASPROBLEM = 33
-RESULT_INVALIDDNSYNTAX = 34
-RESULT_ALIASDEREFERENCINGPROBLEM = 36
-RESULT_INAPPROPRIATEAUTHENTICATION = 48
-RESULT_INVALIDCREDENTIALS = 49
-RESULT_INSUFFICIENTACCESSRIGHTS = 50
-RESULT_BUSY = 51
-RESULT_UNAVAILABLE = 52
-RESULT_UNWILLINGTOPERFORM = 53
-RESULT_LOOPDETECT = 54
-RESULT_NAMINGVIOLATION = 64
-RESULT_OBJECTCLASSVIOLATION = 65
-RESULT_NOTALLOWEDONNONLEAF = 66
-RESULT_NOTALLOWEDONRDN = 67
-RESULT_ENTRYALREADYEXISTS = 68
-RESULT_OBJECTCLASSMODSPROHIBITED = 69
-RESULT_AFFECTSMULTIPLEDSAS = 71
-RESULT_OTHER = 80
-
-# Search scope
-SCOPE_BASE = 0
-SCOPE_ONE = 1
-SCOPE_SUB = 2
-
-# Alias dereferencing
-DEREF_NEVER = 0
-DEREF_SEARCH = 1
-DEREF_FIND = 2
-DEREF_ALWAYS = 3
-
-# Modify operation
-OPERATION_ADD = 0
-OPERATION_DELETE = 1
-OPERATION_REPLACE = 2
-
 # Controls
 CONTROL_PAGEDRESULTS = '1.2.840.113556.1.4.319'
 
@@ -111,6 +41,7 @@ KNOWN_CONTROLS = {}
 NOTIFICATION_DISCONNECT = '1.3.6.1.4.1.1466.20036'
 
 KNOWN_NOTIFICATIONS = {NOTIFICATION_DISCONNECT: 'Notice of Disconnection'}
+
 
 maxInt = univ.Integer(2147483647)
 
@@ -135,70 +66,70 @@ class DefaultChoice(univ.Choice):
 
 class ResultCode(univ.Enumerated):
     namedValues = namedval.NamedValues(
-        ('success', RESULT_SUCCESS),
-        ('operationsError', RESULT_OPERATIONSERROR),
-        ('protocolError', RESULT_PROTOCOLERROR),
-        ('timeLimitExceeded', RESULT_TIMELIMITEXCEEDED),
-        ('sizeLimitExceeded', RESULT_SIZELIMITEXCEEDED),
-        ('compareFalse', RESULT_COMPAREFALSE),
-        ('compareTrue', RESULT_COMPARETRUE),
-        ('authMethodNotSupported', RESULT_AUTHMETHODNOTSUPPORTED),
-        ('strongerAuthRequired', RESULT_STRONGERAUTHREQUIRED),
-        ('referral', RESULT_REFERRAL),
-        ('adminLimitExceeded', RESULT_ADMINLIMITEXCEEDED),
-        ('unavailableCriticalExtension', RESULT_UNAVAILABLECRITICALEXTENSION),
-        ('confidentialityRequired', RESULT_CONFIDENTIALITYREQUIRED),
-        ('saslBindInProgress', RESULT_SASLBINDINPROGRESS),
-        ('noSuchAttribute', RESULT_NOSUCHATTRIBUTE),
-        ('undefinedAttributeType', RESULT_UNDEFINEDATTRIBUTETYPE),
-        ('inappropriateMatching', RESULT_INAPPROPRIATEMATCHING),
-        ('constraintViolation', RESULT_CONSTRAINTVIOLATION),
-        ('attributeOrValueExists', RESULT_ATTRIBUTEORVALUEEXISTS),
-        ('invalidAttributeSyntax', RESULT_INVALIDATTRIBUTESYNTAX),
-        ('noSuchObject', RESULT_NOSUCHOBJECT),
-        ('aliasProblem', RESULT_ALIASPROBLEM),
-        ('invalidDNSyntax', RESULT_INVALIDDNSYNTAX),
-        ('aliasDereferencingProblem', RESULT_ALIASDEREFERENCINGPROBLEM),
-        ('inappropriateAuthentication', RESULT_INAPPROPRIATEAUTHENTICATION),
-        ('invalidCredentials', RESULT_INVALIDCREDENTIALS),
-        ('insufficientAccessRights', RESULT_INSUFFICIENTACCESSRIGHTS),
-        ('busy', RESULT_BUSY),
-        ('unavailable', RESULT_UNAVAILABLE),
-        ('unwillingToPerform', RESULT_UNWILLINGTOPERFORM),
-        ('loopDetect', RESULT_LOOPDETECT),
-        ('namingViolation', RESULT_NAMINGVIOLATION),
-        ('objectClassViolation', RESULT_OBJECTCLASSVIOLATION),
-        ('notAllowedOnNonLeaf', RESULT_NOTALLOWEDONNONLEAF),
-        ('notAllowedOnRDN', RESULT_NOTALLOWEDONRDN),
-        ('entryAlreadyExists', RESULT_ENTRYALREADYEXISTS),
-        ('objectClassModsProhibited', RESULT_OBJECTCLASSMODSPROHIBITED),
-        ('affectsMultipleDSAs', RESULT_AFFECTSMULTIPLEDSAS),
-        ('other', RESULT_OTHER),
+        ('success', 0),
+        ('operationsError', 1),
+        ('protocolError', 2),
+        ('timeLimitExceeded', 3),
+        ('sizeLimitExceeded', 4),
+        ('compareFalse', 5),
+        ('compareTrue', 6),
+        ('authMethodNotSupported', 7),
+        ('strongerAuthRequired', 8),
+        ('referral', 10),
+        ('adminLimitExceeded', 11),
+        ('unavailableCriticalExtension', 12),
+        ('confidentialityRequired', 13),
+        ('saslBindInProgress', 14),
+        ('noSuchAttribute', 16),
+        ('undefinedAttributeType', 17),
+        ('inappropriateMatching', 18),
+        ('constraintViolation', 19),
+        ('attributeOrValueExists', 20),
+        ('invalidAttributeSyntax', 21),
+        ('noSuchObject', 32),
+        ('aliasProblem', 33),
+        ('invalidDNSyntax', 34),
+        ('aliasDereferencingProblem', 36),
+        ('inappropriateAuthentication', 48),
+        ('invalidCredentials', 49),
+        ('insufficientAccessRights', 50),
+        ('busy', 51),
+        ('unavailable', 52),
+        ('unwillingToPerform', 53),
+        ('loopDetect', 54),
+        ('namingViolation', 64),
+        ('objectClassViolation', 65),
+        ('notAllowedOnNonLeaf', 66),
+        ('notAllowedOnRDN', 67),
+        ('entryAlreadyExists', 68),
+        ('objectClassModsProhibited', 69),
+        ('affectsMultipleDSAs', 71),
+        ('other', 80),
     )
 
 
 class Scope(univ.Enumerated):
     namedValues = namedval.NamedValues(
-        ('baseObject', SCOPE_BASE),
-        ('singleLevel', SCOPE_ONE),
-        ('wholeSubtree', SCOPE_SUB),
+        ('baseObject', 0),
+        ('singleLevel', 1),
+        ('wholeSubtree', 2),
     )
 
 
 class DerefAliases(univ.Enumerated):
     namedValues = namedval.NamedValues(
-        ('neverDerefAliases', DEREF_NEVER),
-        ('derefInSearching', DEREF_SEARCH),
-        ('derefFindingBaseObj', DEREF_FIND),
-        ('derefAlways', DEREF_ALWAYS),
+        ('neverDerefAliases', 0),
+        ('derefInSearching', 1),
+        ('derefFindingBaseObj', 2),
+        ('derefAlways', 3),
     )
 
 
 class Operation(univ.Enumerated):
     namedValues = namedval.NamedValues(
-        ('add', OPERATION_ADD),
-        ('delete', OPERATION_DELETE),
-        ('replace', OPERATION_REPLACE),
+        ('add', 0),
+        ('delete', 1),
+        ('replace', 2),
     )
 
 
