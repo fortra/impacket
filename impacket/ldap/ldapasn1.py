@@ -45,20 +45,17 @@ KNOWN_NOTIFICATIONS = {NOTIFICATION_DISCONNECT: 'Notice of Disconnection'}
 maxInt = univ.Integer(2147483647)
 
 
-class DefaultSequence(univ.Sequence):
+class DefaultSequenceAndSetBaseMixin:
     def getComponentByPosition(self, idx):
-        component = univ.Sequence.getComponentByPosition(self, idx)
-        if component is None:
-            return self.setComponentByPosition(idx).getComponentByPosition(idx)
-        return component
-
-
-class DefaultChoice(univ.Choice):
-    def getComponentByPosition(self, idx):
-        component = univ.Choice.getComponentByPosition(self, idx)
-        if component is None:
-            return self.setComponentByPosition(idx).getComponentByPosition(idx)
-        return component
+        for cls in self.__class__.__bases__:
+            if cls is not DefaultSequenceAndSetBaseMixin:
+                try:
+                    component = cls.getComponentByPosition(self, idx)
+                except AttributeError:
+                    continue
+                if component is None:
+                    return self.setComponentByPosition(idx).getComponentByPosition(idx)
+                return component
 
 
 class ResultCode(univ.Enumerated):
@@ -229,7 +226,7 @@ class SaslCredentials(univ.Sequence):
     )
 
 
-class AuthenticationChoice(DefaultChoice):
+class AuthenticationChoice(DefaultSequenceAndSetBaseMixin, univ.Choice):
     componentType = namedtype.NamedTypes(
         namedtype.NamedType(
             'simple',
@@ -254,8 +251,8 @@ class AuthenticationChoice(DefaultChoice):
     )
 
 
-class BindRequest(DefaultSequence):
-    tagSet = DefaultSequence.tagSet.tagImplicitly(tag.Tag(tag.tagClassApplication, tag.tagFormatConstructed, 0))
+class BindRequest(DefaultSequenceAndSetBaseMixin, univ.Sequence):
+    tagSet = univ.Sequence.tagSet.tagImplicitly(tag.Tag(tag.tagClassApplication, tag.tagFormatConstructed, 0))
     componentType = namedtype.NamedTypes(
         namedtype.NamedType('version', univ.Integer().subtype(subtypeSpec=constraint.ValueRangeConstraint(1, 127))),
         namedtype.NamedType('name', LDAPDN()),
@@ -284,7 +281,7 @@ class UnbindRequest(univ.Null):
     tagSet = univ.Null.tagSet.tagImplicitly(tag.Tag(tag.tagClassApplication, tag.tagFormatSimple, 2))
 
 
-class SubstringFilter(DefaultSequence):
+class SubstringFilter(DefaultSequenceAndSetBaseMixin, univ.Sequence):
     componentType = namedtype.NamedTypes(
         namedtype.NamedType('type', AttributeDescription()),
         namedtype.NamedType(
@@ -328,7 +325,7 @@ class MatchingRuleAssertion(univ.Sequence):
     )
 
 
-class Filter(DefaultChoice):
+class Filter(DefaultSequenceAndSetBaseMixin, univ.Choice):
     pass
 
 
@@ -376,8 +373,8 @@ Filter.componentType = namedtype.NamedTypes(
 )
 
 
-class SearchRequest(DefaultSequence):
-    tagSet = DefaultSequence.tagSet.tagImplicitly(tag.Tag(tag.tagClassApplication, tag.tagFormatConstructed, 3))
+class SearchRequest(DefaultSequenceAndSetBaseMixin, univ.Sequence):
+    tagSet = univ.Sequence.tagSet.tagImplicitly(tag.Tag(tag.tagClassApplication, tag.tagFormatConstructed, 3))
     componentType = namedtype.NamedTypes(
         namedtype.NamedType('baseObject', LDAPDN()),
         namedtype.NamedType('scope', Scope()),
@@ -412,8 +409,8 @@ class SearchResultDone(LDAPResult):
     tagSet = LDAPResult.tagSet.tagImplicitly(tag.Tag(tag.tagClassApplication, tag.tagFormatConstructed, 5))
 
 
-class ModifyRequest(DefaultSequence):
-    tagSet = DefaultSequence.tagSet.tagImplicitly(tag.Tag(tag.tagClassApplication, tag.tagFormatConstructed, 6))
+class ModifyRequest(DefaultSequenceAndSetBaseMixin, univ.Sequence):
+    tagSet = univ.Sequence.tagSet.tagImplicitly(tag.Tag(tag.tagClassApplication, tag.tagFormatConstructed, 6))
     componentType = namedtype.NamedTypes(
         namedtype.NamedType('object', LDAPDN()),
         namedtype.NamedType(
@@ -430,7 +427,7 @@ class ModifyResponse(LDAPResult):
     tagSet = LDAPResult.tagSet.tagImplicitly(tag.Tag(tag.tagClassApplication, tag.tagFormatConstructed, 7))
 
 
-class AddRequest(DefaultSequence):
+class AddRequest(DefaultSequenceAndSetBaseMixin, univ.Sequence):
     tagSet = univ.Sequence.tagSet.tagImplicitly(tag.Tag(tag.tagClassApplication, tag.tagFormatConstructed, 8))
     componentType = namedtype.NamedTypes(
         namedtype.NamedType('entry', LDAPDN()),
@@ -466,8 +463,8 @@ class ModifyDNResponse(LDAPResult):
     tagSet = LDAPResult.tagSet.tagImplicitly(tag.Tag(tag.tagClassApplication, tag.tagFormatConstructed, 13))
 
 
-class CompareRequest(DefaultSequence):
-    tagSet = DefaultSequence.tagSet.tagImplicitly(tag.Tag(tag.tagClassApplication, tag.tagFormatConstructed, 14))
+class CompareRequest(DefaultSequenceAndSetBaseMixin, univ.Sequence):
+    tagSet = univ.Sequence.tagSet.tagImplicitly(tag.Tag(tag.tagClassApplication, tag.tagFormatConstructed, 14))
     componentType = namedtype.NamedTypes(
         namedtype.NamedType('entry', LDAPDN()),
         namedtype.NamedType('ava', AttributeValueAssertion())
@@ -544,7 +541,7 @@ class Control(univ.Sequence):
         if idx == 0:  # controlType
             try:
                 cls = KNOWN_CONTROLS[value]
-                if self.__class__ != cls:
+                if self.__class__ is not cls:
                     self.__class__ = cls
             except KeyError:
                 pass
@@ -623,7 +620,7 @@ class SimplePagedResultsControl(Control):
 KNOWN_CONTROLS[CONTROL_PAGEDRESULTS] = SimplePagedResultsControl
 
 
-class LDAPMessage(DefaultSequence):
+class LDAPMessage(DefaultSequenceAndSetBaseMixin, univ.Sequence):
     componentType = namedtype.NamedTypes(
         namedtype.NamedType('messageID', MessageID()),
         namedtype.NamedType('protocolOp', univ.Choice(componentType=namedtype.NamedTypes(
