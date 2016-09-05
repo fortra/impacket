@@ -29,7 +29,7 @@ __all__ = [
     'SearchResultEntry', 'SearchResultReference', 'SearchResultDone', 'ModifyRequest', 'ModifyResponse', 'AddRequest',
     'AddResponse', 'DelRequest', 'DelResponse', 'ModifyDNRequest', 'ModifyDNResponse', 'CompareRequest',
     'CompareResponse', 'AbandonRequest', 'ExtendedRequest', 'ExtendedResponse', 'IntermediateResponse', 'Control',
-    'Controls', 'SimplePagedSearchControlValue', 'SimplePagedResultsControl', 'LDAPMessage'
+    'Controls', 'SimplePagedResultsControlValue', 'SimplePagedResultsControl', 'LDAPMessage'
 ]
 
 # Controls
@@ -42,7 +42,6 @@ NOTIFICATION_DISCONNECT = '1.3.6.1.4.1.1466.20036'
 
 KNOWN_NOTIFICATIONS = {NOTIFICATION_DISCONNECT: 'Notice of Disconnection'}
 
-
 maxInt = univ.Integer(2147483647)
 
 
@@ -51,8 +50,7 @@ class DefaultSequence(univ.Sequence):
         component = univ.Sequence.getComponentByPosition(self, idx)
         if component is None:
             return self.setComponentByPosition(idx).getComponentByPosition(idx)
-        else:
-            return component
+        return component
 
 
 class DefaultChoice(univ.Choice):
@@ -60,8 +58,7 @@ class DefaultChoice(univ.Choice):
         component = univ.Choice.getComponentByPosition(self, idx)
         if component is None:
             return self.setComponentByPosition(idx).getComponentByPosition(idx)
-        else:
-            return component
+        return component
 
 
 class ResultCode(univ.Enumerated):
@@ -326,10 +323,7 @@ class MatchingRuleAssertion(univ.Sequence):
         ),
         namedtype.DefaultedNamedType(
             'dnAttributes',
-            univ.Boolean().subtype(
-                value=False,
-                implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 4)
-            )
+            univ.Boolean().subtype(value=False, implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 4))
         )
     )
 
@@ -425,7 +419,8 @@ class ModifyRequest(DefaultSequence):
         namedtype.NamedType(
             'changes',
             univ.SequenceOf(componentType=univ.Sequence(componentType=namedtype.NamedTypes(
-                namedtype.NamedType('operation', Operation()), namedtype.NamedType('modification', PartialAttribute())
+                namedtype.NamedType('operation', Operation()),
+                namedtype.NamedType('modification', PartialAttribute())
             )))
         )
     )
@@ -559,12 +554,25 @@ class Control(univ.Sequence):
                                                     matchTags=matchTags,
                                                     matchConstraints=matchConstraints)
 
+    def encodeControlValue(self):
+        pass
+
+    def decodeControlValue(self):
+        return
+
+    def prettyPrint(self, scope=0):
+        r = univ.Sequence.prettyPrint(self, scope)
+        decodedControlValue = self.decodeControlValue()
+        if decodedControlValue is not None:
+            r = r[:r.rindex('=') + 1] + '%s\n' % decodedControlValue.prettyPrint(scope + 1)
+        return r
+
 
 class Controls(univ.SequenceOf):
     componentType = Control()
 
 
-class SimplePagedSearchControlValue(univ.Sequence):
+class SimplePagedResultsControlValue(univ.Sequence):
     componentType = namedtype.NamedTypes(
         namedtype.NamedType('size', univ.Integer().subtype(subtypeSpec=constraint.ValueRangeConstraint(0, maxInt))),
         namedtype.NamedType('cookie', univ.OctetString()),
@@ -579,13 +587,15 @@ class SimplePagedResultsControl(Control):
             self['criticality'] = criticality
         self._size = size
         self._cookie = cookie
-        self._encodeControlValue()
+        self.encodeControlValue()
 
-    def _encodeControlValue(self):
-        self['controlValue'] = encoder.encode(SimplePagedSearchControlValue().setComponents(self._size, self._cookie))
+    def encodeControlValue(self):
+        self['controlValue'] = encoder.encode(SimplePagedResultsControlValue().setComponents(self._size, self._cookie))
 
-    def _decodeControlValue(self):
-        (self._size, self._cookie), _ = decoder.decode(self['controlValue'], asn1Spec=SimplePagedSearchControlValue())
+    def decodeControlValue(self):
+        decodedControlValue, _ = decoder.decode(self['controlValue'], asn1Spec=SimplePagedResultsControlValue())
+        self._size, self._cookie = decodedControlValue
+        return decodedControlValue
 
     def getCriticality(self):
         return self['criticality']
@@ -594,20 +604,20 @@ class SimplePagedResultsControl(Control):
         self['criticality'] = value
 
     def getSize(self):
-        self._decodeControlValue()
+        self.decodeControlValue()
         return self._size
 
     def setSize(self, value):
         self._size = value
-        self._encodeControlValue()
+        self.encodeControlValue()
 
     def getCookie(self):
-        self._decodeControlValue()
+        self.decodeControlValue()
         return self._cookie
 
     def setCookie(self, value):
         self._cookie = value
-        self._encodeControlValue()
+        self.encodeControlValue()
 
 
 KNOWN_CONTROLS[CONTROL_PAGEDRESULTS] = SimplePagedResultsControl

@@ -87,7 +87,7 @@ class LDAPConnection:
             self._SSL = True
             self._dstHost = url[8:]
         else:
-            raise LDAPSessionError(errorString='Unknown URL prefix %s' % url)
+            raise LDAPSessionError(errorString="Unknown URL prefix: '%s'" % url)
 
         # Try to connect
         if self._dstIp is not None:
@@ -193,8 +193,7 @@ class LDAPConnection:
             sessionKey = TGT['sessionKey']
 
         if TGS is None:
-            serverName = Principal('ldap/%s' % self._dstHost,
-                                   type=constants.PrincipalNameType.NT_SRV_INST.value)
+            serverName = Principal('ldap/%s' % self._dstHost, type=constants.PrincipalNameType.NT_SRV_INST.value)
             tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, kdcHost, tgt, cipher,
                                                                     sessionKey)
         else:
@@ -279,7 +278,6 @@ class LDAPConnection:
         """
         bindRequest = BindRequest()
         bindRequest['version'] = 3
-        bindRequest['name'] = user
 
         if authenticationChoice == 'simple':
             if '.' in domain:
@@ -291,6 +289,7 @@ class LDAPConnection:
             bindRequest['authentication']['simple'] = password
             response = self.sendReceive(bindRequest)[0]['protocolOp']
         elif authenticationChoice == 'sicilyPackageDiscovery':
+            bindRequest['name'] = user
             bindRequest['authentication']['sicilyPackageDiscovery'] = ''
             response = self.sendReceive(bindRequest)[0]['protocolOp']
         elif authenticationChoice == 'sicilyNegotiate':
@@ -306,6 +305,8 @@ class LDAPConnection:
                 except TypeError:
                     pass
 
+            bindRequest['name'] = user
+
             # NTLM Negotiate
             negotiate = getNTLMSSPType1('', domain)
             bindRequest['authentication']['sicilyNegotiate'] = negotiate
@@ -319,7 +320,7 @@ class LDAPConnection:
             bindRequest['authentication']['sicilyResponse'] = type3
             response = self.sendReceive(bindRequest)[0]['protocolOp']
         else:
-            raise LDAPSessionError(errorString='Unknown authenticationChoice %s' % authenticationChoice)
+            raise LDAPSessionError(errorString="Unknown authenticationChoice: '%s'" % authenticationChoice)
 
         if response['bindResponse']['resultCode'] != ResultCode('success'):
             raise LDAPSessionError(
@@ -329,11 +330,14 @@ class LDAPConnection:
 
         return True
 
-    def search(self, searchBase=None, scope=Scope('wholeSubtree'), derefAliases=DerefAliases('neverDerefAliases'),
-               sizeLimit=0, timeLimit=0, typesOnly=False, searchFilter='(objectClass=*)', attributes=None,
-               searchControls=None):
+    def search(self, searchBase=None, scope=None, derefAliases=None, sizeLimit=0, timeLimit=0, typesOnly=False,
+               searchFilter='(objectClass=*)', attributes=None, searchControls=None):
         if searchBase is None:
             searchBase = self._baseDN
+        if scope is None:
+            scope = Scope('wholeSubtree')
+        if derefAliases is None:
+            derefAliases = DerefAliases('neverDerefAliases')
         if attributes is None:
             attributes = []
 
@@ -357,7 +361,6 @@ class LDAPConnection:
                 if searchResult.isSameTypeWith(SearchResultDone()):
                     if searchResult['resultCode'] == ResultCode('success'):
                         done = self._handleControls(searchControls, message['controls'])
-                        break
                     else:
                         raise LDAPSearchError(
                             error=int(searchResult['resultCode']),
@@ -370,17 +373,17 @@ class LDAPConnection:
 
         return answers
 
-    def _handleControls(self, requestControls, resultControls):
+    def _handleControls(self, requestControls, responseControls):
         done = True
         if requestControls is not None:
             for requestControl in requestControls:
-                if resultControls is not None:
-                    for resultControl in resultControls:
+                if responseControls is not None:
+                    for responseControl in responseControls:
                         if requestControl['controlType'] == CONTROL_PAGEDRESULTS:
-                            if resultControl['controlType'] == CONTROL_PAGEDRESULTS:
-                                if resultControl.getCookie():
+                            if responseControl['controlType'] == CONTROL_PAGEDRESULTS:
+                                if responseControl.getCookie():
                                     done = False
-                                requestControl.setCookie(resultControl.getCookie())
+                                requestControl.setCookie(responseControl.getCookie())
                                 break
                         else:
                             # handle different controls here
@@ -392,13 +395,11 @@ class LDAPConnection:
             self._socket.close()
 
     def send(self, request, controls=None):
-        if controls is None:
-            controls = []
-
         message = LDAPMessage()
         message['messageID'] = self._messageId
-        message['protocolOp'].setComponentByType(request.tagSet, request)
-        message['controls'].setComponents(*controls)
+        message['protocolOp'].setComponentByType(request.getTagSet(), request)
+        if controls is not None:
+            message['controls'].setComponents(*controls)
 
         data = encoder.encode(message)
 
@@ -558,15 +559,12 @@ class LDAPConnection:
                 assertions = value.split('*')
                 choice = searchFilter['substrings']['substrings'].getComponentType()
                 substrings = []
-                for i, assertion in enumerate(assertions):
-                    if i == 0:
-                        name = 'initial'
-                    elif i == len(assertions) - 1:
-                        name = 'final'
-                    else:
-                        name = 'any'
-                    if assertion or name == 'any':
-                        substrings.append(choice.clone().setComponentByName(name, assertion))
+                if assertions[0]:
+                    substrings.append(choice.clone().setComponentByName('initial', assertions[0]))
+                for assertion in assertions[1:-1]:
+                    substrings.append(choice.clone().setComponentByName('any', assertion))
+                if assertions[-1]:
+                    substrings.append(choice.clone().setComponentByName('final', assertions[-1]))
                 searchFilter['substrings']['type'] = attribute
                 searchFilter['substrings']['substrings'].setComponents(*substrings)
             elif '*' not in value:  # simple
@@ -579,7 +577,7 @@ class LDAPConnection:
                 elif operator == '<=':
                     searchFilter['lessOrEqual'].setComponents(attribute, value)
             else:
-                raise LDAPFilterInvalidException("invalid filter '(%s%s%s)'" % s(attribute, operator, value))
+                raise LDAPFilterInvalidException("invalid filter '(%s%s%s)'" % (attribute, operator, value))
 
         return searchFilter
 
@@ -617,8 +615,10 @@ class LDAPSessionError(Exception):
 
 
 class LDAPSearchError(LDAPSessionError):
-    def __init__(self, error=0, packet=0, errorString='', answers=[]):
+    def __init__(self, error=0, packet=0, errorString='', answers=None):
         LDAPSessionError.__init__(self, error, packet, errorString)
+        if answers is None:
+            answers = []
         self.answers = answers
 
     def getAnswers(self):
