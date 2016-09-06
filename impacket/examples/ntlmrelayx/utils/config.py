@@ -19,14 +19,24 @@ class NTLMRelayxConfig:
         self.domainIp = None
         self.machineAccount = None
         self.machineHashes = None
-        self.exeFile = None
-        self.command = None
         self.target = None
         self.mode = None
         self.redirecthost = None
         self.outputFile = None
         self.attacks = None
         self.lootdir = None
+        self.randomtargets = False
+
+        #SMB options
+        self.exeFile = None
+        self.command = None
+
+        #LDAP options
+        self.dumpdomain = True
+        self.addda = True
+
+        #MSSQL options
+        self.queries = []
 
     def setOutputFile(self,outputFile):
         self.outputFile = outputFile
@@ -56,3 +66,13 @@ class NTLMRelayxConfig:
         self.machineAccount = machineAccount
         self.machineHashes = machineHashes
         self.domainIp = domainIp
+
+    def setRandomTargets(self,randomtargets):
+        self.randomtargets = randomtargets
+
+    def setLDAPOptions(self,dumpdomain,addda):
+        self.dumpdomain = dumpdomain
+        self.addda = addda
+
+    def setMSSQLOptions(self,queries):
+        self.queries = queries

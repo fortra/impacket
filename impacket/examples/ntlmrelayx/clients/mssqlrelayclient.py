@@ -94,7 +94,6 @@ class MSSQLRelayClient(tds.MSSQL):
         self.sendTDS(TDS_SSPI, str(authenticateMessageBlob))
         tds = self.recvTDS()
         self.replies = self.parseReply(tds['Data'])
-        print repr(self.replies)
         if self.replies.has_key(TDS_LOGINACK_TOKEN):
             #Once we are here, there is a full connection and we can
             #do whatever the current user has rights to do

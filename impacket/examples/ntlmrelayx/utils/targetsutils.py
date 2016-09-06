@@ -85,16 +85,30 @@ class TargetsProcessor():
             self.clients_targets[client] = set([target])
         #print self.clients_targets
 
-    def get_target(self,client):
+    def get_target(self,client,choose_random=False):
+        candidates = []
         try:
             targetlist = self.clients_targets[client]
         except KeyError:
             #Client is probably new
-            return self.targets[0]
+            if choose_random:
+                return random.choice(self.targets)
+            else:
+                return self.targets[0]
+
         for target in self.targets:
             #Check if the target is already in the target list
             if target not in targetlist:
-                return target
+                #If random, populate candidates
+                if choose_random:
+                    candidates.append(target)
+                else:
+                    return target
+
+        #If we arrive here and have multiple candidates, randomly select one
+        if len(candidates) > 0:
+            return random.choice(candidates)
+
         #We are here, which means all the targets are already exhausted by the client
         logging.info("All targets processed for client %s" % client)
         return random.choice(self.targets)

