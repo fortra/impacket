@@ -261,7 +261,6 @@ class RemoteFile:
     def __str__(self):
         return "\\\\%s\\ADMIN$\\%s" % (self.__smbConnection.getRemoteHost(), self.__fileName)
 
-
 class RemoteOperations:
     def __init__(self, smbConnection, doKerberos, kdcHost=None):
         self.__smbConnection = smbConnection
@@ -476,7 +475,6 @@ class RemoteOperations:
             self.connectSamr(self.getMachineNameAndDomain()[1])
         resp = samr.hSamrRidToSid(self.__samr, self.__domainHandle , rid)
         return resp['Sid']
-
 
     def getMachineNameAndDomain(self):
         if self.__smbConnection.getServerName() == '':
@@ -695,6 +693,7 @@ class RemoteOperations:
         scmr.hRDeleteService(self.__scmr, service)
         self.__serviceDeleted = True
         scmr.hRCloseServiceHandle(self.__scmr, service)
+
     def __answer(self, data):
         self.__answerTMP += data
 
@@ -834,7 +833,6 @@ class CryptoCommon:
             plainText += aes256.decrypt(cipherBuffer)
 
         return plainText
-
 
 class OfflineRegistry:
     def __init__(self, hiveFile = None, isRemote = False):
@@ -991,7 +989,6 @@ class SAMHashes(OfflineRegistry):
             for item in items:
                 fd.write(self.__itemsFound[item]+'\n')
             fd.close()
-
 
 class LSASecrets(OfflineRegistry):
     def __init__(self, securityFile, bootKey, remoteOps = None, isRemote = False):
@@ -1278,7 +1275,6 @@ class LSASecrets(OfflineRegistry):
                 fd.write(item+'\n')
             fd.close()
 
-
 class NTDSHashes:
     NAME_TO_INTERNAL = {
         'uSNCreated':'ATTq131091',
@@ -1491,7 +1487,8 @@ class NTDSHashes:
 
         return decryptedHash
 
-    def __fileTimeToDateTime(self, t):
+    @staticmethod
+    def __fileTimeToDateTime(t):
         t -= 116444736000000000
         t /= 10000000
         if t < 0:
@@ -2076,6 +2073,55 @@ class NTDSHashes:
         if self.__NTDS is not None:
             self.__ESEDB.close()
 
+class LocalOperations:
+    def __init__(self, systemHive):
+        self.__systemHive = systemHive
+
+    def getBootKey(self):
+        # Local Version whenever we are given the files directly
+        bootKey = ''
+        tmpKey = ''
+        winreg = winregistry.Registry(self.__systemHive, False)
+        # We gotta find out the Current Control Set
+        currentControlSet = winreg.getValue('\\Select\\Current')[1]
+        currentControlSet = "ControlSet%03d" % currentControlSet
+        for key in ['JD', 'Skew1', 'GBG', 'Data']:
+            logging.debug('Retrieving class info for %s' % key)
+            ans = winreg.getClass('\\%s\\Control\\Lsa\\%s' % (currentControlSet, key))
+            digit = ans[:16].decode('utf-16le')
+            tmpKey = tmpKey + digit
+
+        transforms = [8, 5, 4, 2, 11, 9, 13, 3, 0, 6, 1, 12, 14, 10, 15, 7]
+
+        tmpKey = unhexlify(tmpKey)
+
+        for i in xrange(len(tmpKey)):
+            bootKey += tmpKey[transforms[i]]
+
+        logging.info('Target system bootKey: 0x%s' % hexlify(bootKey))
+
+        return bootKey
+
+
+    def checkNoLMHashPolicy(self):
+        logging.debug('Checking NoLMHash Policy')
+        winreg = winregistry.Registry(self.__systemHive, False)
+        # We gotta find out the Current Control Set
+        currentControlSet = winreg.getValue('\\Select\\Current')[1]
+        currentControlSet = "ControlSet%03d" % currentControlSet
+
+        # noLmHash = winreg.getValue('\\%s\\Control\\Lsa\\NoLmHash' % currentControlSet)[1]
+        noLmHash = winreg.getValue('\\%s\\Control\\Lsa\\NoLmHash' % currentControlSet)
+        if noLmHash is not None:
+            noLmHash = noLmHash[1]
+        else:
+            noLmHash = 0
+
+        if noLmHash != 1:
+            logging.debug('LMHashes are being stored')
+            return False
+        logging.debug('LMHashes are NOT being stored')
+        return True
 
 class DumpSecrets:
     def __init__(self, address, username='', password='', domain='', options=None):
@@ -2120,60 +2166,16 @@ class DumpSecrets:
         else:
             self.__smbConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
 
-    def getBootKey(self):
-        # Local Version whenever we are given the files directly
-        bootKey = ''
-        tmpKey = ''
-        winreg = winregistry.Registry(self.__systemHive, self.__isRemote)
-        # We gotta find out the Current Control Set
-        currentControlSet = winreg.getValue('\\Select\\Current')[1]
-        currentControlSet = "ControlSet%03d" % currentControlSet
-        for key in ['JD','Skew1','GBG','Data']:
-            logging.debug('Retrieving class info for %s'% key)
-            ans = winreg.getClass('\\%s\\Control\\Lsa\\%s' % (currentControlSet,key))
-            digit = ans[:16].decode('utf-16le')
-            tmpKey = tmpKey + digit
-
-        transforms = [ 8, 5, 4, 2, 11, 9, 13, 3, 0, 6, 1, 12, 14, 10, 15, 7 ]
-
-        tmpKey = unhexlify(tmpKey)
-
-        for i in xrange(len(tmpKey)):
-            bootKey += tmpKey[transforms[i]]
-
-        logging.info('Target system bootKey: 0x%s' % hexlify(bootKey))
-
-        return bootKey
-
-    def checkNoLMHashPolicy(self):
-        logging.debug('Checking NoLMHash Policy')
-        winreg = winregistry.Registry(self.__systemHive, self.__isRemote)
-        # We gotta find out the Current Control Set
-        currentControlSet = winreg.getValue('\\Select\\Current')[1]
-        currentControlSet = "ControlSet%03d" % currentControlSet
-
-        #noLmHash = winreg.getValue('\\%s\\Control\\Lsa\\NoLmHash' % currentControlSet)[1]
-        noLmHash = winreg.getValue('\\%s\\Control\\Lsa\\NoLmHash' % currentControlSet)
-        if noLmHash is not None:
-            noLmHash = noLmHash[1]
-        else:
-            noLmHash = 0
-
-        if noLmHash != 1:
-            logging.debug('LMHashes are being stored')
-            return False
-        logging.debug('LMHashes are NOT being stored')
-        return True
-
     def dump(self):
         try:
             if self.__remoteAddr.upper() == 'LOCAL' and self.__username == '':
                 self.__isRemote = False
                 self.__useVSSMethod = True
-                bootKey = self.getBootKey()
+                localOperations = LocalOperations(self.__systemHive)
+                bootKey = localOperations.getBootKey()
                 if self.__ntdsFile is not None:
                     # Let's grab target's configuration about LM Hashes storage
-                    self.__noLMHash = self.checkNoLMHashPolicy()
+                    self.__noLMHash = localOperations.checkNoLMHashPolicy()
             else:
                 self.__isRemote = True
                 bootKey = None
