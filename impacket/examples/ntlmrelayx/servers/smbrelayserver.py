@@ -74,7 +74,7 @@ class SMBRelayServer(Thread):
         smbConfig.set('IPC$','read only','yes')
         smbConfig.set('IPC$','share type','3')
         smbConfig.set('IPC$','path','')
-
+        
         self.server = SMBSERVER(('0.0.0.0',445), config_parser = smbConfig)
         self.server.processConfigFile()
 
@@ -452,7 +452,7 @@ class SMBRelayServer(Thread):
             clientThread = self.config.attacks['HTTP'](self.config, client, self.authUser)
             clientThread.start()
         if self.target[0] == 'MSSQL':
-            clientThread = self.config.attacks['MSSQL'](self.config, client, self.command)
+            clientThread = self.config.attacks['MSSQL'](self.config, client)
             clientThread.start()
 
     def _start(self):
