@@ -370,13 +370,7 @@ class SMBTransport(DCERPCTransport):
             self.set_credentials(*smb_connection.getCredentials())
 
         self.__prefDialect = None
-
-        if isinstance(smb_connection, smb.SMB):
-            # Backward compatibility hack, let's return a
-            # SMBBackwardCompatibilityTransport instance
-            return SMBBackwardCompatibilityTransport(filename = filename, smb_server = smb_connection)
-        else:
-            self.__smb_connection = smb_connection
+        self.__smb_connection = smb_connection
 
     def preferred_dialect(self, dialect):
         self.__prefDialect = dialect
