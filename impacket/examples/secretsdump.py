@@ -72,8 +72,8 @@ try:
     from Crypto.Cipher import DES, ARC4, AES
     from Crypto.Hash import HMAC, MD4
 except ImportError:
-    logging.critical("Warning: You don't have any crypto installed. You need PyCrypto")
-    logging.critical("See http://www.pycrypto.org/")
+    LOG.critical("Warning: You don't have any crypto installed. You need PyCrypto")
+    LOG.critical("See http://www.pycrypto.org/")
 
 
 # Structures
@@ -355,8 +355,8 @@ class RemoteOperations:
         request['pextClient']['cb'] = len(drs)
         request['pextClient']['rgb'] = list(str(drs))
         resp = self.__drsr.request(request)
-        if logging.getLogger().level == logging.DEBUG:
-            logging.debug('DRSBind() answer')
+        if LOG.level == logging.DEBUG:
+            LOG.debug('DRSBind() answer')
             resp.dump()
 
         # Let's dig into the answer to check the dwReplEpoch. This field should match the one we send as part of
@@ -370,8 +370,8 @@ class RemoteOperations:
 
         if drsExtensionsInt['dwReplEpoch'] != 0:
             # Different epoch, we have to call DRSBind again
-            if logging.getLogger().level == logging.DEBUG:
-                logging.debug("DC's dwReplEpoch != 0, setting it to %d and calling DRSBind again" % drsExtensionsInt[
+            if LOG.level == logging.DEBUG:
+                LOG.debug("DC's dwReplEpoch != 0, setting it to %d and calling DRSBind again" % drsExtensionsInt[
                     'dwReplEpoch'])
             drs['dwReplEpoch'] = drsExtensionsInt['dwReplEpoch']
             request['pextClient']['cb'] = len(drs)
@@ -382,14 +382,14 @@ class RemoteOperations:
 
         # Now let's get the NtdsDsaObjectGuid UUID to use when querying NCChanges
         resp = drsuapi.hDRSDomainControllerInfo(self.__drsr, self.__hDrs, self.__domainName, 2)
-        if logging.getLogger().level == logging.DEBUG:
-            logging.debug('DRSDomainControllerInfo() answer')
+        if LOG.level == logging.DEBUG:
+            LOG.debug('DRSDomainControllerInfo() answer')
             resp.dump()
 
         if resp['pmsgOut']['V2']['cItems'] > 0:
             self.__NtdsDsaObjectGuid = resp['pmsgOut']['V2']['rItems'][0]['NtdsDsaObjectGuid']
         else:
-            logging.error("Couldn't get DC info for domain %s" % self.__domainName)
+            LOG.error("Couldn't get DC info for domain %s" % self.__domainName)
             raise Exception('Fatal, aborting')
 
     def getDrsr(self):
@@ -400,7 +400,7 @@ class RemoteOperations:
         if self.__drsr is None:
             self.__connectDrds()
 
-        logging.debug('Calling DRSCrackNames for %s ' % name)
+        LOG.debug('Calling DRSCrackNames for %s ' % name)
         resp = drsuapi.hDRSCrackNames(self.__drsr, self.__hDrs, 0, formatOffered, formatDesired, (name,))
         return resp
 
@@ -408,7 +408,7 @@ class RemoteOperations:
         if self.__drsr is None:
             self.__connectDrds()
 
-        logging.debug('Calling DRSGetNCChanges for %s ' % userEntry)
+        LOG.debug('Calling DRSGetNCChanges for %s ' % userEntry)
         request = drsuapi.DRSGetNCChanges()
         request['hDrs'] = self.__hDrs
         request['dwInVersion'] = 8
@@ -519,7 +519,7 @@ class RemoteOperations:
                 account = account[2:]
             return account
         except Exception, e:
-            logging.error(e)
+            LOG.error(e)
             return None
 
     def __checkServiceStatus(self):
@@ -532,11 +532,11 @@ class RemoteOperations:
         # Let's check its status
         ans = scmr.hRQueryServiceStatus(self.__scmr, self.__serviceHandle)
         if ans['lpServiceStatus']['dwCurrentState'] == scmr.SERVICE_STOPPED:
-            logging.info('Service %s is in stopped state'% self.__serviceName)
+            LOG.info('Service %s is in stopped state'% self.__serviceName)
             self.__shouldStop = True
             self.__started = False
         elif ans['lpServiceStatus']['dwCurrentState'] == scmr.SERVICE_RUNNING:
-            logging.debug('Service %s is already running'% self.__serviceName)
+            LOG.debug('Service %s is already running'% self.__serviceName)
             self.__shouldStop = False
             self.__started  = True
         else:
@@ -546,10 +546,10 @@ class RemoteOperations:
         if self.__started is False:
             ans = scmr.hRQueryServiceConfigW(self.__scmr,self.__serviceHandle)
             if ans['lpServiceConfig']['dwStartType'] == 0x4:
-                logging.info('Service %s is disabled, enabling it'% self.__serviceName)
+                LOG.info('Service %s is disabled, enabling it'% self.__serviceName)
                 self.__disabled = True
                 scmr.hRChangeServiceConfigW(self.__scmr, self.__serviceHandle, dwStartType = 0x3)
-            logging.info('Starting service %s' % self.__serviceName)
+            LOG.info('Starting service %s' % self.__serviceName)
             scmr.hRStartServiceW(self.__scmr,self.__serviceHandle)
             time.sleep(1)
 
@@ -561,10 +561,10 @@ class RemoteOperations:
     def __restore(self):
         # First of all stop the service if it was originally stopped
         if self.__shouldStop is True:
-            logging.info('Stopping service %s' % self.__serviceName)
+            LOG.info('Stopping service %s' % self.__serviceName)
             scmr.hRControlService(self.__scmr, self.__serviceHandle, scmr.SERVICE_CONTROL_STOP)
         if self.__disabled is True:
-            logging.info('Restoring the disabled state for service %s' % self.__serviceName)
+            LOG.info('Restoring the disabled state for service %s' % self.__serviceName)
             scmr.hRChangeServiceConfigW(self.__scmr, self.__serviceHandle, dwStartType = 0x4)
         if self.__serviceDeleted is False:
             # Check again the service we created does not exist, starting a new connection
@@ -613,7 +613,7 @@ class RemoteOperations:
         ans = rrp.hOpenLocalMachine(self.__rrp)
         self.__regHandle = ans['phKey']
         for key in ['JD','Skew1','GBG','Data']:
-            logging.debug('Retrieving class info for %s'% key)
+            LOG.debug('Retrieving class info for %s'% key)
             ans = rrp.hBaseRegOpenKey(self.__rrp, self.__regHandle, 'SYSTEM\\CurrentControlSet\\Control\\Lsa\\%s' % key)
             keyHandle = ans['phkResult']
             ans = rrp.hBaseRegQueryInfoKey(self.__rrp,keyHandle)
@@ -627,12 +627,12 @@ class RemoteOperations:
         for i in xrange(len(bootKey)):
             self.__bootKey += bootKey[transforms[i]]
 
-        logging.info('Target system bootKey: 0x%s' % hexlify(self.__bootKey))
+        LOG.info('Target system bootKey: 0x%s' % hexlify(self.__bootKey))
 
         return self.__bootKey
 
     def checkNoLMHashPolicy(self):
-        logging.debug('Checking NoLMHash Policy')
+        LOG.debug('Checking NoLMHash Policy')
         ans = rrp.hOpenLocalMachine(self.__rrp)
         self.__regHandle = ans['phKey']
 
@@ -644,10 +644,10 @@ class RemoteOperations:
             noLMHash = 0
 
         if noLMHash != 1:
-            logging.debug('LMHashes are being stored')
+            LOG.debug('LMHashes are being stored')
             return False
 
-        logging.debug('LMHashes are NOT being stored')
+        LOG.debug('LMHashes are NOT being stored')
         return True
 
     def __retrieveHive(self, hiveName):
@@ -667,11 +667,11 @@ class RemoteOperations:
         return remoteFileName
 
     def saveSAM(self):
-        logging.debug('Saving remote SAM database')
+        LOG.debug('Saving remote SAM database')
         return self.__retrieveHive('SAM')
 
     def saveSECURITY(self):
-        logging.debug('Saving remote SECURITY database')
+        LOG.debug('Saving remote SECURITY database')
         return self.__retrieveHive('SECURITY')
 
     def __executeRemote(self, data):
@@ -735,7 +735,7 @@ class RemoteOperations:
         return lastShadow, lastShadowFor
 
     def saveNTDS(self):
-        logging.info('Searching for NTDS.dit')
+        LOG.info('Searching for NTDS.dit')
         # First of all, let's try to read the target NTDS.dit registry entry
         ans = rrp.hOpenLocalMachine(self.__rrp)
         regHandle = ans['phKey']
@@ -757,7 +757,7 @@ class RemoteOperations:
         rrp.hBaseRegCloseKey(self.__rrp, keyHandle)
         rrp.hBaseRegCloseKey(self.__rrp, regHandle)
 
-        logging.info('Registry says NTDS.dit is at %s. Calling vssadmin to get a copy. This might take some time' % ntdsLocation)
+        LOG.info('Registry says NTDS.dit is at %s. Calling vssadmin to get a copy. This might take some time' % ntdsLocation)
         # Get the list of remote shadows
         shadow, shadowFor = self.__getLastVSS()
         if shadow == '' or (shadow != '' and shadowFor != ntdsDrive):
@@ -894,7 +894,7 @@ class SAMHashes(OfflineRegistry):
         return md5.digest()
 
     def getHBootKey(self):
-        logging.debug('Calculating HashedBootKey from SAM')
+        LOG.debug('Calculating HashedBootKey from SAM')
         QWERTY = "!@#$%^&*()qwertyUIOPAzxcvbnmQQQQQQQQQQQQ)(*@&%\0"
         DIGITS = "0123456789012345678901234567890123456789\0"
 
@@ -937,7 +937,7 @@ class SAMHashes(OfflineRegistry):
             # No SAM file provided
             return
 
-        logging.info('Dumping local SAM hashes (uid:rid:lmhash:nthash)')
+        LOG.info('Dumping local SAM hashes (uid:rid:lmhash:nthash)')
         self.getHBootKey()
 
         usersKey = 'SAM\\Domains\\Account\\Users'
@@ -1066,11 +1066,11 @@ class LSASecrets(OfflineRegistry):
             self.__LSAKey = plainText[0x10:0x20]
 
     def __getLSASecretKey(self):
-        logging.debug('Decrypting LSA Key')
+        LOG.debug('Decrypting LSA Key')
         # Let's try the key post XP
         value = self.getValue('\\Policy\\PolEKList\\default')
         if value is None:
-            logging.debug('PolEKList not found, trying PolSecretEncryptionKey')
+            LOG.debug('PolEKList not found, trying PolSecretEncryptionKey')
             # Second chance
             value = self.getValue('\\Policy\\PolSecretEncryptionKey\\default')
             self.__vistaStyle = False
@@ -1081,7 +1081,7 @@ class LSASecrets(OfflineRegistry):
         self.__decryptLSA(value[1])
 
     def __getNLKMSecret(self):
-        logging.debug('Decrypting NL$KM')
+        LOG.debug('Decrypting NL$KM')
         value = self.getValue('\\Policy\\Secrets\\NL$KM\\CurrVal\\default')
         if value is None:
             raise Exception("Couldn't get NL$KM value")
@@ -1103,7 +1103,7 @@ class LSASecrets(OfflineRegistry):
             # No SECURITY file provided
             return
 
-        logging.info('Dumping cached domain logon information (uid:encryptedHash:longDomain:domain)')
+        LOG.info('Dumping cached domain logon information (uid:encryptedHash:longDomain:domain)')
 
         # Let's first see if there are cached entries
         values = self.enumValues('\\Cache')
@@ -1120,7 +1120,7 @@ class LSASecrets(OfflineRegistry):
         self.__getNLKMSecret()
 
         for value in values:
-            logging.debug('Looking into %s' % value)
+            LOG.debug('Looking into %s' % value)
             record = NL_RECORD(self.getValue(ntpath.join('\\Cache',value))[1])
             if record['CH'] != 16 * '\x00':
                 if self.__vistaStyle is True:
@@ -1144,17 +1144,17 @@ class LSASecrets(OfflineRegistry):
 
         # First off, let's discard NULL secrets.
         if len(secretItem) == 0:
-            logging.debug('Discarding secret %s, NULL Data' % name)
+            LOG.debug('Discarding secret %s, NULL Data' % name)
             return
 
         # We might have secrets with zero
         if secretItem.startswith('\x00\x00'):
-            logging.debug('Discarding secret %s, all zeros' % name)
+            LOG.debug('Discarding secret %s, all zeros' % name)
             return
 
         upperName = name.upper()
 
-        logging.info('%s ' % name)
+        LOG.info('%s ' % name)
 
         secret = ''
 
@@ -1227,7 +1227,7 @@ class LSASecrets(OfflineRegistry):
             # No SECURITY file provided
             return
 
-        logging.info('Dumping LSA Secrets')
+        LOG.info('Dumping LSA Secrets')
 
         # Let's first see if there are cached entries
         keys = self.enumKey('\\Policy\\Secrets')
@@ -1244,7 +1244,7 @@ class LSASecrets(OfflineRegistry):
             self.__getLSASecretKey()
 
         for key in keys:
-            logging.debug('Looking into %s' % key)
+            LOG.debug('Looking into %s' % key)
             value = self.getValue('\\Policy\\Secrets\\%s\\CurrVal\\default' % key)
 
             if value is not None:
@@ -1413,13 +1413,13 @@ class NTDSHashes:
         return self.__resumeSessionFile
 
     def __getPek(self):
-        logging.info('Searching for pekList, be patient')
+        LOG.info('Searching for pekList, be patient')
         peklist = None
         while True:
             try:
                 record = self.__ESEDB.getNextRow(self.__cursor)
             except:
-                logging.error('Error while calling getNextRow(), trying the next one')
+                LOG.error('Error while calling getNextRow(), trying the next one')
                 continue
 
             if record is None:
@@ -1447,7 +1447,7 @@ class NTDSHashes:
                 for i in range(len( decryptedPekList['DecryptedPek'] ) / PEKLen ):
                     cursor = i * PEKLen
                     pek = self.PEK_KEY(decryptedPekList['DecryptedPek'][cursor:cursor+PEKLen])
-                    logging.info("PEK # %d found and decrypted: %s", i, hexlify(pek['Key']))
+                    LOG.info("PEK # %d found and decrypted: %s", i, hexlify(pek['Key']))
                     self.__PEK.append(pek['Key'])
 
             elif encryptedPekList['Header'][:4] == '\x03\x00\x00\x00':
@@ -1461,7 +1461,7 @@ class NTDSHashes:
                     self.__cryptoCommon.decryptAES(self.__bootKey, encryptedPekList['EncryptedPek'],
                                                    encryptedPekList['KeyMaterial']))
                 self.__PEK.append(decryptedPekList['DecryptedPek'][4:][:16])
-                logging.info("PEK # 0 found and decrypted: %s", hexlify(decryptedPekList['DecryptedPek'][4:][:16]))
+                LOG.info("PEK # 0 found and decrypted: %s", hexlify(decryptedPekList['DecryptedPek'][4:][:16]))
 
     def __removeRC4Layer(self, cryptedHash):
         md5 = hashlib.new('md5')
@@ -1498,7 +1498,7 @@ class NTDSHashes:
     def __decryptSupplementalInfo(self, record, prefixTable=None, keysFile=None, clearTextFile=None):
         # This is based on [MS-SAMR] 2.2.10 Supplemental Credentials Structures
         haveInfo = False
-        logging.debug('Entering NTDSHashes.__decryptSupplementalInfo')
+        LOG.debug('Entering NTDSHashes.__decryptSupplementalInfo')
         if self.__useVSSMethod is True:
             if record[self.NAME_TO_INTERNAL['supplementalCredentials']] is not None:
                 if len(unhexlify(record[self.NAME_TO_INTERNAL['supplementalCredentials']])) > 24:
@@ -1528,7 +1528,7 @@ class NTDSHashes:
                     attId = drsuapi.OidFromAttid(prefixTable, attr['attrTyp'])
                     LOOKUP_TABLE = self.ATTRTYP_TO_ATTID
                 except Exception, e:
-                    logging.debug('Failed to execute OidFromAttid with error %s' % e)
+                    LOG.debug('Failed to execute OidFromAttid with error %s' % e)
                     # Fallbacking to fixed table and hope for the best
                     attId = attr['attrTyp']
                     LOOKUP_TABLE = self.NAME_TO_ATTRTYP
@@ -1546,11 +1546,11 @@ class NTDSHashes:
                         try:
                             userName = ''.join(attr['AttrVal']['pAVal'][0]['pVal']).decode('utf-16le')
                         except:
-                            logging.error(
+                            LOG.error(
                                 'Cannot get sAMAccountName for %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
                             userName = 'unknown'
                     else:
-                        logging.error('Cannot get sAMAccountName for %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
+                        LOG.error('Cannot get sAMAccountName for %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
                         userName = 'unknown'
                 if attId == LOOKUP_TABLE['supplementalCredentials']:
                     if attr['AttrVal']['valCount'] > 0:
@@ -1610,12 +1610,12 @@ class NTDSHashes:
             if keysFile is not None:
                 keysFile.flush()
 
-        logging.debug('Leaving NTDSHashes.__decryptSupplementalInfo')
+        LOG.debug('Leaving NTDSHashes.__decryptSupplementalInfo')
 
     def __decryptHash(self, record, prefixTable=None, outputFile=None):
-        logging.debug('Entering NTDSHashes.__decryptHash')
+        LOG.debug('Entering NTDSHashes.__decryptHash')
         if self.__useVSSMethod is True:
-            logging.debug('Decrypting hash for user: %s' % record[self.NAME_TO_INTERNAL['name']])
+            LOG.debug('Decrypting hash for user: %s' % record[self.NAME_TO_INTERNAL['name']])
 
             sid = SAMR_RPC_SID(unhexlify(record[self.NAME_TO_INTERNAL['objectSid']]))
             rid = sid.formatCanonical().split('-')[-1]
@@ -1700,7 +1700,7 @@ class NTDSHashes:
                     print answer
         else:
             replyVersion = 'V%d' %record['pdwOutVersion']
-            logging.debug('Decrypting hash for user: %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
+            LOG.debug('Decrypting hash for user: %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
             domain = None
             if self.__history:
                 LMHistory = []
@@ -1713,7 +1713,7 @@ class NTDSHashes:
                     attId = drsuapi.OidFromAttid(prefixTable, attr['attrTyp'])
                     LOOKUP_TABLE = self.ATTRTYP_TO_ATTID
                 except Exception, e:
-                    logging.debug('Failed to execute OidFromAttid with error %s, fallbacking to fixed table' % e)
+                    LOG.debug('Failed to execute OidFromAttid with error %s, fallbacking to fixed table' % e)
                     # Fallbacking to fixed table and hope for the best
                     attId = attr['attrTyp']
                     LOOKUP_TABLE = self.NAME_TO_ATTRTYP
@@ -1745,23 +1745,23 @@ class NTDSHashes:
                         try:
                             userName = ''.join(attr['AttrVal']['pAVal'][0]['pVal']).decode('utf-16le')
                         except:
-                            logging.error('Cannot get sAMAccountName for %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
+                            LOG.error('Cannot get sAMAccountName for %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
                             userName = 'unknown'
                     else:
-                        logging.error('Cannot get sAMAccountName for %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
+                        LOG.error('Cannot get sAMAccountName for %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
                         userName = 'unknown'
                 elif attId == LOOKUP_TABLE['objectSid']:
                     if attr['AttrVal']['valCount'] > 0:
                         objectSid = ''.join(attr['AttrVal']['pAVal'][0]['pVal'])
                     else:
-                        logging.error('Cannot get objectSid for %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
+                        LOG.error('Cannot get objectSid for %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
                         objectSid = rid
                 elif attId == LOOKUP_TABLE['pwdLastSet']:
                     if attr['AttrVal']['valCount'] > 0:
                         try:
                             pwdLastSet = self.__fileTimeToDateTime(unpack('<Q', ''.join(attr['AttrVal']['pAVal'][0]['pVal']))[0])
                         except:
-                            logging.error('Cannot get pwdLastSet for %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
+                            LOG.error('Cannot get pwdLastSet for %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
                             pwdLastSet = 'N/A'
 
                 if self.__history:
@@ -1773,7 +1773,7 @@ class NTDSHashes:
                                 LMHashHistory = drsuapi.removeDESLayer(tmpLMHistory[i * 16:(i + 1) * 16], rid)
                                 LMHistory.append(LMHashHistory)
                         else:
-                            logging.debug('No lmPwdHistory for user %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
+                            LOG.debug('No lmPwdHistory for user %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
                     elif attId == LOOKUP_TABLE['ntPwdHistory']:
                         if attr['AttrVal']['valCount'] > 0:
                             encryptedNTHistory = ''.join(attr['AttrVal']['pAVal'][0]['pVal'])
@@ -1782,7 +1782,7 @@ class NTDSHashes:
                                 NTHashHistory = drsuapi.removeDESLayer(tmpNTHistory[i * 16:(i + 1) * 16], rid)
                                 NTHistory.append(NTHashHistory)
                         else:
-                            logging.debug('No ntPwdHistory for user %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
+                            LOG.debug('No ntPwdHistory for user %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
 
             if domain is not None:
                 userName = '%s\\%s' % (domain, userName)
@@ -1811,7 +1811,7 @@ class NTDSHashes:
         if outputFile is not None:
             outputFile.flush()
 
-        logging.debug('Leaving NTDSHashes.__decryptHash')
+        LOG.debug('Leaving NTDSHashes.__decryptHash')
 
     def dump(self):
         if self.__useVSSMethod is True:
@@ -1824,13 +1824,13 @@ class NTDSHashes:
                 try:
                     self.__remoteOps.connectSamr(self.__remoteOps.getMachineNameAndDomain()[1])
                 except Exception, e:
-                    logging.debug('Exiting NTDSHashes.dump() because %s' % e)
+                    LOG.debug('Exiting NTDSHashes.dump() because %s' % e)
                     # Target's not a DC
                     return
 
         # Let's check if we need to save results in a file
         if self.__outputFileName is not None:
-            logging.debug('Saving output to %s' % self.__outputFileName)
+            LOG.debug('Saving output to %s' % self.__outputFileName)
             # We have to export. Are we resuming a session?
             if self.__savedSessionFile is not None:
                 mode = 'a+'
@@ -1845,14 +1845,14 @@ class NTDSHashes:
             keysOutputFile = None
             clearTextOutputFile = None
 
-        logging.info('Dumping Domain Credentials (domain\\uid:rid:lmhash:nthash)')
+        LOG.info('Dumping Domain Credentials (domain\\uid:rid:lmhash:nthash)')
         if self.__useVSSMethod:
             # We start getting rows from the table aiming at reaching
             # the pekList. If we find users records we stored them
             # in a temp list for later process.
             self.__getPek()
             if self.__PEK is not None:
-                logging.info('Reading and decrypting hashes from %s ' % self.__NTDS)
+                LOG.info('Reading and decrypting hashes from %s ' % self.__NTDS)
                 # First of all, if we have users already cached, let's decrypt their hashes
                 for record in self.__tmpUsers:
                     try:
@@ -1863,13 +1863,13 @@ class NTDSHashes:
                         # import traceback
                         # print traceback.print_exc()
                         try:
-                            logging.error(
+                            LOG.error(
                                 "Error while processing row for user %s" % record[self.NAME_TO_INTERNAL['name']])
-                            logging.error(str(e))
+                            LOG.error(str(e))
                             pass
                         except:
-                            logging.error("Error while processing row!")
-                            logging.error(str(e))
+                            LOG.error("Error while processing row!")
+                            LOG.error(str(e))
                             pass
 
                 # Now let's keep moving through the NTDS file and decrypting what we find
@@ -1877,7 +1877,7 @@ class NTDSHashes:
                     try:
                         record = self.__ESEDB.getNextRow(self.__cursor)
                     except:
-                        logging.error('Error while calling getNextRow(), trying the next one')
+                        LOG.error('Error while calling getNextRow(), trying the next one')
                         continue
 
                     if record is None:
@@ -1891,16 +1891,16 @@ class NTDSHashes:
                         # import traceback
                         # print traceback.print_exc()
                         try:
-                            logging.error(
+                            LOG.error(
                                 "Error while processing row for user %s" % record[self.NAME_TO_INTERNAL['name']])
-                            logging.error(str(e))
+                            LOG.error(str(e))
                             pass
                         except:
-                            logging.error("Error while processing row!")
-                            logging.error(str(e))
+                            LOG.error("Error while processing row!")
+                            LOG.error(str(e))
                             pass
         else:
-            logging.info('Using the DRSUAPI method to get NTDS.DIT secrets')
+            LOG.info('Using the DRSUAPI method to get NTDS.DIT secrets')
             status = STATUS_MORE_ENTRIES
             enumerationContext = 0
 
@@ -1912,7 +1912,7 @@ class NTDSHashes:
                 except Exception, e:
                     raise Exception('Cannot open resume session file name %s' % str(e))
                 resumeSid = resumeFile.read().strip('\n')
-                logging.info('Resuming from SID %s, be patient' % resumeSid)
+                LOG.info('Resuming from SID %s, be patient' % resumeSid)
                 # The resume session file is the same as the savedSessionFile
                 tmpName = self.__savedSessionFile
                 resumeFile = open(tmpName, 'wb+')
@@ -1921,7 +1921,7 @@ class NTDSHashes:
                 # We do not create a resume file when asking for a single user
                 if self.__justUser is None:
                     tmpName = 'sessionresume_%s' % ''.join([random.choice(string.letters) for i in range(8)])
-                    logging.debug('Session resume file will be %s' % tmpName)
+                    LOG.debug('Session resume file will be %s' % tmpName)
                     # Creating the resume session file
                     try:
                         resumeFile = open(tmpName, 'wb+')
@@ -1936,7 +1936,7 @@ class NTDSHashes:
 
                 if crackedName['pmsgOut']['V1']['pResult']['cItems'] == 1:
                     if crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status'] != 0:
-                        logging.error("%s: %s" % system_errors.ERROR_MESSAGES[
+                        LOG.error("%s: %s" % system_errors.ERROR_MESSAGES[
                             0x2114 + crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status']])
                         return
 
@@ -1946,7 +1946,7 @@ class NTDSHashes:
                     if userRecord['pmsgOut'][replyVersion]['cNumObjects'] == 0:
                         raise Exception('DRSGetNCChanges didn\'t return any object!')
                 else:
-                    logging.warning('DRSCrackNames returned %d items for user %s, skipping' % (
+                    LOG.warning('DRSCrackNames returned %d items for user %s, skipping' % (
                     crackedName['pmsgOut']['V1']['pResult']['cItems'], self.__justUser))
                 try:
                     self.__decryptHash(userRecord,
@@ -1959,8 +1959,8 @@ class NTDSHashes:
                 except Exception, e:
                     #import traceback
                     #traceback.print_exc()
-                    logging.error("Error while processing user!")
-                    logging.error(str(e))
+                    LOG.error("Error while processing user!")
+                    LOG.error(str(e))
             else:
                 while status == STATUS_MORE_ENTRIES:
                     resp = self.__remoteOps.getDomainUsers(enumerationContext)
@@ -1973,10 +1973,10 @@ class NTDSHashes:
                             # Means we're looking for a SID before start processing back again
                             if resumeSid == userSid.formatCanonical():
                                 # Match!, next round we will back processing
-                                logging.debug('resumeSid %s reached! processing users from now on' % userSid.formatCanonical())
+                                LOG.debug('resumeSid %s reached! processing users from now on' % userSid.formatCanonical())
                                 resumeSid = None
                             else:
-                                logging.debug('Skipping SID %s since it was processed already' % userSid.formatCanonical())
+                                LOG.debug('Skipping SID %s since it was processed already' % userSid.formatCanonical())
                             continue
 
                         # Let's crack the user sid into DS_FQDN_1779_NAME
@@ -1989,7 +1989,7 @@ class NTDSHashes:
 
                         if crackedName['pmsgOut']['V1']['pResult']['cItems'] == 1:
                             if crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status'] != 0:
-                                logging.error("%s: %s" % system_errors.ERROR_MESSAGES[
+                                LOG.error("%s: %s" % system_errors.ERROR_MESSAGES[
                                     0x2114 + crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status']])
                                 break
                             userRecord = self.__remoteOps.DRSGetNCChanges(
@@ -1999,7 +1999,7 @@ class NTDSHashes:
                             if userRecord['pmsgOut'][replyVersion]['cNumObjects'] == 0:
                                 raise Exception('DRSGetNCChanges didn\'t return any object!')
                         else:
-                            logging.warning('DRSCrackNames returned %d items for user %s, skipping' % (
+                            LOG.warning('DRSCrackNames returned %d items for user %s, skipping' % (
                             crackedName['pmsgOut']['V1']['pResult']['cItems'], userName))
                         try:
                             self.__decryptHash(userRecord,
@@ -2012,8 +2012,8 @@ class NTDSHashes:
                         except Exception, e:
                             #import traceback
                             #traceback.print_exc()
-                            logging.error("Error while processing user!")
-                            logging.error(str(e))
+                            LOG.error("Error while processing user!")
+                            LOG.error(str(e))
 
                         # Saving the session state
                         resumeFile.seek(0,0)
@@ -2031,13 +2031,13 @@ class NTDSHashes:
                 os.remove(tmpName)
                 self.__resumeSessionFile = None
 
-        logging.debug("Finished processing and printing user's hashes, now printing supplemental information")
+        LOG.debug("Finished processing and printing user's hashes, now printing supplemental information")
         # Now we'll print the Kerberos keys. So we don't mix things up in the output.
         if len(self.__kerberosKeys) > 0:
             if self.__useVSSMethod is True:
-                logging.info('Kerberos keys from %s ' % self.__NTDS)
+                LOG.info('Kerberos keys from %s ' % self.__NTDS)
             else:
-                logging.info('Kerberos keys grabbed')
+                LOG.info('Kerberos keys grabbed')
 
             for itemKey in self.__kerberosKeys.keys():
                 print itemKey
@@ -2045,9 +2045,9 @@ class NTDSHashes:
         # And finally the cleartext pwds
         if len(self.__clearTextPwds) > 0:
             if self.__useVSSMethod is True:
-                logging.info('ClearText password from %s ' % self.__NTDS)
+                LOG.info('ClearText password from %s ' % self.__NTDS)
             else:
-                logging.info('ClearText passwords grabbed')
+                LOG.info('ClearText passwords grabbed')
 
             for itemKey in self.__clearTextPwds.keys():
                 print itemKey
@@ -2064,7 +2064,7 @@ class NTDSHashes:
         try:
             fd.write(data)
         except Exception, e:
-            logging.error("Error writing entry, skippingi (%s)" % str(e))
+            LOG.error("Error writing entry, skippingi (%s)" % str(e))
             pass
 
     def finish(self):
@@ -2084,7 +2084,7 @@ class LocalOperations:
         currentControlSet = winreg.getValue('\\Select\\Current')[1]
         currentControlSet = "ControlSet%03d" % currentControlSet
         for key in ['JD', 'Skew1', 'GBG', 'Data']:
-            logging.debug('Retrieving class info for %s' % key)
+            LOG.debug('Retrieving class info for %s' % key)
             ans = winreg.getClass('\\%s\\Control\\Lsa\\%s' % (currentControlSet, key))
             digit = ans[:16].decode('utf-16le')
             tmpKey = tmpKey + digit
@@ -2096,13 +2096,13 @@ class LocalOperations:
         for i in xrange(len(tmpKey)):
             bootKey += tmpKey[transforms[i]]
 
-        logging.info('Target system bootKey: 0x%s' % hexlify(bootKey))
+        LOG.info('Target system bootKey: 0x%s' % hexlify(bootKey))
 
         return bootKey
 
 
     def checkNoLMHashPolicy(self):
-        logging.debug('Checking NoLMHash Policy')
+        LOG.debug('Checking NoLMHash Policy')
         winreg = winregistry.Registry(self.__systemHive, False)
         # We gotta find out the Current Control Set
         currentControlSet = winreg.getValue('\\Select\\Current')[1]
@@ -2116,7 +2116,7 @@ class LocalOperations:
             noLmHash = 0
 
         if noLmHash != 1:
-            logging.debug('LMHashes are being stored')
+            LOG.debug('LMHashes are being stored')
             return False
-        logging.debug('LMHashes are NOT being stored')
+        LOG.debug('LMHashes are NOT being stored')
         return True
