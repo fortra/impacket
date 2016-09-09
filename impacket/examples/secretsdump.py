@@ -1856,6 +1856,11 @@ class NTDSHashes:
         LOG.debug('Leaving NTDSHashes.__decryptHash')
 
     def dump(self):
+        hashesOutputFile = None
+        keysOutputFile = None
+        clearTextOutputFile = None
+        resumeFile = None
+        
         if self.__useVSSMethod is True:
             if self.__NTDS is None:
                 # No NTDS.dit file provided and were asked to use VSS
@@ -1869,216 +1874,220 @@ class NTDSHashes:
                     LOG.debug('Exiting NTDSHashes.dump() because %s' % e)
                     # Target's not a DC
                     return
+        
+        try:
+            # Let's check if we need to save results in a file
+            if self.__outputFileName is not None:
+                LOG.debug('Saving output to %s' % self.__outputFileName)
+                # We have to export. Are we resuming a session?
+                if self.__savedSessionFile is not None:
+                    mode = 'a+'
+                else:
+                    mode = 'w+'
+                hashesOutputFile = codecs.open(self.__outputFileName+'.ntds',mode, encoding='utf-8')
+                if self.__justNTLM is False:
+                    keysOutputFile = codecs.open(self.__outputFileName+'.ntds.kerberos',mode, encoding='utf-8')
+                    clearTextOutputFile = codecs.open(self.__outputFileName+'.ntds.cleartext',mode, encoding='utf-8')            
 
-        # Let's check if we need to save results in a file
-        if self.__outputFileName is not None:
-            LOG.debug('Saving output to %s' % self.__outputFileName)
-            # We have to export. Are we resuming a session?
-            if self.__savedSessionFile is not None:
-                mode = 'a+'
-            else:
-                mode = 'w+'
-            hashesOutputFile = codecs.open(self.__outputFileName+'.ntds',mode, encoding='utf-8')
-            if self.__justNTLM is False:
-                keysOutputFile = codecs.open(self.__outputFileName+'.ntds.kerberos',mode, encoding='utf-8')
-                clearTextOutputFile = codecs.open(self.__outputFileName+'.ntds.cleartext',mode, encoding='utf-8')
-        else:
-            hashesOutputFile = None
-            keysOutputFile = None
-            clearTextOutputFile = None
-
-        LOG.info('Dumping Domain Credentials (domain\\uid:rid:lmhash:nthash)')
-        if self.__useVSSMethod:
-            # We start getting rows from the table aiming at reaching
-            # the pekList. If we find users records we stored them
-            # in a temp list for later process.
-            self.__getPek()
-            if self.__PEK is not None:
-                LOG.info('Reading and decrypting hashes from %s ' % self.__NTDS)
-                # First of all, if we have users already cached, let's decrypt their hashes
-                for record in self.__tmpUsers:
-                    try:
-                        self.__decryptHash(record, outputFile=hashesOutputFile)
-                        if self.__justNTLM is False:
-                            self.__decryptSupplementalInfo(record, None, keysOutputFile, clearTextOutputFile)
-                    except Exception, e:
-                        # import traceback
-                        # print traceback.print_exc()
+            LOG.info('Dumping Domain Credentials (domain\\uid:rid:lmhash:nthash)')
+            if self.__useVSSMethod:
+                # We start getting rows from the table aiming at reaching
+                # the pekList. If we find users records we stored them
+                # in a temp list for later process.
+                self.__getPek()
+                if self.__PEK is not None:
+                    LOG.info('Reading and decrypting hashes from %s ' % self.__NTDS)
+                    # First of all, if we have users already cached, let's decrypt their hashes
+                    for record in self.__tmpUsers:
                         try:
-                            LOG.error(
-                                "Error while processing row for user %s" % record[self.NAME_TO_INTERNAL['name']])
-                            LOG.error(str(e))
-                            pass
-                        except:
-                            LOG.error("Error while processing row!")
-                            LOG.error(str(e))
-                            pass
-
-                # Now let's keep moving through the NTDS file and decrypting what we find
-                while True:
-                    try:
-                        record = self.__ESEDB.getNextRow(self.__cursor)
-                    except:
-                        LOG.error('Error while calling getNextRow(), trying the next one')
-                        continue
-
-                    if record is None:
-                        break
-                    try:
-                        if record[self.NAME_TO_INTERNAL['sAMAccountType']] in self.ACCOUNT_TYPES:
                             self.__decryptHash(record, outputFile=hashesOutputFile)
                             if self.__justNTLM is False:
                                 self.__decryptSupplementalInfo(record, None, keysOutputFile, clearTextOutputFile)
-                    except Exception, e:
-                        # import traceback
-                        # print traceback.print_exc()
+                        except Exception, e:
+                            # import traceback
+                            # print traceback.print_exc()
+                            try:
+                                LOG.error(
+                                    "Error while processing row for user %s" % record[self.NAME_TO_INTERNAL['name']])
+                                LOG.error(str(e))
+                                pass
+                            except:
+                                LOG.error("Error while processing row!")
+                                LOG.error(str(e))
+                                pass
+
+                    # Now let's keep moving through the NTDS file and decrypting what we find
+                    while True:
                         try:
-                            LOG.error(
-                                "Error while processing row for user %s" % record[self.NAME_TO_INTERNAL['name']])
-                            LOG.error(str(e))
-                            pass
+                            record = self.__ESEDB.getNextRow(self.__cursor)
                         except:
-                            LOG.error("Error while processing row!")
-                            LOG.error(str(e))
-                            pass
-        else:
-            LOG.info('Using the DRSUAPI method to get NTDS.DIT secrets')
-            status = STATUS_MORE_ENTRIES
-            enumerationContext = 0
-
-            # Do we have to resume from a previously saved session?
-            if self.__savedSessionFile is not None:
-                # Yes
-                try:
-                    resumeFile = open(self.__savedSessionFile, 'rwb+')
-                except Exception, e:
-                    raise Exception('Cannot open resume session file name %s' % str(e))
-                resumeSid = resumeFile.read().strip('\n')
-                LOG.info('Resuming from SID %s, be patient' % resumeSid)
-                # The resume session file is the same as the savedSessionFile
-                tmpName = self.__savedSessionFile
-                resumeFile = open(tmpName, 'wb+')
-            else:
-                resumeSid = None
-                # We do not create a resume file when asking for a single user
-                if self.__justUser is None:
-                    tmpName = 'sessionresume_%s' % ''.join([random.choice(string.letters) for i in range(8)])
-                    LOG.debug('Session resume file will be %s' % tmpName)
-                    # Creating the resume session file
-                    try:
-                        resumeFile = open(tmpName, 'wb+')
-                        self.__resumeSessionFile = tmpName
-                    except Exception, e:
-                        raise Exception('Cannot create resume session file %s' % str(e))
-
-            if self.__justUser is not None:
-                crackedName = self.__remoteOps.DRSCrackNames(drsuapi.DS_NT4_ACCOUNT_NAME_SANS_DOMAIN,
-                                                             drsuapi.DS_NAME_FORMAT.DS_FQDN_1779_NAME,
-                                                             name=self.__justUser)
-
-                if crackedName['pmsgOut']['V1']['pResult']['cItems'] == 1:
-                    if crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status'] != 0:
-                        LOG.error("%s: %s" % system_errors.ERROR_MESSAGES[
-                            0x2114 + crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status']])
-                        return
-
-                    userRecord = self.__remoteOps.DRSGetNCChanges(crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['pName'][:-1])
-                    #userRecord.dump()
-                    replyVersion = 'V%d' % userRecord['pdwOutVersion']
-                    if userRecord['pmsgOut'][replyVersion]['cNumObjects'] == 0:
-                        raise Exception('DRSGetNCChanges didn\'t return any object!')
-                else:
-                    LOG.warning('DRSCrackNames returned %d items for user %s, skipping' % (
-                    crackedName['pmsgOut']['V1']['pResult']['cItems'], self.__justUser))
-                try:
-                    self.__decryptHash(userRecord,
-                                       userRecord['pmsgOut'][replyVersion]['PrefixTableSrc']['pPrefixEntry'],
-                                       hashesOutputFile)
-                    if self.__justNTLM is False:
-                        self.__decryptSupplementalInfo(userRecord, userRecord['pmsgOut'][replyVersion]['PrefixTableSrc'][
-                            'pPrefixEntry'], keysOutputFile, clearTextOutputFile)
-
-                except Exception, e:
-                    #import traceback
-                    #traceback.print_exc()
-                    LOG.error("Error while processing user!")
-                    LOG.error(str(e))
-            else:
-                while status == STATUS_MORE_ENTRIES:
-                    resp = self.__remoteOps.getDomainUsers(enumerationContext)
-
-                    for user in resp['Buffer']['Buffer']:
-                        userName = user['Name']
-
-                        userSid = self.__remoteOps.ridToSid(user['RelativeId'])
-                        if resumeSid is not None:
-                            # Means we're looking for a SID before start processing back again
-                            if resumeSid == userSid.formatCanonical():
-                                # Match!, next round we will back processing
-                                LOG.debug('resumeSid %s reached! processing users from now on' % userSid.formatCanonical())
-                                resumeSid = None
-                            else:
-                                LOG.debug('Skipping SID %s since it was processed already' % userSid.formatCanonical())
+                            LOG.error('Error while calling getNextRow(), trying the next one')
                             continue
 
-                        # Let's crack the user sid into DS_FQDN_1779_NAME
-                        # In theory I shouldn't need to crack the sid. Instead
-                        # I could use it when calling DRSGetNCChanges inside the DSNAME parameter.
-                        # For some reason tho, I get ERROR_DS_DRA_BAD_DN when doing so.
-                        crackedName = self.__remoteOps.DRSCrackNames(drsuapi.DS_NAME_FORMAT.DS_SID_OR_SID_HISTORY_NAME,
-                                                                     drsuapi.DS_NAME_FORMAT.DS_FQDN_1779_NAME,
-                                                                     name=userSid.formatCanonical())
-
-                        if crackedName['pmsgOut']['V1']['pResult']['cItems'] == 1:
-                            if crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status'] != 0:
-                                LOG.error("%s: %s" % system_errors.ERROR_MESSAGES[
-                                    0x2114 + crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status']])
-                                break
-                            userRecord = self.__remoteOps.DRSGetNCChanges(
-                                crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['pName'][:-1])
-                            # userRecord.dump()
-                            replyVersion = 'V%d' % userRecord['pdwOutVersion']
-                            if userRecord['pmsgOut'][replyVersion]['cNumObjects'] == 0:
-                                raise Exception('DRSGetNCChanges didn\'t return any object!')
-                        else:
-                            LOG.warning('DRSCrackNames returned %d items for user %s, skipping' % (
-                            crackedName['pmsgOut']['V1']['pResult']['cItems'], userName))
+                        if record is None:
+                            break
                         try:
-                            self.__decryptHash(userRecord,
-                                               userRecord['pmsgOut'][replyVersion]['PrefixTableSrc']['pPrefixEntry'],
-                                               hashesOutputFile)
-                            if self.__justNTLM is False:
-                                self.__decryptSupplementalInfo(userRecord, userRecord['pmsgOut'][replyVersion]['PrefixTableSrc'][
-                                    'pPrefixEntry'], keysOutputFile, clearTextOutputFile)
-
+                            if record[self.NAME_TO_INTERNAL['sAMAccountType']] in self.ACCOUNT_TYPES:
+                                self.__decryptHash(record, outputFile=hashesOutputFile)
+                                if self.__justNTLM is False:
+                                    self.__decryptSupplementalInfo(record, None, keysOutputFile, clearTextOutputFile)
                         except Exception, e:
-                            #import traceback
-                            #traceback.print_exc()
-                            LOG.error("Error while processing user!")
-                            LOG.error(str(e))
+                            # import traceback
+                            # print traceback.print_exc()
+                            try:
+                                LOG.error(
+                                    "Error while processing row for user %s" % record[self.NAME_TO_INTERNAL['name']])
+                                LOG.error(str(e))
+                                pass
+                            except:
+                                LOG.error("Error while processing row!")
+                                LOG.error(str(e))
+                                pass
+            else:
+                LOG.info('Using the DRSUAPI method to get NTDS.DIT secrets')
+                status = STATUS_MORE_ENTRIES
+                enumerationContext = 0
 
-                        # Saving the session state
-                        resumeFile.seek(0,0)
-                        resumeFile.truncate(0)
-                        resumeFile.write(userSid.formatCanonical())
-                        resumeFile.flush()
+                # Do we have to resume from a previously saved session?
+                if self.__savedSessionFile is not None:
+                    # Yes
+                    try:
+                        resumeFile = open(self.__savedSessionFile, 'rwb+')
+                    except Exception, e:
+                        raise Exception('Cannot open resume session file name %s' % str(e))
+                    resumeSid = resumeFile.read().strip('\n')
+                    LOG.info('Resuming from SID %s, be patient' % resumeSid)
+                    # The resume session file is the same as the savedSessionFile
+                    tmpName = self.__savedSessionFile
+                    resumeFile = open(tmpName, 'wb+')
+                else:
+                    resumeSid = None
+                    # We do not create a resume file when asking for a single user
+                    if self.__justUser is None:
+                        tmpName = 'sessionresume_%s' % ''.join([random.choice(string.letters) for i in range(8)])
+                        LOG.debug('Session resume file will be %s' % tmpName)
+                        # Creating the resume session file
+                        try:
+                            resumeFile = open(tmpName, 'wb+')
+                            self.__resumeSessionFile = tmpName
+                        except Exception, e:
+                            raise Exception('Cannot create resume session file %s' % str(e))
 
-                    enumerationContext = resp['EnumerationContext']
-                    status = resp['ErrorCode']
+                if self.__justUser is not None:
+                    crackedName = self.__remoteOps.DRSCrackNames(drsuapi.DS_NT4_ACCOUNT_NAME_SANS_DOMAIN,
+                                                                 drsuapi.DS_NAME_FORMAT.DS_FQDN_1779_NAME,
+                                                                 name=self.__justUser)
 
-            # Everything went well and we covered all the users
-            # Let's remove the resume file is we had created it
-            if self.__justUser is None:
-                resumeFile.close()
-                os.remove(tmpName)
-                self.__resumeSessionFile = None
+                    if crackedName['pmsgOut']['V1']['pResult']['cItems'] == 1:
+                        if crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status'] != 0:
+                            LOG.error("%s: %s" % system_errors.ERROR_MESSAGES[
+                                0x2114 + crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status']])
+                            return
 
-        # Closing output file
-        if self.__outputFileName is not None:
-            hashesOutputFile.close()
-            if self.__justNTLM is False:
+                        userRecord = self.__remoteOps.DRSGetNCChanges(crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['pName'][:-1])
+                        #userRecord.dump()
+                        replyVersion = 'V%d' % userRecord['pdwOutVersion']
+                        if userRecord['pmsgOut'][replyVersion]['cNumObjects'] == 0:
+                            raise Exception('DRSGetNCChanges didn\'t return any object!')
+                    else:
+                        LOG.warning('DRSCrackNames returned %d items for user %s, skipping' % (
+                        crackedName['pmsgOut']['V1']['pResult']['cItems'], self.__justUser))
+                    try:
+                        self.__decryptHash(userRecord,
+                                           userRecord['pmsgOut'][replyVersion]['PrefixTableSrc']['pPrefixEntry'],
+                                           hashesOutputFile)
+                        if self.__justNTLM is False:
+                            self.__decryptSupplementalInfo(userRecord, userRecord['pmsgOut'][replyVersion]['PrefixTableSrc'][
+                                'pPrefixEntry'], keysOutputFile, clearTextOutputFile)
+
+                    except Exception, e:
+                        #import traceback
+                        #traceback.print_exc()
+                        LOG.error("Error while processing user!")
+                        LOG.error(str(e))
+                else:
+                    while status == STATUS_MORE_ENTRIES:
+                        resp = self.__remoteOps.getDomainUsers(enumerationContext)
+
+                        for user in resp['Buffer']['Buffer']:
+                            userName = user['Name']
+
+                            userSid = self.__remoteOps.ridToSid(user['RelativeId'])
+                            if resumeSid is not None:
+                                # Means we're looking for a SID before start processing back again
+                                if resumeSid == userSid.formatCanonical():
+                                    # Match!, next round we will back processing
+                                    LOG.debug('resumeSid %s reached! processing users from now on' % userSid.formatCanonical())
+                                    resumeSid = None
+                                else:
+                                    LOG.debug('Skipping SID %s since it was processed already' % userSid.formatCanonical())
+                                continue
+
+                            # Let's crack the user sid into DS_FQDN_1779_NAME
+                            # In theory I shouldn't need to crack the sid. Instead
+                            # I could use it when calling DRSGetNCChanges inside the DSNAME parameter.
+                            # For some reason tho, I get ERROR_DS_DRA_BAD_DN when doing so.
+                            crackedName = self.__remoteOps.DRSCrackNames(drsuapi.DS_NAME_FORMAT.DS_SID_OR_SID_HISTORY_NAME,
+                                                                         drsuapi.DS_NAME_FORMAT.DS_FQDN_1779_NAME,
+                                                                         name=userSid.formatCanonical())
+
+                            if crackedName['pmsgOut']['V1']['pResult']['cItems'] == 1:
+                                if crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status'] != 0:
+                                    LOG.error("%s: %s" % system_errors.ERROR_MESSAGES[
+                                        0x2114 + crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status']])
+                                    break
+                                userRecord = self.__remoteOps.DRSGetNCChanges(
+                                    crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['pName'][:-1])
+                                # userRecord.dump()
+                                replyVersion = 'V%d' % userRecord['pdwOutVersion']
+                                if userRecord['pmsgOut'][replyVersion]['cNumObjects'] == 0:
+                                    raise Exception('DRSGetNCChanges didn\'t return any object!')
+                            else:
+                                LOG.warning('DRSCrackNames returned %d items for user %s, skipping' % (
+                                crackedName['pmsgOut']['V1']['pResult']['cItems'], userName))
+                            try:
+                                self.__decryptHash(userRecord,
+                                                   userRecord['pmsgOut'][replyVersion]['PrefixTableSrc']['pPrefixEntry'],
+                                                   hashesOutputFile)
+                                if self.__justNTLM is False:
+                                    self.__decryptSupplementalInfo(userRecord, userRecord['pmsgOut'][replyVersion]['PrefixTableSrc'][
+                                        'pPrefixEntry'], keysOutputFile, clearTextOutputFile)
+
+                            except Exception, e:
+                                #import traceback
+                                #traceback.print_exc()
+                                LOG.error("Error while processing user!")
+                                LOG.error(str(e))
+
+                            # Saving the session state
+                            resumeFile.seek(0,0)
+                            resumeFile.truncate(0)
+                            resumeFile.write(userSid.formatCanonical())
+                            resumeFile.flush()
+
+                        enumerationContext = resp['EnumerationContext']
+                        status = resp['ErrorCode']
+
+                # Everything went well and we covered all the users
+                # Let's remove the resume file is we had created it
+                if self.__justUser is None:
+                    resumeFile.close()
+                    resumeFile = None
+                    os.remove(tmpName)
+                    self.__resumeSessionFile = None
+        finally:
+            # Resources cleanup
+            if not hashesOutputFile is None:
+                hashesOutputFile.close()
+                
+            if not keysOutputFile is None:
                 keysOutputFile.close()
+            
+            if not clearTextOutputFile is None:
                 clearTextOutputFile.close()
+                
+            if not resumeFile is None:
+                resumeFile.close()
 
     @classmethod
     def __writeOutput(cls, fd, data):
