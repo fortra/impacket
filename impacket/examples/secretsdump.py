@@ -2152,4 +2152,4 @@ class LocalOperations:
         return True
 
 def _print_helper(*args, **kwargs):
-    print str(args[-1])
+    print args[-1]
