@@ -1579,8 +1579,6 @@ class NTDSHashes:
                 userName = '%s\\%s' % (domain, userName)
 
         if haveInfo is True:
-            kerberosLogBannerPrinted = False
-            cleartextLogBannerPrinted = False
             try:
                 userProperties = samr.USER_PROPERTIES(plainText)
             except:
@@ -1597,13 +1595,6 @@ class NTDSHashes:
                     kerbStoredCredentialNew = samr.KERB_STORED_CREDENTIAL_NEW(propertyValueBuffer)
                     data = kerbStoredCredentialNew['Buffer']
                     for credential in range(kerbStoredCredentialNew['CredentialCount']):
-                        if kerberosLogBannerPrinted == False:
-                            kerberosLogBannerPrinted = True
-                            if self.__useVSSMethod is True:
-                                LOG.info('Kerberos keys from %s ' % self.__NTDS)
-                            else:
-                                LOG.info('Kerberos keys grabbed')
-                    
                         keyDataNew = samr.KERB_KEY_DATA_NEW(data)
                         data = data[len(keyDataNew):]
                         keyValue = propertyValueBuffer[keyDataNew['KeyOffset']:][:keyDataNew['KeyLength']]
@@ -1612,25 +1603,14 @@ class NTDSHashes:
                             answer =  "%s:%s:%s" % (userName, self.KERBEROS_TYPE[keyDataNew['KeyType']],hexlify(keyValue))
                         else:
                             answer =  "%s:%s:%s" % (userName, hex(keyDataNew['KeyType']),hexlify(keyValue))
+                        # We're just storing the keys, not printing them, to make the output more readable
+                        # This is kind of ugly... but it's what I came up with tonight to get an ordered
+                        # set :P. Better ideas welcomed ;)
+                        self.__kerberosKeys[answer] = None
                         if keysFile is not None:
                             self.__writeOutput(keysFile, answer + '\n')
-                            
-                        kerberosKeysLength = len(self.__kerberosKeys)
-                        self.__kerberosKeys[answer] = None
-                        if kerberosKeysLength < len(self.__kerberosKeys):
-                            # Avoid repeated secrets
-                            self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS_KERBEROS, answer)          
-                        
                 elif userProperty['PropertyName'].decode('utf-16le') == 'Primary:CLEARTEXT':
                     # [MS-SAMR] 3.1.1.8.11.5 Primary:CLEARTEXT Property
-                    
-                    if cleartextLogBannerPrinted == False:
-                        cleartextLogBannerPrinted = True
-                        if self.__useVSSMethod is True:
-                            LOG.info('ClearText password from %s ' % self.__NTDS)
-                        else:
-                            LOG.info('ClearText passwords grabbed')
-                    
                     # This credential type is the cleartext password. The value format is the UTF-16 encoded cleartext password.
                     try:
                         answer = "%s:CLEARTEXT:%s" % (userName, unhexlify(userProperty['PropertyValue']).decode('utf-16le'))
@@ -1638,14 +1618,9 @@ class NTDSHashes:
                         # This could be because we're decoding a machine password. Printing it hex
                         answer = "%s:CLEARTEXT:0x%s" % (userName, userProperty['PropertyValue'])
 
+                    self.__clearTextPwds[answer] = None
                     if clearTextFile is not None:
                         self.__writeOutput(clearTextFile, answer + '\n')
-                        
-                    cleartextKeysLength = len(self.__clearTextPwds)
-                    self.__clearTextPwds[answer] = None
-                    if cleartextKeysLength < len(self.__clearTextPwds):
-                        # Avoid repeated secrets
-                        self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS_CLEARTEXT, answer)        
 
             if clearTextFile is not None:
                 clearTextFile.flush()
@@ -2075,6 +2050,27 @@ class NTDSHashes:
                     resumeFile = None
                     os.remove(tmpName)
                     self.__resumeSessionFile = None
+
+            LOG.debug("Finished processing and printing user's hashes, now printing supplemental information")
+            # Now we'll print the Kerberos keys. So we don't mix things up in the output.
+            if len(self.__kerberosKeys) > 0:
+                if self.__useVSSMethod is True:
+                    LOG.info('Kerberos keys from %s ' % self.__NTDS)
+                else:
+                    LOG.info('Kerberos keys grabbed')
+
+                for itemKey in self.__kerberosKeys.keys():
+                    self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS_KERBEROS, itemKey)
+
+            # And finally the cleartext pwds
+            if len(self.__clearTextPwds) > 0:
+                if self.__useVSSMethod is True:
+                    LOG.info('ClearText password from %s ' % self.__NTDS)
+                else:
+                    LOG.info('ClearText passwords grabbed')
+
+                for itemKey in self.__clearTextPwds.keys():
+                    self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS_CLEARTEXT, itemKey)
         finally:
             # Resources cleanup
             if not hashesOutputFile is None:
