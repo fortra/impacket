@@ -990,6 +990,7 @@ class SAMHashes(OfflineRegistry):
             fd.close()
 
 class LSASecrets(OfflineRegistry):
+    UNKNOWN_USER = '(Unknown User)'
     class SECRET_TYPE:
         LSA = 0
         LSA_HASHED = 1
@@ -1177,12 +1178,12 @@ class LSASecrets(OfflineRegistry):
                 if self.__isRemote is True:
                     account = self.__remoteOps.getServiceAccount(name[4:])
                     if account is None:
-                        secret = '(Unknown User):'
+                        secret = self.UNKNOWN_USER + ':'
                     else:
                         secret =  "%s:" % account
                 else:
                     # We don't support getting this info for local targets at the moment
-                    secret = '(Unknown User):'
+                    secret = self.UNKNOWN_USER + ':'
                 secret += strDecoded
         elif upperName.startswith('DEFAULTPASSWORD'):
             # defaults password for winlogon
@@ -1196,12 +1197,12 @@ class LSASecrets(OfflineRegistry):
                 if self.__isRemote is True:
                     account = self.__remoteOps.getDefaultLoginAccount()
                     if account is None:
-                        secret = '(Unknown User):'
+                        secret = self.UNKNOWN_USER + ':'
                     else:
                         secret = "%s:" % account
                 else:
                     # We don't support getting this info for local targets at the moment
-                    secret = '(Unknown User):'
+                    secret = self.UNKNOWN_USER + ':'
                 secret += strDecoded
         elif upperName.startswith('ASPNET_WP_PASSWORD'):
             try:
