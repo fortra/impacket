@@ -995,8 +995,9 @@ class LSASecrets(OfflineRegistry):
         LSA = 0
         LSA_HASHED = 1
 
-    def __init__(self, securityFile, bootKey, remoteOps = None, isRemote = False, perSecretCallback = lambda secret_type, secret : _print_helper(secret)):
-        OfflineRegistry.__init__(self,securityFile, isRemote)
+    def __init__(self, securityFile, bootKey, remoteOps=None, isRemote=False,
+                 perSecretCallback=lambda secretType, secret: _print_helper(secret)):
+        OfflineRegistry.__init__(self, securityFile, isRemote)
         self.__hashedBootKey = ''
         self.__bootKey = bootKey
         self.__LSAKey = ''
@@ -1221,17 +1222,16 @@ class LSASecrets(OfflineRegistry):
             else:
                 secret = "$MACHINE.ACC: %s:%s" % (hexlify(ntlm.LMOWFv1('','')), hexlify(md4.digest()))
 
-        printable_secret = ''
         if secret != '':
-            printable_secret = secret
+            printableSecret = secret
             self.__secretItems.append(secret)
         else:
             # Default print, hexdump
-            printable_secret  = '%s:%s' % (name, hexlify(secretItem))
-            self.__secretItems.append(printable_secret)
+            printableSecret  = '%s:%s' % (name, hexlify(secretItem))
+            self.__secretItems.append(printableSecret)
             hexdump(secretItem)
             
-        self.__perSecretCallback(LSASecrets.SECRET_TYPE.LSA, printable_secret)
+        self.__perSecretCallback(LSASecrets.SECRET_TYPE.LSA, printableSecret)
 
     def dumpSecrets(self):
         if self.__securityFile is None:
@@ -1403,7 +1403,7 @@ class NTDSHashes:
 
     def __init__(self, ntdsFile, bootKey, isRemote=False, history=False, noLMHash=True, remoteOps=None,
                  useVSSMethod=False, justNTLM=False, pwdLastSet=False, resumeSession=None, outputFileName=None,
-                 justUser=None, perSecretCallback = lambda secret_type, secret : _print_helper(secret)):
+                 justUser=None, perSecretCallback = lambda secretType, secret : _print_helper(secret)):
         self.__bootKey = bootKey
         self.__NTDS = ntdsFile
         self.__history = history
@@ -1579,8 +1579,8 @@ class NTDSHashes:
                 userName = '%s\\%s' % (domain, userName)
 
         if haveInfo is True:
-            kerberos_log_banner_printed = False
-            cleartext_log_banner_printed = False
+            kerberosLogBannerPrinted = False
+            cleartextLogBannerPrinted = False
             try:
                 userProperties = samr.USER_PROPERTIES(plainText)
             except:
@@ -1597,8 +1597,8 @@ class NTDSHashes:
                     kerbStoredCredentialNew = samr.KERB_STORED_CREDENTIAL_NEW(propertyValueBuffer)
                     data = kerbStoredCredentialNew['Buffer']
                     for credential in range(kerbStoredCredentialNew['CredentialCount']):
-                        if kerberos_log_banner_printed == False:
-                            kerberos_log_banner_printed = True
+                        if kerberosLogBannerPrinted == False:
+                            kerberosLogBannerPrinted = True
                             if self.__useVSSMethod is True:
                                 LOG.info('Kerberos keys from %s ' % self.__NTDS)
                             else:
@@ -1615,17 +1615,17 @@ class NTDSHashes:
                         if keysFile is not None:
                             self.__writeOutput(keysFile, answer + '\n')
                             
-                        kerberos_keys_length = len(self.__kerberosKeys)
+                        kerberosKeysLength = len(self.__kerberosKeys)
                         self.__kerberosKeys[answer] = None
-                        if kerberos_keys_length < len(self.__kerberosKeys):
+                        if kerberosKeysLength < len(self.__kerberosKeys):
                             # Avoid repeated secrets
                             self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS_KERBEROS, answer)          
                         
                 elif userProperty['PropertyName'].decode('utf-16le') == 'Primary:CLEARTEXT':
                     # [MS-SAMR] 3.1.1.8.11.5 Primary:CLEARTEXT Property
                     
-                    if cleartext_log_banner_printed == False:
-                        cleartext_log_banner_printed = True
+                    if cleartextLogBannerPrinted == False:
+                        cleartextLogBannerPrinted = True
                         if self.__useVSSMethod is True:
                             LOG.info('ClearText password from %s ' % self.__NTDS)
                         else:
@@ -1641,9 +1641,9 @@ class NTDSHashes:
                     if clearTextFile is not None:
                         self.__writeOutput(clearTextFile, answer + '\n')
                         
-                    cleartext_keys_length = len(self.__clearTextPwds)
+                    cleartextKeysLength = len(self.__clearTextPwds)
                     self.__clearTextPwds[answer] = None
-                    if cleartext_keys_length < len(self.__clearTextPwds):
+                    if cleartextKeysLength < len(self.__clearTextPwds):
                         # Avoid repeated secrets
                         self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS_CLEARTEXT, answer)        
 
