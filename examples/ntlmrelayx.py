@@ -80,7 +80,7 @@ class SMBAttack(Thread):
                 logging.info("Service Installed.. CONNECT!")
                 self.installService.uninstall()
         else:
-            from secretsdump import RemoteOperations, SAMHashes
+            from impacket.examples.secretsdump import RemoteOperations, SAMHashes
             samHashes = None
             try:
                 # We have to add some flags just in case the original client did not

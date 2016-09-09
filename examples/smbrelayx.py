@@ -106,7 +106,7 @@ class doAttack(Thread):
             else:
                 ATTACKED_HOSTS.remove(self.__SMBConnection.getRemoteHost())
         else:
-            from secretsdump import RemoteOperations, SAMHashes
+            from impacket.examples.secretsdump import RemoteOperations, SAMHashes
             samHashes = None
             try:
                 # We have to add some flags just in case the original client did not
