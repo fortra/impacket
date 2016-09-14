@@ -138,7 +138,8 @@ class PSEXEC:
                     sys.exit(1)
                 installService = serviceinstall.ServiceInstall(rpctransport.get_smb_connection(), f)
     
-            installService.install()
+            if installService.install() is False:
+                return
 
             if self.__exeFile is not None:
                 f.close()
