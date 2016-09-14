@@ -42,31 +42,29 @@
 # http://www.ntdsxtract.com/downloads/ActiveDirectoryOfflineHashDumpAndForensics.pdf
 # http://www.passcape.com/index.php?section=blog&cmd=details&id=15
 #
-from struct import unpack, pack
-from collections import OrderedDict
-from binascii import unhexlify, hexlify
-from datetime import datetime
-import sys
-import random
+import codecs
 import hashlib
 import logging
 import ntpath
-import time
-import string
-import codecs
 import os
+import random
+import string
+import time
+from binascii import unhexlify, hexlify
+from collections import OrderedDict
+from datetime import datetime
+from struct import unpack, pack
 
-from impacket import system_errors
 from impacket import LOG
+from impacket import system_errors
 from impacket import winregistry, ntlm
-from impacket.smbconnection import SMBConnection
 from impacket.dcerpc.v5 import transport, rrp, scmr, wkst, samr, epm, drsuapi
-from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY, DCERPCException, RPC_C_AUTHN_GSS_NEGOTIATE
-from impacket.winregistry import hexdump
-from impacket.structure import Structure
-from impacket.nt_errors import STATUS_MORE_ENTRIES
-from impacket.ese import ESENT_DB
 from impacket.dcerpc.v5.dtypes import NULL
+from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY, DCERPCException, RPC_C_AUTHN_GSS_NEGOTIATE
+from impacket.ese import ESENT_DB
+from impacket.nt_errors import STATUS_MORE_ENTRIES
+from impacket.structure import Structure
+from impacket.winregistry import hexdump
 
 try:
     from Crypto.Cipher import DES, ARC4, AES
