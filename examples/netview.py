@@ -442,20 +442,28 @@ if __name__ == '__main__':
     parser.add_argument('-users', type=argparse.FileType('r'), help='input file with list of users to filter to output for')
     #parser.add_argument('-group', action='store', help='Filter output by members of this group')
     #parser.add_argument('-groups', type=argparse.FileType('r'), help='Filter output by members of the groups included in the input file')
-    parser.add_argument('-target', action='store', help='target system to query info from. If not specified script will run in domain mode.')
-    parser.add_argument('-targets', type=argparse.FileType('r'), help='input file with targets system to query info from (one per line). If not specified script will run in domain mode.')
+    parser.add_argument('-target', action='store', help='target system to query info from. If not specified script will '
+                                                        'run in domain mode.')
+    parser.add_argument('-targets', type=argparse.FileType('r'), help='input file with targets system to query info '
+                        'from (one per line). If not specified script will run in domain mode.')
     parser.add_argument('-noloop', action='store_true', default=False, help='Stop after the first probe')
-    parser.add_argument('-delay', action='store', default = '10', help='seconds delay between starting each batch probe (default 10 seconds)')
-    parser.add_argument('-max-connections', action='store', default='1000', help='Max amount of connections to keep opened (default 1000)')
+    parser.add_argument('-delay', action='store', default = '10', help='seconds delay between starting each batch probe '
+                                                                       '(default 10 seconds)')
+    parser.add_argument('-max-connections', action='store', default='1000', help='Max amount of connections to keep '
+                                                                                 'opened (default 1000)')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
     group = parser.add_argument_group('authentication')
 
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
     group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
-    group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line')
-    group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication (128 or 256 bits)')
-    group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. If ommited it use the domain part (FQDN) specified in the target parameter')
+    group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file '
+                       '(KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the '
+                       'ones specified in the command line')
+    group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication '
+                                                                            '(128 or 256 bits)')
+    group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. If '
+                       'ommited it use the domain part (FQDN) specified in the target parameter')
 
     if len(sys.argv)==1:
         parser.print_help()

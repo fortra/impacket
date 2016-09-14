@@ -227,31 +227,39 @@ class TICKETER:
 
             if (ticketCipher == EncryptionTypes.rc4_hmac.value or encPartCipher == EncryptionTypes.rc4_hmac.value) and \
                             self.__options.nthash is None:
-                logging.critical('rc4_hmac is used in this ticket and you haven\'t specified the -nthash parameter. Can\'t continue ( or try running again w/o the -request option)')
+                logging.critical('rc4_hmac is used in this ticket and you haven\'t specified the -nthash parameter. '
+                                 'Can\'t continue ( or try running again w/o the -request option)')
                 return None, None
 
-            if (ticketCipher == EncryptionTypes.aes128_cts_hmac_sha1_96.value or encPartCipher == EncryptionTypes.aes128_cts_hmac_sha1_96.value) and \
-                            self.__options.aesKey is None:
+            if (ticketCipher == EncryptionTypes.aes128_cts_hmac_sha1_96.value or
+                encPartCipher == EncryptionTypes.aes128_cts_hmac_sha1_96.value) and \
+                self.__options.aesKey is None:
                 logging.critical(
-                    'aes128_cts_hmac_sha1_96 is used in this ticket and you haven\'t specified the -aesKey parameter. Can\'t continue (or try running again w/o the -request option)')
+                    'aes128_cts_hmac_sha1_96 is used in this ticket and you haven\'t specified the -aesKey parameter. '
+                    'Can\'t continue (or try running again w/o the -request option)')
                 return None, None
 
-            if (ticketCipher == EncryptionTypes.aes128_cts_hmac_sha1_96.value or encPartCipher == EncryptionTypes.aes128_cts_hmac_sha1_96.value) and \
-                                self.__options.aesKey is not None and len(self.__options.aesKey) > 32:
+            if (ticketCipher == EncryptionTypes.aes128_cts_hmac_sha1_96.value or
+                encPartCipher == EncryptionTypes.aes128_cts_hmac_sha1_96.value) and \
+                self.__options.aesKey is not None and len(self.__options.aesKey) > 32:
                 logging.critical(
-                    'aes128_cts_hmac_sha1_96 is used in this ticket and the -aesKey you specified is not aes128. Can\'t continue (or try running again w/o the -request option)')
+                    'aes128_cts_hmac_sha1_96 is used in this ticket and the -aesKey you specified is not aes128. '
+                    'Can\'t continue (or try running again w/o the -request option)')
                 return None, None
 
-            if ( ticketCipher == EncryptionTypes.aes256_cts_hmac_sha1_96.value or encPartCipher == EncryptionTypes.aes256_cts_hmac_sha1_96.value) and \
-                            self.__options.aesKey is None:
+            if (ticketCipher == EncryptionTypes.aes256_cts_hmac_sha1_96.value or
+                 encPartCipher == EncryptionTypes.aes256_cts_hmac_sha1_96.value) and self.__options.aesKey is None:
                 logging.critical(
-                    'aes256_cts_hmac_sha1_96 is used in this ticket and you haven\'t specified the -aesKey parameter. Can\'t continue (or try running again w/o the -request option)')
+                    'aes256_cts_hmac_sha1_96 is used in this ticket and you haven\'t specified the -aesKey parameter. '
+                    'Can\'t continue (or try running again w/o the -request option)')
                 return None, None
 
-            if ( ticketCipher == EncryptionTypes.aes256_cts_hmac_sha1_96.value or encPartCipher == EncryptionTypes.aes256_cts_hmac_sha1_96.value) and \
-                                 self.__options.aesKey is not None and len(self.__options.aesKey) < 64:
+            if ( ticketCipher == EncryptionTypes.aes256_cts_hmac_sha1_96.value or
+                 encPartCipher == EncryptionTypes.aes256_cts_hmac_sha1_96.value) and \
+                 self.__options.aesKey is not None and len(self.__options.aesKey) < 64:
                 logging.critical(
-                    'aes256_cts_hmac_sha1_96 is used in this ticket and the -aesKey you specified is not aes256. Can\'t continue')
+                    'aes256_cts_hmac_sha1_96 is used in this ticket and the -aesKey you specified is not aes256. '
+                    'Can\'t continue')
                 return None, None
             kdcRep['cname']['name-type'] = PrincipalNameType.NT_PRINCIPAL.value
             kdcRep['cname']['name-string'] = None
@@ -649,27 +657,36 @@ if __name__ == '__main__':
     logger.init()
     print version.BANNER
 
-    parser = argparse.ArgumentParser(add_help = True, description = "Creates a Kerberos golden/silver tickets based on user options")
+    parser = argparse.ArgumentParser(add_help = True, description = "Creates a Kerberos golden/silver tickets based on "
+                                                                    "user options")
 
-    parser.add_argument('target', action='store', help='username or SPN for the newly created ticket (if \'/\' present it is assumed it\'s a SPN and a silver ticket will be created')
+    parser.add_argument('target', action='store', help='username or SPN for the newly created ticket (if \'/\' present '
+                                                       'it is assumed it\'s a SPN and a silver ticket will be created')
     parser.add_argument('-request', action='store_true', default=False, help='Requests ticket to domain and clones it '
                         'changing only the supplied information. It requires specifying -user')
     parser.add_argument('-domain', action='store', help='the fully qualified domain name (e.g. contoso.com)')
-    parser.add_argument('-domain-sid', action='store', help='Domain SID of the target domain the ticker will be generated for')
-    parser.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key used for signing the ticket (128 or 256 bits)')
+    parser.add_argument('-domain-sid', action='store', help='Domain SID of the target domain the ticker will be '
+                                                            'generated for')
+    parser.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key used for signing the ticket '
+                                                                             '(128 or 256 bits)')
     parser.add_argument('-nthash', action="store", help='NT hash used for signing the ticket')
-    parser.add_argument('-groups', action="store", default = '513, 512, 520, 518, 519', help='comma separated list of groups user will belong to (default = 513, 512, 520, 518, 519)')
-    parser.add_argument('-user-id', action="store", default = '500', help='user id for the user the ticket will be created for (default = 500)')
+    parser.add_argument('-groups', action="store", default = '513, 512, 520, 518, 519', help='comma separated list of '
+                        'groups user will belong to (default = 513, 512, 520, 518, 519)')
+    parser.add_argument('-user-id', action="store", default = '500', help='user id for the user the ticket will be '
+                                                                          'created for (default = 500)')
     parser.add_argument('-extra-sid', action="store", help='Optional ExtraSid to be included inside the ticket\'s PAC')
-    parser.add_argument('-duration', action="store", default = '3650', help='Amount of days till the ticket expires (default = 365*10)')
+    parser.add_argument('-duration', action="store", default = '3650', help='Amount of days till the ticket expires '
+                                                                            '(default = 365*10)')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
     group = parser.add_argument_group('authentication')
 
-    group.add_argument('-user', action="store", help='domain/username to be used if -request is chosen (it can be different from domain/username')
+    group.add_argument('-user', action="store", help='domain/username to be used if -request is chosen (it can be '
+                                                     'different from domain/username')
     group.add_argument('-password', action="store", help='password for domain/username')
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
-    group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. If ommited it use the domain part (FQDN) specified in the target parameter')
+    group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. If '
+                       'ommited it use the domain part (FQDN) specified in the target parameter')
 
     if len(sys.argv)==1:
         parser.print_help()

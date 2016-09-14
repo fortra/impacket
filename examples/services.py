@@ -290,21 +290,30 @@ if __name__ == '__main__':
     create_parser.add_argument('-path', action='store', required=False, help='binary path')
     create_parser.add_argument('-service_type', action='store', required=False, help='service type')
     create_parser.add_argument('-start_type', action='store', required=False, help='service start type')
-    create_parser.add_argument('-start_name', action='store', required=False, help='string that specifies the name of the account under which the service should run')
-    create_parser.add_argument('-password', action='store', required=False, help='string that contains the password of the account whose name was specified by the start_name parameter')
+    create_parser.add_argument('-start_name', action='store', required=False, help='string that specifies the name of '
+                               'the account under which the service should run')
+    create_parser.add_argument('-password', action='store', required=False, help='string that contains the password of '
+                               'the account whose name was specified by the start_name parameter')
 
     group = parser.add_argument_group('authentication')
 
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
     group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
-    group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line')
-    group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication (128 or 256 bits)')
+    group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file '
+                       '(KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the '
+                       'ones specified in the command line')
+    group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication '
+                                                                            '(128 or 256 bits)')
 
     group = parser.add_argument_group('connection')
 
-    group.add_argument('-dc-ip', action='store',metavar = "ip address", help='IP Address of the domain controller. If ommited it use the domain part (FQDN) specified in the target parameter')
-    group.add_argument('-target-ip', action='store', metavar="ip address", help='IP Address of the target machine. If ommited it will use whatever was specified as target. This is useful when target is the NetBIOS name and you cannot resolve it')
-    group.add_argument('-port', choices=['139', '445'], nargs='?', default='445', metavar="destination port", help='Destination port to connect to SMB Server')
+    group.add_argument('-dc-ip', action='store',metavar = "ip address", help='IP Address of the domain controller. If '
+                       'ommited it use the domain part (FQDN) specified in the target parameter')
+    group.add_argument('-target-ip', action='store', metavar="ip address", help='IP Address of the target machine. If '
+                       'ommited it will use whatever was specified as target. This is useful when target is the NetBIOS '
+                       'name and you cannot resolve it')
+    group.add_argument('-port', choices=['139', '445'], nargs='?', default='445', metavar="destination port",
+                       help='Destination port to connect to SMB Server')
  
     if len(sys.argv)==1:
         parser.print_help()

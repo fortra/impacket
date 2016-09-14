@@ -57,7 +57,8 @@ def main():
     # Init the example's logger theme
     logger.init()
 
-    parser = argparse.ArgumentParser(add_help = True, description = "Extensive Storage Engine utility. Allows dumping catalog, pages and tables.")
+    parser = argparse.ArgumentParser(add_help = True, description = "Extensive Storage Engine utility. Allows dumping "
+                                                                    "catalog, pages and tables.")
     parser.add_argument('databaseFile', action='store', help='ESE to open')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-page', action='store', help='page to open')

@@ -506,7 +506,8 @@ class KarmaSMBServer(Thread):
 
         resp = smb.NewSMBPacket()
         resp['Flags1'] = smb.SMB.FLAGS1_REPLY
-        resp['Flags2'] = smb.SMB.FLAGS2_EXTENDED_SECURITY | smb.SMB.FLAGS2_NT_STATUS | smb.SMB.FLAGS2_LONG_NAMES | recvPacket['Flags2'] & smb.SMB.FLAGS2_UNICODE
+        resp['Flags2'] = smb.SMB.FLAGS2_EXTENDED_SECURITY | smb.SMB.FLAGS2_NT_STATUS | smb.SMB.FLAGS2_LONG_NAMES | \
+                         recvPacket['Flags2'] & smb.SMB.FLAGS2_UNICODE
 
         resp['Tid'] = recvPacket['Tid']
         resp['Mid'] = recvPacket['Mid']
@@ -590,10 +591,13 @@ if __name__ == '__main__':
     # Init the example's logger theme
     logger.init()
     print version.BANNER
-    parser = argparse.ArgumentParser(add_help = False, description = "For every file request received, this module will return the pathname contents")
+    parser = argparse.ArgumentParser(add_help = False, description = "For every file request received, this module will "
+                                                                     "return the pathname contents")
     parser.add_argument("--help", action="help", help='show this help message and exit')
-    parser.add_argument('fileName', action='store', metavar = 'pathname', help="Pathname's contents to deliver to SMB clients")
-    parser.add_argument('-config', type=argparse.FileType('r'), metavar = 'pathname', help='config file name to map extensions to files to deliver. For those extensions not present, pathname will be delivered')
+    parser.add_argument('fileName', action='store', metavar = 'pathname', help="Pathname's contents to deliver to SMB "
+                                                                               "clients")
+    parser.add_argument('-config', type=argparse.FileType('r'), metavar = 'pathname', help='config file name to map '
+                        'extensions to files to deliver. For those extensions not present, pathname will be delivered')
     parser.add_argument('-smb2support', action='store_true', default=False, help='SMB2 Support (experimental!)')
 
 

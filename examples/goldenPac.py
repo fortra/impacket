@@ -1055,20 +1055,24 @@ if __name__ == '__main__':
     print version.BANNER
 
     parser = argparse.ArgumentParser(add_help=True,
-                                     description="MS14-068 Exploit. It establishes a SMBConnection and PSEXEcs the target or saves the TGT for later use.")
+                                     description="MS14-068 Exploit. It establishes a SMBConnection and PSEXEcs the "
+                                                 "target or saves the TGT for later use.")
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName>')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('command', nargs='*', default=' ',
-                        help='command (or arguments if -c is used) to execute at the target (w/o path). Defaults to cmd.exe. \'None\' will not execute PSEXEC (handy if you just want to save the ticket)')
+                        help='command (or arguments if -c is used) to execute at the target (w/o path). Defaults to '
+                             'cmd.exe. \'None\' will not execute PSEXEC (handy if you just want to save the ticket)')
     parser.add_argument('-c', action='store', metavar="pathname",
                         help='uploads the filename for later execution, arguments are passed in the command option')
     parser.add_argument('-w', action='store', metavar="pathname",
                         help='writes the golden ticket in CCache format into the <pathname> file')
     parser.add_argument('-dc-ip', action='store', metavar="ip address",
-                        help='IP Address of the domain controller (needed to get the user''s SID). If ommited it use the domain part (FQDN) specified in the target parameter')
+                        help='IP Address of the domain controller (needed to get the user''s SID). If ommited it use '
+                             'the domain part (FQDN) specified in the target parameter')
     parser.add_argument('-target-ip', action='store', metavar="ip address",
-                        help='IP Address of the target host you want to attack. If ommited it will use the targetName parameter')
+                        help='IP Address of the target host you want to attack. If ommited it will use the targetName '
+                             'parameter')
 
     group = parser.add_argument_group('authentication')
 
