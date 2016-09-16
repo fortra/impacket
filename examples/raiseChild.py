@@ -1206,20 +1206,26 @@ if __name__ == '__main__':
 
     print version.BANNER
 
-    parser = argparse.ArgumentParser(add_help = True, description = "Privilege Escalation from a child domain up to its forest")
+    parser = argparse.ArgumentParser(add_help = True, description = "Privilege Escalation from a child domain up to its "
+                                                                    "forest")
 
     parser.add_argument('target', action='store', help='domain/username[:password]')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
-    parser.add_argument('-w', action='store',metavar = "pathname",  help='writes the golden ticket in CCache format into the <pathname> file')
+    parser.add_argument('-w', action='store',metavar = "pathname",  help='writes the golden ticket in CCache format '
+                                                                         'into the <pathname> file')
     #parser.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller (needed to get the user''s SID). If ommited it use the domain part (FQDN) specified in the target parameter')
-    parser.add_argument('-target-exec', action='store',metavar = "target address",  help='Target host you want to PSEXEC against once the main attack finished')
+    parser.add_argument('-target-exec', action='store',metavar = "target address",  help='Target host you want to PSEXEC '
+                        'against once the main attack finished')
 
     group = parser.add_argument_group('authentication')
 
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
     group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
-    group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line')
-    group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication (128 or 256 bits)')
+    group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file '
+                       '(KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the '
+                       'ones specified in the command line')
+    group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication '
+                                                                            '(128 or 256 bits)')
 
     if len(sys.argv)==1:
         parser.print_help()

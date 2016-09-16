@@ -95,7 +95,8 @@ class WMIPERSISTENCE:
 
             self.checkError('Removing FilterToConsumerBinding %s' % self.__options.name,
                             iWbemServices.DeleteInstance(
-                                r'__FilterToConsumerBinding.Consumer="ActiveScriptEventConsumer.Name=\"%s\"",Filter="__EventFilter.Name=\"EF_%s\""' % (
+                                r'__FilterToConsumerBinding.Consumer="ActiveScriptEventConsumer.Name=\"%s\"",'
+                                r'Filter="__EventFilter.Name=\"EF_%s\""' % (
                                 self.__options.name, self.__options.name)))
         else:
             activeScript ,_ = iWbemServices.GetObject('ActiveScriptEventConsumer')
@@ -154,7 +155,8 @@ if __name__ == '__main__':
     logger.init()
     print version.BANNER
 
-    parser = argparse.ArgumentParser(add_help = True, description = "Creates/Removes a WMI Event Consumer/Filter and link between both to execute Visual Basic based on the WQL filter or timer specified.")
+    parser = argparse.ArgumentParser(add_help = True, description = "Creates/Removes a WMI Event Consumer/Filter and "
+                               "link between both to execute Visual Basic based on the WQL filter or timer specified.")
 
     parser.add_argument('target', action='store', help='[domain/][username[:password]@]<address>')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
@@ -163,9 +165,12 @@ if __name__ == '__main__':
     # A start command
     install_parser = subparsers.add_parser('install', help='installs the wmi event consumer/filter')
     install_parser.add_argument('-name', action='store', required=True, help='event name')
-    install_parser.add_argument('-vbs', type=argparse.FileType('r'), required=True, help='VBS filename containing the script you want to run')
-    install_parser.add_argument('-filter', action='store', required=False, help='the WQL filter string that will trigger the script')
-    install_parser.add_argument('-timer', action='store', required=False, help='the amount of milliseconds after the script will be triggered')
+    install_parser.add_argument('-vbs', type=argparse.FileType('r'), required=True, help='VBS filename containing the '
+                                                                                         'script you want to run')
+    install_parser.add_argument('-filter', action='store', required=False, help='the WQL filter string that will trigger'
+                                                                                ' the script')
+    install_parser.add_argument('-timer', action='store', required=False, help='the amount of milliseconds after the'
+                                                                               ' script will be triggered')
 
     # A stop command
     remove_parser = subparsers.add_parser('remove', help='removes the wmi event consumer/filter')
@@ -175,9 +180,13 @@ if __name__ == '__main__':
 
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
     group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
-    group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line')
-    group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication (128 or 256 bits)')
-    group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. If ommited it use the domain part (FQDN) specified in the target parameter')
+    group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file '
+                       '(KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the '
+                       'ones specified in the command line')
+    group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication '
+                                                                            '(128 or 256 bits)')
+    group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. If '
+                       'ommited it use the domain part (FQDN) specified in the target parameter')
  
     if len(sys.argv)==1:
         parser.print_help()

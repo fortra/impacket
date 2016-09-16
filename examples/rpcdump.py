@@ -137,8 +137,11 @@ if __name__ == '__main__':
 
     group = parser.add_argument_group('connection')
 
-    group.add_argument('-target-ip', action='store', metavar="ip address", help='IP Address of the target machine. If ommited it will use whatever was specified as target. This is useful when target is the NetBIOS name and you cannot resolve it')
-    group.add_argument('-port', choices=['135', '139', '445'], nargs='?', default='135', metavar="destination port", help='Destination port to connect to SMB Server')
+    group.add_argument('-target-ip', action='store', metavar="ip address", help='IP Address of the target machine. If '
+                       'ommited it will use whatever was specified as target. This is useful when target is the NetBIOS '
+                       'name and you cannot resolve it')
+    group.add_argument('-port', choices=['135', '139', '445'], nargs='?', default='135', metavar="destination port",
+                       help='Destination port to connect to SMB Server')
 
     group = parser.add_argument_group('authentication')
 
