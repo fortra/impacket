@@ -584,6 +584,10 @@ def getNTLMSSPType1(workstation='', domain='', signingRequired = False, use_ntlm
 
 def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = '', use_ntlmv2 = USE_NTLMv2):
 
+    # Safety check in case somebody sent password = None.. That's not allowed. Setting it to '' and hope for the best.
+    if password is None:
+        password = ''
+
     # Let's do some encoding checks before moving on. Kind of dirty, but found effective when dealing with
     # international characters.
     import sys
