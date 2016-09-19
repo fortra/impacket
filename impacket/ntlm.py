@@ -199,7 +199,7 @@ NTLMSSP_AV_RESTRICTIONS     = 0x08
 NTLMSSP_AV_TARGET_NAME      = 0x09
 NTLMSSP_AV_CHANNEL_BINDINGS = 0x0a
 
-class AV_PAIRS():
+class AV_PAIRS:
     def __init__(self, data = None):
         self.fields = {}
         if data is not None:
@@ -259,7 +259,7 @@ class NTLMAuthMixin:
             mayor_v = struct.unpack('B',self['os_version'][0])[0]
             minor_v = struct.unpack('B',self['os_version'][1])[0]
             build_v = struct.unpack('H',self['os_version'][2:4])
-            return (mayor_v,minor_v,build_v)
+            return mayor_v,minor_v,build_v
         
 class NTLMAuthNegotiate(Structure, NTLMAuthMixin):
 
@@ -347,7 +347,8 @@ class NTLMAuthChallenge(Structure):
         ('domain_name',':'),
         ('TargetInfoFields',':'))
 
-    def checkVersion(self, flags):
+    @staticmethod
+    def checkVersion(flags):
         if flags is not None:
            if flags & NTLMSSP_NEGOTIATE_VERSION == 0:
               return 0
@@ -412,7 +413,8 @@ class NTLMAuthChallengeResponse(Structure, NTLMAuthMixin):
         self['domain_name']='' #"CLON".encode('utf-16le')
         self['host_name']='' #"BETS".encode('utf-16le')
         self['flags'] = (   #authResp['flags']
-                # we think (beto & gera) that his flags force a memory conten leakage when a windows 2000 answers using uninitializaed verifiers
+            # we think (beto & gera) that his flags force a memory conten leakage when a windows 2000 answers using
+            # uninitializaed verifiers
            NTLMSSP_NEGOTIATE_128     |
            NTLMSSP_NEGOTIATE_KEY_EXCH|
            # NTLMSSP_LM_KEY      |
@@ -427,7 +429,7 @@ class NTLMAuthChallengeResponse(Structure, NTLMAuthMixin):
         if username and ( lmhash != '' or nthash != ''):            
             self['lanman'] = get_ntlmv1_response(lmhash, challenge)
             self['ntlm'] = get_ntlmv1_response(nthash, challenge)
-        elif (username and password):
+        elif username and password:
             lmhash = compute_lmhash(password)
             nthash = compute_nthash(password)
             self['lanman']=get_ntlmv1_response(lmhash, challenge)
@@ -438,13 +440,15 @@ class NTLMAuthChallengeResponse(Structure, NTLMAuthMixin):
             if not self['host_name']:
                 self['host_name'] = 'NULL'.encode('utf-16le')      # for NULL session there must be a hostname
 
-    def checkVersion(self, flags):
+    @staticmethod
+    def checkVersion(flags):
         if flags is not None:
            if flags & NTLMSSP_NEGOTIATE_VERSION == 0:
               return 0
         return 8
 
-    def checkMIC(self, flags):
+    @staticmethod
+    def checkMIC(flags):
         # TODO: Find a proper way to check the MIC is in there
         if flags is not None:
            if flags & NTLMSSP_NEGOTIATE_VERSION == 0:
@@ -530,13 +534,13 @@ def __expand_DES_key( key):
     key  = key[:7]
     key += '\x00'*(7-len(key))
     s = chr(((ord(key[0]) >> 1) & 0x7f) << 1)
-    s = s + chr(((ord(key[0]) & 0x01) << 6 | ((ord(key[1]) >> 2) & 0x3f)) << 1)
-    s = s + chr(((ord(key[1]) & 0x03) << 5 | ((ord(key[2]) >> 3) & 0x1f)) << 1)
-    s = s + chr(((ord(key[2]) & 0x07) << 4 | ((ord(key[3]) >> 4) & 0x0f)) << 1)
-    s = s + chr(((ord(key[3]) & 0x0f) << 3 | ((ord(key[4]) >> 5) & 0x07)) << 1)
-    s = s + chr(((ord(key[4]) & 0x1f) << 2 | ((ord(key[5]) >> 6) & 0x03)) << 1)
-    s = s + chr(((ord(key[5]) & 0x3f) << 1 | ((ord(key[6]) >> 7) & 0x01)) << 1)
-    s = s + chr((ord(key[6]) & 0x7f) << 1)
+    s += chr(((ord(key[0]) & 0x01) << 6 | ((ord(key[1]) >> 2) & 0x3f)) << 1)
+    s += chr(((ord(key[1]) & 0x03) << 5 | ((ord(key[2]) >> 3) & 0x1f)) << 1)
+    s += chr(((ord(key[2]) & 0x07) << 4 | ((ord(key[3]) >> 4) & 0x0f)) << 1)
+    s += chr(((ord(key[3]) & 0x0f) << 3 | ((ord(key[4]) >> 5) & 0x07)) << 1)
+    s += chr(((ord(key[4]) & 0x1f) << 2 | ((ord(key[5]) >> 6) & 0x03)) << 1)
+    s += chr(((ord(key[5]) & 0x3f) << 1 | ((ord(key[6]) >> 7) & 0x01)) << 1)
+    s += chr((ord(key[6]) & 0x7f) << 1)
     return s
 
 def __DES_block(key, msg):
@@ -575,10 +579,12 @@ def getNTLMSSPType1(workstation='', domain='', signingRequired = False, use_ntlm
     auth = NTLMAuthNegotiate()
     auth['flags']=0
     if signingRequired:
-       auth['flags'] = NTLMSSP_NEGOTIATE_KEY_EXCH | NTLMSSP_NEGOTIATE_SIGN | NTLMSSP_NEGOTIATE_ALWAYS_SIGN | NTLMSSP_NEGOTIATE_SEAL
+       auth['flags'] = NTLMSSP_NEGOTIATE_KEY_EXCH | NTLMSSP_NEGOTIATE_SIGN | NTLMSSP_NEGOTIATE_ALWAYS_SIGN | \
+                       NTLMSSP_NEGOTIATE_SEAL
     if use_ntlmv2:
        auth['flags'] |= NTLMSSP_NEGOTIATE_TARGET_INFO
-    auth['flags'] |= NTLMSSP_NEGOTIATE_NTLM | NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY | NTLMSSP_NEGOTIATE_UNICODE | NTLMSSP_REQUEST_TARGET |  NTLMSSP_NEGOTIATE_128 | NTLMSSP_NEGOTIATE_56
+    auth['flags'] |= NTLMSSP_NEGOTIATE_NTLM | NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY | NTLMSSP_NEGOTIATE_UNICODE | \
+                     NTLMSSP_REQUEST_TARGET |  NTLMSSP_NEGOTIATE_128 | NTLMSSP_NEGOTIATE_56
     auth['domain_name'] = domain.encode('utf-16le')
     return auth
 
@@ -615,11 +621,13 @@ def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = 
     # method we will create a valid ChallengeResponse
     ntlmChallengeResponse = NTLMAuthChallengeResponse(user, password, ntlmChallenge['challenge'])
 
-    clientChallenge = "".join([random.choice(string.digits+string.letters) for i in xrange(8)])
+    clientChallenge = "".join([random.choice(string.digits+string.letters) for _ in xrange(8)])
 
     serverName = ntlmChallenge['TargetInfoFields']
 
-    ntResponse, lmResponse, sessionBaseKey = computeResponse(ntlmChallenge['flags'], ntlmChallenge['challenge'], clientChallenge, serverName, domain, user, password, lmhash, nthash, use_ntlmv2 )
+    ntResponse, lmResponse, sessionBaseKey = computeResponse(ntlmChallenge['flags'], ntlmChallenge['challenge'],
+                                                             clientChallenge, serverName, domain, user, password,
+                                                             lmhash, nthash, use_ntlmv2)
 
     # Let's check the return flags
     if (ntlmChallenge['flags'] & NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY) == 0:
@@ -641,7 +649,8 @@ def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = 
         # No sign available, taking it out
         responseFlags &= 0xffffffff ^ NTLMSSP_NEGOTIATE_ALWAYS_SIGN
 
-    keyExchangeKey = KXKEY(ntlmChallenge['flags'],sessionBaseKey, lmResponse, ntlmChallenge['challenge'], password, lmhash, nthash,use_ntlmv2)
+    keyExchangeKey = KXKEY(ntlmChallenge['flags'], sessionBaseKey, lmResponse, ntlmChallenge['challenge'], password,
+                           lmhash, nthash, use_ntlmv2)
 
     # Special case for anonymous login
     if user == '' and password == '' and lmhash == '' and nthash == '':
@@ -651,7 +660,7 @@ def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = 
     if ntlmChallenge['flags'] & NTLMSSP_NEGOTIATE_KEY_EXCH:
        # not exactly what I call random tho :\
        # exportedSessionKey = this is the key we should use to sign
-       exportedSessionKey = "".join([random.choice(string.digits+string.letters) for i in xrange(16)])
+       exportedSessionKey = "".join([random.choice(string.digits+string.letters) for _ in xrange(16)])
        #exportedSessionKey = "A"*16
        #print "keyExchangeKey %r" % keyExchangeKey
        # Let's generate the right session key based on the challenge flags
@@ -696,9 +705,11 @@ def generateSessionKeyV1(password, lmhash, nthash):
         hash = MD4.new()
     hash.update(NTOWFv1(password, lmhash, nthash))
     return hash.digest()
-    
-def computeResponseNTLMv1(flags, serverChallenge, clientChallenge, serverName, domain, user, password, lmhash='', nthash='', use_ntlmv2 = USE_NTLMv2):
-    if (user == '' and password == ''): 
+
+
+def computeResponseNTLMv1(flags, serverChallenge, clientChallenge, serverName, domain, user, password, lmhash='',
+                          nthash='', use_ntlmv2=USE_NTLMv2):
+    if user == '' and password == '':
         # Special case for anonymous authentication
         lmResponse = ''
         ntResponse = ''
@@ -767,7 +778,8 @@ def MAC(flags, handle, signingKey, seqNum, message):
    if flags & NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY:
        if flags & NTLMSSP_NEGOTIATE_KEY_EXCH:
            messageSignature['Version'] = 1
-           messageSignature['Checksum'] = struct.unpack('<q',handle(hmac_md5(signingKey, struct.pack('<i',seqNum)+message)[:8]))[0]
+           messageSignature['Checksum'] = \
+           struct.unpack('<q', handle(hmac_md5(signingKey, struct.pack('<i', seqNum) + message)[:8]))[0]
            messageSignature['SeqNum'] = seqNum
            seqNum += 1
        else:
@@ -858,13 +870,14 @@ def KXKEY(flags, sessionBaseKey, lmChallengeResponse, serverChallenge, password,
           keyExchangeKey = sessionBaseKey
    elif flags & NTLMSSP_NEGOTIATE_NTLM:
        if flags & NTLMSSP_NEGOTIATE_LM_KEY:
-          keyExchangeKey = __DES_block(LMOWFv1(password,lmhash)[:7], lmChallengeResponse[:8]) + __DES_block(LMOWFv1(password,lmhash)[7] + '\xBD\xBD\xBD\xBD\xBD\xBD', lmChallengeResponse[:8])
+           keyExchangeKey = __DES_block(LMOWFv1(password, lmhash)[:7], lmChallengeResponse[:8]) + __DES_block(
+               LMOWFv1(password, lmhash)[7] + '\xBD\xBD\xBD\xBD\xBD\xBD', lmChallengeResponse[:8])
        elif flags & NTLMSSP_REQUEST_NON_NT_SESSION_KEY:
           keyExchangeKey = LMOWFv1(password,lmhash)[:8] + '\x00'*8
        else:
           keyExchangeKey = sessionBaseKey
    else:
-       raise "Can't create a valid KXKEY!"
+       raise Exception("Can't create a valid KXKEY!")
 
    return keyExchangeKey
       
@@ -891,18 +904,22 @@ def LMOWFv2( user, password, domain, lmhash = ''):
     return NTOWFv2( user, password, domain, lmhash)
 
 
-def computeResponseNTLMv2(flags, serverChallenge, clientChallenge,  serverName, domain, user, password, lmhash = '', nthash = '', use_ntlmv2 = USE_NTLMv2):
+def computeResponseNTLMv2(flags, serverChallenge, clientChallenge, serverName, domain, user, password, lmhash='',
+                          nthash='', use_ntlmv2=USE_NTLMv2):
 
     responseServerVersion = '\x01'
     hiResponseServerVersion = '\x01'
     responseKeyNT = NTOWFv2(user, password, domain, nthash)
     responseKeyLM = LMOWFv2(user, password, domain, lmhash)
 
-    # If you're running test-ntlm, comment the following lines and uncoment the ones that are commented. Don't forget to turn it back after the tests!
+    # If you're running test-ntlm, comment the following lines and uncoment the ones that are commented. Don't forget
+    # to turn it back after the tests!
     ######################
     av_pairs = AV_PAIRS(serverName)
-    # In order to support SPN target name validation, we have to add this to the serverName av_pairs. Otherwise we will get access denied
-    # This is set at Local Security Policy -> Local Policies -> Security Options -> Server SPN target name validation level
+    # In order to support SPN target name validation, we have to add this to the serverName av_pairs. Otherwise we will
+    # get access denied
+    # This is set at Local Security Policy -> Local Policies -> Security Options -> Server SPN target name validation
+    # level
     av_pairs[NTLMSSP_AV_TARGET_NAME] = 'cifs/'.encode('utf-16le') + av_pairs[NTLMSSP_AV_HOSTNAME][1]
     if av_pairs[NTLMSSP_AV_TIME] is not None:
        aTime = av_pairs[NTLMSSP_AV_TIME][1]
@@ -915,7 +932,8 @@ def computeResponseNTLMv2(flags, serverChallenge, clientChallenge,  serverName, 
     ######################
     #aTime = '\x00'*8
     ######################
-    temp = responseServerVersion + hiResponseServerVersion + '\x00' * 6 + aTime + clientChallenge + '\x00' * 4 + serverName + '\x00' * 4
+    temp = responseServerVersion + hiResponseServerVersion + '\x00' * 6 + aTime + clientChallenge + '\x00' * 4 + \
+           serverName + '\x00' * 4
 
     ntProofStr = hmac_md5(responseKeyNT, serverChallenge + temp)
 
@@ -923,7 +941,7 @@ def computeResponseNTLMv2(flags, serverChallenge, clientChallenge,  serverName, 
     lmChallengeResponse = hmac_md5(responseKeyNT, serverChallenge + clientChallenge) + clientChallenge
     sessionBaseKey = hmac_md5(responseKeyNT, ntProofStr)
 
-    if (user == '' and password == ''):
+    if user == '' and password == '':
         # Special case for anonymous authentication
         ntChallengeResponse = ''
         lmChallengeResponse = ''
@@ -931,7 +949,7 @@ def computeResponseNTLMv2(flags, serverChallenge, clientChallenge,  serverName, 
     return ntChallengeResponse, lmChallengeResponse, sessionBaseKey
 
 class NTLM_HTTP(object):
-    '''Parent class for NTLM HTTP classes.'''
+    # Parent class for NTLM HTTP classes.
     MSG_TYPE = None
 
     @classmethod
