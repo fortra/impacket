@@ -138,6 +138,9 @@ class IPDecoder(Decoder):
         elif i.get_ip_p() == ImpactPacket.ICMP.protocol:
             self.icmp_decoder = ICMPDecoder()
             packet = self.icmp_decoder.decode(aBuffer[off:end])
+        elif i.get_ip_p() == ImpactPacket.IGMP.protocol:
+            self.igmp_decoder = IGMPDecoder()
+            packet = self.igmp_decoder.decode(aBuffer[off:end])
         else:
             self.data_decoder = DataDecoder()
             packet = self.data_decoder.decode(aBuffer[off:end])
@@ -289,6 +292,18 @@ class TCPDecoder(Decoder):
         packet = self.data_decoder.decode(aBuffer[off:])
         t.contains(packet)
         return t
+
+class IGMPDecoder(Decoder):
+    def __init__(self):
+        pass
+    def decode(self, aBuffer):
+        ig = ImpactPacket.IGMP(aBuffer)
+        off = ig.get_header_size()
+        self.data_decoder = DataDecoder()
+        packet = self.data_decoder.decode(aBuffer[off:])
+        ig.contains(packet)
+        return ig
+
 
 class IPDecoderForICMP(Decoder):
     """This class was added to parse the IP header of ICMP unreachables packets
