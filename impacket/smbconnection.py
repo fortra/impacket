@@ -193,6 +193,9 @@ class SMBConnection:
     def getServerName(self):
         return self._SMBConnection.get_server_name()
 
+    def getClientName(self):
+        return self._SMBConnection.get_client_name()
+
     def getRemoteHost(self):
         return self._SMBConnection.get_remote_host()
 

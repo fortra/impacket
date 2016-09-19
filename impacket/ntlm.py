@@ -293,7 +293,14 @@ class NTLMAuthNegotiate(Structure, NTLMAuthMixin):
         self['host_name']=''
         self['domain_name']=''
         self['os_version']=''
-    
+        self._workstation = ''
+
+    def setWorkstation(self, workstation):
+        self._workstation = workstation
+
+    def getWorkstation(self):
+        return self._workstation
+
     def getData(self):
         if len(self.fields['host_name']) > 0:
             self['flags'] |= NTLMSSP_NEGOTIATE_OEM_WORKSTATION_SUPPLIED
@@ -585,7 +592,11 @@ def getNTLMSSPType1(workstation='', domain='', signingRequired = False, use_ntlm
        auth['flags'] |= NTLMSSP_NEGOTIATE_TARGET_INFO
     auth['flags'] |= NTLMSSP_NEGOTIATE_NTLM | NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY | NTLMSSP_NEGOTIATE_UNICODE | \
                      NTLMSSP_REQUEST_TARGET |  NTLMSSP_NEGOTIATE_128 | NTLMSSP_NEGOTIATE_56
-    auth['domain_name'] = domain.encode('utf-16le')
+
+    # We're not adding workstation / domain fields this time. Normally Windows clients don't add such information but,
+    # we will save the workstation name to be used later.
+    auth.setWorkstation(workstation)
+
     return auth
 
 def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = '', use_ntlmv2 = USE_NTLMv2):
@@ -688,6 +699,7 @@ def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = 
 
     ntlmChallengeResponse['flags'] = responseFlags
     ntlmChallengeResponse['domain_name'] = domain.encode('utf-16le')
+    ntlmChallengeResponse['host_name'] = type1.getWorkstation().encode('utf-16le')
     ntlmChallengeResponse['lanman'] = lmResponse
     ntlmChallengeResponse['ntlm'] = ntResponse
     if encryptedRandomSessionKey is not None: 

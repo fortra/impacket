@@ -2330,6 +2330,7 @@ class SMB:
         # The uid attribute will be set when the client calls the login() method
         self._uid = 0
         self.__server_name = ''
+        self.__client_name = ''
         self.__server_os = ''
         self.__server_os_major = None
         self.__server_os_minor = None
@@ -2389,8 +2390,15 @@ class SMB:
         if sess_port == 445 and remote_name == '*SMBSERVER':
            self.__remote_name = remote_host
 
+        # This is on purpose. I'm still not convinced to do a socket.gethostname() if not specified
+        if my_name is None:
+            self.__client_name = ''
+        else:
+            self.__client_name = my_name
+
         if session is None:
             if not my_name:
+                # If destination port is 139 yes, there's some client disclosure
                 my_name = socket.gethostname()
                 i = string.find(my_name, '.')
                 if i > -1:
@@ -2736,6 +2744,9 @@ class SMB:
     def get_server_name(self):
         #return self._dialects_data['ServerName']
         return self.__server_name
+
+    def get_client_name(self):
+        return self.__client_name
 
     def get_session_key(self):
         return self._SigningSessionKey
@@ -3200,7 +3211,7 @@ class SMB:
 
         # NTLMSSP
         blob['MechTypes'] = [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
-        auth = ntlm.getNTLMSSPType1('','',self._SignatureRequired, use_ntlmv2 = use_ntlmv2)
+        auth = ntlm.getNTLMSSPType1(self.get_client_name(),domain,self._SignatureRequired, use_ntlmv2 = use_ntlmv2)
         blob['MechToken'] = str(auth)
 
         sessionSetup['Parameters']['SecurityBlobLength']  = len(blob)

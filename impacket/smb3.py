@@ -161,6 +161,7 @@ class SMB3:
             'ServerSecurityMode'       : 0,    #
             # Outside the protocol
             'ServerIP'                 : '',    #
+            'ClientName'               : '',    #
         }
    
         self._Session = {
@@ -213,8 +214,15 @@ class SMB3:
         else:
            self._Connection['ServerName'] = remote_name
 
+        # This is on purpose. I'm still not convinced to do a socket.gethostname() if not specified
+        if my_name is None:
+            self._Connection['ClientName'] = ''
+        else:
+            self._Connection['ClientName'] = my_name
+
         if session is None:
             if not my_name:
+                # If destination port is 139 yes, there's some client disclosure
                 my_name = socket.gethostname()
                 i = string.find(my_name, '.')
                 if i > -1:
@@ -247,6 +255,9 @@ class SMB3:
 
     def getServerName(self):
         return self._Session['ServerName']
+
+    def getClientName(self):
+        return self._Session['ClientName']
 
     def getRemoteName(self):
         if self._Session['ServerName'] == '':
@@ -689,7 +700,7 @@ class SMB3:
 
         # NTLMSSP
         blob['MechTypes'] = [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
-        auth = ntlm.getNTLMSSPType1('','', self._Connection['RequireSigning'])
+        auth = ntlm.getNTLMSSPType1(self._Connection['ClientName'],domain, self._Connection['RequireSigning'])
         blob['MechToken'] = str(auth)
 
         sessionSetup['SecurityBufferLength'] = len(blob)
@@ -1553,6 +1564,7 @@ class SMB3:
     # NOTE: It is strongly recommended not to use these commands
     # when implementing new client calls.
     get_server_name            = getServerName
+    get_client_name            = getClientName
     get_server_domain          = getServerDomain
     get_server_dns_domain_name = getServerDNSDomainName
     get_remote_name            = getRemoteName
