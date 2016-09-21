@@ -201,9 +201,9 @@ class LDAPAttack(Thread):
         else:
             logging.info('User is not a Domain Admin')
             if not dumpedDomain and self.config.dumpdomain:
+                dumpedDomain = True
                 logging.info('Dumping domain info for first time')
                 domainDumper.domainDump()
-                dumpedDomain = True
 
 class HTTPAttack(Thread):
     def __init__(self, config, HTTPClient, username):
