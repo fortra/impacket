@@ -49,8 +49,9 @@ Requirements
       will need to install the `argparse` package for them to work.
    2. For Kerberos support you will need `pyasn1` package
    3. For cryptographic operations you will need `pycrypto` package
-   4. For some examples you will need pyOpenSSL (rdp_check.py) and ldap3 (ntlmrelayx.py)
-   5. If you're under Windows, you will need pyReadline
+   4. For some examples you will need `pyOpenSSL` (rdp_check.py) and ldap3 (ntlmrelayx.py)
+   5. For ntlmrelayx.py you will also need `ldapdomaindump`
+   6. If you're under Windows, you will need `pyReadline`
  * A recent release of Impacket.
 
 Installing
