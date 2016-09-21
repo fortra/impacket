@@ -24,6 +24,7 @@ from cdp import CDP
 from Dot11Crypto import RC4
 from impacket import wps, eap
 from impacket.dot11 import Dot11WEPData
+from impacket import LOG
 
 
 """Classes to convert from raw packets into a hierarchy of
@@ -129,6 +130,12 @@ class IPDecoder(Decoder):
         self.set_decoded_protocol ( i )
         off = i.get_header_size()
         end = i.get_ip_len()
+        # If ip_len == 0 we might be facing TCP segmentation offload, let's calculate the right len
+        if end == 0:
+            LOG.warning('IP len reported as 0, most probably because of TCP segmentation offload. Attempting to fix its size')
+            i.set_ip_len(len(aBuffer))
+            end = i.get_ip_len()
+
         if i.get_ip_p() == ImpactPacket.UDP.protocol:
             self.udp_decoder = UDPDecoder()
             packet = self.udp_decoder.decode(aBuffer[off:end])
