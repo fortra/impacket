@@ -700,7 +700,10 @@ def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = 
     ntlmChallengeResponse['flags'] = responseFlags
     ntlmChallengeResponse['domain_name'] = domain.encode('utf-16le')
     ntlmChallengeResponse['host_name'] = type1.getWorkstation().encode('utf-16le')
-    ntlmChallengeResponse['lanman'] = lmResponse
+    if lmResponse == '':
+        ntlmChallengeResponse['lanman'] = '\x00'
+    else:
+        ntlmChallengeResponse['lanman'] = lmResponse
     ntlmChallengeResponse['ntlm'] = ntResponse
     if encryptedRandomSessionKey is not None: 
         ntlmChallengeResponse['session_key'] = encryptedRandomSessionKey
