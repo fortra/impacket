@@ -21,7 +21,7 @@ class HTTPRelayClient:
         self.target = target
         _, host, path = target.split(':')
         host = host[2:]
-        self.path = '/' + path.split('/')[1]
+        self.path = '/' + path.split('/', 1)[1]
         self.session = HTTPConnection(host)
         self.lastresult = None
 
