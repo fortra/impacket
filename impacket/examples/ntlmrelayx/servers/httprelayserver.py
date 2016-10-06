@@ -29,7 +29,6 @@ from impacket.spnego import SPNEGO_NegTokenResp
 from impacket.smbserver import outputToJohnFormat, writeJohnOutputToFile
 from impacket.nt_errors import STATUS_ACCESS_DENIED, STATUS_SUCCESS
 
-
 class HTTPRelayServer(Thread):
     class HTTPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
         def __init__(self, server_address, RequestHandlerClass, config):
@@ -59,6 +58,8 @@ class HTTPRelayServer(Thread):
         def handle_one_request(self):
             try:
                 SimpleHTTPServer.SimpleHTTPRequestHandler.handle_one_request(self)
+            except KeyboardInterrupt:
+                raise
             except Exception, e:
                 logging.error('Exception in HTTP request handler: %s' % e)
 
@@ -147,6 +148,7 @@ class HTTPRelayServer(Thread):
                     self.send_header('WWW-Authenticate', 'NTLM')
                     self.send_header('Content-type', 'text/html')
                     self.send_header('Content-Length','0')
+                    self.send_header('Connection','close')
                     self.end_headers()
             return 
 
@@ -284,4 +286,9 @@ class HTTPRelayServer(Thread):
     def run(self):
         logging.info("Setting up HTTP Server")
         httpd = self.HTTPServer(("", 80), self.HTTPHandler, self.config)
-        httpd.serve_forever()
+        try:
+             httpd.serve_forever()
+        except KeyboardInterrupt:
+             pass
+        logging.info('Shutting down HTTP Server')
+        httpd.server_close()
