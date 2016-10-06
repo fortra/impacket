@@ -12,6 +12,7 @@
 # HTTP(s) client for relaying NTLMSSP authentication to webservers
 #
 import logging
+import re
 from httplib import HTTPConnection, ResponseNotReady
 import base64
 
@@ -21,7 +22,7 @@ class HTTPRelayClient:
         self.target = target
         _, host, path = target.split(':')
         host = host[2:]
-        self.path = '/' + path.split('/')[1]
+        self.path = '/' + path.split('/', 1)[1]
         self.session = HTTPConnection(host)
         self.lastresult = None
 
@@ -47,9 +48,10 @@ class HTTPRelayClient:
         res = self.session.getresponse()
         res.read()
         try:
-            serverChallenge = base64.b64decode(res.getheader('WWW-Authenticate')[5:])
+            serverChallengeBase64 = re.search('NTLM ([a-zA-Z0-9+/]+={0,2})', res.getheader('WWW-Authenticate')).group(1)
+            serverChallenge = base64.b64decode(serverChallengeBase64)
             return serverChallenge
-        except (IndexError, KeyError):
+        except (IndexError, KeyError, AttributeError):
             logging.error('No NTLM challenge returned from server')
 
     def sendAuth(self,authenticateMessageBlob, serverChallenge=None):
