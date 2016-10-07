@@ -40,21 +40,9 @@ class SMBRelayServer(Thread):
         self.target = None
         #Targets handler
         self.targetprocessor = self.config.target
-
-        #Copy required settings from the config
-        #This is because old config passed all variables manually 
-        #and the code still depends on that (TODO: Fix this)
-        self.exeFile = self.config.exeFile
-        self.command = self.config.command
-        self.mode = self.config.mode
-        self.attacks = self.config.attacks
-        self.outputFile = self.config.outputFile
-        self.domainIp = self.config.domainIp
-        self.machineAccount = self.config.machineAccount
-        self.machineHashes = self.config.machineHashes
+        #Username we auth as gets stored here later
         self.authUser = None
         self.proxyTranslator = None
-        self.lootDir = None
 
         # Here we write a mini config for the server
         smbConfig = ConfigParser.ConfigParser()
@@ -65,8 +53,8 @@ class SMBRelayServer(Thread):
         smbConfig.set('global','log_file','smb.log')
         smbConfig.set('global','credentials_file','')
 
-        if self.outputFile is not None:
-            smbConfig.set('global','jtr_dump_path',self.outputFile)
+        if self.config.outputFile is not None:
+            smbConfig.set('global','jtr_dump_path',self.config.outputFile)
 
         # IPC always needed
         smbConfig.add_section('IPC$')
@@ -86,16 +74,16 @@ class SMBRelayServer(Thread):
 
     def SmbComNegotiate(self, connId, smbServer, SMBCommand, recvPacket):
         connData = smbServer.getConnectionData(connId, checkStatus = False)
-        if self.mode.upper() == 'REFLECTION':
+        if self.config.mode.upper() == 'REFLECTION':
             self.target = ('SMB',connData['ClientIP'],445)
-        # if self.mode.upper() == 'TRANSPARENT' and self.proxytranslator is not None:
+        # if self.config.mode.upper() == 'TRANSPARENT' and self.proxytranslator is not None:
         #     translated = self.proxytranslator.translate(connData['ClientIP'],connData['ClientPort'])
         #     logging.info('Translated to: %s' % translated)
         #     if translated is None:
         #         self.target = connData['ClientIP']
         #     else:
         #         self.target = translated
-        if self.mode.upper() == 'RELAY':
+        if self.config.mode.upper() == 'RELAY':
             #Get target from the processor
             #TODO: Check if a cache is better because there is no way to know which target was selected for this victim
             # except for relying on the targetprocessor selecting the same target unless a relay was already done
@@ -115,7 +103,7 @@ class SMBRelayServer(Thread):
             if recvPacket['Flags2'] & smb.SMB.FLAGS2_EXTENDED_SECURITY == 0:
                 extSec = False
             else:
-                if self.mode.upper() == 'REFLECTION':
+                if self.config.mode.upper() == 'REFLECTION':
                     # Force standard security when doing reflection
                     logging.info("Downgrading to standard security")
                     extSec = False
@@ -320,7 +308,7 @@ class SMBRelayServer(Thread):
                 if self.server.getJTRdumpPath() != '':
                     writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], self.server.getJTRdumpPath())
                 #TODO: Fix this for other protocols than SMB [!]
-                clientThread = self.config.attacks['SMB'](self.config,smbClient,self.exeFile,self.command)
+                clientThread = self.config.attacks['SMB'](self.config,smbClient,self.config.exeFile,self.config.command)
                 clientThread.start()
 
                 #Log this target as processed for this client
@@ -357,7 +345,7 @@ class SMBRelayServer(Thread):
     def init_client(self,extSec):
         if self.target[0] == 'SMB':
             client = SMBRelayClient(self.target[1], extended_security = extSec)
-            client.setDomainAccount(self.machineAccount, self.machineHashes, self.domainIp)
+            client.setDomainAccount(self.config.machineAccount, self.config.machineHashes, self.config.domainIp)
             client.set_timeout(60)
         if self.target[0] == 'MSSQL':
             client = MSSQLRelayClient(self.target[1],self.target[2])
@@ -443,7 +431,7 @@ class SMBRelayServer(Thread):
     def do_attack(self,client):
         #Do attack. Note that unlike the HTTP server, the config entries are stored in the current object and not in any of its properties
         if self.target[0] == 'SMB':
-            clientThread = self.config.attacks['SMB'](self.config,client,self.exeFile,self.command)
+            clientThread = self.config.attacks['SMB'](self.config, client, self.authUser)
             clientThread.start()
         if self.target[0] == 'LDAP' or self.target[0] == 'LDAPS':
             clientThread = self.config.attacks['LDAP'](self.config, client, self.authUser)
@@ -461,33 +449,3 @@ class SMBRelayServer(Thread):
     def run(self):
         logging.info("Setting up SMB Server")
         self._start()
-
-
-    #From here its LEGACY, should NOT BE USED and can probably be REMOVED later
-    def setTargets(self, targets):
-        self.targetprocessor = targets 
-
-    def setExeFile(self, filename):
-        self.exeFile = filename
-
-    def setCommand(self, command):
-        self.command = command
-
-    def setMode(self,mode):
-        self.mode = mode
-        if self.mode == 'TRANSPARENT':
-            self.proxyTranslator = ProxyIpTranslator()
-            self.proxyTranslator.start()
-        else:
-            self.proxyTranslator = None
-
-    def setAttacks(self,attacks):
-        self.attacks = attacks
-
-    def setLootdir(self,lootdir):
-        self.lootDir = lootdir
- 
-    def setDomainAccount( self, machineAccount,  machineHashes, domainIp):
-        self.machineAccount = machineAccount
-        self.machineHashes = machineHashes
-        self.domainIp = domainIp

