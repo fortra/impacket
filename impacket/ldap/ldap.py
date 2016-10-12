@@ -445,7 +445,10 @@ class LDAPConnection:
         return self.recv()
 
     def _parseFilter(self, filterStr):
-        filterList = list(reversed(unicode(filterStr)))
+        try:
+            filterList = list(reversed(unicode(filterStr)))
+        except UnicodeDecodeError:
+            filterList = list(reversed(filterStr))
         searchFilter = self._consumeCompositeFilter(filterList)
         if filterList:  # we have not consumed the whole filter string
             raise LDAPFilterSyntaxError("unexpected token: '%s'" % filterList[-1])
