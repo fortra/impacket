@@ -40,6 +40,9 @@ class MQTT_LOGIN:
         self._password = password
         self._target = target
 
+        if self._username == '':
+            self._username = None
+
     def run(self):
         mqtt = MQTTConnection(self._target, int(self._options.port), self._options.ssl)
 
