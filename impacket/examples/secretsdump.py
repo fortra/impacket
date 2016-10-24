@@ -1663,6 +1663,13 @@ class NTDSHashes:
             else:
                 userName = '%s' % record[self.NAME_TO_INTERNAL['sAMAccountName']]
 
+            # Enabled / disabled users
+            if record[self.NAME_TO_INTERNAL['userAccountControl']] is not None:
+                if '{0:08b}'.format(record[self.NAME_TO_INTERNAL['userAccountControl']])[-2:-1] == '1':
+                    userName += '(current-disabled)'
+                elif '{0:08b}'.format(record[self.NAME_TO_INTERNAL['userAccountControl']])[-2:-1] == '0':
+                    userName += '(current)'
+
             if record[self.NAME_TO_INTERNAL['pwdLastSet']] is not None:
                 pwdLastSet = self.__fileTimeToDateTime(record[self.NAME_TO_INTERNAL['pwdLastSet']])
             else:
