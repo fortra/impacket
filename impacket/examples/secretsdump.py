@@ -1401,7 +1401,8 @@ class NTDSHashes:
 
     def __init__(self, ntdsFile, bootKey, isRemote=False, history=False, noLMHash=True, remoteOps=None,
                  useVSSMethod=False, justNTLM=False, pwdLastSet=False, resumeSession=None, outputFileName=None,
-                 justUser=None, perSecretCallback = lambda secretType, secret : _print_helper(secret)):
+                 justUser=None, printUserStatus=False,
+                 perSecretCallback = lambda secretType, secret : _print_helper(secret)):
         self.__bootKey = bootKey
         self.__NTDS = ntdsFile
         self.__history = history
@@ -1409,6 +1410,7 @@ class NTDSHashes:
         self.__useVSSMethod = useVSSMethod
         self.__remoteOps = remoteOps
         self.__pwdLastSet = pwdLastSet
+        self.__printUserStatus = printUserStatus
         if self.__NTDS is not None:
             self.__ESEDB = ESENT_DB(ntdsFile, isRemote = isRemote)
             self.__cursor = self.__ESEDB.openTable('datatable')
@@ -1663,12 +1665,13 @@ class NTDSHashes:
             else:
                 userName = '%s' % record[self.NAME_TO_INTERNAL['sAMAccountName']]
 
-            # Enabled / disabled users
-            if record[self.NAME_TO_INTERNAL['userAccountControl']] is not None:
-                if '{0:08b}'.format(record[self.NAME_TO_INTERNAL['userAccountControl']])[-2:-1] == '1':
-                    userName += '(current-disabled)'
-                elif '{0:08b}'.format(record[self.NAME_TO_INTERNAL['userAccountControl']])[-2:-1] == '0':
-                    userName += '(current)'
+            if self.__printUserStatus is True:
+                # Enabled / disabled users
+                if record[self.NAME_TO_INTERNAL['userAccountControl']] is not None:
+                    if '{0:08b}'.format(record[self.NAME_TO_INTERNAL['userAccountControl']])[-2:-1] == '1':
+                        userAccountStatus = 'Disabled'
+                    elif '{0:08b}'.format(record[self.NAME_TO_INTERNAL['userAccountControl']])[-2:-1] == '0':
+                        userAccountStatus = 'Enabled'
 
             if record[self.NAME_TO_INTERNAL['pwdLastSet']] is not None:
                 pwdLastSet = self.__fileTimeToDateTime(record[self.NAME_TO_INTERNAL['pwdLastSet']])
@@ -1678,6 +1681,9 @@ class NTDSHashes:
             answer = "%s:%s:%s:%s:::" % (userName, rid, hexlify(LMHash), hexlify(NTHash))
             if self.__pwdLastSet is True:
                 answer = "%s (pwdLastSet=%s)" % (answer, pwdLastSet)
+            if self.__printUserStatus is True:
+                answer = "%s (status=%s)" % (answer, userAccountStatus)
+
             self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS, answer)
 
             if outputFile is not None:
