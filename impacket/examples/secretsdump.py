@@ -1320,6 +1320,7 @@ class NTDSHashes:
         'lmPwdHistory': 0x900A0,
         'supplementalCredentials': 0x9007D,
         'objectSid': 0x90092,
+        'userAccountControl':0x90008,
     }
 
     ATTRTYP_TO_ATTID = {
@@ -1332,6 +1333,7 @@ class NTDSHashes:
         'supplementalCredentials': '1.2.840.113556.1.4.125',
         'objectSid': '1.2.840.113556.1.4.146',
         'pwdLastSet': '1.2.840.113556.1.4.96',
+        'userAccountControl':'1.2.840.113556.1.4.8',
     }
 
     KERBEROS_TYPE = {
@@ -1672,6 +1674,8 @@ class NTDSHashes:
                         userAccountStatus = 'Disabled'
                     elif '{0:08b}'.format(record[self.NAME_TO_INTERNAL['userAccountControl']])[-2:-1] == '0':
                         userAccountStatus = 'Enabled'
+                else:
+                    userAccountStatus = 'N/A'
 
             if record[self.NAME_TO_INTERNAL['pwdLastSet']] is not None:
                 pwdLastSet = self.__fileTimeToDateTime(record[self.NAME_TO_INTERNAL['pwdLastSet']])
@@ -1791,6 +1795,14 @@ class NTDSHashes:
                         except:
                             LOG.error('Cannot get pwdLastSet for %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
                             pwdLastSet = 'N/A'
+                elif self.__printUserStatus and attId == LOOKUP_TABLE['userAccountControl']:
+                    if attr['AttrVal']['valCount'] > 0:
+                        if (unpack('<L', ''.join(attr['AttrVal']['pAVal'][0]['pVal']))[0]) & samr.UF_ACCOUNTDISABLE:
+                            userAccountStatus = 'Disabled'
+                        else:
+                            userAccountStatus = 'Enabled'
+                    else:
+                        userAccountStatus = 'N/A'
 
                 if self.__history:
                     if attId == LOOKUP_TABLE['lmPwdHistory']:
@@ -1818,6 +1830,8 @@ class NTDSHashes:
             answer = "%s:%s:%s:%s:::" % (userName, rid, hexlify(LMHash), hexlify(NTHash))
             if self.__pwdLastSet is True:
                 answer = "%s (pwdLastSet=%s)" % (answer, pwdLastSet)
+            if self.__printUserStatus is True:
+                answer = "%s (status=%s)" % (answer, userAccountStatus)
             self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS, answer)
 
             if outputFile is not None:
