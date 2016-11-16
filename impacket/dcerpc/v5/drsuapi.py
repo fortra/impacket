@@ -21,6 +21,7 @@
 import hashlib
 from struct import pack
 
+from impacket import LOG
 from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRPOINTER, NDRUniConformantArray, NDRUNION, NDR, NDRENUM
 from impacket.dcerpc.v5.dtypes import PUUID, DWORD, NULL, GUID, LPWSTR, BOOL, ULONG, UUID, LONGLONG, ULARGE_INTEGER, LARGE_INTEGER
 from impacket import hresult_errors, system_errors
@@ -600,7 +601,14 @@ class WCHAR_ARRAY(NDRUniConformantArray):
 
     def __getitem__(self, key):
         if key == 'Data':
-            return ''.join([chr(i) for i in self.fields[key]])
+            try:
+                return ''.join([chr(i) for i in self.fields[key]])
+            except ValueError:
+                # We might have Unicode chars in here, let's use unichr instead
+                LOG.debug('ValueError exception on %s' % self.fields[key])
+                LOG.debug('Switching to unichr()')
+                return ''.join([unichr(i) for i in self.fields[key]])
+
         else:
             return NDR.__getitem__(self,key)
 
