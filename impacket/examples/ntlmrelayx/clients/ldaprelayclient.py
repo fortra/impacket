@@ -14,8 +14,14 @@
 # way to make the lib do things it wasn't designed to without touching
 # its code
 #
-from ldap3 import Server, Connection, ALL, NTLM, RESULT_SUCCESS, MODIFY_ADD
+import sys
+from ldap3 import Server, Connection, ALL, NTLM, MODIFY_ADD
 from ldap3.operation import bind
+try:
+    from ldap3.core.results import RESULT_SUCCESS
+except ImportError:
+    print "ntlmrelayx requires ldap3 > 2.0. To update, use: pip install ldap3 --upgrade"
+    sys.exit(1)
 
 
 class LDAPRelayClient:
