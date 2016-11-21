@@ -13,17 +13,27 @@
 #
 import logging
 import re
-from httplib import HTTPConnection, ResponseNotReady
+import ssl
+from httplib import HTTPConnection, HTTPSConnection, ResponseNotReady
 import base64
 
 class HTTPRelayClient:
     def __init__(self, target):
         # Target comes as protocol://target:port/path
         self.target = target
-        _, host, path = target.split(':')
+        proto, host, path = target.split(':')
         host = host[2:]
         self.path = '/' + path.split('/', 1)[1]
-        self.session = HTTPConnection(host)
+        if proto.lower() == 'https':
+            #Create unverified (insecure) context
+            try:
+                uv_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+                self.session = HTTPSConnection(host,context=uv_context)
+            except AttributeError:
+                #This does not exist on python < 2.7.11
+                self.session = HTTPSConnection(host)
+        else:
+            self.session = HTTPConnection(host)
         self.lastresult = None
 
     def sendNegotiate(self,negotiateMessage):
