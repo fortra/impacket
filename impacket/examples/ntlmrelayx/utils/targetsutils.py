@@ -22,7 +22,7 @@ from threading import Thread
 
 
 class TargetsProcessor():
-    supported_protocols = ['SMB','HTTP','HTTPS','LDAP','MSSQL','LDAPS']
+    supported_protocols = ['SMB','HTTP','HTTPS','LDAP','MSSQL','LDAPS','IMAP','IMAPS']
     def __init__(self,targetlistfile=None,singletarget=None):        
         self.targetregex = re.compile(r'([a-zA-Z]+)://([a-zA-Z0-9\.\-_]+)(:[0-9]+)?/?(.+)?')
         self.targetipregex = re.compile(r'[a-zA-Z\.\-_0-9]+')
@@ -126,6 +126,10 @@ class TargetsProcessor():
             return 636
         if protocol.upper() == 'MSSQL':
             return 1433
+        if protocol.upper() == 'IMAP':
+            return 143
+        if protocol.upper() == 'IMAPS':
+            return 993
         return None
 
 class TargetsFileWatcher(Thread):
