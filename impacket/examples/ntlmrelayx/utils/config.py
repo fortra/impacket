@@ -80,3 +80,9 @@ class NTLMRelayxConfig:
 
     def setInteractive(self,interactive):
         self.interactive = interactive
+
+    def setIMAPOptions(self,keyword,mailbox,dump_all,dump_max):
+        self.keyword = keyword
+        self.mailbox = mailbox
+        self.dump_all = dump_all
+        self.dump_max = dump_max
