@@ -112,7 +112,8 @@ class SMBConnection:
             if packet[0] == '\xfe':
                 # Answer is SMB2 packet
                 self._SMBConnection = smb3.SMB3(self._remoteName, self._remoteHost, self._myName, hostType,
-                                                self._sess_port, self._timeout, session=self._nmbSession)
+                                                self._sess_port, self._timeout, session=self._nmbSession,
+                                                negSessionResponse=SMB2Packet(packet))
             else:
                 # Answer is SMB packet, sticking to SMBv1
                 self._SMBConnection = smb.SMB(self._remoteName, self._remoteHost, self._myName, hostType,

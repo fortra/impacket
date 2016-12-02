@@ -117,7 +117,7 @@ class SessionError(Exception):
 
 class SMB3:
     def __init__(self, remote_name, remote_host, my_name=None, host_type=nmb.TYPE_SERVER, sess_port=445, timeout=60,
-                 UDP=0, preferredDialect=None, session=None):
+                 UDP=0, preferredDialect=None, session=None, negSessionResponse=None):
 
         # [MS-SMB2] Section 3
         self.RequireMessageSigning = False    #
@@ -238,8 +238,8 @@ class SMB3:
             self._NetBIOSSession = session
             # We should increase the SequenceWindow since a packet was already received.
             self._Connection['SequenceWindow'] += 1
-            # Let's negotiate again using the same connection
-            self.negotiateSession(preferredDialect)
+            # Let's negotiate again if needed (or parse the existing response) using the same connection
+            self.negotiateSession(preferredDialect, negSessionResponse)
 
     def printStatus(self):
         print "CONNECTION"
@@ -433,63 +433,69 @@ class SMB3:
             self._Connection['OutstandingResponses'][packet['MessageID']] = packet
             return self.recvSMB(packetID) 
 
-    def negotiateSession(self, preferredDialect = None):
-        packet = self.SMB_PACKET()
-        packet['Command'] = SMB2_NEGOTIATE
-        negSession = SMB2Negotiate()
-
-        negSession['SecurityMode'] = SMB2_NEGOTIATE_SIGNING_ENABLED 
+    def negotiateSession(self, preferredDialect = None, negSessionResponse = None):
+        # Let's store some data for later use
+        self._Connection['ClientSecurityMode'] = SMB2_NEGOTIATE_SIGNING_ENABLED
         if self.RequireMessageSigning is True:
-            negSession['SecurityMode'] |= SMB2_NEGOTIATE_SIGNING_REQUIRED
-        negSession['Capabilities'] = SMB2_GLOBAL_CAP_ENCRYPTION
-        negSession['ClientGuid'] = self.ClientGuid
-        if preferredDialect is not None:
-            negSession['Dialects'] = [preferredDialect]
-        else:
-            negSession['Dialects'] = [SMB2_DIALECT_002, SMB2_DIALECT_21, SMB2_DIALECT_30]
-        negSession['DialectCount'] = len(negSession['Dialects'])
-        packet['Data'] = negSession
+            self._Connection['ClientSecurityMode'] |= SMB2_NEGOTIATE_SIGNING_REQUIRED
+        self._Connection['Capabilities'] = SMB2_GLOBAL_CAP_ENCRYPTION
+        currentDialect = SMB2_DIALECT_WILDCARD
 
-        # Storing this data for later use
-        self._Connection['ClientSecurityMode'] = negSession['SecurityMode']
-        self._Connection['Capabilities']       = negSession['Capabilities']
+        # Do we have a negSessionPacket already?
+        if negSessionResponse is not None:
+            # Yes, let's store the dialect answered back
+            negResp = SMB2Negotiate_Response(negSessionResponse['Data'])
+            currentDialect = negResp['DialectRevision']
 
-        packetID = self.sendSMB(packet)
-        ans = self.recvSMB(packetID)
-        if ans.isValidAnswer(STATUS_SUCCESS):
-             # ToDo this:
-             # If the DialectRevision in the SMB2 NEGOTIATE Response is 0x02FF, the client MUST issue a new
-             # SMB2 NEGOTIATE request as described in section 3.2.4.2.2.2 with the only exception 
-             # that the client MUST allocate sequence number 1 from Connection.SequenceWindow, and MUST set
-             # MessageId field of the SMB2 header to 1. Otherwise, the client MUST proceed as follows.
-            negResp = SMB2Negotiate_Response(ans['Data'])
-            self._Connection['MaxTransactSize']   = min(0x100000,negResp['MaxTransactSize'])
-            self._Connection['MaxReadSize']       = min(0x100000,negResp['MaxReadSize'])
-            self._Connection['MaxWriteSize']      = min(0x100000,negResp['MaxWriteSize'])
-            self._Connection['ServerGuid']        = negResp['ServerGuid']
-            self._Connection['GSSNegotiateToken'] = negResp['Buffer']
-            self._Connection['Dialect']           = negResp['DialectRevision']
-            if (negResp['SecurityMode'] & SMB2_NEGOTIATE_SIGNING_REQUIRED) == SMB2_NEGOTIATE_SIGNING_REQUIRED:
-                self._Connection['RequireSigning'] = True
-            if (negResp['Capabilities'] & SMB2_GLOBAL_CAP_LEASING) == SMB2_GLOBAL_CAP_LEASING: 
-                self._Connection['SupportsFileLeasing'] = True
-            if (negResp['Capabilities'] & SMB2_GLOBAL_CAP_LARGE_MTU) == SMB2_GLOBAL_CAP_LARGE_MTU:
-                self._Connection['SupportsMultiCredit'] = True
+        if currentDialect == SMB2_DIALECT_WILDCARD:
+            # Still don't know the chosen dialect, let's send our options
 
-            if self._Connection['Dialect'] == SMB2_DIALECT_30:
-                # Switching to the right packet format
-                self.SMB_PACKET = SMB3Packet
-                if (negResp['Capabilities'] & SMB2_GLOBAL_CAP_DIRECTORY_LEASING) == SMB2_GLOBAL_CAP_DIRECTORY_LEASING:
-                    self._Connection['SupportsDirectoryLeasing'] = True
-                if (negResp['Capabilities'] & SMB2_GLOBAL_CAP_MULTI_CHANNEL) == SMB2_GLOBAL_CAP_MULTI_CHANNEL:
-                    self._Connection['SupportsMultiChannel'] = True
-                if (negResp['Capabilities'] & SMB2_GLOBAL_CAP_PERSISTENT_HANDLES) == SMB2_GLOBAL_CAP_PERSISTENT_HANDLES:
-                    self._Connection['SupportsPersistentHandles'] = True
-                if (negResp['Capabilities'] & SMB2_GLOBAL_CAP_ENCRYPTION) == SMB2_GLOBAL_CAP_ENCRYPTION:
-                    self._Connection['SupportsEncryption'] = True
+            packet = self.SMB_PACKET()
+            packet['Command'] = SMB2_NEGOTIATE
+            negSession = SMB2Negotiate()
 
-                self._Connection['ServerCapabilities'] = negResp['Capabilities']
-                self._Connection['ServerSecurityMode'] = negResp['SecurityMode']
+            negSession['SecurityMode'] = self._Connection['ClientSecurityMode']
+            negSession['Capabilities'] = self._Connection['Capabilities']
+            negSession['ClientGuid'] = self.ClientGuid
+            if preferredDialect is not None:
+                negSession['Dialects'] = [preferredDialect]
+            else:
+                negSession['Dialects'] = [SMB2_DIALECT_002, SMB2_DIALECT_21, SMB2_DIALECT_30]
+            negSession['DialectCount'] = len(negSession['Dialects'])
+            packet['Data'] = negSession
+
+            packetID = self.sendSMB(packet)
+            ans = self.recvSMB(packetID)
+            if ans.isValidAnswer(STATUS_SUCCESS):
+                negResp = SMB2Negotiate_Response(ans['Data'])
+
+        self._Connection['MaxTransactSize']   = min(0x100000,negResp['MaxTransactSize'])
+        self._Connection['MaxReadSize']       = min(0x100000,negResp['MaxReadSize'])
+        self._Connection['MaxWriteSize']      = min(0x100000,negResp['MaxWriteSize'])
+        self._Connection['ServerGuid']        = negResp['ServerGuid']
+        self._Connection['GSSNegotiateToken'] = negResp['Buffer']
+        self._Connection['Dialect']           = negResp['DialectRevision']
+        if (negResp['SecurityMode'] & SMB2_NEGOTIATE_SIGNING_REQUIRED) == SMB2_NEGOTIATE_SIGNING_REQUIRED:
+            self._Connection['RequireSigning'] = True
+        if (negResp['Capabilities'] & SMB2_GLOBAL_CAP_LEASING) == SMB2_GLOBAL_CAP_LEASING:
+            self._Connection['SupportsFileLeasing'] = True
+        if (negResp['Capabilities'] & SMB2_GLOBAL_CAP_LARGE_MTU) == SMB2_GLOBAL_CAP_LARGE_MTU:
+            self._Connection['SupportsMultiCredit'] = True
+
+        if self._Connection['Dialect'] == SMB2_DIALECT_30:
+            # Switching to the right packet format
+            self.SMB_PACKET = SMB3Packet
+            if (negResp['Capabilities'] & SMB2_GLOBAL_CAP_DIRECTORY_LEASING) == SMB2_GLOBAL_CAP_DIRECTORY_LEASING:
+                self._Connection['SupportsDirectoryLeasing'] = True
+            if (negResp['Capabilities'] & SMB2_GLOBAL_CAP_MULTI_CHANNEL) == SMB2_GLOBAL_CAP_MULTI_CHANNEL:
+                self._Connection['SupportsMultiChannel'] = True
+            if (negResp['Capabilities'] & SMB2_GLOBAL_CAP_PERSISTENT_HANDLES) == SMB2_GLOBAL_CAP_PERSISTENT_HANDLES:
+                self._Connection['SupportsPersistentHandles'] = True
+            if (negResp['Capabilities'] & SMB2_GLOBAL_CAP_ENCRYPTION) == SMB2_GLOBAL_CAP_ENCRYPTION:
+                self._Connection['SupportsEncryption'] = True
+
+            self._Connection['ServerCapabilities'] = negResp['Capabilities']
+            self._Connection['ServerSecurityMode'] = negResp['SecurityMode']
 
     def getCredentials(self):
         return (
