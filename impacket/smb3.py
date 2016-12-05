@@ -424,10 +424,12 @@ class SMB3:
                 status = packet['Status']
 
         if packet['MessageID'] == packetID or packetID is None:
-        #    if self._Session['SigningRequired'] is True:
-        #        self.signSMB(packet)
             # Let's update the sequenceWindow based on the CreditsCharged
-            self._Connection['SequenceWindow'] += (packet['CreditCharge'] - 1)
+            # In the SMB 2.0.2 dialect, this field MUST NOT be used and MUST be reserved.
+            # The sender MUST set this to 0, and the receiver MUST ignore it.
+            # In all other dialects, this field indicates the number of credits that this request consumes.
+            if self._Connection['Dialect'] > SMB2_DIALECT_002:
+                self._Connection['SequenceWindow'] += (packet['CreditCharge'] - 1)
             return packet
         else:
             self._Connection['OutstandingResponses'][packet['MessageID']] = packet
