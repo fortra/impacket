@@ -146,7 +146,7 @@ class SMB3:
             'ServerName'               : '',    #
             # If the client implements the SMB 2.1 or SMB 3.0 dialects, it MUST 
             # also implement the following
-            'Dialect'                  : '',    #
+            'Dialect'                  : 0,    #
             'SupportsFileLeasing'      : False, #
             'SupportsMultiCredit'      : False, #
             # If the client implements the SMB 3.0 dialect, 
