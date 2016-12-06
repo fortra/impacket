@@ -369,13 +369,8 @@ class NTLMAuthChallenge(Structure):
 
     def fromString(self,data):
         Structure.fromString(self,data)
-        # Just in case there's more data after the TargetInfoFields
-        self['TargetInfoFields'] = self['TargetInfoFields'][:self['TargetInfoFields_len']]
-        # We gotta process the TargetInfoFields
-        #if self['TargetInfoFields_len'] > 0:
-        #    av_pairs = AV_PAIRS(self['TargetInfoFields'][:self['TargetInfoFields_len']]) 
-        #    self['TargetInfoFields'] = av_pairs
-
+        self['domain_name'] = data[self['domain_offset']:][:self['domain_len']]
+        self['TargetInfoFields'] = data[self['TargetInfoFields_offset']:][:self['TargetInfoFields_len']]
         return self
         
 class NTLMAuthChallengeResponse(Structure, NTLMAuthMixin):
