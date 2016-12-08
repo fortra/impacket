@@ -5,7 +5,7 @@ import ConfigParser
 from binascii import unhexlify
 from impacket.smbconnection import SMBConnection, smb
 from impacket.smb3structs import *
-
+from impacket import nt_errors
 
 # IMPORTANT NOTE:
 # For some reason, under Windows 8, you cannot switch between
@@ -157,7 +157,16 @@ class SMBTests(unittest.TestCase):
         smb = self.create_connection()
         smb.login(self.username, self.password, self.domain)
         smb.createDirectory(self.share, self.directory)
-        smb.deleteDirectory(self.share, self.directory) 
+        smb.deleteDirectory(self.share, self.directory)
+        smb.createDirectory(self.share, self.directory)
+        nested_dir = "%s\\%s" %(self.directory, self.directory)
+        smb.createDirectory(self.share, nested_dir)
+        try:
+            smb.deleteDirectory(self.share, self.directory)
+        except Exception as e:
+            if e.error == nt_errors.STATUS_DIRECTORY_NOT_EMPTY:
+                smb.deleteDirectory(self.share, nested_dir)
+                smb.deleteDirectory(self.share, self.directory)
         smb.logoff()
  
     def test_getData(self):
