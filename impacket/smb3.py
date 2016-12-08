@@ -1460,7 +1460,14 @@ class SMB3:
 
         fileId = None
         try:
-            fileId = self.create(treeId, pathName, DELETE, FILE_SHARE_DELETE, FILE_DIRECTORY_FILE | FILE_DELETE_ON_CLOSE, FILE_OPEN, 0)
+            fileId = self.create(treeId, pathName, desiredAccess=DELETE | FILE_READ_ATTRIBUTES | SYNCHRONIZE,
+                                 shareMode=FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                 creationOptions=FILE_DIRECTORY_FILE | FILE_OPEN_REPARSE_POINT,
+                                 creationDisposition=FILE_OPEN, fileAttributes=0)
+            from impacket import smb
+            delete_req = smb.SMBSetFileDispositionInfo()
+            delete_req['DeletePending'] = True
+            self.setInfo(treeId, fileId, inputBlob=delete_req, fileInfoClass=SMB2_FILE_DISPOSITION_INFO)
         finally:
             if fileId is not None:
                 self.close(treeId, fileId)
