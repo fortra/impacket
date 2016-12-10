@@ -19,6 +19,7 @@ import logging
 import argparse
 import codecs
 
+from datetime import datetime
 from impacket.examples import logger
 from impacket import version
 from impacket.nt_errors import STATUS_MORE_ENTRIES
@@ -45,6 +46,12 @@ class SAMRDump:
 
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
+
+    @staticmethod
+    def getUnixTime(t):
+        t -= 116444736000000000
+        t /= 10000000
+        return t
 
     def dump(self, remoteName, remoteHost):
         """Dumps the list of users and shares registered present at
@@ -84,6 +91,24 @@ class SAMRDump:
             print base + '/PrimaryGroupId:', user['PrimaryGroupId']
             print base + '/BadPasswordCount:', user['BadPasswordCount']
             print base + '/LogonCount:', user['LogonCount']
+            pwdLastSet = (user['PasswordLastSet']['HighPart'] << 32) + user['PasswordLastSet']['LowPart']
+            if pwdLastSet == 0:
+                print base + '/PasswordLastSet: <never>'
+            else:
+                print base + '/PasswordLastSet:', str(datetime.fromtimestamp(self.getUnixTime(pwdLastSet)))
+            print base + '/PasswordDoesNotExpire:',
+            if user['UserAccountControl'] & samr.USER_DONT_EXPIRE_PASSWORD:
+                print 'True'
+            else:
+                print 'False'
+            print base + '/AccountIsDisabled:',
+            if user['UserAccountControl'] & samr.USER_ACCOUNT_DISABLED:
+                print 'True'
+            else:
+                print 'False'
+            print base + '/ScriptPath:', user['ScriptPath']
+
+
 
         if entries:
             num = len(entries)
