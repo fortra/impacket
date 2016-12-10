@@ -32,7 +32,7 @@ class ListUsersException(Exception):
 
 class SAMRDump:
     def __init__(self, username='', password='', domain='', hashes=None,
-                 aesKey=None, doKerberos=False, kdcHost=None, port=445):
+                 aesKey=None, doKerberos=False, kdcHost=None, port=445, csvOutput=False):
 
         self.__username = username
         self.__password = password
@@ -43,6 +43,7 @@ class SAMRDump:
         self.__doKerberos = doKerberos
         self.__kdcHost = kdcHost
         self.__port = port
+        self.__csvOutput = csvOutput
 
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
@@ -83,32 +84,43 @@ class SAMRDump:
 
         # Display results.
 
+        if self.__csvOutput is True:
+            print '#Name,RID,FullName,PrimaryGroupId,BadPasswordCount,LogonCount,PasswordLastSet,PasswordDoesNotExpire,AccountIsDisabled,UserComment,ScriptPath'
+
         for entry in entries:
             (username, uid, user) = entry
-            base = "%s (%d)" % (username, uid)
-            print base + '/FullName:', user['FullName']
-            print base + '/UserComment:', user['UserComment']
-            print base + '/PrimaryGroupId:', user['PrimaryGroupId']
-            print base + '/BadPasswordCount:', user['BadPasswordCount']
-            print base + '/LogonCount:', user['LogonCount']
             pwdLastSet = (user['PasswordLastSet']['HighPart'] << 32) + user['PasswordLastSet']['LowPart']
             if pwdLastSet == 0:
-                print base + '/PasswordLastSet: <never>'
+                pwdLastSet = '<never>'
             else:
-                print base + '/PasswordLastSet:', str(datetime.fromtimestamp(self.getUnixTime(pwdLastSet)))
-            print base + '/PasswordDoesNotExpire:',
+                pwdLastSet = str(datetime.fromtimestamp(self.getUnixTime(pwdLastSet)))
+
             if user['UserAccountControl'] & samr.USER_DONT_EXPIRE_PASSWORD:
-                print 'True'
+                dontExpire = 'True'
             else:
-                print 'False'
-            print base + '/AccountIsDisabled:',
+                dontExpire = 'False'
+
             if user['UserAccountControl'] & samr.USER_ACCOUNT_DISABLED:
-                print 'True'
+                accountDisabled = 'True'
             else:
-                print 'False'
-            print base + '/ScriptPath:', user['ScriptPath']
+                accountDisabled = 'False'
 
-
+            if self.__csvOutput is True:
+                print '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s' % (username, uid, user['FullName'], user['PrimaryGroupId'],
+                                                      user['BadPasswordCount'], user['LogonCount'],pwdLastSet,
+                                                      dontExpire, accountDisabled, user['UserComment'].replace(',','.'),
+                                                      user['ScriptPath']  )
+            else:
+                base = "%s (%d)" % (username, uid)
+                print base + '/FullName:', user['FullName']
+                print base + '/UserComment:', user['UserComment']
+                print base + '/PrimaryGroupId:', user['PrimaryGroupId']
+                print base + '/BadPasswordCount:', user['BadPasswordCount']
+                print base + '/LogonCount:', user['LogonCount']
+                print base + '/PasswordLastSet:',pwdLastSet
+                print base + '/PasswordDoesNotExpire:',dontExpire
+                print base + '/AccountIsDisabled:',accountDisabled
+                print base + '/ScriptPath:', user['ScriptPath']
 
         if entries:
             num = len(entries)
@@ -189,6 +201,7 @@ if __name__ == '__main__':
                                                                     "target system.")
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
+    parser.add_argument('-csv', action='store_true', help='Turn CSV output')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
     group = parser.add_argument_group('connection')
@@ -245,5 +258,5 @@ if __name__ == '__main__':
         from getpass import getpass
         password = getpass("Password:")
 
-    dumper = SAMRDump(username, password, domain, options.hashes, options.aesKey, options.k, options.dc_ip, int(options.port))
+    dumper = SAMRDump(username, password, domain, options.hashes, options.aesKey, options.k, options.dc_ip, int(options.port), options.csv)
     dumper.dump(remoteName, options.target_ip)
