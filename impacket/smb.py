@@ -3410,7 +3410,7 @@ class SMB:
 
         sessionSetup['Parameters']['MaxBuffer']        = 61440
         sessionSetup['Parameters']['MaxMpxCount']      = 2
-        sessionSetup['Parameters']['VCNumber']         = os.getpid()
+        sessionSetup['Parameters']['VCNumber']         = os.getpid() & 0xFFFF # Value has to be expressed in 2 bytes
         sessionSetup['Parameters']['SessionKey']       = self._dialects_parameters['SessionKey']
         sessionSetup['Parameters']['AnsiPwdLength']    = len(pwd_ansi)
         sessionSetup['Parameters']['UnicodePwdLength'] = len(pwd_unicode)
