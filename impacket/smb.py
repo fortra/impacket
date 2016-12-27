@@ -2484,6 +2484,9 @@ class SMB:
         return self.__isNTLMv2
 
     def __del__(self):
+        self.close_session()
+            
+    def close_session(self):
         if self._sess:
             self._sess.close()
 

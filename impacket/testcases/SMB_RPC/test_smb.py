@@ -1,5 +1,8 @@
 import unittest
 import os
+import socket
+import select
+import errno
 
 import ConfigParser
 from binascii import unhexlify
@@ -66,6 +69,15 @@ class SMBTests(unittest.TestCase):
         credentials = smb.getCredentials()
         self.assertTrue( credentials == (self.username, self.password, self.domain, '','','', None, None))
         smb.logoff()
+        del(smb)
+        
+    def test_close_connection(self):
+        smb = self.create_connection()
+        smb.login(self.username, self.password, self.domain)
+        smb_connection_socket = smb.getSMBServer().get_socket()
+        self.assertTrue(self.__is_socket_opened(smb_connection_socket) == True)
+        smb.close()
+        self.assertTrue(self.__is_socket_opened(smb_connection_socket) == False)
         del(smb)
 
     def test_manualNego(self):
@@ -241,6 +253,16 @@ class SMBTests(unittest.TestCase):
         smb.getSessionKey()
         smb.logoff
         
+    def __is_socket_opened(self, s):
+        # We assume that if socket is selectable, it's open; and if it were not, it's closed.
+        # Note: this method is accurate as long as the file descriptor used for the socket is not re-used
+        is_socket_opened = True 
+        try:
+            select.select([s], [], [], 0)
+        except socket.error, e:
+            if e[0] == errno.EBADF:
+                is_socket_opened = False
+        return is_socket_opened
 
 class SMB1Tests(SMBTests):
     def setUp(self):
