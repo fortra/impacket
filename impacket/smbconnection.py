@@ -826,6 +826,18 @@ class SMBConnection:
             return self._SMBConnection.set_session_key(key)
         else:
             return self._SMBConnection.setSessionKey(key)
+            
+    def close(self):
+        """
+        logs off and closes the underlying _NetBIOSSession()
+
+        :return: None
+        """
+        try:
+            self.logoff()
+        except:
+            pass
+        self._SMBConnection.close_session()
 
 class SessionError(Exception):
     """

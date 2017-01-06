@@ -1600,9 +1600,11 @@ class SMB3:
     list_path                  = listPath
 
     def __del__(self):
+        self.close_session()
+
+    def close_session(self):
         if self._NetBIOSSession:
             self._NetBIOSSession.close()
-
 
     def doesSupportNTLMv2(self):
         # Always true :P 

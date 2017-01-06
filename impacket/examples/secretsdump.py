@@ -1227,7 +1227,10 @@ class LSASecrets(OfflineRegistry):
             # Default print, hexdump
             printableSecret  = '%s:%s' % (name, hexlify(secretItem))
             self.__secretItems.append(printableSecret)
-            hexdump(secretItem)
+            # If we're using the default callback (ourselves), we print the hex representation. If not, the
+            # user will need to decide what to do.
+            if self.__module__ == self.__perSecretCallback.__module__:
+                hexdump(secretItem)
             
         self.__perSecretCallback(LSASecrets.SECRET_TYPE.LSA, printableSecret)
 
