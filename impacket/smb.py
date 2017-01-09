@@ -3410,7 +3410,7 @@ class SMB:
 
         sessionSetup['Parameters']['MaxBuffer']        = 61440
         sessionSetup['Parameters']['MaxMpxCount']      = 2
-        sessionSetup['Parameters']['VCNumber']         = os.getpid()
+        sessionSetup['Parameters']['VCNumber']         = os.getpid() & 0xFFFF # Value has to be expressed in 2 bytes
         sessionSetup['Parameters']['SessionKey']       = self._dialects_parameters['SessionKey']
         sessionSetup['Parameters']['AnsiPwdLength']    = len(pwd_ansi)
         sessionSetup['Parameters']['UnicodePwdLength'] = len(pwd_unicode)
@@ -4051,6 +4051,83 @@ class SMB:
 
     def get_socket(self):
         return self._sess.get_socket()
+
+    def send_nt_trans(self, tid, function, max_param_count, setup='', param='', data=''):
+        """
+        [MS-CIFS]: 2.2.4.62.1 SMB_COM_NT_TRANSACT request.
+        :param tid:
+        :param function: The transaction subcommand code
+        :param max_param_count:  This field MUST be set as specified in the subsections of Transaction subcommands.
+        :param setup: Transaction context to the server, depends on transaction subcommand.
+        :param param: Subcommand parameter bytes if any, depends on transaction subcommand.
+        :param data: Subcommand data bytes if any, depends on transaction subcommand.
+        :return: Buffer relative to requested subcommand.
+        """
+        smb_packet = NewSMBPacket()
+        smb_packet['Tid'] = tid
+        #    setup depends on NT_TRANSACT subcommands so it may be 0.
+        setup_bytes = pack('<H, setup') if setup != '' else ''
+
+        transCommand = SMBCommand(SMB.SMB_COM_NT_TRANSACT)
+        transCommand['Parameters'] = SMBNTTransaction_Parameters()
+        transCommand['Parameters']['MaxDataCount'] = self._dialects_parameters['MaxBufferSize']
+        transCommand['Parameters']['Setup'] = setup_bytes
+        transCommand['Parameters']['Function'] = function
+        transCommand['Parameters']['TotalParameterCount'] = len(param)
+        transCommand['Parameters']['TotalDataCount'] = len(data)
+        transCommand['Parameters']['MaxParameterCount'] = max_param_count
+        transCommand['Parameters']['MaxSetupCount'] = 0
+
+        transCommand['Data'] = SMBNTTransaction_Data()
+
+        # SMB header size + SMB_COM_NT_TRANSACT parameters size + length of setup bytes.
+        offset = 32 + 3 + 38 + len(setup_bytes)
+        transCommand['Data']['Pad1'] = ''
+        if offset % 4 != 0:
+            transCommand['Data']['Pad1'] = '\0' * (4 - offset % 4)
+            offset += (4 - offset % 4)  # pad1 length
+
+        if len(param) > 0:
+            transCommand['Parameters']['ParameterOffset'] = offset
+        else:
+            transCommand['Parameters']['ParameterOffset'] = 0
+
+        offset += len(param)
+        transCommand['Data']['Pad2'] = ''
+        if offset % 4 != 0:
+            transCommand['Data']['Pad2'] = '\0' * (4 - offset % 4)
+            offset += (4 - offset % 4)
+
+        if len(data) > 0:
+            transCommand['Parameters']['DataOffset'] = offset
+        else:
+            transCommand['Parameters']['DataOffset'] = 0
+
+        transCommand['Parameters']['DataCount'] = len(data)
+        transCommand['Parameters']['ParameterCount'] = len(param)
+        transCommand['Data']['NT_Trans_Parameters'] = param
+        transCommand['Data']['NT_Trans_Data'] = data
+        smb_packet.addCommand(transCommand)
+
+        self.sendSMB(smb_packet)
+
+    def query_sec_info(self, tid, fid, additional_information=7):
+        """
+        [MS-CIFS]: 2.2.7.6.1
+        NT_TRANSACT_QUERY_SECURITY_DESC 0x0006
+        :param tid: valid tree id.
+        :param fid: valid file handle.
+        :param additional_information: SecurityInfoFields. default = owner + group + dacl ie. 7
+        :return: security descriptor buffer
+        """
+        self.send_nt_trans(tid, function=0x0006, max_param_count=4,
+                           param=pack('<HHL', fid, 0x0000, additional_information))
+        resp = self.recvSMB()
+        if resp.isValidAnswer(SMB.SMB_COM_NT_TRANSACT):
+            nt_trans_response = SMBCommand(resp['Data'][0])
+            nt_trans_parameters = SMBNTTransactionResponse_Parameters(nt_trans_response['Parameters'])
+            # Remove Potential Prefix Padding
+            return nt_trans_response['Data'][-nt_trans_parameters['TotalDataCount']:]
 
 ERRDOS = { 1: 'Invalid function',
            2: 'File not found',
