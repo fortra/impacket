@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # based on:
 #
 #              Reversing CRC - Theory and Practice.
