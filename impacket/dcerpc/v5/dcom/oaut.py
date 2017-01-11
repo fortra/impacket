@@ -25,13 +25,13 @@ from struct import pack, unpack
 from impacket import LOG
 from impacket import hresult_errors
 from impacket.dcerpc.v5.dcomrt import DCOMCALL, DCOMANSWER, IRemUnknown2, PMInterfacePointer, INTERFACE, \
-    MInterfacePointer, MInterfacePointer_ARRAY, BYTE_ARRAY
+    MInterfacePointer, MInterfacePointer_ARRAY, BYTE_ARRAY, PPMInterfacePointer
 from impacket.dcerpc.v5.dtypes import LPWSTR, ULONG, DWORD, SHORT, GUID, USHORT, LONG, WSTR, BYTE, LONGLONG, FLOAT, \
     DOUBLE, HRESULT, PSHORT, PLONG, PLONGLONG, PFLOAT, PDOUBLE, PHRESULT, CHAR, ULONGLONG, INT, UINT, PCHAR, PUSHORT, \
     PULONG, PULONGLONG, PINT, PUINT, NULL
 from impacket.dcerpc.v5.enum import Enum
 from impacket.dcerpc.v5.ndr import NDRSTRUCT, NDRUniConformantArray, NDRPOINTER, NDRENUM, NDRUSHORT, NDRUNION, \
-    NDRUniConformantVaryingArray
+    NDRUniConformantVaryingArray, NDR
 from impacket.dcerpc.v5.rpcrt import DCERPCException
 from impacket.uuid import string_to_bin
 
@@ -504,6 +504,11 @@ class PSAFEARRAY(NDRPOINTER):
 
 # 2.2.29 VARIANT
 # 2.2.29.1 _wireVARIANT
+class EMPTY(NDR):
+    align = 0
+    structure = (
+    )
+
 class varUnion(NDRUNION):
     commonHdr = (
         ('tag', ULONG),
@@ -536,8 +541,8 @@ class varUnion(NDRUNION):
         VARENUM.VT_CY_OR_VT_BYREF      : ('pcyVal', PCURRENCY),
         VARENUM.VT_DATE_OR_VT_BYREF    : ('pdate', PDATE),
         VARENUM.VT_BSTR_OR_VT_BYREF    : ('pbstrVal', PBSTR),
-        VARENUM.VT_UNKNOWN_OR_VT_BYREF : ('ppunkVal', PMInterfacePointer),
-        VARENUM.VT_DISPATCH_OR_VT_BYREF: ('ppdispVal', PMInterfacePointer),
+        VARENUM.VT_UNKNOWN_OR_VT_BYREF : ('ppunkVal', PPMInterfacePointer),
+        VARENUM.VT_DISPATCH_OR_VT_BYREF: ('ppdispVal', PPMInterfacePointer),
         VARENUM.VT_ARRAY_OR_VT_BYREF   : ('pparray', PSAFEARRAY),
         VARENUM.VT_VARIANT_OR_VT_BYREF : ('pvarVal', PVARIANT),
         VARENUM.VT_I1                  : ('cVal', CHAR),
@@ -554,8 +559,8 @@ class varUnion(NDRUNION):
         VARENUM.VT_INT_OR_VT_BYREF     : ('pintVal', PINT),
         VARENUM.VT_UINT_OR_VT_BYREF    : ('puintVal', PUINT),
         VARENUM.VT_DECIMAL_OR_VT_BYREF : ('pdecVal', PDECIMAL),
-        VARENUM.VT_EMPTY               : ('empty', NDRPOINTER),
-        VARENUM.VT_NULL                : ('null', NDRPOINTER),
+        VARENUM.VT_EMPTY               : ('empty', EMPTY),
+        VARENUM.VT_NULL                : ('null', EMPTY),
     }
 
 class wireVARIANTStr(NDRSTRUCT):
@@ -607,13 +612,13 @@ class EXCEPINFO(NDRSTRUCT):
     structure = (
         ('wCode',WORD),
         ('wReserved', WORD),
-        ##('bstrSource', BSTR),
-        #('bstrDescription', BSTR),
-        #('bstrHelpFile', BSTR),
-        #('dwHelpContext', DWORD),
-        #('pvReserved', ULONG),
-        #('pfnDeferredFillIn', ULONG),
-        #('scode', HRESULT),
+        ('bstrSource', BSTR),
+        ('bstrDescription', BSTR),
+        ('bstrHelpFile', BSTR),
+        ('dwHelpContext', DWORD),
+        ('pvReserved', ULONG),
+        ('pfnDeferredFillIn', ULONG),
+        ('scode', HRESULT),
     )
 
 # 2.2.35 MEMBERID
@@ -851,11 +856,9 @@ class IDispatch_Invoke(DCOMCALL):
 class IDispatch_InvokeResponse(DCOMANSWER):
     structure = (
        ('pVarResult', VARIANT),
-       # I'm commenting this since there is a padding issue with NDRUNIONS going on. Must investigate more
-       # (help welcomed)
        ('pExcepInfo', EXCEPINFO),
-       #('pArgErr', UINT),
-       #('ErrorCode', error_status_t),
+       ('pArgErr', UINT),
+       ('ErrorCode', error_status_t),
     )
 
 # 3.7.4.1 ITypeInfo::GetTypeAttr (Opnum 3)
