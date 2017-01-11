@@ -134,6 +134,8 @@ class MMCEXEC:
             self.shell = RemoteShell(self.__share, (iMMC, pQuit), (iActiveView, pExecuteShellCommand), smbConnection)
             if self.__command != ' ':
                 self.shell.onecmd(self.__command)
+                if self.shell is not None:
+                    self.shell.do_exit('')
             else:
                 self.shell.cmdloop()
         except  (Exception, KeyboardInterrupt), e:
