@@ -850,7 +850,7 @@ class IDispatch_Invoke(DCOMCALL):
 
 class IDispatch_InvokeResponse(DCOMANSWER):
     structure = (
-       ('pVarResult', PVARIANT),
+       ('pVarResult', VARIANT),
        # I'm commenting this since there is a padding issue with NDRUNIONS going on. Must investigate more
        # (help welcomed)
        ('pExcepInfo', EXCEPINFO),
