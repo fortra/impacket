@@ -486,7 +486,7 @@ class SessionError(Exception):
 
 
 
-    def __init__( self, error_string, error_class, error_code, nt_status = 0):
+    def __init__( self, error_string, error_class, error_code, nt_status = 0, packet=0):
         Exception.__init__(self, error_string)
         self.nt_status = nt_status
         self._args = error_string
@@ -496,13 +496,16 @@ class SessionError(Exception):
         else:
            self.error_class = error_class
            self.error_code = error_code
-
+        self.packet = packet
 
     def get_error_class( self ):
         return self.error_class
 
     def get_error_code( self ):
         return self.error_code
+
+    def get_error_packet(self):
+        return self.packet
 
     def __str__( self ):
         error_class = SessionError.error_classes.get( self.error_class, None )
@@ -709,7 +712,7 @@ class NewSMBPacket(Structure):
                 return 1
             elif self.isMoreProcessingRequired():
                 return 1
-            raise SessionError, ("SMB Library Error", self['ErrorClass'] + (self['_reserved'] << 8), self['ErrorCode'], self['Flags2'] & SMB.FLAGS2_NT_STATUS)
+            raise SessionError, ("SMB Library Error", self['ErrorClass'] + (self['_reserved'] << 8), self['ErrorCode'], self['Flags2'] & SMB.FLAGS2_NT_STATUS, self)
         else:
             raise UnsupportedFeature, ("Unexpected answer from server: Got %d, Expected %d" % (self['Command'], cmd))
 
