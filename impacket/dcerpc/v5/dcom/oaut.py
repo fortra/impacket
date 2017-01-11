@@ -435,8 +435,13 @@ class VARIANT_ARRAY(NDRUniConformantArray):
     # I declare the item in the constructor
     #item = VARIANT
     def __init__(self, data = None, isNDR64 = False):
-        NDRUniConformantArray(self, data, isNDR64)
+        NDRUniConformantArray.__init__(self, data, isNDR64)
         self.item = VARIANT
+
+class PVARIANT_ARRAY(NDRPOINTER):
+    referent = (
+        ('Data', VARIANT_ARRAY),
+    )
 
 class PVARIANT(NDRPOINTER):
     # In order to avoid the lack of forward declarations in Python
@@ -445,7 +450,7 @@ class PVARIANT(NDRPOINTER):
     #    ('Data', VARIANT),
     #)
     def __init__(self, data = None, isNDR64 = False):
-        NDRPOINTER(self, data, isNDR64)
+        NDRPOINTER.__init__(self, data, isNDR64)
         self.referent = ( ('Data', VARIANT),)
 
 
@@ -515,8 +520,8 @@ class varUnion(NDRUNION):
         VARENUM.VT_CY                  : ('cyVal', CURRENCY),
         VARENUM.VT_DATE                : ('date', DATE),
         VARENUM.VT_BSTR                : ('bstrVal', BSTR),
-        VARENUM.VT_UNKNOWN             : ('punkVal', MInterfacePointer),
-        VARENUM.VT_DISPATCH            : ('pdispVal', MInterfacePointer),
+        VARENUM.VT_UNKNOWN             : ('punkVal', PMInterfacePointer),
+        VARENUM.VT_DISPATCH            : ('pdispVal', PMInterfacePointer),
         VARENUM.VT_ARRAY               : ('parray', SAFEARRAY),
         VARENUM.VT_RECORD              : ('brecVal', BRECORD),
         VARENUM.VT_RECORD_OR_VT_BYREF  : ('brecVal', BRECORD),
@@ -549,8 +554,8 @@ class varUnion(NDRUNION):
         VARENUM.VT_INT_OR_VT_BYREF     : ('pintVal', PINT),
         VARENUM.VT_UINT_OR_VT_BYREF    : ('puintVal', PUINT),
         VARENUM.VT_DECIMAL_OR_VT_BYREF : ('pdecVal', PDECIMAL),
-        VARENUM.VT_EMPTY               : ('', ),
-        VARENUM.VT_NULL                : ('', ),
+        VARENUM.VT_EMPTY               : ('empty', NDRPOINTER),
+        VARENUM.VT_NULL                : ('null', NDRPOINTER),
     }
 
 class wireVARIANTStr(NDRSTRUCT):
@@ -563,6 +568,9 @@ class wireVARIANTStr(NDRSTRUCT):
         ('wReserved3',USHORT),
         ('_varUnion',varUnion),
     )
+
+    def getAlignment(self):
+        return 8
 
 class VARIANT(NDRPOINTER):
     referent = (
@@ -581,10 +589,15 @@ DISPID = LONG
 class DISPID_ARRAY(NDRUniConformantArray):
     item = '<L'
 
+class PDISPID_ARRAY(NDRPOINTER):
+    referent = (
+        ('Data', DISPID_ARRAY),
+    )
+
 class DISPPARAMS(NDRSTRUCT):
     structure = (
-        ('rgvarg',VARIANT_ARRAY),
-        ('rgdispidNamedArgs', DISPID_ARRAY),
+        ('rgvarg',PVARIANT_ARRAY),
+        ('rgdispidNamedArgs', PDISPID_ARRAY),
         ('cArgs', UINT),
         ('cNamedArgs', UINT),
     )
@@ -594,13 +607,13 @@ class EXCEPINFO(NDRSTRUCT):
     structure = (
         ('wCode',WORD),
         ('wReserved', WORD),
-        ('bstrSource', BSTR),
-        ('bstrDescription', BSTR),
-        ('bstrHelpFile', BSTR),
-        ('dwHelpContext', DWORD),
-        ('pvReserved', ULONG),
-        ('pfnDeferredFillIn', ULONG),
-        ('scode', HRESULT),
+        ##('bstrSource', BSTR),
+        #('bstrDescription', BSTR),
+        #('bstrHelpFile', BSTR),
+        #('dwHelpContext', DWORD),
+        #('pvReserved', ULONG),
+        #('pfnDeferredFillIn', ULONG),
+        #('scode', HRESULT),
     )
 
 # 2.2.35 MEMBERID
@@ -616,7 +629,7 @@ class ARRAYDESC(NDRSTRUCT):
     #    ('rgbounds',SAFEARRAYBOUND_ARRAY),
     #)
     def __init__(self, data = None, isNDR64 = False):
-        NDRSTRUCT(self, data, isNDR64)
+        NDRSTRUCT.__init__(self, data, isNDR64)
         self.structure = (
             ('tdescElem',TYPEDESC),
             ('cDims',USHORT),
@@ -837,10 +850,12 @@ class IDispatch_Invoke(DCOMCALL):
 
 class IDispatch_InvokeResponse(DCOMANSWER):
     structure = (
-       ('pVarResult', VARIANT),
+       ('pVarResult', PVARIANT),
+       # I'm commenting this since there is a padding issue with NDRUNIONS going on. Must investigate more
+       # (help welcomed)
        ('pExcepInfo', EXCEPINFO),
-       ('pArgErr', UINT),
-       ('ErrorCode', error_status_t),
+       #('pArgErr', UINT),
+       #('ErrorCode', error_status_t),
     )
 
 # 3.7.4.1 ITypeInfo::GetTypeAttr (Opnum 3)
@@ -1062,7 +1077,7 @@ class IDispatch(IRemUnknown2):
         request['dispIdMember'] = dispIdMember
         request['riid'] = IID_NULL
         request['lcid'] = lcid
-        request['dwFlags'] = dwFlags 
+        request['dwFlags'] = dwFlags
         request['pDispParams'] = pDispParams
         request['cVarRef'] = cVarRef
         request['rgVarRefIdx'] = rgVarRefIdx
