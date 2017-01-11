@@ -25,13 +25,13 @@ from struct import pack, unpack
 from impacket import LOG
 from impacket import hresult_errors
 from impacket.dcerpc.v5.dcomrt import DCOMCALL, DCOMANSWER, IRemUnknown2, PMInterfacePointer, INTERFACE, \
-    MInterfacePointer, MInterfacePointer_ARRAY, BYTE_ARRAY
+    MInterfacePointer, MInterfacePointer_ARRAY, BYTE_ARRAY, PPMInterfacePointer
 from impacket.dcerpc.v5.dtypes import LPWSTR, ULONG, DWORD, SHORT, GUID, USHORT, LONG, WSTR, BYTE, LONGLONG, FLOAT, \
     DOUBLE, HRESULT, PSHORT, PLONG, PLONGLONG, PFLOAT, PDOUBLE, PHRESULT, CHAR, ULONGLONG, INT, UINT, PCHAR, PUSHORT, \
     PULONG, PULONGLONG, PINT, PUINT, NULL
 from impacket.dcerpc.v5.enum import Enum
 from impacket.dcerpc.v5.ndr import NDRSTRUCT, NDRUniConformantArray, NDRPOINTER, NDRENUM, NDRUSHORT, NDRUNION, \
-    NDRUniConformantVaryingArray
+    NDRUniConformantVaryingArray, NDR
 from impacket.dcerpc.v5.rpcrt import DCERPCException
 from impacket.uuid import string_to_bin
 
@@ -435,8 +435,13 @@ class VARIANT_ARRAY(NDRUniConformantArray):
     # I declare the item in the constructor
     #item = VARIANT
     def __init__(self, data = None, isNDR64 = False):
-        NDRUniConformantArray(self, data, isNDR64)
+        NDRUniConformantArray.__init__(self, data, isNDR64)
         self.item = VARIANT
+
+class PVARIANT_ARRAY(NDRPOINTER):
+    referent = (
+        ('Data', VARIANT_ARRAY),
+    )
 
 class PVARIANT(NDRPOINTER):
     # In order to avoid the lack of forward declarations in Python
@@ -445,7 +450,7 @@ class PVARIANT(NDRPOINTER):
     #    ('Data', VARIANT),
     #)
     def __init__(self, data = None, isNDR64 = False):
-        NDRPOINTER(self, data, isNDR64)
+        NDRPOINTER.__init__(self, data, isNDR64)
         self.referent = ( ('Data', VARIANT),)
 
 
@@ -499,6 +504,11 @@ class PSAFEARRAY(NDRPOINTER):
 
 # 2.2.29 VARIANT
 # 2.2.29.1 _wireVARIANT
+class EMPTY(NDR):
+    align = 0
+    structure = (
+    )
+
 class varUnion(NDRUNION):
     commonHdr = (
         ('tag', ULONG),
@@ -515,8 +525,8 @@ class varUnion(NDRUNION):
         VARENUM.VT_CY                  : ('cyVal', CURRENCY),
         VARENUM.VT_DATE                : ('date', DATE),
         VARENUM.VT_BSTR                : ('bstrVal', BSTR),
-        VARENUM.VT_UNKNOWN             : ('punkVal', MInterfacePointer),
-        VARENUM.VT_DISPATCH            : ('pdispVal', MInterfacePointer),
+        VARENUM.VT_UNKNOWN             : ('punkVal', PMInterfacePointer),
+        VARENUM.VT_DISPATCH            : ('pdispVal', PMInterfacePointer),
         VARENUM.VT_ARRAY               : ('parray', SAFEARRAY),
         VARENUM.VT_RECORD              : ('brecVal', BRECORD),
         VARENUM.VT_RECORD_OR_VT_BYREF  : ('brecVal', BRECORD),
@@ -531,8 +541,8 @@ class varUnion(NDRUNION):
         VARENUM.VT_CY_OR_VT_BYREF      : ('pcyVal', PCURRENCY),
         VARENUM.VT_DATE_OR_VT_BYREF    : ('pdate', PDATE),
         VARENUM.VT_BSTR_OR_VT_BYREF    : ('pbstrVal', PBSTR),
-        VARENUM.VT_UNKNOWN_OR_VT_BYREF : ('ppunkVal', PMInterfacePointer),
-        VARENUM.VT_DISPATCH_OR_VT_BYREF: ('ppdispVal', PMInterfacePointer),
+        VARENUM.VT_UNKNOWN_OR_VT_BYREF : ('ppunkVal', PPMInterfacePointer),
+        VARENUM.VT_DISPATCH_OR_VT_BYREF: ('ppdispVal', PPMInterfacePointer),
         VARENUM.VT_ARRAY_OR_VT_BYREF   : ('pparray', PSAFEARRAY),
         VARENUM.VT_VARIANT_OR_VT_BYREF : ('pvarVal', PVARIANT),
         VARENUM.VT_I1                  : ('cVal', CHAR),
@@ -549,8 +559,8 @@ class varUnion(NDRUNION):
         VARENUM.VT_INT_OR_VT_BYREF     : ('pintVal', PINT),
         VARENUM.VT_UINT_OR_VT_BYREF    : ('puintVal', PUINT),
         VARENUM.VT_DECIMAL_OR_VT_BYREF : ('pdecVal', PDECIMAL),
-        VARENUM.VT_EMPTY               : ('', ),
-        VARENUM.VT_NULL                : ('', ),
+        VARENUM.VT_EMPTY               : ('empty', EMPTY),
+        VARENUM.VT_NULL                : ('null', EMPTY),
     }
 
 class wireVARIANTStr(NDRSTRUCT):
@@ -563,6 +573,9 @@ class wireVARIANTStr(NDRSTRUCT):
         ('wReserved3',USHORT),
         ('_varUnion',varUnion),
     )
+
+    def getAlignment(self):
+        return 8
 
 class VARIANT(NDRPOINTER):
     referent = (
@@ -581,10 +594,15 @@ DISPID = LONG
 class DISPID_ARRAY(NDRUniConformantArray):
     item = '<L'
 
+class PDISPID_ARRAY(NDRPOINTER):
+    referent = (
+        ('Data', DISPID_ARRAY),
+    )
+
 class DISPPARAMS(NDRSTRUCT):
     structure = (
-        ('rgvarg',VARIANT_ARRAY),
-        ('rgdispidNamedArgs', DISPID_ARRAY),
+        ('rgvarg',PVARIANT_ARRAY),
+        ('rgdispidNamedArgs', PDISPID_ARRAY),
         ('cArgs', UINT),
         ('cNamedArgs', UINT),
     )
@@ -616,7 +634,7 @@ class ARRAYDESC(NDRSTRUCT):
     #    ('rgbounds',SAFEARRAYBOUND_ARRAY),
     #)
     def __init__(self, data = None, isNDR64 = False):
-        NDRSTRUCT(self, data, isNDR64)
+        NDRSTRUCT.__init__(self, data, isNDR64)
         self.structure = (
             ('tdescElem',TYPEDESC),
             ('cDims',USHORT),
@@ -1062,7 +1080,7 @@ class IDispatch(IRemUnknown2):
         request['dispIdMember'] = dispIdMember
         request['riid'] = IID_NULL
         request['lcid'] = lcid
-        request['dwFlags'] = dwFlags 
+        request['dwFlags'] = dwFlags
         request['pDispParams'] = pDispParams
         request['cVarRef'] = cVarRef
         request['rgVarRefIdx'] = rgVarRefIdx

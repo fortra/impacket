@@ -893,6 +893,12 @@ class SMB3:
             shareName = self._Session['TreeConnectTable'][treeId]['ShareName']
             del(self._Session['TreeConnectTable'][shareName])
             del(self._Session['TreeConnectTable'][treeId])
+            filesIDToBeRemoved = []
+            for fileID in self._Session['OpenTable'].keys():
+                if self._Session['OpenTable'][fileID]['TreeConnect'] == treeId:
+                    filesIDToBeRemoved.append(fileID)
+            for fileIDToBeRemoved in filesIDToBeRemoved:
+                del(self._Session['OpenTable'][fileIDToBeRemoved])
             return True
 
     def create(self, treeId, fileName, desiredAccess, shareMode, creationOptions, creationDisposition, fileAttributes, impersonationLevel = SMB2_IL_IMPERSONATION, securityFlags = 0, oplockLevel = SMB2_OPLOCK_LEVEL_NONE, createContexts = None):

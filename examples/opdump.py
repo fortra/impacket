@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 """opdump - scan for operations on a given DCERPC interface
 
 Usage: opdump.py hostname port interface version
