@@ -6,9 +6,9 @@
 #
 
 from impacket import structure
+from impacket.ImpactPacket import ProtocolPacket
 
-
-class BootpPacket(structure.Structure):
+class BootpPacket(ProtocolPacket, structure.Structure):
     commonHdr = (
             ('op','b'),
             ('htype','b=1'),    # 1 = Ether
@@ -26,13 +26,14 @@ class BootpPacket(structure.Structure):
             ('sname','64s=""'),
             ('file','128s=""'))
             
-    #def __init__(self, data = None, alignment = 0):
-    #    structure.Structure.__init__(self, data, alignment)
-        
-class DhcpPacket(BootpPacket):
+    def __init__(self, data = None, alignment = 0):
+        structure.Structure.__init__(self, data, alignment)
+
+class DhcpPacket(ProtocolPacket, structure.Structure):
     # DHCP: http://www.faqs.org/rfcs/rfc2131.html
     # DHCP Options: http://www.faqs.org/rfcs/rfc1533.html
     # good list of options: http://www.networksorcery.com/enp/protocol/bootp/options.htm
+    MAGIC_NUMBER = 0x63825363
     BOOTREQUEST = 1
     BOOTREPLY   = 2
 
@@ -140,10 +141,9 @@ class DhcpPacket(BootpPacket):
             ('cookie','!L'),
             ('_options',':=self.packOptions(options)'),
             ('options','_','self.unpackOptions(_options)'))
-    
 
-    #def __init__(self, data = None, alignment = 0):
-    #    BootpPacket.__init__(self, data, alignment)
+    def __init__(self, data = None, alignment = 0):
+        structure.Structure.__init__(self, data, alignment)
     
     def packOptions(self, options):
         # options is an array of tuples: ('name',value)
