@@ -282,12 +282,8 @@ class UDPDecoder(Decoder):
         u = ImpactPacket.UDP(aBuffer)
         self.set_decoded_protocol( u )
         off = u.get_header_size()
-        if u.get_uh_dport() in (67, 68) and u.get_uh_sport() in (67, 68):
-            self.bootp_decoder = BootpDecoder()
-            packet = self.bootp_decoder.decode(aBuffer[off:])
-        else:
-            self.data_decoder = DataDecoder()
-            packet = self.data_decoder.decode(aBuffer[off:])
+        self.data_decoder = DataDecoder()
+        packet = self.data_decoder.decode(aBuffer[off:])
         u.contains(packet)
         return u
 
