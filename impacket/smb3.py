@@ -37,7 +37,8 @@ from impacket import nmb, ntlm, uuid, crypto, LOG
 from impacket.smb3structs import *
 from impacket.nt_errors import STATUS_SUCCESS, STATUS_MORE_PROCESSING_REQUIRED, STATUS_INVALID_PARAMETER, \
     STATUS_NO_MORE_FILES, STATUS_PENDING, STATUS_NOT_IMPLEMENTED, ERROR_MESSAGES
-from impacket.spnego import SPNEGO_NegTokenInit, TypesMech, SPNEGO_NegTokenResp
+from impacket.spnego import SPNEGO_NegTokenInit, TypesMech, SPNEGO_NegTokenResp, ASN1_OID, asn1encode, ASN1_AID
+from impacket.krb5.gssapi import KRB5_AP_REQ
 
 
 # For signing
@@ -629,7 +630,8 @@ class SMB3:
         apReq['authenticator']['etype'] = cipher.enctype
         apReq['authenticator']['cipher'] = encryptedEncodedAuthenticator
 
-        blob['MechToken'] = encoder.encode(apReq)
+        blob['MechToken'] = struct.pack('B', ASN1_AID) + asn1encode( struct.pack('B', ASN1_OID) + asn1encode(
+            TypesMech['KRB5 - Kerberos 5'] ) + KRB5_AP_REQ + encoder.encode(apReq))
 
         sessionSetup['SecurityBufferLength'] = len(blob)
         sessionSetup['Buffer']               = blob.getData()

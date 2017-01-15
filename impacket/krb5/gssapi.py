@@ -41,6 +41,8 @@ KG_USAGE_ACCEPTOR_SIGN  = 23
 KG_USAGE_INITIATOR_SEAL = 24
 KG_USAGE_INITIATOR_SIGN = 25
 
+KRB5_AP_REQ = struct.pack('<H', 0x1)
+
 # 1.1.1. Initial Token - Checksum field
 class CheckSumField(Structure):
     structure = (

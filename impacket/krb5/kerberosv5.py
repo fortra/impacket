@@ -30,7 +30,8 @@ from impacket.krb5.gssapi import CheckSumField, GSS_C_DCE_STYLE, GSS_C_MUTUAL_FL
 from impacket.krb5 import constants
 from impacket.krb5.crypto import Key, _enctype_table
 from impacket.smbconnection import SessionError
-from impacket.spnego import SPNEGO_NegTokenInit, TypesMech, SPNEGO_NegTokenResp
+from impacket.spnego import SPNEGO_NegTokenInit, TypesMech, SPNEGO_NegTokenResp, ASN1_OID, asn1encode, ASN1_AID
+from impacket.krb5.gssapi import KRB5_AP_REQ
 from impacket import nt_errors, LOG
 from impacket.krb5.ccache import CCache
 
@@ -583,7 +584,8 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT 
     apReq['authenticator']['etype'] = cipher.enctype
     apReq['authenticator']['cipher'] = encryptedEncodedAuthenticator
 
-    blob['MechToken'] = encoder.encode(apReq)
+    blob['MechToken'] = struct.pack('B', ASN1_AID) + asn1encode( struct.pack('B', ASN1_OID) + asn1encode(
+            TypesMech['KRB5 - Kerberos 5'] ) + KRB5_AP_REQ + encoder.encode(apReq))
 
     return cipher, sessionKey, blob.getData()
 

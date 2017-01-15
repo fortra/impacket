@@ -49,7 +49,8 @@ from contextlib import contextmanager
 
 from impacket import nmb, ntlm, nt_errors, LOG
 from impacket.structure import Structure
-from impacket.spnego import SPNEGO_NegTokenInit, TypesMech, SPNEGO_NegTokenResp
+from impacket.spnego import SPNEGO_NegTokenInit, TypesMech, SPNEGO_NegTokenResp, ASN1_OID, asn1encode, ASN1_AID
+from impacket.krb5.gssapi import KRB5_AP_REQ
 
 # For signing
 import hashlib
@@ -3142,7 +3143,8 @@ class SMB:
         apReq['authenticator']['etype'] = cipher.enctype
         apReq['authenticator']['cipher'] = encryptedEncodedAuthenticator
 
-        blob['MechToken'] = encoder.encode(apReq)
+        blob['MechToken'] = pack('B', ASN1_AID) + asn1encode(pack('B', ASN1_OID) + asn1encode(
+            TypesMech['KRB5 - Kerberos 5']) + KRB5_AP_REQ + encoder.encode(apReq))
 
         sessionSetup['Parameters']['SecurityBlobLength']  = len(blob)
         sessionSetup['Parameters'].getData()
