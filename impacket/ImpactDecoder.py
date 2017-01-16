@@ -22,7 +22,7 @@ import ICMP6
 import IP6_Extension_Headers
 from cdp import CDP
 from Dot11Crypto import RC4
-from impacket import wps, eap
+from impacket import wps, eap, dhcp
 from impacket.dot11 import Dot11WEPData
 from impacket import LOG
 
@@ -975,4 +975,26 @@ class EAPOLDecoder(BaseDecoder):
     }
     klass = eap.EAPOL
     child_key = lambda s, p: p.get_packet_type()
-    
+
+class BootpDecoder(Decoder):
+    def __init__(self):
+        pass
+
+    def decode(self, aBuffer):
+        d = dhcp.BootpPacket(aBuffer)
+        self.set_decoded_protocol( d )
+        off = len(d.getData())
+        if dhcp.DhcpPacket(aBuffer[off:])['cookie'] == dhcp.DhcpPacket.MAGIC_NUMBER:
+            self.data_decoder = DHCPDecoder()
+            packet = self.data_decoder.decode(aBuffer[off:])
+            d.contains(packet)
+        return d
+
+class DHCPDecoder(Decoder):
+    def __init__(self):
+        pass
+
+    def decode(self, aBuffer):
+        d = dhcp.DhcpPacket(aBuffer)
+        self.set_decoded_protocol( d )
+        return d
