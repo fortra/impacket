@@ -452,11 +452,11 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT 
                 # No cache present
                 pass
             else:
-                # retrieve user and domain information from CCache file if needed
-                if username == '' and len(ccache.principal.components) > 0:
-                    username = ccache.principal.components[0]['data']
+                # retrieve domain information from CCache file if needed
                 if domain == '':
                     domain = ccache.principal.realm['data']
+                    LOG.debug('Domain retrieved from CCache: %s' % domain)
+
                 LOG.debug("Using Kerberos Cache: %s" % os.getenv('KRB5CCNAME'))
                 principal = 'host/%s@%s' % (targetName.upper(), domain.upper())
                 creds = ccache.getCredential(principal)
@@ -471,6 +471,14 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT 
                         LOG.debug("No valid credentials found in cache. ")
                 else:
                     TGS = creds.toTGS()
+
+                # retrieve user information from CCache file if needed
+                if username == '' and creds is not None:
+                    username = creds['client'].prettyPrint().split('@')[0]
+                    LOG.debug('Username retrieved from CCache: %s' % username)
+                elif username == '' and len(ccache.principal.components) > 0:
+                    username = ccache.principal.components[0]['data']
+                    LOG.debug('Username retrieved from CCache: %s' % username)
 
     # First of all, we need to get a TGT for the user
     userName = Principal(username, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
