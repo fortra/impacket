@@ -41,8 +41,8 @@ dst = sys.argv[2]
 # Create a new IP packet and set its source and destination addresses.
 
 ip = IP6.IP6()
-ip.set_source_address(src)
-ip.set_destination_address(dst)
+ip.set_ip_src(src)
+ip.set_ip_dst(dst)
 ip.set_traffic_class(0)
 ip.set_flow_label(0)
 ip.set_hop_limit(64)

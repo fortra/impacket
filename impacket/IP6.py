@@ -21,7 +21,7 @@ class IP6(Header):
     
     def __init__(self, buffer = None):
         Header.__init__(self, IP6.HEADER_SIZE)
-        self.set_protocol_version(IP6.IP_PROTOCOL_VERSION)
+        self.set_ip_v(IP6.IP_PROTOCOL_VERSION)
         if (buffer):
             self.load_header(buffer)
 
@@ -34,14 +34,14 @@ class IP6(Header):
         return IP6.HEADER_SIZE
 
     def __str__(self):        
-        protocol_version = self.get_protocol_version()
+        protocol_version = self.get_ip_v()
         traffic_class = self.get_traffic_class()
         flow_label = self.get_flow_label()
         payload_length = self.get_payload_length()
         next_header = self.get_next_header()
         hop_limit = self.get_hop_limit()
-        source_address = self.get_source_address()
-        destination_address = self.get_destination_address()
+        source_address = self.get_ip_src()
+        destination_address = self.get_ip_dst()
 
         s = "Protocol version: " + str(protocol_version) + "\n"
         s += "Traffic class: " + str(traffic_class) + "\n"
@@ -54,9 +54,9 @@ class IP6(Header):
         return s
     
     def get_pseudo_header(self):
-        source_address = self.get_source_address().as_bytes()
+        source_address = self.get_ip_src().as_bytes()
         #FIXME - Handle Routing header special case
-        destination_address = self.get_destination_address().as_bytes()
+        destination_address = self.get_ip_dst().as_bytes()
         reserved_bytes = [ 0x00, 0x00, 0x00 ]
 
         upper_layer_packet_length = self.get_payload_length()
@@ -82,7 +82,7 @@ class IP6(Header):
         return pseudo_header
     
 ############################################################################
-    def get_protocol_version(self):
+    def get_ip_v(self):
         return (self.get_byte(0) & 0xF0) >> 4
 
     def get_traffic_class(self):
@@ -100,18 +100,18 @@ class IP6(Header):
     def get_hop_limit(self):
         return (self.get_byte(7))
 
-    def get_source_address(self):
+    def get_ip_src(self):
         address = IP6_Address(self.get_bytes()[8:24])
         return (address)    
 
-    def get_destination_address(self):
+    def get_ip_dst(self):
         address = IP6_Address(self.get_bytes()[24:40])
         return (address)    
 
 ############################################################################
-    def set_protocol_version(self, version):
+    def set_ip_v(self, version):
         if (version != 6):
-            raise Exception('set_protocol_version - version != 6')
+            raise Exception('set_ip_v - version != 6')
     
         #Fetch byte, clear high nibble
         b = self.get_byte(0) & 0x0F
@@ -150,16 +150,38 @@ class IP6(Header):
     def set_hop_limit(self, hop_limit):
         self.set_byte(7, hop_limit)
     
-    def set_source_address(self, source_address):
+    def set_ip_src(self, source_address):
         address = IP6_Address(source_address)
         bytes = self.get_bytes()
         bytes[8:24] = address.as_bytes()
         self.set_bytes(bytes)
 
-    def set_destination_address(self, destination_address):
+    def set_ip_dst(self, destination_address):
         address = IP6_Address(destination_address)
         bytes = self.get_bytes()
         bytes[24:40] = address.as_bytes()
         self.set_bytes(bytes)
-
+        
+    def get_protocol_version(self):
+        LOG.warning('deprecated soon')
+        return self.get_ip_v()    
     
+    def get_source_address(self):
+        LOG.warning('deprecated soon')
+        return self.get_ip_src()
+    
+    def get_destination_address(self):
+        LOG.warning('deprecated soon')
+        return self.get_ip_dst()
+    
+    def set_protocol_version(self, version):
+        LOG.warning('deprecated soon')
+        self.set_ip_v(version)
+    
+    def set_source_address(self, source_address):
+        LOG.warning('deprecated soon')
+        self.set_ip_src(source_address)
+    
+    def set_destination_address(self, destination_address):
+        LOG.warning('deprecated soon')
+        self.set_ip_dst(destination_address)

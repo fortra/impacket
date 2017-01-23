@@ -61,8 +61,8 @@ class TestICMP6(unittest.TestCase):
         ip6_packet.set_traffic_class(0)
         ip6_packet.set_flow_label(0)
         ip6_packet.set_hop_limit(1)
-        ip6_packet.set_source_address("FE80::78F8:89D1:30FF:256B")
-        ip6_packet.set_destination_address("FF02::1")
+        ip6_packet.set_ip_src("FE80::78F8:89D1:30FF:256B")
+        ip6_packet.set_ip_dst("FF02::1")
     
         #Encapsulate ICMP6 packet in IP6 packet, calculate the checksum using the pseudo-header        
         ip6_packet.contains(icmp6_packet)

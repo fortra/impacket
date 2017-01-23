@@ -62,8 +62,8 @@ class TestIP6(unittest.TestCase):
         ip6_packet.set_payload_length(1500)
         ip6_packet.set_next_header(17)
         ip6_packet.set_hop_limit(1)
-        ip6_packet.set_source_address("FE80::78F8:89D1:30FF:256B")
-        ip6_packet.set_destination_address("FF02::1:3")
+        ip6_packet.set_ip_src("FE80::78F8:89D1:30FF:256B")
+        ip6_packet.set_ip_dst("FF02::1:3")
         
         hop_by_hop = IP6_Extension_Headers.Hop_By_Hop()
         hop_by_hop.set_next_header(58)
@@ -153,8 +153,8 @@ class TestIP6(unittest.TestCase):
         ip6_packet.set_payload_length(1500)
         ip6_packet.set_next_header(17)
         ip6_packet.set_hop_limit(1)
-        ip6_packet.set_source_address("FE80::78F8:89D1:30FF:256B")
-        ip6_packet.set_destination_address("FF02::1:3")
+        ip6_packet.set_ip_src("FE80::78F8:89D1:30FF:256B")
+        ip6_packet.set_ip_dst("FF02::1:3")
         
         dest_opts = IP6_Extension_Headers.Destination_Options()
         dest_opts.set_next_header(58)
@@ -244,8 +244,8 @@ class TestIP6(unittest.TestCase):
         ip6_packet.set_payload_length(1500)
         ip6_packet.set_next_header(17)
         ip6_packet.set_hop_limit(1)
-        ip6_packet.set_source_address("FE80::78F8:89D1:30FF:256B")
-        ip6_packet.set_destination_address("FF02::1:3")
+        ip6_packet.set_ip_src("FE80::78F8:89D1:30FF:256B")
+        ip6_packet.set_ip_dst("FF02::1:3")
         
         routing_options = IP6_Extension_Headers.Routing_Options()
         routing_options.set_next_header(58)
@@ -337,8 +337,8 @@ class TestIP6(unittest.TestCase):
         ip6_packet.set_payload_length(1500)
         ip6_packet.set_next_header(17)
         ip6_packet.set_hop_limit(1)
-        ip6_packet.set_source_address("FE80::78F8:89D1:30FF:256B")
-        ip6_packet.set_destination_address("FF02::1:3")
+        ip6_packet.set_ip_src("FE80::78F8:89D1:30FF:256B")
+        ip6_packet.set_ip_dst("FF02::1:3")
         
         hop_by_hop = IP6_Extension_Headers.Hop_By_Hop()
         hop_by_hop.add_option(IP6_Extension_Headers.Option_PADN(14))
@@ -524,14 +524,14 @@ class TestIP6(unittest.TestCase):
         parsed_ipv6_packet = d.decode(binary_packet)
         
         # IPv6 Parsing
-        ipv6_protocol_version = parsed_ipv6_packet.get_protocol_version()
+        ipv6_protocol_version = parsed_ipv6_packet.get_ip_v()
         ipv6_traffic_class = parsed_ipv6_packet.get_traffic_class()
         ipv6_flow_label = parsed_ipv6_packet.get_flow_label()
         ipv6_payload_length = parsed_ipv6_packet.get_payload_length()
         ipv6_next_header = parsed_ipv6_packet.get_next_header()
         ipv6_hop_limit = parsed_ipv6_packet.get_hop_limit()
-        ipv6_source_address = parsed_ipv6_packet.get_source_address()
-        ipv6_destination_address = parsed_ipv6_packet.get_destination_address()
+        ipv6_source_address = parsed_ipv6_packet.get_ip_src()
+        ipv6_destination_address = parsed_ipv6_packet.get_ip_dst()
         
         # Hop By Hop Parsing
         hop_by_hop_parsed_packet = parsed_ipv6_packet.child()

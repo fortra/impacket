@@ -42,14 +42,14 @@ class TestIP6(unittest.TestCase):
         d = ImpactDecoder.IP6Decoder()        
         parsed_packet = d.decode(self.binary_packet)
         
-        protocol_version = parsed_packet.get_protocol_version()
+        protocol_version = parsed_packet.get_ip_v()
         traffic_class = parsed_packet.get_traffic_class()
         flow_label = parsed_packet.get_flow_label()
         payload_length = parsed_packet.get_payload_length()
         next_header = parsed_packet.get_next_header()
         hop_limit = parsed_packet.get_hop_limit()
-        source_address = parsed_packet.get_source_address()
-        destination_address = parsed_packet.get_destination_address()
+        source_address = parsed_packet.get_ip_src()
+        destination_address = parsed_packet.get_ip_dst()
         
         self.assertEquals(protocol_version, 6, "IP6 parsing - Incorrect protocol version")
         self.assertEquals(traffic_class, 72, "IP6 parsing - Incorrect traffic class")
@@ -69,8 +69,8 @@ class TestIP6(unittest.TestCase):
         crafted_packet.set_payload_length(1500)
         crafted_packet.set_next_header(17)
         crafted_packet.set_hop_limit(1)
-        crafted_packet.set_source_address("FE80::78F8:89D1:30FF:256B")
-        crafted_packet.set_destination_address("FF02::1:3")
+        crafted_packet.set_ip_src("FE80::78F8:89D1:30FF:256B")
+        crafted_packet.set_ip_dst("FF02::1:3")
         crafted_buffer = crafted_packet.get_bytes().tolist()
         self.assertEquals(crafted_buffer, self.binary_packet, "IP6 creation - Buffer mismatch")
 
