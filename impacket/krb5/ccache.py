@@ -23,6 +23,7 @@ from binascii import hexlify
 from impacket.structure import Structure
 from impacket.krb5 import crypto, constants, types
 from impacket.krb5.asn1 import AS_REP, seq_set, TGS_REP, EncTGSRepPart, EncASRepPart, Ticket
+from impacket import LOG
 
 DELTA_TIME = 1
 
@@ -336,10 +337,22 @@ class CCache:
             data += credential.getData()
         return data
 
-    def getCredential(self, server):
+    def getCredential(self, server, anySPN=True):
         for c in self.credentials:
             if c['server'].prettyPrint().upper() == server.upper():
+                LOG.debug('Returning cached credential for %s' % c['server'].prettyPrint().upper())
                 return c
+        LOG.debug('SPN %s not found in cache' % server.upper())
+        if anySPN is True:
+            LOG.debug('AnySPN is True, looking for another suitable SPN')
+            for c in self.credentials:
+                # Let's search for any TGT/TGS that matches the server w/o the SPN's service type, returns
+                # the first one
+                if c['server'].prettyPrint().find('/') >=0:
+                    if c['server'].prettyPrint().upper().split('/')[1] == server.upper().split('/')[1]:
+                        LOG.debug('Returning cached credential for %s' % c['server'].prettyPrint().upper())
+                        return c
+
         return None
 
     def toTimeStamp(self, dt, epoch=datetime(1970,1,1)):

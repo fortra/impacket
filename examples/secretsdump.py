@@ -113,7 +113,18 @@ class DumpSecrets:
                 self.__isRemote = True
                 bootKey = None
                 try:
-                    self.connect()
+                    try:
+                        self.connect()
+                    except:
+                        if os.getenv('KRB5CCNAME') is not None and self.__doKerberos is True:
+                            # SMBConnection failed. That might be because there was no way to log into the
+                            # target system. We just have a last resort. Hope we have tickets cached and that they
+                            # will work
+                            logging.debug('SMBConnection didn\'t work, hoping Kerberos will help')
+                            pass
+                        else:
+                            raise
+
                     self.__remoteOps  = RemoteOperations(self.__smbConnection, self.__doKerberos, self.__kdcHost)
                     if self.__justDC is False and self.__justDCNTLM is False or self.__useVSSMethod is True:
                         self.__remoteOps.enableRegistry()

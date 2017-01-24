@@ -260,7 +260,8 @@ class RemoteFile:
 class RemoteOperations:
     def __init__(self, smbConnection, doKerberos, kdcHost=None):
         self.__smbConnection = smbConnection
-        self.__smbConnection.setTimeout(5*60)
+        if self.__smbConnection is not None:
+            self.__smbConnection.setTimeout(5*60)
         self.__serviceName = 'RemoteRegistry'
         self.__stringBindingWinReg = r'ncacn_np:445[\pipe\winreg]'
         self.__rrp = None
@@ -336,6 +337,10 @@ class RemoteOperations:
             self.__drsr.set_auth_type(RPC_C_AUTHN_GSS_NEGOTIATE)
         self.__drsr.connect()
         self.__drsr.bind(drsuapi.MSRPC_UUID_DRSUAPI)
+
+        if self.__domainName is None:
+            # Get domain name from credentials cached
+            self.__domainName = rpc.get_credentials()[2]
 
         request = drsuapi.DRSBind()
         request['puuidClientDsa'] = drsuapi.NTDSAPI_CLIENT_GUID
@@ -604,7 +609,13 @@ class RemoteOperations:
         if self.__samr is not None:
             self.__samr.disconnect()
         if self.__scmr is not None:
-            self.__scmr.disconnect()
+            try:
+                self.__scmr.disconnect()
+            except Exception, e:
+                if str(e).find('STATUS_INVALID_PARAMETER') >=0:
+                    pass
+                else:
+                    raise
 
     def getBootKey(self):
         bootKey = ''
@@ -1872,7 +1883,19 @@ class NTDSHashes:
             if self.__NTDS is None:
                 # DRSUAPI method, checking whether target is a DC
                 try:
-                    self.__remoteOps.connectSamr(self.__remoteOps.getMachineNameAndDomain()[1])
+                    if self.__remoteOps is not None:
+                        try:
+                            self.__remoteOps.connectSamr(self.__remoteOps.getMachineNameAndDomain()[1])
+                        except:
+                            if os.getenv('KRB5CCNAME') is not None and self.__justUser is not None:
+                                # RemoteOperations failed. That might be because there was no way to log into the
+                                # target system. We just have a last resort. Hope we have tickets cached and that they
+                                # will work
+                                pass
+                            else:
+                                raise
+                    else:
+                        raise Exception('No remote Operations available')
                 except Exception, e:
                     LOG.debug('Exiting NTDSHashes.dump() because %s' % e)
                     # Target's not a DC
