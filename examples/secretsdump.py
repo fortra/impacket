@@ -133,7 +133,13 @@ class DumpSecrets:
                         self.__noLMHash = self.__remoteOps.checkNoLMHashPolicy()
                 except Exception, e:
                     self.__canProcessSAMLSA = False
-                    logging.error('RemoteOperations failed: %s' % str(e))
+                    if str(e).find('STATUS_USER_SESSION_DELETED') and os.getenv('KRB5CCNAME') is not None \
+                        and self.__doKerberos is True:
+                        # Giving some hints here when SPN target name validation is set to something different to Off
+                        # This will prevent establishing SMB connections using TGS for SPNs different to cifs/
+                        logging.error('Policy SPN target name validation might be restricting full DRSUAPI dump. Try -just-dc-user')
+                    else:
+                        logging.error('RemoteOperations failed: %s' % str(e))
 
             # If RemoteOperations succeeded, then we can extract SAM and LSA
             if self.__justDC is False and self.__justDCNTLM is False and self.__canProcessSAMLSA:
