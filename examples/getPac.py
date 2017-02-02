@@ -11,7 +11,7 @@
 # Description:
 #     This script will get the PAC of the specified target user just having a normal authenticated user credentials.
 #     It does so by using a mix of [MS-SFU]'s S4USelf + User to User Kerberos Authentication.
-#     Original idea (or accidental discovery :) ) of adding U2U capabilities inside a S4USelf by Benjamin Delphi (@gentilkiwi)
+#     Original idea (or accidental discovery :) ) of adding U2U capabilities inside a S4USelf by Benjamin Delpy (@gentilkiwi)
 #
 # References:
 #
