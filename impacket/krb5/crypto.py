@@ -46,7 +46,7 @@ import string
 import random
 
 from Crypto.Util.number import GCD as gcd
-from Crypto.Cipher import AES, DES3, ARC4
+from Crypto.Cipher import AES, DES3, ARC4, DES
 from Crypto.Hash import HMAC, MD4, MD5, SHA
 from Crypto.Protocol.KDF import PBKDF2
 
@@ -236,6 +236,128 @@ class _SimplifiedEnctype(_EnctypeProfile):
         kp = cls.derive(key, 'prf')
         return cls.basic_encrypt(kp, truncated)
 
+class _DESCBC(_SimplifiedEnctype):
+    enctype = Enctype.DES_MD5
+    keysize = 8
+    seedsize = 8
+    blocksize = 8
+    padsize = 8
+    macsize = 16
+    hashmod = MD5
+
+    @classmethod
+    def encrypt(cls, key, keyusage, plaintext, confounder):
+        if confounder is None:
+            confounder = get_random_bytes(cls.blocksize)
+        basic_plaintext = confounder + '\x00'*cls.macsize + _zeropad(plaintext, cls.padsize)
+        checksum = cls.hashmod.new(basic_plaintext).digest()
+        basic_plaintext = basic_plaintext[:len(confounder)] + checksum + basic_plaintext[len(confounder)+len(checksum):]
+        return cls.basic_encrypt(key, basic_plaintext)
+        
+        
+    @classmethod
+    def decrypt(cls, key, keyusage, ciphertext):
+        if len(ciphertext) < cls.blocksize + cls.macsize:
+            raise ValueError('ciphertext too short')
+        
+        complex_plaintext = cls.basic_decrypt(key, ciphertext)
+        cofounder = complex_plaintext[:cls.padsize]
+        mac = complex_plaintext[cls.padsize:cls.padsize+cls.macsize]
+        message = complex_plaintext[cls.padsize+cls.macsize:]
+        
+        expmac = cls.hashmod.new(cofounder+'\x00'*cls.macsize+message).digest()
+        if not _mac_equal(mac, expmac):
+            raise InvalidChecksum('ciphertext integrity failure')
+        return message
+    
+    @classmethod
+    def mit_des_string_to_key(cls,string,salt):
+    
+        def fixparity(deskey):
+            temp = ''
+            for byte in deskey:
+                t = (bin(ord(byte))[2:]).rjust(8,'0')
+                if t[:7].count('1') %2 == 0:
+                    temp+= chr(int(t[:7]+'1',2))
+                else:
+                    temp+= chr(int(t[:7]+'0',2))
+            return temp
+    
+        def addparity(l1):
+            temp = list()
+            for byte in l1:
+                if (bin(byte).count('1') % 2) == 0:
+                    byte = (byte << 1)|0b00000001
+                else:
+                    byte = (byte << 1)&0b11111110
+                temp.append(byte)
+            return temp
+        
+        def XOR(l1,l2):
+            temp = list()
+            for b1,b2 in zip(l1,l2):
+                temp.append((b1^b2)&0b01111111)
+            
+            return temp
+        
+        odd = True
+        s = string + salt
+        tempstring = [0,0,0,0,0,0,0,0]
+        s = s + '\x00'*( 8- (len(s)%8)) #pad(s); /* with nulls to 8 byte boundary */
+        
+        for block in [s[i:i+8] for i in range(0, len(s), 8)]:
+            temp56 = list()
+            #removeMSBits
+            for byte in block:
+                temp56.append(ord(byte)&0b01111111)
+            
+            #reverse
+            if odd == False:
+                bintemp = ''
+                for byte in temp56:
+                    bintemp += (bin(byte)[2:]).rjust(7,'0')
+                bintemp = bintemp[::-1]
+                
+                temp56 = list()
+                for bits7 in [bintemp[i:i+7] for i in range(0, len(bintemp), 7)]:
+                    temp56.append(int(bits7,2))
+
+            odd = not odd
+                
+            tempstring = XOR(tempstring,temp56)
+        
+        tempkey = ''.join(chr(byte) for byte in addparity(tempstring))
+        if _is_weak_des_key(tempkey):
+            tempkey[7] = chr(ord(tempkey[7]) ^ 0xF0)
+        
+        cipher = DES.new(tempkey, DES.MODE_CBC, tempkey)
+        chekcsumkey = cipher.encrypt(s)[-8:]
+        chekcsumkey = fixparity(chekcsumkey)
+        if _is_weak_des_key(chekcsumkey):
+            chekcsumkey[7] = chr(ord(chekcsumkey[7]) ^ 0xF0)
+        
+        return Key(cls.enctype, chekcsumkey)
+
+    @classmethod
+    def basic_encrypt(cls, key, plaintext):
+        assert len(plaintext) % 8 == 0
+        des = DES.new(key.contents, DES.MODE_CBC, '\0' * 8)
+        return des.encrypt(plaintext)
+
+    @classmethod
+    def basic_decrypt(cls, key, ciphertext):
+        assert len(ciphertext) % 8 == 0
+        des = DES.new(key.contents, DES.MODE_CBC, '\0' * 8)
+        return des.decrypt(ciphertext)        
+    
+    @classmethod
+    def string_to_key(cls, string, salt, params):
+        if params is not None and params != '':
+            raise ValueError('Invalid DES string-to-key parameters')
+        key = cls.mit_des_string_to_key(string, salt)
+        return key
+    
+    
 
 class _DES3CBC(_SimplifiedEnctype):
     enctype = Enctype.DES3
@@ -471,6 +593,7 @@ class _HMACMD5(_ChecksumProfile):
 
 
 _enctype_table = {
+    Enctype.DES_MD5: _DESCBC,
     Enctype.DES3: _DES3CBC,
     Enctype.AES128: _AES128CTS,
     Enctype.AES256: _AES256CTS,
@@ -713,3 +836,19 @@ if __name__ == '__main__':
     k2 = string_to_key(Enctype.RC4, 'key2', 'key2')
     k = cf2(Enctype.RC4, k1, k2, 'a', 'b')
     assert(k.contents == kb)
+
+    # DES string-to-key
+    string = 'password'
+    salt = 'ATHENA.MIT.EDUraeburn'
+    kb = h('cbc22fae235298e3')
+    k = string_to_key(Enctype.DES_MD5, string, salt)
+    assert(k.contents == kb)
+    
+    # DES string-to-key
+    string = 'potatoe'
+    salt = 'WHITEHOUSE.GOVdanny'
+    kb = h('df3d32a74fd92a01')
+    k = string_to_key(Enctype.DES_MD5, string, salt)
+    assert(k.contents == kb)
+    
+    
