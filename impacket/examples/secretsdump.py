@@ -65,7 +65,7 @@ from impacket.ese import ESENT_DB
 from impacket.nt_errors import STATUS_MORE_ENTRIES
 from impacket.structure import Structure
 from impacket.winregistry import hexdump
-
+from impacket.uuid import string_to_bin
 try:
     from Crypto.Cipher import DES, ARC4, AES
     from Crypto.Hash import HMAC, MD4
@@ -422,10 +422,10 @@ class RemoteOperations:
 
         dsName = drsuapi.DSNAME()
         dsName['SidLen'] = 0
-        dsName['Guid'] = drsuapi.NULLGUID
+        dsName['Guid'] = string_to_bin(userEntry[1:-1])
         dsName['Sid'] = ''
-        dsName['NameLen'] = len(userEntry)
-        dsName['StringName'] = (userEntry + '\x00')
+        dsName['NameLen'] = 0
+        dsName['StringName'] = ('\x00')
 
         dsName['structLen'] = len(dsName.getData())
 
@@ -2001,7 +2001,7 @@ class NTDSHashes:
 
                 if self.__justUser is not None:
                     crackedName = self.__remoteOps.DRSCrackNames(drsuapi.DS_NT4_ACCOUNT_NAME_SANS_DOMAIN,
-                                                                 drsuapi.DS_NAME_FORMAT.DS_FQDN_1779_NAME,
+                                                                 drsuapi.DS_NAME_FORMAT.DS_UNIQUE_ID_NAME,
                                                                  name=self.__justUser)
 
                     if crackedName['pmsgOut']['V1']['pResult']['cItems'] == 1:
@@ -2054,7 +2054,7 @@ class NTDSHashes:
                             # I could use it when calling DRSGetNCChanges inside the DSNAME parameter.
                             # For some reason tho, I get ERROR_DS_DRA_BAD_DN when doing so.
                             crackedName = self.__remoteOps.DRSCrackNames(drsuapi.DS_NAME_FORMAT.DS_SID_OR_SID_HISTORY_NAME,
-                                                                         drsuapi.DS_NAME_FORMAT.DS_FQDN_1779_NAME,
+                                                                         drsuapi.DS_NAME_FORMAT.DS_UNIQUE_ID_NAME,
                                                                          name=userSid.formatCanonical())
 
                             if crackedName['pmsgOut']['V1']['pResult']['cItems'] == 1:
