@@ -2484,12 +2484,10 @@ class SMB:
     def doesSupportNTLMv2(self):
         return self.__isNTLMv2
 
-    def __del__(self):
-        self.close_session()
-            
     def close_session(self):
         if self._sess:
             self._sess.close()
+            self._sess = None
 
     def recvSMB(self):
         r = self._sess.recv_packet(self.__timeout)

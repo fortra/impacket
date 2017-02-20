@@ -1607,12 +1607,10 @@ class SMB3:
     retr_file                  = retrieveFile
     list_path                  = listPath
 
-    def __del__(self):
-        self.close_session()
-
     def close_session(self):
         if self._NetBIOSSession:
             self._NetBIOSSession.close()
+            self._NetBIOSSession = None
 
     def doesSupportNTLMv2(self):
         # Always true :P 
