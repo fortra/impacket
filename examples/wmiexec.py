@@ -36,6 +36,7 @@ from impacket.dcerpc.v5.dcom import wmi
 from impacket.dcerpc.v5.dtypes import NULL
 
 OUTPUT_FILENAME = '__' + str(time.time())
+CODEC = sys.getdefaultencoding()
 
 class WMIEXEC:
     def __init__(self, command='', username='', password='', domain='', hashes=None, aesKey=None, share=None,
@@ -109,12 +110,12 @@ class RemoteShell(cmd.Cmd):
     def __init__(self, share, win32Process, smbConnection):
         cmd.Cmd.__init__(self)
         self.__share = share
-        self.__output = '\\' + OUTPUT_FILENAME 
-        self.__outputBuffer = ''
+        self.__output = '\\' + OUTPUT_FILENAME
+        self.__outputBuffer = unicode('')
         self.__shell = 'cmd.exe /Q /c '
         self.__win32Process = win32Process
         self.__transferClient = smbConnection
-        self.__pwd = 'C:\\'
+        self.__pwd = unicode('C:\\')
         self.__noOutput = False
         self.intro = '[!] Launching semi-interactive shell - Careful what you execute\n[!] Press help for extra shell commands'
 
@@ -193,13 +194,13 @@ class RemoteShell(cmd.Cmd):
     def do_cd(self, s):
         self.execute_remote('cd ' + s)
         if len(self.__outputBuffer.strip('\r\n')) > 0:
-            print self.__outputBuffer
+            print self.__outputBuffer.decode(CODEC)
             self.__outputBuffer = ''
         else:
-            self.__pwd = ntpath.normpath(ntpath.join(self.__pwd, s))
+            self.__pwd = ntpath.normpath(ntpath.join(self.__pwd, s.decode(sys.stdin.encoding)))
             self.execute_remote('cd ')
-            self.__pwd = self.__outputBuffer.strip('\r\n')
-            self.prompt = self.__pwd + '>'
+            self.__pwd = self.__outputBuffer.strip('\r\n').decode(CODEC)
+            self.prompt = unicode(self.__pwd + '>').encode(sys.stdout.encoding)
             self.__outputBuffer = ''
 
     def default(self, line):
@@ -209,14 +210,14 @@ class RemoteShell(cmd.Cmd):
             self.execute_remote(line)
             if len(self.__outputBuffer.strip('\r\n')) > 0: 
                 # Something went wrong
-                print self.__outputBuffer
+                print self.__outputBuffer.decode(CODEC)
                 self.__outputBuffer = ''
             else:
                 # Drive valid, now we should get the current path
                 self.__pwd = line
                 self.execute_remote('cd ')
                 self.__pwd = self.__outputBuffer.strip('\r\n')
-                self.prompt = self.__pwd + '>'
+                self.prompt = unicode(self.__pwd + '>').encode(sys.stdout.encoding)
                 self.__outputBuffer = ''
         else:
             if line != '':
@@ -250,12 +251,18 @@ class RemoteShell(cmd.Cmd):
         command = self.__shell + data 
         if self.__noOutput is False:
             command += ' 1> ' + '\\\\127.0.0.1\\%s' % self.__share + self.__output  + ' 2>&1'
-        self.__win32Process.Create(command, self.__pwd, None)
+        self.__win32Process.Create(command.decode(sys.stdin.encoding), self.__pwd, None)
         self.get_output()
 
     def send_data(self, data):
-        self.execute_remote(data)
-        print self.__outputBuffer
+        try:
+            self.execute_remote(data)
+            print self.__outputBuffer.decode(CODEC)
+        except UnicodeDecodeError, e:
+            logging.error('Decoding error detected, consider running chcp.com at the target,\nmap the result with '
+                          'https://docs.python.org/2.4/lib/standard-encodings.html\nand then execute wmiexec.py '
+                          'again with -codec and the corresponding codec')
+            print self.__outputBuffer
         self.__outputBuffer = ''
 
 class AuthFileSyntaxError(Exception):
@@ -321,6 +328,11 @@ if __name__ == '__main__':
     parser.add_argument('-nooutput', action='store_true', default = False, help='whether or not to print the output '
                                                                                 '(no SMB connection created)')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
+    parser.add_argument('-codec', action='store', help='Sets encoding used (codec) from the target\'s output (default '
+                                                       '"%s"). If errors are detected, run chcp.com at the target, '
+                                                       'map the result with '
+                          'https://docs.python.org/2.4/lib/standard-encodings.html and then execute wmiexec.py '
+                          'again with -codec and the corresponding codec ' % CODEC)
 
     parser.add_argument('command', nargs='*', default = ' ', help='command to execute at the target. If empty it will '
                                                                   'launch a semi-interactive shell')
@@ -344,6 +356,9 @@ if __name__ == '__main__':
         sys.exit(1)
 
     options = parser.parse_args()
+
+    if options.codec is not None:
+        CODEC = options.codec
 
     if ' '.join(options.command) == ' ' and options.nooutput is True:
         logging.error("-nooutput switch and interactive shell not supported")

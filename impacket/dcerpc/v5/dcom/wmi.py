@@ -2585,7 +2585,15 @@ class IWbemClassObject(IRemUnknown):
                             ndTable |= 3 << (2*i)
                     else:
                         strIn = ENCODED_STRING()
-                        strIn['Character'] = inArg
+                        if type(inArg) is unicode:
+                            # The Encoded-String-Flag is set to 0x01 if the sequence of characters that follows
+                            # consists of UTF-16 characters (as specified in [UNICODE]) followed by a UTF-16 null
+                            # terminator.
+                            strIn['Encoded_String_Flag'] = 0x1
+                            strIn.structure = strIn.tunicode
+                            strIn['Character'] = inArg.encode('utf-16le')
+                        else:
+                            strIn['Character'] = inArg
                         valueTable += pack('<L', curHeapPtr)
                         instanceHeap += str(strIn)
                         curHeapPtr = len(instanceHeap)
