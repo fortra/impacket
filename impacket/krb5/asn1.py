@@ -246,8 +246,8 @@ class TGS_REQ(KDC_REQ):
 class KDC_REP(univ.Sequence):
     componentType = namedtype.NamedTypes(
         _vno_component(0),
-        _msg_type_component(1, (constants.ApplicationTagNumbers.AS_REQ.value,
-                                constants.ApplicationTagNumbers.TGS_REQ.value)),
+        _msg_type_component(1, (constants.ApplicationTagNumbers.AS_REP.value,
+                                constants.ApplicationTagNumbers.TGS_REP.value)),
         _sequence_optional_component('padata', 2,
                                      univ.SequenceOf(componentType=PA_DATA())),
         _sequence_component('crealm', 3, Realm()),
