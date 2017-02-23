@@ -139,9 +139,10 @@ class GetADUsers:
 
         try:
             logging.info('Querying %s for information about domain. Be patient...' % self.__target)
+            sc = ldap.SimplePagedResultsControl()
             resp = ldapConnection.search(searchFilter=searchFilter,
                                          attributes=['sAMAccountName', 'pwdLastSet', 'mail', 'lastLogon'],
-                                         sizeLimit=999)
+                                         sizeLimit=0, searchControls = [sc])
         except ldap.LDAPSearchError, e:
             if e.getErrorString().find('sizeLimitExceeded') >= 0:
                 logging.debug('sizeLimitExceeded exception caught, giving up and processing the data received')
