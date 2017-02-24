@@ -114,6 +114,7 @@ class SMBAttack(Thread):
                     self.__answerTMP = ''
                     self.__SMBConnection.getFile('ADMIN$', 'Temp\\__output', self.__answer)
                     self.__SMBConnection.deleteFile('ADMIN$', 'Temp\\__output')
+                    print self.__answerTMP.decode(self.config.encoding, 'replace')
                 else:
                     bootKey = remoteOps.getBootKey()
                     remoteOps._RemoteOperations__serviceDeleted = True
@@ -361,6 +362,11 @@ if __name__ == '__main__':
                     'directory in which gathered loot such as SAM dumps will be stored (default: current directory).')
     parser.add_argument('-of','--output-file', action='store',help='base output filename for encrypted hashes. Suffixes '
                                                                    'will be added for ntlm and ntlmv2')
+    parser.add_argument('-codec', action='store', help='Sets encoding used (codec) from the target\'s output (default '
+                                                       '"%s"). If errors are detected, run chcp.com at the target, '
+                                                       'map the result with '
+                                                       'https://docs.python.org/2.4/lib/standard-encodings.html and then execute wmiexec.py '
+                                                       'again with -codec and the corresponding codec ' % sys.getdefaultencoding())
     parser.add_argument('-machine-account', action='store', required=False, help='Domain machine account to use when '
                         'interacting with the domain to grab a session key for signing, format is domain/machine_name')
     parser.add_argument('-machine-hashes', action="store", metavar = "LMHASH:NTHASH", help='Domain machine hashes, format is LMHASH:NTHASH')
@@ -405,6 +411,11 @@ if __name__ == '__main__':
        logging.error(str(e))
        sys.exit(1)
 
+    if options.codec is not None:
+        codec = options.codec
+    else:
+        codec = sys.getdefaultencoding()
+
     if options.target is not None:
         logging.info("Running in relay mode to single host")
         mode = 'RELAY'
@@ -433,6 +444,7 @@ if __name__ == '__main__':
         c.setTargets(targetSystem)
         c.setExeFile(options.e)
         c.setCommand(options.c)
+        c.setEncoding(codec)
         c.setMode(mode)
         c.setAttacks(ATTACKS)
         c.setLootdir(options.lootdir)

@@ -26,6 +26,7 @@ class NTLMRelayxConfig:
         self.attacks = None
         self.lootdir = None
         self.randomtargets = False
+        self.encoding = None
 
         #SMB options
         self.exeFile = None
@@ -50,6 +51,9 @@ class NTLMRelayxConfig:
 
     def setCommand(self, command):
         self.command = command
+
+    def setEncoding(self, encoding):
+        self.encoding = encoding
 
     def setMode(self,mode):
         self.mode = mode
