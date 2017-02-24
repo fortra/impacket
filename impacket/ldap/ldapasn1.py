@@ -591,8 +591,7 @@ class SimplePagedResultsControl(Control):
 
     def decodeControlValue(self):
         decodedControlValue, _ = decoder.decode(self['controlValue'], asn1Spec=SimplePagedResultsControlValue())
-        self._size = decodedControlValue['size']
-        self._cookie = decodedControlValue['cookie']
+        self._size, self._cookie = decodedControlValue[0], decodedControlValue[1]
         return decodedControlValue
 
     def getCriticality(self):
