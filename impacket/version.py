@@ -8,5 +8,5 @@
 VER_MAJOR = "0"
 VER_MINOR = "9.16-dev"
 
-BANNER = "Impacket v%s.%s - Copyright 2002-2016 Core Security Technologies\n" % (VER_MAJOR,VER_MINOR)
+BANNER = "Impacket v%s.%s - Copyright 2002-2017 Core Security Technologies\n" % (VER_MAJOR,VER_MINOR)
 
