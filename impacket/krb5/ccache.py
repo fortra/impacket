@@ -268,7 +268,7 @@ class Credential:
         tgt['sessionKey'] = crypto.Key(cipher.enctype, str(self['key']['keyvalue']))
         return tgt
         
-    def toTGS(self):
+    def toTGS(self, newSPN=None):
         tgs_rep = TGS_REP()
         tgs_rep['pvno'] = 5
         tgs_rep['msg-type'] = int(constants.ApplicationTagNumbers.TGS_REP.value)
@@ -281,6 +281,10 @@ class Credential:
         seq_set(tgs_rep, 'cname', self['client'].toPrincipal().components_to_asn1)
         ticket = types.Ticket()
         ticket.from_asn1(self.ticket['data'])
+        if newSPN is not None:
+            if newSPN.upper() != str(ticket.service_principal).upper():
+                LOG.debug('Changing sname from %s to %s and hoping for the best' % (ticket.service_principal, newSPN) )
+                ticket.service_principal = types.Principal(newSPN, type=int(ticket.service_principal.type))
         seq_set(tgs_rep,'ticket', ticket.to_asn1)
 
         cipher = crypto._enctype_table[self['key']['keytype']]()

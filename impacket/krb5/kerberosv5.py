@@ -470,7 +470,7 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT 
                     else:
                         LOG.debug("No valid credentials found in cache. ")
                 else:
-                    TGS = creds.toTGS()
+                    TGS = creds.toTGS(principal)
 
                 # retrieve user information from CCache file if needed
                 if username == '' and creds is not None:

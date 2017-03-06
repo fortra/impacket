@@ -316,7 +316,7 @@ class SMBConnection:
                     else:
                         LOG.debug("No valid credentials found in cache. ")
                 else:
-                    TGS = creds.toTGS()
+                    TGS = creds.toTGS(principal)
                     LOG.debug('Using TGS from cache')
 
                 # retrieve user information from CCache file if needed
