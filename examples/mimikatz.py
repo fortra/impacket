@@ -61,7 +61,7 @@ class MimikatzShell(cmd.Cmd):
         self.last_output = None
 
         self.dce = rpcTransport.get_dce_rpc()
-        self.dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_INTEGRITY)
+        self.dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
         if rpcTransport.get_kerberos() is True:
             self.dce.set_auth_type(RPC_C_AUTHN_GSS_NEGOTIATE)
         self.dce.connect()
@@ -194,7 +194,17 @@ def main():
     try:
         if username != '':
             try:
-                stringBinding = epm.hept_map(address, mimilib.MSRPC_UUID_MIMIKATZ, protocol = 'ncacn_np')
+                # Let's try to do everything thru SMB. If we'e lucky it might get everything encrypted
+                rpctransport = DCERPCTransportFactory(r'ncacn_np:%s[\pipe\epmapper]'%address)
+                rpctransport.set_credentials(username, password, domain, lmhash, nthash, options.aesKey)
+                if options.k:
+                    rpctransport.set_kerberos(True, options.dc_ip)
+                dce = rpctransport.get_dce_rpc()
+                dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
+                if rpctransport.get_kerberos() is True:
+                    dce.set_auth_type(RPC_C_AUTHN_GSS_NEGOTIATE)
+                dce.connect()
+                stringBinding = epm.hept_map(address, mimilib.MSRPC_UUID_MIMIKATZ, protocol = 'ncacn_np', dce=dce)
             except Exception, e:
                 if str(e).find('ept_s_not_registered') >=0:
                     # Let's try ncacn_ip_tcp
@@ -204,6 +214,7 @@ def main():
 
         else:
             stringBinding = epm.hept_map(address, mimilib.MSRPC_UUID_MIMIKATZ, protocol = 'ncacn_ip_tcp')
+
         rpctransport = DCERPCTransportFactory(stringBinding)
 
         if options.k is True:
@@ -225,8 +236,8 @@ def main():
         else:
             shell.cmdloop()
     except Exception, e:
-        #import traceback
-        #print traceback.print_exc()
+        import traceback
+        print traceback.print_exc()
         logging.error(str(e))
 
 if __name__ == "__main__":
