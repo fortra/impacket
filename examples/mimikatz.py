@@ -22,7 +22,7 @@ import sys
 
 from impacket import version
 from impacket.dcerpc.v5 import epm, mimilib
-from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY
+from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY, RPC_C_AUTHN_GSS_NEGOTIATE, RPC_C_AUTHN_LEVEL_PKT_INTEGRITY
 from impacket.dcerpc.v5.transport import DCERPCTransportFactory
 from impacket.examples import logger
 
@@ -61,7 +61,9 @@ class MimikatzShell(cmd.Cmd):
         self.last_output = None
 
         self.dce = rpcTransport.get_dce_rpc()
-        self.dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
+        self.dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_INTEGRITY)
+        if rpcTransport.get_kerberos() is True:
+            self.dce.set_auth_type(RPC_C_AUTHN_GSS_NEGOTIATE)
         self.dce.connect()
         self.dce.bind(mimilib.MSRPC_UUID_MIMIKATZ)
 
@@ -149,8 +151,6 @@ def main():
     group.add_argument('-target-ip', action='store', metavar="ip address",
                        help='IP Address of the target machine. If ommited it will use whatever was specified as target. '
                             'This is useful when target is the NetBIOS name and you cannot resolve it')
-    group.add_argument('-port', choices=['139', '445'], nargs='?', default='445', metavar="destination port",
-                       help='Destination port to connect to SMB Server')
 
     if len(sys.argv)==1:
         parser.print_help()
@@ -192,12 +192,23 @@ def main():
         nthash = ''
  
     try:
-        stringBinding = epm.hept_map(address, mimilib.MSRPC_UUID_MIMIKATZ, protocol = 'ncacn_ip_tcp')
+        if username != '':
+            try:
+                stringBinding = epm.hept_map(address, mimilib.MSRPC_UUID_MIMIKATZ, protocol = 'ncacn_np')
+            except Exception, e:
+                if str(e).find('ept_s_not_registered') >=0:
+                    # Let's try ncacn_ip_tcp
+                    stringBinding = epm.hept_map(address, mimilib.MSRPC_UUID_MIMIKATZ, protocol = 'ncacn_ip_tcp')
+                else:
+                    raise
+
+        else:
+            stringBinding = epm.hept_map(address, mimilib.MSRPC_UUID_MIMIKATZ, protocol = 'ncacn_ip_tcp')
         rpctransport = DCERPCTransportFactory(stringBinding)
 
         if options.k is True:
             rpctransport.set_credentials(username, password, domain, lmhash, nthash, options.aesKey)
-            rpctransport.set_kerberos(options.dc_ip)
+            rpctransport.set_kerberos(True, options.dc_ip)
         else:
             rpctransport.set_credentials(username, password, domain, lmhash, nthash)
 
