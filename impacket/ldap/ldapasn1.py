@@ -535,7 +535,6 @@ class Control(univ.Sequence):
 
     def setComponentByPosition(self, idx, value=None,
                                verifyConstraints=True,
-                               exactTypes=False,
                                matchTags=True,
                                matchConstraints=True):
         if idx == 0:  # controlType
@@ -547,7 +546,6 @@ class Control(univ.Sequence):
                 pass
         return univ.Sequence.setComponentByPosition(self, idx, value=value,
                                                     verifyConstraints=verifyConstraints,
-                                                    exactTypes=exactTypes,
                                                     matchTags=matchTags,
                                                     matchConstraints=matchConstraints)
 
