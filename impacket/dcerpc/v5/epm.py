@@ -1291,8 +1291,9 @@ def hept_map(destHost, remoteIf, dataRepresentation = uuidtup_to_bin(('8a885d04-
         # Port Number should be the 4th floor
         portAddr = EPMPortAddr(tower['Floors'][3].getData())
         result = 'ncacn_ip_tcp:%s[%s]' % (destHost, portAddr['IpPort'])
-        
-    dce.disconnect()
+
+    if dce is None:
+        dce.disconnect()
     return result
 
 def PrintStringBinding(floors, serverAddr = '0.0.0.0'):

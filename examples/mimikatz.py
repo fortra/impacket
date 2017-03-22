@@ -22,7 +22,7 @@ import sys
 
 from impacket import version
 from impacket.dcerpc.v5 import epm, mimilib
-from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY, RPC_C_AUTHN_GSS_NEGOTIATE, RPC_C_AUTHN_LEVEL_PKT_INTEGRITY
+from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY, RPC_C_AUTHN_GSS_NEGOTIATE
 from impacket.dcerpc.v5.transport import DCERPCTransportFactory
 from impacket.examples import logger
 
@@ -39,13 +39,11 @@ except ImportError:
   import readline
 
 class MimikatzShell(cmd.Cmd):
-    def __init__(self, rpcTransport):
+    def __init__(self, dce):
         cmd.Cmd.__init__(self)
         self.shell = None
 
         self.prompt = 'mimikatz # '
-        self.rpc = rpcTransport
-        self.username, self.password, self.domain, self.lmhash, self.nthash, self.aesKey, self.TGT, self.TGS = rpcTransport.get_credentials()
         self.tid = None
         self.intro = '' \
                     '  .#####.   mimikatz RPC interface\n'\
@@ -60,12 +58,7 @@ class MimikatzShell(cmd.Cmd):
         self.loggedIn = True
         self.last_output = None
 
-        self.dce = rpcTransport.get_dce_rpc()
-        self.dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
-        if rpcTransport.get_kerberos() is True:
-            self.dce.set_auth_type(RPC_C_AUTHN_GSS_NEGOTIATE)
-        self.dce.connect()
-        self.dce.bind(mimilib.MSRPC_UUID_MIMIKATZ)
+        self.dce = dce
 
         dh = mimilib.MimiDiffeH()
         blob = mimilib.PUBLICKEYBLOB()
@@ -79,7 +72,6 @@ class MimikatzShell(cmd.Cmd):
 
         self.key = dh.getSharedSecret(''.join(blob['y'])[::-1])[-16:][::-1]
         self.pHandle = resp['phMimi']
-        #self.default('coffee')
 
     def emptyline(self):
         pass
@@ -190,6 +182,8 @@ def main():
     else:
         lmhash = ''
         nthash = ''
+
+    bound = False
  
     try:
         if username != '':
@@ -197,14 +191,25 @@ def main():
                 # Let's try to do everything thru SMB. If we'e lucky it might get everything encrypted
                 rpctransport = DCERPCTransportFactory(r'ncacn_np:%s[\pipe\epmapper]'%address)
                 rpctransport.set_credentials(username, password, domain, lmhash, nthash, options.aesKey)
+                dce = rpctransport.get_dce_rpc()
                 if options.k:
                     rpctransport.set_kerberos(True, options.dc_ip)
-                dce = rpctransport.get_dce_rpc()
-                dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
-                if rpctransport.get_kerberos() is True:
                     dce.set_auth_type(RPC_C_AUTHN_GSS_NEGOTIATE)
+                dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
                 dce.connect()
+                # Give me the endpoint please!
                 stringBinding = epm.hept_map(address, mimilib.MSRPC_UUID_MIMIKATZ, protocol = 'ncacn_np', dce=dce)
+
+                # Thanks, let's now use the same SMB Connection to bind to mimi
+                rpctransport2 = DCERPCTransportFactory(stringBinding)
+                rpctransport2.set_smb_connection(rpctransport.get_smb_connection())
+                dce = rpctransport2.get_dce_rpc()
+                if options.k:
+                    dce.set_auth_type(RPC_C_AUTHN_GSS_NEGOTIATE)
+                dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
+                dce.connect()
+                dce.bind(mimilib.MSRPC_UUID_MIMIKATZ)
+                bound = True
             except Exception, e:
                 if str(e).find('ept_s_not_registered') >=0:
                     # Let's try ncacn_ip_tcp
@@ -215,15 +220,19 @@ def main():
         else:
             stringBinding = epm.hept_map(address, mimilib.MSRPC_UUID_MIMIKATZ, protocol = 'ncacn_ip_tcp')
 
-        rpctransport = DCERPCTransportFactory(stringBinding)
-
-        if options.k is True:
+        if bound is False:
+            rpctransport = DCERPCTransportFactory(stringBinding)
             rpctransport.set_credentials(username, password, domain, lmhash, nthash, options.aesKey)
-            rpctransport.set_kerberos(True, options.dc_ip)
-        else:
+            dce = rpctransport.get_dce_rpc()
+            if options.k is True:
+                rpctransport.set_kerberos(True, options.dc_ip)
+                dce.set_auth_type(RPC_C_AUTHN_GSS_NEGOTIATE)
             rpctransport.set_credentials(username, password, domain, lmhash, nthash)
+            dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
+            dce.connect()
+            dce.bind(mimilib.MSRPC_UUID_MIMIKATZ)
 
-        shell = MimikatzShell(rpctransport)
+        shell = MimikatzShell(dce)
 
         if options.file is not None:
             logging.info("Executing commands from %s" % options.file.name)
@@ -236,8 +245,8 @@ def main():
         else:
             shell.cmdloop()
     except Exception, e:
-        import traceback
-        print traceback.print_exc()
+        #import traceback
+        #print traceback.print_exc()
         logging.error(str(e))
 
 if __name__ == "__main__":
