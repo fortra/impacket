@@ -329,7 +329,7 @@ class RemoteShell(cmd.Cmd):
         arg2['clSize'] = 5
         arg2['vt'] = VARENUM.VT_BSTR
         arg2['_varUnion']['tag'] = VARENUM.VT_BSTR
-        arg2['_varUnion']['bstrVal']['asData'] = command
+        arg2['_varUnion']['bstrVal']['asData'] = command.decode(sys.stdin.encoding)
 
         arg3 = VARIANT(None, False)
         arg3['clSize'] = 5
