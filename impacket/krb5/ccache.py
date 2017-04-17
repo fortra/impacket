@@ -248,7 +248,7 @@ class Credential:
     def toTGT(self):
         tgt_rep = AS_REP()
         tgt_rep['pvno'] = 5
-        tgt_rep['msg-type'] = int(constants.ApplicationTagNumbers.AP_REP.value)
+        tgt_rep['msg-type'] = int(constants.ApplicationTagNumbers.AS_REP.value)
         tgt_rep['crealm'] = self['server'].realm['data']
 
         # Fake EncryptedData
