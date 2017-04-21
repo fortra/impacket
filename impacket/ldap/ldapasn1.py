@@ -340,7 +340,8 @@ Filter.componentType = namedtype.NamedTypes(
     ),
     namedtype.NamedType(
         'not',
-        Filter().subtype(implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 2))
+        univ.SetOf(componentType=Filter()).subtype(implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 2))
+        #Filter().subtype(implicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatConstructed, 2))
     ),
     namedtype.NamedType(
         'equalityMatch',
