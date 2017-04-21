@@ -664,8 +664,8 @@ if __name__ == '__main__':
                                                        'it is assumed it\'s a SPN and a silver ticket will be created')
     parser.add_argument('-request', action='store_true', default=False, help='Requests ticket to domain and clones it '
                         'changing only the supplied information. It requires specifying -user')
-    parser.add_argument('-domain', action='store', help='the fully qualified domain name (e.g. contoso.com)')
-    parser.add_argument('-domain-sid', action='store', help='Domain SID of the target domain the ticker will be '
+    parser.add_argument('-domain', action='store', required=True, help='the fully qualified domain name (e.g. contoso.com)')
+    parser.add_argument('-domain-sid', action='store', required=True, help='Domain SID of the target domain the ticker will be '
                                                             'generated for')
     parser.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key used for signing the ticket '
                                                                              '(128 or 256 bits)')
