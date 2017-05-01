@@ -1763,6 +1763,7 @@ class SMBTransaction2Secondary_Parameters(SMBCommand_Parameters):
         ('TotalDataCount','<H'),
         ('ParameterCount','<H'),
         ('ParameterOffset','<H'),
+        ('ParameterDisplacement','<H'),
         ('DataCount','<H'),
         ('DataOffset','<H'),
         ('DataDisplacement','<H=0'),
@@ -4066,7 +4067,7 @@ class SMB:
         smb_packet = NewSMBPacket()
         smb_packet['Tid'] = tid
         #    setup depends on NT_TRANSACT subcommands so it may be 0.
-        setup_bytes = pack('<H, setup') if setup != '' else ''
+        setup_bytes = pack('<H', setup) if setup != '' else ''
 
         transCommand = SMBCommand(SMB.SMB_COM_NT_TRANSACT)
         transCommand['Parameters'] = SMBNTTransaction_Parameters()
