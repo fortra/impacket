@@ -1190,6 +1190,9 @@ def hept_lookup(destHost, inquiry_type = RPC_C_EP_ALL_ELTS, objectUUID = NULL, i
         rpctransport = transport.DCERPCTransportFactory(stringBinding)
         dce = rpctransport.get_dce_rpc()
         dce.connect()
+        disconnect = True
+    else:
+        disconnect = False
 
     dce.bind(MSRPC_UUID_PORTMAP)
     request = ept_lookup()
@@ -1216,17 +1219,22 @@ def hept_lookup(destHost, inquiry_type = RPC_C_EP_ALL_ELTS, objectUUID = NULL, i
         tmpEntry['tower'] = EPMTower(''.join(entry['tower']['tower_octet_string']))
         entries.append(tmpEntry)
 
-    if dce is None:
+    if disconnect is True:
         dce.disconnect()
 
     return entries
 
 def hept_map(destHost, remoteIf, dataRepresentation = uuidtup_to_bin(('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')), protocol = 'ncacn_np', dce=None):
+
     if dce is None:
         stringBinding = r'ncacn_ip_tcp:%s[135]' % destHost
         rpctransport = transport.DCERPCTransportFactory(stringBinding)
         dce = rpctransport.get_dce_rpc()
         dce.connect()
+        disconnect = True
+    else:
+        disconnect = False
+
 
     dce.bind(MSRPC_UUID_PORTMAP)
 
@@ -1262,6 +1270,8 @@ def hept_map(destHost, remoteIf, dataRepresentation = uuidtup_to_bin(('8a885d04-
         hostAddr['Ip4addr'] = socket.inet_aton('0.0.0.0')
         transportData = portAddr.getData() + hostAddr.getData()
     else:
+        if disconnect is True:
+            dce.disconnect()
         return None
 
     tower['NumberOfFloors'] = 5
@@ -1292,7 +1302,7 @@ def hept_map(destHost, remoteIf, dataRepresentation = uuidtup_to_bin(('8a885d04-
         portAddr = EPMPortAddr(tower['Floors'][3].getData())
         result = 'ncacn_ip_tcp:%s[%s]' % (destHost, portAddr['IpPort'])
 
-    if dce is None:
+    if disconnect is True:
         dce.disconnect()
     return result
 
