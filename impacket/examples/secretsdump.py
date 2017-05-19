@@ -358,7 +358,7 @@ class RemoteOperations:
         request['pextClient']['cb'] = len(drs)
         request['pextClient']['rgb'] = list(str(drs))
         resp = self.__drsr.request(request)
-        if LOG.level == logging.DEBUG:
+        if logging.getLogger().level == logging.DEBUG:
             LOG.debug('DRSBind() answer')
             resp.dump()
 
@@ -373,7 +373,7 @@ class RemoteOperations:
 
         if drsExtensionsInt['dwReplEpoch'] != 0:
             # Different epoch, we have to call DRSBind again
-            if LOG.level == logging.DEBUG:
+            if logging.getLogger().level == logging.DEBUG:
                 LOG.debug("DC's dwReplEpoch != 0, setting it to %d and calling DRSBind again" % drsExtensionsInt[
                     'dwReplEpoch'])
             drs['dwReplEpoch'] = drsExtensionsInt['dwReplEpoch']
@@ -385,7 +385,7 @@ class RemoteOperations:
 
         # Now let's get the NtdsDsaObjectGuid UUID to use when querying NCChanges
         resp = drsuapi.hDRSDomainControllerInfo(self.__drsr, self.__hDrs, self.__domainName, 2)
-        if LOG.level == logging.DEBUG:
+        if logging.getLogger().level == logging.DEBUG:
             LOG.debug('DRSDomainControllerInfo() answer')
             resp.dump()
 
