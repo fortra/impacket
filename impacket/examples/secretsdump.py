@@ -2000,7 +2000,19 @@ class NTDSHashes:
                             raise Exception('Cannot create resume session file %s' % str(e))
 
                 if self.__justUser is not None:
-                    crackedName = self.__remoteOps.DRSCrackNames(drsuapi.DS_NT4_ACCOUNT_NAME_SANS_DOMAIN,
+                    # Depending on the input received, we need to change the formatOffered before calling
+                    # DRSCrackNames.
+                    # There are some instances when you call -just-dc-user and you receive ERROR_DS_NAME_ERROR_NOT_UNIQUE
+                    # That's because we don't specify the domain for the user (and there might be duplicates)
+                    # Always remember that if you specify a domain, you should specify the NetBIOS domain name,
+                    # not the FQDN. Just for this time. It's confusing I know, but that's how this API works.
+                    if self.__justUser.find('\\') >=0 or self.__justUser.find('/') >= 0:
+                        self.__justUser = self.__justUser.replace('/','\\')
+                        formatOffered = drsuapi.DS_NAME_FORMAT.DS_NT4_ACCOUNT_NAME
+                    else:
+                        formatOffered = drsuapi.DS_NT4_ACCOUNT_NAME_SANS_DOMAIN
+
+                    crackedName = self.__remoteOps.DRSCrackNames(formatOffered,
                                                                  drsuapi.DS_NAME_FORMAT.DS_UNIQUE_ID_NAME,
                                                                  name=self.__justUser)
 
