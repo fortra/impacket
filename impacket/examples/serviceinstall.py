@@ -20,6 +20,7 @@ import string
 from impacket.dcerpc.v5 import transport, srvs, scmr
 from impacket import smb,smb3, LOG
 from impacket.smbconnection import SMBConnection
+from impacket.smb3structs import FILE_WRITE_DATA, FILE_DIRECTORY_FILE
 
 class ServiceInstall:
     def __init__(self, SMBObject, exeFile):
@@ -44,7 +45,9 @@ class ServiceInstall:
         # Setup up a DCE SMBTransport with the connection already in place
         LOG.info("Requesting shares on %s....." % (self.connection.getRemoteHost()))
         try: 
-            self._rpctransport = transport.SMBTransport(self.connection.getRemoteHost(), self.connection.getRemoteHost(),filename = r'\srvsvc', smb_connection = self.connection)
+            self._rpctransport = transport.SMBTransport(self.connection.getRemoteHost(),
+                                                        self.connection.getRemoteHost(),filename = r'\srvsvc',
+                                                        smb_connection = self.connection)
             dce_srvs = self._rpctransport.get_dce_rpc()
             dce_srvs.connect()
 
@@ -76,7 +79,8 @@ class ServiceInstall:
         # Create the service
         command = '%s\\%s' % (path, self.__binary_service_name)
         try: 
-            resp = scmr.hRCreateServiceW(self.rpcsvc, handle,self.__service_name + '\x00', self.__service_name + '\x00', lpBinaryPathName=command + '\x00')
+            resp = scmr.hRCreateServiceW(self.rpcsvc, handle,self.__service_name + '\x00', self.__service_name + '\x00',
+                                         lpBinaryPathName=command + '\x00')
         except:
             LOG.critical("Error creating service %s on %s" % (self.__service_name, self.connection.getRemoteHost()))
             raise
@@ -86,7 +90,8 @@ class ServiceInstall:
     def openSvcManager(self):
         LOG.info("Opening SVCManager on %s....." % self.connection.getRemoteHost())
         # Setup up a DCE SMBTransport with the connection already in place
-        self._rpctransport = transport.SMBTransport(self.connection.getRemoteHost(), self.connection.getRemoteHost(),filename = r'\svcctl', smb_connection = self.connection)
+        self._rpctransport = transport.SMBTransport(self.connection.getRemoteHost(), self.connection.getRemoteHost(),
+                                                    filename = r'\svcctl', smb_connection = self.connection)
         self.rpcsvc = self._rpctransport.get_dce_rpc()
         self.rpcsvc.connect()
         self.rpcsvc.bind(scmr.MSRPC_UUID_SCMR)
@@ -117,21 +122,25 @@ class ServiceInstall:
 
     def findWritableShare(self, shares):
         # Check we can write a file on the shares, stop in the first one
+        writeableShare = None
         for i in shares['Buffer']:
             if i['shi1_type'] == srvs.STYPE_DISKTREE or i['shi1_type'] == srvs.STYPE_SPECIAL:
                share = i['shi1_netname'][:-1]
+               tid = 0
                try:
-                   self.connection.createDirectory(share,'BETO')
+                   tid = self.connection.connectTree(share)
+                   self.connection.openFile(tid, '\\', FILE_WRITE_DATA, creationOption=FILE_DIRECTORY_FILE)
                except:
-                   # Can't create, pass
                    LOG.critical("share '%s' is not writable." % share)
                    pass
                else:
                    LOG.info('Found writable share %s' % share)
-                   self.connection.deleteDirectory(share,'BETO')
-                   return str(share)
-        return None
-        
+                   writeableShare = str(share)
+                   break
+               finally:
+                   if tid != 0:
+                       self.connection.disconnectTree(tid)
+        return writeableShare
 
     def install(self):
         if self.connection.isGuestSession():
