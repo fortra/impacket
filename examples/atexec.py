@@ -202,6 +202,10 @@ if __name__ == '__main__':
 
     options = parser.parse_args()
 
+    if ''.join(options.command) == ' ':
+        logging.error('You need to specify a command to execute!')
+        sys.exit(1)
+
     if options.debug is True:
         logging.getLogger().setLevel(logging.DEBUG)
     else:
