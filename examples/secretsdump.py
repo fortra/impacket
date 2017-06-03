@@ -87,6 +87,7 @@ class DumpSecrets:
         self.__resumeFileName = options.resumefile
         self.__canProcessSAMLSA = True
         self.__kdcHost = options.dc_ip
+        self.__options = options
 
         if options.hashes is not None:
             self.__lmhash, self.__nthash = options.hashes.split(':')
@@ -126,6 +127,7 @@ class DumpSecrets:
                             raise
 
                     self.__remoteOps  = RemoteOperations(self.__smbConnection, self.__doKerberos, self.__kdcHost)
+                    self.__remoteOps.setExecMethod(self.__options.exec_method)
                     if self.__justDC is False and self.__justDCNTLM is False or self.__useVSSMethod is True:
                         self.__remoteOps.enableRegistry()
                         bootKey             = self.__remoteOps.getBootKey()
@@ -266,6 +268,8 @@ if __name__ == '__main__':
                         help='base output filename. Extensions will be added for sam, secrets, cached and ntds')
     parser.add_argument('-use-vss', action='store_true', default=False,
                         help='Use the VSS method insead of default DRSUAPI')
+    parser.add_argument('-exec-method', choices=['smbexec', 'wmiexec', 'mmcexec'], nargs='?', default='smbexec', help='Remote exec '
+                        'method to use at target (only when using -use-vss). Default: smbexec')
     group = parser.add_argument_group('display options')
     group.add_argument('-just-dc-user', action='store', metavar='USERNAME',
                        help='Extract only NTDS.DIT data for the user specified. Only available for DRSUAPI approach. '
