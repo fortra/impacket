@@ -1162,6 +1162,7 @@ class LSASecrets(OfflineRegistry):
     class SECRET_TYPE:
         LSA = 0
         LSA_HASHED = 1
+        LSA_RAW = 2
 
     def __init__(self, securityFile, bootKey, remoteOps=None, isRemote=False,
                  perSecretCallback=lambda secretType, secret: _print_helper(secret)):
@@ -1393,6 +1394,7 @@ class LSASecrets(OfflineRegistry):
         if secret != '':
             printableSecret = secret
             self.__secretItems.append(secret)
+            self.__perSecretCallback(LSASecrets.SECRET_TYPE.LSA, printableSecret)
         else:
             # Default print, hexdump
             printableSecret  = '%s:%s' % (name, hexlify(secretItem))
@@ -1401,8 +1403,7 @@ class LSASecrets(OfflineRegistry):
             # user will need to decide what to do.
             if self.__module__ == self.__perSecretCallback.__module__:
                 hexdump(secretItem)
-            
-        self.__perSecretCallback(LSASecrets.SECRET_TYPE.LSA, printableSecret)
+            self.__perSecretCallback(LSASecrets.SECRET_TYPE.LSA_RAW, printableSecret)
 
     def dumpSecrets(self):
         if self.__securityFile is None:
