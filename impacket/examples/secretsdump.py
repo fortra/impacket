@@ -1171,7 +1171,6 @@ class LSASecrets(OfflineRegistry):
         self.__bootKey = bootKey
         self.__LSAKey = ''
         self.__NKLMKey = ''
-        self.__isRemote = isRemote
         self.__vistaStyle = True
         self.__cryptoCommon = CryptoCommon()
         self.__securityFile = securityFile
@@ -1345,7 +1344,7 @@ class LSASecrets(OfflineRegistry):
             else:
                 # We have to get the account the service
                 # runs under
-                if self.__isRemote is True:
+                if hasattr(self.__remoteOps, 'getServiceAccount'):
                     account = self.__remoteOps.getServiceAccount(name[4:])
                     if account is None:
                         secret = self.UNKNOWN_USER + ':'
@@ -1364,7 +1363,7 @@ class LSASecrets(OfflineRegistry):
                 pass
             else:
                 # We have to get the account this password is for
-                if self.__isRemote is True:
+                if hasattr(self.__remoteOps, 'getDefaultLoginAccount'):
                     account = self.__remoteOps.getDefaultLoginAccount()
                     if account is None:
                         secret = self.UNKNOWN_USER + ':'
@@ -1385,7 +1384,7 @@ class LSASecrets(OfflineRegistry):
             # compute MD4 of the secret.. yes.. that is the nthash? :-o
             md4 = MD4.new()
             md4.update(secretItem)
-            if self.__isRemote is True:
+            if hasattr(self.__remoteOps, 'getMachineNameAndDomain'):
                 machine, domain = self.__remoteOps.getMachineNameAndDomain()
                 secret = "%s\\%s$:%s:%s:::" % (domain, machine, hexlify(ntlm.LMOWFv1('','')), hexlify(md4.digest()))
             else:
