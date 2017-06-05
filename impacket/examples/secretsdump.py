@@ -1460,9 +1460,10 @@ class ResumeSessionMgrInFile(object):
     def __init__(self, resumeFileName=None):
         self.__resumeFileName = resumeFileName
         self.__resumeFile = None
+        self.__hasResumeData = resumeFileName is not None
 
     def hasResumeData(self):
-        return self.getResumeData() != ''
+        return self.__hasResumeData
 
     def clearResumeData(self):
         self.endTransaction()
@@ -1479,8 +1480,12 @@ class ResumeSessionMgrInFile(object):
     def getResumeData(self):
         if not self.__resumeFileName or not os.path.isfile(self.__resumeFileName):
             return ''
+        self.__resumeFile = open(self.__resumeFileName,'rb')
+        resumeSid = self.__resumeFile.read()
+        self.__resumeFile.close()
+        # Truncate and reopen the file as wb+
         self.__resumeFile = open(self.__resumeFileName,'wb+')
-        return self.__resumeFile.read()
+        return resumeSid
 
     def getFileName(self):
         return self.__resumeFileName
