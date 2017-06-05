@@ -1455,6 +1455,52 @@ class LSASecrets(OfflineRegistry):
                 fd.write(item+'\n')
             fd.close()
 
+
+class ResumeSessionMgrInFile(object):
+    def __init__(self, resumeFileName=None):
+        self.__resumeFileName = resumeFileName
+        self.__resumeFile = None
+
+    def hasResumeData(self):
+        return self.getResumeData() != ''
+
+    def clearResumeData(self):
+        self.endTransaction()
+        if self.__resumeFileName and os.path.isfile(self.__resumeFileName):
+            os.remove(self.__resumeFileName)
+
+    def writeResumeData(self, data):
+        # self.beginTransaction() must be called first, but we are aware of performance here, so we avoid checking that
+        self.__resumeFile.seek(0, 0)
+        self.__resumeFile.truncate(0)
+        self.__resumeFile.write(data)
+        self.__resumeFile.flush()
+
+    def getResumeData(self):
+        if not self.__resumeFileName or not os.path.isfile(self.__resumeFileName):
+            return ''
+        with open(self.__resumeFileName, 'rb') as resumeFile:
+            return resumeFile.read()
+
+    def getFileName(self):
+        return self.__resumeFileName
+
+    def beginTransaction(self):
+        if not self.__resumeFileName:
+            self.__resumeFileName = 'sessionresume_%s' % ''.join(random.choice(string.letters) for _ in range(8))
+            LOG.debug('Session resume file will be %s' % self.__resumeFileName)
+        if not self.__resumeFile:
+            try:
+                self.__resumeFile = open(self.__resumeFileName, 'rwb+')
+            except Exception, e:
+                raise Exception('Cannot create "%s" resume session file: %s' % (self.__resumeFileName, str(e)))
+
+    def endTransaction(self):
+        if self.__resumeFile:
+            self.__resumeFile.close()
+            self.__resumeFile = None
+
+
 class NTDSHashes:
     class SECRET_TYPE:
         NTDS = 0
@@ -1577,7 +1623,8 @@ class NTDSHashes:
     def __init__(self, ntdsFile, bootKey, isRemote=False, history=False, noLMHash=True, remoteOps=None,
                  useVSSMethod=False, justNTLM=False, pwdLastSet=False, resumeSession=None, outputFileName=None,
                  justUser=None, printUserStatus=False,
-                 perSecretCallback = lambda secretType, secret : _print_helper(secret)):
+                 perSecretCallback = lambda secretType, secret : _print_helper(secret),
+                 resumeSessionMgr=ResumeSessionMgrInFile):
         self.__bootKey = bootKey
         self.__NTDS = ntdsFile
         self.__history = history
@@ -1595,14 +1642,13 @@ class NTDSHashes:
         self.__kerberosKeys = OrderedDict()
         self.__clearTextPwds = OrderedDict()
         self.__justNTLM = justNTLM
-        self.__savedSessionFile = resumeSession
-        self.__resumeSessionFile = None
+        self.__resumeSession = resumeSessionMgr(resumeSession)
         self.__outputFileName = outputFileName
         self.__justUser = justUser
         self.__perSecretCallback = perSecretCallback
 
     def getResumeSessionFile(self):
-        return self.__resumeSessionFile
+        return self.__resumeSession.getFileName()
 
     def __getPek(self):
         LOG.info('Searching for pekList, be patient')
@@ -2032,7 +2078,6 @@ class NTDSHashes:
         hashesOutputFile = None
         keysOutputFile = None
         clearTextOutputFile = None
-        resumeFile = None
         
         if self.__useVSSMethod is True:
             if self.__NTDS is None:
@@ -2065,7 +2110,7 @@ class NTDSHashes:
             if self.__outputFileName is not None:
                 LOG.debug('Saving output to %s' % self.__outputFileName)
                 # We have to export. Are we resuming a session?
-                if self.__savedSessionFile is not None:
+                if self.__resumeSession.hasResumeData():
                     mode = 'a+'
                 else:
                     mode = 'w+'
@@ -2134,29 +2179,14 @@ class NTDSHashes:
                 enumerationContext = 0
 
                 # Do we have to resume from a previously saved session?
-                if self.__savedSessionFile is not None:
-                    # Yes
-                    try:
-                        resumeFile = open(self.__savedSessionFile, 'rwb+')
-                    except Exception, e:
-                        raise Exception('Cannot open resume session file name %s' % str(e))
-                    resumeSid = resumeFile.read().strip('\n')
+                if self.__resumeSession.hasResumeData():
+                    resumeSid = self.__resumeSession.getResumeData()
                     LOG.info('Resuming from SID %s, be patient' % resumeSid)
-                    # The resume session file is the same as the savedSessionFile
-                    tmpName = self.__savedSessionFile
-                    resumeFile = open(tmpName, 'wb+')
                 else:
                     resumeSid = None
                     # We do not create a resume file when asking for a single user
                     if self.__justUser is None:
-                        tmpName = 'sessionresume_%s' % ''.join([random.choice(string.letters) for i in range(8)])
-                        LOG.debug('Session resume file will be %s' % tmpName)
-                        # Creating the resume session file
-                        try:
-                            resumeFile = open(tmpName, 'wb+')
-                            self.__resumeSessionFile = tmpName
-                        except Exception, e:
-                            raise Exception('Cannot create resume session file %s' % str(e))
+                        self.__resumeSession.beginTransaction()
 
                 if self.__justUser is not None:
                     # Depending on the input received, we need to change the formatOffered before calling
@@ -2257,10 +2287,7 @@ class NTDSHashes:
                                 LOG.error(str(e))
 
                             # Saving the session state
-                            resumeFile.seek(0,0)
-                            resumeFile.truncate(0)
-                            resumeFile.write(userSid.formatCanonical())
-                            resumeFile.flush()
+                            self.__resumeSession.writeResumeData(userSid.formatCanonical())
 
                         enumerationContext = resp['EnumerationContext']
                         status = resp['ErrorCode']
@@ -2268,10 +2295,7 @@ class NTDSHashes:
                 # Everything went well and we covered all the users
                 # Let's remove the resume file is we had created it
                 if self.__justUser is None:
-                    resumeFile.close()
-                    resumeFile = None
-                    os.remove(tmpName)
-                    self.__resumeSessionFile = None
+                    self.__resumeSession.clearResumeData()
 
             LOG.debug("Finished processing and printing user's hashes, now printing supplemental information")
             # Now we'll print the Kerberos keys. So we don't mix things up in the output.
@@ -2303,9 +2327,8 @@ class NTDSHashes:
             
             if not clearTextOutputFile is None:
                 clearTextOutputFile.close()
-                
-            if not resumeFile is None:
-                resumeFile.close()
+
+            self.__resumeSession.endTransaction()
 
     @classmethod
     def __writeOutput(cls, fd, data):
