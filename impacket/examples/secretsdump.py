@@ -1478,9 +1478,10 @@ class ResumeSessionMgrInFile(object):
         self.__resumeFile.flush()
 
     def getResumeData(self):
-        if not self.__resumeFileName or not os.path.isfile(self.__resumeFileName):
-            return ''
-        self.__resumeFile = open(self.__resumeFileName,'rb')
+        try:
+            self.__resumeFile = open(self.__resumeFileName,'rb')
+        except Exception, e:
+            raise Exception('Cannot open resume session file name %s' % str(e))
         resumeSid = self.__resumeFile.read()
         self.__resumeFile.close()
         # Truncate and reopen the file as wb+
