@@ -1479,8 +1479,8 @@ class ResumeSessionMgrInFile(object):
     def getResumeData(self):
         if not self.__resumeFileName or not os.path.isfile(self.__resumeFileName):
             return ''
-        with open(self.__resumeFileName, 'rb') as resumeFile:
-            return resumeFile.read()
+        self.__resumeFile = open(self.__resumeFileName,'wb+')
+        return self.__resumeFile.read()
 
     def getFileName(self):
         return self.__resumeFileName
@@ -1491,7 +1491,7 @@ class ResumeSessionMgrInFile(object):
             LOG.debug('Session resume file will be %s' % self.__resumeFileName)
         if not self.__resumeFile:
             try:
-                self.__resumeFile = open(self.__resumeFileName, 'rwb+')
+                self.__resumeFile = open(self.__resumeFileName, 'wb+')
             except Exception, e:
                 raise Exception('Cannot create "%s" resume session file: %s' % (self.__resumeFileName, str(e)))
 
