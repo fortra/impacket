@@ -36,7 +36,7 @@ from impacket.dcerpc.v5.dcom import wmi
 from impacket.dcerpc.v5.dtypes import NULL
 
 OUTPUT_FILENAME = '__' + str(time.time())
-CODEC = sys.getdefaultencoding()
+CODEC = sys.stdout.encoding
 
 class WMIEXEC:
     def __init__(self, command='', username='', password='', domain='', hashes=None, aesKey=None, share=None,
