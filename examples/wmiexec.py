@@ -194,14 +194,14 @@ class RemoteShell(cmd.Cmd):
     def do_cd(self, s):
         self.execute_remote('cd ' + s)
         if len(self.__outputBuffer.strip('\r\n')) > 0:
-            print self.__outputBuffer.decode(CODEC)
-            self.__outputBuffer = ''
+            print self.__outputBuffer
+            self.__outputBuffer = u''
         else:
             self.__pwd = ntpath.normpath(ntpath.join(self.__pwd, s.decode(sys.stdin.encoding)))
             self.execute_remote('cd ')
-            self.__pwd = self.__outputBuffer.strip('\r\n').decode(CODEC)
+            self.__pwd = self.__outputBuffer.strip('\r\n')
             self.prompt = unicode(self.__pwd + '>').encode(sys.stdout.encoding)
-            self.__outputBuffer = ''
+            self.__outputBuffer = u''
 
     def default(self, line):
         # Let's try to guess if the user is trying to change drive
@@ -210,25 +210,31 @@ class RemoteShell(cmd.Cmd):
             self.execute_remote(line)
             if len(self.__outputBuffer.strip('\r\n')) > 0: 
                 # Something went wrong
-                print self.__outputBuffer.decode(CODEC)
-                self.__outputBuffer = ''
+                print self.__outputBuffer
+                self.__outputBuffer = u''
             else:
                 # Drive valid, now we should get the current path
                 self.__pwd = line
                 self.execute_remote('cd ')
                 self.__pwd = self.__outputBuffer.strip('\r\n')
                 self.prompt = unicode(self.__pwd + '>').encode(sys.stdout.encoding)
-                self.__outputBuffer = ''
+                self.__outputBuffer = u''
         else:
             if line != '':
                 self.send_data(line)
 
     def get_output(self):
         def output_callback(data):
-            self.__outputBuffer += data
+            try:
+                self.__outputBuffer += data.decode(CODEC)
+            except UnicodeDecodeError, e:
+                logging.error('Decoding error detected, consider running chcp.com at the target,\nmap the result with '
+                              'https://docs.python.org/2.4/lib/standard-encodings.html\nand then execute wmiexec.py '
+                              'again with -codec and the corresponding codec')
+                self.__outputBuffer += data.decode(CODEC, errors='replace')
 
         if self.__noOutput is True:
-            self.__outputBuffer = ''
+            self.__outputBuffer = u''
             return
 
         while True:
@@ -255,15 +261,9 @@ class RemoteShell(cmd.Cmd):
         self.get_output()
 
     def send_data(self, data):
-        try:
-            self.execute_remote(data)
-            print self.__outputBuffer.decode(CODEC)
-        except UnicodeDecodeError, e:
-            logging.error('Decoding error detected, consider running chcp.com at the target,\nmap the result with '
-                          'https://docs.python.org/2.4/lib/standard-encodings.html\nand then execute wmiexec.py '
-                          'again with -codec and the corresponding codec')
-            print self.__outputBuffer
-        self.__outputBuffer = ''
+        self.execute_remote(data)
+        print self.__outputBuffer
+        self.__outputBuffer = u''
 
 class AuthFileSyntaxError(Exception):
     
