@@ -1366,7 +1366,7 @@ class FileInternalInformation(Structure):
         ('IndexNumber','<q=0'),
     )
 
-# SMB2_SEC_INFO_00        # @_Fr0stbyt3_
+# SMB2_SEC_INFO_00       
 class FileSecInformation(Structure):
     structure = (
         ('Revision','<h=1'),
