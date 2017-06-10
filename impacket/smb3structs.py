@@ -68,6 +68,8 @@ SMB2_GLOBAL_CAP_ENCRYPTION         = 0x40
 SMB2_DIALECT_002      = 0x0202 
 SMB2_DIALECT_21       = 0x0210 
 SMB2_DIALECT_30       = 0x0300 
+SMB2_DIALECT_302      = 0x0302  #SMB 3.0.2
+SMB2_DIALECT_311      = 0x0311  #SMB 3.1.1
 SMB2_DIALECT_WILDCARD = 0x02FF 
 
 # SMB2_SESSION_SETUP
@@ -344,6 +346,7 @@ SMB2_0_INFO_SECURITY    = 0x03
 SMB2_0_INFO_QUOTA       = 0x04
 
 # File Information Classes
+SMB2_SEC_INFO_00                      = 0 #SMB2_SEC_INFO_00  info level
 SMB2_FILE_ACCESS_INFO                 = 8
 SMB2_FILE_ALIGNMENT_INFO              = 17
 SMB2_FILE_ALL_INFO                    = 18
@@ -1361,4 +1364,15 @@ class SMB2_TRANSFORM_HEADER(Structure):
 class FileInternalInformation(Structure):
     structure = (
         ('IndexNumber','<q=0'),
+    )
+
+# SMB2_SEC_INFO_00        # @_Fr0stbyt3_
+class FileSecInformation(Structure):
+    structure = (
+        ('Revision','<h=1'),
+        ('Type','<h=0'),
+        ('OffsetToOwner','<I=0'),
+        ('OffsetToGroup','<I=0'),
+        ('OffsetToSACL','<I=0'),
+        ('OffsetToDACL','<I=0'),
     )
