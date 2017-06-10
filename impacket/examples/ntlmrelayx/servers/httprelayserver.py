@@ -28,6 +28,7 @@ from impacket.examples.ntlmrelayx.clients import SMBRelayClient, MSSQLRelayClien
 from impacket.spnego import SPNEGO_NegTokenResp
 from impacket.smbserver import outputToJohnFormat, writeJohnOutputToFile
 from impacket.nt_errors import STATUS_ACCESS_DENIED, STATUS_SUCCESS
+from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor
 
 class HTTPRelayServer(Thread):
     class HTTPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
@@ -47,12 +48,11 @@ class HTTPRelayServer(Thread):
             self.domainIp = None
             self.authUser = None
             if self.server.config.mode != 'REDIRECT':
-                if self.server.config.target is not None:
-                    self.target = self.server.config.target.get_target(client_address[0],self.server.config.randomtargets)
-                    logging.info("HTTPD: Received connection from %s, attacking target %s" % (client_address[0] ,self.target[1]))
-                else:
-                    self.target = self.client_address[0]
-                    logging.info("HTTPD: Received connection from %s, attacking target %s" % (client_address[0] ,client_address[0]))
+                if self.server.config.target is None:
+                    # Reflection mode, defaults to SMB at the target, for now
+                    self.server.config.target = TargetsProcessor(singletarget = 'SMB://%s:445/' % client_address[0])
+                self.target = self.server.config.target.get_target(client_address[0],self.server.config.randomtargets)
+                logging.info("HTTPD: Received connection from %s, attacking target %s" % (client_address[0] ,self.target[1]))
             SimpleHTTPServer.SimpleHTTPRequestHandler.__init__(self,request, client_address, server)
 
         def handle_one_request(self):
