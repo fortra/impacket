@@ -346,7 +346,7 @@ SMB2_0_INFO_SECURITY    = 0x03
 SMB2_0_INFO_QUOTA       = 0x04
 
 # File Information Classes
-SMB2_SEC_INFO_00                      = 0 #SMB2_SEC_INFO_00  info level
+SMB2_SEC_INFO_00                      = 0
 SMB2_FILE_ACCESS_INFO                 = 8
 SMB2_FILE_ALIGNMENT_INFO              = 17
 SMB2_FILE_ALL_INFO                    = 18
