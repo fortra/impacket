@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright (c) 2003-2016 CORE Security Technologies
+# Copyright (c) 2003-2017 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -8,7 +8,7 @@
 # Author:
 #   Dirk-jan Mollema / Fox-IT (https://www.fox-it.com)
 #
-# Description: 
+# Description:
 # LDAP client for relaying NTLMSSP authentication to LDAP servers
 # The way of using the ldap3 library is quite hacky, but its the best
 # way to make the lib do things it wasn't designed to without touching
@@ -23,8 +23,10 @@ except ImportError:
     print "ntlmrelayx requires ldap3 > 2.0. To update, use: pip install ldap3 --upgrade"
     sys.exit(1)
 
+class LDAPRelayClientException(Exception):
+    pass
 
-class LDAPRelayClient:
+class LDAPRelayClient(object):
     MODIFY_ADD = MODIFY_ADD
 
     def __init__(self, target, port=None):
@@ -49,7 +51,10 @@ class LDAPRelayClient:
                 request = bind.bind_operation(self.connection.version, 'SICILY_PACKAGE_DISCOVERY')
                 response = self.connection.post_send_single_response(self.connection.send('bindRequest', request, None))
                 result = response[0]
-                sicily_packages = result['server_creds'].decode('ascii').split(';')
+                try:
+                    sicily_packages = result['server_creds'].decode('ascii').split(';')
+                except KeyError:
+                    raise LDAPRelayClientException('Could not discover authentication methods, server replied: %s' % result)
 
                 if 'NTLM' in sicily_packages:  # NTLM available on server
                     request = bind.bind_operation(self.connection.version, 'SICILY_NEGOTIATE_NTLM', self)
@@ -58,6 +63,8 @@ class LDAPRelayClient:
 
                     if result['result'] == RESULT_SUCCESS:
                         return result['server_creds']
+                else:
+                    raise LDAPRelayClientException('Server did not offer NTLM authentication!')
 
     #This is a fake function for ldap3 which wants an NTLM client with specific methods
     def create_negotiate_message(self):
