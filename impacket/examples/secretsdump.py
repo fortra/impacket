@@ -364,6 +364,12 @@ class RemoteOperations:
         if self.__doKerberos:
             self.__drsr.set_auth_type(RPC_C_AUTHN_GSS_NEGOTIATE)
         self.__drsr.connect()
+        # Uncomment these lines if you want to play some tricks
+        # This will make the dump way slower tho.
+        #self.__drsr.bind(samr.MSRPC_UUID_SAMR)
+        #self.__drsr = self.__drsr.alter_ctx(drsuapi.MSRPC_UUID_DRSUAPI)
+        #self.__drsr.set_max_fragment_size(1)
+        # And Comment this line
         self.__drsr.bind(drsuapi.MSRPC_UUID_DRSUAPI)
 
         if self.__domainName is None:
@@ -939,7 +945,7 @@ class RemoteOperations:
                 self.__smbConnection.deleteFile('ADMIN$', 'Temp\\__output')
                 break
             except Exception, e:
-                if tries >= 3:
+                if tries >= 30:
                     raise e
                 if str(e).find('STATUS_OBJECT_NAME_NOT_FOUND') >= 0 or str(e).find('STATUS_SHARING_VIOLATION') >=0:
                     tries += 1
@@ -947,6 +953,7 @@ class RemoteOperations:
                     pass
                 else:
                     logging.error('Cannot delete target file \\\\%s\\ADMIN$\\Temp\\__output: %s' % (self.__smbConnection.getRemoteHost(), str(e)))
+                    pass
 
         remoteFileName = RemoteFile(self.__smbConnection, 'Temp\\%s' % tmpFileName)
 
