@@ -53,7 +53,10 @@ class HTTPRelayServer(Thread):
                     self.server.config.target = TargetsProcessor(singletarget = 'SMB://%s:445/' % client_address[0])
                 self.target = self.server.config.target.get_target(client_address[0],self.server.config.randomtargets)
                 logging.info("HTTPD: Received connection from %s, attacking target %s" % (client_address[0] ,self.target[1]))
-            SimpleHTTPServer.SimpleHTTPRequestHandler.__init__(self,request, client_address, server)
+            try:
+                SimpleHTTPServer.SimpleHTTPRequestHandler.__init__(self,request, client_address, server)
+            except Exception, e:
+                logging.error(str(e))
 
         def handle_one_request(self):
             try:
@@ -65,6 +68,11 @@ class HTTPRelayServer(Thread):
 
         def log_message(self, format, *args):
             return
+
+        def send_error(self, code, message=None):
+            if message.find('RPC_OUT') >=0 or message.find('RPC_IN'):
+                return self.do_GET()
+            return SimpleHTTPServer.SimpleHTTPRequestHandler.send_error(self,code,message)
 
         def do_HEAD(self):
             self.send_response(200)
