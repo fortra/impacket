@@ -29,6 +29,7 @@ from impacket.dcerpc.v5.dtypes import UUID, LPBYTE, PUUID, ULONG, USHORT
 from impacket.structure import Structure
 from impacket.dcerpc.v5.ndr import NULL
 from impacket.dcerpc.v5.rpcrt import DCERPCException
+from impacket import LOG
 
 MSRPC_UUID_PORTMAP = uuidtup_to_bin(('E1AF8308-5D1F-11C9-91A4-08002B14A0FA', '3.0'))
 
@@ -906,6 +907,8 @@ FLOOR_NBNP_IDENTIFIER  = 0x0f # NetBIOS Named Pipe
 FLOOR_MSNB_IDENTIFIER  = 0x11 # MS NetBIOS HostName
 # PortAddr Identifier
 FLOOR_TCPPORT_IDENTIFIER = 0x07
+# HTTP Protocol
+FLOOR_HTTP_IDENTIFIER  = 0x1f
 
 ################################################################################
 # STRUCTURES
@@ -1269,7 +1272,18 @@ def hept_map(destHost, remoteIf, dataRepresentation = uuidtup_to_bin(('8a885d04-
         import socket
         hostAddr['Ip4addr'] = socket.inet_aton('0.0.0.0')
         transportData = portAddr.getData() + hostAddr.getData()
+    elif protocol == 'ncacn_http':
+        portAddr = EPMPortAddr()
+        portAddr['PortIdentifier'] = FLOOR_HTTP_IDENTIFIER
+        portAddr['IpPort'] = 0
+
+        hostAddr = EPMHostAddr()
+        import socket
+        hostAddr['Ip4addr'] = socket.inet_aton('0.0.0.0')
+        transportData = portAddr.getData() + hostAddr.getData()
+
     else:
+        LOG.error('%s not support for hetp_map()' % protocol)
         if disconnect is True:
             dce.disconnect()
         return None
@@ -1301,7 +1315,10 @@ def hept_map(destHost, remoteIf, dataRepresentation = uuidtup_to_bin(('8a885d04-
         # Port Number should be the 4th floor
         portAddr = EPMPortAddr(tower['Floors'][3].getData())
         result = 'ncacn_ip_tcp:%s[%s]' % (destHost, portAddr['IpPort'])
-
+    elif protocol == 'ncacn_http':
+        # Port Number should be the 4th floor
+        portAddr = EPMPortAddr(tower['Floors'][3].getData())
+        result = 'ncacn_http:%s[%s]' % (destHost, portAddr['IpPort'])
     if disconnect is True:
         dce.disconnect()
     return result
