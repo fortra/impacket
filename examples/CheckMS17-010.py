@@ -1,3 +1,12 @@
+'''
+this is a simple script for quick checking all your computers in your network to find out if the ms17-010 patch is installed on them.
+you need to supply as parm a folder for the output and a file with a list of your ips.
+for example:
+CheckMS17-010.py c:\temp ips-list.txt
+the file ips-list.txt shuold be in the folder c:\temp.
+the script will create a file in the folder "c:\temp\logs" for each ip thats found as vulnerabile with a content of the os of the comp and if DP backdoor is installed.
+enjoy!
+'''
 import subprocess
 from ctypes import *
 import socket
