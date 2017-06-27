@@ -11,8 +11,7 @@ from impacket.smbconnection import *
 import Crypto
 import Crypto.Hash
 import impacket.smb
-__author__ = 'elad'
-# some nic?
+__author__ = 'kazabubu21'
 
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
