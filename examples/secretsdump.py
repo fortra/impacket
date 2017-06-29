@@ -56,9 +56,10 @@ from impacket.smbconnection import SMBConnection
 from impacket.examples.secretsdump import LocalOperations, RemoteOperations, SAMHashes, LSASecrets, NTDSHashes
 
 class DumpSecrets:
-    def __init__(self, address, username='', password='', domain='', options=None):
+    def __init__(self, remoteName, username='', password='', domain='', options=None):
         self.__useVSSMethod = options.use_vss
-        self.__remoteAddr = address
+        self.__remoteName = remoteName
+        self.__remoteHost = options.target_ip
         self.__username = username
         self.__password = password
         self.__domain = domain
@@ -93,7 +94,7 @@ class DumpSecrets:
             self.__lmhash, self.__nthash = options.hashes.split(':')
 
     def connect(self):
-        self.__smbConnection = SMBConnection(self.__remoteAddr, self.__remoteAddr)
+        self.__smbConnection = SMBConnection(self.__remoteName, self.__remoteHost)
         if self.__doKerberos:
             self.__smbConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash,
                                                self.__nthash, self.__aesKey, self.__kdcHost)
@@ -102,7 +103,7 @@ class DumpSecrets:
 
     def dump(self):
         try:
-            if self.__remoteAddr.upper() == 'LOCAL' and self.__username == '':
+            if self.__remoteName.upper() == 'LOCAL' and self.__username == '':
                 self.__isRemote = False
                 self.__useVSSMethod = True
                 localOperations = LocalOperations(self.__systemHive)
@@ -296,8 +297,12 @@ if __name__ == '__main__':
                              ' the ones specified in the command line')
     group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication'
                                                                             ' (128 or 256 bits)')
+    group = parser.add_argument_group('connection')
     group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. If '
                                  'ommited it use the domain part (FQDN) specified in the target parameter')
+    group.add_argument('-target-ip', action='store', metavar="ip address",
+                       help='IP Address of the target machine. If ommited it will use whatever was specified as target. '
+                            'This is useful when target is the NetBIOS name and you cannot resolve it')
 
     if len(sys.argv)==1:
         parser.print_help()
@@ -312,13 +317,13 @@ if __name__ == '__main__':
 
     import re
 
-    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
+    domain, username, password, remoteName = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
         options.target).groups('')
         
     #In case the password contains '@'
-    if '@' in address:
-        password = password + '@' + address.rpartition('@')[0]
-        address = address.rpartition('@')[2]
+    if '@' in remoteName:
+        password = password + '@' + remoteName.rpartition('@')[0]
+        address = remoteName.rpartition('@')[2]
 
     if options.just_dc_user is not None:
         if options.use_vss is True:
@@ -327,7 +332,7 @@ if __name__ == '__main__':
         elif options.resumefile is not None:
             logging.error('resuming a previous NTDS.DIT dump session not compatible with -just-dc-user switch')
             sys.exit(1)
-        elif address.upper() == 'LOCAL' and username == '':
+        elif remoteName.upper() == 'LOCAL' and username == '':
             logging.error('-just-dc-user not compatible in LOCAL mode')
             sys.exit(1)
         else:
@@ -338,15 +343,18 @@ if __name__ == '__main__':
         logging.error('resuming a previous NTDS.DIT dump session is not supported in VSS mode')
         sys.exit(1)
 
-    if address.upper() == 'LOCAL' and username == '' and options.resumefile is not None:
+    if remoteName.upper() == 'LOCAL' and username == '' and options.resumefile is not None:
         logging.error('resuming a previous NTDS.DIT dump session is not supported in LOCAL mode')
         sys.exit(1)
 
-    if address.upper() == 'LOCAL' and username == '':
+    if remoteName.upper() == 'LOCAL' and username == '':
         if options.system is None:
             logging.error('SYSTEM hive is always required for local parsing, check help')
             sys.exit(1)
     else:
+
+        if options.target_ip is None:
+            options.target_ip = remoteName
 
         if domain is None:
             domain = ''
@@ -359,7 +367,7 @@ if __name__ == '__main__':
         if options.aesKey is not None:
             options.k = True
 
-    dumper = DumpSecrets(address, username, password, domain, options)
+    dumper = DumpSecrets(remoteName, username, password, domain, options)
     try:
         dumper.dump()
     except Exception, e:

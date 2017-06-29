@@ -355,6 +355,8 @@ class RemoteOperations:
         stringBinding = epm.hept_map(self.__smbConnection.getRemoteHost(), drsuapi.MSRPC_UUID_DRSUAPI,
                                      protocol='ncacn_ip_tcp')
         rpc = transport.DCERPCTransportFactory(stringBinding)
+        rpc.setRemoteHost(self.__smbConnection.getRemoteHost())
+        rpc.setRemoteName(self.__smbConnection.getRemoteName())
         if hasattr(rpc, 'set_credentials'):
             # This method exists only for selected protocol sequences.
             rpc.set_credentials(*(self.__smbConnection.getCredentials()))
