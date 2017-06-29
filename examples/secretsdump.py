@@ -192,6 +192,9 @@ class DumpSecrets:
             try:
                 self.__NTDSHashes.dump()
             except Exception, e:
+                if logging.getLogger().level == logging.DEBUG:
+                    import traceback
+                    print traceback.print_exc()
                 if str(e).find('ERROR_DS_DRA_BAD_DN') >= 0:
                     # We don't store the resume file if this error happened, since this error is related to lack
                     # of enough privileges to access DRSUAPI.
@@ -203,8 +206,9 @@ class DumpSecrets:
                     logging.info('Something wen\'t wrong with the DRSUAPI approach. Try again with -use-vss parameter')
             self.cleanup()
         except (Exception, KeyboardInterrupt), e:
-            #import traceback
-            #print traceback.print_exc()
+            if logging.getLogger().level == logging.DEBUG:
+                import traceback
+                print traceback.print_exc()
             logging.error(e)
             if self.__NTDSHashes is not None:
                 if isinstance(e, KeyboardInterrupt):
@@ -359,4 +363,7 @@ if __name__ == '__main__':
     try:
         dumper.dump()
     except Exception, e:
+        if logging.getLogger().level == logging.DEBUG:
+            import traceback
+            print traceback.print_exc()
         logging.error(e)

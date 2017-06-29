@@ -2147,8 +2147,9 @@ class NTDSHashes:
                             if self.__justNTLM is False:
                                 self.__decryptSupplementalInfo(record, None, keysOutputFile, clearTextOutputFile)
                         except Exception, e:
-                            # import traceback
-                            # print traceback.print_exc()
+                            if logging.getLogger().level == logging.DEBUG:
+                                import traceback
+                                print traceback.print_exc()
                             try:
                                 LOG.error(
                                     "Error while processing row for user %s" % record[self.NAME_TO_INTERNAL['name']])
@@ -2175,8 +2176,9 @@ class NTDSHashes:
                                 if self.__justNTLM is False:
                                     self.__decryptSupplementalInfo(record, None, keysOutputFile, clearTextOutputFile)
                         except Exception, e:
-                            # import traceback
-                            # print traceback.print_exc()
+                            if logging.getLogger().level == logging.DEBUG:
+                                import traceback
+                                print traceback.print_exc()
                             try:
                                 LOG.error(
                                     "Error while processing row for user %s" % record[self.NAME_TO_INTERNAL['name']])
@@ -2294,8 +2296,9 @@ class NTDSHashes:
                                         'pPrefixEntry'], keysOutputFile, clearTextOutputFile)
 
                             except Exception, e:
-                                #import traceback
-                                #traceback.print_exc()
+                                if logging.getLogger().level == logging.DEBUG:
+                                    import traceback
+                                    print traceback.print_exc()
                                 LOG.error("Error while processing user!")
                                 LOG.error(str(e))
 
