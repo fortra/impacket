@@ -388,8 +388,13 @@ class SAMRTests(unittest.TestCase):
 
     def test_hSamrLookupNamesInDomain(self):
         dce, rpctransport, domainHandle  = self.connect()
-        resp = samr.hSamrLookupNamesInDomain(dce, domainHandle, ('Administrator','Guest'))
-        resp.dump()
+        try:
+            resp = samr.hSamrLookupNamesInDomain(dce, domainHandle, ('Administrator','Guest'))
+            resp.dump()
+        except Exception, e:
+            if str(e).find('STATUS_MORE_ENTRIES') >=0:
+                pass
+            e.get_packet().dump()
 
     def test_SamrLookupIdsInDomain(self):
         dce, rpctransport, domainHandle  = self.connect()
@@ -479,8 +484,13 @@ class SAMRTests(unittest.TestCase):
 
     def test_hSamrEnumerateUsersInDomain(self):
         dce, rpctransport, domainHandle  = self.connect()
-        resp = samr.hSamrEnumerateUsersInDomain(dce, domainHandle)
-        resp.dump()
+        try:
+            resp = samr.hSamrEnumerateUsersInDomain(dce, domainHandle)
+            resp.dump()
+        except Exception, e:
+            if str(e).find('STATUS_MORE_ENTRIES') >=0:
+                pass
+            e.get_packet().dump()
 
     def test_SamrGetGroupsForUser(self):
         dce, rpctransport, domainHandle  = self.connect()

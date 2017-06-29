@@ -24,9 +24,11 @@ class DCERPCTests(unittest.TestCase):
         if hasattr(rpctransport, 'set_credentials'):
             # This method exists only for selected protocol sequences.
             rpctransport.set_credentials(username, password, domain, lm, nt, aesKey, TGT, TGS)
-            rpctransport.set_kerberos(doKerberos)
+            rpctransport.set_kerberos(doKerberos, kdcHost=self.machine)
 
         rpctransport.set_max_fragment_size(tfragment)
+        rpctransport.setRemoteName(self.serverName)
+        rpctransport.setRemoteHost(self.machine)
         dce = rpctransport.get_dce_rpc()
         dce.set_max_fragment_size(dceFragment)
         if dceAuth is True:
