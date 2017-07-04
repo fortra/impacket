@@ -4130,6 +4130,24 @@ class SMB:
             # Remove Potential Prefix Padding
             return nt_trans_response['Data'][-nt_trans_parameters['TotalDataCount']:]
 
+    def echo(self, text = '', count = 1):
+
+        smb = NewSMBPacket()
+        comEcho = SMBCommand(SMB.SMB_COM_ECHO)
+        comEcho['Parameters'] = SMBEcho_Parameters()
+        comEcho['Data']       = SMBEcho_Data()
+        comEcho['Parameters']['EchoCount'] = count
+        comEcho['Data']['Data'] = text
+        smb.addCommand(comEcho)
+
+        self.sendSMB(smb)
+
+        for i in range(count):
+            resp = self.recvSMB()
+            resp.isValidAnswer(SMB.SMB_COM_ECHO)
+            print "A"
+        return True
+
 ERRDOS = { 1: 'Invalid function',
            2: 'File not found',
            3: 'Invalid directory',
