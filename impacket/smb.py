@@ -4145,7 +4145,6 @@ class SMB:
         for i in range(count):
             resp = self.recvSMB()
             resp.isValidAnswer(SMB.SMB_COM_ECHO)
-            print "A"
         return True
 
 ERRDOS = { 1: 'Invalid function',
