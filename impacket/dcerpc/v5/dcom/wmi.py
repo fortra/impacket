@@ -142,11 +142,16 @@ class ENCODED_STRING(Structure):
                     # Let's search for the end of the string
                     index = data[1:].find('\x00')
                     data  = data[:index+1+1]
+                    self.fromString(data)
                 else:
                     self.structure = self.tunicode
-                    index = data[1:].find('\x00\x00')
-                    data = data[:index+1+2]
-            self.fromString(data)
+                    # index = data[1:].find('\x00\x00')
+                    # data = data[:index+1+2]
+                    self.fromString(data)
+                    try:
+                        self['Character'] = self['Character'].decode('utf-16le')
+                    except UnicodeDecodeError:
+                        pass
         else:
             self.structure = self.tascii
             self.data = None
