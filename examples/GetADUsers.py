@@ -130,7 +130,7 @@ class GetADUsers:
                 raise
 
         # Building the search filter
-        searchFilter = "(&(sAMAccountName=*)(mail=*)"
+        searchFilter = "(&(sAMAccountName=*)(objectCategory=user)"
 
         if self.__requestUser is not None:
             searchFilter += '(sAMAccountName:=%s))' % self.__requestUser
