@@ -70,6 +70,7 @@ class GetADUsers:
         self.__target = None
         self.__kdcHost = cmdLineOptions.dc_ip
         self.__requestUser = cmdLineOptions.user
+        self.__allusers = cmdLineOptions.all_users
         if cmdLineOptions.hashes is not None:
             self.__lmhash, self.__nthash = cmdLineOptions.hashes.split(':')
 
@@ -130,7 +131,10 @@ class GetADUsers:
                 raise
 
         # Building the search filter
-        searchFilter = "(&(sAMAccountName=*)(mail=*)"
+        if self.__allusers:
+            searchFilter = "(&(sAMAccountName=*)(objectCategory=user)"
+        else:
+            searchFilter = "(&(sAMAccountName=*)(mail=*)"
 
         if self.__requestUser is not None:
             searchFilter += '(sAMAccountName:=%s))' % self.__requestUser
@@ -205,6 +209,7 @@ if __name__ == '__main__':
 
     parser.add_argument('target', action='store', help='domain/username[:password]')
     parser.add_argument('-user', action='store', metavar='username', help='Requests data for specific user ')
+    parser.add_argument('-all-users', action='store_true', help='Return all users, including those with no email addresses')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
     group = parser.add_argument_group('authentication')
