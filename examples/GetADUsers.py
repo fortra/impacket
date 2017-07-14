@@ -13,7 +13,8 @@
 #     include some extra information about last logon and last password set attributes.
 #     You can enable or disable the the attributes shown in the final table by changing the values in line 184 and
 #     headers in line 190.
-#     If no entries are returned that means users don't have email addresses specified.
+#     If no entries are returned that means users don't have email addresses specified. If so, you can use the
+#     -all-users parameter.
 #
 # Reference for:
 #     LDAP
