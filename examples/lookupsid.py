@@ -33,8 +33,8 @@ class LSALookupSid:
         445: {'bindstr': r'ncacn_np:%s[\pipe\lsarpc]', 'set_host': True},
         }
 
-    def __init__(self, username, password, domain, port = None,
-                 hashes = None, maxRid=4000):
+    def __init__(self, username='', password='', domain='', port = None,
+                 hashes = None, domain_sids = False, maxRid=4000):
 
         self.__username = username
         self.__password = password
@@ -43,6 +43,7 @@ class LSALookupSid:
         self.__domain = domain
         self.__lmhash = ''
         self.__nthash = ''
+        self.__domain_sids = domain_sids
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
 
@@ -83,12 +84,16 @@ class LSALookupSid:
         #dce.set_max_fragment_size(32)
 
         dce.bind(lsat.MSRPC_UUID_LSAT)
+        
         resp = lsat.hLsarOpenPolicy2(dce, MAXIMUM_ALLOWED | lsat.POLICY_LOOKUP_NAMES)
         policyHandle = resp['PolicyHandle']
 
-        resp = lsad.hLsarQueryInformationPolicy2(dce, policyHandle, lsad.POLICY_INFORMATION_CLASS.PolicyAccountDomainInformation)
-
-        domainSid = resp['PolicyInformation']['PolicyAccountDomainInfo']['DomainSid'].formatCanonical()
+        if self.__domain_sids: # get the Domain SID
+            resp = lsad.hLsarQueryInformationPolicy2(dce, policyHandle, lsad.POLICY_INFORMATION_CLASS.PolicyPrimaryDomainInformation)
+            domainSid =  resp['PolicyInformation']['PolicyPrimaryDomainInfo']['Sid'].formatCanonical()
+        else: # Get the target host SID
+            resp = lsad.hLsarQueryInformationPolicy2(dce, policyHandle, lsad.POLICY_INFORMATION_CLASS.PolicyAccountDomainInformation)
+            domainSid = resp['PolicyInformation']['PolicyAccountDomainInfo']['DomainSid'].formatCanonical()
 
         soFar = 0
         SIMULTANEOUS = 1000
@@ -149,10 +154,12 @@ if __name__ == '__main__':
                        'NetBIOS name and you cannot resolve it')
     group.add_argument('-port', choices=['135', '139', '445'], nargs='?', default='445', metavar="destination port",
                        help='Destination port to connect to SMB Server')
+    group.add_argument('-domain-sids', action='store_true', help='Enumerate Domain SIDs (will likely forward requests to the DC)')
 
     group = parser.add_argument_group('authentication')
 
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
+    group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful when proxying through smbrelayx)')
 
     if len(sys.argv)==1:
         parser.print_help()
@@ -173,14 +180,14 @@ if __name__ == '__main__':
     if domain is None:
         domain = ''
 
-    if password == '' and username != '' and options.hashes is None:
+    if password == '' and username != '' and options.hashes is None and options.no_pass is False:
         from getpass import getpass
         password = getpass("Password:")
 
     if options.target_ip is None:
         options.target_ip = remoteName
 
-    lookup = LSALookupSid(username, password, domain, int(options.port), options.hashes, options.maxRid)
+    lookup = LSALookupSid(username, password, domain, int(options.port), options.hashes, options.domain_sids, options.maxRid)
     try:
         lookup.dump(remoteName, options.target_ip)
     except:
