@@ -50,8 +50,10 @@ from impacket import version
 from impacket.dcerpc.v5 import nrpc
 from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5.ndr import NULL
+from impacket.dcerpc.v5.rpcrt import DCERPCException
 from impacket.examples import logger
 from impacket.examples import serviceinstall
+from impacket.examples.ntlmrelayx.servers.socksserver import activeConnections, SOCKS
 from impacket.nt_errors import ERROR_MESSAGES
 from impacket.nt_errors import STATUS_LOGON_FAILURE, STATUS_SUCCESS, STATUS_ACCESS_DENIED, STATUS_NOT_SUPPORTED, \
     STATUS_MORE_PROCESSING_REQUIRED
@@ -65,8 +67,6 @@ from impacket.smb3 import SMB3
 from impacket.smbconnection import SMBConnection
 from impacket.smbserver import outputToJohnFormat, writeJohnOutputToFile, SMBSERVER
 from impacket.spnego import ASN1_AID, SPNEGO_NegTokenResp, SPNEGO_NegTokenInit
-from impacket.dcerpc.v5.rpcrt import DCERPCException
-from impacket.examples.ntlmrelayx.utils.socks import activeConnections, SOCKS
 
 try:
  from Crypto.Cipher import DES, AES, ARC4
@@ -899,7 +899,7 @@ class SMBRelayServer(Thread):
                     # If the attack fails, the doAttack thread will be responsible of removing it from the set
                     ATTACKED_HOSTS.add(self.target)
                     if self.runSocks is True:
-                        # Pass all the data to the socks proxy
+                        # Pass all the data to the socksplugins proxy
                         activeConnections.put((self.target, 445, authenticateMessage['user_name'], smbClient, connData))
                         logging.info("Adding %s(445) to active SOCKS connection. Enjoy" % self.target)
                         del (smbData[self.target])
@@ -983,7 +983,7 @@ class SMBRelayServer(Thread):
                 # If the attack fails, the doAttack thread will be responsible of removing it from the set
                 ATTACKED_HOSTS.add(self.target)
                 if self.runSocks is True:
-                    # Pass all the data to the socks proxy
+                    # Pass all the data to the socksplugins proxy
                     activeConnections.put((self.target, 445, smbClient, connData))
                     logging.info("Adding %s(445) to active SOCKS connection. Enjoy" % self.target)
                     # Remove the target server from our connection list, the work is done
