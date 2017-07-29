@@ -9,8 +9,5 @@ for file in os.listdir(__path__[0]):
 
     __import__(__package__ + '.' + os.path.splitext(file)[0])
     module = sys.modules[__package__ + '.' + os.path.splitext(file)[0]]
-    print dir(module)
-    print "A"*80
-    print module.__builtins__
     pluginClass = getattr(module, getattr(module, 'PLUGIN_CLASS'))
     SOCKS_RELAYS.add(pluginClass)
