@@ -87,7 +87,6 @@ class DHCP_CLIENT_INFO_VQ(NDRSTRUCT):
         ('ProbationEnds', DATE_TIME),
         ('QuarantineCapable', BOOL),
     )
-
         
 # 2.2.1.2.7 DHCP_HOST_INFO
 class DHCP_HOST_INFO(NDRSTRUCT):
@@ -176,23 +175,18 @@ class LPDHCP_CLIENT_INFO_PB(NDRPOINTER):
         ('Data', DHCP_CLIENT_INFO_PB),
     )
 
-
-
 class LPDHCP_CLIENT_INFO_VQ(NDRPOINTER):
     referent = (
         ('Data', DHCP_CLIENT_INFO_VQ),
     )
 
-
 class DHCP_CLIENT_INFO_VQ_ARRAY(NDRUniConformantArray):
     item = LPDHCP_CLIENT_INFO_VQ
-
 
 class LPDHCP_CLIENT_INFO_VQ_ARRAY(NDRPOINTER):
     referent = (
         ('Data', DHCP_CLIENT_INFO_VQ_ARRAY),
     )
-
 
 class DHCP_CLIENT_INFO_ARRAY_VQ(NDRSTRUCT):
     structure = (
@@ -200,30 +194,24 @@ class DHCP_CLIENT_INFO_ARRAY_VQ(NDRSTRUCT):
         ('Clients', LPDHCP_CLIENT_INFO_VQ_ARRAY),
     )
 
-
 class LPDHCP_CLIENT_INFO_ARRAY_VQ(NDRPOINTER):
     referent = (
         ('Data', DHCP_CLIENT_INFO_ARRAY_VQ),
     )
-    
-
 
 class DHCP_CLIENT_INFO_V4_ARRAY(NDRUniConformantArray):
     item = LPDHCP_CLIENT_INFO_V4
-
 
 class LPDHCP_CLIENT_INFO_V4_ARRAY(NDRPOINTER):
     referent = (
         ('Data', DHCP_CLIENT_INFO_V4_ARRAY),
     )
 
-
 class DHCP_CLIENT_INFO_ARRAY_V4(NDRSTRUCT):
     structure = (
         ('NumElements', DWORD),
         ('Clients', LPDHCP_CLIENT_INFO_V4_ARRAY),
     )
-
 
 class LPDHCP_CLIENT_INFO_ARRAY_V4(NDRPOINTER):
     referent = (
@@ -261,8 +249,7 @@ class DhcpV4GetClientInfoResponse(NDRCALL):
         ('ErrorCode', ULONG),
     )
 
-    
-class R_DhcpEnumSubnetClientsVQ(NDRCALL):
+class DhcpEnumSubnetClientsVQ(NDRCALL):
     opnum = 47
     structure = (
         ('ServerIpAddress', DHCP_SRV_HANDLE),
@@ -271,8 +258,7 @@ class R_DhcpEnumSubnetClientsVQ(NDRCALL):
         ('PreferredMaximum', DWORD),
     )
 
-
-class R_DhcpEnumSubnetClientsVQResponse(NDRCALL):
+class DhcpEnumSubnetClientsVQResponse(NDRCALL):
     structure = (
         ('ResumeHandle', LPDWORD),
         ('ClientInfo', LPDHCP_CLIENT_INFO_ARRAY_VQ),
@@ -281,7 +267,7 @@ class R_DhcpEnumSubnetClientsVQResponse(NDRCALL):
         ('ErrorCode', ULONG),
     )
 
-class R_DhcpEnumSubnetClientsV4(NDRCALL):
+class DhcpEnumSubnetClientsV4(NDRCALL):
     opnum = 35
     structure = (
         ('ServerIpAddress', DHCP_SRV_HANDLE),
@@ -290,8 +276,7 @@ class R_DhcpEnumSubnetClientsV4(NDRCALL):
         ('PreferredMaximum', DWORD),
     )
 
-
-class R_DhcpEnumSubnetClientsV4Response(NDRCALL):
+class DhcpEnumSubnetClientsV4Response(NDRCALL):
     structure = (
         ('ResumeHandle', LPDWORD),
         ('ClientInfo', LPDHCP_CLIENT_INFO_ARRAY_V4),
@@ -299,14 +284,14 @@ class R_DhcpEnumSubnetClientsV4Response(NDRCALL):
         ('ClientsTotal', DWORD),
         ('ErrorCode', ULONG),
     )
-    
+
 ################################################################################
 # OPNUMs and their corresponding structures
 ################################################################################
 OPNUMS = {
  34  : (DhcpGetClientInfoV4, DhcpGetClientInfoV4Response),
- 35 : (R_DhcpEnumSubnetClientsV4, R_DhcpEnumSubnetClientsV4Response),
- 47: (R_DhcpEnumSubnetClientsVQ, R_DhcpEnumSubnetClientsVQResponse)
+ 35  : (DhcpEnumSubnetClientsV4, DhcpEnumSubnetClientsV4Response),
+ 47  : (DhcpEnumSubnetClientsVQ, DhcpEnumSubnetClientsVQResponse)
  123 : (DhcpV4GetClientInfo, DhcpV4GetClientInfoResponse),
 }
 
@@ -329,8 +314,9 @@ def hDhcpGetClientInfoV4(dce, searchType, searchValue):
 
     return dce.request(request)
 
-def hR_DhcpEnumSubnetClientsVQ(dce, preferredMaximum=0xffffffff):
-    request = R_DhcpEnumSubnetClientsVQ()
+def hDhcpEnumSubnetClientsVQ(dce, preferredMaximum=0xffffffff):
+    request = DhcpEnumSubnetClientsVQ()
+    
     request['ServerIpAddress'] = NULL
     request['SubnetAddress'] = NULL
     request['ResumeHandle'] = NULL
@@ -345,8 +331,9 @@ def hR_DhcpEnumSubnetClientsVQ(dce, preferredMaximum=0xffffffff):
             resp = e.get_packet()
         return resp
 
-def hR_DhcpEnumSubnetClientsV4(dce, preferredMaximum=0xffffffff):
-    request = R_DhcpEnumSubnetClientsV4()
+def hDhcpEnumSubnetClientsV4(dce, preferredMaximum=0xffffffff):
+    request = DhcpEnumSubnetClientsV4()
+    
     request['ServerIpAddress'] = NULL
     request['SubnetAddress'] = NULL
     request['ResumeHandle'] = NULL
@@ -360,5 +347,3 @@ def hR_DhcpEnumSubnetClientsV4(dce, preferredMaximum=0xffffffff):
                 raise
             resp = e.get_packet()
         return resp
-
-
