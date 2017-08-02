@@ -71,6 +71,23 @@ class QuarantineStatus(NDRENUM):
         DEFAULTQUARSETTING = 5
         NOQUARINFO = 6
 
+# 2.2.1.2.19 DHCP_CLIENT_INFO_VQ
+class DHCP_CLIENT_INFO_VQ(NDRSTRUCT):
+    structure = (
+        ('ClientIpAddress', DHCP_IP_ADDRESS),
+        ('SubnetMask', DHCP_IP_MASK),
+        ('ClientHardwareAddress', DHCP_CLIENT_UID),
+        ('ClientName', LPWSTR),
+        ('ClientComment', LPWSTR),
+        ('ClientLeaseExpires', DATE_TIME),
+        ('OwnerHost', DHCP_HOST_INFO),
+        ('bClientType', BYTE),
+        ('AddressState', BYTE),
+        ('Status', QuarantineStatus),
+        ('ProbationEnds', DATE_TIME),
+        ('QuarantineCapable', BOOL),
+    )
+        
 # 2.2.1.2.7 DHCP_HOST_INFO
 class DHCP_HOST_INFO(NDRSTRUCT):
     structure = (
@@ -158,6 +175,49 @@ class LPDHCP_CLIENT_INFO_PB(NDRPOINTER):
         ('Data', DHCP_CLIENT_INFO_PB),
     )
 
+class LPDHCP_CLIENT_INFO_VQ(NDRPOINTER):
+    referent = (
+        ('Data', DHCP_CLIENT_INFO_VQ),
+    )
+
+class DHCP_CLIENT_INFO_VQ_ARRAY(NDRUniConformantArray):
+    item = LPDHCP_CLIENT_INFO_VQ
+
+class LPDHCP_CLIENT_INFO_VQ_ARRAY(NDRPOINTER):
+    referent = (
+        ('Data', DHCP_CLIENT_INFO_VQ_ARRAY),
+    )
+
+class DHCP_CLIENT_INFO_ARRAY_VQ(NDRSTRUCT):
+    structure = (
+        ('NumElements', DWORD),
+        ('Clients', LPDHCP_CLIENT_INFO_VQ_ARRAY),
+    )
+
+class LPDHCP_CLIENT_INFO_ARRAY_VQ(NDRPOINTER):
+    referent = (
+        ('Data', DHCP_CLIENT_INFO_ARRAY_VQ),
+    )
+
+class DHCP_CLIENT_INFO_V4_ARRAY(NDRUniConformantArray):
+    item = LPDHCP_CLIENT_INFO_V4
+
+class LPDHCP_CLIENT_INFO_V4_ARRAY(NDRPOINTER):
+    referent = (
+        ('Data', DHCP_CLIENT_INFO_V4_ARRAY),
+    )
+
+class DHCP_CLIENT_INFO_ARRAY_V4(NDRSTRUCT):
+    structure = (
+        ('NumElements', DWORD),
+        ('Clients', LPDHCP_CLIENT_INFO_V4_ARRAY),
+    )
+
+class LPDHCP_CLIENT_INFO_ARRAY_V4(NDRPOINTER):
+    referent = (
+        ('Data', DHCP_CLIENT_INFO_ARRAY_V4),
+    )
+
 ################################################################################
 # RPC CALLS
 ################################################################################
@@ -189,11 +249,49 @@ class DhcpV4GetClientInfoResponse(NDRCALL):
         ('ErrorCode', ULONG),
     )
 
+class DhcpEnumSubnetClientsVQ(NDRCALL):
+    opnum = 47
+    structure = (
+        ('ServerIpAddress', DHCP_SRV_HANDLE),
+        ('SubnetAddress', DHCP_IP_ADDRESS),
+        ('ResumeHandle', LPDWORD),
+        ('PreferredMaximum', DWORD),
+    )
+
+class DhcpEnumSubnetClientsVQResponse(NDRCALL):
+    structure = (
+        ('ResumeHandle', LPDWORD),
+        ('ClientInfo', LPDHCP_CLIENT_INFO_ARRAY_VQ),
+        ('ClientsRead', DWORD),
+        ('ClientsTotal', DWORD),
+        ('ErrorCode', ULONG),
+    )
+
+class DhcpEnumSubnetClientsV4(NDRCALL):
+    opnum = 35
+    structure = (
+        ('ServerIpAddress', DHCP_SRV_HANDLE),
+        ('SubnetAddress', DHCP_IP_ADDRESS),
+        ('ResumeHandle', LPDWORD),
+        ('PreferredMaximum', DWORD),
+    )
+
+class DhcpEnumSubnetClientsV4Response(NDRCALL):
+    structure = (
+        ('ResumeHandle', LPDWORD),
+        ('ClientInfo', LPDHCP_CLIENT_INFO_ARRAY_V4),
+        ('ClientsRead', DWORD),
+        ('ClientsTotal', DWORD),
+        ('ErrorCode', ULONG),
+    )
+
 ################################################################################
 # OPNUMs and their corresponding structures
 ################################################################################
 OPNUMS = {
  34  : (DhcpGetClientInfoV4, DhcpGetClientInfoV4Response),
+ 35  : (DhcpEnumSubnetClientsV4, DhcpEnumSubnetClientsV4Response),
+ 47  : (DhcpEnumSubnetClientsVQ, DhcpEnumSubnetClientsVQResponse)
  123 : (DhcpV4GetClientInfo, DhcpV4GetClientInfoResponse),
 }
 
@@ -216,3 +314,36 @@ def hDhcpGetClientInfoV4(dce, searchType, searchValue):
 
     return dce.request(request)
 
+def hDhcpEnumSubnetClientsVQ(dce, preferredMaximum=0xffffffff):
+    request = DhcpEnumSubnetClientsVQ()
+    
+    request['ServerIpAddress'] = NULL
+    request['SubnetAddress'] = NULL
+    request['ResumeHandle'] = NULL
+    request['PreferredMaximum'] = preferredMaximum
+    status = nt_errors.STATUS_MORE_ENTRIES
+    while status == nt_errors.STATUS_MORE_ENTRIES:
+        try:
+            resp = dce.request(request)
+        except DCERPCException, e:
+            if str(e).find('STATUS_MORE_ENTRIES') < 0:
+                raise
+            resp = e.get_packet()
+        return resp
+
+def hDhcpEnumSubnetClientsV4(dce, preferredMaximum=0xffffffff):
+    request = DhcpEnumSubnetClientsV4()
+    
+    request['ServerIpAddress'] = NULL
+    request['SubnetAddress'] = NULL
+    request['ResumeHandle'] = NULL
+    request['PreferredMaximum'] = preferredMaximum
+    status = nt_errors.STATUS_MORE_ENTRIES
+    while status == nt_errors.STATUS_MORE_ENTRIES:
+        try:
+            resp = dce.request(request)
+        except DCERPCException, e:
+            if str(e).find('STATUS_MORE_ENTRIES') < 0:
+                raise
+            resp = e.get_packet()
+        return resp
