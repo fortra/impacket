@@ -39,7 +39,7 @@ class DHCPMTests(unittest.TestCase):
 
         return dce, rpctransport
 
-    def AAAAAtest_DhcpV4GetClientInfo(self):
+    def test_DhcpV4GetClientInfo(self):
         dce, rpctransport = self.connect(2)
         request = dhcpm.DhcpV4GetClientInfo()
         request['ServerIpAddress'] = NULL
