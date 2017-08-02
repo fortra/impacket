@@ -20,7 +20,7 @@
 #
 
 from impacket import system_errors
-from impacket.dcerpc.v5.dtypes import LPWSTR, ULONG, NULL, DWORD, BOOL, BYTE
+from impacket.dcerpc.v5.dtypes import LPWSTR, ULONG, NULL, DWORD, BOOL, BYTE, LPDWORD
 from impacket.dcerpc.v5.ndr import NDRCALL, NDRUniConformantArray, NDRPOINTER, NDRSTRUCT, NDRENUM, NDRUNION
 from impacket.dcerpc.v5.rpcrt import DCERPCException
 from impacket.dcerpc.v5.enum import Enum
@@ -291,7 +291,7 @@ class DhcpEnumSubnetClientsV4Response(NDRCALL):
 OPNUMS = {
  34  : (DhcpGetClientInfoV4, DhcpGetClientInfoV4Response),
  35  : (DhcpEnumSubnetClientsV4, DhcpEnumSubnetClientsV4Response),
- 47  : (DhcpEnumSubnetClientsVQ, DhcpEnumSubnetClientsVQResponse)
+ 47  : (DhcpEnumSubnetClientsVQ, DhcpEnumSubnetClientsVQResponse),
  123 : (DhcpV4GetClientInfo, DhcpV4GetClientInfoResponse),
 }
 
@@ -321,8 +321,8 @@ def hDhcpEnumSubnetClientsVQ(dce, preferredMaximum=0xffffffff):
     request['SubnetAddress'] = NULL
     request['ResumeHandle'] = NULL
     request['PreferredMaximum'] = preferredMaximum
-    status = nt_errors.STATUS_MORE_ENTRIES
-    while status == nt_errors.STATUS_MORE_ENTRIES:
+    status = system_errors.ERROR_MORE_DATA
+    while status == system_errors.ERROR_MORE_DATA:
         try:
             resp = dce.request(request)
         except DCERPCException, e:
@@ -338,8 +338,8 @@ def hDhcpEnumSubnetClientsV4(dce, preferredMaximum=0xffffffff):
     request['SubnetAddress'] = NULL
     request['ResumeHandle'] = NULL
     request['PreferredMaximum'] = preferredMaximum
-    status = nt_errors.STATUS_MORE_ENTRIES
-    while status == nt_errors.STATUS_MORE_ENTRIES:
+    status = system_errors.ERROR_MORE_DATA
+    while status == system_errors.ERROR_MORE_DATA:
         try:
             resp = dce.request(request)
         except DCERPCException, e:
