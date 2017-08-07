@@ -256,7 +256,8 @@ class RemoteShell(cmd.Cmd):
         command += ' & ' + 'del ' + self.__batchFile 
 
         logging.debug('Executing %s' % command)
-        resp = scmr.hRCreateServiceW(self.__scmr, self.__scHandle, self.__serviceName, self.__serviceName, lpBinaryPathName=command)
+        resp = scmr.hRCreateServiceW(self.__scmr, self.__scHandle, self.__serviceName, self.__serviceName,
+                                     lpBinaryPathName=command, dwStartType=scmr.SERVICE_DEMAND_START)
         service = resp['lpServiceHandle']
 
         try:
