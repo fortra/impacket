@@ -19,7 +19,7 @@ from pyasn1.codec.ber import encoder, decoder
 from pyasn1.type import univ, namedtype, namedval, tag, constraint
 
 __all__ = [
-    'CONTROL_PAGEDRESULTS', 'KNOWN_CONTROLS', 'NOTIFICATION_DISCONNECT', 'KNOWN_NOTIFICATIONS',
+    'CONTROL_PAGEDRESULTS', 'CONTROL_SDFLAGS', 'KNOWN_CONTROLS', 'NOTIFICATION_DISCONNECT', 'KNOWN_NOTIFICATIONS',
     # classes
     'ResultCode', 'Scope', 'DerefAliases', 'Operation', 'MessageID', 'LDAPString', 'LDAPOID', 'LDAPDN',
     'RelativeLDAPDN', 'AttributeDescription', 'AttributeValue', 'AssertionValue', 'MatchingRuleID', 'URI',
@@ -34,6 +34,7 @@ __all__ = [
 
 # Controls
 CONTROL_PAGEDRESULTS = '1.2.840.113556.1.4.319'
+CONTROL_SDFLAGS = '1.2.840.113556.1.4.801'
 
 KNOWN_CONTROLS = {}
 
@@ -568,6 +569,43 @@ class Controls(univ.SequenceOf):
     componentType = Control()
 
 
+class SDFlagsControlValue(univ.Sequence):
+    componentType = namedtype.NamedTypes(
+        namedtype.NamedType('flags', univ.Integer().subtype(subtypeSpec=constraint.ValueRangeConstraint(0, maxInt))),
+    )
+
+class SDFlagsControl(Control):
+    def __init__(self, criticality=None, flags=0x00000007L, **kwargs):
+        Control.__init__(self, **kwargs)
+        self['controlType'] = CONTROL_SDFLAGS
+        if criticality is not None:
+            self['criticality'] = criticality
+        self.flags = flags
+        self.encodeControlValue()
+
+    def encodeControlValue(self):
+        self['controlValue'] = encoder.encode(
+            SDFlagsControlValue().setComponents(self.flags))
+
+    def decodeControlValue(self):
+        decodedControlValue, _ = decoder.decode(self['controlValue'], asn1Spec=SDFlagsControlValue())
+        self._flags =  decodedControlValue[0]
+        return decodedControlValue
+
+    def getCriticality(self):
+        return self['criticality']
+
+    def setCriticality(self, value):
+        self['criticality'] = value
+
+    def getFlags(self):
+        self.decodeControlValue()
+        return self._flags
+
+    def setFlags(self, value):
+        self._flags = value
+        self.encodeControlValue()
+
 class SimplePagedResultsControlValue(univ.Sequence):
     componentType = namedtype.NamedTypes(
         namedtype.NamedType('size', univ.Integer().subtype(subtypeSpec=constraint.ValueRangeConstraint(0, maxInt))),
@@ -617,7 +655,7 @@ class SimplePagedResultsControl(Control):
 
 
 KNOWN_CONTROLS[CONTROL_PAGEDRESULTS] = SimplePagedResultsControl
-
+KNOWN_CONTROLS[CONTROL_SDFLAGS] = SDFlagsControl
 
 class LDAPMessage(DefaultSequenceAndSetBaseMixin, univ.Sequence):
     componentType = namedtype.NamedTypes(
