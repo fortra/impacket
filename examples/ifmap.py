@@ -340,8 +340,8 @@ def main(args):
     listed = tup in uuidtups
     otherversion = any(tup[0] == uuidstr for uuidstr, ver in uuidtups)
     if listed or listening:
-      print "%r: %s, %s" % (
-        tup,
+      print "%s v%s: %s, %s" % (
+        tup[0], tup[1],
         "listed" if listed else "other version listed" if otherversion else "not listed",
         "listening" if listening else "not listening"
       )
