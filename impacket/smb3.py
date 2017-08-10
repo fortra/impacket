@@ -20,7 +20,7 @@
 # [X] Implement SMB2_SET_INFO
 # [ ] Implement SMB2_OPLOCK_BREAK
 # [X] Implement SMB3 signing 
-# [ ] Implement SMB3 encryption
+# [X] Implement SMB3 encryption
 # [ ] Add more backward compatible commands from the smb.py code
 # [ ] Fix up all the 'ToDo' comments inside the code
 #
