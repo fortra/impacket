@@ -340,11 +340,6 @@ def main(args):
     listed = tup in uuidtups
     otherversion = any(tup[0] == uuidstr for uuidstr, ver in uuidtups)
     if listed or listening:
-      print "%s v%s: %s, %s" % (
-        tup[0], tup[1],
-        "listed" if listed else "other version listed" if otherversion else "not listed",
-        "listening" if listening else "not listening"
-      )
       if epm.KNOWN_PROTOCOLS.has_key(tup[0]):
           print "Protocol: %s" % (epm.KNOWN_PROTOCOLS[tup[0]])
       else:
@@ -354,6 +349,11 @@ def main(args):
           print "Provider: %s" % (KNOWN_UUIDS[uuid.uuidtup_to_bin(tup)[:18]])
       else:
           print "Provider: N/A"
+      print "UUID     : %s v%s: %s, %s\n" % (
+        tup[0], tup[1],
+        "listed" if listed else "other version listed" if otherversion else "not listed",
+        "listening" if listening else "not listening"
+      )
 
 
 if __name__ == "__main__":
