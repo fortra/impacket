@@ -86,6 +86,10 @@ class LDAPConnection:
             self._dstPort = 636
             self._SSL = True
             self._dstHost = url[8:]
+        elif url.startswith('gc://'):
+            self._dstPort = 3268
+            self._SSL = False
+            self._dstHost = url[5:]
         else:
             raise LDAPSessionError(errorString="Unknown URL prefix: '%s'" % url)
 
