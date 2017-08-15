@@ -76,14 +76,19 @@ if __name__ == '__main__':
                     pEnum = iEnum.Next(0xffffffff,1)[0]
                     record = pEnum.getProperties()
                     if printHeader is True:
-                        print '|', 
+                        print '|',
                         for col in record:
                             print '%s |' % col,
                         print
                         printHeader = False
                     print '|', 
                     for key in record:
-                        print '%s |' % record[key]['value'],
+                        if type(record[key]['value']) is list:
+                            for item in record[key]['value']:
+                                print item,
+                            print ' |',
+                        else:
+                            print '%s |' % record[key]['value'],
                     print 
                 except Exception, e:
                     #import traceback

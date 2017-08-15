@@ -136,25 +136,26 @@ class ENCODED_STRING(Structure):
             # Let's first check the commonHdr
             self.fromString(data)
             self.structure = ()
+            self.isUnicode = False
             if len(data) > 1:
                 if self['Encoded_String_Flag'] == 0:
                     self.structure += self.tascii
                     # Let's search for the end of the string
                     index = data[1:].find('\x00')
                     data  = data[:index+1+1]
-                    self.fromString(data)
                 else:
                     self.structure = self.tunicode
-                    # index = data[1:].find('\x00\x00')
-                    # data = data[:index+1+2]
-                    self.fromString(data)
-                    try:
-                        self['Character'] = self['Character'].decode('utf-16le')
-                    except UnicodeDecodeError:
-                        pass
+                    self.isUnicode = True
+
+                self.fromString(data)
         else:
             self.structure = self.tascii
             self.data = None
+
+    def __getitem__(self, key):
+        if key == 'Character' and self.isUnicode:
+            return self.fields['Character'].decode('utf-16le')
+        return Structure.__getitem__(self, key)
 
 
 # 2.2.8 DecServerName
