@@ -19,6 +19,7 @@ import struct
 import os
 
 from pyasn1.codec.der import decoder, encoder
+from pyasn1.error import PyAsn1Error
 from binascii import unhexlify
 
 from impacket.krb5.asn1 import AS_REQ, AP_REQ, TGS_REQ, KERB_PA_PAC_REQUEST, KRB_ERROR, PA_ENC_TS_ENC, AS_REP, TGS_REP, \
@@ -159,10 +160,14 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
         if method['padata-type'] == constants.PreAuthenticationDataTypes.PA_ETYPE_INFO2.value:
             etypes2 = decoder.decode(str(method['padata-value']), asn1Spec = ETYPE_INFO2())[0]
             for etype2 in etypes2:
-                if etype2['salt'] is None:
+                try:
+                    if str(etype2['salt']) is None:
+                        salt = ''
+                    else:
+                        salt = str(etype2['salt'])
+                except PyAsn1Error, e:
                     salt = ''
-                else: 
-                    salt = str(etype2['salt'])  
+
                 encryptionTypesData[etype2['etype']] = salt
         elif method['padata-type'] == constants.PreAuthenticationDataTypes.PA_ETYPE_INFO.value:
             etypes = decoder.decode(str(method['padata-value']), asn1Spec = ETYPE_INFO())[0]
