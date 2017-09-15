@@ -1,11 +1,31 @@
-from impacket.dcerpc.v5.rpcrt import DCERPCException
-from impacket.dcerpc.v5.ndr import NDRCALL, NDRPOINTER, NDRUniConformantArray, NDRUniVaryingArray, NDRSTRUCT
-from impacket.dcerpc.v5.dtypes import WSTR, DWORD, LPWSTR, ULONG, LARGE_INTEGER, GUID, \
-    BOOLEAN, ULARGE_INTEGER, WORD, BYTE
+# Copyright (c) 2017 CORE Security Technologies
+# Copyright (c) 2017 @MrAnde7son
+#
+# This software is provided under under a slightly modified version
+# of the Apache Software License. See the accompanying LICENSE file
+# for more information.
+#
+# Author: Itamar (@MrAnde7son)
+#
+# Description:
+#   Initial [MS-EVEN6] Interface implementation
+#
+#   Best way to learn how to use these calls is to grab the protocol standard
+#   so you understand what the call does, and then read the test case located
+#   at https://github.com/CoreSecurity/impacket/tree/master/impacket/testcases/SMB_RPC
+#
+#   Some calls have helper functions, which makes it even easier to use.
+#   They are located at the end of this file.
+#   Helper functions start with "h"<name of the call>.
+#   There are test cases for them too.
+#
 from impacket import system_errors
+from impacket.dcerpc.v5.dtypes import WSTR, DWORD, LPWSTR, ULONG, LARGE_INTEGER, WORD, BYTE
+from impacket.dcerpc.v5.ndr import NDRCALL, NDRPOINTER, NDRUniConformantArray, NDRUniVaryingArray, NDRSTRUCT
+from impacket.dcerpc.v5.rpcrt import DCERPCException
 from impacket.uuid import uuidtup_to_bin
 
-MSRPC_UUID_EVENTLOG = uuidtup_to_bin(('F6BEAFF7-1E19-4FBB-9F8F-B89E2018337C', '1.0'))
+MSRPC_UUID_EVEN6 = uuidtup_to_bin(('F6BEAFF7-1E19-4FBB-9F8F-B89E2018337C', '1.0'))
 
 class DCERPCSessionError(DCERPCException):
     def __init__(self, error_string=None, error_code=None, packet=None):
@@ -16,9 +36,9 @@ class DCERPCSessionError(DCERPCException):
         if system_errors.ERROR_MESSAGES.has_key(key):
             error_msg_short = system_errors.ERROR_MESSAGES[key][0]
             error_msg_verbose = system_errors.ERROR_MESSAGES[key][1]
-            return 'EVENTLOG SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
+            return 'EVEN6 SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
         else:
-            return 'EVENTLOG SessionError: unknown error code: 0x%x' % self.error_code
+            return 'EVEN6 SessionError: unknown error code: 0x%x' % self.error_code
 
 ################################################################################
 # CONSTANTS
