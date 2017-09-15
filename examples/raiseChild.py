@@ -539,8 +539,8 @@ class RAISECHILD:
             s.login('','')
         except Exception, e:
             logging.debug('Error while anonymous logging into %s' % machineIP)
-
-        s.logoff()
+        else:
+            s.logoff()
         return s.getServerName()
 
     @staticmethod
@@ -550,8 +550,8 @@ class RAISECHILD:
             s.login('','')
         except Exception, e:
             logging.debug('Error while anonymous logging into %s' % machineIP)
-
-        s.logoff()
+        else:
+            s.logoff()
         return s.getServerName() + '.' + s.getServerDNSDomainName()
 
     def getParentSidAndAdminName(self, parentDC, creds):
