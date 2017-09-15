@@ -203,7 +203,11 @@ class DumpSecrets:
                     if resumeFile is not None:
                         os.unlink(resumeFile)
                 logging.error(e)
-                if self.__useVSSMethod is False:
+                if self.__justUser and str(e).find("ERROR_DS_NAME_ERROR_NOT_UNIQUE") >=0:
+                    logging.info("You just got that error because there might be some duplicates of the same name. "
+                                 "Try specifying the domain name for the user as well. It is important to specify it "
+                                 "in the form of NetBIOS domain name/user (e.g. contoso/Administratror).")
+                elif self.__useVSSMethod is False:
                     logging.info('Something wen\'t wrong with the DRSUAPI approach. Try again with -use-vss parameter')
             self.cleanup()
         except (Exception, KeyboardInterrupt), e:

@@ -2224,9 +2224,8 @@ class NTDSHashes:
 
                     if crackedName['pmsgOut']['V1']['pResult']['cItems'] == 1:
                         if crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status'] != 0:
-                            LOG.error("%s: %s" % system_errors.ERROR_MESSAGES[
+                            raise Exception("%s: %s" % system_errors.ERROR_MESSAGES[
                                 0x2114 + crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['status']])
-                            return
 
                         userRecord = self.__remoteOps.DRSGetNCChanges(crackedName['pmsgOut']['V1']['pResult']['rItems'][0]['pName'][:-1])
                         #userRecord.dump()
