@@ -200,7 +200,7 @@ class RemoteShell(cmd.Cmd):
             self.__pwd = ntpath.normpath(ntpath.join(self.__pwd, s.decode(sys.stdin.encoding)))
             self.execute_remote('cd ')
             self.__pwd = self.__outputBuffer.strip('\r\n')
-            self.prompt = unicode(self.__pwd + '>').encode(sys.stdout.encoding)
+            self.prompt = unicode(self.__pwd + '>').encode(CODEC)
             self.__outputBuffer = u''
 
     def default(self, line):
@@ -217,7 +217,7 @@ class RemoteShell(cmd.Cmd):
                 self.__pwd = line
                 self.execute_remote('cd ')
                 self.__pwd = self.__outputBuffer.strip('\r\n')
-                self.prompt = unicode(self.__pwd + '>').encode(sys.stdout.encoding)
+                self.prompt = unicode(self.__pwd + '>').encode(CODEC)
                 self.__outputBuffer = u''
         else:
             if line != '':
@@ -359,6 +359,9 @@ if __name__ == '__main__':
 
     if options.codec is not None:
         CODEC = options.codec
+    else:
+        if CODEC is None:
+            CODEC = 'UTF-8'
 
     if ' '.join(options.command) == ' ' and options.nooutput is True:
         logging.error("-nooutput switch and interactive shell not supported")
