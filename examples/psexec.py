@@ -55,7 +55,7 @@ lock = Lock()
 
 class PSEXEC:
     def __init__(self, command, path, exeFile, copyFile, port=445,
-                 username='', password='', domain='', hashes=None, aesKey=None, doKerberos=False, kdcHost=None):
+                 username='', password='', domain='', hashes=None, aesKey=None, doKerberos=False, kdcHost=None, serviceName=None):
         self.__username = username
         self.__password = password
         self.__port = port
@@ -69,6 +69,7 @@ class PSEXEC:
         self.__copyFile = copyFile
         self.__doKerberos = doKerberos
         self.__kdcHost = kdcHost
+        self.__serviceName = serviceName
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
 
@@ -129,7 +130,7 @@ class PSEXEC:
             # We don't wanna deal with timeouts from now on.
             s.setTimeout(100000)
             if self.__exeFile is None:
-                installService = serviceinstall.ServiceInstall(rpctransport.get_smb_connection(), remcomsvc.RemComSvc())
+                installService = serviceinstall.ServiceInstall(rpctransport.get_smb_connection(), remcomsvc.RemComSvc(), self.__serviceName)
             else:
                 try:
                     f = open(self.__exeFile)
@@ -442,6 +443,7 @@ if __name__ == '__main__':
                             'This is useful when target is the NetBIOS name and you cannot resolve it')
     group.add_argument('-port', choices=['139', '445'], nargs='?', default='445', metavar="destination port",
                        help='Destination port to connect to SMB Server')
+    group.add_argument('-service-name', action='store', metavar="service name", default = '', help='This will be the name of the service')
 
     if len(sys.argv)==1:
         parser.print_help()
@@ -482,5 +484,5 @@ if __name__ == '__main__':
         command = 'cmd.exe'
 
     executer = PSEXEC(command, options.path, options.file, options.c, int(options.port), username, password, domain, options.hashes,
-                      options.aesKey, options.k, options.dc_ip)
+                      options.aesKey, options.k, options.dc_ip, options.service_name)
     executer.run(remoteName, options.target_ip)
