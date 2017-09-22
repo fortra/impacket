@@ -93,6 +93,34 @@ class SAM_KEY_DATA(Structure):
         ('Reserved','<Q=0'),
     )
 
+# Structure taken from mimikatz (@gentilkiwi) in the context of https://github.com/CoreSecurity/impacket/issues/326
+# Merci! Makes it way easier than parsing manually.
+class SAM_HASH(Structure):
+    structure = (
+        ('PekID','<H=0'),
+        ('Revision','<H=0'),
+        ('Hash','16s=""'),
+    )
+
+class SAM_KEY_DATA_AES(Structure):
+    structure = (
+        ('Revision','<L=0'),
+        ('Length','<L=0'),
+        ('CheckSumLen','<L=0'),
+        ('DataLen','<L=0'),
+        ('Salt','16s=""'),
+        ('Data',':'),
+    )
+
+class SAM_HASH_AES(Structure):
+    structure = (
+        ('PekID','<H=0'),
+        ('Revision','<H=0'),
+        ('DataOffset','<L=0'),
+        ('Salt','16s=""'),
+        ('Hash',':'),
+    )
+
 class DOMAIN_ACCOUNT_F(Structure):
     structure = (
         ('Revision','<L=0'),
@@ -115,7 +143,7 @@ class DOMAIN_ACCOUNT_F(Structure):
         ('ServerRole','<H=0'),
         ('UasCompatibilityRequired','<H=0'),
         ('Unknown3','<Q=0'),
-        ('Key0',':', SAM_KEY_DATA),
+        ('Key0',':'),
 # Commenting this, not needed and not present on Windows 2000 SP0
 #        ('Key1',':', SAM_KEY_DATA),
 #        ('Unknown4','<L=0'),
@@ -1080,18 +1108,27 @@ class SAMHashes(OfflineRegistry):
 
         domainData = DOMAIN_ACCOUNT_F(F)
 
-        rc4Key = self.MD5(domainData['Key0']['Salt'] + QWERTY + self.__bootKey + DIGITS)
+        if domainData['Key0'][0] == '\x01':
+            samKeyData = SAM_KEY_DATA(domainData['Key0'])
 
-        rc4 = ARC4.new(rc4Key)
-        self.__hashedBootKey = rc4.encrypt(domainData['Key0']['Key']+domainData['Key0']['CheckSum'])
+            rc4Key = self.MD5(samKeyData['Salt'] + QWERTY + self.__bootKey + DIGITS)
+            rc4 = ARC4.new(rc4Key)
+            self.__hashedBootKey = rc4.encrypt(samKeyData['Key']+samKeyData['CheckSum'])
 
-        # Verify key with checksum
-        checkSum = self.MD5( self.__hashedBootKey[:16] + DIGITS + self.__hashedBootKey[:16] + QWERTY)
+            # Verify key with checksum
+            checkSum = self.MD5( self.__hashedBootKey[:16] + DIGITS + self.__hashedBootKey[:16] + QWERTY)
 
-        if checkSum != self.__hashedBootKey[16:]:
-            raise Exception('hashedBootKey CheckSum failed, Syskey startup password probably in use! :(')
+            if checkSum != self.__hashedBootKey[16:]:
+                raise Exception('hashedBootKey CheckSum failed, Syskey startup password probably in use! :(')
 
-    def __decryptHash(self, rid, cryptedHash, constant):
+        elif domainData['Key0'][0] == '\x02':
+            # This is Windows 2016 TP5 on in theory (it is reported that some W10 and 2012R2 might behave this way also)
+            samKeyData = SAM_KEY_DATA_AES(domainData['Key0'])
+
+            self.__hashedBootKey = self.__cryptoCommon.decryptAES(self.__bootKey,
+                                                                  samKeyData['Data'][:samKeyData['DataLen']], samKeyData['Salt'])
+
+    def __decryptHash(self, rid, cryptedHash, constant, newStyle = False):
         # Section 2.2.11.1.1 Encrypting an NT or LM Hash Value with a Specified Key
         # plus hashedBootKey stuff
         Key1,Key2 = self.__cryptoCommon.deriveKey(rid)
@@ -1099,9 +1136,12 @@ class SAMHashes(OfflineRegistry):
         Crypt1 = DES.new(Key1, DES.MODE_ECB)
         Crypt2 = DES.new(Key2, DES.MODE_ECB)
 
-        rc4Key = self.MD5( self.__hashedBootKey[:0x10] + pack("<L",rid) + constant )
-        rc4 = ARC4.new(rc4Key)
-        key = rc4.encrypt(cryptedHash)
+        if newStyle is False:
+            rc4Key = self.MD5( self.__hashedBootKey[:0x10] + pack("<L",rid) + constant )
+            rc4 = ARC4.new(rc4Key)
+            key = rc4.encrypt(cryptedHash['Hash'])
+        else:
+            key = self.__cryptoCommon.decryptAES(self.__hashedBootKey[:0x10], cryptedHash['Hash'], cryptedHash['Salt'])[:16]
 
         decryptedHash = Crypt1.decrypt(key[:8]) + Crypt2.decrypt(key[8:])
 
@@ -1136,18 +1176,27 @@ class SAMHashes(OfflineRegistry):
 
             userName = V[userAccount['NameOffset']:userAccount['NameOffset']+userAccount['NameLength']].decode('utf-16le')
 
-            if userAccount['LMHashLength'] == 20:
-                encLMHash = V[userAccount['LMHashOffset']+4:userAccount['LMHashOffset']+userAccount['LMHashLength']]
+            if V[userAccount['NTHashOffset']:][2] == '\x01':
+                # Old Style hashes
+                newStyle = False
+                if userAccount['LMHashLength'] == 20:
+                    encLMHash = SAM_HASH(V[userAccount['LMHashOffset']:][:userAccount['LMHashLength']])
+                if userAccount['NTHashLength'] == 20:
+                    encNTHash = SAM_HASH(V[userAccount['NTHashOffset']:][:userAccount['NTHashLength']])
             else:
-                encLMHash = ''
+                # New Style hashes
+                newStyle = True
+                if userAccount['LMHashLength'] == 24:
+                    encLMHash = SAM_HASH_AES(V[userAccount['LMHashOffset']:][:userAccount['LMHashLength']])
+                encNTHash = SAM_HASH_AES(V[userAccount['NTHashOffset']:][:userAccount['NTHashLength']])
 
-            if userAccount['NTHashLength'] == 20:
-                encNTHash = V[userAccount['NTHashOffset']+4:userAccount['NTHashOffset']+userAccount['NTHashLength']]
+            LOG.debug('NewStyle hashes is: %s' % newStyle)
+            if userAccount['LMHashLength'] >= 20:
+                lmHash = self.__decryptHash(rid, encLMHash, LMPASSWORD, newStyle)
             else:
-                encNTHash = ''
+                lmHash = ''
 
-            lmHash = self.__decryptHash(rid, encLMHash, LMPASSWORD)
-            ntHash = self.__decryptHash(rid, encNTHash, NTPASSWORD)
+            ntHash = self.__decryptHash(rid, encNTHash, NTPASSWORD, newStyle)
 
             if lmHash == '':
                 lmHash = ntlm.LMOWFv1('','')
