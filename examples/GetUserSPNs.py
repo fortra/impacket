@@ -86,7 +86,10 @@ class GetUserSPNs:
             self.__lmhash, self.__nthash = cmdLineOptions.hashes.split(':')
 
         # Create the baseDN
-        domainParts = self.__domain.split('.')
+	if cmdLineOptions.base_dn is not None:
+	    domainParts = cmdLineOptions.base_dn.split('.')
+	else:
+	    domainParts = self.__domain.split('.')
         self.baseDN = ''
         for i in domainParts:
             self.baseDN += 'dc=%s,' % i
@@ -350,6 +353,9 @@ if __name__ == '__main__':
     group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. If '
                                                                               'ommited it use the domain part (FQDN) '
                                                                               'specified in the target parameter')
+    group.add_argument('-base-dn', action='store',metavar = "base dn",  help='Base DN of the interogated DC '
+                                                                              '(if different from the one used to authenticate)')
+
 
     if len(sys.argv)==1:
         parser.print_help()
