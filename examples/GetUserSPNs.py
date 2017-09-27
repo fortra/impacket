@@ -79,9 +79,13 @@ class GetUserSPNs:
         self.__doKerberos = cmdLineOptions.k
         self.__target = None
         self.__requestTGS = options.request
-        self.__kdcHost = cmdLineOptions.dc_ip
         self.__saveTGS = cmdLineOptions.save
         self.__requestUser = cmdLineOptions.request_user
+        if cmdLineOptions.kdc_ip is not None:
+            self.__kdcHost = cmdLineOptions.kdc_ip
+        else:
+            self.__kdcHost = cmdLineOptions.dc_ip
+        self.__dcIp = cmdLineOptions.dc_ip
         if cmdLineOptions.hashes is not None:
             self.__lmhash, self.__nthash = cmdLineOptions.hashes.split(':')
 
@@ -97,8 +101,8 @@ class GetUserSPNs:
         self.baseDN = self.baseDN[:-1]
 
     def getMachineName(self):
-        if self.__kdcHost is not None:
-            s = SMBConnection(self.__kdcHost, self.__kdcHost)
+        if self.__dcIp is not None:
+            s = SMBConnection(self.__dcIp, self.__dcIp)
         else:
             s = SMBConnection(self.__domain, self.__domain)
         try:
@@ -107,7 +111,13 @@ class GetUserSPNs:
             logging.debug('Error while anonymous logging into %s' % self.__domain)
 
         s.logoff()
-        return s.getServerName()
+
+        if self.options.base_dn is not None:
+            machineDomain = self.options.base_dn
+        else:
+            machineDomaine = self.__domain
+
+        return '{}.{}'.format(s.getServerName(), machineDomain)
 
     @staticmethod
     def getUnixTime(t):
@@ -192,14 +202,14 @@ class GetUserSPNs:
         if self.__doKerberos:
             self.__target = self.getMachineName()
         else:
-            if self.__kdcHost is not None:
-                self.__target = self.__kdcHost
+            if self.__dcIp is not None:
+                self.__target = self.__dcIp
             else:
                 self.__target = self.__domain
 
         # Connect to LDAP
         try:
-            ldapConnection = ldap.LDAPConnection('ldap://%s'%self.__target, self.baseDN, self.__kdcHost)
+            ldapConnection = ldap.LDAPConnection('ldap://%s'%self.__target, self.baseDN, self.__target)
             if self.__doKerberos is not True:
                 ldapConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
             else:
@@ -208,7 +218,7 @@ class GetUserSPNs:
         except ldap.LDAPSessionError, e:
             if str(e).find('strongerAuthRequired') >= 0:
                 # We need to try SSL
-                ldapConnection = ldap.LDAPConnection('ldaps://%s' % self.__target, self.baseDN, self.__kdcHost)
+                ldapConnection = ldap.LDAPConnection('ldaps://%s' % self.__target, self.baseDN, self.__target)
                 if self.__doKerberos is not True:
                     ldapConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
                 else:
@@ -353,6 +363,9 @@ if __name__ == '__main__':
     group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. If '
                                                                               'ommited it use the domain part (FQDN) '
                                                                               'specified in the target parameter')
+    group.add_argument('-kdc-ip', action='store',metavar = "ip address",  help='IP Address of the key distribution center. '
+                                                                              'Useful if the KDC and the DC are in different domains. '
+                                                                              'If ommited, the DC IP is used')
     group.add_argument('-base-dn', action='store',metavar = "base dn",  help='Base DN of the interogated DC '
                                                                               '(if different from the one used to authenticate)')
 

@@ -392,8 +392,10 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
         return r, cipher, sessionKey, newSessionKey
     else:
         # Let's extract the Ticket, change the domain and keep asking
+        # We also interrogate a new KDC. TODO: how to find the KDC associated
+        # with the new domain. For now, we just try to resolve the new domain.
         domain = spn.components[1]
-        return getKerberosTGS(serverName, domain, kdcHost, r, cipher, newSessionKey)
+        return getKerberosTGS(serverName, domain, domain, r, cipher, newSessionKey)
     
     return r, cipher, sessionKey, newSessionKey
 
