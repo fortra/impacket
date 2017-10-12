@@ -188,6 +188,15 @@ class GetUserSPNs:
                 print entry
             else:
                 fd.write(entry+'\n')
+        elif decodedTGS['ticket']['enc-part']['etype'] == constants.EncryptionTypes.des_cbc_md5.value:
+            entry = '$krb5tgs$%d$*%s$%s$%s*$%s$%s' % (
+                constants.EncryptionTypes.des_cbc_md5.value, username, decodedTGS['ticket']['realm'], spn.replace(':', '~'),
+                hexlify(str(decodedTGS['ticket']['enc-part']['cipher'][:16])),
+                hexlify(str(decodedTGS['ticket']['enc-part']['cipher'][16:])))
+            if fd is None:
+                print entry
+            else:
+                fd.write(entry+'\n')
         else:
             logging.error('Skipping %s/%s due to incompatible e-type %d' % (
                 decodedTGS['ticket']['sname']['name-string'][0], decodedTGS['ticket']['sname']['name-string'][1],
