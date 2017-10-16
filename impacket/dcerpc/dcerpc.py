@@ -114,57 +114,57 @@ rpc_cont_def_result = {
 #http://www.opengroup.org/onlinepubs/9629399/apdxn.htm
 
 rpc_status_codes = {
-    0x00000005L : 'rpc_s_access_denied',
-    0x00000008L : 'Authentication type not recognized',
-    0x000006D8L : 'rpc_fault_cant_perform', 
-    0x000006C6L : 'rpc_x_invalid_bound',                # the arrays bound are invalid
-    0x000006E4L : 'rpc_s_cannot_support: The requested operation is not supported.',               # some operation is not supported
-    0x000006F7L : 'rpc_x_bad_stub_data',                # the stub data is invalid, doesn't match with the IDL definition
-    0x1C010001L : 'nca_s_comm_failure',                 # unable to get response from server:
-    0x1C010002L : 'nca_s_op_rng_error',                 # bad operation number in call
-    0x1C010003L : 'nca_s_unk_if',                       # unknown interface
-    0x1C010006L : 'nca_s_wrong_boot_time',              # client passed server wrong server boot time
-    0x1C010009L : 'nca_s_you_crashed',                  # a restarted server called back a client
-    0x1C01000BL : 'nca_s_proto_error',                  # someone messed up the protocol
-    0x1C010013L : 'nca_s_out_args_too_big ',            # output args too big
-    0x1C010014L : 'nca_s_server_too_busy',              # server is too busy to handle call
-    0x1C010015L : 'nca_s_fault_string_too_long',        # string argument longer than declared max len
-    0x1C010017L : 'nca_s_unsupported_type ',            # no implementation of generic operation for object
-    0x1C000001L : 'nca_s_fault_int_div_by_zero',
-    0x1C000002L : 'nca_s_fault_addr_error ',
-    0x1C000003L : 'nca_s_fault_fp_div_zero',
-    0x1C000004L : 'nca_s_fault_fp_underflow',
-    0x1C000005L : 'nca_s_fault_fp_overflow',
-    0x1C000006L : 'nca_s_fault_invalid_tag',
-    0x1C000007L : 'nca_s_fault_invalid_bound ',
-    0x1C000008L : 'nca_s_rpc_version_mismatch',
-    0x1C000009L : 'nca_s_unspec_reject ',
-    0x1C00000AL : 'nca_s_bad_actid',
-    0x1C00000BL : 'nca_s_who_are_you_failed',
-    0x1C00000CL : 'nca_s_manager_not_entered ',
-    0x1C00000DL : 'nca_s_fault_cancel',
-    0x1C00000EL : 'nca_s_fault_ill_inst',
-    0x1C00000FL : 'nca_s_fault_fp_error',
-    0x1C000010L : 'nca_s_fault_int_overflow',
-    0x1C000012L : 'nca_s_fault_unspec',
-    0x1C000013L : 'nca_s_fault_remote_comm_failure ',
-    0x1C000014L : 'nca_s_fault_pipe_empty ',
-    0x1C000015L : 'nca_s_fault_pipe_closed',
-    0x1C000016L : 'nca_s_fault_pipe_order ',
-    0x1C000017L : 'nca_s_fault_pipe_discipline',
-    0x1C000018L : 'nca_s_fault_pipe_comm_error',
-    0x1C000019L : 'nca_s_fault_pipe_memory',
-    0x1C00001AL : 'nca_s_fault_context_mismatch ',
-    0x1C00001BL : 'nca_s_fault_remote_no_memory ',
-    0x1C00001CL : 'nca_s_invalid_pres_context_id',
-    0x1C00001DL : 'nca_s_unsupported_authn_level',
-    0x1C00001FL : 'nca_s_invalid_checksum ',
-    0x1C000020L : 'nca_s_invalid_crc',
-    0x1C000021L : 'nca_s_fault_user_defined',
-    0x1C000022L : 'nca_s_fault_tx_open_failed',
-    0x1C000023L : 'nca_s_fault_codeset_conv_error',
-    0x1C000024L : 'nca_s_fault_object_not_found ',
-    0x1C000025L : 'nca_s_fault_no_client_stub'
+    0x00000005 : 'rpc_s_access_denied',
+    0x00000008 : 'Authentication type not recognized',
+    0x000006D8 : 'rpc_fault_cant_perform', 
+    0x000006C6 : 'rpc_x_invalid_bound',                # the arrays bound are invalid
+    0x000006E4 : 'rpc_s_cannot_support: The requested operation is not supported.',               # some operation is not supported
+    0x000006F7 : 'rpc_x_bad_stub_data',                # the stub data is invalid, doesn't match with the IDL definition
+    0x1C010001 : 'nca_s_comm_failure',                 # unable to get response from server:
+    0x1C010002 : 'nca_s_op_rng_error',                 # bad operation number in call
+    0x1C010003 : 'nca_s_unk_if',                       # unknown interface
+    0x1C010006 : 'nca_s_wrong_boot_time',              # client passed server wrong server boot time
+    0x1C010009 : 'nca_s_you_crashed',                  # a restarted server called back a client
+    0x1C01000B : 'nca_s_proto_error',                  # someone messed up the protocol
+    0x1C010013 : 'nca_s_out_args_too_big ',            # output args too big
+    0x1C010014 : 'nca_s_server_too_busy',              # server is too busy to handle call
+    0x1C010015 : 'nca_s_fault_string_too_long',        # string argument longer than declared max len
+    0x1C010017 : 'nca_s_unsupported_type ',            # no implementation of generic operation for object
+    0x1C000001 : 'nca_s_fault_int_div_by_zero',
+    0x1C000002 : 'nca_s_fault_addr_error ',
+    0x1C000003 : 'nca_s_fault_fp_div_zero',
+    0x1C000004 : 'nca_s_fault_fp_underflow',
+    0x1C000005 : 'nca_s_fault_fp_overflow',
+    0x1C000006 : 'nca_s_fault_invalid_tag',
+    0x1C000007 : 'nca_s_fault_invalid_bound ',
+    0x1C000008 : 'nca_s_rpc_version_mismatch',
+    0x1C000009 : 'nca_s_unspec_reject ',
+    0x1C00000A : 'nca_s_bad_actid',
+    0x1C00000B : 'nca_s_who_are_you_failed',
+    0x1C00000C : 'nca_s_manager_not_entered ',
+    0x1C00000D : 'nca_s_fault_cancel',
+    0x1C00000E : 'nca_s_fault_ill_inst',
+    0x1C00000F : 'nca_s_fault_fp_error',
+    0x1C000010 : 'nca_s_fault_int_overflow',
+    0x1C000012 : 'nca_s_fault_unspec',
+    0x1C000013 : 'nca_s_fault_remote_comm_failure ',
+    0x1C000014 : 'nca_s_fault_pipe_empty ',
+    0x1C000015 : 'nca_s_fault_pipe_closed',
+    0x1C000016 : 'nca_s_fault_pipe_order ',
+    0x1C000017 : 'nca_s_fault_pipe_discipline',
+    0x1C000018 : 'nca_s_fault_pipe_comm_error',
+    0x1C000019 : 'nca_s_fault_pipe_memory',
+    0x1C00001A : 'nca_s_fault_context_mismatch ',
+    0x1C00001B : 'nca_s_fault_remote_no_memory ',
+    0x1C00001C : 'nca_s_invalid_pres_context_id',
+    0x1C00001D : 'nca_s_unsupported_authn_level',
+    0x1C00001F : 'nca_s_invalid_checksum ',
+    0x1C000020 : 'nca_s_invalid_crc',
+    0x1C000021 : 'nca_s_fault_user_defined',
+    0x1C000022 : 'nca_s_fault_tx_open_failed',
+    0x1C000023 : 'nca_s_fault_codeset_conv_error',
+    0x1C000024 : 'nca_s_fault_object_not_found ',
+    0x1C000025 : 'nca_s_fault_no_client_stub'
 }
 
 class Exception(Exception):
@@ -403,9 +403,9 @@ class DCERPC:
         # default is 0: don'fragment. v4 will override this method
         self._max_frag = 0
 
-    def send(self, data): raise RuntimeError, 'virtual method. Not implemented in subclass'
-    def recv(self): raise RuntimeError, 'virtual method. Not implemented in subclass'
-    def alter_ctx(self, newUID, bogus_binds = ''): raise RuntimeError, 'virtual method. Not implemented in subclass'
+    def send(self, data): raise RuntimeError('virtual method. Not implemented in subclass')
+    def recv(self): raise RuntimeError('virtual method. Not implemented in subclass')
+    def alter_ctx(self, newUID, bogus_binds = ''): raise RuntimeError('virtual method. Not implemented in subclass')
     def set_credentials(self, username, password, domain = '', lmhash = '', nthash = '', aesKey='', TGT=None, TGS=None): pass
     def set_auth_level(self, auth_level): pass
     def set_auth_type(self, auth_type, callback = None): pass
@@ -547,9 +547,9 @@ class DCERPC_v5(DCERPC):
         elif resp['type'] == MSRPC_BINDNAK:
             resp = MSRPCBindNak(resp['pduData'])
             status_code = resp['RejectedReason']
-            if rpc_status_codes.has_key(status_code):
+            if status_code in rpc_status_codes:
                 raise Exception(rpc_status_codes[status_code], resp)
-            elif rpc_provider_reason.has_key(status_code):
+            elif status_code in rpc_provider_reason:
                 raise Exception("Bind context rejected: %s" % rpc_provider_reason[status_code])
             else:
                 raise Exception('Unknown DCE RPC fault status code: %.8x' % status_code, resp)
@@ -751,7 +751,7 @@ class DCERPC_v5(DCERPC):
 
             if self.response_header['type'] == MSRPC_FAULT and self.response_header['frag_len'] >= off+4:
                 status_code = unpack("<L",self.response_data[off:off+4])[0]
-                if rpc_status_codes.has_key(status_code):
+                if status_code in rpc_status_codes:
                     raise Exception(rpc_status_codes[status_code])
                 else:
                     raise Exception('Unknown DCE RPC fault status code: %.8x' % status_code)

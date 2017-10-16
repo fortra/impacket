@@ -19,7 +19,7 @@ from impacket.examples import logger
 
 if __name__ == '__main__':
 
-    print version.BANNER
+    print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help = True, description = "This script will launch a SMB Server and add a share specified as an argument. You need to be root in order to bind to port 445. No authentication will be enforced. Example: smbserver.py -comment 'My share' TMP /tmp")
 
@@ -35,7 +35,7 @@ if __name__ == '__main__':
 
     try:
        options = parser.parse_args()
-    except Exception, e:
+    except Exception as e:
        logging.critical(str(e))
        sys.exit(1)
 

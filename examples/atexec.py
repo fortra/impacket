@@ -39,7 +39,7 @@ class ATSVC_EXEC:
     def __init__(self, username = '', password = '', domain = '', hashes = None, command = None):
         self.__username = username
         self.__password = password
-        self.__protocols = ATSVC_EXEC.KNOWN_PROTOCOLS.keys()
+        self.__protocols = list(ATSVC_EXEC.KNOWN_PROTOCOLS.keys())
         self.__domain = domain
         self.__lmhash = ''
         self.__nthash = ''
@@ -65,7 +65,7 @@ class ATSVC_EXEC:
                 rpctransport.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
             try:
                 self.doStuff(rpctransport)
-            except Exception, e:
+            except Exception as e:
                 logging.error(e)
             else:
                 # Got a response. No need for further iterations.
@@ -74,7 +74,7 @@ class ATSVC_EXEC:
 
     def doStuff(self, rpctransport):
         def output_callback(data):
-            print data
+            print(data)
 
         dce = rpctransport.get_dce_rpc()
 
@@ -139,7 +139,7 @@ class ATSVC_EXEC:
             try:
                 smbConnection.getFile('ADMIN$', 'Temp\\%s' % tmpFileName, output_callback)
                 break
-            except Exception, e:
+            except Exception as e:
                 if str(e).find('SHARING') > 0:
                     time.sleep(3)
                 else:
@@ -151,7 +151,7 @@ class ATSVC_EXEC:
 
 # Process command-line arguments.
 if __name__ == '__main__':
-    print version.BANNER
+    print(version.BANNER)
     logging.warning("This will work ONLY on Windows >= Vista")
 
     parser = argparse.ArgumentParser()

@@ -215,10 +215,10 @@ class DHCPTool:
     def processPacketsForOneSecond(self):
         t = time.time()
         while time.time()-t < 1:
-            p = self.pcap.next()
+            p = next(self.pcap)
             if p[1][2]:
                 pp = self.decoder.decode(p[0])
-                print pp
+                print(pp)
         
     def sendDHCP(self, type, chaddr, hostname = None, ip = None, xid = None,opts = []):
         p = DhcpPacket()
@@ -245,5 +245,5 @@ class DHCPTool:
         self.sock.send(str(p))
 
     def sendDISCOVER(self, chaddr, hostname = None, ip = None,xid = 0x12345678):
-        print 'DHCPDISCOVER: %s' % ip
+        print('DHCPDISCOVER: %s' % ip)
         self.sendDHCP(DhcpPacket.DHCPDISCOVER, chaddr, hostname, ip, xid)

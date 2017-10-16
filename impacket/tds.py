@@ -44,7 +44,7 @@ except:
 # The rest it processed through the standard impacket logging mech.
 class DummyPrint:        
     def logMessage(self,message):
-        print message
+        print(message)
 
 # MC-SQLR Constants and Structures
 SQLR_PORT           = 1434
@@ -492,7 +492,7 @@ class MSSQL():
     
     def encryptPassword(self, password ):
 
-        return ''.join(map(lambda x: chr(((ord(x) & 0x0f) << 4) + ((ord(x) & 0xf0) >> 4) ^ 0xa5) , password))
+        return ''.join([chr(((ord(x) & 0x0f) << 4) + ((ord(x) & 0xf0) >> 4) ^ 0xa5) for x in password])
 
     def connect(self):
         af, socktype, proto, canonname, sa = socket.getaddrinfo(self.server, self.port, 0, socket.SOCK_STREAM)[0]
@@ -698,7 +698,7 @@ class MSSQL():
 
         self.replies = self.parseReply(tds['Data'])
 
-        if self.replies.has_key(TDS_LOGINACK_TOKEN):
+        if TDS_LOGINACK_TOKEN in self.replies:
             return True
         else:
             return False
@@ -764,7 +764,7 @@ class MSSQL():
                 self.__rowsPrinter.logMessage(col['Format'] % row[col['Name']] + self.COL_SEPARATOR)            
 
     def printReplies(self):
-        for keys in self.replies.keys():
+        for keys in list(self.replies.keys()):
             for i, key in enumerate(self.replies[keys]):
                 if key['TokenType'] == TDS_ERROR_TOKEN:
                     error =  "ERROR(%s): Line %d: %s" % (key['ServerName'].decode('utf-16le'), key['LineNumber'], key['MsgText'].decode('utf-16le'))                                      
@@ -1239,7 +1239,7 @@ class MSSQL():
                 LOG.error("Unknown Token %x" % tokenID)
                 return replies
 
-            if replies.has_key(tokenID) is not True:
+            if (tokenID in replies) is not True:
                 replies[tokenID] = list()
 
             replies[tokenID].append(token)

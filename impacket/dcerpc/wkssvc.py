@@ -73,7 +73,7 @@ class DCERPCWksSvc:
         else:
             answer = self._dcerpc.recv()
             if checkReturn and answer[-4:] != '\x00\x00\x00\x00':
-                raise Exception, 'DCE-RPC call returned an error.'
+                raise Exception('DCE-RPC call returned an error.')
             return answer
 
     def NetrWkstaTransportEnum( self, serverName ):

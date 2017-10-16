@@ -13,7 +13,7 @@
 class RC4():
     def __init__(self, key):
         j = 0
-        self.state = range(256)
+        self.state = list(range(256))
         for i in range(256):
             j = (j + self.state[i] + ord(key[i % len(key)])) & 0xff
             self.state[i],self.state[j] = self.state[j],self.state[i] # SSWAP(i,j)

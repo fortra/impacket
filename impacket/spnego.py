@@ -33,7 +33,7 @@ MechTypes = {
 '*\x86H\x86\xf7\x12\x01\x02\x02': 'KRB5 - Kerberos 5',
 '*\x86H\x86\xf7\x12\x01\x02\x02\x03': 'KRB5 - Kerberos 5 - User to User'
 }
-TypesMech = dict((v,k) for k, v in MechTypes.iteritems())
+TypesMech = dict((v,k) for k, v in MechTypes.items())
 
 def asn1encode(data = ''):
         #res = asn1.SEQUENCE(str).encode()
@@ -132,8 +132,8 @@ class GSSAPI():
         #pass
         
     def dump(self):
-        for i in self.fields.keys():
-            print "%s: {%r}" % (i,self[i])
+        for i in list(self.fields.keys()):
+            print("%s: {%r}" % (i,self[i]))
 
     def getData(self):
         ans = pack('B',ASN1_AID)
@@ -248,12 +248,12 @@ class SPNEGO_NegTokenResp():
         self['ResponseToken'] = decode_data
 
     def dump(self):
-        for i in self.fields.keys():
-            print "%s: {%r}" % (i,self[i])
+        for i in list(self.fields.keys()):
+            print("%s: {%r}" % (i,self[i]))
         
     def getData(self):
         ans = pack('B',SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP)
-        if self.fields.has_key('NegResult') and self.fields.has_key('SupportedMech'):
+        if 'NegResult' in self.fields and 'SupportedMech' in self.fields:
             # Server resp
             ans += asn1encode(
                pack('B', ASN1_SEQUENCE) +
@@ -269,7 +269,7 @@ class SPNEGO_NegTokenResp():
                pack('B',ASN1_RESPONSE_TOKEN ) +
                asn1encode(
                pack('B', ASN1_OCTET_STRING) + asn1encode(self['ResponseToken']))))
-        elif self.fields.has_key('NegResult'):
+        elif 'NegResult' in self.fields:
             # Server resp
             ans += asn1encode(
                pack('B', ASN1_SEQUENCE) + 
@@ -357,7 +357,7 @@ class SPNEGO_NegTokenInit(GSSAPI):
 
 	mechToken = ''
         # Do we have tokens to send?
-        if self.fields.has_key('MechToken'):
+        if 'MechToken' in self.fields:
            mechToken = pack('B', ASN1_MECH_TOKEN) + asn1encode(
                        pack('B', ASN1_OCTET_STRING) + asn1encode(
                        self['MechToken']))

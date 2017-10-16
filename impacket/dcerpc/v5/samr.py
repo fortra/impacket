@@ -45,7 +45,7 @@ class DCERPCSessionError(Exception):
 
     def __str__( self ):
         key = self.error_code
-        if (nt_errors.ERROR_MESSAGES.has_key(key)):
+        if (key in nt_errors.ERROR_MESSAGES):
             error_msg_short = nt_errors.ERROR_MESSAGES[key][0]
             error_msg_verbose = nt_errors.ERROR_MESSAGES[key][1] 
             return 'SAMR SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
@@ -307,9 +307,9 @@ class RPC_STRING(NDRSTRUCT):
         if msg is None: msg = self.__class__.__name__
         ind = ' '*indent
         if msg != '':
-            print "%s" % (msg),
+            print("%s" % (msg), end=' ')
         # Here just print the data
-        print " %r" % (self['Data']),
+        print(" %r" % (self['Data']), end=' ')
 
 class PRPC_STRING(NDRPOINTER):
     referent = (

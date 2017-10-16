@@ -136,7 +136,7 @@ class EnumMeta(type):
         if type(classdict) is dict:
             original_dict = classdict
             classdict = _EnumDict()
-            for k, v in original_dict.items():
+            for k, v in list(original_dict.items()):
                 classdict[k] = v
 
         member_type, first_enum = metacls._get_mixins_(bases)
@@ -218,7 +218,7 @@ class EnumMeta(type):
             enum_member.__init__(*args)
             # If another member with the same value was already defined, the
             # new member becomes an alias to the existing one.
-            for name, canonical_member in enum_class._member_map_.items():
+            for name, canonical_member in list(enum_class._member_map_.items()):
                 if canonical_member.value == enum_member._value_:
                     enum_member = canonical_member
                     break
@@ -605,7 +605,7 @@ def __new__(cls, value):
             return cls._value2member_map_[value]
     except TypeError:
         # not there, now do long search -- O(n) behavior
-        for member in cls._member_map_.values():
+        for member in list(cls._member_map_.values()):
             if member.value == value:
                 return member
     raise ValueError("%s is not a valid %s" % (value, cls.__name__))
@@ -741,7 +741,7 @@ class IntEnum(int, Enum):
 def unique(enumeration):
     """Class decorator that ensures only unique members exist in an enumeration."""
     duplicates = []
-    for name, member in enumeration.__members__.items():
+    for name, member in list(enumeration.__members__.items()):
         if name != member.name:
             duplicates.append((name, member.name))
     if duplicates:

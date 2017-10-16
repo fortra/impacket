@@ -47,8 +47,8 @@ class TestIP6_Address(unittest.TestCase):
         empty_text_address = ""
         empty_binary_address = []
 
-        self.assert_(IP6_Address.IP6_Address(normal_text_address), "IP6 address construction with normal text address failed")
-        self.assert_(IP6_Address.IP6_Address(normal_binary_address), "IP6 address construction with normal binary address failed")
+        self.assertTrue(IP6_Address.IP6_Address(normal_text_address), "IP6 address construction with normal text address failed")
+        self.assertTrue(IP6_Address.IP6_Address(normal_binary_address), "IP6 address construction with normal binary address failed")
         
         self.assertRaises(Exception, IP6_Address.IP6_Address, oversized_text_address)#, "IP6 address construction with oversized text address incorrectly succeeded")
         self.assertRaises(Exception, IP6_Address.IP6_Address, oversized_binary_address)#, "IP6 address construction with oversized binary address incorrectly succeeded")
@@ -62,9 +62,9 @@ class TestIP6_Address(unittest.TestCase):
         
     def test_unicode_representation(self):
         '''Test IP6 Unicode text representations'''
-        unicode_normal_text_address = u'FE80:1234:5678:ABCD:EF01:2345:6789:ABCD'
+        unicode_normal_text_address = 'FE80:1234:5678:ABCD:EF01:2345:6789:ABCD'
 
-        self.assert_(IP6_Address.IP6_Address(unicode_normal_text_address), "IP6 address construction with UNICODE normal text address failed")
+        self.assertTrue(IP6_Address.IP6_Address(unicode_normal_text_address), "IP6 address construction with UNICODE normal text address failed")
 
         
     def test_conversions(self):
@@ -74,10 +74,10 @@ class TestIP6_Address(unittest.TestCase):
                           0x56, 0x78, 0xAB, 0xCD, 
                           0xEF, 0x01, 0x23, 0x45,
                           0x67, 0x89, 0xAB, 0xCD]
-        self.assert_(IP6_Address.IP6_Address(text_address).as_string() == text_address, "IP6 address conversion text -> text failed")
-        self.assert_(IP6_Address.IP6_Address(binary_address).as_bytes() == binary_address, "IP6 address conversion binary -> binary failed")
-        self.assert_(IP6_Address.IP6_Address(binary_address).as_string() == text_address, "IP6 address conversion binary -> text failed")
-        self.assert_(IP6_Address.IP6_Address(text_address).as_bytes().tolist() == binary_address, "IP6 address conversion text -> binary failed")
+        self.assertTrue(IP6_Address.IP6_Address(text_address).as_string() == text_address, "IP6 address conversion text -> text failed")
+        self.assertTrue(IP6_Address.IP6_Address(binary_address).as_bytes() == binary_address, "IP6 address conversion binary -> binary failed")
+        self.assertTrue(IP6_Address.IP6_Address(binary_address).as_string() == text_address, "IP6 address conversion binary -> text failed")
+        self.assertTrue(IP6_Address.IP6_Address(text_address).as_bytes().tolist() == binary_address, "IP6 address conversion text -> binary failed")
         
     def test_compressions(self):
         '''Test IP6 Address compressions.'''
@@ -97,26 +97,26 @@ class TestIP6_Address(unittest.TestCase):
                           ]
         
         for f, c in zip(full_addresses, compressed_addresses):
-            self.assert_(IP6_Address.IP6_Address(f).as_string() == c, "IP6 address compression failed with full address: " + f)
-            self.assert_(IP6_Address.IP6_Address(c).as_string(False) == f, "IP6 address compression failed with compressed address:" + c)
+            self.assertTrue(IP6_Address.IP6_Address(f).as_string() == c, "IP6 address compression failed with full address: " + f)
+            self.assertTrue(IP6_Address.IP6_Address(c).as_string(False) == f, "IP6 address compression failed with compressed address:" + c)
 
 
     def test_scoped_addresses(self):
         '''Test scoped addresses.'''
         numeric_scoped_address = "FE80::1234:1%12"
-        self.assert_(IP6_Address.IP6_Address(numeric_scoped_address).as_string() == numeric_scoped_address, "Numeric scoped address conversion failed on address: " + numeric_scoped_address)
-        self.assert_(IP6_Address.IP6_Address(numeric_scoped_address).get_scope_id() == "12", "Numeric scope ID fetch failed on address: " + numeric_scoped_address)
-        self.assert_(IP6_Address.IP6_Address(numeric_scoped_address).get_unscoped_address() == "FE80::1234:1", "Get unscoped address failed on address: " + numeric_scoped_address)
+        self.assertTrue(IP6_Address.IP6_Address(numeric_scoped_address).as_string() == numeric_scoped_address, "Numeric scoped address conversion failed on address: " + numeric_scoped_address)
+        self.assertTrue(IP6_Address.IP6_Address(numeric_scoped_address).get_scope_id() == "12", "Numeric scope ID fetch failed on address: " + numeric_scoped_address)
+        self.assertTrue(IP6_Address.IP6_Address(numeric_scoped_address).get_unscoped_address() == "FE80::1234:1", "Get unscoped address failed on address: " + numeric_scoped_address)
         
         unscoped_address = "1::4:1"
-        self.assert_(IP6_Address.IP6_Address(unscoped_address).as_string() == unscoped_address, "Unscoped address conversion failed on address: " + unscoped_address)
-        self.assert_(IP6_Address.IP6_Address(unscoped_address).get_scope_id() == "", "Unscoped address scope ID fetch failed on address: " + unscoped_address)
-        self.assert_(IP6_Address.IP6_Address(unscoped_address).get_unscoped_address() == unscoped_address, "Get unscoped address failed on address: " + unscoped_address)
+        self.assertTrue(IP6_Address.IP6_Address(unscoped_address).as_string() == unscoped_address, "Unscoped address conversion failed on address: " + unscoped_address)
+        self.assertTrue(IP6_Address.IP6_Address(unscoped_address).get_scope_id() == "", "Unscoped address scope ID fetch failed on address: " + unscoped_address)
+        self.assertTrue(IP6_Address.IP6_Address(unscoped_address).get_unscoped_address() == unscoped_address, "Get unscoped address failed on address: " + unscoped_address)
         
         text_scoped_address = "FE80::1234:1%BLAH"        
-        self.assert_(IP6_Address.IP6_Address(text_scoped_address).as_string() == text_scoped_address, "Text scoped address conversion failed on address: " + text_scoped_address)
-        self.assert_(IP6_Address.IP6_Address(text_scoped_address).get_scope_id() == "BLAH", "Text scope ID fetch failed on address: " + text_scoped_address)
-        self.assert_(IP6_Address.IP6_Address(text_scoped_address).get_unscoped_address() == "FE80::1234:1", "Get unscoped address failed on address: " + text_scoped_address)
+        self.assertTrue(IP6_Address.IP6_Address(text_scoped_address).as_string() == text_scoped_address, "Text scoped address conversion failed on address: " + text_scoped_address)
+        self.assertTrue(IP6_Address.IP6_Address(text_scoped_address).get_scope_id() == "BLAH", "Text scope ID fetch failed on address: " + text_scoped_address)
+        self.assertTrue(IP6_Address.IP6_Address(text_scoped_address).get_unscoped_address() == "FE80::1234:1", "Get unscoped address failed on address: " + text_scoped_address)
         
         empty_scoped_address = "FE80::1234:1%"
         self.assertRaises(Exception, IP6_Address.IP6_Address, empty_scoped_address)

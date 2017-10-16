@@ -9,7 +9,7 @@
 
 import sys
 import unittest
-import ConfigParser
+import configparser
 from struct import pack, unpack
 
 from impacket.dcerpc.v5 import transport
@@ -86,7 +86,7 @@ class MGMTTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('rpc_s_access_denied') < 0:
                 raise
 
@@ -96,7 +96,7 @@ class MGMTTests(unittest.TestCase):
         try:
             resp = mgmt.hstop_server_listening(dce)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('rpc_s_access_denied') < 0:
                 raise
 
@@ -119,7 +119,7 @@ class MGMTTests(unittest.TestCase):
 class SMBTransport(MGMTTests):
     def setUp(self):
         MGMTTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
+        configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('SMBTransport', 'username')
         self.domain   = configFile.get('SMBTransport', 'domain')
@@ -133,7 +133,7 @@ class SMBTransport(MGMTTests):
 class TCPTransport(MGMTTests):
     def setUp(self):
         MGMTTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
+        configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('TCPTransport', 'username')
         self.domain   = configFile.get('TCPTransport', 'domain')
@@ -147,7 +147,7 @@ class TCPTransport(MGMTTests):
 class SMBTransport64(MGMTTests):
     def setUp(self):
         MGMTTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
+        configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('SMBTransport', 'username')
         self.domain   = configFile.get('SMBTransport', 'domain')
@@ -161,7 +161,7 @@ class SMBTransport64(MGMTTests):
 class TCPTransport64(MGMTTests):
     def setUp(self):
         MGMTTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
+        configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('TCPTransport', 'username')
         self.domain   = configFile.get('TCPTransport', 'domain')

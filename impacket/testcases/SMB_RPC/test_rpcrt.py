@@ -1,5 +1,5 @@
 import unittest
-import ConfigParser
+import configparser
 from impacket.dcerpc.v5 import transport, epm, rpcrt
 from impacket.dcerpc.v5.dtypes import NULL
 
@@ -435,7 +435,7 @@ class TCPTransport(DCERPCTests):
     def setUp(self):
         DCERPCTests.setUp(self)
         # Put specific configuration for target machine with SMB1
-        configFile = ConfigParser.ConfigParser()
+        configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('TCPTransport', 'username')
         self.domain   = configFile.get('TCPTransport', 'domain')
@@ -451,7 +451,7 @@ class SMBTransport(DCERPCTests):
     def setUp(self):
         # Put specific configuration for target machine with SMB_002
         DCERPCTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
+        configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('SMBTransport', 'username')
         self.domain   = configFile.get('SMBTransport', 'domain')

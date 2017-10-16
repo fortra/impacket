@@ -87,7 +87,7 @@ class NDR(object):
             if self._isNDR64 is False:
                 # Ok, let's change everything
                 self._isNDR64 = True
-                for fieldName in self.fields.keys():
+                for fieldName in list(self.fields.keys()):
                     if isinstance(self.fields[fieldName], NDR):
                         self.fields[fieldName].changeTransferSyntax(newSyntax)
                 # Finally, I change myself
@@ -105,7 +105,7 @@ class NDR(object):
                         if fieldTypeOrClass != self.fields[fieldName].__class__ and isinstance(self.fields[fieldName], NDRPOINTERNULL) is False:
                             backupData = self[fieldName]
                             self.fields[fieldName] = fieldTypeOrClass(isNDR64 = self._isNDR64)
-                            if self.fields[fieldName].fields.has_key('Data'):
+                            if 'Data' in self.fields[fieldName].fields:
                                 self.fields[fieldName].fields['Data'] = backupData
                             else:
                                 self[fieldName] = backupData
@@ -120,7 +120,7 @@ class NDR(object):
             value = NDRPOINTERNULL(isNDR64 = self._isNDR64)
             if isinstance(self.fields[key], NDRPOINTER):
                 self.fields[key] = value
-            elif self.fields[key].fields.has_key('Data'):
+            elif 'Data' in self.fields[key].fields:
                 if isinstance(self.fields[key].fields['Data'], NDRPOINTER):
                     self.fields[key].fields['Data'] = value
         elif isinstance(value, NDR):
@@ -143,7 +143,7 @@ class NDR(object):
 
     def __getitem__(self, key):
         if isinstance(self.fields[key], NDR):
-            if self.fields[key].fields.has_key('Data'):
+            if 'Data' in self.fields[key].fields:
                 return self.fields[key]['Data']
         return self.fields[key]
 
@@ -159,78 +159,78 @@ class NDR(object):
 
     def isNDR(self, field):
         if self.debug:
-            print "isNDR %r" % field, type(field),
+            print("isNDR %r" % field, type(field), end=' ')
         if inspect.isclass(field):
             myClass = field
             if issubclass(myClass, NDR):
                 if self.debug:
-                    print "True"
+                    print("True")
                 return True
         if self.debug:
-            print 'False'
+            print('False')
         return False
 
     def isPointer(self, field):
         if self.debug:
-            print "isPointer %r" % field, type(field),
+            print("isPointer %r" % field, type(field), end=' ')
         if inspect.isclass(field):
             myClass = field
             if issubclass(myClass, NDRPOINTER):
                 if self.debug:
-                    print "True"
+                    print("True")
                 return True
         if self.debug:
-            print 'False'
+            print('False')
         return False
 
     def isUnion(self, field):
         if self.debug:
-            print "isUnion %r" % field, type(field),
+            print("isUnion %r" % field, type(field), end=' ')
         if inspect.isclass(field):
             myClass = field
             if issubclass(myClass, NDRUNION):
                 if self.debug:
-                    print "True"
+                    print("True")
                 return True
         if self.debug:
-            print 'False'
+            print('False')
         return False
 
     def dumpRaw(self, msg = None, indent = 0):
         if msg is None: msg = self.__class__.__name__
         ind = ' '*indent
-        print "\n%s" % (msg)
+        print("\n%s" % (msg))
         for field in self.commonHdr+self.structure+self.referent:
             i = field[0] 
             if i in self.fields:
                 if isinstance(self.fields[i], NDR):
                     self.fields[i].dumpRaw('%s%s:{' % (ind,i), indent = indent + 4)
-                    print "%s}" % ind
+                    print("%s}" % ind)
 
                 elif isinstance(self.fields[i], list):
-                    print "%s[" % ind
+                    print("%s[" % ind)
                     for num,j in enumerate(self.fields[i]):
                        if isinstance(j, NDR):
                            j.dumpRaw('%s%s:' % (ind,i), indent = indent + 4)
-                           print "%s," % ind
+                           print("%s," % ind)
                        else:
-                           print "%s%s: {%r}," % (ind, i, j)
-                    print "%s]" % ind
+                           print("%s%s: {%r}," % (ind, i, j))
+                    print("%s]" % ind)
 
                 else:
-                    print "%s%s: {%r}" % (ind,i,self[i])
+                    print("%s%s: {%r}" % (ind,i,self[i]))
 
     def dump(self, msg = None, indent = 0):
         if msg is None: msg = self.__class__.__name__
         ind = ' '*indent
         if msg != '':
-            print "%s" % (msg),
+            print("%s" % (msg), end=' ')
         for fieldName, fieldType in self.commonHdr+self.structure+self.referent:
             if fieldName in self.fields:
                 if isinstance(self.fields[fieldName], NDR):
                     self.fields[fieldName].dump('\n%s%-31s' % (ind, fieldName+':'), indent = indent + 4),
                 else:
-                    print " %r" % (self[fieldName]),
+                    print(" %r" % (self[fieldName]), end=' ')
 
     def getAlignment(self):
         return self.align
@@ -238,7 +238,7 @@ class NDR(object):
     def calculatePad(self, fieldName, fieldType, data, soFar, packing):
         # PAD Calculation
         if self.debug:
-            print "Calculate PAD: name: %s, type:%s, soFar:%d" % (fieldName, fieldType, soFar)
+            print("Calculate PAD: name: %s, type:%s, soFar:%d" % (fieldName, fieldType, soFar))
         alignment = 0
         size = 0
         if isinstance(self.fields[fieldName], NDR):
@@ -285,8 +285,8 @@ class NDR(object):
                 res = self.pack(fieldName, fieldTypeOrClass, soFar)
                 data += res
                 soFar = soFar0 + len(data)
-            except Exception, e:
-                if self.fields.has_key(fieldName):
+            except Exception as e:
+                if fieldName in self.fields:
                     e.args += ("When packing field '%s | %s | %r' in %s" % (fieldName, fieldTypeOrClass, self.fields[fieldName], self.__class__),)
                 else:
                     e.args += ("When packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__),)
@@ -311,7 +311,7 @@ class NDR(object):
         if hasattr(self,'referent') is False:
             return ''
 
-        if self.fields.has_key('ReferentID'):
+        if 'ReferentID' in self.fields:
             if self['ReferentID'] == 0:
                 return ''
 
@@ -330,8 +330,8 @@ class NDR(object):
                     data += self.fields[fieldName].getDataReferents(soFar)
                     data += self.fields[fieldName].getDataReferent(len(data)+soFar)
                 soFar = soFar0 + len(data)
-            except Exception, e:
-                if self.fields.has_key(fieldName):
+            except Exception as e:
+                if fieldName in self.fields:
                     e.args += ("When packing field '%s | %s | %r' in %s" % (fieldName, fieldTypeOrClass, self.fields[fieldName], self.__class__),)
                 else:
                     e.args += ("When packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__),)
@@ -356,7 +356,7 @@ class NDR(object):
                     size = len(self.fields[fieldName].getData(soFar))
                 data = data[size:]
                 soFar += size
-            except Exception,e:
+            except Exception as e:
                 e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data, size),)
                 raise
 
@@ -379,7 +379,7 @@ class NDR(object):
 
         soFar0 = soFar
 
-        if self.fields.has_key('ReferentID'):
+        if 'ReferentID' in self.fields:
             if self['ReferentID'] == 0:
                 # NULL Pointer, there's no referent for it
                 return 0
@@ -392,7 +392,7 @@ class NDR(object):
                 data = data[pad:]
             try:
                 self.fields[fieldName] = self.unpack(fieldName, fieldTypeOrClass, data[:size], soFar)
-            except Exception,e:
+            except Exception as e:
                 e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data, size),)
                 raise
 
@@ -408,7 +408,7 @@ class NDR(object):
 
     def pack(self, fieldName, fieldTypeOrClass, soFar = 0):
         if self.debug:
-            print "  pack( %s | %s | %d )" %  (fieldName, fieldTypeOrClass, soFar)
+            print("  pack( %s | %s | %d )" %  (fieldName, fieldTypeOrClass, soFar))
 
         if isinstance(self.fields[fieldName], NDR):
             return self.fields[fieldName].getData(soFar)
@@ -464,7 +464,7 @@ class NDR(object):
             return answer
 
         if data is None:
-            raise Exception, "Trying to pack None"
+            raise Exception("Trying to pack None")
         
         # literal specifier
         if fieldTypeOrClass[:1] == ':':
@@ -475,7 +475,7 @@ class NDR(object):
 
     def unpack(self, fieldName, fieldTypeOrClass, data, soFar = 0):
         if self.debug:
-            print "  unpack( %s | %s | %r | %d)" %  (fieldName, fieldTypeOrClass, data, soFar)
+            print("  unpack( %s | %s | %r | %d)" %  (fieldName, fieldTypeOrClass, data, soFar))
 
         if isinstance(self.fields[fieldName], NDR):
             return self.fields[fieldName].fromString(data, soFar)
@@ -560,7 +560,7 @@ class NDR(object):
 
     def calcPackSize(self, fieldTypeOrClass, data):
         if self.debug:
-            print "  calcPackSize  %s:%r" %  (fieldTypeOrClass, data)
+            print("  calcPackSize  %s:%r" %  (fieldTypeOrClass, data))
 
         if isinstance(fieldTypeOrClass, str) is False:
             return len(data)
@@ -591,7 +591,7 @@ class NDR(object):
 
     def calcUnPackSize(self, fieldTypeOrClass, data):
         if self.debug:
-            print "  calcUnPackSize  %s:%r" %  (fieldTypeOrClass, data)
+            print("  calcUnPackSize  %s:%r" %  (fieldTypeOrClass, data))
 
         if isinstance(fieldTypeOrClass, str) is False:
             return len(data)
@@ -666,7 +666,7 @@ class NDRCALL(NDR):
 
     def dump(self, msg = None, indent = 0):
         NDR.dump(self, msg, indent)
-        print '\n\n'
+        print('\n\n')
 
     def getData(self, soFar = 0):
         data = ''
@@ -690,8 +690,8 @@ class NDRCALL(NDR):
                     soFar = soFar0 + len(data)
                     data += self.fields[fieldName].getDataReferent(soFar)
                     soFar = soFar0 + len(data)
-            except Exception, e:
-                if self.fields.has_key(fieldName):
+            except Exception as e:
+                if fieldName in self.fields:
                     e.args += ("When packing field '%s | %s | %r' in %s" % (fieldName, fieldTypeOrClass, self.fields[fieldName], self.__class__),)
                 else:
                     e.args += ("When packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__),)
@@ -723,7 +723,7 @@ class NDRCALL(NDR):
 
                 data = data[size:]
                 soFar += size
-            except Exception,e:
+            except Exception as e:
                 e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data, size),)
                 raise
 
@@ -763,12 +763,12 @@ class NDRBOOLEAN(NDRSMALL):
         if msg is None: msg = self.__class__.__name__
         ind = ' '*indent
         if msg != '':
-            print msg,
+            print(msg, end=' ')
 
         if self['Data'] > 0:
-            print " TRUE"
+            print(" TRUE")
         else:
-            print " FALSE"
+            print(" FALSE")
 
 class NDRCHAR(NDR):
     align = 1
@@ -828,8 +828,7 @@ class EnumType(type):
     def __getattr__(self, attr):
         return self.enumItems[attr].value
 
-class NDRENUM(NDR):
-    __metaclass__ = EnumType
+class NDRENUM(NDR, metaclass=EnumType):
     align = 2
     align64 = 4
     structure = (
@@ -857,9 +856,9 @@ class NDRENUM(NDR):
         if msg is None: msg = self.__class__.__name__
         ind = ' '*indent
         if msg != '':
-            print msg,
+            print(msg, end=' ')
 
-        print " %s" % self.enumItems(self.fields['Data']).name,
+        print(" %s" % self.enumItems(self.fields['Data']).name, end=' ')
 
 # NDR Constructed Types (arrays, strings, structures, unions, variant structures, pipes and pointers)
 
@@ -869,20 +868,20 @@ class NDRArray(NDR):
         if msg is None: msg = self.__class__.__name__
         ind = ' '*indent
         if msg != '':
-            print msg,
+            print(msg, end=' ')
 
         if isinstance(self['Data'], list):
-            print "\n%s[" % ind
+            print("\n%s[" % ind)
             ind += ' '*4
             for num,j in enumerate(self.fields['Data']):
                if isinstance(j, NDR):
                    j.dump('%s' % ind, indent = indent + 4),
-                   print "," 
+                   print(",") 
                else:
-                   print "%s %r," % (ind,j)
-            print "%s]" % ind[:-4],
+                   print("%s %r," % (ind,j))
+            print("%s]" % ind[:-4], end=' ')
         else:
-            print " %r" % self['Data'],
+            print(" %r" % self['Data'], end=' ')
 
     def changeTransferSyntax(self, newSyntax): 
         # Here we gotta go over each item in the array and change the TS 
@@ -957,8 +956,8 @@ class NDRUniConformantArray(NDRArray):
                 res = self.pack(fieldName, fieldTypeOrClass, soFar)
                 data += res
                 soFar = soFar0 + len(data)
-            except Exception, e:
-                if self.fields.has_key(fieldName):
+            except Exception as e:
+                if fieldName in self.fields:
                     e.args += ("When packing field '%s | %s | %r' in %s" % (fieldName, fieldTypeOrClass, self.fields[fieldName], self.__class__),)
                 else:
                     e.args += ("When packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__),)
@@ -990,7 +989,7 @@ class NDRUniConformantArray(NDRArray):
                 data = data[size:]
                 soFar += size
                 fieldNum += 1
-            except Exception,e:
+            except Exception as e:
                 e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data, size),)
                 raise
 
@@ -1058,8 +1057,8 @@ class NDRUniConformantVaryingArray(NDRArray):
                 res = self.pack(fieldName, fieldTypeOrClass, soFar)
                 data += res
                 soFar = soFar0 + len(data)
-            except Exception, e:
-                if self.fields.has_key(fieldName):
+            except Exception as e:
+                if fieldName in self.fields:
                     e.args += ("When packing field '%s | %s | %r' in %s" % (fieldName, fieldTypeOrClass, self.fields[fieldName], self.__class__),)
                 else:
                     e.args += ("When packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__),)
@@ -1092,7 +1091,7 @@ class NDRUniConformantVaryingArray(NDRArray):
                 data = data[size:]
                 soFar += size
                 fieldNum += 1
-            except Exception,e:
+            except Exception as e:
                 e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data, size),)
                 raise
 
@@ -1225,8 +1224,8 @@ class NDRSTRUCT(NDR):
                     res = self.pack(fieldName, fieldTypeOrClass, soFar)
                 data += res
                 soFar = soFar0 + len(data) + arrayItemSize
-            except Exception, e:
-                if self.fields.has_key(fieldName):
+            except Exception as e:
+                if fieldName in self.fields:
                     e.args += ("When packing field '%s | %s | %r' in %s" % (fieldName, fieldTypeOrClass, self.fields[fieldName], self.__class__),)
                 else:
                     e.args += ("When packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__),)
@@ -1319,7 +1318,7 @@ class NDRSTRUCT(NDR):
                     size = len(self.fields[fieldName].getData(soFar))
                 data = data[size:]
                 soFar += size
-            except Exception,e:
+            except Exception as e:
                 e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data, size),)
                 raise
 
@@ -1396,14 +1395,14 @@ class NDRUNION(NDR):
         if key == 'tag':
             # We're writing the tag, we now should set the right item for the structure
             self.structure = ()
-            if self.union.has_key(value):
+            if value in self.union:
                 self.structure = (self.union[value]),
                 # Init again the structure
                 self.__init__(None, isNDR64=self._isNDR64, topLevel = self.topLevel)
                 self.fields['tag']['Data'] = value
             else:
                 # Let's see if we have a default value
-                if self.union.has_key('default'):
+                if 'default' in self.union:
                     if self.union['default'] is None:
                         self.structure = ()
                     else:
@@ -1431,8 +1430,8 @@ class NDRUNION(NDR):
                 res = self.pack(fieldName, fieldTypeOrClass, soFar)
                 data += res
                 soFar = soFar0 + len(data)
-            except Exception, e:
-                if self.fields.has_key(fieldName):
+            except Exception as e:
+                if fieldName in self.fields:
                     e.args += ("When packing field '%s | %s | %r' in %s" % (fieldName, fieldTypeOrClass, self.fields[fieldName], self.__class__),)
                 else:
                     e.args += ("When packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__),)
@@ -1471,8 +1470,8 @@ class NDRUNION(NDR):
                 res = self.pack(fieldName, fieldTypeOrClass, soFar)
                 data += res
                 soFar = soFar0 + len(data)
-            except Exception, e:
-                if self.fields.has_key(fieldName):
+            except Exception as e:
+                if fieldName in self.fields:
                     e.args += ("When packing field '%s | %s | %r' in %s" % (fieldName, fieldTypeOrClass, self.fields[fieldName], self.__class__),)
                 else:
                     e.args += ("When packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__),)
@@ -1488,12 +1487,12 @@ class NDRUNION(NDR):
             # We need to know the tag type and unpack it
             tagtype = self.commonHdr[0][1].structure[0][1].split('=')[0]
             tag = unpack(tagtype, data[:calcsize(tagtype)])[0]
-            if self.union.has_key(tag):
+            if tag in self.union:
                 self.structure = (self.union[tag]),
                 self.__init__(None, isNDR64=self._isNDR64, topLevel = self.topLevel)
             else:
                 # Let's see if we have a default value
-                if self.union.has_key('default'):
+                if 'default' in self.union:
                     if self.union['default'] is None:
                         self.structure = ()
                     else:
@@ -1520,7 +1519,7 @@ class NDRUNION(NDR):
                     size = len(self.fields[fieldName].getData(soFar))
                 data = data[size:]
                 soFar += size
-            except Exception,e:
+            except Exception as e:
                 e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data, size),)
                 raise
 
@@ -1557,7 +1556,7 @@ class NDRUNION(NDR):
                     size = len(self.fields[fieldName].getData(soFar))
                 data = data[size:]
                 soFar += size
-            except Exception,e:
+            except Exception as e:
                 e.args += ("When unpacking field '%s | %s | %r[:%d]'" % (fieldName, fieldTypeOrClass, data, size),)
                 raise
 
@@ -1584,7 +1583,7 @@ class NDRUNION(NDR):
                 align = tmpAlign
 
         if self._isNDR64:
-            for fieldName, fieldTypeOrClass in self.union.itervalues():
+            for fieldName, fieldTypeOrClass in self.union.values():
                 tmpAlign = fieldTypeOrClass(isNDR64 = self._isNDR64).getAlignment()
                 if tmpAlign > align:
                     align = tmpAlign
@@ -1607,9 +1606,9 @@ class NDRPOINTERNULL(NDR):
         if msg is None: msg = self.__class__.__name__
         ind = ' '*indent
         if msg != '':
-            print "%s" % (msg),
+            print("%s" % (msg), end=' ')
         # Here we just print NULL
-        print " NULL",
+        print(" NULL", end=' ')
 
 NULL = NDRPOINTERNULL()
 
@@ -1644,16 +1643,16 @@ class NDRPOINTER(NDR):
            self.fromString(data)
 
     def __setitem__(self, key, value):
-        if self.fields.has_key(key) is False:
+        if (key in self.fields) is False:
             # Key not found.. let's send it to the referent to handle, maybe it's there
             return self.fields['Data'].__setitem__(key,value)
         else:
             return NDR.__setitem__(self,key,value)
 
     def __getitem__(self, key):
-        if self.fields.has_key(key):
+        if key in self.fields:
             if isinstance(self.fields[key], NDR):
-                if self.fields[key].fields.has_key('Data'):
+                if 'Data' in self.fields[key].fields:
                     return self.fields[key]['Data']
             return self.fields[key]
         else:
@@ -1686,15 +1685,15 @@ class NDRPOINTER(NDR):
         if msg is None: msg = self.__class__.__name__
         ind = ' '*indent
         if msg != '':
-            print "%s" % (msg),
+            print("%s" % (msg), end=' ')
         # Here we just print the referent
         if isinstance(self.fields['Data'], NDR):
             self.fields['Data'].dump('', indent = indent)
         else:
             if self['ReferentID'] == 0:
-                print " NULL",
+                print(" NULL", end=' ')
             else:
-                print " %r" % (self['Data']),
+                print(" %r" % (self['Data']), end=' ')
 
 
 # Embedded Reference Pointers not implemented for now
@@ -1725,24 +1724,24 @@ class NDRTest:
             return self.theClass(isNDR64 = isNDR64)
 
     def test(self, isNDR64 = False):
-        print
-        print "-"*70
+        print()
+        print("-"*70)
         testName = self.__class__.__name__
-        print "starting test: %s (NDR64 = %s)....." % (testName, isNDR64)
+        print("starting test: %s (NDR64 = %s)....." % (testName, isNDR64))
         a = self.create(isNDR64 = isNDR64)
         self.populate(a)
         a.dump("packing.....")
         a_str = str(a)
-        print "packed:" 
+        print("packed:") 
         hexdump(a_str)
-        print "unpacking....."
+        print("unpacking.....")
         b = self.create(a_str, isNDR64 = isNDR64)
         b.dump("unpacked.....")
-        print "\nrepacking....."
+        print("\nrepacking.....")
         b_str = str(b)
         if b_str != a_str:
-            print "ERROR: original packed and repacked don't match"
-            print "packed: " 
+            print("ERROR: original packed and repacked don't match")
+            print("packed: ") 
             hexdump(b_str)
             raise
 

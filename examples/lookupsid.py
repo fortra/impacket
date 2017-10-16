@@ -37,7 +37,7 @@ class LSALookupSid:
     def __init__(self, username, password, domain, protocols = None,
                  hashes = None, maxRid=4000):
         if not protocols:
-            protocols = LSALookupSid.KNOWN_PROTOCOLS.keys()
+            protocols = list(LSALookupSid.KNOWN_PROTOCOLS.keys())
 
         self.__username = username
         self.__password = password
@@ -70,7 +70,7 @@ class LSALookupSid:
 
             try:
                 entries = self.__bruteForce(rpctransport, self.__maxRid)
-            except Exception, e:
+            except Exception as e:
                 #import traceback
                 #print traceback.print_exc()
                 logging.critical(str(e))
@@ -111,11 +111,11 @@ class LSALookupSid:
                 break
 
             sids = list()
-            for i in xrange(soFar, soFar+sidsToCheck):
+            for i in range(soFar, soFar+sidsToCheck):
                 sids.append(domainSid + '-%d' % (i))
             try:
                 request = lsat.hLsarLookupSids(dce, policyHandle, sids,lsat.LSAP_LOOKUP_LEVEL.LsapLookupWksta)
-            except Exception, e:
+            except Exception as e:
                 if str(e).find('STATUS_NONE_MAPPED') >= 0:
                     soFar += SIMULTANEOUS
                     continue
@@ -126,7 +126,7 @@ class LSALookupSid:
 
             for n, item in enumerate(resp['TranslatedNames']['Names']):
                 if item['Use'] != SID_NAME_USE.SidTypeUnknown:
-                    print "%d: %s\\%s (%s)" % (soFar+n, resp['ReferencedDomains']['Domains'][item['DomainIndex']]['Name'], item['Name'], SID_NAME_USE.enumItems(item['Use']).name)
+                    print("%d: %s\\%s (%s)" % (soFar+n, resp['ReferencedDomains']['Domains'][item['DomainIndex']]['Name'], item['Name'], SID_NAME_USE.enumItems(item['Use']).name))
             soFar += SIMULTANEOUS
 
         dce.disconnect()
@@ -136,13 +136,13 @@ class LSALookupSid:
 
 # Process command-line arguments.
 if __name__ == '__main__':
-    print version.BANNER
+    print(version.BANNER)
 
     parser = argparse.ArgumentParser()
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('maxRid', action='store', default = '4000', nargs='?', help='max Rid to check (default 4000)')
-    parser.add_argument('protocol', choices=LSALookupSid.KNOWN_PROTOCOLS.keys(), nargs='?', default='445/SMB', help='transport protocol (default 445/SMB)')
+    parser.add_argument('protocol', choices=list(LSALookupSid.KNOWN_PROTOCOLS.keys()), nargs='?', default='445/SMB', help='transport protocol (default 445/SMB)')
 
     group = parser.add_argument_group('authentication')
 
@@ -167,5 +167,5 @@ if __name__ == '__main__':
     lookup = LSALookupSid(username, password, domain, options.protocol, options.hashes, options.maxRid)
     try:
         lookup.dump(address)
-    except Exception, e:
+    except Exception as e:
         pass

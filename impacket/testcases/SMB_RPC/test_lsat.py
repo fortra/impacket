@@ -19,7 +19,7 @@
 
 import sys
 import unittest
-import ConfigParser
+import configparser
 from struct import pack, unpack
 
 from impacket.dcerpc.v5 import transport
@@ -92,7 +92,7 @@ class LSATTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             # The RPC server MUST ensure that the RPC_C_AUTHN_NETLOGON security provider 
             # (as specified in [MS-RPCE] section 2.2.1.1.7) and at least 
             # RPC_C_AUTHN_LEVEL_PKT_INTEGRITY authentication level (as specified in 
@@ -108,7 +108,7 @@ class LSATTests(unittest.TestCase):
         try:
             resp = lsat.hLsarLookupNames4(dce, ('Administrator', 'Guest'))
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             # The RPC server MUST ensure that the RPC_C_AUTHN_NETLOGON security provider 
             # (as specified in [MS-RPCE] section 2.2.1.1.7) and at least 
             # RPC_C_AUTHN_LEVEL_PKT_INTEGRITY authentication level (as specified in 
@@ -221,7 +221,7 @@ class LSATTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             # The RPC server MUST ensure that the RPC_C_AUTHN_NETLOGON security provider 
             # (as specified in [MS-RPCE] section 2.2.1.1.7) and at least 
             # RPC_C_AUTHN_LEVEL_PKT_INTEGRITY authentication level (as specified in 
@@ -300,7 +300,7 @@ class LSATTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_SOME_NOT_MAPPED') < 0:
                 raise
             else:
@@ -320,7 +320,7 @@ class LSATTests(unittest.TestCase):
         try:
             resp = lsat.hLsarLookupSids(dce, policyHandle, sids )
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_SOME_NOT_MAPPED') < 0:
                 raise
             else:
@@ -331,7 +331,7 @@ class LSATTests(unittest.TestCase):
 class SMBTransport(LSATTests):
     def setUp(self):
         LSATTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
+        configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('SMBTransport', 'username')
         self.domain   = configFile.get('SMBTransport', 'domain')
@@ -345,7 +345,7 @@ class SMBTransport(LSATTests):
 class SMBTransport64(LSATTests):
     def setUp(self):
         LSATTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
+        configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('SMBTransport', 'username')
         self.domain   = configFile.get('SMBTransport', 'domain')

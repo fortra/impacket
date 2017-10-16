@@ -5,10 +5,10 @@
 # for more information.
 #
 
-from ImpactPacket import Header
+from .ImpactPacket import Header
 from impacket import ImpactPacket
-from IP6 import IP6
-from ICMP6 import ICMP6
+from .IP6 import IP6
+from .ICMP6 import ICMP6
 import array, struct
 
 class NDP(ICMP6):

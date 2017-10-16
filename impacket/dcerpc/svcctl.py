@@ -25,6 +25,7 @@ from impacket.structure import Structure
 from impacket import dcerpc
 from impacket.dcerpc import ndrutils, dcerpc
 from impacket.uuid import uuidtup_to_bin
+from functools import reduce
 
 MSRPC_UUID_SVCCTL = uuidtup_to_bin(('367ABB81-9844-35F1-AD32-98F038001003', '2.0'))
 
@@ -149,7 +150,7 @@ class SVCCTLSessionError(Exception):
 
     def __str__( self ):
         key = self.error_code
-        if (SVCCTLSessionError.error_messages.has_key(key)):
+        if (key in SVCCTLSessionError.error_messages):
             error_msg_short = SVCCTLSessionError.error_messages[key][0]
             error_msg_verbose = SVCCTLSessionError.error_messages[key][1] 
             return 'SVCCTL SessionError: code: %s - %s - %s' % (str(self.error_code), error_msg_short, error_msg_verbose)
@@ -768,11 +769,11 @@ class SVCCTLStartServiceHeader(ImpactPacket.Header):
         self.get_bytes()[:20] = array.array('B', handle)
 
     def get_arguments(self):
-        raise Exception, "method not implemented"
+        raise Exception("method not implemented")
     def set_arguments(self, arguments):
-        args_data = apply(pack, ['<' + 'L'*len(arguments)] + map(id, arguments) )
+        args_data = pack(*['<' + 'L'*len(arguments)] + list(map(id, arguments)))
         args_data += reduce(lambda a, b: a+b,
-                            map(lambda element: pack('<LLL', len(element)+1, 0, len(element)+1) + element + '\x00' + '\x00' * ((4 - (len(element) + 1) % 4) % 4), arguments),
+                            [pack('<LLL', len(element)+1, 0, len(element)+1) + element + '\x00' + '\x00' * ((4 - (len(element) + 1) % 4) % 4) for element in arguments],
                             '')
         data = pack('<LLL', len(arguments), id(arguments) & 0xffffffff, len(arguments)) + args_data
         self.get_bytes()[20:] = array.array('B', data)

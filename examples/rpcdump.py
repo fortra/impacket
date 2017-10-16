@@ -37,7 +37,7 @@ class RPCDump:
     def __init__(self, protocols = None,
                  username = '', password = '', domain='', hashes = None):
         if not protocols:
-            protocols = RPCDump.KNOWN_PROTOCOLS.keys()
+            protocols = list(RPCDump.KNOWN_PROTOCOLS.keys())
 
         self.__username = username
         self.__password = password
@@ -73,7 +73,7 @@ class RPCDump:
 
             try:
                 entries = self.__fetchList(rpctransport)
-            except Exception, e:
+            except Exception as e:
                 logging.critical('Protocol failed: %s' % e)
             else:
                 # Got a response. No need for further iterations.
@@ -87,30 +87,30 @@ class RPCDump:
         for entry in entries:
             binding = epm.PrintStringBinding(entry['tower']['Floors'], rpctransport.get_dip())
             tmpUUID = str(entry['tower']['Floors'][0])
-            if endpoints.has_key(tmpUUID) is not True:
+            if (tmpUUID in endpoints) is not True:
                 endpoints[tmpUUID] = {}
                 endpoints[tmpUUID]['Bindings'] = list()
-            if ndrutils.KNOWN_UUIDS.has_key(uuid.uuidtup_to_bin(uuid.string_to_uuidtup(tmpUUID))[:18]):
+            if uuid.uuidtup_to_bin(uuid.string_to_uuidtup(tmpUUID))[:18] in ndrutils.KNOWN_UUIDS:
                 endpoints[tmpUUID]['EXE'] = ndrutils.KNOWN_UUIDS[uuid.uuidtup_to_bin(uuid.string_to_uuidtup(tmpUUID))[:18]]
             else:
                 endpoints[tmpUUID]['EXE'] = 'N/A'
             endpoints[tmpUUID]['annotation'] = entry['annotation'][:-1]
             endpoints[tmpUUID]['Bindings'].append(binding)
 
-            if epm.KNOWN_PROTOCOLS.has_key(tmpUUID[:36]):
+            if tmpUUID[:36] in epm.KNOWN_PROTOCOLS:
                 endpoints[tmpUUID]['Protocol'] = epm.KNOWN_PROTOCOLS[tmpUUID[:36]]
             else:
                 endpoints[tmpUUID]['Protocol'] = "N/A"
             #print "Transfer Syntax: %s" % entry['Tower']['Floors'][1]
      
-        for endpoint in endpoints.keys():
-            print "Protocol: %s " % endpoints[endpoint]['Protocol']
-            print "Provider: %s " % endpoints[endpoint]['EXE']
-            print "UUID    : %s %s" % (endpoint, endpoints[endpoint]['annotation'])
-            print "Bindings: "
+        for endpoint in list(endpoints.keys()):
+            print("Protocol: %s " % endpoints[endpoint]['Protocol'])
+            print("Provider: %s " % endpoints[endpoint]['EXE'])
+            print("UUID    : %s %s" % (endpoint, endpoints[endpoint]['annotation']))
+            print("Bindings: ")
             for binding in endpoints[endpoint]['Bindings']:
-                print "          %s" % binding
-            print ""
+                print("          %s" % binding)
+            print("")
 
         if entries:
             num = len(entries)
@@ -140,12 +140,12 @@ class RPCDump:
 
 # Process command-line arguments.
 if __name__ == '__main__':
-    print version.BANNER
+    print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help = True, description = "Dumps the remote RPC enpoints information.")
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
-    parser.add_argument('protocol', choices=RPCDump.KNOWN_PROTOCOLS.keys(), nargs='?', default='135/TCP', help='transport protocol (default 135/TCP)')
+    parser.add_argument('protocol', choices=list(RPCDump.KNOWN_PROTOCOLS.keys()), nargs='?', default='135/TCP', help='transport protocol (default 135/TCP)')
 
     group = parser.add_argument_group('authentication')
 

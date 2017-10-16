@@ -34,14 +34,14 @@ if __name__ == '__main__':
             self.intro = '[!] Press help for extra shell commands'
 
         def do_help(self, line):
-            print """
+            print("""
      lcd {path}                 - changes the current local directory to {path}
      exit                       - terminates the server process (and this session)
      enable_xp_cmdshell         - you know what it means
      disable_xp_cmdshell        - you know what it means
      xp_cmdshell {cmd}          - executes cmd using xp_cmdshell
      ! {cmd}                    - executes a local shell cmd
-     """ 
+     """) 
 
         def do_shell(self, s):
             os.system(s)
@@ -52,12 +52,12 @@ if __name__ == '__main__':
                 self.sql.printReplies()
                 self.sql.colMeta[0]['TypeData'] = 80*2
                 self.sql.printRows()
-            except Exception, e:
+            except Exception as e:
                 pass
 
         def do_lcd(self, s):
             if s == '':
-                print os.getcwd()
+                print(os.getcwd())
             else:
                 os.chdir(s)
     
@@ -66,7 +66,7 @@ if __name__ == '__main__':
                 replies = self.sql.sql_query("exec master.dbo.sp_configure 'show advanced options',1;RECONFIGURE;exec master.dbo.sp_configure 'xp_cmdshell', 1;RECONFIGURE;")
                 self.sql.printReplies()
                 self.sql.printRows()
-            except Exception, e:
+            except Exception as e:
                 pass
 
         def do_disable_xp_cmdshell(self, line):
@@ -74,7 +74,7 @@ if __name__ == '__main__':
                 replies = self.sql.sql_query("exec sp_configure 'xp_cmdshell', 0 ;RECONFIGURE;exec sp_configure 'show advanced options', 0 ;RECONFIGURE;")
                 self.sql.printReplies()
                 self.sql.printRows()
-            except Exception, e:
+            except Exception as e:
                 pass
 
         def default(self, line):
@@ -82,7 +82,7 @@ if __name__ == '__main__':
                 replies = self.sql.sql_query(line)
                 self.sql.printReplies()
                 self.sql.printRows()
-            except Exception, e:
+            except Exception as e:
                 pass
          
         def emptyline(self):
@@ -91,7 +91,7 @@ if __name__ == '__main__':
         def do_exit(self, line):
             return True
 
-    print version.BANNER
+    print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help = True, description = "TDS client implementation (SSL supported).")
 
@@ -136,6 +136,6 @@ if __name__ == '__main__':
             shell.cmdloop()
         else:
             for line in options.file.readlines():
-                print "SQL> %s" % line,
+                print("SQL> %s" % line, end=' ')
                 shell.onecmd(line)
     ms_sql.disconnect()

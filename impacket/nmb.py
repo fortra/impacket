@@ -32,7 +32,7 @@
 # Altered source done by Alberto Solino
 
 import socket, string, re, select, errno
-from structure import Structure
+from .structure import Structure
 from random import randint
 from struct import *
 import time
@@ -172,7 +172,7 @@ class NBResourceRecord:
                 self.rdlength = 0
                 self.rdata = ''
                 self.unit_id = ''
-        except Exception,e:
+        except Exception as e:
                 raise NetBIOSError( 'Wrong packet format ' )
 
     def set_rr_name(self, name):
@@ -219,7 +219,7 @@ class NBNodeStatusResponse(NBResourceRecord):
                     offset += 18
                     self.node_names.append(NBNodeEntry(name, type ,flags))
                 self.set_mac_in_hexa(self.get_unit_id())
-        except Exception,e:
+        except Exception as e:
             raise NetBIOSError( 'Wrong packet format ' )
 
     def set_mac_in_hexa(self, data):
@@ -307,7 +307,7 @@ class NetBIOSPacket:
                 self.nscount = unpack('>H', self._data[8:10])[0]
                 self.arcount = unpack('>H', self._data[10:12])[0]
                 self.answers = self._data[12:]
-            except Exception,e:
+            except Exception as e:
                 raise NetBIOSError( 'Wrong packet format ' )
             
     def set_opcode(self, opcode):
@@ -464,10 +464,10 @@ class NetBIOS:
                 s.bind(( INADDR_ANY, randint(10000, 60000) ))
                 s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
                 has_bind = 1
-            except socket.error, _ex:
+            except socket.error as _ex:
                 pass
         if not has_bind:
-            raise NetBIOSError, ( 'Cannot bind to a good UDP port', ERRCLASS_OS, errno.EAGAIN )
+            raise NetBIOSError( 'Cannot bind to a good UDP port', ERRCLASS_OS, errno.EAGAIN)
         self.__sock = s
 
     # Set the default NetBIOS domain nameserver.
@@ -504,7 +504,7 @@ class NetBIOS:
 
     def getnetbiosname(self, ip):
         entries = self.getnodestatus('*',ip)
-        entries = filter(lambda x:x.get_nametype() == TYPE_SERVER, entries)
+        entries = [x for x in entries if x.get_nametype() == TYPE_SERVER]
         return entries[0].get_nbname().strip()
 
     def getmacaddress(self):
@@ -546,15 +546,15 @@ class NetBIOS:
                             if res.get_rcode() == 0x03:
                                 return None
                             else:
-                                raise NetBIOSError, ( 'Negative name query response', ERRCLASS_QUERY, res.get_rcode() )
+                                raise NetBIOSError( 'Negative name query response', ERRCLASS_QUERY, res.get_rcode())
                         
                         if res.get_ancount() != 1:
                             raise NetBIOSError( 'Malformed response')
                         
                         return NBPositiveNameQueryResponse(res.get_answers())
-            except select.error, ex:
+            except select.error as ex:
                 if ex[0] != errno.EINTR and ex[0] != errno.EAGAIN:
-                    raise NetBIOSError, ( 'Error occurs while waiting for response', ERRCLASS_OS, ex[0] )
+                    raise NetBIOSError( 'Error occurs while waiting for response', ERRCLASS_OS, ex[0])
                 raise
 
 
@@ -585,25 +585,25 @@ class NetBIOS:
                 else:
                     try:
                         data, _ = self.__sock.recvfrom(65536, 0)
-                    except Exception, e:
-                        raise NetBIOSError, "recvfrom error: %s" % str(e)
+                    except Exception as e:
+                        raise NetBIOSError("recvfrom error: %s" % str(e))
                     self.__sock.close()
                     res = NetBIOSPacket(data)
                     if res.get_trn_id() == p.get_trn_id():
                         if res.get_rcode():
                             if res.get_rcode() == 0x03:
                                 # I'm just guessing here
-                                raise NetBIOSError, "Cannot get data from server"
+                                raise NetBIOSError("Cannot get data from server")
                             else:
-                                raise NetBIOSError, ( 'Negative name query response', ERRCLASS_QUERY, res.get_rcode() )
+                                raise NetBIOSError( 'Negative name query response', ERRCLASS_QUERY, res.get_rcode())
                         answ = NBNodeStatusResponse(res.get_answers())
                         self.mac = answ.get_mac()
                         return answ.get_node_names()
-            except select.error, ex:
+            except select.error as ex:
                 if ex[0] != errno.EINTR and ex[0] != errno.EAGAIN:
-                    raise NetBIOSError, ( 'Error occurs while waiting for response', ERRCLASS_OS, ex[0] )
-            except socket.error, ex:
-                raise NetBIOSError, 'Connection error: %s' % str(ex)
+                    raise NetBIOSError( 'Error occurs while waiting for response', ERRCLASS_OS, ex[0])
+            except socket.error as ex:
+                raise NetBIOSError('Connection error: %s' % str(ex))
 
 # Perform first and second level encoding of name as specified in RFC 1001 (Section 4)
 def encode_name(name, type, scope):
@@ -856,7 +856,7 @@ class NetBIOSTCPSession(NetBIOSSession):
             af, socktype, proto, canonname, sa = socket.getaddrinfo(peer[0], peer[1], 0, socket.SOCK_STREAM)[0]
             sock = socket.socket(af, socktype, proto)
             sock.connect(sa)
-        except Exception, e:
+        except Exception as e:
             raise Exception("%s (%s:%s)" % (e, peer[0], peer[1]))
         return sock
 
@@ -881,7 +881,7 @@ class NetBIOSTCPSession(NetBIOSSession):
         while 1:
             p = self.recv_packet(timeout)
             if p.get_type() == NETBIOS_SESSION_NEGATIVE_RESPONSE:
-                raise NetBIOSError, ( 'Cannot request session', ERRCLASS_SESSION, ord(p.get_trailer()[0]) )
+                raise NetBIOSError( 'Cannot request session', ERRCLASS_SESSION, ord(p.get_trailer()[0]))
             elif p.get_type() == NETBIOS_SESSION_POSITIVE_RESPONSE:
                 break
             else:
@@ -911,13 +911,13 @@ class NetBIOSTCPSession(NetBIOSSession):
 
                 received = self._sock.recv(bytes_left)
                 if len(received) == 0:
-                    raise NetBIOSError, ( 'Error while reading from remote', ERRCLASS_OS, None)
+                    raise NetBIOSError( 'Error while reading from remote', ERRCLASS_OS, None)
 
                 data = data + received
                 bytes_left = read_length - len(data)
-            except select.error, ex:
+            except select.error as ex:
                 if ex[0] != errno.EINTR and ex[0] != errno.EAGAIN:
-                    raise NetBIOSError, ( 'Error occurs while reading from remote', ERRCLASS_OS, ex[0] )
+                    raise NetBIOSError( 'Error occurs while reading from remote', ERRCLASS_OS, ex[0])
 
         return data
 
@@ -934,13 +934,13 @@ class NetBIOSTCPSession(NetBIOSSession):
 
                 received = self._sock.recv(bytes_left)
                 if len(received) == 0:
-                    raise NetBIOSError, ( 'Error while reading from remote', ERRCLASS_OS, None)
+                    raise NetBIOSError( 'Error while reading from remote', ERRCLASS_OS, None)
 
                 data = data + received
                 bytes_left = read_length - len(data)
-            except select.error, ex:
+            except select.error as ex:
                 if ex[0] != errno.EINTR and ex[0] != errno.EAGAIN:
-                    raise NetBIOSError, ( 'Error occurs while reading from remote', ERRCLASS_OS, ex[0] )
+                    raise NetBIOSError( 'Error occurs while reading from remote', ERRCLASS_OS, ex[0])
 
         return data
 
@@ -990,7 +990,7 @@ def main():
                 
     
     n = get_netbios_host_by_name("some-host")
-    print n
+    print(n)
 
 if __name__ == '__main__':
     main()

@@ -94,7 +94,7 @@ class WINREGRespQueryInfoKey(ImpactPacket.Header):
 
     def get_class_data(self):
         length = self.get_word(0, '<')
-        return unicode(self.get_bytes().tostring()[20:20+length], 'utf-16le')
+        return str(self.get_bytes().tostring()[20:20+length], 'utf-16le')
 
     def get_return_code(self):
         return self.get_long(-4, '<')
@@ -126,7 +126,7 @@ class WINREGSaveKey(ImpactPacket.Header):
         self.get_bytes()[:20] = array.array('B', handle)
 
     def get_file_name(self):
-        return unicode(self.get_bytes().tostring()[40:-4], 'utf-16le')
+        return str(self.get_bytes().tostring()[40:-4], 'utf-16le')
 
     def set_file_name(self, name):
         if not name.endswith('\0'):
@@ -233,7 +233,7 @@ class WINREGDeleteValue(ImpactPacket.Header):
         self.get_bytes()[:20] = array.array('B', handle)
 
     def get_name(self):
-        return unicode(self.get_bytes().tostring()[40:], 'utf-16le')
+        return str(self.get_bytes().tostring()[40:], 'utf-16le')
     def set_name(self, name):
         if not name.endswith('\0'):
             name += '\0'
@@ -292,7 +292,7 @@ class WINREGDeleteKey(ImpactPacket.Header):
         self.get_bytes()[:20] = array.array('B', handle)
 
     def get_key_name(self):
-        return unicode(self.get_bytes().tostring()[40:], 'utf-16le')
+        return str(self.get_bytes().tostring()[40:], 'utf-16le')
     def set_key_name(self, name):
         if not name.endswith('\0'):
             name += '\0'
@@ -352,7 +352,7 @@ class WINREGCreateKey(ImpactPacket.Header):
         self.get_bytes()[:20] = array.array('B', handle)
 
     def get_key_name(self):
-        return unicode(self.get_bytes().tostring()[40:-24], 'utf-16le')
+        return str(self.get_bytes().tostring()[40:-24], 'utf-16le')
     def set_key_name(self, name):
         if not name.endswith('\0'):
             name += '\0'
@@ -426,7 +426,7 @@ class WINREGOpenKey(ImpactPacket.Header):
         self.get_bytes()[:20] = array.array('B', handle)
 
     def get_key_name(self):
-        return unicode(self.get_bytes().tostring()[40:-4], 'utf-16le')
+        return str(self.get_bytes().tostring()[40:-4], 'utf-16le')
     def set_key_name(self, name):
         if not name.endswith('\0'):
             name += '\0'
@@ -493,7 +493,7 @@ class WINREGSetValue(ImpactPacket.Header):
         self.get_bytes()[:20] = array.array('B', handle)
 
     def get_name(self):
-        return unicode(self.get_bytes().tostring()[40:40+self.namelen], 'utf-16le')
+        return str(self.get_bytes().tostring()[40:40+self.namelen], 'utf-16le')
     def set_name(self, name):
         if not name.endswith('\0'):
             name += '\0'
@@ -522,7 +522,7 @@ class WINREGSetValue(ImpactPacket.Header):
         if data_type == REG_DWORD:
             data = struct.unpack('<L', data)[0]
         elif data_type == REG_SZ:
-            data = unicode(data, 'utf-16le')
+            data = str(data, 'utf-16le')
         return data
 
     def set_data(self, data):
@@ -600,7 +600,7 @@ class WINREGQueryValue(ImpactPacket.Header):
         self.get_bytes()[:20] = array.array('B', handle)
 
     def get_name(self):
-        return unicode(self.get_bytes().tostring()[40:-40], 'utf-16le')
+        return str(self.get_bytes().tostring()[40:-40], 'utf-16le')
     def set_name(self, name):
         if not name.endswith('\0'):
             name += '\0'
@@ -653,12 +653,12 @@ class WINREGRespQueryValue(ImpactPacket.Header):
         if data_type == REG_DWORD:
             data = struct.unpack('<L', data)[0]
         elif data_type == REG_SZ:
-            data = unicode(data, 'utf-16le')
+            data = str(data, 'utf-16le')
 
         return data
 
     def set_data(self, len):
-        raise Exception, "method not implemented"
+        raise Exception("method not implemented")
 
     def get_return_code(self):
         return self.get_long(-4, '<')

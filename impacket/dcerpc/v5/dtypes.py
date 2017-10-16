@@ -88,9 +88,9 @@ class STR(NDRSTRUCT):
         if msg is None: msg = self.__class__.__name__
         ind = ' '*indent
         if msg != '':
-            print "%s" % (msg),
+            print("%s" % (msg), end=' ')
         # Here just print the data
-        print " %r" % (self['Data']),
+        print(" %r" % (self['Data']), end=' ')
 
     def __setitem__(self, key, value):
         if key == 'Data':
@@ -128,9 +128,9 @@ class WSTR(NDRSTRUCT):
         if msg is None: msg = self.__class__.__name__
         ind = ' '*indent
         if msg != '':
-            print "%s" % (msg),
+            print("%s" % (msg), end=' ')
         # Here just print the data
-        print " %r" % (self['Data']),
+        print(" %r" % (self['Data']), end=' ')
 
     def getDataLen(self, data):
         return self["ActualCount"]*2 
@@ -339,12 +339,12 @@ class RPC_UNICODE_STRING(NDRSTRUCT):
         if msg is None: msg = self.__class__.__name__
         ind = ' '*indent
         if msg != '':
-            print "%s" % (msg),
+            print("%s" % (msg), end=' ')
 
         if isinstance(self.fields['Data'] , NDRPOINTERNULL):
-            print " NULL",
+            print(" NULL", end=' ')
         elif self.fields['Data']['ReferentID'] == 0:
-            print " NULL",
+            print(" NULL", end=' ')
         else:
             return self.fields['Data'].dump('',indent)
 
@@ -413,17 +413,17 @@ PSID = PRPC_SID
 
 # 2.4.3 ACCESS_MASK
 ACCESS_MASK = DWORD
-GENERIC_READ            = 0x80000000L
-GENERIC_WRITE           = 0x4000000L
-GENERIC_EXECUTE         = 0x20000000L
-GENERIC_ALL             = 0x10000000L
-MAXIMUM_ALLOWED         = 0x02000000L
-ACCESS_SYSTEM_SECURITY  = 0x01000000L
-SYNCHRONIZE             = 0x00100000L
-WRITE_OWNER             = 0x00080000L
-WRITE_DACL              = 0x00040000L
-READ_CONTROL            = 0x00020000L
-DELETE                  = 0x00010000L
+GENERIC_READ            = 0x80000000
+GENERIC_WRITE           = 0x4000000
+GENERIC_EXECUTE         = 0x20000000
+GENERIC_ALL             = 0x10000000
+MAXIMUM_ALLOWED         = 0x02000000
+ACCESS_SYSTEM_SECURITY  = 0x01000000
+SYNCHRONIZE             = 0x00100000
+WRITE_OWNER             = 0x00080000
+WRITE_DACL              = 0x00040000
+READ_CONTROL            = 0x00020000
+DELETE                  = 0x00010000
 
 # 2.4.5.1 ACL--RPC Representation
 class ACL(NDRSTRUCT):

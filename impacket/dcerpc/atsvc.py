@@ -141,7 +141,7 @@ class ATSVCSessionError(Exception):
 
     def __str__( self ):
         key = self.error_code
-        if (ATSVCSessionError.error_messages.has_key(key)):
+        if (key in ATSVCSessionError.error_messages):
             error_msg_short = ATSVCSessionError.error_messages[key][0]
             error_msg_verbose = ATSVCSessionError.error_messages[key][1] 
             return 'ATSVC SessionError: code: %s - %s - %s' % (str(self.error_code), error_msg_short, error_msg_verbose)

@@ -37,7 +37,7 @@ class KeyManager:
         
     def get_key(self, bssid):
         bssid=self.__get_bssid_hasheable_type(bssid)
-        if self.keys.has_key(bssid):
+        if bssid in self.keys:
             return self.keys[bssid]
         else:
             return False
@@ -47,7 +47,7 @@ class KeyManager:
         if not isinstance(bssid, list):
             raise Exception('BSSID datatype must be a list')
         
-        if self.keys.has_key(bssid):
+        if bssid in self.keys:
             del self.keys[bssid] 
             return True
         

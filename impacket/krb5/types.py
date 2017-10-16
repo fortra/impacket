@@ -31,13 +31,13 @@ import struct
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import useful
 
-import asn1
-import constants
+from . import asn1
+from . import constants
 
 class KerberosException(Exception): pass
 
 def _asn1_decode(data, asn1Spec):
-    if isinstance(data, basestring):
+    if isinstance(data, str):
         data, substrate = decoder.decode(data, asn1Spec=asn1Spec)
         if substrate != '':
             raise KerberosException("asn1 encoding invalid")
@@ -65,7 +65,7 @@ If the value contains no realm, then default_realm will be used."""
             self.type = value.type
             self.components = value.components[:]
             self.realm = value.realm
-        elif isinstance(value, basestring):
+        elif isinstance(value, str):
             m = re.match(r'((?:[^\\]|\\.)+?)(@((?:[^\\@]|\\.)+))?$', value)
             if not m:
                 raise KerberosException("invalid principal syntax")
@@ -84,7 +84,7 @@ If the value contains no realm, then default_realm will be used."""
         elif len(value) == 2:
             self.components = value[0]
             self.realm = value[-1]
-            if isinstance(self.components, basestring):
+            if isinstance(self.components, str):
                 self.components = [self.components]
         elif len(value) >= 2:
             self.components = value[0:-1]
@@ -96,7 +96,7 @@ If the value contains no realm, then default_realm will be used."""
             self.type = type
 
     def __eq__(self, other):
-        if isinstance(other, basestring):
+        if isinstance(other, str):
             other = Principal(other)
 
         return (self.type == constants.PrincipalNameType.NT_UNKNOWN.value or \
@@ -251,15 +251,15 @@ class KerberosTime(object):
 
 if __name__ == '__main__':
     # TODO marc: turn this into a real test
-    print Principal("marc")
-    print Principal(("marc", None))
-    print Principal((("marc",), None))
-    print Principal("marc@ATHENA.MIT.EDU")
-    print Principal("marc", default_realm="ATHENA.MIT.EDU")
-    print Principal("marc@ATHENA.MIT.EDU", default_realm="EXAMPLE.COM")
-    print Principal(("marc", "ATHENA.MIT.EDU"))
-    print Principal((("marc"), "ATHENA.MIT.EDU"))
-    print Principal("marc/root")
-    print Principal(("marc", "root", "ATHENA.MIT.EDU"))
-    print Principal((("marc", "root"), "ATHENA.MIT.EDU"))
-    print Principal("marc\\/root")
+    print(Principal("marc"))
+    print(Principal(("marc", None)))
+    print(Principal((("marc",), None)))
+    print(Principal("marc@ATHENA.MIT.EDU"))
+    print(Principal("marc", default_realm="ATHENA.MIT.EDU"))
+    print(Principal("marc@ATHENA.MIT.EDU", default_realm="EXAMPLE.COM"))
+    print(Principal(("marc", "ATHENA.MIT.EDU")))
+    print(Principal((("marc"), "ATHENA.MIT.EDU")))
+    print(Principal("marc/root"))
+    print(Principal(("marc", "root", "ATHENA.MIT.EDU")))
+    print(Principal((("marc", "root"), "ATHENA.MIT.EDU")))
+    print(Principal("marc\\/root"))

@@ -29,7 +29,7 @@ class TestTCP(unittest.TestCase):
 			#	print "aaaaaaaaaaaaaaa"
 			#	print e
 			#except Exception,e:
-			except ImpactPacketException,e:
+			except ImpactPacketException as e:
 				if str(e) != "'TCP Option length is too low'":
 					raise e
 			except:

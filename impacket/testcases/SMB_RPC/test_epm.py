@@ -9,7 +9,7 @@
 
 import sys
 import unittest
-import ConfigParser
+import configparser
 from struct import pack, unpack
 
 from impacket.dcerpc.v5 import transport
@@ -116,7 +116,7 @@ class EPMTests(unittest.TestCase):
 class SMBTransport(EPMTests):
     def setUp(self):
         EPMTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
+        configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('SMBTransport', 'username')
         self.domain   = configFile.get('SMBTransport', 'domain')
@@ -130,7 +130,7 @@ class SMBTransport(EPMTests):
 class TCPTransport(EPMTests):
     def setUp(self):
         EPMTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
+        configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('TCPTransport', 'username')
         self.domain   = configFile.get('TCPTransport', 'domain')
@@ -144,7 +144,7 @@ class TCPTransport(EPMTests):
 class SMBTransport64(EPMTests):
     def setUp(self):
         EPMTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
+        configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('SMBTransport', 'username')
         self.domain   = configFile.get('SMBTransport', 'domain')
@@ -158,7 +158,7 @@ class SMBTransport64(EPMTests):
 class TCPTransport64(EPMTests):
     def setUp(self):
         EPMTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
+        configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('TCPTransport', 'username')
         self.domain   = configFile.get('TCPTransport', 'domain')

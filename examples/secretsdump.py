@@ -313,7 +313,7 @@ class RemoteOperations:
                 return '%s\\%s' % (domain,username)
             else:
                 return username
-        except Exception, e:
+        except Exception as e:
             return None
 
     def getServiceAccount(self, serviceName):
@@ -327,7 +327,7 @@ class RemoteOperations:
             if account.startswith('.\\'):
                 account = account[2:]
             return account
-        except Exception, e:
+        except Exception as e:
             logging.error(e)
             return None
  
@@ -398,7 +398,7 @@ class RemoteOperations:
                 scmr.hRCloseServiceHandle(self.__scmr, self.__serviceHandle)
                 scmr.hRCloseServiceHandle(self.__scmr, self.__scManagerHandle)
                 rpc.disconnect()
-            except Exception, e:
+            except Exception as e:
                 # If service is stopped it'll trigger an exception
                 # If service does not exist it'll trigger an exception
                 # So. we just wanna be sure we delete it, no need to 
@@ -426,7 +426,7 @@ class RemoteOperations:
 
         bootKey = bootKey.decode('hex')
 
-        for i in xrange(len(bootKey)):
+        for i in range(len(bootKey)):
             self.__bootKey += bootKey[transforms[i]]
 
         logging.info('Target system bootKey: 0x%s' % self.__bootKey.encode('hex'))
@@ -502,7 +502,7 @@ class RemoteOperations:
             try:
                 self.__smbConnection.getFile('ADMIN$', 'Temp\\__output', self.__answer)
                 break
-            except Exception, e:
+            except Exception as e:
                 if tries > 30:
                     # We give up
                     raise Exception('Too many tries trying to list vss shadows')
@@ -763,7 +763,7 @@ class SAMHashes(OfflineRegistry):
 
             answer =  "%s:%d:%s:%s:::" % (userName, rid, lmHash.encode('hex'), ntHash.encode('hex'))
             self.__itemsFound[rid] = answer
-            print answer
+            print(answer)
 
     def export(self, fileName):
         if len(self.__itemsFound) > 0:
@@ -940,7 +940,7 @@ class LSASecrets(OfflineRegistry):
                 domainLong = plainText[:self.__pad(record['FullDomainLength'])].decode('utf-16le')
                 answer = "%s:%s:%s:%s:::" % (userName, encHash.encode('hex'), domainLong, domain)
                 self.__cachedItems.append(answer)
-                print answer
+                print(answer)
 
     def __printSecret(self, name, secretItem):
         # Based on [MS-LSAD] section 3.1.1.4
@@ -1018,7 +1018,7 @@ class LSASecrets(OfflineRegistry):
                 secret = "$MACHINE.ACC: %s:%s" % (ntlm.LMOWFv1('','').encode('hex'), md4.digest().encode('hex'))
             
         if secret != '':
-            print secret
+            print(secret)
             self.__secretItems.append(secret)
         else:
             # Default print, hexdump
@@ -1108,7 +1108,7 @@ class NTDSHashes():
         0xffffff74:'rc4_hmac',
     }
 
-    INTERNAL_TO_NAME = dict((v,k) for k,v in NAME_TO_INTERNAL.iteritems())
+    INTERNAL_TO_NAME = dict((v,k) for k,v in NAME_TO_INTERNAL.items())
 
     SAM_NORMAL_USER_ACCOUNT = 0x30000000
     SAM_MACHINE_ACCOUNT     = 0x30000001
@@ -1235,7 +1235,7 @@ class NTDSHashes():
                             data = data[len(keyDataNew):]
                             keyValue = propertyValueBuffer[keyDataNew['KeyOffset']:][:keyDataNew['KeyLength']]
     
-                            if  self.KERBEROS_TYPE.has_key(keyDataNew['KeyType']):
+                            if  keyDataNew['KeyType'] in self.KERBEROS_TYPE:
                                 answer =  "%s:%s:%s" % (userName, self.KERBEROS_TYPE[keyDataNew['KeyType']],keyValue.encode('hex'))
                             else:
                                 answer =  "%s:%s:%s" % (userName, hex(keyDataNew['KeyType']),keyValue.encode('hex'))
@@ -1274,7 +1274,7 @@ class NTDSHashes():
  
         answer =  "%s:%s:%s:%s:::" % (userName, rid, LMHash.encode('hex'), NTHash.encode('hex'))
         self.__hashesFound[record[self.NAME_TO_INTERNAL['objectSid']].decode('hex')] = answer
-        print answer
+        print(answer)
       
         if self.__history:
             LMHistory = []
@@ -1303,7 +1303,7 @@ class NTDSHashes():
             
                 answer =  "%s_history%d:%s:%s:%s:::" % (userName, i, rid, lmhash, NTHash.encode('hex'))
                 self.__hashesFound[record[self.NAME_TO_INTERNAL['objectSid']].decode('hex')+str(i)] = answer
-                print answer
+                print(answer)
         
 
     def dump(self):
@@ -1323,7 +1323,7 @@ class NTDSHashes():
                 try:
                     self.__decryptHash(record)
                     self.__decryptSupplementalInfo(record)
-                except Exception, e:
+                except Exception as e:
                     #import traceback
                     #print traceback.print_exc()
                     try:
@@ -1349,7 +1349,7 @@ class NTDSHashes():
                     if record[self.NAME_TO_INTERNAL['sAMAccountType']] in self.ACCOUNT_TYPES: 
                         self.__decryptHash(record)
                         self.__decryptSupplementalInfo(record)
-                except Exception, e:
+                except Exception as e:
                     #import traceback
                     #print traceback.print_exc()
                     try:
@@ -1363,8 +1363,8 @@ class NTDSHashes():
         # Now we'll print the Kerberos keys. So we don't mix things up in the output. 
         if len(self.__kerberosKeys) > 0:
             logging.info('Kerberos keys from %s ' % self.__NTDS)
-            for itemKey in self.__kerberosKeys.keys():
-                print itemKey
+            for itemKey in list(self.__kerberosKeys.keys()):
+                print(itemKey)
          
     def export(self, fileName):
         if len(self.__hashesFound) > 0:
@@ -1373,7 +1373,7 @@ class NTDSHashes():
             for item in items:
                 try:
                     fd.write(self.__hashesFound[item]+'\n')
-                except Exception, e:
+                except Exception as e:
                     try:
                         logging.error("Error writing entry %d, skipping" % item)
                     except:
@@ -1382,7 +1382,7 @@ class NTDSHashes():
             fd.close()
         if len(self.__kerberosKeys) > 0:
             fd = open(fileName+'.ntds.kerberos','w+')
-            for itemKey in self.__kerberosKeys.keys():
+            for itemKey in list(self.__kerberosKeys.keys()):
                 fd.write(itemKey+'\n')
             fd.close()
 
@@ -1444,7 +1444,7 @@ class DumpSecrets:
 
         tmpKey = tmpKey.decode('hex')
 
-        for i in xrange(len(tmpKey)):
+        for i in range(len(tmpKey)):
             bootKey += tmpKey[transforms[i]]
 
         logging.info('Target system bootKey: 0x%s' % bootKey.encode('hex'))
@@ -1523,7 +1523,7 @@ class DumpSecrets:
                     self.__NTDSHashes.export(self.__outputFileName)
 
                 self.cleanup()
-            except (Exception, KeyboardInterrupt), e:
+            except (Exception, KeyboardInterrupt) as e:
                 #import traceback
                 #print traceback.print_exc()
                 logging.error(e)
@@ -1548,7 +1548,7 @@ class DumpSecrets:
 
 # Process command-line arguments.
 if __name__ == '__main__':
-    print version.BANNER
+    print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help = True, description = "Performs various techniques to dump secrets from the remote machine without executing any agent there.")
 
@@ -1601,5 +1601,5 @@ if __name__ == '__main__':
 
     try:
         dumper.dump()
-    except Exception, e:
+    except Exception as e:
         logging.error(e)

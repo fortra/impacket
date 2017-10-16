@@ -34,9 +34,9 @@ def computeResponse(flags, serverChallenge, clientChallenge,  serverName, domain
        return computeResponseNTLMv1(flags, serverChallenge, clientChallenge,  serverName, domain, user, password, lmhash, nthash, use_ntlmv2 = use_ntlmv2)
 try:
     POW = None
-    from Crypto.Cipher import ARC4
-    from Crypto.Cipher import DES
-    from Crypto.Hash import MD4
+    from .Crypto.Cipher import ARC4
+    from .Crypto.Cipher import DES
+    from .Crypto.Hash import MD4
 except Exception:
     try:
         import POW
@@ -107,7 +107,7 @@ class AV_PAIRS():
         self.fields[key] = (len(value),value)
 
     def __getitem__(self, key):
-        if self.fields.has_key(key):
+        if key in self.fields:
            return self.fields[key]
         return None
 
@@ -133,14 +133,14 @@ class AV_PAIRS():
             tInfo = tInfo[length:]
 
     def dump(self):
-        for i in self.fields.keys():
-            print "%s: {%r}" % (i,self[i])
+        for i in list(self.fields.keys()):
+            print("%s: {%r}" % (i,self[i]))
 
     def getData(self):
-        if self.fields.has_key(NTLMSSP_AV_EOL):
+        if NTLMSSP_AV_EOL in self.fields:
             del self.fields[NTLMSSP_AV_EOL]
         ans = ''
-        for i in self.fields.keys():
+        for i in list(self.fields.keys()):
             ans+= struct.pack('<HH', i, self[i][0])
             ans+= self[i][1]
  
@@ -477,7 +477,7 @@ def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = 
     # method we will create a valid ChallengeResponse
     ntlmChallengeResponse = NTLMAuthChallengeResponse(user, password, ntlmChallenge['challenge'])
 
-    clientChallenge = "".join([random.choice(string.digits+string.letters) for i in xrange(8)])
+    clientChallenge = "".join([random.choice(string.digits+string.letters) for i in range(8)])
 
     serverName = ntlmChallenge['TargetInfoFields']
 
@@ -513,7 +513,7 @@ def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = 
     if ntlmChallenge['flags'] & NTLMSSP_KEY_EXCHANGE:
        # not exactly what I call random tho :\
        # exportedSessionKey = this is the key we should use to sign
-       exportedSessionKey = "".join([random.choice(string.digits+string.letters) for i in xrange(16)])
+       exportedSessionKey = "".join([random.choice(string.digits+string.letters) for i in range(16)])
        #exportedSessionKey = "A"*16
        #print "keyExchangeKey %r" % keyExchangeKey
        # Let's generate the right session key based on the challenge flags
@@ -602,7 +602,7 @@ def LMOWFv1(password, lmhash = '', nthash=''):
 
 def compute_nthash(password):
     # This is done according to Samba's encryption specification (docs/html/ENCRYPTION.html)
-    password = unicode(password).encode('utf_16le')
+    password = str(password).encode('utf_16le')
     if POW:
         hash = POW.Digest(POW.MD4_DIGEST)
     else:        

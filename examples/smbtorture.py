@@ -29,7 +29,7 @@ def smbTransaction2( packet, packetNum, SMBCommand, questions, replies):
     if packet['ErrorCode'] != 0:
         return False
 
-    print "SMB_COM_TRANSACTION2 ",
+    print("SMB_COM_TRANSACTION2 ", end=' ')
     try:
       if (packet['Flags1'] & smb.SMB.FLAGS1_REPLY) == 0:
         # Query
@@ -65,13 +65,13 @@ def smbTransaction2( packet, packetNum, SMBCommand, questions, replies):
         # ToDo not implemented yet
         a = 1
 
-    except Exception, e:
-        print "ERROR: %s" % e
-        print "Command: 0x%x" % packet['Command']
-        print "Packet: %d %r" % (packetNum, packet.getData())
+    except Exception as e:
+        print("ERROR: %s" % e)
+        print("Command: 0x%x" % packet['Command'])
+        print("Packet: %d %r" % (packetNum, packet.getData()))
         return True
     else:
-        print 'OK!' 
+        print('OK!') 
 
     return False
 
@@ -81,7 +81,7 @@ def smbComOpenAndX( packet, packetNum, SMBCommand, questions, replies):
     if packet['ErrorCode'] != 0:
         return True
 
-    print "SMB_COM_OPEN_ANDX ",
+    print("SMB_COM_OPEN_ANDX ", end=' ')
     try:
       if (packet['Flags1'] & smb.SMB.FLAGS1_REPLY) == 0:
         # Query
@@ -95,13 +95,13 @@ def smbComOpenAndX( packet, packetNum, SMBCommand, questions, replies):
         openFileParameters = smb.SMBOpenAndXResponse_Parameters(openFileResponse['Parameters'])
 
 
-    except Exception, e:
-        print "ERROR: %s" % e
-        print "Command: 0x%x" % packet['Command']
-        print "Packet: %d %r" % (packetNum, packet.getData())
+    except Exception as e:
+        print("ERROR: %s" % e)
+        print("Command: 0x%x" % packet['Command'])
+        print("Packet: %d %r" % (packetNum, packet.getData()))
         return True
     else:
-        print 'OK!' 
+        print('OK!') 
 
     return False
 
@@ -111,7 +111,7 @@ def smbComWriteAndX( packet, packetNum, SMBCommand, questions, replies):
     if packet['ErrorCode'] != 0:
         return False
 
-    print "SMB_COM_WRITE_ANDX ",
+    print("SMB_COM_WRITE_ANDX ", end=' ')
     try:
       if (packet['Flags1'] & smb.SMB.FLAGS1_REPLY) == 0:
         # Query
@@ -129,13 +129,13 @@ def smbComWriteAndX( packet, packetNum, SMBCommand, questions, replies):
         writeResponse   = SMBCommand
         writeResponseParameters = smb.SMBWriteAndXResponse_Parameters(writeResponse['Parameters'])
 
-    except Exception, e:
-        print "ERROR: %s" % e
-        print "Command: 0x%x" % packet['Command']
-        print "Packet: %d %r" % (packetNum, packet.getData())
+    except Exception as e:
+        print("ERROR: %s" % e)
+        print("Command: 0x%x" % packet['Command'])
+        print("Packet: %d %r" % (packetNum, packet.getData()))
         return True
     else:
-        print 'OK!' 
+        print('OK!') 
 
     return False
 
@@ -145,7 +145,7 @@ def smbComNtCreateAndX( packet, packetNum, SMBCommand, questions, replies):
     if packet['ErrorCode'] != 0:
         return False
 
-    print "SMB_COM_NT_CREATE_ANDX ",
+    print("SMB_COM_NT_CREATE_ANDX ", end=' ')
     try:
       if (packet['Flags1'] & smb.SMB.FLAGS1_REPLY) == 0:
         # Query
@@ -156,13 +156,13 @@ def smbComNtCreateAndX( packet, packetNum, SMBCommand, questions, replies):
         ntCreateResponse   = SMBCommand
         ntCreateParameters = smb.SMBNtCreateAndXResponse_Parameters(ntCreateResponse['Parameters'])
 
-    except Exception, e:
-        print "ERROR: %s" % e
-        print "Command: 0x%x" % packet['Command']
-        print "Packet: %d %r" % (packetNum, packet.getData())
+    except Exception as e:
+        print("ERROR: %s" % e)
+        print("Command: 0x%x" % packet['Command'])
+        print("Packet: %d %r" % (packetNum, packet.getData()))
         return True
     else:
-        print 'OK!' 
+        print('OK!') 
 
     return False
 
@@ -172,7 +172,7 @@ def smbComTreeConnectAndX( packet, packetNum, SMBCommand, questions, replies):
     if packet['ErrorCode'] != 0:
         return False
 
-    print "SMB_COM_TREE_CONNECT_ANDX ",
+    print("SMB_COM_TREE_CONNECT_ANDX ", end=' ')
     try:
       if (packet['Flags1'] & smb.SMB.FLAGS1_REPLY) == 0:
         # Query
@@ -184,13 +184,13 @@ def smbComTreeConnectAndX( packet, packetNum, SMBCommand, questions, replies):
         # Response
         treeConnectAndXParameters = smb.SMBTreeConnectAndXResponse_Parameters(SMBCommand['Parameters'])
         #treeConnectAndXData       = smb.SMBTreeConnectAndXResponse_Data(SMBCommand['Data'])
-    except Exception, e:
-        print "ERROR: %s" % e
-        print "Command: 0x%x" % packet['Command']
-        print "Packet: %d %r" % (packetNum, packet.getData())
+    except Exception as e:
+        print("ERROR: %s" % e)
+        print("Command: 0x%x" % packet['Command'])
+        print("Packet: %d %r" % (packetNum, packet.getData()))
         return True
     else:
-        print 'OK!' 
+        print('OK!') 
 
 
     return False
@@ -203,7 +203,7 @@ def smbComSessionSetupAndX( packet, packetNum, SMBCommand, questions, replies):
         if packet['ErrorClass'] != 0x16:
           return False
 
-    print "SMB_COM_SESSION_SETUP_ANDX ",
+    print("SMB_COM_SESSION_SETUP_ANDX ", end=' ')
     try:
       if (packet['Flags1'] & smb.SMB.FLAGS1_REPLY) == 0:
         # Query 
@@ -250,7 +250,7 @@ def smbComSessionSetupAndX( packet, packetNum, SMBCommand, questions, replies):
             sessionData['SecurityBlobLength'] = sessionParameters['SecurityBlobLength']
             sessionData.fromString(sessionResponse['Data'])
             respToken = smb.SPNEGO_NegTokenResp(sessionData['SecurityBlob'])
-            if respToken.fields.has_key('ResponseToken'):
+            if 'ResponseToken' in respToken.fields:
                 # Let's parse some data and keep it to ourselves in case it is asked
                 ntlmChallenge = ntlm.NTLMAuthChallenge(respToken['ResponseToken'])
                 if ntlmChallenge['TargetInfoFields_len'] > 0:
@@ -268,13 +268,13 @@ def smbComSessionSetupAndX( packet, packetNum, SMBCommand, questions, replies):
 
             sessionParameters = smb.SMBSessionSetupAndXResponse_Parameters(sessionResponse['Parameters'])
             sessionData       = smb.SMBSessionSetupAndXResponse_Data(flags = packet['Flags2'], data = sessionResponse['Data'])
-    except Exception, e:
-        print "ERROR: %s" % e
-        print "Command: 0x%x" % packet['Command']
-        print "Packet: %d %r" % (packetNum, packet.getData())
+    except Exception as e:
+        print("ERROR: %s" % e)
+        print("Command: 0x%x" % packet['Command'])
+        print("Packet: %d %r" % (packetNum, packet.getData()))
         return True
     else:
-        print 'OK!' 
+        print('OK!') 
     
 
     return False
@@ -283,7 +283,7 @@ def smbComNegotiate( packet, packetNum, command, questions, replies):
     sessionResponse = command
     
     if packet['Flags1'] & smb.SMB.FLAGS1_REPLY:
-        print "SMB_COM_NEGOTIATE ",
+        print("SMB_COM_NEGOTIATE ", end=' ')
         try:
             _dialects_parameters = smb.SMBNTLMDialect_Parameters(sessionResponse['Parameters'])
             _dialects_data = smb.SMBNTLMDialect_Data()
@@ -293,13 +293,13 @@ def smbComNegotiate( packet, packetNum, command, questions, replies):
                 _dialects_parameters = smb.SMBExtended_Security_Parameters(sessionResponse['Parameters'])
                 _dialects_data       = smb.SMBExtended_Security_Data(sessionResponse['Data'])
 
-        except Exception, e:
-            print "ERROR: %s" % e
-            print "Command: 0x%x" % packet['Command']
-            print "Packet: %d %r" % (packetNum, packet.getData())
+        except Exception as e:
+            print("ERROR: %s" % e)
+            print("Command: 0x%x" % packet['Command'])
+            print("Packet: %d %r" % (packetNum, packet.getData()))
             return True
         else:
-            print 'OK!' 
+            print('OK!') 
 
 
     return False
@@ -345,10 +345,10 @@ def process(data, packetNum):
        if data.get_packet()[4:8] == '\xffSMB':
            try:
                packet.fromString(data.get_packet()[4:])
-           except Exception, e:
-               print "ERROR: %s" % e
-               print "Command: SMBPacket" 
-               print "Packet: %d %r" % (packetNum, data.get_packet())
+           except Exception as e:
+               print("ERROR: %s" % e)
+               print("Command: SMBPacket") 
+               print("Packet: %d %r" % (packetNum, data.get_packet()))
                return True
        else:
            return False
@@ -357,13 +357,13 @@ def process(data, packetNum):
 
     try:
        SMBCommand = smb.SMBCommand(packet['Data'][0])
-    except Exception, e:
-       print "ERROR: %s" % e
-       print "Command: SMBCommand" 
-       print "Packet: %d %r" % (packetNum, data.get_packet())
+    except Exception as e:
+       print("ERROR: %s" % e)
+       print("Command: SMBCommand") 
+       print("Packet: %d %r" % (packetNum, data.get_packet()))
        return True
 
-    if smbCommands.has_key(packet['Command']):
+    if packet['Command'] in smbCommands:
          return smbCommands[packet['Command']][HANDLER](packet, packetNum, SMBCommand, smbCommands[packet['Command']][QUESTIONS], smbCommands[packet['Command']][REPLIES])
     #else:
     #     print "Command 0x%x not handled" % packet['Command']
@@ -375,7 +375,7 @@ def main():
     DEFAULT_PROTOCOLS = ('tcp',)
     sockets = []
 
-    print version.BANNER
+    print(version.BANNER)
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", metavar = 'FILE', help = 'pcap file to read packets. If not specified the program sniffes traffic (only as root)')
@@ -409,13 +409,13 @@ def main():
            try:
                 protocol_num = socket.getprotobyname(protocol)
            except socket.error:
-               print "Ignoring unknown protocol:", protocol
+               print("Ignoring unknown protocol:", protocol)
                toListen.remove(protocol)
 	       continue
            s = socket.socket(socket.AF_INET, socket.SOCK_RAW, protocol_num)
            s.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
            sockets.append(s)
-           print "Listening on protocols:", toListen
+           print("Listening on protocols:", toListen)
         decoder = ImpactDecoder.IPDecoder()
 
     while 1:

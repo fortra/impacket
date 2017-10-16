@@ -45,7 +45,7 @@ class DCERPCSessionError(Exception):
 
     def __str__( self ):
         key = self.error_code
-        if (self.error_messages.has_key(key)):
+        if (key in self.error_messages):
             error_msg_short = self.error_messages[key]
             return 'EPM SessionError: code: 0x%x - %s ' % (self.error_code, error_msg_short)
         else:
@@ -995,7 +995,7 @@ def PrintStringBinding(floors, serverAddr = '0.0.0.0'):
             # If the address were 0.0.0.0 it would have to be replaced by the remote host's IP.
             if tmp_address2 == '0.0.0.0':
                 tmp_address2 = serverAddr
-            if tmp_address <> '':
+            if tmp_address != '':
                 return tmp_address % tmp_address2
             else:
                 return 'IP: %s' % tmp_address2
@@ -1005,7 +1005,7 @@ def PrintStringBinding(floors, serverAddr = '0.0.0.0'):
             n = len(floor['RelatedData'])
             tmp_address2 = ('%02X' * n) % unpack("%dB" % n, floor['RelatedData'])
 
-            if tmp_address <> '':
+            if tmp_address != '':
                 return tmp_address % tmp_address2
             else:
                 return 'SPX: %s' % tmp_address2
@@ -1016,7 +1016,7 @@ def PrintStringBinding(floors, serverAddr = '0.0.0.0'):
         elif floor['ProtocolData'] == chr(0x10):
             return 'ncalrpc:[%s]' % floor['RelatedData'][:len(floor['RelatedData'])-1]
         elif floor['ProtocolData'] == chr(0x01) or floor['ProtocolData'] == chr(0x11):
-            if tmp_address <> '':
+            if tmp_address != '':
                 return tmp_address % floor['RelatedData'][:len(floor['RelatedData'])-1]
             else:
                 return 'NetBIOS: %s' % floor['RelatedData'] 

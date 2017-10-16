@@ -149,7 +149,7 @@ class WMIPERSISTENCE:
 
 # Process command-line arguments.
 if __name__ == '__main__':
-    print version.BANNER
+    print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help = True, description = "Creates/Removes a WMI Event Consumer/Filter and link between both to execute Visual Basic based on the WQL filter or timer specified.")
 
@@ -209,7 +209,7 @@ if __name__ == '__main__':
 
         executer = WMIPERSISTENCE(username, password, domain, options)
         executer.run(address)
-    except (Exception, KeyboardInterrupt), e:
+    except (Exception, KeyboardInterrupt) as e:
         #import traceback
         #print traceback.print_exc()
         logging.error(e)

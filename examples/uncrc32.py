@@ -7,10 +7,10 @@
 #                         Authors:
 # Martin Stigge, Henryk Plotz, Wolf Muller, Jens-Peter Redlich
 
-FINALXOR = 0xffffffffL
-INITXOR  = 0xffffffffL
-CRCPOLY  = 0xEDB88320L
-CRCINV   = 0x5B358FD3L
+FINALXOR = 0xffffffff
+INITXOR  = 0xffffffff
+CRCPOLY  = 0xEDB88320
+CRCINV   = 0x5B358FD3
 
 from binascii import crc32
 from struct import pack
@@ -40,4 +40,4 @@ def compensate(buf, wanted):
 def main():
     str = 'HOLA'
     t = 0x12345678
-    print crc32(str + compensate(str, t)) == t
+    print(crc32(str + compensate(str, t)) == t)

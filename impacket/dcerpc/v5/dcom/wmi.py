@@ -32,11 +32,11 @@ import collections
 def format_structure(d, level=0):
     x = ""
     if isinstance(d, collections.Mapping):
-        lenk = max(map(lambda x: len(str(x)), d.keys()))
-        for k, v in d.items():
+        lenk = max([len(str(x)) for x in list(d.keys())])
+        for k, v in list(d.items()):
             key_text = "\n" + " "*level + " "*(lenk - len(str(k))) + str(k)
             x += key_text + ": " + format_structure(v, level=level+lenk)
-    elif isinstance(d, collections.Iterable) and not isinstance(d, basestring):
+    elif isinstance(d, collections.Iterable) and not isinstance(d, str):
         for e in d:
             x += "\n" + " "*level + "- " + format_structure(e, level=level+4)
     else:
@@ -66,7 +66,7 @@ class DCERPCSessionError(Exception):
         return self.packet
 
     def __str__( self ):
-        if (hresult_errors.ERROR_MESSAGES.has_key(self.error_code)):
+        if (self.error_code in hresult_errors.ERROR_MESSAGES):
             error_msg_short = hresult_errors.ERROR_MESSAGES[self.error_code][0]
             error_msg_verbose = hresult_errors.ERROR_MESSAGES[self.error_code][1] 
             return 'WMI SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
@@ -460,7 +460,7 @@ class PROPERTY_LOOKUP_TABLE(Structure):
 
             propTable = propTable[self.PropertyLookupSize:]
 
-        return OrderedDict(sorted(properties.items(), key=lambda x:x[1]['order']))
+        return OrderedDict(sorted(list(properties.items()), key=lambda x:x[1]['order']))
         #return properties
 
 # 2.2.66 Heap
@@ -498,7 +498,7 @@ class CLASS_PART(Structure):
     def getProperties(self):
         heap = self["ClassHeap"]["HeapItem"]
         properties =  self["PropertyLookupTable"].getProperties(self["ClassHeap"]["HeapItem"])
-        sorted_props = sorted(properties.keys(), key=lambda k: properties[k]['order'])
+        sorted_props = sorted(list(properties.keys()), key=lambda k: properties[k]['order'])
         valueTableOff = (len(properties) - 1) / 4 + 1
         valueTable = self['NdTable_ValueTable'][valueTableOff:]
         for key in sorted_props:
@@ -745,7 +745,7 @@ class INSTANCE_TYPE(Structure):
         heap = self["InstanceHeap"]["HeapItem"]
         valueTableOff = (len(properties) - 1) / 4 + 1
         valueTable = self['NdTable_ValueTable'][valueTableOff:]
-        sorted_props = sorted(properties.keys(), key=lambda k: properties[k]['order'])
+        sorted_props = sorted(list(properties.keys()), key=lambda k: properties[k]['order'])
         for key in sorted_props:
             pType = properties[key]['type'] & (~(CIM_ARRAY_FLAG|Inherited))
             if properties[key]['type'] & CIM_ARRAY_FLAG:
@@ -826,11 +826,11 @@ class OBJECT_BLOCK(Structure):
         qualifiers = pClass.getQualifiers()
 
         for qualifier in qualifiers:
-            print "[%s]" % qualifier
+            print("[%s]" % qualifier)
 
         className = pClass.getClassName()
 
-        print "class %s \n{" % className
+        print("class %s \n{" % className)
 
         properties = pClass.getProperties()
         if cInstance is not None:
@@ -841,44 +841,44 @@ class OBJECT_BLOCK(Structure):
                 qualifiers = properties[pName]['qualifiers']
                 for qName in qualifiers:
                     if qName != 'CIMTYPE':
-                        print '\t[%s(%s)]' % (qName, qualifiers[qName])
-                print "\t%s %s" % (properties[pName]['stype'], properties[pName]['name']),
+                        print('\t[%s(%s)]' % (qName, qualifiers[qName]))
+                print("\t%s %s" % (properties[pName]['stype'], properties[pName]['name']), end=' ')
                 if properties[pName]['value'] is not None:
-                    print '= %s\n' % properties[pName]['value']
+                    print('= %s\n' % properties[pName]['value'])
                 else:
-                    print '\n'
+                    print('\n')
 
-        print 
+        print() 
         methods = pClass.getMethods()
         for methodName in methods:
             for qualifier in methods[methodName]['qualifiers']:
-                print '\t[%s]' % qualifier
+                print('\t[%s]' % qualifier)
 
             if methods[methodName]['InParams'] is None and methods[methodName]['OutParams'] is None: 
-                print '\t%s %s();\n' % ('void', methodName)
+                print('\t%s %s();\n' % ('void', methodName))
             if methods[methodName]['InParams'] is None and len(methods[methodName]['OutParams']) == 1:
-                print '\t%s %s();\n' % (methods[methodName]['OutParams']['ReturnValue']['stype'], methodName)
+                print('\t%s %s();\n' % (methods[methodName]['OutParams']['ReturnValue']['stype'], methodName))
             else:
                 returnValue = ''
                 if methods[methodName]['OutParams'] is not None:
                     # Search the Return Value
                     #returnValue = (item for item in method['OutParams'] if item["name"] == "ReturnValue").next()
-                    if methods[methodName]['OutParams'].has_key('ReturnValue'):
+                    if 'ReturnValue' in methods[methodName]['OutParams']:
                         returnValue = methods[methodName]['OutParams']['ReturnValue']['stype']
  
-                print '\t%s %s(\n' % (returnValue, methodName),
+                print('\t%s %s(\n' % (returnValue, methodName), end=' ')
                 if methods[methodName]['InParams'] is not None:
                     for pName  in methods[methodName]['InParams']:
-                        print '\t\t[in]    %s %s,' % (methods[methodName]['InParams'][pName]['stype'], pName)
+                        print('\t\t[in]    %s %s,' % (methods[methodName]['InParams'][pName]['stype'], pName))
 
                 if methods[methodName]['OutParams'] is not None:
                     for pName in methods[methodName]['OutParams']:
                         if pName != 'ReturnValue':
-                            print '\t\t[out]    %s %s,' % (methods[methodName]['OutParams'][pName]['stype'], pName)
+                            print('\t\t[out]    %s %s,' % (methods[methodName]['OutParams'][pName]['stype'], pName))
 
-                print '\t);\n'
+                print('\t);\n')
 
-        print "}"
+        print("}")
 
     def parseClass(self, pClass, cInstance = None):
         classDict = OrderedDict()
@@ -2251,7 +2251,7 @@ class IWbemClassObject(IRemUnknown):
             # Let's see if there's a key property so we can ExecMethod
             keyProperty = None
             for pName in properties:
-                if properties[pName]['qualifiers'].has_key('key'):
+                if 'key' in properties[pName]['qualifiers']:
                     keyProperty = pName
 
             if keyProperty is None:
@@ -2261,7 +2261,7 @@ class IWbemClassObject(IRemUnknown):
                     classObject,_ = self.__iWbemServices.GetObject(self.getClassName())
                     self.__methods = classObject.getMethods()
 
-                if self.__methods.has_key(attr):
+                if attr in self.__methods:
                     # Now we gotta build the class name to be called through ExecMethod
                     if self.getProperties()[keyProperty]['stype'] != 'string':
                         instanceName = '%s.%s=%s' % (self.getClassName(),keyProperty,self.getProperties()[keyProperty]['value'] )
@@ -2549,7 +2549,7 @@ class IWbemClassObject(IRemUnknown):
                 # Max 16 parameters!!!
                 ndTable = 0
                 for i in range(len(args)):
-                    paramDefinition = methodDefinition['InParams'].values()[i]
+                    paramDefinition = list(methodDefinition['InParams'].values())[i]
                     inArg = args[i]
 
                     pType = paramDefinition['type'] & (~(CIM_ARRAY_FLAG|Inherited)) 
@@ -2652,7 +2652,7 @@ class IWbemClassObject(IRemUnknown):
             try:
                 return self.__iWbemServices.ExecMethod(classOrInstance, methodDefinition['name'], pInParams = objRefCustomIn )
                 #return self.__iWbemServices.ExecMethod('Win32_Process.Handle="436"', methodDefinition['name'], pInParams = objRefCustomIn ).getObject().ctCurrent['properties']
-            except Exception, e:
+            except Exception as e:
                 #import traceback
                 #print traceback.print_exc()
                 LOG.error(str(e))

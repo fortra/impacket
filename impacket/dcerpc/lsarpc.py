@@ -425,7 +425,7 @@ class LSARPCSessionError(Exception):
 
     def __str__( self ):
         key = self.error_code
-        if ERROR_MESSAGES.has_key(key):
+        if key in ERROR_MESSAGES:
             return 'LSARPC SessionError: %s(%s)' % (ERROR_MESSAGES[self.error_code])
         else:
             return 'LSARPC SessionError: unknown error code: 0x%x' % (self.error_code)

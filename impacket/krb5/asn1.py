@@ -33,7 +33,7 @@
 
 
 from pyasn1.type import tag, namedtype, namedval, univ, constraint, char, useful
-import constants
+from . import constants
 
 def _application_tag(tag_value):
     return univ.Sequence.tagSet.tagExplicitly(
@@ -73,7 +73,7 @@ def seq_set(seq, name, builder=None, *args, **kwargs):
 
 def seq_set_dict(seq, name, pairs, *args, **kwargs):
     component = seq.setComponentByName(name).getComponentByName(name)
-    for k, v in pairs.iteritems():
+    for k, v in pairs.items():
         component.setComponentByName(k, v)
 
 def seq_set_iter(seq, name, iterable):
@@ -91,7 +91,7 @@ def seq_append(seq, name, pairs):
     index = len(component)
     element = component.setComponentByPosition(index
                                                ).getComponentByPosition(index)
-    for k, v in pairs.iteritems():
+    for k, v in pairs.items():
         element.setComponentByName(k, v)
 
 class Int32(univ.Integer):

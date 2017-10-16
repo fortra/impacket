@@ -85,7 +85,7 @@ class WMIEXEC:
                 self.shell.onecmd(self.__command)
             else:
                 self.shell.cmdloop()
-        except  (Exception, KeyboardInterrupt), e:
+        except  (Exception, KeyboardInterrupt) as e:
             #import traceback
             #traceback.print_exc()
             logging.error(str(e))
@@ -123,17 +123,17 @@ class RemoteShell(cmd.Cmd):
         os.system(s)
 
     def do_help(self, line):
-        print """
+        print("""
  lcd {path}                 - changes the current local directory to {path}
  exit                       - terminates the server process (and this session)
  put {src_file, dst_path}   - uploads a local file to the dst_path (dst_path = default current directory)
  get {file}                 - downloads pathname to the current local dir 
  ! {cmd}                    - executes a local shell cmd
-""" 
+""") 
 
     def do_lcd(self, s):
         if s == '':
-            print os.getcwd()
+            print(os.getcwd())
         else:
             os.chdir(s)
 
@@ -147,7 +147,7 @@ class RemoteShell(cmd.Cmd):
             logging.info("Downloading %s\\%s" % (drive, tail))
             self.__transferClient.getFile(drive[:-1]+'$', tail, fh.write)
             fh.close()
-        except Exception, e:
+        except Exception as e:
             logging.error(str(e))
             os.remove(filename)
             pass
@@ -171,7 +171,7 @@ class RemoteShell(cmd.Cmd):
             logging.info("Uploading %s to %s" % (src_file, pathname))
             self.__transferClient.putFile(drive[:-1]+'$', tail, fh.read)
             fh.close()
-        except Exception, e:
+        except Exception as e:
             logging.critical(str(e))
             pass
 
@@ -184,7 +184,7 @@ class RemoteShell(cmd.Cmd):
     def do_cd(self, s):
         self.execute_remote('cd ' + s)
         if len(self.__outputBuffer.strip('\r\n')) > 0:
-            print self.__outputBuffer
+            print(self.__outputBuffer)
             self.__outputBuffer = ''
         else:
             self.__pwd = ntpath.normpath(ntpath.join(self.__pwd, s))
@@ -200,7 +200,7 @@ class RemoteShell(cmd.Cmd):
             self.execute_remote(line)
             if len(self.__outputBuffer.strip('\r\n')) > 0: 
                 # Something went wrong
-                print self.__outputBuffer
+                print(self.__outputBuffer)
                 self.__outputBuffer = ''
             else:
                 # Drive valid, now we should get the current path
@@ -225,7 +225,7 @@ class RemoteShell(cmd.Cmd):
             try:
                 self.__transferClient.getFile(self.__share, self.__output, output_callback)
                 break
-            except Exception, e:
+            except Exception as e:
                 if str(e).find('STATUS_SHARING_VIOLATION') >=0:
                     # Output not finished, let's wait
                     time.sleep(1)
@@ -244,13 +244,13 @@ class RemoteShell(cmd.Cmd):
 
     def send_data(self, data):
         self.execute_remote(data)
-        print self.__outputBuffer
+        print(self.__outputBuffer)
         self.__outputBuffer = ''
 
 
 # Process command-line arguments.
 if __name__ == '__main__':
-    print version.BANNER
+    print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help = True, description = "Executes a semi-interactive shell using Windows Management Instrumentation.")
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
@@ -299,7 +299,7 @@ if __name__ == '__main__':
 
         executer = WMIEXEC(' '.join(options.command), username, password, domain, options.hashes, options.aesKey, options.share, options.nooutput, options.k)
         executer.run(address)
-    except (Exception, KeyboardInterrupt), e:
+    except (Exception, KeyboardInterrupt) as e:
         #import traceback
         #print traceback.print_exc()
         logging.error(str(e))

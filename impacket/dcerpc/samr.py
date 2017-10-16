@@ -36,7 +36,7 @@ OP_NUM_ENUM_USERS_IN_DOMAIN     = 0xD
 OP_NUM_CREATE_ALIAS_IN_DOMAIN   = 0xE
 
 def display_time(filetime_high, filetime_low, minutes_utc=0):
-    if filetime_low == 4294967295L:
+    if filetime_low == 4294967295:
         r = "Infinity"
         return r 
     d = filetime_high*4.0*1.0*(1<<30)
@@ -112,7 +112,7 @@ class MSRPCNameArray:
         for element in self._elements:
             max_len, offset, curlen = unpack('<LLL', data[index:index+12])
             index += 12
-            element.set_name(unicode(data[index:index+2*curlen], 'utf-16le'))
+            element.set_name(str(data[index:index+2*curlen], 'utf-16le'))
             element.set_max_len(max_len)
             element.set_offset(offset)
             element.set_length2(curlen)
@@ -125,7 +125,7 @@ class MSRPCNameArray:
     def rawData(self):
         ret = pack('<LLLL', 0x74747474, self._count, 0x47474747, self._max_count)
         pos_ret = []
-        for i in xrange(0, self._count):
+        for i in range(0, self._count):
             ret += pack('<L', self._elements[i].get_id())
             data = self._elements[i].rawData()
             ret += data[:8]
@@ -200,7 +200,7 @@ class MSRPCUserInfo:
                 continue
             max_len, offset, curlen = unpack('<LLL', data[index:index+12])
             index += 12
-            item.set_name(unicode(data[index:index+2*curlen], 'utf-16le'))
+            item.set_name(str(data[index:index+2*curlen], 'utf-16le'))
             item.set_max_len(max_len)
             item.set_offset(offset)
             item.set_length2(curlen)
@@ -244,18 +244,18 @@ class MSRPCUserInfo:
         return not (self._acct_ctr & 0x01)
 
     def print_friendly(self):
-        print "Last Logon: " + display_time(self._logon_time_high, self._logon_time_low)
-        print "Last Logoff: " + display_time(self._logoff_time_high, self._logoff_time_low)
-        print "Kickoff Time: " + display_time(self._kickoff_time_high, self._kickoff_time_low)
-        print "PWD Last Set: " + display_time(self._pwd_last_set_high, self._pwd_last_set_low)
-        print "PWD Can Change: " + display_time(self._pwd_can_change_high, self._pwd_can_change_low)
-        print "Group id: %d" % self._group
-        print "Bad pwd count: %d" % self._bad_pwd_count
-        print "Logon count: %d" % self._logon_count
-        print "PWD Must Change: " + display_time(self._pwd_must_change_high, self._pwd_must_change_low)
-        for i in MSRPCUserInfo.ITEMS.keys():
-            print i + ': ' + self._items[MSRPCUserInfo.ITEMS[i]].get_name()
-        print
+        print("Last Logon: " + display_time(self._logon_time_high, self._logon_time_low))
+        print("Last Logoff: " + display_time(self._logoff_time_high, self._logoff_time_low))
+        print("Kickoff Time: " + display_time(self._kickoff_time_high, self._kickoff_time_low))
+        print("PWD Last Set: " + display_time(self._pwd_last_set_high, self._pwd_last_set_low))
+        print("PWD Can Change: " + display_time(self._pwd_can_change_high, self._pwd_can_change_low))
+        print("Group id: %d" % self._group)
+        print("Bad pwd count: %d" % self._bad_pwd_count)
+        print("Logon count: %d" % self._logon_count)
+        print("PWD Must Change: " + display_time(self._pwd_must_change_high, self._pwd_must_change_low))
+        for i in list(MSRPCUserInfo.ITEMS.keys()):
+            print(i + ': ' + self._items[MSRPCUserInfo.ITEMS[i]].get_name())
+        print()
         return
 
 class SAMR_RPC_SID_IDENTIFIER_AUTHORITY(Structure):

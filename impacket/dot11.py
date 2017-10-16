@@ -16,9 +16,9 @@ import socket
 import string
 import sys
 import types
-from ImpactPacket import ProtocolPacket
+from .ImpactPacket import ProtocolPacket
 from binascii import hexlify,crc32
-from Dot11Crypto import RC4
+from .Dot11Crypto import RC4
 
 
 frequency = {
@@ -471,7 +471,7 @@ class Dot11(ProtocolPacket):
         self.header.set_byte(0, nb)
         
     def compute_checksum(self,bytes):
-        crcle=crc32(bytes)&0xffffffffL
+        crcle=crc32(bytes)&0xffffffff
         # ggrr this crc32 is in little endian, convert it to big endian 
         crc=struct.pack('<L', crcle)
          # Convert to long
@@ -1129,7 +1129,7 @@ class Dot11WEPData(ProtocolPacket):
         self.tail.set_long(-4, nb)
     
     def get_computed_icv(self):
-        crcle=crc32(self.body_string)&0xffffffffL
+        crcle=crc32(self.body_string)&0xffffffff
         # This crc32 is in little endian, convert it to big endian 
         crc=struct.pack('<L', crcle)
          # Convert to long
@@ -2219,7 +2219,7 @@ class Dot11ManagementHelper(ProtocolPacket):
 
     def __calculate_elements_length(self, elements):
         gen_tp=self._find_element(elements, None )
-        (match,offset,length)=gen_tp.next()
+        (match,offset,length)=next(gen_tp)
         if match != -1:
             # element_id is None, then __find_tagged_parameter must return -1
             raise Exception("Internal Error %s"%match)
@@ -2229,7 +2229,7 @@ class Dot11ManagementHelper(ProtocolPacket):
         elements=self.get_header_as_string()[self.__HEADER_BASE_SIZE:]
         gen_tp=self._find_element(elements, element_id )
         while True:
-            (match,offset,length)=gen_tp.next()
+            (match,offset,length)=next(gen_tp)
             if match != 0:
                 return
             value_offset=offset+2
@@ -2240,7 +2240,7 @@ class Dot11ManagementHelper(ProtocolPacket):
     def _get_element(self, element_id):
         gen_get_element=self._get_elements_generator(element_id)
         try:
-            s=gen_get_element.next()
+            s=next(gen_get_element)
             
             if s is None:
                 raise Exception("gen_get_element salio con None in _get_element!!!")
@@ -2257,7 +2257,7 @@ class Dot11ManagementHelper(ProtocolPacket):
         gen_tp=self._find_element(elements, element_id )
         found=False
         while True:
-            (match,offset,length)=gen_tp.next()
+            (match,offset,length)=next(gen_tp)
             if match != 0:
                 break
             start=self.__HEADER_BASE_SIZE+offset
@@ -2280,7 +2280,7 @@ class Dot11ManagementHelper(ProtocolPacket):
         gen_tp=self._find_element(elements, element_id )
         found=False
         while True:
-            (match,offset,length)=gen_tp.next()
+            (match,offset,length)=next(gen_tp)
             start=self.__HEADER_BASE_SIZE+offset
             if match == 0 and replace:
                 # Replace
@@ -2366,7 +2366,7 @@ class Dot11ManagementBeacon(Dot11ManagementHelper):
         if not human_readable:
             return rates
             
-        rates_Mbs=tuple(map(lambda x: (x&0x7F)*0.5,rates))
+        rates_Mbs=tuple([(x&0x7F)*0.5 for x in rates])
         return rates_Mbs
 
     def set_supported_rates(self, rates):
@@ -2421,7 +2421,7 @@ class Dot11ManagementBeacon(Dot11ManagementHelper):
         gen_get_element=self._get_elements_generator(DOT11_MANAGEMENT_ELEMENTS.VENDOR_SPECIFIC)
         try:
             while 1:
-                s=gen_get_element.next()
+                s=next(gen_get_element)
                 
                 if s is None:
                     raise Exception("gen_get_element salio con None!!!")
@@ -2481,7 +2481,7 @@ class Dot11ManagementProbeRequest(Dot11ManagementHelper):
         if not human_readable:
             return rates
             
-        rates_Mbs=tuple(map(lambda x: (x&0x7F)*0.5,rates))
+        rates_Mbs=tuple([(x&0x7F)*0.5 for x in rates])
         return rates_Mbs
 
     def set_supported_rates(self, rates):
@@ -2657,7 +2657,7 @@ class Dot11ManagementAuthentication(Dot11ManagementHelper):
         gen_get_element=self._get_elements_generator(DOT11_MANAGEMENT_ELEMENTS.VENDOR_SPECIFIC)
         try:
             while 1:
-                s=gen_get_element.next()
+                s=next(gen_get_element)
                 
                 if s is None:
                     raise Exception("gen_get_element salio con None!!!")
@@ -2745,7 +2745,7 @@ class Dot11ManagementAssociationRequest(Dot11ManagementHelper):
         if not human_readable:
             return rates
             
-        rates_Mbs=tuple(map(lambda x: (x&0x7F)*0.5,rates))
+        rates_Mbs=tuple([(x&0x7F)*0.5 for x in rates])
         return rates_Mbs
 
     def set_supported_rates(self, rates):
@@ -2781,7 +2781,7 @@ class Dot11ManagementAssociationRequest(Dot11ManagementHelper):
         gen_get_element=self._get_elements_generator(DOT11_MANAGEMENT_ELEMENTS.VENDOR_SPECIFIC)
         try:
             while 1:
-                s=gen_get_element.next()
+                s=next(gen_get_element)
                 
                 if s is None:
                     raise Exception("gen_get_element salio con None!!!")
@@ -2864,7 +2864,7 @@ class Dot11ManagementAssociationResponse(Dot11ManagementHelper):
         if not human_readable:
             return rates
             
-        rates_Mbs=tuple(map(lambda x: (x&0x7F)*0.5,rates))
+        rates_Mbs=tuple([(x&0x7F)*0.5 for x in rates])
         return rates_Mbs
 
     def set_supported_rates(self, rates):
@@ -2889,7 +2889,7 @@ class Dot11ManagementAssociationResponse(Dot11ManagementHelper):
         gen_get_element=self._get_elements_generator(DOT11_MANAGEMENT_ELEMENTS.VENDOR_SPECIFIC)
         try:
             while 1:
-                s=gen_get_element.next()
+                s=next(gen_get_element)
                 
                 if s is None:
                     raise Exception("gen_get_element salio con None!!!")
@@ -2979,7 +2979,7 @@ class Dot11ManagementReassociationRequest(Dot11ManagementHelper):
         if not human_readable:
             return rates
             
-        rates_Mbs=tuple(map(lambda x: (x&0x7F)*0.5,rates))
+        rates_Mbs=tuple([(x&0x7F)*0.5 for x in rates])
         return rates_Mbs
 
     def set_supported_rates(self, rates):
@@ -3015,7 +3015,7 @@ class Dot11ManagementReassociationRequest(Dot11ManagementHelper):
         gen_get_element=self._get_elements_generator(DOT11_MANAGEMENT_ELEMENTS.VENDOR_SPECIFIC)
         try:
             while 1:
-                s=gen_get_element.next()
+                s=next(gen_get_element)
                 
                 if s is None:
                     raise Exception("gen_get_element salio con None!!!")

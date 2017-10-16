@@ -22,7 +22,7 @@ import struct
 from impacket import ImpactPacket
 from impacket import uuid
 from impacket import dcerpc
-import dcerpc, conv
+from . import dcerpc, conv
 
 class DCERPC_RawCall(ImpactPacket.Header):
     def __init__(self, op_num, data = ''):

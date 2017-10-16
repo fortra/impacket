@@ -53,16 +53,16 @@ def hexdump(data):
     strLen = len(x)
     i = 0
     while i < strLen:
-        print "%04x  " % i,
+        print("%04x  " % i, end=' ')
         for j in range(16):
             if i+j < strLen:
-                print "%02X" % ord(x[i+j]),
+                print("%02X" % ord(x[i+j]), end=' ')
             else:
-                print "  ",
+                print("  ", end=' ')
             if j%16 == 7:
-                print "",
-        print " ",
-        print ''.join(pretty_print(x) for x in x[i:i+16] )
+                print("", end=' ')
+        print(" ", end=' ')
+        print(''.join(pretty_print(x) for x in x[i:i+16] ))
         i += 16
 
 # Reserved/fixed MFTs
@@ -582,9 +582,9 @@ class AttributeIndexAllocation():
         self.Attribute = attribute
 
     def dump(self):
-        print self.Attribute.dump()
+        print(self.Attribute.dump())
         for i in self.Attribute.DataRuns:
-            print i.dump()
+            print(i.dump())
 
     def read(self, offset, length):
         return self.Attribute.read(offset, length)
@@ -670,8 +670,8 @@ class INODE():
         if self.LastDataChangeTime is not None and self.FileName is not None:
             try:
 #                print "%d - %s %s %s " %( self.INodeNumber, self.getPrintableAttributes(), self.LastDataChangeTime.isoformat(' '), self.FileName)
-                print "%s %s %15d %s " %( self.getPrintableAttributes(), self.LastDataChangeTime.isoformat(' '), self.FileSize, self.FileName)
-            except Exception, e:
+                print("%s %s %15d %s " %( self.getPrintableAttributes(), self.LastDataChangeTime.isoformat(' '), self.FileSize, self.FileName))
+            except Exception as e:
                 logging.error('Exception when trying to display inode %d: %s' % (self.INodeNumber,str(e)))
 
     def getPrintableAttributes(self):
@@ -725,12 +725,12 @@ class INODE():
             attr = self.searchAttribute(FILE_NAME, None, True)
 
         # Parse Index Allocation
-        attr = self.searchAttribute(INDEX_ALLOCATION, unicode('$I30'))
+        attr = self.searchAttribute(INDEX_ALLOCATION, str('$I30'))
         if attr is not None:
             ia = AttributeIndexAllocation(attr)
             self.Attributes[INDEX_ALLOCATION] = ia
 
-        attr = self.searchAttribute(INDEX_ROOT,unicode('$I30'))
+        attr = self.searchAttribute(INDEX_ROOT,str('$I30'))
         if attr is not None:
             ir = AttributeIndexRoot(attr)
             self.Attributes[INDEX_ROOT] = ir
@@ -808,7 +808,7 @@ class INODE():
     def parseIndexBlocks(self, vcn):
         IndexEntries = []
         sectors = self.NTFSVolume.IndexBlockSize / self.NTFSVolume.SectorSize
-        if self.Attributes.has_key(INDEX_ALLOCATION):
+        if INDEX_ALLOCATION in self.Attributes:
             ia = self.Attributes[INDEX_ALLOCATION]
             data = ia.read(vcn*self.NTFSVolume.IndexBlockSize, self.NTFSVolume.IndexBlockSize)
             if data:
@@ -853,7 +853,7 @@ class INODE():
     def walk(self):
         logging.debug("Inside Walk... ")
         files = []
-        if self.Attributes.has_key(INDEX_ROOT):
+        if INDEX_ROOT in self.Attributes:
             ir = self.Attributes[INDEX_ROOT]
 
             if ir.getType() & FILE_NAME:
@@ -905,9 +905,9 @@ class INODE():
             return None
 
 
-        toSearch = unicode(string.upper(fileName))
+        toSearch = str(string.upper(fileName))
 
-        if self.Attributes.has_key(INDEX_ROOT):
+        if INDEX_ROOT in self.Attributes:
             ir = self.Attributes[INDEX_ROOT]
             if ir.getType() & FILE_NAME or 1==1:
                 for ie in ir.IndexEntries:
@@ -1032,7 +1032,7 @@ class MiniShell(cmd.Cmd):
         retVal = False
         try:
            retVal = cmd.Cmd.onecmd(self,s)
-        except Exception, e:
+        except Exception as e:
            logging.error(str(e))
 
         return retVal
@@ -1042,11 +1042,11 @@ class MiniShell(cmd.Cmd):
 
     def do_shell(self, line):
         output = os.popen(line).read()
-        print output
+        print(output)
         self.last_output = output
 
     def do_help(self,line):
-        print """
+        print("""
  cd {path} - changes the current directory to {path}
  pwd - shows current remote directory
  ls  - lists all the files in the current directory
@@ -1056,14 +1056,14 @@ class MiniShell(cmd.Cmd):
  hexdump {filename} - hexdumps the contents of filename
  exit - terminates the server process (and this session)
 
-"""
+""")
 
     def do_lcd(self,line):
         if line == '':
-            print os.getcwd()
+            print(os.getcwd())
         else:
             os.chdir(line)
-            print os.getcwd()
+            print(os.getcwd())
 
     def do_cd(self, line):
         p = string.replace(line,'/','\\')
@@ -1112,7 +1112,7 @@ class MiniShell(cmd.Cmd):
         return tmpINode
 
     def do_pwd(self,line):
-        print self.pwd
+        print(self.pwd)
 
     def do_ls(self, line, display = True):
         entries = self.currentINode.walk()
@@ -1192,7 +1192,7 @@ class MiniShell(cmd.Cmd):
         fh.close()
 
 def main():
-    print version.BANNER
+    print(version.BANNER)
     logging.getLogger().setLevel(logging.WARNING)
     parser = argparse.ArgumentParser(add_help = True, description = "NTFS explorer (read-only)")
     parser.add_argument('volume', action='store', help='NTFS volume to open (e.g. \\\\.\\C: or /dev/disk1s1)')

@@ -771,7 +771,7 @@ class EPMRespLookupRequestHeader(ImpactPacket.Header):
     def get_entry(self):
         return ndrutils.NDREntries(self.get_bytes().tostring()[24:-4])
     def set_entry(self, entry):
-        raise Exception, "method not implemented"
+        raise Exception("method not implemented")
 
     def get_status(self):
         off = self.get_entry().get_entries_len()
@@ -964,7 +964,7 @@ def PrintStringBinding(floors, serverAddr = '0.0.0.0'):
             # If the address were 0.0.0.0 it would have to be replaced by the remote host's IP.
             if tmp_address2 == '0.0.0.0':
                 tmp_address2 = serverAddr
-            if tmp_address <> '':
+            if tmp_address != '':
                 return tmp_address % tmp_address2
             else:
                 return 'IP: %s' % tmp_address2
@@ -974,7 +974,7 @@ def PrintStringBinding(floors, serverAddr = '0.0.0.0'):
             n = len(floor['RelatedData'])
             tmp_address2 = ('%02X' * n) % struct.unpack("%dB" % n, floor['RelatedData'])
 
-            if tmp_address <> '':
+            if tmp_address != '':
                 return tmp_address % tmp_address2
             else:
                 return 'SPX: %s' % tmp_address2
@@ -985,7 +985,7 @@ def PrintStringBinding(floors, serverAddr = '0.0.0.0'):
         elif floor['ProtocolData'] == chr(0x10):
             return 'ncalrpc:[%s]' % floor['RelatedData'][:len(floor['RelatedData'])-1]
         elif floor['ProtocolData'] == chr(0x01) or floor['ProtocolData'] == chr(0x11):
-            if tmp_address <> '':
+            if tmp_address != '':
                 return tmp_address % floor['RelatedData'][:len(floor['RelatedData'])-1]
             else:
                 return 'NetBIOS: %s' % floor['RelatedData'] 

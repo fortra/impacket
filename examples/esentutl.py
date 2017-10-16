@@ -34,7 +34,7 @@ def exportTable(ese, tableName):
         return
 
     i = 1
-    print("Table: %s" % tableName)
+    print(("Table: %s" % tableName))
     while True:
         try:
             record = ese.getNextRow(cursor)
@@ -47,14 +47,14 @@ def exportTable(ese, tableName):
 
         if record is None:
             break
-        print("*** %d" % i)
+        print(("*** %d" % i))
         for j in list(record.keys()):
            if record[j] is not None:
-               print("%-30s: %r" % (j, record[j]))
+               print(("%-30s: %r" % (j, record[j])))
         i += 1
 
 def main():
-    print(version.BANNER)
+    print((version.BANNER))
     parser = argparse.ArgumentParser(add_help = True, description = "Extensive Storage Engine utility. Allows dumping catalog, pages and tables.")
     parser.add_argument('databaseFile', action='store', help='ESE to open')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')

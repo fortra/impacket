@@ -287,7 +287,7 @@ class PrintSpooler:
         else:
             answer = self.dce.recv()
             if checkReturn and answer[-4:] != '\x00\x00\x00\x00':
-                raise Exception, 'DCE-RPC call returned an error.'
+                raise Exception('DCE-RPC call returned an error.')
             return answer
     
     def enumPrinters(self, name, flags = 0, level = 1):
@@ -369,7 +369,7 @@ class PrintSpooler:
         addMonitor['Environment'] = zeroize(environment) 
         addMonitor['DLLName'] = zeroize(dllName) 
         ans = self.doRequest(addMonitor, checkReturn = 0)
-        print "%r" % ans
+        print("%r" % ans)
         
     def addPort(self):
         addPort = SpoolSS_AddPort()
@@ -422,7 +422,7 @@ class PrintSpooler:
             addPrinter['info'] = SpoolSS_PrinterInfo2()
             addPrinter['info']['PrinterName'] = name
         else: 
-            raise Exception, "Unknown PRINTER_INFO level"
+            raise Exception("Unknown PRINTER_INFO level")
 
         addPrinter['info']['Comment'] = comment
 

@@ -11,7 +11,7 @@
 #  Martin Candurra
 #  martincad at corest.com
 
-from ImpactPacket import ProtocolLayer, PacketBuffer, Header
+from .ImpactPacket import ProtocolLayer, PacketBuffer, Header
 from impacket import LOG
 from struct import unpack
 import socket

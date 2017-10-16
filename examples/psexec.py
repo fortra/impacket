@@ -62,7 +62,7 @@ class PSEXEC:
         self.__username = username
         self.__password = password
         if protocols is None:
-            self.__protocols = PSEXEC.KNOWN_PROTOCOLS.keys()
+            self.__protocols = list(PSEXEC.KNOWN_PROTOCOLS.keys())
         else:
             self.__protocols = [protocols]
         self.__command = command
@@ -121,7 +121,7 @@ class PSEXEC:
         dce = rpctransport.get_dce_rpc()
         try:
             dce.connect()
-        except Exception, e:
+        except Exception as e:
             logging.critical(str(e))
             sys.exit(1)
 
@@ -139,7 +139,7 @@ class PSEXEC:
             else:
                 try:
                     f = open(self.__exeFile)
-                except Exception, e:
+                except Exception as e:
                     logging.critical(str(e))
                     sys.exit(1)
                 installService = serviceinstall.ServiceInstall(rpctransport.get_smb_connection(), f)
@@ -249,7 +249,7 @@ class RemoteStdOutPipe(Pipes):
         while True:
             try:
                 ans = self.server.readFile(self.tid,self.fid, 0, 1024)
-            except Exception, e: 
+            except Exception as e: 
                 pass
             else:
                 try:
@@ -276,7 +276,7 @@ class RemoteStdErrPipe(Pipes):
         while True:
             try:
                 ans = self.server.readFile(self.tid,self.fid, 0, 1024)
-            except Exception, e: 
+            except Exception as e: 
                 pass
             else:
                 try:
@@ -309,13 +309,13 @@ class RemoteShell(cmd.Cmd):
             self.transferClient.login(user, passwd, domain, lm, nt)
 
     def do_help(self, line):
-        print """
+        print("""
  lcd {path}                 - changes the current local directory to {path}
  exit                       - terminates the server process (and this session)
  put {src_file, dst_path}   - uploads a local file to the dst_path RELATIVE to the connected share (%s)
  get {file}                 - downloads pathname RELATIVE to the connected share (%s) to the current local dir 
  ! {cmd}                    - executes a local shell cmd
-""" % (self.share, self.share)
+""" % (self.share, self.share))
         self.send_data('\r\n', False)
 
     def do_shell(self, s):
@@ -333,7 +333,7 @@ class RemoteShell(cmd.Cmd):
             logging.info("Downloading %s\%s" % (self.share, src_path))
             self.transferClient.getFile(self.share, src_path, fh.write)
             fh.close()
-        except Exception, e:
+        except Exception as e:
             logging.critical(str(e))
             pass
 
@@ -358,7 +358,7 @@ class RemoteShell(cmd.Cmd):
             logging.info("Uploading %s to %s\%s" % (src_file, self.share, dst_path))
             self.transferClient.putFile(self.share, pathname, fh.read)
             fh.close()
-        except Exception, e:
+        except Exception as e:
             logging.error(str(e))
             pass
 
@@ -366,7 +366,7 @@ class RemoteShell(cmd.Cmd):
 
     def do_lcd(self, s):
         if s == '':
-            print os.getcwd()
+            print(os.getcwd())
         else:
             os.chdir(s)
         self.send_data('\r\n')
@@ -397,7 +397,7 @@ class RemoteStdInPipe(Pipes):
 
 # Process command-line arguments.
 if __name__ == '__main__':
-    print version.BANNER
+    print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help = True, description = "PSEXEC like functionality example using RemComSvc.")
 

@@ -42,7 +42,7 @@ class DCERPCSessionError(Exception):
         return self.packet
 
     def __str__( self ):
-        if (hresult_errors.ERROR_MESSAGES.has_key(self.error_code)):
+        if (self.error_code in hresult_errors.ERROR_MESSAGES):
             error_msg_short = hresult_errors.ERROR_MESSAGES[self.error_code][0]
             error_msg_verbose = hresult_errors.ERROR_MESSAGES[self.error_code][1] 
             return 'SCMP SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
@@ -311,8 +311,8 @@ class IVssSnapshotMgmt(IRemUnknown2):
         req['ProviderId'] = providerId
         try:
             resp = self.request(req, self._iid, uuid = self.get_iPid())
-        except Exception, e:
-            print e
+        except Exception as e:
+            print(e)
             from impacket.winregistry import hexdump
             data = e.get_packet()
             hexdump(data)

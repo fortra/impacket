@@ -24,7 +24,7 @@ import string
 if __name__ == '__main__':
     import cmd
 
-    print version.BANNER
+    print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help = True, description = "Asks the remote host for its running MSSQL Instances.")
 
@@ -44,6 +44,6 @@ if __name__ == '__main__':
     else:
         for i, instance in enumerate(instances):
             logging.info("Instance %d" % i)
-            for key in instance.keys():
-               print key + ":" + instance[key]
+            for key in list(instance.keys()):
+               print(key + ":" + instance[key])
  

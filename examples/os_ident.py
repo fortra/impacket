@@ -22,6 +22,7 @@
 
 from impacket.ImpactPacket import *
 from impacket.ImpactDecoder import *
+from functools import reduce
 
 g_nmap1_signature_filename="nmap-os-fingerprints"
 g_nmap2_signature_filename="nmap-os-db"
@@ -30,7 +31,7 @@ class os_id_exception:
     def __init__(self, value):
         self.value = value
     def __str__(self):
-        return `self.value`
+        return repr(self.value)
 
 class os_id_test:
     
@@ -276,7 +277,7 @@ class nmap1_tcp_probe(nmap_tcp_probe):
     # "\003\003\012\001\002\004\001\011\010\012\077\077\077\077\000\000\000\000\000\000"
     # [...]
     tcp_options = [
-        TCPOption(TCPOption.TCPOPT_WINDOW, 012), #\003\003\012
+        TCPOption(TCPOption.TCPOPT_WINDOW, 0o12), #\003\003\012
         TCPOption(TCPOption.TCPOPT_NOP), #\001
         TCPOption(TCPOption.TCPOPT_MAXSEG, mss), #\002\004\001\011
         TCPOption(TCPOption.TCPOPT_TIMESTAMP, 0x3F3F3F3F), #\010\012\077\077\077\077\000\000\000\000
@@ -417,7 +418,7 @@ class nmap2_ecn_probe(nmap_tcp_probe):
     # open port.
     # [...]
     tcp_options = [
-        TCPOption(TCPOption.TCPOPT_WINDOW, 012), #\003\003\012
+        TCPOption(TCPOption.TCPOPT_WINDOW, 0o12), #\003\003\012
         TCPOption(TCPOption.TCPOPT_NOP), #\001
         TCPOption(TCPOption.TCPOPT_MAXSEG, 1460), #\002\004\005\0264
         TCPOption(TCPOption.TCPOPT_SACK_PERMITTED), #\004\002
@@ -665,7 +666,7 @@ class nmap2_tcp_probe_2_6(nmap2_tcp_probe):
     # Timestamp (TSval: 0xFFFFFFFF; TSecr: 0), then SACK permitted. 
     # (...
     tcp_options = [
-        TCPOption(TCPOption.TCPOPT_WINDOW, 012), #\003\003\012
+        TCPOption(TCPOption.TCPOPT_WINDOW, 0o12), #\003\003\012
         TCPOption(TCPOption.TCPOPT_NOP), #\001
         TCPOption(TCPOption.TCPOPT_MAXSEG, mss), #\002\004\001\011
         TCPOption(TCPOption.TCPOPT_TIMESTAMP, 0xFFFFFFFF), #\010\012\377\377\377\377\000\000\000\000
@@ -684,7 +685,7 @@ class nmap2_tcp_probe_7(nmap2_tcp_probe):
     # The exception is that T7 uses a Window scale value of 15 rather than 10
     # [...]
     tcp_options = [
-        TCPOption(TCPOption.TCPOPT_WINDOW, 017), #\003\003\017
+        TCPOption(TCPOption.TCPOPT_WINDOW, 0o17), #\003\003\017
         TCPOption(TCPOption.TCPOPT_NOP), #\001
         TCPOption(TCPOption.TCPOPT_MAXSEG, mss), #\002\004\001\011
         TCPOption(TCPOption.TCPOPT_TIMESTAMP, 0xFFFFFFFF), #\010\012\377\377\377\377\000\000\000\000
@@ -1004,7 +1005,7 @@ class OS_ID:
 
             # Ok, I need to know if the constructor accepts the parameter port
             # We could ask also by co_varnames, but the port parameters is not a standarized... asking by args count :(
-            if t_class.__init__.im_func.func_code.co_argcount == 4:
+            if t_class.__init__.__func__.__code__.co_argcount == 4:
                 test = t_class(self.get_new_id(), [self.__source, self.__target], self.__ports )
             else:
                 test = t_class(self.get_new_id(), [self.__source, self.__target] )
@@ -1348,7 +1349,7 @@ class nmap1_seq_container(os_id_test):
         ipid_diffs = array.array('H', [0] * (self.seq_num_responses - 1))
 
         null_ipids = 1
-        for i in xrange(1, self.seq_num_responses):
+        for i in range(1, self.seq_num_responses):
             prev_ipid = self.seq_responses[i-1].get_ipid()
             cur_ipid = self.seq_responses[i].get_ipid()
 
@@ -1364,13 +1365,13 @@ class nmap1_seq_container(os_id_test):
         # If any diff is > 1000, set to random, if 0, set to constant.
         # If any of the diffs are 1, or all are less than 9, set to incremental.
 
-        for i in xrange(0, self.seq_num_responses - 1):
+        for i in range(0, self.seq_num_responses - 1):
             if ipid_diffs[i] > 1000: return nmap1_seq.IPID_SEQ_RPI
             if ipid_diffs[i] == 0: return nmap1_seq.IPID_SEQ_CONSTANT
 
         is_incremental = 1 # All diferences are less than 9
         is_ms = 1 # All diferences are multiples of 256
-        for i in xrange(0, self.seq_num_responses - 1):
+        for i in range(0, self.seq_num_responses - 1):
             if ipid_diffs[i] == 1: return nmap1_seq.IPID_SEQ_INCR
             if is_ms and ipid_diffs[i] < 2560 and (ipid_diffs[i] % 256) != 0: is_ms = 0
             if ipid_diffs[i] > 9: is_incremental = 0
@@ -1391,7 +1392,7 @@ class nmap1_seq_container(os_id_test):
         # 5) Same with ~100/s.
 
         avg_freq = 0.0
-        for i in xrange(0, self.seq_num_responses - 1):
+        for i in range(0, self.seq_num_responses - 1):
             dhz = self.ts_diffs[i] / self.time_diffs[i]
             avg_freq += dhz / (self.seq_num_responses - 1)
 
@@ -1409,8 +1410,8 @@ class nmap1_seq_container(os_id_test):
         seqclass = nmap1_seq.SEQ_UNKNOWN
 
         if 0 != self.seq_gcd:
-            map(lambda x, gcd = self.seq_gcd: x / gcd, self.seq_diffs)
-            for i in xrange(0, self.seq_num_responses - 1):
+            list(map(lambda x, gcd = self.seq_gcd: x / gcd, self.seq_diffs))
+            for i in range(0, self.seq_num_responses - 1):
                 if abs(self.seq_responses[i+1].get_seq() - self.seq_responses[i].get_seq()) > 50000000:
                     seqclass = nmap1_seq.SEQ_TR;
                     self.index = 9999999
@@ -1531,7 +1532,7 @@ class nmap2_seq_container(os_id_test):
 
         # Random and zero
         null_ipids = 1
-        for i in xrange(1, self.seq_num_responses):
+        for i in range(1, self.seq_num_responses):
             prev_ipid = self.seq_responses[i-1].get_ipid()
             cur_ipid = self.seq_responses[i].get_ipid()
 
@@ -1553,7 +1554,7 @@ class nmap2_seq_container(os_id_test):
 
         # Constant
         all_zero = 1
-        for i in xrange(0, self.seq_num_responses - 1):
+        for i in range(0, self.seq_num_responses - 1):
             if ipid_diffs[i] != 0: 
                 all_zero = 0
                 break
@@ -1563,7 +1564,7 @@ class nmap2_seq_container(os_id_test):
             return
 
         # Random positive increments
-        for i in xrange(0, self.seq_num_responses - 1):
+        for i in range(0, self.seq_num_responses - 1):
             if ipid_diffs[i] > 1000 and \
                ((ipid_diffs[i] % 256 != 0) or \
                 ((ipid_diffs[i] % 256 == 0) and (ipid_diffs[i] >= 25600))):
@@ -1573,7 +1574,7 @@ class nmap2_seq_container(os_id_test):
         # Broken Increment and Incremental
         is_incremental = 1 # All diferences are less than 10
         is_ms = 1 # All diferences are multiples of 256 and no greater than 5120
-        for i in xrange(0, self.seq_num_responses - 1):
+        for i in range(0, self.seq_num_responses - 1):
             if is_ms and ((ipid_diffs[i] > 5120) or (ipid_diffs[i] % 256) != 0): 
                 is_ms = 0
             if is_incremental and ipid_diffs[i] > 9: 
@@ -1606,7 +1607,7 @@ class nmap2_seq_container(os_id_test):
             return
 
         avg_freq = 0.0
-        for i in xrange(0, self.seq_num_responses - 1):
+        for i in range(0, self.seq_num_responses - 1):
             dhz = self.ts_diffs[i] / self.time_diffs[i]
             avg_freq += dhz / (self.seq_num_responses - 1)
 
@@ -1626,7 +1627,7 @@ class nmap2_seq_container(os_id_test):
         seq_gcd = reduce(my_gcd, self.seq_diffs)
 
         seq_avg_rate = 0.0
-        for i in xrange(0, self.seq_num_responses - 1):
+        for i in range(0, self.seq_num_responses - 1):
             seq_avg_rate += self.seq_diffs[i] / self.time_diffs[i]
         seq_avg_rate /= (self.seq_num_responses - 1)
 
@@ -1643,7 +1644,7 @@ class nmap2_seq_container(os_id_test):
             if seq_gcd > 9:
                 div_gcd = seq_gcd
 
-            for i in xrange(0, self.seq_num_responses - 1):
+            for i in range(0, self.seq_num_responses - 1):
                 rtmp = (self.seq_diffs[i] / self.time_diffs[i]) / div_gcd - \
                        seq_avg_rate / div_gcd
                 seq_stddev += rtmp * rtmp
@@ -1675,7 +1676,7 @@ class nmap2_ops_container(os_id_test):
             self.add_result('R', 'N')
             return
 
-        for i in xrange(0, self.seq_num_responses):
+        for i in range(0, self.seq_num_responses):
             tests = nmap2_tcp_tests(self.seq_responses[i].get_ip(),
                                     self.seq_responses[i].get_tcp(),
                                     0,
@@ -1703,7 +1704,7 @@ class nmap2_win_container(os_id_test):
             self.add_result('R', 'N')
             return
 
-        for i in xrange(0, self.seq_num_responses):
+        for i in range(0, self.seq_num_responses):
             tests = nmap2_tcp_tests(self.seq_responses[i].get_ip(),
                                     self.seq_responses[i].get_tcp(),
                                     0,
@@ -1972,9 +1973,9 @@ class NMAP2_Fingerprint:
     def parse_int(self, field, value):
         try:
             return int(value, 16)
-        except ValueError, err:
-            if NMAP2_Fingerprint.literal_conv.has_key( field ):
-                if NMAP2_Fingerprint.literal_conv[field].has_key(value):
+        except ValueError as err:
+            if field in NMAP2_Fingerprint.literal_conv:
+                if value in NMAP2_Fingerprint.literal_conv[field]:
                     return NMAP2_Fingerprint.literal_conv[field][value]
             return 0
 
@@ -2009,14 +2010,14 @@ class NMAP2_Fingerprint:
 
         for test in self.__tests:
             # ignore unknown response lines:
-            if not sample.has_key(test):
+            if test not in sample:
                 continue
         
             for field in self.__tests[test]:
                     # ignore unsupported fields:
-                if not sample[test].has_key(field) or \
-                   not mp.has_key(test) or \
-                   not mp[test].has_key(field):
+                if field not in sample[test] or \
+                   test not in mp or \
+                   field not in mp[test]:
                     continue
             
                 ref = self.__tests[test][field]
@@ -2047,8 +2048,8 @@ class NMAP2_Fingerprint_Matcher:
                 fp = self.parse_fp(fingerprint)
                 similarity = fp.compare(res, mp)
                 if similarity >= threshold: 
-                    print "\"%s\" matches with an accuracy of %.2f%%" \
-                           % (fp.get_id(), similarity)
+                    print("\"%s\" matches with an accuracy of %.2f%%" \
+                           % (fp.get_id(), similarity))
                     output.append((similarity / 100,
                                    fp.get_id(),
                                    (fp.get_os_class().get_vendor(),
@@ -2057,8 +2058,8 @@ class NMAP2_Fingerprint_Matcher:
                                     fp.get_os_class().get_device_type())))
 
             infile.close()
-        except IOError, err:
-            print "IOError: %s", err
+        except IOError as err:
+            print("IOError: %s", err)
 
         return output
 
@@ -2091,7 +2092,7 @@ class NMAP2_Fingerprint_Matcher:
             yield section
 
     def matchpoints(self, infile):
-        return self.sections(infile,"MatchPoints").next()
+        return next(self.sections(infile,"MatchPoints"))
 
     def parse_line(self, line):
         name = line[:line.find("(")]

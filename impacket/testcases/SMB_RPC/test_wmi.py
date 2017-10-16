@@ -39,7 +39,7 @@
 
 import sys
 import unittest
-import ConfigParser
+import configparser
 from struct import pack, unpack
 
 from impacket.dcerpc.v5 import transport
@@ -64,7 +64,7 @@ class WMITests(unittest.TestCase):
         iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
         iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
         resp = iWbemLevel1Login.EstablishPosition()
-        print resp
+        print(resp)
         dcom.disconnect()
 
     def test_IWbemLevel1Login_RequestChallenge(self):
@@ -73,8 +73,8 @@ class WMITests(unittest.TestCase):
         iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
         try:
             resp = iWbemLevel1Login.RequestChallenge()
-            print resp
-        except Exception, e:
+            print(resp)
+        except Exception as e:
             if str(e).find('WBEM_E_NOT_SUPPORTED') < 0:
                 dcom.disconnect()
                 raise
@@ -86,8 +86,8 @@ class WMITests(unittest.TestCase):
         iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
         try:
             resp = iWbemLevel1Login.WBEMLogin()
-            print resp
-        except Exception, e:
+            print(resp)
+        except Exception as e:
             if str(e).find('E_NOTIMPL') < 0:
                 dcom.disconnect()
                 raise
@@ -98,7 +98,7 @@ class WMITests(unittest.TestCase):
         iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
         iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
         resp = iWbemLevel1Login.NTLMLogin('\\\\%s\\root\\cimv2' % self.machine, NULL, NULL)
-        print resp
+        print(resp)
         dcom.disconnect()
 
     def tes_IWbemServices_OpenNamespace(self):
@@ -109,8 +109,8 @@ class WMITests(unittest.TestCase):
         iWbemServices= iWbemLevel1Login.NTLMLogin('//./ROOT', NULL, NULL)
         try:
             iWbemServices.OpenNamespace('__Namespace')
-            print resp
-        except Exception, e:
+            print(resp)
+        except Exception as e:
             dcom.disconnect()
             raise
         dcom.disconnect()
@@ -133,22 +133,22 @@ class WMITests(unittest.TestCase):
         iWbemServices= iWbemLevel1Login.NTLMLogin('\\\\%s\\root\\cimv2' % self.machine, NULL, NULL)
         classes = [ 'Win32_Account', 'Win32_UserAccount', 'Win32_Group', 'Win32_SystemAccount', 'Win32_Service']
         for classn in classes:
-            print "Reading %s " % classn
+            print("Reading %s " % classn)
             try:
                 iEnumWbemClassObject = iWbemServices.ExecQuery('SELECT * from %s' % classn)
                 done = False
                 while done is False:
                     try:
                         iEnumWbemClassObject.Next(0xffffffff,1)
-                    except Exception, e:
+                    except Exception as e:
                         if str(e).find('S_FALSE') < 0:
-                            print e
+                            print(e)
                         else:
                             done = True
                             pass
-            except Exception, e:
+            except Exception as e:
                 if str(e).find('S_FALSE') < 0:
-                    print e
+                    print(e)
         dcom.disconnect()
 
     def test_IWbemServices_ExecMethod(self):
@@ -197,7 +197,7 @@ class WMITests(unittest.TestCase):
 class TCPTransport(WMITests):
     def setUp(self):
         WMITests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
+        configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('TCPTransport', 'username')
         self.domain   = configFile.get('TCPTransport', 'domain')
@@ -216,7 +216,7 @@ class TCPTransport(WMITests):
 class TCPTransport64(WMITests):
     def setUp(self):
         WMITests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
+        configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('TCPTransport', 'username')
         self.domain   = configFile.get('TCPTransport', 'domain')

@@ -35,7 +35,7 @@ import argparse
 import random
 import string
 import time
-import ConfigParser
+import configparser
 import logging
 from threading import Thread
 
@@ -63,7 +63,7 @@ class SMBServer(Thread):
 
     def run(self):
         # Here we write a mini config for the server
-        smbConfig = ConfigParser.ConfigParser()
+        smbConfig = configparser.ConfigParser()
         smbConfig.add_section('global')
         smbConfig.set('global','server_name','server_name')
         smbConfig.set('global','server_os','UNIX')
@@ -89,7 +89,7 @@ class SMBServer(Thread):
         logging.info('Creating tmp directory')
         try:
             os.mkdir(SMBSERVER_DIR)
-        except Exception, e:
+        except Exception as e:
             logging.critical(str(e))
             pass
         logging.info('Setting up SMB Server')
@@ -116,7 +116,7 @@ class CMDEXEC:
     def __init__(self, protocols = None, 
                  username = '', password = '', domain = '', hashes = None, aesKey = None, doKerberos = None, mode = None, share = None):
         if not protocols:
-            protocols = PSEXEC.KNOWN_PROTOCOLS.keys()
+            protocols = list(PSEXEC.KNOWN_PROTOCOLS.keys())
 
         self.__username = username
         self.__password = password
@@ -162,7 +162,7 @@ class CMDEXEC:
                 self.shell.cmdloop()
                 if self.__mode == 'SERVER':
                     serverThread.stop()
-            except  (Exception, KeyboardInterrupt), e:
+            except  (Exception, KeyboardInterrupt) as e:
                 #import traceback
                 #traceback.print_exc()
                 logging.critical(str(e))
@@ -188,7 +188,7 @@ class RemoteShell(cmd.Cmd):
         self.__scmr = rpc.get_dce_rpc()
         try:
             self.__scmr.connect()
-        except Exception, e:
+        except Exception as e:
             logging.critical(str(e))
             sys.exit(1)
 
@@ -219,7 +219,7 @@ class RemoteShell(cmd.Cmd):
            scmr.hRDeleteService(self.__scmr, service)
            scmr.hRControlService(self.__scmr, service, scmr.SERVICE_CONTROL_STOP)
            scmr.hRCloseServiceHandle(self.__scmr, service)
-        except Exception, e:
+        except Exception as e:
            pass
 
     def do_shell(self, s):
@@ -281,13 +281,13 @@ class RemoteShell(cmd.Cmd):
 
     def send_data(self, data):
         self.execute_remote(data)
-        print self.__outputBuffer
+        print(self.__outputBuffer)
         self.__outputBuffer = ''
 
 
 # Process command-line arguments.
 if __name__ == '__main__':
-    print version.BANNER
+    print(version.BANNER)
 
     parser = argparse.ArgumentParser()
 
@@ -296,7 +296,7 @@ if __name__ == '__main__':
     parser.add_argument('-mode', action='store', choices = {'SERVER','SHARE'}, default='SHARE', help='mode to use (default SHARE, SERVER needs root!)')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
-    parser.add_argument('protocol', choices=CMDEXEC.KNOWN_PROTOCOLS.keys(), nargs='?', default='445/SMB', help='transport protocol (default 445/SMB)')
+    parser.add_argument('protocol', choices=list(CMDEXEC.KNOWN_PROTOCOLS.keys()), nargs='?', default='445/SMB', help='transport protocol (default 445/SMB)')
 
     group = parser.add_argument_group('authentication')
 
@@ -333,6 +333,6 @@ if __name__ == '__main__':
     try:
         executer = CMDEXEC(options.protocol, username, password, domain, options.hashes, options.aesKey, options.k, options.mode, options.share)
         executer.run(address)
-    except Exception, e:
+    except Exception as e:
         logging.critical(str(e))
     sys.exit(0)

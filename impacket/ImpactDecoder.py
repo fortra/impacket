@@ -13,13 +13,13 @@
 #  Bruce Leidl (brl)
 #  Aureliano Calvo
 
-import ImpactPacket
-import dot11
-import IP6, ICMP6, IP6_Extension_Headers
-from cdp import CDP
-from Dot11KeyManager import KeyManager
-from Dot11Crypto import RC4
-import eap
+from . import ImpactPacket
+from . import dot11
+from . import IP6, ICMP6, IP6_Extension_Headers
+from .cdp import CDP
+from .Dot11KeyManager import KeyManager
+from .Dot11Crypto import RC4
+from . import eap
 from impacket import wps
 import array
 

@@ -22,7 +22,7 @@
 
 import sys
 import unittest
-import ConfigParser
+import configparser
 from struct import pack, unpack
 
 from impacket.dcerpc.v5 import transport
@@ -161,7 +161,7 @@ class DCOMTests(unittest.TestCase):
    
         resp = vdsService.IsServiceReady()
         while resp['ErrorCode'] == 1:
-            print "Waiting.. "
+            print("Waiting.. ")
             resp = vdsService.IsServiceReady()
 
         vdsService.WaitForServiceReady()
@@ -231,7 +231,7 @@ class DCOMTests(unittest.TestCase):
             es = comev.IEventSubscription3(es)
 
             #es.get_SubscriptionID()
-            print es.get_SubscriptionName()['pbstrSubscriptionName']['asData']
+            print(es.get_SubscriptionName()['pbstrSubscriptionName']['asData'])
             ##es.get_PublisherID()
             #es.get_EventClassID()
             #es.get_MethodName()
@@ -280,7 +280,7 @@ class DCOMTests(unittest.TestCase):
             #ev.get_FireInParallel()
             ev.RemRelease()
 
-        print "="*80
+        print("="*80)
 
         dcom.disconnect()
         #eventSubscription.get_SubscriptionID()
@@ -295,7 +295,7 @@ class DCOMTests(unittest.TestCase):
 
         iDispatch = ie.IWebBrowser(iInterface)
         resp = iDispatch.GetIDsOfNames(('Navigate',))
-        print resp
+        print(resp)
         #sys.exit(1)
         iTypeInfo = iDispatch.GetTypeInfo()
         resp = iTypeInfo.GetTypeAttr()
@@ -306,9 +306,9 @@ class DCOMTests(unittest.TestCase):
             #resp2 = iTypeInfo.GetNames(resp['ppFuncDesc']['memid'])
             #print resp2['rgBstrNames'][0]['asData']
             resp = iTypeInfo.GetDocumentation(resp['ppFuncDesc']['memid'])
-            print resp['pBstrName']['asData']
+            print(resp['pBstrName']['asData'])
         #iEventSystem.get_EventObjectChangeEventClassID()
-        print "ACA"
+        print("ACA")
         iTypeInfo.RemRelease()
         iDispatch.RemRelease()
 
@@ -317,7 +317,7 @@ class DCOMTests(unittest.TestCase):
 class TCPTransport(DCOMTests):
     def setUp(self):
         DCOMTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
+        configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('TCPTransport', 'username')
         self.domain   = configFile.get('TCPTransport', 'domain')
@@ -331,7 +331,7 @@ class TCPTransport(DCOMTests):
 class TCPTransport64(DCOMTests):
     def setUp(self):
         DCOMTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
+        configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('TCPTransport', 'username')
         self.domain   = configFile.get('TCPTransport', 'domain')

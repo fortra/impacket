@@ -30,7 +30,7 @@ from impacket.examples import logging
 
 def main(args):
   if len(args) != 4:
-    print "usage: opdump.py hostname port interface version"
+    print("usage: opdump.py hostname port interface version")
     return 1
 
   host, port, interface, version = args[0],  int(args[1]), args[2], args[3]
@@ -50,7 +50,7 @@ def main(args):
     dce.call(i, "")
     try:
       resp = dce.recv()
-    except Exception, e:
+    except Exception as e:
       result = str(e)
     else:
       result = "success"
@@ -65,9 +65,9 @@ def main(args):
     results.pop()
 
   for i, result in enumerate(results):
-    print "op %d (0x%02x): %s" % (i, i, result)
+    print("op %d (0x%02x): %s" % (i, i, result))
 
-  print "ops %d-%d: %s" % (len(results), 255, suffix)
+  print("ops %d-%d: %s" % (len(results), 255, suffix))
 
 if __name__ == "__main__":
   sys.exit(main(sys.argv[1:]))

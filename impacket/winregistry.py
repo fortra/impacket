@@ -191,7 +191,7 @@ class Registry():
                     if isinstance(block, REG_NK):
                         if block['Type'] == ROOT_KEY:
                             return block
-            except Exception, e:
+            except Exception as e:
                  pass
             data = self.fd.read(4096)
 
@@ -206,7 +206,7 @@ class Registry():
             return None
         else:
             block = REG_HBINBLOCK(data)
-            if StructMappings.has_key(block['Data'][:2]):
+            if block['Data'][:2] in StructMappings:
                 return StructMappings[block['Data'][:2]](block['Data'])
             else:
                 LOG.debug("Unknown type 0x%s" % block['Data'][:2])
@@ -244,7 +244,7 @@ class Registry():
             block.fromString(data)
             blockLen = len(block)
 
-            if StructMappings.has_key(block['Data'][:2]):
+            if block['Data'][:2] in StructMappings:
                 block = StructMappings[block['Data'][:2]](block['Data'])
 
             res.append(block)
@@ -320,7 +320,7 @@ class Registry():
     def __walkSubNodes(self, rec):
         nk = self.__getBlock(rec['OffsetNk'])
         if isinstance(nk, REG_NK):
-            print "%s%s" % (self.indent, nk['KeyName'])
+            print("%s%s" % (self.indent, nk['KeyName']))
             self.indent = self.indent + '  '
             if nk['OffsetSubKeyLf'] < 0:
                 self.indent = self.indent[:-2]
@@ -383,29 +383,29 @@ class Registry():
     def printValue(self, valueType, valueData):
         if valueType == REG_SZ or valueType == REG_EXPAND_SZ:
             if type(valueData) is int:
-                print 'NULL'
+                print('NULL')
             else:
-                print "%s" % (valueData.decode('utf-16le'))
+                print("%s" % (valueData.decode('utf-16le')))
         elif valueType == REG_BINARY:
-            print ''
+            print('')
             hexdump(valueData, self.indent)
         elif valueType == REG_DWORD:
-            print "%d" % (valueData)
+            print("%d" % (valueData))
         elif valueType == REG_QWORD:
-            print "%d" % (unpack('<Q',valueData)[0])
+            print("%d" % (unpack('<Q',valueData)[0]))
         elif valueType == REG_NONE:
             try:
                 if len(valueData) > 1:
-                    print ''
+                    print('')
                     hexdump(valueData, self.indent)
                 else:
-                    print " NULL"
+                    print(" NULL")
             except:
-                print " NULL"
+                print(" NULL")
         elif valueType == REG_MULTISZ:
-            print "%s" % (valueData.decode('utf-16le'))
+            print("%s" % (valueData.decode('utf-16le')))
         else:
-            print "Unkown Type 0x%x!" % valueType
+            print("Unkown Type 0x%x!" % valueType)
             hexdump(valueData)
 
     def enumKey(self, parentKey):
@@ -492,16 +492,16 @@ def hexdump(data, indent = ''):
     strLen = len(x)
     i = 0
     while i < strLen:
-        print indent,
-        print "%04x  " % i,
+        print(indent, end=' ')
+        print("%04x  " % i, end=' ')
         for j in range(16):
             if i+j < strLen:
-                print "%02X" % ord(x[i+j]),
+                print("%02X" % ord(x[i+j]), end=' ')
             else:
-                print "  ",
+                print("  ", end=' ')
             if j%16 == 7:
-                print "",
-        print " ",
-        print ''.join(pretty_print(x) for x in x[i:i+16] )
+                print("", end=' ')
+        print(" ", end=' ')
+        print(''.join(pretty_print(x) for x in x[i:i+16] ))
         i += 16
 

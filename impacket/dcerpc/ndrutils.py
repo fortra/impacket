@@ -21,8 +21,8 @@ from impacket.structure import *
 
 def uuid_hex(_uuid):
     for i in range(0,len(_uuid)):
-        print "\\0x%.2x"%unpack('<B',_uuid[i]),
-    print ""
+        print("\\0x%.2x"%unpack('<B',_uuid[i]), end=' ')
+    print("")
 
 KNOWN_UUIDS = {
 "\xb0\x01\x52\x97\xca\x59\xd0\x11\xa8\xd5\x00\xa0\xc9\x0d\x80\x51\x01\x00": "rpcss.dll",
@@ -315,7 +315,7 @@ KNOWN_UUIDS = {
 }
 
 def uuid_to_exe(_uuid):
-    if KNOWN_UUIDS.has_key(_uuid):
+    if _uuid in KNOWN_UUIDS:
         return KNOWN_UUIDS[_uuid]
     else:
         return 'unknown'
@@ -388,7 +388,7 @@ class NDRFloor:
     def get_uuid(self):
         return self._uuid
     def get_protocol_string(self):
-        if NDRFloor.PROTO_ID.has_key(self._protocol):
+        if self._protocol in NDRFloor.PROTO_ID:
             return NDRFloor.PROTO_ID[self._protocol]
         else:
             return 'unknown'
@@ -399,7 +399,7 @@ class NDRFloor:
         else:
             return ''
 
-ID_PROTO = dict((v,k) for k, v in NDRFloor.PROTO_ID.iteritems())
+ID_PROTO = dict((v,k) for k, v in NDRFloor.PROTO_ID.items())
 
 def parse_uuid(_uuid):
     return uuid.bin_to_string(_uuid)
@@ -466,17 +466,17 @@ class NDREntry:
         return unpack('<H', binuuid[16:18])[0]
 
     def print_friendly(self):
-        if self._tower <> 0:
+        if self._tower != 0:
             floors = self._tower.get_floors()
-            print "IfId: %s [%s]" % (floors[0].get_uuid_string(), uuid_to_exe(floors[0].get_uuid()))
+            print("IfId: %s [%s]" % (floors[0].get_uuid_string(), uuid_to_exe(floors[0].get_uuid())))
             if self._annotation:
-                print "Annotation: %s" % self._annotation
-            print "UUID: %s" % parse_uuid(self._objectid)
-            print "Binding: %s" % self.get_string_binding()
-            print ''
+                print("Annotation: %s" % self._annotation)
+            print("UUID: %s" % parse_uuid(self._objectid))
+            print("Binding: %s" % self.get_string_binding())
+            print('')
 
     def get_string_binding(self):
-        if self._tower <> 0:
+        if self._tower != 0:
             tmp_address = ''
             tmp_address2 = ''
             floors = self._tower.get_floors()
@@ -489,7 +489,7 @@ class NDREntry:
                 elif floors[i].get_protocol() == 0x09:
                     # If the address were 0.0.0.0 it would have to be replaced by the remote host's IP.
                     tmp_address2 = socket.inet_ntoa(floors[i].get_rhs())
-                    if tmp_address <> '':
+                    if tmp_address != '':
                         return tmp_address % tmp_address2
                     else:
                         return 'IP: %s' % tmp_address2
@@ -498,7 +498,7 @@ class NDREntry:
                 elif floors[i].get_protocol() == 0x0d:
                     n = floors[i].get_rhs_len()
                     tmp_address2 = ('%02X' * n) % unpack("%dB" % n, floors[i].get_rhs())
-                    if tmp_address <> '':
+                    if tmp_address != '':
                         return tmp_address % tmp_address2
                     else:
                         return 'SPX: %s' % tmp_address2
@@ -509,7 +509,7 @@ class NDREntry:
                 elif floors[i].get_protocol() == 0x10:
                     return 'ncalrpc:[%s]' % floors[i].get_rhs()[:floors[i].get_rhs_len()-1]
                 elif floors[i].get_protocol() == 0x01 or floors[i].get_protocol() == 0x11:
-                    if tmp_address <> '':
+                    if tmp_address != '':
                         return tmp_address % floors[i].get_rhs()[:floors[i].get_rhs_len()-1]
                     else:
                         return 'NetBIOS: %s' % floors[i].get_rhs()
@@ -518,7 +518,7 @@ class NDREntry:
                 else:
                     if floors[i].get_protocol_string() == 'unknown':
                         return 'unknown_proto_0x%x:[0]' % floors[i].get_protocol()
-                    elif floors[i].get_protocol_string() <> 'UUID':
+                    elif floors[i].get_protocol_string() != 'UUID':
                         return 'protocol: %s, value: %s' % (floors[i].get_protocol_string(), floors[i].get_rhs())
 
 
@@ -569,7 +569,7 @@ class NDRString:
         self._length = 0
         if data:
             self._max_len, self._offset, self._length = unpack('<LLL',data[:12])
-            self._string = unicode(data[12:12 + self._length * 2], 'utf-16le')
+            self._string = str(data[12:12 + self._length * 2], 'utf-16le')
     def get_string(self):
         return self._string
     def set_string(self,str):

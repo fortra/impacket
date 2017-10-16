@@ -119,7 +119,7 @@ class Structure:
 
     def packField(self, fieldName, format = None):
         if self.debug:
-            print("packField( %s | %s )" % (fieldName, format))
+            print(("packField( %s | %s )" % (fieldName, format)))
 
         if format is None:
             format = self.formatForField(fieldName)
@@ -130,7 +130,7 @@ class Structure:
             ans = self.pack(format, None, field = fieldName)
 
         if self.debug:
-            print("\tanswer %r" % ans)
+            print(("\tanswer %r" % ans))
 
         return ans
 
@@ -162,10 +162,10 @@ class Structure:
 
         for field in self.commonHdr+self.structure:
             if self.debug:
-                print("fromString( %s | %s | %r )" % (field[0], field[1], data))
+                print(("fromString( %s | %s | %r )" % (field[0], field[1], data)))
             size = self.calcUnpackSize(field[1], data, field[0])
             if self.debug:
-                print("  size = %d" % size)
+                print(("  size = %d" % size))
             dataClassOrCode = str
             if len(field) > 2:
                 dataClassOrCode = field[2]
@@ -201,7 +201,7 @@ class Structure:
 
     def pack(self, format, data, field = None):
         if self.debug:
-            print("  pack( %s | %r | %s)" %  (format, data, field))
+            print(("  pack( %s | %r | %s)" %  (format, data, field)))
 
         if field:
             addressField = self.findAddressFieldFor(field)
@@ -300,7 +300,7 @@ class Structure:
 
     def unpack(self, format, data, dataClassOrCode = str, field = None):
         if self.debug:
-            print("  unpack( %s | %r )" %  (format, data))
+            print(("  unpack( %s | %r )" %  (format, data)))
 
         if field:
             addressField = self.findAddressFieldFor(field)
@@ -463,7 +463,7 @@ class Structure:
 
     def calcUnpackSize(self, format, data, field = None):
         if self.debug:
-            print("  calcUnpackSize( %s | %s | %r)" %  (field, format, data))
+            print(("  calcUnpackSize( %s | %s | %r)" %  (field, format, data)))
 
         # void specifier
         if format[:1] == '_':
@@ -594,7 +594,7 @@ class Structure:
         import types
         if msg is None: msg = self.__class__.__name__
         ind = ' '*indent
-        print("\n%s" % (msg))
+        print(("\n%s" % (msg)))
         fixedFields = []
         for field in self.commonHdr+self.structure:
             i = field[0] 
@@ -602,18 +602,18 @@ class Structure:
                 fixedFields.append(i)
                 if isinstance(self[i], Structure):
                     self[i].dump('%s%s:{' % (ind,i), indent = indent + 4)
-                    print("%s}" % ind)
+                    print(("%s}" % ind))
                 else:
-                    print("%s%s: {%r}" % (ind,i,self[i]))
+                    print(("%s%s: {%r}" % (ind,i,self[i])))
         # Do we have remaining fields not defined in the structures? let's 
         # print them
         remainingFields = list(set(self.fields) - set(fixedFields))
         for i in remainingFields:
             if isinstance(self[i], Structure):
                 self[i].dump('%s%s:{' % (ind,i), indent = indent + 4)
-                print("%s}" % ind)
+                print(("%s}" % ind))
             else:
-                print("%s%s: {%r}" % (ind,i,self[i]))
+                print(("%s%s: {%r}" % (ind,i,self[i])))
 
 
 class _StructureTest:
@@ -626,14 +626,14 @@ class _StructureTest:
 
     def run(self):
         print()
-        print("-"*70)
+        print(("-"*70))
         testName = self.__class__.__name__
-        print("starting test: %s....." % testName)
+        print(("starting test: %s....." % testName))
         a = self.create()
         self.populate(a)
         a.dump("packing.....")
         a_str = a.getData()
-        print("packed: %r, %d" % (a_str,len(a_str)))
+        print(("packed: %r, %d" % (a_str,len(a_str))))
         print("unpacking.....")
         b = self.create(a_str)
         b.dump("unpacked.....")
@@ -641,7 +641,7 @@ class _StructureTest:
         b_str = b.getData()
         if b_str != a_str:
             print("ERROR: original packed and repacked don't match")
-            print("packed: %r" % b_str)
+            print(("packed: %r" % b_str))
 
 class _Test_simple(_StructureTest):
     class theClass(Structure):

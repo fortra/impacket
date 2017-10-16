@@ -44,7 +44,7 @@ class DCERPCSessionError(Exception):
         return self.packet
 
     def __str__( self ):
-        if (hresult_errors.ERROR_MESSAGES.has_key(self.error_code)):
+        if (self.error_code in hresult_errors.ERROR_MESSAGES):
             error_msg_short = hresult_errors.ERROR_MESSAGES[self.error_code][0]
             error_msg_verbose = hresult_errors.ERROR_MESSAGES[self.error_code][1] 
             return 'OAUT SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
@@ -290,9 +290,9 @@ class FLAGGED_WORD_BLOB(NDRSTRUCT):
         if msg is None: msg = self.__class__.__name__
         ind = ' '*indent
         if msg != '':
-            print "%s" % (msg)
+            print("%s" % (msg))
         value = ''
-        print '%sasData: %s' % (ind,self['asData']),
+        print('%sasData: %s' % (ind,self['asData']), end=' ')
 
 # 2.2.23.2 BSTR Type Definition
 class BSTR(NDRPOINTER):

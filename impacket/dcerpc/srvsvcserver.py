@@ -113,7 +113,7 @@ class DCERPCServer():
                     answer = self.processRequest(data)
                     if answer != None:
                         self.send(answer)
-            except Exception, e:
+            except Exception as e:
                 #print e 
                 pass
             self._clientSock.close()
@@ -214,13 +214,13 @@ class DCERPCServer():
             response         = dcerpc.MSRPCRespHeader(data)
             response['type'] = dcerpc.MSRPC_RESPONSE
             # Serve the opnum requested, if not, fails
-            if self._callbacks[self._boundUUID].has_key(request['op_num']):
+            if request['op_num'] in self._callbacks[self._boundUUID]:
                 # Call the function 
                 returnData          = self._callbacks[self._boundUUID][request['op_num']](request['pduData'])
                 response['pduData'] = returnData
             else:
                 response['type']    = dcerpc.MSRPC_FAULT
-                response['pduData'] = struct.pack('<L',0x000006E4L)
+                response['pduData'] = struct.pack('<L',0x000006E4)
             response['frag_len'] = len(response)
             return response
         else:
@@ -231,7 +231,7 @@ class DCERPCServer():
         return packet
 
 from impacket.dcerpc import srvsvc
-import ConfigParser
+import configparser
 import struct
 
 class SRVSVCShareInfo1(Structure):
@@ -366,7 +366,7 @@ class SRVSVCServer(DCERPCServer):
 
     def processConfigFile(self, configFile=None):
        if configFile is not None:
-           self.__serverConfig = ConfigParser.ConfigParser()
+           self.__serverConfig = configparser.ConfigParser()
            self.__serverConfig.read(configFile)
        sections = self.__serverConfig.sections()
        # Let's check the log file

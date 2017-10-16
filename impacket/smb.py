@@ -59,9 +59,9 @@ unicode_support = 0
 unicode_convert = 1
 
 try:
-    from cStringIO import StringIO
+    from io import StringIO
 except ImportError:
-    from StringIO import StringIO
+    from io import StringIO
 
 # Dialect for SMB1
 SMB_DIALECT = 'NT LM 0.12'
@@ -633,9 +633,9 @@ class SharedFile:
 
     def __convert_smbtime(self, t):
         x = t >> 32
-        y = t & 0xffffffffL
+        y = t & 0xffffffff
         geo_cal_offset = 11644473600.0  # = 369.0 * 365.25 * 24 * 60 * 60 - (3.0 * 24 * 60 * 60 + 6.0 * 60 * 60)
-        return ((x * 4.0 * (1 << 30) + (y & 0xfff00000L)) * 1.0e-7 - geo_cal_offset)
+        return ((x * 4.0 * (1 << 30) + (y & 0xfff00000)) * 1.0e-7 - geo_cal_offset)
 
 
 # Contain information about a SMB machine
@@ -683,12 +683,12 @@ class NewSMBPacket(Structure):
     def __init__(self, **kargs):
         Structure.__init__(self, **kargs)
 
-        if self.fields.has_key('Flags2') is False:
+        if ('Flags2' in self.fields) is False:
              self['Flags2'] = 0
-        if self.fields.has_key('Flags1') is False:
+        if ('Flags1' in self.fields) is False:
              self['Flags1'] = 0
 
-        if not kargs.has_key('data'):
+        if 'data' not in kargs:
             self['Data'] = []
     
     def addCommand(self, command):
@@ -716,9 +716,9 @@ class NewSMBPacket(Structure):
                 return 1
             elif self.isMoreProcessingRequired():
                 return 1
-            raise SessionError, ("SMB Library Error", self['ErrorClass'] + (self['_reserved'] << 8), self['ErrorCode'], self['Flags2'] & SMB.FLAGS2_NT_STATUS)
+            raise SessionError("SMB Library Error", self['ErrorClass'] + (self['_reserved'] << 8), self['ErrorCode'], self['Flags2'] & SMB.FLAGS2_NT_STATUS)
         else:
-            raise UnsupportedFeature, ("Unexpected answer from server: Got %d, Expected %d" % (self['Command'], cmd))
+            raise UnsupportedFeature("Unexpected answer from server: Got %d, Expected %d" % (self['Command'], cmd))
 
 class SMBPacket:
     def __init__(self,data = ''):
@@ -776,7 +776,7 @@ class SMBPacket:
         self._parameter_words = param
         self._wordcount = len(param)/2
     def set_buffer(self,buffer):
-        if type(buffer) is types.UnicodeType:
+        if type(buffer) is str:
             raise Exception('SMBPacket: Invalid buffer. Received unicode')
         self._buffer = buffer
         self._bytecount = len(buffer)
@@ -2657,7 +2657,7 @@ class SMB:
                     if s.get_error_class() == 0x00 and s.get_error_code() == 0x00:
                         return 1
                     else:
-                        raise SessionError, ( "SMB Library Error", s.get_error_class()+ (s.get_reserved() << 8), s.get_error_code() , s.get_flags2() & SMB.FLAGS2_NT_STATUS )
+                        raise SessionError( "SMB Library Error", s.get_error_class()+ (s.get_reserved() << 8), s.get_error_code() , s.get_flags2() & SMB.FLAGS2_NT_STATUS)
                 else:
                     break
         return 0
@@ -2690,7 +2690,7 @@ class SMB:
                         self.__server_name = self._dialects_data['ServerName']
 
                     if self._dialects_parameters['DialectIndex'] == 0xffff:
-                        raise UnsupportedFeature,"Remote server does not know NT LM 0.12"
+                        raise UnsupportedFeature("Remote server does not know NT LM 0.12")
                     self.__is_pathcaseless = smb['Flags1'] & SMB.FLAGS1_PATHCASELESS
                     return 1
             else:
@@ -2784,7 +2784,7 @@ class SMB:
         try:
             _, _, _, _, sockaddr = socket.getaddrinfo(self.get_remote_host(), 80, 0, 0, socket.IPPROTO_TCP)[0]
             remote_host = sockaddr[0]
-        except Exception, e:
+        except Exception as e:
             remote_host =  self.get_remote_host()
 
         path = '\\\\' + remote_host + '\\' +share 
@@ -2839,7 +2839,7 @@ class SMB:
         self._SigningSessionKey = key
 
     def get_encryption_key(self):
-        if self._dialects_data.fields.has_key('Challenge'):
+        if 'Challenge' in self._dialects_data.fields:
             return self._dialects_data['Challenge']
         else:
             return None
@@ -2998,7 +2998,7 @@ class SMB:
             s = self.recv_packet()
             if self.isValidAnswer(s,SMB.SMB_COM_TRANSACTION2):
                 f1, f2 = unpack('<LL', s.get_buffer()[53:53+8])
-                return (f2 & 0xffffffffL) << 32 | f1
+                return (f2 & 0xffffffff) << 32 | f1
 
     def __nonraw_retr_file(self, tid, fid, offset, datasize, callback):
         if (self._dialects_parameters['Capabilities'] & SMB.CAP_LARGE_READX) and self._SignatureEnabled is False:

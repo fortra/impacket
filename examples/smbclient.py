@@ -58,7 +58,7 @@ class MiniImpacketShell(cmd.Cmd):
         retVal = False
         try:
            retVal = cmd.Cmd.onecmd(self,s)
-        except Exception, e:
+        except Exception as e:
            #import traceback
            #print traceback.print_exc()
            logging.error(e)
@@ -70,11 +70,11 @@ class MiniImpacketShell(cmd.Cmd):
 
     def do_shell(self, line):
         output = os.popen(line).read()
-        print output
+        print(output)
         self.last_output = output
 
     def do_help(self,line):
-        print """
+        print("""
  open {host,port=445} - opens a SMB connection against the target host/port
  login {domain/username,passwd} - logs into the current SMB connection, no parameters for NULL connection. If no password specified, it'll be prompted
  kerberos_login {domain/username,passwd} - logs into the current SMB connection using Kerberos. If no password specified, it'll be prompted. Use the DNS resolvable domain name
@@ -96,7 +96,7 @@ class MiniImpacketShell(cmd.Cmd):
  close - closes the current SMB Session
  exit - terminates the server process (and this session)
 
-"""
+""")
 
     def do_password(self, line):
         if self.loggedIn is False:
@@ -266,12 +266,12 @@ class MiniImpacketShell(cmd.Cmd):
         dce.bind(srvs.MSRPC_UUID_SRVS)
         resp = srvs.hNetrServerGetInfo(dce, 102)
 
-        print "Version Major: %d" % resp['InfoStruct']['ServerInfo102']['sv102_version_major']
-        print "Version Minor: %d" % resp['InfoStruct']['ServerInfo102']['sv102_version_minor']
-        print "Server Name: %s" % resp['InfoStruct']['ServerInfo102']['sv102_name']
-        print "Server Comment: %s" % resp['InfoStruct']['ServerInfo102']['sv102_comment']
-        print "Server UserPath: %s" % resp['InfoStruct']['ServerInfo102']['sv102_userpath']
-        print "Simultaneous Users: %d" % resp['InfoStruct']['ServerInfo102']['sv102_users']
+        print("Version Major: %d" % resp['InfoStruct']['ServerInfo102']['sv102_version_major'])
+        print("Version Minor: %d" % resp['InfoStruct']['ServerInfo102']['sv102_version_minor'])
+        print("Server Name: %s" % resp['InfoStruct']['ServerInfo102']['sv102_name'])
+        print("Server Comment: %s" % resp['InfoStruct']['ServerInfo102']['sv102_comment'])
+        print("Server UserPath: %s" % resp['InfoStruct']['ServerInfo102']['sv102_userpath'])
+        print("Simultaneous Users: %d" % resp['InfoStruct']['ServerInfo102']['sv102_users'])
          
     def do_who(self, line):
         if self.loggedIn is False:
@@ -284,7 +284,7 @@ class MiniImpacketShell(cmd.Cmd):
         resp = srvs.hNetrSessionEnum(dce, NULL, NULL, 10)
 
         for session in resp['InfoStruct']['SessionInfo']['Level10']['Buffer']:
-            print "host: %15s, user: %5s, active: %5d, idle: %5d" % (session['sesi10_cname'][:-1], session['sesi10_username'][:-1], session['sesi10_time'], session['sesi10_idle_time'])
+            print("host: %15s, user: %5s, active: %5d, idle: %5d" % (session['sesi10_cname'][:-1], session['sesi10_username'][:-1], session['sesi10_time'], session['sesi10_idle_time']))
 
     def do_shares(self, line):
         if self.loggedIn is False:
@@ -292,7 +292,7 @@ class MiniImpacketShell(cmd.Cmd):
             return
         resp = self.smb.listShares()
         for i in range(len(resp)):                        
-            print resp[i]['shi1_netname'][:-1]
+            print(resp[i]['shi1_netname'][:-1])
 
     def do_use(self,line):
         if self.loggedIn is False:
@@ -323,13 +323,13 @@ class MiniImpacketShell(cmd.Cmd):
             self.smb.closeFile(self.tid,fid)
             self.pwd = oldpwd
             logging.error("Invalid directory")
-        except SessionError, e:
+        except SessionError as e:
             if e.getErrorCode() == nt_errors.STATUS_FILE_IS_A_DIRECTORY: 
                pass
             else:
                self.pwd = oldpwd
                raise
-        except Exception, e:
+        except Exception as e:
             self.pwd = oldpwd
             raise
 
@@ -337,7 +337,7 @@ class MiniImpacketShell(cmd.Cmd):
         if self.loggedIn is False:
             logging.error("Not logged in")
             return
-        print self.pwd
+        print(self.pwd)
 
     def do_ls(self, wildcard, display = True):
         if self.loggedIn is False:
@@ -355,7 +355,7 @@ class MiniImpacketShell(cmd.Cmd):
         pwd = ntpath.normpath(pwd)
         for f in self.smb.listPath(self.share, pwd):
            if display is True:
-               print "%crw-rw-rw- %10d  %s %s" % ('d' if f.is_directory() > 0 else '-', f.get_filesize(),  time.ctime(float(f.get_mtime_epoch())) ,f.get_longname() )
+               print("%crw-rw-rw- %10d  %s %s" % ('d' if f.is_directory() > 0 else '-', f.get_filesize(),  time.ctime(float(f.get_mtime_epoch())) ,f.get_longname() ))
            self.completion.append((f.get_longname(),f.is_directory()))
 
 
@@ -437,7 +437,7 @@ class MiniImpacketShell(cmd.Cmd):
         self.do_logoff(line)
 
 def main():
-    print version.BANNER
+    print(version.BANNER)
     parser = argparse.ArgumentParser(add_help = True, description = "SMB client implementation.")
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
@@ -494,13 +494,13 @@ def main():
             logging.info("Executing commands from %s" % options.file.name)
             for line in options.file.readlines():
                 if line[0] != '#':
-                    print "# %s" % line,
+                    print("# %s" % line, end=' ')
                     shell.onecmd(line)
                 else:
-                    print line,
+                    print(line, end=' ')
         else:
             shell.cmdloop()
-    except Exception, e:
+    except Exception as e:
         #import traceback
         #print traceback.print_exc()
         logging.error(str(e))

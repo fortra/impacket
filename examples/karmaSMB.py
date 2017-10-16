@@ -149,7 +149,7 @@ class KarmaSMBServer(Thread):
         _, origPathNameExtension = os.path.splitext(origPathName)
         origPathNameExtension = origPathNameExtension.upper()[1:]
 
-        if self.extensions.has_key(origPathNameExtension.upper()):
+        if origPathNameExtension.upper() in self.extensions:
             targetFile = self.extensions[origPathNameExtension.upper()]
         else:
             targetFile = self.defaultFile
@@ -159,7 +159,7 @@ class KarmaSMBServer(Thread):
         else:
             findFirst2Data = ''
 
-        if connData['ConnectedShares'].has_key(recvPacket['Tid']):
+        if recvPacket['Tid'] in connData['ConnectedShares']:
             path = connData['ConnectedShares'][recvPacket['Tid']]['path']
 
             # 2. We call the normal findFirst2 call, but with our targetFile
@@ -190,7 +190,7 @@ class KarmaSMBServer(Thread):
                     if len(connData['SIDs']) == 0:
                        sid = 1
                     else:
-                       sid = connData['SIDs'].keys()[-1] + 1
+                       sid = list(connData['SIDs'].keys())[-1] + 1
                     # Store the remaining search results in the ConnData SID
                     connData['SIDs'][sid] = searchResult[i[0]:]
                     respParameters['LastNameOffset'] = totalData
@@ -251,7 +251,7 @@ class KarmaSMBServer(Thread):
         _, origPathNameExtension = os.path.splitext(origPathName)
         origPathNameExtension = origPathNameExtension.upper()[1:]
 
-        if self.extensions.has_key(origPathNameExtension.upper()):
+        if origPathNameExtension.upper() in self.extensions:
             targetFile = self.extensions[origPathNameExtension.upper()]
         else:
             targetFile = self.defaultFile
@@ -280,24 +280,24 @@ class KarmaSMBServer(Thread):
         if len(data) > 0: 
            queryPathInfoData = smb.SMBQueryPathInformation_Data(data)
   
-        if connData['ConnectedShares'].has_key(recvPacket['Tid']):
+        if recvPacket['Tid'] in connData['ConnectedShares']:
             path = ''
             try:
                origPathName = decodeSMBString(recvPacket['Flags2'], queryPathInfoParameters['FileName'])
                origPathName = os.path.normpath(origPathName.replace('\\','/'))
 
-               if connData.has_key('MS15011') is False:
+               if ('MS15011' in connData) is False:
                    connData['MS15011'] = {}
 
                smbServer.log("Client is asking for QueryPathInformation for: %s" % origPathName,logging.INFO)
-               if connData['MS15011'].has_key(origPathName) or origPathName == '.':
+               if origPathName in connData['MS15011'] or origPathName == '.':
                    # We already processed this entry, now it's asking for a directory
                    infoRecord, errorCode = queryPathInformation(path, '/', queryPathInfoParameters['InformationLevel'])
                else:
                    # First time asked, asking for the file
                    infoRecord, errorCode = queryPathInformation(path, self.defaultFile, queryPathInfoParameters['InformationLevel'])
                    connData['MS15011'][os.path.dirname(origPathName)] = infoRecord
-            except Exception, e:
+            except Exception as e:
                #import traceback
                #traceback.print_exc()
                smbServer.log("queryPathInformation: %s" % e,logging.ERROR)
@@ -363,7 +363,7 @@ class KarmaSMBServer(Thread):
 
         # Are we being asked for a directory?
         if (createOptions & smb2.FILE_DIRECTORY_FILE) == 0:
-            if self.extensions.has_key(origPathNameExtension.upper()):
+            if origPathNameExtension.upper() in self.extensions:
                 targetFile = self.extensions[origPathNameExtension.upper()]
             else:
                 targetFile = self.defaultFile
@@ -469,7 +469,7 @@ class KarmaSMBServer(Thread):
             if len(connData['ConnectedShares']) == 0:
                tid = 1
             else:
-               tid = connData['ConnectedShares'].keys()[-1] + 1
+               tid = list(connData['ConnectedShares'].keys())[-1] + 1
             connData['ConnectedShares'][tid] = share
             connData['ConnectedShares'][tid]['path'] = '/'
             connData['ConnectedShares'][tid]['shareName'] = path
@@ -539,7 +539,7 @@ class KarmaSMBServer(Thread):
         if len(connData['ConnectedShares']) == 0:
            tid = 1
         else:
-           tid = connData['ConnectedShares'].keys()[-1] + 1
+           tid = list(connData['ConnectedShares'].keys())[-1] + 1
         connData['ConnectedShares'][tid] = share
         connData['ConnectedShares'][tid]['path'] = '/'
         connData['ConnectedShares'][tid]['shareName'] = path
@@ -583,7 +583,7 @@ class KarmaSMBServer(Thread):
 
 # Process command-line arguments.
 if __name__ == '__main__':
-    print version.BANNER
+    print(version.BANNER)
     parser = argparse.ArgumentParser(add_help = False, description = "For every file request received, this module will return the pathname contents")
     parser.add_argument("--help", action="help", help='show this help message and exit')
     parser.add_argument('fileName', action='store', metavar = 'pathname', help="Pathname's contents to deliver to SMB clients")
@@ -597,7 +597,7 @@ if __name__ == '__main__':
 
     try:
        options = parser.parse_args()
-    except Exception, e:
+    except Exception as e:
        logging.critical(str(e))
        sys.exit(1)
 

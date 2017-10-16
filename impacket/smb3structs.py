@@ -428,7 +428,7 @@ class SMBPacketBase(Structure):
 
     def isValidAnswer(self, status):
         if self['Status'] != status:
-            import smb3
+            from . import smb3
             raise smb3.SessionError(self['Status'], self)
         return True
 

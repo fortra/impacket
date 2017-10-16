@@ -125,7 +125,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
 
     try:
         r = sendReceive(message, domain, kdcHost)
-    except KerberosError, e:
+    except KerberosError as e:
         if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
             if supportedCiphers[0] in (constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value, constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value) and aesKey is '':
                 supportedCiphers = (int(constants.EncryptionTypes.rc4_hmac.value),)
@@ -163,7 +163,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
 
     enctype = supportedCiphers[0]
 
-    if encryptionTypesData.has_key(enctype) is False:
+    if (enctype in encryptionTypesData) is False:
         raise Exception('No Encryption Data Available!')
 
     # Let's build the timestamp
@@ -232,7 +232,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
 
     try:
         tgt = sendReceive(encoder.encode(asReq), domain, kdcHost) 
-    except Exception, e:
+    except Exception as e:
         if str(e).find('KDC_ERR_ETYPE_NOSUPP') >= 0:
             if lmhash is '' and nthash is '' and (aesKey is '' or aesKey is None):
                 from impacket.ntlm import compute_lmhash, compute_nthash
@@ -370,7 +370,7 @@ def getKerberosType3(cipher, sessionKey, auth_data):
     #ap_rep = decoder.decode(negTokenResp['ResponseToken'][16:], asn1Spec=AP_REP())[0]
     try:
         krbError = KerberosError(packet = decoder.decode(negTokenResp['ResponseToken'][15:], asn1Spec = KRB_ERROR())[0])
-    except Exception, e:
+    except Exception as e:
         pass
     else:
         raise krbError
@@ -417,7 +417,7 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT 
         if useCache is True:
             try:
                 ccache = CCache.loadFile(os.getenv('KRB5CCNAME'))
-            except Exception, e:
+            except Exception as e:
                 # No cache present
                 pass
             else:
@@ -443,7 +443,7 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT 
             if TGS is None:
                 try:
                     tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, password, domain, lmhash, nthash, aesKey, kdcHost)
-                except KerberosError, e:
+                except KerberosError as e:
                     if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
                         # We might face this if the target does not support AES 
                         # So, if that's the case we'll force using RC4 by converting
@@ -470,7 +470,7 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT 
             serverName = Principal('host/%s' % (targetName), type=constants.PrincipalNameType.NT_SRV_INST.value)
             try:
                 tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey)
-            except KerberosError, e:
+            except KerberosError as e:
                 if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
                     # We might face this if the target does not support AES 
                     # So, if that's the case we'll force using RC4 by converting

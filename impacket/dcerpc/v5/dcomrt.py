@@ -79,7 +79,7 @@ class DCERPCSessionError(Exception):
         return self.packet
 
     def __str__( self ):
-        if (hresult_errors.ERROR_MESSAGES.has_key(self.error_code)):
+        if (self.error_code in hresult_errors.ERROR_MESSAGES):
             error_msg_short = hresult_errors.ERROR_MESSAGES[self.error_code][0]
             error_msg_verbose = hresult_errors.ERROR_MESSAGES[self.error_code][1] 
             return 'DCOM SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
@@ -967,20 +967,20 @@ class DCOMConnection():
 
     @classmethod
     def addOid(self, target, oid):
-        if DCOMConnection.OID_ADD.has_key(target) is False:
+        if (target in DCOMConnection.OID_ADD) is False:
             DCOMConnection.OID_ADD[target] = set()
         DCOMConnection.OID_ADD[target].add(oid)
-        if DCOMConnection.OID_SET.has_key(target) is False:
+        if (target in DCOMConnection.OID_SET) is False:
             DCOMConnection.OID_SET[target] = {}
             DCOMConnection.OID_SET[target]['oids'] = set()
             DCOMConnection.OID_SET[target]['setid'] = 0
 
     @classmethod
     def delOid(self, target, oid):
-        if DCOMConnection.OID_DEL.has_key(target) is False:
+        if (target in DCOMConnection.OID_DEL) is False:
             DCOMConnection.OID_DEL[target] = set()
         DCOMConnection.OID_DEL[target].add(oid)
-        if DCOMConnection.OID_SET.has_key(target) is False:
+        if (target in DCOMConnection.OID_SET) is False:
             DCOMConnection.OID_SET[target] = {}
             DCOMConnection.OID_SET[target]['oids'] = set()
             DCOMConnection.OID_SET[target]['setid'] = 0
@@ -995,18 +995,18 @@ class DCOMConnection():
             for target in DCOMConnection.OID_SET:
                 addedOids = set()
                 deletedOids = set()
-                if DCOMConnection.OID_ADD.has_key(target):
+                if target in DCOMConnection.OID_ADD:
                     addedOids = DCOMConnection.OID_ADD[target]
                     del(DCOMConnection.OID_ADD[target])
             
-                if DCOMConnection.OID_DEL.has_key(target):
+                if target in DCOMConnection.OID_DEL:
                     deletedOids = DCOMConnection.OID_DEL[target]
                     del(DCOMConnection.OID_DEL[target])
 
                 objExporter = IObjectExporter(DCOMConnection.PORTMAPS[target])
 
                 if len(addedOids) > 0 or len(deletedOids) > 0:
-                    if DCOMConnection.OID_SET[target].has_key('setid'):
+                    if 'setid' in DCOMConnection.OID_SET[target]:
                         setId = DCOMConnection.OID_SET[target]['setid'] 
                     else:
                         setId = 0
@@ -1016,7 +1016,7 @@ class DCOMConnection():
                     DCOMConnection.OID_SET[target]['setid'] = resp['pSetId']
                 else:
                     resp = objExporter.SimplePing(DCOMConnection.OID_SET[target]['setid'])
-        except Exception, e:
+        except Exception as e:
             # There might be exceptions when sending packets 
             # We should try to continue tho.
             LOG.error(str(e))
@@ -1025,7 +1025,7 @@ class DCOMConnection():
         DCOMConnection.PINGTIMER = Timer(120,DCOMConnection.pingServer)
         try:
             DCOMConnection.PINGTIMER.start()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('threads can only be started once') < 0:
                 raise e
 
@@ -1035,7 +1035,7 @@ class DCOMConnection():
                 DCOMConnection.PINGTIMER = Timer(120, DCOMConnection.pingServer)
             try:
                 DCOMConnection.PINGTIMER.start()
-            except Exception, e:
+            except Exception as e:
                 if str(e).find('threads can only be started once') < 0:
                     raise e
 
@@ -1120,7 +1120,7 @@ class INTERFACE():
             self.__objRef = objRef
             self.__ipidRemUnknown = ipidRemUnknown
             # We gotta check if we have a container inside our connection list, if not, create
-            if INTERFACE.CONNECTIONS.has_key(self.__target) is not True:
+            if (self.__target in INTERFACE.CONNECTIONS) is not True:
                 INTERFACE.CONNECTIONS[self.__target] = {}
 
             if objRef is not None:
@@ -1191,8 +1191,8 @@ class INTERFACE():
         self.__cinstance = cinstance
 
     def connect(self, iid = None):
-        if INTERFACE.CONNECTIONS.has_key(self.__target) is True:
-            if INTERFACE.CONNECTIONS[self.__target].has_key(self.__oxid) is True:
+        if (self.__target in INTERFACE.CONNECTIONS) is True:
+            if (self.__oxid in INTERFACE.CONNECTIONS[self.__target]) is True:
                 dce = INTERFACE.CONNECTIONS[self.__target][self.__oxid]['dce']
                 currentBinding = INTERFACE.CONNECTIONS[self.__target][self.__oxid]['currentBinding']
                 if currentBinding == iid:
@@ -1258,7 +1258,7 @@ class INTERFACE():
         dce = self.get_dce_rpc()
         try:
             resp = dce.request(req, uuid)
-        except Exception, e:
+        except Exception as e:
             if str(e).find('RPC_E_DISCONNECTED') >= 0:
                 msg = str(e) + '\n'
                 msg += "DCOM keep-alive pinging it might not be working as expected. You can't be idle for more than 14 minutes!\n"

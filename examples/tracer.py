@@ -47,8 +47,8 @@ import socket
 import sys
 import time
 
-import Tkinter
-from Tkconstants import *
+import tkinter
+from tkinter.constants import *
 
 import pcapy
 from pcapy import open_live, findalldevs, PcapError
@@ -124,7 +124,7 @@ class SymbolicAxis(NumericAxis):
             i = NumericAxis.unscale(self, value)
             if i < 0: return None
             return self.getValues()[i]
-        except Exception,e:
+        except Exception as e:
             return None
 
     def scale(self,value):
@@ -137,9 +137,9 @@ class SymbolicAxis(NumericAxis):
     def getValues(self):
         return self.values
 
-class ParallelCoordinates(Tkinter.Canvas):
+class ParallelCoordinates(tkinter.Canvas):
     def __init__(self, master=None, cnf={}, **kw):
-        apply(Tkinter.Canvas.__init__, (self, master, cnf), kw)
+        tkinter.Canvas.__init__(*(self, master, cnf), **kw)
 
         self.lastSelection = None
         self.lastSelectionOval = None
@@ -285,12 +285,12 @@ class ParallelCoordinates(Tkinter.Canvas):
 
 class Tracer:
     def __init__(self, interface = 'eth0', filter = ''):
-        print "Tracing interface %s with filter `%s'." % (interface, filter)
+        print("Tracing interface %s with filter `%s'." % (interface, filter))
 
-        self.tk = Tkinter.Tk()
+        self.tk = tkinter.Tk()
         self.pc = ParallelCoordinates(self.tk,background = "black")
         self.pc.pack(expand=1, fill="both")
-        self.status = Tkinter.Label(self.tk)
+        self.status = tkinter.Label(self.tk)
         self.status.pack()
         self.tk.tkraise()
         self.tk.title('Personal SIDRA (IP-Tracer)')
@@ -337,8 +337,8 @@ class Tracer:
         received = 0
         while 1:
             try:
-                hdr, data = self.p.next()
-            except PcapError, e:
+                hdr, data = next(self.p)
+            except PcapError as e:
                 break
             self.newPacket(hdr.getcaplen(), data, hdr.getts()[0])
             received = 1
@@ -348,7 +348,7 @@ class Tracer:
     def newPacket(self, len, data, timestamp):
         try:
             p = self.decoder.decode(data)
-        except Exception, e:
+        except Exception as e:
             pass
         value = {}
         try:
@@ -395,12 +395,12 @@ def getInterfaces():
     return ifs
 
 def printUsage():
-        print """Usage: %s [interface [filter]]
+        print("""Usage: %s [interface [filter]]
 Interface is the name of a local network interface, see the list of available interfaces below.
 Filter is a BPF filter, as described in tcpdump(3)'s man page.
 
 Available interfaces for this user: %s
-""" % (sys.argv[0], getInterfaces())
+""" % (sys.argv[0], getInterfaces()))
 
 def main():
     if len(sys.argv) == 1:

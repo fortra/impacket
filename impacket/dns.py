@@ -30,7 +30,7 @@
 
 import socket
 import struct
-from ImpactPacket import ProtocolPacket
+from .ImpactPacket import ProtocolPacket
 
 class DNSFlags():
     'Bitmap with the flags of a dns packet.'
@@ -150,7 +150,7 @@ class DNSType():
     
     @staticmethod
     def getTypeName(type):
-        for item, value in DNSType.__dict__.items():
+        for item, value in list(DNSType.__dict__.items()):
             if value == type:
                 return item
     
@@ -166,7 +166,7 @@ class DNSClass():
     
     @staticmethod
     def getClassName(type):
-        for item, value in DNSClass.__dict__.items():
+        for item, value in list(DNSClass.__dict__.items()):
             if value == type:
                 return item
 
@@ -611,4 +611,4 @@ if __name__ == "__main__":
     
     for pkt in pkts:
         d = DNS(pkt)
-        print d
+        print(d)

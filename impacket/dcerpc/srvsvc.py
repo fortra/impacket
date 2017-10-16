@@ -85,7 +85,7 @@ class SRVSVCSessionError(Exception):
 
     def __str__( self ):
         key = self.error_code
-        if (SRVSVCSessionError.error_messages.has_key(key)):
+        if (key in SRVSVCSessionError.error_messages):
             error_msg_short = SRVSVCSessionError.error_messages[key][0]
             error_msg_verbose = SRVSVCSessionError.error_messages[key][1] 
             return 'SRVSVC SessionError: code: %s - %s - %s' % (str(self.error_code), error_msg_short, error_msg_verbose)
@@ -204,7 +204,7 @@ class SESSION_INFO_502(Structure):
         return str(self.__nonDeferred)
 
     def __getitem__(self, key):
-        if self.__nonDeferred.fields.has_key(key):
+        if key in self.__nonDeferred.fields:
             return self.__nonDeferred[key]
         else:
             return self.__deferred[key]
@@ -274,7 +274,7 @@ class SHARE_INFO_1(Structure):
         return str(self.__nonDeferred)
 
     def __getitem__(self, key):
-        if self.__nonDeferred.fields.has_key(key):
+        if key in self.__nonDeferred.fields:
             return self.__nonDeferred[key]
         else:
             return self.__deferred[key]
@@ -543,14 +543,14 @@ class SRVSVCRespNetShareGetInfoHeader(ImpactPacket.Header):
         self.set_long(0, level, '<')
 
     def set_share_info(self, info):
-        raise exceptions.Exception, "method not implemented"
+        raise exceptions.Exception("method not implemented")
 
     def get_share_info(self):
         level = self.get_info_level()
         if level == 2:
             return ndrutils.NDRPointer(self.get_bytes()[4:-4].tostring(), ShareInfoLevel2Entry)
         else:
-            raise exceptions.Exception, "Share Info level not supported"
+            raise exceptions.Exception("Share Info level not supported")
 
     def get_return_code(self):
         return self.get_long(len(self.get_bytes())-4, '<')
