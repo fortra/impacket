@@ -49,17 +49,17 @@ class PacketBuffer(object):
     def __init__(self, length = None):
         "If 'length' is specified the buffer is created with an initial size"
         if length:
-            self.__bytes = array.array('B', '\0' * length)
+            self.__bytes = bytearray(b'\0' * length)
         else:
-            self.__bytes = array.array('B')
+            self.__bytes = bytearray()
 
-    def set_bytes_from_string(self, data):
+    def set_bytes(self, data):
         "Sets the value of the packet buffer from the string 'data'"
-        self.__bytes = array.array('B', data)
+        self.__bytes = bytearray(data)
 
-    def get_buffer_as_string(self):
-        "Returns the packet buffer as a string object"
-        return self.__bytes.tostring()
+    def get_buffer(self):
+        "Returns the packet buffer"
+        return self.__bytes
 
     def get_bytes(self):
         "Returns the packet buffer as an array"
@@ -68,7 +68,7 @@ class PacketBuffer(object):
     def set_bytes(self, bytes):
         "Set the packet buffer from an array"
         # Make a copy to be safe
-        self.__bytes = array.array('B', bytes.tolist())
+        self.__bytes = bytearray(bytes)
 
     def set_byte(self, index, value):
         "Set byte at 'index' to 'value'"
@@ -83,7 +83,7 @@ class PacketBuffer(object):
     def set_word(self, index, value, order = '!'):
         "Set 2-byte word at 'index' to 'value'. See struct module's documentation to understand the meaning of 'order'."
         index = self.__validate_index(index, 2)
-        ary = array.array("B", struct.pack(order + 'H', value))
+        ary = bytearray(struct.pack(order + 'H', value))
         if -2 == index:
             self.__bytes[index:] = ary
         else:
@@ -96,7 +96,7 @@ class PacketBuffer(object):
             bytes = self.__bytes[index:]
         else:
             bytes = self.__bytes[index:index+2]
-        (value,) = struct.unpack(order + 'H', bytes.tostring())
+        (value,) = struct.unpack(order + 'H', bytes)
         return value
 
     def set_long(self, index, value, order = '!'):
@@ -115,7 +115,7 @@ class PacketBuffer(object):
             bytes = self.__bytes[index:]
         else:
             bytes = self.__bytes[index:index+4]
-        (value,) = struct.unpack(order + 'L', bytes.tostring())
+        (value,) = struct.unpack(order + 'L', bytes)
         return value
 
     def set_long_long(self, index, value, order = '!'):
@@ -134,7 +134,7 @@ class PacketBuffer(object):
             bytes = self.__bytes[index:]
         else:
             bytes = self.__bytes[index:index+8]
-        (value,) = struct.unpack(order + 'Q', bytes.tostring())
+        (value,) = struct.unpack(order + 'Q', bytes)
         return value
 
 
@@ -145,7 +145,7 @@ class PacketBuffer(object):
             bytes = self.__bytes[index:]
         else:
             bytes = self.__bytes[index:index+4]
-        return socket.inet_ntoa(bytes.tostring())
+        return socket.inet_ntoa(bytes)
 
     def set_ip_address(self, index, ip_string):
         "Set 4-byte value at 'index' from 'ip_string'"
@@ -251,7 +251,7 @@ class ProtocolPacket(ProtocolLayer):
         if self.child():
             body=self.child().get_packet()
             self.__BODY_SIZE=len(body)
-            self.__body.set_bytes_from_string(body)
+            self.__body.set_bytes(body)
             
     def __get_header(self):
         return self.__header
@@ -288,18 +288,18 @@ class ProtocolPacket(ProtocolLayer):
     
     def load_header(self, aBuffer):
         self.__HEADER_SIZE=len(aBuffer)
-        self.__header.set_bytes_from_string(aBuffer)
+        self.__header.set_bytes(aBuffer)
     
     def load_body(self, aBuffer):
         "Load the packet body from string. "\
         "WARNING: Using this function will break the hierarchy of preceding protocol layer"
         self.unlink_child()
         self.__BODY_SIZE=len(aBuffer)
-        self.__body.set_bytes_from_string(aBuffer)
+        self.__body.set_bytes(aBuffer)
     
     def load_tail(self, aBuffer):
         self.__TAIL_SIZE=len(aBuffer)
-        self.__tail.set_bytes_from_string(aBuffer)
+        self.__tail.set_bytes(aBuffer)
     
     def __extract_header(self, aBuffer):
         self.load_header(aBuffer[:self.__HEADER_SIZE])
@@ -310,7 +310,7 @@ class ProtocolPacket(ProtocolLayer):
         else:
             end=-self.__TAIL_SIZE
         self.__BODY_SIZE=len(aBuffer[self.__HEADER_SIZE:end])
-        self.__body.set_bytes_from_string(aBuffer[self.__HEADER_SIZE:end])
+        self.__body.set_bytes(aBuffer[self.__HEADER_SIZE:end])
         
     def __extract_tail(self, aBuffer):
         if self.__TAIL_SIZE<=0:
@@ -318,7 +318,7 @@ class ProtocolPacket(ProtocolLayer):
             return
         else:
             start=-self.__TAIL_SIZE
-        self.__tail.set_bytes_from_string(aBuffer[start:])
+        self.__tail.set_bytes(aBuffer[start:])
 
     def load_packet(self, aBuffer):
         "Load the whole packet from a string" \
@@ -330,15 +330,15 @@ class ProtocolPacket(ProtocolLayer):
         self.__extract_tail(aBuffer)
         
     def get_header_as_string(self):
-        return self.__header.get_buffer_as_string()
+        return self.__header.get_buffer()
         
     def get_body_as_string(self):
         self.__update_body_from_child()
-        return self.__body.get_buffer_as_string()
+        return self.__body.get_buffer()
     body_string = property(get_body_as_string)
     
     def get_tail_as_string(self):
-        return self.__tail.get_buffer_as_string()
+        return self.__tail.get_buffer()
     tail_string = property(get_tail_as_string)
         
     def get_packet(self):
@@ -363,7 +363,7 @@ class ProtocolPacket(ProtocolLayer):
 class Header(PacketBuffer,ProtocolLayer):
     "This is the base class from which all protocol definitions extend."
 
-    packet_printable = [c for c in string.printable if c not in string.whitespace] + ' '
+    packet_printable = [c for c in string.printable if c not in string.whitespace] + [' ']
 
     ethertype = None
     protocol = None
@@ -371,7 +371,7 @@ class Header(PacketBuffer,ProtocolLayer):
         PacketBuffer.__init__(self, length)
         self.auto_checksum = 1
 
-    def get_data_as_string(self):
+    def get_data(self):
         "Returns all data from children of this header as string"
 
         if self.child():
@@ -386,11 +386,11 @@ class Header(PacketBuffer,ProtocolLayer):
         """
         self.calculate_checksum()
 
-        data = self.get_data_as_string()
+        data = self.get_data()
         if data:
-            return self.get_buffer_as_string() + data
+            return self.get_buffer() + data
         else:
-            return self.get_buffer_as_string()
+            return self.get_buffer()
 
     def get_size(self):
         "Return the size of this header and all of it's children"
@@ -410,13 +410,13 @@ class Header(PacketBuffer,ProtocolLayer):
 
     def load_header(self, aBuffer):
         "Properly set the state of this instance to reflect that of the raw packet passed as argument."
-        self.set_bytes_from_string(aBuffer)
+        self.set_bytes(aBuffer)
         hdr_len = self.get_header_size()
         if(len(aBuffer) < hdr_len):         #we must do something like this
             diff = hdr_len - len(aBuffer)
             for i in range(0, diff):
                 aBuffer += '\x00'
-        self.set_bytes_from_string(aBuffer[:hdr_len])
+        self.set_bytes(aBuffer[:hdr_len])
 
     def get_header_size(self):
         "Return the size of this header, that is, not counting neither the size of the children nor of the parents."
@@ -433,7 +433,7 @@ class Header(PacketBuffer,ProtocolLayer):
                         ltmp.append(' ')
                     else:
                         ltmp.append(' '*4)
-                        ltmp.append(string.join(line, ''))
+                        ltmp.append(''.join(line))
                         ltmp.append('\n')
                         line = []
                 if chr(byte) in Header.packet_printable:
@@ -444,21 +444,21 @@ class Header(PacketBuffer,ProtocolLayer):
                 count += 1
             if (count%16):
                 left = 16 - (count%16)
-                ltmp.append(' ' * (4+(left / 2) + (left*2)))
-                ltmp.append(string.join(line, ''))
+                ltmp.append(' ' * (4+(left // 2) + (left*2)))
+                ltmp.append(''.join(line))
                 ltmp.append('\n')
             return ltmp
         else:
             return []
 
     def __str__(self):
-        ltmp = self.list_as_hex(self.get_bytes().tolist())
+        ltmp = self.list_as_hex(self.get_bytes())
 
         if self.child():
             ltmp.append(['\n', str(self.child())])
 
         if len(ltmp)>0:
-            return string.join(ltmp, '')
+            return ''.join(ltmp)
         else:
             return ''
 
@@ -484,7 +484,7 @@ class Data(Header):
             self.set_data(aBuffer)
 
     def set_data(self, data):
-        self.set_bytes_from_string(data)
+        self.set_bytes(data)
 
     def get_size(self):
         return len(self.get_bytes())
@@ -615,7 +615,7 @@ class Ethernet(Header):
         diff = hdr_len - len(aBuffer)
         if diff > 0:
             aBuffer += '\x00'*diff
-        self.set_bytes_from_string(aBuffer[:hdr_len])
+        self.set_bytes(aBuffer[:hdr_len])
 
     def get_header_size(self):
         "Return size of Ethernet header"
@@ -783,7 +783,7 @@ class IP(Header):
         if self.get_ip_len() == 0:
             self.set_ip_len(self.get_size())
 
-        child_data = self.get_data_as_string();
+        child_data = self.get_data();
 
         if self.auto_checksum:
             self.reset_ip_sum()
@@ -808,9 +808,9 @@ class IP(Header):
             self.set_ip_sum(self.compute_checksum(my_bytes))
 
         if child_data == None:
-            return my_bytes.tostring()
+            return my_bytes
         else:
-            return my_bytes.tostring() + child_data
+            return my_bytes + child_data
 
 
 
@@ -954,7 +954,7 @@ class IP(Header):
         else:
             proto = 0
 
-        child_data = self.get_data_as_string()
+        child_data = self.get_data()
         if not child_data:
             return [self]
 
@@ -1008,7 +1008,7 @@ class IP(Header):
 
 
     def fragment_by_size(self, aSize):
-        data_len = len(self.get_data_as_string())
+        data_len = len(self.get_data())
         num_frags = data_len / aSize
 
         if data_len % aSize:
@@ -1062,9 +1062,9 @@ class IP(Header):
         return 20 + op_len + num_pad
 
     def load_header(self, aBuffer):
-        self.set_bytes_from_string(aBuffer[:20])
+        self.set_bytes(aBuffer[:20])
         opt_left = (self.get_ip_hl() - 5) * 4
-        opt_bytes = array.array('B', aBuffer[20:(20 + opt_left)])
+        opt_bytes = bytearray(aBuffer[20:(20 + opt_left)])
         if len(opt_bytes) != opt_left:
             raise ImpactPacketException("Cannot load options from truncated packet")
 
@@ -1290,7 +1290,7 @@ class UDP(Header):
             buffer = self.parent().get_pseudo_header()
 
             buffer += self.get_bytes()
-            data = self.get_data_as_string()
+            data = self.get_data()
             if(data):
                 buffer.fromstring(data)
             self.set_uh_sum(self.compute_checksum(buffer))
@@ -1480,7 +1480,7 @@ class TCP(Header):
         buffer += self.get_bytes()
         buffer += self.get_padded_options()
 
-        data = self.get_data_as_string()
+        data = self.get_data()
         if(data):
             buffer.fromstring(data)
 
@@ -1498,17 +1498,17 @@ class TCP(Header):
         self.calculate_checksum()
 
         bytes = self.get_bytes() + self.get_padded_options()
-        data = self.get_data_as_string()
+        data = self.get_data()
 
         if data:
-            return bytes.tostring() + data
+            return bytes + data
         else:
-            return bytes.tostring()
+            return bytes
 
     def load_header(self, aBuffer):
-        self.set_bytes_from_string(aBuffer[:20])
+        self.set_bytes(aBuffer[:20])
         opt_left = (self.get_th_off() - 5) * 4
-        opt_bytes = array.array('B', aBuffer[20:(20 + opt_left)])
+        opt_bytes = bytearray(aBuffer[20:(20 + opt_left)])
         if len(opt_bytes) != opt_left:
             raise ImpactPacketException("Cannot load options from truncated packet")
 
@@ -1553,12 +1553,12 @@ class TCP(Header):
 
     def get_padded_options(self):
         "Return an array containing all options padded to a 4 byte boundry"
-        op_buf = array.array('B')
+        op_buf = bytearray()
         for op in self.__option_list:
             op_buf += op.get_bytes()
         num_pad = (4 - (len(op_buf) % 4)) % 4
         if num_pad:
-            op_buf.fromstring("\0" * num_pad)
+            op_buf.fromhex((b"\0" * num_pad).hex())
         return op_buf
 
     def __str__(self):
@@ -1880,12 +1880,12 @@ class ICMP(Header):
 
     def calculate_checksum(self):
         if self.auto_checksum and (not self.get_icmp_cksum()):
-            buffer = self.get_buffer_as_string()
-            data = self.get_data_as_string()
+            buffer = self.get_buffer()
+            data = self.get_data()
             if data:
                 buffer += data
 
-            tmp_array = array.array('B', buffer)
+            tmp_array = bytearray(buffer)
             self.set_icmp_cksum(self.compute_checksum(tmp_array))
 
     def get_type_name(self, aType):
@@ -2031,7 +2031,7 @@ class ARP(Header):
 
     def get_ar_sha(self):
         tmp_size = self.get_ar_hln()
-        return self.get_bytes().tolist()[8: 8 + tmp_size]
+        return self.get_bytes()[8: 8 + tmp_size]
 
     def set_ar_sha(self, aValue):
         for i in range(0, self.get_ar_hln()):
@@ -2039,7 +2039,7 @@ class ARP(Header):
 
     def get_ar_spa(self):
         tmp_size = self.get_ar_pln()
-        return self.get_bytes().tolist()[8 + self.get_ar_hln(): 8 + self.get_ar_hln() + tmp_size]
+        return self.get_bytes()[8 + self.get_ar_hln(): 8 + self.get_ar_hln() + tmp_size]
 
     def set_ar_spa(self, aValue):
         for i in range(0, self.get_ar_pln()):
@@ -2048,7 +2048,7 @@ class ARP(Header):
     def get_ar_tha(self):
         tmp_size = self.get_ar_hln()
         tmp_from = 8 + self.get_ar_hln() + self.get_ar_pln()
-        return self.get_bytes().tolist()[tmp_from: tmp_from + tmp_size]
+        return self.get_bytes()[tmp_from: tmp_from + tmp_size]
 
     def set_ar_tha(self, aValue):
         tmp_from = 8 + self.get_ar_hln() + self.get_ar_pln()
@@ -2058,7 +2058,7 @@ class ARP(Header):
     def get_ar_tpa(self):
         tmp_size = self.get_ar_pln()
         tmp_from = 8 + ( 2 * self.get_ar_hln()) + self.get_ar_pln()
-        return self.get_bytes().tolist()[tmp_from: tmp_from + tmp_size]
+        return self.get_bytes()[tmp_from: tmp_from + tmp_size]
 
     def set_ar_tpa(self, aValue):
         tmp_from = 8 + (2 * self.get_ar_hln()) + self.get_ar_pln()

@@ -1,6 +1,3 @@
-#!/usr/bin/python
-# $Id$
-
 import glob
 import os
 

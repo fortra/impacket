@@ -1585,7 +1585,7 @@ class RadioTap(ProtocolPacket):
     
     # Sort the list so the 'for' statement walk the list in the right order
     radiotap_fields = __RadioTapField.__subclasses__()
-    radiotap_fields.sort(lambda x, y: cmp(x.BIT_NUMBER,y.BIT_NUMBER))
+    #radiotap_fields.sort(lambda x, y: cmp(x.BIT_NUMBER,y.BIT_NUMBER))
     
     def __init__(self, aBuffer = None):
         header_size = self.__HEADER_BASE_SIZE 
