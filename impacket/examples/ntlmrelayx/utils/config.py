@@ -32,6 +32,7 @@ class NTLMRelayxConfig:
         self.exeFile = None
         self.command = None
         self.interactive = False
+        self.runSocks = False
 
         #LDAP options
         self.dumpdomain = True
@@ -39,6 +40,9 @@ class NTLMRelayxConfig:
 
         #MSSQL options
         self.queries = []
+
+    def setRunSocks(self, socks):
+        self.runSocks = socks
 
     def setOutputFile(self,outputFile):
         self.outputFile = outputFile
