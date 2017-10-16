@@ -366,7 +366,11 @@ class SOCKS(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
             self.socksPlugins[relay.getProtocolPort()] = relay
 
         # Let's create a timer to keep the connections up.
-        t = RepeatedTimer(300.0, keepAliveTimer, self)
+        self.__timer = RepeatedTimer(300.0, keepAliveTimer, self)
+
+    def shutdown(self):
+        self.__timer.stop()
+        return SocketServer.TCPServer.shutdown(self)
 
 if __name__ == '__main__':
     from impacket.examples import logger
