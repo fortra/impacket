@@ -15,8 +15,8 @@
 import sys
 import struct
 from pyasn1.codec.der import decoder, encoder
-from .Crypto.Hash import HMAC, MD5
-from .Crypto.Cipher import ARC4
+from Crypto.Hash import HMAC, MD5
+from Crypto.Cipher import ARC4
 from impacket.structure import Structure
 from impacket.winregistry import hexdump
 from impacket.krb5 import constants, crypto
