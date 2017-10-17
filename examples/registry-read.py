@@ -21,6 +21,7 @@ import sys
 import argparse
 import ntpath
 
+
 def bootKey(reg):
     baseClass = 'ControlSet001\\Control\\Lsa\\'
     keys = ['JD','Skew1','GBG','Data']
@@ -29,13 +30,14 @@ def bootKey(reg):
     for key in keys:
         tmpKey = tmpKey + reg.getClass(baseClass + key).decode('utf-16le')[:8].decode('hex')
 
-    transforms = [ 8, 5, 4, 2, 11, 9, 13, 3, 0, 6, 1, 12, 14, 10, 15, 7 ]
+    transforms = [8, 5, 4, 2, 11, 9, 13, 3, 0, 6, 1, 12, 14, 10, 15, 7]
 
     syskey = ''
     for i in range(len(tmpKey)):
         syskey += tmpKey[transforms[i]]
 
     print(syskey.encode('hex'))
+
 
 def getClass(reg, className):
     regKey = ntpath.dirname(className)
@@ -52,6 +54,7 @@ def getClass(reg, className):
 
     winregistry.hexdump(value,'   ')
 
+
 def getValue(reg, keyValue):
     regKey = ntpath.dirname(keyValue)
     regValue = ntpath.basename(keyValue)
@@ -66,6 +69,7 @@ def getValue(reg, keyValue):
     print("Value for %s:\n    " % regValue, end=' ')
     reg.printValue(value[0],value[1])
 
+
 def enumValues(reg, searchKey):
     key = reg.findKey(searchKey)
 
@@ -78,7 +82,7 @@ def enumValues(reg, searchKey):
 
     for value in values:
         print("  %-30s: " % (value), end=' ')
-        data = reg.getValue('%s\\%s'%(searchKey,value))
+        data = reg.getValue('%s\\%s' % (searchKey,value))
         # Special case for binary string.. so it looks better formatted
         if data[0] == winregistry.REG_BINARY:
             print('')
@@ -86,6 +90,7 @@ def enumValues(reg, searchKey):
             print('')
         else:
             reg.printValue(data[0],data[1])
+
 
 def enumKey(reg, searchKey, isRecursive, indent='  '):
     parentKey = reg.findKey(searchKey)
@@ -96,12 +101,13 @@ def enumKey(reg, searchKey, isRecursive, indent='  '):
     keys = reg.enumKey(parentKey)
 
     for key in keys:
-        print("%s%s" %(indent, key))
+        print("%s%s" % (indent, key))
         if isRecursive is True:
             if searchKey == '\\':
-                enumKey(reg, '\\%s'%(key),isRecursive,indent+'  ')
+                enumKey(reg, '\\%s' % (key),isRecursive,indent + '  ')
             else:
-                enumKey(reg, '%s\\%s'%(searchKey,key),isRecursive,indent+'  ')
+                enumKey(reg, '%s\\%s' % (searchKey,key),isRecursive,indent + '  ')
+
 
 def walk(reg, keyName):
     return reg.walk(keyName)
@@ -110,7 +116,7 @@ def walk(reg, keyName):
 def main():
     print(version.BANNER)
 
-    parser = argparse.ArgumentParser(add_help = True, description = "Reads data from registry hives.")
+    parser = argparse.ArgumentParser(add_help=True, description="Reads data from registry hives.")
 
     parser.add_argument('hive', action='store', help='registry hive to open')
     subparsers = parser.add_subparsers(help='actions', dest='action')
@@ -135,7 +141,7 @@ def main():
     walk_parser = subparsers.add_parser('walk', help='walks the registry from the name node down')
     walk_parser.add_argument('-name', action='store', required=True, help='registry class name to start walking down from')
 
-    if len(sys.argv)==1:
+    if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(1)
 
@@ -159,4 +165,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

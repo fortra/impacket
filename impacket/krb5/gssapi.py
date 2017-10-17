@@ -22,32 +22,35 @@ from impacket.winregistry import hexdump
 from impacket.krb5 import constants, crypto
 
 # Constants
-GSS_C_DCE_STYLE     = 0x1000
-GSS_C_DELEG_FLAG    = 1
-GSS_C_MUTUAL_FLAG   = 2
-GSS_C_REPLAY_FLAG   = 4
+GSS_C_DCE_STYLE = 0x1000
+GSS_C_DELEG_FLAG = 1
+GSS_C_MUTUAL_FLAG = 2
+GSS_C_REPLAY_FLAG = 4
 GSS_C_SEQUENCE_FLAG = 8
-GSS_C_CONF_FLAG     = 0x10
-GSS_C_INTEG_FLAG    = 0x20
+GSS_C_CONF_FLAG = 0x10
+GSS_C_INTEG_FLAG = 0x20
 
 # Mic Semantics
 GSS_HMAC = 0x11
 # Wrap Semantics
-GSS_RC4  = 0x10
+GSS_RC4 = 0x10
 
 # 2.  Key Derivation for Per-Message Tokens
-KG_USAGE_ACCEPTOR_SEAL  = 22
-KG_USAGE_ACCEPTOR_SIGN  = 23
+KG_USAGE_ACCEPTOR_SEAL = 22
+KG_USAGE_ACCEPTOR_SIGN = 23
 KG_USAGE_INITIATOR_SEAL = 24
 KG_USAGE_INITIATOR_SIGN = 25
 
 # 1.1.1. Initial Token - Checksum field
+
+
 class CheckSumField(Structure):
     structure = (
         ('Lgth','<L=16'),
         ('Bnd','16s=""'),
         ('Flags','<L=0'),
     )
+
 
 def GSSAPI(cipher):
     if cipher.enctype == constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value:
@@ -60,6 +63,8 @@ def GSSAPI(cipher):
         raise Exception('Unsupported etype 0x%x' % cipher.enctype)
 
 # 7.2.   GSS-API MIC Semantics
+
+
 class GSSAPI_RC4():
     # 1.2.1. Per-message Tokens - MIC
     class MIC(Structure):
@@ -83,7 +88,7 @@ class GSSAPI_RC4():
             ('Confounder','8s=""'),
         )
 
-    def GSS_GetMIC(self, sessionKey, data, sequenceNumber, direction = 'init'):
+    def GSS_GetMIC(self, sessionKey, data, sequenceNumber, direction='init'):
         GSS_GETMIC_HEADER = '\x60\x23\x06\x09\x2a\x86\x48\x86\xf7\x12\x01\x02\x02'
         token = self.MIC()
 
@@ -91,15 +96,15 @@ class GSSAPI_RC4():
         pad = (4 - (len(data) % 4)) & 0x3
         padStr = chr(pad) * pad
         data = data + padStr
- 
+
         token['SGN_ALG'] = GSS_HMAC
         if direction == 'init':
-            token['SND_SEQ'] = struct.pack('>L', sequenceNumber) + '\x00'*4
+            token['SND_SEQ'] = struct.pack('>L', sequenceNumber) + '\x00' * 4
         else:
-            token['SND_SEQ'] = struct.pack('>L', sequenceNumber) + '\xff'*4
+            token['SND_SEQ'] = struct.pack('>L', sequenceNumber) + '\xff' * 4
 
         Ksign = HMAC.new(sessionKey.contents, 'signaturekey\0', MD5).digest()
-        Sgn_Cksum = MD5.new( struct.pack('<L',15) + str(token)[:8] + data).digest()
+        Sgn_Cksum = MD5.new(struct.pack('<L',15) + str(token)[:8] + data).digest()
         Sgn_Cksum = HMAC.new(Ksign, Sgn_Cksum, MD5).digest()
         token['SGN_CKSUM'] = Sgn_Cksum[:8]
 
@@ -108,8 +113,8 @@ class GSSAPI_RC4():
         token['SND_SEQ'] = ARC4.new(Kseq).encrypt(token['SND_SEQ'])
         finalData = GSS_GETMIC_HEADER + token.getData()
         return finalData
-   
-    def GSS_Wrap(self, sessionKey, data, sequenceNumber, direction = 'init', encrypt=True, authData=None):
+
+    def GSS_Wrap(self, sessionKey, data, sequenceNumber, direction='init', encrypt=True, authData=None):
         # Damn inacurate RFC, useful info from here
         # https://social.msdn.microsoft.com/Forums/en-US/fb98e8f4-e697-4652-bcb7-604e027e14cc/gsswrap-token-size-kerberos-and-rc4hmac?forum=os_windowsprotocols
         # and here
@@ -126,9 +131,9 @@ class GSSAPI_RC4():
         token['SEAL_ALG'] = GSS_RC4
 
         if direction == 'init':
-            token['SND_SEQ'] = struct.pack('>L', sequenceNumber) + '\x00'*4
+            token['SND_SEQ'] = struct.pack('>L', sequenceNumber) + '\x00' * 4
         else:
-            token['SND_SEQ'] = struct.pack('>L', sequenceNumber) + '\xff'*4
+            token['SND_SEQ'] = struct.pack('>L', sequenceNumber) + '\xff' * 4
 
         # Random confounder :)
         token['Confounder'] = '12345678'
@@ -137,11 +142,11 @@ class GSSAPI_RC4():
         Sgn_Cksum = MD5.new(struct.pack('<L',13) + str(token)[:8] + token['Confounder'] + data).digest()
         Klocal = ''
         for n in sessionKey.contents:
-            Klocal +=  chr(ord(n) ^ 0xF0)
- 
+            Klocal += chr(ord(n) ^ 0xF0)
+
         Kcrypt = HMAC.new(Klocal,struct.pack('<L',0), MD5).digest()
         Kcrypt = HMAC.new(Kcrypt,struct.pack('>L', sequenceNumber), MD5).digest()
-        
+
         Sgn_Cksum = HMAC.new(Ksign, Sgn_Cksum, MD5).digest()
 
         token['SGN_CKSUM'] = Sgn_Cksum[:8]
@@ -160,7 +165,7 @@ class GSSAPI_RC4():
             Kseq = HMAC.new(Kseq, wrap['SGN_CKSUM'], MD5).digest()
 
             snd_seq = ARC4.new(Kseq).encrypt(wrap['SND_SEQ'])
- 
+
             Kcrypt = HMAC.new(Klocal,struct.pack('<L',0), MD5).digest()
             Kcrypt = HMAC.new(Kcrypt,snd_seq[:4], MD5).digest()
             rc4 = ARC4.new(Kcrypt)
@@ -175,8 +180,9 @@ class GSSAPI_RC4():
         finalData = GSS_WRAP_HEADER + token.getData()
         return cipherText, finalData
 
-    def GSS_Unwrap(self, sessionKey, data, sequenceNumber, direction = 'init', encrypt=True, authData=None):
+    def GSS_Unwrap(self, sessionKey, data, sequenceNumber, direction='init', encrypt=True, authData=None):
         return self.GSS_Wrap(sessionKey, data, sequenceNumber, direction, encrypt, authData)
+
 
 class GSSAPI_AES():
     checkSumProfile = None
@@ -203,7 +209,7 @@ class GSSAPI_AES():
             ('SND_SEQ','8s=""'),
         )
 
-    def GSS_GetMIC(self, sessionKey, data, sequenceNumber, direction = 'init'):
+    def GSS_GetMIC(self, sessionKey, data, sequenceNumber, direction='init'):
         token = self.MIC()
 
         # Let's pad the data
@@ -216,9 +222,9 @@ class GSSAPI_AES():
         token['Flags'] = 4
         token['SND_SEQ'] = struct.pack('>Q',sequenceNumber)
         token['SGN_CKSUM'] = checkSumProfile.checksum(sessionKey, KG_USAGE_INITIATOR_SIGN, data + token.getData()[:16])
- 
+
         return token.getData()
-   
+
     def rotate(self, data, numBytes):
         numBytes = numBytes % len(data)
         left = len(data) - numBytes
@@ -229,8 +235,8 @@ class GSSAPI_AES():
         numBytes = numBytes % len(data)
         result = data[numBytes:] + data[:numBytes]
         return result
-        
-    def GSS_Wrap(self, sessionKey, data, sequenceNumber, direction = 'init', encrypt=True):
+
+    def GSS_Wrap(self, sessionKey, data, sequenceNumber, direction='init', encrypt=True):
         token = self.WRAP()
 
         cipher = self.cipherType()
@@ -240,7 +246,7 @@ class GSSAPI_AES():
         padStr = '\xFF' * pad
         data = data + padStr
 
-        # The RRC field ([RFC4121] section 4.2.5) is 12 if no encryption is requested or 28 if encryption 
+        # The RRC field ([RFC4121] section 4.2.5) is 12 if no encryption is requested or 28 if encryption
         # is requested. The RRC field is chosen such that all the data can be encrypted in place.
         rrc = 28
 
@@ -249,7 +255,7 @@ class GSSAPI_AES():
         token['RRC'] = 0
         token['SND_SEQ'] = struct.pack('>Q',sequenceNumber)
 
-        cipherText = cipher.encrypt(sessionKey, KG_USAGE_INITIATOR_SEAL,  data + token.getData(), None)
+        cipherText = cipher.encrypt(sessionKey, KG_USAGE_INITIATOR_SEAL, data + token.getData(), None)
         token['RRC'] = rrc
 
         cipherText = self.rotate(cipherText, token['RRC'] + token['EC'])
@@ -260,22 +266,24 @@ class GSSAPI_AES():
 
         return ret1, ret2
 
-    def GSS_Unwrap(self, sessionKey, data, sequenceNumber, direction = 'init', encrypt=True, authData=None):
+    def GSS_Unwrap(self, sessionKey, data, sequenceNumber, direction='init', encrypt=True, authData=None):
         from impacket.dcerpc.v5.rpcrt import SEC_TRAILER
 
         cipher = self.cipherType()
         token = self.WRAP(authData[len(SEC_TRAILER()):])
 
-        rotated = authData[len(self.WRAP())+len(SEC_TRAILER()):] + data
- 
-        cipherText = self.unrotate(rotated, token['RRC'] + token['EC'])
-        plainText = cipher.decrypt(sessionKey, KG_USAGE_ACCEPTOR_SEAL,  cipherText)
+        rotated = authData[len(self.WRAP()) + len(SEC_TRAILER()):] + data
 
-        return plainText[:-(token['EC']+len(self.WRAP()))], None
+        cipherText = self.unrotate(rotated, token['RRC'] + token['EC'])
+        plainText = cipher.decrypt(sessionKey, KG_USAGE_ACCEPTOR_SEAL, cipherText)
+
+        return plainText[:-(token['EC'] + len(self.WRAP()))], None
+
 
 class GSSAPI_AES256(GSSAPI_AES):
     checkSumProfile = crypto._SHA1AES256
     cipherType = crypto._AES256CTS
+
 
 class GSSAPI_AES128(GSSAPI_AES):
     checkSumProfile = crypto._SHA1AES128

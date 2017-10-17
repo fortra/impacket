@@ -28,46 +28,47 @@ from impacket import uuid
 from impacket.dcerpc.v5 import transport
 from impacket.examples import logging
 
+
 def main(args):
-  if len(args) != 4:
-    print("usage: opdump.py hostname port interface version")
-    return 1
+    if len(args) != 4:
+        print("usage: opdump.py hostname port interface version")
+        return 1
 
-  host, port, interface, version = args[0],  int(args[1]), args[2], args[3]
+    host, port, interface, version = args[0], int(args[1]), args[2], args[3]
 
-  stringbinding = "ncacn_ip_tcp:%s" % host
-  trans = transport.DCERPCTransportFactory(stringbinding)
-  trans.set_dport(port)
+    stringbinding = "ncacn_ip_tcp:%s" % host
+    trans = transport.DCERPCTransportFactory(stringbinding)
+    trans.set_dport(port)
 
-  results = []
-  for i in range(256):
-    dce = trans.get_dce_rpc()
-    dce.connect()
+    results = []
+    for i in range(256):
+        dce = trans.get_dce_rpc()
+        dce.connect()
 
-    iid = uuid.uuidtup_to_bin((interface, version))
-    dce.bind(iid)
+        iid = uuid.uuidtup_to_bin((interface, version))
+        dce.bind(iid)
 
-    dce.call(i, "")
-    try:
-      resp = dce.recv()
-    except Exception as e:
-      result = str(e)
-    else:
-      result = "success"
+        dce.call(i, "")
+        try:
+            resp = dce.recv()
+        except Exception as e:
+            result = str(e)
+        else:
+            result = "success"
 
-    dce.disconnect()
+        dce.disconnect()
 
-    results.append(result)
+        results.append(result)
 
-  # trim duplicate suffixes from the back
-  suffix = results[-1]
-  while results and results[-1] == suffix:
-    results.pop()
+    # trim duplicate suffixes from the back
+    suffix = results[-1]
+    while results and results[-1] == suffix:
+        results.pop()
 
-  for i, result in enumerate(results):
-    print("op %d (0x%02x): %s" % (i, i, result))
+    for i, result in enumerate(results):
+        print("op %d (0x%02x): %s" % (i, i, result))
 
-  print("ops %d-%d: %s" % (len(results), 255, suffix))
+    print("ops %d-%d: %s" % (len(results), 255, suffix))
 
 if __name__ == "__main__":
-  sys.exit(main(sys.argv[1:]))
+    sys.exit(main(sys.argv[1:]))

@@ -1,5 +1,5 @@
 ###############################################################################
-#  Tested so far: 
+#  Tested so far:
 #
 # LsarGetUserName
 # LsarLookupNames
@@ -12,7 +12,7 @@
 #
 # LsarLookupNames4
 # LsarLookupSids3
-# 
+#
 # Shouldn't dump errors against a win7
 #
 ################################################################################
@@ -31,6 +31,7 @@ from impacket.winregistry import hexdump
 from impacket.uuid import string_to_bin, uuidtup_to_bin
 from impacket import system_errors
 
+
 class LSATTests(unittest.TestCase):
     def connect(self):
         rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
@@ -43,9 +44,9 @@ class LSATTests(unittest.TestCase):
             # This method exists only for selected protocol sequences.
             rpctransport.set_credentials(self.username,self.password, self.domain, lmhash, nthash)
         dce = rpctransport.get_dce_rpc()
-        #dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_INTEGRITY)
+        # dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_INTEGRITY)
         dce.connect()
-        dce.bind(lsat.MSRPC_UUID_LSAT, transfer_syntax = self.ts)
+        dce.bind(lsat.MSRPC_UUID_LSAT, transfer_syntax=self.ts)
         request = lsat.LsarOpenPolicy2()
         request['SystemName'] = NULL
         request['ObjectAttributes']['RootDirectory'] = NULL
@@ -93,10 +94,10 @@ class LSATTests(unittest.TestCase):
             resp = dce.request(request)
             resp.dump()
         except Exception as e:
-            # The RPC server MUST ensure that the RPC_C_AUTHN_NETLOGON security provider 
-            # (as specified in [MS-RPCE] section 2.2.1.1.7) and at least 
-            # RPC_C_AUTHN_LEVEL_PKT_INTEGRITY authentication level (as specified in 
-            # [MS-RPCE] section 2.2.1.1.8) are used in this RPC message. 
+            # The RPC server MUST ensure that the RPC_C_AUTHN_NETLOGON security provider
+            # (as specified in [MS-RPCE] section 2.2.1.1.7) and at least
+            # RPC_C_AUTHN_LEVEL_PKT_INTEGRITY authentication level (as specified in
+            # [MS-RPCE] section 2.2.1.1.8) are used in this RPC message.
             # Otherwise, the RPC server MUST return STATUS_ACCESS_DENIED.
             if str(e).find('rpc_s_access_denied') < 0:
                 raise
@@ -109,10 +110,10 @@ class LSATTests(unittest.TestCase):
             resp = lsat.hLsarLookupNames4(dce, ('Administrator', 'Guest'))
             resp.dump()
         except Exception as e:
-            # The RPC server MUST ensure that the RPC_C_AUTHN_NETLOGON security provider 
-            # (as specified in [MS-RPCE] section 2.2.1.1.7) and at least 
-            # RPC_C_AUTHN_LEVEL_PKT_INTEGRITY authentication level (as specified in 
-            # [MS-RPCE] section 2.2.1.1.8) are used in this RPC message. 
+            # The RPC server MUST ensure that the RPC_C_AUTHN_NETLOGON security provider
+            # (as specified in [MS-RPCE] section 2.2.1.1.7) and at least
+            # RPC_C_AUTHN_LEVEL_PKT_INTEGRITY authentication level (as specified in
+            # [MS-RPCE] section 2.2.1.1.8) are used in this RPC message.
             # Otherwise, the RPC server MUST return STATUS_ACCESS_DENIED.
             if str(e).find('rpc_s_access_denied') < 0:
                 raise
@@ -209,7 +210,7 @@ class LSATTests(unittest.TestCase):
         request = lsat.LsarLookupSids3()
         sid1 = lsat.LSAPR_SID_INFORMATION()
         sid1['Sid'].fromCanonical(domainSid + '-500')
-        sid2= lsat.LSAPR_SID_INFORMATION()
+        sid2 = lsat.LSAPR_SID_INFORMATION()
         sid2['Sid'].fromCanonical(domainSid + '-501')
         request['SidEnumBuffer']['Entries'] = 2
         request['SidEnumBuffer']['SidInfo'].append(sid1)
@@ -222,10 +223,10 @@ class LSATTests(unittest.TestCase):
             resp = dce.request(request)
             resp.dump()
         except Exception as e:
-            # The RPC server MUST ensure that the RPC_C_AUTHN_NETLOGON security provider 
-            # (as specified in [MS-RPCE] section 2.2.1.1.7) and at least 
-            # RPC_C_AUTHN_LEVEL_PKT_INTEGRITY authentication level (as specified in 
-            # [MS-RPCE] section 2.2.1.1.8) are used in this RPC message. 
+            # The RPC server MUST ensure that the RPC_C_AUTHN_NETLOGON security provider
+            # (as specified in [MS-RPCE] section 2.2.1.1.7) and at least
+            # RPC_C_AUTHN_LEVEL_PKT_INTEGRITY authentication level (as specified in
+            # [MS-RPCE] section 2.2.1.1.8) are used in this RPC message.
             # Otherwise, the RPC server MUST return STATUS_ACCESS_DENIED.
             if str(e).find('rpc_s_access_denied') < 0:
                 raise
@@ -249,7 +250,7 @@ class LSATTests(unittest.TestCase):
         request['PolicyHandle'] = policyHandle
         sid1 = lsat.LSAPR_SID_INFORMATION()
         sid1['Sid'].fromCanonical(domainSid + '-500')
-        sid2= lsat.LSAPR_SID_INFORMATION()
+        sid2 = lsat.LSAPR_SID_INFORMATION()
         sid2['Sid'].fromCanonical(domainSid + '-501')
         request['SidEnumBuffer']['Entries'] = 2
         request['SidEnumBuffer']['SidInfo'].append(sid1)
@@ -292,7 +293,7 @@ class LSATTests(unittest.TestCase):
         request['PolicyHandle'] = policyHandle
         for i in range(1000):
             sid = lsat.LSAPR_SID_INFORMATION()
-            sid['Sid'].fromCanonical(domainSid + '-%d' % (500+i))
+            sid['Sid'].fromCanonical(domainSid + '-%d' % (500 + i))
             request['SidEnumBuffer']['SidInfo'].append(sid)
             request['SidEnumBuffer']['Entries'] += 1
         request['TranslatedNames']['Names'] = NULL
@@ -316,9 +317,9 @@ class LSATTests(unittest.TestCase):
 
         sids = list()
         for i in range(1000):
-            sids.append(domainSid + '-%d' % (500+i))
+            sids.append(domainSid + '-%d' % (500 + i))
         try:
-            resp = lsat.hLsarLookupSids(dce, policyHandle, sids )
+            resp = lsat.hLsarLookupSids(dce, policyHandle, sids)
             resp.dump()
         except Exception as e:
             if str(e).find('STATUS_SOME_NOT_MAPPED') < 0:
@@ -334,13 +335,14 @@ class SMBTransport(LSATTests):
         configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
+        self.domain = configFile.get('SMBTransport', 'domain')
         self.serverName = configFile.get('SMBTransport', 'servername')
         self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
+        self.machine = configFile.get('SMBTransport', 'machine')
+        self.hashes = configFile.get('SMBTransport', 'hashes')
         self.stringBinding = r'ncacn_np:%s[\PIPE\lsarpc]' % self.machine
         self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
+
 
 class SMBTransport64(LSATTests):
     def setUp(self):
@@ -348,11 +350,11 @@ class SMBTransport64(LSATTests):
         configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
+        self.domain = configFile.get('SMBTransport', 'domain')
         self.serverName = configFile.get('SMBTransport', 'servername')
         self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
+        self.machine = configFile.get('SMBTransport', 'machine')
+        self.hashes = configFile.get('SMBTransport', 'hashes')
         self.stringBinding = r'ncacn_np:%s[\PIPE\lsarpc]' % self.machine
         self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
 

@@ -3,8 +3,9 @@ from impacket.dcerpc import transport, epm, dcerpc
 
 # aimed at testing just the DCERPC engine, not the particular
 # endpoints (we should do specific tests for endpoints)
-# here we're using EPM just beacuse we need one, and it's the 
+# here we're using EPM just beacuse we need one, and it's the
 # easiest one
+
 
 class DCERPCTests(unittest.TestCase):
 
@@ -71,7 +72,7 @@ class DCERPCTests(unittest.TestCase):
         dce.connect()
         dce.bind(epm.MSRPC_UUID_PORTMAP)
         rpcepm = epm.DCERPCEpm(dce)
-        resp = rpcepm.lookup('', inquireType = epm.RPC_C_EP_ALL_ELTS)
+        resp = rpcepm.lookup('', inquireType=epm.RPC_C_EP_ALL_ELTS)
         dce.disconnect()
 
     def test_dceFragmentation(self):
@@ -87,7 +88,7 @@ class DCERPCTests(unittest.TestCase):
         dce.connect()
         dce.bind(epm.MSRPC_UUID_PORTMAP)
         rpcepm = epm.DCERPCEpm(dce)
-        resp = rpcepm.lookup('', inquireType = epm.RPC_C_EP_ALL_ELTS)
+        resp = rpcepm.lookup('', inquireType=epm.RPC_C_EP_ALL_ELTS)
         dce.disconnect()
 
     def test_packetWINNTPacketIntegrity(self):
@@ -105,7 +106,7 @@ class DCERPCTests(unittest.TestCase):
         dce.set_auth_level(dcerpc.RPC_C_AUTHN_LEVEL_PKT_INTEGRITY)
         dce.bind(epm.MSRPC_UUID_PORTMAP)
         rpcepm = epm.DCERPCEpm(dce)
-        resp = rpcepm.lookup('', inquireType = epm.RPC_C_EP_ALL_ELTS)
+        resp = rpcepm.lookup('', inquireType=epm.RPC_C_EP_ALL_ELTS)
         dce.disconnect()
 
     def test_packetHashesWINNTPacketIntegrity(self):
@@ -123,7 +124,7 @@ class DCERPCTests(unittest.TestCase):
         dce.set_auth_level(dcerpc.RPC_C_AUTHN_LEVEL_PKT_INTEGRITY)
         dce.bind(epm.MSRPC_UUID_PORTMAP)
         rpcepm = epm.DCERPCEpm(dce)
-        resp = rpcepm.lookup('', inquireType = epm.RPC_C_EP_ALL_ELTS)
+        resp = rpcepm.lookup('', inquireType=epm.RPC_C_EP_ALL_ELTS)
         dce.disconnect()
 
     def test_packetAnonWINNTPacketIntegrity(self):
@@ -140,7 +141,7 @@ class DCERPCTests(unittest.TestCase):
         dce.set_auth_level(dcerpc.RPC_C_AUTHN_LEVEL_PKT_INTEGRITY)
         dce.bind(epm.MSRPC_UUID_PORTMAP)
         rpcepm = epm.DCERPCEpm(dce)
-        resp = rpcepm.lookup('', inquireType = epm.RPC_C_EP_ALL_ELTS)
+        resp = rpcepm.lookup('', inquireType=epm.RPC_C_EP_ALL_ELTS)
         dce.disconnect()
 
     def test_packetWINNTPacketPrivacy(self):
@@ -158,7 +159,7 @@ class DCERPCTests(unittest.TestCase):
         dce.set_auth_level(dcerpc.RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
         dce.bind(epm.MSRPC_UUID_PORTMAP)
         rpcepm = epm.DCERPCEpm(dce)
-        resp = rpcepm.lookup('', inquireType = epm.RPC_C_EP_ALL_ELTS)
+        resp = rpcepm.lookup('', inquireType=epm.RPC_C_EP_ALL_ELTS)
         dce.disconnect()
 
     def test_packetHashesWINNTPacketPrivacy(self):
@@ -176,7 +177,7 @@ class DCERPCTests(unittest.TestCase):
         dce.set_auth_level(dcerpc.RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
         dce.bind(epm.MSRPC_UUID_PORTMAP)
         rpcepm = epm.DCERPCEpm(dce)
-        resp = rpcepm.lookup('', inquireType = epm.RPC_C_EP_ALL_ELTS)
+        resp = rpcepm.lookup('', inquireType=epm.RPC_C_EP_ALL_ELTS)
         dce.disconnect()
 
     def test_packetAnonWINNTPacketPrivacy(self):
@@ -187,39 +188,41 @@ class DCERPCTests(unittest.TestCase):
             # This method exists only for selected protocol sequences.
             rpctransport.set_credentials(self.username, self.password, self.domain, lmhash, nthash)
         dce = rpctransport.get_dce_rpc()
-        #dce.set_max_fragment_size(1)
+        # dce.set_max_fragment_size(1)
         dce.connect()
         dce.set_auth_type(dcerpc.RPC_C_AUTHN_WINNT)
         dce.set_auth_level(dcerpc.RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
         dce.bind(epm.MSRPC_UUID_PORTMAP)
         rpcepm = epm.DCERPCEpm(dce)
-        resp = rpcepm.lookup('', inquireType = epm.RPC_C_EP_ALL_ELTS)
+        resp = rpcepm.lookup('', inquireType=epm.RPC_C_EP_ALL_ELTS)
         dce.disconnect()
+
 
 class TCPTransport(DCERPCTests):
     def setUp(self):
         DCERPCTests.setUp(self)
         # Put specific configuration for target machine with SMB1
         self.username = 'Administrator'
-        self.domain   = 'FREEFLY'
+        self.domain = 'FREEFLY'
         self.serverName = 'ULTIMATE64'
         self.password = 'Admin123456'
-        self.machine  = '192.168.88.105'
+        self.machine = '192.168.88.105'
         self.stringBinding = r'ncacn_ip_tcp:%s' % self.machine
         self.dport = 135
-        self.hashes   = 'aad3b435b51404eeaad3b435b51404ee:ae4c0d5fb959fda8f4cb1d14a8376af4'
-        self.upload   = '../../nt_errors.py'
+        self.hashes = 'aad3b435b51404eeaad3b435b51404ee:ae4c0d5fb959fda8f4cb1d14a8376af4'
+        self.upload = '../../nt_errors.py'
+
 
 class SMBTransport(DCERPCTests):
     def setUp(self):
         # Put specific configuration for target machine with SMB_002
         DCERPCTests.setUp(self)
         self.username = 'Administrator'
-        self.domain   = 'FREEFLY'
+        self.domain = 'FREEFLY'
         self.serverName = 'ULTIMATE64'
         self.password = 'Admin123456'
-        self.hashes   = 'aad3b435b51404eeaad3b435b51404ee:ae4c0d5fb959fda8f4cb1d14a8376af4'
-        self.machine  = '192.168.88.105'
+        self.hashes = 'aad3b435b51404eeaad3b435b51404ee:ae4c0d5fb959fda8f4cb1d14a8376af4'
+        self.machine = '192.168.88.105'
         self.stringBinding = r'ncacn_np:%s[\pipe\epmapper]' % self.machine
         self.dport = 445
 

@@ -1,10 +1,10 @@
 ###############################################################################
-#  Tested so far: 
+#  Tested so far:
 #
 #  Not yet:
 #
 # Shouldn't dump errors against a win7
-#  
+#
 ################################################################################
 
 import sys
@@ -19,6 +19,7 @@ from impacket.winregistry import hexdump
 from impacket.uuid import string_to_bin, uuidtup_to_bin, bin_to_uuidtup
 from impacket import system_errors
 
+
 class MGMTTests(unittest.TestCase):
     def connect(self):
         rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
@@ -32,7 +33,7 @@ class MGMTTests(unittest.TestCase):
             rpctransport.set_credentials(self.username,self.password, self.domain, lmhash, nthash)
         dce = rpctransport.get_dce_rpc()
         dce.connect()
-        dce.bind(mgmt.MSRPC_UUID_MGMT, transfer_syntax = self.ts)
+        dce.bind(mgmt.MSRPC_UUID_MGMT, transfer_syntax=self.ts)
 
         return dce, rpctransport
 
@@ -42,7 +43,7 @@ class MGMTTests(unittest.TestCase):
         request = mgmt.inq_if_ids()
         resp = dce.request(request)
         resp.dump()
-        #for i in range(resp['if_id_vector']['count']):
+        # for i in range(resp['if_id_vector']['count']):
         #    print bin_to_uuidtup(resp['if_id_vector']['if_id'][i]['Data'].getData())
         #    print
 
@@ -122,13 +123,14 @@ class SMBTransport(MGMTTests):
         configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
+        self.domain = configFile.get('SMBTransport', 'domain')
         self.serverName = configFile.get('SMBTransport', 'servername')
         self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
+        self.machine = configFile.get('SMBTransport', 'machine')
+        self.hashes = configFile.get('SMBTransport', 'hashes')
         self.stringBinding = r'ncacn_np:%s[\pipe\epmapper]' % self.machine
         self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
+
 
 class TCPTransport(MGMTTests):
     def setUp(self):
@@ -136,13 +138,14 @@ class TCPTransport(MGMTTests):
         configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('TCPTransport', 'username')
-        self.domain   = configFile.get('TCPTransport', 'domain')
+        self.domain = configFile.get('TCPTransport', 'domain')
         self.serverName = configFile.get('TCPTransport', 'servername')
         self.password = configFile.get('TCPTransport', 'password')
-        self.machine  = configFile.get('TCPTransport', 'machine')
-        self.hashes   = configFile.get('TCPTransport', 'hashes')
+        self.machine = configFile.get('TCPTransport', 'machine')
+        self.hashes = configFile.get('TCPTransport', 'hashes')
         self.stringBinding = r'ncacn_ip_tcp:%s[135]' % self.machine
         self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
+
 
 class SMBTransport64(MGMTTests):
     def setUp(self):
@@ -150,13 +153,14 @@ class SMBTransport64(MGMTTests):
         configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
+        self.domain = configFile.get('SMBTransport', 'domain')
         self.serverName = configFile.get('SMBTransport', 'servername')
         self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
+        self.machine = configFile.get('SMBTransport', 'machine')
+        self.hashes = configFile.get('SMBTransport', 'hashes')
         self.stringBinding = r'ncacn_np:%s[\pipe\epmapper]' % self.machine
         self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
+
 
 class TCPTransport64(MGMTTests):
     def setUp(self):
@@ -164,11 +168,11 @@ class TCPTransport64(MGMTTests):
         configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('TCPTransport', 'username')
-        self.domain   = configFile.get('TCPTransport', 'domain')
+        self.domain = configFile.get('TCPTransport', 'domain')
         self.serverName = configFile.get('TCPTransport', 'servername')
         self.password = configFile.get('TCPTransport', 'password')
-        self.machine  = configFile.get('TCPTransport', 'machine')
-        self.hashes   = configFile.get('TCPTransport', 'hashes')
+        self.machine = configFile.get('TCPTransport', 'machine')
+        self.hashes = configFile.get('TCPTransport', 'hashes')
         self.stringBinding = r'ncacn_ip_tcp:%s[135]' % self.machine
         self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
 
@@ -182,7 +186,7 @@ if __name__ == '__main__':
     else:
         #suite = unittest.TestLoader().loadTestsFromTestCase(SMBTransport64)
         suite = unittest.TestLoader().loadTestsFromTestCase(SMBTransport)
-        #suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport))
+        # suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport))
         suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMBTransport64))
-        #suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport64))
+        # suite.addTests(unittest.TestLoader().loadTestsFromTestCase(TCPTransport64))
     unittest.TextTestRunner(verbosity=1).run(suite)

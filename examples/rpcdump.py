@@ -22,20 +22,20 @@ import logging
 
 from impacket import uuid, ntlm, version
 from impacket.dcerpc.v5 import transport, epm
-from impacket.dcerpc import  ndrutils
+from impacket.dcerpc import ndrutils
 from impacket.examples import logger
 import argparse
+
 
 class RPCDump:
     KNOWN_PROTOCOLS = {
         '139/SMB': (r'ncacn_np:%s[\pipe\epmapper]', 139),
         '445/SMB': (r'ncacn_np:%s[\pipe\epmapper]', 445),
         '135/TCP': (r'ncacn_ip_tcp:%s', 135),
-        }
+    }
 
-
-    def __init__(self, protocols = None,
-                 username = '', password = '', domain='', hashes = None):
+    def __init__(self, protocols=None,
+                 username='', password='', domain='', hashes=None):
         if not protocols:
             protocols = list(RPCDump.KNOWN_PROTOCOLS.keys())
 
@@ -79,7 +79,6 @@ class RPCDump:
                 # Got a response. No need for further iterations.
                 break
 
-
         # Display results.
 
         endpoints = {}
@@ -101,8 +100,8 @@ class RPCDump:
                 endpoints[tmpUUID]['Protocol'] = epm.KNOWN_PROTOCOLS[tmpUUID[:36]]
             else:
                 endpoints[tmpUUID]['Protocol'] = "N/A"
-            #print "Transfer Syntax: %s" % entry['Tower']['Floors'][1]
-     
+            # print "Transfer Syntax: %s" % entry['Tower']['Floors'][1]
+
         for endpoint in list(endpoints.keys()):
             print("Protocol: %s " % endpoints[endpoint]['Protocol'])
             print("Provider: %s " % endpoints[endpoint]['EXE'])
@@ -121,14 +120,13 @@ class RPCDump:
         else:
             logging.info('No endpoints found.')
 
-
     def __fetchList(self, rpctransport):
         dce = rpctransport.get_dce_rpc()
         entries = []
 
         dce.connect()
-        #dce.set_auth_level(ntlm.NTLM_AUTH_PKT_INTEGRITY)
-        #dce.bind(epm.MSRPC_UUID_PORTMAP)
+        # dce.set_auth_level(ntlm.NTLM_AUTH_PKT_INTEGRITY)
+        # dce.bind(epm.MSRPC_UUID_PORTMAP)
         #rpcepm = epm.DCERPCEpm(dce)
 
         resp = epm.hept_lookup(rpctransport.get_dip())
@@ -142,18 +140,18 @@ class RPCDump:
 if __name__ == '__main__':
     print(version.BANNER)
 
-    parser = argparse.ArgumentParser(add_help = True, description = "Dumps the remote RPC enpoints information.")
+    parser = argparse.ArgumentParser(add_help=True, description="Dumps the remote RPC enpoints information.")
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('protocol', choices=list(RPCDump.KNOWN_PROTOCOLS.keys()), nargs='?', default='135/TCP', help='transport protocol (default 135/TCP)')
 
     group = parser.add_argument_group('authentication')
 
-    group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
-    if len(sys.argv)==1:
+    group.add_argument('-hashes', action="store", metavar="LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
+    if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(1)
- 
+
     options = parser.parse_args()
 
     if options.debug is True:

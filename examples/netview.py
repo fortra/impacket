@@ -1,4 +1,3 @@
-#!/usr/bin/python
 # Copyright (c) 2003-2015 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
@@ -14,21 +13,21 @@
 #   Coincidentally @mubix did something similar a few years
 #   ago so credit goes to him (and the script's name ;)).
 #   Check it out at https://github.com/mubix/netview
-#   The main difference with our approach is we keep 
+#   The main difference with our approach is we keep
 #   looping over the hosts found and keep track of who logged
 #   in/out from remote servers. Plus, we keep the connections
 #   with the target systems and just send a few DCE-RPC packets.
 #
 #   One VERY IMPORTANT thing is:
-#   
-#   YOU HAVE TO BE ABLE TO RESOLV THE DOMAIN MACHINES NETBIOS 
-#   NAMES. That's usually solved by setting your DNS to the 
+#
+#   YOU HAVE TO BE ABLE TO RESOLV THE DOMAIN MACHINES NETBIOS
+#   NAMES. That's usually solved by setting your DNS to the
 #   domain DNS (and the right search domain).
-#   
+#
 #   Some examples of usage are:
 #
 #   netview.py -target 192.168.1.10 beto
-#   
+#
 #   This will show the sessions on 192.168.1.10 and will authenticate as 'beto'
 #   (password will be prompted)
 #
@@ -40,7 +39,7 @@
 #   at all times.
 #
 #   netview.py -users /tmp/users -domainController freefly-dc.freefly.net -k FREEFLY.NET/beto
-#  
+#
 #   This will download all machines from FREEFLY.NET, authenticating using
 #   Kerberos (that's why domainController parameter is needed), and filter
 #   the output based on the list of users specified in /tmp/users file.
@@ -70,14 +69,15 @@ machinesDownQueue = Queue()
 
 myIP = None
 
+
 def checkMachines(machines, stopEvent, singlePass=False):
     origLen = len(machines)
     deadMachines = machines
     done = False
     while not done:
         if stopEvent.is_set():
-             done = True
-             break
+            done = True
+            break
         for machine in deadMachines:
             s = socket.socket()
             try:
@@ -93,10 +93,10 @@ def checkMachines(machines, stopEvent, singlePass=False):
                 logging.debug('%s: alive!' % machine)
                 deadMachines.remove(machine)
             if stopEvent.is_set():
-                 done = True
-                 break
+                done = True
+                break
 
-        logging.debug('up: %d, down: %d, total: %d' % (origLen-len(deadMachines), len(deadMachines), origLen))
+        logging.debug('up: %d, down: %d, total: %d' % (origLen - len(deadMachines), len(deadMachines), origLen))
         if singlePass is True:
             done = True
         if not done:
@@ -105,8 +105,9 @@ def checkMachines(machines, stopEvent, singlePass=False):
             while machinesDownQueue.empty() is False:
                 deadMachines.append(machinesDownQueue.get())
 
+
 class USERENUM:
-    def __init__(self, username = '', password = '', domain = '', hashes = None, aesKey = None, doKerberos=False, options=None):
+    def __init__(self, username='', password='', domain='', hashes=None, aesKey=None, doKerberos=False, options=None):
         self.__username = username
         self.__password = password
         self.__domain = domain
@@ -132,39 +133,39 @@ class USERENUM:
             raise Exception('A domain is needed!')
 
         logging.info('Getting machine\'s list from %s' % domainController)
-        rpctransport = transport.SMBTransport(domainController, 445, r'\samr', self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey, doKerberos = self.__doKerberos)
+        rpctransport = transport.SMBTransport(domainController, 445, r'\samr', self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey, doKerberos=self.__doKerberos)
         dce = rpctransport.get_dce_rpc()
         dce.connect()
         dce.bind(samr.MSRPC_UUID_SAMR)
         try:
             resp = samr.hSamrConnect(dce)
-            serverHandle = resp['ServerHandle'] 
+            serverHandle = resp['ServerHandle']
 
             resp = samr.hSamrEnumerateDomainsInSamServer(dce, serverHandle)
             domains = resp['Buffer']['Buffer']
 
             logging.info("Looking up users in domain %s" % domains[0]['Name'])
 
-            resp = samr.hSamrLookupDomainInSamServer(dce, serverHandle,domains[0]['Name'] )
+            resp = samr.hSamrLookupDomainInSamServer(dce, serverHandle,domains[0]['Name'])
 
-            resp = samr.hSamrOpenDomain(dce, serverHandle = serverHandle, domainId = resp['DomainId'])
+            resp = samr.hSamrOpenDomain(dce, serverHandle=serverHandle, domainId=resp['DomainId'])
             domainHandle = resp['DomainHandle']
 
             status = STATUS_MORE_ENTRIES
             enumerationContext = 0
             while status == STATUS_MORE_ENTRIES:
                 try:
-                    resp = samr.hSamrEnumerateUsersInDomain(dce, domainHandle, samr.USER_WORKSTATION_TRUST_ACCOUNT, enumerationContext = enumerationContext)
+                    resp = samr.hSamrEnumerateUsersInDomain(dce, domainHandle, samr.USER_WORKSTATION_TRUST_ACCOUNT, enumerationContext=enumerationContext)
                 except Exception as e:
                     if str(e).find('STATUS_MORE_ENTRIES') < 0:
-                        raise 
+                        raise
                     resp = e.get_packet()
 
                 for user in resp['Buffer']['Buffer']:
                     self.__machinesList.append(user['Name'][:-1])
-                    logging.debug('Machine name - rid: %s - %d'% (user['Name'], user['RelativeId']))
+                    logging.debug('Machine name - rid: %s - %d' % (user['Name'], user['RelativeId']))
 
-                enumerationContext = resp['EnumerationContext'] 
+                enumerationContext = resp['EnumerationContext']
                 status = resp['ErrorCode']
         except Exception as e:
             raise e
@@ -183,7 +184,7 @@ class USERENUM:
             # Just a single machine
             self.__machinesList.append(self.__options.target)
         logging.info("Got %d machines" % len(self.__machinesList))
-          
+
     def filterUsers(self):
         if self.__options.user is not None:
             self.__filterUsers = list()
@@ -199,8 +200,8 @@ class USERENUM:
     def run(self):
         self.getTargets()
         self.filterUsers()
-        #self.filterGroups()
-       
+        # self.filterGroups()
+
         # Up to here we should have figured out the scope of our work
         self.__targetsThreadEvent = Event()
         if self.__options.noloop is False:
@@ -222,33 +223,33 @@ class USERENUM:
                 self.__targets[machine]['Admin'] = True
                 self.__targets[machine]['Sessions'] = list()
                 self.__targets[machine]['LoggedIn'] = set()
-            
+
             for target in list(self.__targets.keys()):
                 try:
                     self.getSessions(target)
-                    self.getLoggedIn(target) 
+                    self.getLoggedIn(target)
                 except (SessionError, DCERPCException) as e:
                     # We will silently pass these ones, might be issues with Kerberos, or DCE
-                    if str(e).find('LOGON_FAILURE') >=0:
-                        # For some reason our credentials don't work there, 
+                    if str(e).find('LOGON_FAILURE') >= 0:
+                        # For some reason our credentials don't work there,
                         # taking it out from the list.
                         logging.error('STATUS_LOGON_FAILURE for %s, discarding' % target)
                         del(self.__targets[target])
-                    elif str(e).find('INVALID_PARAMETER') >=0:
+                    elif str(e).find('INVALID_PARAMETER') >= 0:
                         del(self.__targets[target])
-                    elif str(e).find('access_denied') >=0:
+                    elif str(e).find('access_denied') >= 0:
                         # Can't access the target RPC call, most probably a Unix host
                         # taking it out from the list
                         del(self.__targets[target])
                     else:
                         logging.info(str(e))
-                    pass 
+                    pass
                 except KeyboardInterrupt:
                     raise
                 except Exception as e:
                     #import traceback
-                    #print traceback.print_exc()
-                    if str(e).find('timed out') >=0:
+                    # print traceback.print_exc()
+                    if str(e).find('timed out') >= 0:
                         # Most probably this site went down. taking it out
                         # ToDo: add it back to the list of machines to check in
                         # the separate thread - DONE
@@ -271,7 +272,7 @@ class USERENUM:
             stringSrvsBinding = r'ncacn_np:%s[\PIPE\srvsvc]' % target
             rpctransportSrvs = transport.DCERPCTransportFactory(stringSrvsBinding)
             if hasattr(rpctransportSrvs, 'set_credentials'):
-            # This method exists only for selected protocol sequences.
+                # This method exists only for selected protocol sequences.
                 rpctransportSrvs.set_credentials(self.__username,self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey)
                 rpctransportSrvs.set_kerberos(self.__doKerberos)
 
@@ -298,7 +299,7 @@ class USERENUM:
             dce.disconnect()
             self.__maxConnections = 0
         else:
-             self.__targets[target]['SRVS'] = dce
+            self.__targets[target]['SRVS'] = dce
 
         # Let's see who createad a connection since last check
         tmpSession = list()
@@ -317,10 +318,10 @@ class USERENUM:
                     if self.__filterUsers is not None:
                         if userName in self.__filterUsers:
                             print("%s: user %s logged from host %s - active: %d, idle: %d" % (target,userName, sourceIP, session['sesi10_time'], session['sesi10_idle_time']))
-                            printCRLF=True
+                            printCRLF = True
                     else:
                         print("%s: user %s logged from host %s - active: %d, idle: %d" % (target,userName, sourceIP, session['sesi10_time'], session['sesi10_idle_time']))
-                        printCRLF=True
+                        printCRLF = True
 
         # Let's see who deleted a connection since last check
         for nItem, session in enumerate(self.__targets[target]['Sessions']):
@@ -331,14 +332,14 @@ class USERENUM:
                 if self.__filterUsers is not None:
                     if userName in self.__filterUsers:
                         print("%s: user %s logged off from host %s" % (target, userName, sourceIP))
-                        printCRLF=True
+                        printCRLF = True
                 else:
                     print("%s: user %s logged off from host %s" % (target, userName, sourceIP))
-                    printCRLF=True
-                
+                    printCRLF = True
+
         if printCRLF is True:
             print()
-        
+
     def getLoggedIn(self, target):
         if self.__targets[target]['Admin'] is False:
             return
@@ -347,7 +348,7 @@ class USERENUM:
             stringWkstBinding = r'ncacn_np:%s[\PIPE\wkssvc]' % target
             rpctransportWkst = transport.DCERPCTransportFactory(stringWkstBinding)
             if hasattr(rpctransportWkst, 'set_credentials'):
-            # This method exists only for selected protocol sequences.
+                # This method exists only for selected protocol sequences.
                 rpctransportWkst.set_credentials(self.__username,self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey)
                 rpctransportWkst.set_kerberos(self.__doKerberos)
 
@@ -380,7 +381,7 @@ class USERENUM:
             dce.disconnect()
             self.__maxConnections = 0
         else:
-             self.__targets[target]['WKST'] = dce
+            self.__targets[target]['WKST'] = dce
 
         # Let's see who looged in locally since last check
         tmpLoggedUsers = set()
@@ -396,10 +397,10 @@ class USERENUM:
                 if self.__filterUsers is not None:
                     if userName in self.__filterUsers:
                         print("%s: user %s\\%s logged in LOCALLY" % (target,logonDomain,userName))
-                        printCRLF=True
+                        printCRLF = True
                 else:
                     print("%s: user %s\\%s logged in LOCALLY" % (target,logonDomain,userName))
-                    printCRLF=True
+                    printCRLF = True
 
         # Let's see who logged out since last check
         for session in self.__targets[target]['LoggedIn'].copy():
@@ -410,18 +411,18 @@ class USERENUM:
                 if self.__filterUsers is not None:
                     if userName in self.__filterUsers:
                         print("%s: user %s\\%s logged off LOCALLY" % (target,logonDomain,userName))
-                        printCRLF=True
+                        printCRLF = True
                 else:
                     print("%s: user %s\\%s logged off LOCALLY" % (target,logonDomain,userName))
-                    printCRLF=True
-                
+                    printCRLF = True
+
         if printCRLF is True:
             print()
 
     def stop(self):
         if self.__targetsThreadEvent is not None:
             self.__targetsThreadEvent.set()
-        
+
 
 # Process command-line arguments.
 if __name__ == '__main__':
@@ -437,19 +438,19 @@ if __name__ == '__main__':
     parser.add_argument('-target', action='store', help='target system to query info from. If not specified script will run in domain mode.')
     parser.add_argument('-targets', type=argparse.FileType('r'), help='input file with targets system to query info from (one per line). If not specified script will run in domain mode.')
     parser.add_argument('-noloop', action='store_true', default=False, help='Stop after the first probe')
-    parser.add_argument('-delay', action='store', default = '10', help='seconds delay between starting each batch probe (default 10 seconds)')
+    parser.add_argument('-delay', action='store', default='10', help='seconds delay between starting each batch probe (default 10 seconds)')
     parser.add_argument('-max-connections', action='store', default='1000', help='Max amount of connections to keep opened (default 1000)')
     parser.add_argument('-domainController', action='store', help='IP address of the domain controller to download users from. If not specified, the domain part of the identity will be used, but it must be the domain FQDN (Kerberos will NOT work on unless you specify this parameter with the DC FQDN)')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
     group = parser.add_argument_group('authentication')
 
-    group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
+    group.add_argument('-hashes', action="store", metavar="LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
     group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
     group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line')
-    group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication (128 or 256 bits)')
+    group.add_argument('-aesKey', action="store", metavar="hex key", help='AES key to use for Kerberos Authentication (128 or 256 bits)')
 
-    if len(sys.argv)==1:
+    if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(1)
 
@@ -478,10 +479,10 @@ if __name__ == '__main__':
         executer.run()
     except Exception as e:
         #import traceback
-        #print traceback.print_exc()
+        # print traceback.print_exc()
         logging.error(e)
         executer.stop()
     except KeyboardInterrupt:
-        logging.info('Quitting.. please wait') 
+        logging.info('Quitting.. please wait')
         executer.stop()
     sys.exit(0)

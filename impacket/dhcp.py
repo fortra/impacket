@@ -7,43 +7,45 @@
 
 from impacket import structure
 
+
 class BootpPacket(structure.Structure):
     commonHdr = (
-            ('op','b'),
-            ('htype','b=1'),    # 1 = Ether
-            ('hlen','b=len(chaddr)'),
-            ('hops','b=0'),
-            ('xid','!L=0'),
-            ('secs','!H=0'),
-            ('flags','!H=0'),
-            ('ciaddr','!L=0'),
-            ('yiaddr','!L=0'),
-            ('siaddr','!L=0'),
-            ('giaddr','!L=0'),
-            ('_chaddr','16s=chaddr'),
-            ('chaddr','_','_chaddr[:hlen]'),
-            ('sname','64s=""'),
-            ('file','128s=""'))
-            
-    #def __init__(self, data = None, alignment = 0):
+        ('op','b'),
+        ('htype','b=1'),    # 1 = Ether
+        ('hlen','b=len(chaddr)'),
+        ('hops','b=0'),
+        ('xid','!L=0'),
+        ('secs','!H=0'),
+        ('flags','!H=0'),
+        ('ciaddr','!L=0'),
+        ('yiaddr','!L=0'),
+        ('siaddr','!L=0'),
+        ('giaddr','!L=0'),
+        ('_chaddr','16s=chaddr'),
+        ('chaddr','_','_chaddr[:hlen]'),
+        ('sname','64s=""'),
+        ('file','128s=""'))
+
+    # def __init__(self, data = None, alignment = 0):
     #    structure.Structure.__init__(self, data, alignment)
-        
+
+
 class DhcpPacket(BootpPacket):
     # DHCP: http://www.faqs.org/rfcs/rfc2131.html
     # DHCP Options: http://www.faqs.org/rfcs/rfc1533.html
     # good list of options: http://www.networksorcery.com/enp/protocol/bootp/options.htm
     BOOTREQUEST = 1
-    BOOTREPLY   = 2
+    BOOTREPLY = 2
 
-    DHCPDISCOVER= 1
-    DHCPOFFER   = 2
-    DHCPREQUEST = 3 
+    DHCPDISCOVER = 1
+    DHCPOFFER = 2
+    DHCPREQUEST = 3
     DHCPDECLINE = 4
-    DHCPACK     = 5
-    DHCPNAK     = 6
+    DHCPACK = 5
+    DHCPNAK = 6
     DHCPRELEASE = 7
-    DHCPINFORM  = 8
-        
+    DHCPINFORM = 8
+
     options = {
         # 3. Vendor Extensions
         'pad':(0,'_'),
@@ -133,16 +135,15 @@ class DhcpPacket(BootpPacket):
         'proxy-autoconfig':(252,':'),
         'eof':(255,'_'),
     }
-    
-    structure = (
-            ('cookie','!L'),
-            ('_options',':=self.packOptions(options)'),
-            ('options','_','self.unpackOptions(_options)'))
-    
 
-    #def __init__(self, data = None, alignment = 0):
+    structure = (
+        ('cookie','!L'),
+        ('_options',':=self.packOptions(options)'),
+        ('options','_','self.unpackOptions(_options)'))
+
+    # def __init__(self, data = None, alignment = 0):
     #    BootpPacket.__init__(self, data, alignment)
-    
+
     def packOptions(self, options):
         # options is an array of tuples: ('name',value)
 
@@ -153,7 +154,7 @@ class DhcpPacket(BootpPacket):
             answer += '%c%c%s' % (code, len(val), val)
 
         return answer
-    
+
     def getOptionNameAndFormat(self, optionCode):
         for k in self.options:
             code,format = self.options[k]
@@ -166,20 +167,20 @@ class DhcpPacket(BootpPacket):
         # print '%r' % options
         answer = []
         i = 0
-        while i < len(options)-1:
+        while i < len(options) - 1:
             name, format = self.getOptionNameAndFormat(ord(options[i]))
             # size = self.calcUnpackSize(format, options[i+1:])
-            size = ord(options[i+1])
+            size = ord(options[i + 1])
             # print i, name, format, size
-            value = self.unpack(format, options[i+2:i+2+size])
+            value = self.unpack(format, options[i + 2:i + 2 + size])
             answer.append((name, value))
-            i += 2+size
+            i += 2 + size
 
         return answer
 
     def unpackParameterRequestList(self, options):
         return [self.getOptionNameAndFormat(ord(opt))[0] for opt in options]
-        
+
     def isAskingForProxyAutodiscovery(self):
         for opt in self.fields['options']:
             if opt[0] == 'parameter-request-list':
@@ -187,13 +188,13 @@ class DhcpPacket(BootpPacket):
                     if ord(optCode) == 252:
                         return True
         return False
-    
+
     def getOptionValue(self, name):
         for opt in self.fields['options']:
             if opt[0] == name:
                 return opt[1]
         return None
-    
+
 
 class DHCPTool:
     def initialize(self):
@@ -205,22 +206,22 @@ class DHCPTool:
 
     def targetRun(self):
         for i in range(1,254):
-            self.sendDISCOVER('12345%c' % i, ip = '192.168.1.%d' % i)
+            self.sendDISCOVER('12345%c' % i, ip='192.168.1.%d' % i)
             self.processPacketsForOneSecond()
-            
+
     def finalize(self):
         self.pcap.close()
         Module.finalize(self)
 
     def processPacketsForOneSecond(self):
         t = time.time()
-        while time.time()-t < 1:
+        while time.time() - t < 1:
             p = next(self.pcap)
             if p[1][2]:
                 pp = self.decoder.decode(p[0])
                 print(pp)
-        
-    def sendDHCP(self, type, chaddr, hostname = None, ip = None, xid = None,opts = []):
+
+    def sendDHCP(self, type, chaddr, hostname=None, ip=None, xid=None,opts=[]):
         p = DhcpPacket()
 
         opt = [('message-type',type)] + list(opts)
@@ -234,16 +235,16 @@ class DHCPTool:
 
         if hostname is not None:
             for i in range(0,len(hostname),255):
-                opt.append(('host-name',hostname[i:i+255]))
+                opt.append(('host-name',hostname[i:i + 255]))
 
-        p['op']     = p.BOOTREQUEST
-        p['xid']    = xid
+        p['op'] = p.BOOTREQUEST
+        p['xid'] = xid
         p['chaddr'] = chaddr
         p['cookie'] = 0x63825363
         p['options'] = opt
-        
+
         self.sock.send(str(p))
 
-    def sendDISCOVER(self, chaddr, hostname = None, ip = None,xid = 0x12345678):
+    def sendDISCOVER(self, chaddr, hostname=None, ip=None,xid=0x12345678):
         print('DHCPDISCOVER: %s' % ip)
         self.sendDHCP(DhcpPacket.DHCPDISCOVER, chaddr, hostname, ip, xid)

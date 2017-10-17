@@ -16,6 +16,7 @@ import array
 import struct
 from functools import reduce
 
+
 class ArrayBuilder(object):
 
     def from_ary(self, ary):
@@ -23,122 +24,126 @@ class ArrayBuilder(object):
 
     def to_ary(self, value):
         return array.array("B", value)
-    
+
+
 class ByteBuilder(object):
 
     def from_ary(self, ary):
         return ary[0]
-    
+
     def to_ary(self, value):
         return array.array('B', [value])
-    
+
+
 class StringBuilder(object):
     def from_ary(self, ary):
         return ary.tostring()
-        
+
     def to_ary(self, value):
         return array.array('B', value)
-    
+
+
 class NumBuilder(object):
     """Converts back and forth between arrays and numbers in network byte-order"""
-    
+
     def __init__(self, size):
         """size: number of bytes in the field"""
         self.size = size
-    
+
     def from_ary(self, ary):
         if len(ary) != self.size:
             raise Exception("Expected %s size but got %s" % (self.size, len(ary)))
-        return reduce( lambda ac, x: ac * 256 + x, ary, 0)
-    
+        return reduce(lambda ac, x: ac * 256 + x, ary, 0)
+
     def to_ary(self, value0):
         value = value0
         rv = array.array('B')
         for _ in range(self.size):
             value, mod = divmod(value, 256)
             rv.append(mod)
-            
+
         if value != 0:
             raise Exception("%s is too big. Max size: %s" % (value0, self.size))
-            
+
         rv.reverse()
         return rv
-    
+
+
 class TLVContainer(object):
-    
+
     def builder(self, kind):
         return self.builders.get(kind, self.default_builder)
-    
+
     def from_ary(self, ary):
         i = 0
-        while i<len(ary):
+        while i < len(ary):
             kind = self.ary2n(ary, i)
-            length = self.ary2n(ary, i+2)
-            i+=4
-            value = ary[i:i+length]
+            length = self.ary2n(ary, i + 2)
+            i += 4
+            value = ary[i:i + length]
             self.elems.append((kind, value))
             i += length
-            
+
         return self
-                
-    def __init__(self, builders, default_builder = ArrayBuilder(), descs=None):
+
+    def __init__(self, builders, default_builder=ArrayBuilder(), descs=None):
         self.builders = builders
         self.default_builder = default_builder
         self.elems = []
         self.descs = descs or {}
-        
+
     def append(self, kind, value):
         self.elems.append((kind, self.builder(kind).to_ary(value)))
-    
+
     def __iter__(self):
         return ((k, self.builder(k).from_ary(v)) for k,v in self.elems)
-    
+
     def all(self, kind):
         return [e[1] for e in self if e[0] == kind]
-    
+
     def __contains__(self, kind):
         return len(self.all(kind)) != 0
-    
+
     def first(self, kind):
         return self.all(kind)[0]
-    
+
     def to_ary(self):
         ary = array.array('B')
         for k,v in self.elems:
             ary.extend(self.n2ary(k))
             ary.extend(self.n2ary(len(v)))
             ary.extend(v)
-            
+
         return ary
 
-    
     def get_packet(self):
         return self.to_ary().tostring()
-    
+
     def set_parent(self, my_parent):
         self.__parent = my_parent
-        
+
     def parent(self):
         return self.__parent
-    
+
     def n2ary(self, n):
         return array.array("B", struct.pack(">H",n))
-    
+
     def ary2n(self, ary, i=0):
-        return struct.unpack(">H", ary[i:i+2].tostring())[0]
-    
+        return struct.unpack(">H", ary[i:i + 2].tostring())[0]
+
     def __repr__(self):
         def desc(kind):
             return self.descs[kind] if kind in self.descs else kind
-        
+
         return "<TLVContainer %s>" % repr([(desc(k), self.builder(k).from_ary(v)) for (k,v) in self.elems])
-    
+
     def child(self):
         return None
 
-class SCElem(object):    
-    #Data elements as defined in section 11 of the WPS 1.0h spec.
-    
+
+class SCElem(object):
+    # Data elements as defined in section 11 of the WPS 1.0h spec.
+
     AP_CHANNEL = 0x1001
     ASSOCIATION_STATE = 0x1002
     AUTHENTICATION_TYPE = 0x1003
@@ -150,20 +155,20 @@ class SCElem(object):
     CONFIRMATION_URL6 = 0x100B
     CONNECTION_TYPE = 0X100C
     CONNECTION_TYPE_FLAGS = 0X100D
-    CREDENTIAL = 0X100E 
+    CREDENTIAL = 0X100E
     DEVICE_NAME = 0x1011
     DEVICE_PASSWORD_ID = 0x1012
     E_HASH1 = 0x1014
     E_HASH2 = 0x1015
     E_SNONCE1 = 0x1016
     E_SNONCE2 = 0x1017
-    ENCRYPTED_SETTINGS = 0x1018 
+    ENCRYPTED_SETTINGS = 0x1018
     ENCRYPTION_TYPE = 0X100F
     ENCRYPTION_TYPE_FLAGS = 0x1010
     ENROLLEE_NONCE = 0x101A
     FEATURE_ID = 0x101B
     IDENTITY = 0X101C
-    INDENTITY_PROOF = 0X101D 
+    INDENTITY_PROOF = 0X101D
     KEY_WRAP_AUTHENTICATOR = 0x101E
     KEY_IDENTIFIER = 0X101F
     MAC_ADDRESS = 0x1020
@@ -177,7 +182,7 @@ class SCElem(object):
     NEW_DEVICE_NAME = 0x1029
     NEW_PASSWORD = 0x102A
     OOB_DEVICE_PASSWORD = 0X102C
-    OS_VERSION= 0X102D
+    OS_VERSION = 0X102D
     POWER_LEVEL = 0X102F
     PSK_CURRENT = 0x1030
     PSK_MAX = 0x1031
@@ -205,7 +210,7 @@ class SCElem(object):
     UUID_R = 0x1048
     VENDOR_EXTENSION = 0x1049
     VERSION = 0x104A
-    X_509_CERTIFICATE_REQUEST = 0x104B 
+    X_509_CERTIFICATE_REQUEST = 0x104B
     X_509_CERTIFICATE = 0x104C
     EAP_IDENTITY = 0x104D
     MESSAGE_COUNTER = 0x104E
@@ -213,7 +218,7 @@ class SCElem(object):
     REKEY_KEY = 0x1050
     KEY_LIFETIME = 0x1051
     PERMITTED_CONFIG_METHODS = 0x1052
-    SELECTED_REGISTRAR_CONFIG_METHODS= 0x1053
+    SELECTED_REGISTRAR_CONFIG_METHODS = 0x1053
     PRIMARY_DEVICE_TYPE = 0x1054
     SECONDARY_DEVICE_TYPE_LIST = 0x1055
     PORTABLE_DEVICE = 0x1056
@@ -225,10 +230,11 @@ class SCElem(object):
     _802_1X_ENABLED = 0x1062
     APP_SESSION_KEY = 0x1063
     WEP_TRANSMIT_KEY = 0x1064
-    
+
+
 class MessageType(object):
     """Message types according to WPS 1.0h spec, section 11"""
-    
+
     BEACON = 0x01
     PROBE_REQUEST = 0x02
     PROBE_RESPONSE = 0x03
@@ -244,7 +250,8 @@ class MessageType(object):
     WSC_ACK = 0x0D
     WSC_NACK = 0x0E
     WSC_DONE = 0x0F
-    
+
+
 class AuthTypeFlag(object):
     OPEN = 0x0001
     WPAPSK = 0x0002
@@ -252,26 +259,29 @@ class AuthTypeFlag(object):
     WPA = 0x0008
     WPA2 = 0x0010
     WPA2PSK = 0x0020
-    
+
 AuthTypeFlag_ALL = AuthTypeFlag.OPEN | \
-        AuthTypeFlag.WPAPSK | \
-        AuthTypeFlag.SHARED | \
-        AuthTypeFlag.WPA | \
-        AuthTypeFlag.WPA2 | \
-        AuthTypeFlag.WPA2PSK
-        
+    AuthTypeFlag.WPAPSK | \
+    AuthTypeFlag.SHARED | \
+    AuthTypeFlag.WPA | \
+    AuthTypeFlag.WPA2 | \
+    AuthTypeFlag.WPA2PSK
+
+
 class EncryptionTypeFlag(object):
     NONE = 0x0001
     WEP = 0x0002
     TKIP = 0x0004
     AES = 0x0008
-    
+
 EncryptionTypeFlag_ALL = EncryptionTypeFlag.NONE | EncryptionTypeFlag.WEP | EncryptionTypeFlag.TKIP | EncryptionTypeFlag.AES
+
 
 class ConnectionTypeFlag(object):
     ESS = 0x01
     IBSS = 0x02
-    
+
+
 class ConfigMethod(object):
     USBA = 0x0001
     ETHERNET = 0x0002
@@ -282,8 +292,8 @@ class ConfigMethod(object):
     NFC_INTERFACE = 0x0040
     PUSHBUTTON = 0x0080
     KEYPAD = 0x0100
-    
-    
+
+
 class OpCode(object):
     WSC_START = 0x01
     WSC_ACK = 0x02
@@ -291,14 +301,16 @@ class OpCode(object):
     WSC_MSG = 0x04
     WSC_DONE = 0x05
     WSC_FRAG_ACK = 0x06
-    
+
+
 class AssocState(object):
     NOT_ASSOC = 0
     CONN_SUCCESS = 1
     CFG_FAILURE = 2
     FAILURE = 3,
     IP_FAILURE = 4
-    
+
+
 class ConfigError(object):
     NO_ERROR = 0
     OOB_IFACE_READ_ERROR = 1
@@ -319,7 +331,8 @@ class ConfigError(object):
     MSG_TIMEOUT = 16
     REG_SESS_TIMEOUT = 17
     DEV_PASSWORD_AUTH_FAILURE = 18
-    
+
+
 class DevicePasswordId(object):
     DEFAULT = 0x0000
     USER_SPECIFIED = 0x0001
@@ -327,15 +340,16 @@ class DevicePasswordId(object):
     REKEY = 0x0003
     PUSHBUTTON = 0x0004
     REGISTRAR_SPECIFIED = 0x0005
-    
+
+
 class WpsState(object):
     NOT_CONFIGURED = 0x01
     CONFIGURED = 0x02
-    
+
 
 class SimpleConfig(ProtocolPacket):
     "For now, it supports Simple configs with the bits more_fragments and length_field not set"
-    
+
     header_size = 2
     tail_size = 0
 
@@ -343,7 +357,7 @@ class SimpleConfig(ProtocolPacket):
     flags = Byte(1)
     more_fragments = Bit(1, 0)
     length_field = Bit(1,1)
-    
+
     BUILDERS = {
         SCElem.CONNECTION_TYPE: ByteBuilder(),
         SCElem.CONNECTION_TYPE_FLAGS: ByteBuilder(),
@@ -363,7 +377,7 @@ class SimpleConfig(ProtocolPacket):
         SCElem.TOTAL_NETWORKS: ByteBuilder(),
         SCElem.VERSION: ByteBuilder(),
         SCElem.WEP_TRANSMIT_KEY: ByteBuilder(),
-        
+
         SCElem.CONFIRMATION_URL4: StringBuilder(),
         SCElem.CONFIRMATION_URL6: StringBuilder(),
         SCElem.DEVICE_NAME: StringBuilder(),
@@ -376,7 +390,7 @@ class SimpleConfig(ProtocolPacket):
         SCElem.SERIAL_NUMBER: StringBuilder(),
         SCElem.EAP_IDENTITY: StringBuilder(),
         SCElem.NETWORK_KEY: StringBuilder(),
-            
+
         SCElem.AP_CHANNEL: NumBuilder(2),
         SCElem.ASSOCIATION_STATE: NumBuilder(2),
         SCElem.AUTHENTICATION_TYPE: NumBuilder(2),
@@ -386,18 +400,17 @@ class SimpleConfig(ProtocolPacket):
         SCElem.DEVICE_PASSWORD_ID: NumBuilder(2),
         SCElem.ENCRYPTION_TYPE: NumBuilder(2),
         SCElem.ENCRYPTION_TYPE_FLAGS: NumBuilder(2),
-        SCElem.MESSAGE_COUNTER: NumBuilder(8),       
+        SCElem.MESSAGE_COUNTER: NumBuilder(8),
         SCElem.KEY_LIFETIME: NumBuilder(4),
         SCElem.PERMITTED_CONFIG_METHODS: NumBuilder(2),
         SCElem.SELECTED_REGISTRAR_CONFIG_METHODS: NumBuilder(2),
         SCElem.PUBLIC_KEY: NumBuilder(192),
 
     }
-    
+
     @classmethod
     def build_tlv_container(cls):
         return TLVContainer(
-            builders=SimpleConfig.BUILDERS, 
-            descs = dict( (v,k) for (k,v) in SCElem.__dict__.items() )
+            builders=SimpleConfig.BUILDERS,
+            descs=dict((v,k) for (k,v) in SCElem.__dict__.items())
         )
-    

@@ -27,15 +27,16 @@ from impacket.dcerpc.v5.samr import SID_NAME_USE
 from impacket.dcerpc.v5.dtypes import MAXIMUM_ALLOWED
 import argparse
 
+
 class LSALookupSid:
     KNOWN_PROTOCOLS = {
         '139/SMB': (r'ncacn_np:%s[\pipe\lsarpc]', 139),
         '445/SMB': (r'ncacn_np:%s[\pipe\lsarpc]', 445),
         '135/TCP': (r'ncacn_ip_tcp:%s', 135),
-        }
+    }
 
-    def __init__(self, username, password, domain, protocols = None,
-                 hashes = None, maxRid=4000):
+    def __init__(self, username, password, domain, protocols=None,
+                 hashes=None, maxRid=4000):
         if not protocols:
             protocols = list(LSALookupSid.KNOWN_PROTOCOLS.keys())
 
@@ -72,7 +73,7 @@ class LSALookupSid:
                 entries = self.__bruteForce(rpctransport, self.__maxRid)
             except Exception as e:
                 #import traceback
-                #print traceback.print_exc()
+                # print traceback.print_exc()
                 logging.critical(str(e))
                 raise
             else:
@@ -86,10 +87,10 @@ class LSALookupSid:
 
         # Want encryption? Uncomment next line
         # But make SIMULTANEOUS variable <= 100
-        #dce.set_auth_level(ntlm.NTLM_AUTH_PKT_PRIVACY)
+        # dce.set_auth_level(ntlm.NTLM_AUTH_PKT_PRIVACY)
 
         # Want fragmentation? Uncomment next line
-        #dce.set_max_fragment_size(32)
+        # dce.set_max_fragment_size(32)
 
         dce.bind(lsat.MSRPC_UUID_LSAT)
         resp = lsat.hLsarOpenPolicy2(dce, MAXIMUM_ALLOWED | lsat.POLICY_LOOKUP_NAMES)
@@ -101,17 +102,17 @@ class LSALookupSid:
 
         soFar = 0
         SIMULTANEOUS = 1000
-        for j in range(maxRid/SIMULTANEOUS+1):
+        for j in range(maxRid / SIMULTANEOUS + 1):
             if (maxRid - soFar) / SIMULTANEOUS == 0:
                 sidsToCheck = (maxRid - soFar) % SIMULTANEOUS
-            else: 
+            else:
                 sidsToCheck = SIMULTANEOUS
- 
+
             if sidsToCheck == 0:
                 break
 
             sids = list()
-            for i in range(soFar, soFar+sidsToCheck):
+            for i in range(soFar, soFar + sidsToCheck):
                 sids.append(domainSid + '-%d' % (i))
             try:
                 request = lsat.hLsarLookupSids(dce, policyHandle, sids,lsat.LSAP_LOOKUP_LEVEL.LsapLookupWksta)
@@ -121,12 +122,12 @@ class LSALookupSid:
                     continue
                 elif str(e).find('STATUS_SOME_NOT_MAPPED') >= 0:
                     resp = e.get_packet()
-                else: 
+                else:
                     raise
 
             for n, item in enumerate(resp['TranslatedNames']['Names']):
                 if item['Use'] != SID_NAME_USE.SidTypeUnknown:
-                    print("%d: %s\\%s (%s)" % (soFar+n, resp['ReferencedDomains']['Domains'][item['DomainIndex']]['Name'], item['Name'], SID_NAME_USE.enumItems(item['Use']).name))
+                    print("%d: %s\\%s (%s)" % (soFar + n, resp['ReferencedDomains']['Domains'][item['DomainIndex']]['Name'], item['Name'], SID_NAME_USE.enumItems(item['Use']).name))
             soFar += SIMULTANEOUS
 
         dce.disconnect()
@@ -141,14 +142,14 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
-    parser.add_argument('maxRid', action='store', default = '4000', nargs='?', help='max Rid to check (default 4000)')
+    parser.add_argument('maxRid', action='store', default='4000', nargs='?', help='max Rid to check (default 4000)')
     parser.add_argument('protocol', choices=list(LSALookupSid.KNOWN_PROTOCOLS.keys()), nargs='?', default='445/SMB', help='transport protocol (default 445/SMB)')
 
     group = parser.add_argument_group('authentication')
 
-    group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
+    group.add_argument('-hashes', action="store", metavar="LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
 
-    if len(sys.argv)==1:
+    if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(1)
 

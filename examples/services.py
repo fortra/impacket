@@ -12,7 +12,7 @@
 #
 # Reference for:
 #  DCE/RPC.
-# TODO: 
+# TODO:
 # [ ] Check errors
 
 import socket
@@ -27,11 +27,12 @@ from impacket.dcerpc.v5.ndr import NULL
 from impacket.examples import logger
 from impacket.crypto import *
 
+
 class SVCCTL:
     KNOWN_PROTOCOLS = {
         '139/SMB': (r'ncacn_np:%s[\pipe\svcctl]', 139),
         '445/SMB': (r'ncacn_np:%s[\pipe\svcctl]', 445),
-        }
+    }
 
     def __init__(self, username, password, domain, options):
         self.__username = username
@@ -69,7 +70,7 @@ class SVCCTL:
                 self.doStuff(rpctransport)
             except Exception as e:
                 #import traceback
-                #traceback.print_exc()
+                # traceback.print_exc()
                 logging.critical(str(e))
                 break
             else:
@@ -80,16 +81,16 @@ class SVCCTL:
         dce = rpctransport.get_dce_rpc()
         #dce.set_credentials(self.__username, self.__password)
         dce.connect()
-        #dce.set_max_fragment_size(1)
-        #dce.set_auth_level(ntlm.NTLM_AUTH_PKT_PRIVACY)
-        #dce.set_auth_level(ntlm.NTLM_AUTH_PKT_INTEGRITY)
+        # dce.set_max_fragment_size(1)
+        # dce.set_auth_level(ntlm.NTLM_AUTH_PKT_PRIVACY)
+        # dce.set_auth_level(ntlm.NTLM_AUTH_PKT_INTEGRITY)
         dce.bind(scmr.MSRPC_UUID_SCMR)
         #rpc = svcctl.DCERPCSvcCtl(dce)
         rpc = dce
         ans = scmr.hROpenSCManagerW(rpc)
         scManagerHandle = ans['lpScHandle']
         if self.__action != 'LIST' and self.__action != 'CREATE':
-            ans = scmr.hROpenServiceW(rpc, scManagerHandle, self.__options.name+'\x00')
+            ans = scmr.hROpenServiceW(rpc, scManagerHandle, self.__options.name + '\x00')
             serviceHandle = ans['lpServiceHandle']
 
         if self.__action == 'START':
@@ -156,21 +157,21 @@ class SVCCTL:
             print("%30s - " % (self.__options.name), end=' ')
             state = resp['lpServiceStatus']['dwCurrentState']
             if state == scmr.SERVICE_CONTINUE_PENDING:
-               print("CONTINUE PENDING")
+                print("CONTINUE PENDING")
             elif state == scmr.SERVICE_PAUSE_PENDING:
-               print("PAUSE PENDING")
+                print("PAUSE PENDING")
             elif state == scmr.SERVICE_PAUSED:
-               print("PAUSED")
+                print("PAUSED")
             elif state == scmr.SERVICE_RUNNING:
-               print("RUNNING")
+                print("RUNNING")
             elif state == scmr.SERVICE_START_PENDING:
-               print("START PENDING")
+                print("START PENDING")
             elif state == scmr.SERVICE_STOP_PENDING:
-               print("STOP PENDING")
+                print("STOP PENDING")
             elif state == scmr.SERVICE_STOPPED:
-               print("STOPPED")
+                print("STOPPED")
             else:
-               print("UNKOWN")
+                print("UNKOWN")
         elif self.__action == 'LIST':
             logging.info("Listing services available on target")
             #resp = rpc.EnumServicesStatusW(scManagerHandle, svcctl.SERVICE_WIN32_SHARE_PROCESS )
@@ -181,21 +182,21 @@ class SVCCTL:
                 print("%30s - %70s - " % (resp[i]['lpServiceName'][:-1], resp[i]['lpDisplayName'][:-1]), end=' ')
                 state = resp[i]['ServiceStatus']['dwCurrentState']
                 if state == scmr.SERVICE_CONTINUE_PENDING:
-                   print("CONTINUE PENDING")
+                    print("CONTINUE PENDING")
                 elif state == scmr.SERVICE_PAUSE_PENDING:
-                   print("PAUSE PENDING")
+                    print("PAUSE PENDING")
                 elif state == scmr.SERVICE_PAUSED:
-                   print("PAUSED")
+                    print("PAUSED")
                 elif state == scmr.SERVICE_RUNNING:
-                   print("RUNNING")
+                    print("RUNNING")
                 elif state == scmr.SERVICE_START_PENDING:
-                   print("START PENDING")
+                    print("START PENDING")
                 elif state == scmr.SERVICE_STOP_PENDING:
-                   print("STOP PENDING")
+                    print("STOP PENDING")
                 elif state == scmr.SERVICE_STOPPED:
-                   print("STOPPED")
+                    print("STOPPED")
                 else:
-                   print("UNKOWN")
+                    print("UNKOWN")
             print("Total Services: %d" % len(resp))
         elif self.__action == 'CREATE':
             logging.info("Creating service %s" % self.__options.name)
@@ -215,25 +216,24 @@ class SVCCTL:
                 display = self.__options.display + '\x00'
             else:
                 display = NULL
- 
+
             if self.__options.path is not None:
                 path = self.__options.path + '\x00'
             else:
                 path = NULL
- 
+
             if self.__options.start_name is not None:
                 start_name = self.__options.start_name + '\x00'
             else:
-                start_name = NULL 
+                start_name = NULL
 
             if self.__options.password is not None:
                 s = rpctransport.get_smb_connection()
                 key = s.getSessionKey()
-                password = (self.__options.password+'\x00').encode('utf-16le')
+                password = (self.__options.password + '\x00').encode('utf-16le')
                 password = encryptSecret(key, password)
             else:
                 password = NULL
- 
 
             #resp = scmr.hRChangeServiceConfigW(rpc, serviceHandle,  display, path, service_type, start_type, start_name, password)
             resp = scmr.hRChangeServiceConfigW(rpc, serviceHandle, service_type, start_type, scmr.SERVICE_ERROR_IGNORE, path, NULL, NULL, NULL, 0, start_name, password, 0, display)
@@ -245,7 +245,7 @@ class SVCCTL:
 
         dce.disconnect()
 
-        return 
+        return
 
 
 # Process command-line arguments.
@@ -253,12 +253,12 @@ if __name__ == '__main__':
 
     print(version.BANNER)
 
-    parser = argparse.ArgumentParser(add_help = True, description = "Windows Service manipulation script.")
+    parser = argparse.ArgumentParser(add_help=True, description="Windows Service manipulation script.")
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     subparsers = parser.add_subparsers(help='actions', dest='action')
- 
+
     # A start command
     start_parser = subparsers.add_parser('start', help='starts the service')
     start_parser.add_argument('-name', action='store', required=True, help='service name')
@@ -300,12 +300,12 @@ if __name__ == '__main__':
 
     group = parser.add_argument_group('authentication')
 
-    group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
+    group.add_argument('-hashes', action="store", metavar="LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
     group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
     group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line')
-    group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication (128 or 256 bits)')
- 
-    if len(sys.argv)==1:
+    group.add_argument('-aesKey', action="store", metavar="hex key", help='AES key to use for Kerberos Authentication (128 or 256 bits)')
+
+    if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(1)
 

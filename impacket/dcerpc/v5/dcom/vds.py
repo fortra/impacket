@@ -8,16 +8,16 @@
 #
 # Description:
 #   [MS-VDS]: Virtual Disk Service (VDS) Protocol
-#             This was used as a way to test the DCOM runtime. Further 
+#             This was used as a way to test the DCOM runtime. Further
 #             testing is needed to verify it is working as expected
 #
 #   Best way to learn how to use these calls is to grab the protocol standard
 #   so you understand what the call does, and then read the test case located
 #   at https://github.com/CoreSecurity/impacket/tree/master/impacket/testcases/SMB_RPC
 #
-#   Since DCOM is like an OO RPC, instead of helper functions you will see the 
-#   classes described in the standards developed. 
-#   There are test cases for them too. 
+#   Since DCOM is like an OO RPC, instead of helper functions you will see the
+#   classes described in the standards developed.
+#   There are test cases for them too.
 #
 from impacket.dcerpc.v5.ndr import NDRSTRUCT, NDRUniConformantVaryingArray, NDRPOINTER, NDRENUM
 from impacket.dcerpc.v5.dcomrt import DCOMCALL, DCOMANSWER, IRemUnknown2, PMInterfacePointer, INTERFACE, MInterfacePointer
@@ -26,25 +26,26 @@ from impacket.dcerpc.v5.enum import Enum
 from impacket import hresult_errors
 from impacket.uuid import string_to_bin
 
+
 class DCERPCSessionError(Exception):
-    def __init__( self, packet = None, error_code = None):
+    def __init__(self, packet=None, error_code=None):
         Exception.__init__(self)
         self.packet = packet
         if packet is not None:
             self.error_code = packet['ErrorCode']
         else:
             self.error_code = error_code
-       
-    def get_error_code( self ):
+
+    def get_error_code(self):
         return self.error_code
- 
-    def get_packet( self ):
+
+    def get_packet(self):
         return self.packet
 
-    def __str__( self ):
+    def __str__(self):
         if (self.error_code in hresult_errors.ERROR_MESSAGES):
             error_msg_short = hresult_errors.ERROR_MESSAGES[self.error_code][0]
-            error_msg_verbose = hresult_errors.ERROR_MESSAGES[self.error_code][1] 
+            error_msg_verbose = hresult_errors.ERROR_MESSAGES[self.error_code][1]
             return 'VDS SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
         else:
             return 'VDS SessionError: unknown error code: 0x%x' % (self.error_code)
@@ -71,25 +72,32 @@ VDS_OBJECT_ID = GUID
 # STRUCTURES
 ################################################################################
 # 2.2.2.1.3.1 VDS_SERVICE_PROP
+
+
 class VDS_SERVICE_PROP(NDRSTRUCT):
     structure = (
         ('pwszVersion',LPWSTR),
         ('ulFlags',ULONG),
     )
 
+
 class OBJECT_ARRAY(NDRUniConformantVaryingArray):
     item = PMInterfacePointer
 
 # 2.2.2.7.1.1 VDS_PROVIDER_TYPE
+
+
 class VDS_PROVIDER_TYPE(NDRENUM):
     class enumItems(Enum):
-        VDS_PT_UNKNOWN     = 0
-        VDS_PT_SOFTWARE    = 1
-        VDS_PT_HARDWARE    = 2
+        VDS_PT_UNKNOWN = 0
+        VDS_PT_SOFTWARE = 1
+        VDS_PT_HARDWARE = 2
         VDS_PT_VIRTUALDISK = 3
-        VDS_PT_MAX         = 4
+        VDS_PT_MAX = 4
 
 # 2.2.2.7.2.1 VDS_PROVIDER_PROP
+
+
 class VDS_PROVIDER_PROP(NDRSTRUCT):
     structure = (
         ('id',VDS_OBJECT_ID),
@@ -107,88 +115,109 @@ class VDS_PROVIDER_PROP(NDRSTRUCT):
 ################################################################################
 
 # 3.4.5.2.5.1 IVdsServiceInitialization::Initialize (Opnum 3)
+
+
 class IVdsServiceInitialization_Initialize(DCOMCALL):
     opnum = 3
     structure = (
-       ('pwszMachineName', LPWSTR),
+        ('pwszMachineName', LPWSTR),
     )
+
 
 class IVdsServiceInitialization_InitializeResponse(DCOMANSWER):
     structure = (
-       ('ErrorCode', error_status_t),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.4.5.2.4.1 IVdsService::IsServiceReady (Opnum 3)
+
+
 class IVdsService_IsServiceReady(DCOMCALL):
     opnum = 3
     structure = (
     )
 
+
 class IVdsService_IsServiceReadyResponse(DCOMANSWER):
     structure = (
-       ('ErrorCode', error_status_t),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.4.5.2.4.2 IVdsService::WaitForServiceReady (Opnum 4)
+
+
 class IVdsService_WaitForServiceReady(DCOMCALL):
     opnum = 4
     structure = (
     )
 
+
 class IVdsService_WaitForServiceReadyResponse(DCOMANSWER):
     structure = (
-       ('ErrorCode', error_status_t),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.4.5.2.4.3 IVdsService::GetProperties (Opnum 5)
+
+
 class IVdsService_GetProperties(DCOMCALL):
     opnum = 5
     structure = (
     )
 
+
 class IVdsService_GetPropertiesResponse(DCOMANSWER):
     structure = (
-       ('pServiceProp', VDS_SERVICE_PROP),
-       ('ErrorCode', error_status_t),
+        ('pServiceProp', VDS_SERVICE_PROP),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.4.5.2.4.4 IVdsService::QueryProviders (Opnum 6)
+
+
 class IVdsService_QueryProviders(DCOMCALL):
     opnum = 6
     structure = (
         ('masks', DWORD),
     )
 
+
 class IVdsService_QueryProvidersResponse(DCOMANSWER):
     structure = (
-       ('ppEnum', PMInterfacePointer),
-       ('ErrorCode', error_status_t),
+        ('ppEnum', PMInterfacePointer),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.1.1 IEnumVdsObject Interface
 # 3.4.5.2.1.1 IEnumVdsObject::Next (Opnum 3)
+
+
 class IEnumVdsObject_Next(DCOMCALL):
     opnum = 3
     structure = (
-       ('celt', ULONG),
+        ('celt', ULONG),
     )
+
 
 class IEnumVdsObject_NextResponse(DCOMANSWER):
     structure = (
-       ('ppObjectArray', OBJECT_ARRAY),
-       ('pcFetched', ULONG),
-       ('ErrorCode', error_status_t),
+        ('ppObjectArray', OBJECT_ARRAY),
+        ('pcFetched', ULONG),
+        ('ErrorCode', error_status_t),
     )
 # 3.4.5.2.14.1 IVdsProvider::GetProperties (Opnum 3)
+
+
 class IVdsProvider_GetProperties(DCOMCALL):
     opnum = 3
     structure = (
     )
 
+
 class IVdsProvider_GetPropertiesResponse(DCOMANSWER):
     structure = (
-       ('pProviderProp', VDS_PROVIDER_PROP),
-       ('ErrorCode', error_status_t),
+        ('pProviderProp', VDS_PROVIDER_PROP),
+        ('ErrorCode', error_status_t),
     )
 
 ################################################################################
@@ -200,6 +229,8 @@ OPNUMS = {
 ################################################################################
 # HELPER FUNCTIONS AND INTERFACES
 ################################################################################
+
+
 class IEnumVdsObject(IRemUnknown2):
     def Next(self, celt=0xffff):
         request = IEnumVdsObject_Next()
@@ -207,7 +238,7 @@ class IEnumVdsObject(IRemUnknown2):
         request['ORPCthis']['flags'] = 0
         request['celt'] = celt
         try:
-            resp = self.request(request, uuid = self.get_iPid())
+            resp = self.request(request, uuid=self.get_iPid())
         except Exception as e:
             resp = e.get_packet()
             # If it is S_FALSE(1) means less items were returned
@@ -215,16 +246,18 @@ class IEnumVdsObject(IRemUnknown2):
                 raise
         interfaces = list()
         for interface in resp['ppObjectArray']:
-            interfaces.append(IRemUnknown2(INTERFACE(self.get_cinstance(), ''.join(interface['abData']), self.get_ipidRemUnknown(), target = self.get_target())))
+            interfaces.append(IRemUnknown2(INTERFACE(self.get_cinstance(), ''.join(interface['abData']), self.get_ipidRemUnknown(), target=self.get_target())))
         return interfaces
+
 
 class IVdsProvider(IRemUnknown2):
     def GetProperties(self):
         request = IVdsProvider_GetProperties()
         request['ORPCthis'] = self.get_cinstance().get_ORPCthis()
         request['ORPCthis']['flags'] = 0
-        resp = self.request(request, uuid = self.get_iPid())
-        return resp 
+        resp = self.request(request, uuid=self.get_iPid())
+        return resp
+
 
 class IVdsServiceInitialization(IRemUnknown2):
     def __init__(self, interface):
@@ -235,8 +268,9 @@ class IVdsServiceInitialization(IRemUnknown2):
         request['ORPCthis'] = self.get_cinstance().get_ORPCthis()
         request['ORPCthis']['flags'] = 0
         request['pwszMachineName'] = '\x00'
-        resp = self.request(request, uuid = self.get_iPid())
-        return resp 
+        resp = self.request(request, uuid=self.get_iPid())
+        return resp
+
 
 class IVdsService(IRemUnknown2):
     def __init__(self, interface):
@@ -247,33 +281,29 @@ class IVdsService(IRemUnknown2):
         request['ORPCthis'] = self.get_cinstance().get_ORPCthis()
         request['ORPCthis']['flags'] = 0
         try:
-            resp = self.request(request, uuid = self.get_iPid())
+            resp = self.request(request, uuid=self.get_iPid())
         except Exception as e:
             resp = e.get_packet()
-        return resp 
+        return resp
 
     def WaitForServiceReady(self):
         request = IVdsService_WaitForServiceReady()
         request['ORPCthis'] = self.get_cinstance().get_ORPCthis()
         request['ORPCthis']['flags'] = 0
-        resp = self.request(request, uuid = self.get_iPid())
-        return resp 
+        resp = self.request(request, uuid=self.get_iPid())
+        return resp
 
     def GetProperties(self):
         request = IVdsService_GetProperties()
         request['ORPCthis'] = self.get_cinstance().get_ORPCthis()
         request['ORPCthis']['flags'] = 0
-        resp = self.request(request, uuid = self.get_iPid())
-        return resp 
+        resp = self.request(request, uuid=self.get_iPid())
+        return resp
 
     def QueryProviders(self, masks):
         request = IVdsService_QueryProviders()
         request['ORPCthis'] = self.get_cinstance().get_ORPCthis()
         request['ORPCthis']['flags'] = 0
         request['masks'] = masks
-        resp = self.request(request, uuid = self.get_iPid())
-        return IEnumVdsObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
-
-
-
-
+        resp = self.request(request, uuid=self.get_iPid())
+        return IEnumVdsObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(), target=self.get_target()))

@@ -14,7 +14,7 @@
 #
 # Reference for:
 #  Extensive Storage Engine (ese)
-# 
+#
 
 import sys
 import logging
@@ -23,9 +23,11 @@ from impacket import version, ese
 from impacket.ese import ESENT_DB
 from impacket.examples import logger
 
+
 def dumpPage(ese, pageNum):
     data = ese.getPage(pageNum)
     data.dump()
+
 
 def exportTable(ese, tableName):
     cursor = ese.openTable(tableName)
@@ -40,8 +42,8 @@ def exportTable(ese, tableName):
             record = ese.getNextRow(cursor)
         except Exception as e:
             #import traceback
-            #print(traceback.print_exc())
-            #print(e)
+            # print(traceback.print_exc())
+            # print(e)
             logging.error('Error while calling getNextRow(), trying the next one')
             continue
 
@@ -49,13 +51,14 @@ def exportTable(ese, tableName):
             break
         print(("*** %d" % i))
         for j in list(record.keys()):
-           if record[j] is not None:
-               print(("%-30s: %r" % (j, record[j])))
+            if record[j] is not None:
+                print(("%-30s: %r" % (j, record[j])))
         i += 1
+
 
 def main():
     print((version.BANNER))
-    parser = argparse.ArgumentParser(add_help = True, description = "Extensive Storage Engine utility. Allows dumping catalog, pages and tables.")
+    parser = argparse.ArgumentParser(add_help=True, description="Extensive Storage Engine utility. Allows dumping catalog, pages and tables.")
     parser.add_argument('databaseFile', action='store', help='ESE to open')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-page', action='store', help='page to open')
@@ -73,8 +76,7 @@ def main():
     export_parser = subparsers.add_parser('export', help='dumps the catalog info for the DB')
     export_parser.add_argument('-table', action='store', required=True, help='table to dump')
 
-
-    if len(sys.argv)==1:
+    if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(1)
 
@@ -104,7 +106,7 @@ def main():
             raise
     except Exception as e:
         #import traceback
-        #print(traceback.print_exc())
+        # print(traceback.print_exc())
         print(e)
     ese.close()
 
@@ -112,6 +114,3 @@ def main():
 if __name__ == '__main__':
     main()
     sys.exit(1)
-
-
-

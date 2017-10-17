@@ -7,6 +7,7 @@ from ImpactPacket import Ethernet, EthernetTag
 from array import array
 import unittest
 
+
 class TestEthernet(unittest.TestCase):
 
     def setUp(self):
@@ -60,7 +61,7 @@ class TestEthernet(unittest.TestCase):
         """Test manipulation with VLAN tags"""
         def check_tags(*tags):
             self.assertEqual(self.eth.tag_cnt, len(tags))
-            self.assertEqual(self.eth.get_header_size(), 14 + 4*len(tags))
+            self.assertEqual(self.eth.get_header_size(), 14 + 4 * len(tags))
             self.assertEqual(self.eth.get_ether_type(), 0x0800)
             for i,tag in enumerate(tags):
                 self.assertEqual(self.eth.get_tag(i).get_buffer_as_string(), tag)

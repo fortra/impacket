@@ -35,15 +35,18 @@
 from pyasn1.type import tag, namedtype, namedval, univ, constraint, char, useful
 from . import constants
 
+
 def _application_tag(tag_value):
     return univ.Sequence.tagSet.tagExplicitly(
         tag.Tag(tag.tagClassApplication, tag.tagFormatConstructed,
                 int(tag_value)))
 
+
 def _vno_component(tag_value, name="pvno"):
     return _sequence_component(
         name, tag_value, univ.Integer(),
         subtypeSpec=constraint.ValueRangeConstraint(5, 5))
+
 
 def _msg_type_component(tag_value, values):
     c = constraint.ConstraintsUnion(
@@ -51,17 +54,20 @@ def _msg_type_component(tag_value, values):
     return _sequence_component('msg-type', tag_value, univ.Integer(),
                                subtypeSpec=c)
 
+
 def _sequence_component(name, tag_value, type, **subkwargs):
     return namedtype.NamedType(name, type.subtype(
         explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple,
                             tag_value),
         **subkwargs))
 
+
 def _sequence_optional_component(name, tag_value, type, **subkwargs):
     return namedtype.OptionalNamedType(name, type.subtype(
         explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple,
                             tag_value),
         **subkwargs))
+
 
 def seq_set(seq, name, builder=None, *args, **kwargs):
     component = seq.setComponentByName(name).getComponentByName(name)
@@ -71,18 +77,22 @@ def seq_set(seq, name, builder=None, *args, **kwargs):
         seq.setComponentByName(name)
     return seq.getComponentByName(name)
 
+
 def seq_set_dict(seq, name, pairs, *args, **kwargs):
     component = seq.setComponentByName(name).getComponentByName(name)
     for k, v in pairs.items():
         component.setComponentByName(k, v)
+
 
 def seq_set_iter(seq, name, iterable):
     component = seq.setComponentByName(name).getComponentByName(name)
     for pos, v in enumerate(iterable):
         component.setComponentByPosition(pos, v)
 
+
 def seq_set_flags(seq, name, flags):
     seq_set(seq, name, flags.to_asn1)
+
 
 def seq_append(seq, name, pairs):
     component = seq.getComponentByName(name)
@@ -94,18 +104,22 @@ def seq_append(seq, name, pairs):
     for k, v in pairs.items():
         element.setComponentByName(k, v)
 
+
 class Int32(univ.Integer):
     subtypeSpec = univ.Integer.subtypeSpec + constraint.ValueRangeConstraint(
         -2147483648, 2147483647)
+
 
 class UInt32(univ.Integer):
     pass
 #    subtypeSpec = univ.Integer.subtypeSpec + constraint.ValueRangeConstraint(
 #        0, 4294967295)
 
+
 class Microseconds(univ.Integer):
     subtypeSpec = univ.Integer.subtypeSpec + constraint.ValueRangeConstraint(
         0, 999999)
+
 
 class KerberosString(char.GeneralString):
     # TODO marc: I'm not sure how to express this constraint in the API.
@@ -113,39 +127,47 @@ class KerberosString(char.GeneralString):
     # subtypeSpec = constraint.PermittedAlphabetConstraint(char.IA5String())
     pass
 
+
 class Realm(KerberosString):
     pass
+
 
 class PrincipalName(univ.Sequence):
     componentType = namedtype.NamedTypes(
         _sequence_component("name-type", 0, Int32()),
         _sequence_component("name-string", 1,
                             univ.SequenceOf(componentType=KerberosString()))
-                            )
+    )
+
 
 class KerberosTime(useful.GeneralizedTime):
     pass
+
 
 class HostAddress(univ.Sequence):
     componentType = namedtype.NamedTypes(
         _sequence_component("addr-type", 0, Int32()),
         _sequence_component("address", 1, univ.OctetString())
-        )
+    )
+
 
 class HostAddresses(univ.SequenceOf):
     componentType = HostAddress()
+
 
 class AuthorizationData(univ.SequenceOf):
     componentType = univ.Sequence(componentType=namedtype.NamedTypes(
         _sequence_component('ad-type', 0, Int32()),
         _sequence_component('ad-data', 1, univ.OctetString())
-        ))
+    ))
+
 
 class PA_DATA(univ.Sequence):
     componentType = namedtype.NamedTypes(
         _sequence_component('padata-type', 1, Int32()),
         _sequence_component('padata-value', 2, univ.OctetString())
-        )
+    )
+
 
 class KerberosFlags(univ.BitString):
     # TODO marc: it doesn't look like there's any way to specify the
@@ -153,22 +175,26 @@ class KerberosFlags(univ.BitString):
     # arrange at a higher layer to pass in >= 32 bits to the encoder.
     pass
 
+
 class EncryptedData(univ.Sequence):
     componentType = namedtype.NamedTypes(
         _sequence_component("etype", 0, Int32()),
         _sequence_optional_component("kvno", 1, UInt32()),
         _sequence_component("cipher", 2, univ.OctetString())
-        )
+    )
+
 
 class EncryptionKey(univ.Sequence):
     componentType = namedtype.NamedTypes(
         _sequence_component('keytype', 0, Int32()),
         _sequence_component('keyvalue', 1, univ.OctetString()))
 
+
 class Checksum(univ.Sequence):
     componentType = namedtype.NamedTypes(
         _sequence_component('cksumtype', 0, Int32()),
         _sequence_component('checksum', 1, univ.OctetString()))
+
 
 class Ticket(univ.Sequence):
     tagSet = _application_tag(constants.ApplicationTagNumbers.Ticket.value)
@@ -177,15 +203,18 @@ class Ticket(univ.Sequence):
         _sequence_component("realm", 1, Realm()),
         _sequence_component("sname", 2, PrincipalName()),
         _sequence_component("enc-part", 3, EncryptedData())
-        )
+    )
+
 
 class TicketFlags(KerberosFlags):
     pass
+
 
 class TransitedEncoding(univ.Sequence):
     componentType = namedtype.NamedTypes(
         _sequence_component('tr-type', 0, Int32()),
         _sequence_component('contents', 1, univ.OctetString()))
+
 
 class EncTicketPart(univ.Sequence):
     tagSet = _application_tag(constants.ApplicationTagNumbers.EncTicketPart.value)
@@ -201,10 +230,12 @@ class EncTicketPart(univ.Sequence):
         _sequence_optional_component("renew-till", 8, KerberosTime()),
         _sequence_optional_component("caddr", 9, HostAddresses()),
         _sequence_optional_component("authorization-data", 10, AuthorizationData())
-        )
+    )
+
 
 class KDCOptions(KerberosFlags):
     pass
+
 
 class KDC_REQ_BODY(univ.Sequence):
     componentType = namedtype.NamedTypes(
@@ -223,7 +254,8 @@ class KDC_REQ_BODY(univ.Sequence):
                                      EncryptedData()),
         _sequence_optional_component('additional-tickets', 11,
                                      univ.SequenceOf(componentType=Ticket()))
-        )
+    )
+
 
 class KDC_REQ(univ.Sequence):
     componentType = namedtype.NamedTypes(
@@ -233,13 +265,16 @@ class KDC_REQ(univ.Sequence):
         _sequence_optional_component('padata', 3,
                                      univ.SequenceOf(componentType=PA_DATA())),
         _sequence_component('req-body', 4, KDC_REQ_BODY())
-        )
+    )
+
 
 class AS_REQ(KDC_REQ):
     tagSet = _application_tag(constants.ApplicationTagNumbers.AS_REQ.value)
 
+
 class TGS_REQ(KDC_REQ):
     tagSet = _application_tag(constants.ApplicationTagNumbers.TGS_REQ.value)
+
 
 class KDC_REP(univ.Sequence):
     componentType = namedtype.NamedTypes(
@@ -252,16 +287,19 @@ class KDC_REP(univ.Sequence):
         _sequence_component('cname', 4, PrincipalName()),
         _sequence_component('ticket', 5, Ticket()),
         _sequence_component('enc-part', 6, EncryptedData())
-        )
+    )
+
 
 class LastReq(univ.SequenceOf):
     componentType = univ.Sequence(componentType=namedtype.NamedTypes(
         _sequence_component('lr-type', 0, Int32()),
         _sequence_component('lr-value', 1, KerberosTime())
-        ))
+    ))
+
 
 class METHOD_DATA(univ.SequenceOf):
     componentType = PA_DATA()
+
 
 class EncKDCRepPart(univ.Sequence):
     componentType = namedtype.NamedTypes(
@@ -278,22 +316,28 @@ class EncKDCRepPart(univ.Sequence):
         _sequence_component('sname', 10, PrincipalName()),
         _sequence_optional_component('caddr', 11, HostAddresses()),
         _sequence_optional_component('encrypted_pa_data', 12, METHOD_DATA())
-        )
+    )
+
 
 class EncASRepPart(EncKDCRepPart):
     tagSet = _application_tag(constants.ApplicationTagNumbers.EncASRepPart.value)
 
+
 class EncTGSRepPart(EncKDCRepPart):
     tagSet = _application_tag(constants.ApplicationTagNumbers.EncTGSRepPart.value)
+
 
 class AS_REP(KDC_REP):
     tagSet = _application_tag(constants.ApplicationTagNumbers.AS_REP.value)
 
+
 class TGS_REP(KDC_REP):
     tagSet = _application_tag(constants.ApplicationTagNumbers.TGS_REP.value)
 
+
 class APOptions(KerberosFlags):
     pass
+
 
 class Authenticator(univ.Sequence):
     tagSet = _application_tag(constants.ApplicationTagNumbers.Authenticator.value)
@@ -308,7 +352,8 @@ class Authenticator(univ.Sequence):
         _sequence_optional_component('seq-number', 7, UInt32()),
         _sequence_optional_component('authorization-data', 8,
                                      AuthorizationData())
-        )
+    )
+
 
 class AP_REQ(univ.Sequence):
     tagSet = _application_tag(constants.ApplicationTagNumbers.AP_REQ.value)
@@ -318,7 +363,8 @@ class AP_REQ(univ.Sequence):
         _sequence_component('ap-options', 2, APOptions()),
         _sequence_component('ticket', 3, Ticket()),
         _sequence_component('authenticator', 4, EncryptedData())
-        )
+    )
+
 
 class AP_REP(univ.Sequence):
     tagSet = _application_tag(constants.ApplicationTagNumbers.AP_REP.value)
@@ -326,7 +372,8 @@ class AP_REP(univ.Sequence):
         _vno_component(0),
         _msg_type_component(1, (constants.ApplicationTagNumbers.AP_REP.value,)),
         _sequence_component('enc-part', 2, EncryptedData()),
-        )
+    )
+
 
 class EncAPRepPart(univ.Sequence):
     tagSet = _application_tag(constants.ApplicationTagNumbers.EncApRepPart.value)
@@ -335,7 +382,8 @@ class EncAPRepPart(univ.Sequence):
         _sequence_component('cusec', 1, Microseconds()),
         _sequence_optional_component('subkey', 2, EncryptionKey()),
         _sequence_optional_component('seq-number', 3, UInt32()),
-        )
+    )
+
 
 class KRB_SAFE_BODY(univ.Sequence):
     componentType = namedtype.NamedTypes(
@@ -345,7 +393,8 @@ class KRB_SAFE_BODY(univ.Sequence):
         _sequence_optional_component('seq-number', 3, UInt32()),
         _sequence_component('s-address', 4, HostAddress()),
         _sequence_optional_component('r-address', 5, HostAddress()),
-        )
+    )
+
 
 class KRB_SAFE(univ.Sequence):
     tagSet = _application_tag(constants.ApplicationTagNumbers.KRB_SAFE.value)
@@ -354,7 +403,8 @@ class KRB_SAFE(univ.Sequence):
         _msg_type_component(1, (constants.ApplicationTagNumbers.KRB_SAFE.value,)),
         _sequence_component('safe-body', 2, KRB_SAFE_BODY()),
         _sequence_component('cksum', 3, Checksum()),
-        )
+    )
+
 
 class KRB_PRIV(univ.Sequence):
     tagSet = _application_tag(constants.ApplicationTagNumbers.KRB_PRIV.value)
@@ -362,7 +412,8 @@ class KRB_PRIV(univ.Sequence):
         _vno_component(0),
         _msg_type_component(1, (constants.ApplicationTagNumbers.KRB_PRIV.value,)),
         _sequence_component('enc-part', 3, EncryptedData()),
-        )
+    )
+
 
 class EncKrbPrivPart(univ.Sequence):
     tagSet = _application_tag(constants.ApplicationTagNumbers.EncKrbPrivPart.value)
@@ -373,7 +424,8 @@ class EncKrbPrivPart(univ.Sequence):
         _sequence_optional_component('seq-number', 3, UInt32()),
         _sequence_component('s-address', 4, HostAddress()),
         _sequence_optional_component('r-address', 5, HostAddress()),
-        )
+    )
+
 
 class KRB_CRED(univ.Sequence):
     tagSet = _application_tag(constants.ApplicationTagNumbers.KRB_CRED.value)
@@ -383,7 +435,8 @@ class KRB_CRED(univ.Sequence):
         _sequence_optional_component('tickets', 2,
                                      univ.SequenceOf(componentType=Ticket())),
         _sequence_component('enc-part', 3, EncryptedData()),
-        )
+    )
+
 
 class KrbCredInfo(univ.Sequence):
     componentType = namedtype.NamedTypes(
@@ -398,7 +451,8 @@ class KrbCredInfo(univ.Sequence):
         _sequence_optional_component('srealm', 8, Realm()),
         _sequence_optional_component('sname', 9, PrincipalName()),
         _sequence_optional_component('caddr', 10, HostAddresses()),
-        )
+    )
+
 
 class EncKrbCredPart(univ.Sequence):
     tagSet = _application_tag(constants.ApplicationTagNumbers.EncKrbCredPart.value)
@@ -409,7 +463,8 @@ class EncKrbCredPart(univ.Sequence):
         _sequence_optional_component('usec', 3, Microseconds()),
         _sequence_optional_component('s-address', 4, HostAddress()),
         _sequence_optional_component('r-address', 5, HostAddress()),
-        )
+    )
+
 
 class KRB_ERROR(univ.Sequence):
     tagSet = _application_tag(constants.ApplicationTagNumbers.KRB_ERROR.value)
@@ -427,7 +482,8 @@ class KRB_ERROR(univ.Sequence):
         _sequence_component('sname', 10, PrincipalName()),
         _sequence_optional_component('e-text', 11, KerberosString()),
         _sequence_optional_component('e-data', 12, univ.OctetString())
-        )
+    )
+
 
 class TYPED_DATA(univ.SequenceOf):
     componentType = namedtype.NamedTypes(
@@ -435,21 +491,26 @@ class TYPED_DATA(univ.SequenceOf):
         _sequence_optional_component('data-value', 1, univ.OctetString()),
     )
 
+
 class PA_ENC_TIMESTAMP(EncryptedData):
     pass
+
 
 class PA_ENC_TS_ENC(univ.Sequence):
     componentType = namedtype.NamedTypes(
         _sequence_component('patimestamp', 0, KerberosTime()),
         _sequence_optional_component('pausec', 1, Microseconds()))
 
+
 class ETYPE_INFO_ENTRY(univ.Sequence):
     componentType = namedtype.NamedTypes(
         _sequence_component('etype', 0, Int32()),
         _sequence_optional_component('salt', 1, univ.OctetString()))
 
+
 class ETYPE_INFO(univ.SequenceOf):
     componentType = ETYPE_INFO_ENTRY()
+
 
 class ETYPE_INFO2_ENTRY(univ.Sequence):
     componentType = namedtype.NamedTypes(
@@ -457,11 +518,14 @@ class ETYPE_INFO2_ENTRY(univ.Sequence):
         _sequence_optional_component('salt', 1, KerberosString()),
         _sequence_optional_component('s2kparams', 2, univ.OctetString()))
 
+
 class ETYPE_INFO2(univ.SequenceOf):
     componentType = ETYPE_INFO2_ENTRY()
 
+
 class AD_IF_RELEVANT(AuthorizationData):
     pass
+
 
 class AD_KDCIssued(univ.Sequence):
     componentType = namedtype.NamedTypes(
@@ -470,18 +534,22 @@ class AD_KDCIssued(univ.Sequence):
         _sequence_optional_component('i-sname', 2, PrincipalName()),
         _sequence_component('elements', 3, AuthorizationData()))
 
+
 class AD_AND_OR(univ.Sequence):
     componentType = namedtype.NamedTypes(
         _sequence_component('condition-count', 0, Int32()),
         _sequence_optional_component('elements', 1, AuthorizationData()))
 
+
 class AD_MANDATORY_FOR_KDC(AuthorizationData):
     pass
 
+
 class KERB_PA_PAC_REQUEST(univ.Sequence):
     componentType = namedtype.NamedTypes(
-    namedtype.NamedType('include-pac', univ.Boolean().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0))),
+        namedtype.NamedType('include-pac', univ.Boolean().subtype(explicitTag=tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 0))),
     )
+
 
 class PA_FOR_USER_ENC(univ.Sequence):
     componentType = namedtype.NamedTypes(
@@ -490,13 +558,12 @@ class PA_FOR_USER_ENC(univ.Sequence):
         _sequence_optional_component('cksum', 2, Checksum()),
         _sequence_optional_component('auth-package', 3, KerberosString()))
 
+
 class KERB_ERROR_DATA(univ.Sequence):
     componentType = namedtype.NamedTypes(
         _sequence_component('data-type', 1, Int32()),
         _sequence_component('data-value', 2, univ.OctetString()))
 
+
 class PA_PAC_OPTIONS(univ.SequenceOf):
     componentType = KerberosFlags()
-
-
-

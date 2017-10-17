@@ -18,20 +18,24 @@ BOOL = NDRULONG
 UCHAR = NDRUSMALL
 SHORT = NDRSHORT
 
+
 class LPDWORD(NDRPOINTER):
     referent = (
         ('Data', DWORD),
     )
+
 
 class PSHORT(NDRPOINTER):
     referent = (
         ('Data', SHORT),
     )
 
+
 class PBOOL(NDRPOINTER):
     referent = (
         ('Data', BOOL),
     )
+
 
 class LPBYTE(NDRPOINTER):
     referent = (
@@ -47,14 +51,17 @@ BYTE = NDRUSMALL
 
 # 2.2.7 CHAR
 CHAR = NDRSMALL
+
+
 class PCHAR(NDRPOINTER):
     referent = (
         ('Data', CHAR),
     )
 
+
 class WIDESTR(NDRUniFixedArray):
     def getDataLen(self, data):
-        return data.find('\x00\x00\x00')+3
+        return data.find('\x00\x00\x00') + 3
 
     def __setitem__(self, key, value):
         if key == 'Data':
@@ -68,6 +75,7 @@ class WIDESTR(NDRUniFixedArray):
             return self.fields[key].decode('utf-16le')
         else:
             return NDR.__getitem__(self,key)
+
 
 class STR(NDRSTRUCT):
     commonHdr = (
@@ -84,9 +92,9 @@ class STR(NDRSTRUCT):
         ('Data',':'),
     )
 
-    def dump(self, msg = None, indent = 0):
+    def dump(self, msg=None, indent=0):
         if msg is None: msg = self.__class__.__name__
-        ind = ' '*indent
+        ind = ' ' * indent
         if msg != '':
             print("%s" % (msg), end=' ')
         # Here just print the data
@@ -104,10 +112,12 @@ class STR(NDRSTRUCT):
     def getDataLen(self, data):
         return self["ActualCount"]
 
+
 class LPSTR(NDRPOINTER):
     referent = (
         ('Data', STR),
     )
+
 
 class WSTR(NDRSTRUCT):
     commonHdr = (
@@ -124,16 +134,16 @@ class WSTR(NDRSTRUCT):
         ('Data',':'),
     )
 
-    def dump(self, msg = None, indent = 0):
+    def dump(self, msg=None, indent=0):
         if msg is None: msg = self.__class__.__name__
-        ind = ' '*indent
+        ind = ' ' * indent
         if msg != '':
             print("%s" % (msg), end=' ')
         # Here just print the data
         print(" %r" % (self['Data']), end=' ')
 
     def getDataLen(self, data):
-        return self["ActualCount"]*2 
+        return self["ActualCount"] * 2
 
     def __setitem__(self, key, value):
         if key == 'Data':
@@ -150,6 +160,7 @@ class WSTR(NDRSTRUCT):
         else:
             return NDR.__getitem__(self,key)
 
+
 class LPWSTR(NDRPOINTER):
     referent = (
         ('Data', WSTR),
@@ -160,6 +171,8 @@ BSTR = LPWSTR
 
 # 2.2.8 DOUBLE
 DOUBLE = NDRDOUBLEFLOAT
+
+
 class PDOUBLE(NDRPOINTER):
     referent = (
         ('Data', DOUBLE),
@@ -167,6 +180,8 @@ class PDOUBLE(NDRPOINTER):
 
 # 2.2.15 FLOAT
 FLOAT = NDRFLOAT
+
+
 class PFLOAT(NDRPOINTER):
     referent = (
         ('Data', FLOAT),
@@ -174,6 +189,8 @@ class PFLOAT(NDRPOINTER):
 
 # 2.2.18 HRESULT
 HRESULT = NDRLONG
+
+
 class PHRESULT(NDRPOINTER):
     referent = (
         ('Data', HRESULT),
@@ -181,6 +198,8 @@ class PHRESULT(NDRPOINTER):
 
 # 2.2.19 INT
 INT = NDRLONG
+
+
 class PINT(NDRPOINTER):
     referent = (
         ('Data', INT),
@@ -191,6 +210,8 @@ LMSTR = LPWSTR
 
 # 2.2.27 LONG
 LONG = NDRLONG
+
+
 class LPLONG(NDRPOINTER):
     referent = (
         ('Data', LONG),
@@ -201,6 +222,7 @@ PLONG = LPLONG
 # 2.2.28 LONGLONG
 LONGLONG = NDRHYPER
 
+
 class PLONGLONG(NDRPOINTER):
     referent = (
         ('Data', LONGLONG),
@@ -208,6 +230,8 @@ class PLONGLONG(NDRPOINTER):
 
 # 2.2.31 LONG64
 LONG64 = NDRUHYPER
+
+
 class PLONG64(NDRPOINTER):
     referent = (
         ('Data', LONG64),
@@ -220,6 +244,8 @@ LPCSTR = LPSTR
 NET_API_STATUS = DWORD
 
 # 2.3.2 GUID and UUID
+
+
 class GUID(NDRSTRUCT):
     structure = (
         ('Data','16s=""'),
@@ -227,6 +253,7 @@ class GUID(NDRSTRUCT):
 
     def getAlignment(self):
         return 4
+
 
 class PGUID(NDRPOINTER):
     referent = (
@@ -241,6 +268,8 @@ NTSTATUS = DWORD
 
 # 2.2.45 UINT
 UINT = NDRULONG
+
+
 class PUINT(NDRPOINTER):
     referent = (
         ('Data', UINT),
@@ -248,6 +277,8 @@ class PUINT(NDRPOINTER):
 
 # 2.2.50 ULONG
 ULONG = NDRULONG
+
+
 class PULONG(NDRPOINTER):
     referent = (
         ('Data', ULONG),
@@ -257,6 +288,8 @@ LPULONG = PULONG
 
 # 2.2.54 ULONGLONG
 ULONGLONG = NDRUHYPER
+
+
 class PULONGLONG(NDRPOINTER):
     referent = (
         ('Data', ULONGLONG),
@@ -264,6 +297,8 @@ class PULONGLONG(NDRPOINTER):
 
 # 2.2.57 USHORT
 USHORT = NDRUSHORT
+
+
 class PUSHORT(NDRPOINTER):
     referent = (
         ('Data', USHORT),
@@ -275,6 +310,8 @@ PWCHAR = LPWSTR
 
 # 2.2.61 WORD
 WORD = NDRUSHORT
+
+
 class PWORD(NDRPOINTER):
     referent = (
         ('Data', WORD),
@@ -282,11 +319,14 @@ class PWORD(NDRPOINTER):
 LPWORD = PWORD
 
 # 2.3.1 FILETIME
+
+
 class FILETIME(NDRSTRUCT):
     structure = (
         ('dwLowDateTime', DWORD),
         ('dwHighDateTime', LONG),
     )
+
 
 class PFILETIME(NDRPOINTER):
     referent = (
@@ -295,12 +335,16 @@ class PFILETIME(NDRPOINTER):
 
 # 2.3.3 LARGE_INTEGER
 LARGE_INTEGER = NDRHYPER
+
+
 class PLARGE_INTEGER(NDRPOINTER):
     referent = (
         ('Data', LARGE_INTEGER),
     )
 
 # 2.3.5 LUID
+
+
 class LUID(NDRSTRUCT):
     structure = (
         ('LowPart', DWORD),
@@ -308,19 +352,21 @@ class LUID(NDRSTRUCT):
     )
 
 # 2.3.8 RPC_UNICODE_STRING
+
+
 class RPC_UNICODE_STRING(NDRSTRUCT):
     # Here we're doing some tricks to make this data type
     # easier to use. It's exactly the same as defined. I changed the
     # Buffer name for Data, so users can write directly to the datatype
     # instead of writing to datatype['Buffer'].
-    # The drawback is you cannot directly access the Length and 
-    # MaximumLength fields. 
+    # The drawback is you cannot directly access the Length and
+    # MaximumLength fields.
     # If you really need it, you will need to do it this way:
     # class TT(NDRCALL):
     # structure = (
     #     ('str1', RPC_UNICODE_STRING),
     #  )
-    # 
+    #
     # nn = TT()
     # nn.fields['str1'].fields['MaximumLength'] = 30
     structure = (
@@ -331,30 +377,33 @@ class RPC_UNICODE_STRING(NDRSTRUCT):
 
     def __setitem__(self, key, value):
         if key == 'Data' and isinstance(value, NDR) is False:
-            self['Length'] = len(value)*2
-            self['MaximumLength'] = len(value)*2
+            self['Length'] = len(value) * 2
+            self['MaximumLength'] = len(value) * 2
         return NDRSTRUCT.__setitem__(self, key, value)
 
-    def dump(self, msg = None, indent = 0):
+    def dump(self, msg=None, indent=0):
         if msg is None: msg = self.__class__.__name__
-        ind = ' '*indent
+        ind = ' ' * indent
         if msg != '':
             print("%s" % (msg), end=' ')
 
-        if isinstance(self.fields['Data'] , NDRPOINTERNULL):
+        if isinstance(self.fields['Data'], NDRPOINTERNULL):
             print(" NULL", end=' ')
         elif self.fields['Data']['ReferentID'] == 0:
             print(" NULL", end=' ')
         else:
             return self.fields['Data'].dump('',indent)
 
+
 class PRPC_UNICODE_STRING(NDRPOINTER):
     referent = (
-       ('Data', RPC_UNICODE_STRING ),
+        ('Data', RPC_UNICODE_STRING),
     )
 
 # 2.3.9 OBJECT_TYPE_LIST
 ACCESS_MASK = DWORD
+
+
 class OBJECT_TYPE_LIST(NDRSTRUCT):
     structure = (
         ('Level', WORD),
@@ -362,20 +411,26 @@ class OBJECT_TYPE_LIST(NDRSTRUCT):
         ('ObjectType',PGUID),
     )
 
+
 class POBJECT_TYPE_LIST(NDRPOINTER):
     referent = (
-       ('Data', OBJECT_TYPE_LIST ),
+        ('Data', OBJECT_TYPE_LIST),
     )
 
 # 2.4.2.3 RPC_SID
+
+
 class DWORD_ARRAY(NDRUniConformantArray):
     item = '<L'
+
 
 class RPC_SID_IDENTIFIER_AUTHORITY(NDRUniFixedArray):
     align = 1
     align64 = 1
+
     def getDataLen(self, data):
         return 6
+
 
 class RPC_SID(NDRSTRUCT):
     structure = (
@@ -384,7 +439,8 @@ class RPC_SID(NDRSTRUCT):
         ('IdentifierAuthority',RPC_SID_IDENTIFIER_AUTHORITY),
         ('SubAuthority',DWORD_ARRAY),
     )
-    def getData(self, soFar = 0):
+
+    def getData(self, soFar=0):
         self['SubAuthorityCount'] = len(self['SubAuthority'])
         return NDRSTRUCT.getData(self, soFar)
 
@@ -396,13 +452,14 @@ class RPC_SID(NDRSTRUCT):
         self['SubAuthorityCount'] = len(items) - 3
         ans = ''
         for i in range(self['SubAuthorityCount']):
-            self['SubAuthority'].append(int(items[i+3]))
+            self['SubAuthority'].append(int(items[i + 3]))
 
     def formatCanonical(self):
         ans = 'S-%d-%d' % (self['Revision'], ord(self['IdentifierAuthority'][5]))
         for i in range(self['SubAuthorityCount']):
             ans += '-%d' % self['SubAuthority'][i]
         return ans
+
 
 class PRPC_SID(NDRPOINTER):
     referent = (
@@ -413,19 +470,21 @@ PSID = PRPC_SID
 
 # 2.4.3 ACCESS_MASK
 ACCESS_MASK = DWORD
-GENERIC_READ            = 0x80000000
-GENERIC_WRITE           = 0x4000000
-GENERIC_EXECUTE         = 0x20000000
-GENERIC_ALL             = 0x10000000
-MAXIMUM_ALLOWED         = 0x02000000
-ACCESS_SYSTEM_SECURITY  = 0x01000000
-SYNCHRONIZE             = 0x00100000
-WRITE_OWNER             = 0x00080000
-WRITE_DACL              = 0x00040000
-READ_CONTROL            = 0x00020000
-DELETE                  = 0x00010000
+GENERIC_READ = 0x80000000
+GENERIC_WRITE = 0x4000000
+GENERIC_EXECUTE = 0x20000000
+GENERIC_ALL = 0x10000000
+MAXIMUM_ALLOWED = 0x02000000
+ACCESS_SYSTEM_SECURITY = 0x01000000
+SYNCHRONIZE = 0x00100000
+WRITE_OWNER = 0x00080000
+WRITE_DACL = 0x00040000
+READ_CONTROL = 0x00020000
+DELETE = 0x00010000
 
 # 2.4.5.1 ACL--RPC Representation
+
+
 class ACL(NDRSTRUCT):
     structure = (
         ('AclRevision',NDRSMALL),
@@ -435,12 +494,15 @@ class ACL(NDRSTRUCT):
         ('Sbz2',NDRSHORT),
     )
 
+
 class PACL(NDRPOINTER):
     referent = (
         ('Data', ACL),
     )
 
 # 2.4.6.1 SECURITY_DESCRIPTOR--RPC Representation
+
+
 class SECURITY_DESCRIPTOR(NDRSTRUCT):
     structure = (
         ('Revision',UCHAR),
@@ -453,20 +515,22 @@ class SECURITY_DESCRIPTOR(NDRSTRUCT):
     )
 
 # 2.4.7 SECURITY_INFORMATION
-OWNER_SECURITY_INFORMATION            = 0x00000001
-GROUP_SECURITY_INFORMATION            = 0x00000002
-DACL_SECURITY_INFORMATION             = 0x00000004
-SACL_SECURITY_INFORMATION             = 0x00000008
-LABEL_SECURITY_INFORMATION            = 0x00000010
+OWNER_SECURITY_INFORMATION = 0x00000001
+GROUP_SECURITY_INFORMATION = 0x00000002
+DACL_SECURITY_INFORMATION = 0x00000004
+SACL_SECURITY_INFORMATION = 0x00000008
+LABEL_SECURITY_INFORMATION = 0x00000010
 UNPROTECTED_SACL_SECURITY_INFORMATION = 0x10000000
 UNPROTECTED_DACL_SECURITY_INFORMATION = 0x20000000
-PROTECTED_SACL_SECURITY_INFORMATION   = 0x40000000
-PROTECTED_DACL_SECURITY_INFORMATION   = 0x80000000
-ATTRIBUTE_SECURITY_INFORMATION        = 0x00000020
-SCOPE_SECURITY_INFORMATION            = 0x00000040
-BACKUP_SECURITY_INFORMATION           = 0x00010000
+PROTECTED_SACL_SECURITY_INFORMATION = 0x40000000
+PROTECTED_DACL_SECURITY_INFORMATION = 0x80000000
+ATTRIBUTE_SECURITY_INFORMATION = 0x00000020
+SCOPE_SECURITY_INFORMATION = 0x00000040
+BACKUP_SECURITY_INFORMATION = 0x00010000
 
 SECURITY_INFORMATION = DWORD
+
+
 class PSECURITY_INFORMATION(NDRPOINTER):
     referent = (
         ('Data', SECURITY_INFORMATION),

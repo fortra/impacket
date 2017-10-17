@@ -1,5 +1,5 @@
 ###############################################################################
-#  Tested so far: 
+#  Tested so far:
 #
 # OpenClassesRoot
 # OpenCurrentUser
@@ -31,7 +31,7 @@
 # BaseRegLoadKey
 # BaseRegUnLoadKey
 # BaseRegDeleteValue
-# 
+#
 #  Not yet:
 #
 # BaseRegSetKeySecurity
@@ -53,6 +53,7 @@ from impacket.winregistry import hexdump
 from impacket.uuid import string_to_bin, uuidtup_to_bin
 from impacket import nt_errors
 
+
 class RRPTests(unittest.TestCase):
     def connect(self):
         rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
@@ -65,9 +66,9 @@ class RRPTests(unittest.TestCase):
             # This method exists only for selected protocol sequences.
             rpctransport.set_credentials(self.username,self.password, self.domain, lmhash, nthash)
         dce = rpctransport.get_dce_rpc()
-        #dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_INTEGRITY)
+        # dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_INTEGRITY)
         dce.connect()
-        dce.bind(rrp.MSRPC_UUID_RRP, transfer_syntax = self.ts)
+        dce.bind(rrp.MSRPC_UUID_RRP, transfer_syntax=self.ts)
         resp = rrp.hOpenLocalMachine(dce, MAXIMUM_ALLOWED | rrp.KEY_WOW64_32KEY | rrp.KEY_ENUMERATE_SUB_KEYS)
 
         return dce, rpctransport, resp['phKey']
@@ -129,27 +130,27 @@ class RRPTests(unittest.TestCase):
         resp.dump()
         phKey = resp['phkResult']
 
-        try: 
-            resp = rrp.hBaseRegSetValue(dce, phKey, 'BETO2\x00',  rrp.REG_SZ, 'HOLA COMO TE VA\x00')
+        try:
+            resp = rrp.hBaseRegSetValue(dce, phKey, 'BETO2\x00', rrp.REG_SZ, 'HOLA COMO TE VA\x00')
             resp.dump()
         except Exception as e:
             print(e)
 
         type, data = rrp.hBaseRegQueryValue(dce, phKey, 'BETO2\x00')
-        #print data
+        # print data
 
         resp = rrp.hBaseRegDeleteValue(dce, phKey, 'BETO2\x00')
         resp.dump()
 
         resp = rrp.hBaseRegDeleteKey(dce, regHandle, 'BETO\x00')
         resp.dump()
-        self.assertTrue( 'HOLA COMO TE VA\x00' == data )
+        self.assertTrue('HOLA COMO TE VA\x00' == data)
 
     def test_BaseRegCreateKey_BaseRegSetValue_BaseRegDeleteKey(self):
         dce, rpctransport, phKey = self.connect()
         request = rrp.OpenClassesRoot()
         request['ServerName'] = NULL
-        request['samDesired'] = MAXIMUM_ALLOWED 
+        request['samDesired'] = MAXIMUM_ALLOWED
         resp = dce.request(request)
         resp.dump()
         regHandle = resp['phKey']
@@ -171,9 +172,9 @@ class RRPTests(unittest.TestCase):
         request['lpValueName'] = 'BETO\x00'
         request['dwType'] = rrp.REG_SZ
         request['lpData'] = 'HOLA COMO TE VA\x00'.encode('utf-16le')
-        request['cbData'] = len('HOLA COMO TE VA\x00')*2
-        
-        try: 
+        request['cbData'] = len('HOLA COMO TE VA\x00') * 2
+
+        try:
             resp = dce.request(request)
             resp.dump()
         except Exception as e:
@@ -182,7 +183,7 @@ class RRPTests(unittest.TestCase):
         request = rrp.BaseRegQueryValue()
         request['hKey'] = phKey
         request['lpValueName'] = 'BETO\x00'
-        request['lpData'] = ' '*100
+        request['lpData'] = ' ' * 100
         request['lpcbData'] = 100
         request['lpcbLen'] = 100
         resp = dce.request(request)
@@ -194,7 +195,7 @@ class RRPTests(unittest.TestCase):
         request['lpSubKey'] = 'BETO\x00'
         resp = dce.request(request)
         resp.dump()
-        self.assertTrue( 'HOLA COMO TE VA\x00' == ''.join(resData).decode('utf-16le'))
+        self.assertTrue('HOLA COMO TE VA\x00' == ''.join(resData).decode('utf-16le'))
 
     def test_BaseRegEnumKey(self):
         dce, rpctransport, phKey = self.connect()
@@ -212,7 +213,7 @@ class RRPTests(unittest.TestCase):
         # I gotta access the fields mannually :s
         request.fields['lpNameIn'].fields['MaximumLength'] = 510
         request.fields['lpNameIn'].fields['Data'].fields['Data'].fields['MaximumCount'] = 255
-        request['lpClassIn'] = ' '*100
+        request['lpClassIn'] = ' ' * 100
         request['lpftLastWriteTime'] = NULL
         resp = dce.request(request)
         resp.dump()
@@ -227,7 +228,7 @@ class RRPTests(unittest.TestCase):
         request['samDesired'] = MAXIMUM_ALLOWED | rrp.KEY_ENUMERATE_SUB_KEYS
         resp = dce.request(request)
 
-        resp = rrp.hBaseRegEnumKey(dce, resp['phkResult'], 1 )
+        resp = rrp.hBaseRegEnumKey(dce, resp['phkResult'], 1)
         resp.dump()
 
     def test_BaseRegEnumValue(self):
@@ -243,8 +244,8 @@ class RRPTests(unittest.TestCase):
         request = rrp.BaseRegEnumValue()
         request['hKey'] = resp['phkResult']
         request['dwIndex'] = 6
-        request['lpValueNameIn'] = ' '*100
-        request['lpData'] = ' '*100
+        request['lpValueNameIn'] = ' ' * 100
+        request['lpData'] = ' ' * 100
         request['lpcbData'] = 100
         request['lpcbLen'] = 100
         resp = dce.request(request)
@@ -263,11 +264,10 @@ class RRPTests(unittest.TestCase):
         resp = rrp.hBaseRegEnumValue(dce, resp['phkResult'], 7)
         resp.dump()
 
-
     def test_BaseRegFlushKey(self):
         dce, rpctransport, phKey = self.connect()
 
-        resp =  rrp.hBaseRegFlushKey(dce,phKey)
+        resp = rrp.hBaseRegFlushKey(dce,phKey)
         resp.dump()
 
     def test_BaseRegGetKeySecurity(self):
@@ -290,7 +290,7 @@ class RRPTests(unittest.TestCase):
     def test_hBaseRegQueryInfoKey(self):
         dce, rpctransport, phKey = self.connect()
 
-        resp = rrp.hBaseRegOpenKey(dce, phKey, 'SYSTEM\\CurrentControlSet\\Control\\Lsa\\JD\x00' )
+        resp = rrp.hBaseRegOpenKey(dce, phKey, 'SYSTEM\\CurrentControlSet\\Control\\Lsa\\JD\x00')
 
         resp = rrp.hBaseRegQueryInfoKey(dce,resp['phkResult'])
         resp.dump()
@@ -309,7 +309,7 @@ class RRPTests(unittest.TestCase):
         request = rrp.BaseRegQueryValue()
         request['hKey'] = resp['phkResult']
         request['lpValueName'] = 'ProductName\x00'
-        request['lpData'] = ' '*100
+        request['lpData'] = ' ' * 100
         request['lpcbData'] = 100
         request['lpcbLen'] = 100
         resp = dce.request(request)
@@ -318,11 +318,11 @@ class RRPTests(unittest.TestCase):
     def test_hBaseRegQueryValue(self):
         dce, rpctransport, phKey = self.connect()
 
-        resp = rrp.hBaseRegOpenKey(dce, phKey, 'SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\x00' )
+        resp = rrp.hBaseRegOpenKey(dce, phKey, 'SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\x00')
         resp.dump()
 
         resp = rrp.hBaseRegQueryValue(dce, resp['phkResult'], 'ProductName\x00')
-        
+
     def test_BaseRegReplaceKey(self):
         dce, rpctransport, phKey = self.connect()
 
@@ -450,7 +450,7 @@ class RRPTests(unittest.TestCase):
         item1['ve_valuelen'] = len('ProductName\x00')
         item1['ve_valueptr'] = NULL
         item1['ve_type'] = rrp.REG_SZ
-         
+
         item2 = rrp.RVALENT()
         item2['ve_valuename'] = 'SystemRoot\x00'
         item2['ve_valuelen'] = len('SystemRoot\x00')
@@ -468,7 +468,7 @@ class RRPTests(unittest.TestCase):
         request['val_listIn'].append(item2)
         request['val_listIn'].append(item3)
         request['num_vals'] = len(request['val_listIn'])
-        request['lpvalueBuf'] = list(' '*128)
+        request['lpvalueBuf'] = list(' ' * 128)
         request['ldwTotsize'] = 128
         resp = dce.request(request)
         resp.dump()
@@ -479,13 +479,12 @@ class RRPTests(unittest.TestCase):
         resp = rrp.hBaseRegOpenKey(dce, phKey, 'SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\x00')
         resp.dump()
 
-
         valueIn = list()
         item1 = {}
         item1['ValueName'] = 'ProductName\x00'
         item1['ValueType'] = rrp.REG_SZ
         valueIn.append(item1)
-         
+
         item2 = {}
         item2['ValueName'] = 'InstallDate\x00'
         item2['ValueType'] = rrp.REG_DWORD
@@ -494,10 +493,10 @@ class RRPTests(unittest.TestCase):
         item3 = {}
         item3['ValueName'] = 'DigitalProductId\x00'
         item3['ValueType'] = rrp.REG_BINARY
-        #valueIn.append(item3)
+        # valueIn.append(item3)
 
         resp = rrp.hBaseRegQueryMultipleValues(dce, resp['phkResult'], valueIn)
-        #print resp
+        # print resp
 
     def test_BaseRegSaveKeyEx(self):
         dce, rpctransport, phKey = self.connect()
@@ -579,7 +578,7 @@ class RRPTests(unittest.TestCase):
         item1['ve_valuelen'] = len('ProductName\x00')
         item1['ve_valueptr'] = NULL
         item1['ve_type'] = rrp.REG_SZ
-         
+
         item2 = rrp.RVALENT()
         item2['ve_valuename'] = 'SystemRoot\x00'
         item2['ve_valuelen'] = len('SystemRoot\x00')
@@ -597,7 +596,7 @@ class RRPTests(unittest.TestCase):
         request['val_listIn'].append(item2)
         request['val_listIn'].append(item3)
         request['num_vals'] = len(request['val_listIn'])
-        request['lpvalueBuf'] = list(' '*128)
+        request['lpvalueBuf'] = list(' ' * 128)
         request['ldwTotsize'] = 128
         resp = dce.request(request)
         resp.dump()
@@ -606,7 +605,7 @@ class RRPTests(unittest.TestCase):
         dce, rpctransport, phKey = self.connect()
         request = rrp.OpenClassesRoot()
         request['ServerName'] = NULL
-        request['samDesired'] = MAXIMUM_ALLOWED 
+        request['samDesired'] = MAXIMUM_ALLOWED
         resp = dce.request(request)
         resp.dump()
         regHandle = resp['phKey']
@@ -638,7 +637,7 @@ class RRPTests(unittest.TestCase):
         request['hKey'] = phKey
         request['lpSubKey'] = 'SECURITY\x00'
         request['dwOptions'] = 0x00000001
-        request['samDesired'] = MAXIMUM_ALLOWED 
+        request['samDesired'] = MAXIMUM_ALLOWED
         resp = dce.request(request)
         resp.dump()
 
@@ -678,7 +677,7 @@ class RRPTests(unittest.TestCase):
         resp = dce.request(request)
         resp.dump()
 
-        resp = rrp.hBaseRegLoadKey(dce, phKey,'BETUS\x00', 'SEC\x00' )
+        resp = rrp.hBaseRegLoadKey(dce, phKey,'BETUS\x00', 'SEC\x00')
         resp.dump()
 
         resp = rrp.hBaseRegUnLoadKey(dce, phKey, 'BETUS\x00')
@@ -694,13 +693,14 @@ class SMBTransport(RRPTests):
         configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
+        self.domain = configFile.get('SMBTransport', 'domain')
         self.serverName = configFile.get('SMBTransport', 'servername')
         self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
+        self.machine = configFile.get('SMBTransport', 'machine')
+        self.hashes = configFile.get('SMBTransport', 'hashes')
         self.stringBinding = r'ncacn_np:%s[\PIPE\winreg]' % self.machine
         self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
+
 
 class SMBTransport64(RRPTests):
     def setUp(self):
@@ -708,13 +708,14 @@ class SMBTransport64(RRPTests):
         configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
+        self.domain = configFile.get('SMBTransport', 'domain')
         self.serverName = configFile.get('SMBTransport', 'servername')
         self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
+        self.machine = configFile.get('SMBTransport', 'machine')
+        self.hashes = configFile.get('SMBTransport', 'hashes')
         self.stringBinding = r'ncacn_np:%s[\PIPE\winreg]' % self.machine
         self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
+
 
 class TCPTransport(RRPTests):
     def setUp(self):
@@ -722,12 +723,12 @@ class TCPTransport(RRPTests):
         configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('TCPTransport', 'username')
-        self.domain   = configFile.get('TCPTransport', 'domain')
+        self.domain = configFile.get('TCPTransport', 'domain')
         self.serverName = configFile.get('TCPTransport', 'servername')
         self.password = configFile.get('TCPTransport', 'password')
-        self.machine  = configFile.get('TCPTransport', 'machine')
-        self.hashes   = configFile.get('TCPTransport', 'hashes')
-        self.stringBinding = epm.hept_map(self.machine, rrp.MSRPC_UUID_RRP, protocol = 'ncacn_ip_tcp')
+        self.machine = configFile.get('TCPTransport', 'machine')
+        self.hashes = configFile.get('TCPTransport', 'hashes')
+        self.stringBinding = epm.hept_map(self.machine, rrp.MSRPC_UUID_RRP, protocol='ncacn_ip_tcp')
 
 
 # Process command-line arguments.

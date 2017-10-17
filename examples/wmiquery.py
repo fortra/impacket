@@ -10,7 +10,7 @@
 #
 #              e.g.: select name from win32_account
 #              e.g.: describe win32_process
-# 
+#
 # Author:
 #  Alberto Solino (@agsolino)
 #
@@ -44,7 +44,7 @@ if __name__ == '__main__':
      exit                       - terminates the server process (and this session)
      describe {class}           - describes class
      ! {cmd}                    - executes a local shell cmd
-     """) 
+     """)
 
         def do_shell(self, s):
             os.system(s)
@@ -59,7 +59,7 @@ if __name__ == '__main__':
                 iObject.RemRelease()
             except Exception as e:
                 #import traceback
-                #print traceback.print_exc()
+                # print traceback.print_exc()
                 logging.error(str(e))
 
         def do_lcd(self, s):
@@ -67,7 +67,7 @@ if __name__ == '__main__':
                 print(os.getcwd())
             else:
                 os.chdir(s)
-    
+
         def printReply(self, iEnum):
             printHeader = True
             while True:
@@ -75,23 +75,23 @@ if __name__ == '__main__':
                     pEnum = iEnum.Next(0xffffffff,1)[0]
                     record = pEnum.getProperties()
                     if printHeader is True:
-                        print('|', end=' ') 
+                        print('|', end=' ')
                         for col in record:
                             print('%s |' % col, end=' ')
                         print()
                         printHeader = False
-                    print('|', end=' ') 
+                    print('|', end=' ')
                     for key in record:
                         print('%s |' % record[key]['value'], end=' ')
-                    print() 
+                    print()
                 except Exception as e:
                     #import traceback
-                    #print traceback.print_exc()
+                    # print traceback.print_exc()
                     if str(e).find('S_FALSE') < 0:
                         raise
                     else:
                         break
-            iEnum.RemRelease() 
+            iEnum.RemRelease()
 
         def default(self, line):
             line = line.strip('\n')
@@ -103,7 +103,7 @@ if __name__ == '__main__':
                 iEnumWbemClassObject.RemRelease()
             except Exception as e:
                 logging.error(str(e))
-         
+
         def emptyline(self):
             pass
 
@@ -112,7 +112,7 @@ if __name__ == '__main__':
 
     print(version.BANNER)
 
-    parser = argparse.ArgumentParser(add_help = True, description = "Executes WQL queries and gets object descriptions using Windows Management Instrumentation.")
+    parser = argparse.ArgumentParser(add_help=True, description="Executes WQL queries and gets object descriptions using Windows Management Instrumentation.")
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('-namespace', action='store', default='//./root/cimv2', help='namespace name (default //./root/cimv2)')
     parser.add_argument('-file', type=argparse.FileType('r'), help='input file with commands to execute in the WQL shell')
@@ -120,15 +120,15 @@ if __name__ == '__main__':
 
     group = parser.add_argument_group('authentication')
 
-    group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
+    group.add_argument('-hashes', action="store", metavar="LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
     group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
     group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line')
-    group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication (128 or 256 bits)')
+    group.add_argument('-aesKey', action="store", metavar="hex key", help='AES key to use for Kerberos Authentication (128 or 256 bits)')
 
-    if len(sys.argv)==1:
+    if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(1)
- 
+
     options = parser.parse_args()
 
     if options.debug is True:
@@ -156,11 +156,11 @@ if __name__ == '__main__':
         nthash = ''
 
     try:
-        dcom = DCOMConnection(address, username, password, domain, lmhash, nthash, options.aesKey, oxidResolver = True, doKerberos=options.k)
+        dcom = DCOMConnection(address, username, password, domain, lmhash, nthash, options.aesKey, oxidResolver=True, doKerberos=options.k)
 
         iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
         iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
-        iWbemServices= iWbemLevel1Login.NTLMLogin(options.namespace, NULL, NULL)
+        iWbemServices = iWbemLevel1Login.NTLMLogin(options.namespace, NULL, NULL)
         iWbemLevel1Login.RemRelease()
 
         shell = WMIQUERY(iWbemServices)
@@ -179,4 +179,3 @@ if __name__ == '__main__':
             dcom.disconnect()
         except:
             pass
-

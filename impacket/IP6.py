@@ -12,13 +12,14 @@ from .IP6_Extension_Headers import IP6_Extension_Header
 import struct
 import array
 
+
 class IP6(Header):
-    #Ethertype value for IPv6
+    # Ethertype value for IPv6
     ethertype = 0x86DD
     HEADER_SIZE = 40
     IP_PROTOCOL_VERSION = 6
-    
-    def __init__(self, buffer = None):
+
+    def __init__(self, buffer=None):
         Header.__init__(self, IP6.HEADER_SIZE)
         self.set_protocol_version(IP6.IP_PROTOCOL_VERSION)
         if (buffer):
@@ -32,7 +33,7 @@ class IP6(Header):
     def get_header_size(self):
         return IP6.HEADER_SIZE
 
-    def __str__(self):        
+    def __str__(self):
         protocol_version = self.get_protocol_version()
         traffic_class = self.get_traffic_class()
         flow_label = self.get_flow_label()
@@ -51,35 +52,35 @@ class IP6(Header):
         s += "Source address: " + source_address.as_string() + "\n"
         s += "Destination address: " + destination_address.as_string() + "\n"
         return s
-    
+
     def get_pseudo_header(self):
         source_address = self.get_source_address().as_bytes()
-        #FIXME - Handle Routing header special case
+        # FIXME - Handle Routing header special case
         destination_address = self.get_destination_address().as_bytes()
-        reserved_bytes = [ 0x00, 0x00, 0x00 ]
+        reserved_bytes = [0x00, 0x00, 0x00]
 
         upper_layer_packet_length = self.get_payload_length()
         upper_layer_protocol_number = self.get_next_header()
-        
+
         next_header = self.child()
         while isinstance(next_header, IP6_Extension_Header):
             # The length used in the pseudo-header is the Payload Length from the IPv6 header, minus
             # the length of any extension headers present between the IPv6 header and the upper-layer header
             upper_layer_packet_length -= next_header.get_header_size()
-            
+
             # If there are extension headers, fetch the correct upper-player protocol number by traversing the list
             upper_layer_protocol_number = next_header.get_next_header()
-            
+
             next_header = next_header.child()
-        
-        pseudo_header = array.array('B')        
+
+        pseudo_header = array.array('B')
         pseudo_header.extend(source_address)
         pseudo_header.extend(destination_address)
         pseudo_header.fromstring(struct.pack('!L', upper_layer_packet_length))
         pseudo_header.fromlist(reserved_bytes)
         pseudo_header.fromstring(struct.pack('B', upper_layer_protocol_number))
         return pseudo_header
-    
+
 ############################################################################
     def get_protocol_version(self):
         return (self.get_byte(0) & 0xF0) >> 4
@@ -101,25 +102,24 @@ class IP6(Header):
 
     def get_source_address(self):
         address = IP6_Address(self.get_bytes()[8:24])
-        return (address)    
+        return (address)
 
     def get_destination_address(self):
         address = IP6_Address(self.get_bytes()[24:40])
-        return (address)    
+        return (address)
 
 ############################################################################
     def set_protocol_version(self, version):
         if (version != 6):
             raise Exception('set_protocol_version - version != 6')
-    
-        #Fetch byte, clear high nibble
-        b = self.get_byte(0) & 0x0F
-        #Store version number in high nibble
-        b |= (version << 4)
-        #Store byte in buffer
-        #This behaviour is repeated in the rest of the methods 
-        self.set_byte(0, b)
 
+        # Fetch byte, clear high nibble
+        b = self.get_byte(0) & 0x0F
+        # Store version number in high nibble
+        b |= (version << 4)
+        # Store byte in buffer
+        # This behaviour is repeated in the rest of the methods
+        self.set_byte(0, b)
 
     def set_traffic_class(self, traffic_class):
         b0 = self.get_byte(0) & 0xF0
@@ -128,7 +128,6 @@ class IP6(Header):
         b1 |= (traffic_class & 0x0F) << 4
         self.set_byte(0, b0)
         self.set_byte(1, b1)
-    
 
     def set_flow_label(self, flow_label):
         b1 = self.get_byte(1) & 0xF0
@@ -136,19 +135,17 @@ class IP6(Header):
         self.set_byte(1, b1)
         self.set_byte(2, (flow_label & 0x0FF00) >> 8)
         self.set_byte(3, (flow_label & 0x000FF))
- 
 
     def set_payload_length(self, payload_length):
         self.set_byte(4, (payload_length & 0xFF00) >> 8)
         self.set_byte(5, (payload_length & 0x00FF))
-    
 
     def set_next_header(self, next_header):
         self.set_byte(6, next_header)
-    
+
     def set_hop_limit(self, hop_limit):
         self.set_byte(7, hop_limit)
-    
+
     def set_source_address(self, source_address):
         address = IP6_Address(source_address)
         bytes = self.get_bytes()
@@ -160,5 +157,3 @@ class IP6(Header):
         bytes = self.get_bytes()
         bytes[24:40] = address.as_bytes()
         self.set_bytes(bytes)
-
-    

@@ -26,15 +26,15 @@ if __name__ == '__main__':
 
     print(version.BANNER)
 
-    parser = argparse.ArgumentParser(add_help = True, description = "Asks the remote host for its running MSSQL Instances.")
+    parser = argparse.ArgumentParser(add_help=True, description="Asks the remote host for its running MSSQL Instances.")
 
     parser.add_argument('host', action='store', help='target host')
     parser.add_argument('-timeout', action='store', default='5', help='timeout to wait for an answer')
 
-    if len(sys.argv)==1:
+    if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(1)
- 
+
     options = parser.parse_args()
 
     ms_sql = tds.MSSQL(options.host)
@@ -45,5 +45,4 @@ if __name__ == '__main__':
         for i, instance in enumerate(instances):
             logging.info("Instance %d" % i)
             for key in list(instance.keys()):
-               print(key + ":" + instance[key])
- 
+                print(key + ":" + instance[key])

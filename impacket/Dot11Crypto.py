@@ -10,25 +10,26 @@
 # Author:
 #  Gustavo Moreira
 
+
 class RC4():
     def __init__(self, key):
         j = 0
         self.state = list(range(256))
         for i in range(256):
             j = (j + self.state[i] + ord(key[i % len(key)])) & 0xff
-            self.state[i],self.state[j] = self.state[j],self.state[i] # SSWAP(i,j)
+            self.state[i],self.state[j] = self.state[j],self.state[i]  # SSWAP(i,j)
 
     def encrypt(self, data):
         i = j = 0
-        out=''
+        out = ''
         for char in data:
-            i = (i+1) & 0xff
-            j = (j+self.state[i]) & 0xff
-            self.state[i],self.state[j] = self.state[j],self.state[i] # SSWAP(i,j)
-            out+=chr(ord(char) ^ self.state[(self.state[i] + self.state[j]) & 0xff])
-        
+            i = (i + 1) & 0xff
+            j = (j + self.state[i]) & 0xff
+            self.state[i],self.state[j] = self.state[j],self.state[i]  # SSWAP(i,j)
+            out += chr(ord(char) ^ self.state[(self.state[i] + self.state[j]) & 0xff])
+
         return out
-    
+
     def decrypt(self, data):
         # It's symmetric
         return self.encrypt(data)

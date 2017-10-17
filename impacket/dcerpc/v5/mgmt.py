@@ -14,9 +14,9 @@
 #   at https://github.com/CoreSecurity/impacket/tree/master/impacket/testcases/SMB_RPC
 #
 #   Some calls have helper functions, which makes it even easier to use.
-#   They are located at the end of this file. 
+#   They are located at the end of this file.
 #   Helper functions start with "h"<name of the call>.
-#   There are test cases for them too. 
+#   There are test cases for them too.
 #
 from impacket.dcerpc.v5 import ndr
 from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRPOINTER, NDRUniConformantArray, NDRUniConformantVaryingArray
@@ -24,28 +24,29 @@ from impacket.dcerpc.v5.epm import PRPC_IF_ID
 from impacket.dcerpc.v5.dtypes import ULONG, DWORD_ARRAY, ULONGLONG
 from impacket.uuid import uuidtup_to_bin
 
-MSRPC_UUID_MGMT  = uuidtup_to_bin(('afa8bd80-7d8a-11c9-bef4-08002b102989','1.0'))
+MSRPC_UUID_MGMT = uuidtup_to_bin(('afa8bd80-7d8a-11c9-bef4-08002b102989','1.0'))
+
 
 class DCERPCSessionError(Exception):
-    def __init__( self, packet = None, error_code = None):
+    def __init__(self, packet=None, error_code=None):
         Exception.__init__(self)
         self.packet = packet
         if packet is not None:
             self.error_code = packet['status']
         else:
             self.error_code = error_code
-       
-    def get_error_code( self ):
+
+    def get_error_code(self):
         return self.error_code
- 
-    def get_packet( self ):
+
+    def get_packet(self):
         return self.packet
 
-    def __str__( self ):
+    def __str__(self):
         key = self.error_code
         if (key in nt_errors.ERROR_MESSAGES):
             error_msg_short = nt_errors.ERROR_MESSAGES[key][0]
-            error_msg_verbose = nt_errors.ERROR_MESSAGES[key][1] 
+            error_msg_verbose = nt_errors.ERROR_MESSAGES[key][1]
             return 'MGMT SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
         else:
             return 'MGMT SessionError: unknown error code: 0x%x' % (self.error_code)
@@ -54,8 +55,10 @@ class DCERPCSessionError(Exception):
 # CONSTANTS
 ################################################################################
 
+
 class rpc_if_id_p_t_array(NDRUniConformantArray):
     item = PRPC_IF_ID
+
 
 class rpc_if_id_vector_t(NDRSTRUCT):
     structure = (
@@ -66,6 +69,7 @@ class rpc_if_id_vector_t(NDRSTRUCT):
         ('count',ULONGLONG),
         ('if_id',rpc_if_id_p_t_array),
     )
+
 
 class rpc_if_id_vector_p_t(NDRPOINTER):
     referent = (
@@ -80,61 +84,72 @@ error_status = ULONG
 ################################################################################
 # RPC CALLS
 ################################################################################
+
+
 class inq_if_ids(NDRCALL):
     opnum = 0
     structure = (
     )
 
+
 class inq_if_idsResponse(NDRCALL):
     structure = (
-       ('if_id_vector', rpc_if_id_vector_p_t),
-       ('status', error_status),
+        ('if_id_vector', rpc_if_id_vector_p_t),
+        ('status', error_status),
     )
+
 
 class inq_stats(NDRCALL):
     opnum = 1
     structure = (
-       ('count', ULONG),
+        ('count', ULONG),
     )
+
 
 class inq_statsResponse(NDRCALL):
     structure = (
-       ('count', ULONG),
-       ('statistics', DWORD_ARRAY),
-       ('status', error_status),
+        ('count', ULONG),
+        ('statistics', DWORD_ARRAY),
+        ('status', error_status),
     )
+
 
 class is_server_listening(NDRCALL):
     opnum = 2
     structure = (
     )
 
+
 class is_server_listeningResponse(NDRCALL):
     structure = (
-       ('status', error_status),
+        ('status', error_status),
     )
+
 
 class stop_server_listening(NDRCALL):
     opnum = 3
     structure = (
     )
 
+
 class stop_server_listeningResponse(NDRCALL):
     structure = (
-       ('status', error_status),
+        ('status', error_status),
     )
+
 
 class inq_princ_name(NDRCALL):
     opnum = 4
     structure = (
-       ('authn_proto', ULONG),
-       ('princ_name_size', ULONG),
+        ('authn_proto', ULONG),
+        ('princ_name_size', ULONG),
     )
+
 
 class inq_princ_nameResponse(NDRCALL):
     structure = (
-       ('princ_name', NDRUniConformantVaryingArray),
-       ('status', error_status),
+        ('princ_name', NDRUniConformantVaryingArray),
+        ('status', error_status),
     )
 
 
@@ -142,37 +157,41 @@ class inq_princ_nameResponse(NDRCALL):
 # OPNUMs and their corresponding structures
 ################################################################################
 OPNUMS = {
- 0 : (inq_if_ids, inq_if_idsResponse),
- 1 : (inq_stats, inq_statsResponse),
- 2 : (is_server_listening, is_server_listeningResponse),
- 3 : (stop_server_listening, stop_server_listeningResponse),
- 4 : (inq_princ_name, inq_princ_nameResponse),
+    0: (inq_if_ids, inq_if_idsResponse),
+    1: (inq_stats, inq_statsResponse),
+    2: (is_server_listening, is_server_listeningResponse),
+    3: (stop_server_listening, stop_server_listeningResponse),
+    4: (inq_princ_name, inq_princ_nameResponse),
 }
 
 ################################################################################
 # HELPER FUNCTIONS
 ################################################################################
+
+
 def hinq_if_ids(dce):
     request = inq_if_ids()
     return dce.request(request)
 
-def hinq_stats(dce, count = 4):
+
+def hinq_stats(dce, count=4):
     request = inq_stats()
     request['count'] = count
     return dce.request(request)
+
 
 def his_server_listening(dce):
     request = is_server_listening()
     return dce.request(request, checkError=False)
 
+
 def hstop_server_listening(dce):
     request = stop_server_listening()
     return dce.request(request)
+
 
 def hinq_princ_name(dce, authn_proto=0, princ_name_size=1):
     request = inq_princ_name()
     request['authn_proto'] = authn_proto
     request['princ_name_size'] = princ_name_size
     return dce.request(request, checkError=False)
-
-

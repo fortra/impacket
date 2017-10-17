@@ -13,9 +13,9 @@
 #   so you understand what the call does, and then read the test case located
 #   at https://github.com/CoreSecurity/impacket/tree/master/impacket/testcases/SMB_RPC
 #
-#   Since DCOM is like an OO RPC, instead of helper functions you will see the 
-#   classes described in the standards developed. 
-#   There are test cases for them too. 
+#   Since DCOM is like an OO RPC, instead of helper functions you will see the
+#   classes described in the standards developed.
+#   There are test cases for them too.
 #
 from struct import unpack, calcsize, pack
 from functools import partial
@@ -29,16 +29,18 @@ from impacket.uuid import string_to_bin, uuidtup_to_bin
 from impacket.structure import Structure
 from impacket.winregistry import hexdump
 import collections
+
+
 def format_structure(d, level=0):
     x = ""
     if isinstance(d, collections.Mapping):
         lenk = max([len(str(x)) for x in list(d.keys())])
         for k, v in list(d.items()):
-            key_text = "\n" + " "*level + " "*(lenk - len(str(k))) + str(k)
-            x += key_text + ": " + format_structure(v, level=level+lenk)
+            key_text = "\n" + " " * level + " " * (lenk - len(str(k))) + str(k)
+            x += key_text + ": " + format_structure(v, level=level + lenk)
     elif isinstance(d, collections.Iterable) and not isinstance(d, str):
         for e in d:
-            x += "\n" + " "*level + "- " + format_structure(e, level=level+4)
+            x += "\n" + " " * level + "- " + format_structure(e, level=level + 4)
     else:
         x = str(d)
     return x
@@ -50,25 +52,26 @@ except:
     except:
         from ordereddict import OrderedDict
 
+
 class DCERPCSessionError(Exception):
-    def __init__( self, packet = None, error_code = None):
+    def __init__(self, packet=None, error_code=None):
         Exception.__init__(self)
         self.packet = packet
         if packet is not None:
             self.error_code = packet['ErrorCode']
         else:
             self.error_code = error_code
-       
-    def get_error_code( self ):
+
+    def get_error_code(self):
         return self.error_code
- 
-    def get_packet( self ):
+
+    def get_packet(self):
         return self.packet
 
-    def __str__( self ):
+    def __str__(self):
         if (self.error_code in hresult_errors.ERROR_MESSAGES):
             error_msg_short = hresult_errors.ERROR_MESSAGES[self.error_code][0]
-            error_msg_verbose = hresult_errors.ERROR_MESSAGES[self.error_code][1] 
+            error_msg_verbose = hresult_errors.ERROR_MESSAGES[self.error_code][1]
             return 'WMI SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
         else:
             # Let's see if we have it as WBEMSTATUS
@@ -80,17 +83,17 @@ class DCERPCSessionError(Exception):
 ################################################################################
 # WMIO Structures and Constants
 ################################################################################
-WBEM_FLAVOR_FLAG_PROPAGATE_O_INSTANCE      = 0x01
+WBEM_FLAVOR_FLAG_PROPAGATE_O_INSTANCE = 0x01
 WBEM_FLAVOR_FLAG_PROPAGATE_O_DERIVED_CLASS = 0x02
-WBEM_FLAVOR_NOT_OVERRIDABLE                = 0x10
-WBEM_FLAVOR_ORIGIN_PROPAGATED              = 0x20
-WBEM_FLAVOR_ORIGIN_SYSTEM                  = 0x40
-WBEM_FLAVOR_AMENDED                        = 0x80
+WBEM_FLAVOR_NOT_OVERRIDABLE = 0x10
+WBEM_FLAVOR_ORIGIN_PROPAGATED = 0x20
+WBEM_FLAVOR_ORIGIN_SYSTEM = 0x40
+WBEM_FLAVOR_AMENDED = 0x80
 
 # 2.2.6 ObjectFlags
 OBJECT_FLAGS = 'B=0'
 
-#2.2.77 Signature
+# 2.2.77 Signature
 SIGNATURE = '<L=0x12345678'
 
 # 2.2.4 ObjectEncodingLength
@@ -110,18 +113,19 @@ NDTABLE_VALUE_TABLE_LENGTH = '<L=0'
 
 # 2.2.80 DictionaryReference
 DICTIONARY_REFERENCE = {
-    0 : '"',
-    1 : 'key',
-    2 : 'NADA',
-    3 : 'read',
-    4 : 'write',
-    5 : 'volatile',
-    6 : 'provider',
-    7 : 'dynamic',
-    8 : 'cimwin32',
-    9 : 'DWORD',
-   10 : 'CIMTYPE',
+    0: '"',
+    1: 'key',
+    2: 'NADA',
+    3: 'read',
+    4: 'write',
+    5: 'volatile',
+    6: 'provider',
+    7: 'dynamic',
+    8: 'cimwin32',
+    9: 'DWORD',
+    10: 'CIMTYPE',
 }
+
 
 class ENCODED_STRING(Structure):
     commonHdr = (
@@ -136,7 +140,7 @@ class ENCODED_STRING(Structure):
         ('Character', 'u'),
     )
 
-    def __init__(self, data = None, alignment = 0):
+    def __init__(self, data=None, alignment=0):
         Structure.__init__(self, data, alignment)
         if data is not None:
             # Let's first check the commonHdr
@@ -159,6 +163,8 @@ DEC_SERVER_NAME = ENCODED_STRING
 DEC_NAMESPACE_NAME = ENCODED_STRING
 
 # 2.2.7 Decoration
+
+
 class DECORATION(Structure):
     structure = (
         ('DecServerName', ':', DEC_SERVER_NAME),
@@ -175,6 +181,8 @@ HEAP_STRING_REF = HEAPREF
 CLASS_NAME_REF = HEAP_STRING_REF
 
 # 2.2.16 ClassHeader
+
+
 class CLASS_HEADER(Structure):
     structure = (
         ('EncodingLength', ENCODING_LENGTH),
@@ -184,6 +192,8 @@ class CLASS_HEADER(Structure):
     )
 
 # 2.2.17 DerivationList
+
+
 class DERIVATION_LIST(Structure):
     structure = (
         ('EncodingLength', ENCODING_LENGTH),
@@ -195,81 +205,83 @@ class DERIVATION_LIST(Structure):
 CIM_TYPE = '<L=0'
 CIM_ARRAY_FLAG = 0x2000
 
+
 class EnumType(type):
     def __getattr__(self, attr):
         return self.enumItems[attr].value
 
+
 class CIM_TYPE_ENUM(Enum):
-#    __metaclass__ = EnumType
-    CIM_TYPE_SINT8      = 16
-    CIM_TYPE_UINT8      = 17
-    CIM_TYPE_SINT16     = 2
-    CIM_TYPE_UINT16     = 18
-    CIM_TYPE_SINT32     = 3
-    CIM_TYPE_UINT32     = 19
-    CIM_TYPE_SINT64     = 20
-    CIM_TYPE_UINT64     = 21
-    CIM_TYPE_REAL32     = 4
-    CIM_TYPE_REAL64     = 5
-    CIM_TYPE_BOOLEAN    = 11
-    CIM_TYPE_STRING     = 8
-    CIM_TYPE_DATETIME   = 101
-    CIM_TYPE_REFERENCE  = 102
-    CIM_TYPE_CHAR16     = 103
-    CIM_TYPE_OBJECT     = 13
-    CIM_ARRAY_SINT8     = 8208
-    CIM_ARRAY_UINT8     = 8209
-    CIM_ARRAY_SINT16    = 8194
-    CIM_ARRAY_UINT16    = 8210
-    CIM_ARRAY_SINT32    = 8195
-    CIM_ARRAY_UINT32    = 8201
-    CIM_ARRAY_SINT64    = 8202
-    CIM_ARRAY_UINT64    = 8203
-    CIM_ARRAY_REAL32    = 8196
-    CIM_ARRAY_REAL64    = 8197
-    CIM_ARRAY_BOOLEAN   = 8203
-    CIM_ARRAY_STRING    = 8200
-    CIM_ARRAY_DATETIME  = 8293
+    #    __metaclass__ = EnumType
+    CIM_TYPE_SINT8 = 16
+    CIM_TYPE_UINT8 = 17
+    CIM_TYPE_SINT16 = 2
+    CIM_TYPE_UINT16 = 18
+    CIM_TYPE_SINT32 = 3
+    CIM_TYPE_UINT32 = 19
+    CIM_TYPE_SINT64 = 20
+    CIM_TYPE_UINT64 = 21
+    CIM_TYPE_REAL32 = 4
+    CIM_TYPE_REAL64 = 5
+    CIM_TYPE_BOOLEAN = 11
+    CIM_TYPE_STRING = 8
+    CIM_TYPE_DATETIME = 101
+    CIM_TYPE_REFERENCE = 102
+    CIM_TYPE_CHAR16 = 103
+    CIM_TYPE_OBJECT = 13
+    CIM_ARRAY_SINT8 = 8208
+    CIM_ARRAY_UINT8 = 8209
+    CIM_ARRAY_SINT16 = 8194
+    CIM_ARRAY_UINT16 = 8210
+    CIM_ARRAY_SINT32 = 8195
+    CIM_ARRAY_UINT32 = 8201
+    CIM_ARRAY_SINT64 = 8202
+    CIM_ARRAY_UINT64 = 8203
+    CIM_ARRAY_REAL32 = 8196
+    CIM_ARRAY_REAL64 = 8197
+    CIM_ARRAY_BOOLEAN = 8203
+    CIM_ARRAY_STRING = 8200
+    CIM_ARRAY_DATETIME = 8293
     CIM_ARRAY_REFERENCE = 8294
-    CIM_ARRAY_CHAR16    = 8295
-    CIM_ARRAY_OBJECT    = 8205
+    CIM_ARRAY_CHAR16 = 8295
+    CIM_ARRAY_OBJECT = 8205
 
 CIM_TYPES_REF = {
-    CIM_TYPE_ENUM.CIM_TYPE_SINT8.value    : 'B=0',
-    CIM_TYPE_ENUM.CIM_TYPE_UINT8.value    : 'b=0',
-    CIM_TYPE_ENUM.CIM_TYPE_SINT16.value   : '<h=0',
-    CIM_TYPE_ENUM.CIM_TYPE_UINT16.value   : '<H=0',
-    CIM_TYPE_ENUM.CIM_TYPE_SINT32.value   : '<l=0',
-    CIM_TYPE_ENUM.CIM_TYPE_UINT32.value   : '<L=0',
-    CIM_TYPE_ENUM.CIM_TYPE_SINT64.value   : '<q=0',
-    CIM_TYPE_ENUM.CIM_TYPE_UINT64.value   : '<Q=0',
-    CIM_TYPE_ENUM.CIM_TYPE_REAL32.value   : '<f=0',
-    CIM_TYPE_ENUM.CIM_TYPE_REAL64.value   : '<d=0',
-    CIM_TYPE_ENUM.CIM_TYPE_BOOLEAN.value  : '<H=0',
-    CIM_TYPE_ENUM.CIM_TYPE_STRING.value   : HEAPREF,
-    CIM_TYPE_ENUM.CIM_TYPE_DATETIME.value : HEAPREF,
+    CIM_TYPE_ENUM.CIM_TYPE_SINT8.value: 'B=0',
+    CIM_TYPE_ENUM.CIM_TYPE_UINT8.value: 'b=0',
+    CIM_TYPE_ENUM.CIM_TYPE_SINT16.value: '<h=0',
+    CIM_TYPE_ENUM.CIM_TYPE_UINT16.value: '<H=0',
+    CIM_TYPE_ENUM.CIM_TYPE_SINT32.value: '<l=0',
+    CIM_TYPE_ENUM.CIM_TYPE_UINT32.value: '<L=0',
+    CIM_TYPE_ENUM.CIM_TYPE_SINT64.value: '<q=0',
+    CIM_TYPE_ENUM.CIM_TYPE_UINT64.value: '<Q=0',
+    CIM_TYPE_ENUM.CIM_TYPE_REAL32.value: '<f=0',
+    CIM_TYPE_ENUM.CIM_TYPE_REAL64.value: '<d=0',
+    CIM_TYPE_ENUM.CIM_TYPE_BOOLEAN.value: '<H=0',
+    CIM_TYPE_ENUM.CIM_TYPE_STRING.value: HEAPREF,
+    CIM_TYPE_ENUM.CIM_TYPE_DATETIME.value: HEAPREF,
     CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value: HEAPREF,
-    CIM_TYPE_ENUM.CIM_TYPE_CHAR16.value   : '<H=0',
-    CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value   : HEAPREF,
+    CIM_TYPE_ENUM.CIM_TYPE_CHAR16.value: '<H=0',
+    CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value: HEAPREF,
 }
 
 CIM_TYPE_TO_NAME = {
-    CIM_TYPE_ENUM.CIM_TYPE_SINT8.value    : 'sint8',
-    CIM_TYPE_ENUM.CIM_TYPE_UINT8.value    : 'uint8',
-    CIM_TYPE_ENUM.CIM_TYPE_SINT16.value   : 'sint16',
-    CIM_TYPE_ENUM.CIM_TYPE_UINT16.value   : 'uint16',
-    CIM_TYPE_ENUM.CIM_TYPE_SINT32.value   : 'sint32',
-    CIM_TYPE_ENUM.CIM_TYPE_UINT32.value   : 'uint32',
-    CIM_TYPE_ENUM.CIM_TYPE_SINT64.value   : 'sint64',
-    CIM_TYPE_ENUM.CIM_TYPE_UINT64.value   : 'uint64',
-    CIM_TYPE_ENUM.CIM_TYPE_REAL32.value   : 'real32',
-    CIM_TYPE_ENUM.CIM_TYPE_REAL64.value   : 'real64',
-    CIM_TYPE_ENUM.CIM_TYPE_BOOLEAN.value  : 'bool',
-    CIM_TYPE_ENUM.CIM_TYPE_STRING.value   : 'string',
-    CIM_TYPE_ENUM.CIM_TYPE_DATETIME.value : 'datetime',
+    CIM_TYPE_ENUM.CIM_TYPE_SINT8.value: 'sint8',
+    CIM_TYPE_ENUM.CIM_TYPE_UINT8.value: 'uint8',
+    CIM_TYPE_ENUM.CIM_TYPE_SINT16.value: 'sint16',
+    CIM_TYPE_ENUM.CIM_TYPE_UINT16.value: 'uint16',
+    CIM_TYPE_ENUM.CIM_TYPE_SINT32.value: 'sint32',
+    CIM_TYPE_ENUM.CIM_TYPE_UINT32.value: 'uint32',
+    CIM_TYPE_ENUM.CIM_TYPE_SINT64.value: 'sint64',
+    CIM_TYPE_ENUM.CIM_TYPE_UINT64.value: 'uint64',
+    CIM_TYPE_ENUM.CIM_TYPE_REAL32.value: 'real32',
+    CIM_TYPE_ENUM.CIM_TYPE_REAL64.value: 'real64',
+    CIM_TYPE_ENUM.CIM_TYPE_BOOLEAN.value: 'bool',
+    CIM_TYPE_ENUM.CIM_TYPE_STRING.value: 'string',
+    CIM_TYPE_ENUM.CIM_TYPE_DATETIME.value: 'datetime',
     CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value: 'reference',
-    CIM_TYPE_ENUM.CIM_TYPE_CHAR16.value   : 'char16',
-    CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value   : 'object',
+    CIM_TYPE_ENUM.CIM_TYPE_CHAR16.value: 'char16',
+    CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value: 'object',
 }
 
 # 2.2.61 QualifierName
@@ -282,6 +294,8 @@ QUALIFIER_FLAVOR = 'B=0'
 QUALIFIER_TYPE = CIM_TYPE
 
 # 2.2.71 EncodedValue
+
+
 class ENCODED_VALUE(Structure):
     structure = (
         ('QualifierName', QUALIFIER_NAME),
@@ -290,7 +304,7 @@ class ENCODED_VALUE(Structure):
     @classmethod
     def getValue(self, cimType, entry, heap):
         # Let's get the default Values
-        pType = cimType & (~(CIM_ARRAY_FLAG|Inherited))
+        pType = cimType & (~(CIM_ARRAY_FLAG | Inherited))
 
         if entry != 0xffffffff:
             heapData = heap[entry:]
@@ -300,7 +314,7 @@ class ENCODED_VALUE(Structure):
                 numItems = unpack(HEAPREF[:-2], heapData[:dataSize])[0]
                 heapData = heapData[dataSize:]
                 array = list()
-                unpackStrArray =  CIM_TYPES_REF[pType][:-2]
+                unpackStrArray = CIM_TYPES_REF[pType][:-2]
                 dataSizeArray = calcsize(unpackStrArray)
                 for item in range(numItems):
                     array.append(unpack(unpackStrArray, heapData[:dataSizeArray])[0])
@@ -322,13 +336,16 @@ class ENCODED_VALUE(Structure):
 QUALIFIER_VALUE = ENCODED_VALUE
 
 # 2.2.60 Qualifier
+
+
 class QUALIFIER(Structure):
     commonHdr = (
         ('QualifierName', QUALIFIER_NAME),
         ('QualifierFlavor', QUALIFIER_FLAVOR),
         ('QualifierType', QUALIFIER_TYPE),
     )
-    def __init__(self, data = None, alignment = 0):
+
+    def __init__(self, data=None, alignment=0):
         Structure.__init__(self, data, alignment)
         if data is not None:
             # Let's first check the commonHdr
@@ -339,6 +356,8 @@ class QUALIFIER(Structure):
             self.data = None
 
 # 2.2.59 QualifierSet
+
+
 class QUALIFIER_SET(Structure):
     structure = (
         ('EncodingLength', ENCODING_LENGTH),
@@ -363,7 +382,7 @@ class QUALIFIER_SET(Structure):
             data = data[len(itemn):]
 
         return qualifiers
- 
+
 # 2.2.20 ClassQualifierSet
 CLASS_QUALIFIER_SET = QUALIFIER_SET
 
@@ -377,6 +396,8 @@ PROPERTY_NAME_REF = HEAP_STRING_REF
 PROPERTY_INFO_REF = HEAPREF
 
 # 2.2.23 PropertyLookup
+
+
 class PropertyLookup(Structure):
     structure = (
         ('PropertyNameRef', PROPERTY_NAME_REF),
@@ -399,6 +420,8 @@ CLASS_OF_ORIGIN = '<L=0'
 PROPERTY_QUALIFIER_SET = QUALIFIER_SET
 
 # 2.2.30 PropertyInfo
+
+
 class PROPERTY_INFO(Structure):
     structure = (
         ('PropertyType', PROPERTY_TYPE),
@@ -412,6 +435,8 @@ class PROPERTY_INFO(Structure):
 Inherited = 0x4000
 
 # 2.2.21 PropertyLookupTable
+
+
 class PROPERTY_LOOKUP_TABLE(Structure):
     PropertyLookupSize = len(PropertyLookup())
     structure = (
@@ -435,7 +460,7 @@ class PROPERTY_LOOKUP_TABLE(Structure):
             pType = pType & (~CIM_ARRAY_FLAG)
             pType = pType & (~Inherited)
             sType = CIM_TYPE_TO_NAME[pType]
- 
+
             propItemDict['stype'] = sType
             propItemDict['name'] = propName
             propItemDict['type'] = propInfo['PropertyType']
@@ -443,7 +468,7 @@ class PROPERTY_LOOKUP_TABLE(Structure):
             propItemDict['inherited'] = propInfo['PropertyType'] & Inherited
             propItemDict['value'] = None
 
-            qualifiers = dict() 
+            qualifiers = dict()
             qualifiersBuf = propInfo['PropertyQualifierSet']['Qualifier']
             while len(qualifiersBuf) > 0:
                 record = QUALIFIER(qualifiersBuf)
@@ -461,16 +486,17 @@ class PROPERTY_LOOKUP_TABLE(Structure):
             propTable = propTable[self.PropertyLookupSize:]
 
         return OrderedDict(sorted(list(properties.items()), key=lambda x:x[1]['order']))
-        #return properties
+        # return properties
 
 # 2.2.66 Heap
 HEAP_LENGTH = '<L=0'
 
+
 class HEAP(Structure):
     structure = (
         ('HeapLength', HEAP_LENGTH),
-        # HeapLength is a 32-bit value with the most significant bit always set 
-        # (using little-endian binary encoding for the 32-bit value), so that the 
+        # HeapLength is a 32-bit value with the most significant bit always set
+        # (using little-endian binary encoding for the 32-bit value), so that the
         # length is actually only 31 bits.
         ('_HeapItem','_-HeapItem', 'self["HeapLength"]&0x7fffffff'),
         ('HeapItem', ':'),
@@ -480,6 +506,8 @@ class HEAP(Structure):
 CLASS_HEAP = HEAP
 
 # 2.2.15 ClassPart
+
+
 class CLASS_PART(Structure):
     commonHdr = (
         ('ClassHeader', ':', CLASS_HEADER),
@@ -492,18 +520,19 @@ class CLASS_PART(Structure):
         ('_Garbage', '_-Garbage', 'self["ClassHeader"]["EncodingLength"]-len(self)'),
         ('Garbage', ':=""'),
     )
+
     def getQualifiers(self):
         return self["ClassQualifierSet"].getQualifiers(self["ClassHeap"]["HeapItem"])
 
     def getProperties(self):
         heap = self["ClassHeap"]["HeapItem"]
-        properties =  self["PropertyLookupTable"].getProperties(self["ClassHeap"]["HeapItem"])
+        properties = self["PropertyLookupTable"].getProperties(self["ClassHeap"]["HeapItem"])
         sorted_props = sorted(list(properties.keys()), key=lambda k: properties[k]['order'])
         valueTableOff = (len(properties) - 1) / 4 + 1
         valueTable = self['NdTable_ValueTable'][valueTableOff:]
         for key in sorted_props:
             # Let's get the default Values
-            pType = properties[key]['type'] & (~(CIM_ARRAY_FLAG|Inherited))
+            pType = properties[key]['type'] & (~(CIM_ARRAY_FLAG | Inherited))
             if properties[key]['type'] & CIM_ARRAY_FLAG:
                 unpackStr = HEAPREF[:-2]
             else:
@@ -511,7 +540,7 @@ class CLASS_PART(Structure):
             dataSize = calcsize(unpackStr)
             try:
                 itemValue = unpack(unpackStr, valueTable[:dataSize])[0]
-            except: 
+            except:
                 LOG.error("getProperties: Error unpacking!!")
                 itemValue = 0xffffffff
 
@@ -520,7 +549,7 @@ class CLASS_PART(Structure):
                 properties[key]['value'] = "%s" % value
             valueTable = valueTable[dataSize:]
         return properties
-             
+
 # 2.2.39 MethodCount
 METHOD_COUNT = '<H=0'
 
@@ -561,6 +590,8 @@ OUTPUT_SIGNATURE = METHOD_SIGNATURE
 METHOD_HEAP = HEAP
 
 # 2.2.41 MethodDescription
+
+
 class METHOD_DESCRIPTION(Structure):
     structure = (
         ('MethodName',METHOD_NAME),
@@ -573,6 +604,8 @@ class METHOD_DESCRIPTION(Structure):
     )
 
 # 2.2.38 MethodsPart
+
+
 class METHODS_PART(Structure):
     MethodDescriptionSize = len(METHOD_DESCRIPTION())
     structure = (
@@ -593,10 +626,10 @@ class METHODS_PART(Structure):
             methodDict = OrderedDict()
             itemn = METHOD_DESCRIPTION(data)
             if itemn['MethodFlags'] & WBEM_FLAVOR_ORIGIN_PROPAGATED:
-               # ToDo
-               #print "WBEM_FLAVOR_ORIGIN_PROPAGATED not yet supported!"
-               #raise
-               pass
+                # ToDo
+                # print "WBEM_FLAVOR_ORIGIN_PROPAGATED not yet supported!"
+                # raise
+                pass
             methodDict['name'] = ENCODED_STRING(heap[itemn['MethodName']:])['Character']
             methodDict['origin'] = itemn['MethodOrigin']
             if itemn['MethodQualifiers'] != 0xffffffff:
@@ -609,7 +642,7 @@ class METHODS_PART(Structure):
                 if inputSignature['EncodingLength'] > 0:
                     methodDict['InParams'] = inputSignature['ObjectBlock']['ClassType']['CurrentClass'].getProperties()
                     methodDict['InParamsRaw'] = inputSignature['ObjectBlock']
-                    #print methodDict['InParams'] 
+                    # print methodDict['InParams']
                 else:
                     methodDict['InParams'] = None
             if itemn['OutputSignature'] != 0xffffffff:
@@ -625,6 +658,8 @@ class METHODS_PART(Structure):
         return methods
 
 # 2.2.14 ClassAndMethodsPart
+
+
 class CLASS_AND_METHODS_PART(Structure):
     structure = (
         ('ClassPart', ':', CLASS_PART),
@@ -642,14 +677,14 @@ class CLASS_AND_METHODS_PART(Structure):
             while len(derivationList) > 0:
                 superClass = ENCODED_STRING(derivationList)['Character']
                 className += ' : %s ' % superClass
-                derivationList = derivationList[len(ENCODED_STRING(derivationList))+4:]
+                derivationList = derivationList[len(ENCODED_STRING(derivationList)) + 4:]
             return className
 
     def getQualifiers(self):
         return self["ClassPart"].getQualifiers()
 
     def getProperties(self):
-        #print format_structure(self["ClassPart"].getProperties())
+        # print format_structure(self["ClassPart"].getProperties())
         return self["ClassPart"].getProperties()
 
     def getMethods(self):
@@ -673,15 +708,19 @@ NDTABLE = NULL_AND_DEFAULT_FLAG
 # 2.2.56 InstanceData
 #InstanceData = ValueTable
 
+
 class CURRENT_CLASS_NO_METHODS(CLASS_AND_METHODS_PART):
     structure = (
         ('ClassPart', ':', CLASS_PART),
     )
+
     def getMethods(self):
         return ()
 
 # 2.2.65 InstancePropQualifierSet
 INST_PROP_QUAL_SET_FLAG = 'B=0'
+
+
 class INSTANCE_PROP_QUALIFIER_SET(Structure):
     commonHdr = (
         ('InstPropQualSetFlag', INST_PROP_QUAL_SET_FLAG),
@@ -692,7 +731,7 @@ class INSTANCE_PROP_QUALIFIER_SET(Structure):
         ('QualifierSet', ':', QUALIFIER_SET),
     )
 
-    def __init__(self, data = None, alignment = 0):
+    def __init__(self, data=None, alignment=0):
         Structure.__init__(self, data, alignment)
         self.structure = ()
         if data is not None:
@@ -706,6 +745,8 @@ class INSTANCE_PROP_QUALIFIER_SET(Structure):
             self.data = None
 
 # 2.2.57 InstanceQualifierSet
+
+
 class INSTANCE_QUALIFIER_SET(Structure):
     structure = (
         ('QualifierSet', ':', QUALIFIER_SET),
@@ -716,6 +757,8 @@ class INSTANCE_QUALIFIER_SET(Structure):
 INSTANCE_HEAP = HEAP
 
 # 2.2.53 InstanceType
+
+
 class INSTANCE_TYPE(Structure):
     commonHdr = (
         ('CurrentClass', ':', CURRENT_CLASS_NO_METHODS),
@@ -728,14 +771,14 @@ class INSTANCE_TYPE(Structure):
         ('InstanceHeap', ':', INSTANCE_HEAP),
     )
 
-    def __init__(self, data = None, alignment = 0):
+    def __init__(self, data=None, alignment=0):
         Structure.__init__(self, data, alignment)
         self.structure = ()
         if data is not None:
             # Let's first check the commonHdr
             self.fromString(data)
-            #hexdump(data[len(self.getData()):])
-            self.NdTableSize = (self['CurrentClass']['ClassPart']['PropertyLookupTable']['PropertyCount'] - 1) /4 + 1
+            # hexdump(data[len(self.getData()):])
+            self.NdTableSize = (self['CurrentClass']['ClassPart']['PropertyLookupTable']['PropertyCount'] - 1) / 4 + 1
             #self.InstanceDataSize = self['CurrentClass']['ClassPart']['PropertyLookupTable']['PropertyCount'] * len(InstanceData())
             self.fromString(data)
         else:
@@ -747,7 +790,7 @@ class INSTANCE_TYPE(Structure):
         valueTable = self['NdTable_ValueTable'][valueTableOff:]
         sorted_props = sorted(list(properties.keys()), key=lambda k: properties[k]['order'])
         for key in sorted_props:
-            pType = properties[key]['type'] & (~(CIM_ARRAY_FLAG|Inherited))
+            pType = properties[key]['type'] & (~(CIM_ARRAY_FLAG | Inherited))
             if properties[key]['type'] & CIM_ARRAY_FLAG:
                 unpackStr = HEAPREF[:-2]
             else:
@@ -761,11 +804,11 @@ class INSTANCE_TYPE(Structure):
 
             # if itemValue == 0, default value remains
             if itemValue != 0:
-                value = ENCODED_VALUE.getValue( properties[key]['type'], itemValue, heap)
+                value = ENCODED_VALUE.getValue(properties[key]['type'], itemValue, heap)
             else:
                 value = 0
             properties[key]['value'] = value
-            valueTable = valueTable[dataSize:] 
+            valueTable = valueTable[dataSize:]
         return properties
 
 # 2.2.12 ParentClass
@@ -774,6 +817,7 @@ PARENT_CLASS = CLASS_AND_METHODS_PART
 # 2.2.13 CurrentClass
 CURRENT_CLASS = CLASS_AND_METHODS_PART
 
+
 class CLASS_TYPE(Structure):
     structure = (
         ('ParentClass', ':', PARENT_CLASS),
@@ -781,6 +825,8 @@ class CLASS_TYPE(Structure):
     )
 
 # 2.2.5 ObjectBlock
+
+
 class OBJECT_BLOCK(Structure):
     commonHdr = (
         ('ObjectFlags', OBJECT_FLAGS),
@@ -797,18 +843,19 @@ class OBJECT_BLOCK(Structure):
     classType = (
         ('ClassType', ':', CLASS_TYPE),
     )
-    def __init__(self, data = None, alignment = 0):
+
+    def __init__(self, data=None, alignment=0):
         Structure.__init__(self, data, alignment)
-        self.ctParent  = None
+        self.ctParent = None
         self.ctCurrent = None
 
         if data is not None:
             self.structure = ()
-            if ord(data[0]) & 0x4: 
+            if ord(data[0]) & 0x4:
                 # WMIO - 2.2.6 - 0x04 If this flag is set, the object has a Decoration block.
                 self.structure += self.decoration
             if ord(data[0]) & 0x01:
-                # The object is a CIM class. 
+                # The object is a CIM class.
                 self.structure += self.classType
             else:
                 self.structure += self.instanceType
@@ -822,7 +869,7 @@ class OBJECT_BLOCK(Structure):
             return False
         return True
 
-    def printClass(self, pClass, cInstance = None):
+    def printClass(self, pClass, cInstance=None):
         qualifiers = pClass.getQualifiers()
 
         for qualifier in qualifiers:
@@ -837,24 +884,24 @@ class OBJECT_BLOCK(Structure):
             properties = cInstance.getValues(properties)
 
         for pName in properties:
-            #if property['inherited'] == 0:
-                qualifiers = properties[pName]['qualifiers']
-                for qName in qualifiers:
-                    if qName != 'CIMTYPE':
-                        print('\t[%s(%s)]' % (qName, qualifiers[qName]))
-                print("\t%s %s" % (properties[pName]['stype'], properties[pName]['name']), end=' ')
-                if properties[pName]['value'] is not None:
-                    print('= %s\n' % properties[pName]['value'])
-                else:
-                    print('\n')
+            # if property['inherited'] == 0:
+            qualifiers = properties[pName]['qualifiers']
+            for qName in qualifiers:
+                if qName != 'CIMTYPE':
+                    print('\t[%s(%s)]' % (qName, qualifiers[qName]))
+            print("\t%s %s" % (properties[pName]['stype'], properties[pName]['name']), end=' ')
+            if properties[pName]['value'] is not None:
+                print('= %s\n' % properties[pName]['value'])
+            else:
+                print('\n')
 
-        print() 
+        print()
         methods = pClass.getMethods()
         for methodName in methods:
             for qualifier in methods[methodName]['qualifiers']:
                 print('\t[%s]' % qualifier)
 
-            if methods[methodName]['InParams'] is None and methods[methodName]['OutParams'] is None: 
+            if methods[methodName]['InParams'] is None and methods[methodName]['OutParams'] is None:
                 print('\t%s %s();\n' % ('void', methodName))
             if methods[methodName]['InParams'] is None and len(methods[methodName]['OutParams']) == 1:
                 print('\t%s %s();\n' % (methods[methodName]['OutParams']['ReturnValue']['stype'], methodName))
@@ -865,10 +912,10 @@ class OBJECT_BLOCK(Structure):
                     #returnValue = (item for item in method['OutParams'] if item["name"] == "ReturnValue").next()
                     if 'ReturnValue' in methods[methodName]['OutParams']:
                         returnValue = methods[methodName]['OutParams']['ReturnValue']['stype']
- 
+
                 print('\t%s %s(\n' % (returnValue, methodName), end=' ')
                 if methods[methodName]['InParams'] is not None:
-                    for pName  in methods[methodName]['InParams']:
+                    for pName in methods[methodName]['InParams']:
                         print('\t\t[in]    %s %s,' % (methods[methodName]['InParams'][pName]['stype'], pName))
 
                 if methods[methodName]['OutParams'] is not None:
@@ -880,7 +927,7 @@ class OBJECT_BLOCK(Structure):
 
         print("}")
 
-    def parseClass(self, pClass, cInstance = None):
+    def parseClass(self, pClass, cInstance=None):
         classDict = OrderedDict()
         classDict['name'] = pClass.getClassName()
         classDict['qualifiers'] = pClass.getQualifiers()
@@ -901,7 +948,7 @@ class OBJECT_BLOCK(Structure):
             if currentName is not None:
                 self.ctCurrent = self.parseClass(ctCurrent, self['InstanceType'])
             return
-        else: 
+        else:
             ctParent = self['ClassType']['ParentClass']
             ctCurrent = self['ClassType']['CurrentClass']
 
@@ -922,7 +969,7 @@ class OBJECT_BLOCK(Structure):
             if currentName is not None:
                 self.printClass(ctCurrent, self['InstanceType'])
             return
-        else: 
+        else:
             ctParent = self['ClassType']['ParentClass']
             ctCurrent = self['ClassType']['CurrentClass']
 
@@ -935,6 +982,8 @@ class OBJECT_BLOCK(Structure):
                 self.printClass(ctCurrent)
 
 # 2.2.70 MethodSignatureBlock
+
+
 class METHOD_SIGNATURE_BLOCK(Structure):
     commonHdr = (
         ('EncodingLength', ENCODING_LENGTH),
@@ -943,7 +992,8 @@ class METHOD_SIGNATURE_BLOCK(Structure):
         ('_ObjectBlock', '_-ObjectBlock', 'self["EncodingLength"]'),
         ('ObjectBlock', ':', OBJECT_BLOCK),
     )
-    def __init__(self, data = None, alignment = 0):
+
+    def __init__(self, data=None, alignment=0):
         Structure.__init__(self, data, alignment)
         if data is not None:
             self.fromString(data)
@@ -955,6 +1005,8 @@ class METHOD_SIGNATURE_BLOCK(Structure):
             self.data = None
 
 # 2.2.1 EncodingUnit
+
+
 class ENCODING_UNIT(Structure):
     structure = (
         ('Signature', SIGNATURE),
@@ -967,40 +1019,40 @@ class ENCODING_UNIT(Structure):
 # CONSTANTS
 ################################################################################
 # 1.9 Standards Assignments
-CLSID_WbemLevel1Login     = string_to_bin('8BC3F05E-D86B-11D0-A075-00C04FB68820')
-CLSID_WbemBackupRestore   = string_to_bin('C49E32C6-BC8B-11D2-85D4-00105A1F8304')
-CLSID_WbemClassObject     = string_to_bin('4590F812-1D3A-11D0-891F-00AA004B2E24')
+CLSID_WbemLevel1Login = string_to_bin('8BC3F05E-D86B-11D0-A075-00C04FB68820')
+CLSID_WbemBackupRestore = string_to_bin('C49E32C6-BC8B-11D2-85D4-00105A1F8304')
+CLSID_WbemClassObject = string_to_bin('4590F812-1D3A-11D0-891F-00AA004B2E24')
 
-IID_IWbemLevel1Login      = uuidtup_to_bin(('F309AD18-D86A-11d0-A075-00C04FB68820', '0.0'))
-IID_IWbemLoginClientID    = uuidtup_to_bin(('d4781cd6-e5d3-44df-ad94-930efe48a887', '0.0'))
-IID_IWbemLoginHelper      = uuidtup_to_bin(('541679AB-2E5F-11d3-B34E-00104BCC4B4A', '0.0'))
-IID_IWbemServices         = uuidtup_to_bin(('9556DC99-828C-11CF-A37E-00AA003240C7', '0.0'))
-IID_IWbemBackupRestore    = uuidtup_to_bin(('C49E32C7-BC8B-11d2-85D4-00105A1F8304', '0.0'))
-IID_IWbemBackupRestoreEx  = uuidtup_to_bin(('A359DEC5-E813-4834-8A2A-BA7F1D777D76', '0.0'))
-IID_IWbemClassObject      = uuidtup_to_bin(('DC12A681-737F-11CF-884D-00AA004B2E24', '0.0'))
-IID_IWbemContext          = uuidtup_to_bin(('44aca674-e8fc-11d0-a07c-00c04fb68820', '0.0'))
-IID_IEnumWbemClassObject  = uuidtup_to_bin(('027947e1-d731-11ce-a357-000000000001', '0.0'))
-IID_IWbemCallResult       = uuidtup_to_bin(('44aca675-e8fc-11d0-a07c-00c04fb68820', '0.0'))
-IID_IWbemFetchSmartEnum   = uuidtup_to_bin(('1C1C45EE-4395-11d2-B60B-00104B703EFD', '0.0'))
-IID_IWbemWCOSmartEnum     = uuidtup_to_bin(('423EC01E-2E35-11d2-B604-00104B703EFD', '0.0'))
+IID_IWbemLevel1Login = uuidtup_to_bin(('F309AD18-D86A-11d0-A075-00C04FB68820', '0.0'))
+IID_IWbemLoginClientID = uuidtup_to_bin(('d4781cd6-e5d3-44df-ad94-930efe48a887', '0.0'))
+IID_IWbemLoginHelper = uuidtup_to_bin(('541679AB-2E5F-11d3-B34E-00104BCC4B4A', '0.0'))
+IID_IWbemServices = uuidtup_to_bin(('9556DC99-828C-11CF-A37E-00AA003240C7', '0.0'))
+IID_IWbemBackupRestore = uuidtup_to_bin(('C49E32C7-BC8B-11d2-85D4-00105A1F8304', '0.0'))
+IID_IWbemBackupRestoreEx = uuidtup_to_bin(('A359DEC5-E813-4834-8A2A-BA7F1D777D76', '0.0'))
+IID_IWbemClassObject = uuidtup_to_bin(('DC12A681-737F-11CF-884D-00AA004B2E24', '0.0'))
+IID_IWbemContext = uuidtup_to_bin(('44aca674-e8fc-11d0-a07c-00c04fb68820', '0.0'))
+IID_IEnumWbemClassObject = uuidtup_to_bin(('027947e1-d731-11ce-a357-000000000001', '0.0'))
+IID_IWbemCallResult = uuidtup_to_bin(('44aca675-e8fc-11d0-a07c-00c04fb68820', '0.0'))
+IID_IWbemFetchSmartEnum = uuidtup_to_bin(('1C1C45EE-4395-11d2-B60B-00104B703EFD', '0.0'))
+IID_IWbemWCOSmartEnum = uuidtup_to_bin(('423EC01E-2E35-11d2-B604-00104B703EFD', '0.0'))
 
 error_status_t = ULONG
 
 # lFlags
-WBEM_FLAG_RETURN_WBEM_COMPLETE          = 0x00000000
-WBEM_FLAG_UPDATE_ONLY                   = 0x00000001
-WBEM_FLAG_CREATE_ONLY                   = 0x00000002
-WBEM_FLAG_RETURN_IMMEDIATELY            = 0x00000010
-WBEM_FLAG_UPDATE_SAFE_MODE              = 0x00000020
-WBEM_FLAG_FORWARD_ONLY                  = 0x00000020
-WBEM_FLAG_NO_ERROR_OBJECT               = 0x00000040
-WBEM_FLAG_UPDATE_FORCE_MODE             = 0x00000040
-WBEM_FLAG_SEND_STATUS                   = 0x00000080
-WBEM_FLAG_ENSURE_LOCATABLE              = 0x00000100
-WBEM_FLAG_DIRECT_READ                   = 0x00000200
-WBEM_MASK_RESERVED_FLAGS                = 0x0001F000
-WBEM_FLAG_USE_AMENDED_QUALIFIERS        = 0x00020000
-WBEM_FLAG_STRONG_VALIDATION             = 0x00100000
+WBEM_FLAG_RETURN_WBEM_COMPLETE = 0x00000000
+WBEM_FLAG_UPDATE_ONLY = 0x00000001
+WBEM_FLAG_CREATE_ONLY = 0x00000002
+WBEM_FLAG_RETURN_IMMEDIATELY = 0x00000010
+WBEM_FLAG_UPDATE_SAFE_MODE = 0x00000020
+WBEM_FLAG_FORWARD_ONLY = 0x00000020
+WBEM_FLAG_NO_ERROR_OBJECT = 0x00000040
+WBEM_FLAG_UPDATE_FORCE_MODE = 0x00000040
+WBEM_FLAG_SEND_STATUS = 0x00000080
+WBEM_FLAG_ENSURE_LOCATABLE = 0x00000100
+WBEM_FLAG_DIRECT_READ = 0x00000200
+WBEM_MASK_RESERVED_FLAGS = 0x0001F000
+WBEM_FLAG_USE_AMENDED_QUALIFIERS = 0x00020000
+WBEM_FLAG_STRONG_VALIDATION = 0x00100000
 WBEM_FLAG_BACKUP_RESTORE_FORCE_SHUTDOWN = 0x00000001
 
 WBEM_INFINITE = 0xffffffff
@@ -1008,21 +1060,27 @@ WBEM_INFINITE = 0xffffffff
 ################################################################################
 # STRUCTURES
 ################################################################################
+
+
 class UCHAR_ARRAY_CV(NDRUniConformantVaryingArray):
     item = 'c'
+
 
 class PUCHAR_ARRAY_CV(NDRPOINTER):
     referent = (
         ('Data', UCHAR_ARRAY_CV),
     )
 
+
 class PMInterfacePointer_ARRAY_CV(NDRUniConformantVaryingArray):
     item = PMInterfacePointer
 
 REFGUID = PGUID
 
+
 class ULONG_ARRAY(NDRUniConformantArray):
     item = ULONG
+
 
 class PULONG_ARRAY(NDRPOINTER):
     referent = (
@@ -1030,161 +1088,186 @@ class PULONG_ARRAY(NDRPOINTER):
     )
 
 # 2.2.5 WBEM_CHANGE_FLAG_TYPE Enumeration
+
+
 class WBEM_CHANGE_FLAG_TYPE(NDRENUM):
     # [v1_enum] type
     structure = (
         ('Data', '<L'),
     )
+
     class enumItems(Enum):
-        WBEM_FLAG_CREATE_OR_UPDATE  = 0x00
-        WBEM_FLAG_UPDATE_ONLY       = 0x01
-        WBEM_FLAG_CREATE_ONLY       = 0x02
-        WBEM_FLAG_UPDATE_SAFE_MODE  = 0x20
+        WBEM_FLAG_CREATE_OR_UPDATE = 0x00
+        WBEM_FLAG_UPDATE_ONLY = 0x01
+        WBEM_FLAG_CREATE_ONLY = 0x02
+        WBEM_FLAG_UPDATE_SAFE_MODE = 0x20
         WBEM_FLAG_UPDATE_FORCE_MODE = 0x40
 
 # 2.2.6 WBEM_GENERIC_FLAG_TYPE Enumeration
+
+
 class WBEM_GENERIC_FLAG_TYPE(NDRENUM):
     # [v1_enum] type
     structure = (
         ('Data', '<L'),
     )
+
     class enumItems(Enum):
-        WBEM_FLAG_RETURN_WBEM_COMPLETE   = 0x00
-        WBEM_FLAG_RETURN_IMMEDIATELY     = 0x10
-        WBEM_FLAG_FORWARD_ONLY           = 0x20
-        WBEM_FLAG_NO_ERROR_OBJECT        = 0x40
-        WBEM_FLAG_SEND_STATUS            = 0x80
-        WBEM_FLAG_ENSURE_LOCATABLE       = 0x100
-        WBEM_FLAG_DIRECT_READ            = 0x200
-        WBEM_MASK_RESERVED_FLAGS         = 0x1F000
+        WBEM_FLAG_RETURN_WBEM_COMPLETE = 0x00
+        WBEM_FLAG_RETURN_IMMEDIATELY = 0x10
+        WBEM_FLAG_FORWARD_ONLY = 0x20
+        WBEM_FLAG_NO_ERROR_OBJECT = 0x40
+        WBEM_FLAG_SEND_STATUS = 0x80
+        WBEM_FLAG_ENSURE_LOCATABLE = 0x100
+        WBEM_FLAG_DIRECT_READ = 0x200
+        WBEM_MASK_RESERVED_FLAGS = 0x1F000
         WBEM_FLAG_USE_AMENDED_QUALIFIERS = 0x20000
-        WBEM_FLAG_STRONG_VALIDATION      = 0x100000
+        WBEM_FLAG_STRONG_VALIDATION = 0x100000
 
 # 2.2.7 WBEM_STATUS_TYPE Enumeration
+
+
 class WBEM_STATUS_TYPE(NDRENUM):
     class enumItems(Enum):
-        WBEM_STATUS_COMPLETE     = 0x00
+        WBEM_STATUS_COMPLETE = 0x00
         WBEM_STATUS_REQUIREMENTS = 0x01
-        WBEM_STATUS_PROGRESS     = 0x02
+        WBEM_STATUS_PROGRESS = 0x02
 
 # 2.2.8 WBEM_TIMEOUT_TYPE Enumeration
+
+
 class WBEM_TIMEOUT_TYPE(NDRENUM):
     # [v1_enum] type
     structure = (
         ('Data', '<L'),
     )
+
     class enumItems(Enum):
-        WBEM_NO_WAIT  = 0x00000000
+        WBEM_NO_WAIT = 0x00000000
         WBEM_INFINITE = 0xFFFFFFFF
 
 # 2.2.9 WBEM_QUERY_FLAG_TYPE Enumeration
+
+
 class WBEM_QUERY_FLAG_TYPE(NDRENUM):
     # [v1_enum] type
     structure = (
         ('Data', '<L'),
     )
+
     class enumItems(Enum):
-        WBEM_FLAG_DEEP      = 0x00000000
-        WBEM_FLAG_SHALLOW   = 0x00000001
+        WBEM_FLAG_DEEP = 0x00000000
+        WBEM_FLAG_SHALLOW = 0x00000001
         WBEM_FLAG_PROTOTYPE = 0x00000002
 
 # 2.2.10 WBEM_BACKUP_RESTORE_FLAGS Enumeration
+
+
 class WBEM_BACKUP_RESTORE_FLAGS(NDRENUM):
     # [v1_enum] type
     structure = (
         ('Data', '<L'),
     )
+
     class enumItems(Enum):
         WBEM_FLAG_BACKUP_RESTORE_FORCE_SHUTDOWN = 0x00000001
 
 # 2.2.11 WBEMSTATUS Enumeration
+
+
 class WBEMSTATUS(NDRENUM):
     # [v1_enum] type
     structure = (
         ('Data', '<L'),
     )
+
     class enumItems(Enum):
-        WBEM_S_NO_ERROR                      = 0x00000000
-        WBEM_S_FALSE                         = 0x00000001
-        WBEM_S_TIMEDOUT                      = 0x00040004
-        WBEM_S_NEW_STYLE                     = 0x000400FF
-        WBEM_S_PARTIAL_RESULTS               = 0x00040010
-        WBEM_E_FAILED                        = 0x80041001
-        WBEM_E_NOT_FOUND                     = 0x80041002
-        WBEM_E_ACCESS_DENIED                 = 0x80041003
-        WBEM_E_PROVIDER_FAILURE              = 0x80041004
-        WBEM_E_TYPE_MISMATCH                 = 0x80041005
-        WBEM_E_OUT_OF_MEMORY                 = 0x80041006
-        WBEM_E_INVALID_CONTEXT               = 0x80041007
-        WBEM_E_INVALID_PARAMETER             = 0x80041008
-        WBEM_E_NOT_AVAILABLE                 = 0x80041009
-        WBEM_E_CRITICAL_ERROR                = 0x8004100a
-        WBEM_E_NOT_SUPPORTED                 = 0x8004100c
-        WBEM_E_PROVIDER_NOT_FOUND            = 0x80041011
+        WBEM_S_NO_ERROR = 0x00000000
+        WBEM_S_FALSE = 0x00000001
+        WBEM_S_TIMEDOUT = 0x00040004
+        WBEM_S_NEW_STYLE = 0x000400FF
+        WBEM_S_PARTIAL_RESULTS = 0x00040010
+        WBEM_E_FAILED = 0x80041001
+        WBEM_E_NOT_FOUND = 0x80041002
+        WBEM_E_ACCESS_DENIED = 0x80041003
+        WBEM_E_PROVIDER_FAILURE = 0x80041004
+        WBEM_E_TYPE_MISMATCH = 0x80041005
+        WBEM_E_OUT_OF_MEMORY = 0x80041006
+        WBEM_E_INVALID_CONTEXT = 0x80041007
+        WBEM_E_INVALID_PARAMETER = 0x80041008
+        WBEM_E_NOT_AVAILABLE = 0x80041009
+        WBEM_E_CRITICAL_ERROR = 0x8004100a
+        WBEM_E_NOT_SUPPORTED = 0x8004100c
+        WBEM_E_PROVIDER_NOT_FOUND = 0x80041011
         WBEM_E_INVALID_PROVIDER_REGISTRATION = 0x80041012
-        WBEM_E_PROVIDER_LOAD_FAILURE         = 0x80041013
-        WBEM_E_INITIALIZATION_FAILURE        = 0x80041014
-        WBEM_E_TRANSPORT_FAILURE             = 0x80041015
-        WBEM_E_INVALID_OPERATION             = 0x80041016
-        WBEM_E_ALREADY_EXISTS                = 0x80041019
-        WBEM_E_UNEXPECTED                    = 0x8004101d
-        WBEM_E_INCOMPLETE_CLASS              = 0x80041020
-        WBEM_E_SHUTTING_DOWN                 = 0x80041033
-        E_NOTIMPL                            = 0x80004001
-        WBEM_E_INVALID_SUPERCLASS            = 0x8004100D
-        WBEM_E_INVALID_NAMESPACE             = 0x8004100E
-        WBEM_E_INVALID_OBJECT                = 0x8004100F
-        WBEM_E_INVALID_CLASS                 = 0x80041010
-        WBEM_E_INVALID_QUERY                 = 0x80041017
-        WBEM_E_INVALID_QUERY_TYPE            = 0x80041018
-        WBEM_E_PROVIDER_NOT_CAPABLE          = 0x80041024
-        WBEM_E_CLASS_HAS_CHILDREN            = 0x80041025
-        WBEM_E_CLASS_HAS_INSTANCES           = 0x80041026
-        WBEM_E_ILLEGAL_NULL                  = 0x80041028
-        WBEM_E_INVALID_CIM_TYPE              = 0x8004102D
-        WBEM_E_INVALID_METHOD                = 0x8004102E
-        WBEM_E_INVALID_METHOD_PARAMETERS     = 0x8004102F
-        WBEM_E_INVALID_PROPERTY              = 0x80041031
-        WBEM_E_CALL_CANCELLED                = 0x80041032
-        WBEM_E_INVALID_OBJECT_PATH           = 0x8004103A
-        WBEM_E_OUT_OF_DISK_SPACE             = 0x8004103B
-        WBEM_E_UNSUPPORTED_PUT_EXTENSION     = 0x8004103D
-        WBEM_E_QUOTA_VIOLATION               = 0x8004106c
-        WBEM_E_SERVER_TOO_BUSY               = 0x80041045
-        WBEM_E_METHOD_NOT_IMPLEMENTED        = 0x80041055
-        WBEM_E_METHOD_DISABLED               = 0x80041056
-        WBEM_E_UNPARSABLE_QUERY              = 0x80041058
-        WBEM_E_NOT_EVENT_CLASS               = 0x80041059
-        WBEM_E_MISSING_GROUP_WITHIN          = 0x8004105A
-        WBEM_E_MISSING_AGGREGATION_LIST      = 0x8004105B
-        WBEM_E_PROPERTY_NOT_AN_OBJECT        = 0x8004105c
-        WBEM_E_AGGREGATING_BY_OBJECT         = 0x8004105d
-        WBEM_E_BACKUP_RESTORE_WINMGMT_RUNNING= 0x80041060
-        WBEM_E_QUEUE_OVERFLOW                = 0x80041061
-        WBEM_E_PRIVILEGE_NOT_HELD            = 0x80041062
-        WBEM_E_INVALID_OPERATOR              = 0x80041063
-        WBEM_E_CANNOT_BE_ABSTRACT            = 0x80041065
-        WBEM_E_AMENDED_OBJECT                = 0x80041066
-        WBEM_E_VETO_PUT                      = 0x8004107A
-        WBEM_E_PROVIDER_SUSPENDED            = 0x80041081
+        WBEM_E_PROVIDER_LOAD_FAILURE = 0x80041013
+        WBEM_E_INITIALIZATION_FAILURE = 0x80041014
+        WBEM_E_TRANSPORT_FAILURE = 0x80041015
+        WBEM_E_INVALID_OPERATION = 0x80041016
+        WBEM_E_ALREADY_EXISTS = 0x80041019
+        WBEM_E_UNEXPECTED = 0x8004101d
+        WBEM_E_INCOMPLETE_CLASS = 0x80041020
+        WBEM_E_SHUTTING_DOWN = 0x80041033
+        E_NOTIMPL = 0x80004001
+        WBEM_E_INVALID_SUPERCLASS = 0x8004100D
+        WBEM_E_INVALID_NAMESPACE = 0x8004100E
+        WBEM_E_INVALID_OBJECT = 0x8004100F
+        WBEM_E_INVALID_CLASS = 0x80041010
+        WBEM_E_INVALID_QUERY = 0x80041017
+        WBEM_E_INVALID_QUERY_TYPE = 0x80041018
+        WBEM_E_PROVIDER_NOT_CAPABLE = 0x80041024
+        WBEM_E_CLASS_HAS_CHILDREN = 0x80041025
+        WBEM_E_CLASS_HAS_INSTANCES = 0x80041026
+        WBEM_E_ILLEGAL_NULL = 0x80041028
+        WBEM_E_INVALID_CIM_TYPE = 0x8004102D
+        WBEM_E_INVALID_METHOD = 0x8004102E
+        WBEM_E_INVALID_METHOD_PARAMETERS = 0x8004102F
+        WBEM_E_INVALID_PROPERTY = 0x80041031
+        WBEM_E_CALL_CANCELLED = 0x80041032
+        WBEM_E_INVALID_OBJECT_PATH = 0x8004103A
+        WBEM_E_OUT_OF_DISK_SPACE = 0x8004103B
+        WBEM_E_UNSUPPORTED_PUT_EXTENSION = 0x8004103D
+        WBEM_E_QUOTA_VIOLATION = 0x8004106c
+        WBEM_E_SERVER_TOO_BUSY = 0x80041045
+        WBEM_E_METHOD_NOT_IMPLEMENTED = 0x80041055
+        WBEM_E_METHOD_DISABLED = 0x80041056
+        WBEM_E_UNPARSABLE_QUERY = 0x80041058
+        WBEM_E_NOT_EVENT_CLASS = 0x80041059
+        WBEM_E_MISSING_GROUP_WITHIN = 0x8004105A
+        WBEM_E_MISSING_AGGREGATION_LIST = 0x8004105B
+        WBEM_E_PROPERTY_NOT_AN_OBJECT = 0x8004105c
+        WBEM_E_AGGREGATING_BY_OBJECT = 0x8004105d
+        WBEM_E_BACKUP_RESTORE_WINMGMT_RUNNING = 0x80041060
+        WBEM_E_QUEUE_OVERFLOW = 0x80041061
+        WBEM_E_PRIVILEGE_NOT_HELD = 0x80041062
+        WBEM_E_INVALID_OPERATOR = 0x80041063
+        WBEM_E_CANNOT_BE_ABSTRACT = 0x80041065
+        WBEM_E_AMENDED_OBJECT = 0x80041066
+        WBEM_E_VETO_PUT = 0x8004107A
+        WBEM_E_PROVIDER_SUSPENDED = 0x80041081
         WBEM_E_ENCRYPTED_CONNECTION_REQUIRED = 0x80041087
-        WBEM_E_PROVIDER_TIMED_OUT            = 0x80041088
-        WBEM_E_NO_KEY                        = 0x80041089
-        WBEM_E_PROVIDER_DISABLED             = 0x8004108a
-        WBEM_E_REGISTRATION_TOO_BROAD        = 0x80042001
-        WBEM_E_REGISTRATION_TOO_PRECISE      = 0x80042002
+        WBEM_E_PROVIDER_TIMED_OUT = 0x80041088
+        WBEM_E_NO_KEY = 0x80041089
+        WBEM_E_PROVIDER_DISABLED = 0x8004108a
+        WBEM_E_REGISTRATION_TOO_BROAD = 0x80042001
+        WBEM_E_REGISTRATION_TOO_PRECISE = 0x80042002
 
 # 2.2.12 WBEM_CONNECT_OPTIONS Enumeration
+
+
 class WBEM_CONNECT_OPTIONS(NDRENUM):
     # [v1_enum] type
     structure = (
         ('Data', '<L'),
     )
+
     class enumItems(Enum):
         WBEM_FLAG_CONNECT_REPOSITORY_ONLY = 0x40
-        WBEM_FLAG_CONNECT_PROVIDERS       = 0x100
+        WBEM_FLAG_CONNECT_PROVIDERS = 0x100
 
 # 2.2.14 ObjectArray Structure
+
+
 class ObjectArray(Structure):
     structure = (
         ('dwByteOrdering', '<L=0'),
@@ -1204,6 +1287,8 @@ class ObjectArray(Structure):
     )
 
 # 2.2.14.1 WBEM_DATAPACKET_OBJECT Structure
+
+
 class WBEM_DATAPACKET_OBJECT(Structure):
     structure = (
         ('dwSizeOfHeader', '<L=9'),
@@ -1214,6 +1299,8 @@ class WBEM_DATAPACKET_OBJECT(Structure):
     )
 
 # 2.2.14.2 WBEMOBJECT_CLASS Structure
+
+
 class WBEMOBJECT_CLASS(Structure):
     structure = (
         ('dwSizeOfHeader', '<L=8'),
@@ -1223,6 +1310,8 @@ class WBEMOBJECT_CLASS(Structure):
     )
 
 # 2.2.14.3 WBEMOBJECT_INSTANCE Structure
+
+
 class WBEMOBJECT_INSTANCE(Structure):
     structure = (
         ('dwSizeOfHeader', '<L=0x18'),
@@ -1233,6 +1322,8 @@ class WBEMOBJECT_INSTANCE(Structure):
     )
 
 # 2.2.14.4 WBEMOBJECT_INSTANCE_NOCLASS Structure
+
+
 class WBEMOBJECT_INSTANCE_NOCLASS(Structure):
     structure = (
         ('dwSizeOfHeader', '<L=0x18'),
@@ -1243,6 +1334,8 @@ class WBEMOBJECT_INSTANCE_NOCLASS(Structure):
     )
 
 # 2.2.15 WBEM_REFRESHED_OBJECT Structure
+
+
 class WBEM_REFRESHED_OBJECT(NDRSTRUCT):
     structure = (
         ('m_lRequestId', LONG),
@@ -1251,8 +1344,10 @@ class WBEM_REFRESHED_OBJECT(NDRSTRUCT):
         ('m_pBlob', BYTE_ARRAY),
     )
 
+
 class WBEM_REFRESHED_OBJECT_ARRAY(NDRUniConformantArray):
     item = WBEM_REFRESHED_OBJECT
+
 
 class PWBEM_REFRESHED_OBJECT_ARRAY(NDRPOINTER):
     referent = (
@@ -1260,6 +1355,8 @@ class PWBEM_REFRESHED_OBJECT_ARRAY(NDRPOINTER):
     )
 
 # 2.2.16 WBEM_INSTANCE_BLOB Enumeration
+
+
 class WBEM_INSTANCE_BLOB(Structure):
     structure = (
         ('Version', '<L=0x1'),
@@ -1268,16 +1365,21 @@ class WBEM_INSTANCE_BLOB(Structure):
     )
 
 # 2.2.17 WBEM_INSTANCE_BLOB_TYPE Enumeration
+
+
 class WBEM_INSTANCE_BLOB_TYPE(NDRENUM):
     # [v1_enum] type
     structure = (
         ('Data', '<L'),
     )
+
     class enumItems(Enum):
         WBEM_FLAG_CONNECT_REPOSITORY_ONLY = 0x40
-        WBEM_FLAG_CONNECT_PROVIDERS       = 0x100
+        WBEM_FLAG_CONNECT_PROVIDERS = 0x100
 
 # 2.2.26 _WBEM_REFRESH_INFO_NON_HIPERF Structure
+
+
 class _WBEM_REFRESH_INFO_NON_HIPERF(NDRSTRUCT):
     structure = (
         ('m_wszNamespace', LPWSTR),
@@ -1285,6 +1387,8 @@ class _WBEM_REFRESH_INFO_NON_HIPERF(NDRSTRUCT):
     )
 
 # 2.2.27 _WBEM_REFRESH_INFO_REMOTE Structure
+
+
 class _WBEM_REFRESH_INFO_REMOTE(NDRSTRUCT):
     structure = (
         ('m_pRefresher', PMInterfacePointer),
@@ -1293,24 +1397,30 @@ class _WBEM_REFRESH_INFO_REMOTE(NDRSTRUCT):
     )
 
 # 2.2.25 WBEM_REFRESH_TYPE Enumeration
+
+
 class WBEM_REFRESH_TYPE(NDRENUM):
     class enumItems(Enum):
-        WBEM_REFRESH_TYPE_INVALID       = 0
-        WBEM_REFRESH_TYPE_REMOTE        = 3
-        WBEM_REFRESH_TYPE_NON_HIPERF    = 6
+        WBEM_REFRESH_TYPE_INVALID = 0
+        WBEM_REFRESH_TYPE_REMOTE = 3
+        WBEM_REFRESH_TYPE_NON_HIPERF = 6
 
 # 2.2.28 _WBEM_REFRESH_INFO_UNION Union
+
+
 class _WBEM_REFRESH_INFO_UNION(NDRUNION):
     commonHdr = (
         ('tag', LONG),
     )
     union = {
-        WBEM_REFRESH_TYPE.WBEM_REFRESH_TYPE_REMOTE    : ('m_Remote', _WBEM_REFRESH_INFO_REMOTE),
+        WBEM_REFRESH_TYPE.WBEM_REFRESH_TYPE_REMOTE: ('m_Remote', _WBEM_REFRESH_INFO_REMOTE),
         WBEM_REFRESH_TYPE.WBEM_REFRESH_TYPE_NON_HIPERF: ('m_NonHiPerf', _WBEM_REFRESH_INFO_NON_HIPERF),
-        WBEM_REFRESH_TYPE.WBEM_REFRESH_TYPE_INVALID   : ('m_hres', HRESULT),
+        WBEM_REFRESH_TYPE.WBEM_REFRESH_TYPE_INVALID: ('m_hres', HRESULT),
     }
 
 # 2.2.20 _WBEM_REFRESH_INFO Structure
+
+
 class _WBEM_REFRESH_INFO(NDRSTRUCT):
     structure = (
         ('m_lType', LONG),
@@ -1319,6 +1429,8 @@ class _WBEM_REFRESH_INFO(NDRSTRUCT):
     )
 
 # 2.2.21 _WBEM_REFRESHER_ID Structure
+
+
 class _WBEM_REFRESHER_ID(NDRSTRUCT):
     structure = (
         ('m_szMachineName', LPCSTR),
@@ -1327,21 +1439,27 @@ class _WBEM_REFRESHER_ID(NDRSTRUCT):
     )
 
 # 2.2.22 _WBEM_RECONNECT_INFO Structure
+
+
 class _WBEM_RECONNECT_INFO(NDRSTRUCT):
     structure = (
         ('m_lType', LPCSTR),
         ('m_pwcsPath', LPWSTR),
     )
 
+
 class _WBEM_RECONNECT_INFO_ARRAY(NDRUniConformantArray):
     item = _WBEM_RECONNECT_INFO
 
 # 2.2.23 _WBEM_RECONNECT_RESULTS Structure
+
+
 class _WBEM_RECONNECT_RESULTS(NDRSTRUCT):
     structure = (
         ('m_lId', LONG),
         ('m_hr', HRESULT),
     )
+
 
 class _WBEM_RECONNECT_RESULTS_ARRAY(NDRUniConformantArray):
     item = _WBEM_RECONNECT_INFO
@@ -1355,860 +1473,1029 @@ class _WBEM_RECONNECT_RESULTS_ARRAY(NDRUniConformantArray):
 class IWbemLevel1Login_EstablishPosition(DCOMCALL):
     opnum = 3
     structure = (
-       ('reserved1', LPWSTR),
-       ('reserved2', DWORD),
+        ('reserved1', LPWSTR),
+        ('reserved2', DWORD),
     )
+
 
 class IWbemLevel1Login_EstablishPositionResponse(DCOMANSWER):
     structure = (
-       ('LocaleVersion', DWORD),
-       ('ErrorCode', error_status_t),
+        ('LocaleVersion', DWORD),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.1.2 IWbemLevel1Login::RequestChallenge (Opnum 4)
+
+
 class IWbemLevel1Login_RequestChallenge(DCOMCALL):
     opnum = 4
     structure = (
-       ('reserved1', LPWSTR),
-       ('reserved2', LPWSTR),
+        ('reserved1', LPWSTR),
+        ('reserved2', LPWSTR),
     )
+
 
 class IWbemLevel1Login_RequestChallengeResponse(DCOMANSWER):
     structure = (
-       ('reserved3', UCHAR_ARRAY_CV),
-       ('ErrorCode', error_status_t),
+        ('reserved3', UCHAR_ARRAY_CV),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.1.3 IWbemLevel1Login::WBEMLogin (Opnum 5)
+
+
 class IWbemLevel1Login_WBEMLogin(DCOMCALL):
     opnum = 5
     structure = (
-       ('reserved1', LPWSTR),
-       ('reserved2', PUCHAR_ARRAY_CV),
-       ('reserved3', LONG),
-       ('reserved4', PMInterfacePointer),
+        ('reserved1', LPWSTR),
+        ('reserved2', PUCHAR_ARRAY_CV),
+        ('reserved3', LONG),
+        ('reserved4', PMInterfacePointer),
     )
+
 
 class IWbemLevel1Login_WBEMLoginResponse(DCOMANSWER):
     structure = (
-       ('reserved5', UCHAR_ARRAY_CV),
-       ('ErrorCode', error_status_t),
+        ('reserved5', UCHAR_ARRAY_CV),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.1.4 IWbemLevel1Login::NTLMLogin (Opnum 6)
+
+
 class IWbemLevel1Login_NTLMLogin(DCOMCALL):
     opnum = 6
     structure = (
-       ('wszNetworkResource', LPWSTR),
-       ('wszPreferredLocale', LPWSTR),
-       ('lFlags', LONG),
-       ('pCtx', PMInterfacePointer),
+        ('wszNetworkResource', LPWSTR),
+        ('wszPreferredLocale', LPWSTR),
+        ('lFlags', LONG),
+        ('pCtx', PMInterfacePointer),
     )
+
 
 class IWbemLevel1Login_NTLMLoginResponse(DCOMANSWER):
     structure = (
-       ('ppNamespace', PMInterfacePointer),
-       ('ErrorCode', error_status_t),
+        ('ppNamespace', PMInterfacePointer),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.2 IWbemObjectSink Interface Server Details
 # 3.1.4.2.1 IWbemObjectSink::Indicate (Opnum 3) Server details
+
+
 class IWbemObjectSink_Indicate(DCOMCALL):
     opnum = 3
     structure = (
-       ('lObjectCount', LONG),
-       ('apObjArray', PMInterfacePointer_ARRAY),
+        ('lObjectCount', LONG),
+        ('apObjArray', PMInterfacePointer_ARRAY),
     )
+
 
 class IWbemObjectSink_IndicateResponse(DCOMANSWER):
     structure = (
-       ('ErrorCode', error_status_t),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.2.2 IWbemObjectSink::SetStatus (Opnum 4) Server Details
+
+
 class IWbemObjectSink_SetStatus(DCOMCALL):
     opnum = 4
     structure = (
-       ('lFlags', LONG),
-       ('hResult', HRESULT),
-       ('strParam', BSTR),
-       ('pObjParam', PMInterfacePointer),
+        ('lFlags', LONG),
+        ('hResult', HRESULT),
+        ('strParam', BSTR),
+        ('pObjParam', PMInterfacePointer),
     )
+
 
 class IWbemObjectSink_SetStatusResponse(DCOMANSWER):
     structure = (
-       ('ErrorCode', error_status_t),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.3 IWbemServices Interface
 # 3.1.4.3.1 IWbemServices::OpenNamespace (Opnum 3)
+
+
 class IWbemServices_OpenNamespace(DCOMCALL):
     opnum = 3
     structure = (
-       ('strNamespace', BSTR),
-       ('lFlags', LONG),
-       ('pCtx', PMInterfacePointer),
-       ('ppWorkingNamespace', PMInterfacePointer),
-       ('ppResult', PMInterfacePointer),
+        ('strNamespace', BSTR),
+        ('lFlags', LONG),
+        ('pCtx', PMInterfacePointer),
+        ('ppWorkingNamespace', PMInterfacePointer),
+        ('ppResult', PMInterfacePointer),
     )
+
 
 class IWbemServices_OpenNamespaceResponse(DCOMANSWER):
     structure = (
-       ('ppWorkingNamespace', PPMInterfacePointer),
-       ('ppResult', PPMInterfacePointer),
-       ('ErrorCode', error_status_t),
+        ('ppWorkingNamespace', PPMInterfacePointer),
+        ('ppResult', PPMInterfacePointer),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.3.2 IWbemServices::CancelAsyncCall (Opnum 4)
+
+
 class IWbemServices_CancelAsyncCall(DCOMCALL):
     opnum = 4
     structure = (
-       ('IWbemObjectSink', PMInterfacePointer),
+        ('IWbemObjectSink', PMInterfacePointer),
     )
+
 
 class IWbemServices_CancelAsyncCallResponse(DCOMANSWER):
     structure = (
-       ('ErrorCode', error_status_t),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.3.3 IWbemServices::QueryObjectSink (Opnum 5)
+
+
 class IWbemServices_QueryObjectSink(DCOMCALL):
     opnum = 5
     structure = (
-       ('lFlags', LONG),
+        ('lFlags', LONG),
     )
+
 
 class IWbemServices_QueryObjectSinkResponse(DCOMANSWER):
     structure = (
-       ('ppResponseHandler', PMInterfacePointer),
-       ('ErrorCode', error_status_t),
+        ('ppResponseHandler', PMInterfacePointer),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.3.4 IWbemServices::GetObject (Opnum 6)
+
+
 class IWbemServices_GetObject(DCOMCALL):
     opnum = 6
     structure = (
-       ('strObjectPath', BSTR),
-       ('lFlags', LONG),
-       ('pCtx', PMInterfacePointer),
-       ('ppObject', PMInterfacePointer),
-       ('ppCallResult', PMInterfacePointer),
+        ('strObjectPath', BSTR),
+        ('lFlags', LONG),
+        ('pCtx', PMInterfacePointer),
+        ('ppObject', PMInterfacePointer),
+        ('ppCallResult', PMInterfacePointer),
     )
+
 
 class IWbemServices_GetObjectResponse(DCOMANSWER):
     structure = (
-       ('ppObject', PPMInterfacePointer),
-       ('ppCallResult', PPMInterfacePointer),
-       ('ErrorCode', error_status_t),
+        ('ppObject', PPMInterfacePointer),
+        ('ppCallResult', PPMInterfacePointer),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.3.5 IWbemServices::GetObjectAsync (Opnum 7)
+
+
 class IWbemServices_GetObjectAsync(DCOMCALL):
     opnum = 7
     structure = (
-       ('strObjectPath', BSTR),
-       ('lFlags', LONG),
-       ('pCtx', PMInterfacePointer),
-       ('pResponseHandler', PMInterfacePointer),
+        ('strObjectPath', BSTR),
+        ('lFlags', LONG),
+        ('pCtx', PMInterfacePointer),
+        ('pResponseHandler', PMInterfacePointer),
     )
+
 
 class IWbemServices_GetObjectAsyncResponse(DCOMANSWER):
     structure = (
-       ('ErrorCode', error_status_t),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.3.6 IWbemServices::PutClass (Opnum 8)
+
+
 class IWbemServices_PutClass(DCOMCALL):
     opnum = 8
     structure = (
-       ('pObject', PMInterfacePointer),
-       ('lFlags', LONG),
-       ('pCtx', PMInterfacePointer),
-       ('pResponseHandler', PMInterfacePointer),
-       ('ppCallResult', PMInterfacePointer),
+        ('pObject', PMInterfacePointer),
+        ('lFlags', LONG),
+        ('pCtx', PMInterfacePointer),
+        ('pResponseHandler', PMInterfacePointer),
+        ('ppCallResult', PMInterfacePointer),
     )
+
 
 class IWbemServices_PutClassResponse(DCOMANSWER):
     structure = (
-       ('ppCallResult', PPMInterfacePointer),
-       ('ErrorCode', error_status_t),
+        ('ppCallResult', PPMInterfacePointer),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.3.7 IWbemServices::PutClassAsync (Opnum 9)
+
+
 class IWbemServices_PutClassAsync(DCOMCALL):
     opnum = 9
     structure = (
-       ('pObject', PMInterfacePointer),
-       ('lFlags', LONG),
-       ('pCtx', PMInterfacePointer),
-       ('pResponseHandler', PMInterfacePointer),
+        ('pObject', PMInterfacePointer),
+        ('lFlags', LONG),
+        ('pCtx', PMInterfacePointer),
+        ('pResponseHandler', PMInterfacePointer),
     )
+
 
 class IWbemServices_PutClassAsyncResponse(DCOMANSWER):
     structure = (
-       ('ErrorCode', error_status_t),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.3.8 IWbemServices::DeleteClass (Opnum 10)
+
+
 class IWbemServices_DeleteClass(DCOMCALL):
     opnum = 10
     structure = (
-       ('strClass', BSTR),
-       ('lFlags', LONG),
-       ('pCtx', PMInterfacePointer),
-       ('ppCallResult', PMInterfacePointer),
+        ('strClass', BSTR),
+        ('lFlags', LONG),
+        ('pCtx', PMInterfacePointer),
+        ('ppCallResult', PMInterfacePointer),
     )
+
 
 class IWbemServices_DeleteClassResponse(DCOMANSWER):
     structure = (
-       ('ppCallResult', PPMInterfacePointer),
-       ('ErrorCode', error_status_t),
+        ('ppCallResult', PPMInterfacePointer),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.3.9 IWbemServices::DeleteClassAsync (Opnum 11)
+
+
 class IWbemServices_DeleteClassAsync(DCOMCALL):
     opnum = 11
     structure = (
-       ('strClass', BSTR),
-       ('lFlags', LONG),
-       ('pCtx', PMInterfacePointer),
-       ('pResponseHandler', PMInterfacePointer),
+        ('strClass', BSTR),
+        ('lFlags', LONG),
+        ('pCtx', PMInterfacePointer),
+        ('pResponseHandler', PMInterfacePointer),
     )
+
 
 class IWbemServices_DeleteClassAsyncResponse(DCOMANSWER):
     structure = (
-       ('ErrorCode', error_status_t),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.3.10 IWbemServices::CreateClassEnum (Opnum 12)
+
+
 class IWbemServices_CreateClassEnum(DCOMCALL):
     opnum = 12
     structure = (
-       ('strSuperClass', BSTR),
-       ('lFlags', LONG),
-       ('pCtx', PMInterfacePointer),
+        ('strSuperClass', BSTR),
+        ('lFlags', LONG),
+        ('pCtx', PMInterfacePointer),
     )
+
 
 class IWbemServices_CreateClassEnumResponse(DCOMANSWER):
     structure = (
-       ('ppEnum', PMInterfacePointer),
-       ('ErrorCode', error_status_t),
+        ('ppEnum', PMInterfacePointer),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.3.11 IWbemServices::CreateClassEnumAsync (Opnum 13)
+
+
 class IWbemServices_CreateClassEnumAsync(DCOMCALL):
     opnum = 13
     structure = (
-       ('strSuperClass', BSTR),
-       ('lFlags', LONG),
-       ('pCtx', PMInterfacePointer),
-       ('pResponseHandler', PMInterfacePointer),
+        ('strSuperClass', BSTR),
+        ('lFlags', LONG),
+        ('pCtx', PMInterfacePointer),
+        ('pResponseHandler', PMInterfacePointer),
     )
+
 
 class IWbemServices_CreateClassEnumAsyncResponse(DCOMANSWER):
     structure = (
-       ('ErrorCode', error_status_t),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.3.12 IWbemServices::PutInstance (Opnum 14)
+
+
 class IWbemServices_PutInstance(DCOMCALL):
     opnum = 14
     structure = (
-       ('pInst', PMInterfacePointer),
-       ('lFlags', LONG),
-       ('pCtx', PMInterfacePointer),
-       ('ppCallResult', PMInterfacePointer),
+        ('pInst', PMInterfacePointer),
+        ('lFlags', LONG),
+        ('pCtx', PMInterfacePointer),
+        ('ppCallResult', PMInterfacePointer),
     )
+
 
 class IWbemServices_PutInstanceResponse(DCOMANSWER):
     structure = (
-       ('ppCallResult', PPMInterfacePointer),
-       ('ErrorCode', error_status_t),
+        ('ppCallResult', PPMInterfacePointer),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.3.13 IWbemServices::PutInstanceAsync (Opnum 15)
+
+
 class IWbemServices_PutInstanceAsync(DCOMCALL):
     opnum = 15
     structure = (
-       ('pInst', PMInterfacePointer),
-       ('lFlags', LONG),
-       ('pCtx', PMInterfacePointer),
-       ('pResponseHandler', PMInterfacePointer),
+        ('pInst', PMInterfacePointer),
+        ('lFlags', LONG),
+        ('pCtx', PMInterfacePointer),
+        ('pResponseHandler', PMInterfacePointer),
     )
+
 
 class IWbemServices_PutInstanceAsyncResponse(DCOMANSWER):
     structure = (
-       ('ErrorCode', error_status_t),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.3.14 IWbemServices::DeleteInstance (Opnum 16)
+
+
 class IWbemServices_DeleteInstance(DCOMCALL):
     opnum = 16
     structure = (
-       ('strObjectPath', BSTR),
-       ('lFlags', LONG),
-       ('pCtx', PMInterfacePointer),
-       ('ppCallResult', PMInterfacePointer),
+        ('strObjectPath', BSTR),
+        ('lFlags', LONG),
+        ('pCtx', PMInterfacePointer),
+        ('ppCallResult', PMInterfacePointer),
     )
+
 
 class IWbemServices_DeleteInstanceResponse(DCOMANSWER):
     structure = (
-       ('ppCallResult', PPMInterfacePointer),
-       ('ErrorCode', error_status_t),
+        ('ppCallResult', PPMInterfacePointer),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.3.15 IWbemServices::DeleteInstanceAsync (Opnum 17)
+
+
 class IWbemServices_DeleteInstanceAsync(DCOMCALL):
     opnum = 17
     structure = (
-       ('strObjectPath', BSTR),
-       ('lFlags', LONG),
-       ('pCtx', PMInterfacePointer),
-       ('pResponseHandler', PMInterfacePointer),
+        ('strObjectPath', BSTR),
+        ('lFlags', LONG),
+        ('pCtx', PMInterfacePointer),
+        ('pResponseHandler', PMInterfacePointer),
     )
+
 
 class IWbemServices_DeleteInstanceAsyncResponse(DCOMANSWER):
     structure = (
-       ('ErrorCode', error_status_t),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.3.16 IWbemServices::CreateInstanceEnum (Opnum 18)
+
+
 class IWbemServices_CreateInstanceEnum(DCOMCALL):
     opnum = 18
     structure = (
-       ('strSuperClass', BSTR),
-       ('lFlags', LONG),
-       ('pCtx', PMInterfacePointer),
+        ('strSuperClass', BSTR),
+        ('lFlags', LONG),
+        ('pCtx', PMInterfacePointer),
     )
+
 
 class IWbemServices_CreateInstanceEnumResponse(DCOMANSWER):
     structure = (
-       ('ppEnum', PMInterfacePointer),
-       ('ErrorCode', error_status_t),
+        ('ppEnum', PMInterfacePointer),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.3.17 IWbemServices::CreateInstanceEnumAsync (Opnum 19)
+
+
 class IWbemServices_CreateInstanceEnumAsync(DCOMCALL):
     opnum = 19
     structure = (
-       ('strSuperClass', BSTR),
-       ('lFlags', LONG),
-       ('pCtx', PMInterfacePointer),
-       ('pResponseHandler', PMInterfacePointer),
+        ('strSuperClass', BSTR),
+        ('lFlags', LONG),
+        ('pCtx', PMInterfacePointer),
+        ('pResponseHandler', PMInterfacePointer),
     )
+
 
 class IWbemServices_CreateInstanceEnumAsyncResponse(DCOMANSWER):
     structure = (
-       ('ErrorCode', error_status_t),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.3.18 IWbemServices::ExecQuery (Opnum 20)
+
+
 class IWbemServices_ExecQuery(DCOMCALL):
     opnum = 20
     structure = (
-       ('strQueryLanguage', BSTR),
-       ('strQuery', BSTR),
-       ('lFlags', LONG),
-       ('pCtx', PMInterfacePointer),
+        ('strQueryLanguage', BSTR),
+        ('strQuery', BSTR),
+        ('lFlags', LONG),
+        ('pCtx', PMInterfacePointer),
     )
+
 
 class IWbemServices_ExecQueryResponse(DCOMANSWER):
     structure = (
-       ('ppEnum', PMInterfacePointer),
-       ('ErrorCode', error_status_t),
+        ('ppEnum', PMInterfacePointer),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.3.19 IWbemServices::ExecQueryAsync (Opnum 21)
+
+
 class IWbemServices_ExecQueryAsync(DCOMCALL):
     opnum = 21
     structure = (
-       ('strQueryLanguage', BSTR),
-       ('strQuery', BSTR),
-       ('lFlags', LONG),
-       ('pCtx', PMInterfacePointer),
-       ('pResponseHandler', PMInterfacePointer),
+        ('strQueryLanguage', BSTR),
+        ('strQuery', BSTR),
+        ('lFlags', LONG),
+        ('pCtx', PMInterfacePointer),
+        ('pResponseHandler', PMInterfacePointer),
     )
+
 
 class IWbemServices_ExecQueryAsyncResponse(DCOMANSWER):
     structure = (
-       ('ErrorCode', error_status_t),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.3.20 IWbemServices::ExecNotificationQuery (Opnum 22)
+
+
 class IWbemServices_ExecNotificationQuery(DCOMCALL):
     opnum = 22
     structure = (
-       ('strQueryLanguage', BSTR),
-       ('strQuery', BSTR),
-       ('lFlags', LONG),
-       ('pCtx', PMInterfacePointer),
+        ('strQueryLanguage', BSTR),
+        ('strQuery', BSTR),
+        ('lFlags', LONG),
+        ('pCtx', PMInterfacePointer),
     )
+
 
 class IWbemServices_ExecNotificationQueryResponse(DCOMANSWER):
     structure = (
-       ('ppEnum', PMInterfacePointer),
-       ('ErrorCode', error_status_t),
+        ('ppEnum', PMInterfacePointer),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.3.21 IWbemServices::ExecNotificationQueryAsync (Opnum 23)
+
+
 class IWbemServices_ExecNotificationQueryAsync(DCOMCALL):
     opnum = 23
     structure = (
-       ('strQueryLanguage', BSTR),
-       ('strQuery', BSTR),
-       ('lFlags', LONG),
-       ('pCtx', PMInterfacePointer),
-       ('pResponseHandler', PMInterfacePointer),
+        ('strQueryLanguage', BSTR),
+        ('strQuery', BSTR),
+        ('lFlags', LONG),
+        ('pCtx', PMInterfacePointer),
+        ('pResponseHandler', PMInterfacePointer),
     )
+
 
 class IWbemServices_ExecNotificationQueryAsyncResponse(DCOMANSWER):
     structure = (
-       ('ErrorCode', error_status_t),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.3.22 IWbemServices::ExecMethod (Opnum 24)
+
+
 class IWbemServices_ExecMethod(DCOMCALL):
     opnum = 24
     structure = (
-       ('strObjectPath', BSTR),
-       ('strMethodName', BSTR),
-       ('lFlags', LONG),
-       ('pCtx', PMInterfacePointer),
-       ('pInParams', PMInterfacePointer),
-       ('ppOutParams', PPMInterfacePointer),
-       ('ppCallResult', PPMInterfacePointer),
+        ('strObjectPath', BSTR),
+        ('strMethodName', BSTR),
+        ('lFlags', LONG),
+        ('pCtx', PMInterfacePointer),
+        ('pInParams', PMInterfacePointer),
+        ('ppOutParams', PPMInterfacePointer),
+        ('ppCallResult', PPMInterfacePointer),
     )
+
 
 class IWbemServices_ExecMethodResponse(DCOMANSWER):
     structure = (
-       ('ppOutParams', PPMInterfacePointer),
-       ('ppCallResult', PPMInterfacePointer),
-       ('ErrorCode', error_status_t),
+        ('ppOutParams', PPMInterfacePointer),
+        ('ppCallResult', PPMInterfacePointer),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.3.23 IWbemServices::ExecMethodAsync (Opnum 25)
+
+
 class IWbemServices_ExecMethodAsync(DCOMCALL):
     opnum = 25
     structure = (
-       ('strObjectPath', BSTR),
-       ('strMethodName', BSTR),
-       ('lFlags', LONG),
-       ('pCtx', PMInterfacePointer),
-       ('pInParams', PMInterfacePointer),
-       ('pResponseHandler', PMInterfacePointer),
+        ('strObjectPath', BSTR),
+        ('strMethodName', BSTR),
+        ('lFlags', LONG),
+        ('pCtx', PMInterfacePointer),
+        ('pInParams', PMInterfacePointer),
+        ('pResponseHandler', PMInterfacePointer),
     )
+
 
 class IWbemServices_ExecMethodAsyncResponse(DCOMANSWER):
     structure = (
-       ('ErrorCode', error_status_t),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.4 IEnumWbemClassObject Interface
 # 3.1.4.4.1 IEnumWbemClassObject::Reset (Opnum 3)
+
+
 class IEnumWbemClassObject_Reset(DCOMCALL):
     opnum = 3
     structure = (
     )
 
+
 class IEnumWbemClassObject_ResetResponse(DCOMANSWER):
     structure = (
-       ('ErrorCode', error_status_t),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.4.2 IEnumWbemClassObject::Next (Opnum 4)
+
+
 class IEnumWbemClassObject_Next(DCOMCALL):
     opnum = 4
     structure = (
-       ('lTimeout', ULONG),
-       ('uCount', ULONG),
+        ('lTimeout', ULONG),
+        ('uCount', ULONG),
     )
+
 
 class IEnumWbemClassObject_NextResponse(DCOMANSWER):
     structure = (
-       ('apObjects', PMInterfacePointer_ARRAY_CV),
-       ('puReturned', ULONG),
-       ('ErrorCode', error_status_t),
+        ('apObjects', PMInterfacePointer_ARRAY_CV),
+        ('puReturned', ULONG),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.4.3 IEnumWbemClassObject::NextAsync (Opnum 5)
+
+
 class IEnumWbemClassObject_NextAsync(DCOMCALL):
     opnum = 5
     structure = (
-       ('lTimeout', LONG),
-       ('pSink', PMInterfacePointer),
+        ('lTimeout', LONG),
+        ('pSink', PMInterfacePointer),
     )
+
 
 class IEnumWbemClassObject_NextAsyncResponse(DCOMANSWER):
     structure = (
-       ('ErrorCode', error_status_t),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.4.4 IEnumWbemClassObject::Clone (Opnum 6)
+
+
 class IEnumWbemClassObject_Clone(DCOMCALL):
     opnum = 6
     structure = (
     )
 
+
 class IEnumWbemClassObject_CloneResponse(DCOMANSWER):
     structure = (
-       ('ppEnum', PMInterfacePointer),
-       ('ErrorCode', error_status_t),
+        ('ppEnum', PMInterfacePointer),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.4.5 IEnumWbemClassObject::Skip (Opnum 7)
+
+
 class IEnumWbemClassObject_Skip(DCOMCALL):
     opnum = 7
     structure = (
-       ('lTimeout', LONG),
-       ('uCount', ULONG),
+        ('lTimeout', LONG),
+        ('uCount', ULONG),
     )
+
 
 class IEnumWbemClassObject_SkipResponse(DCOMANSWER):
     structure = (
-       ('ErrorCode', error_status_t),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.5 IWbemCallResult Interface
 # 3.1.4.5.1 IWbemCallResult::GetResultObject (Opnum 3)
+
+
 class IWbemCallResult_GetResultObject(DCOMCALL):
     opnum = 3
     structure = (
-       ('lTimeout', LONG),
+        ('lTimeout', LONG),
     )
+
 
 class IWbemCallResult_GetResultObjectResponse(DCOMANSWER):
     structure = (
-       ('ppResultObject', PMInterfacePointer),
-       ('ErrorCode', error_status_t),
+        ('ppResultObject', PMInterfacePointer),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.5.2 IWbemCallResult::GetResultString (Opnum 4)
+
+
 class IWbemCallResult_GetResultString(DCOMCALL):
     opnum = 4
     structure = (
-       ('lTimeout', LONG),
+        ('lTimeout', LONG),
     )
+
 
 class IWbemCallResult_GetResultStringResponse(DCOMANSWER):
     structure = (
-       ('pstrResultString', BSTR),
-       ('ErrorCode', error_status_t),
+        ('pstrResultString', BSTR),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.5.3 IWbemCallResult::GetResultServices (Opnum 5)
+
+
 class IWbemCallResult_GetResultServices(DCOMCALL):
     opnum = 5
     structure = (
-       ('lTimeout', LONG),
+        ('lTimeout', LONG),
     )
+
 
 class IWbemCallResult_GetResultServicesResponse(DCOMANSWER):
     structure = (
-       ('ppServices', PMInterfacePointer),
-       ('ErrorCode', error_status_t),
+        ('ppServices', PMInterfacePointer),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.5.4 IWbemCallResult::GetCallStatus (Opnum 6)
+
+
 class IWbemCallResult_GetCallStatus(DCOMCALL):
     opnum = 6
     structure = (
-       ('lTimeout', LONG),
+        ('lTimeout', LONG),
     )
+
 
 class IWbemCallResult_GetCallStatusResponse(DCOMANSWER):
     structure = (
-       ('plStatus', LONG),
-       ('ErrorCode', error_status_t),
+        ('plStatus', LONG),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.6 IWbemFetchSmartEnum Interface
 # 3.1.4.6.1 IWbemFetchSmartEnum::GetSmartEnum (Opnum 3)
+
+
 class IWbemCallResult_GetSmartEnum(DCOMCALL):
     opnum = 3
     structure = (
     )
 
+
 class IWbemCallResult_GetSmartEnumResponse(DCOMANSWER):
     structure = (
-       ('ppSmartEnum', PMInterfacePointer),
-       ('ErrorCode', error_status_t),
+        ('ppSmartEnum', PMInterfacePointer),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.7 IWbemWCOSmartEnum Interface
 # 3.1.4.7.1 IWbemWCOSmartEnum::Next (Opnum 3)
+
+
 class IWbemWCOSmartEnum_Next(DCOMCALL):
     opnum = 3
     structure = (
-       ('proxyGUID', REFGUID),
-       ('lTimeout', LONG),
-       ('uCount', ULONG),
+        ('proxyGUID', REFGUID),
+        ('lTimeout', LONG),
+        ('uCount', ULONG),
     )
+
 
 class IWbemWCOSmartEnum_NextResponse(DCOMANSWER):
     structure = (
-       ('puReturned', ULONG),
-       ('pdwBuffSize', ULONG),
-       ('pBuffer', BYTE_ARRAY),
-       ('ErrorCode', error_status_t),
+        ('puReturned', ULONG),
+        ('pdwBuffSize', ULONG),
+        ('pBuffer', BYTE_ARRAY),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.8 IWbemLoginClientID Interface
 # 3.1.4.8.1 IWbemLoginClientID::SetClientInfo (Opnum 3)
+
+
 class IWbemLoginClientID_SetClientInfo(DCOMCALL):
     opnum = 3
     structure = (
-       ('wszClientMachine', LPWSTR),
-       ('lClientProcId', LONG),
-       ('lReserved', LONG),
+        ('wszClientMachine', LPWSTR),
+        ('lClientProcId', LONG),
+        ('lReserved', LONG),
     )
+
 
 class IWbemLoginClientID_SetClientInfoResponse(DCOMANSWER):
     structure = (
-       ('ErrorCode', error_status_t),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.9 IWbemLoginHelper Interface
 # 3.1.4.9.1 IWbemLoginHelper::SetEvent (Opnum 3)
+
+
 class IWbemLoginHelper_SetEvent(DCOMCALL):
     opnum = 3
     structure = (
-       ('sEventToSet', LPCSTR),
+        ('sEventToSet', LPCSTR),
     )
+
 
 class IWbemLoginHelper_SetEventResponse(DCOMANSWER):
     structure = (
-       ('ErrorCode', error_status_t),
+        ('ErrorCode', error_status_t),
     )
 
-#AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+# AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 # 3.1.4.10 IWbemBackupRestore Interface
 # 3.1.4.10.1 IWbemBackupRestore::Backup (Opnum 3)
+
+
 class IWbemBackupRestore_Backup(DCOMCALL):
     opnum = 3
     structure = (
-       ('strBackupToFile', LPWSTR),
-       ('lFlags', LONG),
+        ('strBackupToFile', LPWSTR),
+        ('lFlags', LONG),
     )
+
 
 class IWbemBackupRestore_BackupResponse(DCOMANSWER):
     structure = (
-       ('ErrorCode', error_status_t),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.10.2 IWbemBackupRestore::Restore (Opnum 4)
+
+
 class IWbemBackupRestore_Restore(DCOMCALL):
     opnum = 4
     structure = (
-       ('strRestoreFromFile', LPWSTR),
-       ('lFlags', LONG),
+        ('strRestoreFromFile', LPWSTR),
+        ('lFlags', LONG),
     )
+
 
 class IWbemBackupRestore_RestoreResponse(DCOMANSWER):
     structure = (
-       ('ErrorCode', error_status_t),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.11 IWbemBackupRestoreEx Interface
 # 3.1.4.11.1 IWbemBackupRestoreEx::Pause (Opnum 5)
+
+
 class IWbemBackupRestoreEx_Pause(DCOMCALL):
     opnum = 5
     structure = (
     )
 
+
 class IWbemBackupRestoreEx_PauseResponse(DCOMANSWER):
     structure = (
-       ('ErrorCode', error_status_t),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.11.2 IWbemBackupRestoreEx::Resume (Opnum 6)
+
+
 class IWbemBackupRestoreEx_Resume(DCOMCALL):
     opnum = 6
     structure = (
     )
 
+
 class IWbemBackupRestoreEx_ResumeResponse(DCOMANSWER):
     structure = (
-       ('ErrorCode', error_status_t),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.12 IWbemRefreshingServices Interface
 # 3.1.4.12.1 IWbemRefreshingServices::AddObjectToRefresher (Opnum 3)
+
+
 class IWbemRefreshingServices_AddObjectToRefresher(DCOMCALL):
     opnum = 3
     structure = (
-       ('pRefresherId', _WBEM_REFRESHER_ID),
-       ('wszPath', LPWSTR),
-       ('lFlags', LONG),
-       ('pContext', PMInterfacePointer),
-       ('dwClientRefrVersion', DWORD),
+        ('pRefresherId', _WBEM_REFRESHER_ID),
+        ('wszPath', LPWSTR),
+        ('lFlags', LONG),
+        ('pContext', PMInterfacePointer),
+        ('dwClientRefrVersion', DWORD),
     )
+
 
 class IWbemRefreshingServices_AddObjectToRefresherResponse(DCOMANSWER):
     structure = (
-       ('pInfo', _WBEM_REFRESH_INFO),
-       ('pdwSvrRefrVersion', DWORD),
-       ('ErrorCode', error_status_t),
+        ('pInfo', _WBEM_REFRESH_INFO),
+        ('pdwSvrRefrVersion', DWORD),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.12.2 IWbemRefreshingServices::AddObjectToRefresherByTemplate (Opnum 4)
+
+
 class IWbemRefreshingServices_AddObjectToRefresherByTemplate(DCOMCALL):
     opnum = 4
     structure = (
-       ('pRefresherId', _WBEM_REFRESHER_ID),
-       ('pTemplate', PMInterfacePointer),
-       ('lFlags', LONG),
-       ('pContext', PMInterfacePointer),
-       ('dwClientRefrVersion', DWORD),
+        ('pRefresherId', _WBEM_REFRESHER_ID),
+        ('pTemplate', PMInterfacePointer),
+        ('lFlags', LONG),
+        ('pContext', PMInterfacePointer),
+        ('dwClientRefrVersion', DWORD),
     )
+
 
 class IWbemRefreshingServices_AddObjectToRefresherByTemplateResponse(DCOMANSWER):
     structure = (
-       ('pInfo', _WBEM_REFRESH_INFO),
-       ('pdwSvrRefrVersion', DWORD),
-       ('ErrorCode', error_status_t),
+        ('pInfo', _WBEM_REFRESH_INFO),
+        ('pdwSvrRefrVersion', DWORD),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.12.3 IWbemRefreshingServices::AddEnumToRefresher (Opnum 5)
+
+
 class IWbemRefreshingServices_AddEnumToRefresher(DCOMCALL):
     opnum = 5
     structure = (
-       ('pRefresherId', _WBEM_REFRESHER_ID),
-       ('wszClass', LPWSTR),
-       ('lFlags', LONG),
-       ('pContext', PMInterfacePointer),
-       ('dwClientRefrVersion', DWORD),
+        ('pRefresherId', _WBEM_REFRESHER_ID),
+        ('wszClass', LPWSTR),
+        ('lFlags', LONG),
+        ('pContext', PMInterfacePointer),
+        ('dwClientRefrVersion', DWORD),
     )
+
 
 class IWbemRefreshingServices_AddEnumToRefresherResponse(DCOMANSWER):
     structure = (
-       ('pInfo', _WBEM_REFRESH_INFO),
-       ('pdwSvrRefrVersion', DWORD),
-       ('ErrorCode', error_status_t),
+        ('pInfo', _WBEM_REFRESH_INFO),
+        ('pdwSvrRefrVersion', DWORD),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.12.4 IWbemRefreshingServices::RemoveObjectFromRefresher (Opnum 6)
+
+
 class IWbemRefreshingServices_RemoveObjectFromRefresher(DCOMCALL):
     opnum = 6
     structure = (
-       ('pRefresherId', _WBEM_REFRESHER_ID),
-       ('lId', LONG),
-       ('lFlags', LONG),
-       ('dwClientRefrVersion', DWORD),
+        ('pRefresherId', _WBEM_REFRESHER_ID),
+        ('lId', LONG),
+        ('lFlags', LONG),
+        ('dwClientRefrVersion', DWORD),
     )
+
 
 class IWbemRefreshingServices_RemoveObjectFromRefresherResponse(DCOMANSWER):
     structure = (
-       ('pdwSvrRefrVersion', DWORD),
-       ('ErrorCode', error_status_t),
+        ('pdwSvrRefrVersion', DWORD),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.12.5 IWbemRefreshingServices::GetRemoteRefresher (Opnum 7)
+
+
 class IWbemRefreshingServices_GetRemoteRefresher(DCOMCALL):
     opnum = 7
     structure = (
-       ('pRefresherId', _WBEM_REFRESHER_ID),
-       ('lFlags', LONG),
-       ('dwClientRefrVersion', DWORD),
+        ('pRefresherId', _WBEM_REFRESHER_ID),
+        ('lFlags', LONG),
+        ('dwClientRefrVersion', DWORD),
     )
+
 
 class IWbemRefreshingServices_GetRemoteRefresherResponse(DCOMANSWER):
     structure = (
-       ('ppRemRefresher', PMInterfacePointer),
-       ('pGuid', GUID),
-       ('pdwSvrRefrVersion', DWORD),
-       ('ErrorCode', error_status_t),
+        ('ppRemRefresher', PMInterfacePointer),
+        ('pGuid', GUID),
+        ('pdwSvrRefrVersion', DWORD),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.12.6 IWbemRefreshingServices::ReconnectRemoteRefresher (Opnum 8)
+
+
 class IWbemRefreshingServices_ReconnectRemoteRefresher(DCOMCALL):
     opnum = 8
     structure = (
-       ('pRefresherId', _WBEM_REFRESHER_ID),
-       ('lFlags', LONG),
-       ('lNumObjects', LONG),
-       ('dwClientRefrVersion', DWORD),
-       ('apReconnectInfo', _WBEM_RECONNECT_INFO_ARRAY),
+        ('pRefresherId', _WBEM_REFRESHER_ID),
+        ('lFlags', LONG),
+        ('lNumObjects', LONG),
+        ('dwClientRefrVersion', DWORD),
+        ('apReconnectInfo', _WBEM_RECONNECT_INFO_ARRAY),
     )
+
 
 class IWbemRefreshingServices_ReconnectRemoteRefresherResponse(DCOMANSWER):
     structure = (
-       ('apReconnectResults', _WBEM_RECONNECT_RESULTS_ARRAY),
-       ('pdwSvrRefrVersion', DWORD),
-       ('ErrorCode', error_status_t),
+        ('apReconnectResults', _WBEM_RECONNECT_RESULTS_ARRAY),
+        ('pdwSvrRefrVersion', DWORD),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.13 IWbemRemoteRefresher Interface
 # 3.1.4.13.1 IWbemRemoteRefresher::RemoteRefresh (Opnum 3)
+
+
 class IWbemRemoteRefresher_RemoteRefresh(DCOMCALL):
     opnum = 3
     structure = (
-       ('lFlags', LONG),
+        ('lFlags', LONG),
     )
+
 
 class IWbemRemoteRefresher_RemoteRefreshResponse(DCOMANSWER):
     structure = (
-       ('plNumObjects', _WBEM_RECONNECT_RESULTS_ARRAY),
-       ('paObjects', PWBEM_REFRESHED_OBJECT_ARRAY),
-       ('ErrorCode', error_status_t),
+        ('plNumObjects', _WBEM_RECONNECT_RESULTS_ARRAY),
+        ('paObjects', PWBEM_REFRESHED_OBJECT_ARRAY),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.13.2 IWbemRemoteRefresher::StopRefreshing (Opnum 4)
+
+
 class IWbemRemoteRefresher_StopRefreshing(DCOMCALL):
     opnum = 4
     structure = (
-       ('lNumIds', LONG),
-       ('aplIds', PULONG_ARRAY),
-       ('lFlags', LONG),
+        ('lNumIds', LONG),
+        ('aplIds', PULONG_ARRAY),
+        ('lFlags', LONG),
     )
+
 
 class IWbemRemoteRefresher_StopRefreshingResponse(DCOMANSWER):
     structure = (
-       ('ErrorCode', error_status_t),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.14 IWbemShutdown Interface
 # 3.1.4.14.1 IWbemShutdown::Shutdown (Opnum 3)
+
+
 class IWbemShutdown_Shutdown(DCOMCALL):
     opnum = 3
     structure = (
-       ('reserved1', LONG),
-       ('reserved2', ULONG),
-       ('reserved3', PMInterfacePointer),
+        ('reserved1', LONG),
+        ('reserved2', ULONG),
+        ('reserved3', PMInterfacePointer),
     )
+
 
 class IWbemShutdown_ShutdownResponse(DCOMANSWER):
     structure = (
-       ('ErrorCode', error_status_t),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.15 IUnsecuredApartment Interface
 # 3.1.4.15.1 IUnsecuredApartment::CreateObjectStub (Opnum 3)
+
+
 class IUnsecuredApartment_CreateObjectStub(DCOMCALL):
     opnum = 3
     structure = (
-       ('reserved1', PMInterfacePointer),
+        ('reserved1', PMInterfacePointer),
     )
+
 
 class IUnsecuredApartment_CreateObjectStubResponse(DCOMANSWER):
     structure = (
-       ('reserved2', PMInterfacePointer),
-       ('ErrorCode', error_status_t),
+        ('reserved2', PMInterfacePointer),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.16 IWbemUnsecuredApartment Interface
 # 3.1.4.16.1 IWbemUnsecuredApartment::CreateSinkStub (Opnum 3)
+
+
 class IWbemUnsecuredApartment_CreateSinkStub(DCOMCALL):
     opnum = 3
     structure = (
-       ('reserved1', PMInterfacePointer),
-       ('reserved2', DWORD),
-       ('reserved3', LPWSTR),
+        ('reserved1', PMInterfacePointer),
+        ('reserved2', DWORD),
+        ('reserved3', LPWSTR),
     )
+
 
 class IWbemUnsecuredApartment_CreateSinkStubResponse(DCOMANSWER):
     structure = (
-       ('reserved4', PMInterfacePointer),
-       ('ErrorCode', error_status_t),
+        ('reserved4', PMInterfacePointer),
+        ('ErrorCode', error_status_t),
     )
 
 ################################################################################
@@ -2220,6 +2507,8 @@ OPNUMS = {
 ################################################################################
 # HELPER FUNCTIONS AND INTERFACES
 ################################################################################
+
+
 def checkNullString(string):
     if string == NULL:
         return string
@@ -2229,8 +2518,9 @@ def checkNullString(string):
     else:
         return string
 
+
 class IWbemClassObject(IRemUnknown):
-    def __init__(self, interface, iWbemServices = None):
+    def __init__(self, interface, iWbemServices=None):
         IRemUnknown.__init__(self,interface)
         self._iid = IID_IWbemClassObject
         self.__iWbemServices = iWbemServices
@@ -2264,12 +2554,12 @@ class IWbemClassObject(IRemUnknown):
                 if attr in self.__methods:
                     # Now we gotta build the class name to be called through ExecMethod
                     if self.getProperties()[keyProperty]['stype'] != 'string':
-                        instanceName = '%s.%s=%s' % (self.getClassName(),keyProperty,self.getProperties()[keyProperty]['value'] )
+                        instanceName = '%s.%s=%s' % (self.getClassName(),keyProperty,self.getProperties()[keyProperty]['value'])
                     else:
-                        instanceName = '%s.%s="%s"' % (self.getClassName(),keyProperty,self.getProperties()[keyProperty]['value'] )
+                        instanceName = '%s.%s="%s"' % (self.getClassName(),keyProperty,self.getProperties()[keyProperty]['value'])
 
-                    self.createMethods(instanceName , self.__methods)
-                    #print dir(self)
+                    self.createMethods(instanceName, self.__methods)
+                    # print dir(self)
                     return getattr(self, attr)
 
         raise AttributeError("%r object has no attribute %r" %
@@ -2294,14 +2584,14 @@ class IWbemClassObject(IRemUnknown):
         if self.encodingUnit['ObjectBlock'].ctCurrent is None:
             return ()
         return self.encodingUnit['ObjectBlock'].ctCurrent['properties']
-    
+
     def getMethods(self):
         if self.encodingUnit['ObjectBlock'].ctCurrent is None:
             return ()
         return self.encodingUnit['ObjectBlock'].ctCurrent['methods']
 
     def marshalMe(self):
-        # So, in theory, we have the OBJCUSTOM built, but 
+        # So, in theory, we have the OBJCUSTOM built, but
         # we need to update the values
         # That's what we'll do
 
@@ -2318,7 +2608,7 @@ class IWbemClassObject(IRemUnknown):
             propRecord = properties[propName]
             itemValue = getattr(self, propName)
 
-            pType = propRecord['type'] & (~(CIM_ARRAY_FLAG|Inherited)) 
+            pType = propRecord['type'] & (~(CIM_ARRAY_FLAG | Inherited))
             if propRecord['type'] & CIM_ARRAY_FLAG:
                 # Not yet ready
                 packStr = HEAPREF[:-2]
@@ -2332,7 +2622,7 @@ class IWbemClassObject(IRemUnknown):
                 else:
                     valueTable += pack('<L', curHeapPtr)
                     arraySize = pack(HEAPREF[:-2], len(itemValue))
-                    packStrArray =  CIM_TYPES_REF[pType][:-2]
+                    packStrArray = CIM_TYPES_REF[pType][:-2]
                     arrayItems = ''
                     for i in range(len(itemValue)):
                         arrayItems += pack(packStrArray, itemValue[i])
@@ -2345,14 +2635,14 @@ class IWbemClassObject(IRemUnknown):
                     valueTable += pack(packStr, itemValue)
             elif pType == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value:
                 # For now we just pack None
-                valueTable += '\x00'*4 
-                # The default property value is NULL, and it is 
+                valueTable += '\x00' * 4
+                # The default property value is NULL, and it is
                 # inherited from a parent class.
                 if itemValue == None:
-                    ndTable |= 3 << (2*i)
+                    ndTable |= 3 << (2 * i)
             else:
                 if itemValue is '':
-                    ndTable |= 1 << (2*i)
+                    ndTable |= 1 << (2 * i)
                     valueTable += pack('<L', 0)
                 else:
                     strIn = ENCODED_STRING()
@@ -2388,21 +2678,21 @@ class IWbemClassObject(IRemUnknown):
 
         encodingUnit['ObjectEncodingLength'] = len(encodingUnit['ObjectBlock'])
 
-        #encodingUnit.dump()
-        #ENCODING_UNIT(str(encodingUnit)).dump()
-        
+        # encodingUnit.dump()
+        # ENCODING_UNIT(str(encodingUnit)).dump()
+
         objRef['pObjectData'] = encodingUnit
- 
+
         return objRef
 
     def SpawnInstance(self):
         # Doing something similar to:
         # http://msdn.microsoft.com/en-us/library/aa391458(v=vs.85).aspx
-        # 
+        #
         if self.encodingUnit['ObjectBlock'].isInstance() is False:
             # We need to convert some things to transform a class into an instance
             encodingUnit = ENCODING_UNIT()
-                        
+
             instanceData = OBJECT_BLOCK()
             instanceData.structure += OBJECT_BLOCK.decoration
             instanceData.structure += OBJECT_BLOCK.instanceType
@@ -2428,11 +2718,11 @@ class IWbemClassObject(IRemUnknown):
             for i, propName in enumerate(properties):
                 propRecord = properties[propName]
 
-                pType = propRecord['type'] & (~(CIM_ARRAY_FLAG|Inherited)) 
+                pType = propRecord['type'] & (~(CIM_ARRAY_FLAG | Inherited))
                 if propRecord['type'] & CIM_ARRAY_FLAG:
                     # Not yet ready
-                    #print paramDefinition
-                    #raise
+                    # print paramDefinition
+                    # raise
                     packStr = HEAPREF[:-2]
                 else:
                     packStr = CIM_TYPES_REF[pType][:-2]
@@ -2445,10 +2735,10 @@ class IWbemClassObject(IRemUnknown):
                     valueTable += pack(packStr, 0)
                 elif pType == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value:
                     # For now we just pack None
-                    valueTable += '\x00'*4 
-                    # The default property value is NULL, and it is 
+                    valueTable += '\x00' * 4
+                    # The default property value is NULL, and it is
                     # inherited from a parent class.
-                    ndTable |= 3 << (2*i)
+                    ndTable |= 3 << (2 * i)
                 else:
                     strIn = ENCODED_STRING()
                     strIn['Character'] = ''
@@ -2481,7 +2771,7 @@ class IWbemClassObject(IRemUnknown):
             encodingUnit['ObjectBlock'] = instanceData
             encodingUnit['ObjectEncodingLength'] = len(instanceData)
 
-            #ENCODING_UNIT(str(encodingUnit)).dump()
+            # ENCODING_UNIT(str(encodingUnit)).dump()
 
             objRefCustomIn = OBJREF_CUSTOM()
             objRefCustomIn['iid'] = self._iid
@@ -2513,16 +2803,18 @@ class IWbemClassObject(IRemUnknown):
 
     def createMethods(self, classOrInstance, methods):
         from functools import partial
+
         class FunctionPool:
             def __init__(self,function):
                 self.function = function
+
             def __getitem__(self,item):
                 return partial(self.function,item)
 
         @FunctionPool
         def innerMethod(staticArgs, *args):
-            classOrInstance = staticArgs[0] 
-            methodDefinition = staticArgs[1] 
+            classOrInstance = staticArgs[0]
+            methodDefinition = staticArgs[1]
             if methodDefinition['InParams'] is not None:
                 if (len(args) != len(methodDefinition['InParams'])):
                     LOG.error("Function called with %d parameters instead of %d!" % (len(args), len(methodDefinition['InParams'])))
@@ -2552,33 +2844,33 @@ class IWbemClassObject(IRemUnknown):
                     paramDefinition = list(methodDefinition['InParams'].values())[i]
                     inArg = args[i]
 
-                    pType = paramDefinition['type'] & (~(CIM_ARRAY_FLAG|Inherited)) 
+                    pType = paramDefinition['type'] & (~(CIM_ARRAY_FLAG | Inherited))
                     if paramDefinition['type'] & CIM_ARRAY_FLAG:
                         # Not yet ready
-                        #print paramDefinition
-                        #raise
+                        # print paramDefinition
+                        # raise
                         packStr = HEAPREF[:-2]
                     else:
                         packStr = CIM_TYPES_REF[pType][:-2]
                     dataSize = calcsize(packStr)
 
                     if paramDefinition['type'] & CIM_ARRAY_FLAG:
-                        
+
                         if inArg is None:
                             valueTable += pack(packStr, 0)
                         else:
                             # ToDo
                             # Not yet ready
-                            raise 
+                            raise
                     elif pType not in (CIM_TYPE_ENUM.CIM_TYPE_STRING.value, CIM_TYPE_ENUM.CIM_TYPE_DATETIME.value, CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value, CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value):
                         valueTable += pack(packStr, inArg)
                     elif pType == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value:
                         # For now we just pack None
-                        valueTable += '\x00'*4 
-                        # The default property value is NULL, and it is 
+                        valueTable += '\x00' * 4
+                        # The default property value is NULL, and it is
                         # inherited from a parent class.
                         if inArg == None:
-                            ndTable |= 3 << (2*i)
+                            ndTable |= 3 << (2 * i)
                     else:
                         strIn = ENCODED_STRING()
                         strIn['Character'] = inArg
@@ -2595,12 +2887,12 @@ class IWbemClassObject(IRemUnknown):
                     packStr = '<L'
 
                 ndTable = pack(packStr, ndTable)
- 
+
                 instanceType['NdTable_ValueTable'] = ndTable + valueTable
                 heapRecord = HEAP()
                 heapRecord['HeapLength'] = len(instanceHeap) | 0x80000000
                 heapRecord['HeapItem'] = instanceHeap
-                
+
                 instanceType['InstanceHeap'] = heapRecord
 
                 instanceType['EncodingLength'] = len(instanceType)
@@ -2622,7 +2914,7 @@ class IWbemClassObject(IRemUnknown):
             else:
                 objRefCustomIn = NULL
 
-            ### OutParams
+            # OutParams
             encodingUnit = ENCODING_UNIT()
 
             outParams = OBJECT_BLOCK()
@@ -2639,7 +2931,6 @@ class IWbemClassObject(IRemUnknown):
             instanceType['CurrentClass'] = str(methodDefinition['OutParamsRaw']['ClassType']['CurrentClass']['ClassPart'])
             outParams['InstanceType'] = str(instanceType)
 
-
             encodingUnit['ObjectBlock'] = outParams
             encodingUnit['ObjectEncodingLength'] = len(outParams)
 
@@ -2650,31 +2941,32 @@ class IWbemClassObject(IRemUnknown):
             objRefCustom['ObjectReferenceSize'] = len(encodingUnit)
             objRefCustom['pObjectData'] = encodingUnit
             try:
-                return self.__iWbemServices.ExecMethod(classOrInstance, methodDefinition['name'], pInParams = objRefCustomIn )
-                #return self.__iWbemServices.ExecMethod('Win32_Process.Handle="436"', methodDefinition['name'], pInParams = objRefCustomIn ).getObject().ctCurrent['properties']
+                return self.__iWbemServices.ExecMethod(classOrInstance, methodDefinition['name'], pInParams=objRefCustomIn)
+                # return self.__iWbemServices.ExecMethod('Win32_Process.Handle="436"', methodDefinition['name'], pInParams = objRefCustomIn ).getObject().ctCurrent['properties']
             except Exception as e:
                 #import traceback
-                #print traceback.print_exc()
+                # print traceback.print_exc()
                 LOG.error(str(e))
 
         for methodName in methods:
-           innerMethod.__name__ = methodName
-           setattr(self,innerMethod.__name__,innerMethod[classOrInstance,methods[methodName]])
+            innerMethod.__name__ = methodName
+            setattr(self,innerMethod.__name__,innerMethod[classOrInstance,methods[methodName]])
         #methods = self.encodingUnit['ObjectBlock']
- 
+
 
 class IWbemLoginClientID(IRemUnknown):
     def __init__(self, interface):
         IRemUnknown.__init__(self,interface)
         self._iid = IID_IWbemLoginClientID
 
-    def SetClientInfo(self, wszClientMachine, lClientProcId = 1234):
+    def SetClientInfo(self, wszClientMachine, lClientProcId=1234):
         request = IWbemLoginClientID_SetClientInfo()
         request['wszClientMachine'] = checkNullString(wszClientMachine)
         request['lClientProcId'] = lClientProcId
         request['lReserved'] = 0
-        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
+        resp = self.request(request, iid=self._iid, uuid=self.get_iPid())
         return resp
+
 
 class IWbemLoginHelper(IRemUnknown):
     def __init__(self, interface):
@@ -2684,7 +2976,7 @@ class IWbemLoginHelper(IRemUnknown):
     def SetEvent(self, sEventToSet):
         request = IWbemLoginHelper_SetEvent()
         request['sEventToSet'] = sEventToSet
-        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
+        resp = self.request(request, iid=self._iid, uuid=self.get_iPid())
         resp.dump()
         return resp
 
@@ -2699,9 +2991,10 @@ class IWbemWCOSmartEnum(IRemUnknown):
         request['proxyGUID'] = proxyGUID
         request['lTimeout'] = lTimeout
         request['uCount'] = uCount
-        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
+        resp = self.request(request, iid=self._iid, uuid=self.get_iPid())
         resp.dump()
         return resp
+
 
 class IWbemFetchSmartEnum(IRemUnknown):
     def __init__(self, interface):
@@ -2710,9 +3003,10 @@ class IWbemFetchSmartEnum(IRemUnknown):
 
     def GetSmartEnum(self, lTimeout):
         request = IWbemFetchSmartEnum_GetSmartEnum()
-        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
+        resp = self.request(request, iid=self._iid, uuid=self.get_iPid())
         resp.dump()
         return resp
+
 
 class IWbemCallResult(IRemUnknown):
     def __init__(self, interface):
@@ -2722,39 +3016,40 @@ class IWbemCallResult(IRemUnknown):
     def GetResultObject(self, lTimeout):
         request = IWbemCallResult_GetResultObject()
         request['lTimeout'] = lTimeout
-        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
+        resp = self.request(request, iid=self._iid, uuid=self.get_iPid())
         resp.dump()
         return resp
 
     def GetResultString(self, lTimeout):
         request = IWbemCallResult_GetResultString()
         request['lTimeout'] = lTimeout
-        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
+        resp = self.request(request, iid=self._iid, uuid=self.get_iPid())
         resp.dump()
         return resp
 
     def GetResultServices(self, lTimeout):
         request = IWbemCallResult_GetResultServices()
         request['lTimeout'] = lTimeout
-        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
+        resp = self.request(request, iid=self._iid, uuid=self.get_iPid())
         resp.dump()
         return resp
 
     def GetCallStatus(self, lTimeout):
         request = IWbemCallResult_GetCallStatus()
         request['lTimeout'] = lTimeout
-        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
+        resp = self.request(request, iid=self._iid, uuid=self.get_iPid())
         return resp['plStatus']
 
+
 class IEnumWbemClassObject(IRemUnknown):
-    def __init__(self, interface, iWbemServices = None):
+    def __init__(self, interface, iWbemServices=None):
         IRemUnknown.__init__(self,interface)
         self._iid = IID_IEnumWbemClassObject
         self.__iWbemServices = iWbemServices
 
     def Reset(self):
         request = IEnumWbemClassObject_Reset()
-        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
+        resp = self.request(request, iid=self._iid, uuid=self.get_iPid())
         resp.dump()
         return resp
 
@@ -2762,10 +3057,10 @@ class IEnumWbemClassObject(IRemUnknown):
         request = IEnumWbemClassObject_Next()
         request['lTimeout'] = lTimeout
         request['uCount'] = uCount
-        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
+        resp = self.request(request, iid=self._iid, uuid=self.get_iPid())
         interfaces = list()
         for interface in resp['apObjects']:
-            interfaces.append( IWbemClassObject(INTERFACE(self.get_cinstance(), ''.join(interface['abData']), self.get_ipidRemUnknown(), oxid = self.get_oxid(), target = self.get_target()), self.__iWbemServices) )
+            interfaces.append(IWbemClassObject(INTERFACE(self.get_cinstance(), ''.join(interface['abData']), self.get_ipidRemUnknown(), oxid=self.get_oxid(), target=self.get_target()), self.__iWbemServices))
 
         return interfaces
 
@@ -2773,13 +3068,13 @@ class IEnumWbemClassObject(IRemUnknown):
         request = IEnumWbemClassObject_NextAsync()
         request['lTimeout'] = lTimeout
         request['pSink'] = pSink
-        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
+        resp = self.request(request, iid=self._iid, uuid=self.get_iPid())
         resp.dump()
         return resp
 
     def Clone(self):
         request = IEnumWbemClassObject_Clone()
-        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
+        resp = self.request(request, iid=self._iid, uuid=self.get_iPid())
         resp.dump()
         return resp
 
@@ -2787,55 +3082,56 @@ class IEnumWbemClassObject(IRemUnknown):
         request = IEnumWbemClassObject_Skip()
         request['lTimeout'] = lTimeout
         request['uCount'] = uCount
-        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
+        resp = self.request(request, iid=self._iid, uuid=self.get_iPid())
         resp.dump()
         return resp
+
 
 class IWbemServices(IRemUnknown):
     def __init__(self, interface):
         IRemUnknown.__init__(self,interface)
         self._iid = IID_IWbemServices
 
-    def OpenNamespace(self, strNamespace, lFlags=0, pCtx = NULL):
+    def OpenNamespace(self, strNamespace, lFlags=0, pCtx=NULL):
         request = IWbemServices_OpenNamespace()
         request['strNamespace']['asData'] = strNamespace
         request['lFlags'] = lFlags
         request['pCtx'] = pCtx
-        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
+        resp = self.request(request, iid=self._iid, uuid=self.get_iPid())
         resp.dump()
         return resp
 
-    def CancelAsyncCall(self,IWbemObjectSink ):
+    def CancelAsyncCall(self,IWbemObjectSink):
         request = IWbemServices_CancelAsyncCall()
         request['IWbemObjectSink'] = IWbemObjectSink
-        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
+        resp = self.request(request, iid=self._iid, uuid=self.get_iPid())
         return resp['ErrorCode']
 
     def QueryObjectSink(self):
         request = IWbemServices_QueryObjectSink()
         request['lFlags'] = 0
-        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
-        return  (INTERFACE(self.get_cinstance(), ''.join(resp['ppResponseHandler']['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
+        resp = self.request(request, iid=self._iid, uuid=self.get_iPid())
+        return (INTERFACE(self.get_cinstance(), ''.join(resp['ppResponseHandler']['abData']), self.get_ipidRemUnknown(), target=self.get_target()))
 
     def GetObject(self, strObjectPath, lFlags=0, pCtx=NULL):
         request = IWbemServices_GetObject()
         request['strObjectPath']['asData'] = strObjectPath
         request['lFlags'] = lFlags
         request['pCtx'] = pCtx
-        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
-        ppObject =  IWbemClassObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppObject']['abData']), self.get_ipidRemUnknown(), oxid = self.get_oxid(), target = self.get_target()), self)
+        resp = self.request(request, iid=self._iid, uuid=self.get_iPid())
+        ppObject = IWbemClassObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppObject']['abData']), self.get_ipidRemUnknown(), oxid=self.get_oxid(), target=self.get_target()), self)
         if resp['ppCallResult'] != NULL:
-            ppcallResult = IWbemCallResult(INTERFACE(self.get_cinstance(), ''.join(resp['ppObject']['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
+            ppcallResult = IWbemCallResult(INTERFACE(self.get_cinstance(), ''.join(resp['ppObject']['abData']), self.get_ipidRemUnknown(), target=self.get_target()))
         else:
             ppcallResult = NULL
         return ppObject, ppcallResult
 
-    def GetObjectAsync(self, strObjectPath, lFlags=0, pCtx = NULL):
+    def GetObjectAsync(self, strObjectPath, lFlags=0, pCtx=NULL):
         request = IWbemServices_GetObjectAsync()
         request['strObjectPath']['asData'] = checkNullString(strNamespace)
         request['lFlags'] = lFlags
         request['pCtx'] = pCtx
-        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
+        resp = self.request(request, iid=self._iid, uuid=self.get_iPid())
         resp.dump()
         return resp
 
@@ -2844,7 +3140,7 @@ class IWbemServices(IRemUnknown):
         request['pObject'] = pObject
         request['lFlags'] = lFlags
         request['pCtx'] = pCtx
-        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
+        resp = self.request(request, iid=self._iid, uuid=self.get_iPid())
         resp.dump()
         return resp
 
@@ -2853,7 +3149,7 @@ class IWbemServices(IRemUnknown):
         request['pObject'] = pObject
         request['lFlags'] = lFlags
         request['pCtx'] = pCtx
-        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
+        resp = self.request(request, iid=self._iid, uuid=self.get_iPid())
         resp.dump()
         return resp
 
@@ -2862,7 +3158,7 @@ class IWbemServices(IRemUnknown):
         request['strClass']['asData'] = checkNullString(strClass)
         request['lFlags'] = lFlags
         request['pCtx'] = pCtx
-        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
+        resp = self.request(request, iid=self._iid, uuid=self.get_iPid())
         resp.dump()
         return resp
 
@@ -2871,7 +3167,7 @@ class IWbemServices(IRemUnknown):
         request['strClass']['asData'] = checkNullString(strClass)
         request['lFlags'] = lFlags
         request['pCtx'] = pCtx
-        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
+        resp = self.request(request, iid=self._iid, uuid=self.get_iPid())
         resp.dump()
         return resp
 
@@ -2880,7 +3176,7 @@ class IWbemServices(IRemUnknown):
         request['strSuperClass']['asData'] = checkNullString(strSuperClass)
         request['lFlags'] = lFlags
         request['pCtx'] = pCtx
-        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
+        resp = self.request(request, iid=self._iid, uuid=self.get_iPid())
         resp.dump()
         return resp
 
@@ -2889,7 +3185,7 @@ class IWbemServices(IRemUnknown):
         request['strSuperClass']['asData'] = checkNullString(strSuperClass)
         request['lFlags'] = lFlags
         request['pCtx'] = pCtx
-        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
+        resp = self.request(request, iid=self._iid, uuid=self.get_iPid())
         resp.dump()
         return resp
 
@@ -2903,15 +3199,15 @@ class IWbemServices(IRemUnknown):
             request['pInst']['abData'] = list(str(pInst))
         request['lFlags'] = lFlags
         request['pCtx'] = pCtx
-        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
-        return IWbemCallResult(INTERFACE(self.get_cinstance(), ''.join(resp['ppCallResult']['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
+        resp = self.request(request, iid=self._iid, uuid=self.get_iPid())
+        return IWbemCallResult(INTERFACE(self.get_cinstance(), ''.join(resp['ppCallResult']['abData']), self.get_ipidRemUnknown(), target=self.get_target()))
 
     def PutInstanceAsync(self, pInst, lFlags=0, pCtx=NULL):
         request = IWbemServices_PutInstanceAsync()
         request['pInst'] = pInst
         request['lFlags'] = lFlags
         request['pCtx'] = pCtx
-        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
+        resp = self.request(request, iid=self._iid, uuid=self.get_iPid())
         resp.dump()
         return resp
 
@@ -2920,15 +3216,15 @@ class IWbemServices(IRemUnknown):
         request['strObjectPath']['asData'] = checkNullString(strObjectPath)
         request['lFlags'] = lFlags
         request['pCtx'] = pCtx
-        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
-        return IWbemCallResult(INTERFACE(self.get_cinstance(), ''.join(resp['ppCallResult']['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
+        resp = self.request(request, iid=self._iid, uuid=self.get_iPid())
+        return IWbemCallResult(INTERFACE(self.get_cinstance(), ''.join(resp['ppCallResult']['abData']), self.get_ipidRemUnknown(), target=self.get_target()))
 
     def DeleteInstanceAsync(self, strObjectPath, lFlags=0, pCtx=NULL):
         request = IWbemServices_DeleteInstanceAsync()
         request['strObjectPath']['asData'] = checkNullString(strObjectPath)
         request['lFlags'] = lFlags
         request['pCtx'] = pCtx
-        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
+        resp = self.request(request, iid=self._iid, uuid=self.get_iPid())
         resp.dump()
         return resp
 
@@ -2937,28 +3233,28 @@ class IWbemServices(IRemUnknown):
         request['strSuperClass']['asData'] = strSuperClass
         request['lFlags'] = lFlags
         request['pCtx'] = pCtx
-        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
+        resp = self.request(request, iid=self._iid, uuid=self.get_iPid())
         resp.dump()
-        return IEnumWbemClassObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
+        return IEnumWbemClassObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(), target=self.get_target()))
 
     def CreateInstanceEnumAsync(self, strSuperClass, lFlags=0, pCtx=NULL):
         request = IWbemServices_CreateInstanceEnumAsync()
         request['strSuperClass']['asData'] = checkNullString(strSuperClass)
         request['lFlags'] = lFlags
         request['pCtx'] = pCtx
-        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
+        resp = self.request(request, iid=self._iid, uuid=self.get_iPid())
         resp.dump()
         return resp
 
-    #def ExecQuery(self, strQuery, lFlags=WBEM_QUERY_FLAG_TYPE.WBEM_FLAG_PROTOTYPE, pCtx=NULL):
+    # def ExecQuery(self, strQuery, lFlags=WBEM_QUERY_FLAG_TYPE.WBEM_FLAG_PROTOTYPE, pCtx=NULL):
     def ExecQuery(self, strQuery, lFlags=0, pCtx=NULL):
         request = IWbemServices_ExecQuery()
         request['strQueryLanguage']['asData'] = checkNullString('WQL')
         request['strQuery']['asData'] = checkNullString(strQuery)
         request['lFlags'] = lFlags
         request['pCtx'] = pCtx
-        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
-        return IEnumWbemClassObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(), target = self.get_target()), self)
+        resp = self.request(request, iid=self._iid, uuid=self.get_iPid())
+        return IEnumWbemClassObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(), target=self.get_target()), self)
 
     def ExecQueryAsync(self, strQuery, lFlags=0, pCtx=NULL):
         request = IWbemServices_ExecQueryAsync()
@@ -2966,7 +3262,7 @@ class IWbemServices(IRemUnknown):
         request['strQuery']['asData'] = checkNullString(strQuery)
         request['lFlags'] = lFlags
         request['pCtx'] = pCtx
-        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
+        resp = self.request(request, iid=self._iid, uuid=self.get_iPid())
         resp.dump()
         return resp
 
@@ -2976,8 +3272,8 @@ class IWbemServices(IRemUnknown):
         request['strQuery']['asData'] = checkNullString(strQuery)
         request['lFlags'] = lFlags
         request['pCtx'] = pCtx
-        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
-        return IEnumWbemClassObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(), target = self.get_target()), self)
+        resp = self.request(request, iid=self._iid, uuid=self.get_iPid())
+        return IEnumWbemClassObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(), target=self.get_target()), self)
 
     def ExecNotificationQueryAsync(self, strQuery, lFlags=0, pCtx=NULL):
         request = IWbemServices_ExecNotificationQueryAsync()
@@ -2985,11 +3281,11 @@ class IWbemServices(IRemUnknown):
         request['strQuery']['asData'] = checkNullString(strQuery)
         request['lFlags'] = lFlags
         request['pCtx'] = pCtx
-        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
+        resp = self.request(request, iid=self._iid, uuid=self.get_iPid())
         resp.dump()
         return resp
 
-    def ExecMethod(self, strObjectPath, strMethodName, lFlags=0, pCtx=NULL, pInParams=NULL, ppOutParams = NULL):
+    def ExecMethod(self, strObjectPath, strMethodName, lFlags=0, pCtx=NULL, pInParams=NULL, ppOutParams=NULL):
         request = IWbemServices_ExecMethod()
         request['strObjectPath']['asData'] = checkNullString(strObjectPath)
         request['strMethodName']['asData'] = checkNullString(strMethodName)
@@ -3007,8 +3303,8 @@ class IWbemServices(IRemUnknown):
         else:
             request['ppOutParams']['ulCntData'] = len(str(ppOutParams))
             request['ppOutParams']['abData'] = list(str(ppOutParams))
-        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
-        return IWbemClassObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppOutParams']['abData']), self.get_ipidRemUnknown(), oxid = self.get_oxid(), target = self.get_target()))
+        resp = self.request(request, iid=self._iid, uuid=self.get_iPid())
+        return IWbemClassObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppOutParams']['abData']), self.get_ipidRemUnknown(), oxid=self.get_oxid(), target=self.get_target()))
 
     def ExecMethodAsync(self, strObjectPath, strMethodName, lFlags=0, pCtx=NULL, pInParams=NULL):
         request = IWbemServices_ExecMethodAsync()
@@ -3018,9 +3314,10 @@ class IWbemServices(IRemUnknown):
         request['lFlags'] = lFlags
         request['pCtx'] = pCtx
         request['pInParams'] = pInParams
-        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
+        resp = self.request(request, iid=self._iid, uuid=self.get_iPid())
         resp.dump()
         return resp
+
 
 class IWbemLevel1Login(IRemUnknown):
     def __init__(self, interface):
@@ -3031,14 +3328,14 @@ class IWbemLevel1Login(IRemUnknown):
         request = IWbemLevel1Login_EstablishPosition()
         request['reserved1'] = NULL
         request['reserved2'] = 0
-        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
+        resp = self.request(request, iid=self._iid, uuid=self.get_iPid())
         return resp['LocaleVersion']
 
     def RequestChallenge(self):
         request = IWbemLevel1Login_RequestChallenge()
         request['reserved1'] = NULL
         request['reserved2'] = NULL
-        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
+        resp = self.request(request, iid=self._iid, uuid=self.get_iPid())
         return resp['reserved3']
 
     def WBEMLogin(self):
@@ -3047,7 +3344,7 @@ class IWbemLevel1Login(IRemUnknown):
         request['reserved2'] = NULL
         request['reserved3'] = 0
         request['reserved4'] = NULL
-        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
+        resp = self.request(request, iid=self._iid, uuid=self.get_iPid())
         return resp['reserved5']
 
     def NTLMLogin(self, wszNetworkResource, wszPreferredLocale, pCtx):
@@ -3056,8 +3353,8 @@ class IWbemLevel1Login(IRemUnknown):
         request['wszPreferredLocale'] = checkNullString(wszPreferredLocale)
         request['lFlags'] = 0
         request['pCtx'] = pCtx
-        resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
-        return  IWbemServices(INTERFACE(self.get_cinstance(), ''.join(resp['ppNamespace']['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
+        resp = self.request(request, iid=self._iid, uuid=self.get_iPid())
+        return IWbemServices(INTERFACE(self.get_cinstance(), ''.join(resp['ppNamespace']['abData']), self.get_ipidRemUnknown(), target=self.get_target()))
 
 
 if __name__ == '__main__':
@@ -3067,19 +3364,18 @@ if __name__ == '__main__':
     baseClass = 'xV4\x12\xd0\x00\x00\x00\x05\x00DPRAVAT-DEV\x00\x00ROOT\x00\x1d\x00\x00\x00\x00\xff\xff\xff\xff\x00\x00\x00\x00\x04\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x80\x0c\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x80f\x00\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00\x04\x00\x00\x00\x04\x00\x00\x00\x01\x00\x00\x00\x06\x00\x00\x00\n\x00\x00\x00\x05\xff\xff\xff\xff<\x00\x00\x80\x00Base\x00\x00Id\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x1c\x00\x00\x00\n\x00\x00\x80\x03\x08\x00\x00\x004\x00\x00\x00\x01\x00\x00\x80\x13\x0b\x00\x00\x00\xff\xff\x00sint32\x00\x0c\x00\x00\x00\x00\x004\x00\x00\x00\x00\x80\x00\x80\x13\x0b\x00\x00\x00\xff\xff\x00sint32\x00'
 
     #encodingUnit = EncodingUnit(baseClass)
-    #encodingUnit.dump()
-    #encodingUnit['ObjectBlock'].printInformation()
-    #print "LEN ", len(baseClass), len(encodingUnit)
+    # encodingUnit.dump()
+    # encodingUnit['ObjectBlock'].printInformation()
+    # print "LEN ", len(baseClass), len(encodingUnit)
 
     myClass = "xV4\x12.\x02\x00\x00\x05\x00DPRAVAT-DEV\x00\x00ROOT\x00f\x00\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00\x04\x00\x00\x00\x04\x00\x00\x00\x01\x00\x00\x00\x06\x00\x00\x00\n\x00\x00\x00\x05\xff\xff\xff\xff<\x00\x00\x80\x00Base\x00\x00Id\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x1c\x00\x00\x00\n\x00\x00\x80\x03\x08\x00\x00\x004\x00\x00\x00\x01\x00\x00\x80\x13\x0b\x00\x00\x00\xff\xff\x00sint32\x00\x0c\x00\x00\x00\x00\x004\x00\x00\x00\x00\x80v\x01\x00\x00\x00\x00\x00\x00\x00\x11\x00\x00\x00\x0e\x00\x00\x00\x00Base\x00\x06\x00\x00\x00\x11\x00\x00\x00\t\x00\x00\x00\x00\x08\x00\x00\x00\x16\x00\x00\x00\x04\x00\x00\x00'\x00\x00\x00.\x00\x00\x00U\x00\x00\x00\\\x00\x00\x00\x99\x00\x00\x00\xa0\x00\x00\x00\xc7\x00\x00\x00\xcb\x00\x00\x00G\xff\xff\xff\xff\xff\xff\xff\xff\xfd\x00\x00\x00\xff\xff\xff\xff\x11\x01\x00\x80\x00MyClass\x00\x00Description\x00\x00MyClass Example\x00\x00Array\x00\x13 \x00\x00\x03\x00\x0c\x00\x00\x00\x01\x00\x00\x00\x11\x00\x00\x00\n\x00\x00\x80\x03\x08\x00\x00\x00M\x00\x00\x00\x00uint32\x00\x00Data1\x00\x08\x00\x00\x00\x01\x00\x04\x00\x00\x00\x01\x00\x00\x00'\x00\x00\x00\n\x00\x00\x80\x03\x08\x00\x00\x00\x91\x00\x00\x00\x03\x00\x00\x80\x00\x0b\x00\x00\x00\xff\xff\x04\x00\x00\x80\x00\x0b\x00\x00\x00\xff\xff\x00string\x00\x00Data2\x00\x08\x00\x00\x00\x02\x00\x08\x00\x00\x00\x01\x00\x00\x00\x11\x00\x00\x00\n\x00\x00\x80\x03\x08\x00\x00\x00\xbf\x00\x00\x00\x00string\x00\x00Id\x00\x03@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x1c\x00\x00\x00\n\x00\x00\x80#\x08\x00\x00\x00\xf5\x00\x00\x00\x01\x00\x00\x803\x0b\x00\x00\x00\xff\xff\x00sint32\x00\x00defaultValue\x00\x00\x00\x00\x00\x00\x00\x0c\x00\x00\x00\x00\x00\x00s\x00\x00\x00\x802\x00\x00defaultValue\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x80\x00\x00\x00\x00"
-    #hexdump(myClass)
+    # hexdump(myClass)
     #encodingUnit = EncodingUnit(myClass)
-    #print "LEN ", len(myClass), len(encodingUnit)
-    #encodingUnit.dump()
-    #encodingUnit['ObjectBlock'].printInformation()
+    # print "LEN ", len(myClass), len(encodingUnit)
+    # encodingUnit.dump()
+    # encodingUnit['ObjectBlock'].printInformation()
 
     instanceMyClass = "xV4\x12\xd3\x01\x00\x00\x06\x00DPRAVAT-DEV\x00\x00ROOT\x00v\x01\x00\x00\x00\x00\x00\x00\x00\x11\x00\x00\x00\x0e\x00\x00\x00\x00Base\x00\x06\x00\x00\x00\x11\x00\x00\x00\t\x00\x00\x00\x00\x08\x00\x00\x00\x16\x00\x00\x00\x04\x00\x00\x00'\x00\x00\x00.\x00\x00\x00U\x00\x00\x00\\\x00\x00\x00\x99\x00\x00\x00\xa0\x00\x00\x00\xc7\x00\x00\x00\xcb\x00\x00\x00G\xff\xff\xff\xff\xff\xff\xff\xff\xfd\x00\x00\x00\xff\xff\xff\xff\x11\x01\x00\x80\x00MyClass\x00\x00Description\x00\x00MyClass Example\x00\x00Array\x00\x13 \x00\x00\x03\x00\x0c\x00\x00\x00\x01\x00\x00\x00\x11\x00\x00\x00\n\x00\x00\x80\x03\x08\x00\x00\x00M\x00\x00\x00\x00uint32\x00\x00Data1\x00\x08\x00\x00\x00\x01\x00\x04\x00\x00\x00\x01\x00\x00\x00'\x00\x00\x00\n\x00\x00\x80\x03\x08\x00\x00\x00\x91\x00\x00\x00\x03\x00\x00\x80\x00\x0b\x00\x00\x00\xff\xff\x04\x00\x00\x80\x00\x0b\x00\x00\x00\xff\xff\x00string\x00\x00Data2\x00\x08\x00\x00\x00\x02\x00\x08\x00\x00\x00\x01\x00\x00\x00\x11\x00\x00\x00\n\x00\x00\x80\x03\x08\x00\x00\x00\xbf\x00\x00\x00\x00string\x00\x00Id\x00\x03@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x1c\x00\x00\x00\n\x00\x00\x80#\x08\x00\x00\x00\xf5\x00\x00\x00\x01\x00\x00\x803\x0b\x00\x00\x00\xff\xff\x00sint32\x00\x00defaultValue\x00\x00\x00\x00\x00\x00\x00I\x00\x00\x00\x00\x00\x00\x00\x00 {\x00\x00\x00\x19\x00\x00\x00\x00\x00\x00\x00\t\x00\x00\x00\x04\x00\x00\x00\x01&\x00\x00\x80\x00MyClass\x00\x03\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x03\x00\x00\x00\x00StringField\x00"
     #encodingUnit = EncodingUnit(instanceMyClass)
-    #encodingUnit.dump()
-    #encodingUnit['ObjectBlock'].printInformation()
-
+    # encodingUnit.dump()
+    # encodingUnit['ObjectBlock'].printInformation()

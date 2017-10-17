@@ -8,13 +8,14 @@ from dot11 import Dot11, Dot11Types
 from binascii import hexlify
 import unittest
 
+
 class TestDot11Common(unittest.TestCase):
 
     def setUp(self):
-        # Frame control field 
-        a='\xd4\x00\x00\x00\x00\x08\x54\xac\x2f\x85\xb7\x7f\xc3\x9e'
-        self.dot11fc=Dot11(a)
-        
+        # Frame control field
+        a = '\xd4\x00\x00\x00\x00\x08\x54\xac\x2f\x85\xb7\x7f\xc3\x9e'
+        self.dot11fc = Dot11(a)
+
     def test_01_HeaderSize(self):
         'Test Header Size field'
         self.assertEqual(self.dot11fc.get_header_size(), 2)
@@ -22,7 +23,7 @@ class TestDot11Common(unittest.TestCase):
     def test_01_TailSize(self):
         'Test Tail Size field'
         self.assertEqual(self.dot11fc.get_tail_size(), 4)
-  
+
     def test_02_Version(self):
         'Test Version field'
         self.assertEqual(self.dot11fc.get_version(), 0)
@@ -34,13 +35,13 @@ class TestDot11Common(unittest.TestCase):
         self.assertEqual(self.dot11fc.get_type(), 1)
         self.dot11fc.set_type(3)
         self.assertEqual(self.dot11fc.get_type(), 3)
-    
+
     def test_04_SubType(self):
         'Test Subtype field'
         self.assertEqual(self.dot11fc.get_subtype(),13)
         self.dot11fc.set_subtype(5)
         self.assertEqual(self.dot11fc.get_subtype(),5)
-        
+
     def test_05_ToDS(self):
         'Test toDS field'
         self.assertEqual(self.dot11fc.get_toDS(),0)
@@ -82,8 +83,7 @@ class TestDot11Common(unittest.TestCase):
 #       self.assertEqual(self.dot11fc.get_WEP(),0)
 #       self.dot11fc.set_WEP(1)
 #       self.assertEqual(self.dot11fc.get_WEP(),1)
-        
-        
+
     def test_12_Order(self):
         'Test Order field'
         self.assertEqual(self.dot11fc.get_order(),0)
@@ -97,11 +97,11 @@ class TestDot11Common(unittest.TestCase):
         self.dot11fc.set_moreData(1)
         self.dot11fc.set_retry(1)
         self.dot11fc.set_fromDS(1)
-        
-        frame=self.dot11fc.get_packet()
-        
+
+        frame = self.dot11fc.get_packet()
+
         self.assertEqual(frame, '\xa4\xaa\x00\x00\x00\x08\x54\xac\x2f\x85\xb7\x7f\xc3\x9e')
-    
+
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11Common)
 unittest.TextTestRunner(verbosity=2).run(suite)

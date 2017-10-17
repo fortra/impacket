@@ -1,5 +1,5 @@
 ###############################################################################
-#  Tested so far: 
+#  Tested so far:
 #
 #  NetrConnectionEnum
 #  NetrFileEnum
@@ -45,7 +45,7 @@
 #  NetrDfsSetLocalVolumeState
 #  NetrDfsCreateExitPoint
 #  NetrDfsDeleteExitPoint
-#  NetrShareSetInfo 
+#  NetrShareSetInfo
 #
 #  Not yet:
 #
@@ -68,6 +68,7 @@ from impacket.winregistry import hexdump
 from impacket.uuid import string_to_bin, uuidtup_to_bin
 from impacket import system_errors
 
+
 class SRVSTests(unittest.TestCase):
     def connect(self):
         rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
@@ -81,7 +82,7 @@ class SRVSTests(unittest.TestCase):
             rpctransport.set_credentials(self.username,self.password, self.domain, lmhash, nthash)
         dce = rpctransport.get_dce_rpc()
         dce.connect()
-        dce.bind(srvs.MSRPC_UUID_SRVS, transfer_syntax = self.ts)
+        dce.bind(srvs.MSRPC_UUID_SRVS, transfer_syntax=self.ts)
 
         return dce, rpctransport
 
@@ -274,8 +275,8 @@ class SRVSTests(unittest.TestCase):
 
         request = srvs.NetrSessionDel()
         request['ServerName'] = NULL
-        request['ClientName'] = resp['InfoStruct']['SessionInfo']['Level502']['Buffer'][0]['sesi502_cname'] 
-        request['UserName'] = resp['InfoStruct']['SessionInfo']['Level502']['Buffer'][0]['sesi502_username'] 
+        request['ClientName'] = resp['InfoStruct']['SessionInfo']['Level502']['Buffer'][0]['sesi502_cname']
+        request['UserName'] = resp['InfoStruct']['SessionInfo']['Level502']['Buffer'][0]['sesi502_username']
         try:
             resp = dce.request(request)
             resp.dump()
@@ -289,7 +290,7 @@ class SRVSTests(unittest.TestCase):
         resp.dump()
 
         try:
-            resp = srvs.hNetrSessionDel(dce, resp['InfoStruct']['SessionInfo']['Level502']['Buffer'][0]['sesi502_cname'], resp['InfoStruct']['SessionInfo']['Level502']['Buffer'][0]['sesi502_username'] )
+            resp = srvs.hNetrSessionDel(dce, resp['InfoStruct']['SessionInfo']['Level502']['Buffer'][0]['sesi502_cname'], resp['InfoStruct']['SessionInfo']['Level502']['Buffer'][0]['sesi502_username'])
             resp.dump()
         except Exception as e:
             if e.get_error_code() != 0x908:
@@ -654,22 +655,22 @@ class SRVSTests(unittest.TestCase):
 
     def test_hNetrServerGetInfo(self):
         dce, rpctransport = self.connect()
-        resp = srvs.hNetrServerGetInfo(dce, 100) 
+        resp = srvs.hNetrServerGetInfo(dce, 100)
         resp.dump()
 
-        resp = srvs.hNetrServerGetInfo(dce, 101) 
+        resp = srvs.hNetrServerGetInfo(dce, 101)
         resp.dump()
 
-        resp = srvs.hNetrServerGetInfo(dce, 102) 
+        resp = srvs.hNetrServerGetInfo(dce, 102)
         resp.dump()
 
-        resp = srvs.hNetrServerGetInfo(dce, 103) 
+        resp = srvs.hNetrServerGetInfo(dce, 103)
         resp.dump()
 
-        resp = srvs.hNetrServerGetInfo(dce, 502) 
+        resp = srvs.hNetrServerGetInfo(dce, 502)
         resp.dump()
 
-        resp = srvs.hNetrServerGetInfo(dce, 503) 
+        resp = srvs.hNetrServerGetInfo(dce, 503)
         resp.dump()
 
     def test_NetrServerDiskEnum(self):
@@ -762,8 +763,8 @@ class SRVSTests(unittest.TestCase):
 
         req = srvs.NetrpSetFileSecurity()
         req['ServerName'] = NULL
-        req['ShareName'] = 'C$\x00' 
-        req['lpFileName'] = '\\Windows\x00' 
+        req['ShareName'] = 'C$\x00'
+        req['lpFileName'] = '\\Windows\x00'
         req['SecurityInformation'] = OWNER_SECURITY_INFORMATION
         req['SecurityDescriptor'] = resp['SecurityDescriptor']
         resp = dce.request(req)
@@ -771,10 +772,10 @@ class SRVSTests(unittest.TestCase):
 
     def test_hNetrpGetFileSecurity_hNetrpSetFileSecurity(self):
         dce, rpctransport = self.connect()
-        resp = srvs.hNetrpGetFileSecurity(dce, 'C$\x00',  '\\Windows\x00', OWNER_SECURITY_INFORMATION)
-        #hexdump(resp)
+        resp = srvs.hNetrpGetFileSecurity(dce, 'C$\x00', '\\Windows\x00', OWNER_SECURITY_INFORMATION)
+        # hexdump(resp)
 
-        resp = srvs.hNetrpSetFileSecurity(dce,'C$\x00',  '\\Windows\x00', OWNER_SECURITY_INFORMATION, resp )
+        resp = srvs.hNetrpSetFileSecurity(dce,'C$\x00', '\\Windows\x00', OWNER_SECURITY_INFORMATION, resp)
         resp.dump()
 
     def test_NetprPathType(self):
@@ -913,7 +914,7 @@ class SRVSTests(unittest.TestCase):
         request['ServiceType'] = srvs.DFS_SERVICE_TYPE_LOCAL
         request['StgId'] = 'NONE\x00'
         request['EntryPrefix'] = 'c:\\\x00'
-        request['RelationInfo']['Buffer']  = NULL
+        request['RelationInfo']['Buffer'] = NULL
         request['CreateDisposition'] = srvs.FILE_SUPERSEDE
         try:
             resp = dce.request(request)
@@ -1013,7 +1014,7 @@ class SRVSTests(unittest.TestCase):
         request['ServerName'] = NULL
         request['Level'] = 503
         request['ShareInfo']['tag'] = 503
-        request['ShareInfo']['ShareInfo503']['shi503_netname'] ='BETUSHARE\x00' 
+        request['ShareInfo']['ShareInfo503']['shi503_netname'] = 'BETUSHARE\x00'
         request['ShareInfo']['ShareInfo503']['shi503_type'] = srvs.STYPE_TEMPORARY
         request['ShareInfo']['ShareInfo503']['shi503_remark'] = 'My Remark\x00'
         request['ShareInfo']['ShareInfo503']['shi503_permissions'] = 0
@@ -1034,7 +1035,7 @@ class SRVSTests(unittest.TestCase):
         request['Level'] = 0
         request['Buffer']['svti0_numberofvcs'] = 0
         request['Buffer']['svti0_transportname'] = '\\Device\\NetbiosSmb\x00'
-        request['Buffer']['svti0_transportaddress'] = list('%s'% self.machine) 
+        request['Buffer']['svti0_transportaddress'] = list('%s' % self.machine)
         request['Buffer']['svti0_transportaddresslength'] = len(request['Buffer']['svti0_transportaddress'])
         request['Buffer']['svti0_networkaddress'] = '%s\x00' % self.machine
         resp = dce.request(request)
@@ -1043,10 +1044,10 @@ class SRVSTests(unittest.TestCase):
         req = srvs.NetrServerTransportDel()
         req['ServerName'] = NULL
         req['Level'] = 0
-        req['Buffer'] = request['Buffer'] 
+        req['Buffer'] = request['Buffer']
         resp = dce.request(req)
         resp.dump()
-   
+
     def test_NetrServerTransportAddEx_NetrServerTransportDelEx(self):
         dce, rpctransport = self.connect()
         request = srvs.NetrServerTransportAddEx()
@@ -1055,7 +1056,7 @@ class SRVSTests(unittest.TestCase):
         request['Buffer']['tag'] = 0
         request['Buffer']['Transport0']['svti0_numberofvcs'] = 0
         request['Buffer']['Transport0']['svti0_transportname'] = '\\Device\\NetbiosSmb\x00'
-        request['Buffer']['Transport0']['svti0_transportaddress'] = list('%s'% self.machine) 
+        request['Buffer']['Transport0']['svti0_transportaddress'] = list('%s' % self.machine)
         request['Buffer']['Transport0']['svti0_transportaddresslength'] = len(request['Buffer']['Transport0']['svti0_transportaddress'])
         request['Buffer']['Transport0']['svti0_networkaddress'] = '%s\x00' % self.machine
         resp = dce.request(request)
@@ -1065,7 +1066,7 @@ class SRVSTests(unittest.TestCase):
         req['ServerName'] = NULL
         req['Level'] = 0
         req['Buffer']['tag'] = 0
-        req['Buffer']['Transport0']  = request['Buffer']['Transport0']
+        req['Buffer']['Transport0'] = request['Buffer']['Transport0']
         resp = dce.request(req)
         resp.dump()
 
@@ -1147,13 +1148,14 @@ class SMBTransport(SRVSTests):
         configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
+        self.domain = configFile.get('SMBTransport', 'domain')
         self.serverName = configFile.get('SMBTransport', 'servername')
         self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
+        self.machine = configFile.get('SMBTransport', 'machine')
+        self.hashes = configFile.get('SMBTransport', 'hashes')
         self.stringBinding = r'ncacn_np:%s[\PIPE\srvsvc]' % self.machine
         self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
+
 
 class SMBTransport64(SRVSTests):
     def setUp(self):
@@ -1161,11 +1163,11 @@ class SMBTransport64(SRVSTests):
         configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
+        self.domain = configFile.get('SMBTransport', 'domain')
         self.serverName = configFile.get('SMBTransport', 'servername')
         self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
+        self.machine = configFile.get('SMBTransport', 'machine')
+        self.hashes = configFile.get('SMBTransport', 'hashes')
         self.stringBinding = r'ncacn_np:%s[\PIPE\srvsvc]' % self.machine
         self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
 

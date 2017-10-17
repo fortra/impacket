@@ -33,125 +33,128 @@ import cmd
 import ntpath
 # If you wanna have readline like functionality in Windows, install pyreadline
 try:
-  import pyreadline as readline
+    import pyreadline as readline
 except ImportError:
-  import readline
+    import readline
 from datetime import datetime
 from impacket import structure, version
 from impacket.structure import Structure
 from impacket.examples import logger
 
 import string
+
+
 def pretty_print(x):
     if x in '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~ ':
-       return x
+        return x
     else:
-       return '.'
+        return '.'
+
 
 def hexdump(data):
-    x=str(data)
+    x = str(data)
     strLen = len(x)
     i = 0
     while i < strLen:
         print("%04x  " % i, end=' ')
         for j in range(16):
-            if i+j < strLen:
-                print("%02X" % ord(x[i+j]), end=' ')
+            if i + j < strLen:
+                print("%02X" % ord(x[i + j]), end=' ')
             else:
                 print("  ", end=' ')
-            if j%16 == 7:
+            if j % 16 == 7:
                 print("", end=' ')
         print(" ", end=' ')
-        print(''.join(pretty_print(x) for x in x[i:i+16] ))
+        print(''.join(pretty_print(x) for x in x[i:i + 16]))
         i += 16
 
 # Reserved/fixed MFTs
 FIXED_MFTS = 16
 
 # Attribute types
-UNUSED                        = 0
-STANDARD_INFORMATION          = 0x10
-ATTRIBUTE_LIST                = 0x20
-FILE_NAME                     = 0x30
-OBJECT_ID                     = 0x40
-SECURITY_DESCRIPTOR           = 0x50
-VOLUME_NAME                   = 0x60
-VOLUME_INFORMATION            = 0x70
-DATA                          = 0x80
-INDEX_ROOT                    = 0x90
-INDEX_ALLOCATION              = 0xa0
-BITMAP                        = 0xb0
-REPARSE_POINT                 = 0xc0
-EA_INFORMATION                = 0xd0
-EA                            = 0xe0
-PROPERTY_SET                  = 0xf0
-LOGGED_UTILITY_STREAM         = 0x100
-FIRST_USER_DEFINED_ATTRIBUTE  = 0x1000
-END                           = 0xffffffff
+UNUSED = 0
+STANDARD_INFORMATION = 0x10
+ATTRIBUTE_LIST = 0x20
+FILE_NAME = 0x30
+OBJECT_ID = 0x40
+SECURITY_DESCRIPTOR = 0x50
+VOLUME_NAME = 0x60
+VOLUME_INFORMATION = 0x70
+DATA = 0x80
+INDEX_ROOT = 0x90
+INDEX_ALLOCATION = 0xa0
+BITMAP = 0xb0
+REPARSE_POINT = 0xc0
+EA_INFORMATION = 0xd0
+EA = 0xe0
+PROPERTY_SET = 0xf0
+LOGGED_UTILITY_STREAM = 0x100
+FIRST_USER_DEFINED_ATTRIBUTE = 0x1000
+END = 0xffffffff
 
 # Attribute flags
-ATTR_IS_COMPRESSED     = 0x0001
-ATTR_COMPRESSION_MASK  = 0x00ff
-ATTR_IS_ENCRYPTED      = 0x4000
-ATTR_IS_SPARSE         = 0x8000
+ATTR_IS_COMPRESSED = 0x0001
+ATTR_COMPRESSION_MASK = 0x00ff
+ATTR_IS_ENCRYPTED = 0x4000
+ATTR_IS_SPARSE = 0x8000
 
 # FileName type flags
 FILE_NAME_POSIX = 0x00
 FILE_NAME_WIN32 = 0x01
-FILE_NAME_DOS   = 0x02
+FILE_NAME_DOS = 0x02
 FILE_NAME_WIN32_AND_DOS = 0x03
 
 # MFT Record flags
-MFT_RECORD_IN_USE        = 0x0001
-MFT_RECORD_IS_DIRECTORY  = 0x0002
-MFT_RECORD_IS_4          = 0x0004
+MFT_RECORD_IN_USE = 0x0001
+MFT_RECORD_IS_DIRECTORY = 0x0002
+MFT_RECORD_IS_4 = 0x0004
 MFT_RECORD_IS_VIEW_INDEX = 0x0008
-MFT_REC_SPACE_FILLER     = 0xfffff
+MFT_REC_SPACE_FILLER = 0xfffff
 
 # File Attribute Flags
-FILE_ATTR_READONLY            = 0x0001
-FILE_ATTR_HIDDEN              = 0x0002
-FILE_ATTR_SYSTEM              = 0x0004
-FILE_ATTR_DIRECTORY           = 0x0010
-FILE_ATTR_ARCHIVE             = 0x0020
-FILE_ATTR_DEVICE              = 0x0040
-FILE_ATTR_NORMAL              = 0x0080
-FILE_ATTR_TEMPORARY           = 0x0100
-FILE_ATTR_SPARSE_FILE         = 0x0200
-FILE_ATTR_REPARSE_POINT       = 0x0400
-FILE_ATTR_COMPRESSED          = 0x0800
-FILE_ATTR_OFFLINE             = 0x1000
+FILE_ATTR_READONLY = 0x0001
+FILE_ATTR_HIDDEN = 0x0002
+FILE_ATTR_SYSTEM = 0x0004
+FILE_ATTR_DIRECTORY = 0x0010
+FILE_ATTR_ARCHIVE = 0x0020
+FILE_ATTR_DEVICE = 0x0040
+FILE_ATTR_NORMAL = 0x0080
+FILE_ATTR_TEMPORARY = 0x0100
+FILE_ATTR_SPARSE_FILE = 0x0200
+FILE_ATTR_REPARSE_POINT = 0x0400
+FILE_ATTR_COMPRESSED = 0x0800
+FILE_ATTR_OFFLINE = 0x1000
 FILE_ATTR_NOT_CONTENT_INDEXED = 0x2000
-FILE_ATTR_ENCRYPTED           = 0x4000
-FILE_ATTR_VALID_FLAGS         = 0x7fb7
-FILE_ATTR_VALID_SET_FLAGS     = 0x31a7
-FILE_ATTR_I30_INDEX_PRESENT   = 0x10000000
-FILE_ATTR_VIEW_INDEX_PRESENT  = 0x20000000
+FILE_ATTR_ENCRYPTED = 0x4000
+FILE_ATTR_VALID_FLAGS = 0x7fb7
+FILE_ATTR_VALID_SET_FLAGS = 0x31a7
+FILE_ATTR_I30_INDEX_PRESENT = 0x10000000
+FILE_ATTR_VIEW_INDEX_PRESENT = 0x20000000
 
 # NTFS System files
-FILE_MFT      = 0
-FILE_MFTMirr  = 1
-FILE_LogFile  = 2
-FILE_Volume   = 3
-FILE_AttrDef  = 4
-FILE_Root     = 5
-FILE_Bitmap   = 6
-FILE_Boot     = 7
-FILE_BadClus  = 8
-FILE_Secure   = 9
-FILE_UpCase   = 10
-FILE_Extend   = 11
+FILE_MFT = 0
+FILE_MFTMirr = 1
+FILE_LogFile = 2
+FILE_Volume = 3
+FILE_AttrDef = 4
+FILE_Root = 5
+FILE_Bitmap = 6
+FILE_Boot = 7
+FILE_BadClus = 8
+FILE_Secure = 9
+FILE_UpCase = 10
+FILE_Extend = 11
 
 # Index Header Flags
 SMALL_INDEX = 0
 LARGE_INDEX = 1
-LEAF_NODE   = 0
-INDEX_NODE  = 1
-NODE_MASK   = 0
+LEAF_NODE = 0
+INDEX_NODE = 1
+NODE_MASK = 0
 
 # Index Entry Flags
-INDEX_ENTRY_NODE         = 1
-INDEX_ENTRY_END          = 2
+INDEX_ENTRY_NODE = 1
+INDEX_ENTRY_END = 2
 INDEX_ENTRY_SPACE_FILLER = 0xffff
 
 
@@ -170,6 +173,7 @@ class NTFS_BPB(Structure):
         ('Reserved7','4s=""'),
     )
 
+
 class NTFS_EXTENDED_BPB(Structure):
     structure = (
         ('Reserved','4s=""'),
@@ -184,6 +188,7 @@ class NTFS_EXTENDED_BPB(Structure):
         ('CheckSum','4s=""'),
     )
 
+
 class NTFS_BOOT_SECTOR(Structure):
     structure = (
         ('JmpInstr','3s=""'),
@@ -194,11 +199,12 @@ class NTFS_BOOT_SECTOR(Structure):
         ('EOS','<H=0'),
     )
 
+
 class NTFS_MFT_RECORD(Structure):
     structure = (
         ('MagicLabel','4s=""'),
-        ('USROffset','<H=0'), # Update Sequence Records Offset
-        ('USRSize','<H=0'), # Update Sequence Records Size
+        ('USROffset','<H=0'),  # Update Sequence Records Offset
+        ('USRSize','<H=0'),  # Update Sequence Records Size
         ('LogSeqNum','<Q=0'),
         ('SeqNum','<H=0'),
         ('LinkCount','<H=0'),
@@ -212,6 +218,7 @@ class NTFS_MFT_RECORD(Structure):
         ('RecordNumber','<L=0'),
     )
 
+
 class NTFS_ATTRIBUTE_RECORD(Structure):
     commonHdr = (
         ('Type','<L=0'),
@@ -224,6 +231,7 @@ class NTFS_ATTRIBUTE_RECORD(Structure):
     )
     structure = ()
 
+
 class NTFS_ATTRIBUTE_RECORD_NON_RESIDENT(Structure):
     structure = (
         ('LowestVCN','<Q=0'),
@@ -234,8 +242,9 @@ class NTFS_ATTRIBUTE_RECORD_NON_RESIDENT(Structure):
         ('AllocatedSize','<Q=0'),
         ('DataSize','<Q=0'),
         ('InitializedSize','<Q=0'),
-#        ('CompressedSize','<Q=0'),
+        #        ('CompressedSize','<Q=0'),
     )
+
 
 class NTFS_ATTRIBUTE_RECORD_RESIDENT(Structure):
     structure = (
@@ -244,6 +253,7 @@ class NTFS_ATTRIBUTE_RECORD_RESIDENT(Structure):
         ('Flags','B=0'),
         ('Reserved','B=0'),
     )
+
 
 class NTFS_FILE_NAME_ATTR(Structure):
     structure = (
@@ -262,6 +272,7 @@ class NTFS_FILE_NAME_ATTR(Structure):
         ('FileName',':'),
     )
 
+
 class NTFS_STANDARD_INFORMATION(Structure):
     structure = (
         ('CreationTime','<Q=0'),
@@ -271,6 +282,7 @@ class NTFS_STANDARD_INFORMATION(Structure):
         ('FileAttributes','<L=0'),
     )
 
+
 class NTFS_INDEX_HEADER(Structure):
     structure = (
         ('EntriesOffset','<L=0'),
@@ -279,6 +291,7 @@ class NTFS_INDEX_HEADER(Structure):
         ('Flags','B=0'),
         ('Reserved','3s=""'),
     )
+
 
 class NTFS_INDEX_ROOT(Structure):
     structure = (
@@ -294,12 +307,13 @@ class NTFS_INDEX_ROOT(Structure):
 class NTFS_INDEX_ALLOCATION(Structure):
     structure = (
         ('Magic','4s=""'),
-        ('USROffset','<H=0'), # Update Sequence Records Offset
-        ('USRSize','<H=0'), # Update Sequence Records Size
+        ('USROffset','<H=0'),  # Update Sequence Records Offset
+        ('USRSize','<H=0'),  # Update Sequence Records Size
         ('Lsn','<Q=0'),
         ('IndexVcn','<Q=0'),
         ('Index',':',NTFS_INDEX_HEADER),
     )
+
 
 class NTFS_INDEX_ENTRY_HEADER(Structure):
     structure = (
@@ -309,6 +323,7 @@ class NTFS_INDEX_ENTRY_HEADER(Structure):
         ('Flags','<H=0'),
         ('Reserved','<H=0'),
     )
+
 
 class NTFS_INDEX_ENTRY(Structure):
     alignment = 8
@@ -320,6 +335,7 @@ class NTFS_INDEX_ENTRY(Structure):
         ('Vcn',':')
     )
 
+
 class NTFS_DATA_RUN(Structure):
     structure = (
         ('LCN','<q=0'),
@@ -327,6 +343,7 @@ class NTFS_DATA_RUN(Structure):
         ('StartVCN','<Q=0'),
         ('LastVCN','<Q=0'),
     )
+
 
 def getUnixTime(t):
     t -= 116444736000000000
@@ -340,7 +357,7 @@ class Attribute():
         self.NTFSVolume = iNode.NTFSVolume
         self.AttributeHeader = NTFS_ATTRIBUTE_RECORD(data)
         if self.AttributeHeader['NameLength'] > 0 and self.AttributeHeader['Type'] != END:
-            self.AttributeName = data[self.AttributeHeader['NameOffset']:][:self.AttributeHeader['NameLength']*2].decode('utf-16le')
+            self.AttributeName = data[self.AttributeHeader['NameOffset']:][:self.AttributeHeader['NameLength'] * 2].decode('utf-16le')
 
     def getFlags(self):
         return self.AttributeHeader['Flags']
@@ -360,6 +377,7 @@ class Attribute():
     def getType(self):
         return self.AttributeHeader['Type']
 
+
 class AttributeResident(Attribute):
     def __init__(self, iNode, data):
         logging.debug("Inside AttributeResident: iNode: %s" % (iNode.INodeNumber))
@@ -377,11 +395,12 @@ class AttributeResident(Attribute):
         return self.AttrValue
 
     def read(self,offset,length):
-        logging.debug("Inside Read: offset: %d, length: %d" %(offset,length))
+        logging.debug("Inside Read: offset: %d, length: %d" % (offset,length))
         return self.AttrValue[offset:][:length]
 
     def getDataSize(self):
         return len(self.AttrValue)
+
 
 class AttributeNonResident(Attribute):
     def __init__(self, iNode, data):
@@ -419,21 +438,21 @@ class AttributeNonResident(Attribute):
                 offsetBytes = size >> 4
 
                 length = value[:lengthBytes]
-                length = struct.unpack('<Q', value[:lengthBytes]+'\x00'*(8-len(length)))[0]
+                length = struct.unpack('<Q', value[:lengthBytes] + '\x00' * (8 - len(length)))[0]
                 value = value[lengthBytes:]
 
                 fillWith = '\x00'
-                if (struct.unpack('B',value[offsetBytes-1])[0] & 0x80):
+                if (struct.unpack('B',value[offsetBytes - 1])[0] & 0x80):
                     fillWith = '\xff'
-                LCNOffset = value[:offsetBytes]+fillWith*(8-len(value[:offsetBytes]))
+                LCNOffset = value[:offsetBytes] + fillWith * (8 - len(value[:offsetBytes]))
                 LCNOffset = struct.unpack('<q',LCNOffset)[0]
 
                 value = value[offsetBytes:]
 
-                dr['LCN'] = LCN+LCNOffset
+                dr['LCN'] = LCN + LCNOffset
                 dr['Clusters'] = length
                 dr['StartVCN'] = VCN
-                dr['LastVCN'] = VCN + length -1
+                dr['LastVCN'] = VCN + length - 1
 
                 VCN += length
                 self.DataRuns.append(dr)
@@ -444,11 +463,11 @@ class AttributeNonResident(Attribute):
     def readClusters(self, clusters, lcn):
         logging.debug("Inside ReadClusters: clusters:%d, lcn:%d" % (clusters,lcn))
         if lcn == -1:
-            return '\x00'*clusters*self.ClusterSize
-        self.NTFSVolume.volumeFD.seek(lcn*self.ClusterSize,0)
-        buf = self.NTFSVolume.volumeFD.read(clusters*self.ClusterSize)
-        while len(buf) < clusters*self.ClusterSize:
-            buf+= self.NTFSVolume.volumeFD.read((clusters*self.ClusterSize)-len(buf))
+            return '\x00' * clusters * self.ClusterSize
+        self.NTFSVolume.volumeFD.seek(lcn * self.ClusterSize,0)
+        buf = self.NTFSVolume.volumeFD.read(clusters * self.ClusterSize)
+        while len(buf) < clusters * self.ClusterSize:
+            buf += self.NTFSVolume.volumeFD.read((clusters * self.ClusterSize) - len(buf))
 
         if len(buf) == 0:
             return None
@@ -471,7 +490,7 @@ class AttributeNonResident(Attribute):
                 else:
                     clustersToRead = numOfClusters
 
-                tmpBuf = self.readClusters(clustersToRead,dr['LCN']+(vcn-dr['StartVCN']))
+                tmpBuf = self.readClusters(clustersToRead,dr['LCN'] + (vcn - dr['StartVCN']))
                 if tmpBuf is not None:
                     buf = buf + tmpBuf
                     clustersLeft -= clustersToRead
@@ -483,15 +502,15 @@ class AttributeNonResident(Attribute):
         return buf
 
     def read(self,offset,length):
-        logging.debug("Inside Read: offset: %d, length: %d" %(offset,length))
+        logging.debug("Inside Read: offset: %d, length: %d" % (offset,length))
 
         buf = ''
         curLength = length
-        self.ClusterSize = self.NTFSVolume.BPB['BytesPerSector']*self.NTFSVolume.BPB['SectorsPerCluster']
+        self.ClusterSize = self.NTFSVolume.BPB['BytesPerSector'] * self.NTFSVolume.BPB['SectorsPerCluster']
 
         # Given the offset, let's calculate what VCN should be the first one to read
         vcnToStart = offset / self.ClusterSize
-        vcnOffset  = self.ClusterSize - (offset % self.ClusterSize)
+        vcnOffset = self.ClusterSize - (offset % self.ClusterSize)
 
         # Do we have to read partial VCNs?
         if (offset % self.ClusterSize):
@@ -534,6 +553,7 @@ class AttributeNonResident(Attribute):
         else:
             return buf
 
+
 class AttributeStandardInfo():
     def __init__(self, attribute):
         logging.debug("Inside AttributeStandardInfo")
@@ -551,6 +571,7 @@ class AttributeStandardInfo():
 
     def dump(self):
         return self.StandardInfo.dump()
+
 
 class AttributeFileName():
     def __init__(self, attribute):
@@ -575,6 +596,7 @@ class AttributeFileName():
 
     def dump(self):
         return self.FileNameRecord.dump()
+
 
 class AttributeIndexAllocation():
     def __init__(self, attribute):
@@ -615,6 +637,7 @@ class AttributeIndexRoot():
     def getType(self):
         return self.IndexRootRecord['Type']
 
+
 class IndexEntry():
     def __init__(self, entry):
         self.entry = NTFS_INDEX_ENTRY(entry)
@@ -639,6 +662,7 @@ class IndexEntry():
 
     def dump(self):
         self.entry.dump()
+
 
 class INODE():
     def __init__(self, NTFSVolume):
@@ -669,8 +693,8 @@ class INODE():
     def displayName(self):
         if self.LastDataChangeTime is not None and self.FileName is not None:
             try:
-#                print "%d - %s %s %s " %( self.INodeNumber, self.getPrintableAttributes(), self.LastDataChangeTime.isoformat(' '), self.FileName)
-                print("%s %s %15d %s " %( self.getPrintableAttributes(), self.LastDataChangeTime.isoformat(' '), self.FileSize, self.FileName))
+                #                print "%d - %s %s %s " %( self.INodeNumber, self.getPrintableAttributes(), self.LastDataChangeTime.isoformat(' '), self.FileName)
+                print("%s %s %15d %s " % (self.getPrintableAttributes(), self.LastDataChangeTime.isoformat(' '), self.FileSize, self.FileName))
             except Exception as e:
                 logging.error('Exception when trying to display inode %d: %s' % (self.INodeNumber,str(e)))
 
@@ -735,7 +759,7 @@ class INODE():
             ir = AttributeIndexRoot(attr)
             self.Attributes[INDEX_ROOT] = ir
 
-    def searchAttribute(self, attributeType, attributeName, findNext = False):
+    def searchAttribute(self, attributeType, attributeName, findNext=False):
         logging.debug("Inside searchAttribute: type: 0x%x, name: %s" % (attributeType, attributeName))
         record = None
 
@@ -782,15 +806,15 @@ class INODE():
         # RCRD Records in the $LogFile
         # RSTR Records in the $LogFile
 
-        logging.debug("Inside PerformFixUp..." )
+        logging.debug("Inside PerformFixUp...")
         data = None
         magicNum = struct.unpack('<H',buf[record['USROffset']:][:2])[0]
-        sequenceArray = buf[record['USROffset']+2:][:record['USRSize']*2]
+        sequenceArray = buf[record['USROffset'] + 2:][:record['USRSize'] * 2]
 
         dataList = list(buf)
         index = 0
-        for i in range(0,numSectors*2, 2):
-            index += (self.NTFSVolume.SectorSize)-2
+        for i in range(0,numSectors * 2, 2):
+            index += (self.NTFSVolume.SectorSize) - 2
             # Let's get the last two bytes of the sector
             lastBytes = struct.unpack('<H', buf[index:][:2])[0]
             # Is it the same as the magicNum?
@@ -798,8 +822,8 @@ class INODE():
                 logging.error("Magic number 0x%x doesn't match with 0x%x" % (magicNum,lastBytes))
                 return None
             # Now let's replace the original bytes
-            dataList[index]   = sequenceArray[i]
-            dataList[index+1] = sequenceArray[i+1]
+            dataList[index] = sequenceArray[i]
+            dataList[index + 1] = sequenceArray[i + 1]
             index += 2
 
         data = "".join(dataList)
@@ -810,14 +834,14 @@ class INODE():
         sectors = self.NTFSVolume.IndexBlockSize / self.NTFSVolume.SectorSize
         if INDEX_ALLOCATION in self.Attributes:
             ia = self.Attributes[INDEX_ALLOCATION]
-            data = ia.read(vcn*self.NTFSVolume.IndexBlockSize, self.NTFSVolume.IndexBlockSize)
+            data = ia.read(vcn * self.NTFSVolume.IndexBlockSize, self.NTFSVolume.IndexBlockSize)
             if data:
                 iaRec = NTFS_INDEX_ALLOCATION(data)
                 sectorsPerIB = self.NTFSVolume.IndexBlockSize / self.NTFSVolume.SectorSize
                 data = self.PerformFixUp(iaRec, data, sectorsPerIB)
                 if data is None:
                     return []
-                data = data[len(iaRec)-len(NTFS_INDEX_HEADER())+iaRec['Index']['EntriesOffset']:]
+                data = data[len(iaRec) - len(NTFS_INDEX_HEADER()) + iaRec['Index']['EntriesOffset']:]
                 while True:
                     ie = IndexEntry(data)
                     IndexEntries.append(ie)
@@ -843,7 +867,7 @@ class INODE():
                         #inode.LastDataChangeTime = datetime.fromtimestamp(getUnixTime(fn['LastDataChangeTime']))
                         #inode.INodeNumber = entry.getINodeNumber()
                         #inode.FileName = fn['FileName'].decode('utf-16le')
-                        #inode.displayName()
+                        # inode.displayName()
                         files.append(fn)
 #                    if inode.FileAttributes & FILE_ATTR_I30_INDEX_PRESENT and entry.getINodeNumber() > 16:
 #                        inode2 = self.NTFSVolume.getINode(entry.getINodeNumber())
@@ -889,10 +913,9 @@ class INODE():
                         return None
             else:
                 if ie.isSubNode():
-                        res = self.findFirstSubNode(ie.getVCN(), toSearch)
-                        if res is not None:
-                            return res
-
+                    res = self.findFirstSubNode(ie.getVCN(), toSearch)
+                    if res is not None:
+                        return res
 
     def findFirst(self, fileName):
         # Searches for a file and returns an Index Entry. None if not found
@@ -904,12 +927,11 @@ class INODE():
                     return string.upper(fn['FileName'].decode('utf-16le'))
             return None
 
-
         toSearch = str(string.upper(fileName))
 
         if INDEX_ROOT in self.Attributes:
             ir = self.Attributes[INDEX_ROOT]
-            if ir.getType() & FILE_NAME or 1==1:
+            if ir.getType() & FILE_NAME or 1 == 1:
                 for ie in ir.IndexEntries:
                     name = getFileName(ie)
                     if name is not None:
@@ -926,12 +948,12 @@ class INODE():
                                 return None
                     else:
                         if ie.isSubNode():
-                                res = self.findFirstSubNode(ie.getVCN(), toSearch)
-                                if res is not None:
-                                    return res
+                            res = self.findFirstSubNode(ie.getVCN(), toSearch)
+                            if res is not None:
+                                return res
 
     def getStream(self, name):
-        return self.searchAttribute( DATA, name, findNext = False)
+        return self.searchAttribute(DATA, name, findNext=False)
 
 
 class NTFS:
@@ -995,22 +1017,23 @@ class NTFS:
         if self.MFTINode and iNodeNum > FIXED_MFTS:
             # Fragmented $MFT
             attr = self.MFTINode.searchAttribute(DATA,None)
-            record = attr.read(iNodeNum*self.RecordSize, self.RecordSize)
+            record = attr.read(iNodeNum * self.RecordSize, self.RecordSize)
         else:
             diskPosition = self.__MFTStart + iNodeNum * self.RecordSize
             self.volumeFD.seek(diskPosition,0)
             record = self.volumeFD.read(recordLen)
             while len(record) < recordLen:
-                record += self.volumeFD.read(recordLen-len(record))
+                record += self.volumeFD.read(recordLen - len(record))
 
         mftRecord = NTFS_MFT_RECORD(record)
 
-        record = newINode.PerformFixUp(mftRecord, record, self.RecordSize/self.SectorSize)
+        record = newINode.PerformFixUp(mftRecord, record, self.RecordSize / self.SectorSize)
         newINode.INodeNumber = iNodeNum
-        newINode.AttributesRaw = record[mftRecord['AttributesOffset']-recordLen:]
+        newINode.AttributesRaw = record[mftRecord['AttributesOffset'] - recordLen:]
         newINode.parseAttributes()
 
         return newINode
+
 
 class MiniShell(cmd.Cmd):
     def __init__(self, volume):
@@ -1031,9 +1054,9 @@ class MiniShell(cmd.Cmd):
     def onecmd(self,s):
         retVal = False
         try:
-           retVal = cmd.Cmd.onecmd(self,s)
+            retVal = cmd.Cmd.onecmd(self,s)
         except Exception as e:
-           logging.error(str(e))
+            logging.error(str(e))
 
         return retVal
 
@@ -1082,7 +1105,7 @@ class MiniShell(cmd.Cmd):
         if res is None:
             logging.error("Directory not found")
             self.pwd = oldpwd
-            return 
+            return
         if res.isDirectory() == 0:
             logging.error("Not a directory!")
             self.pwd = oldpwd
@@ -1114,7 +1137,7 @@ class MiniShell(cmd.Cmd):
     def do_pwd(self,line):
         print(self.pwd)
 
-    def do_ls(self, line, display = True):
+    def do_ls(self, line, display=True):
         entries = self.currentINode.walk()
         self.completion = []
         for entry in entries:
@@ -1126,9 +1149,9 @@ class MiniShell(cmd.Cmd):
             if display is True:
                 inode.displayName()
             self.completion.append((inode.FileName,inode.isDirectory()))
-            
+
     def complete_cd(self, text, line, begidx, endidx):
-        return self.complete_get(text, line, begidx, endidx, include = 2)
+        return self.complete_get(text, line, begidx, endidx, include=2)
 
     def complete_cat(self,text,line,begidx,endidx):
         return self.complete_get(text, line, begidx, endidx)
@@ -1136,7 +1159,7 @@ class MiniShell(cmd.Cmd):
     def complete_hexdump(self,text,line,begidx,endidx):
         return self.complete_get(text, line, begidx, endidx)
 
-    def complete_get(self, text, line, begidx, endidx, include = 1):
+    def complete_get(self, text, line, begidx, endidx, include=1):
         # include means
         # 1 just files
         # 2 just directories
@@ -1149,7 +1172,7 @@ class MiniShell(cmd.Cmd):
             if i[1] == mask:
                 items.append(i[0])
         if text:
-            return  [
+            return [
                 item for item in items
                 if item.upper().startswith(text.upper())
             ]
@@ -1157,9 +1180,9 @@ class MiniShell(cmd.Cmd):
             return items
 
     def do_hexdump(self,line):
-        return self.do_cat(line,command = hexdump)
+        return self.do_cat(line,command=hexdump)
 
-    def do_cat(self, line, command = sys.stdout.write):
+    def do_cat(self, line, command=sys.stdout.write):
         pathName = string.replace(line,'/','\\')
         pathName = ntpath.normpath(ntpath.join(self.pwd,pathName))
         res = self.findPathName(pathName)
@@ -1173,10 +1196,10 @@ class MiniShell(cmd.Cmd):
             logging.error('Cannot handle compressed/encrypted/sparse files! :(')
             return
         stream = res.getStream(None)
-        chunks = 4096*10
+        chunks = 4096 * 10
         written = 0
-        for i in range(stream.getDataSize()/chunks):
-            buf = stream.read(i*chunks, chunks)
+        for i in range(stream.getDataSize() / chunks):
+            buf = stream.read(i * chunks, chunks)
             written += len(buf)
             command(buf)
         if stream.getDataSize() % chunks:
@@ -1188,18 +1211,19 @@ class MiniShell(cmd.Cmd):
         pathName = string.replace(line,'/','\\')
         pathName = ntpath.normpath(ntpath.join(self.pwd,pathName))
         fh = open(ntpath.basename(pathName),"wb")
-        self.do_cat(line, command = fh.write)
+        self.do_cat(line, command=fh.write)
         fh.close()
+
 
 def main():
     print(version.BANNER)
     logging.getLogger().setLevel(logging.WARNING)
-    parser = argparse.ArgumentParser(add_help = True, description = "NTFS explorer (read-only)")
+    parser = argparse.ArgumentParser(add_help=True, description="NTFS explorer (read-only)")
     parser.add_argument('volume', action='store', help='NTFS volume to open (e.g. \\\\.\\C: or /dev/disk1s1)')
     parser.add_argument('-extract', action='store', help='extracts pathname (e.g. \windows\system32\config\sam)')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
-    if len(sys.argv)==1:
+    if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(1)
     options = parser.parse_args()
@@ -1211,13 +1235,10 @@ def main():
 
     shell = MiniShell(options.volume)
     if options.extract is not None:
-        shell.onecmd("get %s"% options.extract)
+        shell.onecmd("get %s" % options.extract)
     else:
         shell.cmdloop()
 
 if __name__ == '__main__':
     main()
     sys.exit(1)
-
-
-

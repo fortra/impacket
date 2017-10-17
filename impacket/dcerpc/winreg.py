@@ -31,38 +31,39 @@ from impacket.uuid import uuidtup_to_bin
 MSRPC_UUID_WINREG = uuidtup_to_bin(('338CD001-2244-31F1-AAAA-900038001003', '1.0'))
 
 # Registry Security Access Mask values
-KEY_CREATE_LINK         = 0x20
-KEY_CREATE_SUB_KEY      = 0x04
-KEY_ENUMERATE_SUB_KEYS  = 0x08
-KEY_EXECUTE             = 0x20019
-KEY_NOTIFY              = 0x10
-KEY_QUERY_VALUE         = 0x01
-KEY_SET_VALUE           = 0x02
-KEY_ALL_ACCESS          = 0xF003F
-KEY_READ                = 0x20019
-KEY_WRITE               = 0x20006
+KEY_CREATE_LINK = 0x20
+KEY_CREATE_SUB_KEY = 0x04
+KEY_ENUMERATE_SUB_KEYS = 0x08
+KEY_EXECUTE = 0x20019
+KEY_NOTIFY = 0x10
+KEY_QUERY_VALUE = 0x01
+KEY_SET_VALUE = 0x02
+KEY_ALL_ACCESS = 0xF003F
+KEY_READ = 0x20019
+KEY_WRITE = 0x20006
 
 # Registry Data types
-REG_NONE                = 0    # No value type
-REG_SZ                  = 1    # Unico nul terminated string
-REG_EXPAND_SZ           = 2    # Unicode nul terminated string
-                               # (with environment variable references)
-REG_BINARY              = 3 #   // Free form binary
-REG_DWORD                =    4 #   // 32-bit number
-REG_DWORD_LITTLE_ENDIAN =   4 #   // 32-bit number (same as REG_DWORD)
-REG_DWORD_BIG_ENDIAN    =    5 #   // 32-bit number
-REG_LINK                =     6 #   // Symbolic Link (unicode)
-REG_MULTI_SZ            =     7 #   // Multiple Unicode strings
-REG_RESOURCE_LIST       =     8 #   // Resource list in the resource map
-REG_FULL_RESOURCE_DESCRIPTOR  = 9   # Resource list in the hardware description
-REG_RESOURCE_REQUIREMENTS_LIST  = 10
+REG_NONE = 0    # No value type
+REG_SZ = 1    # Unico nul terminated string
+REG_EXPAND_SZ = 2    # Unicode nul terminated string
+# (with environment variable references)
+REG_BINARY = 3  # // Free form binary
+REG_DWORD = 4  # // 32-bit number
+REG_DWORD_LITTLE_ENDIAN = 4  # // 32-bit number (same as REG_DWORD)
+REG_DWORD_BIG_ENDIAN = 5  # // 32-bit number
+REG_LINK = 6  # // Symbolic Link (unicode)
+REG_MULTI_SZ = 7  # // Multiple Unicode strings
+REG_RESOURCE_LIST = 8  # // Resource list in the resource map
+REG_FULL_RESOURCE_DESCRIPTOR = 9   # Resource list in the hardware description
+REG_RESOURCE_REQUIREMENTS_LIST = 10
+
 
 class WINREGQueryInfoKey(ImpactPacket.Header):
-# Just the class info stuff for now
+    # Just the class info stuff for now
     OP_NUM = 16
     __SIZE = 40
 
-    def __init__(self, aBuffer = None):
+    def __init__(self, aBuffer=None):
         ImpactPacket.Header.__init__(self, WINREGQueryInfoKey.__SIZE)
         self.set_word(20, 0, '<')
         self.set_word(22, 520, '<')
@@ -84,24 +85,24 @@ class WINREGQueryInfoKey(ImpactPacket.Header):
         assert var_size > 0
         return WINREGQueryInfoKey.__SIZE + var_size
 
+
 class WINREGRespQueryInfoKey(ImpactPacket.Header):
     OP_NUM = 16
     __SIZE = 0
 
-    def __init__(self, aBuffer = None):
+    def __init__(self, aBuffer=None):
         ImpactPacket.Header.__init__(self, WINREGRespQueryInfoKey.__SIZE)
         if aBuffer: self.load_header(aBuffer)
 
     def get_class_data(self):
         length = self.get_word(0, '<')
-        return str(self.get_bytes().tostring()[20:20+length], 'utf-16le')
+        return str(self.get_bytes().tostring()[20:20 + length], 'utf-16le')
 
     def get_return_code(self):
         return self.get_long(-4, '<')
 
     def set_return_code(self, code):
         self.set_long(-4, code, '<')
-
 
     def get_header_size(self):
         var_size = len(self.get_bytes()) - WINREGRespQueryInfoKey.__SIZE
@@ -113,7 +114,7 @@ class WINREGSaveKey(ImpactPacket.Header):
     OP_NUM = 20
     __SIZE = 72
 
-    def __init__(self, aBuffer = None):
+    def __init__(self, aBuffer=None):
         ImpactPacket.Header.__init__(self, WINREGSaveKey.__SIZE)
 
         if aBuffer: self.load_header(aBuffer)
@@ -143,8 +144,7 @@ class WINREGSaveKey(ImpactPacket.Header):
         self.set_long(24, 0x2, '<')
         self.set_long(28, namelen, '<')
         self.set_long(36, namelen, '<')
-        self.get_bytes()[40:] = array.array('B', name.encode('utf-16le') + pad + '\x00'*4)
-
+        self.get_bytes()[40:] = array.array('B', name.encode('utf-16le') + pad + '\x00' * 4)
 
     def get_header_size(self):
         var_size = len(self.get_bytes()) - WINREGSaveKey.__SIZE
@@ -155,19 +155,18 @@ class WINREGSaveKey(ImpactPacket.Header):
 class WINREGRespSaveKey(ImpactPacket.Header):
     __SIZE = 4
 
-    def __init__(self, aBuffer = None):
+    def __init__(self, aBuffer=None):
         ImpactPacket.Header.__init__(self, WINREGRespSaveKey.__SIZE)
         if aBuffer: self.load_header(aBuffer)
 
     def get_return_code(self):
         return self.get_long(0, '<')
+
     def set_return_code(self, code):
         self.set_long(0, code, '<')
 
-
     def get_header_size(self):
         return WINREGRespSaveKey.__SIZE
-
 
 
 class WINREGCloseKey(ImpactPacket.Header):
@@ -175,16 +174,16 @@ class WINREGCloseKey(ImpactPacket.Header):
 
     __SIZE = 20
 
-    def __init__(self, aBuffer = None):
+    def __init__(self, aBuffer=None):
         ImpactPacket.Header.__init__(self, WINREGCloseKey.__SIZE)
         if aBuffer: self.load_header(aBuffer)
 
     def get_context_handle(self):
         return self.get_bytes().tolist()[:20]
+
     def set_context_handle(self, handle):
         assert 20 == len(handle)
         self.get_bytes()[:20] = array.array('B', handle)
-
 
     def get_header_size(self):
         return WINREGCloseKey.__SIZE
@@ -193,21 +192,22 @@ class WINREGCloseKey(ImpactPacket.Header):
 class WINREGRespCloseKey(ImpactPacket.Header):
     __SIZE = 24
 
-    def __init__(self, aBuffer = None):
+    def __init__(self, aBuffer=None):
         ImpactPacket.Header.__init__(self, WINREGRespCloseKey.__SIZE)
         if aBuffer: self.load_header(aBuffer)
 
     def get_context_handle(self):
         return self.get_bytes().tolist()[:20]
+
     def set_context_handle(self, handle):
         assert 20 == len(handle)
         self.get_bytes()[:20] = array.array('B', handle)
 
     def get_return_code(self):
         return self.get_long(20, '<')
+
     def set_return_code(self, code):
         self.set_long(20, code, '<')
-
 
     def get_header_size(self):
         return WINREGRespCloseKey.__SIZE
@@ -218,7 +218,7 @@ class WINREGDeleteValue(ImpactPacket.Header):
 
     __SIZE = 40
 
-    def __init__(self, aBuffer = None):
+    def __init__(self, aBuffer=None):
         ImpactPacket.Header.__init__(self, WINREGDeleteValue.__SIZE)
 
         # Write some unknown fluff.
@@ -228,12 +228,14 @@ class WINREGDeleteValue(ImpactPacket.Header):
 
     def get_context_handle(self):
         return self.get_bytes().tolist()[:20]
+
     def set_context_handle(self, handle):
         assert 20 == len(handle)
         self.get_bytes()[:20] = array.array('B', handle)
 
     def get_name(self):
         return str(self.get_bytes().tostring()[40:], 'utf-16le')
+
     def set_name(self, name):
         if not name.endswith('\0'):
             name += '\0'
@@ -248,7 +250,6 @@ class WINREGDeleteValue(ImpactPacket.Header):
         self.set_long(36, namelen, '<')
         self.get_bytes()[40:] = array.array('B', name.encode('utf-16le') + pad)
 
-
     def get_header_size(self):
         var_size = len(self.get_bytes()) - WINREGDeleteValue.__SIZE
         assert var_size > 0
@@ -258,15 +259,15 @@ class WINREGDeleteValue(ImpactPacket.Header):
 class WINREGRespDeleteValue(ImpactPacket.Header):
     __SIZE = 4
 
-    def __init__(self, aBuffer = None):
+    def __init__(self, aBuffer=None):
         ImpactPacket.Header.__init__(self, WINREGRespDeleteValue.__SIZE)
         if aBuffer: self.load_header(aBuffer)
 
     def get_return_code(self):
         return self.get_long(0, '<')
+
     def set_return_code(self, code):
         self.set_long(0, code, '<')
-
 
     def get_header_size(self):
         return WINREGRespDeleteValue.__SIZE
@@ -277,7 +278,7 @@ class WINREGDeleteKey(ImpactPacket.Header):
 
     __SIZE = 40
 
-    def __init__(self, aBuffer = None):
+    def __init__(self, aBuffer=None):
         ImpactPacket.Header.__init__(self, WINREGDeleteKey.__SIZE)
 
         # Write some unknown fluff.
@@ -287,12 +288,14 @@ class WINREGDeleteKey(ImpactPacket.Header):
 
     def get_context_handle(self):
         return self.get_bytes().tolist()[:20]
+
     def set_context_handle(self, handle):
         assert 20 == len(handle)
         self.get_bytes()[:20] = array.array('B', handle)
 
     def get_key_name(self):
         return str(self.get_bytes().tostring()[40:], 'utf-16le')
+
     def set_key_name(self, name):
         if not name.endswith('\0'):
             name += '\0'
@@ -307,7 +310,6 @@ class WINREGDeleteKey(ImpactPacket.Header):
         self.set_long(36, namelen, '<')
         self.get_bytes()[40:] = array.array('B', name.encode('utf-16le') + pad)
 
-
     def get_header_size(self):
         var_size = len(self.get_bytes()) - WINREGDeleteKey.__SIZE
         assert var_size > 0
@@ -317,15 +319,15 @@ class WINREGDeleteKey(ImpactPacket.Header):
 class WINREGRespDeleteKey(ImpactPacket.Header):
     __SIZE = 4
 
-    def __init__(self, aBuffer = None):
+    def __init__(self, aBuffer=None):
         ImpactPacket.Header.__init__(self, WINREGRespDeleteKey.__SIZE)
         if aBuffer: self.load_header(aBuffer)
 
     def get_return_code(self):
         return self.get_long(0, '<')
+
     def set_return_code(self, code):
         self.set_long(0, code, '<')
-
 
     def get_header_size(self):
         return WINREGRespDeleteKey.__SIZE
@@ -336,7 +338,7 @@ class WINREGCreateKey(ImpactPacket.Header):
 
     __SIZE = 64
 
-    def __init__(self, aBuffer = None):
+    def __init__(self, aBuffer=None):
         ImpactPacket.Header.__init__(self, WINREGCreateKey.__SIZE)
 
         # Write some unknown fluff.
@@ -347,12 +349,14 @@ class WINREGCreateKey(ImpactPacket.Header):
 
     def get_context_handle(self):
         return self.get_bytes().tolist()[:20]
+
     def set_context_handle(self, handle):
         assert 20 == len(handle)
         self.get_bytes()[:20] = array.array('B', handle)
 
     def get_key_name(self):
         return str(self.get_bytes().tostring()[40:-24], 'utf-16le')
+
     def set_key_name(self, name):
         if not name.endswith('\0'):
             name += '\0'
@@ -367,7 +371,6 @@ class WINREGCreateKey(ImpactPacket.Header):
         self.set_long(36, namelen, '<')
         self.get_bytes()[40:-24] = array.array('B', name.encode('utf-16le') + pad)
 
-
     def get_header_size(self):
         var_size = len(self.get_bytes()) - WINREGCreateKey.__SIZE
         assert var_size > 0
@@ -377,27 +380,28 @@ class WINREGCreateKey(ImpactPacket.Header):
 class WINREGRespCreateKey(ImpactPacket.Header):
     __SIZE = 28
 
-    def __init__(self, aBuffer = None):
+    def __init__(self, aBuffer=None):
         ImpactPacket.Header.__init__(self, WINREGRespCreateKey.__SIZE)
         if aBuffer: self.load_header(aBuffer)
 
     def get_context_handle(self):
         return self.get_bytes().tolist()[:20]
+
     def set_context_handle(self, handle):
         assert 20 == len(handle)
         self.get_bytes()[:20] = array.array('B', handle)
 
     def get_return_code(self):
         return self.get_long(24, '<')
+
     def set_return_code(self, code):
         self.set_long(24, code, '<')
-
 
     def get_header_size(self):
         return WINREGRespCreateKey.__SIZE
 
 
-#context handle
+# context handle
 # WORD LEN (counting the 0s)
 # DWORD LEN (in unicode, that is without counting the 0s)
 # KEYNAME in UNICODE
@@ -409,7 +413,7 @@ class WINREGOpenKey(ImpactPacket.Header):
 
     __SIZE = 44
 
-    def __init__(self, aBuffer = None):
+    def __init__(self, aBuffer=None):
         ImpactPacket.Header.__init__(self, WINREGOpenKey.__SIZE)
 
         self.set_access_mask(KEY_READ)
@@ -421,12 +425,14 @@ class WINREGOpenKey(ImpactPacket.Header):
 
     def get_context_handle(self):
         return self.get_bytes().tolist()[:20]
+
     def set_context_handle(self, handle):
         assert 20 == len(handle)
         self.get_bytes()[:20] = array.array('B', handle)
 
     def get_key_name(self):
         return str(self.get_bytes().tostring()[40:-4], 'utf-16le')
+
     def set_key_name(self, name):
         if not name.endswith('\0'):
             name += '\0'
@@ -439,9 +445,9 @@ class WINREGOpenKey(ImpactPacket.Header):
 
     def get_access_mask(self):
         return self.get_long(-4, '<')
+
     def set_access_mask(self, mask):
         self.set_long(-4, mask, '<')
-
 
     def get_header_size(self):
         var_size = len(self.get_bytes()) - WINREGOpenKey.__SIZE
@@ -452,21 +458,22 @@ class WINREGOpenKey(ImpactPacket.Header):
 class WINREGRespOpenKey(ImpactPacket.Header):
     __SIZE = 24
 
-    def __init__(self, aBuffer = None):
+    def __init__(self, aBuffer=None):
         ImpactPacket.Header.__init__(self, WINREGRespOpenKey.__SIZE)
         if aBuffer: self.load_header(aBuffer)
 
     def get_context_handle(self):
         return self.get_bytes().tolist()[:20]
+
     def set_context_handle(self, handle):
         assert 20 == len(handle)
         self.get_bytes()[:20] = array.array('B', handle)
 
     def get_return_code(self):
         return self.get_long(20, '<')
+
     def set_return_code(self, code):
         self.set_long(20, code, '<')
-
 
     def get_header_size(self):
         return WINREGRespOpenKey.__SIZE
@@ -477,7 +484,7 @@ class WINREGSetValue(ImpactPacket.Header):
 
     __SIZE = 52
 
-    def __init__(self, aBuffer = None):
+    def __init__(self, aBuffer=None):
         ImpactPacket.Header.__init__(self, WINREGSetValue.__SIZE)
 
         # Write some unknown fluff.
@@ -488,12 +495,14 @@ class WINREGSetValue(ImpactPacket.Header):
 
     def get_context_handle(self):
         return self.get_bytes().tolist()[:20]
+
     def set_context_handle(self, handle):
         assert 20 == len(handle)
         self.get_bytes()[:20] = array.array('B', handle)
 
     def get_name(self):
-        return str(self.get_bytes().tostring()[40:40+self.namelen], 'utf-16le')
+        return str(self.get_bytes().tostring()[40:40 + self.namelen], 'utf-16le')
+
     def set_name(self, name):
         if not name.endswith('\0'):
             name += '\0'
@@ -508,17 +517,18 @@ class WINREGSetValue(ImpactPacket.Header):
         self.set_long(28, namelen, '<')
         self.set_long(36, namelen, '<')
         padded_name = array.array('B', name.encode('utf-16le') + pad)
-        self.get_bytes()[40:40+self.namelen] = padded_name
+        self.get_bytes()[40:40 + self.namelen] = padded_name
         self.namelen = len(padded_name)
 
     def get_data_type(self):
-        return self.get_long(40+self.namelen, '<')
+        return self.get_long(40 + self.namelen, '<')
+
     def set_data_type(self, type):
-        self.set_long(40+self.namelen, type, '<')
+        self.set_long(40 + self.namelen, type, '<')
 
     def get_data(self):
         data_type = self.get_data_type()
-        data = self.get_bytes().tostring()[40+self.namelen+8:-4]
+        data = self.get_bytes().tostring()[40 + self.namelen + 8:-4]
         if data_type == REG_DWORD:
             data = struct.unpack('<L', data)[0]
         elif data_type == REG_SZ:
@@ -541,10 +551,9 @@ class WINREGSetValue(ImpactPacket.Header):
                 pad = '\x00\x00'
 
         datalen = len(data)
-        self.set_long(40+self.namelen+4, datalen, '<')
+        self.set_long(40 + self.namelen + 4, datalen, '<')
         self.set_long(-4, datalen, '<')
-        self.get_bytes()[40+self.namelen+8:-4] = array.array('B', data + pad)
-
+        self.get_bytes()[40 + self.namelen + 8:-4] = array.array('B', data + pad)
 
     def get_header_size(self):
         var_size = len(self.get_bytes()) - WINREGSetValue.__SIZE
@@ -555,15 +564,15 @@ class WINREGSetValue(ImpactPacket.Header):
 class WINREGRespSetValue(ImpactPacket.Header):
     __SIZE = 4
 
-    def __init__(self, aBuffer = None):
+    def __init__(self, aBuffer=None):
         ImpactPacket.Header.__init__(self, WINREGRespSetValue.__SIZE)
         if aBuffer: self.load_header(aBuffer)
 
     def get_return_code(self):
         return self.get_long(0, '<')
+
     def set_return_code(self, code):
         self.set_long(0, code, '<')
-
 
     def get_header_size(self):
         return WINREGRespSetValue.__SIZE
@@ -580,7 +589,7 @@ class WINREGQueryValue(ImpactPacket.Header):
 
     __SIZE = 80
 
-    def __init__(self, aBuffer = None):
+    def __init__(self, aBuffer=None):
         ImpactPacket.Header.__init__(self, WINREGQueryValue.__SIZE)
 
         self.set_data_len(0xC8)
@@ -595,12 +604,14 @@ class WINREGQueryValue(ImpactPacket.Header):
 
     def get_context_handle(self):
         return self.get_bytes().tolist()[:20]
+
     def set_context_handle(self, handle):
         assert 20 == len(handle)
         self.get_bytes()[:20] = array.array('B', handle)
 
     def get_name(self):
         return str(self.get_bytes().tostring()[40:-40], 'utf-16le')
+
     def set_name(self, name):
         if not name.endswith('\0'):
             name += '\0'
@@ -618,10 +629,10 @@ class WINREGQueryValue(ImpactPacket.Header):
 
     def get_data_len(self):
         return self.get_long(-28, '<')
+
     def set_data_len(self, len):
         self.set_long(-28, len, '<')
         self.set_long(-12, len, '<')
-
 
     def get_header_size(self):
         var_size = len(self.get_bytes()) - WINREGQueryValue.__SIZE
@@ -632,24 +643,26 @@ class WINREGQueryValue(ImpactPacket.Header):
 class WINREGRespQueryValue(ImpactPacket.Header):
     __SIZE = 44
 
-    def __init__(self, aBuffer = None):
+    def __init__(self, aBuffer=None):
         ImpactPacket.Header.__init__(self, WINREGRespQueryValue.__SIZE)
         if aBuffer: self.load_header(aBuffer)
 
     def get_data_type(self):
         return self.get_long(4, '<')
+
     def set_data_type(self, type):
         self.set_long(4, type, '<')
 
     def get_data_len(self):
         return self.get_long(20, '<')
+
     def set_data_len(self, len):
         self.set_long(20, len, '<')
         self.set_long(28, len, '<')
 
     def get_data(self):
         data_type = self.get_data_type()
-        data = self.get_bytes().tostring()[24:24+self.get_data_len()]
+        data = self.get_bytes().tostring()[24:24 + self.get_data_len()]
         if data_type == REG_DWORD:
             data = struct.unpack('<L', data)[0]
         elif data_type == REG_SZ:
@@ -662,9 +675,9 @@ class WINREGRespQueryValue(ImpactPacket.Header):
 
     def get_return_code(self):
         return self.get_long(-4, '<')
+
     def set_return_code(self, code):
         self.set_long(-4, code, '<')
-
 
     def get_header_size(self):
         var_size = len(self.get_bytes()) - WINREGRespQueryValue.__SIZE
@@ -677,20 +690,20 @@ class WINREGOpenHK(ImpactPacket.Header):
 
     __SIZE = 12
 
-    def __init__(self, aBuffer = None):
+    def __init__(self, aBuffer=None):
         ImpactPacket.Header.__init__(self, WINREGOpenHK.__SIZE)
 
-        self.set_long(0, 0x06f7c0, '<') # magic, apparently always the same
-        self.set_long(4, 0x019b58, '<') # don't know exactly, can be almost anything so far
+        self.set_long(0, 0x06f7c0, '<')  # magic, apparently always the same
+        self.set_long(4, 0x019b58, '<')  # don't know exactly, can be almost anything so far
         self.set_access_mask(0x2000000)
 
         if aBuffer: self.load_header(aBuffer)
 
     def get_access_mask(self):
         return self.get_long(8, '<')
+
     def set_access_mask(self, mask):
         self.set_long(8, mask, '<')
-
 
     def get_header_size(self):
         return WINREGOpenHK.__SIZE
@@ -699,21 +712,22 @@ class WINREGOpenHK(ImpactPacket.Header):
 class WINREGRespOpenHK(ImpactPacket.Header):
     __SIZE = 24
 
-    def __init__(self, aBuffer = None):
+    def __init__(self, aBuffer=None):
         ImpactPacket.Header.__init__(self, WINREGRespOpenHK.__SIZE)
         if aBuffer: self.load_header(aBuffer)
 
     def get_context_handle(self):
         return self.get_bytes().tolist()[:20]
+
     def set_context_handle(self, handle):
         assert 20 == len(handle)
         self.get_bytes()[:20] = array.array('B', handle)
 
     def get_return_code(self):
         return self.get_long(20, '<')
+
     def set_return_code(self, code):
         self.set_long(20, code, '<')
-
 
     def get_header_size(self):
         return WINREGRespOpenHK.__SIZE
@@ -722,8 +736,10 @@ class WINREGRespOpenHK(ImpactPacket.Header):
 class WINREGOpenHKCR(WINREGOpenHK):
     OP_NUM = 0
 
+
 class WINREGOpenHKLM(WINREGOpenHK):
     OP_NUM = 2
+
 
 class WINREGOpenHKU(WINREGOpenHK):
     OP_NUM = 4
@@ -749,7 +765,7 @@ class DCERPCWinReg:
 
     def regCloseKey(self, context_handle):
         wreg_closekey = WINREGCloseKey()
-        wreg_closekey.set_context_handle( context_handle )
+        wreg_closekey.set_context_handle(context_handle)
         self._dce.send(wreg_closekey)
         data = self._dce.recv()
         retVal = WINREGRespCloseKey(data)
@@ -757,9 +773,9 @@ class DCERPCWinReg:
 
     def regOpenKey(self, context_handle, aKeyname, anAccessMask):
         wreg_openkey = WINREGOpenKey()
-        wreg_openkey.set_context_handle( context_handle )
-        wreg_openkey.set_key_name( aKeyname )
-        wreg_openkey.set_access_mask( anAccessMask )
+        wreg_openkey.set_context_handle(context_handle)
+        wreg_openkey.set_key_name(aKeyname)
+        wreg_openkey.set_access_mask(anAccessMask)
         self._dce.send(wreg_openkey)
         data = self._dce.recv()
         retVal = WINREGRespOpenKey(data)
@@ -767,8 +783,8 @@ class DCERPCWinReg:
 
     def regCreateKey(self, context_handle, aKeyname):
         wreg_createkey = WINREGCreateKey()
-        wreg_createkey.set_context_handle( context_handle )
-        wreg_createkey.set_key_name( aKeyname )
+        wreg_createkey.set_context_handle(context_handle)
+        wreg_createkey.set_key_name(aKeyname)
         self._dce.send(wreg_createkey)
         data = self._dce.recv()
         retVal = WINREGRespCreateKey(data)
@@ -776,8 +792,8 @@ class DCERPCWinReg:
 
     def regDeleteKey(self, context_handle, aKeyname):
         wreg_deletekey = WINREGDeleteKey()
-        wreg_deletekey.set_context_handle( context_handle )
-        wreg_deletekey.set_key_name( aKeyname )
+        wreg_deletekey.set_context_handle(context_handle)
+        wreg_deletekey.set_key_name(aKeyname)
         self._dce.send(wreg_deletekey)
         data = self._dce.recv()
         retVal = WINREGRespDeleteKey(data)
@@ -785,8 +801,8 @@ class DCERPCWinReg:
 
     def regDeleteValue(self, context_handle, aValuename):
         wreg_deletevalue = WINREGDeleteValue()
-        wreg_deletevalue.set_context_handle( context_handle )
-        wreg_deletevalue.set_name( aValuename )
+        wreg_deletevalue.set_context_handle(context_handle)
+        wreg_deletevalue.set_name(aValuename)
         self._dce.send(wreg_deletevalue)
         data = self._dce.recv()
         retVal = WINREGRespDeleteValue(data)
@@ -794,9 +810,9 @@ class DCERPCWinReg:
 
     def regQueryValue(self, context_handle, aValueName, aDataLen):
         wreg_queryval = WINREGQueryValue()
-        wreg_queryval.set_context_handle( context_handle )
-        wreg_queryval.set_name( aValueName )
-        wreg_queryval.set_data_len( aDataLen )
+        wreg_queryval.set_context_handle(context_handle)
+        wreg_queryval.set_name(aValueName)
+        wreg_queryval.set_data_len(aDataLen)
         self._dce.send(wreg_queryval)
         data = self._dce.recv()
         retVal = WINREGRespQueryValue(data)
@@ -804,7 +820,7 @@ class DCERPCWinReg:
 
     def regSetValue(self, context_handle, aValueType, aValueName, aData):
         wreg_setval = WINREGSetValue()
-        wreg_setval.set_context_handle( context_handle )
+        wreg_setval.set_context_handle(context_handle)
         wreg_setval.set_data_type(aValueType)
         wreg_setval.set_name(aValueName)
         wreg_setval.set_data(aData)
@@ -815,7 +831,7 @@ class DCERPCWinReg:
 
     def regSaveKey(self, context_handle, fileName):
         wreg_savekey = WINREGSaveKey()
-        wreg_savekey.set_context_handle( context_handle )
+        wreg_savekey.set_context_handle(context_handle)
         wreg_savekey.set_file_name(fileName)
         self._dce.send(wreg_savekey)
         data = self._dce.recv()
@@ -836,4 +852,3 @@ class DCERPCWinReg:
         data = self._dce.recv()
         retVal = WINREGRespOpenHK(data)
         return retVal
-

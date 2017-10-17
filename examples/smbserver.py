@@ -21,7 +21,7 @@ if __name__ == '__main__':
 
     print(version.BANNER)
 
-    parser = argparse.ArgumentParser(add_help = True, description = "This script will launch a SMB Server and add a share specified as an argument. You need to be root in order to bind to port 445. No authentication will be enforced. Example: smbserver.py -comment 'My share' TMP /tmp")
+    parser = argparse.ArgumentParser(add_help=True, description="This script will launch a SMB Server and add a share specified as an argument. You need to be root in order to bind to port 445. No authentication will be enforced. Example: smbserver.py -comment 'My share' TMP /tmp")
 
     parser.add_argument('shareName', action='store', help='name of the share to add')
     parser.add_argument('sharePath', action='store', help='path of the share to add')
@@ -29,15 +29,15 @@ if __name__ == '__main__':
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-smb2support', action='store_true', default=False, help='SMB2 Support (experimental!)')
 
-    if len(sys.argv)==1:
+    if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(1)
 
     try:
-       options = parser.parse_args()
+        options = parser.parse_args()
     except Exception as e:
-       logging.critical(str(e))
-       sys.exit(1)
+        logging.critical(str(e))
+        sys.exit(1)
 
     if options.debug is True:
         logging.getLogger().setLevel(logging.DEBUG)
@@ -53,7 +53,7 @@ if __name__ == '__main__':
 
     server.addShare(options.shareName.upper(), options.sharePath, comment)
     server.setSMB2Support(options.smb2support)
-   
+
     # Here you can set a custom SMB challenge in hex format
     # If empty defaults to '4141414141414141'
     # (remember: must be 16 hex bytes long)
@@ -66,4 +66,3 @@ if __name__ == '__main__':
 
     # Rock and roll
     server.start()
-

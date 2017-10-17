@@ -281,78 +281,81 @@ uuid_database = set((uuidstr.upper(), ver) for uuidstr, ver in uuid_database)
 
 # add the ones from ndrutils
 k = list(ndrutils.KNOWN_UUIDS.keys())[0]
+
+
 def fix_ndr_uuid(ndruuid):
-  assert len(ndruuid) == 18
-  uuid = ndruuid[:16]
-  maj, min = struct.unpack("BB", ndruuid[16:])
-  return uuid + struct.pack("<HH", maj, min)
+    assert len(ndruuid) == 18
+    uuid = ndruuid[:16]
+    maj, min = struct.unpack("BB", ndruuid[16:])
+    return uuid + struct.pack("<HH", maj, min)
 uuid_database.update(
-  uuid.bin_to_uuidtup(fix_ndr_uuid(bin)) for bin in list(ndrutils.KNOWN_UUIDS.keys())
+    uuid.bin_to_uuidtup(fix_ndr_uuid(bin)) for bin in list(ndrutils.KNOWN_UUIDS.keys())
 )
 
+
 def main(args):
-  if len(args) != 2:
-    print("usage: ./ifmap.py <host> <port>")
-    return 1
+    if len(args) != 2:
+        print("usage: ./ifmap.py <host> <port>")
+        return 1
 
-  host = args[0]
-  port = int(args[1])
+    host = args[0]
+    port = int(args[1])
 
-  stringbinding = "ncacn_ip_tcp:%s" % host
-  trans = transport.DCERPCTransportFactory(stringbinding)
-  trans.set_dport(port)
+    stringbinding = "ncacn_ip_tcp:%s" % host
+    trans = transport.DCERPCTransportFactory(stringbinding)
+    trans.set_dport(port)
 
-  dce = trans.get_dce_rpc()
-  dce.connect()
-
-  dce.bind(mgmt.MSRPC_UUID_MGMT)
-
-  ifids = mgmt.hinq_if_ids(dce)
-
-  uuidtups = set(
-    uuid.bin_to_uuidtup(ifids['if_id_vector']['if_id'][index]['Data'].getData())
-    for index in range(ifids['if_id_vector']['count'])
-  )
-
-  dce.disconnect()
-
-  probes = uuidtups | uuid_database
-
-  for tup in sorted(probes):
-    listed = tup in uuidtups
-
+    dce = trans.get_dce_rpc()
     dce.connect()
 
-    binuuid = uuid.uuidtup_to_bin(tup)
-    try:
-      dce.bind(binuuid)
-    except rpcrt.Exception as e:
-      resp = e[1]
-      if (resp['Result'], resp['Reason']) == (2, 1):
-        listening = False
-      else:
-        raise
-    else:
-      listening = True
+    dce.bind(mgmt.MSRPC_UUID_MGMT)
 
-    listed = tup in uuidtups
-    otherversion = any(tup[0] == uuidstr for uuidstr, ver in uuidtups)
-    if listed or listening:
-      print("%r: %s, %s" % (
-        tup,
-        "listed" if listed else "other version listed" if otherversion else "not listed",
-        "listening" if listening else "not listening"
-      ))
-      if tup[0] in epm.KNOWN_PROTOCOLS:
-          print("Protocol: %s" % (epm.KNOWN_PROTOCOLS[tup[0]]))
-      else:
-          print("Procotol: N/A")
+    ifids = mgmt.hinq_if_ids(dce)
 
-      if uuid.uuidtup_to_bin(tup)[:18] in ndrutils.KNOWN_UUIDS:
-          print("Provider: %s" % (ndrutils.KNOWN_UUIDS[uuid.uuidtup_to_bin(tup)[:18]]))
-      else:
-          print("Provider: N/A")
+    uuidtups = set(
+        uuid.bin_to_uuidtup(ifids['if_id_vector']['if_id'][index]['Data'].getData())
+        for index in range(ifids['if_id_vector']['count'])
+    )
+
+    dce.disconnect()
+
+    probes = uuidtups | uuid_database
+
+    for tup in sorted(probes):
+        listed = tup in uuidtups
+
+        dce.connect()
+
+        binuuid = uuid.uuidtup_to_bin(tup)
+        try:
+            dce.bind(binuuid)
+        except rpcrt.Exception as e:
+            resp = e[1]
+            if (resp['Result'], resp['Reason']) == (2, 1):
+                listening = False
+            else:
+                raise
+        else:
+            listening = True
+
+        listed = tup in uuidtups
+        otherversion = any(tup[0] == uuidstr for uuidstr, ver in uuidtups)
+        if listed or listening:
+            print("%r: %s, %s" % (
+                tup,
+                "listed" if listed else "other version listed" if otherversion else "not listed",
+                "listening" if listening else "not listening"
+            ))
+            if tup[0] in epm.KNOWN_PROTOCOLS:
+                print("Protocol: %s" % (epm.KNOWN_PROTOCOLS[tup[0]]))
+            else:
+                print("Procotol: N/A")
+
+            if uuid.uuidtup_to_bin(tup)[:18] in ndrutils.KNOWN_UUIDS:
+                print("Provider: %s" % (ndrutils.KNOWN_UUIDS[uuid.uuidtup_to_bin(tup)[:18]]))
+            else:
+                print("Provider: N/A")
 
 
 if __name__ == "__main__":
-  sys.exit(main(sys.argv[1:]))
+    sys.exit(main(sys.argv[1:]))

@@ -8,7 +8,7 @@
 from impacket import ImpactPacket, ImpactDecoder, structure
 
 O_ETH = 0
-O_IP  = 1
+O_IP = 1
 O_ARP = 1
 O_UDP = 2
 O_TCP = 2
@@ -17,6 +17,7 @@ O_UDP_DATA = 3
 O_ICMP_DATA = 3
 
 MAGIC = "\xD4\xC3\xB2\xA1"
+
 
 class PCapFileHeader(structure.Structure):
     structure = (
@@ -29,6 +30,7 @@ class PCapFileHeader(structure.Structure):
         ('linkType', '<L=1'),
         ('packets','*:=[]'),
     )
+
 
 class PCapFilePacket(structure.Structure):
     structure = (
@@ -43,10 +45,11 @@ class PCapFilePacket(structure.Structure):
         structure.Structure.__init__(self, *args, **kargs)
         self['data'] = ''
 
+
 class PcapFile:
-    def __init__(self, fileName = None, mode = 'rb'):
+    def __init__(self, fileName=None, mode='rb'):
         if not fileName is None:
-           self.file = open(fileName, mode)
+            self.file = open(fileName, mode)
         self.hdr = None
         self.wroteHeader = False
 
@@ -81,27 +84,27 @@ class PcapFile:
 
     def readHeaderOnce(self):
         if self.hdr is None:
-           self.hdr = PCapFileHeader.fromFile(self.file)
+            self.hdr = PCapFileHeader.fromFile(self.file)
 
     def createHeaderOnce(self):
         if self.hdr is None:
-           self.hdr = PCapFileHeader()
-    
+            self.hdr = PCapFileHeader()
+
     def writeHeaderOnce(self):
         if not self.wroteHeader:
-           self.wroteHeader = True
-           self.file.seek(0)
-           self.createHeaderOnce()
-           self.file.write(str(self.hdr))
+            self.wroteHeader = True
+            self.file.seek(0)
+            self.createHeaderOnce()
+            self.file.write(str(self.hdr))
 
     def read(self):
-       self.readHeaderOnce()
-       try:
-          pkt = PCapFilePacket.fromFile(self.file)
-          pkt['data'] = self.file.read(pkt['savedLength'])
-          return pkt
-       except:
-          return None
+        self.readHeaderOnce()
+        try:
+            pkt = PCapFilePacket.fromFile(self.file)
+            pkt['data'] = self.file.read(pkt['savedLength'])
+            return pkt
+        except:
+            return None
 
     def write(self, pkt):
         self.writeHeaderOnce()
@@ -110,68 +113,69 @@ class PcapFile:
     def packets(self):
         self.reset()
         while 1:
-           answer = self.read()
-           if answer is None: break
-           yield answer
+            answer = self.read()
+            if answer is None: break
+            yield answer
+
 
 def process(onion):
     # for dhcp we only want UDP packets
     if len(onion) <= O_UDP: return
     if onion[O_UDP].protocol != ImpactPacket.UDP.protocol:
-       return
+        return
 
     # we only want UDP port 67
     if ((onion[O_UDP].get_uh_dport() != 67) and
         (onion[O_UDP].get_uh_sport() != 67)): return
 
     # we've got a dhcp packet
-    
+
+
 def main():
     import sys
 
     f_in = open(sys.argv[1],'rb')
     try:
-       f_out = open(sys.argv[2],'wb')
-       f_out.write(str(PCapFileHeader()))
+        f_out = open(sys.argv[2],'wb')
+        f_out.write(str(PCapFileHeader()))
     except:
-       f_out = None
+        f_out = None
 
     hdr = PCapFileHeader()
     hdr.fromString(f_in.read(len(hdr)))
 
-    #hdr.dump()
+    # hdr.dump()
 
     decoder = ImpactDecoder.EthDecoder()
     while 1:
-       pkt = PCapFilePacket()
-       try:
-          pkt.fromString(f_in.read(len(pkt)))
-       except:
-          break
-       pkt['data'] = f_in.read(pkt['savedLength'])
-       hdr['packets'].append(pkt)
-       p = pkt['data']
-       try:    in_onion = [decoder.decode(p[1])]
-       except: in_onion = [decoder.decode(p[0])]
-       try:
-          while 1: in_onion.append(in_onion[-1].child())
-       except:
-          pass
+        pkt = PCapFilePacket()
+        try:
+            pkt.fromString(f_in.read(len(pkt)))
+        except:
+            break
+        pkt['data'] = f_in.read(pkt['savedLength'])
+        hdr['packets'].append(pkt)
+        p = pkt['data']
+        try: in_onion = [decoder.decode(p[1])]
+        except: in_onion = [decoder.decode(p[0])]
+        try:
+            while 1: in_onion.append(in_onion[-1].child())
+        except:
+            pass
 
-       process(in_onion)
-       pkt.dump()
-       #print "%r" % str(pkt)
+        process(in_onion)
+        pkt.dump()
+        # print "%r" % str(pkt)
 
-       if f_out:
-          #print eth
+        if f_out:
+            # print eth
 
-          pkt_out = PCapFilePacket()
-          pkt_out['data'] = str(eth.get_packet())
+            pkt_out = PCapFilePacket()
+            pkt_out['data'] = str(eth.get_packet())
 
-          #pkt_out.dump()
+            # pkt_out.dump()
 
-          f_out.write(str(pkt_out))
+            f_out.write(str(pkt_out))
 
 if __name__ == '__main__':
-   main()
-    
+    main()

@@ -27,16 +27,18 @@ import ntpath
 
 # Constants
 
-ROOT_KEY        = 0x2c
-REG_NONE        = 0x00
-REG_SZ          = 0x01
-REG_EXPAND_SZ   = 0x02
-REG_BINARY      = 0x03
-REG_DWORD       = 0x04
-REG_MULTISZ     = 0x07
-REG_QWORD       = 0x0b
+ROOT_KEY = 0x2c
+REG_NONE = 0x00
+REG_SZ = 0x01
+REG_EXPAND_SZ = 0x02
+REG_BINARY = 0x03
+REG_DWORD = 0x04
+REG_MULTISZ = 0x07
+REG_QWORD = 0x0b
 
 # Structs
+
+
 class REG_REGF(Structure):
     structure = (
         ('Magic','"regf'),
@@ -52,9 +54,10 @@ class REG_REGF(Structure):
         ('1111','<L=0'),
         ('Name','48s=""'),
         ('Remaining1','411s=""'),
-        ('CheckSum','<L=0xffffffff'), # Sum of all DWORDs from 0x0 to 0x1FB
+        ('CheckSum','<L=0xffffffff'),  # Sum of all DWORDs from 0x0 to 0x1FB
         ('Remaining2','3585s=""'),
     )
+
 
 class REG_HBIN(Structure):
     structure = (
@@ -64,12 +67,14 @@ class REG_HBIN(Structure):
         ('BlockSize','<L=0'),
     )
 
+
 class REG_HBINBLOCK(Structure):
     structure = (
         ('DataBlockSize','<l=0'),
         ('_Data','_-Data','self["DataBlockSize"]*(-1)-4'),
         ('Data',':'),
     )
+
 
 class REG_NK(Structure):
     structure = (
@@ -93,6 +98,7 @@ class REG_NK(Structure):
         ('KeyName',':'),
     )
 
+
 class REG_VK(Structure):
     structure = (
         ('Magic','"vk'),
@@ -106,12 +112,14 @@ class REG_VK(Structure):
         ('Name',':'),
     )
 
+
 class REG_LF(Structure):
     structure = (
         ('Magic','"lf'),
         ('NumKeys','<H=0'),
         ('HashRecords',':'),
     )
+
 
 class REG_LH(Structure):
     structure = (
@@ -120,12 +128,14 @@ class REG_LH(Structure):
         ('HashRecords',':'),
     )
 
+
 class REG_RI(Structure):
     structure = (
         ('Magic','"ri'),
         ('NumKeys','<H=0'),
         ('HashRecords',':'),
     )
+
 
 class REG_SK(Structure):
     structure = (
@@ -137,6 +147,7 @@ class REG_SK(Structure):
         ('SizeSk','<L=0'),
         ('Data',':'),
     )
+
 
 class REG_HASH(Structure):
     structure = (
@@ -150,10 +161,11 @@ StructMappings = {'nk': REG_NK,
                   'lh': REG_LH,
                   'ri': REG_RI,
                   'sk': REG_SK,
-                 }
+                  }
+
 
 class Registry():
-    def __init__(self, hive, isRemote = False):
+    def __init__(self, hive, isRemote=False):
         self.__hive = hive
         if isRemote is True:
             self.fd = self.__hive
@@ -184,7 +196,7 @@ class Registry():
             try:
                 hbin = REG_HBIN(data[:0x20])
                 # Read the remaining bytes for this hbin
-                data = data + self.fd.read(hbin['OffsetNextHBin']-4096)
+                data = data + self.fd.read(hbin['OffsetNextHBin'] - 4096)
                 data = data[0x20:]
                 blocks = self.__processDataBlocks(data)
                 for block in blocks:
@@ -192,16 +204,15 @@ class Registry():
                         if block['Type'] == ROOT_KEY:
                             return block
             except Exception as e:
-                 pass
+                pass
             data = self.fd.read(4096)
 
         return None
 
-
     def __getBlock(self, offset):
-        self.fd.seek(4096+offset,0)
+        self.fd.seek(4096 + offset,0)
         sizeBytes = self.fd.read(4)
-        data = sizeBytes + self.fd.read(unpack('<l',sizeBytes)[0]*-1-4)
+        data = sizeBytes + self.fd.read(unpack('<l',sizeBytes)[0] * -1 - 4)
         if len(data) == 0:
             return None
         else:
@@ -216,7 +227,7 @@ class Registry():
     def __getValueBlocks(self, offset, count):
         valueList = []
         res = []
-        self.fd.seek(4096+offset,0)
+        self.fd.seek(4096 + offset,0)
         for i in range(count):
             valueList.append(unpack('<l',self.fd.read(4))[0])
 
@@ -227,7 +238,7 @@ class Registry():
         return res
 
     def __getData(self, offset, count):
-        self.fd.seek(4096+offset, 0)
+        self.fd.seek(4096 + offset, 0)
         return self.fd.read(count)[4:]
 
     def __processDataBlocks(self,data):
@@ -239,7 +250,7 @@ class Registry():
             if blockSize > 0:
                 tmpList = list(block.structure)
                 tmpList[1] = ('_Data','_-Data','self["DataBlockSize"]-4')
-                block.structure =  tuple(tmpList)
+                block.structure = tuple(tmpList)
 
             block.fromString(data)
             blockLen = len(block)
@@ -259,7 +270,7 @@ class Registry():
             # if DataLen < 5 the value itself is stored in the Offset field
             return rec['OffsetData']
         else:
-            return self.__getData(rec['OffsetData'], rec['DataLen']+4)
+            return self.__getData(rec['OffsetData'], rec['DataLen'] + 4)
 
     def __getLhHash(self, key):
         res = 0
@@ -300,11 +311,11 @@ class Registry():
                 for i in range(lf['NumKeys']):
                     offset = unpack('<L', data[:4])[0]
                     l = self.__getBlock(offset)
-                    records = records + l['HashRecords'][:l['NumKeys']*8]
+                    records = records + l['HashRecords'][:l['NumKeys'] * 8]
                     data = data[4:]
                 data = records
 
-            #for record in range(lf['NumKeys']):
+            # for record in range(lf['NumKeys']):
             for record in range(parentKey['NumSubKeys']):
                 hashRec = data[:8]
                 res = self.__compareHash(lf['Magic'], hashRec, subKey)
@@ -337,7 +348,7 @@ class Registry():
             for i in range(lf['NumKeys']):
                 offset = unpack('<L', data[:4])[0]
                 l = self.__getBlock(offset)
-                records = records + l['HashRecords'][:l['NumKeys']*8]
+                records = records + l['HashRecords'][:l['NumKeys'] * 8]
                 data = data[4:]
             data = records
 
@@ -369,7 +380,7 @@ class Registry():
             key = key[1:]
 
         parentKey = self.rootKey
-        if len(key) > 0 and key[0]!='\\':
+        if len(key) > 0 and key[0] != '\\':
             for subKey in key.split('\\'):
                 res = self.__findSubKey(parentKey, subKey)
                 if res is not None:
@@ -422,7 +433,7 @@ class Registry():
                 for i in range(lf['NumKeys']):
                     offset = unpack('<L', data[:4])[0]
                     l = self.__getBlock(offset)
-                    records = records + l['HashRecords'][:l['NumKeys']*8]
+                    records = records + l['HashRecords'][:l['NumKeys'] * 8]
                     data = data[4:]
                 data = records
 
@@ -430,7 +441,7 @@ class Registry():
                 hashRec = REG_HASH(data[:8])
                 nk = self.__getBlock(hashRec['OffsetNk'])
                 data = data[8:]
-                res.append('%s'%nk['KeyName'])
+                res.append('%s' % nk['KeyName'])
         return res
 
     def enumValues(self,key):
@@ -438,7 +449,7 @@ class Registry():
         # Now let's search its values
         resp = []
         if key['NumValues'] > 0:
-            valueList = self.__getValueBlocks(key['OffsetValueList'], key['NumValues']+1)
+            valueList = self.__getValueBlocks(key['OffsetValueList'], key['NumValues'] + 1)
 
             for value in valueList:
                 if value['Flag'] > 0:
@@ -459,12 +470,12 @@ class Registry():
             return None
 
         if key['NumValues'] > 0:
-            valueList = self.__getValueBlocks(key['OffsetValueList'], key['NumValues']+1)
+            valueList = self.__getValueBlocks(key['OffsetValueList'], key['NumValues'] + 1)
 
             for value in valueList:
                 if value['Name'] == regValue:
                     return (value['ValueType'], self.__getValueData(value))
-                elif regValue == 'default' and value['Flag'] <=0:
+                elif regValue == 'default' and value['Flag'] <= 0:
                     return (value['ValueType'], self.__getValueData(value))
 
         return None
@@ -476,32 +487,33 @@ class Registry():
         if key is None:
             return None
 
-        #print key.dump()
+        # print key.dump()
         if key['OffsetClassName'] > 0:
             value = self.__getBlock(key['OffsetClassName'])
             return value['Data']
 
+
 def pretty_print(x):
     if x in '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~ ':
-       return x
+        return x
     else:
-       return '.'
+        return '.'
 
-def hexdump(data, indent = ''):
-    x=str(data)
+
+def hexdump(data, indent=''):
+    x = str(data)
     strLen = len(x)
     i = 0
     while i < strLen:
         print(indent, end=' ')
         print("%04x  " % i, end=' ')
         for j in range(16):
-            if i+j < strLen:
-                print("%02X" % ord(x[i+j]), end=' ')
+            if i + j < strLen:
+                print("%02X" % ord(x[i + j]), end=' ')
             else:
                 print("  ", end=' ')
-            if j%16 == 7:
+            if j % 16 == 7:
                 print("", end=' ')
         print(" ", end=' ')
-        print(''.join(pretty_print(x) for x in x[i:i+16] ))
+        print(''.join(pretty_print(x) for x in x[i:i + 16]))
         i += 16
-

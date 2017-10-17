@@ -49,9 +49,10 @@ import string
 import random
 from functools import reduce
 
+
 def get_random_bytes(lenBytes):
     # We don't really need super strong randomness here to use PyCrypto.Random
-    return "".join([random.choice(string.digits+string.letters) for i in range(lenBytes)])
+    return "".join([random.choice(string.digits + string.letters) for i in range(lenBytes)])
 
 
 class Enctype(object):
@@ -84,7 +85,7 @@ class InvalidChecksum(ValueError):
 def _zeropad(s, padsize):
     # Return s padded with 0 bytes to a multiple of padsize.
     padlen = (padsize - (len(s) % padsize)) % padsize
-    return s + '\0'*padlen
+    return s + '\0' * padlen
 
 
 def _xorbytes(b1, b2):
@@ -109,9 +110,9 @@ def _nfold(str, nbytes):
 
     # Rotate the bytes in str to the right by nbits bits.
     def rotate_right(str, nbits):
-        nbytes, remain = (nbits//8) % len(str), nbits % 8
-        return ''.join(chr((ord(str[i-nbytes]) >> remain) |
-                           ((ord(str[i-nbytes-1]) << (8-remain)) & 0xff))
+        nbytes, remain = (nbits // 8) % len(str), nbits % 8
+        return ''.join(chr((ord(str[i - nbytes]) >> remain) |
+                           ((ord(str[i - nbytes - 1]) << (8 - remain)) & 0xff))
                        for i in range(len(str)))
 
     # Add equal-length strings together with end-around carry.
@@ -120,7 +121,7 @@ def _nfold(str, nbytes):
         v = [ord(a) + ord(b) for a, b in zip(str1, str2)]
         # Propagate carry bits to the left until there aren't any left.
         while any(x & ~0xff for x in v):
-            v = [(v[i-n+1]>>8) + (v[i]&0xff) for i in range(n)]
+            v = [(v[i - n + 1] >> 8) + (v[i] & 0xff) for i in range(n)]
         return ''.join(chr(x) for x in v)
 
     # Concatenate copies of str to produce the least common multiple
@@ -131,7 +132,7 @@ def _nfold(str, nbytes):
     slen = len(str)
     lcm = nbytes * slen / gcd(nbytes, slen)
     bigstr = ''.join((rotate_right(str, 13 * i) for i in range(lcm / slen)))
-    slices = (bigstr[p:p+nbytes] for p in range(0, lcm, nbytes))
+    slices = (bigstr[p:p + nbytes] for p in range(0, lcm, nbytes))
     return reduce(add_ones_complement, slices)
 
 
@@ -256,12 +257,12 @@ class _DES3CBC(_SimplifiedEnctype):
                 return b if bin(b & ~1).count('1') % 2 else b | 1
             assert len(seed) == 7
             firstbytes = [parity(ord(b) & ~1) for b in seed]
-            lastbyte = parity(sum((ord(seed[i])&1) << i+1 for i in range(7)))
+            lastbyte = parity(sum((ord(seed[i]) & 1) << i + 1 for i in range(7)))
             keybytes = ''.join(chr(b) for b in firstbytes + [lastbyte])
             if _is_weak_des_key(keybytes):
                 keybytes[7] = chr(ord(keybytes[7]) ^ 0xF0)
             return keybytes
-        
+
         if len(seed) != 21:
             raise ValueError('Wrong seed length')
         k1, k2, k3 = expand(seed[:7]), expand(seed[7:14]), expand(seed[14:])
@@ -297,7 +298,8 @@ class _AESEnctype(_SimplifiedEnctype):
     @classmethod
     def string_to_key(cls, string, salt, params):
         (iterations,) = unpack('>L', params or '\x00\x00\x10\x00')
-        prf = lambda p, s: HMAC.new(p, s, SHA).digest()
+
+        def prf(p, s): return HMAC.new(p, s, SHA).digest()
         seed = PBKDF2(string, salt, cls.seedsize, iterations, prf)
         tkey = cls.random_to_key(seed)
         return cls.derive(tkey, 'kerberos')
@@ -321,7 +323,7 @@ class _AESEnctype(_SimplifiedEnctype):
         if len(ciphertext) == 16:
             return aes.decrypt(ciphertext)
         # Split the ciphertext into blocks.  The last block may be partial.
-        cblocks = [ciphertext[p:p+16] for p in range(0, len(ciphertext), 16)]
+        cblocks = [ciphertext[p:p + 16] for p in range(0, len(ciphertext), 16)]
         lastlen = len(cblocks[-1])
         # CBC-decrypt all but the last two blocks.
         prev_cblock = '\0' * 16
@@ -335,7 +337,7 @@ class _AESEnctype(_SimplifiedEnctype):
         # will be the omitted bytes of ciphertext from the final
         # block.
         b = aes.decrypt(cblocks[-2])
-        lastplaintext =_xorbytes(b[:lastlen], cblocks[-1])
+        lastplaintext = _xorbytes(b[:lastlen], cblocks[-1])
         omitted = b[lastlen:]
         # Decrypt the final cipher block plus the omitted bytes to get
         # the second-to-last plaintext block.

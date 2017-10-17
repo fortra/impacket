@@ -26,7 +26,7 @@
 #  ImpactPacket.
 #  ImpactDecoder.
 
-## Some tunable variables follow.
+# Some tunable variables follow.
 
 # Period (in ms.) to wait between pcap polls.
 POLL_PERIOD = 250
@@ -39,7 +39,7 @@ REFRESH_PERIOD = 1000
 # for instance, when used under X-Window over a network link.
 fast_draws = 1
 
-## End of user configurable section.
+# End of user configurable section.
 
 
 import os
@@ -67,21 +67,21 @@ class NumericAxis:
 
     def screenLength(self):
         if self.direction == 'vertical':
-            return (self.canvas.winfo_height())-10
+            return (self.canvas.winfo_height()) - 10
         else:
-            return (self.canvas.winfo_width())-10
+            return (self.canvas.winfo_width()) - 10
 
     def scaleLength(self):
-        delta = self.getHigherLimit()-self.getLowerLimit()
+        delta = self.getHigherLimit() - self.getLowerLimit()
         if not delta:
             delta += 1
         return delta
 
     def unscale(self,coord):
-        return int((coord-5)*self.scaleLength()/self.screenLength()+self.getLowerLimit())
+        return int((coord - 5) * self.scaleLength() / self.screenLength() + self.getLowerLimit())
 
     def scale(self,value):
-        return (value-self.getLowerLimit())*self.screenLength()/self.scaleLength()+5
+        return (value - self.getLowerLimit()) * self.screenLength() / self.scaleLength() + 5
 
     def setLowerLimit(self,limit):
         if not limit == None:
@@ -103,12 +103,13 @@ class NumericAxis:
         if self.getHigherLimit() < value:
             self.setHigherLimit(value)
 
+
 class SymbolicAxis(NumericAxis):
-    def __init__(self,canvas,name,values=[],direction = 'vertical'):
-        NumericAxis.__init__(self,canvas,name,0,len(values)-1,direction)
+    def __init__(self,canvas,name,values=[],direction='vertical'):
+        NumericAxis.__init__(self,canvas,name,0,len(values) - 1,direction)
         self.values = list(values)
 
-    def addValue(self,value,sort = 1):
+    def addValue(self,value,sort=1):
         try:
             self.values.index(value)
             return
@@ -117,7 +118,7 @@ class SymbolicAxis(NumericAxis):
         self.values.append(value)
         if sort:
             self.values.sort()
-        self.setHigherLimit(len(self.getValues())-1)
+        self.setHigherLimit(len(self.getValues()) - 1)
 
     def unscale(self,value):
         try:
@@ -137,6 +138,7 @@ class SymbolicAxis(NumericAxis):
     def getValues(self):
         return self.values
 
+
 class ParallelCoordinates(tkinter.Canvas):
     def __init__(self, master=None, cnf={}, **kw):
         tkinter.Canvas.__init__(*(self, master, cnf), **kw)
@@ -149,8 +151,8 @@ class ParallelCoordinates(tkinter.Canvas):
         self.maxColor = None
         self.colorAxis = '_counter'
 
-        self.values=[]
-        self.mainAxis=SymbolicAxis(self,'mainAxis',[],'horizontal')
+        self.values = []
+        self.mainAxis = SymbolicAxis(self,'mainAxis',[],'horizontal')
 
         master.bind('<Visibility>',self.draw)
         master.bind('<Motion>',self.buttonDown)
@@ -189,31 +191,31 @@ class ParallelCoordinates(tkinter.Canvas):
     def removeValue(self, value):
         self.values.remove(value)
 
-    def basicColor(self,val,fade = 1):
+    def basicColor(self,val,fade=1):
         # color scale is linear going through green -> yellow -> red
         # (lower to higher)
 
         if val < 0.5:
             val += val     # val *= 2 (scale from 0 to 1)
             # between green - yellow
-            red   = 64*(1-val)  + 255*val
-            green = 200*(1-val) + 255*val
-            blue  = 64*(1-val)  + 0
+            red = 64 * (1 - val) + 255 * val
+            green = 200 * (1 - val) + 255 * val
+            blue = 64 * (1 - val) + 0
         else:
             val -= 0.5
             val += val
-            red   = 255*(1-val) + 255*val
-            green = 255*(1-val) + 64*val
-            blue  = 0           + 0
+            red = 255 * (1 - val) + 255 * val
+            green = 255 * (1 - val) + 64 * val
+            blue = 0 + 0
 
-        return '#%02x%02x%02x' % (int(red*fade), int(green*fade), int(blue*fade))
+        return '#%02x%02x%02x' % (int(red * fade), int(green * fade), int(blue * fade))
 
     def fade(self,value):
-        return max(0,(120.0-time.time()+value['timestamp'])/120.0)
+        return max(0,(120.0 - time.time() + value['timestamp']) / 120.0)
 
-    def color(self,value,fade = 1):
+    def color(self,value,fade=1):
         # color scale is linear going through green -> yellow -> red (lower to higher)
-        val = float(value[self.colorAxis]-self.minColor)/(self.maxColor-self.minColor+1)
+        val = float(value[self.colorAxis] - self.minColor) / (self.maxColor - self.minColor + 1)
         return self.basicColor(val,fade)
 
     def drawValueLine(self,value):
@@ -232,16 +234,16 @@ class ParallelCoordinates(tkinter.Canvas):
             x = self.mainAxis.scale(axis)
             y = axis.scale(value[axis.name])
             if not px == -1:
-                self.create_line(px,py,x,y,fill = color)
+                self.create_line(px,py,x,y,fill=color)
 
-    def draw(self,event = None):
+    def draw(self,event=None):
         # draw axis
         for i in self.find_all():
             self.delete(i)
 
         for axis in self.mainAxis.getValues():
             x = self.mainAxis.scale(axis)
-            self.create_line(x,5,x,int(self.winfo_height())-5,fill = 'white')
+            self.create_line(x,5,x,int(self.winfo_height()) - 5,fill='white')
 
         for value in self.values:
             self.drawValueLine(value)
@@ -263,13 +265,12 @@ class ParallelCoordinates(tkinter.Canvas):
 
             if self.lastSelectionOval:
                 self.delete(self.lastSelectionOval)
-            self.lastSelectionOval = self.create_oval(x-3,y-3,x+3,y+3,fill = "yellow")
+            self.lastSelectionOval = self.create_oval(x - 3,y - 3,x + 3,y + 3,fill="yellow")
 
             if not self.lastSelection == (axis,element):
                 self.lastSelection = (axis,element)
                 if self._onSelection:
                     self._onSelection(self.lastSelection)
-
 
     def buttonUp(self,event):
         if self.lastSelectionOval:
@@ -284,11 +285,11 @@ class ParallelCoordinates(tkinter.Canvas):
 
 
 class Tracer:
-    def __init__(self, interface = 'eth0', filter = ''):
+    def __init__(self, interface='eth0', filter=''):
         print("Tracing interface %s with filter `%s'." % (interface, filter))
 
         self.tk = tkinter.Tk()
-        self.pc = ParallelCoordinates(self.tk,background = "black")
+        self.pc = ParallelCoordinates(self.tk,background="black")
         self.pc.pack(expand=1, fill="both")
         self.status = tkinter.Label(self.tk)
         self.status.pack()
@@ -305,13 +306,13 @@ class Tracer:
         self.interface = interface
         self.filter = filter
 
-    def timerDraw(self,event = None):
+    def timerDraw(self,event=None):
         self.pc.draw()
         self.tk.after(REFRESH_PERIOD, self.timerDraw);
 
     def start(self):
         self.p = open_live(self.interface, 1600, 0, 100)
-##         self.p.setnonblock(1)
+# self.p.setnonblock(1)
         if self.filter:
             self.p.setfilter(self.filter)
 
@@ -332,7 +333,7 @@ class Tracer:
     def quit(self,event):
         self.tk.quit()
 
-    def poll(self,event = None):
+    def poll(self,event=None):
         self.tk.after(POLL_PERIOD, self.poll)
         received = 0
         while 1:
@@ -352,35 +353,36 @@ class Tracer:
             pass
         value = {}
         try:
-	    value['timestamp']=timestamp
-            value['shost']=p.child().get_ip_src()
-            value['dhost']=p.child().get_ip_dst()
-            value['proto']=p.child().child().protocol
-            value['sport']=-1
-            value['dport']=-1
+            value['timestamp'] = timestamp
+            value['shost'] = p.child().get_ip_src()
+            value['dhost'] = p.child().get_ip_dst()
+            value['proto'] = p.child().child().protocol
+            value['sport'] = -1
+            value['dport'] = -1
         except:
             return
 
         try:
             if value['proto'] == socket.IPPROTO_TCP:
-                value['dport']=p.child().child().get_th_dport()
-                value['sport']=p.child().child().get_th_sport()
+                value['dport'] = p.child().child().get_th_dport()
+                value['sport'] = p.child().child().get_th_sport()
             elif value['proto'] == socket.IPPROTO_UDP:
-                value['dport']=p.child().child().get_uh_dport()
-                value['sport']=p.child().child().get_uh_sport()
+                value['dport'] = p.child().child().get_uh_dport()
+                value['sport'] = p.child().child().get_uh_sport()
         except:
             pass
 
         self.pc.addValue(value)
 
     def setStatus(self,status):
-        self.status.configure(text = status)
+        self.status.configure(text=status)
 
     def newSelection(self, selection):
         if selection:
             self.setStatus('%s:%s' % (selection[0].name, selection[1]))
         else:
             self.setStatus('')
+
 
 def getInterfaces():
     # Grab a list of interfaces that pcap is able to listen on.
@@ -394,13 +396,15 @@ def getInterfaces():
 
     return ifs
 
+
 def printUsage():
-        print("""Usage: %s [interface [filter]]
+    print("""Usage: %s [interface [filter]]
 Interface is the name of a local network interface, see the list of available interfaces below.
 Filter is a BPF filter, as described in tcpdump(3)'s man page.
 
 Available interfaces for this user: %s
 """ % (sys.argv[0], getInterfaces()))
+
 
 def main():
     if len(sys.argv) == 1:
@@ -416,4 +420,3 @@ def main():
     graph.start()
 
 main()
-

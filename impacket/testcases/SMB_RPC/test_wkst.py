@@ -1,5 +1,5 @@
 ###############################################################################
-#  Tested so far: 
+#  Tested so far:
 #
 # NetrWkstaGetInfo
 # NetrWkstaUserEnum
@@ -24,7 +24,7 @@
 #  Not yet:
 #
 # Shouldn't dump errors against a win7
-#  
+#
 ################################################################################
 
 import sys
@@ -39,6 +39,7 @@ from impacket.winregistry import hexdump
 from impacket.uuid import string_to_bin, uuidtup_to_bin
 from impacket import system_errors
 
+
 class WKSTTests(unittest.TestCase):
     def connect(self):
         rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
@@ -52,14 +53,14 @@ class WKSTTests(unittest.TestCase):
             rpctransport.set_credentials(self.username,self.password, self.domain, lmhash, nthash)
         dce = rpctransport.get_dce_rpc()
         dce.connect()
-        dce.bind(wkst.MSRPC_UUID_WKST, transfer_syntax = self.ts)
+        dce.bind(wkst.MSRPC_UUID_WKST, transfer_syntax=self.ts)
 
         return dce, rpctransport
 
     def test_NetrWkstaGetInfo(self):
         dce, rpctransport = self.connect()
         request = wkst.NetrWkstaGetInfo()
-        request['ServerName'] = '\x00'*10
+        request['ServerName'] = '\x00' * 10
         request['Level'] = 100
         resp = dce.request(request)
         resp.dump()
@@ -93,7 +94,7 @@ class WKSTTests(unittest.TestCase):
     def test_NetrWkstaUserEnum(self):
         dce, rpctransport = self.connect()
         request = wkst.NetrWkstaUserEnum()
-        request['ServerName'] = '\x00'*10
+        request['ServerName'] = '\x00' * 10
         request['UserInfo']['Level'] = 0
         request['UserInfo']['WkstaUserInfo']['tag'] = 0
         request['PreferredMaximumLength'] = 8192
@@ -116,7 +117,7 @@ class WKSTTests(unittest.TestCase):
     def test_NetrWkstaTransportEnum(self):
         dce, rpctransport = self.connect()
         request = wkst.NetrWkstaTransportEnum()
-        request['ServerName'] = '\x00'*10
+        request['ServerName'] = '\x00' * 10
         request['TransportInfo']['Level'] = 0
         request['TransportInfo']['WkstaTransportInfo']['tag'] = 0
         request['PreferredMaximumLength'] = 500
@@ -132,14 +133,14 @@ class WKSTTests(unittest.TestCase):
     def test_NetrWkstaSetInfo(self):
         dce, rpctransport = self.connect()
         request = wkst.NetrWkstaGetInfo()
-        request['ServerName'] = '\x00'*10
+        request['ServerName'] = '\x00' * 10
         request['Level'] = 502
         resp = dce.request(request)
         resp.dump()
-        oldVal = resp['WkstaInfo']['WkstaInfo502']['wki502_dormant_file_limit'] 
+        oldVal = resp['WkstaInfo']['WkstaInfo502']['wki502_dormant_file_limit']
 
         req = wkst.NetrWkstaSetInfo()
-        req['ServerName'] = '\x00'*10
+        req['ServerName'] = '\x00' * 10
         req['Level'] = 502
         req['WkstaInfo'] = resp['WkstaInfo']
         req['WkstaInfo']['WkstaInfo502']['wki502_dormant_file_limit'] = 500
@@ -147,7 +148,7 @@ class WKSTTests(unittest.TestCase):
         resp2.dump()
 
         resp = dce.request(request)
-        self.assertTrue(500 == resp['WkstaInfo']['WkstaInfo502']['wki502_dormant_file_limit'] )
+        self.assertTrue(500 == resp['WkstaInfo']['WkstaInfo502']['wki502_dormant_file_limit'])
 
         req['WkstaInfo']['WkstaInfo502']['wki502_dormant_file_limit'] = oldVal
         resp2 = dce.request(req)
@@ -157,16 +158,15 @@ class WKSTTests(unittest.TestCase):
         dce, rpctransport = self.connect()
         resp = wkst.hNetrWkstaGetInfo(dce, 502)
         resp.dump()
-        oldVal = resp['WkstaInfo']['WkstaInfo502']['wki502_dormant_file_limit'] 
+        oldVal = resp['WkstaInfo']['WkstaInfo502']['wki502_dormant_file_limit']
 
- 
         resp['WkstaInfo']['WkstaInfo502']['wki502_dormant_file_limit'] = 500
         resp2 = wkst.hNetrWkstaSetInfo(dce, 502,resp['WkstaInfo']['WkstaInfo502'])
         resp2.dump()
 
         resp = wkst.hNetrWkstaGetInfo(dce, 502)
         resp.dump()
-        self.assertTrue(500 == resp['WkstaInfo']['WkstaInfo502']['wki502_dormant_file_limit'] )
+        self.assertTrue(500 == resp['WkstaInfo']['WkstaInfo502']['wki502_dormant_file_limit'])
 
         resp['WkstaInfo']['WkstaInfo502']['wki502_dormant_file_limit'] = oldVal
         resp2 = wkst.hNetrWkstaSetInfo(dce, 502,resp['WkstaInfo']['WkstaInfo502'])
@@ -176,7 +176,7 @@ class WKSTTests(unittest.TestCase):
         dce, rpctransport = self.connect()
 
         req = wkst.NetrWkstaTransportAdd()
-        req['ServerName'] = '\x00'*10
+        req['ServerName'] = '\x00' * 10
         req['Level'] = 0
         req['TransportInfo']['wkti0_transport_name'] = 'BETO\x00'
         req['TransportInfo']['wkti0_transport_address'] = '000C29BC5CE5\x00'
@@ -184,7 +184,7 @@ class WKSTTests(unittest.TestCase):
             resp2 = dce.request(req)
             resp2.dump()
         except Exception as e:
-            if str(e).find('ERROR_INVALID_FUNCTION') < 0: 
+            if str(e).find('ERROR_INVALID_FUNCTION') < 0:
                 raise
 
     def test_hNetrUseAdd_hNetrUseDel_hNetrUseGetInfo_hNetrUseEnum(self):
@@ -215,9 +215,9 @@ class WKSTTests(unittest.TestCase):
         dce, rpctransport = self.connect()
 
         req = wkst.NetrUseAdd()
-        req['ServerName'] = '\x00'*10
+        req['ServerName'] = '\x00' * 10
         req['Level'] = 1
-        req['InfoStruct']['tag'] = 1 
+        req['InfoStruct']['tag'] = 1
         req['InfoStruct']['UseInfo1']['ui1_local'] = 'Z:\x00'
         req['InfoStruct']['UseInfo1']['ui1_remote'] = '\\\\127.0.0.1\\c$\x00'
         req['InfoStruct']['UseInfo1']['ui1_password'] = NULL
@@ -239,14 +239,14 @@ class WKSTTests(unittest.TestCase):
         resp2.dump()
 
         req = wkst.NetrUseGetInfo()
-        req['ServerName'] = '\x00'*10
+        req['ServerName'] = '\x00' * 10
         req['UseName'] = 'Z:\x00'
         req['Level'] = 3
         resp2 = dce.request(req)
         resp2.dump()
 
         req = wkst.NetrUseDel()
-        req['ServerName'] = '\x00'*10
+        req['ServerName'] = '\x00' * 10
         req['UseName'] = 'Z:\x00'
         req['ForceLevel'] = wkst.USE_LOTS_OF_FORCE
         resp2 = dce.request(req)
@@ -256,7 +256,7 @@ class WKSTTests(unittest.TestCase):
         dce, rpctransport = self.connect()
 
         req = wkst.NetrWorkstationStatisticsGet()
-        req['ServerName'] = '\x00'*10
+        req['ServerName'] = '\x00' * 10
         req['ServiceName'] = '\x00'
         req['Level'] = 0
         req['Options'] = 0
@@ -281,7 +281,7 @@ class WKSTTests(unittest.TestCase):
         dce, rpctransport = self.connect()
 
         req = wkst.NetrGetJoinInformation()
-        req['ServerName'] = '\x00'*10
+        req['ServerName'] = '\x00' * 10
         req['NameBuffer'] = '\x00'
 
         try:
@@ -305,13 +305,13 @@ class WKSTTests(unittest.TestCase):
         dce, rpctransport = self.connect()
 
         req = wkst.NetrJoinDomain2()
-        req['ServerName'] = '\x00'*10
+        req['ServerName'] = '\x00' * 10
         req['DomainNameParam'] = '172.16.123.1\\FREEFLY\x00'
         req['MachineAccountOU'] = 'OU=BETUS,DC=FREEFLY\x00'
         req['AccountName'] = NULL
-        req['Password']['Buffer'] = '\x00'*512
+        req['Password']['Buffer'] = '\x00' * 512
         req['Options'] = wkst.NETSETUP_DOMAIN_JOIN_IF_JOINED
-        #req.dump()
+        # req.dump()
         try:
             resp2 = dce.request(req)
             resp2.dump()
@@ -323,7 +323,7 @@ class WKSTTests(unittest.TestCase):
         dce, rpctransport = self.connect()
 
         try:
-            resp = wkst.hNetrJoinDomain2(dce,'172.16.123.1\\FREEFLY\x00','OU=BETUS,DC=FREEFLY\x00',NULL,'\x00'*512, wkst.NETSETUP_DOMAIN_JOIN_IF_JOINED)
+            resp = wkst.hNetrJoinDomain2(dce,'172.16.123.1\\FREEFLY\x00','OU=BETUS,DC=FREEFLY\x00',NULL,'\x00' * 512, wkst.NETSETUP_DOMAIN_JOIN_IF_JOINED)
             resp.dump()
         except Exception as e:
             if str(e).find('ERROR_INVALID_PASSWORD') < 0:
@@ -333,9 +333,9 @@ class WKSTTests(unittest.TestCase):
         dce, rpctransport = self.connect()
 
         req = wkst.NetrUnjoinDomain2()
-        req['ServerName'] = '\x00'*10
+        req['ServerName'] = '\x00' * 10
         req['AccountName'] = NULL
-        req['Password']['Buffer'] = '\x00'*512
+        req['Password']['Buffer'] = '\x00' * 512
         #req['Password'] = NULL
         req['Options'] = wkst.NETSETUP_ACCT_DELETE
         try:
@@ -349,7 +349,7 @@ class WKSTTests(unittest.TestCase):
         dce, rpctransport = self.connect()
 
         try:
-            resp = wkst.hNetrUnjoinDomain2(dce, NULL, '\x00'*512, wkst.NETSETUP_ACCT_DELETE)
+            resp = wkst.hNetrUnjoinDomain2(dce, NULL, '\x00' * 512, wkst.NETSETUP_ACCT_DELETE)
             resp.dump()
         except Exception as e:
             if str(e).find('ERROR_INVALID_PASSWORD') < 0:
@@ -359,10 +359,10 @@ class WKSTTests(unittest.TestCase):
         dce, rpctransport = self.connect()
 
         req = wkst.NetrRenameMachineInDomain2()
-        req['ServerName'] = '\x00'*10
+        req['ServerName'] = '\x00' * 10
         req['MachineName'] = 'BETUS\x00'
         req['AccountName'] = NULL
-        req['Password']['Buffer'] = '\x00'*512
+        req['Password']['Buffer'] = '\x00' * 512
         #req['Password'] = NULL
         req['Options'] = wkst.NETSETUP_ACCT_CREATE
         try:
@@ -376,7 +376,7 @@ class WKSTTests(unittest.TestCase):
         dce, rpctransport = self.connect()
 
         try:
-            resp = wkst.hNetrRenameMachineInDomain2(dce, 'BETUS\x00', NULL, '\x00'*512, wkst.NETSETUP_ACCT_CREATE)
+            resp = wkst.hNetrRenameMachineInDomain2(dce, 'BETUS\x00', NULL, '\x00' * 512, wkst.NETSETUP_ACCT_CREATE)
             resp2.dump()
         except Exception as e:
             if str(e).find('ERROR_INVALID_PASSWORD') < 0:
@@ -386,7 +386,7 @@ class WKSTTests(unittest.TestCase):
         dce, rpctransport = self.connect()
 
         req = wkst.NetrValidateName2()
-        req['ServerName'] = '\x00'*10
+        req['ServerName'] = '\x00' * 10
         req['NameToValidate'] = 'BETO\x00'
         req['AccountName'] = NULL
         req['Password'] = NULL
@@ -412,12 +412,12 @@ class WKSTTests(unittest.TestCase):
         dce, rpctransport = self.connect()
 
         req = wkst.NetrGetJoinableOUs2()
-        req['ServerName'] = '\x00'*10
+        req['ServerName'] = '\x00' * 10
         req['DomainNameParam'] = 'FREEFLY\x00'
         req['AccountName'] = NULL
         req['Password'] = NULL
         req['OUCount'] = 0
-        #req.dump()
+        # req.dump()
         try:
             resp2 = dce.request(req)
             resp2.dump()
@@ -429,7 +429,7 @@ class WKSTTests(unittest.TestCase):
         dce, rpctransport = self.connect()
 
         try:
-            resp = wkst.hNetrGetJoinableOUs2(dce,'FREEFLY\x00', NULL, NULL,0 )
+            resp = wkst.hNetrGetJoinableOUs2(dce,'FREEFLY\x00', NULL, NULL,0)
             resp.dump()
         except Exception as e:
             if str(e).find('0x8001011c') < 0:
@@ -439,11 +439,11 @@ class WKSTTests(unittest.TestCase):
         dce, rpctransport = self.connect()
 
         req = wkst.NetrAddAlternateComputerName()
-        req['ServerName'] = '\x00'*10
+        req['ServerName'] = '\x00' * 10
         req['AlternateName'] = 'FREEFLY\x00'
         req['DomainAccount'] = NULL
         req['EncryptedPassword'] = NULL
-        #req.dump()
+        # req.dump()
         try:
             resp2 = dce.request(req)
             resp2.dump()
@@ -455,7 +455,7 @@ class WKSTTests(unittest.TestCase):
         dce, rpctransport = self.connect()
 
         try:
-            resp2= wkst.hNetrAddAlternateComputerName(dce, 'FREEFLY\x00', NULL, NULL)
+            resp2 = wkst.hNetrAddAlternateComputerName(dce, 'FREEFLY\x00', NULL, NULL)
             resp2.dump()
         except Exception as e:
             if str(e).find('ERROR_NOT_SUPPORTED') < 0 and str(e).find('ERROR_INVALID_PASSWORD') < 0:
@@ -465,11 +465,11 @@ class WKSTTests(unittest.TestCase):
         dce, rpctransport = self.connect()
 
         req = wkst.NetrRemoveAlternateComputerName()
-        req['ServerName'] = '\x00'*10
+        req['ServerName'] = '\x00' * 10
         req['AlternateName'] = 'FREEFLY\x00'
         req['DomainAccount'] = NULL
         req['EncryptedPassword'] = NULL
-        #req.dump()
+        # req.dump()
         try:
             resp2 = dce.request(req)
             resp2.dump()
@@ -481,7 +481,7 @@ class WKSTTests(unittest.TestCase):
         dce, rpctransport = self.connect()
 
         try:
-            resp2 = wkst.hNetrRemoveAlternateComputerName(dce,'FREEFLY\x00', NULL, NULL )
+            resp2 = wkst.hNetrRemoveAlternateComputerName(dce,'FREEFLY\x00', NULL, NULL)
             resp2.dump()
         except Exception as e:
             if str(e).find('ERROR_NOT_SUPPORTED') < 0 and str(e).find('ERROR_INVALID_PASSWORD') < 0:
@@ -491,11 +491,11 @@ class WKSTTests(unittest.TestCase):
         dce, rpctransport = self.connect()
 
         req = wkst.NetrSetPrimaryComputerName()
-        req['ServerName'] = '\x00'*10
+        req['ServerName'] = '\x00' * 10
         req['PrimaryName'] = 'FREEFLY\x00'
         req['DomainAccount'] = NULL
         req['EncryptedPassword'] = NULL
-        #req.dump()
+        # req.dump()
         try:
             resp2 = dce.request(req)
             resp2.dump()
@@ -507,7 +507,7 @@ class WKSTTests(unittest.TestCase):
         dce, rpctransport = self.connect()
 
         try:
-            resp2 = wkst.hNetrSetPrimaryComputerName(dce,'FREEFLY\x00', NULL, NULL )
+            resp2 = wkst.hNetrSetPrimaryComputerName(dce,'FREEFLY\x00', NULL, NULL)
             resp2.dump()
         except Exception as e:
             if str(e).find('ERROR_NOT_SUPPORTED') < 0:
@@ -517,9 +517,9 @@ class WKSTTests(unittest.TestCase):
         dce, rpctransport = self.connect()
 
         req = wkst.NetrEnumerateComputerNames()
-        req['ServerName'] = '\x00'*10
+        req['ServerName'] = '\x00' * 10
         req['NameType'] = wkst.NET_COMPUTER_NAME_TYPE.NetAllComputerNames
-        #req.dump()
+        # req.dump()
         try:
             resp2 = dce.request(req)
             resp2.dump()
@@ -544,13 +544,14 @@ class SMBTransport(WKSTTests):
         configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
+        self.domain = configFile.get('SMBTransport', 'domain')
         self.serverName = configFile.get('SMBTransport', 'servername')
         self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
+        self.machine = configFile.get('SMBTransport', 'machine')
+        self.hashes = configFile.get('SMBTransport', 'hashes')
         self.stringBinding = r'ncacn_np:%s[\PIPE\wkssvc]' % self.machine
         self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
+
 
 class SMBTransport64(WKSTTests):
     def setUp(self):
@@ -558,11 +559,11 @@ class SMBTransport64(WKSTTests):
         configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
+        self.domain = configFile.get('SMBTransport', 'domain')
         self.serverName = configFile.get('SMBTransport', 'servername')
         self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
+        self.machine = configFile.get('SMBTransport', 'machine')
+        self.hashes = configFile.get('SMBTransport', 'hashes')
         self.stringBinding = r'ncacn_np:%s[\PIPE\wkssvc]' % self.machine
         self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
 

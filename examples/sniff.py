@@ -31,6 +31,7 @@ from pcapy import findalldevs, open_live
 import impacket
 from impacket.ImpactDecoder import EthDecoder, LinuxSLLDecoder
 
+
 class DecoderThread(Thread):
     def __init__(self, pcapObj):
         # Query the type of the link and instantiate a decoder accordingly.
@@ -81,6 +82,7 @@ def getInterface():
     idx = int(input('Please select an interface: '))
 
     return ifs[idx]
+
 
 def main(filter):
     dev = getInterface()

@@ -5,7 +5,7 @@
 # for more information.
 #
 # [C706] Transfer NDR Syntax implementation
-# 
+#
 # Author:
 #
 #     Alberto Solino
@@ -26,8 +26,9 @@ from impacket.uuid import uuidtup_to_bin
 # Something important to have in mind:
 # Diagrams do not depict the specified alignment gaps, which can appear in the octet stream
 # before an item (see Section 14.2.2 on page 620.)
-# Where necessary, an alignment gap, consisting of octets of unspecified value, *precedes* the 
+# Where necessary, an alignment gap, consisting of octets of unspecified value, *precedes* the
 # representation of a primitive. The gap is of the smallest size sufficient to align the primitive
+
 
 class NDR(object):
     """
@@ -37,16 +38,16 @@ class NDR(object):
     Some data types are taken off as well.
 
     """
-    referent       = ()
-    commonHdr      = ()
-    commonHdr64    = ()
-    structure      = ()
-    structure64    = ()
-    align          = 4
-    debug          = False
-    _isNDR64       = False
+    referent = ()
+    commonHdr = ()
+    commonHdr64 = ()
+    structure = ()
+    structure64 = ()
+    align = 4
+    debug = False
+    _isNDR64 = False
 
-    def __init__(self, data = None, isNDR64 = False):
+    def __init__(self, data=None, isNDR64=False):
         object.__init__(self)
         self._isNDR64 = isNDR64
         self.fields = {}
@@ -61,18 +62,18 @@ class NDR(object):
             if hasattr(self, 'align64'):
                 self.align = self.align64
 
-        for fieldName, fieldTypeOrClass in self.commonHdr+self.structure+self.referent:
+        for fieldName, fieldTypeOrClass in self.commonHdr + self.structure + self.referent:
             if self.isNDR(fieldTypeOrClass):
-               self.fields[fieldName] = fieldTypeOrClass(isNDR64 = self._isNDR64)
+                self.fields[fieldName] = fieldTypeOrClass(isNDR64=self._isNDR64)
             elif fieldTypeOrClass == ':':
-               self.fields[fieldName] = ''
-            elif len(fieldTypeOrClass.split('=')) == 2: 
-               try:
-                   self.fields[fieldName] = eval(fieldTypeOrClass.split('=')[1])
-               except:
-                   self.fields[fieldName] = None
+                self.fields[fieldName] = ''
+            elif len(fieldTypeOrClass.split('=')) == 2:
+                try:
+                    self.fields[fieldName] = eval(fieldTypeOrClass.split('=')[1])
+                except:
+                    self.fields[fieldName] = None
             else:
-               self.fields[fieldName] = []
+                self.fields[fieldName] = []
 
         if data is not None:
             self.fromString(data)
@@ -81,7 +82,7 @@ class NDR(object):
 
         return None
 
-    def changeTransferSyntax(self, newSyntax): 
+    def changeTransferSyntax(self, newSyntax):
         NDR64Syntax = uuidtup_to_bin(('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0'))
         if newSyntax == NDR64Syntax:
             if self._isNDR64 is False:
@@ -100,16 +101,16 @@ class NDR(object):
                 # And check whether the changes changed the data types
                 # if so, I need to instantiate the new ones and copy the
                 # old values
-                for fieldName, fieldTypeOrClass in self.commonHdr+self.structure+self.referent:
+                for fieldName, fieldTypeOrClass in self.commonHdr + self.structure + self.referent:
                     if isinstance(self.fields[fieldName], NDR):
                         if fieldTypeOrClass != self.fields[fieldName].__class__ and isinstance(self.fields[fieldName], NDRPOINTERNULL) is False:
                             backupData = self[fieldName]
-                            self.fields[fieldName] = fieldTypeOrClass(isNDR64 = self._isNDR64)
+                            self.fields[fieldName] = fieldTypeOrClass(isNDR64=self._isNDR64)
                             if 'Data' in self.fields[fieldName].fields:
                                 self.fields[fieldName].fields['Data'] = backupData
                             else:
                                 self[fieldName] = backupData
-  
+
         else:
             if self._isNDR64 is True:
                 # Ok, nothing for now
@@ -117,14 +118,14 @@ class NDR(object):
 
     def __setitem__(self, key, value):
         if isinstance(value, NDRPOINTERNULL):
-            value = NDRPOINTERNULL(isNDR64 = self._isNDR64)
+            value = NDRPOINTERNULL(isNDR64=self._isNDR64)
             if isinstance(self.fields[key], NDRPOINTER):
                 self.fields[key] = value
             elif 'Data' in self.fields[key].fields:
                 if isinstance(self.fields[key].fields['Data'], NDRPOINTER):
                     self.fields[key].fields['Data'] = value
         elif isinstance(value, NDR):
-            # It's not a null pointer, ok. Another NDR type, but it 
+            # It's not a null pointer, ok. Another NDR type, but it
             # must be the same same as the iteam already in place
             if self.fields[key].__class__.__name__ == value.__class__.__name__:
                 self.fields[key] = value
@@ -196,39 +197,39 @@ class NDR(object):
             print('False')
         return False
 
-    def dumpRaw(self, msg = None, indent = 0):
+    def dumpRaw(self, msg=None, indent=0):
         if msg is None: msg = self.__class__.__name__
-        ind = ' '*indent
+        ind = ' ' * indent
         print("\n%s" % (msg))
-        for field in self.commonHdr+self.structure+self.referent:
-            i = field[0] 
+        for field in self.commonHdr + self.structure + self.referent:
+            i = field[0]
             if i in self.fields:
                 if isinstance(self.fields[i], NDR):
-                    self.fields[i].dumpRaw('%s%s:{' % (ind,i), indent = indent + 4)
+                    self.fields[i].dumpRaw('%s%s:{' % (ind,i), indent=indent + 4)
                     print("%s}" % ind)
 
                 elif isinstance(self.fields[i], list):
                     print("%s[" % ind)
                     for num,j in enumerate(self.fields[i]):
-                       if isinstance(j, NDR):
-                           j.dumpRaw('%s%s:' % (ind,i), indent = indent + 4)
-                           print("%s," % ind)
-                       else:
-                           print("%s%s: {%r}," % (ind, i, j))
+                        if isinstance(j, NDR):
+                            j.dumpRaw('%s%s:' % (ind,i), indent=indent + 4)
+                            print("%s," % ind)
+                        else:
+                            print("%s%s: {%r}," % (ind, i, j))
                     print("%s]" % ind)
 
                 else:
                     print("%s%s: {%r}" % (ind,i,self[i]))
 
-    def dump(self, msg = None, indent = 0):
+    def dump(self, msg=None, indent=0):
         if msg is None: msg = self.__class__.__name__
-        ind = ' '*indent
+        ind = ' ' * indent
         if msg != '':
             print("%s" % (msg), end=' ')
-        for fieldName, fieldType in self.commonHdr+self.structure+self.referent:
+        for fieldName, fieldType in self.commonHdr + self.structure + self.referent:
             if fieldName in self.fields:
                 if isinstance(self.fields[fieldName], NDR):
-                    self.fields[fieldName].dump('\n%s%-31s' % (ind, fieldName+':'), indent = indent + 4),
+                    self.fields[fieldName].dump('\n%s%-31s' % (ind, fieldName + ':'), indent=indent + 4),
                 else:
                     print(" %r" % (self[fieldName]), end=' ')
 
@@ -250,7 +251,7 @@ class NDR(object):
             if len(fieldType.split('*')) == 2:
                 if self.isNDR(self.item):
                     fieldType = ':'
-                    # ToDo: Careful here.. I don't know this is right.. 
+                    # ToDo: Careful here.. I don't know this is right..
                     # But, if we're inside an array, data should be aligned already, by means
                     # of the previous fields
                     return 0
@@ -263,23 +264,23 @@ class NDR(object):
         if alignment > 0 and alignment <= 8:
             # Ok, here we gotta see if we're aligned with the size of the field
             # we're about to unpack.
-            #print "field: %s, soFar:%d, size:%d, align: %d " % (fieldName, soFar, size, alignment)
+            # print "field: %s, soFar:%d, size:%d, align: %d " % (fieldName, soFar, size, alignment)
             alignment = (alignment - (soFar % alignment)) % alignment
         else:
             alignment = 0
 
         return alignment
 
-    def getData(self, soFar = 0):
+    def getData(self, soFar=0):
         data = ''
         soFar0 = soFar
         pad0 = 0
-        for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
+        for fieldName, fieldTypeOrClass in self.commonHdr + self.structure:
             try:
-                pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar, packing = True)
+                pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar, packing=True)
                 if pad > 0:
                     soFar += pad
-                    data = data + '\xbb'*pad
+                    data = data + '\xbb' * pad
                     #data = data + '\x00'*pad
 
                 res = self.pack(fieldName, fieldTypeOrClass, soFar)
@@ -296,12 +297,12 @@ class NDR(object):
 
         return data
 
-    def getDataReferents(self, soFar = 0):
+    def getDataReferents(self, soFar=0):
         data = ''
-        for fieldName, fieldTypeOrClass in self.commonHdr+self.structure: 
+        for fieldName, fieldTypeOrClass in self.commonHdr + self.structure:
             if isinstance(self.fields[fieldName], NDR):
-               data += self.fields[fieldName].getDataReferents(len(data)+soFar)
-               data += self.fields[fieldName].getDataReferent(len(data)+soFar)
+                data += self.fields[fieldName].getDataReferents(len(data) + soFar)
+                data += self.fields[fieldName].getDataReferent(len(data) + soFar)
         self.data = data
         return data
 
@@ -317,10 +318,10 @@ class NDR(object):
 
         for fieldName, fieldTypeOrClass in self.referent:
             try:
-                pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar, packing = True)
+                pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar, packing=True)
                 if pad > 0:
                     soFar += pad
-                    data = data + '\xcc'*pad
+                    data = data + '\xcc' * pad
                     #data = data + '\x00'*pad
 
                 data += self.pack(fieldName, fieldTypeOrClass, soFar)
@@ -328,7 +329,7 @@ class NDR(object):
                 # Any referent information to pack?
                 if isinstance(self.fields[fieldName], NDR):
                     data += self.fields[fieldName].getDataReferents(soFar)
-                    data += self.fields[fieldName].getDataReferent(len(data)+soFar)
+                    data += self.fields[fieldName].getDataReferent(len(data) + soFar)
                 soFar = soFar0 + len(data)
             except Exception as e:
                 if fieldName in self.fields:
@@ -339,14 +340,14 @@ class NDR(object):
 
         return data
 
-    def fromString(self, data, soFar = 0):
+    def fromString(self, data, soFar=0):
         if self.rawData is None:
             self.rawData = data
 
         soFar0 = soFar
-        for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
+        for fieldName, fieldTypeOrClass in self.commonHdr + self.structure:
             size = self.calcUnPackSize(fieldTypeOrClass, data)
-            pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar = soFar, packing = False)
+            pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar=soFar, packing=False)
             if pad > 0:
                 soFar += pad
                 data = data[pad:]
@@ -362,18 +363,18 @@ class NDR(object):
 
         return self
 
-    def fromStringReferents(self, data, soFar = 0):
+    def fromStringReferents(self, data, soFar=0):
         soFar0 = soFar
-        for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
+        for fieldName, fieldTypeOrClass in self.commonHdr + self.structure:
             if isinstance(self.fields[fieldName], NDR):
                 nSoFar = self.fields[fieldName].fromStringReferents(data, soFar)
                 soFar += nSoFar
                 nSoFar2 = self.fields[fieldName].fromStringReferent(data[nSoFar:], soFar)
                 soFar += nSoFar2
-                data = data[nSoFar+nSoFar2:]
+                data = data[nSoFar + nSoFar2:]
         return soFar - soFar0
 
-    def fromStringReferent(self, data, soFar = 0):
+    def fromStringReferent(self, data, soFar=0):
         if hasattr(self, 'referent') is not True:
             return 0
 
@@ -386,7 +387,7 @@ class NDR(object):
 
         for fieldName, fieldTypeOrClass in self.referent:
             size = self.calcUnPackSize(fieldTypeOrClass, data)
-            pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar = soFar, packing = False)
+            pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar=soFar, packing=False)
             if pad > 0:
                 soFar += pad
                 data = data[pad:]
@@ -400,15 +401,15 @@ class NDR(object):
                 size = len(self.fields[fieldName].getData(soFar))
                 nSoFar = self.fields[fieldName].fromStringReferents(data[size:], soFar + size)
                 nSoFar2 = self.fields[fieldName].fromStringReferent(data[size + nSoFar:], soFar + size + nSoFar)
-                size += nSoFar + nSoFar2 
+                size += nSoFar + nSoFar2
             data = data[size:]
             soFar += size
 
-        return soFar-soFar0
+        return soFar - soFar0
 
-    def pack(self, fieldName, fieldTypeOrClass, soFar = 0):
+    def pack(self, fieldName, fieldTypeOrClass, soFar=0):
         if self.debug:
-            print("  pack( %s | %s | %d )" %  (fieldName, fieldTypeOrClass, soFar))
+            print("  pack( %s | %s | %d )" % (fieldName, fieldTypeOrClass, soFar))
 
         if isinstance(self.fields[fieldName], NDR):
             return self.fields[fieldName].getData(soFar)
@@ -441,23 +442,23 @@ class NDR(object):
                 self.fields['_tmpItem'] = item
 
             for each in data:
-                pad = self.calculatePad('_tmpItem', self.item, answer, len(answer)+soFar, packing = True)
+                pad = self.calculatePad('_tmpItem', self.item, answer, len(answer) + soFar, packing=True)
                 if pad > 0:
                     answer += '\xdd' * pad
                 if dataClass is None:
                     answer += pack(item, each)
                 else:
-                    answer += each.getData(len(answer)+soFar)
+                    answer += each.getData(len(answer) + soFar)
 
             if dataClass is not None:
                 for each in data:
                     # ToDo: I'm not sure about commenting this
                     #pad = self.calculatePad('_tmpItem', self.item, answer, len(answer)+soFar, packing = True)
-                    #if pad > 0:
+                    # if pad > 0:
                     #    answer += '\xda' * pad
-                    answer += each.getDataReferents(len(answer)+soFar)
+                    answer += each.getDataReferents(len(answer) + soFar)
                     # ToDo, still to work out this
-                    answer += each.getDataReferent(len(answer)+soFar)
+                    answer += each.getDataReferent(len(answer) + soFar)
 
             del(self.fields['_tmpItem'])
             self.fields[two[1]] = len(data)
@@ -465,7 +466,7 @@ class NDR(object):
 
         if data is None:
             raise Exception("Trying to pack None")
-        
+
         # literal specifier
         if fieldTypeOrClass[:1] == ':':
             return str(data)
@@ -473,9 +474,9 @@ class NDR(object):
         # struct like specifier
         return pack(fieldTypeOrClass, data)
 
-    def unpack(self, fieldName, fieldTypeOrClass, data, soFar = 0):
+    def unpack(self, fieldName, fieldTypeOrClass, data, soFar=0):
         if self.debug:
-            print("  unpack( %s | %s | %r | %d)" %  (fieldName, fieldTypeOrClass, data, soFar))
+            print("  unpack( %s | %s | %r | %d)" % (fieldName, fieldTypeOrClass, data, soFar))
 
         if isinstance(self.fields[fieldName], NDR):
             return self.fields[fieldName].fromString(data, soFar)
@@ -504,24 +505,24 @@ class NDR(object):
 
             nsofar = 0
             while numItems and soFarItems < len(data):
-                pad = self.calculatePad('_tmpItem', self.item, data[soFar:], soFarItems+soFar, packing = False)
+                pad = self.calculatePad('_tmpItem', self.item, data[soFar:], soFarItems + soFar, packing=False)
                 if pad > 0:
-                    soFarItems +=pad
+                    soFarItems += pad
                 if dataClassOrCode is None:
                     nsofar = soFarItems + calcsize(item)
                     answer.append(unpack(item, data[soFarItems:nsofar])[0])
                 else:
                     itemn = dataClassOrCode(isNDR64=self._isNDR64)
-                    itemn.fromString(data[soFarItems:], soFar+soFarItems)
-                    itemn.rawData = data[soFarItems+len(itemn.getData(soFar+soFarItems)):] 
+                    itemn.fromString(data[soFarItems:], soFar + soFarItems)
+                    itemn.rawData = data[soFarItems + len(itemn.getData(soFar + soFarItems)):]
                     answer.append(itemn)
                     nsofar += len(itemn.getData(soFarItems)) + pad
                 numItems -= 1
                 soFarItems = nsofar
 
-            pad = self.calculatePad('_tmpItem', self.item, data[soFarItems:], soFarItems+soFar, packing = False)
+            pad = self.calculatePad('_tmpItem', self.item, data[soFarItems:], soFarItems + soFar, packing=False)
             if pad > 0:
-                soFarItems +=pad
+                soFarItems += pad
 
             if dataClassOrCode is not None:
                 # We gotta go over again, asking for the referents
@@ -531,14 +532,14 @@ class NDR(object):
                 for itemn in answer:
                     # ToDo: I'm not sure about this is right
                     if self._isNDR64 is False:
-                        pad = self.calculatePad('_tmpItem', self.item, data, soFarItems+soFar, packing = False)
+                        pad = self.calculatePad('_tmpItem', self.item, data, soFarItems + soFar, packing=False)
                         if pad > 0:
                             soFarItems += pad
                             data = data[pad:]
-                    nSoFar = itemn.fromStringReferents(data, soFarItems+soFar)
+                    nSoFar = itemn.fromStringReferents(data, soFarItems + soFar)
                     soFarItems += nSoFar
                     data = data[nSoFar:]
-                    nSoFar2 = itemn.fromStringReferent(data, soFarItems+soFar)
+                    nSoFar2 = itemn.fromStringReferent(data, soFarItems + soFar)
                     soFarItems += nSoFar2
                     data = data[nSoFar2:]
                     answer2.append(itemn)
@@ -560,7 +561,7 @@ class NDR(object):
 
     def calcPackSize(self, fieldTypeOrClass, data):
         if self.debug:
-            print("  calcPackSize  %s:%r" %  (fieldTypeOrClass, data))
+            print("  calcPackSize  %s:%r" % (fieldTypeOrClass, data))
 
         if isinstance(fieldTypeOrClass, str) is False:
             return len(data)
@@ -591,7 +592,7 @@ class NDR(object):
 
     def calcUnPackSize(self, fieldTypeOrClass, data):
         if self.debug:
-            print("  calcUnPackSize  %s:%r" %  (fieldTypeOrClass, data))
+            print("  calcUnPackSize  %s:%r" % (fieldTypeOrClass, data))
 
         if isinstance(fieldTypeOrClass, str) is False:
             return len(data)
@@ -613,19 +614,21 @@ class NDR(object):
         # struct like specifier
         return calcsize(fieldTypeOrClass)
 
+
 class NDRCALL(NDR):
-    # This represents a group of NDR instances that conforms an NDR Call. 
-    # The only different between a regular NDR instance is a NDR call must 
+    # This represents a group of NDR instances that conforms an NDR Call.
+    # The only different between a regular NDR instance is a NDR call must
     # represent the referents when building the final octet stream
-    referent       = ()
-    commonHdr      = ()
-    commonHdr64    = ()
-    structure      = ()
-    structure64    = ()
-    align          = 4
-    debug          = False
+    referent = ()
+    commonHdr = ()
+    commonHdr64 = ()
+    structure = ()
+    structure64 = ()
+    align = 4
+    debug = False
     consistencyCheck = False
-    def __init__(self, data = None, isNDR64 = False):
+
+    def __init__(self, data=None, isNDR64=False):
         self._isNDR64 = isNDR64
         self.fields = {}
         self.data = None
@@ -639,23 +642,23 @@ class NDRCALL(NDR):
             if hasattr(self, 'align64'):
                 self.align = self.align64
 
-        for fieldName, fieldTypeOrClass in self.commonHdr+self.structure+self.referent:
+        for fieldName, fieldTypeOrClass in self.commonHdr + self.structure + self.referent:
             if self.isNDR(fieldTypeOrClass):
-               if self.isPointer(fieldTypeOrClass):
-                   self.fields[fieldName] = fieldTypeOrClass(isNDR64 = self._isNDR64, topLevel = True)
-               elif self.isUnion(fieldTypeOrClass):
-                   self.fields[fieldName] = fieldTypeOrClass(isNDR64 = self._isNDR64, topLevel = True)
-               else:
-                   self.fields[fieldName] = fieldTypeOrClass(isNDR64 = self._isNDR64)
+                if self.isPointer(fieldTypeOrClass):
+                    self.fields[fieldName] = fieldTypeOrClass(isNDR64=self._isNDR64, topLevel=True)
+                elif self.isUnion(fieldTypeOrClass):
+                    self.fields[fieldName] = fieldTypeOrClass(isNDR64=self._isNDR64, topLevel=True)
+                else:
+                    self.fields[fieldName] = fieldTypeOrClass(isNDR64=self._isNDR64)
             elif fieldTypeOrClass == ':':
-               self.fields[fieldName] = None
-            elif len(fieldTypeOrClass.split('=')) == 2: 
-               try:
-                   self.fields[fieldName] = eval(fieldTypeOrClass.split('=')[1])
-               except:
-                   self.fields[fieldName] = None
+                self.fields[fieldName] = None
+            elif len(fieldTypeOrClass.split('=')) == 2:
+                try:
+                    self.fields[fieldName] = eval(fieldTypeOrClass.split('=')[1])
+                except:
+                    self.fields[fieldName] = None
             else:
-               self.fields[fieldName] = 0
+                self.fields[fieldName] = 0
 
         if data is not None:
             self.fromString(data)
@@ -664,25 +667,25 @@ class NDRCALL(NDR):
 
         return None
 
-    def dump(self, msg = None, indent = 0):
+    def dump(self, msg=None, indent=0):
         NDR.dump(self, msg, indent)
         print('\n\n')
 
-    def getData(self, soFar = 0):
+    def getData(self, soFar=0):
         data = ''
         soFar0 = soFar
-        for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
+        for fieldName, fieldTypeOrClass in self.commonHdr + self.structure:
             try:
-                pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar, packing = True)
+                pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar, packing=True)
                 if pad > 0:
                     soFar += pad
-                    data = data + '\xaa'*pad
+                    data = data + '\xaa' * pad
                     #data = data + '\x00'*pad
 
                 data += self.pack(fieldName, fieldTypeOrClass, soFar)
                 soFar = soFar0 + len(data)
                 # Any referent information to pack?
-                # I'm still not sure whether this should go after processing 
+                # I'm still not sure whether this should go after processing
                 # all the fields at the call level.
                 # Guess we'll figure it out testing.
                 if isinstance(self.fields[fieldName], NDR):
@@ -701,13 +704,13 @@ class NDRCALL(NDR):
 
         return data
 
-    def fromString(self, data, soFar = 0):
+    def fromString(self, data, soFar=0):
         if self.rawData is None:
             self.rawData = data
 
-        for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
+        for fieldName, fieldTypeOrClass in self.commonHdr + self.structure:
             size = self.calcUnPackSize(fieldTypeOrClass, data)
-            pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar = soFar, packing = False)
+            pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar=soFar, packing=False)
             if pad > 0:
                 soFar += pad
                 data = data[pad:]
@@ -719,7 +722,7 @@ class NDRCALL(NDR):
                     if isinstance(self.fields[fieldName], NDR):
                         nSoFar = self.fields[fieldName].fromStringReferents(data[size:], soFar + size)
                         nSoFar2 = self.fields[fieldName].fromStringReferent(data[size + nSoFar:], soFar + size + nSoFar)
-                        size += nSoFar + nSoFar2 
+                        size += nSoFar + nSoFar2
 
                 data = data[size:]
                 soFar += size
@@ -733,18 +736,19 @@ class NDRCALL(NDR):
             res = res + '\x00' * (4 - (len(res) & 3) & 3)
             # Stripping the return code, if it's there
             if res != self.rawData[:-4]:
-                    LOG.error("Pack/Unpack doesnt match!")
-                    LOG.error("UNPACKED")
-                    hexdump(self.rawData)
-                    LOG.error("PACKED")
-                    hexdump(res)
+                LOG.error("Pack/Unpack doesnt match!")
+                LOG.error("UNPACKED")
+                hexdump(self.rawData)
+                LOG.error("PACKED")
+                hexdump(res)
 
         return self
 
-# Top Level Struct == NDRCALL 
+# Top Level Struct == NDRCALL
 NDRTLSTRUCT = NDRCALL
 
 # NDR Primitives
+
 
 class NDRSMALL(NDR):
     align = 1
@@ -752,16 +756,18 @@ class NDRSMALL(NDR):
         ('Data', 'b=0'),
     )
 
+
 class NDRUSMALL(NDR):
     align = 1
     structure = (
         ('Data', 'B=0'),
     )
 
+
 class NDRBOOLEAN(NDRSMALL):
-    def dump(self, msg = None, indent = 0):
+    def dump(self, msg=None, indent=0):
         if msg is None: msg = self.__class__.__name__
-        ind = ' '*indent
+        ind = ' ' * indent
         if msg != '':
             print(msg, end=' ')
 
@@ -770,11 +776,13 @@ class NDRBOOLEAN(NDRSMALL):
         else:
             print(" FALSE")
 
+
 class NDRCHAR(NDR):
     align = 1
     structure = (
         ('Data', 'c'),
     )
+
 
 class NDRSHORT(NDR):
     align = 2
@@ -782,11 +790,13 @@ class NDRSHORT(NDR):
         ('Data', '<h=0'),
     )
 
+
 class NDRUSHORT(NDR):
     align = 2
     structure = (
         ('Data', '<H=0'),
     )
+
 
 class NDRLONG(NDR):
     align = 4
@@ -794,11 +804,13 @@ class NDRLONG(NDR):
         ('Data', '<l=0'),
     )
 
+
 class NDRULONG(NDR):
     align = 4
     structure = (
         ('Data', '<L=0'),
     )
+
 
 class NDRHYPER(NDR):
     align = 8
@@ -806,11 +818,13 @@ class NDRHYPER(NDR):
         ('Data', '<q=0'),
     )
 
+
 class NDRUHYPER(NDR):
     align = 8
     structure = (
         ('Data', '<Q=0'),
     )
+
 
 class NDRFLOAT(NDR):
     align = 4
@@ -818,15 +832,18 @@ class NDRFLOAT(NDR):
         ('Data', '<f=0'),
     )
 
+
 class NDRDOUBLEFLOAT(NDR):
     align = 8
     structure = (
         ('Data', '<d=0'),
     )
 
+
 class EnumType(type):
     def __getattr__(self, attr):
         return self.enumItems[attr].value
+
 
 class NDRENUM(NDR, metaclass=EnumType):
     align = 2
@@ -837,24 +854,25 @@ class NDRENUM(NDR, metaclass=EnumType):
 
     # 2.2.5.2 NDR64 Simple Data Types
     # NDR64 supports all simple types defined by NDR (as specified in [C706] section 14.2)
-    # with the same alignment requirements except for enumerated types, which MUST be 
+    # with the same alignment requirements except for enumerated types, which MUST be
     # represented as signed long integers (4 octets) in NDR64.
     structure64 = (
         ('Data', '<L'),
     )
     # enum MUST be an python enum (see enum.py)
+
     class enumItems(Enum):
         pass
 
     def __setitem__(self, key, value):
-       if isinstance(value, Enum):
-           self['Data'] = value.value
-       else:
-           return NDR.__setitem__(self,key,value)
+        if isinstance(value, Enum):
+            self['Data'] = value.value
+        else:
+            return NDR.__setitem__(self,key,value)
 
-    def dump(self, msg = None, indent = 0):
+    def dump(self, msg=None, indent=0):
         if msg is None: msg = self.__class__.__name__
-        ind = ' '*indent
+        ind = ' ' * indent
         if msg != '':
             print(msg, end=' ')
 
@@ -863,28 +881,30 @@ class NDRENUM(NDR, metaclass=EnumType):
 # NDR Constructed Types (arrays, strings, structures, unions, variant structures, pipes and pointers)
 
 # Uni-dimensional Fixed Arrays
+
+
 class NDRArray(NDR):
-    def dump(self, msg = None, indent = 0):
+    def dump(self, msg=None, indent=0):
         if msg is None: msg = self.__class__.__name__
-        ind = ' '*indent
+        ind = ' ' * indent
         if msg != '':
             print(msg, end=' ')
 
         if isinstance(self['Data'], list):
             print("\n%s[" % ind)
-            ind += ' '*4
+            ind += ' ' * 4
             for num,j in enumerate(self.fields['Data']):
-               if isinstance(j, NDR):
-                   j.dump('%s' % ind, indent = indent + 4),
-                   print(",") 
-               else:
-                   print("%s %r," % (ind,j))
+                if isinstance(j, NDR):
+                    j.dump('%s' % ind, indent=indent + 4),
+                    print(",")
+                else:
+                    print("%s %r," % (ind,j))
             print("%s]" % ind[:-4], end=' ')
         else:
             print(" %r" % self['Data'], end=' ')
 
-    def changeTransferSyntax(self, newSyntax): 
-        # Here we gotta go over each item in the array and change the TS 
+    def changeTransferSyntax(self, newSyntax):
+        # Here we gotta go over each item in the array and change the TS
         # Only if the item type is NDR
         if hasattr(self, 'item'):
             if self.isNDR(self.item):
@@ -893,12 +913,12 @@ class NDRArray(NDR):
         return NDR.changeTransferSyntax(self, newSyntax)
 
     def getAlignment(self):
-        # Array alignment is the largest alignment of the array element type and 
+        # Array alignment is the largest alignment of the array element type and
         # the size information type, if any.
         tmpAlign = 0
         align = 0
-        #for fieldName, fieldTypeOrClass in self.structure:
-        ##    if isinstance(self.fields[fieldName], NDR):
+        # for fieldName, fieldTypeOrClass in self.structure:
+        # if isinstance(self.fields[fieldName], NDR):
         #        tmpAlign = self.fields[fieldName].getAlignment()
         #    else:
         #        tmpAlign = self.calcPackSize(fieldTypeOrClass, '')
@@ -915,12 +935,15 @@ class NDRArray(NDR):
                 align = tmpAlign
         return align
 
+
 class NDRUniFixedArray(NDRArray):
     structure = (
         ('Data',':'),
     )
 
 # Uni-dimensional Conformant Arrays
+
+
 class NDRUniConformantArray(NDRArray):
     item = 'c'
     structure = (
@@ -938,7 +961,7 @@ class NDRUniConformantArray(NDRArray):
         self.data = None        # force recompute
         return NDRArray.__setitem__(self, key, value)
 
-    def getDataArray(self, soFar = 0):
+    def getDataArray(self, soFar=0):
         # Since we're unpacking an array, the MaximumCount was already processed
         # hence, we don't have to calculate the pad again.
         data = ''
@@ -948,10 +971,10 @@ class NDRUniConformantArray(NDRArray):
         for fieldName, fieldTypeOrClass in self.structure:
             try:
                 if fieldNum > 0:
-                    pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar, packing = True)
+                    pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar, packing=True)
                     if pad > 0:
                         soFar += pad
-                        data = data + '\xbb'*pad
+                        data = data + '\xbb' * pad
 
                 res = self.pack(fieldName, fieldTypeOrClass, soFar)
                 data += res
@@ -967,7 +990,7 @@ class NDRUniConformantArray(NDRArray):
 
         return data
 
-    def fromStringArray(self, data, soFar = 0):
+    def fromStringArray(self, data, soFar=0):
         # Since we're unpacking an array, the MaximumCount was already processed
         # hence, we don't have to calculate the pad again.
         if self.rawData is None:
@@ -978,7 +1001,7 @@ class NDRUniConformantArray(NDRArray):
         for fieldName, fieldTypeOrClass in self.structure:
             size = self.calcUnPackSize(fieldTypeOrClass, data)
             if fieldNum > 0:
-                pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar = soFar, packing = False)
+                pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar=soFar, packing=False)
                 if pad > 0:
                     soFar += pad
                     data = data[pad:]
@@ -996,6 +1019,8 @@ class NDRUniConformantArray(NDRArray):
         return self
 
 # Uni-dimensional Varying Arrays
+
+
 class NDRUniVaryingArray(NDRArray):
     item = 'c'
     structure = (
@@ -1015,6 +1040,8 @@ class NDRUniVaryingArray(NDRArray):
         return NDRArray.__setitem__(self, key, value)
 
 # Uni-dimensional Conformant-varying Arrays
+
+
 class NDRUniConformantVaryingArray(NDRArray):
     item = 'c'
     commonHdr = (
@@ -1038,7 +1065,7 @@ class NDRUniConformantVaryingArray(NDRArray):
         self.data = None        # force recompute
         return NDRArray.__setitem__(self, key, value)
 
-    def getDataArray(self, soFar = 0):
+    def getDataArray(self, soFar=0):
         # Since we're unpacking an array, the MaximumCount/Offset/ActualCount
         # was already processed
         # hence, we don't have to calculate the pad again.
@@ -1046,13 +1073,13 @@ class NDRUniConformantVaryingArray(NDRArray):
         soFar0 = soFar
         pad0 = 0
         fieldNum = 0
-        for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
+        for fieldName, fieldTypeOrClass in self.commonHdr + self.structure:
             try:
                 if fieldNum > 1:
-                    pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar, packing = True)
+                    pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar, packing=True)
                     if pad > 0:
                         soFar += pad
-                        data = data + '\xbb'*pad
+                        data = data + '\xbb' * pad
 
                 res = self.pack(fieldName, fieldTypeOrClass, soFar)
                 data += res
@@ -1068,7 +1095,7 @@ class NDRUniConformantVaryingArray(NDRArray):
 
         return data
 
-    def fromStringArray(self, data, soFar = 0):
+    def fromStringArray(self, data, soFar=0):
         # Since we're unpacking an array, the MaximumCount/Offset/ActualCount
         # was already processed
         # hence, we don't have to calculate the pad again.
@@ -1077,10 +1104,10 @@ class NDRUniConformantVaryingArray(NDRArray):
 
         soFar0 = soFar
         fieldNum = 0
-        for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
+        for fieldName, fieldTypeOrClass in self.commonHdr + self.structure:
             size = self.calcUnPackSize(fieldTypeOrClass, data)
             if fieldNum > 1:
-                pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar = soFar, packing = False)
+                pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar=soFar, packing=False)
                 if pad > 0:
                     soFar += pad
                     data = data[pad:]
@@ -1102,36 +1129,40 @@ class NDRUniConformantVaryingArray(NDRArray):
 
 # Varying Strings
 class NDRVaryingString(NDRUniVaryingArray):
-    def getData(self, soFar = 0):
-        # The last element of a string is a terminator of the same size as the other elements. 
-        # If the string element size is one octet, the terminator is a NULL character. 
+    def getData(self, soFar=0):
+        # The last element of a string is a terminator of the same size as the other elements.
+        # If the string element size is one octet, the terminator is a NULL character.
         # The terminator for a string of multi-byte characters is the array element zero (0).
         if self["Data"][-1:] != '\x00':
             self["Data"] = ''.join(self["Data"]) + '\x00'
         return NDRUniVaryingArray.getData(self, soFar)
 
-    def fromString(self, data, soFar = 0):
+    def fromString(self, data, soFar=0):
         #ret = NDRUniVaryingArray.fromString(self,data, soFar = 0)
         ret = NDRUniVaryingArray.fromString(self,data)
         # Let's take out the last item
-        self["Data"] = self["Data"][:-1] 
+        self["Data"] = self["Data"][:-1]
         return ret
 
 # Conformant and Varying Strings
+
+
 class NDRConformantVaryingString(NDRUniConformantVaryingArray):
     pass
 
 # Structures
-# Structures Containing a Conformant Array 
-# Structures Containing a Conformant and Varying Array 
+# Structures Containing a Conformant Array
+# Structures Containing a Conformant and Varying Array
+
+
 class NDRSTRUCT(NDR):
     # Now it does nothing, but we will need this to work on the NDR64 stuff
     # We should do this:
     # 2.2.5.3.4.1 Structure with Trailing Gap
-    # NDR64 represents a structure as an ordered sequence of representations of the 
-    # structure members. The trailing gap from the last nonconformant and nonvarying 
-    # field to the alignment of the structure MUST be represented as a trailing pad. 
-    # The size of the structure MUST be a multiple of its alignment. 
+    # NDR64 represents a structure as an ordered sequence of representations of the
+    # structure members. The trailing gap from the last nonconformant and nonvarying
+    # field to the alignment of the structure MUST be represented as a trailing pad.
+    # The size of the structure MUST be a multiple of its alignment.
     # See the following figure.
 
     # 4.8 Example of Structure with Trailing Gap in NDR64
@@ -1141,45 +1172,45 @@ class NDRSTRUCT(NDR):
     #         long l;
     #         short s;
     #     } StructWithPad;
-    # The size of the structure in the octet stream MUST contain a 2-byte trailing 
+    # The size of the structure in the octet stream MUST contain a 2-byte trailing
     # gap to make its size 8, a multiple of the structure's alignment, 4.
-    def getData(self, soFar = 0):
+    def getData(self, soFar=0):
         data = ''
         soFar0 = soFar
         pad0 = 0
         arrayPresent = False
         # 14.3.7.1 Structures Containing a Conformant Array
         # A structure can contain a conformant array only as its last member.
-        # In the NDR representation of a structure that contains a conformant array, 
-        # the unsigned long integers that give maximum element counts for dimensions of the array 
-        # are moved to the beginning of the structure, and the array elements appear in place at 
+        # In the NDR representation of a structure that contains a conformant array,
+        # the unsigned long integers that give maximum element counts for dimensions of the array
+        # are moved to the beginning of the structure, and the array elements appear in place at
         # the end of the structure.
         # 14.3.7.2 Structures Containing a Conformant and Varying Array
         # A structure can contain a conformant and varying array only as its last member.
-        # In the NDR representation of a structure that contains a conformant and varying array, 
-        # the maximum counts for dimensions of the array are moved to the beginning of the structure, 
-        # but the offsets and actual counts remain in place at the end of the structure, 
+        # In the NDR representation of a structure that contains a conformant and varying array,
+        # the maximum counts for dimensions of the array are moved to the beginning of the structure,
+        # but the offsets and actual counts remain in place at the end of the structure,
         # immediately preceding the array elements
-        lastItem = (self.commonHdr+self.structure)[-1][0]
+        lastItem = (self.commonHdr + self.structure)[-1][0]
         if isinstance(self.fields[lastItem], NDRUniConformantArray) or isinstance(self.fields[lastItem], NDRUniConformantVaryingArray):
             # So we have an array, first item in the structure must be the array size, although we
             # will need to build it later.
-            arrayPresent = True 
+            arrayPresent = True
             if self._isNDR64:
                 arrayItemSize = 8
             else:
                 arrayItemSize = 4
 
-            # The size information is itself aligned according to the alignment rules for 
-            # primitive data types. (See Section 14.2.2 on page 620.) The data of the constructed 
-            # type is then aligned according to the alignment rules for the constructed type. 
-            # In other words, the size information precedes the structure and is aligned 
+            # The size information is itself aligned according to the alignment rules for
+            # primitive data types. (See Section 14.2.2 on page 620.) The data of the constructed
+            # type is then aligned according to the alignment rules for the constructed type.
+            # In other words, the size information precedes the structure and is aligned
             # independently of the structure alignment.
             # We need to check whether we need padding or not
-            pad0 = (arrayItemSize - (soFar % arrayItemSize)) % arrayItemSize 
+            pad0 = (arrayItemSize - (soFar % arrayItemSize)) % arrayItemSize
             if pad0 > 0:
                 soFar += pad0
-                arrayPadding = '\xee'*pad0
+                arrayPadding = '\xee' * pad0
             else:
                 arrayPadding = ''
             # And now, let's pretend we put the item in
@@ -1187,23 +1218,23 @@ class NDRSTRUCT(NDR):
         else:
             arrayItemSize = 0
 
-        # Now we need to align the structure 
+        # Now we need to align the structure
         # The alignment of a structure in the octet stream is the largest of the alignments of the fields it
-        # contains. These fields may also be constructed types. The same alignment rules apply 
+        # contains. These fields may also be constructed types. The same alignment rules apply
         # recursively to nested constructed types.
         alignment = self.getAlignment()
         if alignment > 0:
             pad = (alignment - (soFar % alignment)) % alignment
             if pad > 0:
                 soFar += pad
-                data = data + '\xAB'*pad
- 
-        for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
+                data = data + '\xAB' * pad
+
+        for fieldName, fieldTypeOrClass in self.commonHdr + self.structure:
             try:
-                pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar, packing = True)
+                pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar, packing=True)
                 if pad > 0:
                     soFar += pad
-                    data = data + '\xbb'*pad
+                    data = data + '\xbb' * pad
                     #data = data + '\x00'*pad
 
                 if isinstance(self.fields[fieldName], NDRUniConformantArray) or isinstance(self.fields[fieldName], NDRUniConformantVaryingArray):
@@ -1214,7 +1245,7 @@ class NDRSTRUCT(NDR):
                     arraySize = res[:arrayItemSize]
                     res = res[arrayItemSize:]
                     if isinstance(self, NDRPOINTER):
-                        pointerData = data[:arrayItemSize]    
+                        pointerData = data[:arrayItemSize]
                         data = data[arrayItemSize:]
                         data = pointerData + arrayPadding + arraySize + data
                     else:
@@ -1235,7 +1266,7 @@ class NDRSTRUCT(NDR):
 
         return data
 
-    def fromString(self, data, soFar = 0 ):
+    def fromString(self, data, soFar=0):
         if self.rawData is None:
             self.rawData = data
 
@@ -1244,33 +1275,33 @@ class NDRSTRUCT(NDR):
         arrayPresent = False
         # 14.3.7.1 Structures Containing a Conformant Array
         # A structure can contain a conformant array only as its last member.
-        # In the NDR representation of a structure that contains a conformant array, 
-        # the unsigned long integers that give maximum element counts for dimensions of the array 
-        # are moved to the beginning of the structure, and the array elements appear in place at 
+        # In the NDR representation of a structure that contains a conformant array,
+        # the unsigned long integers that give maximum element counts for dimensions of the array
+        # are moved to the beginning of the structure, and the array elements appear in place at
         # the end of the structure.
         # 14.3.7.2 Structures Containing a Conformant and Varying Array
         # A structure can contain a conformant and varying array only as its last member.
-        # In the NDR representation of a structure that contains a conformant and varying array, 
-        # the maximum counts for dimensions of the array are moved to the beginning of the structure, 
-        # but the offsets and actual counts remain in place at the end of the structure, 
+        # In the NDR representation of a structure that contains a conformant and varying array,
+        # the maximum counts for dimensions of the array are moved to the beginning of the structure,
+        # but the offsets and actual counts remain in place at the end of the structure,
         # immediately preceding the array elements
-        lastItem = (self.commonHdr+self.structure)[-1][0]
+        lastItem = (self.commonHdr + self.structure)[-1][0]
         if isinstance(self.fields[lastItem], NDRUniConformantArray) or isinstance(self.fields[lastItem], NDRUniConformantVaryingArray):
             # So we have an array, first item in the structure must be the array size, although we
             # will need to build it later.
-            arrayPresent = True 
+            arrayPresent = True
             if self._isNDR64:
                 arrayItemSize = 8
             else:
                 arrayItemSize = 4
 
-            # The size information is itself aligned according to the alignment rules for 
-            # primitive data types. (See Section 14.2.2 on page 620.) The data of the constructed 
-            # type is then aligned according to the alignment rules for the constructed type. 
-            # In other words, the size information precedes the structure and is aligned 
+            # The size information is itself aligned according to the alignment rules for
+            # primitive data types. (See Section 14.2.2 on page 620.) The data of the constructed
+            # type is then aligned according to the alignment rules for the constructed type.
+            # In other words, the size information precedes the structure and is aligned
             # independently of the structure alignment.
             # We need to check whether we need padding or not
-            pad0 = (arrayItemSize - (soFar % arrayItemSize)) % arrayItemSize 
+            pad0 = (arrayItemSize - (soFar % arrayItemSize)) % arrayItemSize
             if pad0 > 0:
                 soFar += pad0
                 data = data[pad0:]
@@ -1284,9 +1315,9 @@ class NDRSTRUCT(NDR):
             # And move on data
             data = data[arrayItemSize:]
 
-        # Now we need to align the structure 
+        # Now we need to align the structure
         # The alignment of a structure in the octet stream is the largest of the alignments of the fields it
-        # contains. These fields may also be constructed types. The same alignment rules apply 
+        # contains. These fields may also be constructed types. The same alignment rules apply
         # recursively to nested constructed types.
         alignment = self.getAlignment()
         if alignment > 0:
@@ -1295,10 +1326,10 @@ class NDRSTRUCT(NDR):
                 soFar += pad
                 data = data[pad:]
 
-        for fieldName, fieldTypeOrClass in self.commonHdr+self.structure:
+        for fieldName, fieldTypeOrClass in self.commonHdr + self.structure:
             try:
                 size = self.calcUnPackSize(fieldTypeOrClass, data)
-                pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar = soFar, packing = False)
+                pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar=soFar, packing=False)
                 if pad > 0:
                     soFar += pad
                     data = data[pad:]
@@ -1327,7 +1358,7 @@ class NDRSTRUCT(NDR):
     def getAlignment(self):
         tmpAlign = 0
         align = 0
-        for fieldName, fieldTypeOrClass in self.commonHdr+self.structure+self.referent:
+        for fieldName, fieldTypeOrClass in self.commonHdr + self.structure + self.referent:
             if isinstance(self.fields[fieldName], NDR):
                 tmpAlign = self.fields[fieldName].getAlignment()
             else:
@@ -1336,7 +1367,9 @@ class NDRSTRUCT(NDR):
                 align = tmpAlign
         return align
 
-# Unions 
+# Unions
+
+
 class NDRUNION(NDR):
     commonHdr = (
         ('tag', NDRUSHORT),
@@ -1344,13 +1377,14 @@ class NDRUNION(NDR):
     commonHdr64 = (
         ('tag', NDRULONG),
     )
-   
+
     union = {
         # For example
-        #1: ('pStatusChangeParam1', PSERVICE_NOTIFY_STATUS_CHANGE_PARAMS_1),
-        #2: ('pStatusChangeParams', PSERVICE_NOTIFY_STATUS_CHANGE_PARAMS_2),
+        # 1: ('pStatusChangeParam1', PSERVICE_NOTIFY_STATUS_CHANGE_PARAMS_1),
+        # 2: ('pStatusChangeParams', PSERVICE_NOTIFY_STATUS_CHANGE_PARAMS_2),
     }
-    def __init__(self, data = None, isNDR64=False, topLevel = False):
+
+    def __init__(self, data=None, isNDR64=False, topLevel=False):
         #ret = NDR.__init__(self,None, isNDR64=isNDR64)
         self.topLevel = topLevel
         self._isNDR64 = isNDR64
@@ -1366,23 +1400,23 @@ class NDRUNION(NDR):
             if hasattr(self, 'align64'):
                 self.align = self.align64
 
-        for fieldName, fieldTypeOrClass in self.commonHdr+self.structure+self.referent:
+        for fieldName, fieldTypeOrClass in self.commonHdr + self.structure + self.referent:
             if self.isNDR(fieldTypeOrClass):
-               if self.isPointer(fieldTypeOrClass):
-                   self.fields[fieldName] = fieldTypeOrClass(isNDR64 = self._isNDR64, topLevel = True)
-               elif self.isUnion(fieldTypeOrClass):
-                   self.fields[fieldName] = fieldTypeOrClass(isNDR64 = self._isNDR64, topLevel = True)
-               else:
-                   self.fields[fieldName] = fieldTypeOrClass(isNDR64 = self._isNDR64)
+                if self.isPointer(fieldTypeOrClass):
+                    self.fields[fieldName] = fieldTypeOrClass(isNDR64=self._isNDR64, topLevel=True)
+                elif self.isUnion(fieldTypeOrClass):
+                    self.fields[fieldName] = fieldTypeOrClass(isNDR64=self._isNDR64, topLevel=True)
+                else:
+                    self.fields[fieldName] = fieldTypeOrClass(isNDR64=self._isNDR64)
             elif fieldTypeOrClass == ':':
-               self.fields[fieldName] = None
-            elif len(fieldTypeOrClass.split('=')) == 2: 
-               try:
-                   self.fields[fieldName] = eval(fieldTypeOrClass.split('=')[1])
-               except:
-                   self.fields[fieldName] = None
+                self.fields[fieldName] = None
+            elif len(fieldTypeOrClass.split('=')) == 2:
+                try:
+                    self.fields[fieldName] = eval(fieldTypeOrClass.split('=')[1])
+                except:
+                    self.fields[fieldName] = None
             else:
-               self.fields[fieldName] = 0
+                self.fields[fieldName] = 0
 
         if data is not None:
             self.fromString(data)
@@ -1398,7 +1432,7 @@ class NDRUNION(NDR):
             if value in self.union:
                 self.structure = (self.union[value]),
                 # Init again the structure
-                self.__init__(None, isNDR64=self._isNDR64, topLevel = self.topLevel)
+                self.__init__(None, isNDR64=self._isNDR64, topLevel=self.topLevel)
                 self.fields['tag']['Data'] = value
             else:
                 # Let's see if we have a default value
@@ -1408,23 +1442,23 @@ class NDRUNION(NDR):
                     else:
                         self.structure = (self.union['default']),
                         # Init again the structure
-                        self.__init__(None, isNDR64=self._isNDR64, topLevel = self.topLevel)
+                        self.__init__(None, isNDR64=self._isNDR64, topLevel=self.topLevel)
                     self.fields['tag']['Data'] = 0xffff
                 else:
                     raise Exception("Unknown tag %d for union!" % value)
         else:
             return NDR.__setitem__(self,key,value)
 
-    def getData(self, soFar = 0):
+    def getData(self, soFar=0):
         data = ''
         soFar0 = soFar
         pad0 = 0
         for fieldName, fieldTypeOrClass in self.commonHdr:
             try:
-                pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar, packing = True)
+                pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar, packing=True)
                 if pad > 0:
                     soFar += pad
-                    data = data + '\xbb'*pad
+                    data = data + '\xbb' * pad
                     #data = data + '\x00'*pad
 
                 res = self.pack(fieldName, fieldTypeOrClass, soFar)
@@ -1441,7 +1475,7 @@ class NDRUNION(NDR):
         # Now we need to align what's coming next.
         # This doesn't come from the documentation but from seeing the packets in the wire
         # for some reason, even if the next field is a SHORT, it should be aligned to
-        # a DWORD, or HYPER if NDR64. 
+        # a DWORD, or HYPER if NDR64.
         if self._isNDR64:
             align = 8
         else:
@@ -1452,7 +1486,7 @@ class NDRUNION(NDR):
 
         pad = (align - (soFar % align)) % align
         if pad > 0:
-            data = data + '\xbb'*pad
+            data = data + '\xbb' * pad
             soFar += pad
 
         if self.structure is ():
@@ -1461,10 +1495,10 @@ class NDRUNION(NDR):
 
         for fieldName, fieldTypeOrClass in self.structure:
             try:
-                pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar, packing = True)
+                pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar, packing=True)
                 if pad > 0:
                     soFar += pad
-                    data = data + '\xbb'*pad
+                    data = data + '\xbb' * pad
                     #data = data + '\x00'*pad
 
                 res = self.pack(fieldName, fieldTypeOrClass, soFar)
@@ -1481,7 +1515,7 @@ class NDRUNION(NDR):
 
         return data
 
-    def fromString(self, data, soFar = 0 ):
+    def fromString(self, data, soFar=0):
         if len(data) > 4:
             # First off, let's see what the tag is:
             # We need to know the tag type and unpack it
@@ -1489,7 +1523,7 @@ class NDRUNION(NDR):
             tag = unpack(tagtype, data[:calcsize(tagtype)])[0]
             if tag in self.union:
                 self.structure = (self.union[tag]),
-                self.__init__(None, isNDR64=self._isNDR64, topLevel = self.topLevel)
+                self.__init__(None, isNDR64=self._isNDR64, topLevel=self.topLevel)
             else:
                 # Let's see if we have a default value
                 if 'default' in self.union:
@@ -1498,7 +1532,7 @@ class NDRUNION(NDR):
                     else:
                         self.structure = (self.union['default']),
                         # Init again the structure
-                        self.__init__(None, isNDR64=self._isNDR64, topLevel = self.topLevel)
+                        self.__init__(None, isNDR64=self._isNDR64, topLevel=self.topLevel)
                     self.fields['tag']['Data'] = 0xffff
                 else:
                     raise Exception("Unknown tag %d for union!" % tag)
@@ -1509,7 +1543,7 @@ class NDRUNION(NDR):
         soFar0 = soFar
         for fieldName, fieldTypeOrClass in self.commonHdr:
             size = self.calcUnPackSize(fieldTypeOrClass, data)
-            pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar = soFar, packing = False)
+            pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar=soFar, packing=False)
             if pad > 0:
                 soFar += pad
                 data = data[pad:]
@@ -1527,7 +1561,7 @@ class NDRUNION(NDR):
         # Now we need to align what's coming next.
         # This doesn't come from the documentation but from seeing the packets in the wire
         # for some reason, even if the next field is a SHORT, it should be aligned to
-        # a DWORD, or HYPER if NDR64. 
+        # a DWORD, or HYPER if NDR64.
         if self._isNDR64:
             align = 8
         else:
@@ -1546,7 +1580,7 @@ class NDRUNION(NDR):
 
         for fieldName, fieldTypeOrClass in self.structure:
             size = self.calcUnPackSize(fieldTypeOrClass, data)
-            pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar = soFar, packing = False)
+            pad = self.calculatePad(fieldName, fieldTypeOrClass, data, soFar=soFar, packing=False)
             if pad > 0:
                 soFar += pad
                 data = data[pad:]
@@ -1563,17 +1597,17 @@ class NDRUNION(NDR):
         return self
 
     def getAlignment(self):
-        # Union alignment is the largest alignment of the union discriminator 
+        # Union alignment is the largest alignment of the union discriminator
         # and all of the union arms.
-        # WRONG, I'm calculating it just with the tag, if I do it with the 
+        # WRONG, I'm calculating it just with the tag, if I do it with the
         # arms I get bad stub data. Something wrong I'm doing or the standard
         # is wrong (most probably it's me :s )
         tmpAlign = 0
         align = 0
         if self._isNDR64:
-            fields =  self.commonHdr+self.structure
-        else: 
-            fields =  self.commonHdr
+            fields = self.commonHdr + self.structure
+        else:
+            fields = self.commonHdr
         for fieldName, fieldTypeOrClass in fields:
             if isinstance(self.fields[fieldName], NDR):
                 tmpAlign = self.fields[fieldName].getAlignment()
@@ -1584,14 +1618,16 @@ class NDRUNION(NDR):
 
         if self._isNDR64:
             for fieldName, fieldTypeOrClass in self.union.values():
-                tmpAlign = fieldTypeOrClass(isNDR64 = self._isNDR64).getAlignment()
+                tmpAlign = fieldTypeOrClass(isNDR64=self._isNDR64).getAlignment()
                 if tmpAlign > align:
                     align = tmpAlign
         return align
-   
+
 # Pipes not implemented for now
 
 # Pointers
+
+
 class NDRPOINTERNULL(NDR):
     align = 4
     align64 = 8
@@ -1602,15 +1638,16 @@ class NDRPOINTERNULL(NDR):
         ('Data', '<Q=0'),
     )
 
-    def dump(self, msg = None, indent = 0):
+    def dump(self, msg=None, indent=0):
         if msg is None: msg = self.__class__.__name__
-        ind = ' '*indent
+        ind = ' ' * indent
         if msg != '':
             print("%s" % (msg), end=' ')
         # Here we just print NULL
         print(" NULL", end=' ')
 
 NULL = NDRPOINTERNULL()
+
 
 class NDRPOINTER(NDR):
     align = 4
@@ -1626,21 +1663,22 @@ class NDRPOINTER(NDR):
         # This is the representation of the Referent
         ('Data',':'),
     )
-    def __init__(self, data = None, isNDR64=False, topLevel = False):
+
+    def __init__(self, data=None, isNDR64=False, topLevel=False):
         ret = NDR.__init__(self,None, isNDR64=isNDR64)
-        # If we are being called from a NDRCall, it's a TopLevelPointer, 
+        # If we are being called from a NDRCall, it's a TopLevelPointer,
         # if not, it's a embeeded pointer.
         # It is *very* important, for every subclass of NDRPointer
         # you have to declare the referent in the referent variable
-        # Not in the structure one! 
+        # Not in the structure one!
         if topLevel is True:
             self.structure = self.referent
             self.referent = ()
-       
+
         if data is None:
             self.fields['ReferentID'] = random.randint(1,65535)
         else:
-           self.fromString(data)
+            self.fromString(data)
 
     def __setitem__(self, key, value):
         if (key in self.fields) is False:
@@ -1659,20 +1697,20 @@ class NDRPOINTER(NDR):
             # Key not found, let's send it to the referent, maybe it's there
             return self.fields['Data'].__getitem__(key)
 
-    def getData(self, soFar = 0):
+    def getData(self, soFar=0):
         # If we have a ReferentID == 0, means there's no data
         if self.fields['ReferentID'] == 0:
             if len(self.referent) > 0:
                 self['Data'] = ''
             else:
                 if self._isNDR64 is True:
-                    return '\x00'*8
+                    return '\x00' * 8
                 else:
-                    return '\x00'*4
+                    return '\x00' * 4
 
         return NDR.getData(self, soFar)
 
-    def fromString(self,data,soFar = 0):
+    def fromString(self,data,soFar=0):
         # Do we have a Referent ID == 0?
         if unpack('<L', data[:4])[0] == 0:
             self['ReferentID'] = 0
@@ -1681,14 +1719,14 @@ class NDRPOINTER(NDR):
         else:
             return NDR.fromString(self,data, soFar)
 
-    def dump(self, msg = None, indent = 0):
+    def dump(self, msg=None, indent=0):
         if msg is None: msg = self.__class__.__name__
-        ind = ' '*indent
+        ind = ' ' * indent
         if msg != '':
             print("%s" % (msg), end=' ')
         # Here we just print the referent
         if isinstance(self.fields['Data'], NDR):
-            self.fields['Data'].dump('', indent = indent)
+            self.fields['Data'].dump('', indent=indent)
         else:
             if self['ReferentID'] == 0:
                 print(" NULL", end=' ')
@@ -1706,42 +1744,45 @@ class PNDRUniConformantVaryingArray(NDRPOINTER):
         ('Data', NDRUniConformantVaryingArray),
     )
 
+
 class PNDRUniConformantArray(NDRPOINTER):
     referent = (
         ('Data', NDRUniConformantArray),
     )
-    def __init__(self, data = None, isNDR64 = False, topLevel = False):
+
+    def __init__(self, data=None, isNDR64=False, topLevel=False):
         NDRPOINTER.__init__(self,data,isNDR64,topLevel)
-        
+
 ################################################################################
 # Tests
 
-class NDRTest:
-    def create(self,data = None, isNDR64 = False):
-        if data is not None:
-            return self.theClass(data, isNDR64 = isNDR64)
-        else:
-            return self.theClass(isNDR64 = isNDR64)
 
-    def test(self, isNDR64 = False):
+class NDRTest:
+    def create(self,data=None, isNDR64=False):
+        if data is not None:
+            return self.theClass(data, isNDR64=isNDR64)
+        else:
+            return self.theClass(isNDR64=isNDR64)
+
+    def test(self, isNDR64=False):
         print()
-        print("-"*70)
+        print("-" * 70)
         testName = self.__class__.__name__
         print("starting test: %s (NDR64 = %s)....." % (testName, isNDR64))
-        a = self.create(isNDR64 = isNDR64)
+        a = self.create(isNDR64=isNDR64)
         self.populate(a)
         a.dump("packing.....")
         a_str = str(a)
-        print("packed:") 
+        print("packed:")
         hexdump(a_str)
         print("unpacking.....")
-        b = self.create(a_str, isNDR64 = isNDR64)
+        b = self.create(a_str, isNDR64=isNDR64)
         b.dump("unpacked.....")
         print("\nrepacking.....")
         b_str = str(b)
         if b_str != a_str:
             print("ERROR: original packed and repacked don't match")
-            print("packed: ") 
+            print("packed: ")
             hexdump(b_str)
             raise
 
@@ -1750,15 +1791,17 @@ class NDRTest:
         # Now the same tests but with NDR64
         self.test(True)
 
+
 class TestUniFixedArray(NDRTest):
     class theClass(NDR):
         structure = (
             ('Array', NDRUniFixedArray),
         )
+
     def populate(self, a):
         a['Array'] = '12345678'
 
-#class TestUniConformantArray(NDRTest):
+# class TestUniConformantArray(NDRTest):
 #    class theClass(NDRCall):
 #        structure = (
 #            ('Array', PNDRUniConformantArray),
@@ -1770,7 +1813,7 @@ class TestUniFixedArray(NDRTest):
 #            self.fields['Array2'].fields['Data'].item = RPC_UNICODE_STRING
 #            if data is not None:
 #                self.fromString(data)
-#        
+#
 #    def populate(self, a):
 #        array = []
 #        strstr = RPC_UNICODE_STRING()
@@ -1782,50 +1825,59 @@ class TestUniFixedArray(NDRTest):
 #        a['Array'] = array
 #        a['Array2'] = array
 
+
 class TestUniVaryingArray(NDRTest):
     class theClass(NDR):
         structure = (
             ('Array', NDRUniVaryingArray),
         )
+
     def populate(self, a):
         a['Array'] = '12345678'
+
 
 class TestUniConformantVaryingArray(NDRTest):
     class theClass(NDR):
         structure = (
             ('Array', NDRUniConformantVaryingArray),
         )
+
     def populate(self, a):
         a['Array'] = '12345678'
+
 
 class TestVaryingString(NDRTest):
     class theClass(NDR):
         structure = (
             ('Array', NDRVaryingString),
         )
+
     def populate(self, a):
         a['Array'] = '12345678'
+
 
 class TestConformantVaryingString(NDRTest):
     class theClass(NDR):
         structure = (
             ('Array', NDRConformantVaryingString),
         )
-        
+
     def populate(self, a):
         a['Array'] = '12345678'
+
 
 class TestPointerNULL(NDRTest):
     class theClass(NDR):
         structure = (
             ('Array', NDRPOINTERNULL),
         )
+
     def populate(self, a):
         pass
 
 if __name__ == '__main__':
     TestUniFixedArray().run()
-    #TestUniConformantArray().run()
+    # TestUniConformantArray().run()
     TestUniVaryingArray().run()
     TestUniConformantVaryingArray().run()
     TestVaryingString().run()

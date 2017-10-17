@@ -14,9 +14,9 @@
 #   at https://github.com/CoreSecurity/impacket/tree/master/impacket/testcases/SMB_RPC
 #
 #   Some calls have helper functions, which makes it even easier to use.
-#   They are located at the end of this file. 
+#   They are located at the end of this file.
 #   Helper functions start with "h"<name of the call>.
-#   There are test cases for them too. 
+#   There are test cases for them too.
 #
 from impacket.dcerpc.v5 import ndr
 from impacket.dcerpc.v5.ndr import NDRCALL, NDR, NDRSTRUCT, NDRENUM, NDRPOINTER, NDRUniConformantArray
@@ -27,28 +27,29 @@ from impacket.dcerpc.v5.enum import Enum
 from impacket.dcerpc.v5.lsad import LSAPR_HANDLE, LSAPR_ACL, SECURITY_DESCRIPTOR_CONTROL, LSAPR_SECURITY_DESCRIPTOR, PLSAPR_SECURITY_DESCRIPTOR, SECURITY_IMPERSONATION_LEVEL, SECURITY_CONTEXT_TRACKING_MODE, SECURITY_QUALITY_OF_SERVICE, LSAPR_OBJECT_ATTRIBUTES, LSAPR_TRUST_INFORMATION, PLSAPR_TRUST_INFORMATION_ARRAY, PRPC_UNICODE_STRING_ARRAY, LsarOpenPolicy2, LsarOpenPolicy, LsarClose, hLsarOpenPolicy2, hLsarOpenPolicy, hLsarClose
 from impacket.dcerpc.v5.samr import SID_NAME_USE
 
-MSRPC_UUID_LSAT  = uuidtup_to_bin(('12345778-1234-ABCD-EF00-0123456789AB','0.0'))
+MSRPC_UUID_LSAT = uuidtup_to_bin(('12345778-1234-ABCD-EF00-0123456789AB','0.0'))
+
 
 class DCERPCSessionError(Exception):
-    def __init__( self, packet = None, error_code = None):
+    def __init__(self, packet=None, error_code=None):
         Exception.__init__(self)
         self.packet = packet
         if packet is not None:
             self.error_code = packet['ErrorCode']
         else:
             self.error_code = error_code
-       
-    def get_error_code( self ):
+
+    def get_error_code(self):
         return self.error_code
- 
-    def get_packet( self ):
+
+    def get_packet(self):
         return self.packet
 
-    def __str__( self ):
+    def __str__(self):
         key = self.error_code
         if (key in nt_errors.ERROR_MESSAGES):
             error_msg_short = nt_errors.ERROR_MESSAGES[key][0]
-            error_msg_verbose = nt_errors.ERROR_MESSAGES[key][1] 
+            error_msg_verbose = nt_errors.ERROR_MESSAGES[key][1]
             return 'LSAT SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
         else:
             return 'LSAT SessionError: unknown error code: 0x%x' % (self.error_code)
@@ -57,12 +58,14 @@ class DCERPCSessionError(Exception):
 # CONSTANTS
 ################################################################################
 # 2.2.10 ACCESS_MASK
-POLICY_LOOKUP_NAMES             = 0x00000800
+POLICY_LOOKUP_NAMES = 0x00000800
 
 ################################################################################
 # STRUCTURES
 ################################################################################
 # 2.2.12 LSAPR_REFERENCED_DOMAIN_LIST
+
+
 class LSAPR_REFERENCED_DOMAIN_LIST(NDRSTRUCT):
     structure = (
         ('Entries', ULONG),
@@ -70,12 +73,15 @@ class LSAPR_REFERENCED_DOMAIN_LIST(NDRSTRUCT):
         ('MaxEntries', ULONG),
     )
 
+
 class PLSAPR_REFERENCED_DOMAIN_LIST(NDRPOINTER):
     referent = (
         ('Data', LSAPR_REFERENCED_DOMAIN_LIST),
     )
 
 # 2.2.14 LSA_TRANSLATED_SID
+
+
 class LSA_TRANSLATED_SID(NDRSTRUCT):
     structure = (
         ('Use', SID_NAME_USE),
@@ -84,13 +90,17 @@ class LSA_TRANSLATED_SID(NDRSTRUCT):
     )
 
 # 2.2.15 LSAPR_TRANSLATED_SIDS
+
+
 class LSA_TRANSLATED_SID_ARRAY(NDRUniConformantArray):
     item = LSA_TRANSLATED_SID
+
 
 class PLSA_TRANSLATED_SID_ARRAY(NDRPOINTER):
     referent = (
         ('Data', LSA_TRANSLATED_SID_ARRAY),
     )
+
 
 class LSAPR_TRANSLATED_SIDS(NDRSTRUCT):
     structure = (
@@ -99,30 +109,38 @@ class LSAPR_TRANSLATED_SIDS(NDRSTRUCT):
     )
 
 # 2.2.16 LSAP_LOOKUP_LEVEL
+
+
 class LSAP_LOOKUP_LEVEL(NDRENUM):
     class enumItems(Enum):
-        LsapLookupWksta                = 1
-        LsapLookupPDC                  = 2
-        LsapLookupTDL                  = 3
-        LsapLookupGC                   = 4
-        LsapLookupXForestReferral      = 5
-        LsapLookupXForestResolve       = 6
+        LsapLookupWksta = 1
+        LsapLookupPDC = 2
+        LsapLookupTDL = 3
+        LsapLookupGC = 4
+        LsapLookupXForestReferral = 5
+        LsapLookupXForestResolve = 6
         LsapLookupRODCReferralToFullDC = 7
 
 # 2.2.17 LSAPR_SID_INFORMATION
+
+
 class LSAPR_SID_INFORMATION(NDRSTRUCT):
     structure = (
         ('Sid', PRPC_SID),
     )
 
 # 2.2.18 LSAPR_SID_ENUM_BUFFER
+
+
 class LSAPR_SID_INFORMATION_ARRAY(NDRUniConformantArray):
     item = LSAPR_SID_INFORMATION
+
 
 class PLSAPR_SID_INFORMATION_ARRAY(NDRPOINTER):
     referent = (
         ('Data', LSAPR_SID_INFORMATION_ARRAY),
     )
+
 
 class LSAPR_SID_ENUM_BUFFER(NDRSTRUCT):
     structure = (
@@ -131,6 +149,8 @@ class LSAPR_SID_ENUM_BUFFER(NDRSTRUCT):
     )
 
 # 2.2.19 LSAPR_TRANSLATED_NAME
+
+
 class LSAPR_TRANSLATED_NAME(NDRSTRUCT):
     structure = (
         ('Use', SID_NAME_USE),
@@ -139,13 +159,17 @@ class LSAPR_TRANSLATED_NAME(NDRSTRUCT):
     )
 
 # 2.2.20 LSAPR_TRANSLATED_NAMES
+
+
 class LSAPR_TRANSLATED_NAME_ARRAY(NDRUniConformantArray):
     item = LSAPR_TRANSLATED_NAME
+
 
 class PLSAPR_TRANSLATED_NAME_ARRAY(NDRPOINTER):
     referent = (
         ('Data', LSAPR_TRANSLATED_NAME_ARRAY),
     )
+
 
 class LSAPR_TRANSLATED_NAMES(NDRSTRUCT):
     structure = (
@@ -154,6 +178,8 @@ class LSAPR_TRANSLATED_NAMES(NDRSTRUCT):
     )
 
 # 2.2.21 LSAPR_TRANSLATED_NAME_EX
+
+
 class LSAPR_TRANSLATED_NAME_EX(NDRSTRUCT):
     structure = (
         ('Use', SID_NAME_USE),
@@ -163,13 +189,17 @@ class LSAPR_TRANSLATED_NAME_EX(NDRSTRUCT):
     )
 
 # 2.2.22 LSAPR_TRANSLATED_NAMES_EX
+
+
 class LSAPR_TRANSLATED_NAME_EX_ARRAY(NDRUniConformantArray):
     item = LSAPR_TRANSLATED_NAME_EX
+
 
 class PLSAPR_TRANSLATED_NAME_EX_ARRAY(NDRPOINTER):
     referent = (
         ('Data', LSAPR_TRANSLATED_NAME_EX_ARRAY),
     )
+
 
 class LSAPR_TRANSLATED_NAMES_EX(NDRSTRUCT):
     structure = (
@@ -178,6 +208,8 @@ class LSAPR_TRANSLATED_NAMES_EX(NDRSTRUCT):
     )
 
 # 2.2.23 LSAPR_TRANSLATED_SID_EX
+
+
 class LSAPR_TRANSLATED_SID_EX(NDRSTRUCT):
     structure = (
         ('Use', SID_NAME_USE),
@@ -187,13 +219,17 @@ class LSAPR_TRANSLATED_SID_EX(NDRSTRUCT):
     )
 
 # 2.2.24 LSAPR_TRANSLATED_SIDS_EX
+
+
 class LSAPR_TRANSLATED_SID_EX_ARRAY(NDRUniConformantArray):
     item = LSAPR_TRANSLATED_SID_EX
+
 
 class PLSAPR_TRANSLATED_SID_EX_ARRAY(NDRPOINTER):
     referent = (
         ('Data', LSAPR_TRANSLATED_SID_EX_ARRAY),
     )
+
 
 class LSAPR_TRANSLATED_SIDS_EX(NDRSTRUCT):
     structure = (
@@ -202,6 +238,8 @@ class LSAPR_TRANSLATED_SIDS_EX(NDRSTRUCT):
     )
 
 # 2.2.25 LSAPR_TRANSLATED_SID_EX2
+
+
 class LSAPR_TRANSLATED_SID_EX2(NDRSTRUCT):
     structure = (
         ('Use', SID_NAME_USE),
@@ -211,19 +249,24 @@ class LSAPR_TRANSLATED_SID_EX2(NDRSTRUCT):
     )
 
 # 2.2.26 LSAPR_TRANSLATED_SIDS_EX2
+
+
 class LSAPR_TRANSLATED_SID_EX2_ARRAY(NDRUniConformantArray):
     item = LSAPR_TRANSLATED_SID_EX2
+
 
 class PLSAPR_TRANSLATED_SID_EX2_ARRAY(NDRPOINTER):
     referent = (
         ('Data', LSAPR_TRANSLATED_SID_EX2_ARRAY),
     )
 
+
 class LSAPR_TRANSLATED_SIDS_EX2(NDRSTRUCT):
     structure = (
         ('Entries', ULONG),
         ('Sids', PLSAPR_TRANSLATED_SID_EX2_ARRAY),
     )
+
 
 class RPC_UNICODE_STRING_ARRAY(NDRUniConformantArray):
     item = RPC_UNICODE_STRING
@@ -232,191 +275,218 @@ class RPC_UNICODE_STRING_ARRAY(NDRUniConformantArray):
 # RPC CALLS
 ################################################################################
 # 3.1.4.4 LsarGetUserName (Opnum 45)
+
+
 class LsarGetUserName(NDRCALL):
     opnum = 45
     structure = (
-       ('SystemName', LPWSTR),
-       ('UserName', PRPC_UNICODE_STRING),
-       ('DomainName', PRPC_UNICODE_STRING),
+        ('SystemName', LPWSTR),
+        ('UserName', PRPC_UNICODE_STRING),
+        ('DomainName', PRPC_UNICODE_STRING),
     )
+
 
 class LsarGetUserNameResponse(NDRCALL):
     structure = (
-       ('UserName', PRPC_UNICODE_STRING),
-       ('DomainName', PRPC_UNICODE_STRING),
-       ('ErrorCode', NTSTATUS),
+        ('UserName', PRPC_UNICODE_STRING),
+        ('DomainName', PRPC_UNICODE_STRING),
+        ('ErrorCode', NTSTATUS),
     )
 
 # 3.1.4.5 LsarLookupNames4 (Opnum 77)
+
+
 class LsarLookupNames4(NDRCALL):
     opnum = 77
     structure = (
-       ('Count', ULONG),
-       ('Names', RPC_UNICODE_STRING_ARRAY),
-       ('TranslatedSids', LSAPR_TRANSLATED_SIDS_EX2),
-       ('LookupLevel', LSAP_LOOKUP_LEVEL),
-       ('MappedCount', ULONG),
-       ('LookupOptions', ULONG),
-       ('ClientRevision', ULONG),
+        ('Count', ULONG),
+        ('Names', RPC_UNICODE_STRING_ARRAY),
+        ('TranslatedSids', LSAPR_TRANSLATED_SIDS_EX2),
+        ('LookupLevel', LSAP_LOOKUP_LEVEL),
+        ('MappedCount', ULONG),
+        ('LookupOptions', ULONG),
+        ('ClientRevision', ULONG),
     )
+
 
 class LsarLookupNames4Response(NDRCALL):
     structure = (
-       ('ReferencedDomains', PLSAPR_REFERENCED_DOMAIN_LIST),
-       ('TranslatedSids', LSAPR_TRANSLATED_SIDS_EX2),
-       ('MappedCount', ULONG),
-       ('ErrorCode', NTSTATUS),
+        ('ReferencedDomains', PLSAPR_REFERENCED_DOMAIN_LIST),
+        ('TranslatedSids', LSAPR_TRANSLATED_SIDS_EX2),
+        ('MappedCount', ULONG),
+        ('ErrorCode', NTSTATUS),
     )
 
 # 3.1.4.6 LsarLookupNames3 (Opnum 68)
+
+
 class LsarLookupNames3(NDRCALL):
     opnum = 68
     structure = (
-       ('PolicyHandle', LSAPR_HANDLE),
-       ('Count', ULONG),
-       ('Names', RPC_UNICODE_STRING_ARRAY),
-       ('TranslatedSids', LSAPR_TRANSLATED_SIDS_EX2),
-       ('LookupLevel', LSAP_LOOKUP_LEVEL),
-       ('MappedCount', ULONG),
-       ('LookupOptions', ULONG),
-       ('ClientRevision', ULONG),
+        ('PolicyHandle', LSAPR_HANDLE),
+        ('Count', ULONG),
+        ('Names', RPC_UNICODE_STRING_ARRAY),
+        ('TranslatedSids', LSAPR_TRANSLATED_SIDS_EX2),
+        ('LookupLevel', LSAP_LOOKUP_LEVEL),
+        ('MappedCount', ULONG),
+        ('LookupOptions', ULONG),
+        ('ClientRevision', ULONG),
     )
+
 
 class LsarLookupNames3Response(NDRCALL):
     structure = (
-       ('ReferencedDomains', PLSAPR_REFERENCED_DOMAIN_LIST),
-       ('TranslatedSids', LSAPR_TRANSLATED_SIDS_EX2),
-       ('MappedCount', ULONG),
-       ('ErrorCode', NTSTATUS),
+        ('ReferencedDomains', PLSAPR_REFERENCED_DOMAIN_LIST),
+        ('TranslatedSids', LSAPR_TRANSLATED_SIDS_EX2),
+        ('MappedCount', ULONG),
+        ('ErrorCode', NTSTATUS),
     )
 
 # 3.1.4.7 LsarLookupNames2 (Opnum 58)
+
+
 class LsarLookupNames2(NDRCALL):
     opnum = 58
     structure = (
-       ('PolicyHandle', LSAPR_HANDLE),
-       ('Count', ULONG),
-       ('Names', RPC_UNICODE_STRING_ARRAY),
-       ('TranslatedSids', LSAPR_TRANSLATED_SIDS_EX),
-       ('LookupLevel', LSAP_LOOKUP_LEVEL),
-       ('MappedCount', ULONG),
-       ('LookupOptions', ULONG),
-       ('ClientRevision', ULONG),
+        ('PolicyHandle', LSAPR_HANDLE),
+        ('Count', ULONG),
+        ('Names', RPC_UNICODE_STRING_ARRAY),
+        ('TranslatedSids', LSAPR_TRANSLATED_SIDS_EX),
+        ('LookupLevel', LSAP_LOOKUP_LEVEL),
+        ('MappedCount', ULONG),
+        ('LookupOptions', ULONG),
+        ('ClientRevision', ULONG),
     )
+
 
 class LsarLookupNames2Response(NDRCALL):
     structure = (
-       ('ReferencedDomains', PLSAPR_REFERENCED_DOMAIN_LIST),
-       ('TranslatedSids', LSAPR_TRANSLATED_SIDS_EX),
-       ('MappedCount', ULONG),
-       ('ErrorCode', NTSTATUS),
+        ('ReferencedDomains', PLSAPR_REFERENCED_DOMAIN_LIST),
+        ('TranslatedSids', LSAPR_TRANSLATED_SIDS_EX),
+        ('MappedCount', ULONG),
+        ('ErrorCode', NTSTATUS),
     )
 
 # 3.1.4.8 LsarLookupNames (Opnum 14)
+
+
 class LsarLookupNames(NDRCALL):
     opnum = 14
     structure = (
-       ('PolicyHandle', LSAPR_HANDLE),
-       ('Count', ULONG),
-       ('Names', RPC_UNICODE_STRING_ARRAY),
-       ('TranslatedSids', LSAPR_TRANSLATED_SIDS),
-       ('LookupLevel', LSAP_LOOKUP_LEVEL),
-       ('MappedCount', ULONG),
+        ('PolicyHandle', LSAPR_HANDLE),
+        ('Count', ULONG),
+        ('Names', RPC_UNICODE_STRING_ARRAY),
+        ('TranslatedSids', LSAPR_TRANSLATED_SIDS),
+        ('LookupLevel', LSAP_LOOKUP_LEVEL),
+        ('MappedCount', ULONG),
     )
+
 
 class LsarLookupNamesResponse(NDRCALL):
     structure = (
-       ('ReferencedDomains', PLSAPR_REFERENCED_DOMAIN_LIST),
-       ('TranslatedSids', LSAPR_TRANSLATED_SIDS),
-       ('MappedCount', ULONG),
-       ('ErrorCode', NTSTATUS),
+        ('ReferencedDomains', PLSAPR_REFERENCED_DOMAIN_LIST),
+        ('TranslatedSids', LSAPR_TRANSLATED_SIDS),
+        ('MappedCount', ULONG),
+        ('ErrorCode', NTSTATUS),
     )
 
 # 3.1.4.9 LsarLookupSids3 (Opnum 76)
+
+
 class LsarLookupSids3(NDRCALL):
     opnum = 76
     structure = (
-       ('SidEnumBuffer', LSAPR_SID_ENUM_BUFFER),
-       ('TranslatedNames', LSAPR_TRANSLATED_NAMES_EX),
-       ('LookupLevel', LSAP_LOOKUP_LEVEL),
-       ('MappedCount', ULONG),
-       ('LookupOptions', ULONG),
-       ('ClientRevision', ULONG),
+        ('SidEnumBuffer', LSAPR_SID_ENUM_BUFFER),
+        ('TranslatedNames', LSAPR_TRANSLATED_NAMES_EX),
+        ('LookupLevel', LSAP_LOOKUP_LEVEL),
+        ('MappedCount', ULONG),
+        ('LookupOptions', ULONG),
+        ('ClientRevision', ULONG),
     )
+
 
 class LsarLookupSids3Response(NDRCALL):
     structure = (
-       ('ReferencedDomains', PLSAPR_REFERENCED_DOMAIN_LIST),
-       ('TranslatedNames', LSAPR_TRANSLATED_NAMES_EX),
-       ('MappedCount', ULONG),
-       ('ErrorCode', NTSTATUS),
+        ('ReferencedDomains', PLSAPR_REFERENCED_DOMAIN_LIST),
+        ('TranslatedNames', LSAPR_TRANSLATED_NAMES_EX),
+        ('MappedCount', ULONG),
+        ('ErrorCode', NTSTATUS),
     )
 
 # 3.1.4.10 LsarLookupSids2 (Opnum 57)
+
+
 class LsarLookupSids2(NDRCALL):
     opnum = 57
     structure = (
-       ('PolicyHandle', LSAPR_HANDLE),
-       ('SidEnumBuffer', LSAPR_SID_ENUM_BUFFER),
-       ('TranslatedNames', LSAPR_TRANSLATED_NAMES_EX),
-       ('LookupLevel', LSAP_LOOKUP_LEVEL),
-       ('MappedCount', ULONG),
-       ('LookupOptions', ULONG),
-       ('ClientRevision', ULONG),
+        ('PolicyHandle', LSAPR_HANDLE),
+        ('SidEnumBuffer', LSAPR_SID_ENUM_BUFFER),
+        ('TranslatedNames', LSAPR_TRANSLATED_NAMES_EX),
+        ('LookupLevel', LSAP_LOOKUP_LEVEL),
+        ('MappedCount', ULONG),
+        ('LookupOptions', ULONG),
+        ('ClientRevision', ULONG),
     )
+
 
 class LsarLookupSids2Response(NDRCALL):
     structure = (
-       ('ReferencedDomains', PLSAPR_REFERENCED_DOMAIN_LIST),
-       ('TranslatedNames', LSAPR_TRANSLATED_NAMES_EX),
-       ('MappedCount', ULONG),
-       ('ErrorCode', NTSTATUS),
+        ('ReferencedDomains', PLSAPR_REFERENCED_DOMAIN_LIST),
+        ('TranslatedNames', LSAPR_TRANSLATED_NAMES_EX),
+        ('MappedCount', ULONG),
+        ('ErrorCode', NTSTATUS),
     )
 
 # 3.1.4.11 LsarLookupSids (Opnum 15)
+
+
 class LsarLookupSids(NDRCALL):
     opnum = 15
     structure = (
-       ('PolicyHandle', LSAPR_HANDLE),
-       ('SidEnumBuffer', LSAPR_SID_ENUM_BUFFER),
-       ('TranslatedNames', LSAPR_TRANSLATED_NAMES),
-       ('LookupLevel', LSAP_LOOKUP_LEVEL),
-       ('MappedCount', ULONG),
+        ('PolicyHandle', LSAPR_HANDLE),
+        ('SidEnumBuffer', LSAPR_SID_ENUM_BUFFER),
+        ('TranslatedNames', LSAPR_TRANSLATED_NAMES),
+        ('LookupLevel', LSAP_LOOKUP_LEVEL),
+        ('MappedCount', ULONG),
     )
+
 
 class LsarLookupSidsResponse(NDRCALL):
     structure = (
-       ('ReferencedDomains', PLSAPR_REFERENCED_DOMAIN_LIST),
-       ('TranslatedNames', LSAPR_TRANSLATED_NAMES),
-       ('MappedCount', ULONG),
-       ('ErrorCode', NTSTATUS),
+        ('ReferencedDomains', PLSAPR_REFERENCED_DOMAIN_LIST),
+        ('TranslatedNames', LSAPR_TRANSLATED_NAMES),
+        ('MappedCount', ULONG),
+        ('ErrorCode', NTSTATUS),
     )
 
 ################################################################################
 # OPNUMs and their corresponding structures
 ################################################################################
 OPNUMS = {
- 14 : (LsarLookupNames, LsarLookupNamesResponse),
- 15 : (LsarLookupSids, LsarLookupSidsResponse),
- 45 : (LsarGetUserName, LsarGetUserNameResponse),
- 57 : (LsarLookupSids2, LsarLookupSids2Response),
- 58 : (LsarLookupNames2, LsarLookupNames2Response),
- 68 : (LsarLookupNames3, LsarLookupNames3Response),
- 76 : (LsarLookupSids3, LsarLookupSids3Response),
- 77 : (LsarLookupNames4, LsarLookupNames4Response),
+    14: (LsarLookupNames, LsarLookupNamesResponse),
+    15: (LsarLookupSids, LsarLookupSidsResponse),
+    45: (LsarGetUserName, LsarGetUserNameResponse),
+    57: (LsarLookupSids2, LsarLookupSids2Response),
+    58: (LsarLookupNames2, LsarLookupNames2Response),
+    68: (LsarLookupNames3, LsarLookupNames3Response),
+    76: (LsarLookupSids3, LsarLookupSids3Response),
+    77: (LsarLookupNames4, LsarLookupNames4Response),
 }
 
 ################################################################################
 # HELPER FUNCTIONS
 ################################################################################
-def hLsarGetUserName(dce, userName = NULL, domainName = NULL):
+
+
+def hLsarGetUserName(dce, userName=NULL, domainName=NULL):
     request = LsarGetUserName()
     request['SystemName'] = NULL
     request['UserName'] = userName
     request['DomainName'] = domainName
     return dce.request(request)
 
-def hLsarLookupNames4(dce, names, lookupLevel = LSAP_LOOKUP_LEVEL.LsapLookupWksta, lookupOptions=0x00000000, clientRevision=0x00000001):
+
+def hLsarLookupNames4(dce, names, lookupLevel=LSAP_LOOKUP_LEVEL.LsapLookupWksta, lookupOptions=0x00000000, clientRevision=0x00000001):
     request = LsarLookupNames4()
     request['Count'] = len(names)
     for name in names:
@@ -430,7 +500,8 @@ def hLsarLookupNames4(dce, names, lookupLevel = LSAP_LOOKUP_LEVEL.LsapLookupWkst
 
     return dce.request(request)
 
-def hLsarLookupNames3(dce, policyHandle, names, lookupLevel = LSAP_LOOKUP_LEVEL.LsapLookupWksta, lookupOptions=0x00000000, clientRevision=0x00000001):
+
+def hLsarLookupNames3(dce, policyHandle, names, lookupLevel=LSAP_LOOKUP_LEVEL.LsapLookupWksta, lookupOptions=0x00000000, clientRevision=0x00000001):
     request = LsarLookupNames3()
     request['PolicyHandle'] = policyHandle
     request['Count'] = len(names)
@@ -445,7 +516,8 @@ def hLsarLookupNames3(dce, policyHandle, names, lookupLevel = LSAP_LOOKUP_LEVEL.
 
     return dce.request(request)
 
-def hLsarLookupNames2(dce, policyHandle, names, lookupLevel = LSAP_LOOKUP_LEVEL.LsapLookupWksta, lookupOptions=0x00000000, clientRevision=0x00000001):
+
+def hLsarLookupNames2(dce, policyHandle, names, lookupLevel=LSAP_LOOKUP_LEVEL.LsapLookupWksta, lookupOptions=0x00000000, clientRevision=0x00000001):
     request = LsarLookupNames2()
     request['PolicyHandle'] = policyHandle
     request['Count'] = len(names)
@@ -460,7 +532,8 @@ def hLsarLookupNames2(dce, policyHandle, names, lookupLevel = LSAP_LOOKUP_LEVEL.
 
     return dce.request(request)
 
-def hLsarLookupNames(dce, policyHandle, names, lookupLevel = LSAP_LOOKUP_LEVEL.LsapLookupWksta):
+
+def hLsarLookupNames(dce, policyHandle, names, lookupLevel=LSAP_LOOKUP_LEVEL.LsapLookupWksta):
     request = LsarLookupNames()
     request['PolicyHandle'] = policyHandle
     request['Count'] = len(names)
@@ -473,7 +546,8 @@ def hLsarLookupNames(dce, policyHandle, names, lookupLevel = LSAP_LOOKUP_LEVEL.L
 
     return dce.request(request)
 
-def hLsarLookupSids2(dce, policyHandle, sids, lookupLevel = LSAP_LOOKUP_LEVEL.LsapLookupWksta, lookupOptions=0x00000000, clientRevision=0x00000001):
+
+def hLsarLookupSids2(dce, policyHandle, sids, lookupLevel=LSAP_LOOKUP_LEVEL.LsapLookupWksta, lookupOptions=0x00000000, clientRevision=0x00000001):
     request = LsarLookupSids2()
     request['PolicyHandle'] = policyHandle
     request['SidEnumBuffer']['Entries'] = len(sids)
@@ -489,7 +563,8 @@ def hLsarLookupSids2(dce, policyHandle, sids, lookupLevel = LSAP_LOOKUP_LEVEL.Ls
 
     return dce.request(request)
 
-def hLsarLookupSids(dce, policyHandle, sids, lookupLevel = LSAP_LOOKUP_LEVEL.LsapLookupWksta):
+
+def hLsarLookupSids(dce, policyHandle, sids, lookupLevel=LSAP_LOOKUP_LEVEL.LsapLookupWksta):
     request = LsarLookupSids()
     request['PolicyHandle'] = policyHandle
     request['SidEnumBuffer']['Entries'] = len(sids)
@@ -502,4 +577,3 @@ def hLsarLookupSids(dce, policyHandle, sids, lookupLevel = LSAP_LOOKUP_LEVEL.Lsa
     request['LookupLevel'] = lookupLevel
 
     return dce.request(request)
-

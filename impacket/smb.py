@@ -7,20 +7,20 @@
 # Copyright (C) 2001 Michael Teo <michaelteo@bigfoot.com>
 # smb.py - SMB/CIFS library
 #
-# This software is provided 'as-is', without any express or implied warranty. 
-# In no event will the author be held liable for any damages arising from the 
+# This software is provided 'as-is', without any express or implied warranty.
+# In no event will the author be held liable for any damages arising from the
 # use of this software.
 #
-# Permission is granted to anyone to use this software for any purpose, 
-# including commercial applications, and to alter it and redistribute it 
+# Permission is granted to anyone to use this software for any purpose,
+# including commercial applications, and to alter it and redistribute it
 # freely, subject to the following restrictions:
 #
-# 1. The origin of this software must not be misrepresented; you must not 
-#    claim that you wrote the original software. If you use this software 
+# 1. The origin of this software must not be misrepresented; you must not
+#    claim that you wrote the original software. If you use this software
 #    in a product, an acknowledgment in the product documentation would be
 #    appreciated but is not required.
 #
-# 2. Altered source versions must be plainly marked as such, and must not be 
+# 2. Altered source versions must be plainly marked as such, and must not be
 #    misrepresented as being the original software.
 #
 # 3. This notice cannot be removed or altered from any source distribution.
@@ -37,7 +37,7 @@
 # [ ] Try [SMB]transport fragmentation with out of order segments
 # [x] Do chained AndX requests
 # [ ] Transform the rest of the calls to structure
-# [ ] Implement TRANS/TRANS2 reassembly for list_path 
+# [ ] Implement TRANS/TRANS2 reassembly for list_path
 
 import os, sys, socket, string, re, select, errno
 from impacket import nmb, ntlm, nt_errors
@@ -67,173 +67,174 @@ except ImportError:
 SMB_DIALECT = 'NT LM 0.12'
 
 # Shared Device Type
-SHARED_DISK                      = 0x00
-SHARED_DISK_HIDDEN               = 0x80000000
-SHARED_PRINT_QUEUE               = 0x01
-SHARED_DEVICE                    = 0x02
-SHARED_IPC                       = 0x03
+SHARED_DISK = 0x00
+SHARED_DISK_HIDDEN = 0x80000000
+SHARED_PRINT_QUEUE = 0x01
+SHARED_DEVICE = 0x02
+SHARED_IPC = 0x03
 
 # Extended attributes mask
-ATTR_ARCHIVE                     = 0x020
-ATTR_COMPRESSED                  = 0x800
-ATTR_NORMAL                      = 0x080
-ATTR_HIDDEN                      = 0x002
-ATTR_READONLY                    = 0x001
-ATTR_TEMPORARY                   = 0x100
-ATTR_DIRECTORY                   = 0x010
-ATTR_SYSTEM                      = 0x004
+ATTR_ARCHIVE = 0x020
+ATTR_COMPRESSED = 0x800
+ATTR_NORMAL = 0x080
+ATTR_HIDDEN = 0x002
+ATTR_READONLY = 0x001
+ATTR_TEMPORARY = 0x100
+ATTR_DIRECTORY = 0x010
+ATTR_SYSTEM = 0x004
 
 # Service Type
-SERVICE_DISK                     = 'A:'
-SERVICE_PRINTER                  = 'LPT1:'
-SERVICE_IPC                      = 'IPC'
-SERVICE_COMM                     = 'COMM'
-SERVICE_ANY                      = '?????'
+SERVICE_DISK = 'A:'
+SERVICE_PRINTER = 'LPT1:'
+SERVICE_IPC = 'IPC'
+SERVICE_COMM = 'COMM'
+SERVICE_ANY = '?????'
 
 # Server Type (Can be used to mask with SMBMachine.get_type() or SMBDomain.get_type())
-SV_TYPE_WORKSTATION              = 0x00000001
-SV_TYPE_SERVER                   = 0x00000002
-SV_TYPE_SQLSERVER                = 0x00000004
-SV_TYPE_DOMAIN_CTRL              = 0x00000008
-SV_TYPE_DOMAIN_BAKCTRL           = 0x00000010
-SV_TYPE_TIME_SOURCE              = 0x00000020
-SV_TYPE_AFP                      = 0x00000040
-SV_TYPE_NOVELL                   = 0x00000080
-SV_TYPE_DOMAIN_MEMBER            = 0x00000100
-SV_TYPE_PRINTQ_SERVER            = 0x00000200
-SV_TYPE_DIALIN_SERVER            = 0x00000400
-SV_TYPE_XENIX_SERVER             = 0x00000800
-SV_TYPE_NT                       = 0x00001000
-SV_TYPE_WFW                      = 0x00002000
-SV_TYPE_SERVER_NT                = 0x00004000
-SV_TYPE_POTENTIAL_BROWSER        = 0x00010000
-SV_TYPE_BACKUP_BROWSER           = 0x00020000
-SV_TYPE_MASTER_BROWSER           = 0x00040000
-SV_TYPE_DOMAIN_MASTER            = 0x00080000
-SV_TYPE_LOCAL_LIST_ONLY          = 0x40000000
-SV_TYPE_DOMAIN_ENUM              = 0x80000000
+SV_TYPE_WORKSTATION = 0x00000001
+SV_TYPE_SERVER = 0x00000002
+SV_TYPE_SQLSERVER = 0x00000004
+SV_TYPE_DOMAIN_CTRL = 0x00000008
+SV_TYPE_DOMAIN_BAKCTRL = 0x00000010
+SV_TYPE_TIME_SOURCE = 0x00000020
+SV_TYPE_AFP = 0x00000040
+SV_TYPE_NOVELL = 0x00000080
+SV_TYPE_DOMAIN_MEMBER = 0x00000100
+SV_TYPE_PRINTQ_SERVER = 0x00000200
+SV_TYPE_DIALIN_SERVER = 0x00000400
+SV_TYPE_XENIX_SERVER = 0x00000800
+SV_TYPE_NT = 0x00001000
+SV_TYPE_WFW = 0x00002000
+SV_TYPE_SERVER_NT = 0x00004000
+SV_TYPE_POTENTIAL_BROWSER = 0x00010000
+SV_TYPE_BACKUP_BROWSER = 0x00020000
+SV_TYPE_MASTER_BROWSER = 0x00040000
+SV_TYPE_DOMAIN_MASTER = 0x00080000
+SV_TYPE_LOCAL_LIST_ONLY = 0x40000000
+SV_TYPE_DOMAIN_ENUM = 0x80000000
 
 # Options values for SMB.stor_file and SMB.retr_file
-SMB_O_CREAT                      = 0x10   # Create the file if file does not exists. Otherwise, operation fails.
-SMB_O_EXCL                       = 0x00   # When used with SMB_O_CREAT, operation fails if file exists. Cannot be used with SMB_O_OPEN.
-SMB_O_OPEN                       = 0x01   # Open the file if the file exists
-SMB_O_TRUNC                      = 0x02   # Truncate the file if the file exists
+SMB_O_CREAT = 0x10   # Create the file if file does not exists. Otherwise, operation fails.
+SMB_O_EXCL = 0x00   # When used with SMB_O_CREAT, operation fails if file exists. Cannot be used with SMB_O_OPEN.
+SMB_O_OPEN = 0x01   # Open the file if the file exists
+SMB_O_TRUNC = 0x02   # Truncate the file if the file exists
 
 # Share Access Mode
-SMB_SHARE_COMPAT                 = 0x00
-SMB_SHARE_DENY_EXCL              = 0x10
-SMB_SHARE_DENY_WRITE             = 0x20
-SMB_SHARE_DENY_READEXEC          = 0x30
-SMB_SHARE_DENY_NONE              = 0x40
-SMB_ACCESS_READ                  = 0x00
-SMB_ACCESS_WRITE                 = 0x01
-SMB_ACCESS_READWRITE             = 0x02
-SMB_ACCESS_EXEC                  = 0x03
+SMB_SHARE_COMPAT = 0x00
+SMB_SHARE_DENY_EXCL = 0x10
+SMB_SHARE_DENY_WRITE = 0x20
+SMB_SHARE_DENY_READEXEC = 0x30
+SMB_SHARE_DENY_NONE = 0x40
+SMB_ACCESS_READ = 0x00
+SMB_ACCESS_WRITE = 0x01
+SMB_ACCESS_READWRITE = 0x02
+SMB_ACCESS_EXEC = 0x03
 
-TRANS_DISCONNECT_TID             = 1
-TRANS_NO_RESPONSE                = 2
+TRANS_DISCONNECT_TID = 1
+TRANS_NO_RESPONSE = 2
 
-STATUS_SUCCESS                   = 0x00000000
-STATUS_LOGON_FAILURE             = 0xC000006D
-STATUS_LOGON_TYPE_NOT_GRANTED    = 0xC000015B
-MAX_TFRAG_SIZE                   = 5840
-EVASION_NONE                     = 0
-EVASION_LOW                      = 1
-EVASION_HIGH                     = 2
-EVASION_MAX                      = 3
-RPC_X_BAD_STUB_DATA              = 0x6F7
+STATUS_SUCCESS = 0x00000000
+STATUS_LOGON_FAILURE = 0xC000006D
+STATUS_LOGON_TYPE_NOT_GRANTED = 0xC000015B
+MAX_TFRAG_SIZE = 5840
+EVASION_NONE = 0
+EVASION_LOW = 1
+EVASION_HIGH = 2
+EVASION_MAX = 3
+RPC_X_BAD_STUB_DATA = 0x6F7
 
 # SMB_FILE_ATTRIBUTES
 
-SMB_FILE_ATTRIBUTE_NORMAL        = 0x0000
-SMB_FILE_ATTRIBUTE_READONLY      = 0x0001
-SMB_FILE_ATTRIBUTE_HIDDEN        = 0x0002
-SMB_FILE_ATTRIBUTE_SYSTEM        = 0x0004
-SMB_FILE_ATTRIBUTE_VOLUME        = 0x0008
-SMB_FILE_ATTRIBUTE_DIRECORY      = 0x0010
-SMB_FILE_ATTRIBUTE_ARCHIVE       = 0x0020
-SMB_SEARCH_ATTRIBUTE_READONLY    = 0x0100
-SMB_SEARCH_ATTRIBUTE_HIDDEN      = 0x0200
-SMB_SEARCH_ATTRIBUTE_SYSTEM      = 0x0400
-SMB_SEARCH_ATTRIBUTE_DIRECTORY   = 0x1000
-SMB_SEARCH_ATTRIBUTE_ARCHIVE     = 0x2000
+SMB_FILE_ATTRIBUTE_NORMAL = 0x0000
+SMB_FILE_ATTRIBUTE_READONLY = 0x0001
+SMB_FILE_ATTRIBUTE_HIDDEN = 0x0002
+SMB_FILE_ATTRIBUTE_SYSTEM = 0x0004
+SMB_FILE_ATTRIBUTE_VOLUME = 0x0008
+SMB_FILE_ATTRIBUTE_DIRECORY = 0x0010
+SMB_FILE_ATTRIBUTE_ARCHIVE = 0x0020
+SMB_SEARCH_ATTRIBUTE_READONLY = 0x0100
+SMB_SEARCH_ATTRIBUTE_HIDDEN = 0x0200
+SMB_SEARCH_ATTRIBUTE_SYSTEM = 0x0400
+SMB_SEARCH_ATTRIBUTE_DIRECTORY = 0x1000
+SMB_SEARCH_ATTRIBUTE_ARCHIVE = 0x2000
 
 # Session SetupAndX Action flags
-SMB_SETUP_GUEST                  = 0x01
-SMB_SETUP_USE_LANMAN_KEY         = 0x02
+SMB_SETUP_GUEST = 0x01
+SMB_SETUP_USE_LANMAN_KEY = 0x02
 
 # QUERY_INFORMATION levels
-SMB_INFO_ALLOCATION              = 0x0001
-SMB_INFO_VOLUME                  = 0x0002
-FILE_FS_SIZE_INFORMATION         = 0x0003
-SMB_QUERY_FS_VOLUME_INFO         = 0x0102
-SMB_QUERY_FS_SIZE_INFO           = 0x0103
-SMB_QUERY_FILE_EA_INFO           = 0x0103
-SMB_QUERY_FS_DEVICE_INFO         = 0x0104
-SMB_QUERY_FS_ATTRIBUTE_INFO      = 0x0105
-SMB_QUERY_FILE_BASIC_INFO        = 0x0101
-SMB_QUERY_FILE_STANDARD_INFO     = 0x0102
-SMB_QUERY_FILE_ALL_INFO          = 0x0107
-FILE_FS_FULL_SIZE_INFORMATION    = 0x03EF
+SMB_INFO_ALLOCATION = 0x0001
+SMB_INFO_VOLUME = 0x0002
+FILE_FS_SIZE_INFORMATION = 0x0003
+SMB_QUERY_FS_VOLUME_INFO = 0x0102
+SMB_QUERY_FS_SIZE_INFO = 0x0103
+SMB_QUERY_FILE_EA_INFO = 0x0103
+SMB_QUERY_FS_DEVICE_INFO = 0x0104
+SMB_QUERY_FS_ATTRIBUTE_INFO = 0x0105
+SMB_QUERY_FILE_BASIC_INFO = 0x0101
+SMB_QUERY_FILE_STANDARD_INFO = 0x0102
+SMB_QUERY_FILE_ALL_INFO = 0x0107
+FILE_FS_FULL_SIZE_INFORMATION = 0x03EF
 
 # SET_INFORMATION levels
-SMB_SET_FILE_DISPOSITION_INFO    = 0x0102
-SMB_SET_FILE_BASIC_INFO          = 0x0101
-SMB_SET_FILE_END_OF_FILE_INFO    = 0x0104
+SMB_SET_FILE_DISPOSITION_INFO = 0x0102
+SMB_SET_FILE_BASIC_INFO = 0x0101
+SMB_SET_FILE_END_OF_FILE_INFO = 0x0104
 
 
 # File System Attributes
-FILE_CASE_SENSITIVE_SEARCH       = 0x00000001
-FILE_CASE_PRESERVED_NAMES        = 0x00000002
-FILE_UNICODE_ON_DISK             = 0x00000004
-FILE_PERSISTENT_ACLS             = 0x00000008
-FILE_FILE_COMPRESSION            = 0x00000010
-FILE_VOLUME_IS_COMPRESSED        = 0x00008000
+FILE_CASE_SENSITIVE_SEARCH = 0x00000001
+FILE_CASE_PRESERVED_NAMES = 0x00000002
+FILE_UNICODE_ON_DISK = 0x00000004
+FILE_PERSISTENT_ACLS = 0x00000008
+FILE_FILE_COMPRESSION = 0x00000010
+FILE_VOLUME_IS_COMPRESSED = 0x00008000
 
 # FIND_FIRST2 flags and levels
-SMB_FIND_CLOSE_AFTER_REQUEST     = 0x0001
-SMB_FIND_CLOSE_AT_EOS            = 0x0002
-SMB_FIND_RETURN_RESUME_KEYS      = 0x0004
-SMB_FIND_CONTINUE_FROM_LAST      = 0x0008
-SMB_FIND_WITH_BACKUP_INTENT      = 0x0010
+SMB_FIND_CLOSE_AFTER_REQUEST = 0x0001
+SMB_FIND_CLOSE_AT_EOS = 0x0002
+SMB_FIND_RETURN_RESUME_KEYS = 0x0004
+SMB_FIND_CONTINUE_FROM_LAST = 0x0008
+SMB_FIND_WITH_BACKUP_INTENT = 0x0010
 
-FILE_DIRECTORY_FILE              = 0x00000001
-FILE_DELETE_ON_CLOSE             = 0x00001000
-FILE_NON_DIRECTORY_FILE          = 0x00000040
+FILE_DIRECTORY_FILE = 0x00000001
+FILE_DELETE_ON_CLOSE = 0x00001000
+FILE_NON_DIRECTORY_FILE = 0x00000040
 
-SMB_FIND_INFO_STANDARD           = 0x0001
-SMB_FIND_FILE_DIRECTORY_INFO     = 0x0101
-SMB_FIND_FILE_FULL_DIRECTORY_INFO= 0x0102
-SMB_FIND_FILE_NAMES_INFO         = 0x0103
-SMB_FIND_FILE_BOTH_DIRECTORY_INFO= 0x0104
+SMB_FIND_INFO_STANDARD = 0x0001
+SMB_FIND_FILE_DIRECTORY_INFO = 0x0101
+SMB_FIND_FILE_FULL_DIRECTORY_INFO = 0x0102
+SMB_FIND_FILE_NAMES_INFO = 0x0103
+SMB_FIND_FILE_BOTH_DIRECTORY_INFO = 0x0104
 SMB_FIND_FILE_ID_FULL_DIRECTORY_INFO = 0x105
 SMB_FIND_FILE_ID_BOTH_DIRECTORY_INFO = 0x106
 
 
 # DesiredAccess flags
-FILE_READ_DATA                   = 0x00000001
-FILE_WRITE_DATA                  = 0x00000002
-FILE_APPEND_DATA                 = 0x00000004
-FILE_EXECUTE                     = 0x00000020
-MAXIMUM_ALLOWED                  = 0x02000000
-GENERIC_ALL                      = 0x10000000
-GENERIC_EXECUTE                  = 0x20000000
-GENERIC_WRITE                    = 0x40000000
-GENERIC_READ                     = 0x80000000
+FILE_READ_DATA = 0x00000001
+FILE_WRITE_DATA = 0x00000002
+FILE_APPEND_DATA = 0x00000004
+FILE_EXECUTE = 0x00000020
+MAXIMUM_ALLOWED = 0x02000000
+GENERIC_ALL = 0x10000000
+GENERIC_EXECUTE = 0x20000000
+GENERIC_WRITE = 0x40000000
+GENERIC_READ = 0x80000000
 
 # ShareAccess flags
-FILE_SHARE_NONE                  = 0x00000000
-FILE_SHARE_READ                  = 0x00000001
-FILE_SHARE_WRITE                 = 0x00000002
-FILE_SHARE_DELETE                = 0x00000004
+FILE_SHARE_NONE = 0x00000000
+FILE_SHARE_READ = 0x00000001
+FILE_SHARE_WRITE = 0x00000002
+FILE_SHARE_DELETE = 0x00000004
 
 # CreateDisposition flags
-FILE_SUPERSEDE                  = 0x00000000
-FILE_OPEN                       = 0x00000001
-FILE_CREATE                     = 0x00000002
-FILE_OPEN_IF                    = 0x00000003
-FILE_OVERWRITE                  = 0x00000004
-FILE_OVERWRITE_IF               = 0x00000005
+FILE_SUPERSEDE = 0x00000000
+FILE_OPEN = 0x00000001
+FILE_CREATE = 0x00000002
+FILE_OPEN_IF = 0x00000003
+FILE_OVERWRITE = 0x00000004
+FILE_OVERWRITE_IF = 0x00000005
+
 
 def strerror(errclass, errcode):
     if errclass == 0x01:
@@ -243,279 +244,274 @@ def strerror(errclass, errcode):
     elif errclass == 0x03:
         return 'Hardware error', ERRHRD.get(errcode, 'Unknown error')
     # This is not a standard error class for SMB
-    #elif errclass == 0x80:
+    # elif errclass == 0x80:
     #    return 'Browse error', ERRBROWSE.get(errcode, 'Unknown error')
     elif errclass == 0xff:
         return 'Bad command', 'Bad command. Please file bug report'
     else:
         return 'Unknown error', 'Unknown error'
 
-    
 
 # Raised when an error has occured during a session
 class SessionError(Exception):
     # SMB X/Open error codes for the ERRDOS error class
-    ERRsuccess                           = 0
-    ERRbadfunc                           = 1
-    ERRbadfile                           = 2
-    ERRbadpath                           = 3
-    ERRnofids                            = 4
-    ERRnoaccess                          = 5
-    ERRbadfid                            = 6
-    ERRbadmcb                            = 7
-    ERRnomem                             = 8
-    ERRbadmem                            = 9
-    ERRbadenv                            = 10
-    ERRbadaccess                         = 12
-    ERRbaddata                           = 13
-    ERRres                               = 14
-    ERRbaddrive                          = 15
-    ERRremcd                             = 16
-    ERRdiffdevice                        = 17
-    ERRnofiles                           = 18
-    ERRgeneral                           = 31
-    ERRbadshare                          = 32
-    ERRlock                              = 33
-    ERRunsup                             = 50
-    ERRnetnamedel                        = 64
-    ERRnosuchshare                       = 67
-    ERRfilexists                         = 80
-    ERRinvalidparam                      = 87
-    ERRcannotopen                        = 110
-    ERRinsufficientbuffer                = 122
-    ERRinvalidname                       = 123
-    ERRunknownlevel                      = 124
-    ERRnotlocked                         = 158
-    ERRrename                            = 183
-    ERRbadpipe                           = 230
-    ERRpipebusy                          = 231
-    ERRpipeclosing                       = 232
-    ERRnotconnected                      = 233
-    ERRmoredata                          = 234
-    ERRnomoreitems                       = 259
-    ERRbaddirectory                      = 267
-    ERReasnotsupported                   = 282
-    ERRlogonfailure                      = 1326
-    ERRbuftoosmall                       = 2123
-    ERRunknownipc                        = 2142
-    ERRnosuchprintjob                    = 2151
-    ERRinvgroup                          = 2455
+    ERRsuccess = 0
+    ERRbadfunc = 1
+    ERRbadfile = 2
+    ERRbadpath = 3
+    ERRnofids = 4
+    ERRnoaccess = 5
+    ERRbadfid = 6
+    ERRbadmcb = 7
+    ERRnomem = 8
+    ERRbadmem = 9
+    ERRbadenv = 10
+    ERRbadaccess = 12
+    ERRbaddata = 13
+    ERRres = 14
+    ERRbaddrive = 15
+    ERRremcd = 16
+    ERRdiffdevice = 17
+    ERRnofiles = 18
+    ERRgeneral = 31
+    ERRbadshare = 32
+    ERRlock = 33
+    ERRunsup = 50
+    ERRnetnamedel = 64
+    ERRnosuchshare = 67
+    ERRfilexists = 80
+    ERRinvalidparam = 87
+    ERRcannotopen = 110
+    ERRinsufficientbuffer = 122
+    ERRinvalidname = 123
+    ERRunknownlevel = 124
+    ERRnotlocked = 158
+    ERRrename = 183
+    ERRbadpipe = 230
+    ERRpipebusy = 231
+    ERRpipeclosing = 232
+    ERRnotconnected = 233
+    ERRmoredata = 234
+    ERRnomoreitems = 259
+    ERRbaddirectory = 267
+    ERReasnotsupported = 282
+    ERRlogonfailure = 1326
+    ERRbuftoosmall = 2123
+    ERRunknownipc = 2142
+    ERRnosuchprintjob = 2151
+    ERRinvgroup = 2455
 
     # here's a special one from observing NT
-    ERRnoipc                             = 66
+    ERRnoipc = 66
 
     # These errors seem to be only returned by the NT printer driver system
-    ERRdriveralreadyinstalled            = 1795
-    ERRunknownprinterport                = 1796
-    ERRunknownprinterdriver              = 1797
-    ERRunknownprintprocessor             = 1798
-    ERRinvalidseparatorfile              = 1799
-    ERRinvalidjobpriority                = 1800
-    ERRinvalidprintername                = 1801
-    ERRprinteralreadyexists              = 1802
-    ERRinvalidprintercommand             = 1803
-    ERRinvaliddatatype                   = 1804
-    ERRinvalidenvironment                = 1805
+    ERRdriveralreadyinstalled = 1795
+    ERRunknownprinterport = 1796
+    ERRunknownprinterdriver = 1797
+    ERRunknownprintprocessor = 1798
+    ERRinvalidseparatorfile = 1799
+    ERRinvalidjobpriority = 1800
+    ERRinvalidprintername = 1801
+    ERRprinteralreadyexists = 1802
+    ERRinvalidprintercommand = 1803
+    ERRinvaliddatatype = 1804
+    ERRinvalidenvironment = 1805
 
-    ERRunknownprintmonitor               = 3000
-    ERRprinterdriverinuse                = 3001
-    ERRspoolfilenotfound                 = 3002
-    ERRnostartdoc                        = 3003
-    ERRnoaddjob                          = 3004
-    ERRprintprocessoralreadyinstalled    = 3005
-    ERRprintmonitoralreadyinstalled      = 3006
-    ERRinvalidprintmonitor               = 3007
-    ERRprintmonitorinuse                 = 3008
-    ERRprinterhasjobsqueued              = 3009
+    ERRunknownprintmonitor = 3000
+    ERRprinterdriverinuse = 3001
+    ERRspoolfilenotfound = 3002
+    ERRnostartdoc = 3003
+    ERRnoaddjob = 3004
+    ERRprintprocessoralreadyinstalled = 3005
+    ERRprintmonitoralreadyinstalled = 3006
+    ERRinvalidprintmonitor = 3007
+    ERRprintmonitorinuse = 3008
+    ERRprinterhasjobsqueued = 3009
 
     # Error codes for the ERRSRV class
 
-    ERRerror                             = 1
-    ERRbadpw                             = 2
-    ERRbadtype                           = 3
-    ERRaccess                            = 4
-    ERRinvnid                            = 5
-    ERRinvnetname                        = 6
-    ERRinvdevice                         = 7
-    ERRqfull                             = 49
-    ERRqtoobig                           = 50
-    ERRinvpfid                           = 52
-    ERRsmbcmd                            = 64
-    ERRsrverror                          = 65
-    ERRfilespecs                         = 67
-    ERRbadlink                           = 68
-    ERRbadpermits                        = 69
-    ERRbadpid                            = 70
-    ERRsetattrmode                       = 71
-    ERRpaused                            = 81
-    ERRmsgoff                            = 82
-    ERRnoroom                            = 83
-    ERRrmuns                             = 87
-    ERRtimeout                           = 88
-    ERRnoresource                        = 89
-    ERRtoomanyuids                       = 90
-    ERRbaduid                            = 91
-    ERRuseMPX                            = 250
-    ERRuseSTD                            = 251
-    ERRcontMPX                           = 252
-    ERRbadPW                             = None
-    ERRnosupport                         = 0
-    ERRunknownsmb                        = 22
+    ERRerror = 1
+    ERRbadpw = 2
+    ERRbadtype = 3
+    ERRaccess = 4
+    ERRinvnid = 5
+    ERRinvnetname = 6
+    ERRinvdevice = 7
+    ERRqfull = 49
+    ERRqtoobig = 50
+    ERRinvpfid = 52
+    ERRsmbcmd = 64
+    ERRsrverror = 65
+    ERRfilespecs = 67
+    ERRbadlink = 68
+    ERRbadpermits = 69
+    ERRbadpid = 70
+    ERRsetattrmode = 71
+    ERRpaused = 81
+    ERRmsgoff = 82
+    ERRnoroom = 83
+    ERRrmuns = 87
+    ERRtimeout = 88
+    ERRnoresource = 89
+    ERRtoomanyuids = 90
+    ERRbaduid = 91
+    ERRuseMPX = 250
+    ERRuseSTD = 251
+    ERRcontMPX = 252
+    ERRbadPW = None
+    ERRnosupport = 0
+    ERRunknownsmb = 22
 
     # Error codes for the ERRHRD class
 
-    ERRnowrite                           = 19
-    ERRbadunit                           = 20
-    ERRnotready                          = 21
-    ERRbadcmd                            = 22
-    ERRdata                              = 23
-    ERRbadreq                            = 24
-    ERRseek                              = 25
-    ERRbadmedia                          = 26
-    ERRbadsector                         = 27
-    ERRnopaper                           = 28
-    ERRwrite                             = 29
-    ERRread                              = 30
-    ERRgeneral                           = 31
-    ERRwrongdisk                         = 34
-    ERRFCBunavail                        = 35
-    ERRsharebufexc                       = 36
-    ERRdiskfull                          = 39
-
+    ERRnowrite = 19
+    ERRbadunit = 20
+    ERRnotready = 21
+    ERRbadcmd = 22
+    ERRdata = 23
+    ERRbadreq = 24
+    ERRseek = 25
+    ERRbadmedia = 26
+    ERRbadsector = 27
+    ERRnopaper = 28
+    ERRwrite = 29
+    ERRread = 30
+    ERRgeneral = 31
+    ERRwrongdisk = 34
+    ERRFCBunavail = 35
+    ERRsharebufexc = 36
+    ERRdiskfull = 39
 
     hard_msgs = {
-      19: ("ERRnowrite", "Attempt to write on write-protected diskette."),
-      20: ("ERRbadunit", "Unknown unit."),
-      21: ("ERRnotready", "Drive not ready."),
-      22: ("ERRbadcmd", "Unknown command."),
-      23: ("ERRdata", "Data error (CRC)."),
-      24: ("ERRbadreq", "Bad request structure length."),
-      25: ("ERRseek", "Seek error."),
-      26: ("ERRbadmedia", "Unknown media type."),
-      27: ("ERRbadsector", "Sector not found."),
-      28: ("ERRnopaper", "Printer out of paper."),
-      29: ("ERRwrite", "Write fault."),
-      30: ("ERRread", "Read fault."),
-      31: ("ERRgeneral", "General failure."),
-      32: ("ERRbadshare", "An open conflicts with an existing open."),
-      33: ("ERRlock", "A Lock request conflicted with an existing lock or specified an invalid mode, or an Unlock requested attempted to remove a lock held by another process."),
-      34: ("ERRwrongdisk", "The wrong disk was found in a drive."),
-      35: ("ERRFCBUnavail", "No FCBs are available to process request."),
-      36: ("ERRsharebufexc", "A sharing buffer has been exceeded.")
-      }
+        19: ("ERRnowrite", "Attempt to write on write-protected diskette."),
+        20: ("ERRbadunit", "Unknown unit."),
+        21: ("ERRnotready", "Drive not ready."),
+        22: ("ERRbadcmd", "Unknown command."),
+        23: ("ERRdata", "Data error (CRC)."),
+        24: ("ERRbadreq", "Bad request structure length."),
+        25: ("ERRseek", "Seek error."),
+        26: ("ERRbadmedia", "Unknown media type."),
+        27: ("ERRbadsector", "Sector not found."),
+        28: ("ERRnopaper", "Printer out of paper."),
+        29: ("ERRwrite", "Write fault."),
+        30: ("ERRread", "Read fault."),
+        31: ("ERRgeneral", "General failure."),
+        32: ("ERRbadshare", "An open conflicts with an existing open."),
+        33: ("ERRlock", "A Lock request conflicted with an existing lock or specified an invalid mode, or an Unlock requested attempted to remove a lock held by another process."),
+        34: ("ERRwrongdisk", "The wrong disk was found in a drive."),
+        35: ("ERRFCBUnavail", "No FCBs are available to process request."),
+        36: ("ERRsharebufexc", "A sharing buffer has been exceeded.")
+    }
 
     dos_msgs = {
-      ERRbadfunc: ("ERRbadfunc", "Invalid function."),
-      ERRbadfile: ("ERRbadfile", "File not found."),
-      ERRbadpath: ("ERRbadpath", "Directory invalid."),
-      ERRnofids: ("ERRnofids", "No file descriptors available"),
-      ERRnoaccess: ("ERRnoaccess", "Access denied."),
-      ERRbadfid: ("ERRbadfid", "Invalid file handle."),
-      ERRbadmcb: ("ERRbadmcb", "Memory control blocks destroyed."),
-      ERRnomem: ("ERRnomem", "Insufficient server memory to perform the requested function."),
-      ERRbadmem: ("ERRbadmem", "Invalid memory block address."),
-      ERRbadenv: ("ERRbadenv", "Invalid environment."),
-      11: ("ERRbadformat", "Invalid format."),
-      ERRbadaccess: ("ERRbadaccess", "Invalid open mode."),
-      ERRbaddata: ("ERRbaddata", "Invalid data."),
-      ERRres: ("ERRres", "reserved."),
-      ERRbaddrive: ("ERRbaddrive", "Invalid drive specified."),
-      ERRremcd: ("ERRremcd", "A Delete Directory request attempted  to  remove  the  server's  current directory."),
-      ERRdiffdevice: ("ERRdiffdevice", "Not same device."),
-      ERRnofiles: ("ERRnofiles", "A File Search command can find no more files matching the specified criteria."),
-      ERRbadshare: ("ERRbadshare", "The sharing mode specified for an Open conflicts with existing  FIDs  on the file."),
-      ERRlock: ("ERRlock", "A Lock request conflicted with an existing lock or specified an  invalid mode,  or an Unlock requested attempted to remove a lock held by another process."),
-      ERRunsup: ("ERRunsup",  "The operation is unsupported"),
-      ERRnosuchshare: ("ERRnosuchshare",  "You specified an invalid share name"),
-      ERRfilexists: ("ERRfilexists", "The file named in a Create Directory, Make  New  File  or  Link  request already exists."),
-      ERRinvalidname: ("ERRinvalidname",  "Invalid name"),
-      ERRbadpipe: ("ERRbadpipe", "Pipe invalid."),
-      ERRpipebusy: ("ERRpipebusy", "All instances of the requested pipe are busy."),
-      ERRpipeclosing: ("ERRpipeclosing", "Pipe close in progress."),
-      ERRnotconnected: ("ERRnotconnected", "No process on other end of pipe."),
-      ERRmoredata: ("ERRmoredata", "There is more data to be returned."),
-      ERRinvgroup: ("ERRinvgroup", "Invalid workgroup (try the -W option)"),
-      ERRlogonfailure: ("ERRlogonfailure", "Logon failure"),
-      ERRdiskfull: ("ERRdiskfull", "Disk full"),
-      ERRgeneral: ("ERRgeneral",  "General failure"),
-      ERRunknownlevel: ("ERRunknownlevel",  "Unknown info level")
-      }
+        ERRbadfunc: ("ERRbadfunc", "Invalid function."),
+        ERRbadfile: ("ERRbadfile", "File not found."),
+        ERRbadpath: ("ERRbadpath", "Directory invalid."),
+        ERRnofids: ("ERRnofids", "No file descriptors available"),
+        ERRnoaccess: ("ERRnoaccess", "Access denied."),
+        ERRbadfid: ("ERRbadfid", "Invalid file handle."),
+        ERRbadmcb: ("ERRbadmcb", "Memory control blocks destroyed."),
+        ERRnomem: ("ERRnomem", "Insufficient server memory to perform the requested function."),
+        ERRbadmem: ("ERRbadmem", "Invalid memory block address."),
+        ERRbadenv: ("ERRbadenv", "Invalid environment."),
+        11: ("ERRbadformat", "Invalid format."),
+        ERRbadaccess: ("ERRbadaccess", "Invalid open mode."),
+        ERRbaddata: ("ERRbaddata", "Invalid data."),
+        ERRres: ("ERRres", "reserved."),
+        ERRbaddrive: ("ERRbaddrive", "Invalid drive specified."),
+        ERRremcd: ("ERRremcd", "A Delete Directory request attempted  to  remove  the  server's  current directory."),
+        ERRdiffdevice: ("ERRdiffdevice", "Not same device."),
+        ERRnofiles: ("ERRnofiles", "A File Search command can find no more files matching the specified criteria."),
+        ERRbadshare: ("ERRbadshare", "The sharing mode specified for an Open conflicts with existing  FIDs  on the file."),
+        ERRlock: ("ERRlock", "A Lock request conflicted with an existing lock or specified an  invalid mode,  or an Unlock requested attempted to remove a lock held by another process."),
+        ERRunsup: ("ERRunsup", "The operation is unsupported"),
+        ERRnosuchshare: ("ERRnosuchshare", "You specified an invalid share name"),
+        ERRfilexists: ("ERRfilexists", "The file named in a Create Directory, Make  New  File  or  Link  request already exists."),
+        ERRinvalidname: ("ERRinvalidname", "Invalid name"),
+        ERRbadpipe: ("ERRbadpipe", "Pipe invalid."),
+        ERRpipebusy: ("ERRpipebusy", "All instances of the requested pipe are busy."),
+        ERRpipeclosing: ("ERRpipeclosing", "Pipe close in progress."),
+        ERRnotconnected: ("ERRnotconnected", "No process on other end of pipe."),
+        ERRmoredata: ("ERRmoredata", "There is more data to be returned."),
+        ERRinvgroup: ("ERRinvgroup", "Invalid workgroup (try the -W option)"),
+        ERRlogonfailure: ("ERRlogonfailure", "Logon failure"),
+        ERRdiskfull: ("ERRdiskfull", "Disk full"),
+        ERRgeneral: ("ERRgeneral", "General failure"),
+        ERRunknownlevel: ("ERRunknownlevel", "Unknown info level")
+    }
 
-    server_msgs = { 
-      1: ("ERRerror", "Non-specific error code."),
-      2: ("ERRbadpw", "Bad password - name/password pair in a Tree Connect or Session Setup are invalid."),
-      3: ("ERRbadtype", "reserved."),
-      4: ("ERRaccess", "The requester does not have  the  necessary  access  rights  within  the specified  context for the requested function. The context is defined by the TID or the UID."),
-      5: ("ERRinvnid", "The tree ID (TID) specified in a command was invalid."),
-      6: ("ERRinvnetname", "Invalid network name in tree connect."),
-      7: ("ERRinvdevice", "Invalid device - printer request made to non-printer connection or  non-printer request made to printer connection."),
-      49: ("ERRqfull", "Print queue full (files) -- returned by open print file."),
-      50: ("ERRqtoobig", "Print queue full -- no space."),
-      51: ("ERRqeof", "EOF on print queue dump."),
-      52: ("ERRinvpfid", "Invalid print file FID."),
-      64: ("ERRsmbcmd", "The server did not recognize the command received."),
-      65: ("ERRsrverror","The server encountered an internal error, e.g., system file unavailable."),
-      67: ("ERRfilespecs", "The file handle (FID) and pathname parameters contained an invalid  combination of values."),
-      68: ("ERRreserved", "reserved."),
-      69: ("ERRbadpermits", "The access permissions specified for a file or directory are not a valid combination.  The server cannot set the requested attribute."),
-      70: ("ERRreserved", "reserved."),
-      71: ("ERRsetattrmode", "The attribute mode in the Set File Attribute request is invalid."),
-      81: ("ERRpaused", "Server is paused."),
-      82: ("ERRmsgoff", "Not receiving messages."),
-      83: ("ERRnoroom", "No room to buffer message."),
-      87: ("ERRrmuns", "Too many remote user names."),
-      88: ("ERRtimeout", "Operation timed out."),
-      89: ("ERRnoresource", "No resources currently available for request."),
-      90: ("ERRtoomanyuids", "Too many UIDs active on this session."),
-      91: ("ERRbaduid", "The UID is not known as a valid ID on this session."),
-      250: ("ERRusempx","Temp unable to support Raw, use MPX mode."),
-      251: ("ERRusestd","Temp unable to support Raw, use standard read/write."),
-      252: ("ERRcontmpx", "Continue in MPX mode."),
-      253: ("ERRreserved", "reserved."),
-      254: ("ERRreserved", "reserved."),
-  0xFFFF: ("ERRnosupport", "Function not supported.")
-  }    
+    server_msgs = {
+        1: ("ERRerror", "Non-specific error code."),
+        2: ("ERRbadpw", "Bad password - name/password pair in a Tree Connect or Session Setup are invalid."),
+        3: ("ERRbadtype", "reserved."),
+        4: ("ERRaccess", "The requester does not have  the  necessary  access  rights  within  the specified  context for the requested function. The context is defined by the TID or the UID."),
+        5: ("ERRinvnid", "The tree ID (TID) specified in a command was invalid."),
+        6: ("ERRinvnetname", "Invalid network name in tree connect."),
+        7: ("ERRinvdevice", "Invalid device - printer request made to non-printer connection or  non-printer request made to printer connection."),
+        49: ("ERRqfull", "Print queue full (files) -- returned by open print file."),
+        50: ("ERRqtoobig", "Print queue full -- no space."),
+        51: ("ERRqeof", "EOF on print queue dump."),
+        52: ("ERRinvpfid", "Invalid print file FID."),
+        64: ("ERRsmbcmd", "The server did not recognize the command received."),
+        65: ("ERRsrverror","The server encountered an internal error, e.g., system file unavailable."),
+        67: ("ERRfilespecs", "The file handle (FID) and pathname parameters contained an invalid  combination of values."),
+        68: ("ERRreserved", "reserved."),
+        69: ("ERRbadpermits", "The access permissions specified for a file or directory are not a valid combination.  The server cannot set the requested attribute."),
+        70: ("ERRreserved", "reserved."),
+        71: ("ERRsetattrmode", "The attribute mode in the Set File Attribute request is invalid."),
+        81: ("ERRpaused", "Server is paused."),
+        82: ("ERRmsgoff", "Not receiving messages."),
+        83: ("ERRnoroom", "No room to buffer message."),
+        87: ("ERRrmuns", "Too many remote user names."),
+        88: ("ERRtimeout", "Operation timed out."),
+        89: ("ERRnoresource", "No resources currently available for request."),
+        90: ("ERRtoomanyuids", "Too many UIDs active on this session."),
+        91: ("ERRbaduid", "The UID is not known as a valid ID on this session."),
+        250: ("ERRusempx","Temp unable to support Raw, use MPX mode."),
+        251: ("ERRusestd","Temp unable to support Raw, use standard read/write."),
+        252: ("ERRcontmpx", "Continue in MPX mode."),
+        253: ("ERRreserved", "reserved."),
+        254: ("ERRreserved", "reserved."),
+        0xFFFF: ("ERRnosupport", "Function not supported.")
+    }
     # Error clases
 
     ERRDOS = 0x1
-    error_classes = { 0: ("SUCCESS", {}),
-                      ERRDOS: ("ERRDOS", dos_msgs),
-                      0x02: ("ERRSRV",server_msgs),
-                      0x03: ("ERRHRD",hard_msgs),
-                      0x04: ("ERRXOS", {} ),
-                      0xE1: ("ERRRMX1", {} ),
-                      0xE2: ("ERRRMX2", {} ),
-                      0xE3: ("ERRRMX3", {} ),
-                      0xFF: ("ERRCMD", {} ) }
+    error_classes = {0: ("SUCCESS", {}),
+                     ERRDOS: ("ERRDOS", dos_msgs),
+                     0x02: ("ERRSRV",server_msgs),
+                     0x03: ("ERRHRD",hard_msgs),
+                     0x04: ("ERRXOS", {}),
+                     0xE1: ("ERRRMX1", {}),
+                     0xE2: ("ERRRMX2", {}),
+                     0xE3: ("ERRRMX3", {}),
+                     0xFF: ("ERRCMD", {})}
 
-    
-
-    def __init__( self, str, error_class, error_code, nt_status = 0):
+    def __init__(self, str, error_class, error_code, nt_status=0):
         Exception.__init__(self, str)
         self.nt_status = nt_status
         self._args = str
         if nt_status:
-           self.error_class = 0
-           self.error_code  = (error_code << 16) + error_class 
+            self.error_class = 0
+            self.error_code = (error_code << 16) + error_class
         else:
-           self.error_class = error_class
-           self.error_code = error_code
-        
-       
-    def get_error_class( self ):
+            self.error_class = error_class
+            self.error_code = error_code
+
+    def get_error_class(self):
         return self.error_class
 
-    def get_error_code( self ):
+    def get_error_code(self):
         return self.error_code
 
-    def __str__( self ):
-        error_class = SessionError.error_classes.get( self.error_class, None )
+    def __str__(self):
+        error_class = SessionError.error_classes.get(self.error_class, None)
         if not error_class:
             error_code_str = self.error_code
             error_class_str = self.error_class
         else:
             error_class_str = error_class[0]
-            error_code = error_class[1].get( self.error_code, None )
+            error_code = error_class[1].get(self.error_code, None)
             if not error_code:
                 error_code_str = self.error_code
             else:
@@ -533,6 +529,8 @@ class SessionError(Exception):
 class UnsupportedFeature(Exception): pass
 
 # Contains information about a SMB shared device/service
+
+
 class SharedDevice:
 
     def __init__(self, name, type, comment):
@@ -650,7 +648,6 @@ class SMBMachine:
         return '<SMBMachine instance: nbname="' + self.__nbname + '", type=' + hex(self.__type) + ', comment="' + self.__comment + '">'
 
 
-
 class SMBDomain:
     def __init__(self, nbgroup, type, master_browser):
         self.__nbgroup = nbgroup
@@ -659,8 +656,10 @@ class SMBDomain:
 
     def __repr__(self):
         return '<SMBDomain instance: nbgroup="' + self.__nbgroup + '", type=' + hex(self.__type) + ', master browser="' + self.__master_browser + '">'
-    
+
 # Represents a SMB Packet
+
+
 class NewSMBPacket(Structure):
     structure = (
         ('Signature', '"\xffSMB'),
@@ -684,13 +683,13 @@ class NewSMBPacket(Structure):
         Structure.__init__(self, **kargs)
 
         if ('Flags2' in self.fields) is False:
-             self['Flags2'] = 0
+            self['Flags2'] = 0
         if ('Flags1' in self.fields) is False:
-             self['Flags1'] = 0
+            self['Flags1'] = 0
 
         if 'data' not in kargs:
             self['Data'] = []
-    
+
     def addCommand(self, command):
         if len(self['Data']) == 0:
             self['Command'] = command.command
@@ -698,7 +697,7 @@ class NewSMBPacket(Structure):
             self['Data'][-1]['Parameters']['AndXCommand'] = command.command
             self['Data'][-1]['Parameters']['AndXOffset'] = len(self)
         self['Data'].append(command)
-        
+
     def isMoreData(self):
         return (self['Command'] in [SMB.SMB_COM_TRANSACTION, SMB.SMB_COM_READ_ANDX, SMB.SMB_COM_READ_RAW] and
                 self['ErrorClass'] == 1 and self['ErrorCode'] == SessionError.ERRmoredata)
@@ -710,8 +709,8 @@ class NewSMBPacket(Structure):
         # this was inside a loop reading more from the net (with recv_packet(None))
         if self['Command'] == cmd:
             if (self['ErrorClass'] == 0x00 and
-                self['ErrorCode']  == 0x00):
-                    return 1
+                    self['ErrorCode'] == 0x00):
+                return 1
             elif self.isMoreData():
                 return 1
             elif self.isMoreProcessingRequired():
@@ -720,8 +719,9 @@ class NewSMBPacket(Structure):
         else:
             raise UnsupportedFeature("Unexpected answer from server: Got %d, Expected %d" % (self['Command'], cmd))
 
+
 class SMBPacket:
-    def __init__(self,data = ''):
+    def __init__(self,data=''):
         # The uid attribute will be set when the client calls the login() method
         self._command = 0x0
         self._error_class = 0x0
@@ -749,32 +749,44 @@ class SMBPacket:
             self._uid = unpack('<H',data[28:30])[0]
             self._mid = unpack('<H',data[30:32])[0]
             self._wordcount = ord(data[32])
-            self._parameter_words = data[33:33+self._wordcount*2]
-            self._bytecount = ord(data[33+self._wordcount*2])
-            self._buffer = data[35+self._wordcount*2:]
+            self._parameter_words = data[33:33 + self._wordcount * 2]
+            self._bytecount = ord(data[33 + self._wordcount * 2])
+            self._buffer = data[35 + self._wordcount * 2:]
+
     def set_command(self,command):
         self._command = command
+
     def set_error_class(self, error_class):
         self._error_class = error_class
+
     def set_error_code(self,error_code):
         self._error_code = error_code
+
     def set_flags(self,flags):
         self._flags = flags
+
     def set_flags2(self, flags2):
         self._flags2 = flags2
+
     def set_pad(self, pad):
         self._pad = pad
+
     def set_tid(self,tid):
         self._tid = tid
+
     def set_pid(self,pid):
         self._pid = pid
+
     def set_uid(self,uid):
         self._uid = uid
+
     def set_mid(self,mid):
         self._mid = mid
+
     def set_parameter_words(self,param):
         self._parameter_words = param
-        self._wordcount = len(param)/2
+        self._wordcount = len(param) / 2
+
     def set_buffer(self,buffer):
         if type(buffer) is str:
             raise Exception('SMBPacket: Invalid buffer. Received unicode')
@@ -783,38 +795,54 @@ class SMBPacket:
 
     def get_command(self):
         return self._command
+
     def get_error_class(self):
         return self._error_class
+
     def get_error_code(self):
         return self._error_code
+
     def get_reserved(self):
         return self._reserved
+
     def get_flags(self):
         return self._flags
+
     def get_flags2(self):
         return self._flags2
+
     def get_pad(self):
         return self._pad
+
     def get_tid(self):
         return self._tid
+
     def get_pid(self):
         return self._pid
+
     def get_uid(self):
         return self._uid
+
     def get_mid(self):
         return self._mid
+
     def get_parameter_words(self):
         return self._parameter_words
+
     def get_wordcount(self):
         return self._wordcount
+
     def get_bytecount(self):
         return self._bytecount
+
     def get_buffer(self):
         return self._buffer
+
     def rawData(self):
         data = pack('<4sBBBHBH12sHHHHB','\xffSMB',self._command,self._error_class,0,self._error_code,self._flags,
                     self._flags2,self._pad,self._tid, self._pid, self._uid, self._mid, self._wordcount) + self._parameter_words + pack('<H',self._bytecount) + self._buffer
-        return data        
+        return data
+
 
 class SMBCommand(Structure):
     structure = (
@@ -825,28 +853,31 @@ class SMBCommand(Structure):
         ('Data',':'),                   # default set by constructor
     )
 
-    def __init__(self, commandOrData = None, data = None, **kargs):
+    def __init__(self, commandOrData=None, data=None, **kargs):
         if type(commandOrData) == type(0):
             self.command = commandOrData
         else:
             data = data or commandOrData
 
-        Structure.__init__(self, data = data, **kargs)
+        Structure.__init__(self, data=data, **kargs)
 
         if data is None:
             self['Parameters'] = ''
-            self['Data']       = ''
+            self['Data'] = ''
+
 
 class AsciiOrUnicodeStructure(Structure):
-    def __init__(self, flags = 0, **kargs):
+    def __init__(self, flags=0, **kargs):
         if flags & SMB.FLAGS2_UNICODE:
             self.structure = self.UnicodeStructure
         else:
             self.structure = self.AsciiStructure
         return Structure.__init__(self, **kargs)
 
+
 class SMBCommand_Parameters(Structure):
     pass
+
 
 class SMBAndXCommand_Parameters(Structure):
     commonHdr = (
@@ -858,10 +889,12 @@ class SMBAndXCommand_Parameters(Structure):
         ('Data',':=""'),
     )
 
-############# TRANSACTIONS RELATED 
+# TRANSACTIONS RELATED
 # TRANS2_QUERY_FS_INFORMATION
 # QUERY_FS Information Levels
 # SMB_QUERY_FS_ATTRIBUTE_INFO
+
+
 class SMBQueryFsAttributeInfo(Structure):
     structure = (
         ('FileSystemAttributes','<L'),
@@ -869,6 +902,7 @@ class SMBQueryFsAttributeInfo(Structure):
         ('LengthOfFileSystemName','<L-FileSystemName'),
         ('FileSystemName',':'),
     )
+
 
 class SMBQueryFsInfoVolume(AsciiOrUnicodeStructure):
     commonHdr = (
@@ -883,6 +917,8 @@ class SMBQueryFsInfoVolume(AsciiOrUnicodeStructure):
     )
 
 # FILE_FS_SIZE_INFORMATION
+
+
 class FileFsSizeInformation(Structure):
     structure = (
         ('TotalAllocationUnits','<q=148529400'),
@@ -892,6 +928,8 @@ class FileFsSizeInformation(Structure):
     )
 
 # SMB_QUERY_FS_SIZE_INFO
+
+
 class SMBQueryFsSizeInfo(Structure):
     structure = (
         ('TotalAllocationUnits','<q=148529400'),
@@ -900,6 +938,8 @@ class SMBQueryFsSizeInfo(Structure):
         ('BytesPerSector','<L=512'),
     )
 # FILE_FS_FULL_SIZE_INFORMATION
+
+
 class SMBFileFsFullSizeInformation(Structure):
     structure = (
         ('TotalAllocationUnits','<q=148529400'),
@@ -909,6 +949,8 @@ class SMBFileFsFullSizeInformation(Structure):
         ('BytesPerSector','<L=512')
     )
 # SMB_QUERY_FS_VOLUME_INFO
+
+
 class SMBQueryFsVolumeInfo(Structure):
     structure = (
         ('VolumeCreationTime','<q'),
@@ -918,6 +960,8 @@ class SMBQueryFsVolumeInfo(Structure):
         ('VolumeLabel',':')
     )
 # SMB_FIND_FILE_BOTH_DIRECTORY_INFO level
+
+
 class SMBFindFileBothDirectoryInfo(AsciiOrUnicodeStructure):
     commonHdr = (
         ('NextEntryOffset','<L=0'),
@@ -948,6 +992,8 @@ class SMBFindFileBothDirectoryInfo(AsciiOrUnicodeStructure):
     )
 
 # SMB_FIND_FILE_ID_FULL_DIRECTORY_INFO level
+
+
 class SMBFindFileIdFullDirectoryInfo(AsciiOrUnicodeStructure):
     commonHdr = (
         ('NextEntryOffset','<L=0'),
@@ -974,6 +1020,8 @@ class SMBFindFileIdFullDirectoryInfo(AsciiOrUnicodeStructure):
     )
 
 # SMB_FIND_FILE_ID_BOTH_DIRECTORY_INFO level
+
+
 class SMBFindFileIdBothDirectoryInfo(AsciiOrUnicodeStructure):
     commonHdr = (
         ('NextEntryOffset','<L=0'),
@@ -1008,6 +1056,8 @@ class SMBFindFileIdBothDirectoryInfo(AsciiOrUnicodeStructure):
     )
 
 # SMB_FIND_FILE_DIRECTORY_INFO level
+
+
 class SMBFindFileDirectoryInfo(AsciiOrUnicodeStructure):
     commonHdr = (
         ('NextEntryOffset','<L=0'),
@@ -1030,6 +1080,8 @@ class SMBFindFileDirectoryInfo(AsciiOrUnicodeStructure):
     )
 
 # SMB_FIND_FILE_NAMES_INFO level
+
+
 class SMBFindFileNamesInfo(AsciiOrUnicodeStructure):
     commonHdr = (
         ('NextEntryOffset','<L=0'),
@@ -1045,6 +1097,8 @@ class SMBFindFileNamesInfo(AsciiOrUnicodeStructure):
     )
 
 # SMB_FIND_FILE_FULL_DIRECTORY_INFO level
+
+
 class SMBFindFileFullDirectoryInfo(AsciiOrUnicodeStructure):
     commonHdr = (
         ('NextEntryOffset','<L=0'),
@@ -1069,6 +1123,8 @@ class SMBFindFileFullDirectoryInfo(AsciiOrUnicodeStructure):
     )
 
 # SMB_FIND_INFO_STANDARD level
+
+
 class SMBFindInfoStandard(AsciiOrUnicodeStructure):
     commonHdr = (
         ('ResumeKey','<L=0xff'),
@@ -1093,12 +1149,16 @@ class SMBFindInfoStandard(AsciiOrUnicodeStructure):
 
 # SET_FILE_INFORMATION structures
 # SMB_SET_FILE_DISPOSITION_INFO
+
+
 class SMBSetFileDispositionInfo(Structure):
     structure = (
         ('DeletePending','<B'),
     )
 
 # SMB_SET_FILE_BASIC_INFO
+
+
 class SMBSetFileBasicInfo(Structure):
     structure = (
         ('CreationTime','<q'),
@@ -1110,6 +1170,8 @@ class SMBSetFileBasicInfo(Structure):
     )
 
 # FILE_STREAM_INFORMATION
+
+
 class SMBFileStreamInformation(Structure):
     commonHdr = (
         ('NextEntryOffset','<L=0'),
@@ -1120,6 +1182,8 @@ class SMBFileStreamInformation(Structure):
     )
 
 # FILE_NETWORK_OPEN_INFORMATION
+
+
 class SMBFileNetworkOpenInfo(Structure):
     structure = (
         ('CreationTime','<q=0'),
@@ -1133,74 +1197,84 @@ class SMBFileNetworkOpenInfo(Structure):
     )
 
 # SMB_SET_FILE_END_OF_FILE_INFO
+
+
 class SMBSetFileEndOfFileInfo(Structure):
     structure = (
         ('EndOfFile','<q'),
     )
 
 # TRANS2_FIND_NEXT2
+
+
 class SMBFindNext2_Parameters(AsciiOrUnicodeStructure):
-     commonHdr = (
-         ('SID','<H'),
-         ('SearchCount','<H'),
-         ('InformationLevel','<H'),
-         ('ResumeKey','<L'),
-         ('Flags','<H'),
-     )
-     AsciiStructure = (
-         ('FileName','z'),
-     )
-     UnicodeStructure = (
-         ('FileName','u'),
-     )
+    commonHdr = (
+        ('SID','<H'),
+        ('SearchCount','<H'),
+        ('InformationLevel','<H'),
+        ('ResumeKey','<L'),
+        ('Flags','<H'),
+    )
+    AsciiStructure = (
+        ('FileName','z'),
+    )
+    UnicodeStructure = (
+        ('FileName','u'),
+    )
+
 
 class SMBFindNext2Response_Parameters(Structure):
-     structure = (
-         ('SearchCount','<H'),
-         ('EndOfSearch','<H=1'),
-         ('EaErrorOffset','<H=0'),
-         ('LastNameOffset','<H=0'),
-     )
+    structure = (
+        ('SearchCount','<H'),
+        ('EndOfSearch','<H=1'),
+        ('EaErrorOffset','<H=0'),
+        ('LastNameOffset','<H=0'),
+    )
+
 
 class SMBFindNext2_Data(Structure):
-     structure = (
-         ('GetExtendedAttributesListLength','_-GetExtendedAttributesList', 'self["GetExtendedAttributesListLength"]'),
-         ('GetExtendedAttributesList',':'),
-     )
+    structure = (
+        ('GetExtendedAttributesListLength','_-GetExtendedAttributesList', 'self["GetExtendedAttributesListLength"]'),
+        ('GetExtendedAttributesList',':'),
+    )
 
 
-# TRANS2_FIND_FIRST2 
+# TRANS2_FIND_FIRST2
 class SMBFindFirst2Response_Parameters(Structure):
-     structure = (
-         ('SID','<H'),
-         ('SearchCount','<H'),
-         ('EndOfSearch','<H=1'),
-         ('EaErrorOffset','<H=0'),
-         ('LastNameOffset','<H=0'),
-     )
+    structure = (
+        ('SID','<H'),
+        ('SearchCount','<H'),
+        ('EndOfSearch','<H=1'),
+        ('EaErrorOffset','<H=0'),
+        ('LastNameOffset','<H=0'),
+    )
+
 
 class SMBFindFirst2_Parameters(AsciiOrUnicodeStructure):
-     commonHdr = (
-         ('SearchAttributes','<H'),
-         ('SearchCount','<H'),
-         ('Flags','<H'),
-         ('InformationLevel','<H'),
-         ('SearchStorageType','<L'),
-     )
-     AsciiStructure = (
-         ('FileName','z'),
-     )
-     UnicodeStructure = (
-         ('FileName','u'),
-     )
+    commonHdr = (
+        ('SearchAttributes','<H'),
+        ('SearchCount','<H'),
+        ('Flags','<H'),
+        ('InformationLevel','<H'),
+        ('SearchStorageType','<L'),
+    )
+    AsciiStructure = (
+        ('FileName','z'),
+    )
+    UnicodeStructure = (
+        ('FileName','u'),
+    )
+
 
 class SMBFindFirst2_Data(Structure):
-     structure = (
-         ('GetExtendedAttributesListLength','_-GetExtendedAttributesList', 'self["GetExtendedAttributesListLength"]'),
-         ('GetExtendedAttributesList',':'),
-     )
+    structure = (
+        ('GetExtendedAttributesListLength','_-GetExtendedAttributesList', 'self["GetExtendedAttributesListLength"]'),
+        ('GetExtendedAttributesList',':'),
+    )
 
 # TRANS2_SET_PATH_INFORMATION
+
+
 class SMBSetPathInformation_Parameters(AsciiOrUnicodeStructure):
     commonHdr = (
         ('InformationLevel','<H'),
@@ -1213,12 +1287,15 @@ class SMBSetPathInformation_Parameters(AsciiOrUnicodeStructure):
         ('FileName','u'),
     )
 
+
 class SMBSetPathInformationResponse_Parameters(Structure):
     structure = (
         ('EaErrorOffset','<H=0'),
     )
 
 # TRANS2_SET_FILE_INFORMATION
+
+
 class SMBSetFileInformation_Parameters(Structure):
     structure = (
         ('FID','<H'),
@@ -1226,27 +1303,33 @@ class SMBSetFileInformation_Parameters(Structure):
         ('Reserved','<H'),
     )
 
+
 class SMBSetFileInformationResponse_Parameters(Structure):
     structure = (
         ('EaErrorOffset','<H=0'),
     )
 
 # TRANS2_QUERY_FILE_INFORMATION
+
+
 class SMBQueryFileInformation_Parameters(Structure):
     structure = (
         ('FID','<H'),
         ('InformationLevel','<H'),
     )
 
+
 class SMBQueryFileInformationResponse_Parameters(Structure):
     structure = (
         ('EaErrorOffset','<H=0')
     )
 
+
 class SMBQueryFileInformation_Data(Structure):
     structure = (
         ('GetExtendedAttributeList',':'),
     )
+
 
 class SMBQueryFileInformationResponse_Parameters(Structure):
     structure = (
@@ -1260,6 +1343,7 @@ class SMBQueryPathInformationResponse_Parameters(Structure):
         ('EaErrorOffset','<H=0'),
     )
 
+
 class SMBQueryPathInformation_Parameters(AsciiOrUnicodeStructure):
     commonHdr = (
         ('InformationLevel','<H'),
@@ -1271,6 +1355,7 @@ class SMBQueryPathInformation_Parameters(AsciiOrUnicodeStructure):
     UnicodeStructure = (
         ('FileName','u'),
     )
+
 
 class SMBQueryPathInformation_Data(Structure):
     structure = (
@@ -1284,7 +1369,9 @@ class SMBQueryFileEaInfo(Structure):
         ('EaSize','<L=0'),
     )
 
-# SMB_QUERY_FILE_BASIC_INFO 
+# SMB_QUERY_FILE_BASIC_INFO
+
+
 class SMBQueryFileBasicInfo(Structure):
     structure = (
         ('CreationTime','<q'),
@@ -1296,6 +1383,8 @@ class SMBQueryFileBasicInfo(Structure):
     )
 
 # SMB_QUERY_FILE_STANDARD_INFO
+
+
 class SMBQueryFileStandardInfo(Structure):
     structure = (
         ('AllocationSize','<q'),
@@ -1306,6 +1395,8 @@ class SMBQueryFileStandardInfo(Structure):
     )
 
 # SMB_QUERY_FILE_ALL_INFO
+
+
 class SMBQueryFileAllInfo(Structure):
     structure = (
         ('CreationTime','<q'),
@@ -1326,6 +1417,8 @@ class SMBQueryFileAllInfo(Structure):
     )
 
 # \PIPE\LANMAN NetShareEnum
+
+
 class SMBNetShareEnum(Structure):
     structure = (
         ('RAPOpcode','<H=0'),
@@ -1335,6 +1428,7 @@ class SMBNetShareEnum(Structure):
         ('ReceiveBufferSize','<H'),
     )
 
+
 class SMBNetShareEnumResponse(Structure):
     structure = (
         ('Status','<H=0'),
@@ -1342,6 +1436,7 @@ class SMBNetShareEnumResponse(Structure):
         ('EntriesReturned','<H'),
         ('EntriesAvailable','<H'),
     )
+
 
 class NetShareInfo1(Structure):
     structure = (
@@ -1353,12 +1448,15 @@ class NetShareInfo1(Structure):
     )
 
 # \PIPE\LANMAN NetServerGetInfo
+
+
 class SMBNetServerGetInfoResponse(Structure):
     structure = (
         ('Status','<H=0'),
         ('Convert','<H=0'),
         ('TotalBytesAvailable','<H'),
     )
+
 
 class SMBNetServerInfo1(Structure):
     # Level 1 Response
@@ -1372,6 +1470,8 @@ class SMBNetServerInfo1(Structure):
     )
 
 # \PIPE\LANMAN NetShareGetInfo
+
+
 class SMBNetShareGetInfo(Structure):
     structure = (
         ('RAPOpcode','<H=0'),
@@ -1382,6 +1482,7 @@ class SMBNetShareGetInfo(Structure):
         ('ReceiveBufferSize','<H'),
     )
 
+
 class SMBNetShareGetInfoResponse(Structure):
     structure = (
         ('Status','<H=0'),
@@ -1389,7 +1490,9 @@ class SMBNetShareGetInfoResponse(Structure):
         ('TotalBytesAvailable','<H'),
     )
 
-############# Security Features
+# Security Features
+
+
 class SecurityFeatures(Structure):
     structure = (
         ('Key','<L=0'),
@@ -1398,10 +1501,13 @@ class SecurityFeatures(Structure):
     )
 
 ############# SMB_COM_QUERY_INFORMATION2 (0x23)
+
+
 class SMBQueryInformation2_Parameters(Structure):
     structure = (
         ('Fid','<H'),
     )
+
 
 class SMBQueryInformation2Response_Parameters(Structure):
     structure = (
@@ -1417,7 +1523,6 @@ class SMBQueryInformation2Response_Parameters(Structure):
     )
 
 
-
 ############# SMB_COM_SESSION_SETUP_ANDX (0x73)
 class SMBSessionSetupAndX_Parameters(SMBAndXCommand_Parameters):
     structure = (
@@ -1431,6 +1536,7 @@ class SMBSessionSetupAndX_Parameters(SMBAndXCommand_Parameters):
         ('Capabilities','<L'),
     )
 
+
 class SMBSessionSetupAndX_Extended_Parameters(SMBAndXCommand_Parameters):
     structure = (
         ('MaxBufferSize','<H'),
@@ -1441,6 +1547,7 @@ class SMBSessionSetupAndX_Extended_Parameters(SMBAndXCommand_Parameters):
         ('Reserved','<L=0'),
         ('Capabilities','<L'),
     )
+
 
 class SMBSessionSetupAndX_Data(AsciiOrUnicodeStructure):
     AsciiStructure = (
@@ -1453,7 +1560,7 @@ class SMBSessionSetupAndX_Data(AsciiOrUnicodeStructure):
         ('NativeOS','z=""'),
         ('NativeLanMan','z=""'),
     )
-    
+
     UnicodeStructure = (
         ('AnsiPwdLength','_-AnsiPwd','self["AnsiPwdLength"]'),
         ('UnicodePwdLength','_-UnicodePwd','self["UnicodePwdLength"]'),
@@ -1464,6 +1571,7 @@ class SMBSessionSetupAndX_Data(AsciiOrUnicodeStructure):
         ('NativeOS','u=""'),
         ('NativeLanMan','u=""'),
     )
+
 
 class SMBSessionSetupAndX_Extended_Data(AsciiOrUnicodeStructure):
     AsciiStructure = (
@@ -1480,16 +1588,19 @@ class SMBSessionSetupAndX_Extended_Data(AsciiOrUnicodeStructure):
         ('NativeLanMan','u=""'),
     )
 
+
 class SMBSessionSetupAndXResponse_Parameters(SMBAndXCommand_Parameters):
     structure = (
         ('Action','<H'),
     )
+
 
 class SMBSessionSetupAndX_Extended_Response_Parameters(SMBAndXCommand_Parameters):
     structure = (
         ('Action','<H=0'),
         ('SecurityBlobLength','<H'),
     )
+
 
 class SMBSessionSetupAndXResponse_Data(AsciiOrUnicodeStructure):
     AsciiStructure = (
@@ -1503,6 +1614,7 @@ class SMBSessionSetupAndXResponse_Data(AsciiOrUnicodeStructure):
         ('NativeLanMan','u=""'),
         ('PrimaryDomain','u=""'),
     )
+
 
 class SMBSessionSetupAndX_Extended_Response_Data(AsciiOrUnicodeStructure):
     AsciiStructure = (
@@ -1520,9 +1632,12 @@ class SMBSessionSetupAndX_Extended_Response_Data(AsciiOrUnicodeStructure):
     )
 
 ############# SMB_COM_TREE_CONNECT (0x70)
+
+
 class SMBTreeConnect_Parameters(SMBCommand_Parameters):
     structure = (
     )
+
 
 class SMBTreeConnect_Data(SMBCommand_Parameters):
     structure = (
@@ -1535,16 +1650,20 @@ class SMBTreeConnect_Data(SMBCommand_Parameters):
     )
 
 ############# SMB_COM_TREE_CONNECT_ANDX (0x75)
+
+
 class SMBTreeConnectAndX_Parameters(SMBAndXCommand_Parameters):
     structure = (
         ('Flags','<H=0'),
         ('PasswordLength','<H'),
     )
 
+
 class SMBTreeConnectAndXResponse_Parameters(SMBAndXCommand_Parameters):
     structure = (
         ('OptionalSupport','<H=0'),
     )
+
 
 class SMBTreeConnectAndXExtendedResponse_Parameters(SMBAndXCommand_Parameters):
     structure = (
@@ -1552,6 +1671,7 @@ class SMBTreeConnectAndXExtendedResponse_Parameters(SMBAndXCommand_Parameters):
         ('MaximalShareAccessRights','<L=0x1fffff'),
         ('GuestMaximalShareAccessRights','<L=0x1fffff'),
     )
+
 
 class SMBTreeConnectAndX_Data(AsciiOrUnicodeStructure):
     AsciiStructure = (
@@ -1568,6 +1688,7 @@ class SMBTreeConnectAndX_Data(AsciiOrUnicodeStructure):
         ('Service','z'),
     )
 
+
 class SMBTreeConnectAndXResponse_Data(AsciiOrUnicodeStructure):
     AsciiStructure = (
         ('Service','z'),
@@ -1583,6 +1704,8 @@ class SMBTreeConnectAndXResponse_Data(AsciiOrUnicodeStructure):
     )
 
 ############# SMB_COM_NT_CREATE_ANDX (0xA2)
+
+
 class SMBNtCreateAndX_Parameters(SMBAndXCommand_Parameters):
     structure = (
         ('_reserved', 'B=0'),
@@ -1590,15 +1713,16 @@ class SMBNtCreateAndX_Parameters(SMBAndXCommand_Parameters):
         ('CreateFlags','<L'),        # Flags
         ('RootFid','<L=0'),          # RootDirectoryFID
         ('AccessMask','<L'),         # DesiredAccess
-        ('AllocationSizeLo','<L=0'), # AllocationSize
+        ('AllocationSizeLo','<L=0'),  # AllocationSize
         ('AllocationSizeHi','<L=0'),
         ('FileAttributes','<L=0'),   # ExtFileAttributes
-        ('ShareAccess','<L=3'),      # 
+        ('ShareAccess','<L=3'),      #
         ('Disposition','<L=1'),      # CreateDisposition
         ('CreateOptions','<L'),      # CreateOptions
         ('Impersonation','<L=2'),
         ('SecurityFlags','B=3'),
     )
+
 
 class SMBNtCreateAndXResponse_Parameters(SMBAndXCommand_Parameters):
     # XXX Is there a memory leak in the response for NTCreate (where the Data section would be) in Win 2000, Win XP, and Win 2003?
@@ -1617,6 +1741,7 @@ class SMBNtCreateAndXResponse_Parameters(SMBAndXCommand_Parameters):
         ('IPCState','<H=0'),
         ('IsDirectory','B'),
     )
+
 
 class SMBNtCreateAndXExtendedResponse_Parameters(SMBAndXCommand_Parameters):
     # [MS-SMB] Extended response description
@@ -1641,6 +1766,7 @@ class SMBNtCreateAndXExtendedResponse_Parameters(SMBAndXCommand_Parameters):
         ('GuestMaximalAccessRights','<L=0x120089'),
     )
 
+
 class SMBNtCreateAndX_Data(AsciiOrUnicodeStructure):
     AsciiStructure = (
         ('FileName','z'),
@@ -1651,6 +1777,8 @@ class SMBNtCreateAndX_Data(AsciiOrUnicodeStructure):
     )
 
 ############# SMB_COM_OPEN_ANDX (0xD2)
+
+
 class SMBOpenAndX_Parameters(SMBAndXCommand_Parameters):
     structure = (
         ('Flags','<H=0'),
@@ -1663,8 +1791,10 @@ class SMBOpenAndX_Parameters(SMBAndXCommand_Parameters):
         ('Reserved','8s=""'),
     )
 
+
 class SMBOpenAndX_Data(SMBNtCreateAndX_Data):
     pass
+
 
 class SMBOpenAndXResponse_Parameters(SMBAndXCommand_Parameters):
     structure = (
@@ -1681,6 +1811,8 @@ class SMBOpenAndXResponse_Parameters(SMBAndXCommand_Parameters):
     )
 
 ############# SMB_COM_WRITE (0x0B)
+
+
 class SMBWrite_Parameters(SMBCommand_Parameters):
     structure = (
         ('Fid','<H'),
@@ -1689,10 +1821,12 @@ class SMBWrite_Parameters(SMBCommand_Parameters):
         ('Remaining','<H'),
     )
 
+
 class SMBWriteResponse_Parameters(SMBCommand_Parameters):
     structure = (
         ('Count','<H'),
     )
+
 
 class SMBWrite_Data(Structure):
     structure = (
@@ -1701,7 +1835,7 @@ class SMBWrite_Data(Structure):
         ('Data',':'),
     )
 
-    
+
 ############# SMB_COM_WRITE_ANDX (0x2F)
 class SMBWriteAndX_Parameters(SMBAndXCommand_Parameters):
     structure = (
@@ -1716,25 +1850,27 @@ class SMBWriteAndX_Parameters(SMBAndXCommand_Parameters):
         ('HighOffset','<L=0'),
     )
 
+
 class SMBWriteAndX_Data_Short(Structure):
-     structure = (
-         ('_PadLen','_-Pad','self["DataOffset"] - 59'),
-         ('Pad',':'),
-         #('Pad','<B=0'),
-         ('DataLength','_-Data','self["DataLength"]'),
-         ('Data',':'),
-     )
+    structure = (
+        ('_PadLen','_-Pad','self["DataOffset"] - 59'),
+        ('Pad',':'),
+        #('Pad','<B=0'),
+        ('DataLength','_-Data','self["DataLength"]'),
+        ('Data',':'),
+    )
+
 
 class SMBWriteAndX_Data(Structure):
-     structure = (
-         ('_PadLen','_-Pad','self["DataOffset"] - 63'),
-         ('Pad',':'),
-         #('Pad','<B=0'),
-         ('DataLength','_-Data','self["DataLength"]'),
-         ('Data',':'),
-     )
+    structure = (
+        ('_PadLen','_-Pad','self["DataOffset"] - 63'),
+        ('Pad',':'),
+        #('Pad','<B=0'),
+        ('DataLength','_-Data','self["DataLength"]'),
+        ('Data',':'),
+    )
 
-    
+
 class SMBWriteAndX_Parameters_Short(SMBAndXCommand_Parameters):
     structure = (
         ('Fid','<H'),
@@ -1746,7 +1882,8 @@ class SMBWriteAndX_Parameters_Short(SMBAndXCommand_Parameters):
         ('DataLength','<H'),
         ('DataOffset','<H=0'),
     )
-    
+
+
 class SMBWriteAndXResponse_Parameters(SMBAndXCommand_Parameters):
     structure = (
         ('Count','<H'),
@@ -1755,6 +1892,8 @@ class SMBWriteAndXResponse_Parameters(SMBAndXCommand_Parameters):
     )
 
 ############# SMB_COM_WRITE_RAW (0x1D)
+
+
 class SMBWriteRaw_Parameters(SMBCommand_Parameters):
     structure = (
         ('Fid','<H'),
@@ -1767,8 +1906,10 @@ class SMBWriteRaw_Parameters(SMBCommand_Parameters):
         ('DataLength','<H'),
         ('DataOffset','<H=0'),
     )
-    
+
 ############# SMB_COM_READ (0x0A)
+
+
 class SMBRead_Parameters(SMBCommand_Parameters):
     structure = (
         ('Fid','<H'),
@@ -1777,11 +1918,13 @@ class SMBRead_Parameters(SMBCommand_Parameters):
         ('Remaining','<H=Count'),
     )
 
+
 class SMBReadResponse_Parameters(Structure):
     structure = (
         ('Count','<H=0'),
         ('_reserved','8s=""'),
     )
+
 
 class SMBReadResponse_Data(Structure):
     structure = (
@@ -1791,6 +1934,8 @@ class SMBReadResponse_Data(Structure):
     )
 
 ############# SMB_COM_READ_RAW (0x1A)
+
+
 class SMBReadRaw_Parameters(SMBCommand_Parameters):
     structure = (
         ('Fid','<H'),
@@ -1802,6 +1947,8 @@ class SMBReadRaw_Parameters(SMBCommand_Parameters):
     )
 
 ############# SMB_COM_NT_TRANSACT  (0xA0)
+
+
 class SMBNTTransaction_Parameters(SMBCommand_Parameters):
     structure = (
         ('MaxSetupCount','<B=0'),
@@ -1820,6 +1967,7 @@ class SMBNTTransaction_Parameters(SMBCommand_Parameters):
         ('Setup',':'),
     )
 
+
 class SMBNTTransactionResponse_Parameters(SMBCommand_Parameters):
     structure = (
         ('Reserved1','3s=""'),
@@ -1836,6 +1984,7 @@ class SMBNTTransactionResponse_Parameters(SMBCommand_Parameters):
         ('Setup',':'),
     )
 
+
 class SMBNTTransaction_Data(Structure):
     structure = (
         ('Pad1Length','_-Pad1','self["Pad1Length"]'),
@@ -1847,6 +1996,7 @@ class SMBNTTransaction_Data(Structure):
         ('NT_Trans_DataLength','_-NT_Trans_Data','self["NT_Trans_DataLength"]'),
         ('NT_Trans_Data',':'),
     )
+
 
 class SMBNTTransactionResponse_Data(Structure):
     structure = (
@@ -1873,6 +2023,7 @@ class SMBTransaction2Secondary_Parameters(SMBCommand_Parameters):
         ('DataDisplacement','<H=0'),
         ('FID','<H'),
     )
+
 
 class SMBTransaction2Secondary_Data(Structure):
     structure = (
@@ -1910,6 +2061,7 @@ class SMBTransaction2_Parameters(SMBCommand_Parameters):
         ('Setup',':'),
     )
 
+
 class SMBTransaction2Response_Parameters(SMBCommand_Parameters):
     structure = (
         ('TotalParameterCount','<H'),
@@ -1927,10 +2079,11 @@ class SMBTransaction2Response_Parameters(SMBCommand_Parameters):
         ('Setup',':'),
     )
 
+
 class SMBTransaction2_Data(Structure):
     structure = (
-#        ('NameLength','_-Name','1'),
-#        ('Name',':'),
+        #        ('NameLength','_-Name','1'),
+        #        ('Name',':'),
         ('Pad1Length','_-Pad1','self["Pad1Length"]'),
         ('Pad1',':'),
         ('Trans_ParametersLength','_-Trans_Parameters','self["Trans_ParametersLength"]'),
@@ -1940,6 +2093,7 @@ class SMBTransaction2_Data(Structure):
         ('Trans_DataLength','_-Trans_Data','self["Trans_DataLength"]'),
         ('Trans_Data',':'),
     )
+
 
 class SMBTransaction2Response_Data(Structure):
     structure = (
@@ -1954,6 +2108,7 @@ class SMBTransaction2Response_Data(Structure):
     )
 
 ############# SMB_COM_QUERY_INFORMATION (0x08)
+
 
 class SMBQueryInformation_Data(AsciiOrUnicodeStructure):
     AsciiStructure = (
@@ -1975,6 +2130,8 @@ class SMBQueryInformationResponse_Parameters(Structure):
     )
 
 ############# SMB_COM_TRANSACTION (0x25)
+
+
 class SMBTransaction_Parameters(SMBCommand_Parameters):
     structure = (
         ('TotalParameterCount','<H'),
@@ -1996,6 +2153,7 @@ class SMBTransaction_Parameters(SMBCommand_Parameters):
         ('Setup',':'),
     )
 
+
 class SMBTransactionResponse_Parameters(SMBCommand_Parameters):
     structure = (
         ('TotalParameterCount','<H'),
@@ -2013,8 +2171,10 @@ class SMBTransactionResponse_Parameters(SMBCommand_Parameters):
         ('Setup',':'),
     )
 
-# TODO: We should merge these both. But this will require fixing 
+# TODO: We should merge these both. But this will require fixing
 # the instances where this structure is used on the client side
+
+
 class SMBTransaction_SData(AsciiOrUnicodeStructure):
     AsciiStructure = (
         ('Name','z'),
@@ -2032,6 +2192,7 @@ class SMBTransaction_SData(AsciiOrUnicodeStructure):
         ('Trans_Data',':'),
     )
 
+
 class SMBTransaction_Data(Structure):
     structure = (
         ('NameLength','_-Name'),
@@ -2042,6 +2203,7 @@ class SMBTransaction_Data(Structure):
         ('Trans_Data',':'),
     )
 
+
 class SMBTransactionResponse_Data(Structure):
     structure = (
         ('Trans_ParametersLength','_-Trans_Parameters'),
@@ -2051,6 +2213,8 @@ class SMBTransactionResponse_Data(Structure):
     )
 
 ############# SMB_COM_READ_ANDX (0x2E)
+
+
 class SMBReadAndX_Parameters(SMBAndXCommand_Parameters):
     structure = (
         ('Fid','<H'),
@@ -2062,6 +2226,7 @@ class SMBReadAndX_Parameters(SMBAndXCommand_Parameters):
         ('HighOffset','<L=0'),
     )
 
+
 class SMBReadAndX_Parameters2(SMBAndXCommand_Parameters):
     structure = (
         ('Fid','<H'),
@@ -2071,6 +2236,7 @@ class SMBReadAndX_Parameters2(SMBAndXCommand_Parameters):
         ('_reserved','<L=0xffffffff'),
         ('Remaining','<H=MaxCount'),
     )
+
 
 class SMBReadAndXResponse_Parameters(SMBAndXCommand_Parameters):
     structure = (
@@ -2084,20 +2250,25 @@ class SMBReadAndXResponse_Parameters(SMBAndXCommand_Parameters):
     )
 
 ############# SMB_COM_ECHO (0x2B)
+
+
 class SMBEcho_Data(Structure):
     structure = (
         ('Data',':'),
     )
+
 
 class SMBEcho_Parameters(Structure):
     structure = (
         ('EchoCount','<H'),
     )
 
+
 class SMBEchoResponse_Data(Structure):
     structure = (
         ('Data',':'),
     )
+
 
 class SMBEchoResponse_Parameters(Structure):
     structure = (
@@ -2105,6 +2276,8 @@ class SMBEchoResponse_Parameters(Structure):
     )
 
 ############# SMB_COM_QUERY_INFORMATION_DISK (0x80)
+
+
 class SMBQueryInformationDiskResponse_Parameters(Structure):
     structure = (
         ('TotalUnits','<H'),
@@ -2120,19 +2293,25 @@ class SMBLogOffAndX(SMBAndXCommand_Parameters):
     strucure = ()
 
 ############# SMB_COM_CLOSE (0x04)
+
+
 class SMBClose_Parameters(SMBCommand_Parameters):
-   structure = (
+    structure = (
         ('FID','<H'),
         ('Time','<L=0'),
-   )
+    )
 
 ############# SMB_COM_FLUSH (0x05)
+
+
 class SMBFlush_Parameters(SMBCommand_Parameters):
-   structure = (
+    structure = (
         ('FID','<H'),
-   )
+    )
 
 ############# SMB_COM_CREATE_DIRECTORY (0x00)
+
+
 class SMBCreateDirectory_Data(AsciiOrUnicodeStructure):
     AsciiStructure = (
         ('BufferFormat','<B=4'),
@@ -2144,6 +2323,8 @@ class SMBCreateDirectory_Data(AsciiOrUnicodeStructure):
     )
 
 ############# SMB_COM_DELETE (0x06)
+
+
 class SMBDelete_Data(AsciiOrUnicodeStructure):
     AsciiStructure = (
         ('BufferFormat','<B=4'),
@@ -2154,12 +2335,15 @@ class SMBDelete_Data(AsciiOrUnicodeStructure):
         ('FileName','u'),
     )
 
+
 class SMBDelete_Parameters(Structure):
     structure = (
         ('SearchAttributes','<H'),
     )
 
 ############# SMB_COM_DELETE_DIRECTORY (0x01)
+
+
 class SMBDeleteDirectory_Data(AsciiOrUnicodeStructure):
     AsciiStructure = (
         ('BufferFormat','<B=4'),
@@ -2171,10 +2355,13 @@ class SMBDeleteDirectory_Data(AsciiOrUnicodeStructure):
     )
 
 ############# SMB_COM_RENAME (0x07)
+
+
 class SMBRename_Parameters(SMBCommand_Parameters):
     structure = (
         ('SearchAttributes','<H'),
     )
+
 
 class SMBRename_Data(AsciiOrUnicodeStructure):
     AsciiStructure = (
@@ -2199,11 +2386,13 @@ class SMBOpen_Parameters(SMBCommand_Parameters):
         ('SearchAttributes','<H=0'),
     )
 
+
 class SMBOpen_Data(Structure):
     structure = (
         ('FileNameFormat','"\x04'),
         ('FileName','z'),
     )
+
 
 class SMBOpenResponse_Parameters(SMBCommand_Parameters):
     structure = (
@@ -2214,7 +2403,9 @@ class SMBOpenResponse_Parameters(SMBCommand_Parameters):
         ('GrantedAccess','<H=0'),
     )
 
-############# EXTENDED SECURITY CLASSES
+# EXTENDED SECURITY CLASSES
+
+
 class SMBExtended_Security_Parameters(Structure):
     structure = (
         ('DialectIndex','<H'),
@@ -2231,11 +2422,13 @@ class SMBExtended_Security_Parameters(Structure):
         ('ChallengeLength','<B'),
     )
 
+
 class SMBExtended_Security_Data(Structure):
     structure = (
         ('ServerGUID','16s'),
         ('SecurityBlob',':'),
     )
+
 
 class SMBNTLMDialect_Parameters(Structure):
     structure = (
@@ -2253,172 +2446,173 @@ class SMBNTLMDialect_Parameters(Structure):
         ('ChallengeLength','<B'),
     )
 
+
 class SMBNTLMDialect_Data(Structure):
     structure = (
         ('ChallengeLength','_-Challenge','self["ChallengeLength"]'),
         ('Challenge',':'),
         ('Payload',':'),
-# For some reason on an old Linux this field is not present, we have to check this out. There must be a flag stating this.
+        # For some reason on an old Linux this field is not present, we have to check this out. There must be a flag stating this.
         ('DomainName','_'),
         ('ServerName','_'),
     )
-    def __init__(self,data = None, alignment = 0):
-         Structure.__init__(self,data,alignment)
-         #self['ChallengeLength']=8
-         
+
+    def __init__(self,data=None, alignment=0):
+        Structure.__init__(self,data,alignment)
+        # self['ChallengeLength']=8
+
     def fromString(self,data):
         Structure.fromString(self,data)
-        self['DomainName'] = '' 
+        self['DomainName'] = ''
         self['ServerName'] = ''
-           
+
+
 class SMB:
     # SMB Command Codes
-    SMB_COM_CREATE_DIRECTORY                = 0x00
-    SMB_COM_DELETE_DIRECTORY                = 0x01
-    SMB_COM_OPEN                            = 0x02
-    SMB_COM_CREATE                          = 0x03
-    SMB_COM_CLOSE                           = 0x04
-    SMB_COM_FLUSH                           = 0x05
-    SMB_COM_DELETE                          = 0x06
-    SMB_COM_RENAME                          = 0x07
-    SMB_COM_QUERY_INFORMATION               = 0x08
-    SMB_COM_SET_INFORMATION                 = 0x09
-    SMB_COM_READ                            = 0x0A
-    SMB_COM_WRITE                           = 0x0B
-    SMB_COM_LOCK_BYTE_RANGE                 = 0x0C
-    SMB_COM_UNLOCK_BYTE_RANGE               = 0x0D
-    SMB_COM_CREATE_TEMPORARY                = 0x0E
-    SMB_COM_CREATE_NEW                      = 0x0F
-    SMB_COM_CHECK_DIRECTORY                 = 0x10
-    SMB_COM_PROCESS_EXIT                    = 0x11
-    SMB_COM_SEEK                            = 0x12
-    SMB_COM_LOCK_AND_READ                   = 0x13
-    SMB_COM_WRITE_AND_UNLOCK                = 0x14
-    SMB_COM_READ_RAW                        = 0x1A
-    SMB_COM_READ_MPX                        = 0x1B
-    SMB_COM_READ_MPX_SECONDARY              = 0x1C
-    SMB_COM_WRITE_RAW                       = 0x1D
-    SMB_COM_WRITE_MPX                       = 0x1E
-    SMB_COM_WRITE_MPX_SECONDARY             = 0x1F
-    SMB_COM_WRITE_COMPLETE                  = 0x20
-    SMB_COM_QUERY_SERVER                    = 0x21
-    SMB_COM_SET_INFORMATION2                = 0x22
-    SMB_COM_QUERY_INFORMATION2              = 0x23
-    SMB_COM_LOCKING_ANDX                    = 0x24
-    SMB_COM_TRANSACTION                     = 0x25
-    SMB_COM_TRANSACTION_SECONDARY           = 0x26
-    SMB_COM_IOCTL                           = 0x27
-    SMB_COM_IOCTL_SECONDARY                 = 0x28
-    SMB_COM_COPY                            = 0x29
-    SMB_COM_MOVE                            = 0x2A
-    SMB_COM_ECHO                            = 0x2B
-    SMB_COM_WRITE_AND_CLOSE                 = 0x2C
-    SMB_COM_OPEN_ANDX                       = 0x2D
-    SMB_COM_READ_ANDX                       = 0x2E
-    SMB_COM_WRITE_ANDX                      = 0x2F
-    SMB_COM_NEW_FILE_SIZE                   = 0x30
-    SMB_COM_CLOSE_AND_TREE_DISC             = 0x31
-    SMB_COM_TRANSACTION2                    = 0x32
-    SMB_COM_TRANSACTION2_SECONDARY          = 0x33
-    SMB_COM_FIND_CLOSE2                     = 0x34
-    SMB_COM_FIND_NOTIFY_CLOSE               = 0x35
-    # Used by Xenix/Unix 0x60 - 0x6E 
-    SMB_COM_TREE_CONNECT                    = 0x70
-    SMB_COM_TREE_DISCONNECT                 = 0x71
-    SMB_COM_NEGOTIATE                       = 0x72
-    SMB_COM_SESSION_SETUP_ANDX              = 0x73
-    SMB_COM_LOGOFF_ANDX                     = 0x74
-    SMB_COM_TREE_CONNECT_ANDX               = 0x75
-    SMB_COM_QUERY_INFORMATION_DISK          = 0x80
-    SMB_COM_SEARCH                          = 0x81
-    SMB_COM_FIND                            = 0x82
-    SMB_COM_FIND_UNIQUE                     = 0x83
-    SMB_COM_FIND_CLOSE                      = 0x84
-    SMB_COM_NT_TRANSACT                     = 0xA0
-    SMB_COM_NT_TRANSACT_SECONDARY           = 0xA1
-    SMB_COM_NT_CREATE_ANDX                  = 0xA2
-    SMB_COM_NT_CANCEL                       = 0xA4
-    SMB_COM_NT_RENAME                       = 0xA5
-    SMB_COM_OPEN_PRINT_FILE                 = 0xC0
-    SMB_COM_WRITE_PRINT_FILE                = 0xC1
-    SMB_COM_CLOSE_PRINT_FILE                = 0xC2
-    SMB_COM_GET_PRINT_QUEUE                 = 0xC3
-    SMB_COM_READ_BULK                       = 0xD8
-    SMB_COM_WRITE_BULK                      = 0xD9
-    SMB_COM_WRITE_BULK_DATA                 = 0xDA
+    SMB_COM_CREATE_DIRECTORY = 0x00
+    SMB_COM_DELETE_DIRECTORY = 0x01
+    SMB_COM_OPEN = 0x02
+    SMB_COM_CREATE = 0x03
+    SMB_COM_CLOSE = 0x04
+    SMB_COM_FLUSH = 0x05
+    SMB_COM_DELETE = 0x06
+    SMB_COM_RENAME = 0x07
+    SMB_COM_QUERY_INFORMATION = 0x08
+    SMB_COM_SET_INFORMATION = 0x09
+    SMB_COM_READ = 0x0A
+    SMB_COM_WRITE = 0x0B
+    SMB_COM_LOCK_BYTE_RANGE = 0x0C
+    SMB_COM_UNLOCK_BYTE_RANGE = 0x0D
+    SMB_COM_CREATE_TEMPORARY = 0x0E
+    SMB_COM_CREATE_NEW = 0x0F
+    SMB_COM_CHECK_DIRECTORY = 0x10
+    SMB_COM_PROCESS_EXIT = 0x11
+    SMB_COM_SEEK = 0x12
+    SMB_COM_LOCK_AND_READ = 0x13
+    SMB_COM_WRITE_AND_UNLOCK = 0x14
+    SMB_COM_READ_RAW = 0x1A
+    SMB_COM_READ_MPX = 0x1B
+    SMB_COM_READ_MPX_SECONDARY = 0x1C
+    SMB_COM_WRITE_RAW = 0x1D
+    SMB_COM_WRITE_MPX = 0x1E
+    SMB_COM_WRITE_MPX_SECONDARY = 0x1F
+    SMB_COM_WRITE_COMPLETE = 0x20
+    SMB_COM_QUERY_SERVER = 0x21
+    SMB_COM_SET_INFORMATION2 = 0x22
+    SMB_COM_QUERY_INFORMATION2 = 0x23
+    SMB_COM_LOCKING_ANDX = 0x24
+    SMB_COM_TRANSACTION = 0x25
+    SMB_COM_TRANSACTION_SECONDARY = 0x26
+    SMB_COM_IOCTL = 0x27
+    SMB_COM_IOCTL_SECONDARY = 0x28
+    SMB_COM_COPY = 0x29
+    SMB_COM_MOVE = 0x2A
+    SMB_COM_ECHO = 0x2B
+    SMB_COM_WRITE_AND_CLOSE = 0x2C
+    SMB_COM_OPEN_ANDX = 0x2D
+    SMB_COM_READ_ANDX = 0x2E
+    SMB_COM_WRITE_ANDX = 0x2F
+    SMB_COM_NEW_FILE_SIZE = 0x30
+    SMB_COM_CLOSE_AND_TREE_DISC = 0x31
+    SMB_COM_TRANSACTION2 = 0x32
+    SMB_COM_TRANSACTION2_SECONDARY = 0x33
+    SMB_COM_FIND_CLOSE2 = 0x34
+    SMB_COM_FIND_NOTIFY_CLOSE = 0x35
+    # Used by Xenix/Unix 0x60 - 0x6E
+    SMB_COM_TREE_CONNECT = 0x70
+    SMB_COM_TREE_DISCONNECT = 0x71
+    SMB_COM_NEGOTIATE = 0x72
+    SMB_COM_SESSION_SETUP_ANDX = 0x73
+    SMB_COM_LOGOFF_ANDX = 0x74
+    SMB_COM_TREE_CONNECT_ANDX = 0x75
+    SMB_COM_QUERY_INFORMATION_DISK = 0x80
+    SMB_COM_SEARCH = 0x81
+    SMB_COM_FIND = 0x82
+    SMB_COM_FIND_UNIQUE = 0x83
+    SMB_COM_FIND_CLOSE = 0x84
+    SMB_COM_NT_TRANSACT = 0xA0
+    SMB_COM_NT_TRANSACT_SECONDARY = 0xA1
+    SMB_COM_NT_CREATE_ANDX = 0xA2
+    SMB_COM_NT_CANCEL = 0xA4
+    SMB_COM_NT_RENAME = 0xA5
+    SMB_COM_OPEN_PRINT_FILE = 0xC0
+    SMB_COM_WRITE_PRINT_FILE = 0xC1
+    SMB_COM_CLOSE_PRINT_FILE = 0xC2
+    SMB_COM_GET_PRINT_QUEUE = 0xC3
+    SMB_COM_READ_BULK = 0xD8
+    SMB_COM_WRITE_BULK = 0xD9
+    SMB_COM_WRITE_BULK_DATA = 0xDA
 
     # TRANSACT codes
-    TRANS_TRANSACT_NMPIPE                   = 0x26
+    TRANS_TRANSACT_NMPIPE = 0x26
 
     # TRANSACT2 codes
-    TRANS2_FIND_FIRST2                      = 0x0001
-    TRANS2_FIND_NEXT2                       = 0x0002
-    TRANS2_QUERY_FS_INFORMATION             = 0x0003
-    TRANS2_QUERY_PATH_INFORMATION           = 0x0005
-    TRANS2_QUERY_FILE_INFORMATION           = 0x0007
-    TRANS2_SET_FILE_INFORMATION             = 0x0008
-    TRANS2_SET_PATH_INFORMATION             = 0x0006
+    TRANS2_FIND_FIRST2 = 0x0001
+    TRANS2_FIND_NEXT2 = 0x0002
+    TRANS2_QUERY_FS_INFORMATION = 0x0003
+    TRANS2_QUERY_PATH_INFORMATION = 0x0005
+    TRANS2_QUERY_FILE_INFORMATION = 0x0007
+    TRANS2_SET_FILE_INFORMATION = 0x0008
+    TRANS2_SET_PATH_INFORMATION = 0x0006
 
     # Security Share Mode (Used internally by SMB class)
-    SECURITY_SHARE_MASK                     = 0x01
-    SECURITY_SHARE_SHARE                    = 0x00
-    SECURITY_SHARE_USER                     = 0x01
-    SECURITY_SIGNATURES_ENABLED             = 0X04
-    SECURITY_SIGNATURES_REQUIRED            = 0X08
-    
+    SECURITY_SHARE_MASK = 0x01
+    SECURITY_SHARE_SHARE = 0x00
+    SECURITY_SHARE_USER = 0x01
+    SECURITY_SIGNATURES_ENABLED = 0X04
+    SECURITY_SIGNATURES_REQUIRED = 0X08
+
     # Security Auth Mode (Used internally by SMB class)
-    SECURITY_AUTH_MASK                      = 0x02
-    SECURITY_AUTH_ENCRYPTED                 = 0x02
-    SECURITY_AUTH_PLAINTEXT                 = 0x00
+    SECURITY_AUTH_MASK = 0x02
+    SECURITY_AUTH_ENCRYPTED = 0x02
+    SECURITY_AUTH_PLAINTEXT = 0x00
 
     # Raw Mode Mask (Used internally by SMB class. Good for dialect up to and including LANMAN2.1)
-    RAW_READ_MASK                           = 0x01
-    RAW_WRITE_MASK                          = 0x02
+    RAW_READ_MASK = 0x01
+    RAW_WRITE_MASK = 0x02
 
     # Capabilities Mask (Used internally by SMB class. Good for dialect NT LM 0.12)
-    CAP_RAW_MODE                            = 0x00000001
-    CAP_MPX_MODE                            = 0x0002
-    CAP_UNICODE                             = 0x0004
-    CAP_LARGE_FILES                         = 0x0008
-    CAP_EXTENDED_SECURITY                   = 0x80000000
-    CAP_USE_NT_ERRORS                       = 0x40
-    CAP_NT_SMBS                             = 0x10
-    CAP_LARGE_READX                         = 0x00004000
-    CAP_LARGE_WRITEX                        = 0x00008000
-    CAP_RPC_REMOTE_APIS                     = 0x20
+    CAP_RAW_MODE = 0x00000001
+    CAP_MPX_MODE = 0x0002
+    CAP_UNICODE = 0x0004
+    CAP_LARGE_FILES = 0x0008
+    CAP_EXTENDED_SECURITY = 0x80000000
+    CAP_USE_NT_ERRORS = 0x40
+    CAP_NT_SMBS = 0x10
+    CAP_LARGE_READX = 0x00004000
+    CAP_LARGE_WRITEX = 0x00008000
+    CAP_RPC_REMOTE_APIS = 0x20
 
     # Flags1 Mask
-    FLAGS1_LOCK_AND_READ_OK                 = 0x01
-    FLAGS1_PATHCASELESS                     = 0x08
-    FLAGS1_CANONICALIZED_PATHS              = 0x10
-    FLAGS1_REPLY                            = 0x80
+    FLAGS1_LOCK_AND_READ_OK = 0x01
+    FLAGS1_PATHCASELESS = 0x08
+    FLAGS1_CANONICALIZED_PATHS = 0x10
+    FLAGS1_REPLY = 0x80
 
     # Flags2 Mask
-    FLAGS2_LONG_NAMES                       = 0x0001
-    FLAGS2_EAS                              = 0x0002
-    FLAGS2_SMB_SECURITY_SIGNATURE           = 0x0004
-    FLAGS2_IS_LONG_NAME                     = 0x0040
-    FLAGS2_DFS                              = 0x1000
-    FLAGS2_PAGING_IO                        = 0x2000
-    FLAGS2_NT_STATUS                        = 0x4000
-    FLAGS2_UNICODE                          = 0x8000
-    FLAGS2_COMPRESSED                       = 0x0008
-    FLAGS2_SMB_SECURITY_SIGNATURE_REQUIRED  = 0x0010
-    FLAGS2_EXTENDED_SECURITY                = 0x0800
-    
+    FLAGS2_LONG_NAMES = 0x0001
+    FLAGS2_EAS = 0x0002
+    FLAGS2_SMB_SECURITY_SIGNATURE = 0x0004
+    FLAGS2_IS_LONG_NAME = 0x0040
+    FLAGS2_DFS = 0x1000
+    FLAGS2_PAGING_IO = 0x2000
+    FLAGS2_NT_STATUS = 0x4000
+    FLAGS2_UNICODE = 0x8000
+    FLAGS2_COMPRESSED = 0x0008
+    FLAGS2_SMB_SECURITY_SIGNATURE_REQUIRED = 0x0010
+    FLAGS2_EXTENDED_SECURITY = 0x0800
+
     # Dialect's Security Mode flags
-    NEGOTIATE_USER_SECURITY                 = 0x01
-    NEGOTIATE_ENCRYPT_PASSWORDS             = 0x02
-    NEGOTIATE_SECURITY_SIGNATURE_ENABLE     = 0x04
-    NEGOTIATE_SECURITY_SIGNATURE_REQUIRED   = 0x08
+    NEGOTIATE_USER_SECURITY = 0x01
+    NEGOTIATE_ENCRYPT_PASSWORDS = 0x02
+    NEGOTIATE_SECURITY_SIGNATURE_ENABLE = 0x04
+    NEGOTIATE_SECURITY_SIGNATURE_REQUIRED = 0x08
 
     # Tree Connect AndX Response optionalSuppor flags
-    SMB_SUPPORT_SEARCH_BITS                 = 0x01
-    SMB_SHARE_IS_IN_DFS                     = 0x02 
+    SMB_SUPPORT_SEARCH_BITS = 0x01
+    SMB_SHARE_IS_IN_DFS = 0x02
 
-
-
-    def __init__(self, remote_name, remote_host, my_name = None, host_type = nmb.TYPE_SERVER, sess_port = 445, timeout=None, UDP = 0, session = None, negPacket = None):
+    def __init__(self, remote_name, remote_host, my_name=None, host_type=nmb.TYPE_SERVER, sess_port=445, timeout=None, UDP=0, session=None, negPacket=None):
         # The uid attribute will be set when the client calls the login() method
         self._uid = 0
         self.__server_name = ''
@@ -2433,15 +2627,15 @@ class SMB:
         # Credentials
         self.__userName = ''
         self.__password = ''
-        self.__domain   = ''
-        self.__lmhash   = ''
-        self.__nthash   = ''
-        self.__aesKey   = ''
-        self.__TGT      = None
-        self.__TGS      = None
+        self.__domain = ''
+        self.__lmhash = ''
+        self.__nthash = ''
+        self.__aesKey = ''
+        self.__TGT = None
+        self.__TGS = None
 
         # Negotiate Protocol Result, used everywhere
-        # Could be extended or not, flags should be checked before 
+        # Could be extended or not, flags should be checked before
         self._dialect_data = 0
         self._dialect_parameters = 0
         self._action = 0
@@ -2449,7 +2643,7 @@ class SMB:
         self.encrypt_passwords = True
         self.tid = 0
         self.fid = 0
-        
+
         # Signing stuff
         self._SignSequenceNumber = 0
         self._SigningSessionKey = ''
@@ -2462,17 +2656,17 @@ class SMB:
         self.__flags1 = 0
         self.__flags2 = 0
 
-        if timeout==None:
+        if timeout == None:
             self.__timeout = 60
         else:
             self.__timeout = timeout
 
-        # If port 445 and the name sent is *SMBSERVER we're setting the name to the IP. 
-        # This is to help some old applications still believing 
-        # *SMSBSERVER will work against modern OSes. If port is NETBIOS_SESSION_PORT the user better 
+        # If port 445 and the name sent is *SMBSERVER we're setting the name to the IP.
+        # This is to help some old applications still believing
+        # *SMSBSERVER will work against modern OSes. If port is NETBIOS_SESSION_PORT the user better
         # know about *SMBSERVER's limitations
         if sess_port == 445 and remote_name == '*SMBSERVER':
-           self.__remote_name = remote_host
+            self.__remote_name = remote_host
 
         if session is None:
             if not my_name:
@@ -2489,20 +2683,19 @@ class SMB:
                 # Initialize session values (_dialect_data and _dialect_parameters)
                 self.neg_session()
 
-                # Call login() without any authentication information to 
+                # Call login() without any authentication information to
                 # setup a session if the remote server
                 # is in share mode.
                 if (self._dialects_parameters['SecurityMode'] & SMB.SECURITY_SHARE_MASK) == SMB.SECURITY_SHARE_SHARE:
                     self.login('', '')
         else:
             self._sess = session
-            self.neg_session(negPacket = negPacket)
-            # Call login() without any authentication information to 
+            self.neg_session(negPacket=negPacket)
+            # Call login() without any authentication information to
             # setup a session if the remote server
             # is in share mode.
             if (self._dialects_parameters['SecurityMode'] & SMB.SECURITY_SHARE_MASK) == SMB.SECURITY_SHARE_SHARE:
                 self.login('', '')
-
 
     def ntlm_supported(self):
         return False
@@ -2518,9 +2711,9 @@ class SMB:
 
     def set_flags(self, flags1=None, flags2=None):
         if flags1 is not None:
-           self.__flags1 = flags1
+            self.__flags1 = flags1
         if flags2 is not None:
-           self.__flags2 = flags2
+            self.__flags2 = flags2
 
     def set_timeout(self, timeout):
         self.__timeout = timeout
@@ -2536,18 +2729,18 @@ class SMB:
         finally:
             self.set_timeout(prev_timeout)
 
-    def get_session(self):        
+    def get_session(self):
         return self._sess
-    
+
     def get_tid(self):
         return self.tid
 
     def get_fid(self):
         return self.fid
-   
+
     def isGuestSession(self):
-        return self._action & SMB_SETUP_GUEST 
- 
+        return self._action & SMB_SETUP_GUEST
+
     def doesSupportNTLMv2(self):
         return self.__isNTLMv2
 
@@ -2557,12 +2750,12 @@ class SMB:
 
     def recvSMB(self):
         r = self._sess.recv_packet(self.__timeout)
-        return NewSMBPacket(data = r.get_trailer())
-    
+        return NewSMBPacket(data=r.get_trailer())
+
     def recv_packet(self):
         r = self._sess.recv_packet(self.__timeout)
         return SMBPacket(r.get_trailer())
-    
+
     def __decode_trans(self, params, data):
         totparamcnt, totdatacnt, _, paramcnt, paramoffset, paramds, datacnt, dataoffset, datads, setupcnt = unpack('<HHHHHHHHHB', params[:19])
         if paramcnt + paramds < totparamcnt or datacnt + datads < totdatacnt:
@@ -2580,8 +2773,8 @@ class SMB:
         #  * The client or server that sends the message MUST provide the 32-bit sequence number for this
         #    message, as specified in sections 3.2.4.1 and 3.3.4.1.
         #  * The SMB_FLAGS2_SMB_SECURITY_SIGNATURE flag in the header MUST be set.
-        #  * To generate the signature, a 32-bit sequence number is copied into the 
-        #    least significant 32 bits of the SecuritySignature field and the remaining 
+        #  * To generate the signature, a 32-bit sequence number is copied into the
+        #    least significant 32 bits of the SecuritySignature field and the remaining
         #    4 bytes are set to 0x00.
         #  * The MD5 algorithm, as specified in [RFC1321], MUST be used to generate a hash of the SMB
         #    message from the start of the SMB Header, which is defined as follows.
@@ -2594,34 +2787,33 @@ class SMB:
         # The resulting 8-byte signature MUST be copied into the SecuritySignature field of the SMB Header,
         # after which the message can be transmitted.
 
-        #print "seq(%d) signingSessionKey %r, signingChallengeResponse %r" % (self._SignSequenceNumber, signingSessionKey, signingChallengeResponse)
+        # print "seq(%d) signingSessionKey %r, signingChallengeResponse %r" % (self._SignSequenceNumber, signingSessionKey, signingChallengeResponse)
         packet['SecurityFeatures'] = struct.pack('<q',self._SignSequenceNumber)
         # Sign with the sequence
         m = hashlib.md5()
-        m.update( signingSessionKey )
-        m.update( signingChallengeResponse )
-        m.update( str(packet) )
+        m.update(signingSessionKey)
+        m.update(signingChallengeResponse)
+        m.update(str(packet))
         # Replace sequence with acual hash
         packet['SecurityFeatures'] = m.digest()[:8]
         if self._SignatureVerificationEnabled:
-           self._SignSequenceNumber +=1
+            self._SignSequenceNumber += 1
         else:
-           self._SignSequenceNumber +=2
-
+            self._SignSequenceNumber += 2
 
     def checkSignSMB(self, packet, signingSessionKey, signingChallengeResponse):
         # Let's check
         signature = packet['SecurityFeatures']
-        #print "Signature received: %r " % signature
-        self.signSMB(packet, signingSessionKey, signingChallengeResponse) 
-        #print "Signature calculated: %r" % packet['SecurityFeatures']
+        # print "Signature received: %r " % signature
+        self.signSMB(packet, signingSessionKey, signingChallengeResponse)
+        # print "Signature calculated: %r" % packet['SecurityFeatures']
         if self._SignatureVerificationEnabled is not True:
-           self._SignSequenceNumber -= 1
+            self._SignSequenceNumber -= 1
         return packet['SecurityFeatures'] == signature
-         
+
     def sendSMB(self,smb):
         smb['Uid'] = self._uid
-        #At least on AIX, PIDs can exceed 16 bits, so we mask them out
+        # At least on AIX, PIDs can exceed 16 bits, so we mask them out
         smb['Pid'] = (os.getpid() & 0xFFFF)
         smb['Flags1'] |= self.__flags1
         smb['Flags2'] |= self.__flags2 | SMB.FLAGS2_NT_STATUS
@@ -2637,7 +2829,7 @@ class SMB:
         s.set_pid(os.getpid())
         self._sess.send_packet(s.rawData())
 
-    def __send_smb_packet(self, cmd, flags, flags2, tid, mid, params = '', data = ''):
+    def __send_smb_packet(self, cmd, flags, flags2, tid, mid, params='', data=''):
         smb = NewSMBPacket()
         smb['Flags1'] = flags
         smb['Flags2'] = flags2
@@ -2657,12 +2849,12 @@ class SMB:
                     if s.get_error_class() == 0x00 and s.get_error_code() == 0x00:
                         return 1
                     else:
-                        raise SessionError( "SMB Library Error", s.get_error_class()+ (s.get_reserved() << 8), s.get_error_code() , s.get_flags2() & SMB.FLAGS2_NT_STATUS)
+                        raise SessionError("SMB Library Error", s.get_error_class() + (s.get_reserved() << 8), s.get_error_code(), s.get_flags2() & SMB.FLAGS2_NT_STATUS)
                 else:
                     break
         return 0
 
-    def neg_session(self, extended_security = True, negPacket = None):
+    def neg_session(self, extended_security=True, negPacket=None):
         def parsePacket(smb):
             if smb.isValidAnswer(SMB.SMB_COM_NEGOTIATE):
                 sessionResponse = SMBCommand(smb['Data'][0])
@@ -2676,11 +2868,11 @@ class SMB:
                     self._dialects_data = SMBExtended_Security_Data(sessionResponse['Data'])
                     # Let's setup some variable for later use
                     if self._dialects_parameters['SecurityMode'] & SMB.SECURITY_SIGNATURES_REQUIRED:
-                         self._SignatureRequired = True
+                        self._SignatureRequired = True
 
                     # Interestingly, the security Blob might be missing sometimes.
                     #spnego = SPNEGO_NegTokenInit(self._dialects_data['SecurityBlob'])
-                    #for i in spnego['MechTypes']:
+                    # for i in spnego['MechTypes']:
                     #      print "Mech Found: %s" % MechTypes[i]
                     return 1
 
@@ -2700,7 +2892,7 @@ class SMB:
             smb = NewSMBPacket()
             negSession = SMBCommand(SMB.SMB_COM_NEGOTIATE)
             if extended_security == True:
-                smb['Flags2']=SMB.FLAGS2_EXTENDED_SECURITY 
+                smb['Flags2'] = SMB.FLAGS2_EXTENDED_SECURITY
             negSession['Data'] = '\x02NT LM 0.12\x00'
             smb.addCommand(negSession)
             self.sendSMB(smb)
@@ -2709,11 +2901,10 @@ class SMB:
                 smb = self.recvSMB()
                 return parsePacket(smb)
         else:
-            
-            return parsePacket( NewSMBPacket( data = negPacket))
 
+            return parsePacket(NewSMBPacket(data=negPacket))
 
-    def tree_connect(self, path, password = '', service = SERVICE_ANY):
+    def tree_connect(self, path, password='', service=SERVICE_ANY):
         LOG.warning("[MS-CIFS] This is an original Core Protocol command.This command has been deprecated.Client Implementations SHOULD use SMB_COM_TREE_CONNECT_ANDX")
 
         # return 0x800
@@ -2730,11 +2921,11 @@ class SMB:
                 raise Exception('SMB: Can\t conver path from unicode!')
 
         smb = NewSMBPacket()
-        smb['Flags1']  = SMB.FLAGS1_PATHCASELESS
-        
+        smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
+
         treeConnect = SMBCommand(SMB.SMB_COM_TREE_CONNECT)
         treeConnect['Parameters'] = SMBTreeConnect_Parameters()
-        treeConnect['Data']       = SMBTreeConnect_Data()
+        treeConnect['Data'] = SMBTreeConnect_Data()
         treeConnect['Data']['Path'] = path.upper()
         treeConnect['Data']['Password'] = password
         treeConnect['Data']['Service'] = service
@@ -2756,7 +2947,7 @@ class SMB:
     def set_uid(self, uid):
         self._uid = uid
 
-    def tree_connect_andx(self, path, password = None, service = SERVICE_ANY, smb_packet=None):
+    def tree_connect_andx(self, path, password=None, service=SERVICE_ANY, smb_packet=None):
         if password:
             # Password is only encrypted if the server passed us an "encryption" during protocol dialect
             if self._dialects_parameters['ChallengeLength'] > 0:
@@ -2773,11 +2964,11 @@ class SMB:
 
         if smb_packet == None:
             smb = NewSMBPacket()
-            smb['Flags1']  = SMB.FLAGS1_PATHCASELESS
+            smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
         else:
             smb = smb_packet
 
-        # Just in case this came with the full path ,let's just leave 
+        # Just in case this came with the full path ,let's just leave
         # the sharename, we'll take care of the rest
 
         share = path.split('\\')[-1]
@@ -2785,13 +2976,13 @@ class SMB:
             _, _, _, _, sockaddr = socket.getaddrinfo(self.get_remote_host(), 80, 0, 0, socket.IPPROTO_TCP)[0]
             remote_host = sockaddr[0]
         except Exception as e:
-            remote_host =  self.get_remote_host()
+            remote_host = self.get_remote_host()
 
-        path = '\\\\' + remote_host + '\\' +share 
+        path = '\\\\' + remote_host + '\\' + share
 
         treeConnect = SMBCommand(SMB.SMB_COM_TREE_CONNECT_ANDX)
         treeConnect['Parameters'] = SMBTreeConnectAndX_Parameters()
-        treeConnect['Data']       = SMBTreeConnectAndX_Data()
+        treeConnect['Data'] = SMBTreeConnectAndX_Data()
         treeConnect['Parameters']['PasswordLength'] = len(password)
         treeConnect['Data']['Password'] = password
         treeConnect['Data']['Path'] = path.upper()
@@ -2829,7 +3020,7 @@ class SMB:
         return SMB_DIALECT
 
     def get_server_name(self):
-        #return self._dialects_data['ServerName']
+        # return self._dialects_data['ServerName']
         return self.__server_name
 
     def get_session_key(self):
@@ -2855,7 +3046,7 @@ class SMB:
 
     def disconnect_tree(self, tid):
         smb = NewSMBPacket()
-        smb['Tid']  = tid
+        smb['Tid'] = tid
         smb.addCommand(SMBCommand(SMB.SMB_COM_TREE_DISCONNECT))
         self.sendSMB(smb)
 
@@ -2866,24 +3057,24 @@ class SMB:
         smb = NewSMBPacket()
         smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
         smb['Flags2'] = SMB.FLAGS2_LONG_NAMES
-        smb['Tid']    = tid
+        smb['Tid'] = tid
 
         openFile = SMBCommand(SMB.SMB_COM_OPEN)
         openFile['Parameters'] = SMBOpen_Parameters()
-        openFile['Parameters']['DesiredAccess']    = desired_access
-        openFile['Parameters']['OpenMode']         = open_mode
+        openFile['Parameters']['DesiredAccess'] = desired_access
+        openFile['Parameters']['OpenMode'] = open_mode
         openFile['Parameters']['SearchAttributes'] = ATTR_READONLY | ATTR_HIDDEN | ATTR_ARCHIVE
-        openFile['Data']       = SMBOpen_Data()
+        openFile['Data'] = SMBOpen_Data()
         openFile['Data']['FileName'] = filename
-        
+
         smb.addCommand(openFile)
 
         self.sendSMB(smb)
-        
+
         smb = self.recvSMB()
         if smb.isValidAnswer(SMB.SMB_COM_OPEN):
             # XXX Here we are ignoring the rest of the response
-            openFileResponse   = SMBCommand(smb['Data'][0])
+            openFileResponse = SMBCommand(smb['Data'][0])
             openFileParameters = SMBOpenResponse_Parameters(openFileResponse['Parameters'])
 
             return (
@@ -2893,30 +3084,30 @@ class SMB:
                 openFileParameters['FileSize'],
                 openFileParameters['GrantedAccess'],
             )
-        
+
     def open_andx(self, tid, filename, open_mode, desired_access):
         filename = string.replace(filename,'/', '\\')
         smb = NewSMBPacket()
         smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
         smb['Flags2'] = SMB.FLAGS2_LONG_NAMES
-        smb['Tid']    = tid
+        smb['Tid'] = tid
 
         openFile = SMBCommand(SMB.SMB_COM_OPEN_ANDX)
         openFile['Parameters'] = SMBOpenAndX_Parameters()
-        openFile['Parameters']['DesiredAccess']    = desired_access
-        openFile['Parameters']['OpenMode']         = open_mode
+        openFile['Parameters']['DesiredAccess'] = desired_access
+        openFile['Parameters']['OpenMode'] = open_mode
         openFile['Parameters']['SearchAttributes'] = ATTR_READONLY | ATTR_HIDDEN | ATTR_ARCHIVE
-        openFile['Data']       = SMBOpenAndX_Data()
+        openFile['Data'] = SMBOpenAndX_Data()
         openFile['Data']['FileName'] = filename
-        
+
         smb.addCommand(openFile)
 
         self.sendSMB(smb)
-        
+
         smb = self.recvSMB()
         if smb.isValidAnswer(SMB.SMB_COM_OPEN_ANDX):
             # XXX Here we are ignoring the rest of the response
-            openFileResponse   = SMBCommand(smb['Data'][0])
+            openFileResponse = SMBCommand(smb['Data'][0])
             openFileParameters = SMBOpenAndXResponse_Parameters(openFileResponse['Parameters'])
 
             return (
@@ -2930,40 +3121,40 @@ class SMB:
                 openFileParameters['Action'],
                 openFileParameters['ServerFid'],
             )
-        
+
     def close(self, tid, fid):
         smb = NewSMBPacket()
         smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
         smb['Flags2'] = SMB.FLAGS2_LONG_NAMES
-        smb['Tid']    = tid
+        smb['Tid'] = tid
 
         closeFile = SMBCommand(SMB.SMB_COM_CLOSE)
         closeFile['Parameters'] = SMBClose_Parameters()
-        closeFile['Parameters']['FID']    = fid
+        closeFile['Parameters']['FID'] = fid
         smb.addCommand(closeFile)
 
         self.sendSMB(smb)
         smb = self.recvSMB()
         if smb.isValidAnswer(SMB.SMB_COM_CLOSE):
-           return 1
+            return 1
         return 0
 
-    def send_trans(self, tid, setup, name, param, data, noAnswer = 0):
+    def send_trans(self, tid, setup, name, param, data, noAnswer=0):
         smb = NewSMBPacket()
         smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
         smb['Flags2'] = SMB.FLAGS2_LONG_NAMES
-        smb['Tid']    = tid
+        smb['Tid'] = tid
 
         transCommand = SMBCommand(SMB.SMB_COM_TRANSACTION)
         transCommand['Parameters'] = SMBTransaction_Parameters()
         transCommand['Data'] = SMBTransaction_Data()
 
         transCommand['Parameters']['Setup'] = setup
-        transCommand['Parameters']['TotalParameterCount'] = len(param) 
+        transCommand['Parameters']['TotalParameterCount'] = len(param)
         transCommand['Parameters']['TotalDataCount'] = len(data)
 
         transCommand['Parameters']['ParameterCount'] = len(param)
-        transCommand['Parameters']['ParameterOffset'] = 32+3+28+len(setup)+len(name)
+        transCommand['Parameters']['ParameterOffset'] = 32 + 3 + 28 + len(setup) + len(name)
 
         transCommand['Parameters']['DataCount'] = len(data)
         transCommand['Parameters']['DataOffset'] = transCommand['Parameters']['ParameterOffset'] + len(param)
@@ -2973,8 +3164,8 @@ class SMB:
         transCommand['Data']['Trans_Data'] = data
 
         if noAnswer:
-           transCommand['Parameters']['Flags'] = TRANS_NO_RESPONSE
-      
+            transCommand['Parameters']['Flags'] = TRANS_NO_RESPONSE
+
         smb.addCommand(transCommand)
         self.sendSMB(smb)
 
@@ -2988,8 +3179,8 @@ class SMB:
 
         param_offset = name_len + setup_len + 63
         data_offset = param_offset + param_len
-            
-        self.__send_smb_packet(SMB.SMB_COM_TRANSACTION2, self.__is_pathcaseless, SMB.FLAGS2_LONG_NAMES, tid, 0, pack('<HHHHBBHLHHHHHBB', param_len, data_len, 1024, self._dialects_parameters['MaxBufferSize'], 0, 0, 0, 0, 0, param_len, param_offset, data_len, data_offset, setup_len / 2, 0) + setup, name  + param + data)
+
+        self.__send_smb_packet(SMB.SMB_COM_TRANSACTION2, self.__is_pathcaseless, SMB.FLAGS2_LONG_NAMES, tid, 0, pack('<HHHHBBHLHHHHHBB', param_len, data_len, 1024, self._dialects_parameters['MaxBufferSize'], 0, 0, 0, 0, 0, param_len, param_offset, data_len, data_offset, setup_len / 2, 0) + setup, name + param + data)
 
     def query_file_info(self, tid, fid):
         self.trans2(tid, '\x07\x00', '\x00', pack('<HH', fid, 0x107), '')
@@ -2997,7 +3188,7 @@ class SMB:
         while 1:
             s = self.recv_packet()
             if self.isValidAnswer(s,SMB.SMB_COM_TRANSACTION2):
-                f1, f2 = unpack('<LL', s.get_buffer()[53:53+8])
+                f1, f2 = unpack('<LL', s.get_buffer()[53:53 + 8])
                 return (f2 & 0xffffffff) << 32 | f1
 
     def __nonraw_retr_file(self, tid, fid, offset, datasize, callback):
@@ -3040,7 +3231,7 @@ class SMB:
                 break
 
             smb = self.write_andx(tid,fid,data, write_offset)
-            writeResponse   = SMBCommand(smb['Data'][0])
+            writeResponse = SMBCommand(smb['Data'][0])
             writeResponseParameters = SMBWriteAndXResponse_Parameters(writeResponse['Parameters'])
             write_offset += writeResponseParameters['Count']
 
@@ -3051,7 +3242,7 @@ class SMB:
             max_raw_size = self._dialects_parameters['MaxRawSize']
             # Due to different dialects interpretation of MaxRawSize, we're limiting it to 0xffff
             if max_raw_size > 65535:
-               max_raw_size = 65535
+                max_raw_size = 65535
             read_data = callback(max_raw_size)
 
             if not read_data:
@@ -3081,7 +3272,7 @@ class SMB:
         return self.__server_lanman
 
     def is_login_required(self):
-        # Login is required if share mode is user. 
+        # Login is required if share mode is user.
         # Otherwise only public services or services in share mode
         # are allowed.
         return (self._dialects_parameters['SecurityMode'] & SMB.SECURITY_SHARE_MASK) == SMB.SECURITY_SHARE_USER
@@ -3090,7 +3281,7 @@ class SMB:
         challenge = self._dialects_data['Challenge']
         return ntlm.get_ntlmv1_response(key, challenge)
 
-    def kerberos_login(self, user, password, domain = '', lmhash = '', nthash = '', aesKey = '', kdcHost = '', TGT=None, TGS=None):
+    def kerberos_login(self, user, password, domain='', lmhash='', nthash='', aesKey='', kdcHost='', TGT=None, TGS=None):
         # Importing down here so pyasn1 is not required if kerberos is not used.
         from impacket.krb5.asn1 import AP_REQ, Authenticator, TGS_REP, seq_set, seq_set_dict
         from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS
@@ -3105,10 +3296,10 @@ class SMB:
         # TGS['cipher'] = the cipher used
         # TGS['sessionKey'] = the sessionKey
         # If we have hashes, normalize them
-        if ( lmhash != '' or nthash != ''):
-            if len(lmhash) % 2:     lmhash = '0%s' % lmhash
-            if len(nthash) % 2:     nthash = '0%s' % nthash
-            try: # just in case they were converted already
+        if (lmhash != '' or nthash != ''):
+            if len(lmhash) % 2: lmhash = '0%s' % lmhash
+            if len(nthash) % 2: nthash = '0%s' % nthash
+            try:  # just in case they were converted already
                 lmhash = a2b_hex(lmhash)
                 nthash = a2b_hex(nthash)
             except:
@@ -3116,13 +3307,13 @@ class SMB:
 
         self.__userName = user
         self.__password = password
-        self.__domain   = domain
-        self.__lmhash   = lmhash
-        self.__nthash   = nthash
-        self.__aesKey   = aesKey
-        self.__kdc      = kdcHost
-        self.__TGT      = TGT
-        self.__TGS      = TGS
+        self.__domain = domain
+        self.__lmhash = lmhash
+        self.__nthash = nthash
+        self.__aesKey = aesKey
+        self.__kdc = kdcHost
+        self.__TGT = TGT
+        self.__TGS = TGS
 
         # First of all, we need to get a TGT for the user
         userName = Principal(user, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
@@ -3132,7 +3323,7 @@ class SMB:
         else:
             tgt = TGT['KDC_REP']
             cipher = TGT['cipher']
-            sessionKey = TGT['sessionKey'] 
+            sessionKey = TGT['sessionKey']
 
         # Now that we have the TGT, we should ask for a TGS for cifs
 
@@ -3142,40 +3333,38 @@ class SMB:
         else:
             tgs = TGS['KDC_REP']
             cipher = TGS['cipher']
-            sessionKey = TGS['sessionKey'] 
+            sessionKey = TGS['sessionKey']
 
         smb = NewSMBPacket()
         smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
-        smb['Flags2'] = SMB.FLAGS2_EXTENDED_SECURITY 
+        smb['Flags2'] = SMB.FLAGS2_EXTENDED_SECURITY
         # Are we required to sign SMB? If so we do it, if not we skip it
-        if self._SignatureRequired: 
-           smb['Flags2'] |= SMB.FLAGS2_SMB_SECURITY_SIGNATURE
-          
+        if self._SignatureRequired:
+            smb['Flags2'] |= SMB.FLAGS2_SMB_SECURITY_SIGNATURE
 
         sessionSetup = SMBCommand(SMB.SMB_COM_SESSION_SETUP_ANDX)
         sessionSetup['Parameters'] = SMBSessionSetupAndX_Extended_Parameters()
-        sessionSetup['Data']       = SMBSessionSetupAndX_Extended_Data()
+        sessionSetup['Data'] = SMBSessionSetupAndX_Extended_Data()
 
-        sessionSetup['Parameters']['MaxBufferSize']        = 61440
-        sessionSetup['Parameters']['MaxMpxCount']          = 2
-        sessionSetup['Parameters']['VcNumber']             = 1
-        sessionSetup['Parameters']['SessionKey']           = 0
-        sessionSetup['Parameters']['Capabilities']         = SMB.CAP_EXTENDED_SECURITY | SMB.CAP_USE_NT_ERRORS | SMB.CAP_UNICODE | SMB.CAP_LARGE_READX | SMB.CAP_LARGE_WRITEX
-
+        sessionSetup['Parameters']['MaxBufferSize'] = 61440
+        sessionSetup['Parameters']['MaxMpxCount'] = 2
+        sessionSetup['Parameters']['VcNumber'] = 1
+        sessionSetup['Parameters']['SessionKey'] = 0
+        sessionSetup['Parameters']['Capabilities'] = SMB.CAP_EXTENDED_SECURITY | SMB.CAP_USE_NT_ERRORS | SMB.CAP_UNICODE | SMB.CAP_LARGE_READX | SMB.CAP_LARGE_WRITEX
 
         # Let's build a NegTokenInit with the NTLMSSP
         # TODO: In the future we should be able to choose different providers
 
-        blob = SPNEGO_NegTokenInit() 
+        blob = SPNEGO_NegTokenInit()
 
         # Kerberos v5 mech
         blob['MechTypes'] = [TypesMech['MS KRB5 - Microsoft Kerberos 5']]
 
         # Let's extract the ticket from the TGS
-        tgs = decoder.decode(tgs, asn1Spec = TGS_REP())[0]
+        tgs = decoder.decode(tgs, asn1Spec=TGS_REP())[0]
         ticket = Ticket()
         ticket.from_asn1(tgs['ticket'])
-        
+
         # Now let's build the AP_REQ
         apReq = AP_REQ()
         apReq['pvno'] = 5
@@ -3207,14 +3396,14 @@ class SMB:
         apReq['authenticator']['cipher'] = encryptedEncodedAuthenticator
 
         blob['MechToken'] = encoder.encode(apReq)
-        
-        sessionSetup['Parameters']['SecurityBlobLength']  = len(blob)
+
+        sessionSetup['Parameters']['SecurityBlobLength'] = len(blob)
         sessionSetup['Parameters'].getData()
-        sessionSetup['Data']['SecurityBlob']       = blob.getData()
+        sessionSetup['Data']['SecurityBlob'] = blob.getData()
 
         # Fake Data here, don't want to get us fingerprinted
-        sessionSetup['Data']['NativeOS']      = 'Unix'
-        sessionSetup['Data']['NativeLanMan']  = 'Samba'
+        sessionSetup['Data']['NativeOS'] = 'Unix'
+        sessionSetup['Data']['NativeLanMan'] = 'Samba'
 
         smb.addCommand(sessionSetup)
         self.sendSMB(smb)
@@ -3225,18 +3414,18 @@ class SMB:
             self._uid = smb['Uid']
 
             # Now we have to extract the blob to continue the auth process
-            sessionResponse   = SMBCommand(smb['Data'][0])
+            sessionResponse = SMBCommand(smb['Data'][0])
             sessionParameters = SMBSessionSetupAndX_Extended_Response_Parameters(sessionResponse['Parameters'])
-            sessionData       = SMBSessionSetupAndX_Extended_Response_Data(flags = smb['Flags2'])
+            sessionData = SMBSessionSetupAndX_Extended_Response_Data(flags=smb['Flags2'])
             sessionData['SecurityBlobLength'] = sessionParameters['SecurityBlobLength']
             sessionData.fromString(sessionResponse['Data'])
 
             self._action = sessionParameters['Action']
             # If smb sign required, let's enable it for the rest of the connection
             if self._dialects_parameters['SecurityMode'] & SMB.SECURITY_SIGNATURES_REQUIRED:
-               self._SigningSessionKey = sessionKey.contents
-               self._SignSequenceNumber = 2
-               self._SignatureEnabled = True
+                self._SigningSessionKey = sessionKey.contents
+                self._SignSequenceNumber = 2
+                self._SignatureEnabled = True
             # Set up the flags to be used from now on
             self.__flags1 = SMB.FLAGS1_PATHCASELESS
             self.__flags2 = SMB.FLAGS2_EXTENDED_SECURITY
@@ -3244,45 +3433,42 @@ class SMB:
         else:
             raise Exception('Error: Could not login successfully')
 
-
-    def login_extended(self, user, password, domain = '', lmhash = '', nthash = '', use_ntlmv2 = True ):
+    def login_extended(self, user, password, domain='', lmhash='', nthash='', use_ntlmv2=True):
         # Once everything's working we should join login methods into a single one
         smb = NewSMBPacket()
         smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
-        smb['Flags2'] = SMB.FLAGS2_EXTENDED_SECURITY 
+        smb['Flags2'] = SMB.FLAGS2_EXTENDED_SECURITY
         # Are we required to sign SMB? If so we do it, if not we skip it
-        if self._SignatureRequired: 
-           smb['Flags2'] |= SMB.FLAGS2_SMB_SECURITY_SIGNATURE
-          
+        if self._SignatureRequired:
+            smb['Flags2'] |= SMB.FLAGS2_SMB_SECURITY_SIGNATURE
 
         sessionSetup = SMBCommand(SMB.SMB_COM_SESSION_SETUP_ANDX)
         sessionSetup['Parameters'] = SMBSessionSetupAndX_Extended_Parameters()
-        sessionSetup['Data']       = SMBSessionSetupAndX_Extended_Data()
+        sessionSetup['Data'] = SMBSessionSetupAndX_Extended_Data()
 
-        sessionSetup['Parameters']['MaxBufferSize']        = 61440
-        sessionSetup['Parameters']['MaxMpxCount']          = 2
-        sessionSetup['Parameters']['VcNumber']             = 1
-        sessionSetup['Parameters']['SessionKey']           = 0
-        sessionSetup['Parameters']['Capabilities']         = SMB.CAP_EXTENDED_SECURITY | SMB.CAP_USE_NT_ERRORS | SMB.CAP_UNICODE | SMB.CAP_LARGE_READX | SMB.CAP_LARGE_WRITEX
-
+        sessionSetup['Parameters']['MaxBufferSize'] = 61440
+        sessionSetup['Parameters']['MaxMpxCount'] = 2
+        sessionSetup['Parameters']['VcNumber'] = 1
+        sessionSetup['Parameters']['SessionKey'] = 0
+        sessionSetup['Parameters']['Capabilities'] = SMB.CAP_EXTENDED_SECURITY | SMB.CAP_USE_NT_ERRORS | SMB.CAP_UNICODE | SMB.CAP_LARGE_READX | SMB.CAP_LARGE_WRITEX
 
         # Let's build a NegTokenInit with the NTLMSSP
         # TODO: In the future we should be able to choose different providers
 
-        blob = SPNEGO_NegTokenInit() 
+        blob = SPNEGO_NegTokenInit()
 
         # NTLMSSP
         blob['MechTypes'] = [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
-        auth = ntlm.getNTLMSSPType1('',domain,self._SignatureRequired, use_ntlmv2 = use_ntlmv2)
+        auth = ntlm.getNTLMSSPType1('',domain,self._SignatureRequired, use_ntlmv2=use_ntlmv2)
         blob['MechToken'] = str(auth)
-        
-        sessionSetup['Parameters']['SecurityBlobLength']  = len(blob)
+
+        sessionSetup['Parameters']['SecurityBlobLength'] = len(blob)
         sessionSetup['Parameters'].getData()
-        sessionSetup['Data']['SecurityBlob']       = blob.getData()
+        sessionSetup['Data']['SecurityBlob'] = blob.getData()
 
         # Fake Data here, don't want to get us fingerprinted
-        sessionSetup['Data']['NativeOS']      = 'Unix'
-        sessionSetup['Data']['NativeLanMan']  = 'Samba'
+        sessionSetup['Data']['NativeOS'] = 'Unix'
+        sessionSetup['Data']['NativeLanMan'] = 'Samba'
 
         smb.addCommand(sessionSetup)
         self.sendSMB(smb)
@@ -3293,9 +3479,9 @@ class SMB:
             self._uid = smb['Uid']
 
             # Now we have to extract the blob to continue the auth process
-            sessionResponse   = SMBCommand(smb['Data'][0])
+            sessionResponse = SMBCommand(smb['Data'][0])
             sessionParameters = SMBSessionSetupAndX_Extended_Response_Parameters(sessionResponse['Parameters'])
-            sessionData       = SMBSessionSetupAndX_Extended_Response_Data(flags = smb['Flags2'])
+            sessionData = SMBSessionSetupAndX_Extended_Response_Data(flags=smb['Flags2'])
             sessionData['SecurityBlobLength'] = sessionParameters['SecurityBlobLength']
             sessionData.fromString(sessionResponse['Data'])
             respToken = SPNEGO_NegTokenResp(sessionData['SecurityBlob'])
@@ -3304,39 +3490,39 @@ class SMB:
             ntlmChallenge = ntlm.NTLMAuthChallenge(respToken['ResponseToken'])
             if ntlmChallenge['TargetInfoFields_len'] > 0:
                 infoFields = ntlmChallenge['TargetInfoFields']
-                av_pairs = ntlm.AV_PAIRS(ntlmChallenge['TargetInfoFields'][:ntlmChallenge['TargetInfoFields_len']]) 
+                av_pairs = ntlm.AV_PAIRS(ntlmChallenge['TargetInfoFields'][:ntlmChallenge['TargetInfoFields_len']])
                 if av_pairs[ntlm.NTLMSSP_AV_HOSTNAME] is not None:
-                   try:
-                       self.__server_name = av_pairs[ntlm.NTLMSSP_AV_HOSTNAME][1].decode('utf-16le')
-                   except:
-                       # For some reason, we couldn't decode Unicode here.. silently discard the operation
-                       pass 
+                    try:
+                        self.__server_name = av_pairs[ntlm.NTLMSSP_AV_HOSTNAME][1].decode('utf-16le')
+                    except:
+                        # For some reason, we couldn't decode Unicode here.. silently discard the operation
+                        pass
                 if av_pairs[ntlm.NTLMSSP_AV_DOMAINNAME] is not None:
-                   try:
-                       if self.__server_name != av_pairs[ntlm.NTLMSSP_AV_DOMAINNAME][1].decode('utf-16le'): 
-                           self.__server_domain = av_pairs[ntlm.NTLMSSP_AV_DOMAINNAME][1].decode('utf-16le')
-                   except:
-                       # For some reason, we couldn't decode Unicode here.. silently discard the operation
-                       pass 
+                    try:
+                        if self.__server_name != av_pairs[ntlm.NTLMSSP_AV_DOMAINNAME][1].decode('utf-16le'):
+                            self.__server_domain = av_pairs[ntlm.NTLMSSP_AV_DOMAINNAME][1].decode('utf-16le')
+                    except:
+                        # For some reason, we couldn't decode Unicode here.. silently discard the operation
+                        pass
                 if av_pairs[ntlm.NTLMSSP_AV_DNS_DOMAINNAME] is not None:
-                   try:
-                       self.__server_dns_domain_name = av_pairs[ntlm.NTLMSSP_AV_DNS_DOMAINNAME][1].decode('utf-16le')
-                   except:
-                       # For some reason, we couldn't decode Unicode here.. silently discard the operation
-                       pass 
+                    try:
+                        self.__server_dns_domain_name = av_pairs[ntlm.NTLMSSP_AV_DNS_DOMAINNAME][1].decode('utf-16le')
+                    except:
+                        # For some reason, we couldn't decode Unicode here.. silently discard the operation
+                        pass
 
-            type3, exportedSessionKey = ntlm.getNTLMSSPType3(auth, respToken['ResponseToken'], user, password, domain, lmhash, nthash, use_ntlmv2 = use_ntlmv2)
+            type3, exportedSessionKey = ntlm.getNTLMSSPType3(auth, respToken['ResponseToken'], user, password, domain, lmhash, nthash, use_ntlmv2=use_ntlmv2)
 
-            if exportedSessionKey is not None: 
+            if exportedSessionKey is not None:
                 self._SigningSessionKey = exportedSessionKey
 
             smb = NewSMBPacket()
             smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
-            smb['Flags2'] = SMB.FLAGS2_EXTENDED_SECURITY |  SMB.FLAGS2_NT_STATUS
+            smb['Flags2'] = SMB.FLAGS2_EXTENDED_SECURITY | SMB.FLAGS2_NT_STATUS
 
             # Are we required to sign SMB? If so we do it, if not we skip it
-            if self._SignatureRequired: 
-               smb['Flags2'] |= SMB.FLAGS2_SMB_SECURITY_SIGNATURE
+            if self._SignatureRequired:
+                smb['Flags2'] |= SMB.FLAGS2_SMB_SECURITY_SIGNATURE
 
             respToken2 = SPNEGO_NegTokenResp()
             respToken2['ResponseToken'] = str(type3)
@@ -3346,25 +3532,25 @@ class SMB:
             sessionSetup['Data']['SecurityBlob'] = respToken2.getData()
 
             # Storing some info for later use
-            self.__server_os     = sessionData['NativeOS']
+            self.__server_os = sessionData['NativeOS']
             self.__server_lanman = sessionData['NativeLanMan']
 
             smb.addCommand(sessionSetup)
             self.sendSMB(smb)
-            
+
             smb = self.recvSMB()
             self._uid = 0
             if smb.isValidAnswer(SMB.SMB_COM_SESSION_SETUP_ANDX):
                 self._uid = smb['Uid']
-                sessionResponse   = SMBCommand(smb['Data'][0])
+                sessionResponse = SMBCommand(smb['Data'][0])
                 sessionParameters = SMBSessionSetupAndXResponse_Parameters(sessionResponse['Parameters'])
-                sessionData       = SMBSessionSetupAndXResponse_Data(flags = smb['Flags2'], data = sessionResponse['Data'])
+                sessionData = SMBSessionSetupAndXResponse_Data(flags=smb['Flags2'], data=sessionResponse['Data'])
 
                 self._action = sessionParameters['Action']
                 # If smb sign required, let's enable it for the rest of the connection
                 if self._dialects_parameters['SecurityMode'] & SMB.SECURITY_SIGNATURES_REQUIRED:
-                   self._SignSequenceNumber = 2
-                   self._SignatureEnabled = True
+                    self._SignSequenceNumber = 2
+                    self._SignatureEnabled = True
                 # Set up the flags to be used from now on
                 self.__flags1 = SMB.FLAGS1_PATHCASELESS
                 self.__flags2 = SMB.FLAGS2_EXTENDED_SECURITY
@@ -3383,13 +3569,13 @@ class SMB:
             self.__TGT,
             self.__TGS)
 
-    def login(self, user, password, domain = '', lmhash = '', nthash = ''):
+    def login(self, user, password, domain='', lmhash='', nthash=''):
 
         # If we have hashes, normalize them
-        if ( lmhash != '' or nthash != ''):
-            if len(lmhash) % 2:     lmhash = '0%s' % lmhash
-            if len(nthash) % 2:     nthash = '0%s' % nthash
-            try: # just in case they were converted already
+        if (lmhash != '' or nthash != ''):
+            if len(lmhash) % 2: lmhash = '0%s' % lmhash
+            if len(nthash) % 2: nthash = '0%s' % nthash
+            try:  # just in case they were converted already
                 lmhash = a2b_hex(lmhash)
                 nthash = a2b_hex(nthash)
             except:
@@ -3397,20 +3583,20 @@ class SMB:
 
         self.__userName = user
         self.__password = password
-        self.__domain   = domain
-        self.__lmhash   = lmhash
-        self.__nthash   = nthash
-        self.__aesKey   = ''
-        self.__TGT      = None
-        self.__TGS      = None
+        self.__domain = domain
+        self.__lmhash = lmhash
+        self.__nthash = nthash
+        self.__aesKey = ''
+        self.__TGT = None
+        self.__TGS = None
 
         if self._dialects_parameters['Capabilities'] & SMB.CAP_EXTENDED_SECURITY:
             try:
-                self.login_extended(user, password, domain, lmhash, nthash, use_ntlmv2 = True)
+                self.login_extended(user, password, domain, lmhash, nthash, use_ntlmv2=True)
             except:
                 # If the target OS is Windows 5.0 or Samba, let's try using NTLMv1
                 if (self.get_server_lanman().find('Windows 2000') != -1) or (self.get_server_lanman().find('Samba') != -1):
-                    self.login_extended(user, password, domain, lmhash, nthash, use_ntlmv2 = False)
+                    self.login_extended(user, password, domain, lmhash, nthash, use_ntlmv2=False)
                     self.__isNTLMv2 = False
                 else:
                     raise
@@ -3418,46 +3604,46 @@ class SMB:
             self.login_standard(user, password, domain, lmhash, nthash)
             self.__isNTLMv2 = False
 
-    def login_standard(self, user, password, domain = '', lmhash = '', nthash = ''):
+    def login_standard(self, user, password, domain='', lmhash='', nthash=''):
         # Only supports NTLMv1
         # Password is only encrypted if the server passed us an "encryption key" during protocol dialect negotiation
         if self._dialects_parameters['ChallengeLength'] > 0:
             if lmhash != '' or nthash != '':
-               pwd_ansi = self.get_ntlmv1_response(lmhash)
-               pwd_unicode = self.get_ntlmv1_response(nthash)
-            elif password: 
-               lmhash = ntlm.compute_lmhash(password)
-               nthash = ntlm.compute_nthash(password)
-               pwd_ansi = self.get_ntlmv1_response(lmhash)
-               pwd_unicode = self.get_ntlmv1_response(nthash)
-            else: # NULL SESSION
-               pwd_ansi = ''
-               pwd_unicode = ''
+                pwd_ansi = self.get_ntlmv1_response(lmhash)
+                pwd_unicode = self.get_ntlmv1_response(nthash)
+            elif password:
+                lmhash = ntlm.compute_lmhash(password)
+                nthash = ntlm.compute_nthash(password)
+                pwd_ansi = self.get_ntlmv1_response(lmhash)
+                pwd_unicode = self.get_ntlmv1_response(nthash)
+            else:  # NULL SESSION
+                pwd_ansi = ''
+                pwd_unicode = ''
         else:
             pwd_ansi = password
             pwd_unicode = ''
 
         smb = NewSMBPacket()
-        smb['Flags1']  = SMB.FLAGS1_PATHCASELESS
-        
+        smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
+
         sessionSetup = SMBCommand(SMB.SMB_COM_SESSION_SETUP_ANDX)
         sessionSetup['Parameters'] = SMBSessionSetupAndX_Parameters()
-        sessionSetup['Data']       = SMBSessionSetupAndX_Data()
+        sessionSetup['Data'] = SMBSessionSetupAndX_Data()
 
-        sessionSetup['Parameters']['MaxBuffer']        = 61440
-        sessionSetup['Parameters']['MaxMpxCount']      = 2
-        sessionSetup['Parameters']['VCNumber']         = os.getpid()
-        sessionSetup['Parameters']['SessionKey']       = self._dialects_parameters['SessionKey']
-        sessionSetup['Parameters']['AnsiPwdLength']    = len(pwd_ansi)
+        sessionSetup['Parameters']['MaxBuffer'] = 61440
+        sessionSetup['Parameters']['MaxMpxCount'] = 2
+        sessionSetup['Parameters']['VCNumber'] = os.getpid()
+        sessionSetup['Parameters']['SessionKey'] = self._dialects_parameters['SessionKey']
+        sessionSetup['Parameters']['AnsiPwdLength'] = len(pwd_ansi)
         sessionSetup['Parameters']['UnicodePwdLength'] = len(pwd_unicode)
-        sessionSetup['Parameters']['Capabilities']     = SMB.CAP_RAW_MODE | SMB.CAP_USE_NT_ERRORS | SMB.CAP_LARGE_READX | SMB.CAP_LARGE_WRITEX
+        sessionSetup['Parameters']['Capabilities'] = SMB.CAP_RAW_MODE | SMB.CAP_USE_NT_ERRORS | SMB.CAP_LARGE_READX | SMB.CAP_LARGE_WRITEX
 
-        sessionSetup['Data']['AnsiPwd']       = pwd_ansi
-        sessionSetup['Data']['UnicodePwd']    = pwd_unicode
-        sessionSetup['Data']['Account']       = str(user)
+        sessionSetup['Data']['AnsiPwd'] = pwd_ansi
+        sessionSetup['Data']['UnicodePwd'] = pwd_unicode
+        sessionSetup['Data']['Account'] = str(user)
         sessionSetup['Data']['PrimaryDomain'] = str(domain)
-        sessionSetup['Data']['NativeOS']      = str(os.name)
-        sessionSetup['Data']['NativeLanMan']  = 'pysmb'
+        sessionSetup['Data']['NativeOS'] = str(os.name)
+        sessionSetup['Data']['NativeLanMan'] = 'pysmb'
 
         smb.addCommand(sessionSetup)
 
@@ -3467,24 +3653,24 @@ class SMB:
         if smb.isValidAnswer(SMB.SMB_COM_SESSION_SETUP_ANDX):
             # We will need to use this uid field for all future requests/responses
             self._uid = smb['Uid']
-            sessionResponse   = SMBCommand(smb['Data'][0])
+            sessionResponse = SMBCommand(smb['Data'][0])
             sessionParameters = SMBSessionSetupAndXResponse_Parameters(sessionResponse['Parameters'])
-            sessionData       = SMBSessionSetupAndXResponse_Data(flags = smb['Flags2'], data = sessionResponse['Data'])
+            sessionData = SMBSessionSetupAndXResponse_Data(flags=smb['Flags2'], data=sessionResponse['Data'])
 
             self._action = sessionParameters['Action']
 
             # Still gotta figure out how to do this with no EXTENDED_SECURITY
             if sessionParameters['Action'] & SMB_SETUP_USE_LANMAN_KEY == 0:
-                 self._SigningChallengeResponse = sessionSetup['Data']['UnicodePwd'] 
-                 self._SigningSessionKey = nthash
+                self._SigningChallengeResponse = sessionSetup['Data']['UnicodePwd']
+                self._SigningSessionKey = nthash
             else:
-                 self._SigningChallengeResponse = sessionSetup['Data']['AnsiPwd'] 
-                 self._SigningSessionKey = lmhash
+                self._SigningChallengeResponse = sessionSetup['Data']['AnsiPwd']
+                self._SigningSessionKey = lmhash
 
             #self._SignSequenceNumber = 1
             #self.checkSignSMB(smb, self._SigningSessionKey ,self._SigningChallengeResponse)
             #self._SignatureEnabled = True
-            self.__server_os     = sessionData['NativeOS']
+            self.__server_os = sessionData['NativeOS']
             self.__server_lanman = sessionData['NativeLanMan']
             self.__server_domain = sessionData['PrimaryDomain']
 
@@ -3494,11 +3680,11 @@ class SMB:
             return 1
         else: raise Exception('Error: Could not login successfully')
 
-    def waitNamedPipe(self, tid, pipe, timeout = 5, noAnswer = 0):
+    def waitNamedPipe(self, tid, pipe, timeout=5, noAnswer=0):
         smb = NewSMBPacket()
         smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
         smb['Flags2'] = SMB.FLAGS2_LONG_NAMES
-        smb['Tid']    = tid
+        smb['Tid'] = tid
 
         transCommand = SMBCommand(SMB.SMB_COM_TRANSACTION)
         transCommand['Parameters'] = SMBTransaction_Parameters()
@@ -3514,7 +3700,7 @@ class SMB:
         transCommand['Parameters']['Timeout'] = timeout * 1000
 
         transCommand['Parameters']['ParameterCount'] = 0
-        transCommand['Parameters']['ParameterOffset'] = 32+3+28+len(setup)+len(name)
+        transCommand['Parameters']['ParameterOffset'] = 32 + 3 + 28 + len(setup) + len(name)
 
         transCommand['Parameters']['DataCount'] = 0
         transCommand['Parameters']['DataOffset'] = 0
@@ -3524,29 +3710,29 @@ class SMB:
         transCommand['Data']['Trans_Data'] = ''
 
         if noAnswer:
-           transCommand['Parameters']['Flags'] = TRANS_NO_RESPONSE
-      
+            transCommand['Parameters']['Flags'] = TRANS_NO_RESPONSE
+
         smb.addCommand(transCommand)
         self.sendSMB(smb)
 
         smb = self.recvSMB()
         if smb.isValidAnswer(SMB.SMB_COM_TRANSACTION):
-           return 1
+            return 1
         return 0
 
-    def read(self, tid, fid, offset=0, max_size = None, wait_answer=1):
+    def read(self, tid, fid, offset=0, max_size=None, wait_answer=1):
         if not max_size:
-            max_size = self._dialects_parameters['MaxBufferSize'] # Read in multiple KB blocks
-        
+            max_size = self._dialects_parameters['MaxBufferSize']  # Read in multiple KB blocks
+
         # max_size is not working, because although it would, the server returns an error (More data avail)
 
         smb = NewSMBPacket()
-        smb['Flags1'] = SMB.FLAGS1_CANONICALIZED_PATHS | SMB.FLAGS1_PATHCASELESS 
+        smb['Flags1'] = SMB.FLAGS1_CANONICALIZED_PATHS | SMB.FLAGS1_PATHCASELESS
         smb['Flags2'] = 0
-        smb['Tid']    = tid
+        smb['Tid'] = tid
 
         read = SMBCommand(SMB.SMB_COM_READ)
-        
+
         read['Parameters'] = SMBRead_Parameters()
         read['Parameters']['Fid'] = fid
         read['Parameters']['Offset'] = offset
@@ -3561,28 +3747,28 @@ class SMB:
                 ans = self.recvSMB()
 
                 if ans.isValidAnswer(SMB.SMB_COM_READ):
-                    readResponse   = SMBCommand(ans['Data'][0])
+                    readResponse = SMBCommand(ans['Data'][0])
                     readParameters = SMBReadResponse_Parameters(readResponse['Parameters'])
-                    readData       = SMBReadResponse_Data(readResponse['Data'])
+                    readData = SMBReadResponse_Data(readResponse['Data'])
 
                     return readData['Data']
 
         return None
 
-    def read_andx(self, tid, fid, offset=0, max_size = None, wait_answer=1, smb_packet=None):
+    def read_andx(self, tid, fid, offset=0, max_size=None, wait_answer=1, smb_packet=None):
         if not max_size:
             if (self._dialects_parameters['Capabilities'] & SMB.CAP_LARGE_READX) and self._SignatureEnabled is False:
                 max_size = 65000
             else:
-                max_size = self._dialects_parameters['MaxBufferSize'] # Read in multiple KB blocks
-        
+                max_size = self._dialects_parameters['MaxBufferSize']  # Read in multiple KB blocks
+
         # max_size is not working, because although it would, the server returns an error (More data avail)
 
         if smb_packet == None:
             smb = NewSMBPacket()
-            smb['Flags1'] = SMB.FLAGS1_CANONICALIZED_PATHS | SMB.FLAGS1_PATHCASELESS 
+            smb['Flags1'] = SMB.FLAGS1_CANONICALIZED_PATHS | SMB.FLAGS1_PATHCASELESS
             smb['Flags2'] = 0
-            smb['Tid']    = tid
+            smb['Tid'] = tid
 
             readAndX = SMBCommand(SMB.SMB_COM_READ_ANDX)
             readAndX['Parameters'] = SMBReadAndX_Parameters()
@@ -3594,7 +3780,6 @@ class SMB:
         else:
             smb = smb_packet
 
-
         if wait_answer:
             answer = ''
             while 1:
@@ -3603,12 +3788,12 @@ class SMB:
 
                 if ans.isValidAnswer(SMB.SMB_COM_READ_ANDX):
                     # XXX Here we are only using a few fields from the response
-                    readAndXResponse   = SMBCommand(ans['Data'][0])
+                    readAndXResponse = SMBCommand(ans['Data'][0])
                     readAndXParameters = SMBReadAndXResponse_Parameters(readAndXResponse['Parameters'])
 
                     offset = readAndXParameters['DataOffset']
-                    count = readAndXParameters['DataCount']+0x10000*readAndXParameters['DataCount_Hi']
-                    answer += str(ans)[offset:offset+count]
+                    count = readAndXParameters['DataCount'] + 0x10000 * readAndXParameters['DataCount_Hi']
+                    answer += str(ans)[offset:offset + count]
                     if not ans.isMoreData():
                         return answer
                     max_size = min(max_size, readAndXParameters['Remaining'])
@@ -3627,18 +3812,18 @@ class SMB:
 
         return None
 
-    def read_raw(self, tid, fid, offset=0, max_size = None, wait_answer=1):
+    def read_raw(self, tid, fid, offset=0, max_size=None, wait_answer=1):
         if not max_size:
-            max_size = self._dialects_parameters['MaxBufferSize'] # Read in multiple KB blocks
-        
+            max_size = self._dialects_parameters['MaxBufferSize']  # Read in multiple KB blocks
+
         # max_size is not working, because although it would, the server returns an error (More data avail)
         smb = NewSMBPacket()
-        smb['Flags1'] = SMB.FLAGS1_CANONICALIZED_PATHS | SMB.FLAGS1_PATHCASELESS 
+        smb['Flags1'] = SMB.FLAGS1_CANONICALIZED_PATHS | SMB.FLAGS1_PATHCASELESS
         smb['Flags2'] = 0
-        smb['Tid']    = tid
+        smb['Tid'] = tid
 
         readRaw = SMBCommand(SMB.SMB_COM_READ_RAW)
-        
+
         readRaw['Parameters'] = SMBReadRaw_Parameters()
         readRaw['Parameters']['Fid'] = fid
         readRaw['Parameters']['Offset'] = offset
@@ -3656,15 +3841,15 @@ class SMB:
 
         return None
 
-    def write(self,tid,fid,data, offset = 0, wait_answer=1):
+    def write(self,tid,fid,data, offset=0, wait_answer=1):
         smb = NewSMBPacket()
-        smb['Flags1'] = SMB.FLAGS1_CANONICALIZED_PATHS | SMB.FLAGS1_PATHCASELESS 
+        smb['Flags1'] = SMB.FLAGS1_CANONICALIZED_PATHS | SMB.FLAGS1_PATHCASELESS
         smb['Flags2'] = 0
-        smb['Tid']    = tid
+        smb['Tid'] = tid
 
         write = SMBCommand(SMB.SMB_COM_WRITE)
         smb.addCommand(write)
-        
+
         write['Parameters'] = SMBWrite_Parameters()
         write['Data'] = SMBWrite_Data()
         write['Parameters']['Fid'] = fid
@@ -3674,23 +3859,23 @@ class SMB:
         write['Data']['Data'] = data
 
         self.sendSMB(smb)
-                
+
         if wait_answer:
             smb = self.recvSMB()
             if smb.isValidAnswer(SMB.SMB_COM_WRITE):
                 return smb
         return None
 
-    def write_andx(self,tid,fid,data, offset = 0, wait_answer=1, write_pipe_mode = False, smb_packet=None):
+    def write_andx(self,tid,fid,data, offset=0, wait_answer=1, write_pipe_mode=False, smb_packet=None):
         if smb_packet == None:
             smb = NewSMBPacket()
-            smb['Flags1'] = SMB.FLAGS1_CANONICALIZED_PATHS | SMB.FLAGS1_PATHCASELESS 
+            smb['Flags1'] = SMB.FLAGS1_CANONICALIZED_PATHS | SMB.FLAGS1_PATHCASELESS
             smb['Flags2'] = 0
-            smb['Tid']    = tid
+            smb['Tid'] = tid
 
             writeAndX = SMBCommand(SMB.SMB_COM_WRITE_ANDX)
             smb.addCommand(writeAndX)
-       
+
             writeAndX['Parameters'] = SMBWriteAndX_Parameters()
             writeAndX['Parameters']['Fid'] = fid
             writeAndX['Parameters']['Offset'] = offset
@@ -3699,17 +3884,17 @@ class SMB:
             writeAndX['Parameters']['DataLength'] = len(data)
             writeAndX['Parameters']['DataOffset'] = len(smb)    # this length already includes the parameter
             writeAndX['Data'] = data
-            
+
             if write_pipe_mode is True:
                 # First of all we gotta know what the MaxBuffSize is
-                maxBuffSize = self._dialects_parameters['MaxBufferSize'] 
+                maxBuffSize = self._dialects_parameters['MaxBufferSize']
                 if len(data) > maxBuffSize:
                     chunks_size = maxBuffSize - 60
                     writeAndX['Parameters']['WriteMode'] = 0x0c
                     sendData = '\xff\xff' + data
                     totalLen = len(sendData)
                     writeAndX['Parameters']['DataLength'] = chunks_size
-                    writeAndX['Parameters']['Remaining'] = totalLen-2
+                    writeAndX['Parameters']['Remaining'] = totalLen - 2
                     writeAndX['Data'] = sendData[:chunks_size]
 
                     self.sendSMB(smb)
@@ -3728,7 +3913,7 @@ class SMB:
                         if wait_answer:
                             smbResp = self.recvSMB()
                             smbResp.isValidAnswer(SMB.SMB_COM_WRITE_ANDX)
-                        alreadySent += writeAndX['Parameters']['DataLength'] 
+                        alreadySent += writeAndX['Parameters']['DataLength']
                         sendData = sendData[chunks_size:]
 
                     return smbResp
@@ -3737,23 +3922,23 @@ class SMB:
             smb = smb_packet
 
         self.sendSMB(smb)
-                
+
         if wait_answer:
             smb = self.recvSMB()
             if smb.isValidAnswer(SMB.SMB_COM_WRITE_ANDX):
                 return smb
         return None
 
-    def write_raw(self,tid,fid,data, offset = 0, wait_answer=1):
+    def write_raw(self,tid,fid,data, offset=0, wait_answer=1):
         LOG.warning("[MS-CIFS] This command was introduced in the CorePlus dialect, but is often listed as part of the LAN Manager 1.0 dialect.This command has been deprecated.Clients SHOULD use SMB_COM_WRITE_ANDX")
         smb = NewSMBPacket()
-        smb['Flags1'] = SMB.FLAGS1_CANONICALIZED_PATHS | SMB.FLAGS1_PATHCASELESS 
+        smb['Flags1'] = SMB.FLAGS1_CANONICALIZED_PATHS | SMB.FLAGS1_PATHCASELESS
         smb['Flags2'] = 0
-        smb['Tid']    = tid
+        smb['Tid'] = tid
 
         writeRaw = SMBCommand(SMB.SMB_COM_WRITE_RAW)
         smb.addCommand(writeRaw)
-        
+
         writeRaw['Parameters'] = SMBWriteRaw_Parameters()
         writeRaw['Parameters']['Fid'] = fid
         writeRaw['Parameters']['Offset'] = offset
@@ -3763,47 +3948,47 @@ class SMB:
 
         self.sendSMB(smb)
         self._sess.send_packet(data)
-                
+
         if wait_answer:
             smb = self.recvSMB()
             if smb.isValidAnswer(SMB.SMB_COM_WRITE_RAW):
                 return smb
         return None
 
-    def TransactNamedPipe(self, tid, fid, data = '', noAnswer = 0, waitAnswer = 1, offset = 0):
-        self.send_trans(tid,pack('<HH', 0x26, fid),'\\PIPE\\\x00','',data, noAnswer = noAnswer)
+    def TransactNamedPipe(self, tid, fid, data='', noAnswer=0, waitAnswer=1, offset=0):
+        self.send_trans(tid,pack('<HH', 0x26, fid),'\\PIPE\\\x00','',data, noAnswer=noAnswer)
 
         if noAnswer or not waitAnswer:
             return
         smb = self.recvSMB()
         if smb.isValidAnswer(SMB.SMB_COM_TRANSACTION):
-           transResponse = SMBCommand(smb['Data'][0])
-           transParameters = SMBTransactionResponse_Parameters(transResponse['Parameters'])
-           return transResponse['Data'][-transParameters['TotalDataCount']:] # Remove Potential Prefix Padding
+            transResponse = SMBCommand(smb['Data'][0])
+            transParameters = SMBTransactionResponse_Parameters(transResponse['Parameters'])
+            return transResponse['Data'][-transParameters['TotalDataCount']:]  # Remove Potential Prefix Padding
         return None
 
     def TransactNamedPipeRecv(self):
         s = self.recvSMB()
         if s.isValidAnswer(SMB.SMB_COM_TRANSACTION):
-           transResponse = SMBCommand(s['Data'][0])
-           transParameters = SMBTransactionResponse_Parameters(transResponse['Parameters'])
-           return transResponse['Data'][-transParameters['TotalDataCount']:] # Remove Potential Prefix Padding
+            transResponse = SMBCommand(s['Data'][0])
+            transParameters = SMBTransactionResponse_Parameters(transResponse['Parameters'])
+            return transResponse['Data'][-transParameters['TotalDataCount']:]  # Remove Potential Prefix Padding
         return None
 
-    def nt_create_andx(self,tid,filename, smb_packet=None, cmd = None, shareAccessMode = FILE_SHARE_READ | FILE_SHARE_WRITE, disposition = FILE_OPEN, accessMask = 0x2019f):
+    def nt_create_andx(self,tid,filename, smb_packet=None, cmd=None, shareAccessMode=FILE_SHARE_READ | FILE_SHARE_WRITE, disposition=FILE_OPEN, accessMask=0x2019f):
         filename = string.replace(filename,'/', '\\')
         if smb_packet == None:
             smb = NewSMBPacket()
-            smb['Flags1'] = SMB.FLAGS1_CANONICALIZED_PATHS | SMB.FLAGS1_PATHCASELESS 
+            smb['Flags1'] = SMB.FLAGS1_CANONICALIZED_PATHS | SMB.FLAGS1_PATHCASELESS
             smb['Flags2'] = SMB.FLAGS2_LONG_NAMES
-            smb['Tid']    = tid
+            smb['Tid'] = tid
         else:
             smb = smb_packet
-        
+
         if cmd == None:
             ntCreate = SMBCommand(SMB.SMB_COM_NT_CREATE_ANDX)
             ntCreate['Parameters'] = SMBNtCreateAndX_Parameters()
-            ntCreate['Data']       = SMBNtCreateAndX_Data()
+            ntCreate['Data'] = SMBNtCreateAndX_Data()
             ntCreate['Parameters']['FileNameLength'] = len(filename)
             ntCreate['Parameters']['CreateFlags'] = 0x16
             ntCreate['Parameters']['AccessMask'] = accessMask
@@ -3822,7 +4007,7 @@ class SMB:
             smb = self.recvSMB()
             if smb.isValidAnswer(SMB.SMB_COM_NT_CREATE_ANDX):
                 # XXX Here we are ignoring the rest of the response
-                ntCreateResponse   = SMBCommand(smb['Data'][0])
+                ntCreateResponse = SMBCommand(smb['Data'][0])
                 ntCreateParameters = SMBNtCreateAndXResponse_Parameters(ntCreateResponse['Parameters'])
 
                 self.fid = ntCreateParameters['Fid']
@@ -3836,8 +4021,7 @@ class SMB:
         self.sendSMB(smb)
         smb = self.recvSMB()
         # Let's clear some fields so you can login again under the same session
-        self._uid = 0 
-
+        self._uid = 0
 
     def list_shared(self):
         tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\IPC$')
@@ -3846,7 +4030,7 @@ class SMB:
         try:
             self.send_trans(tid, '', '\\PIPE\\LANMAN\0', '\x00\x00WrLeh\0B13BWz\0\x01\x00\xe0\xff', '')
             numentries = 0
-            share_list = [ ]
+            share_list = []
             while 1:
                 s = self.recv_packet()
                 if self.isValidAnswer(s,SMB.SMB_COM_TRANSACTION):
@@ -3861,7 +4045,7 @@ class SMB:
                         for i in range(0, numentries):
                             name = share_data[offset:string.find(share_data, '\0', offset)]
                             type, commentoffset = unpack('<HH', share_data[offset + 14:offset + 18])
-                            comment = share_data[commentoffset-data_offset:share_data.find('\0', commentoffset-data_offset)]
+                            comment = share_data[commentoffset - data_offset:share_data.find('\0', commentoffset - data_offset)]
                             offset = offset + 20
                             share_list.append(SharedDevice(name, type, comment))
                         return share_list
@@ -3869,26 +4053,26 @@ class SMB:
             buf.close()
             self.disconnect_tree(tid)
 
-    def list_path(self, service, path = '*', password = None):
+    def list_path(self, service, path='*', password=None):
         path = string.replace(path, '/', '\\')
 
         tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\' + service, password)
         try:
             self.trans2(tid, '\x01\x00', '\x00', '\x16\x00\x00\x02\x06\x00\x04\x01\x00\x00\x00\x00' + path + '\x00', '')
             resume = False
-            files = [ ]
+            files = []
 
             while 1:
                 s = self.recv_packet()
                 if self.isValidAnswer(s,SMB.SMB_COM_TRANSACTION2):
                     has_more, _, transparam, transdata = self.__decode_trans(s.get_parameter_words(), s.get_buffer())
-                    # A fairly quick trans reassembly. 
+                    # A fairly quick trans reassembly.
                     while has_more:
-                       s2 = self.recv_packet()
-                       if self.isValidAnswer(s2,SMB.SMB_COM_TRANSACTION2):
-                          has_more, _, transparam2, transdata2 = self.__decode_trans(s2.get_parameter_words(), s2.get_buffer())
-                          transdata += transdata2
-                          transparam += transparam2
+                        s2 = self.recv_packet()
+                        if self.isValidAnswer(s2,SMB.SMB_COM_TRANSACTION2):
+                            has_more, _, transparam2, transdata2 = self.__decode_trans(s2.get_parameter_words(), s2.get_buffer())
+                            transdata += transdata2
+                            transparam += transparam2
 
                     if not resume:
                         sid, searchcnt, eos, erroffset, lastnameoffset = unpack('<HHHHH', transparam)
@@ -3905,21 +4089,21 @@ class SMB:
                         if not nextentry:
                             break
                     if eos:
-                       return files
+                        return files
                     else:
-                       self.trans2(tid, '\x02\x00', '\x00', pack('<H', sid) + '\x56\x05\x04\x01\x00\x00\x00\x00\x06\x00' + resume_filename + '\x00', '')
-                       resume = True
-                       resume_filename = ''
+                        self.trans2(tid, '\x02\x00', '\x00', pack('<H', sid) + '\x56\x05\x04\x01\x00\x00\x00\x00\x06\x00' + resume_filename + '\x00', '')
+                        resume = True
+                        resume_filename = ''
         finally:
             self.disconnect_tree(tid)
 
-    def retr_file(self, service, filename, callback, mode = FILE_OPEN, offset = 0, password = None, shareAccessMode = SMB_ACCESS_READ):
+    def retr_file(self, service, filename, callback, mode=FILE_OPEN, offset=0, password=None, shareAccessMode=SMB_ACCESS_READ):
         filename = string.replace(filename, '/', '\\')
 
         fid = -1
         tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\' + service, password)
         try:
-            fid = self.nt_create_andx(tid, filename, shareAccessMode = shareAccessMode, accessMask = 0x20089)
+            fid = self.nt_create_andx(tid, filename, shareAccessMode=shareAccessMode, accessMask=0x20089)
 
             datasize = self.query_file_info(tid, fid)
 
@@ -3929,34 +4113,34 @@ class SMB:
                 self.close(tid, fid)
             self.disconnect_tree(tid)
 
-    def stor_file(self, service, filename, callback, mode = FILE_OVERWRITE_IF, offset = 0, password = None, shareAccessMode = SMB_ACCESS_WRITE):
+    def stor_file(self, service, filename, callback, mode=FILE_OVERWRITE_IF, offset=0, password=None, shareAccessMode=SMB_ACCESS_WRITE):
         filename = string.replace(filename, '/', '\\')
 
         fid = -1
         tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\' + service, password)
         try:
-            fid = self.nt_create_andx(tid, filename, shareAccessMode = shareAccessMode, disposition = mode )
-            
+            fid = self.nt_create_andx(tid, filename, shareAccessMode=shareAccessMode, disposition=mode)
+
             self.__nonraw_stor_file(tid, fid, offset, 0, callback)
         finally:
             if fid >= 0:
                 self.close(tid, fid)
             self.disconnect_tree(tid)
 
-    def stor_file_nonraw(self, service, filename, callback, mode = FILE_OVERWRITE_IF, offset = 0, password = None, shareAccessMode = SMB_ACCESS_WRITE ):
+    def stor_file_nonraw(self, service, filename, callback, mode=FILE_OVERWRITE_IF, offset=0, password=None, shareAccessMode=SMB_ACCESS_WRITE):
         filename = string.replace(filename, '/', '\\')
 
         fid = -1
         tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\' + service, password)
         try:
-            fid = self.nt_create_andx(tid, filename, shareAccessMode = shareAccessMode, disposition = mode)
+            fid = self.nt_create_andx(tid, filename, shareAccessMode=shareAccessMode, disposition=mode)
             self.__nonraw_stor_file(tid, fid, offset, 0, callback)
         finally:
             if fid >= 0:
                 self.close(tid, fid)
             self.disconnect_tree(tid)
 
-    def copy(self, src_service, src_path, dest_service, dest_path, callback = None, write_mode = SMB_O_CREAT | SMB_O_TRUNC, src_password = None, dest_password = None):
+    def copy(self, src_service, src_path, dest_service, dest_path, callback=None, write_mode=SMB_O_CREAT | SMB_O_TRUNC, src_password=None, dest_password=None):
         dest_path = string.replace(dest_path, '/', '\\')
         src_path = string.replace(src_path, '/', '\\')
         src_tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\' + src_service, src_password)
@@ -3967,7 +4151,7 @@ class SMB:
                 dest_tid = src_tid
             else:
                 dest_tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\' + dest_service, dest_password)
-            
+
             dest_fid = self.open_andx(dest_tid, dest_path, write_mode, SMB_ACCESS_WRITE)[0]
             src_fid, _, _, src_datasize, _, _, _, _, _ = self.open_andx(src_tid, src_path, SMB_O_OPEN, SMB_ACCESS_READ)
             if not src_datasize:
@@ -3985,7 +4169,7 @@ class SMB:
                     s = self.recv_packet()
                     if self.isValidAnswer(s,SMB.SMB_COM_READ_ANDX):
                         offset = unpack('<H', s.get_parameter_words()[2:4])[0]
-                        data_len, dataoffset = unpack('<HH', s.get_parameter_words()[10+offset:14+offset])
+                        data_len, dataoffset = unpack('<HH', s.get_parameter_words()[10 + offset:14 + offset])
                         d = s.get_buffer()
                         if data_len == len(d):
                             self.__send_smb_packet(SMB.SMB_COM_WRITE_ANDX, 0, 0, dest_tid, 0, pack('<BBHHLLHHHHH', 0xff, 0, 0, dest_fid, write_offset, 0, 0, 0, 0, data_len, 59), d)
@@ -4000,13 +4184,13 @@ class SMB:
                         if callback:
                             callback(read_offset, src_datasize)
                         break
-                
+
         finally:
             self.disconnect_tree(src_tid)
             if dest_tid > -1 and src_service != dest_service:
                 self.disconnect_tree(dest_tid)
 
-    def check_dir(self, service, path, password = None):
+    def check_dir(self, service, path, password=None):
         path = string.replace(path,'/', '\\')
         tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\' + service, password)
         try:
@@ -4019,7 +4203,7 @@ class SMB:
         finally:
             self.disconnect_tree(tid)
 
-    def remove(self, service, path, password = None):
+    def remove(self, service, path, password=None):
         path = string.replace(path,'/', '\\')
         # Perform a list to ensure the path exists
         self.list_path(service, path, password)
@@ -4035,7 +4219,7 @@ class SMB:
         finally:
             self.disconnect_tree(tid)
 
-    def rmdir(self, service, path, password = None):
+    def rmdir(self, service, path, password=None):
         path = string.replace(path,'/', '\\')
         # Check that the directory exists
         self.check_dir(service, path, password)
@@ -4051,7 +4235,7 @@ class SMB:
         finally:
             self.disconnect_tree(tid)
 
-    def mkdir(self, service, path, password = None):
+    def mkdir(self, service, path, password=None):
         path = string.replace(path,'/', '\\')
         tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\' + service, password)
         try:
@@ -4062,7 +4246,7 @@ class SMB:
             createDir['Data']['DirectoryName'] = path
             smb.addCommand(createDir)
             self.sendSMB(smb)
-        
+
             smb = self.recvSMB()
             if smb.isValidAnswer(SMB.SMB_COM_CREATE_DIRECTORY):
                 return 1
@@ -4070,7 +4254,7 @@ class SMB:
         finally:
             self.disconnect_tree(tid)
 
-    def rename(self, service, old_path, new_path, password = None):
+    def rename(self, service, old_path, new_path, password=None):
         old_path = string.replace(old_path,'/', '\\')
         new_path = string.replace(new_path,'/', '\\')
         tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\' + service, password)
@@ -4080,21 +4264,21 @@ class SMB:
             smb['Flags'] = SMB.FLAGS1_PATHCASELESS
             renameCmd = SMBCommand(SMB.SMB_COM_RENAME)
             renameCmd['Parameters'] = SMBRename_Parameters()
-            renameCmd['Parameters']['SearchAttributes'] = ATTR_SYSTEM | ATTR_HIDDEN | ATTR_DIRECTORY 
+            renameCmd['Parameters']['SearchAttributes'] = ATTR_SYSTEM | ATTR_HIDDEN | ATTR_DIRECTORY
             renameCmd['Data'] = SMBRename_Data()
             renameCmd['Data']['OldFileName'] = old_path
-            renameCmd['Data']['NewFileName'] = new_path 
+            renameCmd['Data']['NewFileName'] = new_path
 
             smb.addCommand(renameCmd)
             self.sendSMB(smb)
             smb = self.recvSMB()
             if smb.isValidAnswer(SMB.SMB_COM_RENAME):
-               return 1
-            return 0 
+                return 1
+            return 0
         finally:
             self.disconnect_tree(tid)
 
-    def writeFile(self, treeId, fileId, data, offset = 0):
+    def writeFile(self, treeId, fileId, data, offset=0):
         if (self._dialects_parameters['Capabilities'] & SMB.CAP_LARGE_WRITEX) and self._SignatureEnabled is False:
             max_buf_size = 65000
         else:
@@ -4108,80 +4292,79 @@ class SMB:
             data = data[max_buf_size:]
 
             smb = self.write_andx(treeId,fileId,writeData, write_offset)
-            writeResponse   = SMBCommand(smb['Data'][0])
+            writeResponse = SMBCommand(smb['Data'][0])
             writeResponseParameters = SMBWriteAndXResponse_Parameters(writeResponse['Parameters'])
             write_offset += writeResponseParameters['Count']
 
     def get_socket(self):
         return self._sess.get_socket()
 
-ERRDOS = { 1: 'Invalid function',
-           2: 'File not found',
-           3: 'Invalid directory',
-           4: 'Too many open files',
-           5: 'Access denied',
-           6: 'Invalid file handle. Please file a bug report.',
-           7: 'Memory control blocks destroyed',
-           8: 'Out of memory',
-           9: 'Invalid memory block address',
-           10: 'Invalid environment',
-           11: 'Invalid format',
-           12: 'Invalid open mode',
-           13: 'Invalid data',
-           15: 'Invalid drive',
-           16: 'Attempt to remove server\'s current directory',
-           17: 'Not the same device',
-           18: 'No files found',
-           32: 'Sharing mode conflicts detected',
-           33: 'Lock request conflicts detected',
-           80: 'File already exists'
-           }
+ERRDOS = {1: 'Invalid function',
+          2: 'File not found',
+          3: 'Invalid directory',
+          4: 'Too many open files',
+          5: 'Access denied',
+          6: 'Invalid file handle. Please file a bug report.',
+          7: 'Memory control blocks destroyed',
+          8: 'Out of memory',
+          9: 'Invalid memory block address',
+          10: 'Invalid environment',
+          11: 'Invalid format',
+          12: 'Invalid open mode',
+          13: 'Invalid data',
+          15: 'Invalid drive',
+          16: 'Attempt to remove server\'s current directory',
+          17: 'Not the same device',
+          18: 'No files found',
+          32: 'Sharing mode conflicts detected',
+          33: 'Lock request conflicts detected',
+          80: 'File already exists'
+          }
 
-ERRSRV = { 1: 'Non-specific error',
-           2: 'Bad password',
-           4: 'Access denied',
-           5: 'Invalid tid. Please file a bug report.',
-           6: 'Invalid network name',
-           7: 'Invalid device',
-           49: 'Print queue full',
-           50: 'Print queue full',
-           51: 'EOF on print queue dump',
-           52: 'Invalid print file handle',
-           64: 'Command not recognized. Please file a bug report.',
-           65: 'Internal server error',
-           67: 'Invalid path',
-           69: 'Invalid access permissions',
-           71: 'Invalid attribute mode',
-           81: 'Server is paused',
-           82: 'Not receiving messages',
-           83: 'No room to buffer messages',
-           87: 'Too many remote user names',
-           88: 'Operation timeout',
-           89: 'Out of resources',
-           91: 'Invalid user handle. Please file a bug report.',
-           250: 'Temporarily unable to support raw mode for transfer',
-           251: 'Temporarily unable to support raw mode for transfer',
-           252: 'Continue in MPX mode',
-           65535: 'Unsupported function'
-           }
+ERRSRV = {1: 'Non-specific error',
+          2: 'Bad password',
+          4: 'Access denied',
+          5: 'Invalid tid. Please file a bug report.',
+          6: 'Invalid network name',
+          7: 'Invalid device',
+          49: 'Print queue full',
+          50: 'Print queue full',
+          51: 'EOF on print queue dump',
+          52: 'Invalid print file handle',
+          64: 'Command not recognized. Please file a bug report.',
+          65: 'Internal server error',
+          67: 'Invalid path',
+          69: 'Invalid access permissions',
+          71: 'Invalid attribute mode',
+          81: 'Server is paused',
+          82: 'Not receiving messages',
+          83: 'No room to buffer messages',
+          87: 'Too many remote user names',
+          88: 'Operation timeout',
+          89: 'Out of resources',
+          91: 'Invalid user handle. Please file a bug report.',
+          250: 'Temporarily unable to support raw mode for transfer',
+          251: 'Temporarily unable to support raw mode for transfer',
+          252: 'Continue in MPX mode',
+          65535: 'Unsupported function'
+          }
 
-ERRHRD = { 19: 'Media is write-protected',
-           20: 'Unknown unit',
-           21: 'Drive not ready',
-           22: 'Unknown command',
-           23: 'CRC error',
-           24: 'Bad request',
-           25: 'Seek error',
-           26: 'Unknown media type',
-           27: 'Sector not found',
-           28: 'Printer out of paper',
-           29: 'Write fault',
-           30: 'Read fault',
-           31: 'General failure',
-           32: 'Open conflicts with an existing open',
-           33: 'Invalid lock request',
-           34: 'Wrong disk in drive',
-           35: 'FCBs not available',
-           36: 'Sharing buffer exceeded'
-           }
-
+ERRHRD = {19: 'Media is write-protected',
+          20: 'Unknown unit',
+          21: 'Drive not ready',
+          22: 'Unknown command',
+          23: 'CRC error',
+          24: 'Bad request',
+          25: 'Seek error',
+          26: 'Unknown media type',
+          27: 'Sector not found',
+          28: 'Printer out of paper',
+          29: 'Write fault',
+          30: 'Read fault',
+          31: 'General failure',
+          32: 'Open conflicts with an existing open',
+          33: 'Invalid lock request',
+          34: 'Wrong disk in drive',
+          35: 'FCBs not available',
+          36: 'Sharing buffer exceeded'
+          }

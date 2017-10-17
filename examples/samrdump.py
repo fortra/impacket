@@ -30,15 +30,15 @@ import argparse
 class ListUsersException(Exception):
     pass
 
+
 class SAMRDump:
     KNOWN_PROTOCOLS = {
         '139/SMB': (r'ncacn_np:%s[\pipe\samr]', 139),
         '445/SMB': (r'ncacn_np:%s[\pipe\samr]', 445),
-        }
+    }
 
-
-    def __init__(self, protocols = None,
-                 username = '', password = '', domain = '', hashes = None, aesKey=None, doKerberos = False):
+    def __init__(self, protocols=None,
+                 username='', password='', domain='', hashes=None, aesKey=None, doKerberos=False):
         if not protocols:
             self.__protocols = list(SAMRDump.KNOWN_PROTOCOLS.keys())
         else:
@@ -54,7 +54,6 @@ class SAMRDump:
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
 
-
     def dump(self, addr):
         """Dumps the list of users and shares registered present at
         addr. Addr is a valid host name or IP address.
@@ -69,7 +68,7 @@ class SAMRDump:
             port = protodef[1]
 
             logging.info("Trying protocol %s..." % protocol)
-            rpctransport = transport.SMBTransport(addr, port, r'\samr', self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey, doKerberos = self.__doKerberos)
+            rpctransport = transport.SMBTransport(addr, port, r'\samr', self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey, doKerberos=self.__doKerberos)
 
             try:
                 entries = self.__fetchList(rpctransport)
@@ -99,7 +98,6 @@ class SAMRDump:
         else:
             logging.info('No entries received.')
 
-
     def __fetchList(self, rpctransport):
         dce = rpctransport.get_dce_rpc()
 
@@ -110,7 +108,7 @@ class SAMRDump:
 
         try:
             resp = samr.hSamrConnect(dce)
-            serverHandle = resp['ServerHandle'] 
+            serverHandle = resp['ServerHandle']
 
             resp = samr.hSamrEnumerateDomainsInSamServer(dce, serverHandle)
             domains = resp['Buffer']['Buffer']
@@ -121,33 +119,33 @@ class SAMRDump:
 
             logging.info("Looking up users in domain %s" % domains[0]['Name'])
 
-            resp = samr.hSamrLookupDomainInSamServer(dce, serverHandle,domains[0]['Name'] )
+            resp = samr.hSamrLookupDomainInSamServer(dce, serverHandle,domains[0]['Name'])
 
-            resp = samr.hSamrOpenDomain(dce, serverHandle = serverHandle, domainId = resp['DomainId'])
+            resp = samr.hSamrOpenDomain(dce, serverHandle=serverHandle, domainId=resp['DomainId'])
             domainHandle = resp['DomainHandle']
 
             done = False
-            
+
             status = STATUS_MORE_ENTRIES
             enumerationContext = 0
             while status == STATUS_MORE_ENTRIES:
                 try:
-                    resp = samr.hSamrEnumerateUsersInDomain(dce, domainHandle, enumerationContext = enumerationContext)
+                    resp = samr.hSamrEnumerateUsersInDomain(dce, domainHandle, enumerationContext=enumerationContext)
                 except Exception as e:
                     if str(e).find('STATUS_MORE_ENTRIES') < 0:
-                        raise 
+                        raise
                     resp = e.get_packet()
 
                 for user in resp['Buffer']['Buffer']:
                     r = samr.hSamrOpenUser(dce, domainHandle, samr.USER_READ_GENERAL | samr.USER_READ_PREFERENCES | samr.USER_READ_ACCOUNT, user['RelativeId'])
-                    print("Found user: %s, uid = %d" % (user['Name'], user['RelativeId'] ))
-    
+                    print("Found user: %s, uid = %d" % (user['Name'], user['RelativeId']))
+
                     info = samr.hSamrQueryInformationUser2(dce, r['UserHandle'],samr.USER_INFORMATION_CLASS.UserAllInformation)
                     entry = (user['Name'], user['RelativeId'], info['Buffer']['All'])
                     entries.append(entry)
                     samr.hSamrCloseHandle(dce, r['UserHandle'])
 
-                enumerationContext = resp['EnumerationContext'] 
+                enumerationContext = resp['EnumerationContext']
                 status = resp['ErrorCode']
 
         except ListUsersException as e:
@@ -162,7 +160,7 @@ class SAMRDump:
 if __name__ == '__main__':
     print(version.BANNER)
 
-    parser = argparse.ArgumentParser(add_help = True, description = "This script downloads the list of users for the target system.")
+    parser = argparse.ArgumentParser(add_help=True, description="This script downloads the list of users for the target system.")
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('protocol', choices=list(SAMRDump.KNOWN_PROTOCOLS.keys()), nargs='?', default='445/SMB', help='transport protocol (default 445/SMB)')
@@ -170,12 +168,12 @@ if __name__ == '__main__':
 
     group = parser.add_argument_group('authentication')
 
-    group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
+    group.add_argument('-hashes', action="store", metavar="LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
     group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
     group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line')
-    group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication (128 or 256 bits)')
+    group.add_argument('-aesKey', action="store", metavar="hex key", help='AES key to use for Kerberos Authentication (128 or 256 bits)')
 
-    if len(sys.argv)==1:
+    if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(1)
 

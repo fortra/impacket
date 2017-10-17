@@ -1,10 +1,10 @@
 ###############################################################################
-#  Tested so far: 
+#  Tested so far:
 # IWbemLevel1Login::EstablishPosition
-# IWbemLevel1Login::RequestChallenge 
-# IWbemLevel1Login::WBEMLogin 
-# IWbemLevel1Login::NTLMLogin 
-# IWbemServices::OpenNamespace  
+# IWbemLevel1Login::RequestChallenge
+# IWbemLevel1Login::WBEMLogin
+# IWbemLevel1Login::NTLMLogin
+# IWbemServices::OpenNamespace
 # IWbemServices::ExecQuery
 # IWbemServices::GetObject
 #
@@ -32,7 +32,7 @@
 # IWbemServices::ExecNotificationQueryAsync
 # IWbemServices::ExecMethod
 # IWbemServices::ExecMethodAsync
-# 
+#
 # Shouldn't dump errors against a win7
 #
 ################################################################################
@@ -52,6 +52,7 @@ from impacket.dcerpc.v5.dcomrt import DCOMConnection
 from impacket.winregistry import hexdump
 from impacket.uuid import string_to_bin, uuidtup_to_bin, generate
 from impacket import system_errors, ntlm
+
 
 class WMITests(unittest.TestCase):
     def tes_activation(self):
@@ -106,7 +107,7 @@ class WMITests(unittest.TestCase):
         dcom = DCOMConnection(self.machine, self.username, self.password, self.domain, self.lmhash, self.nthash)
         iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
         iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
-        iWbemServices= iWbemLevel1Login.NTLMLogin('//./ROOT', NULL, NULL)
+        iWbemServices = iWbemLevel1Login.NTLMLogin('//./ROOT', NULL, NULL)
         try:
             iWbemServices.OpenNamespace('__Namespace')
             print(resp)
@@ -119,19 +120,19 @@ class WMITests(unittest.TestCase):
         dcom = DCOMConnection(self.machine, self.username, self.password, self.domain, self.lmhash, self.nthash)
         iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
         iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
-        iWbemServices= iWbemLevel1Login.NTLMLogin('\\\\%s\\root\\cimv2' % self.machine, NULL, NULL)
+        iWbemServices = iWbemLevel1Login.NTLMLogin('\\\\%s\\root\\cimv2' % self.machine, NULL, NULL)
         iWbemLevel1Login.RemRelease()
 
         classObject,_ = iWbemServices.GetObject('Win32_Process')
-       
+
         dcom.disconnect()
 
     def test_IWbemServices_ExecQuery(self):
         dcom = DCOMConnection(self.machine, self.username, self.password, self.domain, self.lmhash, self.nthash)
         iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
         iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
-        iWbemServices= iWbemLevel1Login.NTLMLogin('\\\\%s\\root\\cimv2' % self.machine, NULL, NULL)
-        classes = [ 'Win32_Account', 'Win32_UserAccount', 'Win32_Group', 'Win32_SystemAccount', 'Win32_Service']
+        iWbemServices = iWbemLevel1Login.NTLMLogin('\\\\%s\\root\\cimv2' % self.machine, NULL, NULL)
+        classes = ['Win32_Account', 'Win32_UserAccount', 'Win32_Group', 'Win32_SystemAccount', 'Win32_Service']
         for classn in classes:
             print("Reading %s " % classn)
             try:
@@ -152,20 +153,20 @@ class WMITests(unittest.TestCase):
         dcom.disconnect()
 
     def test_IWbemServices_ExecMethod(self):
-        dcom = DCOMConnection(self.machine, self.username, self.password, self.domain, self.lmhash, self.nthash)        
+        dcom = DCOMConnection(self.machine, self.username, self.password, self.domain, self.lmhash, self.nthash)
         iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLevel1Login)
         iWbemLevel1Login = wmi.IWbemLevel1Login(iInterface)
-        iWbemServices= iWbemLevel1Login.NTLMLogin('\\\\%s\\root\\cimv2' % self.machine, NULL, NULL)
+        iWbemServices = iWbemLevel1Login.NTLMLogin('\\\\%s\\root\\cimv2' % self.machine, NULL, NULL)
 
-        #classObject,_ = iWbemServices.GetObject('WinMgmts:Win32_LogicalDisk='C:'')
+        # classObject,_ = iWbemServices.GetObject('WinMgmts:Win32_LogicalDisk='C:'')
         classObject,_ = iWbemServices.GetObject('Win32_Process')
         obj = classObject.Create('notepad.exe', 'c:\\', None)
         handle = obj.getProperties()['ProcessId']['value']
-        
+
         iEnumWbemClassObject = iWbemServices.ExecQuery('SELECT * from Win32_Process where handle = %s' % handle)
         oooo = iEnumWbemClassObject.Next(0xffffffff,1)[0]
         #import time
-        #time.sleep(5)
+        # time.sleep(5)
         owner = oooo.Terminate(1)
 
         #iEnumWbemClassObject = iWbemServices.ExecQuery('SELECT * from Win32_Group where name = "testGroup0"')
@@ -177,7 +178,7 @@ class WMITests(unittest.TestCase):
         #oooo = iEnumWbemClassObject.Next(0xffffffff,1)[0]
         #import time
         #owner = oooo.GetAccessMask()
-        #print owner.getProperties()
+        # print owner.getProperties()
 
         #iEnumWbemClassObject = iWbemServices.ExecQuery('SELECT * from Win32_Share where name = "Users"')
         #oooo = iEnumWbemClassObject.Next(0xffffffff,1)[0]
@@ -185,14 +186,15 @@ class WMITests(unittest.TestCase):
 
         #classObject,_ = iWbemServices.GetObject('Win32_ShadowCopy')
         #obj = classObject.Create('C:\\', 'ClientAccessible')
-        #print obj.getProperties()
+        # print obj.getProperties()
 
         # this one doesn't work
         #classObject,_ = iWbemServices.GetObject('Win32_Service')
         #obj = classObject.Create('BETOSERVICE', 'Beto Service', 'c:\\beto', 16, 0, 'Manual', 0, None, None, None, None, None)
-        #print obj.getProperties()
+        # print obj.getProperties()
 
         dcom.disconnect()
+
 
 class TCPTransport(WMITests):
     def setUp(self):
@@ -200,11 +202,11 @@ class TCPTransport(WMITests):
         configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('TCPTransport', 'username')
-        self.domain   = configFile.get('TCPTransport', 'domain')
+        self.domain = configFile.get('TCPTransport', 'domain')
         self.serverName = configFile.get('TCPTransport', 'servername')
         self.password = configFile.get('TCPTransport', 'password')
-        self.machine  = configFile.get('TCPTransport', 'machine')
-        self.hashes   = configFile.get('TCPTransport', 'hashes')
+        self.machine = configFile.get('TCPTransport', 'machine')
+        self.hashes = configFile.get('TCPTransport', 'hashes')
         self.stringBinding = r'ncacn_ip_tcp:%s' % self.machine
         self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
         if len(self.hashes) > 0:
@@ -213,17 +215,18 @@ class TCPTransport(WMITests):
             self.lmhash = ''
             self.nthash = ''
 
+
 class TCPTransport64(WMITests):
     def setUp(self):
         WMITests.setUp(self)
         configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('TCPTransport', 'username')
-        self.domain   = configFile.get('TCPTransport', 'domain')
+        self.domain = configFile.get('TCPTransport', 'domain')
         self.serverName = configFile.get('TCPTransport', 'servername')
         self.password = configFile.get('TCPTransport', 'password')
-        self.machine  = configFile.get('TCPTransport', 'machine')
-        self.hashes   = configFile.get('TCPTransport', 'hashes')
+        self.machine = configFile.get('TCPTransport', 'machine')
+        self.hashes = configFile.get('TCPTransport', 'hashes')
         self.stringBinding = r'ncacn_ip_tcp:%s' % self.machine
         self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
         if len(self.hashes) > 0:
@@ -240,5 +243,5 @@ if __name__ == '__main__':
         suite = unittest.TestLoader().loadTestsFromTestCase(globals()[testcase])
     else:
         suite = unittest.TestLoader().loadTestsFromTestCase(TCPTransport)
-        #suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMBTransport64))
+        # suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMBTransport64))
     unittest.TextTestRunner(verbosity=1).run(suite)

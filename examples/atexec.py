@@ -6,7 +6,7 @@
 # for more information.
 #
 # ATSVC example for some functions implemented, creates, enums, runs, delete jobs
-# This example executes a command on the target machine through the Task Scheduler 
+# This example executes a command on the target machine through the Task Scheduler
 # service. Returns the output of such command
 #
 # Author:
@@ -29,14 +29,14 @@ from impacket.dcerpc import transport, ndrutils, atsvc
 from impacket.examples import logger
 from struct import unpack
 
+
 class ATSVC_EXEC:
     KNOWN_PROTOCOLS = {
         '139/SMB': (r'ncacn_np:%s[\pipe\atsvc]', 139),
         '445/SMB': (r'ncacn_np:%s[\pipe\atsvc]', 445),
-        }
+    }
 
-
-    def __init__(self, username = '', password = '', domain = '', hashes = None, command = None):
+    def __init__(self, username='', password='', domain='', hashes=None, command=None):
         self.__username = username
         self.__password = password
         self.__protocols = list(ATSVC_EXEC.KNOWN_PROTOCOLS.keys())
@@ -71,7 +71,6 @@ class ATSVC_EXEC:
                 # Got a response. No need for further iterations.
                 break
 
-
     def doStuff(self, rpctransport):
         def output_callback(data):
             print(data)
@@ -80,22 +79,22 @@ class ATSVC_EXEC:
 
         dce.set_credentials(*rpctransport.get_credentials())
         dce.connect()
-        #dce.set_auth_level(ntlm.NTLM_AUTH_PKT_PRIVACY)
-        #dce.set_max_fragment_size(16)
+        # dce.set_auth_level(ntlm.NTLM_AUTH_PKT_PRIVACY)
+        # dce.set_max_fragment_size(16)
         dce.bind(atsvc.MSRPC_UUID_ATSVC)
         at = atsvc.DCERPCAtSvc(dce)
         tmpFileName = ''.join([random.choice(string.letters) for i in range(8)]) + '.tmp'
 
         # Check [MS-TSCH] Section 2.3.4
         atInfo = atsvc.AT_INFO()
-        atInfo['JobTime']            = 0
-        atInfo['DaysOfMonth']        = 0
-        atInfo['DaysOfWeek']         = 0
-        atInfo['Flags']              = 0
-        atInfo['Command']            = ndrutils.NDRUniqueStringW()
-        atInfo['Command']['Data']    = ('%%COMSPEC%% /C %s > %%SYSTEMROOT%%\\Temp\\%s\x00' % (self.__command, tmpFileName)).encode('utf-16le')
+        atInfo['JobTime'] = 0
+        atInfo['DaysOfMonth'] = 0
+        atInfo['DaysOfWeek'] = 0
+        atInfo['Flags'] = 0
+        atInfo['Command'] = ndrutils.NDRUniqueStringW()
+        atInfo['Command']['Data'] = ('%%COMSPEC%% /C %s > %%SYSTEMROOT%%\\Temp\\%s\x00' % (self.__command, tmpFileName)).encode('utf-16le')
 
-        resp = at.NetrJobAdd(('\\\\%s'% rpctransport.get_dip()),atInfo)
+        resp = at.NetrJobAdd(('\\\\%s' % rpctransport.get_dip()),atInfo)
         jobId = resp['JobID']
 
         #resp = at.NetrJobEnum(rpctransport.get_dip())
@@ -108,7 +107,7 @@ class ATSVC_EXEC:
         # Leaving this code to show how to enumerate jobs
         #path = '\\'
         #resp = at.SchRpcEnumTasks(path)
-        #if resp['Count'] == 1:
+        # if resp['Count'] == 1:
         #    print resp['TaskName']['Data']
         #    if resp['ErrorCode'] == atsvc.S_FALSE:
         #        i = 1
@@ -120,7 +119,7 @@ class ATSVC_EXEC:
         #            except:
         #                break
         #            if resp['Count'] == 1:
-        #                 print resp['TaskName']['Data'] 
+        #                 print resp['TaskName']['Data']
         #                 i += 1
         #            elif resp['ErrorCode'] != atsvc.S_FALSE:
         #                done = True
@@ -132,7 +131,7 @@ class ATSVC_EXEC:
         time.sleep(3)
         # Switching back to the old ctx_id
         at = atsvc.DCERPCAtSvc(dce)
-        resp = at.NetrJobDel('\\\\%s'% rpctransport.get_dip(), jobId, jobId)
+        resp = at.NetrJobDel('\\\\%s' % rpctransport.get_dip(), jobId, jobId)
 
         smbConnection = rpctransport.get_smb_connection()
         while True:
@@ -145,7 +144,7 @@ class ATSVC_EXEC:
                 else:
                     raise
         smbConnection.deleteFile('ADMIN$', 'Temp\\%s' % tmpFileName)
- 
+
         dce.disconnect()
 
 
@@ -157,13 +156,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
-    parser.add_argument('command', action='store', nargs='*', default = ' ', help='command to execute at the target ')
+    parser.add_argument('command', action='store', nargs='*', default=' ', help='command to execute at the target ')
 
     group = parser.add_argument_group('authentication')
 
-    group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
- 
-    if len(sys.argv)==1:
+    group.add_argument('-hashes', action="store", metavar="LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
+
+    if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(1)
 

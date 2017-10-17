@@ -8,43 +8,44 @@
 #
 # Description:
 #   [MS-SCMP]: Shadow Copy Management Protocol Interface implementation
-#              This was used as a way to test the DCOM runtime. Further 
+#              This was used as a way to test the DCOM runtime. Further
 #              testing is needed to verify it is working as expected
 #
 #   Best way to learn how to use these calls is to grab the protocol standard
 #   so you understand what the call does, and then read the test case located
 #   at https://github.com/CoreSecurity/impacket/tree/master/impacket/testcases/SMB_RPC
 #
-#   Since DCOM is like an OO RPC, instead of helper functions you will see the 
-#   classes described in the standards developed. 
-#   There are test cases for them too. 
+#   Since DCOM is like an OO RPC, instead of helper functions you will see the
+#   classes described in the standards developed.
+#   There are test cases for them too.
 #
-from impacket.dcerpc.v5.ndr import NDRCALL, NDRENUM, NDRSTRUCT, NDRUNION 
+from impacket.dcerpc.v5.ndr import NDRCALL, NDRENUM, NDRSTRUCT, NDRUNION
 from impacket.dcerpc.v5.dcomrt import ORPCTHIS, ORPCTHAT, MInterfacePointer, PMInterfacePointer, INTERFACE, DCOMCALL, DCOMANSWER, IRemUnknown2
 from impacket.dcerpc.v5.dtypes import LONG, LPWSTR, LONGLONG, ULONG, WSTR
 from impacket.dcerpc.v5.enum import Enum
 from impacket import hresult_errors
 from impacket.uuid import string_to_bin
 
+
 class DCERPCSessionError(Exception):
-    def __init__( self, packet = None, error_code = None):
+    def __init__(self, packet=None, error_code=None):
         Exception.__init__(self)
         self.packet = packet
         if packet is not None:
             self.error_code = packet['ErrorCode']
         else:
             self.error_code = error_code
-       
-    def get_error_code( self ):
+
+    def get_error_code(self):
         return self.error_code
- 
-    def get_packet( self ):
+
+    def get_packet(self):
         return self.packet
 
-    def __str__( self ):
+    def __str__(self):
         if (self.error_code in hresult_errors.ERROR_MESSAGES):
             error_msg_short = hresult_errors.ERROR_MESSAGES[self.error_code][0]
-            error_msg_verbose = hresult_errors.ERROR_MESSAGES[self.error_code][1] 
+            error_msg_verbose = hresult_errors.ERROR_MESSAGES[self.error_code][1]
             return 'SCMP SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
         else:
             return 'SCMP SessionError: unknown error code: 0x%x' % (self.error_code)
@@ -55,12 +56,14 @@ class DCERPCSessionError(Exception):
 # 1.9 Standards Assignments
 CLSID_ShadowCopyProvider = string_to_bin('0b5a2c52-3eb9-470a-96e2-6c6d4570e40f')
 IID_IVssSnapshotMgmt = string_to_bin('FA7DF749-66E7-4986-A27F-E2F04AE53772')
-IID_IVssEnumObject   = string_to_bin('AE1C7110-2F60-11d3-8A39-00C04F72D8E3')
+IID_IVssEnumObject = string_to_bin('AE1C7110-2F60-11d3-8A39-00C04F72D8E3')
 IID_IVssDifferentialSoftwareSnapshotMgmt = string_to_bin('214A0F28-B737-4026-B847-4F9E37D79529')
 IID_IVssEnumMgmtObject = string_to_bin('01954E6B-9254-4e6e-808C-C9E05D007696')
 IID_ShadowCopyProvider = string_to_bin('B5946137-7B9F-4925-AF80-51ABD60B20D5')
 
 # 2.2.1.1 VSS_ID
+
+
 class VSS_ID(NDRSTRUCT):
     structure = (
         ('Data','16s=""'),
@@ -69,7 +72,7 @@ class VSS_ID(NDRSTRUCT):
     def getAlignment(self):
         return 2
 
-#2.2.1.2 VSS_PWSZ
+# 2.2.1.2 VSS_PWSZ
 VSS_PWSZ = WSTR
 
 # 2.2.1.3 VSS_TIMESTAMP
@@ -80,44 +83,56 @@ error_status_t = LONG
 # STRUCTURES
 ################################################################################
 # 2.2.2.1 VSS_OBJECT_TYPE Enumeration
+
+
 class VSS_OBJECT_TYPE(NDRENUM):
     class enumItems(Enum):
-        VSS_OBJECT_UNKNOWN      = 0
-        VSS_OBJECT_NONE         = 1
+        VSS_OBJECT_UNKNOWN = 0
+        VSS_OBJECT_NONE = 1
         VSS_OBJECT_SNAPSHOT_SET = 2
-        VSS_OBJECT_SNAPSHOT     = 3
-        VSS_OBJECT_PROVIDER     = 4
-        VSS_OBJECT_TYPE_COUNT   = 5
+        VSS_OBJECT_SNAPSHOT = 3
+        VSS_OBJECT_PROVIDER = 4
+        VSS_OBJECT_TYPE_COUNT = 5
 
 # 2.2.2.2 VSS_MGMT_OBJECT_TYPE Enumeration
+
+
 class VSS_MGMT_OBJECT_TYPE(NDRENUM):
     class enumItems(Enum):
-        VSS_MGMT_OBJECT_UNKNOWN     = 0
-        VSS_MGMT_OBJECT_VOLUME      = 1
+        VSS_MGMT_OBJECT_UNKNOWN = 0
+        VSS_MGMT_OBJECT_VOLUME = 1
         VSS_MGMT_OBJECT_DIFF_VOLUME = 2
-        VSS_MGMT_OBJECT_DIFF_AREA   = 3
+        VSS_MGMT_OBJECT_DIFF_AREA = 3
 
 # 2.2.2.3 VSS_VOLUME_SNAPSHOT_ATTRIBUTES Enumeration
+
+
 class VSS_VOLUME_SNAPSHOT_ATTRIBUTES(NDRENUM):
     class enumItems(Enum):
-        VSS_VOLSNAP_ATTR_PERSISTENT        = 0x01
-        VSS_VOLSNAP_ATTR_NO_AUTORECOVERY   = 0x02
+        VSS_VOLSNAP_ATTR_PERSISTENT = 0x01
+        VSS_VOLSNAP_ATTR_NO_AUTORECOVERY = 0x02
         VSS_VOLSNAP_ATTR_CLIENT_ACCESSIBLE = 0x04
-        VSS_VOLSNAP_ATTR_NO_AUTO_RELEASE   = 0x08
-        VSS_VOLSNAP_ATTR_NO_WRITERS        = 0x10
+        VSS_VOLSNAP_ATTR_NO_AUTO_RELEASE = 0x08
+        VSS_VOLSNAP_ATTR_NO_WRITERS = 0x10
 
 # 2.2.2.4 VSS_SNAPSHOT_STATE Enumeration
+
+
 class VSS_SNAPSHOT_STATE(NDRENUM):
     class enumItems(Enum):
-        VSS_SS_UNKNOWN  = 0x01
-        VSS_SS_CREATED  = 0x0c
+        VSS_SS_UNKNOWN = 0x01
+        VSS_SS_CREATED = 0x0c
 
 # 2.2.2.5 VSS_PROVIDER_TYPE Enumeration
-class  VSS_PROVIDER_TYPE(NDRENUM):
+
+
+class VSS_PROVIDER_TYPE(NDRENUM):
     class enumItems(Enum):
-        VSS_PROV_UNKNOWN  = 0
+        VSS_PROV_UNKNOWN = 0
 
 # 2.2.3.7 VSS_VOLUME_PROP Structure
+
+
 class VSS_VOLUME_PROP(NDRSTRUCT):
     structure = (
         ('m_pwszVolumeName', VSS_PWSZ),
@@ -125,17 +140,21 @@ class VSS_VOLUME_PROP(NDRSTRUCT):
     )
 
 # 2.2.3.5 VSS_MGMT_OBJECT_UNION Union
+
+
 class VSS_MGMT_OBJECT_UNION(NDRUNION):
     commonHdr = (
         ('tag', ULONG),
     )
     union = {
         VSS_MGMT_OBJECT_TYPE.VSS_MGMT_OBJECT_VOLUME: ('Vol', VSS_VOLUME_PROP),
-        #VSS_MGMT_OBJECT_DIFF_VOLUME: ('DiffVol', VSS_DIFF_VOLUME_PROP),
-        #VSS_MGMT_OBJECT_DIFF_AREA: ('DiffArea', VSS_DIFF_AREA_PROP),
+        # VSS_MGMT_OBJECT_DIFF_VOLUME: ('DiffVol', VSS_DIFF_VOLUME_PROP),
+        # VSS_MGMT_OBJECT_DIFF_AREA: ('DiffArea', VSS_DIFF_AREA_PROP),
     }
 
 # 2.2.3.6 VSS_MGMT_OBJECT_PROP Structure
+
+
 class VSS_MGMT_OBJECT_PROP(NDRSTRUCT):
     structure = (
         ('Type', VSS_MGMT_OBJECT_TYPE),
@@ -148,96 +167,114 @@ class VSS_MGMT_OBJECT_PROP(NDRSTRUCT):
 # 3.1.3 IVssEnumMgmtObject Details
 
 # 3.1.3.1 Next (Opnum 3)
+
+
 class IVssEnumMgmtObject_Next(DCOMCALL):
     opnum = 3
     structure = (
-       ('celt', ULONG),
+        ('celt', ULONG),
     )
+
 
 class IVssEnumMgmtObject_NextResponse(DCOMANSWER):
     structure = (
-       ('rgelt', VSS_MGMT_OBJECT_PROP),
-       ('pceltFetched', ULONG),
-       ('ErrorCode', error_status_t),
+        ('rgelt', VSS_MGMT_OBJECT_PROP),
+        ('pceltFetched', ULONG),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.2.1 Next (Opnum 3)
+
+
 class IVssEnumObject_Next(DCOMCALL):
     opnum = 3
     structure = (
-       ('celt', ULONG),
+        ('celt', ULONG),
     )
+
 
 class IVssEnumObject_NextResponse(DCOMANSWER):
     structure = (
-       ('rgelt', VSS_MGMT_OBJECT_PROP),
-       ('pceltFetched', ULONG),
-       ('ErrorCode', error_status_t),
+        ('rgelt', VSS_MGMT_OBJECT_PROP),
+        ('pceltFetched', ULONG),
+        ('ErrorCode', error_status_t),
     )
+
 
 class GetProviderMgmtInterface(DCOMCALL):
     opnum = 3
     structure = (
-       ('ProviderId', VSS_ID),
-       ('InterfaceId', VSS_ID),
+        ('ProviderId', VSS_ID),
+        ('InterfaceId', VSS_ID),
     )
+
 
 class GetProviderMgmtInterfaceResponse(DCOMANSWER):
     structure = (
-       ('ppItf', PMInterfacePointer),
-       ('ErrorCode', error_status_t),
+        ('ppItf', PMInterfacePointer),
+        ('ErrorCode', error_status_t),
     )
+
 
 class QueryVolumesSupportedForSnapshots(DCOMCALL):
     opnum = 4
     structure = (
-       ('ProviderId', VSS_ID),
-       ('IContext', LONG),
+        ('ProviderId', VSS_ID),
+        ('IContext', LONG),
     )
+
 
 class QueryVolumesSupportedForSnapshotsResponse(DCOMANSWER):
     structure = (
-       ('ppEnum', PMInterfacePointer),
-       ('ErrorCode', error_status_t),
+        ('ppEnum', PMInterfacePointer),
+        ('ErrorCode', error_status_t),
     )
+
 
 class QuerySnapshotsByVolume(DCOMCALL):
     opnum = 5
     structure = (
-       ('pwszVolumeName', VSS_PWSZ),
-       ('ProviderId', VSS_ID),
+        ('pwszVolumeName', VSS_PWSZ),
+        ('ProviderId', VSS_ID),
     )
+
 
 class QuerySnapshotsByVolumeResponse(DCOMANSWER):
     structure = (
-       ('ppEnum', PMInterfacePointer),
-       ('ErrorCode', error_status_t),
+        ('ppEnum', PMInterfacePointer),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.4.5 QueryDiffAreasForVolume (Opnum 6)
+
+
 class QueryDiffAreasForVolume(DCOMCALL):
     opnum = 6
     structure = (
-       ('pwszVolumeName', VSS_PWSZ),
+        ('pwszVolumeName', VSS_PWSZ),
     )
+
 
 class QueryDiffAreasForVolumeResponse(DCOMANSWER):
     structure = (
-       ('ppEnum', PMInterfacePointer),
-       ('ErrorCode', error_status_t),
+        ('ppEnum', PMInterfacePointer),
+        ('ErrorCode', error_status_t),
     )
 
 # 3.1.4.4.6 QueryDiffAreasOnVolume (Opnum 7)
+
+
 class QueryDiffAreasOnVolume(DCOMCALL):
     opnum = 7
     structure = (
-       ('pwszVolumeName', VSS_PWSZ),
+        ('pwszVolumeName', VSS_PWSZ),
     )
+
 
 class QueryDiffAreasOnVolumeResponse(DCOMANSWER):
     structure = (
-       ('ppEnum', PMInterfacePointer),
-       ('ErrorCode', error_status_t),
+        ('ppEnum', PMInterfacePointer),
+        ('ErrorCode', error_status_t),
     )
 
 
@@ -250,6 +287,8 @@ OPNUMS = {
 ################################################################################
 # HELPER FUNCTIONS AND INTERFACES
 ################################################################################
+
+
 class IVssEnumMgmtObject(IRemUnknown2):
     def __init__(self, interface):
         IRemUnknown2.__init__(self, interface)
@@ -260,8 +299,9 @@ class IVssEnumMgmtObject(IRemUnknown2):
         request['ORPCthis'] = self.get_cinstance().get_ORPCthis()
         request['ORPCthis']['flags'] = 0
         request['celt'] = celt
-        resp = self.request(request, self._iid, uuid = self.get_iPid())
-        return resp 
+        resp = self.request(request, self._iid, uuid=self.get_iPid())
+        return resp
+
 
 class IVssEnumObject(IRemUnknown2):
     def __init__(self, interface):
@@ -274,23 +314,24 @@ class IVssEnumObject(IRemUnknown2):
         request['ORPCthis']['flags'] = 0
         request['celt'] = celt
         dce = self.connect()
-        resp = dce.request(request, self._iid, uuid = self.get_iPid())
-        return resp 
+        resp = dce.request(request, self._iid, uuid=self.get_iPid())
+        return resp
+
 
 class IVssSnapshotMgmt(IRemUnknown2):
     def __init__(self, interface):
         IRemUnknown2.__init__(self, interface)
         self._iid = IID_IVssSnapshotMgmt
 
-    def GetProviderMgmtInterface(self, providerId = IID_ShadowCopyProvider, interfaceId = IID_IVssDifferentialSoftwareSnapshotMgmt):
+    def GetProviderMgmtInterface(self, providerId=IID_ShadowCopyProvider, interfaceId=IID_IVssDifferentialSoftwareSnapshotMgmt):
         req = GetProviderMgmtInterface()
         classInstance = self.get_cinstance()
         req['ORPCthis'] = classInstance.get_ORPCthis()
         req['ORPCthis']['flags'] = 0
         req['ProviderId'] = providerId
         req['InterfaceId'] = interfaceId
-        resp = self.request(req, self._iid, uuid = self.get_iPid())
-        return IVssDifferentialSoftwareSnapshotMgmt(INTERFACE(classInstance, ''.join(resp['ppItf']['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
+        resp = self.request(req, self._iid, uuid=self.get_iPid())
+        return IVssDifferentialSoftwareSnapshotMgmt(INTERFACE(classInstance, ''.join(resp['ppItf']['abData']), self.get_ipidRemUnknown(), target=self.get_target()))
 
     def QueryVolumesSupportedForSnapshots(self, providerId, iContext):
         req = QueryVolumesSupportedForSnapshots()
@@ -299,10 +340,10 @@ class IVssSnapshotMgmt(IRemUnknown2):
         req['ORPCthis']['flags'] = 0
         req['ProviderId'] = providerId
         req['IContext'] = iContext
-        resp = self.request(req, self._iid, uuid = self.get_iPid())
-        return IVssEnumMgmtObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(),target = self.get_target()))
+        resp = self.request(req, self._iid, uuid=self.get_iPid())
+        return IVssEnumMgmtObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(),target=self.get_target()))
 
-    def QuerySnapshotsByVolume(self, volumeName, providerId = IID_ShadowCopyProvider):
+    def QuerySnapshotsByVolume(self, volumeName, providerId=IID_ShadowCopyProvider):
         req = QuerySnapshotsByVolume()
         classInstance = self.get_cinstance()
         req['ORPCthis'] = classInstance.get_ORPCthis()
@@ -310,7 +351,7 @@ class IVssSnapshotMgmt(IRemUnknown2):
         req['pwszVolumeName'] = volumeName
         req['ProviderId'] = providerId
         try:
-            resp = self.request(req, self._iid, uuid = self.get_iPid())
+            resp = self.request(req, self._iid, uuid=self.get_iPid())
         except Exception as e:
             print(e)
             from impacket.winregistry import hexdump
@@ -318,8 +359,9 @@ class IVssSnapshotMgmt(IRemUnknown2):
             hexdump(data)
             kk = QuerySnapshotsByVolumeResponse(data)
             kk.dump()
-        #resp.dump()
-        return IVssEnumObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
+        # resp.dump()
+        return IVssEnumObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(), target=self.get_target()))
+
 
 class IVssDifferentialSoftwareSnapshotMgmt(IRemUnknown2):
     def __init__(self, interface):
@@ -332,8 +374,8 @@ class IVssDifferentialSoftwareSnapshotMgmt(IRemUnknown2):
         req['ORPCthis'] = classInstance.get_ORPCthis()
         req['ORPCthis']['flags'] = 0
         req['pwszVolumeName'] = pwszVolumeName
-        resp = self.request(req, self._iid, uuid = self.get_iPid())
-        return IVssEnumMgmtObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
+        resp = self.request(req, self._iid, uuid=self.get_iPid())
+        return IVssEnumMgmtObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(), target=self.get_target()))
 
     def QueryDiffAreasForVolume(self, pwszVolumeName):
         req = QueryDiffAreasForVolume()
@@ -341,9 +383,5 @@ class IVssDifferentialSoftwareSnapshotMgmt(IRemUnknown2):
         req['ORPCthis'] = classInstance.get_ORPCthis()
         req['ORPCthis']['flags'] = 0
         req['pwszVolumeName'] = pwszVolumeName
-        resp = self.request(req, self._iid, uuid = self.get_iPid())
-        return IVssEnumMgmtObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
-
-
-
-
+        resp = self.request(req, self._iid, uuid=self.get_iPid())
+        return IVssEnumMgmtObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(), target=self.get_target()))

@@ -5,8 +5,9 @@ from impacket.dcerpc.v5.dtypes import NULL
 
 # aimed at testing just the DCERPC engine, not the particular
 # endpoints (we should do specific tests for endpoints)
-# here we're using EPM just beacuse we need one, and it's the 
+# here we're using EPM just beacuse we need one, and it's the
 # easiest one
+
 
 class DCERPCTests(unittest.TestCase):
 
@@ -161,7 +162,7 @@ class DCERPCTests(unittest.TestCase):
             rpctransport.set_kerberos(True)
         dce = rpctransport.get_dce_rpc()
         dce.connect()
-        #dce.set_credentials(*(rpctransport.get_credentials()))
+        # dce.set_credentials(*(rpctransport.get_credentials()))
         dce.set_auth_type(rpcrt.RPC_C_AUTHN_GSS_NEGOTIATE)
         dce.set_auth_level(rpcrt.RPC_C_AUTHN_LEVEL_PKT_INTEGRITY)
         dce.bind(epm.MSRPC_UUID_PORTMAP)
@@ -171,7 +172,7 @@ class DCERPCTests(unittest.TestCase):
         request['Ifid'] = NULL
         request['vers_option'] = epm.RPC_C_VERS_ALL
         request['max_ents'] = 499
-      
+
         resp = dce.request(request)
         resp = dce.request(request)
         resp.dump()
@@ -202,7 +203,7 @@ class DCERPCTests(unittest.TestCase):
             rpctransport.set_kerberos(True)
         dce = rpctransport.get_dce_rpc()
         dce.connect()
-        #dce.set_credentials(*(rpctransport.get_credentials()))
+        # dce.set_credentials(*(rpctransport.get_credentials()))
         dce.set_auth_type(rpcrt.RPC_C_AUTHN_GSS_NEGOTIATE)
         dce.set_auth_level(rpcrt.RPC_C_AUTHN_LEVEL_PKT_INTEGRITY)
         dce.bind(epm.MSRPC_UUID_PORTMAP)
@@ -212,7 +213,7 @@ class DCERPCTests(unittest.TestCase):
         request['Ifid'] = NULL
         request['vers_option'] = epm.RPC_C_VERS_ALL
         request['max_ents'] = 499
-      
+
         resp = dce.request(request)
         resp = dce.request(request)
         resp.dump()
@@ -227,7 +228,7 @@ class DCERPCTests(unittest.TestCase):
             rpctransport.set_kerberos(True)
         dce = rpctransport.get_dce_rpc()
         dce.connect()
-        #dce.set_credentials(*(rpctransport.get_credentials()))
+        # dce.set_credentials(*(rpctransport.get_credentials()))
         dce.set_auth_type(rpcrt.RPC_C_AUTHN_GSS_NEGOTIATE)
         dce.set_auth_level(rpcrt.RPC_C_AUTHN_LEVEL_PKT_INTEGRITY)
         dce.bind(epm.MSRPC_UUID_PORTMAP)
@@ -237,7 +238,7 @@ class DCERPCTests(unittest.TestCase):
         request['Ifid'] = NULL
         request['vers_option'] = epm.RPC_C_VERS_ALL
         request['max_ents'] = 499
-      
+
         resp = dce.request(request)
         resp = dce.request(request)
         resp.dump()
@@ -252,7 +253,7 @@ class DCERPCTests(unittest.TestCase):
             rpctransport.set_kerberos(True)
         dce = rpctransport.get_dce_rpc()
         dce.connect()
-        #dce.set_credentials(*(rpctransport.get_credentials()))
+        # dce.set_credentials(*(rpctransport.get_credentials()))
         dce.set_auth_type(rpcrt.RPC_C_AUTHN_GSS_NEGOTIATE)
         dce.set_auth_level(rpcrt.RPC_C_AUTHN_LEVEL_PKT_INTEGRITY)
         dce.bind(epm.MSRPC_UUID_PORTMAP)
@@ -262,12 +263,11 @@ class DCERPCTests(unittest.TestCase):
         request['Ifid'] = NULL
         request['vers_option'] = epm.RPC_C_VERS_ALL
         request['max_ents'] = 499
-      
+
         resp = dce.request(request)
         resp = dce.request(request)
         resp.dump()
         dce.disconnect()
-
 
     def test_packetAnonWINNTPacketIntegrity(self):
         rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
@@ -305,12 +305,12 @@ class DCERPCTests(unittest.TestCase):
         if hasattr(rpctransport, 'set_credentials'):
             # This method exists only for selected protocol sequences.
             rpctransport.set_credentials(self.username, self.password, self.domain)
-            #rpctransport.set_kerberos(True)
+            # rpctransport.set_kerberos(True)
         dce = rpctransport.get_dce_rpc()
         dce.connect()
-        #dce.set_credentials(*(rpctransport.get_credentials()))
+        # dce.set_credentials(*(rpctransport.get_credentials()))
         dce.set_auth_type(rpcrt.RPC_C_AUTHN_GSS_NEGOTIATE)
-        #dce.set_auth_type(rpcrt.RPC_C_AUTHN_WINNT)
+        # dce.set_auth_type(rpcrt.RPC_C_AUTHN_WINNT)
         dce.set_auth_level(rpcrt.RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
         dce.bind(epm.MSRPC_UUID_PORTMAP)
         request = epm.ept_lookup()
@@ -319,7 +319,7 @@ class DCERPCTests(unittest.TestCase):
         request['Ifid'] = NULL
         request['vers_option'] = epm.RPC_C_VERS_ALL
         request['max_ents'] = 499
-      
+
         resp = dce.request(request)
         resp = dce.request(request)
         resp.dump()
@@ -350,7 +350,7 @@ class DCERPCTests(unittest.TestCase):
             rpctransport.set_kerberos(True)
         dce = rpctransport.get_dce_rpc()
         dce.connect()
-        #dce.set_credentials(*(rpctransport.get_credentials()))
+        # dce.set_credentials(*(rpctransport.get_credentials()))
         dce.set_auth_type(rpcrt.RPC_C_AUTHN_GSS_NEGOTIATE)
         dce.set_auth_level(rpcrt.RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
         dce.bind(epm.MSRPC_UUID_PORTMAP)
@@ -360,7 +360,7 @@ class DCERPCTests(unittest.TestCase):
         request['Ifid'] = NULL
         request['vers_option'] = epm.RPC_C_VERS_ALL
         request['max_ents'] = 499
-      
+
         resp = dce.request(request)
         resp = dce.request(request)
         resp.dump()
@@ -375,7 +375,7 @@ class DCERPCTests(unittest.TestCase):
             rpctransport.set_kerberos(True)
         dce = rpctransport.get_dce_rpc()
         dce.connect()
-        #dce.set_credentials(*(rpctransport.get_credentials()))
+        # dce.set_credentials(*(rpctransport.get_credentials()))
         dce.set_auth_type(rpcrt.RPC_C_AUTHN_GSS_NEGOTIATE)
         dce.set_auth_level(rpcrt.RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
         dce.bind(epm.MSRPC_UUID_PORTMAP)
@@ -385,7 +385,7 @@ class DCERPCTests(unittest.TestCase):
         request['Ifid'] = NULL
         request['vers_option'] = epm.RPC_C_VERS_ALL
         request['max_ents'] = 499
-      
+
         resp = dce.request(request)
         resp = dce.request(request)
         resp.dump()
@@ -400,7 +400,7 @@ class DCERPCTests(unittest.TestCase):
             rpctransport.set_kerberos(True)
         dce = rpctransport.get_dce_rpc()
         dce.connect()
-        #dce.set_credentials(*(rpctransport.get_credentials()))
+        # dce.set_credentials(*(rpctransport.get_credentials()))
         dce.set_auth_type(rpcrt.RPC_C_AUTHN_GSS_NEGOTIATE)
         dce.set_auth_level(rpcrt.RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
         dce.bind(epm.MSRPC_UUID_PORTMAP)
@@ -410,7 +410,7 @@ class DCERPCTests(unittest.TestCase):
         request['Ifid'] = NULL
         request['vers_option'] = epm.RPC_C_VERS_ALL
         request['max_ents'] = 499
-      
+
         resp = dce.request(request)
         resp = dce.request(request)
         resp.dump()
@@ -423,13 +423,14 @@ class DCERPCTests(unittest.TestCase):
             # This method exists only for selected protocol sequences.
             rpctransport.set_credentials(self.username, self.password, self.domain, lmhash, nthash)
         dce = rpctransport.get_dce_rpc()
-        #dce.set_max_fragment_size(1)
+        # dce.set_max_fragment_size(1)
         dce.connect()
         dce.set_auth_type(rpcrt.RPC_C_AUTHN_WINNT)
         dce.set_auth_level(rpcrt.RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
         dce.bind(epm.MSRPC_UUID_PORTMAP)
         resp = epm.hept_lookup(self.machine)
         dce.disconnect()
+
 
 class TCPTransport(DCERPCTests):
     def setUp(self):
@@ -438,14 +439,15 @@ class TCPTransport(DCERPCTests):
         configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('TCPTransport', 'username')
-        self.domain   = configFile.get('TCPTransport', 'domain')
+        self.domain = configFile.get('TCPTransport', 'domain')
         self.serverName = configFile.get('TCPTransport', 'servername')
         self.password = configFile.get('TCPTransport', 'password')
-        self.machine  = configFile.get('TCPTransport', 'machine')
-        self.hashes   = configFile.get('TCPTransport', 'hashes')
-        self.aesKey256= configFile.get('TCPTransport', 'aesKey256')
-        self.aesKey128= configFile.get('TCPTransport', 'aesKey128')
+        self.machine = configFile.get('TCPTransport', 'machine')
+        self.hashes = configFile.get('TCPTransport', 'hashes')
+        self.aesKey256 = configFile.get('TCPTransport', 'aesKey256')
+        self.aesKey128 = configFile.get('TCPTransport', 'aesKey128')
         self.stringBinding = r'ncacn_ip_tcp:%s' % self.machine
+
 
 class SMBTransport(DCERPCTests):
     def setUp(self):
@@ -454,13 +456,13 @@ class SMBTransport(DCERPCTests):
         configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
+        self.domain = configFile.get('SMBTransport', 'domain')
         self.serverName = configFile.get('SMBTransport', 'servername')
         self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
-        self.aesKey256= configFile.get('SMBTransport', 'aesKey256')
-        self.aesKey128= configFile.get('SMBTransport', 'aesKey128')
+        self.machine = configFile.get('SMBTransport', 'machine')
+        self.hashes = configFile.get('SMBTransport', 'hashes')
+        self.aesKey256 = configFile.get('SMBTransport', 'aesKey256')
+        self.aesKey128 = configFile.get('SMBTransport', 'aesKey128')
         self.stringBinding = r'ncacn_np:%s[\pipe\epmapper]' % self.machine
 
 if __name__ == "__main__":

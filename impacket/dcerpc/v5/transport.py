@@ -21,11 +21,12 @@ from impacket import ntlm
 from impacket.structure import pack
 from impacket.dcerpc.v5 import rpcrt
 
+
 class DCERPCStringBinding:
-    parser = re.compile(r'(?:([a-fA-F0-9-]{8}(?:-[a-fA-F0-9-]{4}){3}-[a-fA-F0-9-]{12})@)?' # UUID (opt.)
-                        +'([_a-zA-Z0-9]*):' # Protocol Sequence
-                        +'([^\[]*)' # Network Address (opt.)
-                        +'(?:\[([^\]]*)\])?') # Endpoint and options (opt.)
+    parser = re.compile(r'(?:([a-fA-F0-9-]{8}(?:-[a-fA-F0-9-]{4}){3}-[a-fA-F0-9-]{12})@)?'  # UUID (opt.)
+                        + '([_a-zA-Z0-9]*):'  # Protocol Sequence
+                        + '([^\[]*)'  # Network Address (opt.)
+                        + '(?:\[([^\]]*)\])?')  # Endpoint and options (opt.)
 
     def __init__(self, stringbinding):
         match = DCERPCStringBinding.parser.match(stringbinding)
@@ -64,6 +65,7 @@ class DCERPCStringBinding:
     def __str__(self):
         return DCERPCStringBindingCompose(self.__uuid, self.__ps, self.__na, self.__endpoint, self.__options)
 
+
 def DCERPCStringBindingCompose(uuid=None, protocol_sequence='', network_address='', endpoint='', options=[]):
     s = ''
     if uuid: s += uuid + '@'
@@ -75,6 +77,7 @@ def DCERPCStringBindingCompose(uuid=None, protocol_sequence='', network_address=
         s += ']'
 
     return s
+
 
 def DCERPCTransportFactory(stringbinding):
     sb = DCERPCStringBinding(stringbinding)
@@ -103,12 +106,12 @@ def DCERPCTransportFactory(stringbinding):
         named_pipe = sb.get_endpoint()
         if named_pipe:
             named_pipe = named_pipe[len(r'\pipe'):]
-            return SMBTransport(na, filename = named_pipe)
+            return SMBTransport(na, filename=named_pipe)
         else:
             return SMBTransport(na)
     elif 'ncalocal' == ps:
         named_pipe = sb.get_endpoint()
-        return LOCALTransport(filename = named_pipe)
+        return LOCALTransport(filename=named_pipe)
     else:
         raise Exception("Unknown protocol sequence.")
 
@@ -131,34 +134,42 @@ class DCERPCTransport:
 
     def connect(self):
         raise RuntimeError('virtual function')
-    def send(self,data=0, forceWriteAndx = 0, forceRecv = 0):
+
+    def send(self,data=0, forceWriteAndx=0, forceRecv=0):
         raise RuntimeError('virtual function')
-    def recv(self, forceRecv = 0, count = 0):
+
+    def recv(self, forceRecv=0, count=0):
         raise RuntimeError('virtual function')
+
     def disconnect(self):
         raise RuntimeError('virtual function')
+
     def get_socket(self):
         raise RuntimeError('virtual function')
 
     def get_connect_timeout(self):
         return self.__connect_timeout
+
     def set_connect_timeout(self, timeout):
         self.__connect_timeout = timeout
 
     def get_dip(self):
         return self.__dstip
+
     def set_dip(self, dip):
         "This method only makes sense before connection for most protocols."
         self.__dstip = dip
 
     def get_dport(self):
         return self.__dstport
+
     def set_dport(self, dport):
         "This method only makes sense before connection for most protocols."
         self.__dstport = dport
 
     def get_addr(self):
         return (self.get_dip(), self.get_dport())
+
     def set_addr(self, addr):
         "This method only makes sense before connection for most protocols."
         self.set_dip(addr[0])
@@ -192,26 +203,26 @@ class DCERPCTransport:
             self._lmhash,
             self._nthash,
             self._aesKey,
-            self._TGT, 
+            self._TGT,
             self._TGS)
 
     def set_credentials(self, username, password, domain='', lmhash='', nthash='', aesKey='', TGT=None, TGS=None):
         self._username = username
         self._password = password
-        self._domain   = domain
-        self._aesKey   = aesKey
-        self._TGT      = TGT
-        self._TGS      = TGS
-        if ( lmhash != '' or nthash != ''):
-            if len(lmhash) % 2:     lmhash = '0%s' % lmhash
-            if len(nthash) % 2:     nthash = '0%s' % nthash
-            try: # just in case they were converted already
-               self._lmhash = binascii.a2b_hex(lmhash)
-               self._nthash = binascii.a2b_hex(nthash)
+        self._domain = domain
+        self._aesKey = aesKey
+        self._TGT = TGT
+        self._TGS = TGS
+        if (lmhash != '' or nthash != ''):
+            if len(lmhash) % 2: lmhash = '0%s' % lmhash
+            if len(nthash) % 2: nthash = '0%s' % nthash
+            try:  # just in case they were converted already
+                self._lmhash = binascii.a2b_hex(lmhash)
+                self._nthash = binascii.a2b_hex(nthash)
             except:
-               self._lmhash = lmhash
-               self._nthash = nthash
-               pass
+                self._lmhash = lmhash
+                self._nthash = nthash
+                pass
 
     def doesSupportNTLMv2(self):
         # By default we'll be returning the library's deafult. Only on SMB Transports we might be able to know it beforehand
@@ -220,12 +231,13 @@ class DCERPCTransport:
     def get_dce_rpc(self):
         return rpcrt.DCERPC_v5(self)
 
+
 class UDPTransport(DCERPCTransport):
     "Implementation of ncadg_ip_udp protocol sequence"
 
     DCERPC_class = rpcrt.DCERPC_v4
 
-    def __init__(self,dstip, dstport = 135):
+    def __init__(self,dstip, dstport=135):
         DCERPCTransport.__init__(self, dstip, dstport)
         self.__socket = 0
         self.set_connect_timeout(30)
@@ -249,10 +261,10 @@ class UDPTransport(DCERPCTransport):
             return 0
         return 1
 
-    def send(self,data, forceWriteAndx = 0, forceRecv = 0):
+    def send(self,data, forceWriteAndx=0, forceRecv=0):
         self.__socket.sendto(data,(self.get_dip(),self.get_dport()))
 
-    def recv(self, forceRecv = 0, count = 0):
+    def recv(self, forceRecv=0, count=0):
         buffer, self.__recv_addr = self.__socket.recvfrom(8192)
         return buffer
 
@@ -262,10 +274,11 @@ class UDPTransport(DCERPCTransport):
     def get_socket(self):
         return self.__socket
 
+
 class TCPTransport(DCERPCTransport):
     "Implementation of ncacn_ip_tcp protocol sequence"
 
-    def __init__(self, dstip, dstport = 135):
+    def __init__(self, dstip, dstport=135):
         DCERPCTransport.__init__(self, dstip, dstport)
         self.__socket = 0
         self.set_connect_timeout(30)
@@ -289,11 +302,11 @@ class TCPTransport(DCERPCTransport):
             return 0
         return 1
 
-    def send(self,data, forceWriteAndx = 0, forceRecv = 0):
+    def send(self,data, forceWriteAndx=0, forceRecv=0):
         if self._max_send_frag:
             offset = 0
             while 1:
-                toSend = data[offset:offset+self._max_send_frag]
+                toSend = data[offset:offset + self._max_send_frag]
                 if not toSend:
                     break
                 self.__socket.send(toSend)
@@ -301,17 +314,18 @@ class TCPTransport(DCERPCTransport):
         else:
             self.__socket.send(data)
 
-    def recv(self, forceRecv = 0, count = 0):
+    def recv(self, forceRecv=0, count=0):
         if count:
             buffer = ''
             while len(buffer) < count:
-               buffer += self.__socket.recv(count-len(buffer))
+                buffer += self.__socket.recv(count - len(buffer))
         else:
             buffer = self.__socket.recv(8192)
         return buffer
 
     def get_socket(self):
         return self.__socket
+
 
 class HTTPTransport(TCPTransport):
     "Implementation of ncacn_http protocol sequence"
@@ -324,10 +338,11 @@ class HTTPTransport(TCPTransport):
         if data[10:13] != '200':
             raise Exception("Service not supported.")
 
+
 class SMBTransport(DCERPCTransport):
     "Implementation of ncacn_np protocol sequence"
 
-    def __init__(self, dstip, dstport = 445, filename = '', username='', password='', domain = '', lmhash='', nthash='', aesKey = '', TGT = None, TGS = None, remote_name='', smb_connection = 0, doKerberos = False):
+    def __init__(self, dstip, dstport=445, filename='', username='', password='', domain='', lmhash='', nthash='', aesKey='', TGT=None, TGS=None, remote_name='', smb_connection=0, doKerberos=False):
         DCERPCTransport.__init__(self, dstip, dstport)
         self.__socket = None
         self.__tid = 0
@@ -349,7 +364,7 @@ class SMBTransport(DCERPCTransport):
         if isinstance(smb_connection, smb.SMB):
             # Backward compatibility hack, let's return a
             # SMBBackwardCompatibilityTransport instance
-            return SMBBackwardCompatibilityTransport(filename = filename, smb_server = smb_connection)
+            return SMBBackwardCompatibilityTransport(filename=filename, smb_server=smb_connection)
         else:
             self.__smb_connection = smb_connection
 
@@ -360,20 +375,20 @@ class SMBTransport(DCERPCTransport):
         if not self.__smb_connection:
             if self.__remote_name == '':
                 if self.get_dport() == nmb.NETBIOS_SESSION_PORT:
-                    self.__smb_connection = SMBConnection('*SMBSERVER', self.get_dip(), sess_port = self.get_dport(),preferredDialect = self.__prefDialect)
+                    self.__smb_connection = SMBConnection('*SMBSERVER', self.get_dip(), sess_port=self.get_dport(),preferredDialect=self.__prefDialect)
                 else:
-                    self.__smb_connection = SMBConnection(self.get_dip(), self.get_dip(), sess_port = self.get_dport(),preferredDialect = self.__prefDialect)
+                    self.__smb_connection = SMBConnection(self.get_dip(), self.get_dip(), sess_port=self.get_dport(),preferredDialect=self.__prefDialect)
             else:
-                self.__smb_connection = SMBConnection(self.__remote_name, self.get_dip(), sess_port = self.get_dport(),preferredDialect = self.__prefDialect)
+                self.__smb_connection = SMBConnection(self.__remote_name, self.get_dip(), sess_port=self.get_dport(),preferredDialect=self.__prefDialect)
 
     def connect(self):
         # Check if we have a smb connection already setup
         if self.__smb_connection == 0:
-           self.setup_smb_connection()
-           if self._doKerberos is False:
-               self.__smb_connection.login(self._username, self._password, self._domain, self._lmhash, self._nthash)
-           else:
-               self.__smb_connection.kerberosLogin(self._username, self._password, self._domain, self._lmhash, self._nthash, self._aesKey, TGT=self._TGT, TGS=self._TGS)
+            self.setup_smb_connection()
+            if self._doKerberos is False:
+                self.__smb_connection.login(self._username, self._password, self._domain, self._lmhash, self._nthash)
+            else:
+                self.__smb_connection.kerberosLogin(self._username, self._password, self._domain, self._lmhash, self._nthash, self._aesKey, TGT=self._TGT, TGS=self._TGS)
         self.__tid = self.__smb_connection.connectTree('IPC$')
         self.__handle = self.__smb_connection.openFile(self.__tid, self.__filename)
         self.__socket = self.__smb_connection.getSMBServer().get_socket()
@@ -387,27 +402,27 @@ class SMBTransport(DCERPCTransport):
             self.__smb_connection.logoff()
             self.__smb_connection = 0
 
-    def send(self,data, forceWriteAndx = 0, forceRecv = 0):
+    def send(self,data, forceWriteAndx=0, forceRecv=0):
         if self._max_send_frag:
             offset = 0
             while 1:
-                toSend = data[offset:offset+self._max_send_frag]
+                toSend = data[offset:offset + self._max_send_frag]
                 if not toSend:
                     break
-                self.__smb_connection.writeFile(self.__tid, self.__handle, toSend, offset = offset)
+                self.__smb_connection.writeFile(self.__tid, self.__handle, toSend, offset=offset)
                 offset += len(toSend)
         else:
             self.__smb_connection.writeFile(self.__tid, self.__handle, data)
         if forceRecv:
             self.__pending_recv += 1
 
-    def recv(self, forceRecv = 0, count = 0 ):
+    def recv(self, forceRecv=0, count=0):
         if self._max_send_frag or self.__pending_recv:
             # _max_send_frag is checked because it's the same condition we checked
             # to decide whether to use write_andx() or send_trans() in send() above.
             if self.__pending_recv:
                 self.__pending_recv -= 1
-            return self.__smb_connection.readFile(self.__tid, self.__handle, bytesToRead = self._max_recv_frag)
+            return self.__smb_connection.readFile(self.__tid, self.__handle, bytesToRead=self._max_recv_frag)
         else:
             return self.__smb_connection.readFile(self.__tid, self.__handle)
 
@@ -429,11 +444,12 @@ class SMBTransport(DCERPCTransport):
     def doesSupportNTLMv2(self):
         return self.__smb_connection.doesSupportNTLMv2()
 
+
 class LOCALTransport(DCERPCTransport):
     "Implementation of ncalocal protocol sequence, not the same"
     "as ncalrpc (I'm not doing LPC just opening the local pipe)"
 
-    def __init__(self, filename = ''):
+    def __init__(self, filename=''):
         DCERPCTransport.__init__(self, '', 0)
         self.__filename = filename
         self.__handle = 0
@@ -441,15 +457,15 @@ class LOCALTransport(DCERPCTransport):
     def connect(self):
         if self.__filename.upper().find('PIPE') < 0:
             self.__filename = '\\PIPE\\%s' % self.__filename
-        self.__handle = os.open('\\\\.\\%s' % self.__filename, os.O_RDWR|os.O_BINARY)
+        self.__handle = os.open('\\\\.\\%s' % self.__filename, os.O_RDWR | os.O_BINARY)
         return 1
 
     def disconnect(self):
         os.close(self.__handle)
 
-    def send(self,data, forceWriteAndx = 0, forceRecv = 0):
+    def send(self,data, forceWriteAndx=0, forceRecv=0):
         os.write(self.__handle, data)
 
-    def recv(self, forceRecv = 0, count = 0 ):
+    def recv(self, forceRecv=0, count=0):
         data = os.read(self.__handle, 65535)
         return data

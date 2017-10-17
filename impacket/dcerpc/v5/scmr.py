@@ -14,9 +14,9 @@
 #   at https://github.com/CoreSecurity/impacket/tree/master/impacket/testcases/SMB_RPC
 #
 #   Some calls have helper functions, which makes it even easier to use.
-#   They are located at the end of this file. 
+#   They are located at the end of this file.
 #   Helper functions start with "h"<name of the call>.
-#   There are test cases for them too. 
+#   There are test cases for them too.
 #
 from struct import unpack, pack
 from impacket import system_errors
@@ -27,26 +27,27 @@ from impacket.dcerpc.v5.dtypes import *
 
 MSRPC_UUID_SCMR = uuidtup_to_bin(('367ABB81-9844-35F1-AD32-98F038001003', '2.0'))
 
+
 class DCERPCSessionError(Exception):
-    def __init__( self, packet = None, error_code = None):
+    def __init__(self, packet=None, error_code=None):
         Exception.__init__(self)
         self.packet = packet
         if packet is not None:
             self.error_code = packet['ErrorCode']
         else:
             self.error_code = error_code
-       
-    def get_error_code( self ):
+
+    def get_error_code(self):
         return self.error_code
- 
-    def get_packet( self ):
+
+    def get_packet(self):
         return self.packet
 
-    def __str__( self ):
+    def __str__(self):
         key = self.error_code
         if (key in system_errors.ERROR_MESSAGES):
             error_msg_short = system_errors.ERROR_MESSAGES[key][0]
-            error_msg_verbose = system_errors.ERROR_MESSAGES[key][1] 
+            error_msg_verbose = system_errors.ERROR_MESSAGES[key][1]
             return 'SCMR SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
         else:
             return 'SCMR SessionError: unknown error code: 0x%x' % (self.error_code)
@@ -56,155 +57,155 @@ class DCERPCSessionError(Exception):
 ################################################################################
 
 # Access codes
-SERVICE_ALL_ACCESS            = 0X000F01FF
-SERVICE_CHANGE_CONFIG         = 0X00000002
-SERVICE_ENUMERATE_DEPENDENTS  = 0X00000008
-SERVICE_INTERROGATE           = 0X00000080
-SERVICE_PAUSE_CONTINUE        = 0X00000040
-SERVICE_QUERY_CONFIG          = 0X00000001
-SERVICE_QUERY_STATUS          = 0X00000004
-SERVICE_START                 = 0X00000010
-SERVICE_STOP                  = 0X00000020
-SERVICE_USER_DEFINED_CTRL     = 0X00000100
-SERVICE_SET_STATUS            = 0X00008000
+SERVICE_ALL_ACCESS = 0X000F01FF
+SERVICE_CHANGE_CONFIG = 0X00000002
+SERVICE_ENUMERATE_DEPENDENTS = 0X00000008
+SERVICE_INTERROGATE = 0X00000080
+SERVICE_PAUSE_CONTINUE = 0X00000040
+SERVICE_QUERY_CONFIG = 0X00000001
+SERVICE_QUERY_STATUS = 0X00000004
+SERVICE_START = 0X00000010
+SERVICE_STOP = 0X00000020
+SERVICE_USER_DEFINED_CTRL = 0X00000100
+SERVICE_SET_STATUS = 0X00008000
 
 # Specific Access for SCM
-SC_MANAGER_LOCK               = 0x00000008
-SC_MANAGER_CREATE_SERVICE     = 0x00000002
-SC_MANAGER_ENUMERATE_SERVICE  = 0x00000004
-SC_MANAGER_CONNECT            = 0x00000001
-SC_MANAGER_QUERY_LOCK_STATUS  = 0x00000010
+SC_MANAGER_LOCK = 0x00000008
+SC_MANAGER_CREATE_SERVICE = 0x00000002
+SC_MANAGER_ENUMERATE_SERVICE = 0x00000004
+SC_MANAGER_CONNECT = 0x00000001
+SC_MANAGER_QUERY_LOCK_STATUS = 0x00000010
 SC_MANAGER_MODIFY_BOOT_CONFIG = 0x00000020
 
 # Service Types
-SERVICE_KERNEL_DRIVER         = 0x00000001
-SERVICE_FILE_SYSTEM_DRIVER    = 0x00000002
-SERVICE_WIN32_OWN_PROCESS     = 0x00000010
-SERVICE_WIN32_SHARE_PROCESS   = 0x00000020
-SERVICE_INTERACTIVE_PROCESS   = 0x00000100
-SERVICE_NO_CHANGE             = 0xffffffff
+SERVICE_KERNEL_DRIVER = 0x00000001
+SERVICE_FILE_SYSTEM_DRIVER = 0x00000002
+SERVICE_WIN32_OWN_PROCESS = 0x00000010
+SERVICE_WIN32_SHARE_PROCESS = 0x00000020
+SERVICE_INTERACTIVE_PROCESS = 0x00000100
+SERVICE_NO_CHANGE = 0xffffffff
 
 # Start Types
-SERVICE_BOOT_START            = 0x00000000
-SERVICE_SYSTEM_START          = 0x00000001
-SERVICE_AUTO_START            = 0x00000002
-SERVICE_DEMAND_START          = 0x00000003
-SERVICE_DISABLED              = 0x00000004
-SERVICE_NO_CHANGE             = 0xffffffff
+SERVICE_BOOT_START = 0x00000000
+SERVICE_SYSTEM_START = 0x00000001
+SERVICE_AUTO_START = 0x00000002
+SERVICE_DEMAND_START = 0x00000003
+SERVICE_DISABLED = 0x00000004
+SERVICE_NO_CHANGE = 0xffffffff
 
-# Error Control 
-SERVICE_ERROR_IGNORE          = 0x00000000
-SERVICE_ERROR_NORMAL          = 0x00000001
-SERVICE_ERROR_SEVERE          = 0x00000002
-SERVICE_ERROR_CRITICAL        = 0x00000003
-SERVICE_NO_CHANGE             = 0xffffffff
+# Error Control
+SERVICE_ERROR_IGNORE = 0x00000000
+SERVICE_ERROR_NORMAL = 0x00000001
+SERVICE_ERROR_SEVERE = 0x00000002
+SERVICE_ERROR_CRITICAL = 0x00000003
+SERVICE_NO_CHANGE = 0xffffffff
 
 # Service Control Codes
-SERVICE_CONTROL_CONTINUE      = 0x00000003
-SERVICE_CONTROL_INTERROGATE   = 0x00000004
-SERVICE_CONTROL_PARAMCHANGE   = 0x00000006
-SERVICE_CONTROL_PAUSE         = 0x00000002
-SERVICE_CONTROL_STOP          = 0x00000001
-SERVICE_CONTROL_NETBINDADD    = 0x00000007
+SERVICE_CONTROL_CONTINUE = 0x00000003
+SERVICE_CONTROL_INTERROGATE = 0x00000004
+SERVICE_CONTROL_PARAMCHANGE = 0x00000006
+SERVICE_CONTROL_PAUSE = 0x00000002
+SERVICE_CONTROL_STOP = 0x00000001
+SERVICE_CONTROL_NETBINDADD = 0x00000007
 SERVICE_CONTROL_NETBINDREMOVE = 0x00000008
 SERVICE_CONTROL_NETBINDENABLE = 0x00000009
-SERVICE_CONTROL_NETBINDDISABLE= 0x0000000A
+SERVICE_CONTROL_NETBINDDISABLE = 0x0000000A
 
 # Service State
-SERVICE_ACTIVE                = 0x00000001
-SERVICE_INACTIVE              = 0x00000002
-SERVICE_STATE_ALL             = 0x00000003
+SERVICE_ACTIVE = 0x00000001
+SERVICE_INACTIVE = 0x00000002
+SERVICE_STATE_ALL = 0x00000003
 
 # Current State
-SERVICE_CONTINUE_PENDING      = 0x00000005
-SERVICE_PAUSE_PENDING         = 0x00000006
-SERVICE_PAUSED                = 0x00000007
-SERVICE_RUNNING               = 0x00000004
-SERVICE_START_PENDING         = 0x00000002
-SERVICE_STOP_PENDING          = 0x00000003
-SERVICE_STOPPED               = 0x00000001
+SERVICE_CONTINUE_PENDING = 0x00000005
+SERVICE_PAUSE_PENDING = 0x00000006
+SERVICE_PAUSED = 0x00000007
+SERVICE_RUNNING = 0x00000004
+SERVICE_START_PENDING = 0x00000002
+SERVICE_STOP_PENDING = 0x00000003
+SERVICE_STOPPED = 0x00000001
 
 # Controls Accepted
-SERVICE_ACCEPT_PARAMCHANGE           = 0x00000008
-SERVICE_ACCEPT_PAUSE_CONTINUE        = 0x00000002
-SERVICE_ACCEPT_SHUTDOWN              = 0x00000004
-SERVICE_ACCEPT_STOP                  = 0x00000001
+SERVICE_ACCEPT_PARAMCHANGE = 0x00000008
+SERVICE_ACCEPT_PAUSE_CONTINUE = 0x00000002
+SERVICE_ACCEPT_SHUTDOWN = 0x00000004
+SERVICE_ACCEPT_STOP = 0x00000001
 SERVICE_ACCEPT_HARDWAREPROFILECHANGE = 0x00000020
-SERVICE_ACCEPT_POWEREVENT            = 0x00000040
-SERVICE_ACCEPT_SESSIONCHANGE         = 0x00000080
-SERVICE_ACCEPT_PRESHUTDOWN           = 0x00000100
-SERVICE_ACCEPT_TIMECHANGE            = 0x00000200
-ERVICE_ACCEPT_TRIGGEREVENT           = 0x00000400
+SERVICE_ACCEPT_POWEREVENT = 0x00000040
+SERVICE_ACCEPT_SESSIONCHANGE = 0x00000080
+SERVICE_ACCEPT_PRESHUTDOWN = 0x00000100
+SERVICE_ACCEPT_TIMECHANGE = 0x00000200
+ERVICE_ACCEPT_TRIGGEREVENT = 0x00000400
 
 # Security Information
-DACL_SECURITY_INFORMATION     = 0x4
-GROUP_SECURITY_INFORMATION    = 0x2
-OWNER_SECURITY_INFORMATION    = 0x1
-SACL_SECURITY_INFORMATION     = 0x8
+DACL_SECURITY_INFORMATION = 0x4
+GROUP_SECURITY_INFORMATION = 0x2
+OWNER_SECURITY_INFORMATION = 0x1
+SACL_SECURITY_INFORMATION = 0x8
 
 # Service Config2 Info Levels
-SERVICE_CONFIG_DESCRIPTION              = 0x00000001
-SERVICE_CONFIG_FAILURE_ACTIONS          = 0x00000002
-SERVICE_CONFIG_DELAYED_AUTO_START_INFO  = 0x00000003
-SERVICE_CONFIG_FAILURE_ACTIONS_FLAG     = 0x00000004
-SERVICE_CONFIG_SERVICE_SID_INFO         = 0x00000005
+SERVICE_CONFIG_DESCRIPTION = 0x00000001
+SERVICE_CONFIG_FAILURE_ACTIONS = 0x00000002
+SERVICE_CONFIG_DELAYED_AUTO_START_INFO = 0x00000003
+SERVICE_CONFIG_FAILURE_ACTIONS_FLAG = 0x00000004
+SERVICE_CONFIG_SERVICE_SID_INFO = 0x00000005
 SERVICE_CONFIG_REQUIRED_PRIVILEGES_INFO = 0x00000006
-SERVICE_CONFIG_PRESHUTDOWN_INFO         = 0x00000007
-SERVICE_CONFIG_PREFERRED_NODE           = 0x00000009
-SERVICE_CONFIG_RUNLEVEL_INFO            = 0x0000000A
+SERVICE_CONFIG_PRESHUTDOWN_INFO = 0x00000007
+SERVICE_CONFIG_PREFERRED_NODE = 0x00000009
+SERVICE_CONFIG_RUNLEVEL_INFO = 0x0000000A
 
 # SC_ACTIONS Types
-SC_ACTION_NONE        = 0
-SC_ACTION_RESTART     = 1
-SC_ACTION_REBOOT      = 2
+SC_ACTION_NONE = 0
+SC_ACTION_RESTART = 1
+SC_ACTION_REBOOT = 2
 SC_ACTION_RUN_COMMAND = 3
 
 # SERVICE_SID_INFO types
-SERVICE_SID_TYPE_NONE         = 0x00000000
-SERVICE_SID_TYPE_RESTRICTED   = 0x00000003
+SERVICE_SID_TYPE_NONE = 0x00000000
+SERVICE_SID_TYPE_RESTRICTED = 0x00000003
 SERVICE_SID_TYPE_UNRESTRICTED = 0x00000001
 
 # SC_STATUS_TYPE types
 SC_STATUS_PROCESS_INFO = 0
 
 # Notify Mask
-SERVICE_NOTIFY_CREATED          = 0x00000080
+SERVICE_NOTIFY_CREATED = 0x00000080
 SERVICE_NOTIFY_CONTINUE_PENDING = 0x00000010
-SERVICE_NOTIFY_DELETE_PENDING   = 0x00000200
-SERVICE_NOTIFY_DELETED          = 0x00000100
-SERVICE_NOTIFY_PAUSE_PENDING    = 0x00000020
-SERVICE_NOTIFY_PAUSED           = 0x00000040
-SERVICE_NOTIFY_RUNNING          = 0x00000008
-SERVICE_NOTIFY_START_PENDING    = 0x00000002
-SERVICE_NOTIFY_STOP_PENDING     = 0x00000004
-SERVICE_NOTIFY_STOPPED          = 0x00000001
+SERVICE_NOTIFY_DELETE_PENDING = 0x00000200
+SERVICE_NOTIFY_DELETED = 0x00000100
+SERVICE_NOTIFY_PAUSE_PENDING = 0x00000020
+SERVICE_NOTIFY_PAUSED = 0x00000040
+SERVICE_NOTIFY_RUNNING = 0x00000008
+SERVICE_NOTIFY_START_PENDING = 0x00000002
+SERVICE_NOTIFY_STOP_PENDING = 0x00000004
+SERVICE_NOTIFY_STOPPED = 0x00000001
 
 # SERVICE_CONTROL_STATUS_REASON_IN_PARAMSW Reasons
-SERVICE_STOP_CUSTOM    =  0x20000000
-SERVICE_STOP_PLANNED   =  0x40000000
-SERVICE_STOP_UNPLANNED =  0x10000000
+SERVICE_STOP_CUSTOM = 0x20000000
+SERVICE_STOP_PLANNED = 0x40000000
+SERVICE_STOP_UNPLANNED = 0x10000000
 
 # SERVICE_TRIGGER triggers
-SERVICE_TRIGGER_TYPE_DEVICE_INTERFACE_ARRIVAL  = 0x00000001
-SERVICE_TRIGGER_TYPE_IP_ADDRESS_AVAILABILITY   = 0x00000002
-SERVICE_TRIGGER_TYPE_DOMAIN_JOIN               = 0x00000003
-SERVICE_TRIGGER_TYPE_FIREWALL_PORT_EVENT       = 0x00000004
-SERVICE_TRIGGER_TYPE_GROUP_POLICY              = 0x00000005
-SERVICE_TRIGGER_TYPE_CUSTOM                    = 0x00000020
+SERVICE_TRIGGER_TYPE_DEVICE_INTERFACE_ARRIVAL = 0x00000001
+SERVICE_TRIGGER_TYPE_IP_ADDRESS_AVAILABILITY = 0x00000002
+SERVICE_TRIGGER_TYPE_DOMAIN_JOIN = 0x00000003
+SERVICE_TRIGGER_TYPE_FIREWALL_PORT_EVENT = 0x00000004
+SERVICE_TRIGGER_TYPE_GROUP_POLICY = 0x00000005
+SERVICE_TRIGGER_TYPE_CUSTOM = 0x00000020
 
 # SERVICE_TRIGGER actions
 SERVICE_TRIGGER_ACTION_SERVICE_START = 0x00000001
-SERVICE_TRIGGER_ACTION_SERVICE_STOP  = 0x00000002
+SERVICE_TRIGGER_ACTION_SERVICE_STOP = 0x00000002
 
 # SERVICE_TRIGGER subTypes
-DOMAIN_JOIN_GUID                                = '1ce20aba-9851-4421-9430-1ddeb766e809' 
-DOMAIN_LEAVE_GUID                               = 'ddaf516e-58c2-4866-9574-c3b615d42ea1'
-FIREWALL_PORT_OPEN_GUID                         = 'b7569e07-8421-4ee0-ad10-86915afdad09'
-FIREWALL_PORT_CLOSE_GUID                        = 'a144ed38-8e12-4de4-9d96-e64740b1a524'
-MACHINE_POLICY_PRESENT_GUID                     = '659FCAE6-5BDB-4DA9-B1FF-CA2A178D46E0'
-NETWORK_MANAGER_FIRST_IP_ADDRESS_ARRIVAL_GUID   = '4f27f2de-14e2-430b-a549-7cd48cbc8245'
-NETWORK_MANAGER_LAST_IP_ADDRESS_REMOVAL_GUID    = 'cc4ba62a-162e-4648-847a-b6bdf993e335'
-USER_POLICY_PRESENT_GUID                        = '54FB46C8-F089-464C-B1FD-59D1B62C3B50'
+DOMAIN_JOIN_GUID = '1ce20aba-9851-4421-9430-1ddeb766e809'
+DOMAIN_LEAVE_GUID = 'ddaf516e-58c2-4866-9574-c3b615d42ea1'
+FIREWALL_PORT_OPEN_GUID = 'b7569e07-8421-4ee0-ad10-86915afdad09'
+FIREWALL_PORT_CLOSE_GUID = 'a144ed38-8e12-4de4-9d96-e64740b1a524'
+MACHINE_POLICY_PRESENT_GUID = '659FCAE6-5BDB-4DA9-B1FF-CA2A178D46E0'
+NETWORK_MANAGER_FIRST_IP_ADDRESS_ARRIVAL_GUID = '4f27f2de-14e2-430b-a549-7cd48cbc8245'
+NETWORK_MANAGER_LAST_IP_ADDRESS_REMOVAL_GUID = 'cc4ba62a-162e-4648-847a-b6bdf993e335'
+USER_POLICY_PRESENT_GUID = '54FB46C8-F089-464C-B1FD-59D1B62C3B50'
 
 # SERVICE_TRIGGER_SPECIFIC_DATA_ITEM dataTypes
 SERVICE_TRIGGER_DATA_TYPE_BINARY = 0x00000001
@@ -214,16 +215,18 @@ SERVICE_TRIGGER_DATA_TYPE_STRING = 0x00000002
 # STRUCTURES
 ################################################################################
 
+
 class SC_RPC_HANDLE(NDR):
     align = 1
-    structure =  (
+    structure = (
         ('Data','20s=""'),
     )
 
 SC_NOTIFY_RPC_HANDLE = SC_RPC_HANDLE
 
+
 class SERVICE_STATUS(NDRSTRUCT):
-    structure =  (
+    structure = (
         ('dwServiceType',DWORD),
         ('dwCurrentState',DWORD),
         ('dwControlsAccepted',DWORD),
@@ -232,6 +235,7 @@ class SERVICE_STATUS(NDRSTRUCT):
         ('dwCheckPoint',DWORD),
         ('dwWaitHint',DWORD),
     )
+
 
 class QUERY_SERVICE_CONFIGW(NDRSTRUCT):
     structure = (
@@ -246,12 +250,15 @@ class QUERY_SERVICE_CONFIGW(NDRSTRUCT):
         ('lpDisplayName',LPWSTR),
     )
 
+
 class SC_RPC_LOCK(NDRSTRUCT):
-    structure =  (
+    structure = (
         ('Data','20s=""'),
     )
+
     def getAlignment(self):
         return 1
+
 
 class LPSERVICE_STATUS(NDRPOINTER):
     referent = (
@@ -262,6 +269,7 @@ SECURITY_INFORMATION = ULONG
 
 BOUNDED_DWORD_256K = DWORD
 
+
 class LPBOUNDED_DWORD_256K(NDRPOINTER):
     referent = (
         ('Data', BOUNDED_DWORD_256K),
@@ -269,12 +277,14 @@ class LPBOUNDED_DWORD_256K(NDRPOINTER):
 
 SVCCTL_HANDLEW = LPWSTR
 
+
 class ENUM_SERVICE_STATUSW(NDRSTRUCT):
     structure = (
         ('lpServiceName',LPWSTR),
         ('lpDisplayName',LPWSTR),
         ('ServiceStatus',SERVICE_STATUS),
     )
+
 
 class LPQUERY_SERVICE_CONFIGW(NDRPOINTER):
     referent = (
@@ -284,20 +294,24 @@ class LPQUERY_SERVICE_CONFIGW(NDRPOINTER):
 BOUNDED_DWORD_8K = DWORD
 BOUNDED_DWORD_4K = DWORD
 
+
 class STRING_PTRSW(NDRSTRUCT):
     structure = (
         ('Data',NDRUniConformantArray),
     )
-    def __init__(self, data = None, isNDR64 = False):
+
+    def __init__(self, data=None, isNDR64=False):
         NDR.__init__(self,None,isNDR64)
         self.fields['Data'].item = LPWSTR
         if data is not None:
             self.fromString(data)
 
+
 class UNIQUE_STRING_PTRSW(NDRPOINTER):
     referent = (
         ('Data', STRING_PTRSW),
     )
+
 
 class QUERY_SERVICE_LOCK_STATUSW(NDRSTRUCT):
     structure = (
@@ -306,20 +320,24 @@ class QUERY_SERVICE_LOCK_STATUSW(NDRSTRUCT):
         ('dwLockDuration',DWORD),
     )
 
+
 class SERVICE_DESCRIPTION_WOW64(NDRSTRUCT):
     structure = (
         ('dwDescriptionOffset', DWORD),
     )
+
 
 class SERVICE_DESCRIPTIONW(NDRSTRUCT):
     structure = (
         ('lpDescription', LPWSTR),
     )
 
+
 class LPSERVICE_DESCRIPTIONW(NDRPOINTER):
     referent = (
         ('Data', SERVICE_DESCRIPTIONW),
     )
+
 
 class SERVICE_FAILURE_ACTIONS_WOW64(NDRSTRUCT):
     structure = (
@@ -330,60 +348,71 @@ class SERVICE_FAILURE_ACTIONS_WOW64(NDRSTRUCT):
         ('dwsaActionsOffset', DWORD),
     )
 
+
 class SC_ACTION(NDRSTRUCT):
     structure = (
-        ('Type', DWORD), 
-        ('Delay', DWORD) , 
+        ('Type', DWORD),
+        ('Delay', DWORD),
     )
+
 
 class SC_ACTIONS(NDRSTRUCT):
     structure = (
-       ('Data', NDRUniConformantArray),
+        ('Data', NDRUniConformantArray),
     )
-    def __init__(self, data = None, isNDR64 = False):
+
+    def __init__(self, data=None, isNDR64=False):
         NDR.__init__(self,None,isNDR64)
         self.fields['Data'].item = SC_ACTION
         if data is not None:
             self.fromString(data)
 
+
 class SERVICE_FAILURE_ACTIONSW(NDRSTRUCT):
     structure = (
-        ('dwResetPeriod', DWORD), 
-        ('lpRebootMsg', LPWSTR) , 
-        ('lpCommand', LPWSTR) , 
-        ('cActions', DWORD) , 
-        ('lpsaActions', SC_ACTIONS) , 
+        ('dwResetPeriod', DWORD),
+        ('lpRebootMsg', LPWSTR),
+        ('lpCommand', LPWSTR),
+        ('cActions', DWORD),
+        ('lpsaActions', SC_ACTIONS),
     )
+
 
 class LPSERVICE_FAILURE_ACTIONSW(NDRPOINTER):
     referent = (
         ('Data', SERVICE_FAILURE_ACTIONSW),
     )
 
+
 class SERVICE_FAILURE_ACTIONS_FLAG(NDRSTRUCT):
     structure = (
         ('fFailureActionsOnNonCrashFailures', BOOL),
     )
+
 
 class LPSERVICE_FAILURE_ACTIONS_FLAG(NDRPOINTER):
     referent = (
         ('Data', SERVICE_FAILURE_ACTIONS_FLAG),
     )
 
+
 class SERVICE_DELAYED_AUTO_START_INFO(NDRSTRUCT):
     structure = (
         ('fDelayedAutostart', BOOL),
     )
+
 
 class LPSERVICE_DELAYED_AUTO_START_INFO(NDRPOINTER):
     referent = (
         ('Data', SERVICE_DELAYED_AUTO_START_INFO),
     )
 
+
 class SERVICE_SID_INFO(NDRSTRUCT):
     structure = (
         ('dwServiceSidType', DWORD),
     )
+
 
 class LPSERVICE_SID_INFO(NDRPOINTER):
     referent = (
@@ -396,9 +425,10 @@ class SERVICE_RPC_REQUIRED_PRIVILEGES_INFO(NDRSTRUCT):
         ('cbRequiredPrivileges',DWORD),
         ('pRequiredPrivileges',LPBYTE),
     )
-    def getData(self, soFar = 0):
+
+    def getData(self, soFar=0):
         self['cbRequiredPrivileges'] = len(self['pRequiredPrivileges'])
-        return NDR.getData(self, soFar = 0)
+        return NDR.getData(self, soFar=0)
 
 
 class LPSERVICE_RPC_REQUIRED_PRIVILEGES_INFO(NDRPOINTER):
@@ -406,20 +436,24 @@ class LPSERVICE_RPC_REQUIRED_PRIVILEGES_INFO(NDRPOINTER):
         ('Data', SERVICE_RPC_REQUIRED_PRIVILEGES_INFO),
     )
 
+
 class SERVICE_REQUIRED_PRIVILEGES_INFO_WOW64(NDRSTRUCT):
     structure = (
         ('dwRequiredPrivilegesOffset', DWORD),
     )
+
 
 class SERVICE_PRESHUTDOWN_INFO(NDRSTRUCT):
     structure = (
         ('dwPreshutdownTimeout', DWORD),
     )
 
+
 class LPSERVICE_PRESHUTDOWN_INFO(NDRPOINTER):
     referent = (
         ('Data', SERVICE_PRESHUTDOWN_INFO),
     )
+
 
 class SERVICE_STATUS_PROCESS(NDRSTRUCT):
     structure = (
@@ -434,12 +468,15 @@ class SERVICE_STATUS_PROCESS(NDRSTRUCT):
         ('dwServiceFlags', DWORD),
     )
 
+
 class UCHAR_16(NDRSTRUCT):
     structure = (
         ('Data', '16s=""'),
     )
+
     def getAlignment(self):
         return 1
+
 
 class SERVICE_NOTIFY_STATUS_CHANGE_PARAMS_1(NDRSTRUCT):
     structure = (
@@ -451,6 +488,7 @@ class SERVICE_NOTIFY_STATUS_CHANGE_PARAMS_1(NDRSTRUCT):
         ('dwNotificationStatus',DWORD),
         ('dwSequence',DWORD),
     )
+
 
 class SERVICE_NOTIFY_STATUS_CHANGE_PARAMS_2(NDRSTRUCT):
     structure = (
@@ -465,15 +503,18 @@ class SERVICE_NOTIFY_STATUS_CHANGE_PARAMS_2(NDRSTRUCT):
         ('pszServiceNames',LPWSTR),
     )
 
+
 class PSERVICE_NOTIFY_STATUS_CHANGE_PARAMS_1(NDRPOINTER):
     referent = (
         ('Data', SERVICE_NOTIFY_STATUS_CHANGE_PARAMS_1),
     )
 
+
 class PSERVICE_NOTIFY_STATUS_CHANGE_PARAMS_2(NDRPOINTER):
     referent = (
         ('Data', SERVICE_NOTIFY_STATUS_CHANGE_PARAMS_2),
     )
+
 
 class SC_RPC_NOTIFY_PARAMS(NDRUNION):
     union = {
@@ -481,8 +522,10 @@ class SC_RPC_NOTIFY_PARAMS(NDRUNION):
         2: ('pStatusChangeParams', PSERVICE_NOTIFY_STATUS_CHANGE_PARAMS_2),
     }
 
+
 class SC_RPC_NOTIFY_PARAMS_ARRAY(NDRUniConformantArray):
-     item = SC_RPC_NOTIFY_PARAMS
+    item = SC_RPC_NOTIFY_PARAMS
+
 
 class PSC_RPC_NOTIFY_PARAMS_LIST(NDRSTRUCT):
     structure = (
@@ -490,30 +533,36 @@ class PSC_RPC_NOTIFY_PARAMS_LIST(NDRSTRUCT):
         ('NotifyParamsArray', SC_RPC_NOTIFY_PARAMS_ARRAY),
     )
 
+
 class SERVICE_CONTROL_STATUS_REASON_IN_PARAMSW(NDRSTRUCT):
     structure = (
         ('dwReason', DWORD),
         ('pszComment', LPWSTR),
     )
 
+
 class SERVICE_TRIGGER_SPECIFIC_DATA_ITEM(NDRSTRUCT):
     structure = (
-        ('dwDataType',DWORD ),
+        ('dwDataType',DWORD),
         ('cbData',DWORD),
         ('pData', LPBYTE),
     )
-    def getData(self, soFar = 0):
+
+    def getData(self, soFar=0):
         if self['pData'] != 0:
             self['cbData'] = len(self['pData'])
         return NDR.getData(self, soFar)
 
+
 class SERVICE_TRIGGER_SPECIFIC_DATA_ITEM_ARRAY(NDRUniConformantArray):
     item = SERVICE_TRIGGER_SPECIFIC_DATA_ITEM
+
 
 class PSERVICE_TRIGGER_SPECIFIC_DATA_ITEM(NDRPOINTER):
     referent = (
         ('Data', SERVICE_TRIGGER_SPECIFIC_DATA_ITEM_ARRAY),
     )
+
 
 class SERVICE_TRIGGER(NDRSTRUCT):
     structure = (
@@ -523,39 +572,47 @@ class SERVICE_TRIGGER(NDRSTRUCT):
         ('cDataItems', DWORD),
         ('pDataItems', PSERVICE_TRIGGER_SPECIFIC_DATA_ITEM),
     )
-    def getData(self, soFar = 0):
+
+    def getData(self, soFar=0):
         if self['pDataItems'] != 0:
             self['cDataItems'] = len(self['pDataItems'])
         return NDR.getData(self, soFar)
 
+
 class SERVICE_TRIGGER_ARRAY(NDRUniConformantArray):
     item = SERVICE_TRIGGER
+
 
 class PSERVICE_TRIGGER(NDRPOINTER):
     referent = (
         ('Data', SERVICE_TRIGGER_ARRAY),
     )
 
+
 class SERVICE_CONTROL_STATUS_REASON_OUT_PARAMS(NDRSTRUCT):
     structure = (
-       ('ServiceStatus', SERVICE_STATUS_PROCESS),
+        ('ServiceStatus', SERVICE_STATUS_PROCESS),
     )
+
 
 class SERVICE_TRIGGER_INFO(NDRSTRUCT):
     structure = (
         ('cTriggers', DWORD),
         ('pTriggers', PSERVICE_TRIGGER),
-        ('pReserved', NDRPOINTERNULL ),
+        ('pReserved', NDRPOINTERNULL),
     )
-    def getData(self, soFar = 0):
+
+    def getData(self, soFar=0):
         if self['pTriggers'] != 0:
             self['cTriggers'] = len(self['pTriggers'])
         return NDR.getData(self, soFar)
-    
+
+
 class PSERVICE_TRIGGER_INFO(NDRPOINTER):
     referent = (
         ('Data', SERVICE_TRIGGER_INFO),
     )
+
 
 class SERVICE_PREFERRED_NODE_INFO(NDRSTRUCT):
     structure = (
@@ -563,30 +620,36 @@ class SERVICE_PREFERRED_NODE_INFO(NDRSTRUCT):
         ('fDelete', BOOL),
     )
 
+
 class LPSERVICE_PREFERRED_NODE_INFO(NDRPOINTER):
     referent = (
         ('Data', SERVICE_PREFERRED_NODE_INFO),
     )
+
 
 class SERVICE_RUNLEVEL_INFO(NDRSTRUCT):
     structure = (
         ('eLowestRunLevel', DWORD),
     )
 
+
 class PSERVICE_RUNLEVEL_INFO(NDRPOINTER):
     referent = (
         ('Data', SERVICE_RUNLEVEL_INFO),
     )
+
 
 class SERVICE_MANAGEDACCOUNT_INFO(NDRSTRUCT):
     structure = (
         ('fIsManagedAccount', DWORD),
     )
 
+
 class PSERVICE_MANAGEDACCOUNT_INFO(NDRPOINTER):
     referent = (
         ('Data', SERVICE_MANAGEDACCOUNT_INFO),
     )
+
 
 class SC_RPC_CONFIG_INFOW_UNION(NDRUNION):
     commonHdr = (
@@ -595,7 +658,7 @@ class SC_RPC_CONFIG_INFOW_UNION(NDRUNION):
 
     union = {
         1: ('psd', LPSERVICE_DESCRIPTIONW),
-        2: ('psfa',LPSERVICE_FAILURE_ACTIONSW ),
+        2: ('psfa',LPSERVICE_FAILURE_ACTIONSW),
         3: ('psda',LPSERVICE_DELAYED_AUTO_START_INFO),
         4: ('psfaf',LPSERVICE_FAILURE_ACTIONS_FLAG),
         5: ('pssid',LPSERVICE_SID_INFO),
@@ -607,6 +670,7 @@ class SC_RPC_CONFIG_INFOW_UNION(NDRUNION):
         11: ('psma',PSERVICE_MANAGEDACCOUNT_INFO),
     }
 
+
 class SC_RPC_CONFIG_INFOW(NDRSTRUCT):
     structure = (
         ('dwInfoLevel', DWORD),
@@ -617,17 +681,20 @@ class SC_RPC_CONFIG_INFOW(NDRSTRUCT):
 # RPC CALLS
 ################################################################################
 
+
 class RCloseServiceHandle(NDRCALL):
     opnum = 0
     structure = (
         ('hSCObject',SC_RPC_HANDLE),
     )
 
+
 class RCloseServiceHandleResponse(NDRCALL):
     structure = (
         ('hSCObject',SC_RPC_HANDLE),
         ('ErrorCode', DWORD),
     )
+
 
 class RControlService(NDRCALL):
     opnum = 1
@@ -636,11 +703,13 @@ class RControlService(NDRCALL):
         ('dwControl',DWORD),
     )
 
+
 class RControlServiceResponse(NDRCALL):
     structure = (
         ('lpServiceStatus',SERVICE_STATUS),
         ('ErrorCode', DWORD),
     )
+
 
 class RDeleteService(NDRCALL):
     opnum = 2
@@ -648,10 +717,12 @@ class RDeleteService(NDRCALL):
         ('hService',SC_RPC_HANDLE),
     )
 
+
 class RDeleteServiceResponse(NDRCALL):
     structure = (
         ('ErrorCode', DWORD),
     )
+
 
 class RLockServiceDatabase(NDRCALL):
     opnum = 3
@@ -659,11 +730,13 @@ class RLockServiceDatabase(NDRCALL):
         ('hSCManager',SC_RPC_HANDLE),
     )
 
+
 class RLockServiceDatabaseResponse(NDRCALL):
     structure = (
         ('lpLock',SC_RPC_LOCK),
         ('ErrorCode', DWORD),
     )
+
 
 class RQueryServiceObjectSecurity(NDRCALL):
     opnum = 4
@@ -673,12 +746,14 @@ class RQueryServiceObjectSecurity(NDRCALL):
         ('cbBufSize',DWORD),
     )
 
+
 class RQueryServiceObjectSecurityResponse(NDRCALL):
     structure = (
         ('lpSecurityDescriptor',LPBYTE),
         ('pcbBytesNeeded',BOUNDED_DWORD_256K),
         ('ErrorCode', DWORD),
     )
+
 
 class RSetServiceObjectSecurity(NDRCALL):
     opnum = 5
@@ -689,10 +764,12 @@ class RSetServiceObjectSecurity(NDRCALL):
         ('cbBufSize',DWORD),
     )
 
+
 class RSetServiceObjectSecurityResponse(NDRCALL):
     structure = (
         ('ErrorCode', DWORD),
     )
+
 
 class RQueryServiceStatus(NDRCALL):
     opnum = 6
@@ -700,11 +777,13 @@ class RQueryServiceStatus(NDRCALL):
         ('hService',SC_RPC_HANDLE),
     )
 
+
 class RQueryServiceStatusResponse(NDRCALL):
     structure = (
         ('lpServiceStatus',SERVICE_STATUS),
         ('ErrorCode', DWORD),
     )
+
 
 class RSetServiceStatus(NDRCALL):
     opnum = 7
@@ -713,10 +792,12 @@ class RSetServiceStatus(NDRCALL):
         ('lpServiceStatus',SERVICE_STATUS),
     )
 
+
 class RSetServiceStatusResponse(NDRCALL):
     structure = (
         ('ErrorCode', DWORD),
     )
+
 
 class RUnlockServiceDatabase(NDRCALL):
     opnum = 8
@@ -724,11 +805,13 @@ class RUnlockServiceDatabase(NDRCALL):
         ('Lock',SC_RPC_LOCK),
     )
 
+
 class RUnlockServiceDatabaseResponse(NDRCALL):
     structure = (
         ('Lock',SC_RPC_LOCK),
         ('ErrorCode', DWORD),
     )
+
 
 class RNotifyBootConfigStatus(NDRCALL):
     opnum = 9
@@ -737,10 +820,12 @@ class RNotifyBootConfigStatus(NDRCALL):
         ('BootAcceptable',DWORD),
     )
 
+
 class RNotifyBootConfigStatusResponse(NDRCALL):
     structure = (
         ('ErrorCode', DWORD),
     )
+
 
 class RChangeServiceConfigW(NDRCALL):
     opnum = 11
@@ -760,11 +845,13 @@ class RChangeServiceConfigW(NDRCALL):
         ('lpDisplayName',LPWSTR),
     )
 
+
 class RChangeServiceConfigWResponse(NDRCALL):
     structure = (
         ('lpdwTagId',LPDWORD),
         ('ErrorCode', DWORD),
     )
+
 
 class RCreateServiceW(NDRCALL):
     opnum = 12
@@ -786,12 +873,14 @@ class RCreateServiceW(NDRCALL):
         ('dwPwSize',DWORD),
     )
 
+
 class RCreateServiceWResponse(NDRCALL):
     structure = (
         ('lpdwTagId',LPWSTR),
         ('lpServiceHandle',SC_RPC_HANDLE),
         ('ErrorCode', DWORD),
     )
+
 
 class REnumDependentServicesW(NDRCALL):
     opnum = 13
@@ -801,6 +890,7 @@ class REnumDependentServicesW(NDRCALL):
         ('cbBufSize',DWORD),
     )
 
+
 class REnumDependentServicesWResponse(NDRCALL):
     structure = (
         ('lpServices',NDRUniConformantArray),
@@ -808,6 +898,7 @@ class REnumDependentServicesWResponse(NDRCALL):
         ('lpServicesReturned',BOUNDED_DWORD_256K),
         ('ErrorCode', DWORD),
     )
+
 
 class REnumServicesStatusW(NDRCALL):
     opnum = 14
@@ -819,6 +910,7 @@ class REnumServicesStatusW(NDRCALL):
         ('lpResumeIndex',LPBOUNDED_DWORD_256K),
     )
 
+
 class REnumServicesStatusWResponse(NDRCALL):
     structure = (
         ('lpBuffer',NDRUniConformantArray),
@@ -828,6 +920,7 @@ class REnumServicesStatusWResponse(NDRCALL):
         ('ErrorCode', DWORD),
     )
 
+
 class ROpenSCManagerW(NDRCALL):
     opnum = 15
     structure = (
@@ -836,11 +929,13 @@ class ROpenSCManagerW(NDRCALL):
         ('dwDesiredAccess',DWORD),
     )
 
+
 class ROpenSCManagerWResponse(NDRCALL):
     structure = (
         ('lpScHandle',SC_RPC_HANDLE),
         ('ErrorCode', DWORD),
     )
+
 
 class ROpenServiceW(NDRCALL):
     opnum = 16
@@ -850,11 +945,13 @@ class ROpenServiceW(NDRCALL):
         ('dwDesiredAccess',DWORD),
     )
 
+
 class ROpenServiceWResponse(NDRCALL):
     structure = (
         ('lpServiceHandle',SC_RPC_HANDLE),
         ('ErrorCode', DWORD),
     )
+
 
 class RQueryServiceConfigW(NDRCALL):
     opnum = 17
@@ -863,12 +960,14 @@ class RQueryServiceConfigW(NDRCALL):
         ('cbBufSize',DWORD),
     )
 
+
 class RQueryServiceConfigWResponse(NDRCALL):
     structure = (
         ('lpServiceConfig',QUERY_SERVICE_CONFIGW),
         ('pcbBytesNeeded',BOUNDED_DWORD_8K),
         ('ErrorCode', DWORD),
     )
+
 
 class RQueryServiceLockStatusW(NDRCALL):
     opnum = 18
@@ -877,12 +976,14 @@ class RQueryServiceLockStatusW(NDRCALL):
         ('cbBufSize',DWORD),
     )
 
+
 class RQueryServiceLockStatusWResponse(NDRCALL):
     structure = (
         ('lpLockStatus',QUERY_SERVICE_LOCK_STATUSW),
         ('pcbBytesNeeded',BOUNDED_DWORD_4K),
         ('ErrorCode', DWORD),
     )
+
 
 class RStartServiceW(NDRCALL):
     opnum = 19
@@ -892,10 +993,12 @@ class RStartServiceW(NDRCALL):
         ('argv',UNIQUE_STRING_PTRSW),
     )
 
+
 class RStartServiceWResponse(NDRCALL):
     structure = (
         ('ErrorCode', DWORD),
     )
+
 
 class RGetServiceDisplayNameW(NDRCALL):
     opnum = 20
@@ -905,12 +1008,14 @@ class RGetServiceDisplayNameW(NDRCALL):
         ('lpcchBuffer',DWORD),
     )
 
+
 class RGetServiceDisplayNameWResponse(NDRCALL):
     structure = (
         ('lpDisplayName',WSTR),
         ('lpcchBuffer',DWORD),
         ('ErrorCode', DWORD),
     )
+
 
 class RGetServiceKeyNameW(NDRCALL):
     opnum = 21
@@ -920,12 +1025,14 @@ class RGetServiceKeyNameW(NDRCALL):
         ('lpcchBuffer',DWORD),
     )
 
+
 class RGetServiceKeyNameWResponse(NDRCALL):
     structure = (
         ('lpDisplayName',WSTR),
         ('lpcchBuffer',DWORD),
         ('ErrorCode', DWORD),
     )
+
 
 class REnumServiceGroupW(NDRCALL):
     opnum = 35
@@ -938,6 +1045,7 @@ class REnumServiceGroupW(NDRCALL):
         ('pszGroupName',LPWSTR),
     )
 
+
 class REnumServiceGroupWResponse(NDRCALL):
     structure = (
         ('lpBuffer',LPBYTE),
@@ -947,17 +1055,20 @@ class REnumServiceGroupWResponse(NDRCALL):
         ('ErrorCode', DWORD),
     )
 
+
 class RChangeServiceConfig2W(NDRCALL):
     opnum = 37
     structure = (
-       ('hService',SC_RPC_HANDLE),
-       ('Info',SC_RPC_CONFIG_INFOW),
+        ('hService',SC_RPC_HANDLE),
+        ('Info',SC_RPC_CONFIG_INFOW),
     )
+
 
 class RChangeServiceConfig2WResponse(NDRCALL):
     structure = (
         ('ErrorCode', DWORD),
     )
+
 
 class RQueryServiceConfig2W(NDRCALL):
     opnum = 39
@@ -967,12 +1078,14 @@ class RQueryServiceConfig2W(NDRCALL):
         ('cbBufSize',DWORD),
     )
 
+
 class RQueryServiceConfig2WResponse(NDRCALL):
     structure = (
         ('lpBuffer',NDRUniConformantArray),
         ('pcbBytesNeeded',BOUNDED_DWORD_8K),
         ('ErrorCode', DWORD),
     )
+
 
 class RQueryServiceStatusEx(NDRCALL):
     opnum = 40
@@ -982,12 +1095,14 @@ class RQueryServiceStatusEx(NDRCALL):
         ('cbBufSize',DWORD),
     )
 
+
 class RQueryServiceStatusExResponse(NDRCALL):
     structure = (
         ('lpBuffer',NDRUniConformantArray),
         ('pcbBytesNeeded',BOUNDED_DWORD_8K),
         ('ErrorCode', DWORD),
     )
+
 
 class REnumServicesStatusExW(NDRCALL):
     opnum = 42
@@ -1001,6 +1116,7 @@ class REnumServicesStatusExW(NDRCALL):
         ('pszGroupName',LPWSTR),
     )
 
+
 class REnumServicesStatusExWResponse(NDRCALL):
     structure = (
         ('lpBuffer',NDRUniConformantArray),
@@ -1009,6 +1125,7 @@ class REnumServicesStatusExWResponse(NDRCALL):
         ('lpResumeIndex',BOUNDED_DWORD_256K),
         ('ErrorCode', DWORD),
     )
+
 
 class RCreateServiceWOW64W(NDRCALL):
     opnum = 45
@@ -1030,6 +1147,7 @@ class RCreateServiceWOW64W(NDRCALL):
         ('dwPwSize',DWORD),
     )
 
+
 class RCreateServiceWOW64WResponse(NDRCALL):
     structure = (
         ('lpdwTagId',LPWSTR),
@@ -1038,6 +1156,8 @@ class RCreateServiceWOW64WResponse(NDRCALL):
     )
 
 # Still not working, for some reason something changes in the way the pointer inside SC_RPC_NOTIFY_PARAMS is marshalled here
+
+
 class RNotifyServiceStatusChange(NDRCALL):
     opnum = 47
     structure = (
@@ -1045,6 +1165,7 @@ class RNotifyServiceStatusChange(NDRCALL):
         ('NotifyParams',SC_RPC_NOTIFY_PARAMS),
         ('pClientProcessGuid',GUID),
     )
+
 
 class RNotifyServiceStatusChangeResponse(NDRCALL):
     structure = (
@@ -1055,11 +1176,14 @@ class RNotifyServiceStatusChangeResponse(NDRCALL):
     )
 
 # Not working, until I don't fix the previous one
+
+
 class RGetNotifyResults(NDRCALL):
     opnum = 48
     structure = (
         ('hNotify',SC_NOTIFY_RPC_HANDLE),
     )
+
 
 class RGetNotifyResultsResponse(NDRCALL):
     structure = (
@@ -1068,11 +1192,14 @@ class RGetNotifyResultsResponse(NDRCALL):
     )
 
 # Not working, until I don't fix the previous ones
+
+
 class RCloseNotifyHandle(NDRCALL):
     opnum = 49
     structure = (
         ('phNotify',SC_NOTIFY_RPC_HANDLE),
     )
+
 
 class RCloseNotifyHandleResponse(NDRCALL):
     structure = (
@@ -1082,6 +1209,8 @@ class RCloseNotifyHandleResponse(NDRCALL):
     )
 
 # Not working, returning bad_stub_data
+
+
 class RControlServiceExW(NDRCALL):
     opnum = 51
     structure = (
@@ -1091,11 +1220,13 @@ class RControlServiceExW(NDRCALL):
         ('pControlInParams',SERVICE_CONTROL_STATUS_REASON_IN_PARAMSW),
     )
 
+
 class RControlServiceExWResponse(NDRCALL):
     structure = (
         ('pControlOutParams',SERVICE_CONTROL_STATUS_REASON_OUT_PARAMS),
         ('ErrorCode', DWORD),
     )
+
 
 class RQueryServiceConfigEx(NDRCALL):
     opnum = 56
@@ -1103,6 +1234,7 @@ class RQueryServiceConfigEx(NDRCALL):
         ('hService',SC_RPC_HANDLE),
         ('dwInfoLevel',DWORD),
     )
+
 
 class RQueryServiceConfigExResponse(NDRCALL):
     structure = (
@@ -1114,43 +1246,45 @@ class RQueryServiceConfigExResponse(NDRCALL):
 # OPNUMs and their corresponding structures
 ################################################################################
 OPNUMS = {
- 0 : (RCloseServiceHandle, RCloseServiceHandleResponse),
- 1 : (RControlService, RControlServiceResponse),
- 2 : (RDeleteService, RDeleteServiceResponse),
- 3 : (RLockServiceDatabase, RLockServiceDatabaseResponse),
- 4 : (RQueryServiceObjectSecurity, RQueryServiceObjectSecurityResponse),
- 5 : (RSetServiceObjectSecurity, RSetServiceObjectSecurityResponse),
- 6 : (RQueryServiceStatus, RQueryServiceStatusResponse),
- 7 : (RSetServiceStatus, RSetServiceStatusResponse),
- 8 : (RUnlockServiceDatabase, RUnlockServiceDatabaseResponse),
- 9 : (RNotifyBootConfigStatus, RNotifyBootConfigStatusResponse),
-11 : (RChangeServiceConfigW, RChangeServiceConfigWResponse),
-12 : (RCreateServiceW, RCreateServiceWResponse),
-13 : (REnumDependentServicesW, REnumDependentServicesWResponse),
-14 : (REnumServicesStatusW, REnumServicesStatusWResponse),
-15 : (ROpenSCManagerW, ROpenSCManagerWResponse),
-16 : (ROpenServiceW, ROpenServiceWResponse),
-17 : (RQueryServiceConfigW, RQueryServiceConfigWResponse),
-18 : (RQueryServiceLockStatusW, RQueryServiceLockStatusWResponse),
-19 : (RStartServiceW, RStartServiceWResponse),
-20 : (RGetServiceDisplayNameW, RGetServiceDisplayNameWResponse),
-21 : (RGetServiceKeyNameW, RGetServiceKeyNameWResponse),
-35 : (REnumServiceGroupW, REnumServiceGroupWResponse),
-37 : (RChangeServiceConfig2W, RChangeServiceConfig2WResponse),
-39 : (RQueryServiceConfig2W, RQueryServiceConfig2WResponse),
-40 : (RQueryServiceStatusEx, RQueryServiceStatusExResponse),
-42 : (REnumServicesStatusExW, REnumServicesStatusExWResponse),
-45 : (RCreateServiceWOW64W, RCreateServiceWOW64WResponse),
-47 : (RNotifyServiceStatusChange, RNotifyServiceStatusChangeResponse),
-48 : (RGetNotifyResults, RGetNotifyResultsResponse),
-49 : (RCloseNotifyHandle, RCloseNotifyHandleResponse),
-51 : (RControlServiceExW, RControlServiceExWResponse),
-56 : (RQueryServiceConfigEx, RQueryServiceConfigExResponse),
+    0: (RCloseServiceHandle, RCloseServiceHandleResponse),
+    1: (RControlService, RControlServiceResponse),
+    2: (RDeleteService, RDeleteServiceResponse),
+    3: (RLockServiceDatabase, RLockServiceDatabaseResponse),
+    4: (RQueryServiceObjectSecurity, RQueryServiceObjectSecurityResponse),
+    5: (RSetServiceObjectSecurity, RSetServiceObjectSecurityResponse),
+    6: (RQueryServiceStatus, RQueryServiceStatusResponse),
+    7: (RSetServiceStatus, RSetServiceStatusResponse),
+    8: (RUnlockServiceDatabase, RUnlockServiceDatabaseResponse),
+    9: (RNotifyBootConfigStatus, RNotifyBootConfigStatusResponse),
+    11: (RChangeServiceConfigW, RChangeServiceConfigWResponse),
+    12: (RCreateServiceW, RCreateServiceWResponse),
+    13: (REnumDependentServicesW, REnumDependentServicesWResponse),
+    14: (REnumServicesStatusW, REnumServicesStatusWResponse),
+    15: (ROpenSCManagerW, ROpenSCManagerWResponse),
+    16: (ROpenServiceW, ROpenServiceWResponse),
+    17: (RQueryServiceConfigW, RQueryServiceConfigWResponse),
+    18: (RQueryServiceLockStatusW, RQueryServiceLockStatusWResponse),
+    19: (RStartServiceW, RStartServiceWResponse),
+    20: (RGetServiceDisplayNameW, RGetServiceDisplayNameWResponse),
+    21: (RGetServiceKeyNameW, RGetServiceKeyNameWResponse),
+    35: (REnumServiceGroupW, REnumServiceGroupWResponse),
+    37: (RChangeServiceConfig2W, RChangeServiceConfig2WResponse),
+    39: (RQueryServiceConfig2W, RQueryServiceConfig2WResponse),
+    40: (RQueryServiceStatusEx, RQueryServiceStatusExResponse),
+    42: (REnumServicesStatusExW, REnumServicesStatusExWResponse),
+    45: (RCreateServiceWOW64W, RCreateServiceWOW64WResponse),
+    47: (RNotifyServiceStatusChange, RNotifyServiceStatusChangeResponse),
+    48: (RGetNotifyResults, RGetNotifyResultsResponse),
+    49: (RCloseNotifyHandle, RCloseNotifyHandleResponse),
+    51: (RControlServiceExW, RControlServiceExWResponse),
+    56: (RQueryServiceConfigEx, RQueryServiceConfigExResponse),
 }
 
 ################################################################################
 # HELPER FUNCTIONS
 ################################################################################
+
+
 def checkNullString(string):
     if string == NULL:
         return string
@@ -1160,10 +1294,12 @@ def checkNullString(string):
     else:
         return string
 
+
 def hRCloseServiceHandle(dce, hSCObject):
     request = RCloseServiceHandle()
     request['hSCObject'] = hSCObject
     return dce.request(request)
+
 
 def hRControlService(dce, hService, dwControl):
     request = RControlService()
@@ -1171,51 +1307,60 @@ def hRControlService(dce, hService, dwControl):
     request['dwControl'] = dwControl
     return dce.request(request)
 
+
 def hRDeleteService(dce, hService):
     request = RDeleteService()
-    request ['hService'] = hService
+    request['hService'] = hService
     return dce.request(request)
+
 
 def hRLockServiceDatabase(dce, hSCManager):
     request = RLockServiceDatabase()
     request['hSCManager'] = hSCManager
     return dce.request(request)
 
-def hRQueryServiceObjectSecurity(dce, hService, dwSecurityInformation, cbBufSize ):
+
+def hRQueryServiceObjectSecurity(dce, hService, dwSecurityInformation, cbBufSize):
     request = RQueryServiceObjectSecurity()
     request['hService'] = hService
     request['dwSecurityInformation'] = dwSecurityInformation
     request['cbBufSize'] = cbBufSize
     return dce.request(request)
 
-def hRSetServiceObjectSecurity(dce, hService, dwSecurityInformation, lpSecurityDescriptor, cbBufSize ):
+
+def hRSetServiceObjectSecurity(dce, hService, dwSecurityInformation, lpSecurityDescriptor, cbBufSize):
     request = RSetServiceObjectSecurityCall()
     request['hService'] = hService
     request['dwSecurityInformation'] = dwSecurityInformation
     request['cbBufSize'] = cbBufSize
     return dce.request(request)
 
-def hRQueryServiceStatus(dce, hService ):
+
+def hRQueryServiceStatus(dce, hService):
     request = RQueryServiceStatus()
     request['hService'] = hService
     return dce.request(request)
 
-def hRSetServiceStatus(dce, hServiceStatus, lpServiceStatus ):
+
+def hRSetServiceStatus(dce, hServiceStatus, lpServiceStatus):
     request = RSetServiceStatus()
     request['hServiceStatus'] = hServiceStatus
     request['lpServiceStatus'] = lpServiceStatus
     return dce.request(request)
 
-def hRUnlockServiceDatabase(dce, Lock ):
+
+def hRUnlockServiceDatabase(dce, Lock):
     request = RUnlockServiceDatabase()
     request['Lock'] = Lock
     return dce.request(request)
 
-def hRNotifyBootConfigStatus(dce, lpMachineName, BootAcceptable ):
+
+def hRNotifyBootConfigStatus(dce, lpMachineName, BootAcceptable):
     request = RNotifyBootConfigStatus()
     request['lpMachineName'] = lpMachineName
     request['BootAcceptable'] = BootAcceptable
     return dce.request(request)
+
 
 def hRChangeServiceConfigW(dce, hService, dwServiceType=SERVICE_NO_CHANGE, dwStartType=SERVICE_NO_CHANGE, dwErrorControl=SERVICE_NO_CHANGE, lpBinaryPathName=NULL, lpLoadOrderGroup=NULL, lpdwTagId=NULL, lpDependencies=NULL, dwDependSize=0, lpServiceStartName=NULL, lpPassword=NULL, dwPwSize=0, lpDisplayName=NULL):
     changeServiceConfig = RChangeServiceConfigW()
@@ -1234,6 +1379,7 @@ def hRChangeServiceConfigW(dce, hService, dwServiceType=SERVICE_NO_CHANGE, dwSta
     changeServiceConfig['dwPwSize'] = dwPwSize
     changeServiceConfig['lpDisplayName'] = checkNullString(lpDisplayName)
     return dce.request(changeServiceConfig)
+
 
 def hRCreateServiceW(dce, hSCManager, lpServiceName, lpDisplayName, dwDesiredAccess=SERVICE_ALL_ACCESS, dwServiceType=SERVICE_WIN32_OWN_PROCESS, dwStartType=SERVICE_AUTO_START, dwErrorControl=SERVICE_ERROR_IGNORE, lpBinaryPathName=NULL, lpLoadOrderGroup=NULL, lpdwTagId=NULL, lpDependencies=NULL, dwDependSize=0, lpServiceStartName=NULL, lpPassword=NULL, dwPwSize=0):
     createService = RCreateServiceW()
@@ -1255,14 +1401,16 @@ def hRCreateServiceW(dce, hSCManager, lpServiceName, lpDisplayName, dwDesiredAcc
     createService['dwPwSize'] = dwPwSize
     return dce.request(createService)
 
-def hREnumDependentServicesW(dce, hService, dwServiceState, cbBufSize ):
+
+def hREnumDependentServicesW(dce, hService, dwServiceState, cbBufSize):
     enumDependentServices = REnumDependentServicesW()
     enumDependentServices['hService'] = hService
     enumDependentServices['dwServiceState'] = dwServiceState
     enumDependentServices['cbBufSize'] = cbBufSize
     return dce.request(enumDependentServices)
 
-def hREnumServicesStatusW(dce, hSCManager, dwServiceType=SERVICE_WIN32_OWN_PROCESS|SERVICE_KERNEL_DRIVER|SERVICE_FILE_SYSTEM_DRIVER|SERVICE_WIN32_SHARE_PROCESS|SERVICE_INTERACTIVE_PROCESS, dwServiceState=SERVICE_STATE_ALL):
+
+def hREnumServicesStatusW(dce, hSCManager, dwServiceType=SERVICE_WIN32_OWN_PROCESS | SERVICE_KERNEL_DRIVER | SERVICE_FILE_SYSTEM_DRIVER | SERVICE_WIN32_SHARE_PROCESS | SERVICE_INTERACTIVE_PROCESS, dwServiceState=SERVICE_STATE_ALL):
     class ENUM_SERVICE_STATUSW2(NDRSTRUCT):
         # This is a little trick, since the original structure is slightly different
         # but instead of parsing the LPBYTE buffer at hand, we just do it with the aid
@@ -1297,7 +1445,7 @@ def hREnumServicesStatusW(dce, hSCManager, dwServiceType=SERVICE_WIN32_OWN_PROCE
             resp = dce.request(enumServicesStatus)
         else:
             raise
-    
+
     # Now we're supposed to have all services returned. Now we gotta parse them
     enumArray = NDRUniConformantArray()
     enumArray.item = ENUM_SERVICE_STATUSW2
@@ -1308,14 +1456,15 @@ def hREnumServicesStatusW(dce, hSCManager, dwServiceType=SERVICE_WIN32_OWN_PROCE
     # Since the pointers here are pointing to the actual data, we have to reparse
     # the referents
     for record in enumArray['Data']:
-        offset =  record.fields['lpDisplayName'].fields['ReferentID']
+        offset = record.fields['lpDisplayName'].fields['ReferentID']
         name = WIDESTR(data[offset:])
         record['lpDisplayName'] = name['Data']
-        offset =  record.fields['lpServiceName'].fields['ReferentID']
+        offset = record.fields['lpServiceName'].fields['ReferentID']
         name = WIDESTR(data[offset:])
         record['lpServiceName'] = name['Data']
 
     return enumArray['Data']
+
 
 def hROpenSCManagerW(dce, lpMachineName='DUMMY\x00', lpDatabaseName='ServicesActive\x00', dwDesiredAccess=SERVICE_START | SERVICE_STOP | SERVICE_CHANGE_CONFIG | SERVICE_QUERY_CONFIG | SERVICE_QUERY_STATUS | SERVICE_ENUMERATE_DEPENDENTS | SC_MANAGER_ENUMERATE_SERVICE):
     openSCManager = ROpenSCManagerW()
@@ -1324,12 +1473,14 @@ def hROpenSCManagerW(dce, lpMachineName='DUMMY\x00', lpDatabaseName='ServicesAct
     openSCManager['dwDesiredAccess'] = dwDesiredAccess
     return dce.request(openSCManager)
 
-def hROpenServiceW(dce, hSCManager, lpServiceName, dwDesiredAccess= SERVICE_ALL_ACCESS):
+
+def hROpenServiceW(dce, hSCManager, lpServiceName, dwDesiredAccess=SERVICE_ALL_ACCESS):
     openService = ROpenServiceW()
     openService['hSCManager'] = hSCManager
     openService['lpServiceName'] = checkNullString(lpServiceName)
     openService['dwDesiredAccess'] = dwDesiredAccess
     return dce.request(openService)
+
 
 def hRQueryServiceConfigW(dce, hService):
     queryService = RQueryServiceConfigW()
@@ -1347,13 +1498,15 @@ def hRQueryServiceConfigW(dce, hService):
 
     return resp
 
-def hRQueryServiceLockStatusW(dce, hSCManager, cbBufSize ):
+
+def hRQueryServiceLockStatusW(dce, hSCManager, cbBufSize):
     queryServiceLock = RQueryServiceLockStatusW()
     queryServiceLock['hSCManager'] = hSCManager
     queryServiceLock['cbBufSize'] = cbBufSize
     return dce.request(queryServiceLock)
 
-def hRStartServiceW(dce, hService, argc=0, argv=NULL ):
+
+def hRStartServiceW(dce, hService, argc=0, argv=NULL):
     startService = RStartServiceW()
     startService['hService'] = hService
     startService['argc'] = argc
@@ -1367,21 +1520,24 @@ def hRStartServiceW(dce, hService, argc=0, argv=NULL ):
             startService['argv'].append(itemn)
     return dce.request(startService)
 
-def hRGetServiceDisplayNameW(dce, hSCManager, lpServiceName, lpcchBuffer ):
+
+def hRGetServiceDisplayNameW(dce, hSCManager, lpServiceName, lpcchBuffer):
     getServiceDisplay = RGetServiceDisplayNameW()
     getServiceDisplay['hSCManager'] = hSCManager
     getServiceDisplay['lpServiceName'] = checkNullString(lpServiceName)
     getServiceDisplay['lpcchBuffer'] = lpcchBuffer
     return dce.request(getServiceDisplay)
 
-def hRGetServiceKeyNameW(dce, hSCManager, lpDisplayName, lpcchBuffer ):
+
+def hRGetServiceKeyNameW(dce, hSCManager, lpDisplayName, lpcchBuffer):
     getServiceKeyName = RGetServiceKeyNameW()
     getServiceKeyName['hSCManager'] = hSCManager
     getServiceKeyName['lpDisplayName'] = checkNullString(lpDisplayName)
     getServiceKeyName['lpcchBuffer'] = lpcchBuffer
     return dce.request(getServiceKeyName)
 
-def hREnumServiceGroupW(dce, hSCManager, dwServiceType, dwServiceState, cbBufSize, lpResumeIndex = NULL, pszGroupName = NULL ):
+
+def hREnumServiceGroupW(dce, hSCManager, dwServiceType, dwServiceState, cbBufSize, lpResumeIndex=NULL, pszGroupName=NULL):
     enumServiceGroup = REnumServiceGroupW()
     enumServiceGroup['hSCManager'] = hSCManager
     enumServiceGroup['dwServiceType'] = dwServiceType
@@ -1390,4 +1546,3 @@ def hREnumServiceGroupW(dce, hSCManager, dwServiceType, dwServiceState, cbBufSiz
     enumServiceGroup['lpResumeIndex'] = lpResumeIndex
     enumServiceGroup['pszGroupName'] = pszGroupName
     return dce.request(enumServiceGroup)
-

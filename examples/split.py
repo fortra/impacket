@@ -28,6 +28,7 @@ from pcapy import open_offline
 import impacket
 from impacket.ImpactDecoder import EthDecoder, LinuxSLLDecoder
 
+
 class Connection:
     """This class can be used as a key in a dictionary to select a connection
     given a pair of peers. Two connections are considered the same if both
@@ -48,11 +49,11 @@ class Connection:
         """Utility function that returns a filename composed by the IP
         addresses and ports of both peers.
         """
-        return '%s.%d-%s.%d.pcap'%(self.p1[0],self.p1[1],self.p2[0],self.p2[1])
+        return '%s.%d-%s.%d.pcap' % (self.p1[0],self.p1[1],self.p2[0],self.p2[1])
 
     def __cmp__(self, other):
         if ((self.p1 == other.p1 and self.p2 == other.p2)
-            or (self.p1 == other.p2 and self.p2 == other.p1)):
+                or (self.p1 == other.p2 and self.p2 == other.p1)):
             return 0
         else:
             return -1
@@ -99,8 +100,8 @@ class Decoder:
         tcp = ip.child()
 
         # Build a distinctive key for this pair of peers.
-        src = (ip.get_ip_src(), tcp.get_th_sport() )
-        dst = (ip.get_ip_dst(), tcp.get_th_dport() )
+        src = (ip.get_ip_src(), tcp.get_th_sport())
+        dst = (ip.get_ip_dst(), tcp.get_th_dport())
         con = Connection(src,dst)
 
         # If there isn't an entry associated yetwith this connection,
@@ -117,7 +118,6 @@ class Decoder:
 
         # Write the packet to the corresponding file.
         self.connections[con].dump(hdr, data)
-
 
 
 def main(filename):

@@ -7,21 +7,21 @@
 #
 # A similar approach to psexec w/o using RemComSvc. The technique is described here
 # http://www.accuvant.com/blog/owning-computers-without-shell-access
-# Our implementation goes one step further, instantiating a local smbserver to receive the 
+# Our implementation goes one step further, instantiating a local smbserver to receive the
 # output of the commands. This is useful in the situation where the target machine does NOT
 # have a writeable share available.
-# Keep in mind that, although this technique might help avoiding AVs, there are a lot of 
-# event logs generated and you can't expect executing tasks that will last long since Windows 
-# will kill the process since it's not responding as a Windows service. 
+# Keep in mind that, although this technique might help avoiding AVs, there are a lot of
+# event logs generated and you can't expect executing tasks that will last long since Windows
+# will kill the process since it's not responding as a Windows service.
 # Certainly not a stealthy way.
 #
 # This script works in two ways:
 # 1) share mode: you specify a share, and everything is done through that share.
 # 2) server mode: if for any reason there's no share available, this script will launch a local
 #    SMB server, so the output of the commands executed are sent back by the target machine
-#    into a locally shared folder. Keep in mind you would need root access to bind to port 445 
+#    into a locally shared folder. Keep in mind you would need root access to bind to port 445
 #    in the local machine.
-# 
+#
 # Author:
 #  beto (@agsolino)
 #
@@ -45,9 +45,10 @@ from impacket.dcerpc.v5 import transport, scmr
 from impacket.examples import logger
 
 OUTPUT_FILENAME = '__output'
-BATCH_FILENAME  = 'execute.bat'
-SMBSERVER_DIR   = '__tmp'
-DUMMY_SHARE     = 'TMP'
+BATCH_FILENAME = 'execute.bat'
+SMBSERVER_DIR = '__tmp'
+DUMMY_SHARE = 'TMP'
+
 
 class SMBServer(Thread):
     def __init__(self):
@@ -85,7 +86,7 @@ class SMBServer(Thread):
         smbConfig.set('IPC$','share type','3')
         smbConfig.set('IPC$','path')
 
-        self.smb = smbserver.SMBSERVER(('0.0.0.0',445), config_parser = smbConfig)
+        self.smb = smbserver.SMBSERVER(('0.0.0.0',445), config_parser=smbConfig)
         logging.info('Creating tmp directory')
         try:
             os.mkdir(SMBSERVER_DIR)
@@ -106,15 +107,15 @@ class SMBServer(Thread):
         self.smb.server_close()
         self._Thread__stop()
 
+
 class CMDEXEC:
     KNOWN_PROTOCOLS = {
         '139/SMB': (r'ncacn_np:%s[\pipe\svcctl]', 139),
         '445/SMB': (r'ncacn_np:%s[\pipe\svcctl]', 445),
-        }
+    }
 
-
-    def __init__(self, protocols = None, 
-                 username = '', password = '', domain = '', hashes = None, aesKey = None, doKerberos = None, mode = None, share = None):
+    def __init__(self, protocols=None,
+                 username='', password='', domain='', hashes=None, aesKey=None, doKerberos=None, mode=None, share=None):
         if not protocols:
             protocols = list(PSEXEC.KNOWN_PROTOCOLS.keys())
 
@@ -128,7 +129,7 @@ class CMDEXEC:
         self.__aesKey = aesKey
         self.__doKerberos = doKerberos
         self.__share = share
-        self.__mode  = mode
+        self.__mode = mode
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
 
@@ -146,7 +147,7 @@ class CMDEXEC:
             rpctransport.set_dport(port)
 
             if hasattr(rpctransport,'preferred_dialect'):
-               rpctransport.preferred_dialect(SMB_DIALECT)
+                rpctransport.preferred_dialect(SMB_DIALECT)
             if hasattr(rpctransport, 'set_credentials'):
                 # This method exists only for selected protocol sequences.
                 rpctransport.set_credentials(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey)
@@ -162,22 +163,23 @@ class CMDEXEC:
                 self.shell.cmdloop()
                 if self.__mode == 'SERVER':
                     serverThread.stop()
-            except  (Exception, KeyboardInterrupt) as e:
+            except (Exception, KeyboardInterrupt) as e:
                 #import traceback
-                #traceback.print_exc()
+                # traceback.print_exc()
                 logging.critical(str(e))
                 if self.shell is not None:
                     self.shell.finish()
                 sys.stdout.flush()
                 sys.exit(1)
 
+
 class RemoteShell(cmd.Cmd):
     def __init__(self, share, rpc, mode, serviceName):
         cmd.Cmd.__init__(self)
         self.__share = share
         self.__mode = mode
-        self.__output = '\\Windows\\Temp\\' + OUTPUT_FILENAME 
-        self.__batchFile = '%TEMP%\\' + BATCH_FILENAME 
+        self.__output = '\\Windows\\Temp\\' + OUTPUT_FILENAME
+        self.__batchFile = '%TEMP%\\' + BATCH_FILENAME
         self.__outputBuffer = ''
         self.__command = ''
         self.__shell = '%COMSPEC% /Q /c '
@@ -209,18 +211,18 @@ class RemoteShell(cmd.Cmd):
     def finish(self):
         # Just in case the service is still created
         try:
-           self.__scmr = self.__rpc.get_dce_rpc()
-           self.__scmr.connect() 
-           self.__scmr.bind(svcctl.MSRPC_UUID_SVCCTL)
-           resp = scmr.hROpenSCManagerW(self.__scmr)
-           self.__scHandle = resp['lpScHandle']
-           resp = scmr.hROpenServiceW(self.__scmr, self.__scHandle, self.__serviceName)
-           service = resp['lpServiceHandle']
-           scmr.hRDeleteService(self.__scmr, service)
-           scmr.hRControlService(self.__scmr, service, scmr.SERVICE_CONTROL_STOP)
-           scmr.hRCloseServiceHandle(self.__scmr, service)
+            self.__scmr = self.__rpc.get_dce_rpc()
+            self.__scmr.connect()
+            self.__scmr.bind(svcctl.MSRPC_UUID_SVCCTL)
+            resp = scmr.hROpenSCManagerW(self.__scmr)
+            self.__scHandle = resp['lpScHandle']
+            resp = scmr.hROpenServiceW(self.__scmr, self.__scHandle, self.__serviceName)
+            service = resp['lpServiceHandle']
+            scmr.hRDeleteService(self.__scmr, service)
+            scmr.hRControlService(self.__scmr, service, scmr.SERVICE_CONTROL_STOP)
+            scmr.hRCloseServiceHandle(self.__scmr, service)
         except Exception as e:
-           pass
+            pass
 
     def do_shell(self, s):
         os.system(s)
@@ -236,7 +238,7 @@ class RemoteShell(cmd.Cmd):
         if len(s) > 0:
             logging.error("You can't CD under SMBEXEC. Use full paths.")
 
-        self.execute_remote('cd ' )
+        self.execute_remote('cd ')
         if len(self.__outputBuffer) > 0:
             # Stripping CR/LF
             self.prompt = string.replace(self.__outputBuffer,'\r\n','') + '>'
@@ -263,18 +265,18 @@ class RemoteShell(cmd.Cmd):
             os.unlink(SMBSERVER_DIR + '/' + OUTPUT_FILENAME)
 
     def execute_remote(self, data):
-        command = self.__shell + 'echo ' + data + ' ^> ' + self.__output + ' 2^>^&1 > ' + self.__batchFile + ' & ' + self.__shell + self.__batchFile 
+        command = self.__shell + 'echo ' + data + ' ^> ' + self.__output + ' 2^>^&1 > ' + self.__batchFile + ' & ' + self.__shell + self.__batchFile
         if self.__mode == 'SERVER':
             command += ' & ' + self.__copyBack
-        command += ' & ' + 'del ' + self.__batchFile 
+        command += ' & ' + 'del ' + self.__batchFile
 
         resp = scmr.hRCreateServiceW(self.__scmr, self.__scHandle, self.__serviceName, self.__serviceName, lpBinaryPathName=command)
         service = resp['lpServiceHandle']
 
         try:
-           scmr.hRStartServiceW(self.__scmr, service)
+            scmr.hRStartServiceW(self.__scmr, service)
         except:
-           pass
+            pass
         scmr.hRDeleteService(self.__scmr, service)
         scmr.hRCloseServiceHandle(self.__scmr, service)
         self.get_output()
@@ -292,21 +294,20 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
-    parser.add_argument('-share', action='store', default = 'C$', help='share where the output will be grabbed from (default C$)')
-    parser.add_argument('-mode', action='store', choices = {'SERVER','SHARE'}, default='SHARE', help='mode to use (default SHARE, SERVER needs root!)')
+    parser.add_argument('-share', action='store', default='C$', help='share where the output will be grabbed from (default C$)')
+    parser.add_argument('-mode', action='store', choices={'SERVER','SHARE'}, default='SHARE', help='mode to use (default SHARE, SERVER needs root!)')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
     parser.add_argument('protocol', choices=list(CMDEXEC.KNOWN_PROTOCOLS.keys()), nargs='?', default='445/SMB', help='transport protocol (default 445/SMB)')
 
     group = parser.add_argument_group('authentication')
 
-    group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
+    group.add_argument('-hashes', action="store", metavar="LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
     group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
     group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file (KRB5CCNAME) based on target parameters. If valid credentials cannot be found, it will use the ones specified in the command line')
-    group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication (128 or 256 bits)')
+    group.add_argument('-aesKey', action="store", metavar="hex key", help='AES key to use for Kerberos Authentication (128 or 256 bits)')
 
- 
-    if len(sys.argv)==1:
+    if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(1)
 

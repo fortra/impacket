@@ -19,8 +19,9 @@ from impacket import dcerpc
 from impacket.dcerpc import ndrutils
 from struct import *
 
-MSRPC_UUID_REMOTE_ACTIVATION ='\xb8\x4a\x9f\x4d\x1c\x7d\xcf\x11\x86\x1e\x00\x20\xaf\x6e\x7c\x57\x00\x00\x00\x00'
+MSRPC_UUID_REMOTE_ACTIVATION = '\xb8\x4a\x9f\x4d\x1c\x7d\xcf\x11\x86\x1e\x00\x20\xaf\x6e\x7c\x57\x00\x00\x00\x00'
 MSRPC_UUID_SYSTEM_ACTIVATOR = '\xa0\x01\x00\x00\x00\x00\x00\x00\xc0\x00\x00\x00\x00\x00\x00\x46\x00\x00\x00\x00'
+
 
 class ORPCTHIS:
     __SIZE = 32
@@ -49,14 +50,13 @@ class UnknownOpnum3RequestHeader(ImpactPacket.Header):
 
     __SIZE = 48
 
-    def __init__(self, aBuffer = None):
+    def __init__(self, aBuffer=None):
         ImpactPacket.Header.__init__(self, UnknownOpnum3RequestHeader.__SIZE)
 
-##         self.parent().set_callid(19)
-        self.set_bytes_from_string('\x05\x00\x06\x01\x00\x00\x00\x00' + '\x31'*32 + '\x00'*8)
+# self.parent().set_callid(19)
+        self.set_bytes_from_string('\x05\x00\x06\x01\x00\x00\x00\x00' + '\x31' * 32 + '\x00' * 8)
 
         if aBuffer: self.load_header(aBuffer)
-
 
     def get_header_size(self):
         return UnknownOpnum3RequestHeader.__SIZE
@@ -67,10 +67,10 @@ class UnknownOpnum4RequestHeader(ImpactPacket.Header):
 
     __SIZE = 48
 
-    def __init__(self, aBuffer = None):
+    def __init__(self, aBuffer=None):
         ImpactPacket.Header.__init__(self, UnknownOpnum4RequestHeader.__SIZE)
 
-##         self.parent().set_callid(19)
+# self.parent().set_callid(19)
 ##         self.set_bytes(self, '\x05\x00\x06\x01\x00\x00\x00\x00' + '\x31'*32 + '\x00'*8)
         self.get_bytes()[:32] = array.array('B', ORPCTHIS().rawData())
         self.set_cls_binuuid('\x01\x00\x00\x00\x00\x00\x00\x00\x70\x5e\x0d\x00\x02\x00\x00\x00')
@@ -78,17 +78,18 @@ class UnknownOpnum4RequestHeader(ImpactPacket.Header):
         if aBuffer: self.load_header(aBuffer)
 
     def get_c_binuuid(self):
-        return self.get_bytes().tolist()[12:12+16]
+        return self.get_bytes().tolist()[12:12 + 16]
+
     def set_c_binuuid(self, binuuid):
         assert 16 == len(binuuid)
-        self.get_bytes()[12:12+16] = array.array('B', binuuid)
+        self.get_bytes()[12:12 + 16] = array.array('B', binuuid)
 
     def get_cls_binuuid(self):
-        return self.get_bytes().tolist()[32:32+16]
+        return self.get_bytes().tolist()[32:32 + 16]
+
     def set_cls_binuuid(self, binuuid):
         assert 16 == len(binuuid)
-        self.get_bytes()[32:32+16] = array.array('B', binuuid)
-
+        self.get_bytes()[32:32 + 16] = array.array('B', binuuid)
 
     def get_header_size(self):
         return UnknownOpnum4RequestHeader.__SIZE
@@ -99,7 +100,7 @@ class RemoteActivationRequestHeader(ImpactPacket.Header):
 
     __SIZE = 124
 
-    def __init__(self, aBuffer = None):
+    def __init__(self, aBuffer=None):
         ImpactPacket.Header.__init__(self, UnknownOpnum4RequestHeader.__SIZE)
 
         self.get_bytes()[:32] = array.array('B', ORPCTHIS().rawData())
@@ -113,48 +114,55 @@ class RemoteActivationRequestHeader(ImpactPacket.Header):
         if aBuffer: self.load_header(aBuffer)
 
     def get_c_binuuid(self):
-        return self.get_bytes().tolist()[12:12+16]
+        return self.get_bytes().tolist()[12:12 + 16]
+
     def set_c_binuuid(self, binuuid):
         assert 16 == len(binuuid)
-        self.get_bytes()[12:12+16] = array.array('B', binuuid)
+        self.get_bytes()[12:12 + 16] = array.array('B', binuuid)
 
     def get_cls_binuuid(self):
-        return self.get_bytes().tolist()[32:32+16]
+        return self.get_bytes().tolist()[32:32 + 16]
+
     def set_cls_binuuid(self, binuuid):
         assert 16 == len(binuuid)
-        self.get_bytes()[32:32+16] = array.array('B', binuuid)
+        self.get_bytes()[32:32 + 16] = array.array('B', binuuid)
 
     def get_object_name_len(self):
         return self.get_word(48, '<')
+
     def set_object_name_len(self, len):
         self.set_word(48, len, '<')
 
     def get_object_storage(self):
         return self.get_word(52, '<')
+
     def set_object_storage(self, storage):
         self.set_word(52, storage, '<')
 
     def get_client_implementation_level(self):
         return self.get_long(56, '<')
+
     def set_client_implementation_level(self, level):
         self.set_long(56, level, '<')
 
     def get_mode(self):
         return self.get_long(60, '<')
+
     def set_mode(self, mode):
         self.set_long(60, mode, '<')
 
     def get_interfaces_num(self):
         return self.get_long(64, '<')
+
     def set_interfaces_num(self, num):
         self.set_long(64, num, '<')
 
     def get_pi_binuuid(self):
-        return self.get_bytes().tolist()[76:76+16]
+        return self.get_bytes().tolist()[76:76 + 16]
+
     def set_pi_binuuid(self, binuuid):
         assert 16 == len(binuuid)
-        self.get_bytes()[76:76+16] = array.array('B', binuuid)
-
+        self.get_bytes()[76:76 + 16] = array.array('B', binuuid)
 
     def get_header_size(self):
         return UnknownOpnum4RequestHeader.__SIZE

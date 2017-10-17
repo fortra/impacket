@@ -17,8 +17,8 @@ except ImportError:
             pass
 
 # All modules inside this library MUST use this logger (impacket)
-# It is up to the library consumer to do whatever is wanted 
-# with the logger output. By default it is forwarded to the 
+# It is up to the library consumer to do whatever is wanted
+# with the logger output. By default it is forwarded to the
 # upstream logger
 
 LOG = logging.getLogger(__name__)

@@ -1,10 +1,10 @@
 ###############################################################################
-#  Tested so far: 
+#  Tested so far:
 #
 #  Not yet:
 #
 # Shouldn't dump errors against a win7
-#  
+#
 ################################################################################
 
 import sys
@@ -19,6 +19,7 @@ from impacket.winregistry import hexdump
 from impacket.uuid import string_to_bin, uuidtup_to_bin
 from impacket import system_errors
 
+
 class EPMTests(unittest.TestCase):
     def connect(self):
         rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
@@ -32,18 +33,18 @@ class EPMTests(unittest.TestCase):
             rpctransport.set_credentials(self.username,self.password, self.domain, lmhash, nthash)
         dce = rpctransport.get_dce_rpc()
         dce.connect()
-        dce.bind(epm.MSRPC_UUID_PORTMAP, transfer_syntax = self.ts)
+        dce.bind(epm.MSRPC_UUID_PORTMAP, transfer_syntax=self.ts)
 
         return dce, rpctransport
 
     def test_hept_map(self):
-        MSRPC_UUID_SAMR   = uuidtup_to_bin(('12345778-1234-ABCD-EF00-0123456789AC', '1.0'))
+        MSRPC_UUID_SAMR = uuidtup_to_bin(('12345778-1234-ABCD-EF00-0123456789AC', '1.0'))
         resp = epm.hept_map(self.machine,MSRPC_UUID_SAMR)
-        resp = epm.hept_map(self.machine, MSRPC_UUID_SAMR, protocol = 'ncacn_ip_tcp')
+        resp = epm.hept_map(self.machine, MSRPC_UUID_SAMR, protocol='ncacn_ip_tcp')
         MSRPC_UUID_ATSVC = uuidtup_to_bin(('1FF70682-0A51-30E8-076D-740BE8CEE98B', '1.0'))
         resp = epm.hept_map(self.machine,MSRPC_UUID_ATSVC)
         MSRPC_UUID_SCMR = uuidtup_to_bin(('367ABB81-9844-35F1-AD32-98F038001003', '2.0'))
-        resp = epm.hept_map(self.machine,MSRPC_UUID_SCMR, protocol = 'ncacn_ip_tcp')
+        resp = epm.hept_map(self.machine,MSRPC_UUID_SCMR, protocol='ncacn_ip_tcp')
 
     def test_lookup(self):
         dce, rpctransport = self.connect()
@@ -53,24 +54,24 @@ class EPMTests(unittest.TestCase):
         request['Ifid'] = NULL
         request['vers_option'] = epm.RPC_C_VERS_ALL
         request['max_ents'] = 499
-      
+
         resp = dce.request(request)
         for entry in resp['entries']:
             tower = entry['tower']['tower_octet_string']
             tower = epm.EPMTower(''.join(tower))
-            #print tower['Floors'][0]
-            #print tower['Floors'][1]
+            # print tower['Floors'][0]
+            # print tower['Floors'][1]
 
     def test_hlookup(self):
         resp = epm.hept_lookup(self.machine)
-        #for entry in resp:
+        # for entry in resp:
         #    print epm.PrintStringBinding(entry['tower']['Floors'], self.machine)
-        MSRPC_UUID_SAMR   = uuidtup_to_bin(('12345778-1234-ABCD-EF00-0123456789AC', '1.0'))
-        resp = epm.hept_lookup(self.machine, inquiry_type = epm.RPC_C_EP_MATCH_BY_IF, ifId = MSRPC_UUID_SAMR)
+        MSRPC_UUID_SAMR = uuidtup_to_bin(('12345778-1234-ABCD-EF00-0123456789AC', '1.0'))
+        resp = epm.hept_lookup(self.machine, inquiry_type=epm.RPC_C_EP_MATCH_BY_IF, ifId=MSRPC_UUID_SAMR)
         MSRPC_UUID_ATSVC = uuidtup_to_bin(('1FF70682-0A51-30E8-076D-740BE8CEE98B', '1.0'))
-        resp = epm.hept_lookup(self.machine, inquiry_type = epm.RPC_C_EP_MATCH_BY_IF, ifId = MSRPC_UUID_ATSVC)
+        resp = epm.hept_lookup(self.machine, inquiry_type=epm.RPC_C_EP_MATCH_BY_IF, ifId=MSRPC_UUID_ATSVC)
         MSRPC_UUID_SCMR = uuidtup_to_bin(('367ABB81-9844-35F1-AD32-98F038001003', '2.0'))
-        resp = epm.hept_lookup(self.machine, inquiry_type = epm.RPC_C_EP_MATCH_BY_IF, ifId = MSRPC_UUID_SCMR)
+        resp = epm.hept_lookup(self.machine, inquiry_type=epm.RPC_C_EP_MATCH_BY_IF, ifId=MSRPC_UUID_SCMR)
 
     def test_map(self):
         dce, rpctransport = self.connect()
@@ -109,9 +110,10 @@ class EPMTests(unittest.TestCase):
         request['max_towers'] = 4
         request['map_tower']['tower_length'] = len(tower)
         request['map_tower']['tower_octet_string'] = str(tower)
-        #request.dumpRaw()
+        # request.dumpRaw()
         resp = dce.request(request)
         resp.dump()
+
 
 class SMBTransport(EPMTests):
     def setUp(self):
@@ -119,13 +121,14 @@ class SMBTransport(EPMTests):
         configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
+        self.domain = configFile.get('SMBTransport', 'domain')
         self.serverName = configFile.get('SMBTransport', 'servername')
         self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
+        self.machine = configFile.get('SMBTransport', 'machine')
+        self.hashes = configFile.get('SMBTransport', 'hashes')
         self.stringBinding = r'ncacn_np:%s[\pipe\epmapper]' % self.machine
         self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
+
 
 class TCPTransport(EPMTests):
     def setUp(self):
@@ -133,13 +136,14 @@ class TCPTransport(EPMTests):
         configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('TCPTransport', 'username')
-        self.domain   = configFile.get('TCPTransport', 'domain')
+        self.domain = configFile.get('TCPTransport', 'domain')
         self.serverName = configFile.get('TCPTransport', 'servername')
         self.password = configFile.get('TCPTransport', 'password')
-        self.machine  = configFile.get('TCPTransport', 'machine')
-        self.hashes   = configFile.get('TCPTransport', 'hashes')
+        self.machine = configFile.get('TCPTransport', 'machine')
+        self.hashes = configFile.get('TCPTransport', 'hashes')
         self.stringBinding = r'ncacn_ip_tcp:%s[135]' % self.machine
         self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
+
 
 class SMBTransport64(EPMTests):
     def setUp(self):
@@ -147,13 +151,14 @@ class SMBTransport64(EPMTests):
         configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('SMBTransport', 'username')
-        self.domain   = configFile.get('SMBTransport', 'domain')
+        self.domain = configFile.get('SMBTransport', 'domain')
         self.serverName = configFile.get('SMBTransport', 'servername')
         self.password = configFile.get('SMBTransport', 'password')
-        self.machine  = configFile.get('SMBTransport', 'machine')
-        self.hashes   = configFile.get('SMBTransport', 'hashes')
+        self.machine = configFile.get('SMBTransport', 'machine')
+        self.hashes = configFile.get('SMBTransport', 'hashes')
         self.stringBinding = r'ncacn_np:%s[\pipe\epmapper]' % self.machine
         self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
+
 
 class TCPTransport64(EPMTests):
     def setUp(self):
@@ -161,11 +166,11 @@ class TCPTransport64(EPMTests):
         configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('TCPTransport', 'username')
-        self.domain   = configFile.get('TCPTransport', 'domain')
+        self.domain = configFile.get('TCPTransport', 'domain')
         self.serverName = configFile.get('TCPTransport', 'servername')
         self.password = configFile.get('TCPTransport', 'password')
-        self.machine  = configFile.get('TCPTransport', 'machine')
-        self.hashes   = configFile.get('TCPTransport', 'hashes')
+        self.machine = configFile.get('TCPTransport', 'machine')
+        self.hashes = configFile.get('TCPTransport', 'hashes')
         self.stringBinding = r'ncacn_ip_tcp:%s[135]' % self.machine
         self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
 

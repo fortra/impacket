@@ -26,6 +26,7 @@ from pyasn1.codec.der import decoder, encoder
 
 DELTA_TIME = 1
 
+
 class Header(Structure):
     structure = (
         ('tag','!H=0'),
@@ -34,11 +35,13 @@ class Header(Structure):
         ('tagdata',':'),
     )
 
+
 class DeltaTime(Structure):
     structure = (
         ('time_offset','!L=0'),
         ('usec_offset','!L=0'),
     )
+
 
 class CountedOctetString(Structure):
     structure = (
@@ -49,6 +52,7 @@ class CountedOctetString(Structure):
 
     def prettyPrint(self, indent=''):
         return "%s%s" % (indent, self['data'].encode('hex'))
+
 
 class KeyBlock(Structure):
     structure = (
@@ -62,6 +66,7 @@ class KeyBlock(Structure):
     def prettyPrint(self):
         return "Key: (0x%x)%s" % (self['keytype'], self['keyvalue'].encode('hex'))
 
+
 class Times(Structure):
     structure = (
         ('authtime','!L=0'),
@@ -69,11 +74,13 @@ class Times(Structure):
         ('endtime','!L=0'),
         ('renew_till','!L=0'),
     )
-    def prettyPrint(self, indent = ''):
+
+    def prettyPrint(self, indent=''):
         print("%sAuth : %s" % (indent, datetime.fromtimestamp(self['authtime']).isoformat()))
         print("%sStart: %s" % (indent, datetime.fromtimestamp(self['starttime']).isoformat()))
         print("%sEnd  : %s" % (indent, datetime.fromtimestamp(self['endtime']).isoformat()))
         print("%sRenew: %s" % (indent, datetime.fromtimestamp(self['renew_till']).isoformat()))
+
 
 class Address(Structure):
     structure = (
@@ -81,11 +88,13 @@ class Address(Structure):
         ('addrdata',':', CountedOctetString),
     )
 
+
 class AuthData(Structure):
     structure = (
         ('authtype','!H=0'),
         ('authdata',':', CountedOctetString),
     )
+
 
 class Principal():
     class PrincipalHeader(Structure):
@@ -95,6 +104,7 @@ class Principal():
         )
     components = []
     realm = None
+
     def __init__(self, data=None):
         if data is not None:
             self.header = self.PrincipalHeader(data)
@@ -114,7 +124,7 @@ class Principal():
         for i in self.components:
             totalLen += len(i)
         return totalLen
- 
+
     def getData(self):
         data = self.header.getData() + self.realm.getData()
         for component in self.components:
@@ -128,7 +138,7 @@ class Principal():
         principal = ''
         for component in self.components:
             principal += component['data'] + '/'
-        
+
         principal = principal[:-1]
         principal += '@' + self.realm['data']
         return principal
@@ -150,6 +160,7 @@ class Principal():
     def toPrincipal(self):
         return types.Principal(self.prettyPrint(), type=self.header['name_type'])
 
+
 class Credential():
     class CredentialHeader(Structure):
         structure = (
@@ -167,7 +178,7 @@ class Credential():
     header = None
     ticket = None
     secondTicket = None
- 
+
     def __init__(self, data=None):
         if data is not None:
             self.header = self.CredentialHeader(data)
@@ -186,12 +197,12 @@ class Credential():
             self.ticket = CountedOctetString(data)
             data = data[len(self.ticket):]
             self.secondTicket = CountedOctetString(data)
-            data = data[len( self.secondTicket):]
+            data = data[len(self.secondTicket):]
         else:
             self.header = self.CredentialHeader()
 
     def __getitem__(self, key):
-        return self.header[key] 
+        return self.header[key]
 
     def __setitem__(self, item, value):
         self.header[item] = value
@@ -200,7 +211,7 @@ class Credential():
         return self.header['server'].prettyPrint()
 
     def __len__(self):
-        totalLen = len(self.header) 
+        totalLen = len(self.header)
         for i in self.addresses:
             totalLen += len(i)
         totalLen += calcsize('!L')
@@ -209,7 +220,7 @@ class Credential():
         totalLen += len(self.ticket)
         totalLen += len(self.secondTicket)
         return totalLen
- 
+
     def dump(self):
         self.header.dump()
 
@@ -252,8 +263,8 @@ class Credential():
 
         # Fake EncryptedData
         tgt_rep['enc-part'] = None
-        tgt_rep['enc-part']['etype'] = 1 
-        tgt_rep['enc-part']['cipher'] = '' 
+        tgt_rep['enc-part']['etype'] = 1
+        tgt_rep['enc-part']['cipher'] = ''
         seq_set(tgt_rep, 'cname', self['client'].toPrincipal().components_to_asn1)
         ticket = types.Ticket()
         ticket.from_asn1(self.ticket['data'])
@@ -266,7 +277,7 @@ class Credential():
         tgt['cipher'] = cipher
         tgt['sessionKey'] = crypto.Key(cipher.enctype, str(self['key']['keyvalue']))
         return tgt
-        
+
     def toTGS(self):
         tgs_rep = TGS_REP()
         tgs_rep['pvno'] = 5
@@ -275,8 +286,8 @@ class Credential():
 
         # Fake EncryptedData
         tgs_rep['enc-part'] = None
-        tgs_rep['enc-part']['etype'] = 1 
-        tgs_rep['enc-part']['cipher'] = '' 
+        tgs_rep['enc-part']['etype'] = 1
+        tgs_rep['enc-part']['cipher'] = ''
         seq_set(tgs_rep, 'cname', self['client'].toPrincipal().components_to_asn1)
         ticket = types.Ticket()
         ticket.from_asn1(self.ticket['data'])
@@ -289,19 +300,21 @@ class Credential():
         tgs['cipher'] = cipher
         tgs['sessionKey'] = crypto.Key(cipher.enctype, str(self['key']['keyvalue']))
         return tgs
-        
+
+
 class CCache():
     headers = None
     principal = None
     credentials = []
     miniHeader = None
+
     class MiniHeader(Structure):
         structure = (
             ('file_format_version','!H=0x0504'),
             ('headerlen','!H=12'),
         )
 
-    def __init__(self, data = None):
+    def __init__(self, data=None):
         if data is not None:
             miniHeader = self.MiniHeader(data)
             data = data[len(str(miniHeader)):]
@@ -317,9 +330,9 @@ class CCache():
 
             # Now the primary_principal
             self.principal = Principal(data)
- 
+
             data = data[len(self.principal):]
-        
+
             # Now let's parse the credentials
             self.credentials = []
             while len(data) > 0:
@@ -364,7 +377,7 @@ class CCache():
         header['tagdata'] = '\xff\xff\xff\xff\x00\x00\x00\x00'
         self.headers.append(header)
 
-        decodedTGT = decoder.decode(tgt, asn1Spec = AS_REP())[0]
+        decodedTGT = decoder.decode(tgt, asn1Spec=AS_REP())[0]
 
         tmpPrincipal = types.Principal()
         tmpPrincipal.from_asn1(decodedTGT, 'crealm', 'cname')
@@ -382,14 +395,14 @@ class CCache():
         # (Section 5.4.2)
         plainText = cipher.decrypt(oldSessionKey, 3, str(cipherText))
 
-        encASRepPart = decoder.decode(plainText, asn1Spec = EncASRepPart())[0]
+        encASRepPart = decoder.decode(plainText, asn1Spec=EncASRepPart())[0]
 
         credential = Credential()
         server = types.Principal()
         server.from_asn1(encASRepPart, 'srealm', 'sname')
         tmpServer = Principal()
         tmpServer.fromPrincipal(server)
-        
+
         credential['client'] = self.principal
         credential['server'] = tmpServer
         credential['is_skey'] = 0
@@ -401,9 +414,9 @@ class CCache():
 
         credential['time'] = Times()
         credential['time']['authtime'] = self.toTimeStamp(types.KerberosTime.from_asn1(encASRepPart['authtime']))
-        credential['time']['starttime'] = self.toTimeStamp(types.KerberosTime.from_asn1(encASRepPart['starttime'])) 
+        credential['time']['starttime'] = self.toTimeStamp(types.KerberosTime.from_asn1(encASRepPart['starttime']))
         credential['time']['endtime'] = self.toTimeStamp(types.KerberosTime.from_asn1(encASRepPart['endtime']))
-        credential['time']['renew_till'] = self.toTimeStamp(types.KerberosTime.from_asn1(encASRepPart['renew-till'])) 
+        credential['time']['renew_till'] = self.toTimeStamp(types.KerberosTime.from_asn1(encASRepPart['renew-till']))
 
         flags = self.reverseFlags(encASRepPart['flags'])
         credential['tktflags'] = flags
@@ -425,7 +438,7 @@ class CCache():
         header['tagdata'] = '\xff\xff\xff\xff\x00\x00\x00\x00'
         self.headers.append(header)
 
-        decodedTGS = decoder.decode(tgs, asn1Spec = TGS_REP())[0]
+        decodedTGS = decoder.decode(tgs, asn1Spec=TGS_REP())[0]
 
         tmpPrincipal = types.Principal()
         tmpPrincipal.from_asn1(decodedTGS, 'crealm', 'cname')
@@ -442,17 +455,17 @@ class CCache():
         # key), encrypted with the TGS session key (Section 5.4.2)
         plainText = cipher.decrypt(oldSessionKey, 8, str(cipherText))
 
-        encTGSRepPart = decoder.decode(plainText, asn1Spec = EncTGSRepPart())[0]
+        encTGSRepPart = decoder.decode(plainText, asn1Spec=EncTGSRepPart())[0]
 
         credential = Credential()
         server = types.Principal()
         server.from_asn1(encTGSRepPart, 'srealm', 'sname')
         tmpServer = Principal()
         tmpServer.fromPrincipal(server)
-        
+
         credential['client'] = self.principal
         credential['server'] = tmpServer
-        credential['is_skey'] = 0 
+        credential['is_skey'] = 0
 
         credential['key'] = KeyBlock()
         credential['key']['keytype'] = int(encTGSRepPart['key']['keytype'])
@@ -461,9 +474,9 @@ class CCache():
 
         credential['time'] = Times()
         credential['time']['authtime'] = self.toTimeStamp(types.KerberosTime.from_asn1(encTGSRepPart['authtime']))
-        credential['time']['starttime'] = self.toTimeStamp(types.KerberosTime.from_asn1(encTGSRepPart['starttime'])) 
+        credential['time']['starttime'] = self.toTimeStamp(types.KerberosTime.from_asn1(encTGSRepPart['starttime']))
         credential['time']['endtime'] = self.toTimeStamp(types.KerberosTime.from_asn1(encTGSRepPart['endtime']))
-        credential['time']['renew_till'] = self.toTimeStamp(types.KerberosTime.from_asn1(encTGSRepPart['renew-till'])) 
+        credential['time']['renew_till'] = self.toTimeStamp(types.KerberosTime.from_asn1(encTGSRepPart['renew-till']))
 
         flags = self.reverseFlags(encTGSRepPart['flags'])
         credential['tktflags'] = flags
@@ -495,7 +508,7 @@ class CCache():
         print("Credentials: ")
         for i, credential in enumerate(self.credentials):
             print("[%d]" % i)
-            credential.prettyPrint('\t') 
+            credential.prettyPrint('\t')
 
 
 if __name__ == '__main__':

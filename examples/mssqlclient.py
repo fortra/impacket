@@ -41,7 +41,7 @@ if __name__ == '__main__':
      disable_xp_cmdshell        - you know what it means
      xp_cmdshell {cmd}          - executes cmd using xp_cmdshell
      ! {cmd}                    - executes a local shell cmd
-     """) 
+     """)
 
         def do_shell(self, s):
             os.system(s)
@@ -50,7 +50,7 @@ if __name__ == '__main__':
             try:
                 replies = self.sql.sql_query("exec master..xp_cmdshell '%s'" % s)
                 self.sql.printReplies()
-                self.sql.colMeta[0]['TypeData'] = 80*2
+                self.sql.colMeta[0]['TypeData'] = 80 * 2
                 self.sql.printRows()
             except Exception as e:
                 pass
@@ -60,7 +60,7 @@ if __name__ == '__main__':
                 print(os.getcwd())
             else:
                 os.chdir(s)
-    
+
         def do_enable_xp_cmdshell(self, line):
             try:
                 replies = self.sql.sql_query("exec master.dbo.sp_configure 'show advanced options',1;RECONFIGURE;exec master.dbo.sp_configure 'xp_cmdshell', 1;RECONFIGURE;")
@@ -84,7 +84,7 @@ if __name__ == '__main__':
                 self.sql.printRows()
             except Exception as e:
                 pass
-         
+
         def emptyline(self):
             pass
 
@@ -93,22 +93,22 @@ if __name__ == '__main__':
 
     print(version.BANNER)
 
-    parser = argparse.ArgumentParser(add_help = True, description = "TDS client implementation (SSL supported).")
+    parser = argparse.ArgumentParser(add_help=True, description="TDS client implementation (SSL supported).")
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('-port', action='store', default='1433', help='target MSSQL port (default 1433)')
     parser.add_argument('-db', action='store', help='MSSQL database instance (default None)')
-    parser.add_argument('-windows-auth', action='store_true', default = 'False', help='whether or not to use Windows Authentication (default False)')
+    parser.add_argument('-windows-auth', action='store_true', default='False', help='whether or not to use Windows Authentication (default False)')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-file', type=argparse.FileType('r'), help='input file with commands to execute in the SQL shell')
 
     group = parser.add_argument_group('authentication')
 
-    group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
-    if len(sys.argv)==1:
+    group.add_argument('-hashes', action="store", metavar="LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
+    if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(1)
- 
+
     options = parser.parse_args()
 
     if options.debug is True:
