@@ -192,10 +192,15 @@ def keepAliveTimer(server):
             server.activeRelays[target] = {}
         if server.activeRelays[target].has_key(port) is not True:
             server.activeRelays[target][port] = {}
-        server.activeRelays[target][port][userName] = {}
-        server.activeRelays[target][port][userName]['client'] = smb
-        server.activeRelays[target][port][userName]['inUse'] = False
-        server.activeRelays[target][port]['data'] = data
+
+        if server.activeRelays[target][port].has_key(userName) is not True:
+            server.activeRelays[target][port][userName] = {}
+            server.activeRelays[target][port][userName]['client'] = smb
+            server.activeRelays[target][port][userName]['inUse'] = False
+            server.activeRelays[target][port]['data'] = data
+        else:
+            LOG.info('Relay connection for %s at %s(%d) already exists. Discarding' % userName, target, port)
+            smb.close_session()
 
 
 class SocksRequestHandler(SocketServer.BaseRequestHandler):
@@ -233,10 +238,14 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
             if self.__socksServer.activeRelays[target].has_key(port) is not True:
                 self.__socksServer.activeRelays[target][port] = {}
 
-            self.__socksServer.activeRelays[target][port][userName] = {}
-            self.__socksServer.activeRelays[target][port][userName]['client'] = smb
-            self.__socksServer.activeRelays[target][port][userName]['inUse'] = False
-            self.__socksServer.activeRelays[target][port]['data'] = data
+            if self.__socksServer.activeRelays[target][port].has_key(userName) is not True:
+                self.__socksServer.activeRelays[target][port][userName] = {}
+                self.__socksServer.activeRelays[target][port][userName]['client'] = smb
+                self.__socksServer.activeRelays[target][port][userName]['inUse'] = False
+                self.__socksServer.activeRelays[target][port]['data'] = data
+            else:
+                LOG.info('Relay connection for %s at %s(%d) already exists. Discarding' % (userName, target, port))
+                smb.close_session()
 
         # Ok we should have all the updated data now. Let's play
 
@@ -275,6 +284,10 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
                     LOG.error('SOCKS: Don\'t have a relay for %s(%s)' % (self.targetHost, self.targetPort))
                     self.sendReplyError(replyField.CONNECTION_REFUSED)
                     return
+            else:
+                LOG.error('SOCKS: Don\'t have a relay for %s(%s)' % (self.targetHost, self.targetPort))
+                self.sendReplyError(replyField.CONNECTION_REFUSED)
+                return
 
         # Now let's get into the loops
         if self.targetPort == 53:
