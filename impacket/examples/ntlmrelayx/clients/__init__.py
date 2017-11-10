@@ -27,7 +27,8 @@ PROTOCOL_CLIENTS = {}
 # PLUGIN_NAME must be the protocol name that will be matched later with the relay targets (e.g. SMB, LDAP, etc)
 class ProtocolClient:
     PLUGIN_NAME = 'PROTOCOL'
-    def __init__(self, targetHost, targetPort, extendedSecurity=True):
+    def __init__(self, serverConfig, targetHost, targetPort, extendedSecurity=True):
+        self.serverConfig = serverConfig
         self.targetHost = targetHost
         self.targetPort = targetPort
         self.extendedSecurity = extendedSecurity

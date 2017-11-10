@@ -27,6 +27,7 @@ class NTLMRelayxConfig:
         self.lootdir = None
         self.randomtargets = False
         self.encoding = None
+        self.smb2support = False
 
         #SMB options
         self.exeFile = None
@@ -43,6 +44,9 @@ class NTLMRelayxConfig:
 
         # Registered protocol clients
         self.protocolClients = {}
+
+    def setSMB2Support(self, value):
+        self.smb2support = value
 
     def setProtocolClients(self, clients):
         self.protocolClients = clients

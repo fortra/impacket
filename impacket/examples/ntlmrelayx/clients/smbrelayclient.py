@@ -113,8 +113,8 @@ class MYSMB3(SMB3):
 
 class SMBRelayClient(ProtocolClient):
     PLUGIN_NAME = "SMB"
-    def __init__(self, targetHost, targetPort = 445, extendedSecurity=True ):
-        ProtocolClient.__init__(self, targetHost, targetPort, extendedSecurity)
+    def __init__(self, serverConfig, targetHost, targetPort = 445, extendedSecurity=True ):
+        ProtocolClient.__init__(self, serverConfig, targetHost, targetPort, extendedSecurity)
         self.extendedSecurity = extendedSecurity
 
         self.domainIp = None
@@ -124,11 +124,15 @@ class SMBRelayClient(ProtocolClient):
     def initConnection(self):
         self.session = SMBConnection(self.targetHost, self.targetHost, sess_port= self.targetPort, manualNegotiate=True)
                                      #,preferredDialect=SMB_DIALECT)
+        if self.serverConfig.smb2support is True:
+            data = '\x02NT LM 0.12\x00\x02SMB 2.002\x00\x02SMB 2.???\x00'
+        else:
+            data = '\x02NT LM 0.12\x00'
+
         packet = self.session.negotiateSessionWildcard(None, self.targetHost, self.targetHost, self.targetPort, 60, self.extendedSecurity,
                                               flags1=SMB.FLAGS1_PATHCASELESS | SMB.FLAGS1_CANONICALIZED_PATHS,
                          flags2=SMB.FLAGS2_EXTENDED_SECURITY | SMB.FLAGS2_NT_STATUS | SMB.FLAGS2_LONG_NAMES,
-                         data='\x02NT LM 0.12\x00\x02SMB 2.002\x00\x02SMB 2.???\x00')
-                         #data='\x02NT LM 0.12\x00')
+                         data=data)
         if packet[0] == '\xfe':
             smbClient = MYSMB3(self.targetHost, self.targetPort, self.extendedSecurity,nmbSession=self.session.getNMBServer(), negPacket=packet)
             pass
@@ -180,7 +184,6 @@ class SMBRelayClient(ProtocolClient):
         packetID = v2client.sendSMB(packet)
         ans = v2client.recvSMB(packetID)
         if ans.isValidAnswer(STATUS_MORE_PROCESSING_REQUIRED):
-            print dir(v2client)
             v2client._Session['SessionID'] = ans['SessionID']
             sessionSetupResponse = SMB2SessionSetup_Response(ans['Data'])
             respToken = SPNEGO_NegTokenResp(sessionSetupResponse['Buffer'])
@@ -260,9 +263,6 @@ class SMBRelayClient(ProtocolClient):
 
     def sendAuthv2(self, authenticateMessageBlob, serverChallenge=None):
         v2client = self.session.getSMBServer()
-
-        from impacket.winregistry import hexdump
-        hexdump(authenticateMessageBlob)
 
         sessionSetup = SMB2SessionSetup()
         sessionSetup['Flags'] = 0

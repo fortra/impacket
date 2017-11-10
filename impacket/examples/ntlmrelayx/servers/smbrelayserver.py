@@ -364,7 +364,7 @@ class SMBRelayServer(Thread):
     #Initialize the correct client for the relay target
     def init_client(self,extSec):
         if self.config.protocolClients.has_key(self.target[0]):
-            client = self.config.protocolClients[self.target[0]](self.target[1], extendedSecurity = extSec)
+            client = self.config.protocolClients[self.target[0]](self.config, self.target[1], extendedSecurity = extSec)
             client.initConnection()
         else:
             LOG.error('Protocol Client for %s not found!' % self.target[0])

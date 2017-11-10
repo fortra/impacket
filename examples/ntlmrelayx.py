@@ -375,6 +375,8 @@ if __name__ == '__main__':
                         'interacting with the domain to grab a session key for signing, format is domain/machine_name')
     parser.add_argument('-machine-hashes', action="store", metavar = "LMHASH:NTHASH", help='Domain machine hashes, format is LMHASH:NTHASH')
     parser.add_argument('-domain', action="store", help='Domain FQDN or IP to connect using NETLOGON')
+    parser.add_argument('-smb2support', action="store_true", default=False, help='SMB2 Support (experimental!)')
+
 
     #SMB arguments
     smboptions = parser.add_argument_group("SMB client options")
@@ -478,6 +480,7 @@ if __name__ == '__main__':
         c.setMSSQLOptions(options.query)
         c.setInteractive(options.interactive)
         c.setIMAPOptions(options.keyword,options.mailbox,options.all,options.imap_max)
+        c.setSMB2Support(options.smb2support)
 
         #If the redirect option is set, configure the HTTP server to redirect targets to SMB
         if server is HTTPRelayServer and options.r is not None:

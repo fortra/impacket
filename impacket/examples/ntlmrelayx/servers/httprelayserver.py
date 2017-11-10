@@ -171,7 +171,7 @@ class HTTPRelayServer(Thread):
 
         def do_ntlm_negotiate(self,token):
             if self.server.config.protocolClients.has_key(self.target[0]):
-                self.client = self.server.config.protocolClients[self.target[0]](self.target[1])
+                self.client = self.server.config.protocolClients[self.target[0]](self.server.config, self.target[1])
                 self.client.initConnection()
                 self.challengeMessage = self.client.sendNegotiate(token)
             else:

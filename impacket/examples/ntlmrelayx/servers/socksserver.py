@@ -179,7 +179,16 @@ def keepAliveTimer(server):
                     # Let's call the keepAlive method for the handler to keep the connection alive
                     if server.activeRelays[target][port][user]['inUse'] is False:
                         LOG.debug('Sending keep alive to %s@%s:%s' % (user, target, port))
-                        server.socksPlugins[port].keepAlive(server.activeRelays[target][port][user]['client'])
+                        try:
+                            server.socksPlugins[port].keepAlive(server.activeRelays[target][port][user]['client'])
+                        except Exception, e:
+                            LOG.debug('SOCKS: %s' % str(e))
+                            if str(e).find('Broken pipe') >= 0 or str(e).find('reset by peer') >=0:
+                                # Connection died, taking out of the active list
+                                del (server.activeRelays[target][port][user])
+                                if len(server.activeRelays[target][port].keys()) == 1:
+                                    del (server.activeRelays[target][port])
+                                LOG.debug('Removing active relay for %s@%s:%s' % (user, target, port))
                     else:
                         LOG.debug('Skipping %s@%s:%s since it\'s being used at the moment' % (user, target, port))
 
@@ -320,6 +329,8 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
                     data = s.recv(8192)
                     self.__connSocket.sendall(data)
                 except Exception, e:
+                    import traceback
+                    print traceback.print_exc()
                     LOG.error('SOCKS: ', str(e))
 
         if self.__socksServer.socksPlugins.has_key(self.targetPort):
@@ -351,7 +362,17 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
 
                 relay.tunelConnection()
             except Exception, e:
+                import traceback
+                print traceback.print_exc()
                 LOG.debug('SOCKS: %s' % str(e))
+                if str(e).find('Broken pipe') >= 0 or str(e).find('reset by peer') >=0:
+                    # Connection died, taking out of the active list
+                    del(self.__socksServer.activeRelays[self.targetHost][self.targetPort][relay.username])
+                    if len(self.__socksServer.activeRelays[self.targetHost][self.targetPort].keys()) == 1:
+                        del(self.__socksServer.activeRelays[self.targetHost][self.targetPort])
+                    LOG.debug('Removing active relay for %s@%s:%s' % (relay.username, self.targetHost, self.targetPort))
+                    self.sendReplyError(replyField.CONNECTION_REFUSED)
+                    return
                 pass
 
             # Freeing up this connection
