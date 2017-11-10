@@ -98,9 +98,10 @@ class SMBAttack(Thread):
             try:
                 # We have to add some flags just in case the original client did not
                 # Why? needed for avoiding INVALID_PARAMETER
-                flags1, flags2 = self.__SMBConnection.getSMBServer().get_flags()
-                flags2 |= smb.SMB.FLAGS2_LONG_NAMES
-                self.__SMBConnection.getSMBServer().set_flags(flags2=flags2)
+                if  self.__SMBConnection.getDialect() == smb.SMB_DIALECT:
+                    flags1, flags2 = self.__SMBConnection.getSMBServer().get_flags()
+                    flags2 |= smb.SMB.FLAGS2_LONG_NAMES
+                    self.__SMBConnection.getSMBServer().set_flags(flags2=flags2)
 
                 remoteOps  = RemoteOperations(self.__SMBConnection, False)
                 remoteOps.enableRegistry()
@@ -456,9 +457,14 @@ if __name__ == '__main__':
         socks_thread.daemon = True
         socks_thread.start()
 
+    # Let's register the socksplugins plugins we have
+    # ToDo: Do this better somehow
+    from impacket.examples.ntlmrelayx.clients import PROTOCOL_CLIENTS
+
     for server in RELAY_SERVERS:
         #Set up config
         c = NTLMRelayxConfig()
+        c.setProtocolClients(PROTOCOL_CLIENTS)
         c.setRunSocks(options.socks)
         c.setTargets(targetSystem)
         c.setExeFile(options.e)

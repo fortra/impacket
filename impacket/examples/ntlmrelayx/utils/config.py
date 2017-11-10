@@ -41,6 +41,12 @@ class NTLMRelayxConfig:
         #MSSQL options
         self.queries = []
 
+        # Registered protocol clients
+        self.protocolClients = {}
+
+    def setProtocolClients(self, clients):
+        self.protocolClients = clients
+
     def setRunSocks(self, socks):
         self.runSocks = socks
 
