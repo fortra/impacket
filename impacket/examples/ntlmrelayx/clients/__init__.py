@@ -37,6 +37,9 @@ class ProtocolClient:
     def initConnection(self):
         raise RuntimeError('Virtual Function')
 
+    def killConnection(self):
+        raise RuntimeError('Virtual Function')
+
     def sendNegotiate(self, negotiateMessage):
         # Charged of sending the type 1 NTLM Message
         raise RuntimeError('Virtual Function')

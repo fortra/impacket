@@ -14,6 +14,7 @@
 #  This is the SMB client which initiates the connection to an
 # SMB server and relays the credentials to this server.
 
+from struct import unpack
 from impacket import LOG
 from impacket.examples.ntlmrelayx.clients import ProtocolClient
 from impacket.nt_errors import STATUS_SUCCESS
@@ -25,7 +26,7 @@ from impacket.smb3 import SMB3, SMB2_GLOBAL_CAP_ENCRYPTION, SMB2_DIALECT_WILDCAR
     SMB2_NEGOTIATE, SMB2Negotiate, SMB2_DIALECT_002, SMB2_DIALECT_21, SMB2_DIALECT_30, SMB2_GLOBAL_CAP_LEASING, \
     SMB3Packet, SMB2_GLOBAL_CAP_LARGE_MTU, SMB2_GLOBAL_CAP_DIRECTORY_LEASING, SMB2_GLOBAL_CAP_MULTI_CHANNEL, \
     SMB2_GLOBAL_CAP_PERSISTENT_HANDLES, SMB2_NEGOTIATE_SIGNING_REQUIRED, SMB2Packet,SMB2SessionSetup, SMB2_SESSION_SETUP, STATUS_MORE_PROCESSING_REQUIRED, SMB2SessionSetup_Response
-from impacket.smbconnection import SMBConnection, SMB_DIALECT
+from impacket.smbconnection import SMBConnection, SMB_DIALECT, SessionError
 from impacket.spnego import SPNEGO_NegTokenInit, SPNEGO_NegTokenResp, TypesMech
 
 PROTOCOL_CLIENT_CLASS = "SMBRelayClient"
@@ -120,6 +121,10 @@ class SMBRelayClient(ProtocolClient):
         self.domainIp = None
         self.machineAccount = None
         self.machineHashes = None
+
+    def killConnection(self):
+        if self.session is not None:
+            self.session.close()
 
     def initConnection(self):
         self.session = SMBConnection(self.targetHost, self.targetHost, sess_port= self.targetPort, manualNegotiate=True)
@@ -253,12 +258,18 @@ class SMBRelayClient(ProtocolClient):
             return respToken['ResponseToken']
 
     def sendAuth(self, authenticateMessageBlob, serverChallenge=None):
-        respToken2 = SPNEGO_NegTokenResp()
-        respToken2['ResponseToken'] = str(authenticateMessageBlob)
-        if self.session.getDialect() == SMB_DIALECT:
-            token, errorCode = self.sendAuthv1(respToken2.getData(), serverChallenge)
+        if unpack('B', str(authenticateMessageBlob)[:1])[0] != SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP:
+            # We need to wrap the NTLMSSP into SPNEGO
+            respToken2 = SPNEGO_NegTokenResp()
+            respToken2['ResponseToken'] = str(authenticateMessageBlob)
+            authData = respToken2.getData()
         else:
-            token, errorCode = self.sendAuthv2(respToken2.getData(), serverChallenge)
+            authData = str(authenticateMessageBlob)
+
+        if self.session.getDialect() == SMB_DIALECT:
+            token, errorCode = self.sendAuthv1(authData, serverChallenge)
+        else:
+            token, errorCode = self.sendAuthv2(authData, serverChallenge)
         return token, errorCode
 
     def sendAuthv2(self, authenticateMessageBlob, serverChallenge=None):
@@ -277,10 +288,8 @@ class SMBRelayClient(ProtocolClient):
 
         packetID = v2client.sendSMB(packet)
         packet = v2client.recvSMB(packetID)
-        if packet.isValidAnswer(STATUS_SUCCESS):
-            return packet, STATUS_SUCCESS
-        else:
-            return None, 10
+
+        return packet, packet['Status']
 
     def sendAuthv1(self, authenticateMessageBlob, serverChallenge=None):
         v1client = self.session.getSMBServer()
@@ -308,7 +317,7 @@ class SMBRelayClient(ProtocolClient):
         sessionSetup['Data']['NativeLanMan']  = 'Samba'
 
         sessionSetup['Parameters']['SecurityBlobLength'] = len(authenticateMessageBlob)
-        sessionSetup['Data']['SecurityBlob'] = str(authenticateMessageBlob)
+        sessionSetup['Data']['SecurityBlob'] = authenticateMessageBlob
         smb.addCommand(sessionSetup)
         v1client.sendSMB(smb)
             

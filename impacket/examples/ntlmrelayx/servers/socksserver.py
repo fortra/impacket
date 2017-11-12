@@ -21,6 +21,7 @@
 import SocketServer
 import socket
 import time
+import logging
 from Queue import Queue
 from struct import unpack, pack
 from threading import Timer
@@ -209,7 +210,7 @@ def keepAliveTimer(server):
             server.activeRelays[target][port]['data'] = data
         else:
             LOG.info('Relay connection for %s at %s(%d) already exists. Discarding' % userName, target, port)
-            smb.close_session()
+            smb.close()
 
 
 class SocksRequestHandler(SocketServer.BaseRequestHandler):
@@ -254,7 +255,7 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
                 self.__socksServer.activeRelays[target][port]['data'] = data
             else:
                 LOG.info('Relay connection for %s at %s(%d) already exists. Discarding' % (userName, target, port))
-                smb.close_session()
+                smb.close()
 
         # Ok we should have all the updated data now. Let's play
 
@@ -329,8 +330,9 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
                     data = s.recv(8192)
                     self.__connSocket.sendall(data)
                 except Exception, e:
-                    import traceback
-                    print traceback.print_exc()
+                    if LOG.level == logging.DEBUG:
+                        import traceback
+                        print traceback.print_exc()
                     LOG.error('SOCKS: ', str(e))
 
         if self.__socksServer.socksPlugins.has_key(self.targetPort):
@@ -362,8 +364,9 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
 
                 relay.tunelConnection()
             except Exception, e:
-                import traceback
-                print traceback.print_exc()
+                if LOG.level == logging.DEBUG:
+                    import traceback
+                    print traceback.print_exc()
                 LOG.debug('SOCKS: %s' % str(e))
                 if str(e).find('Broken pipe') >= 0 or str(e).find('reset by peer') >=0:
                     # Connection died, taking out of the active list
@@ -376,7 +379,8 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
                 pass
 
             # Freeing up this connection
-            self.__socksServer.activeRelays[self.targetHost][self.targetPort][relay.username]['inUse'] = False
+            if relay.username is not None:
+                self.__socksServer.activeRelays[self.targetHost][self.targetPort][relay.username]['inUse'] = False
         else:
             LOG.error('SOCKS: I don\'t have a handler for this port')
 

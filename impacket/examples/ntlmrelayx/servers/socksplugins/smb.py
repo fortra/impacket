@@ -17,6 +17,8 @@
 #
 import calendar
 import time
+import random
+import string
 from struct import unpack
 from binascii import hexlify
 
@@ -259,8 +261,8 @@ class SMBSocksRelay(SocksRelay):
             else:
                 respSMBCommand['DialectRevision'] = self.serverDialect
                 resp['MessageID'] = 1
-            respSMBCommand['ServerGuid'] = 'A' * 16
-            respSMBCommand['Capabilities'] = 0
+            respSMBCommand['ServerGuid'] = ''.join([random.choice(string.letters) for _ in range(16)])
+            respSMBCommand['Capabilities'] = 0x7
             respSMBCommand['MaxTransactSize'] = 65536
             respSMBCommand['MaxReadSize'] = 65536
             respSMBCommand['MaxWriteSize'] = 65536
@@ -269,7 +271,8 @@ class SMBSocksRelay(SocksRelay):
             respSMBCommand['SecurityBufferOffset'] = 0x80
 
             blob = SPNEGO_NegTokenInit()
-            blob['MechTypes'] = [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
+            blob['MechTypes'] = [TypesMech['NEGOEX - SPNEGO Extended Negotiation Security Mechanism'],
+                                 TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
 
             respSMBCommand['Buffer'] = blob.getData()
             respSMBCommand['SecurityBufferLength'] = len(respSMBCommand['Buffer'])
@@ -353,6 +356,7 @@ class SMBSocksRelay(SocksRelay):
                     authenticateMessage['user_name'].decode('utf-16le'), self.targetHost))
                     errorCode = STATUS_ACCESS_DENIED
                     uid = 0
+                    smbClient = None
 
                 resp = NewSMBPacket()
                 resp['Flags1'] = recvPacket['Flags1'] | SMB.FLAGS1_REPLY
@@ -441,10 +445,6 @@ class SMBSocksRelay(SocksRelay):
                 rawNTLM = True
                 token = securityBlob
 
-            # Here we only handle NTLMSSP, depending on what stage of the
-            # authentication we are, we act on it
-            messageType = unpack('<L', token[len('NTLMSSP\x00'):len('NTLMSSP\x00') + 4])[0]
-
             # NEGOTIATE_MESSAGE
             # First of all, we should received a type 1 message. Let's answer it
             challengeMessage = self.smbData['CHALLENGE_MESSAGE']
@@ -503,7 +503,7 @@ class SMBSocksRelay(SocksRelay):
                     authenticateMessage['user_name'].decode('utf-16le'), self.targetHost))
                 errorCode = STATUS_ACCESS_DENIED
                 uid = 0
-
+                smbClient = None
 
             # accept-completed
             respToken['NegResult'] = '\x00'
