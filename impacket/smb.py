@@ -1406,6 +1406,7 @@ class SMBSessionSetupAndX_Extended_Response_Data(AsciiOrUnicodeStructure):
     AsciiStructure = (
         ('SecurityBlobLength','_-SecurityBlob','self["SecurityBlobLength"]'),
         ('SecurityBlob',':'),
+        ('Pad',':=""'),
         ('NativeOS','z=""'),
         ('NativeLanMan','z=""'),
     )
@@ -1413,9 +1414,14 @@ class SMBSessionSetupAndX_Extended_Response_Data(AsciiOrUnicodeStructure):
     UnicodeStructure = (
         ('SecurityBlobLength','_-SecurityBlob','self["SecurityBlobLength"]'),
         ('SecurityBlob',':'),
+        ('Pad',':=""'),
         ('NativeOS','u=""'),
         ('NativeLanMan','u=""'),
     )
+    def getData(self):
+        if len(str(self['SecurityBlob'])) % 2 == 0:
+            self['Pad'] = '\x00'
+        return AsciiOrUnicodeStructure.getData(self)
 
 ############# SMB_COM_TREE_CONNECT (0x70)
 class SMBTreeConnect_Parameters(SMBCommand_Parameters):
