@@ -172,10 +172,10 @@ class SocksRelay:
 def keepAliveTimer(server):
     LOG.debug('KeepAlive Timer reached. Updating connections')
 
-    for target in server.activeRelays.iterkeys():
-        for port in server.activeRelays[target].iterkeys():
+    for target in server.activeRelays.keys():
+        for port in server.activeRelays[target].keys():
             # Now cycle thru the users
-            for user in server.activeRelays[target][port].iterkeys():
+            for user in server.activeRelays[target][port].keys():
                 if user != 'data':
                     # Let's call the keepAlive method for the handler to keep the connection alive
                     if server.activeRelays[target][port][user]['inUse'] is False:

@@ -32,7 +32,9 @@ from impacket.smb import NewSMBPacket, SMBCommand, SMB, SMBExtended_Security_Dat
     SMBSessionSetupAndX_Extended_Response_Parameters, SMBSessionSetupAndX_Extended_Response_Data, \
     SMBSessionSetupAndX_Extended_Parameters, SMBSessionSetupAndX_Extended_Data
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech, SPNEGO_NegTokenResp, ASN1_AID
-from impacket.smb3 import SMB2Packet, SMB2_FLAGS_SERVER_TO_REDIR, SMB2_NEGOTIATE, SMB2Negotiate_Response, SMB2_SESSION_SETUP, SMB2SessionSetup_Response, SMB2SessionSetup, SMB2_LOGOFF, SMB2Logoff_Response, SMB2_DIALECT_WILDCARD, SMB2_FLAGS_SIGNED
+from impacket.smb3 import SMB2Packet, SMB2_FLAGS_SERVER_TO_REDIR, SMB2_NEGOTIATE, SMB2Negotiate_Response, \
+    SMB2_SESSION_SETUP, SMB2SessionSetup_Response, SMB2SessionSetup, SMB2_LOGOFF, SMB2Logoff_Response, \
+    SMB2_DIALECT_WILDCARD, SMB2_FLAGS_SIGNED, SMB2_SESSION_FLAG_IS_GUEST
 from impacket.spnego import MechTypes, ASN1_SUPPORTED_MECH
 from impacket.smb import SMB_DIALECT
 from impacket.smbserver import getFileTime
@@ -520,6 +522,10 @@ class SMBSocksRelay(SocksRelay):
             resp['TreeID'] = recvPacket['TreeID']
 
             respSMBCommand['SecurityBufferOffset'] = 0x48
+
+            # This is important for SAMBA client to work. If it is not set as a guest session,
+            # SAMBA will *not* like the fact that the packets are not signed (even tho it was not enforced).
+            respSMBCommand['SessionFlags'] = SMB2_SESSION_FLAG_IS_GUEST
             respSMBCommand['SecurityBufferLength'] = len(respToken)
             respSMBCommand['Buffer'] = respToken.getData()
             resp['Data'] = respSMBCommand
