@@ -1419,8 +1419,9 @@ class SMBSessionSetupAndX_Extended_Response_Data(AsciiOrUnicodeStructure):
         ('NativeLanMan','u=""'),
     )
     def getData(self):
-        if len(str(self['SecurityBlob'])) % 2 == 0:
-            self['Pad'] = '\x00'
+        if self.structure == self.UnicodeStructure:
+            if len(str(self['SecurityBlob'])) % 2 == 0:
+                self['Pad'] = '\x00'
         return AsciiOrUnicodeStructure.getData(self)
 
 ############# SMB_COM_TREE_CONNECT (0x70)
