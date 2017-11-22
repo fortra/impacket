@@ -1406,7 +1406,6 @@ class SMBSessionSetupAndX_Extended_Response_Data(AsciiOrUnicodeStructure):
     AsciiStructure = (
         ('SecurityBlobLength','_-SecurityBlob','self["SecurityBlobLength"]'),
         ('SecurityBlob',':'),
-        ('Pad',':=""'),
         ('NativeOS','z=""'),
         ('NativeLanMan','z=""'),
     )
@@ -1414,6 +1413,7 @@ class SMBSessionSetupAndX_Extended_Response_Data(AsciiOrUnicodeStructure):
     UnicodeStructure = (
         ('SecurityBlobLength','_-SecurityBlob','self["SecurityBlobLength"]'),
         ('SecurityBlob',':'),
+        ('PadLen','_-Pad','1 if (len(self["SecurityBlob"]) % 2 == 0) else 0'),
         ('Pad',':=""'),
         ('NativeOS','u=""'),
         ('NativeLanMan','u=""'),
