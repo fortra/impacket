@@ -84,8 +84,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
 
     asReq['pvno'] = 5
     asReq['msg-type'] =  int(constants.ApplicationTagNumbers.AS_REQ.value)
-    asReq['padata'] = None
-    asReq['padata'][0] = None
+
     asReq['padata'][0]['padata-type'] = int(constants.PreAuthenticationDataTypes.PA_PAC_REQUEST.value)
     asReq['padata'][0]['padata-value'] = encodedPacRequest
 
@@ -218,12 +217,10 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
 
     asReq['pvno'] = 5
     asReq['msg-type'] =  int(constants.ApplicationTagNumbers.AS_REQ.value)
-    asReq['padata'] = None
-    asReq['padata'][0] = None
+
     asReq['padata'][0]['padata-type'] = int(constants.PreAuthenticationDataTypes.PA_ENC_TIMESTAMP.value)
     asReq['padata'][0]['padata-value'] = encodedEncryptedData
 
-    asReq['padata'][1] = None
     asReq['padata'][1]['padata-type'] = int(constants.PreAuthenticationDataTypes.PA_PAC_REQUEST.value)
     asReq['padata'][1]['padata-value'] = encodedPacRequest
 
@@ -322,7 +319,6 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
     # key (Section 5.5.1)
     encryptedEncodedAuthenticator = cipher.encrypt(sessionKey, 7, encodedAuthenticator, None)
 
-    apReq['authenticator'] = None
     apReq['authenticator']['etype'] = cipher.enctype
     apReq['authenticator']['cipher'] = encryptedEncodedAuthenticator
 
@@ -332,8 +328,7 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
 
     tgsReq['pvno'] =  5
     tgsReq['msg-type'] = int(constants.ApplicationTagNumbers.TGS_REQ.value)
-    tgsReq['padata'] = None
-    tgsReq['padata'][0] = None
+
     tgsReq['padata'][0]['padata-type'] = int(constants.PreAuthenticationDataTypes.PA_TGS_REQ.value)
     tgsReq['padata'][0]['padata-value'] = encodedApReq
 
@@ -576,7 +571,6 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT 
     authenticator['ctime'] = KerberosTime.to_asn1(now)
 
     
-    authenticator['cksum'] = None
     authenticator['cksum']['cksumtype'] = 0x8003
 
     chkField = CheckSumField()
@@ -594,7 +588,6 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT 
     # (Section 5.5.1)
     encryptedEncodedAuthenticator = cipher.encrypt(sessionKey, 11, encodedAuthenticator, None)
 
-    apReq['authenticator'] = None
     apReq['authenticator']['etype'] = cipher.enctype
     apReq['authenticator']['cipher'] = encryptedEncodedAuthenticator
 

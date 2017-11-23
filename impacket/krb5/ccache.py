@@ -252,8 +252,7 @@ class Credential:
         tgt_rep['crealm'] = self['server'].realm['data']
 
         # Fake EncryptedData
-        tgt_rep['enc-part'] = None
-        tgt_rep['enc-part']['etype'] = 1 
+        tgt_rep['enc-part']['etype'] = 1
         tgt_rep['enc-part']['cipher'] = '' 
         seq_set(tgt_rep, 'cname', self['client'].toPrincipal().components_to_asn1)
         ticket = types.Ticket()
@@ -275,8 +274,7 @@ class Credential:
         tgs_rep['crealm'] = self['server'].realm['data']
 
         # Fake EncryptedData
-        tgs_rep['enc-part'] = None
-        tgs_rep['enc-part']['etype'] = 1 
+        tgs_rep['enc-part']['etype'] = 1
         tgs_rep['enc-part']['cipher'] = '' 
         seq_set(tgs_rep, 'cname', self['client'].toPrincipal().components_to_asn1)
         ticket = types.Ticket()

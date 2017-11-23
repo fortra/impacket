@@ -1038,7 +1038,6 @@ class RAISECHILD:
         pacType['Buffers'] = buffers + buffersTail
 
         authorizationData = AuthorizationData()
-        authorizationData[0] = None
         authorizationData[0]['ad-type'] = int(constants.AuthorizationDataType.AD_WIN2K_PAC.value)
         authorizationData[0]['ad-data'] = str(pacType)
         authorizationData = encoder.encode(authorizationData)

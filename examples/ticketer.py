@@ -262,7 +262,6 @@ class TICKETER:
                     'Can\'t continue')
                 return None, None
             kdcRep['cname']['name-type'] = PrincipalNameType.NT_PRINCIPAL.value
-            kdcRep['cname']['name-string'] = None
             kdcRep['cname']['name-string'][0] = self.__target
 
         else:
@@ -271,12 +270,9 @@ class TICKETER:
             kdcRep['pvno'] = 5
             kdcRep['msg-type'] = ApplicationTagNumbers.AS_REP.value
             if self.__options.nthash is None:
-                kdcRep['padata'] = None
-                kdcRep['padata'][0] = None
                 kdcRep['padata'][0]['padata-type'] = PreAuthenticationDataTypes.PA_ETYPE_INFO2.value
 
                 etype2 = ETYPE_INFO2()
-                etype2[0] = None
                 if len(self.__options.aesKey) == 64:
                     etype2[0]['etype'] = EncryptionTypes.aes256_cts_hmac_sha1_96.value
                 else:
@@ -287,23 +283,16 @@ class TICKETER:
                 kdcRep['padata'][0]['padata-value'] = encodedEtype2
 
             kdcRep['crealm'] = self.__domain.upper()
-            kdcRep['cname'] = None
             kdcRep['cname']['name-type'] = PrincipalNameType.NT_PRINCIPAL.value
-            kdcRep['cname']['name-string'] = None
             kdcRep['cname']['name-string'][0] = self.__target
 
-            kdcRep['ticket'] = None
             kdcRep['ticket']['tkt-vno'] = ProtocolVersionNumber.pvno.value
             kdcRep['ticket']['realm'] = self.__domain.upper()
-            kdcRep['ticket']['sname'] = None
             kdcRep['ticket']['sname']['name-type'] = PrincipalNameType.NT_PRINCIPAL.value
-            kdcRep['ticket']['sname']['name-string'] = None
             kdcRep['ticket']['sname']['name-string'][0] = 'krbtgt'
             kdcRep['ticket']['sname']['name-string'][1] = self.__domain.upper()
 
-            kdcRep['ticket']['enc-part'] = None
             kdcRep['ticket']['enc-part']['kvno'] = 2
-            kdcRep['enc-part'] = None
             if self.__options.nthash is None:
                 if len(self.__options.aesKey) == 64:
                     kdcRep['ticket']['enc-part']['etype'] = EncryptionTypes.aes256_cts_hmac_sha1_96.value
@@ -316,7 +305,6 @@ class TICKETER:
                 kdcRep['enc-part']['etype'] = EncryptionTypes.rc4_hmac.value
 
             kdcRep['enc-part']['kvno'] = 2
-            kdcRep['enc-part']['cipher'] = None
 
         pacInfos = self.createBasicPac(kdcRep)
 
@@ -333,7 +321,6 @@ class TICKETER:
         flags.append(TicketFlags.initial.value)
         flags.append(TicketFlags.pre_authent.value)
         encTicketPart['flags'] = encodeFlags(flags)
-        encTicketPart['key'] = None
         encTicketPart['key']['keytype'] = kdcRep['ticket']['enc-part']['etype']
 
         if encTicketPart['key']['keytype'] == EncryptionTypes.aes128_cts_hmac_sha1_96.value:
@@ -344,12 +331,9 @@ class TICKETER:
             encTicketPart['key']['keyvalue'] = ''.join([random.choice(string.letters) for _ in range(16)])
 
         encTicketPart['crealm'] = self.__domain.upper()
-        encTicketPart['cname'] = None
         encTicketPart['cname']['name-type'] = PrincipalNameType.NT_PRINCIPAL.value
-        encTicketPart['cname']['name-string'] = None
         encTicketPart['cname']['name-string'][0] = self.__target
 
-        encTicketPart['transited'] = None
         encTicketPart['transited']['tr-type'] = 0
         encTicketPart['transited']['contents'] = ''
 
@@ -359,10 +343,7 @@ class TICKETER:
         ticketDuration = datetime.datetime.utcnow() + datetime.timedelta(days=int(self.__options.duration))
         encTicketPart['endtime'] = KerberosTime.to_asn1(ticketDuration)
         encTicketPart['renew-till'] = KerberosTime.to_asn1(ticketDuration)
-        encTicketPart['authorization-data'] = None
-        encTicketPart['authorization-data'][0] = None
         encTicketPart['authorization-data'][0]['ad-type'] = AuthorizationDataType.AD_IF_RELEVANT.value
-        encTicketPart['authorization-data'][0]['ad-data'] = None
 
         # Let's locate the KERB_VALIDATION_INFO and Checksums
         if pacInfos.has_key(PAC_LOGON_INFO):
@@ -468,11 +449,8 @@ class TICKETER:
         logging.info('\tEncTicketPart')
 
         encASRepPart = EncASRepPart()
-        encASRepPart['key'] = None
         encASRepPart['key']['keytype'] = encTicketPart['key']['keytype']
         encASRepPart['key']['keyvalue'] = encTicketPart['key']['keyvalue']
-        encASRepPart['last-req'] = None
-        encASRepPart['last-req'][0] = None
         encASRepPart['last-req'][0]['lr-type'] = 0
         encASRepPart['last-req'][0]['lr-value'] = KerberosTime.to_asn1(datetime.datetime.utcnow())
         encASRepPart['nonce'] = 123456789
@@ -483,9 +461,7 @@ class TICKETER:
         encASRepPart['starttime'] = encTicketPart['starttime']
         encASRepPart['renew-till'] = encTicketPart['renew-till']
         encASRepPart['srealm'] = self.__domain.upper()
-        encASRepPart['sname'] = None
         encASRepPart['sname']['name-type'] = PrincipalNameType.NT_PRINCIPAL.value
-        encASRepPart['sname']['name-string'] = None
         encASRepPart['sname']['name-string'][0] = 'krbtgt'
         encASRepPart['sname']['name-string'][1] = self.__domain.upper()
         logging.info('\tEncAsRepPart')
@@ -581,7 +557,6 @@ class TICKETER:
         pacType['Buffers'] = buffers + buffersTail
 
         authorizationData = AuthorizationData()
-        authorizationData[0] = None
         authorizationData[0]['ad-type'] = AuthorizationDataType.AD_WIN2K_PAC.value
         authorizationData[0]['ad-data'] = str(pacType)
         authorizationData = encoder.encode(authorizationData)
