@@ -46,6 +46,7 @@ from binascii import a2b_hex
 import datetime
 from struct import pack, unpack
 from contextlib import contextmanager
+from pyasn1.type.univ import noValue
 
 from impacket import nmb, ntlm, nt_errors, LOG
 from impacket.structure import Structure
@@ -3148,6 +3149,7 @@ class SMB:
         # (Section 5.5.1)
         encryptedEncodedAuthenticator = cipher.encrypt(sessionKey, 11, encodedAuthenticator, None)
 
+        apReq['authenticator'] = noValue
         apReq['authenticator']['etype'] = cipher.enctype
         apReq['authenticator']['cipher'] = encryptedEncodedAuthenticator
 

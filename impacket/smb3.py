@@ -32,6 +32,7 @@ import string
 import struct
 from binascii import a2b_hex
 from contextlib import contextmanager
+from pyasn1.type.univ import noValue
 
 from impacket import nmb, ntlm, uuid, crypto, LOG
 from impacket.smb3structs import *
@@ -626,6 +627,7 @@ class SMB3:
         # (Section 5.5.1)
         encryptedEncodedAuthenticator = cipher.encrypt(sessionKey, 11, encodedAuthenticator, None)
 
+        apReq['authenticator'] = noValue
         apReq['authenticator']['etype'] = cipher.enctype
         apReq['authenticator']['cipher'] = encryptedEncodedAuthenticator
 

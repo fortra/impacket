@@ -671,6 +671,7 @@ class MSSQL:
         from impacket.krb5 import constants
         from impacket.krb5.types import Principal, KerberosTime, Ticket
         from pyasn1.codec.der import decoder, encoder
+        from pyasn1.type.univ import noValue
         from impacket.krb5.ccache import CCache
         import os
         import datetime
@@ -814,6 +815,7 @@ class MSSQL:
         # (Section 5.5.1)
         encryptedEncodedAuthenticator = cipher.encrypt(sessionKey, 11, encodedAuthenticator, None)
 
+        apReq['authenticator'] = noValue
         apReq['authenticator']['etype'] = cipher.enctype
         apReq['authenticator']['cipher'] = encryptedEncodedAuthenticator
 

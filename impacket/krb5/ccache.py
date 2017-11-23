@@ -18,6 +18,7 @@ from datetime import datetime
 from struct import pack, unpack, calcsize
 
 from pyasn1.codec.der import decoder, encoder
+from pyasn1.type.univ import noValue
 from binascii import hexlify
 
 from impacket.structure import Structure
@@ -252,6 +253,7 @@ class Credential:
         tgt_rep['crealm'] = self['server'].realm['data']
 
         # Fake EncryptedData
+        tgt_rep['enc-part'] = noValue
         tgt_rep['enc-part']['etype'] = 1
         tgt_rep['enc-part']['cipher'] = '' 
         seq_set(tgt_rep, 'cname', self['client'].toPrincipal().components_to_asn1)
@@ -274,6 +276,7 @@ class Credential:
         tgs_rep['crealm'] = self['server'].realm['data']
 
         # Fake EncryptedData
+        tgs_rep['enc-part'] = noValue
         tgs_rep['enc-part']['etype'] = 1
         tgs_rep['enc-part']['cipher'] = '' 
         seq_set(tgs_rep, 'cname', self['client'].toPrincipal().components_to_asn1)

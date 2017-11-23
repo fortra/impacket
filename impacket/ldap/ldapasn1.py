@@ -535,7 +535,7 @@ class Control(univ.Sequence):
         namedtype.OptionalNamedType('controlValue', univ.OctetString())
     )
 
-    def setComponentByPosition(self, idx, value=None,
+    def setComponentByPosition(self, idx, value=univ.noValue,
                                verifyConstraints=True,
                                matchTags=True,
                                matchConstraints=True):

@@ -9,7 +9,7 @@ from distutils.core import setup
 
 PACKAGE_NAME = "impacket"
 
-setup_requires = ['pycrypto (>=2.6)', 'pyasn1 (0.3.7)']
+setup_requires = ['pycrypto (>=2.6)', 'pyasn1 (>=0.2.3)']
 
 if platform.system() == 'Windows':
     setup_requires.append('pyreadline')
