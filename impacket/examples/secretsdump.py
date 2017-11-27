@@ -387,6 +387,7 @@ class RemoteOperations:
         rpc = transport.DCERPCTransportFactory(stringBinding)
         rpc.setRemoteHost(self.__smbConnection.getRemoteHost())
         rpc.setRemoteName(self.__smbConnection.getRemoteName())
+        rpc.set_connect_timeout(1200)
         if hasattr(rpc, 'set_credentials'):
             # This method exists only for selected protocol sequences.
             rpc.set_credentials(*(self.__smbConnection.getCredentials()))
