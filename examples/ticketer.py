@@ -60,7 +60,7 @@ from impacket.dcerpc.v5.ndr import NDRULONG
 from impacket.dcerpc.v5.samr import NULL, GROUP_MEMBERSHIP, SE_GROUP_MANDATORY, SE_GROUP_ENABLED_BY_DEFAULT, \
     SE_GROUP_ENABLED, USER_NORMAL_ACCOUNT, USER_DONT_EXPIRE_PASSWORD
 from impacket.examples import logger
-from impacket.krb5.asn1 import AS_REP, ETYPE_INFO2, AuthorizationData, EncTicketPart, EncASRepPart
+from impacket.krb5.asn1 import AS_REP, TGS_REP, ETYPE_INFO2, AuthorizationData, EncTicketPart, EncASRepPart
 from impacket.krb5.constants import ApplicationTagNumbers, PreAuthenticationDataTypes, EncryptionTypes, \
     PrincipalNameType, ProtocolVersionNumber, TicketFlags, encodeFlags, ChecksumTypes, AuthorizationDataType, \
     KERB_NON_KERB_CKSUM_SALT
@@ -87,7 +87,7 @@ class TICKETER:
         # we are creating a golden ticket
         else:
             self.__service = 'krbtgt'
-            self.__server = self.__domain.upper()
+            self.__server = self.__domain
 
     @staticmethod
     def getFileTime(t):
@@ -228,8 +228,10 @@ class TICKETER:
             tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain,
                                                                     lmhash, nthash, None,
                                                                     self.__options.dc_ip)
-
-            kdcRep = decoder.decode(tgt, asn1Spec=AS_REP())[0]
+            if self.__domain == self.__server:
+                kdcRep = decoder.decode(tgt, asn1Spec=AS_REP())[0]
+            else:
+                kdcRep = decoder.decode(tgt, asn1Spec=TGS_REP())[0]
 
             # Let's check we have all the neccesary data based on the ciphers used. Boring checks
             ticketCipher = int(kdcRep['ticket']['enc-part']['etype'])
@@ -277,9 +279,13 @@ class TICKETER:
 
         else:
             logging.info('Creating basic skeleton ticket and PAC Infos')
-            kdcRep = AS_REP()
+            if self.__domain == self.__server:
+                kdcRep = AS_REP()
+                kdcRep['msg-type'] = ApplicationTagNumbers.AS_REP.value
+            else:
+                kdcRep = TGS_REP()
+                kdcRep['msg-type'] = ApplicationTagNumbers.TGS_REP.value
             kdcRep['pvno'] = 5
-            kdcRep['msg-type'] = ApplicationTagNumbers.AS_REP.value
             if self.__options.nthash is None:
                 kdcRep['padata'] = noValue
                 kdcRep['padata'][0] = noValue
