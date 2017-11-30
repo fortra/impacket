@@ -36,6 +36,7 @@ from impacket.spnego import SPNEGO_NegTokenInit, TypesMech, SPNEGO_NegTokenResp,
 from impacket.krb5.gssapi import KRB5_AP_REQ
 from impacket import nt_errors, LOG
 from impacket.krb5.ccache import CCache
+from lib.pyasn1.type.base import NoValue
 
 
 def sendReceive(data, host, kdcHost):
@@ -163,7 +164,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
             etypes2 = decoder.decode(str(method['padata-value']), asn1Spec = ETYPE_INFO2())[0]
             for etype2 in etypes2:
                 try:
-                    if str(etype2['salt']) is None:
+                    if str(etype2['salt']) is None or isinstance(etype2['salt']._value, NoValue):
                         salt = ''
                     else:
                         salt = str(etype2['salt'])
