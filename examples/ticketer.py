@@ -60,7 +60,7 @@ from impacket.dcerpc.v5.ndr import NDRULONG
 from impacket.dcerpc.v5.samr import NULL, GROUP_MEMBERSHIP, SE_GROUP_MANDATORY, SE_GROUP_ENABLED_BY_DEFAULT, \
     SE_GROUP_ENABLED, USER_NORMAL_ACCOUNT, USER_DONT_EXPIRE_PASSWORD
 from impacket.examples import logger
-from impacket.krb5.asn1 import AS_REP, TGS_REP, ETYPE_INFO2, AuthorizationData, EncTicketPart, EncASRepPart
+from impacket.krb5.asn1 import AS_REP, TGS_REP, ETYPE_INFO2, AuthorizationData, EncTicketPart, EncASRepPart, EncTGSRepPart
 from impacket.krb5.constants import ApplicationTagNumbers, PreAuthenticationDataTypes, EncryptionTypes, \
     PrincipalNameType, ProtocolVersionNumber, TicketFlags, encodeFlags, ChecksumTypes, AuthorizationDataType, \
     KERB_NON_KERB_CKSUM_SALT
@@ -312,7 +312,7 @@ class TICKETER:
             kdcRep['ticket']['tkt-vno'] = ProtocolVersionNumber.pvno.value
             kdcRep['ticket']['realm'] = self.__domain.upper()
             kdcRep['ticket']['sname'] = noValue
-            kdcRep['ticket']['sname']['name-type'] = PrincipalNameType.NT_PRINCIPAL.value
+            kdcRep['ticket']['sname']['name-type'] = PrincipalNameType.NT_SRV_INST.value
             kdcRep['ticket']['sname']['name-string'] = noValue
             kdcRep['ticket']['sname']['name-string'][0] = self.__service
             kdcRep['ticket']['sname']['name-string'][1] = self.__target
@@ -346,7 +346,8 @@ class TICKETER:
         flags.append(TicketFlags.forwardable.value)
         flags.append(TicketFlags.proxiable.value)
         flags.append(TicketFlags.renewable.value)
-        flags.append(TicketFlags.initial.value)
+        if self.__domain == self.__server: 
+            flags.append(TicketFlags.initial.value)
         flags.append(TicketFlags.pre_authent.value)
         encTicketPart['flags'] = encodeFlags(flags)
         encTicketPart['key'] = noValue
@@ -482,31 +483,33 @@ class TICKETER:
 
         logging.info('\tPAC_CLIENT_INFO_TYPE')
         logging.info('\tEncTicketPart')
-
-        encASRepPart = EncASRepPart()
-        encASRepPart['key'] = noValue
-        encASRepPart['key']['keytype'] = encTicketPart['key']['keytype']
-        encASRepPart['key']['keyvalue'] = encTicketPart['key']['keyvalue']
-        encASRepPart['last-req'] = noValue
-        encASRepPart['last-req'][0] = noValue
-        encASRepPart['last-req'][0]['lr-type'] = 0
-        encASRepPart['last-req'][0]['lr-value'] = KerberosTime.to_asn1(datetime.datetime.utcnow())
-        encASRepPart['nonce'] = 123456789
-        encASRepPart['key-expiration'] = KerberosTime.to_asn1(ticketDuration)
-        encASRepPart['flags'] = encodeFlags(flags)
-        encASRepPart['authtime'] = encTicketPart['authtime']
-        encASRepPart['endtime'] = encTicketPart['endtime']
-        encASRepPart['starttime'] = encTicketPart['starttime']
-        encASRepPart['renew-till'] = encTicketPart['renew-till']
-        encASRepPart['srealm'] = self.__domain.upper()
-        encASRepPart['sname'] = noValue
-        encASRepPart['sname']['name-type'] = PrincipalNameType.NT_PRINCIPAL.value
-        encASRepPart['sname']['name-string'] = noValue
-        encASRepPart['sname']['name-string'][0] = self.__service
-        encASRepPart['sname']['name-string'][1] = self.__server
+        if self.__domain == self.__server:
+            encRepPart = EncTGSRepPart()
+        else:
+            encRepPart = EncASRepPart()
+        encRepPart['key'] = noValue
+        encRepPart['key']['keytype'] = encTicketPart['key']['keytype']
+        encRepPart['key']['keyvalue'] = encTicketPart['key']['keyvalue']
+        encRepPart['last-req'] = noValue
+        encRepPart['last-req'][0] = noValue
+        encRepPart['last-req'][0]['lr-type'] = 0
+        encRepPart['last-req'][0]['lr-value'] = KerberosTime.to_asn1(datetime.datetime.utcnow())
+        encRepPart['nonce'] = 123456789
+        encRepPart['key-expiration'] = KerberosTime.to_asn1(ticketDuration)
+        encRepPart['flags'] = encodeFlags(flags)
+        encRepPart['authtime'] = encTicketPart['authtime']
+        encRepPart['endtime'] = encTicketPart['endtime']
+        encRepPart['starttime'] = encTicketPart['starttime']
+        encRepPart['renew-till'] = encTicketPart['renew-till']
+        encRepPart['srealm'] = self.__domain.upper()
+        encRepPart['sname'] = noValue
+        encRepPart['sname']['name-type'] = PrincipalNameType.NT_SRV_INST.value
+        encRepPart['sname']['name-string'] = noValue
+        encRepPart['sname']['name-string'][0] = self.__service
+        encRepPart['sname']['name-string'][1] = self.__server
         logging.info('\tEncAsRepPart')
 
-        return encASRepPart, encTicketPart, pacInfos
+        return encRepPart, encTicketPart, pacInfos
 
     def signEncryptTicket(self, kdcRep, encASRepPart, encTicketPart, pacInfos):
         logging.info('Signing/Encrypting final ticket')
