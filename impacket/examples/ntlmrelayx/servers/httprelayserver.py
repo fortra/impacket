@@ -330,16 +330,16 @@ class HTTPRelayServer(Thread):
                     clientThread = self.server.config.attacks['SMB'](self.server.config, self.client.session, self.authUser)
                     clientThread.start()
             if self.target[0] == 'LDAP' or self.target[0] == 'LDAPS':
-                clientThread = self.server.config.attacks['LDAP'](self.server.config, self.client, self.authUser)
+                clientThread = self.server.config.attacks['LDAP'](self.server.config, self.client.session, self.authUser)
                 clientThread.start()
             if self.target[0] == 'HTTP' or self.target[0] == 'HTTPS':
-                clientThread = self.server.config.attacks['HTTP'](self.server.config, self.client, self.authUser)
+                clientThread = self.server.config.attacks['HTTP'](self.server.config, self.client.session, self.authUser)
                 clientThread.start()
             if self.target[0] == 'MSSQL':
-                clientThread = self.server.config.attacks['MSSQL'](self.server.config, self.client)
+                clientThread = self.server.config.attacks['MSSQL'](self.server.config, self.client.session)
                 clientThread.start()
             if self.target[0] == 'IMAP' or self.target[0] == 'IMAPS':
-                clientThread = self.server.config.attacks['IMAP'](self.server.config, self.client, self.authUser)
+                clientThread = self.server.config.attacks['IMAP'](self.server.config, self.client.session, self.authUser)
                 clientThread.start()
 
     def __init__(self, config):

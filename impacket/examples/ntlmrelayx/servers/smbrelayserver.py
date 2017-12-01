@@ -274,14 +274,9 @@ class SMBRelayServer(Thread):
             logging.error(str(e))
             self.targetprocessor.log_target(connData['ClientIP'], self.target)
         else:
-            if client.session.getDialect() == smb.SMB_DIALECT:
-                encryptionKey = client.session.getSMBServer().get_encryption_key()
-            else:
-                encryptionKey = None
             smbData[self.target] = {}
             smbData[self.target]['SMBClient'] = client
-            if encryptionKey is not None:
-                connData['EncryptionKey'] = encryptionKey
+            connData['EncryptionKey'] = client.getStandardSecurityChallenge()
             smbServer.setConnectionData('SMBRelay', smbData)
             smbServer.setConnectionData(connId, connData)
 
@@ -384,14 +379,9 @@ class SMBRelayServer(Thread):
             logging.error(str(e))
             self.targetprocessor.log_target(connData['ClientIP'],self.target)
         else:
-            if client.session.getDialect() == smb.SMB_DIALECT:
-                encryptionKey = client.session.getSMBServer().get_encryption_key()
-            else:
-                encryptionKey = None
             smbData[self.target] = {}
             smbData[self.target]['SMBClient'] = client
-            if encryptionKey is not None:
-                connData['EncryptionKey'] = encryptionKey
+            connData['EncryptionKey'] = client.getStandardSecurityChallenge()
             smbServer.setConnectionData('SMBRelay', smbData)
             smbServer.setConnectionData(connId, connData)
         return self.origSmbComNegotiate(connId, smbServer, SMBCommand, recvPacket)

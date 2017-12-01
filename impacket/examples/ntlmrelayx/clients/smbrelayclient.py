@@ -5,7 +5,7 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# SMB Relay Server
+# SMB Relay Protocol Client
 #
 # Author:
 #  Alberto Solino (@agsolino)
@@ -328,3 +328,9 @@ class SMBRelayClient(ProtocolClient):
         errorCode += smb['ErrorClass']
 
         return smb, errorCode
+
+    def getStandardSecurityChallenge(self):
+        if self.session.getDialect() == SMB_DIALECT:
+            return self.session.getSMBServer().get_encryption_key()
+        else:
+            return None

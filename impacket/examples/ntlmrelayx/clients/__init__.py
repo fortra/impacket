@@ -52,6 +52,11 @@ class ProtocolClient:
         # Should return the active session for the relayed connection
         raise RuntimeError('Virtual Function')
 
+    def getStandardSecurityChallenge(self):
+        # Should return the Challenge returned by the server when Extended Security is not set
+        # This should only happen with against old Servers. By default we return None
+        return None
+
 for file in os.listdir(__path__[0]):
     if file.find('__') >=0 or os.path.splitext(file)[1] == '.pyc':
         continue
