@@ -14,6 +14,9 @@
 # Description: 
 # MSSQL client for relaying NTLMSSP authentication to MSSQL servers
 #
+# ToDo:
+# [ ] Handle SQL Authentication
+#
 import logging
 import random
 import string
@@ -24,7 +27,7 @@ from impacket.tds import MSSQL, DummyPrint, TDS_ENCRYPT_REQ, TDS_ENCRYPT_OFF, TD
     TDS_ODBC_ON, TDS_INTEGRATED_SECURITY_ON, TDS_LOGIN7, TDS_SSPI, TDS_LOGINACK_TOKEN
 from impacket.ntlm import NTLMAuthChallenge
 from impacket.nt_errors import STATUS_SUCCESS, STATUS_ACCESS_DENIED
-from impacket.spnego import SPNEGO_NegTokenInit, SPNEGO_NegTokenResp
+from impacket.spnego import SPNEGO_NegTokenResp
 
 try:
     import OpenSSL
