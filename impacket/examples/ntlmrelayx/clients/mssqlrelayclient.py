@@ -17,12 +17,14 @@
 import logging
 import random
 import string
+from struct import unpack
 
 from impacket.examples.ntlmrelayx.clients import ProtocolClient
 from impacket.tds import MSSQL, DummyPrint, TDS_ENCRYPT_REQ, TDS_ENCRYPT_OFF, TDS_PRE_LOGIN, TDS_LOGIN, TDS_INIT_LANG_FATAL, \
     TDS_ODBC_ON, TDS_INTEGRATED_SECURITY_ON, TDS_LOGIN7, TDS_SSPI, TDS_LOGINACK_TOKEN
 from impacket.ntlm import NTLMAuthChallenge
 from impacket.nt_errors import STATUS_SUCCESS, STATUS_ACCESS_DENIED
+from impacket.spnego import SPNEGO_NegTokenInit, SPNEGO_NegTokenResp
 
 try:
     import OpenSSL
@@ -99,7 +101,13 @@ class MYMSSQL(MSSQL):
         return challenge
 
     def sendAuth(self,authenticateMessageBlob, serverChallenge=None):
-        self.sendTDS(TDS_SSPI, str(authenticateMessageBlob))
+        if unpack('B', str(authenticateMessageBlob)[:1])[0] == SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP:
+            respToken2 = SPNEGO_NegTokenResp(authenticateMessageBlob)
+            token = respToken2['ResponseToken']
+        else:
+            token = authenticateMessageBlob
+
+        self.sendTDS(TDS_SSPI, str(token))
         tds = self.recvTDS()
         self.replies = self.parseReply(tds['Data'])
         if self.replies.has_key(TDS_LOGINACK_TOKEN):
