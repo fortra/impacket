@@ -79,8 +79,7 @@ class MYMSSQL(MSSQL):
         login['OptionFlags2'] = TDS_INIT_LANG_FATAL | TDS_ODBC_ON | TDS_INTEGRATED_SECURITY_ON
 
         # NTLMSSP Negotiate
-        auth = negotiateMessage
-        login['SSPI'] = str(auth)
+        login['SSPI'] = str(negotiateMessage)
         login['Length'] = len(str(login))
 
         # Send the NTLMSSP Negotiate
