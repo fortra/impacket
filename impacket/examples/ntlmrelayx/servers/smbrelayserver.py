@@ -73,6 +73,7 @@ class SMBRelayServer(Thread):
         smbConfig.set('IPC$','path','')
 
         self.server = SMBSERVER(('0.0.0.0',445), config_parser = smbConfig)
+        logging.getLogger('impacket.smbserver').setLevel(logging.CRITICAL)
         self.server.processConfigFile()
 
         self.origSmbComNegotiate = self.server.hookSmbCommand(smb.SMB.SMB_COM_NEGOTIATE, self.SmbComNegotiate)
@@ -270,8 +271,7 @@ class SMBRelayServer(Thread):
             # Init the correct client for our target
             client = self.init_client(extSec)
         except Exception, e:
-            logging.error("Connection against target %s FAILED" % self.target[1])
-            logging.error(str(e))
+            logging.error("Connection against target %s FAILED: %s" % (self.target[1], str(e)))
             self.targetprocessor.log_target(connData['ClientIP'], self.target)
         else:
             smbData[self.target] = {}
@@ -375,8 +375,7 @@ class SMBRelayServer(Thread):
             #Init the correct client for our target
             client = self.init_client(extSec)
         except Exception, e:
-            logging.error("Connection against target %s FAILED" % self.target[1])
-            logging.error(str(e))
+            logging.error("Connection against target %s FAILED: %s" % (self.target[1], str(e)))
             self.targetprocessor.log_target(connData['ClientIP'],self.target)
         else:
             smbData[self.target] = {}

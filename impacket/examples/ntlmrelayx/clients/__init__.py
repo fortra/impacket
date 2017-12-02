@@ -63,9 +63,20 @@ for file in os.listdir(__path__[0]):
     __import__(__package__ + '.' + os.path.splitext(file)[0])
     module = sys.modules[__package__ + '.' + os.path.splitext(file)[0]]
     try:
-        pluginClass = getattr(module, getattr(module, 'PROTOCOL_CLIENT_CLASS'))
-        LOG.info('Plugin %s loaded..' % pluginClass.PLUGIN_NAME)
-        PROTOCOL_CLIENTS[pluginClass.PLUGIN_NAME] = pluginClass
+        pluginClasses = set()
+        try:
+            if hasattr(module,'PROTOCOL_CLIENT_CLASSES'):
+                for pluginClass in module.PROTOCOL_CLIENT_CLASSES:
+                    pluginClasses.add(getattr(module, pluginClass))
+
+            pluginClasses.add(getattr(module, getattr(module, 'PROTOCOL_CLIENT_CLASS')))
+        except Exception, e:
+            LOG.debug(e)
+            pass
+
+        for pluginClass in pluginClasses:
+            LOG.info('Plugin %s loaded..' % pluginClass.PLUGIN_NAME)
+            PROTOCOL_CLIENTS[pluginClass.PLUGIN_NAME] = pluginClass
     except Exception, e:
         LOG.debug(str(e))
 

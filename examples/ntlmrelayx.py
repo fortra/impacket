@@ -195,6 +195,7 @@ class LDAPAttack(Thread):
             logging.error('Failed to add user to Domain Admins group: %s' % str(self.client.result))
 
     def run(self):
+        #self.client.search('dc=vulnerable,dc=contoso,dc=com', '(objectclass=person)')
         global dumpedDomain
         #Set up a default config
         domainDumpConfig = self.ldapdomaindump.domainDumpConfig()

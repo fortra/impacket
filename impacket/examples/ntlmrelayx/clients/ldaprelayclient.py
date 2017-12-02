@@ -8,8 +8,8 @@
 # LDAP Protocol Client
 #
 # Author:
-#   Alberto Solino (@agsolino)
 #   Dirk-jan Mollema / Fox-IT (https://www.fox-it.com)
+#   Alberto Solino (@agsolino)
 #
 # Description:
 # LDAP client for relaying NTLMSSP authentication to LDAP servers
@@ -33,7 +33,7 @@ from impacket.nt_errors import STATUS_SUCCESS, STATUS_ACCESS_DENIED
 from impacket.ntlm import NTLMAuthChallenge
 from impacket.spnego import SPNEGO_NegTokenResp
 
-PROTOCOL_CLIENT_CLASS = "LDAPRelayClient"
+PROTOCOL_CLIENT_CLASSES = ["LDAPRelayClient", "LDAPSRelayClient"]
 
 class LDAPRelayClientException(Exception):
     pass
@@ -55,7 +55,7 @@ class LDAPRelayClient(ProtocolClient):
             self.session = None
 
     def initConnection(self):
-        self.server = Server(self.targetHost, get_info=ALL)
+        self.server = Server("ldap://%s:%s" % (self.targetHost, self.targetPort), get_info=ALL)
         self.session = Connection(self.server, user="a", password="b", authentication=NTLM)
         self.session.open(False)
 
@@ -116,3 +116,15 @@ class LDAPRelayClient(ProtocolClient):
     #Placeholder function for ldap3
     def parse_challenge_message(self, message):
         pass
+
+class LDAPSRelayClient(LDAPRelayClient):
+    PLUGIN_NAME = "LDAPS"
+    MODIFY_ADD = MODIFY_ADD
+
+    def __init__(self, serverConfig, targetHost, targetPort = 636, extendedSecurity=True ):
+        LDAPRelayClient.__init__(self, serverConfig, targetHost, targetPort, extendedSecurity)
+
+    def initConnection(self):
+        self.server = Server("ldaps://%s:%s" % (self.targetHost, self.targetPort), get_info=ALL)
+        self.session = Connection(self.server, user="a", password="b", authentication=NTLM)
+        self.session.open(False)

