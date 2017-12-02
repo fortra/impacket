@@ -139,7 +139,9 @@ class MSSQLRelayClient(ProtocolClient):
         return True
 
     def killConnection(self):
-        return self.session.disconnect()
+        if self.session is not None:
+            self.session.disconnect()
+            self.session = None
 
     def sendNegotiate(self, negotiateMessage):
         return self.session.sendNegotiate(negotiateMessage)

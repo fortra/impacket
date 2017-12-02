@@ -125,6 +125,7 @@ class SMBRelayClient(ProtocolClient):
     def killConnection(self):
         if self.session is not None:
             self.session.close()
+            self.session = None
 
     def initConnection(self):
         self.session = SMBConnection(self.targetHost, self.targetHost, sess_port= self.targetPort, manualNegotiate=True)
