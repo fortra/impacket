@@ -336,7 +336,7 @@ class GetUserSPNs:
                                                                                 TGT['sessionKey'])
                         self.outputTGS(tgs, oldSessionKey, sessionKey, user, SPN, fd)
                     except Exception , e:
-                        logging.error(str(e))
+                        logging.error('SPN: %s - %s' % (SPN,str(e)))
                 if fd is not None:
                     fd.close()
 
