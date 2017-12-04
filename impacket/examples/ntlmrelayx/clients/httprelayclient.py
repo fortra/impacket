@@ -5,8 +5,11 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
+# HTTP Protocol Client
+#
 # Author:
 #   Dirk-jan Mollema / Fox-IT (https://www.fox-it.com)
+#   Alberto Solino (@agsolino)
 #
 # Description: 
 # HTTP(s) client for relaying NTLMSSP authentication to webservers
@@ -17,24 +20,30 @@ import ssl
 from httplib import HTTPConnection, HTTPSConnection, ResponseNotReady
 import base64
 
-class HTTPRelayClient:
-    def __init__(self, target):
-        # Target comes as protocol://target:port/path
-        self.target = target
-        proto, host, path = target.split(':')
-        host = host[2:]
-        self.path = '/' + path.split('/', 1)[1]
-        if proto.lower() == 'https':
-            #Create unverified (insecure) context
-            try:
-                uv_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
-                self.session = HTTPSConnection(host,context=uv_context)
-            except AttributeError:
-                #This does not exist on python < 2.7.11
-                self.session = HTTPSConnection(host)
-        else:
-            self.session = HTTPConnection(host)
+from struct import unpack
+from impacket import LOG
+from impacket.examples.ntlmrelayx.clients import ProtocolClient
+from impacket.nt_errors import STATUS_SUCCESS, STATUS_ACCESS_DENIED
+from impacket.ntlm import NTLMAuthChallenge
+from impacket.spnego import SPNEGO_NegTokenResp
+
+PROTOCOL_CLIENT_CLASSES = ["HTTPRelayClient","HTTPSRelayClient"]
+
+class HTTPRelayClient(ProtocolClient):
+    PLUGIN_NAME = "HTTP"
+
+    def __init__(self, serverConfig, targetHost, targetPort = 80, extendedSecurity=True ):
+        ProtocolClient.__init__(self, serverConfig, targetHost, targetPort, extendedSecurity)
+        self.extendedSecurity = extendedSecurity
+        self.negotiateMessage = None
+        self.authenticateMessageBlob = None
+        self.server = None
+
+    def initConnection(self):
+        self.session = HTTPConnection(self.targetHost,self.targetPort)
         self.lastresult = None
+        self.path = '/'
+        return True
 
     def sendNegotiate(self,negotiateMessage):
         #Check if server wants auth
@@ -42,13 +51,13 @@ class HTTPRelayClient:
         res = self.session.getresponse()
         res.read()
         if res.status != 401:
-            logging.info('Status code returned: %d. Authentication does not seem required for URL' % res.status)
+            LOG.info('Status code returned: %d. Authentication does not seem required for URL' % res.status)
         try:
             if 'NTLM' not in res.getheader('WWW-Authenticate'):
-                logging.error('NTLM Auth not offered by URL, offered protocols: %s' % res.getheader('WWW-Authenticate'))
+                LOG.error('NTLM Auth not offered by URL, offered protocols: %s' % res.getheader('WWW-Authenticate'))
                 return False
         except KeyError:
-            logging.error('No authentication requested by the server for url %s' % self.target)
+            LOG.error('No authentication requested by the server for url %s' % self.targetHost)
             return False
 
         #Negotiate auth
@@ -60,25 +69,40 @@ class HTTPRelayClient:
         try:
             serverChallengeBase64 = re.search('NTLM ([a-zA-Z0-9+/]+={0,2})', res.getheader('WWW-Authenticate')).group(1)
             serverChallenge = base64.b64decode(serverChallengeBase64)
-            return serverChallenge
+            challenge = NTLMAuthChallenge()
+            challenge.fromString(serverChallenge)
+            return challenge
         except (IndexError, KeyError, AttributeError):
-            logging.error('No NTLM challenge returned from server')
+            LOG.error('No NTLM challenge returned from server')
 
-    def sendAuth(self,authenticateMessageBlob, serverChallenge=None):
-        #Negotiate auth
-        auth = base64.b64encode(authenticateMessageBlob)
+    def sendAuth(self, authenticateMessageBlob, serverChallenge=None):
+        if unpack('B', str(authenticateMessageBlob)[:1])[0] == SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP:
+            respToken2 = SPNEGO_NegTokenResp(authenticateMessageBlob)
+            token = respToken2['ResponseToken']
+        else:
+            token = authenticateMessageBlob
+        auth = base64.b64encode(token)
         headers = {'Authorization':'NTLM %s' % auth}
         self.session.request('GET', self.path,headers=headers)
         res = self.session.getresponse()
         if res.status == 401:
-            return False
+            return None, STATUS_ACCESS_DENIED
         else:
-            logging.info('HTTP server returned error code %d, treating as a succesful login' % res.status)
+            LOG.info('HTTP server returned error code %d, treating as a succesful login' % res.status)
             #Cache this
             self.lastresult = res.read()
-            return True
+            return None, STATUS_SUCCESS
 
-    #SMB Relay server needs this
-    @staticmethod
-    def get_encryption_key():
-        return None
+
+class HTTPSRelayClient(HTTPRelayClient):
+    PLUGIN_NAME = "HTTPS"
+
+    def initConnection(self):
+        self.lastresult = None
+        self.path = '/'
+        try:
+            uv_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+            self.session = HTTPSConnection(self.targetHost,self.targetPort, context=uv_context)
+        except AttributeError:
+            self.session = HTTPSConnection(self.targetHost,self.targetPort)
+        return True

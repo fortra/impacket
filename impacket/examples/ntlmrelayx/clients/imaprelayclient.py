@@ -14,7 +14,6 @@
 # Description: 
 # IMAP client for relaying NTLMSSP authentication to mailservers, for example Exchange
 #
-import logging
 import imaplib
 import base64
 from struct import unpack
