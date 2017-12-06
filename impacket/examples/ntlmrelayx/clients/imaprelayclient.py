@@ -29,9 +29,13 @@ PROTOCOL_CLIENT_CLASSES = ["IMAPRelayClient","IMAPSRelayClient"]
 class IMAPRelayClient(ProtocolClient):
     PLUGIN_NAME = "IMAP"
 
+    def __init__(self, serverConfig, targetHost, targetPort = 143, extendedSecurity=True ):
+        ProtocolClient.__init__(self, serverConfig, targetHost, targetPort, extendedSecurity)
+
     def initConnection(self):
         self.session = imaplib.IMAP4(self.targetHost,self.targetPort)
         self.authTag = self.session._new_tag()
+        LOG.debug('IMAP CAPABILITIES: %s' % str(self.session.capabilities))
         if 'AUTH=NTLM' not in self.session.capabilities:
             LOG.error('IMAP server does not support NTLM authentication!')
             return False
@@ -75,9 +79,13 @@ class IMAPRelayClient(ProtocolClient):
 class IMAPSRelayClient(IMAPRelayClient):
     PLUGIN_NAME = "IMAPS"
 
+    def __init__(self, serverConfig, targetHost, targetPort = 993, extendedSecurity=True ):
+        ProtocolClient.__init__(self, serverConfig, targetHost, targetPort, extendedSecurity)
+
     def initConnection(self):
         self.session = imaplib.IMAP4_SSL(self.targetHost,self.targetPort)
         self.authTag = self.session._new_tag()
+        LOG.debug('IMAP CAPABILITIES: %s' % str(self.session.capabilities))
         if 'AUTH=NTLM' not in self.session.capabilities:
             LOG.error('IMAP server does not support NTLM authentication!')
             return False
