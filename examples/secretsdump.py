@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 # Copyright (c) 2003-2016 CORE Security Technologies
 #
 # This software is provided under a slightly modified version
@@ -165,7 +165,7 @@ class DumpSecrets:
                     else:
                         SECURITYFileName = self.__securityHive
 
-                    self.__LSASecrets = LSASecrets(SECURITYFileName, bootKey, self.__remoteOps, isRemote=self.__isRemote)
+                    self.__LSASecrets = LSASecrets(SECURITYFileName, bootKey, self.__remoteOps, isRemote=self.__isRemote, history=self.__history)
                     self.__LSASecrets.dumpCachedHashes()
                     if self.__outputFileName is not None:
                         self.__LSASecrets.exportCached(self.__outputFileName)
@@ -291,7 +291,7 @@ if __name__ == '__main__':
                        help='Shows pwdLastSet attribute for each NTDS.DIT account. Doesn\'t apply to -outputfile data')
     group.add_argument('-user-status', action='store_true', default=False,
                         help='Display whether or not the user is disabled')
-    group.add_argument('-history', action='store_true', help='Dump password history')
+    group.add_argument('-history', action='store_true', help='Dump password history, and LSA secrets OldVal')
     group = parser.add_argument_group('authentication')
 
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
