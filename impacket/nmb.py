@@ -849,7 +849,7 @@ class NetBIOSTCPSession(NetBIOSSession):
         p = NetBIOSSessionPacket()
         p.set_type(NETBIOS_SESSION_MESSAGE)
         p.set_trailer(data)
-        self._sock.send(p.rawData())
+        self._sock.sendall(p.rawData())
 
     def recv_packet(self, timeout = None):
         data = self.__read(timeout)
