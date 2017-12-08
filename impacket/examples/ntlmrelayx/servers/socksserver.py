@@ -142,7 +142,7 @@ class SocksRelay:
         self.targetHost = targetHost
         self.targetPort = targetPort
         self.socksSocket = socksSocket
-        self.smbData = activeRelays['data']
+        self.sessionData = activeRelays['data']
         self.username = None
         self.clientConnection = None
         self.activeRelays = activeRelays
@@ -400,7 +400,7 @@ class SOCKS(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
         from impacket.examples.ntlmrelayx.servers.socksplugins import SOCKS_RELAYS
 
         for relay in SOCKS_RELAYS:
-            LOG.info('Plugin %s loaded..' % relay.PLUGIN_NAME)
+            LOG.info('%s loaded..' % relay.PLUGIN_NAME)
             self.socksPlugins[relay.getProtocolPort()] = relay
 
         # Let's create a timer to keep the connections up.

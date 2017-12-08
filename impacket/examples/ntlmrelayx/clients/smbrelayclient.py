@@ -121,6 +121,7 @@ class SMBRelayClient(ProtocolClient):
         self.domainIp = None
         self.machineAccount = None
         self.machineHashes = None
+        self.sessionData = {}
 
     def killConnection(self):
         if self.session is not None:
@@ -165,6 +166,10 @@ class SMBRelayClient(ProtocolClient):
             challenge.fromString(self.sendNegotiatev1(negotiateMessage))
         else:
             challenge.fromString(self.sendNegotiatev2(negotiateMessage))
+
+        # Store the Challenge in our session data dict. It will be used by the SMB Proxy
+        self.sessionData['CHALLENGE_MESSAGE'] = challenge
+
         return challenge
 
     def sendNegotiatev2(self, negotiateMessage):

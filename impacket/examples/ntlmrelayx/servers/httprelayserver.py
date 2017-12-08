@@ -198,11 +198,11 @@ class HTTPRelayServer(Thread):
             return False
 
         def do_attack(self, connData=False):
-            if self.target[0] == 'SMB':
+            if self.target[0] == 'SMB' or self.target[0] == 'MSSQL':
                 if self.server.config.runSocks is True:
-                    # For now, we only support SOCKS for SMB, for now.
+                    # For now, we only support SOCKS for SMB and MSSQL, for now.
                     # Pass all the data to the socksplugins proxy
-                    activeConnections.put((self.target[1], 445, self.authUser, self.client.session, connData))
+                    activeConnections.put((self.target[1], 445, self.authUser, self.client.session, self.client.sessionData))
                     logging.info("Adding %s(445) to active SOCKS connection. Enjoy" % self.target[1])
                 else:
                     clientThread = self.server.config.attacks['SMB'](self.server.config, self.client.session, self.authUser)

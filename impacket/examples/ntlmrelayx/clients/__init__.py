@@ -33,6 +33,7 @@ class ProtocolClient:
         self.targetPort = targetPort
         self.extendedSecurity = extendedSecurity
         self.session = None
+        self.sessionData = None
 
     def initConnection(self):
         raise RuntimeError('Virtual Function')
@@ -51,6 +52,11 @@ class ProtocolClient:
     def getSession(self):
         # Should return the active session for the relayed connection
         raise RuntimeError('Virtual Function')
+
+    def getSessionData(self):
+        # Should return any extra data that could be useful for the SOCKS proxy to work (e.g. some of the
+        # answers from the original server)
+        return self.sessionData
 
     def getStandardSecurityChallenge(self):
         # Should return the Challenge returned by the server when Extended Security is not set
@@ -75,7 +81,7 @@ for file in os.listdir(__path__[0]):
             pass
 
         for pluginClass in pluginClasses:
-            LOG.info('Plugin %s loaded..' % pluginClass.PLUGIN_NAME)
+            LOG.info('Protocol Client %s loaded..' % pluginClass.PLUGIN_NAME)
             PROTOCOL_CLIENTS[pluginClass.PLUGIN_NAME] = pluginClass
     except Exception, e:
         LOG.debug(str(e))
