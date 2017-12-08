@@ -295,7 +295,7 @@ class SMBSocksRelay(SocksRelay):
 
                 # First of all, we should received a type 1 message. Let's answer it
                 # NEGOTIATE_MESSAGE
-                challengeMessage = self.smbData['CHALLENGE_MESSAGE']
+                challengeMessage = self.sessionData['CHALLENGE_MESSAGE']
                 challengeMessage['flags'] &= ~(NTLMSSP_NEGOTIATE_SIGN)
 
                 respToken = SPNEGO_NegTokenResp()
@@ -449,7 +449,7 @@ class SMBSocksRelay(SocksRelay):
 
             # NEGOTIATE_MESSAGE
             # First of all, we should received a type 1 message. Let's answer it
-            challengeMessage = self.smbData['CHALLENGE_MESSAGE']
+            challengeMessage = self.sessionData['CHALLENGE_MESSAGE']
             challengeMessage['flags'] &= ~(NTLMSSP_NEGOTIATE_SIGN)
 
             if rawNTLM is False:
