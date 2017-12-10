@@ -202,8 +202,8 @@ class HTTPRelayServer(Thread):
                 if self.server.config.runSocks is True:
                     # For now, we only support SOCKS for SMB and MSSQL, for now.
                     # Pass all the data to the socksplugins proxy
-                    activeConnections.put((self.target[1], 445, self.authUser, self.client.session, self.client.sessionData))
-                    logging.info("Adding %s(445) to active SOCKS connection. Enjoy" % self.target[1])
+                    activeConnections.put((self.target[1], self.client.targetPort, self.authUser, self.client.session, self.client.sessionData))
+                    logging.info("Adding %s(%s) to active SOCKS connection. Enjoy" % (self.target[1], self.client.targetPort))
                 else:
                     clientThread = self.server.config.attacks['SMB'](self.server.config, self.client.session, self.authUser)
                     clientThread.start()

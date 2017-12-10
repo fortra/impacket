@@ -384,7 +384,7 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
         else:
             LOG.error('SOCKS: I don\'t have a handler for this port')
 
-        LOG.debug('SOCKS: Shuting down connection')
+        LOG.debug('SOCKS: Shutting down connection')
         self.sendReplyError(replyField.CONNECTION_REFUSED)
 
 class SOCKS(SocketServer.ThreadingMixIn, SocketServer.TCPServer):

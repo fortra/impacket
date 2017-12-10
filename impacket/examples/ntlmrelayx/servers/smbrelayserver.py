@@ -645,8 +645,8 @@ class SMBRelayServer(Thread):
             if self.config.runSocks is True:
                 # For now, we only support SOCKS for SMB, for now.
                 # Pass all the data to the socksplugins proxy
-                activeConnections.put((self.target[1], 445, self.authUser, client.session, client.sessionData))
-                logging.info("Adding %s(445) to active SOCKS connection. Enjoy" % self.target[1])
+                activeConnections.put((self.target[1], client.targetPort, self.authUser, client.session, client.sessionData))
+                logging.info("Adding %s(%s) to active SOCKS connection. Enjoy" % (self.target[1], client.targetPort))
             else:
                 clientThread = self.config.attacks['SMB'](self.config, client.session, self.authUser)
                 clientThread.start()

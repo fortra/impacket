@@ -41,6 +41,7 @@ class MYMSSQL(MSSQL):
     def __init__(self, address, port=1433, rowsPrinter=DummyPrint()):
         MSSQL.__init__(self,address, port, rowsPrinter)
         self.resp = None
+        self.sessionData = {}
 
     def initConnection(self):
         self.connect()
@@ -96,6 +97,7 @@ class MYMSSQL(MSSQL):
             self.tlsSocket = None
 
         tds = self.recvTDS()
+        self.sessionData['NTLM_CHALLENGE'] = tds
 
         challenge = NTLMAuthChallenge()
         challenge.fromString(tds['Data'][3:])
@@ -116,10 +118,14 @@ class MYMSSQL(MSSQL):
         if self.replies.has_key(TDS_LOGINACK_TOKEN):
             #Once we are here, there is a full connection and we can
             #do whatever the current user has rights to do
+            self.sessionData['AUTH_ANSWER'] = tds
             return None, STATUS_SUCCESS
         else:
             self.printReplies()
             return None, STATUS_ACCESS_DENIED
+
+    def close(self):
+        return self.disconnect()
 
 
 class MSSQLRelayClient(ProtocolClient):
@@ -147,5 +153,6 @@ class MSSQLRelayClient(ProtocolClient):
         return self.session.sendNegotiate(negotiateMessage)
 
     def sendAuth(self, authenticateMessageBlob, serverChallenge=None):
+        self.sessionData = self.session.sessionData
         return self.session.sendAuth(authenticateMessageBlob, serverChallenge)
 
