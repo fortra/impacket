@@ -209,7 +209,7 @@ def keepAliveTimer(server):
             server.activeRelays[target][port][userName]['inUse'] = False
             server.activeRelays[target][port]['data'] = data
         else:
-            LOG.info('Relay connection for %s at %s(%d) already exists. Discarding' % userName, target, port)
+            LOG.info('Relay connection for %s at %s(%d) already exists. Discarding' % (userName, target, port))
             smb.close()
 
 
