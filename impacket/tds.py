@@ -297,6 +297,35 @@ class TDS_LOGIN(Structure):
             self['Database'] = ''
             self['AtchDBFile'] = ''
 
+    def fromString(self, data):
+        Structure.fromString(self, data)
+        if self['HostNameLength'] > 0:
+            self['HostName'] = data[self['HostNameOffset']:][:self['HostNameLength']*2]
+
+        if self['UserNameLength'] > 0:
+            self['UserName'] = data[self['UserNameOffset']:][:self['UserNameLength']*2]
+
+        if self['PasswordLength'] > 0:
+            self['Password'] = data[self['PasswordOffset']:][:self['PasswordLength']*2]
+
+        if self['AppNameLength'] > 0:
+            self['AppName'] = data[self['AppNameOffset']:][:self['AppNameLength']*2]
+
+        if self['ServerNameLength'] > 0:
+            self['ServerName'] = data[self['ServerNameOffset']:][:self['ServerNameLength']*2]
+
+        if self['CltIntNameLength'] > 0:
+            self['CltIntName'] = data[self['CltIntNameOffset']:][:self['CltIntNameLength']*2]
+
+        if self['DatabaseLength'] > 0:
+            self['Database'] = data[self['DatabaseOffset']:][:self['DatabaseLength']*2]
+
+        if self['SSPILength'] > 0:
+            self['SSPI'] = data[self['SSPIOffset']:][:self['SSPILength']*2]
+
+        if self['AtchDBFileLength'] > 0:
+            self['AtchDBFile'] = data[self['AtchDBFileOffset']:][:self['AtchDBFileLength']*2]
+
     def __str__(self):
         index = 36+50
         self['HostNameOffset']= index

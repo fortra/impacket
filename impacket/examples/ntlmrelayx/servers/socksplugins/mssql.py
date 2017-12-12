@@ -91,29 +91,34 @@ class MSSQLSocksRelay(SocksRelay):
             authenticateMessage.fromString(tds['Data'])
             self.username = authenticateMessage['user_name']
 
-            # Check if we have a connection for the user
-            if self.activeRelays.has_key(authenticateMessage['user_name']):
-                # Check the connection is not inUse
-                if self.activeRelays[self.username]['inUse'] is True:
-                    LOG.error('MSSQL: Connection for %s@%s(%s) is being used at the moment!' % (
-                              authenticateMessage['user_name'].decode('utf-16le'), self.targetHost, self.targetPort))
-                    return False
-                else:
-                    LOG.info('MSSQL: Proxying client session for %s@%s(%s)' % (
-                    authenticateMessage['user_name'].decode('utf-16le'), self.targetHost, self.targetPort))
-                    self.session = self.activeRelays[self.username]['client']
-            else:
-                LOG.error('MSSQL: No session for %s@%s(%s) available' % (
-                    authenticateMessage['user_name'].decode('utf-16le'), self.targetHost,self.targetPort))
-                return False
+        else:
+            self.username = login['UserName']
 
+        # Check if we have a connection for the user
+        if self.activeRelays.has_key(self.username):
+            # Check the connection is not inUse
+            if self.activeRelays[self.username]['inUse'] is True:
+                LOG.error('MSSQL: Connection for %s@%s(%s) is being used at the moment!' % (
+                    self.username.decode('utf-16le'), self.targetHost, self.targetPort))
+                return False
+            else:
+                LOG.info('MSSQL: Proxying client session for %s@%s(%s)' % (
+                    self.username.decode('utf-16le'), self.targetHost, self.targetPort))
+                self.session = self.activeRelays[self.username]['client']
+        else:
+            LOG.error('MSSQL: No session for %s@%s(%s) available' % (
+                self.username.decode('utf-16le'), self.targetHost, self.targetPort))
+            return False
+
+        # We have a session relayed, let's answer back with the data
+        if login['OptionFlags2'] & TDS_INTEGRATED_SECURITY_ON:
+            TDSResponse = self.sessionData['AUTH_ANSWER']
+            self.sendTDS(TDSResponse['Type'], TDSResponse['Data'], 0)
+        else:
             TDSResponse = self.sessionData['AUTH_ANSWER']
             self.sendTDS(TDSResponse['Type'], TDSResponse['Data'], 0)
 
-            return True
-        else:
-            LOG.error('MSSQL: MSSQL Authentication still not enabled, switch to Windows Auth!')
-            return False
+        return True
 
     def tunelConnection(self):
         # For the rest of the remaining packets, we should just read and send. Except when trying to log out,
