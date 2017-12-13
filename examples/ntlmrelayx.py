@@ -44,6 +44,7 @@ import random
 import string
 import re
 import os
+import cmd
 from threading import Thread
 
 from impacket import version, smb3, smb
@@ -225,7 +226,6 @@ class LDAPAttack(Thread):
                 domainDumper.domainDump()
                 logging.info('Domain info dumped into lootdir!')
 
-
 class HTTPAttack(Thread):
     def __init__(self, config, HTTPClient, username):
         Thread.__init__(self)
@@ -340,6 +340,21 @@ class MSSQLAttack(Thread):
                 self.client.sql_query(query)
                 self.client.printReplies()
                 self.client.printRows()
+
+class MiniShell(cmd.Cmd):
+    def __init__(self):
+        cmd.Cmd.__init__(self)
+
+        self.prompt = 'ntlmrelayx> '
+        self.tid = None
+        self.intro = 'Type help for list of commands'
+
+    def emptyline(self):
+        pass
+
+    def do_exit(self, line):
+        print "Shutting down, please wait!"
+        return True
 
 # Process command-line arguments.
 if __name__ == '__main__':
@@ -458,12 +473,14 @@ if __name__ == '__main__':
         watchthread = TargetsFileWatcher(targetSystem)
         watchthread.start()
 
+    threads = set()
     if options.socks is True:
         # Start a SOCKS proxy in the background
-        s = SOCKS()
-        socks_thread = Thread(target=s.serve_forever)
+        socksServer = SOCKS()
+        socks_thread = Thread(target=socksServer.serve_forever)
         socks_thread.daemon = True
         socks_thread.start()
+        threads.add(socks_thread)
 
     # Let's register the socksplugins plugins we have
     # ToDo: Do this better somehow
@@ -506,13 +523,26 @@ if __name__ == '__main__':
 
         s = server(c)
         s.start()
+        threads.add(s)
         
     print ""
     logging.info("Servers started, waiting for connections")
-    while True:
-        try:
-            sys.stdin.read()
-        except KeyboardInterrupt:
-            sys.exit(1)
-        else:
-            pass
+    try:
+        shell = MiniShell()
+        shell.cmdloop()
+    except KeyboardInterrupt:
+        pass
+    else:
+        pass
+
+    if options.socks is True:
+        socksServer.shutdown()
+        del socksServer
+
+    for s in threads:
+        del s
+
+    sys.exit(0)
+
+
+

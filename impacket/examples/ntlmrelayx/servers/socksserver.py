@@ -24,7 +24,7 @@ import time
 import logging
 from Queue import Queue
 from struct import unpack, pack
-from threading import Timer
+from threading import Timer, Thread
 
 from impacket import LOG
 from impacket.dcerpc.v5.enum import Enum
@@ -387,12 +387,27 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
         LOG.debug('SOCKS: Shutting down connection')
         self.sendReplyError(replyField.CONNECTION_REFUSED)
 
+def webService(server):
+    from flask import Flask
+
+    app = Flask(__name__)
+
+    log = logging.getLogger('werkzeug')
+    log.setLevel(logging.ERROR)
+
+    @app.route('/')
+    def index():
+        return "Relays available: %s!" % (len(server.activeRelays))
+
+    app.run(host='0.0.0.0', port=9090)
+
 class SOCKS(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
     def __init__(self, server_address=('0.0.0.0', 1080), handler_class=SocksRequestHandler):
         LOG.info('SOCKS proxy started. Listening at port %d', server_address[1] )
 
         self.activeRelays = {}
         self.socksPlugins = {}
+        self.restAPI = None
         SocketServer.TCPServer.allow_reuse_address = True
         SocketServer.TCPServer.__init__(self, server_address, handler_class)
 
@@ -406,8 +421,14 @@ class SOCKS(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
         # Let's create a timer to keep the connections up.
         self.__timer = RepeatedTimer(300.0, keepAliveTimer, self)
 
+        # Let's start our RESTful API
+        self.restAPI = Thread(target=webService, args=(self, ))
+        self.restAPI.daemon = True
+        self.restAPI.start()
+
     def shutdown(self):
         self.__timer.stop()
+        del(self.restAPI)
         return SocketServer.TCPServer.shutdown(self)
 
 if __name__ == '__main__':
