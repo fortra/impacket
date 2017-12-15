@@ -90,24 +90,42 @@ class MSSQLSocksRelay(SocksRelay):
             authenticateMessage = NTLMAuthChallengeResponse()
             authenticateMessage.fromString(tds['Data'])
             self.username = authenticateMessage['user_name']
+            try:
+                self.username = ('%s/%s' % (authenticateMessage['domain_name'].decode('utf-16le'),
+                                      authenticateMessage['user_name'].decode('utf-16le'))).upper()
+            except UnicodeDecodeError:
+                # Not Unicode encoded?
+                self.username = ('%s/%s' % (authenticateMessage['domain_name'], authenticateMessage['user_name'])).upper()
 
         else:
-            self.username = login['UserName']
+            if login['UserName'].find('/') >=0:
+                try:
+                    self.username = login['UserName'].upper().decode('utf-16le')
+                except UnicodeDecodeError:
+                    # Not Unicode encoded?
+                    self.username = login['UserName'].upper()
+
+            else:
+                try:
+                    self.username = ('/%s' % login['UserName']).upper().decode('utf-16le')
+                except UnicodeDecodeError:
+                    # Not Unicode encoded?
+                    self.username = ('/%s' % login['UserName']).upper()
 
         # Check if we have a connection for the user
         if self.activeRelays.has_key(self.username):
             # Check the connection is not inUse
             if self.activeRelays[self.username]['inUse'] is True:
                 LOG.error('MSSQL: Connection for %s@%s(%s) is being used at the moment!' % (
-                    self.username.decode('utf-16le'), self.targetHost, self.targetPort))
+                    self.username, self.targetHost, self.targetPort))
                 return False
             else:
                 LOG.info('MSSQL: Proxying client session for %s@%s(%s)' % (
-                    self.username.decode('utf-16le'), self.targetHost, self.targetPort))
+                    self.username, self.targetHost, self.targetPort))
                 self.session = self.activeRelays[self.username]['client']
         else:
             LOG.error('MSSQL: No session for %s@%s(%s) available' % (
-                self.username.decode('utf-16le'), self.targetHost, self.targetPort))
+                self.username, self.targetHost, self.targetPort))
             return False
 
         # We have a session relayed, let's answer back with the data

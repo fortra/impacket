@@ -24,11 +24,7 @@
 # It is supposed to be working on any LM Compatibility level. The only way
 # to stop this attack is to enforce on the server SPN checks and or signing.
 # 
-# If the target system is enforcing signing and a machine account was provided,
-# the module will try to gather the SMB session key through 
-# NETLOGON (CVE-2015-0005)
-#
-# If the authentication against the targets succeed, the client authentication 
+# If the authentication against the targets succeed, the client authentication
 # success as well and a valid connection is set against the local smbserver. 
 # It's up to the user to set up the local smbserver functionality. One option 
 # is to set up shares with whatever files you want to the victim thinks it's 
@@ -45,6 +41,8 @@ import string
 import re
 import os
 import cmd
+import urllib2
+import json
 from threading import Thread
 
 from impacket import version, smb3, smb
@@ -349,8 +347,39 @@ class MiniShell(cmd.Cmd):
         self.tid = None
         self.intro = 'Type help for list of commands'
 
+    @staticmethod
+    def printTable(items, header):
+        colLen = []
+        for i, col in enumerate(header):
+            rowMaxLen = max([len(row[i]) for row in items])
+            colLen.append(max(rowMaxLen, len(col)))
+
+        outputFormat = ' '.join(['{%d:%ds} ' % (num, width) for num, width in enumerate(colLen)])
+
+        # Print header
+        print outputFormat.format(*header)
+        print '  '.join(['-' * itemLen for itemLen in colLen])
+
+        # And now the rows
+        for row in items:
+            print outputFormat.format(*row)
+
     def emptyline(self):
         pass
+
+    def do_socks(self, line):
+        headers = ["Target", "Username", "Port"]
+        url = "http://localhost:9090/ntlmrelayx/api/v1.0/relays"
+        try:
+            response = urllib2.urlopen(url).read()
+            items = json.loads(response)
+        except Exception, e:
+            logging.error("ERROR: %s" % str(e))
+        else:
+            if len(items) > 0:
+                self.printTable(items, header = headers)
+            else:
+                logging.info('No Relays Available!')
 
     def do_exit(self, line):
         print "Shutting down, please wait!"

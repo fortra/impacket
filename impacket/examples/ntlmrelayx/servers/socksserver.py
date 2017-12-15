@@ -193,25 +193,56 @@ def keepAliveTimer(server):
                     else:
                         LOG.debug('Skipping %s@%s:%s since it\'s being used at the moment' % (user, target, port))
 
-    # Let's parse new connections if available
-    while activeConnections.empty() is not True:
-        target, port, userName, smb, data = activeConnections.get()
-        LOG.debug('SOCKS: Adding %s:%s to list of relayConnections' % (target, port))
-        # ToDo: Careful. Dicts are not thread safe right?
-        if server.activeRelays.has_key(target) is not True:
-            server.activeRelays[target] = {}
-        if server.activeRelays[target].has_key(port) is not True:
-            server.activeRelays[target][port] = {}
+def activeConnectionsWatcher(server):
+    while True:
+        while activeConnections.empty() is not True:
+            target, port, userName, client, data = activeConnections.get()
+            # ToDo: Careful. Dicts are not thread safe right?
+            if server.activeRelays.has_key(target) is not True:
+                server.activeRelays[target] = {}
+            if server.activeRelays[target].has_key(port) is not True:
+                server.activeRelays[target][port] = {}
 
-        if server.activeRelays[target][port].has_key(userName) is not True:
-            server.activeRelays[target][port][userName] = {}
-            server.activeRelays[target][port][userName]['client'] = smb
-            server.activeRelays[target][port][userName]['inUse'] = False
-            server.activeRelays[target][port]['data'] = data
-        else:
-            LOG.info('Relay connection for %s at %s(%d) already exists. Discarding' % (userName, target, port))
-            smb.close()
+            if server.activeRelays[target][port].has_key(userName) is not True:
+                LOG.info('SOCKS: Adding %s@%s(%s) to active SOCKS connection. Enjoy' % (userName, target, port))
+                server.activeRelays[target][port][userName] = {}
+                server.activeRelays[target][port][userName]['client'] = client
+                server.activeRelays[target][port][userName]['inUse'] = False
+                server.activeRelays[target][port][userName]['data'] = data
+                # Just for the CHALLENGE data, we're storing this general
+                server.activeRelays[target][port]['data'] = data
+            else:
+                LOG.info('Relay connection for %s at %s(%d) already exists. Discarding' % (userName, target, port))
+                client.close()
 
+def webService(server):
+    from flask import Flask, jsonify
+
+    app = Flask(__name__)
+
+    log = logging.getLogger('werkzeug')
+    log.setLevel(logging.ERROR)
+
+    @app.route('/')
+    def index():
+        print server.activeRelays
+        return "Relays available: %s!" % (len(server.activeRelays))
+
+    @app.route('/ntlmrelayx/api/v1.0/relays', methods=['GET'])
+    def get_relays():
+        relays = []
+        for target in server.activeRelays:
+            for port in server.activeRelays[target]:
+                for user in server.activeRelays[target][port]:
+                    if user != 'data':
+                        relays.append([target, user, str(port)])
+        return jsonify(relays)
+
+    @app.route('/ntlmrelayx/api/v1.0/relays', methods=['GET'])
+    def get_info(relay):
+        pass
+
+    app.run(host='0.0.0.0', port=9090)
 
 class SocksRequestHandler(SocketServer.BaseRequestHandler):
     def __init__(self, request, client_address, server):
@@ -238,26 +269,6 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
 
     def handle(self):
         LOG.debug("SOCKS: New Connection from %s(%s)" % (self.__ip, self.__port))
-
-        # Let's parse new connections if available
-        while activeConnections.empty() is not True:
-            target, port, userName, smb, data = activeConnections.get()
-            LOG.debug('SOCKS: Adding %s:%s to list of relayConnections' % (target, port))
-            if self.__socksServer.activeRelays.has_key(target) is not True:
-                self.__socksServer.activeRelays[target] = {}
-            if self.__socksServer.activeRelays[target].has_key(port) is not True:
-                self.__socksServer.activeRelays[target][port] = {}
-
-            if self.__socksServer.activeRelays[target][port].has_key(userName) is not True:
-                self.__socksServer.activeRelays[target][port][userName] = {}
-                self.__socksServer.activeRelays[target][port][userName]['client'] = smb
-                self.__socksServer.activeRelays[target][port][userName]['inUse'] = False
-                self.__socksServer.activeRelays[target][port]['data'] = data
-            else:
-                LOG.info('Relay connection for %s at %s(%d) already exists. Discarding' % (userName, target, port))
-                smb.close()
-
-        # Ok we should have all the updated data now. Let's play
 
         data = self.__connSocket.recv(8192)
         grettings = SOCKS5_GREETINGS_BACK(data)
@@ -387,19 +398,6 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
         LOG.debug('SOCKS: Shutting down connection')
         self.sendReplyError(replyField.CONNECTION_REFUSED)
 
-def webService(server):
-    from flask import Flask
-
-    app = Flask(__name__)
-
-    log = logging.getLogger('werkzeug')
-    log.setLevel(logging.ERROR)
-
-    @app.route('/')
-    def index():
-        return "Relays available: %s!" % (len(server.activeRelays))
-
-    app.run(host='0.0.0.0', port=9090)
 
 class SOCKS(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
     def __init__(self, server_address=('0.0.0.0', 1080), handler_class=SocksRequestHandler):
@@ -408,6 +406,7 @@ class SOCKS(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
         self.activeRelays = {}
         self.socksPlugins = {}
         self.restAPI = None
+        self.activeConnectionsWatcher = None
         SocketServer.TCPServer.allow_reuse_address = True
         SocketServer.TCPServer.__init__(self, server_address, handler_class)
 
@@ -426,9 +425,15 @@ class SOCKS(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
         self.restAPI.daemon = True
         self.restAPI.start()
 
+        # Let's start out worker for active connections
+        self.activeConnectionsWatcher = Thread(target=activeConnectionsWatcher, args=(self, ))
+        self.activeConnectionsWatcher.daemon = True
+        self.activeConnectionsWatcher.start()
+
     def shutdown(self):
         self.__timer.stop()
-        del(self.restAPI)
+        del self.restAPI
+        del self.activeConnectionsWatcher
         return SocketServer.TCPServer.shutdown(self)
 
 if __name__ == '__main__':

