@@ -421,10 +421,6 @@ if __name__ == '__main__':
                                                        'map the result with '
                                                        'https://docs.python.org/2.4/lib/standard-encodings.html and then execute wmiexec.py '
                                                        'again with -codec and the corresponding codec ' % sys.getdefaultencoding())
-    parser.add_argument('-machine-account', action='store', required=False, help='Domain machine account to use when '
-                        'interacting with the domain to grab a session key for signing, format is domain/machine_name')
-    parser.add_argument('-machine-hashes', action="store", metavar = "LMHASH:NTHASH", help='Domain machine hashes, format is LMHASH:NTHASH')
-    parser.add_argument('-domain', action="store", help='Domain FQDN or IP to connect using NETLOGON')
     parser.add_argument('-smb2support', action="store_true", default=False, help='SMB2 Support (experimental!)')
 
 
@@ -443,11 +439,6 @@ if __name__ == '__main__':
     mssqloptions.add_argument('-q','--query', action='append', required=False, metavar = 'QUERY', help='MSSQL query to execute'
                         '(can specify multiple)')
     
-    #HTTP options (not in use for now)
-    # httpoptions = parser.add_argument_group("HTTP client options")
-    # httpoptions.add_argument('-q','--query', action='append', required=False, metavar = 'QUERY', help='MSSQL query to execute'
-    #                     '(can specify multiple)')   
-
     #LDAP options
     ldapoptions = parser.add_argument_group("LDAP client options")
     ldapoptions.add_argument('--no-dump', action='store_false', required=False, help='Do not attempt to dump LDAP information') 
@@ -544,12 +535,6 @@ if __name__ == '__main__':
         if server is not SMBRelayServer and options.random:
             c.setRandomTargets(True)
 
-        if options.machine_account is not None and options.machine_hashes is not None and options.domain is not None:
-            c.setDomainAccount( options.machine_account,  options.machine_hashes,  options.domain)
-        elif (options.machine_account is None and options.machine_hashes is None and options.domain is None) is False:
-            logging.error("You must specify machine-account/hashes/domain all together!")
-            sys.exit(1)
-
         s = server(c)
         s.start()
         threads.add(s)
@@ -557,8 +542,11 @@ if __name__ == '__main__':
     print ""
     logging.info("Servers started, waiting for connections")
     try:
-        shell = MiniShell()
-        shell.cmdloop()
+        if options.socks:
+            shell = MiniShell()
+            shell.cmdloop()
+        else:
+            sys.stdin.read()
     except KeyboardInterrupt:
         pass
     else:
