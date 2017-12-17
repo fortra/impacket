@@ -107,7 +107,7 @@ class MSSQLSocksRelay(SocksRelay):
 
             else:
                 try:
-                    self.username = ('/%s' % login['UserName']).upper().decode('utf-16le')
+                    self.username = ('/%s' % login['UserName'].decode('utf-16le')).upper()
                 except UnicodeDecodeError:
                     # Not Unicode encoded?
                     self.username = ('/%s' % login['UserName']).upper()
