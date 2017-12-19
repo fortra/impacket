@@ -12,7 +12,7 @@
 #  Dirk-jan Mollema / Fox-IT (https://www.fox-it.com)
 #
 # Description:
-#             This is the HTTP server which relays the NTLMSSP 
+#             This is the HTTP server which relays the NTLMSSP
 #   messages to other protocols
 import SimpleHTTPServer
 import SocketServer
@@ -35,6 +35,7 @@ class HTTPRelayServer(Thread):
     class HTTPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
         def __init__(self, server_address, RequestHandlerClass, config):
             self.config = config
+            self.daemon_threads = True
             SocketServer.TCPServer.__init__(self,server_address, RequestHandlerClass)
 
     class HTTPHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
@@ -165,7 +166,7 @@ class HTTPRelayServer(Thread):
                     self.send_header('Content-Length','0')
                     self.send_header('Connection','close')
                     self.end_headers()
-            return 
+            return
 
         def do_ntlm_negotiate(self,token):
             if self.target[0] == 'SMB':
@@ -177,7 +178,7 @@ class HTTPRelayServer(Thread):
                     negotiate.fromString(token)
                     #Remove the signing flag
                     negotiate['flags'] ^= ntlm.NTLMSSP_NEGOTIATE_ALWAYS_SIGN
-                    clientChallengeMessage = self.client.sendNegotiate(negotiate.getData()) 
+                    clientChallengeMessage = self.client.sendNegotiate(negotiate.getData())
                 except Exception, e:
                     logging.error("Connection against target %s FAILED" % self.target[1])
                     logging.error(str(e))
@@ -193,7 +194,7 @@ class HTTPRelayServer(Thread):
                     logging.error("Connection against target %s FAILED" % self.target[1])
                     logging.error(str(e))
                     return False
-            
+
             if self.target[0] == 'LDAP' or self.target[0] == 'LDAPS':
                 try:
                     self.client = LDAPRelayClient("%s://%s:%d" % (self.target[0].lower(),self.target[1],self.target[2]))
@@ -231,11 +232,11 @@ class HTTPRelayServer(Thread):
             self.challengeMessage.fromString(clientChallengeMessage)
             self.do_AUTHHEAD(message = 'NTLM '+base64.b64encode(self.challengeMessage.getData()))
             return True
-        
+
         def do_ntlm_auth(self,token,authenticateMessage):
             #For some attacks it is important to know the authenticated username, so we store it
             self.authUser = authenticateMessage['user_name']
-            
+
             #TODO: What is this 127.0.0.1 doing here? Maybe document specific use case
             if authenticateMessage['user_name'] != '' or self.target[1] == '127.0.0.1':
                 respToken2 = SPNEGO_NegTokenResp()
