@@ -655,6 +655,7 @@ class SMBRelayServer(Thread):
             clientThread.start()
 
     def _start(self):
+        self.server.daemon=True
         self.server.serve_forever()
 
     def run(self):
