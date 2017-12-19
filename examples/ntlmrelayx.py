@@ -340,11 +340,12 @@ class MSSQLAttack(Thread):
                 self.client.printRows()
 
 class MiniShell(cmd.Cmd):
-    def __init__(self):
+    def __init__(self, relayConfig):
         cmd.Cmd.__init__(self)
 
         self.prompt = 'ntlmrelayx> '
         self.tid = None
+        self.relayConfig = relayConfig
         self.intro = 'Type help for list of commands'
 
     @staticmethod
@@ -366,6 +367,11 @@ class MiniShell(cmd.Cmd):
 
     def emptyline(self):
         pass
+
+    def do_targets(self, line):
+        for url in self.relayConfig.target.originalTargets:
+            print url.geturl()
+        return
 
     def do_socks(self, line):
         headers = ["Target", "Username", "Port"]
@@ -454,6 +460,10 @@ if __name__ == '__main__':
     imapoptions.add_argument('-im','--imap-max', action='store',type=int, required=False,default=0, help='Max number of emails to dump '
         '(0 = unlimited, default: no limit)')
 
+    # Let's register the protocol clients we have
+    # ToDo: Do this better somehow
+    from impacket.examples.ntlmrelayx.clients import PROTOCOL_CLIENTS
+
     try:
        options = parser.parse_args()
     except Exception, e:
@@ -474,12 +484,12 @@ if __name__ == '__main__':
     if options.target is not None:
         logging.info("Running in relay mode to single host")
         mode = 'RELAY'
-        targetSystem = TargetsProcessor(singletarget=options.target)
+        targetSystem = TargetsProcessor(singleTarget=options.target, protocolClients=PROTOCOL_CLIENTS)
     else:
         if options.tf is not None:
             #Targetfile specified
             logging.info("Running in relay mode to hosts in targetfile")
-            targetSystem = TargetsProcessor(targetlistfile=options.tf)
+            targetSystem = TargetsProcessor(targetListFile=options.tf, protocolClients=PROTOCOL_CLIENTS)
             mode = 'RELAY'
         else:
             logging.info("Running in reflection mode")
@@ -501,10 +511,6 @@ if __name__ == '__main__':
         socks_thread.daemon = True
         socks_thread.start()
         threads.add(socks_thread)
-
-    # Let's register the socksplugins plugins we have
-    # ToDo: Do this better somehow
-    from impacket.examples.ntlmrelayx.clients import PROTOCOL_CLIENTS
 
     for server in RELAY_SERVERS:
         #Set up config
@@ -543,7 +549,7 @@ if __name__ == '__main__':
     logging.info("Servers started, waiting for connections")
     try:
         if options.socks:
-            shell = MiniShell()
+            shell = MiniShell(c)
             shell.cmdloop()
         else:
             sys.stdin.read()

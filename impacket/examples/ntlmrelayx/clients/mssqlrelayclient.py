@@ -17,11 +17,11 @@
 # ToDo:
 # [ ] Handle SQL Authentication
 #
-import logging
 import random
 import string
 from struct import unpack
 
+from impacket import LOG
 from impacket.examples.ntlmrelayx.clients import ProtocolClient
 from impacket.tds import MSSQL, DummyPrint, TDS_ENCRYPT_REQ, TDS_ENCRYPT_OFF, TDS_PRE_LOGIN, TDS_LOGIN, TDS_INIT_LANG_FATAL, \
     TDS_ODBC_ON, TDS_INTEGRATED_SECURITY_ON, TDS_LOGIN7, TDS_SSPI, TDS_LOGINACK_TOKEN
@@ -33,7 +33,7 @@ try:
     import OpenSSL
     from OpenSSL import SSL, crypto
 except Exception:
-    logging.critical("pyOpenSSL is not installed, can't continue")
+    LOG.critical("pyOpenSSL is not installed, can't continue")
 
 PROTOCOL_CLIENT_CLASS = "MSSQLRelayClient"
 
@@ -48,7 +48,7 @@ class MYMSSQL(MSSQL):
         #This is copied from tds.py
         resp = self.preLogin()
         if resp['Encryption'] == TDS_ENCRYPT_REQ or resp['Encryption'] == TDS_ENCRYPT_OFF:
-            logging.info("Encryption required, switching to TLS")
+            LOG.debug("Encryption required, switching to TLS")
 
             # Switching to TLS now
             ctx = SSL.Context(SSL.TLSv1_METHOD)

