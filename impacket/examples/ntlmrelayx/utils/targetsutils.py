@@ -40,7 +40,6 @@ from threading import Thread
 
 
 class TargetsProcessor:
-    supported_protocols = ['SMB','HTTP','HTTPS','LDAP','MSSQL','LDAPS','IMAP','IMAPS']
     def __init__(self, targetListFile=None, singleTarget=None, protocolClients=None):
         # Here we store the attacks that already finished, mostly the ones that have usernames, since the
         # other ones will never finish.
