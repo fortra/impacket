@@ -33,7 +33,7 @@ class ProtocolClient:
         self.targetPort = targetPort
         self.extendedSecurity = extendedSecurity
         self.session = None
-        self.sessionData = None
+        self.sessionData = {}
 
     def initConnection(self):
         raise RuntimeError('Virtual Function')
