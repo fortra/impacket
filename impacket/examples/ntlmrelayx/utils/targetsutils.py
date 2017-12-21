@@ -57,6 +57,11 @@ class TargetsProcessor:
 
     @staticmethod
     def processTarget(target, protocolClients):
+        # Check if we have a single target, with no URI form
+        if target.find('://') <= 0:
+            # Target is a single IP, assuming it's SMB.
+            return [urlparse('smb://%s' % target)]
+
         # Checks if it needs to expand the list if there's a all://*
         retVals = []
         if target[:3].upper() == 'ALL':

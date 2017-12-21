@@ -74,7 +74,7 @@ class SMBRelayServer(Thread):
         smbConfig.set('IPC$','path','')
 
         self.server = SMBSERVER(('0.0.0.0',445), config_parser = smbConfig)
-        #logging.getLogger('impacket.smbserver').setLevel(logging.NORMAL)
+        logging.getLogger('impacket.smbserver').setLevel(logging.CRITICAL)
         self.server.processConfigFile()
 
         self.origSmbComNegotiate = self.server.hookSmbCommand(smb.SMB.SMB_COM_NEGOTIATE, self.SmbComNegotiate)

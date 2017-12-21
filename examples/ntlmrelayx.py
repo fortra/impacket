@@ -377,8 +377,12 @@ class MiniShell(cmd.Cmd):
         headers = ["Target", "Username", "Port"]
         url = "http://localhost:9090/ntlmrelayx/api/v1.0/relays"
         try:
-            response = urllib2.urlopen(url).read()
-            items = json.loads(response)
+            proxy_handler = urllib2.ProxyHandler({})
+            opener = urllib2.build_opener(proxy_handler)
+            response = urllib2.Request(url)
+            r = opener.open(response)
+            result = r.read()
+            items = json.loads(result)
         except Exception, e:
             logging.error("ERROR: %s" % str(e))
         else:
