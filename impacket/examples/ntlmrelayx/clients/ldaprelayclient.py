@@ -109,7 +109,7 @@ class LDAPRelayClient(ProtocolClient):
 
         if result['result'] == RESULT_SUCCESS:
             self.session.bound = True
-            #self.session.refresh_server_info()
+            self.session.refresh_server_info()
             return None, STATUS_SUCCESS
 
         return None, STATUS_ACCESS_DENIED

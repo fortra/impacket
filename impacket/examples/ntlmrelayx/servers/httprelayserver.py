@@ -20,6 +20,7 @@ import base64
 import random
 import struct
 import string
+import traceback
 from threading import Thread
 
 from impacket import ntlm, LOG
@@ -32,6 +33,7 @@ class HTTPRelayServer(Thread):
     class HTTPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
         def __init__(self, server_address, RequestHandlerClass, config):
             self.config = config
+            self.daemon_threads = True
             SocketServer.TCPServer.__init__(self,server_address, RequestHandlerClass)
 
     class HTTPHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
@@ -54,9 +56,8 @@ class HTTPRelayServer(Thread):
             try:
                 SimpleHTTPServer.SimpleHTTPRequestHandler.__init__(self,request, client_address, server)
             except Exception, e:
-                import traceback
-                print traceback.print_exc()
                 LOG.error(str(e))
+                LOG.debug(traceback.format_exc())
 
         def handle_one_request(self):
             try:
@@ -64,9 +65,8 @@ class HTTPRelayServer(Thread):
             except KeyboardInterrupt:
                 raise
             except Exception, e:
-                #import traceback
-                #print traceback.print_exc()
                 LOG.error('Exception in HTTP request handler: %s' % e)
+                LOG.debug(traceback.format_exc())
 
         def log_message(self, format, *args):
             return
@@ -173,7 +173,7 @@ class HTTPRelayServer(Thread):
                     self.send_header('Content-Length','0')
                     self.send_header('Connection','close')
                     self.end_headers()
-            return 
+            return
 
         def do_ntlm_negotiate(self,token):
             if self.server.config.protocolClients.has_key(self.target.scheme.upper()):
