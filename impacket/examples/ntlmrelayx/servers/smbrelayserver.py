@@ -105,7 +105,7 @@ class SMBRelayServer(Thread):
             del smbClient
             del smbData[self.target]
 
-        LOG.info("SMBD: Received connection from %s, attacking target %s" % (connData['ClientIP'], self.target.hostname))
+        LOG.info("SMBD: Received connection from %s, attacking target %s://%s" % (connData['ClientIP'], self.target.scheme, self.target.netloc))
 
         try:
             if self.config.mode.upper() == 'REFLECTION':
@@ -374,7 +374,7 @@ class SMBRelayServer(Thread):
             del smbClient
             del smbData[self.target]
 
-        LOG.info("SMBD: Received connection from %s, attacking target %s" % (connData['ClientIP'] ,self.target.hostname))
+        LOG.info("SMBD: Received connection from %s, attacking target %s://%s" % (connData['ClientIP'], self.target.scheme, self.target.netloc))
 
         try:
             if recvPacket['Flags2'] & smb.SMB.FLAGS2_EXTENDED_SECURITY == 0:

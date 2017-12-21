@@ -511,6 +511,7 @@ if __name__ == '__main__':
     if options.socks is True:
         # Start a SOCKS proxy in the background
         socksServer = SOCKS()
+        socksServer.daemon_threads = True
         socks_thread = Thread(target=socksServer.serve_forever)
         socks_thread.daemon = True
         socks_thread.start()
