@@ -205,18 +205,20 @@ class HTTPRelayServer(Thread):
             return False
 
         def do_attack(self):
-            if self.target.scheme.upper() == 'SMB' or self.target.scheme.upper() == 'MSSQL':
-                if self.server.config.runSocks is True:
-                    # For now, we only support SOCKS for SMB/MSSQL, for now.
-                    # Pass all the data to the socksplugins proxy
-                    activeConnections.put((self.target.hostname, self.client.targetPort, self.authUser, self.client.session, self.client.sessionData))
-                elif self.target.scheme.upper() == 'MSSQL':
-                    clientThread = self.server.config.attacks['MSSQL'](self.server.config, self.client.session)
-                    clientThread.start()
-                else:
-                    clientThread = self.server.config.attacks['SMB'](self.server.config, self.client.session, self.authUser)
-                    clientThread.start()
+            # Check if SOCKS is enabled and if we support the target scheme
+            if self.server.config.runSocks and self.target.scheme.upper() in self.server.config.socksServer.supportedSchemes:
+                # For now, we only support SOCKS for SMB/MSSQL, for now.
+                # Pass all the data to the socksplugins proxy
+                activeConnections.put((self.target.hostname, self.client.targetPort, self.authUser, self.client.session, self.client.sessionData))
+                return
 
+            # If SOCKS is not enabled, or not supported for this scheme, fall back to "classic" attacks
+            if self.target.scheme.upper() == 'MSSQL':
+                clientThread = self.server.config.attacks['MSSQL'](self.server.config, self.client.session)
+                clientThread.start()
+            if self.target.scheme.upper() == 'SMB':
+                clientThread = self.server.config.attacks['SMB'](self.server.config, self.client.session, self.authUser)
+                clientThread.start()
             if self.target.scheme.upper() == 'LDAP' or self.target.scheme.upper() == 'LDAPS':
                 clientThread = self.server.config.attacks['LDAP'](self.server.config, self.client.session, self.authUser)
                 clientThread.start()

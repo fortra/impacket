@@ -508,6 +508,7 @@ if __name__ == '__main__':
         watchthread.start()
 
     threads = set()
+    socksServer = None
     if options.socks is True:
         # Start a SOCKS proxy in the background
         socksServer = SOCKS()
@@ -521,7 +522,7 @@ if __name__ == '__main__':
         #Set up config
         c = NTLMRelayxConfig()
         c.setProtocolClients(PROTOCOL_CLIENTS)
-        c.setRunSocks(options.socks)
+        c.setRunSocks(options.socks, socksServer)
         c.setTargets(targetSystem)
         c.setExeFile(options.e)
         c.setCommand(options.c)

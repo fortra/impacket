@@ -37,6 +37,8 @@ PLUGIN_CLASS = "MSSQLSocksRelay"
 
 class MSSQLSocksRelay(SocksRelay):
     PLUGIN_NAME = 'MSSQL Socks Plugin'
+    PLUGIN_SCHEME = 'MSSQL'
+
     def __init__(self, targetHost, targetPort, socksSocket, activeRelays):
         SocksRelay.__init__(self, targetHost, targetPort, socksSocket, activeRelays)
         self.isSSL = False

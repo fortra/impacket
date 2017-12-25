@@ -138,6 +138,10 @@ class RepeatedTimer(object):
 # PLUGIN_CLASS = "<name of the class for the plugin>"
 class SocksRelay:
     PLUGIN_NAME = 'Base Plugin'
+    # The plugin scheme, for automatic registration with relay servers
+    # Should be specified in full caps, e.g. LDAP, HTTPS
+    PLUGIN_SCHEME = ''
+
     def __init__(self, targetHost, targetPort, socksSocket, activeRelays):
         self.targetHost = targetHost
         self.targetPort = targetPort
@@ -375,6 +379,7 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
 
                 relay.tunnelConnection()
             except Exception, e:
+                LOG.level = logging.DEBUG
                 if LOG.level == logging.DEBUG:
                     import traceback
                     print traceback.print_exc()
@@ -407,6 +412,7 @@ class SOCKS(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
         self.socksPlugins = {}
         self.restAPI = None
         self.activeConnectionsWatcher = None
+        self.supportedSchemes = []
         SocketServer.TCPServer.allow_reuse_address = True
         SocketServer.TCPServer.__init__(self, server_address, handler_class)
 
@@ -416,6 +422,7 @@ class SOCKS(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
         for relay in SOCKS_RELAYS:
             LOG.info('%s loaded..' % relay.PLUGIN_NAME)
             self.socksPlugins[relay.getProtocolPort()] = relay
+            self.supportedSchemes.append(relay.PLUGIN_SCHEME)
 
         # Let's create a timer to keep the connections up.
         self.__timer = RepeatedTimer(300.0, keepAliveTimer, self)

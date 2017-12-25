@@ -45,6 +45,8 @@ PLUGIN_CLASS = "SMBSocksRelay"
 
 class SMBSocksRelay(SocksRelay):
     PLUGIN_NAME = 'SMB Socks Plugin'
+    PLUGIN_SCHEME = 'SMB'
+    
     def __init__(self, targetHost, targetPort, socksSocket, activeRelays):
         SocksRelay.__init__(self, targetHost, targetPort, socksSocket, activeRelays)
         self.__NBSession = None
