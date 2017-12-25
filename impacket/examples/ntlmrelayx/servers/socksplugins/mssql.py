@@ -138,7 +138,7 @@ class MSSQLSocksRelay(SocksRelay):
 
         return True
 
-    def tunelConnection(self):
+    def tunnelConnection(self):
         # For the rest of the remaining packets, we should just read and send. Except when trying to log out,
         # that's forbidden! ;)
         try:

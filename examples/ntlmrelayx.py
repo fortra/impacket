@@ -230,7 +230,7 @@ class HTTPAttack(Thread):
         self.daemon = True
         self.config = config
         self.client = HTTPClient
-        self.username = username.split['/'][1]
+        self.username = username.split('/')[1]
 
     def run(self):
         #Default action: Dump requested page to file, named username-targetname.html
@@ -263,7 +263,7 @@ class IMAPAttack(Thread):
         self.daemon = True
         self.config = config
         self.client = IMAPClient
-        self.username = username.split['/'][1]
+        self.username = username.split('/')[1]
 
     def run(self):
         #Default action: Search the INBOX for messages with "password" in the header or body

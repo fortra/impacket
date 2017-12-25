@@ -155,7 +155,7 @@ class SocksRelay:
         # Charged of bypassing any authentication attempt from the client
         raise RuntimeError('Virtual Function')
 
-    def tunelConnection(self):
+    def tunnelConnection(self):
         # Charged of tunneling the rest of the connection
         raise RuntimeError('Virtual Function')
 
@@ -373,7 +373,7 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
                 # keep alive to this one.
                 self.__socksServer.activeRelays[self.targetHost][self.targetPort][relay.username]['inUse'] = True
 
-                relay.tunelConnection()
+                relay.tunnelConnection()
             except Exception, e:
                 if LOG.level == logging.DEBUG:
                     import traceback
