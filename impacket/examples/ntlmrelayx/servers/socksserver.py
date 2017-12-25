@@ -347,7 +347,7 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
                 except Exception, e:
                     if LOG.level == logging.DEBUG:
                         import traceback
-                        print traceback.print_exc()
+                        traceback.print_exc()
                     LOG.error('SOCKS: ', str(e))
 
         if self.__socksServer.socksPlugins.has_key(self.targetPort):
@@ -379,10 +379,9 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
 
                 relay.tunnelConnection()
             except Exception, e:
-                LOG.level = logging.DEBUG
                 if LOG.level == logging.DEBUG:
                     import traceback
-                    print traceback.print_exc()
+                    traceback.print_exc()
                 LOG.debug('SOCKS: %s' % str(e))
                 if str(e).find('Broken pipe') >= 0 or str(e).find('reset by peer') >=0:
                     # Connection died, taking out of the active list

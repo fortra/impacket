@@ -157,7 +157,7 @@ class MSSQLSocksRelay(SocksRelay):
             # Probably an error here
             if LOG.level == logging.DEBUG:
                 import traceback
-                print traceback.print_exc()
+                traceback.print_exc()
 
         return True
 
