@@ -57,7 +57,8 @@ class IMAPSocksRelay(SocksRelay):
             # Don't offer these AUTH options so the client won't use them
             blacklist = ['AUTH=GSSAPI', 'AUTH=NTLM', 'LOGINDISABLED']
             for cap in blacklist:
-                clientcapabilities.remove(cap)
+                if cap in clientcapabilities:
+                    clientcapabilities.remove(cap)
 
             # Offer PLAIN auth for specifying the username
             if 'AUTH=PLAIN' not in clientcapabilities:
@@ -112,47 +113,41 @@ class IMAPSocksRelay(SocksRelay):
         return True
 
     def tunnelConnection(self):
-        try:
-            keyword = ''
-            while True:
-                data = self.socksSocket.recv(self.packetSize)
-                # If this returns with an empty string, it means the socket was closed
-                if data == '':
-                    return
-                # Pass the request to the server, store the tag unless the last command
-                # was a continuation. In the case of the continuation we still check if
-                # there were commands issued after
-                analyze = data.split(EOL)[:-1]
-                if keyword == '+':
-                    # We do send the continuation to the server
-                    # but we don't analyze it
-                    self.relaySocket.send(analyze.pop(0)+EOL)
-                    keyword = ''
+        keyword = ''
+        while True:
+            data = self.socksSocket.recv(self.packetSize)
+            # If this returns with an empty string, it means the socket was closed
+            if data == '':
+                return
+            # Pass the request to the server, store the tag unless the last command
+            # was a continuation. In the case of the continuation we still check if
+            # there were commands issued after
+            analyze = data.split(EOL)[:-1]
+            if keyword == '+':
+                # We do send the continuation to the server
+                # but we don't analyze it
+                self.relaySocket.send(analyze.pop(0)+EOL)
+                keyword = ''
 
-                for line in analyze:
-                    info = line.split(' ')
-                    tag = info[0]
-                    # See if a LOGOUT command was sent, in which case we want to close
-                    # the connection to the client but keep the relayed connection alive
-                    try:
-                        if info[1].upper() == 'LOGOUT':
-                            self.socksSocket.send('%s OK LOGOUT completed.%s' % (tag, EOL))
-                            return
-                    except IndexError:
-                        pass
-                    self.relaySocket.send(line+EOL)
+            for line in analyze:
+                info = line.split(' ')
+                tag = info[0]
+                # See if a LOGOUT command was sent, in which case we want to close
+                # the connection to the client but keep the relayed connection alive
+                try:
+                    if info[1].upper() == 'LOGOUT':
+                        self.socksSocket.send('%s OK LOGOUT completed.%s' % (tag, EOL))
+                        return
+                except IndexError:
+                    pass
+                self.relaySocket.send(line+EOL)
 
-                # Send the response back to the client, until the command is complete
-                # or the server requests more data
-                while keyword != tag and keyword != '+':
-                    data = self.relaySocketFile.readline()
-                    keyword = data.split(' ',2)[0]
-                    self.socksSocket.send(data)
-        except Exception, e:
-            # Probably an error here
-            if LOG.level == logging.DEBUG:
-                import traceback
-                traceback.print_exc()
+            # Send the response back to the client, until the command is complete
+            # or the server requests more data
+            while keyword != tag and keyword != '+':
+                data = self.relaySocketFile.readline()
+                keyword = data.split(' ',2)[0]
+                self.socksSocket.send(data)
 
 
     def recvPacketClient(self):

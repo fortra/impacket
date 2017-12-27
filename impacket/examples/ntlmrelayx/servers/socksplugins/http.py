@@ -5,7 +5,7 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# A Socks Proxy for the MSSQL Protocol
+# A Socks Proxy for the HTTP Protocol
 #
 # Author:
 #  Dirk-jan Mollema (@_dirkjan) / Fox-IT (https://www.fox-it.com)
@@ -33,7 +33,6 @@ class HTTPSocksRelay(SocksRelay):
     PLUGIN_NAME = 'HTTP Socks Plugin'
     PLUGIN_SCHEME = 'HTTP'
 
-    # The session, here called httpClient, is an instance of httplib's HTTPConnection
     def __init__(self, targetHost, targetPort, socksSocket, activeRelays):
         SocksRelay.__init__(self, targetHost, targetPort, socksSocket, activeRelays)
         self.packetSize = 8192
@@ -55,7 +54,7 @@ class HTTPSocksRelay(SocksRelay):
             if 'Basic' not in creds:
                 raise KeyError()
             basicAuth = base64.b64decode(creds[7:])
-            self.username = basicAuth.split(':')[0]
+            self.username = basicAuth.split(':')[0].upper()
 
             # Check if we have a connection for the user
             if self.activeRelays.has_key(self.username):
@@ -82,7 +81,8 @@ class HTTPSocksRelay(SocksRelay):
             return False
 
         # When we are here, we have a session
-        # Point our socket to the sock attribute of HTTPConnection (contained in the session), which contains the socket
+        # Point our socket to the sock attribute of HTTPConnection 
+        # (contained in the session), which contains the socket
         self.relaySocket = self.session.sock
         # Send the initial request to the server
         tosend = self.prepareRequest(data)
@@ -92,8 +92,8 @@ class HTTPSocksRelay(SocksRelay):
         return True
 
     def getHeaders(self, data):
-        # Last two items are the request body, drop those
-        # ignore first "header" since this is the HTTP method, identifier, version
+        # Get the headers from the request, ignore first "header"
+        # since this is the HTTP method, identifier, version
         headerSize = data.find(EOL+EOL)
         headers = data[:headerSize].split(EOL)[1:]
         headerDict = {hdrKey.split(':')[0].lower():hdrKey.split(':', 1)[1] for hdrKey in headers}
@@ -139,22 +139,16 @@ class HTTPSocksRelay(SocksRelay):
 
 
     def tunnelConnection(self):
-        try:
-            while True:
-                data = self.socksSocket.recv(self.packetSize)
-                # If this returns with an empty string, it means the socket was closed
-                if data == '':
-                    return
-                # Pass the request to the server
-                tosend = self.prepareRequest(data)
-                self.relaySocket.send(tosend)
-                # Send the response back to the client
-                self.transferResponse()
-        except Exception, e:
-            # Probably an error here
-            if LOG.level == logging.DEBUG:
-                import traceback
-                traceback.print_exc()
+        while True:
+            data = self.socksSocket.recv(self.packetSize)
+            # If this returns with an empty string, it means the socket was closed
+            if data == '':
+                return
+            # Pass the request to the server
+            tosend = self.prepareRequest(data)
+            self.relaySocket.send(tosend)
+            # Send the response back to the client
+            self.transferResponse()
 
     @staticmethod
     def keepAlive(connection):
