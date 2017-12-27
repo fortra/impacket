@@ -25,6 +25,7 @@ import logging
 from Queue import Queue
 from struct import unpack, pack
 from threading import Timer, Thread
+from imaplib import IMAP4
 
 from impacket import LOG
 from impacket.dcerpc.v5.enum import Enum
@@ -217,7 +218,14 @@ def activeConnectionsWatcher(server):
                 server.activeRelays[target][port]['data'] = data
             else:
                 LOG.info('Relay connection for %s at %s(%d) already exists. Discarding' % (userName, target, port))
-                client.close()
+                # TODO: Fix this properly
+                # Now the close() function is called directly on the client,
+                # which type can vary. IMAP for example doesnt like this
+                if isinstance(client, IMAP4):
+                    client.logout()
+                # HTTP / SMB / MSSQL are fine with this
+                else:
+                    client.close()
 
 def webService(server):
     from flask import Flask, jsonify
