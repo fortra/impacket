@@ -374,7 +374,7 @@ class MiniShell(cmd.Cmd):
         return
 
     def do_socks(self, line):
-        headers = ["Target", "Username", "Port"]
+        headers = ["Protocol", "Target", "Username", "Port"]
         url = "http://localhost:9090/ntlmrelayx/api/v1.0/relays"
         try:
             proxy_handler = urllib2.ProxyHandler({})

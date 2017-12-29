@@ -247,7 +247,8 @@ def webService(server):
             for port in server.activeRelays[target]:
                 for user in server.activeRelays[target][port]:
                     if user != 'data':
-                        relays.append([target, user, str(port)])
+                        protocol = server.socksPlugins[port].PLUGIN_SCHEME
+                        relays.append([protocol, target, user, str(port)])
         return jsonify(relays)
 
     @app.route('/ntlmrelayx/api/v1.0/relays', methods=['GET'])
