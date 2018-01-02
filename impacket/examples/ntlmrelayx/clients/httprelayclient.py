@@ -11,7 +11,7 @@
 #   Dirk-jan Mollema / Fox-IT (https://www.fox-it.com)
 #   Alberto Solino (@agsolino)
 #
-# Description: 
+# Description:
 # HTTP(s) client for relaying NTLMSSP authentication to webservers
 #
 import re
@@ -95,6 +95,9 @@ class HTTPRelayClient(ProtocolClient):
 
 class HTTPSRelayClient(HTTPRelayClient):
     PLUGIN_NAME = "HTTPS"
+
+    def __init__(self, serverConfig, targetHost, targetPort = 443, extendedSecurity=True ):
+        HTTPRelayClient.__init__(self, serverConfig, targetHost, targetPort, extendedSecurity)
 
     def initConnection(self):
         self.lastresult = None
