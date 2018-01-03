@@ -380,6 +380,8 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
 
                 if relay.skipAuthentication() is not True:
                     # Something didn't go right
+                    # Close the socket
+                    self.__connSocket.close()
                     return
 
                 # Ok, so we have a valid connection to play with. Let's lock it while we use it so the Timer doesn't send a

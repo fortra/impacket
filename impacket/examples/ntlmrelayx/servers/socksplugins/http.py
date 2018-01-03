@@ -15,9 +15,6 @@
 #
 # ToDo:
 #
-import struct
-import random
-import logging
 import base64
 
 from impacket import LOG
@@ -77,11 +74,10 @@ class HTTPSocksRelay(SocksRelay):
             LOG.debug('No authentication provided, prompting for basic authentication')
             reply = ['HTTP/1.1 401 Unauthorized','WWW-Authenticate: Basic realm="ntlmrelayx - provide a DOMAIN/username"','Connection: close','','']
             self.socksSocket.send(EOL.join(reply))
-            self.socksSocket.close()
             return False
 
         # When we are here, we have a session
-        # Point our socket to the sock attribute of HTTPConnection 
+        # Point our socket to the sock attribute of HTTPConnection
         # (contained in the session), which contains the socket
         self.relaySocket = self.session.sock
         # Send the initial request to the server

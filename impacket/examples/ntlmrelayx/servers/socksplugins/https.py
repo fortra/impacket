@@ -37,13 +37,14 @@ class HTTPSSocksRelay(SSLServerMixin, HTTPSocksRelay):
     def getProtocolPort():
         return 443
 
-    def initConnection(self):
-        pass
-
     def skipAuthentication(self):
         LOG.debug('Wrapping client connection in TLS/SSL')
         self.wrapClientConnection()
-        return HTTPSocksRelay.skipAuthentication(self)
+        if not HTTPSocksRelay.skipAuthentication(self):
+            # Shut down TLS connection
+            self.socksSocket.shutdown()
+            return False
+        return True
 
     def tunnelConnection(self):
         while True:
