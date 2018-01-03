@@ -70,7 +70,7 @@ class IMAPSocksRelay(SocksRelay):
             LOG.debug('IMAP: Sending mirrored capabilities from server: %s' % ' '.join(clientcapabilities))
             self.socksSocket.send('* CAPABILITY %s%s%s OK CAPABILITY completed.%s' % (' '.join(clientcapabilities), EOL, tag, EOL))
         else:
-            LOG.error('IMAP: Socks plugin expected CAPABILITY command, but got: %s' % data)
+            LOG.error('IMAP: Socks plugin expected CAPABILITY command, but got: %s' % cmd)
             return
         # next
         tag, cmd = self.recvPacketClient()
@@ -114,40 +114,50 @@ class IMAPSocksRelay(SocksRelay):
 
     def tunnelConnection(self):
         keyword = ''
+        tag = ''
         while True:
             data = self.socksSocket.recv(self.packetSize)
             # If this returns with an empty string, it means the socket was closed
             if data == '':
                 return
-            # Pass the request to the server, store the tag unless the last command
-            # was a continuation. In the case of the continuation we still check if
-            # there were commands issued after
-            analyze = data.split(EOL)[:-1]
-            if keyword == '+':
-                # We do send the continuation to the server
-                # but we don't analyze it
-                self.relaySocket.send(analyze.pop(0)+EOL)
-                keyword = ''
+            # Set the new keyword, unless it is false, then break out of the function
+            keyword, tag = self.processTunnelData(keyword, tag, data)
+            if keyword is False:
+                return
 
-            for line in analyze:
-                info = line.split(' ')
-                tag = info[0]
-                # See if a LOGOUT command was sent, in which case we want to close
-                # the connection to the client but keep the relayed connection alive
-                try:
-                    if info[1].upper() == 'LOGOUT':
-                        self.socksSocket.send('%s OK LOGOUT completed.%s' % (tag, EOL))
-                        return
-                except IndexError:
-                    pass
-                self.relaySocket.send(line+EOL)
+    def processTunnelData(self, keyword, tag, data):
+        # Pass the request to the server, store the tag unless the last command
+        # was a continuation. In the case of the continuation we still check if
+        # there were commands issued after
+        analyze = data.split(EOL)[:-1]
+        if keyword == '+':
+            # We do send the continuation to the server
+            # but we don't analyze it
+            self.relaySocket.send(analyze.pop(0)+EOL)
+            keyword = ''
 
-            # Send the response back to the client, until the command is complete
-            # or the server requests more data
-            while keyword != tag and keyword != '+':
-                data = self.relaySocketFile.readline()
-                keyword = data.split(' ',2)[0]
-                self.socksSocket.send(data)
+
+        for line in analyze:
+            info = line.split(' ')
+            tag = info[0]
+            # See if a LOGOUT command was sent, in which case we want to close
+            # the connection to the client but keep the relayed connection alive
+            try:
+                if info[1].upper() == 'LOGOUT':
+                    self.socksSocket.send('%s OK LOGOUT completed.%s' % (tag, EOL))
+                    return False
+            except IndexError:
+                pass
+            self.relaySocket.send(line+EOL)
+
+        # Send the response back to the client, until the command is complete
+        # or the server requests more data
+        while keyword != tag and keyword != '+':
+            data = self.relaySocketFile.readline()
+            keyword = data.split(' ', 2)[0]
+            self.socksSocket.send(data)
+        # Return the keyword to indicate processing was OK
+        return (keyword, tag)
 
 
     def recvPacketClient(self):
