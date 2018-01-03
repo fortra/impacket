@@ -71,7 +71,7 @@ class IMAPSocksRelay(SocksRelay):
             self.socksSocket.send('* CAPABILITY %s%s%s OK CAPABILITY completed.%s' % (' '.join(clientcapabilities), EOL, tag, EOL))
         else:
             LOG.error('IMAP: Socks plugin expected CAPABILITY command, but got: %s' % cmd)
-            return
+            return False
         # next
         tag, cmd = self.recvPacketClient()
         args = cmd.split(' ')
@@ -88,7 +88,7 @@ class IMAPSocksRelay(SocksRelay):
             self.username = args[1].upper()
         else:
             LOG.error('IMAP: Socks plugin expected LOGIN or AUTHENTICATE PLAIN command, but got: %s' % data)
-            return
+            return False
 
         # Check if we have a connection for the user
         if self.activeRelays.has_key(self.username):
@@ -121,9 +121,11 @@ class IMAPSocksRelay(SocksRelay):
             if data == '':
                 return
             # Set the new keyword, unless it is false, then break out of the function
-            keyword, tag = self.processTunnelData(keyword, tag, data)
-            if keyword is False:
+            result = self.processTunnelData(keyword, tag, data)
+            if result is False:
                 return
+            # If its not false, it's a tuple with the keyword and tag
+            keyword, tag = result
 
     def processTunnelData(self, keyword, tag, data):
         # Pass the request to the server, store the tag unless the last command
@@ -136,16 +138,30 @@ class IMAPSocksRelay(SocksRelay):
             self.relaySocket.send(analyze.pop(0)+EOL)
             keyword = ''
 
-
         for line in analyze:
             info = line.split(' ')
             tag = info[0]
             # See if a LOGOUT command was sent, in which case we want to close
             # the connection to the client but keep the relayed connection alive
+            # also handle APPEND commands
             try:
                 if info[1].upper() == 'LOGOUT':
                     self.socksSocket.send('%s OK LOGOUT completed.%s' % (tag, EOL))
                     return False
+                if info[1].upper() == 'APPEND':
+                    LOG.debug('IMAP socks APPEND command detected, forwarding email data')
+                    # APPEND command sent, forward all the data, no further commands here
+                    self.relaySocket.send(data)
+                    sent = len(data)
+                    totalSize = int(info[4][1:-2])
+                    while sent < totalSize:
+                        data = self.socksSocket.recv(self.packetSize)
+                        self.relaySocket.send(data)
+                        sent += len(data)
+                        LOG.debug('Forwarded %d bytes' % sent)
+                    LOG.debug('IMAP socks APPEND command complete')
+                    # break out of the analysis loop
+                    break
             except IndexError:
                 pass
             self.relaySocket.send(line+EOL)

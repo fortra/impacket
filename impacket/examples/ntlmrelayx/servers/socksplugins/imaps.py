@@ -57,6 +57,8 @@ class IMAPSSocksRelay(SSLServerMixin, IMAPSocksRelay):
                 # The SSL connection was closed, return
                 return
             # Set the new keyword, unless it is false, then break out of the function
-            keyword, tag = self.processTunnelData(keyword, tag, data)
-            if keyword is False:
+            result = self.processTunnelData(keyword, tag, data)
+            if result is False:
                 return
+            # If its not false, it's a tuple with the keyword and tag
+            keyword, tag = result
