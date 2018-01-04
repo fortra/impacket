@@ -50,8 +50,17 @@ class HTTPSocksRelay(SocksRelay):
             creds = headerDict['authorization']
             if 'Basic' not in creds:
                 raise KeyError()
-            basicAuth = base64.b64decode(creds[7:])
+            basicAuth = base64.b64decode(creds[6:])
             self.username = basicAuth.split(':')[0].upper()
+            if '@' in self.username:
+                # Workaround for clients which specify users with the full FQDN
+                # such as ruler
+                user, domain = self.username.split('@', 1)
+                # Currently we only use the first part of the FQDN
+                # this might break stuff on tools that do use an FQDN
+                # where the domain NETBIOS name is not equal to the part
+                # before the first .
+                self.username = '%s/%s' % (domain.split('.')[0], user)
 
             # Check if we have a connection for the user
             if self.activeRelays.has_key(self.username):
@@ -92,7 +101,7 @@ class HTTPSocksRelay(SocksRelay):
         # since this is the HTTP method, identifier, version
         headerSize = data.find(EOL+EOL)
         headers = data[:headerSize].split(EOL)[1:]
-        headerDict = {hdrKey.split(':')[0].lower():hdrKey.split(':', 1)[1] for hdrKey in headers}
+        headerDict = {hdrKey.split(':')[0].lower():hdrKey.split(':', 1)[1][1:] for hdrKey in headers}
         return headerDict
 
     def transferResponse(self):
@@ -100,8 +109,8 @@ class HTTPSocksRelay(SocksRelay):
         headerSize = data.find(EOL+EOL)
         headers = self.getHeaders(data)
         try:
-            bodySize = int(headers['content-length'].strip())
-            readSize = self.packetSize
+            bodySize = int(headers['content-length'])
+            readSize = len(data)
             # Make sure we send the entire response, but don't keep it in memory
             self.socksSocket.send(data)
             while readSize < bodySize + headerSize + 4:
@@ -109,8 +118,38 @@ class HTTPSocksRelay(SocksRelay):
                 readSize += len(data)
                 self.socksSocket.send(data)
         except KeyError:
-            # No body in the response, send as-is
+            try:
+                if headers['transfer-encoding'] == 'chunked':
+                    # Chunked transfer-encoding, bah
+                    LOG.debug('Server sent chunked encoding - transferring')
+                    self.transferChunked(data, headers)
+                else:
+                    # No body in the response, send as-is
+                    self.socksSocket.send(data)
+            except KeyError:
+                # No body in the response, send as-is
+                self.socksSocket.send(data)
+
+    def transferChunked(self, data, headers):
+        headerSize = data.find(EOL+EOL)
+        body = data[headerSize+4:]
+        # Size of the chunk
+        datasize = int(body[:body.find(EOL)], 16)
+        while datasize > 0:
+            # Size of the total body
+            bodySize = datasize + body.find(EOL) + 4
+            readSize = len(data)
+            # Make sure we send the entire response, but don't keep it in memory
             self.socksSocket.send(data)
+            while readSize < bodySize + headerSize + 4:
+                maxReadSize = bodySize + headerSize + 4 - readsize
+                data = self.relaySocket.recv(min(self.packetSize, maxReadSize))
+                readSize += len(data)
+                self.socksSocket.send(data)
+            data = self.relaySocket.recv(self.packetSize)
+            datasize = int(data[:data.find(EOL)], 16)
+        LOG.debug('Last chunk received - exiting chunked transfer')
+        self.socksSocket.send(data)
 
     def prepareRequest(self, data):
         # Parse the HTTP data, removing headers that break stuff
@@ -131,7 +170,24 @@ class HTTPSocksRelay(SocksRelay):
         # Append the body
         response.append('')
         response.append(data.split(EOL+EOL)[1])
-        return EOL.join(response)
+        senddata = EOL.join(response)
+
+        # Check if the body is larger than 1 packet
+        headerSize = data.find(EOL+EOL)
+        headers = self.getHeaders(data)
+        body = data[headerSize+4:]
+        try:
+            bodySize = int(headers['content-length'])
+            readSize = len(data)
+            while readSize < bodySize + headerSize + 4:
+                data = self.socksSocket.recv(self.packetSize)
+                readSize += len(data)
+                senddata += data
+        except KeyError:
+            # No body, could be a simple GET or a POST without body
+            # no need to check if we already have the full packet
+            pass
+        return senddata
 
 
     def tunnelConnection(self):

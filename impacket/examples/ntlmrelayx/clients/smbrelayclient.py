@@ -116,8 +116,8 @@ class MYSMB3(SMB3):
 
 class SMBRelayClient(ProtocolClient):
     PLUGIN_NAME = "SMB"
-    def __init__(self, serverConfig, targetHost, targetPort = 445, extendedSecurity=True ):
-        ProtocolClient.__init__(self, serverConfig, targetHost, targetPort, extendedSecurity)
+    def __init__(self, serverConfig, target, targetPort = 445, extendedSecurity=True ):
+        ProtocolClient.__init__(self, serverConfig, target, targetPort, extendedSecurity)
         self.extendedSecurity = extendedSecurity
 
         self.domainIp = None
@@ -213,11 +213,11 @@ class SMBRelayClient(ProtocolClient):
 
         smb = NewSMBPacket()
         smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
-        smb['Flags2'] = SMB.FLAGS2_EXTENDED_SECURITY 
+        smb['Flags2'] = SMB.FLAGS2_EXTENDED_SECURITY
         # Are we required to sign SMB? If so we do it, if not we skip it
         if v1client.is_signing_required():
            smb['Flags2'] |= SMB.FLAGS2_SMB_SECURITY_SIGNATURE
-          
+
 
         sessionSetup = SMBCommand(SMB.SMB_COM_SESSION_SETUP_ANDX)
         sessionSetup['Parameters'] = SMBSessionSetupAndX_Extended_Parameters()
@@ -232,7 +232,7 @@ class SMBRelayClient(ProtocolClient):
         # Let's build a NegTokenInit with the NTLMSSP
         # TODO: In the future we should be able to choose different providers
 
-        blob = SPNEGO_NegTokenInit() 
+        blob = SPNEGO_NegTokenInit()
 
         # NTLMSSP
         blob['MechTypes'] = [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
@@ -353,7 +353,7 @@ class SMBRelayClient(ProtocolClient):
 
         smb = NewSMBPacket()
         smb['Flags1'] = SMB.FLAGS1_PATHCASELESS
-        smb['Flags2'] = SMB.FLAGS2_EXTENDED_SECURITY 
+        smb['Flags2'] = SMB.FLAGS2_EXTENDED_SECURITY
         # Are we required to sign SMB? If so we do it, if not we skip it
         if v1client.is_signing_required():
            smb['Flags2'] |= SMB.FLAGS2_SMB_SECURITY_SIGNATURE
@@ -377,7 +377,7 @@ class SMBRelayClient(ProtocolClient):
         sessionSetup['Data']['SecurityBlob'] = authenticateMessageBlob
         smb.addCommand(sessionSetup)
         v1client.sendSMB(smb)
-            
+
         smb = v1client.recvSMB()
 
         errorCode = smb['ErrorCode'] << 16

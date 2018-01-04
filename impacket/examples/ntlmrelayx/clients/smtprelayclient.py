@@ -29,8 +29,8 @@ PROTOCOL_CLIENT_CLASSES = ["SMTPRelayClient"]
 class SMTPRelayClient(ProtocolClient):
     PLUGIN_NAME = "SMTP"
 
-    def __init__(self, serverConfig, targetHost, targetPort = 25, extendedSecurity=True ):
-        ProtocolClient.__init__(self, serverConfig, targetHost, targetPort, extendedSecurity)
+    def __init__(self, serverConfig, target, targetPort = 25, extendedSecurity=True ):
+        ProtocolClient.__init__(self, serverConfig, target, targetPort, extendedSecurity)
 
     def initConnection(self):
         self.session = smtplib.SMTP(self.targetHost,self.targetPort)
