@@ -200,32 +200,32 @@ def keepAliveTimer(server):
 
 def activeConnectionsWatcher(server):
     while True:
-        while activeConnections.empty() is not True:
-            target, port, userName, client, data = activeConnections.get()
-            # ToDo: Careful. Dicts are not thread safe right?
-            if server.activeRelays.has_key(target) is not True:
-                server.activeRelays[target] = {}
-            if server.activeRelays[target].has_key(port) is not True:
-                server.activeRelays[target][port] = {}
+        # This call blocks until there is data, so it doesnt loop endlessly
+        target, port, userName, client, data = activeConnections.get()
+        # ToDo: Careful. Dicts are not thread safe right?
+        if server.activeRelays.has_key(target) is not True:
+            server.activeRelays[target] = {}
+        if server.activeRelays[target].has_key(port) is not True:
+            server.activeRelays[target][port] = {}
 
-            if server.activeRelays[target][port].has_key(userName) is not True:
-                LOG.info('SOCKS: Adding %s@%s(%s) to active SOCKS connection. Enjoy' % (userName, target, port))
-                server.activeRelays[target][port][userName] = {}
-                server.activeRelays[target][port][userName]['client'] = client
-                server.activeRelays[target][port][userName]['inUse'] = False
-                server.activeRelays[target][port][userName]['data'] = data
-                # Just for the CHALLENGE data, we're storing this general
-                server.activeRelays[target][port]['data'] = data
+        if server.activeRelays[target][port].has_key(userName) is not True:
+            LOG.info('SOCKS: Adding %s@%s(%s) to active SOCKS connection. Enjoy' % (userName, target, port))
+            server.activeRelays[target][port][userName] = {}
+            server.activeRelays[target][port][userName]['client'] = client
+            server.activeRelays[target][port][userName]['inUse'] = False
+            server.activeRelays[target][port][userName]['data'] = data
+            # Just for the CHALLENGE data, we're storing this general
+            server.activeRelays[target][port]['data'] = data
+        else:
+            LOG.info('Relay connection for %s at %s(%d) already exists. Discarding' % (userName, target, port))
+            # TODO: Fix this properly
+            # Now the close() function is called directly on the client,
+            # which type can vary. IMAP for example doesnt like this
+            if isinstance(client, IMAP4):
+                client.logout()
+            # HTTP / SMB / MSSQL are fine with this
             else:
-                LOG.info('Relay connection for %s at %s(%d) already exists. Discarding' % (userName, target, port))
-                # TODO: Fix this properly
-                # Now the close() function is called directly on the client,
-                # which type can vary. IMAP for example doesnt like this
-                if isinstance(client, IMAP4):
-                    client.logout()
-                # HTTP / SMB / MSSQL are fine with this
-                else:
-                    client.close()
+                client.close()
 
 def webService(server):
     from flask import Flask, jsonify
