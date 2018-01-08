@@ -15,7 +15,12 @@
 # command line, this can be passed to the tools' servers and clients
 class NTLMRelayxConfig:
     def __init__(self):
+
         self.daemon = True
+
+        # Set the value of the interface ip address
+        self.interfaceIp = None
+
         self.domainIp = None
         self.machineAccount = None
         self.machineHashes = None
@@ -40,6 +45,9 @@ class NTLMRelayxConfig:
 
         #MSSQL options
         self.queries = []
+
+    def setInterfaceIp(self, ip):
+        self.interfaceIp = ip
 
     def setRunSocks(self, socks):
         self.runSocks = socks
