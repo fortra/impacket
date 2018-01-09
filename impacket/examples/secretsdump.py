@@ -1222,7 +1222,7 @@ class LSASecrets(OfflineRegistry):
         LSA_HASHED = 1
         LSA_RAW = 2
 
-    def __init__(self, securityFile, bootKey, remoteOps=None, isRemote=False,
+    def __init__(self, securityFile, bootKey, remoteOps=None, isRemote=False, history=False,
                  perSecretCallback=lambda secretType, secret: _print_helper(secret)):
         OfflineRegistry.__init__(self, securityFile, isRemote)
         self.__hashedBootKey = ''
@@ -1236,6 +1236,7 @@ class LSASecrets(OfflineRegistry):
         self.__cachedItems = []
         self.__secretItems = []
         self.__perSecretCallback = perSecretCallback
+        self.__history = history
 
     def MD5(self, data):
         md5 = hashlib.new('md5')
@@ -1485,19 +1486,28 @@ class LSASecrets(OfflineRegistry):
 
         for key in keys:
             LOG.debug('Looking into %s' % key)
-            value = self.getValue('\\Policy\\Secrets\\%s\\CurrVal\\default' % key)
+            valueTypeList = ['CurrVal']
+            # Check if old LSA secrets values are also need to be shown
+            if self.__history:
+                valueTypeList.append('OldVal')
 
-            if value is not None:
-                if self.__vistaStyle is True:
-                    record = LSA_SECRET(value[1])
-                    tmpKey = self.__sha256(self.__LSAKey, record['EncryptedData'][:32])
-                    plainText = self.__cryptoCommon.decryptAES(tmpKey, record['EncryptedData'][32:])
-                    record = LSA_SECRET_BLOB(plainText)
-                    secret = record['Secret']
-                else:
-                    secret = self.__decryptSecret(self.__LSAKey, value[1])
+            for valueType in valueTypeList:
+                value = self.getValue('\\Policy\\Secrets\\{}\\{}\\default'.format(key,valueType))
+                if value is not None and value[1] != 0:
+                    if self.__vistaStyle is True:
+                        record = LSA_SECRET(value[1])
+                        tmpKey = self.__sha256(self.__LSAKey, record['EncryptedData'][:32])
+                        plainText = self.__cryptoCommon.decryptAES(tmpKey, record['EncryptedData'][32:])
+                        record = LSA_SECRET_BLOB(plainText)
+                        secret = record['Secret']
+                    else:
+                        secret = self.__decryptSecret(self.__LSAKey, value[1])
 
-                self.__printSecret(key, secret)
+                    # If this is an OldVal secret, let's append '_history' to be able to distinguish it and
+                    # also be consistent with NTDS history
+                    if valueType == 'OldVal':
+                        key += '_history'
+                    self.__printSecret(key, secret)
 
     def exportSecrets(self, fileName):
         if len(self.__secretItems) > 0:
