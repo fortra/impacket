@@ -25,6 +25,7 @@ import logging
 from Queue import Queue
 from struct import unpack, pack
 from threading import Timer, Thread
+from imaplib import IMAP4
 
 from impacket import LOG
 from impacket.dcerpc.v5.enum import Enum
@@ -138,6 +139,10 @@ class RepeatedTimer(object):
 # PLUGIN_CLASS = "<name of the class for the plugin>"
 class SocksRelay:
     PLUGIN_NAME = 'Base Plugin'
+    # The plugin scheme, for automatic registration with relay servers
+    # Should be specified in full caps, e.g. LDAP, HTTPS
+    PLUGIN_SCHEME = ''
+
     def __init__(self, targetHost, targetPort, socksSocket, activeRelays):
         self.targetHost = targetHost
         self.targetPort = targetPort
@@ -155,7 +160,7 @@ class SocksRelay:
         # Charged of bypassing any authentication attempt from the client
         raise RuntimeError('Virtual Function')
 
-    def tunelConnection(self):
+    def tunnelConnection(self):
         # Charged of tunneling the rest of the connection
         raise RuntimeError('Virtual Function')
 
@@ -195,24 +200,31 @@ def keepAliveTimer(server):
 
 def activeConnectionsWatcher(server):
     while True:
-        while activeConnections.empty() is not True:
-            target, port, userName, client, data = activeConnections.get()
-            # ToDo: Careful. Dicts are not thread safe right?
-            if server.activeRelays.has_key(target) is not True:
-                server.activeRelays[target] = {}
-            if server.activeRelays[target].has_key(port) is not True:
-                server.activeRelays[target][port] = {}
+        # This call blocks until there is data, so it doesnt loop endlessly
+        target, port, userName, client, data = activeConnections.get()
+        # ToDo: Careful. Dicts are not thread safe right?
+        if server.activeRelays.has_key(target) is not True:
+            server.activeRelays[target] = {}
+        if server.activeRelays[target].has_key(port) is not True:
+            server.activeRelays[target][port] = {}
 
-            if server.activeRelays[target][port].has_key(userName) is not True:
-                LOG.info('SOCKS: Adding %s@%s(%s) to active SOCKS connection. Enjoy' % (userName, target, port))
-                server.activeRelays[target][port][userName] = {}
-                server.activeRelays[target][port][userName]['client'] = client
-                server.activeRelays[target][port][userName]['inUse'] = False
-                server.activeRelays[target][port][userName]['data'] = data
-                # Just for the CHALLENGE data, we're storing this general
-                server.activeRelays[target][port]['data'] = data
+        if server.activeRelays[target][port].has_key(userName) is not True:
+            LOG.info('SOCKS: Adding %s@%s(%s) to active SOCKS connection. Enjoy' % (userName, target, port))
+            server.activeRelays[target][port][userName] = {}
+            server.activeRelays[target][port][userName]['client'] = client
+            server.activeRelays[target][port][userName]['inUse'] = False
+            server.activeRelays[target][port][userName]['data'] = data
+            # Just for the CHALLENGE data, we're storing this general
+            server.activeRelays[target][port]['data'] = data
+        else:
+            LOG.info('Relay connection for %s at %s(%d) already exists. Discarding' % (userName, target, port))
+            # TODO: Fix this properly
+            # Now the close() function is called directly on the client,
+            # which type can vary. IMAP for example doesnt like this
+            if isinstance(client, IMAP4):
+                client.logout()
+            # HTTP / SMB / MSSQL are fine with this
             else:
-                LOG.info('Relay connection for %s at %s(%d) already exists. Discarding' % (userName, target, port))
                 client.close()
 
 def webService(server):
@@ -235,7 +247,8 @@ def webService(server):
             for port in server.activeRelays[target]:
                 for user in server.activeRelays[target][port]:
                     if user != 'data':
-                        relays.append([target, user, str(port)])
+                        protocol = server.socksPlugins[port].PLUGIN_SCHEME
+                        relays.append([protocol, target, user, str(port)])
         return jsonify(relays)
 
     @app.route('/ntlmrelayx/api/v1.0/relays', methods=['GET'])
@@ -288,6 +301,10 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
             if request['ATYP'] == ATYP.IPv4.value:
                 self.targetHost = socket.inet_ntoa(request['PAYLOAD'][:4])
                 self.targetPort = unpack('>H',request['PAYLOAD'][4:])[0]
+            elif request['ATYP'] == ATYP.DOMAINNAME.value:
+                hostLength = unpack('!B',request['PAYLOAD'][0])[0]
+                self.targetHost = request['PAYLOAD'][1:hostLength+1]
+                self.targetPort = unpack('>H',request['PAYLOAD'][hostLength+1:])[0]
             else:
                 LOG.error('No support for IPv6 yet!')
         else:
@@ -343,7 +360,7 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
                 except Exception, e:
                     if LOG.level == logging.DEBUG:
                         import traceback
-                        print traceback.print_exc()
+                        traceback.print_exc()
                     LOG.error('SOCKS: ', str(e))
 
         if self.__socksServer.socksPlugins.has_key(self.targetPort):
@@ -367,17 +384,19 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
 
                 if relay.skipAuthentication() is not True:
                     # Something didn't go right
+                    # Close the socket
+                    self.__connSocket.close()
                     return
 
                 # Ok, so we have a valid connection to play with. Let's lock it while we use it so the Timer doesn't send a
                 # keep alive to this one.
                 self.__socksServer.activeRelays[self.targetHost][self.targetPort][relay.username]['inUse'] = True
 
-                relay.tunelConnection()
+                relay.tunnelConnection()
             except Exception, e:
                 if LOG.level == logging.DEBUG:
                     import traceback
-                    print traceback.print_exc()
+                    traceback.print_exc()
                 LOG.debug('SOCKS: %s' % str(e))
                 if str(e).find('Broken pipe') >= 0 or str(e).find('reset by peer') >=0:
                     # Connection died, taking out of the active list
@@ -407,6 +426,7 @@ class SOCKS(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
         self.socksPlugins = {}
         self.restAPI = None
         self.activeConnectionsWatcher = None
+        self.supportedSchemes = []
         SocketServer.TCPServer.allow_reuse_address = True
         SocketServer.TCPServer.__init__(self, server_address, handler_class)
 
@@ -416,6 +436,7 @@ class SOCKS(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
         for relay in SOCKS_RELAYS:
             LOG.info('%s loaded..' % relay.PLUGIN_NAME)
             self.socksPlugins[relay.getProtocolPort()] = relay
+            self.supportedSchemes.append(relay.PLUGIN_SCHEME)
 
         # Let's create a timer to keep the connections up.
         self.__timer = RepeatedTimer(300.0, keepAliveTimer, self)

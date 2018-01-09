@@ -37,6 +37,8 @@ PLUGIN_CLASS = "MSSQLSocksRelay"
 
 class MSSQLSocksRelay(SocksRelay):
     PLUGIN_NAME = 'MSSQL Socks Plugin'
+    PLUGIN_SCHEME = 'MSSQL'
+
     def __init__(self, targetHost, targetPort, socksSocket, activeRelays):
         SocksRelay.__init__(self, targetHost, targetPort, socksSocket, activeRelays)
         self.isSSL = False
@@ -138,7 +140,7 @@ class MSSQLSocksRelay(SocksRelay):
 
         return True
 
-    def tunelConnection(self):
+    def tunnelConnection(self):
         # For the rest of the remaining packets, we should just read and send. Except when trying to log out,
         # that's forbidden! ;)
         try:
@@ -155,7 +157,7 @@ class MSSQLSocksRelay(SocksRelay):
             # Probably an error here
             if LOG.level == logging.DEBUG:
                 import traceback
-                print traceback.print_exc()
+                traceback.print_exc()
 
         return True
 

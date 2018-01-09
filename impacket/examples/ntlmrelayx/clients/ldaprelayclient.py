@@ -42,8 +42,8 @@ class LDAPRelayClient(ProtocolClient):
     PLUGIN_NAME = "LDAP"
     MODIFY_ADD = MODIFY_ADD
 
-    def __init__(self, serverConfig, targetHost, targetPort = 389, extendedSecurity=True ):
-        ProtocolClient.__init__(self, serverConfig, targetHost, targetPort, extendedSecurity)
+    def __init__(self, serverConfig, target, targetPort = 389, extendedSecurity=True ):
+        ProtocolClient.__init__(self, serverConfig, target, targetPort, extendedSecurity)
         self.extendedSecurity = extendedSecurity
         self.negotiateMessage = None
         self.authenticateMessageBlob = None
@@ -126,8 +126,8 @@ class LDAPSRelayClient(LDAPRelayClient):
     PLUGIN_NAME = "LDAPS"
     MODIFY_ADD = MODIFY_ADD
 
-    def __init__(self, serverConfig, targetHost, targetPort = 636, extendedSecurity=True ):
-        LDAPRelayClient.__init__(self, serverConfig, targetHost, targetPort, extendedSecurity)
+    def __init__(self, serverConfig, target, targetPort = 636, extendedSecurity=True ):
+        LDAPRelayClient.__init__(self, serverConfig, target, targetPort, extendedSecurity)
 
     def initConnection(self):
         self.server = Server("ldaps://%s:%s" % (self.targetHost, self.targetPort), get_info=ALL)

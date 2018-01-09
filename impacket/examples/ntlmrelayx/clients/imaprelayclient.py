@@ -11,7 +11,7 @@
 #   Dirk-jan Mollema / Fox-IT (https://www.fox-it.com)
 #   Alberto Solino (@agsolino)
 #
-# Description: 
+# Description:
 # IMAP client for relaying NTLMSSP authentication to mailservers, for example Exchange
 #
 import imaplib
@@ -29,8 +29,8 @@ PROTOCOL_CLIENT_CLASSES = ["IMAPRelayClient","IMAPSRelayClient"]
 class IMAPRelayClient(ProtocolClient):
     PLUGIN_NAME = "IMAP"
 
-    def __init__(self, serverConfig, targetHost, targetPort = 143, extendedSecurity=True ):
-        ProtocolClient.__init__(self, serverConfig, targetHost, targetPort, extendedSecurity)
+    def __init__(self, serverConfig, target, targetPort = 143, extendedSecurity=True ):
+        ProtocolClient.__init__(self, serverConfig, target, targetPort, extendedSecurity)
 
     def initConnection(self):
         self.session = imaplib.IMAP4(self.targetHost,self.targetPort)

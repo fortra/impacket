@@ -11,7 +11,7 @@
 #   Dirk-jan Mollema / Fox-IT (https://www.fox-it.com)
 #   Alberto Solino (@agsolino)
 #
-# Description: 
+# Description:
 # HTTP(s) client for relaying NTLMSSP authentication to webservers
 #
 import re
@@ -31,8 +31,8 @@ PROTOCOL_CLIENT_CLASSES = ["HTTPRelayClient","HTTPSRelayClient"]
 class HTTPRelayClient(ProtocolClient):
     PLUGIN_NAME = "HTTP"
 
-    def __init__(self, serverConfig, targetHost, targetPort = 80, extendedSecurity=True ):
-        ProtocolClient.__init__(self, serverConfig, targetHost, targetPort, extendedSecurity)
+    def __init__(self, serverConfig, target, targetPort = 80, extendedSecurity=True ):
+        ProtocolClient.__init__(self, serverConfig, target, targetPort, extendedSecurity)
         self.extendedSecurity = extendedSecurity
         self.negotiateMessage = None
         self.authenticateMessageBlob = None
@@ -41,7 +41,10 @@ class HTTPRelayClient(ProtocolClient):
     def initConnection(self):
         self.session = HTTPConnection(self.targetHost,self.targetPort)
         self.lastresult = None
-        self.path = '/'
+        if self.target.path == '':
+            self.path = '/'
+        else:
+            self.path = self.target.path
         return True
 
     def sendNegotiate(self,negotiateMessage):
@@ -96,9 +99,15 @@ class HTTPRelayClient(ProtocolClient):
 class HTTPSRelayClient(HTTPRelayClient):
     PLUGIN_NAME = "HTTPS"
 
+    def __init__(self, serverConfig, target, targetPort = 443, extendedSecurity=True ):
+        HTTPRelayClient.__init__(self, serverConfig, target, targetPort, extendedSecurity)
+
     def initConnection(self):
         self.lastresult = None
-        self.path = '/'
+        if self.target.path == '':
+            self.path = '/'
+        else:
+            self.path = self.target.path
         try:
             uv_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
             self.session = HTTPSConnection(self.targetHost,self.targetPort, context=uv_context)

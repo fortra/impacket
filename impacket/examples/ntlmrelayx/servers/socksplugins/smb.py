@@ -45,6 +45,8 @@ PLUGIN_CLASS = "SMBSocksRelay"
 
 class SMBSocksRelay(SocksRelay):
     PLUGIN_NAME = 'SMB Socks Plugin'
+    PLUGIN_SCHEME = 'SMB'
+    
     def __init__(self, targetHost, targetPort, socksSocket, activeRelays):
         SocksRelay.__init__(self, targetHost, targetPort, socksSocket, activeRelays)
         self.__NBSession = None
@@ -99,7 +101,7 @@ class SMBSocksRelay(SocksRelay):
 
         return True
 
-    def tunelConnection(self):
+    def tunnelConnection(self):
         # For the rest of the remaining packets, we should just read and send. Except when trying to log out,
         # that's forbidden! ;)
         while True:

@@ -29,21 +29,25 @@ class NTLMRelayxConfig:
         self.encoding = None
         self.smb2support = False
 
-        #SMB options
+        # SMB options
         self.exeFile = None
         self.command = None
         self.interactive = False
-        self.runSocks = False
 
-        #LDAP options
+        # LDAP options
         self.dumpdomain = True
         self.addda = True
 
-        #MSSQL options
+        # MSSQL options
         self.queries = []
 
         # Registered protocol clients
         self.protocolClients = {}
+
+        # SOCKS options
+        self.runSocks = False
+        self.socksServer = None
+
 
     def setSMB2Support(self, value):
         self.smb2support = value
@@ -51,8 +55,9 @@ class NTLMRelayxConfig:
     def setProtocolClients(self, clients):
         self.protocolClients = clients
 
-    def setRunSocks(self, socks):
+    def setRunSocks(self, socks, server):
         self.runSocks = socks
+        self.socksServer = server
 
     def setOutputFile(self,outputFile):
         self.outputFile = outputFile

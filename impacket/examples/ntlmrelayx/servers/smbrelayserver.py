@@ -638,7 +638,7 @@ class SMBRelayServer(Thread):
     #Initialize the correct client for the relay target
     def init_client(self,extSec):
         if self.config.protocolClients.has_key(self.target.scheme.upper()):
-            client = self.config.protocolClients[self.target.scheme.upper()](self.config, self.target.hostname, extendedSecurity = extSec)
+            client = self.config.protocolClients[self.target.scheme.upper()](self.config, self.target, extendedSecurity = extSec)
             client.initConnection()
         else:
             LOG.error('Protocol Client for %s not found!' % self.target.scheme)
@@ -657,18 +657,21 @@ class SMBRelayServer(Thread):
 
     def do_attack(self,client, connData=None):
         #Do attack. Note that unlike the HTTP server, the config entries are stored in the current object and not in any of its properties
-        if self.target.scheme.upper() == 'SMB' or self.target.scheme.upper() == 'MSSQL':
+        # Check if SOCKS is enabled and if we support the target scheme
+        if self.config.runSocks and self.target.scheme.upper() in self.config.socksServer.supportedSchemes:
             if self.config.runSocks is True:
                 # For now, we only support SOCKS for SMB and MSSQL, for now.
                 # Pass all the data to the socksplugins proxy
                 activeConnections.put((self.target.hostname, client.targetPort, self.authUser, client.session, client.sessionData))
-            elif self.target.scheme == 'MSSQL':
-                clientThread = self.config.attacks['MSSQL'](self.config, client.session, self.authUser)
-                clientThread.start()
-            else:
-                clientThread = self.config.attacks['SMB'](self.config, client.session, self.authUser)
-                clientThread.start()
+                return
 
+        # If SOCKS is not enabled, or not supported for this scheme, fall back to "classic" attacks
+        if self.target.scheme == 'MSSQL':
+            clientThread = self.config.attacks['MSSQL'](self.config, client.session, self.authUser)
+            clientThread.start()
+        if self.target.scheme == 'SMB':
+            clientThread = self.config.attacks['SMB'](self.config, client.session, self.authUser)
+            clientThread.start()
         if self.target.scheme.upper() == 'LDAP' or self.target.scheme.upper() == 'LDAPS':
             clientThread = self.config.attacks['LDAP'](self.config, client.session, self.authUser)
             clientThread.start()
