@@ -1489,11 +1489,11 @@ class LSASecrets(OfflineRegistry):
             valueTypeList = ['CurrVal']
             # Check if old LSA secrets values are also need to be shown
             if self.__history:
-            	valueTypeList.append('OldVal')
+                valueTypeList.append('OldVal')
 
             for valueType in valueTypeList:
                 value = self.getValue('\\Policy\\Secrets\\{}\\{}\\default'.format(key,valueType))
-                if value is not None:
+                if value is not None and value[1] != 0:
                     if self.__vistaStyle is True:
                         record = LSA_SECRET(value[1])
                         tmpKey = self.__sha256(self.__LSAKey, record['EncryptedData'][:32])
@@ -1502,7 +1502,11 @@ class LSASecrets(OfflineRegistry):
                         secret = record['Secret']
                     else:
                         secret = self.__decryptSecret(self.__LSAKey, value[1])
-    
+
+                    # If this is an OldVal secret, let's append '_history' to be able to distinguish it and
+                    # also be consistent with NTDS history
+                    if valueType == 'OldVal':
+                        key += '_history'
                     self.__printSecret(key, secret)
 
     def exportSecrets(self, fileName):
