@@ -32,6 +32,7 @@ from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor
 from impacket.examples.ntlmrelayx.servers.socksserver import activeConnections
 
 class HTTPRelayServer(Thread):
+
     class HTTPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
         def __init__(self, server_address, RequestHandlerClass, config):
             self.config = config
@@ -333,7 +334,9 @@ class HTTPRelayServer(Thread):
 
     def run(self):
         logging.info("Setting up HTTP Server")
-        httpd = self.HTTPServer(("", 80), self.HTTPHandler, self.config)
+
+        # changed to read from the interfaceIP set in the configuration
+        httpd = self.HTTPServer((self.config.interfaceIp, 80), self.HTTPHandler, self.config)
         try:
              httpd.serve_forever()
         except KeyboardInterrupt:

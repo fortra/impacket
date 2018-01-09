@@ -64,14 +64,18 @@ class SMBRelayServer(Thread):
         smbConfig.set('IPC$','share type','3')
         smbConfig.set('IPC$','path','')
 
-        self.server = SMBSERVER(('0.0.0.0',445), config_parser = smbConfig)
+        # changed to dereference configuration interfaceIp
+        self.server = SMBSERVER((config.interfaceIp,445), config_parser = smbConfig)
+
         self.server.processConfigFile()
 
         self.origSmbComNegotiate = self.server.hookSmbCommand(smb.SMB.SMB_COM_NEGOTIATE, self.SmbComNegotiate)
         self.origSmbSessionSetupAndX = self.server.hookSmbCommand(smb.SMB.SMB_COM_SESSION_SETUP_ANDX, self.SmbSessionSetupAndX)
         # Let's use the SMBServer Connection dictionary to keep track of our client connections as well
         #TODO: See if this is the best way to accomplish this
-        self.server.addConnection('SMBRelay', '0.0.0.0', 445)
+
+        # changed to dereference configuration interfaceIp
+        self.server.addConnection('SMBRelay', config.interfaceIp, 445)
 
     def SmbComNegotiate(self, connId, smbServer, SMBCommand, recvPacket):
         connData = smbServer.getConnectionData(connId, checkStatus = False)
