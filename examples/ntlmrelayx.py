@@ -45,7 +45,7 @@ import urllib2
 import json
 from threading import Thread
 
-from impacket import version, smb3, smb, LOG
+from impacket import version, smb3, smb
 from impacket.examples import logger
 from impacket.examples import serviceinstall
 from impacket.examples.ntlmrelayx.servers import SMBRelayServer, HTTPRelayServer
@@ -476,7 +476,6 @@ if __name__ == '__main__':
 
     if options.debug is True:
         logging.getLogger().setLevel(logging.DEBUG)
-        LOG.setLevel(logging.DEBUG)
     else:
         logging.getLogger().setLevel(logging.INFO)
         logging.getLogger('impacket.smbserver').setLevel(logging.ERROR)
