@@ -19,6 +19,7 @@ from threading import Thread
 import ConfigParser
 import struct
 import logging
+import socket
 
 from impacket import smb, ntlm
 from impacket.nt_errors import STATUS_MORE_PROCESSING_REQUIRED, STATUS_ACCESS_DENIED, STATUS_SUCCESS
@@ -63,6 +64,10 @@ class SMBRelayServer(Thread):
         smbConfig.set('IPC$','read only','yes')
         smbConfig.set('IPC$','share type','3')
         smbConfig.set('IPC$','path','')
+
+        # Change address_family to IPv6 if this is configured
+        if self.config.ipv6:
+            SMBSERVER.address_family = socket.AF_INET6
 
         # changed to dereference configuration interfaceIp
         self.server = SMBSERVER((config.interfaceIp,445), config_parser = smbConfig)
@@ -490,6 +495,7 @@ class SMBRelayServer(Thread):
             clientThread.start()
 
     def _start(self):
+        self.server.daemon_threads=True
         self.server.serve_forever()
 
     def run(self):

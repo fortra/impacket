@@ -8,7 +8,7 @@
 # Author:
 #   Dirk-jan Mollema / Fox-IT (https://www.fox-it.com)
 #
-# Description: 
+# Description:
 # HTTP(s) client for relaying NTLMSSP authentication to webservers
 #
 import logging
@@ -47,7 +47,7 @@ class HTTPRelayClient:
             if 'NTLM' not in res.getheader('WWW-Authenticate'):
                 logging.error('NTLM Auth not offered by URL, offered protocols: %s' % res.getheader('WWW-Authenticate'))
                 return False
-        except KeyError:
+        except (KeyError, TypeError):
             logging.error('No authentication requested by the server for url %s' % self.target)
             return False
 
