@@ -23,6 +23,7 @@ import time
 import calendar
 import random
 import string
+import socket
 
 from binascii import hexlify
 from impacket import smb, ntlm, LOG, smb3
@@ -73,7 +74,12 @@ class SMBRelayServer(Thread):
         smbConfig.set('IPC$','share type','3')
         smbConfig.set('IPC$','path','')
 
-        self.server = SMBSERVER(('0.0.0.0',445), config_parser = smbConfig)
+        # Change address_family to IPv6 if this is configured
+        if self.config.ipv6:
+            SMBSERVER.address_family = socket.AF_INET6
+
+        self.server = SMBSERVER(('',445), config_parser = smbConfig)
+
         logging.getLogger('impacket.smbserver').setLevel(logging.CRITICAL)
         self.server.processConfigFile()
 

@@ -3517,7 +3517,8 @@ class Ioctls:
 class SMBSERVERHandler(SocketServer.BaseRequestHandler):
     def __init__(self, request, client_address, server, select_poll = False):
         self.__SMB = server
-        self.__ip, self.__port = client_address
+        # In case of AF_INET6 the client_address contains 4 items, ignore the last 2
+        self.__ip, self.__port = client_address[:2]
         self.__request = request
         self.__connId = threading.currentThread().getName()
         self.__timeOut = 60*5
