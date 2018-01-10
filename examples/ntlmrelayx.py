@@ -432,12 +432,17 @@ if __name__ == '__main__':
                                                        'https://docs.python.org/2.4/lib/standard-encodings.html and then execute wmiexec.py '
                                                        'again with -codec and the corresponding codec ' % sys.getdefaultencoding())
     parser.add_argument('-smb2support', action="store_true", default=False, help='SMB2 Support (experimental!)')
-
+    parser.add_argument('-socks', action='store_true', default=False,
+                        help='Launch a SOCKS proxy for the connection relayed')
+    parser.add_argument('-wh','--wpad-host', action='store',help='Enable serving a WPAD file for Proxy Authentication attack, '
+                                                                   'setting the proxy host to the one supplied.')
+    parser.add_argument('-wa','--wpad-auth-num', action='store',help='Prompt for authentication N times for clients without MS16-077 installed '
+                                                                   'before serving a WPAD file.')
+    parser.add_argument('-6','--ipv6', action='store_true',help='Listen on both IPv6 and IPv4')
 
     #SMB arguments
     smboptions = parser.add_argument_group("SMB client options")
-    smboptions.add_argument('-socks', action='store_true', default=False,
-                        help='Launch a SOCKS proxy for the connection relayed')
+
     smboptions.add_argument('-e', action='store', required=False, metavar = 'FILE', help='File to execute on the target system. '
                                      'If not specified, hashes will be dumped (secretsdump.py must be in the same directory)')
     smboptions.add_argument('-c', action='store', type=str, required=False, metavar = 'COMMAND', help='Command to execute on '
@@ -535,6 +540,8 @@ if __name__ == '__main__':
         c.setMSSQLOptions(options.query)
         c.setInteractive(options.interactive)
         c.setIMAPOptions(options.keyword,options.mailbox,options.all,options.imap_max)
+        c.setIPv6(options.ipv6)
+        c.setWpadOptions(options.wpad_host, options.wpad_auth_num)
         c.setSMB2Support(options.smb2support)
 
         #If the redirect option is set, configure the HTTP server to redirect targets to SMB

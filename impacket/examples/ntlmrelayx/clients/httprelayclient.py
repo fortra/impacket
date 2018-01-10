@@ -58,7 +58,7 @@ class HTTPRelayClient(ProtocolClient):
             if 'NTLM' not in res.getheader('WWW-Authenticate'):
                 LOG.error('NTLM Auth not offered by URL, offered protocols: %s' % res.getheader('WWW-Authenticate'))
                 return False
-        except KeyError:
+        except (KeyError, TypeError):
             LOG.error('No authentication requested by the server for url %s' % self.targetHost)
             return False
 
