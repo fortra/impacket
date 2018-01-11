@@ -184,7 +184,8 @@ class HTTPRelayServer(Thread):
                     token = base64.b64decode(blob.strip())
                 except:
                     self.do_AUTHHEAD(message = 'NTLM', proxy=proxy)
-                messageType = struct.unpack('<L',token[len('NTLMSSP\x00'):len('NTLMSSP\x00')+4])[0]
+                else:
+                    messageType = struct.unpack('<L',token[len('NTLMSSP\x00'):len('NTLMSSP\x00')+4])[0]
 
             if messageType == 1:
                 if not self.do_ntlm_negotiate(token, proxy=proxy):
@@ -196,9 +197,16 @@ class HTTPRelayServer(Thread):
                 authenticateMessage.fromString(token)
 
                 if not self.do_ntlm_auth(token,authenticateMessage):
-                    LOG.error("Authenticating against %s://%s as %s\%s FAILED" % (
-                        self.target.scheme, self.target.netloc, authenticateMessage['domain_name'].decode('utf-16le'),
-                        authenticateMessage['user_name'].decode('utf-16le')))
+                    if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
+                        LOG.error("Authenticating against %s://%s as %s\%s FAILED" % (
+                            self.target.scheme, self.target.netloc,
+                            authenticateMessage['domain_name'].decode('utf-16le'),
+                            authenticateMessage['user_name'].decode('utf-16le')))
+                    else:
+                        LOG.error("Authenticating against %s://%s as %s\%s FAILED" % (
+                            self.target.scheme, self.target.netloc,
+                            authenticateMessage['domain_name'].decode('ascii'),
+                            authenticateMessage['user_name'].decode('ascii')))
 
                     # Only skip to next if the login actually failed, not if it was just anonymous login or a system account which we don't want
                     if authenticateMessage['user_name'] != '': # and authenticateMessage['user_name'][-1] != '$':
@@ -210,9 +218,14 @@ class HTTPRelayServer(Thread):
                         self.do_AUTHHEAD('NTLM', proxy=proxy)
                 else:
                     # Relay worked, do whatever we want here...
-                    LOG.info("Authenticating against %s://%s as %s\%s SUCCEED" % (
-                        self.target.scheme, self.target.netloc, authenticateMessage['domain_name'].decode('utf-16le'),
-                        authenticateMessage['user_name'].decode('utf-16le')))
+                    if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
+                        LOG.info("Authenticating against %s://%s as %s\%s SUCCEED" % (
+                            self.target.scheme, self.target.netloc, authenticateMessage['domain_name'].decode('utf-16le'),
+                            authenticateMessage['user_name'].decode('utf-16le')))
+                    else:
+                        LOG.info("Authenticating against %s://%s as %s\%s SUCCEED" % (
+                            self.target.scheme, self.target.netloc, authenticateMessage['domain_name'].decode('ascii'),
+                            authenticateMessage['user_name'].decode('ascii')))
 
                     ntlm_hash_data = outputToJohnFormat(self.challengeMessage['challenge'],
                                                         authenticateMessage['user_name'],
@@ -253,8 +266,12 @@ class HTTPRelayServer(Thread):
 
         def do_ntlm_auth(self,token,authenticateMessage):
             #For some attacks it is important to know the authenticated username, so we store it
-            self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('utf-16le'),
-                                        authenticateMessage['user_name'].decode('utf-16le'))).upper()
+            if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
+                self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('utf-16le'),
+                                            authenticateMessage['user_name'].decode('utf-16le'))).upper()
+            else:
+                self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode('ascii'),
+                                            authenticateMessage['user_name'].decode('ascii'))).upper()
 
             if authenticateMessage['user_name'] != '' or self.target.hostname == '127.0.0.1':
                 clientResponse, errorCode = self.client.sendAuth(token)
