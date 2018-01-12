@@ -297,6 +297,7 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
             request = SOCKS4_REQUEST(data)
 
         # Let's process the request to extract the target to connect.
+        # SOCKS5
         if self.__socksVersion == 5:
             if request['ATYP'] == ATYP.IPv4.value:
                 self.targetHost = socket.inet_ntoa(request['PAYLOAD'][:4])
@@ -307,10 +308,20 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
                 self.targetPort = unpack('>H',request['PAYLOAD'][hostLength+1:])[0]
             else:
                 LOG.error('No support for IPv6 yet!')
+        # SOCKS4
         else:
-            # SOCKS4
-            self.targetHost = socket.inet_ntoa(request['ADDR'])
             self.targetPort = request['PORT']
+            
+            # SOCKS4a
+            if request['ADDR'][:3] == "\x00\x00\x00" and request['ADDR'][3] != "\x00":
+                nullBytePos = request['PAYLOAD'].find("\x00");
+            
+                if nullBytePos == -1:
+                    LOG.error('Error while reading SOCKS4a header!')
+                else:
+                    self.targetHost = request['PAYLOAD'].split('\0', 1)[1][:-1]
+            else:
+                self.targetHost = socket.inet_ntoa(request['ADDR'])
 
         LOG.debug('SOCKS: Target is %s(%s)' % (self.targetHost, self.targetPort))
 
