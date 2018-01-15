@@ -3281,11 +3281,11 @@ class SMB:
             if ntlmChallenge.fields.has_key('Version'):
                 version = ntlmChallenge['Version']
 
-            if ntlmChallenge.fields.has_key('challenge'):
-                self._dialects_data['Challenge'] = ntlmChallenge["challenge"]
-
                 if len(version) >= 4:
                    self.__server_os_major, self.__server_os_minor, self.__server_os_build = unpack('<BBH',version[:4])
+
+            if ntlmChallenge.fields.has_key('challenge'):
+                self._dialects_data['Challenge'] = ntlmChallenge["challenge"]
 
             type3, exportedSessionKey = ntlm.getNTLMSSPType3(auth, respToken['ResponseToken'], user, password, domain, lmhash, nthash, use_ntlmv2 = use_ntlmv2)
 
