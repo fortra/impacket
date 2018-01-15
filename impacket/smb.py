@@ -3281,6 +3281,9 @@ class SMB:
             if ntlmChallenge.fields.has_key('Version'):
                 version = ntlmChallenge['Version']
 
+            if ntlmChallenge.fields.has_key('challenge'):
+                self._dialects_data['Challenge'] = ntlmChallenge["challenge"]
+
                 if len(version) >= 4:
                    self.__server_os_major, self.__server_os_minor, self.__server_os_build = unpack('<BBH',version[:4])
 
