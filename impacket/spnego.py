@@ -179,7 +179,7 @@ class SPNEGO_NegTokenResp:
         return len(self.getData())
 
     def __str__(self):
-        return len(self.getData())
+        return self.getData()
 
     def fromString(self, data = 0):
         payload = data
