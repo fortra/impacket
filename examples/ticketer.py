@@ -80,7 +80,7 @@ class TICKETER:
         self.__domain = domain
         self.__options = options
         if options.spn:
-            spn = options.spn.split(':')[0].split('/')
+            spn = options.spn.split('/')
             self.__service = spn[0]
             self.__server = spn[1]
 
