@@ -1903,6 +1903,7 @@ class SMBCommands:
         respSMBCommand['Parameters']   = respParameters
         respSMBCommand['Data']         = respData 
         connData['Uid'] = 0
+        connData['Authenticated'] = False
 
         smbServer.setConnectionData(connId, connData)
 
@@ -2420,6 +2421,7 @@ class SMBCommands:
                     errorCode = STATUS_SUCCESS
 
                 if errorCode == STATUS_SUCCESS:
+                    connData['Authenticated'] = True
                     respToken = SPNEGO_NegTokenResp()
                     # accept-completed
                     respToken['NegResult'] = '\x00'
@@ -2460,6 +2462,7 @@ class SMBCommands:
             # TODO: Manage more UIDs for the same session
             errorCode = STATUS_SUCCESS
             connData['Uid'] = 10
+            connData['Authenticated'] = True
             respParameters['Action'] = 0
             smbServer.log('User %s\\%s authenticated successfully (basic)' % (sessionSetupData['PrimaryDomain'], sessionSetupData['Account']))
             try:
@@ -2791,6 +2794,7 @@ class SMB2Commands:
                 errorCode = STATUS_SUCCESS
 
             if errorCode == STATUS_SUCCESS:
+                connData['Authenticated'] = True
                 respToken = SPNEGO_NegTokenResp()
                 # accept-completed
                 respToken['NegResult'] = '\x00'
@@ -2881,7 +2885,7 @@ class SMB2Commands:
             respPacket['Status'] = errorCode
         ##
 
-        if path == 'IPC$':
+        if path.upper() == 'IPC$':
             respSMBCommand['ShareType'] = smb2.SMB2_SHARE_TYPE_PIPE
             respSMBCommand['ShareFlags'] = 0x30
         else:
@@ -3537,6 +3541,7 @@ class SMB2Commands:
             errorCode = STATUS_SUCCESS
 
         connData['Uid'] = 0
+        connData['Authenticated'] = False
 
         smbServer.setConnectionData(connId, connData)
         return [respSMBCommand], None, errorCode
@@ -3856,6 +3861,7 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
         self.__activeConnections[name]['SignatureEnabled']= False
         self.__activeConnections[name]['SigningChallengeResponse']= ''
         self.__activeConnections[name]['SigningSessionKey']= ''
+        self.__activeConnections[name]['Authenticated']= False
 
     def getActiveConnections(self):
         return self.__activeConnections
@@ -4103,6 +4109,8 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
             self.signSMBv2(packet, connData['SigningSessionKey'])
             isSMB2 = True
 
+        connData    = self.getConnectionData(connId, False)
+
         # We might have compound requests
         compoundedPacketsResponse = []
         compoundedPackets         = []
@@ -4121,83 +4129,99 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
             #               this MUST be a list
             # errorCode   : self explanatory
             if isSMB2 is False:
-                if packet['Command'] == smb.SMB.SMB_COM_TRANSACTION2:
-                    respCommands, respPackets, errorCode = self.__smbCommands[packet['Command']](
-                                  connId, 
-                                  self, 
-                                  SMBCommand,
-                                  packet,
-                                  self.__smbTrans2Commands)
-                elif packet['Command'] == smb.SMB.SMB_COM_NT_TRANSACT:
-                    respCommands, respPackets, errorCode = self.__smbCommands[packet['Command']](
-                                  connId, 
-                                  self, 
-                                  SMBCommand,
-                                  packet,
-                                  self.__smbNTTransCommands)
-                elif packet['Command'] == smb.SMB.SMB_COM_TRANSACTION:
-                    respCommands, respPackets, errorCode = self.__smbCommands[packet['Command']](
-                                  connId, 
-                                  self, 
-                                  SMBCommand,
-                                  packet,
-                                  self.__smbTransCommands)
+                # Is the client authenticated already?
+                if connData['Authenticated'] is False and packet['Command'] not in (smb.SMB.SMB_COM_NEGOTIATE, smb.SMB.SMB_COM_SESSION_SETUP_ANDX):
+                    # Nope.. in that case he should only ask for a few commands, if not throw him out.
+                    errorCode = STATUS_ACCESS_DENIED
+                    respPackets = None
+                    respCommands = [smb.SMBCommand(packet['Command'])]
                 else:
-                    if self.__smbCommands.has_key(packet['Command']):
-                       if self.__SMB2Support is True:
-                           if packet['Command'] == smb.SMB.SMB_COM_NEGOTIATE:
-                               try:
-                                   respCommands, respPackets, errorCode = self.__smb2Commands[smb2.SMB2_NEGOTIATE](connId, self, packet, True)
-                                   isSMB2 = True
-                               except Exception, e:
-                                   self.log('SMB2_NEGOTIATE: %s' % e, logging.ERROR)
-                                   # If something went wrong, let's fallback to SMB1
+                    if packet['Command'] == smb.SMB.SMB_COM_TRANSACTION2:
+                        respCommands, respPackets, errorCode = self.__smbCommands[packet['Command']](
+                                      connId,
+                                      self,
+                                      SMBCommand,
+                                      packet,
+                                      self.__smbTrans2Commands)
+                    elif packet['Command'] == smb.SMB.SMB_COM_NT_TRANSACT:
+                        respCommands, respPackets, errorCode = self.__smbCommands[packet['Command']](
+                                      connId,
+                                      self,
+                                      SMBCommand,
+                                      packet,
+                                      self.__smbNTTransCommands)
+                    elif packet['Command'] == smb.SMB.SMB_COM_TRANSACTION:
+                        respCommands, respPackets, errorCode = self.__smbCommands[packet['Command']](
+                                      connId,
+                                      self,
+                                      SMBCommand,
+                                      packet,
+                                      self.__smbTransCommands)
+                    else:
+                        if self.__smbCommands.has_key(packet['Command']):
+                           if self.__SMB2Support is True:
+                               if packet['Command'] == smb.SMB.SMB_COM_NEGOTIATE:
+                                   try:
+                                       respCommands, respPackets, errorCode = self.__smb2Commands[smb2.SMB2_NEGOTIATE](connId, self, packet, True)
+                                       isSMB2 = True
+                                   except Exception, e:
+                                       self.log('SMB2_NEGOTIATE: %s' % e, logging.ERROR)
+                                       # If something went wrong, let's fallback to SMB1
+                                       respCommands, respPackets, errorCode = self.__smbCommands[packet['Command']](
+                                           connId,
+                                           self,
+                                           SMBCommand,
+                                           packet)
+                                       #self.__SMB2Support = False
+                                       pass
+                               else:
                                    respCommands, respPackets, errorCode = self.__smbCommands[packet['Command']](
-                                       connId, 
-                                       self, 
-                                       SMBCommand,
-                                       packet)
-                                   #self.__SMB2Support = False
-                                   pass
+                                           connId,
+                                           self,
+                                           SMBCommand,
+                                           packet)
                            else:
                                respCommands, respPackets, errorCode = self.__smbCommands[packet['Command']](
-                                       connId, 
-                                       self, 
-                                       SMBCommand,
-                                       packet)
-                       else:
-                           respCommands, respPackets, errorCode = self.__smbCommands[packet['Command']](
-                                       connId, 
-                                       self, 
-                                       SMBCommand,
-                                       packet)
-                    else:
-                       respCommands, respPackets, errorCode = self.__smbCommands[255](connId, self, SMBCommand, packet)   
+                                           connId,
+                                           self,
+                                           SMBCommand,
+                                           packet)
+                        else:
+                           respCommands, respPackets, errorCode = self.__smbCommands[255](connId, self, SMBCommand, packet)
 
                 compoundedPacketsResponse.append((respCommands, respPackets, errorCode))
                 compoundedPackets.append(packet)
 
             else:
-                done = False
-                while not done:
-                    if self.__smb2Commands.has_key(packet['Command']):
-                       if self.__SMB2Support is True:
-                           respCommands, respPackets, errorCode = self.__smb2Commands[packet['Command']](
-                                   connId, 
-                                   self, 
-                                   packet)
-                       else:
-                           respCommands, respPackets, errorCode = self.__smb2Commands[255](connId, self, packet)
-                    else:
-                       respCommands, respPackets, errorCode = self.__smb2Commands[255](connId, self, packet)   
-                    # Let's store the result for this compounded packet
+                # Is the client authenticated already?
+                if connData['Authenticated'] is False and packet['Command'] not in (smb2.SMB2_NEGOTIATE, smb2.SMB2_SESSION_SETUP):
+                    # Nope.. in that case he should only ask for a few commands, if not throw him out.
+                    errorCode = STATUS_ACCESS_DENIED
+                    respPackets = None
+                    respCommands = ['']
                     compoundedPacketsResponse.append((respCommands, respPackets, errorCode))
                     compoundedPackets.append(packet)
-                    if packet['NextCommand'] != 0:
-                        data = data[packet['NextCommand']:]
-                        packet = smb2.SMB2Packet(data = data)
-                    else:
-                        done = True 
+                else:
+                    done = False
+                    while not done:
+                        if self.__smb2Commands.has_key(packet['Command']):
+                           if self.__SMB2Support is True:
+                               respCommands, respPackets, errorCode = self.__smb2Commands[packet['Command']](
+                                       connId,
+                                       self,
+                                       packet)
+                           else:
+                               respCommands, respPackets, errorCode = self.__smb2Commands[255](connId, self, packet)
+                        else:
+                           respCommands, respPackets, errorCode = self.__smb2Commands[255](connId, self, packet)
+                        # Let's store the result for this compounded packet
+                        compoundedPacketsResponse.append((respCommands, respPackets, errorCode))
+                        compoundedPackets.append(packet)
+                        if packet['NextCommand'] != 0:
+                            data = data[packet['NextCommand']:]
+                            packet = smb2.SMB2Packet(data = data)
+                        else:
+                            done = True
 
         except Exception, e:
             #import traceback
