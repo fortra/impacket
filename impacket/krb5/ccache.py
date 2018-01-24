@@ -351,10 +351,15 @@ class CCache:
         if anySPN is True:
             LOG.debug('AnySPN is True, looking for another suitable SPN')
             for c in self.credentials:
-                # Let's search for any TGT/TGS that matches the server w/o the SPN's service type, returns
+                # Let's search for any TGT/TGS that matches the server w/o the SPN's service type/port, returns
                 # the first one
                 if c['server'].prettyPrint().find('/') >=0:
-                    if c['server'].prettyPrint().upper().split('/')[1] == server.upper().split('/')[1]:
+                    # Let's take the port out for comparison
+                    cachedSPN = '%s@%s'  % (c['server'].prettyPrint().upper().split('/')[1].split('@')[0].split(':')[0],
+                                               c['server'].prettyPrint().upper().split('/')[1].split('@')[1])
+                    searchSPN = '%s@%s' % (server.upper().split('/')[1].split('@')[0].split(':')[0],
+                                               server.upper().split('/')[1].split('@')[1])
+                    if cachedSPN == searchSPN:
                         LOG.debug('Returning cached credential for %s' % c['server'].prettyPrint().upper())
                         return c
 
