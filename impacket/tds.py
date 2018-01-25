@@ -771,7 +771,7 @@ class MSSQL:
                 #         FQDN is the fully qualified domain name of the server.
                 #         port is the TCP port number.
                 #         instancename is the name of the SQL Server instance.
-                serverName = Principal('MSSQLSvc/%s.%s:%d' % (self.server, domain, self.port), type=constants.PrincipalNameType.NT_SRV_INST.value)
+                serverName = Principal('MSSQLSvc/%s.%s:%d' % (self.server.split('.')[0], domain, self.port), type=constants.PrincipalNameType.NT_SRV_INST.value)
                 try:
                     tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey)
                 except KerberosError, e:
