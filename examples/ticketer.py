@@ -316,11 +316,11 @@ class TICKETER:
             kdcRep['ticket']['sname']['name-string'][0] = self.__service
 
             if self.__domain == self.__server:
-                kdcRep['ticket']['sname']['name-type'] = PrincipalNameType.NT_PRINCIPAL.value
+                kdcRep['ticket']['sname']['name-type'] = PrincipalNameType.NT_SRV_INST.value
                 kdcRep['ticket']['sname']['name-string'][1] = self.__domain.upper()
             else:
-                kdcRep['ticket']['sname']['name-type'] = PrincipalNameType.NT_SRV_INST.value
-                kdcRep['ticket']['sname']['name-string'][1] = self.__target
+                kdcRep['ticket']['sname']['name-type'] = PrincipalNameType.NT_PRINCIPAL.value
+                kdcRep['ticket']['sname']['name-string'][1] = self.__server
 
             kdcRep['ticket']['enc-part'] = noValue
             kdcRep['ticket']['enc-part']['kvno'] = 2
@@ -514,11 +514,11 @@ class TICKETER:
         encRepPart['sname']['name-string'][0] = self.__service
 
         if self.__domain == self.__server:
-            encRepPart['sname']['name-type'] = PrincipalNameType.NT_PRINCIPAL.value
+            encRepPart['sname']['name-type'] = PrincipalNameType.NT_SRV_INST.value
             encRepPart['sname']['name-string'][1] = self.__domain.upper()
             logging.info('\tEncAsRepPart')
         else:
-            encRepPart['sname']['name-type'] = PrincipalNameType.NT_SRV_INST.value
+            encRepPart['sname']['name-type'] = PrincipalNameType.NT_PRINCIPAL.value
             encRepPart['sname']['name-string'][1] = self.__server
             logging.info('\tEncTGSRepPart')
 
