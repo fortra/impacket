@@ -689,7 +689,7 @@ class MSSQL:
                     LOG.debug('Domain retrieved from CCache: %s' % domain)
 
                 LOG.debug("Using Kerberos Cache: %s" % os.getenv('KRB5CCNAME'))
-                principal = 'MSSQLSvc/%s.%s:%d@%s' % (self.server, domain, self.port, domain.upper())
+                principal = 'MSSQLSvc/%s.%s:%d@%s' % (self.server.split('.')[0], domain, self.port, domain.upper())
                 creds = ccache.getCredential(principal)
 
                 if creds is not None:
