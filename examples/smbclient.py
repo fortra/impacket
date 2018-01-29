@@ -102,7 +102,7 @@ class MiniImpacketShell(cmd.Cmd):
  cd {path} - changes the current directory to {path}
  lcd {path} - changes the current local directory to {path}
  pwd - shows current remote directory
- password - changes the user password, the new password will be prompted for input
+ password [lmhash:nthash] - changes the user password, the new password will be prompted for input if no hashes are specified
  ls {wildcard} - lists all the files in the current directory
  rm {file} - removes the selected file
  mkdir {dirname} - creates the directory under the current path
@@ -120,16 +120,55 @@ class MiniImpacketShell(cmd.Cmd):
         if self.loggedIn is False:
             logging.error("Not logged in")
             return
-        from getpass import getpass
-        newPassword = getpass("New Password:")
+
         rpctransport = transport.SMBTransport(self.smb.getRemoteHost(), filename = r'\samr', smb_connection = self.smb)
         dce = rpctransport.get_dce_rpc()
         dce.connect()                     
         dce.bind(samr.MSRPC_UUID_SAMR)
-        samr.hSamrUnicodeChangePasswordUser2(dce, '\x00', self.username, self.password, newPassword, self.lmhash, self.nthash)
-        self.password = newPassword
-        self.lmhash = None
-        self.nthash = None
+        
+        hashes = line.split(' ')[0]
+        if hashes != '':
+            lmhash, nthash = hashes.split(':')
+            # If a hash is received as a parameter  
+            try:
+                int(lmhash, 16)
+                int(nthash, 16)
+            except ValueError:
+                logging.error("Hashes are not valid")
+                return
+            
+            # Getting DomainID (SID)
+            serverHandle = samr.hSamrConnect(dce, self.smb.getServerName() + '\x00')['ServerHandle']
+            domainID = samr.hSamrLookupDomainInSamServer(dce, serverHandle, self.smb.getServerDomain())['DomainId']
+        
+            # Getting a DomainHandle
+            domainHandle = samr.hSamrOpenDomain(dce, serverHandle, domainId=domainID)['DomainHandle']   
+            
+            # Getting the User RID
+            userRID = samr.hSamrLookupNamesInDomain(dce, domainHandle, (self.username,))['RelativeIds']['Element'][0]
+                        
+            # Getting a UserHandle for the current user
+            userHandle = samr.hSamrOpenUser(dce, domainHandle, userId=userRID)['UserHandle']
+            
+            # Changing the password for the current user
+            if self.nthash != '':
+                samr.hSamrChangePasswordUser(dce, userHandle, oldPassword='', newPassword='',
+                                             oldPwdHashNT=self.nthash, newPwdHashLM=lmhash, newPwdHashNT=nthash)
+            else:
+                samr.hSamrChangePasswordUser(dce, userHandle, oldPassword=self.password, newPassword='',
+                                             oldPwdHashNT='', newPwdHashLM=lmhash, newPwdHashNT=nthash)
+            self.password = None
+            self.lmhash = lmhash
+            self.nthash = nthash                
+        else:
+            # Ask for a password to be typed
+            from getpass import getpass
+            newPassword = getpass("New Password:")
+
+            samr.hSamrUnicodeChangePasswordUser2(dce, '\x00', self.username, self.password, newPassword, self.lmhash, self.nthash)
+            self.password = newPassword
+            self.lmhash = None
+            self.nthash = None
 
     def do_open(self,line):
         l = line.split(' ')
