@@ -95,6 +95,10 @@ class HTTPRelayClient(ProtocolClient):
             self.lastresult = res.read()
             return None, STATUS_SUCCESS
 
+    def killConnection(self):
+        if self.session is not None:
+            self.session.close()
+            self.session = None
 
 class HTTPSRelayClient(HTTPRelayClient):
     PLUGIN_NAME = "HTTPS"

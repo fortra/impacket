@@ -288,9 +288,8 @@ class HTTPRelayServer(Thread):
         def do_attack(self):
             # Check if SOCKS is enabled and if we support the target scheme
             if self.server.config.runSocks and self.target.scheme.upper() in self.server.config.socksServer.supportedSchemes:
-                # For now, we only support SOCKS for SMB/MSSQL, for now.
                 # Pass all the data to the socksplugins proxy
-                activeConnections.put((self.target.hostname, self.client.targetPort, self.authUser, self.client.session, self.client.sessionData))
+                activeConnections.put((self.target.hostname, self.client.targetPort, self.authUser, self.client, self.client.sessionData))
                 return
 
             # If SOCKS is not enabled, or not supported for this scheme, fall back to "classic" attacks

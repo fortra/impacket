@@ -77,3 +77,8 @@ class SMTPRelayClient(ProtocolClient):
         else:
             LOG.error('SMTP: %s' % ' '.join(data))
             return None, STATUS_ACCESS_DENIED
+
+    def killConnection(self):
+        if self.session is not None:
+            self.session.close()
+            self.session = None

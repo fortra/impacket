@@ -25,7 +25,6 @@ import logging
 from Queue import Queue
 from struct import unpack, pack
 from threading import Timer, Thread
-from imaplib import IMAP4
 
 from impacket import LOG
 from impacket.dcerpc.v5.enum import Enum
@@ -186,7 +185,7 @@ def keepAliveTimer(server):
                     if server.activeRelays[target][port][user]['inUse'] is False:
                         LOG.debug('Sending keep alive to %s@%s:%s' % (user, target, port))
                         try:
-                            server.socksPlugins[port].keepAlive(server.activeRelays[target][port][user]['client'])
+                            server.socksPlugins[port].keepAlive(server.activeRelays[target][port][user]['protocolClient'].session)
                         except Exception, e:
                             LOG.debug('SOCKS: %s' % str(e))
                             if str(e).find('Broken pipe') >= 0 or str(e).find('reset by peer') >=0:
@@ -211,21 +210,16 @@ def activeConnectionsWatcher(server):
         if server.activeRelays[target][port].has_key(userName) is not True:
             LOG.info('SOCKS: Adding %s@%s(%s) to active SOCKS connection. Enjoy' % (userName, target, port))
             server.activeRelays[target][port][userName] = {}
-            server.activeRelays[target][port][userName]['client'] = client
+            # This is the protocolClient. Needed because we need to access the killConnection from time to time.
+            # Inside this instance, you have the session attribute pointing to the relayed session.
+            server.activeRelays[target][port][userName]['protocolClient'] = client
             server.activeRelays[target][port][userName]['inUse'] = False
             server.activeRelays[target][port][userName]['data'] = data
             # Just for the CHALLENGE data, we're storing this general
             server.activeRelays[target][port]['data'] = data
         else:
             LOG.info('Relay connection for %s at %s(%d) already exists. Discarding' % (userName, target, port))
-            # TODO: Fix this properly
-            # Now the close() function is called directly on the client,
-            # which type can vary. IMAP for example doesnt like this
-            if isinstance(client, IMAP4):
-                client.logout()
-            # HTTP / SMB / MSSQL are fine with this
-            else:
-                client.close()
+            client.killConnection()
 
 def webService(server):
     from flask import Flask, jsonify

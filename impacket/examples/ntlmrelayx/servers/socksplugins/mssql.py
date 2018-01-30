@@ -124,7 +124,7 @@ class MSSQLSocksRelay(SocksRelay):
             else:
                 LOG.info('MSSQL: Proxying client session for %s@%s(%s)' % (
                     self.username, self.targetHost, self.targetPort))
-                self.session = self.activeRelays[self.username]['client']
+                self.session = self.activeRelays[self.username]['protocolClient'].session
         else:
             LOG.error('MSSQL: No session for %s@%s(%s) available' % (
                 self.username, self.targetHost, self.targetPort))

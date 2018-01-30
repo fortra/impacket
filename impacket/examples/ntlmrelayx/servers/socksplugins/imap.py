@@ -41,8 +41,8 @@ class IMAPSocksRelay(SocksRelay):
 
     def getServerCapabilities(self):
         for key in self.activeRelays.keys():
-            if self.activeRelays[key].has_key('client'):
-                return self.activeRelays[key]['client'].capabilities
+            if self.activeRelays[key].has_key('protocolClient'):
+                return self.activeRelays[key]['protocolClient'].session.capabilities
 
     def initConnection(self):
         pass
@@ -100,7 +100,7 @@ class IMAPSocksRelay(SocksRelay):
             else:
                 LOG.info('IMAP: Proxying client session for %s@%s(%s)' % (
                     self.username, self.targetHost, self.targetPort))
-                self.session = self.activeRelays[self.username]['client']
+                self.session = self.activeRelays[self.username]['protocolClient'].session
         else:
             LOG.error('IMAP: No session for %s@%s(%s) available' % (
                 self.username, self.targetHost, self.targetPort))

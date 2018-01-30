@@ -56,9 +56,9 @@ class SMBSocksRelay(SocksRelay):
         # Let's verify the target's server SMB version, will need it for later.
         # We're assuming all connections to the target server use the same SMB version
         for key in activeRelays.keys():
-            if activeRelays[key].has_key('client'):
-                self.serverDialect = activeRelays[key]['client'].getDialect()
-                self.isSMB2 = activeRelays[key]['client'].getDialect() is not SMB_DIALECT
+            if activeRelays[key].has_key('protocolClient'):
+                self.serverDialect = activeRelays[key]['protocolClient'].session.getDialect()
+                self.isSMB2 = activeRelays[key]['protocolClient'].session.getDialect() is not SMB_DIALECT
                 break
 
     @staticmethod
@@ -359,7 +359,7 @@ class SMBSocksRelay(SocksRelay):
                 if self.activeRelays.has_key(username):
                     LOG.info('SOCKS: Proxying client session for %s@%s(445)' % (username, self.targetHost))
                     errorCode = STATUS_SUCCESS
-                    smbClient = self.activeRelays[username]['client']
+                    smbClient = self.activeRelays[username]['protocolClient'].session
                     uid = smbClient.getSMBServer().get_uid()
                 else:
                     LOG.error('SOCKS: No session for %s@%s(445) available' % (username, self.targetHost))
@@ -513,7 +513,7 @@ class SMBSocksRelay(SocksRelay):
             if self.activeRelays.has_key(username):
                 LOG.info('SOCKS: Proxying client session for %s@%s(445)' % (username, self.targetHost))
                 errorCode = STATUS_SUCCESS
-                smbClient = self.activeRelays[username]['client']
+                smbClient = self.activeRelays[username]['protocolClient'].session
                 uid = smbClient.getSMBServer()._Session['SessionID']
             else:
                 LOG.error('SOCKS: No session for %s@%s(445) available' % (username, self.targetHost))

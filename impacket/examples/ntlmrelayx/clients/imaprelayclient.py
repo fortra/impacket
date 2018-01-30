@@ -76,6 +76,11 @@ class IMAPRelayClient(ProtocolClient):
             LOG.error('IMAP: %s' % ' '.join(data))
             return None, STATUS_ACCESS_DENIED
 
+    def killConnection(self):
+        if self.session is not None:
+            self.session.logout()
+            self.session = None
+
 class IMAPSRelayClient(IMAPRelayClient):
     PLUGIN_NAME = "IMAPS"
 

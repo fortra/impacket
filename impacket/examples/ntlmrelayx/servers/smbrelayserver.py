@@ -666,9 +666,8 @@ class SMBRelayServer(Thread):
         # Check if SOCKS is enabled and if we support the target scheme
         if self.config.runSocks and self.target.scheme.upper() in self.config.socksServer.supportedSchemes:
             if self.config.runSocks is True:
-                # For now, we only support SOCKS for SMB and MSSQL, for now.
                 # Pass all the data to the socksplugins proxy
-                activeConnections.put((self.target.hostname, client.targetPort, self.authUser, client.session, client.sessionData))
+                activeConnections.put((self.target.hostname, client.targetPort, self.authUser, client, client.sessionData))
                 return
 
         # If SOCKS is not enabled, or not supported for this scheme, fall back to "classic" attacks
