@@ -67,7 +67,7 @@ class LDAPRelayClient(ProtocolClient):
         #negoMessage['flags'] ^= NTLMSSP_NEGOTIATE_SIGN
         self.negotiateMessage = str(negoMessage)
 
-        with self.session.lock:
+        with self.session.connection_lock:
             if not self.session.sasl_in_progress:
                 self.session.sasl_in_progress = True
                 request = bind.bind_operation(self.session.version, 'SICILY_PACKAGE_DISCOVERY')
@@ -100,7 +100,7 @@ class LDAPRelayClient(ProtocolClient):
             token = respToken2['ResponseToken']
         else:
             token = authenticateMessageBlob
-        with self.session.lock:
+        with self.session.connection_lock:
             self.authenticateMessageBlob = token
             request = bind.bind_operation(self.session.version, 'SICILY_RESPONSE_NTLM', self, None)
             response = self.session.post_send_single_response(self.session.send('bindRequest', request, None))

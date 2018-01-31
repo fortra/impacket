@@ -83,12 +83,12 @@ class HTTPRelayServer(Thread):
             return SimpleHTTPServer.SimpleHTTPRequestHandler.send_error(self,code,message)
 
         def serve_wpad(self):
-            self.wpad = self.wpad % (self.server.config.wpad_host, self.server.config.wpad_host)
+            wpadResponse = self.wpad % (self.server.config.wpad_host, self.server.config.wpad_host)
             self.send_response(200)
             self.send_header('Content-type', 'application/x-ns-proxy-autoconfig')
-            self.send_header('Content-Length',len(self.wpad))
+            self.send_header('Content-Length',len(wpadResponse))
             self.end_headers()
-            self.wfile.write(self.wpad)
+            self.wfile.write(wpadResponse)
             return
 
         def should_serve_wpad(self, client):
