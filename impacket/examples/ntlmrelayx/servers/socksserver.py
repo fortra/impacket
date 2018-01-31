@@ -30,6 +30,11 @@ from impacket import LOG
 from impacket.dcerpc.v5.enum import Enum
 from impacket.structure import Structure
 
+# Amount of seconds each socks plugin keep alive function will be called
+# It is up to each plugin to send the keep alive to the target or not in every hit.
+# In some cases (e.g. SMB) it is not needed to send a keep alive every 30 secs.
+KEEP_ALIVE_TIMER = 30.0
+
 class enumItems(Enum):
     NO_AUTHENTICATION = 0
     GSSAPI            = 1
@@ -168,10 +173,6 @@ class SocksRelay:
         # Should return the port this relay works against
         raise RuntimeError('Virtual Function')
 
-    @staticmethod
-    def keepAlive(connection):
-        # Charged of keeping connection alive
-        raise RuntimeError('Virtual Function')
 
 def keepAliveTimer(server):
     LOG.debug('KeepAlive Timer reached. Updating connections')
@@ -183,9 +184,9 @@ def keepAliveTimer(server):
                 if user != 'data':
                     # Let's call the keepAlive method for the handler to keep the connection alive
                     if server.activeRelays[target][port][user]['inUse'] is False:
-                        LOG.debug('Sending keep alive to %s@%s:%s' % (user, target, port))
+                        LOG.debug('Calling keepAlive() for %s@%s:%s' % (user, target, port))
                         try:
-                            server.socksPlugins[port].keepAlive(server.activeRelays[target][port][user]['protocolClient'].session)
+                            server.activeRelays[target][port][user]['protocolClient'].keepAlive()
                         except Exception, e:
                             LOG.debug('SOCKS: %s' % str(e))
                             if str(e).find('Broken pipe') >= 0 or str(e).find('reset by peer') >=0:
@@ -444,7 +445,7 @@ class SOCKS(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
             self.supportedSchemes.append(relay.PLUGIN_SCHEME)
 
         # Let's create a timer to keep the connections up.
-        self.__timer = RepeatedTimer(300.0, keepAliveTimer, self)
+        self.__timer = RepeatedTimer(KEEP_ALIVE_TIMER, keepAliveTimer, self)
 
         # Let's start our RESTful API
         self.restAPI = Thread(target=webService, args=(self, ))

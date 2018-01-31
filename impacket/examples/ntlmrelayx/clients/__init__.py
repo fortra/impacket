@@ -73,6 +73,10 @@ class ProtocolClient:
         # This should only happen with against old Servers. By default we return None
         return None
 
+    def keepAlive(self):
+        # Charged of keeping connection alive
+        raise RuntimeError('Virtual Function')
+
 for file in os.listdir(__path__[0]):
     if file.find('__') >=0 or os.path.splitext(file)[1] == '.pyc':
         continue

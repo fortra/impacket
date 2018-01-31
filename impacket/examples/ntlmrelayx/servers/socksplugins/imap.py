@@ -181,11 +181,4 @@ class IMAPSocksRelay(SocksRelay):
         space = data.find(' ')
         return (data[:space], data[space:].strip())
 
-    @staticmethod
-    def keepAlive(connection):
-        # Send a NOOP
-        try:
-            connection.noop()
-        # This can happen if there are still messages cached from the previous connection
-        except IMAP4.abort:
-            pass
+

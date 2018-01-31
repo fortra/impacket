@@ -144,6 +144,10 @@ class MSSQLRelayClient(ProtocolClient):
         self.session.initConnection()
         return True
 
+    def keepAlive(self):
+        # Don't know yet what needs to be done for TDS
+        pass
+
     def killConnection(self):
         if self.session is not None:
             self.session.disconnect()

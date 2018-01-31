@@ -158,11 +158,3 @@ class SMTPSocksRelay(SocksRelay):
         data = self.socksSocket.recv(self.packetSize)
         return data
 
-    @staticmethod
-    def keepAlive(connection):
-        # Send a NOOP
-        try:
-            connection.noop()
-        # This can happen if there are still messages cached from the previous connection
-        except SMTP.abort:
-            pass

@@ -161,11 +161,6 @@ class MSSQLSocksRelay(SocksRelay):
 
         return True
 
-    @staticmethod
-    def keepAlive(connection):
-        # Don't know yet what needs to be done for TDS
-        pass
-
     def sendTDS(self, packetType, data, packetID = 1):
         if (len(data)-8) > self.packetSize:
             remaining = data[self.packetSize-8:]

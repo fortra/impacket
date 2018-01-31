@@ -82,3 +82,11 @@ class SMTPRelayClient(ProtocolClient):
         if self.session is not None:
             self.session.close()
             self.session = None
+
+    def keepAlive(self):
+        # Send a NOOP
+        try:
+            self.session.noop()
+        # This can happen if there are still messages cached from the previous connection
+        except smtplib.SMTP.abort:
+            pass

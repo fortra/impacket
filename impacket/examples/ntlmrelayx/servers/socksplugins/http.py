@@ -202,9 +202,5 @@ class HTTPSocksRelay(SocksRelay):
             # Send the response back to the client
             self.transferResponse()
 
-    @staticmethod
-    def keepAlive(connection):
-        # Do a HEAD for favicon.ico
-        connection.request('HEAD','/favicon.ico')
-        connection.getresponse()
+
 

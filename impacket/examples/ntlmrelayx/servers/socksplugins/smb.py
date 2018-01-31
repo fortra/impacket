@@ -583,10 +583,6 @@ class SMBSocksRelay(SocksRelay):
 
         return resp
 
-    @staticmethod
-    def keepAlive(connection):
-        # Just a tree connect / disconnect to avoid the session timeout
-        tid = connection.connectTree('IPC$')
-        connection.disconnectTree(tid)
+
 
 

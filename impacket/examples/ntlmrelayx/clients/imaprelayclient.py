@@ -81,6 +81,14 @@ class IMAPRelayClient(ProtocolClient):
             self.session.logout()
             self.session = None
 
+    def keepAlive(self):
+        # Send a NOOP
+        try:
+            self.session.noop()
+        # This can happen if there are still messages cached from the previous connection
+        except imaplib.IMAP4.abort:
+            pass
+
 class IMAPSRelayClient(IMAPRelayClient):
     PLUGIN_NAME = "IMAPS"
 

@@ -19,6 +19,7 @@ import os
 from struct import unpack
 from impacket import LOG
 from impacket.examples.ntlmrelayx.clients import ProtocolClient
+from impacket.examples.ntlmrelayx.servers.socksserver import KEEP_ALIVE_TIMER
 from impacket.nt_errors import STATUS_SUCCESS, STATUS_ACCESS_DENIED, STATUS_LOGON_FAILURE
 from impacket.ntlm import NTLMAuthNegotiate, NTLMSSP_NEGOTIATE_ALWAYS_SIGN, NTLMAuthChallenge
 from impacket.smb import SMB, NewSMBPacket, SMBCommand, SMBSessionSetupAndX_Extended_Parameters, \
@@ -124,6 +125,19 @@ class SMBRelayClient(ProtocolClient):
         self.machineAccount = None
         self.machineHashes = None
         self.sessionData = {}
+
+        self.keepAliveHits = 1
+
+    def keepAlive(self):
+        # SMB Keep Alive more or less every 5 minutes
+        if self.keepAliveHits >= (250 / KEEP_ALIVE_TIMER):
+            # Time to send a packet
+            # Just a tree connect / disconnect to avoid the session timeout
+            tid = self.session.connectTree('IPC$')
+            self.session.disconnectTree(tid)
+            self.keepAliveHits = 1
+        else:
+            self.keepAliveHits +=1
 
     def killConnection(self):
         if self.session is not None:
