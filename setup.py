@@ -5,7 +5,7 @@ import glob
 import os
 import platform
 
-from distutils.core import setup
+from setuptools import setup
 
 PACKAGE_NAME = "impacket"
 
@@ -35,4 +35,7 @@ setup(name = PACKAGE_NAME,
                     (os.path.join('share', 'doc', PACKAGE_NAME, 'testcases', 'ImpactPacket'),glob.glob('impacket/testcases/ImpactPacket/*')),
                     (os.path.join('share', 'doc', PACKAGE_NAME, 'testcases', 'SMB_RPC'),glob.glob('impacket/testcases/SMB_RPC/*'))],
       requires=setup_requires,
+      extras_require={
+                      'examples': ['ldapdomaindump', 'ldap3 (==2.4.1)']
+                    }
       )
