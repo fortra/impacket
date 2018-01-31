@@ -324,7 +324,7 @@ class IMAPAttack(Thread):
         self.client.logout()
 
 class MSSQLAttack(Thread):
-    def __init__(self, config, MSSQLClient):
+    def __init__(self, config, MSSQLClient, username):
         Thread.__init__(self)
         self.config = config
         self.client = MSSQLClient
@@ -399,7 +399,8 @@ class MiniShell(cmd.Cmd):
 if __name__ == '__main__':
 
     RELAY_SERVERS = ( SMBRelayServer, HTTPRelayServer )
-    ATTACKS = { 'SMB': SMBAttack, 'LDAP': LDAPAttack, 'HTTP': HTTPAttack, 'MSSQL': MSSQLAttack, 'IMAP': IMAPAttack}
+    ATTACKS = {'SMB': SMBAttack, 'LDAP': LDAPAttack, 'LDAPS': LDAPAttack, 'HTTP': HTTPAttack, 'HTTPS': HTTPAttack,
+               'MSSQL': MSSQLAttack, 'IMAP': IMAPAttack, 'IMAPS': IMAPAttack}
     # Init the example's logger theme
     logger.init()
     print version.BANNER

@@ -293,21 +293,13 @@ class HTTPRelayServer(Thread):
                 return
 
             # If SOCKS is not enabled, or not supported for this scheme, fall back to "classic" attacks
-            if self.target.scheme.upper() == 'MSSQL':
-                clientThread = self.server.config.attacks['MSSQL'](self.server.config, self.client.session)
+            if self.target.scheme.upper() in self.server.config.attacks:
+                # We have an attack.. go for it
+                clientThread = self.server.config.attacks[self.target.scheme.upper()](self.server.config, self.client.session,
+                                                                               self.authUser)
                 clientThread.start()
-            if self.target.scheme.upper() == 'SMB':
-                clientThread = self.server.config.attacks['SMB'](self.server.config, self.client.session, self.authUser)
-                clientThread.start()
-            if self.target.scheme.upper() == 'LDAP' or self.target.scheme.upper() == 'LDAPS':
-                clientThread = self.server.config.attacks['LDAP'](self.server.config, self.client.session, self.authUser)
-                clientThread.start()
-            if self.target.scheme.upper() == 'HTTP' or self.target.scheme.upper() == 'HTTPS':
-                clientThread = self.server.config.attacks['HTTP'](self.server.config, self.client.session, self.authUser)
-                clientThread.start()
-            if self.target.scheme.upper() == 'IMAP' or self.target.scheme.upper() == 'IMAPS':
-                clientThread = self.server.config.attacks['IMAP'](self.server.config, self.client.session, self.authUser)
-                clientThread.start()
+            else:
+                LOG.error('No attack configured for %s' % self.target.scheme.upper())
 
     def __init__(self, config):
         Thread.__init__(self)

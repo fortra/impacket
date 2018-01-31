@@ -338,7 +338,7 @@ class SMBRelayServer(Thread):
 
                 connData['Authenticated'] = True
 
-                self.do_attack(client, connData)
+                self.do_attack(client)
                 # Now continue with the server
             #############################################################
 
@@ -544,7 +544,7 @@ class SMBRelayServer(Thread):
 
                     del (smbData[self.target])
 
-                    self.do_attack(client, connData)
+                    self.do_attack(client)
                     # Now continue with the server
                 #############################################################
 
@@ -620,7 +620,7 @@ class SMBRelayServer(Thread):
 
                 del (smbData[self.target])
 
-                self.do_attack(client, connData)
+                self.do_attack(client)
                 # Now continue with the server
             #############################################################
 
@@ -647,7 +647,8 @@ class SMBRelayServer(Thread):
             client = self.config.protocolClients[self.target.scheme.upper()](self.config, self.target, extendedSecurity = extSec)
             client.initConnection()
         else:
-            LOG.error('Protocol Client for %s not found!' % self.target.scheme)
+            raise Exception('Protocol Client for %s not found!' % self.target.scheme)
+
 
         return client
 
@@ -661,7 +662,7 @@ class SMBRelayServer(Thread):
 
         return clientResponse, errorCode
 
-    def do_attack(self,client, connData=None):
+    def do_attack(self,client):
         #Do attack. Note that unlike the HTTP server, the config entries are stored in the current object and not in any of its properties
         # Check if SOCKS is enabled and if we support the target scheme
         if self.config.runSocks and self.target.scheme.upper() in self.config.socksServer.supportedSchemes:
@@ -671,21 +672,12 @@ class SMBRelayServer(Thread):
                 return
 
         # If SOCKS is not enabled, or not supported for this scheme, fall back to "classic" attacks
-        if self.target.scheme == 'MSSQL':
-            clientThread = self.config.attacks['MSSQL'](self.config, client.session, self.authUser)
+        if self.target.scheme.upper() in self.config.attacks:
+            # We have an attack.. go for it
+            clientThread = self.config.attacks[self.target.scheme.upper()](self.config, client.session, self.authUser)
             clientThread.start()
-        if self.target.scheme == 'SMB':
-            clientThread = self.config.attacks['SMB'](self.config, client.session, self.authUser)
-            clientThread.start()
-        if self.target.scheme.upper() == 'LDAP' or self.target.scheme.upper() == 'LDAPS':
-            clientThread = self.config.attacks['LDAP'](self.config, client.session, self.authUser)
-            clientThread.start()
-        if self.target.scheme.upper() == 'HTTP' or self.target.scheme.upper() == 'HTTPS':
-            clientThread = self.config.attacks['HTTP'](self.config, client.session, self.authUser)
-            clientThread.start()
-        if self.target.scheme.upper() == 'IMAP' or self.target.scheme.upper() == 'IMAPS':
-            clientThread = self.config.attacks['IMAP'](self.config, client.session, self.authUser)
-            clientThread.start()
+        else:
+            LOG.error('No attack configured for %s' % self.target.scheme.upper())
 
     def _start(self):
         self.server.daemon_threads=True
