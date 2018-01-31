@@ -88,5 +88,6 @@ class SMTPRelayClient(ProtocolClient):
         try:
             self.session.noop()
         # This can happen if there are still messages cached from the previous connection
-        except smtplib.SMTP.abort:
+        except smtplib.SMTPException, e:
+            LOG.debug('KeepAlive Error: %s' % str(e))
             pass
