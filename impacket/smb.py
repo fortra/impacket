@@ -2124,7 +2124,7 @@ class SMBOpen_Data(AsciiOrUnicodeStructure):
     )
     UnicodeStructure = (
         ('FileNameFormat','"\x04'),
-        ('FileName','z'),
+        ('FileName','u'),
     )
 
 class SMBOpenResponse_Parameters(SMBCommand_Parameters):
@@ -2806,9 +2806,6 @@ class SMB:
         openFile['Parameters']['SearchAttributes'] = ATTR_READONLY | ATTR_HIDDEN | ATTR_ARCHIVE
         openFile['Data']       = SMBOpen_Data(flags=self.__flags2)
         openFile['Data']['FileName'] = filename
-
-        if self.__flags2 & SMB.FLAGS2_UNICODE:
-            openFile['Data']['Pad'] = 0x0
 
         smb.addCommand(openFile)
 
