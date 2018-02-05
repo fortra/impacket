@@ -330,8 +330,19 @@ class ENCODED_VALUE(Structure):
                     value = 'True'
                 else:
                     value = 'False'
+            elif pType == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value:
+                # If the value type is CIM-TYPE-OBJECT, the EncodedValue is a HeapRef to the object encoded as an
+                # ObjectEncodingLength (section 2.2.4) followed by an ObjectBlock (section 2.2.5).
+
+                # ToDo: This is a hack.. We should parse this better. We need to have an ENCODING_UNIT.
+                # I'm going thru a METHOD_SIGNATURE_BLOCK first just to parse the ObjectBlock
+                msb = METHOD_SIGNATURE_BLOCK(heapData)
+                unit = ENCODING_UNIT()
+                unit['ObjectEncodingLength'] = msb['EncodingLength']
+                unit['ObjectBlock'] = msb['ObjectBlock']
+                value = unit
             elif pType not in (CIM_TYPE_ENUM.CIM_TYPE_STRING.value, CIM_TYPE_ENUM.CIM_TYPE_DATETIME.value,
-                               CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value, CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value):
+                               CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value):
                 value = entry
             else:
                 value = ENCODED_STRING(heapData)['Character']
@@ -2521,7 +2532,20 @@ class IWbemClassObject(IRemUnknown):
 
     def createProperties(self, properties):
         for property in properties:
-            setattr(self, property, properties[property]['value'])
+            # Do we have an object property?
+            if properties[property]['type'] == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value:
+                # Yes.. let's create an Object for it too
+                objRef = OBJREF_CUSTOM()
+                objRef['iid'] = self._iid
+                objRef['clsid'] = CLSID_WbemClassObject
+                objRef['cbExtension'] = 0
+                objRef['ObjectReferenceSize'] = len(str(properties[property]['value']))
+                objRef['pObjectData'] = properties[property]['value']
+                value = IWbemClassObject( INTERFACE(self.get_cinstance(), objRef.getData(), self.get_ipidRemUnknown(),
+                      oxid=self.get_oxid(), target=self.get_target()))
+            else:
+                value = properties[property]['value']
+            setattr(self, property, value)
 
     def createMethods(self, classOrInstance, methods):
         class FunctionPool:
