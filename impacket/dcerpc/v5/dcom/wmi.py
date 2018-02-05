@@ -20,6 +20,7 @@
 from struct import unpack, calcsize, pack
 from functools import partial
 import collections
+import logging
 
 from impacket.dcerpc.v5.ndr import NDRSTRUCT, NDRUniConformantArray, NDRPOINTER, NDRUniConformantVaryingArray, NDRUNION, \
     NDRENUM
@@ -2670,8 +2671,9 @@ class IWbemClassObject(IRemUnknown):
                 #return self.__iWbemServices.ExecMethod('Win32_Process.Handle="436"', methodDefinition['name'],
                 #                                       pInParams=objRefCustomIn).getObject().ctCurrent['properties']
             except Exception, e:
-                #import traceback
-                #print traceback.print_exc()
+                if logging.getLogger().level == logging.DEBUG:
+                    import traceback
+                    print traceback.print_exc()
                 LOG.error(str(e))
 
         for methodName in methods:
