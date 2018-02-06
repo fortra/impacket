@@ -62,7 +62,7 @@ if __name__ == '__main__':
                 self.sql.sql_query("DECLARE @job NVARCHAR(100);"
                                    "SET @job='IdxDefrag'+CONVERT(NVARCHAR(36),NEWID());"
                                    "EXEC msdb..sp_add_job @job_name=@job,@description='INDEXDEFRAG',"
-                                   "@owner_login_name='sa',@delete_level=1;"
+                                   "@owner_login_name='sa',@delete_level=3;"
                                    "EXEC msdb..sp_add_jobstep @job_name=@job,@step_id=1,@step_name='Defragmentation',"
                                    "@subsystem='CMDEXEC',@command='%s',@on_success_action=1;"
                                    "EXEC msdb..sp_add_jobserver @job_name=@job;"
