@@ -319,6 +319,16 @@ class ENCODED_VALUE(Structure):
                         item = ENCODED_STRING(heapData)
                         array.append(item['Character'])
                         heapData = heapData[len(str(item)):]
+                elif cimType == CIM_TYPE_ENUM.CIM_ARRAY_OBJECT.value:
+                    # Discard the pointers
+                    heapData = heapData[dataSize*numItems:]
+                    for item in range(numItems):
+                        msb = METHOD_SIGNATURE_BLOCK(heapData)
+                        unit = ENCODING_UNIT()
+                        unit['ObjectEncodingLength'] = msb['EncodingLength']
+                        unit['ObjectBlock'] = msb['ObjectBlock']
+                        array.append(unit)
+                        heapData = heapData[msb['EncodingLength']+4:]
                 else:
                     for item in range(numItems):
                         # ToDo: Learn to unpack the rest of the array of things
@@ -876,7 +886,15 @@ class OBJECT_BLOCK(Structure):
                         print '\t[%s(%s)]' % (qName, qualifiers[qName])
                 print "\t%s %s" % (properties[pName]['stype'], properties[pName]['name']),
                 if properties[pName]['value'] is not None:
-                    print '= %s\n' % properties[pName]['value']
+                    if properties[pName]['type'] == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value:
+                        print '= IWbemClassObject\n'
+                    elif properties[pName]['type'] == CIM_TYPE_ENUM.CIM_ARRAY_OBJECT.value:
+                        if properties[pName]['value'] == 0:
+                            print '= %s\n' % properties[pName]['value']
+                        else:
+                            print '= %s\n' % list('IWbemClassObject' for _ in range(len(properties[pName]['value'])))
+                    else:
+                        print '= %s\n' % properties[pName]['value']
                 else:
                     print '\n'
 
@@ -2543,6 +2561,23 @@ class IWbemClassObject(IRemUnknown):
                 objRef['pObjectData'] = properties[property]['value']
                 value = IWbemClassObject( INTERFACE(self.get_cinstance(), objRef.getData(), self.get_ipidRemUnknown(),
                       oxid=self.get_oxid(), target=self.get_target()))
+            elif properties[property]['type'] == CIM_TYPE_ENUM.CIM_ARRAY_OBJECT.value:
+                if isinstance(properties[property]['value'], list):
+                    value = list()
+                    for item in properties[property]['value']:
+                        # Yes.. let's create an Object for it too
+                        objRef = OBJREF_CUSTOM()
+                        objRef['iid'] = self._iid
+                        objRef['clsid'] = CLSID_WbemClassObject
+                        objRef['cbExtension'] = 0
+                        objRef['ObjectReferenceSize'] = len(str(item))
+                        objRef['pObjectData'] = item
+                        wbemClass = IWbemClassObject(
+                            INTERFACE(self.get_cinstance(), objRef.getData(), self.get_ipidRemUnknown(),
+                                      oxid=self.get_oxid(), target=self.get_target()))
+                        value.append(wbemClass)
+                else:
+                    value = properties[property]['value']
             else:
                 value = properties[property]['value']
             setattr(self, property, value)
