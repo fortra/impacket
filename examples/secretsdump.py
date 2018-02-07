@@ -85,6 +85,7 @@ class DumpSecrets:
         self.__justUser = options.just_dc_user
         self.__pwdLastSet = options.pwd_last_set
         self.__printUserStatus= options.user_status
+        self.__printEnabledUsers = options.only_enabled
         self.__resumeFileName = options.resumefile
         self.__canProcessSAMLSA = True
         self.__kdcHost = options.dc_ip
@@ -193,7 +194,7 @@ class DumpSecrets:
                                            useVSSMethod=self.__useVSSMethod, justNTLM=self.__justDCNTLM,
                                            pwdLastSet=self.__pwdLastSet, resumeSession=self.__resumeFileName,
                                            outputFileName=self.__outputFileName, justUser=self.__justUser,
-                                           printUserStatus= self.__printUserStatus)
+                                           printUserStatus= self.__printUserStatus, printEnabledUsers= self.__printEnabledUsers)
             try:
                 self.__NTDSHashes.dump()
             except Exception, e:
@@ -295,6 +296,8 @@ if __name__ == '__main__':
                        help='Shows pwdLastSet attribute for each NTDS.DIT account. Doesn\'t apply to -outputfile data')
     group.add_argument('-user-status', action='store_true', default=False,
                         help='Display whether or not the user is disabled')
+    group.add_argument('-only-enabled', action='store_true', default=False,
+                        help='Display enabled users only')
     group.add_argument('-history', action='store_true', help='Dump password history, and LSA secrets OldVal')
     group = parser.add_argument_group('authentication')
 
