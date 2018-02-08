@@ -1122,6 +1122,14 @@ class VALIDATE_NEGOTIATE_INFO(Structure):
         ('Dialects','<H*<H'),
     )
 
+class VALIDATE_NEGOTIATE_INFO_RESPONSE(Structure):
+    structure = (
+        ('Capabilities','<L=0'),
+        ('Guid','16s=""'),
+        ('SecurityMode','<H=0'),
+        ('Dialect','<H'),
+    )
+
 class SRV_SNAPSHOT_ARRAY(Structure):
     structure = (
         ('NumberOfSnapShots','<L=0'),

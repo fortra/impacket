@@ -20,6 +20,7 @@
 from struct import unpack, calcsize, pack
 from functools import partial
 import collections
+import logging
 
 from impacket.dcerpc.v5.ndr import NDRSTRUCT, NDRUniConformantArray, NDRPOINTER, NDRUniConformantVaryingArray, NDRUNION, \
     NDRENUM
@@ -318,6 +319,16 @@ class ENCODED_VALUE(Structure):
                         item = ENCODED_STRING(heapData)
                         array.append(item['Character'])
                         heapData = heapData[len(str(item)):]
+                elif cimType == CIM_TYPE_ENUM.CIM_ARRAY_OBJECT.value:
+                    # Discard the pointers
+                    heapData = heapData[dataSize*numItems:]
+                    for item in range(numItems):
+                        msb = METHOD_SIGNATURE_BLOCK(heapData)
+                        unit = ENCODING_UNIT()
+                        unit['ObjectEncodingLength'] = msb['EncodingLength']
+                        unit['ObjectBlock'] = msb['ObjectBlock']
+                        array.append(unit)
+                        heapData = heapData[msb['EncodingLength']+4:]
                 else:
                     for item in range(numItems):
                         # ToDo: Learn to unpack the rest of the array of things
@@ -329,8 +340,19 @@ class ENCODED_VALUE(Structure):
                     value = 'True'
                 else:
                     value = 'False'
+            elif pType == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value:
+                # If the value type is CIM-TYPE-OBJECT, the EncodedValue is a HeapRef to the object encoded as an
+                # ObjectEncodingLength (section 2.2.4) followed by an ObjectBlock (section 2.2.5).
+
+                # ToDo: This is a hack.. We should parse this better. We need to have an ENCODING_UNIT.
+                # I'm going thru a METHOD_SIGNATURE_BLOCK first just to parse the ObjectBlock
+                msb = METHOD_SIGNATURE_BLOCK(heapData)
+                unit = ENCODING_UNIT()
+                unit['ObjectEncodingLength'] = msb['EncodingLength']
+                unit['ObjectBlock'] = msb['ObjectBlock']
+                value = unit
             elif pType not in (CIM_TYPE_ENUM.CIM_TYPE_STRING.value, CIM_TYPE_ENUM.CIM_TYPE_DATETIME.value,
-                               CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value, CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value):
+                               CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value):
                 value = entry
             else:
                 value = ENCODED_STRING(heapData)['Character']
@@ -864,7 +886,15 @@ class OBJECT_BLOCK(Structure):
                         print '\t[%s(%s)]' % (qName, qualifiers[qName])
                 print "\t%s %s" % (properties[pName]['stype'], properties[pName]['name']),
                 if properties[pName]['value'] is not None:
-                    print '= %s\n' % properties[pName]['value']
+                    if properties[pName]['type'] == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value:
+                        print '= IWbemClassObject\n'
+                    elif properties[pName]['type'] == CIM_TYPE_ENUM.CIM_ARRAY_OBJECT.value:
+                        if properties[pName]['value'] == 0:
+                            print '= %s\n' % properties[pName]['value']
+                        else:
+                            print '= %s\n' % list('IWbemClassObject' for _ in range(len(properties[pName]['value'])))
+                    else:
+                        print '= %s\n' % properties[pName]['value']
                 else:
                     print '\n'
 
@@ -2520,7 +2550,37 @@ class IWbemClassObject(IRemUnknown):
 
     def createProperties(self, properties):
         for property in properties:
-            setattr(self, property, properties[property]['value'])
+            # Do we have an object property?
+            if properties[property]['type'] == CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value:
+                # Yes.. let's create an Object for it too
+                objRef = OBJREF_CUSTOM()
+                objRef['iid'] = self._iid
+                objRef['clsid'] = CLSID_WbemClassObject
+                objRef['cbExtension'] = 0
+                objRef['ObjectReferenceSize'] = len(str(properties[property]['value']))
+                objRef['pObjectData'] = properties[property]['value']
+                value = IWbemClassObject( INTERFACE(self.get_cinstance(), objRef.getData(), self.get_ipidRemUnknown(),
+                      oxid=self.get_oxid(), target=self.get_target()))
+            elif properties[property]['type'] == CIM_TYPE_ENUM.CIM_ARRAY_OBJECT.value:
+                if isinstance(properties[property]['value'], list):
+                    value = list()
+                    for item in properties[property]['value']:
+                        # Yes.. let's create an Object for it too
+                        objRef = OBJREF_CUSTOM()
+                        objRef['iid'] = self._iid
+                        objRef['clsid'] = CLSID_WbemClassObject
+                        objRef['cbExtension'] = 0
+                        objRef['ObjectReferenceSize'] = len(str(item))
+                        objRef['pObjectData'] = item
+                        wbemClass = IWbemClassObject(
+                            INTERFACE(self.get_cinstance(), objRef.getData(), self.get_ipidRemUnknown(),
+                                      oxid=self.get_oxid(), target=self.get_target()))
+                        value.append(wbemClass)
+                else:
+                    value = properties[property]['value']
+            else:
+                value = properties[property]['value']
+            setattr(self, property, value)
 
     def createMethods(self, classOrInstance, methods):
         class FunctionPool:
@@ -2670,8 +2730,9 @@ class IWbemClassObject(IRemUnknown):
                 #return self.__iWbemServices.ExecMethod('Win32_Process.Handle="436"', methodDefinition['name'],
                 #                                       pInParams=objRefCustomIn).getObject().ctCurrent['properties']
             except Exception, e:
-                #import traceback
-                #print traceback.print_exc()
+                if logging.getLogger().level == logging.DEBUG:
+                    import traceback
+                    print traceback.print_exc()
                 LOG.error(str(e))
 
         for methodName in methods:

@@ -46,6 +46,7 @@ from binascii import a2b_hex
 import datetime
 from struct import pack, unpack
 from contextlib import contextmanager
+from pyasn1.type.univ import noValue
 
 from impacket import nmb, ntlm, nt_errors, LOG
 from impacket.structure import Structure
@@ -1413,9 +1414,16 @@ class SMBSessionSetupAndX_Extended_Response_Data(AsciiOrUnicodeStructure):
     UnicodeStructure = (
         ('SecurityBlobLength','_-SecurityBlob','self["SecurityBlobLength"]'),
         ('SecurityBlob',':'),
+        ('PadLen','_-Pad','1 if (len(self["SecurityBlob"]) % 2 == 0) else 0'),
+        ('Pad',':=""'),
         ('NativeOS','u=""'),
         ('NativeLanMan','u=""'),
     )
+    def getData(self):
+        if self.structure == self.UnicodeStructure:
+            if len(str(self['SecurityBlob'])) % 2 == 0:
+                self['Pad'] = '\x00'
+        return AsciiOrUnicodeStructure.getData(self)
 
 ############# SMB_COM_TREE_CONNECT (0x70)
 class SMBTreeConnect_Parameters(SMBCommand_Parameters):
@@ -2116,7 +2124,7 @@ class SMBOpen_Data(AsciiOrUnicodeStructure):
     )
     UnicodeStructure = (
         ('FileNameFormat','"\x04'),
-        ('FileName','z'),
+        ('FileName','u'),
     )
 
 class SMBOpenResponse_Parameters(SMBCommand_Parameters):
@@ -2799,9 +2807,6 @@ class SMB:
         openFile['Data']       = SMBOpen_Data(flags=self.__flags2)
         openFile['Data']['FileName'] = filename
 
-        if self.__flags2 & SMB.FLAGS2_UNICODE:
-            openFile['Data']['Pad'] = 0x0
-
         smb.addCommand(openFile)
 
         self.sendSMB(smb)
@@ -3141,7 +3146,7 @@ class SMB:
         # (Section 5.5.1)
         encryptedEncodedAuthenticator = cipher.encrypt(sessionKey, 11, encodedAuthenticator, None)
 
-        apReq['authenticator'] = None
+        apReq['authenticator'] = noValue
         apReq['authenticator']['etype'] = cipher.enctype
         apReq['authenticator']['cipher'] = encryptedEncodedAuthenticator
 

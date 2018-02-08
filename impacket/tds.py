@@ -671,6 +671,7 @@ class MSSQL:
         from impacket.krb5 import constants
         from impacket.krb5.types import Principal, KerberosTime, Ticket
         from pyasn1.codec.der import decoder, encoder
+        from pyasn1.type.univ import noValue
         from impacket.krb5.ccache import CCache
         import os
         import datetime
@@ -688,20 +689,40 @@ class MSSQL:
                     LOG.debug('Domain retrieved from CCache: %s' % domain)
 
                 LOG.debug("Using Kerberos Cache: %s" % os.getenv('KRB5CCNAME'))
-                principal = 'MSSQLSvc/%s.%s:%d' % (self.server, domain, self.port)
+                principal = 'MSSQLSvc/%s.%s:%d@%s' % (self.server.split('.')[0], domain, self.port, domain.upper())
                 creds = ccache.getCredential(principal)
-                if creds is None:
-                    # Let's try for the TGT and go from there
-                    principal = 'krbtgt/%s@%s' % (domain.upper(),domain.upper())
-                    creds =  ccache.getCredential(principal)
-                    if creds is not None:
-                        TGT = creds.toTGT()
-                        LOG.debug('Using TGT from cache')
-                    else:
-                        LOG.debug("No valid credentials found in cache. ")
-                else:
+
+                if creds is not None:
                     TGS = creds.toTGS(principal)
                     LOG.debug('Using TGS from cache')
+                else:
+                    # search for the port's instance name instead (instance name based SPN)
+                    LOG.debug('Searching target\'s instances to look for port number %s' % self.port)
+                    instances = self.getInstances()
+                    instanceName = None
+                    for i in instances:
+                        try:
+                            if string.atoi(i['tcp']) == self.port:
+                                instanceName = i['InstanceName']
+                        except:
+                            pass
+
+                    if instanceName:
+                        principal = 'MSSQLSvc/%s.%s:%s@%s' % (self.server, domain, instanceName, domain.upper())
+                        creds = ccache.getCredential(principal)
+
+                    if creds is not None:
+                        TGS = creds.toTGS(principal)
+                        LOG.debug('Using TGS from cache')
+                    else:
+                        # Let's try for the TGT and go from there
+                        principal = 'krbtgt/%s@%s' % (domain.upper(),domain.upper())
+                        creds =  ccache.getCredential(principal)
+                        if creds is not None:
+                            TGT = creds.toTGT()
+                            LOG.debug('Using TGT from cache')
+                        else:
+                            LOG.debug("No valid credentials found in cache. ")
 
                 # retrieve user information from CCache file if needed
                 if username == '' and creds is not None:
@@ -750,7 +771,7 @@ class MSSQL:
                 #         FQDN is the fully qualified domain name of the server.
                 #         port is the TCP port number.
                 #         instancename is the name of the SQL Server instance.
-                serverName = Principal('MSSQLSvc/%s.%s:%d' % (self.server, domain, self.port), type=constants.PrincipalNameType.NT_SRV_INST.value)
+                serverName = Principal('MSSQLSvc/%s.%s:%d' % (self.server.split('.')[0], domain, self.port), type=constants.PrincipalNameType.NT_SRV_INST.value)
                 try:
                     tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey)
                 except KerberosError, e:
@@ -814,7 +835,7 @@ class MSSQL:
         # (Section 5.5.1)
         encryptedEncodedAuthenticator = cipher.encrypt(sessionKey, 11, encodedAuthenticator, None)
 
-        apReq['authenticator'] = None
+        apReq['authenticator'] = noValue
         apReq['authenticator']['etype'] = cipher.enctype
         apReq['authenticator']['cipher'] = encryptedEncodedAuthenticator
 

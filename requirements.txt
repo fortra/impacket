@@ -1,0 +1,4 @@
+ldap3==2.2.3
+pyasn1>=0.2.3
+pycrypto>=2.6.1
+pyOpenSSL>=0.13.1

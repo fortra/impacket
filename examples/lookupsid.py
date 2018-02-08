@@ -95,6 +95,8 @@ class LSALookupSid:
             resp = lsad.hLsarQueryInformationPolicy2(dce, policyHandle, lsad.POLICY_INFORMATION_CLASS.PolicyAccountDomainInformation)
             domainSid = resp['PolicyInformation']['PolicyAccountDomainInfo']['DomainSid'].formatCanonical()
 
+        logging.info('Domain SID is: %s' % domainSid)
+
         soFar = 0
         SIMULTANEOUS = 1000
         for j in range(maxRid/SIMULTANEOUS+1):

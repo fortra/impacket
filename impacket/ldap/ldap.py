@@ -25,6 +25,7 @@ from binascii import unhexlify
 
 from pyasn1.codec.ber import encoder, decoder
 from pyasn1.error import SubstrateUnderrunError
+from pyasn1.type.univ import noValue
 
 from impacket import LOG
 from impacket.ldap.ldapasn1 import *
@@ -251,7 +252,7 @@ class LDAPConnection:
         # (Section 5.5.1)
         encryptedEncodedAuthenticator = cipher.encrypt(sessionKey, 11, encodedAuthenticator, None)
 
-        apReq['authenticator'] = None
+        apReq['authenticator'] = noValue
         apReq['authenticator']['etype'] = cipher.enctype
         apReq['authenticator']['cipher'] = encryptedEncodedAuthenticator
 

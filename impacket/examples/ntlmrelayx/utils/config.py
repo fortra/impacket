@@ -11,11 +11,16 @@
 #  Dirk-jan Mollema / Fox-IT (https://www.fox-it.com)
 #
 # Description:
-#     Configuration class which holds the config specified on the 
+#     Configuration class which holds the config specified on the
 # command line, this can be passed to the tools' servers and clients
 class NTLMRelayxConfig:
     def __init__(self):
+
         self.daemon = True
+
+        # Set the value of the interface ip address
+        self.interfaceIp = None
+
         self.domainIp = None
         self.machineAccount = None
         self.machineHashes = None
@@ -27,11 +32,19 @@ class NTLMRelayxConfig:
         self.lootdir = None
         self.randomtargets = False
         self.encoding = None
+        self.ipv6 = False
+
+        #WPAD options
+        self.serve_wpad = False
+        self.wpad_host = None
+        self.wpad_auth_num = 0
+        self.smb2support = False
 
         #SMB options
         self.exeFile = None
         self.command = None
         self.interactive = False
+        self.runSocks = False
 
         #LDAP options
         self.dumpdomain = True
@@ -39,6 +52,12 @@ class NTLMRelayxConfig:
 
         #MSSQL options
         self.queries = []
+
+    def setInterfaceIp(self, ip):
+        self.interfaceIp = ip
+
+    def setRunSocks(self, socks):
+        self.runSocks = socks
 
     def setOutputFile(self,outputFile):
         self.outputFile = outputFile
@@ -90,3 +109,12 @@ class NTLMRelayxConfig:
         self.mailbox = mailbox
         self.dump_all = dump_all
         self.dump_max = dump_max
+
+    def setIPv6(self, use_ipv6):
+        self.ipv6 = use_ipv6
+
+    def setWpadOptions(self, wpad_host, wpad_auth_num):
+        if wpad_host != None:
+            self.serve_wpad = True
+        self.wpad_host = wpad_host
+        self.wpad_auth_num = wpad_auth_num

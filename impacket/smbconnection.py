@@ -127,7 +127,7 @@ class SMBConnection:
                 self._SMBConnection = smb3.SMB3(self._remoteName, self._remoteHost, self._myName, hostType,
                                                 self._sess_port, self._timeout, preferredDialect=preferredDialect)
             else:
-                LOG.critical("Unknown dialect ", preferredDialect)
+                LOG.critical("Unknown dialect %s", preferredDialect)
                 raise
 
         # propagate flags to the smb sub-object

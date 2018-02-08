@@ -191,15 +191,15 @@ class DRSRTests(unittest.TestCase):
         resp = drsuapi.hDRSCrackNames(dce, hDrs, 0, formatOffered, formatDesired, (name,))
         resp.dump()
 
-        name = 'CN=NTDS Settings,CN=FREEFLY-DC,CN=Servers,CN=Default-First-Site-Name,CN=Sites,CN=Configuration,DC=FREEFLY,DC=NET'
+        name = 'CN=NTDS Settings,CN=DC1-WIN2012,CN=Servers,CN=Default-First-Site-Name,CN=Sites,CN=Configuration,DC=%s,DC=%s' % (self.domain.split('.')[0],self.domain.split('.')[1])
         resp = drsuapi.hDRSCrackNames(dce, hDrs, 0, drsuapi.DS_NAME_FORMAT.DS_FQDN_1779_NAME, drsuapi.DS_NAME_FORMAT.DS_UNIQUE_ID_NAME, (name,))
         resp.dump()
 
-        name = 'CN=NTDS Settings,CN=FREEFLY-DC,CN=Servers,CN=Default-First-Site-Name,CN=Sites,CN=Configuration,DC=FREEFLY,DC=NET'
+        name = 'CN=NTDS Settings,CN=DC1-WIN2012,CN=Servers,CN=Default-First-Site-Name,CN=Sites,CN=Configuration,DC=%s,DC=%s' % (self.domain.split('.')[0],self.domain.split('.')[1])
         resp = drsuapi.hDRSCrackNames(dce, hDrs, 0, drsuapi.DS_NAME_FORMAT.DS_FQDN_1779_NAME, drsuapi.DS_STRING_SID_NAME, (name,))
         resp.dump()
 
-        name = 'FREEFLY.NET'
+        name = self.domain.upper()
         #name = ''
         resp = drsuapi.hDRSCrackNames(dce, hDrs, 0, drsuapi.DS_LIST_ROLES, drsuapi.DS_NAME_FORMAT.DS_FQDN_1779_NAME, (name,))
         resp.dump()
@@ -240,7 +240,7 @@ class DRSRTests(unittest.TestCase):
         dsName['SidLen'] = 0
         dsName['Guid'] = drsuapi.NULLGUID
         dsName['Sid'] = ''
-        name = 'DC=FREEFLY,DC=NET'
+        name = 'DC=%s,DC=%s' % (self.domain.split('.')[0],self.domain.split('.')[1])
 
         dsName['NameLen'] = len(name)
         dsName['StringName'] = (name + '\x00')
@@ -268,7 +268,7 @@ class DRSRTests(unittest.TestCase):
         dsName['SidLen'] = 0
         dsName['Guid'] = drsuapi.NULLGUID
         dsName['Sid'] = ''
-        name = 'DC=FREEFLY,DC=NET'
+        name = 'DC=%s,DC=%s' % (self.domain.split('.')[0],self.domain.split('.')[1])
         dsName['NameLen'] = len(name)
         dsName['StringName'] = (name + '\x00')
 
@@ -368,7 +368,7 @@ class DRSRTests(unittest.TestCase):
         dsName['Guid'] = drsuapi.NULLGUID
         dsName['Sid'] = ''
 
-        name = 'CN=Schema,CN=Configuration,DC=FREEFLY,DC=NET'
+        name = 'CN=Schema,CN=Configuration,DC=%s,DC=%s' % (self.domain.split('.')[0],self.domain.split('.')[1])
         dsName['NameLen'] = len(name)
         dsName['StringName'] = (name + '\x00')
 
@@ -400,7 +400,7 @@ class DRSRTests(unittest.TestCase):
         dsName['Guid'] = drsuapi.NULLGUID
         dsName['Sid'] = ''
 
-        name = 'DC=FREEFLY,DC=NET'
+        name = 'DC=%s,DC=%s' % (self.domain.split('.')[0],self.domain.split('.')[1])
         dsName['NameLen'] = len(name)
         dsName['StringName'] = (name + '\x00')
 
@@ -418,7 +418,7 @@ class DRSRTests(unittest.TestCase):
         dsName['Guid'] = drsuapi.NULLGUID
         dsName['Sid'] = ''
 
-        name = 'CN=Configuration,DC=FREEFLY,DC=NET'
+        name = 'CN=Configuration,DC=%s,DC=%s' % (self.domain.split('.')[0],self.domain.split('.')[1])
         dsName['NameLen'] = len(name)
         dsName['StringName'] = (name + '\x00')
 

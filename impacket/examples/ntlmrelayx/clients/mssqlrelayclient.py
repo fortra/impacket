@@ -39,7 +39,7 @@ class MSSQLRelayClient(tds.MSSQL):
 
             # Switching to TLS now
             ctx = SSL.Context(SSL.TLSv1_METHOD)
-            ctx.set_cipher_list('RC4')
+            ctx.set_cipher_list('RC4, AES256')
             tls = SSL.Connection(ctx,None)
             tls.set_connect_state()
             while True:

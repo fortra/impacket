@@ -19,3 +19,4 @@ python test_ndr.py
 python test_drsuapi.py
 python test_wmi.py
 python test_dcomrt.py
+python test_even6.py

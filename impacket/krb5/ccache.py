@@ -18,6 +18,7 @@ from datetime import datetime
 from struct import pack, unpack, calcsize
 
 from pyasn1.codec.der import decoder, encoder
+from pyasn1.type.univ import noValue
 from binascii import hexlify
 
 from impacket.structure import Structure
@@ -252,8 +253,8 @@ class Credential:
         tgt_rep['crealm'] = self['server'].realm['data']
 
         # Fake EncryptedData
-        tgt_rep['enc-part'] = None
-        tgt_rep['enc-part']['etype'] = 1 
+        tgt_rep['enc-part'] = noValue
+        tgt_rep['enc-part']['etype'] = 1
         tgt_rep['enc-part']['cipher'] = '' 
         seq_set(tgt_rep, 'cname', self['client'].toPrincipal().components_to_asn1)
         ticket = types.Ticket()
@@ -275,8 +276,8 @@ class Credential:
         tgs_rep['crealm'] = self['server'].realm['data']
 
         # Fake EncryptedData
-        tgs_rep['enc-part'] = None
-        tgs_rep['enc-part']['etype'] = 1 
+        tgs_rep['enc-part'] = noValue
+        tgs_rep['enc-part']['etype'] = 1
         tgs_rep['enc-part']['cipher'] = '' 
         seq_set(tgs_rep, 'cname', self['client'].toPrincipal().components_to_asn1)
         ticket = types.Ticket()
@@ -343,17 +344,22 @@ class CCache:
 
     def getCredential(self, server, anySPN=True):
         for c in self.credentials:
-            if c['server'].prettyPrint().upper() == server.upper():
+            if c['server'].prettyPrint().upper() == server.upper() or c['server'].prettyPrint().upper().split('@')[0] == server.upper():
                 LOG.debug('Returning cached credential for %s' % c['server'].prettyPrint().upper())
                 return c
         LOG.debug('SPN %s not found in cache' % server.upper())
         if anySPN is True:
             LOG.debug('AnySPN is True, looking for another suitable SPN')
             for c in self.credentials:
-                # Let's search for any TGT/TGS that matches the server w/o the SPN's service type, returns
+                # Let's search for any TGT/TGS that matches the server w/o the SPN's service type/port, returns
                 # the first one
                 if c['server'].prettyPrint().find('/') >=0:
-                    if c['server'].prettyPrint().upper().split('/')[1] == server.upper().split('/')[1]:
+                    # Let's take the port out for comparison
+                    cachedSPN = '%s@%s'  % (c['server'].prettyPrint().upper().split('/')[1].split('@')[0].split(':')[0],
+                                               c['server'].prettyPrint().upper().split('/')[1].split('@')[1])
+                    searchSPN = '%s@%s' % (server.upper().split('/')[1].split('@')[0].split(':')[0],
+                                               server.upper().split('/')[1].split('@')[1])
+                    if cachedSPN == searchSPN:
                         LOG.debug('Returning cached credential for %s' % c['server'].prettyPrint().upper())
                         return c
 

