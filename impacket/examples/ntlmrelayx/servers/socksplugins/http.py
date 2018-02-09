@@ -132,24 +132,27 @@ class HTTPSocksRelay(SocksRelay):
 
     def transferChunked(self, data, headers):
         headerSize = data.find(EOL+EOL)
-        body = data[headerSize+4:]
+
+        self.socksSocket.send(data[:headerSize + 4])
+
+        body = data[headerSize + 4:]
         # Size of the chunk
         datasize = int(body[:body.find(EOL)], 16)
         while datasize > 0:
             # Size of the total body
-            bodySize = datasize + body.find(EOL) + 4
-            readSize = len(data)
+            bodySize = body.find(EOL) + 2 + datasize + 2
+            readSize = len(body)
             # Make sure we send the entire response, but don't keep it in memory
-            self.socksSocket.send(data)
-            while readSize < bodySize + headerSize + 4:
-                maxReadSize = bodySize + headerSize + 4 - readsize
-                data = self.relaySocket.recv(min(self.packetSize, maxReadSize))
-                readSize += len(data)
-                self.socksSocket.send(data)
-            data = self.relaySocket.recv(self.packetSize)
-            datasize = int(data[:data.find(EOL)], 16)
+            self.socksSocket.send(body)
+            while readSize < bodySize:
+                maxReadSize = bodySize - readSize
+                body = self.relaySocket.recv(min(self.packetSize, maxReadSize))
+                readSize += len(body)
+                self.socksSocket.send(body)
+            body = self.relaySocket.recv(self.packetSize)
+            datasize = int(body[:body.find(EOL)], 16)
         LOG.debug('Last chunk received - exiting chunked transfer')
-        self.socksSocket.send(data)
+        self.socksSocket.send(body)
 
     def prepareRequest(self, data):
         # Parse the HTTP data, removing headers that break stuff
