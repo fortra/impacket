@@ -4,15 +4,20 @@
 import glob
 import os
 import platform
+import sys
 
 from distutils.core import setup
 
 PACKAGE_NAME = "impacket"
 
-setup_requires = ['pycrypto (>=2.6)', 'pyasn1 (>=0.2.3)']
+with open('requirements.txt') as file_requirements:
+    requirements = file_requirements.read().splitlines()
 
 if platform.system() == 'Windows':
-    setup_requires.append('pyreadline')
+    requirements.append('pyreadline')
+
+if sys.version_info[:2] < (2, 7):
+    requirements.append('argparse')
 
 setup(name = PACKAGE_NAME,
       version = "0.9.16-dev",
@@ -34,5 +39,5 @@ setup(name = PACKAGE_NAME,
                     (os.path.join('share', 'doc', PACKAGE_NAME, 'testcases', 'dot11'),glob.glob('impacket/testcases/dot11/*')),
                     (os.path.join('share', 'doc', PACKAGE_NAME, 'testcases', 'ImpactPacket'),glob.glob('impacket/testcases/ImpactPacket/*')),
                     (os.path.join('share', 'doc', PACKAGE_NAME, 'testcases', 'SMB_RPC'),glob.glob('impacket/testcases/SMB_RPC/*'))],
-      requires=setup_requires,
+      install_requires=requirements
       )

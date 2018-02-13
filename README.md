@@ -37,8 +37,7 @@ Setup
 Quick start
 -----------
 
-Grab the latest stable release, unpack it and run `python setup.py
-install` from the directory where you placed it. Isn't that easy?
+Grab the latest stable release, unpack it and run `pip install .` from the directory where you placed it. Isn't that easy?
 
 
 Requirements
@@ -58,12 +57,10 @@ Installing
 ----------
 
 In order to install the source execute the following command from the
-directory where the Impacket's distribution has been unpacked: `python
-setup.py install`. This will install the classes into the default
+directory where the Impacket's distribution has been unpacked: `pip install .`
+This will install the classes into the default
 Python modules path; note that you might need special permissions to
-write there. For more information on what commands and options are
-available from setup.py, run `python setup.py --help-commands`.
-
+write there.
 
 Licensing
 =========
