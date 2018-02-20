@@ -47,6 +47,7 @@ from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS
 from impacket.krb5.types import Principal
 from impacket.ldap import ldap, ldapasn1
 from impacket.smbconnection import SMBConnection
+from impacket.ntlm import compute_lmhash, compute_nthash
 
 
 class GetUserSPNs:
@@ -101,9 +102,10 @@ class GetUserSPNs:
         try:
             s.login('', '')
         except Exception:
-            logging.debug('Error while anonymous logging into %s' % self.__domain)
-
-        s.logoff()
+            if s.getServerName() == '':
+                raise('Error while anonymous logging into %s' % self.__domain)
+        else:
+            s.logoff()
         return s.getServerName()
 
     @staticmethod
@@ -136,7 +138,26 @@ class GetUserSPNs:
 
         # No TGT in cache, request it
         userName = Principal(self.__username, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
-        tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain,
+
+        # In order to maximize the probability of getting session tickets with RC4 etype, we will convert the
+        # password to ntlm hashes (that will force to use RC4 for the TGT). If that doesn't work, we use the
+        # cleartext password.
+        # If no clear text password is provided, we just go with the defaults.
+        if self.__password != '' and (self.__lmhash == '' and self.__nthash == ''):
+            try:
+                tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, '', self.__domain,
+                                                                compute_lmhash(password),
+                                                                compute_nthash(password), self.__aesKey,
+                                                                kdcHost=self.__kdcHost)
+            except Exception, e:
+                logging.debug('TGT: %s' % str(e))
+                tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain,
+                                                                    unhexlify(self.__lmhash),
+                                                                    unhexlify(self.__nthash), self.__aesKey,
+                                                                    kdcHost=self.__kdcHost)
+
+        else:
+            tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain,
                                                                 unhexlify(self.__lmhash),
                                                                 unhexlify(self.__nthash), self.__aesKey,
                                                                 kdcHost=self.__kdcHost)
