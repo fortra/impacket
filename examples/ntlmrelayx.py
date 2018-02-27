@@ -243,7 +243,6 @@ class HTTPAttack(Thread):
         data1 = r1.read()
         print data1
 
-
         #Remove protocol from target name
         #safeTargetName = self.client.target.replace('http://','').replace('https://','')
 
@@ -401,6 +400,7 @@ if __name__ == '__main__':
     RELAY_SERVERS = ( SMBRelayServer, HTTPRelayServer )
     ATTACKS = {'SMB': SMBAttack, 'LDAP': LDAPAttack, 'LDAPS': LDAPAttack, 'HTTP': HTTPAttack, 'HTTPS': HTTPAttack,
                'MSSQL': MSSQLAttack, 'IMAP': IMAPAttack, 'IMAPS': IMAPAttack}
+
     # Init the example's logger theme
     logger.init()
     print version.BANNER
@@ -421,6 +421,11 @@ if __name__ == '__main__':
     parser.add_argument('-i','--interactive', action='store_true',help='Launch an smbclient/mssqlclient console instead'
                         'of executing a command after a successful relay. This console will listen locally on a '
                         ' tcp port and can be reached with for example netcat.')
+
+    # Interface address specification
+    parser.add_argument('-ip','--interface-ip', action='store', metavar='INTERFACE_IP', help='IP address of interface to '
+                  'bind SMB and HTTP servers',default='')
+
     parser.add_argument('-ra','--random', action='store_true', help='Randomize target selection (HTTP server only)')
     parser.add_argument('-r', action='store', metavar = 'SMBSERVER', help='Redirect HTTP requests to a file:// path on SMBSERVER')
     parser.add_argument('-l','--lootdir', action='store', type=str, required=False, metavar = 'LOOTDIR',default='.', help='Loot '
@@ -544,6 +549,8 @@ if __name__ == '__main__':
         c.setIPv6(options.ipv6)
         c.setWpadOptions(options.wpad_host, options.wpad_auth_num)
         c.setSMB2Support(options.smb2support)
+        c.setInterfaceIp(options.interface_ip)
+
 
         #If the redirect option is set, configure the HTTP server to redirect targets to SMB
         if server is HTTPRelayServer and options.r is not None:

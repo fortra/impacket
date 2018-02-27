@@ -79,6 +79,7 @@ from impacket.krb5.crypto import Key, _enctype_table, _checksum_table, Enctype
 from impacket.dcerpc.v5.ndr import NDRULONG
 from impacket.dcerpc.v5.samr import NULL, GROUP_MEMBERSHIP, SE_GROUP_MANDATORY, SE_GROUP_ENABLED_BY_DEFAULT, SE_GROUP_ENABLED
 from pyasn1.codec.der import decoder, encoder
+from pyasn1.type.univ import noValue
 from impacket.examples import logger
 from impacket.ntlm import LMOWFv1, NTOWFv1
 from impacket.dcerpc.v5.dtypes import RPC_SID, MAXIMUM_ALLOWED
@@ -1038,7 +1039,7 @@ class RAISECHILD:
         pacType['Buffers'] = buffers + buffersTail
 
         authorizationData = AuthorizationData()
-        authorizationData[0] = None
+        authorizationData[0] = noValue
         authorizationData[0]['ad-type'] = int(constants.AuthorizationDataType.AD_WIN2K_PAC.value)
         authorizationData[0]['ad-data'] = str(pacType)
         authorizationData = encoder.encode(authorizationData)

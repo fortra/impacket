@@ -848,7 +848,7 @@ class NetBIOSTCPSession(NetBIOSSession):
         p = NetBIOSSessionPacket()
         p.set_type(NETBIOS_SESSION_MESSAGE)
         p.set_trailer(data)
-        self._sock.send(p.rawData())
+        self._sock.sendall(p.rawData())
 
     def recv_packet(self, timeout = None):
         data = self.__read(timeout)
@@ -861,7 +861,7 @@ class NetBIOSTCPSession(NetBIOSSession):
         p.set_type(NETBIOS_SESSION_REQUEST)
         p.set_trailer(remote_name + myname)
 
-        self._sock.send(p.rawData())
+        self._sock.sendall(p.rawData())
         while 1:
             p = self.recv_packet(timeout)
             if p.get_type() == NETBIOS_SESSION_NEGATIVE_RESPONSE:

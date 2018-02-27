@@ -78,9 +78,10 @@ class SMBRelayServer(Thread):
         if self.config.ipv6:
             SMBSERVER.address_family = socket.AF_INET6
 
-        self.server = SMBSERVER(('',445), config_parser = smbConfig)
-
+        # changed to dereference configuration interfaceIp
+        self.server = SMBSERVER((config.interfaceIp,445), config_parser = smbConfig)
         logging.getLogger('impacket.smbserver').setLevel(logging.CRITICAL)
+      
         self.server.processConfigFile()
 
         self.origSmbComNegotiate = self.server.hookSmbCommand(smb.SMB.SMB_COM_NEGOTIATE, self.SmbComNegotiate)
@@ -90,7 +91,9 @@ class SMBRelayServer(Thread):
         self.origSmbSessionSetup = self.server.hookSmb2Command(smb3.SMB2_SESSION_SETUP, self.SmbSessionSetup)
         # Let's use the SMBServer Connection dictionary to keep track of our client connections as well
         #TODO: See if this is the best way to accomplish this
-        self.server.addConnection('SMBRelay', '0.0.0.0', 445)
+
+        # changed to dereference configuration interfaceIp
+        self.server.addConnection('SMBRelay', config.interfaceIp, 445)
 
     ### SMBv2 Part #################################################################
     def SmbNegotiate(self, connId, smbServer, recvPacket, isSMB1=False):

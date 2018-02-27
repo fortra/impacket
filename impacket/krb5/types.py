@@ -188,7 +188,10 @@ class EncryptedData(object):
         data = _asn1_decode(data, asn1.EncryptedData())
         self.etype = constants.EncryptionTypes(data.getComponentByName('etype')).value
         kvno = data.getComponentByName('kvno')
-        self.kvno = kvno and int(kvno)
+        if (kvno is None) or (kvno.hasValue() is False):
+            self.kvno = False
+        else:
+            self.kvno = True
         self.ciphertext = str(data.getComponentByName('cipher'))
         return self
 

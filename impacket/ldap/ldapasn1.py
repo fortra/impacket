@@ -47,15 +47,15 @@ maxInt = univ.Integer(2147483647)
 
 
 class DefaultSequenceAndSetBaseMixin:
-    def getComponentByPosition(self, idx):
+    def getComponentByPosition(self, idx, default=univ.noValue, instantiate=True):
         for cls in self.__class__.__bases__:
             if cls is not DefaultSequenceAndSetBaseMixin:
                 try:
-                    component = cls.getComponentByPosition(self, idx)
+                    component = cls.getComponentByPosition(self, idx)#, default, instantiate)
                 except AttributeError:
                     continue
                 if component is None:
-                    return self.setComponentByPosition(idx).getComponentByPosition(idx)
+                    return self.setComponentByPosition(idx).getComponentByPosition(idx)# , default, instantiate)
                 return component
 
 
@@ -535,7 +535,7 @@ class Control(univ.Sequence):
         namedtype.OptionalNamedType('controlValue', univ.OctetString())
     )
 
-    def setComponentByPosition(self, idx, value=None,
+    def setComponentByPosition(self, idx, value=univ.noValue,
                                verifyConstraints=True,
                                matchTags=True,
                                matchConstraints=True):

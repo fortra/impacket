@@ -15,7 +15,12 @@
 # command line, this can be passed to the tools' servers and clients
 class NTLMRelayxConfig:
     def __init__(self):
+
         self.daemon = True
+
+        # Set the value of the interface ip address
+        self.interfaceIp = None
+
         self.domainIp = None
         self.machineAccount = None
         self.machineHashes = None
@@ -28,6 +33,12 @@ class NTLMRelayxConfig:
         self.randomtargets = False
         self.encoding = None
         self.ipv6 = False
+
+        #WPAD options
+        self.serve_wpad = False
+        self.wpad_host = None
+        self.wpad_auth_num = 0
+        self.smb2support = False
 
         #WPAD options
         self.serve_wpad = False
@@ -60,6 +71,9 @@ class NTLMRelayxConfig:
 
     def setProtocolClients(self, clients):
         self.protocolClients = clients
+
+    def setInterfaceIp(self, ip):
+        self.interfaceIp = ip
 
     def setRunSocks(self, socks, server):
         self.runSocks = socks
