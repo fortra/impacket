@@ -24,10 +24,10 @@
 # It is supposed to be working on any LM Compatibility level. The only way
 # to stop this attack is to enforce on the server SPN checks and or signing.
 #
-# If the authentication against the targets succeed, the client authentication
-# success as well and a valid connection is set against the local smbserver.
+# If the authentication against the targets succeeds, the client authentication
+# succeeds as well and a valid connection is set against the local smbserver.
 # It's up to the user to set up the local smbserver functionality. One option
-# is to set up shares with whatever files you want to the victim thinks it's
+# is to set up shares with whatever files you want to so the victim thinks it's
 # connected to a valid SMB server. All that is done through the smb.conf file or
 # programmatically.
 #
@@ -105,7 +105,7 @@ class SMBAttack(Thread):
                 remoteOps  = RemoteOperations(self.__SMBConnection, False)
                 remoteOps.enableRegistry()
             except Exception, e:
-                # Something wen't wrong, most probably we don't have access as admin. aborting
+                # Something went wrong, most probably we don't have access as admin. aborting
                 logging.error(str(e))
                 return
 
@@ -188,7 +188,7 @@ class LDAPAttack(Thread):
             'member': [(self.ldap3.MODIFY_ADD, ['CN=%s,CN=Users,%s' % (newUser, domainDumper.root)])]})
         if res:
             logging.info('Adding user: %s to group Domain Admins result: OK' % newUser)
-            logging.info('Domain Admin privileges aquired, shutting down...')
+            logging.info('Domain Admin privileges acquired, shutting down...')
             addedDomainAdmin = True
             thread.interrupt_main()
         else:
