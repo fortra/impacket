@@ -40,24 +40,44 @@ class NTLMRelayxConfig:
         self.wpad_auth_num = 0
         self.smb2support = False
 
-        #SMB options
+        #WPAD options
+        self.serve_wpad = False
+        self.wpad_host = None
+        self.wpad_auth_num = 0
+        self.smb2support = False
+
+        # SMB options
         self.exeFile = None
         self.command = None
         self.interactive = False
-        self.runSocks = False
 
-        #LDAP options
+        # LDAP options
         self.dumpdomain = True
         self.addda = True
 
-        #MSSQL options
+        # MSSQL options
         self.queries = []
+
+        # Registered protocol clients
+        self.protocolClients = {}
+
+        # SOCKS options
+        self.runSocks = False
+        self.socksServer = None
+
+
+    def setSMB2Support(self, value):
+        self.smb2support = value
+
+    def setProtocolClients(self, clients):
+        self.protocolClients = clients
 
     def setInterfaceIp(self, ip):
         self.interfaceIp = ip
 
-    def setRunSocks(self, socks):
+    def setRunSocks(self, socks, server):
         self.runSocks = socks
+        self.socksServer = server
 
     def setOutputFile(self,outputFile):
         self.outputFile = outputFile

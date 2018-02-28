@@ -107,8 +107,8 @@ class SMBConnection:
         hostType = nmb.TYPE_SERVER
         if preferredDialect is None:
             # If no preferredDialect sent, we try the highest available one.
-            packet = self._negotiateSession(self._myName, self._remoteName, self._remoteHost, self._sess_port,
-                                            self._timeout, True, flags1=flags1, flags2=flags2, data=negoData)
+            packet = self.negotiateSessionWildcard(self._myName, self._remoteName, self._remoteHost, self._sess_port,
+                                                   self._timeout, True, flags1=flags1, flags2=flags2, data=negoData)
             if packet[0] == '\xfe':
                 # Answer is SMB2 packet
                 self._SMBConnection = smb3.SMB3(self._remoteName, self._remoteHost, self._myName, hostType,
@@ -137,8 +137,8 @@ class SMBConnection:
 
         return True
 
-    def _negotiateSession(self, myName, remoteName, remoteHost, sess_port, timeout, extended_security=True, flags1=0,
-                          flags2=0, data=None):
+    def negotiateSessionWildcard(self, myName, remoteName, remoteHost, sess_port, timeout, extended_security=True, flags1=0,
+                                 flags2=0, data=None):
         # Here we follow [MS-SMB2] negotiation handshake trying to understand what dialects
         # (including SMB1) is supported on the other end.
 
@@ -181,6 +181,9 @@ class SMBConnection:
 
         return resp.get_trailer()
 
+
+    def getNMBServer(self):
+        return self._nmbSession
 
     def getSMBServer(self):
         """

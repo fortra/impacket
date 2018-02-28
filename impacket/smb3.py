@@ -801,6 +801,7 @@ class SMB3:
                 if packet.isValidAnswer(STATUS_SUCCESS):
                     sessionSetupResponse = SMB2SessionSetup_Response(packet['Data'])
                     self._Session['SessionFlags'] = sessionSetupResponse['SessionFlags']
+                    self._Session['SessionID']    = packet['SessionID']
 
                     # Calculate the key derivations for dialect 3.0
                     if self._Session['SigningRequired'] is True:

@@ -60,7 +60,11 @@ In order to install the source execute the following command from the
 directory where the Impacket's distribution has been unpacked: `pip install .`
 This will install the classes into the default
 Python modules path; note that you might need special permissions to
-write there.
+write there. For more information on what commands and options are
+available from setup.py, run `python setup.py --help-commands`.
+
+To install the dependencies for the examples, use either `pip install -r requirements_examples.txt` or use `pip install .[examples]` from the location you unpacked Impacket.
+
 
 Licensing
 =========
