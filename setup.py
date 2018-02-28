@@ -13,8 +13,19 @@ PACKAGE_NAME = "impacket"
 with open('requirements.txt') as file_requirements:
     requirements = file_requirements.read().splitlines()
 
+with open('requirements_examples.txt') as example_reqs:
+    examples_requirements = example_reqs.read().splitlines()
+
 if platform.system() == 'Windows':
     requirements.append('pyreadline')
+
+if platform.system() != 'Darwin':
+    data_files = [(os.path.join('share', 'doc', PACKAGE_NAME), ['README.md', 'LICENSE']+glob.glob('doc/*')),
+                    (os.path.join('share', 'doc', PACKAGE_NAME, 'testcases', 'dot11'),glob.glob('impacket/testcases/dot11/*')),
+                    (os.path.join('share', 'doc', PACKAGE_NAME, 'testcases', 'ImpactPacket'),glob.glob('impacket/testcases/ImpactPacket/*')),
+                    (os.path.join('share', 'doc', PACKAGE_NAME, 'testcases', 'SMB_RPC'),glob.glob('impacket/testcases/SMB_RPC/*'))]
+else:
+    data_files = []
 
 if sys.version_info[:2] < (2, 7):
     requirements.append('argparse')
@@ -35,10 +46,10 @@ setup(name = PACKAGE_NAME,
                 'impacket.examples.ntlmrelayx.clients', 'impacket.examples.ntlmrelayx.servers',
                 'impacket.examples.ntlmrelayx.servers.socksplugins', 'impacket.examples.ntlmrelayx.utils'],
       scripts = glob.glob(os.path.join('examples', '*.py')),
-      data_files = [(os.path.join('share', 'doc', PACKAGE_NAME), ['README.md', 'LICENSE']+glob.glob('doc/*')),
-                    (os.path.join('share', 'doc', PACKAGE_NAME, 'testcases', 'dot11'),glob.glob('impacket/testcases/dot11/*')),
-                    (os.path.join('share', 'doc', PACKAGE_NAME, 'testcases', 'ImpactPacket'),glob.glob('impacket/testcases/ImpactPacket/*')),
-                    (os.path.join('share', 'doc', PACKAGE_NAME, 'testcases', 'SMB_RPC'),glob.glob('impacket/testcases/SMB_RPC/*'))],
-      install_requires=requirements
+      data_files = data_files,
+      install_requires=requirements,
+      extras_require={
+                      'examples': [item for item in examples_requirements if item not in requirements]
+                    }
       )
 
