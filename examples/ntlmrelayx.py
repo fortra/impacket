@@ -475,15 +475,15 @@ if __name__ == '__main__':
     imapoptions.add_argument('-im','--imap-max', action='store',type=int, required=False,default=0, help='Max number of emails to dump '
         '(0 = unlimited, default: no limit)')
 
-    # Let's register the protocol clients we have
-    # ToDo: Do this better somehow
-    from impacket.examples.ntlmrelayx.clients import PROTOCOL_CLIENTS
-
     try:
        options = parser.parse_args()
     except Exception, e:
        logging.error(str(e))
        sys.exit(1)
+
+    # Let's register the protocol clients we have
+    # ToDo: Do this better somehow
+    from impacket.examples.ntlmrelayx.clients import PROTOCOL_CLIENTS
 
     if options.debug is True:
         logging.getLogger().setLevel(logging.DEBUG)
