@@ -87,7 +87,7 @@ class IMAPSocksRelay(SocksRelay):
             # Simple login
             self.username = args[1].upper()
         else:
-            LOG.error('IMAP: Socks plugin expected LOGIN or AUTHENTICATE PLAIN command, but got: %s' % data)
+            LOG.error('IMAP: Socks plugin expected LOGIN or AUTHENTICATE PLAIN command, but got: %s' % cmd)
             return False
 
         # Check if we have a connection for the user
