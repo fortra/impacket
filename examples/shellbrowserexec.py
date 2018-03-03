@@ -13,7 +13,7 @@
 # DCOM ports at the target machine.
 #
 # Original discovery by Matt Nelson (@enigma0x3):
-# https://enigma0x3.net/2017/01/05/lateral-movement-using-the-mmc20-application-com-object/
+# https://enigma0x3.net/2017/01/23/lateral-movement-via-dcom-round-2/
 #
 # Author:
 #  beto (@agsolino)
@@ -419,8 +419,8 @@ if __name__ == '__main__':
     logger.init()
     print version.BANNER
 
-    parser = argparse.ArgumentParser(add_help = True, description = "Executes a semi-interactive shell using Windows "
-                                                                    "Management Instrumentation.")
+    parser = argparse.ArgumentParser(add_help = True, description = "Executes a semi-interactive shell using the "
+                                                                    "ShellBrowserWindow DCOM object.")
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
     parser.add_argument('-share', action='store', default = 'ADMIN$', help='share where the output will be grabbed from '
                                                                            '(default ADMIN$)')
