@@ -17,6 +17,7 @@
 #
 # Author:
 #  beto (@agsolino)
+#  Marcello (@byt3bl33d3r)
 #
 # Reference for:
 #  DCOM
@@ -48,7 +49,7 @@ from impacket.smbconnection import SMBConnection, SMB_DIALECT, SMB2_DIALECT_002,
 
 OUTPUT_FILENAME = '__' + str(time.time())
 
-class MMCEXEC:
+class SHELLBRWEXEC:
     def __init__(self, command='', username='', password='', domain='', hashes=None, aesKey=None, share=None,
                  noOutput=False, doKerberos=False, kdcHost=None):
         self.__command = command
@@ -484,7 +485,7 @@ if __name__ == '__main__':
         if options.aesKey is not None:
             options.k = True
 
-        executer = MMCEXEC(' '.join(options.command), username, password, domain, options.hashes, options.aesKey,
+        executer = SHELLBRWEXEC(' '.join(options.command), username, password, domain, options.hashes, options.aesKey,
                            options.share, options.nooutput, options.k, options.dc_ip)
         executer.run(address)
     except (Exception, KeyboardInterrupt), e:
