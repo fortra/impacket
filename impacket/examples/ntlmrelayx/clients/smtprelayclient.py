@@ -75,7 +75,7 @@ class SMTPRelayClient(ProtocolClient):
             self.session.state = 'AUTH'
             return None, STATUS_SUCCESS
         else:
-            LOG.error('SMTP: %s' % ' '.join(data))
+            LOG.error('SMTP: %s' % ''.join(data))
             return None, STATUS_ACCESS_DENIED
 
     def killConnection(self):
@@ -85,9 +85,4 @@ class SMTPRelayClient(ProtocolClient):
 
     def keepAlive(self):
         # Send a NOOP
-        try:
-            self.session.noop()
-        # This can happen if there are still messages cached from the previous connection
-        except smtplib.SMTPException, e:
-            LOG.debug('KeepAlive Error: %s' % str(e))
-            pass
+        self.session.noop()

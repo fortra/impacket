@@ -260,6 +260,7 @@ class HTTPRelayServer(Thread):
                     return False
             else:
                 LOG.error('Protocol Client for %s not found!' % self.target.scheme.upper())
+                return False
 
             #Calculate auth
             self.do_AUTHHEAD(message = 'NTLM '+base64.b64encode(self.challengeMessage.getData()), proxy=proxy)

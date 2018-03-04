@@ -189,7 +189,8 @@ def keepAliveTimer(server):
                             server.activeRelays[target][port][user]['protocolClient'].keepAlive()
                         except Exception, e:
                             LOG.debug('SOCKS: %s' % str(e))
-                            if str(e).find('Broken pipe') >= 0 or str(e).find('reset by peer') >=0:
+                            if str(e).find('Broken pipe') >= 0 or str(e).find('reset by peer') >=0 or \
+                                            str(e).find('Invalid argument') >= 0:
                                 # Connection died, taking out of the active list
                                 del (server.activeRelays[target][port][user])
                                 if len(server.activeRelays[target][port].keys()) == 1:
@@ -407,7 +408,8 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
                     import traceback
                     traceback.print_exc()
                 LOG.debug('SOCKS: %s' % str(e))
-                if str(e).find('Broken pipe') >= 0 or str(e).find('reset by peer') >=0:
+                if str(e).find('Broken pipe') >= 0 or str(e).find('reset by peer') >=0 or \
+                                str(e).find('Invalid argument') >= 0:
                     # Connection died, taking out of the active list
                     del(self.__socksServer.activeRelays[self.targetHost][self.targetPort][relay.username])
                     if len(self.__socksServer.activeRelays[self.targetHost][self.targetPort].keys()) == 1:
