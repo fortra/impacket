@@ -31,7 +31,7 @@ if sys.version_info[:2] < (2, 7):
     requirements.append('argparse')
 
 setup(name = PACKAGE_NAME,
-      version = "0.9.16-dev",
+      version = "0.9.17-dev",
       description = "Network protocols Constructors and Dissectors",
       url = "https://www.coresecurity.com/corelabs-research/open-source-tools/impacket",
       author = "Core Security Technologies",
