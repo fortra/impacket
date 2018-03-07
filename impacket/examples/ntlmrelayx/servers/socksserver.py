@@ -190,7 +190,7 @@ def keepAliveTimer(server):
                         except Exception, e:
                             LOG.debug('SOCKS: %s' % str(e))
                             if str(e).find('Broken pipe') >= 0 or str(e).find('reset by peer') >=0 or \
-                                            str(e).find('Invalid argument') >= 0:
+                                            str(e).find('Invalid argument') >= 0 or str(e).find('Server not connected') >=0:
                                 # Connection died, taking out of the active list
                                 del (server.activeRelays[target][port][user])
                                 if len(server.activeRelays[target][port].keys()) == 1:
@@ -273,8 +273,7 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
             reply = SOCKS4_REPLY()
             if error.value != 0:
                 reply['REP'] = 0x5B
-        return self.__connSocket.send(reply.getData())
-
+        return self.__connSocket.sendall(reply.getData())
 
     def handle(self):
         LOG.debug("SOCKS: New Connection from %s(%s)" % (self.__ip, self.__port))
@@ -285,7 +284,7 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
 
         if self.__socksVersion == 5:
             # We need to answer back with a no authentication response. We're not dealing with auth for now
-            self.__connSocket.send(str(SOCKS5_GREETINGS_BACK()))
+            self.__connSocket.sendall(str(SOCKS5_GREETINGS_BACK()))
             data = self.__connSocket.recv(8192)
             request = SOCKS5_REQUEST(data)
         else:
@@ -426,7 +425,10 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
             LOG.error('SOCKS: I don\'t have a handler for this port')
 
         LOG.debug('SOCKS: Shutting down connection')
-        self.sendReplyError(replyField.CONNECTION_REFUSED)
+        try:
+            self.sendReplyError(replyField.CONNECTION_REFUSED)
+        except Exception, e:
+            LOG.debug('SOCKS END: %s' % str(e))
 
 
 class SOCKS(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
