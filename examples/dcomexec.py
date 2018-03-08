@@ -5,7 +5,7 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# A similar approach to wmiexec but executing commands through DCOM.
+# A similar approach to psexec but executing commands through DCOM.
 # You can select different objects to be used to execute the commands.
 # Currently supported objects are:
 #    1. MMC20.Application (49B2791A-B1AE-4C90-9B8E-E860BA07F889) - Tested Windows 7, Windows 10, Server 2012R2
