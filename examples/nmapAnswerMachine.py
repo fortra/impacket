@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 import random
 
-import os_ident
 import uncrc32
 
 try: import pcap as pcapy
@@ -11,6 +10,7 @@ from impacket import ImpactPacket
 from impacket import ImpactDecoder
 from impacket.ImpactPacket import TCPOption
 from impacket.examples import logger
+from impacket.examples import os_ident
 
 #defaults
 
