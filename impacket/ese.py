@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # Copyright (c) 2003-2016 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
@@ -509,7 +508,7 @@ class ESENT_PAGE:
                 valueSize = unpack('<H', tag[:2])[0] & 0x1fff
                 pageFlags = (unpack('<H', tag[2:])[0] & 0xe000) >> 13
                 valueOffset = unpack('<H',tag[2:])[0] & 0x1fff
-                
+
             print "TAG %-8d offset:0x%-6x flags:0x%-4x valueSize:0x%x" % (i,valueOffset,pageFlags,valueSize)
             #hexdump(self.getTag(i)[1])
             tags = tags[:-4]
@@ -760,7 +759,7 @@ class ESENT_DB:
                     else:
                         done = True
                         break
-                
+
             cursor = TABLE_CURSOR
             cursor['TableData'] = self.__tables[tableName]
             cursor['FatherDataPageNumber'] = catalogEntry['FatherDataPageNumber']
@@ -851,9 +850,9 @@ class ESENT_DB:
         tagLen = len(tag)
         fixedSizeOffset = len(dataDefinitionHeader)
         variableSizeOffset = dataDefinitionHeader['VariableSizeOffset'] 
- 
+
         columns = cursor['TableData']['Columns'] 
-        
+
         for column in columns.keys():
             columnRecord = columns[column]['Record']
             #columnRecord.dump()
@@ -905,7 +904,7 @@ class ESENT_DB:
                         if index >= firstOffsetTag:
                             # We reached the end of the variable size array
                             break
-                
+
                     # Calculate length of variable items
                     # Ugly.. should be redone
                     prevKey = taggedItems.keys()[0]
@@ -959,7 +958,7 @@ class ESENT_DB:
                     stringDecoder = StringCodePages[columnRecord['CodePage']]
 
                     record[column] = record[column].decode(stringDecoder)
-                
+
             else:
                 unpackData = ColumnTypeSize[columnRecord['ColumnType']]
                 if record[column] is not None:
