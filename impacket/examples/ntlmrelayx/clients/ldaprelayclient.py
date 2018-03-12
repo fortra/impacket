@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # Copyright (c) 2003-2017 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
