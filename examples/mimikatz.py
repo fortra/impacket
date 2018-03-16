@@ -138,10 +138,10 @@ def main():
     group = parser.add_argument_group('connection')
 
     group.add_argument('-dc-ip', action='store', metavar="ip address",
-                       help='IP Address of the domain controller. If ommited it use the domain part (FQDN) specified in '
+                       help='IP Address of the domain controller. If omitted it will use the domain part (FQDN) specified in '
                             'the target parameter')
     group.add_argument('-target-ip', action='store', metavar="ip address",
-                       help='IP Address of the target machine. If ommited it will use whatever was specified as target. '
+                       help='IP Address of the target machine. If omitted it will use whatever was specified as target. '
                             'This is useful when target is the NetBIOS name and you cannot resolve it')
 
     if len(sys.argv)==1:
@@ -188,7 +188,7 @@ def main():
     try:
         if username != '':
             try:
-                # Let's try to do everything thru SMB. If we'e lucky it might get everything encrypted
+                # Let's try to do everything through SMB. If we'e lucky it might get everything encrypted
                 rpctransport = DCERPCTransportFactory(r'ncacn_np:%s[\pipe\epmapper]'%address)
                 rpctransport.set_credentials(username, password, domain, lmhash, nthash, options.aesKey)
                 dce = rpctransport.get_dce_rpc()

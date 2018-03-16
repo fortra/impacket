@@ -1069,10 +1069,10 @@ if __name__ == '__main__':
     parser.add_argument('-w', action='store', metavar="pathname",
                         help='writes the golden ticket in CCache format into the <pathname> file')
     parser.add_argument('-dc-ip', action='store', metavar="ip address",
-                        help='IP Address of the domain controller (needed to get the user''s SID). If ommited it use '
+                        help='IP Address of the domain controller (needed to get the user''s SID). If omitted it will use '
                              'the domain part (FQDN) specified in the target parameter')
     parser.add_argument('-target-ip', action='store', metavar="ip address",
-                        help='IP Address of the target host you want to attack. If ommited it will use the targetName '
+                        help='IP Address of the target host you want to attack. If omitted it will use the targetName '
                              'parameter')
 
     group = parser.add_argument_group('authentication')
@@ -1085,7 +1085,7 @@ if __name__ == '__main__':
         print "\tthe password will be asked, or\n"
         print "\tpython goldenPac.py domain.net/normaluser:mypwd@domain-host\n"
         print "\tif domain.net and/or domain-machine do not resolve, add them"
-        print "\tto the hosts file or explicity specify the domain IP (e.g. 1.1.1.1) and target IP:\n"
+        print "\tto the hosts file or explicitly specify the domain IP (e.g. 1.1.1.1) and target IP:\n"
         print "\tpython goldenPac.py -dc-ip 1.1.1.1 -target-ip 2.2.2.2 domain.net/normaluser:mypwd@domain-host\n"
         print "\tThis will upload the xxx.exe file and execute it as: xxx.exe param1 param2 paramn"
         print "\tpython goldenPac.py -c xxx.exe domain.net/normaluser:mypwd@domain-host param1 param2 paramn\n"

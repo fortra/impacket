@@ -11,7 +11,7 @@ from impacket.dcerpc.v5.dtypes import RPC_UNICODE_STRING
 
 # aimed at testing just the DCERPC engine, not the particular
 # endpoints (we should do specific tests for endpoints)
-# here we're using EPM just beacuse we need one, and it's the 
+# here we're using EPM just because we need one, and it's the 
 # easiest one
 
 class DCERPCTests(unittest.TestCase):

@@ -86,7 +86,7 @@ class SMTPSocksRelay(SocksRelay):
             # This contains base64(username), decode
             creds = base64.b64decode(data.strip())
             self.username = creds.upper()
-            # Client will now send the password, we dont care for it but receive it anyway
+            # Client will now send the password, we don't care for it but receive it anyway
             self.socksSocket.send('334 UGFzc3dvcmQ6'+EOL)
             data = self.socksSocket.recv(self.packetSize)
         elif cmd.upper() == 'AUTH' and args[0] == 'PLAIN':

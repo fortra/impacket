@@ -589,7 +589,7 @@ class NDRCONSTRUCTEDTYPE(NDR):
             data = data[pad0:]
 
         if isinstance(self.fields[fieldName], NDRUniConformantArray):
-            # Array Size is at the very begining
+            # Array Size is at the very beginning
             arraySize = unpack(arrayUnPackStr, data[:arrayItemSize])[0]
         elif isinstance(self.fields[fieldName], NDRUniConformantVaryingArray):
             # NDRUniConformantVaryingArray Array

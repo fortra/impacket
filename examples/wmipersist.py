@@ -22,7 +22,7 @@
 #	objFile.Close
 #
 #
-# then excute this script this way, VBS will be triggered once
+# then execute this script this way, VBS will be triggered once
 # somebody opens calc.exe:
 #
 #  wmipersist.py domain.net/adminuser:mypwd@targetHost install -name ASEC 

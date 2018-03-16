@@ -27,7 +27,7 @@ class TcpShell:
         serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         #Bind on localhost
         serversocket.bind(('127.0.0.1', self.port))
-        #Dont allow a backlog
+        #Don't allow a backlog
         serversocket.listen(0)
         self.connection, host = serversocket.accept()
         #Create a file object from the socket

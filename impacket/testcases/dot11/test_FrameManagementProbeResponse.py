@@ -116,7 +116,7 @@ class TestDot11ManagementProbeResponseFrames(unittest.TestCase):
         self.assertEqual(self.management_probe_response.get_timestamp(), 0x8765432101234567)
 
     def test_11(self):
-        'Test Management Beacon Inteval field' 
+        'Test Management Beacon Interval field' 
         self.assertEqual(self.management_probe_response.get_beacon_interval(), 0x0064)
         self.management_probe_response.set_beacon_interval(0x4321) 
         self.assertEqual(self.management_probe_response.get_beacon_interval(), 0x4321)

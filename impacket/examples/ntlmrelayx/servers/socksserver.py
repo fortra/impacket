@@ -157,7 +157,7 @@ class SocksRelay:
         self.activeRelays = activeRelays
 
     def initConnection(self):
-        # Here we do whatever is neccesary to leave the relay ready for processing incoming connections
+        # Here we do whatever is necessary to leave the relay ready for processing incoming connections
         raise RuntimeError('Virtual Function')
 
     def skipAuthentication(self):
@@ -179,7 +179,7 @@ def keepAliveTimer(server):
 
     for target in server.activeRelays.keys():
         for port in server.activeRelays[target].keys():
-            # Now cycle thru the users
+            # Now cycle through the users
             for user in server.activeRelays[target][port].keys():
                 if user != 'data':
                     # Let's call the keepAlive method for the handler to keep the connection alive
@@ -201,7 +201,7 @@ def keepAliveTimer(server):
 
 def activeConnectionsWatcher(server):
     while True:
-        # This call blocks until there is data, so it doesnt loop endlessly
+        # This call blocks until there is data, so it doesn't loop endlessly
         target, port, userName, client, data = activeConnections.get()
         # ToDo: Careful. Dicts are not thread safe right?
         if server.activeRelays.has_key(target) is not True:

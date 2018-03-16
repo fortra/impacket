@@ -331,11 +331,11 @@ class DNS(ProtocolPacket):
             offset += 1
             name = buf[offset:offset+byte]
             offset += byte
-            offset, unamed = self.parseCompressedMessage(buf, offset)
-            if not unamed:
+            offset, unnamed = self.parseCompressedMessage(buf, offset)
+            if not unnamed:
                 return (offset, name)
             else:
-                return (offset, name + "." + unamed)
+                return (offset, name + "." + unnamed)
     
     def get_answers(self):
         return self.__get_answers()[0]

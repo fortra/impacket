@@ -2326,14 +2326,14 @@ class Dot11ManagementBeacon(Dot11ManagementHelper):
         self.header.set_long_long(0, nb, "<")
 
     def get_beacon_interval(self):
-        'Return the 802.11 Management Beacon frame \'Beacon Inteval\' field' \
+        'Return the 802.11 Management Beacon frame \'Beacon Interval\' field' \
         'To convert it to seconds =>  secs = Beacon_Interval*1024/1000000'
 
         b = self.header.get_word(8, "<")
         return b 
 
     def set_beacon_interval(self, value):
-        'Set the 802.11 Management Beacon frame \'Beacon Inteval\' field' 
+        'Set the 802.11 Management Beacon frame \'Beacon Interval\' field' 
         # set the bits
         nb = value & 0xFFFF
         self.header.set_word(8, nb, "<")
@@ -2433,7 +2433,7 @@ class Dot11ManagementBeacon(Dot11ManagementHelper):
 
     def get_country(self):
         "Get the 802.11 Management Country element." \
-        "Returnes a tuple containing Country code, frist channel number, "\
+        "Returns a tuple containing Country code, first channel number, "\
         "number of channels and maximum transmit power level"
         s = self._get_element(DOT11_MANAGEMENT_ELEMENTS.COUNTRY)
         if s is None:

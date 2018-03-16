@@ -1070,7 +1070,7 @@ if __name__ == '__main__':
 #   [x] RI - Random positive increments. Any (delta_i > 1000, and delta_i % 256 != 0) or (delta_i > 256000 and delta_i % 256 == 0)
 #   [x] BI - Broken increment. All delta_i % 256 = 0 and all delta_i <= 5120.
 #   [x] I - Incremental. All delta_i < 10
-#   [x] O - (Ommited, the test does not show in the fingerprint). None of the other
+#   [x] O - (Omitted, the test does not show in the fingerprint). None of the other
 # [-] IP ID sequence generation algorithm on TCP closed ports (CI)
 # [x] IP ID sequence generation algorithm on ICMP messages (II)
 # [x] Shared IP ID sequence Boolean (SS)

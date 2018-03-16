@@ -112,7 +112,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
     reqBody['rtime'] = KerberosTime.to_asn1(now)
     reqBody['nonce'] =  random.getrandbits(31)
 
-    # Yes.. this shouldn't happend but it's inherited from the past
+    # Yes.. this shouldn't happen but it's inherited from the past
     if aesKey is None:
         aesKey = ''
 

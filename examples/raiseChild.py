@@ -1214,7 +1214,7 @@ if __name__ == '__main__':
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-w', action='store',metavar = "pathname",  help='writes the golden ticket in CCache format '
                                                                          'into the <pathname> file')
-    #parser.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller (needed to get the user''s SID). If ommited it use the domain part (FQDN) specified in the target parameter')
+    #parser.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller (needed to get the user''s SID). If omitted it will use the domain part (FQDN) specified in the target parameter')
     parser.add_argument('-target-exec', action='store',metavar = "target address",  help='Target host you want to PSEXEC '
                         'against once the main attack finished')
 

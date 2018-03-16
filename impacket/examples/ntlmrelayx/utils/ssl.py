@@ -25,7 +25,7 @@ from impacket import LOG
 
 # This certificate is not supposed to be exposed on the network
 # but only used for the local SOCKS plugins
-# therefor, for now we don't bother with a CA and with hosts/hostnames matching
+# therefore, for now we don't bother with a CA and with hosts/hostnames matching
 def generateImpacketCert(certname='/tmp/impacket.crt'):
     # Create a private key
     pkey = crypto.PKey()

@@ -9,7 +9,7 @@
 # Description:
 #
 # Wrapper class for SMB1/2/3 so it's transparent for the client.
-# You can still play with the low level methods (version dependant)
+# You can still play with the low level methods (version dependent)
 # by calling getSMBServer()
 #
 
