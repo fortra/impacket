@@ -891,7 +891,7 @@ class REPLENTINFLIST(NDRSTRUCT):
         ('pParentGuidm',PUUID),
         ('pMetaDataExt',PPROPERTY_META_DATA_EXT_VECTOR),
     )
-    # ToDo: Here we should work with getData and fromString beacuse we're cheating with pNextEntInf
+    # ToDo: Here we should work with getData and fromString because we're cheating with pNextEntInf
     def fromString(self, data, soFar = 0 ):
         # Here we're changing the struct so we can represent a linked list with NDR
         self.fields['pNextEntInf'] = PREPLENTINFLIST(isNDR64 = self._isNDR64)

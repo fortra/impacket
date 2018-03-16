@@ -1346,7 +1346,7 @@ class LSASecrets(OfflineRegistry):
             # No cache entries
             return
         try:
-            # Remove unnecesary value
+            # Remove unnecessary value
             values.remove('NL$Control')
         except:
             pass
@@ -1476,7 +1476,7 @@ class LSASecrets(OfflineRegistry):
             # No entries
             return
         try:
-            # Remove unnecesary value
+            # Remove unnecessary value
             keys.remove('NL$Control')
         except:
             pass

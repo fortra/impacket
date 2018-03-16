@@ -134,7 +134,7 @@ class KarmaSMBServer(Thread):
         self.origsmb2Close = self.server.hookSmb2Command(smb2.SMB2_CLOSE, self.smb2Close)
 
         # Now we have to register the MS-SRVS server. This specially important for 
-        # Windows 7+ and Mavericks clients since they WONT (specially OSX) 
+        # Windows 7+ and Mavericks clients since they WON'T (specially OSX) 
         # ask for shares using MS-RAP.
 
         self.__srvsServer = SRVSServer()

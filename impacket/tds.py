@@ -877,7 +877,7 @@ class MSSQL:
         # Send the NTLMSSP Negotiate or SQL Auth Packet
         self.sendTDS(TDS_LOGIN7, str(login))
 
-        # According to the spects, if encryption is not required, we must encrypt just
+        # According to the specs, if encryption is not required, we must encrypt just
         # the first Login packet :-o
         if resp['Encryption'] == TDS_ENCRYPT_OFF:
             self.tlsSocket = None
@@ -955,7 +955,7 @@ class MSSQL:
         # Send the NTLMSSP Negotiate or SQL Auth Packet
         self.sendTDS(TDS_LOGIN7, str(login))
 
-        # According to the spects, if encryption is not required, we must encrypt just 
+        # According to the specs, if encryption is not required, we must encrypt just 
         # the first Login packet :-o 
         if resp['Encryption'] == TDS_ENCRYPT_OFF:
             self.tlsSocket = None

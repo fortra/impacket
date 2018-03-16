@@ -403,7 +403,7 @@ class Registry:
         elif valueType == REG_MULTISZ:
             print "%s" % (valueData.decode('utf-16le'))
         else:
-            print "Unkown Type 0x%x!" % valueType
+            print "Unknown Type 0x%x!" % valueType
             hexdump(valueData)
 
     def enumKey(self, parentKey):

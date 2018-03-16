@@ -2589,7 +2589,7 @@ ERROR_MESSAGES = {
         0xC00D2766: ("NS_E_BACKUP_RESTORE_TOO_MANY_RESETS", "Too many resets in Backup-Restore."),
         0xC00D2767: ("NS_E_DRM_DEBUGGING_NOT_ALLOWED", "Running this process under a debugger while using DRM content is not allowed."),
         0xC00D2768: ("NS_E_DRM_OPERATION_CANCELED", "The user canceled the DRM operation."),
-        0xC00D2769: ("NS_E_DRM_RESTRICTIONS_NOT_RETRIEVED", "The license you are using has assocaited output restrictions. This license is unusable until these restrictions are queried."),
+        0xC00D2769: ("NS_E_DRM_RESTRICTIONS_NOT_RETRIEVED", "The license you are using has associated output restrictions. This license is unusable until these restrictions are queried."),
         0xC00D276A: ("NS_E_DRM_UNABLE_TO_CREATE_PLAYLIST_OBJECT", "A problem has occurred in the Digital Rights Management component. Contact Microsoft product support."),
         0xC00D276B: ("NS_E_DRM_UNABLE_TO_CREATE_PLAYLIST_BURN_OBJECT", "A problem has occurred in the Digital Rights Management component. Contact Microsoft product support."),
         0xC00D276C: ("NS_E_DRM_UNABLE_TO_CREATE_DEVICE_REGISTRATION_OBJECT", "A problem has occurred in the Digital Rights Management component. Contact Microsoft product support."),

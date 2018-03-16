@@ -194,7 +194,7 @@ if __name__ == '__main__':
     group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication '
                                                                             '(128 or 256 bits)')
     group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. '
-                                         'If ommited it use the domain part (FQDN) specified in the target parameter')
+                                         'If omitted it will use the domain part (FQDN) specified in the target parameter')
 
     if len(sys.argv)==1:
         parser.print_help()

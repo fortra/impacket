@@ -69,7 +69,7 @@ STATUS_SMB_BAD_TID = 0x00050002
 # TODO: Return NT ERROR Codes
 
 def computeNTLMv2(identity, lmhash, nthash, serverChallenge, authenticateMessage, ntlmChallenge, type1):
-    # Let's calculate the NTLMv2 Reponse
+    # Let's calculate the NTLMv2 Response
 
 
     responseKeyNT = ntlm.NTOWFv2(identity, '', authenticateMessage['domain_name'].decode('utf-16le'), nthash)
@@ -3662,7 +3662,7 @@ class SMBSERVERHandler(SocketServer.BaseRequestHandler):
         self.__SMB.addConnection(self.__connId, self.__ip, self.__port)
         while True:
             try:
-                # Firt of all let's get the NETBIOS packet
+                # First of all let's get the NETBIOS packet
                 session = nmb.NetBIOSTCPSession(self.__SMB.getServerName(),'HOST', self.__ip, sess_port = self.__port, sock = self.__request, select_poll = self.__select_poll)
                 try:
                     p = session.recv_packet(self.__timeOut)
@@ -3683,7 +3683,7 @@ class SMBSERVERHandler(SocketServer.BaseRequestHandler):
                    self.__request.send(r.rawData())
                 else:
                    resp = self.__SMB.processRequest(self.__connId, p.get_trailer())
-                   # Send all the packets recevied. Except for big transactions this should be
+                   # Send all the packets received. Except for big transactions this should be
                    # a single packet
                    for i in resp:
                        session.send_packet(str(i))
@@ -3915,7 +3915,7 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
         # recvPacket  : the full SMBPacket that triggered this command
         # parameters  : the transaction parameters
         # data        : the transaction data
-        # maxDataCount: the max amount of data that can be transfered agreed 
+        # maxDataCount: the max amount of data that can be transferred agreed 
         #               with the client
         #
         # and MUST return:
@@ -3925,7 +3925,7 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
         #
         # respSetup: the setup response of the transaction
         # respParameters: the parameters response of the transaction
-        # respData: the data reponse of the transaction
+        # respData: the data response of the transaction
         # errorCode: the NT error code 
 
         if self.__smbTransCommands.has_key(transCommand):
@@ -4565,7 +4565,7 @@ class SimpleSMBServer:
             self.__server.processConfigFile()
 
         # Now we have to register the MS-SRVS server. This specially important for 
-        # Windows 7+ and Mavericks clients since they WONT (specially OSX) 
+        # Windows 7+ and Mavericks clients since they WON'T (specially OSX) 
         # ask for shares using MS-RAP.
 
         self.__srvsServer = SRVSServer()

@@ -345,7 +345,7 @@ class ENCODED_VALUE(Structure):
                 # ObjectEncodingLength (section 2.2.4) followed by an ObjectBlock (section 2.2.5).
 
                 # ToDo: This is a hack.. We should parse this better. We need to have an ENCODING_UNIT.
-                # I'm going thru a METHOD_SIGNATURE_BLOCK first just to parse the ObjectBlock
+                # I'm going through a METHOD_SIGNATURE_BLOCK first just to parse the ObjectBlock
                 msb = METHOD_SIGNATURE_BLOCK(heapData)
                 unit = ENCODING_UNIT()
                 unit['ObjectEncodingLength'] = msb['EncodingLength']

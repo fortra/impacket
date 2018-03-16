@@ -55,7 +55,7 @@ class TestTCP(unittest.TestCase):
 
     def test_04(self):
         'Test TCP offset setters'
-        # test that set_th_off doesnt affect to flags
+        # test that set_th_off doesn't affect to flags
         flags = int('10101010',2)
         self.tcp.set_th_flags( flags )
         self.assertEqual(self.tcp.get_th_flags(), flags) 

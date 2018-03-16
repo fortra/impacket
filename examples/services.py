@@ -114,7 +114,7 @@ class SVCCTL:
             elif resp['lpServiceConfig']['dwStartType'] == 0x4:
                 print "DISABLED"
             else:
-                print "UNKOWN"
+                print "UNKNOWN"
 
             print "ERROR_CONTROL     : %2d - " % resp['lpServiceConfig']['dwErrorControl'],
             if resp['lpServiceConfig']['dwErrorControl'] == 0x0:
@@ -126,7 +126,7 @@ class SVCCTL:
             elif resp['lpServiceConfig']['dwErrorControl'] == 0x3:
                 print "CRITICAL"
             else:
-                print "UNKOWN"
+                print "UNKNOWN"
             print "BINARY_PATH_NAME  : %s" % resp['lpServiceConfig']['lpBinaryPathName'][:-1]
             print "LOAD_ORDER_GROUP  : %s" % resp['lpServiceConfig']['lpLoadOrderGroup'][:-1]
             print "TAG               : %d" % resp['lpServiceConfig']['dwTagId']
@@ -153,7 +153,7 @@ class SVCCTL:
             elif state == scmr.SERVICE_STOPPED:
                print "STOPPED"
             else:
-               print "UNKOWN"
+               print "UNKNOWN"
         elif self.__action == 'LIST':
             logging.info("Listing services available on target")
             #resp = rpc.EnumServicesStatusW(scManagerHandle, svcctl.SERVICE_WIN32_SHARE_PROCESS )
@@ -178,7 +178,7 @@ class SVCCTL:
                 elif state == scmr.SERVICE_STOPPED:
                    print "STOPPED"
                 else:
-                   print "UNKOWN"
+                   print "UNKNOWN"
             print "Total Services: %d" % len(resp)
         elif self.__action == 'CREATE':
             logging.info("Creating service %s" % self.__options.name)

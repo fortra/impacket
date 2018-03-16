@@ -922,7 +922,7 @@ def computeResponseNTLMv2(flags, serverChallenge, clientChallenge, serverName, d
     responseKeyNT = NTOWFv2(user, password, domain, nthash)
     responseKeyLM = LMOWFv2(user, password, domain, lmhash)
 
-    # If you're running test-ntlm, comment the following lines and uncoment the ones that are commented. Don't forget
+    # If you're running test-ntlm, comment the following lines and uncomment the ones that are commented. Don't forget
     # to turn it back after the tests!
     ######################
     av_pairs = AV_PAIRS(serverName)

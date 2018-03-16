@@ -827,7 +827,7 @@ class ESENT_DB:
         #                VariableSizeOffset + numEntries * 2 (bytes)
         # Tagged Data ( > 255 )
         #     After the Variable Size Value, there's more data for the tagged values.
-        #     Right at the beggining there's another array (taggedItems), pointing to the
+        #     Right at the beginning there's another array (taggedItems), pointing to the
         #     values, size.
         #
         # The interesting thing about this DB records is there's no need for all the columns to be there, hence

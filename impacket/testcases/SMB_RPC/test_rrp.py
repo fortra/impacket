@@ -204,7 +204,7 @@ class RRPTests(unittest.TestCase):
         request = rrp.BaseRegEnumKey()
         request['hKey'] = resp['phkResult']
         request['dwIndex'] = 1
-        # I gotta access the fields mannually :s
+        # I gotta access the fields manually :s
         request.fields['lpNameIn'].fields['MaximumLength'] = 510
         request.fields['lpNameIn'].fields['Data'].fields['Data'].fields['MaximumCount'] = 255
         request['lpClassIn'] = ' '*100
