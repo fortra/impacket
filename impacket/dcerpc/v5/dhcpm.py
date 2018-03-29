@@ -14,17 +14,17 @@
 #   at https://github.com/CoreSecurity/impacket/tree/master/impacket/testcases/SMB_RPC
 #
 #   Some calls have helper functions, which makes it even easier to use.
-#   They are located at the end of this file. 
+#   They are located at the end of this file.
 #   Helper functions start with "h"<name of the call>.
-#   There are test cases for them too. 
+#   There are test cases for them too.
 #
 
-from impacket import system_errors
-from impacket.dcerpc.v5.dtypes import LPWSTR, ULONG, NULL, DWORD, BOOL, BYTE, LPDWORD, WORD
-from impacket.dcerpc.v5.ndr import NDRCALL, NDRUniConformantArray, NDRPOINTER, NDRSTRUCT, NDRENUM, NDRUNION
-from impacket.dcerpc.v5.rpcrt import DCERPCException
-from impacket.dcerpc.v5.enum import Enum
-from impacket.uuid import uuidtup_to_bin
+from lib.impacket import system_errors
+from lib.impacket.dcerpc.v5.dtypes import LPWSTR, ULONG, NULL, DWORD, BOOL, BYTE, LPDWORD, WORD
+from lib.impacket.dcerpc.v5.ndr import NDRCALL, NDRUniConformantArray, NDRPOINTER, NDRSTRUCT, NDRENUM, NDRUNION
+from lib.impacket.dcerpc.v5.rpcrt import DCERPCException
+from lib.impacket.dcerpc.v5.enum import Enum
+from lib.impacket.uuid import uuidtup_to_bin
 
 MSRPC_UUID_DHCPSRV = uuidtup_to_bin(('6BFFD098-A112-3610-9833-46C3F874532D', '1.0'))
 MSRPC_UUID_DHCPSRV2 = uuidtup_to_bin(('5B821720-F63B-11D0-AAD2-00C04FC324DB', '1.0'))
@@ -151,9 +151,27 @@ class DHCP_CLIENT_INFO_V4(NDRSTRUCT):
         ('bClientType', BYTE),
     )
 
+class DHCP_CLIENT_INFO_V5(NDRSTRUCT):
+    structure = (
+        ('ClientIpAddress', DHCP_IP_ADDRESS),
+        ('SubnetMask', DHCP_IP_MASK),
+        ('ClientHardwareAddress', DHCP_CLIENT_UID),
+        ('ClientName', LPWSTR),
+        ('ClientComment', LPWSTR),
+        ('ClientLeaseExpires', DATE_TIME),
+        ('OwnerHost', DHCP_HOST_INFO),
+        ('bClientType', BYTE),
+        ('AddressState', BYTE),
+    )
+
 class LPDHCP_CLIENT_INFO_V4(NDRPOINTER):
     referent = (
         ('Data', DHCP_CLIENT_INFO_V4),
+    )
+
+class LPDHCP_CLIENT_INFO_V5(NDRPOINTER):
+    referent = (
+        ('Data', DHCP_CLIENT_INFO_V5),
     )
 
 # 2.2.1.2.115 DHCP_CLIENT_INFO_PB
@@ -207,15 +225,34 @@ class LPDHCP_CLIENT_INFO_ARRAY_VQ(NDRPOINTER):
 class DHCP_CLIENT_INFO_V4_ARRAY(NDRUniConformantArray):
     item = LPDHCP_CLIENT_INFO_V4
 
+class DHCP_CLIENT_INFO_V5_ARRAY(NDRUniConformantArray):
+    item = LPDHCP_CLIENT_INFO_V5
+
 class LPDHCP_CLIENT_INFO_V4_ARRAY(NDRPOINTER):
     referent = (
         ('Data', DHCP_CLIENT_INFO_V4_ARRAY),
+    )
+
+class LPDHCP_CLIENT_INFO_V5_ARRAY(NDRPOINTER):
+    referent = (
+        ('Data', DHCP_CLIENT_INFO_V5_ARRAY),
     )
 
 class DHCP_CLIENT_INFO_ARRAY_V4(NDRSTRUCT):
     structure = (
         ('NumElements', DWORD),
         ('Clients', LPDHCP_CLIENT_INFO_V4_ARRAY),
+    )
+
+class DHCP_CLIENT_INFO_ARRAY_V5(NDRSTRUCT):
+    structure = (
+        ('NumElements', DWORD),
+        ('Clients', LPDHCP_CLIENT_INFO_V4_ARRAY),
+    )
+
+class LPDHCP_CLIENT_INFO_ARRAY_V5(NDRPOINTER):
+    referent = (
+        ('Data', DHCP_CLIENT_INFO_ARRAY_V5),
     )
 
 class LPDHCP_CLIENT_INFO_ARRAY_V4(NDRPOINTER):
@@ -298,6 +335,74 @@ class DWORD_DWORD(NDRSTRUCT):
     structure = (
         ('DWord1', DWORD),
         ('DWord2', DWORD),
+    )
+
+class DHCP_BOOTP_IP_RANGE(NDRSTRUCT):
+    structure = (
+        ('StartAddress', DHCP_IP_ADDRESS),
+        ('EndAddress', DHCP_IP_ADDRESS),
+        ('BootpAllocated', ULONG),
+        ('MaxBootpAllowed', DHCP_IP_ADDRESS),
+        ('MaxBootpAllowed', ULONG ),
+    )
+
+class DHCP_IP_RESERVATION_V4(NDRSTRUCT):
+    structure = (
+        ('ReservedIpAddress', DHCP_IP_ADDRESS),
+        ('ReservedForClient', DHCP_CLIENT_UID),
+        ('bAllowedClientTypes', BYTE),
+    )
+
+class DHCP_IP_RANGE(NDRSTRUCT):
+    structure = (
+        ('StartAddress', DHCP_IP_ADDRESS),
+        ('EndAddress', DHCP_IP_ADDRESS),
+    )
+
+class DHCP_IP_CLUSTER(NDRSTRUCT):
+    structure = (
+        ('ClusterAddress', DHCP_IP_ADDRESS),
+        ('ClusterMask', DWORD),
+    )
+
+class DHCP_SUBNET_ELEMENT_TYPE(NDRENUM):
+    class enumItems(Enum):
+        DhcpIpRanges           = 0
+        DhcpSecondaryHosts     = 1
+        DhcpReservedIps        = 2
+        DhcpExcludedIpRanges   = 3
+        DhcpIpUsedClusters     = 4
+        DhcpIpRangesDhcpOnly   = 5
+        DhcpIpRangesDhcpBootp  = 6
+        DhcpIpRangesBootpOnly  = 7
+
+class DHCP_SUBNET_ELEMENT_UNION_V5(NDRUNION):
+    union = {
+        DHCP_SUBNET_ELEMENT_TYPE.DhcpIpRanges           : ('IpRange', DHCP_BOOTP_IP_RANGE),
+        DHCP_SUBNET_ELEMENT_TYPE.DhcpSecondaryHosts     : ('SecondaryHost', DHCP_HOST_INFO),
+        DHCP_SUBNET_ELEMENT_TYPE.DhcpReservedIps        : ('ReservedIp', DHCP_IP_RESERVATION_V4),
+        DHCP_SUBNET_ELEMENT_TYPE.DhcpExcludedIpRanges   : ('ExcludeIpRange', DHCP_IP_RANGE),
+        DHCP_SUBNET_ELEMENT_TYPE.DhcpIpUsedClusters     : ('IpUsedCluster', DHCP_IP_CLUSTER),
+    }
+
+class DHCP_SUBNET_ELEMENT_DATA_V5(NDRSTRUCT):
+    structure = (
+        ('ElementType', DHCP_SUBNET_ELEMENT_TYPE),
+        ('Element', DHCP_SUBNET_ELEMENT_UNION_V5),
+    )
+
+class LPDHCP_SUBNET_ELEMENT_DATA_V5(NDRUniConformantArray):
+    item = DHCP_SUBNET_ELEMENT_DATA_V5
+
+class DHCP_SUBNET_ELEMENT_INFO_ARRAY_V5(NDRSTRUCT):
+    structure = (
+        ('NumElements', DWORD),
+        ('Elements', LPDHCP_SUBNET_ELEMENT_DATA_V5),
+    )
+
+class LPDHCP_SUBNET_ELEMENT_INFO_ARRAY_V5(NDRPOINTER):
+    referent = (
+        ('Data', DHCP_SUBNET_ELEMENT_INFO_ARRAY_V5)
     )
 
 class DHCP_OPTION_DATA_TYPE(NDRENUM):
@@ -472,6 +577,73 @@ class DhcpEnumOptionValuesResponse(NDRCALL):
         ('ErrorCode', ULONG),
     )
 
+class DhcpGetClientInfoV4(NDRCALL):
+    opnum = 34
+    structure = (
+        ('ServerIpAddress', DHCP_SRV_HANDLE),
+        ('SearchInfo', DHCP_SEARCH_INFO),
+    )
+
+class DhcpGetClientInfoV4Response(NDRCALL):
+    structure = (
+        ('ClientInfo', LPDHCP_CLIENT_INFO_V4),
+        ('ErrorCode', ULONG),
+    )
+
+class DhcpEnumSubnetClientsV4(NDRCALL):
+    opnum = 35
+    structure = (
+        ('ServerIpAddress', DHCP_SRV_HANDLE),
+        ('SubnetAddress', DHCP_IP_ADDRESS),
+        ('ResumeHandle', DWORD),
+        ('PreferredMaximum', DWORD),
+    )
+
+class DhcpEnumSubnetClientsV4Response(NDRCALL):
+    structure = (
+        ('ResumeHandle', LPDWORD),
+        ('ClientInfo', LPDHCP_CLIENT_INFO_ARRAY_V4),
+        ('ClientsRead', DWORD),
+        ('ClientsTotal', DWORD),
+        ('ErrorCode', ULONG),
+    )
+
+# Interface dhcpsrv2
+
+class DhcpEnumSubnetClientsV5(NDRCALL):
+    opnum = 0
+    structure = (
+        ('ServerIpAddress', DHCP_SRV_HANDLE),
+        ('SubnetAddress', DHCP_IP_ADDRESS),
+        ('ResumeHandle', LPDWORD),
+        ('PreferredMaximum', DWORD),
+    )
+
+class DhcpEnumSubnetClientsV5Response(NDRCALL):
+    structure = (
+        ('ResumeHandle', DWORD),
+        ('ClientsInfo', LPDHCP_CLIENT_INFO_ARRAY_V5),
+        ('ClientsRead', DWORD),
+        ('ClientsTotal', DWORD),
+    )
+
+class DhcpGetOptionValueV5(NDRCALL):
+    opnum = 21
+    structure = (
+        ('ServerIpAddress', DHCP_SRV_HANDLE),
+        ('Flags', DWORD),
+        ('OptionID', DHCP_OPTION_ID),
+        ('ClassName', LPWSTR),
+        ('VendorName', LPWSTR),
+        ('ScopeInfo', DHCP_OPTION_SCOPE_INFO),
+    )
+
+class DhcpGetOptionValueV5Response(NDRCALL):
+    structure = (
+        ('OptionValue', PDHCP_OPTION_VALUE),
+        ('ErrorCode', ULONG),
+    )
+
 class DhcpEnumOptionValuesV5(NDRCALL):
     opnum = 22
     structure = (
@@ -493,30 +665,36 @@ class DhcpEnumOptionValuesV5Response(NDRCALL):
         ('ErrorCode', ULONG),
     )
 
-class DhcpGetClientInfoV4(NDRCALL):
-    opnum = 34
+class DhcpGetAllOptionValues(NDRCALL):
+    opnum = 30
     structure = (
         ('ServerIpAddress', DHCP_SRV_HANDLE),
-        ('SearchInfo', DHCP_SEARCH_INFO),
+        ('Flags', DWORD),
+        ('ScopeInfo', DHCP_OPTION_SCOPE_INFO),
     )
 
-class DhcpGetClientInfoV4Response(NDRCALL):
+class DhcpGetAllOptionValuesResponse(NDRCALL):
     structure = (
-        ('ClientInfo', LPDHCP_CLIENT_INFO_V4),
+        ('Values', LPDHCP_ALL_OPTION_VALUES),
         ('ErrorCode', ULONG),
     )
 
-# Interface dhcpsrv2
-class DhcpV4GetClientInfo(NDRCALL):
-    opnum = 123
+class DhcpEnumSubnetElementsV5(NDRCALL):
+    opnum = 38
     structure = (
         ('ServerIpAddress', DHCP_SRV_HANDLE),
-        ('SearchInfo', DHCP_SEARCH_INFO),
+        ('SubnetAddress', DHCP_IP_ADDRESS),
+        ('EnumElementType', DHCP_SUBNET_ELEMENT_TYPE),
+        ('ResumeHandle', LPDWORD),
+        ('PreferredMaximum', DWORD),
     )
 
-class DhcpV4GetClientInfoResponse(NDRCALL):
+class DhcpEnumSubnetElementsV5Response(NDRCALL):
     structure = (
-        ('ClientInfo', LPDHCP_CLIENT_INFO_PB),
+        ('ResumeHandle', DWORD),
+        ('EnumElementInfo', LPDHCP_SUBNET_ELEMENT_INFO_ARRAY_V5),
+        ('ElementsRead', DWORD),
+        ('ElementsTotal', DWORD),
         ('ErrorCode', ULONG),
     )
 
@@ -538,35 +716,16 @@ class DhcpEnumSubnetClientsVQResponse(NDRCALL):
         ('ErrorCode', ULONG),
     )
 
-class DhcpEnumSubnetClientsV4(NDRCALL):
-    opnum = 35
+class DhcpV4GetClientInfo(NDRCALL):
+    opnum = 123
     structure = (
         ('ServerIpAddress', DHCP_SRV_HANDLE),
-        ('SubnetAddress', DHCP_IP_ADDRESS),
-        ('ResumeHandle', LPDWORD),
-        ('PreferredMaximum', DWORD),
+        ('SearchInfo', DHCP_SEARCH_INFO),
     )
 
-class DhcpEnumSubnetClientsV4Response(NDRCALL):
+class DhcpV4GetClientInfoResponse(NDRCALL):
     structure = (
-        ('ResumeHandle', LPDWORD),
-        ('ClientInfo', LPDHCP_CLIENT_INFO_ARRAY_V4),
-        ('ClientsRead', DWORD),
-        ('ClientsTotal', DWORD),
-        ('ErrorCode', ULONG),
-    )
-
-class DhcpGetAllOptionValues(NDRCALL):
-    opnum = 30
-    structure = (
-        ('ServerIpAddress', DHCP_SRV_HANDLE),
-        ('Flags', DWORD),
-        ('ScopeInfo', DHCP_OPTION_SCOPE_INFO),
-    )
-
-class DhcpGetAllOptionValuesResponse(NDRCALL):
-    structure = (
-        ('Values', LPDHCP_ALL_OPTION_VALUES),
+        ('ClientInfo', LPDHCP_CLIENT_INFO_PB),
         ('ErrorCode', ULONG),
     )
 
@@ -574,14 +733,17 @@ class DhcpGetAllOptionValuesResponse(NDRCALL):
 # OPNUMs and their corresponding structures
 ################################################################################
 OPNUMS = {
+    0: (DhcpEnumSubnetClientsV5, DhcpEnumSubnetClientsV5Response),
     2: (DhcpGetSubnetInfo, DhcpGetSubnetInfoResponse),
     3: (DhcpEnumSubnets, DhcpEnumSubnetsResponse),
     13: (DhcpGetOptionValue, DhcpGetOptionValueResponse),
     14: (DhcpEnumOptionValues, DhcpEnumOptionValuesResponse),
+    21: (DhcpGetOptionValueV5, DhcpGetOptionValueV5Response),
     22: (DhcpEnumOptionValuesV5, DhcpEnumOptionValuesV5Response),
     30: (DhcpGetAllOptionValues, DhcpGetAllOptionValuesResponse),
     34: (DhcpGetClientInfoV4, DhcpGetClientInfoV4Response),
     35: (DhcpEnumSubnetClientsV4, DhcpEnumSubnetClientsV4Response),
+    38: (DhcpEnumSubnetElementsV5, DhcpEnumSubnetElementsV5Response),
     47: (DhcpEnumSubnetClientsVQ, DhcpEnumSubnetClientsVQResponse),
     123: (DhcpV4GetClientInfo, DhcpV4GetClientInfoResponse),
 }
@@ -667,7 +829,7 @@ def hDhcpEnumOptionValues(dce, scopetype=DHCP_OPTION_SCOPE_TYPE.DhcpDefaultOptio
             resp = e.get_packet()
         return resp
 
-def hDhcpEnumOptionValuesV5(dce, flags=DHCP_FLAGS_OPTION_DEFAULT, classname='', vendorname='',
+def hDhcpEnumOptionValuesV5(dce, flags=DHCP_FLAGS_OPTION_DEFAULT, classname=NULL, vendorname=NULL,
                             scopetype=DHCP_OPTION_SCOPE_TYPE.DhcpDefaultOptions, options=NULL,
                             preferredMaximum=0xffffffff):
     request = DhcpEnumOptionValuesV5()
@@ -686,6 +848,34 @@ def hDhcpEnumOptionValuesV5(dce, flags=DHCP_FLAGS_OPTION_DEFAULT, classname='', 
         request['ScopeInfo']['ScopeInfo']['MScopeInfo'] = options
     request['ResumeHandle'] = NULL
     request['PreferredMaximum'] = preferredMaximum
+
+    status = system_errors.ERROR_MORE_DATA
+    while status == system_errors.ERROR_MORE_DATA:
+        try:
+            resp = dce.request(request)
+        except DCERPCException, e:
+            if str(e).find('ERROR_NO_MORE_ITEMS') < 0:
+                raise
+            resp = e.get_packet()
+        return resp
+
+def hDhcpGetOptionValueV5(dce, option_id, flags=DHCP_FLAGS_OPTION_DEFAULT, classname=NULL, vendorname=NULL,
+                            scopetype=DHCP_OPTION_SCOPE_TYPE.DhcpDefaultOptions, options=NULL):
+    request = DhcpGetOptionValueV5()
+
+    request['ServerIpAddress'] = NULL
+    request['Flags'] = flags
+    request['OptionID'] = option_id
+    request['ClassName'] = classname
+    request['VendorName'] = vendorname
+    request['ScopeInfo']['ScopeType'] = scopetype
+    request['ScopeInfo']['ScopeInfo']['tag'] = scopetype
+    if scopetype == DHCP_OPTION_SCOPE_TYPE.DhcpSubnetOptions:
+        request['ScopeInfo']['ScopeInfo']['SubnetScopeInfo'] = options
+    elif scopetype == DHCP_OPTION_SCOPE_TYPE.DhcpReservedOptions:
+        request['ScopeInfo']['ScopeInfo']['ReservedScopeInfo'] = options
+    elif scopetype == DHCP_OPTION_SCOPE_TYPE.DhcpMScopeOptions:
+        request['ScopeInfo']['ScopeInfo']['MScopeInfo'] = options
 
     status = system_errors.ERROR_MORE_DATA
     while status == system_errors.ERROR_MORE_DATA:
@@ -767,6 +957,42 @@ def hDhcpEnumSubnetClientsV4(dce, preferredMaximum=0xffffffff):
             resp = dce.request(request)
         except DCERPCException, e:
             if str(e).find('STATUS_MORE_ENTRIES') < 0:
+                raise
+            resp = e.get_packet()
+        return resp
+
+def hDhcpEnumSubnetClientsV5(dce, preferredMaximum=0xffffffff):
+    request = DhcpEnumSubnetClientsV5()
+
+    request['ServerIpAddress'] = NULL
+    request['SubnetAddress'] = NULL
+    request['ResumeHandle'] = NULL
+    request['PreferredMaximum'] = preferredMaximum
+    status = system_errors.ERROR_MORE_DATA
+    while status == system_errors.ERROR_MORE_DATA:
+        try:
+            resp = dce.request(request)
+        except DCERPCException, e:
+            if str(e).find('STATUS_MORE_ENTRIES') < 0:
+                raise
+            resp = e.get_packet()
+        return resp
+
+def hDhcpEnumSubnetElementsV5(dce, subnet_address, element_type=DHCP_SUBNET_ELEMENT_TYPE.DhcpIpRanges, preferredMaximum=0xffffffff):
+    request = DhcpEnumSubnetElementsV5()
+
+    request['ServerIpAddress'] = NULL
+    request['SubnetAddress'] = subnet_address
+    request['EnumElementType'] = element_type
+    request['ResumeHandle'] = NULL
+    request['PreferredMaximum'] = preferredMaximum
+
+    status = system_errors.ERROR_MORE_DATA
+    while status == system_errors.ERROR_MORE_DATA:
+        try:
+            resp = dce.request(request)
+        except DCERPCException, e:
+            if str(e).find('ERROR_NO_MORE_ITEMS') < 0:
                 raise
             resp = e.get_packet()
         return resp
