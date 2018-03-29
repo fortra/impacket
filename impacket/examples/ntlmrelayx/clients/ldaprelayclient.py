@@ -22,7 +22,7 @@ from impacket import LOG
 from ldap3 import Server, Connection, ALL, NTLM, MODIFY_ADD
 from ldap3.operation import bind
 try:
-    from ldap3.core.results import RESULT_SUCCESS
+    from ldap3.core.results import RESULT_SUCCESS, RESULT_STRONGER_AUTH_REQUIRED
 except ImportError:
     LOG.fatal("ntlmrelayx requires ldap3 > 2.0. To update, use: pip install ldap3 --upgrade")
     sys.exit(1)
@@ -110,7 +110,9 @@ class LDAPRelayClient(ProtocolClient):
             self.session.bound = True
             self.session.refresh_server_info()
             return None, STATUS_SUCCESS
-
+        else:
+            if result['result'] == RESULT_STRONGER_AUTH_REQUIRED and self.PLUGIN_NAME != 'LDAPS':
+                raise LDAPRelayClientException('Server rejected authentication because LDAP signing is enabled. Try connecting with TLS enabled (specify target as ldaps://hostname )')
         return None, STATUS_ACCESS_DENIED
 
     #This is a fake function for ldap3 which wants an NTLM client with specific methods
