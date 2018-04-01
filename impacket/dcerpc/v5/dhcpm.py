@@ -19,12 +19,12 @@
 #   There are test cases for them too.
 #
 
-from lib.impacket import system_errors
-from lib.impacket.dcerpc.v5.dtypes import LPWSTR, ULONG, NULL, DWORD, BOOL, BYTE, LPDWORD, WORD
-from lib.impacket.dcerpc.v5.ndr import NDRCALL, NDRUniConformantArray, NDRPOINTER, NDRSTRUCT, NDRENUM, NDRUNION
-from lib.impacket.dcerpc.v5.rpcrt import DCERPCException
-from lib.impacket.dcerpc.v5.enum import Enum
-from lib.impacket.uuid import uuidtup_to_bin
+from impacket import system_errors
+from impacket.dcerpc.v5.dtypes import LPWSTR, ULONG, NULL, DWORD, BOOL, BYTE, LPDWORD, WORD
+from impacket.dcerpc.v5.ndr import NDRCALL, NDRUniConformantArray, NDRPOINTER, NDRSTRUCT, NDRENUM, NDRUNION
+from impacket.dcerpc.v5.rpcrt import DCERPCException
+from impacket.dcerpc.v5.enum import Enum
+from impacket.uuid import uuidtup_to_bin
 
 MSRPC_UUID_DHCPSRV = uuidtup_to_bin(('6BFFD098-A112-3610-9833-46C3F874532D', '1.0'))
 MSRPC_UUID_DHCPSRV2 = uuidtup_to_bin(('5B821720-F63B-11D0-AAD2-00C04FC324DB', '1.0'))
