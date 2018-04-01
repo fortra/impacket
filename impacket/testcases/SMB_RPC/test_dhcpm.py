@@ -91,6 +91,24 @@ class DHCPMTests(unittest.TestCase):
             if str(e).find('0x4e2d') >= 0:
                 pass
 
+    def test_hDhcpEnumSubnetClientsV5(self):
+
+        dce, rpctransport = self.connect(1)
+
+        resp = dhcpm.hDhcpEnumSubnetClientsV5(dce)
+        resp.dump()
+
+    def test_hDhcpGetOptionValueV5(self):
+        dce, rpctransport = self.connect(1)
+        subnet_id = int(socket.inet_aton("172.16.123.0").encode('hex'), 16)
+        resp = dhcpm.hDhcpGetOptionValueV5(dce,3,
+                                           dhcpm.DHCP_FLAGS_OPTION_DEFAULT, NULL, NULL,
+                                           dhcpm.DHCP_OPTION_SCOPE_TYPE.enumItems.DhcpSubnetOptions,
+                                           subnet_id)
+        resp.dump()
+
+
+
 class SMBTransport(DHCPMTests):
     def setUp(self):
         DHCPMTests.setUp(self)
