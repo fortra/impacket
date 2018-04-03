@@ -421,23 +421,24 @@ class TICKETER:
 
             # Let's add the extraSid
             if self.__options.extra_sid is not None:
+                extrasids = self.__options.extra_sid.split(',')
                 if validationInfo['Data']['SidCount'] == 0:
                     # Let's be sure user's flag specify we have extra sids.
                     validationInfo['Data']['UserFlags'] |= 0x20
                     validationInfo['Data']['ExtraSids'] = PKERB_SID_AND_ATTRIBUTES_ARRAY()
+                for extrasid in self.extrasids:
+                    validationInfo['Data']['SidCount'] += 1
 
-                validationInfo['Data']['SidCount'] += 1
+                    sidRecord = KERB_SID_AND_ATTRIBUTES()
 
-                sidRecord = KERB_SID_AND_ATTRIBUTES()
+                    sid = RPC_SID()
+                    sid.fromCanonical(extrasid)
 
-                sid = RPC_SID()
-                sid.fromCanonical(self.__options.extra_sid)
+                    sidRecord['Sid'] = sid
+                    sidRecord['Attributes'] = SE_GROUP_MANDATORY | SE_GROUP_ENABLED_BY_DEFAULT | SE_GROUP_ENABLED
 
-                sidRecord['Sid'] = sid
-                sidRecord['Attributes'] = SE_GROUP_MANDATORY | SE_GROUP_ENABLED_BY_DEFAULT | SE_GROUP_ENABLED
-
-                # And, let's append the magicSid
-                validationInfo['Data']['ExtraSids'].append(sidRecord)
+                    # And, let's append the magicSid
+                    validationInfo['Data']['ExtraSids'].append(sidRecord)
             else:
                 validationInfo['Data']['ExtraSids'] = NULL
 
@@ -710,7 +711,7 @@ if __name__ == '__main__':
                         'groups user will belong to (default = 513, 512, 520, 518, 519)')
     parser.add_argument('-user-id', action="store", default = '500', help='user id for the user the ticket will be '
                                                                           'created for (default = 500)')
-    parser.add_argument('-extra-sid', action="store", help='Optional ExtraSid to be included inside the ticket\'s PAC')
+    parser.add_argument('-extra-sid', action="store", help='Comma separated list of ExtraSids to be included inside the ticket\'s PAC')
     parser.add_argument('-duration', action="store", default = '3650', help='Amount of days till the ticket expires '
                                                                             '(default = 365*10)')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
