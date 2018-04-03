@@ -41,7 +41,7 @@ class BKRPTests(unittest.TestCase):
 
         return dce, rpctransport
 
-    def ttt_BackuprKey_BACKUPKEY_BACKUP_GUID_BACKUPKEY_RESTORE_GUID(self):
+    def test_BackuprKey_BACKUPKEY_BACKUP_GUID_BACKUPKEY_RESTORE_GUID(self):
         dce, rpctransport = self.connect()
         DataIn = "Huh? wait wait, let me, let me explain something to you. Uh, I am not Mr. Lebowski; " \
                  "you're Mr. Lebowski. I'm the Dude. So that's what you call me. You know, uh, That, or uh, " \
