@@ -72,6 +72,7 @@ class DumpSecrets:
         self.__NTDSHashes = None
         self.__LSASecrets = None
         self.__systemHive = options.system
+        self.__bootkey = options.bootkey
         self.__securityHive = options.security
         self.__samHive = options.sam
         self.__ntdsFile = options.ntds
@@ -106,11 +107,16 @@ class DumpSecrets:
             if self.__remoteName.upper() == 'LOCAL' and self.__username == '':
                 self.__isRemote = False
                 self.__useVSSMethod = True
-                localOperations = LocalOperations(self.__systemHive)
-                bootKey = localOperations.getBootKey()
-                if self.__ntdsFile is not None:
+                if self.__systemHive:
+                    localOperations = LocalOperations(self.__systemHive)
+                    bootKey = localOperations.getBootKey()
+                    if self.__ntdsFile is not None:
                     # Let's grab target's configuration about LM Hashes storage
-                    self.__noLMHash = localOperations.checkNoLMHashPolicy()
+                        self.__noLMHash = localOperations.checkNoLMHashPolicy()
+                else:
+                    import binascii
+                    bootKey = binascii.unhexlify(self.__bootkey)
+
             else:
                 self.__isRemote = True
                 bootKey = None
@@ -271,6 +277,7 @@ if __name__ == '__main__':
                                                        ' (if you want to parse local files)')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-system', action='store', help='SYSTEM hive to parse')
+    parser.add_argument('-bootkey', action='store', help='bootkey for SYSTEM hive')
     parser.add_argument('-security', action='store', help='SECURITY hive to parse')
     parser.add_argument('-sam', action='store', help='SAM hive to parse')
     parser.add_argument('-ntds', action='store', help='NTDS.DIT file to parse')
@@ -356,8 +363,8 @@ if __name__ == '__main__':
         sys.exit(1)
 
     if remoteName.upper() == 'LOCAL' and username == '':
-        if options.system is None:
-            logging.error('SYSTEM hive is always required for local parsing, check help')
+        if options.system is None and options.bootkey is None:
+            logging.error('Either the SYSTEM hive or bootkey is required for local parsing, check help')
             sys.exit(1)
     else:
 
