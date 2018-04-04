@@ -1,4 +1,4 @@
-# Copyright (c) 2003-2016 CORE Security Technologies
+# Copyright (c) 2003-2018 CORE Security Technologies
 #
 # This software is provided under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -201,11 +201,29 @@ class NL_RECORD(Structure):
         ('DomainNameLength','<H=0'),
         ('EffectiveNameLength','<H=0'),
         ('FullNameLength','<H=0'),
-        ('MetaData','52s=""'),
-        ('FullDomainLength','<H=0'),
-        ('Length2','<H=0'),
+# Taken from https://github.com/gentilkiwi/mimikatz/blob/master/mimikatz/modules/kuhl_m_lsadump.h#L265
+        ('LogonScriptName','<H=0'),
+        ('ProfilePathLength','<H=0'),
+        ('HomeDirectoryLength','<H=0'),
+        ('HomeDirectoryDriveLength','<H=0'),
+        ('UserId','<L=0'),
+        ('PrimaryGroupId','<L=0'),
+        ('GroupCount','<L=0'),
+        ('logonDomainNameLength','<H=0'),
+        ('unk0','<H=0'),
+        ('LastWrite','<Q=0'),
+        ('Revision','<L=0'),
+        ('SidCount','<L=0'),
+        ('Flags','<L=0'),
+        ('unk1','<L=0'),
+        ('LogonPackageLength','<L=0'),
+        ('DnsDomainNameLength','<H=0'),
+        ('UPN','<H=0'),
+       # ('MetaData','52s=""'),
+       # ('FullDomainLength','<H=0'),
+       # ('Length2','<H=0'),
+        ('IV','16s=""'),
         ('CH','16s=""'),
-        ('T','16s=""'),
         ('EncryptedData',':'),
     )
 
@@ -1357,19 +1375,26 @@ class LSASecrets(OfflineRegistry):
         for value in values:
             LOG.debug('Looking into %s' % value)
             record = NL_RECORD(self.getValue(ntpath.join('\\Cache',value))[1])
-            if record['CH'] != 16 * '\x00':
-                if self.__vistaStyle is True:
-                    plainText = self.__cryptoCommon.decryptAES(self.__NKLMKey[16:32], record['EncryptedData'], record['CH'])
+            if record['IV'] != 16 * '\x00':
+            #if record['UserLength'] > 0:
+                if record['Flags'] & 1 == 1:
+                    # Encrypted
+                    if self.__vistaStyle is True:
+                        plainText = self.__cryptoCommon.decryptAES(self.__NKLMKey[16:32], record['EncryptedData'], record['IV'])
+                    else:
+                        plainText = self.__decryptHash(self.__NKLMKey, record['EncryptedData'], record['IV'])
+                        pass
                 else:
-                    plainText = self.__decryptHash(self.__NKLMKey, record['EncryptedData'], record['CH'])
-                    pass
+                    # Plain! Until we figure out what this is, we skip it
+                    #plainText = record['EncryptedData']
+                    continue
                 encHash = plainText[:0x10]
                 plainText = plainText[0x48:]
                 userName = plainText[:record['UserLength']].decode('utf-16le')
                 plainText = plainText[self.__pad(record['UserLength']):]
                 domain = plainText[:record['DomainNameLength']].decode('utf-16le')
                 plainText = plainText[self.__pad(record['DomainNameLength']):]
-                domainLong = plainText[:self.__pad(record['FullDomainLength'])].decode('utf-16le')
+                domainLong = plainText[:self.__pad(record['DnsDomainNameLength'])].decode('utf-16le')
                 answer = "%s:%s:%s:%s:::" % (userName, hexlify(encHash), domainLong, domain)
                 self.__cachedItems.append(answer)
                 self.__perSecretCallback(LSASecrets.SECRET_TYPE.LSA_HASHED, answer)
