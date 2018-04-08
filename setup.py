@@ -50,6 +50,10 @@ setup(name = PACKAGE_NAME,
       install_requires=requirements,
       extras_require={
                       'examples': [item for item in examples_requirements if item not in requirements]
-                    }
+                    },
+      classifiers = [
+          "Programming Language :: Python :: 2.7",
+          "Programming Language :: Python :: 2.6",
+      ]
       )
 
