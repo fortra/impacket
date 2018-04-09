@@ -62,5 +62,5 @@ class TestDot11FrameControlPSPoll(unittest.TestCase):
         self.assertEqual(self.pspoll.get_ta().tolist(), [0x12,0xbe,0xe5,0x05,0x4c,0x34])
      
 suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11FrameControlPSPoll)
-unittest.TextTestRunner(verbosity=2).run(suite)
+unittest.TextTestRunner(verbosity=1).run(suite)
 

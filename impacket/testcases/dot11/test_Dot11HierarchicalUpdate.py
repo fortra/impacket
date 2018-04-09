@@ -130,4 +130,4 @@ class TestDot11HierarchicalUpdate(unittest.TestCase):
         self.assertEqual(self.packet3.body.get_buffer_as_string(), "Header2Header1**NewBody**Tail1Tail2")        
         
 suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11HierarchicalUpdate)
-unittest.TextTestRunner(verbosity=2).run(suite)
+unittest.TextTestRunner(verbosity=1).run(suite)

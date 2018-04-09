@@ -172,4 +172,4 @@ class TestDot11ManagementReassociationRequestFrames(unittest.TestCase):
         self.assertEqual(self.management_reassociation_request.get_header_size(), 74+11)
         
 suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11ManagementReassociationRequestFrames)
-unittest.TextTestRunner(verbosity=2).run(suite)
+unittest.TextTestRunner(verbosity=1).run(suite)

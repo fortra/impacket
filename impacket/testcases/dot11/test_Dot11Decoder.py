@@ -62,5 +62,5 @@ class TestDot11Decoder(unittest.TestCase):
         self.assertTrue(str(dataclass).find('ImpactPacket.Data') > 0)
       
 suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11Decoder)
-unittest.TextTestRunner(verbosity=2).run(suite)
+unittest.TextTestRunner(verbosity=1).run(suite)
 

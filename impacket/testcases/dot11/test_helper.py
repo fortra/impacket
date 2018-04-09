@@ -58,4 +58,4 @@ class TestHelpers(unittest.TestCase):
         
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestHelpers)
-unittest.TextTestRunner(verbosity=2).run(suite)
+unittest.TextTestRunner(verbosity=1).run(suite)

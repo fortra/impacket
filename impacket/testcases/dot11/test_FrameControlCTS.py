@@ -53,5 +53,5 @@ class TestDot11FrameControlCTS(unittest.TestCase):
         self.assertEqual(self.cts.get_ra().tolist(), [0x12,0x19,0xe0,0x98,0x04,0x34])
       
 suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11FrameControlCTS)
-unittest.TextTestRunner(verbosity=2).run(suite)
+unittest.TextTestRunner(verbosity=1).run(suite)
 

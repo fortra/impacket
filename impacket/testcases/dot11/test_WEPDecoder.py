@@ -121,4 +121,4 @@ class TestDot11WEPData(unittest.TestCase):
         self.assertEqual(icmp.get_icmp_id(),0x0400)
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11WEPData)
-unittest.TextTestRunner(verbosity=2).run(suite)
+unittest.TextTestRunner(verbosity=1).run(suite)

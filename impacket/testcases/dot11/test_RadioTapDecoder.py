@@ -78,5 +78,5 @@ class TestRadioTapDecoder(unittest.TestCase):
         self.assertEqual(p, None)
       
 suite = unittest.TestLoader().loadTestsFromTestCase(TestRadioTapDecoder)
-unittest.TextTestRunner(verbosity=2).run(suite)
+unittest.TextTestRunner(verbosity=1).run(suite)
 
