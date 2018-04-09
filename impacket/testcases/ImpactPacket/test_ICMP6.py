@@ -174,4 +174,4 @@ class TestICMP6(unittest.TestCase):
 
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestICMP6)
-unittest.TextTestRunner(verbosity=2).run(suite)
+unittest.TextTestRunner(verbosity=1).run(suite)
