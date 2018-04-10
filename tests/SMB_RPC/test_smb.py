@@ -280,7 +280,7 @@ class SMB1Tests(SMBTests):
         self.share    = 'C$'
         self.file     = '/TEST'
         self.directory= '/BETO'
-        self.upload   = '../../nt_errors.py'
+        self.upload   = '../../impacket/nt_errors.py'
         self.flags2   = smb.SMB.FLAGS2_NT_STATUS | smb.SMB.FLAGS2_EXTENDED_SECURITY | smb.SMB.FLAGS2_LONG_NAMES
         self.dialects = smb.SMB_DIALECT
 
@@ -300,7 +300,7 @@ class SMB1TestsUnicode(SMBTests):
         self.share    = 'C$'
         self.file     = '/TEST'
         self.directory= '/BETO'
-        self.upload   = '../../nt_errors.py'
+        self.upload   = '../../impacket/nt_errors.py'
         self.flags2   = smb.SMB.FLAGS2_UNICODE | smb.SMB.FLAGS2_NT_STATUS | smb.SMB.FLAGS2_EXTENDED_SECURITY | smb.SMB.FLAGS2_LONG_NAMES
         self.dialects = smb.SMB_DIALECT
 
@@ -320,7 +320,7 @@ class SMB002Tests(SMBTests):
         self.share    = 'C$'
         self.file     = '/TEST'
         self.directory= '/BETO'
-        self.upload   = '../../nt_errors.py'
+        self.upload   = '../../impacket/nt_errors.py'
         self.dialects = SMB2_DIALECT_002
 
 class SMB21Tests(SMBTests):
@@ -339,7 +339,7 @@ class SMB21Tests(SMBTests):
         self.share    = 'C$'
         self.file     = '/TEST'
         self.directory= '/BETO'
-        self.upload   = '../../nt_errors.py'
+        self.upload   = '../../impacket/nt_errors.py'
         self.dialects = SMB2_DIALECT_21
 
 class SMB3Tests(SMBTests):
@@ -358,7 +358,7 @@ class SMB3Tests(SMBTests):
         self.share    = 'C$'
         self.file     = '/TEST'
         self.directory= '/BETO'
-        self.upload   = '../../nt_errors.py'
+        self.upload   = '../../impacket/nt_errors.py'
         self.dialects = SMB2_DIALECT_30
 
 if __name__ == "__main__":

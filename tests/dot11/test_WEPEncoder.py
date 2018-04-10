@@ -4,21 +4,21 @@
 import sys
 sys.path.insert(0,"../..")
 
-import dot11
-import ImpactPacket
-from Dot11KeyManager import KeyManager
-from ImpactDecoder import Dot11Decoder
+import impacket.dot11
+import impacket.ImpactPacket
+from impacket.Dot11KeyManager import KeyManager
+from impacket.ImpactDecoder import Dot11Decoder
 from binascii import hexlify
 import unittest
 
 class TestDot11WEPData(unittest.TestCase):
 
     def setUp(self):
-        self.dot11 = dot11.Dot11(FCS_at_end = False)
+        self.dot11 = impacket.dot11.Dot11(FCS_at_end = False)
         
         # dot11.fc
         self.dot11.set_version(0)
-        self.dot11.set_type_n_subtype(dot11.Dot11Types.DOT11_TYPE_DATA_SUBTYPE_DATA)
+        self.dot11.set_type_n_subtype(impacket.dot11.Dot11Types.DOT11_TYPE_DATA_SUBTYPE_DATA)
 
         # dot11.fc.flags
         self.dot11.set_fromDS(0)
@@ -31,7 +31,7 @@ class TestDot11WEPData(unittest.TestCase):
         self.dot11.set_order(0)
         
         # dot11.Data
-        self.dot11data = dot11.Dot11DataFrame()
+        self.dot11data = impacket.dot11.Dot11DataFrame()
         self.dot11data.set_duration(44)
         self.dot11data.set_address1([0x00,0x21,0x29,0x68,0x33,0x5d]) # Bssid
         self.dot11data.set_address2([0x00,0x18,0xde,0x7c,0x37,0x9f]) # Source
@@ -40,26 +40,26 @@ class TestDot11WEPData(unittest.TestCase):
         self.dot11data.set_sequence_number(3439)
         
         # WEP
-        self.wep = dot11.Dot11WEP()
+        self.wep = impacket.dot11.Dot11WEP()
         self.wep.set_iv(0x0c3165)
         self.wep.set_keyid(0)
         
         # WEPData
-        self.wepdata = dot11.Dot11WEPData()
+        self.wepdata = impacket.dot11.Dot11WEPData()
         
         # LLC
-        self.llc = dot11.LLC()
+        self.llc = impacket.dot11.LLC()
         self.llc.set_DSAP(0xaa)
         self.llc.set_SSAP(0xaa)
         self.llc.set_control(0x03)
         
         # SNAP
-        self.snap = dot11.SNAP()
+        self.snap = impacket.dot11.SNAP()
         self.snap.set_OUI(0x000000)
         self.snap.set_protoID(0x0800)
         
         # IP
-        self.ip = ImpactPacket.IP()
+        self.ip = impacket.ImpactPacket.IP()
         self.ip.set_ip_v(0x04)
         self.ip.set_ip_tos(0x00)
         self.ip.set_ip_id(0xa607)
@@ -75,7 +75,7 @@ class TestDot11WEPData(unittest.TestCase):
         self.ip.set_ip_dst('64.233.163.103')
         
         # ICMP
-        self.icmp = ImpactPacket.ICMP()
+        self.icmp = impacket.ImpactPacket.ICMP()
         self.icmp.set_icmp_type(self.icmp.ICMP_ECHO)
         self.icmp.set_icmp_code(0x00)
         self.icmp.set_icmp_id(0x0400)
@@ -83,7 +83,7 @@ class TestDot11WEPData(unittest.TestCase):
         
         # Data
         datastring = 'abcdefghijklmnopqrstuvwabcdefghi'
-        self.data = ImpactPacket.Data( datastring )
+        self.data = impacket.ImpactPacket.Data( datastring )
         
         # Build the protocol stack
         self.dot11.contains(self.dot11data)

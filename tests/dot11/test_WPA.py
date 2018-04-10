@@ -4,7 +4,7 @@
 import sys
 sys.path.insert(0,"../..")
 
-from dot11 import Dot11,Dot11Types,Dot11DataFrame,Dot11WPA,Dot11WPAData
+from impacket.dot11 import Dot11,Dot11Types,Dot11DataFrame,Dot11WPA,Dot11WPAData
 from binascii import hexlify
 import unittest
 

@@ -1,8 +1,5 @@
 #!/bin/bash
 separator='======================================================================'
-#ls *.py | xargs -I{} --max-args=1 bash -c "echo -e '$separator\nExecuting: {}\n';python {}"
-#ls *.py | xargs --max-args=1 python
-
 export PYTHONPATH=../../..:$PYTHONPATH
 
 python test_rpcrt.py
@@ -21,3 +18,4 @@ python test_wmi.py
 python test_dcomrt.py
 python test_even6.py
 python test_bkrp.py
+python test_tsch.py

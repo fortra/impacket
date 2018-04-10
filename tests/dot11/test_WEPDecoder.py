@@ -4,10 +4,10 @@
 import sys
 sys.path.insert(0,"../..")
 
-from dot11 import Dot11,Dot11Types,Dot11DataFrame,Dot11WEP,Dot11WEPData
-from ImpactPacket import IP,ICMP
-from Dot11KeyManager import KeyManager
-from ImpactDecoder import Dot11Decoder
+from impacket.dot11 import Dot11,Dot11Types,Dot11DataFrame,Dot11WEP,Dot11WEPData
+from impacket.ImpactPacket import IP,ICMP
+from impacket.Dot11KeyManager import KeyManager
+from impacket.ImpactDecoder import Dot11Decoder
 from binascii import hexlify
 import unittest
 
@@ -46,17 +46,17 @@ class TestDot11WEPData(unittest.TestCase):
         dot11_decoder.FCS_at_end(False)
         dot11_decoder.set_key_manager(self.km)
         in0=dot11_decoder.decode(self.dot11frame)
-        self.assertEqual(str(in0.__class__), "dot11.Dot11")
+        self.assertEqual(str(in0.__class__), "impacket.dot11.Dot11")
         in1=in0.child()
-        self.assertEqual(str(in1.__class__), "dot11.Dot11DataFrame")
+        self.assertEqual(str(in1.__class__), "impacket.dot11.Dot11DataFrame")
         in2=in1.child()
-        self.assertEqual(str(in2.__class__), "dot11.Dot11WEP")
+        self.assertEqual(str(in2.__class__), "impacket.dot11.Dot11WEP")
         in3=in2.child()
-        self.assertEqual(str(in3.__class__), "dot11.Dot11WEPData")
+        self.assertEqual(str(in3.__class__), "impacket.dot11.Dot11WEPData")
         in4=in3.child()
-        self.assertEqual(str(in4.__class__), "dot11.LLC")
+        self.assertEqual(str(in4.__class__), "impacket.dot11.LLC")
         in5=in4.child()
-        self.assertEqual(str(in5.__class__), "dot11.SNAP")
+        self.assertEqual(str(in5.__class__), "impacket.dot11.SNAP")
         in6=in5.child()
         #self.assertEqual(str(in6.__class__), "ImpactPacket.IP")
         in7=in6.child()

@@ -4,7 +4,7 @@
 import sys
 sys.path.insert(0,"../..")
 
-from dot11 import Dot11,Dot11Types,Dot11ControlFrameRTS
+from impacket.dot11 import Dot11,Dot11Types,Dot11ControlFrameRTS
 from binascii import hexlify
 import unittest
 

@@ -4,8 +4,8 @@
 import sys
 sys.path.insert(0,"../..")
 
-from dot11 import Dot11, Dot11Types, Dot11ManagementFrame, Dot11ManagementAuthentication
-from ImpactDecoder import RadioTapDecoder
+from impacket.dot11 import Dot11, Dot11Types, Dot11ManagementFrame, Dot11ManagementAuthentication
+from impacket.ImpactDecoder import RadioTapDecoder
 from binascii import hexlify
 import unittest
 
@@ -18,10 +18,10 @@ class TestDot11ManagementAuthenticationFrames(unittest.TestCase):
         self.radiotap_decoder = RadioTapDecoder()
         radiotap=self.radiotap_decoder.decode(self.rawframe)
 
-        self.assertEqual(str(radiotap.__class__), "dot11.RadioTap")
+        self.assertEqual(str(radiotap.__class__), "impacket.dot11.RadioTap")
 
         self.dot11=radiotap.child()
-        self.assertEqual(str(self.dot11.__class__), "dot11.Dot11")
+        self.assertEqual(str(self.dot11.__class__), "impacket.dot11.Dot11")
 
         type = self.dot11.get_type()
         self.assertEqual(type,Dot11Types.DOT11_TYPE_MANAGEMENT)
@@ -33,10 +33,10 @@ class TestDot11ManagementAuthenticationFrames(unittest.TestCase):
         self.assertEqual(typesubtype,Dot11Types.DOT11_TYPE_MANAGEMENT_SUBTYPE_AUTHENTICATION)
         
         self.management_base=self.dot11.child()
-        self.assertEqual(str(self.management_base.__class__), "dot11.Dot11ManagementFrame")
+        self.assertEqual(str(self.management_base.__class__), "impacket.dot11.Dot11ManagementFrame")
         
         self.management_authentication=self.management_base.child()
-        self.assertEqual(str(self.management_authentication.__class__), "dot11.Dot11ManagementAuthentication")
+        self.assertEqual(str(self.management_authentication.__class__), "impacket.dot11.Dot11ManagementAuthentication")
             
         
     def test_01(self):

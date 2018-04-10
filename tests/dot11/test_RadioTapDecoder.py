@@ -4,8 +4,8 @@
 import sys
 sys.path.insert(0,"../..")
 
-from ImpactDecoder import RadioTapDecoder
-import dot11, ImpactPacket
+from impacket.ImpactDecoder import RadioTapDecoder
+import impacket.dot11, impacket.ImpactPacket
 from binascii import hexlify
 import unittest
 
@@ -24,23 +24,23 @@ class TestRadioTapDecoder(unittest.TestCase):
         
     def test_00(self):
         'Test RadioTap decoder'
-        self.assertEqual(str(self.in0.__class__), "dot11.RadioTap")
+        self.assertEqual(str(self.in0.__class__), "impacket.dot11.RadioTap")
         
     def test_01(self):
         'Test Dot11 decoder'
-        self.assertEqual(str(self.in1.__class__), "dot11.Dot11")
+        self.assertEqual(str(self.in1.__class__), "impacket.dot11.Dot11")
         
     def test_02(self):
         'Test Dot11DataFrame decoder'
-        self.assertEqual(str(self.in2.__class__), "dot11.Dot11DataFrame")
+        self.assertEqual(str(self.in2.__class__), "impacket.dot11.Dot11DataFrame")
     
     def test_03(self):
         'Test LLC decoder'
-        self.assertEqual(str(self.in3.__class__), "dot11.LLC")
+        self.assertEqual(str(self.in3.__class__), "impacket.dot11.LLC")
 
     def test_04(self):
         'Test SNAP decoder'
-        self.assertEqual(str(self.in4.__class__), "dot11.SNAP")
+        self.assertEqual(str(self.in4.__class__), "impacket.dot11.SNAP")
 
 #    def test_05(self):
 #        'Test ARP decoder'
@@ -52,20 +52,20 @@ class TestRadioTapDecoder(unittest.TestCase):
         
     def test_06(self):
         'Test Protocol Finder'
-        p=self.radiotap_decoder.get_protocol(dot11.RadioTap)
-        self.assertEqual(str(p.__class__), "dot11.RadioTap")
+        p=self.radiotap_decoder.get_protocol(impacket.dot11.RadioTap)
+        self.assertEqual(str(p.__class__), "impacket.dot11.RadioTap")
                 
-        p=self.radiotap_decoder.get_protocol(dot11.Dot11)
-        self.assertEqual(str(p.__class__), "dot11.Dot11")
+        p=self.radiotap_decoder.get_protocol(impacket.dot11.Dot11)
+        self.assertEqual(str(p.__class__), "impacket.dot11.Dot11")
         
-        p=self.radiotap_decoder.get_protocol(dot11.Dot11DataFrame)
-        self.assertEqual(str(p.__class__), "dot11.Dot11DataFrame")
+        p=self.radiotap_decoder.get_protocol(impacket.dot11.Dot11DataFrame)
+        self.assertEqual(str(p.__class__), "impacket.dot11.Dot11DataFrame")
         
-        p=self.radiotap_decoder.get_protocol(dot11.LLC)
-        self.assertEqual(str(p.__class__), "dot11.LLC")
+        p=self.radiotap_decoder.get_protocol(impacket.dot11.LLC)
+        self.assertEqual(str(p.__class__), "impacket.dot11.LLC")
         
-        p=self.radiotap_decoder.get_protocol(dot11.SNAP)
-        self.assertEqual(str(p.__class__), "dot11.SNAP")
+        p=self.radiotap_decoder.get_protocol(impacket.dot11.SNAP)
+        self.assertEqual(str(p.__class__), "impacket.dot11.SNAP")
         
         #p=self.radiotap_decoder.get_protocol(ImpactPacket.ARP)
         #self.assertEqual(str(p.__class__), "ImpactPacket.ARP")
@@ -74,7 +74,7 @@ class TestRadioTapDecoder(unittest.TestCase):
         #self.assertEqual(str(p.__class__), "ImpactPacket.Data")
         
         # When not found, None is returned
-        p=self.radiotap_decoder.get_protocol(dot11.Dot11WPA)
+        p=self.radiotap_decoder.get_protocol(impacket.dot11.Dot11WPA)
         self.assertEqual(p, None)
       
 suite = unittest.TestLoader().loadTestsFromTestCase(TestRadioTapDecoder)

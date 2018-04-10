@@ -4,7 +4,7 @@
 import sys
 sys.path.insert(0,"../..")
 
-from ImpactPacket import TCP, ImpactPacketException
+from impacket.ImpactPacket import TCP, ImpactPacketException
 from binascii import hexlify
 import unittest
 from threading import Thread

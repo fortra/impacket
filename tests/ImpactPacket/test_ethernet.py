@@ -3,7 +3,7 @@
 import sys
 sys.path.insert(0,"../..")
 
-from ImpactPacket import Ethernet, EthernetTag
+from impacket.ImpactPacket import Ethernet, EthernetTag
 from array import array
 import unittest
 

@@ -4,9 +4,7 @@
 import sys
 sys.path.insert(0,"../..")
 
-from dot11 import ProtocolPacket
-from ImpactPacket import ProtocolLayer, PacketBuffer
-from binascii import hexlify
+from impacket.dot11 import ProtocolPacket
 import unittest
     
 class TestPacket(ProtocolPacket):

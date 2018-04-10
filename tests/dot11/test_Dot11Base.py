@@ -4,7 +4,7 @@
 import sys
 sys.path.insert(0,"../..")
 
-from dot11 import Dot11, Dot11Types
+from impacket.dot11 import Dot11, Dot11Types
 import unittest
 
 class TestDot11Common(unittest.TestCase):

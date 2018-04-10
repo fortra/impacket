@@ -5,8 +5,8 @@ import sys
 import unittest
 sys.path.insert(0, "../..")
 
-from dot11 import RadioTap
-from ImpactPacket import Data
+from impacket.dot11 import RadioTap
+from impacket.ImpactPacket import Data
 
 
 class TestRadioTap(unittest.TestCase):

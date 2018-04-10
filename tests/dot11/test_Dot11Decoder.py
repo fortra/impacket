@@ -4,7 +4,7 @@
 import sys
 sys.path.insert(0,"../..")
 
-from ImpactDecoder import Dot11Decoder #,Dot11Types
+from impacket.ImpactDecoder import Dot11Decoder #,Dot11Types
 from binascii import hexlify
 import unittest
 
@@ -24,15 +24,15 @@ class TestDot11Decoder(unittest.TestCase):
         
     def test_01_Dot11Decoder(self):
         'Test Dot11 decoder'
-        self.assertEqual(str(self.in0.__class__), "dot11.Dot11")
+        self.assertEqual(str(self.in0.__class__), "impacket.dot11.Dot11")
         
     def test_02_Dot11DataFrameDecoder(self):
         'Test Dot11DataFrame decoder'
-        self.assertEqual(str(self.in1.__class__), "dot11.Dot11DataFrame")
+        self.assertEqual(str(self.in1.__class__), "impacket.dot11.Dot11DataFrame")
     
     def test_03_Dot11WEP(self):
         'Test Dot11WEP decoder'
-        self.assertEqual(str(self.in2.__class__), "dot11.Dot11WEP")
+        self.assertEqual(str(self.in2.__class__), "impacket.dot11.Dot11WEP")
 
     def test_04_Dot11WEPData(self):
         'Test Dot11WEPData decoder'
@@ -40,7 +40,7 @@ class TestDot11Decoder(unittest.TestCase):
         if not self.WEPKey:
             return
 
-        self.assertEqual(str(self.in3.__class__), "dot11.Dot11WEPData")
+        self.assertEqual(str(self.in3.__class__), "impacket.dot11.Dot11WEPData")
 
         # Test if wep data "get_packet" is correct
         wepdata='\x6e\xdf\x93\x36\x39\x5a\x39\x66\x6b\x96\xd1\x7a\xe1\xae\xb6\x11\x22\xfd\xf0\xd4\x0d\x6a\xb8\xb1\xe6\x2e\x1f\x25\x7d\x64\x1a\x07\xd5\x86\xd2\x19\x34\xb5\xf7\x8a\x62\x33\x59\x6e\x89\x01\x73\x50\x12\xbb\xde\x17'
@@ -49,7 +49,7 @@ class TestDot11Decoder(unittest.TestCase):
     def test_05_LLC(self):
         'Test LLC decoder'
         if self.WEPKey:
-            self.assertEqual(str(self.in4.__class__), "dot11.LLC")
+            self.assertEqual(str(self.in4.__class__), "impacket.dot11.LLC")
 
     def test_06_Data(self):
         'Test LLC Data decoder'
