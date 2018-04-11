@@ -17,8 +17,7 @@ from impacket.ldap import ldap, ldapasn1
 class LDAPTests(unittest.TestCase):
     def dummySearch(self, ldapConnection):
         # Let's do a search just to be sure it's working
-        searchFilter = ldapasn1.Filter()
-        searchFilter['present'] = ldapasn1.Present('servicePrincipalName')
+        searchFilter = '(servicePrincipalName=*)'
 
         resp = ldapConnection.search(searchFilter=searchFilter,
                                      attributes=['servicePrincipalName', 'sAMAccountName', 'userPrincipalName',
