@@ -27,3 +27,4 @@ $RUN test_dcomrt.py
 $RUN test_even6.py
 $RUN test_bkrp.py
 $RUN test_tsch.py
+$RUN test_secretsdump.py
