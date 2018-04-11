@@ -10,7 +10,7 @@ else
 	SUFFIX=XX
 	RUN=python
 	RUNLOCAL=python
-	COVERAGE=false
+	COVERAGE=
 fi
 
 export PYTHONPATH=../:$PYTHONPATH
@@ -28,14 +28,15 @@ echo Running __main__ on som eimportant files
 $RUNLOCAL ../impacket/crypto.py
 $RUNLOCAL ../impacket/structure.py
 $RUNLOCAL ../impacket/dns.py
+$RUNLOCAL ../impacket/IP6_Address.py
 
 echo Testing ImpactPacket
 cd ImpactPacket
-./runalltestcases.sh  True 2>&1 1>/dev/null | tee -a $OUTPUTFILE
+./runalltestcases.sh  $COVERAGE 2>&1 1>/dev/null | tee -a $OUTPUTFILE
 
 echo Testing dot11
 cd ../dot11
-./runalltestcases.sh True 2>&1 1>/dev/null | tee -a $OUTPUTFILE
+./runalltestcases.sh $COVERAGE 2>&1 1>/dev/null | tee -a $OUTPUTFILE
 
 echo Testing SMB RPC/LDAP
 cd ../SMB_RPC
@@ -45,7 +46,7 @@ $RUN test_spnego.py 2>&1 1>/dev/null | tee -a $OUTPUTFILE
 $RUN test_ldap.py 2>&1 1>/dev/null | tee -a $OUTPUTFILE
 $RUN test_nmb.py 2>&1 1>/dev/null | tee -a $OUTPUTFILE
 $RUN test_ntlm.py 2>&1 1>/dev/null | tee -a $OUTPUTFILE
-./rundce.sh True 2>&1 1>/dev/null | tee -a $OUTPUTFILE
+./rundce.sh $COVERAGE 2>&1 1>/dev/null | tee -a $OUTPUTFILE
 cd ..
 
 if [ $COVERAGE ]
