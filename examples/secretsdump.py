@@ -382,6 +382,7 @@ if __name__ == '__main__':
         if options.aesKey is not None:
             options.k = True
 
+    print options
     dumper = DumpSecrets(remoteName, username, password, domain, options)
     try:
         dumper.dump()
