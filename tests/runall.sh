@@ -24,11 +24,12 @@ rm -f $OUTPUTFILE
 echo Walking modules
 $RUNLOCAL ./walkmodules.py
 
-echo Running __main__ on som eimportant files
-$RUNLOCAL ../impacket/crypto.py
-$RUNLOCAL ../impacket/structure.py
-$RUNLOCAL ../impacket/dns.py
-$RUNLOCAL ../impacket/IP6_Address.py
+echo Running __main__ on some important files
+$RUNLOCAL -m impacket.crypto __main__ 
+$RUNLOCAL -m impacket.structure __main__
+$RUNLOCAL -m impacket.dns __main__ 
+$RUNLOCAL -m impacket.IP6_Address __main__
+$RUNLOCAL -m impacket.dcerpc.v5.ndr __main__
 
 echo Testing ImpactPacket
 cd ImpactPacket

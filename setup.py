@@ -11,10 +11,7 @@ from setuptools import setup
 PACKAGE_NAME = "impacket"
 
 if platform.system() != 'Darwin':
-    data_files = [(os.path.join('share', 'doc', PACKAGE_NAME), ['README.md', 'LICENSE']+glob.glob('doc/*')),
-                    (os.path.join('share', 'doc', PACKAGE_NAME, 'tests', 'dot11'),glob.glob('tests/dot11/*')),
-                    (os.path.join('share', 'doc', PACKAGE_NAME, 'tests', 'ImpactPacket'),glob.glob('tests/ImpactPacket/*')),
-                    (os.path.join('share', 'doc', PACKAGE_NAME, 'tests', 'SMB_RPC'),glob.glob('tests/SMB_RPC/*'))]
+    data_files = [(os.path.join('share', 'doc', PACKAGE_NAME), ['README.md', 'LICENSE']+glob.glob('doc/*'))]
 else:
     data_files = []
 
