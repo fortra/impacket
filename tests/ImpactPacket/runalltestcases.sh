@@ -1,18 +1,24 @@
 #!/bin/bash
 separator='======================================================================'
-#ls *.py | xargs -I{} --max-args=1 bash -c "echo -e '$separator\nExecuting: {}\n';python {}"
-#ls *.py | xargs --max-args=1 python
 
-export PYTHONPATH=../../..:$PYTHONPATH
+export PYTHONPATH=../..:$PYTHONPATH
+
+if [ $# -gt 0 ]
+then
+	# Only run coverage when called by tox
+	RUN="coverage run --append --rcfile=../coveragerc "
+else
+	RUN=python
+fi
 
 total=0
 ok=0
 failed=0
 for file in `ls *.py` ; do
 	echo $separator
-	echo Executing $file
+	echo Executing $RUN $file
 	latest=$(
-		python $file 2>&1 | {
+		$RUN $file 2>&1 | {
 		while read line; do
 			echo " $line" 1>&2
 			latest="$line"

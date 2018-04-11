@@ -1,21 +1,29 @@
 #!/bin/bash
 separator='======================================================================'
-export PYTHONPATH=../../..:$PYTHONPATH
 
-python test_rpcrt.py
-python test_scmr.py
-python test_epm.py
-python test_samr.py
-python test_wkst.py
-python test_srvs.py
-python test_lsad.py
-python test_lsat.py
-python test_rrp.py
-python test_mgmt.py
-python test_ndr.py
-python test_drsuapi.py
-python test_wmi.py
-python test_dcomrt.py
-python test_even6.py
-python test_bkrp.py
-python test_tsch.py
+export PYTHONPATH=../../:$PYTHONPATH
+if [ $# -gt 0 ]
+then
+	# Only run coverage when called by tox
+	RUN="coverage run --append --rcfile=../coveragerc "
+else
+	RUN=python
+fi
+
+$RUN test_rpcrt.py
+$RUN test_scmr.py
+$RUN test_epm.py
+$RUN test_samr.py
+$RUN test_wkst.py
+$RUN test_srvs.py
+$RUN test_lsad.py
+$RUN test_lsat.py
+$RUN test_rrp.py
+$RUN test_mgmt.py
+$RUN test_ndr.py
+$RUN test_drsuapi.py
+$RUN test_wmi.py
+$RUN test_dcomrt.py
+$RUN test_even6.py
+$RUN test_bkrp.py
+$RUN test_tsch.py
