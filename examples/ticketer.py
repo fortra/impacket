@@ -426,7 +426,7 @@ class TICKETER:
                     # Let's be sure user's flag specify we have extra sids.
                     validationInfo['Data']['UserFlags'] |= 0x20
                     validationInfo['Data']['ExtraSids'] = PKERB_SID_AND_ATTRIBUTES_ARRAY()
-                for extrasid in self.extrasids:
+                for extrasid in extrasids:
                     validationInfo['Data']['SidCount'] += 1
 
                     sidRecord = KERB_SID_AND_ATTRIBUTES()
