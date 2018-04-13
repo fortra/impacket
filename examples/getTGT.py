@@ -50,10 +50,9 @@ class GETTGT:
 
     def run(self):
         userName = Principal(self.__user, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
-        if self.__nthash != '':
-            tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain,
-                                                                    unhexlify(self.__lmhash), unhexlify(self.__nthash), self.__aesKey,
-                                                                    self.__kdcHost)
+        tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain,
+                                                                unhexlify(self.__lmhash), unhexlify(self.__nthash), self.__aesKey,
+                                                                self.__kdcHost)
         self.saveTicket(tgt,oldSessionKey)
 
 if __name__ == '__main__':
@@ -82,6 +81,7 @@ if __name__ == '__main__':
         parser.print_help()
         print "\nExamples: "
         print "\t./getTGT.py -hashes lm:nt contoso.com/user\n"
+        print "\tit will use the lm:nt hashes for authentication. If you don't specify them, a password will be asked"
         sys.exit(1)
 
     options = parser.parse_args()
@@ -95,7 +95,6 @@ if __name__ == '__main__':
     import re
     domain, username, password = re.compile('(?:(?:([^/:]*)/)?([^:]*)(?::([^@]*))?)?').match(options.identity).groups(
         '')
-    print domain, username, password
 
     try:
         if domain is None:
