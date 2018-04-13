@@ -43,7 +43,7 @@ Grab the latest stable release, unpack it and run `pip install .` from the direc
 Requirements
 ============
 
- * A Python interpreter. Versions 2.0.1 and newer are known to work. 
+ * A Python interpreter. Versions 2.6 and newer are known to work.
    1. If you want to run the examples and you have Python < 2.7, you
       will need to install the `argparse` package for them to work.
    2. For Kerberos support you will need `pyasn1` package
