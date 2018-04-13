@@ -13,6 +13,7 @@ import unittest
 import ConfigParser
 
 from impacket.ldap import ldap, ldapasn1
+from impacket.ldap.ldaptypes import SR_SECURITY_DESCRIPTOR
 
 class LDAPTests(unittest.TestCase):
     def dummySearch(self, ldapConnection):
@@ -24,6 +25,25 @@ class LDAPTests(unittest.TestCase):
                                                  'MemberOf', 'pwdLastSet', 'whenCreated'])
         for item in resp:
             print item.prettyPrint()
+
+    def test_security_descriptor(self):
+        ldapConnection=self.connect()
+        searchFilter = '(objectCategory=computer)'
+
+        resp = ldapConnection.search(searchFilter=searchFilter,
+                                     attributes=['nTSecurityDescriptor'])
+        for item in resp:
+            if isinstance(item, ldapasn1.SearchResultEntry) is not True:
+                continue
+            for attribute in item['attributes']:
+                if attribute['type'] == 'nTSecurityDescriptor':
+                    secDesc = str(attribute['vals'][0])
+                    # Converting it so we can use it
+                    sd = SR_SECURITY_DESCRIPTOR()
+                    sd.fromString(secDesc)
+                    sd.dump()
+                    self.assertTrue(secDesc, sd.getData())
+
 
     def connect(self):
         ldapConnection = ldap.LDAPConnection(self.url, self.baseDN)
