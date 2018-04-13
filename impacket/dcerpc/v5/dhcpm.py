@@ -31,6 +31,17 @@ MSRPC_UUID_DHCPSRV2 = uuidtup_to_bin(('5B821720-F63B-11D0-AAD2-00C04FC324DB', '1
 
 
 class DCERPCSessionError(DCERPCException):
+    ERROR_MESSAGES = {
+        0x00004E2D: ("ERROR_DHCP_JET_ERROR", "An error occurred while accessing the DHCP server database."),
+        0x00004E25: ("ERROR_DHCP_SUBNET_NOT_PRESENT", "The specified IPv4 subnet does not exist."),
+        0x00004E54: ("ERROR_DHCP_SUBNET_EXISTS", "The IPv4 scope parameters are incorrect. Either the IPv4 scope already"
+                                                 " exists, corresponding to the SubnetAddress and SubnetMask members of "
+                                                 "the structure DHCP_SUBNET_INFO (section 2.2.1.2.8), or there is a "
+                                                 "range overlap of IPv4 addresses between those associated with the "
+                                                 "SubnetAddress and SubnetMask fields of the new IPv4 scope and the "
+                                                 "subnet address and mask of an already existing IPv4 scope"),
+
+    }
     def __init__(self, error_string=None, error_code=None, packet=None):
         DCERPCException.__init__(self, error_string, error_code, packet)
 
@@ -39,6 +50,10 @@ class DCERPCSessionError(DCERPCException):
         if system_errors.ERROR_MESSAGES.has_key(key):
             error_msg_short = system_errors.ERROR_MESSAGES[key][0]
             error_msg_verbose = system_errors.ERROR_MESSAGES[key][1]
+            return 'DHCPM SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
+        elif self.ERROR_MESSAGES.has_key(key):
+            error_msg_short = self.ERROR_MESSAGES[key][0]
+            error_msg_verbose = self.ERROR_MESSAGES[key][1]
             return 'DHCPM SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
         else:
             return 'DHCPM SessionError: unknown error code: 0x%x' % self.error_code
@@ -55,6 +70,10 @@ DHCP_OPTION_ID = DWORD
 DHCP_FLAGS_OPTION_DEFAULT = 0x00000000
 DHCP_FLAGS_OPTION_IS_VENDOR = 0x00000003
 
+# Errors
+ERROR_DHCP_JET_ERROR = 0x00004E2D
+ERROR_DHCP_SUBNET_NOT_PRESENT = 0x00004E25
+ERROR_DHCP_SUBNET_EXISTS = 0x00004E54
 ################################################################################
 # STRUCTURES
 ################################################################################
@@ -422,15 +441,15 @@ class DHCP_OPTION_ELEMENT_UNION(NDRUNION):
         ('tag', DHCP_OPTION_DATA_TYPE),
     )
     union = {
-        DHCP_OPTION_DATA_TYPE.enumItems.DhcpByteOption.value            : ('ByteOption', BYTE),
-        DHCP_OPTION_DATA_TYPE.enumItems.DhcpWordOption.value            : ('WordOption', WORD),
-        DHCP_OPTION_DATA_TYPE.enumItems.DhcpDWordOption.value           : ('DWordOption', DWORD),
-        DHCP_OPTION_DATA_TYPE.enumItems.DhcpDWordDWordOption.value      : ('DWordDWordOption', DWORD_DWORD),
-        DHCP_OPTION_DATA_TYPE.enumItems.DhcpIpAddressOption.value       : ('IpAddressOption', DHCP_IP_ADDRESS),
-        DHCP_OPTION_DATA_TYPE.enumItems.DhcpStringDataOption.value      : ('StringDataOption', LPWSTR),
-        DHCP_OPTION_DATA_TYPE.enumItems.DhcpBinaryDataOption.value      : ('BinaryDataOption', DHCP_BINARY_DATA),
-        DHCP_OPTION_DATA_TYPE.enumItems.DhcpEncapsulatedDataOption.value: ('EncapsulatedDataOption', DHCP_BINARY_DATA),
-        DHCP_OPTION_DATA_TYPE.enumItems.DhcpIpv6AddressOption.value     : ('Ipv6AddressDataOption', LPWSTR),
+        DHCP_OPTION_DATA_TYPE.enumItems.DhcpByteOption            : ('ByteOption', BYTE),
+        DHCP_OPTION_DATA_TYPE.enumItems.DhcpWordOption            : ('WordOption', WORD),
+        DHCP_OPTION_DATA_TYPE.enumItems.DhcpDWordOption           : ('DWordOption', DWORD),
+        DHCP_OPTION_DATA_TYPE.enumItems.DhcpDWordDWordOption      : ('DWordDWordOption', DWORD_DWORD),
+        DHCP_OPTION_DATA_TYPE.enumItems.DhcpIpAddressOption       : ('IpAddressOption', DHCP_IP_ADDRESS),
+        DHCP_OPTION_DATA_TYPE.enumItems.DhcpStringDataOption      : ('StringDataOption', LPWSTR),
+        DHCP_OPTION_DATA_TYPE.enumItems.DhcpBinaryDataOption      : ('BinaryDataOption', DHCP_BINARY_DATA),
+        DHCP_OPTION_DATA_TYPE.enumItems.DhcpEncapsulatedDataOption: ('EncapsulatedDataOption', DHCP_BINARY_DATA),
+        DHCP_OPTION_DATA_TYPE.enumItems.DhcpIpv6AddressOption     : ('Ipv6AddressDataOption', LPWSTR),
     }
 
 class DHCP_OPTION_DATA_ELEMENT(NDRSTRUCT):
@@ -869,7 +888,7 @@ def hDhcpGetOptionValueV5(dce, option_id, flags=DHCP_FLAGS_OPTION_DEFAULT, class
     request['ClassName'] = classname
     request['VendorName'] = vendorname
     request['ScopeInfo']['ScopeType'] = scopetype
-    request['ScopeInfo']['ScopeInfo']['tag'] = scopetype
+    request['ScopeInfo']['ScopeInfo']['tag'] = scopetype.value
     if scopetype == DHCP_OPTION_SCOPE_TYPE.DhcpSubnetOptions:
         request['ScopeInfo']['ScopeInfo']['SubnetScopeInfo'] = options
     elif scopetype == DHCP_OPTION_SCOPE_TYPE.DhcpReservedOptions:
@@ -961,18 +980,18 @@ def hDhcpEnumSubnetClientsV4(dce, preferredMaximum=0xffffffff):
             resp = e.get_packet()
         return resp
 
-def hDhcpEnumSubnetClientsV5(dce, preferredMaximum=0xffffffff):
+def hDhcpEnumSubnetClientsV5(dce, subnetAddress=0, preferredMaximum=0xffffffff):
     request = DhcpEnumSubnetClientsV5()
 
     request['ServerIpAddress'] = NULL
-    request['SubnetAddress'] = NULL
+    request['SubnetAddress'] = subnetAddress
     request['ResumeHandle'] = NULL
     request['PreferredMaximum'] = preferredMaximum
     status = system_errors.ERROR_MORE_DATA
     while status == system_errors.ERROR_MORE_DATA:
         try:
             resp = dce.request(request)
-        except DCERPCException, e:
+        except DCERPCSessionError, e:
             if str(e).find('STATUS_MORE_ENTRIES') < 0:
                 raise
             resp = e.get_packet()

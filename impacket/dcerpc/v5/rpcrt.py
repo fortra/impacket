@@ -854,7 +854,7 @@ class DCERPC:
                     # No luck :(
                     exception = sessionErrorClass(error_code = error_code)
                 else:
-                    exception = sessionErrorClass(packet = response)
+                    exception = sessionErrorClass(packet = response, error_code = error_code)
             raise exception
         else:
             response =  respClass(answer, isNDR64 = isNDR64)
