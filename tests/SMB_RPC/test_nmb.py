@@ -5,7 +5,7 @@ except ImportError:
 import unittest
 
 from impacket import nmb
-#from impacket.winregistry import hexdump
+from impacket.structure import hexdump
 
 
 class NMBTests(unittest.TestCase):
@@ -15,9 +15,9 @@ class NMBTests(unittest.TestCase):
     def test_encodedecodename(self):
         name = 'THISISAVERYLONGLONGNAME'
         encoded = nmb.encode_name(name,nmb.TYPE_SERVER,None)
-        #hexdump(encoded)
+        hexdump(encoded)
         decoded = nmb.decode_name(encoded)
-        #hexdump(decoded)
+        hexdump(decoded[1])
 
         #self.assertTrue(nmb.TYPE_SERVER==decoded[0])
         self.assertTrue(name[:15]==decoded[1].strip())
