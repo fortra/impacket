@@ -31,6 +31,7 @@
 #
 # Altered source done by Alberto Solino (@agsolino)
 
+from __future__ import division
 import errno
 import re
 import select
@@ -148,8 +149,17 @@ NETBIOS_SESSION_KEEP_ALIVE = 0x85
 ################################################################################
 # HELPERS
 ################################################################################
-# Perform first and second level encoding of name as specified in RFC 1001 (Section 4)
 def encode_name(name, type, scope):
+    # ToDo: Rewrite this simpler, we're using less than written
+    """
+    Perform first and second level encoding of name as specified in RFC 1001 (Section 4)
+    
+    :param string name: the name to encode
+    :param integer type: the name type constants
+    :param string scope: the name's scope 
+    
+    :return binary: the encoded name.
+    """
     if name == '*':
         name += '\0' * 15
     elif len(name) > 15:
@@ -162,9 +172,9 @@ def encode_name(name, type, scope):
         encoded_scope = ''
         for s in string.split(scope, '.'):
             encoded_scope = encoded_scope + chr(len(s)) + s
-        return encoded_name + encoded_scope + '\0'
+        return (encoded_name + encoded_scope).encode('ascii') + b'\0'
     else:
-        return encoded_name.encode('ascii') + '\0'
+        return encoded_name.encode('ascii') + b'\0'
 
 # Internal method for use in encode_name()
 def _do_first_level_encoding(m):
@@ -172,6 +182,15 @@ def _do_first_level_encoding(m):
     return string.uppercase[s >> 4] + string.uppercase[s & 0x0f]
 
 def decode_name(name):
+    # ToDo: Rewrite this simpler, we're using less than written
+    """
+    Perform first and second level decoding of name as specified in RFC 1001 (Section 4)
+
+    :param binary name: the name to dencode
+
+    :return string: the decoded name.
+    """
+
     name_length = ord(name[0])
     assert name_length == 32
 
@@ -187,7 +206,7 @@ def decode_name(name):
                 break
             decoded_domain = '.' + name[offset:offset + domain_length]
             offset += domain_length
-        return offset + 1, decoded_name, decoded_domain
+        return offset + 1, decoded_name.decode('ascii'), decoded_domain.decode('ascii')
 
 def _do_first_level_decoding(m):
     s = m.group(0)
