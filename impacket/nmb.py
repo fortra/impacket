@@ -32,6 +32,8 @@
 # Altered source done by Alberto Solino (@agsolino)
 
 from __future__ import division
+from __future__ import print_function
+from __future__ import absolute_import
 import errno
 import re
 import select
@@ -40,8 +42,9 @@ import string
 import time
 from random import randint
 from struct import pack, unpack
+from six import byte2int
 
-from structure import Structure
+from .structure import Structure
 
 ################################################################################
 # CONSTANTS
@@ -158,35 +161,35 @@ def encode_name(name, type, scope):
     :param integer type: the name type constants
     :param string scope: the name's scope 
     
-    :return binary: the encoded name.
+    :return string: the encoded name.
     """
     if name == '*':
         name += '\0' * 15
     elif len(name) > 15:
         name = name[:15] + chr(type)
     else:
-        name = string.ljust(name, 15) + chr(type)
+        name = name.ljust(15) + chr(type)
 
     encoded_name = chr(len(name) * 2) + re.sub('.', _do_first_level_encoding, name)
     if scope:
         encoded_scope = ''
         for s in string.split(scope, '.'):
             encoded_scope = encoded_scope + chr(len(s)) + s
-        return (encoded_name + encoded_scope).encode('ascii') + b'\0'
+        return (encoded_name + encoded_scope) + '\0'
     else:
-        return encoded_name.encode('ascii') + b'\0'
+        return encoded_name + '\0'
 
 # Internal method for use in encode_name()
 def _do_first_level_encoding(m):
     s = ord(m.group(0))
-    return string.uppercase[s >> 4] + string.uppercase[s & 0x0f]
+    return string.ascii_uppercase[s >> 4] + string.ascii_uppercase[s & 0x0f]
 
 def decode_name(name):
     # ToDo: Rewrite this simpler, we're using less than written
     """
     Perform first and second level decoding of name as specified in RFC 1001 (Section 4)
 
-    :param binary name: the name to dencode
+    :param string name: the name to dencode
 
     :return string: the decoded name.
     """
@@ -201,12 +204,12 @@ def decode_name(name):
         decoded_domain = ''
         offset = 34
         while 1:
-            domain_length = ord(name[offset])
+            domain_length = byte2int(name[offset:offset+1])
             if domain_length == 0:
                 break
             decoded_domain = '.' + name[offset:offset + domain_length]
             offset += domain_length
-        return offset + 1, decoded_name.decode('ascii'), decoded_domain.decode('ascii')
+        return offset + 1, decoded_name, decoded_domain
 
 def _do_first_level_decoding(m):
     s = m.group(0)
@@ -253,9 +256,9 @@ class NetBIOSError(Exception):
 
     def __str__(self):
         if self.error_code is not None:
-            if QUERY_ERRORS.has_key(self.error_code):
+            if self.error_code in QUERY_ERRORS:
                 return '%s-%s(%s)' % (self.error_msg, QUERY_ERRORS[self.error_code], self.error_code)
-            elif SESSION_ERRORS.has_key(self.error_code):
+            elif self.error_code in SESSION_ERRORS:
                 return '%s-%s(%s)' % (self.error_msg, SESSION_ERRORS[self.error_code], self.error_code)
             else:
                 return '%s(%s)' % (self.error_msg, self.error_code)
@@ -282,7 +285,7 @@ class NBNSResourceRecord(Structure):
 class NBNodeStatusResponse(NBNSResourceRecord):
     def __init__(self, data = 0):
         NBNSResourceRecord.__init__(self, data)
-        self.mac = '00-00-00-00-00-00'
+        self.mac = b'00-00-00-00-00-00'
         self.num_names = unpack('B', self['RDATA'][:1])[0]
         self.entries = list()
         data = self['RDATA'][1:]
@@ -294,13 +297,13 @@ class NBNodeStatusResponse(NBNSResourceRecord):
         self.set_mac_in_hexa(self.statistics['UNIT_ID'])
 
     def set_mac_in_hexa(self, data):
-        data_aux = ''
-        for d in data:
+        data_aux = u''
+        for d in bytearray(data):
             if data_aux == '':
-                data_aux = '%02x' % ord(d)
+                data_aux = '%02x' % d
             else:
-                data_aux += '-%02x' % ord(d)
-        self.mac = string.upper(data_aux)
+                data_aux += '-%02x' % d
+        self.mac = data_aux.upper()
 
     def get_mac(self):
         return self.mac
@@ -493,7 +496,7 @@ class NetBIOS:
         self.__servport = NETBIOS_NS_PORT
         self.__nameserver = None
         self.__broadcastaddr = BROADCAST_ADDR
-        self.mac = '00-00-00-00-00-00'
+        self.mac = b'00-00-00-00-00-00'
 
     def _setup_connection(self, dstaddr, timeout=None):
         port = randint(10000, 60000)
@@ -509,7 +512,7 @@ class NetBIOS:
             except socket.error:
                 pass
         if not has_bind:
-            raise NetBIOSError, ('Cannot bind to a good UDP port', ERRCLASS_OS, errno.EAGAIN)
+            raise NetBIOSError('Cannot bind to a good UDP port', ERRCLASS_OS, errno.EAGAIN)
         self.__sock = s
 
     def send(self, request, destaddr, timeout):
@@ -529,19 +532,19 @@ class NetBIOS:
                 else:
                     try:
                         data, _ = self.__sock.recvfrom(65536, 0)
-                    except Exception, e:
-                        raise NetBIOSError, "recvfrom error: %s" % str(e)
+                    except Exception as e:
+                        raise NetBIOSError("recvfrom error: %s" % str(e))
                     self.__sock.close()
                     res = NAME_SERVICE_PACKET(data)
                     if res['NAME_TRN_ID'] == request['NAME_TRN_ID']:
                         if (res['FLAGS'] & 0xf) > 0:
-                            raise NetBIOSError, ('Negative response', ERRCLASS_QUERY, res['FLAGS'] & 0xf)
+                            raise NetBIOSError('Negative response', ERRCLASS_QUERY, res['FLAGS'] & 0xf)
                         return res
-            except select.error, ex:
+            except select.error as ex:
                 if ex[0] != errno.EINTR and ex[0] != errno.EAGAIN:
-                    raise NetBIOSError, ('Error occurs while waiting for response', ERRCLASS_OS, ex[0])
-            except socket.error, ex:
-                raise NetBIOSError, 'Connection error: %s' % str(ex)
+                    raise NetBIOSError('Error occurs while waiting for response', ERRCLASS_OS, ex[0])
+            except socket.error as ex:
+                raise NetBIOSError('Connection error: %s' % str(ex))
 
     # Set the default NetBIOS domain nameserver.
     def set_nameserver(self, nameserver):
@@ -578,8 +581,8 @@ class NetBIOS:
 
     def getnetbiosname(self, ip):
         entries = self.getnodestatus('*',ip)
-        entries = filter(lambda x:x['TYPE'] == TYPE_SERVER, entries)
-        return entries[0]['NAME'].strip()
+        entries = [x for x in entries if x['TYPE'] == TYPE_SERVER]
+        return entries[0]['NAME'].strip().decode('latin-1')
 
     def getmacaddress(self):
         return self.mac
@@ -621,7 +624,7 @@ class NetBIOS:
         return NBPositiveNameQueryResponse(res['ANSWERS'])
 
     def node_status_request(self, nbname, destaddr, type, scope, timeout):
-        netbios_name = string.upper(nbname)
+        netbios_name = nbname.upper()
         qn_label = encode_name(netbios_name, type, scope)
         p = NODE_STATUS_REQUEST()
         p['NAME_TRN_ID'] = randint(1, 32000)
@@ -646,7 +649,7 @@ class NetBIOSSessionPacket:
         self.flags = 0x0
         self.length = 0x0
         if data == 0:
-            self._trailer = ''
+            self._trailer = b''
         else:
             try:
                 self.type = ord(data[0])
@@ -686,6 +689,17 @@ class NetBIOSSessionPacket:
 class NetBIOSSession:
     def __init__(self, myname, remote_name, remote_host, remote_type=TYPE_SERVER, sess_port=NETBIOS_SESSION_PORT,
                  timeout=None, local_type=TYPE_WORKSTATION, sock=None):
+        """
+
+        :param unicode myname: My local NetBIOS name
+        :param unicode remote_name: Remote NetBIOS name
+        :param unicode remote_host: Remote IP Address
+        :param integer remote_type: NetBIOS Host type
+        :param integer sess_port: Session port to connect (139,445)
+        :param integer timeout: Timeout for connection
+        :param integer local_type: My Local Host Type
+        :param socket sock: Socket for already established connection
+        """
         if len(myname) > 15:
             self.__myname = string.upper(myname[:15])
         else:
@@ -843,6 +857,18 @@ class NetBIOSUDPSession(NetBIOSSession):
 class NetBIOSTCPSession(NetBIOSSession):
     def __init__(self, myname, remote_name, remote_host, remote_type=TYPE_SERVER, sess_port=NETBIOS_SESSION_PORT,
                  timeout=None, local_type=TYPE_WORKSTATION, sock=None, select_poll=False):
+        """
+        
+        :param unicode myname: My local NetBIOS name
+        :param unicode remote_name: Remote NetBIOS name
+        :param unicode remote_host: Remote IP Address
+        :param integer remote_type: NetBIOS Host type
+        :param integer sess_port: Session port to connect (139,445)
+        :param integer timeout: Timeout for connection
+        :param integer local_type: My Local Host Type
+        :param socket sock: Socket for already established connection
+        :param boolean select_poll: Type of polling mechanism
+        """
         self.__select_poll = select_poll
         if self.__select_poll:
             self.read_function = self.polling_read
@@ -859,7 +885,7 @@ class NetBIOSTCPSession(NetBIOSSession):
             sock.settimeout(timeout)
             sock.connect(sa)
             sock.settimeout(oldtimeout)
-        except socket.error, e:
+        except socket.error as e:
             raise socket.error("Connection error (%s:%s)" % (peer[0], peer[1]), e)
         return sock
 
@@ -878,13 +904,13 @@ class NetBIOSTCPSession(NetBIOSSession):
         remote_name = encode_name(self.get_remote_name(), remote_type, '')
         myname = encode_name(self.get_myname(), local_type, '')
         p.set_type(NETBIOS_SESSION_REQUEST)
-        p.set_trailer(remote_name + myname)
+        p.set_trailer(remote_name.encode('latin-1') + myname.encode('latin-1'))
 
         self._sock.sendall(p.rawData())
         while 1:
             p = self.recv_packet(timeout)
             if p.get_type() == NETBIOS_SESSION_NEGATIVE_RESPONSE:
-                raise NetBIOSError, ('Cannot request session (Called Name:%s)' % self.get_remote_name())
+                raise NetBIOSError('Cannot request session (Called Name:%s)' % self.get_remote_name())
             elif p.get_type() == NETBIOS_SESSION_POSITIVE_RESPONSE:
                 break
             else:
@@ -892,7 +918,7 @@ class NetBIOSTCPSession(NetBIOSSession):
                 pass
 
     def polling_read(self, read_length, timeout):
-        data = ''
+        data = b''
         if timeout is None:
             timeout = 3600
 
@@ -914,18 +940,18 @@ class NetBIOSTCPSession(NetBIOSSession):
 
                 received = self._sock.recv(bytes_left)
                 if len(received) == 0:
-                    raise NetBIOSError, ('Error while reading from remote', ERRCLASS_OS, None)
+                    raise NetBIOSError('Error while reading from remote', ERRCLASS_OS, None)
 
                 data = data + received
                 bytes_left = read_length - len(data)
-            except select.error, ex:
+            except select.error as ex:
                 if ex[0] != errno.EINTR and ex[0] != errno.EAGAIN:
-                    raise NetBIOSError, ('Error occurs while reading from remote', ERRCLASS_OS, ex[0])
+                    raise NetBIOSError('Error occurs while reading from remote', ERRCLASS_OS, ex[0])
 
         return data
 
     def non_polling_read(self, read_length, timeout):
-        data = ''
+        data = b''
         bytes_left = read_length
 
         while bytes_left > 0:
@@ -937,13 +963,13 @@ class NetBIOSTCPSession(NetBIOSSession):
 
                 received = self._sock.recv(bytes_left)
                 if len(received) == 0:
-                    raise NetBIOSError, ('Error while reading from remote', ERRCLASS_OS, None)
+                    raise NetBIOSError('Error while reading from remote', ERRCLASS_OS, None)
 
                 data = data + received
                 bytes_left = read_length - len(data)
-            except select.error, ex:
+            except select.error as ex:
                 if ex[0] != errno.EINTR and ex[0] != errno.EAGAIN:
-                    raise NetBIOSError, ('Error occurs while reading from remote', ERRCLASS_OS, ex[0])
+                    raise NetBIOSError('Error occurs while reading from remote', ERRCLASS_OS, ex[0])
 
         return data
 
@@ -958,22 +984,3 @@ class NetBIOSTCPSession(NetBIOSSession):
         data2 = self.read_function(length, timeout)
 
         return data + data2
-
-def main():
-    def get_netbios_host_by_name(name):
-        n = NetBIOS()
-        n.set_broadcastaddr('255.255.255.255')  # To avoid use "<broadcast>" in socket
-        for qtype in (TYPE_WORKSTATION, TYPE_CLIENT, TYPE_SERVER, TYPE_DOMAIN_MASTER, TYPE_DOMAIN_CONTROLLER):
-            try:
-                addrs = n.gethostbyname(name, qtype=qtype).entries
-            except NetBIOSTimeout:
-                continue
-            else:
-                return addrs
-        raise Exception("Host not found")
-
-    n = get_netbios_host_by_name("some-host")
-    print n
-
-if __name__ == '__main__':
-    main()
