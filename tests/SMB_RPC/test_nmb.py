@@ -2,11 +2,32 @@ import ConfigParser
 import unittest
 
 from impacket import nmb
+from impacket.winregistry import hexdump
 
 
 class NMBTests(unittest.TestCase):
     def create_connection(self):
         pass
+
+    def test_encodedecodename(self):
+        name = 'THISISAVERYLONGLONGNAME'
+        encoded = nmb.encode_name(name,nmb.TYPE_SERVER,None)
+        hexdump(encoded)
+        decoded = nmb.decode_name(encoded)
+        hexdump(decoded)
+
+        #self.assertTrue(nmb.TYPE_SERVER==decoded[0])
+        self.assertTrue(name[:15]==decoded[1].strip())
+
+        # ToDo: Fix the scope functionality
+        #namescope = 'MYNAME'
+        #encoded = nmb.encode_name(namescope,nmb.TYPE_SERVER,'SCOPE')
+        #hexdump(encoded)
+        #decoded = nmb.decode_name(encoded)
+        #hexdump(decoded)
+
+        #self.assertTrue(nmb.TYPE_SERVER==decoded[0])
+        #self.assertTrue(namescope[:15]==decoded[1].strip())
 
     def test_getnetbiosname(self):
         n = nmb.NetBIOS()

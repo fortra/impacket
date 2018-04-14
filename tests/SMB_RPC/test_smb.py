@@ -8,7 +8,7 @@ import ConfigParser
 from binascii import unhexlify
 from impacket.smbconnection import SMBConnection, smb
 from impacket.smb3structs import *
-from impacket import nt_errors
+from impacket import nt_errors, nmb
 
 # IMPORTANT NOTE:
 # For some reason, under Windows 8, you cannot switch between
@@ -24,11 +24,17 @@ class SMBTests(unittest.TestCase):
     def create_connection(self):
         if self.dialects == smb.SMB_DIALECT:
             # Only for SMB1 let's do manualNego
-            s = SMBConnection(self.serverName, self.machine, preferredDialect = self.dialects, manualNegotiate=True)
+            s = SMBConnection(self.serverName, self.machine, preferredDialect = self.dialects, sess_port = self.sessPort, manualNegotiate=True)
             s.negotiateSession(self.dialects, flags2=self.flags2)
         else:
-            s = SMBConnection(self.serverName, self.machine, preferredDialect = self.dialects)
+            s = SMBConnection(self.serverName, self.machine, preferredDialect = self.dialects, sess_port = self.sessPort)
         return s
+
+    def test_aliasconnection(self):
+        smb = SMBConnection('*SMBSERVER', self.machine, preferredDialect=self.dialects, sess_port=self.sessPort)
+        smb.login(self.username, self.password, self.domain)
+        smb.listPath(self.share, '*')
+        smb.logoff()
 
     def test_reconnect(self):
         smb = self.create_connection()
@@ -283,6 +289,28 @@ class SMB1Tests(SMBTests):
         self.upload   = '../../impacket/nt_errors.py'
         self.flags2   = smb.SMB.FLAGS2_NT_STATUS | smb.SMB.FLAGS2_EXTENDED_SECURITY | smb.SMB.FLAGS2_LONG_NAMES
         self.dialects = smb.SMB_DIALECT
+        self.sessPort = nmb.SMB_SESSION_PORT
+
+class SMB1TestsNetBIOS(SMBTests):
+    def setUp(self):
+        SMBTests.setUp(self)
+        # Put specific configuration for target machine with SMB1
+        configFile = ConfigParser.ConfigParser()
+        configFile.read('dcetests.cfg')
+        self.username = configFile.get('SMBTransport', 'username')
+        self.domain   = configFile.get('SMBTransport', 'domain')
+        self.serverName = configFile.get('SMBTransport', 'servername')
+        self.password = configFile.get('SMBTransport', 'password')
+        self.machine  = configFile.get('SMBTransport', 'machine')
+        self.hashes   = configFile.get('SMBTransport', 'hashes')
+        self.aesKey   = configFile.get('SMBTransport', 'aesKey128')
+        self.share    = 'C$'
+        self.file     = '/TEST'
+        self.directory= '/BETO'
+        self.upload   = '../../impacket/nt_errors.py'
+        self.flags2   = smb.SMB.FLAGS2_NT_STATUS | smb.SMB.FLAGS2_EXTENDED_SECURITY | smb.SMB.FLAGS2_LONG_NAMES
+        self.dialects = smb.SMB_DIALECT
+        self.sessPort = nmb.NETBIOS_SESSION_PORT
 
 class SMB1TestsUnicode(SMBTests):
     def setUp(self):
@@ -303,6 +331,7 @@ class SMB1TestsUnicode(SMBTests):
         self.upload   = '../../impacket/nt_errors.py'
         self.flags2   = smb.SMB.FLAGS2_UNICODE | smb.SMB.FLAGS2_NT_STATUS | smb.SMB.FLAGS2_EXTENDED_SECURITY | smb.SMB.FLAGS2_LONG_NAMES
         self.dialects = smb.SMB_DIALECT
+        self.sessPort = nmb.SMB_SESSION_PORT
 
 class SMB002Tests(SMBTests):
     def setUp(self):
@@ -322,6 +351,7 @@ class SMB002Tests(SMBTests):
         self.directory= '/BETO'
         self.upload   = '../../impacket/nt_errors.py'
         self.dialects = SMB2_DIALECT_002
+        self.sessPort = nmb.SMB_SESSION_PORT
 
 class SMB21Tests(SMBTests):
     def setUp(self):
@@ -341,6 +371,7 @@ class SMB21Tests(SMBTests):
         self.directory= '/BETO'
         self.upload   = '../../impacket/nt_errors.py'
         self.dialects = SMB2_DIALECT_21
+        self.sessPort = nmb.SMB_SESSION_PORT
 
 class SMB3Tests(SMBTests):
     def setUp(self):
@@ -360,9 +391,11 @@ class SMB3Tests(SMBTests):
         self.directory= '/BETO'
         self.upload   = '../../impacket/nt_errors.py'
         self.dialects = SMB2_DIALECT_30
+        self.sessPort = nmb.SMB_SESSION_PORT
 
 if __name__ == "__main__":
     suite = unittest.TestLoader().loadTestsFromTestCase(SMB1Tests)
+    suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMB1TestsNetBIOS))
     suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMB1TestsUnicode))
     suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMB002Tests))
     suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMB21Tests))
