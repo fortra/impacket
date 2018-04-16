@@ -27,6 +27,7 @@ from impacket import LOG
 # So I'm setting a global variable to control this, this can also be set programmatically
 
 USE_NTLMv2 = True # if false will fall back to NTLMv1 (or NTLMv1 with ESS a.k.a NTLM2)
+TEST_CASE = False # Only set to True when running Test Cases
 
 
 def computeResponse(flags, serverChallenge, clientChallenge, serverName, domain, user, password, lmhash='', nthash='',
@@ -922,26 +923,22 @@ def computeResponseNTLMv2(flags, serverChallenge, clientChallenge, serverName, d
     responseKeyNT = NTOWFv2(user, password, domain, nthash)
     responseKeyLM = LMOWFv2(user, password, domain, lmhash)
 
-    # If you're running test-ntlm, comment the following lines and uncomment the ones that are commented. Don't forget
-    # to turn it back after the tests!
-    ######################
     av_pairs = AV_PAIRS(serverName)
     # In order to support SPN target name validation, we have to add this to the serverName av_pairs. Otherwise we will
     # get access denied
     # This is set at Local Security Policy -> Local Policies -> Security Options -> Server SPN target name validation
     # level
-    av_pairs[NTLMSSP_AV_TARGET_NAME] = 'cifs/'.encode('utf-16le') + av_pairs[NTLMSSP_AV_HOSTNAME][1]
-    if av_pairs[NTLMSSP_AV_TIME] is not None:
-       aTime = av_pairs[NTLMSSP_AV_TIME][1]
+    if TEST_CASE is False:
+        av_pairs[NTLMSSP_AV_TARGET_NAME] = 'cifs/'.encode('utf-16le') + av_pairs[NTLMSSP_AV_HOSTNAME][1]
+        if av_pairs[NTLMSSP_AV_TIME] is not None:
+           aTime = av_pairs[NTLMSSP_AV_TIME][1]
+        else:
+           aTime = struct.pack('<q', (116444736000000000 + calendar.timegm(time.gmtime()) * 10000000) )
+           av_pairs[NTLMSSP_AV_TIME] = aTime
+        serverName = av_pairs.getData()
     else:
-       aTime = struct.pack('<q', (116444736000000000 + calendar.timegm(time.gmtime()) * 10000000) )
-       #aTime = '\x00'*8
-       av_pairs[NTLMSSP_AV_TIME] = aTime
-    serverName = av_pairs.getData()
-          
-    ######################
-    #aTime = '\x00'*8
-    ######################
+        aTime = '\x00'*8
+
     temp = responseServerVersion + hiResponseServerVersion + '\x00' * 6 + aTime + clientChallenge + '\x00' * 4 + \
            serverName + '\x00' * 4
 
