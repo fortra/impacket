@@ -56,7 +56,7 @@ def Generate_Subkey(K):
 
     AES_128 = AES.new(K)
 
-    L = AES_128.encrypt('\x00'*16)
+    L = AES_128.encrypt(bytes(bytearray(16)))
 
     LHigh = unpack('>Q',L[:8])[0]
     LLow  = unpack('>Q',L[8:])[0]
@@ -73,22 +73,23 @@ def Generate_Subkey(K):
     if (K1High >> 63):
         K2Low ^= 0x87
 
-    K1 = pack('>QQ', K1High, K1Low)
-    K2 = pack('>QQ', K2High, K2Low)
+    K1 = bytearray(pack('>QQ', K1High, K1Low))
+    K2 = bytearray(pack('>QQ', K2High, K2Low))
 
     return K1, K2
 
 def XOR_128(N1,N2):
 
-    J = ''
+    J = bytearray()
     for i in range(len(N1)):
-        J = J + chr(ord(N1[i]) ^ ord(N2[i]))
+        #J.append(indexbytes(N1,i) ^ indexbytes(N2,i))
+        J.append(N1[i] ^ N2[i])
     return J
 
 def PAD(N):
     const_Bsize = 16
     padLen = 16-len(N)
-    return  N + '\x80' + '\x00'*(padLen-1)
+    return  N + b'\x80' + b'\x00'*(padLen-1)
 
 def AES_CMAC(K, M, length):
 
@@ -138,10 +139,10 @@ def AES_CMAC(K, M, length):
 #   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
     const_Bsize = 16
-    const_Zero  = '\x00'*16
+    const_Zero  = bytearray(16)
 
     AES_128= AES.new(K)
-    M      = M[:length]
+    M      = bytearray(M[:length])
     K1, K2 = Generate_Subkey(K)
     n      = len(M)//const_Bsize
 
@@ -165,9 +166,9 @@ def AES_CMAC(K, M, length):
     for i in range(n-1):
         M_i = M[(i)*const_Bsize:][:16]
         Y   = XOR_128(X, M_i)
-        X   = AES_128.encrypt(Y)
+        X   = bytearray(AES_128.encrypt(bytes(Y)))
     Y = XOR_128(M_last, X)
-    T = AES_128.encrypt(Y)
+    T = AES_128.encrypt(bytes(Y))
 
     return T
 
@@ -392,8 +393,8 @@ if __name__ == '__main__':
     
     from binascii import hexlify, unhexlify
 
-    K = "2b7e151628aed2a6abf7158809cf4f3c"
-    M = "6bc1bee22e409f96e93d7e117393172aae2d8a571e03ac9c9eb76fac45af8e5130c81c46a35ce411e5fbc1191a0a52eff69f2445df4f9b17ad2b417be66c3710"
+    K = b'2b7e151628aed2a6abf7158809cf4f3c'
+    M = b'6bc1bee22e409f96e93d7e117393172aae2d8a571e03ac9c9eb76fac45af8e5130c81c46a35ce411e5fbc1191a0a52eff69f2445df4f9b17ad2b417be66c3710'
 
     K1, K2 = Generate_Subkey(unhexlify(K))
     print("Subkey Generation")
@@ -446,8 +447,8 @@ if __name__ == '__main__':
 #
 #   ------------------------------------------------------------
 
-    K = "000102030405060708090a0b0c0d0e0fedcb"
-    M = "000102030405060708090a0b0c0d0e0f10111213"
+    K = b"000102030405060708090a0b0c0d0e0fedcb"
+    M = b"000102030405060708090a0b0c0d0e0f10111213"
 
     print("AES-CMAC-PRF-128 Test Vectors")
     print()
