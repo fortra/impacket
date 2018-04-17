@@ -595,7 +595,7 @@ def pretty_print(x):
        return u'.'
 
 def hexdump(data, indent = ''):
-    x=bytearray(b(data))
+    x=bytearray(data)
     strLen = len(x)
     i = 0
     while i < strLen:
