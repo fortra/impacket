@@ -87,8 +87,8 @@ for file in os.listdir(__path__[0]):
             if hasattr(module,'PROTOCOL_CLIENT_CLASSES'):
                 for pluginClass in module.PROTOCOL_CLIENT_CLASSES:
                     pluginClasses.add(getattr(module, pluginClass))
-
-            pluginClasses.add(getattr(module, getattr(module, 'PROTOCOL_CLIENT_CLASS')))
+            else:
+                pluginClasses.add(getattr(module, getattr(module, 'PROTOCOL_CLIENT_CLASS')))
         except Exception, e:
             LOG.debug(e)
             pass
