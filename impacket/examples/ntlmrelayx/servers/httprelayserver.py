@@ -252,7 +252,9 @@ class HTTPRelayServer(Thread):
         def do_ntlm_negotiate(self, token, proxy):
             if self.server.config.protocolClients.has_key(self.target.scheme.upper()):
                 self.client = self.server.config.protocolClients[self.target.scheme.upper()](self.server.config, self.target)
-                self.client.initConnection()
+                # If connection failed, return
+                if not self.client.initConnection():
+                    return False
                 self.challengeMessage = self.client.sendNegotiate(token)
                 # Check for errors
                 if self.challengeMessage is False:

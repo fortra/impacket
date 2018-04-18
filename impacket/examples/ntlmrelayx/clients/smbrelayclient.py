@@ -16,6 +16,7 @@
 import os
 
 from struct import unpack
+from socket import error as socketerror
 from impacket import LOG
 from impacket.examples.ntlmrelayx.clients import ProtocolClient
 from impacket.examples.ntlmrelayx.servers.socksserver import KEEP_ALIVE_TIMER
@@ -155,13 +156,21 @@ class SMBRelayClient(ProtocolClient):
             flags2 = SMB.FLAGS2_EXTENDED_SECURITY | SMB.FLAGS2_NT_STATUS | SMB.FLAGS2_LONG_NAMES
         else:
             flags2 = SMB.FLAGS2_NT_STATUS | SMB.FLAGS2_LONG_NAMES
-
-        packet = self.session.negotiateSessionWildcard(None, self.targetHost, self.targetHost, self.targetPort, 60, self.extendedSecurity,
-                                              flags1=SMB.FLAGS1_PATHCASELESS | SMB.FLAGS1_CANONICALIZED_PATHS,
-                         flags2=flags2, data=data)
+        try:
+            packet = self.session.negotiateSessionWildcard(None, self.targetHost, self.targetHost, self.targetPort, 60, self.extendedSecurity,
+                                                  flags1=SMB.FLAGS1_PATHCASELESS | SMB.FLAGS1_CANONICALIZED_PATHS,
+                             flags2=flags2, data=data)
+        except socketerror as e:
+            if 'reset by peer' in str(e):
+                if not self.serverConfig.smb2support:
+                    LOG.error('SMBCLient error: Connection was reset. Possibly the target has SMBv1 disabled. Try running ntlmrelayx with -smb2support')
+                else:
+                    LOG.error('SMBCLient error: Connection was reset')
+            else:
+                LOG.error('SMBCLient error: %s' % str(e))
+            return False
         if packet[0] == '\xfe':
             smbClient = MYSMB3(self.targetHost, self.targetPort, self.extendedSecurity,nmbSession=self.session.getNMBServer(), negPacket=packet)
-            pass
         else:
             # Answer is SMB packet, sticking to SMBv1
             smbClient = MYSMB(self.targetHost, self.targetPort, self.extendedSecurity,nmbSession=self.session.getNMBServer(), negPacket=packet)
