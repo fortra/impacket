@@ -4,14 +4,14 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# HTTP Attack Class
+# IMAP Attack Class
 #
 # Authors:
 #  Alberto Solino (@agsolino)
 #  Dirk-jan Mollema (@_dirkjan) / Fox-IT (https://www.fox-it.com)
 #
 # Description:
-#  HTTP protocol relay attack
+#  IMAP protocol relay attack
 #
 # ToDo:
 #

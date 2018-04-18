@@ -30,7 +30,7 @@ PROTOCOL_ATTACKS = {}
 # These classes must have the attribute PLUGIN_NAMES which is a list of protocol names
 # that will be matched later with the relay targets (e.g. SMB, LDAP, etc)
 class ProtocolAttack(Thread):
-    PLUGIN_NAME = 'PROTOCOL'
+    PLUGIN_NAMES = ['PROTOCOL']
     def __init__(self, config, client, username):
         Thread.__init__(self)
         # Set threads as daemon

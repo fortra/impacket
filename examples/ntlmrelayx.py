@@ -144,7 +144,7 @@ if __name__ == '__main__':
     parser.add_argument('-codec', action='store', help='Sets encoding used (codec) from the target\'s output (default '
                                                        '"%s"). If errors are detected, run chcp.com at the target, '
                                                        'map the result with '
-                                                       'https://docs.python.org/2.4/lib/standard-encodings.html and then execute wmiexec.py '
+                                                       'https://docs.python.org/2.4/lib/standard-encodings.html and then execute ntlmrelayx.py '
                                                        'again with -codec and the corresponding codec ' % sys.getdefaultencoding())
     parser.add_argument('-smb2support', action="store_true", default=False, help='SMB2 Support (experimental!)')
     parser.add_argument('-socks', action='store_true', default=False,
@@ -186,7 +186,7 @@ if __name__ == '__main__':
 
     try:
        options = parser.parse_args()
-    except Exception, e:
+    except Exception as e:
        logging.error(str(e))
        sys.exit(1)
 
@@ -251,10 +251,10 @@ if __name__ == '__main__':
         c.setAttacks(PROTOCOL_ATTACKS)
         c.setLootdir(options.lootdir)
         c.setOutputFile(options.output_file)
-        c.setLDAPOptions(options.no_dump,options.no_da)
+        c.setLDAPOptions(options.no_dump, options.no_da)
         c.setMSSQLOptions(options.query)
         c.setInteractive(options.interactive)
-        c.setIMAPOptions(options.keyword,options.mailbox,options.all,options.imap_max)
+        c.setIMAPOptions(options.keyword, options.mailbox, options.all, options.imap_max)
         c.setIPv6(options.ipv6)
         c.setWpadOptions(options.wpad_host, options.wpad_auth_num)
         c.setSMB2Support(options.smb2support)
