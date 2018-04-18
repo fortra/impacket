@@ -48,15 +48,18 @@ from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor, Ta
 from impacket.examples.ntlmrelayx.servers.socksserver import SOCKS
 from impacket.examples.ntlmrelayx.attacks import PROTOCOL_ATTACKS
 
+RELAY_SERVERS = ( SMBRelayServer, HTTPRelayServer )
 
 class MiniShell(cmd.Cmd):
-    def __init__(self, relayConfig):
+    def __init__(self, relayConfig, threads):
         cmd.Cmd.__init__(self)
 
         self.prompt = 'ntlmrelayx> '
         self.tid = None
         self.relayConfig = relayConfig
         self.intro = 'Type help for list of commands'
+        self.relayThreads = threads
+        self.serversRunning = True
 
     @staticmethod
     def printTable(items, header):
@@ -97,18 +100,82 @@ class MiniShell(cmd.Cmd):
             logging.error("ERROR: %s" % str(e))
         else:
             if len(items) > 0:
-                self.printTable(items, header = headers)
+                self.printTable(items, header=headers)
             else:
                 logging.info('No Relays Available!')
+
+    def do_startservers(self, line):
+        if not self.serversRunning:
+            start_servers(options, self.relayThreads)
+            self.serversRunning = True
+            logging.info('Relay servers started')
+        else:
+            logging.error('Relay servers are already running!')
+
+    def do_stopservers(self, line):
+        if self.serversRunning:
+            stop_servers(self.relayThreads)
+            self.serversRunning = False
+            logging.info('Relay servers stopped')
+        else:
+            logging.error('Relay servers are already stopped!')
 
     def do_exit(self, line):
         print "Shutting down, please wait!"
         return True
 
+def start_servers(options, threads):
+    for server in RELAY_SERVERS:
+        #Set up config
+        c = NTLMRelayxConfig()
+        c.setProtocolClients(PROTOCOL_CLIENTS)
+        c.setRunSocks(options.socks, socksServer)
+        c.setTargets(targetSystem)
+        c.setExeFile(options.e)
+        c.setCommand(options.c)
+        c.setEncoding(codec)
+        c.setMode(mode)
+        c.setAttacks(PROTOCOL_ATTACKS)
+        c.setLootdir(options.lootdir)
+        c.setOutputFile(options.output_file)
+        c.setLDAPOptions(options.no_dump, options.no_da)
+        c.setMSSQLOptions(options.query)
+        c.setInteractive(options.interactive)
+        c.setIMAPOptions(options.keyword, options.mailbox, options.all, options.imap_max)
+        c.setIPv6(options.ipv6)
+        c.setWpadOptions(options.wpad_host, options.wpad_auth_num)
+        c.setSMB2Support(options.smb2support)
+        c.setInterfaceIp(options.interface_ip)
+
+
+        #If the redirect option is set, configure the HTTP server to redirect targets to SMB
+        if server is HTTPRelayServer and options.r is not None:
+            c.setMode('REDIRECT')
+            c.setRedirectHost(options.r)
+
+        #Use target randomization if configured and the server is not SMB
+        #SMB server at the moment does not properly store active targets so selecting them randomly will cause issues
+        if server is not SMBRelayServer and options.random:
+            c.setRandomTargets(True)
+
+        s = server(c)
+        s.start()
+        threads.add(s)
+    return c
+
+def stop_servers(threads):
+    todelete = []
+    for thread in threads:
+        if isinstance(thread, RELAY_SERVERS):
+            thread.server.shutdown()
+            todelete.append(thread)
+    # Now remove threads from the set
+    for thread in todelete:
+        threads.remove(thread)
+        del thread
+
 # Process command-line arguments.
 if __name__ == '__main__':
-
-    RELAY_SERVERS = ( SMBRelayServer, HTTPRelayServer )
 
     # Init the example's logger theme
     logger.init()
@@ -238,48 +305,13 @@ if __name__ == '__main__':
         socks_thread.start()
         threads.add(socks_thread)
 
-    for server in RELAY_SERVERS:
-        #Set up config
-        c = NTLMRelayxConfig()
-        c.setProtocolClients(PROTOCOL_CLIENTS)
-        c.setRunSocks(options.socks, socksServer)
-        c.setTargets(targetSystem)
-        c.setExeFile(options.e)
-        c.setCommand(options.c)
-        c.setEncoding(codec)
-        c.setMode(mode)
-        c.setAttacks(PROTOCOL_ATTACKS)
-        c.setLootdir(options.lootdir)
-        c.setOutputFile(options.output_file)
-        c.setLDAPOptions(options.no_dump, options.no_da)
-        c.setMSSQLOptions(options.query)
-        c.setInteractive(options.interactive)
-        c.setIMAPOptions(options.keyword, options.mailbox, options.all, options.imap_max)
-        c.setIPv6(options.ipv6)
-        c.setWpadOptions(options.wpad_host, options.wpad_auth_num)
-        c.setSMB2Support(options.smb2support)
-        c.setInterfaceIp(options.interface_ip)
-
-
-        #If the redirect option is set, configure the HTTP server to redirect targets to SMB
-        if server is HTTPRelayServer and options.r is not None:
-            c.setMode('REDIRECT')
-            c.setRedirectHost(options.r)
-
-        #Use target randomization if configured and the server is not SMB
-        #SMB server at the moment does not properly store active targets so selecting them randomly will cause issues
-        if server is not SMBRelayServer and options.random:
-            c.setRandomTargets(True)
-
-        s = server(c)
-        s.start()
-        threads.add(s)
+    c = start_servers(options, threads)
 
     print ""
     logging.info("Servers started, waiting for connections")
     try:
         if options.socks:
-            shell = MiniShell(c)
+            shell = MiniShell(c, threads)
             shell.cmdloop()
         else:
             sys.stdin.read()

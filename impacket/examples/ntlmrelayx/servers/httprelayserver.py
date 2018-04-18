@@ -308,15 +308,16 @@ class HTTPRelayServer(Thread):
         Thread.__init__(self)
         self.daemon = True
         self.config = config
+        self.server = None
 
     def run(self):
         LOG.info("Setting up HTTP Server")
         # changed to read from the interfaceIP set in the configuration
-        httpd = self.HTTPServer((self.config.interfaceIp, 80), self.HTTPHandler, self.config)
+        self.server = self.HTTPServer((self.config.interfaceIp, 80), self.HTTPHandler, self.config)
 
         try:
-             httpd.serve_forever()
+             self.server.serve_forever()
         except KeyboardInterrupt:
              pass
         LOG.info('Shutting down HTTP Server')
-        httpd.server_close()
+        self.server.server_close()
