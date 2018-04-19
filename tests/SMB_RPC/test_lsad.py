@@ -245,7 +245,7 @@ class LSADTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_INVALID_PARAMETER') < 0:
                 raise
 
@@ -253,7 +253,7 @@ class LSADTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_OBJECT_NAME_NOT_FOUND') < 0:
                 raise
 
@@ -261,7 +261,7 @@ class LSADTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_OBJECT_NAME_NOT_FOUND') < 0:
                 raise
 
@@ -270,21 +270,21 @@ class LSADTests(unittest.TestCase):
         try:
             resp = lsad.hLsarQueryDomainInformationPolicy(dce, policyHandle, lsad.POLICY_DOMAIN_INFORMATION_CLASS.PolicyDomainQualityOfServiceInformation)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_INVALID_PARAMETER') < 0:
                 raise
 
         try:
             resp = lsad.hLsarQueryDomainInformationPolicy(dce, policyHandle, lsad.POLICY_DOMAIN_INFORMATION_CLASS.PolicyDomainEfsInformation)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_OBJECT_NAME_NOT_FOUND') < 0:
                 raise
 
         try:
             resp = lsad.hLsarQueryDomainInformationPolicy(dce, policyHandle, lsad.POLICY_DOMAIN_INFORMATION_CLASS.PolicyDomainKerberosTicketInformation)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_OBJECT_NAME_NOT_FOUND') < 0:
                 raise
 
@@ -327,7 +327,7 @@ class LSADTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_NO_MORE_ENTRIES') < 0:
                 raise
 
@@ -336,7 +336,7 @@ class LSADTests(unittest.TestCase):
         try:
             resp = lsad.hLsarEnumerateTrustedDomainsEx(dce, policyHandle)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_NO_MORE_ENTRIES') < 0:
                 raise
 
@@ -349,7 +349,7 @@ class LSADTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_NO_MORE_ENTRIES') < 0:
                 raise
 
@@ -358,7 +358,7 @@ class LSADTests(unittest.TestCase):
         try:
             resp = lsad.hLsarEnumerateTrustedDomains(dce, policyHandle)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_NO_MORE_ENTRIES') < 0:
                 raise
 
@@ -831,7 +831,7 @@ class LSADTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_NO_SUCH_DOMAIN') < 0:
                 raise
 

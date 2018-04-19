@@ -18,9 +18,10 @@
 
 from __future__ import division
 from __future__ import print_function
+from __future__ import absolute_import
 from impacket import LOG
 try:
-    from Crypto.Cipher import DES, AES, ARC4
+    from .Crypto.Cipher import DES, AES, ARC4
 except Exception:
     LOG.error("Warning: You don't have any crypto installed. You need PyCrypto")
     LOG.error("See http://www.pycrypto.org/")

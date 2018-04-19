@@ -29,6 +29,7 @@
 #
 
 
+from __future__ import print_function
 import argparse
 import logging
 import os
@@ -61,12 +62,12 @@ class GetUserSPNs:
         outputFormat = ' '.join(['{%d:%ds} ' % (num, width) for num, width in enumerate(colLen)])
 
         # Print header
-        print outputFormat.format(*header)
-        print '  '.join(['-' * itemLen for itemLen in colLen])
+        print(outputFormat.format(*header))
+        print('  '.join(['-' * itemLen for itemLen in colLen]))
 
         # And now the rows
         for row in items:
-            print outputFormat.format(*row)
+            print(outputFormat.format(*row))
 
     def __init__(self, username, password, domain, cmdLineOptions):
         self.options = cmdLineOptions
@@ -103,7 +104,7 @@ class GetUserSPNs:
             s.login('', '')
         except Exception:
             if s.getServerName() == '':
-                raise('Error while anonymous logging into %s' % self.__domain)
+                raise Exception('Error while anonymous logging into %s' % self.__domain)
         else:
             s.logoff()
         return s.getServerName()
@@ -149,7 +150,7 @@ class GetUserSPNs:
                                                                 compute_lmhash(password),
                                                                 compute_nthash(password), self.__aesKey,
                                                                 kdcHost=self.__kdcHost)
-            except Exception, e:
+            except Exception as e:
                 logging.debug('TGT: %s' % str(e))
                 tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain,
                                                                     unhexlify(self.__lmhash),
@@ -188,7 +189,7 @@ class GetUserSPNs:
                 hexlify(str(decodedTGS['ticket']['enc-part']['cipher'][:16])),
                 hexlify(str(decodedTGS['ticket']['enc-part']['cipher'][16:])))
             if fd is None:
-                print entry
+                print(entry)
             else:
                 fd.write(entry+'\n')
         elif decodedTGS['ticket']['enc-part']['etype'] == constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value:
@@ -197,7 +198,7 @@ class GetUserSPNs:
                 hexlify(str(decodedTGS['ticket']['enc-part']['cipher'][:16])),
                 hexlify(str(decodedTGS['ticket']['enc-part']['cipher'][16:])))
             if fd is None:
-                print entry
+                print(entry)
             else:
                 fd.write(entry+'\n')
         elif decodedTGS['ticket']['enc-part']['etype'] == constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value:
@@ -206,7 +207,7 @@ class GetUserSPNs:
                 hexlify(str(decodedTGS['ticket']['enc-part']['cipher'][:16])),
                 hexlify(str(decodedTGS['ticket']['enc-part']['cipher'][16:])))
             if fd is None:
-                print entry
+                print(entry)
             else:
                 fd.write(entry+'\n')
         elif decodedTGS['ticket']['enc-part']['etype'] == constants.EncryptionTypes.des_cbc_md5.value:
@@ -215,7 +216,7 @@ class GetUserSPNs:
                 hexlify(str(decodedTGS['ticket']['enc-part']['cipher'][:16])),
                 hexlify(str(decodedTGS['ticket']['enc-part']['cipher'][16:])))
             if fd is None:
-                print entry
+                print(entry)
             else:
                 fd.write(entry+'\n')
         else:
@@ -230,7 +231,7 @@ class GetUserSPNs:
             try:
                 ccache.fromTGS(tgs, oldSessionKey, sessionKey )
                 ccache.saveFile('%s.ccache' % username)
-            except Exception, e:
+            except Exception as e:
                 logging.error(str(e))
 
     def run(self):
@@ -250,7 +251,7 @@ class GetUserSPNs:
             else:
                 ldapConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
                                              self.__aesKey, kdcHost=self.__kdcHost)
-        except ldap.LDAPSessionError, e:
+        except ldap.LDAPSessionError as e:
             if str(e).find('strongerAuthRequired') >= 0:
                 # We need to try SSL
                 ldapConnection = ldap.LDAPConnection('ldaps://%s' % self.__target, self.baseDN, self.__kdcHost)
@@ -276,7 +277,7 @@ class GetUserSPNs:
                                          attributes=['servicePrincipalName', 'sAMAccountName',
                                                      'pwdLastSet', 'MemberOf', 'userAccountControl', 'lastLogon'],
                                          sizeLimit=999)
-        except ldap.LDAPSearchError, e:
+        except ldap.LDAPSearchError as e:
             if e.getErrorString().find('sizeLimitExceeded') >= 0:
                 logging.debug('sizeLimitExceeded exception caught, giving up and processing the data received')
                 # We reached the sizeLimit, process the answers we have already and that's it. Until we implement
@@ -330,13 +331,13 @@ class GetUserSPNs:
                     else:
                         for spn in SPNs:
                             answers.append([spn, sAMAccountName,memberOf, pwdLastSet, lastLogon])
-            except Exception, e:
+            except Exception as e:
                 logging.error('Skipping item, cannot process due to error %s' % str(e))
                 pass
 
         if len(answers)>0:
             self.printTable(answers, header=[ "ServicePrincipalName", "Name", "MemberOf", "PasswordLastSet", "LastLogon"])
-            print '\n\n'
+            print('\n\n')
 
             if self.__requestTGS is True or self.__requestUser is not None:
                 # Let's get unique user names and a SPN to request a TGS for
@@ -356,20 +357,20 @@ class GetUserSPNs:
                                                                                 TGT['KDC_REP'], TGT['cipher'],
                                                                                 TGT['sessionKey'])
                         self.outputTGS(tgs, oldSessionKey, sessionKey, user, SPN, fd)
-                    except Exception , e:
+                    except Exception as e:
                         logging.error('SPN: %s - %s' % (SPN,str(e)))
                 if fd is not None:
                     fd.close()
 
         else:
-            print "No entries found!"
+            print("No entries found!")
 
 
 # Process command-line arguments.
 if __name__ == '__main__':
     # Init the example's logger theme
     logger.init()
-    print version.BANNER
+    print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help = True, description = "Queries target domain for SPNs that are running "
                                                                     "under a user account")
@@ -438,7 +439,7 @@ if __name__ == '__main__':
     try:
         executer = GetUserSPNs(username, password, domain, options)
         executer.run()
-    except Exception, e:
+    except Exception as e:
         #import traceback
         #print traceback.print_exc()
-        print str(e)
+        print(str(e))

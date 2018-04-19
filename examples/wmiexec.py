@@ -19,6 +19,7 @@
 #  DCOM
 #
 
+from __future__ import print_function
 import sys
 import os
 import cmd
@@ -92,7 +93,7 @@ class WMIEXEC:
                 self.shell.onecmd(self.__command)
             else:
                 self.shell.cmdloop()
-        except  (Exception, KeyboardInterrupt), e:
+        except  (Exception, KeyboardInterrupt) as e:
             #import traceback
             #traceback.print_exc()
             logging.error(str(e))
@@ -130,21 +131,21 @@ class RemoteShell(cmd.Cmd):
         os.system(s)
 
     def do_help(self, line):
-        print """
+        print("""
  lcd {path}                 - changes the current local directory to {path}
  exit                       - terminates the server process (and this session)
  put {src_file, dst_path}   - uploads a local file to the dst_path (dst_path = default current directory)
  get {file}                 - downloads pathname to the current local dir 
  ! {cmd}                    - executes a local shell cmd
-""" 
+""") 
 
     def do_lcd(self, s):
         if s == '':
-            print os.getcwd()
+            print(os.getcwd())
         else:
             try:
                 os.chdir(s)
-            except Exception, e:
+            except Exception as e:
                 logging.error(str(e))
 
     def do_get(self, src_path):
@@ -159,7 +160,7 @@ class RemoteShell(cmd.Cmd):
             self.__transferClient.getFile(drive[:-1]+'$', tail, fh.write)
             fh.close()
 
-        except Exception, e:
+        except Exception as e:
             logging.error(str(e))
 
             if os.path.exists(filename):
@@ -186,7 +187,7 @@ class RemoteShell(cmd.Cmd):
             logging.info("Uploading %s to %s" % (src_file, pathname))
             self.__transferClient.putFile(drive[:-1]+'$', tail, fh.read)
             fh.close()
-        except Exception, e:
+        except Exception as e:
             logging.critical(str(e))
             pass
 
@@ -199,7 +200,7 @@ class RemoteShell(cmd.Cmd):
     def do_cd(self, s):
         self.execute_remote('cd ' + s)
         if len(self.__outputBuffer.strip('\r\n')) > 0:
-            print self.__outputBuffer
+            print(self.__outputBuffer)
             self.__outputBuffer = u''
         else:
             self.__pwd = ntpath.normpath(ntpath.join(self.__pwd, s.decode(sys.stdin.encoding)))
@@ -215,7 +216,7 @@ class RemoteShell(cmd.Cmd):
             self.execute_remote(line)
             if len(self.__outputBuffer.strip('\r\n')) > 0: 
                 # Something went wrong
-                print self.__outputBuffer
+                print(self.__outputBuffer)
                 self.__outputBuffer = u''
             else:
                 # Drive valid, now we should get the current path
@@ -232,7 +233,7 @@ class RemoteShell(cmd.Cmd):
         def output_callback(data):
             try:
                 self.__outputBuffer += data.decode(CODEC)
-            except UnicodeDecodeError, e:
+            except UnicodeDecodeError as e:
                 logging.error('Decoding error detected, consider running chcp.com at the target,\nmap the result with '
                               'https://docs.python.org/2.4/lib/standard-encodings.html\nand then execute wmiexec.py '
                               'again with -codec and the corresponding codec')
@@ -246,7 +247,7 @@ class RemoteShell(cmd.Cmd):
             try:
                 self.__transferClient.getFile(self.__share, self.__output, output_callback)
                 break
-            except Exception, e:
+            except Exception as e:
                 if str(e).find('STATUS_SHARING_VIOLATION') >=0:
                     # Output not finished, let's wait
                     time.sleep(1)
@@ -267,7 +268,7 @@ class RemoteShell(cmd.Cmd):
 
     def send_data(self, data):
         self.execute_remote(data)
-        print self.__outputBuffer
+        print(self.__outputBuffer)
         self.__outputBuffer = u''
 
 class AuthFileSyntaxError(Exception):
@@ -323,7 +324,7 @@ def load_smbclient_auth_file(path):
 if __name__ == '__main__':
     # Init the example's logger theme
     logger.init()
-    print version.BANNER
+    print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help = True, description = "Executes a semi-interactive shell using Windows "
                                                                     "Management Instrumentation.")
@@ -405,11 +406,11 @@ if __name__ == '__main__':
         executer = WMIEXEC(' '.join(options.command), username, password, domain, options.hashes, options.aesKey,
                            options.share, options.nooutput, options.k, options.dc_ip)
         executer.run(address)
-    except KeyboardInterrupt, e:
+    except KeyboardInterrupt as e:
         #import traceback
         #print traceback.print_exc()
         logging.error(str(e))
-    except Exception, e:
+    except Exception as e:
         logging.error(str(e))
         sys.exit(1)
         

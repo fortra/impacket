@@ -1,3 +1,4 @@
+from __future__ import print_function
 # Copyright (c) 2013-2017 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
@@ -42,7 +43,7 @@ class IMAPSocksRelay(SocksRelay):
 
     def getServerCapabilities(self):
         for key in self.activeRelays.keys():
-            if self.activeRelays[key].has_key('protocolClient'):
+            if 'protocolClient' in self.activeRelays[key]:
                 return self.activeRelays[key]['protocolClient'].session.capabilities
 
     def initConnection(self):
@@ -92,7 +93,7 @@ class IMAPSocksRelay(SocksRelay):
             return False
 
         # Check if we have a connection for the user
-        if self.activeRelays.has_key(self.username):
+        if self.username in self.activeRelays:
             # Check the connection is not inUse
             if self.activeRelays[self.username]['inUse'] is True:
                 LOG.error('IMAP: Connection for %s@%s(%s) is being used at the moment!' % (
@@ -119,9 +120,9 @@ class IMAPSocksRelay(SocksRelay):
         while True:
             try:
                 data = self.socksSocket.recv(self.packetSize)
-            except Exception, e:
+            except Exception as e:
                 # Socks socket (client) closed connection or something else. Not fatal for killing the existing relay
-                print keyword, tag
+                print(keyword, tag)
                 LOG.debug('IMAP: sockSocket recv(): %s' % (str(e)))
                 break
             # If this returns with an empty string, it means the socket was closed
@@ -215,14 +216,14 @@ class IMAPSocksRelay(SocksRelay):
         while keyword != tag and keyword != '+':
             try:
                 data = self.relaySocketFile.readline()
-            except Exception, e:
+            except Exception as e:
                 # This didn't break the connection to the server, don't make it fatal
                 LOG.debug("IMAP relaySocketFile: %s" % str(e))
                 return False
             keyword = data.split(' ', 2)[0]
             try:
                 self.socksSocket.sendall(data)
-            except Exception, e:
+            except Exception as e:
                 LOG.debug("IMAP socksSocket: %s" % str(e))
                 return False
 

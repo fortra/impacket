@@ -32,7 +32,7 @@ class DCERPCSessionError(DCERPCException):
         DCERPCException.__init__(self, error_string, error_code, packet)
 
     def __str__( self ):
-        if hresult_errors.ERROR_MESSAGES.has_key(self.error_code):
+        if self.error_code in hresult_errors.ERROR_MESSAGES:
             error_msg_short = hresult_errors.ERROR_MESSAGES[self.error_code][0]
             error_msg_verbose = hresult_errors.ERROR_MESSAGES[self.error_code][1] 
             return 'VDS SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
@@ -198,7 +198,7 @@ class IEnumVdsObject(IRemUnknown2):
         request['celt'] = celt
         try:
             resp = self.request(request, uuid = self.get_iPid())
-        except Exception, e:
+        except Exception as e:
             resp = e.get_packet()
             # If it is S_FALSE(1) means less items were returned
             if resp['ErrorCode'] != 1:
@@ -238,7 +238,7 @@ class IVdsService(IRemUnknown2):
         request['ORPCthis']['flags'] = 0
         try:
             resp = self.request(request, uuid = self.get_iPid())
-        except Exception, e:
+        except Exception as e:
             resp = e.get_packet()
         return resp 
 

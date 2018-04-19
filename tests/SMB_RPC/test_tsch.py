@@ -1,3 +1,4 @@
+from __future__ import print_function
 ###############################################################################
 #  Tested so far: 
 #
@@ -207,7 +208,7 @@ class TSCHTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if e.get_error_code() != 0x80070002:
                 raise
 
@@ -217,7 +218,7 @@ class TSCHTests(unittest.TestCase):
         try:
             resp = sasec.hSASetAccountInformation(dce, NULL, 'MyJob.job', self.username, self.password, 0)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if e.get_error_code() != 0x80070002:
                 raise
 
@@ -266,7 +267,7 @@ class TSCHTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if e.get_error_code() != 0x80070002:
                 raise
 
@@ -276,7 +277,7 @@ class TSCHTests(unittest.TestCase):
         try:
             resp = sasec.hSAGetAccountInformation(dce, NULL, 'MyJob.job', 15)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if e.get_error_code() != 0x80070002:
                 raise
 
@@ -343,7 +344,7 @@ class TSCHTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if e.get_error_code() != 0x80070002:
                 raise
 
@@ -356,8 +357,8 @@ class TSCHTests(unittest.TestCase):
         try:
             resp = tsch.hSchRpcRetrieveTask(dce, '\\Microsoft\\Windows\\Defrag\\ScheduledDefrag\x00')
             resp.dump()
-        except Exception, e:
-            print e
+        except Exception as e:
+            print(e)
             pass
 
     def test_SchRpcCreateFolder_SchRpcEnumFolders_SchRpcDelete(self):
@@ -378,8 +379,8 @@ class TSCHTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
-            print e
+        except Exception as e:
+            print(e)
             pass
 
         request = tsch.SchRpcDelete()
@@ -458,7 +459,7 @@ class TSCHTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if e.get_error_code() != 0x80070002:
                 raise
 
@@ -468,7 +469,7 @@ class TSCHTests(unittest.TestCase):
         try:
             resp = tsch.hSchRpcEnumInstances(dce, '\\')
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if e.get_error_code() != 0x80070002:
                 raise
 
@@ -505,8 +506,8 @@ class TSCHTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
-            print e
+        except Exception as e:
+            print(e)
             pass
 
         resp = atsvc.hNetrJobDel(dce2, NULL, jobId, jobId)
@@ -531,8 +532,8 @@ class TSCHTests(unittest.TestCase):
         try:
             resp = tsch.hSchRpcRun(dce, '\\At%d\x00' % jobId, ('arg0','arg1'))
             resp.dump()
-        except Exception, e:
-            print e
+        except Exception as e:
+            print(e)
             pass
 
         resp = atsvc.hNetrJobDel(dce2, NULL, jobId, jobId)
@@ -557,8 +558,8 @@ class TSCHTests(unittest.TestCase):
         try:
             resp = tsch.hSchRpcRun(dce, '\\At%d\x00' % jobId, ('arg0','arg1'))
             resp.dump()
-        except Exception, e:
-            print e
+        except Exception as e:
+            print(e)
             pass
 
         request = tsch.SchRpcGetInstanceInfo()
@@ -566,7 +567,7 @@ class TSCHTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('SCHED_E_TASK_NOT_RUNNING') <= 0:
                 raise
             pass
@@ -593,14 +594,14 @@ class TSCHTests(unittest.TestCase):
         try:
             resp = tsch.hSchRpcRun(dce, '\\At%d\x00' % jobId, ('arg0','arg1'))
             resp.dump()
-        except Exception, e:
-            print e
+        except Exception as e:
+            print(e)
             pass
 
         try:
             resp = tsch.hSchRpcGetInstanceInfo(dce, resp['pGuid'])
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('SCHED_E_TASK_NOT_RUNNING') <= 0:
                 raise
             pass
@@ -627,8 +628,8 @@ class TSCHTests(unittest.TestCase):
         try:
             resp = tsch.hSchRpcRun(dce, '\\At%d\x00' % jobId, ('arg0','arg1'))
             resp.dump()
-        except Exception, e:
-            print e
+        except Exception as e:
+            print(e)
             pass
 
         request = tsch.SchRpcStopInstance()
@@ -637,7 +638,7 @@ class TSCHTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('SCHED_E_TASK_NOT_RUNNING') <= 0:
                 raise
             pass
@@ -664,14 +665,14 @@ class TSCHTests(unittest.TestCase):
         try:
             resp = tsch.hSchRpcRun(dce, '\\At%d\x00' % jobId, ('arg0','arg1'))
             resp.dump()
-        except Exception, e:
-            print e
+        except Exception as e:
+            print(e)
             pass
 
         try:
             resp = tsch.hSchRpcStopInstance(dce, resp['pGuid'])
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('SCHED_E_TASK_NOT_RUNNING') <= 0:
                 raise
             pass
@@ -700,7 +701,7 @@ class TSCHTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             # It is actually S_FALSE
             if str(e).find('ERROR_INVALID_FUNCTION') <= 0:
                 raise
@@ -727,7 +728,7 @@ class TSCHTests(unittest.TestCase):
         try:
             resp = tsch.hSchRpcStop(dce, '\\At%d\x00' % jobId)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             # It is actually S_FALSE
             if str(e).find('ERROR_INVALID_FUNCTION') <= 0:
                 raise
@@ -749,7 +750,7 @@ class TSCHTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('E_NOTIMPL') <= 0:
                 raise
             pass
@@ -766,7 +767,7 @@ class TSCHTests(unittest.TestCase):
         try:
             resp = tsch.hSchRpcRename(dce, '\\Beto', '\\Anita')
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('E_NOTIMPL') <= 0:
                 raise
             pass
@@ -786,7 +787,7 @@ class TSCHTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             # It is actually S_FALSE
             if str(e).find('ERROR_INVALID_FUNCTIO') <= 0:
                 raise
@@ -806,7 +807,7 @@ class TSCHTests(unittest.TestCase):
         try:
             resp = tsch.hSchRpcScheduledRuntimes(dce, '\\Microsoft\\Windows\\Defrag\\ScheduledDefrag', NULL, NULL, 0, 10)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             # It is actually S_FALSE
             if str(e).find('ERROR_INVALID_FUNCTIO') <= 0:
                 raise
@@ -821,7 +822,7 @@ class TSCHTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('SCHED_S_TASK_HAS_NOT_RUN') <= 0:
                 raise
             pass
@@ -831,7 +832,7 @@ class TSCHTests(unittest.TestCase):
         try:
             resp = tsch.hSchRpcGetLastRunInfo(dce, '\\Microsoft\\Windows\\Defrag\\ScheduledDefrag')
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('SCHED_S_TASK_HAS_NOT_RUN') <= 0:
                 raise
             pass
@@ -844,8 +845,8 @@ class TSCHTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
-            print e
+        except Exception as e:
+            print(e)
             pass
 
     def test_hSchRpcGetTaskInfo(self):
@@ -853,8 +854,8 @@ class TSCHTests(unittest.TestCase):
         try:
             resp = tsch.hSchRpcGetTaskInfo(dce, '\\Microsoft\\Windows\\Defrag\\ScheduledDefrag', tsch.SCH_FLAG_STATE)
             resp.dump()
-        except Exception, e:
-            print e
+        except Exception as e:
+            print(e)
             pass
 
     def test_SchRpcGetNumberOfMissedRuns(self):
@@ -864,8 +865,8 @@ class TSCHTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
-            print e
+        except Exception as e:
+            print(e)
             pass
 
     def test_hSchRpcGetNumberOfMissedRuns(self):
@@ -873,8 +874,8 @@ class TSCHTests(unittest.TestCase):
         try:
             resp = tsch.hSchRpcGetNumberOfMissedRuns(dce, '\\Microsoft\\Windows\\Defrag\\ScheduledDefrag')
             resp.dump()
-        except Exception, e:
-            print e
+        except Exception as e:
+            print(e)
             pass
 
     def test_SchRpcEnableTask(self):
@@ -885,8 +886,8 @@ class TSCHTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
-            print e
+        except Exception as e:
+            print(e)
             pass
 
     def test_hSchRpcEnableTask(self):
@@ -894,8 +895,8 @@ class TSCHTests(unittest.TestCase):
         try:
             resp = tsch.hSchRpcEnableTask(dce, '\\Microsoft\\Windows\\Defrag\\ScheduledDefrag', True)
             resp.dump()
-        except Exception, e:
-            print e
+        except Exception as e:
+            print(e)
             pass
 
 class SMBTransport(TSCHTests):

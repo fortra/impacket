@@ -1,3 +1,5 @@
+from __future__ import print_function
+from __future__ import absolute_import
 # Copyright (c) 2003-2016 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
@@ -31,7 +33,7 @@
 import socket
 import struct
 
-from ImpactPacket import ProtocolPacket
+from .ImpactPacket import ProtocolPacket
 
 
 class DNSFlags():
@@ -613,4 +615,4 @@ if __name__ == "__main__":
     
     for pkt in pkts:
         d = DNS(pkt)
-        print d
+        print(d)

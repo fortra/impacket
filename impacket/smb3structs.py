@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 # Copyright (c) 2003-2016 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
@@ -430,7 +431,7 @@ class SMBPacketBase(Structure):
 
     def isValidAnswer(self, status):
         if self['Status'] != status:
-            import smb3
+            from . import smb3
             raise smb3.SessionError(self['Status'], self)
         return True
 

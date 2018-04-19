@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 # Copyright (c) 2013, Marc Horowitz
 # All rights reserved.
 #
@@ -34,7 +35,7 @@
 
 from pyasn1.type import tag, namedtype, univ, constraint, char, useful
 
-import constants
+from . import constants
 
 
 def _application_tag(tag_value):

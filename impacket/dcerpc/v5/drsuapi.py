@@ -1,3 +1,4 @@
+from __future__ import print_function
 # Copyright (c) 2003-2016 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
@@ -47,11 +48,11 @@ class DCERPCSessionError(DCERPCException):
 
     def __str__( self ):
         key = self.error_code
-        if hresult_errors.ERROR_MESSAGES.has_key(key):
+        if key in hresult_errors.ERROR_MESSAGES:
             error_msg_short = hresult_errors.ERROR_MESSAGES[key][0]
             error_msg_verbose = hresult_errors.ERROR_MESSAGES[key][1]
             return 'DRSR SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
-        elif system_errors.ERROR_MESSAGES.has_key(key & 0xffff):
+        elif key & 0xffff in system_errors.ERROR_MESSAGES:
             error_msg_short = system_errors.ERROR_MESSAGES[key & 0xffff][0]
             error_msg_verbose = system_errors.ERROR_MESSAGES[key & 0xffff][1]
             return 'DRSR SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
@@ -89,12 +90,12 @@ class EXOP_ERR(NDRENUM):
     def dump(self, msg = None, indent = 0):
         if msg is None: msg = self.__class__.__name__
         if msg != '':
-            print msg,
+            print(msg, end=' ')
 
         try:
-            print " %s" % self.enumItems(self.fields['Data']).name,
+            print(" %s" % self.enumItems(self.fields['Data']).name, end=' ')
         except ValueError:
-            print " %d" % self.fields['Data']
+            print(" %d" % self.fields['Data'])
 
 # 4.1.10.2.18 EXOP_REQ Codes
 EXOP_FSMO_REQ_ROLE = 0x00000001
@@ -1488,22 +1489,22 @@ if __name__ == '__main__':
     oid4 = '1.2.840.113556.1.5.7000.53'
 
     o0 = MakeAttid(prefixTable, oid0)
-    print hex(o0)
+    print(hex(o0))
     o1 = MakeAttid(prefixTable, oid1)
-    print hex(o1)
+    print(hex(o1))
     o2 = MakeAttid(prefixTable, oid2)
-    print hex(o2)
+    print(hex(o2))
     o3 = MakeAttid(prefixTable, oid3)
-    print hex(o3)
+    print(hex(o3))
     o4 = MakeAttid(prefixTable, oid4)
-    print hex(o4)
+    print(hex(o4))
     jj = OidFromAttid(prefixTable, o0)
-    print jj
+    print(jj)
     jj = OidFromAttid(prefixTable, o1)
-    print jj
+    print(jj)
     jj = OidFromAttid(prefixTable, o2)
-    print jj
+    print(jj)
     jj = OidFromAttid(prefixTable, o3)
-    print jj
+    print(jj)
     jj = OidFromAttid(prefixTable, o4)
-    print jj
+    print(jj)

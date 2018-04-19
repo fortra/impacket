@@ -1,3 +1,4 @@
+from __future__ import print_function
 ###############################################################################
 #  Tested so far: 
 #
@@ -220,7 +221,7 @@ class DRSRTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_NOT_SUPPORTED') <0:
                 raise
 
@@ -347,7 +348,7 @@ class DRSRTests(unittest.TestCase):
             request['pmsgIn']['V10']['usnvecFrom'] = resp['pmsgOut']['V6']['usnvecTo']
             resp = dce.request(request)
             resp.dump()
-            print '\n'
+            print('\n')
 
 
     def test_DRSGetNCChanges2(self):
@@ -390,9 +391,9 @@ class DRSRTests(unittest.TestCase):
         request['pmsgIn']['V10']['PrefixTableDest']['pPrefixEntry'] = NULL
         #request['pmsgIn']['V10']['ulMoreFlags'] = 0
         resp = dce.request(request)
-        print resp['pmsgOut']['V6']['pNC']['StringName']
+        print(resp['pmsgOut']['V6']['pNC']['StringName'])
         resp.dump()
-        print '\n'
+        print('\n')
         self.getMoreData(dce, request, resp)
 
         dsName = drsuapi.DSNAME(isNDR64=request._isNDR64)
@@ -408,9 +409,9 @@ class DRSRTests(unittest.TestCase):
 
         request['pmsgIn']['V10']['pNC'] = dsName
         resp = dce.request(request)
-        print resp['pmsgOut']['V6']['pNC']['StringName']
+        print(resp['pmsgOut']['V6']['pNC']['StringName'])
         resp.dump()
-        print '\n'
+        print('\n')
         self.getMoreData(dce, request, resp)
 
         dsName = drsuapi.DSNAME(isNDR64=request._isNDR64)
@@ -426,9 +427,9 @@ class DRSRTests(unittest.TestCase):
 
         request['pmsgIn']['V10']['pNC'] = dsName
         resp = dce.request(request)
-        print resp['pmsgOut']['V6']['pNC']['StringName']
+        print(resp['pmsgOut']['V6']['pNC']['StringName'])
         resp.dump()
-        print '\n'
+        print('\n')
         self.getMoreData(dce, request, resp)
 
         #while resp['pmsgOut']['V6']['fMoreData'] > 0:

@@ -1,3 +1,4 @@
+from __future__ import print_function
 ###############################################################################
 #  Tested so far:
 #  EvtRpcRegisterLogQuery
@@ -48,7 +49,7 @@ class EVEN6Tests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             return
 
         log_handle = resp['Handle']
@@ -62,7 +63,7 @@ class EVEN6Tests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             return
 
         for i in range(resp['NumActualRecords']):
@@ -70,7 +71,7 @@ class EVEN6Tests(unittest.TestCase):
             event_size = resp['EventDataSizes'][i]['Data']
             event = resp['ResultBuffer'][event_offset:event_offset + event_size]
             buff = ''.join([x.encode('hex') for x in event]).decode('hex')
-            print hexdump(buff)
+            print(hexdump(buff))
 
     def test_hEvtRpcRegisterLogQuery_hEvtRpcQueryNext(self):
         dce, rpctransport = self.connect(2)
@@ -78,7 +79,7 @@ class EVEN6Tests(unittest.TestCase):
         try:
             resp = even6.hEvtRpcRegisterLogQuery(dce, 'Security\x00', '*\x00', even6.EvtQueryChannelName | even6.EvtReadNewestToOldest)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             return
 
         log_handle = resp['Handle']
@@ -86,7 +87,7 @@ class EVEN6Tests(unittest.TestCase):
         try:
             resp = even6.EvtRpcQueryNext(dce, log_handle, 5, 1000, 0)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             return
 
         for i in range(resp['NumActualRecords']):
@@ -94,7 +95,7 @@ class EVEN6Tests(unittest.TestCase):
             event_size = resp['EventDataSizes'][i]['Data']
             event = resp['ResultBuffer'][event_offset:event_offset + event_size]
             buff = ''.join([x.encode('hex') for x in event]).decode('hex')
-            print hexdump(buff)
+            print(hexdump(buff))
 
 class SMBTransport(EVEN6Tests):
     def setUp(self):

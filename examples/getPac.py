@@ -18,6 +18,7 @@
 #     U2U: https://tools.ietf.org/html/draft-ietf-cat-user2user-02
 #     [MS-SFU]: https://msdn.microsoft.com/en-us/library/cc246071.aspx
 
+from __future__ import print_function
 import argparse
 import datetime
 import logging
@@ -57,7 +58,7 @@ class S4U2SELF:
             infoBuffer = PAC_INFO_BUFFER(buff)
             data = pacType['Buffers'][infoBuffer['Offset']-8:][:infoBuffer['cbBufferSize']]
             if logging.getLogger().level == logging.DEBUG:
-                print "TYPE 0x%x" % infoBuffer['ulType']
+                print("TYPE 0x%x" % infoBuffer['ulType'])
             if infoBuffer['ulType'] == 1:
                 type1 = TypeSerialization1(data)
                 # I'm skipping here 4 bytes with its the ReferentID for the pointer
@@ -66,35 +67,35 @@ class S4U2SELF:
                 kerbdata.fromString(newdata)
                 kerbdata.fromStringReferents(newdata[len(kerbdata.getData()):])
                 kerbdata.dump()
-                print
-                print 'Domain SID:', kerbdata['LogonDomainId'].formatCanonical()
-                print
+                print()
+                print('Domain SID:', kerbdata['LogonDomainId'].formatCanonical())
+                print()
             elif infoBuffer['ulType'] == PAC_CLIENT_INFO_TYPE:
                 clientInfo = PAC_CLIENT_INFO(data)
                 if logging.getLogger().level == logging.DEBUG:
                     clientInfo.dump()
-                    print
+                    print()
             elif infoBuffer['ulType'] == PAC_SERVER_CHECKSUM:
                 signatureData = PAC_SIGNATURE_DATA(data)
                 if logging.getLogger().level == logging.DEBUG:
                     signatureData.dump()
-                    print
+                    print()
             elif infoBuffer['ulType'] == PAC_PRIVSVR_CHECKSUM:
                 signatureData = PAC_SIGNATURE_DATA(data)
                 if logging.getLogger().level == logging.DEBUG:
                     signatureData.dump()
-                    print
+                    print()
             elif infoBuffer['ulType'] == PAC_UPN_DNS_INFO:
                 upn = UPN_DNS_INFO(data)
                 if logging.getLogger().level == logging.DEBUG:
                     upn.dump()
-                    print data[upn['DnsDomainNameOffset']:]
-                    print
+                    print(data[upn['DnsDomainNameOffset']:])
+                    print()
             else:
                 hexdump(data)
 
             if logging.getLogger().level == logging.DEBUG:
-                print "#"*80
+                print("#"*80)
 
             buff = buff[len(infoBuffer):]
 
@@ -145,7 +146,7 @@ class S4U2SELF:
 
         if logging.getLogger().level == logging.DEBUG:
             logging.debug('AUTHENTICATOR')
-            print authenticator.prettyPrint()
+            print(authenticator.prettyPrint())
             print ('\n')
 
         encodedAuthenticator = encoder.encode(authenticator)
@@ -204,7 +205,7 @@ class S4U2SELF:
 
         if logging.getLogger().level == logging.DEBUG:
             logging.debug('PA_FOR_USER_ENC')
-            print paForUserEnc.prettyPrint()
+            print(paForUserEnc.prettyPrint())
 
         encodedPaForUserEnc = encoder.encode(paForUserEnc)
 
@@ -242,7 +243,7 @@ class S4U2SELF:
 
         if logging.getLogger().level == logging.DEBUG:
             logging.debug('Final TGS')
-            print tgsReq.prettyPrint()
+            print(tgsReq.prettyPrint())
 
         message = encoder.encode(tgsReq)
 
@@ -252,7 +253,7 @@ class S4U2SELF:
 
         if logging.getLogger().level == logging.DEBUG:
             logging.debug('TGS_REP')
-            print tgs.prettyPrint()
+            print(tgs.prettyPrint())
 
         cipherText = tgs['ticket']['enc-part']['cipher']
 
@@ -284,7 +285,7 @@ class S4U2SELF:
 # Process command-line arguments.
 if __name__ == '__main__':
     logger.init()
-    print version.BANNER
+    print(version.BANNER)
 
     parser = argparse.ArgumentParser()
 
@@ -328,6 +329,6 @@ if __name__ == '__main__':
     try:
         dumper = S4U2SELF(options.targetUser, username, password, domain, options.hashes)
         dumper.dump(address)
-    except Exception, e:
+    except Exception as e:
         logging.error(str(e))
 
