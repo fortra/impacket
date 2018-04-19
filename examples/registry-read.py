@@ -13,6 +13,7 @@
 #  winregistry.py
 #
 
+from __future__ import print_function
 import sys
 import argparse
 import ntpath
@@ -37,7 +38,7 @@ def bootKey(reg):
     for i in xrange(len(tmpKey)):
         syskey += tmpKey[transforms[i]]
 
-    print hexlify(syskey)
+    print(hexlify(syskey))
 
 def getClass(reg, className):
     regKey = ntpath.dirname(className)
@@ -48,9 +49,9 @@ def getClass(reg, className):
     if value is None:
         return
 
-    print "[%s]" % regKey
+    print("[%s]" % regKey)
 
-    print "Value for Class %s: \n" % regClass,
+    print("Value for Class %s: \n" % regClass, end=' ')
 
     winregistry.hexdump(value,'   ')
 
@@ -60,12 +61,12 @@ def getValue(reg, keyValue):
 
     value = reg.getValue(keyValue)
 
-    print "[%s]\n" % regKey
+    print("[%s]\n" % regKey)
 
     if value is None:
         return
 
-    print "Value for %s:\n    " % regValue,
+    print("Value for %s:\n    " % regValue, end=' ')
     reg.printValue(value[0],value[1])
 
 def enumValues(reg, searchKey):
@@ -74,18 +75,18 @@ def enumValues(reg, searchKey):
     if key is None:
         return
 
-    print "[%s]\n" % searchKey
+    print("[%s]\n" % searchKey)
 
     values = reg.enumValues(key)
 
     for value in values:
-        print "  %-30s: " % value,
+        print("  %-30s: " % value, end=' ')
         data = reg.getValue('%s\\%s'%(searchKey,value))
         # Special case for binary string.. so it looks better formatted
         if data[0] == winregistry.REG_BINARY:
-            print ''
+            print('')
             reg.printValue(data[0],data[1])
-            print ''
+            print('')
         else:
             reg.printValue(data[0],data[1])
 
@@ -98,7 +99,7 @@ def enumKey(reg, searchKey, isRecursive, indent='  '):
     keys = reg.enumKey(parentKey)
 
     for key in keys:
-        print "%s%s" %(indent, key)
+        print("%s%s" %(indent, key))
         if isRecursive is True:
             if searchKey == '\\':
                 enumKey(reg, '\\%s'%key,isRecursive,indent+'  ')
@@ -112,7 +113,7 @@ def walk(reg, keyName):
 def main():
     # Init the example's logger theme
     logger.init()
-    print version.BANNER
+    print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help = True, description = "Reads data from registry hives.")
 
@@ -148,7 +149,7 @@ def main():
     reg = winregistry.Registry(options.hive)
 
     if options.action.upper() == 'ENUM_KEY':
-        print "[%s]" % options.name
+        print("[%s]" % options.name)
         enumKey(reg, options.name, options.recursive)
     elif options.action.upper() == 'ENUM_VALUES':
         enumValues(reg, options.name)

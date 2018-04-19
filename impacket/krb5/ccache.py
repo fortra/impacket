@@ -1,3 +1,4 @@
+from __future__ import print_function
 # Copyright (c) 2003-2016 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
@@ -72,10 +73,10 @@ class Times(Structure):
         ('renew_till','!L=0'),
     )
     def prettyPrint(self, indent = ''):
-        print "%sAuth : %s" % (indent, datetime.fromtimestamp(self['authtime']).isoformat())
-        print "%sStart: %s" % (indent, datetime.fromtimestamp(self['starttime']).isoformat())
-        print "%sEnd  : %s" % (indent, datetime.fromtimestamp(self['endtime']).isoformat())
-        print "%sRenew: %s" % (indent, datetime.fromtimestamp(self['renew_till']).isoformat())
+        print("%sAuth : %s" % (indent, datetime.fromtimestamp(self['authtime']).isoformat()))
+        print("%sStart: %s" % (indent, datetime.fromtimestamp(self['starttime']).isoformat()))
+        print("%sEnd  : %s" % (indent, datetime.fromtimestamp(self['endtime']).isoformat()))
+        print("%sRenew: %s" % (indent, datetime.fromtimestamp(self['renew_till']).isoformat()))
 
 class Address(Structure):
     structure = (
@@ -230,21 +231,21 @@ class Credential:
         return self.getData()
 
     def prettyPrint(self, indent=''):
-        print "%sClient: %s" % (indent, self.header['client'].prettyPrint())
-        print "%sServer: %s" % (indent, self.header['server'].prettyPrint())
-        print "%s%s" % (indent, self.header['key'].prettyPrint())
-        print "%sTimes: " % indent
+        print("%sClient: %s" % (indent, self.header['client'].prettyPrint()))
+        print("%sServer: %s" % (indent, self.header['server'].prettyPrint()))
+        print("%s%s" % (indent, self.header['key'].prettyPrint()))
+        print("%sTimes: " % indent)
         self.header['time'].prettyPrint('\t\t')
-        print "%sSubKey: %s" % (indent, self.header['is_skey'])
-        print "%sFlags: 0x%x" % (indent, self.header['tktflags'])
-        print "%sAddresses: %d" % (indent, self.header['num_address'])
+        print("%sSubKey: %s" % (indent, self.header['is_skey']))
+        print("%sFlags: 0x%x" % (indent, self.header['tktflags']))
+        print("%sAddresses: %d" % (indent, self.header['num_address']))
         for address in self.addresses:
             address.prettyPrint('\t\t')
-        print "%sAuth Data: %d" % (indent, len(self.authData))
+        print("%sAuth Data: %d" % (indent, len(self.authData)))
         for ad in self.authData:
             ad.prettyPrint('\t\t')
-        print "%sTicket: %s" % (indent, self.ticket.prettyPrint())
-        print "%sSecond Ticket: %s" % (indent, self.secondTicket.prettyPrint())
+        print("%sTicket: %s" % (indent, self.ticket.prettyPrint()))
+        print("%sSecond Ticket: %s" % (indent, self.secondTicket.prettyPrint()))
 
     def toTGT(self):
         tgt_rep = AS_REP()
@@ -514,10 +515,10 @@ class CCache:
         f.close()
 
     def prettyPrint(self):
-        print "Primary Principal: %s" % self.principal.prettyPrint()
-        print "Credentials: "
+        print("Primary Principal: %s" % self.principal.prettyPrint())
+        print("Credentials: ")
         for i, credential in enumerate(self.credentials):
-            print "[%d]" % i
+            print("[%d]" % i)
             credential.prettyPrint('\t') 
 
 

@@ -47,11 +47,11 @@ class DCERPCSessionError(DCERPCException):
 
     def __str__(self):
         key = self.error_code
-        if system_errors.ERROR_MESSAGES.has_key(key):
+        if key in system_errors.ERROR_MESSAGES:
             error_msg_short = system_errors.ERROR_MESSAGES[key][0]
             error_msg_verbose = system_errors.ERROR_MESSAGES[key][1]
             return 'DHCPM SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
-        elif self.ERROR_MESSAGES.has_key(key):
+        elif key in self.ERROR_MESSAGES:
             error_msg_short = self.ERROR_MESSAGES[key][0]
             error_msg_verbose = self.ERROR_MESSAGES[key][1]
             return 'DHCPM SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
@@ -815,7 +815,7 @@ def hDhcpGetOptionValue(dce, optionID, scopetype=DHCP_OPTION_SCOPE_TYPE.DhcpDefa
     while status == system_errors.ERROR_MORE_DATA:
         try:
             resp = dce.request(request)
-        except DCERPCException, e:
+        except DCERPCException as e:
             if str(e).find('ERROR_NO_MORE_ITEMS') < 0:
                 raise
             resp = e.get_packet()
@@ -842,7 +842,7 @@ def hDhcpEnumOptionValues(dce, scopetype=DHCP_OPTION_SCOPE_TYPE.DhcpDefaultOptio
     while status == system_errors.ERROR_MORE_DATA:
         try:
             resp = dce.request(request)
-        except DCERPCException, e:
+        except DCERPCException as e:
             if str(e).find('ERROR_NO_MORE_ITEMS') < 0:
                 raise
             resp = e.get_packet()
@@ -872,7 +872,7 @@ def hDhcpEnumOptionValuesV5(dce, flags=DHCP_FLAGS_OPTION_DEFAULT, classname=NULL
     while status == system_errors.ERROR_MORE_DATA:
         try:
             resp = dce.request(request)
-        except DCERPCException, e:
+        except DCERPCException as e:
             if str(e).find('ERROR_NO_MORE_ITEMS') < 0:
                 raise
             resp = e.get_packet()
@@ -900,7 +900,7 @@ def hDhcpGetOptionValueV5(dce, option_id, flags=DHCP_FLAGS_OPTION_DEFAULT, class
     while status == system_errors.ERROR_MORE_DATA:
         try:
             resp = dce.request(request)
-        except DCERPCException, e:
+        except DCERPCException as e:
             if str(e).find('ERROR_NO_MORE_ITEMS') < 0:
                 raise
             resp = e.get_packet()
@@ -924,7 +924,7 @@ def hDhcpGetAllOptionValues(dce, scopetype=DHCP_OPTION_SCOPE_TYPE.DhcpDefaultOpt
     while status == system_errors.ERROR_MORE_DATA:
         try:
             resp = dce.request(request)
-        except DCERPCException, e:
+        except DCERPCException as e:
             if str(e).find('ERROR_NO_MORE_ITEMS') < 0:
                 raise
             resp = e.get_packet()
@@ -940,7 +940,7 @@ def hDhcpEnumSubnets(dce, preferredMaximum=0xffffffff):
     while status == system_errors.ERROR_MORE_DATA:
         try:
             resp = dce.request(request)
-        except DCERPCException, e:
+        except DCERPCException as e:
             if str(e).find('STATUS_MORE_ENTRIES') < 0:
                 raise
             resp = e.get_packet()
@@ -957,7 +957,7 @@ def hDhcpEnumSubnetClientsVQ(dce, preferredMaximum=0xffffffff):
     while status == system_errors.ERROR_MORE_DATA:
         try:
             resp = dce.request(request)
-        except DCERPCException, e:
+        except DCERPCException as e:
             if str(e).find('STATUS_MORE_ENTRIES') < 0:
                 raise
             resp = e.get_packet()
@@ -974,7 +974,7 @@ def hDhcpEnumSubnetClientsV4(dce, preferredMaximum=0xffffffff):
     while status == system_errors.ERROR_MORE_DATA:
         try:
             resp = dce.request(request)
-        except DCERPCException, e:
+        except DCERPCException as e:
             if str(e).find('STATUS_MORE_ENTRIES') < 0:
                 raise
             resp = e.get_packet()
@@ -991,7 +991,7 @@ def hDhcpEnumSubnetClientsV5(dce, subnetAddress=0, preferredMaximum=0xffffffff):
     while status == system_errors.ERROR_MORE_DATA:
         try:
             resp = dce.request(request)
-        except DCERPCSessionError, e:
+        except DCERPCSessionError as e:
             if str(e).find('STATUS_MORE_ENTRIES') < 0:
                 raise
             resp = e.get_packet()
@@ -1010,7 +1010,7 @@ def hDhcpEnumSubnetElementsV5(dce, subnet_address, element_type=DHCP_SUBNET_ELEM
     while status == system_errors.ERROR_MORE_DATA:
         try:
             resp = dce.request(request)
-        except DCERPCException, e:
+        except DCERPCException as e:
             if str(e).find('ERROR_NO_MORE_ITEMS') < 0:
                 raise
             resp = e.get_packet()

@@ -15,6 +15,7 @@ import array
 import struct
 
 from impacket.helper import ProtocolPacket, Byte, Bit
+from functools import reduce
 
 
 class ArrayBuilder(object):

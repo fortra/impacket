@@ -1,3 +1,4 @@
+from __future__ import print_function
 ###############################################################################
 #  Tested so far: 
 #
@@ -127,8 +128,8 @@ class RRPTests(unittest.TestCase):
         try: 
             resp = rrp.hBaseRegSetValue(dce, phKey, 'BETO2\x00',  rrp.REG_SZ, 'HOLA COMO TE VA\x00')
             resp.dump()
-        except Exception, e:
-            print e
+        except Exception as e:
+            print(e)
 
         type, data = rrp.hBaseRegQueryValue(dce, phKey, 'BETO2\x00')
         #print data
@@ -171,8 +172,8 @@ class RRPTests(unittest.TestCase):
         try: 
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
-            print e
+        except Exception as e:
+            print(e)
 
         request = rrp.BaseRegQueryValue()
         request['hKey'] = phKey
@@ -329,7 +330,7 @@ class RRPTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_FILE_NOT_FOUND') < 0:
                 raise
 
@@ -339,7 +340,7 @@ class RRPTests(unittest.TestCase):
         try:
             resp = rrp.hBaseRegReplaceKey(dce, phKey, 'SOFTWARE\x00', 'SOFTWARE\x00', 'SOFTWARE\x00')
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_FILE_NOT_FOUND') < 0:
                 raise
 
@@ -353,7 +354,7 @@ class RRPTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_FILE_NOT_FOUND') < 0:
                 raise
 
@@ -363,7 +364,7 @@ class RRPTests(unittest.TestCase):
         try:
             resp = rrp.hBaseRegRestoreKey(dce, phKey, 'SOFTWARE\x00')
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_FILE_NOT_FOUND') < 0:
                 raise
 

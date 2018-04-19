@@ -1,3 +1,4 @@
+from __future__ import print_function
 # Copyright (c) 2003-2016 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
@@ -44,7 +45,7 @@ except:
 # The rest it processed through the standard impacket logging mech.
 class DummyPrint:        
     def logMessage(self,message):
-        print message
+        print(message)
 
 # MC-SQLR Constants and Structures
 SQLR_PORT           = 1434
@@ -767,7 +768,7 @@ class MSSQL:
                 if TGS is None:
                     try:
                         tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, password, domain, lmhash, nthash, aesKey, kdcHost)
-                    except KerberosError, e:
+                    except KerberosError as e:
                         if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
                             # We might face this if the target does not support AES
                             # So, if that's the case we'll force using RC4 by converting
@@ -802,7 +803,7 @@ class MSSQL:
                 serverName = Principal('MSSQLSvc/%s.%s:%d' % (self.server.split('.')[0], domain, self.port), type=constants.PrincipalNameType.NT_SRV_INST.value)
                 try:
                     tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey)
-                except KerberosError, e:
+                except KerberosError as e:
                     if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
                         # We might face this if the target does not support AES
                         # So, if that's the case we'll force using RC4 by converting
@@ -886,7 +887,7 @@ class MSSQL:
 
         self.replies = self.parseReply(tds['Data'])
 
-        if self.replies.has_key(TDS_LOGINACK_TOKEN):
+        if TDS_LOGINACK_TOKEN in self.replies:
             return True
         else:
             return False
@@ -974,7 +975,7 @@ class MSSQL:
 
         self.replies = self.parseReply(tds['Data'])
 
-        if self.replies.has_key(TDS_LOGINACK_TOKEN):
+        if TDS_LOGINACK_TOKEN in self.replies:
             return True
         else:
             return False
@@ -1515,7 +1516,7 @@ class MSSQL:
                 LOG.error("Unknown Token %x" % tokenID)
                 return replies
 
-            if replies.has_key(tokenID) is not True:
+            if (tokenID in replies) is not True:
                 replies[tokenID] = list()
 
             replies[tokenID].append(token)

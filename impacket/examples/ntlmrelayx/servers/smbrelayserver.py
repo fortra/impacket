@@ -107,7 +107,7 @@ class SMBRelayServer(Thread):
         # SMBRelay
         # Get the data for all connections
         smbData = smbServer.getConnectionData('SMBRelay', False)
-        if smbData.has_key(self.target):
+        if self.target in smbData:
             # Remove the previous connection and use the last one
             smbClient = smbData[self.target]['SMBClient']
             del smbClient
@@ -125,7 +125,7 @@ class SMBRelayServer(Thread):
                 extSec = True
             # Init the correct client for our target
             client = self.init_client(extSec)
-        except Exception, e:
+        except Exception as e:
             LOG.error("Connection against target %s://%s FAILED: %s" % (self.target.scheme, self.target.netloc, str(e)))
             self.targetprocessor.logTarget(self.target)
         else:
@@ -218,7 +218,7 @@ class SMBRelayServer(Thread):
                if mechType != TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider'] and \
                                mechType != TypesMech['NEGOEX - SPNEGO Extended Negotiation Security Mechanism']:
                    # Nope, do we know it?
-                   if MechTypes.has_key(mechType):
+                   if mechType in MechTypes:
                        mechStr = MechTypes[mechType]
                    else:
                        mechStr = hexlify(mechType)
@@ -258,7 +258,7 @@ class SMBRelayServer(Thread):
             client = smbData[self.target]['SMBClient']
             try:
                 challengeMessage = self.do_ntlm_negotiate(client, token)
-            except Exception, e:
+            except Exception as e:
                 # Log this target as processed for this client
                 self.targetprocessor.logTarget(self.target)
                 # Raise exception again to pass it on to the SMB server
@@ -376,7 +376,7 @@ class SMBRelayServer(Thread):
         # Get the data for all connections
         smbData = smbServer.getConnectionData('SMBRelay', False)
 
-        if smbData.has_key(self.target):
+        if self.target in smbData:
             # Remove the previous connection and use the last one
             smbClient = smbData[self.target]['SMBClient']
             del smbClient
@@ -398,7 +398,7 @@ class SMBRelayServer(Thread):
 
             #Init the correct client for our target
             client = self.init_client(extSec)
-        except Exception, e:
+        except Exception as e:
             LOG.error("Connection against target %s://%s FAILED: %s" % (self.target.scheme, self.target.netloc, str(e)))
             self.targetprocessor.logTarget(self.target)
         else:
@@ -457,7 +457,7 @@ class SMBRelayServer(Thread):
                 client = smbData[self.target]['SMBClient']
                 try:
                     challengeMessage = self.do_ntlm_negotiate(client,token)
-                except Exception, e:
+                except Exception as e:
                     # Log this target as processed for this client
                     self.targetprocessor.logTarget(self.target)
                     # Raise exception again to pass it on to the SMB server
@@ -645,7 +645,7 @@ class SMBRelayServer(Thread):
 
     #Initialize the correct client for the relay target
     def init_client(self,extSec):
-        if self.config.protocolClients.has_key(self.target.scheme.upper()):
+        if self.target.scheme.upper() in self.config.protocolClients:
             client = self.config.protocolClients[self.target.scheme.upper()](self.config, self.target, extendedSecurity = extSec)
             client.initConnection()
         else:

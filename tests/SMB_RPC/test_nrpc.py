@@ -1,3 +1,4 @@
+from __future__ import print_function
 ###############################################################################
 #  Tested so far: 
 #
@@ -94,7 +95,7 @@ class NRPCTests(unittest.TestCase):
         try:
             resp = nrpc.hNetrServerAuthenticate3(dce, NULL, self.username + '\x00', nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel,self.serverName + '\x00',ppp, 0x600FFFFF )
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_DOWNGRADE_DETECTED') < 0:
                 raise
 
@@ -190,7 +191,7 @@ class NRPCTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_NO_SUCH_DOMAIN') < 0:
                 raise
 
@@ -199,7 +200,7 @@ class NRPCTests(unittest.TestCase):
         try:
             resp = nrpc.hNetrGetAnyDCName(dce, '\x00'*20, self.domain + '\x00')
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_NO_SUCH_DOMAIN') < 0:
                 raise
 
@@ -295,7 +296,7 @@ class NRPCTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('rpc_s_access_denied') < 0:
                 raise
 
@@ -429,7 +430,7 @@ class NRPCTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_DOWNGRADE_DETECTED') < 0:
                 raise
 
@@ -452,7 +453,7 @@ class NRPCTests(unittest.TestCase):
         try:
             resp = nrpc.hNetrServerAuthenticate(dce, NULL,self.username + '\x00', nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel ,self.serverName + '\x00', ppp)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_DOWNGRADE_DETECTED') < 0:
                 raise
 
@@ -468,7 +469,7 @@ class NRPCTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_ACCESS_DENIED') < 0:
                 raise
 
@@ -477,7 +478,7 @@ class NRPCTests(unittest.TestCase):
         try:
             resp = nrpc.hNetrServerPasswordGet(dce, NULL, self.username + '\x00', nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel ,self.serverName + '\x00', self.update_authenticator())
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_ACCESS_DENIED') < 0:
                 raise
 
@@ -561,8 +562,8 @@ class NRPCTests(unittest.TestCase):
         try:
             from Crypto.Cipher import ARC4
         except Exception:
-            print "Warning: You don't have any crypto installed. You need PyCrypto"
-            print "See http://www.pycrypto.org/"
+            print("Warning: You don't have any crypto installed. You need PyCrypto")
+            print("See http://www.pycrypto.org/")
 
         rc4 = ARC4.new(self.sessionKey)
         lmhash = rc4.encrypt(lmhash)
@@ -598,8 +599,8 @@ class NRPCTests(unittest.TestCase):
         try:
             from Crypto.Cipher import ARC4
         except Exception:
-            print "Warning: You don't have any crypto installed. You need PyCrypto"
-            print "See http://www.pycrypto.org/"
+            print("Warning: You don't have any crypto installed. You need PyCrypto")
+            print("See http://www.pycrypto.org/")
 
         rc4 = ARC4.new(self.sessionKey)
         lmhash = rc4.encrypt(lmhash)
@@ -616,7 +617,7 @@ class NRPCTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_NO_SUCH_USER') < 0:
                 raise
 
@@ -642,8 +643,8 @@ class NRPCTests(unittest.TestCase):
         try:
             from Crypto.Cipher import ARC4
         except Exception:
-            print "Warning: You don't have any crypto installed. You need PyCrypto"
-            print "See http://www.pycrypto.org/"
+            print("Warning: You don't have any crypto installed. You need PyCrypto")
+            print("See http://www.pycrypto.org/")
 
         rc4 = ARC4.new(self.sessionKey)
         lmhash = rc4.encrypt(lmhash)
@@ -659,7 +660,7 @@ class NRPCTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_NO_SUCH_USER') < 0:
                 raise
 
@@ -677,7 +678,7 @@ class NRPCTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_NOT_SUPPORTED') < 0:
                 raise
 
@@ -696,7 +697,7 @@ class NRPCTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_NOT_SUPPORTED') < 0:
                 raise
 
@@ -714,7 +715,7 @@ class NRPCTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_NOT_SUPPORTED') < 0:
                 raise
 
@@ -731,7 +732,7 @@ class NRPCTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_NOT_SUPPORTED') < 0:
                 raise
 
@@ -743,7 +744,7 @@ class NRPCTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_NOT_SUPPORTED') < 0:
                 raise
 
@@ -754,7 +755,7 @@ class NRPCTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_NOT_SUPPORTED') < 0:
                 raise
 
@@ -765,7 +766,7 @@ class NRPCTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_NOT_SUPPORTED') < 0:
                 raise
 
@@ -781,7 +782,7 @@ class NRPCTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_NOT_IMPLEMENTED') < 0:
                 raise
 
@@ -794,7 +795,7 @@ class NRPCTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_NO_SUCH_DOMAIN') < 0:
                 raise
 
@@ -809,7 +810,7 @@ class NRPCTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_NO_SUCH_DOMAIN') < 0:
                 raise
 
@@ -818,7 +819,7 @@ class NRPCTests(unittest.TestCase):
         try:
             resp = nrpc.hNetrServerGetTrustInfo(dce, NULL, self.username, nrpc.NETLOGON_SECURE_CHANNEL_TYPE.WorkstationSecureChannel,self.serverName,self.update_authenticator())
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_NO_SUCH_DOMAIN') < 0:
                 raise
 
@@ -830,7 +831,7 @@ class NRPCTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('rpc_s_access_denied') < 0:
                 raise
 
@@ -844,7 +845,7 @@ class NRPCTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('rpc_s_access_denied') < 0:
                 raise
 
@@ -858,7 +859,7 @@ class NRPCTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('rpc_s_access_denied') < 0:
                 raise
 
@@ -873,7 +874,7 @@ class NRPCTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_ACCESS_DENIED') < 0:
                 raise
 
@@ -886,7 +887,7 @@ class NRPCTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('rpc_s_access_denied') < 0:
                 raise
 
@@ -897,7 +898,7 @@ class NRPCTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('rpc_s_access_denied') < 0:
                 raise
 
@@ -913,7 +914,7 @@ class NRPCTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('rpc_s_access_denied') < 0:
                 raise
 
@@ -929,7 +930,7 @@ class NRPCTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('rpc_s_access_denied') < 0:
                 raise
 
@@ -944,7 +945,7 @@ class NRPCTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_INVALID_LEVEL') < 0:
                 raise
 
@@ -957,7 +958,7 @@ class NRPCTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('rpc_s_access_denied') < 0:
                 raise
 
@@ -970,7 +971,7 @@ class NRPCTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('rpc_s_access_denied') < 0:
                 raise
 

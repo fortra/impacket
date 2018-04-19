@@ -61,7 +61,7 @@ class HTTPRelayServer(Thread):
                 LOG.info("HTTPD: Received connection from %s, attacking target %s://%s" % (client_address[0] ,self.target.scheme, self.target.netloc))
             try:
                 SimpleHTTPServer.SimpleHTTPRequestHandler.__init__(self,request, client_address, server)
-            except Exception, e:
+            except Exception as e:
                 LOG.error(str(e))
                 LOG.debug(traceback.format_exc())
 
@@ -70,7 +70,7 @@ class HTTPRelayServer(Thread):
                 SimpleHTTPServer.SimpleHTTPRequestHandler.handle_one_request(self)
             except KeyboardInterrupt:
                 raise
-            except Exception, e:
+            except Exception as e:
                 LOG.error('Exception in HTTP request handler: %s' % e)
                 LOG.debug(traceback.format_exc())
 
@@ -250,7 +250,7 @@ class HTTPRelayServer(Thread):
             return
 
         def do_ntlm_negotiate(self, token, proxy):
-            if self.server.config.protocolClients.has_key(self.target.scheme.upper()):
+            if self.target.scheme.upper() in self.server.config.protocolClients:
                 self.client = self.server.config.protocolClients[self.target.scheme.upper()](self.server.config, self.target)
                 self.client.initConnection()
                 self.challengeMessage = self.client.sendNegotiate(token)

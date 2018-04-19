@@ -1,3 +1,5 @@
+from __future__ import print_function
+from __future__ import absolute_import
 # Copyright (c) 2003-2016 CORE Security Technologies:
 #
 # This software is provided under under a slightly modified version
@@ -39,9 +41,9 @@ def computeResponse(flags, serverChallenge, clientChallenge, serverName, domain,
         return computeResponseNTLMv1(flags, serverChallenge, clientChallenge, serverName, domain, user, password,
                                      lmhash, nthash, use_ntlmv2=use_ntlmv2)
 try:
-    from Crypto.Cipher import ARC4
-    from Crypto.Cipher import DES
-    from Crypto.Hash import MD4
+    from .Crypto.Cipher import ARC4
+    from .Crypto.Cipher import DES
+    from .Crypto.Hash import MD4
 except Exception:
     LOG.critical("Warning: You don't have any crypto installed. You need PyCrypto")
     LOG.critical("See http://www.pycrypto.org/")
@@ -206,7 +208,7 @@ class AV_PAIRS:
         self.fields[key] = (len(value),value)
 
     def __getitem__(self, key):
-        if self.fields.has_key(key):
+        if key in self.fields:
            return self.fields[key]
         return None
 
@@ -233,10 +235,10 @@ class AV_PAIRS:
 
     def dump(self):
         for i in self.fields.keys():
-            print "%s: {%r}" % (i,self[i])
+            print("%s: {%r}" % (i,self[i]))
 
     def getData(self):
-        if self.fields.has_key(NTLMSSP_AV_EOL):
+        if NTLMSSP_AV_EOL in self.fields:
             del self.fields[NTLMSSP_AV_EOL]
         ans = ''
         for i in self.fields.keys():

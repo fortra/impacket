@@ -1,3 +1,4 @@
+from __future__ import print_function
 ###############################################################################
 #  Tested so far: 
 #  hRCloseServiceHandleCall
@@ -96,7 +97,7 @@ class SCMRTests(unittest.TestCase):
         request['cbBufSize'] = cbBuffSize
         try:
             resp = dce.request(request)
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_INSUFFICIENT_BUFFER') <= 0:
                 raise
             else: 
@@ -243,10 +244,10 @@ class SCMRTests(unittest.TestCase):
             #resp = dce.request(request)
             #self.changeServiceAndQuery2(dce, request, request['Info']['Union']['psma']['fIsManagedAccount'])
 
-        except Exception, e:
+        except Exception as e:
             import traceback
             traceback.print_exc()
-            print e
+            print(e)
             error = True
             pass
 
@@ -273,7 +274,7 @@ class SCMRTests(unittest.TestCase):
         # Request again with the right bufSize
         try:
             resp = dce.request(request)
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_MORE_DATA') <= 0:
                 raise
             else: 
@@ -317,7 +318,7 @@ class SCMRTests(unittest.TestCase):
         try:
             resp = scmr.hREnumServiceGroupW(dce, scHandle, dwServiceType, dwServiceState, cbBufSize, lpResumeIndex, pszGroupName )
             resp.dump()
-        except Exception, e:
+        except Exception as e:
            if str(e).find('ERROR_SERVICE_DOES_NOT_EXISTS') <= 0:
                raise
 
@@ -426,7 +427,7 @@ class SCMRTests(unittest.TestCase):
   
         try:
             resp = scmr.hRStartServiceW(dce, serviceHandle, 3, ['arg1\x00', 'arg2\x00', 'arg3\x00'] )
-        except Exception, e:
+        except Exception as e:
            if str(e).find('ERROR_SERVICE_ALREADY_RUNNING') <= 0:
                raise
         resp = scmr.hRCloseServiceHandle(dce, scHandle)
@@ -478,7 +479,7 @@ class SCMRTests(unittest.TestCase):
         cbBufSize = 0
         try:
             resp = scmr.hRQueryServiceConfigW(dce, newHandle)
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_INSUFFICIENT_BUFFER') <= 0:
                 raise
             else: 
@@ -571,7 +572,7 @@ class SCMRTests(unittest.TestCase):
         try:
             resp = scmr.hREnumDependentServicesW(dce, serviceHandle, scmr.SERVICE_STATE_ALL,cbBufSize )
             resp.dump()
-        except scmr.DCERPCSessionError, e:
+        except scmr.DCERPCSessionError as e:
            if str(e).find('ERROR_MORE_DATA') <= 0:
                raise
            else:
@@ -599,7 +600,7 @@ class SCMRTests(unittest.TestCase):
         try:
             resp = scmr.hRQueryServiceObjectSecurity(dce, scHandle, scmr.DACL_SECURITY_INFORMATION, 0)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
            if str(e).find('rpc_s_access_denied') <= 0:
                raise
  
@@ -612,7 +613,7 @@ class SCMRTests(unittest.TestCase):
         try:
             resp = scmr.hRNotifyBootConfigStatus(dce, lpMachineName, 0x0)
             resp.dump()
-        except scmr.DCERPCSessionError, e:
+        except scmr.DCERPCSessionError as e:
            if str(e).find('ERROR_BOOT_ALREADY_ACCEPTED') <= 0:
                raise
  
@@ -633,7 +634,7 @@ class SCMRTests(unittest.TestCase):
             req['hService'] = serviceHandle
             req['dwControl'] = scmr.SERVICE_CONTROL_STOP
             resp = dce.request(req)
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_DEPENDENT_SERVICES_RUNNING') < 0:
                 raise
             pass
@@ -649,7 +650,7 @@ class SCMRTests(unittest.TestCase):
         try:
             resp = scmr.hRStartServiceW(dce, serviceHandle, 0, NULL )
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_SERVICE_ALREADY_RUNNING') < 0:
                 raise
         return 

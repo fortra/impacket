@@ -114,7 +114,7 @@ class MYMSSQL(MSSQL):
         self.sendTDS(TDS_SSPI, str(token))
         tds = self.recvTDS()
         self.replies = self.parseReply(tds['Data'])
-        if self.replies.has_key(TDS_LOGINACK_TOKEN):
+        if TDS_LOGINACK_TOKEN in self.replies:
             #Once we are here, there is a full connection and we can
             #do whatever the current user has rights to do
             self.sessionData['AUTH_ANSWER'] = tds

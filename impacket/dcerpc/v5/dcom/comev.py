@@ -33,7 +33,7 @@ class DCERPCSessionError(DCERPCException):
         DCERPCException.__init__(self, error_string, error_code, packet)
 
     def __str__( self ):
-        if hresult_errors.ERROR_MESSAGES.has_key(self.error_code):
+        if self.error_code in hresult_errors.ERROR_MESSAGES:
             error_msg_short = hresult_errors.ERROR_MESSAGES[self.error_code][0]
             error_msg_verbose = hresult_errors.ERROR_MESSAGES[self.error_code][1] 
             return 'COMEV SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)

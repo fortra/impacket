@@ -16,6 +16,7 @@
 #
 #
 
+from __future__ import print_function
 import argparse
 import logging
 import re
@@ -58,7 +59,7 @@ class MQTT_LOGIN:
 if __name__ == '__main__':
     # Init the example's logger theme
     logger.init()
-    print version.BANNER
+    print(version.BANNER)
     parser = argparse.ArgumentParser(add_help=False,
                                      description="MQTT login check")
     parser.add_argument("--help", action="help", help='show this help message and exit')
@@ -70,7 +71,7 @@ if __name__ == '__main__':
 
     try:
        options = parser.parse_args()
-    except Exception, e:
+    except Exception as e:
        logging.error(str(e))
        sys.exit(1)
 
@@ -90,7 +91,7 @@ if __name__ == '__main__':
     check_mqtt = MQTT_LOGIN(username, password, address, options)
     try:
         check_mqtt.run()
-    except Exception, e:
+    except Exception as e:
         #import traceback
         #traceback.print_exc()
         logging.error(e)

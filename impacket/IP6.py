@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 # Copyright (c) 2003-2016 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
@@ -8,9 +9,9 @@
 import struct
 import array
 
-from ImpactPacket import Header
-from IP6_Address import IP6_Address
-from IP6_Extension_Headers import IP6_Extension_Header
+from .ImpactPacket import Header
+from .IP6_Address import IP6_Address
+from .IP6_Extension_Headers import IP6_Extension_Header
 
 from impacket import LOG
 
