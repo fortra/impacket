@@ -13,6 +13,7 @@
 # Reference for:
 #  DCE/RPC [MS-LSAT]
 
+from __future__ import print_function
 import sys
 import logging
 import argparse
@@ -65,7 +66,7 @@ class LSALookupSid:
 
         try:
             self.__bruteForce(rpctransport, self.__maxRid)
-        except Exception, e:
+        except Exception as e:
             #import traceback
             #print traceback.print_exc()
             logging.critical(str(e))
@@ -113,7 +114,7 @@ class LSALookupSid:
                 sids.append(domainSid + '-%d' % i)
             try:
                 lsat.hLsarLookupSids(dce, policyHandle, sids,lsat.LSAP_LOOKUP_LEVEL.LsapLookupWksta)
-            except DCERPCException, e:
+            except DCERPCException as e:
                 if str(e).find('STATUS_NONE_MAPPED') >= 0:
                     soFar += SIMULTANEOUS
                     continue
@@ -124,9 +125,9 @@ class LSALookupSid:
 
             for n, item in enumerate(resp['TranslatedNames']['Names']):
                 if item['Use'] != SID_NAME_USE.SidTypeUnknown:
-                    print "%d: %s\\%s (%s)" % (
+                    print("%d: %s\\%s (%s)" % (
                     soFar + n, resp['ReferencedDomains']['Domains'][item['DomainIndex']]['Name'], item['Name'],
-                    SID_NAME_USE.enumItems(item['Use']).name)
+                    SID_NAME_USE.enumItems(item['Use']).name))
             soFar += SIMULTANEOUS
 
         dce.disconnect()
@@ -142,7 +143,7 @@ if __name__ == '__main__':
     if sys.stdout.encoding is None:
         # Output is redirected to a file
         sys.stdout = codecs.getwriter('utf8')(sys.stdout)
-    print version.BANNER
+    print(version.BANNER)
 
     parser = argparse.ArgumentParser()
 

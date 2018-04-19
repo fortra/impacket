@@ -55,7 +55,7 @@ class SMBSocksRelay(SocksRelay):
         # Let's verify the target's server SMB version, will need it for later.
         # We're assuming all connections to the target server use the same SMB version
         for key in activeRelays.keys():
-            if activeRelays[key].has_key('protocolClient'):
+            if 'protocolClient' in activeRelays[key]:
                 self.serverDialect = activeRelays[key]['protocolClient'].session.getDialect()
                 self.isSMB2 = activeRelays[key]['protocolClient'].session.getDialect() is not SMB_DIALECT
                 break
@@ -134,7 +134,7 @@ class SMBSocksRelay(SocksRelay):
                                 data2 = self.clientConnection.getSMBServer()._sess.recv_packet(timeout=1).get_trailer()
                                 self.__NBSession.send_packet(str(data))
                                 data = data2
-                        except Exception, e:
+                        except Exception as e:
                             if str(e).find('timed out') > 0:
                                 pass
                             else:
@@ -151,7 +151,7 @@ class SMBSocksRelay(SocksRelay):
                 packet['Flags'] &= ~(SMB2_FLAGS_SIGNED)
 
                 # Let's be sure the TreeConnect Table is filled with fake data
-                if self.clientConnection.getSMBServer()._Session['TreeConnectTable'].has_key(packet['TreeID']) is False:
+                if (packet['TreeID'] in self.clientConnection.getSMBServer()._Session['TreeConnectTable']) is False:
                     self.clientConnection.getSMBServer()._Session['TreeConnectTable'][packet['TreeID']] = {}
                     self.clientConnection.getSMBServer()._Session['TreeConnectTable'][packet['TreeID']]['EncryptData'] = False
 
@@ -182,12 +182,12 @@ class SMBSocksRelay(SocksRelay):
         try:
             packet = NewSMBPacket(data=data.get_trailer())
             smbCommand = SMBCommand(packet['Data'][0])
-        except Exception, e:
+        except Exception as e:
             # Maybe a SMB2 packet?
             try:
                 packet = SMB2Packet(data = data.get_trailer())
                 smbCommand = None
-            except Exception, e:
+            except Exception as e:
                 LOG.error('SOCKS: %s' % str(e))
 
         return packet, smbCommand
@@ -355,7 +355,7 @@ class SMBSocksRelay(SocksRelay):
                     username = ('%s/%s' % (authenticateMessage['domain_name'], authenticateMessage['user_name'])).upper()
 
                 # Check if we have a connection for the user
-                if self.activeRelays.has_key(username):
+                if username in self.activeRelays:
                     LOG.info('SOCKS: Proxying client session for %s@%s(445)' % (username, self.targetHost))
                     errorCode = STATUS_SUCCESS
                     smbClient = self.activeRelays[username]['protocolClient'].session
@@ -417,7 +417,7 @@ class SMBSocksRelay(SocksRelay):
                     mechType = blob['MechTypes'][0]
                     if mechType != TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']:
                         # Nope, do we know it?
-                        if MechTypes.has_key(mechType):
+                        if mechType in MechTypes:
                             mechStr = MechTypes[mechType]
                         else:
                             mechStr = hexlify(mechType)
@@ -509,7 +509,7 @@ class SMBSocksRelay(SocksRelay):
             respToken = SPNEGO_NegTokenResp()
 
             # Check if we have a connection for the user
-            if self.activeRelays.has_key(username):
+            if username in self.activeRelays:
                 LOG.info('SOCKS: Proxying client session for %s@%s(445)' % (username, self.targetHost))
                 errorCode = STATUS_SUCCESS
                 smbClient = self.activeRelays[username]['protocolClient'].session

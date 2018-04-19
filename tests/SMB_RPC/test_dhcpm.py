@@ -58,7 +58,7 @@ class DHCPMTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             # For now we'e failing. This is not supported in W2k8r2
             if str(e).find('nca_s_op_rng_error') >= 0:
                 pass
@@ -87,7 +87,7 @@ class DHCPMTests(unittest.TestCase):
         try:
             resp = dhcpm.hDhcpGetClientInfoV4(dce, dhcpm.DHCP_SEARCH_INFO_TYPE.DhcpClientName, 'PEPA\x00')
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('0x4e2d') >= 0:
                 pass
 

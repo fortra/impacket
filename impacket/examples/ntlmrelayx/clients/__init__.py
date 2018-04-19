@@ -89,13 +89,13 @@ for file in os.listdir(__path__[0]):
                     pluginClasses.add(getattr(module, pluginClass))
 
             pluginClasses.add(getattr(module, getattr(module, 'PROTOCOL_CLIENT_CLASS')))
-        except Exception, e:
+        except Exception as e:
             LOG.debug(e)
             pass
 
         for pluginClass in pluginClasses:
             LOG.info('Protocol Client %s loaded..' % pluginClass.PLUGIN_NAME)
             PROTOCOL_CLIENTS[pluginClass.PLUGIN_NAME] = pluginClass
-    except Exception, e:
+    except Exception as e:
         LOG.debug(str(e))
 

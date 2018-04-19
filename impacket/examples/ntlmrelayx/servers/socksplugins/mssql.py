@@ -114,7 +114,7 @@ class MSSQLSocksRelay(SocksRelay):
                     self.username = ('/%s' % login['UserName']).upper()
 
         # Check if we have a connection for the user
-        if self.activeRelays.has_key(self.username):
+        if self.username in self.activeRelays:
             # Check the connection is not inUse
             if self.activeRelays[self.username]['inUse'] is True:
                 LOG.error('MSSQL: Connection for %s@%s(%s) is being used at the moment!' % (
@@ -152,7 +152,7 @@ class MSSQLSocksRelay(SocksRelay):
                 tds = self.session.recvTDS()
                 # 4. Send it back to the client
                 self.sendTDS(tds['Type'], tds['Data'], 0)
-        except Exception, e:
+        except Exception as e:
             # Probably an error here
             if LOG.level == logging.DEBUG:
                 import traceback

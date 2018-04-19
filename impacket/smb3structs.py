@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 # Copyright (c) 2003-2016 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
@@ -426,11 +427,11 @@ SMB2_ENCRYPTION_AES128_GCM = 0x0002
 class SMBPacketBase(Structure):
     def addCommand(self,command):
         # Pad to 8 bytes and put the offset of another SMBPacket
-        raise 'Implement This!' 
+        raise NotImplementedError('Implement This!')
 
     def isValidAnswer(self, status):
         if self['Status'] != status:
-            import smb3
+            from . import smb3
             raise smb3.SessionError(self['Status'], self)
         return True
 

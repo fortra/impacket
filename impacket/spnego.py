@@ -1,3 +1,4 @@
+from __future__ import print_function
 # Copyright (c) 2003-2016 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
@@ -132,7 +133,7 @@ class GSSAPI:
         
     def dump(self):
         for i in self.fields.keys():
-            print "%s: {%r}" % (i,self[i])
+            print("%s: {%r}" % (i,self[i]))
 
     def getData(self):
         ans = pack('B',ASN1_AID)
@@ -247,11 +248,11 @@ class SPNEGO_NegTokenResp:
 
     def dump(self):
         for i in self.fields.keys():
-            print "%s: {%r}" % (i,self[i])
+            print("%s: {%r}" % (i,self[i]))
         
     def getData(self):
         ans = pack('B',SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP)
-        if self.fields.has_key('NegResult') and self.fields.has_key('SupportedMech'):
+        if 'NegResult' in self.fields and 'SupportedMech' in self.fields:
             # Server resp
             ans += asn1encode(
                pack('B', ASN1_SEQUENCE) +
@@ -267,7 +268,7 @@ class SPNEGO_NegTokenResp:
                pack('B',ASN1_RESPONSE_TOKEN ) +
                asn1encode(
                pack('B', ASN1_OCTET_STRING) + asn1encode(self['ResponseToken']))))
-        elif self.fields.has_key('NegResult'):
+        elif 'NegResult' in self.fields:
             # Server resp
             ans += asn1encode(
                pack('B', ASN1_SEQUENCE) + 
@@ -354,7 +355,7 @@ class SPNEGO_NegTokenInit(GSSAPI):
 
         mechToken = ''
         # Do we have tokens to send?
-        if self.fields.has_key('MechToken'):
+        if 'MechToken' in self.fields:
             mechToken = pack('B', ASN1_MECH_TOKEN) + asn1encode(
                 pack('B', ASN1_OCTET_STRING) + asn1encode(
                     self['MechToken']))

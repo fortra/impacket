@@ -1,3 +1,4 @@
+from __future__ import print_function
 ###############################################################################
 #  Tested so far:
 #
@@ -23,7 +24,7 @@ class LDAPTests(unittest.TestCase):
                                      attributes=['servicePrincipalName', 'sAMAccountName', 'userPrincipalName',
                                                  'MemberOf', 'pwdLastSet', 'whenCreated'])
         for item in resp:
-            print item.prettyPrint()
+            print(item.prettyPrint())
 
     def connect(self):
         ldapConnection = ldap.LDAPConnection(self.url, self.baseDN)

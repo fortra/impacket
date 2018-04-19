@@ -21,6 +21,7 @@
 #
 
 
+from __future__ import print_function
 import argparse
 import logging
 import os
@@ -52,12 +53,12 @@ class GetADUsers:
         outputFormat = ' '.join(['{%d:%ds} ' % (num, width) for num, width in enumerate(colLen)])
 
         # Print header
-        print outputFormat.format(*header)
-        print '  '.join(['-' * itemLen for itemLen in colLen])
+        print(outputFormat.format(*header))
+        print('  '.join(['-' * itemLen for itemLen in colLen]))
 
         # And now the rows
         for row in items:
-            print outputFormat.format(*row)
+            print(outputFormat.format(*row))
 
     def __init__(self, username, password, domain, cmdLineOptions):
         self.options = cmdLineOptions
@@ -92,7 +93,7 @@ class GetADUsers:
             s.login('', '')
         except Exception:
             if s.getServerName() == '':
-                raise('Error while anonymous logging into %s' % self.__domain)
+                raise Exception('Error while anonymous logging into %s' % self.__domain)
         else:
             s.logoff()
         return s.getServerName()
@@ -120,7 +121,7 @@ class GetADUsers:
             else:
                 ldapConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
                                              self.__aesKey, kdcHost=self.__kdcHost)
-        except ldap.LDAPSessionError, e:
+        except ldap.LDAPSessionError as e:
             if str(e).find('strongerAuthRequired') >= 0:
                 # We need to try SSL
                 ldapConnection = ldap.LDAPConnection('ldaps://%s' % self.__target, self.baseDN, self.__kdcHost)
@@ -149,7 +150,7 @@ class GetADUsers:
             resp = ldapConnection.search(searchFilter=searchFilter,
                                          attributes=['sAMAccountName', 'pwdLastSet', 'mail', 'lastLogon'],
                                          sizeLimit=0, searchControls = [sc])
-        except ldap.LDAPSearchError, e:
+        except ldap.LDAPSearchError as e:
             if e.getErrorString().find('sizeLimitExceeded') >= 0:
                 logging.debug('sizeLimitExceeded exception caught, giving up and processing the data received')
                 # We reached the sizeLimit, process the answers we have already and that's it. Until we implement
@@ -189,23 +190,23 @@ class GetADUsers:
                         mail = str(attribute['vals'][0])
 
                 answers.append([sAMAccountName, mail, pwdLastSet, lastLogon])
-            except Exception, e:
+            except Exception as e:
                 logging.error('Skipping item, cannot process due to error %s' % str(e))
                 pass
 
         if len(answers)>0:
             self.printTable(answers, header=[ "Name", "Email", "PasswordLastSet", "LastLogon"])
-            print '\n\n'
+            print('\n\n')
 
         else:
-            print "No entries found!"
+            print("No entries found!")
 
 
 # Process command-line arguments.
 if __name__ == '__main__':
     # Init the example's logger theme
     logger.init()
-    print version.BANNER
+    print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help = True, description = "Queries target domain for users data")
 
@@ -264,7 +265,7 @@ if __name__ == '__main__':
     try:
         executer = GetADUsers(username, password, domain, options)
         executer.run()
-    except Exception, e:
+    except Exception as e:
         #import traceback
         #print traceback.print_exc()
-        print str(e)
+        print(str(e))

@@ -19,7 +19,7 @@ from struct import pack, unpack
 
 def generate():
     # UHm... crappy Python has an maximum integer of 2**31-1.
-    top = (1L<<31)-1
+    top = (1<<31)-1
     return pack("IIII", randrange(top), randrange(top), randrange(top), randrange(top))
 
 def bin_to_string(uuid):
