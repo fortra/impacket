@@ -501,9 +501,9 @@ if __name__ == '__main__':
     smboptions.add_argument('-c', action='store', type=str, required=False, metavar = 'COMMAND', help='Command to execute on '
                         'target system. If not specified, hashes will be dumped (secretsdump.py must be in the same '
                                                           'directory).')
-    smboptions.add_argument('--enum-local-admins', action='store_true', required=False, help='If relayed user is not admin, attempd SAMR lookup to see who is')
+    smboptions.add_argument('--enum-local-admins', action='store_true', required=False, help='If relayed user is not admin, attempt SAMR lookup to see who is (only works pre Win 10 Anniversary)')
     smboptions.add_argument('-af','--admin-file', action='store', help='Write enumerated local admins to file')
-    smboptions.add_argument('--rid-cycle', action='store_true', required=False, help='Perform a RID bruteforce to enumerate domain users after the first succesful relay. Default max RID=4000')
+    smboptions.add_argument('--rid-cycle', action='store_true', required=False, help='Perform a RID bruteforce to enumerate domain users after the first succesful relay if the user is not a local admin. Default max RID=4000')
     smboptions.add_argument('--rid-max', action='store', required=False, default=4000, type=int, help='If --rid-cycle is specified, you can override the RID max here. Default: 4000')
 
     #MSSQL arguments
