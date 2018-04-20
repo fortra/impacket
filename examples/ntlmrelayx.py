@@ -52,7 +52,7 @@ from impacket.examples.ntlmrelayx.servers import SMBRelayServer, HTTPRelayServer
 from impacket.examples.ntlmrelayx.utils.config import NTLMRelayxConfig
 from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor, TargetsFileWatcher
 from impacket.examples.ntlmrelayx.utils.tcpshell import TcpShell
-from impacket.examples.ntlmrelayx.servers.socksserver import SOCKS 
+from impacket.examples.ntlmrelayx.servers.socksserver import SOCKS
 from impacket.smbconnection import SMBConnection
 from impacket.dcerpc.v5.rpcrt import DCERPCException
 from smbclient import MiniImpacketShell
@@ -182,8 +182,6 @@ class SMBAttack(Thread):
 #Define global variables to prevent dumping the domain twice
 dumpedDomain = False
 addedDomainAdmin = False
-
-
 class LDAPAttack(Thread):
     def __init__(self, config, LDAPClient, username):
         Thread.__init__(self)
@@ -491,7 +489,7 @@ if __name__ == '__main__':
                         help='Launch a SOCKS proxy for the connection relayed')
     parser.add_argument('-wh','--wpad-host', action='store',help='Enable serving a WPAD file for Proxy Authentication attack, '
                                                                    'setting the proxy host to the one supplied.')
-    parser.add_argument('-wa','--wpad-auth-num', action='store',metavar = 'ADMINFILE', help='Prompt for authentication N times for clients without MS16-077 installed '
+    parser.add_argument('-wa','--wpad-auth-num', action='store',help='Prompt for authentication N times for clients without MS16-077 installed '
                                                                    'before serving a WPAD file.')
     parser.add_argument('-6','--ipv6', action='store_true',help='Listen on both IPv6 and IPv4')
 
