@@ -25,7 +25,8 @@ echo Walking modules
 $RUNLOCAL ./walkmodules.py
 
 echo Running __main__ on some important files
-$RUNLOCAL -m impacket.crypto __main__ 
+$RUNLOCAL -m impacket.crypto __main__
+$RUNLOCAL -m impacket.krb5.crypto __main__
 $RUNLOCAL -m impacket.structure __main__
 $RUNLOCAL -m impacket.dns __main__ 
 $RUNLOCAL -m impacket.IP6_Address __main__
