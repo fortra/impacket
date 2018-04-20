@@ -1,10 +1,10 @@
-# Copyright (c) 2013-2016 CORE Security Technologies
+# Copyright (c) 2013-2018 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# SMB Relay Server
+# HTTP Relay Server
 #
 # Authors:
 #  Alberto Solino (@agsolino)
@@ -190,6 +190,8 @@ class HTTPRelayServer(Thread):
             if messageType == 1:
                 if not self.do_ntlm_negotiate(token, proxy=proxy):
                     #Connection failed
+                    LOG.error('Negotiating NTLM with %s://%s failed. Skipping to next target',
+                              self.target.scheme, self.target.netloc)
                     self.server.config.target.logTarget(self.target)
                     self.do_REDIRECT()
             elif messageType == 3:
