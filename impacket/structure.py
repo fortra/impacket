@@ -588,6 +588,29 @@ class Structure:
             else:
                 print("%s%s: {%r}" % (ind,i,self[i]))
 
+def pretty_print(x):
+    if chr(x) in '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~ ':
+       return chr(x)
+    else:
+       return u'.'
+
+def hexdump(data, indent = ''):
+    x=bytearray(b(data))
+    strLen = len(x)
+    i = 0
+    while i < strLen:
+        line = " %s%04x   " % (indent, i)
+        for j in range(16):
+            if i+j < strLen:
+                line += "%02X " % x[i+j]
+            else:
+                line += u"   "
+            if j%16 == 7:
+                line += " "
+        line += "  "
+        line += ''.join(pretty_print(x) for x in x[i:i+16] )
+        print (line)
+        i += 16
 
 class _StructureTest:
     alignment = 0
@@ -612,6 +635,7 @@ class _StructureTest:
         b.dump("unpacked.....")
         print("repacking.....")
         b_str = b.getData()
+        hexdump(b_str)
         if b_str != a_str:
             print("ERROR: original packed and repacked don't match")
             print("packed: %r" % b_str)
