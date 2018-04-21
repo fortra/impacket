@@ -355,8 +355,8 @@ class CCache:
                 # the first one
                 if c['server'].prettyPrint().find('/') >=0:
                     # Let's take the port out for comparison
-                    cachedSPN = '%s@%s'  % (c['server'].prettyPrint().upper().split('/')[1].split('@')[0].split(':')[0],
-                                               c['server'].prettyPrint().upper().split('/')[1].split('@')[1])
+                    cachedSPN = '%s@%s'  % (c['server'].prettyPrint().upper().split('/')[-1].split('@')[0].split(':')[0],
+                                               c['server'].prettyPrint().upper().split('/')[-1].split('@')[1])
                     searchSPN = '%s@%s' % (server.upper().split('/')[1].split('@')[0].split(':')[0],
                                                server.upper().split('/')[1].split('@')[1])
                     if cachedSPN == searchSPN:
