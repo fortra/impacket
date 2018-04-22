@@ -46,7 +46,6 @@ from impacket.examples.ntlmrelayx.servers import SMBRelayServer, HTTPRelayServer
 from impacket.examples.ntlmrelayx.utils.config import NTLMRelayxConfig
 from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor, TargetsFileWatcher
 from impacket.examples.ntlmrelayx.servers.socksserver import SOCKS
-from impacket.examples.ntlmrelayx.attacks import PROTOCOL_ATTACKS
 
 RELAY_SERVERS = ( SMBRelayServer, HTTPRelayServer )
 
@@ -257,15 +256,17 @@ if __name__ == '__main__':
        logging.error(str(e))
        sys.exit(1)
 
-    # Let's register the protocol clients we have
-    # ToDo: Do this better somehow
-    from impacket.examples.ntlmrelayx.clients import PROTOCOL_CLIENTS
-
     if options.debug is True:
         logging.getLogger().setLevel(logging.DEBUG)
     else:
         logging.getLogger().setLevel(logging.INFO)
         logging.getLogger('impacket.smbserver').setLevel(logging.ERROR)
+
+    # Let's register the protocol clients we have
+    # ToDo: Do this better somehow
+    from impacket.examples.ntlmrelayx.clients import PROTOCOL_CLIENTS
+    from impacket.examples.ntlmrelayx.attacks import PROTOCOL_ATTACKS
+
 
     if options.codec is not None:
         codec = options.codec

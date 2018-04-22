@@ -21,7 +21,7 @@ from impacket.examples.ntlmrelayx.attacks import ProtocolAttack
 PROTOCOL_ATTACK_CLASS = "MSSQLAttack"
 
 class MSSQLAttack(ProtocolAttack):
-
+    PLUGIN_NAMES = ["MSSQL"]
     def run(self):
         if self.config.queries is None:
             LOG.error('No SQL queries specified for MSSQL relay!')
