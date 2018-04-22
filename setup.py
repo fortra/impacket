@@ -33,11 +33,10 @@ setup(name = PACKAGE_NAME,
                 'impacket.examples.ntlmrelayx.attacks'],
       scripts = glob.glob(os.path.join('examples', '*.py')),
       data_files = data_files,
-      install_requires=['pyasn1>=0.2.3', 'pycrypto>=2.6.1', 'pyOpenSSL>=0.13.1', 'six'],
+      install_requires=['pyasn1>=0.2.3', 'pycrypto>=2.6.1', 'pyOpenSSL>=0.13.1', 'six', 'ldap3==2.4.1', 'ldapdomaindump', 'flask'],
       extras_require={
                       'pyreadline:sys_platform=="win32"': [],
                       ':python_version<"2.7"': [ 'argparse' ],
-                      'examples': [ 'ldap3==2.4.1', 'ldapdomaindump', 'flask'],
                     },
       classifiers = [
           "Programming Language :: Python :: 2.7",
