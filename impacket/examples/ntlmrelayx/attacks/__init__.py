@@ -16,8 +16,10 @@
 # ToDo:
 #
 import os, sys
+import pkg_resources
 from impacket import LOG
 from threading import Thread
+print pkg_resources.resource_listdir('impacket.examples.ntlmrelayx', 'attacks')
 
 PROTOCOL_ATTACKS = {}
 
@@ -43,7 +45,7 @@ class ProtocolAttack(Thread):
     def run(self):
         raise RuntimeError('Virtual Function')
 
-for file in os.listdir(__path__[0]):
+for file in pkg_resources.resource_listdir('impacket.examples.ntlmrelayx', 'attacks'):
     if file.find('__') >=0 or os.path.splitext(file)[1] == '.pyc':
         continue
     __import__(__package__ + '.' + os.path.splitext(file)[0])

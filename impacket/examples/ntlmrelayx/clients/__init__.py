@@ -14,7 +14,7 @@
 #
 # ToDo:
 #
-import os, sys
+import os, sys, pkg_resources
 from impacket import LOG
 
 PROTOCOL_CLIENTS = {}
@@ -76,7 +76,7 @@ class ProtocolClient:
         # Charged of keeping connection alive
         raise RuntimeError('Virtual Function')
 
-for file in os.listdir(__path__[0]):
+for file in pkg_resources.resource_listdir('impacket.examples.ntlmrelayx', 'clients'):
     if file.find('__') >=0 or os.path.splitext(file)[1] == '.pyc':
         continue
     __import__(__package__ + '.' + os.path.splitext(file)[0])
