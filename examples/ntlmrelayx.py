@@ -148,6 +148,8 @@ class SMBAttack(Thread):
                             fp.write("\n".join(domainSids))
                         logging.info("{} written with results".format(filename))
                         ridCycleDone = True
+                    elif self.config.ridCycle and ridCycleDone:
+                        logging.info("RID Cycle already performed")
 
                     return
 
