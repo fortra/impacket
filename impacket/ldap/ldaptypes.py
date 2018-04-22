@@ -203,7 +203,7 @@ class ACCESS_MASK(Structure):
     )
 
     def hasPriv(self, priv):
-        return self['Mask'] & priv
+        return self['Mask'] & priv == priv
 
     def setPriv(self, priv):
         self['Mask'] |= priv
@@ -234,6 +234,8 @@ class ACCESS_ALLOWED_OBJECT_ACE(Structure):
     ACE_INHERITED_OBJECT_TYPE_PRESENT   = 0x02
 
     # ACE type specific mask constants
+    # Note that while not documented, these also seem valid
+    # for ACCESS_ALLOWED_ACE types
     ADS_RIGHT_DS_CONTROL_ACCESS         = 0x00000100
     ADS_RIGHT_DS_CREATE_CHILD           = 0x00000001
     ADS_RIGHT_DS_DELETE_CHILD           = 0x00000002
