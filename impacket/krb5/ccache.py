@@ -330,7 +330,8 @@ class CCache:
             self.credentials = []
             while len(data) > 0:
                 cred = Credential(data)
-                self.credentials.append(cred)
+                if cred['server'].prettyPrint().find('krb5_ccache_conf_data') < 0:
+                    self.credentials.append(cred)
                 data = data[len(cred.getData()):]
 
     def getData(self):
