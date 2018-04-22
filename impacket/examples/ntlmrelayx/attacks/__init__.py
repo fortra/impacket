@@ -19,7 +19,6 @@ import os, sys
 import pkg_resources
 from impacket import LOG
 from threading import Thread
-print pkg_resources.resource_listdir('impacket.examples.ntlmrelayx', 'attacks')
 
 PROTOCOL_ATTACKS = {}
 
