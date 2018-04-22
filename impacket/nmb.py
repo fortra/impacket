@@ -44,7 +44,7 @@ from random import randint
 from struct import pack, unpack
 from six import byte2int
 
-from .structure import Structure
+from impacket.structure import Structure
 
 ################################################################################
 # CONSTANTS

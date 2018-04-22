@@ -7,9 +7,10 @@ sys.path.insert(0,"../..")
 import impacket.dot11
 import impacket.ImpactPacket
 from impacket.Dot11KeyManager import KeyManager
-from impacket.ImpactDecoder import Dot11Decoder
-from binascii import hexlify
+#from impacket.ImpactDecoder import Dot11Decoder
+#from binascii import hexlify
 import unittest
+import codecs
 
 class TestDot11WEPData(unittest.TestCase):
 
@@ -97,7 +98,7 @@ class TestDot11WEPData(unittest.TestCase):
         
         # Instantiated the Key Manager
         self.km=KeyManager()
-        self.km.add_key([0x00,0x21,0x29,0x68,0x33,0x5b],'999cbb701ca2ef030e302dcc35'.decode('hex_codec'))
+        self.km.add_key([0x00,0x21,0x29,0x68,0x33,0x5b], codecs.decode(b'999cbb701ca2ef030e302dcc35','hex_codec'))
         
     def test_02(self):
         'Test ICV methods'
@@ -113,12 +114,12 @@ class TestDot11WEPData(unittest.TestCase):
         
         #print "\nWEP Data Decrypted [%s]"%hexlify(self.wepdata.get_packet())
         self.wepdata.set_icv(0xA1F93985)
-        wep_enc=self.wep.get_encrypted_data('999cbb701ca2ef030e302dcc35'.decode('hex_codec'))
+        wep_enc=self.wep.get_encrypted_data(codecs.decode(b'999cbb701ca2ef030e302dcc35','hex_codec'))
         #print "\nWEP Data Encrypted [%s]"%hexlify(wep_enc)
-        self.assertEqual(wep_enc,'8d2381e9251cb5aa83d2c716ba6ee18e7d3a2c71c00f6ab82fbc54c4b014ab03115edeccab2b18ebeb250f75eb6bf57fd65cb9e1b26e50ba4bb48b9f3471da9ecf12cb8f361b0253'.decode('hex_codec'))
+        self.assertEqual(wep_enc, codecs.decode(b'8d2381e9251cb5aa83d2c716ba6ee18e7d3a2c71c00f6ab82fbc54c4b014ab03115edeccab2b18ebeb250f75eb6bf57fd65cb9e1b26e50ba4bb48b9f3471da9ecf12cb8f361b0253','hex_codec'))
         
         #print "\nDot11 decrypted [%s]"%hexlify(self.dot11.get_packet())
-        self.wep.encrypt_frame('999cbb701ca2ef030e302dcc35'.decode('hex_codec'))
+        self.wep.encrypt_frame(codecs.decode(b'999cbb701ca2ef030e302dcc35','hex_codec'))
         #print "\nDot11 encrypted [%s]"%hexlify(self.dot11.get_packet())
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11WEPData)

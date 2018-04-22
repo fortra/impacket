@@ -15,6 +15,7 @@
 #
 
 
+from __future__ import print_function
 import argparse
 import sys
 import string
@@ -25,7 +26,7 @@ from impacket import version, tds
 
 if __name__ == '__main__':
 
-    print version.BANNER
+    print(version.BANNER)
     # Init the example's logger theme
     logger.init()
 
@@ -48,5 +49,5 @@ if __name__ == '__main__':
         for i, instance in enumerate(instances):
             logging.info("Instance %d" % i)
             for key in instance.keys():
-               print key + ":" + instance[key]
+               print(key + ":" + instance[key])
  

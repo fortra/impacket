@@ -12,11 +12,11 @@ class TestEthernet(unittest.TestCase):
     def setUp(self):
         # Ethernet frame with a 802.1Q tag (TPID=0x8100, PCP=5, DEI=0, VID=3315)
         # and ethertype 0x0800 (IPv4)
-        self.frame = '\x54\xab\xa3\xb9\x38\x3d\xe2\xef\x8d\xc7\xa8\x5e\x81\x00\xac\xf3\x08\x00'
+        self.frame = b'\x54\xab\xa3\xb9\x38\x3d\xe2\xef\x8d\xc7\xa8\x5e\x81\x00\xac\xf3\x08\x00'
         self.eth = Ethernet(self.frame)
-
     def test_01(self):
         """Test Ethernet getters"""
+
         self.assertEqual(self.eth.get_packet(), self.frame)
         self.assertEqual(self.eth.get_header_size(), 18)
         self.assertEqual(self.eth.get_ether_type(), 0x0800)
@@ -41,7 +41,7 @@ class TestEthernet(unittest.TestCase):
     def test_03(self):
         """Test EthernetTag getters"""
         tag = self.eth.pop_tag()
-        self.assertEqual(tag.get_buffer_as_string(), '\x81\x00\xac\xf3')
+        self.assertEqual(tag.get_buffer_as_string(), b'\x81\x00\xac\xf3')
         self.assertEqual(tag.get_tpid(), 0x8100)
         self.assertEqual(tag.get_pcp(), 5)
         self.assertEqual(tag.get_dei(), 0)
@@ -54,32 +54,33 @@ class TestEthernet(unittest.TestCase):
         tag.set_pcp(2)
         tag.set_dei(1)
         tag.set_vid(876)
-        self.assertEqual(tag.get_buffer_as_string(), '\x88\xa8\x53\x6c')
+        self.assertEqual(tag.get_buffer_as_string(), b'\x88\xa8\x53\x6c')
 
     def test_05(self):
         """Test manipulation with VLAN tags"""
+
         def check_tags(*tags):
             self.assertEqual(self.eth.tag_cnt, len(tags))
-            self.assertEqual(self.eth.get_header_size(), 14 + 4*len(tags))
+            self.assertEqual(self.eth.get_header_size(), 14 + 4 * len(tags))
             self.assertEqual(self.eth.get_ether_type(), 0x0800)
-            for i,tag in enumerate(tags):
+            for i, tag in enumerate(tags):
                 self.assertEqual(self.eth.get_tag(i).get_buffer_as_string(), tag)
 
         # Add S-tag (outer tag, closest to the Ethernet header)
         self.eth.push_tag(EthernetTag(0x88a85001))
-        check_tags('\x88\xa8\x50\x01', '\x81\x00\xac\xf3')
+        check_tags(b'\x88\xa8\x50\x01', b'\x81\x00\xac\xf3')
 
         # Set C-tag (inner tag, closest to the payload) to default
         self.eth.set_tag(1, EthernetTag())
-        check_tags('\x88\xa8\x50\x01', '\x81\x00\x00\x00')
+        check_tags(b'\x88\xa8\x50\x01', b'\x81\x00\x00\x00')
 
         # Insert a deprecated 802.1QinQ header between S-tag and C-tag
         self.eth.push_tag(EthernetTag(0x910054d2), index=1)
-        check_tags('\x88\xa8\x50\x01', '\x91\x00\x54\xd2', '\x81\x00\x00\x00')
+        check_tags(b'\x88\xa8\x50\x01', b'\x91\x00\x54\xd2', b'\x81\x00\x00\x00')
 
         # Test negative indices
         tags = {}
-        for i in range(-3,3):
+        for i in range(-3, 3):
             tags[i] = self.eth.get_tag(i).get_buffer_as_string()
 
         self.assertEqual(tags[-1], tags[2])
@@ -103,7 +104,6 @@ class TestEthernet(unittest.TestCase):
         eth_copy.pop_tag(1)
         self.assertEqual(eth_copy.tag_cnt, 2)
         self.assertEqual(eth_copy.get_packet(), self.frame[:12] + tags[0] + tags[2] + self.frame[-2:])
-
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestEthernet)
 unittest.TextTestRunner(verbosity=1).run(suite)

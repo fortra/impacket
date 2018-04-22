@@ -17,7 +17,7 @@
 
 from pyasn1.codec.ber import encoder, decoder
 from pyasn1.type import univ, namedtype, namedval, tag, constraint
-
+from builtins import int
 __all__ = [
     'CONTROL_PAGEDRESULTS', 'CONTROL_SDFLAGS', 'KNOWN_CONTROLS', 'NOTIFICATION_DISCONNECT', 'KNOWN_NOTIFICATIONS',
     # classes
@@ -575,7 +575,7 @@ class SDFlagsControlValue(univ.Sequence):
     )
 
 class SDFlagsControl(Control):
-    def __init__(self, criticality=None, flags=0x00000007L, **kwargs):
+    def __init__(self, criticality=None, flags=int(0x00000007), **kwargs):
         Control.__init__(self, **kwargs)
         self['controlType'] = CONTROL_SDFLAGS
         if criticality is not None:

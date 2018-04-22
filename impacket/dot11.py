@@ -13,9 +13,13 @@
 import struct
 import string
 from binascii import crc32
-
-from ImpactPacket import ProtocolPacket
-from Dot11Crypto import RC4
+from builtins import int
+from impacket.ImpactPacket import ProtocolPacket
+from impacket.Dot11Crypto import RC4
+#from ImpactPacket import ProtocolPacket
+#from Dot11Crypto import RC4
+from past.builtins import cmp
+from functools import cmp_to_key
 
 frequency = {
     2412: 1,    2417: 2,    2422: 3,    2427: 4,    2432: 5,    2437: 6,    2442: 7,    2447: 8,    2452: 9,
@@ -467,7 +471,7 @@ class Dot11(ProtocolPacket):
         self.header.set_byte(0, nb)
         
     def compute_checksum(self,bytes):
-        crcle=crc32(bytes)&0xffffffffL
+        crcle=crc32(bytes)&int(0xffffffff)
         # ggrr this crc32 is in little endian, convert it to big endian 
         crc=struct.pack('<L', crcle)
          # Convert to long
@@ -1001,7 +1005,7 @@ class SNAP(ProtocolPacket):
         "Get the three-octet Organizationally Unique Identifier (OUI) SNAP frame"
         b=self.header.get_bytes()[0:3].tostring()
         #unpack requires a string argument of length 4 and b is 3 bytes long
-        (oui,)=struct.unpack('!L', '\x00'+b)
+        (oui,)=struct.unpack('!L', b'\x00'+b)
         return oui
 
     def set_OUI(self, value):
@@ -1025,6 +1029,8 @@ class Dot11WEP(ProtocolPacket):
     '802.11 WEP'
 
     def __init__(self, aBuffer = None):
+        if isinstance(aBuffer, str):
+            aBuffer = aBuffer.encode("latin1")
         header_size = 4
         tail_size = 0
 
@@ -1044,7 +1050,7 @@ class Dot11WEP(ProtocolPacket):
         'Return the \'WEP IV\' field'
         b=self.header.get_bytes()[0:3].tostring()
         #unpack requires a string argument of length 4 and b is 3 bytes long
-        (iv,)=struct.unpack('!L', '\x00'+b)
+        (iv,)=struct.unpack('!L', b'\x00'+b)
         return iv
 
     def set_iv(self, value):
@@ -1073,7 +1079,7 @@ class Dot11WEP(ProtocolPacket):
     def get_decrypted_data(self, key_string):
         'Return \'WEP Data\' field decrypted'
 
-        # Needs to be at least 8 bytes of payload 
+        # Needs to be at least 8 bytes of payload
         if len(self.body_string)<8:
             return self.body_string
         
@@ -1082,10 +1088,15 @@ class Dot11WEP(ProtocolPacket):
         
         # Convert IV to 3 bytes long string
         iv=struct.pack('>L',self.get_iv())[-3:]
+
         key=iv+key_string
+
         rc4=RC4(key)
+
         decrypted_data=rc4.decrypt(self.body_string)
-        
+
+        if isinstance(decrypted_data, str):
+            decrypted_data = decrypted_data.encode("latin1")
         return decrypted_data
     
     def get_encrypted_data(self, key_string):
@@ -1125,7 +1136,7 @@ class Dot11WEPData(ProtocolPacket):
         self.tail.set_long(-4, nb)
     
     def get_computed_icv(self):
-        crcle=crc32(self.body_string)&0xffffffffL
+        crcle=crc32(self.body_string)&int(0xffffffff)
         # This crc32 is in little endian, convert it to big endian 
         crc=struct.pack('<L', crcle)
          # Convert to long
@@ -1303,7 +1314,7 @@ class Dot11WPAData(ProtocolPacket):
     def set_MIC(self, value):
         'Set the \'WPA2Data MIC\' field'
         #Padding to 8 bytes with 0x00's 
-        value.ljust(8,'\x00')
+        value.ljust(8,b'\x00')
         #Stripping to 8 bytes
         value=value[:8]
         icv=self.tail.get_buffer_as_string()[-4:] 
@@ -1445,7 +1456,7 @@ class Dot11WPA2Data(ProtocolPacket):
     def set_MIC(self, value):
         'Set the \'WPA2Data MIC\' field'
         #Padding to 8 bytes with 0x00's 
-        value.ljust(8,'\x00')
+        value.ljust(8,b'\x00')
         #Stripping to 8 bytes
         value=value[:8]
         self.tail.set_bytes_from_string(value)
@@ -1583,9 +1594,14 @@ class RadioTap(ProtocolPacket):
     
     # Sort the list so the 'for' statement walk the list in the right order
     radiotap_fields = __RadioTapField.__subclasses__()
-    radiotap_fields.sort(lambda x, y: cmp(x.BIT_NUMBER,y.BIT_NUMBER))
+    a = lambda x, y: cmp(x.BIT_NUMBER, y.BIT_NUMBER)
+
+    sorted(radiotap_fields, key=cmp_to_key(a))
+    #radiotap_fields.sort(lambda x, y: cmp(x.BIT_NUMBER,y.BIT_NUMBER))
     
     def __init__(self, aBuffer = None):
+        if isinstance(aBuffer, str):
+            aBuffer = aBuffer.encode("latin1")
         header_size = self.__HEADER_BASE_SIZE 
         tail_size = 0
         
@@ -1701,7 +1717,7 @@ class RadioTap(ProtocolPacket):
             raise Exception("arg 'values' is not iterable")
         
         # It's for to known the qty of argument of a structure
-        num_fields=len(field.STRUCTURE.translate(string.maketrans("",""), '=@!<>'))
+        num_fields=len((field.STRUCTURE).encode("latin1").translate(bytes.maketrans(b"",b""), b'=@!<>'))
 
         if len(values)!=num_fields:
             raise Exception("Field %s has exactly %d items"%(str(field),struct.calcsize(field.STRUCTURE)))
@@ -2224,7 +2240,7 @@ class Dot11ManagementHelper(ProtocolPacket):
 
     def __calculate_elements_length(self, elements):
         gen_tp=self._find_element(elements, None )
-        (match,offset,length)=gen_tp.next()
+        (match,offset,length)=next(gen_tp)
         if match != -1:
             # element_id is None, then __find_tagged_parameter must return -1
             raise Exception("Internal Error %s"%match)
@@ -2234,7 +2250,7 @@ class Dot11ManagementHelper(ProtocolPacket):
         elements=self.get_header_as_string()[self.__HEADER_BASE_SIZE:]
         gen_tp=self._find_element(elements, element_id )
         while True:
-            (match,offset,length)=gen_tp.next()
+            (match,offset,length)=next(gen_tp)
             if match != 0:
                 return
             value_offset=offset+2
@@ -2245,7 +2261,7 @@ class Dot11ManagementHelper(ProtocolPacket):
     def _get_element(self, element_id):
         gen_get_element=self._get_elements_generator(element_id)
         try:
-            s=gen_get_element.next()
+            s=next(gen_get_element)
             
             if s is None:
                 raise Exception("gen_get_element salio con None in _get_element!!!")
@@ -2262,7 +2278,7 @@ class Dot11ManagementHelper(ProtocolPacket):
         gen_tp=self._find_element(elements, element_id )
         found=False
         while True:
-            (match,offset,length)=gen_tp.next()
+            (match,offset,length)=next(gen_tp)
             if match != 0:
                 break
             start=self.__HEADER_BASE_SIZE+offset
@@ -2285,7 +2301,7 @@ class Dot11ManagementHelper(ProtocolPacket):
         gen_tp=self._find_element(elements, element_id )
         found=False
         while True:
-            (match,offset,length)=gen_tp.next()
+            (match,offset,length)=next(gen_tp)
             start=self.__HEADER_BASE_SIZE+offset
             if match == 0 and replace:
                 # Replace
@@ -2466,7 +2482,7 @@ class Dot11ManagementBeacon(Dot11ManagementHelper):
         gen_get_element=self._get_elements_generator(DOT11_MANAGEMENT_ELEMENTS.VENDOR_SPECIFIC)
         try:
             while 1:
-                s=gen_get_element.next()
+                s=next(gen_get_element)
                 
                 if s is None:
                     raise Exception("gen_get_element salio con None!!!")
@@ -2702,7 +2718,7 @@ class Dot11ManagementAuthentication(Dot11ManagementHelper):
         gen_get_element=self._get_elements_generator(DOT11_MANAGEMENT_ELEMENTS.VENDOR_SPECIFIC)
         try:
             while 1:
-                s=gen_get_element.next()
+                s=next(gen_get_element)
                 
                 if s is None:
                     raise Exception("gen_get_element salio con None!!!")
@@ -2826,7 +2842,7 @@ class Dot11ManagementAssociationRequest(Dot11ManagementHelper):
         gen_get_element=self._get_elements_generator(DOT11_MANAGEMENT_ELEMENTS.VENDOR_SPECIFIC)
         try:
             while 1:
-                s=gen_get_element.next()
+                s=next(gen_get_element)
                 
                 if s is None:
                     raise Exception("gen_get_element salio con None!!!")
@@ -2934,7 +2950,7 @@ class Dot11ManagementAssociationResponse(Dot11ManagementHelper):
         gen_get_element=self._get_elements_generator(DOT11_MANAGEMENT_ELEMENTS.VENDOR_SPECIFIC)
         try:
             while 1:
-                s=gen_get_element.next()
+                s=next(gen_get_element)
                 
                 if s is None:
                     raise Exception("gen_get_element salio con None!!!")
@@ -3060,7 +3076,7 @@ class Dot11ManagementReassociationRequest(Dot11ManagementHelper):
         gen_get_element=self._get_elements_generator(DOT11_MANAGEMENT_ELEMENTS.VENDOR_SPECIFIC)
         try:
             while 1:
-                s=gen_get_element.next()
+                s=next(gen_get_element)
                 
                 if s is None:
                     raise Exception("gen_get_element salio con None!!!")

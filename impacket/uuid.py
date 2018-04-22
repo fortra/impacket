@@ -16,10 +16,11 @@ import re
 
 from random import randrange
 from struct import pack, unpack
+from builtins import int
 
 def generate():
     # UHm... crappy Python has an maximum integer of 2**31-1.
-    top = (1L<<31)-1
+    top = (int(1)<<31)-1
     return pack("IIII", randrange(top), randrange(top), randrange(top), randrange(top))
 
 def bin_to_string(uuid):
@@ -29,12 +30,14 @@ def bin_to_string(uuid):
 
 def string_to_bin(uuid):
     matches = re.match('([\dA-Fa-f]{8})-([\dA-Fa-f]{4})-([\dA-Fa-f]{4})-([\dA-Fa-f]{4})-([\dA-Fa-f]{4})([\dA-Fa-f]{8})', uuid)
-    (uuid1, uuid2, uuid3, uuid4, uuid5, uuid6) = map(lambda x: long(x, 16), matches.groups())
+    (uuid1, uuid2, uuid3, uuid4, uuid5, uuid6) = map(lambda x: int(x, 16), matches.groups())
     uuid = pack('<LHH', uuid1, uuid2, uuid3)
     uuid += pack('>HHL', uuid4, uuid5, uuid6)
     return uuid
 
 def stringver_to_bin(s):
+    if isinstance(s, bytes):
+        s = s.decode()
     (maj,min) = s.split('.')
     return pack('<H',int(maj)) + pack('<H',int(min))
 
@@ -43,6 +46,8 @@ def uuidtup_to_bin(tup):
     return string_to_bin(tup[0]) + stringver_to_bin(tup[1])
 
 def bin_to_uuidtup(bin):
+    if isinstance(bin, str):
+        bin = bin.encode()
     assert len(bin) == 20
     uuidstr = bin_to_string(bin[:16])
     maj, min = unpack("<HH", bin[16:])
@@ -66,3 +71,21 @@ def string_to_uuidtup(s):
 def uuidtup_to_string(tup):
     uuid, (maj, min) = tup
     return "%s v%d.%d" % (uuid, maj, min)
+
+if __name__ == '__main__':
+
+    uuid1 = generate()
+    print(uuid1)
+    uuid = bin_to_string(uuid1)
+    print(uuid)
+
+    print(string_to_bin(uuid))
+    print(stringver_to_bin("12.3"))
+    print(stringver_to_bin(b"12.3"))
+    uuidtup = string_to_uuidtup(uuid+"12.14")
+    print(uuidtup)
+    print(uuidtup_to_bin(uuidtup))
+    print(bin_to_uuidtup("\x41"*20))
+    print(bin_to_uuidtup(b"\x41" * 20))
+
+    print(uuidtup_to_string(['41414141-4141-4141-4141-414141414141',(1, 2)]))

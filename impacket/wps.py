@@ -13,7 +13,7 @@
 
 import array
 import struct
-
+from functools import reduce
 from impacket.helper import ProtocolPacket, Byte, Bit
 
 
@@ -55,7 +55,7 @@ class NumBuilder(object):
     def to_ary(self, value0):
         value = value0
         rv = array.array('B')
-        for _ in xrange(self.size):
+        for _ in range(self.size):
             value, mod = divmod(value, 256)
             rv.append(mod)
             
@@ -399,6 +399,6 @@ class SimpleConfig(ProtocolPacket):
     def build_tlv_container(cls):
         return TLVContainer(
             builders=SimpleConfig.BUILDERS, 
-            descs = dict( (v,k) for (k,v) in SCElem.__dict__.iteritems() )
+            descs = dict( (v,k) for (k,v) in list(SCElem.__dict__.items()) )
         )
     

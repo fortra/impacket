@@ -14,8 +14,8 @@
 import struct
 import functools
 
-import impacket.ImpactPacket as ip
-
+from impacket import ImpactPacket as ip
+from six import with_metaclass
 
 def rebind(f):
     functools.wraps(f)
@@ -101,7 +101,7 @@ class ThreeBytesBigEndian(Field):
     def getter(self, o):
         b=o.header.get_bytes()[self.index:self.index+3].tostring()
         #unpack requires a string argument of length 4 and b is 3 bytes long
-        (value,)=struct.unpack('!L', '\x00'+b)
+        (value,)=struct.unpack('!L', b'\x00'+b)
         return value
 
     def setter(self, o, value):
@@ -119,7 +119,7 @@ class ProtocolPacketMetaklass(type):
         items = d.items()
         if not object in bases:
             bases += (object,)
-        for k,v in items:
+        for k,v in list(items):
             if isinstance(v, Field):
                 d["_fields"].append(k) 
                 v(k, d)
@@ -141,7 +141,7 @@ class ProtocolPacketMetaklass(type):
         
         return type.__new__(cls, name, bases, d)
 
-class ProtocolPacket(ip.ProtocolPacket):
+class ProtocolPacket(with_metaclass(ProtocolPacketMetaklass, ip.ProtocolPacket)):
     __metaclass__ = ProtocolPacketMetaklass  
 
     def __init__(self, buff = None):

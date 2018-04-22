@@ -4,7 +4,7 @@ import socket
 import select
 import errno
 
-import ConfigParser
+import configparser as ConfigParser
 from binascii import unhexlify
 from impacket.smbconnection import SMBConnection, smb
 from impacket.smb3structs import *
@@ -265,7 +265,7 @@ class SMBTests(unittest.TestCase):
         is_socket_opened = True 
         try:
             select.select([s], [], [], 0)
-        except socket.error, e:
+        except socket.error as e:
             if e[0] == errno.EBADF:
                 is_socket_opened = False
         return is_socket_opened

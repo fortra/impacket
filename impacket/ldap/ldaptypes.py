@@ -15,7 +15,7 @@
 from struct import unpack, pack
 from impacket.structure import Structure
 from impacket.uuid import string_to_bin
-
+from builtins import int
 # Global constant if the library should recalculate ACE sizes in objects that are decoded/re-encoded.
 # This defaults to True, but this causes the ACLs to not match on a binary level
 # since Active Directory for some reason sometimes adds null bytes to the end of ACEs.
@@ -186,17 +186,17 @@ https://msdn.microsoft.com/en-us/library/cc230294.aspx
 """
 class ACCESS_MASK(Structure):
     # Flag constants
-    GENERIC_READ            = 0x80000000L
-    GENERIC_WRITE           = 0x04000000L
-    GENERIC_EXECUTE         = 0x20000000L
-    GENERIC_ALL             = 0x10000000L
-    MAXIMUM_ALLOWED         = 0x02000000L
-    ACCESS_SYSTEM_SECURITY  = 0x01000000L
-    SYNCHRONIZE             = 0x00100000L
-    WRITE_OWNER             = 0x00080000L
-    WRITE_DACL              = 0x00040000L
-    READ_CONTROL            = 0x00020000L
-    DELETE                  = 0x00010000L
+    GENERIC_READ            = int(0x80000000)
+    GENERIC_WRITE           = int(0x04000000)
+    GENERIC_EXECUTE         = int(0x20000000)
+    GENERIC_ALL             = int(0x10000000)
+    MAXIMUM_ALLOWED         = int(0x02000000)
+    ACCESS_SYSTEM_SECURITY  = int(0x01000000)
+    SYNCHRONIZE             = int(0x00100000)
+    WRITE_OWNER             = int(0x00080000)
+    WRITE_DACL              = int(0x00040000)
+    READ_CONTROL            = int(0x00020000)
+    DELETE                  = int(0x00010000)
 
     structure = (
         ('Mask', '<L'),
@@ -452,7 +452,7 @@ class ACL(Structure):
         for i in range(self['AceCount']):
             # If we don't have any data left, return
             if len(self['Data']) == 0:
-                raise Exception, "ACL header indicated there are more ACLs to unpack, but there is no more data"
+                raise Exception("ACL header indicated there are more ACLs to unpack, but there is no more data")
             ace = ACE(data=self['Data'])
             self.aces.append(ace)
             self['Data'] = self['Data'][ace['AceSize']:]

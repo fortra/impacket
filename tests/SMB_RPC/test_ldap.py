@@ -10,7 +10,7 @@
 ################################################################################
 
 import unittest
-import ConfigParser
+import configparser as ConfigParser
 
 from impacket.ldap import ldap, ldapasn1
 from impacket.ldap.ldaptypes import SR_SECURITY_DESCRIPTOR
@@ -24,7 +24,7 @@ class LDAPTests(unittest.TestCase):
                                      attributes=['servicePrincipalName', 'sAMAccountName', 'userPrincipalName',
                                                  'MemberOf', 'pwdLastSet', 'whenCreated'])
         for item in resp:
-            print item.prettyPrint()
+            print(item.prettyPrint())
 
     def test_security_descriptor(self):
         ldapConnection=self.connect()

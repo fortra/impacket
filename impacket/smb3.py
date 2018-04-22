@@ -125,7 +125,7 @@ class SMB3:
         self.RequireMessageSigning = False    #
         self.ConnectionTable = {}
         self.GlobalFileTable = {}
-        self.ClientGuid = ''.join([random.choice(string.letters) for i in range(16)])
+        self.ClientGuid = ''.join([random.choice(string.ascii_letters) for i in range(16)])
         # Only for SMB 3.0
         self.EncryptionAlgorithmList = ['AES-CCM']
         self.MaxDialect = []
@@ -244,13 +244,13 @@ class SMB3:
             self.negotiateSession(preferredDialect, negSessionResponse)
 
     def printStatus(self):
-        print "CONNECTION"
+        print("CONNECTION")
         for i in self._Connection.items():
-            print "%-40s : %s" % i
+            print("%-40s : %s" % i)
         print
-        print "SESSION"
+        print("SESSION")
         for i in self._Session.items():
-            print "%-40s : %s" % i
+            print("%-40s : %s" % i)
 
     def getKerberos(self):
         return self._doKerberos
@@ -335,7 +335,7 @@ class SMB3:
         packet['SessionID'] = self._Session['SessionID']
 
         # Default the credit charge to 1 unless set by the caller
-        if packet.fields.has_key('CreditCharge') is False:
+        if 'CreditCharge' in packet.fields is False:
             packet['CreditCharge'] = 1
 
         # Standard credit request after negotiating protocol
@@ -345,7 +345,7 @@ class SMB3:
         messageId = packet['MessageID']
 
         if self._Session['SigningActivated'] is True and self._Connection['SequenceWindow'] > 2:
-            if packet['TreeID'] > 0 and self._Session['TreeConnectTable'].has_key(packet['TreeID']) is True:
+            if packet['TreeID'] > 0 and packet['TreeID'] in self._Session['TreeConnectTable'] is True:
                 if self._Session['TreeConnectTable'][packet['TreeID']]['EncryptData'] is False:
                     packet['Flags'] = SMB2_FLAGS_SIGNED
                     self.signSMB(packet)
@@ -377,7 +377,7 @@ class SMB3:
 
     def recvSMB(self, packetID = None):
         # First, verify we don't have the packet already
-        if self._Connection['OutstandingResponses'].has_key(packetID):
+        if packetID in self._Connection['OutstandingResponses']:
             return self._Connection['OutstandingResponses'].pop(packetID) 
 
         data = self._NetBIOSSession.recv_packet(self._timeout) 
@@ -772,7 +772,7 @@ class SMB3:
                        pass 
 
                 # Parse Version to know the target Operating system name. Not provided elsewhere anymore
-                if ntlmChallenge.fields.has_key('Version'):
+                if 'Version' in ntlmChallenge.fields:
                     version = ntlmChallenge['Version']
 
                     if len(version) >= 4:
@@ -838,7 +838,7 @@ class SMB3:
 
         #print self._Session['TreeConnectTable']
         share = share.split('\\')[-1]
-        if self._Session['TreeConnectTable'].has_key(share):
+        if share in self._Session['TreeConnectTable']:
             # Already connected, no need to reconnect
             treeEntry =  self._Session['TreeConnectTable'][share]
             treeEntry['NumberOfUses'] += 1
@@ -890,10 +890,10 @@ class SMB3:
            return packet['TreeID'] 
 
     def disconnectTree(self, treeId):
-        if self._Session['TreeConnectTable'].has_key(treeId) is False:
+        if treeId in self._Session['TreeConnectTable'] is False:
             raise SessionError(STATUS_INVALID_PARAMETER)
 
-        if self._Session['TreeConnectTable'].has_key(treeId):
+        if treeId in self._Session['TreeConnectTable']:
             # More than 1 use? descrease it and return, if not, send the packet
             if self._Session['TreeConnectTable'][treeId]['NumberOfUses'] > 1:
                 treeEntry =  self._Session['TreeConnectTable'][treeId]
@@ -921,7 +921,7 @@ class SMB3:
             return True
 
     def create(self, treeId, fileName, desiredAccess, shareMode, creationOptions, creationDisposition, fileAttributes, impersonationLevel = SMB2_IL_IMPERSONATION, securityFlags = 0, oplockLevel = SMB2_OPLOCK_LEVEL_NONE, createContexts = None):
-        if self._Session['TreeConnectTable'].has_key(treeId) is False:
+        if treeId in self._Session['TreeConnectTable'] is False:
             raise SessionError(STATUS_INVALID_PARAMETER)
 
         fileName = string.replace(fileName, '/', '\\')
@@ -944,7 +944,7 @@ class SMB3:
            # Is this file NOT on the root directory?
            if len(fileName.split('\\')) > 2:
                parentDir = ntpath.dirname(pathName)
-           if self.GlobalFileTable.has_key(parentDir):
+           if parentDir in self.GlobalFileTable:
                LOG.critical("Don't know what to do now! :-o")
                raise
            else:
@@ -1016,9 +1016,9 @@ class SMB3:
             return str(createResponse['FileID'])
 
     def close(self, treeId, fileId):
-        if self._Session['TreeConnectTable'].has_key(treeId) is False:
+        if treeId in self._Session['TreeConnectTable'] is False:
             raise SessionError(STATUS_INVALID_PARAMETER)
-        if self._Session['OpenTable'].has_key(fileId) is False:
+        if fileId in self._Session['OpenTable'] is False:
             raise SessionError(STATUS_INVALID_PARAMETER)
 
         packet = self.SMB_PACKET()
@@ -1047,9 +1047,9 @@ class SMB3:
         # This function should NOT be used for reading files directly, but another higher
         # level function should be used that will break the read into smaller pieces
 
-        if self._Session['TreeConnectTable'].has_key(treeId) is False:
+        if treeId in self._Session['TreeConnectTable'] is False:
             raise SessionError(STATUS_INVALID_PARAMETER)
-        if self._Session['OpenTable'].has_key(fileId) is False:
+        if fileId in self._Session['OpenTable'] is False:
             raise SessionError(STATUS_INVALID_PARAMETER)
 
         packet = self.SMB_PACKET()
@@ -1089,9 +1089,9 @@ class SMB3:
         # This function should NOT be used for writing directly to files, but another higher
         # level function should be used that will break the writes into smaller pieces
 
-        if self._Session['TreeConnectTable'].has_key(treeId) is False:
+        if treeId in self._Session['TreeConnectTable'] is False:
             raise SessionError(STATUS_INVALID_PARAMETER)
-        if self._Session['OpenTable'].has_key(fileId) is False:
+        if fileId in self._Session['OpenTable'] is False:
             raise SessionError(STATUS_INVALID_PARAMETER)
 
         packet = self.SMB_PACKET()
@@ -1130,9 +1130,9 @@ class SMB3:
             return bytesWritten
 
     def queryDirectory(self, treeId, fileId, searchString = '*', resumeIndex = 0, informationClass = FILENAMES_INFORMATION, maxBufferSize = None, enumRestart = False, singleEntry = False):
-        if self._Session['TreeConnectTable'].has_key(treeId) is False:
+        if treeId in self._Session['TreeConnectTable'] is False:
             raise SessionError(STATUS_INVALID_PARAMETER)
-        if self._Session['OpenTable'].has_key(fileId) is False:
+        if fileId in self._Session['OpenTable'] is False:
             raise SessionError(STATUS_INVALID_PARAMETER)
 
         packet = self.SMB_PACKET()
@@ -1183,12 +1183,12 @@ class SMB3:
         self.sendSMB(packet)
 
     def ioctl(self, treeId, fileId = None, ctlCode = -1, flags = 0, inputBlob = '',  maxInputResponse = None, maxOutputResponse = None, waitAnswer = 1):
-        if self._Session['TreeConnectTable'].has_key(treeId) is False:
+        if treeId in self._Session['TreeConnectTable'] is False:
             raise SessionError(STATUS_INVALID_PARAMETER)
         if fileId is None:
             fileId = '\xff'*16
         else:
-            if self._Session['OpenTable'].has_key(fileId) is False:
+            if fileId in self._Session['OpenTable'] is False:
                 raise SessionError(STATUS_INVALID_PARAMETER)
 
         packet = self.SMB_PACKET()
@@ -1224,9 +1224,9 @@ class SMB3:
             return smbIoctlResponse['Buffer']
 
     def flush(self,treeId, fileId):
-        if self._Session['TreeConnectTable'].has_key(treeId) is False:
+        if treeId in self._Session['TreeConnectTable'] is False:
             raise SessionError(STATUS_INVALID_PARAMETER)
-        if self._Session['OpenTable'].has_key(fileId) is False:
+        if fileId in self._Session['OpenTable'] is False:
             raise SessionError(STATUS_INVALID_PARAMETER)
 
         packet = self.SMB_PACKET()
@@ -1245,9 +1245,9 @@ class SMB3:
             return True
 
     def lock(self, treeId, fileId, locks, lockSequence = 0):
-        if self._Session['TreeConnectTable'].has_key(treeId) is False:
+        if treeId in self._Session['TreeConnectTable'] is False:
             raise SessionError(STATUS_INVALID_PARAMETER)
-        if self._Session['OpenTable'].has_key(fileId) is False:
+        if fileId in self._Session['OpenTable'] is False:
             raise SessionError(STATUS_INVALID_PARAMETER)
 
         packet = self.SMB_PACKET()
@@ -1307,9 +1307,9 @@ class SMB3:
             return True
 
     def queryInfo(self, treeId, fileId, inputBlob = '', infoType = SMB2_0_INFO_FILE, fileInfoClass = SMB2_FILE_STANDARD_INFO, additionalInformation = 0, flags = 0 ):
-        if self._Session['TreeConnectTable'].has_key(treeId) is False:
+        if treeId in self._Session['TreeConnectTable'] is False:
             raise SessionError(STATUS_INVALID_PARAMETER)
-        if self._Session['OpenTable'].has_key(fileId) is False:
+        if fileId in self._Session['OpenTable'] is False:
             raise SessionError(STATUS_INVALID_PARAMETER)
 
         packet = self.SMB_PACKET()
@@ -1339,9 +1339,9 @@ class SMB3:
             return queryResponse['Buffer']
 
     def setInfo(self, treeId, fileId, inputBlob = '', infoType = SMB2_0_INFO_FILE, fileInfoClass = SMB2_FILE_STANDARD_INFO, additionalInformation = 0 ):
-        if self._Session['TreeConnectTable'].has_key(treeId) is False:
+        if treeId in self._Session['TreeConnectTable'] is False:
             raise SessionError(STATUS_INVALID_PARAMETER)
-        if self._Session['OpenTable'].has_key(fileId) is False:
+        if fileId in self._Session['OpenTable'] is False:
             raise SessionError(STATUS_INVALID_PARAMETER)
 
         packet = self.SMB_PACKET()
@@ -1444,7 +1444,7 @@ class SMB3:
                         files.append(smb.SharedFile(fileInfo['CreationTime'],fileInfo['LastAccessTime'],fileInfo['LastChangeTime'],fileInfo['EndOfFile'],fileInfo['AllocationSize'],fileInfo['ExtFileAttributes'],fileInfo['FileName'].decode('utf-16le'), fileInfo['FileName'].decode('utf-16le')))
                         nextOffset = fileInfo['NextEntryOffset']
                         res = res[nextOffset:]
-                except SessionError, e:
+                except SessionError as e:
                     if (e.get_error_code()) != STATUS_NO_MORE_FILES:
                         raise
                     break 
@@ -1578,7 +1578,7 @@ class SMB3:
 
     def waitNamedPipe(self, treeId, pipename, timeout = 5):
         pipename = ntpath.basename(pipename)
-        if self._Session['TreeConnectTable'].has_key(treeId) is False:
+        if treeId in self._Session['TreeConnectTable'] is False:
             raise SessionError(STATUS_INVALID_PARAMETER)
         if len(pipename) > 0xffff:
             raise SessionError(STATUS_INVALID_PARAMETER)
