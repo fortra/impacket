@@ -13,6 +13,7 @@ import unittest
 import ConfigParser
 
 from impacket.ldap import ldap, ldapasn1
+import impacket.ldap.ldaptypes
 from impacket.ldap.ldaptypes import SR_SECURITY_DESCRIPTOR
 
 class LDAPTests(unittest.TestCase):
@@ -27,6 +28,11 @@ class LDAPTests(unittest.TestCase):
             print item.prettyPrint()
 
     def test_security_descriptor(self):
+        # Comment by @dirkjanm:
+        # To prevent false negatives in the test case, impacket.ldap.ldaptypes.RECALC_ACL_SIZE should be set to False
+        # in tests, since sometimes Windows has redundant null bytes after an ACE.Stripping those away makes the
+        # ACLs not match at a binary level.
+        impacket.ldap.ldaptypes.RECALC_ACL_SIZE = False
         ldapConnection=self.connect()
         searchFilter = '(objectCategory=computer)'
 
