@@ -21,7 +21,7 @@ from impacket.examples.ntlmrelayx.utils.tcpshell import TcpShell
 from impacket import smb3, smb
 from impacket.examples import serviceinstall
 from impacket.smbconnection import SMBConnection
-from smbclient import MiniImpacketShell
+from impacket.examples.smbclient import MiniImpacketShell
 
 PROTOCOL_ATTACK_CLASS = "SMBAttack"
 

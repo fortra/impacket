@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-# Copyright (c) 2003-2016 CORE Security Technologies
+# Copyright (c) 2003-2018 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -10,20 +9,17 @@
 # Author:
 #  Alberto Solino (@agsolino)
 #
-# 
+#
 # Reference for:
-#  SMB DCE/RPC 
+#  SMB DCE/RPC
 #
 
 import sys
 import time
-import logging
-import argparse
 import cmd
 import os
 
-from impacket.examples import logger
-from impacket import version
+from impacket import LOG
 from impacket.dcerpc.v5 import samr, transport, srvs
 from impacket.dcerpc.v5.dtypes import NULL
 from impacket.smbconnection import *
@@ -35,9 +31,9 @@ try:
 except ImportError:
   import readline
 
-class MiniImpacketShell(cmd.Cmd):    
+class MiniImpacketShell(cmd.Cmd):
     def __init__(self, smbClient,tcpShell=None):
-        #If the tcpShell parameter is passed (used in ntlmrelayx), 
+        #If the tcpShell parameter is passed (used in ntlmrelayx),
         # all input and output is redirected to a tcp socket
         # instead of to stdin / stdout
         if tcpShell is not None:
@@ -76,7 +72,7 @@ class MiniImpacketShell(cmd.Cmd):
         except Exception, e:
            #import traceback
            #print traceback.print_exc()
-           logging.error(e)
+           LOG.error(e)
 
         return retVal
 
@@ -118,13 +114,13 @@ class MiniImpacketShell(cmd.Cmd):
 
     def do_password(self, line):
         if self.loggedIn is False:
-            logging.error("Not logged in")
+            LOG.error("Not logged in")
             return
         from getpass import getpass
         newPassword = getpass("New Password:")
         rpctransport = transport.SMBTransport(self.smb.getRemoteHost(), filename = r'\samr', smb_connection = self.smb)
         dce = rpctransport.get_dce_rpc()
-        dce.connect()                     
+        dce.connect()
         dce.bind(samr.MSRPC_UUID_SAMR)
         samr.hSamrUnicodeChangePasswordUser2(dce, '\x00', self.username, self.password, newPassword, self.lmhash, self.nthash)
         self.password = newPassword
@@ -139,7 +135,7 @@ class MiniImpacketShell(cmd.Cmd):
         if len(l) > 1:
            port = int(l[1])
 
-        
+
         if port == 139:
             self.smb = SMBConnection('*SMBSERVER', host, sess_port=port)
         else:
@@ -147,13 +143,13 @@ class MiniImpacketShell(cmd.Cmd):
 
         dialect = self.smb.getDialect()
         if dialect == SMB_DIALECT:
-            logging.info("SMBv1 dialect used")
+            LOG.info("SMBv1 dialect used")
         elif dialect == SMB2_DIALECT_002:
-            logging.info("SMBv2.0 dialect used")
+            LOG.info("SMBv2.0 dialect used")
         elif dialect == SMB2_DIALECT_21:
-            logging.info("SMBv2.1 dialect used")
+            LOG.info("SMBv2.1 dialect used")
         else:
-            logging.info("SMBv3.0 dialect used")
+            LOG.info("SMBv3.0 dialect used")
 
         self.share = None
         self.tid = None
@@ -166,7 +162,7 @@ class MiniImpacketShell(cmd.Cmd):
 
     def do_login(self,line):
         if self.smb is None:
-            logging.error("No connection open")
+            LOG.error("No connection open")
             return
         l = line.split(' ')
         username = ''
@@ -189,14 +185,14 @@ class MiniImpacketShell(cmd.Cmd):
         self.username = username
 
         if self.smb.isGuestSession() > 0:
-            logging.info("GUEST Session Granted")
+            LOG.info("GUEST Session Granted")
         else:
-            logging.info("USER Session Granted")
+            LOG.info("USER Session Granted")
         self.loggedIn = True
 
     def do_kerberos_login(self,line):
         if self.smb is None:
-            logging.error("No connection open")
+            LOG.error("No connection open")
             return
         l = line.split(' ')
         username = ''
@@ -210,8 +206,8 @@ class MiniImpacketShell(cmd.Cmd):
         if username.find('/') > 0:
            domain, username = username.split('/')
 
-        if domain == '': 
-            logging.error("Domain must be specified for Kerberos login")
+        if domain == '':
+            LOG.error("Domain must be specified for Kerberos login")
             return
 
         if password == '' and username != '':
@@ -223,14 +219,14 @@ class MiniImpacketShell(cmd.Cmd):
         self.username = username
 
         if self.smb.isGuestSession() > 0:
-            logging.info("GUEST Session Granted")
+            LOG.info("GUEST Session Granted")
         else:
-            logging.info("USER Session Granted")
+            LOG.info("USER Session Granted")
         self.loggedIn = True
 
-    def do_login_hash(self,line): 
+    def do_login_hash(self,line):
         if self.smb is None:
-            logging.error("No connection open")
+            LOG.error("No connection open")
             return
         l = line.split(' ')
         domain = ''
@@ -239,12 +235,12 @@ class MiniImpacketShell(cmd.Cmd):
         if len(l) > 1:
            hashes = l[1]
         else:
-           logging.error("Hashes needed. Format is lmhash:nthash")
+           LOG.error("Hashes needed. Format is lmhash:nthash")
            return
 
         if username.find('/') > 0:
            domain, username = username.split('/')
-       
+
         lmhash, nthash = hashes.split(':')
 
         self.smb.login(username, '', domain,lmhash=lmhash, nthash=nthash)
@@ -253,14 +249,14 @@ class MiniImpacketShell(cmd.Cmd):
         self.nthash = nthash
 
         if self.smb.isGuestSession() > 0:
-            logging.info("GUEST Session Granted")
+            LOG.info("GUEST Session Granted")
         else:
-            logging.info("USER Session Granted")
+            LOG.info("USER Session Granted")
         self.loggedIn = True
 
     def do_logoff(self, line):
         if self.smb is None:
-            logging.error("No connection open")
+            LOG.error("No connection open")
             return
         self.smb.logoff()
         del self.smb
@@ -276,11 +272,11 @@ class MiniImpacketShell(cmd.Cmd):
 
     def do_info(self, line):
         if self.loggedIn is False:
-            logging.error("Not logged in")
+            LOG.error("Not logged in")
             return
         rpctransport = transport.SMBTransport(self.smb.getRemoteHost(), filename = r'\srvsvc', smb_connection = self.smb)
         dce = rpctransport.get_dce_rpc()
-        dce.connect()                     
+        dce.connect()
         dce.bind(srvs.MSRPC_UUID_SRVS)
         resp = srvs.hNetrServerGetInfo(dce, 102)
 
@@ -290,14 +286,14 @@ class MiniImpacketShell(cmd.Cmd):
         print "Server Comment: %s" % resp['InfoStruct']['ServerInfo102']['sv102_comment']
         print "Server UserPath: %s" % resp['InfoStruct']['ServerInfo102']['sv102_userpath']
         print "Simultaneous Users: %d" % resp['InfoStruct']['ServerInfo102']['sv102_users']
-         
+
     def do_who(self, line):
         if self.loggedIn is False:
-            logging.error("Not logged in")
+            LOG.error("Not logged in")
             return
         rpctransport = transport.SMBTransport(self.smb.getRemoteHost(), filename = r'\srvsvc', smb_connection = self.smb)
         dce = rpctransport.get_dce_rpc()
-        dce.connect()                     
+        dce.connect()
         dce.bind(srvs.MSRPC_UUID_SRVS)
         resp = srvs.hNetrSessionEnum(dce, NULL, NULL, 10)
 
@@ -308,15 +304,15 @@ class MiniImpacketShell(cmd.Cmd):
 
     def do_shares(self, line):
         if self.loggedIn is False:
-            logging.error("Not logged in")
+            LOG.error("Not logged in")
             return
         resp = self.smb.listShares()
-        for i in range(len(resp)):                        
+        for i in range(len(resp)):
             print resp[i]['shi1_netname'][:-1]
 
     def do_use(self,line):
         if self.loggedIn is False:
-            logging.error("Not logged in")
+            LOG.error("Not logged in")
             return
         self.share = line
         self.tid = self.smb.connectTree(line)
@@ -328,7 +324,7 @@ class MiniImpacketShell(cmd.Cmd):
 
     def do_cd(self, line):
         if self.tid is None:
-            logging.error("No share selected")
+            LOG.error("No share selected")
             return
         p = string.replace(line,'/','\\')
         oldpwd = self.pwd
@@ -357,16 +353,16 @@ class MiniImpacketShell(cmd.Cmd):
 
     def do_pwd(self,line):
         if self.loggedIn is False:
-            logging.error("Not logged in")
+            LOG.error("Not logged in")
             return
         print self.pwd
 
     def do_ls(self, wildcard, display = True):
         if self.loggedIn is False:
-            logging.error("Not logged in")
+            LOG.error("Not logged in")
             return
         if self.tid is None:
-            logging.error("No share selected")
+            LOG.error("No share selected")
             return
         if wildcard == '':
            pwd = ntpath.join(self.pwd,'*')
@@ -385,15 +381,15 @@ class MiniImpacketShell(cmd.Cmd):
 
     def do_rm(self, filename):
         if self.tid is None:
-            logging.error("No share selected")
+            LOG.error("No share selected")
             return
         f = ntpath.join(self.pwd, filename)
         file = string.replace(f,'/','\\')
         self.smb.deleteFile(self.share, file)
- 
+
     def do_mkdir(self, path):
         if self.tid is None:
-            logging.error("No share selected")
+            LOG.error("No share selected")
             return
         p = ntpath.join(self.pwd, path)
         pathname = string.replace(p,'/','\\')
@@ -401,7 +397,7 @@ class MiniImpacketShell(cmd.Cmd):
 
     def do_rmdir(self, path):
         if self.tid is None:
-            logging.error("No share selected")
+            LOG.error("No share selected")
             return
         p = ntpath.join(self.pwd, path)
         pathname = string.replace(p,'/','\\')
@@ -409,7 +405,7 @@ class MiniImpacketShell(cmd.Cmd):
 
     def do_put(self, pathname):
         if self.tid is None:
-            logging.error("No share selected")
+            LOG.error("No share selected")
             return
         src_path = pathname
         dst_name = os.path.basename(src_path)
@@ -424,7 +420,7 @@ class MiniImpacketShell(cmd.Cmd):
         # include means
         # 1 just files
         # 2 just directories
-        p = string.replace(line,'/','\\') 
+        p = string.replace(line,'/','\\')
         if p.find('\\') < 0:
             items = []
             if include == 1:
@@ -444,7 +440,7 @@ class MiniImpacketShell(cmd.Cmd):
 
     def do_get(self, filename):
         if self.tid is None:
-            logging.error("No share selected")
+            LOG.error("No share selected")
             return
         filename = string.replace(filename,'/','\\')
         fh = open(ntpath.basename(filename),'wb')
@@ -460,101 +456,4 @@ class MiniImpacketShell(cmd.Cmd):
     def do_close(self, line):
         self.do_logoff(line)
 
-def main():
-    # Init the example's logger theme
-    logger.init()
-    print version.BANNER
-    parser = argparse.ArgumentParser(add_help = True, description = "SMB client implementation.")
-
-    parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
-    parser.add_argument('-file', type=argparse.FileType('r'), help='input file with commands to execute in the mini shell')
-    parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
-
-    group = parser.add_argument_group('authentication')
-
-    group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
-    group.add_argument('-no-pass', action="store_true", help='don\'t ask for password (useful for -k)')
-    group.add_argument('-k', action="store_true", help='Use Kerberos authentication. Grabs credentials from ccache file '
-                                                       '(KRB5CCNAME) based on target parameters. If valid credentials '
-                                                       'cannot be found, it will use the ones specified in the command '
-                                                       'line')
-    group.add_argument('-aesKey', action="store", metavar = "hex key", help='AES key to use for Kerberos Authentication '
-                                                                            '(128 or 256 bits)')
-
-    group = parser.add_argument_group('connection')
-
-    group.add_argument('-dc-ip', action='store', metavar="ip address",
-                       help='IP Address of the domain controller. If omitted it will use the domain part (FQDN) specified in '
-                            'the target parameter')
-    group.add_argument('-target-ip', action='store', metavar="ip address",
-                       help='IP Address of the target machine. If omitted it will use whatever was specified as target. '
-                            'This is useful when target is the NetBIOS name and you cannot resolve it')
-    group.add_argument('-port', choices=['139', '445'], nargs='?', default='445', metavar="destination port",
-                       help='Destination port to connect to SMB Server')
-
-    if len(sys.argv)==1:
-        parser.print_help()
-        sys.exit(1)
-
-    options = parser.parse_args()
-
-    if options.debug is True:
-        logging.getLogger().setLevel(logging.DEBUG)
-    else:
-        logging.getLogger().setLevel(logging.INFO)
-
-    import re
-    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
-        options.target).groups('')
-
-    #In case the password contains '@'
-    if '@' in address:
-        password = password + '@' + address.rpartition('@')[0]
-        address = address.rpartition('@')[2]
-
-    if options.target_ip is None:
-        options.target_ip = address
-
-    if domain is None:
-        domain = ''
-    
-    if password == '' and username != '' and options.hashes is None and options.no_pass is False and options.aesKey is None:
-        from getpass import getpass
-        password = getpass("Password:")
-
-    if options.aesKey is not None:
-        options.k = True
-
-    if options.hashes is not None:
-        lmhash, nthash = options.hashes.split(':')
-    else:
-        lmhash = ''
-        nthash = ''
- 
-    try: 
-        smbClient = SMBConnection(address, options.target_ip, sess_port=int(options.port))
-        if options.k is True:
-            smbClient.kerberosLogin(username, password, domain, lmhash, nthash, options.aesKey, options.dc_ip )
-        else:
-            smbClient.login(username, password, domain, lmhash, nthash)
-
-        shell = MiniImpacketShell(smbClient)
-
-        if options.file is not None:
-            logging.info("Executing commands from %s" % options.file.name)
-            for line in options.file.readlines():
-                if line[0] != '#':
-                    print "# %s" % line,
-                    shell.onecmd(line)
-                else:
-                    print line,
-        else:
-            shell.cmdloop()
-    except Exception, e:
-        #import traceback
-        #print traceback.print_exc()
-        logging.error(str(e))
-
-if __name__ == "__main__":
-    main()
 
