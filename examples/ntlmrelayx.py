@@ -233,7 +233,6 @@ if __name__ == '__main__':
                         'target system. If not specified, hashes will be dumped (secretsdump.py must be in the same '
                                                           'directory).')
     smboptions.add_argument('--enum-local-admins', action='store_true', required=False, help='If relayed user is not admin, attempt SAMR lookup to see who is (only works pre Win 10 Anniversary)')
-    smboptions.add_argument('-af','--admin-file', action='store', help='Write enumerated local admins to file')
     smboptions.add_argument('--rid-cycle', action='store_true', required=False, help='Perform a RID bruteforce to enumerate domain users after the first succesful relay if the user is not a local admin. Default max RID=4000')
     smboptions.add_argument('--rid-max', action='store', required=False, default=4000, type=int, help='If --rid-cycle is specified, you can override the RID max here. Default: 4000')
 
@@ -334,11 +333,6 @@ if __name__ == '__main__':
 
     for s in threads:
         del s
-
-    if options.admin_file:
-        logging.info("Writing enumerated local admins to {}".format(options.admin_file))
-        with open(options.admin_file, 'w') as fp:
-            fp.write(json.dumps(localAdminMap))
 
     sys.exit(0)
 
