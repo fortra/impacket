@@ -80,7 +80,7 @@ class SMBRelayServer(Thread):
         # changed to dereference configuration interfaceIp
         self.server = SMBSERVER((config.interfaceIp,445), config_parser = smbConfig)
         logging.getLogger('impacket.smbserver').setLevel(logging.CRITICAL)
-      
+
         self.server.processConfigFile()
 
         self.origSmbComNegotiate = self.server.hookSmbCommand(smb.SMB.SMB_COM_NEGOTIATE, self.SmbComNegotiate)
@@ -684,6 +684,8 @@ class SMBRelayServer(Thread):
     def _start(self):
         self.server.daemon_threads=True
         self.server.serve_forever()
+        LOG.info('Shutting down SMB Server')
+        self.server.server_close()
 
     def run(self):
         LOG.info("Setting up SMB Server")

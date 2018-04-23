@@ -1,4 +1,6 @@
 pyasn1>=0.2.3
 pycrypto>=2.6.1
 pyOpenSSL>=0.13.1
-six
+ldap3==2.4.1
+ldapdomaindump
+flask

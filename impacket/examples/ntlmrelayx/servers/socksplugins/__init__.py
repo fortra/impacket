@@ -1,9 +1,10 @@
 import os
 import sys
+import pkg_resources
 
 SOCKS_RELAYS = set()
 
-for file in os.listdir(__path__[0]):
+for file in pkg_resources.resource_listdir('impacket.examples.ntlmrelayx.servers', 'socksplugins'):
     if file.find('__') >=0 or os.path.splitext(file)[1] == '.pyc':
         continue
 

@@ -330,7 +330,8 @@ class CCache:
             self.credentials = []
             while len(data) > 0:
                 cred = Credential(data)
-                self.credentials.append(cred)
+                if cred['server'].prettyPrint().find('krb5_ccache_conf_data') < 0:
+                    self.credentials.append(cred)
                 data = data[len(cred.getData()):]
 
     def getData(self):
@@ -344,7 +345,8 @@ class CCache:
 
     def getCredential(self, server, anySPN=True):
         for c in self.credentials:
-            if c['server'].prettyPrint().upper() == server.upper() or c['server'].prettyPrint().upper().split('@')[0] == server.upper():
+            if c['server'].prettyPrint().upper() == server.upper() or c['server'].prettyPrint().upper().split('@')[0] == server.upper() \
+                    or c['server'].prettyPrint().upper().split('@')[0] == server.upper().split('@')[0]:
                 LOG.debug('Returning cached credential for %s' % c['server'].prettyPrint().upper())
                 return c
         LOG.debug('SPN %s not found in cache' % server.upper())

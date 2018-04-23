@@ -10,7 +10,7 @@
 #   Alberto Solino (@agsolino)
 #   Dirk-jan Mollema / Fox-IT (https://www.fox-it.com)
 #
-# Description: 
+# Description:
 # MSSQL client for relaying NTLMSSP authentication to MSSQL servers
 #
 # ToDo:
@@ -70,6 +70,7 @@ class MYMSSQL(MSSQL):
             self.packetSize = 16*1024-1
             self.tlsSocket = tls
         self.resp = resp
+        return True
 
     def sendNegotiate(self,negotiateMessage):
         #Also partly copied from tds.py

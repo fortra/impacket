@@ -49,7 +49,7 @@ Requirements
    2. For Kerberos support you will need `pyasn1` package
    3. For cryptographic operations you will need `pycrypto` package
    4. For some examples you will need `pyOpenSSL` (rdp_check.py) and ldap3 (ntlmrelayx.py)
-   5. For ntlmrelayx.py you will also need `ldapdomaindump`
+   5. For ntlmrelayx.py you will also need `ldapdomaindump`, `flask` and `ldap3`
    6. If you're under Windows, you will need `pyReadline`
  * A recent release of Impacket.
 
@@ -62,9 +62,6 @@ This will install the classes into the default
 Python modules path; note that you might need special permissions to
 write there. For more information on what commands and options are
 available from setup.py, run `python setup.py --help-commands`.
-
-To install the dependencies for the examples, use either `pip install -r requirements_examples.txt` or
-use `pip install .[examples]` from the location you unpacked Impacket.
 
 
 Licensing
