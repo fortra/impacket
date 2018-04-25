@@ -137,7 +137,7 @@ def start_servers(options, threads):
         c.setAttacks(PROTOCOL_ATTACKS)
         c.setLootdir(options.lootdir)
         c.setOutputFile(options.output_file)
-        c.setLDAPOptions(options.no_dump, options.no_da)
+        c.setLDAPOptions(options.no_dump, options.no_da, options.no_acl, options.escalate_user)
         c.setMSSQLOptions(options.query)
         c.setInteractive(options.interactive)
         c.setIMAPOptions(options.keyword, options.mailbox, options.all, options.imap_max)
@@ -239,6 +239,8 @@ if __name__ == '__main__':
     ldapoptions = parser.add_argument_group("LDAP client options")
     ldapoptions.add_argument('--no-dump', action='store_false', required=False, help='Do not attempt to dump LDAP information')
     ldapoptions.add_argument('--no-da', action='store_false', required=False, help='Do not attempt to add a Domain Admin')
+    ldapoptions.add_argument('--no-acl', action='store_false', required=False, help='Disable ACL attacks')
+    ldapoptions.add_argument('--escalate-user', action='store', required=False, help='Escalate privileges of this user instead of creating a new one')
 
     #IMAP options
     imapoptions = parser.add_argument_group("IMAP client options")
