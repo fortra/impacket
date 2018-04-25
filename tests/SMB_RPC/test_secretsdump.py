@@ -236,10 +236,43 @@ class Options(object):
     user_status=False
 
 class SecretsDumpTests(unittest.TestCase):
-    def test_VSS(self):
+    def test_VSS_History(self):
         options = Options()
         options.target_ip = self.machine
         options.use_vss = True
+        options.history = True
+        dumper = DumpSecrets(self.serverName, self.username, self.password, self.domain, options)
+        dumper.dump()
+
+    def test_VSS_WMI(self):
+        options = Options()
+        options.target_ip = self.machine
+        options.use_vss = True
+        options.exec_method='wmiexec'
+        dumper = DumpSecrets(self.serverName, self.username, self.password, self.domain, options)
+        dumper.dump()
+
+    def test_VSS_MMC(self):
+        options = Options()
+        options.target_ip = self.machine
+        options.use_vss = True
+        options.exec_method='mmcexec'
+        dumper = DumpSecrets(self.serverName, self.username, self.password, self.domain, options)
+        dumper.dump()
+
+    def test_DRSUAPI(self):
+        options = Options()
+        options.target_ip = self.machine
+        options.use_vss = False
+        dumper = DumpSecrets(self.serverName, self.username, self.password, self.domain, options)
+        dumper.dump()
+
+    def test_DRSUAPI_DC_USER(self):
+        options = Options()
+        options.target_ip = self.machine
+        options.use_vss = False
+        options.just_dc = True
+        options.just_dc_user = '%s/%s' % (self.domain.split('.')[0], 'Administrator')
         dumper = DumpSecrets(self.serverName, self.username, self.password, self.domain, options)
         dumper.dump()
 
