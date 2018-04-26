@@ -70,7 +70,7 @@ from impacket.krb5.pac import KERB_SID_AND_ATTRIBUTES, PAC_SIGNATURE_DATA, PAC_I
     PAC_CLIENT_INFO_TYPE, PAC_SERVER_CHECKSUM, PAC_PRIVSVR_CHECKSUM, PACTYPE, PKERB_SID_AND_ATTRIBUTES_ARRAY, \
     VALIDATION_INFO, PAC_CLIENT_INFO, KERB_VALIDATION_INFO
 from impacket.krb5.types import KerberosTime, Principal
-from impacket.krb5.kerberosv5 import getKerberosTGT
+from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS
 
 
 class TICKETER:
@@ -218,7 +218,11 @@ class TICKETER:
 
     def createBasicTicket(self):
         if self.__options.request is True:
-            logging.info('Requesting TGT to target domain to use as basis')
+            if self.__domain == self.__server:
+                logging.info('Requesting TGT to target domain to use as basis')
+            else:
+                logging.info('Requesting TGT/TGS to target domain to use as basis')
+
             if self.__options.hashes is not None:
                 lmhash, nthash = self.__options.hashes.split(':')
             else:
@@ -231,7 +235,10 @@ class TICKETER:
             if self.__domain == self.__server:
                 kdcRep = decoder.decode(tgt, asn1Spec=AS_REP())[0]
             else:
-                kdcRep = decoder.decode(tgt, asn1Spec=TGS_REP())[0]
+                serverName = Principal(self.__options.spn, type=PrincipalNameType.NT_SRV_INST.value)
+                tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, self.__domain, None, tgt, cipher,
+                                                                        sessionKey)
+                kdcRep = decoder.decode(tgs, asn1Spec=TGS_REP())[0]
 
             # Let's check we have all the necessary data based on the ciphers used. Boring checks
             ticketCipher = int(kdcRep['ticket']['enc-part']['etype'])
