@@ -525,7 +525,7 @@ class TICKETER:
 
         return encRepPart, encTicketPart, pacInfos
 
-    def signEncryptTicket(self, kdcRep, encASRepPart, encTicketPart, pacInfos):
+    def signEncryptTicket(self, kdcRep, encASorTGSRepPart, encTicketPart, pacInfos):
         logging.info('Signing/Encrypting final ticket')
 
         # We changed everything we needed to make us special. Now let's repack and calculate checksums
@@ -650,15 +650,24 @@ class TICKETER:
 
         # Lastly.. we have to encrypt the kdcRep['enc-part'] part
         # with a key we chose. It actually doesn't really matter since nobody uses it (could it be trash?)
-        encodedEncASRepPart = encoder.encode(encASRepPart)
+        encodedEncASRepPart = encoder.encode(encASorTGSRepPart)
 
-        # Key Usage 3
-        # AS-REP encrypted part (includes TGS session key or
-        # application session key), encrypted with the client key
-        # (Section 5.4.2)
-        sessionKey = Key(cipher.enctype, str(encASRepPart['key']['keyvalue']))
-        logging.info('\tEncASRepPart')
-        cipherText = cipher.encrypt(sessionKey, 3, str(encodedEncASRepPart), None)
+        if self.__domain == self.__server:
+            # Key Usage 3
+            # AS-REP encrypted part (includes TGS session key or
+            # application session key), encrypted with the client key
+            # (Section 5.4.2)
+            sessionKey = Key(cipher.enctype, str(encASorTGSRepPart['key']['keyvalue']))
+            logging.info('\tEncASRepPart')
+            cipherText = cipher.encrypt(sessionKey, 3, str(encodedEncASRepPart), None)
+        else:
+            # Key Usage 8
+            # TGS-REP encrypted part (includes application session
+            # key), encrypted with the TGS session key
+            # (Section 5.4.2)
+            sessionKey = Key(cipher.enctype, str(encASorTGSRepPart['key']['keyvalue']))
+            logging.info('\tEncTGSRepPart')
+            cipherText = cipher.encrypt(sessionKey, 8, str(encodedEncASRepPart), None)
 
         kdcRep['enc-part']['cipher'] = cipherText
         kdcRep['enc-part']['etype'] = cipher.enctype
@@ -685,8 +694,8 @@ class TICKETER:
     def run(self):
         ticket, adIfRelevant = self.createBasicTicket()
         if ticket is not None:
-            encASRepPart, encTicketPart, pacInfos = self.customizeTicket(ticket, adIfRelevant)
-            ticket, cipher, sessionKey = self.signEncryptTicket(ticket, encASRepPart, encTicketPart, pacInfos)
+            encASorTGSRepPart, encTicketPart, pacInfos = self.customizeTicket(ticket, adIfRelevant)
+            ticket, cipher, sessionKey = self.signEncryptTicket(ticket, encASorTGSRepPart, encTicketPart, pacInfos)
             self.saveTicket(ticket, sessionKey)
 
 if __name__ == '__main__':
@@ -774,6 +783,7 @@ if __name__ == '__main__':
         executer = TICKETER(options.target, password, options.domain, options)
         executer.run()
     except Exception, e:
-        #import traceback
-        #print traceback.print_exc()
+        if logging.getLogger().level == logging.DEBUG:
+            import traceback
+            print traceback.print_exc()
         print str(e)
