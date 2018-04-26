@@ -21,11 +21,11 @@
 #         ./getST.py -hashes lm:nt -spn cifs/contoso-dc contoso.com/user
 # or
 # If you have tickets cached (run klist to verify) the script will use them
-#         ./getST.py -k -impersonate Administrator -spn cifs/contoso-dc contoso.com/user
+#         ./getST.py -k -spn cifs/contoso-dc contoso.com/user
 # Be sure tho, that the cached TGT has the forwardable flag set (klist -f). getTGT.py will ask forwardable tickets
 # by default.
 #
-# Also, if the account if configured with unconstrained delegation (with protocol transition) you can request
+# Also, if the account is configured with unconstrained delegation (and with protocol transition) you can request
 # service tickets for other users, assuming the target SPN is allowed for delegation:
 #         ./getST.py -k -impersonate Administrator -spn cifs/contoso-dc contoso.com/user
 #
