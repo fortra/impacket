@@ -40,25 +40,7 @@ from impacket.krb5.types import Principal
 from impacket.ldap import ldap, ldapasn1
 from impacket.smbconnection import SMBConnection
 
-
 class GetADUsers:
-    @staticmethod
-    def printTable(items, header):
-        colLen = []
-        for i, col in enumerate(header):
-            rowMaxLen = max([len(row[i]) for row in items])
-            colLen.append(max(rowMaxLen, len(col)))
-
-        outputFormat = ' '.join(['{%d:%ds} ' % (num, width) for num, width in enumerate(colLen)])
-
-        # Print header
-        print outputFormat.format(*header)
-        print '  '.join(['-' * itemLen for itemLen in colLen])
-
-        # And now the rows
-        for row in items:
-            print outputFormat.format(*row)
-
     def __init__(self, username, password, domain, cmdLineOptions):
         self.options = cmdLineOptions
         self.__username = username
@@ -83,6 +65,14 @@ class GetADUsers:
         # Remove last ','
         self.baseDN = self.baseDN[:-1]
 
+        # Let's calculate the header and format
+        self.__header = ["Name", "Email", "PasswordLastSet", "LastLogon"]
+        # Since we won't process all rows at once, this will be fixed lengths
+        self.__colLen = [20, 30, 19, 19]
+        self.__outputFormat = ' '.join(['{%d:%ds} ' % (num, width) for num, width in enumerate(self.__colLen)])
+
+
+
     def getMachineName(self):
         if self.__kdcHost is not None:
             s = SMBConnection(self.__kdcHost, self.__kdcHost)
@@ -102,6 +92,37 @@ class GetADUsers:
         t -= 116444736000000000
         t /= 10000000
         return t
+
+    def processRecord(self, item):
+        if isinstance(item, ldapasn1.SearchResultEntry) is not True:
+            return
+        sAMAccountName = ''
+        pwdLastSet = ''
+        mail = ''
+        lastLogon = 'N/A'
+        try:
+            for attribute in item['attributes']:
+                if attribute['type'] == 'sAMAccountName':
+                    if str(attribute['vals'][0]).endswith('$') is False:
+                        # User Account
+                        sAMAccountName = str(attribute['vals'][0])
+                elif attribute['type'] == 'pwdLastSet':
+                    if str(attribute['vals'][0]) == '0':
+                        pwdLastSet = '<never>'
+                    else:
+                        pwdLastSet = str(datetime.fromtimestamp(self.getUnixTime(int(str(attribute['vals'][0])))))
+                elif attribute['type'] == 'lastLogon':
+                    if str(attribute['vals'][0]) == '0':
+                        lastLogon = '<never>'
+                    else:
+                        lastLogon = str(datetime.fromtimestamp(self.getUnixTime(int(str(attribute['vals'][0])))))
+                elif attribute['type'] == 'mail':
+                    mail = str(attribute['vals'][0])
+
+            print self.__outputFormat.format(*[sAMAccountName, mail, pwdLastSet, lastLogon])
+        except Exception, e:
+            logging.error('Skipping item, cannot process due to error %s' % str(e))
+            pass
 
     def run(self):
         if self.__doKerberos:
@@ -132,6 +153,11 @@ class GetADUsers:
             else:
                 raise
 
+        logging.info('Querying %s for information about domain.' % self.__target)
+        # Print header
+        print self.__outputFormat.format(*self.__header)
+        print '  '.join(['-' * itemLen for itemLen in self.__colLen])
+
         # Building the search filter
         if self.__allusers:
             searchFilter = "(&(sAMAccountName=*)(objectCategory=user)"
@@ -144,62 +170,14 @@ class GetADUsers:
             searchFilter += ')'
 
         try:
-            logging.info('Querying %s for information about domain. Be patient...' % self.__target)
             sc = ldap.SimplePagedResultsControl()
             resp = ldapConnection.search(searchFilter=searchFilter,
                                          attributes=['sAMAccountName', 'pwdLastSet', 'mail', 'lastLogon'],
-                                         sizeLimit=0, searchControls = [sc])
+                                         sizeLimit=0, searchControls = [sc], perRecordCallback=self.processRecord)
         except ldap.LDAPSearchError, e:
-            if e.getErrorString().find('sizeLimitExceeded') >= 0:
-                logging.debug('sizeLimitExceeded exception caught, giving up and processing the data received')
-                # We reached the sizeLimit, process the answers we have already and that's it. Until we implement
-                # paged queries
-                resp = e.getAnswers()
-                pass
-            else:
                 raise
 
-        answers = []
-        logging.debug('Total of records returned %d' % len(resp))
-
-        for item in resp:
-            if isinstance(item, ldapasn1.SearchResultEntry) is not True:
-                continue
-            sAMAccountName =  ''
-            pwdLastSet = ''
-            mail = ''
-            lastLogon = 'N/A'
-            try:
-                for attribute in item['attributes']:
-                    if attribute['type'] == 'sAMAccountName':
-                        if str(attribute['vals'][0]).endswith('$') is False:
-                            # User Account
-                            sAMAccountName = str(attribute['vals'][0])
-                    elif attribute['type'] == 'pwdLastSet':
-                        if str(attribute['vals'][0]) == '0':
-                            pwdLastSet = '<never>'
-                        else:
-                            pwdLastSet = str(datetime.fromtimestamp(self.getUnixTime(int(str(attribute['vals'][0])))))
-                    elif attribute['type'] == 'lastLogon':
-                        if str(attribute['vals'][0]) == '0':
-                            lastLogon = '<never>'
-                        else:
-                            lastLogon = str(datetime.fromtimestamp(self.getUnixTime(int(str(attribute['vals'][0])))))
-                    elif attribute['type'] == 'mail':
-                        mail = str(attribute['vals'][0])
-
-                answers.append([sAMAccountName, mail, pwdLastSet, lastLogon])
-            except Exception, e:
-                logging.error('Skipping item, cannot process due to error %s' % str(e))
-                pass
-
-        if len(answers)>0:
-            self.printTable(answers, header=[ "Name", "Email", "PasswordLastSet", "LastLogon"])
-            print '\n\n'
-
-        else:
-            print "No entries found!"
-
+        ldapConnection.close()
 
 # Process command-line arguments.
 if __name__ == '__main__':
