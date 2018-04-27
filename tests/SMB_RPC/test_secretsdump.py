@@ -6,6 +6,11 @@ import unittest
 from impacket.examples.secretsdump import LocalOperations, RemoteOperations, SAMHashes, LSASecrets, NTDSHashes
 from impacket.smbconnection import SMBConnection
 
+def _print_helper(*args, **kwargs):
+    try:
+        print args[-1]
+    except UnicodeError:
+        pass
 
 class DumpSecrets:
     def __init__(self, remoteName, username='', password='', domain='', options=None):
@@ -110,7 +115,7 @@ class DumpSecrets:
                     else:
                         SAMFileName         = self.__samHive
 
-                    self.__SAMHashes    = SAMHashes(SAMFileName, bootKey, isRemote = self.__isRemote)
+                    self.__SAMHashes    = SAMHashes(SAMFileName, bootKey, isRemote = self.__isRemote, perSecretCallback=_print_helper)
                     self.__SAMHashes.dump()
                     if self.__outputFileName is not None:
                         self.__SAMHashes.export(self.__outputFileName)
@@ -124,7 +129,7 @@ class DumpSecrets:
                         SECURITYFileName = self.__securityHive
 
                     self.__LSASecrets = LSASecrets(SECURITYFileName, bootKey, self.__remoteOps,
-                                                   isRemote=self.__isRemote, history=self.__history)
+                                                   isRemote=self.__isRemote, history=self.__history, perSecretCallback=_print_helper)
                     self.__LSASecrets.dumpCachedHashes()
                     if self.__outputFileName is not None:
                         self.__LSASecrets.exportCached(self.__outputFileName)
@@ -151,7 +156,7 @@ class DumpSecrets:
                                            useVSSMethod=self.__useVSSMethod, justNTLM=self.__justDCNTLM,
                                            pwdLastSet=self.__pwdLastSet, resumeSession=self.__resumeFileName,
                                            outputFileName=self.__outputFileName, justUser=self.__justUser,
-                                           printUserStatus= self.__printUserStatus)
+                                           printUserStatus= self.__printUserStatus, perSecretCallback=_print_helper)
             try:
                 self.__NTDSHashes.dump()
             except Exception, e:
@@ -252,6 +257,15 @@ class SecretsDumpTests(unittest.TestCase):
         dumper = DumpSecrets(self.serverName, self.username, self.password, self.domain, options)
         dumper.dump()
 
+    def test_DRSUAPI_DC_USER(self):
+        options = Options()
+        options.target_ip = self.machine
+        options.use_vss = False
+        options.just_dc = True
+        options.just_dc_user = '%s/%s' % (self.domain.split('.')[0], 'Administrator')
+        dumper = DumpSecrets(self.serverName, self.username, self.password, self.domain, options)
+        dumper.dump()
+
     def test_VSS_MMC(self):
         options = Options()
         options.target_ip = self.machine
@@ -267,14 +281,7 @@ class SecretsDumpTests(unittest.TestCase):
         dumper = DumpSecrets(self.serverName, self.username, self.password, self.domain, options)
         dumper.dump()
 
-    def test_DRSUAPI_DC_USER(self):
-        options = Options()
-        options.target_ip = self.machine
-        options.use_vss = False
-        options.just_dc = True
-        options.just_dc_user = '%s/%s' % (self.domain.split('.')[0], 'Administrator')
-        dumper = DumpSecrets(self.serverName, self.username, self.password, self.domain, options)
-        dumper.dump()
+
 
 class Tests(SecretsDumpTests):
     def setUp(self):

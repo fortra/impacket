@@ -604,7 +604,9 @@ class RemoteOperations:
                 account = account[2:]
             return account
         except Exception, e:
-            LOG.error(e)
+            # Don't log if history service is not found, that should be normal
+            if serviceName.endswith("_history") is False:
+                LOG.error(e)
             return None
 
     def __checkServiceStatus(self):
