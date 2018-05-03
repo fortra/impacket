@@ -119,8 +119,8 @@ class GetADUsers:
                 elif attribute['type'] == 'mail':
                     mail = str(attribute['vals'][0])
 
-            print self.__outputFormat.format(*[sAMAccountName, mail, pwdLastSet, lastLogon])
-        except Exception, e:
+            print(self.__outputFormat.format(*[sAMAccountName, mail, pwdLastSet, lastLogon]))
+        except Exception as e:
             logging.error('Skipping item, cannot process due to error %s' % str(e))
             pass
 
@@ -141,7 +141,7 @@ class GetADUsers:
             else:
                 ldapConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
                                              self.__aesKey, kdcHost=self.__kdcHost)
-        except ldap.LDAPSessionError, e:
+        except ldap.LDAPSessionError as e:
             if str(e).find('strongerAuthRequired') >= 0:
                 # We need to try SSL
                 ldapConnection = ldap.LDAPConnection('ldaps://%s' % self.__target, self.baseDN, self.__kdcHost)
@@ -155,8 +155,8 @@ class GetADUsers:
 
         logging.info('Querying %s for information about domain.' % self.__target)
         # Print header
-        print self.__outputFormat.format(*self.__header)
-        print '  '.join(['-' * itemLen for itemLen in self.__colLen])
+        print(self.__outputFormat.format(*self.__header))
+        print('  '.join(['-' * itemLen for itemLen in self.__colLen]))
 
         # Building the search filter
         if self.__allusers:
@@ -170,11 +170,11 @@ class GetADUsers:
             searchFilter += ')'
 
         try:
-            sc = ldap.SimplePagedResultsControl()
+            sc = ldap.SimplePagedResultsControl(size=100)
             resp = ldapConnection.search(searchFilter=searchFilter,
                                          attributes=['sAMAccountName', 'pwdLastSet', 'mail', 'lastLogon'],
                                          sizeLimit=0, searchControls = [sc], perRecordCallback=self.processRecord)
-        except ldap.LDAPSearchError, e:
+        except ldap.LDAPSearchError as e:
                 raise
 
         ldapConnection.close()
@@ -183,7 +183,7 @@ class GetADUsers:
 if __name__ == '__main__':
     # Init the example's logger theme
     logger.init()
-    print version.BANNER
+    print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help = True, description = "Queries target domain for users data")
 
@@ -242,7 +242,8 @@ if __name__ == '__main__':
     try:
         executer = GetADUsers(username, password, domain, options)
         executer.run()
-    except Exception, e:
-        #import traceback
-        #print traceback.print_exc()
-        print str(e)
+    except Exception as e:
+        if logging.getLogger().level == logging.DEBUG:
+            import traceback
+            print(traceback.print_exc())
+        print (str(e))
