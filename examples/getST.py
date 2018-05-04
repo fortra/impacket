@@ -25,7 +25,7 @@
 # Be sure tho, that the cached TGT has the forwardable flag set (klist -f). getTGT.py will ask forwardable tickets
 # by default.
 #
-# Also, if the account is configured with unconstrained delegation (and with protocol transition) you can request
+# Also, if the account is configured with unconstrained delegation (with protocol transition) you can request
 # service tickets for other users, assuming the target SPN is allowed for delegation:
 #         ./getST.py -k -impersonate Administrator -spn cifs/contoso-dc contoso.com/user
 #
@@ -436,5 +436,5 @@ if __name__ == '__main__':
     except Exception, e:
         if logging.getLogger().level == logging.DEBUG:
             import traceback
-            print traceback.print_exc()
+            traceback.print_exc()
         print str(e)

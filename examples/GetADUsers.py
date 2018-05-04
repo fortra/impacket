@@ -245,5 +245,5 @@ if __name__ == '__main__':
     except Exception as e:
         if logging.getLogger().level == logging.DEBUG:
             import traceback
-            print(traceback.print_exc())
+            traceback.print_exc()
         print (str(e))

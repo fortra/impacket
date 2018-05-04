@@ -2237,7 +2237,7 @@ class NTDSHashes:
                         except Exception, e:
                             if logging.getLogger().level == logging.DEBUG:
                                 import traceback
-                                print traceback.print_exc()
+                                traceback.print_exc()
                             try:
                                 LOG.error(
                                     "Error while processing row for user %s" % record[self.NAME_TO_INTERNAL['name']])
@@ -2266,7 +2266,7 @@ class NTDSHashes:
                         except Exception, e:
                             if logging.getLogger().level == logging.DEBUG:
                                 import traceback
-                                print traceback.print_exc()
+                                traceback.print_exc()
                             try:
                                 LOG.error(
                                     "Error while processing row for user %s" % record[self.NAME_TO_INTERNAL['name']])
@@ -2385,7 +2385,7 @@ class NTDSHashes:
                             except Exception, e:
                                 if logging.getLogger().level == logging.DEBUG:
                                     import traceback
-                                    print traceback.print_exc()
+                                    traceback.print_exc()
                                 LOG.error("Error while processing user!")
                                 LOG.error(str(e))
 

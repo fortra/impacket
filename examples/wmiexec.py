@@ -407,7 +407,7 @@ if __name__ == '__main__':
         executer.run(address)
     except KeyboardInterrupt, e:
         #import traceback
-        #print traceback.print_exc()
+        #traceback.print_exc()
         logging.error(str(e))
     except Exception, e:
         logging.error(str(e))

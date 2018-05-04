@@ -114,7 +114,7 @@ def main():
             shell.cmdloop()
     except Exception as e:
         #import traceback
-        #print traceback.print_exc()
+        #traceback.print_exc()
         logging.error(str(e))
 
 if __name__ == "__main__":

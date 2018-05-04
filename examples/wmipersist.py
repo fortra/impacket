@@ -231,6 +231,6 @@ if __name__ == '__main__':
         executer.run(address)
     except (Exception, KeyboardInterrupt), e:
         #import traceback
-        #print traceback.print_exc()
+        #traceback.print_exc()
         logging.error(e)
     sys.exit(0)

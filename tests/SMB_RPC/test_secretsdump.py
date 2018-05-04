@@ -139,7 +139,7 @@ class DumpSecrets:
                 except Exception, e:
                     if logging.getLogger().level == logging.DEBUG:
                         import traceback
-                        print traceback.print_exc()
+                        traceback.print_exc()
                     logging.error('LSA hashes extraction failed: %s' % str(e))
 
             # NTDS Extraction we can try regardless of RemoteOperations failing. It might still work
@@ -162,7 +162,7 @@ class DumpSecrets:
             except Exception, e:
                 if logging.getLogger().level == logging.DEBUG:
                     import traceback
-                    print traceback.print_exc()
+                    traceback.print_exc()
                 if str(e).find('ERROR_DS_DRA_BAD_DN') >= 0:
                     # We don't store the resume file if this error happened, since this error is related to lack
                     # of enough privileges to access DRSUAPI.
@@ -180,7 +180,7 @@ class DumpSecrets:
         except (Exception, KeyboardInterrupt), e:
             if logging.getLogger().level == logging.DEBUG:
                 import traceback
-                print traceback.print_exc()
+                traceback.print_exc()
             logging.error(e)
             if self.__NTDSHashes is not None:
                 if isinstance(e, KeyboardInterrupt):

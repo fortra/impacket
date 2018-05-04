@@ -106,6 +106,6 @@ if __name__ == '__main__':
         getArch.run()
     except (Exception, KeyboardInterrupt), e:
         #import traceback
-        #print traceback.print_exc()
+        #traceback.print_exc()
         logging.error(str(e))
     sys.exit(0)

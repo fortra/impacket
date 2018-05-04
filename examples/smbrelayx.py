@@ -318,7 +318,7 @@ class SMBClient(SMB):
             #resp.dump()
         except DCERPCException, e:
             #import traceback
-            #print traceback.print_exc()
+            #traceback.print_exc()
             logging.error(str(e))
             return e.get_error_code()
 
@@ -379,7 +379,7 @@ class SMBClient(SMB):
                 errorCode = self.netlogonSessionKey(serverChallenge, authenticateMessageBlob)    
             except:
                 #import traceback
-                #print traceback.print_exc()
+                #traceback.print_exc()
                 raise
 
         return smb, errorCode

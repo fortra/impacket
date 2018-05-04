@@ -181,7 +181,8 @@ class PSEXEC:
 
         except SystemExit:
             raise
-        except:
+        except Exception as e:
+            logging.debug(str(e))
             if unInstalled is False:
                 installService.uninstall()
                 if self.__copyFile is not None:
@@ -202,8 +203,7 @@ class PSEXEC:
                 pass
 
         if tries == 0:
-            logging.critical('Pipe not ready, aborting')
-            raise
+            raise Exception('Pipe not ready, aborting')
 
         fid = s.openFile(tid,pipe,accessMask, creationOption = 0x40, fileAttributes = 0x80)
 
@@ -1127,6 +1127,6 @@ if __name__ == '__main__':
         dumper.exploit()
     except Exception, e:
         #import traceback
-        #print traceback.print_exc()
+        #traceback.print_exc()
         logging.critical(str(e))
 

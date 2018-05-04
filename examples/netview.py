@@ -249,7 +249,7 @@ class USERENUM:
                     raise
                 except Exception, e:
                     #import traceback
-                    #print traceback.print_exc()
+                    #traceback.print_exc()
                     if str(e).find('timed out') >=0:
                         # Most probably this site went down. taking it out
                         # ToDo: add it back to the list of machines to check in
@@ -496,7 +496,7 @@ if __name__ == '__main__':
         executer.run()
     except Exception, e:
         #import traceback
-        #print traceback.print_exc()
+        #traceback.print_exc()
         logging.error(e)
         executer.stop()
     except KeyboardInterrupt:

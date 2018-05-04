@@ -60,7 +60,7 @@ if __name__ == '__main__':
                 iObject.RemRelease()
             except Exception, e:
                 #import traceback
-                #print traceback.print_exc()
+                #traceback.print_exc()
                 logging.error(str(e))
 
         def do_lcd(self, s):
@@ -92,7 +92,7 @@ if __name__ == '__main__':
                     print 
                 except Exception, e:
                     #import traceback
-                    #print traceback.print_exc()
+                    #traceback.print_exc()
                     if str(e).find('S_FALSE') < 0:
                         raise
                     else:

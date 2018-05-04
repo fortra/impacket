@@ -1548,7 +1548,7 @@ class DCERPCServer(Thread):
                         self.send(answer)
             except Exception:
                 #import traceback
-                #print traceback.print_exc()
+                #traceback.print_exc()
                 pass
             self._clientSock.close()
 

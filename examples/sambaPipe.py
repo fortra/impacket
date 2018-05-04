@@ -285,6 +285,6 @@ if __name__ == '__main__':
         pipeDream.run()
     except Exception, e:
         #import traceback
-        #print traceback.print_exc()
+        #traceback.print_exc()
         logging.error(str(e))
 

@@ -223,7 +223,8 @@ class PSEXEC:
 
         except SystemExit:
             raise
-        except:
+        except Exception as e:
+            logging.debug(str(e))
             if unInstalled is False:
                 installService.uninstall()
                 if self.__copyFile is not None:
@@ -244,8 +245,7 @@ class PSEXEC:
                 pass
 
         if tries == 0:
-            logging.critical('Pipe not ready, aborting')
-            raise
+            raise Exception('Pipe not ready, aborting')
 
         fid = s.openFile(tid,pipe,accessMask, creationOption = 0x40, fileAttributes = 0x80)
 
@@ -1284,5 +1284,5 @@ if __name__ == '__main__':
             logging.info('Try using Kerberos authentication (-k switch). That might help solving the STATUS_NO_LOGON_SERVERS issue')
     except Exception, e:
         #import traceback
-        #print traceback.print_exc()
+        #traceback.print_exc()
         logging.critical(str(e))
