@@ -245,8 +245,9 @@ def main():
         else:
             shell.cmdloop()
     except Exception, e:
-        #import traceback
-        #traceback.print_exc()
+        if logging.getLogger().level == logging.DEBUG:
+            import traceback
+            traceback.print_exc()
         logging.error(str(e))
 
 if __name__ == "__main__":

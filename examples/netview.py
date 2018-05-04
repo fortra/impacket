@@ -495,8 +495,9 @@ if __name__ == '__main__':
         executer = USERENUM(username, password, domain, options.hashes, options.aesKey, options.k, options)
         executer.run()
     except Exception, e:
-        #import traceback
-        #traceback.print_exc()
+        if logging.getLogger().level == logging.DEBUG:
+            import traceback
+            traceback.print_exc()
         logging.error(e)
         executer.stop()
     except KeyboardInterrupt:

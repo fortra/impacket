@@ -329,5 +329,8 @@ if __name__ == '__main__':
         dumper = S4U2SELF(options.targetUser, username, password, domain, options.hashes)
         dumper.dump(address)
     except Exception, e:
+        if logging.getLogger().level == logging.DEBUG:
+            import traceback
+            traceback.print_exc()
         logging.error(str(e))
 

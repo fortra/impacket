@@ -114,8 +114,9 @@ class PSEXEC:
         try:
             dce.connect()
         except Exception, e:
-            #import traceback
-            #traceback.print_exc()
+            if logging.getLogger().level == logging.DEBUG:
+                import traceback
+                traceback.print_exc()
             logging.critical(str(e))
             sys.exit(1)
 
@@ -200,8 +201,9 @@ class PSEXEC:
         except SystemExit:
             raise
         except Exception as e:
-            #import traceback
-            #traceback.print_exc()
+            if logging.getLogger().level == logging.DEBUG:
+                import traceback
+                traceback.print_exc()
             logging.debug(str(e))
             if unInstalled is False:
                 installService.uninstall()
@@ -243,8 +245,9 @@ class Pipes(Thread):
             self.fid = self.server.openFile(self.tid,self.pipe,self.permissions, creationOption = 0x40, fileAttributes = 0x80)
             self.server.setTimeout(1000000)
         except:
-            import traceback
-            traceback.print_exc()
+            if logging.getLogger().level == logging.DEBUG:
+                import traceback
+                traceback.print_exc()
             logging.error("Something wen't wrong connecting the pipes(%s), try again" % self.__class__)
 
 

@@ -284,7 +284,8 @@ if __name__ == '__main__':
         pipeDream = PIPEDREAM(smbClient, options)
         pipeDream.run()
     except Exception, e:
-        #import traceback
-        #traceback.print_exc()
+        if logging.getLogger().level == logging.DEBUG:
+            import traceback
+            traceback.print_exc()
         logging.error(str(e))
 

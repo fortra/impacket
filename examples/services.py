@@ -353,4 +353,7 @@ if __name__ == '__main__':
     try:
         services.run(remoteName, options.target_ip)
     except Exception, e:
+        if logging.getLogger().level == logging.DEBUG:
+            import traceback
+            traceback.print_exc()
         logging.error(str(e))
