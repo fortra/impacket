@@ -230,7 +230,7 @@ class TICKETER:
                 nthash = ''
             userName = Principal(self.__options.user, type=PrincipalNameType.NT_PRINCIPAL.value)
             tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain,
-                                                                    lmhash, nthash, None,
+                                                                    unhexlify(lmhash), unhexlify(nthash), None,
                                                                     self.__options.dc_ip)
             if self.__domain == self.__server:
                 kdcRep = decoder.decode(tgt, asn1Spec=AS_REP())[0]
