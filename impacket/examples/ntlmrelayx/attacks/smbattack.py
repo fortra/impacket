@@ -22,6 +22,7 @@ from impacket import smb3, smb
 from impacket.examples import serviceinstall
 from impacket.smbconnection import SMBConnection
 from impacket.examples.smbclient import MiniImpacketShell
+from impacket.dcerpc.v5.rpcrt import DCERPCException
 
 PROTOCOL_ATTACK_CLASS = "SMBAttack"
 
