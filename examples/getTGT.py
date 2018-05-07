@@ -111,6 +111,7 @@ if __name__ == '__main__':
         executer = GETTGT(username, password, domain, options)
         executer.run()
     except Exception, e:
-        #import traceback
-        #print traceback.print_exc()
+        if logging.getLogger().level == logging.DEBUG:
+            import traceback
+            traceback.print_exc()
         print str(e)

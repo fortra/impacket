@@ -66,8 +66,9 @@ class LSALookupSid:
         try:
             self.__bruteForce(rpctransport, self.__maxRid)
         except Exception, e:
-            #import traceback
-            #print traceback.print_exc()
+            if logging.getLogger().level == logging.DEBUG:
+                import traceback
+                traceback.print_exc()
             logging.critical(str(e))
             raise
 

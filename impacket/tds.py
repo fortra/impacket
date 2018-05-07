@@ -1349,11 +1349,9 @@ class MSSQL:
                 else:
                     value = 'NULL'
             elif _type == TDS_SSVARIANTTYPE:
-                LOG.critical("ParseRow: SQL Variant type not yet supported :(")
-                raise
+                raise Exception("ParseRow: SQL Variant type not yet supported :(")
             else:
-                LOG.critical("ParseROW: Unsupported data type: 0%x" % _type)
-                raise
+                raise Exception("ParseROW: Unsupported data type: 0%x" % _type)
 
             if tuplemode:
                 row.append(value)
@@ -1433,8 +1431,7 @@ class MSSQL:
                 typeData = struct.unpack('<L',data[:4])[0]
                 data = data[4:]
             else:
-                LOG.critical("Unsupported data type: 0x%x" % colType)
-                raise
+                raise Exception("Unsupported data type: 0x%x" % colType)
 
             # Collation exceptions:
             if (colType == TDS_NTEXTTYPE) |\

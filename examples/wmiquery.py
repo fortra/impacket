@@ -59,8 +59,9 @@ if __name__ == '__main__':
                 iObject.printInformation()
                 iObject.RemRelease()
             except Exception, e:
-                #import traceback
-                #print traceback.print_exc()
+                if logging.getLogger().level == logging.DEBUG:
+                    import traceback
+                    traceback.print_exc()
                 logging.error(str(e))
 
         def do_lcd(self, s):
@@ -91,8 +92,9 @@ if __name__ == '__main__':
                             print '%s |' % record[key]['value'],
                     print 
                 except Exception, e:
-                    #import traceback
-                    #print traceback.print_exc()
+                    if logging.getLogger().level == logging.DEBUG:
+                        import traceback
+                        traceback.print_exc()
                     if str(e).find('S_FALSE') < 0:
                         raise
                     else:

@@ -120,8 +120,9 @@ class doAttack(Thread):
                 remoteOps  = RemoteOperations(self.__SMBConnection, False)
                 remoteOps.enableRegistry()
             except Exception, e:
-                #import traceback
-                #traceback.print_exc()
+                if logging.getLogger().level == logging.DEBUG:
+                    import traceback
+                    traceback.print_exc()
                 # Something wen't wrong, most probably we don't have access as admin. aborting
                 logging.error(str(e))
                 ATTACKED_HOSTS.remove(self.__SMBConnection.getRemoteHost())
@@ -152,8 +153,9 @@ class doAttack(Thread):
                     samHashes.dump()
                     logging.info("Done dumping SAM hashes for host: %s", self.__SMBConnection.getRemoteHost())
             except Exception, e:
-                #import traceback
-                #traceback.print_exc()
+                if logging.getLogger().level == logging.DEBUG:
+                    import traceback
+                    traceback.print_exc()
                 ATTACKED_HOSTS.remove(self.__SMBConnection.getRemoteHost())
                 logging.error(str(e))
             finally:
@@ -317,8 +319,9 @@ class SMBClient(SMB):
             resp = dce.request(request)
             #resp.dump()
         except DCERPCException, e:
-            #import traceback
-            #print traceback.print_exc()
+            if logging.getLogger().level == logging.DEBUG:
+                import traceback
+                traceback.print_exc()
             logging.error(str(e))
             return e.get_error_code()
 
@@ -378,8 +381,9 @@ class SMBClient(SMB):
             try:
                 errorCode = self.netlogonSessionKey(serverChallenge, authenticateMessageBlob)    
             except:
-                #import traceback
-                #print traceback.print_exc()
+                if logging.getLogger().level == logging.DEBUG:
+                    import traceback
+                    traceback.print_exc()
                 raise
 
         return smb, errorCode

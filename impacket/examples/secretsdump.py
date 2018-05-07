@@ -604,7 +604,9 @@ class RemoteOperations:
                 account = account[2:]
             return account
         except Exception, e:
-            LOG.error(e)
+            # Don't log if history service is not found, that should be normal
+            if serviceName.endswith("_history") is False:
+                LOG.error(e)
             return None
 
     def __checkServiceStatus(self):
@@ -2235,7 +2237,7 @@ class NTDSHashes:
                         except Exception, e:
                             if logging.getLogger().level == logging.DEBUG:
                                 import traceback
-                                print traceback.print_exc()
+                                traceback.print_exc()
                             try:
                                 LOG.error(
                                     "Error while processing row for user %s" % record[self.NAME_TO_INTERNAL['name']])
@@ -2264,7 +2266,7 @@ class NTDSHashes:
                         except Exception, e:
                             if logging.getLogger().level == logging.DEBUG:
                                 import traceback
-                                print traceback.print_exc()
+                                traceback.print_exc()
                             try:
                                 LOG.error(
                                     "Error while processing row for user %s" % record[self.NAME_TO_INTERNAL['name']])
@@ -2383,7 +2385,7 @@ class NTDSHashes:
                             except Exception, e:
                                 if logging.getLogger().level == logging.DEBUG:
                                     import traceback
-                                    print traceback.print_exc()
+                                    traceback.print_exc()
                                 LOG.error("Error while processing user!")
                                 LOG.error(str(e))
 

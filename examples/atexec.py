@@ -55,8 +55,9 @@ class TSCH_EXEC:
         try:
             self.doStuff(rpctransport)
         except Exception, e:
-            #import traceback
-            #traceback.print_exc()
+            if logging.getLogger().level == logging.DEBUG:
+                import traceback
+                traceback.print_exc()
             logging.error(e)
             if str(e).find('STATUS_OBJECT_NAME_NOT_FOUND') >=0:
                 logging.info('When STATUS_OBJECT_NAME_NOT_FOUND is received, try running again. It might work')

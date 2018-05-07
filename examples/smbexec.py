@@ -149,8 +149,9 @@ class CMDEXEC:
             if self.__mode == 'SERVER':
                 serverThread.stop()
         except  (Exception, KeyboardInterrupt), e:
-            #import traceback
-            #traceback.print_exc()
+            if logging.getLogger().level == logging.DEBUG:
+                import traceback
+                traceback.print_exc()
             logging.critical(str(e))
             if self.shell is not None:
                 self.shell.finish()
@@ -347,5 +348,8 @@ if __name__ == '__main__':
                            options.dc_ip, options.mode, options.share, int(options.port))
         executer.run(remoteName, options.target_ip)
     except Exception, e:
+        if logging.getLogger().level == logging.DEBUG:
+            import traceback
+            traceback.print_exc()
         logging.critical(str(e))
     sys.exit(0)

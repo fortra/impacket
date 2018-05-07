@@ -413,8 +413,7 @@ class ESENT_CATALOG_DATA_DEFINITION_ENTRY(Structure):
         elif dataType == CATALOG_TYPE_LONG_VALUE:
             self.structure += self.other + self.lv_stuff
         elif dataType == CATALOG_TYPE_CALLBACK:
-            LOG.error('CallBack types not supported!')
-            raise
+            raise Exception('CallBack types not supported!')
         else:
             LOG.error('Unknown catalog type 0x%x' % dataType)
             self.structure = ()
@@ -552,8 +551,7 @@ class ESENT_PAGE:
                     #indexEntry.dump()
                 elif self.record['PageFlags'] & FLAGS_LONG_VALUE > 0:
                     # Long Page Value
-                    LOG.error('Long value still not supported')
-                    raise
+                    raise Exception('Long value still not supported')
                 else:
                     # Table Value
                     leafEntry = ESENT_LEAF_ENTRY(flags, data)
@@ -565,8 +563,7 @@ class ESENT_PAGE:
 
     def getTag(self, tagNum):
         if self.record['FirstAvailablePageTag'] < tagNum:
-            LOG.error('Trying to grab an unknown tag 0x%x' % tagNum)
-            raise
+            raise Exception('Trying to grab an unknown tag 0x%x' % tagNum)
 
         tags = self.data[-4*self.record['FirstAvailablePageTag']:]
         baseOffset = len(self.record)
@@ -660,8 +657,7 @@ class ESENT_DB:
         elif catalogEntry['Type'] == CATALOG_TYPE_LONG_VALUE:
             self.__addLongValue(entry)
         else:
-            LOG.error('Unknown type 0x%x' % catalogEntry['Type'])
-            raise
+            raise Exception('Unknown type 0x%x' % catalogEntry['Type'])
 
     def __parseItemName(self,entry):
         dataDefinitionHeader = ESENT_DATA_DEFINITION_HEADER(entry['EntryData'])
@@ -780,11 +776,11 @@ class ESENT_DB:
         if page.record['PageFlags'] & FLAGS_LEAF > 0:
             # Leaf page
             if page.record['PageFlags'] & FLAGS_SPACE_TREE > 0:
-                raise
+                raise Exception('FLAGS_SPACE_TREE > 0')
             elif page.record['PageFlags'] & FLAGS_INDEX > 0:
-                raise
+                raise Exception('FLAGS_INDEX > 0')
             elif page.record['PageFlags'] & FLAGS_LONG_VALUE > 0:
-                raise
+                raise Exception('FLAGS_LONG_VALUE > 0')
             else:
                 # Table Value
                 leafEntry = ESENT_LEAF_ENTRY(flags, data)
@@ -810,9 +806,6 @@ class ESENT_DB:
                 return self.getNextRow(cursor)
         else:
             return self.__tagToRecord(cursor, tag['EntryData'])
-
-        # We never should get here
-        raise
 
     def __tagToRecord(self, cursor, tag):
         # So my brain doesn't forget, the data record is composed of:
@@ -953,8 +946,7 @@ class ESENT_DB:
                 # Let's handle strings
                 if record[column] is not None:
                     if columnRecord['CodePage'] not in StringCodePages:
-                        LOG.error('Unknown codepage 0x%x'% columnRecord['CodePage'])
-                        raise
+                        raise Exception('Unknown codepage 0x%x'% columnRecord['CodePage'])
                     stringDecoder = StringCodePages[columnRecord['CodePage']]
 
                     record[column] = record[column].decode(stringDecoder)

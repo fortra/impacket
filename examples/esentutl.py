@@ -97,11 +97,11 @@ def main():
         elif options.action.upper() == 'EXPORT':
             exportTable(ese, options.table)
         else:
-            logging.error('Unknown action %s ' % options.action)
-            raise
+            raise Exception('Unknown action %s ' % options.action)
     except Exception, e:
-        #import traceback
-        #print traceback.print_exc()
+        if logging.getLogger().level == logging.DEBUG:
+            import traceback
+            traceback.print_exc()
         print e
     ese.close()
 

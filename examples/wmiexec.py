@@ -93,8 +93,9 @@ class WMIEXEC:
             else:
                 self.shell.cmdloop()
         except  (Exception, KeyboardInterrupt), e:
-            #import traceback
-            #traceback.print_exc()
+            if logging.getLogger().level == logging.DEBUG:
+                import traceback
+                traceback.print_exc()
             logging.error(str(e))
             if smbConnection is not None:
                 smbConnection.logoff()
@@ -406,10 +407,11 @@ if __name__ == '__main__':
                            options.share, options.nooutput, options.k, options.dc_ip)
         executer.run(address)
     except KeyboardInterrupt, e:
-        #import traceback
-        #print traceback.print_exc()
         logging.error(str(e))
     except Exception, e:
+        if logging.getLogger().level == logging.DEBUG:
+            import traceback
+            traceback.print_exc()
         logging.error(str(e))
         sys.exit(1)
         
