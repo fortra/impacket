@@ -38,7 +38,7 @@ from binascii import hexlify, unhexlify
 
 from pyasn1.codec.der import decoder
 from impacket import version
-from impacket.dcerpc.v5.samr import UF_ACCOUNTDISABLE, UF_NORMAL_ACCOUNT
+from impacket.dcerpc.v5.samr import UF_ACCOUNTDISABLE
 from impacket.examples import logger
 from impacket.krb5 import constants
 from impacket.krb5.asn1 import TGS_REP
@@ -69,7 +69,6 @@ class GetUserSPNs:
             print outputFormat.format(*row)
 
     def __init__(self, username, password, domain, cmdLineOptions):
-        self.options = cmdLineOptions
         self.__username = username
         self.__password = password
         self.__domain = domain
@@ -78,8 +77,7 @@ class GetUserSPNs:
         self.__outputFileName = options.outputfile
         self.__aesKey = cmdLineOptions.aesKey
         self.__doKerberos = cmdLineOptions.k
-        self.__target = None
-        self.__requestTGS = options.request
+        self.__requestTGS = cmdLineOptions.request
         self.__kdcHost = cmdLineOptions.dc_ip
         self.__saveTGS = cmdLineOptions.save
         self.__requestUser = cmdLineOptions.request_user
@@ -235,16 +233,16 @@ class GetUserSPNs:
 
     def run(self):
         if self.__doKerberos:
-            self.__target = self.getMachineName()
+            target = self.getMachineName()
         else:
             if self.__kdcHost is not None:
-                self.__target = self.__kdcHost
+                target = self.__kdcHost
             else:
-                self.__target = self.__domain
+                target = self.__domain
 
         # Connect to LDAP
         try:
-            ldapConnection = ldap.LDAPConnection('ldap://%s'%self.__target, self.baseDN, self.__kdcHost)
+            ldapConnection = ldap.LDAPConnection('ldap://%s' % target, self.baseDN, self.__kdcHost)
             if self.__doKerberos is not True:
                 ldapConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
             else:
@@ -253,7 +251,7 @@ class GetUserSPNs:
         except ldap.LDAPSessionError, e:
             if str(e).find('strongerAuthRequired') >= 0:
                 # We need to try SSL
-                ldapConnection = ldap.LDAPConnection('ldaps://%s' % self.__target, self.baseDN, self.__kdcHost)
+                ldapConnection = ldap.LDAPConnection('ldaps://%s' % target, self.baseDN, self.__kdcHost)
                 if self.__doKerberos is not True:
                     ldapConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
                 else:
@@ -264,7 +262,7 @@ class GetUserSPNs:
 
         # Building the search filter
         searchFilter = "(&(servicePrincipalName=*)(UserAccountControl:1.2.840.113556.1.4.803:=512)" \
-                       "(!(UserAccountControl:1.2.840.113556.1.4.803:=2))"
+                       "(!(UserAccountControl:1.2.840.113556.1.4.803:=2))(!(objectCategory=computer))"
 
         if self.__requestUser is not None:
             searchFilter += '(sAMAccountName:=%s))' % self.__requestUser
@@ -302,10 +300,8 @@ class GetUserSPNs:
             try:
                 for attribute in item['attributes']:
                     if attribute['type'] == 'sAMAccountName':
-                        if str(attribute['vals'][0]).endswith('$') is False:
-                            # User Account
-                            sAMAccountName = str(attribute['vals'][0])
-                            mustCommit = True
+                        sAMAccountName = str(attribute['vals'][0])
+                        mustCommit = True
                     elif attribute['type'] == 'userAccountControl':
                         userAccountControl = str(attribute['vals'][0])
                     elif attribute['type'] == 'memberOf':
