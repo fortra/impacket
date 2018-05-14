@@ -180,6 +180,9 @@ class ACE(Structure):
             data += '\x00' * (self['AceSize'] - len(data))
         return data
 
+    def hasFlag(self, flag):
+        return self['AceFlags'] & flag == flag
+
 """
 ACCESS_MASK as described in 2.4.3
 https://msdn.microsoft.com/en-us/library/cc230294.aspx
@@ -275,6 +278,9 @@ class ACCESS_ALLOWED_OBJECT_ACE(Structure):
         if self['InheritedObjectType'] != '':
             self['Flags'] |= self.ACE_INHERITED_OBJECT_TYPE_PRESENT
         return Structure.getData(self)
+
+    def hasFlag(self, flag):
+        return self['Flags'] & flag == flag
 
 """
 ACCESS_DENIED_ACE as described in 2.4.4.4
@@ -470,3 +476,17 @@ class ACL(Structure):
         # Put the ACEs back in data
         self['Data'] = self.aces
         return data
+
+"""
+objectClass mapping to GUID for some common classes (index is the ldapDisplayName).
+Reference:
+    https://msdn.microsoft.com/en-us/library/ms680938(v=vs.85).aspx
+Can also be queried from the Schema
+"""
+OBJECTTYPE_GUID_MAP = {
+    'group': 'bf967a9c-0de6-11d0-a285-00aa003049e2',
+    'domain': '19195a5a-6da0-11d0-afd3-00c04fd930c9',
+    'organizationalUnit': 'bf967aa5-0de6-11d0-a285-00aa003049e2',
+    'user': 'bf967aba-0de6-11d0-a285-00aa003049e2',
+    'groupPolicyContainer': 'f30e3bc2-9ff0-11d1-b603-0000f80367c1'
+}

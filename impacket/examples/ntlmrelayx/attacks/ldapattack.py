@@ -24,7 +24,7 @@ from impacket import LOG
 from impacket.examples.ntlmrelayx.attacks import ProtocolAttack
 from impacket.ldap import ldaptypes
 from impacket.uuid import string_to_bin, bin_to_string
-from impacket.ldap.ldaptypes import ACCESS_ALLOWED_OBJECT_ACE, ACCESS_MASK, ACCESS_ALLOWED_ACE
+from impacket.ldap.ldaptypes import ACCESS_ALLOWED_OBJECT_ACE, ACCESS_MASK, ACCESS_ALLOWED_ACE, ACE, OBJECTTYPE_GUID_MAP
 from pyasn1.type.namedtype import NamedTypes, NamedType
 from pyasn1.type.univ import Sequence, Integer
 from ldap3.utils.conv import escape_filter_chars
@@ -237,6 +237,17 @@ class LDAPAttack(ProtocolAttack):
                 sid = ace['Ace']['Sid'].formatCanonical()
                 if ace['AceType'] != ACCESS_ALLOWED_OBJECT_ACE.ACE_TYPE and ace['AceType'] != ACCESS_ALLOWED_ACE.ACE_TYPE:
                     continue
+                if not ace.hasFlag(ACE.INHERITED_ACE) and ace.hasFlag(ACE.INHERIT_ONLY_ACE):
+                    # ACE is set on this object, but only inherited, so not applicable to us
+                    continue
+                # Check if the ACE has restrictions on object type
+                if ace['AceType'] == ACCESS_ALLOWED_OBJECT_ACE.ACE_TYPE \
+                    and ace.hasFlag(ACE.INHERITED_ACE) \
+                    and ace['Ace'].hasFlag(ACCESS_ALLOWED_OBJECT_ACE.ACE_INHERITED_OBJECT_TYPE_PRESENT):
+                    # Verify if the ACE applies to this object type
+                    if not self.aceApplies(ace, entry['raw_attributes']['objectClass']):
+                        continue
+
                 if sid in membersids:
                     if can_create_users(ace) or hasFullControl:
                         if not hasFullControl:
@@ -265,6 +276,20 @@ class LDAPAttack(ProtocolAttack):
                         if 'domain' in entry['raw_attributes']['objectClass']:
                             privs['aclEscalate'] = True
                             privs['aclEscalateIn'] = dn
+
+    @staticmethod
+    def aceApplies(ace, objectClasses):
+        '''
+        Checks if an ACE applies to this object (based on object classes).
+        Note that this function assumes you already verified that InheritedObjectType is set (via the flag).
+        If this is not set, the ACE applies to all object types.
+        '''
+        objectTypeGuid = bin_to_string(ace['Ace']['InheritedObjectType']).lower()
+        for objectType, guid in OBJECTTYPE_GUID_MAP.iteritems():
+            if objectType in objectClasses and objectTypeGuid:
+                return True
+        # If none of these match, the ACE does not apply to this object
+        return False
 
 
     def run(self):
