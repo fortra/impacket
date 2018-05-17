@@ -74,7 +74,7 @@ class GetUserSPNs:
         self.__domain = domain
         self.__lmhash = ''
         self.__nthash = ''
-        self.__outputFileName = options.outputfile
+        self.__outputFileName = cmdLineOptions.outputfile
         self.__aesKey = cmdLineOptions.aesKey
         self.__doKerberos = cmdLineOptions.k
         self.__requestTGS = cmdLineOptions.request
@@ -144,8 +144,8 @@ class GetUserSPNs:
         if self.__password != '' and (self.__lmhash == '' and self.__nthash == ''):
             try:
                 tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, '', self.__domain,
-                                                                compute_lmhash(password),
-                                                                compute_nthash(password), self.__aesKey,
+                                                                compute_lmhash(self.__password),
+                                                                compute_nthash(self.__password), self.__aesKey,
                                                                 kdcHost=self.__kdcHost)
             except Exception, e:
                 logging.debug('TGT: %s' % str(e))
