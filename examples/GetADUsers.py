@@ -53,7 +53,7 @@ class GetADUsers:
         self.__target = None
         self.__kdcHost = cmdLineOptions.dc_ip
         self.__requestUser = cmdLineOptions.user
-        self.__allusers = cmdLineOptions.all_users
+        self.__all = cmdLineOptions.all
         if cmdLineOptions.hashes is not None:
             self.__lmhash, self.__nthash = cmdLineOptions.hashes.split(':')
 
@@ -159,10 +159,10 @@ class GetADUsers:
         print('  '.join(['-' * itemLen for itemLen in self.__colLen]))
 
         # Building the search filter
-        if self.__allusers:
+        if self.__all:
             searchFilter = "(&(sAMAccountName=*)(objectCategory=user)"
         else:
-            searchFilter = "(&(sAMAccountName=*)(mail=*)"
+            searchFilter = "(&(sAMAccountName=*)(mail=*)(!(UserAccountControl:1.2.840.113556.1.4.803:=2))"
 
         if self.__requestUser is not None:
             searchFilter += '(sAMAccountName:=%s))' % self.__requestUser
@@ -170,6 +170,7 @@ class GetADUsers:
             searchFilter += ')'
 
         try:
+            logging.debug('Search Filter=%s' % searchFilter)
             sc = ldap.SimplePagedResultsControl(size=100)
             resp = ldapConnection.search(searchFilter=searchFilter,
                                          attributes=['sAMAccountName', 'pwdLastSet', 'mail', 'lastLogon'],
@@ -189,7 +190,9 @@ if __name__ == '__main__':
 
     parser.add_argument('target', action='store', help='domain/username[:password]')
     parser.add_argument('-user', action='store', metavar='username', help='Requests data for specific user ')
-    parser.add_argument('-all-users', action='store_true', help='Return all users, including those with no email addresses')
+    parser.add_argument('-all', action='store_true', help='Return all users, including those with no email '
+                                                           'addresses and disabled accounts. When used with -user it '
+                                                          'will return user\'s info even if the account is disabled')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
     group = parser.add_argument_group('authentication')
