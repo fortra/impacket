@@ -49,6 +49,9 @@ class NTLMRelayxConfig:
         self.exeFile = None
         self.command = None
         self.interactive = False
+        self.enumLocalAdmins = False
+        self.ridCycle = False
+        self.ridMax = 4000
 
         # LDAP options
         self.dumpdomain = True
@@ -91,6 +94,15 @@ class NTLMRelayxConfig:
 
     def setCommand(self, command):
         self.command = command
+
+    def setEnumLocalAdmins(self, enumLocalAdmins):
+        self.enumLocalAdmins = enumLocalAdmins
+
+    def setRidCycle(self, ridCycle):
+        self.ridCycle = ridCycle
+
+    def setRidMax(self, ridMax):
+        self.ridMax = ridMax
 
     def setEncoding(self, encoding):
         self.encoding = encoding
