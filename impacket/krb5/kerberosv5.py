@@ -21,7 +21,7 @@ import os
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.error import PyAsn1Error
 from pyasn1.type.univ import noValue
-from binascii import unhexlify
+from binascii import unhexlify, hexlify
 
 from impacket.krb5.asn1 import AS_REQ, AP_REQ, TGS_REQ, KERB_PA_PAC_REQUEST, KRB_ERROR, PA_ENC_TS_ENC, AS_REP, TGS_REP, \
     EncryptedData, Authenticator, EncASRepPart, EncTGSRepPart, seq_set, seq_set_iter, KERB_ERROR_DATA, METHOD_DATA, \
@@ -287,6 +287,11 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
     # So, we have the TGT, now extract the new session key and finish
     cipherText = asRep['enc-part']['cipher']
 
+    if preAuth is True:
+        # Let's output the TGT enc-part/cipher in John format, in case somebody wants to use it.
+        # Thanks @dmc for the idea.
+        LOG.debug('$krb5asrep$%s:%s$%s' % (clientName, hexlify(asRep['enc-part']['cipher'].asOctets()[:16]),
+                                           hexlify(asRep['enc-part']['cipher'].asOctets()[16:])) )
     # Key Usage 3
     # AS-REP encrypted part (includes TGS session key or
     # application session key), encrypted with the client key
