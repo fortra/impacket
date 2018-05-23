@@ -287,9 +287,8 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
     # So, we have the TGT, now extract the new session key and finish
     cipherText = asRep['enc-part']['cipher']
 
-    if preAuth is True:
+    if preAuth is False:
         # Let's output the TGT enc-part/cipher in John format, in case somebody wants to use it.
-        # Thanks @dmc for the idea.
         LOG.debug('$krb5asrep$%s:%s$%s' % (clientName, hexlify(asRep['enc-part']['cipher'].asOctets()[:16]),
                                            hexlify(asRep['enc-part']['cipher'].asOctets()[16:])) )
     # Key Usage 3
