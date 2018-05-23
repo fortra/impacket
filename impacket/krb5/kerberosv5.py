@@ -289,7 +289,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
 
     if preAuth is False:
         # Let's output the TGT enc-part/cipher in John format, in case somebody wants to use it.
-        LOG.debug('$krb5asrep$%s:%s$%s' % (clientName, hexlify(asRep['enc-part']['cipher'].asOctets()[:16]),
+        LOG.debug('$krb5asrep$%s@%s:%s$%s' % (clientName, domain, hexlify(asRep['enc-part']['cipher'].asOctets()[:16]),
                                            hexlify(asRep['enc-part']['cipher'].asOctets()[16:])) )
     # Key Usage 3
     # AS-REP encrypted part (includes TGS session key or
