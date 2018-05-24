@@ -23,22 +23,15 @@
 
 import argparse
 import logging
-import os
 import sys
 from datetime import datetime
-from binascii import hexlify, unhexlify
 
-from pyasn1.codec.der import decoder
 from impacket import version
-from impacket.dcerpc.v5.samr import UF_ACCOUNTDISABLE, UF_NORMAL_ACCOUNT
+from impacket.dcerpc.v5.samr import UF_ACCOUNTDISABLE
 from impacket.examples import logger
-from impacket.krb5 import constants
-from impacket.krb5.asn1 import TGS_REP
-from impacket.krb5.ccache import CCache
-from impacket.krb5.kerberosv5 import getKerberosTGT, getKerberosTGS
-from impacket.krb5.types import Principal
 from impacket.ldap import ldap, ldapasn1
 from impacket.smbconnection import SMBConnection
+
 
 class GetADUsers:
     def __init__(self, username, password, domain, cmdLineOptions):
@@ -162,7 +155,7 @@ class GetADUsers:
         if self.__all:
             searchFilter = "(&(sAMAccountName=*)(objectCategory=user)"
         else:
-            searchFilter = "(&(sAMAccountName=*)(mail=*)(!(UserAccountControl:1.2.840.113556.1.4.803:=2))"
+            searchFilter = "(&(sAMAccountName=*)(mail=*)(!(UserAccountControl:1.2.840.113556.1.4.803:=%d))" % UF_ACCOUNTDISABLE
 
         if self.__requestUser is not None:
             searchFilter += '(sAMAccountName:=%s))' % self.__requestUser
