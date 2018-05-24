@@ -341,7 +341,7 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
                 LOG.debug('SOCKS: Connecting to %s(%s)' %(self.targetHost, self.targetPort))
                 s.connect((self.targetHost, self.targetPort))
             except Exception, e:
-                if logging.getLogger().level == logging.DEBUG:
+                if LOG.level == logging.DEBUG:
                     import traceback
                     traceback.print_exc()
                 LOG.error('SOCKS: %s' %str(e))
@@ -367,7 +367,7 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
                     data = s.recv(8192)
                     self.__connSocket.sendall(data)
                 except Exception, e:
-                    if logging.getLogger().level == logging.DEBUG:
+                    if LOG.level == logging.DEBUG:
                         import traceback
                         traceback.print_exc()
                     LOG.error('SOCKS: ', str(e))
@@ -403,7 +403,7 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
 
                 relay.tunnelConnection()
             except Exception, e:
-                if logging.getLogger().level == logging.DEBUG:
+                if LOG.level == logging.DEBUG:
                     import traceback
                     traceback.print_exc()
                 LOG.debug('SOCKS: %s' % str(e))
