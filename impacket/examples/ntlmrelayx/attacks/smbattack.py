@@ -26,9 +26,6 @@ from impacket.dcerpc.v5.rpcrt import DCERPCException
 
 PROTOCOL_ATTACK_CLASS = "SMBAttack"
 
-#Define global localAdminMap
-localAdminMap = {}
-
 class SMBAttack(ProtocolAttack):
     """
     This is the SMB default attack class.
@@ -53,16 +50,6 @@ class SMBAttack(ProtocolAttack):
 
     def __answer(self, data):
         self.__answerTMP += data
-
-    def __updateAdminMap(self, adminNames):
-        global localAdminMap
-        hostname = self.__SMBConnection.getRemoteHost()
-        for name in adminNames:
-            if name in localAdminMap:
-                localAdminMap[name].append(hostname)
-            else:
-                localAdminMap[name] = [hostname]
-        return
 
     def run(self):
         # Here PUT YOUR CODE!
@@ -99,7 +86,6 @@ class SMBAttack(ProtocolAttack):
                         enumLocalAdmins = EnumLocalAdmins(self.__SMBConnection)
                         try:
                             localAdminSids, localAdminNames = enumLocalAdmins.getLocalAdmins()
-                            self.__updateAdminMap(localAdminNames)
                             LOG.info("Host {} has the following local admins (hint: try relaying one of them here...)".format(self.__SMBConnection.getRemoteHost()))
                             for name in localAdminNames:
                                 LOG.info("Host {} local admin member: {} ".format(self.__SMBConnection.getRemoteHost(), name))
