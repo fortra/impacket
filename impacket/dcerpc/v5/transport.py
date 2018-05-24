@@ -401,6 +401,7 @@ class SMBTransport(DCERPCTransport):
         # that's up for the caller
         if self.__existing_smb is False:
             self.__smb_connection.logoff()
+            self.__smb_connection.close()
             self.__smb_connection = 0
 
     def send(self,data, forceWriteAndx = 0, forceRecv = 0):
