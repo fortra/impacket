@@ -24,7 +24,7 @@
 #
 # ToDo:
 #  [X] Add the capability for requesting TGS and output them in JtR/hashcat format
-#  [ ] Improve the search filter, we have to specify we don't want machine accounts in the answer
+#  [X] Improve the search filter, we have to specify we don't want machine accounts in the answer
 #      (play with userAccountControl)
 #
 
@@ -438,4 +438,4 @@ if __name__ == '__main__':
         if logging.getLogger().level == logging.DEBUG:
             import traceback
             traceback.print_exc()
-        print str(e)
+        logging.error(str(e))
