@@ -74,8 +74,8 @@ If you want to run the library test cases you need to do mainly three things:
 2. Configure the [dcetest.cfg](https://github.com/CoreSecurity/impacket/blob/master/tests/SMB_RPC/dcetests.cfg) file with the necessary information
 3. Install tox (`pip install tox`)
 
-Once that's done, you can run tox and wait for the results. If all goes well, all test cases should pass.
-You will also have a coverage HTML report located at
+Once that's done, you can run `tox` and wait for the results. If all goes well, all test cases should pass.
+You will also have a coverage HTML report located at `impacket/tests/htlmcov/index.html`
 
 Licensing
 =========
