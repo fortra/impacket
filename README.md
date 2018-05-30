@@ -22,7 +22,7 @@ What protocols are featured?
  * NMB and SMB1, SMB2 and SMB3 (high-level implementations).
  * MSRPC version 5, over different transports: TCP, SMB/TCP, SMB/NetBIOS and HTTP.
  * Plain, NTLM and Kerberos authentications, using password/hashes/tickets/keys.
- * Portions/full implementation of the following MSRPC interfaces: EPM, DTYPES, LSAD, LSAT, NRPC, RRP, SAMR, SRVS, WKST, SCMR, DCOM, WMI.
+ * Portions/full implementation of the following MSRPC interfaces: EPM, DTYPES, LSAD, LSAT, NRPC, RRP, SAMR, SRVS, WKST, SCMR, BKRP, DHCPM, EVEN6, MGMT, SASEC, TSCH, DCOM, WMI.
  * Portions of TDS (MSSQL) and LDAP protocol implementations.
 
 
@@ -71,7 +71,7 @@ If you want to run the library test cases you need to do mainly three things:
 
 1. Install and configure a Windows 2012 R2 Domain Controller.
    * Be sure the RemoteRegistry service is enabled and running.
-2. Configure the [dcetest.cfg](https://github.com/CoreSecurity/impacket/blob/master/tests/SMB_RPC/dcetests.cfg) file with the necessary information
+2. Configure the [dcetest.cfg](https://github.com/CoreSecurity/impacket/blob/impacket_0_9_17/tests/SMB_RPC/dcetests.cfg) file with the necessary information
 3. Install tox (`pip install tox`)
 
 Once that's done, you can run `tox` and wait for the results. If all goes well, all test cases should pass.

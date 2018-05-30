@@ -15,8 +15,11 @@ if platform.system() != 'Darwin':
 else:
     data_files = []
 
+def read(fname):
+    return open(os.path.join(os.path.dirname(__file__), fname)).read()
+
 setup(name = PACKAGE_NAME,
-      version = "0.9.17-dev",
+      version = "0.9.17",
       description = "Network protocols Constructors and Dissectors",
       url = "https://www.coresecurity.com/corelabs-research/open-source-tools/impacket",
       author = "Core Security Technologies",
@@ -24,7 +27,7 @@ setup(name = PACKAGE_NAME,
       maintainer = "Alberto Solino",
       maintainer_email = "bethus@gmail.com",
       license = "Apache modified",
-      long_description = 'Impacket is a collection of Python classes focused on providing access to network packets. Impacket allows Python developers to craft and decode network packets in simple and consistent manner.',
+      long_description = read('README'),
       platforms = ["Unix","Windows"],
       packages=['impacket', 'impacket.dcerpc', 'impacket.examples', 'impacket.dcerpc.v5', 'impacket.dcerpc.v5.dcom',
                 'impacket.krb5', 'impacket.ldap', 'impacket.examples.ntlmrelayx',

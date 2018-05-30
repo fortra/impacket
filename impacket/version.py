@@ -6,7 +6,7 @@
 #
 
 VER_MAJOR = "0"
-VER_MINOR = "9.17-dev"
+VER_MINOR = "9.17"
 
 BANNER = "Impacket v%s.%s - Copyright 2002-2018 Core Security Technologies\n" % (VER_MAJOR,VER_MINOR)
 
