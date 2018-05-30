@@ -3,8 +3,8 @@ What is Impacket?
 
 Impacket is a collection of Python classes for working with network
 protocols. Impacket is focused on providing low-level
-programmatic access to the packets and for some protocols (for
-instance NMB, SMB1-3 and MS-DCERPC) the protocol implementation itself.
+programmatic access to the packets and for some protocols (e.g.
+SMB1-3 and MSRPC) the protocol implementation itself.
 Packets can be constructed from scratch, as well as parsed from 
 raw data, and the object oriented API makes it simple to work with 
 deep hierarchies of protocols. The library provides a set of tools
@@ -17,12 +17,13 @@ What protocols are featured?
 ----------------------------
 
  * Ethernet, Linux "Cooked" capture.
- * IP, TCP, UDP, ICMP, IGMP, ARP. (IPv4 and IPv6)
- * NMB and SMB1/2/3 (high-level implementations).
- * DCE/RPC versions 4 and 5, over different transports: UDP (version 4
-   exclusively), TCP, SMB/TCP, SMB/NetBIOS and HTTP.
- * Portions of the following DCE/RPC interfaces: Conv, DCOM (WMI, OAUTH),
-   EPM, SAMR, SCMR, RRP, SRVSC, LSAD, LSAT, WKST, NRPC.
+ * IP, TCP, UDP, ICMP, IGMP, ARP.
+ * IPv4 and IPv6 Support.
+ * NMB and SMB1, SMB2 and SMB3 (high-level implementations).
+ * MSRPC version 5, over different transports: TCP, SMB/TCP, SMB/NetBIOS and HTTP.
+ * Plain, NTLM and Kerberos authentications, using password/hashes/tickets/keys.
+ * Portions/full implementation of the following MSRPC interfaces: EPM, DTYPES, LSAD, LSAT, NRPC, RRP, SAMR, SRVS, WKST, SCMR, DCOM, WMI.
+ * Portions of TDS (MSSQL) and LDAP protocol implementations.
 
 
 Getting Impacket
