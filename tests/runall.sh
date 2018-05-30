@@ -57,6 +57,8 @@ then
 	mv .coverage .coveragetmp
 	coverage combine .coveragetmp ImpactPacket/.coverage dot11/.coverage SMB_RPC/.coverage
 	coverage html -i
+	coverage erase
+	rm -f ImpactPacket/.coverage dot11/.coverage SMB_RPC/.coverage
 fi
 
 if grep -q ERROR $OUTPUTFILE;

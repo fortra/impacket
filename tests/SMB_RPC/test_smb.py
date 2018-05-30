@@ -399,5 +399,5 @@ if __name__ == "__main__":
     suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMB1TestsUnicode))
     suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMB002Tests))
     suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMB21Tests))
-    #suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMB3Tests))
+    suite.addTests(unittest.TestLoader().loadTestsFromTestCase(SMB3Tests))
     unittest.TextTestRunner(verbosity=1).run(suite)

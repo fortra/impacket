@@ -634,7 +634,7 @@ class SCMRTests(unittest.TestCase):
             req['dwControl'] = scmr.SERVICE_CONTROL_STOP
             resp = dce.request(req)
         except Exception, e:
-            if str(e).find('ERROR_DEPENDENT_SERVICES_RUNNING') < 0:
+            if str(e).find('ERROR_DEPENDENT_SERVICES_RUNNING') < 0 and str(e).find('ERROR_SERVICE_NOT_ACTIVE') < 0:
                 raise
             pass
 

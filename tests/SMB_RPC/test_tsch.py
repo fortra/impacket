@@ -66,6 +66,7 @@ from impacket.dcerpc.v5 import tsch, atsvc, sasec
 from impacket.dcerpc.v5.atsvc import AT_INFO
 from impacket.dcerpc.v5.dtypes import NULL, LPWSTR
 from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_INTEGRITY, RPC_C_AUTHN_LEVEL_PKT_PRIVACY
+from impacket.system_errors import ERROR_NOT_SUPPORTED
 
 
 class TSCHTests(unittest.TestCase):
@@ -93,14 +94,28 @@ class TSCHTests(unittest.TestCase):
         request['ServerName'] = NULL
         request['pEnumContainer']['Buffer'] = NULL
         request['PreferedMaximumLength'] = 0xffffffff
-        resp = dce.request(request)
-        resp.dump()
+        try:
+            resp = dce.request(request)
+            resp.dump()
+        except Exception as e:
+            if e.get_error_code() != ERROR_NOT_SUPPORTED:
+                raise
+            else:
+                # OpNum not supported, aborting test
+                return
 
     def test_hNetrJobEnum(self):
         dce, rpctransport = self.connect(self.stringBindingAtSvc, atsvc.MSRPC_UUID_ATSVC)
 
-        resp = atsvc.hNetrJobEnum(dce, NULL, NULL, 0xffffffff)
-        resp.dump()
+        try:
+            resp = atsvc.hNetrJobEnum(dce, NULL, NULL, 0xffffffff)
+            resp.dump()
+        except Exception as e:
+            if e.get_error_code() != ERROR_NOT_SUPPORTED:
+                raise
+            else:
+                # OpNum not supported, aborting test
+                return
 
     def test_hNetrJobAdd_hNetrJobEnum_hNetrJobDel(self):
         dce, rpctransport = self.connect(self.stringBindingAtSvc, atsvc.MSRPC_UUID_ATSVC)
@@ -112,8 +127,15 @@ class TSCHTests(unittest.TestCase):
         atInfo['Flags'] = 0
         atInfo['Command'] = '%%COMSPEC%% /C dir > %%SYSTEMROOT%%\\Temp\\BTO\x00'
 
-        resp = atsvc.hNetrJobAdd(dce, NULL, atInfo)
-        resp.dump()
+        try:
+            resp = atsvc.hNetrJobAdd(dce, NULL, atInfo)
+            resp.dump()
+        except Exception as e:
+            if e.get_error_code() != ERROR_NOT_SUPPORTED:
+                raise
+            else:
+                # OpNum not supported, aborting test
+                return
 
         resp = atsvc.hNetrJobEnum(dce)
         resp.dump()
@@ -132,8 +154,15 @@ class TSCHTests(unittest.TestCase):
         request['pAtInfo']['DaysOfWeek'] = 0
         request['pAtInfo']['Flags'] = 0
         request['pAtInfo']['Command'] = '%%COMSPEC%% /C dir > %%SYSTEMROOT%%\\Temp\\BTO\x00'
-        resp = dce.request(request)
-        resp.dump()
+        try:
+            resp = dce.request(request)
+            resp.dump()
+        except Exception as e:
+            if e.get_error_code() != ERROR_NOT_SUPPORTED:
+                raise
+            else:
+                # OpNum not supported, aborting test
+                return
 
         request = atsvc.NetrJobEnum()
         request['ServerName'] = NULL
@@ -160,8 +189,15 @@ class TSCHTests(unittest.TestCase):
         request['pAtInfo']['DaysOfWeek'] = 0
         request['pAtInfo']['Flags'] = 0
         request['pAtInfo']['Command'] = '%%COMSPEC%% /C dir > %%SYSTEMROOT%%\\Temp\\BTO\x00'
-        resp = dce.request(request)
-        resp.dump()
+        try:
+            resp = dce.request(request)
+            resp.dump()
+        except Exception as e:
+            if e.get_error_code() != ERROR_NOT_SUPPORTED:
+                raise
+            else:
+                # OpNum not supported, aborting test
+                return
 
         request = atsvc.NetrJobGetInfo()
         request['ServerName'] = NULL
@@ -186,8 +222,15 @@ class TSCHTests(unittest.TestCase):
         atInfo['Flags'] = 0
         atInfo['Command'] = '%%COMSPEC%% /C dir > %%SYSTEMROOT%%\\Temp\\BTO\x00'
 
-        resp = atsvc.hNetrJobAdd(dce, NULL, atInfo)
-        resp.dump()
+        try:
+            resp = atsvc.hNetrJobAdd(dce, NULL, atInfo)
+            resp.dump()
+        except Exception as e:
+            if e.get_error_code() != ERROR_NOT_SUPPORTED:
+                raise
+            else:
+                # OpNum not supported, aborting test
+                return
 
         resp2 = atsvc.hNetrJobGetInfo(dce, NULL, resp['pJobId'])
         resp2.dump()
@@ -242,7 +285,7 @@ class TSCHTests(unittest.TestCase):
 
         request = sasec.SAGetNSAccountInformation()
         request['Handle'] = NULL
-        request['ccBufferSize'] = 15
+        request['ccBufferSize'] = 25
         for i in range(request['ccBufferSize'] ):
             request['wszBuffer'].append(0)
         resp = dce.request(request)
@@ -251,7 +294,7 @@ class TSCHTests(unittest.TestCase):
     def test_hSAGetNSAccountInformation(self):
         dce, rpctransport = self.connect(self.stringBindingAtSvc, sasec.MSRPC_UUID_SASEC)
 
-        resp = sasec.hSAGetNSAccountInformation(dce, NULL, 15)
+        resp = sasec.hSAGetNSAccountInformation(dce, NULL, 25)
         resp.dump()
 
     def test_SAGetAccountInformation(self):
@@ -332,8 +375,15 @@ class TSCHTests(unittest.TestCase):
         atInfo['Flags'] = 0
         atInfo['Command'] = '%%COMSPEC%% /C dir > %%SYSTEMROOT%%\\Temp\\BTO\x00'
 
-        resp = atsvc.hNetrJobAdd(dce2, NULL, atInfo)
-        resp.dump()
+        try:
+            resp = atsvc.hNetrJobAdd(dce2, NULL, atInfo)
+            resp.dump()
+        except Exception as e:
+            if e.get_error_code() != ERROR_NOT_SUPPORTED:
+                raise
+            else:
+                # OpNum not supported, aborting test
+                return
         jobId = resp['pJobId']
 
         request = tsch.SchRpcRetrieveTask()
@@ -412,8 +462,15 @@ class TSCHTests(unittest.TestCase):
         atInfo['Flags'] = 0
         atInfo['Command'] = '%%COMSPEC%% /C dir > %%SYSTEMROOT%%\\Temp\\BTO\x00'
 
-        resp = atsvc.hNetrJobAdd(dce2, NULL, atInfo)
-        resp.dump()
+        try:
+            resp = atsvc.hNetrJobAdd(dce2, NULL, atInfo)
+            resp.dump()
+        except Exception as e:
+            if e.get_error_code() != ERROR_NOT_SUPPORTED:
+                raise
+            else:
+                # OpNum not supported, aborting test
+                return
         jobId = resp['pJobId']
 
         request = tsch.SchRpcEnumTasks()
@@ -439,8 +496,15 @@ class TSCHTests(unittest.TestCase):
         atInfo['Flags'] = 0
         atInfo['Command'] = '%%COMSPEC%% /C dir > %%SYSTEMROOT%%\\Temp\\BTO\x00'
 
-        resp = atsvc.hNetrJobAdd(dce2, NULL, atInfo)
-        resp.dump()
+        try:
+            resp = atsvc.hNetrJobAdd(dce2, NULL, atInfo)
+            resp.dump()
+        except Exception as e:
+            if e.get_error_code() != ERROR_NOT_SUPPORTED:
+                raise
+            else:
+                # OpNum not supported, aborting test
+                return
         jobId = resp['pJobId']
 
         resp = tsch.hSchRpcEnumTasks(dce, '\\')
@@ -484,8 +548,15 @@ class TSCHTests(unittest.TestCase):
         atInfo['Flags'] = 0
         atInfo['Command'] = '%%COMSPEC%% /C dir > %%SYSTEMROOT%%\\Temp\\ANI 2>&1\x00'
 
-        resp = atsvc.hNetrJobAdd(dce2, NULL, atInfo)
-        resp.dump()
+        try:
+            resp = atsvc.hNetrJobAdd(dce2, NULL, atInfo)
+            resp.dump()
+        except Exception as e:
+            if e.get_error_code() != ERROR_NOT_SUPPORTED:
+                raise
+            else:
+                # OpNum not supported, aborting test
+                return
         jobId = resp['pJobId']
 
         request = tsch.SchRpcRun()
@@ -524,8 +595,15 @@ class TSCHTests(unittest.TestCase):
         atInfo['Flags'] = 0
         atInfo['Command'] = '%%COMSPEC%% /C dir > %%SYSTEMROOT%%\\Temp\\ANI 2>&1\x00'
 
-        resp = atsvc.hNetrJobAdd(dce2, NULL, atInfo)
-        resp.dump()
+        try:
+            resp = atsvc.hNetrJobAdd(dce2, NULL, atInfo)
+            resp.dump()
+        except Exception as e:
+            if e.get_error_code() != ERROR_NOT_SUPPORTED:
+                raise
+            else:
+                # OpNum not supported, aborting test
+                return
         jobId = resp['pJobId']
 
         try:
@@ -550,8 +628,15 @@ class TSCHTests(unittest.TestCase):
         atInfo['Flags'] = 0
         atInfo['Command'] = '%%COMSPEC%% /C vssadmin > %%SYSTEMROOT%%\\Temp\\ANI 2>&1\x00'
 
-        resp = atsvc.hNetrJobAdd(dce2, NULL, atInfo)
-        resp.dump()
+        try:
+            resp = atsvc.hNetrJobAdd(dce2, NULL, atInfo)
+            resp.dump()
+        except Exception as e:
+            if e.get_error_code() != ERROR_NOT_SUPPORTED:
+                raise
+            else:
+                # OpNum not supported, aborting test
+                return
         jobId = resp['pJobId']
 
         try:
@@ -586,8 +671,15 @@ class TSCHTests(unittest.TestCase):
         atInfo['Flags'] = 0
         atInfo['Command'] = '%%COMSPEC%% /C vssadmin > %%SYSTEMROOT%%\\Temp\\ANI 2>&1\x00'
 
-        resp = atsvc.hNetrJobAdd(dce2, NULL, atInfo)
-        resp.dump()
+        try:
+            resp = atsvc.hNetrJobAdd(dce2, NULL, atInfo)
+            resp.dump()
+        except Exception as e:
+            if e.get_error_code() != ERROR_NOT_SUPPORTED:
+                raise
+            else:
+                # OpNum not supported, aborting test
+                return
         jobId = resp['pJobId']
 
         try:
@@ -620,8 +712,15 @@ class TSCHTests(unittest.TestCase):
         atInfo['Flags'] = 0
         atInfo['Command'] = '%%COMSPEC%% /C vssadmin > %%SYSTEMROOT%%\\Temp\\ANI 2>&1\x00'
 
-        resp = atsvc.hNetrJobAdd(dce2, NULL, atInfo)
-        resp.dump()
+        try:
+            resp = atsvc.hNetrJobAdd(dce2, NULL, atInfo)
+            resp.dump()
+        except Exception as e:
+            if e.get_error_code() != ERROR_NOT_SUPPORTED:
+                raise
+            else:
+                # OpNum not supported, aborting test
+                return
         jobId = resp['pJobId']
 
         try:
@@ -657,8 +756,15 @@ class TSCHTests(unittest.TestCase):
         atInfo['Flags'] = 0
         atInfo['Command'] = '%%COMSPEC%% /C vssadmin > %%SYSTEMROOT%%\\Temp\\ANI 2>&1\x00'
 
-        resp = atsvc.hNetrJobAdd(dce2, NULL, atInfo)
-        resp.dump()
+        try:
+            resp = atsvc.hNetrJobAdd(dce2, NULL, atInfo)
+            resp.dump()
+        except Exception as e:
+            if e.get_error_code() != ERROR_NOT_SUPPORTED:
+                raise
+            else:
+                # OpNum not supported, aborting test
+                return
         jobId = resp['pJobId']
 
         try:
@@ -676,8 +782,15 @@ class TSCHTests(unittest.TestCase):
                 raise
             pass
 
-        resp = atsvc.hNetrJobDel(dce2, NULL, jobId, jobId)
-        resp.dump()
+        try:
+            resp = atsvc.hNetrJobDel(dce2, NULL, jobId, jobId)
+            resp.dump()
+        except Exception as e:
+            if e.get_error_code() != ERROR_NOT_SUPPORTED:
+                raise
+            else:
+                # OpNum not supported, aborting test
+                return
 
     def test_SchRpcStop(self):
         dce, rpctransport = self.connect(self.stringBindingAtSvc, tsch.MSRPC_UUID_TSCHS)
@@ -690,8 +803,15 @@ class TSCHTests(unittest.TestCase):
         atInfo['Flags'] = 0
         atInfo['Command'] = '%%COMSPEC%% /C vssadmin > %%SYSTEMROOT%%\\Temp\\ANI 2>&1\x00'
 
-        resp = atsvc.hNetrJobAdd(dce2, NULL, atInfo)
-        resp.dump()
+        try:
+            resp = atsvc.hNetrJobAdd(dce2, NULL, atInfo)
+            resp.dump()
+        except Exception as e:
+            if e.get_error_code() != ERROR_NOT_SUPPORTED:
+                raise
+            else:
+                # OpNum not supported, aborting test
+                return
         jobId = resp['pJobId']
 
         request = tsch.SchRpcStop()
@@ -720,8 +840,15 @@ class TSCHTests(unittest.TestCase):
         atInfo['Flags'] = 0
         atInfo['Command'] = '%%COMSPEC%% /C vssadmin > %%SYSTEMROOT%%\\Temp\\ANI 2>&1\x00'
 
-        resp = atsvc.hNetrJobAdd(dce2, NULL, atInfo)
-        resp.dump()
+        try:
+            resp = atsvc.hNetrJobAdd(dce2, NULL, atInfo)
+            resp.dump()
+        except Exception as e:
+            if e.get_error_code() != ERROR_NOT_SUPPORTED:
+                raise
+            else:
+                # OpNum not supported, aborting test
+                return
         jobId = resp['pJobId']
 
         try:
@@ -788,7 +915,7 @@ class TSCHTests(unittest.TestCase):
             resp.dump()
         except Exception, e:
             # It is actually S_FALSE
-            if str(e).find('ERROR_INVALID_FUNCTIO') <= 0:
+            if str(e).find('ERROR_INVALID_FUNCTIO') <= 0 and str(e).find('SCHED_S_TASK_NOT_SCHEDULED') < 0:
                 raise
             e.get_packet().dump()
             pass
@@ -808,7 +935,7 @@ class TSCHTests(unittest.TestCase):
             resp.dump()
         except Exception, e:
             # It is actually S_FALSE
-            if str(e).find('ERROR_INVALID_FUNCTIO') <= 0:
+            if str(e).find('ERROR_INVALID_FUNCTIO') <= 0 and str(e).find('SCHED_S_TASK_NOT_SCHEDULED') < 0:
                 raise
             e.get_packet().dump()
             pass
