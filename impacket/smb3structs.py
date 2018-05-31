@@ -426,7 +426,7 @@ SMB2_ENCRYPTION_AES128_GCM = 0x0002
 class SMBPacketBase(Structure):
     def addCommand(self,command):
         # Pad to 8 bytes and put the offset of another SMBPacket
-        raise 'Implement This!' 
+        raise Exception('Implement This!')
 
     def isValidAnswer(self, status):
         if self['Status'] != status:

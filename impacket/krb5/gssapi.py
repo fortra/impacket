@@ -13,6 +13,8 @@
 #   RFC 3962 Partial Implementation
 
 import struct
+import random
+import string
 
 from Crypto.Hash import HMAC, MD5
 from Crypto.Cipher import ARC4
@@ -20,6 +22,12 @@ from Crypto.Cipher import ARC4
 from impacket.structure import Structure
 from impacket.krb5 import constants, crypto
 
+# Our random number generator
+try:
+    rand = random.SystemRandom()
+except NotImplementedError:
+    rand = random
+    pass
 
 # Constants
 GSS_C_DCE_STYLE     = 0x1000
@@ -133,7 +141,7 @@ class GSSAPI_RC4:
             token['SND_SEQ'] = struct.pack('>L', sequenceNumber) + '\xff'*4
 
         # Random confounder :)
-        token['Confounder'] = '12345678'
+        token['Confounder'] = ''.join([rand.choice(string.letters) for _ in range(8)])
 
         Ksign = HMAC.new(sessionKey.contents, 'signaturekey\0', MD5).digest()
         Sgn_Cksum = MD5.new(struct.pack('<L',13) + str(token)[:8] + token['Confounder'] + data).digest()

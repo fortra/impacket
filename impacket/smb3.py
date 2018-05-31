@@ -45,6 +45,13 @@ from impacket.krb5.gssapi import KRB5_AP_REQ
 # For signing
 import hashlib, hmac, copy
 
+# Our random number generator
+try:
+    rand = random.SystemRandom()
+except NotImplementedError:
+    rand = random
+    pass
+
 # Structs to be used
 TREE_CONNECT = {
     'ShareName'       : '',
@@ -356,7 +363,7 @@ class SMB3:
         if (self._Session['SessionFlags'] & SMB2_SESSION_FLAG_ENCRYPT_DATA) or ( packet['TreeID'] != 0 and self._Session['TreeConnectTable'][packet['TreeID']]['EncryptData'] is True):
             plainText = str(packet)
             transformHeader = SMB2_TRANSFORM_HEADER()
-            transformHeader['Nonce'] = ''.join([random.choice(string.letters) for i in range(11)])
+            transformHeader['Nonce'] = ''.join([rand.choice(string.letters) for _ in range(11)])
             transformHeader['OriginalMessageSize'] = len(plainText)
             transformHeader['EncryptionAlgorithm'] = SMB2_ENCRYPTION_AES128_CCM
             transformHeader['SessionID'] = self._Session['SessionID'] 
@@ -680,7 +687,7 @@ class SMB3:
             self._Session['SigningKey']        = ''
             self._Session['SessionKey']        = ''
             self._Session['SigningActivated']  = False
-            raise
+            raise Exception('Unsuccessful Login')
 
 
     def login(self, user, password, domain = '', lmhash = '', nthash = ''):
@@ -945,8 +952,7 @@ class SMB3:
            if len(fileName.split('\\')) > 2:
                parentDir = ntpath.dirname(pathName)
            if self.GlobalFileTable.has_key(parentDir):
-               LOG.critical("Don't know what to do now! :-o")
-               raise
+               raise Exception("Don't know what to do now! :-o")
            else:
                parentEntry = copy.deepcopy(FILE)
                parentEntry['LeaseKey']   = uuid.generate()

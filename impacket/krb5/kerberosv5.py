@@ -37,6 +37,12 @@ from impacket.krb5.gssapi import KRB5_AP_REQ
 from impacket import nt_errors, LOG
 from impacket.krb5.ccache import CCache
 
+# Our random number generator
+try:
+    rand = random.SystemRandom()
+except NotImplementedError:
+    rand = random
+    pass
 
 def sendReceive(data, host, kdcHost):
     if kdcHost is None:
@@ -110,7 +116,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
     now = datetime.datetime.utcnow() + datetime.timedelta(days=1)
     reqBody['till'] = KerberosTime.to_asn1(now)
     reqBody['rtime'] = KerberosTime.to_asn1(now)
-    reqBody['nonce'] =  random.getrandbits(31)
+    reqBody['nonce'] =  rand.getrandbits(31)
 
     # Yes.. this shouldn't happen but it's inherited from the past
     if aesKey is None:
@@ -266,7 +272,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
         now = datetime.datetime.utcnow() + datetime.timedelta(days=1)
         reqBody['till'] = KerberosTime.to_asn1(now)
         reqBody['rtime'] =  KerberosTime.to_asn1(now)
-        reqBody['nonce'] = random.getrandbits(31)
+        reqBody['nonce'] = rand.getrandbits(31)
 
         seq_set_iter(reqBody, 'etype', ( (int(cipher.enctype),)))
 
@@ -380,7 +386,7 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
     now = datetime.datetime.utcnow() + datetime.timedelta(days=1)
 
     reqBody['till'] = KerberosTime.to_asn1(now)
-    reqBody['nonce'] = random.getrandbits(31)
+    reqBody['nonce'] = rand.getrandbits(31)
     seq_set_iter(reqBody, 'etype',
                       (
                           int(constants.EncryptionTypes.rc4_hmac.value),
