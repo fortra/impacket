@@ -44,7 +44,7 @@ except:
 # The rest it processed through the standard impacket logging mech.
 class DummyPrint:        
     def logMessage(self,message):
-        print message
+        print message,
 
 # MC-SQLR Constants and Structures
 SQLR_PORT           = 1434
@@ -1025,10 +1025,12 @@ class MSSQL:
         if len(self.colMeta) == 0:
             return
         for col in self.colMeta:
-            self.__rowsPrinter.logMessage(col['Format'] % col['Name'] + self.COL_SEPARATOR + '\n')        
+            self.__rowsPrinter.logMessage(col['Format'] % col['Name'] + self.COL_SEPARATOR)
+        self.__rowsPrinter.logMessage('\n')
         for col in self.colMeta:
-            self.__rowsPrinter.logMessage('-'*col['Length'] + self.COL_SEPARATOR + '\n')
-        
+            self.__rowsPrinter.logMessage('-'*col['Length'] + self.COL_SEPARATOR)
+        self.__rowsPrinter.logMessage('\n')
+
 
     def printRows(self):
         if self.lastError is True:
@@ -1037,7 +1039,8 @@ class MSSQL:
         self.printColumnsHeader()
         for row in self.rows:
             for col in self.colMeta:
-                self.__rowsPrinter.logMessage(col['Format'] % row[col['Name']] + self.COL_SEPARATOR)            
+                self.__rowsPrinter.logMessage(col['Format'] % row[col['Name']] + self.COL_SEPARATOR)
+            self.__rowsPrinter.logMessage('\n')
 
     def printReplies(self):
         for keys in self.replies.keys():
