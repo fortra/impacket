@@ -26,6 +26,7 @@ from impacket.examples import logger
 from impacket import version
 from impacket.dcerpc.v5 import tsch, transport
 from impacket.dcerpc.v5.dtypes import NULL
+from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_GSS_NEGOTIATE
 
 
 class TSCH_EXEC:
@@ -69,6 +70,8 @@ class TSCH_EXEC:
         dce = rpctransport.get_dce_rpc()
 
         dce.set_credentials(*rpctransport.get_credentials())
+        if self.__doKerberos is True:
+            dce.set_auth_type(RPC_C_AUTHN_GSS_NEGOTIATE)
         dce.connect()
         #dce.set_auth_level(ntlm.NTLM_AUTH_PKT_PRIVACY)
         dce.bind(tsch.MSRPC_UUID_TSCHS)
