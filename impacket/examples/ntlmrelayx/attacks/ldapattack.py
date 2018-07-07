@@ -81,7 +81,7 @@ class LDAPAttack(ProtocolAttack):
             'sAMAccountName': newUser,
             'unicodePwd': '"{}"'.format(newPassword).encode('utf-16-le')
         }
-
+        LOG.info('Attempting to create user in: %s' % parent)
         res = self.client.add(newUserDn, ['top','person','organizationalPerson','user'], ucd)
         if not res:
             # Adding users requires LDAPS
@@ -92,6 +92,7 @@ class LDAPAttack(ProtocolAttack):
             return False
         else:
             LOG.info('Adding new user with username: %s and password: %s result: OK' % (newUser, newPassword))
+
             # Return the DN
             return newUserDn
 
