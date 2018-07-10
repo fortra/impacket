@@ -274,6 +274,15 @@ class LSA_SECRET_XP(Structure):
         ('Secret', ':'),
     )
 
+
+# Helper to create files for exporting
+def openFile(fileName, mode='w+', openFileFunc=None):
+    if openFileFunc is not None:
+        return openFileFunc(fileName, mode)
+    else:
+        return codecs.open(fileName, mode, encoding='utf-8')
+
+
 # Classes
 class RemoteFile:
     def __init__(self, smbConnection, fileName):
@@ -1227,13 +1236,15 @@ class SAMHashes(OfflineRegistry):
             self.__itemsFound[rid] = answer
             self.__perSecretCallback(answer)
 
-    def export(self, fileName):
+    def export(self, baseFileName, openFileFunc = None):
         if len(self.__itemsFound) > 0:
             items = sorted(self.__itemsFound)
-            fd = codecs.open(fileName+'.sam','w+', encoding='utf-8')
+            fileName = baseFileName+'.sam'
+            fd = openFile(fileName, openFileFunc=openFileFunc)
             for item in items:
                 fd.write(self.__itemsFound[item]+'\n')
             fd.close()
+            return fileName
 
 class LSASecrets(OfflineRegistry):
     UNKNOWN_USER = '(Unknown User)'
@@ -1536,19 +1547,23 @@ class LSASecrets(OfflineRegistry):
                         key += '_history'
                     self.__printSecret(key, secret)
 
-    def exportSecrets(self, fileName):
+    def exportSecrets(self, baseFileName, openFileFunc = None):
         if len(self.__secretItems) > 0:
-            fd = codecs.open(fileName+'.secrets','w+', encoding='utf-8')
+            fileName = baseFileName+'.secrets'
+            fd = openFile(fileName, openFileFunc=openFileFunc)
             for item in self.__secretItems:
                 fd.write(item+'\n')
             fd.close()
+            return fileName
 
-    def exportCached(self, fileName):
+    def exportCached(self, baseFileName, openFileFunc = None):
         if len(self.__cachedItems) > 0:
-            fd = codecs.open(fileName+'.cached','w+', encoding='utf-8')
+            fileName = baseFileName+'.cached'
+            fd = openFile(fileName, openFileFunc=openFileFunc)
             for item in self.__cachedItems:
                 fd.write(item+'\n')
             fd.close()
+            return fileName
 
 
 class ResumeSessionMgrInFile(object):
@@ -2215,10 +2230,10 @@ class NTDSHashes:
                     mode = 'a+'
                 else:
                     mode = 'w+'
-                hashesOutputFile = codecs.open(self.__outputFileName+'.ntds',mode, encoding='utf-8')
+                hashesOutputFile = openFile(self.__outputFileName+'.ntds',mode)
                 if self.__justNTLM is False:
-                    keysOutputFile = codecs.open(self.__outputFileName+'.ntds.kerberos',mode, encoding='utf-8')
-                    clearTextOutputFile = codecs.open(self.__outputFileName+'.ntds.cleartext',mode, encoding='utf-8')            
+                    keysOutputFile = openFile(self.__outputFileName+'.ntds.kerberos',mode)
+                    clearTextOutputFile = openFile(self.__outputFileName+'.ntds.cleartext',mode)
 
             LOG.info('Dumping Domain Credentials (domain\\uid:rid:lmhash:nthash)')
             if self.__useVSSMethod:
