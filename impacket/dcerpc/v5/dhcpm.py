@@ -149,9 +149,9 @@ class DHCP_CLIENT_SEARCH_UNION(NDRUNION):
         ('tag', DHCP_SEARCH_INFO_TYPE),
     )
     union = {
-        DHCP_SEARCH_INFO_TYPE.enumItems.DhcpClientIpAddress.value:       ('ClientIpAddress', DHCP_IP_ADDRESS),
-        DHCP_SEARCH_INFO_TYPE.enumItems.DhcpClientHardwareAddress.value: ('ClientHardwareAddress', DHCP_CLIENT_UID),
-        DHCP_SEARCH_INFO_TYPE.enumItems.DhcpClientName.value:            ('ClientName', LPWSTR),
+        DHCP_SEARCH_INFO_TYPE.DhcpClientIpAddress:       ('ClientIpAddress', DHCP_IP_ADDRESS),
+        DHCP_SEARCH_INFO_TYPE.DhcpClientHardwareAddress: ('ClientHardwareAddress', DHCP_CLIENT_UID),
+        DHCP_SEARCH_INFO_TYPE.DhcpClientName:            ('ClientName', LPWSTR),
     }
 
 class DHCP_SEARCH_INFO(NDRSTRUCT):
@@ -338,11 +338,11 @@ class DHCP_OPTION_SCOPE_UNION(NDRUNION):
         ('tag', DHCP_OPTION_SCOPE_TYPE),
     )
     union = {
-        DHCP_OPTION_SCOPE_TYPE.enumItems.DhcpDefaultOptions.value   : (),
-        DHCP_OPTION_SCOPE_TYPE.enumItems.DhcpGlobalOptions.value    : (),
-        DHCP_OPTION_SCOPE_TYPE.enumItems.DhcpSubnetOptions.value    : ('SubnetScopeInfo', DHCP_IP_ADDRESS),
-        DHCP_OPTION_SCOPE_TYPE.enumItems.DhcpReservedOptions.value  : ('ReservedScopeInfo', DHCP_RESERVED_SCOPE),
-        DHCP_OPTION_SCOPE_TYPE.enumItems.DhcpMScopeOptions.value    : ('MScopeInfo', LPWSTR),
+        DHCP_OPTION_SCOPE_TYPE.DhcpDefaultOptions   : (),
+        DHCP_OPTION_SCOPE_TYPE.DhcpGlobalOptions    : (),
+        DHCP_OPTION_SCOPE_TYPE.DhcpSubnetOptions    : ('SubnetScopeInfo', DHCP_IP_ADDRESS),
+        DHCP_OPTION_SCOPE_TYPE.DhcpReservedOptions  : ('ReservedScopeInfo', DHCP_RESERVED_SCOPE),
+        DHCP_OPTION_SCOPE_TYPE.DhcpMScopeOptions    : ('MScopeInfo', LPWSTR),
     }
 
 class DHCP_OPTION_SCOPE_INFO(NDRSTRUCT):
@@ -406,11 +406,11 @@ class DHCP_SUBNET_ELEMENT_UNION_V5(NDRUNION):
         ('tag', DHCP_SUBNET_ELEMENT_TYPE),
     )
     union = {
-        DHCP_SUBNET_ELEMENT_TYPE.enumItems.DhcpIpRanges.value           : ('IpRange', DHCP_BOOTP_IP_RANGE),
-        DHCP_SUBNET_ELEMENT_TYPE.enumItems.DhcpSecondaryHosts.value     : ('SecondaryHost', DHCP_HOST_INFO),
-        DHCP_SUBNET_ELEMENT_TYPE.enumItems.DhcpReservedIps.value        : ('ReservedIp', DHCP_IP_RESERVATION_V4),
-        DHCP_SUBNET_ELEMENT_TYPE.enumItems.DhcpExcludedIpRanges.value   : ('ExcludeIpRange', DHCP_IP_RANGE),
-        DHCP_SUBNET_ELEMENT_TYPE.enumItems.DhcpIpUsedClusters.value     : ('IpUsedCluster', DHCP_IP_CLUSTER),
+        DHCP_SUBNET_ELEMENT_TYPE.DhcpIpRanges           : ('IpRange', DHCP_BOOTP_IP_RANGE),
+        DHCP_SUBNET_ELEMENT_TYPE.DhcpSecondaryHosts     : ('SecondaryHost', DHCP_HOST_INFO),
+        DHCP_SUBNET_ELEMENT_TYPE.DhcpReservedIps        : ('ReservedIp', DHCP_IP_RESERVATION_V4),
+        DHCP_SUBNET_ELEMENT_TYPE.DhcpExcludedIpRanges   : ('ExcludeIpRange', DHCP_IP_RANGE),
+        DHCP_SUBNET_ELEMENT_TYPE.DhcpIpUsedClusters     : ('IpUsedCluster', DHCP_IP_CLUSTER),
     }
 
 class DHCP_SUBNET_ELEMENT_DATA_V5(NDRSTRUCT):
@@ -450,15 +450,15 @@ class DHCP_OPTION_ELEMENT_UNION(NDRUNION):
         ('tag', DHCP_OPTION_DATA_TYPE),
     )
     union = {
-        DHCP_OPTION_DATA_TYPE.enumItems.DhcpByteOption.value            : ('ByteOption', BYTE),
-        DHCP_OPTION_DATA_TYPE.enumItems.DhcpWordOption.value            : ('WordOption', WORD),
-        DHCP_OPTION_DATA_TYPE.enumItems.DhcpDWordOption.value           : ('DWordOption', DWORD),
-        DHCP_OPTION_DATA_TYPE.enumItems.DhcpDWordDWordOption.value      : ('DWordDWordOption', DWORD_DWORD),
-        DHCP_OPTION_DATA_TYPE.enumItems.DhcpIpAddressOption.value       : ('IpAddressOption', DHCP_IP_ADDRESS),
-        DHCP_OPTION_DATA_TYPE.enumItems.DhcpStringDataOption.value      : ('StringDataOption', LPWSTR),
-        DHCP_OPTION_DATA_TYPE.enumItems.DhcpBinaryDataOption.value      : ('BinaryDataOption', DHCP_BINARY_DATA),
-        DHCP_OPTION_DATA_TYPE.enumItems.DhcpEncapsulatedDataOption.value: ('EncapsulatedDataOption', DHCP_BINARY_DATA),
-        DHCP_OPTION_DATA_TYPE.enumItems.DhcpIpv6AddressOption.value     : ('Ipv6AddressDataOption', LPWSTR),
+        DHCP_OPTION_DATA_TYPE.DhcpByteOption            : ('ByteOption', BYTE),
+        DHCP_OPTION_DATA_TYPE.DhcpWordOption            : ('WordOption', WORD),
+        DHCP_OPTION_DATA_TYPE.DhcpDWordOption           : ('DWordOption', DWORD),
+        DHCP_OPTION_DATA_TYPE.DhcpDWordDWordOption      : ('DWordDWordOption', DWORD_DWORD),
+        DHCP_OPTION_DATA_TYPE.DhcpIpAddressOption       : ('IpAddressOption', DHCP_IP_ADDRESS),
+        DHCP_OPTION_DATA_TYPE.DhcpStringDataOption      : ('StringDataOption', LPWSTR),
+        DHCP_OPTION_DATA_TYPE.DhcpBinaryDataOption      : ('BinaryDataOption', DHCP_BINARY_DATA),
+        DHCP_OPTION_DATA_TYPE.DhcpEncapsulatedDataOption: ('EncapsulatedDataOption', DHCP_BINARY_DATA),
+        DHCP_OPTION_DATA_TYPE.DhcpIpv6AddressOption     : ('Ipv6AddressDataOption', LPWSTR),
     }
 
 class DHCP_OPTION_DATA_ELEMENT(NDRSTRUCT):
