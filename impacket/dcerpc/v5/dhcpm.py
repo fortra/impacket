@@ -145,6 +145,9 @@ class DHCP_CLIENT_INFO_VQ(NDRSTRUCT):
     )
 
 class DHCP_CLIENT_SEARCH_UNION(NDRUNION):
+    commonHdr = (
+        ('tag', DHCP_SEARCH_INFO_TYPE),
+    )
     union = {
         DHCP_SEARCH_INFO_TYPE.DhcpClientIpAddress:       ('ClientIpAddress', DHCP_IP_ADDRESS),
         DHCP_SEARCH_INFO_TYPE.DhcpClientHardwareAddress: ('ClientHardwareAddress', DHCP_CLIENT_UID),
@@ -331,6 +334,9 @@ class DHCP_RESERVED_SCOPE(NDRSTRUCT):
     )
 
 class DHCP_OPTION_SCOPE_UNION(NDRUNION):
+    commonHdr = (
+        ('tag', DHCP_OPTION_SCOPE_TYPE),
+    )
     union = {
         DHCP_OPTION_SCOPE_TYPE.DhcpDefaultOptions   : (),
         DHCP_OPTION_SCOPE_TYPE.DhcpGlobalOptions    : (),
@@ -396,6 +402,9 @@ class DHCP_SUBNET_ELEMENT_TYPE(NDRENUM):
         DhcpIpRangesBootpOnly  = 7
 
 class DHCP_SUBNET_ELEMENT_UNION_V5(NDRUNION):
+    commonHdr = (
+        ('tag', DHCP_SUBNET_ELEMENT_TYPE),
+    )
     union = {
         DHCP_SUBNET_ELEMENT_TYPE.DhcpIpRanges           : ('IpRange', DHCP_BOOTP_IP_RANGE),
         DHCP_SUBNET_ELEMENT_TYPE.DhcpSecondaryHosts     : ('SecondaryHost', DHCP_HOST_INFO),
@@ -441,15 +450,15 @@ class DHCP_OPTION_ELEMENT_UNION(NDRUNION):
         ('tag', DHCP_OPTION_DATA_TYPE),
     )
     union = {
-        DHCP_OPTION_DATA_TYPE.enumItems.DhcpByteOption            : ('ByteOption', BYTE),
-        DHCP_OPTION_DATA_TYPE.enumItems.DhcpWordOption            : ('WordOption', WORD),
-        DHCP_OPTION_DATA_TYPE.enumItems.DhcpDWordOption           : ('DWordOption', DWORD),
-        DHCP_OPTION_DATA_TYPE.enumItems.DhcpDWordDWordOption      : ('DWordDWordOption', DWORD_DWORD),
-        DHCP_OPTION_DATA_TYPE.enumItems.DhcpIpAddressOption       : ('IpAddressOption', DHCP_IP_ADDRESS),
-        DHCP_OPTION_DATA_TYPE.enumItems.DhcpStringDataOption      : ('StringDataOption', LPWSTR),
-        DHCP_OPTION_DATA_TYPE.enumItems.DhcpBinaryDataOption      : ('BinaryDataOption', DHCP_BINARY_DATA),
-        DHCP_OPTION_DATA_TYPE.enumItems.DhcpEncapsulatedDataOption: ('EncapsulatedDataOption', DHCP_BINARY_DATA),
-        DHCP_OPTION_DATA_TYPE.enumItems.DhcpIpv6AddressOption     : ('Ipv6AddressDataOption', LPWSTR),
+        DHCP_OPTION_DATA_TYPE.DhcpByteOption            : ('ByteOption', BYTE),
+        DHCP_OPTION_DATA_TYPE.DhcpWordOption            : ('WordOption', WORD),
+        DHCP_OPTION_DATA_TYPE.DhcpDWordOption           : ('DWordOption', DWORD),
+        DHCP_OPTION_DATA_TYPE.DhcpDWordDWordOption      : ('DWordDWordOption', DWORD_DWORD),
+        DHCP_OPTION_DATA_TYPE.DhcpIpAddressOption       : ('IpAddressOption', DHCP_IP_ADDRESS),
+        DHCP_OPTION_DATA_TYPE.DhcpStringDataOption      : ('StringDataOption', LPWSTR),
+        DHCP_OPTION_DATA_TYPE.DhcpBinaryDataOption      : ('BinaryDataOption', DHCP_BINARY_DATA),
+        DHCP_OPTION_DATA_TYPE.DhcpEncapsulatedDataOption: ('EncapsulatedDataOption', DHCP_BINARY_DATA),
+        DHCP_OPTION_DATA_TYPE.DhcpIpv6AddressOption     : ('Ipv6AddressDataOption', LPWSTR),
     }
 
 class DHCP_OPTION_DATA_ELEMENT(NDRSTRUCT):
@@ -518,7 +527,7 @@ class LPOPTION_VALUES_ARRAY(NDRPOINTER):
         ('Data', OPTION_VALUES_ARRAY),
     )
 
-class DHCP_ALL_OPTION_VALUES(NDRSTRUCT):
+class DHCP_ALL_OPTIONS_VALUES(NDRSTRUCT):
     structure = (
         ('Flags', DWORD),
         ('NumElements', DWORD),
@@ -527,7 +536,7 @@ class DHCP_ALL_OPTION_VALUES(NDRSTRUCT):
 
 class LPDHCP_ALL_OPTION_VALUES(NDRPOINTER):
     referent = (
-        ('Data', DHCP_ALL_OPTION_VALUES),
+        ('Data', DHCP_ALL_OPTIONS_VALUES),
     )
 
 ################################################################################
@@ -888,7 +897,7 @@ def hDhcpGetOptionValueV5(dce, option_id, flags=DHCP_FLAGS_OPTION_DEFAULT, class
     request['ClassName'] = classname
     request['VendorName'] = vendorname
     request['ScopeInfo']['ScopeType'] = scopetype
-    request['ScopeInfo']['ScopeInfo']['tag'] = scopetype.value
+    request['ScopeInfo']['ScopeInfo']['tag'] = scopetype
     if scopetype == DHCP_OPTION_SCOPE_TYPE.DhcpSubnetOptions:
         request['ScopeInfo']['ScopeInfo']['SubnetScopeInfo'] = options
     elif scopetype == DHCP_OPTION_SCOPE_TYPE.DhcpReservedOptions:
