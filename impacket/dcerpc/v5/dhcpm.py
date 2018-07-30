@@ -145,9 +145,6 @@ class DHCP_CLIENT_INFO_VQ(NDRSTRUCT):
     )
 
 class DHCP_CLIENT_SEARCH_UNION(NDRUNION):
-    commonHdr = (
-        ('tag', DHCP_SEARCH_INFO_TYPE),
-    )
     union = {
         DHCP_SEARCH_INFO_TYPE.DhcpClientIpAddress:       ('ClientIpAddress', DHCP_IP_ADDRESS),
         DHCP_SEARCH_INFO_TYPE.DhcpClientHardwareAddress: ('ClientHardwareAddress', DHCP_CLIENT_UID),
@@ -334,9 +331,6 @@ class DHCP_RESERVED_SCOPE(NDRSTRUCT):
     )
 
 class DHCP_OPTION_SCOPE_UNION(NDRUNION):
-    commonHdr = (
-        ('tag', DHCP_OPTION_SCOPE_TYPE),
-    )
     union = {
         DHCP_OPTION_SCOPE_TYPE.DhcpDefaultOptions   : (),
         DHCP_OPTION_SCOPE_TYPE.DhcpGlobalOptions    : (),
@@ -402,9 +396,6 @@ class DHCP_SUBNET_ELEMENT_TYPE(NDRENUM):
         DhcpIpRangesBootpOnly  = 7
 
 class DHCP_SUBNET_ELEMENT_UNION_V5(NDRUNION):
-    commonHdr = (
-        ('tag', DHCP_SUBNET_ELEMENT_TYPE),
-    )
     union = {
         DHCP_SUBNET_ELEMENT_TYPE.DhcpIpRanges           : ('IpRange', DHCP_BOOTP_IP_RANGE),
         DHCP_SUBNET_ELEMENT_TYPE.DhcpSecondaryHosts     : ('SecondaryHost', DHCP_HOST_INFO),
