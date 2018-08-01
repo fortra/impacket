@@ -65,6 +65,6 @@ class EnumLocalAdmins:
         resp = lsat.hLsarLookupSids(dce, policyHandle, sids, lsat.LSAP_LOOKUP_LEVEL.LsapLookupWksta)
         names = []
         for n, item in enumerate(resp['TranslatedNames']['Names']):
-            names.append("{}\\{}".format(resp['ReferencedDomains']['Domains'][item['DomainIndex']]['Name'], item['Name']))
+            names.append(u"{}\\{}".format(resp['ReferencedDomains']['Domains'][item['DomainIndex']]['Name'].encode('utf-16-le'), item['Name']))
         dce.disconnect()
         return names

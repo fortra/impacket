@@ -82,13 +82,13 @@ class SMBAttack(ProtocolAttack):
             except Exception, e:
                 if "rpc_s_access_denied" in str(e): # user doesn't have correct privileges
                     if self.config.enumLocalAdmins:
-                        LOG.info("Relayed user doesn't have admin on {}. Attempting to enumerate users who do...".format(self.__SMBConnection.getRemoteHost()))
+                        LOG.info(u"Relayed user doesn't have admin on {}. Attempting to enumerate users who do...".format(self.__SMBConnection.getRemoteHost().encode(self.config.encoding)))
                         enumLocalAdmins = EnumLocalAdmins(self.__SMBConnection)
                         try:
                             localAdminSids, localAdminNames = enumLocalAdmins.getLocalAdmins()
-                            LOG.info("Host {} has the following local admins (hint: try relaying one of them here...)".format(self.__SMBConnection.getRemoteHost()))
+                            LOG.info(u"Host {} has the following local admins (hint: try relaying one of them here...)".format(self.__SMBConnection.getRemoteHost().encode(self.config.encoding)))
                             for name in localAdminNames:
-                                LOG.info("Host {} local admin member: {} ".format(self.__SMBConnection.getRemoteHost(), name))
+                                LOG.info(u"Host {} local admin member: {} ".format(self.__SMBConnection.getRemoteHost().encode(self.config.encoding), name))
                         except DCERPCException, e:
                             LOG.info("SAMR access denied")
                         return
