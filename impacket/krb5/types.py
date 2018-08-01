@@ -1,3 +1,5 @@
+from __future__ import print_function
+from __future__ import absolute_import
 # Copyright (c) 2013, Marc Horowitz
 # All rights reserved.
 #
@@ -31,8 +33,8 @@ import struct
 
 from pyasn1.codec.der import decoder
 
-import asn1
-import constants
+from . import asn1
+from . import constants
 
 
 class KerberosException(Exception): pass
@@ -255,15 +257,15 @@ class KerberosTime(object):
 
 if __name__ == '__main__':
     # TODO marc: turn this into a real test
-    print Principal("marc")
-    print Principal(("marc", None))
-    print Principal((("marc",), None))
-    print Principal("marc@ATHENA.MIT.EDU")
-    print Principal("marc", default_realm="ATHENA.MIT.EDU")
-    print Principal("marc@ATHENA.MIT.EDU", default_realm="EXAMPLE.COM")
-    print Principal(("marc", "ATHENA.MIT.EDU"))
-    print Principal((("marc"), "ATHENA.MIT.EDU"))
-    print Principal("marc/root")
-    print Principal(("marc", "root", "ATHENA.MIT.EDU"))
-    print Principal((("marc", "root"), "ATHENA.MIT.EDU"))
-    print Principal("marc\\/root")
+    print(Principal("marc"))
+    print(Principal(("marc", None)))
+    print(Principal((("marc",), None)))
+    print(Principal("marc@ATHENA.MIT.EDU"))
+    print(Principal("marc", default_realm="ATHENA.MIT.EDU"))
+    print(Principal("marc@ATHENA.MIT.EDU", default_realm="EXAMPLE.COM"))
+    print(Principal(("marc", "ATHENA.MIT.EDU")))
+    print(Principal((("marc"), "ATHENA.MIT.EDU")))
+    print(Principal("marc/root"))
+    print(Principal(("marc", "root", "ATHENA.MIT.EDU")))
+    print(Principal((("marc", "root"), "ATHENA.MIT.EDU")))
+    print(Principal("marc\\/root"))

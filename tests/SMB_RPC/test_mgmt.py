@@ -81,7 +81,7 @@ class MGMTTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('rpc_s_access_denied') < 0:
                 raise
 
@@ -91,7 +91,7 @@ class MGMTTests(unittest.TestCase):
         try:
             resp = mgmt.hstop_server_listening(dce)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('rpc_s_access_denied') < 0:
                 raise
 

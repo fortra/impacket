@@ -14,6 +14,7 @@
 #  SMB DCE/RPC 
 #
 
+from __future__ import print_function
 import argparse
 import cmd
 import logging
@@ -88,13 +89,13 @@ class MimikatzShell(cmd.Cmd):
         resp = mimilib.hMimiCommand(self.dce, self.pHandle, command)
         cipherText = ''.join(resp['encResult'])
         cipher = ARC4.new(self.key)
-        print cipher.decrypt(cipherText)
+        print(cipher.decrypt(cipherText))
 
     def onecmd(self,s):
         retVal = False
         try:
            retVal = cmd.Cmd.onecmd(self,s)
-        except Exception, e:
+        except Exception as e:
            #import traceback
            #print traceback.print_exc()
            logging.error(e)
@@ -108,7 +109,7 @@ class MimikatzShell(cmd.Cmd):
 
     def do_shell(self, line):
         output = os.popen(line).read()
-        print output
+        print(output)
         self.last_output = output
 
     def do_help(self,line):
@@ -117,7 +118,7 @@ class MimikatzShell(cmd.Cmd):
 def main():
     # Init the example's logger theme
     logger.init()
-    print version.BANNER
+    print(version.BANNER)
     parser = argparse.ArgumentParser(add_help = True, description = "SMB client implementation.")
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
@@ -210,7 +211,7 @@ def main():
                 dce.connect()
                 dce.bind(mimilib.MSRPC_UUID_MIMIKATZ)
                 bound = True
-            except Exception, e:
+            except Exception as e:
                 if str(e).find('ept_s_not_registered') >=0:
                     # Let's try ncacn_ip_tcp
                     stringBinding = epm.hept_map(address, mimilib.MSRPC_UUID_MIMIKATZ, protocol = 'ncacn_ip_tcp')
@@ -238,13 +239,13 @@ def main():
             logging.info("Executing commands from %s" % options.file.name)
             for line in options.file.readlines():
                 if line[0] != '#':
-                    print "# %s" % line,
+                    print("# %s" % line, end=' ')
                     shell.onecmd(line)
                 else:
-                    print line,
+                    print(line, end=' ')
         else:
             shell.cmdloop()
-    except Exception, e:
+    except Exception as e:
         #import traceback
         #print traceback.print_exc()
         logging.error(str(e))

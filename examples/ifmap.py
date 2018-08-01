@@ -33,6 +33,7 @@ listening on any port. This is imposed by the DCERPC spec.
 
 Author: Catalin Patulea <cat@vv.carleton.ca>
 """
+from __future__ import print_function
 import sys
 import struct
 
@@ -296,7 +297,7 @@ def main(args):
   # Init the example's logger theme
   logger.init()
   if len(args) != 2:
-    print "usage: ./ifmap.py <host> <port>"
+    print("usage: ./ifmap.py <host> <port>")
     return 1
 
   host = args[0]
@@ -329,7 +330,7 @@ def main(args):
     binuuid = uuid.uuidtup_to_bin(tup)
     try:
       dce.bind(binuuid)
-    except rpcrt.DCERPCException, e:
+    except rpcrt.DCERPCException as e:
       if str(e).find('abstract_syntax_not_supported') >= 0:
         listening = False
       else:
@@ -340,20 +341,20 @@ def main(args):
     listed = tup in uuidtups
     otherversion = any(tup[0] == uuidstr for uuidstr, ver in uuidtups)
     if listed or listening:
-      if epm.KNOWN_PROTOCOLS.has_key(tup[0]):
-          print "Protocol: %s" % (epm.KNOWN_PROTOCOLS[tup[0]])
+      if tup[0] in epm.KNOWN_PROTOCOLS:
+          print("Protocol: %s" % (epm.KNOWN_PROTOCOLS[tup[0]]))
       else:
-          print "Procotol: N/A"
+          print("Procotol: N/A")
 
-      if KNOWN_UUIDS.has_key(uuid.uuidtup_to_bin(tup)[:18]):
-          print "Provider: %s" % (KNOWN_UUIDS[uuid.uuidtup_to_bin(tup)[:18]])
+      if uuid.uuidtup_to_bin(tup)[:18] in KNOWN_UUIDS:
+          print("Provider: %s" % (KNOWN_UUIDS[uuid.uuidtup_to_bin(tup)[:18]]))
       else:
-          print "Provider: N/A"
-      print "UUID     : %s v%s: %s, %s\n" % (
+          print("Provider: N/A")
+      print("UUID     : %s v%s: %s, %s\n" % (
         tup[0], tup[1],
         "listed" if listed else "other version listed" if otherversion else "not listed",
         "listening" if listening else "not listening"
-      )
+      ))
 
 
 if __name__ == "__main__":

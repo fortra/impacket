@@ -1,3 +1,4 @@
+from __future__ import print_function
 import ConfigParser
 import logging
 import os
@@ -75,7 +76,7 @@ class DumpSecrets:
                 try:
                     try:
                         self.connect()
-                    except Exception, e:
+                    except Exception as e:
                         if os.getenv('KRB5CCNAME') is not None and self.__doKerberos is True:
                             # SMBConnection failed. That might be because there was no way to log into the
                             # target system. We just have a last resort. Hope we have tickets cached and that they
@@ -92,7 +93,7 @@ class DumpSecrets:
                         bootKey             = self.__remoteOps.getBootKey()
                         # Let's check whether target system stores LM Hashes
                         self.__noLMHash = self.__remoteOps.checkNoLMHashPolicy()
-                except Exception, e:
+                except Exception as e:
                     self.__canProcessSAMLSA = False
                     if str(e).find('STATUS_USER_SESSION_DELETED') and os.getenv('KRB5CCNAME') is not None \
                         and self.__doKerberos is True:
@@ -114,7 +115,7 @@ class DumpSecrets:
                     self.__SAMHashes.dump()
                     if self.__outputFileName is not None:
                         self.__SAMHashes.export(self.__outputFileName)
-                except Exception, e:
+                except Exception as e:
                     logging.error('SAM hashes extraction failed: %s' % str(e))
 
                 try:
@@ -131,10 +132,10 @@ class DumpSecrets:
                     self.__LSASecrets.dumpSecrets()
                     if self.__outputFileName is not None:
                         self.__LSASecrets.exportSecrets(self.__outputFileName)
-                except Exception, e:
+                except Exception as e:
                     if logging.getLogger().level == logging.DEBUG:
                         import traceback
-                        print traceback.print_exc()
+                        print(traceback.print_exc())
                     logging.error('LSA hashes extraction failed: %s' % str(e))
 
             # NTDS Extraction we can try regardless of RemoteOperations failing. It might still work
@@ -154,10 +155,10 @@ class DumpSecrets:
                                            printUserStatus= self.__printUserStatus)
             try:
                 self.__NTDSHashes.dump()
-            except Exception, e:
+            except Exception as e:
                 if logging.getLogger().level == logging.DEBUG:
                     import traceback
-                    print traceback.print_exc()
+                    print(traceback.print_exc())
                 if str(e).find('ERROR_DS_DRA_BAD_DN') >= 0:
                     # We don't store the resume file if this error happened, since this error is related to lack
                     # of enough privileges to access DRSUAPI.
@@ -172,10 +173,10 @@ class DumpSecrets:
                 elif self.__useVSSMethod is False:
                     logging.info('Something wen\'t wrong with the DRSUAPI approach. Try again with -use-vss parameter')
             self.cleanup()
-        except (Exception, KeyboardInterrupt), e:
+        except (Exception, KeyboardInterrupt) as e:
             if logging.getLogger().level == logging.DEBUG:
                 import traceback
-                print traceback.print_exc()
+                print(traceback.print_exc())
             logging.error(e)
             if self.__NTDSHashes is not None:
                 if isinstance(e, KeyboardInterrupt):

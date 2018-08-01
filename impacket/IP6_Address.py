@@ -1,3 +1,4 @@
+from __future__ import print_function
 # Copyright (c) 2003-2016 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
@@ -243,7 +244,7 @@ class IP6_Address():
             #Capitalize on the constructor's ability to detect invalid text representations of an IP6 address            
             ip6_address = IP6_Address(text_representation)
             return True
-        except Exception, e:
+        except Exception as e:
             return False
                 
     def __is_a_scoped_address(self, text_representation):
@@ -252,18 +253,18 @@ class IP6_Address():
 #############################################################################################################
 # Informal tests
 if __name__ == '__main__':
-    print IP6_Address("A:B:C:D:E:F:1:2").as_string()
+    print(IP6_Address("A:B:C:D:E:F:1:2").as_string())
 #    print IP6_Address("A:B:C:D:E:F:0:2").as_bytes()
-    print IP6_Address("A:B:0:D:E:F:0:2").as_string()
+    print(IP6_Address("A:B:0:D:E:F:0:2").as_string())
 #    print IP6_Address("A::BC:E:D").as_string(False)
-    print IP6_Address("A::BC:E:D").as_string()
-    print IP6_Address("A::BCD:EFFF:D").as_string()
-    print IP6_Address("FE80:0000:0000:0000:020C:29FF:FE26:E251").as_string()
+    print(IP6_Address("A::BC:E:D").as_string())
+    print(IP6_Address("A::BCD:EFFF:D").as_string())
+    print(IP6_Address("FE80:0000:0000:0000:020C:29FF:FE26:E251").as_string())
 
 #    print IP6_Address("A::BCD:EFFF:D").as_bytes()
-    print IP6_Address("::").as_string()
-    print IP6_Address("1::").as_string()
-    print IP6_Address("::2").as_string()
+    print(IP6_Address("::").as_string())
+    print(IP6_Address("1::").as_string())
+    print(IP6_Address("::2").as_string())
 #    bin = [
 #           0x01, 0x02, 0x03, 0x04,
 #           0x01, 0x02, 0x03, 0x04,

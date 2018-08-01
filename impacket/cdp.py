@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 # Copyright (c) 2003-2016 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
@@ -14,7 +15,7 @@
 from struct import unpack
 import socket
 
-from ImpactPacket import Header
+from .ImpactPacket import Header
 from impacket import LOG
 
 IP_ADDRESS_LENGTH = 4

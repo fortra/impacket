@@ -17,6 +17,7 @@
 # Reference for:
 #  DCOM
 #
+from __future__ import print_function
 import argparse
 import sys
 import os
@@ -40,12 +41,12 @@ if __name__ == '__main__':
             self.intro = '[!] Press help for extra shell commands'
 
         def do_help(self, line):
-            print """
+            print("""
      lcd {path}                 - changes the current local directory to {path}
      exit                       - terminates the server process (and this session)
      describe {class}           - describes class
      ! {cmd}                    - executes a local shell cmd
-     """ 
+     """) 
 
         def do_shell(self, s):
             os.system(s)
@@ -58,14 +59,14 @@ if __name__ == '__main__':
                 iObject, _ = self.iWbemServices.GetObject(sClass)
                 iObject.printInformation()
                 iObject.RemRelease()
-            except Exception, e:
+            except Exception as e:
                 #import traceback
                 #print traceback.print_exc()
                 logging.error(str(e))
 
         def do_lcd(self, s):
             if s == '':
-                print os.getcwd()
+                print(os.getcwd())
             else:
                 os.chdir(s)
     
@@ -76,21 +77,21 @@ if __name__ == '__main__':
                     pEnum = iEnum.Next(0xffffffff,1)[0]
                     record = pEnum.getProperties()
                     if printHeader is True:
-                        print '|',
+                        print('|', end=' ')
                         for col in record:
-                            print '%s |' % col,
-                        print
+                            print('%s |' % col, end=' ')
+                        print()
                         printHeader = False
-                    print '|', 
+                    print('|', end=' ') 
                     for key in record:
                         if type(record[key]['value']) is list:
                             for item in record[key]['value']:
-                                print item,
-                            print ' |',
+                                print(item, end=' ')
+                            print(' |', end=' ')
                         else:
-                            print '%s |' % record[key]['value'],
-                    print 
-                except Exception, e:
+                            print('%s |' % record[key]['value'], end=' ')
+                    print() 
+                except Exception as e:
                     #import traceback
                     #print traceback.print_exc()
                     if str(e).find('S_FALSE') < 0:
@@ -107,7 +108,7 @@ if __name__ == '__main__':
                 iEnumWbemClassObject = self.iWbemServices.ExecQuery(line.strip('\n'))
                 self.printReply(iEnumWbemClassObject)
                 iEnumWbemClassObject.RemRelease()
-            except Exception, e:
+            except Exception as e:
                 logging.error(str(e))
          
         def emptyline(self):
@@ -118,7 +119,7 @@ if __name__ == '__main__':
 
     # Init the example's logger theme
     logger.init()
-    print version.BANNER
+    print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help = True, description = "Executes WQL queries and gets object descriptions "
                                                                     "using Windows Management Instrumentation.")
@@ -199,12 +200,12 @@ if __name__ == '__main__':
             shell.cmdloop()
         else:
             for line in options.file.readlines():
-                print "WQL> %s" % line,
+                print("WQL> %s" % line, end=' ')
                 shell.onecmd(line)
 
         iWbemServices.RemRelease()
         dcom.disconnect()
-    except Exception, e:
+    except Exception as e:
         logging.error(str(e))
         try:
             dcom.disconnect()

@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 # Copyright (c) 2003-2016 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
@@ -14,8 +15,8 @@
 
 import struct
 
-from Crypto.Hash import HMAC, MD5
-from Crypto.Cipher import ARC4
+from .Crypto.Hash import HMAC, MD5
+from .Crypto.Cipher import ARC4
 
 from impacket.structure import Structure
 from impacket.krb5 import constants, crypto
