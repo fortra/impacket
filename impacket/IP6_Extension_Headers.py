@@ -4,9 +4,10 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
+from past.utils import old_div
 import array
 
-from ImpactPacket import Header, ImpactPacketException, PacketBuffer
+from impacket.ImpactPacket import Header, ImpactPacketException, PacketBuffer
 
 class IP6_Extension_Header(Header):
 # --------------------------------- - - - - - - -
@@ -53,7 +54,7 @@ class IP6_Extension_Header(Header):
 
         buffer = array.array('B', buffer[self.get_headers_field_size():])
         if remaining_bytes > len(buffer):
-            raise ImpactPacketException, "Cannot load options from truncated packet"
+            raise ImpactPacketException("Cannot load options from truncated packet")
 
         while remaining_bytes > 0:
             option_type = buffer[0]
@@ -134,15 +135,14 @@ class IP6_Extension_Header(Header):
 
     def get_packet(self):
         data = self.get_data_as_string()
-
         # Update the header length
-        self.set_header_extension_length(self.get_header_size() / 8 - 1)
+        self.set_header_extension_length(old_div(self.get_header_size(), 8)- 1)
 
         # Build the entire extension header packet
         header_bytes = self.get_buffer_as_string()
         for option in self._option_list:
             header_bytes += option.get_buffer_as_string()
-        
+
         if data:
             return header_bytes + data
         else:
@@ -164,7 +164,7 @@ class Extension_Option(PacketBuffer):
 
     def __init__(self, option_type, size):
         if size > Extension_Option.MAX_OPTION_LEN:
-            raise ImpactPacketException, "Option size of % is greater than the maximum of %d" % (size, Extension_Option.MAX_OPTION_LEN)
+            raise ImpactPacketException("Option size of % is greater than the maximum of %d" % (size, Extension_Option.MAX_OPTION_LEN))
         PacketBuffer.__init__(self, size)
         self.set_option_type(option_type)
 
@@ -217,10 +217,10 @@ class Option_PADN(Extension_Option):
 
     def __init__(self, padding_size):
         if padding_size < 2:
-            raise ImpactPacketException, "PadN Extension Option must be greater than 2 bytes"
+            raise ImpactPacketException("PadN Extension Option must be greater than 2 bytes")
 
         Extension_Option.__init__(self, Option_PADN.OPTION_TYPE_VALUE, padding_size)
-        self.set_data('\x00' * (padding_size - 2))
+        self.set_data(b'\x00' * (padding_size - 2))
 
 class Basic_Extension_Header(IP6_Extension_Header):
     MAX_OPTIONS_LEN = 256 * 8

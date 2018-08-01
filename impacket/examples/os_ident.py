@@ -30,7 +30,7 @@ class os_id_exception:
     def __init__(self, value):
         self.value = value
     def __str__(self):
-        return `self.value`
+        return repr(self.value)
 
 class os_id_test:
     

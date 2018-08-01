@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 # Copyright (C) 2013 by the Massachusetts Institute of Technology.
 # All rights reserved.
 #
@@ -49,6 +50,7 @@ from Crypto.Util.number import GCD as gcd
 from Crypto.Cipher import AES, DES3, ARC4, DES
 from Crypto.Hash import HMAC, MD4, MD5, SHA
 from Crypto.Protocol.KDF import PBKDF2
+from functools import reduce
 
 
 def get_random_bytes(lenBytes):

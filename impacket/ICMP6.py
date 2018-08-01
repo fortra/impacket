@@ -8,8 +8,8 @@
 import array
 import struct
 
-from ImpactPacket import Header, Data
-from IP6_Address import IP6_Address
+from impacket.ImpactPacket import Header, Data
+from impacket.IP6_Address import IP6_Address
 
 
 class ICMP6(Header):    
@@ -225,6 +225,9 @@ class ICMP6(Header):
     
     @classmethod
     def __build_echo_message(class_object, type, id, sequence_number, arbitrary_data):
+        if isinstance(arbitrary_data, str):
+            arbitrary_data = arbitrary_data.encode("latin1")
+
         #Build ICMP6 header
         icmp_packet = ICMP6()
         icmp_packet.set_type(type)

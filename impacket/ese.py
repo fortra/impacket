@@ -436,17 +436,17 @@ def hexdump(data):
     strLen = len(x)
     i = 0
     while i < strLen:
-        print "%04x  " % i,
+        print("%04x  " % i,)
         for j in range(16):
             if i+j < strLen:
-                print "%02X" % ord(x[i+j]),
+                print("%02X" % ord(x[i+j]),)
 
             else:
-                print "  ",
+                print("  ",)
             if j%16 == 7:
-                print "",
-        print " ",
-        print ''.join(pretty_print(x) for x in x[i:i+16] )
+                print("",)
+        print(" ",)
+        print(''.join(pretty_print(x) for x in x[i:i+16] ))
         i += 16
 
 def getUnixTime(t):
@@ -465,35 +465,35 @@ class ESENT_PAGE:
     def printFlags(self):
         flags = self.record['PageFlags']
         if flags & FLAGS_EMPTY:
-            print "\tEmpty"
+            print("\tEmpty")
         if flags & FLAGS_INDEX:
-            print "\tIndex"
+            print("\tIndex")
         if flags & FLAGS_LEAF:
-            print "\tLeaf"
+            print("\tLeaf")
         else:
-            print "\tBranch"
+            print("\tBranch")
         if flags & FLAGS_LONG_VALUE:
-            print "\tLong Value"
+            print("\tLong Value")
         if flags & FLAGS_NEW_CHECKSUM:
-            print "\tNew Checksum"
+            print("\tNew Checksum")
         if flags & FLAGS_NEW_FORMAT:
-            print "\tNew Format"
+            print("\tNew Format")
         if flags & FLAGS_PARENT:
-            print "\tParent"
+            print("\tParent")
         if flags & FLAGS_ROOT:
-            print "\tRoot"
+            print("\tRoot")
         if flags & FLAGS_SPACE_TREE:
-            print "\tSpace Tree"
+            print("\tSpace Tree")
 
     def dump(self):
         baseOffset = len(self.record)
         self.record.dump()
         tags = self.data[-4*self.record['FirstAvailablePageTag']:]
 
-        print "FLAGS: "
+        print("FLAGS: ")
         self.printFlags()
 
-        print
+        print()
 
         for i in range(self.record['FirstAvailablePageTag']):
             tag = tags[-4:]
@@ -509,7 +509,7 @@ class ESENT_PAGE:
                 pageFlags = (unpack('<H', tag[2:])[0] & 0xe000) >> 13
                 valueOffset = unpack('<H',tag[2:])[0] & 0x1fff
                 
-            print "TAG %-8d offset:0x%-6x flags:0x%-4x valueSize:0x%x" % (i,valueOffset,pageFlags,valueSize)
+            print("TAG %-8d offset:0x%-6x flags:0x%-4x valueSize:0x%x" % (i,valueOffset,pageFlags,valueSize))
             #hexdump(self.getTag(i)[1])
             tags = tags[:-4]
 
@@ -532,7 +532,7 @@ class ESENT_PAGE:
                 leafHeader = ESENT_LEAF_HEADER(data)
                 leafHeader.dump()
 
-        # Print the leaf/branch tags
+        # print the leaf/branch tags
         for tagNum in range(1,self.record['FirstAvailablePageTag']):
             flags, data = self.getTag(tagNum)
             if self.record['PageFlags'] & FLAGS_LEAF == 0:
@@ -623,21 +623,21 @@ class ESENT_DB:
     def printCatalog(self):
         indent = '    '
 
-        print "Database version: 0x%x, 0x%x" % (self.__DBHeader['Version'], self.__DBHeader['FileFormatRevision'] )
-        print "Page size: %d " % self.__pageSize
-        print "Number of pages: %d" % self.__totalPages
-        print 
-        print "Catalog for %s" % self.__fileName
+        print("Database version: 0x%x, 0x%x" % (self.__DBHeader['Version'], self.__DBHeader['FileFormatRevision'] ))
+        print("Page size: %d " % self.__pageSize)
+        print("Number of pages: %d" % self.__totalPages)
+        print()
+        print("Catalog for %s" % self.__fileName)
         for table in self.__tables.keys():
-            print "[%s]" % table
-            print "%sColumns " % indent
+            print("[%s]" % table)
+            print("%sColumns " % indent)
             for column in self.__tables[table]['Columns'].keys():
                 record = self.__tables[table]['Columns'][column]['Record']
-                print "%s%-5d%-30s%s" % (indent*2, record['Identifier'], column,ColumnTypeToName[record['ColumnType']])
-            print "%sIndexes"% indent
+                print("%s%-5d%-30s%s" % (indent*2, record['Identifier'], column,ColumnTypeToName[record['ColumnType']]))
+            print("%sIndexes"% indent)
             for index in self.__tables[table]['Indexes'].keys():
-                print "%s%s" % (indent*2, index)
-            print ""
+                print("%s%s" % (indent*2, index))
+            print("")
 
     def __addItem(self, entry):
         dataDefinitionHeader = ESENT_DATA_DEFINITION_HEADER(entry['EntryData'])
@@ -685,7 +685,7 @@ class ESENT_DB:
     def parsePage(self, page):
         baseOffset = len(page.record)
 
-        # Print the leaf/branch tags
+        # print the leaf/branch tags
         for tagNum in range(1,page.record['FirstAvailablePageTag']):
             flags, data = page.getTag(tagNum)
             if page.record['PageFlags'] & FLAGS_LEAF > 0:
@@ -917,7 +917,7 @@ class ESENT_DB:
                     taggedItemsParsed = True
  
                 # Tagged data type
-                if taggedItems.has_key(columnRecord['Identifier']):
+                if columnRecord['Identifier'] in taggedItems:
                     offsetItem = variableDataBytesProcessed + variableSizeOffset + taggedItems[columnRecord['Identifier']][0] 
                     itemSize = taggedItems[columnRecord['Identifier']][1]
                     # If item have flags, we should skip them

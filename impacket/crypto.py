@@ -79,6 +79,10 @@ def Generate_Subkey(K):
     return K1, K2
 
 def XOR_128(N1,N2):
+    if isinstance(N1, bytes):
+        N1 = N1.decode("latin1")
+    if isinstance(N2, bytes):
+        N2 = N2.decode("latin1")
 
     J = ''
     for i in range(len(N1)):
@@ -86,9 +90,10 @@ def XOR_128(N1,N2):
     return J
 
 def PAD(N):
+
     const_Bsize = 16
     padLen = 16-len(N)
-    return  N + '\x80' + '\x00'*(padLen-1)
+    return  N + b'\x80' + b'\x00'*(padLen-1)
 
 def AES_CMAC(K, M, length):
 
@@ -165,8 +170,12 @@ def AES_CMAC(K, M, length):
     for i in range(n-1):
         M_i = M[(i)*const_Bsize:][:16]
         Y   = XOR_128(X, M_i)
+        if isinstance(Y, str):
+            Y = Y.encode("latin1")
         X   = AES_128.encrypt(Y)
     Y = XOR_128(M_last, X)
+    if isinstance(Y, str):
+        Y = Y.encode("latin1")
     T = AES_128.encrypt(Y)
 
     return T
@@ -194,6 +203,7 @@ def AES_CMAC_PRF_128(VK, M, VKlen, Mlen):
 #   +           return PRV;                                             +
 #   +                                                                   +
 #   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
     if VKlen == 16:
         K = VK
     else:
@@ -218,6 +228,7 @@ def KDF_CounterMode(KI, Label, Context, L):
 #    a. K(i) := PRF (KI, [i]2 || Label || 0x00 || Context || [L]2)
 #    b. result(i) := result(i-1) || K(i).
 #  5. Return: KO := the leftmost L bits of result(n).
+
     h = 256
     r = 32
     
@@ -287,13 +298,14 @@ def decryptSecret(key, value):
 
 def encryptSecret(key, value):
     # [MS-LSAD] Section 5.1.2
+
     plainText = ''
     cipherText = ''
     key0 = key
     value0 = pack('<LL', len(value), 1) + value
     for i in range(0, len(value0), 8):
         if len(value0) < 8:
-            value0 = value0 + '\x00'*(8-len(value0))
+            value0 = value0 + b'\x00'*(8-len(value0))
         plainText = value0[:8]
         tmpStrKey = key0[:7]
         tmpKey = transformKey(tmpStrKey)
@@ -310,6 +322,7 @@ def encryptSecret(key, value):
 
 def SamDecryptNTLMHash(encryptedHash, key):
     # [MS-SAMR] Section 2.2.11.1.1
+
     Block1 = encryptedHash[:8]
     Block2 = encryptedHash[8:]
 
@@ -328,6 +341,7 @@ def SamDecryptNTLMHash(encryptedHash, key):
 
 def SamEncryptNTLMHash(encryptedHash, key):
     # [MS-SAMR] Section 2.2.11.1.1
+
     Block1 = encryptedHash[:8]
     Block2 = encryptedHash[8:]
 

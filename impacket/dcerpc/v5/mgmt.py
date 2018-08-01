@@ -33,7 +33,7 @@ class DCERPCSessionError(DCERPCException):
 
     def __str__( self ):
         key = self.error_code
-        if nt_errors.ERROR_MESSAGES.has_key(key):
+        if key in nt_errors.ERROR_MESSAGES:
             error_msg_short = nt_errors.ERROR_MESSAGES[key][0]
             error_msg_verbose = nt_errors.ERROR_MESSAGES[key][1] 
             return 'MGMT SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)

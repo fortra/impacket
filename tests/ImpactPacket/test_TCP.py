@@ -11,6 +11,8 @@ except:
 try:
     import sys
     sys.path.insert(0,"../..")
+    sys.path.append("/home/anw4re/PycharmProjects/impacket_portage/impacket")
+
     from ImpactDecoder import EthDecoder
     from ImpactPacket import TCP
 except:
@@ -24,9 +26,9 @@ class TestTCP(unittest.TestCase):
     def setUp(self):
         # TCP - sport: 60655, dport: 80, sec: 0, HLen: 40, Flags: 0x02, win_size: 5840
         #  cksum: 0x64cb, Options: 0x20
-        self.frame = '\xec\xef\x00\x50\xa8\xbd\xea\x4c\x00\x00\x00\x00\xa0\x02\x16\xd0' \
-                     '\x64\xcb\x00\x00\x02\x04\x05\xb4\x04\x02\x08\x0a\x00\xdc\xd6\x12' \
-                     '\x00\x00\x00\x00\x01\x03\x03\x06'
+        self.frame = b'\xec\xef\x00\x50\xa8\xbd\xea\x4c\x00\x00\x00\x00\xa0\x02\x16\xd0' \
+                     b'\x64\xcb\x00\x00\x02\x04\x05\xb4\x04\x02\x08\x0a\x00\xdc\xd6\x12' \
+                     b'\x00\x00\x00\x00\x01\x03\x03\x06'
 
         self.tcp = TCP(self.frame)
         
@@ -58,11 +60,11 @@ class TestTCP(unittest.TestCase):
         # test that set_th_off doesn't affect to flags
         flags = int('10101010',2)
         self.tcp.set_th_flags( flags )
-        self.assertEqual(self.tcp.get_th_flags(), flags) 
+        self.assertEqual(self.tcp.get_th_flags(), flags)
 
         self.tcp.set_th_off(4)
         self.assertEqual(self.tcp.get_th_off(), 4)
-        self.assertEqual(self.tcp.get_th_flags(), flags) 
+        self.assertEqual(self.tcp.get_th_flags(), flags)
 
     def test_05(self):
         'Test TCP win setters'
@@ -79,8 +81,8 @@ class TestTCP(unittest.TestCase):
     def test_07(self):
         'Test TCP flags setters'
         self.tcp.set_th_flags(0x03) # SYN+FIN
-        self.assertEqual(self.tcp.get_th_flags(), 0x03) 
- 
+        self.assertEqual(self.tcp.get_th_flags(), 0x03)
+
         self.tcp.set_ACK()
         self.assertEqual(self.tcp.get_ACK(), 1)
         self.assertEqual(self.tcp.get_SYN(), 1)
@@ -92,7 +94,7 @@ class TestTCP(unittest.TestCase):
         'Test TCP reset_flags'
         # Test 1
         self.tcp.set_th_flags(19) # ACK+SYN+FIN
-        self.assertEqual(self.tcp.get_th_flags(), 19) 
+        self.assertEqual(self.tcp.get_th_flags(), 19)
         self.assertEqual(self.tcp.get_ACK(), 1)
         self.assertEqual(self.tcp.get_SYN(), 1)
         self.assertEqual(self.tcp.get_FIN(), 1)
@@ -100,12 +102,12 @@ class TestTCP(unittest.TestCase):
 
         self.tcp.reset_flags(0x02)
 
-        self.assertEqual(self.tcp.get_th_flags(), 17) 
+        self.assertEqual(self.tcp.get_th_flags(), 17)
 
         # Test 2
         flags = int('10011', 2) # 19 = ACK+SYN+FIN
-        self.tcp.set_th_flags(flags) 
-        self.assertEqual(self.tcp.get_th_flags(), 19) 
+        self.tcp.set_th_flags(flags)
+        self.assertEqual(self.tcp.get_th_flags(), 19)
 
         # 010011
         # 000010
@@ -113,12 +115,12 @@ class TestTCP(unittest.TestCase):
         # 010001 = 17
         self.tcp.reset_flags(int('000010',2))
 
-        self.assertEqual(self.tcp.get_th_flags(), 17) 
+        self.assertEqual(self.tcp.get_th_flags(), 17)
 
         # Test 3
         flags = int('10011', 2) # 19 = ACK+SYN+FIN
-        self.tcp.set_th_flags(flags) 
-        self.assertEqual(self.tcp.get_th_flags(), 19) 
+        self.tcp.set_th_flags(flags)
+        self.assertEqual(self.tcp.get_th_flags(), 19)
 
         # 010011
         # 010001
@@ -126,12 +128,12 @@ class TestTCP(unittest.TestCase):
         # 000010 = 2
         self.tcp.reset_flags(int('010001',2))
 
-        self.assertEqual(self.tcp.get_th_flags(), 2) 
- 
+        self.assertEqual(self.tcp.get_th_flags(), 2)
+
     def test_09(self):
         'Test TCP set_flags'
         flags = int('10101010',2) # 0xAA
-        self.tcp.set_flags(flags) 
+        self.tcp.set_flags(flags)
         self.assertEqual(self.tcp.get_FIN(), 0)
         self.assertEqual(self.tcp.get_SYN(), 1)
         self.assertEqual(self.tcp.get_RST(), 0)

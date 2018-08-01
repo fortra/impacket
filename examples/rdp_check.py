@@ -17,6 +17,7 @@
 #        authentication process (check [MS-CSSP] section 3.1.5)
 #
 
+from __future__ import print_function
 from struct import pack, unpack
 
 from impacket.examples import logger
@@ -240,21 +241,21 @@ class TSRequest(GSSAPI):
 
    def getData(self):
      # Do we have pubKeyAuth?
-     if self.fields.has_key('pubKeyAuth'):
+     if 'pubKeyAuth' in self.fields:
          pubKeyAuth = pack('B',0xa3)
          pubKeyAuth += asn1encode(pack('B', ASN1_OCTET_STRING) +
                        asn1encode(self['pubKeyAuth']))
      else:
          pubKeyAuth = ''
 
-     if self.fields.has_key('authInfo'):
+     if 'authInfo' in self.fields:
          authInfo = pack('B',0xa2)
          authInfo+= asn1encode(pack('B', ASN1_OCTET_STRING) +
                        asn1encode(self['authInfo']))
      else: 
          authInfo = ''
 
-     if self.fields.has_key('NegoData'):
+     if 'NegoData' in self.fields:
          negoData = pack('B',0xa1) 
          negoData += asn1encode(pack('B', ASN1_SEQUENCE) +
                     asn1encode(pack('B', ASN1_SEQUENCE) + 
@@ -485,7 +486,7 @@ if __name__ == '__main__':
            # anything. So, I'm sending garbage so the server returns an error. 
            # Luckily, it's a different error so we can determine whether or not auth worked ;)
            buff = tls.recv(1024)
-       except Exception, err:
+       except Exception as err:
            if str(err).find("denied") > 0:
                logging.error("Access Denied")
            else:
@@ -543,7 +544,7 @@ if __name__ == '__main__':
 
     # Init the example's logger theme
     logger.init()
-    print version.BANNER
+    print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help = True, description = "Test whether an account is valid on the target "
                                                                     "host using the RDP protocol.")

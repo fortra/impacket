@@ -16,7 +16,7 @@ import socket
 from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import epm, dhcpm, samr
 from impacket.dcerpc.v5.dtypes import NULL
-from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY, RPC_C_AUTHN_WINNT
+from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY, RPC_C_AUTHN_WINNT, RPC_C_AUTHN_LEVEL_PKT_INTEGRITY
 
 class DHCPMTests(unittest.TestCase):
     def connect(self, version):
@@ -31,6 +31,7 @@ class DHCPMTests(unittest.TestCase):
             rpctransport.set_credentials(self.username,self.password, self.domain, lmhash, nthash)
         dce = rpctransport.get_dce_rpc()
         dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_PRIVACY)
+        #dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_INTEGRITY)
         dce.connect()
         if version == 1:
             dce.bind(dhcpm.MSRPC_UUID_DHCPSRV, transfer_syntax = self.ts)
@@ -46,7 +47,7 @@ class DHCPMTests(unittest.TestCase):
 
         request['SearchInfo']['SearchType'] = dhcpm.DHCP_SEARCH_INFO_TYPE.DhcpClientIpAddress
         request['SearchInfo']['SearchInfo']['tag'] = dhcpm.DHCP_SEARCH_INFO_TYPE.DhcpClientIpAddress
-        ip = int(socket.inet_aton("172.16.123.10").encode('hex'), 16)
+        ip = int(socket.inet_aton(self.machine).encode('hex'), 16)
         request['SearchInfo']['SearchInfo']['ClientIpAddress'] = ip
 
         #request['SearchInfo']['SearchType'] = 2
@@ -70,19 +71,29 @@ class DHCPMTests(unittest.TestCase):
 
         request['SearchInfo']['SearchType'] = dhcpm.DHCP_SEARCH_INFO_TYPE.DhcpClientIpAddress
         request['SearchInfo']['SearchInfo']['tag'] = dhcpm.DHCP_SEARCH_INFO_TYPE.DhcpClientIpAddress
-        ip = int(socket.inet_aton("172.16.123.10").encode('hex'), 16)
+        ip = int(socket.inet_aton(self.machine).encode('hex'), 16)
         request['SearchInfo']['SearchInfo']['ClientIpAddress'] = ip
 
         request.dump()
-        resp = dce.request(request)
-        resp.dump()
+        try:
+            resp = dce.request(request)
+        except Exception as e:
+            if str(e).find('ERROR_DHCP_JET_ERROR') >=0:
+                pass
+        else:
+            resp.dump()
 
     def test_hDhcpGetClientInfoV4(self):
         dce, rpctransport = self.connect(1)
 
-        ip = int(socket.inet_aton("172.16.123.10").encode('hex'), 16)
-        resp = dhcpm.hDhcpGetClientInfoV4(dce, dhcpm.DHCP_SEARCH_INFO_TYPE.DhcpClientIpAddress, ip)
-        resp.dump()
+        ip = int(socket.inet_aton(self.machine).encode('hex'), 16)
+        try:
+            resp = dhcpm.hDhcpGetClientInfoV4(dce, dhcpm.DHCP_SEARCH_INFO_TYPE.DhcpClientIpAddress, ip)
+        except Exception as e:
+            if str(e).find('ERROR_DHCP_JET_ERROR') >=0:
+                pass
+        else:
+            resp.dump()
 
         try:
             resp = dhcpm.hDhcpGetClientInfoV4(dce, dhcpm.DHCP_SEARCH_INFO_TYPE.DhcpClientName, 'PEPA\x00')
@@ -90,6 +101,39 @@ class DHCPMTests(unittest.TestCase):
         except Exception, e:
             if str(e).find('0x4e2d') >= 0:
                 pass
+
+    def test_hDhcpEnumSubnetClientsV5(self):
+
+        dce, rpctransport = self.connect(2)
+
+        try:
+            resp = dhcpm.hDhcpEnumSubnetClientsV5(dce)
+        except Exception, e:
+            if str(e).find('ERROR_NO_MORE_ITEMS') >=0:
+                pass
+            else:
+                raise
+        else:
+            resp.dump()
+
+    def test_hDhcpGetOptionValueV5(self):
+        dce, rpctransport = self.connect(2)
+        netId = self.machine.split('.')[:-1]
+        netId.append('0')
+        print '.'.join(netId)
+        subnet_id = int(socket.inet_aton('.'.join(netId)).encode('hex'), 16)
+        try:
+            resp = dhcpm.hDhcpGetOptionValueV5(dce,3,
+                                           dhcpm.DHCP_FLAGS_OPTION_DEFAULT, NULL, NULL,
+                                           dhcpm.DHCP_OPTION_SCOPE_TYPE.enumItems.DhcpSubnetOptions,
+                                           subnet_id)
+        except Exception as e:
+            if str(e).find('ERROR_DHCP_SUBNET_NOT_PRESENT') >=0:
+                pass
+            else:
+                raise
+        else:
+            resp.dump()
 
 class SMBTransport(DHCPMTests):
     def setUp(self):

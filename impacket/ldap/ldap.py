@@ -31,7 +31,7 @@ from impacket import LOG
 from impacket.ldap.ldapasn1 import *
 from impacket.ntlm import getNTLMSSPType1, getNTLMSSPType3
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech
-
+from builtins import int
 try:
     import OpenSSL
     from OpenSSL import SSL, crypto
@@ -462,7 +462,7 @@ class LDAPConnection:
 
     def _parseFilter(self, filterStr):
         try:
-            filterList = list(reversed(unicode(filterStr)))
+            filterList = list(reversed(str(filterStr)))
         except UnicodeDecodeError:
             filterList = list(reversed(filterStr))
         searchFilter = self._consumeCompositeFilter(filterList)

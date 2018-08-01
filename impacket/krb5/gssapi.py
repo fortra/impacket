@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 # Copyright (c) 2003-2016 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version

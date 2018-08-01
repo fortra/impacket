@@ -1,3 +1,4 @@
+from __future__ import print_function
 # Copyright (c) 2003-2016 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
@@ -40,7 +41,7 @@ class DCERPCSessionError(DCERPCException):
         DCERPCException.__init__(self, error_string, error_code, packet)
 
     def __str__( self ):
-        if hresult_errors.ERROR_MESSAGES.has_key(self.error_code):
+        if self.error_code in hresult_errors.ERROR_MESSAGES:
             error_msg_short = hresult_errors.ERROR_MESSAGES[self.error_code][0]
             error_msg_verbose = hresult_errors.ERROR_MESSAGES[self.error_code][1] 
             return 'OAUT SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
@@ -286,9 +287,9 @@ class FLAGGED_WORD_BLOB(NDRSTRUCT):
         if msg is None: msg = self.__class__.__name__
         ind = ' '*indent
         if msg != '':
-            print "%s" % (msg)
+            print("%s" % (msg))
         value = ''
-        print '%sasData: %s' % (ind,self['asData']),
+        print('%sasData: %s' % (ind,self['asData']), end=' ')
 
 # 2.2.23.2 BSTR Type Definition
 class BSTR(NDRPOINTER):
@@ -979,9 +980,9 @@ def enumerateMethods(iInterface):
     for x in range(iTypeAttr['ppTypeAttr']['cFuncs']):
         funcDesc = iTypeInfo.GetFuncDesc(x)
         names = iTypeInfo.GetNames(funcDesc['ppFuncDesc']['memid'], 255)
-        print names['rgBstrNames'][0]['asData']
+        print(names['rgBstrNames'][0]['asData'])
         funcDesc.dump()
-        print '='*80
+        print('='*80)
         if names['pcNames'] > 0:
             name = names['rgBstrNames'][0]['asData']
             methods[name] = {}

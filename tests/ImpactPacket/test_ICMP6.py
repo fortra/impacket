@@ -10,6 +10,7 @@ except:
 try:
     import sys
     sys.path.insert(0,"../..")
+    sys.path.append("/home/anw4re/PycharmProjects/impacket_portage/impacket")
     import IP6_Address, IP6, ImpactDecoder, ICMP6
 except:
     pass

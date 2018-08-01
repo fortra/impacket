@@ -259,7 +259,7 @@ class TestRadioTap(unittest.TestCase):
         self.assertEqual(self.rt0.get_size(), len(self.frame_0))
         self.assertEqual(self.rt0.get_header_size(), 24)
 
-        # When the field is new 
+        # When the field is new
         self.assertEqual(self.rt1.get_size(), len(self.frame_1))
         self.assertEqual(self.rt1.get_header_size(), 32)
         self.assertEqual(self.rt1.get_channel(), None)
@@ -271,7 +271,7 @@ class TestRadioTap(unittest.TestCase):
     def test_11_fhss_field(self):
         """Test RadioTap FHSS getter/setter"""
         # TODO: When exist the field
-        # When the field is new 
+        # When the field is new
         self.assertEqual(self.rt1.get_size(), len(self.frame_1))
         self.assertEqual(self.rt1.get_header_size(), 32)
         self.assertEqual(self.rt1.get_FHSS(), None)
@@ -291,7 +291,7 @@ class TestRadioTap(unittest.TestCase):
         self.assertEqual(self.rt1.get_size(), len(self.frame_1))
         self.assertEqual(self.rt1.get_header_size(), 32)
 
-        # When the field is new 
+        # When the field is new
         self.assertEqual(self.rt0.get_size(), len(self.frame_0))
         self.assertEqual(self.rt0.get_header_size(), 24)
         self.assertEqual(self.rt0.get_dBm_ant_signal(), None)
@@ -311,7 +311,7 @@ class TestRadioTap(unittest.TestCase):
         self.assertEqual(self.rt1.get_size(), len(self.frame_1))
         self.assertEqual(self.rt1.get_header_size(), 32)
 
-        # When the field is new 
+        # When the field is new
         self.assertEqual(self.rt0.get_size(), len(self.frame_0))
         self.assertEqual(self.rt0.get_header_size(), 24)
         self.assertEqual(self.rt0.get_dBm_ant_noise(), None)
@@ -323,7 +323,7 @@ class TestRadioTap(unittest.TestCase):
     def test_14_lock_quality_field(self):
         """Test RadioTap Lock Quality getter/setter"""
         # TODO: When exist the field
-        # When the field is new 
+        # When the field is new
         self.assertEqual(self.rt1.get_size(), len(self.frame_1))
         self.assertEqual(self.rt1.get_header_size(), 32)
         self.assertEqual(self.rt1.get_lock_quality(), None)
@@ -335,7 +335,7 @@ class TestRadioTap(unittest.TestCase):
     def test_15_tx_attenuation_field(self):
         """Test RadioTap Tx Attenuation getter/setter"""
         # TODO: When exist the field
-        # When the field is new 
+        # When the field is new
         self.assertEqual(self.rt1.get_size(), len(self.frame_1))
         self.assertEqual(self.rt1.get_header_size(), 32)
         self.assertEqual(self.rt1.get_tx_attenuation(), None)
@@ -347,7 +347,7 @@ class TestRadioTap(unittest.TestCase):
     def test_16_dB_tx_attenuation_field(self):
         """Test RadioTap dB Tx Attenuation getter/setter"""
         # TODO: When exist the field
-        # When the field is new 
+        # When the field is new
         self.assertEqual(self.rt1.get_size(), len(self.frame_1))
         self.assertEqual(self.rt1.get_header_size(), 32)
         self.assertEqual(self.rt1.get_dB_tx_attenuation(), None)
@@ -359,7 +359,7 @@ class TestRadioTap(unittest.TestCase):
     def test_17_dbm_tx_power_field(self):
         """Test RadioTap dBm Tx Power getter/setter"""
         # TODO: When exist the field
-        # When the field is new 
+        # When the field is new
         self.assertEqual(self.rt1.get_size(), len(self.frame_1))
         self.assertEqual(self.rt1.get_header_size(), 32)
         self.assertEqual(self.rt1.get_dBm_tx_power(), None)
@@ -399,7 +399,7 @@ class TestRadioTap(unittest.TestCase):
         self.assertEqual(self.rt0.get_size(), len(self.frame_0))
         self.assertEqual(self.rt0.get_header_size(), 24)
 
-        # When the field is new 
+        # When the field is new
         self.assertEqual(self.rt1.get_size(), len(self.frame_1))
         self.assertEqual(self.rt1.get_header_size(), 32)
         self.assertEqual(self.rt1.get_dB_ant_signal(), None)
@@ -411,7 +411,7 @@ class TestRadioTap(unittest.TestCase):
     def test_20_db_ant_noise_field(self):
         """Test RadioTap dB Antenna Noise getter/setter"""
         # TODO: When exist the field
-        # When the field is new 
+        # When the field is new
         self.assertEqual(self.rt1.get_size(), len(self.frame_1))
         self.assertEqual(self.rt1.get_header_size(), 32)
         self.assertEqual(self.rt1.get_dB_ant_noise(), None)
@@ -450,8 +450,8 @@ class TestRadioTap(unittest.TestCase):
         self.assertEqual(self.rt0.get_FCS_in_header(), 0x89ABCDEF)
         self.assertEqual(self.rt0.get_size(), len(self.frame_0))
         self.assertEqual(self.rt0.get_header_size(), 24)
-        
-        # When the field is new 
+
+        # When the field is new
         self.assertEqual(self.rt1.get_size(), len(self.frame_1))
         self.assertEqual(self.rt1.get_header_size(), 32)
         self.assertEqual(self.rt1.get_FCS_in_header(), None)
@@ -474,7 +474,7 @@ class TestRadioTap(unittest.TestCase):
 
     def test_24_rts_retries_field(self):
         """Test RadioTap RTS retries getter/setter"""
-        # When the field is new 
+        # When the field is new
         self.assertEqual(self.rt1.get_size(), len(self.frame_1))
         self.assertEqual(self.rt1.get_header_size(), 32)
         self.assertEqual(self.rt1.get_RTS_retries(), None)
@@ -486,7 +486,7 @@ class TestRadioTap(unittest.TestCase):
 
     def test_25_tx_flags_field(self):
         """Test RadioTap TX flags getter/setter"""
-        # When the field is new 
+        # When the field is new
         self.assertEqual(self.rt1.get_size(), len(self.frame_1))
         self.assertEqual(self.rt1.get_header_size(), 32)
         self.assertEqual(self.rt1.get_tx_flags(), None)
@@ -513,7 +513,7 @@ class TestRadioTap(unittest.TestCase):
 
     def test_27_data_retries_field(self):
         """Test RadioTap Data retries getter/setter"""
-        # When the field is new 
+        # When the field is new
         self.assertEqual(self.rt1.get_size(), len(self.frame_1))
         self.assertEqual(self.rt1.get_header_size(), 32)
         self.assertEqual(self.rt1.get_data_retries(), None)
@@ -546,21 +546,21 @@ class TestRadioTap(unittest.TestCase):
         #   4 bytes present flags
         self.assertEqual(rt.get_header_length(), 0x08)
         raw_packet = rt.get_packet()
-        self.assertEqual(raw_packet, "\x00\x00\x08\x00\x00\x00\x00\x00")
+        self.assertEqual(raw_packet, b"\x00\x00\x08\x00\x00\x00\x00\x00")
         # RadioTap from scratch without call to get_length()
         raw_packet = RadioTap().get_packet()
-        self.assertEqual(raw_packet, "\x00\x00\x08\x00\x00\x00\x00\x00")        
+        self.assertEqual(raw_packet, b"\x00\x00\x08\x00\x00\x00\x00\x00")
 
     def test_30_radiotap_length_filed_with_payload(self):
         """Test RadioTap header length field with payload"""
         # RadioTap from scratch calling get_length() and then get_packet()
         rt = RadioTap()
-        self.assertEqual(rt.get_header_length(), 0x08) 
+        self.assertEqual(rt.get_header_length(), 0x08)
         data = Data("aa")
         rt.contains(data)
         self.assertEqual(rt.get_header_length(), 0x08)  # The header length is the same
         raw_packet = rt.get_packet()
-        self.assertEqual(raw_packet, "\x00\x00\x08\x00\x00\x00\x00\x00aa")
+        self.assertEqual(raw_packet, b"\x00\x00\x08\x00\x00\x00\x00\x00aa")
 
     def test_31_radiotap_present_flags_extended(self):
         """Test RadioTap extended present flags"""

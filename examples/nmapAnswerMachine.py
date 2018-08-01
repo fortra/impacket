@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 import random
 
 import uncrc32
@@ -65,7 +66,7 @@ class Responder:
 
    def __init__(self, machine):
        self.machine = machine
-       print "Initializing %s" % self.__class__.__name__
+       print("Initializing %s" % self.__class__.__name__)
        self.initTemplate()
        self.initFingerprint()
 
@@ -103,7 +104,7 @@ class Responder:
 
    def process(self, in_onion):
        if not self.isMine(in_onion): return False
-       print "Got packet for %s" % self.__class__.__name__
+       print("Got packet for %s" % self.__class__.__name__)
 
        out_onion = self.buildAnswer(in_onion)
 
@@ -364,7 +365,7 @@ class UDPCommandResponder(OpenUDPResponder):
    def buildAnswer(self, in_onion):
        cmd = in_onion[O_UDP_DATA].get_bytes().tostring()
        if cmd[:4] == 'cmd:': cmd = cmd[4:].strip()
-       print "Got command: %r" % cmd
+       print("Got command: %r" % cmd)
 
        if cmd == 'exit':
           from sys import exit
@@ -661,7 +662,7 @@ class NMAP2TCPResponder(TCPResponder):
           if opt == 'T':
              opt = TCPOption(TCPOption.TCPOPT_TIMESTAMP)  # default ts = 0, ts_echo = 0
              if options[i] == '1':  opt.set_ts(self.machine.getTCPTimeStamp())
-             if options[i+1] == '1': opt.set_ts_echo(0xffffffffL)
+             if options[i+1] == '1': opt.set_ts_echo(0xffffffff)
              tcp.add_option(opt)
              i += 2
           if opt == 'M':
@@ -766,7 +767,7 @@ class Machine:
        self.initSequenceGenerators()
        self.openTCPPorts = openTCPPorts
        self.openUDPPorts = openUDPPorts
-       print self
+       print(self)
 
    def openUDPPort(self, port):
        if self.isUDPPortOpen(port): return
@@ -802,7 +803,7 @@ class Machine:
               # print fingerprint
               return
 
-       raise Exception, "Couldn't find fingerprint data for %r" % emmulating
+       raise Exception("Couldn't find fingerprint data for %r" % emmulating)
 
    def simplifyFingerprint(self):
        tests = self.fingerprint.get_tests()
@@ -854,8 +855,8 @@ class Machine:
            self.getIPID()
            self.getIPID_ICMP()
 
-       print "IP ID Delta: %d" % self.ip_ID_delta
-       print "IP ID ICMP Delta: %s" % self.ip_ID_ICMP_delta
+       print("IP ID Delta: %d" % self.ip_ID_delta)
+       print("IP ID ICMP Delta: %s" % self.ip_ID_ICMP_delta)
 
    def initTCPISNGenerator(self):
        # tcp_ISN and tcp_ISN_delta for TCP Initial sequence numbers
@@ -892,8 +893,8 @@ class Machine:
        # generate a few, so we don't start with 0 when we don't have to
        for i in range(10): self.getTCPSequence()
 
-       print "TCP ISN Delta: %f" % self.tcp_ISN_delta
-       print "TCP ISN Standard Deviation: %f" % self.tcp_ISN_stdDev
+       print("TCP ISN Delta: %f" % self.tcp_ISN_delta)
+       print("TCP ISN Standard Deviation: %f" % self.tcp_ISN_stdDev)
 
    def initTCPTSGenerator(self):
        # tcp_TS and tcp_TS_delta for TCP Time stamp generation
@@ -909,12 +910,12 @@ class Machine:
        # generate a few, so we don't start with 0 when we don't have to
        for i in range(10): self.getTCPTimeStamp()
 
-       print "TCP TS Delta: %f" % self.tcp_TS_delta
+       print("TCP TS Delta: %f" % self.tcp_TS_delta)
 
    def getIPID(self):
        answer = self.ip_ID
        self.ip_ID += self.ip_ID_delta
-       self.ip_ID %= 0x10000L
+       self.ip_ID %= 0x10000
        # print "IP ID: %x" % answer
        return answer
 
@@ -924,7 +925,7 @@ class Machine:
 
        answer = self.ip_ID_ICMP
        self.ip_ID_ICMP += self.ip_ID_ICMP_delta
-       self.ip_ID_ICMP %= 0x10000L
+       self.ip_ID_ICMP %= 0x10000
        # print "---> IP ID: %x" % answer
        return answer
 
@@ -933,20 +934,20 @@ class Machine:
        self.tcp_ISN_stdDev *= -1
        answer = int(int(answer/self.tcp_ISN_GCD) * self.tcp_ISN_GCD)
        self.tcp_ISN += self.tcp_ISN_delta
-       self.tcp_ISN %= 0x100000000L
+       self.tcp_ISN %= 0x100000000
        # print "---> TCP Sequence: %d" % (answer % 0x100000000L)
-       return answer % 0x100000000L
+       return answer % 0x100000000
 
    def getTCPTimeStamp(self):
        answer = int(round(self.tcp_TS))
        self.tcp_TS += self.tcp_TS_delta
-       self.tcp_TS %= 0x100000000L
+       self.tcp_TS %= 0x100000000
        # print "---> TCP Time Stamp: %x" % answer
        return answer
 
    def sendPacket(self, onion):
        if not onion: return
-       print "--> Packet sent:"
+       print("--> Packet sent:")
        #print onion[0]
        #print
        self.pcap.sendpacket(onion[O_ETH].get_packet())
@@ -956,7 +957,7 @@ class Machine:
 
    def run(self):
        while 1:
-          p = self.pcap.next()
+          p = next(self.pcap)
           try:    in_onion = [self.decoder.decode(p[1])]
           except: in_onion = [self.decoder.decode(p[0])]
           try:
@@ -994,7 +995,7 @@ def main():
 
    from sys import argv, exit
    def usage():
-       print """
+       print("""
        if arg == '-h': usage()
        if arg == '--help': usage()
        if arg == '-f': Fingerprint = value
@@ -1006,7 +1007,7 @@ def main():
    where:
        arg = argv[i]
        value = argv[i+1]
-       """
+       """)
        exit()
 
    global Fingerprint, IFACE, MAC, IP, nmapOSDB
@@ -1022,8 +1023,8 @@ def main():
        if arg == '-i': IFACE = value
        if arg == '-d': nmapOSDB = value
 
-   print "Emulating: %r" % Fingerprint
-   print "at %s / %s / %s" % (IFACE, MAC, IP)
+   print("Emulating: %r" % Fingerprint)
+   print("at %s / %s / %s" % (IFACE, MAC, IP))
    machine = Machine(
        Fingerprint,
        IFACE,
