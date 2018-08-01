@@ -44,11 +44,7 @@ class EnumLocalAdmins:
         resp = samr.hSamrLookupDomainInSamServer(dce, serverHandle, 'Builtin')
         resp = samr.hSamrOpenDomain(dce, serverHandle=serverHandle, domainId=resp['DomainId'])
         domainHandle = resp['DomainHandle']
-        resp = samr.hSamrEnumerateAliasesInDomain(dce, domainHandle)
-        aliases = {}
-        for alias in resp['Buffer']['Buffer']:
-            aliases[alias['Name']] =  alias['RelativeId']
-        resp = samr.hSamrOpenAlias(dce, domainHandle, desiredAccess=MAXIMUM_ALLOWED, aliasId=aliases['Administrators'])
+        resp = samr.hSamrOpenAlias(dce, domainHandle, desiredAccess=MAXIMUM_ALLOWED, aliasId=544)
         resp = samr.hSamrGetMembersInAlias(dce, resp['AliasHandle'])
         memberSids = []
         for member in resp['Members']['Sids']:
