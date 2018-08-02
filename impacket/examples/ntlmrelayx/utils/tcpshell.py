@@ -25,6 +25,8 @@ class TcpShell:
     def listen(self):
         #Set up the listening socket
         serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # reuse address if needed
+        serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         #Bind on localhost
         serversocket.bind(('127.0.0.1', self.port))
         #Don't allow a backlog
