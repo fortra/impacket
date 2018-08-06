@@ -1976,7 +1976,15 @@ class NTDSHashes:
 
             if record[self.NAME_TO_INTERNAL['dBCSPwd']] is not None:
                 encryptedLMHash = self.CRYPTED_HASH(unhexlify(record[self.NAME_TO_INTERNAL['dBCSPwd']]))
-                tmpLMHash = self.__removeRC4Layer(encryptedLMHash)
+                if encryptedLMHash['Header'][:4] == '\x13\x00\x00\x00':
+                    # Win2016 TP4 decryption is different
+                    encryptedLMHash = self.CRYPTED_HASHW16(unhexlify(record[self.NAME_TO_INTERNAL['dBCSPwd']]))
+                    pekIndex = hexlify(encryptedLMHash['Header'])
+                    tmpLMHash = self.__cryptoCommon.decryptAES(self.__PEK[int(pekIndex[8:10])],
+                                                               encryptedLMHash['EncryptedHash'][:16],
+                                                               encryptedLMHash['KeyMaterial'])
+                else:
+                    tmpLMHash = self.__removeRC4Layer(encryptedLMHash)
                 LMHash = self.__removeDESLayer(tmpLMHash, rid)
             else:
                 LMHash = ntlm.LMOWFv1('', '')
