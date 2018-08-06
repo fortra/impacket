@@ -7,7 +7,7 @@
 from __future__ import division
 from __future__ import print_function
 from struct import pack, unpack, calcsize
-from six import b
+from six import b, PY3
 
 class Structure:
     """ sublcasses can define commonHdr and/or structure.
@@ -342,7 +342,10 @@ class Structure:
         if format == 'z':
             if data[-1:] != b('\x00'):
                 raise Exception("%s 'z' field is not NUL terminated: %r" % (field, data))
-            return data[:-1].decode('ascii') # remove trailing NUL
+            if PY3:
+                return data[:-1].decode('ascii')
+            else:
+                return data[:-1]
 
         # unicode specifier
         if format == 'u':
@@ -595,7 +598,7 @@ def pretty_print(x):
        return u'.'
 
 def hexdump(data, indent = ''):
-    x=bytearray(b(data))
+    x=bytearray(data)
     strLen = len(x)
     i = 0
     while i < strLen:
