@@ -1369,7 +1369,7 @@ class LSASecrets(OfflineRegistry):
             # No SECURITY file provided
             return
 
-        LOG.info('Dumping cached domain logon information (uid:encryptedHash:longDomain:domain)')
+        LOG.info('Dumping cached domain logon information (domain:hash)')
 
         # Let's first see if there are cached entries
         values = self.enumValues('\\Cache')
@@ -1381,6 +1381,17 @@ class LSASecrets(OfflineRegistry):
             values.remove('NL$Control')
         except:
             pass
+
+        iterationCount = 10240
+
+        if 'NL$IterationCount' in values:
+            values.remove('NL$IterationCount')
+
+            record = self.getValue('\\Cache\\NL$IterationCount')[1]
+            if record > 10240:
+                iterationCount = record & 0xfffffc00
+            else:
+                iterationCount = record * 1024
 
         self.__getLSASecretKey()
         self.__getNLKMSecret()
@@ -1404,11 +1415,14 @@ class LSASecrets(OfflineRegistry):
                 encHash = plainText[:0x10]
                 plainText = plainText[0x48:]
                 userName = plainText[:record['UserLength']].decode('utf-16le')
-                plainText = plainText[self.__pad(record['UserLength']):]
-                domain = plainText[:record['DomainNameLength']].decode('utf-16le')
-                plainText = plainText[self.__pad(record['DomainNameLength']):]
+                plainText = plainText[self.__pad(record['UserLength']) + self.__pad(record['DomainNameLength']):]
                 domainLong = plainText[:self.__pad(record['DnsDomainNameLength'])].decode('utf-16le')
-                answer = "%s:%s:%s:%s:::" % (userName, hexlify(encHash), domainLong, domain)
+
+                if self.__vistaStyle is True:
+                    answer = "%s:$DCC2$%s#%s#%s" % (domainLong, iterationCount, userName, hexlify(encHash))
+                else:
+                    answer = "%s:%s:%s" % (domainLong, hexlify(encHash), userName)
+
                 self.__cachedItems.append(answer)
                 self.__perSecretCallback(LSASecrets.SECRET_TYPE.LSA_HASHED, answer)
 
