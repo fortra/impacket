@@ -1369,7 +1369,7 @@ class LSASecrets(OfflineRegistry):
             # No SECURITY file provided
             return
 
-        LOG.info('Dumping cached domain logon information (domain:hash)')
+        LOG.info('Dumping cached domain logon information (domain/username:hash)')
 
         # Let's first see if there are cached entries
         values = self.enumValues('\\Cache')
@@ -1419,9 +1419,9 @@ class LSASecrets(OfflineRegistry):
                 domainLong = plainText[:self.__pad(record['DnsDomainNameLength'])].decode('utf-16le')
 
                 if self.__vistaStyle is True:
-                    answer = "%s:$DCC2$%s#%s#%s" % (domainLong, iterationCount, userName, hexlify(encHash))
+                    answer = "%s/%s:$DCC2$%s#%s#%s" % (domainLong, userName, iterationCount, userName, hexlify(encHash))
                 else:
-                    answer = "%s:%s:%s" % (domainLong, hexlify(encHash), userName)
+                    answer = "%s/%s:%s:%s" % (domainLong, userName, hexlify(encHash), userName)
 
                 self.__cachedItems.append(answer)
                 self.__perSecretCallback(LSASecrets.SECRET_TYPE.LSA_HASHED, answer)
