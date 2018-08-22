@@ -294,7 +294,8 @@ class HTTPRelayServer(Thread):
             # Check if SOCKS is enabled and if we support the target scheme
             if self.server.config.runSocks and self.target.scheme.upper() in self.server.config.socksServer.supportedSchemes:
                 # Pass all the data to the socksplugins proxy
-                activeConnections.put((self.target.hostname, self.client.targetPort, self.authUser, self.client, self.client.sessionData))
+                activeConnections.put((self.target.hostname, self.client.targetPort, self.target.scheme.upper(),
+                                       self.authUser, self.client, self.client.sessionData))
                 return
 
             # If SOCKS is not enabled, or not supported for this scheme, fall back to "classic" attacks

@@ -42,8 +42,9 @@ class IMAPSocksRelay(SocksRelay):
 
     def getServerCapabilities(self):
         for key in self.activeRelays.keys():
-            if self.activeRelays[key].has_key('protocolClient'):
-                return self.activeRelays[key]['protocolClient'].session.capabilities
+            if key != 'data' and key != 'scheme':
+                if self.activeRelays[key].has_key('protocolClient'):
+                    return self.activeRelays[key]['protocolClient'].session.capabilities
 
     def initConnection(self):
         pass

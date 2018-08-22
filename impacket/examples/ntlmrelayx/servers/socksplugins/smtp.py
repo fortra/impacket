@@ -40,8 +40,9 @@ class SMTPSocksRelay(SocksRelay):
 
     def getServerEhlo(self):
         for key in self.activeRelays.keys():
-            if self.activeRelays[key].has_key('protocolClient'):
-                return self.activeRelays[key]['protocolClient'].session.ehlo_resp
+            if key != 'data' and key != 'scheme':
+                if self.activeRelays[key].has_key('protocolClient'):
+                    return self.activeRelays[key]['protocolClient'].session.ehlo_resp
 
     def initConnection(self):
         pass

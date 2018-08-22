@@ -55,10 +55,11 @@ class SMBSocksRelay(SocksRelay):
         # Let's verify the target's server SMB version, will need it for later.
         # We're assuming all connections to the target server use the same SMB version
         for key in activeRelays.keys():
-            if activeRelays[key].has_key('protocolClient'):
-                self.serverDialect = activeRelays[key]['protocolClient'].session.getDialect()
-                self.isSMB2 = activeRelays[key]['protocolClient'].session.getDialect() is not SMB_DIALECT
-                break
+            if key != 'data' and key != 'scheme':
+                if activeRelays[key].has_key('protocolClient'):
+                    self.serverDialect = activeRelays[key]['protocolClient'].session.getDialect()
+                    self.isSMB2 = activeRelays[key]['protocolClient'].session.getDialect() is not SMB_DIALECT
+                    break
 
     @staticmethod
     def getProtocolPort():
