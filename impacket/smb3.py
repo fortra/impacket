@@ -367,7 +367,7 @@ class SMB3:
             transformHeader['OriginalMessageSize'] = len(plainText)
             transformHeader['EncryptionAlgorithm'] = SMB2_ENCRYPTION_AES128_CCM
             transformHeader['SessionID'] = self._Session['SessionID'] 
-            from Crypto.Cipher import AES
+            from Cryptodome.Cipher import AES
             try: 
                 AES.MODE_CCM
             except:
@@ -392,7 +392,7 @@ class SMB3:
         if data.get_trailer().startswith('\xfdSMB'):
             # Packet is encrypted
             transformHeader = SMB2_TRANSFORM_HEADER(data.get_trailer())
-            from Crypto.Cipher import AES
+            from Cryptodome.Cipher import AES
             try: 
                 AES.MODE_CCM
             except:
@@ -419,7 +419,7 @@ class SMB3:
                 else:
                     # Packet is encrypted
                     transformHeader = SMB2_TRANSFORM_HEADER(data.get_trailer())
-                    from Crypto.Cipher import AES
+                    from Cryptodome.Cipher import AES
                     try: 
                         AES.MODE_CCM
                     except:
@@ -665,7 +665,7 @@ class SMB3:
                 self._Session['SigningActivated'] = True
             if self._Connection['Dialect'] == SMB2_DIALECT_30:
                 # SMB 3.0. Encryption should be available. Let's enforce it if we have AES CCM available
-                from Crypto.Cipher import AES
+                from Cryptodome.Cipher import AES
                 try:
                     AES.MODE_CCM
                     self._Session['SessionFlags'] |= SMB2_SESSION_FLAG_ENCRYPT_DATA
@@ -815,7 +815,7 @@ class SMB3:
                         self._Session['SigningActivated'] = True
                     if self._Connection['Dialect'] == SMB2_DIALECT_30:
                         # SMB 3.0. Encryption should be available. Let's enforce it if we have AES CCM available
-                        from Crypto.Cipher import AES
+                        from Cryptodome.Cipher import AES
                         try:
                             AES.MODE_CCM
                             self._Session['SessionFlags'] |= SMB2_SESSION_FLAG_ENCRYPT_DATA

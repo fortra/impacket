@@ -27,7 +27,7 @@ from impacket.dcerpc.v5.transport import DCERPCTransportFactory
 from impacket.examples import logger
 
 try:
-    from Crypto.Cipher import ARC4
+    from Cryptodome.Cipher import ARC4
 except Exception:
     logging.critical("Warning: You don't have any crypto installed. You need PyCrypto")
     logging.critical("See http://www.pycrypto.org/")

@@ -34,7 +34,7 @@ from pyasn1.type import univ
 from pyasn1.codec.ber import decoder
 
 try:
-    from Crypto.Cipher import ARC4, DES
+    from Cryptodome.Cipher import ARC4, DES
 except Exception:
     LOG.critical("Warning: You don't have any crypto installed. You need PyCrypto")
     LOG.critical("See http://www.pycrypto.org/")

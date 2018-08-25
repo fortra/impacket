@@ -2754,7 +2754,7 @@ def hSamrUnicodeChangePasswordUser2(dce, serverName='\x00', userName='', oldPass
     request['UserName'] = userName
 
     try:
-        from Crypto.Cipher import ARC4
+        from Cryptodome.Cipher import ARC4
     except Exception:
         LOG.critical("Warning: You don't have any crypto installed. You need PyCrypto")
         LOG.critical("See http://www.pycrypto.org/")
