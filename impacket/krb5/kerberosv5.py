@@ -169,15 +169,16 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
         # Yes
         preAuth = False
 
+    encryptionTypesData = dict()
+    salt = ''
     if preAuth is False:
         # In theory, we should have the right credentials for the etype specified before.
         methods = asRep['padata']
+        encryptionTypesData[supportedCiphers[0]] = salt # handle RC4 fallback, we don't need any salt
         tgt = r
     else:
         methods = decoder.decode(str(asRep['e-data']), asn1Spec=METHOD_DATA())[0]
 
-    salt = ''
-    encryptionTypesData = dict()
     for method in methods:
         if method['padata-type'] == constants.PreAuthenticationDataTypes.PA_ETYPE_INFO2.value:
             etypes2 = decoder.decode(str(method['padata-value']), asn1Spec = ETYPE_INFO2())[0]
