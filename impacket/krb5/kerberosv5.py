@@ -30,7 +30,7 @@ from impacket.krb5.types import KerberosTime, Principal, Ticket
 from impacket.krb5.gssapi import CheckSumField, GSS_C_DCE_STYLE, GSS_C_MUTUAL_FLAG, GSS_C_REPLAY_FLAG, \
     GSS_C_SEQUENCE_FLAG, GSS_C_CONF_FLAG, GSS_C_INTEG_FLAG
 from impacket.krb5 import constants
-from impacket.krb5.crypto import Key, _enctype_table
+from impacket.krb5.crypto import Key, _enctype_table, InvalidChecksum
 from impacket.smbconnection import SessionError
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech, SPNEGO_NegTokenResp, ASN1_OID, asn1encode, ASN1_AID
 from impacket.krb5.gssapi import KRB5_AP_REQ
@@ -301,7 +301,14 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
     # AS-REP encrypted part (includes TGS session key or
     # application session key), encrypted with the client key
     # (Section 5.4.2)
-    plainText = cipher.decrypt(key, 3, str(cipherText))
+    try:
+        plainText = cipher.decrypt(key, 3, str(cipherText))
+    except InvalidChecksum, e:
+        # probably bad password if preauth is disabled
+        if preAuth is False:
+            error_msg = "failed to decrypt session key: %s" % str(e)
+            raise SessionKeyDecryptionError(error_msg, asRep, cipher, key, cipherText)
+        raise
     encASRepPart = decoder.decode(plainText, asn1Spec = EncASRepPart())[0]
 
     # Get the session key and the ticket
@@ -636,6 +643,25 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT 
             TypesMech['KRB5 - Kerberos 5'] ) + KRB5_AP_REQ + encoder.encode(apReq))
 
     return cipher, sessionKey, blob.getData()
+
+
+class SessionKeyDecryptionError(Exception):
+    """
+    Exception risen when we fail to decrypt a session key within an AS-REP
+    message.
+    It provides context information such as full AS-REP message but also the
+    cipher, key and cipherText used when the error occurred.
+    """
+    def __init__( self, message, asRep, cipher, key, cipherText):
+        self.message = message
+        self.asRep = asRep
+        self.cipher = cipher
+        self.key = key
+        self.cipherText = cipherText
+
+    def __str__ ( self):
+        return "SessionKeyDecryptionError: %s" % self.message
+
 
 class KerberosError(SessionError):
     """
