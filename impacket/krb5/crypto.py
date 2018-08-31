@@ -45,14 +45,14 @@ from binascii import unhexlify
 import string
 import random
 
-from Crypto.Util.number import GCD as gcd
-from Crypto.Cipher import AES, DES3, ARC4, DES
-from Crypto.Hash import HMAC, MD4, MD5, SHA
-from Crypto.Protocol.KDF import PBKDF2
+from Cryptodome.Util.number import GCD as gcd
+from Cryptodome.Cipher import AES, DES3, ARC4, DES
+from Cryptodome.Hash import HMAC, MD4, MD5, SHA
+from Cryptodome.Protocol.KDF import PBKDF2
 
 
 def get_random_bytes(lenBytes):
-    # We don't really need super strong randomness here to use PyCrypto.Random
+    # We don't really need super strong randomness here to use PyCryptodome.Random
     return "".join([random.choice(string.digits+string.letters) for i in xrange(lenBytes)])
 
 

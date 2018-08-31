@@ -16,8 +16,8 @@ import struct
 import random
 import string
 
-from Crypto.Hash import HMAC, MD5
-from Crypto.Cipher import ARC4
+from Cryptodome.Hash import HMAC, MD5
+from Cryptodome.Cipher import ARC4
 
 from impacket.structure import Structure
 from impacket.krb5 import constants, crypto
