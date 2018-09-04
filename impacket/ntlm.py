@@ -39,9 +39,9 @@ def computeResponse(flags, serverChallenge, clientChallenge, serverName, domain,
         return computeResponseNTLMv1(flags, serverChallenge, clientChallenge, serverName, domain, user, password,
                                      lmhash, nthash, use_ntlmv2=use_ntlmv2)
 try:
-    from Crypto.Cipher import ARC4
-    from Crypto.Cipher import DES
-    from Crypto.Hash import MD4
+    from Cryptodome.Cipher import ARC4
+    from Cryptodome.Cipher import DES
+    from Cryptodome.Hash import MD4
 except Exception:
     LOG.critical("Warning: You don't have any crypto installed. You need PyCrypto")
     LOG.critical("See http://www.pycrypto.org/")

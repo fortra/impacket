@@ -74,8 +74,8 @@ from impacket.structure import Structure
 from impacket.winregistry import hexdump
 from impacket.uuid import string_to_bin
 try:
-    from Crypto.Cipher import DES, ARC4, AES
-    from Crypto.Hash import HMAC, MD4
+    from Cryptodome.Cipher import DES, ARC4, AES
+    from Cryptodome.Hash import HMAC, MD4
 except ImportError:
     LOG.critical("Warning: You don't have any crypto installed. You need PyCrypto")
     LOG.critical("See http://www.pycrypto.org/")

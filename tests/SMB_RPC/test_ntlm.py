@@ -112,7 +112,7 @@ class NTLMTests(unittest.TestCase):
 
         print("4.2.2.4 GSS_WrapEx")
         print("Output of SEAL()")
-        from Crypto.Cipher import ARC4
+        from Cryptodome.Cipher import ARC4
         cipher = ARC4.new(self.randomSessionKey)
         handle = cipher.encrypt
         print("Plaintext")
@@ -184,7 +184,7 @@ class NTLMTests(unittest.TestCase):
         clientSealingKey = ntlm.SEALKEY(flags, exportedSessionKey)
         serverSealingKey = ntlm.SEALKEY(flags, exportedSessionKey, "Server")
 
-        from Crypto.Cipher import ARC4
+        from Cryptodome.Cipher import ARC4
         cipher = ARC4.new(clientSigningKey)
         client_signing_h = cipher.encrypt
 
@@ -276,7 +276,7 @@ class NTLMTests(unittest.TestCase):
         clientSealingKey = ntlm.SEALKEY(flags, exportedSessionKey)
         serverSealingKey = ntlm.SEALKEY(flags, exportedSessionKey, "Server")
 
-        from Crypto.Cipher import ARC4
+        from Cryptodome.Cipher import ARC4
         cipher = ARC4.new(clientSigningKey)
         client_signing_h = cipher.encrypt
 

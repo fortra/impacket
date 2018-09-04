@@ -277,7 +277,7 @@ if __name__ == '__main__':
     import sys
     import logging
     from binascii import a2b_hex
-    from Crypto.Cipher import ARC4
+    from Cryptodome.Cipher import ARC4
     from impacket import ntlm, version
     try:
         import OpenSSL

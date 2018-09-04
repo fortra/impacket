@@ -33,7 +33,7 @@ from impacket.structure import Structure
 from impacket import ntlm, crypto, LOG
 import hmac, hashlib
 try:
-    from Crypto.Cipher import DES, AES, ARC4
+    from Cryptodome.Cipher import DES, AES, ARC4
 except Exception:
     LOG.critical("Warning: You don't have any crypto installed. You need PyCrypto")
     LOG.critical("See http://www.pycrypto.org/")

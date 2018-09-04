@@ -21,7 +21,7 @@ import logging
 import socket
 import sys
 from binascii import unhexlify
-from Crypto.Cipher import ARC4
+from Cryptodome.Cipher import ARC4
 
 from impacket import ntlm, LOG
 from impacket.structure import Structure,pack,unpack
