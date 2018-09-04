@@ -2690,8 +2690,8 @@ class SAMRTests(unittest.TestCase):
         try:
             from Cryptodome.Cipher import ARC4
         except Exception:
-            print "Warning: You don't have any crypto installed. You need PyCrypto"
-            print "See http://www.pycrypto.org/"
+            print("Warning: You don't have any crypto installed. You need pycryptodomex")
+            print("See https://pypi.org/project/pycryptodomex/")
 
         from impacket import crypto
         request = samr.SamrOemChangePasswordUser2()
@@ -2757,8 +2757,8 @@ class SAMRTests(unittest.TestCase):
         try:
             from Cryptodome.Cipher import ARC4
         except Exception:
-            print "Warning: You don't have any crypto installed. You need PyCrypto"
-            print "See http://www.pycrypto.org/"
+            print("Warning: You don't have any crypto installed. You need pycryptodomex")
+            print("See https://pypi.org/project/pycryptodomex/")
 
         from impacket import crypto
         request = samr.SamrUnicodeChangePasswordUser2()

@@ -43,8 +43,8 @@ try:
     from Cryptodome.Cipher import DES
     from Cryptodome.Hash import MD4
 except Exception:
-    LOG.critical("Warning: You don't have any crypto installed. You need PyCrypto")
-    LOG.critical("See http://www.pycrypto.org/")
+    LOG.critical("Warning: You don't have any crypto installed. You need pycryptodomex")
+    LOG.critical("See https://pypi.org/project/pycryptodomex/")
 
 NTLM_AUTH_NONE          = 1
 NTLM_AUTH_CONNECT       = 2

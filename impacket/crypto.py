@@ -22,8 +22,8 @@ from impacket import LOG
 try:
     from Cryptodome.Cipher import DES, AES, ARC4
 except Exception:
-    LOG.error("Warning: You don't have any crypto installed. You need PyCrypto")
-    LOG.error("See http://www.pycrypto.org/")
+    LOG.error("Warning: You don't have any crypto installed. You need pycryptodomex")
+    LOG.error("See https://pypi.org/project/pycryptodomex/")
 from struct import pack, unpack
 from impacket.structure import Structure
 import hmac, hashlib

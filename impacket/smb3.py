@@ -33,6 +33,7 @@ import struct
 from binascii import a2b_hex
 from contextlib import contextmanager
 from pyasn1.type.univ import noValue
+from Cryptodome.Cipher import AES
 
 from impacket import nmb, ntlm, uuid, crypto, LOG
 from impacket.smb3structs import *
@@ -367,12 +368,6 @@ class SMB3:
             transformHeader['OriginalMessageSize'] = len(plainText)
             transformHeader['EncryptionAlgorithm'] = SMB2_ENCRYPTION_AES128_CCM
             transformHeader['SessionID'] = self._Session['SessionID'] 
-            from Cryptodome.Cipher import AES
-            try: 
-                AES.MODE_CCM
-            except:
-                LOG.critical("Your pycrypto doesn't support AES.MODE_CCM. Currently only pycrypto experimental supports this mode.\nDownload it from https://www.dlitz.net/software/pycrypto ")
-                raise
             cipher = AES.new(self._Session['EncryptionKey'], AES.MODE_CCM,  transformHeader['Nonce'])
             cipher.update(str(transformHeader)[20:])
             cipherText = cipher.encrypt(plainText)
@@ -392,12 +387,6 @@ class SMB3:
         if data.get_trailer().startswith('\xfdSMB'):
             # Packet is encrypted
             transformHeader = SMB2_TRANSFORM_HEADER(data.get_trailer())
-            from Cryptodome.Cipher import AES
-            try: 
-                AES.MODE_CCM
-            except:
-                LOG.critical("Your pycrypto doesn't support AES.MODE_CCM. Currently only pycrypto experimental supports this mode.\nDownload it from https://www.dlitz.net/software/pycrypto ")
-                raise 
             cipher = AES.new(self._Session['DecryptionKey'], AES.MODE_CCM,  transformHeader['Nonce'][:11])
             cipher.update(str(transformHeader)[20:])
             plainText = cipher.decrypt(data.get_trailer()[len(SMB2_TRANSFORM_HEADER()):])
@@ -419,12 +408,6 @@ class SMB3:
                 else:
                     # Packet is encrypted
                     transformHeader = SMB2_TRANSFORM_HEADER(data.get_trailer())
-                    from Cryptodome.Cipher import AES
-                    try: 
-                        AES.MODE_CCM
-                    except:
-                        LOG.critical("Your pycrypto doesn't support AES.MODE_CCM. Currently only pycrypto experimental supports this mode.\nDownload it from https://www.dlitz.net/software/pycrypto ")
-                        raise 
                     cipher = AES.new(self._Session['DecryptionKey'], AES.MODE_CCM,  transformHeader['Nonce'][:11])
                     cipher.update(str(transformHeader)[20:])
                     plainText = cipher.decrypt(data.get_trailer()[len(SMB2_TRANSFORM_HEADER()):])
@@ -665,13 +648,7 @@ class SMB3:
                 self._Session['SigningActivated'] = True
             if self._Connection['Dialect'] == SMB2_DIALECT_30:
                 # SMB 3.0. Encryption should be available. Let's enforce it if we have AES CCM available
-                from Cryptodome.Cipher import AES
-                try:
-                    AES.MODE_CCM
-                    self._Session['SessionFlags'] |= SMB2_SESSION_FLAG_ENCRYPT_DATA
-                except:
-                    LOG.debug(
-                        "Your pycrypto doesn't support AES.MODE_CCM. Currently only pycrypto experimental supports this mode.\nDownload it from https://www.dlitz.net/software/pycrypto")
+                self._Session['SessionFlags'] |= SMB2_SESSION_FLAG_ENCRYPT_DATA
                 self._Session['ApplicationKey']  = crypto.KDF_CounterMode(self._Session['SessionKey'], "SMB2APP\x00", "SmbRpc\x00", 128)
                 self._Session['EncryptionKey']   = crypto.KDF_CounterMode(self._Session['SessionKey'], "SMB2AESCCM\x00", "ServerIn \x00", 128)
                 self._Session['DecryptionKey']   = crypto.KDF_CounterMode(self._Session['SessionKey'], "SMB2AESCCM\x00", "ServerOut\x00", 128)
@@ -815,12 +792,7 @@ class SMB3:
                         self._Session['SigningActivated'] = True
                     if self._Connection['Dialect'] == SMB2_DIALECT_30:
                         # SMB 3.0. Encryption should be available. Let's enforce it if we have AES CCM available
-                        from Cryptodome.Cipher import AES
-                        try:
-                            AES.MODE_CCM
-                            self._Session['SessionFlags'] |= SMB2_SESSION_FLAG_ENCRYPT_DATA
-                        except:
-                            LOG.debug("Your pycrypto doesn't support AES.MODE_CCM. Currently only pycrypto experimental supports this mode.\nDownload it from https://www.dlitz.net/software/pycrypto")
+                        self._Session['SessionFlags'] |= SMB2_SESSION_FLAG_ENCRYPT_DATA
                         self._Session['ApplicationKey']  = crypto.KDF_CounterMode(exportedSessionKey, "SMB2APP\x00", "SmbRpc\x00", 128)
                         self._Session['EncryptionKey']   = crypto.KDF_CounterMode(exportedSessionKey, "SMB2AESCCM\x00", "ServerIn \x00", 128)
                         self._Session['DecryptionKey']   = crypto.KDF_CounterMode(exportedSessionKey, "SMB2AESCCM\x00", "ServerOut\x00", 128)

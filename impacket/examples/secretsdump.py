@@ -77,8 +77,8 @@ try:
     from Cryptodome.Cipher import DES, ARC4, AES
     from Cryptodome.Hash import HMAC, MD4
 except ImportError:
-    LOG.critical("Warning: You don't have any crypto installed. You need PyCrypto")
-    LOG.critical("See http://www.pycrypto.org/")
+    LOG.critical("Warning: You don't have any crypto installed. You need pycryptodomex")
+    LOG.critical("See https://pypi.org/project/pycryptodomex/")
 
 
 # Structures

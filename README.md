@@ -48,7 +48,7 @@ Requirements
    1. If you want to run the examples and you have Python < 2.7, you
       will need to install the `argparse` package for them to work.
    2. For Kerberos support you will need `pyasn1` package
-   3. For cryptographic operations you will need `pycrypto` package
+   3. For cryptographic operations you will need `pycryptodomex` package
    4. For some examples you will need `pyOpenSSL` (rdp_check.py) and ldap3 (ntlmrelayx.py)
    5. For ntlmrelayx.py you will also need `ldapdomaindump`, `flask` and `ldap3`
    6. If you're under Windows, you will need `pyReadline`

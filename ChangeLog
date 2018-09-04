@@ -74,8 +74,6 @@ May 2015: 0.9.13:
       d. Ccache support, compatible with Kerberos utilities (kinit, klist, etc).
       e. Support for RC4, AES128_CTS_HMAC_SHA1_96 and AES256_CTS_HMAC_SHA1_96 ciphers.
       f. Support for RPC_C_AUTHN_LEVEL_PKT_PRIVACY/RPC_C_AUTHN_LEVEL_PKT_INTEGRITY.
-   * SMB3 encryption support. Pycrypto experimental version that supports
-     AES_CCM is required.
    * [MS-SAMR]: Supplemental Credentials support (used by secretsdump.py)
    * SMBSERVER improvements:
       a. SMB2 (2.002) dialect experimental support. 

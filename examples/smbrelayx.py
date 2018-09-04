@@ -73,8 +73,8 @@ from impacket.spnego import ASN1_AID, SPNEGO_NegTokenResp, SPNEGO_NegTokenInit
 try:
  from Cryptodome.Cipher import DES, AES, ARC4
 except Exception:
-    logging.critical("Warning: You don't have any crypto installed. You need PyCrypto")
-    logging.critical("See http://www.pycrypto.org/")
+    logging.critical("Warning: You don't have any crypto installed. You need pycryptodomex")
+    logging.critical("See https://pypi.org/project/pycryptodomex/")
 
 # Global Variables
 # This is the list of hosts that have been attacked already in case -one-shot was chosen

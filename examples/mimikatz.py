@@ -29,8 +29,8 @@ from impacket.examples import logger
 try:
     from Cryptodome.Cipher import ARC4
 except Exception:
-    logging.critical("Warning: You don't have any crypto installed. You need PyCrypto")
-    logging.critical("See http://www.pycrypto.org/")
+    logging.critical("Warning: You don't have any crypto installed. You need pycryptodomex")
+    logging.critical("See https://pypi.org/project/pycryptodomex/")
 
 # If you wanna have readline like functionality in Windows, install pyreadline
 try:
