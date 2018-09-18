@@ -579,6 +579,8 @@ class MiniImpacketShell(cmd.Cmd):
                 enumeration_context = resp['EnumerationContext']
                 if resp['ErrorCode'] != STATUS_MORE_ENTRIES:
                     break
+            samr.hSamrCloseHandle(dce, domain_handle)
+        samr.hSamrCloseHandle(dce, server_handle)
 
     def do_enumdomain(self, line):
         rpctransport = transport.SMBTransport(self.smb.getRemoteHost, filename=r'\samr', smb_connection=self.smb)
@@ -591,6 +593,7 @@ class MiniImpacketShell(cmd.Cmd):
 
         #FIXME
         print [x['Name'] for x in resp['Buffer']['Buffer']]
+        samr.hSamrCloseHandle(dce, server_handle)
 
     def do_adduser(self, line):
         if ' ' in line:
@@ -685,6 +688,8 @@ class MiniImpacketShell(cmd.Cmd):
                 enumeration_context = resp['EnumerationContext']
                 if resp['ErrorCode'] != STATUS_MORE_ENTRIES:
                     break
+            samr.hSamrCloseHandle(dce, domain_handle)
+        samr.hSamrCloseHandle(dce, server_handle)
 
     def do_addusertoadmingroup(self, line):
         rpctransport = transport.SMBTransport(self.smb.getRemoteHost, filename=r'\samr', smb_connection=self.smb)
