@@ -646,7 +646,7 @@ class Dot11WPADecoder(BaseDot11Decoder):
         if key:
             decoded_string=wpa.get_decrypted_data()
             
-            wpa_data = Dot11DataWPADataDecoder()
+            wpa_data = Dot11WPADataDecoder()
             packet = wpa_data.decode(decoded_string)
         else:
             data_decoder = DataDecoder()
