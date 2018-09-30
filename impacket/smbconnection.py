@@ -12,13 +12,14 @@
 # You can still play with the low level methods (version dependent)
 # by calling getSMBServer()
 #
-
+from __future__ import division
+from __future__ import print_function
 import ntpath
 import string
 import socket
 
 from impacket import smb, smb3, nmb, nt_errors, LOG
-from smb3structs import *
+from .smb3structs import *
 
 
 # So the user doesn't need to import smb, the smb3 are already in here
@@ -261,7 +262,7 @@ class SMBConnection:
                 return self._SMBConnection.login(user, password, domain, lmhash, nthash, ntlmFallback)
             else:
                 return self._SMBConnection.login(user, password, domain, lmhash, nthash)
-        except (smb.SessionError, smb3.SessionError), e:
+        except (smb.SessionError, smb3.SessionError) as e:
             raise SessionError(e.get_error_code(), e.get_error_packet())
 
     def kerberosLogin(self, user, password, domain='', lmhash='', nthash='', aesKey='', kdcHost=None, TGT=None,
@@ -337,9 +338,9 @@ class SMBConnection:
                                                               TGT, TGS)
                 return self._SMBConnection.kerberosLogin(user, password, domain, lmhash, nthash, aesKey, kdcHost, TGT,
                                                          TGS)
-            except (smb.SessionError, smb3.SessionError), e:
+            except (smb.SessionError, smb3.SessionError) as e:
                 raise SessionError(e.get_error_code(), e.get_error_packet())
-            except KerberosError, e:
+            except KerberosError as e:
                 if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
                     # We might face this if the target does not support AES
                     # So, if that's the case we'll force using RC4 by converting
@@ -357,13 +358,13 @@ class SMBConnection:
     def isGuestSession(self):
         try:
             return self._SMBConnection.isGuestSession()
-        except (smb.SessionError, smb3.SessionError), e:
+        except (smb.SessionError, smb3.SessionError) as e:
             raise SessionError(e.get_error_code(), e.get_error_packet())
 
     def logoff(self):
         try:
             return self._SMBConnection.logoff()
-        except (smb.SessionError, smb3.SessionError), e:
+        except (smb.SessionError, smb3.SessionError) as e:
             raise SessionError(e.get_error_code(), e.get_error_packet())
 
 
@@ -376,14 +377,14 @@ class SMBConnection:
                 share = '\\\\' + self.getRemoteHost() + '\\' + share
         try:
             return self._SMBConnection.connect_tree(share)
-        except (smb.SessionError, smb3.SessionError), e:
+        except (smb.SessionError, smb3.SessionError) as e:
             raise SessionError(e.get_error_code(), e.get_error_packet())
 
 
     def disconnectTree(self, treeId):
         try:
             return self._SMBConnection.disconnect_tree(treeId)
-        except (smb.SessionError, smb3.SessionError), e:
+        except (smb.SessionError, smb3.SessionError) as e:
             raise SessionError(e.get_error_code(), e.get_error_packet())
 
 
@@ -416,7 +417,7 @@ class SMBConnection:
 
         try:
             return self._SMBConnection.list_path(shareName, path, password)
-        except (smb.SessionError, smb3.SessionError), e:
+        except (smb.SessionError, smb3.SessionError) as e:
             raise SessionError(e.get_error_code(), e.get_error_packet())
 
     def createFile(self, treeId, pathName, desiredAccess=GENERIC_ALL,
@@ -460,14 +461,14 @@ class SMBConnection:
 
             try:
                 return self._SMBConnection.nt_create_andx(treeId, pathName, cmd = ntCreate)
-            except (smb.SessionError, smb3.SessionError), e:
+            except (smb.SessionError, smb3.SessionError) as e:
                 raise SessionError(e.get_error_code(), e.get_error_packet())
         else:
             try:
                 return self._SMBConnection.create(treeId, pathName, desiredAccess, shareMode, creationOption,
                                                   creationDisposition, fileAttributes, impersonationLevel,
                                                   securityFlags, oplockLevel, createContexts)
-            except (smb.SessionError, smb3.SessionError), e:
+            except (smb.SessionError, smb3.SessionError) as e:
                 raise SessionError(e.get_error_code(), e.get_error_packet())
 
     def openFile(self, treeId, pathName, desiredAccess=FILE_READ_DATA | FILE_WRITE_DATA, shareMode=FILE_SHARE_READ,
@@ -510,14 +511,14 @@ class SMBConnection:
 
             try:
                 return self._SMBConnection.nt_create_andx(treeId, pathName, cmd = ntCreate)
-            except (smb.SessionError, smb3.SessionError), e:
+            except (smb.SessionError, smb3.SessionError) as e:
                 raise SessionError(e.get_error_code(), e.get_error_packet())
         else:
             try:
                 return self._SMBConnection.create(treeId, pathName, desiredAccess, shareMode, creationOption,
                                                   creationDisposition, fileAttributes, impersonationLevel,
                                                   securityFlags, oplockLevel, createContexts)
-            except (smb.SessionError, smb3.SessionError), e:
+            except (smb.SessionError, smb3.SessionError) as e:
                 raise SessionError(e.get_error_code(), e.get_error_packet())
 
     def writeFile(self, treeId, fileId, data, offset=0):
@@ -533,7 +534,7 @@ class SMBConnection:
         """
         try:
             return self._SMBConnection.writeFile(treeId, fileId, data, offset)
-        except (smb.SessionError, smb3.SessionError), e:
+        except (smb.SessionError, smb3.SessionError) as e:
             raise SessionError(e.get_error_code(), e.get_error_packet())
 
 
@@ -550,7 +551,7 @@ class SMBConnection:
         :return: the data read, if not raises a SessionError exception. Length of data read is not always bytesToRead
         """
         finished = False
-        data = ''
+        data = b''
         maxReadSize = self._SMBConnection.getIOCapabilities()['MaxReadSize']
         remainingBytesToRead = bytesToRead
         while not finished:
@@ -560,7 +561,7 @@ class SMBConnection:
                 toRead = remainingBytesToRead
             try:
                 bytesRead = self._SMBConnection.read_andx(treeId, fileId, offset, toRead)
-            except (smb.SessionError, smb3.SessionError), e:
+            except (smb.SessionError, smb3.SessionError) as e:
                 if e.get_error_code() == nt_errors.STATUS_END_OF_FILE:
                     toRead = ''
                     break
@@ -593,7 +594,7 @@ class SMBConnection:
         """
         try:
             return self._SMBConnection.close(treeId, fileId)
-        except (smb.SessionError, smb3.SessionError), e:
+        except (smb.SessionError, smb3.SessionError) as e:
             raise SessionError(e.get_error_code(), e.get_error_packet())
 
     def deleteFile(self, shareName, pathName):
@@ -608,7 +609,7 @@ class SMBConnection:
         """
         try:
             return self._SMBConnection.remove(shareName, pathName)
-        except (smb.SessionError, smb3.SessionError), e:
+        except (smb.SessionError, smb3.SessionError) as e:
             raise SessionError(e.get_error_code(), e.get_error_packet())
 
     def queryInfo(self, treeId, fileId):
@@ -627,7 +628,7 @@ class SMBConnection:
             else:
                 res = self._SMBConnection.queryInfo(treeId, fileId)
             return smb.SMBQueryFileStandardInfo(res)
-        except (smb.SessionError, smb3.SessionError), e:
+        except (smb.SessionError, smb3.SessionError) as e:
             raise SessionError(e.get_error_code(), e.get_error_packet())
 
     def createDirectory(self, shareName, pathName ):
@@ -642,7 +643,7 @@ class SMBConnection:
         """
         try:
             return self._SMBConnection.mkdir(shareName, pathName)
-        except (smb.SessionError, smb3.SessionError), e:
+        except (smb.SessionError, smb3.SessionError) as e:
             raise SessionError(e.get_error_code(), e.get_error_packet())
 
     def deleteDirectory(self, shareName, pathName):
@@ -657,7 +658,7 @@ class SMBConnection:
         """
         try:
             return self._SMBConnection.rmdir(shareName, pathName)
-        except (smb.SessionError, smb3.SessionError), e:
+        except (smb.SessionError, smb3.SessionError) as e:
             raise SessionError(e.get_error_code(), e.get_error_packet())
 
     def waitNamedPipe(self, treeId, pipeName, timeout = 5):
@@ -673,7 +674,7 @@ class SMBConnection:
         """
         try:
             return self._SMBConnection.waitNamedPipe(treeId, pipeName, timeout = timeout)
-        except (smb.SessionError, smb3.SessionError), e:
+        except (smb.SessionError, smb3.SessionError) as e:
             raise SessionError(e.get_error_code(), e.get_error_packet())
 
     def transactNamedPipe(self, treeId, fileId, data, waitAnswer = True):
@@ -690,7 +691,7 @@ class SMBConnection:
         """
         try:
             return self._SMBConnection.TransactNamedPipe(treeId, fileId, data, waitAnswer = waitAnswer)
-        except (smb.SessionError, smb3.SessionError), e:
+        except (smb.SessionError, smb3.SessionError) as e:
             raise SessionError(e.get_error_code(), e.get_error_packet())
 
 
@@ -703,7 +704,7 @@ class SMBConnection:
         """
         try:
             return self._SMBConnection.TransactNamedPipeRecv()
-        except (smb.SessionError, smb3.SessionError), e:
+        except (smb.SessionError, smb3.SessionError) as e:
             raise SessionError(e.get_error_code(), e.get_error_packet())
 
     def writeNamedPipe(self, treeId, fileId, data, waitAnswer = True):
@@ -723,7 +724,7 @@ class SMBConnection:
                 return self._SMBConnection.write_andx(treeId, fileId, data, wait_answer = waitAnswer, write_pipe_mode = True)
             else:
                 return self.writeFile(treeId, fileId, data, 0)
-        except (smb.SessionError, smb3.SessionError), e:
+        except (smb.SessionError, smb3.SessionError) as e:
             raise SessionError(e.get_error_code(), e.get_error_packet())
 
 
@@ -741,7 +742,7 @@ class SMBConnection:
 
         try:
             return self.readFile(treeId, fileId, bytesToRead = bytesToRead, singleCall = True)
-        except (smb.SessionError, smb3.SessionError), e:
+        except (smb.SessionError, smb3.SessionError) as e:
             raise SessionError(e.get_error_code(), e.get_error_packet())
 
 
@@ -762,7 +763,7 @@ class SMBConnection:
                 return self._SMBConnection.retr_file(shareName, pathName, callback)
             else:
                 return self._SMBConnection.retr_file(shareName, pathName, callback, shareAccessMode=shareAccessMode)
-        except (smb.SessionError, smb3.SessionError), e:
+        except (smb.SessionError, smb3.SessionError) as e:
             raise SessionError(e.get_error_code(), e.get_error_packet())
 
     def putFile(self, shareName, pathName, callback, shareAccessMode = None):
@@ -782,7 +783,7 @@ class SMBConnection:
                 return self._SMBConnection.stor_file(shareName, pathName, callback)
             else:
                 return self._SMBConnection.stor_file(shareName, pathName, callback, shareAccessMode)
-        except (smb.SessionError, smb3.SessionError), e:
+        except (smb.SessionError, smb3.SessionError) as e:
             raise SessionError(e.get_error_code(), e.get_error_packet())
 
     def rename(self, shareName, oldPath, newPath):
@@ -799,7 +800,7 @@ class SMBConnection:
 
         try:
             return self._SMBConnection.rename(shareName, oldPath, newPath)
-        except (smb.SessionError, smb3.SessionError), e:
+        except (smb.SessionError, smb3.SessionError) as e:
             raise SessionError(e.get_error_code(), e.get_error_packet())
 
     def reconnect(self):
@@ -823,7 +824,7 @@ class SMBConnection:
     def setTimeout(self, timeout):
         try:
             return self._SMBConnection.set_timeout(timeout)
-        except (smb.SessionError, smb3.SessionError), e:
+        except (smb.SessionError, smb3.SessionError) as e:
             raise SessionError(e.get_error_code(), e.get_error_packet())
 
     def getSessionKey(self):
@@ -871,7 +872,7 @@ class SessionError(Exception):
         return nt_errors.ERROR_MESSAGES[self.error]
 
     def __str__( self ):
-        if nt_errors.ERROR_MESSAGES.has_key(self.error):
+        if self.error in nt_errors.ERROR_MESSAGES:
             return 'SMB SessionError: %s(%s)' % (nt_errors.ERROR_MESSAGES[self.error])
         else:
             return 'SMB SessionError: 0x%x' % self.error

@@ -241,7 +241,7 @@ class AV_PAIRS:
     def getData(self):
         if NTLMSSP_AV_EOL in self.fields:
             del self.fields[NTLMSSP_AV_EOL]
-        ans = ''
+        ans = b''
         for i in list(self.fields.keys()):
             ans+= struct.pack('<HH', i, self[i][0])
             ans+= self[i][1]
@@ -623,7 +623,7 @@ def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = 
     # method we will create a valid ChallengeResponse
     ntlmChallengeResponse = NTLMAuthChallengeResponse(user, password, ntlmChallenge['challenge'])
 
-    clientChallenge = "".join([random.choice(string.digits+string.letters) for _ in range(8)])
+    clientChallenge = b("".join([random.choice(string.digits+string.ascii_letters) for _ in range(8)]))
 
     serverName = ntlmChallenge['TargetInfoFields']
 
@@ -662,7 +662,7 @@ def getNTLMSSPType3(type1, type2, user, password, domain, lmhash = '', nthash = 
     if ntlmChallenge['flags'] & NTLMSSP_NEGOTIATE_KEY_EXCH:
        # not exactly what I call random tho :\
        # exportedSessionKey = this is the key we should use to sign
-       exportedSessionKey = "".join([random.choice(string.digits+string.letters) for _ in range(16)])
+       exportedSessionKey = b("".join([random.choice(string.digits+string.ascii_letters) for _ in range(16)]))
        #exportedSessionKey = "A"*16
        #print "keyExchangeKey %r" % keyExchangeKey
        # Let's generate the right session key based on the challenge flags

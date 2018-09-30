@@ -7,7 +7,7 @@
 from __future__ import division
 from __future__ import print_function
 from struct import pack, unpack, calcsize
-from six import b
+from six import b, PY3
 
 class Structure:
     """ sublcasses can define commonHdr and/or structure.
@@ -264,10 +264,19 @@ class Structure:
         if format[:1] == ':':
             if isinstance(data, Structure):
                 return data.getData()
+            elif isinstance(data, int):
+                return bytes(data)
             elif isinstance(data, bytes) != True:
                 return bytes(b(data))
             else:
                 return data
+
+        if format[-1:] == 's':
+            # Let's be sure we send the right type
+            if isinstance(data, bytes) or isinstance(data, bytearray):
+                return pack(format, data)
+            else:
+                return pack(format, b(data))
 
         # struct like specifier
         return pack(format, data)
@@ -342,7 +351,10 @@ class Structure:
         if format == 'z':
             if data[-1:] != b('\x00'):
                 raise Exception("%s 'z' field is not NUL terminated: %r" % (field, data))
-            return data[:-1].decode('ascii') # remove trailing NUL
+            if PY3:
+                return data[:-1].decode('ascii')
+            else:
+                return data[:-1]
 
         # unicode specifier
         if format == 'u':
@@ -451,7 +463,7 @@ class Structure:
         try:
             lengthField = self.findLengthFieldFor(field)
             return int(self[lengthField])
-        except:
+        except Exception as e:
             pass
 
         # XXX: Try to match to actual values, raise if no match

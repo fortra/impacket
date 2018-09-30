@@ -24,12 +24,15 @@
 # [ ] Add more backward compatible commands from the smb.py code
 # [ ] Fix up all the 'ToDo' comments inside the code
 #
+from __future__ import division
+from __future__ import print_function
 
 import socket
 import ntpath
 import random
 import string
 import struct
+from six import indexbytes, b
 from binascii import a2b_hex
 from contextlib import contextmanager
 from pyasn1.type.univ import noValue
@@ -125,7 +128,7 @@ class SMB3:
         self.RequireMessageSigning = False    #
         self.ConnectionTable = {}
         self.GlobalFileTable = {}
-        self.ClientGuid = ''.join([random.choice(string.letters) for i in range(16)])
+        self.ClientGuid = ''.join([random.choice(string.ascii_letters) for i in range(16)])
         # Only for SMB 3.0
         self.EncryptionAlgorithmList = ['AES-CCM']
         self.MaxDialect = []
@@ -226,7 +229,7 @@ class SMB3:
             if not my_name:
                 # If destination port is 139 yes, there's some client disclosure
                 my_name = socket.gethostname()
-                i = string.find(my_name, '.')
+                i = my_name.find('.')
                 if i > -1:
                     my_name = my_name[:i]
 
@@ -244,13 +247,13 @@ class SMB3:
             self.negotiateSession(preferredDialect, negSessionResponse)
 
     def printStatus(self):
-        print "CONNECTION"
-        for i in self._Connection.items():
-            print "%-40s : %s" % i
-        print
-        print "SESSION"
-        for i in self._Session.items():
-            print "%-40s : %s" % i
+        print("CONNECTION")
+        for i in list(self._Connection.items()):
+            print("%-40s : %s" % i)
+        print()
+        print("SESSION")
+        for i in list(self._Session.items()):
+            print("%-40s : %s" % i)
 
     def getKerberos(self):
         return self._doKerberos
@@ -312,11 +315,11 @@ class SMB3:
         packet['Signature'] = '\x00'*16
         if self._Connection['Dialect'] == SMB2_DIALECT_21 or self._Connection['Dialect'] == SMB2_DIALECT_002:
             if len(self._Session['SessionKey']) > 0:
-                signature = hmac.new(self._Session['SessionKey'], str(packet), hashlib.sha256).digest()
+                signature = hmac.new(self._Session['SessionKey'], packet.getData(), hashlib.sha256).digest()
                 packet['Signature'] = signature[:16]
         else:
             if len(self._Session['SessionKey']) > 0:
-                p = str(packet)
+                p = packet.getData()
                 signature = crypto.AES_CMAC(self._Session['SigningKey'], p, len(p))
                 packet['Signature'] = signature
      
@@ -335,7 +338,7 @@ class SMB3:
         packet['SessionID'] = self._Session['SessionID']
 
         # Default the credit charge to 1 unless set by the caller
-        if packet.fields.has_key('CreditCharge') is False:
+        if ('CreditCharge' in packet.fields) is False:
             packet['CreditCharge'] = 1
 
         # Standard credit request after negotiating protocol
@@ -345,7 +348,7 @@ class SMB3:
         messageId = packet['MessageID']
 
         if self._Session['SigningActivated'] is True and self._Connection['SequenceWindow'] > 2:
-            if packet['TreeID'] > 0 and self._Session['TreeConnectTable'].has_key(packet['TreeID']) is True:
+            if packet['TreeID'] > 0 and (packet['TreeID'] in self._Session['TreeConnectTable']) is True:
                 if self._Session['TreeConnectTable'][packet['TreeID']]['EncryptData'] is False:
                     packet['Flags'] = SMB2_FLAGS_SIGNED
                     self.signSMB(packet)
@@ -354,9 +357,9 @@ class SMB3:
                 self.signSMB(packet)
 
         if (self._Session['SessionFlags'] & SMB2_SESSION_FLAG_ENCRYPT_DATA) or ( packet['TreeID'] != 0 and self._Session['TreeConnectTable'][packet['TreeID']]['EncryptData'] is True):
-            plainText = str(packet)
+            plainText = packet.getData()
             transformHeader = SMB2_TRANSFORM_HEADER()
-            transformHeader['Nonce'] = ''.join([random.choice(string.letters) for i in range(11)])
+            transformHeader['Nonce'] = ''.join([random.choice(string.ascii_letters) for i in range(11)])
             transformHeader['OriginalMessageSize'] = len(plainText)
             transformHeader['EncryptionAlgorithm'] = SMB2_ENCRYPTION_AES128_CCM
             transformHeader['SessionID'] = self._Session['SessionID'] 
@@ -367,22 +370,25 @@ class SMB3:
                 LOG.critical("Your pycrypto doesn't support AES.MODE_CCM. Currently only pycrypto experimental supports this mode.\nDownload it from https://www.dlitz.net/software/pycrypto ")
                 raise
             cipher = AES.new(self._Session['EncryptionKey'], AES.MODE_CCM,  transformHeader['Nonce'])
-            cipher.update(str(transformHeader)[20:])
+            cipher.update(transformHeader.getData()[20:])
             cipherText = cipher.encrypt(plainText)
             transformHeader['Signature'] = cipher.digest()
-            packet = str(transformHeader) + cipherText
+            packet = transformHeader.getData() + cipherText
 
-        self._NetBIOSSession.send_packet(str(packet))
+            self._NetBIOSSession.send_packet(packet)
+        else:
+            self._NetBIOSSession.send_packet(packet.getData())
+
         return messageId
 
     def recvSMB(self, packetID = None):
         # First, verify we don't have the packet already
-        if self._Connection['OutstandingResponses'].has_key(packetID):
+        if packetID in self._Connection['OutstandingResponses']:
             return self._Connection['OutstandingResponses'].pop(packetID) 
 
-        data = self._NetBIOSSession.recv_packet(self._timeout) 
+        data = self._NetBIOSSession.recv_packet(self._timeout)
 
-        if data.get_trailer().startswith('\xfdSMB'):
+        if data.get_trailer().startswith(b'\xfdSMB'):
             # Packet is encrypted
             transformHeader = SMB2_TRANSFORM_HEADER(data.get_trailer())
             from Crypto.Cipher import AES
@@ -392,7 +398,7 @@ class SMB3:
                 LOG.critical("Your pycrypto doesn't support AES.MODE_CCM. Currently only pycrypto experimental supports this mode.\nDownload it from https://www.dlitz.net/software/pycrypto ")
                 raise 
             cipher = AES.new(self._Session['DecryptionKey'], AES.MODE_CCM,  transformHeader['Nonce'][:11])
-            cipher.update(str(transformHeader)[20:])
+            cipher.update(transformHeader.getData()[20:])
             plainText = cipher.decrypt(data.get_trailer()[len(SMB2_TRANSFORM_HEADER()):])
             #cipher.verify(transformHeader['Signature'])
             packet = SMB2Packet(plainText)
@@ -419,7 +425,7 @@ class SMB3:
                         LOG.critical("Your pycrypto doesn't support AES.MODE_CCM. Currently only pycrypto experimental supports this mode.\nDownload it from https://www.dlitz.net/software/pycrypto ")
                         raise 
                     cipher = AES.new(self._Session['DecryptionKey'], AES.MODE_CCM,  transformHeader['Nonce'][:11])
-                    cipher.update(str(transformHeader)[20:])
+                    cipher.update(transformHeader.getData()[20:])
                     plainText = cipher.decrypt(data.get_trailer()[len(SMB2_TRANSFORM_HEADER()):])
                     #cipher.verify(transformHeader['Signature'])
                     packet = SMB2Packet(plainText)
@@ -720,7 +726,7 @@ class SMB3:
         # NTLMSSP
         blob['MechTypes'] = [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
         auth = ntlm.getNTLMSSPType1(self._Connection['ClientName'],domain, self._Connection['RequireSigning'])
-        blob['MechToken'] = str(auth)
+        blob['MechToken'] = auth.getData()
 
         sessionSetup['SecurityBufferLength'] = len(blob)
         sessionSetup['Buffer']               = blob.getData()
@@ -772,13 +778,13 @@ class SMB3:
                        pass 
 
                 # Parse Version to know the target Operating system name. Not provided elsewhere anymore
-                if ntlmChallenge.fields.has_key('Version'):
+                if 'Version' in ntlmChallenge.fields:
                     version = ntlmChallenge['Version']
 
                     if len(version) >= 4:
-                        self._Session['ServerOS'] = "Windows %d.%d Build %d" % (ord(version[0]), ord(version[1]), struct.unpack('<H',version[2:4])[0])
-                        self._Session["ServerOSMajor"] = ord(version[0])
-                        self._Session["ServerOSMinor"] = ord(version[1])
+                        self._Session['ServerOS'] = "Windows %d.%d Build %d" % (indexbytes(version,0), indexbytes(version,1), struct.unpack('<H',version[2:4])[0])
+                        self._Session["ServerOSMajor"] = indexbytes(version,0)
+                        self._Session["ServerOSMinor"] = indexbytes(version,1)
                         self._Session["ServerOSBuild"] = struct.unpack('<H',version[2:4])[0]
 
             type3, exportedSessionKey = ntlm.getNTLMSSPType3(auth, respToken['ResponseToken'], user, password, domain, lmhash, nthash)
@@ -789,7 +795,7 @@ class SMB3:
                     self._Session['SigningKey']  = crypto.KDF_CounterMode(exportedSessionKey, "SMB2AESCMAC\x00", "SmbSign\x00", 128)
 
             respToken2 = SPNEGO_NegTokenResp()
-            respToken2['ResponseToken'] = str(type3)
+            respToken2['ResponseToken'] = type3.getData()
 
             # Reusing the previous structure
             sessionSetup['SecurityBufferLength'] = len(respToken2)
@@ -838,7 +844,7 @@ class SMB3:
 
         #print self._Session['TreeConnectTable']
         share = share.split('\\')[-1]
-        if self._Session['TreeConnectTable'].has_key(share):
+        if share in self._Session['TreeConnectTable']:
             # Already connected, no need to reconnect
             treeEntry =  self._Session['TreeConnectTable'][share]
             treeEntry['NumberOfUses'] += 1
@@ -890,10 +896,10 @@ class SMB3:
            return packet['TreeID'] 
 
     def disconnectTree(self, treeId):
-        if self._Session['TreeConnectTable'].has_key(treeId) is False:
+        if (treeId in self._Session['TreeConnectTable']) is False:
             raise SessionError(STATUS_INVALID_PARAMETER)
 
-        if self._Session['TreeConnectTable'].has_key(treeId):
+        if treeId in self._Session['TreeConnectTable']:
             # More than 1 use? descrease it and return, if not, send the packet
             if self._Session['TreeConnectTable'][treeId]['NumberOfUses'] > 1:
                 treeEntry =  self._Session['TreeConnectTable'][treeId]
@@ -913,7 +919,7 @@ class SMB3:
             del(self._Session['TreeConnectTable'][shareName])
             del(self._Session['TreeConnectTable'][treeId])
             filesIDToBeRemoved = []
-            for fileID in self._Session['OpenTable'].keys():
+            for fileID in list(self._Session['OpenTable'].keys()):
                 if self._Session['OpenTable'][fileID]['TreeConnect'] == treeId:
                     filesIDToBeRemoved.append(fileID)
             for fileIDToBeRemoved in filesIDToBeRemoved:
@@ -921,10 +927,10 @@ class SMB3:
             return True
 
     def create(self, treeId, fileName, desiredAccess, shareMode, creationOptions, creationDisposition, fileAttributes, impersonationLevel = SMB2_IL_IMPERSONATION, securityFlags = 0, oplockLevel = SMB2_OPLOCK_LEVEL_NONE, createContexts = None):
-        if self._Session['TreeConnectTable'].has_key(treeId) is False:
+        if (treeId in self._Session['TreeConnectTable']) is False:
             raise SessionError(STATUS_INVALID_PARAMETER)
 
-        fileName = string.replace(fileName, '/', '\\')
+        fileName = fileName.replace('/', '\\')
         if len(fileName) > 0:
             fileName = ntpath.normpath(fileName)
             if fileName[0] == '\\':
@@ -944,9 +950,8 @@ class SMB3:
            # Is this file NOT on the root directory?
            if len(fileName.split('\\')) > 2:
                parentDir = ntpath.dirname(pathName)
-           if self.GlobalFileTable.has_key(parentDir):
-               LOG.critical("Don't know what to do now! :-o")
-               raise
+           if parentDir in self.GlobalFileTable:
+               raise("Don't know what to do now! :-o")
            else:
                parentEntry = copy.deepcopy(FILE)
                parentEntry['LeaseKey']   = uuid.generate()
@@ -1008,17 +1013,17 @@ class SMB3:
                 openFile['CreateDisposition'] = oplockLevel
 
             # ToDo: Process the contexts            
-            self._Session['OpenTable'][str(createResponse['FileID'])] = openFile
+            self._Session['OpenTable'][createResponse['FileID'].getData()] = openFile
 
             # The client MUST generate a handle for the Open, and it MUST 
             # return success and the generated handle to the calling application.
             # In our case, str(FileID)
-            return str(createResponse['FileID'])
+            return createResponse['FileID'].getData()
 
     def close(self, treeId, fileId):
-        if self._Session['TreeConnectTable'].has_key(treeId) is False:
+        if (treeId in self._Session['TreeConnectTable']) is False:
             raise SessionError(STATUS_INVALID_PARAMETER)
-        if self._Session['OpenTable'].has_key(fileId) is False:
+        if (fileId in self._Session['OpenTable']) is False:
             raise SessionError(STATUS_INVALID_PARAMETER)
 
         packet = self.SMB_PACKET()
@@ -1047,9 +1052,9 @@ class SMB3:
         # This function should NOT be used for reading files directly, but another higher
         # level function should be used that will break the read into smaller pieces
 
-        if self._Session['TreeConnectTable'].has_key(treeId) is False:
+        if (treeId in self._Session['TreeConnectTable']) is False:
             raise SessionError(STATUS_INVALID_PARAMETER)
-        if self._Session['OpenTable'].has_key(fileId) is False:
+        if (fileId in self._Session['OpenTable']) is False:
             raise SessionError(STATUS_INVALID_PARAMETER)
 
         packet = self.SMB_PACKET()
@@ -1062,7 +1067,7 @@ class SMB3:
             maxBytesToRead = bytesToRead
 
         if self._Connection['Dialect'] != SMB2_DIALECT_002 and self._Connection['SupportsMultiCredit'] is True:
-            packet['CreditCharge'] = ( 1 + (maxBytesToRead - 1) / 65536)
+            packet['CreditCharge'] = ( 1 + (maxBytesToRead - 1) // 65536)
         else: 
             maxBytesToRead = min(65536,bytesToRead)
 
@@ -1089,9 +1094,9 @@ class SMB3:
         # This function should NOT be used for writing directly to files, but another higher
         # level function should be used that will break the writes into smaller pieces
 
-        if self._Session['TreeConnectTable'].has_key(treeId) is False:
+        if (treeId in self._Session['TreeConnectTable']) is False:
             raise SessionError(STATUS_INVALID_PARAMETER)
-        if self._Session['OpenTable'].has_key(fileId) is False:
+        if (fileId in self._Session['OpenTable']) is False:
             raise SessionError(STATUS_INVALID_PARAMETER)
 
         packet = self.SMB_PACKET()
@@ -1104,7 +1109,7 @@ class SMB3:
             maxBytesToWrite = bytesToWrite
 
         if self._Connection['Dialect'] != SMB2_DIALECT_002 and self._Connection['SupportsMultiCredit'] is True:
-            packet['CreditCharge'] = ( 1 + (maxBytesToWrite - 1) / 65536)
+            packet['CreditCharge'] = ( 1 + (maxBytesToWrite - 1) // 65536)
         else: 
             maxBytesToWrite = min(65536,bytesToWrite)
 
@@ -1130,9 +1135,9 @@ class SMB3:
             return bytesWritten
 
     def queryDirectory(self, treeId, fileId, searchString = '*', resumeIndex = 0, informationClass = FILENAMES_INFORMATION, maxBufferSize = None, enumRestart = False, singleEntry = False):
-        if self._Session['TreeConnectTable'].has_key(treeId) is False:
+        if (treeId in self._Session['TreeConnectTable']) is False:
             raise SessionError(STATUS_INVALID_PARAMETER)
-        if self._Session['OpenTable'].has_key(fileId) is False:
+        if (fileId in self._Session['OpenTable']) is False:
             raise SessionError(STATUS_INVALID_PARAMETER)
 
         packet = self.SMB_PACKET()
@@ -1154,7 +1159,7 @@ class SMB3:
         packet['Data'] = queryDirectory
 
         if self._Connection['Dialect'] != SMB2_DIALECT_002 and self._Connection['SupportsMultiCredit'] is True:
-            packet['CreditCharge'] = ( 1 + (maxBufferSize - 1) / 65536)
+            packet['CreditCharge'] = ( 1 + (maxBufferSize - 1) // 65536)
 
         packetID = self.sendSMB(packet)
         ans = self.recvSMB(packetID)
@@ -1183,12 +1188,12 @@ class SMB3:
         self.sendSMB(packet)
 
     def ioctl(self, treeId, fileId = None, ctlCode = -1, flags = 0, inputBlob = '',  maxInputResponse = None, maxOutputResponse = None, waitAnswer = 1):
-        if self._Session['TreeConnectTable'].has_key(treeId) is False:
+        if (treeId in self._Session['TreeConnectTable']) is False:
             raise SessionError(STATUS_INVALID_PARAMETER)
         if fileId is None:
             fileId = '\xff'*16
         else:
-            if self._Session['OpenTable'].has_key(fileId) is False:
+            if (fileId in self._Session['OpenTable']) is False:
                 raise SessionError(STATUS_INVALID_PARAMETER)
 
         packet = self.SMB_PACKET()
@@ -1224,9 +1229,9 @@ class SMB3:
             return smbIoctlResponse['Buffer']
 
     def flush(self,treeId, fileId):
-        if self._Session['TreeConnectTable'].has_key(treeId) is False:
+        if (treeId in self._Session['TreeConnectTable']) is False:
             raise SessionError(STATUS_INVALID_PARAMETER)
-        if self._Session['OpenTable'].has_key(fileId) is False:
+        if (fileId in self._Session['OpenTable']) is False:
             raise SessionError(STATUS_INVALID_PARAMETER)
 
         packet = self.SMB_PACKET()
@@ -1245,9 +1250,9 @@ class SMB3:
             return True
 
     def lock(self, treeId, fileId, locks, lockSequence = 0):
-        if self._Session['TreeConnectTable'].has_key(treeId) is False:
+        if (treeId in self._Session['TreeConnectTable']) is False:
             raise SessionError(STATUS_INVALID_PARAMETER)
-        if self._Session['OpenTable'].has_key(fileId) is False:
+        if (fileId in self._Session['OpenTable']) is False:
             raise SessionError(STATUS_INVALID_PARAMETER)
 
         packet = self.SMB_PACKET()
@@ -1307,9 +1312,9 @@ class SMB3:
             return True
 
     def queryInfo(self, treeId, fileId, inputBlob = '', infoType = SMB2_0_INFO_FILE, fileInfoClass = SMB2_FILE_STANDARD_INFO, additionalInformation = 0, flags = 0 ):
-        if self._Session['TreeConnectTable'].has_key(treeId) is False:
+        if (treeId in self._Session['TreeConnectTable']) is False:
             raise SessionError(STATUS_INVALID_PARAMETER)
-        if self._Session['OpenTable'].has_key(fileId) is False:
+        if (fileId in self._Session['OpenTable']) is False:
             raise SessionError(STATUS_INVALID_PARAMETER)
 
         packet = self.SMB_PACKET()
@@ -1339,9 +1344,9 @@ class SMB3:
             return queryResponse['Buffer']
 
     def setInfo(self, treeId, fileId, inputBlob = '', infoType = SMB2_0_INFO_FILE, fileInfoClass = SMB2_FILE_STANDARD_INFO, additionalInformation = 0 ):
-        if self._Session['TreeConnectTable'].has_key(treeId) is False:
+        if (treeId in self._Session['TreeConnectTable']) is False:
             raise SessionError(STATUS_INVALID_PARAMETER)
-        if self._Session['OpenTable'].has_key(fileId) is False:
+        if (fileId in self._Session['OpenTable']) is False:
             raise SessionError(STATUS_INVALID_PARAMETER)
 
         packet = self.SMB_PACKET()
@@ -1379,12 +1384,12 @@ class SMB3:
     # Higher level functions
 
     def rename(self, shareName, oldPath, newPath):
-        oldPath = string.replace(oldPath,'/', '\\')
+        oldPath = oldPath.replace('/', '\\')
         oldPath = ntpath.normpath(oldPath)
         if len(oldPath) > 0 and oldPath[0] == '\\':
             oldPath = oldPath[1:]
 
-        newPath = string.replace(newPath,'/', '\\')
+        newPath = newPath.replace('/', '\\')
         newPath = ntpath.normpath(newPath)
         if len(newPath) > 0 and newPath[0] == '\\':
             newPath = newPath[1:]
@@ -1420,7 +1425,7 @@ class SMB3:
 
     def listPath(self, shareName, path, password = None):
         # ToDo: Handle situations where share is password protected
-        path = string.replace(path,'/', '\\')
+        path = path.replace('/', '\\')
         path = ntpath.normpath(path)
         if len(path) > 0 and path[0] == '\\':
             path = path[1:]
@@ -1430,13 +1435,16 @@ class SMB3:
         fileId = None
         try:
             # ToDo, we're assuming it's a directory, we should check what the file type is
-            fileId = self.create(treeId, ntpath.dirname(path), FILE_READ_ATTRIBUTES | FILE_READ_DATA ,FILE_SHARE_READ | FILE_SHARE_WRITE |FILE_SHARE_DELETE, FILE_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT, FILE_OPEN, 0) 
+            fileId = self.create(treeId, ntpath.dirname(path), FILE_READ_ATTRIBUTES | FILE_READ_DATA, FILE_SHARE_READ |
+                                 FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                 FILE_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT, FILE_OPEN, 0)
             res = ''
             files = []
             from impacket import smb
             while True:
                 try:
-                    res = self.queryDirectory( treeId, fileId, ntpath.basename(path), maxBufferSize = 65535, informationClass = FILE_FULL_DIRECTORY_INFORMATION )
+                    res = self.queryDirectory(treeId, fileId, ntpath.basename(path), maxBufferSize=65535,
+                                              informationClass=FILE_FULL_DIRECTORY_INFORMATION)
                     nextOffset = 1
                     while nextOffset != 0:
                         fileInfo = smb.SMBFindFileFullDirectoryInfo(smb.SMB.FLAGS2_UNICODE)
@@ -1444,10 +1452,13 @@ class SMB3:
                         files.append(smb.SharedFile(fileInfo['CreationTime'],fileInfo['LastAccessTime'],fileInfo['LastChangeTime'],fileInfo['EndOfFile'],fileInfo['AllocationSize'],fileInfo['ExtFileAttributes'],fileInfo['FileName'].decode('utf-16le'), fileInfo['FileName'].decode('utf-16le')))
                         nextOffset = fileInfo['NextEntryOffset']
                         res = res[nextOffset:]
-                except SessionError, e:
+                except SessionError as e:
                     if (e.get_error_code()) != STATUS_NO_MORE_FILES:
                         raise
-                    break 
+                    break
+                except Exception as e:
+                    print(str(e))
+                    raise
         finally:
             if fileId is not None:
                 self.close(treeId, fileId)
@@ -1457,7 +1468,7 @@ class SMB3:
 
     def mkdir(self, shareName, pathName, password = None):
         # ToDo: Handle situations where share is password protected
-        pathName = string.replace(pathName,'/', '\\')
+        pathName = pathName.replace('/', '\\')
         pathName = ntpath.normpath(pathName)
         if len(pathName) > 0 and pathName[0] == '\\':
             pathName = pathName[1:]
@@ -1476,7 +1487,7 @@ class SMB3:
 
     def rmdir(self, shareName, pathName, password = None):
         # ToDo: Handle situations where share is password protected
-        pathName = string.replace(pathName,'/', '\\')
+        pathName = pathName.replace('/', '\\')
         pathName = ntpath.normpath(pathName)
         if len(pathName) > 0 and pathName[0] == '\\':
             pathName = pathName[1:]
@@ -1502,7 +1513,7 @@ class SMB3:
 
     def remove(self, shareName, pathName, password = None):
         # ToDo: Handle situations where share is password protected
-        pathName = string.replace(pathName,'/', '\\')
+        pathName = pathName.replace('/', '\\')
         pathName = ntpath.normpath(pathName)
         if len(pathName) > 0 and pathName[0] == '\\':
             pathName = pathName[1:]
@@ -1521,7 +1532,7 @@ class SMB3:
 
     def retrieveFile(self, shareName, path, callback, mode = FILE_OPEN, offset = 0, password = None, shareAccessMode = FILE_SHARE_READ):
         # ToDo: Handle situations where share is password protected
-        path = string.replace(path,'/', '\\')
+        path = path.replace('/', '\\')
         path = ntpath.normpath(path)
         if len(path) > 0 and path[0] == '\\':
             path = path[1:]
@@ -1554,7 +1565,7 @@ class SMB3:
 
     def storeFile(self, shareName, path, callback, mode = FILE_OVERWRITE_IF, offset = 0, password = None, shareAccessMode = FILE_SHARE_WRITE):
         # ToDo: Handle situations where share is password protected
-        path = string.replace(path,'/', '\\')
+        path = path.replace('/', '\\')
         path = ntpath.normpath(path)
         if len(path) > 0 and path[0] == '\\':
             path = path[1:]
@@ -1578,7 +1589,7 @@ class SMB3:
 
     def waitNamedPipe(self, treeId, pipename, timeout = 5):
         pipename = ntpath.basename(pipename)
-        if self._Session['TreeConnectTable'].has_key(treeId) is False:
+        if (treeId in self._Session['TreeConnectTable']) is False:
             raise SessionError(STATUS_INVALID_PARAMETER)
         if len(pipename) > 0xffff:
             raise SessionError(STATUS_INVALID_PARAMETER)
@@ -1646,7 +1657,7 @@ class SMB3:
  
         if cmd is not None:
             from impacket import smb
-            ntCreate = smb.SMBCommand(data = str(cmd))
+            ntCreate = smb.SMBCommand(data = cmd.getData())
             params = smb.SMBNtCreateAndX_Parameters(ntCreate['Parameters'])
             return self.create(treeId, fileName, params['AccessMask'], params['ShareAccess'],
                                params['CreateOptions'], params['Disposition'], params['FileAttributes'],

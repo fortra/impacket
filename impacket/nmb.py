@@ -42,7 +42,7 @@ import string
 import time
 from random import randint
 from struct import pack, unpack
-from six import byte2int
+from six import byte2int, indexbytes, b
 
 from .structure import Structure
 
@@ -173,7 +173,7 @@ def encode_name(name, type, scope):
     encoded_name = chr(len(name) * 2) + re.sub('.', _do_first_level_encoding, name)
     if scope:
         encoded_scope = ''
-        for s in string.split(scope, '.'):
+        for s in scope.split('.'):
             encoded_scope = encoded_scope + chr(len(s)) + s
         return (encoded_name + encoded_scope) + '\0'
     else:
@@ -652,12 +652,12 @@ class NetBIOSSessionPacket:
             self._trailer = b''
         else:
             try:
-                self.type = ord(data[0])
+                self.type = indexbytes(data,0)
                 if self.type == NETBIOS_SESSION_MESSAGE:
-                    self.length = ord(data[1]) << 16 | (unpack('!H', data[2:4])[0])
+                    self.length = indexbytes(data,1) << 16 | (unpack('!H', data[2:4])[0])
                 else:
-                    self.flags = ord(data[1])
-                    self.length = unpack('!H', data[2:4])[0]
+                    self.flags = data[1]
+                    self.length = unpack('!H', b(data[2:4]))[0]
 
                 self._trailer = data[4:]
             except:
@@ -701,9 +701,9 @@ class NetBIOSSession:
         :param socket sock: Socket for already established connection
         """
         if len(myname) > 15:
-            self.__myname = string.upper(myname[:15])
+            self.__myname = myname[:15].upper()
         else:
-            self.__myname = string.upper(myname)
+            self.__myname = myname.upper()
         self.__local_type = local_type
 
         assert remote_name
@@ -725,9 +725,9 @@ class NetBIOSSession:
                 remote_name = res
 
         if len(remote_name) > 15:
-            self.__remote_name = string.upper(remote_name[:15])
+            self.__remote_name = remote_name[:15].upper()
         else:
-            self.__remote_name = string.upper(remote_name)
+            self.__remote_name = remote_name.upper()
         self.__remote_type = remote_type
         self.__remote_host = remote_host
 
@@ -948,7 +948,7 @@ class NetBIOSTCPSession(NetBIOSSession):
                 if ex[0] != errno.EINTR and ex[0] != errno.EAGAIN:
                     raise NetBIOSError('Error occurs while reading from remote', ERRCLASS_OS, ex[0])
 
-        return data
+        return bytes(data)
 
     def non_polling_read(self, read_length, timeout):
         data = b''
@@ -971,7 +971,7 @@ class NetBIOSTCPSession(NetBIOSSession):
                 if ex[0] != errno.EINTR and ex[0] != errno.EAGAIN:
                     raise NetBIOSError('Error occurs while reading from remote', ERRCLASS_OS, ex[0])
 
-        return data
+        return bytes(data)
 
     def __read(self, timeout = None):
         data = self.read_function(4, timeout)

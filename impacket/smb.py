@@ -38,7 +38,8 @@
 # [x] Do chained AndX requests
 # [ ] Transform the rest of the calls to structure
 # [X] Implement TRANS/TRANS2 reassembly for list_path
-
+from __future__ import division
+from __future__ import print_function
 import os
 import socket
 import string
@@ -60,9 +61,9 @@ unicode_support = 0
 unicode_convert = 1
 
 try:
-    from cStringIO import StringIO
+    from io import StringIO
 except ImportError:
-    from StringIO import StringIO
+    from io import StringIO
 
 # Dialect for SMB1
 SMB_DIALECT = 'NT LM 0.12'
@@ -563,11 +564,11 @@ class SharedFile:
         self.__allocsize = allocsize
         self.__attribs = attribs
         try:
-            self.__shortname = shortname[:string.index(shortname, '\0')]
+            self.__shortname = shortname[:shortname.index('\0')]
         except ValueError:
             self.__shortname = shortname
         try:
-            self.__longname = longname[:string.index(longname, '\0')]
+            self.__longname = longname[:longname.index('\0')]
         except ValueError:
             self.__longname = longname
 
@@ -634,9 +635,9 @@ class SharedFile:
     @staticmethod
     def __convert_smbtime(t):
         x = t >> 32
-        y = t & 0xffffffffL
+        y = t & 0xffffffff
         geo_cal_offset = 11644473600.0  # = 369.0 * 365.25 * 24 * 60 * 60 - (3.0 * 24 * 60 * 60 + 6.0 * 60 * 60)
-        return (x * 4.0 * (1 << 30) + (y & 0xfff00000L)) * 1.0e-7 - geo_cal_offset
+        return (x * 4.0 * (1 << 30) + (y & 0xfff00000)) * 1.0e-7 - geo_cal_offset
 
 
 # Contain information about a SMB machine
@@ -681,12 +682,12 @@ class NewSMBPacket(Structure):
     def __init__(self, **kargs):
         Structure.__init__(self, **kargs)
 
-        if self.fields.has_key('Flags2') is False:
+        if ('Flags2' in self.fields) is False:
              self['Flags2'] = 0
-        if self.fields.has_key('Flags1') is False:
+        if ('Flags1' in self.fields) is False:
              self['Flags1'] = 0
 
-        if not kargs.has_key('data'):
+        if 'data' not in kargs:
             self['Data'] = []
 
     def addCommand(self, command):
@@ -714,14 +715,14 @@ class NewSMBPacket(Structure):
                 return 1
             elif self.isMoreProcessingRequired():
                 return 1
-            raise SessionError, ("SMB Library Error", self['ErrorClass'] + (self['_reserved'] << 8), self['ErrorCode'], self['Flags2'] & SMB.FLAGS2_NT_STATUS, self)
+            raise SessionError("SMB Library Error", self['ErrorClass'] + (self['_reserved'] << 8), self['ErrorCode'], self['Flags2'] & SMB.FLAGS2_NT_STATUS, self)
         else:
-            raise UnsupportedFeature, ("Unexpected answer from server: Got %d, Expected %d" % (self['Command'], cmd))
+            raise UnsupportedFeature("Unexpected answer from server: Got %d, Expected %d" % (self['Command'], cmd))
 
 
 class SMBCommand(Structure):
     structure = (
-        ('WordCount', 'B=len(Parameters)/2'),
+        ('WordCount', 'B=len(Parameters)//2'),
         ('_ParametersLength','_-Parameters','WordCount*2'),
         ('Parameters',':'),             # default set by constructor
         ('ByteCount','<H-Data'),
@@ -1720,7 +1721,7 @@ class SMBNTTransaction_Parameters(SMBCommand_Parameters):
         ('ParameterOffset','<L'),
         ('DataCount','<L'),
         ('DataOffset','<L'),
-        ('SetupCount','<B=len(Setup)/2'),
+        ('SetupCount','<B=len(Setup)//2'),
         ('Function','<H=0'),
         ('SetupLength','_-Setup','SetupCount*2'),
         ('Setup',':'),
@@ -1811,7 +1812,7 @@ class SMBTransaction2_Parameters(SMBCommand_Parameters):
         ('ParameterOffset','<H'),
         ('DataCount','<H'),
         ('DataOffset','<H'),
-        ('SetupCount','<B=len(Setup)/2'),
+        ('SetupCount','<B=len(Setup)//2'),
         ('Reserved3','<B=0'),
         ('SetupLength','_-Setup','SetupCount*2'),
         ('Setup',':'),
@@ -1897,7 +1898,7 @@ class SMBTransaction_Parameters(SMBCommand_Parameters):
         ('ParameterOffset','<H'),
         ('DataCount','<H'),
         ('DataOffset','<H'),
-        ('SetupCount','<B=len(Setup)/2'),
+        ('SetupCount','<B=len(Setup)//2'),
         ('Reserved3','<B=0'),
         ('SetupLength','_-Setup','SetupCount*2'),
         ('Setup',':'),
@@ -2351,7 +2352,7 @@ class SMB:
         self.__server_lanman = ''
         self.__server_domain = ''
         self.__server_dns_domain_name = ''
-        self.__remote_name = string.upper(remote_name)
+        self.__remote_name = remote_name.upper()
         self.__remote_host = remote_host
         self.__isNTLMv2 = True
         self._dialects_parameters = None
@@ -2413,7 +2414,7 @@ class SMB:
             if not my_name:
                 # If destination port is 139 yes, there's some client disclosure
                 my_name = socket.gethostname()
-                i = string.find(my_name, '.')
+                i = my_name.find('.')
                 if i > -1:
                     my_name = my_name[:i]
 
@@ -2582,7 +2583,7 @@ class SMB:
                     if s.get_error_class() == 0x00 and s.get_error_code() == 0x00:
                         return 1
                     else:
-                        raise SessionError, ( "SMB Library Error", s.get_error_class()+ (s.get_reserved() << 8), s.get_error_code() , s.get_flags2() & SMB.FLAGS2_NT_STATUS )
+                        raise SessionError( "SMB Library Error", s.get_error_class()+ (s.get_reserved() << 8), s.get_error_code() , s.get_flags2() & SMB.FLAGS2_NT_STATUS)
                 else:
                     break
         return 0
@@ -2615,7 +2616,7 @@ class SMB:
                         self.__server_name = self._dialects_data['ServerName']
 
                     if self._dialects_parameters['DialectIndex'] == 0xffff:
-                        raise UnsupportedFeature,"Remote server does not know NT LM 0.12"
+                        raise UnsupportedFeature("Remote server does not know NT LM 0.12")
                     return 1
             else:
                 return 0
@@ -2769,7 +2770,7 @@ class SMB:
         self._SigningSessionKey = key
 
     def get_encryption_key(self):
-        if self._dialects_data.fields.has_key('Challenge'):
+        if 'Challenge' in self._dialects_data.fields:
             return self._dialects_data['Challenge']
         else:
             return None
@@ -2779,7 +2780,7 @@ class SMB:
         timestamp <<= 32
         timestamp |= self._dialects_parameters['LowDateTime']
         timestamp -= 116444736000000000
-        timestamp /= 10000000
+        timestamp //= 10000000
         d = datetime.datetime.utcfromtimestamp(timestamp)
         return d.strftime("%a, %d %b %Y %H:%M:%S GMT")
 
@@ -2793,7 +2794,7 @@ class SMB:
         self.recvSMB()
 
     def open(self, tid, filename, open_mode, desired_access):
-        filename = string.replace(filename,'/', '\\')
+        filename = filename.replace('/', '\\')
         filename = filename.encode('utf-16le') if self.__flags2 & SMB.FLAGS2_UNICODE else filename
 
         smb = NewSMBPacket()
@@ -2826,7 +2827,7 @@ class SMB:
             )
 
     def open_andx(self, tid, filename, open_mode, desired_access):
-        filename = string.replace(filename,'/', '\\')
+        filename = filename.replace('/', '\\')
         filename = filename.encode('utf-16le') if self.__flags2 & SMB.FLAGS2_UNICODE else filename
 
         smb = NewSMBPacket()
@@ -3275,7 +3276,7 @@ class SMB:
                        pass
 
             # Parse Version to know the target Operating system name. Not provided elsewhere anymore
-            if ntlmChallenge.fields.has_key('Version'):
+            if 'Version' in ntlmChallenge.fields:
                 version = ntlmChallenge['Version']
 
                 if len(version) >= 4:
@@ -3872,7 +3873,7 @@ class SMB:
         return files
 
     def retr_file(self, service, filename, callback, mode = FILE_OPEN, offset = 0, password = None, shareAccessMode = SMB_ACCESS_READ):
-        filename = string.replace(filename, '/', '\\')
+        filename = filename.replace('/', '\\')
 
         fid = -1
         tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\' + service, password)
@@ -3889,7 +3890,7 @@ class SMB:
             self.disconnect_tree(tid)
 
     def stor_file(self, service, filename, callback, mode = FILE_OVERWRITE_IF, offset = 0, password = None, shareAccessMode = SMB_ACCESS_WRITE):
-        filename = string.replace(filename, '/', '\\')
+        filename = filename.replace('/', '\\')
 
         fid = -1
         tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\' + service, password)
@@ -3903,7 +3904,7 @@ class SMB:
             self.disconnect_tree(tid)
 
     def stor_file_nonraw(self, service, filename, callback, mode = FILE_OVERWRITE_IF, offset = 0, password = None, shareAccessMode = SMB_ACCESS_WRITE ):
-        filename = string.replace(filename, '/', '\\')
+        filename = filename.replace('/', '\\')
 
         fid = -1
         tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\' + service, password)
@@ -3916,7 +3917,7 @@ class SMB:
             self.disconnect_tree(tid)
 
     def check_dir(self, service, path, password = None):
-        path = string.replace(path,'/', '\\')
+        path = path.replace('/', '\\')
         tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\' + service, password)
         try:
             smb = NewSMBPacket()
@@ -3939,7 +3940,7 @@ class SMB:
             self.disconnect_tree(tid)
 
     def remove(self, service, path, password = None):
-        path = string.replace(path,'/', '\\')
+        path = path.replace('/', '\\')
         # Perform a list to ensure the path exists
         self.list_path(service, path, password)
 
@@ -3966,7 +3967,7 @@ class SMB:
             self.disconnect_tree(tid)
 
     def rmdir(self, service, path, password = None):
-        path = string.replace(path,'/', '\\')
+        path = path.replace('/', '\\')
         # Check that the directory exists
         self.check_dir(service, path, password)
 
@@ -3991,7 +3992,7 @@ class SMB:
             self.disconnect_tree(tid)
 
     def mkdir(self, service, path, password = None):
-        path = string.replace(path,'/', '\\')
+        path = path.replace('/', '\\')
         tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\' + service, password)
         try:
             path = path.encode('utf-16le') if self.__flags2 & SMB.FLAGS2_UNICODE else path
@@ -4015,8 +4016,8 @@ class SMB:
             self.disconnect_tree(tid)
 
     def rename(self, service, old_path, new_path, password = None):
-        old_path = string.replace(old_path,'/', '\\')
-        new_path = string.replace(new_path,'/', '\\')
+        old_path = old_path.replace('/', '\\')
+        new_path = new_path.replace('/', '\\')
         tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\' + service, password)
         try:
             smb = NewSMBPacket()
