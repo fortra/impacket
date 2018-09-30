@@ -665,7 +665,7 @@ class NetBIOSSessionPacket:
                     self.length = indexbytes(data,1) << 16 | (unpack('!H', data[2:4])[0])
                 else:
                     self.flags = data[1]
-                    self.length = unpack('!H', b(data[2:4]))[0]
+                    self.length = unpack('!H', data[2:4])[0]
 
                 self._trailer = data[4:]
             except:
