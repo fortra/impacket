@@ -564,11 +564,11 @@ class SharedFile:
         self.__allocsize = allocsize
         self.__attribs = attribs
         try:
-            self.__shortname = shortname[:shortname.index('\0')]
+            self.__shortname = shortname[:shortname.index(b'\0')]
         except ValueError:
             self.__shortname = shortname
         try:
-            self.__longname = longname[:longname.index('\0')]
+            self.__longname = longname[:longname.index(b'\0')]
         except ValueError:
             self.__longname = longname
 
@@ -2360,13 +2360,13 @@ class SMB:
         self._doKerberos = False
 
         # Credentials
-        self.__userName = ''
-        self.__password = ''
-        self.__domain   = ''
-        self.__lmhash   = ''
-        self.__nthash   = ''
-        self.__aesKey   = ''
-        self.__kdc      = ''
+        self.__userName = b''
+        self.__password = b''
+        self.__domain   = b''
+        self.__lmhash   = b''
+        self.__nthash   = b''
+        self.__aesKey   = b''
+        self.__kdc      = b''
         self.__TGT      = None
         self.__TGS      = None
 
@@ -2382,8 +2382,8 @@ class SMB:
 
         # Signing stuff
         self._SignSequenceNumber = 0
-        self._SigningSessionKey = ''
-        self._SigningChallengeResponse = ''
+        self._SigningSessionKey = b''
+        self._SigningChallengeResponse = b''
         self._SignatureEnabled = False
         self._SignatureVerificationEnabled = False
         self._SignatureRequired = False
@@ -2406,7 +2406,7 @@ class SMB:
 
         # This is on purpose. I'm still not convinced to do a socket.gethostname() if not specified
         if my_name is None:
-            self.__client_name = ''
+            self.__client_name = b''
         else:
             self.__client_name = my_name
 
@@ -2544,7 +2544,7 @@ class SMB:
         m = hashlib.md5()
         m.update( signingSessionKey )
         m.update( signingChallengeResponse )
-        m.update( str(packet) )
+        m.update( packet.getData() )
         # Replace sequence with acual hash
         packet['SecurityFeatures'] = m.digest()[:8]
         if self._SignatureVerificationEnabled:
@@ -2573,7 +2573,7 @@ class SMB:
             smb['Flags2'] |= SMB.FLAGS2_SMB_SECURITY_SIGNATURE
             self.signSMB(smb, self._SigningSessionKey, self._SigningChallengeResponse)
 
-        self._sess.send_packet(str(smb))
+        self._sess.send_packet(smb.getData())
 
     @staticmethod
     def isValidAnswer(s, cmd):
@@ -3225,7 +3225,7 @@ class SMB:
         # NTLMSSP
         blob['MechTypes'] = [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
         auth = ntlm.getNTLMSSPType1(self.get_client_name(),domain,self._SignatureRequired, use_ntlmv2 = use_ntlmv2)
-        blob['MechToken'] = str(auth)
+        blob['MechToken'] = auth.getData()
 
         sessionSetup['Parameters']['SecurityBlobLength']  = len(blob)
         sessionSetup['Parameters'].getData()
@@ -3294,7 +3294,7 @@ class SMB:
                smb['Flags2'] |= SMB.FLAGS2_SMB_SECURITY_SIGNATURE
 
             respToken2 = SPNEGO_NegTokenResp()
-            respToken2['ResponseToken'] = str(type3)
+            respToken2['ResponseToken'] = type3.getData()
 
             # Reusing the previous structure
             sessionSetup['Parameters']['SecurityBlobLength'] = len(respToken2)
@@ -3558,7 +3558,7 @@ class SMB:
             smb = smb_packet
 
         if wait_answer:
-            answer = ''
+            answer = b''
             while 1:
                 self.sendSMB(smb)
                 ans = self.recvSMB()
@@ -3570,7 +3570,7 @@ class SMB:
 
                     offset = readAndXParameters['DataOffset']
                     count = readAndXParameters['DataCount']+0x10000*readAndXParameters['DataCount_Hi']
-                    answer += str(ans)[offset:offset+count]
+                    answer += ans.getData()[offset:offset+count]
                     if not ans.isMoreData():
                         return answer
                     max_size = min(max_size, readAndXParameters['Remaining'])
@@ -3812,8 +3812,8 @@ class SMB:
             files = [ ]
 
             totalDataCount = 1
-            findData = ''
-            findFirst2ParameterBlock = ''
+            findData = b''
+            findFirst2ParameterBlock = b''
             while len(findData) < totalDataCount:
                 resp = self.recvSMB()
 
@@ -3852,8 +3852,8 @@ class SMB:
                         findNextParameter['Flags'] = SMB_FIND_RETURN_RESUME_KEYS | SMB_FIND_CLOSE_AT_EOS
                         findNextParameter['FileName'] = resume_filename + ('\x00\x00' if self.__flags2 & SMB.FLAGS2_UNICODE else '\x00')
                         self.send_trans2(tid, SMB.TRANS2_FIND_NEXT2, '\x00', findNextParameter, '')
-                        findData = ''
-                        findNext2ParameterBlock = ''
+                        findData = b''
+                        findNext2ParameterBlock = b''
                         totalDataCount = 1
                         while len(findData) < totalDataCount:
                             resp = self.recvSMB()
