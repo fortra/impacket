@@ -219,7 +219,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
         key = cipher.string_to_key(password, encryptionTypesData[enctype], None)
 
     if preAuth is True:
-        if encryptionTypesData.has_key(enctype) is False:
+        if enctype in encryptionTypesData is False:
             raise Exception('No Encryption Data Available!')
 
         # Let's build the timestamp
@@ -280,7 +280,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
 
         try:
             tgt = sendReceive(encoder.encode(asReq), domain, kdcHost)
-        except Exception, e:
+        except Exception as e:
             if str(e).find('KDC_ERR_ETYPE_NOSUPP') >= 0:
                 if lmhash is '' and nthash is '' and (aesKey is '' or aesKey is None):
                     from impacket.ntlm import compute_lmhash, compute_nthash
@@ -304,8 +304,8 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
     # application session key), encrypted with the client key
     # (Section 5.4.2)
     try:
-        plainText = cipher.decrypt(key, 3, str(cipherText))
-    except InvalidChecksum, e:
+        plainText = cipher.decrypt(key, 3, cipherText)
+    except InvalidChecksum as e:
         # probably bad password if preauth is disabled
         if preAuth is False:
             error_msg = "failed to decrypt session key: %s" % str(e)
@@ -317,7 +317,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
     # We're assuming the cipher for this session key is the same
     # as the one we used before.
     # ToDo: change this
-    sessionKey = Key(cipher.enctype,str(encASRepPart['key']['keyvalue']))
+    sessionKey = Key(cipher.enctype,encASRepPart['key']['keyvalue'].asOctets())
 
     # ToDo: Check Nonces!
 
@@ -346,7 +346,7 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
 
     authenticator = Authenticator()
     authenticator['authenticator-vno'] = 5
-    authenticator['crealm'] = str(decodedTGT['crealm'])
+    authenticator['crealm'] = decodedTGT['crealm'].asOctets()
 
     clientName = Principal()
     clientName.from_asn1( decodedTGT, 'crealm', 'cname')
@@ -418,11 +418,11 @@ def getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey):
     # Key Usage 8
     # TGS-REP encrypted part (includes application session
     # key), encrypted with the TGS session key (Section 5.4.2)
-    plainText = cipher.decrypt(sessionKey, 8, str(cipherText))
+    plainText = cipher.decrypt(sessionKey, 8, cipherText)
 
-    encTGSRepPart = decoder.decode(str(plainText), asn1Spec = EncTGSRepPart())[0]
+    encTGSRepPart = decoder.decode(plainText, asn1Spec = EncTGSRepPart())[0]
 
-    newSessionKey = Key(encTGSRepPart['key']['keytype'], str(encTGSRepPart['key']['keyvalue']))
+    newSessionKey = Key(encTGSRepPart['key']['keytype'], encTGSRepPart['key']['keyvalue'].asOctets())
     # Creating new cipher based on received keytype
     cipher = _enctype_table[encTGSRepPart['key']['keytype']]
 
@@ -455,7 +455,7 @@ def getKerberosType3(cipher, sessionKey, auth_data):
 
     ap_rep = decoder.decode(negTokenResp['ResponseToken'], asn1Spec=AP_REP())[0]
 
-    cipherText = str(ap_rep['enc-part']['cipher'])
+    cipherText = ap_rep['enc-part']['cipher']
 
     # Key Usage 12
     # AP-REP encrypted part (includes application session
@@ -466,9 +466,9 @@ def getKerberosType3(cipher, sessionKey, auth_data):
     encAPRepPart = decoder.decode(plainText, asn1Spec = EncAPRepPart())[0]
 
     cipher = _enctype_table[int(encAPRepPart['subkey']['keytype'])]()
-    sessionKey2 = Key(cipher.enctype, str(encAPRepPart['subkey']['keyvalue']))
+    sessionKey2 = Key(cipher.enctype, encAPRepPart['subkey']['keyvalue'].asOctets())
 
-    sequenceNumber = str(encAPRepPart['seq-number'])
+    sequenceNumber = int(encAPRepPart['seq-number'])
 
     encAPRepPart['subkey'].clear()
     encAPRepPart = encAPRepPart.clone()
@@ -690,8 +690,8 @@ class KerberosError(SessionError):
         try:
             # Let's try to get the NT ERROR, if not, we quit and give the general one
             if self.error == constants.ErrorCodes.KRB_ERR_GENERIC.value:
-                eData = decoder.decode(str(self.packet['e-data']), asn1Spec = KERB_ERROR_DATA())[0]
-                nt_error = struct.unpack('<L', str(eData['data-value'])[:4])[0]
+                eData = decoder.decode(self.packet['e-data'], asn1Spec = KERB_ERROR_DATA())[0]
+                nt_error = struct.unpack('<L', eData['data-value'].asOctets()[:4])[0]
                 retString += '\nNT ERROR: %s(%s)' % (nt_errors.ERROR_MESSAGES[nt_error])
         except:
             pass
