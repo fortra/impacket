@@ -74,11 +74,11 @@ from impacket.structure import Structure
 from impacket.winregistry import hexdump
 from impacket.uuid import string_to_bin
 try:
-    from Crypto.Cipher import DES, ARC4, AES
-    from Crypto.Hash import HMAC, MD4
+    from Cryptodome.Cipher import DES, ARC4, AES
+    from Cryptodome.Hash import HMAC, MD4
 except ImportError:
-    LOG.critical("Warning: You don't have any crypto installed. You need PyCrypto")
-    LOG.critical("See http://www.pycrypto.org/")
+    LOG.critical("Warning: You don't have any crypto installed. You need pycryptodomex")
+    LOG.critical("See https://pypi.org/project/pycryptodomex/")
 
 
 # Structures
@@ -274,6 +274,15 @@ class LSA_SECRET_XP(Structure):
         ('Secret', ':'),
     )
 
+
+# Helper to create files for exporting
+def openFile(fileName, mode='w+', openFileFunc=None):
+    if openFileFunc is not None:
+        return openFileFunc(fileName, mode)
+    else:
+        return codecs.open(fileName, mode, encoding='utf-8')
+
+
 # Classes
 class RemoteFile:
     def __init__(self, smbConnection, fileName):
@@ -440,7 +449,7 @@ class RemoteOperations:
         request['pextClient']['cb'] = len(drs)
         request['pextClient']['rgb'] = list(str(drs))
         resp = self.__drsr.request(request)
-        if logging.getLogger().level == logging.DEBUG:
+        if LOG.level == logging.DEBUG:
             LOG.debug('DRSBind() answer')
             resp.dump()
 
@@ -455,7 +464,7 @@ class RemoteOperations:
 
         if drsExtensionsInt['dwReplEpoch'] != 0:
             # Different epoch, we have to call DRSBind again
-            if logging.getLogger().level == logging.DEBUG:
+            if LOG.level == logging.DEBUG:
                 LOG.debug("DC's dwReplEpoch != 0, setting it to %d and calling DRSBind again" % drsExtensionsInt[
                     'dwReplEpoch'])
             drs['dwReplEpoch'] = drsExtensionsInt['dwReplEpoch']
@@ -467,7 +476,7 @@ class RemoteOperations:
 
         # Now let's get the NtdsDsaObjectGuid UUID to use when querying NCChanges
         resp = drsuapi.hDRSDomainControllerInfo(self.__drsr, self.__hDrs, self.__domainName, 2)
-        if logging.getLogger().level == logging.DEBUG:
+        if LOG.level == logging.DEBUG:
             LOG.debug('DRSDomainControllerInfo() answer')
             resp.dump()
 
@@ -604,7 +613,9 @@ class RemoteOperations:
                 account = account[2:]
             return account
         except Exception, e:
-            LOG.error(e)
+            # Don't log if history service is not found, that should be normal
+            if serviceName.endswith("_history") is False:
+                LOG.error(e)
             return None
 
     def __checkServiceStatus(self):
@@ -1225,13 +1236,15 @@ class SAMHashes(OfflineRegistry):
             self.__itemsFound[rid] = answer
             self.__perSecretCallback(answer)
 
-    def export(self, fileName):
+    def export(self, baseFileName, openFileFunc = None):
         if len(self.__itemsFound) > 0:
             items = sorted(self.__itemsFound)
-            fd = codecs.open(fileName+'.sam','w+', encoding='utf-8')
+            fileName = baseFileName+'.sam'
+            fd = openFile(fileName, openFileFunc=openFileFunc)
             for item in items:
                 fd.write(self.__itemsFound[item]+'\n')
             fd.close()
+            return fileName
 
 class LSASecrets(OfflineRegistry):
     UNKNOWN_USER = '(Unknown User)'
@@ -1356,7 +1369,7 @@ class LSASecrets(OfflineRegistry):
             # No SECURITY file provided
             return
 
-        LOG.info('Dumping cached domain logon information (uid:encryptedHash:longDomain:domain)')
+        LOG.info('Dumping cached domain logon information (domain/username:hash)')
 
         # Let's first see if there are cached entries
         values = self.enumValues('\\Cache')
@@ -1368,6 +1381,17 @@ class LSASecrets(OfflineRegistry):
             values.remove('NL$Control')
         except:
             pass
+
+        iterationCount = 10240
+
+        if 'NL$IterationCount' in values:
+            values.remove('NL$IterationCount')
+
+            record = self.getValue('\\Cache\\NL$IterationCount')[1]
+            if record > 10240:
+                iterationCount = record & 0xfffffc00
+            else:
+                iterationCount = record * 1024
 
         self.__getLSASecretKey()
         self.__getNLKMSecret()
@@ -1391,11 +1415,14 @@ class LSASecrets(OfflineRegistry):
                 encHash = plainText[:0x10]
                 plainText = plainText[0x48:]
                 userName = plainText[:record['UserLength']].decode('utf-16le')
-                plainText = plainText[self.__pad(record['UserLength']):]
-                domain = plainText[:record['DomainNameLength']].decode('utf-16le')
-                plainText = plainText[self.__pad(record['DomainNameLength']):]
+                plainText = plainText[self.__pad(record['UserLength']) + self.__pad(record['DomainNameLength']):]
                 domainLong = plainText[:self.__pad(record['DnsDomainNameLength'])].decode('utf-16le')
-                answer = "%s:%s:%s:%s:::" % (userName, hexlify(encHash), domainLong, domain)
+
+                if self.__vistaStyle is True:
+                    answer = "%s/%s:$DCC2$%s#%s#%s" % (domainLong, userName, iterationCount, userName, hexlify(encHash))
+                else:
+                    answer = "%s/%s:%s:%s" % (domainLong, userName, hexlify(encHash), userName)
+
                 self.__cachedItems.append(answer)
                 self.__perSecretCallback(LSASecrets.SECRET_TYPE.LSA_HASHED, answer)
 
@@ -1534,19 +1561,23 @@ class LSASecrets(OfflineRegistry):
                         key += '_history'
                     self.__printSecret(key, secret)
 
-    def exportSecrets(self, fileName):
+    def exportSecrets(self, baseFileName, openFileFunc = None):
         if len(self.__secretItems) > 0:
-            fd = codecs.open(fileName+'.secrets','w+', encoding='utf-8')
+            fileName = baseFileName+'.secrets'
+            fd = openFile(fileName, openFileFunc=openFileFunc)
             for item in self.__secretItems:
                 fd.write(item+'\n')
             fd.close()
+            return fileName
 
-    def exportCached(self, fileName):
+    def exportCached(self, baseFileName, openFileFunc = None):
         if len(self.__cachedItems) > 0:
-            fd = codecs.open(fileName+'.cached','w+', encoding='utf-8')
+            fileName = baseFileName+'.cached'
+            fd = openFile(fileName, openFileFunc=openFileFunc)
             for item in self.__cachedItems:
                 fd.write(item+'\n')
             fd.close()
+            return fileName
 
 
 class ResumeSessionMgrInFile(object):
@@ -1959,7 +1990,15 @@ class NTDSHashes:
 
             if record[self.NAME_TO_INTERNAL['dBCSPwd']] is not None:
                 encryptedLMHash = self.CRYPTED_HASH(unhexlify(record[self.NAME_TO_INTERNAL['dBCSPwd']]))
-                tmpLMHash = self.__removeRC4Layer(encryptedLMHash)
+                if encryptedLMHash['Header'][:4] == '\x13\x00\x00\x00':
+                    # Win2016 TP4 decryption is different
+                    encryptedLMHash = self.CRYPTED_HASHW16(unhexlify(record[self.NAME_TO_INTERNAL['dBCSPwd']]))
+                    pekIndex = hexlify(encryptedLMHash['Header'])
+                    tmpLMHash = self.__cryptoCommon.decryptAES(self.__PEK[int(pekIndex[8:10])],
+                                                               encryptedLMHash['EncryptedHash'][:16],
+                                                               encryptedLMHash['KeyMaterial'])
+                else:
+                    tmpLMHash = self.__removeRC4Layer(encryptedLMHash)
                 LMHash = self.__removeDESLayer(tmpLMHash, rid)
             else:
                 LMHash = ntlm.LMOWFv1('', '')
@@ -2213,10 +2252,10 @@ class NTDSHashes:
                     mode = 'a+'
                 else:
                     mode = 'w+'
-                hashesOutputFile = codecs.open(self.__outputFileName+'.ntds',mode, encoding='utf-8')
+                hashesOutputFile = openFile(self.__outputFileName+'.ntds',mode)
                 if self.__justNTLM is False:
-                    keysOutputFile = codecs.open(self.__outputFileName+'.ntds.kerberos',mode, encoding='utf-8')
-                    clearTextOutputFile = codecs.open(self.__outputFileName+'.ntds.cleartext',mode, encoding='utf-8')            
+                    keysOutputFile = openFile(self.__outputFileName+'.ntds.kerberos',mode)
+                    clearTextOutputFile = openFile(self.__outputFileName+'.ntds.cleartext',mode)
 
             LOG.info('Dumping Domain Credentials (domain\\uid:rid:lmhash:nthash)')
             if self.__useVSSMethod:
@@ -2233,9 +2272,9 @@ class NTDSHashes:
                             if self.__justNTLM is False:
                                 self.__decryptSupplementalInfo(record, None, keysOutputFile, clearTextOutputFile)
                         except Exception, e:
-                            if logging.getLogger().level == logging.DEBUG:
+                            if LOG.level == logging.DEBUG:
                                 import traceback
-                                print traceback.print_exc()
+                                traceback.print_exc()
                             try:
                                 LOG.error(
                                     "Error while processing row for user %s" % record[self.NAME_TO_INTERNAL['name']])
@@ -2262,9 +2301,9 @@ class NTDSHashes:
                                 if self.__justNTLM is False:
                                     self.__decryptSupplementalInfo(record, None, keysOutputFile, clearTextOutputFile)
                         except Exception, e:
-                            if logging.getLogger().level == logging.DEBUG:
+                            if LOG.level == logging.DEBUG:
                                 import traceback
-                                print traceback.print_exc()
+                                traceback.print_exc()
                             try:
                                 LOG.error(
                                     "Error while processing row for user %s" % record[self.NAME_TO_INTERNAL['name']])
@@ -2381,9 +2420,9 @@ class NTDSHashes:
                                         'pPrefixEntry'], keysOutputFile, clearTextOutputFile)
 
                             except Exception, e:
-                                if logging.getLogger().level == logging.DEBUG:
+                                if LOG.level == logging.DEBUG:
                                     import traceback
-                                    print traceback.print_exc()
+                                    traceback.print_exc()
                                 LOG.error("Error while processing user!")
                                 LOG.error(str(e))
 

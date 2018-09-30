@@ -6,6 +6,11 @@ import unittest
 from impacket.examples.secretsdump import LocalOperations, RemoteOperations, SAMHashes, LSASecrets, NTDSHashes
 from impacket.smbconnection import SMBConnection
 
+def _print_helper(*args, **kwargs):
+    try:
+        print args[-1]
+    except UnicodeError:
+        pass
 
 class DumpSecrets:
     def __init__(self, remoteName, username='', password='', domain='', options=None):
@@ -110,7 +115,7 @@ class DumpSecrets:
                     else:
                         SAMFileName         = self.__samHive
 
-                    self.__SAMHashes    = SAMHashes(SAMFileName, bootKey, isRemote = self.__isRemote)
+                    self.__SAMHashes    = SAMHashes(SAMFileName, bootKey, isRemote = self.__isRemote, perSecretCallback=_print_helper)
                     self.__SAMHashes.dump()
                     if self.__outputFileName is not None:
                         self.__SAMHashes.export(self.__outputFileName)
@@ -124,7 +129,7 @@ class DumpSecrets:
                         SECURITYFileName = self.__securityHive
 
                     self.__LSASecrets = LSASecrets(SECURITYFileName, bootKey, self.__remoteOps,
-                                                   isRemote=self.__isRemote, history=self.__history)
+                                                   isRemote=self.__isRemote, history=self.__history, perSecretCallback=_print_helper)
                     self.__LSASecrets.dumpCachedHashes()
                     if self.__outputFileName is not None:
                         self.__LSASecrets.exportCached(self.__outputFileName)
@@ -134,7 +139,7 @@ class DumpSecrets:
                 except Exception, e:
                     if logging.getLogger().level == logging.DEBUG:
                         import traceback
-                        print traceback.print_exc()
+                        traceback.print_exc()
                     logging.error('LSA hashes extraction failed: %s' % str(e))
 
             # NTDS Extraction we can try regardless of RemoteOperations failing. It might still work
@@ -151,13 +156,13 @@ class DumpSecrets:
                                            useVSSMethod=self.__useVSSMethod, justNTLM=self.__justDCNTLM,
                                            pwdLastSet=self.__pwdLastSet, resumeSession=self.__resumeFileName,
                                            outputFileName=self.__outputFileName, justUser=self.__justUser,
-                                           printUserStatus= self.__printUserStatus)
+                                           printUserStatus= self.__printUserStatus, perSecretCallback=_print_helper)
             try:
                 self.__NTDSHashes.dump()
             except Exception, e:
                 if logging.getLogger().level == logging.DEBUG:
                     import traceback
-                    print traceback.print_exc()
+                    traceback.print_exc()
                 if str(e).find('ERROR_DS_DRA_BAD_DN') >= 0:
                     # We don't store the resume file if this error happened, since this error is related to lack
                     # of enough privileges to access DRSUAPI.
@@ -175,7 +180,7 @@ class DumpSecrets:
         except (Exception, KeyboardInterrupt), e:
             if logging.getLogger().level == logging.DEBUG:
                 import traceback
-                print traceback.print_exc()
+                traceback.print_exc()
             logging.error(e)
             if self.__NTDSHashes is not None:
                 if isinstance(e, KeyboardInterrupt):
@@ -236,12 +241,47 @@ class Options(object):
     user_status=False
 
 class SecretsDumpTests(unittest.TestCase):
-    def test_VSS(self):
+    def test_VSS_History(self):
         options = Options()
         options.target_ip = self.machine
         options.use_vss = True
+        options.history = True
         dumper = DumpSecrets(self.serverName, self.username, self.password, self.domain, options)
         dumper.dump()
+
+    def test_VSS_WMI(self):
+        options = Options()
+        options.target_ip = self.machine
+        options.use_vss = True
+        options.exec_method='wmiexec'
+        dumper = DumpSecrets(self.serverName, self.username, self.password, self.domain, options)
+        dumper.dump()
+
+    def test_DRSUAPI_DC_USER(self):
+        options = Options()
+        options.target_ip = self.machine
+        options.use_vss = False
+        options.just_dc = True
+        options.just_dc_user = '%s/%s' % (self.domain.split('.')[0], 'Administrator')
+        dumper = DumpSecrets(self.serverName, self.username, self.password, self.domain, options)
+        dumper.dump()
+
+    def test_VSS_MMC(self):
+        options = Options()
+        options.target_ip = self.machine
+        options.use_vss = True
+        options.exec_method='mmcexec'
+        dumper = DumpSecrets(self.serverName, self.username, self.password, self.domain, options)
+        dumper.dump()
+
+    def test_DRSUAPI(self):
+        options = Options()
+        options.target_ip = self.machine
+        options.use_vss = False
+        dumper = DumpSecrets(self.serverName, self.username, self.password, self.domain, options)
+        dumper.dump()
+
+
 
 class Tests(SecretsDumpTests):
     def setUp(self):

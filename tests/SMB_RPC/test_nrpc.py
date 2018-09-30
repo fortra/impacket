@@ -559,10 +559,10 @@ class NRPCTests(unittest.TestCase):
             lmhash = ntlm.LMOWFv1(self.password)
             nthash = ntlm.NTOWFv1(self.password)
         try:
-            from Crypto.Cipher import ARC4
+            from Cryptodome.Cipher import ARC4
         except Exception:
-            print "Warning: You don't have any crypto installed. You need PyCrypto"
-            print "See http://www.pycrypto.org/"
+            print("Warning: You don't have any crypto installed. You need pycryptodomex")
+            print("See https://pypi.org/project/pycryptodomex/")
 
         rc4 = ARC4.new(self.sessionKey)
         lmhash = rc4.encrypt(lmhash)
@@ -596,10 +596,10 @@ class NRPCTests(unittest.TestCase):
             nthash = ntlm.NTOWFv1(self.password)
 
         try:
-            from Crypto.Cipher import ARC4
+            from Cryptodome.Cipher import ARC4
         except Exception:
-            print "Warning: You don't have any crypto installed. You need PyCrypto"
-            print "See http://www.pycrypto.org/"
+            print("Warning: You don't have any crypto installed. You need pycryptodomex")
+            print("See https://pypi.org/project/pycryptodomex/")
 
         rc4 = ARC4.new(self.sessionKey)
         lmhash = rc4.encrypt(lmhash)
@@ -640,7 +640,7 @@ class NRPCTests(unittest.TestCase):
             nthash = ntlm.NTOWFv1(self.password)
 
         try:
-            from Crypto.Cipher import ARC4
+            from Cryptodome.Cipher import ARC4
         except Exception:
             print "Warning: You don't have any crypto installed. You need PyCrypto"
             print "See http://www.pycrypto.org/"

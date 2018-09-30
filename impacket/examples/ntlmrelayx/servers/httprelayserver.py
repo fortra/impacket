@@ -1,10 +1,10 @@
-# Copyright (c) 2013-2016 CORE Security Technologies
+# Copyright (c) 2013-2018 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# SMB Relay Server
+# HTTP Relay Server
 #
 # Authors:
 #  Alberto Solino (@agsolino)
@@ -190,6 +190,8 @@ class HTTPRelayServer(Thread):
             if messageType == 1:
                 if not self.do_ntlm_negotiate(token, proxy=proxy):
                     #Connection failed
+                    LOG.error('Negotiating NTLM with %s://%s failed. Skipping to next target',
+                              self.target.scheme, self.target.netloc)
                     self.server.config.target.logTarget(self.target)
                     self.do_REDIRECT()
             elif messageType == 3:
@@ -252,7 +254,9 @@ class HTTPRelayServer(Thread):
         def do_ntlm_negotiate(self, token, proxy):
             if self.server.config.protocolClients.has_key(self.target.scheme.upper()):
                 self.client = self.server.config.protocolClients[self.target.scheme.upper()](self.server.config, self.target)
-                self.client.initConnection()
+                # If connection failed, return
+                if not self.client.initConnection():
+                    return False
                 self.challengeMessage = self.client.sendNegotiate(token)
                 # Check for errors
                 if self.challengeMessage is False:
@@ -290,7 +294,8 @@ class HTTPRelayServer(Thread):
             # Check if SOCKS is enabled and if we support the target scheme
             if self.server.config.runSocks and self.target.scheme.upper() in self.server.config.socksServer.supportedSchemes:
                 # Pass all the data to the socksplugins proxy
-                activeConnections.put((self.target.hostname, self.client.targetPort, self.authUser, self.client, self.client.sessionData))
+                activeConnections.put((self.target.hostname, self.client.targetPort, self.target.scheme.upper(),
+                                       self.authUser, self.client, self.client.sessionData))
                 return
 
             # If SOCKS is not enabled, or not supported for this scheme, fall back to "classic" attacks
@@ -306,15 +311,16 @@ class HTTPRelayServer(Thread):
         Thread.__init__(self)
         self.daemon = True
         self.config = config
+        self.server = None
 
     def run(self):
         LOG.info("Setting up HTTP Server")
         # changed to read from the interfaceIP set in the configuration
-        httpd = self.HTTPServer((self.config.interfaceIp, 80), self.HTTPHandler, self.config)
+        self.server = self.HTTPServer((self.config.interfaceIp, 80), self.HTTPHandler, self.config)
 
         try:
-             httpd.serve_forever()
+             self.server.serve_forever()
         except KeyboardInterrupt:
              pass
         LOG.info('Shutting down HTTP Server')
-        httpd.server_close()
+        self.server.server_close()

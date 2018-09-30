@@ -40,11 +40,19 @@ import select
 import socket
 import string
 import time
-from random import randint
+import random
 from struct import pack, unpack
 from six import byte2int, indexbytes, b
 
 from .structure import Structure
+
+# Our random number generator
+try:
+    rand = random.SystemRandom()
+except NotImplementedError:
+    rand = random
+    pass
+
 
 ################################################################################
 # CONSTANTS
@@ -499,14 +507,14 @@ class NetBIOS:
         self.mac = b'00-00-00-00-00-00'
 
     def _setup_connection(self, dstaddr, timeout=None):
-        port = randint(10000, 60000)
+        port = rand.randint(10000, 60000)
         af, socktype, proto, _canonname, _sa = socket.getaddrinfo(dstaddr, port, socket.AF_INET, socket.SOCK_DGRAM)[0]
         s = socket.socket(af, socktype, proto)
         has_bind = 1
         for _i in range(0, 10):
             # We try to bind to a port for 10 tries
             try:
-                s.bind((INADDR_ANY, randint(10000, 60000)))
+                s.bind((INADDR_ANY, rand.randint(10000, 60000)))
                 s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
                 has_bind = 1
             except socket.error:
@@ -592,7 +600,7 @@ class NetBIOS:
         qn_label = encode_name(netbios_name, qtype, scope)
 
         p = NAME_REGISTRATION_REQUEST()
-        p['NAME_TRN_ID'] = randint(1, 32000)
+        p['NAME_TRN_ID'] = rand.randint(1, 32000)
         p['QUESTION_NAME'] = qn_label[:-1]
         p['RR_NAME'] = qn_label[:-1]
         p['TTL'] = 0xffff
@@ -611,7 +619,7 @@ class NetBIOS:
         qn_label = encode_name(netbios_name, qtype, scope)
 
         p = NAME_QUERY_REQUEST()
-        p['NAME_TRN_ID'] = randint(1, 32000)
+        p['NAME_TRN_ID'] = rand.randint(1, 32000)
         p['QUESTION_NAME'] = qn_label[:-1]
         p['FLAGS'] = NM_FLAGS_RD
         if not destaddr:
@@ -627,7 +635,7 @@ class NetBIOS:
         netbios_name = nbname.upper()
         qn_label = encode_name(netbios_name, type, scope)
         p = NODE_STATUS_REQUEST()
-        p['NAME_TRN_ID'] = randint(1, 32000)
+        p['NAME_TRN_ID'] = rand.randint(1, 32000)
         p['QUESTION_NAME'] = qn_label[:-1]
 
         if not destaddr:
@@ -818,7 +826,7 @@ class NetBIOSUDPSession(NetBIOSSession):
         if hasattr(self, '__dgram_id'):
             answer = self.__dgram_id
         else:
-            self.__dgram_id = randint(1,65535)
+            self.__dgram_id = rand.randint(1,65535)
             answer = self.__dgram_id
         self.__dgram_id += 1
         return answer

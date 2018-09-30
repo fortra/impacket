@@ -105,7 +105,8 @@ if __name__ == '__main__':
         getArch = TARGETARCH(options)
         getArch.run()
     except (Exception, KeyboardInterrupt), e:
-        #import traceback
-        #print traceback.print_exc()
+        if logging.getLogger().level == logging.DEBUG:
+            import traceback
+            traceback.print_exc()
         logging.error(str(e))
     sys.exit(0)

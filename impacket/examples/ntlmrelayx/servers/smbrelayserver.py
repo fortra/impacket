@@ -80,7 +80,7 @@ class SMBRelayServer(Thread):
         # changed to dereference configuration interfaceIp
         self.server = SMBSERVER((config.interfaceIp,445), config_parser = smbConfig)
         logging.getLogger('impacket.smbserver').setLevel(logging.CRITICAL)
-      
+
         self.server.processConfigFile()
 
         self.origSmbComNegotiate = self.server.hookSmbCommand(smb.SMB.SMB_COM_NEGOTIATE, self.SmbComNegotiate)
@@ -670,7 +670,8 @@ class SMBRelayServer(Thread):
         if self.config.runSocks and self.target.scheme.upper() in self.config.socksServer.supportedSchemes:
             if self.config.runSocks is True:
                 # Pass all the data to the socksplugins proxy
-                activeConnections.put((self.target.hostname, client.targetPort, self.authUser, client, client.sessionData))
+                activeConnections.put((self.target.hostname, client.targetPort, self.target.scheme.upper(),
+                                       self.authUser, client, client.sessionData))
                 return
 
         # If SOCKS is not enabled, or not supported for this scheme, fall back to "classic" attacks
@@ -684,6 +685,8 @@ class SMBRelayServer(Thread):
     def _start(self):
         self.server.daemon_threads=True
         self.server.serve_forever()
+        LOG.info('Shutting down SMB Server')
+        self.server.server_close()
 
     def run(self):
         LOG.info("Setting up SMB Server")

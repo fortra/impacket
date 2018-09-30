@@ -167,7 +167,7 @@ class COMVERSION(NDRSTRUCT):
         NDRSTRUCT.__init__(self, data, isNDR64)
         if data is None:
             self['MajorVersion'] = 5
-            self['MinorVersion'] = 7
+            self['MinorVersion'] = 6
 
 class PCOMVERSION(NDRPOINTER):
     referent = (
@@ -1115,7 +1115,7 @@ class INTERFACE:
             self.__ipidRemUnknown = interfaceInstance.get_ipidRemUnknown()
         else:
             if target is None:
-                raise
+                raise Exception('No target')
             self.__target = target
             self.__iPid = iPid
             self.__oid  = oid
@@ -1153,7 +1153,7 @@ class INTERFACE:
             self.__oxid = objRef['std']['oxid']
             if self.__oxid is None:
                 objRef.dump()
-                raise
+                raise Exception('OXID is None')
 
     def get_oxid(self):
         return self.__oxid
@@ -1276,22 +1276,22 @@ class INTERFACE:
                 dce = dcomInterface.get_dce_rpc()
 
                 if iid is None:
-                    raise
+                    raise Exception('IID is None')
                 else:
                     dce.set_auth_level(self.__cinstance.get_auth_level())
                     dce.set_auth_type(self.__cinstance.get_auth_type())
+
                 dce.connect()
 
                 if iid is None:
-                    raise
+                    raise Exception('IID is None')
                 else:
                     dce.bind(iid)
 
                 if self.__oxid is None:
                     #import traceback
-                    #print traceback.print_stack()
-                    LOG.critical("OXID NONE, something wrong!!!")
-                    raise
+                    #traceback.print_stack()
+                    raise Exception("OXID NONE, something wrong!!!")
 
                 INTERFACE.CONNECTIONS[self.__target][currentThread().getName()] = {}
                 INTERFACE.CONNECTIONS[self.__target][currentThread().getName()][self.__oxid] = {}
@@ -1299,7 +1299,7 @@ class INTERFACE:
                 INTERFACE.CONNECTIONS[self.__target][currentThread().getName()][self.__oxid]['currentBinding'] = iid
         else:
             # No connection created
-            raise
+            raise Exception('No connection created')
 
     def request(self, req, iid = None, uuid = None):
         req['ORPCthis'] = self.get_cinstance().get_ORPCthis()

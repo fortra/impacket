@@ -49,10 +49,13 @@ class NTLMRelayxConfig:
         self.exeFile = None
         self.command = None
         self.interactive = False
+        self.enumLocalAdmins = False
 
         # LDAP options
         self.dumpdomain = True
         self.addda = True
+        self.aclattack = True
+        self.escalateuser = None
 
         # MSSQL options
         self.queries = []
@@ -78,7 +81,7 @@ class NTLMRelayxConfig:
         self.runSocks = socks
         self.socksServer = server
 
-    def setOutputFile(self,outputFile):
+    def setOutputFile(self, outputFile):
         self.outputFile = outputFile
 
     def setTargets(self, target):
@@ -90,16 +93,19 @@ class NTLMRelayxConfig:
     def setCommand(self, command):
         self.command = command
 
+    def setEnumLocalAdmins(self, enumLocalAdmins):
+        self.enumLocalAdmins = enumLocalAdmins
+
     def setEncoding(self, encoding):
         self.encoding = encoding
 
-    def setMode(self,mode):
+    def setMode(self, mode):
         self.mode = mode
 
-    def setAttacks(self,attacks):
+    def setAttacks(self, attacks):
         self.attacks = attacks
 
-    def setLootdir(self,lootdir):
+    def setLootdir(self, lootdir):
         self.lootdir = lootdir
 
     def setRedirectHost(self,redirecthost):
@@ -110,20 +116,22 @@ class NTLMRelayxConfig:
         self.machineHashes = machineHashes
         self.domainIp = domainIp
 
-    def setRandomTargets(self,randomtargets):
+    def setRandomTargets(self, randomtargets):
         self.randomtargets = randomtargets
 
-    def setLDAPOptions(self,dumpdomain,addda):
+    def setLDAPOptions(self, dumpdomain, addda, aclattack, escalateuser):
         self.dumpdomain = dumpdomain
         self.addda = addda
+        self.aclattack = aclattack
+        self.escalateuser = escalateuser
 
-    def setMSSQLOptions(self,queries):
+    def setMSSQLOptions(self, queries):
         self.queries = queries
 
-    def setInteractive(self,interactive):
+    def setInteractive(self, interactive):
         self.interactive = interactive
 
-    def setIMAPOptions(self,keyword,mailbox,dump_all,dump_max):
+    def setIMAPOptions(self, keyword, mailbox, dump_all, dump_max):
         self.keyword = keyword
         self.mailbox = mailbox
         self.dump_all = dump_all

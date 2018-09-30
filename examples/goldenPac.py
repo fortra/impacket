@@ -181,7 +181,8 @@ class PSEXEC:
 
         except SystemExit:
             raise
-        except:
+        except Exception as e:
+            logging.debug(str(e))
             if unInstalled is False:
                 installService.uninstall()
                 if self.__copyFile is not None:
@@ -202,8 +203,7 @@ class PSEXEC:
                 pass
 
         if tries == 0:
-            logging.critical('Pipe not ready, aborting')
-            raise
+            raise Exception('Pipe not ready, aborting')
 
         fid = s.openFile(tid,pipe,accessMask, creationOption = 0x40, fileAttributes = 0x80)
 
@@ -1051,7 +1051,7 @@ if __name__ == '__main__':
     from impacket.dcerpc.v5.samr import NULL, GROUP_MEMBERSHIP, SE_GROUP_MANDATORY, SE_GROUP_ENABLED_BY_DEFAULT, \
         SE_GROUP_ENABLED, USER_NORMAL_ACCOUNT, USER_DONT_EXPIRE_PASSWORD
     from pyasn1.codec.der import decoder, encoder
-    from Crypto.Hash import MD5
+    from Cryptodome.Hash import MD5
 
     print version.BANNER
 
@@ -1126,7 +1126,8 @@ if __name__ == '__main__':
     try:
         dumper.exploit()
     except Exception, e:
-        #import traceback
-        #print traceback.print_exc()
+        if logging.getLogger().level == logging.DEBUG:
+            import traceback
+            traceback.print_exc()
         logging.critical(str(e))
 

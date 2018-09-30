@@ -344,7 +344,7 @@ class LDAPConnection:
         return True
 
     def search(self, searchBase=None, scope=None, derefAliases=None, sizeLimit=0, timeLimit=0, typesOnly=False,
-               searchFilter='(objectClass=*)', attributes=None, searchControls=None):
+               searchFilter='(objectClass=*)', attributes=None, searchControls=None, perRecordCallback=None):
         if searchBase is None:
             searchBase = self._baseDN
         if scope is None:
@@ -382,7 +382,10 @@ class LDAPConnection:
                             answers=answers
                         )
                 else:
-                    answers.append(searchResult)
+                    if perRecordCallback is None:
+                        answers.append(searchResult)
+                    else:
+                        perRecordCallback(searchResult)
 
         return answers
 

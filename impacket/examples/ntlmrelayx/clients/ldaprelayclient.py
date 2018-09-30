@@ -57,6 +57,7 @@ class LDAPRelayClient(ProtocolClient):
         self.server = Server("ldap://%s:%s" % (self.targetHost, self.targetPort), get_info=ALL)
         self.session = Connection(self.server, user="a", password="b", authentication=NTLM)
         self.session.open(False)
+        return True
 
     def sendNegotiate(self, negotiateMessage):
         #Remove the message signing flag
@@ -134,3 +135,4 @@ class LDAPSRelayClient(LDAPRelayClient):
         self.server = Server("ldaps://%s:%s" % (self.targetHost, self.targetPort), get_info=ALL)
         self.session = Connection(self.server, user="a", password="b", authentication=NTLM)
         self.session.open(False)
+        return True

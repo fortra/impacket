@@ -59,7 +59,6 @@ def get_random_bytes(lenBytes):
     # We don't really need super strong randomness here to use PyCrypto.Random
     return urandom(lenBytes)
 
-
 class Enctype(object):
     DES_CRC = 1
     DES_MD4 = 2

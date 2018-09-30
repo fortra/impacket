@@ -209,7 +209,7 @@ class ServiceInstall:
             if svcManager != 0:
                 resp = scmr.hROpenServiceW(self.rpcsvc, svcManager, self.__service_name+'\x00')
                 service = resp['lpServiceHandle'] 
-                LOG.info('Stoping service %s.....' % self.__service_name)
+                LOG.info('Stopping service %s.....' % self.__service_name)
                 try:
                     scmr.hRControlService(self.rpcsvc, service, scmr.SERVICE_CONTROL_STOP)
                 except:

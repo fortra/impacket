@@ -320,6 +320,8 @@ class DNS(ProtocolPacket):
             # It's a pointer
             pointer = struct.unpack("!H", buf[offset:offset+2])[0] # network unsigned short
             pointer = (pointer & 0x3FFF) - self.__HEADER_BASE_SIZE
+            if offset == pointer:
+                raise Exception("The infinite loop is in DNS decompression. Encountered pointer points to the current offset.")
             offset += 2
             name = self.parseCompressedMessage(buf, pointer)[1]
             return (offset, name)

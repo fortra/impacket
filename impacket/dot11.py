@@ -2491,7 +2491,7 @@ class Dot11ManagementBeacon(Dot11ManagementHelper):
         data_len=len(data)
 
         if data_len>max_data_len:
-            raise Exception("data allow up to %d bytes long" % max_data)
+            raise Exception("data allow up to %d bytes long" % max_data_len)
         if len(oui) > 3:
             raise Exception("oui is three bytes long")
         
@@ -2727,7 +2727,7 @@ class Dot11ManagementAuthentication(Dot11ManagementHelper):
         data_len=len(data)
 
         if data_len>max_data_len:
-            raise Exception("data allow up to %d bytes long" % max_data)
+            raise Exception("data allow up to %d bytes long" % max_data_len)
         if len(oui) > 3:
             raise Exception("oui is three bytes long")
         
@@ -2851,7 +2851,7 @@ class Dot11ManagementAssociationRequest(Dot11ManagementHelper):
         data_len=len(data)
 
         if data_len>max_data_len:
-            raise Exception("data allow up to %d bytes long" % max_data)
+            raise Exception("data allow up to %d bytes long" % max_data_len)
         if len(oui) > 3:
             raise Exception("oui is three bytes long")
         
@@ -2958,7 +2958,7 @@ class Dot11ManagementAssociationResponse(Dot11ManagementHelper):
         max_data_len=255-3
         data_len=len(data)
         if data_len>max_data_len:
-            raise Exception("data allow up to %d bytes long" % max_data)
+            raise Exception("data allow up to %d bytes long" % max_data_len)
         if len(oui) > 3:
             raise Exception("oui is three bytes long")
         
@@ -3085,7 +3085,7 @@ class Dot11ManagementReassociationRequest(Dot11ManagementHelper):
         data_len=len(data)
 
         if data_len>max_data_len:
-            raise Exception("data allow up to %d bytes long" % max_data)
+            raise Exception("data allow up to %d bytes long" % max_data_len)
         if len(oui) > 3:
             raise Exception("oui is three bytes long")
         

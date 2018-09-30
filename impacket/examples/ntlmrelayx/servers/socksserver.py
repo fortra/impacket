@@ -181,7 +181,7 @@ def keepAliveTimer(server):
         for port in server.activeRelays[target].keys():
             # Now cycle through the users
             for user in server.activeRelays[target][port].keys():
-                if user != 'data':
+                if user != 'data' and user != 'scheme':
                     # Let's call the keepAlive method for the handler to keep the connection alive
                     if server.activeRelays[target][port][user]['inUse'] is False:
                         LOG.debug('Calling keepAlive() for %s@%s:%s' % (user, target, port))
@@ -202,7 +202,7 @@ def keepAliveTimer(server):
 def activeConnectionsWatcher(server):
     while True:
         # This call blocks until there is data, so it doesn't loop endlessly
-        target, port, userName, client, data = activeConnections.get()
+        target, port, scheme, userName, client, data = activeConnections.get()
         # ToDo: Careful. Dicts are not thread safe right?
         if server.activeRelays.has_key(target) is not True:
             server.activeRelays[target] = {}
@@ -219,6 +219,8 @@ def activeConnectionsWatcher(server):
             server.activeRelays[target][port][userName]['data'] = data
             # Just for the CHALLENGE data, we're storing this general
             server.activeRelays[target][port]['data'] = data
+            # Let's store the protocol scheme, needed be used later when trying to find the right socks relay server to use
+            server.activeRelays[target][port]['scheme'] = scheme
         else:
             LOG.info('Relay connection for %s at %s(%d) already exists. Discarding' % (userName, target, port))
             client.killConnection()
@@ -242,8 +244,8 @@ def webService(server):
         for target in server.activeRelays:
             for port in server.activeRelays[target]:
                 for user in server.activeRelays[target][port]:
-                    if user != 'data':
-                        protocol = server.socksPlugins[port].PLUGIN_SCHEME
+                    if user != 'data' and user != 'scheme':
+                        protocol = server.activeRelays[target][port]['scheme']
                         relays.append([protocol, target, user, str(port)])
         return jsonify(relays)
 
@@ -341,7 +343,7 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
                 LOG.debug('SOCKS: Connecting to %s(%s)' %(self.targetHost, self.targetPort))
                 s.connect((self.targetHost, self.targetPort))
             except Exception, e:
-                if logging.getLogger().level == logging.DEBUG:
+                if LOG.level == logging.DEBUG:
                     import traceback
                     traceback.print_exc()
                 LOG.error('SOCKS: %s' %str(e))
@@ -367,14 +369,20 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
                     data = s.recv(8192)
                     self.__connSocket.sendall(data)
                 except Exception, e:
-                    if logging.getLogger().level == logging.DEBUG:
+                    if LOG.level == logging.DEBUG:
                         import traceback
                         traceback.print_exc()
                     LOG.error('SOCKS: ', str(e))
 
-        if self.__socksServer.socksPlugins.has_key(self.targetPort):
-            LOG.debug('Handler for port %s found %s' % (self.targetPort, self.__socksServer.socksPlugins[self.targetPort]))
-            relay = self.__socksServer.socksPlugins[self.targetPort](self.targetHost, self.targetPort, self.__connSocket,
+        # Let's look if there's a relayed connection for our host/port
+        scheme = None
+        if self.__socksServer.activeRelays.has_key(self.targetHost):
+            if self.__socksServer.activeRelays[self.targetHost].has_key(self.targetPort):
+                scheme = self.__socksServer.activeRelays[self.targetHost][self.targetPort]['scheme']
+
+        if scheme is not None:
+            LOG.debug('Handler for port %s found %s' % (self.targetPort, self.__socksServer.socksPlugins[scheme]))
+            relay = self.__socksServer.socksPlugins[scheme](self.targetHost, self.targetPort, self.__connSocket,
                                   self.__socksServer.activeRelays[self.targetHost][self.targetPort])
 
             try:
@@ -403,7 +411,7 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
 
                 relay.tunnelConnection()
             except Exception, e:
-                if logging.getLogger().level == logging.DEBUG:
+                if LOG.level == logging.DEBUG:
                     import traceback
                     traceback.print_exc()
                 LOG.debug('SOCKS: %s' % str(e))
@@ -448,7 +456,7 @@ class SOCKS(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
 
         for relay in SOCKS_RELAYS:
             LOG.info('%s loaded..' % relay.PLUGIN_NAME)
-            self.socksPlugins[relay.getProtocolPort()] = relay
+            self.socksPlugins[relay.PLUGIN_SCHEME] = relay
             self.supportedSchemes.append(relay.PLUGIN_SCHEME)
 
         # Let's create a timer to keep the connections up.

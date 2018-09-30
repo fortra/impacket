@@ -741,7 +741,7 @@ class INSTANCE_PROP_QUALIFIER_SET(Structure):
             self.fromString(data)
             if self['InstPropQualSetFlag'] == 2:
                 # We don't support this yet!
-                raise
+                raise Exception("self['InstPropQualSetFlag'] == 2")
             self.fromString(data)
         else:
             self.data = None
@@ -2638,7 +2638,7 @@ class IWbemClassObject(IRemUnknown):
                         else:
                             # ToDo
                             # Not yet ready
-                            raise
+                            raise Exception('inArg not None')
                     elif pType not in (CIM_TYPE_ENUM.CIM_TYPE_STRING.value, CIM_TYPE_ENUM.CIM_TYPE_DATETIME.value,
                                        CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value, CIM_TYPE_ENUM.CIM_TYPE_OBJECT.value):
                         valueTable += pack(packStr, inArg)
@@ -2730,9 +2730,9 @@ class IWbemClassObject(IRemUnknown):
                 #return self.__iWbemServices.ExecMethod('Win32_Process.Handle="436"', methodDefinition['name'],
                 #                                       pInParams=objRefCustomIn).getObject().ctCurrent['properties']
             except Exception, e:
-                if logging.getLogger().level == logging.DEBUG:
+                if LOG.level == logging.DEBUG:
                     import traceback
-                    print traceback.print_exc()
+                    traceback.print_exc()
                 LOG.error(str(e))
 
         for methodName in methods:

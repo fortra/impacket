@@ -277,7 +277,7 @@ if __name__ == '__main__':
     import sys
     import logging
     from binascii import a2b_hex
-    from Crypto.Cipher import ARC4
+    from Cryptodome.Cipher import ARC4
     from impacket import ntlm, version
     try:
         import OpenSSL
@@ -406,8 +406,8 @@ if __name__ == '__main__':
        # a self-signed X.509 certificate.
 
        # Switching to TLS now
-       ctx = SSL.Context(SSL.TLSv1_METHOD)
-       ctx.set_cipher_list('RC4')
+       ctx = SSL.Context(SSL.TLSv1_2_METHOD)
+       ctx.set_cipher_list('RC4,AES')
        tls = SSL.Connection(ctx,s)
        tls.set_connect_state()
        tls.do_handshake()

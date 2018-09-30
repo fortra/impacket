@@ -36,6 +36,7 @@ from six import indexbytes, b
 from binascii import a2b_hex
 from contextlib import contextmanager
 from pyasn1.type.univ import noValue
+from Cryptodome.Cipher import AES
 
 from impacket import nmb, ntlm, uuid, crypto, LOG
 from impacket.smb3structs import *
@@ -47,6 +48,13 @@ from impacket.krb5.gssapi import KRB5_AP_REQ
 
 # For signing
 import hashlib, hmac, copy
+
+# Our random number generator
+try:
+    rand = random.SystemRandom()
+except NotImplementedError:
+    rand = random
+    pass
 
 # Structs to be used
 TREE_CONNECT = {
@@ -359,16 +367,10 @@ class SMB3:
         if (self._Session['SessionFlags'] & SMB2_SESSION_FLAG_ENCRYPT_DATA) or ( packet['TreeID'] != 0 and self._Session['TreeConnectTable'][packet['TreeID']]['EncryptData'] is True):
             plainText = packet.getData()
             transformHeader = SMB2_TRANSFORM_HEADER()
-            transformHeader['Nonce'] = ''.join([random.choice(string.ascii_letters) for i in range(11)])
+            transformHeader['Nonce'] = ''.join([rand.choice(string.letters) for _ in range(11)])
             transformHeader['OriginalMessageSize'] = len(plainText)
             transformHeader['EncryptionAlgorithm'] = SMB2_ENCRYPTION_AES128_CCM
             transformHeader['SessionID'] = self._Session['SessionID'] 
-            from Crypto.Cipher import AES
-            try: 
-                AES.MODE_CCM
-            except:
-                LOG.critical("Your pycrypto doesn't support AES.MODE_CCM. Currently only pycrypto experimental supports this mode.\nDownload it from https://www.dlitz.net/software/pycrypto ")
-                raise
             cipher = AES.new(self._Session['EncryptionKey'], AES.MODE_CCM,  transformHeader['Nonce'])
             cipher.update(transformHeader.getData()[20:])
             cipherText = cipher.encrypt(plainText)
@@ -391,12 +393,6 @@ class SMB3:
         if data.get_trailer().startswith(b'\xfdSMB'):
             # Packet is encrypted
             transformHeader = SMB2_TRANSFORM_HEADER(data.get_trailer())
-            from Crypto.Cipher import AES
-            try: 
-                AES.MODE_CCM
-            except:
-                LOG.critical("Your pycrypto doesn't support AES.MODE_CCM. Currently only pycrypto experimental supports this mode.\nDownload it from https://www.dlitz.net/software/pycrypto ")
-                raise 
             cipher = AES.new(self._Session['DecryptionKey'], AES.MODE_CCM,  transformHeader['Nonce'][:11])
             cipher.update(transformHeader.getData()[20:])
             plainText = cipher.decrypt(data.get_trailer()[len(SMB2_TRANSFORM_HEADER()):])
@@ -418,12 +414,6 @@ class SMB3:
                 else:
                     # Packet is encrypted
                     transformHeader = SMB2_TRANSFORM_HEADER(data.get_trailer())
-                    from Crypto.Cipher import AES
-                    try: 
-                        AES.MODE_CCM
-                    except:
-                        LOG.critical("Your pycrypto doesn't support AES.MODE_CCM. Currently only pycrypto experimental supports this mode.\nDownload it from https://www.dlitz.net/software/pycrypto ")
-                        raise 
                     cipher = AES.new(self._Session['DecryptionKey'], AES.MODE_CCM,  transformHeader['Nonce'][:11])
                     cipher.update(transformHeader.getData()[20:])
                     plainText = cipher.decrypt(data.get_trailer()[len(SMB2_TRANSFORM_HEADER()):])
@@ -664,13 +654,7 @@ class SMB3:
                 self._Session['SigningActivated'] = True
             if self._Connection['Dialect'] == SMB2_DIALECT_30:
                 # SMB 3.0. Encryption should be available. Let's enforce it if we have AES CCM available
-                from Crypto.Cipher import AES
-                try:
-                    AES.MODE_CCM
-                    self._Session['SessionFlags'] |= SMB2_SESSION_FLAG_ENCRYPT_DATA
-                except:
-                    LOG.debug(
-                        "Your pycrypto doesn't support AES.MODE_CCM. Currently only pycrypto experimental supports this mode.\nDownload it from https://www.dlitz.net/software/pycrypto")
+                self._Session['SessionFlags'] |= SMB2_SESSION_FLAG_ENCRYPT_DATA
                 self._Session['ApplicationKey']  = crypto.KDF_CounterMode(self._Session['SessionKey'], "SMB2APP\x00", "SmbRpc\x00", 128)
                 self._Session['EncryptionKey']   = crypto.KDF_CounterMode(self._Session['SessionKey'], "SMB2AESCCM\x00", "ServerIn \x00", 128)
                 self._Session['DecryptionKey']   = crypto.KDF_CounterMode(self._Session['SessionKey'], "SMB2AESCCM\x00", "ServerOut\x00", 128)
@@ -686,7 +670,7 @@ class SMB3:
             self._Session['SigningKey']        = ''
             self._Session['SessionKey']        = ''
             self._Session['SigningActivated']  = False
-            raise
+            raise Exception('Unsuccessful Login')
 
 
     def login(self, user, password, domain = '', lmhash = '', nthash = ''):
@@ -814,12 +798,7 @@ class SMB3:
                         self._Session['SigningActivated'] = True
                     if self._Connection['Dialect'] == SMB2_DIALECT_30:
                         # SMB 3.0. Encryption should be available. Let's enforce it if we have AES CCM available
-                        from Crypto.Cipher import AES
-                        try:
-                            AES.MODE_CCM
-                            self._Session['SessionFlags'] |= SMB2_SESSION_FLAG_ENCRYPT_DATA
-                        except:
-                            LOG.debug("Your pycrypto doesn't support AES.MODE_CCM. Currently only pycrypto experimental supports this mode.\nDownload it from https://www.dlitz.net/software/pycrypto")
+                        self._Session['SessionFlags'] |= SMB2_SESSION_FLAG_ENCRYPT_DATA
                         self._Session['ApplicationKey']  = crypto.KDF_CounterMode(exportedSessionKey, "SMB2APP\x00", "SmbRpc\x00", 128)
                         self._Session['EncryptionKey']   = crypto.KDF_CounterMode(exportedSessionKey, "SMB2AESCCM\x00", "ServerIn \x00", 128)
                         self._Session['DecryptionKey']   = crypto.KDF_CounterMode(exportedSessionKey, "SMB2AESCCM\x00", "ServerOut\x00", 128)
@@ -950,8 +929,8 @@ class SMB3:
            # Is this file NOT on the root directory?
            if len(fileName.split('\\')) > 2:
                parentDir = ntpath.dirname(pathName)
-           if parentDir in self.GlobalFileTable:
-               raise("Don't know what to do now! :-o")
+           if self.GlobalFileTable.has_key(parentDir):
+               raise Exception("Don't know what to do now! :-o")
            else:
                parentEntry = copy.deepcopy(FILE)
                parentEntry['LeaseKey']   = uuid.generate()

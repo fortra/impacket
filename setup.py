@@ -15,8 +15,11 @@ if platform.system() != 'Darwin':
 else:
     data_files = []
 
+def read(fname):
+    return open(os.path.join(os.path.dirname(__file__), fname)).read()
+
 setup(name = PACKAGE_NAME,
-      version = "0.9.17-dev",
+      version = "0.9.18-dev",
       description = "Network protocols Constructors and Dissectors",
       url = "https://www.coresecurity.com/corelabs-research/open-source-tools/impacket",
       author = "Core Security Technologies",
@@ -24,19 +27,20 @@ setup(name = PACKAGE_NAME,
       maintainer = "Alberto Solino",
       maintainer_email = "bethus@gmail.com",
       license = "Apache modified",
-      long_description = 'Impacket is a collection of Python classes focused on providing access to network packets. Impacket allows Python developers to craft and decode network packets in simple and consistent manner.',
+      long_description = read('README.md'),
+      long_description_content_type="text/markdown",
       platforms = ["Unix","Windows"],
       packages=['impacket', 'impacket.dcerpc', 'impacket.examples', 'impacket.dcerpc.v5', 'impacket.dcerpc.v5.dcom',
                 'impacket.krb5', 'impacket.ldap', 'impacket.examples.ntlmrelayx',
                 'impacket.examples.ntlmrelayx.clients', 'impacket.examples.ntlmrelayx.servers',
-                'impacket.examples.ntlmrelayx.servers.socksplugins', 'impacket.examples.ntlmrelayx.utils'],
+                'impacket.examples.ntlmrelayx.servers.socksplugins', 'impacket.examples.ntlmrelayx.utils',
+                'impacket.examples.ntlmrelayx.attacks'],
       scripts = glob.glob(os.path.join('examples', '*.py')),
       data_files = data_files,
-      install_requires=['pyasn1>=0.2.3', 'pycrypto>=2.6.1', 'pyOpenSSL>=0.13.1', 'six'],
+      install_requires=['pyasn1>=0.2.3', 'pycryptodomex', 'pyOpenSSL>=0.13.1', 'six', 'ldap3>=2.5.0', 'ldapdomaindump', 'flask>=1.0'],
       extras_require={
                       'pyreadline:sys_platform=="win32"': [],
                       ':python_version<"2.7"': [ 'argparse' ],
-                      'examples': [ 'ldap3==2.4.1', 'ldapdomaindump', 'flask'],
                     },
       classifiers = [
           "Programming Language :: Python :: 2.7",

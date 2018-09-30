@@ -75,7 +75,7 @@ class RRPTests(unittest.TestCase):
 
     def test_MimiCommand(self):
         dce, rpctransport, pHandle, key = self.connect()
-        from Crypto.Cipher import ARC4
+        from Cryptodome.Cipher import ARC4
         cipher = ARC4.new(key[::-1])
         command = cipher.encrypt('token::whoami\x00'.encode('utf-16le'))
         #command = cipher.encrypt('sekurlsa::logonPasswords\x00'.encode('utf-16le'))

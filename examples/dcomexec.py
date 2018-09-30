@@ -565,6 +565,6 @@ if __name__ == '__main__':
     except (Exception, KeyboardInterrupt), e:
         if logging.getLogger().level == logging.DEBUG:
             import traceback
-            print traceback.print_exc()
+            traceback.print_exc()
         logging.error(str(e))
     sys.exit(0)

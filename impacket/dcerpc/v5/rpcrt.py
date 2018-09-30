@@ -21,7 +21,7 @@ import logging
 import socket
 import sys
 from binascii import unhexlify
-from Crypto.Cipher import ARC4
+from Cryptodome.Cipher import ARC4
 
 from impacket import ntlm, LOG
 from impacket.structure import Structure,pack,unpack
@@ -1548,7 +1548,7 @@ class DCERPCServer(Thread):
                         self.send(answer)
             except Exception:
                 #import traceback
-                #print traceback.print_exc()
+                #traceback.print_exc()
                 pass
             self._clientSock.close()
 

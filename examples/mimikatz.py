@@ -27,10 +27,10 @@ from impacket.dcerpc.v5.transport import DCERPCTransportFactory
 from impacket.examples import logger
 
 try:
-    from Crypto.Cipher import ARC4
+    from Cryptodome.Cipher import ARC4
 except Exception:
-    logging.critical("Warning: You don't have any crypto installed. You need PyCrypto")
-    logging.critical("See http://www.pycrypto.org/")
+    logging.critical("Warning: You don't have any crypto installed. You need pycryptodomex")
+    logging.critical("See https://pypi.org/project/pycryptodomex/")
 
 # If you wanna have readline like functionality in Windows, install pyreadline
 try:
@@ -96,7 +96,7 @@ class MimikatzShell(cmd.Cmd):
            retVal = cmd.Cmd.onecmd(self,s)
         except Exception, e:
            #import traceback
-           #print traceback.print_exc()
+           #traceback.print_exc()
            logging.error(e)
 
         return retVal
@@ -245,8 +245,9 @@ def main():
         else:
             shell.cmdloop()
     except Exception, e:
-        #import traceback
-        #print traceback.print_exc()
+        if logging.getLogger().level == logging.DEBUG:
+            import traceback
+            traceback.print_exc()
         logging.error(str(e))
 
 if __name__ == "__main__":

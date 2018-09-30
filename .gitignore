@@ -43,6 +43,9 @@ nosetests.xml
 coverage.xml
 *,cover
 
+# bak files
+*.bak
+
 # Translations
 *.mo
 *.pot
@@ -55,3 +58,9 @@ docs/_build/
 
 # PyBuilder
 target/
+
+# macOS
+.DS_Store
+
+# PyCharm
+.idea

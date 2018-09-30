@@ -34,10 +34,10 @@ from pyasn1.type import univ
 from pyasn1.codec.ber import decoder
 
 try:
-    from Crypto.Cipher import ARC4, DES
+    from Cryptodome.Cipher import ARC4, DES
 except Exception:
-    LOG.critical("Warning: You don't have any crypto installed. You need PyCrypto")
-    LOG.critical("See http://www.pycrypto.org/")
+    LOG.critical("Warning: You don't have any crypto installed. You need pycryptodomex")
+    LOG.critical("See https://pypi.org/project/pycryptodomex/")
 
 MSRPC_UUID_DRSUAPI = uuidtup_to_bin(('E3514235-4B06-11D1-AB04-00C04FC2DCD2','4.0'))
 
