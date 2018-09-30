@@ -367,11 +367,11 @@ class SMB3:
         if (self._Session['SessionFlags'] & SMB2_SESSION_FLAG_ENCRYPT_DATA) or ( packet['TreeID'] != 0 and self._Session['TreeConnectTable'][packet['TreeID']]['EncryptData'] is True):
             plainText = packet.getData()
             transformHeader = SMB2_TRANSFORM_HEADER()
-            transformHeader['Nonce'] = ''.join([rand.choice(string.letters) for _ in range(11)])
+            transformHeader['Nonce'] = ''.join([rand.choice(string.ascii_letters) for _ in range(11)])
             transformHeader['OriginalMessageSize'] = len(plainText)
             transformHeader['EncryptionAlgorithm'] = SMB2_ENCRYPTION_AES128_CCM
             transformHeader['SessionID'] = self._Session['SessionID'] 
-            cipher = AES.new(self._Session['EncryptionKey'], AES.MODE_CCM,  transformHeader['Nonce'])
+            cipher = AES.new(self._Session['EncryptionKey'], AES.MODE_CCM,  b(transformHeader['Nonce']))
             cipher.update(transformHeader.getData()[20:])
             cipherText = cipher.encrypt(plainText)
             transformHeader['Signature'] = cipher.digest()
@@ -647,7 +647,7 @@ class SMB3:
 
             self._Session['SessionKey']  = sessionKey.contents[:16]
             if self._Session['SigningRequired'] is True and self._Connection['Dialect'] == SMB2_DIALECT_30:
-                self._Session['SigningKey']  = crypto.KDF_CounterMode(self._Session['SessionKey'], "SMB2AESCMAC\x00", "SmbSign\x00", 128)
+                self._Session['SigningKey']  = crypto.KDF_CounterMode(self._Session['SessionKey'], b"SMB2AESCMAC\x00", b"SmbSign\x00", 128)
 
             # Calculate the key derivations for dialect 3.0
             if self._Session['SigningRequired'] is True:
@@ -655,9 +655,9 @@ class SMB3:
             if self._Connection['Dialect'] == SMB2_DIALECT_30:
                 # SMB 3.0. Encryption should be available. Let's enforce it if we have AES CCM available
                 self._Session['SessionFlags'] |= SMB2_SESSION_FLAG_ENCRYPT_DATA
-                self._Session['ApplicationKey']  = crypto.KDF_CounterMode(self._Session['SessionKey'], "SMB2APP\x00", "SmbRpc\x00", 128)
-                self._Session['EncryptionKey']   = crypto.KDF_CounterMode(self._Session['SessionKey'], "SMB2AESCCM\x00", "ServerIn \x00", 128)
-                self._Session['DecryptionKey']   = crypto.KDF_CounterMode(self._Session['SessionKey'], "SMB2AESCCM\x00", "ServerOut\x00", 128)
+                self._Session['ApplicationKey']  = crypto.KDF_CounterMode(self._Session['SessionKey'], b"SMB2APP\x00", b"SmbRpc\x00", 128)
+                self._Session['EncryptionKey']   = crypto.KDF_CounterMode(self._Session['SessionKey'], b"SMB2AESCCM\x00", b"ServerIn \x00", 128)
+                self._Session['DecryptionKey']   = crypto.KDF_CounterMode(self._Session['SessionKey'], b"SMB2AESCCM\x00", b"ServerOut\x00", 128)
        
             return True
         else:
@@ -776,7 +776,7 @@ class SMB3:
             if exportedSessionKey is not None: 
                 self._Session['SessionKey']  = exportedSessionKey
                 if self._Session['SigningRequired'] is True and self._Connection['Dialect'] == SMB2_DIALECT_30:
-                    self._Session['SigningKey']  = crypto.KDF_CounterMode(exportedSessionKey, "SMB2AESCMAC\x00", "SmbSign\x00", 128)
+                    self._Session['SigningKey']  = crypto.KDF_CounterMode(exportedSessionKey, b"SMB2AESCMAC\x00", b"SmbSign\x00", 128)
 
             respToken2 = SPNEGO_NegTokenResp()
             respToken2['ResponseToken'] = type3.getData()
@@ -799,9 +799,9 @@ class SMB3:
                     if self._Connection['Dialect'] == SMB2_DIALECT_30:
                         # SMB 3.0. Encryption should be available. Let's enforce it if we have AES CCM available
                         self._Session['SessionFlags'] |= SMB2_SESSION_FLAG_ENCRYPT_DATA
-                        self._Session['ApplicationKey']  = crypto.KDF_CounterMode(exportedSessionKey, "SMB2APP\x00", "SmbRpc\x00", 128)
-                        self._Session['EncryptionKey']   = crypto.KDF_CounterMode(exportedSessionKey, "SMB2AESCCM\x00", "ServerIn \x00", 128)
-                        self._Session['DecryptionKey']   = crypto.KDF_CounterMode(exportedSessionKey, "SMB2AESCCM\x00", "ServerOut\x00", 128)
+                        self._Session['ApplicationKey']  = crypto.KDF_CounterMode(exportedSessionKey, b"SMB2APP\x00", b"SmbRpc\x00", 128)
+                        self._Session['EncryptionKey']   = crypto.KDF_CounterMode(exportedSessionKey, b"SMB2AESCCM\x00",b"ServerIn \x00", 128)
+                        self._Session['DecryptionKey']   = crypto.KDF_CounterMode(exportedSessionKey, b"SMB2AESCCM\x00",b"ServerOut\x00", 128)
  
                     return True
             except:

@@ -230,11 +230,11 @@ def KDF_CounterMode(KI, Label, Context, L):
     if n > (pow(2,r)-1):
         raise Exception("Error computing KDF_CounterMode")
 
-    result = ''
-    K      = ''
+    result = b''
+    K      = b''
 
     for i in range(1,n+1):
-       input = pack('>L', i) + Label + '\x00' + Context + pack('>L',L)
+       input = pack('>L', i) + Label + b'\x00' + Context + pack('>L',L)
        K = hmac.new(KI, input, hashlib.sha256).digest()
        result = result + K
 
