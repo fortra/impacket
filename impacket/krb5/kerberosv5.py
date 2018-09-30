@@ -188,7 +188,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
                     if etype2['salt'] is None or etype2['salt'].hasValue() is False:
                         salt = ''
                     else:
-                        salt = etype2['salt']
+                        salt = etype2['salt'].prettyPrint()
                 except PyAsn1Error as e:
                     salt = ''
 
@@ -200,7 +200,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
                     if etype['salt'] is None or etype['salt'].hasValue() is False:
                         salt = ''
                     else:
-                        salt = etype['salt']
+                        salt = etype['salt'].prettyPrint()
                 except PyAsn1Error as e:
                     salt = ''
 
