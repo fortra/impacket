@@ -159,14 +159,14 @@ class SMBTests(unittest.TestCase):
         fid = smb.createFile(tid, self.file)
         smb.writeFile(tid, fid, "A"*65535)
         finished = False
-        data = ''
+        data = b''
         offset = 0
         remaining = 65535
         while remaining>0:
             data += smb.readFile(tid,fid, offset, remaining)
             remaining = 65535 - len(data)
         self.assertTrue(len(data) == 65535)
-        self.assertTrue(data == "A"*65535)
+        self.assertTrue(data == b"A"*65535)
         smb.closeFile(tid,fid)
         fid = smb.openFile(tid, self.file)
         smb.closeFile(tid, fid)
@@ -244,7 +244,7 @@ class SMBTests(unittest.TestCase):
         f = open(self.upload)
         smb.putFile(self.share, self.file, f.read)
         f.close()
-        f = open(self.upload + '2', 'w+')
+        f = open(self.upload + '2', 'wb+')
         smb.getFile(self.share, self.file, f.write)
         f.close()
         os.unlink(self.upload + '2')
