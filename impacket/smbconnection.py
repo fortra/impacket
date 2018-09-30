@@ -436,12 +436,12 @@ class SMBConnection:
             _, flags2 = self._SMBConnection.get_flags()
 
             pathName = pathName.replace('/', '\\')
-            pathName = pathName.encode('utf-16le') if flags2 & smb.SMB.FLAGS2_UNICODE else pathName
+            packetPathName = pathName.encode('utf-16le') if flags2 & smb.SMB.FLAGS2_UNICODE else pathName
 
             ntCreate = smb.SMBCommand(smb.SMB.SMB_COM_NT_CREATE_ANDX)
             ntCreate['Parameters'] = smb.SMBNtCreateAndX_Parameters()
             ntCreate['Data']       = smb.SMBNtCreateAndX_Data(flags=flags2)
-            ntCreate['Parameters']['FileNameLength']= len(pathName)
+            ntCreate['Parameters']['FileNameLength']= len(packetPathName)
             ntCreate['Parameters']['AccessMask']    = desiredAccess
             ntCreate['Parameters']['FileAttributes']= fileAttributes
             ntCreate['Parameters']['ShareAccess']   = shareMode
@@ -450,7 +450,7 @@ class SMBConnection:
             ntCreate['Parameters']['Impersonation'] = impersonationLevel
             ntCreate['Parameters']['SecurityFlags'] = securityFlags
             ntCreate['Parameters']['CreateFlags']   = 0x16
-            ntCreate['Data']['FileName'] = pathName
+            ntCreate['Data']['FileName'] = packetPathName
 
             if flags2 & smb.SMB.FLAGS2_UNICODE:
                 ntCreate['Data']['Pad'] = 0x0
@@ -486,12 +486,12 @@ class SMBConnection:
             _, flags2 = self._SMBConnection.get_flags()
 
             pathName = pathName.replace('/', '\\')
-            pathName = pathName.encode('utf-16le') if flags2 & smb.SMB.FLAGS2_UNICODE else pathName
+            packetPathName = pathName.encode('utf-16le') if flags2 & smb.SMB.FLAGS2_UNICODE else pathName
 
             ntCreate = smb.SMBCommand(smb.SMB.SMB_COM_NT_CREATE_ANDX)
             ntCreate['Parameters'] = smb.SMBNtCreateAndX_Parameters()
             ntCreate['Data']       = smb.SMBNtCreateAndX_Data(flags=flags2)
-            ntCreate['Parameters']['FileNameLength']= len(pathName)
+            ntCreate['Parameters']['FileNameLength']= len(packetPathName)
             ntCreate['Parameters']['AccessMask']    = desiredAccess
             ntCreate['Parameters']['FileAttributes']= fileAttributes
             ntCreate['Parameters']['ShareAccess']   = shareMode
@@ -500,7 +500,7 @@ class SMBConnection:
             ntCreate['Parameters']['Impersonation'] = impersonationLevel
             ntCreate['Parameters']['SecurityFlags'] = securityFlags
             ntCreate['Parameters']['CreateFlags']   = 0x16
-            ntCreate['Data']['FileName'] = pathName
+            ntCreate['Data']['FileName'] = packetPathName
 
             if flags2 & smb.SMB.FLAGS2_UNICODE:
                 ntCreate['Data']['Pad'] = 0x0
