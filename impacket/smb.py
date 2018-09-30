@@ -564,11 +564,17 @@ class SharedFile:
         self.__allocsize = allocsize
         self.__attribs = attribs
         try:
-            self.__shortname = shortname[:shortname.index(b'\0')]
+            if isinstance(shortname,bytes):
+                self.__shortname = shortname[:shortname.index(b'\0')]
+            else:
+                self.__shortname = shortname[:shortname.index('\0')]
         except ValueError:
             self.__shortname = shortname
         try:
-            self.__longname = longname[:longname.index(b'\0')]
+            if isinstance(shortname,bytes):
+                self.__longname = longname[:longname.index(b'\0')]
+            else:
+                self.__longname = longname[:longname.index('\0')]
         except ValueError:
             self.__longname = longname
 
@@ -3799,7 +3805,7 @@ class SMB:
 
         tid = self.tree_connect_andx('\\\\' + self.__remote_name + '\\' + service, password)
         try:
-            findFirstParameter = SMBFindFirst2_Parameters()
+            findFirstParameter = SMBFindFirst2_Parameters(self.__flags2)
             findFirstParameter['SearchAttributes'] = SMB_FILE_ATTRIBUTE_DIRECTORY | SMB_FILE_ATTRIBUTE_HIDDEN | \
                                                      SMB_FILE_ATTRIBUTE_SYSTEM | SMB_FILE_ATTRIBUTE_READONLY | \
                                                      SMB_FILE_ATTRIBUTE_ARCHIVE
@@ -3807,7 +3813,10 @@ class SMB:
             findFirstParameter['Flags'] = SMB_FIND_RETURN_RESUME_KEYS | SMB_FIND_CLOSE_AT_EOS
             findFirstParameter['InformationLevel'] = SMB_FIND_FILE_BOTH_DIRECTORY_INFO
             findFirstParameter['SearchStorageType'] = 0
-            findFirstParameter['FileName'] = path + ('\x00\x00' if self.__flags2 & SMB.FLAGS2_UNICODE else '\x00')
+            if self.__flags2 & SMB.FLAGS2_UNICODE:
+                findFirstParameter['FileName'] = path + b'\x00\x00'
+            else:
+                findFirstParameter['FileName'] = path + '\x00'
             self.send_trans2(tid, SMB.TRANS2_FIND_FIRST2, '\x00', findFirstParameter, '')
             files = [ ]
 
@@ -3850,7 +3859,10 @@ class SMB:
                         findNextParameter['InformationLevel'] = SMB_FIND_FILE_BOTH_DIRECTORY_INFO
                         findNextParameter['ResumeKey'] = 0
                         findNextParameter['Flags'] = SMB_FIND_RETURN_RESUME_KEYS | SMB_FIND_CLOSE_AT_EOS
-                        findNextParameter['FileName'] = resume_filename + ('\x00\x00' if self.__flags2 & SMB.FLAGS2_UNICODE else '\x00')
+                        if self.__flags2 & SMB.FLAGS2_UNICODE:
+                            findNextParameter['FileName'] = resume_filename + b'\x00\x00'
+                        else:
+                            findNextParameter['FileName'] = resume_filename + '\x00'
                         self.send_trans2(tid, SMB.TRANS2_FIND_NEXT2, '\x00', findNextParameter, '')
                         findData = b''
                         findNext2ParameterBlock = b''
