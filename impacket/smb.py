@@ -2636,7 +2636,7 @@ class SMB:
             else:
                 self.set_flags(flags2=flags2 & (~SMB.FLAGS2_EXTENDED_SECURITY))
 
-            negSession['Data'] = '\x02NT LM 0.12\x00'
+            negSession['Data'] = b'\x02NT LM 0.12\x00'
             smb.addCommand(negSession)
             self.sendSMB(smb)
 
@@ -3665,7 +3665,7 @@ class SMB:
                 if len(data) > maxBuffSize:
                     chunks_size = maxBuffSize - 60
                     writeAndX['Parameters']['WriteMode'] = 0x0c
-                    sendData = '\xff\xff' + data
+                    sendData = b'\xff\xff' + data
                     totalLen = len(sendData)
                     writeAndX['Parameters']['DataLength'] = chunks_size
                     writeAndX['Parameters']['Remaining'] = totalLen-2
