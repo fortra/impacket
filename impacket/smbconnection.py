@@ -12,8 +12,8 @@
 # You can still play with the low level methods (version dependent)
 # by calling getSMBServer()
 #
-from __future__ import division
-from __future__ import print_function
+
+
 import ntpath
 import string
 import socket
@@ -110,7 +110,7 @@ class SMBConnection:
             # If no preferredDialect sent, we try the highest available one.
             packet = self.negotiateSessionWildcard(self._myName, self._remoteName, self._remoteHost, self._sess_port,
                                                    self._timeout, True, flags1=flags1, flags2=flags2, data=negoData)
-            if packet[0] == '\xfe':
+            if packet[0:1] == b'\xfe':
                 # Answer is SMB2 packet
                 self._SMBConnection = smb3.SMB3(self._remoteName, self._remoteHost, self._myName, hostType,
                                                 self._sess_port, self._timeout, session=self._nmbSession,
@@ -128,7 +128,7 @@ class SMBConnection:
                 self._SMBConnection = smb3.SMB3(self._remoteName, self._remoteHost, self._myName, hostType,
                                                 self._sess_port, self._timeout, preferredDialect=preferredDialect)
             else:
-                raise("Unknown dialect %s", preferredDialect)
+                raise Exception("Unknown dialect %s")
 
         # propagate flags to the smb sub-object
         # does not affect smb3 objects
@@ -144,7 +144,7 @@ class SMBConnection:
 
         if not myName:
             myName = socket.gethostname()
-            i = string.find(myName, '.')
+            i = myName.find('.')
             if i > -1:
                 myName = myName[:i]
 
@@ -163,7 +163,7 @@ class SMBConnection:
                 smbp['Flags2'] |= smb.SMB.FLAGS2_EXTENDED_SECURITY
             negSession['Data'] = data
             smbp.addCommand(negSession)
-            self._nmbSession.send_packet(str(smbp))
+            self._nmbSession.send_packet(smbp.getData())
 
             try:
                 resp = self._nmbSession.recv_packet(timeout)
@@ -552,6 +552,8 @@ class SMBConnection:
         finished = False
         data = b''
         maxReadSize = self._SMBConnection.getIOCapabilities()['MaxReadSize']
+        if bytesToRead is None:
+            bytesToRead = maxReadSize
         remainingBytesToRead = bytesToRead
         while not finished:
             if remainingBytesToRead > maxReadSize:
@@ -562,7 +564,7 @@ class SMBConnection:
                 bytesRead = self._SMBConnection.read_andx(treeId, fileId, offset, toRead)
             except (smb.SessionError, smb3.SessionError) as e:
                 if e.get_error_code() == nt_errors.STATUS_END_OF_FILE:
-                    toRead = ''
+                    toRead = b''
                     break
                 else:
                     raise SessionError(e.get_error_code(), e.get_error_packet())
