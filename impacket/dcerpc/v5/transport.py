@@ -325,7 +325,7 @@ class TCPTransport(DCERPCTransport):
 
     def recv(self, forceRecv = 0, count = 0):
         if count:
-            buffer = ''
+            buffer = b''
             while len(buffer) < count:
                buffer += self.__socket.recv(count-len(buffer))
         else:

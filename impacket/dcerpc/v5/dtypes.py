@@ -239,7 +239,7 @@ DWORD_PTR = ULONG_PTR
 # 2.3.2 GUID and UUID
 class GUID(NDRSTRUCT):
     structure = (
-        ('Data','16s=""'),
+        ('Data','16s=b""'),
     )
 
     def getAlignment(self):

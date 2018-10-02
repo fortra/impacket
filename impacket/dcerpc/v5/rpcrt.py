@@ -819,7 +819,7 @@ class DCERPC:
     def send(self, data): raise RuntimeError('virtual method. Not implemented in subclass')
     def recv(self): raise RuntimeError('virtual method. Not implemented in subclass')
     def alter_ctx(self, newUID, bogus_binds = ''): raise RuntimeError('virtual method. Not implemented in subclass')
-    def set_credentials(self, username, password, domain = '', lmhash = b'', nthash = b'', aesKey = b'', TGT=None, TGS=None): pass
+    def set_credentials(self, username, password, domain = '', lmhash = '', nthash = '', aesKey = '', TGT=None, TGS=None): pass
     def set_auth_level(self, auth_level): pass
     def set_auth_type(self, auth_type, callback = None): pass
     def get_idempotent(self): return 0
@@ -874,9 +874,9 @@ class DCERPC_v5(DCERPC):
         self.__username = None
         self.__password = None
         self.__domain = ''
-        self.__lmhash = b''
-        self.__nthash = b''
-        self.__aesKey = b''
+        self.__lmhash = ''
+        self.__nthash = ''
+        self.__aesKey = ''
         self.__TGT    = None
         self.__TGS    = None
         
@@ -920,7 +920,7 @@ class DCERPC_v5(DCERPC):
     def get_credentials(self):
         return self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash, self.__aesKey, self.__TGT, self.__TGS
 
-    def set_credentials(self, username, password, domain = '', lmhash = b'', nthash = b'', aesKey = b'', TGT = None, TGS = None):
+    def set_credentials(self, username, password, domain = '', lmhash = '', nthash = '', aesKey = '', TGT = None, TGS = None):
         self.set_auth_level(RPC_C_AUTHN_LEVEL_CONNECT)
         self.__username = username
         self.__password = password
@@ -928,7 +928,7 @@ class DCERPC_v5(DCERPC):
         self.__aesKey   = aesKey
         self.__TGT      = TGT
         self.__TGS      = TGS
-        if lmhash != b'' or nthash != b'':
+        if lmhash != '' or nthash != '':
             if len(lmhash) % 2:     lmhash = '0%s' % lmhash
             if len(nthash) % 2:     nthash = '0%s' % nthash
             try: # just in case they were converted already

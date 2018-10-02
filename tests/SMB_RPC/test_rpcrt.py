@@ -1,5 +1,10 @@
+from __future__ import division
+from __future__ import print_function
 import unittest
-import ConfigParser
+try:
+    import ConfigParser
+except ImportError:
+    import configparser as ConfigParser
 
 from impacket.dcerpc.v5.ndr import NDRCALL
 from impacket.dcerpc.v5 import transport, epm, samr
@@ -114,7 +119,7 @@ class DCERPCTests(unittest.TestCase):
         lmhash, nthash = self.hashes.split(':')
         oldBinding = self.stringBinding
         self.stringBinding = epm.hept_map(self.machine, samr.MSRPC_UUID_SAMR, protocol = 'ncacn_ip_tcp')
-        print self.stringBinding
+        print(self.stringBinding)
         dce = self.connectDCE(self.username, '', self.domain, lmhash, nthash, dceFragment=0,
                               auth_level=RPC_C_AUTHN_LEVEL_PKT_INTEGRITY, auth_type=RPC_C_AUTHN_GSS_NEGOTIATE,
                               dceAuth=True,
@@ -122,7 +127,7 @@ class DCERPCTests(unittest.TestCase):
         self.stringBinding = oldBinding
 
         request = samr.SamrConnect()
-        request['ServerName'] = u'BETO\x00'
+        request['ServerName'] = b'BETO\x00'
         request['DesiredAccess'] = samr.DELETE | samr.READ_CONTROL | samr.WRITE_DAC | samr.WRITE_OWNER | samr.ACCESS_SYSTEM_SECURITY | samr.GENERIC_READ | samr.GENERIC_WRITE | samr.GENERIC_EXECUTE | samr.SAM_SERVER_CONNECT | samr.SAM_SERVER_SHUTDOWN | samr.SAM_SERVER_INITIALIZE | samr.SAM_SERVER_CREATE_DOMAIN | samr.SAM_SERVER_ENUMERATE_DOMAINS | samr.SAM_SERVER_LOOKUP_DOMAIN | samr.SAM_SERVER_READ | samr.SAM_SERVER_WRITE | samr.SAM_SERVER_EXECUTE
         resp = dce.request(request)
         request = samr.SamrEnumerateDomainsInSamServer()
@@ -135,7 +140,7 @@ class DCERPCTests(unittest.TestCase):
             request['ServerHandle'] = resp['ServerHandle']
             request['Name'] = 'A'*4500
             resp = dce.request(request)
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_NO_SUCH_DOMAIN') < 0:
                 raise
         dce.disconnect()
@@ -290,7 +295,7 @@ class DCERPCTests(unittest.TestCase):
             request['max_ents'] = 499
             resp = dce.request(request)
             dce.disconnect()
-        except Exception, e:
+        except Exception as e:
             if not (str(e).find('STATUS_ACCESS_DENIED') >=0 and self.stringBinding.find('ncacn_np') >=0):
                 raise
 
@@ -391,7 +396,7 @@ class DCERPCTests(unittest.TestCase):
             request['max_ents'] = 499
             resp = dce.request(request)
             dce.disconnect()
-        except Exception, e:
+        except Exception as e:
             if not (str(e).find('STATUS_ACCESS_DENIED') >=0 and self.stringBinding.find('ncacn_np') >=0):
                 raise
 

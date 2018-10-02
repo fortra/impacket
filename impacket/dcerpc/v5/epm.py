@@ -20,6 +20,7 @@
 #
 import socket
 from struct import unpack
+from six import b
 
 from impacket.uuid import uuidtup_to_bin, bin_to_string
 from impacket.dcerpc.v5 import transport
@@ -41,7 +42,7 @@ class DCERPCSessionError(DCERPCException):
 
     def __str__( self ):
         key = self.error_code
-        if self.error_messages.has_key(key):
+        if key in self.error_messages:
             error_msg_short = self.error_messages[key]
             return 'EPM SessionError: code: 0x%x - %s ' % (self.error_code, error_msg_short)
         else:
@@ -1096,7 +1097,7 @@ class ept_lookup_handle_t(NDRSTRUCT):
     )
     def __init__(self, data = None,isNDR64 = False):
         NDRSTRUCT.__init__(self, data, isNDR64)
-        self['context_handle_uuid'] = '\x00'*20
+        self['context_handle_uuid'] = b'\x00'*20
 
 class twr_t(NDRSTRUCT):
     structure = (
@@ -1218,8 +1219,8 @@ def hept_lookup(destHost, inquiry_type = RPC_C_EP_ALL_ELTS, objectUUID = NULL, i
         tmpEntry = {}
         entry = resp['entries'][i]
         tmpEntry['object'] = entry['object'] 
-        tmpEntry['annotation'] = ''.join(entry['annotation'])
-        tmpEntry['tower'] = EPMTower(''.join(entry['tower']['tower_octet_string']))
+        tmpEntry['annotation'] = b''.join(entry['annotation'])
+        tmpEntry['tower'] = EPMTower(b''.join(entry['tower']['tower_octet_string']))
         entries.append(tmpEntry)
 
     if disconnect is True:
@@ -1258,10 +1259,10 @@ def hept_map(destHost, remoteIf, dataRepresentation = uuidtup_to_bin(('8a885d04-
 
     if protocol == 'ncacn_np':
         pipeName = EPMPipeName()
-        pipeName['PipeName'] = '\x00'
+        pipeName['PipeName'] = b'\x00'
 
         hostName = EPMHostName()
-        hostName['HostName'] = '%s\x00' % destHost
+        hostName['HostName'] = b('%s\x00' % destHost)
         transportData = pipeName.getData() + hostName.getData()
 
     elif protocol == 'ncacn_ip_tcp':
@@ -1294,7 +1295,7 @@ def hept_map(destHost, remoteIf, dataRepresentation = uuidtup_to_bin(('8a885d04-
     request = ept_map()
     request['max_towers'] = 1
     request['map_tower']['tower_length'] = len(tower)
-    request['map_tower']['tower_octet_string'] = str(tower)
+    request['map_tower']['tower_octet_string'] = tower.getData()
 
     # Under Windows 2003 the Referent IDs cannot be random
     # they must have the following specific values
@@ -1304,7 +1305,7 @@ def hept_map(destHost, remoteIf, dataRepresentation = uuidtup_to_bin(('8a885d04-
 
     resp = dce.request(request)
 
-    tower = EPMTower(''.join(resp['ITowers'][0]['Data']['tower_octet_string']))
+    tower = EPMTower(b''.join(resp['ITowers'][0]['Data']['tower_octet_string']))
     # Now let's parse the result and return an stringBinding
     result = None
     if protocol == 'ncacn_np':
@@ -1335,7 +1336,7 @@ def PrintStringBinding(floors, serverAddr = '0.0.0.0'):
             # If the address were 0.0.0.0 it would have to be replaced by the remote host's IP.
             if tmp_address2 == '0.0.0.0':
                 tmp_address2 = serverAddr
-            if tmp_address <> '':
+            if tmp_address != '':
                 return tmp_address % tmp_address2
             else:
                 return 'IP: %s' % tmp_address2
@@ -1345,7 +1346,7 @@ def PrintStringBinding(floors, serverAddr = '0.0.0.0'):
             n = len(floor['RelatedData'])
             tmp_address2 = ('%02X' * n) % unpack("%dB" % n, floor['RelatedData'])
 
-            if tmp_address <> '':
+            if tmp_address != '':
                 return tmp_address % tmp_address2
             else:
                 return 'SPX: %s' % tmp_address2
@@ -1356,7 +1357,7 @@ def PrintStringBinding(floors, serverAddr = '0.0.0.0'):
         elif floor['ProtocolData'] == chr(0x10):
             return 'ncalrpc:[%s]' % floor['RelatedData'][:len(floor['RelatedData'])-1]
         elif floor['ProtocolData'] == chr(0x01) or floor['ProtocolData'] == chr(0x11):
-            if tmp_address <> '':
+            if tmp_address != '':
                 return tmp_address % floor['RelatedData'][:len(floor['RelatedData'])-1]
             else:
                 return 'NetBIOS: %s' % floor['RelatedData'] 

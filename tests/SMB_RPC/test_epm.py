@@ -6,9 +6,13 @@
 # Shouldn't dump errors against a win7
 #  
 ################################################################################
-
+from __future__ import division
+from __future__ import print_function
 import unittest
-import ConfigParser
+try:
+    import ConfigParser
+except ImportError:
+    import configparser as ConfigParser
 
 from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import epm
@@ -33,7 +37,7 @@ class EPMTests(unittest.TestCase):
 
         return dce, rpctransport
 
-    def test_hept_map(self):
+    def rtesthept_map(self):
         MSRPC_UUID_SAMR   = uuidtup_to_bin(('12345778-1234-ABCD-EF00-0123456789AC', '1.0'))
         resp = epm.hept_map(self.machine,MSRPC_UUID_SAMR)
         resp = epm.hept_map(self.machine, MSRPC_UUID_SAMR, protocol = 'ncacn_ip_tcp')
@@ -54,7 +58,7 @@ class EPMTests(unittest.TestCase):
         resp = dce.request(request)
         for entry in resp['entries']:
             tower = entry['tower']['tower_octet_string']
-            tower = epm.EPMTower(''.join(tower))
+            tower = epm.EPMTower(b''.join(tower))
             #print tower['Floors'][0]
             #print tower['Floors'][1]
 
@@ -71,7 +75,7 @@ class EPMTests(unittest.TestCase):
 
     def test_map(self):
         dce, rpctransport = self.connect()
-        tower2 = '\x04\x00\x13\x00\r\xac\xbe\x00\xc1:\xd3KJ\xbf#\xbb\xefFc\xd0\x17\x01\x00\x02\x00\x00\x00\x13\x00\r\x04]\x88\x8a\xeb\x1c\xc9\x11\x9f\xe8\x08\x00+\x10H`\x02\x00\x02\x00\x00\x00\x01\x00\x0c\x02\x00\x00\x00\x01\x00\x10\x18\x00LRPC-26b184043749be8892\x00'
+        tower2 = b'\x04\x00\x13\x00\r\xac\xbe\x00\xc1:\xd3KJ\xbf#\xbb\xefFc\xd0\x17\x01\x00\x02\x00\x00\x00\x13\x00\r\x04]\x88\x8a\xeb\x1c\xc9\x11\x9f\xe8\x08\x00+\x10H`\x02\x00\x02\x00\x00\x00\x01\x00\x0c\x02\x00\x00\x00\x01\x00\x10\x18\x00LRPC-26b184043749be8892\x00'
         tower = epm.EPMTower()
         interface = epm.EPMRPCInterface()
         interface['InterfaceUUID'] = string_to_bin('12345778-1234-ABCD-EF00-0123456789AC')
@@ -87,7 +91,7 @@ class EPMTests(unittest.TestCase):
         protId['ProtIdentifier'] = 0xb
 
         pipeName = epm.EPMPipeName()
-        pipeName['PipeName'] = '\x00'
+        pipeName['PipeName'] = b'\x00'
 
         portAddr = epm.EPMPortAddr()
         portAddr['IpPort'] = 0
@@ -97,7 +101,7 @@ class EPMTests(unittest.TestCase):
         hostAddr['Ip4addr'] = socket.inet_aton('0.0.0.0')
 
         hostName = epm.EPMHostName()
-        hostName['HostName'] = '\x00'
+        hostName['HostName'] = b'\x00'
 
         tower['NumberOfFloors'] = 5
         tower['Floors'] = interface.getData() + dataRep.getData() + protId.getData() + portAddr.getData() + hostAddr.getData()
@@ -105,8 +109,7 @@ class EPMTests(unittest.TestCase):
         request = epm.ept_map()
         request['max_towers'] = 4
         request['map_tower']['tower_length'] = len(tower)
-        request['map_tower']['tower_octet_string'] = str(tower)
-        #request.dumpRaw()
+        request['map_tower']['tower_octet_string'] = tower.getData()
         resp = dce.request(request)
         resp.dump()
 

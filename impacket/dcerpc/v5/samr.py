@@ -352,7 +352,7 @@ class RPC_SHORT_BLOB(NDRSTRUCT):
 # 2.2.3.2 SAMPR_HANDLE
 class SAMPR_HANDLE(NDRSTRUCT):
     structure =  (
-        ('Data','20s=""'),
+        ('Data','20s=b""'),
     )
     def getAlignment(self):
         if self._isNDR64 is True:
@@ -363,7 +363,7 @@ class SAMPR_HANDLE(NDRSTRUCT):
 # 2.2.3.3 ENCRYPTED_LM_OWF_PASSWORD, ENCRYPTED_NT_OWF_PASSWORD
 class ENCRYPTED_LM_OWF_PASSWORD(NDRSTRUCT):
     structure = (
-        ('Data', '16s=""'),
+        ('Data', '16s=b""'),
     )
     def getAlignment(self):
         return 1
@@ -992,7 +992,7 @@ class SAMPR_USER_LOGON_HOURS_INFORMATION(NDRSTRUCT):
 # 2.2.7.21 SAMPR_ENCRYPTED_USER_PASSWORD
 class SAMPR_USER_PASSWORD(NDRSTRUCT):
     structure = (
-        ('Buffer', '512s=""'),
+        ('Buffer', '512s=b""'),
         ('Length', ULONG),
     )
     def getAlignment(self):
@@ -1001,7 +1001,7 @@ class SAMPR_USER_PASSWORD(NDRSTRUCT):
 
 class SAMPR_ENCRYPTED_USER_PASSWORD(NDRSTRUCT):
     structure = (
-        ('Buffer', '516s=""'),
+        ('Buffer', '516s=b""'),
     )
     def getAlignment(self):
         return 1
@@ -1014,7 +1014,7 @@ class PSAMPR_ENCRYPTED_USER_PASSWORD(NDRPOINTER):
 # 2.2.7.22 SAMPR_ENCRYPTED_USER_PASSWORD_NEW
 class SAMPR_ENCRYPTED_USER_PASSWORD_NEW(NDRSTRUCT):
     structure = (
-        ('Buffer', '522s=""'),
+        ('Buffer', '522s=b""'),
     )
     def getAlignment(self):
         return 1
@@ -1119,7 +1119,7 @@ class PSAMPR_USER_INFO_BUFFER(NDRPOINTER):
 
 class PSAMPR_SERVER_NAME2(NDRPOINTER):
     referent = (
-        ('Data', '4s=""'),
+        ('Data', '4s=b""'),
     ) 
 
 # 2.2.8.2 SAMPR_DOMAIN_DISPLAY_USER
