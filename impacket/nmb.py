@@ -42,7 +42,7 @@ import string
 import time
 import random
 from struct import pack, unpack
-from six import byte2int, indexbytes, b
+from six import byte2int, indexbytes, b, PY2
 
 from .structure import Structure
 
@@ -160,32 +160,36 @@ NETBIOS_SESSION_KEEP_ALIVE = 0x85
 ################################################################################
 # HELPERS
 ################################################################################
-def encode_name(name, type, scope):
+def encode_name(name, nametype, scope):
     # ToDo: Rewrite this simpler, we're using less than written
     """
     Perform first and second level encoding of name as specified in RFC 1001 (Section 4)
     
     :param string name: the name to encode
-    :param integer type: the name type constants
+    :param integer nametype: the name type constants
     :param string scope: the name's scope 
     
-    :return string: the encoded name.
+    :return string/bytes: the encoded name.
     """
     if name == '*':
         name += '\0' * 15
     elif len(name) > 15:
-        name = name[:15] + chr(type)
+        name = name[:15] + chr(nametype)
     else:
-        name = name.ljust(15) + chr(type)
+        name = name.ljust(15) + chr(nametype)
 
     encoded_name = chr(len(name) * 2) + re.sub('.', _do_first_level_encoding, name)
+
+    if PY2 and type(encoded_name) is unicode:
+        encoded_name = encoded_name.encode('utf-8')
     if scope:
         encoded_scope = ''
         for s in scope.split('.'):
             encoded_scope = encoded_scope + chr(len(s)) + s
-        return (encoded_name + encoded_scope) + '\0'
+
+        return b(encoded_name + encoded_scope) + b'\0'
     else:
-        return encoded_name + '\0'
+        return b(encoded_name) + b'\0'
 
 # Internal method for use in encode_name()
 def _do_first_level_encoding(m):
@@ -197,16 +201,16 @@ def decode_name(name):
     """
     Perform first and second level decoding of name as specified in RFC 1001 (Section 4)
 
-    :param string name: the name to dencode
+    :param string/bytes name: the name to decode
 
     :return string: the decoded name.
     """
 
-    name_length = ord(name[0])
+    name_length = ord(name[0:1])
     assert name_length == 32
 
-    decoded_name = re.sub('..', _do_first_level_decoding, name[1:33])
-    if name[33] == '\0':
+    decoded_name = re.sub('..', _do_first_level_decoding, name[1:33].decode('utf-8'))
+    if name[33:34] == b'\0':
         return 34, decoded_name, ''
     else:
         decoded_domain = ''
@@ -215,7 +219,7 @@ def decode_name(name):
             domain_length = byte2int(name[offset:offset+1])
             if domain_length == 0:
                 break
-            decoded_domain = '.' + name[offset:offset + domain_length]
+            decoded_domain = '.' + name[offset:offset + domain_length].decode('utf-8')
             offset += domain_length
         return offset + 1, decoded_name, decoded_domain
 
@@ -367,16 +371,16 @@ class RESOURCE_RECORD(Structure):
 # 4.2.2.  NAME REGISTRATION REQUEST
 class NAME_REGISTRATION_REQUEST(NAME_SERVICE_PACKET):
     structure = (
-        ('QUESTION_NAME', 'z'),
+        ('QUESTION_NAME', ':'),
         ('QUESTION_TYPE', '>H=0'),
         ('QUESTION_CLASS', '>H=0'),
-        ('RR_NAME','z', ),
+        ('RR_NAME',':', ),
         ('RR_TYPE', '>H=0'),
         ('RR_CLASS','>H=0'),
         ('TTL', '>L=0'),
         ('RDLENGTH', '>H=6'),
         ('NB_FLAGS', '>H=0'),
-        ('NB_ADDRESS', '4s=""'),
+        ('NB_ADDRESS', '4s=b""'),
     )
     def __init__(self, data=None):
         NAME_SERVICE_PACKET.__init__(self,data)
@@ -431,7 +435,7 @@ class NAME_CONFLICT_DEMAND(NAME_REGISTRATION_REQUEST):
 # 4.2.12.  NAME QUERY REQUEST
 class NAME_QUERY_REQUEST(NAME_SERVICE_PACKET):
     structure = (
-        ('QUESTION_NAME', 'z'),
+        ('QUESTION_NAME', ':'),
         ('QUESTION_TYPE', '>H=0'),
         ('QUESTION_CLASS', '>H=0'),
     )
@@ -451,7 +455,7 @@ class NAME_QUERY_REQUEST(NAME_SERVICE_PACKET):
 class ADDR_ENTRY(Structure):
     structure = (
         ('NB_FLAGS', '>H=0'),
-        ('NB_ADDRESS', '4s=""'),
+        ('NB_ADDRESS', '4s=b""'),
     )
 
 # ToDo: 4.2.15.  REDIRECT NAME QUERY RESPONSE
@@ -468,14 +472,14 @@ class NODE_STATUS_REQUEST(NAME_QUERY_REQUEST):
 # 4.2.18.  NODE STATUS RESPONSE
 class NODE_NAME_ENTRY(Structure):
     structure = (
-        ('NAME','15s=""'),
+        ('NAME','15s=b""'),
         ('TYPE','B=0'),
         ('NAME_FLAGS','>H'),
     )
 
 class STATISTICS(Structure):
     structure = (
-        ('UNIT_ID','6s=""'),
+        ('UNIT_ID','6s=b""'),
         ('JUMPERS','B'),
         ('TEST_RESULT','B'),
         ('VERSION_NUMBER','>H'),
@@ -601,8 +605,8 @@ class NetBIOS:
 
         p = NAME_REGISTRATION_REQUEST()
         p['NAME_TRN_ID'] = rand.randint(1, 32000)
-        p['QUESTION_NAME'] = qn_label[:-1]
-        p['RR_NAME'] = qn_label[:-1]
+        p['QUESTION_NAME'] = qn_label[:-1] + b'\x00'
+        p['RR_NAME'] = qn_label[:-1] + b'\x00'
         p['TTL'] = 0xffff
         p['NB_FLAGS'] = nb_flags
         p['NB_ADDRESS'] = socket.inet_aton(nb_address)
@@ -620,7 +624,7 @@ class NetBIOS:
 
         p = NAME_QUERY_REQUEST()
         p['NAME_TRN_ID'] = rand.randint(1, 32000)
-        p['QUESTION_NAME'] = qn_label[:-1]
+        p['QUESTION_NAME'] = qn_label[:-1] + b'\x00'
         p['FLAGS'] = NM_FLAGS_RD
         if not destaddr:
             p['FLAGS'] |= NM_FLAGS_BROADCAST
@@ -636,7 +640,7 @@ class NetBIOS:
         qn_label = encode_name(netbios_name, type, scope)
         p = NODE_STATUS_REQUEST()
         p['NAME_TRN_ID'] = rand.randint(1, 32000)
-        p['QUESTION_NAME'] = qn_label[:-1]
+        p['QUESTION_NAME'] = qn_label[:-1] + b'\x00'
 
         if not destaddr:
             p['FLAGS'] = NM_FLAGS_BROADCAST
@@ -721,6 +725,7 @@ class NetBIOSSession:
             remote_name = remote_host
 
         # If remote name is *SMBSERVER let's try to query its name.. if can't be guessed, continue and hope for the best
+
         if remote_name == '*SMBSERVER':
             nb = NetBIOS()
             try:
@@ -912,7 +917,7 @@ class NetBIOSTCPSession(NetBIOSSession):
         remote_name = encode_name(self.get_remote_name(), remote_type, '')
         myname = encode_name(self.get_myname(), local_type, '')
         p.set_type(NETBIOS_SESSION_REQUEST)
-        p.set_trailer(remote_name.encode('latin-1') + myname.encode('latin-1'))
+        p.set_trailer(remote_name + myname)
 
         self._sock.sendall(p.rawData())
         while 1:
