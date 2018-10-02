@@ -14,6 +14,8 @@
 # Reference for:
 #  SMB DCE/RPC
 #
+from __future__ import division
+from __future__ import print_function
 import sys
 import logging
 import argparse
@@ -25,7 +27,7 @@ from impacket.smbconnection import SMBConnection
 def main():
     # Init the example's logger theme
     logger.init()
-    print version.BANNER
+    print(version.BANNER)
     parser = argparse.ArgumentParser(add_help = True, description = "SMB client implementation.")
 
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')
@@ -106,10 +108,10 @@ def main():
             logging.info("Executing commands from %s" % options.file.name)
             for line in options.file.readlines():
                 if line[0] != '#':
-                    print "# %s" % line,
+                    print("# %s" % line, end=' ')
                     shell.onecmd(line)
                 else:
-                    print line,
+                    print(line, end=' ')
         else:
             shell.cmdloop()
     except Exception as e:

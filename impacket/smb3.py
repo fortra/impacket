@@ -38,7 +38,7 @@ from contextlib import contextmanager
 from pyasn1.type.univ import noValue
 from Cryptodome.Cipher import AES
 
-from impacket import nmb, ntlm, uuid, crypto, LOG
+from impacket import nmb, ntlm, uuid, crypto
 from impacket.smb3structs import *
 from impacket.nt_errors import STATUS_SUCCESS, STATUS_MORE_PROCESSING_REQUIRED, STATUS_INVALID_PARAMETER, \
     STATUS_NO_MORE_FILES, STATUS_PENDING, STATUS_NOT_IMPLEMENTED, ERROR_MESSAGES
@@ -409,7 +409,7 @@ class SMB3:
             status = STATUS_PENDING
             while status == STATUS_PENDING:
                 data = self._NetBIOSSession.recv_packet(self._timeout) 
-                if data.get_trailer().startswith('\xfeSMB'):
+                if data.get_trailer().startswith(b'\xfeSMB'):
                     packet = SMB2Packet(data.get_trailer())
                 else:
                     # Packet is encrypted
