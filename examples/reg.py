@@ -17,6 +17,8 @@
 #
 # Reference for: [MS-RRP]
 #
+from __future__ import division
+from __future__ import print_function
 import argparse
 import codecs
 import logging
@@ -28,7 +30,7 @@ from impacket import version
 from impacket.dcerpc.v5 import transport, rrp, scmr, rpcrt
 from impacket.examples import logger
 from impacket.system_errors import ERROR_NO_MORE_ITEMS
-from impacket.winregistry import hexdump
+from impacket.structure import hexdump
 from impacket.smbconnection import SMBConnection
 
 
@@ -158,7 +160,7 @@ class RegHandler:
 
         try:
             self.__remoteOps.enableRegistry()
-        except Exception, e:
+        except Exception as e:
             logging.debug(str(e))
             logging.warning('Cannot check RemoteRegistry status. Hoping it is started...')
             self.__remoteOps.connectWinReg()
@@ -170,9 +172,9 @@ class RegHandler:
                 self.query(dce, self.__options.keyName)
             else:
                 logging.error('Method %s not implemented yet!' % self.__action)
-        except (Exception, KeyboardInterrupt), e:
-            # import traceback
-            # traceback.print_exc()
+        except (Exception, KeyboardInterrupt) as e:
+            #import traceback
+            #traceback.print_exc()
             logging.critical(str(e))
         finally:
             if self.__remoteOps:
@@ -201,23 +203,23 @@ class RegHandler:
                                    samDesired=rrp.MAXIMUM_ALLOWED | rrp.KEY_ENUMERATE_SUB_KEYS | rrp.KEY_QUERY_VALUE)
 
         if self.__options.v:
-            print keyName
+            print(keyName)
             value = rrp.hBaseRegQueryValue(dce, ans2['phkResult'], self.__options.v)
-            print '\t' + self.__options.v + '\t' + self.__regValues.get(value[0], 'KEY_NOT_FOUND') + '\t', str(value[1])
+            print('\t' + self.__options.v + '\t' + self.__regValues.get(value[0], 'KEY_NOT_FOUND') + '\t', str(value[1]))
         elif self.__options.ve:
-            print keyName
+            print(keyName)
             value = rrp.hBaseRegQueryValue(dce, ans2['phkResult'], '')
-            print '\t' + '(Default)' + '\t' + self.__regValues.get(value[0], 'KEY_NOT_FOUND') + '\t', str(value[1])
+            print('\t' + '(Default)' + '\t' + self.__regValues.get(value[0], 'KEY_NOT_FOUND') + '\t', str(value[1]))
         elif self.__options.s:
             self.__print_all_subkeys_and_entries(dce, subKey + '\\', ans2['phkResult'], 0)
         else:
-            print keyName
+            print(keyName)
             self.__print_key_values(dce, ans2['phkResult'])
             i = 0
             while True:
                 try:
                     key = rrp.hBaseRegEnumKey(dce, ans2['phkResult'], i)
-                    print keyName + '\\' + key['lpNameOut'][:-1]
+                    print(keyName + '\\' + key['lpNameOut'][:-1])
                     i += 1
                 except Exception:
                     break
@@ -233,11 +235,11 @@ class RegHandler:
                 if len(lp_value_name) == 0:
                     lp_value_name = '(Default)'
                 lp_type = ans4['lpType']
-                lp_data = ''.join(ans4['lpData'])
-                print '\t' + lp_value_name + '\t' + self.__regValues.get(lp_type, 'KEY_NOT_FOUND') + '\t',
+                lp_data = b''.join(ans4['lpData'])
+                print('\t' + lp_value_name + '\t' + self.__regValues.get(lp_type, 'KEY_NOT_FOUND') + '\t', end=' ')
                 self.__parse_lp_data(lp_type, lp_data)
                 i += 1
-            except rrp.DCERPCSessionError, e:
+            except rrp.DCERPCSessionError as e:
                 if e.get_error_code() == ERROR_NO_MORE_ITEMS:
                     break
 
@@ -250,13 +252,13 @@ class RegHandler:
                 ans = rrp.hBaseRegOpenKey(rpc, keyHandler, subkey['lpNameOut'],
                                           samDesired=rrp.MAXIMUM_ALLOWED | rrp.KEY_ENUMERATE_SUB_KEYS)
                 newKeyName = keyName + subkey['lpNameOut'][:-1] + '\\'
-                print newKeyName
+                print(newKeyName)
                 self.__print_key_values(rpc, ans['phkResult'])
                 self.__print_all_subkeys_and_entries(rpc, newKeyName, ans['phkResult'], 0)
-            except rrp.DCERPCSessionError, e:
+            except rrp.DCERPCSessionError as e:
                 if e.get_error_code() == ERROR_NO_MORE_ITEMS:
                     break
-            except rpcrt.DCERPCException, e:
+            except rpcrt.DCERPCException as e:
                 if str(e).find('access_denied') >= 0:
                     logging.error('Cannot access subkey %s, bypassing it' % subkey['lpNameOut'][:-1])
                     continue
@@ -270,33 +272,33 @@ class RegHandler:
         try:
             if valueType == rrp.REG_SZ or valueType == rrp.REG_EXPAND_SZ:
                 if type(valueData) is int:
-                    print 'NULL'
+                    print('NULL')
                 else:
-                    print "%s" % (valueData.decode('utf-16le')[:-1])
+                    print("%s" % (valueData.decode('utf-16le')[:-1]))
             elif valueType == rrp.REG_BINARY:
-                print ''
+                print('')
                 hexdump(valueData, '\t')
             elif valueType == rrp.REG_DWORD:
-                print "0x%x" % (unpack('<L', valueData)[0])
+                print("0x%x" % (unpack('<L', valueData)[0]))
             elif valueType == rrp.REG_QWORD:
-                print "0x%x" % (unpack('<Q', valueData)[0])
+                print("0x%x" % (unpack('<Q', valueData)[0]))
             elif valueType == rrp.REG_NONE:
                 try:
                     if len(valueData) > 1:
-                        print ''
+                        print('')
                         hexdump(valueData, '\t')
                     else:
-                        print " NULL"
+                        print(" NULL")
                 except:
-                    print " NULL"
+                    print(" NULL")
             elif valueType == rrp.REG_MULTI_SZ:
-                print "%s" % (valueData.decode('utf-16le')[:-2])
+                print("%s" % (valueData.decode('utf-16le')[:-2]))
             else:
-                print "Unknown Type 0x%x!" % valueType
+                print("Unknown Type 0x%x!" % valueType)
                 hexdump(valueData)
-        except Exception, e:
+        except Exception as e:
             logging.debug('Exception thrown when printing reg value %s', str(e))
-            print 'Invalid data'
+            print('Invalid data')
             pass
 
 
@@ -308,7 +310,7 @@ if __name__ == '__main__':
     if sys.stdout.encoding is None:
         # Output is redirected to a file
         sys.stdout = codecs.getwriter('utf8')(sys.stdout)
-    print version.BANNER
+    print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help=True, description="Windows Register manipulation script.")
 
@@ -424,5 +426,7 @@ if __name__ == '__main__':
     regHandler = RegHandler(username, password, domain, options)
     try:
         regHandler.run(remoteName, options.target_ip)
-    except Exception, e:
+    except Exception as e:
+        #import traceback
+        #traceback.print_exc()
         logging.error(str(e))
