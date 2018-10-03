@@ -9,9 +9,15 @@
 #
 ################################################################################
 
+from __future__ import division
+from __future__ import print_function
 import unittest
-import ConfigParser
+try:
+    import ConfigParser
+except ImportError:
+    import configparser as ConfigParser
 import socket
+import struct
 
 from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import epm, dhcpm, samr
@@ -47,7 +53,7 @@ class DHCPMTests(unittest.TestCase):
 
         request['SearchInfo']['SearchType'] = dhcpm.DHCP_SEARCH_INFO_TYPE.DhcpClientIpAddress
         request['SearchInfo']['SearchInfo']['tag'] = dhcpm.DHCP_SEARCH_INFO_TYPE.DhcpClientIpAddress
-        ip = int(socket.inet_aton(self.machine).encode('hex'), 16)
+        ip = struct.unpack("!I", socket.inet_aton(self.machine))[0]
         request['SearchInfo']['SearchInfo']['ClientIpAddress'] = ip
 
         #request['SearchInfo']['SearchType'] = 2
@@ -59,7 +65,7 @@ class DHCPMTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             # For now we'e failing. This is not supported in W2k8r2
             if str(e).find('nca_s_op_rng_error') >= 0:
                 pass
@@ -71,7 +77,7 @@ class DHCPMTests(unittest.TestCase):
 
         request['SearchInfo']['SearchType'] = dhcpm.DHCP_SEARCH_INFO_TYPE.DhcpClientIpAddress
         request['SearchInfo']['SearchInfo']['tag'] = dhcpm.DHCP_SEARCH_INFO_TYPE.DhcpClientIpAddress
-        ip = int(socket.inet_aton(self.machine).encode('hex'), 16)
+        ip = struct.unpack("!I", socket.inet_aton(self.machine))[0]
         request['SearchInfo']['SearchInfo']['ClientIpAddress'] = ip
 
         request.dump()
@@ -86,7 +92,7 @@ class DHCPMTests(unittest.TestCase):
     def test_hDhcpGetClientInfoV4(self):
         dce, rpctransport = self.connect(1)
 
-        ip = int(socket.inet_aton(self.machine).encode('hex'), 16)
+        ip = struct.unpack("!I", socket.inet_aton(self.machine))[0]
         try:
             resp = dhcpm.hDhcpGetClientInfoV4(dce, dhcpm.DHCP_SEARCH_INFO_TYPE.DhcpClientIpAddress, ip)
         except Exception as e:
@@ -98,7 +104,7 @@ class DHCPMTests(unittest.TestCase):
         try:
             resp = dhcpm.hDhcpGetClientInfoV4(dce, dhcpm.DHCP_SEARCH_INFO_TYPE.DhcpClientName, 'PEPA\x00')
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('0x4e2d') >= 0:
                 pass
 
@@ -108,7 +114,7 @@ class DHCPMTests(unittest.TestCase):
 
         try:
             resp = dhcpm.hDhcpEnumSubnetClientsV5(dce)
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_NO_MORE_ITEMS') >=0:
                 pass
             else:
@@ -120,8 +126,8 @@ class DHCPMTests(unittest.TestCase):
         dce, rpctransport = self.connect(2)
         netId = self.machine.split('.')[:-1]
         netId.append('0')
-        print '.'.join(netId)
-        subnet_id = int(socket.inet_aton('.'.join(netId)).encode('hex'), 16)
+        print('.'.join(netId))
+        subnet_id = struct.unpack("!I", socket.inet_aton('.'.join(netId)))[0]
         try:
             resp = dhcpm.hDhcpGetOptionValueV5(dce,3,
                                            dhcpm.DHCP_FLAGS_OPTION_DEFAULT, NULL, NULL,
