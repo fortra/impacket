@@ -20,8 +20,13 @@
 #
 ################################################################################
 
+from __future__ import division
+from __future__ import print_function
 import unittest
-import ConfigParser
+try:
+    import ConfigParser
+except ImportError:
+    import configparser as ConfigParser
 
 from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import dcomrt
@@ -156,7 +161,7 @@ class DCOMTests(unittest.TestCase):
    
         resp = vdsService.IsServiceReady()
         while resp['ErrorCode'] == 1:
-            print "Waiting.. "
+            print("Waiting.. ")
             resp = vdsService.IsServiceReady()
 
         vdsService.WaitForServiceReady()
@@ -226,7 +231,7 @@ class DCOMTests(unittest.TestCase):
             es = comev.IEventSubscription3(es)
 
             #es.get_SubscriptionID()
-            print es.get_SubscriptionName()['pbstrSubscriptionName']['asData']
+            print(es.get_SubscriptionName()['pbstrSubscriptionName']['asData'])
             ##es.get_PublisherID()
             #es.get_EventClassID()
             #es.get_MethodName()
@@ -275,7 +280,7 @@ class DCOMTests(unittest.TestCase):
             #ev.get_FireInParallel()
             ev.RemRelease()
 
-        print "="*80
+        print("="*80)
 
         dcom.disconnect()
         #eventSubscription.get_SubscriptionID()
@@ -290,7 +295,7 @@ class DCOMTests(unittest.TestCase):
 
         iDispatch = ie.IWebBrowser(iInterface)
         resp = iDispatch.GetIDsOfNames(('Navigate',))
-        print resp
+        print(resp)
         #sys.exit(1)
         iTypeInfo = iDispatch.GetTypeInfo()
         resp = iTypeInfo.GetTypeAttr()
@@ -301,9 +306,9 @@ class DCOMTests(unittest.TestCase):
             #resp2 = iTypeInfo.GetNames(resp['ppFuncDesc']['memid'])
             #print resp2['rgBstrNames'][0]['asData']
             resp = iTypeInfo.GetDocumentation(resp['ppFuncDesc']['memid'])
-            print resp['pBstrName']['asData']
+            print(resp['pBstrName']['asData'])
         #iEventSystem.get_EventObjectChangeEventClassID()
-        print "ACA"
+        print("ACA")
         iTypeInfo.RemRelease()
         iDispatch.RemRelease()
 
