@@ -3196,7 +3196,7 @@ def hNetrpGetFileSecurity(dce, shareName, lpFileName, requestedInformation):
     request['lpFileName'] = lpFileName
     request['RequestedInformation'] = requestedInformation
     retVal = dce.request(request)
-    return ''.join(retVal['SecurityDescriptor']['Buffer'])
+    return b''.join(retVal['SecurityDescriptor']['Buffer'])
 
 def hNetrpSetFileSecurity(dce, shareName, lpFileName, securityInformation, securityDescriptor):
     request = NetrpSetFileSecurity()
