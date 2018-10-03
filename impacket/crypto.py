@@ -27,6 +27,7 @@ except Exception:
 from struct import pack, unpack
 from impacket.structure import Structure
 import hmac, hashlib
+from six import b
 
 def Generate_Subkey(K):
 
@@ -252,14 +253,14 @@ class LSA_SECRET_XP(Structure):
 def transformKey(InputKey):
     # Section 5.1.3
     OutputKey = []
-    OutputKey.append( chr(ord(InputKey[0]) >> 0x01) )
-    OutputKey.append( chr(((ord(InputKey[0])&0x01)<<6) | (ord(InputKey[1])>>2)) )
-    OutputKey.append( chr(((ord(InputKey[1])&0x03)<<5) | (ord(InputKey[2])>>3)) )
-    OutputKey.append( chr(((ord(InputKey[2])&0x07)<<4) | (ord(InputKey[3])>>4)) )
-    OutputKey.append( chr(((ord(InputKey[3])&0x0F)<<3) | (ord(InputKey[4])>>5)) )
-    OutputKey.append( chr(((ord(InputKey[4])&0x1F)<<2) | (ord(InputKey[5])>>6)) )
-    OutputKey.append( chr(((ord(InputKey[5])&0x3F)<<1) | (ord(InputKey[6])>>7)) )
-    OutputKey.append( chr(ord(InputKey[6]) & 0x7F) )
+    OutputKey.append( chr(ord(InputKey[0:1]) >> 0x01) )
+    OutputKey.append( chr(((ord(InputKey[0:1])&0x01)<<6) | (ord(InputKey[1:2])>>2)) )
+    OutputKey.append( chr(((ord(InputKey[1:2])&0x03)<<5) | (ord(InputKey[2:3])>>3)) )
+    OutputKey.append( chr(((ord(InputKey[2:3])&0x07)<<4) | (ord(InputKey[3:4])>>4)) )
+    OutputKey.append( chr(((ord(InputKey[3:4])&0x0F)<<3) | (ord(InputKey[4:5])>>5)) )
+    OutputKey.append( chr(((ord(InputKey[4:5])&0x1F)<<2) | (ord(InputKey[5:6])>>6)) )
+    OutputKey.append( chr(((ord(InputKey[5:6])&0x3F)<<1) | (ord(InputKey[6:7])>>7)) )
+    OutputKey.append( chr(ord(InputKey[6:7]) & 0x7F) )
 
     for i in range(8):
         OutputKey[i] = chr((ord(OutputKey[i]) << 1) & 0xfe)
@@ -337,8 +338,8 @@ def SamEncryptNTLMHash(encryptedHash, key):
     Key2 = key[7:14]
     Key2 = transformKey(Key2)
 
-    Crypt1 = DES.new(Key1, DES.MODE_ECB)
-    Crypt2 = DES.new(Key2, DES.MODE_ECB)
+    Crypt1 = DES.new(b(Key1), DES.MODE_ECB)
+    Crypt2 = DES.new(b(Key2), DES.MODE_ECB)
 
     plain1 = Crypt1.encrypt(Block1)
     plain2 = Crypt2.encrypt(Block2)

@@ -103,12 +103,22 @@ class STR(NDRSTRUCT):
 
     def __setitem__(self, key, value):
         if key == 'Data':
-            self.fields[key] = value
+            try:
+                self.fields[key] = value.encode('utf-8')
+            except UnicodeDecodeError:
+                import sys
+                self.fields[key] = value.decode(sys.getfilesystemencoding()).encode('utf-8')
             self.fields['MaximumCount'] = None
             self.fields['ActualCount'] = None
             self.data = None        # force recompute
         else:
             return NDR.__setitem__(self, key, value)
+
+    def __getitem__(self, key):
+        if key == 'Data':
+            return self.fields[key].decode('utf-8')
+        else:
+            return NDR.__getitem__(self,key)
 
     def getDataLen(self, data):
         return self["ActualCount"]
