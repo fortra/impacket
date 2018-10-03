@@ -180,7 +180,7 @@ class SMB3:
         self._Session = {
             'SessionID'                : 0,   #
             'TreeConnectTable'         : {},    #
-            'SessionKey'               : '',    #
+            'SessionKey'               : b'',    #
             'SigningRequired'          : False, #
             'Connection'               : 0,     # 
             'UserCredentials'          : '',    #
@@ -194,7 +194,7 @@ class SMB3:
             'EncryptionKey'            : '',
             'DecryptionKey'            : '',
             'SigningKey'               : '',  
-            'ApplicationKey'           : '',
+            'ApplicationKey'           : b'',
             # Outside the protocol
             'SessionFlags'             : 0,     # 
             'ServerName'               : '',    #

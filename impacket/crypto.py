@@ -265,7 +265,7 @@ def transformKey(InputKey):
     for i in range(8):
         OutputKey[i] = chr((ord(OutputKey[i]) << 1) & 0xfe)
 
-    return "".join(OutputKey)
+    return b("".join(OutputKey))
 
 def decryptSecret(key, value):
     # [MS-LSAD] Section 5.1.2
@@ -290,14 +290,16 @@ def decryptSecret(key, value):
 def encryptSecret(key, value):
     # [MS-LSAD] Section 5.1.2
     plainText = ''
-    cipherText = ''
+    cipherText = b''
     key0 = key
     value0 = pack('<LL', len(value), 1) + value
     for i in range(0, len(value0), 8):
         if len(value0) < 8:
-            value0 = value0 + '\x00'*(8-len(value0))
+            value0 = value0 + b'\x00'*(8-len(value0))
         plainText = value0[:8]
         tmpStrKey = key0[:7]
+        print(type(tmpStrKey))
+        print(tmpStrKey)
         tmpKey = transformKey(tmpStrKey)
         Crypt1 = DES.new(tmpKey, DES.MODE_ECB)
         cipherText += Crypt1.encrypt(plainText)

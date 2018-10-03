@@ -35,7 +35,7 @@ class DCERPCSessionError(DCERPCException):
 
     def __str__( self ):
         key = self.error_code
-        if system_errors.ERROR_MESSAGES.has_key(key):
+        if key in system_errors.ERROR_MESSAGES:
             error_msg_short = system_errors.ERROR_MESSAGES[key][0]
             error_msg_verbose = system_errors.ERROR_MESSAGES[key][1] 
             return 'SCMR SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
@@ -1282,7 +1282,7 @@ def hREnumServicesStatusW(dce, hSCManager, dwServiceType=SERVICE_WIN32_OWN_PROCE
 
     try:
         resp = dce.request(enumServicesStatus)
-    except DCERPCSessionError, e:
+    except DCERPCSessionError as e:
         if e.get_error_code() == system_errors.ERROR_MORE_DATA:
             resp = e.get_packet()
             enumServicesStatus['cbBufSize'] = resp['pcbBytesNeeded']
@@ -1297,7 +1297,7 @@ def hREnumServicesStatusW(dce, hSCManager, dwServiceType=SERVICE_WIN32_OWN_PROCE
 
     enumArray.setArraySize(resp['lpServicesReturned'])
 
-    data = ''.join(resp['lpBuffer'])
+    data = b''.join(resp['lpBuffer'])
     enumArray.fromString(data)
     data = data[4:]
     # Since the pointers here are pointing to the actual data, we have to reparse
@@ -1332,7 +1332,7 @@ def hRQueryServiceConfigW(dce, hService):
     queryService['cbBufSize'] = 0
     try:
         resp = dce.request(queryService)
-    except DCERPCSessionError, e:
+    except DCERPCSessionError as e:
         if e.get_error_code() == system_errors.ERROR_INSUFFICIENT_BUFFER:
             resp = e.get_packet()
             queryService['cbBufSize'] = resp['pcbBytesNeeded']
