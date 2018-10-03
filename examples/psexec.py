@@ -22,6 +22,7 @@ import argparse
 import random
 import string
 import time
+from six import PY3
 
 from impacket.examples import logger
 from impacket import version, smb
@@ -113,7 +114,7 @@ class PSEXEC:
         dce = rpctransport.get_dce_rpc()
         try:
             dce.connect()
-        except Exception, e:
+        except Exception as e:
             if logging.getLogger().level == logging.DEBUG:
                 import traceback
                 traceback.print_exc()
@@ -134,7 +135,7 @@ class PSEXEC:
             else:
                 try:
                     f = open(self.__exeFile)
-                except Exception, e:
+                except Exception as e:
                     logging.critical(str(e))
                     sys.exit(1)
                 installService = serviceinstall.ServiceInstall(rpctransport.get_smb_connection(), f)
@@ -157,13 +158,13 @@ class PSEXEC:
             packet = RemComMessage()
             pid = os.getpid()
 
-            packet['Machine'] = ''.join([random.choice(string.letters) for _ in range(4)])
+            packet['Machine'] = ''.join([random.choice(string.ascii_letters) for _ in range(4)])
             if self.__path is not None:
                 packet['WorkingDir'] = self.__path
             packet['Command'] = self.__command
             packet['ProcessID'] = pid
 
-            s.writeNamedPipe(tid, fid_main, str(packet))
+            s.writeNamedPipe(tid, fid_main, packet.getData())
 
             # Here we'll store the command we type so we don't print it back ;)
             # ( I know.. globals are nasty :P )
@@ -322,13 +323,13 @@ class RemoteShell(cmd.Cmd):
             self.transferClient.login(user, passwd, domain, lm, nt)
 
     def do_help(self, line):
-        print """
+        print("""
  lcd {path}                 - changes the current local directory to {path}
  exit                       - terminates the server process (and this session)
  put {src_file, dst_path}   - uploads a local file to the dst_path RELATIVE to the connected share (%s)
  get {file}                 - downloads pathname RELATIVE to the connected share (%s) to the current local dir 
  ! {cmd}                    - executes a local shell cmd
-""" % (self.share, self.share)
+""" % (self.share, self.share))
         self.send_data('\r\n', False)
 
     def do_shell(self, s):
@@ -346,7 +347,7 @@ class RemoteShell(cmd.Cmd):
             logging.info("Downloading %s\%s" % (self.share, src_path))
             self.transferClient.getFile(self.share, src_path, fh.write)
             fh.close()
-        except Exception, e:
+        except Exception as e:
             logging.critical(str(e))
             pass
 
@@ -367,11 +368,14 @@ class RemoteShell(cmd.Cmd):
             src_file = os.path.basename(src_path)
             fh = open(src_path, 'rb')
             f = dst_path + '/' + src_file
-            pathname = string.replace(f,'/','\\')
+            pathname = f.replace('/','\\')
             logging.info("Uploading %s to %s\%s" % (src_file, self.share, dst_path))
-            self.transferClient.putFile(self.share, pathname.decode(sys.stdin.encoding), fh.read)
+            if PY3:
+                self.transferClient.putFile(self.share, pathname, fh.read)
+            else:
+                self.transferClient.putFile(self.share, pathname.decode(sys.stdin.encoding), fh.read)
             fh.close()
-        except Exception, e:
+        except Exception as e:
             logging.error(str(e))
             pass
 
@@ -379,7 +383,7 @@ class RemoteShell(cmd.Cmd):
 
     def do_lcd(self, s):
         if s == '':
-            print os.getcwd()
+            print(os.getcwd())
         else:
             os.chdir(s)
         self.send_data('\r\n')
@@ -389,7 +393,10 @@ class RemoteShell(cmd.Cmd):
         return
 
     def default(self, line):
-        self.send_data(line.decode(sys.stdin.encoding).encode('cp437')+'\r\n')
+        if PY3:
+            self.send_data(line.encode('cp437')+b'\r\n')
+        else:
+            self.send_data(line.decode(sys.stdin.encoding).encode('cp437')+'\r\n')
 
     def send_data(self, data, hideOutput = True):
         if hideOutput is True:
@@ -413,7 +420,7 @@ class RemoteStdInPipe(Pipes):
 if __name__ == '__main__':
     # Init the example's logger theme
     logger.init()
-    print version.BANNER
+    print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help = True, description = "PSEXEC like functionality example using RemComSvc.")
 
