@@ -250,6 +250,7 @@ class LSA_SECRET_XP(Structure):
         ('Secret', ':'),
     )
 
+
 def transformKey(InputKey):
     # Section 5.1.3
     OutputKey = []

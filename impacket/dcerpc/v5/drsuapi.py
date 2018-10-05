@@ -20,8 +20,10 @@
 #
 from __future__ import division
 from __future__ import print_function
+from builtins import bytes
 import hashlib
 from struct import pack
+from six import PY2
 
 from impacket import LOG
 from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRPOINTER, NDRUniConformantArray, NDRUNION, NDR, NDRENUM
@@ -34,6 +36,7 @@ from impacket.dcerpc.v5.rpcrt import DCERPCException
 from impacket.krb5 import crypto
 from pyasn1.type import univ
 from pyasn1.codec.ber import decoder
+from impacket.crypto import transformKey
 
 try:
     from Cryptodome.Cipher import ARC4, DES
@@ -1345,23 +1348,6 @@ def hDRSCrackNames(dce, hDrs, flags, formatOffered, formatDesired, rpNames = ())
 
     return dce.request(request)
 
-def transformKey(InputKey):
-        # Section 2.2.11.1.2 Encrypting a 64-Bit Block with a 7-Byte Key
-        OutputKey = []
-        OutputKey.append( chr(ord(InputKey[0]) >> 0x01) )
-        OutputKey.append( chr(((ord(InputKey[0])&0x01)<<6) | (ord(InputKey[1])>>2)) )
-        OutputKey.append( chr(((ord(InputKey[1])&0x03)<<5) | (ord(InputKey[2])>>3)) )
-        OutputKey.append( chr(((ord(InputKey[2])&0x07)<<4) | (ord(InputKey[3])>>4)) )
-        OutputKey.append( chr(((ord(InputKey[3])&0x0F)<<3) | (ord(InputKey[4])>>5)) )
-        OutputKey.append( chr(((ord(InputKey[4])&0x1F)<<2) | (ord(InputKey[5])>>6)) )
-        OutputKey.append( chr(((ord(InputKey[5])&0x3F)<<1) | (ord(InputKey[6])>>7)) )
-        OutputKey.append( chr(ord(InputKey[6]) & 0x7F) )
-
-        for i in range(8):
-            OutputKey[i] = chr((ord(OutputKey[i]) << 1) & 0xfe)
-
-        return "".join(OutputKey)
-
 def deriveKey(baseKey):
         # 2.2.11.1.3 Deriving Key1 and Key2 from a Little-Endian, Unsigned Integer Key
         # Let I be the little-endian, unsigned integer.
@@ -1370,9 +1356,12 @@ def deriveKey(baseKey):
         # Key1 is a concatenation of the following values: I[0], I[1], I[2], I[3], I[0], I[1], I[2].
         # Key2 is a concatenation of the following values: I[3], I[0], I[1], I[2], I[3], I[0], I[1]
         key = pack('<L',baseKey)
-        key1 = key[0] + key[1] + key[2] + key[3] + key[0] + key[1] + key[2]
-        key2 = key[3] + key[0] + key[1] + key[2] + key[3] + key[0] + key[1]
-        return transformKey(key1),transformKey(key2)
+        key1 = [key[0] , key[1] , key[2] , key[3] , key[0] , key[1] , key[2]]
+        key2 = [key[3] , key[0] , key[1] , key[2] , key[3] , key[0] , key[1]]
+        if PY2:
+            return transformKey(b''.join(key1)),transformKey(b''.join(key2))
+        else:
+            return transformKey(bytes(key1)),transformKey(bytes(key2))
 
 def removeDESLayer(cryptedHash, rid):
         Key1,Key2 = deriveKey(rid)
@@ -1468,18 +1457,17 @@ def OidFromAttid(prefixTable, attr):
         if item['ndx'] == upperWord:
             binaryOID = item['prefix']['elements'][:item['prefix']['length']]
             if lowerWord < 128:
-                binaryOID.append(chr(lowerWord))
+                binaryOID.append(pack('B',lowerWord))
             else:
                 if lowerWord >= 32768:
                     lowerWord -= 32768
-                binaryOID.append(chr(((lowerWord//128) % 128)+128))
-                binaryOID.append(chr(lowerWord%128))
+                binaryOID.append(pack('B',(((lowerWord//128) % 128)+128)))
+                binaryOID.append(pack('B',(lowerWord%128)))
             break
 
     if binaryOID is None:
         return None
-
-    return str(decoder.decode('\x06' + chr(len(binaryOID)) + ''.join(binaryOID), asn1Spec = univ.ObjectIdentifier())[0])
+    return str(decoder.decode(b'\x06' + pack('B',(len(binaryOID))) + b''.join(binaryOID), asn1Spec = univ.ObjectIdentifier())[0])
 
 if __name__ == '__main__':
     prefixTable = []

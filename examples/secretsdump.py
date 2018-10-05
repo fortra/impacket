@@ -43,6 +43,8 @@
 # http://www.ntdsxtract.com/downloads/ActiveDirectoryOfflineHashDumpAndForensics.pdf
 # http://www.passcape.com/index.php?section=blog&cmd=details&id=15
 #
+from __future__ import division
+from __future__ import print_function
 import argparse
 import codecs
 import logging
@@ -54,6 +56,9 @@ from impacket.examples import logger
 from impacket.smbconnection import SMBConnection
 
 from impacket.examples.secretsdump import LocalOperations, RemoteOperations, SAMHashes, LSASecrets, NTDSHashes
+from six import PY2
+if PY2:
+    input = raw_input
 
 class DumpSecrets:
     def __init__(self, remoteName, username='', password='', domain='', options=None):
@@ -123,7 +128,7 @@ class DumpSecrets:
                 try:
                     try:
                         self.connect()
-                    except Exception, e:
+                    except Exception as e:
                         if os.getenv('KRB5CCNAME') is not None and self.__doKerberos is True:
                             # SMBConnection failed. That might be because there was no way to log into the
                             # target system. We just have a last resort. Hope we have tickets cached and that they
@@ -140,7 +145,7 @@ class DumpSecrets:
                         bootKey             = self.__remoteOps.getBootKey()
                         # Let's check whether target system stores LM Hashes
                         self.__noLMHash = self.__remoteOps.checkNoLMHashPolicy()
-                except Exception, e:
+                except Exception as e:
                     self.__canProcessSAMLSA = False
                     if str(e).find('STATUS_USER_SESSION_DELETED') and os.getenv('KRB5CCNAME') is not None \
                         and self.__doKerberos is True:
@@ -162,7 +167,7 @@ class DumpSecrets:
                     self.__SAMHashes.dump()
                     if self.__outputFileName is not None:
                         self.__SAMHashes.export(self.__outputFileName)
-                except Exception, e:
+                except Exception as e:
                     logging.error('SAM hashes extraction failed: %s' % str(e))
 
                 try:
@@ -179,7 +184,7 @@ class DumpSecrets:
                     self.__LSASecrets.dumpSecrets()
                     if self.__outputFileName is not None:
                         self.__LSASecrets.exportSecrets(self.__outputFileName)
-                except Exception, e:
+                except Exception as e:
                     if logging.getLogger().level == logging.DEBUG:
                         import traceback
                         traceback.print_exc()
@@ -202,7 +207,7 @@ class DumpSecrets:
                                            printUserStatus= self.__printUserStatus)
             try:
                 self.__NTDSHashes.dump()
-            except Exception, e:
+            except Exception as e:
                 if logging.getLogger().level == logging.DEBUG:
                     import traceback
                     traceback.print_exc()
@@ -220,7 +225,7 @@ class DumpSecrets:
                 elif self.__useVSSMethod is False:
                     logging.info('Something wen\'t wrong with the DRSUAPI approach. Try again with -use-vss parameter')
             self.cleanup()
-        except (Exception, KeyboardInterrupt), e:
+        except (Exception, KeyboardInterrupt) as e:
             if logging.getLogger().level == logging.DEBUG:
                 import traceback
                 traceback.print_exc()
@@ -228,7 +233,7 @@ class DumpSecrets:
             if self.__NTDSHashes is not None:
                 if isinstance(e, KeyboardInterrupt):
                     while True:
-                        answer =  raw_input("Delete resume session file? [y/N] ")
+                        answer =  input("Delete resume session file? [y/N] ")
                         if answer.upper() == '':
                             answer = 'N'
                             break
@@ -268,7 +273,7 @@ if __name__ == '__main__':
         # Output is redirected to a file
         sys.stdout = codecs.getwriter('utf8')(sys.stdout)
 
-    print version.BANNER
+    print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help = True, description = "Performs various techniques to dump secrets from "
                                                       "the remote machine without executing any agent there.")
@@ -385,7 +390,7 @@ if __name__ == '__main__':
     dumper = DumpSecrets(remoteName, username, password, domain, options)
     try:
         dumper.dump()
-    except Exception, e:
+    except Exception as e:
         if logging.getLogger().level == logging.DEBUG:
             import traceback
             traceback.print_exc()
