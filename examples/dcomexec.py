@@ -30,16 +30,17 @@
 # [ ] Kerberos auth not working, invalid_checksum is thrown. Most probably sequence numbers out of sync due to
 #     getInterface() method
 #
-
+from __future__ import division
+from __future__ import print_function
 import argparse
 import cmd
 import logging
 import ntpath
 import os
-import string
 import sys
 import time
 
+from six import PY3
 from impacket import version
 from impacket.dcerpc.v5.dcom.oaut import IID_IDispatch, string_to_bin, IDispatch, DISPPARAMS, DISPATCH_PROPERTYGET, \
     VARIANT, VARENUM, DISPATCH_METHOD
@@ -51,7 +52,7 @@ from impacket.dcerpc.v5.dtypes import NULL
 from impacket.examples import logger
 from impacket.smbconnection import SMBConnection, SMB_DIALECT, SMB2_DIALECT_002, SMB2_DIALECT_21
 
-OUTPUT_FILENAME = '__' + str(time.time())
+OUTPUT_FILENAME = '__' + str(time.time())[:5]
 
 class DCOMEXEC:
     def __init__(self, command='', username='', password='', domain='', hashes=None, aesKey=None, share=None,
@@ -74,16 +75,16 @@ class DCOMEXEC:
 
     def getInterface(self, interface, resp):
         # Now let's parse the answer and build an Interface instance
-        objRefType = OBJREF(''.join(resp))['flags']
+        objRefType = OBJREF(b''.join(resp))['flags']
         objRef = None
         if objRefType == FLAGS_OBJREF_CUSTOM:
-            objRef = OBJREF_CUSTOM(''.join(resp))
+            objRef = OBJREF_CUSTOM(b''.join(resp))
         elif objRefType == FLAGS_OBJREF_HANDLER:
-            objRef = OBJREF_HANDLER(''.join(resp))
+            objRef = OBJREF_HANDLER(b''.join(resp))
         elif objRefType == FLAGS_OBJREF_STANDARD:
-            objRef = OBJREF_STANDARD(''.join(resp))
+            objRef = OBJREF_STANDARD(b''.join(resp))
         elif objRefType == FLAGS_OBJREF_EXTENDED:
-            objRef = OBJREF_EXTENDED(''.join(resp))
+            objRef = OBJREF_EXTENDED(b''.join(resp))
         else:
             logging.error("Unknown OBJREF Type! 0x%x" % objRefType)
 
@@ -167,12 +168,12 @@ class DCOMEXEC:
                 self.shell = RemoteShell(self.__share, (iMMC, pQuit), (iActiveView, pExecuteShellCommand), smbConnection)
 
             if self.__command != ' ':
-                self.shell.onecmd(self.__command)
+                self.shell.onecmd(self.__command)[:5]
                 if self.shell is not None:
                     self.shell.do_exit('')
             else:
                 self.shell.cmdloop()
-        except  (Exception, KeyboardInterrupt), e:
+        except  (Exception, KeyboardInterrupt) as e:
             if logging.getLogger().level == logging.DEBUG:
                 import traceback
                 traceback.print_exc()
@@ -214,21 +215,21 @@ class RemoteShell(cmd.Cmd):
         os.system(s)
 
     def do_help(self, line):
-        print """
+        print("""
  lcd {path}                 - changes the current local directory to {path}
  exit                       - terminates the server process (and this session)
  put {src_file, dst_path}   - uploads a local file to the dst_path (dst_path = default current directory)
  get {file}                 - downloads pathname to the current local dir
  ! {cmd}                    - executes a local shell cmd
-"""
+""")
 
     def do_lcd(self, s):
         if s == '':
-            print os.getcwd()
+            print(os.getcwd())
         else:
             try:
                 os.chdir(s)
-            except Exception, e:
+            except Exception as e:
                 logging.error(str(e))
 
     def do_get(self, src_path):
@@ -241,7 +242,7 @@ class RemoteShell(cmd.Cmd):
             logging.info("Downloading %s\\%s" % (drive, tail))
             self.__transferClient.getFile(drive[:-1]+'$', tail, fh.write)
             fh.close()
-        except Exception, e:
+        except Exception as e:
             logging.error(str(e))
             os.remove(filename)
             pass
@@ -258,14 +259,14 @@ class RemoteShell(cmd.Cmd):
 
             src_file = os.path.basename(src_path)
             fh = open(src_path, 'rb')
-            dst_path = string.replace(dst_path, '/','\\')
+            dst_path = dst_path.replace('/','\\')
             import ntpath
             pathname = ntpath.join(ntpath.join(self._pwd, dst_path), src_file)
             drive, tail = ntpath.splitdrive(pathname)
             logging.info("Uploading %s to %s" % (src_file, pathname))
             self.__transferClient.putFile(drive[:-1]+'$', tail, fh.read)
             fh.close()
-        except Exception, e:
+        except Exception as e:
             logging.critical(str(e))
             pass
 
@@ -286,7 +287,7 @@ class RemoteShell(cmd.Cmd):
     def do_cd(self, s):
         self.execute_remote('cd ' + s)
         if len(self.__outputBuffer.strip('\r\n')) > 0:
-            print self.__outputBuffer
+            print(self.__outputBuffer)
             self.__outputBuffer = ''
         else:
             self._pwd = ntpath.normpath(ntpath.join(self._pwd, s))
@@ -302,7 +303,7 @@ class RemoteShell(cmd.Cmd):
             self.execute_remote(line)
             if len(self.__outputBuffer.strip('\r\n')) > 0:
                 # Something went wrong
-                print self.__outputBuffer
+                print(self.__outputBuffer)
                 self.__outputBuffer = ''
             else:
                 # Drive valid, now we should get the current path
@@ -317,7 +318,7 @@ class RemoteShell(cmd.Cmd):
 
     def get_output(self):
         def output_callback(data):
-            self.__outputBuffer += data
+            self.__outputBuffer += data.decode('utf-8')
 
         if self._noOutput is True:
             self.__outputBuffer = ''
@@ -327,7 +328,7 @@ class RemoteShell(cmd.Cmd):
             try:
                 self.__transferClient.getFile(self._share, self._output, output_callback)
                 break
-            except Exception, e:
+            except Exception as e:
                 if str(e).find('STATUS_SHARING_VIOLATION') >=0:
                     # Output not finished, let's wait
                     time.sleep(1)
@@ -344,6 +345,8 @@ class RemoteShell(cmd.Cmd):
         if self._noOutput is False:
             command += ' 1> ' + '\\\\127.0.0.1\\%s' % self._share + self._output + ' 2>&1'
 
+        logging.debug('Executing: %s' % command)
+
         dispParams = DISPPARAMS(None, False)
         dispParams['rgdispidNamedArgs'] = NULL
         dispParams['cArgs'] = 5
@@ -358,7 +361,10 @@ class RemoteShell(cmd.Cmd):
         arg1['clSize'] = 5
         arg1['vt'] = VARENUM.VT_BSTR
         arg1['_varUnion']['tag'] = VARENUM.VT_BSTR
-        arg1['_varUnion']['bstrVal']['asData'] = command.decode(sys.stdin.encoding)
+        if PY3:
+            arg1['_varUnion']['bstrVal']['asData'] = command
+        else:
+            arg1['_varUnion']['bstrVal']['asData'] = command.decode(sys.stdin.encoding)
 
         arg2 = VARIANT(None, False)
         arg2['clSize'] = 5
@@ -383,7 +389,7 @@ class RemoteShell(cmd.Cmd):
         dispParams['rgvarg'].append(arg1)
         dispParams['rgvarg'].append(arg0)
 
-        #print dispParams.dump()
+        #print(dispParams.dump())
 
         self._executeShellCommand[0].Invoke(self._executeShellCommand[1], 0x409, DISPATCH_METHOD, dispParams,
                                             0, [], [])
@@ -391,7 +397,7 @@ class RemoteShell(cmd.Cmd):
 
     def send_data(self, data):
         self.execute_remote(data)
-        print self.__outputBuffer
+        print(self.__outputBuffer)
         self.__outputBuffer = ''
 
 class RemoteShellMMC20(RemoteShell):
@@ -420,7 +426,10 @@ class RemoteShellMMC20(RemoteShell):
         arg2['clSize'] = 5
         arg2['vt'] = VARENUM.VT_BSTR
         arg2['_varUnion']['tag'] = VARENUM.VT_BSTR
-        arg2['_varUnion']['bstrVal']['asData'] = command.decode(sys.stdin.encoding)
+        if PY3:
+            arg2['_varUnion']['bstrVal']['asData'] = command
+        else:
+            arg2['_varUnion']['bstrVal']['asData'] = command.decode(sys.stdin.encoding)
 
         arg3 = VARIANT(None, False)
         arg3['clSize'] = 5
@@ -489,7 +498,7 @@ def load_smbclient_auth_file(path):
 if __name__ == '__main__':
     # Init the example's logger theme
     logger.init()
-    print version.BANNER
+    print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help = True, description = "Executes a semi-interactive shell using the "
                                                                     "ShellBrowserWindow DCOM object.")
@@ -562,7 +571,7 @@ if __name__ == '__main__':
         executer = DCOMEXEC(' '.join(options.command), username, password, domain, options.hashes, options.aesKey,
                             options.share, options.nooutput, options.k, options.dc_ip, options.object)
         executer.run(address)
-    except (Exception, KeyboardInterrupt), e:
+    except (Exception, KeyboardInterrupt) as e:
         if logging.getLogger().level == logging.DEBUG:
             import traceback
             traceback.print_exc()
