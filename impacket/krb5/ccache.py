@@ -17,6 +17,7 @@ from __future__ import division
 from __future__ import print_function
 from datetime import datetime
 from struct import pack, unpack, calcsize
+from six import b
 
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type.univ import noValue
@@ -128,12 +129,12 @@ class Principal:
         return self.getData()
 
     def prettyPrint(self):
-        principal = ''
+        principal = b''
         for component in self.components:
-            principal += component['data'] + '/'
+            principal += component['data'] + b'/'
         
         principal = principal[:-1]
-        principal += '@' + self.realm['data']
+        principal += b'@' + self.realm['data']
         return principal
 
     def fromPrincipal(self, principal):
@@ -331,7 +332,7 @@ class CCache:
             self.credentials = []
             while len(data) > 0:
                 cred = Credential(data)
-                if cred['server'].prettyPrint().find('krb5_ccache_conf_data') < 0:
+                if cred['server'].prettyPrint().find(b'krb5_ccache_conf_data') < 0:
                     self.credentials.append(cred)
                 data = data[len(cred.getData()):]
 
@@ -346,8 +347,8 @@ class CCache:
 
     def getCredential(self, server, anySPN=True):
         for c in self.credentials:
-            if c['server'].prettyPrint().upper() == server.upper() or c['server'].prettyPrint().upper().split('@')[0] == server.upper() \
-                    or c['server'].prettyPrint().upper().split('@')[0] == server.upper().split('@')[0]:
+            if c['server'].prettyPrint().upper() == b(server.upper()) or c['server'].prettyPrint().upper().split(b'@')[0] == b(server.upper())\
+                    or c['server'].prettyPrint().upper().split(b'@')[0] == b(server.upper().split('@')[0]):
                 LOG.debug('Returning cached credential for %s' % c['server'].prettyPrint().upper())
                 return c
         LOG.debug('SPN %s not found in cache' % server.upper())
@@ -356,13 +357,12 @@ class CCache:
             for c in self.credentials:
                 # Let's search for any TGT/TGS that matches the server w/o the SPN's service type/port, returns
                 # the first one
-                if c['server'].prettyPrint().find('/') >=0:
+                if c['server'].prettyPrint().find(b'/') >=0:
                     # Let's take the port out for comparison
-                    cachedSPN = '%s@%s'  % (c['server'].prettyPrint().upper().split('/')[1].split('@')[0].split(':')[0],
-                                               c['server'].prettyPrint().upper().split('/')[1].split('@')[1])
+                    cachedSPN = (c['server'].prettyPrint().upper().split(b'/')[1].split(b'@')[0].split(b':')[0] + b'@' + c['server'].prettyPrint().upper().split(b'/')[1].split(b'@')[1])
                     searchSPN = '%s@%s' % (server.upper().split('/')[1].split('@')[0].split(':')[0],
                                                server.upper().split('/')[1].split('@')[1])
-                    if cachedSPN == searchSPN:
+                    if cachedSPN == b(searchSPN):
                         LOG.debug('Returning cached credential for %s' % c['server'].prettyPrint().upper())
                         return c
 
@@ -387,7 +387,7 @@ class CCache:
         header = Header()
         header['tag'] = 1
         header['taglen'] = 8
-        header['tagdata'] = '\xff\xff\xff\xff\x00\x00\x00\x00'
+        header['tagdata'] = b'\xff\xff\xff\xff\x00\x00\x00\x00'
         self.headers.append(header)
 
         decodedTGT = decoder.decode(tgt, asn1Spec = AS_REP())[0]
@@ -422,7 +422,7 @@ class CCache:
 
         credential['key'] = KeyBlock()
         credential['key']['keytype'] = int(encASRepPart['key']['keytype'])
-        credential['key']['keyvalue'] = encASRepPart['key']['keyvalue']
+        credential['key']['keyvalue'] = encASRepPart['key']['keyvalue'].asOctets()
         credential['key']['keylen'] = len(credential['key']['keyvalue'])
 
         credential['time'] = Times()
@@ -448,7 +448,7 @@ class CCache:
         header = Header()
         header['tag'] = 1
         header['taglen'] = 8
-        header['tagdata'] = '\xff\xff\xff\xff\x00\x00\x00\x00'
+        header['tagdata'] = b'\xff\xff\xff\xff\x00\x00\x00\x00'
         self.headers.append(header)
 
         decodedTGS = decoder.decode(tgs, asn1Spec = TGS_REP())[0]

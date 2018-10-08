@@ -30,6 +30,7 @@ import re
 import struct
 
 from pyasn1.codec.der import decoder
+from six import PY3
 
 from . import asn1
 from . import constants
@@ -38,9 +39,9 @@ from . import constants
 class KerberosException(Exception): pass
 
 def _asn1_decode(data, asn1Spec):
-    if isinstance(data, str):
+    if isinstance(data, str) or isinstance(data,bytes):
         data, substrate = decoder.decode(data, asn1Spec=asn1Spec)
-        if substrate != '':
+        if substrate != b'':
             raise KerberosException("asn1 encoding invalid")
     return data
 
@@ -61,6 +62,12 @@ If the value contains no realm, then default_realm will be used."""
 
         if value is None:
             return
+
+        if PY3 is not True and isinstance(value, unicode):
+            value = value.encode('utf-8')
+
+        if PY3 and isinstance(value, bytes):
+            value = value.decode('utf-8')
 
         if isinstance(value, Principal):
             self.type = value.type

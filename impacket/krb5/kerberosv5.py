@@ -211,7 +211,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
     cipher = _enctype_table[enctype]
 
     # Pass the hash/aes key :P
-    if nthash != '':
+    if nthash != '' and (isinstance(nthash, bytes) and nthash != b''):
         key = Key(cipher.enctype, nthash)
     elif aesKey != '':
         key = Key(cipher.enctype, unhexlify(aesKey))
@@ -501,7 +501,7 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT 
             else:
                 # retrieve domain information from CCache file if needed
                 if domain == '':
-                    domain = ccache.principal.realm['data']
+                    domain = ccache.principal.realm['data'].decode('utf-8')
                     LOG.debug('Domain retrieved from CCache: %s' % domain)
 
                 LOG.debug("Using Kerberos Cache: %s" % os.getenv('KRB5CCNAME'))
@@ -521,7 +521,7 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT 
 
                 # retrieve user information from CCache file if needed
                 if username == '' and creds is not None:
-                    username = creds['client'].prettyPrint().split('@')[0]
+                    username = creds['client'].prettyPrint().split(b'@')[0]
                     LOG.debug('Username retrieved from CCache: %s' % username)
                 elif username == '' and len(ccache.principal.components) > 0:
                     username = ccache.principal.components[0]['data']

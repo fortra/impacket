@@ -167,7 +167,7 @@ class LDAPConnection:
             else:
                 # retrieve domain information from CCache file if needed
                 if domain == '':
-                    domain = ccache.principal.realm['data']
+                    domain = ccache.principal.realm['data'].decode('utf-8')
                     LOG.debug('Domain retrieved from CCache: %s' % domain)
 
                 LOG.debug('Using Kerberos Cache: %s' % os.getenv('KRB5CCNAME'))
@@ -188,7 +188,7 @@ class LDAPConnection:
 
                 # retrieve user information from CCache file if needed
                 if user == '' and creds is not None:
-                    user = creds['client'].prettyPrint().split('@')[0]
+                    user = creds['client'].prettyPrint().split(b'@')[0]
                     LOG.debug('Username retrieved from CCache: %s' % user)
                 elif user == '' and len(ccache.principal.components) > 0:
                     user = ccache.principal.components[0]['data']
