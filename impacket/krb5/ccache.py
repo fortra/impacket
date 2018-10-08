@@ -131,10 +131,18 @@ class Principal:
     def prettyPrint(self):
         principal = b''
         for component in self.components:
-            principal += component['data'] + b'/'
+            if isinstance(component['data'], bytes) is not True:
+                component = b(component['data'])
+            else:
+                component = component['data']
+            principal += component + b'/'
         
         principal = principal[:-1]
-        principal += b'@' + self.realm['data']
+        if isinstance(self.realm['data'], bytes):
+            realm = self.realm['data']
+        else:
+            realm = b(self.realm['data'])
+        principal += b'@' + realm
         return principal
 
     def fromPrincipal(self, principal):
@@ -439,7 +447,7 @@ class CCache:
         credential.ticket['data'] = encoder.encode(decodedTGT['ticket'].clone(tagSet=Ticket.tagSet, cloneValueFlag=True))
         credential.ticket['length'] = len(credential.ticket['data'])
         credential.secondTicket = CountedOctetString()
-        credential.secondTicket['data'] = ''
+        credential.secondTicket['data'] = b''
         credential.secondTicket['length'] = 0
         self.credentials.append(credential)
 
@@ -482,7 +490,7 @@ class CCache:
 
         credential['key'] = KeyBlock()
         credential['key']['keytype'] = int(encTGSRepPart['key']['keytype'])
-        credential['key']['keyvalue'] = encTGSRepPart['key']['keyvalue']
+        credential['key']['keyvalue'] = encTGSRepPart['key']['keyvalue'].asOctets()
         credential['key']['keylen'] = len(credential['key']['keyvalue'])
 
         credential['time'] = Times()
@@ -500,7 +508,7 @@ class CCache:
         credential.ticket['data'] = encoder.encode(decodedTGS['ticket'].clone(tagSet=Ticket.tagSet, cloneValueFlag=True))
         credential.ticket['length'] = len(credential.ticket['data'])
         credential.secondTicket = CountedOctetString()
-        credential.secondTicket['data'] = ''
+        credential.secondTicket['data'] = b''
         credential.secondTicket['length'] = 0
         self.credentials.append(credential)
 
