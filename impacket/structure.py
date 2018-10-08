@@ -264,6 +264,9 @@ class Structure:
         if format[:1] == ':':
             if isinstance(data, Structure):
                 return data.getData()
+            # If we have an object that can serialize itself, go ahead
+            elif hasattr(data, "getData"):
+                return data.getData()
             elif isinstance(data, int):
                 return bytes(data)
             elif isinstance(data, bytes) != True:
