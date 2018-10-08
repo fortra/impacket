@@ -136,7 +136,7 @@ PLOGONSRV_HANDLE = LPWSTR
 # 2.2.1.1.1 CYPHER_BLOCK
 class CYPHER_BLOCK(NDRSTRUCT):
     structure = (
-        ('Data', '8s=""'),
+        ('Data', '8s=b""'),
     )
     def getAlignment(self):
         return 1

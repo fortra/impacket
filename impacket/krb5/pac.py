@@ -166,8 +166,8 @@ class NTLM_SUPPLEMENTAL_CREDENTIAL(NDRSTRUCT):
     structure = (
         ('Version', ULONG),
         ('Flags', ULONG),
-        ('LmPassword', '16s=""'),
-        ('NtPassword', '16s=""'),
+        ('LmPassword', '16s=b""'),
+        ('NtPassword', '16s=b""'),
     )
 
 # 2.7 PAC_CLIENT_INFO
