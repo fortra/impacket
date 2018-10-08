@@ -21,7 +21,8 @@
 # Reference for:
 #  RPCRT, NDR
 #
-
+from __future__ import division
+from __future__ import print_function
 import argparse
 import logging
 import sys
@@ -58,17 +59,17 @@ class TARGETARCH:
                 dce.connect()
                 try:
                     dce.bind(MSRPC_UUID_PORTMAP, transfer_syntax=self.NDR64Syntax)
-                except DCERPCException, e:
+                except DCERPCException as e:
                     if str(e).find('syntaxes_not_supported') >= 0:
-                        print '%s is 32-bit' % machine
+                        print('%s is 32-bit' % machine)
                     else:
                         logging.error(str(e))
                         pass
                 else:
-                    print '%s is 64-bit' % machine
+                    print('%s is 64-bit' % machine)
 
                 dce.disconnect()
-            except Exception, e:
+            except Exception as e:
                 #import traceback
                 #traceback.print_exc()
                 logging.error('%s: %s' % (machine, str(e)))
@@ -77,7 +78,7 @@ class TARGETARCH:
 if __name__ == '__main__':
     # Init the example's logger theme
     logger.init()
-    print version.BANNER
+    print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help = True, description = "Gets the target system's OS architecture version")
     parser.add_argument('-target', action='store', help='<targetName or address>')
@@ -104,7 +105,7 @@ if __name__ == '__main__':
     try:
         getArch = TARGETARCH(options)
         getArch.run()
-    except (Exception, KeyboardInterrupt), e:
+    except (Exception, KeyboardInterrupt) as e:
         if logging.getLogger().level == logging.DEBUG:
             import traceback
             traceback.print_exc()
