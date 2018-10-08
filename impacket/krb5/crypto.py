@@ -502,7 +502,7 @@ class _RC4(_EnctypeProfile):
 
     @classmethod
     def string_to_key(cls, string, salt, params):
-        utf16string = string.decode('UTF-8').encode('UTF-16LE')
+        utf16string = string.encode('UTF-16LE')
         return Key(cls.enctype, MD4.new(utf16string).digest())
 
     @classmethod
