@@ -13,7 +13,8 @@
 #   Pretty lame and quick implementation, not a fun thing to do
 #   Contribution is welcome to make it the right way
 #
-
+from __future__ import division
+from __future__ import print_function
 from datetime import datetime
 from struct import pack, unpack, calcsize
 
@@ -72,10 +73,10 @@ class Times(Structure):
         ('renew_till','!L=0'),
     )
     def prettyPrint(self, indent = ''):
-        print("%sAuth : %s" % (indent, datetime.fromtimestamp(self['authtime']).isoformat()))
-        print("%sStart: %s" % (indent, datetime.fromtimestamp(self['starttime']).isoformat()))
-        print("%sEnd  : %s" % (indent, datetime.fromtimestamp(self['endtime']).isoformat()))
-        print("%sRenew: %s" % (indent, datetime.fromtimestamp(self['renew_till']).isoformat()))
+        print(("%sAuth : %s" % (indent, datetime.fromtimestamp(self['authtime']).isoformat())))
+        print(("%sStart: %s" % (indent, datetime.fromtimestamp(self['starttime']).isoformat())))
+        print(("%sEnd  : %s" % (indent, datetime.fromtimestamp(self['endtime']).isoformat())))
+        print(("%sRenew: %s" % (indent, datetime.fromtimestamp(self['renew_till']).isoformat())))
 
 class Address(Structure):
     structure = (
@@ -230,21 +231,21 @@ class Credential:
         return self.getData()
 
     def prettyPrint(self, indent=''):
-        print("%sClient: %s" % (indent, self.header['client'].prettyPrint()))
-        print("%sServer: %s" % (indent, self.header['server'].prettyPrint()))
-        print("%s%s" % (indent, self.header['key'].prettyPrint()))
-        print("%sTimes: " % indent)
+        print(("%sClient: %s" % (indent, self.header['client'].prettyPrint())))
+        print(("%sServer: %s" % (indent, self.header['server'].prettyPrint())))
+        print(("%s%s" % (indent, self.header['key'].prettyPrint())))
+        print(("%sTimes: " % indent))
         self.header['time'].prettyPrint('\t\t')
-        print("%sSubKey: %s" % (indent, self.header['is_skey']))
-        print("%sFlags: 0x%x" % (indent, self.header['tktflags']))
-        print("%sAddresses: %d" % (indent, self.header['num_address']))
+        print(("%sSubKey: %s" % (indent, self.header['is_skey'])))
+        print(("%sFlags: 0x%x" % (indent, self.header['tktflags'])))
+        print(("%sAddresses: %d" % (indent, self.header['num_address'])))
         for address in self.addresses:
             address.prettyPrint('\t\t')
-        print("%sAuth Data: %d" % (indent, len(self.authData)))
+        print(("%sAuth Data: %d" % (indent, len(self.authData))))
         for ad in self.authData:
             ad.prettyPrint('\t\t')
-        print("%sTicket: %s" % (indent, self.ticket.prettyPrint()))
-        print("%sSecond Ticket: %s" % (indent, self.secondTicket.prettyPrint()))
+        print(("%sTicket: %s" % (indent, self.ticket.prettyPrint())))
+        print(("%sSecond Ticket: %s" % (indent, self.secondTicket.prettyPrint())))
 
     def toTGT(self):
         tgt_rep = AS_REP()
@@ -266,7 +267,7 @@ class Credential:
         tgt = dict()
         tgt['KDC_REP'] = encoder.encode(tgt_rep)
         tgt['cipher'] = cipher
-        tgt['sessionKey'] = crypto.Key(cipher.enctype, str(self['key']['keyvalue']))
+        tgt['sessionKey'] = crypto.Key(cipher.enctype, self['key']['keyvalue'])
         return tgt
         
     def toTGS(self, newSPN=None):
@@ -293,7 +294,7 @@ class Credential:
         tgs = dict()
         tgs['KDC_REP'] = encoder.encode(tgs_rep)
         tgs['cipher'] = cipher
-        tgs['sessionKey'] = crypto.Key(cipher.enctype, str(self['key']['keyvalue']))
+        tgs['sessionKey'] = crypto.Key(cipher.enctype, self['key']['keyvalue'])
         return tgs
         
 class CCache:
@@ -310,7 +311,7 @@ class CCache:
         self.miniHeader = None
         if data is not None:
             miniHeader = self.MiniHeader(data)
-            data = data[len(str(miniHeader)):]
+            data = data[len(miniHeader.getData()):]
 
             headerLen = miniHeader['headerlen']
 
@@ -370,7 +371,7 @@ class CCache:
     def toTimeStamp(self, dt, epoch=datetime(1970,1,1)):
         td = dt - epoch
         # return td.total_seconds()
-        return (td.microseconds + (td.seconds + td.days * 24 * 3600) * 10**6) / 1e6
+        return (td.microseconds + (td.seconds + td.days * 24 * 3600) * 10**6) // 1e6
 
     def reverseFlags(self, flags):
         result = 0
@@ -405,7 +406,7 @@ class CCache:
         # AS-REP encrypted part (includes TGS session key or
         # application session key), encrypted with the client key
         # (Section 5.4.2)
-        plainText = cipher.decrypt(oldSessionKey, 3, str(cipherText))
+        plainText = cipher.decrypt(oldSessionKey, 3, cipherText)
 
         encASRepPart = decoder.decode(plainText, asn1Spec = EncASRepPart())[0]
 
@@ -421,7 +422,7 @@ class CCache:
 
         credential['key'] = KeyBlock()
         credential['key']['keytype'] = int(encASRepPart['key']['keytype'])
-        credential['key']['keyvalue'] = str(encASRepPart['key']['keyvalue'])
+        credential['key']['keyvalue'] = encASRepPart['key']['keyvalue']
         credential['key']['keylen'] = len(credential['key']['keyvalue'])
 
         credential['time'] = Times()
@@ -465,7 +466,7 @@ class CCache:
         # Key Usage 8
         # TGS-REP encrypted part (includes application session
         # key), encrypted with the TGS session key (Section 5.4.2)
-        plainText = cipher.decrypt(oldSessionKey, 8, str(cipherText))
+        plainText = cipher.decrypt(oldSessionKey, 8, cipherText)
 
         encTGSRepPart = decoder.decode(plainText, asn1Spec = EncTGSRepPart())[0]
 
@@ -481,7 +482,7 @@ class CCache:
 
         credential['key'] = KeyBlock()
         credential['key']['keytype'] = int(encTGSRepPart['key']['keytype'])
-        credential['key']['keyvalue'] = str(encTGSRepPart['key']['keyvalue'])
+        credential['key']['keyvalue'] = encTGSRepPart['key']['keyvalue']
         credential['key']['keylen'] = len(credential['key']['keyvalue'])
 
         credential['time'] = Times()
@@ -516,10 +517,10 @@ class CCache:
         f.close()
 
     def prettyPrint(self):
-        print("Primary Principal: %s" % self.principal.prettyPrint())
+        print(("Primary Principal: %s" % self.principal.prettyPrint()))
         print("Credentials: ")
         for i, credential in enumerate(self.credentials):
-            print("[%d]" % i)
+            print(("[%d]" % i))
             credential.prettyPrint('\t') 
 
 
