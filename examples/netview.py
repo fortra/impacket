@@ -46,12 +46,14 @@
 #   the output based on the list of users specified in /tmp/users file.
 #
 #
+from __future__ import division
+from __future__ import print_function
 import sys
 import argparse
 import logging
 import socket
 from threading import Thread, Event
-from Queue import Queue
+from queue import Queue
 from time import sleep
 
 from impacket.examples import logger
@@ -83,7 +85,7 @@ def checkMachines(machines, stopEvent, singlePass=False):
                 myIP = s.getsockname()[0]
                 s.close()
                 machinesAliveQueue.put(machine)
-            except Exception, e:
+            except Exception as e:
                 logging.debug('%s: not alive (%s)' % (machine, e))
                 pass
             else:
@@ -157,7 +159,7 @@ class USERENUM:
                 try:
                     resp = samr.hSamrEnumerateUsersInDomain(dce, domainHandle, samr.USER_WORKSTATION_TRUST_ACCOUNT,
                                                             enumerationContext=enumerationContext)
-                except DCERPCException, e:
+                except DCERPCException as e:
                     if str(e).find('STATUS_MORE_ENTRIES') < 0:
                         raise
                     resp = e.get_packet()
@@ -168,7 +170,7 @@ class USERENUM:
 
                 enumerationContext = resp['EnumerationContext'] 
                 status = resp['ErrorCode']
-        except Exception, e:
+        except Exception as e:
             raise e
 
         dce.disconnect()
@@ -225,11 +227,11 @@ class USERENUM:
                 self.__targets[machine]['Sessions'] = list()
                 self.__targets[machine]['LoggedIn'] = set()
             
-            for target in self.__targets.keys():
+            for target in list(self.__targets.keys()):
                 try:
                     self.getSessions(target)
                     self.getLoggedIn(target) 
-                except (SessionError, DCERPCException), e:
+                except (SessionError, DCERPCException) as e:
                     # We will silently pass these ones, might be issues with Kerberos, or DCE
                     if str(e).find('LOGON_FAILURE') >=0:
                         # For some reason our credentials don't work there, 
@@ -247,7 +249,7 @@ class USERENUM:
                     pass 
                 except KeyboardInterrupt:
                     raise
-                except Exception, e:
+                except Exception as e:
                     #import traceback
                     #traceback.print_exc()
                     if str(e).find('timed out') >=0:
@@ -287,7 +289,7 @@ class USERENUM:
 
         try:
             resp = srvs.hNetrSessionEnum(dce, '\x00', NULL, 10)
-        except Exception, e:
+        except Exception as e:
             if str(e).find('Broken pipe') >= 0:
                 # The connection timed-out. Let's try to bring it back next round
                 self.__targets[target]['SRVS'] = None
@@ -319,12 +321,12 @@ class USERENUM:
                     # Are we filtering users?
                     if self.__filterUsers is not None:
                         if userName in self.__filterUsers:
-                            print "%s: user %s logged from host %s - active: %d, idle: %d" % (
-                            target, userName, sourceIP, session['sesi10_time'], session['sesi10_idle_time'])
+                            print("%s: user %s logged from host %s - active: %d, idle: %d" % (
+                            target, userName, sourceIP, session['sesi10_time'], session['sesi10_idle_time']))
                             printCRLF = True
                     else:
-                        print "%s: user %s logged from host %s - active: %d, idle: %d" % (
-                        target, userName, sourceIP, session['sesi10_time'], session['sesi10_idle_time'])
+                        print("%s: user %s logged from host %s - active: %d, idle: %d" % (
+                        target, userName, sourceIP, session['sesi10_time'], session['sesi10_idle_time']))
                         printCRLF = True
 
         # Let's see who deleted a connection since last check
@@ -335,14 +337,14 @@ class USERENUM:
                 # Are we filtering users?
                 if self.__filterUsers is not None:
                     if userName in self.__filterUsers:
-                        print "%s: user %s logged off from host %s" % (target, userName, sourceIP)
+                        print("%s: user %s logged off from host %s" % (target, userName, sourceIP))
                         printCRLF=True
                 else:
-                    print "%s: user %s logged off from host %s" % (target, userName, sourceIP)
+                    print("%s: user %s logged off from host %s" % (target, userName, sourceIP))
                     printCRLF=True
                 
         if printCRLF is True:
-            print
+            print()
         
     def getLoggedIn(self, target):
         if self.__targets[target]['Admin'] is False:
@@ -366,7 +368,7 @@ class USERENUM:
 
         try:
             resp = wkst.hNetrWkstaUserEnum(dce,1)
-        except Exception, e:
+        except Exception as e:
             if str(e).find('Broken pipe') >= 0:
                 # The connection timed-out. Let's try to bring it back next round
                 self.__targets[target]['WKST'] = None
@@ -401,10 +403,10 @@ class USERENUM:
                 # Are we filtering users?
                 if self.__filterUsers is not None:
                     if userName in self.__filterUsers:
-                        print "%s: user %s\\%s logged in LOCALLY" % (target,logonDomain,userName)
+                        print("%s: user %s\\%s logged in LOCALLY" % (target,logonDomain,userName))
                         printCRLF=True
                 else:
-                    print "%s: user %s\\%s logged in LOCALLY" % (target,logonDomain,userName)
+                    print("%s: user %s\\%s logged in LOCALLY" % (target,logonDomain,userName))
                     printCRLF=True
 
         # Let's see who logged out since last check
@@ -415,14 +417,14 @@ class USERENUM:
                 # Are we filtering users?
                 if self.__filterUsers is not None:
                     if userName in self.__filterUsers:
-                        print "%s: user %s\\%s logged off LOCALLY" % (target,logonDomain,userName)
+                        print("%s: user %s\\%s logged off LOCALLY" % (target,logonDomain,userName))
                         printCRLF=True
                 else:
-                    print "%s: user %s\\%s logged off LOCALLY" % (target,logonDomain,userName)
+                    print("%s: user %s\\%s logged off LOCALLY" % (target,logonDomain,userName))
                     printCRLF=True
                 
         if printCRLF is True:
-            print
+            print()
 
     def stop(self):
         if self.__targetsThreadEvent is not None:
@@ -431,7 +433,7 @@ class USERENUM:
 
 # Process command-line arguments.
 if __name__ == '__main__':
-    print version.BANNER
+    print(version.BANNER)
     # Init the example's logger theme
     logger.init()
 
@@ -494,7 +496,7 @@ if __name__ == '__main__':
 
         executer = USERENUM(username, password, domain, options.hashes, options.aesKey, options.k, options)
         executer.run()
-    except Exception, e:
+    except Exception as e:
         if logging.getLogger().level == logging.DEBUG:
             import traceback
             traceback.print_exc()
