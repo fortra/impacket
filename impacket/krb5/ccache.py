@@ -379,7 +379,7 @@ class CCache:
     def toTimeStamp(self, dt, epoch=datetime(1970,1,1)):
         td = dt - epoch
         # return td.total_seconds()
-        return (td.microseconds + (td.seconds + td.days * 24 * 3600) * 10**6) // 1e6
+        return int((td.microseconds + (td.seconds + td.days * 24 * 3600) * 10**6) // 1e6)
 
     def reverseFlags(self, flags):
         result = 0
@@ -417,7 +417,6 @@ class CCache:
         plainText = cipher.decrypt(oldSessionKey, 3, cipherText)
 
         encASRepPart = decoder.decode(plainText, asn1Spec = EncASRepPart())[0]
-
         credential = Credential()
         server = types.Principal()
         server.from_asn1(encASRepPart, 'srealm', 'sname')
@@ -437,7 +436,7 @@ class CCache:
         credential['time']['authtime'] = self.toTimeStamp(types.KerberosTime.from_asn1(encASRepPart['authtime']))
         credential['time']['starttime'] = self.toTimeStamp(types.KerberosTime.from_asn1(encASRepPart['starttime'])) 
         credential['time']['endtime'] = self.toTimeStamp(types.KerberosTime.from_asn1(encASRepPart['endtime']))
-        credential['time']['renew_till'] = self.toTimeStamp(types.KerberosTime.from_asn1(encASRepPart['renew-till'])) 
+        credential['time']['renew_till'] = self.toTimeStamp(types.KerberosTime.from_asn1(encASRepPart['renew-till']))
 
         flags = self.reverseFlags(encASRepPart['flags'])
         credential['tktflags'] = flags
