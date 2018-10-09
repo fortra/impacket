@@ -825,7 +825,10 @@ class DCERPC:
     def get_idempotent(self): return 0
     def set_idempotent(self, flag): pass
     def call(self, function, body, uuid=None):
-        return self.send(DCERPC_RawCall(function, body.getData(), uuid))
+        if hasattr(body, 'getData'):
+            return self.send(DCERPC_RawCall(function, body.getData(), uuid))
+        else:
+            return self.send(DCERPC_RawCall(function, body, uuid))
     def request(self, request, uuid=None, checkError=True):
         if self.transfer_syntax == self.NDR64Syntax:
             request.changeTransferSyntax(self.NDR64Syntax)
