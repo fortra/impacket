@@ -27,12 +27,13 @@
 #
 # Reference for:
 #  DCE/RPC and SMB.
-
+from __future__ import division
+from __future__ import print_function
 import sys
 import os
 import cmd
 import argparse
-import ConfigParser
+import configparser
 import logging
 from threading import Thread
 
@@ -61,7 +62,7 @@ class SMBServer(Thread):
 
     def run(self):
         # Here we write a mini config for the server
-        smbConfig = ConfigParser.ConfigParser()
+        smbConfig = configparser.ConfigParser()
         smbConfig.add_section('global')
         smbConfig.set('global','server_name','server_name')
         smbConfig.set('global','server_os','UNIX')
@@ -87,7 +88,7 @@ class SMBServer(Thread):
         logging.info('Creating tmp directory')
         try:
             os.mkdir(SMBSERVER_DIR)
-        except Exception, e:
+        except Exception as e:
             logging.critical(str(e))
             pass
         logging.info('Setting up SMB Server')
@@ -148,7 +149,7 @@ class CMDEXEC:
             self.shell.cmdloop()
             if self.__mode == 'SERVER':
                 serverThread.stop()
-        except  (Exception, KeyboardInterrupt), e:
+        except  (Exception, KeyboardInterrupt) as e:
             if logging.getLogger().level == logging.DEBUG:
                 import traceback
                 traceback.print_exc()
@@ -165,7 +166,7 @@ class RemoteShell(cmd.Cmd):
         self.__mode = mode
         self.__output = '\\\\127.0.0.1\\' + self.__share + '\\' + OUTPUT_FILENAME
         self.__batchFile = '%TEMP%\\' + BATCH_FILENAME 
-        self.__outputBuffer = ''
+        self.__outputBuffer = b''
         self.__command = ''
         self.__shell = '%COMSPEC% /Q /c '
         self.__serviceName = serviceName
@@ -175,7 +176,7 @@ class RemoteShell(cmd.Cmd):
         self.__scmr = rpc.get_dce_rpc()
         try:
             self.__scmr.connect()
-        except Exception, e:
+        except Exception as e:
             logging.critical(str(e))
             sys.exit(1)
 
@@ -226,8 +227,8 @@ class RemoteShell(cmd.Cmd):
         self.execute_remote('cd ' )
         if len(self.__outputBuffer) > 0:
             # Stripping CR/LF
-            self.prompt = string.replace(self.__outputBuffer,'\r\n','') + '>'
-            self.__outputBuffer = ''
+            self.prompt = self.__outputBuffer.decode().replace('\r\n','') + '>'
+            self.__outputBuffer = b''
 
     def do_CD(self, s):
         return self.do_cd(s)
@@ -271,15 +272,15 @@ class RemoteShell(cmd.Cmd):
 
     def send_data(self, data):
         self.execute_remote(data)
-        print self.__outputBuffer
-        self.__outputBuffer = ''
+        print(self.__outputBuffer.decode())
+        self.__outputBuffer = b''
 
 
 # Process command-line arguments.
 if __name__ == '__main__':
     # Init the example's logger theme
     logger.init()
-    print version.BANNER
+    print(version.BANNER)
 
     parser = argparse.ArgumentParser()
 
@@ -347,7 +348,7 @@ if __name__ == '__main__':
         executer = CMDEXEC(username, password, domain, options.hashes, options.aesKey, options.k,
                            options.dc_ip, options.mode, options.share, int(options.port))
         executer.run(remoteName, options.target_ip)
-    except Exception, e:
+    except Exception as e:
         if logging.getLogger().level == logging.DEBUG:
             import traceback
             traceback.print_exc()
