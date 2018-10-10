@@ -1,3 +1,4 @@
+from __future__ import print_function
 ###############################################################################
 #  Tested so far: 
 #
@@ -20,7 +21,7 @@ try:
     from cryptography import x509
     from cryptography.hazmat.backends import default_backend
 except ImportError:
-    print "In order to run these test cases you need the cryptography package"
+    print("In order to run these test cases you need the cryptography package")
 
 
 class BKRPTests(unittest.TestCase):
@@ -161,9 +162,9 @@ class BKRPTests(unittest.TestCase):
 
         cert = x509.load_der_x509_certificate(''.join(resp['ppDataOut']), default_backend())
 
-        print cert.subject
-        print cert.issuer
-        print cert.signature
+        print(cert.subject)
+        print(cert.issuer)
+        print(cert.signature)
 
     def test_hBackuprKey_BACKUPKEY_RETRIEVE_BACKUP_KEY_GUID(self):
         dce, rpctransport = self.connect()
@@ -182,9 +183,9 @@ class BKRPTests(unittest.TestCase):
 
         cert = x509.load_der_x509_certificate(''.join(resp['ppDataOut']), default_backend())
 
-        print cert.subject
-        print cert.issuer
-        print cert.signature
+        print(cert.subject)
+        print(cert.issuer)
+        print(cert.signature)
 
 
 class SMBTransport(BKRPTests):

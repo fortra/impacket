@@ -1,3 +1,4 @@
+from __future__ import print_function
 ###############################################################################
 #  Tested so far: 
 #
@@ -59,7 +60,7 @@ class DHCPMTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             # For now we'e failing. This is not supported in W2k8r2
             if str(e).find('nca_s_op_rng_error') >= 0:
                 pass
@@ -98,7 +99,7 @@ class DHCPMTests(unittest.TestCase):
         try:
             resp = dhcpm.hDhcpGetClientInfoV4(dce, dhcpm.DHCP_SEARCH_INFO_TYPE.DhcpClientName, 'PEPA\x00')
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('0x4e2d') >= 0:
                 pass
 
@@ -108,7 +109,7 @@ class DHCPMTests(unittest.TestCase):
 
         try:
             resp = dhcpm.hDhcpEnumSubnetClientsV5(dce)
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_NO_MORE_ITEMS') >=0:
                 pass
             else:
@@ -120,7 +121,7 @@ class DHCPMTests(unittest.TestCase):
         dce, rpctransport = self.connect(2)
         netId = self.machine.split('.')[:-1]
         netId.append('0')
-        print '.'.join(netId)
+        print('.'.join(netId))
         subnet_id = int(socket.inet_aton('.'.join(netId)).encode('hex'), 16)
         try:
             resp = dhcpm.hDhcpGetOptionValueV5(dce,3,

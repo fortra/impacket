@@ -1,3 +1,4 @@
+from __future__ import print_function
 ###############################################################################
 #  Tested so far: 
 #  
@@ -253,7 +254,7 @@ class SAMRTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_NO_SUCH_DOMAIN') < 0:
                 raise
         
@@ -267,7 +268,7 @@ class SAMRTests(unittest.TestCase):
         try:
             resp = samr.hSamrOpenDomain(dce, serverHandle = resp['ServerHandle'], domainId = sid) 
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_NO_SUCH_DOMAIN') < 0:
                 raise
 
@@ -284,7 +285,7 @@ class SAMRTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_NO_SUCH_DOMAIN') < 0:
                 raise
         
@@ -293,7 +294,7 @@ class SAMRTests(unittest.TestCase):
         try:
             resp = samr.hSamrOpenGroup(dce, domainHandle, groupId=samr.DOMAIN_GROUP_RID_USERS)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_NO_SUCH_DOMAIN') < 0:
                 raise
 
@@ -306,7 +307,7 @@ class SAMRTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_NO_SUCH_ALIAS') < 0:
                 raise
 
@@ -315,7 +316,7 @@ class SAMRTests(unittest.TestCase):
         try:
             resp = samr.hSamrOpenAlias(dce, domainHandle, aliasId = 25)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_NO_SUCH_ALIAS') < 0:
                 raise
 
@@ -391,7 +392,7 @@ class SAMRTests(unittest.TestCase):
         try:
             resp = samr.hSamrLookupNamesInDomain(dce, domainHandle, ('Administrator','Guest'))
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_MORE_ENTRIES') >=0:
                 pass
             e.get_packet().dump()
@@ -427,7 +428,7 @@ class SAMRTests(unittest.TestCase):
         while status == nt_errors.STATUS_MORE_ENTRIES:
             try:
                 resp4 = dce.request(request)
-            except Exception, e:
+            except Exception as e:
                 if str(e).find('STATUS_MORE_ENTRIES') < 0:
                     raise 
                 resp4 = e.get_packet()
@@ -450,7 +451,7 @@ class SAMRTests(unittest.TestCase):
         while status == nt_errors.STATUS_MORE_ENTRIES:
             try:
                 resp4 = dce.request(request)
-            except Exception, e:
+            except Exception as e:
                 if str(e).find('STATUS_MORE_ENTRIES') < 0:
                     raise 
                 resp4 = e.get_packet()
@@ -474,7 +475,7 @@ class SAMRTests(unittest.TestCase):
         while status == nt_errors.STATUS_MORE_ENTRIES:
             try:
                 resp4 = dce.request(request)
-            except Exception, e:
+            except Exception as e:
                 if str(e).find('STATUS_MORE_ENTRIES') < 0:
                     raise 
                 resp4 = e.get_packet()
@@ -487,7 +488,7 @@ class SAMRTests(unittest.TestCase):
         try:
             resp = samr.hSamrEnumerateUsersInDomain(dce, domainHandle)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_MORE_ENTRIES') >=0:
                 pass
             e.get_packet().dump()
@@ -528,7 +529,7 @@ class SAMRTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_MORE_ENTRIES') >=0:
                 e.get_packet().dump()
             else:
@@ -569,7 +570,7 @@ class SAMRTests(unittest.TestCase):
         try:
             resp = samr.hSamrQueryDisplayInformation3(dce, domainHandle,  samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayUser)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_MORE_ENTRIES') >=0:
                 e.get_packet().dump()
             else:
@@ -589,7 +590,7 @@ class SAMRTests(unittest.TestCase):
         try:
             resp = samr.hSamrQueryDisplayInformation2(dce, domainHandle,  samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayUser)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_MORE_ENTRIES') >=0:
                 e.get_packet().dump()
             else:
@@ -616,7 +617,7 @@ class SAMRTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_MORE_ENTRIES') >=0:
                 e.get_packet().dump()
             else:
@@ -658,7 +659,7 @@ class SAMRTests(unittest.TestCase):
         try:
             resp = samr.hSamrQueryDisplayInformation(dce, domainHandle,  samr.DOMAIN_DISPLAY_INFORMATION.DomainDisplayUser)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_MORE_ENTRIES') >=0:
                 e.get_packet().dump()
             else:
@@ -725,7 +726,7 @@ class SAMRTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find("STATUS_ACCESS_DENIED") < 0:
                 raise
         request = samr.SamrDeleteGroup()
@@ -733,7 +734,7 @@ class SAMRTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find("STATUS_OBJECT_TYPE_MISMATCH") < 0:
                 raise
 
@@ -742,13 +743,13 @@ class SAMRTests(unittest.TestCase):
         try:
             resp = samr.hSamrCreateGroupInDomain(dce, domainHandle, 'testGroup', samr.GROUP_ALL_ACCESS | samr.DELETE)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find("STATUS_ACCESS_DENIED") < 0:
                 raise
         try:
             resp = samr.hSamrDeleteGroup(dce, domainHandle)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find("STATUS_OBJECT_TYPE_MISMATCH") < 0:
                 raise
 
@@ -1030,7 +1031,7 @@ class SAMRTests(unittest.TestCase):
         resp['Buffer']['General']['ReplicaSourceNodeName'] = 'BETUS'
         try:
             resp = samr.hSamrSetInformationDomain(dce, domainHandle, resp['Buffer'])
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_INVALID_INFO_CLASS') < 0:
                 raise
 
@@ -1127,7 +1128,7 @@ class SAMRTests(unittest.TestCase):
         try:
             resp0 = dce.request(request)
             resp0.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_NO_SUCH_DOMAIN') < 0:
                 raise
 
@@ -1230,7 +1231,7 @@ class SAMRTests(unittest.TestCase):
         try:
             resp0 = samr.hSamrOpenGroup(dce, domainHandle,samr.GROUP_ALL_ACCESS, samr.DOMAIN_GROUP_RID_USERS )
             resp0.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_NO_SUCH_DOMAIN') < 0:
                 raise
 
@@ -1297,7 +1298,7 @@ class SAMRTests(unittest.TestCase):
         while status == nt_errors.STATUS_MORE_ENTRIES:
             try:
                 resp4 = dce.request(request)
-            except Exception, e:
+            except Exception as e:
                 if str(e).find('STATUS_MORE_ENTRIES') < 0:
                     raise 
                 resp4 = e.get_packet()
@@ -1535,7 +1536,7 @@ class SAMRTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_INVALID_INFO_CLASS') < 0:
                 raise
             pass
@@ -1557,7 +1558,7 @@ class SAMRTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_INVALID_INFO_CLASS') < 0:
                 raise
             pass
@@ -1567,7 +1568,7 @@ class SAMRTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_INVALID_INFO_CLASS') < 0:
                 raise
             pass
@@ -1577,7 +1578,7 @@ class SAMRTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_INVALID_INFO_CLASS') < 0:
                 raise
             pass
@@ -1587,7 +1588,7 @@ class SAMRTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_INVALID_INFO_CLASS') < 0:
                 raise
             pass
@@ -1822,7 +1823,7 @@ class SAMRTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_INVALID_INFO_CLASS') < 0:
                 raise
             pass
@@ -1842,7 +1843,7 @@ class SAMRTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_INVALID_INFO_CLASS') < 0:
                 raise
             pass
@@ -1852,7 +1853,7 @@ class SAMRTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_INVALID_INFO_CLASS') < 0:
                 raise
             pass
@@ -1862,7 +1863,7 @@ class SAMRTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_INVALID_INFO_CLASS') < 0:
                 raise
             pass
@@ -1872,7 +1873,7 @@ class SAMRTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_INVALID_INFO_CLASS') < 0:
                 raise
             pass
@@ -1890,7 +1891,7 @@ class SAMRTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_NO_SUCH_DOMAIN') < 0:
                 raise
         request = samr.SamrRemoveMemberFromGroup()
@@ -1899,7 +1900,7 @@ class SAMRTests(unittest.TestCase):
         try:
             resp2 = dce.request(request)
             resp2.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_MEMBERS_PRIMARY_GROUP') < 0:
                 raise
         request = samr.SamrAddMemberToGroup()
@@ -1909,7 +1910,7 @@ class SAMRTests(unittest.TestCase):
         try:
             resp2 = dce.request(request)
             resp2.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_MEMBER_IN_GROUP') < 0:
                 raise
 
@@ -1926,19 +1927,19 @@ class SAMRTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_NO_SUCH_DOMAIN') < 0:
                 raise
         try:
             resp2 = samr.hSamrRemoveMemberFromGroup(dce, resp['GroupHandle'],samr.DOMAIN_USER_RID_ADMIN)
             resp2.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_MEMBERS_PRIMARY_GROUP') < 0:
                 raise
         try:
             resp2= samr.hSamrAddMemberToGroup(dce, resp['GroupHandle'] ,samr.DOMAIN_USER_RID_ADMIN, samr.SE_GROUP_ENABLED_BY_DEFAULT)
             resp2.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_MEMBER_IN_GROUP') < 0:
                 raise
 
@@ -1951,7 +1952,7 @@ class SAMRTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_NO_SUCH_DOMAIN') < 0:
                 raise
 
@@ -1969,7 +1970,7 @@ class SAMRTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_NO_SUCH_DOMAIN') < 0:
                 raise
 
@@ -1986,7 +1987,7 @@ class SAMRTests(unittest.TestCase):
         while status == nt_errors.STATUS_MORE_ENTRIES:
             try:
                 resp4 = dce.request(request)
-            except Exception, e:
+            except Exception as e:
                 if str(e).find('STATUS_MORE_ENTRIES') < 0:
                     raise 
                 resp4 = e.get_packet()
@@ -2016,7 +2017,7 @@ class SAMRTests(unittest.TestCase):
         while status == nt_errors.STATUS_MORE_ENTRIES:
             try:
                 resp4 = dce.request(request)
-            except Exception, e:
+            except Exception as e:
                 if str(e).find('STATUS_MORE_ENTRIES') < 0:
                     raise 
                 resp4 = e.get_packet()
@@ -2258,7 +2259,7 @@ class SAMRTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_SPECIAL_ACCOUNT') < 0:
                 raise
 
@@ -2294,7 +2295,7 @@ class SAMRTests(unittest.TestCase):
             resp= samr.hSamrRemoveMemberFromForeignDomain(dce, domainHandle, sid)
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_SPECIAL_ACCOUNT') < 0:
                 raise
 
@@ -2406,7 +2407,7 @@ class SAMRTests(unittest.TestCase):
         try:
             resp = samr.hSamrGetAliasMembership(dce, domainHandle, sidsArray)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             request = samr.SamrDeleteAlias()
             request['AliasHandle'] = aliasHandle
             resp = dce.request(request)
@@ -2508,7 +2509,7 @@ class SAMRTests(unittest.TestCase):
         # calls made to SamrSetDSRMPassword using NCACN_IP_TCP are rejected with RPC_S_ACCESS_DENIED.
         try:
             resp = dce.request(request)
-        except Exception, e:
+        except Exception as e:
             if self.stringBinding.find('ncacn_ip_tcp') >=0:
                 if str(e).find('rpc_s_access_denied') < 0:
                     raise
@@ -2529,7 +2530,7 @@ class SAMRTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('rpc_s_access_denied') < 0:
                 raise
 
@@ -2544,7 +2545,7 @@ class SAMRTests(unittest.TestCase):
         try:
             resp = samr.hSamrValidatePassword(dce, inputArg)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('rpc_s_access_denied') < 0:
                 raise
 
@@ -2584,7 +2585,7 @@ class SAMRTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_BAD_DESCRIPTOR_FORMAT') <= 0:
                 raise
 
@@ -2607,7 +2608,7 @@ class SAMRTests(unittest.TestCase):
         try:
             resp = samr.hSamrSetSecurityObject(dce, userHandle,dtypes.GROUP_SECURITY_INFORMATION ,resp['SecurityDescriptor']  )
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_BAD_DESCRIPTOR_FORMAT') <= 0:
                 raise
 
@@ -2709,7 +2710,7 @@ class SAMRTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_WRONG_PASSWORD') < 0:
                 raise
 
@@ -2780,7 +2781,7 @@ class SAMRTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_PASSWORD_RESTRICTION') < 0:
                 raise
 
@@ -2827,7 +2828,7 @@ class SAMRTests(unittest.TestCase):
         try:
             resp = samr.hSamrUnicodeChangePasswordUser2(dce, '', 'testAccount', 'ADMIN', 'betus')
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_PASSWORD_RESTRICTION') < 0:
                 raise
 

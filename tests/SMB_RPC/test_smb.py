@@ -265,7 +265,7 @@ class SMBTests(unittest.TestCase):
         is_socket_opened = True 
         try:
             select.select([s], [], [], 0)
-        except socket.error, e:
+        except socket.error as e:
             if e[0] == errno.EBADF:
                 is_socket_opened = False
         return is_socket_opened
