@@ -11,7 +11,7 @@ deep hierarchies of protocols. The library provides a set of tools
 as examples of what can be done within the context of this library.
 
 A description of some of the tools can be found at:
-http://corelabs.coresecurity.com/index.php?module=Wiki&action=view&type=tool&name=Impacket
+https://www.secureauth.com/labs/open-source-tools/impacket
 
 What protocols are featured?
 ----------------------------
@@ -29,8 +29,8 @@ What protocols are featured?
 Getting Impacket
 ================
 
-* [Current and past releases](https://github.com/CoreSecurity/impacket/releases)
-* [Trunk](https://github.com/CoreSecurity/impacket)
+* [Current and past releases](https://github.com/SecureAuthCorp/impacket/releases)
+* [Trunk](https://github.com/SecureAuthCorp/impacket)
 
 Setup
 =====
@@ -71,7 +71,7 @@ If you want to run the library test cases you need to do mainly three things:
 
 1. Install and configure a Windows 2012 R2 Domain Controller.
    * Be sure the RemoteRegistry service is enabled and running.
-2. Configure the [dcetest.cfg](https://github.com/CoreSecurity/impacket/blob/impacket_0_9_17/tests/SMB_RPC/dcetests.cfg) file with the necessary information
+2. Configure the [dcetest.cfg](https://github.com/SecureAuthCorp/impacket/blob/impacket_0_9_17/tests/SMB_RPC/dcetests.cfg) file with the necessary information
 3. Install tox (`pip install tox`)
 
 Once that's done, you can run `tox` and wait for the results. If all goes well, all test cases should pass.
