@@ -46,11 +46,11 @@ class DCERPCSessionError(DCERPCException):
 
     def __str__( self ):
         key = self.error_code
-        if system_errors.ERROR_MESSAGES.has_key(key):
+        if key in system_errors.ERROR_MESSAGES:
             error_msg_short = system_errors.ERROR_MESSAGES[key][0]
             error_msg_verbose = system_errors.ERROR_MESSAGES[key][1] 
             return 'NRPC SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
-        elif nt_errors.ERROR_MESSAGES.has_key(key):
+        elif key in nt_errors.ERROR_MESSAGES:
             error_msg_short = nt_errors.ERROR_MESSAGES[key][0]
             error_msg_verbose = nt_errors.ERROR_MESSAGES[key][1] 
             return 'NRPC SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
@@ -1654,7 +1654,7 @@ def ComputeSessionKeyStrongKey(sharedSecret, clientChallenge, serverChallenge, s
         M4SS = sharedSecretHash
 
     md5 = hashlib.new('md5')
-    md5.update('\x00'*4)
+    md5.update(b'\x00'*4)
     md5.update(clientChallenge)
     md5.update(serverChallenge)
     finalMD5 = md5.digest()
@@ -2764,7 +2764,7 @@ def hNetrLogonGetDomainInfo(dce, serverName, computerName, authenticator, return
     request['ComputerName'] = checkNullString(computerName)
     request['Authenticator'] = authenticator
     if returnAuthenticator == 0:
-        request['ReturnAuthenticator']['Credential'] = '\x00'*8
+        request['ReturnAuthenticator']['Credential'] = b'\x00'*8
         request['ReturnAuthenticator']['Timestamp'] = 0
     else:
         request['ReturnAuthenticator'] = returnAuthenticator
@@ -2790,7 +2790,7 @@ def hNetrLogonGetCapabilities(dce, serverName, computerName, authenticator, retu
     request['ComputerName'] = checkNullString(computerName)
     request['Authenticator'] = authenticator
     if returnAuthenticator == 0:
-        request['ReturnAuthenticator']['Credential'] = '\x00'*8
+        request['ReturnAuthenticator']['Credential'] = b'\x00'*8
         request['ReturnAuthenticator']['Timestamp'] = 0
     else:
         request['ReturnAuthenticator'] = returnAuthenticator
