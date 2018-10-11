@@ -34,7 +34,7 @@ class ImpactPacketException(Exception):
     def __init__(self, value):
         self.value = value
     def __str__(self):
-        return `self.value`
+        return repr(self.value)
 
 class PacketBuffer(object):
     """Implement the basic operations utilized to operate on a

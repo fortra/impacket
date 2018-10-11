@@ -14,8 +14,8 @@ import struct
 import string
 from binascii import crc32
 
-from ImpactPacket import ProtocolPacket
-from Dot11Crypto import RC4
+from impacket.ImpactPacket import ProtocolPacket
+from impacket.Dot11Crypto import RC4
 
 frequency = {
     2412: 1,    2417: 2,    2422: 3,    2427: 4,    2432: 5,    2437: 6,    2442: 7,    2447: 8,    2452: 9,

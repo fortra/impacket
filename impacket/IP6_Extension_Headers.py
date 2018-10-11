@@ -6,7 +6,7 @@
 #
 import array
 
-from ImpactPacket import Header, ImpactPacketException, PacketBuffer
+from impacket.ImpactPacket import Header, ImpactPacketException, PacketBuffer
 
 class IP6_Extension_Header(Header):
 # --------------------------------- - - - - - - -

@@ -14,7 +14,7 @@
 from struct import unpack
 import socket
 
-from ImpactPacket import Header
+from impacket.ImpactPacket import Header
 from impacket import LOG
 
 IP_ADDRESS_LENGTH = 4

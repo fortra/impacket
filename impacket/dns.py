@@ -31,7 +31,7 @@
 import socket
 import struct
 
-from ImpactPacket import ProtocolPacket
+from impacket.ImpactPacket import ProtocolPacket
 
 
 class DNSFlags():
