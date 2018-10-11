@@ -341,8 +341,8 @@ def SamEncryptNTLMHash(encryptedHash, key):
     Key2 = key[7:14]
     Key2 = transformKey(Key2)
 
-    Crypt1 = DES.new(b(Key1), DES.MODE_ECB)
-    Crypt2 = DES.new(b(Key2), DES.MODE_ECB)
+    Crypt1 = DES.new(Key1, DES.MODE_ECB)
+    Crypt2 = DES.new(Key2, DES.MODE_ECB)
 
     plain1 = Crypt1.encrypt(Block1)
     plain2 = Crypt2.encrypt(Block2)

@@ -825,7 +825,7 @@ if __name__ == '__main__':
     assert(decrypt(k, keyusage, ctxt) == plain)
 
     # RC4 string-to-key
-    string = b'foo'
+    string = 'foo'
     kb = h('AC8E657F83DF82BEEA5D43BDAF7800CC')
     k = string_to_key(Enctype.RC4, string, None)
     assert(k.contents == kb)
@@ -840,8 +840,8 @@ if __name__ == '__main__':
 
     # RC4 cf2
     kb = h('24D7F6B6BAE4E5C00D2082C5EBAB3672')
-    k1 = string_to_key(Enctype.RC4, b'key1', b'key1')
-    k2 = string_to_key(Enctype.RC4, b'key2', b'key2')
+    k1 = string_to_key(Enctype.RC4, 'key1', 'key1')
+    k2 = string_to_key(Enctype.RC4, 'key2', 'key2')
     k = cf2(Enctype.RC4, k1, k2, b'a', b'b')
     assert(k.contents == kb)
 
