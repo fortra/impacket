@@ -3,8 +3,8 @@ if [ $# -gt 0 ]
 then
 	SUFFIX=$1
 	# Only run coverage when called by tox
-	RUN="coverage run --append --rcfile=../coveragerc "
-	RUNLOCAL="coverage run --append --rcfile=./coveragerc "
+	RUN="python -m coverage run --append --rcfile=../coveragerc "
+	RUNLOCAL="python -m coverage run --append --rcfile=./coveragerc "
 	COVERAGE=true
 else
 	SUFFIX=XX
@@ -43,10 +43,15 @@ cd ../dot11
 echo Testing SMB RPC/LDAP
 cd ../SMB_RPC
 export PYTHONPATH=../../:$PYTHONPATH
+echo test_smb.py
 $RUN test_smb.py 2>&1 1>/dev/null | tee -a $OUTPUTFILE
+echo test_spnego.py
 $RUN test_spnego.py 2>&1 1>/dev/null | tee -a $OUTPUTFILE
+echo test_ldap.py
 $RUN test_ldap.py 2>&1 1>/dev/null | tee -a $OUTPUTFILE
+echo test_nmb.py
 $RUN test_nmb.py 2>&1 1>/dev/null | tee -a $OUTPUTFILE
+echo test_ntlm.py
 $RUN test_ntlm.py 2>&1 1>/dev/null | tee -a $OUTPUTFILE
 ./rundce.sh $COVERAGE 2>&1 1>/dev/null | tee -a $OUTPUTFILE
 cd ..
