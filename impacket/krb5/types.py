@@ -161,7 +161,6 @@ class Address(object):
             return socket.AF_INET
         elif self.type == constants.AddressType.IPv4.value:
             return socket.AF_INET6
-            self.address = socket.inet_pton(self.family, self.data)
         else:
             return None
 
