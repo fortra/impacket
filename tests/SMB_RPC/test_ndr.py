@@ -1,3 +1,4 @@
+from __future__ import print_function
 from impacket.dcerpc.v5.samr import SamrLookupNamesInDomainResponse, SamrLookupIdsInDomain
 from impacket.dcerpc.v5.drsuapi import DRSCrackNamesResponse,DRSDomainControllerInfoResponse,DRSGetNCChangesResponse
 from impacket.winregistry import hexdump
@@ -23,9 +24,9 @@ class NDRTests(unittest.TestCase):
         crackNames.fromString(crackNamesResponse)
         crackNames.dump()
         output = crackNames.getData()
-        print "ORIG: %d, REPACKED: %d" % (len(crackNamesResponse), len(output))
-        print "="*80
-        print "ORIG"
+        print("ORIG: %d, REPACKED: %d" % (len(crackNamesResponse), len(output)))
+        print("="*80)
+        print("ORIG")
         #hexdump(crackNamesResponse)
         #hexdump(output)
         self.assertTrue(crackNamesResponse == output)
@@ -38,9 +39,9 @@ class NDRTests(unittest.TestCase):
         domainController.fromString(domainControllerInfoResponse)
         domainController.dump()
         output = domainController.getData()
-        print "ORIG: %d, REPACKED: %d" % (len(domainControllerInfoResponse), len(output))
-        print "="*80
-        print "ORIG"
+        print("ORIG: %d, REPACKED: %d" % (len(domainControllerInfoResponse), len(output)))
+        print("="*80)
+        print("ORIG")
         hexdump(domainControllerInfoResponse)
         hexdump(output)
         #print "ORIG: %d, REPACKED: %d" % (len(domainControllerInfoResponse), len(output))
@@ -54,15 +55,15 @@ class NDRTests(unittest.TestCase):
         ncChanges.fromString(getNCChangesResponse)
         ncChanges.dump()
         output = ncChanges.getData()
-        print repr(output)
-        print "ORIG: %d, REPACKED: %d" % (len(getNCChangesResponse), len(output))
-        print "="*80
-        print "ORIG"
+        print(repr(output))
+        print("ORIG: %d, REPACKED: %d" % (len(getNCChangesResponse), len(output)))
+        print("="*80)
+        print("ORIG")
         hexdump(getNCChangesResponse)
-        print "="*80
-        print "REPACKED"
+        print("="*80)
+        print("REPACKED")
         hexdump(output)
-        print "="*80
+        print("="*80)
         self.assertTrue(len(getNCChangesResponse) == len(output))
 
     def test_4(self):
@@ -71,14 +72,14 @@ class NDRTests(unittest.TestCase):
         ncChanges = DRSGetNCChangesResponse()
         ncChanges.fromString(getNCChangesResponse)
         output = ncChanges.getData()
-        print "ORIG: %d, REPACKED: %d" % (len(getNCChangesResponse), len(output))
-        print "="*80
-        print "ORIG"
+        print("ORIG: %d, REPACKED: %d" % (len(getNCChangesResponse), len(output)))
+        print("="*80)
+        print("ORIG")
         hexdump(getNCChangesResponse)
-        print "="*80
-        print "REPACKED"
+        print("="*80)
+        print("REPACKED")
         hexdump(output)
-        print "="*80
+        print("="*80)
         self.assertTrue(len(getNCChangesResponse) == len(output))
 
     def test_5(self):
@@ -89,14 +90,14 @@ class NDRTests(unittest.TestCase):
         samrLookupNamesInDomain.fromString(samrLookupNamesInDomainResponse)
         samrLookupNamesInDomain.dump()
         output = samrLookupNamesInDomain.getData()
-        print "ORIG: %d, REPACKED: %d" % (len(samrLookupNamesInDomainResponse), len(output))
-        print "="*80
-        print "ORIG"
+        print("ORIG: %d, REPACKED: %d" % (len(samrLookupNamesInDomainResponse), len(output)))
+        print("="*80)
+        print("ORIG")
         hexdump(samrLookupNamesInDomainResponse)
-        print "="*80
-        print "REPACKED"
+        print("="*80)
+        print("REPACKED")
         hexdump(output)
-        print "="*80
+        print("="*80)
         self.assertTrue(samrLookupNamesInDomainResponse == output)
 
     def test_6(self):
@@ -106,14 +107,14 @@ class NDRTests(unittest.TestCase):
         lsarGetUserName.fromString(lsarGetUserNameResponse)
         lsarGetUserName.dump()
         output = lsarGetUserName.getData()
-        print "ORIG: %d, REPACKED: %d" % (len(lsarGetUserNameResponse), len(output))
-        print "="*80
-        print "ORIG"
+        print("ORIG: %d, REPACKED: %d" % (len(lsarGetUserNameResponse), len(output)))
+        print("="*80)
+        print("ORIG")
         hexdump(lsarGetUserNameResponse)
-        print "="*80
-        print "REPACKED"
+        print("="*80)
+        print("REPACKED")
         hexdump(output)
-        print "="*80
+        print("="*80)
         self.assertTrue(lsarGetUserNameResponse == output)
 
     def test_8(self):
@@ -123,14 +124,14 @@ class NDRTests(unittest.TestCase):
         lsarLookupSids2.fromString(lsarLookupSids2Response)
         lsarLookupSids2.dumpRaw()
         output = lsarLookupSids2.getData()
-        print "ORIG: %d, REPACKED: %d" % (len(lsarLookupSids2Response), len(output))
-        print "="*80
-        print "ORIG"
+        print("ORIG: %d, REPACKED: %d" % (len(lsarLookupSids2Response), len(output)))
+        print("="*80)
+        print("ORIG")
         hexdump(lsarLookupSids2Response)
-        print "="*80
-        print "REPACKED"
+        print("="*80)
+        print("REPACKED")
         hexdump(output)
-        print "="*80
+        print("="*80)
         self.assertTrue(lsarLookupSids2Response == output)
 
     def test_88(self):
@@ -141,14 +142,14 @@ class NDRTests(unittest.TestCase):
         baseRegEnumValue.fromString(baseRegEnumValueResponse)
         baseRegEnumValue.dumpRaw()
         output = baseRegEnumValue.getData()
-        print "ORIG: %d, REPACKED: %d" % (len(baseRegEnumValueResponse), len(output))
-        print "="*80
-        print "ORIG"
+        print("ORIG: %d, REPACKED: %d" % (len(baseRegEnumValueResponse), len(output)))
+        print("="*80)
+        print("ORIG")
         hexdump(baseRegEnumValueResponse)
-        print "="*80
-        print "REPACKED"
+        print("="*80)
+        print("REPACKED")
         hexdump(output)
-        print "="*80
+        print("="*80)
         self.assertTrue(baseRegEnumValueResponse == output)
 
     def test_9(self):
@@ -158,14 +159,14 @@ class NDRTests(unittest.TestCase):
         rCreateServiceW.fromString(rCreateServiceWResponse)
         rCreateServiceW.dumpRaw()
         output = rCreateServiceW.getData()
-        print "ORIG: %d, REPACKED: %d" % (len(rCreateServiceWResponse), len(output))
-        print "="*80
-        print "ORIG"
+        print("ORIG: %d, REPACKED: %d" % (len(rCreateServiceWResponse), len(output)))
+        print("="*80)
+        print("ORIG")
         hexdump(rCreateServiceWResponse)
-        print "="*80
-        print "REPACKED"
+        print("="*80)
+        print("REPACKED")
         hexdump(output)
-        print "="*80
+        print("="*80)
         self.assertTrue(rCreateServiceWResponse == output)
 
     def test_10(self):
@@ -180,14 +181,14 @@ class NDRTests(unittest.TestCase):
         request['InfoStruct']['Level'] = 0
         output = request.getData()
         hexdump(netrShareEnum)
-        print "ORIG: %d, REPACKED: %d" % (len(netrShareEnum), len(output))
-        print "="*80
-        print "ORIG"
+        print("ORIG: %d, REPACKED: %d" % (len(netrShareEnum), len(output)))
+        print("="*80)
+        print("ORIG")
         hexdump(netrShareEnum)
-        print "="*80
-        print "REPACKED"
+        print("="*80)
+        print("REPACKED")
         hexdump(output)
-        print "="*80
+        print("="*80)
         self.assertTrue(len(netrShareEnum) == len(output))
 
     def test_11(self):
@@ -197,14 +198,14 @@ class NDRTests(unittest.TestCase):
         lookupResponse.fromString(ept_lookup_resp)
         lookupResponse.dumpRaw()
         output = lookupResponse.getData()
-        print "ORIG: %d, REPACKED: %d" % (len(ept_lookup_resp), len(output))
-        print "="*80
-        print "ORIG"
+        print("ORIG: %d, REPACKED: %d" % (len(ept_lookup_resp), len(output)))
+        print("="*80)
+        print("ORIG")
         hexdump(ept_lookup_resp)
-        print "="*80
-        print "REPACKED"
+        print("="*80)
+        print("REPACKED")
         hexdump(output)
-        print "="*80
+        print("="*80)
         self.assertTrue(len(ept_lookup_resp) == len(output))
 
     def test_12(self):
@@ -246,14 +247,14 @@ class NDRTests(unittest.TestCase):
         request['map_tower']['tower_octet_string'] = str(tower)
 
         output = request.getData()
-        print "ORIG: %d, REPACKED: %d" % (len(ept_mapReq), len(output))
-        print "="*80
-        print "ORIG"
+        print("ORIG: %d, REPACKED: %d" % (len(ept_mapReq), len(output)))
+        print("="*80)
+        print("ORIG")
         hexdump(ept_mapReq)
-        print "="*80
-        print "REPACKED"
+        print("="*80)
+        print("REPACKED")
         hexdump(output)
-        print "="*80
+        print("="*80)
         self.assertTrue(len(ept_mapReq) == len(output))
 
     def test_13(self):
@@ -263,14 +264,14 @@ class NDRTests(unittest.TestCase):
         baseRegGetKeySecurity.fromString(baseRegGetKeySecurityResponse)
         baseRegGetKeySecurity.dumpRaw()
         output = baseRegGetKeySecurity.getData()
-        print "ORIG: %d, REPACKED: %d" % (len(baseRegGetKeySecurityResponse), len(output))
-        print "="*80
-        print "ORIG"
+        print("ORIG: %d, REPACKED: %d" % (len(baseRegGetKeySecurityResponse), len(output)))
+        print("="*80)
+        print("ORIG")
         hexdump(baseRegGetKeySecurityResponse)
-        print "="*80
-        print "REPACKED"
+        print("="*80)
+        print("REPACKED")
         hexdump(output)
-        print "="*80
+        print("="*80)
         self.assertTrue(baseRegGetKeySecurityResponse == output)
 
     def test_14(self):
@@ -290,14 +291,14 @@ class NDRTests(unittest.TestCase):
         #request.dumpRaw()
 
         output = request.getData()
-        print "ORIG: %d, REPACKED: %d" % (len(samrLookupIdsInDomain), len(output))
-        print "="*80
-        print "ORIG"
+        print("ORIG: %d, REPACKED: %d" % (len(samrLookupIdsInDomain), len(output)))
+        print("="*80)
+        print("ORIG")
         hexdump(samrLookupIdsInDomain)
-        print "="*80
-        print "REPACKED"
+        print("="*80)
+        print("REPACKED")
         hexdump(output)
-        print "="*80
+        print("="*80)
         self.assertTrue(len(samrLookupIdsInDomain) == len(output))
 
     def test_15(self):
@@ -336,14 +337,14 @@ class NDRTests(unittest.TestCase):
         request.changeTransferSyntax(self.NDR64Syntax)
         request.fromString(baseRegQueryMultipleValues)
         output = request.getData()
-        print "ORIG: %d, REPACKED: %d" % (len(baseRegQueryMultipleValues), len(output))
-        print "="*80
-        print "ORIG"
+        print("ORIG: %d, REPACKED: %d" % (len(baseRegQueryMultipleValues), len(output)))
+        print("="*80)
+        print("ORIG")
         hexdump(baseRegQueryMultipleValues)
-        print "="*80
-        print "REPACKED"
+        print("="*80)
+        print("REPACKED")
         hexdump(output)
-        print "="*80
+        print("="*80)
         self.assertTrue(len(baseRegQueryMultipleValues) == len(output))
 
     def test_16(self):
@@ -353,14 +354,14 @@ class NDRTests(unittest.TestCase):
         request = ComplexPing()
         request.fromString(complexPing)
         output = request.getData()
-        print "ORIG: %d, REPACKED: %d" % (len(complexPing), len(output))
-        print "="*80
-        print "ORIG"
+        print("ORIG: %d, REPACKED: %d" % (len(complexPing), len(output)))
+        print("="*80)
+        print("ORIG")
         hexdump(complexPing)
-        print "="*80
-        print "REPACKED"
+        print("="*80)
+        print("REPACKED")
         hexdump(output)
-        print "="*80
+        print("="*80)
         self.assertTrue(len(complexPing) == len(output))
 
     def test_17(self):
@@ -371,14 +372,14 @@ class NDRTests(unittest.TestCase):
         baseRegQueryValue.fromString(baseRegQueryValueResponse)
         baseRegQueryValue.dumpRaw()
         output = baseRegQueryValue.getData()
-        print "ORIG: %d, REPACKED: %d" % (len(baseRegQueryValueResponse), len(output))
-        print "="*80
-        print "ORIG"
+        print("ORIG: %d, REPACKED: %d" % (len(baseRegQueryValueResponse), len(output)))
+        print("="*80)
+        print("ORIG")
         hexdump(baseRegQueryValueResponse)
-        print "="*80
-        print "REPACKED"
+        print("="*80)
+        print("REPACKED")
         hexdump(output)
-        print "="*80
+        print("="*80)
         self.assertTrue(baseRegQueryValueResponse == output)
 
 if __name__ == '__main__':

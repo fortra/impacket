@@ -1,3 +1,4 @@
+from __future__ import print_function
 import unittest
 import ConfigParser
 
@@ -114,7 +115,7 @@ class DCERPCTests(unittest.TestCase):
         lmhash, nthash = self.hashes.split(':')
         oldBinding = self.stringBinding
         self.stringBinding = epm.hept_map(self.machine, samr.MSRPC_UUID_SAMR, protocol = 'ncacn_ip_tcp')
-        print self.stringBinding
+        print(self.stringBinding)
         dce = self.connectDCE(self.username, '', self.domain, lmhash, nthash, dceFragment=0,
                               auth_level=RPC_C_AUTHN_LEVEL_PKT_INTEGRITY, auth_type=RPC_C_AUTHN_GSS_NEGOTIATE,
                               dceAuth=True,
@@ -135,7 +136,7 @@ class DCERPCTests(unittest.TestCase):
             request['ServerHandle'] = resp['ServerHandle']
             request['Name'] = 'A'*4500
             resp = dce.request(request)
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_NO_SUCH_DOMAIN') < 0:
                 raise
         dce.disconnect()
@@ -290,7 +291,7 @@ class DCERPCTests(unittest.TestCase):
             request['max_ents'] = 499
             resp = dce.request(request)
             dce.disconnect()
-        except Exception, e:
+        except Exception as e:
             if not (str(e).find('STATUS_ACCESS_DENIED') >=0 and self.stringBinding.find('ncacn_np') >=0):
                 raise
 
@@ -391,7 +392,7 @@ class DCERPCTests(unittest.TestCase):
             request['max_ents'] = 499
             resp = dce.request(request)
             dce.disconnect()
-        except Exception, e:
+        except Exception as e:
             if not (str(e).find('STATUS_ACCESS_DENIED') >=0 and self.stringBinding.find('ncacn_np') >=0):
                 raise
 

@@ -1,3 +1,4 @@
+from __future__ import print_function
 try:
    import configparser
 except ImportError:
@@ -57,7 +58,7 @@ class NMBTests(unittest.TestCase):
             resp = n.name_registration_request('*JSMBSERVER', self.serverName, nmb.TYPE_WORKSTATION, None,nmb.NB_FLAGS_ONT_P, '1.1.1.2')
             resp.dump()
         except Exception as e:
-            print str(e)
+            print(str(e))
             if str(e).find('NETBIOS') <= 0:
                 raise e
 
