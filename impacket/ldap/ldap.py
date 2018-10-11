@@ -22,6 +22,7 @@ import os
 import re
 import socket
 from binascii import unhexlify
+from six import PY2
 
 from pyasn1.codec.ber import encoder, decoder
 from pyasn1.error import SubstrateUnderrunError
@@ -322,15 +323,15 @@ class LDAPConnection:
 
             # NTLM Negotiate
             negotiate = getNTLMSSPType1('', domain)
-            bindRequest['authentication']['sicilyNegotiate'] = negotiate
+            bindRequest['authentication']['sicilyNegotiate'] = negotiate.getData()
             response = self.sendReceive(bindRequest)[0]['protocolOp']
 
             # NTLM Challenge
             type2 = response['bindResponse']['matchedDN']
 
             # NTLM Auth
-            type3, exportedSessionKey = getNTLMSSPType3(negotiate, str(type2), user, password, domain, lmhash, nthash)
-            bindRequest['authentication']['sicilyResponse'] = type3
+            type3, exportedSessionKey = getNTLMSSPType3(negotiate, bytes(type2), user, password, domain, lmhash, nthash)
+            bindRequest['authentication']['sicilyResponse'] = type3.getData()
             response = self.sendReceive(bindRequest)[0]['protocolOp']
         else:
             raise LDAPSessionError(errorString="Unknown authenticationChoice: '%s'" % authenticationChoice)
@@ -426,7 +427,7 @@ class LDAPConnection:
 
     def recv(self):
         REQUEST_SIZE = 8192
-        data = ''
+        data = b''
         done = False
         while not done:
             recvData = self._socket.recv(REQUEST_SIZE)
@@ -465,7 +466,10 @@ class LDAPConnection:
 
     def _parseFilter(self, filterStr):
         try:
-            filterList = list(reversed(unicode(filterStr)))
+            if PY2:
+                filterList = list(reversed(unicode(filterStr)))
+            else:
+                filterList = list(reversed(filterStr))
         except UnicodeDecodeError:
             filterList = list(reversed(filterStr))
         searchFilter = self._consumeCompositeFilter(filterList)
