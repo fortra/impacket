@@ -183,8 +183,8 @@ class GetUserSPNs:
         if decodedTGS['ticket']['enc-part']['etype'] == constants.EncryptionTypes.rc4_hmac.value:
             entry = '$krb5tgs$%d$*%s$%s$%s*$%s$%s' % (
                 constants.EncryptionTypes.rc4_hmac.value, username, decodedTGS['ticket']['realm'], spn.replace(':', '~'),
-                hexlify(str(decodedTGS['ticket']['enc-part']['cipher'][:16])),
-                hexlify(str(decodedTGS['ticket']['enc-part']['cipher'][16:])))
+                hexlify(decodedTGS['ticket']['enc-part']['cipher'][:16].asOctets()).decode(),
+                hexlify(decodedTGS['ticket']['enc-part']['cipher'][16:].asOctets()).decode())
             if fd is None:
                 print(entry)
             else:
@@ -192,8 +192,8 @@ class GetUserSPNs:
         elif decodedTGS['ticket']['enc-part']['etype'] == constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value:
             entry = '$krb5tgs$%d$*%s$%s$%s*$%s$%s' % (
                 constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value, username, decodedTGS['ticket']['realm'], spn.replace(':', '~'),
-                hexlify(str(decodedTGS['ticket']['enc-part']['cipher'][:16])),
-                hexlify(str(decodedTGS['ticket']['enc-part']['cipher'][16:])))
+                hexlify(decodedTGS['ticket']['enc-part']['cipher'][:16].asOctets()).decode(),
+                hexlify(decodedTGS['ticket']['enc-part']['cipher'][16:].asOctets()).decode())
             if fd is None:
                 print(entry)
             else:
@@ -201,8 +201,8 @@ class GetUserSPNs:
         elif decodedTGS['ticket']['enc-part']['etype'] == constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value:
             entry = '$krb5tgs$%d$*%s$%s$%s*$%s$%s' % (
                 constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value, username, decodedTGS['ticket']['realm'], spn.replace(':', '~'),
-                hexlify(str(decodedTGS['ticket']['enc-part']['cipher'][:16])),
-                hexlify(str(decodedTGS['ticket']['enc-part']['cipher'][16:])))
+                hexlify(decodedTGS['ticket']['enc-part']['cipher'][:16].asOctets()).decode(),
+                hexlify(decodedTGS['ticket']['enc-part']['cipher'][16:].asOctets()).decode())
             if fd is None:
                 print(entry)
             else:
@@ -210,8 +210,8 @@ class GetUserSPNs:
         elif decodedTGS['ticket']['enc-part']['etype'] == constants.EncryptionTypes.des_cbc_md5.value:
             entry = '$krb5tgs$%d$*%s$%s$%s*$%s$%s' % (
                 constants.EncryptionTypes.des_cbc_md5.value, username, decodedTGS['ticket']['realm'], spn.replace(':', '~'),
-                hexlify(str(decodedTGS['ticket']['enc-part']['cipher'][:16])),
-                hexlify(str(decodedTGS['ticket']['enc-part']['cipher'][16:])))
+                hexlify(decodedTGS['ticket']['enc-part']['cipher'][:16].asOctets()).decode(),
+                hexlify(decodedTGS['ticket']['enc-part']['cipher'][16:].asOctets()).decode())
             if fd is None:
                 print(entry)
             else:
@@ -353,6 +353,7 @@ class GetUserSPNs:
                                                                                 TGT['sessionKey'])
                         self.outputTGS(tgs, oldSessionKey, sessionKey, user, SPN, fd)
                     except Exception as e:
+                        logging.debug("Exception:", exc_info=True)
                         logging.error('SPN: %s - %s' % (SPN,str(e)))
                 if fd is not None:
                     fd.close()
