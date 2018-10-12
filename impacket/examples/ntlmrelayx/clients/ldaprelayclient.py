@@ -64,7 +64,7 @@ class LDAPRelayClient(ProtocolClient):
         #For LDAP this is required otherwise it triggers LDAP signing
         negoMessage = NTLMAuthNegotiate()
         negoMessage.fromString(negotiateMessage)
-        negoMessage['flags'] ^= NTLMSSP_NEGOTIATE_SIGN
+        negoMessage['flags'] &= ~NTLMSSP_NEGOTIATE_SIGN
         self.negotiateMessage = str(negoMessage)
 
         with self.session.connection_lock:
