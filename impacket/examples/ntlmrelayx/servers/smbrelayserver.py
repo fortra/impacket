@@ -13,9 +13,13 @@
 # Description:
 #             This is the SMB server which relays the connections
 #   to other protocols
-
+from __future__ import division
+from __future__ import print_function
 from threading import Thread
-import ConfigParser
+try:
+    import ConfigParser
+except ImportError:
+    import configparser as ConfigParser
 import struct
 import logging
 import time
@@ -107,7 +111,7 @@ class SMBRelayServer(Thread):
         # SMBRelay
         # Get the data for all connections
         smbData = smbServer.getConnectionData('SMBRelay', False)
-        if smbData.has_key(self.target):
+        if self.target in smbData:
             # Remove the previous connection and use the last one
             smbClient = smbData[self.target]['SMBClient']
             del smbClient
@@ -125,7 +129,7 @@ class SMBRelayServer(Thread):
                 extSec = True
             # Init the correct client for our target
             client = self.init_client(extSec)
-        except Exception, e:
+        except Exception as e:
             LOG.error("Connection against target %s://%s FAILED: %s" % (self.target.scheme, self.target.netloc, str(e)))
             self.targetprocessor.logTarget(self.target)
         else:
@@ -169,7 +173,7 @@ class SMBRelayServer(Thread):
             respSMBCommand['DialectRevision'] = smb3.SMB2_DIALECT_002
             #respSMBCommand['DialectRevision'] = smb3.SMB2_DIALECT_21
 
-        respSMBCommand['ServerGuid'] = ''.join([random.choice(string.letters) for _ in range(16)])
+        respSMBCommand['ServerGuid'] = b''.join([random.choice(string.ascii_letters) for _ in range(16)])
         respSMBCommand['Capabilities'] = 0
         respSMBCommand['MaxTransactSize'] = 65536
         respSMBCommand['MaxReadSize'] = 65536
@@ -218,7 +222,7 @@ class SMBRelayServer(Thread):
                if mechType != TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider'] and \
                                mechType != TypesMech['NEGOEX - SPNEGO Extended Negotiation Security Mechanism']:
                    # Nope, do we know it?
-                   if MechTypes.has_key(mechType):
+                   if mechType in MechTypes:
                        mechStr = MechTypes[mechType]
                    else:
                        mechStr = hexlify(mechType)
@@ -258,7 +262,7 @@ class SMBRelayServer(Thread):
             client = smbData[self.target]['SMBClient']
             try:
                 challengeMessage = self.do_ntlm_negotiate(client, token)
-            except Exception, e:
+            except Exception as e:
                 # Log this target as processed for this client
                 self.targetprocessor.logTarget(self.target)
                 # Raise exception again to pass it on to the SMB server
@@ -303,7 +307,7 @@ class SMBRelayServer(Thread):
                                             authenticateMessage['user_name'].decode('utf-16le'))).upper()
                 if rawNTLM is True:
                     respToken2 = SPNEGO_NegTokenResp()
-                    respToken2['ResponseToken'] = str(securityBlob)
+                    respToken2['ResponseToken'] = securityBlob
                     securityBlob = respToken2.getData()
 
                 clientResponse, errorCode = self.do_ntlm_auth(client, securityBlob,
@@ -376,7 +380,7 @@ class SMBRelayServer(Thread):
         # Get the data for all connections
         smbData = smbServer.getConnectionData('SMBRelay', False)
 
-        if smbData.has_key(self.target):
+        if self.target in smbData:
             # Remove the previous connection and use the last one
             smbClient = smbData[self.target]['SMBClient']
             del smbClient
@@ -398,7 +402,7 @@ class SMBRelayServer(Thread):
 
             #Init the correct client for our target
             client = self.init_client(extSec)
-        except Exception, e:
+        except Exception as e:
             LOG.error("Connection against target %s://%s FAILED: %s" % (self.target.scheme, self.target.netloc, str(e)))
             self.targetprocessor.logTarget(self.target)
         else:
@@ -457,7 +461,7 @@ class SMBRelayServer(Thread):
                 client = smbData[self.target]['SMBClient']
                 try:
                     challengeMessage = self.do_ntlm_negotiate(client,token)
-                except Exception, e:
+                except Exception as e:
                     # Log this target as processed for this client
                     self.targetprocessor.logTarget(self.target)
                     # Raise exception again to pass it on to the SMB server
@@ -469,7 +473,7 @@ class SMBRelayServer(Thread):
                 # accept-incomplete. We want more data
                 respToken['NegResult'] = '\x01'
                 respToken['SupportedMech'] = TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']
-                respToken['ResponseToken'] = str(challengeMessage)
+                respToken['ResponseToken'] = challengeMessage.getData()
 
                 # Setting the packet to STATUS_MORE_PROCESSING
                 errorCode = STATUS_MORE_PROCESSING_REQUIRED
@@ -645,7 +649,7 @@ class SMBRelayServer(Thread):
 
     #Initialize the correct client for the relay target
     def init_client(self,extSec):
-        if self.config.protocolClients.has_key(self.target.scheme.upper()):
+        if self.target.scheme.upper() in self.config.protocolClients:
             client = self.config.protocolClients[self.target.scheme.upper()](self.config, self.target, extendedSecurity = extSec)
             client.initConnection()
         else:
@@ -660,7 +664,7 @@ class SMBRelayServer(Thread):
 
     def do_ntlm_auth(self,client,SPNEGO_token,challenge):
         #The NTLM blob is packed in a SPNEGO packet, extract it for methods other than SMB
-        clientResponse, errorCode = client.sendAuth(str(SPNEGO_token), challenge)
+        clientResponse, errorCode = client.sendAuth(SPNEGO_token.getData(), challenge)
 
         return clientResponse, errorCode
 

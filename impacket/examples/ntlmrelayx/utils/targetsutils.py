@@ -33,7 +33,10 @@
 import os
 import random
 import time
-from urlparse import urlparse
+try:
+    from urllib.parse import urlparse
+except ImportError:
+    from urlparse import urlparse
 from impacket import LOG
 from threading import Thread
 
@@ -79,7 +82,7 @@ class TargetsProcessor:
                     target = line.strip()
                     if target is not None:
                         self.originalTargets.extend(self.processTarget(target, self.protocolClients))
-        except IOError, e:
+        except IOError as e:
             LOG.error("Could not open file: %s - " % (self.filename, str(e)))
 
         if len(self.originalTargets) == 0:
@@ -113,7 +116,6 @@ class TargetsFileWatcher(Thread):
         Thread.__init__(self)
         self.targetprocessor = targetprocessor
         self.lastmtime = os.stat(self.targetprocessor.filename).st_mtime
-        #print self.lastmtime
 
     def run(self):
         while True:
