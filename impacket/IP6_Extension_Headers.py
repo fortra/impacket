@@ -136,7 +136,7 @@ class IP6_Extension_Header(Header):
         data = self.get_data_as_string()
 
         # Update the header length
-        self.set_header_extension_length(self.get_header_size() / 8 - 1)
+        self.set_header_extension_length(self.get_header_size() // 8 - 1)
 
         # Build the entire extension header packet
         header_bytes = self.get_buffer_as_string()
@@ -220,7 +220,7 @@ class Option_PADN(Extension_Option):
             raise ImpactPacketException("PadN Extension Option must be greater than 2 bytes")
 
         Extension_Option.__init__(self, Option_PADN.OPTION_TYPE_VALUE, padding_size)
-        self.set_data('\x00' * (padding_size - 2))
+        self.set_data(b'\x00' * (padding_size - 2))
 
 class Basic_Extension_Header(IP6_Extension_Header):
     MAX_OPTIONS_LEN = 256 * 8

@@ -345,7 +345,7 @@ class ProtocolPacket(ProtocolLayer):
     def get_packet(self):
         self.__update_body_from_child()
         
-        ret = ''
+        ret = b''
         
         header = self.get_header_as_string()
         if header:
@@ -609,13 +609,13 @@ class Ethernet(Header):
 
     def load_header(self, aBuffer):
         self.tag_cnt = 0
-        while aBuffer[12+4*self.tag_cnt:14+4*self.tag_cnt] in ('\x81\x00', '\x88\xa8', '\x91\x00'):
+        while aBuffer[12+4*self.tag_cnt:14+4*self.tag_cnt] in (b'\x81\x00', b'\x88\xa8', b'\x91\x00'):
             self.tag_cnt += 1
 
         hdr_len = self.get_header_size()
         diff = hdr_len - len(aBuffer)
         if diff > 0:
-            aBuffer += '\x00'*diff
+            aBuffer += b'\x00'*diff
         self.set_bytes_from_string(aBuffer[:hdr_len])
 
     def get_header_size(self):
@@ -714,7 +714,7 @@ class LinuxSLL(Header):
     def set_addr(self, addr):
         "Sets the sender's address field to addr. Addr must be at most 8-byte long."
         if (len(addr) < 8):
-            addr += '\0' * (8 - len(addr))
+            addr += b'\0' * (8 - len(addr))
         self.get_bytes()[6:14] = addr
 
     def get_addr(self):
@@ -797,7 +797,7 @@ class IP(Header):
         # Pad to a multiple of 4 bytes
         num_pad = (4 - (len(my_bytes) % 4)) % 4
         if num_pad:
-            my_bytes.fromstring("\0"* num_pad)
+            my_bytes.fromstring(b"\0"* num_pad)
 
         # only change ip_hl value if options are present
         if len(self.__option_list):
