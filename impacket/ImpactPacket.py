@@ -12,7 +12,8 @@
 #  Javier Burroni (javier)
 #  Bruce Leidl (brl)
 #  Javier Kohen (jkohen)
-
+from __future__ import division
+from __future__ import print_function
 import array
 import struct
 import socket
@@ -444,7 +445,7 @@ class Header(PacketBuffer,ProtocolLayer):
                 count += 1
             if (count%16):
                 left = 16 - (count%16)
-                ltmp.append(' ' * (4+(left / 2) + (left*2)))
+                ltmp.append(' ' * (4+(left // 2) + (left*2)))
                 ltmp.append(string.join(line, ''))
                 ltmp.append('\n')
             return ltmp
@@ -800,7 +801,7 @@ class IP(Header):
 
         # only change ip_hl value if options are present
         if len(self.__option_list):
-            self.set_ip_hl(len(my_bytes) / 4)
+            self.set_ip_hl(len(my_bytes) // 4)
 
 
         # set the checksum if the user hasn't modified it
@@ -972,7 +973,7 @@ class IP(Header):
                 frag_size += 8 - (frag_size % 8)
 
 
-            ip.set_ip_offmask(current_offset / 8)
+            ip.set_ip_offmask(current_offset // 8)
             current_offset += frag_size
 
             data = Data(child_data[:frag_size])
@@ -1009,7 +1010,7 @@ class IP(Header):
 
     def fragment_by_size(self, aSize):
         data_len = len(self.get_data_as_string())
-        num_frags = data_len / aSize
+        num_frags = data_len // aSize
 
         if data_len % aSize:
             num_frags += 1
@@ -1493,7 +1494,7 @@ class TCP(Header):
 
         # only change th_off value if options are present
         if len(self.__option_list):
-            self.set_th_off(self.get_header_size() / 4)
+            self.set_th_off(self.get_header_size() // 4)
 
         self.calculate_checksum()
 
