@@ -62,7 +62,7 @@ class HTTPSocksRelay(SocksRelay):
                 self.username = '%s/%s' % (domain.split('.')[0], user)
 
             # Check if we have a connection for the user
-            if self.activeRelays.has_key(self.username):
+            if self.username in self.activeRelays:
                 # Check the connection is not inUse
                 if self.activeRelays[self.username]['inUse'] is True:
                     LOG.error('HTTP: Connection for %s@%s(%s) is being used at the moment!' % (

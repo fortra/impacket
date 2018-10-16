@@ -65,7 +65,7 @@ class LDAPRelayClient(ProtocolClient):
         negoMessage = NTLMAuthNegotiate()
         negoMessage.fromString(negotiateMessage)
         #negoMessage['flags'] ^= NTLMSSP_NEGOTIATE_SIGN
-        self.negotiateMessage = str(negoMessage)
+        self.negotiateMessage = negoMessage.getData()
 
         with self.session.connection_lock:
             if not self.session.sasl_in_progress:
@@ -95,7 +95,7 @@ class LDAPRelayClient(ProtocolClient):
         return self.negotiateMessage
 
     def sendAuth(self, authenticateMessageBlob, serverChallenge=None):
-        if unpack('B', str(authenticateMessageBlob)[:1])[0] == SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP:
+        if unpack('B', authenticateMessageBlob[:1])[0] == SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP:
             respToken2 = SPNEGO_NegTokenResp(authenticateMessageBlob)
             token = respToken2['ResponseToken']
         else:

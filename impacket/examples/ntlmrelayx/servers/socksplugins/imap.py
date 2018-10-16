@@ -122,7 +122,7 @@ class IMAPSocksRelay(SocksRelay):
                 data = self.socksSocket.recv(self.packetSize)
             except Exception as e:
                 # Socks socket (client) closed connection or something else. Not fatal for killing the existing relay
-                print(keyword, tag)
+                print((keyword, tag))
                 LOG.debug('IMAP: sockSocket recv(): %s' % (str(e)))
                 break
             # If this returns with an empty string, it means the socket was closed

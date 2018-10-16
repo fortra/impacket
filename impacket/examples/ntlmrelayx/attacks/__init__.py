@@ -45,7 +45,7 @@ class ProtocolAttack(Thread):
         raise RuntimeError('Virtual Function')
 
 for file in pkg_resources.resource_listdir('impacket.examples.ntlmrelayx', 'attacks'):
-    if file.find('__') >=0 or os.path.splitext(file)[1] == '.pyc':
+    if file.find('__') >=0 or file.endswith('.py') is False:
         continue
     __import__(__package__ + '.' + os.path.splitext(file)[0])
     module = sys.modules[__package__ + '.' + os.path.splitext(file)[0]]
@@ -59,7 +59,7 @@ for file in pkg_resources.resource_listdir('impacket.examples.ntlmrelayx', 'atta
             else:
                 # Single class
                 pluginClasses.add(getattr(module, getattr(module, 'PROTOCOL_ATTACK_CLASS')))
-        except Exception, e:
+        except Exception as e:
             LOG.debug(e)
             pass
 
@@ -67,6 +67,6 @@ for file in pkg_resources.resource_listdir('impacket.examples.ntlmrelayx', 'atta
             for pluginName in pluginClass.PLUGIN_NAMES:
                 LOG.debug('Protocol Attack %s loaded..' % pluginName)
                 PROTOCOL_ATTACKS[pluginName] = pluginClass
-    except Exception, e:
+    except Exception as e:
         LOG.debug(str(e))
 

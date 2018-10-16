@@ -39,9 +39,9 @@ class SMTPSocksRelay(SocksRelay):
         return 25
 
     def getServerEhlo(self):
-        for key in self.activeRelays.keys():
+        for key in list(self.activeRelays.keys()):
             if key != 'data' and key != 'scheme':
-                if self.activeRelays[key].has_key('protocolClient'):
+                if 'protocolClient' in self.activeRelays[key]:
                     return self.activeRelays[key]['protocolClient'].session.ehlo_resp
 
     def initConnection(self):
@@ -100,7 +100,7 @@ class SMTPSocksRelay(SocksRelay):
             return False
 
         # Check if we have a connection for the user
-        if self.activeRelays.has_key(self.username):
+        if self.username in self.activeRelays:
             # Check the connection is not inUse
             if self.activeRelays[self.username]['inUse'] is True:
                 LOG.error('SMTP: Connection for %s@%s(%s) is being used at the moment!' % (

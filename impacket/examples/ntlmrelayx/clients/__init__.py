@@ -47,11 +47,22 @@ class ProtocolClient:
         raise RuntimeError('Virtual Function')
 
     def sendNegotiate(self, negotiateMessage):
-        # Charged of sending the type 1 NTLM Message
+        """
+        Charged of sending the type 1 NTLM Message
+
+        :param bytes negotiateMessage:
+        :return:
+        """
         raise RuntimeError('Virtual Function')
 
     def sendAuth(self, authenticateMessageBlob, serverChallenge=None):
-        # Charged of sending the type 3 NTLM Message to the Target
+        """
+        Charged of sending the type 3 NTLM Message to the Target
+
+        :param bytes authenticateMessageBlob:
+        :param bytes serverChallenge:
+        :return:
+        """
         raise RuntimeError('Virtual Function')
 
     def sendStandardSecurityAuth(self, sessionSetupData):

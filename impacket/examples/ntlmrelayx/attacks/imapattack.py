@@ -56,9 +56,9 @@ class IMAPAttack(ProtocolAttack):
         else:
             #Dump all mails, up to the maximum number configured
             if self.config.dump_max == 0 or self.config.dump_max > inboxCount:
-                dumpMessages = range(1, inboxCount+1)
+                dumpMessages = list(range(1, inboxCount+1))
             else:
-                dumpMessages = range(1, self.config.dump_max+1)
+                dumpMessages = list(range(1, self.config.dump_max+1))
 
         numMsgs = len(dumpMessages)
         if numMsgs == 0:

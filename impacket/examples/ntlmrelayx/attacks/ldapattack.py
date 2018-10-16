@@ -17,8 +17,7 @@
 #
 import random
 import string
-import thread
-import ldapdomaindump
+import _thread
 import ldap3
 from impacket import LOG
 from impacket.examples.ntlmrelayx.attacks import ProtocolAttack
@@ -29,6 +28,11 @@ from pyasn1.type.namedtype import NamedTypes, NamedType
 from pyasn1.type.univ import Sequence, Integer
 from ldap3.utils.conv import escape_filter_chars
 from ldap3.core.results import RESULT_UNWILLING_TO_PERFORM
+from six import PY3
+if PY3:
+    LOG.error('ldapdomaindump still not support Python3. This attack will not work')
+else:
+    import ldapdomaindump
 # This is new from ldap3 v2.5
 try:
     from ldap3.protocol.microsoft import security_descriptor_control
@@ -108,7 +112,7 @@ class LDAPAttack(ProtocolAttack):
             LOG.info('Adding user: %s to group %s result: OK' % (userName, groupName))
             LOG.info('Privilege escalation succesful, shutting down...')
             alreadyEscalated = True
-            thread.interrupt_main()
+            _thread.interrupt_main()
         else:
             LOG.error('Failed to add user to %s group: %s' % (groupName, str(self.client.result)))
 
@@ -290,7 +294,7 @@ class LDAPAttack(ProtocolAttack):
         If this is not set, the ACE applies to all object types.
         '''
         objectTypeGuid = bin_to_string(ace['Ace']['InheritedObjectType']).lower()
-        for objectType, guid in OBJECTTYPE_GUID_MAP.iteritems():
+        for objectType, guid in OBJECTTYPE_GUID_MAP.items():
             if objectType in objectClasses and objectTypeGuid:
                 return True
         # If none of these match, the ACE does not apply to this object

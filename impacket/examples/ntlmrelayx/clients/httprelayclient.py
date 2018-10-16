@@ -80,7 +80,7 @@ class HTTPRelayClient(ProtocolClient):
             LOG.error('No NTLM challenge returned from server')
 
     def sendAuth(self, authenticateMessageBlob, serverChallenge=None):
-        if unpack('B', str(authenticateMessageBlob)[:1])[0] == SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP:
+        if unpack('B', authenticateMessageBlob[:1])[0] == SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP:
             respToken2 = SPNEGO_NegTokenResp(authenticateMessageBlob)
             token = respToken2['ResponseToken']
         else:

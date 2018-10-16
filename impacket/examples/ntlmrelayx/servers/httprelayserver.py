@@ -21,6 +21,7 @@ import random
 import struct
 import string
 from threading import Thread
+from six import PY2
 
 from impacket import ntlm, LOG
 from impacket.smbserver import outputToJohnFormat, writeJohnOutputToFile
@@ -108,13 +109,13 @@ class HTTPRelayServer(Thread):
             self.send_header('Content-type', 'text/html')
             self.end_headers()
 
-        def do_AUTHHEAD(self, message = '', proxy=False):
+        def do_AUTHHEAD(self, message = b'', proxy=False):
             if proxy:
                 self.send_response(407)
-                self.send_header('Proxy-Authenticate', message)
+                self.send_header('Proxy-Authenticate', message.decode('utf-8'))
             else:
                 self.send_response(401)
-                self.send_header('WWW-Authenticate', message)
+                self.send_header('WWW-Authenticate', message.decode('utf-8'))
             self.send_header('Content-type', 'text/html')
             self.send_header('Content-Length','0')
             self.end_headers()
@@ -170,20 +171,27 @@ class HTTPRelayServer(Thread):
             else:
                 proxy = False
 
-            if (proxy and self.headers.getheader('Proxy-Authorization') is None) or (not proxy and self.headers.getheader('Authorization') is None):
-                self.do_AUTHHEAD(message = 'NTLM',proxy=proxy)
+            if PY2:
+                proxyAuthHeader = self.headers.getheader('Proxy-Authorization')
+                autorizationHeader = self.headers.getheader('Authorization')
+            else:
+                proxyAuthHeader = self.headers.get('Proxy-Authorization')
+                autorizationHeader = self.headers.get('Authorization')
+
+            if (proxy and proxyAuthHeader is None) or (not proxy and autorizationHeader is None):
+                self.do_AUTHHEAD(message = b'NTLM',proxy=proxy)
                 pass
             else:
                 if proxy:
-                    typeX = self.headers.getheader('Proxy-Authorization')
+                    typeX = proxyAuthHeader
                 else:
-                    typeX = self.headers.getheader('Authorization')
+                    typeX = autorizationHeader
                 try:
                     _, blob = typeX.split('NTLM')
                     token = base64.b64decode(blob.strip())
                 except Exception as e:
                     LOG.debug("Exception:", exc_info=True)
-                    self.do_AUTHHEAD(message = 'NTLM', proxy=proxy)
+                    self.do_AUTHHEAD(message = b'NTLM', proxy=proxy)
                 else:
                     messageType = struct.unpack('<L',token[len('NTLMSSP\x00'):len('NTLMSSP\x00')+4])[0]
 
@@ -217,7 +225,7 @@ class HTTPRelayServer(Thread):
                         self.do_REDIRECT()
                     else:
                         #If it was an anonymous login, send 401
-                        self.do_AUTHHEAD('NTLM', proxy=proxy)
+                        self.do_AUTHHEAD(b'NTLM', proxy=proxy)
                 else:
                     # Relay worked, do whatever we want here...
                     if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
@@ -266,7 +274,7 @@ class HTTPRelayServer(Thread):
                 return False
 
             #Calculate auth
-            self.do_AUTHHEAD(message = 'NTLM '+base64.b64encode(self.challengeMessage.getData()), proxy=proxy)
+            self.do_AUTHHEAD(message = b'NTLM '+base64.b64encode(self.challengeMessage.getData()), proxy=proxy)
             return True
 
         def do_ntlm_auth(self,token,authenticateMessage):
