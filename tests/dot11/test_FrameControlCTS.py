@@ -11,7 +11,7 @@ class TestDot11FrameControlCTS(unittest.TestCase):
 
     def setUp(self):
         # 802.11 Control Frame CTS
-        self.frame_orig='\xc4\x00\x3b\x12\x00\x19\xe0\x98\x04\xd4\x2b\x8a\x65\x17'
+        self.frame_orig=b'\xc4\x00\x3b\x12\x00\x19\xe0\x98\x04\xd4\x2b\x8a\x65\x17'
         
         d = Dot11(self.frame_orig)
         

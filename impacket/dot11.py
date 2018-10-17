@@ -1000,7 +1000,7 @@ class SNAP(ProtocolPacket):
         "Get the three-octet Organizationally Unique Identifier (OUI) SNAP frame"
         b=self.header.get_bytes()[0:3].tostring()
         #unpack requires a string argument of length 4 and b is 3 bytes long
-        (oui,)=struct.unpack('!L', '\x00'+b)
+        (oui,)=struct.unpack('!L', b'\x00'+b)
         return oui
 
     def set_OUI(self, value):
@@ -1043,7 +1043,7 @@ class Dot11WEP(ProtocolPacket):
         'Return the \'WEP IV\' field'
         b=self.header.get_bytes()[0:3].tostring()
         #unpack requires a string argument of length 4 and b is 3 bytes long
-        (iv,)=struct.unpack('!L', '\x00'+b)
+        (iv,)=struct.unpack('!L', b'\x00'+b)
         return iv
 
     def set_iv(self, value):
@@ -1302,7 +1302,7 @@ class Dot11WPAData(ProtocolPacket):
     def set_MIC(self, value):
         'Set the \'WPA2Data MIC\' field'
         #Padding to 8 bytes with 0x00's 
-        value.ljust(8,'\x00')
+        value.ljust(8,b'\x00')
         #Stripping to 8 bytes
         value=value[:8]
         icv=self.tail.get_buffer_as_string()[-4:] 
@@ -1444,7 +1444,7 @@ class Dot11WPA2Data(ProtocolPacket):
     def set_MIC(self, value):
         'Set the \'WPA2Data MIC\' field'
         #Padding to 8 bytes with 0x00's 
-        value.ljust(8,'\x00')
+        value.ljust(8,b'\x00')
         #Stripping to 8 bytes
         value=value[:8]
         self.tail.set_bytes_from_string(value)
@@ -1700,7 +1700,7 @@ class RadioTap(ProtocolPacket):
             raise Exception("arg 'values' is not iterable")
         
         # It's for to known the qty of argument of a structure
-        num_fields=len(field.STRUCTURE.translate(string.maketrans("",""), '=@!<>'))
+        num_fields=len(''.join(c for c in field.STRUCTURE if c not in '=@!<>'))
 
         if len(values)!=num_fields:
             raise Exception("Field %s has exactly %d items"%(str(field),struct.calcsize(field.STRUCTURE)))

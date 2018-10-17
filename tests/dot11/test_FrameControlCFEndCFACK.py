@@ -11,7 +11,7 @@ class TestDot11FrameControlCFEndCFACK(unittest.TestCase):
 
     def setUp(self):
         # 802.11 Control Frame CFEndCFACK
-        self.frame_orig='\xf4\x74\xde\xed\xe5\x56\x85\xf8\xd2\x3b\x96\xae\x0f\xb0\xd9\x8a\x03\x02\x38\x00'  
+        self.frame_orig=b'\xf4\x74\xde\xed\xe5\x56\x85\xf8\xd2\x3b\x96\xae\x0f\xb0\xd9\x8a\x03\x02\x38\x00'
 
         d = Dot11(self.frame_orig)
         
