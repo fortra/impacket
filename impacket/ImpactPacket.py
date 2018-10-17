@@ -434,7 +434,7 @@ class Header(PacketBuffer,ProtocolLayer):
                         ltmp.append(' ')
                     else:
                         ltmp.append(' '*4)
-                        ltmp.append(string.join(line, ''))
+                        ltmp.append(''.join(line))
                         ltmp.append('\n')
                         line = []
                 if chr(byte) in Header.packet_printable:
@@ -446,7 +446,7 @@ class Header(PacketBuffer,ProtocolLayer):
             if (count%16):
                 left = 16 - (count%16)
                 ltmp.append(' ' * (4+(left // 2) + (left*2)))
-                ltmp.append(string.join(line, ''))
+                ltmp.append(''.join(line))
                 ltmp.append('\n')
             return ltmp
         else:
@@ -459,7 +459,7 @@ class Header(PacketBuffer,ProtocolLayer):
             ltmp.append(['\n', str(self.child())])
 
         if len(ltmp)>0:
-            return string.join(ltmp, '')
+            return ''.join(ltmp)
         else:
             return ''
 
