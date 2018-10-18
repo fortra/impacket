@@ -29,10 +29,7 @@ from pyasn1.type.univ import Sequence, Integer
 from ldap3.utils.conv import escape_filter_chars
 from ldap3.core.results import RESULT_UNWILLING_TO_PERFORM
 from six import PY3
-if PY3:
-    LOG.error('ldapdomaindump still not support Python3. This attack will not work')
-else:
-    import ldapdomaindump
+import ldapdomaindump
 # This is new from ldap3 v2.5
 try:
     from ldap3.protocol.microsoft import security_descriptor_control
@@ -268,11 +265,11 @@ class LDAPAttack(ProtocolAttack):
                         else:
                             # Could be a different OU where we have access
                             # store it until we find a better place
-                            if privs['createIn'] != 'CN=Users,%s' % domainDumper.root and 'organizationalUnit' in entry['raw_attributes']['objectClass']:
+                            if privs['createIn'] != 'CN=Users,%s' % domainDumper.root and b'organizationalUnit' in entry['raw_attributes']['objectClass']:
                                 privs['create'] = True
                                 privs['createIn'] = dn
                     if can_add_member(ace) or hasFullControl:
-                        if 'group' in entry['raw_attributes']['objectClass']:
+                        if b'group' in entry['raw_attributes']['objectClass']:
                             # We can add members to a group
                             if not hasFullControl:
                                 LOG.debug('Permission found: Add member to %s; Reason: Granted to %s' % (dn, sidmapping[sid]))
@@ -282,7 +279,7 @@ class LDAPAttack(ProtocolAttack):
                         if not hasFullControl:
                             LOG.debug('Permission found: Write Dacl of %s; Reason: Granted to %s' % (dn, sidmapping[sid]))
                         # We can modify the domain Dacl
-                        if 'domain' in entry['raw_attributes']['objectClass']:
+                        if b'domain' in entry['raw_attributes']['objectClass']:
                             privs['aclEscalate'] = True
                             privs['aclEscalateIn'] = dn
 

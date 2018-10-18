@@ -39,7 +39,7 @@ class LDAP_SID(Structure):
     )
 
     def formatCanonical(self):
-        ans = 'S-%d-%d' % (self['Revision'], ord(self['IdentifierAuthority']['Value'][5]))
+        ans = 'S-%d-%d' % (self['Revision'], ord(self['IdentifierAuthority']['Value'][5:6]))
         for i in range(self['SubAuthorityCount']):
             ans += '-%d' % ( unpack('<L',self['SubAuthority'][i*4:i*4+4])[0])
         return ans
@@ -48,9 +48,9 @@ class LDAP_SID(Structure):
         items = canonical.split('-')
         self['Revision'] = int(items[1])
         self['IdentifierAuthority'] = LDAP_SID_IDENTIFIER_AUTHORITY()
-        self['IdentifierAuthority']['Value'] = '\x00\x00\x00\x00\x00' + pack('B',int(items[2]))
+        self['IdentifierAuthority']['Value'] = b'\x00\x00\x00\x00\x00' + pack('B',int(items[2]))
         self['SubAuthorityCount'] = len(items) - 3
-        self['SubAuthority'] = ''
+        self['SubAuthority'] = b''
         for i in range(self['SubAuthorityCount']):
             self['SubAuthority'] += pack('<L', int(items[i+3]))
 
@@ -81,22 +81,22 @@ class SR_SECURITY_DESCRIPTOR(Structure):
         if self['OffsetOwner'] != 0:
             self['OwnerSid'] = LDAP_SID(data=data[self['OffsetOwner']:])
         else:
-            self['OwnerSid'] = ''
+            self['OwnerSid'] = b''
 
         if self['OffsetGroup'] != 0:
             self['GroupSid'] = LDAP_SID(data=data[self['OffsetGroup']:])
         else:
-            self['GroupSid'] = ''
+            self['GroupSid'] = b''
 
         if self['OffsetSacl'] != 0:
             self['Sacl'] = ACL(data=data[self['OffsetSacl']:])
         else:
-            self['Sacl'] = ''
+            self['Sacl'] = b''
 
         if self['OffsetDacl'] != 0:
             self['Dacl'] = ACL(data=data[self['OffsetDacl']:])
         else:
-            self['Sacl'] = ''
+            self['Sacl'] = b''
 
     def getData(self):
         headerlen = 20
@@ -104,25 +104,25 @@ class SR_SECURITY_DESCRIPTOR(Structure):
         # flags are currently not set automatically
         # TODO: do this?
         datalen = 0
-        if self['Sacl'] != '':
+        if self['Sacl'] != b'':
             self['OffsetSacl'] = headerlen + datalen
             datalen += len(self['Sacl'].getData())
         else:
             self['OffsetSacl'] = 0
 
-        if self['Dacl'] != '':
+        if self['Dacl'] != b'':
             self['OffsetDacl'] = headerlen + datalen
             datalen += len(self['Dacl'].getData())
         else:
             self['OffsetDacl'] = 0
 
-        if self['OwnerSid'] != '':
+        if self['OwnerSid'] != b'':
             self['OffsetOwner'] = headerlen + datalen
             datalen += len(self['OwnerSid'].getData())
         else:
             self['OffsetOwner'] = 0
 
-        if self['GroupSid'] != '':
+        if self['GroupSid'] != b'':
             self['OffsetGroup'] = headerlen + datalen
             datalen += len(self['GroupSid'].getData())
         else:
@@ -273,9 +273,9 @@ class ACCESS_ALLOWED_OBJECT_ACE(Structure):
 
     def getData(self):
         # Set the correct flags
-        if self['ObjectType'] != '':
+        if self['ObjectType'] != b'':
             self['Flags'] |= self.ACE_OBJECT_TYPE_PRESENT
-        if self['InheritedObjectType'] != '':
+        if self['InheritedObjectType'] != b'':
             self['Flags'] |= self.ACE_INHERITED_OBJECT_TYPE_PRESENT
         return Structure.getData(self)
 
@@ -470,7 +470,7 @@ class ACL(Structure):
         self['AceCount'] = len(self.aces)
         # We modify the data field to be able to use the
         # parent class parsing
-        self['Data'] = ''.join([ace.getData() for ace in self.aces])
+        self['Data'] = b''.join([ace.getData() for ace in self.aces])
         self['AclSize'] = len(self['Data'])+8 # Header size (8 bytes) is included
         data = Structure.getData(self)
         # Put the ACEs back in data
