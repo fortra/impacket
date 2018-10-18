@@ -40,7 +40,8 @@ def exportTable(ese, tableName):
     while True:
         try:
             record = ese.getNextRow(cursor)
-        except:
+        except Exception as e:
+            logging.debug('Exception:', exc_info=True)
             logging.error('Error while calling getNextRow(), trying the next one')
             continue
 
