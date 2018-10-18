@@ -47,7 +47,9 @@ class ProtocolAttack(Thread):
 for file in pkg_resources.resource_listdir('impacket.examples.ntlmrelayx', 'attacks'):
     if file.find('__') >=0 or file.endswith('.py') is False:
         continue
-    # This seems to be None in some case
+    # This seems to be None in some case (py3 only)
+    # __spec__ is py3 only though, but I haven't seen this being None on py2
+    # so it should cover all cases.
     if not __package__:
         package = __spec__.name
     else:
