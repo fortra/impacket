@@ -90,9 +90,15 @@ class ProtocolClient:
 for file in pkg_resources.resource_listdir('impacket.examples.ntlmrelayx', 'clients'):
     if file.find('__') >=0 or file.endswith('.py') is False:
         continue
-
-    __import__(__package__ + '.' + os.path.splitext(file)[0])
-    module = sys.modules[__package__ + '.' + os.path.splitext(file)[0]]
+    # This seems to be None in some case (py3 only)
+    # __spec__ is py3 only though, but I haven't seen this being None on py2
+    # so it should cover all cases.
+    if not __package__:
+        package = __spec__.name
+    else:
+        package = __package__
+    __import__(package + '.' + os.path.splitext(file)[0])
+    module = sys.modules[package + '.' + os.path.splitext(file)[0]]
     try:
         pluginClasses = set()
         try:
