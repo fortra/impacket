@@ -47,8 +47,13 @@ class ProtocolAttack(Thread):
 for file in pkg_resources.resource_listdir('impacket.examples.ntlmrelayx', 'attacks'):
     if file.find('__') >=0 or file.endswith('.py') is False:
         continue
-    __import__(__package__ + '.' + os.path.splitext(file)[0])
-    module = sys.modules[__package__ + '.' + os.path.splitext(file)[0]]
+    # This seems to be None in some case
+    if not __package__:
+        package = __spec__.name
+    else:
+        package = __package__
+    __import__(package + '.' + os.path.splitext(file)[0])
+    module = sys.modules[package + '.' + os.path.splitext(file)[0]]
     try:
         pluginClasses = set()
         try:
