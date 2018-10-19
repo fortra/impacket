@@ -242,7 +242,7 @@ class SMBConnection:
     def getIOCapabilities(self):
         return self._SMBConnection.getIOCapabilities()
 
-    def login(self, user, password, domain = '', lmhash = '', nthash = '', ntlmFallback = True):
+    def login(self, user, password, domain = '', lmhash = '', nthash = '', ntlmFallback = False):
         """
         logins into the target system
 
