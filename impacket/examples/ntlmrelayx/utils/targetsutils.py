@@ -83,7 +83,7 @@ class TargetsProcessor:
                     if target is not None:
                         self.originalTargets.extend(self.processTarget(target, self.protocolClients))
         except IOError as e:
-            LOG.error("Could not open file: %s - " % (self.filename, str(e)))
+            LOG.error("Could not open file: %s - %s", self.filename, str(e))
 
         if len(self.originalTargets) == 0:
             LOG.critical("Warning: no valid targets specified!")
