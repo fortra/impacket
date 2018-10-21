@@ -201,7 +201,7 @@ class MSSQLSocksRelay(SocksRelay):
                 try:
                     dd += self.tlsSocket.read(packetSize)
                 except SSL.WantReadError:
-                    data2 = self.socket.recv(packetSize - len(data) )
+                    data2 = self.socksSocket.recv(packetSize - len(data) )
                     self.tlsSocket.bio_write(data2)
                     pass
                 else:

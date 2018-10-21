@@ -310,11 +310,11 @@ class SocksRequestHandler(socketserver.BaseRequestHandler):
         # SOCKS4
         else:
             self.targetPort = request['PORT']
-            
+
             # SOCKS4a
             if request['ADDR'][:3] == "\x00\x00\x00" and request['ADDR'][3] != "\x00":
                 nullBytePos = request['PAYLOAD'].find("\x00");
-            
+
                 if nullBytePos == -1:
                     LOG.error('Error while reading SOCKS4a header!')
                 else:
@@ -370,7 +370,7 @@ class SocksRequestHandler(socketserver.BaseRequestHandler):
                     self.__connSocket.sendall(data)
                 except Exception as e:
                     LOG.debug("Exception:", exc_info=True)
-                    LOG.error('SOCKS: ', str(e))
+                    LOG.error('SOCKS: %s', str(e))
 
         # Let's look if there's a relayed connection for our host/port
         scheme = None
