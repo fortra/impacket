@@ -135,7 +135,7 @@ https://msdn.microsoft.com/en-us/library/cc230295.aspx
 """
 class ACE(Structure):
     # Flag constants
-    CONTAINER_INHERIT_ACE       = 0x01
+    CONTAINER_INHERIT_ACE       = 0x02
     FAILED_ACCESS_ACE_FLAG      = 0x80
     INHERIT_ONLY_ACE            = 0x08
     INHERITED_ACE               = 0x10
@@ -484,9 +484,9 @@ Reference:
 Can also be queried from the Schema
 """
 OBJECTTYPE_GUID_MAP = {
-    'group': 'bf967a9c-0de6-11d0-a285-00aa003049e2',
-    'domain': '19195a5a-6da0-11d0-afd3-00c04fd930c9',
-    'organizationalUnit': 'bf967aa5-0de6-11d0-a285-00aa003049e2',
-    'user': 'bf967aba-0de6-11d0-a285-00aa003049e2',
-    'groupPolicyContainer': 'f30e3bc2-9ff0-11d1-b603-0000f80367c1'
+    b'group': 'bf967a9c-0de6-11d0-a285-00aa003049e2',
+    b'domain': '19195a5a-6da0-11d0-afd3-00c04fd930c9',
+    b'organizationalUnit': 'bf967aa5-0de6-11d0-a285-00aa003049e2',
+    b'user': 'bf967aba-0de6-11d0-a285-00aa003049e2',
+    b'groupPolicyContainer': 'f30e3bc2-9ff0-11d1-b603-0000f80367c1'
 }
