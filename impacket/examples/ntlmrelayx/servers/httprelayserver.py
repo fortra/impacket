@@ -145,9 +145,6 @@ class HTTPRelayServer(Thread):
         def do_CONNECT(self):
             return self.do_GET()
 
-        def do_HEAD(self):
-            return self.do_GET()
-
         def do_GET(self):
             messageType = 0
             if self.server.config.mode == 'REDIRECT':
