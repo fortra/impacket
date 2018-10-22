@@ -952,9 +952,10 @@ class ESENT_DB:
                     try:
                         record[column] = record[column].decode(stringDecoder)
                     except Exception as e:
-                        LOG.debug('Record[column] %r' % repr(record[column]))
-                        raise
-
+                        LOG.debug("Exception:", exc_info=True)
+                        LOG.debug('Fixing Record[%r][%d]: %r' % (column, columnRecord['ColumnType'], record[column]))
+                        record[column] = record[column].decode(stringDecoder, "replace")
+                        pass
             else:
                 unpackData = ColumnTypeSize[columnRecord['ColumnType']]
                 if record[column] is not None:
