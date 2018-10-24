@@ -3747,8 +3747,8 @@ class SMBSERVERHandler(SocketServer.BaseRequestHandler):
                            session.send_packet(i)
             except Exception as e:
                 self.__SMB.log("Handle: %s" % e)
-                import traceback
-                traceback.print_exc()
+                #import traceback
+                #traceback.print_exc()
                 break
 
     def finish(self):
