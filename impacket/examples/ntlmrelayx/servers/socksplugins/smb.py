@@ -20,6 +20,7 @@ import random
 import string
 from struct import unpack
 from binascii import hexlify
+from six import b
 
 from impacket import LOG
 from impacket.examples.ntlmrelayx.servers.socksserver import SocksRelay
@@ -266,7 +267,7 @@ class SMBSocksRelay(SocksRelay):
             else:
                 respSMBCommand['DialectRevision'] = self.serverDialect
                 resp['MessageID'] = 1
-            respSMBCommand['ServerGuid'] = b''.join([random.choice(string.ascii_letters) for _ in range(16)])
+            respSMBCommand['ServerGuid'] = b(''.join([random.choice(string.ascii_letters) for _ in range(16)]))
             respSMBCommand['Capabilities'] = 0x7
             respSMBCommand['MaxTransactSize'] = 65536
             respSMBCommand['MaxReadSize'] = 65536

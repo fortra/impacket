@@ -29,6 +29,7 @@ import string
 import socket
 
 from binascii import hexlify
+from six import b
 from impacket import smb, ntlm, LOG, smb3
 from impacket.nt_errors import STATUS_MORE_PROCESSING_REQUIRED, STATUS_ACCESS_DENIED, STATUS_SUCCESS
 from impacket.spnego import SPNEGO_NegTokenResp, SPNEGO_NegTokenInit, TypesMech
@@ -162,8 +163,8 @@ class SMBRelayServer(Thread):
             # Let's first parse the packet to see if the client supports SMB2
             SMBCommand = smb.SMBCommand(recvPacket['Data'][0])
 
-            dialects = SMBCommand['Data'].split('\x02')
-            if 'SMB 2.002\x00' in dialects or 'SMB 2.???\x00' in dialects:
+            dialects = SMBCommand['Data'].split(b'\x02')
+            if b'SMB 2.002\x00' in dialects or b'SMB 2.???\x00' in dialects:
                 respSMBCommand['DialectRevision'] = smb3.SMB2_DIALECT_002
                 #respSMBCommand['DialectRevision'] = smb3.SMB2_DIALECT_21
             else:
@@ -173,7 +174,7 @@ class SMBRelayServer(Thread):
             respSMBCommand['DialectRevision'] = smb3.SMB2_DIALECT_002
             #respSMBCommand['DialectRevision'] = smb3.SMB2_DIALECT_21
 
-        respSMBCommand['ServerGuid'] = b''.join([random.choice(string.ascii_letters) for _ in range(16)])
+        respSMBCommand['ServerGuid'] = b(''.join([random.choice(string.ascii_letters) for _ in range(16)]))
         respSMBCommand['Capabilities'] = 0
         respSMBCommand['MaxTransactSize'] = 65536
         respSMBCommand['MaxReadSize'] = 65536
@@ -230,7 +231,7 @@ class SMBRelayServer(Thread):
                    # We don't know the token, we answer back again saying
                    # we just support NTLM.
                    # ToDo: Build this into a SPNEGO_NegTokenResp()
-                   respToken = '\xa1\x15\x30\x13\xa0\x03\x0a\x01\x03\xa1\x0c\x06\x0a\x2b\x06\x01\x04\x01\x82\x37\x02\x02\x0a'
+                   respToken = b'\xa1\x15\x30\x13\xa0\x03\x0a\x01\x03\xa1\x0c\x06\x0a\x2b\x06\x01\x04\x01\x82\x37\x02\x02\x0a'
                    respSMBCommand['SecurityBufferOffset'] = 0x48
                    respSMBCommand['SecurityBufferLength'] = len(respToken)
                    respSMBCommand['Buffer'] = respToken
@@ -273,7 +274,7 @@ class SMBRelayServer(Thread):
             if rawNTLM is False:
                 respToken = SPNEGO_NegTokenResp()
                 # accept-incomplete. We want more data
-                respToken['NegResult'] = '\x01'
+                respToken['NegResult'] = b'\x01'
                 respToken['SupportedMech'] = TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']
 
                 respToken['ResponseToken'] = challengeMessage.getData()
@@ -351,7 +352,7 @@ class SMBRelayServer(Thread):
 
             respToken = SPNEGO_NegTokenResp()
             # accept-completed
-            respToken['NegResult'] = '\x00'
+            respToken['NegResult'] = b'\x00'
             # Let's store it in the connection data
             connData['AUTHENTICATE_MESSAGE'] = authenticateMessage
         else:

@@ -169,7 +169,7 @@ class SMBRelayClient(ProtocolClient):
             else:
                 LOG.error('SMBCLient error: %s' % str(e))
             return False
-        if packet[0] == '\xfe':
+        if packet[0:1] == b'\xfe':
             smbClient = MYSMB3(self.targetHost, self.targetPort, self.extendedSecurity,nmbSession=self.session.getNMBServer(), negPacket=packet)
         else:
             # Answer is SMB packet, sticking to SMBv1
