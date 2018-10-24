@@ -646,8 +646,8 @@ class SMB3:
             # Calculate the key derivations for dialect 3.0
             if self._Session['SigningRequired'] is True:
                 self._Session['SigningActivated'] = True
-            if self._Connection['Dialect'] == SMB2_DIALECT_30:
-                # SMB 3.0. Encryption should be available. Let's enforce it if we have AES CCM available
+            if self._Connection['Dialect'] == SMB2_DIALECT_30 and self._Connection['SupportsEncryption'] is True:
+                # SMB 3.0. Encryption available. Let's enforce it if we have AES CCM available
                 self._Session['SessionFlags'] |= SMB2_SESSION_FLAG_ENCRYPT_DATA
                 self._Session['ApplicationKey']  = crypto.KDF_CounterMode(self._Session['SessionKey'], "SMB2APP\x00", "SmbRpc\x00", 128)
                 self._Session['EncryptionKey']   = crypto.KDF_CounterMode(self._Session['SessionKey'], "SMB2AESCCM\x00", "ServerIn \x00", 128)
@@ -790,8 +790,8 @@ class SMB3:
                     # Calculate the key derivations for dialect 3.0
                     if self._Session['SigningRequired'] is True:
                         self._Session['SigningActivated'] = True
-                    if self._Connection['Dialect'] == SMB2_DIALECT_30:
-                        # SMB 3.0. Encryption should be available. Let's enforce it if we have AES CCM available
+                    if self._Connection['Dialect'] == SMB2_DIALECT_30 and self._Connection['SupportsEncryption'] is True:
+                        # SMB 3.0. Encryption available. Let's enforce it if we have AES CCM available
                         self._Session['SessionFlags'] |= SMB2_SESSION_FLAG_ENCRYPT_DATA
                         self._Session['ApplicationKey']  = crypto.KDF_CounterMode(exportedSessionKey, "SMB2APP\x00", "SmbRpc\x00", 128)
                         self._Session['EncryptionKey']   = crypto.KDF_CounterMode(exportedSessionKey, "SMB2AESCCM\x00", "ServerIn \x00", 128)
