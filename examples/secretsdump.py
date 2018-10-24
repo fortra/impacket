@@ -338,7 +338,7 @@ if __name__ == '__main__':
     #In case the password contains '@'
     if '@' in remoteName:
         password = password + '@' + remoteName.rpartition('@')[0]
-        address = remoteName.rpartition('@')[2]
+        remoteName = remoteName.rpartition('@')[2]
 
     if options.just_dc_user is not None:
         if options.use_vss is True:
