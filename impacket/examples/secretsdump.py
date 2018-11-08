@@ -68,6 +68,7 @@ from impacket.dcerpc.v5.dcomrt import DCOMConnection, OBJREF, FLAGS_OBJREF_CUSTO
     OBJREF_EXTENDED, OBJREF_STANDARD, FLAGS_OBJREF_HANDLER, FLAGS_OBJREF_STANDARD, FLAGS_OBJREF_EXTENDED, \
     IRemUnknown2, INTERFACE
 from impacket.ese import ESENT_DB
+from impacket.dpapi import DPAPI_SYSTEM
 from impacket.smb3structs import FILE_READ_DATA, FILE_SHARE_READ
 from impacket.nt_errors import STATUS_MORE_ENTRIES
 from impacket.structure import Structure
@@ -1491,6 +1492,11 @@ class LSASecrets(OfflineRegistry):
                 pass
             else:
                 secret = 'ASPNET: %s' % strDecoded
+        elif upperName.startswith('DPAPI_SYSTEM'):
+            # Decode the DPAPI Secrets
+            dpapi = DPAPI_SYSTEM(secretItem)
+            secret = "dpapi_machinekey:0x{0}\ndpapi_userkey:0x{1}".format( hexlify(dpapi['MachineKey']).decode('latin-1'),
+                                                               hexlify(dpapi['UserKey']).decode('latin-1'))
         elif upperName.startswith('$MACHINE.ACC'):
             # compute MD4 of the secret.. yes.. that is the nthash? :-o
             md4 = MD4.new()
