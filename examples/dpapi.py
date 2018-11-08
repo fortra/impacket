@@ -54,9 +54,13 @@ class DPAPI:
         pass
 
     def getDPAPI_SYSTEM(self,secretType, secret):
-        if secret.startswith("DPAPI_SYSTEM:"):
-            self.dpapiSystem = DPAPI_SYSTEM(unhexlify(secret[len('DPAPI_SYSTEM:'):]))
-            self.dpapiSystem.dump()
+        if secret.startswith("dpapi_machinekey:"):
+            machineKey, userKey = secret.split('\n')
+            machineKey = machineKey.split(':')[1]
+            userKey = userKey.split(':')[1]
+            self.dpapiSystem = {}
+            self.dpapiSystem['MachineKey'] = unhexlify(machineKey[2:])
+            self.dpapiSystem['UserKey'] = unhexlify(userKey[2:])
 
     def getLSA(self):
         localOperations = LocalOperations(self.options.system)
