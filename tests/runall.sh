@@ -56,15 +56,22 @@ $RUN test_ntlm.py 2>&1 1>/dev/null | tee -a $OUTPUTFILE
 ./rundce.sh $COVERAGE 2>&1 1>/dev/null | tee -a $OUTPUTFILE
 cd ..
 
+echo Testing MISC
+cd misc
+export PYTHONPATH=../../:$PYTHONPATH
+echo test_dpapi.py
+$RUN test_dpapi.py 2>&1 1>/dev/null | tee -a $OUTPUTFILE
+cd ..
+
 if [ $COVERAGE ]
 then
 	# Combine coverage and produce report
 	echo "Combining coverage data"
 	mv .coverage .coveragetmp
-	coverage combine .coveragetmp ImpactPacket/.coverage dot11/.coverage SMB_RPC/.coverage
+	coverage combine .coveragetmp ImpactPacket/.coverage dot11/.coverage SMB_RPC/.coverage misc/.coverage
 	coverage html -i
 	coverage erase
-	rm -f ImpactPacket/.coverage dot11/.coverage SMB_RPC/.coverage
+	rm -f ImpactPacket/.coverage dot11/.coverage SMB_RPC/.coverage misc/.coverage
 fi
 
 if grep -q ERROR $OUTPUTFILE;
