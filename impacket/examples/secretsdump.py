@@ -20,8 +20,8 @@
 #                   It's copied on the temp dir and parsed remotely.
 #
 #              The script initiates the services required for its working
-#              if they are not available (e.g. Remote Registry, even if it is 
-#              disabled). After the work is done, things are restored to the 
+#              if they are not available (e.g. Remote Registry, even if it is
+#              disabled). After the work is done, things are restored to the
 #              original state.
 #
 # Author:
@@ -78,6 +78,8 @@ from impacket.structure import Structure
 from impacket.structure import hexdump
 from impacket.uuid import string_to_bin
 from impacket.crypto import transformKey
+from impacket.krb5 import constants
+from impacket.krb5.crypto import string_to_key
 try:
     from Cryptodome.Cipher import DES, ARC4, AES
     from Cryptodome.Hash import HMAC, MD4
@@ -573,6 +575,21 @@ class RemoteOperations:
         resp = samr.hSamrRidToSid(self.__samr, self.__domainHandle , rid)
         return resp['Sid']
 
+    def getMachineKerberosSalt(self):
+        """
+        Returns Kerberos salt for the current connection if
+        we have the correct information
+        """
+        if self.__smbConnection.getServerName() == '':
+            # Todo: figure out an RPC call that gives us the domain FQDN
+            # instead of the NETBIOS name as NetrWkstaGetInfo does
+            return b''
+        else:
+            host = self.__smbConnection.getServerName()
+            domain = self.__smbConnection.getServerDNSDomainName()
+            salt = b'%shost%s.%s' % (domain.upper().encode('utf-8'), host.lower().encode('utf-8'), domain.lower().encode('utf-8'))
+            return salt
+
     def getMachineNameAndDomain(self):
         if self.__smbConnection.getServerName() == '':
             # No serverName.. this is either because we're doing Kerberos
@@ -694,7 +711,7 @@ class RemoteOperations:
             except Exception as e:
                 # If service is stopped it'll trigger an exception
                 # If service does not exist it'll trigger an exception
-                # So. we just wanna be sure we delete it, no need to 
+                # So. we just wanna be sure we delete it, no need to
                 # show this exception message
                 pass
 
@@ -1214,13 +1231,13 @@ class SAMHashes(OfflineRegistry):
             if userAccount['LMHashLength'] >= 20:
                 lmHash = self.__decryptHash(rid, encLMHash, LMPASSWORD, newStyle)
             else:
-                lmHash = ''
+                lmHash = b''
 
             ntHash = self.__decryptHash(rid, encNTHash, NTPASSWORD, newStyle)
 
-            if lmHash == '':
+            if lmHash == b'':
                 lmHash = ntlm.LMOWFv1('','')
-            if ntHash == '':
+            if ntHash == b'':
                 ntHash = ntlm.NTOWFv1('','')
 
             answer =  "%s:%d:%s:%s:::" % (userName, rid, hexlify(lmHash).decode('utf-8'), hexlify(ntHash).decode('utf-8'))
@@ -1245,7 +1262,7 @@ class LSASecrets(OfflineRegistry):
         LSA_RAW = 2
 
     def __init__(self, securityFile, bootKey, remoteOps=None, isRemote=False, history=False,
-                 perSecretCallback=lambda secretType, secret: _print_helper(secret)):
+                 perSecretCallback=lambda secretType, secret: _print_helper(secret), machineKerberos=False):
         OfflineRegistry.__init__(self, securityFile, isRemote)
         self.__hashedBootKey = b''
         self.__bootKey = bootKey
@@ -1259,6 +1276,7 @@ class LSASecrets(OfflineRegistry):
         self.__secretItems = []
         self.__perSecretCallback = perSecretCallback
         self.__history = history
+        self.__machineKerberos = machineKerberos
 
     def MD5(self, data):
         md5 = hashlib.new('md5')
@@ -1493,10 +1511,18 @@ class LSASecrets(OfflineRegistry):
             md4.update(secretItem)
             if hasattr(self.__remoteOps, 'getMachineNameAndDomain'):
                 machine, domain = self.__remoteOps.getMachineNameAndDomain()
+                printname = "%s\\%s$" % (domain, machine)
                 secret = "%s\\%s$:%s:%s:::" % (domain, machine, hexlify(ntlm.LMOWFv1('','')).decode('utf-8'), hexlify(md4.digest()).decode('utf-8'))
             else:
+                printname = "$MACHINE.ACC"
                 secret = "$MACHINE.ACC: %s:%s" % (hexlify(ntlm.LMOWFv1('','')).decode('utf-8'), hexlify(md4.digest()).decode('utf-8'))
-
+            if self.__machineKerberos:
+                # Attempt to calculate and print Kerberos keys
+                if not self.__printMachineKerberos(secretItem, printname):
+                    LOG.debug('Could not calculate machine account Kerberos keys, printing plain password (hex encoded)')
+                    extrasecret = "$MACHINE.ACC:plain_password_hex:%s" % hexlify(secretItem).decode('utf-8')
+                    self.__secretItems.append(extrasecret)
+                    self.__perSecretCallback(LSASecrets.SECRET_TYPE.LSA, extrasecret)
         if secret != '':
             printableSecret = secret
             self.__secretItems.append(secret)
@@ -1510,6 +1536,39 @@ class LSASecrets(OfflineRegistry):
             if self.__module__ == self.__perSecretCallback.__module__:
                 hexdump(secretItem)
             self.__perSecretCallback(LSASecrets.SECRET_TYPE.LSA_RAW, printableSecret)
+
+    def __printMachineKerberos(self, rawsecret, machinename):
+        # Attempt to create Kerberos keys from machine account (if possible)
+        if hasattr(self.__remoteOps, 'getMachineKerberosSalt'):
+            salt = self.__remoteOps.getMachineKerberosSalt()
+            if salt == b'':
+                return False
+            else:
+                allciphers = [
+                    int(constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value),
+                    int(constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value),
+                    int(constants.EncryptionTypes.des_cbc_md5.value)
+                ]
+                # Ok, so the machine account password is in raw UTF-16, BUT can contain any amount
+                # of invalid unicode characters.
+                # This took me (Dirk-jan) way too long to figure out, but apparently Microsoft
+                # implicitly replaces those when converting utf-16 to utf-8.
+                # When we use the same method we get the valid password -> key mapping :)
+                rawsecret = rawsecret.decode('utf-16-le', 'replace').encode('utf-8', 'replace')
+                for etype in allciphers:
+                    try:
+                        key = string_to_key(etype, rawsecret, salt, None)
+                    except Exception:
+                        import traceback
+                        traceback.print_exc()
+                    typename = NTDSHashes.KERBEROS_TYPE[etype]
+                    secret = "%s:%s:%s" % (machinename, typename, hexlify(key.contents).decode('utf-8'))
+                    self.__secretItems.append(secret)
+                    self.__perSecretCallback(LSASecrets.SECRET_TYPE.LSA, secret)
+                return True
+        else:
+            return False
+
 
     def dumpSecrets(self):
         if self.__securityFile is None:
@@ -1554,7 +1613,7 @@ class LSASecrets(OfflineRegistry):
                     # If this is an OldVal secret, let's append '_history' to be able to distinguish it and
                     # also be consistent with NTDS history
                     if valueType == 'OldVal':
-                        key += b'_history'
+                        key += '_history'
                     self.__printSecret(key, secret)
 
     def exportSecrets(self, baseFileName, openFileFunc = None):
@@ -1632,7 +1691,7 @@ class NTDSHashes:
         NTDS = 0
         NTDS_CLEARTEXT = 1
         NTDS_KERBEROS = 2
-        
+
     NAME_TO_INTERNAL = {
         'uSNCreated':b'ATTq131091',
         'uSNChanged':b'ATTq131192',
@@ -1763,7 +1822,7 @@ class NTDSHashes:
             self.__ESEDB = ESENT_DB(ntdsFile, isRemote = isRemote)
             self.__cursor = self.__ESEDB.openTable('datatable')
         self.__tmpUsers = list()
-        self.__PEK = list() 
+        self.__PEK = list()
         self.__cryptoCommon = CryptoCommon()
         self.__kerberosKeys = OrderedDict()
         self.__clearTextPwds = OrderedDict()
@@ -2214,7 +2273,7 @@ class NTDSHashes:
         hashesOutputFile = None
         keysOutputFile = None
         clearTextOutputFile = None
-        
+
         if self.__useVSSMethod is True:
             if self.__NTDS is None:
                 # No NTDS.dit file provided and were asked to use VSS
@@ -2240,7 +2299,7 @@ class NTDSHashes:
                     LOG.debug('Exiting NTDSHashes.dump() because %s' % e)
                     # Target's not a DC
                     return
-        
+
         try:
             # Let's check if we need to save results in a file
             if self.__outputFileName is not None:
@@ -2452,10 +2511,10 @@ class NTDSHashes:
             # Resources cleanup
             if not hashesOutputFile is None:
                 hashesOutputFile.close()
-                
+
             if not keysOutputFile is None:
                 keysOutputFile.close()
-            
+
             if not clearTextOutputFile is None:
                 clearTextOutputFile.close()
 
