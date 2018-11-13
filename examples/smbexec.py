@@ -33,7 +33,10 @@ import sys
 import os
 import cmd
 import argparse
-import configparser
+try:
+    import ConfigParser
+except ImportError:
+    import configparser as ConfigParser
 import logging
 from threading import Thread
 
@@ -62,7 +65,7 @@ class SMBServer(Thread):
 
     def run(self):
         # Here we write a mini config for the server
-        smbConfig = configparser.ConfigParser()
+        smbConfig = ConfigParser.ConfigParser()
         smbConfig.add_section('global')
         smbConfig.set('global','server_name','server_name')
         smbConfig.set('global','server_os','UNIX')
