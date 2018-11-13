@@ -786,6 +786,28 @@ class VAULT_WIN_BIO_KEY(Structure):
         print('Biometric Key: 0x%s' % (hexlify(self['BioKey']['bKey'])).decode('latin-1'))
         print()
 
+class NGC_LOCAL_ACCOOUNT(Structure):
+    structure = (
+        ('Version','<L=0'),
+        ('UnlockKeySize','<L=0'),
+        ('IVSize','<L=0'),
+        ('CipherTextSize','<L=0'),
+        ('MustBeZeroTest','<L=0'),
+        ('_UnlockKey', '_-UnlockKey', 'self["UnlockKeySize"]'),
+        ('UnlockKey', ':'),
+        ('_IV', '_-IV', 'self["IVSize"]'),
+        ('IV', ':'),
+        ('_CipherText', '_-CipherText', 'self["CipherTextSize"]'),
+        ('CipherText', ':'),
+    )
+#    def __init__(self, data=None, alignment = 0):
+#        hexdump(data)
+    def dump(self):
+        print("[NGC LOCAL ACCOOUNT]")
+        print('UnlockKey    : %s' % hexlify(self["UnlockKey"]))
+        print('IV           : %s' % hexlify(self["IV"]))
+        print('CipherText   : %s' % hexlify(self["CipherText"]))
+
 class VAULT_NGC_ACCOOUNT(Structure):
     structure = (
         ('Version','<L=0'),
@@ -804,13 +826,13 @@ class VAULT_NGC_ACCOOUNT(Structure):
         ('Id3', '<L=0'),
         ('BlobLen', '<L=0'),
         ('Blob', '_-Blob', 'self["BlobLen"]'),
-        ('Blob', ':'),
+        ('Blob', ':', NGC_LOCAL_ACCOOUNT),
     )
     def dump(self):
         print("[NGC VAULT]")
         print('Sid          : %s' % RPC_SID(b'\x05\x00\x00\x00'+self['Sid']).formatCanonical())
         print('Friendly Name: %s' % self['Name'].decode('utf-16le'))
-        print('Blob         : 0x%s' % (hexlify(self['Blob'])).decode('latin-1'))
+        self['Blob'].dump()
         print()
 
 VAULT_KNOWN_SCHEMAS = {
