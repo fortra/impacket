@@ -123,7 +123,7 @@ class GSSAPI_RC4:
         # Damn inacurate RFC, useful info from here
         # https://social.msdn.microsoft.com/Forums/en-US/fb98e8f4-e697-4652-bcb7-604e027e14cc/gsswrap-token-size-kerberos-and-rc4hmac?forum=os_windowsprotocols
         # and here
-        # http://www.rfc-editor.org/errata_search.php?rfc=4757
+        # https://www.rfc-editor.org/errata_search.php?rfc=4757
         GSS_WRAP_HEADER = '\x60\x2b\x06\x09\x2a\x86\x48\x86\xf7\x12\x01\x02\x02'
         token = self.WRAP()
 

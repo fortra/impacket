@@ -76,7 +76,7 @@ def asn1decode(data = ''):
             data = data[pad:]
             ans = data[:len2]
         # 1 byte length, string <= 0x7F
-	else:
+        else:
             pad = 0
             ans = data[:len1]
         return ans, len(ans)+pad+1
@@ -124,12 +124,12 @@ class GSSAPI:
             raise Exception('OID tag not found %x' % next_byte)
         decode_data = decode_data[1:]
         # Now the OID contents, should be SPNEGO UUID
-        uuid, total_bytes = asn1decode(decode_data)                
+        uuid, total_bytes = asn1decode(decode_data)
         self['OID'] = uuid
         # the rest should be the data
         self['Payload'] = decode_data[total_bytes:]
         #pass
-        
+
     def dump(self):
         for i in self.fields.keys():
             print "%s: {%r}" % (i,self[i])
@@ -143,7 +143,7 @@ class GSSAPI:
         return ans
 
 class SPNEGO_NegTokenResp:
-    # http://tools.ietf.org/html/rfc4178#page-9
+    # https://tools.ietf.org/html/rfc4178#page-9
     # NegTokenResp ::= SEQUENCE {
     #     negState       [0] ENUMERATED {
     #         accept-completed    (0),
@@ -248,7 +248,7 @@ class SPNEGO_NegTokenResp:
     def dump(self):
         for i in self.fields.keys():
             print "%s: {%r}" % (i,self[i])
-        
+
     def getData(self):
         ans = pack('B',SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP)
         if self.fields.has_key('NegResult') and self.fields.has_key('SupportedMech'):
@@ -287,11 +287,11 @@ class SPNEGO_NegTokenResp:
         return ans
 
 class SPNEGO_NegTokenInit(GSSAPI):
-    # http://tools.ietf.org/html/rfc4178#page-8 
+    # https://tools.ietf.org/html/rfc4178#page-8
     # NegTokeInit :: = SEQUENCE {
-    #   mechTypes	[0] MechTypeList,
+    #   mechTypes       [0] MechTypeList,
     #   reqFlags        [1] ContextFlags OPTIONAL,
-    #   mechToken       [2] OCTET STRING OPTIONAL,	
+    #   mechToken       [2] OCTET STRING OPTIONAL,
     #   mechListMIC     [3] OCTET STRING OPTIONAL,
     # }
     SPNEGO_NEG_TOKEN_INIT = 0xa0

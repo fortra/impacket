@@ -15,9 +15,9 @@
 #    you can send it for cracking.
 #
 #    Original credit for this technique goes to @harmj0y:
-#    http://www.harmj0y.net/blog/activedirectory/roasting-as-reps/
+#    https://www.harmj0y.net/blog/activedirectory/roasting-as-reps/
 #    Related work by Geoff Janjua:
-#    http://www.exumbraops.com/layerone2016/party
+#    https://www.exumbraops.com/layerone2016/party
 #
 #    For usage instructions run the script with no parameters
 #

@@ -9,7 +9,7 @@
 # Description:
 #   Kerberos Credential Cache format implementation
 #   based on file format described at:
-#   http://repo.or.cz/w/krb5dissect.git/blob_plain/HEAD:/ccache.txt
+#   https://repo.or.cz/w/krb5dissect.git/blob_plain/HEAD:/ccache.txt
 #   Pretty lame and quick implementation, not a fun thing to do
 #   Contribution is welcome to make it the right way
 #

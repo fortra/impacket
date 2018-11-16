@@ -643,7 +643,7 @@ class NRPCTests(unittest.TestCase):
             from Cryptodome.Cipher import ARC4
         except Exception:
             print "Warning: You don't have any crypto installed. You need PyCrypto"
-            print "See http://www.pycrypto.org/"
+            print "See https://www.pycrypto.org/"
 
         rc4 = ARC4.new(self.sessionKey)
         lmhash = rc4.encrypt(lmhash)
