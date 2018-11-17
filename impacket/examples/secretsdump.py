@@ -1262,7 +1262,7 @@ class LSASecrets(OfflineRegistry):
         LSA_RAW = 2
 
     def __init__(self, securityFile, bootKey, remoteOps=None, isRemote=False, history=False,
-                 perSecretCallback=lambda secretType, secret: _print_helper(secret), machineKerberos=False):
+                 perSecretCallback=lambda secretType, secret: _print_helper(secret)):
         OfflineRegistry.__init__(self, securityFile, isRemote)
         self.__hashedBootKey = b''
         self.__bootKey = bootKey
@@ -1276,7 +1276,6 @@ class LSASecrets(OfflineRegistry):
         self.__secretItems = []
         self.__perSecretCallback = perSecretCallback
         self.__history = history
-        self.__machineKerberos = machineKerberos
 
     def MD5(self, data):
         md5 = hashlib.new('md5')
@@ -1516,13 +1515,12 @@ class LSASecrets(OfflineRegistry):
             else:
                 printname = "$MACHINE.ACC"
                 secret = "$MACHINE.ACC: %s:%s" % (hexlify(ntlm.LMOWFv1('','')).decode('utf-8'), hexlify(md4.digest()).decode('utf-8'))
-            if self.__machineKerberos:
-                # Attempt to calculate and print Kerberos keys
-                if not self.__printMachineKerberos(secretItem, printname):
-                    LOG.debug('Could not calculate machine account Kerberos keys, printing plain password (hex encoded)')
-                    extrasecret = "$MACHINE.ACC:plain_password_hex:%s" % hexlify(secretItem).decode('utf-8')
-                    self.__secretItems.append(extrasecret)
-                    self.__perSecretCallback(LSASecrets.SECRET_TYPE.LSA, extrasecret)
+            # Attempt to calculate and print Kerberos keys
+            if not self.__printMachineKerberos(secretItem, printname):
+                LOG.debug('Could not calculate machine account Kerberos keys, printing plain password (hex encoded)')
+                extrasecret = "$MACHINE.ACC:plain_password_hex:%s" % hexlify(secretItem).decode('utf-8')
+                self.__secretItems.append(extrasecret)
+                self.__perSecretCallback(LSASecrets.SECRET_TYPE.LSA, extrasecret)
         if secret != '':
             printableSecret = secret
             self.__secretItems.append(secret)

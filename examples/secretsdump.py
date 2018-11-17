@@ -177,8 +177,7 @@ class DumpSecrets:
                         SECURITYFileName = self.__securityHive
 
                     self.__LSASecrets = LSASecrets(SECURITYFileName, bootKey, self.__remoteOps,
-                                                   isRemote=self.__isRemote, history=self.__history,
-                                                   machineKerberos=self.__options.machine_kerberos)
+                                                   isRemote=self.__isRemote, history=self.__history)
                     self.__LSASecrets.dumpCachedHashes()
                     if self.__outputFileName is not None:
                         self.__LSASecrets.exportCached(self.__outputFileName)
@@ -309,7 +308,6 @@ if __name__ == '__main__':
     group.add_argument('-user-status', action='store_true', default=False,
                         help='Display whether or not the user is disabled')
     group.add_argument('-history', action='store_true', help='Dump password history, and LSA secrets OldVal')
-    group.add_argument('-machine-kerberos', action='store_true', help='Dump machine account Kerberos keys (LSA secrets)')
     group = parser.add_argument_group('authentication')
 
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
