@@ -649,6 +649,10 @@ class SMB3:
             if self._Session['SigningRequired'] is True and self._Connection['Dialect'] == SMB2_DIALECT_30:
                 self._Session['SigningKey']  = crypto.KDF_CounterMode(self._Session['SessionKey'], b"SMB2AESCMAC\x00", b"SmbSign\x00", 128)
 
+            # Do not encrypt anonymous connections
+            if user == '':
+                self._Connection['SupportsEncryption'] = False
+
             # Calculate the key derivations for dialect 3.0
             if self._Session['SigningRequired'] is True:
                 self._Session['SigningActivated'] = True
@@ -792,6 +796,10 @@ class SMB3:
                     sessionSetupResponse = SMB2SessionSetup_Response(packet['Data'])
                     self._Session['SessionFlags'] = sessionSetupResponse['SessionFlags']
                     self._Session['SessionID']    = packet['SessionID']
+
+                    # Do not encrypt anonymous connections
+                    if user == '':
+                        self._Connection['SupportsEncryption'] = False
 
                     # Calculate the key derivations for dialect 3.0
                     if self._Session['SigningRequired'] is True:

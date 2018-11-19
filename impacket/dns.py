@@ -11,21 +11,21 @@
 #
 # RFCs for the DNS Server service
 #
-# 1034 - Domain Names -- Concepts and Facilities [http://www.faqs.org/rfcs/rfc1034.html]
-# 1035 - Domain Names -- Implementation and Specification [http://www.faqs.org/rfcs/rfc1035.html]
-# 1123 - Requirements for Internet Hosts -- Application and Support [http://www.faqs.org/rfcs/rfc1123.html]
-# 1886 - DNS Extensions to Support IP Version 6 [http://www.faqs.org/rfcs/rfc1886.html]
-# 1995 - Incremental Zone Transfer in DNS [http://www.faqs.org/rfcs/rfc1995.html]
-# 1996 - A Mechanism for Prompt Notification of Zone Changes (DNS NOTIFY) [http://www.faqs.org/rfcs/rfc1996.html]
-# 2136 - Dynamic Updates in the Domain Name System (DNS UPDATE) [http://www.faqs.org/rfcs/rfc2136.html]
-# 2181 - Clarifications to the DNS Specification [http://www.faqs.org/rfcs/rfc2181.html]
-# 2308 - Negative Caching of DNS Queries (DNS NCACHE) [http://www.faqs.org/rfcs/rfc2308.html]
-# 2535 - Domain Name System Security Extensions (DNSSEC) [http://www.faqs.org/rfcs/rfc2535.html]
-# 2671 - Extension Mechanisms for DNS (EDNS0) [http://www.faqs.org/rfcs/rfc2671.html]
-# 2782 - A DNS RR for specifying the location of services (DNS SRV) [http://www.faqs.org/rfcs/rfc2782.html]
-# 2930 - Secret Key Establishment for DNS (TKEY RR) [http://www.faqs.org/rfcs/rfc2930.html]
-# 3645 - Generic Security Service Algorithm for Secret Key Transaction Authentication for DNS (GSS-TSIG) [http://www.faqs.org/rfcs/rfc3645.html]
-# 3646 - DNS Configuration options for Dynamic Host Configuration Protocol for IPv6 (DHCPv6) [http://www.faqs.org/rfcs/rfc3646.html]
+# 1034 - Domain Names -- Concepts and Facilities [https://www.ietf.org/rfc/rfc1034.txt]
+# 1035 - Domain Names -- Implementation and Specification [https://www.ietf.org/rfc/rfc1035.txt]
+# 1123 - Requirements for Internet Hosts -- Application and Support [https://www.ietf.org/rfc/rfc1123.txt]
+# 1886 - DNS Extensions to Support IP Version 6 [https://www.ietf.org/rfc/rfc1886.txt]
+# 1995 - Incremental Zone Transfer in DNS [https://www.ietf.org/rfc/rfc1995.txt]
+# 1996 - A Mechanism for Prompt Notification of Zone Changes (DNS NOTIFY) [https://www.ietf.org/rfc/rfc1996.txt]
+# 2136 - Dynamic Updates in the Domain Name System (DNS UPDATE) [https://www.ietf.org/rfc/rfc2136.txt]
+# 2181 - Clarifications to the DNS Specification [https://www.ietf.org/rfc/rfc2181.txt]
+# 2308 - Negative Caching of DNS Queries (DNS NCACHE) [https://www.ietf.org/rfc/rfc2308.txt]
+# 2535 - Domain Name System Security Extensions (DNSSEC) [https://www.ietf.org/rfc/rfc2535.txt]
+# 2671 - Extension Mechanisms for DNS (EDNS0) [https://www.ietf.org/rfc/rfc2671.txt]
+# 2782 - A DNS RR for specifying the location of services (DNS SRV) [https://www.ietf.org/rfc/rfc2782.txt]
+# 2930 - Secret Key Establishment for DNS (TKEY RR) [https://www.ietf.org/rfc/rfc2930.txt]
+# 3645 - Generic Security Service Algorithm for Secret Key Transaction Authentication for DNS (GSS-TSIG) [https://www.ietf.org/rfc/rfc3645.txt]
+# 3646 - DNS Configuration options for Dynamic Host Configuration Protocol for IPv6 (DHCPv6) [https://www.ietf.org/rfc/rfc3646.txt]
 #
 
 import socket

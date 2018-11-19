@@ -7,11 +7,11 @@
 # Author: Alberto Solino (beto@coresecurity.com)
 #
 # Description:
-#   RFC 4493 implementation (http://www.ietf.org/rfc/rfc4493.txt)
-#   RFC 4615 implementation (http://www.ietf.org/rfc/rfc4615.txt)
+#   RFC 4493 implementation (https://www.ietf.org/rfc/rfc4493.txt)
+#   RFC 4615 implementation (https://www.ietf.org/rfc/rfc4615.txt)
 #
 #   NIST SP 800-108 Section 5.1, with PRF HMAC-SHA256 implementation
-#   (http://tools.ietf.org/html/draft-irtf-cfrg-kdf-uses-00#ref-SP800-108)
+#   (https://tools.ietf.org/html/draft-irtf-cfrg-kdf-uses-00#ref-SP800-108)
 #
 #   [MS-LSAD] Section 5.1.2
 #   [MS-SAMR] Section 2.2.11.1.1
@@ -207,7 +207,7 @@ def AES_CMAC_PRF_128(VK, M, VKlen, Mlen):
 
 def KDF_CounterMode(KI, Label, Context, L):
 # Implements NIST SP 800-108 Section 5.1, with PRF HMAC-SHA256
-# http://tools.ietf.org/html/draft-irtf-cfrg-kdf-uses-00#ref-SP800-108
+# https://tools.ietf.org/html/draft-irtf-cfrg-kdf-uses-00#ref-SP800-108
 # Fixed values:
 #  1. h - The length of the output of the PRF in bits, and
 #  2. r - The length of the binary representation of the counter i.

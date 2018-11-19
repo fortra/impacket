@@ -113,10 +113,10 @@ rpc_cont_def_result = {
 }
 
 #status codes, references:
-#http://msdn.microsoft.com/library/default.asp?url=/library/en-us/rpc/rpc/rpc_return_values.asp
-#http://msdn.microsoft.com/library/default.asp?url=/library/en-us/randz/protocol/common_return_values.asp
+#https://docs.microsoft.com/windows/desktop/Rpc/rpc-return-values
+#https://msdn.microsoft.com/library/default.asp?url=/library/en-us/randz/protocol/common_return_values.asp
 #winerror.h
-#http://www.opengroup.org/onlinepubs/9629399/apdxn.htm
+#https://www.opengroup.org/onlinepubs/9629399/apdxn.htm
 
 rpc_status_codes = {
     0x00000005 : 'rpc_s_access_denied',

@@ -1459,7 +1459,7 @@ class RadioTap(ProtocolPacket):
 
         def __str__( self ):
             return str( self.__class__.__name__ )
-        
+
     class RTF_TSFT(__RadioTapField):
         BIT_NUMBER = 0
         STRUCTURE = "<Q"
@@ -1468,13 +1468,13 @@ class RadioTap(ProtocolPacket):
     class RTF_FLAGS(__RadioTapField):
         BIT_NUMBER = 1
         STRUCTURE = "<B"
-        
-        # From http://www.radiotap.org/defined-fields/Flags
+
+        # https://web.archive.org/web/20160423125307/www.radiotap.org/defined-fields/Flags
         PROPERTY_CFP            = 0x01 #sent/received during CFP
-        PROPERTY_SHORTPREAMBLE  = 0x02 #sent/received with short preamble 
-        PROPERTY_WEP            = 0x04 #sent/received with WEP encryption 
-        PROPERTY_FRAGMENTATION  = 0x08 #sent/received with fragmentation 
-        PROPERTY_FCS_AT_END     = 0x10 #frame includes FCS 
+        PROPERTY_SHORTPREAMBLE  = 0x02 #sent/received with short preamble
+        PROPERTY_WEP            = 0x04 #sent/received with WEP encryption
+        PROPERTY_FRAGMENTATION  = 0x08 #sent/received with fragmentation
+        PROPERTY_FCS_AT_END     = 0x10 #frame includes FCS
         PROPERTY_PAYLOAD_PADDING= 0x20 #frame has padding between 802.11 header and payload (to 32-bit boundary)
         PROPERTY_BAD_FCS        = 0x40 #does not pass FCS check
         PROPERTY_SHORT_GI       = 0x80 #frame used short guard interval (HT). Unspecified but used:

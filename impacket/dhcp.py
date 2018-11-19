@@ -25,13 +25,13 @@ class BootpPacket(ProtocolPacket, structure.Structure):
             ('chaddr','_','_chaddr[:hlen]'),
             ('sname','64s=""'),
             ('file','128s=""'))
-            
+
     def __init__(self, data = None, alignment = 0):
         structure.Structure.__init__(self, data, alignment)
 
 class DhcpPacket(ProtocolPacket, structure.Structure):
-    # DHCP: http://www.faqs.org/rfcs/rfc2131.html
-    # DHCP Options: http://www.faqs.org/rfcs/rfc1533.html
+    # DHCP: https://www.ietf.org/rfc/rfc2131.txt
+    # DHCP Options: https://www.ietf.org/rfc/rfc1533.txt
     # good list of options: http://www.networksorcery.com/enp/protocol/bootp/options.htm
     MAGIC_NUMBER = 0x63825363
     BOOTREQUEST = 1
@@ -45,7 +45,7 @@ class DhcpPacket(ProtocolPacket, structure.Structure):
     DHCPNAK     = 6
     DHCPRELEASE = 7
     DHCPINFORM  = 8
-        
+
     options = {
         # 3. Vendor Extensions
         'pad':(0,'_'),
@@ -125,18 +125,18 @@ class DhcpPacket(ProtocolPacket, structure.Structure):
         'client-id':(61,':'),
 
         # other non-rfc1533 options
-        'slp-directory-agent':(78,':'),           # http://www.ietf.org/rfc/rfc2610.txt
-        'slp-service-scope':(79,':'),             # http://www.ietf.org/rfc/rfc2610.txt
-        'fully-qualified-domain-name':(81,':'),   # http://www.ietf.org/rfc/rfc4702.txt
+        'slp-directory-agent':(78,':'),           # https://www.ietf.org/rfc/rfc2610.txt
+        'slp-service-scope':(79,':'),             # https://www.ietf.org/rfc/rfc2610.txt
+        'fully-qualified-domain-name':(81,':'),   # https://www.ietf.org/rfc/rfc4702.txt
         'default-url': (114, ':'),                # text (URL) - not defined in any RFC but assigned by IANA
-        'auto-configuration':(116,'B'),           # http://www.ietf.org/rfc/rfc2563.txt
-        'domain-search-list':(119,'B'),           # http://www.ietf.org/rfc/rfc3397.txt
-        'classless-route-121':(121, ':'),         # http://www.ietf.org/rfc/rfc3442.txt
-        'classless-route-249':(249, ':'),         # http://support.microsoft.com/kb/121005
+        'auto-configuration':(116,'B'),           # https://www.ietf.org/rfc/rfc2563.txt
+        'domain-search-list':(119,'B'),           # https://www.ietf.org/rfc/rfc3397.txt
+        'classless-route-121':(121, ':'),         # https://www.ietf.org/rfc/rfc3442.txt
+        'classless-route-249':(249, ':'),         # https://web.archive.org/web/20140205135249/support.microsoft.com/kb/121005
         'proxy-autoconfig':(252,':'),
         'eof':(255,'_'),
     }
-    
+
     structure = (
             ('cookie','!L'),
             ('_options',':=self.packOptions(options)'),
@@ -144,7 +144,7 @@ class DhcpPacket(ProtocolPacket, structure.Structure):
 
     def __init__(self, data = None, alignment = 0):
         structure.Structure.__init__(self, data, alignment)
-    
+
     def packOptions(self, options):
         # options is an array of tuples: ('name',value)
 
@@ -155,7 +155,7 @@ class DhcpPacket(ProtocolPacket, structure.Structure):
             answer += '%c%c%s' % (code, len(val), val)
 
         return answer
-    
+
     def getOptionNameAndFormat(self, optionCode):
         for k in self.options:
             code,format = self.options[k]
@@ -181,7 +181,7 @@ class DhcpPacket(ProtocolPacket, structure.Structure):
 
     def unpackParameterRequestList(self, options):
         return [self.getOptionNameAndFormat(ord(opt))[0] for opt in options]
-        
+
     def isAskingForProxyAutodiscovery(self):
         for opt in self.fields['options']:
             if opt[0] == 'parameter-request-list':
@@ -189,7 +189,7 @@ class DhcpPacket(ProtocolPacket, structure.Structure):
                     if ord(optCode) == 252:
                         return True
         return False
-    
+
     def getOptionValue(self, name):
         for opt in self.fields['options']:
             if opt[0] == name:

@@ -2440,19 +2440,19 @@ class IWbemClassObject(IRemUnknown):
 
         #encodingUnit.dump()
         #ENCODING_UNIT(str(encodingUnit)).dump()
-        
+
         objRef['pObjectData'] = encodingUnit
- 
+
         return objRef
 
     def SpawnInstance(self):
         # Doing something similar to:
-        # http://msdn.microsoft.com/en-us/library/aa391458(v=vs.85).aspx
-        # 
+        # https://docs.microsoft.com/windows/desktop/api/wbemcli/nf-wbemcli-iwbemclassobject-spawninstance
+        #
         if self.encodingUnit['ObjectBlock'].isInstance() is False:
             # We need to convert some things to transform a class into an instance
             encodingUnit = ENCODING_UNIT()
-                        
+
             instanceData = OBJECT_BLOCK()
             instanceData.structure += OBJECT_BLOCK.decoration
             instanceData.structure += OBJECT_BLOCK.instanceType

@@ -19,7 +19,7 @@ from impacket.structure import Structure
 ################################################################################
 # CONSTANTS
 ################################################################################
-# From http://msdn.microsoft.com/en-us/library/aa302203.aspx#msdn_pac_credentials
+# From https://msdn.microsoft.com/library/aa302203#msdn_pac_credentials
 # and http://diswww.mit.edu/menelaus.mit.edu/cvs-krb5/25862
 PAC_LOGON_INFO       = 1
 PAC_CREDENTIALS_INFO = 2
