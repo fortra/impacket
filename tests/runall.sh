@@ -40,20 +40,24 @@ echo Testing dot11
 cd ../dot11
 ./runalltestcases.sh $COVERAGE 2>&1 1>/dev/null | tee -a $OUTPUTFILE
 
-echo Testing SMB RPC/LDAP
-cd ../SMB_RPC
-export PYTHONPATH=../../:$PYTHONPATH
-echo test_smb.py
-$RUN test_smb.py 2>&1 1>/dev/null | tee -a $OUTPUTFILE
-echo test_spnego.py
-$RUN test_spnego.py 2>&1 1>/dev/null | tee -a $OUTPUTFILE
-echo test_ldap.py
-$RUN test_ldap.py 2>&1 1>/dev/null | tee -a $OUTPUTFILE
-echo test_nmb.py
-$RUN test_nmb.py 2>&1 1>/dev/null | tee -a $OUTPUTFILE
-echo test_ntlm.py
-$RUN test_ntlm.py 2>&1 1>/dev/null | tee -a $OUTPUTFILE
-./rundce.sh $COVERAGE 2>&1 1>/dev/null | tee -a $OUTPUTFILE
+# In some environments we don't have a Windows 2012 R2 Domain Controller,
+# so skip these tests.
+if [ -z "$NO_DCE" ]; then
+    echo Testing SMB RPC/LDAP
+    cd ../SMB_RPC
+    export PYTHONPATH=../../:$PYTHONPATH
+    echo test_smb.py
+    $RUN test_smb.py 2>&1 1>/dev/null | tee -a $OUTPUTFILE
+    echo test_spnego.py
+    $RUN test_spnego.py 2>&1 1>/dev/null | tee -a $OUTPUTFILE
+    echo test_ldap.py
+    $RUN test_ldap.py 2>&1 1>/dev/null | tee -a $OUTPUTFILE
+    echo test_nmb.py
+    $RUN test_nmb.py 2>&1 1>/dev/null | tee -a $OUTPUTFILE
+    echo test_ntlm.py
+    $RUN test_ntlm.py 2>&1 1>/dev/null | tee -a $OUTPUTFILE
+    ./rundce.sh $COVERAGE 2>&1 1>/dev/null | tee -a $OUTPUTFILE
+fi
 cd ..
 
 echo Testing MISC
