@@ -152,7 +152,7 @@ March 2013: 0.9.10:
      UUIDs used and that information is included as well. This could be helpful when reading a portmap output and to
      develop new functionality to interact against a target interface.
   d. smbexec.py: Another alternative to psexec. Less capabilities but might work on tight AV environments. Based on the
-     technique described at http://www.accuvant.com/blog/2012/11/13/owning-computers-without-shell-access. It also
+     technique described at https://www.optiv.com/blog/owning-computers-without-shell-access. It also
      supports instantiating a local smbserver to receive the output of the commandos executed for those situations
      where no share is available on the other end.
   e. smbrelayx.py: It now also listens on port 80 and forwards/reflects the credentials accordingly.

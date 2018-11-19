@@ -8,7 +8,7 @@
 #
 # Description: A Windows Registry Library Parser
 #
-# Data taken from http://bazaar.launchpad.net/~guadalinex-members/dumphive/trunk/view/head:/winreg.txt
+# Data taken from https://bazaar.launchpad.net/~guadalinex-members/dumphive/trunk/view/head:/winreg.txt
 # http://sentinelchicken.com/data/TheWindowsNTRegistryFileFormat.pdf
 #
 #

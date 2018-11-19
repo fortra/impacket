@@ -21,9 +21,9 @@ from impacket import LOG
 # It is used if set locally on both sides. Change this item if you don't want to use 
 # NTLMv2 by default and fall back to NTLMv1 (with EXTENDED_SESSION_SECURITY or not)
 # Check the following links:
-# http://davenport.sourceforge.net/ntlm.html
-# http://blogs.msdn.com/b/openspecification/archive/2010/04/20/ntlm-keys-and-sundry-stuff.aspx
-# http://social.msdn.microsoft.com/Forums/en-US/os_interopscenarios/thread/c8f488ed-1b96-4e06-bd65-390aa41138d1/
+# https://davenport.sourceforge.io/ntlm.html
+# https://blogs.msdn.microsoft.com/openspecification/2010/04/19/ntlm-keys-and-sundry-stuff/
+# https://social.msdn.microsoft.com/Forums/c8f488ed-1b96-4e06-bd65-390aa41138d1/msnlmp-msntht-determining-ntlm-v1-or-v2-in-http-authentication?forum=os_specifications
 # So I'm setting a global variable to control this, this can also be set programmatically
 
 USE_NTLMv2 = True # if false will fall back to NTLMv1 (or NTLMv1 with ESS a.k.a NTLM2)

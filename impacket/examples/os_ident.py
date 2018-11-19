@@ -266,7 +266,7 @@ class nmap1_tcp_probe(nmap_tcp_probe):
     sequence = 0x8453 # 0xBASE, obviously
     mss = 265
 
-    # From: http://nmap.org/nmap-fingerprinting-old.html
+    # From: https://nmap.org/nmap-fingerprinting-old.html
     # [...]
     # Nmap sends these options along with almost every probe packet:
     #   Window Scale=10; NOP; Max Segment Size = 265; Timestamp; End of Ops;
@@ -401,7 +401,7 @@ class nmap2_ecn_probe(nmap_tcp_probe):
     # "\003\003\012\001\002\004\005\264\004\002\001\001"
     # [...]
 
-    # From: http://nmap.org/book/osdetect-methods.html
+    # From: https://nmap.org/book/osdetect-methods.html
     # [...]
     # This probe tests for explicit congestion notification (ECN) support 
     # in the target TCP stack. ECN is a method for improving Internet 
@@ -656,7 +656,7 @@ class nmap2_tcp_probe_2_6(nmap2_tcp_probe):
     # "\003\003\012\001\002\004\001\011\010\012\377\377\377\377\000\000\000\000\004\002"
     # [...]
 
-    # From: http://nmap.org/book/osdetect-methods.html
+    # From: https://nmap.org/book/osdetect-methods.html
     # [...]
     # The six T2 through T7 tests each send one TCP probe packet. 
     # With one exception, the TCP options data in each case is (in hex) 
@@ -1076,7 +1076,7 @@ class nmap1_tcp_open_2(nmap1_tcp_probe):
         return "T2"
 
 class nmap2_tcp_open_2(nmap2_tcp_probe_2_6):
-    # From: http://nmap.org/book/osdetect-methods.html
+    # From: https://nmap.org/book/osdetect-methods.html
     # [...]
     # T2 sends a TCP null (no flags set) packet with the IP DF bit set and a 
     # window field of 128 to an open port.

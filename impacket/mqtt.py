@@ -12,7 +12,7 @@
 # messages on topics.
 #
 # References:
-#           http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/mqtt-v3.1.1.html
+#           https://docs.oasis-open.org/mqtt/mqtt/v3.1.1/mqtt-v3.1.1.html
 #
 # ToDo:
 # [ ] Implement all the MQTT Control Packets and operations

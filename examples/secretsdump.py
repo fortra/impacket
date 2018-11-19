@@ -32,16 +32,16 @@
 #             the pieces together, plus some extra magic.
 #
 # https://github.com/gentilkiwi/kekeo/tree/master/dcsync
-# http://moyix.blogspot.com.ar/2008/02/syskey-and-sam.html
-# http://moyix.blogspot.com.ar/2008/02/decrypting-lsa-secrets.html
-# http://moyix.blogspot.com.ar/2008/02/cached-domain-credentials.html
-# http://www.quarkslab.com/en-blog+read+13
+# https://moyix.blogspot.com.ar/2008/02/syskey-and-sam.html
+# https://moyix.blogspot.com.ar/2008/02/decrypting-lsa-secrets.html
+# https://moyix.blogspot.com.ar/2008/02/cached-domain-credentials.html
+# https://web.archive.org/web/20130901115208/www.quarkslab.com/en-blog+read+13
 # https://code.google.com/p/creddump/
-# http://lab.mediaservice.net/code/cachedump.rb
-# http://insecurety.net/?p=768
+# https://lab.mediaservice.net/code/cachedump.rb
+# https://insecurety.net/?p=768
 # http://www.beginningtoseethelight.org/ntsecurity/index.htm
-# http://www.ntdsxtract.com/downloads/ActiveDirectoryOfflineHashDumpAndForensics.pdf
-# http://www.passcape.com/index.php?section=blog&cmd=details&id=15
+# https://www.exploit-db.com/docs/english/18244-active-domain-offline-hash-dump-&-forensic-analysis.pdf
+# https://www.passcape.com/index.php?section=blog&cmd=details&id=15
 #
 import argparse
 import codecs

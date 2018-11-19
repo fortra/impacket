@@ -16,7 +16,7 @@
 #
 # References:
 #    Original presentation at BlackHat USA 2014 by @gentilkiwi and @passingthehash:
-#    (http://www.slideshare.net/gentilkiwi/abusing-microsoft-kerberos-sorry-you-guys-dont-get-it)
+#    (https://www.slideshare.net/gentilkiwi/abusing-microsoft-kerberos-sorry-you-guys-dont-get-it)
 #    Original implementation by Benjamin Delpy (@gentilkiwi) in mimikatz
 #    (https://github.com/gentilkiwi/mimikatz)
 #
