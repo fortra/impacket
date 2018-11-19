@@ -32,7 +32,7 @@ are met:
 3. The end-user documentation included with the redistribution,
    if any, must include the following acknowledgment:
       "This product includes software developed by
-       SecureAuth Corporation (http://www.secureauth.com/)."
+       SecureAuth Corporation (https://www.secureauth.com/)."
    Alternately, this acknowledgment may appear in the software itself,
    if and wherever such third-party acknowledgments normally appear.
 
@@ -61,7 +61,7 @@ SUCH DAMAGE.
 
 
 Smb.py and nmb.py are based on Pysmb by Michael Teo
-(http://miketeo.net/projects/pysmb/), and are distributed under the
+(https://miketeo.net/projects/pysmb/), and are distributed under the
 following license:
 
 This software is provided 'as-is', without any express or implied
