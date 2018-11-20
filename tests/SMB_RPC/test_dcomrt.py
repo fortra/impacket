@@ -286,33 +286,33 @@ class DCOMTests(unittest.TestCase):
         #eventSubscription.get_SubscriptionID()
 
 
-    def tes_ie(self):
-        dce, rpctransport = self.connect()
-        scm = dcomrt.IRemoteSCMActivator(dce)
-        
-        #iInterface = scm.RemoteCreateInstance(string_to_bin('0002DF01-0000-0000-C000-000000000046'),ie.IID_WebBrowser)
-        iInterface = scm.RemoteCreateInstance(string_to_bin('72C24DD5-D70A-438B-8A42-98424B88AFB8'),dcomrt.IID_IRemUnknown)
-
-        iDispatch = ie.IWebBrowser(iInterface)
-        resp = iDispatch.GetIDsOfNames(('Navigate',))
-        print(resp)
-        #sys.exit(1)
-        iTypeInfo = iDispatch.GetTypeInfo()
-        resp = iTypeInfo.GetTypeAttr()
-        #resp.dump()
-        for i in range(0,resp['ppTypeAttr']['cFuncs']):
-            resp = iTypeInfo.GetFuncDesc(i)
-            #resp.dump()
-            #resp2 = iTypeInfo.GetNames(resp['ppFuncDesc']['memid'])
-            #print resp2['rgBstrNames'][0]['asData']
-            resp = iTypeInfo.GetDocumentation(resp['ppFuncDesc']['memid'])
-            print(resp['pBstrName']['asData'])
-        #iEventSystem.get_EventObjectChangeEventClassID()
-        print("ACA")
-        iTypeInfo.RemRelease()
-        iDispatch.RemRelease()
-
-        sys.exit(1)
+    # def tes_ie(self):
+    #     dce, rpctransport = self.connect()
+    #     scm = dcomrt.IRemoteSCMActivator(dce)
+    #
+    #     #iInterface = scm.RemoteCreateInstance(string_to_bin('0002DF01-0000-0000-C000-000000000046'),ie.IID_WebBrowser)
+    #     iInterface = scm.RemoteCreateInstance(string_to_bin('72C24DD5-D70A-438B-8A42-98424B88AFB8'),dcomrt.IID_IRemUnknown)
+    #
+    #     iDispatch = ie.IWebBrowser(iInterface)
+    #     resp = iDispatch.GetIDsOfNames(('Navigate',))
+    #     print resp
+    #     #sys.exit(1)
+    #     iTypeInfo = iDispatch.GetTypeInfo()
+    #     resp = iTypeInfo.GetTypeAttr()
+    #     #resp.dump()
+    #     for i in range(0,resp['ppTypeAttr']['cFuncs']):
+    #         resp = iTypeInfo.GetFuncDesc(i)
+    #         #resp.dump()
+    #         #resp2 = iTypeInfo.GetNames(resp['ppFuncDesc']['memid'])
+    #         #print resp2['rgBstrNames'][0]['asData']
+    #         resp = iTypeInfo.GetDocumentation(resp['ppFuncDesc']['memid'])
+    #         print resp['pBstrName']['asData']
+    #     #iEventSystem.get_EventObjectChangeEventClassID()
+    #     print "ACA"
+    #     iTypeInfo.RemRelease()
+    #     iDispatch.RemRelease()
+    #
+    #     sys.exit(1)
 
 class TCPTransport(DCOMTests):
     def setUp(self):
