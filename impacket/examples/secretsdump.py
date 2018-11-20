@@ -1231,13 +1231,13 @@ class SAMHashes(OfflineRegistry):
             if userAccount['LMHashLength'] >= 20:
                 lmHash = self.__decryptHash(rid, encLMHash, LMPASSWORD, newStyle)
             else:
-                lmHash = ''
+                lmHash = b''
 
             ntHash = self.__decryptHash(rid, encNTHash, NTPASSWORD, newStyle)
 
-            if lmHash == '':
+            if lmHash == b'':
                 lmHash = ntlm.LMOWFv1('','')
-            if ntHash == '':
+            if ntHash == b'':
                 ntHash = ntlm.NTOWFv1('','')
 
             answer =  "%s:%d:%s:%s:::" % (userName, rid, hexlify(lmHash).decode('utf-8'), hexlify(ntHash).decode('utf-8'))
@@ -1613,7 +1613,7 @@ class LSASecrets(OfflineRegistry):
                     # If this is an OldVal secret, let's append '_history' to be able to distinguish it and
                     # also be consistent with NTDS history
                     if valueType == 'OldVal':
-                        key += b'_history'
+                        key += '_history'
                     self.__printSecret(key, secret)
 
     def exportSecrets(self, baseFileName, openFileFunc = None):
@@ -2139,7 +2139,8 @@ class NTDSHashes:
                     else:
                         lmhash = hexlify(LMHash)
 
-                    answer = "%s_history%d:%s:%s:%s:::" % (userName, i, rid, lmhash, hexlify(NTHash).decode('utf-8'))
+                    answer = "%s_history%d:%s:%s:%s:::" % (userName, i, rid, lmhash.decode('utf-8'),
+                                                           hexlify(NTHash).decode('utf-8'))
                     if outputFile is not None:
                         self.__writeOutput(outputFile, answer + '\n')
                     self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS, answer)
@@ -2259,7 +2260,8 @@ class NTDSHashes:
                     else:
                         lmhash = hexlify(LMHashHistory)
 
-                    answer = "%s_history%d:%s:%s:%s:::" % (userName, i, rid, lmhash, hexlify(NTHashHistory))
+                    answer = "%s_history%d:%s:%s:%s:::" % (userName, i, rid, lmhash.decode('utf-8'),
+                                                           hexlify(NTHashHistory).decode('utf-8'))
                     self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS, answer)
                     if outputFile is not None:
                         self.__writeOutput(outputFile, answer + '\n')
