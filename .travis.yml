@@ -1,0 +1,7 @@
+language: python
+install:
+  - pip install -r requirements.txt
+  - pip install tox
+script: tox
+env:
+  - NO_REMOTE=true
