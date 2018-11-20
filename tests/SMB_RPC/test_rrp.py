@@ -44,12 +44,58 @@ import unittest
 import ConfigParser
 
 from impacket.dcerpc.v5 import transport
-from impacket.dcerpc.v5 import epm, rrp
+from impacket.dcerpc.v5 import epm, rrp, scmr
 from impacket.dcerpc.v5.dtypes import NULL, MAXIMUM_ALLOWED, OWNER_SECURITY_INFORMATION
+from impacket import ntlm
 
 
 class RRPTests(unittest.TestCase):
+    def connect_scmr(self):
+        rpctransport = transport.DCERPCTransportFactory(r'ncacn_np:%s[\pipe\svcctl]' % self.machine)
+        if len(self.hashes) > 0:
+            lmhash, nthash = self.hashes.split(':')
+        else:
+            lmhash = ''
+            nthash = ''
+        if hasattr(rpctransport, 'set_credentials'):
+            # This method exists only for selected protocol sequences.
+            rpctransport.set_credentials(self.username, self.password, self.domain, lmhash, nthash)
+        dce = rpctransport.get_dce_rpc()
+        # dce.set_max_fragment_size(32)
+        dce.connect()
+        dce.bind(scmr.MSRPC_UUID_SCMR)
+        lpMachineName = 'DUMMY\x00'
+        lpDatabaseName = 'ServicesActive\x00'
+        desiredAccess = scmr.SERVICE_START | scmr.SERVICE_STOP | scmr.SERVICE_CHANGE_CONFIG | \
+                        scmr.SERVICE_QUERY_CONFIG | scmr.SERVICE_QUERY_STATUS | \
+                        scmr.SERVICE_ENUMERATE_DEPENDENTS | scmr.SC_MANAGER_ENUMERATE_SERVICE
+
+        resp = scmr.hROpenSCManagerW(dce, lpMachineName, lpDatabaseName, desiredAccess)
+        scHandle = resp['lpScHandle']
+
+        return dce, rpctransport, scHandle
+
     def connect(self):
+        if self.rrpStarted is not True:
+            dce, rpctransport, scHandle = self.connect_scmr()
+
+            desiredAccess = scmr.SERVICE_START | scmr.SERVICE_STOP | scmr.SERVICE_CHANGE_CONFIG | \
+                            scmr.SERVICE_QUERY_CONFIG | scmr.SERVICE_QUERY_STATUS | scmr.SERVICE_ENUMERATE_DEPENDENTS
+
+            resp = scmr.hROpenServiceW(dce, scHandle, 'RemoteRegistry\x00', desiredAccess)
+            resp.dump()
+            serviceHandle = resp['lpServiceHandle']
+
+            try:
+                resp = scmr.hRStartServiceW(dce, serviceHandle )
+            except Exception as e:
+                if str(e).find('ERROR_SERVICE_ALREADY_RUNNING') >=0:
+                    pass
+                else:
+                    raise
+            resp = scmr.hRCloseServiceHandle(dce, scHandle)
+            self.rrpStarted = True
+
         rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
         if len(self.hashes) > 0:
             lmhash, nthash = self.hashes.split(':')
@@ -696,6 +742,7 @@ class SMBTransport(RRPTests):
         self.hashes   = configFile.get('SMBTransport', 'hashes')
         self.stringBinding = r'ncacn_np:%s[\PIPE\winreg]' % self.machine
         self.ts = ('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
+        self.rrpStarted = False
 
 class SMBTransport64(RRPTests):
     def setUp(self):
@@ -710,6 +757,7 @@ class SMBTransport64(RRPTests):
         self.hashes   = configFile.get('SMBTransport', 'hashes')
         self.stringBinding = r'ncacn_np:%s[\PIPE\winreg]' % self.machine
         self.ts = ('71710533-BEBA-4937-8319-B5DBEF9CCC36', '1.0')
+        self.rrpStarted = False
 
 class TCPTransport(RRPTests):
     def setUp(self):
@@ -723,6 +771,7 @@ class TCPTransport(RRPTests):
         self.machine  = configFile.get('TCPTransport', 'machine')
         self.hashes   = configFile.get('TCPTransport', 'hashes')
         self.stringBinding = epm.hept_map(self.machine, rrp.MSRPC_UUID_RRP, protocol = 'ncacn_ip_tcp')
+        self.rrpStarted = False
 
 
 # Process command-line arguments.
