@@ -4,4 +4,4 @@ install:
   - pip install tox
 script: tox
 env:
-  - NO_DCE=true
+  - NO_REMOTE=true
