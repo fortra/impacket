@@ -255,7 +255,7 @@ class SMBClient(SMB):
 
             serverName = av_pairs[NTLMSSP_AV_HOSTNAME][1].decode('utf-16le')
         except:
-            loggin.debug("Exception:", exc_info=True)
+            logging.debug("Exception:", exc_info=True)
             # We're in NTLMv1, not supported
             return STATUS_ACCESS_DENIED
 

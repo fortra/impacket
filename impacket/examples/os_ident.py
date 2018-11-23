@@ -30,7 +30,7 @@ class os_id_exception:
     def __init__(self, value):
         self.value = value
     def __str__(self):
-        return `self.value`
+        return repr(self.value)
 
 class os_id_test:
     
@@ -2047,8 +2047,8 @@ class NMAP2_Fingerprint_Matcher:
                 fp = self.parse_fp(fingerprint)
                 similarity = fp.compare(res, mp)
                 if similarity >= threshold: 
-                    print "\"%s\" matches with an accuracy of %.2f%%" \
-                           % (fp.get_id(), similarity)
+                    print("\"%s\" matches with an accuracy of %.2f%%" \
+                           % (fp.get_id(), similarity))
                     output.append((similarity / 100,
                                    fp.get_id(),
                                    (fp.get_os_class().get_vendor(),
@@ -2058,7 +2058,7 @@ class NMAP2_Fingerprint_Matcher:
 
             infile.close()
         except IOError, err:
-            print "IOError: %s", err
+            print("IOError: %s", err)
 
         return output
 
