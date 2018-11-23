@@ -56,9 +56,10 @@ from impacket.examples import logger
 from impacket.smbconnection import SMBConnection
 
 from impacket.examples.secretsdump import LocalOperations, RemoteOperations, SAMHashes, LSASecrets, NTDSHashes
-from six import PY2
-if PY2:
+try:
     input = raw_input
+except NameErrror:
+    pass
 
 class DumpSecrets:
     def __init__(self, remoteName, username='', password='', domain='', options=None):
