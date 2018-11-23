@@ -94,7 +94,7 @@ class MimikatzShell(cmd.Cmd):
         retVal = False
         try:
            retVal = cmd.Cmd.onecmd(self,s)
-        except Exception, e:
+        except Exception as e:
            #import traceback
            #traceback.print_exc()
            logging.error(e)
@@ -210,7 +210,7 @@ def main():
                 dce.connect()
                 dce.bind(mimilib.MSRPC_UUID_MIMIKATZ)
                 bound = True
-            except Exception, e:
+            except Exception as e:
                 if str(e).find('ept_s_not_registered') >=0:
                     # Let's try ncacn_ip_tcp
                     stringBinding = epm.hept_map(address, mimilib.MSRPC_UUID_MIMIKATZ, protocol = 'ncacn_ip_tcp')
@@ -244,7 +244,7 @@ def main():
                     print line,
         else:
             shell.cmdloop()
-    except Exception, e:
+    except Exception as e:
         if logging.getLogger().level == logging.DEBUG:
             import traceback
             traceback.print_exc()

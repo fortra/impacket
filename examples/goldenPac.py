@@ -97,7 +97,7 @@ class PSEXEC:
         dce = rpctransport.get_dce_rpc()
         try:
             dce.connect()
-        except Exception, e:
+        except Exception as e:
             logging.critical(str(e))
             sys.exit(1)
 
@@ -115,7 +115,7 @@ class PSEXEC:
             else:
                 try:
                     f = open(self.__exeFile)
-                except Exception, e:
+                except Exception as e:
                     logging.critical(str(e))
                     sys.exit(1)
                 installService = serviceinstall.ServiceInstall(rpctransport.get_smb_connection(), f)
@@ -332,7 +332,7 @@ class RemoteShell(cmd.Cmd):
             logging.info("Downloading %s\%s" % (self.share, src_path))
             self.transferClient.getFile(self.share, src_path, fh.write)
             fh.close()
-        except Exception, e:
+        except Exception as e:
             logging.error(str(e))
             pass
 
@@ -357,7 +357,7 @@ class RemoteShell(cmd.Cmd):
             logging.info("Uploading %s to %s\%s" % (src_file, self.share, dst_path))
             self.transferClient.putFile(self.share, pathname, fh.read)
             fh.close()
-        except Exception, e:
+        except Exception as e:
             logging.error(str(e))
             pass
 
@@ -370,7 +370,7 @@ class RemoteShell(cmd.Cmd):
         else:
             try:
                 os.chdir(s)
-            except Exception, e:
+            except Exception as e:
                 logging.error(str(e))
         self.send_data('\r\n')
 
@@ -894,7 +894,7 @@ class MS14_068:
         self.__domainSid, self.__rid = self.getUserSID()
         try:
             self.__forestSid = self.getForestSid()
-        except Exception, e:
+        except Exception as e:
             # For some reason we couldn't get the forest data. No problem, we can still continue
             # Only drawback is we won't get forest admin if successful
             logging.error('Couldn\'t get forest info (%s), continuing' % str(e))
@@ -916,7 +916,7 @@ class MS14_068:
                     tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain,
                                                                             self.__lmhash, self.__nthash, None,
                                                                             self.__kdcHost, requestPAC=False)
-                except KerberosError, e:
+                except KerberosError as e:
                     if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
                         # We might face this if the target does not support AES (most probably
                         # Windows XP). So, if that's the case we'll force using RC4 by converting
@@ -971,7 +971,7 @@ class MS14_068:
                     tgsCIFS, cipher, oldSessionKeyCIFS, sessionKeyCIFS = getKerberosTGS(serverName, domain,
                                                                                         self.__kdcHost, tgs, cipher,
                                                                                         sessionKey)
-                except KerberosError, e:
+                except KerberosError as e:
                     if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
                         # We might face this if the target does not support AES (most probably
                         # Windows XP). So, if that's the case we'll force using RC4 by converting
@@ -1125,7 +1125,7 @@ if __name__ == '__main__':
 
     try:
         dumper.exploit()
-    except Exception, e:
+    except Exception as e:
         if logging.getLogger().level == logging.DEBUG:
             import traceback
             traceback.print_exc()

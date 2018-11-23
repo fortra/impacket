@@ -55,7 +55,7 @@ class TSCH_EXEC:
             rpctransport.set_kerberos(self.__doKerberos, self.__kdcHost)
         try:
             self.doStuff(rpctransport)
-        except Exception, e:
+        except Exception as e:
             if logging.getLogger().level == logging.DEBUG:
                 import traceback
                 traceback.print_exc()
@@ -142,7 +142,7 @@ class TSCH_EXEC:
             logging.info('Deleting task \\%s' % tmpName)
             tsch.hSchRpcDelete(dce, '\\%s' % tmpName)
             taskCreated = False
-        except tsch.DCERPCSessionError, e:
+        except tsch.DCERPCSessionError as e:
             logging.error(e)
             e.get_packet().dump()
         finally:
@@ -156,7 +156,7 @@ class TSCH_EXEC:
                 logging.info('Attempting to read ADMIN$\\Temp\\%s' % tmpFileName)
                 smbConnection.getFile('ADMIN$', 'Temp\\%s' % tmpFileName, output_callback)
                 break
-            except Exception, e:
+            except Exception as e:
                 if str(e).find('SHARING') > 0:
                     time.sleep(3)
                 elif str(e).find('STATUS_OBJECT_NAME_NOT_FOUND') >= 0:

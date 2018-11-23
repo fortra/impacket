@@ -2729,7 +2729,7 @@ class IWbemClassObject(IRemUnknown):
                 return self.__iWbemServices.ExecMethod(classOrInstance, methodDefinition['name'], pInParams = objRefCustomIn )
                 #return self.__iWbemServices.ExecMethod('Win32_Process.Handle="436"', methodDefinition['name'],
                 #                                       pInParams=objRefCustomIn).getObject().ctCurrent['properties']
-            except Exception, e:
+            except Exception as e:
                 if LOG.level == logging.DEBUG:
                     import traceback
                     traceback.print_exc()

@@ -672,7 +672,7 @@ class INODE:
             try:
 #                print "%d - %s %s %s " %( self.INodeNumber, self.getPrintableAttributes(), self.LastDataChangeTime.isoformat(' '), self.FileName)
                 print "%s %s %15d %s " %( self.getPrintableAttributes(), self.LastDataChangeTime.isoformat(' '), self.FileSize, self.FileName)
-            except Exception, e:
+            except Exception as e:
                 logging.error('Exception when trying to display inode %d: %s' % (self.INodeNumber,str(e)))
 
     def getPrintableAttributes(self):
@@ -1033,7 +1033,7 @@ class MiniShell(cmd.Cmd):
         retVal = False
         try:
            retVal = cmd.Cmd.onecmd(self,s)
-        except Exception, e:
+        except Exception as e:
            logging.error(str(e))
 
         return retVal

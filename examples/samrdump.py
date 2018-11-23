@@ -79,7 +79,7 @@ class SAMRDump:
 
         try:
             entries = self.__fetchList(rpctransport)
-        except Exception, e:
+        except Exception as e:
             logging.critical(str(e))
 
         # Display results.
@@ -163,7 +163,7 @@ class SAMRDump:
             while status == STATUS_MORE_ENTRIES:
                 try:
                     resp = samr.hSamrEnumerateUsersInDomain(dce, domainHandle, enumerationContext = enumerationContext)
-                except DCERPCException, e:
+                except DCERPCException as e:
                     if str(e).find('STATUS_MORE_ENTRIES') < 0:
                         raise 
                     resp = e.get_packet()
@@ -179,7 +179,7 @@ class SAMRDump:
                 enumerationContext = resp['EnumerationContext'] 
                 status = resp['ErrorCode']
 
-        except ListUsersException, e:
+        except ListUsersException as e:
             logging.critical("Error listing users: %s" % e)
 
         dce.disconnect()

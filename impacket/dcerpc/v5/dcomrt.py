@@ -1012,7 +1012,7 @@ class DCOMConnection:
                     DCOMConnection.OID_SET[target]['setid'] = resp['pSetId']
                 else:
                     objExporter.SimplePing(DCOMConnection.OID_SET[target]['setid'])
-        except Exception, e:
+        except Exception as e:
             # There might be exceptions when sending packets 
             # We should try to continue tho.
             LOG.error(str(e))
@@ -1021,7 +1021,7 @@ class DCOMConnection:
         DCOMConnection.PINGTIMER = Timer(120,DCOMConnection.pingServer)
         try:
             DCOMConnection.PINGTIMER.start()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('threads can only be started once') < 0:
                 raise e
 
@@ -1031,7 +1031,7 @@ class DCOMConnection:
                 DCOMConnection.PINGTIMER = Timer(120, DCOMConnection.pingServer)
             try:
                 DCOMConnection.PINGTIMER.start()
-            except Exception, e:
+            except Exception as e:
                 if str(e).find('threads can only be started once') < 0:
                     raise e
 
@@ -1308,7 +1308,7 @@ class INTERFACE:
         dce = self.get_dce_rpc()
         try:
             resp = dce.request(req, uuid)
-        except Exception, e:
+        except Exception as e:
             if str(e).find('RPC_E_DISCONNECTED') >= 0:
                 msg = str(e) + '\n'
                 msg += "DCOM keep-alive pinging it might not be working as expected. You can't be idle for more than 14 minutes!\n"

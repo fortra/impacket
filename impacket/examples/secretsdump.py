@@ -302,7 +302,7 @@ class RemoteFile:
             try:
                 self.__fid = self.__smbConnection.openFile(self.__tid, self.__fileName, desiredAccess=FILE_READ_DATA,
                                                    shareMode=FILE_SHARE_READ)
-            except Exception, e:
+            except Exception as e:
                 if str(e).find('STATUS_SHARING_VIOLATION') >=0:
                     if tries >= 3:
                         raise e
@@ -560,7 +560,7 @@ class RemoteOperations:
                                                                        samr.USER_SERVER_TRUST_ACCOUNT |\
                                                                        samr.USER_INTERDOMAIN_TRUST_ACCOUNT,
                                                     enumerationContext=enumerationContext)
-        except DCERPCException, e:
+        except DCERPCException as e:
             if str(e).find('STATUS_MORE_ENTRIES') < 0:
                 raise
             resp = e.get_packet()
@@ -631,7 +631,7 @@ class RemoteOperations:
             if account.startswith('.\\'):
                 account = account[2:]
             return account
-        except Exception, e:
+        except Exception as e:
             # Don't log if history service is not found, that should be normal
             if serviceName.endswith("_history") is False:
                 LOG.error(e)
@@ -705,7 +705,7 @@ class RemoteOperations:
                 scmr.hRCloseServiceHandle(self.__scmr, self.__serviceHandle)
                 scmr.hRCloseServiceHandle(self.__scmr, self.__scManagerHandle)
                 rpc.disconnect()
-            except Exception, e:
+            except Exception as e:
                 # If service is stopped it'll trigger an exception
                 # If service does not exist it'll trigger an exception
                 # So. we just wanna be sure we delete it, no need to
@@ -723,7 +723,7 @@ class RemoteOperations:
         if self.__scmr is not None:
             try:
                 self.__scmr.disconnect()
-            except Exception, e:
+            except Exception as e:
                 if str(e).find('STATUS_INVALID_PARAMETER') >=0:
                     pass
                 else:
@@ -941,7 +941,7 @@ class RemoteOperations:
             try:
                 self.__smbConnection.getFile('ADMIN$', 'Temp\\__output', self.__answer)
                 break
-            except Exception, e:
+            except Exception as e:
                 if tries > 30:
                     # We give up
                     raise Exception('Too many tries trying to list vss shadows')
@@ -1022,7 +1022,7 @@ class RemoteOperations:
             try:
                 self.__smbConnection.deleteFile('ADMIN$', 'Temp\\__output')
                 break
-            except Exception, e:
+            except Exception as e:
                 if tries >= 30:
                     raise e
                 if str(e).find('STATUS_OBJECT_NAME_NOT_FOUND') >= 0 or str(e).find('STATUS_SHARING_VIOLATION') >=0:
@@ -1668,7 +1668,7 @@ class ResumeSessionMgrInFile(object):
     def getResumeData(self):
         try:
             self.__resumeFile = open(self.__resumeFileName,'rb')
-        except Exception, e:
+        except Exception as e:
             raise Exception('Cannot open resume session file name %s' % str(e))
         resumeSid = self.__resumeFile.read()
         self.__resumeFile.close()
@@ -1686,7 +1686,7 @@ class ResumeSessionMgrInFile(object):
         if not self.__resumeFile:
             try:
                 self.__resumeFile = open(self.__resumeFileName, 'wb+')
-            except Exception, e:
+            except Exception as e:
                 raise Exception('Cannot create "%s" resume session file: %s' % (self.__resumeFileName, str(e)))
 
     def endTransaction(self):
@@ -1959,7 +1959,7 @@ class NTDSHashes:
                 try:
                     attId = drsuapi.OidFromAttid(prefixTable, attr['attrTyp'])
                     LOOKUP_TABLE = self.ATTRTYP_TO_ATTID
-                except Exception, e:
+                except Exception as e:
                     LOG.debug('Failed to execute OidFromAttid with error %s' % e)
                     # Fallbacking to fixed table and hope for the best
                     attId = attr['attrTyp']
@@ -2165,7 +2165,7 @@ class NTDSHashes:
                 try:
                     attId = drsuapi.OidFromAttid(prefixTable, attr['attrTyp'])
                     LOOKUP_TABLE = self.ATTRTYP_TO_ATTID
-                except Exception, e:
+                except Exception as e:
                     LOG.debug('Failed to execute OidFromAttid with error %s, fallbacking to fixed table' % e)
                     # Fallbacking to fixed table and hope for the best
                     attId = attr['attrTyp']
@@ -2302,7 +2302,7 @@ class NTDSHashes:
                                 raise
                     else:
                         raise Exception('No remote Operations available')
-                except Exception, e:
+                except Exception as e:
                     LOG.debug('Exiting NTDSHashes.dump() because %s' % e)
                     # Target's not a DC
                     return
@@ -2335,7 +2335,7 @@ class NTDSHashes:
                             self.__decryptHash(record, outputFile=hashesOutputFile)
                             if self.__justNTLM is False:
                                 self.__decryptSupplementalInfo(record, None, keysOutputFile, clearTextOutputFile)
-                        except Exception, e:
+                        except Exception as e:
                             if LOG.level == logging.DEBUG:
                                 import traceback
                                 traceback.print_exc()
@@ -2364,7 +2364,7 @@ class NTDSHashes:
                                 self.__decryptHash(record, outputFile=hashesOutputFile)
                                 if self.__justNTLM is False:
                                     self.__decryptSupplementalInfo(record, None, keysOutputFile, clearTextOutputFile)
-                        except Exception, e:
+                        except Exception as e:
                             if LOG.level == logging.DEBUG:
                                 import traceback
                                 traceback.print_exc()
@@ -2430,7 +2430,7 @@ class NTDSHashes:
                             self.__decryptSupplementalInfo(userRecord, userRecord['pmsgOut'][replyVersion]['PrefixTableSrc'][
                                 'pPrefixEntry'], keysOutputFile, clearTextOutputFile)
 
-                    except Exception, e:
+                    except Exception as e:
                         #import traceback
                         #traceback.print_exc()
                         LOG.error("Error while processing user!")
@@ -2483,7 +2483,7 @@ class NTDSHashes:
                                     self.__decryptSupplementalInfo(userRecord, userRecord['pmsgOut'][replyVersion]['PrefixTableSrc'][
                                         'pPrefixEntry'], keysOutputFile, clearTextOutputFile)
 
-                            except Exception, e:
+                            except Exception as e:
                                 if LOG.level == logging.DEBUG:
                                     import traceback
                                     traceback.print_exc()
@@ -2538,7 +2538,7 @@ class NTDSHashes:
     def __writeOutput(cls, fd, data):
         try:
             fd.write(data)
-        except Exception, e:
+        except Exception as e:
             LOG.error("Error writing entry, skipping (%s)" % str(e))
             pass
 

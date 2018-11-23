@@ -256,7 +256,7 @@ class UDPTransport(DCERPCTransport):
             af, socktype, proto, canonname, sa = socket.getaddrinfo(self.getRemoteHost(), self.get_dport(), 0, socket.SOCK_DGRAM)[0]
             self.__socket = socket.socket(af, socktype, proto)
             self.__socket.settimeout(self.get_connect_timeout())
-        except socket.error, msg:
+        except socket.error as msg:
             self.__socket = None
             raise DCERPCException("Could not connect: %s" % msg)
 
@@ -297,7 +297,7 @@ class TCPTransport(DCERPCTransport):
         try:
             self.__socket.settimeout(self.get_connect_timeout())
             self.__socket.connect(sa)
-        except socket.error, msg:
+        except socket.error as msg:
             self.__socket.close()
             raise DCERPCException("Could not connect: %s" % msg)
         return 1
@@ -305,7 +305,7 @@ class TCPTransport(DCERPCTransport):
     def disconnect(self):
         try:
             self.__socket.close()
-        except socket.error, msg:
+        except socket.error as msg:
             self.__socket = None
             return 0
         return 1

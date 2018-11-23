@@ -135,7 +135,7 @@ class DCERPCTests(unittest.TestCase):
             request['ServerHandle'] = resp['ServerHandle']
             request['Name'] = 'A'*4500
             resp = dce.request(request)
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_NO_SUCH_DOMAIN') < 0:
                 raise
         dce.disconnect()
@@ -290,7 +290,7 @@ class DCERPCTests(unittest.TestCase):
             request['max_ents'] = 499
             resp = dce.request(request)
             dce.disconnect()
-        except Exception, e:
+        except Exception as e:
             if not (str(e).find('STATUS_ACCESS_DENIED') >=0 and self.stringBinding.find('ncacn_np') >=0):
                 raise
 
@@ -391,7 +391,7 @@ class DCERPCTests(unittest.TestCase):
             request['max_ents'] = 499
             resp = dce.request(request)
             dce.disconnect()
-        except Exception, e:
+        except Exception as e:
             if not (str(e).find('STATUS_ACCESS_DENIED') >=0 and self.stringBinding.find('ncacn_np') >=0):
                 raise
 

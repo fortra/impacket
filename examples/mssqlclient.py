@@ -176,7 +176,7 @@ if __name__ == '__main__':
         else:
             res = ms_sql.login(options.db, username, password, domain, options.hashes, options.windows_auth)
         ms_sql.printReplies()
-    except Exception, e:
+    except Exception as e:
         if logging.getLogger().level == logging.DEBUG:
             import traceback
             traceback.print_exc()

@@ -152,7 +152,7 @@ class MSSQLSocksRelay(SocksRelay):
                 tds = self.session.recvTDS()
                 # 4. Send it back to the client
                 self.sendTDS(tds['Type'], tds['Data'], 0)
-        except Exception, e:
+        except Exception as e:
             # Probably an error here
             if LOG.level == logging.DEBUG:
                 import traceback

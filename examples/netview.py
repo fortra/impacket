@@ -83,7 +83,7 @@ def checkMachines(machines, stopEvent, singlePass=False):
                 myIP = s.getsockname()[0]
                 s.close()
                 machinesAliveQueue.put(machine)
-            except Exception, e:
+            except Exception as e:
                 logging.debug('%s: not alive (%s)' % (machine, e))
                 pass
             else:
@@ -157,7 +157,7 @@ class USERENUM:
                 try:
                     resp = samr.hSamrEnumerateUsersInDomain(dce, domainHandle, samr.USER_WORKSTATION_TRUST_ACCOUNT,
                                                             enumerationContext=enumerationContext)
-                except DCERPCException, e:
+                except DCERPCException as e:
                     if str(e).find('STATUS_MORE_ENTRIES') < 0:
                         raise
                     resp = e.get_packet()
@@ -168,7 +168,7 @@ class USERENUM:
 
                 enumerationContext = resp['EnumerationContext'] 
                 status = resp['ErrorCode']
-        except Exception, e:
+        except Exception as e:
             raise e
 
         dce.disconnect()
@@ -229,7 +229,7 @@ class USERENUM:
                 try:
                     self.getSessions(target)
                     self.getLoggedIn(target) 
-                except (SessionError, DCERPCException), e:
+                except (SessionError, DCERPCException) as e:
                     # We will silently pass these ones, might be issues with Kerberos, or DCE
                     if str(e).find('LOGON_FAILURE') >=0:
                         # For some reason our credentials don't work there, 
@@ -247,7 +247,7 @@ class USERENUM:
                     pass 
                 except KeyboardInterrupt:
                     raise
-                except Exception, e:
+                except Exception as e:
                     #import traceback
                     #traceback.print_exc()
                     if str(e).find('timed out') >=0:
@@ -287,7 +287,7 @@ class USERENUM:
 
         try:
             resp = srvs.hNetrSessionEnum(dce, '\x00', NULL, 10)
-        except Exception, e:
+        except Exception as e:
             if str(e).find('Broken pipe') >= 0:
                 # The connection timed-out. Let's try to bring it back next round
                 self.__targets[target]['SRVS'] = None
@@ -366,7 +366,7 @@ class USERENUM:
 
         try:
             resp = wkst.hNetrWkstaUserEnum(dce,1)
-        except Exception, e:
+        except Exception as e:
             if str(e).find('Broken pipe') >= 0:
                 # The connection timed-out. Let's try to bring it back next round
                 self.__targets[target]['WKST'] = None
@@ -494,7 +494,7 @@ if __name__ == '__main__':
 
         executer = USERENUM(username, password, domain, options.hashes, options.aesKey, options.k, options)
         executer.run()
-    except Exception, e:
+    except Exception as e:
         if logging.getLogger().level == logging.DEBUG:
             import traceback
             traceback.print_exc()

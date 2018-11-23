@@ -297,7 +297,7 @@ class KarmaSMBServer(Thread):
                    # First time asked, asking for the file
                    infoRecord, errorCode = queryPathInformation(path, self.defaultFile, queryPathInfoParameters['InformationLevel'])
                    connData['MS15011'][os.path.dirname(origPathName)] = infoRecord
-            except Exception, e:
+            except Exception as e:
                #import traceback
                #traceback.print_exc()
                smbServer.log("queryPathInformation: %s" % e,logging.ERROR)
@@ -607,7 +607,7 @@ if __name__ == '__main__':
 
     try:
        options = parser.parse_args()
-    except Exception, e:
+    except Exception as e:
        logging.critical(str(e))
        sys.exit(1)
 

@@ -813,7 +813,7 @@ def hBaseRegEnumValue(dce, hKey, dwIndex, dataLen=256):
             request['lpcbData'] = dataLen
             request['lpcbLen'] = dataLen
             resp = dce.request(request)
-        except DCERPCSessionError, e:
+        except DCERPCSessionError as e:
             if retries > 1:
                 LOG.debug('Too many retries when calling hBaseRegEnumValue, aborting')
                 raise
@@ -886,7 +886,7 @@ def hBaseRegQueryValue(dce, hKey, lpValueName, dataLen=512):
             request['lpcbData'] = dataLen
             request['lpcbLen'] = dataLen
             resp = dce.request(request)
-        except DCERPCSessionError, e:
+        except DCERPCSessionError as e:
             if retries > 1:
                 LOG.debug('Too many retries when calling hBaseRegQueryValue, aborting')
                 raise

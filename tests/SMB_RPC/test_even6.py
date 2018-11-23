@@ -48,7 +48,7 @@ class EVEN6Tests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             return
 
         log_handle = resp['Handle']
@@ -62,7 +62,7 @@ class EVEN6Tests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             return
 
         for i in range(resp['NumActualRecords']):
@@ -78,7 +78,7 @@ class EVEN6Tests(unittest.TestCase):
         try:
             resp = even6.hEvtRpcRegisterLogQuery(dce, 'Security\x00', '*\x00', even6.EvtQueryChannelName | even6.EvtReadNewestToOldest)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             return
 
         log_handle = resp['Handle']
@@ -86,7 +86,7 @@ class EVEN6Tests(unittest.TestCase):
         try:
             resp = even6.EvtRpcQueryNext(dce, log_handle, 5, 1000, 0)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             return
 
         for i in range(resp['NumActualRecords']):

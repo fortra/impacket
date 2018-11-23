@@ -65,7 +65,7 @@ class LSALookupSid:
 
         try:
             self.__bruteForce(rpctransport, self.__maxRid)
-        except Exception, e:
+        except Exception as e:
             if logging.getLogger().level == logging.DEBUG:
                 import traceback
                 traceback.print_exc()
@@ -114,7 +114,7 @@ class LSALookupSid:
                 sids.append(domainSid + '-%d' % i)
             try:
                 lsat.hLsarLookupSids(dce, policyHandle, sids,lsat.LSAP_LOOKUP_LEVEL.LsapLookupWksta)
-            except DCERPCException, e:
+            except DCERPCException as e:
                 if str(e).find('STATUS_NONE_MAPPED') >= 0:
                     soFar += SIMULTANEOUS
                     continue

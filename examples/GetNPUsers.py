@@ -154,7 +154,7 @@ class GetUserNoPreAuth:
 
         try:
             r = sendReceive(message, domain, self.__kdcHost)
-        except KerberosError, e:
+        except KerberosError as e:
             if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
                 # RC4 not available, OK, let's ask for newer types
                 supportedCiphers = (int(constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value),
@@ -214,7 +214,7 @@ class GetUserNoPreAuth:
             else:
                 ldapConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
                                              self.__aesKey, kdcHost=self.__kdcHost)
-        except ldap.LDAPSessionError, e:
+        except ldap.LDAPSessionError as e:
             if str(e).find('strongerAuthRequired') >= 0:
                 # We need to try SSL
                 ldapConnection = ldap.LDAPConnection('ldaps://%s' % target, self.baseDN, self.__kdcHost)
@@ -242,7 +242,7 @@ class GetUserNoPreAuth:
                                          attributes=['sAMAccountName',
                                                      'pwdLastSet', 'MemberOf', 'userAccountControl', 'lastLogon'],
                                          sizeLimit=999)
-        except ldap.LDAPSearchError, e:
+        except ldap.LDAPSearchError as e:
             if e.getErrorString().find('sizeLimitExceeded') >= 0:
                 logging.debug('sizeLimitExceeded exception caught, giving up and processing the data received')
                 # We reached the sizeLimit, process the answers we have already and that's it. Until we implement
@@ -285,7 +285,7 @@ class GetUserNoPreAuth:
                             lastLogon = str(datetime.datetime.fromtimestamp(self.getUnixTime(int(str(attribute['vals'][0])))))
                 if mustCommit is True:
                     answers.append([sAMAccountName,memberOf, pwdLastSet, lastLogon, userAccountControl])
-            except Exception, e:
+            except Exception as e:
                 logging.error('Skipping item, cannot process due to error %s' % str(e))
                 pass
 
@@ -303,7 +303,7 @@ class GetUserNoPreAuth:
                     try:
                         entry = self.getTGT(answer[0])
                         self.outputTGT(entry,fd)
-                    except Exception , e:
+                    except Exception as e:
                         logging.error('%s' % str(e))
                 if fd is not None:
                     fd.close()
@@ -392,7 +392,7 @@ if __name__ == '__main__':
     try:
         executer = GetUserNoPreAuth(username, password, domain, options)
         executer.run()
-    except Exception, e:
+    except Exception as e:
         if logging.getLogger().level == logging.DEBUG:
             import traceback
             traceback.print_exc()

@@ -187,7 +187,7 @@ def keepAliveTimer(server):
                         LOG.debug('Calling keepAlive() for %s@%s:%s' % (user, target, port))
                         try:
                             server.activeRelays[target][port][user]['protocolClient'].keepAlive()
-                        except Exception, e:
+                        except Exception as e:
                             LOG.debug('SOCKS: %s' % str(e))
                             if str(e).find('Broken pipe') >= 0 or str(e).find('reset by peer') >=0 or \
                                             str(e).find('Invalid argument') >= 0 or str(e).find('Server not connected') >=0:
@@ -342,7 +342,7 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
             try:
                 LOG.debug('SOCKS: Connecting to %s(%s)' %(self.targetHost, self.targetPort))
                 s.connect((self.targetHost, self.targetPort))
-            except Exception, e:
+            except Exception as e:
                 if LOG.level == logging.DEBUG:
                     import traceback
                     traceback.print_exc()
@@ -368,7 +368,7 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
                     s.sendall(data)
                     data = s.recv(8192)
                     self.__connSocket.sendall(data)
-                except Exception, e:
+                except Exception as e:
                     if LOG.level == logging.DEBUG:
                         import traceback
                         traceback.print_exc()
@@ -410,7 +410,7 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
                 self.__socksServer.activeRelays[self.targetHost][self.targetPort][relay.username]['inUse'] = True
 
                 relay.tunnelConnection()
-            except Exception, e:
+            except Exception as e:
                 if LOG.level == logging.DEBUG:
                     import traceback
                     traceback.print_exc()
@@ -435,7 +435,7 @@ class SocksRequestHandler(SocketServer.BaseRequestHandler):
         LOG.debug('SOCKS: Shutting down connection')
         try:
             self.sendReplyError(replyField.CONNECTION_REFUSED)
-        except Exception, e:
+        except Exception as e:
             LOG.debug('SOCKS END: %s' % str(e))
 
 

@@ -1430,7 +1430,7 @@ class SMB3:
                         files.append(smb.SharedFile(fileInfo['CreationTime'],fileInfo['LastAccessTime'],fileInfo['LastChangeTime'],fileInfo['EndOfFile'],fileInfo['AllocationSize'],fileInfo['ExtFileAttributes'],fileInfo['FileName'].decode('utf-16le'), fileInfo['FileName'].decode('utf-16le')))
                         nextOffset = fileInfo['NextEntryOffset']
                         res = res[nextOffset:]
-                except SessionError, e:
+                except SessionError as e:
                     if (e.get_error_code()) != STATUS_NO_MORE_FILES:
                         raise
                     break 

@@ -92,7 +92,7 @@ class WMIEXEC:
                 self.shell.onecmd(self.__command)
             else:
                 self.shell.cmdloop()
-        except  (Exception, KeyboardInterrupt), e:
+        except  (Exception, KeyboardInterrupt) as e:
             if logging.getLogger().level == logging.DEBUG:
                 import traceback
                 traceback.print_exc()
@@ -145,7 +145,7 @@ class RemoteShell(cmd.Cmd):
         else:
             try:
                 os.chdir(s)
-            except Exception, e:
+            except Exception as e:
                 logging.error(str(e))
 
     def do_get(self, src_path):
@@ -160,7 +160,7 @@ class RemoteShell(cmd.Cmd):
             self.__transferClient.getFile(drive[:-1]+'$', tail, fh.write)
             fh.close()
 
-        except Exception, e:
+        except Exception as e:
             logging.error(str(e))
 
             if os.path.exists(filename):
@@ -187,7 +187,7 @@ class RemoteShell(cmd.Cmd):
             logging.info("Uploading %s to %s" % (src_file, pathname))
             self.__transferClient.putFile(drive[:-1]+'$', tail, fh.read)
             fh.close()
-        except Exception, e:
+        except Exception as e:
             logging.critical(str(e))
             pass
 
@@ -233,7 +233,7 @@ class RemoteShell(cmd.Cmd):
         def output_callback(data):
             try:
                 self.__outputBuffer += data.decode(CODEC)
-            except UnicodeDecodeError, e:
+            except UnicodeDecodeError as e:
                 logging.error('Decoding error detected, consider running chcp.com at the target,\nmap the result with '
                               'https://docs.python.org/2.4/lib/standard-encodings.html\nand then execute wmiexec.py '
                               'again with -codec and the corresponding codec')
@@ -247,7 +247,7 @@ class RemoteShell(cmd.Cmd):
             try:
                 self.__transferClient.getFile(self.__share, self.__output, output_callback)
                 break
-            except Exception, e:
+            except Exception as e:
                 if str(e).find('STATUS_SHARING_VIOLATION') >=0:
                     # Output not finished, let's wait
                     time.sleep(1)
@@ -406,9 +406,9 @@ if __name__ == '__main__':
         executer = WMIEXEC(' '.join(options.command), username, password, domain, options.hashes, options.aesKey,
                            options.share, options.nooutput, options.k, options.dc_ip)
         executer.run(address)
-    except KeyboardInterrupt, e:
+    except KeyboardInterrupt as e:
         logging.error(str(e))
-    except Exception, e:
+    except Exception as e:
         if logging.getLogger().level == logging.DEBUG:
             import traceback
             traceback.print_exc()

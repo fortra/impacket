@@ -49,7 +49,7 @@ class RRPTests(unittest.TestCase):
         request['MinorVersion'] = 1
         try:
             resp = dce.request(request)
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_OBJECT_NAME_NOT_FOUND') < 0:
                 raise
             resp = e.get_packet()
@@ -59,7 +59,7 @@ class RRPTests(unittest.TestCase):
         dce, rpctransport = self.connect()
         try:
             resp = even.hElfrOpenBELW(dce, NULL, '\\??\\BETO')
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_OBJECT_NAME_NOT_FOUND') < 0:
                 raise
             resp = e.get_packet()
@@ -92,7 +92,7 @@ class RRPTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_ACCESS_DENIED') < 0:
                 raise
 
@@ -101,7 +101,7 @@ class RRPTests(unittest.TestCase):
         try:
             resp = even.hElfrRegisterEventSourceW(dce, NULL, 'Security', '')
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_ACCESS_DENIED') < 0:
                 raise
 
@@ -134,7 +134,7 @@ class RRPTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_OBJECT_NAME_INVALID') < 0:
                 raise
 
@@ -145,7 +145,7 @@ class RRPTests(unittest.TestCase):
         try:
             resp = even.hElfrClearELFW(dce, resp['LogHandle'], '\\??\\c:\\beto2')
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_OBJECT_NAME_INVALID') < 0:
                 raise
 
@@ -159,7 +159,7 @@ class RRPTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_OBJECT_NAME_INVALID') < 0:
                 raise
 
@@ -170,7 +170,7 @@ class RRPTests(unittest.TestCase):
         try:
             resp = even.hElfrBackupELFW(dce, resp['LogHandle'], '\\??\\c:\\beto2')
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_OBJECT_NAME_INVALID') < 0:
                 raise
 
@@ -198,7 +198,7 @@ class RRPTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_ACCESS_DENIED') < 0:
                 raise
 

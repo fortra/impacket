@@ -58,7 +58,7 @@ if __name__ == '__main__':
                 iObject, _ = self.iWbemServices.GetObject(sClass)
                 iObject.printInformation()
                 iObject.RemRelease()
-            except Exception, e:
+            except Exception as e:
                 if logging.getLogger().level == logging.DEBUG:
                     import traceback
                     traceback.print_exc()
@@ -91,7 +91,7 @@ if __name__ == '__main__':
                         else:
                             print '%s |' % record[key]['value'],
                     print 
-                except Exception, e:
+                except Exception as e:
                     if logging.getLogger().level == logging.DEBUG:
                         import traceback
                         traceback.print_exc()
@@ -109,7 +109,7 @@ if __name__ == '__main__':
                 iEnumWbemClassObject = self.iWbemServices.ExecQuery(line.strip('\n'))
                 self.printReply(iEnumWbemClassObject)
                 iEnumWbemClassObject.RemRelease()
-            except Exception, e:
+            except Exception as e:
                 logging.error(str(e))
          
         def emptyline(self):
@@ -206,7 +206,7 @@ if __name__ == '__main__':
 
         iWbemServices.RemRelease()
         dcom.disconnect()
-    except Exception, e:
+    except Exception as e:
         logging.error(str(e))
         try:
             dcom.disconnect()

@@ -95,7 +95,7 @@ class MiniShell(cmd.Cmd):
             r = opener.open(response)
             result = r.read()
             items = json.loads(result)
-        except Exception, e:
+        except Exception as e:
             logging.error("ERROR: %s" % str(e))
         else:
             if len(items) > 0:

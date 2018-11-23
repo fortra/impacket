@@ -228,7 +228,7 @@ class NDR(object):
 
                 data += res
                 soFar += len(res)
-            except Exception, e:
+            except Exception as e:
                 LOG.error(str(e))
                 LOG.error("Error packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__))
                 raise
@@ -257,7 +257,7 @@ class NDR(object):
 
                 data = data[size:]
                 soFar += size
-            except Exception,e:
+            except Exception as e:
                 LOG.error(str(e))
                 LOG.error("Error unpacking field '%s | %s | %r'" % (fieldName, fieldTypeOrClass, data[:256]))
                 raise
@@ -544,7 +544,7 @@ class NDRCONSTRUCTEDTYPE(NDR):
                     data += self.fields[fieldName].getDataReferent(soFar0 + len(data))
                 soFar = soFar0 + len(data)
 
-            except Exception, e:
+            except Exception as e:
                 LOG.error(str(e))
                 LOG.error("Error packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__))
                 raise
@@ -653,7 +653,7 @@ class NDRCONSTRUCTEDTYPE(NDR):
                     size += self.fields[fieldName].fromStringReferent(data[size:], soFar + size)
                 data = data[size:]
                 soFar += size
-            except Exception,e:
+            except Exception as e:
                 LOG.error(str(e))
                 LOG.error("Error unpacking field '%s | %s | %r'" % (fieldName, fieldTypeOrClass, data[:256]))
                 raise
@@ -736,7 +736,7 @@ class NDRArray(NDRCONSTRUCTEDTYPE):
                 res = self.pack(fieldName, fieldTypeOrClass, soFar)
                 data += res
                 soFar = soFar0 + len(data)
-            except Exception, e:
+            except Exception as e:
                 LOG.error(str(e))
                 LOG.error("Error packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__))
                 raise
@@ -799,7 +799,7 @@ class NDRArray(NDRCONSTRUCTEDTYPE):
 
                 data = data[size:]
                 soFar += size
-            except Exception,e:
+            except Exception as e:
                 LOG.error(str(e))
                 LOG.error("Error unpacking field '%s | %s | %r'" % (fieldName, fieldTypeOrClass, data[:256]))
                 raise
@@ -958,7 +958,7 @@ class NDRUniConformantVaryingArray(NDRArray):
                 res = self.pack(fieldName, fieldTypeOrClass, soFar)
                 data += res
                 soFar = soFar0 + len(data)
-            except Exception, e:
+            except Exception as e:
                 LOG.error(str(e))
                 LOG.error("Error packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__))
                 raise
@@ -1063,7 +1063,7 @@ class NDRSTRUCT(NDRCONSTRUCTEDTYPE):
                     res = self.pack(fieldName, fieldTypeOrClass, soFar)
                 data += res
                 soFar = soFar0 + len(data) + len(arrayPadding) + arrayItemSize
-            except Exception, e:
+            except Exception as e:
                 LOG.error(str(e))
                 LOG.error("Error packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__))
                 raise
@@ -1159,7 +1159,7 @@ class NDRSTRUCT(NDRCONSTRUCTEDTYPE):
 
                 data = data[size:]
                 soFar += size
-            except Exception,e:
+            except Exception as e:
                 LOG.error(str(e))
                 LOG.error("Error unpacking field '%s | %s | %r'" % (fieldName, fieldTypeOrClass, data[:256]))
                 raise
@@ -1297,7 +1297,7 @@ class NDRUNION(NDRCONSTRUCTEDTYPE):
                 res = self.pack(fieldName, fieldTypeOrClass, soFar)
                 data += res
                 soFar = soFar0 + len(data)
-            except Exception, e:
+            except Exception as e:
                 LOG.error(str(e))
                 LOG.error("Error packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__))
                 raise
@@ -1333,7 +1333,7 @@ class NDRUNION(NDRCONSTRUCTEDTYPE):
                 res = self.pack(fieldName, fieldTypeOrClass, soFar)
                 data += res
                 soFar = soFar0 + len(data)
-            except Exception, e:
+            except Exception as e:
                 LOG.error(str(e))
                 LOG.error("Error packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__))
                 raise
@@ -1384,7 +1384,7 @@ class NDRUNION(NDRCONSTRUCTEDTYPE):
 
                 data = data[size:]
                 soFar += size
-            except Exception,e:
+            except Exception as e:
                 LOG.error(str(e))
                 LOG.error("Error unpacking field '%s | %s | %r'" % (fieldName, fieldTypeOrClass, data[:256]))
                 raise
@@ -1421,7 +1421,7 @@ class NDRUNION(NDRCONSTRUCTEDTYPE):
 
                 data = data[size:]
                 soFar += size
-            except Exception,e:
+            except Exception as e:
                 LOG.error(str(e))
                 LOG.error("Error unpacking field '%s | %s | %r'" % (fieldName, fieldTypeOrClass, data[:256]))
                 raise
@@ -1692,7 +1692,7 @@ class NDRCALL(NDRCONSTRUCTEDTYPE):
                     soFar = soFar0 + len(data)
                     data += self.fields[fieldName].getDataReferent(soFar)
                     soFar = soFar0 + len(data)
-            except Exception, e:
+            except Exception as e:
                 LOG.error(str(e))
                 LOG.error("Error packing field '%s | %s' in %s" % (fieldName, fieldTypeOrClass, self.__class__))
                 raise
@@ -1720,7 +1720,7 @@ class NDRCALL(NDRCONSTRUCTEDTYPE):
                     size += self.fields[fieldName].fromStringReferent(data[size:], soFar + size)
                 data = data[size:]
                 soFar += size
-            except Exception,e:
+            except Exception as e:
                 LOG.error(str(e))
                 LOG.error("Error unpacking field '%s | %s | %r'" % (fieldName, fieldTypeOrClass, data[:256]))
                 raise

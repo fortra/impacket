@@ -229,7 +229,7 @@ if __name__ == '__main__':
 
         executer = WMIPERSISTENCE(username, password, domain, options)
         executer.run(address)
-    except (Exception, KeyboardInterrupt), e:
+    except (Exception, KeyboardInterrupt) as e:
         if logging.getLogger().level == logging.DEBUG:
             import traceback
             traceback.print_exc()

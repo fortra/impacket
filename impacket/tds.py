@@ -767,7 +767,7 @@ class MSSQL:
                 if TGS is None:
                     try:
                         tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, password, domain, lmhash, nthash, aesKey, kdcHost)
-                    except KerberosError, e:
+                    except KerberosError as e:
                         if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
                             # We might face this if the target does not support AES
                             # So, if that's the case we'll force using RC4 by converting
@@ -802,7 +802,7 @@ class MSSQL:
                 serverName = Principal('MSSQLSvc/%s.%s:%d' % (self.server.split('.')[0], domain, self.port), type=constants.PrincipalNameType.NT_SRV_INST.value)
                 try:
                     tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey)
-                except KerberosError, e:
+                except KerberosError as e:
                     if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
                         # We might face this if the target does not support AES
                         # So, if that's the case we'll force using RC4 by converting

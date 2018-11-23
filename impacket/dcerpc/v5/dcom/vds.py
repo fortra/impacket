@@ -198,7 +198,7 @@ class IEnumVdsObject(IRemUnknown2):
         request['celt'] = celt
         try:
             resp = self.request(request, uuid = self.get_iPid())
-        except Exception, e:
+        except Exception as e:
             resp = e.get_packet()
             # If it is S_FALSE(1) means less items were returned
             if resp['ErrorCode'] != 1:
@@ -238,7 +238,7 @@ class IVdsService(IRemUnknown2):
         request['ORPCthis']['flags'] = 0
         try:
             resp = self.request(request, uuid = self.get_iPid())
-        except Exception, e:
+        except Exception as e:
             resp = e.get_packet()
         return resp 
 

@@ -69,7 +69,7 @@ class MiniImpacketShell(cmd.Cmd):
         retVal = False
         try:
            retVal = cmd.Cmd.onecmd(self,s)
-        except Exception, e:
+        except Exception as e:
            #import traceback
            #traceback.print_exc()
            LOG.error(e)

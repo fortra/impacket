@@ -52,7 +52,7 @@ def main(args):
     dce.call(i, "")
     try:
       dce.recv()
-    except Exception, e:
+    except Exception as e:
       result = str(e)
     else:
       result = "success"

@@ -47,7 +47,7 @@ if __name__ == '__main__':
 
     try:
        options = parser.parse_args()
-    except Exception, e:
+    except Exception as e:
        logging.critical(str(e))
        sys.exit(1)
 

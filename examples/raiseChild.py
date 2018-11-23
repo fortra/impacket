@@ -139,7 +139,7 @@ class PSEXEC:
         dce = rpctransport.get_dce_rpc()
         try:
             dce.connect()
-        except Exception, e:
+        except Exception as e:
             logging.critical(str(e))
             sys.exit(1)
 
@@ -157,7 +157,7 @@ class PSEXEC:
             else:
                 try:
                     f = open(self.__exeFile)
-                except Exception, e:
+                except Exception as e:
                     logging.critical(str(e))
                     sys.exit(1)
                 installService = serviceinstall.ServiceInstall(rpctransport.get_smb_connection(), f)
@@ -280,7 +280,7 @@ class Pipes(Thread):
             self.server.waitNamedPipe(self.tid, self.pipe)
             self.fid = self.server.openFile(self.tid,self.pipe,self.permissions, creationOption = 0x40, fileAttributes = 0x80)
             self.server.setTimeout(1000000)
-        except Exception, e:
+        except Exception as e:
             logging.critical("Something wen't wrong connecting the pipes(%s), try again" % self.__class__)
 
 class RemoteStdOutPipe(Pipes):
@@ -373,7 +373,7 @@ class RemoteShell(cmd.Cmd):
             logging.info("Downloading %s\%s" % (self.share, src_path))
             self.transferClient.getFile(self.share, src_path, fh.write)
             fh.close()
-        except Exception, e:
+        except Exception as e:
             logging.error(str(e))
             pass
 
@@ -398,7 +398,7 @@ class RemoteShell(cmd.Cmd):
             logging.info("Uploading %s to %s\%s" % (src_file, self.share, dst_path))
             self.transferClient.putFile(self.share, pathname, fh.read)
             fh.close()
-        except Exception, e:
+        except Exception as e:
             logging.error(str(e))
             pass
 
@@ -411,7 +411,7 @@ class RemoteShell(cmd.Cmd):
         else:
             try:
                 os.chdir(s)
-            except Exception, e:
+            except Exception as e:
                 logging.error(str(e))
         self.send_data('\r\n')
 
@@ -538,7 +538,7 @@ class RAISECHILD:
         s = SMBConnection(machineIP, machineIP)
         try:
             s.login('','')
-        except Exception, e:
+        except Exception as e:
             logging.debug('Error while anonymous logging into %s' % machineIP)
         else:
             s.logoff()
@@ -549,7 +549,7 @@ class RAISECHILD:
         s = SMBConnection(machineIP, machineIP)
         try:
             s.login('','')
-        except Exception, e:
+        except Exception as e:
             logging.debug('Error while anonymous logging into %s' % machineIP)
         else:
             s.logoff()
@@ -679,7 +679,7 @@ class RAISECHILD:
             try:
                 attId = drsuapi.OidFromAttid(prefixTable, attr['attrTyp'])
                 LOOKUP_TABLE = self.ATTRTYP_TO_ATTID
-            except Exception, e:
+            except Exception as e:
                 logging.debug('Failed to execute OidFromAttid with error %s' % e)
                 # Fallbacking to fixed table and hope for the best
                 attId = attr['attrTyp']
@@ -728,7 +728,7 @@ class RAISECHILD:
             try:
                 attId = drsuapi.OidFromAttid(prefixTable, attr['attrTyp'])
                 LOOKUP_TABLE = self.ATTRTYP_TO_ATTID
-            except Exception, e:
+            except Exception as e:
                 logging.debug('Failed to execute OidFromAttid with error %s, fallbacking to fixed table' % e)
                 # Fallbacking to fixed table and hope for the best
                 attId = attr['attrTyp']
@@ -825,7 +825,7 @@ class RAISECHILD:
 
             rid, lmhash, nthash = self.__decryptHash(userRecord, userRecord['pmsgOut']['V6']['PrefixTableSrc']['pPrefixEntry'])
             aesKey = self.__decryptSupplementalInfo(userRecord, userRecord['pmsgOut']['V6']['PrefixTableSrc']['pPrefixEntry'])
-        except Exception, e:
+        except Exception as e:
             if logging.getLogger().level == logging.DEBUG:
                 import traceback
                 traceback.print_exc()
@@ -1090,7 +1090,7 @@ class RAISECHILD:
                 tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, childCreds['password'],
                                                                         childCreds['domain'], childCreds['lmhash'],
                                                                         childCreds['nthash'], None, self.__kdcHost)
-            except KerberosError, e:
+            except KerberosError as e:
                 if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
                     # We might face this if the target does not support AES (most probably
                     # Windows XP). So, if that's the case we'll force using RC4 by converting
@@ -1131,7 +1131,7 @@ class RAISECHILD:
                 TGS['oldSessionKey'] = oldSessionKeyCIFS
                 TGS['sessionKey'] = sessionKeyCIFS
                 break
-            except KerberosError, e:
+            except KerberosError as e:
                 if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
                     # We might face this if the target does not support AES (most probably
                     # Windows XP). So, if that's the case we'll force using RC4 by converting
@@ -1279,11 +1279,11 @@ if __name__ == '__main__':
     try:
         pacifier = RAISECHILD(options.target_exec, username, password, domain, options, commands)
         pacifier.exploit()
-    except SessionError, e:
+    except SessionError as e:
         logging.critical(str(e))
         if e.getErrorCode() == STATUS_NO_LOGON_SERVERS:
             logging.info('Try using Kerberos authentication (-k switch). That might help solving the STATUS_NO_LOGON_SERVERS issue')
-    except Exception, e:
+    except Exception as e:
         if logging.getLogger().level == logging.DEBUG:
             import traceback
             traceback.print_exc()

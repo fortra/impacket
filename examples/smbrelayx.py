@@ -121,7 +121,7 @@ class doAttack(Thread):
 
                 remoteOps  = RemoteOperations(self.__SMBConnection, False)
                 remoteOps.enableRegistry()
-            except Exception, e:
+            except Exception as e:
                 if logging.getLogger().level == logging.DEBUG:
                     import traceback
                     traceback.print_exc()
@@ -140,7 +140,7 @@ class doAttack(Thread):
 
                     try:
                         print self.__answerTMP.decode(CODEC)
-                    except UnicodeDecodeError, e:
+                    except UnicodeDecodeError as e:
                         logging.error('Decoding error detected, consider running chcp.com at the target,\nmap the result with '
                                       'https://docs.python.org/2.4/lib/standard-encodings.html\nand then execute wmiexec.py '
                                   'again with -codec and the corresponding codec')
@@ -154,7 +154,7 @@ class doAttack(Thread):
                     samHashes = SAMHashes(samFileName, bootKey, isRemote = True)
                     samHashes.dump()
                     logging.info("Done dumping SAM hashes for host: %s", self.__SMBConnection.getRemoteHost())
-            except Exception, e:
+            except Exception as e:
                 if logging.getLogger().level == logging.DEBUG:
                     import traceback
                     traceback.print_exc()
@@ -167,7 +167,7 @@ class doAttack(Thread):
                     remoteOps.finish()
             try:
                 ATTACKED_HOSTS.remove(self.__SMBConnection.getRemoteHost())
-            except Exception, e:
+            except Exception as e:
                 logging.error(str(e))
                 pass
 
@@ -320,7 +320,7 @@ class SMBClient(SMB):
         try:
             resp = dce.request(request)
             #resp.dump()
-        except DCERPCException, e:
+        except DCERPCException as e:
             if logging.getLogger().level == logging.DEBUG:
                 import traceback
                 traceback.print_exc()
@@ -546,7 +546,7 @@ class HTTPRelayServer(Thread):
                     self.client = SMBClient(self.target, extended_security = True)
                     self.client.setDomainAccount(self.machineAccount, self.machineHashes, self.domainIp)
                     self.client.set_timeout(60)
-                except Exception, e:
+                except Exception as e:
                    logging.error("Connection against target %s FAILED" % self.target)
                    logging.error(str(e))
 
@@ -755,7 +755,7 @@ class SMBRelayServer(Thread):
             client = SMBClient(self.target, extended_security = extSec)
             client.setDomainAccount(self.machineAccount, self.machineHashes, self.domainIp)
             client.set_timeout(60)
-        except Exception, e:
+        except Exception as e:
             logging.error("Connection against target %s FAILED" % self.target)
             logging.error(str(e))
         else: 
@@ -1139,7 +1139,7 @@ if __name__ == '__main__':
 
     try:
        options = parser.parse_args()
-    except Exception, e:
+    except Exception as e:
        logging.error(str(e))
        sys.exit(1)
 

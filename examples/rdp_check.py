@@ -485,7 +485,7 @@ if __name__ == '__main__':
            # anything. So, I'm sending garbage so the server returns an error. 
            # Luckily, it's a different error so we can determine whether or not auth worked ;)
            buff = tls.recv(1024)
-       except Exception, err:
+       except Exception as err:
            if str(err).find("denied") > 0:
                logging.error("Access Denied")
            else:

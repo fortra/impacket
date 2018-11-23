@@ -329,7 +329,7 @@ def main(args):
     binuuid = uuid.uuidtup_to_bin(tup)
     try:
       dce.bind(binuuid)
-    except rpcrt.DCERPCException, e:
+    except rpcrt.DCERPCException as e:
       if str(e).find('abstract_syntax_not_supported') >= 0:
         listening = False
       else:

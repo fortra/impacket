@@ -1282,7 +1282,7 @@ def hREnumServicesStatusW(dce, hSCManager, dwServiceType=SERVICE_WIN32_OWN_PROCE
 
     try:
         resp = dce.request(enumServicesStatus)
-    except DCERPCSessionError, e:
+    except DCERPCSessionError as e:
         if e.get_error_code() == system_errors.ERROR_MORE_DATA:
             resp = e.get_packet()
             enumServicesStatus['cbBufSize'] = resp['pcbBytesNeeded']
@@ -1332,7 +1332,7 @@ def hRQueryServiceConfigW(dce, hService):
     queryService['cbBufSize'] = 0
     try:
         resp = dce.request(queryService)
-    except DCERPCSessionError, e:
+    except DCERPCSessionError as e:
         if e.get_error_code() == system_errors.ERROR_INSUFFICIENT_BUFFER:
             resp = e.get_packet()
             queryService['cbBufSize'] = resp['pcbBytesNeeded']

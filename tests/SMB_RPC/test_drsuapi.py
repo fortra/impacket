@@ -220,7 +220,7 @@ class DRSRTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_NOT_SUPPORTED') <0:
                 raise
 

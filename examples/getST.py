@@ -433,7 +433,7 @@ if __name__ == '__main__':
 
         executer = GETST(username, password, domain, options)
         executer.run()
-    except Exception, e:
+    except Exception as e:
         if logging.getLogger().level == logging.DEBUG:
             import traceback
             traceback.print_exc()

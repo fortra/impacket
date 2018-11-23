@@ -243,7 +243,7 @@ class IP6_Address():
             #Capitalize on the constructor's ability to detect invalid text representations of an IP6 address            
             ip6_address = IP6_Address(text_representation)
             return True
-        except Exception, e:
+        except Exception as e:
             return False
                 
     def __is_a_scoped_address(self, text_representation):

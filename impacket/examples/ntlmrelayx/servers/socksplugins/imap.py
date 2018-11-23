@@ -120,7 +120,7 @@ class IMAPSocksRelay(SocksRelay):
         while True:
             try:
                 data = self.socksSocket.recv(self.packetSize)
-            except Exception, e:
+            except Exception as e:
                 # Socks socket (client) closed connection or something else. Not fatal for killing the existing relay
                 print keyword, tag
                 LOG.debug('IMAP: sockSocket recv(): %s' % (str(e)))
@@ -216,14 +216,14 @@ class IMAPSocksRelay(SocksRelay):
         while keyword != tag and keyword != '+':
             try:
                 data = self.relaySocketFile.readline()
-            except Exception, e:
+            except Exception as e:
                 # This didn't break the connection to the server, don't make it fatal
                 LOG.debug("IMAP relaySocketFile: %s" % str(e))
                 return False
             keyword = data.split(' ', 2)[0]
             try:
                 self.socksSocket.sendall(data)
-            except Exception, e:
+            except Exception as e:
                 LOG.debug("IMAP socksSocket: %s" % str(e))
                 return False
 

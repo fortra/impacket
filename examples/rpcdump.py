@@ -65,7 +65,7 @@ class RPCDump:
 
         try:
             entries = self.__fetchList(rpctransport)
-        except Exception, e:
+        except Exception as e:
             logging.critical('Protocol failed: %s' % e)
 
         # Display results.

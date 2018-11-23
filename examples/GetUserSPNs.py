@@ -158,7 +158,7 @@ class GetUserSPNs:
                                                                 compute_lmhash(self.__password),
                                                                 compute_nthash(self.__password), self.__aesKey,
                                                                 kdcHost=self.__kdcHost)
-            except Exception, e:
+            except Exception as e:
                 logging.debug('TGT: %s' % str(e))
                 tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, self.__password, self.__domain,
                                                                     unhexlify(self.__lmhash),
@@ -239,7 +239,7 @@ class GetUserSPNs:
             try:
                 ccache.fromTGS(tgs, oldSessionKey, sessionKey )
                 ccache.saveFile('%s.ccache' % username)
-            except Exception, e:
+            except Exception as e:
                 logging.error(str(e))
 
     def run(self):
@@ -259,7 +259,7 @@ class GetUserSPNs:
             else:
                 ldapConnection.kerberosLogin(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash,
                                              self.__aesKey, kdcHost=self.__kdcHost)
-        except ldap.LDAPSessionError, e:
+        except ldap.LDAPSessionError as e:
             if str(e).find('strongerAuthRequired') >= 0:
                 # We need to try SSL
                 ldapConnection = ldap.LDAPConnection('ldaps://%s' % target, self.baseDN, self.__kdcHost)
@@ -285,7 +285,7 @@ class GetUserSPNs:
                                          attributes=['servicePrincipalName', 'sAMAccountName',
                                                      'pwdLastSet', 'MemberOf', 'userAccountControl', 'lastLogon'],
                                          sizeLimit=999)
-        except ldap.LDAPSearchError, e:
+        except ldap.LDAPSearchError as e:
             if e.getErrorString().find('sizeLimitExceeded') >= 0:
                 logging.debug('sizeLimitExceeded exception caught, giving up and processing the data received')
                 # We reached the sizeLimit, process the answers we have already and that's it. Until we implement
@@ -337,7 +337,7 @@ class GetUserSPNs:
                     else:
                         for spn in SPNs:
                             answers.append([spn, sAMAccountName,memberOf, pwdLastSet, lastLogon])
-            except Exception, e:
+            except Exception as e:
                 logging.error('Skipping item, cannot process due to error %s' % str(e))
                 pass
 
@@ -363,7 +363,7 @@ class GetUserSPNs:
                                                                                 TGT['KDC_REP'], TGT['cipher'],
                                                                                 TGT['sessionKey'])
                         self.outputTGS(tgs, oldSessionKey, sessionKey, user, SPN, fd)
-                    except Exception , e:
+                    except Exception as e:
                         logging.error('SPN: %s - %s' % (SPN,str(e)))
                 if fd is not None:
                     fd.close()
@@ -453,7 +453,7 @@ if __name__ == '__main__':
     try:
         executer = GetUserSPNs(username, password, userDomain, targetDomain, options)
         executer.run()
-    except Exception, e:
+    except Exception as e:
         if logging.getLogger().level == logging.DEBUG:
             import traceback
             traceback.print_exc()

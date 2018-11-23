@@ -99,7 +99,7 @@ def main():
             exportTable(ese, options.table)
         else:
             raise Exception('Unknown action %s ' % options.action)
-    except Exception, e:
+    except Exception as e:
         if logging.getLogger().level == logging.DEBUG:
             import traceback
             traceback.print_exc()

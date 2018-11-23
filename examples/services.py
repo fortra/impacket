@@ -352,7 +352,7 @@ if __name__ == '__main__':
     services = SVCCTL(username, password, domain, options, int(options.port))
     try:
         services.run(remoteName, options.target_ip)
-    except Exception, e:
+    except Exception as e:
         if logging.getLogger().level == logging.DEBUG:
             import traceback
             traceback.print_exc()

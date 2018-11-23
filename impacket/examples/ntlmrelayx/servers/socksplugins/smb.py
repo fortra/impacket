@@ -135,7 +135,7 @@ class SMBSocksRelay(SocksRelay):
                                 data2 = self.clientConnection.getSMBServer()._sess.recv_packet(timeout=1).get_trailer()
                                 self.__NBSession.send_packet(str(data))
                                 data = data2
-                        except Exception, e:
+                        except Exception as e:
                             if str(e).find('timed out') > 0:
                                 pass
                             else:
@@ -183,12 +183,12 @@ class SMBSocksRelay(SocksRelay):
         try:
             packet = NewSMBPacket(data=data.get_trailer())
             smbCommand = SMBCommand(packet['Data'][0])
-        except Exception, e:
+        except Exception as e:
             # Maybe a SMB2 packet?
             try:
                 packet = SMB2Packet(data = data.get_trailer())
                 smbCommand = None
-            except Exception, e:
+            except Exception as e:
                 LOG.error('SOCKS: %s' % str(e))
 
         return packet, smbCommand

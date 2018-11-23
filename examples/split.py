@@ -108,7 +108,7 @@ class Decoder:
             print "Found a new connection, storing into:", fn
             try:
                 dumper = self.pcap.dump_open(fn)
-            except pcapy.PcapError, e:
+            except pcapy.PcapError as e:
                 print "Can't write packet to:", fn
                 return
             self.connections[con] = dumper

@@ -301,7 +301,7 @@ class IVssSnapshotMgmt(IRemUnknown2):
         req['ProviderId'] = providerId
         try:
             resp = self.request(req, self._iid, uuid = self.get_iPid())
-        except DCERPCException, e:
+        except DCERPCException as e:
             print e
             from impacket.winregistry import hexdump
             data = e.get_packet()

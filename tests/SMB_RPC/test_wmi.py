@@ -73,7 +73,7 @@ class WMITests(unittest.TestCase):
         try:
             resp = iWbemLevel1Login.RequestChallenge()
             print resp
-        except Exception, e:
+        except Exception as e:
             if str(e).find('WBEM_E_NOT_SUPPORTED') < 0:
                 dcom.disconnect()
                 raise
@@ -86,7 +86,7 @@ class WMITests(unittest.TestCase):
         try:
             resp = iWbemLevel1Login.WBEMLogin()
             print resp
-        except Exception, e:
+        except Exception as e:
             if str(e).find('E_NOTIMPL') < 0:
                 dcom.disconnect()
                 raise
@@ -109,7 +109,7 @@ class WMITests(unittest.TestCase):
         try:
             resp = iWbemServices.OpenNamespace('__Namespace')
             print resp
-        except Exception, e:
+        except Exception as e:
             dcom.disconnect()
             raise
         dcom.disconnect()
@@ -140,13 +140,13 @@ class WMITests(unittest.TestCase):
                 while done is False:
                     try:
                         iEnumWbemClassObject.Next(0xffffffff,1)
-                    except Exception, e:
+                    except Exception as e:
                         if str(e).find('S_FALSE') < 0:
                             print e
                         else:
                             done = True
                             pass
-            except Exception, e:
+            except Exception as e:
                 if str(e).find('S_FALSE') < 0:
                     print e
         dcom.disconnect()

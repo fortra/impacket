@@ -87,7 +87,7 @@ class SMBServer(Thread):
         logging.info('Creating tmp directory')
         try:
             os.mkdir(SMBSERVER_DIR)
-        except Exception, e:
+        except Exception as e:
             logging.critical(str(e))
             pass
         logging.info('Setting up SMB Server')
@@ -148,7 +148,7 @@ class CMDEXEC:
             self.shell.cmdloop()
             if self.__mode == 'SERVER':
                 serverThread.stop()
-        except  (Exception, KeyboardInterrupt), e:
+        except  (Exception, KeyboardInterrupt) as e:
             if logging.getLogger().level == logging.DEBUG:
                 import traceback
                 traceback.print_exc()
@@ -175,7 +175,7 @@ class RemoteShell(cmd.Cmd):
         self.__scmr = rpc.get_dce_rpc()
         try:
             self.__scmr.connect()
-        except Exception, e:
+        except Exception as e:
             logging.critical(str(e))
             sys.exit(1)
 
@@ -347,7 +347,7 @@ if __name__ == '__main__':
         executer = CMDEXEC(username, password, domain, options.hashes, options.aesKey, options.k,
                            options.dc_ip, options.mode, options.share, int(options.port))
         executer.run(remoteName, options.target_ip)
-    except Exception, e:
+    except Exception as e:
         if logging.getLogger().level == logging.DEBUG:
             import traceback
             traceback.print_exc()

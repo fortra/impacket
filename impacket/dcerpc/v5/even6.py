@@ -315,7 +315,7 @@ def hEvtRpcQueryNext(dce, handle, numRequestedRecords, timeOutEnd=1000):
     while status == system_errors.ERROR_MORE_DATA:
         try:
             resp = dce.request(request)
-        except DCERPCException, e:
+        except DCERPCException as e:
             if str(e).find('ERROR_NO_MORE_ITEMS') < 0:
                 raise
             elif str(e).find('ERROR_TIMEOUT') < 0:

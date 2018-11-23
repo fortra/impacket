@@ -125,7 +125,7 @@ class SMBRelayServer(Thread):
                 extSec = True
             # Init the correct client for our target
             client = self.init_client(extSec)
-        except Exception, e:
+        except Exception as e:
             LOG.error("Connection against target %s://%s FAILED: %s" % (self.target.scheme, self.target.netloc, str(e)))
             self.targetprocessor.logTarget(self.target)
         else:
@@ -258,7 +258,7 @@ class SMBRelayServer(Thread):
             client = smbData[self.target]['SMBClient']
             try:
                 challengeMessage = self.do_ntlm_negotiate(client, token)
-            except Exception, e:
+            except Exception as e:
                 # Log this target as processed for this client
                 self.targetprocessor.logTarget(self.target)
                 # Raise exception again to pass it on to the SMB server
@@ -398,7 +398,7 @@ class SMBRelayServer(Thread):
 
             #Init the correct client for our target
             client = self.init_client(extSec)
-        except Exception, e:
+        except Exception as e:
             LOG.error("Connection against target %s://%s FAILED: %s" % (self.target.scheme, self.target.netloc, str(e)))
             self.targetprocessor.logTarget(self.target)
         else:
@@ -457,7 +457,7 @@ class SMBRelayServer(Thread):
                 client = smbData[self.target]['SMBClient']
                 try:
                     challengeMessage = self.do_ntlm_negotiate(client,token)
-                except Exception, e:
+                except Exception as e:
                     # Log this target as processed for this client
                     self.targetprocessor.logTarget(self.target)
                     # Raise exception again to pass it on to the SMB server
