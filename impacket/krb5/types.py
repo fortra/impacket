@@ -63,11 +63,12 @@ If the value contains no realm, then default_realm will be used."""
         if value is None:
             return
 
-        if PY3 is not True and isinstance(value, unicode):
-            value = value.encode('utf-8')
-
-        if PY3 and isinstance(value, bytes):
-            value = value.decode('utf-8')
+        try:               # Python 2
+            if isinstance(value, unicode):
+                value = value.encode('utf-8')
+        except NameError:  # Python 3
+            if isinstance(value, bytes):
+                value = value.decode('utf-8')
 
         if isinstance(value, Principal):
             self.type = value.type

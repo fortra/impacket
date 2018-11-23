@@ -6,7 +6,7 @@
 #
 
 import array
-from six import PY2
+from six import PY2, string_types
 
 class IP6_Address():
     ADDRESS_BYTE_SIZE = 16
@@ -25,20 +25,14 @@ class IP6_Address():
         #The internal representation of an IP6 address is a 16-byte array
         self.__bytes = array.array('B', b'\0' * self.ADDRESS_BYTE_SIZE)
         self.__scope_id = ""
-        
-        #Invoke a constructor based on the type of the argument
-        if PY2:
-            if type(address) is str or type(address) is unicode:
-                self.__from_string(address)
-            else:
-                self.__from_bytes(address)
-        else:
-            if type(address) is str:
-                self.__from_string(address)
-            else:
-                self.__from_bytes(address)
 
-                                
+        #Invoke a constructor based on the type of the argument
+        if isinstance(address, string_types):
+            self.__from_string(address)
+        else:
+            self.__from_bytes(address)
+
+
     def __from_string(self, address):
         #Separate the Scope ID, if present
         if self.__is_a_scoped_address(address):
