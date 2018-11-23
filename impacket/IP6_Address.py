@@ -6,6 +6,7 @@
 #
 
 import array
+from six import PY2
 
 class IP6_Address():
     ADDRESS_BYTE_SIZE = 16
@@ -22,14 +23,20 @@ class IP6_Address():
 
     def __init__(self, address):
         #The internal representation of an IP6 address is a 16-byte array
-        self.__bytes = array.array('B', '\0' * self.ADDRESS_BYTE_SIZE)
+        self.__bytes = array.array('B', b'\0' * self.ADDRESS_BYTE_SIZE)
         self.__scope_id = ""
         
         #Invoke a constructor based on the type of the argument
-        if type(address) is str or type(address) is unicode:
-            self.__from_string(address)
+        if PY2:
+            if type(address) is str or type(address) is unicode:
+                self.__from_string(address)
+            else:
+                self.__from_bytes(address)
         else:
-            self.__from_bytes(address)
+            if type(address) is str:
+                self.__from_string(address)
+            else:
+                self.__from_bytes(address)
 
                                 
     def __from_string(self, address):
@@ -243,7 +250,7 @@ class IP6_Address():
             #Capitalize on the constructor's ability to detect invalid text representations of an IP6 address            
             ip6_address = IP6_Address(text_representation)
             return True
-        except Exception, e:
+        except Exception as e:
             return False
                 
     def __is_a_scoped_address(self, text_representation):
@@ -252,18 +259,18 @@ class IP6_Address():
 #############################################################################################################
 # Informal tests
 if __name__ == '__main__':
-    print IP6_Address("A:B:C:D:E:F:1:2").as_string()
+    print((IP6_Address("A:B:C:D:E:F:1:2").as_string()))
 #    print IP6_Address("A:B:C:D:E:F:0:2").as_bytes()
-    print IP6_Address("A:B:0:D:E:F:0:2").as_string()
+    print((IP6_Address("A:B:0:D:E:F:0:2").as_string()))
 #    print IP6_Address("A::BC:E:D").as_string(False)
-    print IP6_Address("A::BC:E:D").as_string()
-    print IP6_Address("A::BCD:EFFF:D").as_string()
-    print IP6_Address("FE80:0000:0000:0000:020C:29FF:FE26:E251").as_string()
+    print((IP6_Address("A::BC:E:D").as_string()))
+    print((IP6_Address("A::BCD:EFFF:D").as_string()))
+    print((IP6_Address("FE80:0000:0000:0000:020C:29FF:FE26:E251").as_string()))
 
 #    print IP6_Address("A::BCD:EFFF:D").as_bytes()
-    print IP6_Address("::").as_string()
-    print IP6_Address("1::").as_string()
-    print IP6_Address("::2").as_string()
+    print((IP6_Address("::").as_string()))
+    print((IP6_Address("1::").as_string()))
+    print((IP6_Address("::2").as_string()))
 #    bin = [
 #           0x01, 0x02, 0x03, 0x04,
 #           0x01, 0x02, 0x03, 0x04,

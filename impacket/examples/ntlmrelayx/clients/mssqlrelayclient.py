@@ -76,8 +76,8 @@ class MYMSSQL(MSSQL):
         #Also partly copied from tds.py
         login = TDS_LOGIN()
 
-        login['HostName'] = (''.join([random.choice(string.letters) for _ in range(8)])).encode('utf-16le')
-        login['AppName']  = (''.join([random.choice(string.letters) for _ in range(8)])).encode('utf-16le')
+        login['HostName'] = (''.join([random.choice(string.ascii_letters) for _ in range(8)])).encode('utf-16le')
+        login['AppName']  = (''.join([random.choice(string.ascii_letters) for _ in range(8)])).encode('utf-16le')
         login['ServerName'] = self.server.encode('utf-16le')
         login['CltIntName']  = login['AppName']
         login['ClientPID'] = random.randint(0,1024)
@@ -85,11 +85,11 @@ class MYMSSQL(MSSQL):
         login['OptionFlags2'] = TDS_INIT_LANG_FATAL | TDS_ODBC_ON | TDS_INTEGRATED_SECURITY_ON
 
         # NTLMSSP Negotiate
-        login['SSPI'] = str(negotiateMessage)
-        login['Length'] = len(str(login))
+        login['SSPI'] = negotiateMessage
+        login['Length'] = len(login.getData())
 
         # Send the NTLMSSP Negotiate
-        self.sendTDS(TDS_LOGIN7, str(login))
+        self.sendTDS(TDS_LOGIN7, login.getData())
 
         # According to the specs, if encryption is not required, we must encrypt just
         # the first Login packet :-o
@@ -106,16 +106,16 @@ class MYMSSQL(MSSQL):
         return challenge
 
     def sendAuth(self,authenticateMessageBlob, serverChallenge=None):
-        if unpack('B', str(authenticateMessageBlob)[:1])[0] == SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP:
+        if unpack('B', authenticateMessageBlob[:1])[0] == SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP:
             respToken2 = SPNEGO_NegTokenResp(authenticateMessageBlob)
             token = respToken2['ResponseToken']
         else:
             token = authenticateMessageBlob
 
-        self.sendTDS(TDS_SSPI, str(token))
+        self.sendTDS(TDS_SSPI, token)
         tds = self.recvTDS()
         self.replies = self.parseReply(tds['Data'])
-        if self.replies.has_key(TDS_LOGINACK_TOKEN):
+        if TDS_LOGINACK_TOKEN in self.replies:
             #Once we are here, there is a full connection and we can
             #do whatever the current user has rights to do
             self.sessionData['AUTH_ANSWER'] = tds

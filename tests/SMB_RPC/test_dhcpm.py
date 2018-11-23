@@ -131,7 +131,7 @@ class DHCPMTests(unittest.TestCase):
         try:
             resp = dhcpm.hDhcpGetOptionValueV5(dce,3,
                                            dhcpm.DHCP_FLAGS_OPTION_DEFAULT, NULL, NULL,
-                                           dhcpm.DHCP_OPTION_SCOPE_TYPE.enumItems.DhcpSubnetOptions,
+                                           dhcpm.DHCP_OPTION_SCOPE_TYPE.DhcpSubnetOptions,
                                            subnet_id)
         except Exception as e:
             if str(e).find('ERROR_DHCP_SUBNET_NOT_PRESENT') >=0:

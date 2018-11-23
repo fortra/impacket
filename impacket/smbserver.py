@@ -134,31 +134,38 @@ def computeNTLMv2(identity, lmhash, nthash, serverChallenge, authenticateMessage
 def outputToJohnFormat(challenge, username, domain, lmresponse, ntresponse):
 # We don't want to add a possible failure here, since this is an
 # extra bonus. We try, if it fails, returns nothing
+# ToDo: Document the parameter's types (bytes / string) and check all the places where it's called
     ret_value = ''
+    if type(challenge) is not bytes:
+        challenge = challenge.decode('latin-1')
+
     try:
         if len(ntresponse) > 24:
             # Extended Security - NTLMv2
             ret_value = {'hash_string': '%s::%s:%s:%s:%s' % (
-            username.decode('utf-16le'), domain.decode('utf-16le'), hexlify(b(challenge)).decode(), hexlify(ntresponse).decode()[:32],
+                username.decode('utf-16le'), domain.decode('utf-16le'), hexlify(challenge).decode('latin-1'),
+                hexlify(ntresponse).decode('latin-1')[:32],
             hexlify(ntresponse).decode()[32:]), 'hash_version': 'ntlmv2'}
         else:
             # NTLMv1
             ret_value = {'hash_string': '%s::%s:%s:%s:%s' % (
-            username.decode('utf-16le'), domain.decode('utf-16le'), hexlify(lmresponse).decode(), hexlify(ntresponse).decode(),
-            hexlify(b(challenge)).decode()), 'hash_version': 'ntlm'}
+                username.decode('utf-16le'), domain.decode('utf-16le'), hexlify(lmresponse).decode('latin-1'),
+                hexlify(ntresponse).decode('latin-1'),
+            hexlify(challenge).decode()), 'hash_version': 'ntlm'}
     except:
         # Let's try w/o decoding Unicode
         try:
             if len(ntresponse) > 24:
                 # Extended Security - NTLMv2
                 ret_value = {'hash_string': '%s::%s:%s:%s:%s' % (
-                username, domain, hexlify(b(challenge)).decode(), hexlify(ntresponse)[:32].decode(), hexlify(ntresponse)[32:].decode()),
+                    username.decode('utf-16le'), domain.decode('utf-16le'), hexlify(challenge).decode('latin-1'),
+                    hexlify(ntresponse)[:32].decode('latin-1'), hexlify(ntresponse)[32:].decode('latin-1')),
                              'hash_version': 'ntlmv2'}
             else:
                 # NTLMv1
                 ret_value = {'hash_string': '%s::%s:%s:%s:%s' % (
-                    username, domain, hexlify(lmresponse).decode(), hexlify(ntresponse).decode(),
-                    hexlify(b(challenge)).decode()), 'hash_version': 'ntlm'}
+                    username.decode('utf-16le'), domain.decode('utf-16le'), hexlify(lmresponse).decode('latin-1'), hexlify(ntresponse).decode('latin-1'),
+                    hexlify(challenge).decode('latin-1')), 'hash_version': 'ntlm'}
         except Exception as e:
             import traceback
             traceback.print_exc()
@@ -2506,7 +2513,7 @@ class SMBCommands:
             smbServer.log('User %s\\%s authenticated successfully (basic)' % (sessionSetupData['PrimaryDomain'], sessionSetupData['Account']))
             try:
                 jtr_dump_path = smbServer.getJTRdumpPath()
-                ntlm_hash_data = outputToJohnFormat( '', sessionSetupData['Account'], sessionSetupData['PrimaryDomain'], sessionSetupData['AnsiPwd'], sessionSetupData['UnicodePwd'] )
+                ntlm_hash_data = outputToJohnFormat( b'', sessionSetupData['Account'], sessionSetupData['PrimaryDomain'], sessionSetupData['AnsiPwd'], sessionSetupData['UnicodePwd'] )
                 smbServer.log(ntlm_hash_data['hash_string'])
                 if jtr_dump_path is not '':
                     writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], jtr_dump_path)
@@ -3740,8 +3747,8 @@ class SMBSERVERHandler(SocketServer.BaseRequestHandler):
                            session.send_packet(i)
             except Exception as e:
                 self.__SMB.log("Handle: %s" % e)
-                import traceback
-                traceback.print_exc()
+                #import traceback
+                #traceback.print_exc()
                 break
 
     def finish(self):
@@ -4403,9 +4410,9 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
         self.__serverDomain = self.__serverConfig.get('global','server_domain')
         self.__logFile      = self.__serverConfig.get('global','log_file')
         if self.__serverConfig.has_option('global', 'challenge'):
-            self.__challenge    = self.__serverConfig.get('global', 'challenge')
+            self.__challenge    = b(self.__serverConfig.get('global', 'challenge'))
         else:
-            self.__challenge    = 'A'*8
+            self.__challenge    = b'A'*8
 
         if self.__serverConfig.has_option("global", "jtr_dump_path"):
             self.__jtr_dump_path = self.__serverConfig.get("global", "jtr_dump_path")

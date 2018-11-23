@@ -10,7 +10,10 @@
 ################################################################################
 
 import unittest
-import ConfigParser
+try:
+    import ConfigParser
+except ImportError:
+    import configparser as ConfigParser
 
 from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import mimilib, epm
@@ -41,10 +44,10 @@ class RRPTests(unittest.TestCase):
         request = mimilib.MimiBind()
         request['clientPublicKey']['sessionType'] = mimilib.CALG_RC4
         request['clientPublicKey']['cbPublicKey'] = 144
-        request['clientPublicKey']['pbPublicKey'] = str(blob)
+        request['clientPublicKey']['pbPublicKey'] = blob.getData()
         resp = dce.request(request)
-        blob = mimilib.PUBLICKEYBLOB(''.join(resp['serverPublicKey']['pbPublicKey']))
-        key = dh.getSharedSecret(''.join(blob['y'])[::-1])
+        blob = mimilib.PUBLICKEYBLOB(b''.join(resp['serverPublicKey']['pbPublicKey']))
+        key = dh.getSharedSecret(blob['y'][::-1])
         pHandle = resp['phMimi']
 
         return dce, rpctransport, pHandle, key[-16:]
@@ -52,8 +55,8 @@ class RRPTests(unittest.TestCase):
     def test_MimiBind(self):
         dce, rpctransport, pHandle, key = self.connect()
         dh = mimilib.MimiDiffeH()
-        print 'Our Public'
-        print '='*80
+        print('Our Public')
+        print('='*80)
         hexdump(dh.genPublicKey())
 
         blob = mimilib.PUBLICKEYBLOB()
@@ -61,16 +64,16 @@ class RRPTests(unittest.TestCase):
         request = mimilib.MimiBind()
         request['clientPublicKey']['sessionType'] = mimilib.CALG_RC4
         request['clientPublicKey']['cbPublicKey'] = 144
-        request['clientPublicKey']['pbPublicKey'] = str(blob)
+        request['clientPublicKey']['pbPublicKey'] = blob.getData()
 
         resp = dce.request(request)
-        blob = mimilib.PUBLICKEYBLOB(''.join(resp['serverPublicKey']['pbPublicKey']))
-        print '='*80
-        print 'Server Public'
-        hexdump(''.join(blob['y']))
-        print '='*80
-        print 'Shared'
-        hexdump(dh.getSharedSecret(''.join(blob['y'])[::-1]))
+        blob = mimilib.PUBLICKEYBLOB(b''.join(resp['serverPublicKey']['pbPublicKey']))
+        print('='*80)
+        print('Server Public')
+        hexdump(blob['y'])
+        print('='*80)
+        print('Shared')
+        hexdump(dh.getSharedSecret(blob['y'][::-1]))
         resp.dump()
 
     def test_MimiCommand(self):
@@ -85,11 +88,11 @@ class RRPTests(unittest.TestCase):
         request['szEncCommand'] = len(command)
         request['encCommand'] = list(command)
         resp = dce.request(request)
-        cipherText = ''.join(resp['encResult'])
+        cipherText = b''.join(resp['encResult'])
         cipher = ARC4.new(key[::-1])
         plain = cipher.decrypt(cipherText)
-        print '='*80
-        print plain
+        print('='*80)
+        print(plain)
         #resp.dump()
 
     def test_MimiUnBind(self):
@@ -97,7 +100,7 @@ class RRPTests(unittest.TestCase):
         command = 'token::whoami\x00'
         request = mimilib.MimiUnbind()
         request['phMimi'] = pHandle
-        hexdump(str(request))
+        hexdump(request.getData())
         resp = dce.request(request)
         resp.dump()
 

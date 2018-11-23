@@ -5,14 +5,13 @@ cache: pip
 matrix:
   include:
     - python: 2.7
-      env: TOXENV=py27
+      env: NO_REMOTE=true, TOXENV=py27
     - python: 3.6
-      env: TOXENV=py36
+      env: NO_REMOTE=true, TOXENV=py36
   allow_failures:
     - python: 3.6
 
-install:
-  - pip install flake8 tox
+install: pip install flake8 tox -r requirements.txt
   
 before_script:
   # stop the build if there are Python syntax errors or undefined names
@@ -20,5 +19,4 @@ before_script:
   # exit-zero treats all errors as warnings.  The GitHub editor is 127 chars wide
   - flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
-script:
-  - tox
+script: tox

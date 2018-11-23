@@ -11,7 +11,7 @@ class TestDot11Common(unittest.TestCase):
 
     def setUp(self):
         # Frame control field 
-        a='\xd4\x00\x00\x00\x00\x08\x54\xac\x2f\x85\xb7\x7f\xc3\x9e'
+        a=b'\xd4\x00\x00\x00\x00\x08\x54\xac\x2f\x85\xb7\x7f\xc3\x9e'
         self.dot11fc=Dot11(a)
         
     def test_01_HeaderSize(self):
@@ -99,7 +99,7 @@ class TestDot11Common(unittest.TestCase):
         
         frame=self.dot11fc.get_packet()
         
-        self.assertEqual(frame, '\xa4\xaa\x00\x00\x00\x08\x54\xac\x2f\x85\xb7\x7f\xc3\x9e')
+        self.assertEqual(frame, b'\xa4\xaa\x00\x00\x00\x08\x54\xac\x2f\x85\xb7\x7f\xc3\x9e')
     
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11Common)

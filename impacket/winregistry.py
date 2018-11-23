@@ -8,7 +8,7 @@
 #
 # Description: A Windows Registry Library Parser
 #
-# Data taken from http://bazaar.launchpad.net/~guadalinex-members/dumphive/trunk/view/head:/winreg.txt
+# Data taken from https://bazaar.launchpad.net/~guadalinex-members/dumphive/trunk/view/head:/winreg.txt
 # http://sentinelchicken.com/data/TheWindowsNTRegistryFileFormat.pdf
 #
 #
@@ -24,7 +24,7 @@ import ntpath
 from six import b
 
 from impacket import LOG
-from impacket.structure import Structure
+from impacket.structure import Structure, hexdump
 
 
 # Constants
@@ -320,7 +320,7 @@ class Registry:
     def __walkSubNodes(self, rec):
         nk = self.__getBlock(rec['OffsetNk'])
         if isinstance(nk, REG_NK):
-            print("%s%s" % (self.indent, nk['KeyName']))
+            print("%s%s" % (self.indent, nk['KeyName'].decode('utf-8')))
             self.indent += '  '
             if nk['OffsetSubKeyLf'] < 0:
                 self.indent = self.indent[:-2]
@@ -444,7 +444,7 @@ class Registry:
                 if value['Flag'] > 0:
                     resp.append(value['Name'])
                 else:
-                    resp.append('default')
+                    resp.append(b'default')
 
         return resp
 
@@ -480,28 +480,4 @@ class Registry:
         if key['OffsetClassName'] > 0:
             value = self.__getBlock(key['OffsetClassName'])
             return value['Data']
-
-def pretty_print(x):
-    if x in '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~ ':
-       return x
-    else:
-       return '.'
-
-def hexdump(data, indent = ''):
-    x=str(data)
-    strLen = len(x)
-    i = 0
-    while i < strLen:
-        print(indent, end=' ')
-        print("%04x  " % i, end=' ')
-        for j in range(16):
-            if i+j < strLen:
-                print("%02X" % ord(x[i+j]), end=' ')
-            else:
-                print("  ", end=' ')
-            if j%16 == 7:
-                print("", end=' ')
-        print(" ", end=' ')
-        print(''.join(pretty_print(x) for x in x[i:i+16] ))
-        i += 16
 

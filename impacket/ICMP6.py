@@ -8,8 +8,8 @@
 import array
 import struct
 
-from ImpactPacket import Header, Data
-from IP6_Address import IP6_Address
+from impacket.ImpactPacket import Header, Data
+from impacket.IP6_Address import IP6_Address
 
 
 class ICMP6(Header):    

@@ -6,7 +6,7 @@
 # for more information.
 #
 # A similar approach to psexec w/o using RemComSvc. The technique is described here
-# http://www.accuvant.com/blog/owning-computers-without-shell-access
+# https://www.optiv.com/blog/owning-computers-without-shell-access
 # Our implementation goes one step further, instantiating a local smbserver to receive the 
 # output of the commands. This is useful in the situation where the target machine does NOT
 # have a writeable share available.
@@ -33,7 +33,10 @@ import sys
 import os
 import cmd
 import argparse
-import configparser
+try:
+    import ConfigParser
+except ImportError:
+    import configparser as ConfigParser
 import logging
 from threading import Thread
 
@@ -62,7 +65,7 @@ class SMBServer(Thread):
 
     def run(self):
         # Here we write a mini config for the server
-        smbConfig = configparser.ConfigParser()
+        smbConfig = ConfigParser.ConfigParser()
         smbConfig.add_section('global')
         smbConfig.set('global','server_name','server_name')
         smbConfig.set('global','server_os','UNIX')

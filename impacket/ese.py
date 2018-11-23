@@ -954,8 +954,13 @@ class ESENT_DB:
                         raise Exception('Unknown codepage 0x%x'% columnRecord['CodePage'])
                     stringDecoder = StringCodePages[columnRecord['CodePage']]
 
-                    record[column] = record[column].decode(stringDecoder)
-                
+                    try:
+                        record[column] = record[column].decode(stringDecoder)
+                    except Exception as e:
+                        LOG.debug("Exception:", exc_info=True)
+                        LOG.debug('Fixing Record[%r][%d]: %r' % (column, columnRecord['ColumnType'], record[column]))
+                        record[column] = record[column].decode(stringDecoder, "replace")
+                        pass
             else:
                 unpackData = ColumnTypeSize[columnRecord['ColumnType']]
                 if record[column] is not None:

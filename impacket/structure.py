@@ -610,6 +610,10 @@ def pretty_print(x):
        return u'.'
 
 def hexdump(data, indent = ''):
+    if data is None:
+        return
+    if isinstance(data, int):
+        data = str(data).encode('utf-8')
     x=bytearray(data)
     strLen = len(x)
     i = 0

@@ -53,7 +53,7 @@ class DecoderThread(Thread):
         # Use the ImpactDecoder to turn the rawpacket into a hierarchy
         # of ImpactPacket instances.
         # Display the packet in human-readable form.
-        print self.decoder.decode(data)
+        print(self.decoder.decode(data))
 
 
 def getInterface():
@@ -64,20 +64,20 @@ def getInterface():
 
     # No interfaces available, abort.
     if 0 == len(ifs):
-        print "You don't have enough permissions to open any interface on this system."
+        print("You don't have enough permissions to open any interface on this system.")
         sys.exit(1)
 
     # Only one interface available, use it.
     elif 1 == len(ifs):
-        print 'Only one interface present, defaulting to it.'
+        print('Only one interface present, defaulting to it.')
         return ifs[0]
 
     # Ask the user to choose an interface from the list.
     count = 0
     for iface in ifs:
-        print '%i - %s' % (count, iface)
+        print('%i - %s' % (count, iface))
         count += 1
-    idx = int(raw_input('Please select an interface: '))
+    idx = int(input('Please select an interface: '))
 
     return ifs[idx]
 
@@ -90,7 +90,7 @@ def main(filter):
     # Set the BPF filter. See tcpdump(3).
     p.setfilter(filter)
 
-    print "Listening on %s: net=%s, mask=%s, linktype=%d" % (dev, p.getnet(), p.getmask(), p.datalink())
+    print("Listening on %s: net=%s, mask=%s, linktype=%d" % (dev, p.getnet(), p.getmask(), p.datalink()))
 
     # Start sniffing thread and finish main thread.
     DecoderThread(p).start()

@@ -12,7 +12,7 @@ class TestDot11FrameControlPSPoll(unittest.TestCase):
 
     def setUp(self):
         # 802.11 Control Frame PSPoll
-        self.frame_orig='\xa6\x73\xf1\xaf\x48\x06\xee\x23\x2b\xc9\xfe\xbe\xe5\x05\x4c\x0a\x04\xa0\x00\x0f'
+        self.frame_orig=b'\xa6\x73\xf1\xaf\x48\x06\xee\x23\x2b\xc9\xfe\xbe\xe5\x05\x4c\x0a\x04\xa0\x00\x0f'
 
         d = Dot11(self.frame_orig)
         
