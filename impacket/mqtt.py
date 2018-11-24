@@ -18,6 +18,7 @@
 # [ ] Implement all the MQTT Control Packets and operations
 # [ ] Implement QoS = QOS_ASSURED_DELIVERY when publishing messages
 #
+from __future__ import print_function
 import logging
 import struct
 import socket
@@ -347,7 +348,7 @@ class MQTTConnection:
 
         try:
             data = self.sendReceive(subscribePacket)[0]
-        except Exception, e:
+        except Exception as e:
             raise MQTTSessionError(errorString=str(e))
 
         subAck = MQTT_SubscribeACK(str(data))
@@ -410,11 +411,6 @@ if __name__ == '__main__':
         packets = mqtt.recv()
         for packet in packets:
             publish = MQTT_Publish(str(packet))
-            print '%s -> %s' % (publish['Topic']['Name'], publish['Message'])
+            print('%s -> %s' % (publish['Topic']['Name'], publish['Message']))
 
     mqtt.disconnect()
-
-
-
-
-

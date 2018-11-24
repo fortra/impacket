@@ -26,14 +26,6 @@ import socket
 import time
 import datetime
 import struct
-try:
-    import ConfigParser
-except ImportError:
-    import configparser as ConfigParser
-try:
-    import SocketServer
-except ImportError:
-    import socketserver as SocketServer
 import threading
 import logging
 import logging.config
@@ -49,7 +41,8 @@ import hashlib
 import hmac
 
 from binascii import unhexlify, hexlify, a2b_hex
-from six import PY2,b
+from six import PY2, b, text_type
+from six.moves import configparser, socketserver
 
 # For signing
 from impacket import smb, nmb, ntlm, uuid, LOG
@@ -280,7 +273,7 @@ def openFile(path,fileName, accessMode, fileAttributes, openMode):
 
 def queryFsInformation(path, filename, level=0):
     if PY2:
-        if isinstance(filename, unicode):
+        if isinstance(filename, text_type):
             encoding = 'utf-16le'
             flags = smb.SMB.FLAGS2_UNICODE
         else:
@@ -339,7 +332,7 @@ def findFirst2(path, fileName, level, searchAttributes, isSMB2 = False):
      fileName = os.path.normpath(fileName.replace('\\','/'))
      # Let's choose the right encoding depending on the request
      if PY2:
-         if isinstance(fileName,unicode):
+         if isinstance(fileName, text_type):
              encoding = 'utf-16le'
              flags    = smb.SMB.FLAGS2_UNICODE
          else:
@@ -3699,7 +3692,7 @@ class Ioctls:
         return validateNegotiateInfoResponse.getData(), errorCode
 
 
-class SMBSERVERHandler(SocketServer.BaseRequestHandler):
+class SMBSERVERHandler(socketserver.BaseRequestHandler):
     def __init__(self, request, client_address, server, select_poll = False):
         self.__SMB = server
         # In case of AF_INET6 the client_address contains 4 items, ignore the last 2
@@ -3709,7 +3702,7 @@ class SMBSERVERHandler(SocketServer.BaseRequestHandler):
         self.__timeOut = 60*5
         self.__select_poll = select_poll
         #self.__connId = os.getpid()
-        SocketServer.BaseRequestHandler.__init__(self, request, client_address, server)
+        socketserver.BaseRequestHandler.__init__(self, request, client_address, server)
 
     def handle(self):
         self.__SMB.log("Incoming connection (%s,%d)" % (self.__ip, self.__port))
@@ -3755,13 +3748,13 @@ class SMBSERVERHandler(SocketServer.BaseRequestHandler):
         # Thread/process is dying, we should tell the main SMB thread to remove all this thread data
         self.__SMB.log("Closing down connection (%s,%d)" % (self.__ip, self.__port))
         self.__SMB.removeConnection(self.__connId)
-        return SocketServer.BaseRequestHandler.finish(self)
+        return socketserver.BaseRequestHandler.finish(self)
 
-class SMBSERVER(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
-#class SMBSERVER(SocketServer.ForkingMixIn, SocketServer.TCPServer):
+class SMBSERVER(socketserver.ThreadingMixIn, socketserver.TCPServer):
+#class SMBSERVER(socketserver.ForkingMixIn, socketserver.TCPServer):
     def __init__(self, server_address, handler_class=SMBSERVERHandler, config_parser = None):
-        SocketServer.TCPServer.allow_reuse_address = True
-        SocketServer.TCPServer.__init__(self, server_address, handler_class)
+        socketserver.TCPServer.allow_reuse_address = True
+        socketserver.TCPServer.__init__(self, server_address, handler_class)
 
         # Server name and OS to be presented whenever is necessary
         self.__serverName   = ''
@@ -4402,7 +4395,7 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
         if self.__serverConfig is None:
             if configFile is None:
                 configFile = 'smb.conf'
-            self.__serverConfig = ConfigParser.ConfigParser()
+            self.__serverConfig = configparser.ConfigParser()
             self.__serverConfig.read(configFile)
 
         self.__serverName   = self.__serverConfig.get('global','server_name')
@@ -4526,7 +4519,7 @@ class SRVSServer(DCERPCServer):
 
     def processConfigFile(self, configFile=None):
        if configFile is not None:
-           self.__serverConfig = ConfigParser.ConfigParser()
+           self.__serverConfig = configparser.ConfigParser()
            self.__serverConfig.read(configFile)
        sections = self.__serverConfig.sections()
        # Let's check the log file
@@ -4615,7 +4608,7 @@ class SimpleSMBServer:
             self.__smbConfig = None
         else:
             # Here we write a mini config for the server
-            self.__smbConfig = ConfigParser.ConfigParser()
+            self.__smbConfig = configparser.ConfigParser()
             self.__smbConfig.add_section('global')
             self.__smbConfig.set('global','server_name',''.join([random.choice(string.ascii_letters) for _ in range(8)]))
             self.__smbConfig.set('global','server_os',''.join([random.choice(string.ascii_letters) for _ in range(8)])
@@ -4705,4 +4698,3 @@ class SimpleSMBServer:
             self.__smbConfig.set("global", "SMB2Support", "False")
         self.__server.setServerConfig(self.__smbConfig)
         self.__server.processConfigFile()
-

@@ -661,7 +661,7 @@ class NMAP2TCPResponder(TCPResponder):
           if opt == 'T':
              opt = TCPOption(TCPOption.TCPOPT_TIMESTAMP)  # default ts = 0, ts_echo = 0
              if options[i] == '1':  opt.set_ts(self.machine.getTCPTimeStamp())
-             if options[i+1] == '1': opt.set_ts_echo(0xffffffffL)
+             if options[i+1] == '1': opt.set_ts_echo(0xffffffff)
              tcp.add_option(opt)
              i += 2
           if opt == 'M':
@@ -793,7 +793,7 @@ class Machine:
 
    def initFingerprint(self, emmulating, nmapOSDB):
        fpm = os_ident.NMAP2_Fingerprint_Matcher('')
-       f = file(nmapOSDB, 'r')
+       f = open(nmapOSDB, 'r')
        for text in fpm.fingerprints(f):
            fingerprint = fpm.parse_fp(text)
            if fingerprint.get_id() == emmulating:
@@ -802,7 +802,7 @@ class Machine:
               # print(fingerprint)
               return
 
-       raise Exception, "Couldn't find fingerprint data for %r" % emmulating
+       raise Exception("Couldn't find fingerprint data for %r" % emmulating)
 
    def simplifyFingerprint(self):
        tests = self.fingerprint.get_tests()
@@ -914,7 +914,7 @@ class Machine:
    def getIPID(self):
        answer = self.ip_ID
        self.ip_ID += self.ip_ID_delta
-       self.ip_ID %= 0x10000L
+       self.ip_ID %= 0x10000
        # print("IP ID: %x" % answer)
        return answer
 
@@ -924,7 +924,7 @@ class Machine:
 
        answer = self.ip_ID_ICMP
        self.ip_ID_ICMP += self.ip_ID_ICMP_delta
-       self.ip_ID_ICMP %= 0x10000L
+       self.ip_ID_ICMP %= 0x10000
        # print("---> IP ID: %x" % answer)
        return answer
 
@@ -933,14 +933,14 @@ class Machine:
        self.tcp_ISN_stdDev *= -1
        answer = int(int(answer/self.tcp_ISN_GCD) * self.tcp_ISN_GCD)
        self.tcp_ISN += self.tcp_ISN_delta
-       self.tcp_ISN %= 0x100000000L
-       # print("---> TCP Sequence: %d" % (answer % 0x100000000L))
-       return answer % 0x100000000L
+       self.tcp_ISN %= 0x100000000
+       # print("---> TCP Sequence: %d" % (answer % 0x100000000))
+       return answer % 0x100000000
 
    def getTCPTimeStamp(self):
        answer = int(round(self.tcp_TS))
        self.tcp_TS += self.tcp_TS_delta
-       self.tcp_TS %= 0x100000000L
+       self.tcp_TS %= 0x100000000
        # print("---> TCP Time Stamp: %x" % answer)
        return answer
 
@@ -1010,8 +1010,7 @@ def main():
        exit()
 
    global Fingerprint, IFACE, MAC, IP, nmapOSDB
-   for i in xrange(len(argv)):
-       arg = argv[i]
+   for i, arg in enumerate(argv):
        try: value = argv[i+1]
        except: value = None
        if arg == '-h': usage()
@@ -1031,7 +1030,7 @@ def main():
        MAC,
        OPEN_TCP_PORTS,
        OPEN_UDP_PORTS,
-       nmapOSDB = nmapOSDB)
+       nmapOSDB=nmapOSDB)
 
    initResponders(machine)
    machine.initGenericResponders()

@@ -58,7 +58,7 @@ from impacket.smbconnection import SMBConnection
 from impacket.examples.secretsdump import LocalOperations, RemoteOperations, SAMHashes, LSASecrets, NTDSHashes
 try:
     input = raw_input
-except NameErrror:
+except NameError:
     pass
 
 class DumpSecrets:
