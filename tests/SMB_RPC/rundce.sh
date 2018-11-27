@@ -31,3 +31,4 @@ $RUN test_bkrp.py
 $RUN test_tsch.py
 $RUN test_dhcpm.py
 $RUN test_secretsdump.py
+$RUN test_nrpc.py
