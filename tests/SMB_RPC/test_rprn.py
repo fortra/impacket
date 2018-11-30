@@ -2,8 +2,11 @@
 #  Tested so far:
 #
 #  RpcOpenPrinterEx
+#  hRpcOpenPrinterEx
 #  RpcOpenPrinter
+#  hRpcOpenPrinter
 #  RpcRemoteFindFirstPrinterChangeNotificationEx
+#  hRpcRemoteFindFirstPrinterChangeNotificationEx
 #
 #  Not yet:
 #
@@ -13,12 +16,14 @@
 
 from __future__ import division
 from __future__ import print_function
+
 import unittest
+
 from six.moves import configparser
+
+from impacket.dcerpc.v5 import rprn
 from impacket.dcerpc.v5 import transport
-from impacket.dcerpc.v5 import epm, rprn
-from impacket.dcerpc.v5.dtypes import NULL, MAXIMUM_ALLOWED, OWNER_SECURITY_INFORMATION
-from impacket import ntlm
+from impacket.dcerpc.v5.dtypes import NULL
 
 
 class RPRNTests(unittest.TestCase):
@@ -51,6 +56,11 @@ class RPRNTests(unittest.TestCase):
         resp = dce.request(request)
         resp.dump()
 
+    def test_hRpcOpenPrinter(self):
+        dce, rpctransport = self.connect()
+        resp = rprn.hRpcOpenPrinter(dce, '\\\\%s\x00' % self.machine)
+        resp.dump()
+
     def test_RpcOpenPrinterEx(self):
         dce, rpctransport = self.connect()
         request = rprn.RpcOpenPrinterEx()
@@ -69,6 +79,22 @@ class RPRNTests(unittest.TestCase):
         request['pClientInfo']['ClientInfo']['pClientInfo1']['wProcessorArchitecture'] = 0x0009
         request.dump()
         resp = dce.request(request)
+        resp.dump()
+
+    def test_hRpcOpenPrinterEx(self):
+        dce, rpctransport = self.connect()
+        clientInfo = rprn.SPLCLIENT_CONTAINER()
+        clientInfo['Level'] = 1
+        clientInfo['ClientInfo']['tag'] = 1
+        clientInfo['ClientInfo']['pClientInfo1']['dwSize'] = 28
+        clientInfo['ClientInfo']['pClientInfo1']['pMachineName'] = '%s\x00' % self.machine
+        clientInfo['ClientInfo']['pClientInfo1']['pUserName'] = '%s\\%s\x00' % (self.domain, self.username)
+        clientInfo['ClientInfo']['pClientInfo1']['dwBuildNum'] = 0x0
+        clientInfo['ClientInfo']['pClientInfo1']['dwMajorVersion'] = 0x00000000
+        clientInfo['ClientInfo']['pClientInfo1']['dwMinorVersion'] = 0x00000000
+        clientInfo['ClientInfo']['pClientInfo1']['wProcessorArchitecture'] = 0x0009
+
+        resp = rprn.hRpcOpenPrinterEx(dce, '\\\\%s\x00' % self.machine, pClientInfo=clientInfo)
         resp.dump()
 
     def test_RpcRemoteFindFirstPrinterChangeNotificationEx(self):
@@ -96,7 +122,17 @@ class RPRNTests(unittest.TestCase):
             if str(e).find('ERROR_INVALID_HANDLE') < 0:
                 raise
 
+    def test_hRpcRemoteFindFirstPrinterChangeNotificationEx(self):
+        dce, rpctransport = self.connect()
 
+        resp = rprn.hRpcOpenPrinter(dce, '\\\\%s\x00' % self.machine)
+
+        try:
+            resp = rprn.hRpcRemoteFindFirstPrinterChangeNotificationEx(dce, resp['pHandle'], rprn.PRINTER_CHANGE_ADD_JOB, pszLocalMachine = '\\\\%s\x00' % self.machine )
+            resp.dump()
+        except Exception as e:
+            if str(e).find('ERROR_INVALID_HANDLE') < 0:
+                raise
 
 class SMBTransport(RPRNTests):
     def setUp(self):

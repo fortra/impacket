@@ -318,7 +318,9 @@ class RpcOpenPrinterExResponse(NDRCALL):
 # OPNUMs and their corresponding structures
 ################################################################################
 OPNUMS = {
- 69 : (RpcOpenPrinterEx, RpcOpenPrinterExResponse),
+    1  : (RpcOpenPrinter, RpcOpenPrinterResponse),
+    65 : (RpcRemoteFindFirstPrinterChangeNotificationEx, RpcRemoteFindFirstPrinterChangeNotificationExResponse),
+    69 : (RpcOpenPrinterEx, RpcOpenPrinterExResponse),
 }
 
 ################################################################################
@@ -333,9 +335,44 @@ def checkNullString(string):
     else:
         return string
 
-def hOpenClassesRoot(dce, samDesired = MAXIMUM_ALLOWED):
-    request = OpenClassesRoot()
-    request['ServerName'] = NULL
-    request['samDesired'] = samDesired
+def hRpcOpenPrinter(dce, printerName, pDatatype = NULL, pDevModeContainer = NULL, accessRequired = SERVER_READ):
+    request = RpcOpenPrinter()
+    request['pPrinterName'] = checkNullString(printerName)
+    request['pDatatype'] = pDatatype
+    if pDevModeContainer is NULL:
+        request['pDevModeContainer']['pDevMode'] = NULL
+    else:
+        request['pDevModeContainer'] = pDevModeContainer
+
+    request['AccessRequired'] = accessRequired
+    return dce.request(request)
+
+def hRpcOpenPrinterEx(dce, printerName, pDatatype = NULL, pDevModeContainer = NULL, accessRequired = SERVER_READ, pClientInfo = NULL):
+    request = RpcOpenPrinterEx()
+    request['pPrinterName'] = checkNullString(printerName)
+    request['pDatatype'] = pDatatype
+    if pDevModeContainer is NULL:
+        request['pDevModeContainer']['pDevMode'] = NULL
+    else:
+        request['pDevModeContainer'] = pDevModeContainer
+
+    request['AccessRequired'] = accessRequired
+    if pClientInfo is NULL:
+        raise Exception('pClientInfo cannot be NULL')
+
+    request['pClientInfo'] = pClientInfo
+    return dce.request(request)
+
+def hRpcRemoteFindFirstPrinterChangeNotificationEx(dce, hPrinter, fdwFlags, fdwOptions = 0, pszLocalMachine = NULL, dwPrinterLocal = 0, pOptions = NULL):
+    request = RpcRemoteFindFirstPrinterChangeNotificationEx()
+
+    request['hPrinter'] = hPrinter
+    request['fdwFlags'] = fdwFlags
+    request['fdwOptions'] = fdwOptions
+    request['dwPrinterLocal'] = dwPrinterLocal
+    if pszLocalMachine is NULL:
+        raise Exception('pszLocalMachine cannot be NULL')
+    request['pszLocalMachine'] = pszLocalMachine
+    request['pOptions'] = pOptions
     return dce.request(request)
 
