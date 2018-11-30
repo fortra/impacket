@@ -372,7 +372,7 @@ def hRpcRemoteFindFirstPrinterChangeNotificationEx(dce, hPrinter, fdwFlags, fdwO
     request['dwPrinterLocal'] = dwPrinterLocal
     if pszLocalMachine is NULL:
         raise Exception('pszLocalMachine cannot be NULL')
-    request['pszLocalMachine'] = pszLocalMachine
+    request['pszLocalMachine'] = checkNullString(pszLocalMachine)
     request['pOptions'] = pOptions
     return dce.request(request)
 
