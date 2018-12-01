@@ -7,6 +7,9 @@
 #  hRpcOpenPrinter
 #  RpcRemoteFindFirstPrinterChangeNotificationEx
 #  hRpcRemoteFindFirstPrinterChangeNotificationEx
+#  hRpcClosePrinter
+#  RpcClosePrinter
+#  RpcEnumPrinters
 #
 #  Not yet:
 #
@@ -24,6 +27,7 @@ from six.moves import configparser
 from impacket.dcerpc.v5 import rprn
 from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5.dtypes import NULL
+from impacket.structure import hexdump
 
 
 class RPRNTests(unittest.TestCase):
@@ -45,6 +49,40 @@ class RPRNTests(unittest.TestCase):
 
         return dce, rpctransport#, resp['phKey']
 
+    def test_RpcEnumPrinters(self):
+        dce, rpctransport = self.connect()
+        request = rprn.RpcEnumPrinters()
+        request['Flags'] = rprn.PRINTER_ENUM_LOCAL
+        request['Name'] = NULL
+        request['pPrinterEnum'] = NULL
+        request['Level'] = 1
+        request.dump()
+        try:
+            resp = dce.request(request)
+            resp.dump()
+        except Exception as e:
+            if str(e).find('ERROR_INSUFFICIENT_BUFFER') < 0:
+                raise
+        bytesNeeded = e.get_packet()['pcbNeeded']
+
+        request = rprn.RpcEnumPrinters()
+        request['Flags'] = rprn.PRINTER_ENUM_LOCAL
+        request['Name'] = NULL
+        request['Level'] = 1
+
+        request['cbBuf'] = bytesNeeded
+        request['pPrinterEnum'] = b'a'*bytesNeeded
+
+        request.dump()
+        resp = dce.request(request)
+        resp.dump()
+        hexdump(resp['pPrinterEnum'])
+
+    def test_hRpcEnumPrinters(self):
+        dce, rpctransport = self.connect()
+        resp = rprn.hRpcEnumPrinters(dce, rprn.PRINTER_ENUM_LOCAL, NULL, 1)
+        hexdump(resp['pPrinterEnum'])
+
     def test_RpcOpenPrinter(self):
         dce, rpctransport = self.connect()
         request = rprn.RpcOpenPrinter()
@@ -56,9 +94,34 @@ class RPRNTests(unittest.TestCase):
         resp = dce.request(request)
         resp.dump()
 
+    def test_RpcClosePrinter(self):
+        dce, rpctransport = self.connect()
+
+        request = rprn.RpcOpenPrinter()
+        request['pPrinterName'] = '\\\\%s\x00' % self.machine
+        request['pDatatype'] = NULL
+        request['pDevModeContainer']['pDevMode'] = NULL
+        request['AccessRequired'] = rprn.SERVER_READ
+        request.dump()
+        resp = dce.request(request)
+        resp.dump()
+
+        request = rprn.RpcClosePrinter()
+        request['phPrinter'] = resp['pHandle']
+        request.dump()
+        resp = dce.request(request)
+        resp.dump()
+
     def test_hRpcOpenPrinter(self):
         dce, rpctransport = self.connect()
         resp = rprn.hRpcOpenPrinter(dce, '\\\\%s\x00' % self.machine)
+        resp.dump()
+
+    def test_hRpcClosePrinter(self):
+        dce, rpctransport = self.connect()
+        resp = rprn.hRpcOpenPrinter(dce, '\\\\%s\x00' % self.machine)
+        resp.dump()
+        resp = rprn.hRpcClosePrinter(dce, resp['pHandle'])
         resp.dump()
 
     def test_RpcOpenPrinterEx(self):
