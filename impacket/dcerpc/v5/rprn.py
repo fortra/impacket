@@ -436,13 +436,13 @@ def hRpcEnumPrinters(dce, flags, name = NULL, level = 1):
     request['Name'] = name
     request['pPrinterEnum'] = NULL
     request['Level'] = level
+    bytesNeeded = 0
     try:
         resp = dce.request(request)
-    except Exception as e:
+    except DCERPCSessionError as e:
         if str(e).find('ERROR_INSUFFICIENT_BUFFER') < 0:
             raise
-
-    bytesNeeded = e.get_packet()['pcbNeeded']
+        bytesNeeded = e.get_packet()['pcbNeeded']
 
     request = RpcEnumPrinters()
     request['Flags'] = flags
