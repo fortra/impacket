@@ -1972,9 +1972,9 @@ class NMAP2_Fingerprint:
     def parse_int(self, field, value):
         try:
             return int(value, 16)
-        except ValueError as err:
-            if NMAP2_Fingerprint.literal_conv.has_key( field ):
-                if NMAP2_Fingerprint.literal_conv[field].has_key(value):
+        except ValueError:
+            if field in NMAP2_Fingerprint.literal_conv:
+                if value in NMAP2_Fingerprint.literal_conv[field]:
                     return NMAP2_Fingerprint.literal_conv[field][value]
             return 0
 
@@ -2009,14 +2009,14 @@ class NMAP2_Fingerprint:
 
         for test in self.__tests:
             # ignore unknown response lines:
-            if not sample.has_key(test):
+            if test not in sample:
                 continue
         
             for field in self.__tests[test]:
                     # ignore unsupported fields:
-                if not sample[test].has_key(field) or \
-                   not mp.has_key(test) or \
-                   not mp[test].has_key(field):
+                if fields not in sample[test] or \
+                   test not in mp or \
+                   field not in mp[test]:
                     continue
             
                 ref = self.__tests[test][field]

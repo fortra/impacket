@@ -937,7 +937,7 @@ class SMB3:
            # Is this file NOT on the root directory?
            if len(fileName.split('\\')) > 2:
                parentDir = ntpath.dirname(pathName)
-           if self.GlobalFileTable.has_key(parentDir):
+           if parentDir in self.GlobalFileTable:
                raise Exception("Don't know what to do now! :-o")
            else:
                parentEntry = copy.deepcopy(FILE)
