@@ -70,7 +70,7 @@ if __name__ == '__main__':
 
     try:
        options = parser.parse_args()
-    except Exception, e:
+    except Exception as e:
        logging.error(str(e))
        sys.exit(1)
 
@@ -90,7 +90,7 @@ if __name__ == '__main__':
     check_mqtt = MQTT_LOGIN(username, password, address, options)
     try:
         check_mqtt.run()
-    except Exception, e:
+    except Exception as e:
         if logging.getLogger().level == logging.DEBUG:
             import traceback
             traceback.print_exc()

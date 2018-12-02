@@ -30,7 +30,7 @@ class os_id_exception:
     def __init__(self, value):
         self.value = value
     def __str__(self):
-        return `self.value`
+        return repr(self.value)
 
 class os_id_test:
     
@@ -1972,7 +1972,7 @@ class NMAP2_Fingerprint:
     def parse_int(self, field, value):
         try:
             return int(value, 16)
-        except ValueError, err:
+        except ValueError as err:
             if NMAP2_Fingerprint.literal_conv.has_key( field ):
                 if NMAP2_Fingerprint.literal_conv[field].has_key(value):
                     return NMAP2_Fingerprint.literal_conv[field][value]
@@ -2057,7 +2057,7 @@ class NMAP2_Fingerprint_Matcher:
                                     fp.get_os_class().get_device_type())))
 
             infile.close()
-        except IOError, err:
+        except IOError as err:
             print "IOError: %s", err
 
         return output

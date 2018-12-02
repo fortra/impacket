@@ -571,7 +571,7 @@ class SMB3:
 #            else:
 #                ccache.fromTGS(TGS['KDC_REP'], TGS['oldSessionKey'], TGS['sessionKey'] )
 #            ccache.saveFile('/tmp/ticket.bin')
-#        except Exception, e:
+#        except Exception as e:
 #            print e
 #            pass
 
