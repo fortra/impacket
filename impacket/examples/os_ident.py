@@ -30,7 +30,7 @@ class os_id_exception:
     def __init__(self, value):
         self.value = value
     def __str__(self):
-        return `self.value`
+        return repr(self.value)
 
 class os_id_test:
     
@@ -276,7 +276,7 @@ class nmap1_tcp_probe(nmap_tcp_probe):
     # "\003\003\012\001\002\004\001\011\010\012\077\077\077\077\000\000\000\000\000\000"
     # [...]
     tcp_options = [
-        TCPOption(TCPOption.TCPOPT_WINDOW, 012), #\003\003\012
+        TCPOption(TCPOption.TCPOPT_WINDOW, 0o12), #\003\003\012
         TCPOption(TCPOption.TCPOPT_NOP), #\001
         TCPOption(TCPOption.TCPOPT_MAXSEG, mss), #\002\004\001\011
         TCPOption(TCPOption.TCPOPT_TIMESTAMP, 0x3F3F3F3F), #\010\012\077\077\077\077\000\000\000\000
@@ -417,7 +417,7 @@ class nmap2_ecn_probe(nmap_tcp_probe):
     # open port.
     # [...]
     tcp_options = [
-        TCPOption(TCPOption.TCPOPT_WINDOW, 012), #\003\003\012
+        TCPOption(TCPOption.TCPOPT_WINDOW, 0o12), #\003\003\012
         TCPOption(TCPOption.TCPOPT_NOP), #\001
         TCPOption(TCPOption.TCPOPT_MAXSEG, 1460), #\002\004\005\0264
         TCPOption(TCPOption.TCPOPT_SACK_PERMITTED), #\004\002
@@ -665,7 +665,7 @@ class nmap2_tcp_probe_2_6(nmap2_tcp_probe):
     # Timestamp (TSval: 0xFFFFFFFF; TSecr: 0), then SACK permitted. 
     # (...
     tcp_options = [
-        TCPOption(TCPOption.TCPOPT_WINDOW, 012), #\003\003\012
+        TCPOption(TCPOption.TCPOPT_WINDOW, 0o12), #\003\003\012
         TCPOption(TCPOption.TCPOPT_NOP), #\001
         TCPOption(TCPOption.TCPOPT_MAXSEG, mss), #\002\004\001\011
         TCPOption(TCPOption.TCPOPT_TIMESTAMP, 0xFFFFFFFF), #\010\012\377\377\377\377\000\000\000\000
@@ -684,7 +684,7 @@ class nmap2_tcp_probe_7(nmap2_tcp_probe):
     # The exception is that T7 uses a Window scale value of 15 rather than 10
     # [...]
     tcp_options = [
-        TCPOption(TCPOption.TCPOPT_WINDOW, 017), #\003\003\017
+        TCPOption(TCPOption.TCPOPT_WINDOW, 0o17), #\003\003\017
         TCPOption(TCPOption.TCPOPT_NOP), #\001
         TCPOption(TCPOption.TCPOPT_MAXSEG, mss), #\002\004\001\011
         TCPOption(TCPOption.TCPOPT_TIMESTAMP, 0xFFFFFFFF), #\010\012\377\377\377\377\000\000\000\000
@@ -1972,7 +1972,7 @@ class NMAP2_Fingerprint:
     def parse_int(self, field, value):
         try:
             return int(value, 16)
-        except ValueError, err:
+        except ValueError:
             if field in NMAP2_Fingerprint.literal_conv:
                 if value in NMAP2_Fingerprint.literal_conv[field]:
                     return NMAP2_Fingerprint.literal_conv[field][value]
@@ -2047,8 +2047,8 @@ class NMAP2_Fingerprint_Matcher:
                 fp = self.parse_fp(fingerprint)
                 similarity = fp.compare(res, mp)
                 if similarity >= threshold: 
-                    print "\"%s\" matches with an accuracy of %.2f%%" \
-                           % (fp.get_id(), similarity)
+                    print("\"%s\" matches with an accuracy of %.2f%%" \
+                           % (fp.get_id(), similarity))
                     output.append((similarity / 100,
                                    fp.get_id(),
                                    (fp.get_os_class().get_vendor(),
@@ -2057,8 +2057,8 @@ class NMAP2_Fingerprint_Matcher:
                                     fp.get_os_class().get_device_type())))
 
             infile.close()
-        except IOError, err:
-            print "IOError: %s", err
+        except IOError as err:
+            print("IOError: %s", err)
 
         return output
 

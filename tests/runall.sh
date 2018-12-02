@@ -21,6 +21,9 @@ rm -f $OUTPUTFILE
 
 # Start running the tests
 
+echo Python Version
+python -V
+
 echo Walking modules
 $RUNLOCAL ./walkmodules.py
 

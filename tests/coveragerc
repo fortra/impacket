@@ -3,6 +3,7 @@
 branch = True
 source = impacket
 omit = *remcom*
+       *.tox*
 
 [report]
 # Regexes for lines to exclude from consideration

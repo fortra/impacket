@@ -36,7 +36,7 @@ try:
   import pyreadline as readline
 except ImportError:
   import readline
-from six import PY2
+from six import PY2, text_type
 from datetime import datetime
 from impacket.examples import logger
 from impacket import version
@@ -44,13 +44,11 @@ from impacket.structure import Structure
 
 
 def pretty_print(x):
-    if x in '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~ ':
-       return x
-    else:
-       return '.'
+    visible = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~ '
+    return x if x in visible else '.'
 
 def hexdump(data):
-    x=str(data)
+    x = str(data)
     strLen = len(x)
     i = 0
     while i < strLen:
@@ -727,18 +725,12 @@ class INODE:
             attr = self.searchAttribute(FILE_NAME, None, True)
 
         # Parse Index Allocation
-        if PY2:
-            attr = self.searchAttribute(INDEX_ALLOCATION, unicode('$I30'))
-        else:
-            attr = self.searchAttribute(INDEX_ALLOCATION, str('$I30'))
+        attr = self.searchAttribute(INDEX_ALLOCATION, u'$I30')
         if attr is not None:
             ia = AttributeIndexAllocation(attr)
             self.Attributes[INDEX_ALLOCATION] = ia
 
-        if PY2:
-            attr = self.searchAttribute(INDEX_ROOT, unicode('$I30'))
-        else:
-            attr = self.searchAttribute(INDEX_ROOT,str('$I30'))
+        attr = self.searchAttribute(INDEX_ROOT, u'$I30')
         if attr is not None:
             ir = AttributeIndexRoot(attr)
             self.Attributes[INDEX_ROOT] = ir
@@ -913,11 +905,7 @@ class INODE:
                     return fn['FileName'].decode('utf-16le').upper()
             return None
 
-
-        if PY2:
-            toSearch = unicode(fileName.upper())
-        else:
-            toSearch = str(fileName.upper())
+        toSearch = text_type(fileName.upper())
 
         if INDEX_ROOT in self.Attributes:
             ir = self.Attributes[INDEX_ROOT]
@@ -1233,6 +1221,3 @@ def main():
 if __name__ == '__main__':
     main()
     sys.exit(1)
-
-
-

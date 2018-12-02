@@ -180,8 +180,11 @@ def encode_name(name, nametype, scope):
 
     encoded_name = chr(len(name) * 2) + re.sub('.', _do_first_level_encoding, name)
 
-    if PY2 and type(encoded_name) is unicode:
-        encoded_name = encoded_name.encode('utf-8')
+    try:
+        if isinstance(encoded_name, unicode):
+            encoded_name = encoded_name.encode('utf-8')
+    except NameError:
+        pass
     if scope:
         encoded_scope = ''
         for s in scope.split('.'):

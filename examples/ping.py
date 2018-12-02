@@ -31,8 +31,8 @@ import sys
 from impacket import ImpactDecoder, ImpactPacket
 
 if len(sys.argv) < 3:
-	print("Use: %s <src ip> <dst ip>" % sys.argv[0])
-	sys.exit(1)
+    print("Use: %s <src ip> <dst ip>" % sys.argv[0])
+    sys.exit(1)
 
 src = sys.argv[1]
 dst = sys.argv[2]
@@ -60,28 +60,28 @@ s.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
 
 seq_id = 0
 while 1:
-	# Give the ICMP packet the next ID in the sequence.
-	seq_id += 1
-	icmp.set_icmp_id(seq_id)
+    # Give the ICMP packet the next ID in the sequence.
+    seq_id += 1
+    icmp.set_icmp_id(seq_id)
 
-	# Calculate its checksum.
-	icmp.set_icmp_cksum(0)
-	icmp.auto_checksum = 1
+    # Calculate its checksum.
+    icmp.set_icmp_cksum(0)
+    icmp.auto_checksum = 1
 
-	# Send it to the target host.
-	s.sendto(ip.get_packet(), (dst, 0))
+    # Send it to the target host.
+    s.sendto(ip.get_packet(), (dst, 0))
 
-	# Wait for incoming replies.
-	if s in select.select([s],[],[],1)[0]:
-	   reply = s.recvfrom(2000)[0]
+    # Wait for incoming replies.
+    if s in select.select([s],[],[],1)[0]:
+       reply = s.recvfrom(2000)[0]
 
-	   # Use ImpactDecoder to reconstruct the packet hierarchy.
-	   rip = ImpactDecoder.IPDecoder().decode(reply)
-	   # Extract the ICMP packet from its container (the IP packet).
-	   ricmp = rip.child()
+       # Use ImpactDecoder to reconstruct the packet hierarchy.
+       rip = ImpactDecoder.IPDecoder().decode(reply)
+       # Extract the ICMP packet from its container (the IP packet).
+       ricmp = rip.child()
 
-	   # If the packet matches, report it to the user.
-	   if rip.get_ip_dst() == src and rip.get_ip_src() == dst and icmp.ICMP_ECHOREPLY == ricmp.get_icmp_type():
-		   print("Ping reply for sequence #%d" % ricmp.get_icmp_id())
+       # If the packet matches, report it to the user.
+       if rip.get_ip_dst() == src and rip.get_ip_src() == dst and icmp.ICMP_ECHOREPLY == ricmp.get_icmp_type():
+           print("Ping reply for sequence #%d" % ricmp.get_icmp_id())
 
-	   time.sleep(1)
+       time.sleep(1)
