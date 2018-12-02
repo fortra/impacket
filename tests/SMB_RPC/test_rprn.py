@@ -57,13 +57,14 @@ class RPRNTests(unittest.TestCase):
         request['pPrinterEnum'] = NULL
         request['Level'] = 1
         request.dump()
+        bytesNeeded = 0
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception as e:
+        except rprn.DCERPCSessionError as e:
             if str(e).find('ERROR_INSUFFICIENT_BUFFER') < 0:
                 raise
-        bytesNeeded = e.get_packet()['pcbNeeded']
+            bytesNeeded = e.get_packet()['pcbNeeded']
 
         request = rprn.RpcEnumPrinters()
         request['Flags'] = rprn.PRINTER_ENUM_LOCAL
