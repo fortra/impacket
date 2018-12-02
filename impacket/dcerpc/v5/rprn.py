@@ -385,6 +385,23 @@ def checkNullString(string):
         return string
 
 def hRpcOpenPrinter(dce, printerName, pDatatype = NULL, pDevModeContainer = NULL, accessRequired = SERVER_READ):
+    """
+    RpcOpenPrinter retrieves a handle for a printer, port, port monitor, print job, or print server.
+    Full Documentation: https://msdn.microsoft.com/en-us/library/cc244808.aspx
+
+    :param DCERPC_v5 dce: a connected DCE instance.
+    :param string printerName: A string for a printer connection, printer object, server object, job object, port
+    object, or port monitor object. This MUST be a Domain Name System (DNS), NetBIOS, Internet Protocol version 4
+    (IPv4), Internet Protocol version 6 (IPv6), or Universal Naming Convention (UNC) name that remote procedure
+    call (RPC) binds to, and it MUST uniquely identify a print server on the network.
+    :param string pDatatype: A string that specifies the data type to be associated with the printer handle.
+    :param DEVMODE_CONTAINER pDevModeContainer: A DEVMODE_CONTAINER structure. This parameter MUST adhere to the specification in
+    DEVMODE_CONTAINER Parameters (section 3.1.4.1.8.1).
+    :param int accessRequired: The access level that the client requires for interacting with the object to which a
+    handle is being opened.
+
+    :return: a RpcOpenPrinterResponse instance, raises DCERPCSessionError on error.
+    """
     request = RpcOpenPrinter()
     request['pPrinterName'] = checkNullString(printerName)
     request['pDatatype'] = pDatatype
@@ -397,11 +414,40 @@ def hRpcOpenPrinter(dce, printerName, pDatatype = NULL, pDevModeContainer = NULL
     return dce.request(request)
 
 def hRpcClosePrinter(dce, phPrinter):
+    """
+    RpcClosePrinter closes a handle to a printer object, server object, job object, or port object.
+    Full Documentation: https://msdn.microsoft.com/en-us/library/cc244768.aspx
+
+    :param DCERPC_v5 dce: a connected DCE instance.
+    :param PRINTER_HANDLE phPrinter: A handle to a printer object, server object, job object, or port object.
+
+    :return: a RpcClosePrinterResponse instance, raises DCERPCSessionError on error.
+    """
     request = RpcClosePrinter()
     request['phPrinter'] = phPrinter
     return dce.request(request)
 
-def hRpcOpenPrinterEx(dce, printerName, pDatatype = NULL, pDevModeContainer = NULL, accessRequired = SERVER_READ, pClientInfo = NULL):
+
+def hRpcOpenPrinterEx(dce, printerName, pDatatype=NULL, pDevModeContainer=NULL, accessRequired=SERVER_READ,
+                      pClientInfo=NULL):
+    """
+    RpcOpenPrinterEx retrieves a handle for a printer, port, port monitor, print job, or print server
+    Full Documentation: https://msdn.microsoft.com/en-us/library/cc244809.aspx
+
+    :param DCERPC_v5 dce: a connected DCE instance.
+    :param string printerName: A string for a printer connection, printer object, server object, job object, port
+    object, or port monitor object. This MUST be a Domain Name System (DNS), NetBIOS, Internet Protocol version 4
+    (IPv4), Internet Protocol version 6 (IPv6), or Universal Naming Convention (UNC) name that remote procedure
+    call (RPC) binds to, and it MUST uniquely identify a print server on the network.
+    :param string pDatatype: A string that specifies the data type to be associated with the printer handle.
+    :param DEVMODE_CONTAINER pDevModeContainer: A DEVMODE_CONTAINER structure. This parameter MUST adhere to the specification in
+    DEVMODE_CONTAINER Parameters (section 3.1.4.1.8.1).
+    :param int accessRequired: The access level that the client requires for interacting with the object to which a
+    handle is being opened.
+    :param SPLCLIENT_CONTAINER pClientInfo: This parameter MUST adhere to the specification in SPLCLIENT_CONTAINER Parameters.
+
+    :return: a RpcOpenPrinterExResponse instance, raises DCERPCSessionError on error.
+    """
     request = RpcOpenPrinterEx()
     request['pPrinterName'] = checkNullString(printerName)
     request['pDatatype'] = pDatatype
@@ -417,7 +463,25 @@ def hRpcOpenPrinterEx(dce, printerName, pDatatype = NULL, pDevModeContainer = NU
     request['pClientInfo'] = pClientInfo
     return dce.request(request)
 
-def hRpcRemoteFindFirstPrinterChangeNotificationEx(dce, hPrinter, fdwFlags, fdwOptions = 0, pszLocalMachine = NULL, dwPrinterLocal = 0, pOptions = NULL):
+
+def hRpcRemoteFindFirstPrinterChangeNotificationEx(dce, hPrinter, fdwFlags, fdwOptions=0, pszLocalMachine=NULL,
+                                                   dwPrinterLocal=0, pOptions=NULL):
+    """
+    creates a remote change notification object that monitors changes to printer objects and sends change notifications
+    to a print client using either RpcRouterReplyPrinter (section 3.2.4.1.2) or RpcRouterReplyPrinterEx (section 3.2.4.1.4)
+    Full Documentation: https://msdn.microsoft.com/en-us/library/cc244813.aspx
+
+    :param DCERPC_v5 dce: a connected DCE instance.
+    :param PRINTER_HANDLE hPrinter: A handle to a printer or server object.
+    :param int fdwFlags: Flags that specify the conditions that are required for a change notification object to enter a signaled state.
+    :param int fdwOptions: The category of printers for which change notifications are returned.
+    :param string pszLocalMachine: A string that represents the name of the client computer.
+    :param int dwPrinterLocal: An implementation-specific unique value that MUST be sufficient for the client to determine
+    whether a call to RpcReplyOpenPrinter by the server is associated with the hPrinter parameter in this call.
+    :param RPC_V2_NOTIFY_OPTIONS pOptions:  An RPC_V2_NOTIFY_OPTIONS structure that specifies printer or job members that the client listens to for notifications.
+
+    :return: a RpcRemoteFindFirstPrinterChangeNotificationExResponse instance, raises DCERPCSessionError on error.
+    """
     request = RpcRemoteFindFirstPrinterChangeNotificationEx()
 
     request['hPrinter'] = hPrinter
@@ -431,6 +495,18 @@ def hRpcRemoteFindFirstPrinterChangeNotificationEx(dce, hPrinter, fdwFlags, fdwO
     return dce.request(request)
 
 def hRpcEnumPrinters(dce, flags, name = NULL, level = 1):
+    """
+    RpcEnumPrinters enumerates available printers, print servers, domains, or print providers.
+    Full Documentation: https://msdn.microsoft.com/en-us/library/cc244794.aspx
+
+    :param DCERPC_v5 dce: a connected DCE instance.
+    :param DWORD flags: The types of print objects that this method enumerates. The value of this parameter is the
+    result of a bitwise OR of one or more of the Printer Enumeration Flags (section 2.2.3.7).
+    :param string name: NULL or a server name parameter as specified in Printer Server Name Parameters (section 3.1.4.1.4).
+    :param level: The level of printer information structure.
+
+    :return: a RpcEnumPrintersResponse instance, raises DCERPCSessionError on error.
+    """
     request = RpcEnumPrinters()
     request['Flags'] = flags
     request['Name'] = name
