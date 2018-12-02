@@ -123,6 +123,22 @@ PRINTER_CHANGE_ADD_PRINTER               = 0x00000001
 PRINTER_CHANGE_FAILED_CONNECTION_PRINTER = 0x00000008
 PRINTER_CHANGE_SERVER                    = 0x08000000
 
+# 2.2.3.7 Printer Enumeration Flags
+PRINTER_ENUM_LOCAL       = 0x00000002
+PRINTER_ENUM_CONNECTIONS = 0x00000004
+PRINTER_ENUM_NAME        = 0x00000008
+PRINTER_ENUM_REMOTE      = 0x00000010
+PRINTER_ENUM_SHARED      = 0x00000020
+PRINTER_ENUM_NETWORK     = 0x00000040
+PRINTER_ENUM_EXPAND      = 0x00004000
+PRINTER_ENUM_CONTAINER   = 0x00008000
+PRINTER_ENUM_ICON1       = 0x00010000
+PRINTER_ENUM_ICON2       = 0x00020000
+PRINTER_ENUM_ICON3       = 0x00040000
+PRINTER_ENUM_ICON8       = 0x00800000
+PRINTER_ENUM_HIDE        = 0x01000000
+
+
 # 2.2.3.8 Printer Notification Values
 PRINTER_NOTIFY_CATEGORY_2D  = 0x00000000
 PRINTER_NOTIFY_CATEGORY_ALL = 0x00010000
@@ -264,6 +280,24 @@ class PRPC_V2_NOTIFY_OPTIONS(NDRPOINTER):
 ################################################################################
 # RPC CALLS
 ################################################################################
+# 3.1.4.2.1 RpcEnumPrinters (Opnum 0)
+class RpcEnumPrinters(NDRCALL):
+    opnum = 0
+    structure = (
+       ('Flags', DWORD),
+       ('Name', STRING_HANDLE),
+       ('Level', DWORD),
+       ('pPrinterEnum', PBYTE_ARRAY),
+       ('cbBuf', DWORD),
+    )
+
+class RpcEnumPrintersResponse(NDRCALL):
+    structure = (
+       ('pPrinterEnum', PBYTE_ARRAY),
+       ('pcbNeeded', DWORD),
+       ('pcReturned', DWORD),
+       ('ErrorCode', ULONG),
+    )
 # 3.1.4.2.2 RpcOpenPrinter (Opnum 1)
 class RpcOpenPrinter(NDRCALL):
     opnum = 1
@@ -277,6 +311,19 @@ class RpcOpenPrinter(NDRCALL):
 class RpcOpenPrinterResponse(NDRCALL):
     structure = (
        ('pHandle', PRINTER_HANDLE),
+       ('ErrorCode', ULONG),
+    )
+
+# 3.1.4.2.9 RpcClosePrinter (Opnum 29)
+class RpcClosePrinter(NDRCALL):
+    opnum = 29
+    structure = (
+       ('phPrinter', PRINTER_HANDLE),
+    )
+
+class RpcClosePrinterResponse(NDRCALL):
+    structure = (
+       ('phPrinter', PRINTER_HANDLE),
        ('ErrorCode', ULONG),
     )
 
@@ -318,7 +365,9 @@ class RpcOpenPrinterExResponse(NDRCALL):
 # OPNUMs and their corresponding structures
 ################################################################################
 OPNUMS = {
+    0  : (RpcEnumPrinters, RpcEnumPrintersResponse),
     1  : (RpcOpenPrinter, RpcOpenPrinterResponse),
+    29 : (RpcClosePrinter, RpcClosePrinterResponse),
     65 : (RpcRemoteFindFirstPrinterChangeNotificationEx, RpcRemoteFindFirstPrinterChangeNotificationExResponse),
     69 : (RpcOpenPrinterEx, RpcOpenPrinterExResponse),
 }
@@ -345,6 +394,11 @@ def hRpcOpenPrinter(dce, printerName, pDatatype = NULL, pDevModeContainer = NULL
         request['pDevModeContainer'] = pDevModeContainer
 
     request['AccessRequired'] = accessRequired
+    return dce.request(request)
+
+def hRpcClosePrinter(dce, phPrinter):
+    request = RpcClosePrinter()
+    request['phPrinter'] = phPrinter
     return dce.request(request)
 
 def hRpcOpenPrinterEx(dce, printerName, pDatatype = NULL, pDevModeContainer = NULL, accessRequired = SERVER_READ, pClientInfo = NULL):
@@ -374,5 +428,28 @@ def hRpcRemoteFindFirstPrinterChangeNotificationEx(dce, hPrinter, fdwFlags, fdwO
         raise Exception('pszLocalMachine cannot be NULL')
     request['pszLocalMachine'] = checkNullString(pszLocalMachine)
     request['pOptions'] = pOptions
+    return dce.request(request)
+
+def hRpcEnumPrinters(dce, flags, name = NULL, level = 1):
+    request = RpcEnumPrinters()
+    request['Flags'] = flags
+    request['Name'] = name
+    request['pPrinterEnum'] = NULL
+    request['Level'] = level
+    try:
+        resp = dce.request(request)
+    except Exception as e:
+        if str(e).find('ERROR_INSUFFICIENT_BUFFER') < 0:
+            raise
+
+    bytesNeeded = e.get_packet()['pcbNeeded']
+
+    request = RpcEnumPrinters()
+    request['Flags'] = flags
+    request['Name'] = name
+    request['Level'] = level
+
+    request['cbBuf'] = bytesNeeded
+    request['pPrinterEnum'] = b'a' * bytesNeeded
     return dce.request(request)
 
