@@ -22,7 +22,7 @@ import os
 import re
 import socket
 from binascii import unhexlify
-from six import PY2
+from six import u
 
 from pyasn1.codec.ber import encoder, decoder
 from pyasn1.error import SubstrateUnderrunError
@@ -468,10 +468,7 @@ class LDAPConnection:
 
     def _parseFilter(self, filterStr):
         try:
-            if PY2:
-                filterList = list(reversed(unicode(filterStr)))
-            else:
-                filterList = list(reversed(filterStr))
+            filterList = list(reversed(u(filterStr)))
         except UnicodeDecodeError:
             filterList = list(reversed(filterStr))
         searchFilter = self._consumeCompositeFilter(filterList)
