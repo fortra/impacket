@@ -17,20 +17,13 @@ except ImportError:
 
 from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import mimilib, epm
-from impacket.dcerpc.v5.dtypes import NULL, MAXIMUM_ALLOWED, OWNER_SECURITY_INFORMATION
 from impacket.winregistry import hexdump
-from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_INTEGRITY, RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 
 
 class RRPTests(unittest.TestCase):
     def connect(self):
         rpctransport = transport.DCERPCTransportFactory(self.stringBinding)
         rpctransport.set_connect_timeout(30000)
-        if len(self.hashes) > 0:
-            lmhash, nthash = self.hashes.split(':')
-        else:
-            lmhash = ''
-            nthash = ''
         #if hasattr(rpctransport, 'set_credentials'):
             # This method exists only for selected protocol sequences.
         #    rpctransport.set_credentials(self.username,self.password, self.domain, lmhash, nthash)
@@ -97,7 +90,6 @@ class RRPTests(unittest.TestCase):
 
     def test_MimiUnBind(self):
         dce, rpctransport, pHandle, key = self.connect()
-        command = 'token::whoami\x00'
         request = mimilib.MimiUnbind()
         request['phMimi'] = pHandle
         hexdump(request.getData())

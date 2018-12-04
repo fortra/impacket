@@ -27,7 +27,7 @@ import socket
 import time
 import sys
 
-from impacket import ImpactDecoder, ImpactPacket, IP6, ICMP6, version
+from impacket import ImpactDecoder, IP6, ICMP6, version
 
 print(version.BANNER)
 

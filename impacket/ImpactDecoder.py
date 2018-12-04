@@ -15,17 +15,14 @@
 
 import array
 
-from impacket import ImpactPacket
-from impacket import dot11
-from impacket import IP6
 from impacket import ICMP6
+from impacket import IP6
 from impacket import IP6_Extension_Headers
-from impacket.cdp import CDP
-from impacket.Dot11Crypto import RC4
-from impacket import wps, eap, dhcp
-from impacket.dot11 import Dot11WEPData
+from impacket import ImpactPacket
 from impacket import LOG
-
+from impacket import dot11
+from impacket import wps, eap, dhcp
+from impacket.cdp import CDP
 
 """Classes to convert from raw packets into a hierarchy of
 ImpactPacket derived objects.

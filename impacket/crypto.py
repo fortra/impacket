@@ -20,7 +20,7 @@ from __future__ import division
 from __future__ import print_function
 from impacket import LOG
 try:
-    from Cryptodome.Cipher import DES, AES, ARC4
+    from Cryptodome.Cipher import DES, AES
 except Exception:
     LOG.error("Warning: You don't have any crypto installed. You need pycryptodomex")
     LOG.error("See https://pypi.org/project/pycryptodomex/")
@@ -88,7 +88,6 @@ def XOR_128(N1,N2):
     return J
 
 def PAD(N):
-    const_Bsize = 16
     padLen = 16-len(N)
     return  N + b'\x80' + b'\x00'*(padLen-1)
 
@@ -278,7 +277,6 @@ def decryptSecret(key, value):
         tmpKey = transformKey(tmpStrKey)
         Crypt1 = DES.new(tmpKey, DES.MODE_ECB)
         plainText += Crypt1.decrypt(cipherText)
-        cipherText = cipherText[8:]
         key0 = key0[7:]
         value = value[8:]
         # AdvanceKey
@@ -290,7 +288,6 @@ def decryptSecret(key, value):
 
 def encryptSecret(key, value):
     # [MS-LSAD] Section 5.1.2
-    plainText = ''
     cipherText = b''
     key0 = key
     value0 = pack('<LL', len(value), 1) + value
@@ -304,7 +301,6 @@ def encryptSecret(key, value):
         tmpKey = transformKey(tmpStrKey)
         Crypt1 = DES.new(tmpKey, DES.MODE_ECB)
         cipherText += Crypt1.encrypt(plainText)
-        plainText = plainText[8:]
         key0 = key0[7:]
         value0 = value0[8:]
         # AdvanceKey

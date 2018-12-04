@@ -15,11 +15,12 @@
 
 
 import ntpath
-import string
 import socket
 
 from impacket import smb, smb3, nmb, nt_errors, LOG
-from .smb3structs import *
+from impacket.smb3structs import SMB2Packet, SMB2_DIALECT_002, SMB2_DIALECT_21, SMB2_DIALECT_30, GENERIC_ALL, FILE_SHARE_READ, \
+    FILE_SHARE_WRITE, FILE_SHARE_DELETE, FILE_NON_DIRECTORY_FILE, FILE_OVERWRITE_IF, FILE_ATTRIBUTE_NORMAL, \
+    SMB2_IL_IMPERSONATION, SMB2_OPLOCK_LEVEL_NONE, FILE_READ_DATA , FILE_WRITE_DATA, FILE_OPEN
 
 
 # So the user doesn't need to import smb, the smb3 are already in here
@@ -409,7 +410,7 @@ class SMBConnection:
 
         :param string shareName: a valid name for the share where the files/directories are going to be searched
         :param string path: a base path relative to shareName
-        :password string: the password for the share
+        :param string password: the password for the share
 
         :return: a list containing smb.SharedFile items, raises a SessionError exception if error.
         """
@@ -427,8 +428,20 @@ class SMBConnection:
         """
         creates a remote file
 
+
         :param HANDLE treeId: a valid handle for the share where the file is to be created
         :param string pathName: the path name of the file to create
+        :param int desiredAccess: The level of access that is required, as specified in https://msdn.microsoft.com/en-us/library/cc246503.aspx
+        :param int shareMode: Specifies the sharing mode for the open.
+        :param int creationOption: Specifies the options to be applied when creating or opening the file.
+        :param int creationDisposition: Defines the action the server MUST take if the file that is specified in the name
+        field already exists.
+        :param int fileAttributes: This field MUST be a combination of the values specified in [MS-FSCC] section 2.6, and MUST NOT include any values other than those specified in that section.
+        :param int impersonationLevel: This field specifies the impersonation level requested by the application that is issuing the create request.
+        :param int securityFlags: This field MUST NOT be used and MUST be reserved. The client MUST set this to 0, and the server MUST ignore it.
+        :param int oplockLevel: The requested oplock level
+        :param createContexts: A variable-length attribute that is sent with an SMB2 CREATE Request or SMB2 CREATE Response that either gives extra information about how the create will be processed, or returns extra information about how the create was processed.
+
         :return: a valid file descriptor, if not raises a SessionError exception.
         """
 
@@ -479,6 +492,18 @@ class SMBConnection:
 
         :param HANDLE treeId: a valid handle for the share where the file is to be opened
         :param string pathName: the path name to open
+        :param int desiredAccess: The level of access that is required, as specified in https://msdn.microsoft.com/en-us/library/cc246503.aspx
+        :param int shareMode: Specifies the sharing mode for the open.
+        :param int creationOption: Specifies the options to be applied when creating or opening the file.
+        :param int creationDisposition: Defines the action the server MUST take if the file that is specified in the name
+        field already exists.
+        :param int fileAttributes: This field MUST be a combination of the values specified in [MS-FSCC] section 2.6, and MUST NOT include any values other than those specified in that section.
+        :param int impersonationLevel: This field specifies the impersonation level requested by the application that is issuing the create request.
+        :param int securityFlags: This field MUST NOT be used and MUST be reserved. The client MUST set this to 0, and the server MUST ignore it.
+        :param int oplockLevel: The requested oplock level
+        :param createContexts: A variable-length attribute that is sent with an SMB2 CREATE Request or SMB2 CREATE Response that either gives extra information about how the create will be processed, or returns extra information about how the create was processed.
+
+
         :return: a valid file descriptor, if not raises a SessionError exception.
         """
 
@@ -753,7 +778,8 @@ class SMBConnection:
 
         :param string shareName: name for the share where the file is to be retrieved
         :param string pathName: the path name to retrieve
-        :param callback callback:
+        :param callback callback: function called to write the contents read.
+        :param int shareAccessMode:
 
         :return: None, raises a SessionError exception if error.
 
@@ -773,7 +799,8 @@ class SMBConnection:
 
         :param string shareName: name for the share where the file is to be uploaded
         :param string pathName: the path name to upload
-        :param callback callback:
+        :param callback callback: function called to read the contents to be written.
+        :param int shareAccessMode:
 
         :return: None, raises a SessionError exception if error.
 

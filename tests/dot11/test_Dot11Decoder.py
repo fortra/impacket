@@ -1,12 +1,10 @@
 #!/usr/bin/env python
-
 # sorry, this is very ugly, but I'm in python 2.5
 import sys
 sys.path.insert(0,"../..")
 
 from impacket.ImpactDecoder import Dot11Decoder #,Dot11Types
 from six import PY2
-from binascii import hexlify
 import unittest
 
 class TestDot11Decoder(unittest.TestCase):

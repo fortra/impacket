@@ -2078,7 +2078,7 @@ class SAMRTests(unittest.TestCase):
 
         request = samr.SamrDeleteAlias()
         request['AliasHandle'] = aliasHandle
-        resp = dce.request(request)
+        dce.request(request)
 
     def test_hSamrAddMemberToAlias_hSamrRemoveMemberFromAlias(self):
         dce, rpctransport, domainHandle  = self.connect()
@@ -2174,7 +2174,7 @@ class SAMRTests(unittest.TestCase):
 
         request = samr.SamrDeleteAlias()
         request['AliasHandle'] = aliasHandle
-        resp = dce.request(request)
+        dce.request(request)
 
     def test_hSamrAddMultipleMembersToAlias_hSamrRemoveMultipleMembersFromAliass(self):
         dce, rpctransport, domainHandle  = self.connect()
@@ -2229,7 +2229,7 @@ class SAMRTests(unittest.TestCase):
 
         request = samr.SamrDeleteAlias()
         request['AliasHandle'] = aliasHandle
-        resp = dce.request(request)
+        dce.request(request)
 
 
     def test_SamrRemoveMemberFromForeignDomain(self):
@@ -2268,7 +2268,7 @@ class SAMRTests(unittest.TestCase):
 
         request = samr.SamrDeleteAlias()
         request['AliasHandle'] = aliasHandle
-        resp = dce.request(request)
+        dce.request(request)
 
     def test_hSamrRemoveMemberFromForeignDomain(self):
         dce, rpctransport, domainHandle  = self.connect()
@@ -2304,7 +2304,7 @@ class SAMRTests(unittest.TestCase):
 
         request = samr.SamrDeleteAlias()
         request['AliasHandle'] = aliasHandle
-        resp = dce.request(request)
+        dce.request(request)
 
     def test_SamrGetAliasMembership(self):
         dce, rpctransport, domainHandle  = self.connect()
@@ -2357,7 +2357,7 @@ class SAMRTests(unittest.TestCase):
 
         request = samr.SamrDeleteAlias()
         request['AliasHandle'] = aliasHandle
-        resp = dce.request(request)
+        dce.request(request)
 
     def test_hSamrGetAliasMembership(self):
         dce, rpctransport, domainHandle  = self.connect()
@@ -2413,19 +2413,19 @@ class SAMRTests(unittest.TestCase):
         except Exception as e:
             request = samr.SamrDeleteAlias()
             request['AliasHandle'] = aliasHandle
-            resp = dce.request(request)
+            dce.request(request)
             raise
 
         request = samr.SamrDeleteAlias()
         request['AliasHandle'] = aliasHandle
-        resp = dce.request(request)
+        dce.request(request)
 
     def test_SamrSetMemberAttributesOfGroup(self):
         dce, rpctransport, domainHandle  = self.connect()
         request = samr.SamrConnect()
         request['DesiredAccess'] = dtypes.MAXIMUM_ALLOWED
         request['ServerName'] = 'BETO\x00'
-        resp = dce.request(request)
+        dce.request(request)
         request = samr.SamrOpenGroup()
         request['DomainHandle'] = domainHandle
         request['DesiredAccess'] =  dtypes.MAXIMUM_ALLOWED
@@ -2444,7 +2444,7 @@ class SAMRTests(unittest.TestCase):
         request = samr.SamrConnect()
         request['DesiredAccess'] = dtypes.MAXIMUM_ALLOWED
         request['ServerName'] = 'BETO\x00'
-        resp = dce.request(request)
+        dce.request(request)
         request = samr.SamrOpenGroup()
         request['DomainHandle'] = domainHandle
         request['DesiredAccess'] =  dtypes.MAXIMUM_ALLOWED
@@ -2496,7 +2496,7 @@ class SAMRTests(unittest.TestCase):
         request = samr.SamrRidToSid()
         request['ObjectHandle'] = domainHandle
         request['Rid'] =  samr.DOMAIN_USER_RID_ADMIN
-        resp = dce.request(request)
+        dce.request(request)
 
     def test_hSamrRidToSid(self):
         dce, rpctransport, domainHandle  = self.connect()
@@ -2511,7 +2511,7 @@ class SAMRTests(unittest.TestCase):
         request['EncryptedNtOwfPassword'] =  '\x00'*16
         # calls made to SamrSetDSRMPassword using NCACN_IP_TCP are rejected with RPC_S_ACCESS_DENIED.
         try:
-            resp = dce.request(request)
+            dce.request(request)
         except Exception as e:
             if self.stringBinding.find('ncacn_ip_tcp') >=0:
                 if str(e).find('rpc_s_access_denied') < 0:
@@ -2688,7 +2688,6 @@ class SAMRTests(unittest.TestCase):
         oldPwd = 'admin'
         oldPwdHashLM = ntlm.LMOWFv1(oldPwd)
         newPwd = 'ADMIN'
-        newPwdHashNT = ntlm.NTOWFv1(newPwd)
         newPwdHashLM = ntlm.LMOWFv1(newPwd)
 
         try:
@@ -2752,11 +2751,9 @@ class SAMRTests(unittest.TestCase):
         resp.dump()
 
         oldPwd = 'ADMIN'
-        oldPwdHashLM = ntlm.LMOWFv1(oldPwd)
         oldPwdHashNT = ntlm.NTOWFv1(oldPwd)
         newPwd = chars = "".join( [random.choice(string.ascii_letters) for i in range(15)] )
         newPwdHashNT = ntlm.NTOWFv1(newPwd)
-        newPwdHashLM = ntlm.LMOWFv1(newPwd)
 
         try:
             from Cryptodome.Cipher import ARC4

@@ -34,7 +34,6 @@ class TestIP6(unittest.TestCase):
         hop_by_hop = IP6_Extension_Headers.Hop_By_Hop()
         hop_by_hop.set_next_header(58)
 
-        from impacket.structure import hexdump
         self.assertEqual(
             self.string_to_list(hop_by_hop.get_packet()), hop_by_hop_binary_packet, 
             "Simple Hop By Hop Header creation - Buffer mismatch")

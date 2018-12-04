@@ -25,7 +25,7 @@ from impacket.examples import logger
 from impacket import version
 from impacket.dcerpc.v5 import transport, scmr
 from impacket.dcerpc.v5.ndr import NULL
-from impacket.crypto import *
+from impacket.crypto import encryptSecret
 
 
 class SVCCTL:
@@ -48,7 +48,7 @@ class SVCCTL:
 
     def run(self, remoteName, remoteHost):
 
-        stringbinding = 'ncacn_np:%s[\pipe\svcctl]' % remoteName
+        stringbinding = r'ncacn_np:%s[\pipe\svcctl]' % remoteName
         logging.debug('StringBinding %s'%stringbinding)
         rpctransport = transport.DCERPCTransportFactory(stringbinding)
         rpctransport.set_dport(self.__port)

@@ -11,18 +11,18 @@
 
 from __future__ import division
 from __future__ import print_function
-import unittest
-try:
-    import ConfigParser
-except ImportError:
-    import configparser as ConfigParser
+
 import socket
 import struct
+import unittest
 
+from six.moves import configparser
+
+from impacket.dcerpc.v5 import epm, dhcpm
 from impacket.dcerpc.v5 import transport
-from impacket.dcerpc.v5 import epm, dhcpm, samr
 from impacket.dcerpc.v5.dtypes import NULL
-from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY, RPC_C_AUTHN_WINNT, RPC_C_AUTHN_LEVEL_PKT_INTEGRITY
+from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY
+
 
 class DHCPMTests(unittest.TestCase):
     def connect(self, version):
@@ -144,7 +144,7 @@ class DHCPMTests(unittest.TestCase):
 class SMBTransport(DHCPMTests):
     def setUp(self):
         DHCPMTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
+        configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('SMBTransport', 'username')
         self.domain   = configFile.get('SMBTransport', 'domain')
@@ -158,7 +158,7 @@ class SMBTransport(DHCPMTests):
 class SMBTransport64(DHCPMTests):
     def setUp(self):
         DHCPMTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
+        configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('SMBTransport', 'username')
         self.domain   = configFile.get('SMBTransport', 'domain')
@@ -172,7 +172,7 @@ class SMBTransport64(DHCPMTests):
 class TCPTransport(DHCPMTests):
     def setUp(self):
         DHCPMTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
+        configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('TCPTransport', 'username')
         self.domain   = configFile.get('TCPTransport', 'domain')
@@ -187,7 +187,7 @@ class TCPTransport(DHCPMTests):
 class TCPTransport64(DHCPMTests):
     def setUp(self):
         DHCPMTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
+        configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('TCPTransport', 'username')
         self.domain = configFile.get('TCPTransport', 'domain')

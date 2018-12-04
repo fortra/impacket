@@ -9,16 +9,18 @@
 
 from __future__ import division
 from __future__ import print_function
+
 import unittest
+
 try:
     import ConfigParser
 except ImportError:
     import configparser as ConfigParser
 
 from impacket.dcerpc.v5 import transport
-from impacket.dcerpc.v5 import epm, bkrp
+from impacket.dcerpc.v5 import bkrp
 from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY
-from impacket.dcerpc.v5.dtypes import NULL, MAXIMUM_ALLOWED
+from impacket.dcerpc.v5.dtypes import NULL
 
 try:
     from cryptography import x509

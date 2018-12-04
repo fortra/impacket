@@ -153,7 +153,7 @@ class PSEXEC:
                 self.__command = os.path.basename(self.__copyFile) + ' ' + self.__command
 
             tid = s.connectTree('IPC$')
-            fid_main = self.openPipe(s,tid,'\RemCom_communicaton',0x12019f)
+            fid_main = self.openPipe(s,tid,r'\RemCom_communicaton',0x12019f)
 
             packet = RemComMessage()
             pid = os.getpid()
@@ -173,15 +173,15 @@ class PSEXEC:
 
             # Create the pipes threads
             stdin_pipe = RemoteStdInPipe(rpctransport,
-                                         '\%s%s%d' % (RemComSTDIN, packet['Machine'], packet['ProcessID']),
+                                         r'\%s%s%d' % (RemComSTDIN, packet['Machine'], packet['ProcessID']),
                                          smb.FILE_WRITE_DATA | smb.FILE_APPEND_DATA, installService.getShare())
             stdin_pipe.start()
             stdout_pipe = RemoteStdOutPipe(rpctransport,
-                                           '\%s%s%d' % (RemComSTDOUT, packet['Machine'], packet['ProcessID']),
+                                           r'\%s%s%d' % (RemComSTDOUT, packet['Machine'], packet['ProcessID']),
                                            smb.FILE_READ_DATA)
             stdout_pipe.start()
             stderr_pipe = RemoteStdErrPipe(rpctransport,
-                                           '\%s%s%d' % (RemComSTDERR, packet['Machine'], packet['ProcessID']),
+                                           r'\%s%s%d' % (RemComSTDERR, packet['Machine'], packet['ProcessID']),
                                            smb.FILE_READ_DATA)
             stderr_pipe.start()
             
@@ -344,7 +344,7 @@ class RemoteShell(cmd.Cmd):
             import ntpath
             filename = ntpath.basename(src_path)
             fh = open(filename,'wb')
-            logging.info("Downloading %s\%s" % (self.share, src_path))
+            logging.info("Downloading %s\\%s" % (self.share, src_path))
             self.transferClient.getFile(self.share, src_path, fh.write)
             fh.close()
         except Exception as e:
@@ -369,7 +369,7 @@ class RemoteShell(cmd.Cmd):
             fh = open(src_path, 'rb')
             f = dst_path + '/' + src_file
             pathname = f.replace('/','\\')
-            logging.info("Uploading %s to %s\%s" % (src_file, self.share, dst_path))
+            logging.info("Uploading %s to %s\\%s" % (src_file, self.share, dst_path))
             if PY3:
                 self.transferClient.putFile(self.share, pathname, fh.read)
             else:

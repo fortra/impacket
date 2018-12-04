@@ -25,7 +25,6 @@ ASN1_SUPPORTED_MECH              = 0xa1
 ASN1_RESPONSE_TOKEN              = 0xa2
 ASN1_ENUMERATED                  = 0x0a
 MechTypes = {
-b'+\x06\x01\x04\x01\x827\x02\x02\x1e': 'SNMPv2-SMI::enterprises.311.2.2.30',
 b'+\x06\x01\x04\x01\x827\x02\x02\n': 'NTLMSSP - Microsoft NTLM Security Support Provider',
 b'*\x86H\x82\xf7\x12\x01\x02\x02': 'MS KRB5 - Microsoft Kerberos 5',
 b'*\x86H\x86\xf7\x12\x01\x02\x02': 'KRB5 - Kerberos 5',

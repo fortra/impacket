@@ -5,7 +5,7 @@
 # for more information.
 #
 
-from impacket import ImpactPacket, ImpactDecoder, structure
+from impacket import structure
 
 O_ETH = 0
 O_IP  = 1

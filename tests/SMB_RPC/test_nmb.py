@@ -3,7 +3,6 @@ try:
 except ImportError:
     import configparser as ConfigParser
 import unittest
-from six import b
 
 from impacket import nmb
 from impacket.structure import hexdump

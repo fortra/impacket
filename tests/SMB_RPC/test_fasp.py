@@ -10,11 +10,11 @@
 ################################################################################
 
 import unittest
-import ConfigParser
+
+from six.moves import configparser
 
 from impacket.dcerpc.v5 import transport, epm, fasp
-from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_INTEGRITY, RPC_C_AUTHN_LEVEL_PKT_PRIVACY, RPC_C_AUTHN_LEVEL_NONE
-from impacket.dcerpc.v5.ndr import NULL
+from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 
 
 class FASPTests(unittest.TestCase):
@@ -68,7 +68,7 @@ class FASPTests(unittest.TestCase):
 class TCPTransport(FASPTests):
     def setUp(self):
         FASPTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
+        configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('TCPTransport', 'username')
         self.domain   = configFile.get('TCPTransport', 'domain')
@@ -82,7 +82,7 @@ class TCPTransport(FASPTests):
 class TCPTransport64(FASPTests):
     def setUp(self):
         FASPTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
+        configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('TCPTransport', 'username')
         self.domain   = configFile.get('TCPTransport', 'domain')

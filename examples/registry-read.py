@@ -18,7 +18,6 @@ import sys
 import argparse
 import ntpath
 from binascii import unhexlify, hexlify
-from six import b
 
 from impacket.examples import logger
 from impacket import version

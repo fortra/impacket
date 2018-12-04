@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 # Copyright (c) 2003-2013 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
@@ -18,11 +17,8 @@
 import sys
 sys.path.insert(0,"../../..")
 
-
 import unittest
 import impacket.helper as h
-
-
 
 class TestHelpers(unittest.TestCase):
     

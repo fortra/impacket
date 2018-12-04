@@ -56,34 +56,34 @@ class DCERPCTests(unittest.TestCase):
 
     def test_dceAuth(self):
         dce = self.connectDCE(self.username, self.password, self.domain, dceAuth=True)
-        resp = epm.hept_lookup(self.machine)
+        epm.hept_lookup(self.machine)
         dce.disconnect()
 
     def test_dceAuthKerberos(self):
         dce = self.connectDCE(self.username, self.password, self.domain, dceAuth=True, doKerberos=True)
-        resp = epm.hept_lookup(self.machine)
+        epm.hept_lookup(self.machine)
         dce.disconnect()
 
     def test_dceAuthHasHashes(self):
         lmhash, nthash = self.hashes.split(':')
         dce = self.connectDCE(self.username, '', self.domain, lmhash, nthash, dceAuth=True)
-        resp = epm.hept_lookup(self.machine)
+        epm.hept_lookup(self.machine)
         dce.disconnect()
 
     def test_dceAuthHasHashesKerberos(self):
         lmhash, nthash = self.hashes.split(':')
         dce = self.connectDCE(self.username, '', self.domain, lmhash, nthash, dceAuth=True, doKerberos=True)
-        resp = epm.hept_lookup(self.machine)
+        epm.hept_lookup(self.machine)
         dce.disconnect()
 
     def test_dceAuthHasAes128Kerberos(self):
         dce = self.connectDCE(self.username, '', self.domain, '', '', self.aesKey128, dceAuth=True, doKerberos=True)
-        resp = epm.hept_lookup(self.machine)
+        epm.hept_lookup(self.machine)
         dce.disconnect()
 
     def test_dceAuthHasAes256Kerberos(self):
         dce = self.connectDCE(self.username, '', self.domain, '', '', self.aesKey256, dceAuth=True, doKerberos=True)
-        resp = epm.hept_lookup(self.machine)
+        epm.hept_lookup(self.machine)
         dce.disconnect()
 
     def test_dceTransportFragmentation(self):
@@ -95,7 +95,7 @@ class DCERPCTests(unittest.TestCase):
         request['Ifid'] = NULL
         request['vers_option'] = epm.RPC_C_VERS_ALL
         request['max_ents'] = 499
-        resp = dce.request(request)
+        dce.request(request)
         dce.disconnect()
 
     def test_dceFragmentation(self):
@@ -107,7 +107,7 @@ class DCERPCTests(unittest.TestCase):
         request['Ifid'] = NULL
         request['vers_option'] = epm.RPC_C_VERS_ALL
         request['max_ents'] = 499
-        resp = dce.request(request)
+        dce.request(request)
         dce.disconnect()
 
     def test_bigRequestMustFragment(self):
@@ -134,12 +134,12 @@ class DCERPCTests(unittest.TestCase):
         request['ServerHandle'] = resp['ServerHandle']
         request['EnumerationContext'] =  0
         request['PreferedMaximumLength'] = 500
-        resp2 = dce.request(request)
+        dce.request(request)
         try:
             request = samr.SamrLookupDomainInSamServer()
             request['ServerHandle'] = resp['ServerHandle']
             request['Name'] = 'A'*4500
-            resp = dce.request(request)
+            dce.request(request)
         except Exception as e:
             if str(e).find('STATUS_NO_SUCH_DOMAIN') < 0:
                 raise
@@ -155,7 +155,7 @@ class DCERPCTests(unittest.TestCase):
         request['Ifid'] = NULL
         request['vers_option'] = epm.RPC_C_VERS_ALL
         request['max_ents'] = 499
-        resp = dce.request(request)
+        dce.request(request)
         dce.disconnect()
 
     def test_dceFragmentationWINNTPacketPrivacy(self):
@@ -168,7 +168,7 @@ class DCERPCTests(unittest.TestCase):
         request['Ifid'] = NULL
         request['vers_option'] = epm.RPC_C_VERS_ALL
         request['max_ents'] = 499
-        resp = dce.request(request)
+        dce.request(request)
         dce.disconnect()
 
     def test_dceFragmentationKerberosPacketIntegrity(self):
@@ -182,7 +182,7 @@ class DCERPCTests(unittest.TestCase):
         request['Ifid'] = NULL
         request['vers_option'] = epm.RPC_C_VERS_ALL
         request['max_ents'] = 499
-        resp = dce.request(request)
+        dce.request(request)
         dce.disconnect()
 
     def test_dceFragmentationKerberosPacketPrivacy(self):
@@ -196,7 +196,7 @@ class DCERPCTests(unittest.TestCase):
         request['Ifid'] = NULL
         request['vers_option'] = epm.RPC_C_VERS_ALL
         request['max_ents'] = 499
-        resp = dce.request(request)
+        dce.request(request)
         dce.disconnect()
 
     def test_WINNTPacketIntegrity(self):
@@ -208,7 +208,7 @@ class DCERPCTests(unittest.TestCase):
         request['Ifid'] = NULL
         request['vers_option'] = epm.RPC_C_VERS_ALL
         request['max_ents'] = 499
-        resp = dce.request(request)
+        dce.request(request)
         dce.disconnect()
 
     def test_KerberosPacketIntegrity(self):
@@ -220,7 +220,7 @@ class DCERPCTests(unittest.TestCase):
         request['Ifid'] = NULL
         request['vers_option'] = epm.RPC_C_VERS_ALL
         request['max_ents'] = 499
-        resp = dce.request(request)
+        dce.request(request)
         resp = dce.request(request)
         resp.dump()
         dce.disconnect()
@@ -235,7 +235,7 @@ class DCERPCTests(unittest.TestCase):
         request['Ifid'] = NULL
         request['vers_option'] = epm.RPC_C_VERS_ALL
         request['max_ents'] = 499
-        resp = dce.request(request)
+        dce.request(request)
         dce.disconnect()
 
     def test_HashesKerberosPacketIntegrity(self):
@@ -248,7 +248,7 @@ class DCERPCTests(unittest.TestCase):
         request['Ifid'] = NULL
         request['vers_option'] = epm.RPC_C_VERS_ALL
         request['max_ents'] = 499
-        resp = dce.request(request)
+        dce.request(request)
         resp = dce.request(request)
         resp.dump()
         dce.disconnect()
@@ -263,7 +263,7 @@ class DCERPCTests(unittest.TestCase):
         request['Ifid'] = NULL
         request['vers_option'] = epm.RPC_C_VERS_ALL
         request['max_ents'] = 499
-        resp = dce.request(request)
+        dce.request(request)
         resp = dce.request(request)
         resp.dump()
         dce.disconnect()
@@ -278,7 +278,7 @@ class DCERPCTests(unittest.TestCase):
         request['Ifid'] = NULL
         request['vers_option'] = epm.RPC_C_VERS_ALL
         request['max_ents'] = 499
-        resp = dce.request(request)
+        dce.request(request)
         resp = dce.request(request)
         resp.dump()
         dce.disconnect()
@@ -293,7 +293,7 @@ class DCERPCTests(unittest.TestCase):
             request['Ifid'] = NULL
             request['vers_option'] = epm.RPC_C_VERS_ALL
             request['max_ents'] = 499
-            resp = dce.request(request)
+            dce.request(request)
             dce.disconnect()
         except Exception as e:
             if not (str(e).find('STATUS_ACCESS_DENIED') >=0 and self.stringBinding.find('ncacn_np') >=0):
@@ -308,8 +308,8 @@ class DCERPCTests(unittest.TestCase):
         request['Ifid'] = NULL
         request['vers_option'] = epm.RPC_C_VERS_ALL
         request['max_ents'] = 499
-        resp = dce.request(request)
-        resp = dce.request(request)
+        dce.request(request)
+        dce.request(request)
         dce.disconnect()
 
     def test_KerberosPacketPrivacy(self):
@@ -321,7 +321,7 @@ class DCERPCTests(unittest.TestCase):
         request['Ifid'] = NULL
         request['vers_option'] = epm.RPC_C_VERS_ALL
         request['max_ents'] = 499
-        resp = dce.request(request)
+        dce.request(request)
         resp = dce.request(request)
         resp.dump()
         dce.disconnect()
@@ -336,7 +336,7 @@ class DCERPCTests(unittest.TestCase):
         request['Ifid'] = NULL
         request['vers_option'] = epm.RPC_C_VERS_ALL
         request['max_ents'] = 499
-        resp = dce.request(request)
+        dce.request(request)
         dce.disconnect()
 
     def test_HashesKerberosPacketPrivacy(self):
@@ -349,7 +349,7 @@ class DCERPCTests(unittest.TestCase):
         request['Ifid'] = NULL
         request['vers_option'] = epm.RPC_C_VERS_ALL
         request['max_ents'] = 499
-        resp = dce.request(request)
+        dce.request(request)
         resp = dce.request(request)
         resp.dump()
         dce.disconnect()
@@ -364,7 +364,7 @@ class DCERPCTests(unittest.TestCase):
         request['Ifid'] = NULL
         request['vers_option'] = epm.RPC_C_VERS_ALL
         request['max_ents'] = 499
-        resp = dce.request(request)
+        dce.request(request)
         resp = dce.request(request)
         resp.dump()
         dce.disconnect()
@@ -379,7 +379,7 @@ class DCERPCTests(unittest.TestCase):
         request['Ifid'] = NULL
         request['vers_option'] = epm.RPC_C_VERS_ALL
         request['max_ents'] = 499
-        resp = dce.request(request)
+        dce.request(request)
         resp = dce.request(request)
         resp.dump()
         dce.disconnect()
@@ -394,7 +394,7 @@ class DCERPCTests(unittest.TestCase):
             request['Ifid'] = NULL
             request['vers_option'] = epm.RPC_C_VERS_ALL
             request['max_ents'] = 499
-            resp = dce.request(request)
+            dce.request(request)
             dce.disconnect()
         except Exception as e:
             if not (str(e).find('STATUS_ACCESS_DENIED') >=0 and self.stringBinding.find('ncacn_np') >=0):

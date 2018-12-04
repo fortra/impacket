@@ -42,7 +42,7 @@ from threading import Thread
 
 from impacket.examples import logger
 from impacket import version, smbserver
-from impacket.smbconnection import *
+from impacket.smbconnection import SMB_DIALECT
 from impacket.dcerpc.v5 import transport, scmr
 
 OUTPUT_FILENAME = '__output'
@@ -59,7 +59,7 @@ class SMBServer(Thread):
         logging.info('Cleaning up..')
         try:
             os.unlink(SMBSERVER_DIR + '/smb.log')
-        except:
+        except OSError:
             pass
         os.rmdir(SMBSERVER_DIR)
 
@@ -129,7 +129,7 @@ class CMDEXEC:
             self.__lmhash, self.__nthash = hashes.split(':')
 
     def run(self, remoteName, remoteHost):
-        stringbinding = 'ncacn_np:%s[\pipe\svcctl]' % remoteName
+        stringbinding = r'ncacn_np:%s[\pipe\svcctl]' % remoteName
         logging.debug('StringBinding %s'%stringbinding)
         rpctransport = transport.DCERPCTransportFactory(stringbinding)
         rpctransport.set_dport(self.__port)
@@ -210,7 +210,7 @@ class RemoteShell(cmd.Cmd):
            scmr.hRDeleteService(self.__scmr, service)
            scmr.hRControlService(self.__scmr, service, scmr.SERVICE_CONTROL_STOP)
            scmr.hRCloseServiceHandle(self.__scmr, service)
-        except:
+        except scmr.DCERPCException:
            pass
 
     def do_shell(self, s):

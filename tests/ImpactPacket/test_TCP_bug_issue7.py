@@ -1,11 +1,9 @@
 #!/usr/bin/env python
-
 # sorry, this is very ugly, but I'm in python 2.5
 import sys
 sys.path.insert(0,"../..")
 
 from impacket.ImpactPacket import TCP, ImpactPacketException
-from binascii import hexlify
 import unittest
 from threading import Thread
 

@@ -4,7 +4,6 @@
 import glob
 import os
 import platform
-import sys
 
 from setuptools import setup
 

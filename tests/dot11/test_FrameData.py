@@ -1,11 +1,9 @@
 #!/usr/bin/env python
-
 # sorry, this is very ugly, but I'm in python 2.5
 import sys
 sys.path.insert(0,"../..")
 
 from impacket.dot11 import Dot11, Dot11Types, Dot11DataFrame
-from binascii import hexlify
 import unittest
 
 class TestDot11DataFrames(unittest.TestCase):

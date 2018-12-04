@@ -46,7 +46,6 @@ except ImportError:
     import configparser as ConfigParser
 import unittest
 from struct import unpack
-from six import b
 
 from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import scmr, epm
@@ -192,27 +191,27 @@ class SCMRTests(unittest.TestCase):
             request['Info']['dwInfoLevel'] = 3
             request['Info']['Union']['tag'] = 3
             request['Info']['Union']['psda']['fDelayedAutostart'] = 1
-            resp = dce.request(request)
+            dce.request(request)
             self.changeServiceAndQuery2(dce, request, request['Info']['Union']['psda']['fDelayedAutostart'])
             request['Info']['dwInfoLevel'] = 4
             request['Info']['Union']['tag'] = 4
             request['Info']['Union']['psfaf']['fFailureActionsOnNonCrashFailures'] = 1
-            resp = dce.request(request)
+            dce.request(request)
             self.changeServiceAndQuery2(dce, request, request['Info']['Union']['psfaf']['fFailureActionsOnNonCrashFailures'])
             request['Info']['dwInfoLevel'] = 5
             request['Info']['Union']['tag'] = 5
             request['Info']['Union']['pssid']['dwServiceSidType'] = 1
-            resp = dce.request(request)
+            dce.request(request)
             self.changeServiceAndQuery2(dce, request, request['Info']['Union']['pssid']['dwServiceSidType'])
             request['Info']['dwInfoLevel'] = 6
             request['Info']['Union']['tag'] = 6
             request['Info']['Union']['psrp']['pRequiredPrivileges'] = list('SeAssignPrimaryTokenPrivilege\x00\x00'.encode('utf-16le'))
-            resp = dce.request(request)
+            dce.request(request)
             self.changeServiceAndQuery2(dce, request, request['Info']['Union']['psrp']['pRequiredPrivileges'])
             request['Info']['dwInfoLevel'] = 7
             request['Info']['Union']['tag'] = 7
             request['Info']['Union']['psps']['dwPreshutdownTimeout'] = 22
-            resp = dce.request(request)
+            dce.request(request)
             self.changeServiceAndQuery2(dce, request, request['Info']['Union']['psps']['dwPreshutdownTimeout'])
             request['Info']['dwInfoLevel'] = 8
             request['Info']['Union']['tag'] = 8
@@ -227,7 +226,7 @@ class SCMRTests(unittest.TestCase):
             #trigger['pDataItems'].append(item)
             trigger['pDataItems'] = NULL
             request['Info']['Union']['psti']['pTriggers'].append(trigger)
-            resp = dce.request(request)
+            dce.request(request)
             #self.changeServiceAndQuery2(dce, request, '\x00')
             request['Info']['dwInfoLevel'] = 9
             request['Info']['Union']['tag'] = 9
@@ -255,9 +254,9 @@ class SCMRTests(unittest.TestCase):
             error = True
             pass
 
-        resp = scmr.hRDeleteService(dce, newHandle)
-        resp = scmr.hRCloseServiceHandle(dce, newHandle)
-        resp = scmr.hRCloseServiceHandle(dce, scHandle)
+        scmr.hRDeleteService(dce, newHandle)
+        scmr.hRCloseServiceHandle(dce, newHandle)
+        scmr.hRCloseServiceHandle(dce, scHandle)
         if error:
             self.assertTrue( 1 == 0 )
     
@@ -305,8 +304,7 @@ class SCMRTests(unittest.TestCase):
 
         resp = dce.request(request)
         array = b''.join(resp['lpBuffer'])
-        status = scmr.SERVICE_STATUS_PROCESS(array)
-        #status.dump()
+        scmr.SERVICE_STATUS_PROCESS(array)
 
     # ToDo
     def te_REnumServiceGroupW(self):
@@ -326,7 +324,7 @@ class SCMRTests(unittest.TestCase):
            if str(e).find('ERROR_SERVICE_DOES_NOT_EXISTS') <= 0:
                raise
 
-        resp = scmr.hRCloseServiceHandle(dce, scHandle)
+        scmr.hRCloseServiceHandle(dce, scHandle)
 
     def test_RQueryServiceConfigEx(self):
         dce, rpctransport, scHandle  = self.connect()
@@ -405,9 +403,9 @@ class SCMRTests(unittest.TestCase):
         lpServiceName = 'PlugPlay\x00'
         lpcchBuffer = len(lpServiceName)+100
 
-        resp = scmr.hRGetServiceDisplayNameW(dce, scHandle, lpServiceName, lpcchBuffer)
+        scmr.hRGetServiceDisplayNameW(dce, scHandle, lpServiceName, lpcchBuffer)
 
-        resp = scmr.hRCloseServiceHandle(dce, scHandle)
+        scmr.hRCloseServiceHandle(dce, scHandle)
 
     def test_RGetServiceKeyNameW(self):
         dce, rpctransport, scHandle  = self.connect()
@@ -415,9 +413,9 @@ class SCMRTests(unittest.TestCase):
         lpDisplayName = 'Plug and Play\x00'
         lpcchBuffer = len(lpDisplayName)+100
 
-        resp = scmr.hRGetServiceKeyNameW(dce, scHandle, lpDisplayName, lpcchBuffer)
+        scmr.hRGetServiceKeyNameW(dce, scHandle, lpDisplayName, lpcchBuffer)
 
-        resp = scmr.hRCloseServiceHandle(dce, scHandle)
+        scmr.hRCloseServiceHandle(dce, scHandle)
 
     def test_RStartServiceW(self):
         dce, rpctransport, scHandle  = self.connect()
@@ -430,19 +428,19 @@ class SCMRTests(unittest.TestCase):
         serviceHandle = resp['lpServiceHandle']
   
         try:
-            resp = scmr.hRStartServiceW(dce, serviceHandle, 3, ['arg1\x00', 'arg2\x00', 'arg3\x00'] )
+            scmr.hRStartServiceW(dce, serviceHandle, 3, ['arg1\x00', 'arg2\x00', 'arg3\x00'] )
         except Exception as e:
            if str(e).find('ERROR_SERVICE_ALREADY_RUNNING') <= 0:
                raise
-        resp = scmr.hRCloseServiceHandle(dce, scHandle)
+        scmr.hRCloseServiceHandle(dce, scHandle)
 
     def test_RQueryServiceLockStatusW(self):
         dce, rpctransport, scHandle  = self.connect()
 
         pcbBytesNeeded = 1000
-        resp = scmr.hRQueryServiceLockStatusW(dce, scHandle, pcbBytesNeeded)
+        scmr.hRQueryServiceLockStatusW(dce, scHandle, pcbBytesNeeded)
 
-        resp = scmr.hRCloseServiceHandle(dce, scHandle)
+        scmr.hRCloseServiceHandle(dce, scHandle)
 
     def test_enumservices(self):
         dce, rpctransport, scHandle  = self.connect()
@@ -451,10 +449,9 @@ class SCMRTests(unittest.TestCase):
         # EnumServicesStatusW
         dwServiceType = scmr.SERVICE_KERNEL_DRIVER | scmr.SERVICE_FILE_SYSTEM_DRIVER | scmr.SERVICE_WIN32_OWN_PROCESS | scmr.SERVICE_WIN32_SHARE_PROCESS
         dwServiceState = scmr.SERVICE_STATE_ALL
-        cbBufSize = 0
-        resp = scmr.hREnumServicesStatusW(dce, scHandle, dwServiceType, dwServiceState)
+        scmr.hREnumServicesStatusW(dce, scHandle, dwServiceType, dwServiceState)
 
-        resp = scmr.hRCloseServiceHandle(dce, scHandle)
+        scmr.hRCloseServiceHandle(dce, scHandle)
 
     def test_create_change_delete(self):
         dce, rpctransport, scHandle  = self.connect()
@@ -551,11 +548,10 @@ class SCMRTests(unittest.TestCase):
 
             lpDisplayName = 'MANOLO\x00'
             self.changeServiceAndQuery(dce, cbBufSize, newHandle, dwServiceType, dwStartType, dwErrorControl, lpBinaryPathName, lpLoadOrderGroup, lpdwTagId, lpDependencies, dwDependSize, lpServiceStartName, lpPassword, dwPwSize, lpDisplayName) 
-            lpDisplayName = NULL
 
-        resp = scmr.hRDeleteService(dce, newHandle)
-        resp = scmr.hRCloseServiceHandle(dce, newHandle)
-        resp = scmr.hRCloseServiceHandle(dce, scHandle)
+        scmr.hRDeleteService(dce, newHandle)
+        scmr.hRCloseServiceHandle(dce, newHandle)
+        scmr.hRCloseServiceHandle(dce, scHandle)
 
     def test_query(self):
         dce, rpctransport, scHandle  = self.connect()
@@ -570,7 +566,7 @@ class SCMRTests(unittest.TestCase):
 
         serviceHandle = resp['lpServiceHandle']
  
-        resp = scmr.hRQueryServiceStatus(dce, serviceHandle)
+        scmr.hRQueryServiceStatus(dce, serviceHandle)
 
         cbBufSize = 0
         try:
@@ -586,17 +582,17 @@ class SCMRTests(unittest.TestCase):
         cbBufSize = resp['pcbBytesNeeded']
         resp = scmr.hREnumDependentServicesW(dce, serviceHandle, scmr.SERVICE_STATE_ALL,cbBufSize )
         resp.dump()
-        resp = scmr.hRCloseServiceHandle(dce, serviceHandle)
-        resp = scmr.hRCloseServiceHandle(dce, scHandle)
+        scmr.hRCloseServiceHandle(dce, serviceHandle)
+        scmr.hRCloseServiceHandle(dce, scHandle)
 
     def test_lock_unlock(self):
         dce, rpctransport, scHandle  = self.connect()
         
         resp = scmr.hRLockServiceDatabase(dce, scHandle)
         lockHandle = resp['lpLock']
-        resp = scmr.hRUnlockServiceDatabase(dce, lockHandle)
+        scmr.hRUnlockServiceDatabase(dce, lockHandle)
 
-        resp = scmr.hRCloseServiceHandle(dce, scHandle)
+        scmr.hRCloseServiceHandle(dce, scHandle)
 
     def test_query_set_object_security(self):
         dce, rpctransport, scHandle  = self.connect()
@@ -608,7 +604,7 @@ class SCMRTests(unittest.TestCase):
            if str(e).find('rpc_s_access_denied') <= 0:
                raise
  
-        resp = scmr.hRCloseServiceHandle(dce, scHandle)
+        scmr.hRCloseServiceHandle(dce, scHandle)
 
     def atest_notify_config(self):
         dce, rpctransport, scHandle  = self.connect()
@@ -621,7 +617,7 @@ class SCMRTests(unittest.TestCase):
            if str(e).find('ERROR_BOOT_ALREADY_ACCEPTED') <= 0:
                raise
  
-        resp = scmr.hRCloseServiceHandle(dce, scHandle)
+        scmr.hRCloseServiceHandle(dce, scHandle)
 
     def test_RControlServiceCall(self):
         dce, rpctransport, scHandle  = self.connect()
@@ -637,13 +633,13 @@ class SCMRTests(unittest.TestCase):
             req = scmr.RControlService()
             req['hService'] = serviceHandle
             req['dwControl'] = scmr.SERVICE_CONTROL_STOP
-            resp = dce.request(req)
+            dce.request(req)
         except Exception as e:
             if str(e).find('ERROR_DEPENDENT_SERVICES_RUNNING') < 0 and str(e).find('ERROR_SERVICE_NOT_ACTIVE') < 0:
                 raise
             pass
 
-        resp = scmr.hRCloseServiceHandle(dce, serviceHandle)
+        scmr.hRCloseServiceHandle(dce, serviceHandle)
         import time
         time.sleep(1)
         resp = scmr.hROpenServiceW(dce, scHandle, lpServiceName, desiredAccess )

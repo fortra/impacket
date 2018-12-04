@@ -55,7 +55,7 @@ from impacket.dcerpc.v5.dcomrt import DCOMConnection
 class WMITests(unittest.TestCase):
     def tes_activation(self):
         dcom = DCOMConnection(self.machine, self.username, self.password, self.domain, self.lmhash, self.nthash)
-        iInterface = dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLoginClientID)
+        dcom.CoCreateInstanceEx(wmi.CLSID_WbemLevel1Login,wmi.IID_IWbemLoginClientID)
         dcom.disconnect()
 
     def test_IWbemLevel1Login_EstablishPosition(self):

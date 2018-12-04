@@ -51,7 +51,6 @@ except ImportError:
 from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import epm, rrp, scmr
 from impacket.dcerpc.v5.dtypes import NULL, MAXIMUM_ALLOWED, OWNER_SECURITY_INFORMATION
-from impacket import ntlm
 
 
 class RRPTests(unittest.TestCase):
@@ -543,8 +542,7 @@ class RRPTests(unittest.TestCase):
         item3['ValueType'] = rrp.REG_BINARY
         #valueIn.append(item3)
 
-        resp = rrp.hBaseRegQueryMultipleValues(dce, resp['phkResult'], valueIn)
-        #print resp
+        rrp.hBaseRegQueryMultipleValues(dce, resp['phkResult'], valueIn)
 
     def test_BaseRegSaveKeyEx(self):
         dce, rpctransport, phKey = self.connect()
@@ -668,7 +666,6 @@ class RRPTests(unittest.TestCase):
         request['lpdwDisposition'] = rrp.REG_CREATED_NEW_KEY
         resp = dce.request(request)
         resp.dump()
-        phKey = resp['phkResult']
 
         request = rrp.BaseRegDeleteKeyEx()
         request['hKey'] = regHandle

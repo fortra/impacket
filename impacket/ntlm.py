@@ -899,7 +899,6 @@ def computeResponseNTLMv2(flags, serverChallenge, clientChallenge, serverName, d
     responseServerVersion = b'\x01'
     hiResponseServerVersion = b'\x01'
     responseKeyNT = NTOWFv2(user, password, domain, nthash)
-    responseKeyLM = LMOWFv2(user, password, domain, lmhash)
 
     av_pairs = AV_PAIRS(serverName)
     # In order to support SPN target name validation, we have to add this to the serverName av_pairs. Otherwise we will

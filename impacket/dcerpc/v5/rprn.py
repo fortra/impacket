@@ -500,7 +500,7 @@ def hRpcEnumPrinters(dce, flags, name = NULL, level = 1):
     Full Documentation: https://msdn.microsoft.com/en-us/library/cc244794.aspx
 
     :param DCERPC_v5 dce: a connected DCE instance.
-    :param DWORD flags: The types of print objects that this method enumerates. The value of this parameter is the
+    :param int flags: The types of print objects that this method enumerates. The value of this parameter is the
     result of a bitwise OR of one or more of the Printer Enumeration Flags (section 2.2.3.7).
     :param string name: NULL or a server name parameter as specified in Printer Server Name Parameters (section 3.1.4.1.4).
     :param level: The level of printer information structure.
@@ -514,7 +514,7 @@ def hRpcEnumPrinters(dce, flags, name = NULL, level = 1):
     request['Level'] = level
     bytesNeeded = 0
     try:
-        resp = dce.request(request)
+        dce.request(request)
     except DCERPCSessionError as e:
         if str(e).find('ERROR_INSUFFICIENT_BUFFER') < 0:
             raise

@@ -17,6 +17,7 @@
 #
 
 from __future__ import print_function
+
 import argparse
 import logging
 import re
@@ -25,14 +26,6 @@ import sys
 from impacket import version
 from impacket.examples import logger
 from impacket.mqtt import CONNECT_ACK_ERROR_MSGS, MQTTConnection
-
-try:
-    import OpenSSL
-    from OpenSSL import SSL, crypto
-except:
-    logging.critical("pyOpenSSL is not installed, can't continue")
-    raise
-
 
 class MQTT_LOGIN:
     def __init__(self, username, password, target, options):

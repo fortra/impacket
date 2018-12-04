@@ -23,11 +23,9 @@ import logging
 import struct
 import socket
 from impacket.structure import Structure
-from impacket.winregistry import hexdump
 try:
-    import OpenSSL
-    from OpenSSL import SSL, crypto
-except:
+    from OpenSSL import SSL
+except ImportError:
     logging.critical("pyOpenSSL is not installed, can't continue")
     raise
 

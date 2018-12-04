@@ -26,15 +26,13 @@ import random
 import binascii
 import math
 import datetime
-import sys
 import string
 
 from impacket import ntlm, uuid, LOG
 from impacket.structure import Structure
 
 try:
-    import OpenSSL
-    from OpenSSL import SSL, crypto
+    from OpenSSL import SSL
 except:
     LOG.critical("pyOpenSSL is not installed, can't continue")
     raise

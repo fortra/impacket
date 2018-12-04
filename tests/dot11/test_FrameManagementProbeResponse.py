@@ -1,12 +1,10 @@
 #!/usr/bin/env python
-
 # sorry, this is very ugly, but I'm in python 2.5
 import sys
 sys.path.insert(0,"../..")
 
-from impacket.dot11 import Dot11, Dot11Types, Dot11ManagementFrame,Dot11ManagementProbeResponse
+from impacket.dot11 import Dot11Types
 from impacket.ImpactDecoder import RadioTapDecoder
-from binascii import hexlify
 import unittest
 from six import PY2
 

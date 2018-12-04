@@ -15,11 +15,12 @@
 ################################################################################
 
 import unittest
-import ConfigParser
 
+from six.moves import configparser
+
+from impacket.dcerpc.v5 import even
 from impacket.dcerpc.v5 import transport
-from impacket.dcerpc.v5 import epm, even
-from impacket.dcerpc.v5.dtypes import NULL, MAXIMUM_ALLOWED, OWNER_SECURITY_INFORMATION
+from impacket.dcerpc.v5.dtypes import NULL
 
 
 class RRPTests(unittest.TestCase):
@@ -205,7 +206,7 @@ class RRPTests(unittest.TestCase):
 class SMBTransport(RRPTests):
     def setUp(self):
         RRPTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
+        configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('SMBTransport', 'username')
         self.domain   = configFile.get('SMBTransport', 'domain')
@@ -219,7 +220,7 @@ class SMBTransport(RRPTests):
 class SMBTransport64(RRPTests):
     def setUp(self):
         RRPTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
+        configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('SMBTransport', 'username')
         self.domain   = configFile.get('SMBTransport', 'domain')

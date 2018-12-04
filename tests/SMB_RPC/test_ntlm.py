@@ -161,7 +161,7 @@ class NTLMTests(unittest.TestCase):
         #self.assertTrue(ntResponse==bytearray(b'\x75\x37\xf8\x03\xae\x36\x71\x28\xca\x45\x82\x04\xbd\xe7\xca\xf8\x1e\x97\xed\x26\x83\x26\x72\x32'))
         print("\n")
         print("AUTHENTICATE MESSAGE")
-        encryptedSessionKey = ntlm.generateEncryptedSessionKey(keyExchangeKey,self.randomSessionKey)
+        ntlm.generateEncryptedSessionKey(keyExchangeKey,self.randomSessionKey)
         ntlmChallengeResponse = ntlm.NTLMAuthChallengeResponse(self.user, self.password, self.serverChallenge)
         ntlmChallengeResponse['flags'] = flags2
         ntlmChallengeResponse['host_name'] = self.workstationName.encode('utf-16le')
@@ -180,13 +180,10 @@ class NTLMTests(unittest.TestCase):
 
         exportedSessionKey = keyExchangeKey
         clientSigningKey = ntlm.SIGNKEY(flags, exportedSessionKey)
-        serverSigningKey = ntlm.SIGNKEY(flags, exportedSessionKey, b("Server"))
         clientSealingKey = ntlm.SEALKEY(flags, exportedSessionKey)
-        serverSealingKey = ntlm.SEALKEY(flags, exportedSessionKey, b("Server"))
 
         from Cryptodome.Cipher import ARC4
         cipher = ARC4.new(clientSigningKey)
-        client_signing_h = cipher.encrypt
 
         cipher2 = ARC4.new(clientSealingKey)
         client_sealing_h = cipher2.encrypt
@@ -272,13 +269,9 @@ class NTLMTests(unittest.TestCase):
 
         exportedSessionKey = self.randomSessionKey
         clientSigningKey = ntlm.SIGNKEY(flags, exportedSessionKey)
-        serverSigningKey = ntlm.SIGNKEY(flags, exportedSessionKey, "Server")
         clientSealingKey = ntlm.SEALKEY(flags, exportedSessionKey)
-        serverSealingKey = ntlm.SEALKEY(flags, exportedSessionKey, "Server")
 
         from Cryptodome.Cipher import ARC4
-        cipher = ARC4.new(clientSigningKey)
-        client_signing_h = cipher.encrypt
 
         cipher2 = ARC4.new(clientSealingKey)
         client_sealing_h = cipher2.encrypt

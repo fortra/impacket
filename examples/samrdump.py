@@ -64,7 +64,7 @@ class SAMRDump:
 
         logging.info('Retrieving endpoint list from %s' % remoteName)
 
-        stringbinding = 'ncacn_np:%s[\pipe\samr]' % remoteName
+        stringbinding = r'ncacn_np:%s[\pipe\samr]' % remoteName
         logging.debug('StringBinding %s'%stringbinding)
         rpctransport = transport.DCERPCTransportFactory(stringbinding)
         rpctransport.set_dport(self.__port)

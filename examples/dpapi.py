@@ -44,8 +44,8 @@ from impacket import version
 from impacket.examples import logger
 from impacket.examples.secretsdump import LocalOperations, LSASecrets
 from impacket.structure import hexdump
-from impacket.dpapi import DPAPI_SYSTEM, MasterKeyFile, MasterKey, CredHist, DomainKey, CredentialFile, DPAPI_BLOB, \
-    CREDENTIAL_BLOB, VAULT_VCRD, VAULT_VPOL, VAULT_KNOWN_SCHEMAS, VAULT_VPOL_KEYS
+from impacket.dpapi import MasterKeyFile, MasterKey, CredHist, DomainKey, CredentialFile, DPAPI_BLOB, CREDENTIAL_BLOB, \
+    VAULT_VCRD, VAULT_VPOL, VAULT_KNOWN_SCHEMAS, VAULT_VPOL_KEYS
 
 class DPAPI:
     def __init__(self, options):

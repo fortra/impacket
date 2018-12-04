@@ -50,7 +50,7 @@ try:
 except ImportError:
     import configparser as ConfigParser
 
-from impacket.dcerpc.v5 import transport, epm, lsad
+from impacket.dcerpc.v5 import transport, lsad
 from impacket.dcerpc.v5.ndr import NULL
 from impacket.dcerpc.v5.dtypes import MAXIMUM_ALLOWED, RPC_UNICODE_STRING, DELETE
 from impacket.structure import hexdump

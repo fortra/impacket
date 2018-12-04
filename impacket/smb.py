@@ -42,7 +42,6 @@ from __future__ import division
 from __future__ import print_function
 import os
 import socket
-import string
 from binascii import a2b_hex
 import datetime
 from struct import pack, unpack
@@ -59,11 +58,6 @@ import hashlib
 
 unicode_support = 0
 unicode_convert = 1
-
-try:
-    from io import StringIO
-except ImportError:
-    from io import StringIO
 
 # Dialect for SMB1
 SMB_DIALECT = 'NT LM 0.12'
@@ -2595,9 +2589,9 @@ class SMB:
         return 0
 
     def neg_session(self, extended_security = True, negPacket = None):
-        def parsePacket(smb):
-            if smb.isValidAnswer(SMB.SMB_COM_NEGOTIATE):
-                sessionResponse = SMBCommand(smb['Data'][0])
+        def parsePacket(packet):
+            if packet.isValidAnswer(SMB.SMB_COM_NEGOTIATE):
+                sessionResponse = SMBCommand(packet['Data'][0])
                 self._dialects_parameters = SMBNTLMDialect_Parameters(sessionResponse['Parameters'])
                 self._dialects_data = SMBNTLMDialect_Data()
                 self._dialects_data['ChallengeLength'] = self._dialects_parameters['ChallengeLength']
@@ -3264,20 +3258,20 @@ class SMB:
                 if av_pairs[ntlm.NTLMSSP_AV_HOSTNAME] is not None:
                    try:
                        self.__server_name = av_pairs[ntlm.NTLMSSP_AV_HOSTNAME][1].decode('utf-16le')
-                   except:
+                   except UnicodeDecodeError:
                        # For some reason, we couldn't decode Unicode here.. silently discard the operation
                        pass
                 if av_pairs[ntlm.NTLMSSP_AV_DOMAINNAME] is not None:
                    try:
                        if self.__server_name != av_pairs[ntlm.NTLMSSP_AV_DOMAINNAME][1].decode('utf-16le'):
                            self.__server_domain = av_pairs[ntlm.NTLMSSP_AV_DOMAINNAME][1].decode('utf-16le')
-                   except:
+                   except UnicodeDecodeError:
                        # For some reason, we couldn't decode Unicode here.. silently discard the operation
                        pass
                 if av_pairs[ntlm.NTLMSSP_AV_DNS_DOMAINNAME] is not None:
                    try:
                        self.__server_dns_domain_name = av_pairs[ntlm.NTLMSSP_AV_DNS_DOMAINNAME][1].decode('utf-16le')
-                   except:
+                   except UnicodeDecodeError:
                        # For some reason, we couldn't decode Unicode here.. silently discard the operation
                        pass
 
@@ -4074,11 +4068,11 @@ class SMB:
     def get_socket(self):
         return self._sess.get_socket()
 
-    def send_nt_trans(self, tid, function, max_param_count, setup='', param='', data=''):
+    def send_nt_trans(self, tid, subcommand, max_param_count, setup='', param='', data=''):
         """
         [MS-CIFS]: 2.2.4.62.1 SMB_COM_NT_TRANSACT request.
         :param tid:
-        :param function: The transaction subcommand code
+        :param subcommand: The transaction subcommand code
         :param max_param_count:  This field MUST be set as specified in the subsections of Transaction subcommands.
         :param setup: Transaction context to the server, depends on transaction subcommand.
         :param param: Subcommand parameter bytes if any, depends on transaction subcommand.
@@ -4094,7 +4088,7 @@ class SMB:
         transCommand['Parameters'] = SMBNTTransaction_Parameters()
         transCommand['Parameters']['MaxDataCount'] = self._dialects_parameters['MaxBufferSize']
         transCommand['Parameters']['Setup'] = setup_bytes
-        transCommand['Parameters']['Function'] = function
+        transCommand['Parameters']['Function'] = subcommand
         transCommand['Parameters']['TotalParameterCount'] = len(param)
         transCommand['Parameters']['TotalDataCount'] = len(data)
         transCommand['Parameters']['MaxParameterCount'] = max_param_count
@@ -4142,7 +4136,7 @@ class SMB:
         :param additional_information: SecurityInfoFields. default = owner + group + dacl ie. 7
         :return: security descriptor buffer
         """
-        self.send_nt_trans(tid, function=0x0006, max_param_count=4,
+        self.send_nt_trans(tid, subcommand=0x0006, max_param_count=4,
                            param=pack('<HHL', fid, 0x0000, additional_information))
         resp = self.recvSMB()
         if resp.isValidAnswer(SMB.SMB_COM_NT_TRANSACT):

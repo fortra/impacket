@@ -1,12 +1,10 @@
 #!/usr/bin/env python
-
 # sorry, this is very ugly, but I'm in python 2.5
 import sys
 sys.path.insert(0,"../..")
 
 from impacket.ImpactDecoder import RadioTapDecoder
 import impacket.dot11, impacket.ImpactPacket
-from binascii import hexlify
 import unittest
 from six import PY2
 

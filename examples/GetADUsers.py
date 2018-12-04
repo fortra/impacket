@@ -167,10 +167,10 @@ class GetADUsers:
         try:
             logging.debug('Search Filter=%s' % searchFilter)
             sc = ldap.SimplePagedResultsControl(size=100)
-            resp = ldapConnection.search(searchFilter=searchFilter,
-                                         attributes=['sAMAccountName', 'pwdLastSet', 'mail', 'lastLogon'],
-                                         sizeLimit=0, searchControls = [sc], perRecordCallback=self.processRecord)
-        except ldap.LDAPSearchError as e:
+            ldapConnection.search(searchFilter=searchFilter,
+                                  attributes=['sAMAccountName', 'pwdLastSet', 'mail', 'lastLogon'],
+                                  sizeLimit=0, searchControls = [sc], perRecordCallback=self.processRecord)
+        except ldap.LDAPSearchError:
                 raise
 
         ldapConnection.close()

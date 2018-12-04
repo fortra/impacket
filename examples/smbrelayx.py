@@ -48,7 +48,7 @@ import os
 import sys
 try:
     from urllib.parse import urlparse
-except:
+except ImportError:
     from urlparse import urlparse
 from binascii import unhexlify, hexlify
 from struct import pack, unpack
@@ -576,12 +576,12 @@ class HTTPRelayServer(Thread):
                     errorCode = STATUS_ACCESS_DENIED
 
                 if errorCode != STATUS_SUCCESS:
-                    logging.error("Authenticating against %s as %s\%s FAILED" % (
+                    logging.error("Authenticating against %s as %s\\%s FAILED" % (
                     self.target, authenticateMessage['domain_name'].decode('utf-16le'), authenticateMessage['user_name'].decode('utf-16le')))
                     self.do_AUTHHEAD('NTLM')
                 else:
                     # Relay worked, do whatever we want here...
-                    logging.info("Authenticating against %s as %s\%s SUCCEED" % (
+                    logging.info("Authenticating against %s as %s\\%s SUCCEED" % (
                     self.target, authenticateMessage['domain_name'].decode('utf-16le'), authenticateMessage['user_name'].decode('utf-16le')))
                     ntlm_hash_data = outputToJohnFormat(self.challengeMessage['challenge'],
                                                         authenticateMessage['user_name'],
@@ -904,13 +904,13 @@ class SMBRelayServer(Thread):
                     packet['ErrorClass']  = errorCode & 0xff
                     # Reset the UID
                     smbClient.setUid(0)
-                    logging.error("Authenticating against %s as %s\%s FAILED" % (
+                    logging.error("Authenticating against %s as %s\\%s FAILED" % (
                     self.target, authenticateMessage['domain_name'].decode('utf-16le'), authenticateMessage['user_name'].decode('utf-16le')))
                     # del (smbData[self.target])
                     return None, [packet], errorCode
                 else:
                     # We have a session, create a thread and do whatever we want
-                    logging.info("Authenticating against %s as %s\%s SUCCEED" % (
+                    logging.info("Authenticating against %s as %s\\%s SUCCEED" % (
                     self.target, authenticateMessage['domain_name'].decode('utf-16le'), authenticateMessage['user_name'].decode('utf-16le')))
                     ntlm_hash_data = outputToJohnFormat(connData['CHALLENGE_MESSAGE']['challenge'],
                                                         authenticateMessage['user_name'],

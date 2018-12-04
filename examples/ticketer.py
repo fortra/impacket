@@ -51,13 +51,11 @@ import sys
 from calendar import timegm
 from time import strptime
 from binascii import unhexlify
-from six import b
 
 from pyasn1.codec.der import encoder, decoder
 from pyasn1.type.univ import noValue
 
 from impacket import version
-from impacket.winregistry import hexdump
 from impacket.dcerpc.v5.dtypes import RPC_SID
 from impacket.dcerpc.v5.ndr import NDRULONG
 from impacket.dcerpc.v5.samr import NULL, GROUP_MEMBERSHIP, SE_GROUP_MANDATORY, SE_GROUP_ENABLED_BY_DEFAULT, \

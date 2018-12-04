@@ -1,13 +1,11 @@
 #!/usr/bin/env python
-
 # sorry, this is very ugly, but I'm in python 2.5
 import sys
 sys.path.insert(0,"../..")
 
 from impacket.dot11 import Dot11,Dot11Types,Dot11DataFrame,Dot11WPA,Dot11WPAData
-from binascii import hexlify
 import unittest
-from six import PY2
+
 
 class TestDot11WPAData(unittest.TestCase):
 

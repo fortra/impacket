@@ -42,9 +42,9 @@ import string
 import time
 import random
 from struct import pack, unpack
-from six import byte2int, indexbytes, b, PY2
+from six import byte2int, indexbytes, b
 
-from .structure import Structure
+from impacket.structure import Structure
 
 # Our random number generator
 try:
@@ -616,7 +616,6 @@ class NetBIOS:
         if not destaddr:
             p['FLAGS'] |= NM_FLAGS_BROADCAST
             destaddr = self.__broadcastaddr
-        req = p.getData()
 
         res = self.send(p, destaddr, 1)
         return res
@@ -633,7 +632,6 @@ class NetBIOS:
             p['FLAGS'] |= NM_FLAGS_BROADCAST
 
             destaddr = self.__broadcastaddr
-        req = p.getData()
 
         res = self.send(p, destaddr, timeout)
         return NBPositiveNameQueryResponse(res['ANSWERS'])

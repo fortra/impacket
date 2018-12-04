@@ -60,7 +60,9 @@
 
 from __future__ import division
 from __future__ import print_function
+
 import unittest
+
 try:
     import ConfigParser
 except ImportError:
@@ -69,8 +71,8 @@ except ImportError:
 from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import tsch, atsvc, sasec
 from impacket.dcerpc.v5.atsvc import AT_INFO
-from impacket.dcerpc.v5.dtypes import NULL, LPWSTR
-from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_INTEGRITY, RPC_C_AUTHN_LEVEL_PKT_PRIVACY
+from impacket.dcerpc.v5.dtypes import NULL
+from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_INTEGRITY
 from impacket.system_errors import ERROR_NOT_SUPPORTED
 
 

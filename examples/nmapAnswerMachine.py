@@ -1,10 +1,10 @@
 #!/usr/bin/env python
-import random
-
 import uncrc32
 
-try: import pcap as pcapy
-except: import pcapy
+try:
+    import pcap as pcapy
+except ImportError:
+    import pcapy
 
 from impacket import ImpactPacket
 from impacket import ImpactDecoder
@@ -79,7 +79,7 @@ class Responder:
              probe = self.templateClass(0, ['0.0.0.0',self.getIP()])
           self.template_onion = [probe.get_packet()]
           try:
-             while 1: self.template_onion.append(self.template_onion[-1].child())
+              while 1: self.template_onion.append (self.template_onion[-1].child ())
           except: pass
        
           # print("Template: %s" % self.template_onion[O_ETH])
@@ -210,9 +210,7 @@ class ICMPResponder(IPResponder):
        if not IPResponder.isMine(self, in_onion): return False
        if len(in_onion) < 3: return False
 
-       return (
-           (in_onion[O_ICMP].protocol == ImpactPacket.ICMP.protocol) and
-           self.sameICMPTemplate(in_onion))
+       return (in_onion[O_ICMP].protocol == ImpactPacket.ICMP.protocol) and self.sameICMPTemplate(in_onion)
 
    def sameICMPTemplate(self, in_onion):
        t_ip           = self.template_onion[O_IP]
@@ -220,11 +218,11 @@ class ICMPResponder(IPResponder):
        t_icmp_datalen = self.template_onion[O_ICMP_DATA].get_size()
 
        return (
-          (t_ip.get_ip_tos() == in_onion[O_IP].get_ip_tos()) and
-          (t_ip.get_ip_df() == in_onion[O_IP].get_ip_df()) and
-          (t_icmp.get_icmp_type() == in_onion[O_ICMP].get_icmp_type()) and
-          (t_icmp.get_icmp_code() == in_onion[O_ICMP].get_icmp_code()) and
-          (t_icmp_datalen == in_onion[O_ICMP_DATA].get_size())
+               (t_ip.get_ip_tos () == in_onion[O_IP].get_ip_tos ()) and (
+                   t_ip.get_ip_df () == in_onion[O_IP].get_ip_df ()) and (
+                           t_icmp.get_icmp_type () == in_onion[O_ICMP].get_icmp_type ()) and (
+                           t_icmp.get_icmp_code () == in_onion[O_ICMP].get_icmp_code ()) and (
+                           t_icmp_datalen == in_onion[O_ICMP_DATA].get_size ())
        )
 
 class UDPResponder(IPResponder):
@@ -305,18 +303,13 @@ class TCPResponder(IPResponder):
        if not IPResponder.isMine(self, in_onion): return False
        if len(in_onion) < 3: return False
 
-       return (
-           in_onion[O_TCP].protocol == ImpactPacket.TCP.protocol and
-           self.sameTCPFlags(in_onion) and
-           self.sameTCPOptions(in_onion)
-       )
+       return (in_onion[O_TCP].protocol == ImpactPacket.TCP.protocol and self.sameTCPFlags (in_onion) and self.sameTCPOptions (
+           in_onion))
 
 class OpenTCPResponder(TCPResponder):
    def isMine(self, in_onion):
-       return (
-          TCPResponder.isMine(self, in_onion) and 
-          in_onion[O_TCP].get_SYN() and
-          self.machine.isTCPPortOpen(in_onion[O_TCP].get_th_dport()))
+       return (TCPResponder.isMine (self, in_onion) and in_onion[O_TCP].get_SYN () and self.machine.isTCPPortOpen (
+           in_onion[O_TCP].get_th_dport ()))
 
    def buildAnswer(self, in_onion):
        out_onion = TCPResponder.buildAnswer(self, in_onion)
@@ -357,8 +350,7 @@ class UDPCommandResponder(OpenUDPResponder):
        return self
 
    def isMine(self, in_onion):
-       return (
-          OpenUDPResponder.isMine(self, in_onion))# and 
+       return ( OpenUDPResponder.isMine(self, in_onion))# and
           #in_onion[O_UDP].get_uh_dport() == self.port)
 
    def buildAnswer(self, in_onion):

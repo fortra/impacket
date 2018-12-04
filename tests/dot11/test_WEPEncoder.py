@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 # sorry, this is very ugly, but I'm in python 2.5
 import sys
 sys.path.insert(0,"../..")
@@ -7,7 +6,6 @@ sys.path.insert(0,"../..")
 import impacket.dot11
 import impacket.ImpactPacket
 from impacket.Dot11KeyManager import KeyManager
-from impacket.ImpactDecoder import Dot11Decoder
 from binascii import unhexlify
 import unittest
 

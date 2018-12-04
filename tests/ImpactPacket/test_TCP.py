@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 #Impact test version
 try:
     from impacket.ImpactDecoder import EthDecoder
@@ -17,7 +16,6 @@ try:
 except:
     pass
 
-from binascii import hexlify
 import unittest
 
 class TestTCP(unittest.TestCase):

@@ -208,15 +208,19 @@ class DumpSecrets:
                 pass
 
     def cleanup(self):
-        logging.info('Cleaning up... ')
-        if self.__remoteOps:
-            self.__remoteOps.finish()
-        if self.__SAMHashes:
-            self.__SAMHashes.finish()
-        if self.__LSASecrets:
-            self.__LSASecrets.finish()
-        if self.__NTDSHashes:
-            self.__NTDSHashes.finish()
+        try:
+            logging.info('Cleaning up... ')
+            if self.__remoteOps:
+                self.__remoteOps.finish()
+            if self.__SAMHashes:
+                self.__SAMHashes.finish()
+            if self.__LSASecrets:
+                self.__LSASecrets.finish()
+            if self.__NTDSHashes:
+                self.__NTDSHashes.finish()
+        except Exception as e:
+            if str(e).find('ERROR_DEPENDENT_SERVICES_RUNNING') < 0:
+                raise
 
 class Options(object):
     aesKey=None
@@ -252,7 +256,7 @@ class SecretsDumpTests(unittest.TestCase):
         dumper = DumpSecrets(self.serverName, self.username, self.password, self.domain, options)
         dumper.dump()
 
-    def test_VSS_WMI(self):
+    def aaaa_VSS_WMI(self):
         options = Options()
         options.target_ip = self.machine
         options.use_vss = True
@@ -269,7 +273,7 @@ class SecretsDumpTests(unittest.TestCase):
         dumper = DumpSecrets(self.serverName, self.username, self.password, self.domain, options)
         dumper.dump()
 
-    def test_VSS_MMC(self):
+    def aaaa_VSS_MMC(self):
         options = Options()
         options.target_ip = self.machine
         options.use_vss = True
@@ -283,8 +287,6 @@ class SecretsDumpTests(unittest.TestCase):
         options.use_vss = False
         dumper = DumpSecrets(self.serverName, self.username, self.password, self.domain, options)
         dumper.dump()
-
-
 
 class Tests(SecretsDumpTests):
     def setUp(self):

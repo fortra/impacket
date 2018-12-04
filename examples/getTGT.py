@@ -20,7 +20,7 @@ from __future__ import print_function
 import argparse
 import logging
 import sys
-from binascii import hexlify, unhexlify
+from binascii import unhexlify
 
 from impacket import version
 from impacket.examples import logger
