@@ -271,6 +271,8 @@ class SMBTests(unittest.TestCase):
         except socket.error as e:
             if e[0] == errno.EBADF:
                 is_socket_opened = False
+        except ValueError:
+            is_socket_opened = False
         return is_socket_opened
 
 class SMB1Tests(SMBTests):
