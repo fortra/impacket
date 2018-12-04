@@ -31,6 +31,19 @@ from impacket import LOG
 g_nmap1_signature_filename="nmap-os-fingerprints"
 g_nmap2_signature_filename="nmap-os-db"
 
+
+def my_gcd(a, b):
+    if a < b:
+        c = a
+        a = b
+        b = c
+
+    while 0 != b:
+        c = a & b
+        a = b
+        b = c
+    return a
+
 class os_id_exception:
     def __init__(self, value):
         self.value = value
