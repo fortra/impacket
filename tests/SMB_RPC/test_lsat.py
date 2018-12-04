@@ -27,6 +27,7 @@ except ImportError:
 
 from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import lsat
+from impacket.dcerpc.v5 import lsad
 from impacket.dcerpc.v5.dtypes import NULL, MAXIMUM_ALLOWED, RPC_UNICODE_STRING
 
 
@@ -45,7 +46,7 @@ class LSATTests(unittest.TestCase):
         #dce.set_auth_level(RPC_C_AUTHN_LEVEL_PKT_INTEGRITY)
         dce.connect()
         dce.bind(lsat.MSRPC_UUID_LSAT, transfer_syntax = self.ts)
-        request = lsat.LsarOpenPolicy2()
+        request = lsad.LsarOpenPolicy2()
         request['SystemName'] = NULL
         request['ObjectAttributes']['RootDirectory'] = NULL
         request['ObjectAttributes']['ObjectName'] = NULL

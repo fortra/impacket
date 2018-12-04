@@ -11,7 +11,6 @@
 #  Gustavo Moreira
 
 import struct
-import string
 from binascii import crc32
 
 from impacket.ImpactPacket import ProtocolPacket
@@ -1712,8 +1711,7 @@ class RadioTap(ProtocolPacket):
         byte_pos=self.__get_field_position(field)
         header=self.get_header_as_string()
         total_length=struct.calcsize(field.STRUCTURE)
-        v=header[ byte_pos:byte_pos+total_length ]
-        
+
         new_str = struct.pack(field.STRUCTURE, *values)
 
         if is_present is True:
@@ -2047,14 +2045,6 @@ class Dot11ManagementFrame(ProtocolPacket):
         if(aBuffer):
             self.load_packet(aBuffer)
 
-    def __init__(self, aBuffer = None):
-        header_size = 22
-        tail_size = 0
-
-        ProtocolPacket.__init__(self, header_size, tail_size)
-        if(aBuffer):
-            self.load_packet(aBuffer)
-        
     def get_duration(self):
         'Return 802.11 Management frame \'Duration\' field'
         b = self.header.get_word(0, "<")
@@ -2216,7 +2206,7 @@ class Dot11ManagementHelper(ProtocolPacket):
             offset+=length
             if length>remaining:
                 # Error!!
-                length = remaining;
+                length = remaining
             remaining-=length
         # < Not found
         yield (-1, offset, None)

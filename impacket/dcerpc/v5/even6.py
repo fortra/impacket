@@ -342,4 +342,3 @@ def hEvtRpcGetChannelList(dce):
     request['Flags'] = 0
     resp = dce.request(request)
     return resp
-

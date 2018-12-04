@@ -29,7 +29,9 @@ from pyasn1.error import SubstrateUnderrunError
 from pyasn1.type.univ import noValue
 
 from impacket import LOG
-from impacket.ldap.ldapasn1 import *
+from impacket.ldap.ldapasn1 import Filter, Control, SimplePagedResultsControl, ResultCode, Scope, DerefAliases, Operation, \
+    KNOWN_CONTROLS, CONTROL_PAGEDRESULTS, NOTIFICATION_DISCONNECT, KNOWN_NOTIFICATIONS, BindRequest, SearchRequest, \
+    SearchResultDone, LDAPMessage
 from impacket.ntlm import getNTLMSSPType1, getNTLMSSPType3
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech
 

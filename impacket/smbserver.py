@@ -45,7 +45,7 @@ from six import PY2, b, text_type
 from six.moves import configparser, socketserver
 
 # For signing
-from impacket import smb, nmb, ntlm, uuid, LOG
+from impacket import smb, nmb, ntlm, uuid
 from impacket import smb3structs as smb2
 from impacket.spnego import SPNEGO_NegTokenInit, TypesMech, MechTypes, SPNEGO_NegTokenResp, ASN1_AID, ASN1_SUPPORTED_MECH
 from impacket.nt_errors import STATUS_NO_MORE_FILES, STATUS_NETWORK_NAME_DELETED, STATUS_INVALID_PARAMETER, \
@@ -449,7 +449,7 @@ def findFirst2(path, fileName, level, searchAttributes, isSMB2 = False):
         searchResult.append(item)
 
      # No more files
-     if (level >= smb.SMB_FIND_FILE_DIRECTORY_INFO or isSMB2 == True) and searchCount > 0:
+     if (level >= smb.SMB_FIND_FILE_DIRECTORY_INFO or isSMB2 is True) and searchCount > 0:
          searchResult[-1]['NextEntryOffset'] = 0
 
      return searchResult, searchCount, errorCode
@@ -4437,8 +4437,10 @@ smb.SMB.TRANS_TRANSACT_NMPIPE          :self.__smbTransHandler.transactNamedPipe
     def addCredential(self, name, uid, lmhash, nthash):
         # If we have hashes, normalize them
         if lmhash != '' or nthash != '':
-            if len(lmhash) % 2:     lmhash = '0%s' % lmhash
-            if len(nthash) % 2:     nthash = '0%s' % nthash
+            if len(lmhash) % 2:
+                lmhash = '0%s' % lmhash
+            if len(nthash) % 2:
+                nthash = '0%s' % nthash
             try: # just in case they were converted already
                 lmhash = a2b_hex(lmhash)
                 nthash = a2b_hex(nthash)

@@ -3181,4 +3181,3 @@ if __name__ == '__main__':
     #encodingUnit = ENCODING_UNIT(instanceMyClass)
     #encodingUnit.dump()
     #encodingUnit['ObjectBlock'].printInformation()
-

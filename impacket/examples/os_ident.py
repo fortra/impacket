@@ -19,9 +19,14 @@
 # THIS SOFTWARE
 #
 #--
+import math
+import array
+from six.moves import xrange, reduce
 
-from impacket.ImpactPacket import *
-from impacket.ImpactDecoder import *
+from pcapy import lookupdev, open_live
+from impacket.ImpactPacket import UDP, TCPOption, Data, TCP, IP, ICMP, Ethernet
+from impacket.ImpactDecoder import EthDecoder
+from impacket import LOG
 
 g_nmap1_signature_filename="nmap-os-fingerprints"
 g_nmap2_signature_filename="nmap-os-db"
@@ -94,10 +99,10 @@ class icmp_request(os_id_test):
 
     def is_mine(self, packet):
 
-        if packet.get_ether_type() != ImpactPacket.IP.ethertype:
+        if packet.get_ether_type() != IP.ethertype:
             return 0
         ip = packet.child()
-        if not ip or ip.get_ip_p() != ImpactPacket.ICMP.protocol:
+        if not ip or ip.get_ip_p() != ICMP.protocol:
             return 0
         icmp = ip.child()
         
@@ -179,10 +184,10 @@ class udp_closed_probe(os_id_test):
         self.set_packet(self.e)
 
     def is_mine(self, packet):
-        if packet.get_ether_type() != ImpactPacket.IP.ethertype:
+        if packet.get_ether_type() != IP.ethertype:
             return 0
         ip = packet.child()
-        if not ip or ip.get_ip_p() != ImpactPacket.ICMP.protocol:
+        if not ip or ip.get_ip_p() != ICMP.protocol:
             return 0
         icmp = ip.child()
         if not icmp or icmp.get_icmp_type() != ICMP.ICMP_UNREACH:
@@ -238,10 +243,10 @@ class tcp_probe(os_id_test):
         return 1
 
     def is_mine(self, packet):
-        if packet.get_ether_type() != ImpactPacket.IP.ethertype:
+        if packet.get_ether_type() != IP.ethertype:
             return 0
         ip = packet.child()
-        if not ip or ip.get_ip_p() != ImpactPacket.TCP.protocol:
+        if not ip or ip.get_ip_p() != TCP.protocol:
             return 0
         tcp = ip.child()
         if self.socket_match(ip, tcp):
@@ -727,7 +732,7 @@ class nmap1_port_unreachable(nmap_port_unreachable):
 
     def process(self, packet):
         ip_orig = self.err_data
-        if ip_orig.get_ip_p() != ImpactPacket.UDP.protocol:
+        if ip_orig.get_ip_p() != UDP.protocol:
             return
 
         udp = ip_orig.child()
@@ -816,7 +821,7 @@ class nmap2_port_unreachable(nmap_port_unreachable):
 
     def process(self, packet):
         ip_orig = self.err_data
-        if ip_orig.get_ip_p() != ImpactPacket.UDP.protocol:
+        if ip_orig.get_ip_p() != UDP.protocol:
             return
 
         udp = ip_orig.child()
@@ -970,8 +975,8 @@ class nmap2_port_unreachable(nmap_port_unreachable):
 class OS_ID:
 
     def __init__(self, target, ports):
-        pcap_dev = pcap.lookupdev()
-        self.p = pcap.open_live(pcap_dev, 600, 0, 3000)
+        pcap_dev = lookupdev()
+        self.p = open_live(pcap_dev, 600, 0, 3000)
         
         self.__source = self.p.getlocalip()
         self.__target = target
@@ -1331,11 +1336,14 @@ class nmap1_seq_container(os_id_test):
         
         if self.seq_num_responses >= 4:
             seq_seqclass = self.seq_sequence()
-            if nmap1_seq.SEQ_UNKNOWN != seq_seqclass: self.add_seqclass(seq_seqclass)
-            if nmap1_seq.IPID_SEQ_UNKNOWN != ipid_seqclass: self.add_ipidclass(ipid_seqclass)
-            if nmap1_seq.TS_SEQ_UNKNOWN != ts_seqclass: self.add_tsclass(ts_seqclass)
+            if nmap1_seq.SEQ_UNKNOWN != seq_seqclass:
+                self.add_seqclass(seq_seqclass)
+            if nmap1_seq.IPID_SEQ_UNKNOWN != ipid_seqclass:
+                self.add_ipidclass(ipid_seqclass)
+            if nmap1_seq.TS_SEQ_UNKNOWN != ts_seqclass:
+                self.add_tsclass(ts_seqclass)
         else:
-            PyImpact.t_log(1, "Insufficient responses for TCP sequencing (%d out of %d), OS detection may be less accurate."
+            LOG.error("Insufficient responses for TCP sequencing (%d out of %d), OS detection may be less accurate."
                            % (self.seq_num_responses, self.num_seq_samples))
 
     def get_final_result(self):
@@ -1343,7 +1351,8 @@ class nmap1_seq_container(os_id_test):
         return {self.test_id(): self.get_result_dict()}
 
     def ipid_sequence(self):
-        if self.seq_num_responses < 2: return nmap1_seq.IPID_SEQ_UNKNOWN
+        if self.seq_num_responses < 2:
+            return nmap1_seq.IPID_SEQ_UNKNOWN
 
         ipid_diffs = array.array('H', [0] * (self.seq_num_responses - 1))
 
@@ -1355,33 +1364,43 @@ class nmap1_seq_container(os_id_test):
             if cur_ipid < prev_ipid and (cur_ipid > 500 or prev_ipid < 65000):
                 return nmap1_seq.IPID_SEQ_RD
 
-            if prev_ipid != 0 or cur_ipid != 0: null_ipids = 0
+            if prev_ipid != 0 or cur_ipid != 0:
+                null_ipids = 0
             ipid_diffs[i-1] = abs(cur_ipid - prev_ipid)
 
-        if null_ipids: return nmap1_seq.IPID_SEQ_ZERO
+        if null_ipids:
+            return nmap1_seq.IPID_SEQ_ZERO
 
         # Battle plan:
         # If any diff is > 1000, set to random, if 0, set to constant.
         # If any of the diffs are 1, or all are less than 9, set to incremental.
 
         for i in xrange(0, self.seq_num_responses - 1):
-            if ipid_diffs[i] > 1000: return nmap1_seq.IPID_SEQ_RPI
-            if ipid_diffs[i] == 0: return nmap1_seq.IPID_SEQ_CONSTANT
+            if ipid_diffs[i] > 1000:
+                return nmap1_seq.IPID_SEQ_RPI
+            if ipid_diffs[i] == 0:
+                return nmap1_seq.IPID_SEQ_CONSTANT
 
         is_incremental = 1 # All diferences are less than 9
         is_ms = 1 # All diferences are multiples of 256
         for i in xrange(0, self.seq_num_responses - 1):
-            if ipid_diffs[i] == 1: return nmap1_seq.IPID_SEQ_INCR
-            if is_ms and ipid_diffs[i] < 2560 and (ipid_diffs[i] % 256) != 0: is_ms = 0
-            if ipid_diffs[i] > 9: is_incremental = 0
+            if ipid_diffs[i] == 1:
+                return nmap1_seq.IPID_SEQ_INCR
+            if is_ms and ipid_diffs[i] < 2560 and (ipid_diffs[i] % 256) != 0:
+                is_ms = 0
+            if ipid_diffs[i] > 9:
+                is_incremental = 0
 
-        if is_ms: return nmap1_seq.IPID_SEQ_BROKEN_INCR
-        if is_incremental: return nmap1_seq.IPID_SEQ_INCR
+        if is_ms:
+            return nmap1_seq.IPID_SEQ_BROKEN_INCR
+        if is_incremental:
+            return nmap1_seq.IPID_SEQ_INCR
 
         return nmap1_seq.IPID_SEQ_UNKNOWN
 
     def ts_sequence(self):
-        if self.seq_num_responses < 2: return nmap1_seq.TS_SEQ_UNKNOWN
+        if self.seq_num_responses < 2:
+            return nmap1_seq.TS_SEQ_UNKNOWN
 
         # Battle plan:
         # 1) Compute average increments per second, and variance in incr. per second.
@@ -1395,11 +1414,14 @@ class nmap1_seq_container(os_id_test):
             dhz = self.ts_diffs[i] / self.time_diffs[i]
             avg_freq += dhz / (self.seq_num_responses - 1)
 
-        PyImpact.t_log(2, "The avg TCP TS HZ is: %f" % avg_freq)
+        LOG.info("The avg TCP TS HZ is: %f" % avg_freq)
 
-        if 0 < avg_freq and avg_freq < 3.9: return nmap1_seq.TS_SEQ_2HZ
-        if 85 < avg_freq and avg_freq < 115: return nmap1_seq.TS_SEQ_100HZ
-        if 900 < avg_freq and avg_freq < 1100: return nmap1_seq.TS_SEQ_1000HZ
+        if 0 < avg_freq < 3.9:
+            return nmap1_seq.TS_SEQ_2HZ
+        if 85 < avg_freq < 115:
+            return nmap1_seq.TS_SEQ_100HZ
+        if 900 < avg_freq < 1100:
+            return nmap1_seq.TS_SEQ_1000HZ
 
         return nmap1_seq.TS_SEQ_UNKNOWN
 
@@ -1508,7 +1530,7 @@ class nmap2_seq_container(os_id_test):
             self.calc_sp()
         else:
             self.add_result('R', 'N')
-            PyImpact.t_log(1, "Insufficient responses for TCP sequencing (%d out of %d), OS detection may be less accurate."
+            LOG.error("Insufficient responses for TCP sequencing (%d out of %d), OS detection may be less accurate."
                            % (self.seq_num_responses, self.num_seq_samples))
 
     def get_final_result(self):
@@ -1610,13 +1632,13 @@ class nmap2_seq_container(os_id_test):
             dhz = self.ts_diffs[i] / self.time_diffs[i]
             avg_freq += dhz / (self.seq_num_responses - 1)
 
-        PyImpact.t_log(2, "The avg TCP TS HZ is: %f" % avg_freq)
+        LOG.info("The avg TCP TS HZ is: %f" % avg_freq)
 
         if avg_freq <= 5.66: 
             self.add_result('TS', "1")
-        elif 70 < avg_freq and avg_freq <= 150: 
+        elif 70 < avg_freq <= 150:
             self.add_result('TS', "7")
-        elif 150 < avg_freq and avg_freq <= 350: 
+        elif 150 < avg_freq <= 350:
             self.add_result('TS', "8")
         else:
             ts = int(round(.5 + math.log(avg_freq)/math.log(2)))
@@ -1936,10 +1958,14 @@ class NMAP2_OS_Class:
         self.__family = family
         self.__device_type = device_type
 
-    def get_vendor(self): return self.__vendor
-    def get_name(self): return self.__name
-    def get_family(self): return self.__family
-    def get_device_type(self): return self.__device_type
+    def get_vendor(self):
+        return self.__vendor
+    def get_name(self):
+        return self.__name
+    def get_family(self):
+        return self.__family
+    def get_device_type(self):
+        return self.__device_type
 
 class NMAP2_Fingerprint:
     def __init__(self, id, os_class, tests):
@@ -1947,9 +1973,12 @@ class NMAP2_Fingerprint:
         self.__os_class = os_class
         self.__tests = tests
 
-    def get_id(self): return self.__id
-    def get_os_class(self): return self.__os_class
-    def get_tests(self): return self.__tests
+    def get_id(self):
+        return self.__id
+    def get_os_class(self):
+        return self.__os_class
+    def get_tests(self):
+        return self.__tests
 
     def __str__(self):
         ret = "FP: [%s]" % self.__id
@@ -1992,10 +2021,8 @@ class NMAP2_Fingerprint:
                     return True
             elif option.find("-") > -1:
                 range = option.split("-")
-                if (self.parse_int(field, value) >= \
-                    self.parse_int(field, range[0]) and \
-                    self.parse_int(field, value) <= \
-                    self.parse_int(field, range[1])):
+                if self.parse_int (field, value) >= self.parse_int (field, range[0]) and \
+                        self.parse_int (field, value) <= self.parse_int (field, range[1]):
                     return True
             else:
                 if str(value) == str(option):
@@ -2014,7 +2041,7 @@ class NMAP2_Fingerprint:
         
             for field in self.__tests[test]:
                     # ignore unsupported fields:
-                if fields not in sample[test] or \
+                if field not in sample[test] or \
                    test not in mp or \
                    field not in mp[test]:
                     continue

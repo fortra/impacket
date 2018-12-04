@@ -313,7 +313,7 @@ class SocksRequestHandler(socketserver.BaseRequestHandler):
 
             # SOCKS4a
             if request['ADDR'][:3] == "\x00\x00\x00" and request['ADDR'][3] != "\x00":
-                nullBytePos = request['PAYLOAD'].find("\x00");
+                nullBytePos = request['PAYLOAD'].find("\x00")
 
                 if nullBytePos == -1:
                     LOG.error('Error while reading SOCKS4a header!')
@@ -479,5 +479,3 @@ if __name__ == '__main__':
     logger.init()
     s = SOCKS()
     s.serve_forever()
-
-

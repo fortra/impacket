@@ -156,7 +156,8 @@ class NDR(object):
         return False
 
     def dumpRaw(self, msg = None, indent = 0):
-        if msg is None: msg = self.__class__.__name__
+        if msg is None:
+            msg = self.__class__.__name__
         ind = ' '*indent
         print("\n%s" % msg)
         for field in self.commonHdr+self.structure+self.referent:
@@ -180,7 +181,8 @@ class NDR(object):
                     print("%s%s: {%r}" % (ind,i,self[i]))
 
     def dump(self, msg = None, indent = 0):
-        if msg is None: msg = self.__class__.__name__
+        if msg is None:
+            msg = self.__class__.__name__
         ind = ' '*indent
         if msg != '':
             print("%s" % msg, end=' ')
@@ -371,7 +373,8 @@ class NDRUSMALL(NDR):
 
 class NDRBOOLEAN(NDRSMALL):
     def dump(self, msg = None, indent = 0):
-        if msg is None: msg = self.__class__.__name__
+        if msg is None:
+            msg = self.__class__.__name__
         if msg != '':
             print(msg, end=' ')
 
@@ -463,7 +466,8 @@ class NDRENUM(with_metaclass(EnumType, NDR)):
            return NDR.__setitem__(self,key,value)
 
     def dump(self, msg = None, indent = 0):
-        if msg is None: msg = self.__class__.__name__
+        if msg is None:
+            msg = self.__class__.__name__
         if msg != '':
             print(msg, end=' ')
 
@@ -676,7 +680,8 @@ class NDRCONSTRUCTEDTYPE(NDR):
 # Uni-dimensional Fixed Arrays
 class NDRArray(NDRCONSTRUCTEDTYPE):
     def dump(self, msg = None, indent = 0):
-        if msg is None: msg = self.__class__.__name__
+        if msg is None:
+            msg = self.__class__.__name__
         ind = ' '*indent
         if msg != '':
             print(msg, end=' ')
@@ -1477,7 +1482,8 @@ class NDRPOINTERNULL(NDR):
     )
 
     def dump(self, msg = None, indent = 0):
-        if msg is None: msg = self.__class__.__name__
+        if msg is None:
+            msg = self.__class__.__name__
         if msg != '':
             print("%s" % msg, end=' ')
         # Here we just print NULL
@@ -1577,7 +1583,8 @@ class NDRPOINTER(NDRSTRUCT):
             return retVal + pad
 
     def dump(self, msg = None, indent = 0):
-        if msg is None: msg = self.__class__.__name__
+        if msg is None:
+            msg = self.__class__.__name__
         if msg != '':
             print("%s" % msg, end=' ')
         # Here we just print the referent

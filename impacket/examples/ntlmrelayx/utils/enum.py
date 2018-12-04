@@ -12,10 +12,8 @@
 # Description:
 #     Helpful enum methods for discovering local admins through SAMR and LSAT
 
-from impacket.dcerpc.v5 import transport, lsat, lsad, samr
+from impacket.dcerpc.v5 import transport, lsat, samr, lsad
 from impacket.dcerpc.v5.dtypes import MAXIMUM_ALLOWED
-from impacket.dcerpc.v5.rpcrt import DCERPCException
-from impacket.dcerpc.v5.samr import SID_NAME_USE
 
 
 class EnumLocalAdmins:
@@ -56,7 +54,7 @@ class EnumLocalAdmins:
         dce = self.__getDceBinding(self.__lsaBinding)
         dce.connect()
         dce.bind(lsat.MSRPC_UUID_LSAT)
-        resp = lsat.hLsarOpenPolicy2(dce, MAXIMUM_ALLOWED | lsat.POLICY_LOOKUP_NAMES)
+        resp = lsad.hLsarOpenPolicy2(dce, MAXIMUM_ALLOWED | lsat.POLICY_LOOKUP_NAMES)
         policyHandle = resp['PolicyHandle']
         resp = lsat.hLsarLookupSids(dce, policyHandle, sids, lsat.LSAP_LOOKUP_LEVEL.LsapLookupWksta)
         names = []

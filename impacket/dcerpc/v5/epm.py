@@ -1365,6 +1365,3 @@ def PrintStringBinding(floors, serverAddr = '0.0.0.0'):
             tmp_address = 'ncacn_http:%%s[%d]' % unpack('!H',floor['RelatedData'])
         else:
             return 'unknown_proto_0x%x:[0]' % ord(floor['ProtocolData'] )
-
-
-

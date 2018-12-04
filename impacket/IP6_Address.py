@@ -276,4 +276,3 @@ if __name__ == '__main__':
 #    print IP6_Address("ABCD:EFAB:1234:1234:1234:1234:1234:12345").as_string()
 #    print IP6_Address(":::").as_string()
 #    print IP6_Address("::::").as_string()
-                    

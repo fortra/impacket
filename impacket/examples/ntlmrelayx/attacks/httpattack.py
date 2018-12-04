@@ -32,7 +32,7 @@ class HTTPAttack(ProtocolAttack):
 
         #You can also request any page on the server via self.client.session,
         #for example with:
-        result = self.client.request("GET", "/")
+        self.client.request("GET", "/")
         r1 = self.client.getresponse()
         print(r1.status, r1.reason)
         data1 = r1.read()

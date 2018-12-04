@@ -864,7 +864,8 @@ class NetBIOSUDPSession(NetBIOSSession):
         while 1:
             data, peer = self._sock.recvfrom(8192)
 #            print "peer: %r  self.peer: %r" % (peer, self.peer)
-            if peer == self.peer: break
+            if peer == self.peer:
+                break
 
         return NetBIOSUDPSessionPacket(data)
 

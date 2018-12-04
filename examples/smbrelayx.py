@@ -146,7 +146,7 @@ class doAttack(Thread):
 
                     try:
                         print(self.__answerTMP.decode(CODEC))
-                    except UnicodeDecodeError as e:
+                    except UnicodeDecodeError:
                         logging.error('Decoding error detected, consider running chcp.com at the target,\nmap the result with '
                                       'https://docs.python.org/2.4/lib/standard-encodings.html\nand then execute wmiexec.py '
                                   'again with -codec and the corresponding codec')
@@ -494,7 +494,7 @@ class HTTPRelayServer(Thread):
         def handle_one_request(self):
             try:
                 http.server.SimpleHTTPRequestHandler.handle_one_request(self)
-            except Exception as e:
+            except Exception:
                 logging.debug("Exception:", exc_info=True)
                 pass
 
@@ -1213,4 +1213,3 @@ if __name__ == '__main__':
             sys.exit(1)
         else:
             pass
-

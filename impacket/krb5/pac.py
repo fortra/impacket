@@ -9,7 +9,6 @@
 # Description:
 #   [MS-PAC] Implementation
 #
-
 from impacket.dcerpc.v5.dtypes import ULONG, RPC_UNICODE_STRING, FILETIME, PRPC_SID, USHORT
 from impacket.dcerpc.v5.ndr import NDRSTRUCT, NDRUniConformantArray, NDRPOINTER
 from impacket.dcerpc.v5.nrpc import USER_SESSION_KEY, CHAR_FIXED_8_ARRAY, PUCHAR_ARRAY, PRPC_UNICODE_STRING_ARRAY
@@ -234,5 +233,3 @@ class VALIDATION_INFO(TypeSerialization1):
     structure = (
         ('Data', PKERB_VALIDATION_INFO),
     )
-
-

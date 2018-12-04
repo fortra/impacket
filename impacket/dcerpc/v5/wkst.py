@@ -1180,4 +1180,3 @@ def hNetrUseDel(dce, useName, forceLevel=USE_LOTS_OF_FORCE):
     request['UseName'] = checkNullString(useName)
     request['ForceLevel'] = forceLevel
     return dce.request(request)
-

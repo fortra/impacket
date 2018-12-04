@@ -149,8 +149,8 @@ class STRING(NDRSTRUCT):
     )
 
     def dump(self, msg = None, indent = 0):
-        if msg is None: msg = self.__class__.__name__
-        ind = ' '*indent
+        if msg is None:
+            msg = self.__class__.__name__
         if msg != '':
             print("%s" % msg, end=' ')
         # Here just print the data
@@ -1663,4 +1663,3 @@ def hLsarSetInformationPolicy(dce, policyHandle, informationClass, policyInforma
     request['InformationClass'] = informationClass
     request['PolicyInformation'] = policyInformation
     return dce.request(request)
-

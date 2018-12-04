@@ -152,14 +152,6 @@ TASK_RUN_IGNORE_CONSTRAINTS = 1<<(31-30)
 TASK_RUN_USE_SESSION_ID     = 1<<(31-29)
 TASK_RUN_USER_SID           = 1<<(31-28)
 
-class SYSTEMTIME_ARRAY(NDRUniConformantArray):
-    item = SYSTEMTIME
-
-class PSYSTEMTIME_ARRAY(NDRPOINTER):
-    referent = (
-        ('Data',SYSTEMTIME_ARRAY),
-    )
-
 # 3.2.5.4.18 SchRpcGetTaskInfo (Opnum 17)
 SCH_FLAG_STATE            = 1<<(31-3)
 
@@ -250,7 +242,7 @@ class FIXDLEN_DATA(Structure):
     )
 
 # 2.4.2.11 Triggers
-class FIXDLEN_DATA(Structure):
+class TRIGGERS(Structure):
     structure = (
         ('Trigger Size','<H=0'),
         ('Reserved1','<H=0'),

@@ -29,8 +29,7 @@ from impacket.nt_errors import STATUS_SUCCESS, STATUS_ACCESS_DENIED
 from impacket.spnego import SPNEGO_NegTokenResp
 
 try:
-    import OpenSSL
-    from OpenSSL import SSL, crypto
+    from OpenSSL import SSL
 except Exception:
     LOG.critical("pyOpenSSL is not installed, can't continue")
 
@@ -159,4 +158,3 @@ class MSSQLRelayClient(ProtocolClient):
     def sendAuth(self, authenticateMessageBlob, serverChallenge=None):
         self.sessionData = self.session.sessionData
         return self.session.sendAuth(authenticateMessageBlob, serverChallenge)
-

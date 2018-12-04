@@ -40,7 +40,8 @@ def stringver_to_bin(s):
     return pack('<H',int(maj)) + pack('<H',int(min))
 
 def uuidtup_to_bin(tup):
-    if len(tup) != 2: return
+    if len(tup) != 2:
+        return
     return string_to_bin(tup[0]) + stringver_to_bin(tup[1])
 
 def bin_to_uuidtup(bin):

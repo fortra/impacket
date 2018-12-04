@@ -18,15 +18,10 @@
 #   Helper functions start with "h"<name of the call>.
 #   There are test cases for them too. 
 #
-
-
-from struct import unpack, pack
-
-from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRUNION, NDRPOINTER, NDRUniConformantVaryingArray, NDRUniConformantArray
-from impacket.dcerpc.v5.dtypes import ULONGLONG, UINT, USHORT, LPWSTR, DWORD, UUID, ULONG, LPULONG, BOOLEAN, SECURITY_INFORMATION, PFILETIME, \
-    RPC_UNICODE_STRING, FILETIME, NULL, MAXIMUM_ALLOWED, OWNER_SECURITY_INFORMATION, PWCHAR, PRPC_UNICODE_STRING
+from impacket import system_errors
+from impacket.dcerpc.v5.dtypes import ULONGLONG, UINT, USHORT, LPWSTR, DWORD, ULONG, NULL
+from impacket.dcerpc.v5.ndr import NDRCALL, NDRSTRUCT, NDRUNION, NDRPOINTER, NDRUniConformantArray
 from impacket.dcerpc.v5.rpcrt import DCERPCException
-from impacket import system_errors, LOG
 from impacket.uuid import uuidtup_to_bin
 
 MSRPC_UUID_RPRN = uuidtup_to_bin(('12345678-1234-ABCD-EF00-0123456789AB', '1.0'))
@@ -528,4 +523,3 @@ def hRpcEnumPrinters(dce, flags, name = NULL, level = 1):
     request['cbBuf'] = bytesNeeded
     request['pPrinterEnum'] = b'a' * bytesNeeded
     return dce.request(request)
-

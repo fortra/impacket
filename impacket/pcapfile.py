@@ -45,7 +45,7 @@ class PCapFilePacket(structure.Structure):
 
 class PcapFile:
     def __init__(self, fileName = None, mode = 'rb'):
-        if not fileName is None:
+        if fileName is not None:
            self.file = open(fileName, mode)
         self.hdr = None
         self.wroteHeader = False
@@ -111,7 +111,6 @@ class PcapFile:
         self.reset()
         while 1:
            answer = self.read()
-           if answer is None: break
+           if answer is None:
+               break
            yield answer
-
-

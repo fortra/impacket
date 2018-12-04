@@ -280,7 +280,6 @@ if __name__ == '__main__':
     from Cryptodome.Cipher import ARC4
     from impacket import ntlm, version
     try:
-        import OpenSSL
         from OpenSSL import SSL, crypto
     except:
         logging.critical("pyOpenSSL is not installed, can't continue")

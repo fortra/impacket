@@ -119,7 +119,7 @@ class GSSAPI:
         data = data[1:]
         decode_data, total_bytes = asn1decode(data) 
         # Now we should have a OID tag
-       	next_byte = unpack('B',decode_data[:1])[0]
+        next_byte = unpack('B',decode_data[:1])[0]
         if next_byte !=  ASN1_OID:
             raise Exception('OID tag not found %x' % next_byte)
         decode_data = decode_data[1:]
@@ -370,4 +370,3 @@ class SPNEGO_NegTokenInit(GSSAPI):
 
         self['Payload'] = ans
         return GSSAPI.getData(self)
-     

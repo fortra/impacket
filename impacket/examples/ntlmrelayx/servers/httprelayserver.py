@@ -186,7 +186,7 @@ class HTTPRelayServer(Thread):
                 try:
                     _, blob = typeX.split('NTLM')
                     token = base64.b64decode(blob.strip())
-                except Exception as e:
+                except Exception:
                     LOG.debug("Exception:", exc_info=True)
                     self.do_AUTHHEAD(message = b'NTLM', proxy=proxy)
                 else:
@@ -205,12 +205,12 @@ class HTTPRelayServer(Thread):
 
                 if not self.do_ntlm_auth(token,authenticateMessage):
                     if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
-                        LOG.error("Authenticating against %s://%s as %s\%s FAILED" % (
+                        LOG.error("Authenticating against %s://%s as %s\\%s FAILED" % (
                             self.target.scheme, self.target.netloc,
                             authenticateMessage['domain_name'].decode('utf-16le'),
                             authenticateMessage['user_name'].decode('utf-16le')))
                     else:
-                        LOG.error("Authenticating against %s://%s as %s\%s FAILED" % (
+                        LOG.error("Authenticating against %s://%s as %s\\%s FAILED" % (
                             self.target.scheme, self.target.netloc,
                             authenticateMessage['domain_name'].decode('ascii'),
                             authenticateMessage['user_name'].decode('ascii')))
@@ -226,11 +226,11 @@ class HTTPRelayServer(Thread):
                 else:
                     # Relay worked, do whatever we want here...
                     if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
-                        LOG.info("Authenticating against %s://%s as %s\%s SUCCEED" % (
+                        LOG.info("Authenticating against %s://%s as %s\\%s SUCCEED" % (
                             self.target.scheme, self.target.netloc, authenticateMessage['domain_name'].decode('utf-16le'),
                             authenticateMessage['user_name'].decode('utf-16le')))
                     else:
-                        LOG.info("Authenticating against %s://%s as %s\%s SUCCEED" % (
+                        LOG.info("Authenticating against %s://%s as %s\\%s SUCCEED" % (
                             self.target.scheme, self.target.netloc, authenticateMessage['domain_name'].decode('ascii'),
                             authenticateMessage['user_name'].decode('ascii')))
 

@@ -92,7 +92,8 @@ class EXOP_ERR(NDRENUM):
         EXOP_ERR_PARAM_ERROR           = 0x00000010
 
     def dump(self, msg = None, indent = 0):
-        if msg is None: msg = self.__class__.__name__
+        if msg is None:
+            msg = self.__class__.__name__
         if msg != '':
             print(msg, end=' ')
 

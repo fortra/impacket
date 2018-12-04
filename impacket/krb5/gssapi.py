@@ -267,7 +267,7 @@ class GSSAPI_AES():
 
         cipherText = self.rotate(cipherText, token['RRC'] + token['EC'])
 
-        nn = self.unrotate(cipherText, token['RRC'] + token['EC'])
+        #nn = self.unrotate(cipherText, token['RRC'] + token['EC'])
         ret1 = cipherText[len(self.WRAP()) + token['RRC'] + token['EC']:]
         ret2 = token.getData() + cipherText[:len(self.WRAP()) + token['RRC'] + token['EC']]
 
@@ -293,3 +293,4 @@ class GSSAPI_AES256(GSSAPI_AES):
 class GSSAPI_AES128(GSSAPI_AES):
     checkSumProfile = crypto._SHA1AES128
     cipherType = crypto._AES128CTS
+

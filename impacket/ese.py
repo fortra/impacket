@@ -675,14 +675,11 @@ class ESENT_DB:
 
     def __addLongValue(self, entry):
         dataDefinitionHeader = ESENT_DATA_DEFINITION_HEADER(entry['EntryData'])
-        catalogEntry = ESENT_CATALOG_DATA_DEFINITION_ENTRY(entry['EntryData'][len(dataDefinitionHeader):])
         lvLen = unpack('<H',entry['EntryData'][dataDefinitionHeader['VariableSizeOffset']:][:2])[0]
         lvName = entry['EntryData'][dataDefinitionHeader['VariableSizeOffset']:][7:][:lvLen]
         self.__tables[self.__currentTable]['LongValues'][lvName] = entry
 
     def parsePage(self, page):
-        baseOffset = len(page.record)
-
         # Print the leaf/branch tags
         for tagNum in range(1,page.record['FirstAvailablePageTag']):
             flags, data = page.getTag(tagNum)
@@ -956,7 +953,7 @@ class ESENT_DB:
 
                     try:
                         record[column] = record[column].decode(stringDecoder)
-                    except Exception as e:
+                    except Exception:
                         LOG.debug("Exception:", exc_info=True)
                         LOG.debug('Fixing Record[%r][%d]: %r' % (column, columnRecord['ColumnType'], record[column]))
                         record[column] = record[column].decode(stringDecoder, "replace")
@@ -968,9 +965,6 @@ class ESENT_DB:
                         record[column] = hexlify(record[column])
                     else:
                         unpackStr = unpackData[1]
-                        unpackSize = unpackData[0]
                         record[column] = unpack(unpackStr, record[column])[0]
 
         return record
-
-

@@ -76,7 +76,7 @@ class PSEXEC:
 
     def run(self, remoteName, remoteHost):
 
-        stringbinding = 'ncacn_np:%s[\pipe\svcctl]' % remoteName
+        stringbinding = r'ncacn_np:%s[\pipe\svcctl]' % remoteName
         logging.debug('StringBinding %s'%stringbinding)
         rpctransport = transport.DCERPCTransportFactory(stringbinding)
         rpctransport.set_dport(self.__port)

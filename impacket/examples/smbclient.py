@@ -19,12 +19,15 @@ import sys
 import time
 import cmd
 import os
+import ntpath
 
-from impacket import LOG
 from six import PY2
 from impacket.dcerpc.v5 import samr, transport, srvs
 from impacket.dcerpc.v5.dtypes import NULL
-from impacket.smbconnection import *
+from impacket import LOG
+from impacket.smbconnection import SMBConnection, SMB2_DIALECT_002, SMB2_DIALECT_21, SMB_DIALECT, SessionError, \
+    FILE_READ_DATA, FILE_SHARE_READ, FILE_SHARE_WRITE
+from impacket.smb3structs import FILE_DIRECTORY_FILE, FILE_LIST_DIRECTORY
 
 
 # If you wanna have readline like functionality in Windows, install pyreadline
@@ -338,10 +341,8 @@ class MiniImpacketShell(cmd.Cmd):
         self.pwd = ntpath.normpath(self.pwd)
         # Let's try to open the directory to see if it's valid
         try:
-            fid = self.smb.openFile(self.tid, self.pwd, creationOption = FILE_DIRECTORY_FILE \
-                                    , desiredAccess = FILE_READ_DATA | FILE_LIST_DIRECTORY \
-                                    , shareMode = FILE_SHARE_READ | FILE_SHARE_WRITE \
-                                    )
+            fid = self.smb.openFile(self.tid, self.pwd, creationOption = FILE_DIRECTORY_FILE, desiredAccess = FILE_READ_DATA |
+                                   FILE_LIST_DIRECTORY, shareMode = FILE_SHARE_READ | FILE_SHARE_WRITE )
             self.smb.closeFile(self.tid,fid)
         except SessionError:
             self.pwd = oldpwd
@@ -458,5 +459,3 @@ class MiniImpacketShell(cmd.Cmd):
 
     def do_close(self, line):
         self.do_logoff(line)
-
-

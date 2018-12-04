@@ -95,7 +95,8 @@ class STR(NDRSTRUCT):
     )
 
     def dump(self, msg = None, indent = 0):
-        if msg is None: msg = self.__class__.__name__
+        if msg is None:
+            msg = self.__class__.__name__
         if msg != '':
             print("%s" % msg, end=' ')
         # Here just print the data
@@ -144,7 +145,8 @@ class WSTR(NDRSTRUCT):
     )
 
     def dump(self, msg = None, indent = 0):
-        if msg is None: msg = self.__class__.__name__
+        if msg is None:
+            msg = self.__class__.__name__
         if msg != '':
             print("%s" % msg, end=' ')
         # Here just print the data
@@ -368,7 +370,8 @@ class RPC_UNICODE_STRING(NDRSTRUCT):
         return NDRSTRUCT.__setitem__(self, key, value)
 
     def dump(self, msg = None, indent = 0):
-        if msg is None: msg = self.__class__.__name__
+        if msg is None:
+            msg = self.__class__.__name__
         if msg != '':
             print("%s" % msg, end=' ')
 

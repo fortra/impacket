@@ -46,4 +46,3 @@ setup(name = PACKAGE_NAME,
           "Programming Language :: Python :: 2.6",
       ]
       )
-

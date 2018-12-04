@@ -24,8 +24,7 @@ from impacket.tds import TDSPacket, TDS_STATUS_NORMAL, TDS_STATUS_EOM, TDS_PRE_L
     TDS_LOGIN, TDS_LOGIN7, TDS_PRELOGIN, TDS_INTEGRATED_SECURITY_ON
 from impacket.ntlm import NTLMAuthChallengeResponse
 try:
-    import OpenSSL
-    from OpenSSL import SSL, crypto
+    from OpenSSL import SSL
 except:
     LOG.critical("pyOpenSSL is not installed, can't continue")
     raise
@@ -152,7 +151,7 @@ class MSSQLSocksRelay(SocksRelay):
                 tds = self.session.recvTDS()
                 # 4. Send it back to the client
                 self.sendTDS(tds['Type'], tds['Data'], 0)
-        except Exception as e:
+        except Exception:
             # Probably an error here
             LOG.debug('Exception:', exc_info=True)
 
@@ -247,5 +246,3 @@ class MSSQLSocksRelay(SocksRelay):
 
         # print packet['Length']
         return packet
-
-

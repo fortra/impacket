@@ -1691,10 +1691,8 @@ class IRemoteSCMActivator:
 
         propOutput = activationBlob['Property'][:activationBlob['CustomHeader']['pSizes'][0]['Data']]
         scmReply = activationBlob['Property'][
-                   activationBlob['CustomHeader']['pSizes'][0]['Data']:activationBlob['CustomHeader']['pSizes'][0][
-                                                                           'Data'] +
-                                                                       activationBlob['CustomHeader']['pSizes'][1][
-                                                                           'Data']]
+                   activationBlob['CustomHeader']['pSizes'][0]['Data']:activationBlob['CustomHeader']['pSizes'][0]['Data'] +
+                                                                       activationBlob['CustomHeader']['pSizes'][1]['Data']]
 
         scmr = ScmReplyInfoData()
         size = scmr.fromString(scmReply)
@@ -1857,10 +1855,8 @@ class IRemoteSCMActivator:
 
         propOutput = activationBlob['Property'][:activationBlob['CustomHeader']['pSizes'][0]['Data']]
         scmReply = activationBlob['Property'][
-                   activationBlob['CustomHeader']['pSizes'][0]['Data']:activationBlob['CustomHeader']['pSizes'][0][
-                                                                           'Data'] +
-                                                                       activationBlob['CustomHeader']['pSizes'][1][
-                                                                           'Data']]
+                   activationBlob['CustomHeader']['pSizes'][0]['Data']:activationBlob['CustomHeader']['pSizes'][0]['Data'] +
+                                                                       activationBlob['CustomHeader']['pSizes'][1]['Data']]
 
         scmr = ScmReplyInfoData()
         size = scmr.fromString(scmReply)

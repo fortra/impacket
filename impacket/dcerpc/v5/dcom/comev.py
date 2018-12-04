@@ -1861,4 +1861,3 @@ class IEventSystemInitialize(IRemUnknown):
         request['bRetainSubKeys'] = bRetainSubKeys
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
         return resp
-

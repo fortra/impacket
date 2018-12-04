@@ -402,4 +402,3 @@ class SimpleConfig(ProtocolPacket):
             builders=SimpleConfig.BUILDERS, 
             descs = dict( (v,k) for (k,v) in SCElem.__dict__.items() )
         )
-    

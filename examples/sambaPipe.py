@@ -61,7 +61,7 @@ class PIPEDREAM:
         try:
             self.__smbClient.openFile(tid, '\\', FILE_WRITE_DATA, creationOption=FILE_DIRECTORY_FILE)
             writable = True
-        except Exception as e:
+        except Exception:
             writable = False
             pass
 
@@ -288,4 +288,3 @@ if __name__ == '__main__':
             import traceback
             traceback.print_exc()
         logging.error(str(e))
-

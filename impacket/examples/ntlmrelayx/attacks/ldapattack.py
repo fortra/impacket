@@ -15,21 +15,21 @@
 #
 # ToDo:
 #
+import _thread
 import random
 import string
-import _thread
+
 import ldap3
+import ldapdomaindump
+from ldap3.core.results import RESULT_UNWILLING_TO_PERFORM
+from ldap3.utils.conv import escape_filter_chars
+
 from impacket import LOG
 from impacket.examples.ntlmrelayx.attacks import ProtocolAttack
 from impacket.ldap import ldaptypes
-from impacket.uuid import string_to_bin, bin_to_string
 from impacket.ldap.ldaptypes import ACCESS_ALLOWED_OBJECT_ACE, ACCESS_MASK, ACCESS_ALLOWED_ACE, ACE, OBJECTTYPE_GUID_MAP
-from pyasn1.type.namedtype import NamedTypes, NamedType
-from pyasn1.type.univ import Sequence, Integer
-from ldap3.utils.conv import escape_filter_chars
-from ldap3.core.results import RESULT_UNWILLING_TO_PERFORM
-from six import PY3
-import ldapdomaindump
+from impacket.uuid import string_to_bin, bin_to_string
+
 # This is new from ldap3 v2.5
 try:
     from ldap3.protocol.microsoft import security_descriptor_control

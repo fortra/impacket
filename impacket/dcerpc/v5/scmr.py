@@ -18,14 +18,13 @@
 #   Helper functions start with "h"<name of the call>.
 #   There are test cases for them too. 
 #
-from struct import pack, unpack
 
 from impacket import system_errors
-from impacket.uuid import uuidtup_to_bin
-from impacket.dcerpc.v5.ndr import NDRCALL, NDR, NDRSTRUCT, NDRPOINTER, NDRPOINTERNULL, NDRUniConformantArray, NDRUNION
 from impacket.dcerpc.v5.dtypes import NULL, DWORD, LPWSTR, ULONG, BOOL, LPBYTE, ULONGLONG, PGUID, USHORT, LPDWORD, WSTR, \
     GUID, PBOOL, WIDESTR
+from impacket.dcerpc.v5.ndr import NDRCALL, NDR, NDRSTRUCT, NDRPOINTER, NDRPOINTERNULL, NDRUniConformantArray, NDRUNION
 from impacket.dcerpc.v5.rpcrt import DCERPCException
+from impacket.uuid import uuidtup_to_bin
 
 MSRPC_UUID_SCMR = uuidtup_to_bin(('367ABB81-9844-35F1-AD32-98F038001003', '2.0'))
 
@@ -1384,4 +1383,3 @@ def hREnumServiceGroupW(dce, hSCManager, dwServiceType, dwServiceState, cbBufSiz
     enumServiceGroup['lpResumeIndex'] = lpResumeIndex
     enumServiceGroup['pszGroupName'] = pszGroupName
     return dce.request(enumServiceGroup)
-

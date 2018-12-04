@@ -269,7 +269,7 @@ class Structure:
                 return data.getData()
             elif isinstance(data, int):
                 return bytes(data)
-            elif isinstance(data, bytes) != True:
+            elif isinstance(data, bytes) is not True:
                 return bytes(b(data))
             else:
                 return data
@@ -466,7 +466,7 @@ class Structure:
         try:
             lengthField = self.findLengthFieldFor(field)
             return int(self[lengthField])
-        except Exception as e:
+        except Exception:
             pass
 
         # XXX: Try to match to actual values, raise if no match
@@ -568,10 +568,14 @@ class Structure:
             if two[0].isdigit():
                 return (self.zeroValue(two[1]),)*int(two[0])
                         
-        if not format.find('*') == -1: return ()
-        if 's' in format: return b''
-        if format in ['z',':','u']: return b''
-        if format == 'w': return b('\x00\x00')
+        if not format.find('*') == -1:
+            return ()
+        if 's' in format:
+            return b''
+        if format in ['z',':','u']:
+            return b''
+        if format == 'w':
+            return b('\x00\x00')
 
         return 0
 
@@ -580,7 +584,8 @@ class Structure:
             self[field[0]] = self.zeroValue(field[1])
 
     def dump(self, msg = None, indent = 0):
-        if msg is None: msg = self.__class__.__name__
+        if msg is None:
+            msg = self.__class__.__name__
         ind = ' '*indent
         print("\n%s" % msg)
         fixedFields = []

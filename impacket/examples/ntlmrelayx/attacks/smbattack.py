@@ -89,7 +89,7 @@ class SMBAttack(ProtocolAttack):
                             LOG.info("Host {} has the following local admins (hint: try relaying one of them here...)".format(self.__SMBConnection.getRemoteHost().encode(self.config.encoding)))
                             for name in localAdminNames:
                                 LOG.info("Host {} local admin member: {} ".format(self.__SMBConnection.getRemoteHost().encode(self.config.encoding), name))
-                        except DCERPCException as e:
+                        except DCERPCException:
                             LOG.info("SAMR access denied")
                         return
                 # Something else went wrong. aborting

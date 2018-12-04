@@ -30,13 +30,13 @@ import re
 import struct
 
 from pyasn1.codec.der import decoder
-from six import PY3
 
 from . import asn1
 from . import constants
 
 
-class KerberosException(Exception): pass
+class KerberosException(Exception):
+    pass
 
 def _asn1_decode(data, asn1Spec):
     if isinstance(data, str) or isinstance(data,bytes):
@@ -105,15 +105,13 @@ If the value contains no realm, then default_realm will be used."""
             self.type = type
 
     def __eq__(self, other):
-        if isinstance(other, str):
-            other = Principal(other)
+        if isinstance (other, str):
+            other = Principal (other)
 
-        return (self.type == constants.PrincipalNameType.NT_UNKNOWN.value or \
-                other.type == constants.PrincipalNameType.NT_UNKNOWN.value or \
-                self.type == other.type) and \
-            all(map(lambda a,b: a == b,
-                    self.components, other.components)) and \
-            self.realm == other.realm
+        return (self.type == constants.PrincipalNameType.NT_UNKNOWN.value or
+                other.type == constants.PrincipalNameType.NT_UNKNOWN.value or
+                self.type == other.type) and all (map (lambda a, b: a == b, self.components, other.components)) and \
+               self.realm == other.realm
 
     def __str__(self):
         def quote_component(comp):
@@ -274,3 +272,4 @@ if __name__ == '__main__':
     print(Principal(("marc", "root", "ATHENA.MIT.EDU")))
     print(Principal((("marc", "root"), "ATHENA.MIT.EDU")))
     print(Principal("marc\\/root"))
+

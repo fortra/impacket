@@ -31,10 +31,11 @@ from impacket.dcerpc.v5.lsad import PLSA_FOREST_TRUST_INFORMATION
 from impacket.dcerpc.v5.rpcrt import DCERPCException
 from impacket.structure import Structure
 from impacket import ntlm, crypto, LOG
-import hmac, hashlib
+import hmac
+import hashlib
 try:
     from Cryptodome.Cipher import DES, AES, ARC4
-except Exception:
+except ImportError:
     LOG.critical("Warning: You don't have any crypto installed. You need pycryptodomex")
     LOG.critical("See https://pypi.org/project/pycryptodomex/")
 
@@ -2805,6 +2806,3 @@ def hNetrServerGetTrustInfo(dce, trustedDcName, accountName, secureChannelType, 
     request['ComputerName'] = checkNullString(computerName)
     request['Authenticator'] = authenticator
     return dce.request(request)
-
-
-

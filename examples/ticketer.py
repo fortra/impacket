@@ -750,7 +750,7 @@ if __name__ == '__main__':
         print("\tIf you specify -aesKey instead of -ntHash everything will be encrypted using AES128 or AES256")
         print("\t(depending on the key specified). No traffic is generated against the KDC. Ticket will be saved as")
         print("\tbaduser.ccache.\n")
-        print("\t./ticketer.py -nthash <krbtgt/service nthash> -aesKey <krbtgt/service AES> -domain-sid <your domain SID> -domain " \
+        print("\t./ticketer.py -nthash <krbtgt/service nthash> -aesKey <krbtgt/service AES> -domain-sid <your domain SID> -domain " 
               "<your domain FQDN> -request -user <a valid domain user> -password <valid domain user's password> baduser\n")
         print("\twill first authenticate against the KDC (using -user/-password) and get a TGT that will be used")
         print("\tas template for customization. Whatever encryption algorithms used on that ticket will be honored,")

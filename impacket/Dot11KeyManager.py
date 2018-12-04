@@ -23,7 +23,7 @@ class KeyManager:
 
     def add_key(self, bssid, key):
         bssid=self.__get_bssid_hasheable_type(bssid)
-        if not bssid in self.keys:
+        if bssid not in self.keys:
             self.keys[bssid] = key
             return True
         else:

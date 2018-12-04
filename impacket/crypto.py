@@ -467,10 +467,3 @@ if __name__ == '__main__':
     print("Key Length       10 ")
     pp("AES-CMAC        " , (hexlify(AES_CMAC_PRF_128(unhexlify(K)[:10],unhexlify(M),10,len(unhexlify(M))))))
     print()
-
-
-
-
-
-
-

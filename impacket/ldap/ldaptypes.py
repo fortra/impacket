@@ -14,7 +14,6 @@
 #
 from struct import unpack, pack
 from impacket.structure import Structure
-from impacket.uuid import string_to_bin
 
 # Global constant if the library should recalculate ACE sizes in objects that are decoded/re-encoded.
 # This defaults to True, but this causes the ACLs to not match on a binary level

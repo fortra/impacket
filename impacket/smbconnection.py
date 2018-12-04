@@ -12,12 +12,11 @@
 # You can still play with the low level methods (version dependent)
 # by calling getSMBServer()
 #
-
-
 import ntpath
 import socket
 
 from impacket import smb, smb3, nmb, nt_errors, LOG
+from impacket.ntlm import compute_lmhash, compute_nthash
 from impacket.smb3structs import SMB2Packet, SMB2_DIALECT_002, SMB2_DIALECT_21, SMB2_DIALECT_30, GENERIC_ALL, FILE_SHARE_READ, \
     FILE_SHARE_WRITE, FILE_SHARE_DELETE, FILE_NON_DIRECTORY_FILE, FILE_OVERWRITE_IF, FILE_ATTRIBUTE_NORMAL, \
     SMB2_IL_IMPERSONATION, SMB2_OPLOCK_LEVEL_NONE, FILE_READ_DATA , FILE_WRITE_DATA, FILE_OPEN
@@ -287,7 +286,6 @@ class SMBConnection:
         from impacket.krb5.ccache import CCache
         from impacket.krb5.kerberosv5 import KerberosError
         from impacket.krb5 import constants
-        from impacket.ntlm import compute_lmhash, compute_nthash
 
         self._kdcHost = kdcHost
         self._useCache = useCache
@@ -347,8 +345,7 @@ class SMBConnection:
                     # the password to lm/nt hashes and hope for the best. If that's already
                     # done, byebye.
                     if lmhash is '' and nthash is '' and (aesKey is '' or aesKey is None) and TGT is None and TGS is None:
-                        from impacket.ntlm import compute_lmhash, compute_nthash
-                        lmhash = compute_lmhash(password) 
+                        lmhash = compute_lmhash(password)
                         nthash = compute_nthash(password) 
                     else:
                         raise e
@@ -904,5 +901,3 @@ class SessionError(Exception):
             return 'SMB SessionError: %s(%s)' % (nt_errors.ERROR_MESSAGES[self.error])
         else:
             return 'SMB SessionError: 0x%x' % self.error
-
-

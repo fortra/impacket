@@ -282,7 +282,7 @@ class Pipes(Thread):
             self.server.waitNamedPipe(self.tid, self.pipe)
             self.fid = self.server.openFile(self.tid,self.pipe,self.permissions, creationOption = 0x40, fileAttributes = 0x80)
             self.server.setTimeout(1000000)
-        except Exception as e:
+        except Exception:
             logging.critical("Something wen't wrong connecting the pipes(%s), try again" % self.__class__)
 
 class RemoteStdOutPipe(Pipes):
@@ -546,7 +546,7 @@ class RAISECHILD:
         s = SMBConnection(machineIP, machineIP)
         try:
             s.login('','')
-        except Exception as e:
+        except Exception:
             logging.debug('Error while anonymous logging into %s' % machineIP)
         else:
             s.logoff()
@@ -557,7 +557,7 @@ class RAISECHILD:
         s = SMBConnection(machineIP, machineIP)
         try:
             s.login('','')
-        except Exception as e:
+        except Exception:
             logging.debug('Error while anonymous logging into %s' % machineIP)
         else:
             s.logoff()

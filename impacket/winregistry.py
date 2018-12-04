@@ -263,9 +263,9 @@ class Registry:
 
     def __getLhHash(self, key):
         res = 0
-        for b in key.upper():
+        for bb in key.upper():
             res *= 37
-            res += ord(b)
+            res += ord(bb)
         return res % 0x100000000
 
     def __compareHash(self, magic, hashData, key):
@@ -480,4 +480,3 @@ class Registry:
         if key['OffsetClassName'] > 0:
             value = self.__getBlock(key['OffsetClassName'])
             return value['Data']
-

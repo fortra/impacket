@@ -242,4 +242,3 @@ class ServiceInstall:
                     scmr.hRDeleteService(self.rpcsvc, service)
                 except:
                     pass
-

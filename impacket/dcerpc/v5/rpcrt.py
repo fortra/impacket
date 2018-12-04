@@ -26,7 +26,6 @@ from Cryptodome.Cipher import ARC4
 from impacket import ntlm, LOG
 from impacket.structure import Structure,pack,unpack
 from impacket.krb5 import kerberosv5, gssapi
-from impacket import uuid
 from impacket.uuid import uuidtup_to_bin, generate, stringver_to_bin, bin_to_uuidtup
 from impacket.dcerpc.v5.dtypes import UCHAR, ULONG, USHORT
 from impacket.dcerpc.v5.ndr import NDRSTRUCT
@@ -816,19 +815,36 @@ class DCERPC:
         # default is 0: don'fragment. v4 will override this method
         self._max_user_frag = 0
 
-    def send(self, data): raise RuntimeError('virtual method. Not implemented in subclass')
-    def recv(self): raise RuntimeError('virtual method. Not implemented in subclass')
-    def alter_ctx(self, newUID, bogus_binds = ''): raise RuntimeError('virtual method. Not implemented in subclass')
-    def set_credentials(self, username, password, domain = '', lmhash = '', nthash = '', aesKey = '', TGT=None, TGS=None): pass
-    def set_auth_level(self, auth_level): pass
-    def set_auth_type(self, auth_type, callback = None): pass
-    def get_idempotent(self): return 0
-    def set_idempotent(self, flag): pass
+    def send(self, data):
+        raise RuntimeError ('virtual method. Not implemented in subclass')
+
+    def recv(self):
+        raise RuntimeError ('virtual method. Not implemented in subclass')
+
+    def alter_ctx(self, newUID, bogus_binds=''):
+        raise RuntimeError ('virtual method. Not implemented in subclass')
+
+    def set_credentials(self, username, password, domain='', lmhash='', nthash='', aesKey='', TGT=None, TGS=None):
+        pass
+
+    def set_auth_level(self, auth_level):
+        pass
+
+    def set_auth_type(self, auth_type, callback=None):
+        pass
+
+    def get_idempotent(self):
+        return 0
+
+    def set_idempotent(self, flag):
+        pass
+
     def call(self, function, body, uuid=None):
         if hasattr(body, 'getData'):
             return self.send(DCERPC_RawCall(function, body.getData(), uuid))
         else:
             return self.send(DCERPC_RawCall(function, body, uuid))
+
     def request(self, request, uuid=None, checkError=True):
         if self.transfer_syntax == self.NDR64Syntax:
             request.changeTransferSyntax(self.NDR64Syntax)
@@ -932,8 +948,10 @@ class DCERPC_v5(DCERPC):
         self.__TGT      = TGT
         self.__TGS      = TGS
         if lmhash != '' or nthash != '':
-            if len(lmhash) % 2:     lmhash = '0%s' % lmhash
-            if len(nthash) % 2:     nthash = '0%s' % nthash
+            if len(lmhash) % 2:
+                lmhash = '0%s' % lmhash
+            if len(nthash) % 2:
+                nthash = '0%s' % nthash
             try: # just in case they were converted already
                 self.__lmhash = unhexlify(lmhash)
                 self.__nthash = unhexlify(nthash)
@@ -1666,4 +1684,3 @@ class DCERPCServer(Thread):
             packet['type'] = MSRPC_FAULT
 
         return packet
-

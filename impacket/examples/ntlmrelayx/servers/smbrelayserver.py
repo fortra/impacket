@@ -263,7 +263,7 @@ class SMBRelayServer(Thread):
             client = smbData[self.target]['SMBClient']
             try:
                 challengeMessage = self.do_ntlm_negotiate(client, token)
-            except Exception as e:
+            except Exception:
                 # Log this target as processed for this client
                 self.targetprocessor.logTarget(self.target)
                 # Raise exception again to pass it on to the SMB server
@@ -320,13 +320,13 @@ class SMBRelayServer(Thread):
             if errorCode != STATUS_SUCCESS:
                 #Log this target as processed for this client
                 self.targetprocessor.logTarget(self.target)
-                LOG.error("Authenticating against %s://%s as %s\%s FAILED" % (
+                LOG.error("Authenticating against %s://%s as %s\\%s FAILED" % (
                 self.target.scheme, self.target.netloc, authenticateMessage['domain_name'].decode('utf-16le'),
                 authenticateMessage['user_name'].decode('utf-16le')))
                 client.killConnection()
             else:
                 # We have a session, create a thread and do whatever we want
-                LOG.info("Authenticating against %s://%s as %s\%s SUCCEED" % (
+                LOG.info("Authenticating against %s://%s as %s\\%s SUCCEED" % (
                     self.target.scheme, self.target.netloc, authenticateMessage['domain_name'].decode('utf-16le'),
                     authenticateMessage['user_name'].decode('utf-16le')))
                 # Log this target as processed for this client
@@ -463,7 +463,7 @@ class SMBRelayServer(Thread):
                 client = smbData[self.target]['SMBClient']
                 try:
                     challengeMessage = self.do_ntlm_negotiate(client,token)
-                except Exception as e:
+                except Exception:
                     # Log this target as processed for this client
                     self.targetprocessor.logTarget(self.target)
                     # Raise exception again to pass it on to the SMB server
@@ -522,7 +522,7 @@ class SMBRelayServer(Thread):
                     packet['ErrorCode']   = errorCode >> 16
                     packet['ErrorClass']  = errorCode & 0xff
 
-                    LOG.error("Authenticating against %s://%s as %s\%s FAILED" % (
+                    LOG.error("Authenticating against %s://%s as %s\\%s FAILED" % (
                     self.target.scheme, self.target.netloc, authenticateMessage['domain_name'].decode('utf-16le'),
                     authenticateMessage['user_name'].decode('utf-16le')))
 
@@ -534,7 +534,7 @@ class SMBRelayServer(Thread):
                     return None, [packet], errorCode
                 else:
                     # We have a session, create a thread and do whatever we want
-                    LOG.info("Authenticating against %s://%s as %s\%s SUCCEED" % (
+                    LOG.info("Authenticating against %s://%s as %s\\%s SUCCEED" % (
                         self.target.scheme, self.target.netloc, authenticateMessage['domain_name'].decode('utf-16le'),
                         authenticateMessage['user_name'].decode('utf-16le')))
 
@@ -610,7 +610,7 @@ class SMBRelayServer(Thread):
                 return None, [packet], errorCode
             else:
                 # We have a session, create a thread and do whatever we want
-                LOG.info("Authenticating against %s://%s as %s\%s SUCCEED" % (
+                LOG.info("Authenticating against %s://%s as %s\\%s SUCCEED" % (
                     self.target.scheme, self.target.netloc, sessionSetupData['PrimaryDomain'],
                     sessionSetupData['Account']))
 

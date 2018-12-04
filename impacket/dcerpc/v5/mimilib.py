@@ -234,5 +234,3 @@ if __name__ == '__main__':
     print('Secret')
     hexdump(alice.getSharedSecret(bob.genPublicKey()))
     hexdump(bob.getSharedSecret(alice.genPublicKey()))
-
-

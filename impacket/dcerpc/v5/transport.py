@@ -11,15 +11,15 @@
 #
 from __future__ import division
 from __future__ import print_function
-import re
-import socket
+
 import binascii
 import os
+import re
+import socket
 
-from impacket.smbconnection import smb, SMBConnection
-from impacket import nmb
 from impacket import ntlm
 from impacket.dcerpc.v5.rpcrt import DCERPCException, DCERPC_v5, DCERPC_v4
+from impacket.smbconnection import SMBConnection
 
 
 class DCERPCStringBinding:
@@ -67,12 +67,15 @@ class DCERPCStringBinding:
 
 def DCERPCStringBindingCompose(uuid=None, protocol_sequence='', network_address='', endpoint='', options=[]):
     s = ''
-    if uuid: s += uuid + '@'
+    if uuid:
+        s += uuid + '@'
     s += protocol_sequence + ':'
-    if network_address: s += network_address
+    if network_address:
+        s += network_address
     if endpoint or options:
         s += '[' + endpoint
-        if options: s += ',' + ','.join(options)
+        if options:
+            s += ',' + ','.join(options)
         s += ']'
 
     return s
@@ -224,8 +227,10 @@ class DCERPCTransport:
         self._TGT      = TGT
         self._TGS      = TGS
         if lmhash != '' or nthash != '':
-            if len(lmhash) % 2:     lmhash = '0%s' % lmhash
-            if len(nthash) % 2:     nthash = '0%s' % nthash
+            if len(lmhash) % 2:
+                lmhash = '0%s' % lmhash
+            if len(nthash) % 2:
+                nthash = '0%s' % nthash
             try: # just in case they were converted already
                self._lmhash = binascii.unhexlify(lmhash)
                self._nthash = binascii.unhexlify(nthash)
@@ -306,7 +311,7 @@ class TCPTransport(DCERPCTransport):
     def disconnect(self):
         try:
             self.__socket.close()
-        except socket.error as msg:
+        except socket.error:
             self.__socket = None
             return 0
         return 1

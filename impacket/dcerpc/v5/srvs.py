@@ -1753,7 +1753,8 @@ class WCHAR_ARRAY(NDRSTRUCT):
     )
 
     def dump(self, msg = None, indent = 0):
-        if msg is None: msg = self.__class__.__name__
+        if msg is None:
+            msg = self.__class__.__name__
         if msg != '':
             print("%s" % msg, end=' ')
         # Here just print the data
@@ -3290,4 +3291,3 @@ def hNetrServerAliasEnum(dce, level, resumeHandle = 0, preferedMaximumLength = 0
     request['PreferedMaximumLength'] = preferedMaximumLength
     request['ResumeHandle'] = resumeHandle
     return dce.request(request)
-

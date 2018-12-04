@@ -269,7 +269,7 @@ class MQTTConnection:
             try:
                 message = MQTT_Packet(data)
                 remaining = data[len(message):]
-            except Exception as e:
+            except Exception:
                 # We need more data
                 remaining = data + self._socket.recv(REQUEST_SIZE)
             else:

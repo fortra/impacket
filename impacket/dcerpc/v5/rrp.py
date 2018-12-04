@@ -1000,4 +1000,3 @@ def hBaseRegDeleteValue(dce, hKey, lpValueName):
     request['hKey'] = hKey
     request['lpValueName'] = checkNullString(lpValueName)
     return dce.request(request)
-

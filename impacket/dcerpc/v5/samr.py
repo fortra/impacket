@@ -300,7 +300,8 @@ class RPC_STRING(NDRSTRUCT):
     )
 
     def dump(self, msg = None, indent = 0):
-        if msg is None: msg = self.__class__.__name__
+        if msg is None:
+            msg = self.__class__.__name__
         if msg != '':
             print("%s" % msg, end=' ')
         # Here just print the data
@@ -2777,8 +2778,6 @@ def hSamrUnicodeChangePasswordUser2(dce, serverName='\x00', userName='', oldPass
             pass
 
     newPwdHashNT = ntlm.NTOWFv1(newPassword)
-    newPwdHashLM = ntlm.LMOWFv1(newPassword)
-
 
     samUser = SAMPR_USER_PASSWORD()
     try:
@@ -2878,4 +2877,3 @@ def hSamrLookupIdsInDomain(dce, domainHandle, ids):
     request.fields['RelativeIds'].fields['MaximumCount'] = 1000
 
     return dce.request(request)
-

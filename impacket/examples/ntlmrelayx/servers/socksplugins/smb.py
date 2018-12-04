@@ -184,7 +184,7 @@ class SMBSocksRelay(SocksRelay):
         try:
             packet = NewSMBPacket(data=data.get_trailer())
             smbCommand = SMBCommand(packet['Data'][0])
-        except Exception as e:
+        except Exception:
             # Maybe a SMB2 packet?
             try:
                 packet = SMB2Packet(data = data.get_trailer())
@@ -584,7 +584,3 @@ class SMBSocksRelay(SocksRelay):
             resp['Data'] = respSMBCommand
 
         return resp
-
-
-
-

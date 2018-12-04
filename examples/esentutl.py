@@ -41,7 +41,7 @@ def exportTable(ese, tableName):
     while True:
         try:
             record = ese.getNextRow(cursor)
-        except Exception as e:
+        except Exception:
             logging.debug('Exception:', exc_info=True)
             logging.error('Error while calling getNextRow(), trying the next one')
             continue
@@ -111,6 +111,3 @@ def main():
 if __name__ == '__main__':
     main()
     sys.exit(1)
-
-
-

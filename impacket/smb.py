@@ -526,7 +526,8 @@ class SessionError(Exception):
 
 # Raised when an supported feature is present/required in the protocol but is not
 # currently supported by pysmb
-class UnsupportedFeature(Exception): pass
+class UnsupportedFeature(Exception):
+    pass
 
 # Contains information about a SMB shared device/service
 class SharedDevice:
@@ -708,8 +709,7 @@ class NewSMBPacket(Structure):
     def isValidAnswer(self, cmd):
         # this was inside a loop reading more from the net (with recv_packet(None))
         if self['Command'] == cmd:
-            if (self['ErrorClass'] == 0x00 and
-                self['ErrorCode']  == 0x00):
+            if (self['ErrorClass'] == 0x00 and self['ErrorCode']  == 0x00):
                     return 1
             elif self.isMoreData():
                 return 1
@@ -3051,8 +3051,10 @@ class SMB:
         # TGS['sessionKey'] = the sessionKey
         # If we have hashes, normalize them
         if lmhash != '' or nthash != '':
-            if len(lmhash) % 2:     lmhash = '0%s' % lmhash
-            if len(nthash) % 2:     nthash = '0%s' % nthash
+            if len(lmhash) % 2:
+                lmhash = '0%s' % lmhash
+            if len(nthash) % 2:
+                nthash = '0%s' % nthash
             try: # just in case they were converted already
                 lmhash = a2b_hex(lmhash)
                 nthash = a2b_hex(nthash)
@@ -3353,8 +3355,10 @@ class SMB:
 
         # If we have hashes, normalize them
         if lmhash != '' or nthash != '':
-            if len(lmhash) % 2:     lmhash = '0%s' % lmhash
-            if len(nthash) % 2:     nthash = '0%s' % nthash
+            if len(lmhash) % 2:
+                lmhash = '0%s' % lmhash
+            if len(nthash) % 2:
+                nthash = '0%s' % nthash
             try: # just in case they were converted already
                 lmhash = a2b_hex(lmhash)
                 nthash = a2b_hex(nthash)
@@ -3466,7 +3470,8 @@ class SMB:
                 self.__flags2 |= SMB.FLAGS2_UNICODE
 
             return 1
-        else: raise Exception('Error: Could not login successfully')
+        else:
+            raise Exception('Error: Could not login successfully')
 
     def waitNamedPipe(self, tid, pipe, timeout = 5, noAnswer = 0):
         smb = NewSMBPacket()
@@ -4231,4 +4236,3 @@ ERRHRD = { 19: 'Media is write-protected',
            35: 'FCBs not available',
            36: 'Sharing buffer exceeded'
            }
-

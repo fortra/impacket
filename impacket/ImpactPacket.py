@@ -784,7 +784,7 @@ class IP(Header):
         if self.get_ip_len() == 0:
             self.set_ip_len(self.get_size())
 
-        child_data = self.get_data_as_string();
+        child_data = self.get_data_as_string()
 
         if self.auto_checksum:
             self.reset_ip_sum()
@@ -808,7 +808,7 @@ class IP(Header):
         if self.auto_checksum:
             self.set_ip_sum(self.compute_checksum(my_bytes))
 
-        if child_data == None:
+        if child_data is None:
             return my_bytes.tostring()
         else:
             return my_bytes.tostring() + child_data
@@ -1092,9 +1092,12 @@ class IP(Header):
 
     def __str__(self):
         flags = ' '
-        if self.get_ip_df(): flags += 'DF '
-        if self.get_ip_mf(): flags += 'MF '
-        if self.get_ip_rf(): flags += 'RF '
+        if self.get_ip_df():
+            flags += 'DF '
+        if self.get_ip_mf():
+            flags += 'MF '
+        if self.get_ip_rf():
+            flags += 'RF '
         tmp_str = 'IP%s%s -> %s ' % (flags, self.get_ip_src(),self.get_ip_dst())
         for op in self.__option_list:
             tmp_str += '\n' + str(op)
@@ -2125,4 +2128,3 @@ def example(): #To execute an example, remove this line
     a.set_ether_shost((0x0, 0xe0, 0x7d, 0x8a, 0xef, 0x3d))
     a.set_ether_dhost((0x0, 0xc0, 0xdf, 0x6, 0x5, 0xe))
     print("beto %s" % a)
-

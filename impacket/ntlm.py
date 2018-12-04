@@ -974,4 +974,3 @@ class NTLM_HTTP_AuthChallengeResponse(NTLM_HTTP, NTLMAuthChallengeResponse):
 
     def __init__(self):
         NTLMAuthChallengeResponse.__init__(self)
-

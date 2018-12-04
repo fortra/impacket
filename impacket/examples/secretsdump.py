@@ -65,7 +65,7 @@ from impacket.dcerpc.v5 import transport, rrp, scmr, wkst, samr, epm, drsuapi
 from impacket.dcerpc.v5.dtypes import NULL
 from impacket.dcerpc.v5.rpcrt import RPC_C_AUTHN_LEVEL_PKT_PRIVACY, DCERPCException, RPC_C_AUTHN_GSS_NEGOTIATE
 from impacket.dcerpc.v5.dcom import wmi
-from impacket.dcerpc.v5.dcom.oaut import IID_IDispatch, string_to_bin, IDispatch, DISPPARAMS, DISPATCH_PROPERTYGET, \
+from impacket.dcerpc.v5.dcom.oaut import IID_IDispatch, IDispatch, DISPPARAMS, DISPATCH_PROPERTYGET, \
     VARIANT, VARENUM, DISPATCH_METHOD
 from impacket.dcerpc.v5.dcomrt import DCOMConnection, OBJREF, FLAGS_OBJREF_CUSTOM, OBJREF_CUSTOM, OBJREF_HANDLER, \
     OBJREF_EXTENDED, OBJREF_STANDARD, FLAGS_OBJREF_HANDLER, FLAGS_OBJREF_STANDARD, FLAGS_OBJREF_EXTENDED, \
@@ -1141,7 +1141,7 @@ class SAMHashes(OfflineRegistry):
         QWERTY = b"!@#$%^&*()qwertyUIOPAzxcvbnmQQQQQQQQQQQQ)(*@&%\0"
         DIGITS = b"0123456789012345678901234567890123456789\0"
 
-        F = self.getValue(ntpath.join('SAM\Domains\Account','F'))[1]
+        F = self.getValue(ntpath.join(r'SAM\Domains\Account','F'))[1]
 
         domainData = DOMAIN_ACCOUNT_F(F)
 
@@ -2511,13 +2511,13 @@ class NTDSHashes:
                     self.__perSecretCallback(NTDSHashes.SECRET_TYPE.NTDS_CLEARTEXT, itemKey)
         finally:
             # Resources cleanup
-            if not hashesOutputFile is None:
+            if hashesOutputFile is not None:
                 hashesOutputFile.close()
 
-            if not keysOutputFile is None:
+            if keysOutputFile is not None:
                 keysOutputFile.close()
 
-            if not clearTextOutputFile is None:
+            if clearTextOutputFile is not None:
                 clearTextOutputFile.close()
 
             self.__resumeSession.endTransaction()

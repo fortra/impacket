@@ -14,10 +14,8 @@
 #
 # ToDo:
 #
-import logging
 import base64
 
-from imaplib import IMAP4
 from impacket import LOG
 from impacket.examples.ntlmrelayx.servers.socksserver import SocksRelay
 
@@ -235,5 +233,3 @@ class IMAPSocksRelay(SocksRelay):
         data = self.socksSocket.recv(self.packetSize)
         space = data.find(' ')
         return (data[:space], data[space:].strip())
-
-

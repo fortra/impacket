@@ -26,6 +26,9 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 # OF THE POSSIBILITY OF SUCH DAMAGE.
 
+from binascii import unhexlify
+from functools import reduce
+from os import urandom
 # XXX current status:
 # * Done and tested
 #   - AES encryption, checksum, string2key, prf
@@ -39,20 +42,13 @@
 #   - Camellia not supported by PyCrypto
 #   - Cipher state only needed for kcmd suite
 #   - Nonstandard enctypes and cksumtypes like des-hmac-sha1
-
 from struct import pack, unpack
-from binascii import unhexlify
-from os import urandom
-from six import b, PY3, indexbytes
-import string
-import random
 
-from Cryptodome.Util.number import GCD as gcd
 from Cryptodome.Cipher import AES, DES3, ARC4, DES
 from Cryptodome.Hash import HMAC, MD4, MD5, SHA
 from Cryptodome.Protocol.KDF import PBKDF2
-
-from functools import reduce
+from Cryptodome.Util.number import GCD as gcd
+from six import b, PY3, indexbytes
 
 
 def get_random_bytes(lenBytes):
@@ -319,7 +315,7 @@ class _DESCBC(_SimplifiedEnctype):
                     temp56.append(ord(byte)&0b01111111)
             
             #reverse
-            if odd == False:
+            if odd is False:
                 bintemp = b''
                 for byte in temp56:
                     bintemp += b(bin(byte)[2:].rjust(7,'0'))
@@ -458,17 +454,17 @@ class _AESEnctype(_SimplifiedEnctype):
         # CBC-decrypt all but the last two blocks.
         prev_cblock = bytearray(16)
         plaintext = b''
-        for b in cblocks[:-2]:
-            plaintext += _xorbytes(bytearray(aes.decrypt(bytes(b))), prev_cblock)
-            prev_cblock = b
+        for bb in cblocks[:-2]:
+            plaintext += _xorbytes(bytearray(aes.decrypt(bytes(bb))), prev_cblock)
+            prev_cblock = bb
         # Decrypt the second-to-last cipher block.  The left side of
         # the decrypted block will be the final block of plaintext
         # xor'd with the final partial cipher block; the right side
         # will be the omitted bytes of ciphertext from the final
         # block.
-        b = bytearray(aes.decrypt(bytes(cblocks[-2])))
-        lastplaintext =_xorbytes(b[:lastlen], cblocks[-1])
-        omitted = b[lastlen:]
+        bb = bytearray(aes.decrypt(bytes(cblocks[-2])))
+        lastplaintext =_xorbytes(bb[:lastlen], cblocks[-1])
+        omitted = bb[lastlen:]
         # Decrypt the final cipher block plus the omitted bytes to get
         # the second-to-last plaintext block.
         plaintext += _xorbytes(bytearray(aes.decrypt(bytes(cblocks[-1]) + bytes(omitted))), prev_cblock)
@@ -858,5 +854,3 @@ if __name__ == '__main__':
     kb = h('df3d32a74fd92a01')
     k = string_to_key(Enctype.DES_MD5, string, salt)
     assert(k.contents == kb)
-    
-    

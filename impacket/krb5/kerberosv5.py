@@ -189,7 +189,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
                         salt = ''
                     else:
                         salt = etype2['salt'].prettyPrint()
-                except PyAsn1Error as e:
+                except PyAsn1Error:
                     salt = ''
 
                 encryptionTypesData[etype2['etype']] = b(salt)
@@ -201,7 +201,7 @@ def getKerberosTGT(clientName, password, domain, lmhash, nthash, aesKey='', kdcH
                         salt = ''
                     else:
                         salt = etype['salt'].prettyPrint()
-                except PyAsn1Error as e:
+                except PyAsn1Error:
                     salt = ''
 
                 encryptionTypesData[etype['etype']] = b(salt)
@@ -448,7 +448,7 @@ def getKerberosType3(cipher, sessionKey, auth_data):
     #ap_rep = decoder.decode(negTokenResp['ResponseToken'][16:], asn1Spec=AP_REP())[0]
     try:
         krbError = KerberosError(packet = decoder.decode(negTokenResp['ResponseToken'][15:], asn1Spec = KRB_ERROR())[0])
-    except Exception as e:
+    except Exception:
         pass
     else:
         raise krbError
@@ -495,7 +495,7 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT 
         if useCache is True:
             try:
                 ccache = CCache.loadFile(os.getenv('KRB5CCNAME'))
-            except Exception as e:
+            except Exception:
                 # No cache present
                 pass
             else:

@@ -14,10 +14,8 @@
 #
 # ToDo:
 #
-import logging
 import base64
 
-from smtplib import SMTP
 from impacket import LOG
 from impacket.examples.ntlmrelayx.servers.socksserver import SocksRelay
 
@@ -157,4 +155,3 @@ class SMTPSocksRelay(SocksRelay):
     def recvPacketClient(self):
         data = self.socksSocket.recv(self.packetSize)
         return data
-
