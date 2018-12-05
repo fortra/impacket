@@ -31,21 +31,28 @@
 from __future__ import division
 from __future__ import print_function
 
+import struct
 import argparse
 import logging
 import sys
+import re
 from binascii import unhexlify, hexlify
 from hashlib import pbkdf2_hmac
 
-from Cryptodome.Cipher import AES
+from Cryptodome.Cipher import AES, PKCS1_v1_5
 from Cryptodome.Hash import HMAC, SHA1, MD4
-
+from impacket.uuid import bin_to_string
+from impacket import crypto
+from impacket.smbconnection import SMBConnection
+from impacket.dcerpc.v5 import transport
+from impacket.dcerpc.v5 import lsad
 from impacket import version
 from impacket.examples import logger
 from impacket.examples.secretsdump import LocalOperations, LSASecrets
 from impacket.structure import hexdump
-from impacket.dpapi import DPAPI_SYSTEM, MasterKeyFile, MasterKey, CredHist, DomainKey, CredentialFile, DPAPI_BLOB, \
-    CREDENTIAL_BLOB, VAULT_VCRD, VAULT_VPOL, VAULT_KNOWN_SCHEMAS, VAULT_VPOL_KEYS
+from impacket.dpapi import MasterKeyFile, MasterKey, CredHist, DomainKey, CredentialFile, DPAPI_BLOB, \
+    CREDENTIAL_BLOB, VAULT_VCRD, VAULT_VPOL, VAULT_KNOWN_SCHEMAS, VAULT_VPOL_KEYS, P_BACKUP_KEY, PREFERRED_BACKUP_KEY, \
+    PVK_FILE_HDR, PRIVATE_KEY_BLOB, privatekeyblob_to_pkcs1, DPAPI_DOMAIN_RSA_MASTER_KEY
 
 class DPAPI:
     def __init__(self, options):
@@ -136,6 +143,20 @@ class DPAPI:
                     print('Decrypted key: 0x%s' % hexlify(decryptedKey).decode('latin-1'))
                     return
 
+            elif self.options.pvk and dk:
+                pvkfile = open(self.options.pvk, 'rb').read()
+                key = PRIVATE_KEY_BLOB(pvkfile[len(PVK_FILE_HDR()):])
+                private = privatekeyblob_to_pkcs1(key)
+                cipher = PKCS1_v1_5.new(private)
+
+                decryptedKey = cipher.decrypt(dk['SecretData'][::-1], None)
+                if decryptedKey:
+                    domain_master_key = DPAPI_DOMAIN_RSA_MASTER_KEY(decryptedKey)
+                    key = domain_master_key['buffer'][:domain_master_key['cbMasterKey']]
+                    print('Decrypted key with domain backup key provided')
+                    print('Decrypted key: 0x%s' % hexlify(key).decode('latin-1'))
+                return
+
             elif self.options.sid and self.options.key is None:
                 # Do we have a password?
                 if self.options.password is None:
@@ -196,6 +217,77 @@ class DPAPI:
 
                 if mkf['DomainKeyLen'] > 0:
                     dk.dump()
+
+        # credit to @gentilkiwi
+        elif self.options.action.upper() == 'BACKUPKEYS':
+            domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
+                self.options.target).groups('')
+            if password == '' and username != '':
+                from getpass import getpass
+                password = getpass ("Password:")
+            connection = SMBConnection(address, address)
+            if self.options.k:
+                connection.kerberosLogin(username, password, domain)
+            else:
+                connection.login(username, password, domain)
+
+            rpctransport = transport.DCERPCTransportFactory(r'ncacn_np:445[\pipe\lsarpc]')
+            rpctransport.set_smb_connection(connection)
+            dce = rpctransport.get_dce_rpc()
+            try:
+                dce.connect()
+                dce.bind(lsad.MSRPC_UUID_LSAD)
+            except transport.DCERPCException as e:
+                raise e
+
+            resp = lsad.hLsarOpenPolicy2(dce, lsad.POLICY_GET_PRIVATE_INFORMATION)
+            for keyname in ("G$BCKUPKEY_PREFERRED", "G$BCKUPKEY_P"):
+                buffer = crypto.decryptSecret(connection.getSessionKey(), lsad.hLsarRetrievePrivateData(dce,
+                                              resp['PolicyHandle'], keyname))
+                guid = bin_to_string(buffer)
+                name = "G$BCKUPKEY_{}".format(guid)
+                secret = crypto.decryptSecret(connection.getSessionKey(), lsad.hLsarRetrievePrivateData(dce,
+                                              resp['PolicyHandle'], name))
+                keyVersion = struct.unpack('<L', secret[:4])[0]
+                if keyVersion == 1:  # legacy key
+                    backup_key = P_BACKUP_KEY(secret)
+                    backupkey = backup_key['Data']
+                    if self.options.export:
+                        logging.debug("Exporting key to file {}".format(name + ".key"))
+                        open(name + ".key", 'wb').write(backupkey)
+                    else:
+                        print("Legacy key:")
+                        print("0x%s" % hexlify(backupkey))
+                        print("\n")
+
+                elif keyVersion == 2:  # preferred key
+                    backup_key = PREFERRED_BACKUP_KEY(secret)
+                    pvk = backup_key['Data'][:backup_key['KeyLength']]
+                    cert = backup_key['Data'][backup_key['KeyLength']:backup_key['KeyLength'] + backup_key['CertificateLength']]
+
+                    # build pvk header (PVK_MAGIC, PVK_FILE_VERSION_0, KeySpec, PVK_NO_ENCRYPT, 0, cbPvk)
+                    header = PVK_FILE_HDR()
+                    header['dwMagic'] = 0xb0b5f11e
+                    header['dwVersion'] = 0
+                    header['dwKeySpec'] = 1
+                    header['dwEncryptType'] = 0
+                    header['cbEncryptData'] = 0
+                    header['cbPvk'] = backup_key['KeyLength']
+                    backupkey_pvk = header.getData() + pvk  # pvk blob
+
+                    backupkey = backupkey_pvk
+                    if self.options.export:
+                        logging.debug("Exporting certificate to file {}".format(name + ".der"))
+                        open(name + ".der", 'wb').write(cert)
+                        logging.debug("Exporting private key to file {}".format(name + ".pvk"))
+                        open(name + ".pvk", 'wb').write(backupkey)
+                    else:
+                        print("Preferred key:")
+                        header.dump()
+                        print("PRIVATEKEYBLOB:{%s}" % (hexlify(backupkey)))
+                        print("\n")
+            return
+
 
         elif self.options.action.upper() == 'CREDENTIAL':
             fp = open(options.file, 'rb')
@@ -276,10 +368,17 @@ if __name__ == '__main__':
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     subparsers = parser.add_subparsers(help='actions', dest='action')
 
+    # A domain backup key command
+    backupkeys = subparsers.add_parser('backupkeys', help='domain backup key related functions')
+    backupkeys.add_argument('-t', '--target', action='store', required=True, help='[[domain/]username[:password]@]<targetName or address>')
+    backupkeys.add_argument('-k', action='store_true', required=False, help='use kerberos')
+    backupkeys.add_argument('--export', action='store_true', required=False, help='export keys to file')
+
     # A masterkey command
     masterkey = subparsers.add_parser('masterkey', help='masterkey related functions')
     masterkey.add_argument('-file', action='store', required=True, help='Master Key File to parse')
     masterkey.add_argument('-sid', action='store', help='SID of the user')
+    masterkey.add_argument('-pvk', action='store', help='Domain backup privatekey to use for decryption')
     masterkey.add_argument('-key', action='store', help='Specific key to use for decryption')
     masterkey.add_argument('-password', action='store', help='User\'s password. If you specified the SID and not the password it will be prompted')
     masterkey.add_argument('-system', action='store', help='SYSTEM hive to parse')
