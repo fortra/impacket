@@ -979,26 +979,26 @@ class PUBLIC_KEY_BLOB(Structure):
     structure = (
         ('publickeystruc', ':', PUBLICKEYSTRUC),
         ('rsapubkey', ':', RSAPUBKEY),
-        ('_modulus', '_-modulus', 'self["rsapubkey"]["bitlen"] / 8'),
+        ('_modulus', '_-modulus', 'self["rsapubkey"]["bitlen"] // 8'),
     )
 
 class PRIVATE_KEY_BLOB(Structure):
     structure = (
         ('publickeystruc', ':', PUBLICKEYSTRUC),
         ('rsapubkey', ':', RSAPUBKEY),
-        ('_modulus', '_-modulus', 'self["rsapubkey"]["bitlen"] / 8'),
+        ('_modulus', '_-modulus', 'self["rsapubkey"]["bitlen"] // 8'),
         ('modulus', ':'),
-        ('_prime1', '_-prime1', 'self["rsapubkey"]["bitlen"] / 16'),
+        ('_prime1', '_-prime1', 'self["rsapubkey"]["bitlen"] // 16'),
         ('prime1', ':'),
-        ('_prime2', '_-prime2', 'self["rsapubkey"]["bitlen"] / 16'),
+        ('_prime2', '_-prime2', 'self["rsapubkey"]["bitlen"] // 16'),
         ('prime2', ':'),
-        ('_exponent1', '_-exponent1', 'self["rsapubkey"]["bitlen"] / 16'),
+        ('_exponent1', '_-exponent1', 'self["rsapubkey"]["bitlen"] // 16'),
         ('exponent1', ':'),
-        ('_exponent2', '_-exponent2', 'self["rsapubkey"]["bitlen"] / 16'),
+        ('_exponent2', '_-exponent2', 'self["rsapubkey"]["bitlen"] // 16'),
         ('exponent2', ':'),
-        ('_coefficient', '_-coefficient', 'self["rsapubkey"]["bitlen"] / 16'),
+        ('_coefficient', '_-coefficient', 'self["rsapubkey"]["bitlen"] // 16'),
         ('coefficient', ':'),
-        ('_privateExponent', '_-privateExponent', 'self["rsapubkey"]["bitlen"] / 8'),
+        ('_privateExponent', '_-privateExponent', 'self["rsapubkey"]["bitlen"] // 8'),
         ('privateExponent', ':'),
     )
 
@@ -1029,6 +1029,8 @@ def privatekeyblob_to_pkcs1(key):
     exp2 = bytes_to_long(key['exponent2'][::-1])
     coefficient = bytes_to_long(key['coefficient'][::-1])
     privateExp = bytes_to_long(key['privateExponent'][::-1]) # d
+    if PY3:
+        long = int
     pubExp = long(key['rsapubkey']['pubexp']) # e
     # RSA.Integer(prime2).inverse(prime1) # u
 

@@ -50,7 +50,7 @@ from impacket import version
 from impacket.examples import logger
 from impacket.examples.secretsdump import LocalOperations, LSASecrets
 from impacket.structure import hexdump
-from impacket.dpapi import DPAPI_SYSTEM, MasterKeyFile, MasterKey, CredHist, DomainKey, CredentialFile, DPAPI_BLOB, \
+from impacket.dpapi import MasterKeyFile, MasterKey, CredHist, DomainKey, CredentialFile, DPAPI_BLOB, \
     CREDENTIAL_BLOB, VAULT_VCRD, VAULT_VPOL, VAULT_KNOWN_SCHEMAS, VAULT_VPOL_KEYS, P_BACKUP_KEY, PREFERRED_BACKUP_KEY, \
     PVK_FILE_HDR, PRIVATE_KEY_BLOB, privatekeyblob_to_pkcs1, DPAPI_DOMAIN_RSA_MASTER_KEY
 
@@ -222,6 +222,9 @@ class DPAPI:
         elif self.options.action.upper() == 'BACKUPKEYS':
             domain, username, password, address = re.compile('(?:(?:([^/@:]*)/)?([^@:]*)(?::([^@]*))?@)?(.*)').match(
                 self.options.target).groups('')
+            if password == '' and username != '':
+                from getpass import getpass
+                password = getpass ("Password:")
             connection = SMBConnection(address, address)
             if self.options.k:
                 connection.kerberosLogin(username, password, domain)
@@ -234,17 +237,19 @@ class DPAPI:
             try:
                 dce.connect()
                 dce.bind(lsad.MSRPC_UUID_LSAD)
-            except transport.DCERPCException, e:
+            except transport.DCERPCException as e:
                 raise e
 
             resp = lsad.hLsarOpenPolicy2(dce, lsad.POLICY_GET_PRIVATE_INFORMATION)
             for keyname in ("G$BCKUPKEY_PREFERRED", "G$BCKUPKEY_P"):
-                buffer = crypto.decryptSecret(connection.getSessionKey(), lsad.hLsarRetrievePrivateData(dce, resp['PolicyHandle'], keyname))
+                buffer = crypto.decryptSecret(connection.getSessionKey(), lsad.hLsarRetrievePrivateData(dce,
+                                              resp['PolicyHandle'], keyname))
                 guid = bin_to_string(buffer)
                 name = "G$BCKUPKEY_{}".format(guid)
-                secret = crypto.decryptSecret(connection.getSessionKey(), lsad.hLsarRetrievePrivateData(dce, resp['PolicyHandle'], name))
-                version = struct.unpack('<L', secret[:4])[0]
-                if version == 1:  # legacy key
+                secret = crypto.decryptSecret(connection.getSessionKey(), lsad.hLsarRetrievePrivateData(dce,
+                                              resp['PolicyHandle'], name))
+                keyVersion = struct.unpack('<L', secret[:4])[0]
+                if keyVersion == 1:  # legacy key
                     backup_key = P_BACKUP_KEY(secret)
                     backupkey = backup_key['Data']
                     if self.options.export:
@@ -252,24 +257,23 @@ class DPAPI:
                         open(name + ".key", 'wb').write(backupkey)
                     else:
                         print("Legacy key:")
-                        print(hexlify(backupkey))
+                        print("0x%s" % hexlify(backupkey))
                         print("\n")
 
-                elif version == 2:  # preferred key
+                elif keyVersion == 2:  # preferred key
                     backup_key = PREFERRED_BACKUP_KEY(secret)
                     pvk = backup_key['Data'][:backup_key['KeyLength']]
-                    cert = backup_key['Data'][
-                           backup_key['KeyLength']:backup_key['KeyLength'] + backup_key['CertificateLength']]
+                    cert = backup_key['Data'][backup_key['KeyLength']:backup_key['KeyLength'] + backup_key['CertificateLength']]
 
                     # build pvk header (PVK_MAGIC, PVK_FILE_VERSION_0, KeySpec, PVK_NO_ENCRYPT, 0, cbPvk)
-                    backupkey_pvk = "\x1e\xf1\xb5\xb0"  # PVK_MAGIC
-                    backupkey_pvk += "\x00" * 4  # PVK_FILE_VERSION_0
-                    backupkey_pvk += "\x01" + "\x00" * 3  # KeySpec
-                    backupkey_pvk += "\x00" * 4  # PVK_NO_ENCRYPT
-                    backupkey_pvk += "\x00" * 4
-                    backupkey_pvk += struct.pack('L', backup_key['KeyLength'])  # pvk length
-                    header = PVK_FILE_HDR(backupkey_pvk)
-                    backupkey_pvk += pvk  # pvk blob
+                    header = PVK_FILE_HDR()
+                    header['dwMagic'] = 0xb0b5f11e
+                    header['dwVersion'] = 0
+                    header['dwKeySpec'] = 1
+                    header['dwEncryptType'] = 0
+                    header['cbEncryptData'] = 0
+                    header['cbPvk'] = backup_key['KeyLength']
+                    backupkey_pvk = header.getData() + pvk  # pvk blob
 
                     backupkey = backupkey_pvk
                     if self.options.export:
