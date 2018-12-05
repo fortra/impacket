@@ -269,7 +269,7 @@ def transformKey(InputKey):
 
 def decryptSecret(key, value):
     # [MS-LSAD] Section 5.1.2
-    plainText = ''
+    plainText = b''
     key0 = key
     for i in range(0, len(value), 8):
         cipherText = value[:8]
