@@ -697,4 +697,3 @@ class KerberosError(SessionError):
             pass
 
         return retString
-

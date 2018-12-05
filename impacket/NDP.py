@@ -163,4 +163,3 @@ class NDP_Option():
         ndp_option.set_data(data_bytes)
         
         return ndp_option
-    

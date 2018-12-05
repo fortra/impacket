@@ -108,4 +108,3 @@ class TestRadioTapDecoder(unittest.TestCase):
       
 suite = unittest.TestLoader().loadTestsFromTestCase(TestRadioTapDecoder)
 unittest.TextTestRunner(verbosity=1).run(suite)
-

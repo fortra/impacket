@@ -51,4 +51,3 @@ class TestDot11FrameControlACK(unittest.TestCase):
        
 suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11FrameControlACK)
 unittest.TextTestRunner(verbosity=1).run(suite)
-

@@ -96,4 +96,3 @@ class TestDot11WPA2Data(unittest.TestCase):
         
 suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11WPA2Data)
 unittest.TextTestRunner(verbosity=1).run(suite)
-

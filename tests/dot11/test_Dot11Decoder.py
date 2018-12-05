@@ -71,4 +71,3 @@ class TestDot11Decoder(unittest.TestCase):
       
 suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11Decoder)
 unittest.TextTestRunner(verbosity=1).run(suite)
-

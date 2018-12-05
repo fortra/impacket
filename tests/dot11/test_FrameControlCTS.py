@@ -52,4 +52,3 @@ class TestDot11FrameControlCTS(unittest.TestCase):
       
 suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11FrameControlCTS)
 unittest.TextTestRunner(verbosity=1).run(suite)
-

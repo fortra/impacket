@@ -99,4 +99,3 @@ class TestDot11DataFrames(unittest.TestCase):
       
 suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11DataFrames)
 unittest.TextTestRunner(verbosity=1).run(suite)
-

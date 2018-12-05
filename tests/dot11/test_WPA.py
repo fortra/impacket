@@ -111,4 +111,3 @@ class TestDot11WPAData(unittest.TestCase):
         
 suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11WPAData)
 unittest.TextTestRunner(verbosity=1).run(suite)
-

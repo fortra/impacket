@@ -61,4 +61,3 @@ class TestDot11FrameControlPSPoll(unittest.TestCase):
      
 suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11FrameControlPSPoll)
 unittest.TextTestRunner(verbosity=1).run(suite)
-

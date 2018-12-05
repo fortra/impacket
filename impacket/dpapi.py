@@ -931,5 +931,3 @@ class CREDENTIAL_BLOB(Structure):
         print()
         for entry in self.attributes:
             entry.dump()
-
-

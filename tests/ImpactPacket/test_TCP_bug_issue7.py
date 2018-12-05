@@ -44,4 +44,3 @@ class TestTCP(unittest.TestCase):
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestTCP)
 unittest.TextTestRunner(verbosity=1).run(suite)
-

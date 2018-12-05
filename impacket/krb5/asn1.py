@@ -499,4 +499,3 @@ class KERB_ERROR_DATA(univ.Sequence):
 
 class PA_PAC_OPTIONS(univ.SequenceOf):
     componentType = KerberosFlags()
-
