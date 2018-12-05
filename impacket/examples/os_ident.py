@@ -1,6 +1,4 @@
-#--
-# Copyright (c) 2001-2016 CORE Security Technologies, CORE SDI Inc.
-# All rights reserved.
+# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
 #
 # This computer software is owned by Core SDI Inc. and is
 # protected by U.S. copyright laws and other laws and by international

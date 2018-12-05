@@ -1,4 +1,4 @@
-# Copyright (c) 2017 CORE Security Technologies
+# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
 # Copyright (c) 2017 @MrAnde7son
 #
 # This software is provided under under a slightly modified version
