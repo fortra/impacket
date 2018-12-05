@@ -29,6 +29,8 @@ from struct import pack
 from Cryptodome.Hash import HMAC, SHA512, SHA1
 from Cryptodome.Cipher import AES, DES3
 from Cryptodome.Util.Padding import unpad
+from Cryptodome.PublicKey import RSA
+from Cryptodome.Util.number import bytes_to_long
 from six import PY3
 
 from impacket.ese import getUnixTime
@@ -932,4 +934,103 @@ class CREDENTIAL_BLOB(Structure):
         for entry in self.attributes:
             entry.dump()
 
+ALG_ID = '<L=0'
 
+class P_BACKUP_KEY(Structure):
+    structure = (
+        ('Version', '<L=0'),
+        ('Data', ':'),
+    )
+
+class PREFERRED_BACKUP_KEY(Structure):
+    structure = (
+        ('Version', '<L=0'),
+        ('KeyLength', '<L=0'),
+        ('CertificateLength', '<L=0'),
+        ('Data', ':'),
+    )
+
+class PVK_FILE_HDR(Structure):
+    structure = (
+        ('dwMagic', '<L=0'),
+        ('dwVersion', '<L=0'),
+        ('dwKeySpec', '<L=0'),
+        ('dwEncryptType', '<L=0'),
+        ('cbEncryptData', '<L=0'),
+        ('cbPvk', '<L=0'),
+    )
+
+class PUBLICKEYSTRUC(Structure):
+    structure = (
+        ('bType', '<B=0'),
+        ('bVersion', '<B=0'),
+        ('reserved', '<H=0'),
+        ('aiKeyAlg', ALG_ID),
+    )
+
+class RSAPUBKEY(Structure):
+    structure = (
+        ('magic', '<L=0'),
+        ('bitlen', '<L=0'),
+        ('pubexp', '<L=0'),
+    )
+
+class PUBLIC_KEY_BLOB(Structure):
+    structure = (
+        ('publickeystruc', ':', PUBLICKEYSTRUC),
+        ('rsapubkey', ':', RSAPUBKEY),
+        ('_modulus', '_-modulus', 'self["rsapubkey"]["bitlen"] / 8'),
+    )
+
+class PRIVATE_KEY_BLOB(Structure):
+    structure = (
+        ('publickeystruc', ':', PUBLICKEYSTRUC),
+        ('rsapubkey', ':', RSAPUBKEY),
+        ('_modulus', '_-modulus', 'self["rsapubkey"]["bitlen"] / 8'),
+        ('modulus', ':'),
+        ('_prime1', '_-prime1', 'self["rsapubkey"]["bitlen"] / 16'),
+        ('prime1', ':'),
+        ('_prime2', '_-prime2', 'self["rsapubkey"]["bitlen"] / 16'),
+        ('prime2', ':'),
+        ('_exponent1', '_-exponent1', 'self["rsapubkey"]["bitlen"] / 16'),
+        ('exponent1', ':'),
+        ('_exponent2', '_-exponent2', 'self["rsapubkey"]["bitlen"] / 16'),
+        ('exponent2', ':'),
+        ('_coefficient', '_-coefficient', 'self["rsapubkey"]["bitlen"] / 16'),
+        ('coefficient', ':'),
+        ('_privateExponent', '_-privateExponent', 'self["rsapubkey"]["bitlen"] / 8'),
+        ('privateExponent', ':'),
+    )
+
+class SIMPLE_KEY_BLOB(Structure):
+    structure = (
+        ('publickeystruc', ':', PUBLICKEYSTRUC),
+        ('algid', ALG_ID),
+        ('encryptedkey', ':'),
+    )
+
+class DPAPI_DOMAIN_RSA_MASTER_KEY(Structure):
+    structure = (
+        ('cbMasterKey', '<L=0'),
+        ('cbSuppKey', '<L=0'),
+        ('buffer', ':'),
+    )
+
+def privatekeyblob_to_pkcs1(key):
+    '''
+    parse private key into pkcs#1 format
+    :param key:
+    :return:
+    '''
+    modulus = bytes_to_long(key['modulus'][::-1]) # n
+    prime1 = bytes_to_long(key['prime1'][::-1]) # p
+    prime2 = bytes_to_long(key['prime2'][::-1]) # q
+    exp1 = bytes_to_long(key['exponent1'][::-1])
+    exp2 = bytes_to_long(key['exponent2'][::-1])
+    coefficient = bytes_to_long(key['coefficient'][::-1])
+    privateExp = bytes_to_long(key['privateExponent'][::-1]) # d
+    pubExp = long(key['rsapubkey']['pubexp']) # e
+    # RSA.Integer(prime2).inverse(prime1) # u
+
+    r = RSA.construct((modulus, pubExp, privateExp, prime1, prime2))
+    return r
