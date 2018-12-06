@@ -42,3 +42,7 @@ echo $separator
 echo Summary:
 echo " OK $ok/$total"
 echo " $failed FAILED"
+if [ "$failed" -gt 0 ]; then
+    echo "ERROR" >&2
+    exit 1
+fi
