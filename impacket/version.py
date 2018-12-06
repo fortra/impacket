@@ -6,6 +6,6 @@
 #
 
 VER_MAJOR = "0"
-VER_MINOR = "9.18-dev"
+VER_MINOR = "9.19-dev"
 
 BANNER = "Impacket v%s.%s - Copyright 2018 SecureAuth Corporation\n" % (VER_MAJOR,VER_MINOR)
