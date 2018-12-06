@@ -42,6 +42,7 @@ setup(name = PACKAGE_NAME,
                       ':python_version<"2.7"': [ 'argparse' ],
                     },
       classifiers = [
+          "Programming Language :: Python :: 3.6",
           "Programming Language :: Python :: 2.7",
           "Programming Language :: Python :: 2.6",
       ]
