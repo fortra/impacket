@@ -25,11 +25,11 @@ class NDRTest(unittest.TestCase):
         a = self.create(isNDR64 = isNDR64)
         self.populate(a)
         # packing...
-        a_str = str(a)
+        a_str = a.getData()
         self.check_data(a_str, isNDR64)
         # unpacking...
         b = self.create(a_str, isNDR64 = isNDR64)
-        b_str = str(b)
+        b_str = b.getData()
         self.assertEqual(b_str, a_str)
 
     def test_false(self):
