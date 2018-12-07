@@ -541,7 +541,7 @@ def getKerberosType1(username, password, userDomain, lmhash, nthash, aesKey='', 
         if TGT is None:
             if TGS is None:
                 try:
-                    tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, password, domain, lmhash, nthash, aesKey, kdcHost)
+                    tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, password, targetDomain, lmhash, nthash, aesKey, kdcHost)
                 except KerberosError, e:
                     if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
                         # We might face this if the target does not support AES 

@@ -549,7 +549,7 @@ class SMB3:
         userName = Principal(user, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
         if TGT is None:
             if TGS is None:
-                tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, password, domain, lmhash, nthash, aesKey, kdcHost)
+                tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, password, targetDomain, lmhash, nthash, aesKey, kdcHost)
         else:
             tgt = TGT['KDC_REP']
             cipher = TGT['cipher']

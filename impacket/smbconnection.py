@@ -340,7 +340,7 @@ class SMBConnection:
         while True:
             try:
                 if self.getDialect() == smb.SMB_DIALECT:
-                    return self._SMBConnection.kerberos_login(user, password, domain, lmhash, nthash, aesKey, kdcHost,
+                    return self._SMBConnection.kerberos_login(user, password, targetDomain, lmhash, nthash, aesKey, kdcHost,
                                                               TGT, TGS)
                 return self._SMBConnection.kerberosLogin(user, password, userDomain, targetDomain, lmhash, nthash, aesKey, kdcHost, TGT,
                                                          TGS)
