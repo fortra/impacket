@@ -422,7 +422,7 @@ class DNS(ProtocolPacket):
             elif qtype == DNSType.PTR or qtype == DNSType.NS or qtype == DNSType.CNAME:
                 # Name  The host name that represents the supplied IP address (in the case of a PTR) or the NS name for the supplied domain (in the case of NS). May be a label, pointer or any combination.
                 offset, name = self.parseCompressedMessage(data, offset)
-                qrdata["Name"] = name.decode('utf-8')
+                qrdata["Name"] = str(name.decode('ascii'))
             elif qtype == DNSType.OPT:
                 # rfc2671 4.3
                 #NAME         domain name    empty (root domain)
@@ -479,7 +479,7 @@ class DNS(ProtocolPacket):
             questions.reverse()
             while(questions):
                 qname, qtype, qclass = questions.pop()
-                format = (qname.decode('utf-8'), DNSType.getTypeName(qtype), qtype, DNSClass.getClassName(qclass), qclass)
+                format = (str(qname.decode('ascii')), DNSType.getTypeName(qtype), qtype, DNSClass.getClassName(qclass), qclass)
                 res += "  * Domain: %s - Type: %s [0x%04x] - Class: %s [0x%04x]\n" % format
         
         if ancount > 0:
@@ -488,7 +488,7 @@ class DNS(ProtocolPacket):
             answers.reverse()
             while(answers):
                 qname, qtype, qclass, qttl, qrdata = answers.pop()
-                format = (qname.decode('utf-8'), DNSType.getTypeName(qtype), qtype, DNSClass.getClassName(qclass), qclass, qttl, repr(qrdata))
+                format = (str(qname.decode('ascii')), DNSType.getTypeName(qtype), qtype, DNSClass.getClassName(qclass), qclass, qttl, repr(qrdata))
                 res += "  * Domain: %s - Type: %s [0x%04x] - Class: %s [0x%04x] - TTL: %d seconds - %s\n" % format
         
         if nscount > 0:
@@ -497,7 +497,7 @@ class DNS(ProtocolPacket):
             authoritative.reverse()
             while(authoritative):
                 qname, qtype, qclass, qttl, qrdata = authoritative.pop()
-                format = (qname.decode('utf-8'), DNSType.getTypeName(qtype), qtype, DNSClass.getClassName(qclass), qclass, qttl, repr(qrdata))
+                format = (str(qname.decode('ascii')), DNSType.getTypeName(qtype), qtype, DNSClass.getClassName(qclass), qclass, qttl, repr(qrdata))
                 res += "  * Domain: %s - Type: %s [0x%04x] - Class: %s [0x%04x] - TTL: %d seconds - %s\n" % format
         
         if arcount > 0:
@@ -512,7 +512,7 @@ class DNS(ProtocolPacket):
                     res += "  * Name: <Root> - Type: %s [0x%04x] - udp payload size: [%d] - extended RCODE: [0x%02x] - EDNS0 version: [0x%02x] - Z Flags: [0x%02x] - RDATA: [%s]\n" % format
                 else:
                     qname, qtype, qclass, qttl, qrdata = additional
-                    format = (qname.decode('utf-8'), DNSType.getTypeName(qtype), qtype, DNSClass.getClassName(qclass), qclass, qttl, repr(qrdata))
+                    format = (str(qname.decode('ascii')), DNSType.getTypeName(qtype), qtype, DNSClass.getClassName(qclass), qclass, qttl, repr(qrdata))
                     res += "  * Domain: %s - Type: %s [0x%04x] - Class: %s [0x%04x] - TTL: %d seconds - %s\n" % format
         
         return res
