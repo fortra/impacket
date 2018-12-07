@@ -491,7 +491,7 @@ def getKerberosType3(cipher, sessionKey, auth_data):
 
     return cipher, sessionKey2, resp.getData()
 
-def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT = None, TGS = None, targetName='', kdcHost = None, useCache = True):
+def getKerberosType1(username, password, userDomain, lmhash, nthash, aesKey='', TGT = None, TGS = None, targetName='', kdcHost = None, useCache = True):
     if TGT is None and TGS is None:
         if useCache is True:
             try:
@@ -501,16 +501,23 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT 
                 pass
             else:
                 # retrieve domain information from CCache file if needed
-                if domain == '':
-                    domain = ccache.principal.realm['data']
-                    LOG.debug('Domain retrieved from CCache: %s' % domain)
+                if userDomain == '':
+                    userDomain = ccache.principal.realm['data']
+                    LOG.debug('User domain retrieved from CCache: %s' % userDomain)
+
+                # retreive target domain from host FQDN
+                targetDomain = '.'.join(targetName.upper().split('.')[1:])
+                if targetDomain == '':
+                    targetDomain = userDomain
+                else:
+                    LOG.debug('Target domain retrieved from host FQDN: %s' % targetDomain)
 
                 LOG.debug("Using Kerberos Cache: %s" % os.getenv('KRB5CCNAME'))
-                principal = 'host/%s@%s' % (targetName.upper(), domain.upper())
+                principal = 'host/%s@%s' % (targetName.upper(), userDomain.upper())
                 creds = ccache.getCredential(principal)
                 if creds is None:
                     # Let's try for the TGT and go from there
-                    principal = 'krbtgt/%s@%s' % (domain.upper(),domain.upper())
+                    principal = 'krbtgt/%s@%s' % (targetDomain.upper(),userDomain.upper())
                     creds =  ccache.getCredential(principal)
                     if creds is not None:
                         TGT = creds.toTGT()
@@ -562,7 +569,7 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT 
         if TGS is None:
             serverName = Principal('host/%s' % targetName, type=constants.PrincipalNameType.NT_SRV_INST.value)
             try:
-                tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey)
+                tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, targetDomain, kdcHost, tgt, cipher, sessionKey)
             except KerberosError, e:
                 if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
                     # We might face this if the target does not support AES 
@@ -610,7 +617,7 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT 
 
     authenticator = Authenticator()
     authenticator['authenticator-vno'] = 5
-    authenticator['crealm'] = domain
+    authenticator['crealm'] = userDomain
     seq_set(authenticator, 'cname', userName.components_to_asn1)
     now = datetime.datetime.utcnow()
 
