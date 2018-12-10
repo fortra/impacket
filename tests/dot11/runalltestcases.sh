@@ -5,7 +5,7 @@ export PYTHONPATH=../..:$PYTHONPATH
 if [ $# -gt 0 ]
 then
 	# Only run coverage when called by tox
-	RUN="coverage run --append --rcfile=../coveragerc "
+	RUN="python -m coverage run --append --rcfile=../coveragerc "
 else
 	RUN=python
 fi
@@ -23,9 +23,9 @@ for file in `ls *.py` ; do
 			latest="$line"
 		done
 		echo $latest
-		} 
+		}
 	)
-	#echo Latest ${latest} 
+	#echo Latest ${latest}
 	result=${latest:0:6}
 	if [ "$result" = "FAILED" ]
 	then

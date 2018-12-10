@@ -6,7 +6,7 @@ export PYTHONPATH=../..:$PYTHONPATH
 if [ $# -gt 0 ]
 then
 	# Only run coverage when called by tox
-	RUN="coverage run --append --rcfile=../coveragerc "
+	RUN="python -m coverage run --append --rcfile=../coveragerc "
 else
 	RUN=python
 fi
