@@ -13,13 +13,15 @@
 # Shouldn't dump errors against a win7
 #
 ################################################################################
-
+from __future__ import division
+from __future__ import print_function
 import unittest
-import ConfigParser
 
+from six.moves import configparser
+
+from impacket.dcerpc.v5 import even
 from impacket.dcerpc.v5 import transport
-from impacket.dcerpc.v5 import epm, even
-from impacket.dcerpc.v5.dtypes import NULL, MAXIMUM_ALLOWED, OWNER_SECURITY_INFORMATION
+from impacket.dcerpc.v5.dtypes import NULL
 
 
 class RRPTests(unittest.TestCase):
@@ -40,7 +42,7 @@ class RRPTests(unittest.TestCase):
 
         return dce, rpctransport
 
-    def atest_ElfrOpenBELW(self):
+    def test_ElfrOpenBELW(self):
         dce, rpctransport = self.connect()
         request = even.ElfrOpenBELW()
         request['UNCServerName'] = NULL
@@ -49,23 +51,23 @@ class RRPTests(unittest.TestCase):
         request['MinorVersion'] = 1
         try:
             resp = dce.request(request)
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_OBJECT_NAME_NOT_FOUND') < 0:
                 raise
             resp = e.get_packet()
         resp.dump()
 
-    def atest_hElfrOpenBELW(self):
+    def test_hElfrOpenBELW(self):
         dce, rpctransport = self.connect()
         try:
-            resp = even.hElfrOpenBELW(dce, NULL, '\\??\\BETO')
-        except Exception, e:
+            resp = even.hElfrOpenBELW(dce, '\\??\\BETO')
+        except Exception as e:
             if str(e).find('STATUS_OBJECT_NAME_NOT_FOUND') < 0:
                 raise
             resp = e.get_packet()
         resp.dump()
 
-    def atest_ElfrOpenELW(self):
+    def test_ElfrOpenELW(self):
         dce, rpctransport = self.connect()
         request = even.ElfrOpenELW()
         request['UNCServerName'] = NULL
@@ -76,12 +78,12 @@ class RRPTests(unittest.TestCase):
         resp = dce.request(request)
         resp.dump()
 
-    def atest_hElfrOpenELW(self):
+    def test_hElfrOpenELW(self):
         dce, rpctransport = self.connect()
-        resp = even.hElfrOpenELW(dce, NULL, 'Security', '')
+        resp = even.hElfrOpenELW(dce, 'Security', '')
         resp.dump()
 
-    def atest_ElfrRegisterEventSourceW(self):
+    def test_ElfrRegisterEventSourceW(self):
         dce, rpctransport = self.connect()
         request = even.ElfrRegisterEventSourceW()
         request['UNCServerName'] = NULL
@@ -92,41 +94,41 @@ class RRPTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_ACCESS_DENIED') < 0:
                 raise
 
-    def atest_hElfrRegisterEventSourceW(self):
+    def test_hElfrRegisterEventSourceW(self):
         dce, rpctransport = self.connect()
         try:
-            resp = even.hElfrRegisterEventSourceW(dce, NULL, 'Security', '')
+            resp = even.hElfrRegisterEventSourceW(dce, 'Security', '')
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_ACCESS_DENIED') < 0:
                 raise
 
-    def atest_ElfrReadELW(self):
+    def test_ElfrReadELW(self):
         dce, rpctransport = self.connect()
-        resp = even.hElfrOpenELW(dce, NULL, 'Security', '')
+        resp = even.hElfrOpenELW(dce, 'Security', '')
         resp.dump()
         request = even.ElfrReadELW()
         request['LogHandle'] = resp['LogHandle']
         request['ReadFlags'] = even.EVENTLOG_SEQUENTIAL_READ | even.EVENTLOG_FORWARDS_READ
         request['RecordOffset'] = 0
-        request['NumberOfBytesToRead'] = even.MAX_BATCH_BUFF/2
+        request['NumberOfBytesToRead'] = even.MAX_BATCH_BUFF
         resp = dce.request(request)
         resp.dump()
 
-    def atest_hElfrReadELW(self):
+    def test_hElfrReadELW(self):
         dce, rpctransport = self.connect()
-        resp = even.hElfrOpenELW(dce, NULL, 'Security', '')
+        resp = even.hElfrOpenELW(dce, 'Security', '')
         resp.dump()
-        resp = even.hElfrReadELW(dce, resp['LogHandle'],even.EVENTLOG_SEQUENTIAL_READ | even.EVENTLOG_FORWARDS_READ,0, even.MAX_BATCH_BUFF/2 )
+        resp = even.hElfrReadELW(dce, resp['LogHandle'],even.EVENTLOG_SEQUENTIAL_READ | even.EVENTLOG_FORWARDS_READ,0, even.MAX_BATCH_BUFF )
         resp.dump()
 
-    def atest_ElfrClearELFW(self):
+    def test_ElfrClearELFW(self):
         dce, rpctransport = self.connect()
-        resp = even.hElfrOpenELW(dce, NULL, 'Security', '')
+        resp = even.hElfrOpenELW(dce, 'Security', '')
         resp.dump()
         request = even.ElfrClearELFW()
         request['LogHandle'] = resp['LogHandle']
@@ -134,24 +136,24 @@ class RRPTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_OBJECT_NAME_INVALID') < 0:
                 raise
 
-    def atest_hElfrClearELFW(self):
+    def test_hElfrClearELFW(self):
         dce, rpctransport = self.connect()
-        resp = even.hElfrOpenELW(dce, NULL, 'Security', '')
+        resp = even.hElfrOpenELW(dce, 'Security', '')
         resp.dump()
         try:
             resp = even.hElfrClearELFW(dce, resp['LogHandle'], '\\??\\c:\\beto2')
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_OBJECT_NAME_INVALID') < 0:
                 raise
 
-    def atest_ElfrBackupELFW(self):
+    def test_ElfrBackupELFW(self):
         dce, rpctransport = self.connect()
-        resp = even.hElfrOpenELW(dce, NULL, 'Security', '')
+        resp = even.hElfrOpenELW(dce, 'Security', '')
         resp.dump()
         request = even.ElfrBackupELFW()
         request['LogHandle'] = resp['LogHandle']
@@ -159,24 +161,24 @@ class RRPTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_OBJECT_NAME_INVALID') < 0:
                 raise
 
-    def atest_hElfrBackupELFW(self):
+    def test_hElfrBackupELFW(self):
         dce, rpctransport = self.connect()
-        resp = even.hElfrOpenELW(dce, NULL, 'Security', '')
+        resp = even.hElfrOpenELW(dce, 'Security', '')
         resp.dump()
         try:
             resp = even.hElfrBackupELFW(dce, resp['LogHandle'], '\\??\\c:\\beto2')
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_OBJECT_NAME_INVALID') < 0:
                 raise
 
     def test_ElfrReportEventW(self):
         dce, rpctransport = self.connect()
-        resp = even.hElfrOpenELW(dce, NULL, 'Security', '')
+        resp = even.hElfrOpenELW(dce, 'Security', '')
         resp.dump()
         request = even.ElfrReportEventW()
         request['LogHandle'] = resp['LogHandle']
@@ -198,14 +200,14 @@ class RRPTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_ACCESS_DENIED') < 0:
                 raise
 
 class SMBTransport(RRPTests):
     def setUp(self):
         RRPTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
+        configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('SMBTransport', 'username')
         self.domain   = configFile.get('SMBTransport', 'domain')
@@ -219,7 +221,7 @@ class SMBTransport(RRPTests):
 class SMBTransport64(RRPTests):
     def setUp(self):
         RRPTests.setUp(self)
-        configFile = ConfigParser.ConfigParser()
+        configFile = configparser.ConfigParser()
         configFile.read('dcetests.cfg')
         self.username = configFile.get('SMBTransport', 'username')
         self.domain   = configFile.get('SMBTransport', 'domain')
