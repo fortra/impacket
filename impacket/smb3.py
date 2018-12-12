@@ -502,7 +502,7 @@ class SMB3:
             self.__TGT, 
             self.__TGS)
 
-    def kerberosLogin(self, user, password, userDomain = '', targetDomain = '', lmhash = '', nthash = '', aesKey='', kdcHost = '', TGT=None, TGS=None):
+    def kerberosLogin(self, user, password, domain = '', lmhash = '', nthash = '', aesKey='', kdcHost = '', TGT=None, TGS=None):
         # If TGT or TGS are specified, they are in the form of:
         # TGS['KDC_REP'] = the response from the server
         # TGS['cipher'] = the cipher used
@@ -519,7 +519,7 @@ class SMB3:
 
         self.__userName = user
         self.__password = password
-        self.__domain   = targetDomain
+        self.__domain   = domain
         self.__lmhash   = lmhash
         self.__nthash   = nthash
         self.__kdc      = kdcHost
@@ -547,13 +547,18 @@ class SMB3:
 
         # First of all, we need to get a TGT for the user
         userName = Principal(user, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
-        if TGT is None:
-            if TGS is None:
-                tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, password, targetDomain, lmhash, nthash, aesKey, kdcHost)
+        if (TGT is None) and (TGS is None):
+            tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, password, domain, lmhash, nthash, aesKey, kdcHost)
         else:
             tgt = TGT['KDC_REP']
             cipher = TGT['cipher']
             sessionKey = TGT['sessionKey'] 
+
+        #now we need to get target KDC from TGT
+        from impacket.krb5.ccache import decoder, AS_REP
+        decodedTGT = decoder.decode(tgt, asn1Spec = AS_REP())[0]
+        kdcDomain = str(decodedTGT['ticket']['sname']['name-string'][1])
+        LOG.debug('KDC domain obtained from TGT: %s' % kdcDomain)
 
         # Save the ticket
         # If you want, for debugging purposes
@@ -573,7 +578,7 @@ class SMB3:
 
         if TGS is None:
             serverName = Principal('cifs/%s' % (self._Connection['ServerName']), type=constants.PrincipalNameType.NT_SRV_INST.value)
-            tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, targetDomain, kdcHost, tgt, cipher, sessionKey)
+            tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, kdcDomain, kdcHost, tgt, cipher, sessionKey)
         else:
             tgs = TGS['KDC_REP']
             cipher = TGS['cipher']
@@ -602,7 +607,7 @@ class SMB3:
 
         authenticator = Authenticator()
         authenticator['authenticator-vno'] = 5
-        authenticator['crealm'] = userDomain
+        authenticator['crealm'] = domain
         seq_set(authenticator, 'cname', userName.components_to_asn1)
         now = datetime.datetime.utcnow()
 
@@ -636,7 +641,7 @@ class SMB3:
         if ans.isValidAnswer(STATUS_SUCCESS):
             self._Session['SessionID']       = ans['SessionID']
             self._Session['SigningRequired'] = self._Connection['RequireSigning']
-            self._Session['UserCredentials'] = (user, password, targetDomain, lmhash, nthash)
+            self._Session['UserCredentials'] = (user, password, domain, lmhash, nthash)
             self._Session['Connection']      = self._NetBIOSSession.get_socket()
 
             self._Session['SessionKey']  = sessionKey.contents[:16]
