@@ -130,9 +130,11 @@ class SMBConnection:
             else:
                 raise Exception("Unknown dialect %s")
 
-        # propagate flags to the smb sub-object
+        # propagate flags to the smb sub-object, except for Unicode (if server supports)
         # does not affect smb3 objects
         if isinstance(self._SMBConnection, smb.SMB):
+            if self._SMBConnection.get_flags()[1] & smb.SMB.FLAGS2_UNICODE:
+                flags2 |= smb.SMB.FLAGS2_UNICODE
             self._SMBConnection.set_flags(flags1=flags1, flags2=flags2)
 
         return True
