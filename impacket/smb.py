@@ -563,14 +563,14 @@ class SharedFile:
                 self.__shortname = shortname[:shortname.index(b'\0')]
             else:
                 self.__shortname = shortname[:shortname.index('\0')]
-        except ValueError:
+        except (ValueError, TypeError):
             self.__shortname = shortname
         try:
             if isinstance(shortname,bytes):
                 self.__longname = longname[:longname.index(b'\0')]
             else:
                 self.__longname = longname[:longname.index('\0')]
-        except ValueError:
+        except (ValueError, TypeError):
             self.__longname = longname
 
     def get_ctime(self):
