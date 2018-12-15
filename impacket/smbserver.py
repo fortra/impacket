@@ -273,7 +273,7 @@ def openFile(path,fileName, accessMode, fileAttributes, openMode):
 
 def queryFsInformation(path, filename, level=0, pktFlags = smb.SMB.FLAGS2_UNICODE):
 
-    if pktFlags == smb.SMB.FLAGS2_UNICODE:
+    if pktFlags & smb.SMB.FLAGS2_UNICODE:
          encoding = 'utf-16le'
     else:
          encoding = 'ascii'
@@ -326,7 +326,7 @@ def findFirst2(path, fileName, level, searchAttributes, pktFlags = smb.SMB.FLAGS
      #print "FindFirs2 path:%s, filename:%s" % (path, fileName)
      fileName = os.path.normpath(fileName.replace('\\','/'))
      # Let's choose the right encoding depending on the request
-     if pktFlags == smb.SMB.FLAGS2_UNICODE:
+     if pktFlags & smb.SMB.FLAGS2_UNICODE:
          encoding = 'utf-16le'
      else:
          encoding = 'ascii'
