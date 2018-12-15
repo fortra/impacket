@@ -172,7 +172,7 @@ class KarmaSMBServer(Thread):
             searchResult, searchCount, errorCode = findFirst2(path, 
                           targetFile, 
                           findFirst2Parameters['InformationLevel'], 
-                          findFirst2Parameters['SearchAttributes'] )
+                          findFirst2Parameters['SearchAttributes'], pktFlags = recvPacket['Flags2'] )
 
             respParameters = smb.SMBFindFirst2Response_Parameters()
             endOfSearch = 1

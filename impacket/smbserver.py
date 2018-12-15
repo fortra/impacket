@@ -271,17 +271,12 @@ def openFile(path,fileName, accessMode, fileAttributes, openMode):
 
     return fid, mode, pathName, errorCode
 
-def queryFsInformation(path, filename, level=0):
-    if PY2:
-        if isinstance(filename, text_type):
-            encoding = 'utf-16le'
-            flags = smb.SMB.FLAGS2_UNICODE
-        else:
-            encoding = 'ascii'
-            flags = 0
+def queryFsInformation(path, filename, level=0, pktFlags = smb.SMB.FLAGS2_UNICODE):
+
+    if pktFlags == smb.SMB.FLAGS2_UNICODE:
+         encoding = 'utf-16le'
     else:
-        encoding = 'utf-16le'
-        flags = smb.SMB.FLAGS2_UNICODE
+         encoding = 'ascii'
 
     fileName = os.path.normpath(filename.replace('\\','/'))
     if len(fileName) > 0 and (fileName[0] == '/' or fileName[0] == '\\'):
@@ -298,7 +293,7 @@ def queryFsInformation(path, filename, level=0):
         data['FileSystemName']            = 'XTFS'.encode('utf-16le')
         return data.getData()
     elif level == smb.SMB_INFO_VOLUME:
-        data = smb.SMBQueryFsInfoVolume( flags = flags )
+        data = smb.SMBQueryFsInfoVolume( flags = pktFlags )
         data['VolumeLabel']               = 'SHARE'.encode(encoding)
         return data.getData()
     elif level == smb.SMB_QUERY_FS_VOLUME_INFO or level == smb2.SMB2_FILESYSTEM_VOLUME_INFO:
@@ -325,22 +320,16 @@ def queryFsInformation(path, filename, level=0):
         fileAttributes = attribs
         return fileSize, lastWriteTime, fileAttributes
 
-def findFirst2(path, fileName, level, searchAttributes, isSMB2 = False):  
+def findFirst2(path, fileName, level, searchAttributes, pktFlags = smb.SMB.FLAGS2_UNICODE, isSMB2 = False):
      # TODO: Depending on the level, this could be done much simpler
      
      #print "FindFirs2 path:%s, filename:%s" % (path, fileName)
      fileName = os.path.normpath(fileName.replace('\\','/'))
      # Let's choose the right encoding depending on the request
-     if PY2:
-         if isinstance(fileName, text_type):
-             encoding = 'utf-16le'
-             flags    = smb.SMB.FLAGS2_UNICODE
-         else:
-             encoding = 'ascii'
-             flags    = 0
-     else:
+     if pktFlags == smb.SMB.FLAGS2_UNICODE:
          encoding = 'utf-16le'
-         flags = smb.SMB.FLAGS2_UNICODE
+     else:
+         encoding = 'ascii'
 
      if len(fileName) > 0 and (fileName[0] == '/' or fileName[0] == '\\'):
         # strip leading '/'
@@ -381,19 +370,19 @@ def findFirst2(path, fileName, level, searchAttributes, isSMB2 = False):
 
      for i in files:
         if level == smb.SMB_FIND_FILE_BOTH_DIRECTORY_INFO or level == smb2.SMB2_FILE_BOTH_DIRECTORY_INFO:
-            item = smb.SMBFindFileBothDirectoryInfo( flags = flags )
+            item = smb.SMBFindFileBothDirectoryInfo( flags = pktFlags )
         elif level == smb.SMB_FIND_FILE_DIRECTORY_INFO or level == smb2.SMB2_FILE_DIRECTORY_INFO:
-            item = smb.SMBFindFileDirectoryInfo( flags = flags )
+            item = smb.SMBFindFileDirectoryInfo( flags = pktFlags )
         elif level == smb.SMB_FIND_FILE_FULL_DIRECTORY_INFO or level == smb2.SMB2_FULL_DIRECTORY_INFO:
-            item = smb.SMBFindFileFullDirectoryInfo( flags = flags )
+            item = smb.SMBFindFileFullDirectoryInfo( flags = pktFlags )
         elif level == smb.SMB_FIND_INFO_STANDARD:
-            item = smb.SMBFindInfoStandard( flags = flags )
+            item = smb.SMBFindInfoStandard( flags = pktFlags )
         elif level == smb.SMB_FIND_FILE_ID_FULL_DIRECTORY_INFO or level == smb2.SMB2_FILE_ID_FULL_DIRECTORY_INFO:
-            item = smb.SMBFindFileIdFullDirectoryInfo( flags = flags )
+            item = smb.SMBFindFileIdFullDirectoryInfo( flags = pktFlags )
         elif level == smb.SMB_FIND_FILE_ID_BOTH_DIRECTORY_INFO or level == smb2.SMB2_FILE_ID_BOTH_DIRECTORY_INFO:
-            item = smb.SMBFindFileIdBothDirectoryInfo( flags = flags )
+            item = smb.SMBFindFileIdBothDirectoryInfo( flags = pktFlags )
         elif level == smb.SMB_FIND_FILE_NAMES_INFO or level == smb2.SMB2_FILE_NAMES_INFO:
-            item = smb.SMBFindFileNamesInfo( flags = flags )
+            item = smb.SMBFindFileNamesInfo( flags = pktFlags )
         else:
             LOG.error("Wrong level %d!" % level)
             return  searchResult, searchCount, STATUS_NOT_SUPPORTED
@@ -816,8 +805,9 @@ class TRANS2Commands:
         connData = smbServer.getConnectionData(connId)
         errorCode = 0
         # Get the Tid associated
-        if recvPacket['Tid'] in connData['ConnectedShares']:
-            data = queryFsInformation(connData['ConnectedShares'][recvPacket['Tid']]['path'], '', struct.unpack('<H',parameters)[0])
+        if connData['ConnectedShares'].has_key(recvPacket['Tid']):
+            data = queryFsInformation(connData['ConnectedShares'][recvPacket['Tid']]['path'], '',
+                                      struct.unpack('<H',parameters)[0], pktFlags = recvPacket['Flags2'])
 
         smbServer.setConnectionData(connId, connData)
 
@@ -886,7 +876,7 @@ class TRANS2Commands:
             searchResult, searchCount, errorCode = findFirst2(path, 
                           decodeSMBString( recvPacket['Flags2'], findFirst2Parameters['FileName'] ), 
                           findFirst2Parameters['InformationLevel'], 
-                          findFirst2Parameters['SearchAttributes'] )
+                          findFirst2Parameters['SearchAttributes'] , pktFlags = recvPacket['Flags2'])
 
             respParameters = smb.SMBFindFirst2Response_Parameters()
             endOfSearch = 1
@@ -1824,7 +1814,7 @@ class SMBCommands:
         if recvPacket['Tid'] in connData['ConnectedShares']:
             fileSize, lastWriteTime, fileAttributes = queryFsInformation(
                 connData['ConnectedShares'][recvPacket['Tid']]['path'], 
-                decodeSMBString(recvPacket['Flags2'],queryInformation['FileName']))
+                decodeSMBString(recvPacket['Flags2'],queryInformation['FileName']), pktFlags = recvPacket['Flags2'])
 
             respParameters['FileSize']       = fileSize
             respParameters['LastWriteTime']  = lastWriteTime
