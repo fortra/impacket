@@ -2589,6 +2589,10 @@ class SMB:
 
     def neg_session(self, extended_security = True, negPacket = None):
         def parsePacket(smb):
+            # If server speaks Unicode, let's set that flag from now on
+            if smb['Flags2'] & SMB.FLAGS2_UNICODE:
+                self.__flags2 |= SMB.FLAGS2_UNICODE
+
             if smb.isValidAnswer(SMB.SMB_COM_NEGOTIATE):
                 sessionResponse = SMBCommand(smb['Data'][0])
                 self._dialects_parameters = SMBNTLMDialect_Parameters(sessionResponse['Parameters'])
