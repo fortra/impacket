@@ -34,7 +34,7 @@ from impacket.dcerpc.v5.enum import Enum
 from impacket.dcerpc.v5.rpcrt import DCERPCException
 from impacket import hresult_errors, LOG
 from impacket.uuid import string_to_bin, uuidtup_to_bin
-from impacket.structure import Structure
+from impacket.structure import Structure, hexdump
 
 
 def format_structure(d, level=0):
@@ -357,7 +357,13 @@ class ENCODED_VALUE(Structure):
                                CIM_TYPE_ENUM.CIM_TYPE_REFERENCE.value):
                 value = entry
             else:
-                value = ENCODED_STRING(heapData)['Character']
+                try:
+                    value = ENCODED_STRING(heapData)['Character']
+                except UnicodeDecodeError:
+                    if LOG.level == logging.DEBUG:
+                        LOG.debug('Unicode Error: dumping heapData')
+                        hexdump(heapData)
+                    raise
 
             return value
 
