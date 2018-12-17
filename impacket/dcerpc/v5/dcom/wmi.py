@@ -360,7 +360,7 @@ class ENCODED_VALUE(Structure):
                 try:
                     value = ENCODED_STRING(heapData)['Character']
                 except UnicodeDecodeError:
-                    if LOG.level == logging.DEBUG:
+                    if logging.getLogger().level == logging.DEBUG:
                         LOG.debug('Unicode Error: dumping heapData')
                         hexdump(heapData)
                     raise
