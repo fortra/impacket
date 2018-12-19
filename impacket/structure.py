@@ -355,7 +355,7 @@ class Structure:
             if data[-1:] != b('\x00'):
                 raise Exception("%s 'z' field is not NUL terminated: %r" % (field, data))
             if PY3:
-                return data[:-1].decode('ascii')
+                return data[:-1].decode('latin-1')
             else:
                 return data[:-1]
 
