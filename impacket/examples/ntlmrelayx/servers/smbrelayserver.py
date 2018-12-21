@@ -33,8 +33,6 @@ from impacket.spnego import ASN1_AID, MechTypes, ASN1_SUPPORTED_MECH
 from impacket.examples.ntlmrelayx.servers.socksserver import activeConnections
 from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor
 from impacket.smbserver import getFileTime
-from impacket.dcerpc.v5 import transport, scmr
-from impacket.dcerpc.v5.rpcrt import DCERPCException
 
 class SMBRelayServer(Thread):
     def __init__(self,config):
@@ -671,8 +669,6 @@ class SMBRelayServer(Thread):
         # Check if SOCKS is enabled and if we support the target scheme
         if self.config.runSocks and self.target.scheme.upper() in self.config.socksServer.supportedSchemes:
             if self.config.runSocks is True:
-                # Check if relayed user is a local administrator on the target machine
-                client.sessionData['is_local_admin'] = self.check_local_admin(self.target.hostname, client.targetPort, client)
                 # Pass all the data to the socksplugins proxy
                 activeConnections.put((self.target.hostname, client.targetPort, self.target.scheme.upper(),
                                        self.authUser, client, client.sessionData))
@@ -695,21 +691,3 @@ class SMBRelayServer(Thread):
     def run(self):
         LOG.info("Setting up SMB Server")
         self._start()
-
-    def check_local_admin(self, hostname, targetPort, client):
-        rpctransport = transport.SMBTransport(hostname, targetPort, r'\svcctl', smb_connection=client.session)
-        dce = rpctransport.get_dce_rpc()
-        try:
-            dce.connect()
-        except socket.error:
-            pass
-        else:
-            dce.bind(scmr.MSRPC_UUID_SCMR)
-            try:
-                # 0xF003F - SC_MANAGER_ALL_ACCESS
-                # http://msdn.microsoft.com/en-us/library/windows/desktop/ms685981(v=vs.85).aspx
-                ans = scmr.hROpenSCManagerW(dce,'{}\x00'.format(self.target.hostname),'ServicesActive\x00', 0xF003F)
-                return True
-            except DCERPCException:
-                pass
-        return False
