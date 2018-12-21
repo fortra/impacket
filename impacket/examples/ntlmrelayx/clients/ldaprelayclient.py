@@ -60,12 +60,19 @@ class LDAPRelayClient(ProtocolClient):
         return True
 
     def sendNegotiate(self, negotiateMessage):
-        #Remove the message signing flag
-        #For LDAP this is required otherwise it triggers LDAP signing
+        # Remove the message signing flag
+        # For LDAP this is required otherwise it triggers LDAP signing
+
+        # Note that this code is commented out because changing flags breaks the signature
+        # unless the client uses a non-standard implementation of NTLM
         negoMessage = NTLMAuthNegotiate()
         negoMessage.fromString(negotiateMessage)
         #negoMessage['flags'] ^= NTLMSSP_NEGOTIATE_SIGN
         self.negotiateMessage = str(negoMessage)
+
+        # Warn if the relayed target requests signing, which will break our attack
+        if negoMessage['flags'] & NTLMSSP_NEGOTIATE_SIGN == NTLMSSP_NEGOTIATE_SIGN:
+            LOG.warning('The client requested signing. Relaying to LDAP will not work! (This usually happens when relaying from SMB to LDAP)')
 
         with self.session.connection_lock:
             if not self.session.sasl_in_progress:
