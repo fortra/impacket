@@ -1,4 +1,4 @@
-# SECUREAUTH LABS. Copyright 2018 SecureAuth Corporation. All rights reserved.
+# Copyright (c) 2003-2016 CORE Security Technologies
 #
 # This software is provided under under a slightly modified version
 # of the Apache Software License. See the accompanying LICENSE file
@@ -11,7 +11,7 @@
 #
 #   Best way to learn how to use these calls is to grab the protocol standard
 #   so you understand what the call does, and then read the test case located
-#   at https://github.com/SecureAuthCorp/impacket/tree/master/tests/SMB_RPC
+#   at https://github.com/CoreSecurity/impacket/tree/master/impacket/testcases/SMB_RPC
 #
 #   Some calls have helper functions, which makes it even easier to use.
 #   They are located at the end of this file. 
@@ -1213,6 +1213,19 @@ class DRSBindResponse(NDRCALL):
         ('ErrorCode',DWORD),
     )
 
+# 4.1.25 IDL_DRSUnbind (Opnum 1)
+class DRSUnbind(NDRCALL):
+    opnum = 1
+    structure = (
+        ('phDrs', DRS_HANDLE),
+    )
+
+class DRSUnbindResponse(NDRCALL):
+    structure = (
+        ('phDrs', DRS_HANDLE),
+        ('ErrorCode',DWORD),
+    )
+
 # 4.1.10 IDL_DRSGetNCChanges (Opnum 3)
 class DRSGetNCChanges(NDRCALL):
     opnum = 3
@@ -1297,6 +1310,7 @@ class DRSDomainControllerInfoResponse(NDRCALL):
 ################################################################################
 OPNUMS = {
  0 : (DRSBind,DRSBindResponse ),
+ 1 : (DRSUnbind,DRSUnbindResponse ),
  3 : (DRSGetNCChanges,DRSGetNCChangesResponse ),
  12: (DRSCrackNames,DRSCrackNamesResponse ),
  16: (DRSDomainControllerInfo,DRSDomainControllerInfoResponse ),
@@ -1313,6 +1327,11 @@ def checkNullString(string):
         return string + '\x00'
     else:
         return string
+
+def hDRSUnbind(dce, hDrs):
+    request = DRSUnbind()
+    request['phDrs'] = hDrs
+    return dce.request(request)
 
 def hDRSDomainControllerInfo(dce, hDrs, domain, infoLevel):
     request = DRSDomainControllerInfo()
