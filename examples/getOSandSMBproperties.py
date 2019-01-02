@@ -122,26 +122,14 @@ def extract_information(options, lmhash, nthash, targets):
     for target in targets:
         print("Enumerating %s" % target)
         
-        current_result = { 'server_ip': '',
-                           'server_domain': '',
-                           'server_name': '',
-                           'os_version': '',
-                           'smbv1_supported': 'false',
-                           'shares': [],
-                           'signing_required': 'false' }
+        current_result = {}
         
         # Try SMBv1 unauthenticated
         support_smbv1, target_ip, connection = try_smb_connection(target, target, options, SMB_DIALECT, None)
         if support_smbv1:
             current_result['smbv1_supported'] = 'true'
-        else:
-            logging.debug('{}: SMBv1 might be disabled'.format(target.strip()))
-        
-        # Try SMB2/3 unauthenticated
-        connection_success, target_ip, connection = try_smb_connection(target, target, options, None, None)
-        
-        # Gather info
-        if connection_success:
+            
+            # Grabbing banners as they have more info
             authenticate_success = try_authenticate(target, options, lmhash, nthash, connection)
             if authenticate_success:
                 current_result['server_ip'] = target_ip
@@ -150,13 +138,32 @@ def extract_information(options, lmhash, nthash, targets):
                 current_result['os_version'] = connection.getServerOS()
                 current_result['signing_required'] = 'true' if connection.isSigningRequired() else 'false'
                 current_result['shares'] = enum_shares(connection)
+                
+                connection.close()
+        else:
+            logging.debug('{}: SMBv1 might be disabled'.format(target.strip()))
         
-        connection.close()
-
+            # Try SMB2/3 unauthenticated
+            connection_success, target_ip, connection = try_smb_connection(target, target, options, None, None)
+        
+            # Gather info
+            if connection_success:
+                authenticate_success = try_authenticate(target, options, lmhash, nthash, connection)
+                if authenticate_success:
+                    current_result['server_ip'] = target_ip
+                    current_result['server_domain'] = connection.getServerDomain()
+                    current_result['server_name'] = connection.getServerName()
+                    current_result['os_version'] = connection.getServerOS()
+                    current_result['signing_required'] = 'true' if connection.isSigningRequired() else 'false'
+                    current_result['shares'] = enum_shares(connection)
+                    
+                    connection.close()
+                    
         # Adding the current host to the result variable
-        current_host_num_ip = dottedquad_to_num(target_ip)
-        if current_host_num_ip not in results:
-            results[current_host_num_ip] = current_result
+        if current_result:
+            current_host_num_ip = dottedquad_to_num(target_ip)
+            if current_host_num_ip not in results:
+                results[current_host_num_ip] = current_result
         
         print("----\n")
     
