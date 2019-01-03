@@ -177,13 +177,16 @@ def formatted_item(elem, format_item):
         
         @rtype : the <list> attribute value
     """
-    
     if format_item in elem.keys():
-        if format_item != 'share_name' or format_item != 'share_remark':
-            return elem[format_item]
+        if format_item != ('share_name' or 'share_remark'):
+            return [elem[format_item]]
         
-        elif format_item == 'share_name' or format_item == 'share_remark':
-            return list(i[format_item] for i in elem[format_item])
+    elif format_item == 'share_name' and 'shares' in elem.keys():
+        return list(i['share_name'] for i in elem['shares'])
+    
+    elif format_item == 'share_remark' and 'shares' in elem.keys():
+        return list(i['share_remark'] for i in elem['shares'])
+    
     else:
         return ''
 
