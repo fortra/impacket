@@ -34,7 +34,6 @@ import time
 import pprint
 
 from impacket.examples import logger
-from impacket.examples.smbclient import MiniImpacketShell
 from impacket import version
 from impacket.smbconnection import SMBConnection
 from impacket.smb import SMB_DIALECT
@@ -178,16 +177,13 @@ def formatted_item(elem, format_item):
         
         @rtype : the <list> attribute value
     """
-    option_map = { 'server_ip':         [elem['server_ip']],
-                   'server_domain':     [elem['server_domain']],
-                   'server_name':       [elem['server_name']],
-                   'os_version':        [elem['os_version']],
-                   'signing_required':  [elem['signing_required']],
-                   'share_name':        list(i['share_name'] for i in elem['shares']),
-                   'share_remark':      list(i['share_remark'] for i in elem['shares']) }
     
-    if format_item in option_map.keys():
-        return option_map[format_item]
+    if format_item in elem.keys():
+        if format_item != 'share_name' or format_item != 'share_remark':
+            return elem[format_item]
+        
+        elif format_item == 'share_name' or format_item == 'share_remark':
+            return list(i[format_item] for i in elem[format_item])
     else:
         return ''
 
@@ -206,27 +202,28 @@ def repeat_attributes(attribute_list):
 
 def generate_results(results, options):
     if results:
-        splitted_options_format = options.format.split('-')
-        spamwriter = csv.writer(options.output, delimiter=options.delimiter, quoting=csv.QUOTE_ALL, lineterminator='\n')
-        
-        if not options.skip_header:
-            csv_header = [format_item.upper() for format_item in splitted_options_format]
-            spamwriter.writerow(csv_header)
-        
-        for IP in sorted(results.iterkeys()):
-            formatted_attribute_list = []
+        with open(options.output, 'w') as fout:
+            splitted_options_format = options.format.split('-')
+            spamwriter = csv.writer(fout, delimiter=options.delimiter, quoting=csv.QUOTE_ALL, lineterminator='\n')
             
-            for index,format_item in enumerate(splitted_options_format):
-                item = formatted_item(results[IP], format_item)
-                formatted_attribute_list.insert(index, item)
+            if not options.skip_header:
+                csv_header = [format_item.upper() for format_item in splitted_options_format]
+                spamwriter.writerow(csv_header)
             
-            formatted_attribute_list = repeat_attributes(formatted_attribute_list)
-            
-            for line_to_write in itertools.izip(*formatted_attribute_list):
-                spamwriter.writerow(list(line_to_write))
-            
-            if not options.no_newline:
-                spamwriter.writerow('')
+            for IP in sorted(results.iterkeys()):
+                formatted_attribute_list = []
+                
+                for index,format_item in enumerate(splitted_options_format):
+                    item = formatted_item(results[IP], format_item)
+                    formatted_attribute_list.insert(index, item)
+                
+                formatted_attribute_list = repeat_attributes(formatted_attribute_list)
+                
+                for line_to_write in itertools.izip(*formatted_attribute_list):
+                    spamwriter.writerow(list(line_to_write))
+                
+                if not options.no_newline:
+                    spamwriter.writerow('')
         
     return None
 
@@ -236,15 +233,15 @@ def main():
     parser = argparse.ArgumentParser(add_help = True, description = "Gets the target system OS version and SMB properties (smbv1 support, shares, signing)")
 
     group_input = parser.add_argument_group('input parameters')
-    group_input.add_argument('-t', '--target', help='<targetName or address>', type=str, default='')
+    group_input.add_argument('-t', '--target', help='IP or FQDN', type=str, default='')
     group_input.add_argument('-d', '--domain', help="Domain (default '')", type=str, default='')
-    group_input.add_argument('-u', '--username', help="Username (default '')", type=str, default='')
-    group_input.add_argument('-p', '--password', help="Password (default '')", type=str, default='')
+    group_input.add_argument('-u', '--username', help="Username (default 'anonymous')", type=str, default='')
+    group_input.add_argument('-p', '--password', help="Password (default 'anonymous')", type=str, default='')
     group_input.add_argument('-i','--input', type=argparse.FileType('r'), help='Input file with targets')
     group_input.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
     group_output = parser.add_argument_group('output format')
-    group_output.add_argument('-o', '--output', help='CSV output filename (default "./output_<timestamp>.csv")', type=argparse.FileType('w'), default=os.path.join(os.getcwdu(),"output_{}.csv".format(str(int(time.time())))))
+    group_output.add_argument('-o', '--output', help='CSV output filename (default "./output_<timestamp>.csv")', type=str, default=os.path.join(os.getcwdu(),"output_{}.csv".format(str(int(time.time())))))
     group_output.add_argument('-f', '--format', help='CSV column format { server_ip, server_domain, server_name, os_version, signing_required, share_name, share_remark } (default: server_ip-server_domain-server_name-os_version-signing_required-share_name-share_remark)', default='server_ip-server_domain-server_name-os_version-signing_required-share_name-share_remark', type=str)
     group_output.add_argument('-s', '--skip-header', help='Do not print the CSV header', action='store_true', default=False)
     group_output.add_argument('-n', '--no-newline', help='Do not insert a newline between each host. By default, a newline is added for better readability', action='store_true', default=False)
