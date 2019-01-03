@@ -235,8 +235,8 @@ def main():
     group_input = parser.add_argument_group('input parameters')
     group_input.add_argument('-t', '--target', help='IP or FQDN', type=str, default='')
     group_input.add_argument('-d', '--domain', help="Domain (default '')", type=str, default='')
-    group_input.add_argument('-u', '--username', help="Username (default 'anonymous')", type=str, default='')
-    group_input.add_argument('-p', '--password', help="Password (default 'anonymous')", type=str, default='')
+    group_input.add_argument('-u', '--username', help="Username (default 'anonymous')", type=str, default='anonymous')
+    group_input.add_argument('-p', '--password', help="Password (default 'anonymous')", type=str, default='anonymous')
     group_input.add_argument('-i','--input', type=argparse.FileType('r'), help='Input file with targets')
     group_input.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
