@@ -57,7 +57,7 @@ def is_format_valid(fmt):
         
         @rtype : True or False
     """ 
-    supported_format_objects = [ 'server_ip', 'server_domain', 'server_name', 'os_version', 'signing_required', 'share_name','share_remark' ]
+    supported_format_objects = [ 'server_ip', 'server_domain', 'server_name', 'os_version', 'smbv1_supported', 'signing_required', 'share_name', 'share_remark' ]
     unknown_items = []
     
     for fmt_object in fmt.split('-'):
@@ -78,7 +78,7 @@ def try_smb_connection(address, target_ip, options, preferredDialect, existingCo
             if logging.getLogger().level == logging.DEBUG:
                 import traceback
                 traceback.print_exc()
-            print("{}: {}".format(address, str(e)))
+            print("[!] {}: {}".format(address, str(e)))
             return False, None, None
         
 def try_authenticate(target, options, lmhash, nthash, connection):
@@ -96,7 +96,7 @@ def try_authenticate(target, options, lmhash, nthash, connection):
         if logging.getLogger().level == logging.DEBUG:
             import traceback
             traceback.print_exc()
-        print("{}: {}".format(target, str(e)))
+        print("[!] {}: {}".format(target, str(e)))
         return False
 
 def enum_shares(connection):
@@ -119,7 +119,8 @@ def extract_information(options, lmhash, nthash, targets):
     results = {}
     
     for target in targets:
-        print("Enumerating %s" % target)
+        target = target.strip()
+        print("[+] Enumerating %s in SMBv1" % target)
         
         current_result = {}
         
@@ -127,6 +128,7 @@ def extract_information(options, lmhash, nthash, targets):
         support_smbv1, target_ip, connection = try_smb_connection(target, target, options, SMB_DIALECT, None)
         if support_smbv1:
             current_result['smbv1_supported'] = 'true'
+            current_result['server_ip'] = target_ip if target_ip is not None else target
             
             # Grabbing banners as they have more info
             authenticate_success = try_authenticate(target, options, lmhash, nthash, connection)
@@ -140,7 +142,9 @@ def extract_information(options, lmhash, nthash, targets):
                 
                 connection.close()
         else:
-            logging.debug('{}: SMBv1 might be disabled'.format(target.strip()))
+            print("[+] Enumerating %s in SMBv2/v3" % target)
+            logging.debug('[!] {}: SMBv1 might be disabled'.format(target.strip()))
+            current_result['smbv1_supported'] = 'false'
         
             # Try SMB2/3 unauthenticated
             connection_success, target_ip, connection = try_smb_connection(target, target, options, None, None)
@@ -160,7 +164,7 @@ def extract_information(options, lmhash, nthash, targets):
                     
         # Adding the current host to the result variable
         if current_result:
-            current_host_num_ip = dottedquad_to_num(target_ip)
+            current_host_num_ip = dottedquad_to_num(target_ip) if target_ip is not None else dottedquad_to_num(target)
             if current_host_num_ip not in results:
                 results[current_host_num_ip] = current_result
         
@@ -240,12 +244,12 @@ def main():
     group_input.add_argument('-d', '--domain', help="Domain (default '')", type=str, default='')
     group_input.add_argument('-u', '--username', help="Username (default 'anonymous')", type=str, default='anonymous')
     group_input.add_argument('-p', '--password', help="Password (default 'anonymous')", type=str, default='anonymous')
-    group_input.add_argument('-i','--input', type=argparse.FileType('r'), help='Input file with targets')
+    group_input.add_argument('-i','--input', type=argparse.FileType('rb'), help='Input file with targets')
     group_input.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
     group_output = parser.add_argument_group('output format')
     group_output.add_argument('-o', '--output', help='CSV output filename (default "./output_<timestamp>.csv")', type=str, default=os.path.join(os.getcwdu(),"output_{}.csv".format(str(int(time.time())))))
-    group_output.add_argument('-f', '--format', help='CSV column format { server_ip, server_domain, server_name, os_version, signing_required, share_name, share_remark } (default: server_ip-server_domain-server_name-os_version-signing_required-share_name-share_remark)', default='server_ip-server_domain-server_name-os_version-signing_required-share_name-share_remark', type=str)
+    group_output.add_argument('-f', '--format', help='CSV column format { server_ip, server_domain, server_name, os_version, smbv1_supported, signing_required, share_name, share_remark } (default: server_ip-server_domain-server_name-os_version-smbv1_supported-signing_required-share_name-share_remark)', default='server_ip-server_domain-server_name-os_version-smbv1_supported-signing_required-share_name-share_remark', type=str)
     group_output.add_argument('-s', '--skip-header', help='Do not print the CSV header', action='store_true', default=False)
     group_output.add_argument('-n', '--no-newline', help='Do not insert a newline between each host. By default, a newline is added for better readability', action='store_true', default=False)
     group_output.add_argument('-l', '--delimiter', help='CSV output delimiter (default ";"). Ex: -d ","', default=';', type=str)
@@ -294,9 +298,9 @@ def main():
     valid_format, unknown_items = is_format_valid(options.format)
     if not valid_format:
         parser.error("Please specify a valid output format: '%s' is invalid \n\
-         Supported objects are { server_ip, server_domain, server_name, os_version, signing_required, share_name, share_remark }" % ', '.join(unknown_items))
+         Supported objects are { server_ip, server_domain, server_name, os_version, smbv1_supported, signing_required, share_name, share_remark }" % ', '.join(unknown_items))
     
-    if (options.input is not None) and options.target:
+    if (options.input is not None and options.target) or (options.input is None and not(options.target)):
         parser.error("Please specify either a single target or either a file")
     
     elif (options.input is not None) and (options.target == ''):
