@@ -245,8 +245,13 @@ def webService(server):
             for port in server.activeRelays[target]:
                 for user in server.activeRelays[target][port]:
                     if user != 'data' and user != 'scheme':
+                        if ('is_local_admin' in server.activeRelays[target][port][user]['data'] 
+                            and server.activeRelays[target][port][user]['data']['is_local_admin']):
+                            suffix=' (admin)'
+                        else:
+                            suffix=''
                         protocol = server.activeRelays[target][port]['scheme']
-                        relays.append([protocol, target, user, str(port)])
+                        relays.append([protocol, target, user+suffix, str(port)])
         return jsonify(relays)
 
     @app.route('/ntlmrelayx/api/v1.0/relays', methods=['GET'])
