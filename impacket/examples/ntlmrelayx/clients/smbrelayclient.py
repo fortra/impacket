@@ -240,6 +240,9 @@ class SMBRelayClient(ProtocolClient):
         if v1client.is_signing_required():
            smb['Flags2'] |= SMB.FLAGS2_SMB_SECURITY_SIGNATURE
 
+        # Just in case, clear the Unicode Flag
+        flags2 = v1client.get_flags ()[1]
+        v1client.set_flags(flags2=flags2 & (~SMB.FLAGS2_UNICODE))
 
         sessionSetup = SMBCommand(SMB.SMB_COM_SESSION_SETUP_ANDX)
         sessionSetup['Parameters'] = SMBSessionSetupAndX_Extended_Parameters()
