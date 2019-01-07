@@ -787,6 +787,59 @@ class SMBConnection:
         except (smb.SessionError, smb3.SessionError), e:
             raise SessionError(e.get_error_code(), e.get_error_packet())
 
+    def createMountPoint(self, tid, path, target):
+        """
+        creates a mount point at an existing directory
+
+        :param int tid: tree id of current connection
+        :param string path: directory at which to create mount point (must already exist)
+        :param string target: target address of mount point
+        """
+        fid = self.openFile(tid, path, GENERIC_READ | GENERIC_WRITE,
+                            creationOption=FILE_OPEN_REPARSE_POINT)
+
+        if target.startswith("\\"):
+            fixed_name  = target.encode('utf-16le')
+        else:
+            fixed_name  = ("\\??\\" + target).encode('utf-16le')
+
+        name        = target.encode('utf-16le')
+
+        reparseData = MOUNT_POINT_REPARSE_DATA_STRUCTURE()
+
+        reparseData['PathBuffer']           = fixed_name + "\x00\x00" + name + "\x00\x00"
+        reparseData['SubstituteNameLength'] = len(fixed_name)
+        reparseData['PrintNameOffset']      = len(fixed_name) + 2
+        reparseData['PrintNameLength']      = len(name)
+
+        self._SMBConnection.ioctl(tid, fid, FSCTL_SET_REPARSE_POINT, flags=SMB2_0_IOCTL_IS_FSCTL,
+                                  inputBlob=reparseData)
+
+        self.closeFile(tid, fid)
+
+    def removeMountPoint(self, tid, path):
+        """
+        removes a mount point without deleting the underlying directory
+
+        :param int tid: tree id of current connection
+        :param string path: path to mount point to remove
+        """
+        fid = self.openFile(tid, path, GENERIC_READ | GENERIC_WRITE,
+                            creationOption=FILE_OPEN_REPARSE_POINT)
+
+        reparseData = MOUNT_POINT_REPARSE_GUID_DATA_STRUCTURE()
+
+        reparseData['DataBuffer'] = ""
+
+        try:
+            self._SMBConnection.ioctl(tid, fid, FSCTL_DELETE_REPARSE_POINT, flags=SMB2_0_IOCTL_IS_FSCTL,
+                                      inputBlob=reparseData)
+        except (smb.SessionError, smb3.SessionError), e:
+            self.closeFile(tid, fid)
+            raise SessionError(e.get_error_code(), e.get_error_packet())
+
+        self.closeFile(tid, fid)
+
     def rename(self, shareName, oldPath, newPath):
         """
         renames a file/directory
