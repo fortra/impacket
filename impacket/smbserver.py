@@ -4587,18 +4587,19 @@ class SimpleSMBServer:
         return self.__server.getRegisteredNamedPipes()
 
     def addShare(self, shareName, sharePath, shareComment='', shareType = 0, readOnly = 'no'):
-        self.__smbConfig.add_section(shareName)
-        self.__smbConfig.set(shareName, 'comment', shareComment)
-        self.__smbConfig.set(shareName, 'read only', readOnly)
-        self.__smbConfig.set(shareName, 'share type', shareType)
-        self.__smbConfig.set(shareName, 'path', sharePath)
+        share = shareName.upper()
+        self.__smbConfig.add_section(share)
+        self.__smbConfig.set(share, 'comment', shareComment)
+        self.__smbConfig.set(share, 'read only', readOnly)
+        self.__smbConfig.set(share, 'share type', shareType)
+        self.__smbConfig.set(share, 'path', sharePath)
         self.__server.setServerConfig(self.__smbConfig)
         self.__srvsServer.setServerConfig(self.__smbConfig)
         self.__server.processConfigFile()
         self.__srvsServer.processConfigFile()
 
     def removeShare(self, shareName):
-        self.__smbConfig.remove_section(shareName)
+        self.__smbConfig.remove_section(shareName.upper())
         self.__server.setServerConfig(self.__smbConfig)
         self.__srvsServer.setServerConfig(self.__smbConfig)
         self.__server.processConfigFile()
