@@ -18,11 +18,23 @@ import sys
 import time
 import cmd
 import os
+import random
 
 from impacket import LOG
-from impacket.dcerpc.v5 import samr, transport, srvs
+from impacket.dcerpc.v5 import samr, transport, srvs, lsad, lsat, tsch
 from impacket.dcerpc.v5.dtypes import NULL
 from impacket.smbconnection import *
+from impacket.dcerpc.v5.samr import USER_NORMAL_ACCOUNT, GROUP_ALL_ACCESS
+from impacket.dcerpc.v5.samr import USER_CONTROL_INFORMATION, \
+    SAMPR_USER_INFO_BUFFER, MAXIMUM_ALLOWED
+from impacket.nt_errors import STATUS_MORE_ENTRIES
+from impacket.dcerpc.v5.samr import USER_INFORMATION_CLASS
+
+# convert all strings to unicode
+def ensure_unicode(v):
+    if isinstance(v, str):
+        v = v.decode('utf-16-le')
+    return unicode(v)
 
 
 # If you wanna have readline like functionality in Windows, install pyreadline
@@ -456,4 +468,286 @@ class MiniImpacketShell(cmd.Cmd):
     def do_close(self, line):
         self.do_logoff(line)
 
+    # different when sending over network or printed directly
+    def _doprint(self, msg):
+        if self.use_rawinput == True:
+            print msg
+        else:
+            print msg.encode('utf-16-le')
 
+    def do_enumgroups(self, line):
+        rpctransport = transport.SMBTransport(self.smb.getRemoteHost, filename=r'\samr', smb_connection=self.smb)
+        dce = rpctransport.get_dce_rpc()
+        dce.connect()
+        dce.bind(samr.MSRPC_UUID_SAMR)
+        resp = samr.hSamrConnect(dce)
+        server_handle = resp['ServerHandle']
+        resp = samr.hSamrEnumerateDomainsInSamServer(dce, server_handle)
+        for domain in resp['Buffer']['Buffer']:
+            domainName = domain['Name']
+            resp = samr.hSamrLookupDomainInSamServer(dce, server_handle, domainName)
+            resp = samr.hSamrOpenDomain(dce, serverHandle=server_handle, domainId=resp['DomainId'])
+            domain_handle = resp['DomainHandle']
+            enumeration_context = 0
+            while True:
+                resp = samr.hSamrEnumerateGroupsInDomain(dce, domain_handle,
+                                enumerationContext=enumeration_context)
+                for group in resp['Buffer']['Buffer']:
+                    groupName = group['Name']
+                    if line != '':
+                        if groupName == line:
+                            group_rid = group['RelativeId']
+                            resp2 = samr.hSamrOpenGroup(dce, domain_handle, groupId=group_rid)
+                            alias_handle = resp2['GroupHandle']
+                            resp2 = samr.hSamrGetMembersInGroup(dce, alias_handle)
+                            rids = resp2['Members']['Members']
+                            for rid in rids:
+                                rid = rid['Data']
+                                resp2 = samr.hSamrLookupIdsInDomain(dce, domain_handle, (rid,))
+                                userName = resp2['Names']['Element'][0]['Data']
+                                msg = u"{}\\{}".format(ensure_unicode(domainName), ensure_unicode(userName))
+                                self._doprint(msg)
+
+                    else:
+                        msg = ensure_unicode(groupName)
+                        self._doprint(msg)
+
+                enumeration_context = resp['EnumerationContext']
+                if resp['ErrorCode'] != STATUS_MORE_ENTRIES:
+                    break
+            enumeration_context = 0
+            while True:
+                resp = samr.hSamrEnumerateAliasesInDomain(dce, domain_handle,
+                                enumerationContext=enumeration_context)
+                for group in resp['Buffer']['Buffer']:
+                    groupName = group['Name']
+                    if line != '':
+                        if groupName == line:
+                            group_rid = group['RelativeId']
+                            resp2 = samr.hSamrOpenAlias(dce, domain_handle, aliasId=group_rid)
+                            alias_handle = resp2['AliasHandle']
+                            resp2 = samr.hSamrGetMembersInAlias(dce, alias_handle)
+                            sids = [x['Data']['SidPointer'].formatCanonical() for x in resp2['Members']['Sids']]
+                            rpctransport2 = transport.SMBTransport(self.smb.getRemoteHost, filename=r'\samr', smb_connection=self.smb)
+                            dce2 = rpctransport.get_dce_rpc()
+                            dce2.connect()
+                            dce2.bind(lsad.MSRPC_UUID_LSAD)
+                            resp3 = lsad.hLsarOpenPolicy2(dce2)
+                            policy_handle = resp3['PolicyHandle']
+                            resp3 = lsat.hLsarLookupSids(dce2, policy_handle, sids)
+                            for user in resp3['TranslatedNames']['Names']:
+                                userName = user['Name']
+                                msg = u"{}\\{}".format(ensure_unicode(domainName), ensure_unicode(userName))
+                                self._doprint(msg)
+                    else:
+                        msg = ensure_unicode(groupName)
+                        self._doprint(msg)
+
+                enumeration_context = resp['EnumerationContext']
+                if resp['ErrorCode'] != STATUS_MORE_ENTRIES:
+                    break
+
+    def do_enumusers(self, line):
+        rpctransport = transport.SMBTransport(self.smb.getRemoteHost, filename=r'\samr', smb_connection=self.smb)
+        dce = rpctransport.get_dce_rpc()
+        dce.connect()
+        dce.bind(samr.MSRPC_UUID_SAMR)
+
+        #print 'Get ServerHandle'
+        resp = samr.hSamrConnect(dce)
+        server_handle = resp['ServerHandle']
+        resp = samr.hSamrEnumerateDomainsInSamServer(dce, server_handle)
+
+        for domain in resp['Buffer']['Buffer']:
+            domainName = domain['Name']
+
+            resp = samr.hSamrLookupDomainInSamServer(dce, server_handle, domainName)
+            domainId = resp['DomainId']
+
+            resp = samr.hSamrOpenDomain(dce, serverHandle=server_handle, domainId=domainId)
+            domain_handle = resp['DomainHandle']
+
+            # we enumerate the users
+            enumeration_context = 0
+            while True:
+                resp = samr.hSamrEnumerateUsersInDomain(dce, domain_handle,
+                            enumerationContext=enumeration_context)
+                for user in resp['Buffer']['Buffer']:
+                    userName = user['Name']
+                    msg = u"{}\\{}".format(ensure_unicode(domainName), ensure_unicode(userName))
+                    self._doprint(msg)
+                enumeration_context = resp['EnumerationContext']
+                if resp['ErrorCode'] != STATUS_MORE_ENTRIES:
+                    break
+            samr.hSamrCloseHandle(dce, domain_handle)
+        samr.hSamrCloseHandle(dce, server_handle)
+
+    def do_enumdomain(self, line):
+        rpctransport = transport.SMBTransport(self.smb.getRemoteHost, filename=r'\samr', smb_connection=self.smb)
+        dce = rpctransport.get_dce_rpc()
+        dce.connect()
+        dce.bind(samr.MSRPC_UUID_SAMR)
+        resp = samr.hSamrConnect(dce)
+        server_handle = resp['ServerHandle']
+        resp = samr.hSamrEnumerateDomainsInSamServer(dce, server_handle)
+
+        #FIXME
+        print [x['Name'] for x in resp['Buffer']['Buffer']]
+        samr.hSamrCloseHandle(dce, server_handle)
+
+    def do_adduser(self, line):
+        if ' ' in line:
+            newUser, newPassword = line.split(' ', 1)
+        else:
+            newUser = line
+            from getpass import getpass
+            newPassword = getpass("New Password:")
+        rpctransport = transport.SMBTransport(self.smb.getRemoteHost, filename=r'\samr', smb_connection=self.smb)
+        dce = rpctransport.get_dce_rpc()
+        dce.connect()
+        dce.bind(samr.MSRPC_UUID_SAMR)
+
+        #print 'Get ServerHandle'
+        resp = samr.hSamrConnect(dce)
+        server_handle = resp['ServerHandle']
+
+        resp = samr.hSamrEnumerateDomainsInSamServer(dce, server_handle)
+        for domain in resp['Buffer']['Buffer']:
+            domainName = domain['Name']
+
+            if domainName == u'Builtin':
+                continue
+
+            #print 'Get domainsid'
+            resp = samr.hSamrLookupDomainInSamServer(dce, server_handle, domainName)
+            domain_sid = resp['DomainId']
+
+            #print 'Get domain handle'
+            resp = samr.hSamrOpenDomain(dce, server_handle, domainId=domain_sid)
+            domain_handle = resp['DomainHandle']
+
+            #print 'creating user'
+            resp = samr.hSamrCreateUser2InDomain(dce, domain_handle, newUser, accountType=USER_NORMAL_ACCOUNT, desiredAccess=GROUP_ALL_ACCESS)
+            user_handle = resp['UserHandle']
+            user_rid = resp['RelativeId']
+
+            #print 'setting password'
+            samr.hSamrChangePasswordUser(dce, user_handle, '', newPassword)
+
+            samr.hSamrCloseHandle(dce, user_handle)
+
+            #print 'getting user handle'
+            resp = samr.hSamrOpenUser(dce, domain_handle, userId=user_rid)
+            user_handle = resp['UserHandle']
+
+            #print 'activating'
+            control = USER_CONTROL_INFORMATION()
+            control['UserAccountControl'] = 0x10
+            newbuf = SAMPR_USER_INFO_BUFFER()
+            newbuf.__setitem__('tag', USER_INFORMATION_CLASS.UserControlInformation)
+            newbuf['Control'] = control
+            samr.hSamrSetInformationUser2(dce, user_handle, newbuf)
+            #print 'activated'
+            samr.hSamrCloseHandle(dce, user_handle)
+            samr.hSamrCloseHandle(dce, domain_handle)
+        samr.hSamrCloseHandle(dce, server_handle)
+
+    def do_deluser(self, line):
+        rpctransport = transport.SMBTransport(self.smb.getRemoteHost, filename=r'\samr', smb_connection=self.smb)
+        dce = rpctransport.get_dce_rpc()
+        dce.connect()
+        dce.bind(samr.MSRPC_UUID_SAMR)
+
+        #print 'Get ServerHandle'
+        resp = samr.hSamrConnect(dce)
+        server_handle = resp['ServerHandle']
+
+        user_sid = None
+        alias_handle = None
+
+        resp = samr.hSamrEnumerateDomainsInSamServer(dce, server_handle)
+        for domain in resp['Buffer']['Buffer']:
+            domainName = domain['Name']
+
+            resp = samr.hSamrLookupDomainInSamServer(dce, server_handle, domainName)
+            domainId = resp['DomainId']
+
+            resp = samr.hSamrOpenDomain(dce, serverHandle=server_handle, domainId=domainId)
+            domain_handle = resp['DomainHandle']
+
+            enumeration_context = 0
+            while user_sid is None:
+                resp = samr.hSamrEnumerateUsersInDomain(dce, domain_handle, enumerationContext=enumeration_context)
+                for user in resp['Buffer']['Buffer']:
+                    if user['Name'] == line:
+                        user_rid = user['RelativeId']
+                        resp2 = samr.hSamrOpenUser(dce, domain_handle, userId=user_rid)
+                        user_handle = resp2['UserHandle']
+                        samr.hSamrDeleteUser(dce, user_handle)
+                        break
+                enumeration_context = resp['EnumerationContext']
+                if resp['ErrorCode'] != STATUS_MORE_ENTRIES:
+                    break
+            samr.hSamrCloseHandle(dce, domain_handle)
+        samr.hSamrCloseHandle(dce, server_handle)
+
+    def do_addusertoadmingroup(self, line):
+        rpctransport = transport.SMBTransport(self.smb.getRemoteHost, filename=r'\samr', smb_connection=self.smb)
+        dce = rpctransport.get_dce_rpc()
+        dce.connect()
+        dce.bind(samr.MSRPC_UUID_SAMR)
+
+        #print 'Get ServerHandle'
+        resp = samr.hSamrConnect(dce)
+        server_handle = resp['ServerHandle']
+
+        user_sid = None
+        alias_handle = None
+
+        resp = samr.hSamrEnumerateDomainsInSamServer(dce, server_handle)
+        for domain in resp['Buffer']['Buffer']:
+            domainName = domain['Name']
+
+            resp = samr.hSamrLookupDomainInSamServer(dce, server_handle, domainName)
+            domainId = resp['DomainId']
+
+            resp = samr.hSamrOpenDomain(dce, serverHandle=server_handle, domainId=domainId)
+            domain_handle = resp['DomainHandle']
+
+            # we enumerate the users
+            enumeration_context = 0
+            while user_sid is None:
+                resp = samr.hSamrEnumerateUsersInDomain(dce, domain_handle, enumerationContext=enumeration_context)
+                for user in resp['Buffer']['Buffer']:
+                    if user['Name'] == line:
+                        user_rid = user['RelativeId']
+                        resp2 = samr.hSamrRidToSid(dce, domain_handle, user_rid)
+                        user_sid = resp2['Sid']
+                        break
+                enumeration_context = resp['EnumerationContext']
+                if resp['ErrorCode'] != STATUS_MORE_ENTRIES:
+                    break
+
+            # Then we can finally enumerate the groups
+            enumeration_context = 0
+            while alias_handle is None:
+                resp = samr.hSamrEnumerateAliasesInDomain(dce, domain_handle, enumerationContext=enumeration_context)
+                for alias in resp['Buffer']['Buffer']:
+                    rid = alias['RelativeId']
+                    # add to Domain Admins or Administrators group
+                    if rid == 520 or rid == 544:
+                        groupName = alias['Name']
+                        resp2 = samr.hSamrOpenAlias(dce, domain_handle, aliasId=rid)
+                        alias_handle = resp2['AliasHandle']
+                        break
+                enumeration_context = resp['EnumerationContext']
+                if resp['ErrorCode'] != STATUS_MORE_ENTRIES:
+                    break
+            samr.hSamrCloseHandle(dce, domain_handle)
+
+        if user_sid is not None and alias_handle is not None:
+            LOG.info('adding to group {}'.format(ensure_unicode(groupName)))
+            samr.hSamrAddMemberToAlias(dce, alias_handle, user_sid)
+
+        samr.hSamrCloseHandle(dce, alias_handle)
+        samr.hSamrCloseHandle(dce, server_handle)
