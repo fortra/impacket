@@ -795,6 +795,11 @@ class SMBConnection:
         :param string path: directory at which to create mount point (must already exist)
         :param string target: target address of mount point
         """
+
+        # Verify we're under SMB2+ session
+        if self.getDialect() not in [SMB2_DIALECT_002, SMB2_DIALECT_21, SMB2_DIALECT_30]:
+            raise SessionError(error = nt_errors.STATUS_NOT_SUPPORTED)
+
         fid = self.openFile(tid, path, GENERIC_READ | GENERIC_WRITE,
                             creationOption=FILE_OPEN_REPARSE_POINT)
 
@@ -824,6 +829,11 @@ class SMBConnection:
         :param int tid: tree id of current connection
         :param string path: path to mount point to remove
         """
+
+        # Verify we're under SMB2+ session
+        if self.getDialect() not in [SMB2_DIALECT_002, SMB2_DIALECT_21, SMB2_DIALECT_30]:
+            raise SessionError(error = nt_errors.STATUS_NOT_SUPPORTED)
+
         fid = self.openFile(tid, path, GENERIC_READ | GENERIC_WRITE,
                             creationOption=FILE_OPEN_REPARSE_POINT)
 
