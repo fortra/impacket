@@ -19,7 +19,9 @@ from impacket import smb, smb3, nmb, nt_errors, LOG
 from impacket.ntlm import compute_lmhash, compute_nthash
 from impacket.smb3structs import SMB2Packet, SMB2_DIALECT_002, SMB2_DIALECT_21, SMB2_DIALECT_30, GENERIC_ALL, FILE_SHARE_READ, \
     FILE_SHARE_WRITE, FILE_SHARE_DELETE, FILE_NON_DIRECTORY_FILE, FILE_OVERWRITE_IF, FILE_ATTRIBUTE_NORMAL, \
-    SMB2_IL_IMPERSONATION, SMB2_OPLOCK_LEVEL_NONE, FILE_READ_DATA , FILE_WRITE_DATA, FILE_OPEN
+    SMB2_IL_IMPERSONATION, SMB2_OPLOCK_LEVEL_NONE, FILE_READ_DATA , FILE_WRITE_DATA, FILE_OPEN, GENERIC_READ, GENERIC_WRITE, \
+    FILE_OPEN_REPARSE_POINT, MOUNT_POINT_REPARSE_DATA_STRUCTURE, FSCTL_SET_REPARSE_POINT, SMB2_0_IOCTL_IS_FSCTL, \
+    MOUNT_POINT_REPARSE_GUID_DATA_STRUCTURE, FSCTL_DELETE_REPARSE_POINT
 
 
 # So the user doesn't need to import smb, the smb3 are already in here
@@ -838,7 +840,7 @@ class SMBConnection:
 
         reparseData = MOUNT_POINT_REPARSE_DATA_STRUCTURE()
 
-        reparseData['PathBuffer']           = fixed_name + "\x00\x00" + name + "\x00\x00"
+        reparseData['PathBuffer']           = fixed_name + b"\x00\x00" + name + b"\x00\x00"
         reparseData['SubstituteNameLength'] = len(fixed_name)
         reparseData['PrintNameOffset']      = len(fixed_name) + 2
         reparseData['PrintNameLength']      = len(name)
@@ -865,12 +867,12 @@ class SMBConnection:
 
         reparseData = MOUNT_POINT_REPARSE_GUID_DATA_STRUCTURE()
 
-        reparseData['DataBuffer'] = ""
+        reparseData['DataBuffer'] = b""
 
         try:
             self._SMBConnection.ioctl(tid, fid, FSCTL_DELETE_REPARSE_POINT, flags=SMB2_0_IOCTL_IS_FSCTL,
                                       inputBlob=reparseData)
-        except (smb.SessionError, smb3.SessionError), e:
+        except (smb.SessionError, smb3.SessionError) as e:
             self.closeFile(tid, fid)
             raise SessionError(e.get_error_code(), e.get_error_packet())
 

@@ -48,7 +48,7 @@ class MiniImpacketShell(cmd.Cmd):
             sys.stderr = tcpShell
             self.use_rawinput = False
             self.shell = tcpShell
-    else:
+        else:
             cmd.Cmd.__init__(self)
             self.shell = None
 
@@ -465,8 +465,8 @@ class MiniImpacketShell(cmd.Cmd):
     def do_mount(self, line):
         l = line.split(' ')
         if len(l) > 1:
-            target  = string.replace(l[0],'/','\\')
-            pathName= string.replace(l[1],'/','\\')
+            target  = l[0].replace('/','\\')
+            pathName= l[1].replace('/','\\')
 
         # Relative or absolute path?
         if pathName.startswith('\\') is not True:
@@ -475,7 +475,7 @@ class MiniImpacketShell(cmd.Cmd):
         self.smb.createMountPoint(self.tid, pathName, target)
 
     def do_umount(self, mountpoint):
-        mountpoint = string.replace(mountpoint,'/','\\')
+        mountpoint = mountpoint.replace('/','\\')
 
         # Relative or absolute path?
         if mountpoint.startswith('\\') is not True:
