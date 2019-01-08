@@ -462,11 +462,21 @@ class MiniImpacketShell(cmd.Cmd):
         l = line.split(' ')
         if len(l) > 1:
             target  = string.replace(l[0],'/','\\')
-            path    = string.replace(l[1],'/','\\')
+            pathName= string.replace(l[1],'/','\\')
 
-        self.smb.createMountPoint(self.tid, path, target)
+        # Relative or absolute path?
+        if pathName.startswith('\\') is not True:
+            pathName = ntpath.join(self.pwd, pathName)
+
+        self.smb.createMountPoint(self.tid, pathName, target)
 
     def do_umount(self, mountpoint):
         mountpoint = string.replace(mountpoint,'/','\\')
 
-        self.smb.removeMountPoint(self.tid, mountpoint)
+        # Relative or absolute path?
+        if mountpoint.startswith('\\') is not True:
+            mountpoint = ntpath.join(self.pwd, mountpoint)
+
+        mountPath = ntpath.join(self.pwd, mountpoint)
+
+        self.smb.removeMountPoint(self.tid, mountPath)
