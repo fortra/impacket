@@ -105,6 +105,8 @@ class MiniImpacketShell(cmd.Cmd):
  rmdir {dirname} - removes the directory under the current path
  put {filename} - uploads the filename into the current path
  get {filename} - downloads the filename from the current path
+ mount {target,path} - creates a mount point from {path} to {target} (admin required)
+ umount {path} - removes the mount point at {path} without deleting the directory (admin required)
  info - returns NetrServerInfo main results
  who - returns the sessions currently connected at the target host (admin required)
  close - closes the current SMB Session
@@ -456,4 +458,25 @@ class MiniImpacketShell(cmd.Cmd):
     def do_close(self, line):
         self.do_logoff(line)
 
+    def do_mount(self, line):
+        l = line.split(' ')
+        if len(l) > 1:
+            target  = string.replace(l[0],'/','\\')
+            pathName= string.replace(l[1],'/','\\')
 
+        # Relative or absolute path?
+        if pathName.startswith('\\') is not True:
+            pathName = ntpath.join(self.pwd, pathName)
+
+        self.smb.createMountPoint(self.tid, pathName, target)
+
+    def do_umount(self, mountpoint):
+        mountpoint = string.replace(mountpoint,'/','\\')
+
+        # Relative or absolute path?
+        if mountpoint.startswith('\\') is not True:
+            mountpoint = ntpath.join(self.pwd, mountpoint)
+
+        mountPath = ntpath.join(self.pwd, mountpoint)
+
+        self.smb.removeMountPoint(self.tid, mountPath)
