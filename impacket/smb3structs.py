@@ -275,6 +275,7 @@ FSCTL_SRV_COPYCHUNK_WRITE            = 0x001480F2
 FSCTL_LMR_REQUEST_RESILIENCY         = 0x001401D4
 FSCTL_QUERY_NETWORK_INTERFACE_INFO   = 0x001401FC
 FSCTL_SET_REPARSE_POINT              = 0x000900A4
+FSCTL_DELETE_REPARSE_POINT           = 0x000900AC
 FSCTL_DFS_GET_REFERRALS_EX           = 0x000601B0
 FSCTL_FILE_LEVEL_TRIM                = 0x00098208
 FSCTL_VALIDATE_NEGOTIATE_INFO        = 0x00140204
@@ -1190,6 +1191,27 @@ class NETWORK_INTERFACE_INFO(Structure):
         ('Reserved','<L=0'),
         ('LinkSpeed','<Q=0'),
         ('SockAddr_Storage','128s=""'),
+    )
+
+class MOUNT_POINT_REPARSE_DATA_STRUCTURE(Structure):
+    structure = (
+        ("ReparseTag", "<L=0xA0000003"),
+        ("ReparseDataLen", "<H=len(self['PathBuffer']) + 8"),
+        ("Reserved", "<H=0"),
+        ("SubstituteNameOffset", "<H=0"),
+        ("SubstituteNameLength", "<H=0"),
+        ("PrintNameOffset", "<H=0"),
+        ("PrintNameLength", "<H=0"),
+        ("PathBuffer", ":")
+    )
+
+class MOUNT_POINT_REPARSE_GUID_DATA_STRUCTURE(Structure):
+    structure = (
+        ("ReparseTag", "<L=0xA0000003"),
+        ("ReparseDataLen", "<H=len(self['DataBuffer'])"),
+        ("Reserved", "<H=0"),
+        ("ReparseGuid", "16s=''"),
+        ("DataBuffer", ":")
     )
 
 class SMB2Ioctl_Response(Structure):
