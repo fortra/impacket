@@ -672,7 +672,14 @@ class SMBRelayServer(Thread):
         if self.config.runSocks and self.target.scheme.upper() in self.config.socksServer.supportedSchemes:
             if self.config.runSocks is True:
                 # Check if relayed user is a local administrator on the target machine
-                client.sessionData['is_local_admin'] = self.check_local_admin(self.target.hostname, client.targetPort, client)
+                try:
+                    # ToDo: This should be moved to the ProtocolClient class so every plugin has its own method
+                    # ToDo: for verifying if the target user is admin
+                    if self.target.scheme.upper() == 'SMB':
+                        client.sessionData['is_local_admin'] = self.check_local_admin(self.target.hostname, client.targetPort, client)
+                except Exception as e:
+                    LOG.debug(str(e))
+                    pass
                 # Pass all the data to the socksplugins proxy
                 activeConnections.put((self.target.hostname, client.targetPort, self.target.scheme.upper(),
                                        self.authUser, client, client.sessionData))
