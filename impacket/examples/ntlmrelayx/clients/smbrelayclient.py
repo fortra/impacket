@@ -31,6 +31,8 @@ from impacket.smb3 import SMB3, SMB2_GLOBAL_CAP_ENCRYPTION, SMB2_DIALECT_WILDCAR
     SMB2_GLOBAL_CAP_PERSISTENT_HANDLES, SMB2_NEGOTIATE_SIGNING_REQUIRED, SMB2Packet,SMB2SessionSetup, SMB2_SESSION_SETUP, STATUS_MORE_PROCESSING_REQUIRED, SMB2SessionSetup_Response
 from impacket.smbconnection import SMBConnection, SMB_DIALECT, SessionError
 from impacket.spnego import SPNEGO_NegTokenInit, SPNEGO_NegTokenResp, TypesMech
+from impacket.dcerpc.v5.transport import SMBTransport
+from impacket.dcerpc.v5 import scmr
 
 PROTOCOL_CLIENT_CLASS = "SMBRelayClient"
 
@@ -416,3 +418,21 @@ class SMBRelayClient(ProtocolClient):
             return self.session.getSMBServer().get_encryption_key()
         else:
             return None
+
+    def isAdmin(self):
+        rpctransport = SMBTransport(self.session.getRemoteHost(), 445, r'\svcctl', smb_connection=self.session)
+        dce = rpctransport.get_dce_rpc()
+        try:
+            dce.connect()
+        except:
+            pass
+        else:
+            dce.bind(scmr.MSRPC_UUID_SCMR)
+            try:
+                # 0xF003F - SC_MANAGER_ALL_ACCESS
+                # http://msdn.microsoft.com/en-us/library/windows/desktop/ms685981(v=vs.85).aspx
+                ans = scmr.hROpenSCManagerW(dce,'{}\x00'.format(self.target.hostname),'ServicesActive\x00', 0xF003F)
+                return "TRUE"
+            except scmr.DCERPCException as e:
+                pass
+        return "FALSE"
