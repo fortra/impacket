@@ -87,6 +87,12 @@ class ProtocolClient:
         # Charged of keeping connection alive
         raise RuntimeError('Virtual Function')
 
+    def isAdmin(self):
+        # Should return whether or not the user is admin in the form of a string (e.g. "TRUE", "FALSE")
+        # Depending on the protocol, different techniques should be used.
+        # By default, raise exception
+        raise RuntimeError('Virtual Function')
+
 for file in pkg_resources.resource_listdir('impacket.examples.ntlmrelayx', 'clients'):
     if file.find('__') >= 0 or file.endswith('.py') is False:
         continue

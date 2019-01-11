@@ -219,6 +219,15 @@ def activeConnectionsWatcher(server):
             server.activeRelays[target][port][userName]['protocolClient'] = client
             server.activeRelays[target][port][userName]['inUse'] = False
             server.activeRelays[target][port][userName]['data'] = data
+            # Do we have admin access in this connection?
+            try:
+                LOG.debug("Checking admin status for user %s" % str(userName))
+                isAdmin = client.isAdmin()
+                server.activeRelays[target][port][userName]['isAdmin'] = isAdmin
+            except Exception as e:
+                # Method not implemented
+                server.activeRelays[target][port][userName]['isAdmin'] = 'N/A'
+            LOG.debug("isAdmin returned: %s" % server.activeRelays[target][port][userName]['isAdmin'])
             # Just for the CHALLENGE data, we're storing this general
             server.activeRelays[target][port]['data'] = data
             # Let's store the protocol scheme, needed be used later when trying to find the right socks relay server to use
@@ -247,13 +256,9 @@ def webService(server):
             for port in server.activeRelays[target]:
                 for user in server.activeRelays[target][port]:
                     if user != 'data' and user != 'scheme':
-                        if ('is_local_admin' in server.activeRelays[target][port][user]['data'] 
-                            and server.activeRelays[target][port][user]['data']['is_local_admin']):
-                            suffix=' (admin)'
-                        else:
-                            suffix=''
                         protocol = server.activeRelays[target][port]['scheme']
-                        relays.append([protocol, target, user+suffix, str(port)])
+                        isAdmin = server.activeRelays[target][port][user]['isAdmin']
+                        relays.append([protocol, target, user, isAdmin, str(port)])
         return jsonify(relays)
 
     @app.route('/ntlmrelayx/api/v1.0/relays', methods=['GET'])
