@@ -480,3 +480,7 @@ class MiniImpacketShell(cmd.Cmd):
         mountPath = ntpath.join(self.pwd, mountpoint)
 
         self.smb.removeMountPoint(self.tid, mountPath)
+
+    def do_EOF(self, line):
+        print('Bye!\n')
+        return True
