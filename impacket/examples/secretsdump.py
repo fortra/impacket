@@ -1271,6 +1271,7 @@ class LSASecrets(OfflineRegistry):
         LSA = 0
         LSA_HASHED = 1
         LSA_RAW = 2
+        LSA_KERBEROS = 3
 
     def __init__(self, securityFile, bootKey, remoteOps=None, isRemote=False, history=False,
                  perSecretCallback=lambda secretType, secret: _print_helper(secret)):
@@ -1574,7 +1575,7 @@ class LSASecrets(OfflineRegistry):
                     typename = NTDSHashes.KERBEROS_TYPE[etype]
                     secret = "%s:%s:%s" % (machinename, typename, hexlify(key.contents).decode('utf-8'))
                     self.__secretItems.append(secret)
-                    self.__perSecretCallback(LSASecrets.SECRET_TYPE.LSA, secret)
+                    self.__perSecretCallback(LSASecrets.SECRET_TYPE.LSA_KERBEROS, secret)
                 return True
         else:
             return False
