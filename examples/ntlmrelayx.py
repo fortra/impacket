@@ -127,6 +127,9 @@ class MiniShell(cmd.Cmd):
         print("Shutting down, please wait!")
         return True
 
+    def do_EOF(self, line):
+        return self.do_exit(line)
+
 def start_servers(options, threads):
     for server in RELAY_SERVERS:
         #Set up config
