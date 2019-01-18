@@ -266,6 +266,11 @@ class GETST:
         tgsReq['padata'][0]['padata-type'] = int(constants.PreAuthenticationDataTypes.PA_TGS_REQ.value)
         tgsReq['padata'][0]['padata-value'] = encodedApReq
 
+        # Add resource-based constrained delegation support
+        tgsReq['padata'][1] = noValue
+        tgsReq['padata'][1]['padata-type'] = 167
+        tgsReq['padata'][1]['padata-value'] = "3009a00703050010000000".decode("hex")
+
         reqBody = seq_set(tgsReq, 'req-body')
 
         opts = list()
