@@ -20,6 +20,8 @@ class NTLMRelayxConfig:
         # Set the value of the interface ip address
         self.interfaceIp = None
 
+        self.listeningPort = None
+
         self.domainIp = None
         self.machineAccount = None
         self.machineHashes = None
@@ -76,6 +78,9 @@ class NTLMRelayxConfig:
 
     def setInterfaceIp(self, ip):
         self.interfaceIp = ip
+    
+    def setListeningPort(self, port):
+        self.listeningPort = port
 
     def setRunSocks(self, socks, server):
         self.runSocks = socks

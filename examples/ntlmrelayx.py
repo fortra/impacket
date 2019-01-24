@@ -151,6 +151,11 @@ def start_servers(options, threads):
         c.setInterfaceIp(options.interface_ip)
 
 
+        if server is HTTPRelayServer:
+            c.setListeningPort(options.http_port)
+        elif server is SMBRelayServer:
+            c.setListeningPort(options.smb_port)
+
         #If the redirect option is set, configure the HTTP server to redirect targets to SMB
         if server is HTTPRelayServer and options.r is not None:
             c.setMode('REDIRECT')
@@ -208,6 +213,9 @@ if __name__ == '__main__':
     serversoptions = parser.add_mutually_exclusive_group()
     serversoptions.add_argument('--no-smb-server', action='store_true', help='Disables the SMB server')
     serversoptions.add_argument('--no-http-server', action='store_true', help='Disables the HTTP server')
+
+    parser.add_argument('--smb-port', type=int, help='Port to listen on smb server', default=445)
+    parser.add_argument('--http-port', type=int, help='Port to listen on http server', default=80)
 
     parser.add_argument('-ra','--random', action='store_true', help='Randomize target selection (HTTP server only)')
     parser.add_argument('-r', action='store', metavar = 'SMBSERVER', help='Redirect HTTP requests to a file:// path on SMBSERVER')
