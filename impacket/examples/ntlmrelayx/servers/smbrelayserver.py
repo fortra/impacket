@@ -85,7 +85,12 @@ class SMBRelayServer(Thread):
             SMBSERVER.address_family = socket.AF_INET6
 
         # changed to dereference configuration interfaceIp
-        self.server = SMBSERVER((config.interfaceIp,445), config_parser = smbConfig)
+        if self.config.listeningPort:
+            smbport = self.config.listeningPort
+        else:
+            smbport = 445
+
+        self.server = SMBSERVER((config.interfaceIp,smbport), config_parser = smbConfig)
         logging.getLogger('impacket.smbserver').setLevel(logging.CRITICAL)
 
         self.server.processConfigFile()
