@@ -402,6 +402,14 @@ class APOptions(Enum):
     use_session_key = 1
     mutual_required = 2
 
+class PAPacOptions(Enum):
+    # [MS-KILE] 2.2.10
+    claims                                = 0
+    branch_aware                          = 1
+    forward_to_full_dc                    = 2
+    # [MS-SFU] 2.2.5
+    resource_based_constrained_delegation = 3
+
 class EncryptionTypes(Enum):
     des_cbc_crc                  = 1
     des_cbc_md4                  = 2
