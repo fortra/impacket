@@ -497,8 +497,10 @@ class KERB_ERROR_DATA(univ.Sequence):
         _sequence_component('data-type', 1, Int32()),
         _sequence_component('data-value', 2, univ.OctetString()))
 
-class PA_PAC_OPTIONS(univ.SequenceOf):
-    componentType = KerberosFlags()
+class PA_PAC_OPTIONS(univ.Sequence):
+    componentType = namedtype.NamedTypes(
+        _sequence_component('flags', 0, KerberosFlags()),
+    )
 
 
 
