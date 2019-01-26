@@ -212,7 +212,8 @@ class HTTPRelayServer(Thread):
                             authenticateMessage['domain_name'].decode('ascii'),
                             authenticateMessage['user_name'].decode('ascii')))
 
-                    # Only skip to next if the login actually failed, not if it was just anonymous login or a system account which we don't want
+                    # Only skip to next if the login actually failed, not if it was just anonymous login or a system account
+                    # which we don't want
                     if authenticateMessage['user_name'] != '': # and authenticateMessage['user_name'][-1] != '$':
                         self.server.config.target.logTarget(self.target)
                         # No anonymous login, go to next host and avoid triggering a popup
@@ -240,7 +241,7 @@ class HTTPRelayServer(Thread):
                     if self.server.config.outputFile is not None:
                         writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], self.server.config.outputFile)
 
-                    self.server.config.target.logTarget(self.target, True)
+                    self.server.config.target.logTarget(self.target, True, self.authUser)
 
                     self.do_attack()
 

@@ -331,7 +331,7 @@ class SMBRelayServer(Thread):
                 LOG.info("Authenticating against %s://%s as %s\%s SUCCEED" % (
                 self.target.scheme, self.target.netloc, authenticateMessage['domain_name'], authenticateMessage['user_name']))
                 # Log this target as processed for this client
-                self.targetprocessor.logTarget(self.target, True)
+                self.targetprocessor.logTarget(self.target, True, self.authUser)
 
                 ntlm_hash_data = outputToJohnFormat(connData['CHALLENGE_MESSAGE']['challenge'],
                                                     authenticateMessage['user_name'],
@@ -539,7 +539,7 @@ class SMBRelayServer(Thread):
                     self.target.scheme, self.target.netloc, authenticateMessage['domain_name'], authenticateMessage['user_name']))
 
                     # Log this target as processed for this client
-                    self.targetprocessor.logTarget(self.target, True)
+                    self.targetprocessor.logTarget(self.target, True, self.authUser)
 
                     ntlm_hash_data = outputToJohnFormat(connData['CHALLENGE_MESSAGE']['challenge'],
                                                         authenticateMessage['user_name'],
@@ -617,7 +617,7 @@ class SMBRelayServer(Thread):
                 self.authUser = ('%s/%s' % (sessionSetupData['PrimaryDomain'], sessionSetupData['Account'])).upper()
 
                 # Log this target as processed for this client
-                self.targetprocessor.logTarget(self.target, True)
+                self.targetprocessor.logTarget(self.target, True, self.authUser)
 
                 ntlm_hash_data = outputToJohnFormat('', sessionSetupData['Account'], sessionSetupData['PrimaryDomain'],
                                                     sessionSetupData['AnsiPwd'], sessionSetupData['UnicodePwd'])

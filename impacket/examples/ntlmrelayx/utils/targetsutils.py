@@ -77,7 +77,7 @@ class TargetsProcessor:
                 self.originalTargets = []
                 for line in f:
                     target = line.strip()
-                    if target is not None:
+                    if target != '':
                         self.originalTargets.extend(self.processTarget(target, self.protocolClients))
         except IOError, e:
             LOG.error("Could not open file: %s - " % (self.filename, str(e)))
@@ -87,11 +87,17 @@ class TargetsProcessor:
 
         self.candidates = [x for x in self.originalTargets if x not in self.finishedAttacks]
 
-    def logTarget(self, target, gotRelay = False):
+    def logTarget(self, target, gotRelay = False, gotUsername = None):
         # If the target has a username, we can safely remove it from the list. Mission accomplished.
         if gotRelay is True:
             if target.username is not None:
                 self.finishedAttacks.append(target)
+            elif gotUsername is not None:
+                # We have data about the username we relayed the connection for,
+                # for a target that didn't have username specified.
+                # Let's log it
+                newTarget = urlparse('%s://%s@%s%s' % (target.scheme, gotUsername, target.netloc, target.path))
+                self.finishedAttacks.append(newTarget)
 
     def getTarget(self, choose_random=False):
         if len(self.candidates) > 0:
