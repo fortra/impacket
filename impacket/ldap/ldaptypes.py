@@ -135,7 +135,7 @@ https://msdn.microsoft.com/en-us/library/cc230295.aspx
 """
 class ACE(Structure):
     # Flag constants
-    CONTAINER_INHERIT_ACE       = 0x01
+    CONTAINER_INHERIT_ACE       = 0x02
     FAILED_ACCESS_ACE_FLAG      = 0x80
     INHERIT_ONLY_ACE            = 0x08
     INHERITED_ACE               = 0x10
