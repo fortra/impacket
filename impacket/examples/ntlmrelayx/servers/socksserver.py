@@ -217,6 +217,13 @@ def activeConnectionsWatcher(server):
             server.activeRelays[target][port][userName]['protocolClient'] = client
             server.activeRelays[target][port][userName]['inUse'] = False
             server.activeRelays[target][port][userName]['data'] = data
+            # Just for the CHALLENGE data, we're storing this general
+            server.activeRelays[target][port]['data'] = data
+            # Let's store the protocol scheme, needed be used later when trying to find the right socks relay server to use
+            server.activeRelays[target][port]['scheme'] = scheme
+
+            # Default values in case somebody asks while we're gettting the data
+            server.activeRelays[target][port][userName]['isAdmin'] = 'N/A'
             # Do we have admin access in this connection?
             try:
                 LOG.debug("Checking admin status for user %s" % str(userName))
@@ -225,11 +232,8 @@ def activeConnectionsWatcher(server):
             except Exception as e:
                 # Method not implemented
                 server.activeRelays[target][port][userName]['isAdmin'] = 'N/A'
+                pass
             LOG.debug("isAdmin returned: %s" % server.activeRelays[target][port][userName]['isAdmin'])
-            # Just for the CHALLENGE data, we're storing this general
-            server.activeRelays[target][port]['data'] = data
-            # Let's store the protocol scheme, needed be used later when trying to find the right socks relay server to use
-            server.activeRelays[target][port]['scheme'] = scheme
         else:
             LOG.info('Relay connection for %s at %s(%d) already exists. Discarding' % (userName, target, port))
             client.killConnection()
