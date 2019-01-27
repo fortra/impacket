@@ -79,7 +79,7 @@ class GETST:
         ccache.fromTGS(ticket, sessionKey, sessionKey)
         ccache.saveFile(self.__saveFileName + '.ccache')
 
-    def doS4U(self, tgt, cipher, oldSessionKey, sessionKey):
+    def doS4U(self, tgt, cipher, oldSessionKey, sessionKey, kdcHost):
         decodedTGT = decoder.decode(tgt, asn1Spec = AS_REP())[0]
 
         # Extract the ticket from the TGT
@@ -204,7 +204,7 @@ class GETST:
         logging.info('\tRequesting S4U2self')
         message = encoder.encode(tgsReq)
 
-        r = sendReceive(message, self.__domain, None)
+        r = sendReceive(message, self.__domain, kdcHost)
 
         tgs = decoder.decode(r, asn1Spec = TGS_REP())[0]
 
@@ -306,7 +306,7 @@ class GETST:
         message = encoder.encode(tgsReq)
 
         logging.info('\tRequesting S4U2Proxy')
-        r = sendReceive(message, self.__domain, None)
+        r = sendReceive(message, self.__domain, kdcHost)
 
         tgs = decoder.decode(r, asn1Spec=TGS_REP())[0]
 
@@ -367,7 +367,7 @@ class GETST:
             # Here's the rock'n'roll
             try:
                 logging.info('Impersonating %s' % self.__options.impersonate)
-                tgs, copher, oldSessionKey, sessionKey = self.doS4U(tgt, cipher, oldSessionKey, sessionKey)
+                tgs, copher, oldSessionKey, sessionKey = self.doS4U(tgt, cipher, oldSessionKey, sessionKey, self.__kdcHost)
             except Exception as e:
                 logging.error(str(e))
                 if str(e).find('KDC_ERR_S_PRINCIPAL_UNKNOWN') >= 0:
