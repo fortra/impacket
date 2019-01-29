@@ -208,15 +208,8 @@ class SMBRelayClient(ProtocolClient):
         sessionSetup = SMB2SessionSetup()
         sessionSetup['Flags'] = 0
 
-        # Let's build a NegTokenInit with the NTLMSSP
-        blob = SPNEGO_NegTokenInit()
-
-        # NTLMSSP
-        blob['MechTypes'] = [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
-        blob['MechToken'] = str(negotiateMessage)
-
-        sessionSetup['SecurityBufferLength'] = len(blob)
-        sessionSetup['Buffer'] = blob.getData()
+        sessionSetup['SecurityBufferLength'] = len(negotiateMessage)
+        sessionSetup['Buffer'] = negotiateMessage
 
         packet = v2client.SMB_PACKET()
         packet['Command'] = SMB2_SESSION_SETUP
@@ -227,8 +220,7 @@ class SMBRelayClient(ProtocolClient):
         if ans.isValidAnswer(STATUS_MORE_PROCESSING_REQUIRED):
             v2client._Session['SessionID'] = ans['SessionID']
             sessionSetupResponse = SMB2SessionSetup_Response(ans['Data'])
-            respToken = SPNEGO_NegTokenResp(sessionSetupResponse['Buffer'])
-            return respToken['ResponseToken']
+            return sessionSetupResponse['Buffer']
 
         return False
 
@@ -342,11 +334,10 @@ class SMBRelayClient(ProtocolClient):
         return clientResponse, errorCode
 
     def sendAuth(self, authenticateMessageBlob, serverChallenge=None):
-        if unpack('B', str(authenticateMessageBlob)[:1])[0] != SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP:
-            # We need to wrap the NTLMSSP into SPNEGO
-            respToken2 = SPNEGO_NegTokenResp()
-            respToken2['ResponseToken'] = str(authenticateMessageBlob)
-            authData = respToken2.getData()
+        if unpack('B', str(authenticateMessageBlob)[:1])[0] == SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP:
+            # We need to unwrap SPNEGO and get the NTLMSSP
+            respToken = SPNEGO_NegTokenResp(authenticateMessageBlob)
+            authData = respToken['ResponseToken']
         else:
             authData = str(authenticateMessageBlob)
 

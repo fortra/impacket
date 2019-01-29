@@ -106,6 +106,8 @@ class TargetsProcessor:
                 self.finishedAttacks.append(newTarget)
 
     def getTarget(self, identity=None):
+        # ToDo: We should have another list of failed attempts (with user) and check that inside this method so we do not
+        # retry those targets.
         if identity is not None and len(self.namedCandidates) > 0:
             # We've been asked to match a username that is connected to us
             # Do we have an explicit request for it?
