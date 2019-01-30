@@ -4,3 +4,4 @@ pyOpenSSL>=0.16.2
 ldap3>=2.5
 ldapdomaindump
 flask>=1.0
+flake8==3.6.0
