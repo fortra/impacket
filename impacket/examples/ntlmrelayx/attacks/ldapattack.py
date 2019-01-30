@@ -326,6 +326,7 @@ class LDAPAttack(ProtocolAttack):
         # If validation of privileges is not desired, we assumed that the user has permissions to escalate
         # an existing user via ACL attacks.
         else:
+            LOG.info('Assuming relayed user has privileges to escalate a user via ACL attack')
             privs = {}
             privs['create'] = False
             privs['aclEscalate'] = True
