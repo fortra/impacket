@@ -11,7 +11,7 @@ matrix:
   allow_failures:
     - python: 3.6
 
-install: pip install flake8 tox -r requirements.txt
+install: pip install tox -r requirements.txt
   
 before_script:
   # stop the build if there are Python syntax errors or undefined names
