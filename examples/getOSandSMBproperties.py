@@ -32,6 +32,8 @@ import struct
 import itertools
 import time
 import pprint
+import functools
+from concurrent import futures
 
 from impacket.examples import logger
 from impacket import version
@@ -72,14 +74,14 @@ def is_format_valid(fmt):
 def try_smb_connection(address, target_ip, options, preferredDialect, existingConnection):
         try:
             conn = SMBConnection(remoteName=address, remoteHost=target_ip, myName=None, sess_port=options.port, timeout=options.timeout, preferredDialect=preferredDialect, existingConnection=existingConnection)
-            return True, conn.getRemoteHost().strip(), conn
+            return True, conn
         
         except Exception as e:
             if logging.getLogger().level == logging.DEBUG:
                 import traceback
                 traceback.print_exc()
             print("[!] {}: {}".format(address, str(e)))
-            return False, None, None
+            return False, None
         
 def try_authenticate(target, options, lmhash, nthash, connection):
     try:
@@ -115,61 +117,67 @@ def enum_shares(connection):
     
     return result
 
+def grab_properties(target, target_ip, options, lmhash, nthash, connection, current_result):
+    current_result['server_ip'] = target_ip if target_ip is not None else target
+    
+    authenticate_success = try_authenticate(target, options, lmhash, nthash, connection)
+    if authenticate_success:
+        current_result['server_domain'] = connection.getServerDomain()
+        current_result['server_name'] = connection.getServerName()
+        current_result['os_version'] = connection.getServerOS()
+        current_result['signing_required'] = 'true' if connection.isSigningRequired() else 'false'
+        current_result['shares'] = enum_shares(connection)
+        
+        connection.close()
+    
+    return current_result
+
+def enum_target(options, target, lmhash, nthash):
+    target = target.strip()
+    try:
+        target_ip = socket.gethostbyname(target)
+    except:
+        target_ip = None
+    
+    print("[+] Enumerating %s in SMBv1" % target)
+    
+    current_result = {}
+    
+    # Try SMBv1 unauthenticated
+    support_smbv1, connection = try_smb_connection(target, target_ip, options, SMB_DIALECT, None)
+    if support_smbv1:
+        current_result['smbv1_supported'] = 'true'
+        current_result = grab_properties(target, target_ip, options, lmhash, nthash, connection, current_result)
+    
+    else:
+        print("[+] Enumerating %s in SMBv2/v3" % target)
+        logging.debug('[!] {}: SMBv1 might be disabled'.format(target.strip()))
+        current_result['smbv1_supported'] = 'false'
+    
+        # Try SMB2/3 unauthenticated
+        connection_success, connection = try_smb_connection(target, target, options, None, None)
+        
+        if connection_success:
+            current_result = grab_properties(target, target_ip, options, lmhash, nthash, connection, current_result)
+        
+    return target_ip, target, current_result
+
 def extract_information(options, lmhash, nthash, targets):
     results = {}
     
-    for target in targets:
-        target = target.strip()
-        print("[+] Enumerating %s in SMBv1" % target)
+    with futures.ThreadPoolExecutor(max_workers=options.workers) as executor:
+        futs = [
+            (target, executor.submit(functools.partial(enum_target, options, target, lmhash, nthash)))
+            for target in targets
+        ]
         
-        current_result = {}
-        
-        # Try SMBv1 unauthenticated
-        support_smbv1, target_ip, connection = try_smb_connection(target, target, options, SMB_DIALECT, None)
-        if support_smbv1:
-            current_result['smbv1_supported'] = 'true'
-            current_result['server_ip'] = target_ip if target_ip is not None else target
+        for target, fut in futs:
+            target_ip, target_name, current_result = fut.result()
+            if current_result:
+                current_host_num_ip = dottedquad_to_num(target_ip) if target_ip else target_name
+                if current_host_num_ip not in results:
+                    results[current_host_num_ip] = current_result
             
-            # Grabbing banners as they have more info
-            authenticate_success = try_authenticate(target, options, lmhash, nthash, connection)
-            if authenticate_success:
-                current_result['server_ip'] = target_ip
-                current_result['server_domain'] = connection.getServerDomain()
-                current_result['server_name'] = connection.getServerName()
-                current_result['os_version'] = connection.getServerOS()
-                current_result['signing_required'] = 'true' if connection.isSigningRequired() else 'false'
-                current_result['shares'] = enum_shares(connection)
-                
-                connection.close()
-        else:
-            print("[+] Enumerating %s in SMBv2/v3" % target)
-            logging.debug('[!] {}: SMBv1 might be disabled'.format(target.strip()))
-            current_result['smbv1_supported'] = 'false'
-        
-            # Try SMB2/3 unauthenticated
-            connection_success, target_ip, connection = try_smb_connection(target, target, options, None, None)
-        
-            # Gather info
-            if connection_success:
-                authenticate_success = try_authenticate(target, options, lmhash, nthash, connection)
-                if authenticate_success:
-                    current_result['server_ip'] = target_ip
-                    current_result['server_domain'] = connection.getServerDomain()
-                    current_result['server_name'] = connection.getServerName()
-                    current_result['os_version'] = connection.getServerOS()
-                    current_result['signing_required'] = 'true' if connection.isSigningRequired() else 'false'
-                    current_result['shares'] = enum_shares(connection)
-                    
-                    connection.close()
-                    
-        # Adding the current host to the result variable
-        if current_result:
-            current_host_num_ip = dottedquad_to_num(target_ip) if target_ip is not None else dottedquad_to_num(target)
-            if current_host_num_ip not in results:
-                results[current_host_num_ip] = current_result
-        
-        print("----\n")
-    
     return results
 
 def formatted_item(elem, format_item):
@@ -272,6 +280,7 @@ def main():
     group.add_argument('-port', choices=[139, 445], type=int, default=445, metavar="destination port",
                        help='Destination port to connect to SMB Server')
     group.add_argument('-timeout', type=int, default=10, help='Timeout in seconds (default 10)')
+    group.add_argument('-w', '--workers', type=int, default=10, help='Number of workers (default 10)')
 
     options = parser.parse_args()
     
