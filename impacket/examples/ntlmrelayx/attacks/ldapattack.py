@@ -49,6 +49,16 @@ class LDAPAttack(ProtocolAttack):
     If the user is an Enterprise or Domain admin, a new user is added to escalate to DA.
     """
     PLUGIN_NAMES = ["LDAP", "LDAPS"]
+
+    # ACL constants
+    # When reading, these constants are actually represented by
+    # the following for Active Directory specific Access Masks
+    # Reference: https://docs.microsoft.com/en-us/dotnet/api/system.directoryservices.activedirectoryrights?view=netframework-4.7.2
+    GENERIC_READ            = 0x00020094
+    GENERIC_WRITE           = 0x00020028
+    GENERIC_EXECUTE         = 0x00020004
+    GENERIC_ALL             = 0x000F01FF
+
     def __init__(self, config, LDAPClient, username):
         ProtocolAttack.__init__(self, config, LDAPClient, username)
 
@@ -221,6 +231,12 @@ class LDAPAttack(ProtocolAttack):
             return False
 
     def checkSecurityDescriptors(self, entries, privs, membersids, sidmapping, domainDumper):
+        standardrights = [
+            self.GENERIC_ALL,
+            self.GENERIC_WRITE,
+            self.GENERIC_READ,
+            ACCESS_MASK.WRITE_DACL
+        ]
         for entry in entries:
             if entry['type'] != 'searchResEntry':
                 continue
@@ -250,10 +266,23 @@ class LDAPAttack(ProtocolAttack):
                     and ace.hasFlag(ACE.INHERITED_ACE) \
                     and ace['Ace'].hasFlag(ACCESS_ALLOWED_OBJECT_ACE.ACE_INHERITED_OBJECT_TYPE_PRESENT):
                     # Verify if the ACE applies to this object type
-                    if not self.aceApplies(ace, entry['raw_attributes']['objectClass']):
+                    inheritedObjectType = bin_to_string(ace['Ace']['InheritedObjectType']).lower()
+                    if not self.aceApplies(inheritedObjectType, entry['raw_attributes']['objectClass'][-1]):
                         continue
-
+                # Check for non-extended rights that may not apply to us
+                if ace['Ace']['Mask']['Mask'] in standardrights or ace['Ace']['Mask'].hasPriv(ACCESS_MASK.WRITE_DACL):
+                    # Check if this applies to our objecttype
+                    if ace['AceType'] == ACCESS_ALLOWED_OBJECT_ACE.ACE_TYPE  and ace['Ace'].hasFlag(ACCESS_ALLOWED_OBJECT_ACE.ACE_OBJECT_TYPE_PRESENT):
+                        objectType = bin_to_string(ace['Ace']['ObjectType']).lower()
+                        if not self.aceApplies(objectType, entry['raw_attributes']['objectClass'][-1]):
+                            # LOG.debug('ACE does not apply, only to %s', objectType)
+                            continue
                 if sid in membersids:
+                    # Generic all
+                    if ace['Ace']['Mask'].hasPriv(self.GENERIC_ALL):
+                        ace.dump()
+                        LOG.debug('Permission found: Full Control on %s; Reason: GENERIC_ALL via %s' % (dn, sidmapping[sid]))
+                        hasFullControl = True
                     if can_create_users(ace) or hasFullControl:
                         if not hasFullControl:
                             LOG.debug('Permission found: Create users in %s; Reason: Granted to %s' % (dn, sidmapping[sid]))
@@ -283,16 +312,18 @@ class LDAPAttack(ProtocolAttack):
                             privs['aclEscalateIn'] = dn
 
     @staticmethod
-    def aceApplies(ace, objectClasses):
+    def aceApplies(ace_guid, object_class):
         '''
         Checks if an ACE applies to this object (based on object classes).
         Note that this function assumes you already verified that InheritedObjectType is set (via the flag).
         If this is not set, the ACE applies to all object types.
         '''
-        objectTypeGuid = bin_to_string(ace['Ace']['InheritedObjectType']).lower()
-        for objectType, guid in OBJECTTYPE_GUID_MAP.iteritems():
-            if objectType in objectClasses and objectTypeGuid:
-                return True
+        try:
+            our_ace_guid = OBJECTTYPE_GUID_MAP[object_class]
+        except KeyError:
+            return False
+        if ace_guid == our_ace_guid:
+            return True
         # If none of these match, the ACE does not apply to this object
         return False
 
