@@ -1224,6 +1224,7 @@ class SAMHashes(OfflineRegistry):
 
             userName = V[userAccount['NameOffset']:userAccount['NameOffset']+userAccount['NameLength']].decode('utf-16le')
 
+            encNTHash = ''
             if V[userAccount['NTHashOffset']:][2] == '\x01':
                 # Old Style hashes
                 newStyle = False
@@ -1244,7 +1245,10 @@ class SAMHashes(OfflineRegistry):
             else:
                 lmHash = ''
 
-            ntHash = self.__decryptHash(rid, encNTHash, NTPASSWORD, newStyle)
+            if encNTHash != '':
+                ntHash = self.__decryptHash(rid, encNTHash, NTPASSWORD, newStyle)
+            else:
+                ntHash = ''
 
             if lmHash == '':
                 lmHash = ntlm.LMOWFv1('','')
