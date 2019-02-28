@@ -100,7 +100,7 @@ for file in pkg_resources.resource_listdir('impacket.examples.ntlmrelayx', 'clie
             pass
 
         for pluginClass in pluginClasses:
-            LOG.info('Protocol Client %s loaded..' % pluginClass.PLUGIN_NAME)
+            LOG.debug('Protocol Client %s loaded..' % pluginClass.PLUGIN_NAME)
             PROTOCOL_CLIENTS[pluginClass.PLUGIN_NAME] = pluginClass
     except Exception, e:
         LOG.debug(str(e))
