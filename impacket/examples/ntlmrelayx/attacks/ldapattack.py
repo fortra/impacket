@@ -106,9 +106,8 @@ class LDAPAttack(ProtocolAttack):
             'unicodePwd': '"{}"'.format(newPassword).encode('utf-16-le')
         }
         LOG.debug('New computer info %s', ucd)
-
         LOG.info('Attempting to create computer in: %s', parent)
-        res = self.client.add(newComputerDn, ['top','person','organizationalPerson','user','computer'], ucd)
+        res = self.client.add(newComputerDn.decode('utf-8'), ['top','person','organizationalPerson','user','computer'], ucd)
         if not res:
             # Adding computers requires LDAPS
             if self.client.result['result'] == RESULT_UNWILLING_TO_PERFORM and not self.client.server.ssl:
@@ -612,14 +611,14 @@ def create_allow_ace(sid):
 
 def create_empty_sd():
     sd = ldaptypes.SR_SECURITY_DESCRIPTOR()
-    sd['Revision'] = '\x01'
-    sd['Sbz1'] = '\x00'
+    sd['Revision'] = b'\x01'
+    sd['Sbz1'] = b'\x00'
     sd['Control'] = 32772
     sd['OwnerSid'] = ldaptypes.LDAP_SID()
     # BUILTIN\Administrators
     sd['OwnerSid'].fromCanonical('S-1-5-32-544')
-    sd['GroupSid'] = ''
-    sd['Sacl'] = ''
+    sd['GroupSid'] = b''
+    sd['Sacl'] = b''
     acl = ldaptypes.ACL()
     acl['AclRevision'] = 4
     acl['Sbz1'] = 0
