@@ -141,7 +141,7 @@ def start_servers(options, threads):
         c.setAttacks(PROTOCOL_ATTACKS)
         c.setLootdir(options.lootdir)
         c.setOutputFile(options.output_file)
-        c.setLDAPOptions(options.no_dump, options.no_da, options.no_acl, options.no_validate_privs, options.escalate_user)
+        c.setLDAPOptions(options.no_dump, options.no_da, options.no_acl, options.no_validate_privs, options.escalate_user, options.add_computer, options.delegate_access)
         c.setMSSQLOptions(options.query)
         c.setInteractive(options.interactive)
         c.setIMAPOptions(options.keyword, options.mailbox, options.all, options.imap_max)
@@ -259,6 +259,8 @@ if __name__ == '__main__':
     ldapoptions.add_argument('--no-acl', action='store_false', required=False, help='Disable ACL attacks')
     ldapoptions.add_argument('--no-validate-privs', action='store_false', required=False, help='Do not attempt to enumerate privileges, assume permissions are granted to escalate a user via ACL attacks')
     ldapoptions.add_argument('--escalate-user', action='store', required=False, help='Escalate privileges of this user instead of creating a new one')
+    ldapoptions.add_argument('--add-computer', action='store_true', required=False, help='Attempt to add a new computer account')
+    ldapoptions.add_argument('--delegate-access', action='store_true', required=False, help='Delegate access on relayed computer account to the specified account')
 
     #IMAP options
     imapoptions = parser.add_argument_group("IMAP client options")
@@ -310,7 +312,7 @@ if __name__ == '__main__':
 
     if not options.no_smb_server:
         RELAY_SERVERS.append(SMBRelayServer)
-    
+
     if not options.no_http_server:
         RELAY_SERVERS.append(HTTPRelayServer)
 
