@@ -180,7 +180,7 @@ class GetUserSPNs:
     def outputTGS(self, tgs, oldSessionKey, sessionKey, username, spn, fd=None):
         decodedTGS = decoder.decode(tgs, asn1Spec=TGS_REP())[0]
 
-        # According to RFC4757 the cipher part is like:
+        # According to RFC4757 (RC4-HMAC) the cipher part is like:
         # struct EDATA {
         #       struct HEADER {
         #               OCTET Checksum[16];
@@ -191,6 +191,9 @@ class GetUserSPNs:
         #
         # In short, we're interested in splitting the checksum and the rest of the encrypted data
         #
+        # Regarding AES encryption type (AES128 CTS HMAC-SHA1 96 and AES256 CTS HMAC-SHA1 96)
+        # last 12 bytes of the encrypted ticket represent the checksum of the decrypted 
+        # ticket
         if decodedTGS['ticket']['enc-part']['etype'] == constants.EncryptionTypes.rc4_hmac.value:
             entry = '$krb5tgs$%d$*%s$%s$%s*$%s$%s' % (
                 constants.EncryptionTypes.rc4_hmac.value, username, decodedTGS['ticket']['realm'], spn.replace(':', '~'),
@@ -201,19 +204,19 @@ class GetUserSPNs:
             else:
                 fd.write(entry+'\n')
         elif decodedTGS['ticket']['enc-part']['etype'] == constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value:
-            entry = '$krb5tgs$%d$*%s$%s$%s*$%s$%s' % (
+            entry = '$krb5tgs$%d$%s$%s$*%s*$%s$%s' % (
                 constants.EncryptionTypes.aes128_cts_hmac_sha1_96.value, username, decodedTGS['ticket']['realm'], spn.replace(':', '~'),
-                hexlify(str(decodedTGS['ticket']['enc-part']['cipher'][:16])),
-                hexlify(str(decodedTGS['ticket']['enc-part']['cipher'][16:])))
+                hexlify(str(decodedTGS['ticket']['enc-part']['cipher'][-12:])),
+                hexlify(str(decodedTGS['ticket']['enc-part']['cipher'][:-12:])))
             if fd is None:
                 print entry
             else:
                 fd.write(entry+'\n')
         elif decodedTGS['ticket']['enc-part']['etype'] == constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value:
-            entry = '$krb5tgs$%d$*%s$%s$%s*$%s$%s' % (
+            entry = '$krb5tgs$%d$%s$%s$*%s*$%s$%s' % (
                 constants.EncryptionTypes.aes256_cts_hmac_sha1_96.value, username, decodedTGS['ticket']['realm'], spn.replace(':', '~'),
-                hexlify(str(decodedTGS['ticket']['enc-part']['cipher'][:16])),
-                hexlify(str(decodedTGS['ticket']['enc-part']['cipher'][16:])))
+                hexlify(str(decodedTGS['ticket']['enc-part']['cipher'][-12:])),
+                hexlify(str(decodedTGS['ticket']['enc-part']['cipher'][:-12:])))
             if fd is None:
                 print entry
             else:
