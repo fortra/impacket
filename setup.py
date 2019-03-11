@@ -39,7 +39,7 @@ setup(name = PACKAGE_NAME,
       install_requires=['pyasn1>=0.2.3', 'pycryptodomex', 'pyOpenSSL>=0.13.1', 'six', 'ldap3>=2.5.0', 'ldapdomaindump>=0.9.0', 'flask>=1.0'],
       extras_require={
                       'pyreadline:sys_platform=="win32"': [],
-                      ':python_version<"2.7"': [ 'argparse' ],
+                      'python_version<"2.7"': [ 'argparse' ],
                     },
       classifiers = [
           "Programming Language :: Python :: 3.6",
