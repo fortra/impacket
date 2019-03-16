@@ -69,6 +69,7 @@ class GetUserNoPreAuth:
         self.__nthash = ''
         self.__no_pass = cmdLineOptions.no_pass
         self.__outputFileName = cmdLineOptions.outputfile
+        self.__outputFormat = cmdLineOptions.format
         self.__aesKey = cmdLineOptions.aesKey
         self.__doKerberos = cmdLineOptions.k
         self.__requestTGT = cmdLineOptions.request
@@ -176,11 +177,16 @@ class GetUserNoPreAuth:
             # The user doesn't have UF_DONT_REQUIRE_PREAUTH set
             raise Exception('User %s doesn\'t have UF_DONT_REQUIRE_PREAUTH set' % userName)
 
-
-        # Let's output the TGT enc-part/cipher in John format, in case somebody wants to use it.
-        return '$krb5asrep$%d$%s@%s:%s$%s' % ( asRep['enc-part']['etype'], clientName, domain,
+        if self.__outputFormat == 'john':
+            # Let's output the TGT enc-part/cipher in John format, in case somebody wants to use it.
+            return '$krb5asrep$%s@%s:%s$%s' % (clientName, domain,
                                                hexlify(asRep['enc-part']['cipher'].asOctets()[:16]),
                                                hexlify(asRep['enc-part']['cipher'].asOctets()[16:]))
+        else:
+            # Let's output the TGT enc-part/cipher in Hashcat format, in case somebody wants to use it.
+            return '$krb5asrep$%d$%s@%s:%s$%s' % ( asRep['enc-part']['etype'], clientName, domain,
+                                                   hexlify(asRep['enc-part']['cipher'].asOctets()[:16]),
+                                                   hexlify(asRep['enc-part']['cipher'].asOctets()[16:]))
 
     @staticmethod
     def outputTGT(entry, fd=None):
@@ -326,6 +332,10 @@ if __name__ == '__main__':
                                                                                'in JtR/hashcat format (default False)')
     parser.add_argument('-outputfile', action='store',
                         help='Output filename to write ciphers in JtR/hashcat format')
+
+    parser.add_argument('-format', choices=['hashcat', 'john'], default='hashcat',
+                        help='format to save the AS_REQ of users without pre-authentication. Default is hashcat')
+
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
 
     group = parser.add_argument_group('authentication')
