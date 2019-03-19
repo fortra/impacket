@@ -23,7 +23,7 @@ from binascii import hexlify
 
 from impacket.structure import Structure
 from impacket.krb5 import crypto, constants, types
-from impacket.krb5.asn1 import AS_REP, seq_set, TGS_REP, EncTGSRepPart, EncASRepPart, Ticket
+from impacket.krb5.asn1 import AS_REP, seq_set, TGS_REP, EncTGSRepPart, EncASRepPart, Ticket, KRB_CRED, EncKrbCredPart
 from impacket import LOG
 
 DELTA_TIME = 1
@@ -520,7 +520,73 @@ class CCache:
         print "Credentials: "
         for i, credential in enumerate(self.credentials):
             print "[%d]" % i
-            credential.prettyPrint('\t') 
+            credential.prettyPrint('\t')
+
+    @classmethod
+    def loadKirbiFile(cls, fileName):
+        f = open(fileName, 'rb')
+        data = f.read()
+        f.close()
+        ccache = cls()
+        ccache.fromKRBCRED(data)
+        return ccache
+
+    def fromKRBCRED(self, encodedKrbCred):
+
+        krbCred = decoder.decode(encodedKrbCred, asn1Spec=KRB_CRED())[0]
+        encKrbCredPart = decoder.decode(krbCred['enc-part']['cipher'], asn1Spec=EncKrbCredPart())[0]
+        krbCredInfo = encKrbCredPart['ticket-info'][0]
+
+        self.setDefaultHeader()
+
+        tmpPrincipal = types.Principal()
+        tmpPrincipal.from_asn1(krbCredInfo, 'prealm', 'pname')
+        self.principal = Principal()
+        self.principal.fromPrincipal(tmpPrincipal)
+
+        credential = Credential()
+        server = types.Principal()
+        server.from_asn1(krbCredInfo, 'srealm', 'sname')
+        tmpServer = Principal()
+        tmpServer.fromPrincipal(server)
+
+        credential['client'] = self.principal
+        credential['server'] = tmpServer
+        credential['is_skey'] = 0
+
+        credential['key'] = KeyBlock()
+        credential['key']['keytype'] = int(krbCredInfo['key']['keytype'])
+        credential['key']['keyvalue'] = str(krbCredInfo['key']['keyvalue'])
+        credential['key']['keylen'] = len(credential['key']['keyvalue'])
+
+        credential['time'] = Times()
+
+        credential['time']['starttime'] = self.toTimeStamp(types.KerberosTime.from_asn1(krbCredInfo['starttime']))
+        credential['time']['endtime'] = self.toTimeStamp(types.KerberosTime.from_asn1(krbCredInfo['endtime']))
+        credential['time']['renew_till'] = self.toTimeStamp(types.KerberosTime.from_asn1(krbCredInfo['renew-till']))
+
+        flags = self.reverseFlags(krbCredInfo['flags'])
+        credential['tktflags'] = flags
+
+        credential['num_address'] = 0
+        credential.ticket = CountedOctetString()
+        credential.ticket['data'] = encoder.encode(
+            krbCred['tickets'][0].clone(tagSet=Ticket.tagSet, cloneValueFlag=True)
+        )
+        credential.ticket['length'] = len(credential.ticket['data'])
+        credential.secondTicket = CountedOctetString()
+        credential.secondTicket['data'] = ''
+        credential.secondTicket['length'] = 0
+
+        self.credentials.append(credential)
+
+    def setDefaultHeader(self):
+        self.headers = []
+        header = Header()
+        header['tag'] = 1
+        header['taglen'] = 8
+        header['tagdata'] = '\xff\xff\xff\xff\x00\x00\x00\x00'
+        self.headers.append(header)
 
 
 if __name__ == '__main__':

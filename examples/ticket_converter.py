@@ -44,59 +44,7 @@ def is_ccache_file(filename):
 
 
 def convert_kirbi_to_ccache(input_filename, output_filename):
-    with open(input_filename, 'rb') as fi:
-        krb_cred = decoder.decode(fi.read(), asn1Spec=KRB_CRED())[0]
-        enc_krb_cred_part = decoder.decode(krb_cred['enc-part']['cipher'], asn1Spec=EncKrbCredPart())[0]
-
-    ccache = CCache()
-
-    ccache.headers = []
-    header = Header()
-    header['tag'] = 1
-    header['taglen'] = 8
-    header['tagdata'] = '\xff\xff\xff\xff\x00\x00\x00\x00'
-    ccache.headers.append(header)
-
-    krb_cred_info = enc_krb_cred_part['ticket-info'][0]
-
-    tmpPrincipal = types.Principal()
-    tmpPrincipal.from_asn1(krb_cred_info, 'prealm', 'pname')
-    ccache.principal = Principal()
-    ccache.principal.fromPrincipal(tmpPrincipal)
-
-    credential = Credential()
-    server = types.Principal()
-    server.from_asn1(krb_cred_info, 'srealm', 'sname')
-    tmpServer = Principal()
-    tmpServer.fromPrincipal(server)
-
-    credential['client'] = ccache.principal
-    credential['server'] = tmpServer
-    credential['is_skey'] = 0
-
-    credential['key'] = KeyBlock()
-    credential['key']['keytype'] = int(krb_cred_info['key']['keytype'])
-    credential['key']['keyvalue'] = str(krb_cred_info['key']['keyvalue'])
-    credential['key']['keylen'] = len(credential['key']['keyvalue'])
-
-    credential['time'] = Times()
-    # credential['time']['authtime'] = ccache.toTimeStamp(types.KerberosTime.from_asn1(krb_cred_info['authtime']))
-    credential['time']['starttime'] = ccache.toTimeStamp(types.KerberosTime.from_asn1(krb_cred_info['starttime']))
-    credential['time']['endtime'] = ccache.toTimeStamp(types.KerberosTime.from_asn1(krb_cred_info['endtime']))
-    credential['time']['renew_till'] = ccache.toTimeStamp(types.KerberosTime.from_asn1(krb_cred_info['renew-till']))
-
-    flags = ccache.reverseFlags(krb_cred_info['flags'])
-    credential['tktflags'] = flags
-
-    credential['num_address'] = 0
-    credential.ticket = CountedOctetString()
-    credential.ticket['data'] = encoder.encode(krb_cred['tickets'][0].clone(tagSet=Ticket.tagSet, cloneValueFlag=True))
-    credential.ticket['length'] = len(credential.ticket['data'])
-    credential.secondTicket = CountedOctetString()
-    credential.secondTicket['data'] = ''
-    credential.secondTicket['length'] = 0
-    ccache.credentials.append(credential)
-
+    ccache = CCache.loadKirbiFile(input_filename)
     ccache.saveFile(output_filename)
 
 
