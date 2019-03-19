@@ -1,3 +1,24 @@
+#!/usr/bin/env python
+#
+# Author:
+#  Zer1t0 (https://github.com/Zer1t0)
+#
+# Description:
+#    This script will convert kirbi files (commonly used by mimikatz) into ccache files used by impacket,
+#    and vice versa.
+#
+# References:
+#    https://tools.ietf.org/html/rfc4120
+#    http://web.mit.edu/KERBEROS/krb5-devel/doc/formats/ccache_file_format.html
+#    https://github.com/gentilkiwi/kekeo
+#    https://github.com/rvazarkar/KrbCredExport
+#
+# Examples:
+#         ./ticket_converter.py admin.ccache admin.kirbi
+#         ./ticket_converter.py admin.kirbi admin.ccache
+#
+
+
 import argparse
 import struct
 from impacket.krb5.ccache import CCache
@@ -5,8 +26,8 @@ from impacket.krb5.ccache import CCache
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('input_file')
-    parser.add_argument('output_file')
+    parser.add_argument('input_file', help="File in kirbi (KRB-CRED) or ccache format")
+    parser.add_argument('output_file', help="Output file")
     return parser.parse_args()
 
 
@@ -14,11 +35,13 @@ def main():
     args = parse_args()
 
     if is_kirbi_file(args.input_file):
-        print 'Kirbi file Found, Converting to ccache'
+        print '[*] Converting kirbi to ccache...'
         convert_kirbi_to_ccache(args.input_file, args.output_file)
+        print '[+] Done'
     elif is_ccache_file(args.input_file):
-        print 'CCache file Found, Converting to kirbi'
+        print '[*] Converting ccache to kirbi...'
         convert_ccache_to_kirbi(args.input_file, args.output_file)
+        print '[+] Done'
     else:
         print 'Unknown File Type'
 
