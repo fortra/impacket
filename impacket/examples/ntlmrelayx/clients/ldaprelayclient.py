@@ -67,7 +67,7 @@ class LDAPRelayClient(ProtocolClient):
         # unless the client uses a non-standard implementation of NTLM
         negoMessage = NTLMAuthNegotiate()
         negoMessage.fromString(negotiateMessage)
-        #negoMessage['flags'] ^= NTLMSSP_NEGOTIATE_SIGN
+        negoMessage['flags'] &= ~NTLMSSP_NEGOTIATE_SIGN
         self.negotiateMessage = str(negoMessage)
 
         # Warn if the relayed target requests signing, which will break our attack
