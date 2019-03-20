@@ -307,19 +307,34 @@ class SMBConnection:
                 # retrieve domain information from CCache file if needed
                 if domain == '':
                     domain = ccache.principal.realm['data']
-                    LOG.debug('Domain retrieved from CCache: %s' % domain)
+                    LOG.debug('User domain retrieved from CCache: %s' % domain)
 
-                principal = 'cifs/%s@%s' % (self.getRemoteName().upper(), domain.upper())
+                # retreive target domain from host FQDN
+                targetDomain = '.'.join(self.getRemoteName().upper().split('.')[1:])
+                if targetDomain == '':
+                    targetDomain = domain
+                else:
+                    LOG.debug('Target domain retrieved from host FQDN: %s' % targetDomain)
+
+                # check if there a service ticket already in ccache
+                principal = 'cifs/%s@%s' % (self.getRemoteName().upper(), targetDomain.upper())
                 creds = ccache.getCredential(principal)
                 if creds is None:
                     # Let's try for the TGT and go from there
                     principal = 'krbtgt/%s@%s' % (domain.upper(),domain.upper())
                     creds =  ccache.getCredential(principal)
-                    if creds is not None:
+                    if creds is None:
+                    # Let's try for the refferal TGT and go from there
+                        principal = 'krbtgt/%s@%s' % (targetDomain.upper(),domain.upper())
+                        creds =  ccache.getCredential(principal)
+                        if creds is not None:
+                            TGT = creds.toTGT()
+                            LOG.debug('Using Refferal TGT from cache')
+                        else:
+                            LOG.debug("No valid credentials found in cache. ")
+                    else:
                         TGT = creds.toTGT()
                         LOG.debug('Using TGT from cache')
-                    else:
-                        LOG.debug("No valid credentials found in cache. ")
                 else:
                     TGS = creds.toTGS(principal)
                     LOG.debug('Using TGS from cache')

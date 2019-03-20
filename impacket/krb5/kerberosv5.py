@@ -500,25 +500,42 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT 
                 # No cache present
                 pass
             else:
+                LOG.debug("Using Kerberos Cache: %s" % os.getenv('KRB5CCNAME'))
+
                 # retrieve domain information from CCache file if needed
                 if domain == '':
                     domain = ccache.principal.realm['data']
-                    LOG.debug('Domain retrieved from CCache: %s' % domain)
+                    LOG.debug('User domain retrieved from CCache: %s' % domain)
 
-                LOG.debug("Using Kerberos Cache: %s" % os.getenv('KRB5CCNAME'))
+                # retreive target domain from host FQDN
+                targetDomain = '.'.join(targetName.upper().split('.')[1:])
+                if targetDomain == '':
+                    targetDomain = domain
+                else:
+                    LOG.debug('Target domain retrieved from host FQDN: %s' % targetDomain)
+
+                # check if there a service ticket already in ccache
                 principal = 'host/%s@%s' % (targetName.upper(), domain.upper())
                 creds = ccache.getCredential(principal)
                 if creds is None:
                     # Let's try for the TGT and go from there
                     principal = 'krbtgt/%s@%s' % (domain.upper(),domain.upper())
                     creds =  ccache.getCredential(principal)
-                    if creds is not None:
+                    if creds is None:
+                    # Let's try for the refferal TGT and go from there
+                        principal = 'krbtgt/%s@%s' % (targetDomain.upper(),domain.upper())
+                        creds =  ccache.getCredential(principal)
+                        if creds is not None:
+                            TGT = creds.toTGT()
+                            LOG.debug('Using Refferal TGT from cache')
+                        else:
+                            LOG.debug("No valid credentials found in cache. ")
+                    else:
                         TGT = creds.toTGT()
                         LOG.debug('Using TGT from cache')
-                    else:
-                        LOG.debug("No valid credentials found in cache. ")
                 else:
                     TGS = creds.toTGS(principal)
+                    LOG.debug('Using TGS from cache')
 
                 # retrieve user information from CCache file if needed
                 if username == '' and creds is not None:
@@ -557,12 +574,18 @@ def getKerberosType1(username, password, domain, lmhash, nthash, aesKey='', TGT 
             cipher = TGT['cipher']
             sessionKey = TGT['sessionKey'] 
 
-        # Now that we have the TGT, we should ask for a TGS for cifs
+        #now we need to get target KDC from TGT
+        from impacket.krb5.ccache import decoder, AS_REP
+        decodedTGT = decoder.decode(tgt, asn1Spec = AS_REP())[0]
+        kdcDomain = str(decodedTGT['ticket']['sname']['name-string'][1])
+        LOG.debug('KDC domain obtained from TGT: %s' % kdcDomain)
+
+        # Now that we have the TGT, we should ask for a TGS for host
 
         if TGS is None:
             serverName = Principal('host/%s' % targetName, type=constants.PrincipalNameType.NT_SRV_INST.value)
             try:
-                tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey)
+                tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, kdcDomain, kdcHost, tgt, cipher, sessionKey)
             except KerberosError, e:
                 if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
                     # We might face this if the target does not support AES 

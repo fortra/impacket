@@ -547,13 +547,18 @@ class SMB3:
 
         # First of all, we need to get a TGT for the user
         userName = Principal(user, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
-        if TGT is None:
-            if TGS is None:
-                tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, password, domain, lmhash, nthash, aesKey, kdcHost)
+        if (TGT is None) and (TGS is None):
+            tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, password, domain, lmhash, nthash, aesKey, kdcHost)
         else:
             tgt = TGT['KDC_REP']
             cipher = TGT['cipher']
             sessionKey = TGT['sessionKey'] 
+
+        #now we need to get target KDC from TGT
+        from impacket.krb5.ccache import decoder, AS_REP
+        decodedTGT = decoder.decode(tgt, asn1Spec = AS_REP())[0]
+        kdcDomain = str(decodedTGT['ticket']['sname']['name-string'][1])
+        LOG.debug('KDC domain obtained from TGT: %s' % kdcDomain)
 
         # Save the ticket
         # If you want, for debugging purposes
@@ -573,7 +578,7 @@ class SMB3:
 
         if TGS is None:
             serverName = Principal('cifs/%s' % (self._Connection['ServerName']), type=constants.PrincipalNameType.NT_SRV_INST.value)
-            tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey)
+            tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, kdcDomain, kdcHost, tgt, cipher, sessionKey)
         else:
             tgs = TGS['KDC_REP']
             cipher = TGS['cipher']
