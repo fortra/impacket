@@ -331,7 +331,7 @@ class GetUserNoPreAuth:
             try:
                 entry = self.getTGT(username)
                 self.outputTGT(entry, fd)
-            except Exception, e:
+            except Exception as e:
                 logging.error('%s' % str(e))
         if fd is not None:
             fd.close()
