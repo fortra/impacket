@@ -20,6 +20,7 @@ import random
 import string
 from struct import unpack
 from binascii import hexlify
+from six import b
 
 from impacket import LOG
 from impacket.examples.ntlmrelayx.servers.socksserver import SocksRelay
@@ -54,9 +55,9 @@ class SMBSocksRelay(SocksRelay):
 
         # Let's verify the target's server SMB version, will need it for later.
         # We're assuming all connections to the target server use the same SMB version
-        for key in activeRelays.keys():
+        for key in list(activeRelays.keys()):
             if key != 'data' and key != 'scheme':
-                if activeRelays[key].has_key('protocolClient'):
+                if 'protocolClient' in activeRelays[key]:
                     self.serverDialect = activeRelays[key]['protocolClient'].session.getDialect()
                     self.isSMB2 = activeRelays[key]['protocolClient'].session.getDialect() is not SMB_DIALECT
                     break
@@ -120,7 +121,7 @@ class SMBSocksRelay(SocksRelay):
                     data = self.getLogOffAnswer(packet)
                 else:
                     # 2. Send it to the relayed session
-                    self.clientConnection.getSMBServer()._sess.send_packet(str(data))
+                    self.clientConnection.getSMBServer()._sess.send_packet(data)
 
                     # 3. Get the target's answer
                     data = self.clientConnection.getSMBServer()._sess.recv_packet().get_trailer()
@@ -133,9 +134,9 @@ class SMBSocksRelay(SocksRelay):
                                 # Anything else to read? with timeout of 1 sec. This is something to test or find
                                 # a better way to control
                                 data2 = self.clientConnection.getSMBServer()._sess.recv_packet(timeout=1).get_trailer()
-                                self.__NBSession.send_packet(str(data))
+                                self.__NBSession.send_packet(data)
                                 data = data2
-                        except Exception, e:
+                        except Exception as e:
                             if str(e).find('timed out') > 0:
                                 pass
                             else:
@@ -152,7 +153,7 @@ class SMBSocksRelay(SocksRelay):
                 packet['Flags'] &= ~(SMB2_FLAGS_SIGNED)
 
                 # Let's be sure the TreeConnect Table is filled with fake data
-                if self.clientConnection.getSMBServer()._Session['TreeConnectTable'].has_key(packet['TreeID']) is False:
+                if (packet['TreeID'] in self.clientConnection.getSMBServer()._Session['TreeConnectTable']) is False:
                     self.clientConnection.getSMBServer()._Session['TreeConnectTable'][packet['TreeID']] = {}
                     self.clientConnection.getSMBServer()._Session['TreeConnectTable'][packet['TreeID']]['EncryptData'] = False
 
@@ -167,14 +168,14 @@ class SMBSocksRelay(SocksRelay):
                     # 3. Get the target's answer
                     packet = self.clientConnection.getSMBServer().recvSMB()
 
-                    if len(str(packet)) == 0:
+                    if len(packet.getData()) == 0:
                         break
                     else:
                         packet['MessageID'] = origID
-                        data = str(packet)
+                        data = packet.getData()
 
             # 4. Send it back to the client
-            self.__NBSession.send_packet(str(data))
+            self.__NBSession.send_packet(data)
 
         return True
 
@@ -183,12 +184,13 @@ class SMBSocksRelay(SocksRelay):
         try:
             packet = NewSMBPacket(data=data.get_trailer())
             smbCommand = SMBCommand(packet['Data'][0])
-        except Exception, e:
+        except Exception:
             # Maybe a SMB2 packet?
             try:
                 packet = SMB2Packet(data = data.get_trailer())
                 smbCommand = None
-            except Exception, e:
+            except Exception as e:
+                LOG.debug("Exception:", exc_info=True)
                 LOG.error('SOCKS: %s' % str(e))
 
         return packet, smbCommand
@@ -205,13 +207,13 @@ class SMBSocksRelay(SocksRelay):
             resp['Tid'] = recvPacket['Tid']
             resp['Mid'] = recvPacket['Mid']
 
-            dialects = smbCommand['Data'].split('\x02')
-            index = dialects.index('NT LM 0.12\x00') - 1
+            dialects = smbCommand['Data'].split(b'\x02')
+            index = dialects.index(b'NT LM 0.12\x00') - 1
             # Let's fill the data for NTLM
             if recvPacket['Flags2'] & SMB.FLAGS2_EXTENDED_SECURITY:
                 resp['Flags2'] = SMB.FLAGS2_EXTENDED_SECURITY | SMB.FLAGS2_NT_STATUS | SMB.FLAGS2_UNICODE
                 _dialects_data = SMBExtended_Security_Data()
-                _dialects_data['ServerGUID'] = 'A' * 16
+                _dialects_data['ServerGUID'] = b'A' * 16
                 blob = SPNEGO_NegTokenInit()
                 blob['MechTypes'] = [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
                 _dialects_data['SecurityBlob'] = blob.getData()
@@ -225,8 +227,8 @@ class SMBSocksRelay(SocksRelay):
                 resp['Flags2'] = SMB.FLAGS2_NT_STATUS | SMB.FLAGS2_UNICODE
                 _dialects_parameters = SMBNTLMDialect_Parameters()
                 _dialects_data = SMBNTLMDialect_Data()
-                _dialects_data['Payload'] = ''
-                _dialects_data['Challenge'] = '\x11\x22\x33\x44\x55\x66\x77\x88'
+                _dialects_data['Payload'] = b''
+                _dialects_data['Challenge'] = b'\x11\x22\x33\x44\x55\x66\x77\x88'
                 _dialects_parameters['ChallengeLength'] = 8
                 _dialects_parameters['Capabilities'] = SMB.CAP_USE_NT_ERRORS | SMB.CAP_NT_SMBS
 
@@ -265,7 +267,7 @@ class SMBSocksRelay(SocksRelay):
             else:
                 respSMBCommand['DialectRevision'] = self.serverDialect
                 resp['MessageID'] = 1
-            respSMBCommand['ServerGuid'] = ''.join([random.choice(string.letters) for _ in range(16)])
+            respSMBCommand['ServerGuid'] = b(''.join([random.choice(string.ascii_letters) for _ in range(16)]))
             respSMBCommand['Capabilities'] = 0x7
             respSMBCommand['MaxTransactSize'] = 65536
             respSMBCommand['MaxReadSize'] = 65536
@@ -302,11 +304,11 @@ class SMBSocksRelay(SocksRelay):
 
                 respToken = SPNEGO_NegTokenResp()
                 # accept-incomplete. We want more data
-                respToken['NegResult'] = '\x01'
+                respToken['NegResult'] = b'\x01'
                 respToken['SupportedMech'] = TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']
-                respToken['ResponseToken'] = str(challengeMessage)
+                respToken['ResponseToken'] = challengeMessage.getData()
 
-                respParameters['SecurityBlobLength'] = len(respToken)
+                respParameters['SecurityBlobLength'] = len(respToken.getData())
                 respData['SecurityBlobLength'] = respParameters['SecurityBlobLength']
                 respData['SecurityBlob'] = respToken.getData()
 
@@ -335,7 +337,7 @@ class SMBSocksRelay(SocksRelay):
                 sessionSetupData['SecurityBlobLength'] = sessionSetupParameters['SecurityBlobLength']
                 sessionSetupData.fromString(smbCommand['Data'])
 
-                if unpack('B', sessionSetupData['SecurityBlob'][0])[0] != ASN1_AID:
+                if unpack('B', sessionSetupData['SecurityBlob'][0:1])[0] != ASN1_AID:
                     # If there no GSSAPI ID, it must be an AUTH packet
                     blob = SPNEGO_NegTokenResp(sessionSetupData['SecurityBlob'])
                     token = blob['ResponseToken']
@@ -356,7 +358,7 @@ class SMBSocksRelay(SocksRelay):
                     username = ('%s/%s' % (authenticateMessage['domain_name'], authenticateMessage['user_name'])).upper()
 
                 # Check if we have a connection for the user
-                if self.activeRelays.has_key(username):
+                if username in self.activeRelays:
                     LOG.info('SOCKS: Proxying client session for %s@%s(445)' % (username, self.targetHost))
                     errorCode = STATUS_SUCCESS
                     smbClient = self.activeRelays[username]['protocolClient'].session
@@ -381,12 +383,12 @@ class SMBSocksRelay(SocksRelay):
                 respData['NativeLanMan'] = ''
 
                 if uid == 0:
-                    resp['Data'] = '\x00\x00\x00'
+                    resp['Data'] = b'\x00\x00\x00'
                     smbClient = None
                 else:
                     respToken = SPNEGO_NegTokenResp()
                     # accept-completed
-                    respToken['NegResult'] = '\x00'
+                    respToken['NegResult'] = b'\x00'
                     respParameters['SecurityBlobLength'] = len(respToken)
                     respData['SecurityBlobLength'] = respParameters['SecurityBlobLength']
                     respData['SecurityBlob'] = respToken.getData()
@@ -409,7 +411,7 @@ class SMBSocksRelay(SocksRelay):
             securityBlob = sessionSetupData['Buffer']
 
             rawNTLM = False
-            if unpack('B', securityBlob[0])[0] == ASN1_AID:
+            if unpack('B', securityBlob[0:1])[0] == ASN1_AID:
                 # NEGOTIATE packet
                 blob = SPNEGO_NegTokenInit(securityBlob)
                 token = blob['MechToken']
@@ -418,7 +420,7 @@ class SMBSocksRelay(SocksRelay):
                     mechType = blob['MechTypes'][0]
                     if mechType != TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']:
                         # Nope, do we know it?
-                        if MechTypes.has_key(mechType):
+                        if mechType in MechTypes:
                             mechStr = MechTypes[mechType]
                         else:
                             mechStr = hexlify(mechType)
@@ -426,7 +428,7 @@ class SMBSocksRelay(SocksRelay):
                         # We don't know the token, we answer back again saying
                         # we just support NTLM.
                         # ToDo: Build this into a SPNEGO_NegTokenResp()
-                        respToken = '\xa1\x15\x30\x13\xa0\x03\x0a\x01\x03\xa1\x0c\x06\x0a\x2b\x06\x01\x04\x01\x82\x37\x02\x02\x0a'
+                        respToken = b'\xa1\x15\x30\x13\xa0\x03\x0a\x01\x03\xa1\x0c\x06\x0a\x2b\x06\x01\x04\x01\x82\x37\x02\x02\x0a'
                         respSMBCommand['SecurityBufferOffset'] = 0x48
                         respSMBCommand['SecurityBufferLength'] = len(respToken)
                         respSMBCommand['Buffer'] = respToken
@@ -447,7 +449,7 @@ class SMBSocksRelay(SocksRelay):
                         recvPacket, smbCommand = self.getSMBPacket()
                         return self.processSessionSetup(recvPacket)
 
-            elif unpack('B', securityBlob[0])[0] == ASN1_SUPPORTED_MECH:
+            elif unpack('B', securityBlob[0:1])[0] == ASN1_SUPPORTED_MECH:
                 # AUTH packet
                 blob = SPNEGO_NegTokenResp(securityBlob)
                 token = blob['ResponseToken']
@@ -464,7 +466,7 @@ class SMBSocksRelay(SocksRelay):
             if rawNTLM is False:
                 respToken = SPNEGO_NegTokenResp()
                 # accept-incomplete. We want more data
-                respToken['NegResult'] = '\x01'
+                respToken['NegResult'] = b'\x01'
                 respToken['SupportedMech'] = TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']
 
                 respToken['ResponseToken'] = challengeMessage.getData()
@@ -510,7 +512,7 @@ class SMBSocksRelay(SocksRelay):
             respToken = SPNEGO_NegTokenResp()
 
             # Check if we have a connection for the user
-            if self.activeRelays.has_key(username):
+            if username in self.activeRelays:
                 LOG.info('SOCKS: Proxying client session for %s@%s(445)' % (username, self.targetHost))
                 errorCode = STATUS_SUCCESS
                 smbClient = self.activeRelays[username]['protocolClient'].session
@@ -522,7 +524,7 @@ class SMBSocksRelay(SocksRelay):
                 smbClient = None
 
             # accept-completed
-            respToken['NegResult'] = '\x00'
+            respToken['NegResult'] = b'\x00'
 
             resp = SMB2Packet()
             resp['Flags'] = SMB2_FLAGS_SERVER_TO_REDIR
@@ -559,8 +561,8 @@ class SMBSocksRelay(SocksRelay):
             resp['Mid'] = recvPacket['Mid']
             resp['Uid'] = recvPacket['Uid']
 
-            respParameters = ''
-            respData = ''
+            respParameters = b''
+            respData = b''
             respSMBCommand['Parameters']   = respParameters
             respSMBCommand['Data']         = respData
 
@@ -582,7 +584,3 @@ class SMBSocksRelay(SocksRelay):
             resp['Data'] = respSMBCommand
 
         return resp
-
-
-
-

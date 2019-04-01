@@ -31,7 +31,7 @@
 import socket
 import struct
 
-from ImpactPacket import ProtocolPacket
+from impacket.ImpactPacket import ProtocolPacket
 
 
 class DNSFlags():
@@ -152,7 +152,7 @@ class DNSType():
     
     @staticmethod
     def getTypeName(type):
-        for item, value in DNSType.__dict__.items():
+        for item, value in list(DNSType.__dict__.items()):
             if value == type:
                 return item
     
@@ -168,7 +168,7 @@ class DNSClass():
     
     @staticmethod
     def getClassName(type):
-        for item, value in DNSClass.__dict__.items():
+        for item, value in list(DNSClass.__dict__.items()):
             if value == type:
                 return item
 
@@ -314,7 +314,7 @@ class DNS(ProtocolPacket):
         'Parse compressed message defined on rfc1035 4.1.4.'
         if offset >= len(buf):
             raise Exception("No more data to parse. Offset is bigger than length of buffer.")
-        byte = struct.unpack("B", buf[offset])[0]
+        byte = struct.unpack("B", buf[offset:offset+1])[0]
         #  if the first two bits are ones (11000000=0xC0), the next bits are the offset
         if byte & 0xC0 == 0xC0:
             # It's a pointer
@@ -337,7 +337,7 @@ class DNS(ProtocolPacket):
             if not unnamed:
                 return (offset, name)
             else:
-                return (offset, name + "." + unnamed)
+                return (offset, name + b"." + unnamed)
     
     def get_answers(self):
         return self.__get_answers()[0]
@@ -422,7 +422,7 @@ class DNS(ProtocolPacket):
             elif qtype == DNSType.PTR or qtype == DNSType.NS or qtype == DNSType.CNAME:
                 # Name  The host name that represents the supplied IP address (in the case of a PTR) or the NS name for the supplied domain (in the case of NS). May be a label, pointer or any combination.
                 offset, name = self.parseCompressedMessage(data, offset)
-                qrdata["Name"] = name
+                qrdata["Name"] = str(name.decode('ascii'))
             elif qtype == DNSType.OPT:
                 # rfc2671 4.3
                 #NAME         domain name    empty (root domain)
@@ -433,8 +433,8 @@ class DNS(ProtocolPacket):
                 #RDATA        octet stream   {attribute,value} pairs
                 #udp_payload = qclass
                 udp_payload_size = qclass
-                ext_rcode = struct.unpack("B", qttl_raw[0])[0]
-                version = struct.unpack("B", qttl_raw[1])[0]
+                ext_rcode = struct.unpack("B", qttl_raw[0:1])[0]
+                version = struct.unpack("B", qttl_raw[1:2])[0]
                 flags = struct.unpack("!H", qttl_raw[2:4])[0]
                 qrdata["RDATA"] = data[offset:offset+qrdlength]
                 offset  += qrdlength
@@ -479,7 +479,7 @@ class DNS(ProtocolPacket):
             questions.reverse()
             while(questions):
                 qname, qtype, qclass = questions.pop()
-                format = (qname, DNSType.getTypeName(qtype), qtype, DNSClass.getClassName(qclass), qclass)
+                format = (str(qname.decode('ascii')), DNSType.getTypeName(qtype), qtype, DNSClass.getClassName(qclass), qclass)
                 res += "  * Domain: %s - Type: %s [0x%04x] - Class: %s [0x%04x]\n" % format
         
         if ancount > 0:
@@ -488,7 +488,7 @@ class DNS(ProtocolPacket):
             answers.reverse()
             while(answers):
                 qname, qtype, qclass, qttl, qrdata = answers.pop()
-                format = (qname, DNSType.getTypeName(qtype), qtype, DNSClass.getClassName(qclass), qclass, qttl, repr(qrdata))
+                format = (str(qname.decode('ascii')), DNSType.getTypeName(qtype), qtype, DNSClass.getClassName(qclass), qclass, qttl, repr(qrdata))
                 res += "  * Domain: %s - Type: %s [0x%04x] - Class: %s [0x%04x] - TTL: %d seconds - %s\n" % format
         
         if nscount > 0:
@@ -497,7 +497,7 @@ class DNS(ProtocolPacket):
             authoritative.reverse()
             while(authoritative):
                 qname, qtype, qclass, qttl, qrdata = authoritative.pop()
-                format = (qname, DNSType.getTypeName(qtype), qtype, DNSClass.getClassName(qclass), qclass, qttl, repr(qrdata))
+                format = (str(qname.decode('ascii')), DNSType.getTypeName(qtype), qtype, DNSClass.getClassName(qclass), qclass, qttl, repr(qrdata))
                 res += "  * Domain: %s - Type: %s [0x%04x] - Class: %s [0x%04x] - TTL: %d seconds - %s\n" % format
         
         if arcount > 0:
@@ -512,7 +512,7 @@ class DNS(ProtocolPacket):
                     res += "  * Name: <Root> - Type: %s [0x%04x] - udp payload size: [%d] - extended RCODE: [0x%02x] - EDNS0 version: [0x%02x] - Z Flags: [0x%02x] - RDATA: [%s]\n" % format
                 else:
                     qname, qtype, qclass, qttl, qrdata = additional
-                    format = (qname, DNSType.getTypeName(qtype), qtype, DNSClass.getClassName(qclass), qclass, qttl, repr(qrdata))
+                    format = (str(qname.decode('ascii')), DNSType.getTypeName(qtype), qtype, DNSClass.getClassName(qclass), qclass, qttl, repr(qrdata))
                     res += "  * Domain: %s - Type: %s [0x%04x] - Class: %s [0x%04x] - TTL: %d seconds - %s\n" % format
         
         return res
@@ -570,49 +570,3 @@ class DNS(ProtocolPacket):
             if response_type == DNSType.OPT:
                 return True
         return False
-
-if __name__ == "__main__":
-    pkts = [
-            "\x6a\x8c\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x03\x77\x77\x77" \
-            "\x05\x74\x61\x72\x74\x61\x03\x63\x6f\x6d\x00\x00\x01\x00\x01",
-            "\x6a\x8c\x81\x80\x00\x01\x00\x02\x00\x02\x00\x00\x03\x77\x77\x77" \
-            "\x05\x74\x61\x72\x74\x61\x03\x63\x6f\x6d\x00\x00\x01\x00\x01\xc0" \
-            "\x0c\x00\x05\x00\x01\x00\x00\x07\x08\x00\x02\xc0\x10\xc0\x10\x00" \
-            "\x01\x00\x01\x00\x00\x07\x08\x00\x04\x45\x59\x1f\xc7\xc0\x10\x00" \
-            "\x02\x00\x01\x00\x02\xa3\x00\x00\x0f\x03\x6e\x73\x31\x08\x62\x6c" \
-            "\x75\x65\x68\x6f\x73\x74\xc0\x16\xc0\x10\x00\x02\x00\x01\x00\x02" \
-            "\xa3\x00\x00\x06\x03\x6e\x73\x32\xc0\x4d",
-            "\x82\x75\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x03\x77\x77\x77" \
-            "\x04\x6a\x68\x6f\x6e\x03\x63\x6f\x6d\x00\x00\x01\x00\x01",
-            "\x82\x75\x81\x80\x00\x01\x00\x01\x00\x02\x00\x02\x03\x77\x77\x77" \
-            "\x04\x6a\x68\x6f\x6e\x03\x63\x6f\x6d\x00\x00\x01\x00\x01\xc0\x0c" \
-            "\x00\x01\x00\x01\x00\x00\x00\x05\x00\x04\xd1\x3b\xc3\x14\xc0\x10" \
-            "\x00\x02\x00\x01\x00\x00\x06\xf8\x00\x0f\x03\x6e\x73\x31\x08\x74" \
-            "\x72\x61\x66\x66\x69\x63\x7a\xc0\x15\xc0\x10\x00\x02\x00\x01\x00" \
-            "\x00\x06\xf8\x00\x06\x03\x6e\x73\x32\xc0\x3e\xc0\x3a\x00\x01\x00" \
-            "\x01\x00\x00\x00\x0d\x00\x04\xd1\x3b\xc2\xf6\xc0\x55\x00\x01\x00" \
-            "\x01\x00\x00\x00\x85\x00\x04\xd1\x3b\xc3\xf6",
-            "\xef\x55\x01\x00\x00\x01\x00\x00\x00\x00\x00\x00\x04\x6d\x61\x69" \
-            "\x6c\x06\x67\x6f\x6f\x67\x6c\x65\x03\x63\x6f\x6d\x00\x00\x01\x00" \
-            "\x01",
-            "\xef\x55\x81\x80\x00\x01\x00\x04\x00\x04\x00\x04\x04\x6d\x61\x69" \
-            "\x6c\x06\x67\x6f\x6f\x67\x6c\x65\x03\x63\x6f\x6d\x00\x00\x01\x00" \
-            "\x01\xc0\x0c\x00\x05\x00\x01\x00\x00\x06\x79\x00\x0f\x0a\x67\x6f" \
-            "\x6f\x67\x6c\x65\x6d\x61\x69\x6c\x01\x6c\xc0\x11\xc0\x2d\x00\x01" \
-            "\x00\x01\x00\x00\x00\x77\x00\x04\xd1\x55\xc3\x53\xc0\x2d\x00\x01" \
-            "\x00\x01\x00\x00\x00\x77\x00\x04\xd1\x55\xc3\x12\xc0\x2d\x00\x01" \
-            "\x00\x01\x00\x00\x00\x77\x00\x04\xd1\x55\xc3\x13\xc0\x11\x00\x02" \
-            "\x00\x01\x00\x00\x00\x5d\x00\x06\x03\x6e\x73\x33\xc0\x11\xc0\x11" \
-            "\x00\x02\x00\x01\x00\x00\x00\x5d\x00\x06\x03\x6e\x73\x34\xc0\x11" \
-            "\xc0\x11\x00\x02\x00\x01\x00\x00\x00\x5d\x00\x06\x03\x6e\x73\x31" \
-            "\xc0\x11\xc0\x11\x00\x02\x00\x01\x00\x00\x00\x5d\x00\x06\x03\x6e" \
-            "\x73\x32\xc0\x11\xc0\x9c\x00\x01\x00\x01\x00\x00\x04\x4e\x00\x04" \
-            "\xd8\xef\x20\x0a\xc0\xae\x00\x01\x00\x01\x00\x00\x06\x64\x00\x04" \
-            "\xd8\xef\x22\x0a\xc0\x78\x00\x01\x00\x01\x00\x00\x00\x05\x00\x04" \
-            "\xd8\xef\x24\x0a\xc0\x8a\x00\x01\x00\x01\x00\x00\x00\x08\x00\x04" \
-            "\xd8\xef\x26\x0a"
-           ]
-    
-    for pkt in pkts:
-        d = DNS(pkt)
-        print d

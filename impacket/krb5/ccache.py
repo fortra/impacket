@@ -13,9 +13,11 @@
 #   Pretty lame and quick implementation, not a fun thing to do
 #   Contribution is welcome to make it the right way
 #
-
+from __future__ import division
+from __future__ import print_function
 from datetime import datetime
 from struct import pack, unpack, calcsize
+from six import b
 
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type.univ import noValue
@@ -72,10 +74,10 @@ class Times(Structure):
         ('renew_till','!L=0'),
     )
     def prettyPrint(self, indent = ''):
-        print "%sAuth : %s" % (indent, datetime.fromtimestamp(self['authtime']).isoformat())
-        print "%sStart: %s" % (indent, datetime.fromtimestamp(self['starttime']).isoformat())
-        print "%sEnd  : %s" % (indent, datetime.fromtimestamp(self['endtime']).isoformat())
-        print "%sRenew: %s" % (indent, datetime.fromtimestamp(self['renew_till']).isoformat())
+        print(("%sAuth : %s" % (indent, datetime.fromtimestamp(self['authtime']).isoformat())))
+        print(("%sStart: %s" % (indent, datetime.fromtimestamp(self['starttime']).isoformat())))
+        print(("%sEnd  : %s" % (indent, datetime.fromtimestamp(self['endtime']).isoformat())))
+        print(("%sRenew: %s" % (indent, datetime.fromtimestamp(self['renew_till']).isoformat())))
 
 class Address(Structure):
     structure = (
@@ -127,12 +129,20 @@ class Principal:
         return self.getData()
 
     def prettyPrint(self):
-        principal = ''
+        principal = b''
         for component in self.components:
-            principal += component['data'] + '/'
+            if isinstance(component['data'], bytes) is not True:
+                component = b(component['data'])
+            else:
+                component = component['data']
+            principal += component + b'/'
         
         principal = principal[:-1]
-        principal += '@' + self.realm['data']
+        if isinstance(self.realm['data'], bytes):
+            realm = self.realm['data']
+        else:
+            realm = b(self.realm['data'])
+        principal += b'@' + realm
         return principal
 
     def fromPrincipal(self, principal):
@@ -230,21 +240,21 @@ class Credential:
         return self.getData()
 
     def prettyPrint(self, indent=''):
-        print "%sClient: %s" % (indent, self.header['client'].prettyPrint())
-        print "%sServer: %s" % (indent, self.header['server'].prettyPrint())
-        print "%s%s" % (indent, self.header['key'].prettyPrint())
-        print "%sTimes: " % indent
+        print(("%sClient: %s" % (indent, self.header['client'].prettyPrint())))
+        print(("%sServer: %s" % (indent, self.header['server'].prettyPrint())))
+        print(("%s%s" % (indent, self.header['key'].prettyPrint())))
+        print(("%sTimes: " % indent))
         self.header['time'].prettyPrint('\t\t')
-        print "%sSubKey: %s" % (indent, self.header['is_skey'])
-        print "%sFlags: 0x%x" % (indent, self.header['tktflags'])
-        print "%sAddresses: %d" % (indent, self.header['num_address'])
+        print(("%sSubKey: %s" % (indent, self.header['is_skey'])))
+        print(("%sFlags: 0x%x" % (indent, self.header['tktflags'])))
+        print(("%sAddresses: %d" % (indent, self.header['num_address'])))
         for address in self.addresses:
             address.prettyPrint('\t\t')
-        print "%sAuth Data: %d" % (indent, len(self.authData))
+        print(("%sAuth Data: %d" % (indent, len(self.authData))))
         for ad in self.authData:
             ad.prettyPrint('\t\t')
-        print "%sTicket: %s" % (indent, self.ticket.prettyPrint())
-        print "%sSecond Ticket: %s" % (indent, self.secondTicket.prettyPrint())
+        print(("%sTicket: %s" % (indent, self.ticket.prettyPrint())))
+        print(("%sSecond Ticket: %s" % (indent, self.secondTicket.prettyPrint())))
 
     def toTGT(self):
         tgt_rep = AS_REP()
@@ -266,7 +276,7 @@ class Credential:
         tgt = dict()
         tgt['KDC_REP'] = encoder.encode(tgt_rep)
         tgt['cipher'] = cipher
-        tgt['sessionKey'] = crypto.Key(cipher.enctype, str(self['key']['keyvalue']))
+        tgt['sessionKey'] = crypto.Key(cipher.enctype, self['key']['keyvalue'])
         return tgt
         
     def toTGS(self, newSPN=None):
@@ -293,7 +303,7 @@ class Credential:
         tgs = dict()
         tgs['KDC_REP'] = encoder.encode(tgs_rep)
         tgs['cipher'] = cipher
-        tgs['sessionKey'] = crypto.Key(cipher.enctype, str(self['key']['keyvalue']))
+        tgs['sessionKey'] = crypto.Key(cipher.enctype, self['key']['keyvalue'])
         return tgs
         
 class CCache:
@@ -310,7 +320,7 @@ class CCache:
         self.miniHeader = None
         if data is not None:
             miniHeader = self.MiniHeader(data)
-            data = data[len(str(miniHeader)):]
+            data = data[len(miniHeader.getData()):]
 
             headerLen = miniHeader['headerlen']
 
@@ -330,7 +340,7 @@ class CCache:
             self.credentials = []
             while len(data) > 0:
                 cred = Credential(data)
-                if cred['server'].prettyPrint().find('krb5_ccache_conf_data') < 0:
+                if cred['server'].prettyPrint().find(b'krb5_ccache_conf_data') < 0:
                     self.credentials.append(cred)
                 data = data[len(cred.getData()):]
 
@@ -345,8 +355,8 @@ class CCache:
 
     def getCredential(self, server, anySPN=True):
         for c in self.credentials:
-            if c['server'].prettyPrint().upper() == server.upper() or c['server'].prettyPrint().upper().split('@')[0] == server.upper() \
-                    or c['server'].prettyPrint().upper().split('@')[0] == server.upper().split('@')[0]:
+            if c['server'].prettyPrint().upper() == b(server.upper()) or c['server'].prettyPrint().upper().split(b'@')[0] == b(server.upper())\
+                    or c['server'].prettyPrint().upper().split(b'@')[0] == b(server.upper().split('@')[0]):
                 LOG.debug('Returning cached credential for %s' % c['server'].prettyPrint().upper())
                 return c
         LOG.debug('SPN %s not found in cache' % server.upper())
@@ -355,13 +365,12 @@ class CCache:
             for c in self.credentials:
                 # Let's search for any TGT/TGS that matches the server w/o the SPN's service type/port, returns
                 # the first one
-                if c['server'].prettyPrint().find('/') >=0:
+                if c['server'].prettyPrint().find(b'/') >=0:
                     # Let's take the port out for comparison
-                    cachedSPN = '%s@%s'  % (c['server'].prettyPrint().upper().split('/')[1].split('@')[0].split(':')[0],
-                                               c['server'].prettyPrint().upper().split('/')[1].split('@')[1])
+                    cachedSPN = (c['server'].prettyPrint().upper().split(b'/')[1].split(b'@')[0].split(b':')[0] + b'@' + c['server'].prettyPrint().upper().split(b'/')[1].split(b'@')[1])
                     searchSPN = '%s@%s' % (server.upper().split('/')[1].split('@')[0].split(':')[0],
                                                server.upper().split('/')[1].split('@')[1])
-                    if cachedSPN == searchSPN:
+                    if cachedSPN == b(searchSPN):
                         LOG.debug('Returning cached credential for %s' % c['server'].prettyPrint().upper())
                         return c
 
@@ -370,7 +379,7 @@ class CCache:
     def toTimeStamp(self, dt, epoch=datetime(1970,1,1)):
         td = dt - epoch
         # return td.total_seconds()
-        return (td.microseconds + (td.seconds + td.days * 24 * 3600) * 10**6) / 1e6
+        return int((td.microseconds + (td.seconds + td.days * 24 * 3600) * 10**6) // 1e6)
 
     def reverseFlags(self, flags):
         result = 0
@@ -386,7 +395,7 @@ class CCache:
         header = Header()
         header['tag'] = 1
         header['taglen'] = 8
-        header['tagdata'] = '\xff\xff\xff\xff\x00\x00\x00\x00'
+        header['tagdata'] = b'\xff\xff\xff\xff\x00\x00\x00\x00'
         self.headers.append(header)
 
         decodedTGT = decoder.decode(tgt, asn1Spec = AS_REP())[0]
@@ -405,10 +414,9 @@ class CCache:
         # AS-REP encrypted part (includes TGS session key or
         # application session key), encrypted with the client key
         # (Section 5.4.2)
-        plainText = cipher.decrypt(oldSessionKey, 3, str(cipherText))
+        plainText = cipher.decrypt(oldSessionKey, 3, cipherText)
 
         encASRepPart = decoder.decode(plainText, asn1Spec = EncASRepPart())[0]
-
         credential = Credential()
         server = types.Principal()
         server.from_asn1(encASRepPart, 'srealm', 'sname')
@@ -421,14 +429,14 @@ class CCache:
 
         credential['key'] = KeyBlock()
         credential['key']['keytype'] = int(encASRepPart['key']['keytype'])
-        credential['key']['keyvalue'] = str(encASRepPart['key']['keyvalue'])
+        credential['key']['keyvalue'] = encASRepPart['key']['keyvalue'].asOctets()
         credential['key']['keylen'] = len(credential['key']['keyvalue'])
 
         credential['time'] = Times()
         credential['time']['authtime'] = self.toTimeStamp(types.KerberosTime.from_asn1(encASRepPart['authtime']))
         credential['time']['starttime'] = self.toTimeStamp(types.KerberosTime.from_asn1(encASRepPart['starttime'])) 
         credential['time']['endtime'] = self.toTimeStamp(types.KerberosTime.from_asn1(encASRepPart['endtime']))
-        credential['time']['renew_till'] = self.toTimeStamp(types.KerberosTime.from_asn1(encASRepPart['renew-till'])) 
+        credential['time']['renew_till'] = self.toTimeStamp(types.KerberosTime.from_asn1(encASRepPart['renew-till']))
 
         flags = self.reverseFlags(encASRepPart['flags'])
         credential['tktflags'] = flags
@@ -438,7 +446,7 @@ class CCache:
         credential.ticket['data'] = encoder.encode(decodedTGT['ticket'].clone(tagSet=Ticket.tagSet, cloneValueFlag=True))
         credential.ticket['length'] = len(credential.ticket['data'])
         credential.secondTicket = CountedOctetString()
-        credential.secondTicket['data'] = ''
+        credential.secondTicket['data'] = b''
         credential.secondTicket['length'] = 0
         self.credentials.append(credential)
 
@@ -447,7 +455,7 @@ class CCache:
         header = Header()
         header['tag'] = 1
         header['taglen'] = 8
-        header['tagdata'] = '\xff\xff\xff\xff\x00\x00\x00\x00'
+        header['tagdata'] = b'\xff\xff\xff\xff\x00\x00\x00\x00'
         self.headers.append(header)
 
         decodedTGS = decoder.decode(tgs, asn1Spec = TGS_REP())[0]
@@ -465,7 +473,7 @@ class CCache:
         # Key Usage 8
         # TGS-REP encrypted part (includes application session
         # key), encrypted with the TGS session key (Section 5.4.2)
-        plainText = cipher.decrypt(oldSessionKey, 8, str(cipherText))
+        plainText = cipher.decrypt(oldSessionKey, 8, cipherText)
 
         encTGSRepPart = decoder.decode(plainText, asn1Spec = EncTGSRepPart())[0]
 
@@ -481,7 +489,7 @@ class CCache:
 
         credential['key'] = KeyBlock()
         credential['key']['keytype'] = int(encTGSRepPart['key']['keytype'])
-        credential['key']['keyvalue'] = str(encTGSRepPart['key']['keyvalue'])
+        credential['key']['keyvalue'] = encTGSRepPart['key']['keyvalue'].asOctets()
         credential['key']['keylen'] = len(credential['key']['keyvalue'])
 
         credential['time'] = Times()
@@ -499,7 +507,7 @@ class CCache:
         credential.ticket['data'] = encoder.encode(decodedTGS['ticket'].clone(tagSet=Ticket.tagSet, cloneValueFlag=True))
         credential.ticket['length'] = len(credential.ticket['data'])
         credential.secondTicket = CountedOctetString()
-        credential.secondTicket['data'] = ''
+        credential.secondTicket['data'] = b''
         credential.secondTicket['length'] = 0
         self.credentials.append(credential)
 
@@ -516,10 +524,10 @@ class CCache:
         f.close()
 
     def prettyPrint(self):
-        print "Primary Principal: %s" % self.principal.prettyPrint()
-        print "Credentials: "
+        print(("Primary Principal: %s" % self.principal.prettyPrint()))
+        print("Credentials: ")
         for i, credential in enumerate(self.credentials):
-            print "[%d]" % i
+            print(("[%d]" % i))
             credential.prettyPrint('\t') 
 
 

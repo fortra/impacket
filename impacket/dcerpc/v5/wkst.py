@@ -35,7 +35,7 @@ class DCERPCSessionError(DCERPCException):
 
     def __str__( self ):
         key = self.error_code
-        if system_errors.ERROR_MESSAGES.has_key(key):
+        if key in system_errors.ERROR_MESSAGES:
             error_msg_short = system_errors.ERROR_MESSAGES[key][0]
             error_msg_verbose = system_errors.ERROR_MESSAGES[key][1] 
             return 'WKST SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
@@ -483,7 +483,7 @@ class JOINPR_USER_PASSWORD(NDRSTRUCT):
 # 2.2.5.18 JOINPR_ENCRYPTED_USER_PASSWORD
 class JOINPR_ENCRYPTED_USER_PASSWORD(NDRSTRUCT):
     structure = (
-        ('Buffer', '524s=""'),
+        ('Buffer', '524s=b""'),
     )
     def getAlignment(self):
         return 1
@@ -1180,4 +1180,3 @@ def hNetrUseDel(dce, useName, forceLevel=USE_LOTS_OF_FORCE):
     request['UseName'] = checkNullString(useName)
     request['ForceLevel'] = forceLevel
     return dce.request(request)
-

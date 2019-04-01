@@ -14,7 +14,8 @@
 #
 # Reference for:
 #  DCE/RPC for TSCH
-
+from __future__ import division
+from __future__ import print_function
 import string
 import sys
 import argparse
@@ -55,7 +56,7 @@ class TSCH_EXEC:
             rpctransport.set_kerberos(self.__doKerberos, self.__kdcHost)
         try:
             self.doStuff(rpctransport)
-        except Exception, e:
+        except Exception as e:
             if logging.getLogger().level == logging.DEBUG:
                 import traceback
                 traceback.print_exc()
@@ -65,7 +66,7 @@ class TSCH_EXEC:
 
     def doStuff(self, rpctransport):
         def output_callback(data):
-            print data
+            print(data.decode('utf-8'))
 
         dce = rpctransport.get_dce_rpc()
 
@@ -75,7 +76,7 @@ class TSCH_EXEC:
         dce.connect()
         #dce.set_auth_level(ntlm.NTLM_AUTH_PKT_PRIVACY)
         dce.bind(tsch.MSRPC_UUID_TSCHS)
-        tmpName = ''.join([random.choice(string.letters) for _ in range(8)])
+        tmpName = ''.join([random.choice(string.ascii_letters) for _ in range(8)])
         tmpFileName = tmpName + '.tmp'
 
         xml = """<?xml version="1.0" encoding="UTF-16"?>
@@ -142,7 +143,7 @@ class TSCH_EXEC:
             logging.info('Deleting task \\%s' % tmpName)
             tsch.hSchRpcDelete(dce, '\\%s' % tmpName)
             taskCreated = False
-        except tsch.DCERPCSessionError, e:
+        except tsch.DCERPCSessionError as e:
             logging.error(e)
             e.get_packet().dump()
         finally:
@@ -156,7 +157,7 @@ class TSCH_EXEC:
                 logging.info('Attempting to read ADMIN$\\Temp\\%s' % tmpFileName)
                 smbConnection.getFile('ADMIN$', 'Temp\\%s' % tmpFileName, output_callback)
                 break
-            except Exception, e:
+            except Exception as e:
                 if str(e).find('SHARING') > 0:
                     time.sleep(3)
                 elif str(e).find('STATUS_OBJECT_NAME_NOT_FOUND') >= 0:
@@ -176,7 +177,7 @@ class TSCH_EXEC:
 
 # Process command-line arguments.
 if __name__ == '__main__':
-    print version.BANNER
+    print(version.BANNER)
     # Init the example's logger theme
     logger.init()
 

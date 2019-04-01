@@ -1,12 +1,11 @@
 #!/usr/bin/env python
-
 # sorry, this is very ugly, but I'm in python 2.5
 import sys
 sys.path.insert(0,"../..")
 
-from impacket.dot11 import Dot11, Dot11Types, Dot11ManagementFrame,Dot11ManagementProbeRequest
+from impacket.dot11 import Dot11Types
 from impacket.ImpactDecoder import RadioTapDecoder
-from binascii import hexlify
+from six import PY2
 import unittest
 
 class TestDot11ManagementProbeRequestFrames(unittest.TestCase):
@@ -14,14 +13,20 @@ class TestDot11ManagementProbeRequestFrames(unittest.TestCase):
     def setUp(self):
         # 802.11 Management Frame 
         #
-        self.rawProbeRequestframe='\x00\x00\x18\x00\x2e\x48\x00\x00\x00\x02\x85\x09\xa0\x00\xda\x01\x00\x00\x00\x00\x00\x00\x00\x00\x40\x00\x00\x00\xff\xff\xff\xff\xff\xff\x00\x23\x4d\x13\xf9\x1b\xff\xff\xff\xff\xff\xff\x90\x45\x00\x05\x64\x6c\x69\x6e\x6b\x01\x08\x02\x04\x0b\x16\x0c\x12\x18\x24\x32\x04\x30\x48\x60\x6c'
+        self.rawProbeRequestframe=b'\x00\x00\x18\x00\x2e\x48\x00\x00\x00\x02\x85\x09\xa0\x00\xda\x01\x00\x00\x00\x00\x00\x00\x00\x00\x40\x00\x00\x00\xff\xff\xff\xff\xff\xff\x00\x23\x4d\x13\xf9\x1b\xff\xff\xff\xff\xff\xff\x90\x45\x00\x05\x64\x6c\x69\x6e\x6b\x01\x08\x02\x04\x0b\x16\x0c\x12\x18\x24\x32\x04\x30\x48\x60\x6c'
         self.radiotap_decoder = RadioTapDecoder()
         radiotap=self.radiotap_decoder.decode(self.rawProbeRequestframe)
-        
-        self.assertEqual(str(radiotap.__class__), "impacket.dot11.RadioTap")
+
+        if PY2:
+            self.assertEqual(str(radiotap.__class__), "impacket.dot11.RadioTap")
+        else:
+            self.assertEqual(str(radiotap.__class__), "<class 'impacket.dot11.RadioTap'>")
                 
         self.dot11=radiotap.child()
-        self.assertEqual(str(self.dot11.__class__), "impacket.dot11.Dot11")
+        if PY2:
+            self.assertEqual(str(self.dot11.__class__), "impacket.dot11.Dot11")
+        else:
+            self.assertEqual(str(self.dot11.__class__), "<class 'impacket.dot11.Dot11'>")
 
         type = self.dot11.get_type()
         self.assertEqual(type,Dot11Types.DOT11_TYPE_MANAGEMENT)
@@ -33,10 +38,16 @@ class TestDot11ManagementProbeRequestFrames(unittest.TestCase):
         self.assertEqual(typesubtype,Dot11Types.DOT11_TYPE_MANAGEMENT_SUBTYPE_PROBE_REQUEST)
         
         self.management_base=self.dot11.child()
-        self.assertEqual(str(self.management_base.__class__), "impacket.dot11.Dot11ManagementFrame")
+        if PY2:
+            self.assertEqual(str(self.management_base.__class__), "impacket.dot11.Dot11ManagementFrame")
+        else:
+            self.assertEqual(str(self.management_base.__class__), "<class 'impacket.dot11.Dot11ManagementFrame'>")
         
         self.management_probe_request=self.management_base.child()
-        self.assertEqual(str(self.management_probe_request.__class__), "impacket.dot11.Dot11ManagementProbeRequest")
+        if PY2:
+            self.assertEqual(str(self.management_probe_request.__class__), "impacket.dot11.Dot11ManagementProbeRequest")
+        else:
+            self.assertEqual(str(self.management_probe_request.__class__), "<class 'impacket.dot11.Dot11ManagementProbeRequest'>")
             
         
     def test_01(self):
@@ -106,13 +117,13 @@ class TestDot11ManagementProbeRequestFrames(unittest.TestCase):
         
     def test_09(self):
         'Test Management Frame Data field'
-        frame_body="\x00\x05\x64\x6c\x69\x6e\x6b\x01\x08\x02\x04\x0b\x16\x0c\x12\x18\x24\x32\x04\x30\x48\x60\x6c"
+        frame_body=b"\x00\x05\x64\x6c\x69\x6e\x6b\x01\x08\x02\x04\x0b\x16\x0c\x12\x18\x24\x32\x04\x30\x48\x60\x6c"
         self.assertEqual(self.management_base.get_frame_body(), frame_body)
 
     def test_10(self):
         'Test Management ssid getter/setter methods'
-        act_ssid="dlink"
-        new_ssid="holala"
+        act_ssid=b"dlink"
+        new_ssid=b"holala"
         self.assertEqual(self.management_probe_request.get_ssid(), act_ssid)
         self.management_probe_request.set_ssid(new_ssid)
         self.assertEqual(self.management_probe_request.get_ssid(), new_ssid)

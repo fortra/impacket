@@ -257,7 +257,7 @@ class DPAPI:
                         open(name + ".key", 'wb').write(backupkey)
                     else:
                         print("Legacy key:")
-                        print("0x%s" % hexlify(backupkey))
+                        print("0x%s" % hexlify(backupkey).decode('latin-1'))
                         print("\n")
 
                 elif keyVersion == 2:  # preferred key
@@ -284,7 +284,7 @@ class DPAPI:
                     else:
                         print("Preferred key:")
                         header.dump()
-                        print("PRIVATEKEYBLOB:{%s}" % (hexlify(backupkey)))
+                        print("PRIVATEKEYBLOB:{%s}" % (hexlify(backupkey).decode('latin-1')))
                         print("\n")
             return
 

@@ -12,7 +12,8 @@
 #
 # Reference for:
 #  DCE/RPC [MS-LSAT]
-
+from __future__ import division
+from __future__ import print_function
 import sys
 import logging
 import argparse
@@ -65,7 +66,7 @@ class LSALookupSid:
 
         try:
             self.__bruteForce(rpctransport, self.__maxRid)
-        except Exception, e:
+        except Exception as e:
             if logging.getLogger().level == logging.DEBUG:
                 import traceback
                 traceback.print_exc()
@@ -100,8 +101,8 @@ class LSALookupSid:
 
         soFar = 0
         SIMULTANEOUS = 1000
-        for j in range(maxRid/SIMULTANEOUS+1):
-            if (maxRid - soFar) / SIMULTANEOUS == 0:
+        for j in range(maxRid//SIMULTANEOUS+1):
+            if (maxRid - soFar) // SIMULTANEOUS == 0:
                 sidsToCheck = (maxRid - soFar) % SIMULTANEOUS
             else: 
                 sidsToCheck = SIMULTANEOUS
@@ -110,11 +111,11 @@ class LSALookupSid:
                 break
 
             sids = list()
-            for i in xrange(soFar, soFar+sidsToCheck):
+            for i in range(soFar, soFar+sidsToCheck):
                 sids.append(domainSid + '-%d' % i)
             try:
                 lsat.hLsarLookupSids(dce, policyHandle, sids,lsat.LSAP_LOOKUP_LEVEL.LsapLookupWksta)
-            except DCERPCException, e:
+            except DCERPCException as e:
                 if str(e).find('STATUS_NONE_MAPPED') >= 0:
                     soFar += SIMULTANEOUS
                     continue
@@ -125,9 +126,9 @@ class LSALookupSid:
 
             for n, item in enumerate(resp['TranslatedNames']['Names']):
                 if item['Use'] != SID_NAME_USE.SidTypeUnknown:
-                    print "%d: %s\\%s (%s)" % (
+                    print("%d: %s\\%s (%s)" % (
                     soFar + n, resp['ReferencedDomains']['Domains'][item['DomainIndex']]['Name'], item['Name'],
-                    SID_NAME_USE.enumItems(item['Use']).name)
+                    SID_NAME_USE.enumItems(item['Use']).name))
             soFar += SIMULTANEOUS
 
         dce.disconnect()
@@ -143,7 +144,7 @@ if __name__ == '__main__':
     if sys.stdout.encoding is None:
         # Output is redirected to a file
         sys.stdout = codecs.getwriter('utf8')(sys.stdout)
-    print version.BANNER
+    print(version.BANNER)
 
     parser = argparse.ArgumentParser()
 

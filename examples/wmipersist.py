@@ -43,7 +43,8 @@
 #
 # Reference for:
 #  DCOM/WMI
-
+from __future__ import division
+from __future__ import print_function
 import sys
 import argparse
 import logging
@@ -153,7 +154,7 @@ class WMIPERSISTENCE:
 if __name__ == '__main__':
     # Init the example's logger theme
     logger.init()
-    print version.BANNER
+    print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help = True, description = "Creates/Removes a WMI Event Consumer/Filter and "
                                "link between both to execute Visual Basic based on the WQL filter or timer specified.")
@@ -229,7 +230,7 @@ if __name__ == '__main__':
 
         executer = WMIPERSISTENCE(username, password, domain, options)
         executer.run(address)
-    except (Exception, KeyboardInterrupt), e:
+    except (Exception, KeyboardInterrupt) as e:
         if logging.getLogger().level == logging.DEBUG:
             import traceback
             traceback.print_exc()

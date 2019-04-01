@@ -150,7 +150,7 @@ class NTLMRelayxConfig:
         self.ipv6 = use_ipv6
 
     def setWpadOptions(self, wpad_host, wpad_auth_num):
-        if wpad_host != None:
+        if wpad_host is not None:
             self.serve_wpad = True
         self.wpad_host = wpad_host
         self.wpad_auth_num = wpad_auth_num

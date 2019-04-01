@@ -25,7 +25,7 @@
 # Be sure tho, that the cached TGT has the forwardable flag set (klist -f). getTGT.py will ask forwardable tickets
 # by default.
 #
-# Also, if the account is configured with unconstrained delegation (with protocol transition) you can request
+# Also, if the account is configured with constrained delegation (with protocol transition) you can request
 # service tickets for other users, assuming the target SPN is allowed for delegation:
 #         ./getST.py -k -impersonate Administrator -spn cifs/contoso-dc contoso.com/user
 #
@@ -33,6 +33,8 @@
 #
 # Once you have the ccache file, set it in the KRB5CCNAME variable and use it for fun and profit.
 #
+from __future__ import division
+from __future__ import print_function
 import argparse
 import datetime
 import logging
@@ -41,6 +43,7 @@ import random
 import struct
 import sys
 from binascii import unhexlify
+from six import b
 
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type.univ import noValue
@@ -109,7 +112,7 @@ class GETST:
 
         if logging.getLogger().level == logging.DEBUG:
             logging.debug('AUTHENTICATOR')
-            print authenticator.prettyPrint()
+            print(authenticator.prettyPrint())
             print ('\n')
 
         encodedAuthenticator = encoder.encode(authenticator)
@@ -142,7 +145,7 @@ class GETST:
         clientName = Principal(self.__options.impersonate, type=constants.PrincipalNameType.NT_PRINCIPAL.value)
 
         S4UByteArray = struct.pack('<I',constants.PrincipalNameType.NT_PRINCIPAL.value)
-        S4UByteArray += self.__options.impersonate + self.__domain + 'Kerberos'
+        S4UByteArray += b(self.__options.impersonate) + b(self.__domain) + b'Kerberos'
 
         if logging.getLogger().level == logging.DEBUG:
             logging.debug('S4UByteArray')
@@ -168,7 +171,7 @@ class GETST:
 
         if logging.getLogger().level == logging.DEBUG:
             logging.debug('PA_FOR_USER_ENC')
-            print paForUserEnc.prettyPrint()
+            print(paForUserEnc.prettyPrint())
 
         encodedPaForUserEnc = encoder.encode(paForUserEnc)
 
@@ -199,7 +202,7 @@ class GETST:
 
         if logging.getLogger().level == logging.DEBUG:
             logging.debug('Final TGS')
-            print tgsReq.prettyPrint()
+            print(tgsReq.prettyPrint())
 
         logging.info('\tRequesting S4U2self')
         message = encoder.encode(tgsReq)
@@ -210,7 +213,7 @@ class GETST:
 
         if logging.getLogger().level == logging.DEBUG:
             logging.debug('TGS_REP')
-            print tgs.prettyPrint()
+            print(tgs.prettyPrint())
 
         ################################################################################
         # Up until here was all the S4USelf stuff. Now let's start with S4U2Proxy
@@ -315,11 +318,11 @@ class GETST:
         # Key Usage 8
         # TGS-REP encrypted part (includes application session
         # key), encrypted with the TGS session key (Section 5.4.2)
-        plainText = cipher.decrypt(sessionKey, 8, str(cipherText))
+        plainText = cipher.decrypt(sessionKey, 8, cipherText)
 
         encTGSRepPart = decoder.decode(plainText, asn1Spec=EncTGSRepPart())[0]
 
-        newSessionKey = Key(encTGSRepPart['key']['keytype'], str(encTGSRepPart['key']['keyvalue']))
+        newSessionKey = Key(encTGSRepPart['key']['keytype'], encTGSRepPart['key']['keyvalue'])
 
         # Creating new cipher based on received keytype
         cipher = _enctype_table[encTGSRepPart['key']['keytype']]
@@ -369,6 +372,7 @@ class GETST:
                 logging.info('Impersonating %s' % self.__options.impersonate)
                 tgs, copher, oldSessionKey, sessionKey = self.doS4U(tgt, cipher, oldSessionKey, sessionKey, self.__kdcHost)
             except Exception as e:
+                logging.debug("Exception", exc_info=True)
                 logging.error(str(e))
                 if str(e).find('KDC_ERR_S_PRINCIPAL_UNKNOWN') >= 0:
                     logging.error('Probably user %s does not have constrained delegation permisions or impersonated user does not exist' % self.__user)
@@ -383,7 +387,7 @@ class GETST:
 if __name__ == '__main__':
     # Init the example's logger theme
     logger.init()
-    print version.BANNER
+    print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help=True, description="Given a password, hash or aesKey, it will request a "
                                                                 "TGT and save it as ccache")
@@ -410,9 +414,9 @@ if __name__ == '__main__':
 
     if len(sys.argv)==1:
         parser.print_help()
-        print "\nExamples: "
-        print "\t./getTGT.py -hashes lm:nt contoso.com/user\n"
-        print "\tit will use the lm:nt hashes for authentication. If you don't specify them, a password will be asked"
+        print("\nExamples: ")
+        print("\t./getTGT.py -hashes lm:nt contoso.com/user\n")
+        print("\tit will use the lm:nt hashes for authentication. If you don't specify them, a password will be asked")
         sys.exit(1)
 
     options = parser.parse_args()
@@ -441,8 +445,8 @@ if __name__ == '__main__':
 
         executer = GETST(username, password, domain, options)
         executer.run()
-    except Exception, e:
+    except Exception as e:
         if logging.getLogger().level == logging.DEBUG:
             import traceback
             traceback.print_exc()
-        print str(e)
+        print(str(e))

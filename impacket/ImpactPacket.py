@@ -12,13 +12,15 @@
 #  Javier Burroni (javier)
 #  Bruce Leidl (brl)
 #  Javier Kohen (jkohen)
-
+from __future__ import division
+from __future__ import print_function
 import array
 import struct
 import socket
 import string
 import sys
 from binascii import hexlify
+from functools import reduce
 
 """Classes to build network packets programmatically.
 
@@ -34,7 +36,7 @@ class ImpactPacketException(Exception):
     def __init__(self, value):
         self.value = value
     def __str__(self):
-        return `self.value`
+        return repr(self.value)
 
 class PacketBuffer(object):
     """Implement the basic operations utilized to operate on a
@@ -48,7 +50,7 @@ class PacketBuffer(object):
     def __init__(self, length = None):
         "If 'length' is specified the buffer is created with an initial size"
         if length:
-            self.__bytes = array.array('B', '\0' * length)
+            self.__bytes = array.array('B', b'\0' * length)
         else:
             self.__bytes = array.array('B')
 
@@ -343,7 +345,7 @@ class ProtocolPacket(ProtocolLayer):
     def get_packet(self):
         self.__update_body_from_child()
         
-        ret = ''
+        ret = b''
         
         header = self.get_header_as_string()
         if header:
@@ -362,7 +364,7 @@ class ProtocolPacket(ProtocolLayer):
 class Header(PacketBuffer,ProtocolLayer):
     "This is the base class from which all protocol definitions extend."
 
-    packet_printable = filter(lambda c: c not in string.whitespace, string.printable) + ' '
+    packet_printable = [c for c in string.printable if c not in string.whitespace] + [' ']
 
     ethertype = None
     protocol = None
@@ -432,7 +434,7 @@ class Header(PacketBuffer,ProtocolLayer):
                         ltmp.append(' ')
                     else:
                         ltmp.append(' '*4)
-                        ltmp.append(string.join(line, ''))
+                        ltmp.append(''.join(line))
                         ltmp.append('\n')
                         line = []
                 if chr(byte) in Header.packet_printable:
@@ -443,8 +445,8 @@ class Header(PacketBuffer,ProtocolLayer):
                 count += 1
             if (count%16):
                 left = 16 - (count%16)
-                ltmp.append(' ' * (4+(left / 2) + (left*2)))
-                ltmp.append(string.join(line, ''))
+                ltmp.append(' ' * (4+(left // 2) + (left*2)))
+                ltmp.append(''.join(line))
                 ltmp.append('\n')
             return ltmp
         else:
@@ -457,7 +459,7 @@ class Header(PacketBuffer,ProtocolLayer):
             ltmp.append(['\n', str(self.child())])
 
         if len(ltmp)>0:
-            return string.join(ltmp, '')
+            return ''.join(ltmp)
         else:
             return ''
 
@@ -607,13 +609,13 @@ class Ethernet(Header):
 
     def load_header(self, aBuffer):
         self.tag_cnt = 0
-        while aBuffer[12+4*self.tag_cnt:14+4*self.tag_cnt] in ('\x81\x00', '\x88\xa8', '\x91\x00'):
+        while aBuffer[12+4*self.tag_cnt:14+4*self.tag_cnt] in (b'\x81\x00', b'\x88\xa8', b'\x91\x00'):
             self.tag_cnt += 1
 
         hdr_len = self.get_header_size()
         diff = hdr_len - len(aBuffer)
         if diff > 0:
-            aBuffer += '\x00'*diff
+            aBuffer += b'\x00'*diff
         self.set_bytes_from_string(aBuffer[:hdr_len])
 
     def get_header_size(self):
@@ -650,7 +652,7 @@ class Ethernet(Header):
 
     @staticmethod
     def as_eth_addr(anArray):
-        tmp_list = map(lambda x: x > 15 and '%x'%x or '0%x'%x, anArray)
+        tmp_list = [x > 15 and '%x'%x or '0%x'%x for x in anArray]
         return '' + reduce(lambda x, y: x+':'+y, tmp_list)
 
     def __str__(self):
@@ -712,7 +714,7 @@ class LinuxSLL(Header):
     def set_addr(self, addr):
         "Sets the sender's address field to addr. Addr must be at most 8-byte long."
         if (len(addr) < 8):
-            addr += '\0' * (8 - len(addr))
+            addr += b'\0' * (8 - len(addr))
         self.get_bytes()[6:14] = addr
 
     def get_addr(self):
@@ -782,7 +784,7 @@ class IP(Header):
         if self.get_ip_len() == 0:
             self.set_ip_len(self.get_size())
 
-        child_data = self.get_data_as_string();
+        child_data = self.get_data_as_string()
 
         if self.auto_checksum:
             self.reset_ip_sum()
@@ -795,18 +797,18 @@ class IP(Header):
         # Pad to a multiple of 4 bytes
         num_pad = (4 - (len(my_bytes) % 4)) % 4
         if num_pad:
-            my_bytes.fromstring("\0"* num_pad)
+            my_bytes.fromstring(b"\0"* num_pad)
 
         # only change ip_hl value if options are present
         if len(self.__option_list):
-            self.set_ip_hl(len(my_bytes) / 4)
+            self.set_ip_hl(len(my_bytes) // 4)
 
 
         # set the checksum if the user hasn't modified it
         if self.auto_checksum:
             self.set_ip_sum(self.compute_checksum(my_bytes))
 
-        if child_data == None:
+        if child_data is None:
             return my_bytes.tostring()
         else:
             return my_bytes.tostring() + child_data
@@ -842,7 +844,7 @@ class IP(Header):
         for op in self.__option_list:
             sum += op.get_len()
         if sum > 40:
-            raise ImpactPacketException, "Options overflowed in IP packet with length: %d" % sum
+            raise ImpactPacketException("Options overflowed in IP packet with length: %d" % sum)
 
 
     def get_ip_v(self):
@@ -971,7 +973,7 @@ class IP(Header):
                 frag_size += 8 - (frag_size % 8)
 
 
-            ip.set_ip_offmask(current_offset / 8)
+            ip.set_ip_offmask(current_offset // 8)
             current_offset += frag_size
 
             data = Data(child_data[:frag_size])
@@ -1008,7 +1010,7 @@ class IP(Header):
 
     def fragment_by_size(self, aSize):
         data_len = len(self.get_data_as_string())
-        num_frags = data_len / aSize
+        num_frags = data_len // aSize
 
         if data_len % aSize:
             num_frags += 1
@@ -1065,7 +1067,7 @@ class IP(Header):
         opt_left = (self.get_ip_hl() - 5) * 4
         opt_bytes = array.array('B', aBuffer[20:(20 + opt_left)])
         if len(opt_bytes) != opt_left:
-            raise ImpactPacketException, "Cannot load options from truncated packet"
+            raise ImpactPacketException("Cannot load options from truncated packet")
 
 
         while opt_left:
@@ -1076,7 +1078,7 @@ class IP(Header):
             else:
                 op_len = opt_bytes[1]
                 if op_len > len(opt_bytes):
-                    raise ImpactPacketException, "IP Option length is too high"
+                    raise ImpactPacketException("IP Option length is too high")
 
                 new_option = IPOption(op_type, op_len)
                 new_option.set_bytes(opt_bytes[:op_len])
@@ -1090,9 +1092,12 @@ class IP(Header):
 
     def __str__(self):
         flags = ' '
-        if self.get_ip_df(): flags += 'DF '
-        if self.get_ip_mf(): flags += 'MF '
-        if self.get_ip_rf(): flags += 'RF '
+        if self.get_ip_df():
+            flags += 'DF '
+        if self.get_ip_mf():
+            flags += 'MF '
+        if self.get_ip_rf():
+            flags += 'RF '
         tmp_str = 'IP%s%s -> %s ' % (flags, self.get_ip_src(),self.get_ip_dst())
         for op in self.__option_list:
             tmp_str += '\n' + str(op)
@@ -1111,7 +1116,7 @@ class IPOption(PacketBuffer):
 
     def __init__(self, opcode = 0, size = None):
         if size and (size < 3 or size > 40):
-            raise ImpactPacketException, "IP Options must have a size between 3 and 40 bytes"
+            raise ImpactPacketException("IP Options must have a size between 3 and 40 bytes")
 
         if(opcode == IPOption.IPOPT_EOL):
             PacketBuffer.__init__(self, 1)
@@ -1153,7 +1158,7 @@ class IPOption(PacketBuffer):
             self.set_flags(0)
         else:
             if not size:
-                raise ImpactPacketException, "Size required for this type"
+                raise ImpactPacketException("Size required for this type")
             PacketBuffer.__init__(self,size)
             self.set_code(opcode)
             self.set_len(size)
@@ -1162,14 +1167,14 @@ class IPOption(PacketBuffer):
     def append_ip(self, ip):
         op = self.get_code()
         if not (op == IPOption.IPOPT_RR or op == IPOption.IPOPT_LSRR or op == IPOption.IPOPT_SSRR or op == IPOption.IPOPT_TS):
-            raise ImpactPacketException, "append_ip() not support for option type %d" % self.opt_type
+            raise ImpactPacketException("append_ip() not support for option type %d" % self.opt_type)
 
         p = self.get_ptr()
         if not p:
-            raise ImpactPacketException, "append_ip() failed, option ptr uninitialized"
+            raise ImpactPacketException("append_ip() failed, option ptr uninitialized")
 
         if (p + 4) > self.get_len():
-            raise ImpactPacketException, "append_ip() would overflow option"
+            raise ImpactPacketException("append_ip() would overflow option")
 
         self.set_ip_address(p - 1, ip)
         p += 4
@@ -1185,12 +1190,12 @@ class IPOption(PacketBuffer):
 
     def set_flags(self, flags):
         if not (self.get_code() == IPOption.IPOPT_TS):
-            raise ImpactPacketException, "Operation only supported on Timestamp option"
+            raise ImpactPacketException("Operation only supported on Timestamp option")
         self.set_byte(3, flags)
 
     def get_flags(self, flags):
         if not (self.get_code() == IPOption.IPOPT_TS):
-            raise ImpactPacketException, "Operation only supported on Timestamp option"
+            raise ImpactPacketException("Operation only supported on Timestamp option")
         return self.get_byte(3)
 
 
@@ -1218,7 +1223,7 @@ class IPOption(PacketBuffer):
 
         tmp_str = "\tIP Option: "
         op = self.get_code()
-        if map.has_key(op):
+        if op in map:
             tmp_str += map[op]
         else:
             tmp_str += "Code: %d " % op
@@ -1327,7 +1332,7 @@ class TCP(Header):
             sum += op.get_size()
 
         if sum > 40:
-            raise ImpactPacketException, "Cannot add TCP option, would overflow option space"
+            raise ImpactPacketException("Cannot add TCP option, would overflow option space")
 
     def get_options(self):
         return self.__option_list
@@ -1492,7 +1497,7 @@ class TCP(Header):
 
         # only change th_off value if options are present
         if len(self.__option_list):
-            self.set_th_off(self.get_header_size() / 4)
+            self.set_th_off(self.get_header_size() // 4)
 
         self.calculate_checksum()
 
@@ -1509,7 +1514,7 @@ class TCP(Header):
         opt_left = (self.get_th_off() - 5) * 4
         opt_bytes = array.array('B', aBuffer[20:(20 + opt_left)])
         if len(opt_bytes) != opt_left:
-            raise ImpactPacketException, "Cannot load options from truncated packet"
+            raise ImpactPacketException("Cannot load options from truncated packet")
 
         while opt_left:
             op_kind = opt_bytes[0]
@@ -1519,9 +1524,9 @@ class TCP(Header):
             else:
                 op_len = opt_bytes[1]
                 if op_len > len(opt_bytes):
-                    raise ImpactPacketException, "TCP Option length is too high"
+                    raise ImpactPacketException("TCP Option length is too high")
                 if op_len < 2:
-                    raise ImpactPacketException, "TCP Option length is too low"
+                    raise ImpactPacketException("TCP Option length is too low")
 
                 new_option = TCPOption(op_kind)
                 new_option.set_bytes(opt_bytes[:op_len])
@@ -1655,12 +1660,12 @@ class TCPOption(PacketBuffer):
 
     def set_len(self, len):
         if self.get_size() < 2:
-            raise ImpactPacketException, "Cannot set length field on an option having a size smaller than 2 bytes"
+            raise ImpactPacketException("Cannot set length field on an option having a size smaller than 2 bytes")
         self.set_byte(1, len)
 
     def get_len(self):
         if self.get_size() < 2:
-            raise ImpactPacketException, "Cannot retrieve length field from an option having a size smaller than 2 bytes"
+            raise ImpactPacketException("Cannot retrieve length field from an option having a size smaller than 2 bytes")
         return self.get_byte(1)
 
     def get_size(self):
@@ -1669,42 +1674,42 @@ class TCPOption(PacketBuffer):
 
     def set_mss(self, len):
         if self.get_kind() != TCPOption.TCPOPT_MAXSEG:
-            raise ImpactPacketException, "Can only set MSS on TCPOPT_MAXSEG option"
+            raise ImpactPacketException("Can only set MSS on TCPOPT_MAXSEG option")
         self.set_word(2, len)
 
     def get_mss(self):
         if self.get_kind() != TCPOption.TCPOPT_MAXSEG:
-            raise ImpactPacketException, "Can only retrieve MSS from TCPOPT_MAXSEG option"
+            raise ImpactPacketException("Can only retrieve MSS from TCPOPT_MAXSEG option")
         return self.get_word(2)
 
     def set_shift_cnt(self, cnt):
         if self.get_kind() != TCPOption.TCPOPT_WINDOW:
-            raise ImpactPacketException, "Can only set Shift Count on TCPOPT_WINDOW option"
+            raise ImpactPacketException("Can only set Shift Count on TCPOPT_WINDOW option")
         self.set_byte(2, cnt)
 
     def get_shift_cnt(self):
         if self.get_kind() != TCPOption.TCPOPT_WINDOW:
-            raise ImpactPacketException, "Can only retrieve Shift Count from TCPOPT_WINDOW option"
+            raise ImpactPacketException("Can only retrieve Shift Count from TCPOPT_WINDOW option")
         return self.get_byte(2)
 
     def get_ts(self):
         if self.get_kind() != TCPOption.TCPOPT_TIMESTAMP:
-            raise ImpactPacketException, "Can only retrieve timestamp from TCPOPT_TIMESTAMP option"
+            raise ImpactPacketException("Can only retrieve timestamp from TCPOPT_TIMESTAMP option")
         return self.get_long(2)
 
     def set_ts(self, ts):
         if self.get_kind() != TCPOption.TCPOPT_TIMESTAMP:
-            raise ImpactPacketException, "Can only set timestamp on TCPOPT_TIMESTAMP option"
+            raise ImpactPacketException("Can only set timestamp on TCPOPT_TIMESTAMP option")
         self.set_long(2, ts)
 
     def get_ts_echo(self):
         if self.get_kind() != TCPOption.TCPOPT_TIMESTAMP:
-            raise ImpactPacketException, "Can only retrieve timestamp from TCPOPT_TIMESTAMP option"
+            raise ImpactPacketException("Can only retrieve timestamp from TCPOPT_TIMESTAMP option")
         return self.get_long(6)
 
     def set_ts_echo(self, ts):
         if self.get_kind() != TCPOption.TCPOPT_TIMESTAMP:
-            raise ImpactPacketException, "Can only set timestamp on TCPOPT_TIMESTAMP option"
+            raise ImpactPacketException("Can only set timestamp on TCPOPT_TIMESTAMP option")
         self.set_long(6, ts)
 
     def __str__(self):
@@ -1716,7 +1721,7 @@ class TCPOption(PacketBuffer):
 
         tmp_str = "\tTCP Option: "
         op = self.get_kind()
-        if map.has_key(op):
+        if op in map:
             tmp_str += map[op]
         else:
             tmp_str += " kind: %d " % op
@@ -1779,7 +1784,7 @@ class ICMP(Header):
 
     def get_header_size(self):
         anamolies = { ICMP.ICMP_TSTAMP : 20, ICMP.ICMP_TSTAMPREPLY : 20, ICMP.ICMP_MASKREQ : 12, ICMP.ICMP_MASKREPLY : 12 }
-        if anamolies.has_key(self.get_icmp_type()):
+        if self.get_icmp_type() in anamolies:
             return anamolies[self.get_icmp_type()]
         else:
             return 8
@@ -1899,7 +1904,7 @@ class ICMP(Header):
         tmp_code[11] = ['TIMXCEED INTRANS ', 'TIMXCEED REASS']
         tmp_code[12] = ['PARAMPROB ERRATPTR ', 'PARAMPROB OPTABSENT', 'PARAMPROB LENGTH']
         tmp_code[40] = [None, 'PHOTURIS UNKNOWN INDEX', 'PHOTURIS AUTH FAILED', 'PHOTURIS DECRYPT FAILED']
-        if tmp_code.has_key(aType):
+        if aType in tmp_code:
             tmp_list = tmp_code[aType]
             if ((aCode + 1) > len(tmp_list)) or (not tmp_list[aCode]):
                 return 'UNKNOWN'
@@ -1937,7 +1942,7 @@ class ICMP(Header):
 
     def isQuery(self):
         tmp_dict = {8:'',  9:'',  10:'', 13:'', 14:'', 15:'', 16:'', 17:'', 18:''}
-        return tmp_dict.has_key(self.get_icmp_type())
+        return self.get_icmp_type() in tmp_dict
 
 class IGMP(Header):
     protocol = 2
@@ -2122,5 +2127,4 @@ def example(): #To execute an example, remove this line
     b.set_ar_tpa((192, 168, 66, 171))
     a.set_ether_shost((0x0, 0xe0, 0x7d, 0x8a, 0xef, 0x3d))
     a.set_ether_dhost((0x0, 0xc0, 0xdf, 0x6, 0x5, 0xe))
-    print "beto %s" % a
-
+    print("beto %s" % a)

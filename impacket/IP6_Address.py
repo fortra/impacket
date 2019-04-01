@@ -6,8 +6,9 @@
 #
 
 import array
+from six import string_types
 
-class IP6_Address():
+class IP6_Address:
     ADDRESS_BYTE_SIZE = 16
     #A Hex Group is a 16-bit unit of the address
     TOTAL_HEX_GROUPS = 8
@@ -22,22 +23,22 @@ class IP6_Address():
 
     def __init__(self, address):
         #The internal representation of an IP6 address is a 16-byte array
-        self.__bytes = array.array('B', '\0' * self.ADDRESS_BYTE_SIZE)
+        self.__bytes = array.array('B', b'\0' * self.ADDRESS_BYTE_SIZE)
         self.__scope_id = ""
-        
+
         #Invoke a constructor based on the type of the argument
-        if type(address) is str or type(address) is unicode:
+        if isinstance(address, string_types):
             self.__from_string(address)
         else:
             self.__from_bytes(address)
 
-                                
+
     def __from_string(self, address):
         #Separate the Scope ID, if present
         if self.__is_a_scoped_address(address):
             split_parts = address.split(self.SCOPE_SEPARATOR)
             address = split_parts[0]
-            if (split_parts[1] == ""):
+            if split_parts[1] == "":
                 raise Exception("Empty scope ID")
             self.__scope_id = split_parts[1]
         
@@ -68,10 +69,10 @@ class IP6_Address():
             self.__bytes[offset + 1] = (group_as_int & 0x00FF) 
             offset += 2            
 
-    def __from_bytes(self, bytes):
-        if len(bytes) != self.ADDRESS_BYTE_SIZE:
+    def __from_bytes(self, theBytes):
+        if len(theBytes) != self.ADDRESS_BYTE_SIZE:
             raise Exception ("IP6_Address - from_bytes - array size != " + str(self.ADDRESS_BYTE_SIZE))
-        self.__bytes = bytes
+        self.__bytes = theBytes
 
 #############################################################################################################
 # Projectors
@@ -79,15 +80,15 @@ class IP6_Address():
         s = ""
         for i, v in enumerate(self.__bytes):
             s += hex(v)[2:].rjust(2, '0')
-            if (i % 2 == 1):
+            if i % 2 == 1:
                 s += self.SEPARATOR
         s = s[:-1].upper()
         
-        if (compress_address):
+        if compress_address:
             s = self.__trim_leading_zeroes(s)
             s = self.__trim_longest_zero_chain(s)
             
-        if (scoped_address and self.get_scope_id() != ""):
+        if scoped_address and self.get_scope_id() != "":
             s += self.SCOPE_SEPARATOR + self.__scope_id
         return s
                 
@@ -118,20 +119,20 @@ class IP6_Address():
         return self.is_unicast() and (self.__bytes[1] & 0xC0 == 0xC0)
     
     def is_unique_local_unicast(self):
-        return (self.__bytes[0] == 0xFD)
+        return self.__bytes[0] == 0xFD
                 
     
     def get_human_readable_address_type(self):
-        if (self.is_multicast()):
+        if self.is_multicast():
             return "multicast"
-        elif (self.is_unicast()):
-            if (self.is_link_local_unicast()):
+        elif self.is_unicast():
+            if self.is_link_local_unicast():
                 return "link-local unicast"
-            elif (self.is_site_local_unicast()):
+            elif self.is_site_local_unicast():
                 return "site-local unicast"
             else:
                 return "unicast"
-        elif (self.is_unique_local_unicast()):
+        elif self.is_unique_local_unicast():
             return "unique-local unicast"
         else:
             return "unknown type"
@@ -182,7 +183,7 @@ class IP6_Address():
         groups_to_insert = self.TOTAL_HEX_GROUPS - group_count
         
         pos = address.find(self.SEPARATOR * 2) + 1 
-        while (groups_to_insert):
+        while groups_to_insert:
             address = address[:pos] + "0000" + self.SEPARATOR + address[pos:]
             pos += 5
             groups_to_insert -= 1
@@ -198,23 +199,21 @@ class IP6_Address():
     def __trim_longest_zero_chain(self, address):
         chain_size = 8
         
-        while (chain_size > 0):
+        while chain_size > 0:
             groups = address.split(self.SEPARATOR)
-            start_index = -1
-            end_index = -1
-                        
+
             for index, group in enumerate(groups):
                 #Find the first zero
-                if (group == "0"):                    
+                if group == "0":
                     start_index = index
                     end_index = index
                     #Find the end of this chain of zeroes
-                    while (end_index < 7 and groups[end_index + 1] == "0"):
+                    while end_index < 7 and groups[end_index + 1] == "0":
                         end_index += 1
                         
                     #If the zero chain matches the current size, trim it
                     found_size = end_index - start_index + 1
-                    if (found_size == chain_size):
+                    if found_size == chain_size:
                         address = self.SEPARATOR.join(groups[0:start_index]) + self.SEPARATOR * 2 + self.SEPARATOR.join(groups[(end_index+1):])
                         return address
                     
@@ -224,16 +223,16 @@ class IP6_Address():
 
                                 
     #Trims all leading zeroes from every hex group
-    def __trim_leading_zeroes(self, str):
-        groups = str.split(self.SEPARATOR)
-        str = ""
+    def __trim_leading_zeroes(self, theStr):
+        groups = theStr.split(self.SEPARATOR)
+        theStr = ""
         
         for group in groups:
             group = group.lstrip("0") + self.SEPARATOR
-            if (group == self.SEPARATOR):
+            if group == self.SEPARATOR:
                 group = "0" + self.SEPARATOR
-            str += group
-        return str[:-1]
+            theStr += group
+        return theStr[:-1]
                 
 
 #############################################################################################################
@@ -241,40 +240,10 @@ class IP6_Address():
     def is_a_valid_text_representation(cls, text_representation):
         try:
             #Capitalize on the constructor's ability to detect invalid text representations of an IP6 address            
-            ip6_address = IP6_Address(text_representation)
+            IP6_Address(text_representation)
             return True
-        except Exception, e:
+        except Exception:
             return False
                 
     def __is_a_scoped_address(self, text_representation):
         return text_representation.count(self.SCOPE_SEPARATOR) == 1
-    
-#############################################################################################################
-# Informal tests
-if __name__ == '__main__':
-    print IP6_Address("A:B:C:D:E:F:1:2").as_string()
-#    print IP6_Address("A:B:C:D:E:F:0:2").as_bytes()
-    print IP6_Address("A:B:0:D:E:F:0:2").as_string()
-#    print IP6_Address("A::BC:E:D").as_string(False)
-    print IP6_Address("A::BC:E:D").as_string()
-    print IP6_Address("A::BCD:EFFF:D").as_string()
-    print IP6_Address("FE80:0000:0000:0000:020C:29FF:FE26:E251").as_string()
-
-#    print IP6_Address("A::BCD:EFFF:D").as_bytes()
-    print IP6_Address("::").as_string()
-    print IP6_Address("1::").as_string()
-    print IP6_Address("::2").as_string()
-#    bin = [
-#           0x01, 0x02, 0x03, 0x04,
-#           0x01, 0x02, 0x03, 0x04,
-#           0x01, 0x02, 0x03, 0x04,
-#           0x01, 0x02, 0x03, 0x04]
-#    a = IP6_Address(bin)
-#    print a.as_string()
-#    print a
-    
-#    Malformed addresses
-#    print IP6_Address("ABCD:EFAB:1234:1234:1234:1234:1234:12345").as_string()
-#    print IP6_Address(":::").as_string()
-#    print IP6_Address("::::").as_string()
-                    

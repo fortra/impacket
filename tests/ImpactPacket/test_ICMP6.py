@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 #Impact test version
 try:
     from impacket import IP6_Address, IP6, ImpactDecoder, ICMP6

@@ -7,8 +7,13 @@
 #  
 ################################################################################
 
+from __future__ import division
+from __future__ import print_function
 import unittest
-import ConfigParser
+try:
+    import ConfigParser
+except ImportError:
+    import configparser as ConfigParser
 
 from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import mgmt
@@ -81,7 +86,7 @@ class MGMTTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('rpc_s_access_denied') < 0:
                 raise
 
@@ -91,7 +96,7 @@ class MGMTTests(unittest.TestCase):
         try:
             resp = mgmt.hstop_server_listening(dce)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('rpc_s_access_denied') < 0:
                 raise
 

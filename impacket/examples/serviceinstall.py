@@ -25,8 +25,8 @@ from impacket.smb3structs import FILE_WRITE_DATA, FILE_DIRECTORY_FILE
 class ServiceInstall:
     def __init__(self, SMBObject, exeFile, serviceName=''):
         self._rpctransport = 0
-        self.__service_name = serviceName if len(serviceName) > 0  else  ''.join([random.choice(string.letters) for i in range(4)])
-        self.__binary_service_name = ''.join([random.choice(string.letters) for i in range(8)]) + '.exe'
+        self.__service_name = serviceName if len(serviceName) > 0  else  ''.join([random.choice(string.ascii_letters) for i in range(4)])
+        self.__binary_service_name = ''.join([random.choice(string.ascii_letters) for i in range(8)]) + '.exe'
         self.__exeFile = exeFile
 
         # We might receive two different types of objects, always end up
@@ -65,7 +65,7 @@ class ServiceInstall:
         # First we try to open the service in case it exists. If it does, we remove it.
         try:
             resp =  scmr.hROpenServiceW(self.rpcsvc, handle, self.__service_name+'\x00')
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_SERVICE_DOES_NOT_EXIST') >= 0:
                 # We're good, pass the exception
                 pass
@@ -112,7 +112,7 @@ class ServiceInstall:
             # We have a class instance, it must have a read method
             fh = src
         f = dst
-        pathname = string.replace(f,'/','\\')
+        pathname = f.replace('/','\\')
         try:
             self.connection.putFile(tree, pathname, fh.read)
         except:
@@ -131,6 +131,7 @@ class ServiceInstall:
                    tid = self.connection.connectTree(share)
                    self.connection.openFile(tid, '\\', FILE_WRITE_DATA, creationOption=FILE_DIRECTORY_FILE)
                except:
+                   LOG.debug('Exception', exc_info=True)
                    LOG.critical("share '%s' is not writable." % share)
                    pass
                else:
@@ -181,8 +182,9 @@ class ServiceInstall:
                         scmr.hRCloseServiceHandle(self.rpcsvc, service)
                     scmr.hRCloseServiceHandle(self.rpcsvc, svcManager)
                     return True
-            except Exception, e:
+            except Exception as e:
                 LOG.critical("Error performing the installation, cleaning up: %s" %e)
+                LOG.debug("Exception", exc_info=True)
                 try:
                     scmr.hRControlService(self.rpcsvc, service, scmr.SERVICE_CONTROL_STOP)
                 except:
@@ -240,4 +242,3 @@ class ServiceInstall:
                     scmr.hRDeleteService(self.rpcsvc, service)
                 except:
                     pass
-

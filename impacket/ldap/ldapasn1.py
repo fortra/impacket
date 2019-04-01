@@ -575,7 +575,7 @@ class SDFlagsControlValue(univ.Sequence):
     )
 
 class SDFlagsControl(Control):
-    def __init__(self, criticality=None, flags=0x00000007L, **kwargs):
+    def __init__(self, criticality=None, flags=0x00000007, **kwargs):
         Control.__init__(self, **kwargs)
         self['controlType'] = CONTROL_SDFLAGS
         if criticality is not None:

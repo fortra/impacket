@@ -5,10 +5,12 @@ export PYTHONPATH=../../:$PYTHONPATH
 if [ $# -gt 0 ]
 then
 	# Only run coverage when called by tox
-	RUN="coverage run --append --rcfile=../coveragerc "
+	RUN="python -m coverage run --append --rcfile=../coveragerc "
 else
 	RUN=python
 fi
+
+python -V > /tmp/version
 
 $RUN test_rpcrt.py
 $RUN test_scmr.py
@@ -29,4 +31,5 @@ $RUN test_bkrp.py
 $RUN test_tsch.py
 $RUN test_dhcpm.py
 $RUN test_secretsdump.py
+$RUN test_nrpc.py
 $RUN test_rprn.py

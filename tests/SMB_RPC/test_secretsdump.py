@@ -1,4 +1,7 @@
-import ConfigParser
+try:
+    import ConfigParser
+except ImportError:
+    import configparser as ConfigParser
 import logging
 import os
 import unittest
@@ -8,7 +11,7 @@ from impacket.smbconnection import SMBConnection
 
 def _print_helper(*args, **kwargs):
     try:
-        print args[-1]
+        print(args[-1])
     except UnicodeError:
         pass
 
@@ -80,7 +83,7 @@ class DumpSecrets:
                 try:
                     try:
                         self.connect()
-                    except Exception, e:
+                    except Exception as e:
                         if os.getenv('KRB5CCNAME') is not None and self.__doKerberos is True:
                             # SMBConnection failed. That might be because there was no way to log into the
                             # target system. We just have a last resort. Hope we have tickets cached and that they
@@ -97,7 +100,7 @@ class DumpSecrets:
                         bootKey             = self.__remoteOps.getBootKey()
                         # Let's check whether target system stores LM Hashes
                         self.__noLMHash = self.__remoteOps.checkNoLMHashPolicy()
-                except Exception, e:
+                except Exception as e:
                     self.__canProcessSAMLSA = False
                     if str(e).find('STATUS_USER_SESSION_DELETED') and os.getenv('KRB5CCNAME') is not None \
                         and self.__doKerberos is True:
@@ -115,11 +118,11 @@ class DumpSecrets:
                     else:
                         SAMFileName         = self.__samHive
 
-                    self.__SAMHashes    = SAMHashes(SAMFileName, bootKey, isRemote = self.__isRemote, perSecretCallback=_print_helper)
+                    self.__SAMHashes    = SAMHashes(SAMFileName, bootKey, isRemote = self.__isRemote)
                     self.__SAMHashes.dump()
                     if self.__outputFileName is not None:
                         self.__SAMHashes.export(self.__outputFileName)
-                except Exception, e:
+                except Exception as e:
                     logging.error('SAM hashes extraction failed: %s' % str(e))
 
                 try:
@@ -129,14 +132,14 @@ class DumpSecrets:
                         SECURITYFileName = self.__securityHive
 
                     self.__LSASecrets = LSASecrets(SECURITYFileName, bootKey, self.__remoteOps,
-                                                   isRemote=self.__isRemote, history=self.__history, perSecretCallback=_print_helper)
+                                                   isRemote=self.__isRemote, history=self.__history)
                     self.__LSASecrets.dumpCachedHashes()
                     if self.__outputFileName is not None:
                         self.__LSASecrets.exportCached(self.__outputFileName)
                     self.__LSASecrets.dumpSecrets()
                     if self.__outputFileName is not None:
                         self.__LSASecrets.exportSecrets(self.__outputFileName)
-                except Exception, e:
+                except Exception as e:
                     if logging.getLogger().level == logging.DEBUG:
                         import traceback
                         traceback.print_exc()
@@ -156,10 +159,10 @@ class DumpSecrets:
                                            useVSSMethod=self.__useVSSMethod, justNTLM=self.__justDCNTLM,
                                            pwdLastSet=self.__pwdLastSet, resumeSession=self.__resumeFileName,
                                            outputFileName=self.__outputFileName, justUser=self.__justUser,
-                                           printUserStatus= self.__printUserStatus, perSecretCallback=_print_helper)
+                                           printUserStatus= self.__printUserStatus)
             try:
                 self.__NTDSHashes.dump()
-            except Exception, e:
+            except Exception as e:
                 if logging.getLogger().level == logging.DEBUG:
                     import traceback
                     traceback.print_exc()
@@ -177,7 +180,7 @@ class DumpSecrets:
                 elif self.__useVSSMethod is False:
                     logging.info('Something wen\'t wrong with the DRSUAPI approach. Try again with -use-vss parameter')
             self.cleanup()
-        except (Exception, KeyboardInterrupt), e:
+        except (Exception, KeyboardInterrupt) as e:
             if logging.getLogger().level == logging.DEBUG:
                 import traceback
                 traceback.print_exc()
@@ -185,7 +188,7 @@ class DumpSecrets:
             if self.__NTDSHashes is not None:
                 if isinstance(e, KeyboardInterrupt):
                     while True:
-                        answer =  raw_input("Delete resume session file? [y/N] ")
+                        answer =  input("Delete resume session file? [y/N] ")
                         if answer.upper() == '':
                             answer = 'N'
                             break
@@ -205,15 +208,19 @@ class DumpSecrets:
                 pass
 
     def cleanup(self):
-        logging.info('Cleaning up... ')
-        if self.__remoteOps:
-            self.__remoteOps.finish()
-        if self.__SAMHashes:
-            self.__SAMHashes.finish()
-        if self.__LSASecrets:
-            self.__LSASecrets.finish()
-        if self.__NTDSHashes:
-            self.__NTDSHashes.finish()
+        try:
+            logging.info('Cleaning up... ')
+            if self.__remoteOps:
+                self.__remoteOps.finish()
+            if self.__SAMHashes:
+                self.__SAMHashes.finish()
+            if self.__LSASecrets:
+                self.__LSASecrets.finish()
+            if self.__NTDSHashes:
+                self.__NTDSHashes.finish()
+        except Exception as e:
+            if str(e).find('ERROR_DEPENDENT_SERVICES_RUNNING') < 0:
+                raise
 
 class Options(object):
     aesKey=None
@@ -249,7 +256,7 @@ class SecretsDumpTests(unittest.TestCase):
         dumper = DumpSecrets(self.serverName, self.username, self.password, self.domain, options)
         dumper.dump()
 
-    def test_VSS_WMI(self):
+    def aaaa_VSS_WMI(self):
         options = Options()
         options.target_ip = self.machine
         options.use_vss = True
@@ -266,7 +273,7 @@ class SecretsDumpTests(unittest.TestCase):
         dumper = DumpSecrets(self.serverName, self.username, self.password, self.domain, options)
         dumper.dump()
 
-    def test_VSS_MMC(self):
+    def aaaa_VSS_MMC(self):
         options = Options()
         options.target_ip = self.machine
         options.use_vss = True
@@ -280,8 +287,6 @@ class SecretsDumpTests(unittest.TestCase):
         options.use_vss = False
         dumper = DumpSecrets(self.serverName, self.username, self.password, self.domain, options)
         dumper.dump()
-
-
 
 class Tests(SecretsDumpTests):
     def setUp(self):

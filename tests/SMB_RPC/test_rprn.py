@@ -77,12 +77,12 @@ class RPRNTests(unittest.TestCase):
         request.dump()
         resp = dce.request(request)
         resp.dump()
-        hexdump(resp['pPrinterEnum'])
+        hexdump(b''.join(resp['pPrinterEnum']))
 
     def test_hRpcEnumPrinters(self):
         dce, rpctransport = self.connect()
         resp = rprn.hRpcEnumPrinters(dce, rprn.PRINTER_ENUM_LOCAL, NULL, 1)
-        hexdump(resp['pPrinterEnum'])
+        hexdump(b''.join(resp['pPrinterEnum']))
 
     def test_RpcOpenPrinter(self):
         dce, rpctransport = self.connect()

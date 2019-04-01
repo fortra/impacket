@@ -17,7 +17,8 @@
 #  Alberto Solino (@agsolino)
 #
 
-
+from __future__ import division
+from __future__ import print_function
 import struct
 import socket
 import select
@@ -25,15 +26,13 @@ import random
 import binascii
 import math
 import datetime
-import sys
 import string
 
 from impacket import ntlm, uuid, LOG
 from impacket.structure import Structure
 
 try:
-    import OpenSSL
-    from OpenSSL import SSL, crypto
+    from OpenSSL import SSL
 except:
     LOG.critical("pyOpenSSL is not installed, can't continue")
     raise
@@ -44,7 +43,10 @@ except:
 # The rest it processed through the standard impacket logging mech.
 class DummyPrint:        
     def logMessage(self,message):
-        print message,
+        if message == '\n':
+            print(message)
+        else:
+            print(message, end=' ')
 
 # MC-SQLR Constants and Structures
 SQLR_PORT           = 1434
@@ -234,12 +236,12 @@ class TDS_PRELOGIN(Structure):
         ('ThreadID',':'),
     )
 
-    def __str__(self):
+    def getData(self):
         self['VersionOffset']=21
         self['EncryptionOffset']=self['VersionOffset'] + len(self['Version'])
         self['InstanceOffset']=self['EncryptionOffset'] + 1
         self['ThreadIDOffset']=self['InstanceOffset'] + len(self['Instance'])
-        return Structure.__str__(self)
+        return Structure.getData(self)
 
 class TDS_LOGIN(Structure):
     structure = (
@@ -256,28 +258,28 @@ class TDS_LOGIN(Structure):
         ('ClientTimeZone','<L=0'),
         ('ClientLCID','<L=0'),
         ('HostNameOffset','<H'),
-        ('HostNameLength','<H=len(self["HostName"])/2'),
+        ('HostNameLength','<H=len(self["HostName"])//2'),
         ('UserNameOffset','<H=0'),
-        ('UserNameLength','<H=len(self["UserName"])/2'),
+        ('UserNameLength','<H=len(self["UserName"])//2'),
         ('PasswordOffset','<H=0'),
-        ('PasswordLength','<H=len(self["Password"])/2'),
+        ('PasswordLength','<H=len(self["Password"])//2'),
         ('AppNameOffset','<H'),
-        ('AppNameLength','<H=len(self["AppName"])/2'),
+        ('AppNameLength','<H=len(self["AppName"])//2'),
         ('ServerNameOffset','<H'),
-        ('ServerNameLength','<H=len(self["ServerName"])/2'),
+        ('ServerNameLength','<H=len(self["ServerName"])//2'),
         ('UnusedOffset','<H=0'),
         ('UnusedLength','<H=0'),
         ('CltIntNameOffset','<H'),
-        ('CltIntNameLength','<H=len(self["CltIntName"])/2'),
+        ('CltIntNameLength','<H=len(self["CltIntName"])//2'),
         ('LanguageOffset','<H=0'),
         ('LanguageLength','<H=0'),
         ('DatabaseOffset','<H=0'),
-        ('DatabaseLength','<H=len(self["Database"])/2'),
-        ('ClientID','6s="\x01\x02\x03\x04\x05\x06"'),
+        ('DatabaseLength','<H=len(self["Database"])//2'),
+        ('ClientID','6s=b"\x01\x02\x03\x04\x05\x06"'),
         ('SSPIOffset','<H'),
         ('SSPILength','<H=len(self["SSPI"])'),
         ('AtchDBFileOffset','<H'),
-        ('AtchDBFileLength','<H=len(self["AtchDBFile"])/2'),
+        ('AtchDBFileLength','<H=len(self["AtchDBFile"])//2'),
         ('HostName',':'),
         ('UserName',':'),
         ('Password',':'),
@@ -325,7 +327,7 @@ class TDS_LOGIN(Structure):
         if self['AtchDBFileLength'] > 0:
             self['AtchDBFile'] = data[self['AtchDBFileOffset']:][:self['AtchDBFileLength']*2]
 
-    def __str__(self):
+    def getData(self):
         index = 36+50
         self['HostNameOffset']= index
 
@@ -352,7 +354,7 @@ class TDS_LOGIN(Structure):
         self['DatabaseOffset']=self['LanguageOffset'] 
         self['SSPIOffset']=self['DatabaseOffset'] + len(self['Database'])
         self['AtchDBFileOffset']=self['SSPIOffset'] + len(self['SSPI'])
-        return Structure.__str__(self)
+        return Structure.getData(self)
 
 class TDS_LOGIN_ACK(Structure):
     structure = (
@@ -476,7 +478,7 @@ class MSSQL:
         af, socktype, proto, canonname, sa = socket.getaddrinfo(self.server, SQLR_PORT, 0, socket.SOCK_DGRAM)[0]
         s = socket.socket(af, socktype, proto)
 
-        s.sendto(str(packet), 0, ( self.server, SQLR_PORT ))
+        s.sendto(packet.getData(), 0, ( self.server, SQLR_PORT ))
         ready, _, _ = select.select([ s.fileno() ], [ ] , [ ], timeout)
         if not ready:
             return []
@@ -487,7 +489,7 @@ class MSSQL:
         resp = SQLR_Response(data)
 
         # Now parse the results
-        entries = resp['Data'].split(';;')
+        entries = resp['Data'].split(b';;')
 
         # We don't want the last one, it's empty
         entries.pop()
@@ -496,11 +498,11 @@ class MSSQL:
         resp = []
 
         for i, entry in enumerate(entries):
-            fields = entry.split(';')
+            fields = entry.split(b';')
             ret = {}
             for j, field in enumerate(fields):
                 if (j & 0x1) == 0:
-                    ret[field] = fields[j+1]
+                    ret[field.decode('utf-8')] = fields[j+1].decode('utf-8')
             resp.append(ret)
 
         return resp
@@ -508,20 +510,20 @@ class MSSQL:
 
     def preLogin(self):
         prelogin = TDS_PRELOGIN()
-        prelogin['Version'] = "\x08\x00\x01\x55\x00\x00"
+        prelogin['Version'] = b"\x08\x00\x01\x55\x00\x00"
         #prelogin['Encryption'] = TDS_ENCRYPT_NOT_SUP
         prelogin['Encryption'] = TDS_ENCRYPT_OFF
         prelogin['ThreadID'] = struct.pack('<L',random.randint(0,65535))
-        prelogin['Instance'] = 'MSSQLServer\x00'
+        prelogin['Instance'] = b'MSSQLServer\x00'
 
-        self.sendTDS(TDS_PRE_LOGIN, str(prelogin), 0)
+        self.sendTDS(TDS_PRE_LOGIN, prelogin.getData(), 0)
         tds = self.recvTDS()
 
         return TDS_PRELOGIN(tds['Data'])
     
     def encryptPassword(self, password ):
 
-        return ''.join(map(lambda x: chr(((ord(x) & 0x0f) << 4) + ((ord(x) & 0xf0) >> 4) ^ 0xa5) , password))
+        return ''.join([chr(((ord(x) & 0x0f) << 4) + ((ord(x) & 0xf0) >> 4) ^ 0xa5) for x in password])
 
     def connect(self):
         af, socktype, proto, canonname, sa = socket.getaddrinfo(self.server, self.port, 0, socket.SOCK_STREAM)[0]
@@ -563,13 +565,13 @@ class MSSQL:
             tds['Status'] = TDS_STATUS_NORMAL
             tds['PacketID'] = packetID
             tds['Data'] = data[:self.packetSize-8]
-            self.socketSendall(str(tds))
+            self.socketSendall(tds.getData())
 
             while len(remaining) > (self.packetSize-8):
                 packetID += 1
                 tds['PacketID'] = packetID
                 tds['Data'] = remaining[:self.packetSize-8]
-                self.socketSendall(str(tds))
+                self.socketSendall(tds.getData())
                 remaining = remaining[self.packetSize-8:]
             data = remaining
             packetID+=1
@@ -579,7 +581,7 @@ class MSSQL:
         tds['Status'] = TDS_STATUS_EOM
         tds['PacketID'] = packetID
         tds['Data'] = data
-        self.socketSendall(str(tds))
+        self.socketSendall(tds.getData())
 
     def socketRecv(self, packetSize):
         data = self.socket.recv(packetSize)
@@ -682,8 +684,8 @@ class MSSQL:
 
         login = TDS_LOGIN()
 
-        login['HostName'] = (''.join([random.choice(string.letters) for _ in range(8)])).encode('utf-16le')
-        login['AppName']  = (''.join([random.choice(string.letters) for _ in range(8)])).encode('utf-16le')
+        login['HostName'] = (''.join([random.choice(string.ascii_letters) for _ in range(8)])).encode('utf-16le')
+        login['AppName']  = (''.join([random.choice(string.ascii_letters) for _ in range(8)])).encode('utf-16le')
         login['ServerName'] = self.server.encode('utf-16le')
         login['CltIntName']  = login['AppName']
         login['ClientPID'] = random.randint(0,1024)
@@ -713,7 +715,7 @@ class MSSQL:
             else:
                 # retrieve domain information from CCache file if needed
                 if domain == '':
-                    domain = ccache.principal.realm['data']
+                    domain = ccache.principal.realm['data'].decode('utf-8')
                     LOG.debug('Domain retrieved from CCache: %s' % domain)
 
                 LOG.debug("Using Kerberos Cache: %s" % os.getenv('KRB5CCNAME'))
@@ -730,7 +732,7 @@ class MSSQL:
                     instanceName = None
                     for i in instances:
                         try:
-                            if string.atoi(i['tcp']) == self.port:
+                            if int(i['tcp']) == self.port:
                                 instanceName = i['InstanceName']
                         except:
                             pass
@@ -754,7 +756,7 @@ class MSSQL:
 
                 # retrieve user information from CCache file if needed
                 if username == '' and creds is not None:
-                    username = creds['client'].prettyPrint().split('@')[0]
+                    username = creds['client'].prettyPrint().split(b'@')[0]
                     LOG.debug('Username retrieved from CCache: %s' % username)
                 elif username == '' and len(ccache.principal.components) > 0:
                     username = ccache.principal.components[0]['data']
@@ -767,7 +769,7 @@ class MSSQL:
                 if TGS is None:
                     try:
                         tgt, cipher, oldSessionKey, sessionKey = getKerberosTGT(userName, password, domain, lmhash, nthash, aesKey, kdcHost)
-                    except KerberosError, e:
+                    except KerberosError as e:
                         if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
                             # We might face this if the target does not support AES
                             # So, if that's the case we'll force using RC4 by converting
@@ -802,7 +804,7 @@ class MSSQL:
                 serverName = Principal('MSSQLSvc/%s.%s:%d' % (self.server.split('.')[0], domain, self.port), type=constants.PrincipalNameType.NT_SRV_INST.value)
                 try:
                     tgs, cipher, oldSessionKey, sessionKey = getKerberosTGS(serverName, domain, kdcHost, tgt, cipher, sessionKey)
-                except KerberosError, e:
+                except KerberosError as e:
                     if e.getErrorCode() == constants.ErrorCodes.KDC_ERR_ETYPE_NOSUPP.value:
                         # We might face this if the target does not support AES
                         # So, if that's the case we'll force using RC4 by converting
@@ -872,10 +874,10 @@ class MSSQL:
         login['OptionFlags2'] |= TDS_INTEGRATED_SECURITY_ON
 
         login['SSPI'] = blob.getData()
-        login['Length'] = len(str(login))
+        login['Length'] = len(login.getData())
 
         # Send the NTLMSSP Negotiate or SQL Auth Packet
-        self.sendTDS(TDS_LOGIN7, str(login))
+        self.sendTDS(TDS_LOGIN7, login.getData())
 
         # According to the specs, if encryption is not required, we must encrypt just
         # the first Login packet :-o
@@ -886,7 +888,7 @@ class MSSQL:
 
         self.replies = self.parseReply(tds['Data'])
 
-        if self.replies.has_key(TDS_LOGINACK_TOKEN):
+        if TDS_LOGINACK_TOKEN in self.replies:
             return True
         else:
             return False
@@ -930,8 +932,8 @@ class MSSQL:
 
         login = TDS_LOGIN()
 
-        login['HostName'] = (''.join([random.choice(string.letters) for i in range(8)])).encode('utf-16le')
-        login['AppName']  = (''.join([random.choice(string.letters) for i in range(8)])).encode('utf-16le')
+        login['HostName'] = (''.join([random.choice(string.ascii_letters) for i in range(8)])).encode('utf-16le')
+        login['AppName']  = (''.join([random.choice(string.ascii_letters) for i in range(8)])).encode('utf-16le')
         login['ServerName'] = self.server.encode('utf-16le')
         login['CltIntName']  = login['AppName']
         login['ClientPID'] = random.randint(0,1024)
@@ -944,16 +946,17 @@ class MSSQL:
             login['OptionFlags2'] |= TDS_INTEGRATED_SECURITY_ON
             # NTLMSSP Negotiate
             auth = ntlm.getNTLMSSPType1('','')
-            login['SSPI'] = str(auth)
+            login['SSPI'] = auth.getData()
         else:
             login['UserName'] = username.encode('utf-16le')
             login['Password'] = self.encryptPassword(password.encode('utf-16le'))
             login['SSPI'] = ''
 
-        login['Length'] = len(str(login))
+
+        login['Length'] = len(login.getData())
 
         # Send the NTLMSSP Negotiate or SQL Auth Packet
-        self.sendTDS(TDS_LOGIN7, str(login))
+        self.sendTDS(TDS_LOGIN7, login.getData())
 
         # According to the specs, if encryption is not required, we must encrypt just 
         # the first Login packet :-o 
@@ -969,12 +972,12 @@ class MSSQL:
             # Generate the NTLM ChallengeResponse AUTH 
             type3, exportedSessionKey = ntlm.getNTLMSSPType3(auth, serverChallenge, username, password, domain, lmhash, nthash)
 
-            self.sendTDS(TDS_SSPI, str(type3))
+            self.sendTDS(TDS_SSPI, type3.getData())
             tds = self.recvTDS()
 
         self.replies = self.parseReply(tds['Data'])
 
-        if self.replies.has_key(TDS_LOGINACK_TOKEN):
+        if TDS_LOGINACK_TOKEN in self.replies:
             return True
         else:
             return False
@@ -983,7 +986,7 @@ class MSSQL:
     def processColMeta(self):
         for col in self.colMeta:
             if col['Type'] in [TDS_NVARCHARTYPE, TDS_NCHARTYPE, TDS_NTEXTTYPE]:
-                col['Length'] = col['TypeData']/2
+                col['Length'] = col['TypeData']//2
                 fmt = '%%-%ds' 
             elif col['Type'] in [TDS_GUIDTYPE]:
                 col['Length'] = 36
@@ -1043,7 +1046,7 @@ class MSSQL:
             self.__rowsPrinter.logMessage('\n')
 
     def printReplies(self):
-        for keys in self.replies.keys():
+        for keys in list(self.replies.keys()):
             for i, key in enumerate(self.replies[keys]):
                 if key['TokenType'] == TDS_ERROR_TOKEN:
                     error =  "ERROR(%s): Line %d: %s" % (key['ServerName'].decode('utf-16le'), key['LineNumber'], key['MsgText'].decode('utf-16le'))                                      
@@ -1206,7 +1209,7 @@ class MSSQL:
                     baseDate = datetime.date(1900,1,1)
                 if value != 'NULL':
                     dateValue = datetime.date.fromordinal(baseDate.toordinal() + dateValue)
-                    hours, mod = divmod(timeValue/300, 60*60)
+                    hours, mod = divmod(timeValue//300, 60*60)
                     minutes, second = divmod(mod, 60)
                     value = datetime.datetime(dateValue.year, dateValue.month, dateValue.day, hours, minutes, second)
 
@@ -1244,9 +1247,9 @@ class MSSQL:
                 if valueSize > 0:
                     value = struct.unpack(fmt,data[:valueSize])[0]
                     if valueSize == 4:
-                        value = float(value) / math.pow(10,4)
+                        value = float(value) // math.pow(10,4)
                     else:
-                        value = float(value >> 32) / math.pow(10,4)
+                        value = float(value >> 32) // math.pow(10,4)
                     data = data[valueSize:]
                 else:
                     value = 'NULL'
@@ -1311,7 +1314,7 @@ class MSSQL:
                         # Still don't know how to handle higher values
                         value = "TODO: Interpret TDS_NUMERICNTYPE correctly"
                     number = struct.unpack(fmt, value[1:])[0]
-                    number /= math.pow(precision, scale)
+                    number //= math.pow(precision, scale)
                     if isPositiveSign == 0:
                         number *= -1 
                     value = number
@@ -1476,7 +1479,7 @@ class MSSQL:
 
         replies = {} 
         while len(tokens) > 0:
-            tokenID = struct.unpack('B',tokens[0])[0]
+            tokenID = struct.unpack('B',tokens[0:1])[0]
             if tokenID == TDS_ERROR_TOKEN:
                 token = TDS_INFO_ERROR(tokens)
             elif tokenID == TDS_RETURNSTATUS_TOKEN:
@@ -1489,7 +1492,7 @@ class MSSQL:
                 token = TDS_ENVCHANGE(tokens)
                 if token['Type'] is TDS_ENVCHANGE_PACKETSIZE:
                     record = TDS_ENVCHANGE_VARCHAR(token['Data'])
-                    self.packetSize = string.atoi( record['NewValue'].decode('utf-16le') )
+                    self.packetSize = int( record['NewValue'].decode('utf-16le') )
                 elif token['Type'] is TDS_ENVCHANGE_DATABASE:
                     record = TDS_ENVCHANGE_VARCHAR(token['Data'])
                     self.currentDB =  record['NewValue'].decode('utf-16le') 
@@ -1515,7 +1518,7 @@ class MSSQL:
                 LOG.error("Unknown Token %x" % tokenID)
                 return replies
 
-            if replies.has_key(tokenID) is not True:
+            if (tokenID in replies) is not True:
                 replies[tokenID] = list()
 
             replies[tokenID].append(token)
@@ -1560,7 +1563,7 @@ class MSSQL:
     def RunSQLQuery(self,db,sql_query,tuplemode=False,wait=True,**kwArgs):
         db = db or 'master'
         self.changeDB(db)
-        self.printReplies() 
+        self.printReplies()
         ret = self.batch(sql_query,tuplemode,wait)
         if wait:
             self.printReplies()
