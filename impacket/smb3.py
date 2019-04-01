@@ -1624,7 +1624,7 @@ class SMB3:
         return True
 
     def is_signing_required(self):
-        return self._Session["SigningRequired"] 
+        return self._Connection['RequireSigning']
 
     def nt_create_andx(self, treeId, fileName, smb_packet=None, cmd = None):
         if len(fileName) > 0 and fileName[0] == '\\':
