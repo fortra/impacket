@@ -650,7 +650,7 @@ class SMB3:
                 self._Session['SigningKey']  = crypto.KDF_CounterMode(self._Session['SessionKey'], b"SMB2AESCMAC\x00", b"SmbSign\x00", 128)
 
             # Do not encrypt anonymous connections
-            if user == '':
+            if user == '' or self.isGuestSession():
                 self._Connection['SupportsEncryption'] = False
 
             # Calculate the key derivations for dialect 3.0
@@ -798,7 +798,7 @@ class SMB3:
                     self._Session['SessionID']    = packet['SessionID']
 
                     # Do not encrypt anonymous connections
-                    if user == '':
+                    if user == '' or self.isGuestSession():
                         self._Connection['SupportsEncryption'] = False
 
                     # Calculate the key derivations for dialect 3.0
