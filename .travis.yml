@@ -8,8 +8,6 @@ matrix:
       env: NO_REMOTE=true, TOXENV=py27
     - python: 3.6
       env: NO_REMOTE=true, TOXENV=py36
-  allow_failures:
-    - python: 3.6
 
 install: pip install flake8==3.6.0 tox -r requirements.txt
   
