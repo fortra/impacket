@@ -87,7 +87,7 @@ class LSALookupSid:
 
         dce.bind(lsat.MSRPC_UUID_LSAT)
         
-        resp = lsat.hLsarOpenPolicy2(dce, MAXIMUM_ALLOWED | lsat.POLICY_LOOKUP_NAMES)
+        resp = lsad.hLsarOpenPolicy2(dce, MAXIMUM_ALLOWED | lsat.POLICY_LOOKUP_NAMES)
         policyHandle = resp['PolicyHandle']
 
         if self.__domain_sids: # get the Domain SID
