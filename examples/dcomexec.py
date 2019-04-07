@@ -93,8 +93,8 @@ class DCOMEXEC:
                       oxid=objRef['std']['oxid'], oid=objRef['std']['oxid'],
                       target=interface.get_target()))
 
-    def run(self, addr):
-        if self.__noOutput is False:
+    def run(self, addr, silentCommand=False):
+        if self.__noOutput is False and silentCommand is False:
             smbConnection = SMBConnection(addr, addr)
             if self.__doKerberos is False:
                 smbConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
@@ -158,17 +158,21 @@ class DCOMEXEC:
 
                 iActiveView = IDispatch(self.getInterface(iMMC, resp['pVarResult']['_varUnion']['pdispVal']['abData']))
                 pExecuteShellCommand = iActiveView.GetIDsOfNames(('ExecuteShellCommand',))[0]
-                self.shell = RemoteShellMMC20(self.__share, (iMMC, pQuit), (iActiveView, pExecuteShellCommand), smbConnection)
+                self.shell = RemoteShellMMC20(self.__share, (iMMC, pQuit), (iActiveView, pExecuteShellCommand), smbConnection, silentCommand)
             else:
                 resp = iDocument.GetIDsOfNames(('Application',))
                 resp = iDocument.Invoke(resp[0], 0x409, DISPATCH_PROPERTYGET, dispParams, 0, [], [])
 
                 iActiveView = IDispatch(self.getInterface(iMMC, resp['pVarResult']['_varUnion']['pdispVal']['abData']))
                 pExecuteShellCommand = iActiveView.GetIDsOfNames(('ShellExecute',))[0]
-                self.shell = RemoteShell(self.__share, (iMMC, pQuit), (iActiveView, pExecuteShellCommand), smbConnection)
+                self.shell = RemoteShell(self.__share, (iMMC, pQuit), (iActiveView, pExecuteShellCommand), smbConnection, silentCommand)
 
             if self.__command != ' ':
-                self.shell.onecmd(self.__command)[:5]
+                try:
+                    self.shell.onecmd(self.__command)[:5]
+                except TypeError:
+                    if not silentCommand:
+                        raise
                 if self.shell is not None:
                     self.shell.do_exit('')
             else:
@@ -191,7 +195,7 @@ class DCOMEXEC:
         dcom.disconnect()
 
 class RemoteShell(cmd.Cmd):
-    def __init__(self, share, quit, executeShellCommand, smbConnection):
+    def __init__(self, share, quit, executeShellCommand, smbConnection, silentCommand=False):
         cmd.Cmd.__init__(self)
         self._share = share
         self._output = '\\' + OUTPUT_FILENAME
@@ -200,6 +204,7 @@ class RemoteShell(cmd.Cmd):
         self.__quit = quit
         self._executeShellCommand = executeShellCommand
         self.__transferClient = smbConnection
+        self._silentCommand = silentCommand
         self._pwd = 'C:\\windows\\system32'
         self._noOutput = False
         self.intro = '[!] Launching semi-interactive shell - Careful what you execute\n[!] Press help for extra shell commands'
@@ -210,6 +215,10 @@ class RemoteShell(cmd.Cmd):
             self.do_cd('\\')
         else:
             self._noOutput = True
+
+        # If the user wants to just execute a command without cmd.exe, set raw command and set no output
+        if self._silentCommand is True:
+            self.intro += '\n[!] You are running in silentcommand mode. Output will not be displayed!\n[!] Built-in shell command will not register (cd/pwd/set/etc.)'
 
     def do_shell(self, s):
         os.system(s)
@@ -341,7 +350,11 @@ class RemoteShell(cmd.Cmd):
         self.__transferClient.deleteFile(self._share, self._output)
 
     def execute_remote(self, data):
-        command = '/Q /c ' + data
+        if self._silentCommand is True:
+            self._shell = data.split()[0]
+            command = ' '.join(data.split()[1:])
+        else:
+            command = '/Q /c ' + data
         if self._noOutput is False:
             command += ' 1> ' + '\\\\127.0.0.1\\%s' % self._share + self._output + ' 2>&1'
 
@@ -402,7 +415,11 @@ class RemoteShell(cmd.Cmd):
 
 class RemoteShellMMC20(RemoteShell):
     def execute_remote(self, data):
-        command = '/Q /c ' + data
+        if self._silentCommand is True:
+            self._shell = data.split()[0]
+            command = ' '.join(data.split()[1:])
+        else:
+            command = '/Q /c ' + data
         if self._noOutput is False:
             command += ' 1> ' + '\\\\127.0.0.1\\%s' % self._share + self._output  + ' 2>&1'
 
@@ -513,7 +530,8 @@ if __name__ == '__main__':
 
     parser.add_argument('command', nargs='*', default = ' ', help='command to execute at the target. If empty it will '
                                                                   'launch a semi-interactive shell')
-
+    parser.add_argument('-silentcommand', action='store_true', default = False, help='does not execute cmd.exe to run given command '
+                                                                                '(cannot run dir/cd/etc.)')
     group = parser.add_argument_group('authentication')
 
     group.add_argument('-hashes', action="store", metavar = "LMHASH:NTHASH", help='NTLM hashes, format is LMHASH:NTHASH')
@@ -570,7 +588,7 @@ if __name__ == '__main__':
 
         executer = DCOMEXEC(' '.join(options.command), username, password, domain, options.hashes, options.aesKey,
                             options.share, options.nooutput, options.k, options.dc_ip, options.object)
-        executer.run(address)
+        executer.run(address, options.silentcommand)
     except (Exception, KeyboardInterrupt) as e:
         if logging.getLogger().level == logging.DEBUG:
             import traceback

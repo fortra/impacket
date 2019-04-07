@@ -57,8 +57,8 @@ class WMIEXEC:
         if hashes is not None:
             self.__lmhash, self.__nthash = hashes.split(':')
 
-    def run(self, addr):
-        if self.__noOutput is False:
+    def run(self, addr, silentCommand=False):
+        if self.__noOutput is False and silentCommand is False:
             smbConnection = SMBConnection(addr, addr)
             if self.__doKerberos is False:
                 smbConnection.login(self.__username, self.__password, self.__domain, self.__lmhash, self.__nthash)
@@ -88,7 +88,7 @@ class WMIEXEC:
 
             win32Process,_ = iWbemServices.GetObject('Win32_Process')
 
-            self.shell = RemoteShell(self.__share, win32Process, smbConnection)
+            self.shell = RemoteShell(self.__share, win32Process, smbConnection, silentCommand)
             if self.__command != ' ':
                 self.shell.onecmd(self.__command)
             else:
@@ -109,7 +109,7 @@ class WMIEXEC:
         dcom.disconnect()
 
 class RemoteShell(cmd.Cmd):
-    def __init__(self, share, win32Process, smbConnection):
+    def __init__(self, share, win32Process, smbConnection, silentCommand=False):
         cmd.Cmd.__init__(self)
         self.__share = share
         self.__output = '\\' + OUTPUT_FILENAME
@@ -117,6 +117,7 @@ class RemoteShell(cmd.Cmd):
         self.__shell = 'cmd.exe /Q /c '
         self.__win32Process = win32Process
         self.__transferClient = smbConnection
+        self.__silentCommand = silentCommand
         self.__pwd = str('C:\\')
         self.__noOutput = False
         self.intro = '[!] Launching semi-interactive shell - Careful what you execute\n[!] Press help for extra shell commands'
@@ -127,6 +128,11 @@ class RemoteShell(cmd.Cmd):
             self.do_cd('\\')
         else:
             self.__noOutput = True
+
+        # If the user wants to just execute a command without cmd.exe, set raw command and set no output
+        if self.__silentCommand is True:
+            self.__shell = ''
+            self.intro += '\n[!] You are running in silentcommand mode. Output will not be displayed!\n[!] Built-in shell command will not register (cd/pwd/set/etc.)'
 
     def do_shell(self, s):
         os.system(s)
@@ -340,6 +346,8 @@ if __name__ == '__main__':
                                                                            '(default ADMIN$)')
     parser.add_argument('-nooutput', action='store_true', default = False, help='whether or not to print the output '
                                                                                 '(no SMB connection created)')
+    parser.add_argument('-silentcommand', action='store_true', default = False, help='does not execute cmd.exe to run given command '
+                                                                                '(cannot run dir/cd/etc.)')
     parser.add_argument('-debug', action='store_true', help='Turn DEBUG output ON')
     parser.add_argument('-codec', action='store', help='Sets encoding used (codec) from the target\'s output (default '
                                                        '"%s"). If errors are detected, run chcp.com at the target, '
@@ -412,7 +420,7 @@ if __name__ == '__main__':
 
         executer = WMIEXEC(' '.join(options.command), username, password, domain, options.hashes, options.aesKey,
                            options.share, options.nooutput, options.k, options.dc_ip)
-        executer.run(address)
+        executer.run(address, options.silentcommand)
     except KeyboardInterrupt as e:
         logging.error(str(e))
     except Exception as e:
