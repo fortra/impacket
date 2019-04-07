@@ -216,10 +216,6 @@ class RemoteShell(cmd.Cmd):
         else:
             self._noOutput = True
 
-        # If the user wants to just execute a command without cmd.exe, set raw command and set no output
-        if self._silentCommand is True:
-            self.intro += '\n[!] You are running in silentcommand mode. Output will not be displayed!\n[!] Built-in shell command will not register (cd/pwd/set/etc.)'
-
     def do_shell(self, s):
         os.system(s)
 
@@ -554,6 +550,9 @@ if __name__ == '__main__':
 
     if ' '.join(options.command) == ' ' and options.nooutput is True:
         logging.error("-nooutput switch and interactive shell not supported")
+        sys.exit(1)
+    if options.silentcommand and options.command == ' ':
+        logging.error("-silentcommand switch and interactive shell not supported")
         sys.exit(1)
 
     if options.debug is True:

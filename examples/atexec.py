@@ -215,6 +215,9 @@ if __name__ == '__main__':
     if ''.join(options.command) == ' ':
         logging.error('You need to specify a command to execute!')
         sys.exit(1)
+    if options.silentcommand and options.command == ' ':
+        logging.error("-silentcommand switch and interactive shell not supported")
+        sys.exit(1)
 
     if options.debug is True:
         logging.getLogger().setLevel(logging.DEBUG)
