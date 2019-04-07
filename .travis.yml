@@ -12,7 +12,7 @@ matrix:
       env: NO_REMOTE=true, TOXENV=py37
       dist: xenial  # required for Python >= 3.7
 
-install: pip install flake8==3.7.7 tox -r requirements.txt
+install: pip install flake8==3.6.0 tox -r requirements.txt
   
 before_script:
   # stop the build if there are Python syntax errors or undefined names
