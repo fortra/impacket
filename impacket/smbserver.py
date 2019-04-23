@@ -805,7 +805,7 @@ class TRANS2Commands:
         connData = smbServer.getConnectionData(connId)
         errorCode = 0
         # Get the Tid associated
-        if connData['ConnectedShares'].has_key(recvPacket['Tid']):
+        if recvPacket['Tid'] in connData['ConnectedShares']:
             data = queryFsInformation(connData['ConnectedShares'][recvPacket['Tid']]['path'], '',
                                       struct.unpack('<H',parameters)[0], pktFlags = recvPacket['Flags2'])
 
@@ -4646,7 +4646,7 @@ class SimpleSMBServer:
     def getRegisteredNamedPipes(self):
         return self.__server.getRegisteredNamedPipes()
 
-    def addShare(self, shareName, sharePath, shareComment='', shareType = 0, readOnly = 'no'):
+    def addShare(self, shareName, sharePath, shareComment='', shareType = '0', readOnly = 'no'):
         share = shareName.upper()
         self.__smbConfig.add_section(share)
         self.__smbConfig.set(share, 'comment', shareComment)
