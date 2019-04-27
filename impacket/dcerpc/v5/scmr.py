@@ -18,14 +18,13 @@
 #   Helper functions start with "h"<name of the call>.
 #   There are test cases for them too. 
 #
-from struct import pack, unpack
 
 from impacket import system_errors
-from impacket.uuid import uuidtup_to_bin
-from impacket.dcerpc.v5.ndr import NDRCALL, NDR, NDRSTRUCT, NDRPOINTER, NDRPOINTERNULL, NDRUniConformantArray, NDRUNION
 from impacket.dcerpc.v5.dtypes import NULL, DWORD, LPWSTR, ULONG, BOOL, LPBYTE, ULONGLONG, PGUID, USHORT, LPDWORD, WSTR, \
     GUID, PBOOL, WIDESTR
+from impacket.dcerpc.v5.ndr import NDRCALL, NDR, NDRSTRUCT, NDRPOINTER, NDRPOINTERNULL, NDRUniConformantArray, NDRUNION
 from impacket.dcerpc.v5.rpcrt import DCERPCException
+from impacket.uuid import uuidtup_to_bin
 
 MSRPC_UUID_SCMR = uuidtup_to_bin(('367ABB81-9844-35F1-AD32-98F038001003', '2.0'))
 
@@ -35,7 +34,7 @@ class DCERPCSessionError(DCERPCException):
 
     def __str__( self ):
         key = self.error_code
-        if system_errors.ERROR_MESSAGES.has_key(key):
+        if key in system_errors.ERROR_MESSAGES:
             error_msg_short = system_errors.ERROR_MESSAGES[key][0]
             error_msg_verbose = system_errors.ERROR_MESSAGES[key][1] 
             return 'SCMR SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
@@ -1282,7 +1281,7 @@ def hREnumServicesStatusW(dce, hSCManager, dwServiceType=SERVICE_WIN32_OWN_PROCE
 
     try:
         resp = dce.request(enumServicesStatus)
-    except DCERPCSessionError, e:
+    except DCERPCSessionError as e:
         if e.get_error_code() == system_errors.ERROR_MORE_DATA:
             resp = e.get_packet()
             enumServicesStatus['cbBufSize'] = resp['pcbBytesNeeded']
@@ -1297,7 +1296,7 @@ def hREnumServicesStatusW(dce, hSCManager, dwServiceType=SERVICE_WIN32_OWN_PROCE
 
     enumArray.setArraySize(resp['lpServicesReturned'])
 
-    data = ''.join(resp['lpBuffer'])
+    data = b''.join(resp['lpBuffer'])
     enumArray.fromString(data)
     data = data[4:]
     # Since the pointers here are pointing to the actual data, we have to reparse
@@ -1332,7 +1331,7 @@ def hRQueryServiceConfigW(dce, hService):
     queryService['cbBufSize'] = 0
     try:
         resp = dce.request(queryService)
-    except DCERPCSessionError, e:
+    except DCERPCSessionError as e:
         if e.get_error_code() == system_errors.ERROR_INSUFFICIENT_BUFFER:
             resp = e.get_packet()
             queryService['cbBufSize'] = resp['pcbBytesNeeded']
@@ -1384,4 +1383,3 @@ def hREnumServiceGroupW(dce, hSCManager, dwServiceType, dwServiceState, cbBufSiz
     enumServiceGroup['lpResumeIndex'] = lpResumeIndex
     enumServiceGroup['pszGroupName'] = pszGroupName
     return dce.request(enumServiceGroup)
-

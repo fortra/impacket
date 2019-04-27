@@ -15,7 +15,10 @@
 #
 import re
 import ssl
-from httplib import HTTPConnection, HTTPSConnection, ResponseNotReady
+try:
+    from http.client import HTTPConnection, HTTPSConnection, ResponseNotReady
+except ImportError:
+    from httplib import HTTPConnection, HTTPSConnection, ResponseNotReady
 import base64
 
 from struct import unpack
@@ -77,7 +80,7 @@ class HTTPRelayClient(ProtocolClient):
             LOG.error('No NTLM challenge returned from server')
 
     def sendAuth(self, authenticateMessageBlob, serverChallenge=None):
-        if unpack('B', str(authenticateMessageBlob)[:1])[0] == SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP:
+        if unpack('B', authenticateMessageBlob[:1])[0] == SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP:
             respToken2 = SPNEGO_NegTokenResp(authenticateMessageBlob)
             token = respToken2['ResponseToken']
         else:
@@ -122,4 +125,3 @@ class HTTPSRelayClient(HTTPRelayClient):
         except AttributeError:
             self.session = HTTPSConnection(self.targetHost,self.targetPort)
         return True
-

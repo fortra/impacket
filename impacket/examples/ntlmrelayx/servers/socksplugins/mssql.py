@@ -17,15 +17,14 @@
 
 import struct
 import random
-import logging
 
 from impacket import LOG
 from impacket.examples.ntlmrelayx.servers.socksserver import SocksRelay
-from impacket.tds import TDSPacket, TDS_STATUS_NORMAL, TDS_STATUS_EOM, TDS_PRE_LOGIN, TDS_ENCRYPT_NOT_SUP, TDS_TABULAR, TDS_LOGIN, TDS_LOGIN7, TDS_PRELOGIN, TDS_INTEGRATED_SECURITY_ON
+from impacket.tds import TDSPacket, TDS_STATUS_NORMAL, TDS_STATUS_EOM, TDS_PRE_LOGIN, TDS_ENCRYPT_NOT_SUP, TDS_TABULAR, \
+    TDS_LOGIN, TDS_LOGIN7, TDS_PRELOGIN, TDS_INTEGRATED_SECURITY_ON
 from impacket.ntlm import NTLMAuthChallengeResponse
 try:
-    import OpenSSL
-    from OpenSSL import SSL, crypto
+    from OpenSSL import SSL
 except:
     LOG.critical("pyOpenSSL is not installed, can't continue")
     raise
@@ -62,13 +61,13 @@ class MSSQLSocksRelay(SocksRelay):
             return False
 
         prelogin = TDS_PRELOGIN()
-        prelogin['Version'] = "\x08\x00\x01\x55\x00\x00"
+        prelogin['Version'] = b"\x08\x00\x01\x55\x00\x00"
         prelogin['Encryption'] = TDS_ENCRYPT_NOT_SUP
         prelogin['ThreadID'] = struct.pack('<L',random.randint(0,65535))
-        prelogin['Instance'] = '\x00'
+        prelogin['Instance'] = b'\x00'
 
         # Answering who we are
-        self.sendTDS(TDS_TABULAR, str(prelogin), 0)
+        self.sendTDS(TDS_TABULAR, prelogin.getData(), 0)
 
         # 2. Packet should be a TDS_LOGIN
         tds = self.recvTDS()
@@ -114,7 +113,7 @@ class MSSQLSocksRelay(SocksRelay):
                     self.username = ('/%s' % login['UserName']).upper()
 
         # Check if we have a connection for the user
-        if self.activeRelays.has_key(self.username):
+        if self.username in self.activeRelays:
             # Check the connection is not inUse
             if self.activeRelays[self.username]['inUse'] is True:
                 LOG.error('MSSQL: Connection for %s@%s(%s) is being used at the moment!' % (
@@ -152,11 +151,9 @@ class MSSQLSocksRelay(SocksRelay):
                 tds = self.session.recvTDS()
                 # 4. Send it back to the client
                 self.sendTDS(tds['Type'], tds['Data'], 0)
-        except Exception, e:
+        except Exception:
             # Probably an error here
-            if LOG.level == logging.DEBUG:
-                import traceback
-                traceback.print_exc()
+            LOG.debug('Exception:', exc_info=True)
 
         return True
 
@@ -168,13 +165,13 @@ class MSSQLSocksRelay(SocksRelay):
             tds['Status'] = TDS_STATUS_NORMAL
             tds['PacketID'] = packetID
             tds['Data'] = data[:self.packetSize-8]
-            self.socketSendall(str(tds))
+            self.socketSendall(tds.getData())
 
             while len(remaining) > (self.packetSize-8):
                 packetID += 1
                 tds['PacketID'] = packetID
                 tds['Data'] = remaining[:self.packetSize-8]
-                self.socketSendall(str(tds))
+                self.socketSendall(tds.getData())
                 remaining = remaining[self.packetSize-8:]
             data = remaining
             packetID+=1
@@ -184,7 +181,7 @@ class MSSQLSocksRelay(SocksRelay):
         tds['Status'] = TDS_STATUS_EOM
         tds['PacketID'] = packetID
         tds['Data'] = data
-        self.socketSendall(str(tds))
+        self.socketSendall(tds.getData())
 
     def socketSendall(self,data):
         if self.tlsSocket is None:
@@ -197,13 +194,13 @@ class MSSQLSocksRelay(SocksRelay):
     def socketRecv(self, packetSize):
         data = self.socksSocket.recv(packetSize)
         if self.tlsSocket is not None:
-            dd = ''
+            dd = b''
             self.tlsSocket.bio_write(data)
             while True:
                 try:
                     dd += self.tlsSocket.read(packetSize)
                 except SSL.WantReadError:
-                    data2 = self.socket.recv(packetSize - len(data) )
+                    data2 = self.socksSocket.recv(packetSize - len(data) )
                     self.tlsSocket.bio_write(data2)
                     pass
                 else:
@@ -249,5 +246,3 @@ class MSSQLSocksRelay(SocksRelay):
 
         # print packet['Length']
         return packet
-
-

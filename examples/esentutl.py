@@ -15,7 +15,8 @@
 # Reference for:
 #  Extensive Storage Engine (ese)
 # 
-
+from __future__ import division
+from __future__ import print_function
 import sys
 import logging
 import argparse
@@ -36,25 +37,25 @@ def exportTable(ese, tableName):
         return
 
     i = 1
-    print "Table: %s" % tableName
+    print("Table: %s" % tableName)
     while True:
         try:
             record = ese.getNextRow(cursor)
-        except Exception as e:
+        except Exception:
             logging.debug('Exception:', exc_info=True)
             logging.error('Error while calling getNextRow(), trying the next one')
             continue
 
         if record is None:
             break
-        print "*** %d" % i
-        for j in record.keys():
+        print("*** %d" % i)
+        for j in list(record.keys()):
            if record[j] is not None:
-               print "%-30s: %r" % (j, record[j])
+               print("%-30s: %r" % (j, record[j]))
         i += 1
 
 def main():
-    print version.BANNER
+    print(version.BANNER)
     # Init the example's logger theme
     logger.init()
 
@@ -99,17 +100,14 @@ def main():
             exportTable(ese, options.table)
         else:
             raise Exception('Unknown action %s ' % options.action)
-    except Exception, e:
+    except Exception as e:
         if logging.getLogger().level == logging.DEBUG:
             import traceback
             traceback.print_exc()
-        print e
+        print(e)
     ese.close()
 
 
 if __name__ == '__main__':
     main()
     sys.exit(1)
-
-
-

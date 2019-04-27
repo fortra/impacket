@@ -55,8 +55,13 @@
 #
 ################################################################################
 
+from __future__ import division
+from __future__ import print_function
 import unittest
-import ConfigParser
+try:
+    import ConfigParser
+except ImportError:
+    import configparser as ConfigParser
 
 from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import srvs
@@ -180,7 +185,7 @@ class SRVSTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             # I might be closing myself ;)
             if str(e).find('STATUS_PIPE_BROKEN') < 0 and str(e).find('STATUS_FILE_CLOSED') < 0 and str(e).find('STATUS_INVALID_HANDLE') < 0 and str(e).find('0x90a') < 0:
 
@@ -194,7 +199,7 @@ class SRVSTests(unittest.TestCase):
         try:
             resp = srvs.hNetrFileClose(dce, resp['InfoStruct']['FileInfo']['Level2']['Buffer'][0]['fi2_id'])
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             # I might be closing myself ;)
             if str(e).find('STATUS_PIPE_BROKEN') < 0 and str(e).find('STATUS_FILE_CLOSED') < 0 and str(e).find('STATUS_INVALID_HANDLE') < 0 and str(e).find('0x90a') < 0:
                 raise
@@ -275,7 +280,7 @@ class SRVSTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if e.get_error_code() != 0x908:
                 raise
 
@@ -287,7 +292,7 @@ class SRVSTests(unittest.TestCase):
         try:
             resp = srvs.hNetrSessionDel(dce, resp['InfoStruct']['SessionInfo']['Level502']['Buffer'][0]['sesi502_cname'], resp['InfoStruct']['SessionInfo']['Level502']['Buffer'][0]['sesi502_username'] )
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if e.get_error_code() != 0x908:
                 raise
 
@@ -874,7 +879,7 @@ class SRVSTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if e.get_error_code() != 0x2:
                 raise
 
@@ -883,7 +888,7 @@ class SRVSTests(unittest.TestCase):
         try:
             resp = srvs.hNetrDfsGetVersion(dce)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if e.get_error_code() != 0x2:
                 raise
 
@@ -895,7 +900,7 @@ class SRVSTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if e.get_error_code() != 0x32:
                 raise
 
@@ -914,7 +919,7 @@ class SRVSTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e) != 'rpc_x_bad_stub_data':
                 raise
 
@@ -926,7 +931,7 @@ class SRVSTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_NOT_SUPPORTED') < 0:
                 raise
 
@@ -976,7 +981,7 @@ class SRVSTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e) != 'ERROR_NOT_SUPPORTED':
                 raise
 
@@ -985,8 +990,8 @@ class SRVSTests(unittest.TestCase):
         try:
             resp = srvs.hNetrServerAliasEnum(dce, 0)
             resp.dump()
-        except Exception, e:
-            print e
+        except Exception as e:
+            print(e)
             if str(e) != 'ERROR_NOT_SUPPORTED':
                 raise
 
@@ -1078,7 +1083,7 @@ class SRVSTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_NOT_SUPPORTED') < 0:
                 raise
 
@@ -1090,7 +1095,7 @@ class SRVSTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_NOT_SUPPORTED') < 0:
                 raise
 
@@ -1103,7 +1108,7 @@ class SRVSTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_NOT_SUPPORTED') < 0:
                 raise
 
@@ -1118,7 +1123,7 @@ class SRVSTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('rpc_x_bad_stub_data') < 0:
                 raise
 
@@ -1132,7 +1137,7 @@ class SRVSTests(unittest.TestCase):
         try:
             resp = dce.request(request)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_NOT_SUPPORTED') < 0:
                 raise
 

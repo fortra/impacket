@@ -4,7 +4,6 @@
 import glob
 import os
 import platform
-import sys
 
 from setuptools import setup
 
@@ -19,7 +18,7 @@ def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
 setup(name = PACKAGE_NAME,
-      version = "0.9.19-dev",
+      version = "0.9.20-dev",
       description = "Network protocols Constructors and Dissectors",
       url = "https://www.secureauth.com/labs/open-source-tools/impacket",
       author = "SecureAuth Corporation",
@@ -37,14 +36,14 @@ setup(name = PACKAGE_NAME,
                 'impacket.examples.ntlmrelayx.attacks'],
       scripts = glob.glob(os.path.join('examples', '*.py')),
       data_files = data_files,
-      install_requires=['pyasn1>=0.2.3', 'pycryptodomex', 'pyOpenSSL>=0.13.1', 'six', 'ldap3>=2.5.0', 'ldapdomaindump', 'flask>=1.0'],
+      install_requires=['pyasn1>=0.2.3', 'pycryptodomex', 'pyOpenSSL>=0.13.1', 'six', 'ldap3>=2.5.0', 'ldapdomaindump>=0.9.0', 'flask>=1.0'],
       extras_require={
                       'pyreadline:sys_platform=="win32"': [],
-                      ':python_version<"2.7"': [ 'argparse' ],
+                      'python_version<"2.7"': [ 'argparse' ],
                     },
       classifiers = [
+          "Programming Language :: Python :: 3.6",
           "Programming Language :: Python :: 2.7",
           "Programming Language :: Python :: 2.6",
       ]
       )
-

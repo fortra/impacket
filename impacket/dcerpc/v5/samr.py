@@ -18,6 +18,8 @@
 #   Helper functions start with "h"<name of the call>.
 #   There are test cases for them too. 
 #
+from __future__ import division
+from __future__ import print_function
 from binascii import unhexlify
 
 from impacket.dcerpc.v5.ndr import NDRCALL, NDR, NDRSTRUCT, NDRUNION, NDRPOINTER, NDRUniConformantArray, \
@@ -38,7 +40,7 @@ class DCERPCSessionError(DCERPCException):
 
     def __str__( self ):
         key = self.error_code
-        if nt_errors.ERROR_MESSAGES.has_key(key):
+        if key in nt_errors.ERROR_MESSAGES:
             error_msg_short = nt_errors.ERROR_MESSAGES[key][0]
             error_msg_verbose = nt_errors.ERROR_MESSAGES[key][1] 
             return 'SAMR SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
@@ -298,11 +300,12 @@ class RPC_STRING(NDRSTRUCT):
     )
 
     def dump(self, msg = None, indent = 0):
-        if msg is None: msg = self.__class__.__name__
+        if msg is None:
+            msg = self.__class__.__name__
         if msg != '':
-            print "%s" % msg,
+            print("%s" % msg, end=' ')
         # Here just print the data
-        print " %r" % (self['Data']),
+        print(" %r" % (self['Data']), end=' ')
 
 class PRPC_STRING(NDRPOINTER):
     referent = (
@@ -350,7 +353,7 @@ class RPC_SHORT_BLOB(NDRSTRUCT):
 # 2.2.3.2 SAMPR_HANDLE
 class SAMPR_HANDLE(NDRSTRUCT):
     structure =  (
-        ('Data','20s=""'),
+        ('Data','20s=b""'),
     )
     def getAlignment(self):
         if self._isNDR64 is True:
@@ -361,7 +364,7 @@ class SAMPR_HANDLE(NDRSTRUCT):
 # 2.2.3.3 ENCRYPTED_LM_OWF_PASSWORD, ENCRYPTED_NT_OWF_PASSWORD
 class ENCRYPTED_LM_OWF_PASSWORD(NDRSTRUCT):
     structure = (
-        ('Data', '16s=""'),
+        ('Data', '16s=b""'),
     )
     def getAlignment(self):
         return 1
@@ -990,7 +993,7 @@ class SAMPR_USER_LOGON_HOURS_INFORMATION(NDRSTRUCT):
 # 2.2.7.21 SAMPR_ENCRYPTED_USER_PASSWORD
 class SAMPR_USER_PASSWORD(NDRSTRUCT):
     structure = (
-        ('Buffer', '512s=""'),
+        ('Buffer', '512s=b""'),
         ('Length', ULONG),
     )
     def getAlignment(self):
@@ -999,7 +1002,7 @@ class SAMPR_USER_PASSWORD(NDRSTRUCT):
 
 class SAMPR_ENCRYPTED_USER_PASSWORD(NDRSTRUCT):
     structure = (
-        ('Buffer', '516s=""'),
+        ('Buffer', '516s=b""'),
     )
     def getAlignment(self):
         return 1
@@ -1012,7 +1015,7 @@ class PSAMPR_ENCRYPTED_USER_PASSWORD(NDRPOINTER):
 # 2.2.7.22 SAMPR_ENCRYPTED_USER_PASSWORD_NEW
 class SAMPR_ENCRYPTED_USER_PASSWORD_NEW(NDRSTRUCT):
     structure = (
-        ('Buffer', '522s=""'),
+        ('Buffer', '522s=b""'),
     )
     def getAlignment(self):
         return 1
@@ -1117,7 +1120,7 @@ class PSAMPR_USER_INFO_BUFFER(NDRPOINTER):
 
 class PSAMPR_SERVER_NAME2(NDRPOINTER):
     referent = (
-        ('Data', '4s=""'),
+        ('Data', '4s=b""'),
     ) 
 
 # 2.2.8.2 SAMPR_DOMAIN_DISPLAY_USER
@@ -2775,18 +2778,16 @@ def hSamrUnicodeChangePasswordUser2(dce, serverName='\x00', userName='', oldPass
             pass
 
     newPwdHashNT = ntlm.NTOWFv1(newPassword)
-    newPwdHashLM = ntlm.LMOWFv1(newPassword)
-
 
     samUser = SAMPR_USER_PASSWORD()
     try:
-        samUser['Buffer'] = 'A'*(512-len(newPassword)*2) + newPassword.encode('utf-16le')
+        samUser['Buffer'] = b'A'*(512-len(newPassword)*2) + newPassword.encode('utf-16le')
     except UnicodeDecodeError:
         import sys
-        samUser['Buffer'] = 'A'*(512-len(newPassword)*2) + newPassword.decode(sys.getfilesystemencoding()).encode('utf-16le')
+        samUser['Buffer'] = b'A'*(512-len(newPassword)*2) + newPassword.decode(sys.getfilesystemencoding()).encode('utf-16le')
 
     samUser['Length'] = len(newPassword)*2
-    pwdBuff = str(samUser)
+    pwdBuff = samUser.getData()
 
     rc4 = ARC4.new(oldPwdHashNT)
     encBuf = rc4.encrypt(pwdBuff)
@@ -2876,4 +2877,3 @@ def hSamrLookupIdsInDomain(dce, domainHandle, ids):
     request.fields['RelativeIds'].fields['MaximumCount'] = 1000
 
     return dce.request(request)
-

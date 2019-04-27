@@ -11,7 +11,8 @@
 # Author:
 #   Javier Kohen (jkohen)
 #
-
+from __future__ import absolute_import
+from __future__ import print_function
 import re
 
 from random import randrange
@@ -19,7 +20,7 @@ from struct import pack, unpack
 
 def generate():
     # UHm... crappy Python has an maximum integer of 2**31-1.
-    top = (1L<<31)-1
+    top = (1<<31)-1
     return pack("IIII", randrange(top), randrange(top), randrange(top), randrange(top))
 
 def bin_to_string(uuid):
@@ -29,7 +30,7 @@ def bin_to_string(uuid):
 
 def string_to_bin(uuid):
     matches = re.match('([\dA-Fa-f]{8})-([\dA-Fa-f]{4})-([\dA-Fa-f]{4})-([\dA-Fa-f]{4})-([\dA-Fa-f]{4})([\dA-Fa-f]{8})', uuid)
-    (uuid1, uuid2, uuid3, uuid4, uuid5, uuid6) = map(lambda x: long(x, 16), matches.groups())
+    (uuid1, uuid2, uuid3, uuid4, uuid5, uuid6) = [int(x, 16) for x in matches.groups()]
     uuid = pack('<LHH', uuid1, uuid2, uuid3)
     uuid += pack('>HHL', uuid4, uuid5, uuid6)
     return uuid
@@ -39,7 +40,8 @@ def stringver_to_bin(s):
     return pack('<H',int(maj)) + pack('<H',int(min))
 
 def uuidtup_to_bin(tup):
-    if len(tup) != 2: return
+    if len(tup) != 2:
+        return
     return string_to_bin(tup[0]) + stringver_to_bin(tup[1])
 
 def bin_to_uuidtup(bin):

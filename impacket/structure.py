@@ -264,10 +264,22 @@ class Structure:
         if format[:1] == ':':
             if isinstance(data, Structure):
                 return data.getData()
-            elif isinstance(data, bytes) != True:
+            # If we have an object that can serialize itself, go ahead
+            elif hasattr(data, "getData"):
+                return data.getData()
+            elif isinstance(data, int):
+                return bytes(data)
+            elif isinstance(data, bytes) is not True:
                 return bytes(b(data))
             else:
                 return data
+
+        if format[-1:] == 's':
+            # Let's be sure we send the right type
+            if isinstance(data, bytes) or isinstance(data, bytearray):
+                return pack(format, data)
+            else:
+                return pack(format, b(data))
 
         # struct like specifier
         return pack(format, data)
@@ -343,7 +355,7 @@ class Structure:
             if data[-1:] != b('\x00'):
                 raise Exception("%s 'z' field is not NUL terminated: %r" % (field, data))
             if PY3:
-                return data[:-1].decode('ascii')
+                return data[:-1].decode('latin-1')
             else:
                 return data[:-1]
 
@@ -454,7 +466,7 @@ class Structure:
         try:
             lengthField = self.findLengthFieldFor(field)
             return int(self[lengthField])
-        except:
+        except Exception:
             pass
 
         # XXX: Try to match to actual values, raise if no match
@@ -556,10 +568,14 @@ class Structure:
             if two[0].isdigit():
                 return (self.zeroValue(two[1]),)*int(two[0])
                         
-        if not format.find('*') == -1: return ()
-        if 's' in format: return b''
-        if format in ['z',':','u']: return b''
-        if format == 'w': return b('\x00\x00')
+        if not format.find('*') == -1:
+            return ()
+        if 's' in format:
+            return b''
+        if format in ['z',':','u']:
+            return b''
+        if format == 'w':
+            return b('\x00\x00')
 
         return 0
 
@@ -568,7 +584,8 @@ class Structure:
             self[field[0]] = self.zeroValue(field[1])
 
     def dump(self, msg = None, indent = 0):
-        if msg is None: msg = self.__class__.__name__
+        if msg is None:
+            msg = self.__class__.__name__
         ind = ' '*indent
         print("\n%s" % msg)
         fixedFields = []
@@ -598,6 +615,10 @@ def pretty_print(x):
        return u'.'
 
 def hexdump(data, indent = ''):
+    if data is None:
+        return
+    if isinstance(data, int):
+        data = str(data).encode('utf-8')
     x=bytearray(data)
     strLen = len(x)
     i = 0
@@ -614,166 +635,3 @@ def hexdump(data, indent = ''):
         line += ''.join(pretty_print(x) for x in x[i:i+16] )
         print (line)
         i += 16
-
-class _StructureTest:
-    alignment = 0
-    def create(self,data = None):
-        if data is not None:
-            return self.theClass(data, alignment = self.alignment)
-        else:
-            return self.theClass(alignment = self.alignment)
-
-    def run(self):
-        print()
-        print("-"*70)
-        testName = self.__class__.__name__
-        print("starting test: %s....." % testName)
-        a = self.create()
-        self.populate(a)
-        a.dump("packing.....")
-        a_str = a.getData()
-        print("packed: %r" % a_str)
-        print("unpacking.....")
-        b = self.create(a_str)
-        b.dump("unpacked.....")
-        print("repacking.....")
-        b_str = b.getData()
-        hexdump(b_str)
-        if b_str != a_str:
-            print("ERROR: original packed and repacked don't match")
-            print("packed: %r" % b_str)
-
-class _Test_simple(_StructureTest):
-    class theClass(Structure):
-        commonHdr = ()
-        structure = (
-                ('int1', '!L'),
-                ('len1','!L-z1'),
-                ('arr1','B*<L'),
-                ('z1', 'z'),
-                ('u1','u'),
-                ('', '"COCA'),
-                ('len2','!H-:1'),
-                ('', '"COCA'),
-                (':1', ':'),
-                ('int3','>L'),
-                ('code1','>L=len(arr1)*2+0x1000'),
-                )
-
-    def populate(self, a):
-        a['default'] = 'hola'
-        a['int1'] = 0x3131
-        a['int3'] = 0x45444342
-        a['z1']   = 'hola'
-        a['u1']   = 'hola'.encode('utf_16_le')
-        a[':1']   = ':1234:'
-        a['arr1'] = (0x12341234,0x88990077,0x41414141)
-        # a['len1'] = 0x42424242
-
-class _Test_fixedLength(_Test_simple):
-    def populate(self, a):
-        _Test_simple.populate(self, a)
-        a['len1'] = 0x42424242
-
-class _Test_simple_aligned4(_Test_simple):
-    alignment = 4
-
-class _Test_nested(_StructureTest):
-    class theClass(Structure):
-        class _Inner(Structure):
-            structure = (('data', 'z'),)
-
-        structure = (
-            ('nest1', ':', _Inner),
-            ('nest2', ':', _Inner),
-            ('int', '<L'),
-        )
-
-    def populate(self, a):
-        a['nest1'] = _Test_nested.theClass._Inner()
-        a['nest2'] = _Test_nested.theClass._Inner()
-        a['nest1']['data'] = 'hola manola'
-        a['nest2']['data'] = 'chau loco'
-        a['int'] = 0x12345678
-    
-class _Test_Optional(_StructureTest):
-    class theClass(Structure):
-        structure = (
-                ('pName','<L&Name'),
-                ('pList','<L&List'),
-                ('Name','w'),
-                ('List','<H*<L'),
-            )
-            
-    def populate(self, a):
-        a['Name'] = 'Optional test'
-        a['List'] = (1,2,3,4)
-        
-class _Test_Optional_sparse(_Test_Optional):
-    def populate(self, a):
-        _Test_Optional.populate(self, a)
-        del a['Name']
-
-class _Test_AsciiZArray(_StructureTest):
-    class theClass(Structure):
-        structure = (
-            ('head','<L'),
-            ('array','B*z'),
-            ('tail','<L'),
-        )
-
-    def populate(self, a):
-        a['head'] = 0x1234
-        a['tail'] = 0xabcd
-        a['array'] = ('hola','manola','te traje')
-        
-class _Test_UnpackCode(_StructureTest):
-    class theClass(Structure):
-        structure = (
-            ('leni','<L=len(uno)*2'),
-            ('cuchi','_-uno','leni//2'),
-            ('uno',':'),
-            ('dos',':'),
-        )
-
-    def populate(self, a):
-        a['uno'] = 'soy un loco!'
-        a['dos'] = 'que haces fiera'
-
-class _Test_AAA(_StructureTest):
-    class theClass(Structure):
-        commonHdr = ()
-        structure = (
-          ('iv', '!L=((init_vector & 0xFFFFFF) << 8) | ((pad & 0x3f) << 2) | (keyid & 3)'),
-          ('init_vector',   '_','(iv >> 8)'),
-          ('pad',           '_','((iv >>2) & 0x3F)'),
-          ('keyid',         '_','( iv & 0x03 )'),
-          ('dataLen',       '_-data', 'len(inputDataLeft)-4'),
-          ('data',':'),
-          ('icv','>L'),
-        )
-
-    def populate(self, a):
-        a['init_vector']=0x01020304
-        #a['pad']=int('01010101',2)
-        a['pad']=int('010101',2)
-        a['keyid']=0x07
-        a['data']="\xA0\xA1\xA2\xA3\xA4\xA5\xA6\xA7\xA8\xA9"
-        a['icv'] = 0x05060708
-        #a['iv'] = 0x01020304
-        
-if __name__ == '__main__':
-    _Test_simple().run()
-
-    try:
-        _Test_fixedLength().run()
-    except:
-        print("cannot repack because length is bogus")
-
-    _Test_simple_aligned4().run()
-    _Test_nested().run()
-    _Test_Optional().run()
-    _Test_Optional_sparse().run()
-    _Test_AsciiZArray().run()
-    _Test_UnpackCode().run()
-    _Test_AAA().run()

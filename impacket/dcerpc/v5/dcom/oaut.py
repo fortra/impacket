@@ -19,6 +19,8 @@
 #   classes described in the standards developed. 
 #   There are test cases for them too. 
 #
+from __future__ import division
+from __future__ import print_function
 import random
 from struct import pack, unpack
 
@@ -40,7 +42,7 @@ class DCERPCSessionError(DCERPCException):
         DCERPCException.__init__(self, error_string, error_code, packet)
 
     def __str__( self ):
-        if hresult_errors.ERROR_MESSAGES.has_key(self.error_code):
+        if self.error_code in hresult_errors.ERROR_MESSAGES:
             error_msg_short = hresult_errors.ERROR_MESSAGES[self.error_code][0]
             error_msg_verbose = hresult_errors.ERROR_MESSAGES[self.error_code][1] 
             return 'OAUT SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
@@ -153,7 +155,6 @@ class VARENUM(NDRENUM):
         VT_UINT_PTR    = 0x26
         VT_ARRAY       = 0x2000
         VT_BYREF       = 0x4000
-        VT_UINT_PTR    = 7
         VT_RECORD_OR_VT_BYREF   = VT_RECORD | VT_BYREF
         VT_UI1_OR_VT_BYREF      = VT_UI1 | VT_BYREF
         VT_I2_OR_VT_BYREF       = VT_I2 | VT_BYREF
@@ -286,9 +287,9 @@ class FLAGGED_WORD_BLOB(NDRSTRUCT):
         if msg is None: msg = self.__class__.__name__
         ind = ' '*indent
         if msg != '':
-            print "%s" % (msg)
+            print("%s" % (msg))
         value = ''
-        print '%sasData: %s' % (ind,self['asData']),
+        print('%sasData: %s' % (ind,self['asData']), end=' ')
 
 # 2.2.23.2 BSTR Type Definition
 class BSTR(NDRPOINTER):
@@ -979,9 +980,9 @@ def enumerateMethods(iInterface):
     for x in range(iTypeAttr['ppTypeAttr']['cFuncs']):
         funcDesc = iTypeInfo.GetFuncDesc(x)
         names = iTypeInfo.GetNames(funcDesc['ppFuncDesc']['memid'], 255)
-        print names['rgBstrNames'][0]['asData']
+        print(names['rgBstrNames'][0]['asData'])
         funcDesc.dump()
-        print '='*80
+        print('='*80)
         if names['pcNames'] > 0:
             name = names['rgBstrNames'][0]['asData']
             methods[name] = {}
@@ -1087,5 +1088,3 @@ class IDispatch(IRemUnknown2):
         request['rgVarRef'] = rgVarRefIdx
         resp = self.request(request, iid = self._iid, uuid = self.get_iPid())
         return resp
-
-

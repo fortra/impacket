@@ -125,12 +125,14 @@ class NTLMRelayxConfig:
     def setRandomTargets(self, randomtargets):
         self.randomtargets = randomtargets
 
-    def setLDAPOptions(self, dumpdomain, addda, aclattack, validateprivs, escalateuser):
+    def setLDAPOptions(self, dumpdomain, addda, aclattack, validateprivs, escalateuser, addcomputer, delegateaccess):
         self.dumpdomain = dumpdomain
         self.addda = addda
         self.aclattack = aclattack
         self.validateprivs = validateprivs
         self.escalateuser = escalateuser
+        self.addcomputer = addcomputer
+        self.delegateaccess = delegateaccess
 
     def setMSSQLOptions(self, queries):
         self.queries = queries
@@ -148,7 +150,7 @@ class NTLMRelayxConfig:
         self.ipv6 = use_ipv6
 
     def setWpadOptions(self, wpad_host, wpad_auth_num):
-        if wpad_host != None:
+        if wpad_host is not None:
             self.serve_wpad = True
         self.wpad_host = wpad_host
         self.wpad_auth_num = wpad_auth_num

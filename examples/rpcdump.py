@@ -13,7 +13,8 @@
 #
 # Reference for:
 #  DCE/RPC.
-
+from __future__ import division
+from __future__ import print_function
 import sys
 import logging
 import argparse
@@ -65,7 +66,7 @@ class RPCDump:
 
         try:
             entries = self.__fetchList(rpctransport)
-        except Exception, e:
+        except Exception as e:
             logging.critical('Protocol failed: %s' % e)
 
         # Display results.
@@ -75,30 +76,30 @@ class RPCDump:
         for entry in entries:
             binding = epm.PrintStringBinding(entry['tower']['Floors'], rpctransport.getRemoteHost())
             tmpUUID = str(entry['tower']['Floors'][0])
-            if endpoints.has_key(tmpUUID) is not True:
+            if (tmpUUID in endpoints) is not True:
                 endpoints[tmpUUID] = {}
                 endpoints[tmpUUID]['Bindings'] = list()
-            if epm.KNOWN_UUIDS.has_key(uuid.uuidtup_to_bin(uuid.string_to_uuidtup(tmpUUID))[:18]):
+            if uuid.uuidtup_to_bin(uuid.string_to_uuidtup(tmpUUID))[:18] in epm.KNOWN_UUIDS:
                 endpoints[tmpUUID]['EXE'] = epm.KNOWN_UUIDS[uuid.uuidtup_to_bin(uuid.string_to_uuidtup(tmpUUID))[:18]]
             else:
                 endpoints[tmpUUID]['EXE'] = 'N/A'
-            endpoints[tmpUUID]['annotation'] = entry['annotation'][:-1]
+            endpoints[tmpUUID]['annotation'] = entry['annotation'][:-1].decode('utf-8')
             endpoints[tmpUUID]['Bindings'].append(binding)
 
-            if epm.KNOWN_PROTOCOLS.has_key(tmpUUID[:36]):
+            if tmpUUID[:36] in epm.KNOWN_PROTOCOLS:
                 endpoints[tmpUUID]['Protocol'] = epm.KNOWN_PROTOCOLS[tmpUUID[:36]]
             else:
                 endpoints[tmpUUID]['Protocol'] = "N/A"
             #print "Transfer Syntax: %s" % entry['Tower']['Floors'][1]
      
-        for endpoint in endpoints.keys():
-            print "Protocol: %s " % endpoints[endpoint]['Protocol']
-            print "Provider: %s " % endpoints[endpoint]['EXE']
-            print "UUID    : %s %s" % (endpoint, endpoints[endpoint]['annotation'])
-            print "Bindings: "
+        for endpoint in list(endpoints.keys()):
+            print("Protocol: %s " % endpoints[endpoint]['Protocol'])
+            print("Provider: %s " % endpoints[endpoint]['EXE'])
+            print("UUID    : %s %s" % (endpoint, endpoints[endpoint]['annotation']))
+            print("Bindings: ")
             for binding in endpoints[endpoint]['Bindings']:
-                print "          %s" % binding
-            print ""
+                print("          %s" % binding)
+            print("")
 
         if entries:
             num = len(entries)
@@ -129,7 +130,7 @@ class RPCDump:
 if __name__ == '__main__':
     # Init the example's logger theme
     logger.init()
-    print version.BANNER
+    print(version.BANNER)
 
     parser = argparse.ArgumentParser(add_help = True, description = "Dumps the remote RPC enpoints information.")
     parser.add_argument('target', action='store', help='[[domain/]username[:password]@]<targetName or address>')

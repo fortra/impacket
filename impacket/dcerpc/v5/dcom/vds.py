@@ -19,6 +19,8 @@
 #   classes described in the standards developed. 
 #   There are test cases for them too. 
 #
+from __future__ import division
+from __future__ import print_function
 from impacket.dcerpc.v5.ndr import NDRSTRUCT, NDRUniConformantVaryingArray, NDRENUM
 from impacket.dcerpc.v5.dcomrt import DCOMCALL, DCOMANSWER, IRemUnknown2, PMInterfacePointer, INTERFACE
 from impacket.dcerpc.v5.dtypes import LPWSTR, ULONG, DWORD, SHORT, GUID
@@ -32,7 +34,7 @@ class DCERPCSessionError(DCERPCException):
         DCERPCException.__init__(self, error_string, error_code, packet)
 
     def __str__( self ):
-        if hresult_errors.ERROR_MESSAGES.has_key(self.error_code):
+        if self.error_code in hresult_errors.ERROR_MESSAGES:
             error_msg_short = hresult_errors.ERROR_MESSAGES[self.error_code][0]
             error_msg_verbose = hresult_errors.ERROR_MESSAGES[self.error_code][1] 
             return 'VDS SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
@@ -198,7 +200,7 @@ class IEnumVdsObject(IRemUnknown2):
         request['celt'] = celt
         try:
             resp = self.request(request, uuid = self.get_iPid())
-        except Exception, e:
+        except Exception as e:
             resp = e.get_packet()
             # If it is S_FALSE(1) means less items were returned
             if resp['ErrorCode'] != 1:
@@ -238,7 +240,7 @@ class IVdsService(IRemUnknown2):
         request['ORPCthis']['flags'] = 0
         try:
             resp = self.request(request, uuid = self.get_iPid())
-        except Exception, e:
+        except Exception as e:
             resp = e.get_packet()
         return resp 
 
@@ -263,7 +265,3 @@ class IVdsService(IRemUnknown2):
         request['masks'] = masks
         resp = self.request(request, uuid = self.get_iPid())
         return IEnumVdsObject(INTERFACE(self.get_cinstance(), ''.join(resp['ppEnum']['abData']), self.get_ipidRemUnknown(), target = self.get_target()))
-
-
-
-

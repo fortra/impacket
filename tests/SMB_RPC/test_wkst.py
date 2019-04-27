@@ -27,8 +27,13 @@
 #  
 ################################################################################
 
+from __future__ import division
+from __future__ import print_function
 import unittest
-import ConfigParser
+try:
+    import ConfigParser
+except ImportError:
+    import configparser as ConfigParser
 
 from impacket.dcerpc.v5 import transport
 from impacket.dcerpc.v5 import wkst
@@ -179,7 +184,7 @@ class WKSTTests(unittest.TestCase):
         try:
             resp2 = dce.request(req)
             resp2.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_INVALID_FUNCTION') < 0:
                 raise
 
@@ -194,7 +199,7 @@ class WKSTTests(unittest.TestCase):
         try:
             resp = wkst.hNetrUseAdd(dce, 1, info1)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('rpc_s_access_denied') >=0:
                 # This could happen in newer OSes
                 pass
@@ -206,7 +211,7 @@ class WKSTTests(unittest.TestCase):
         try:
             resp = wkst.hNetrUseEnum(dce, 2)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_PIPE_DISCONNECTED') >=0:
                 # This could happen in newer OSes
                 pass
@@ -214,7 +219,7 @@ class WKSTTests(unittest.TestCase):
         try:
             resp2 = wkst.hNetrUseGetInfo(dce, 'Z:', 3)
             resp2.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_PIPE_DISCONNECTED') >=0:
                 # This could happen in newer OSes
                 pass
@@ -222,7 +227,7 @@ class WKSTTests(unittest.TestCase):
         try:
             resp = wkst.hNetrUseDel(dce,'Z:')
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('STATUS_PIPE_DISCONNECTED') >=0:
                 # This could happen in newer OSes
                 pass
@@ -240,7 +245,7 @@ class WKSTTests(unittest.TestCase):
         try:
             resp2 = dce.request(req)
             resp2.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('rpc_s_access_denied') >=0:
                 # This could happen in newer OSes
                 pass
@@ -259,7 +264,7 @@ class WKSTTests(unittest.TestCase):
         try:
             resp2 = dce.request(req)
             resp2.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('rpc_s_access_denied') >=0:
                 # This could happen in newer OSes
                 pass
@@ -271,7 +276,7 @@ class WKSTTests(unittest.TestCase):
         try:
             resp2 = dce.request(req)
             resp2.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('rpc_s_access_denied') >=0:
                 # This could happen in newer OSes
                 pass
@@ -284,7 +289,7 @@ class WKSTTests(unittest.TestCase):
         try:
             resp2 = dce.request(req)
             resp2.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('rpc_s_access_denied') >=0:
                 # This could happen in newer OSes
                 pass
@@ -301,7 +306,7 @@ class WKSTTests(unittest.TestCase):
         try:
             resp2 = dce.request(req)
             resp2.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_INVALID_PARAMETER') < 0:
                 raise
 
@@ -311,7 +316,7 @@ class WKSTTests(unittest.TestCase):
         try:
             resp2 = wkst.hNetrWorkstationStatisticsGet(dce, '\x00', 0, 0)
             resp2.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_INVALID_PARAMETER') < 0:
                 raise
 
@@ -325,7 +330,7 @@ class WKSTTests(unittest.TestCase):
         try:
             resp2 = dce.request(req)
             resp2.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_INVALID_PARAMETER') < 0:
                 raise
 
@@ -335,7 +340,7 @@ class WKSTTests(unittest.TestCase):
         try:
             resp = wkst.hNetrGetJoinInformation(dce, '\x00')
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_INVALID_PARAMETER') < 0:
                 raise
 
@@ -353,7 +358,7 @@ class WKSTTests(unittest.TestCase):
         try:
             resp2 = dce.request(req)
             resp2.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_INVALID_PASSWORD') < 0:
                 raise
 
@@ -363,7 +368,7 @@ class WKSTTests(unittest.TestCase):
         try:
             resp = wkst.hNetrJoinDomain2(dce,'172.16.123.1\\FREEFLY\x00','OU=BETUS,DC=FREEFLY\x00',NULL,'\x00'*512, wkst.NETSETUP_DOMAIN_JOIN_IF_JOINED)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_INVALID_PASSWORD') < 0:
                 raise
 
@@ -379,7 +384,7 @@ class WKSTTests(unittest.TestCase):
         try:
             resp2 = dce.request(req)
             resp2.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_INVALID_PASSWORD') < 0:
                 raise
 
@@ -387,9 +392,9 @@ class WKSTTests(unittest.TestCase):
         dce, rpctransport = self.connect()
 
         try:
-            resp = wkst.hNetrUnjoinDomain2(dce, NULL, '\x00'*512, wkst.NETSETUP_ACCT_DELETE)
+            resp = wkst.hNetrUnjoinDomain2(dce, NULL, b'\x00'*512, wkst.NETSETUP_ACCT_DELETE)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_INVALID_PASSWORD') < 0:
                 raise
 
@@ -406,7 +411,7 @@ class WKSTTests(unittest.TestCase):
         try:
             resp2 = dce.request(req)
             resp2.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_INVALID_PASSWORD') < 0:
                 raise
 
@@ -414,9 +419,9 @@ class WKSTTests(unittest.TestCase):
         dce, rpctransport = self.connect()
 
         try:
-            resp = wkst.hNetrRenameMachineInDomain2(dce, 'BETUS\x00', NULL, '\x00'*512, wkst.NETSETUP_ACCT_CREATE)
+            resp = wkst.hNetrRenameMachineInDomain2(dce, 'BETUS\x00', NULL, b'\x00'*512, wkst.NETSETUP_ACCT_CREATE)
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_INVALID_PASSWORD') < 0:
                 raise
 
@@ -432,7 +437,7 @@ class WKSTTests(unittest.TestCase):
         try:
             resp2 = dce.request(req)
             resp2.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('0x8001011c') < 0:
                 raise
 
@@ -442,7 +447,7 @@ class WKSTTests(unittest.TestCase):
         try:
             resp2 = wkst.hNetrValidateName2(dce, 'BETO\x00', NULL, NULL, wkst.NETSETUP_NAME_TYPE.NetSetupDomain)
             resp2.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('0x8001011c') < 0:
                 raise
 
@@ -459,7 +464,7 @@ class WKSTTests(unittest.TestCase):
         try:
             resp2 = dce.request(req)
             resp2.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('0x8001011c') < 0:
                 raise
 
@@ -469,7 +474,7 @@ class WKSTTests(unittest.TestCase):
         try:
             resp = wkst.hNetrGetJoinableOUs2(dce,'FREEFLY\x00', NULL, NULL,0 )
             resp.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('0x8001011c') < 0:
                 raise
 
@@ -485,7 +490,7 @@ class WKSTTests(unittest.TestCase):
         try:
             resp2 = dce.request(req)
             resp2.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_NOT_SUPPORTED') < 0 and str(e).find('ERROR_INVALID_PASSWORD') < 0:
                 raise
 
@@ -495,7 +500,7 @@ class WKSTTests(unittest.TestCase):
         try:
             resp2= wkst.hNetrAddAlternateComputerName(dce, 'FREEFLY\x00', NULL, NULL)
             resp2.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_NOT_SUPPORTED') < 0 and str(e).find('ERROR_INVALID_PASSWORD') < 0:
                 raise
 
@@ -511,7 +516,7 @@ class WKSTTests(unittest.TestCase):
         try:
             resp2 = dce.request(req)
             resp2.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_NOT_SUPPORTED') < 0 and str(e).find('ERROR_INVALID_PASSWORD') < 0:
                 raise
 
@@ -521,7 +526,7 @@ class WKSTTests(unittest.TestCase):
         try:
             resp2 = wkst.hNetrRemoveAlternateComputerName(dce,'FREEFLY\x00', NULL, NULL )
             resp2.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_NOT_SUPPORTED') < 0 and str(e).find('ERROR_INVALID_PASSWORD') < 0:
                 raise
 
@@ -537,7 +542,7 @@ class WKSTTests(unittest.TestCase):
         try:
             resp2 = dce.request(req)
             resp2.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_NOT_SUPPORTED') < 0:
                 if str(e).find('ERROR_INVALID_PARAMETER') < 0:
                     raise
@@ -548,7 +553,7 @@ class WKSTTests(unittest.TestCase):
         try:
             resp2 = wkst.hNetrSetPrimaryComputerName(dce,'FREEFLY\x00', NULL, NULL )
             resp2.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_NOT_SUPPORTED') < 0:
                 if str(e).find('ERROR_INVALID_PARAMETER') < 0:
                     raise
@@ -563,7 +568,7 @@ class WKSTTests(unittest.TestCase):
         try:
             resp2 = dce.request(req)
             resp2.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_NOT_SUPPORTED') < 0:
                 raise
 
@@ -573,7 +578,7 @@ class WKSTTests(unittest.TestCase):
         try:
             resp2 = wkst.hNetrEnumerateComputerNames(dce,wkst.NET_COMPUTER_NAME_TYPE.NetAllComputerNames)
             resp2.dump()
-        except Exception, e:
+        except Exception as e:
             if str(e).find('ERROR_NOT_SUPPORTED') < 0:
                 raise
 

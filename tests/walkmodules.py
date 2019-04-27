@@ -11,5 +11,5 @@ for importer, modname, ispkg in pkgutil.walk_packages(path=package.__path__,
     except Exception as e:
         import traceback
         traceback.print_exc()
-        print str(e)
+        print(e)
         pass

@@ -5,7 +5,7 @@
 # for more information.
 #
 
-from impacket import ImpactPacket, ImpactDecoder, structure
+from impacket import structure
 
 O_ETH = 0
 O_IP  = 1
@@ -41,11 +41,11 @@ class PCapFilePacket(structure.Structure):
 
     def __init__(self, *args, **kargs):
         structure.Structure.__init__(self, *args, **kargs)
-        self['data'] = ''
+        self['data'] = b''
 
 class PcapFile:
     def __init__(self, fileName = None, mode = 'rb'):
-        if not fileName is None:
+        if fileName is not None:
            self.file = open(fileName, mode)
         self.hdr = None
         self.wroteHeader = False
@@ -92,7 +92,7 @@ class PcapFile:
            self.wroteHeader = True
            self.file.seek(0)
            self.createHeaderOnce()
-           self.file.write(str(self.hdr))
+           self.file.write(self.hdr.getData())
 
     def read(self):
        self.readHeaderOnce()
@@ -111,7 +111,6 @@ class PcapFile:
         self.reset()
         while 1:
            answer = self.read()
-           if answer is None: break
+           if answer is None:
+               break
            yield answer
-
-

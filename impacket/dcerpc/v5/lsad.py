@@ -18,6 +18,8 @@
 #   Helper functions start with "h"<name of the call>.
 #   There are test cases for them too. 
 #
+from __future__ import division
+from __future__ import print_function
 from impacket.dcerpc.v5.ndr import NDRCALL, NDRENUM, NDRUNION, NDRUniConformantVaryingArray, NDRPOINTER, NDR, NDRSTRUCT, \
     NDRUniConformantArray
 from impacket.dcerpc.v5.dtypes import DWORD, LPWSTR, STR, LUID, LONG, ULONG, RPC_UNICODE_STRING, PRPC_SID, LPBYTE, \
@@ -36,7 +38,7 @@ class DCERPCSessionError(DCERPCException):
 
     def __str__( self ):
         key = self.error_code
-        if nt_errors.ERROR_MESSAGES.has_key(key):
+        if key in nt_errors.ERROR_MESSAGES:
             error_msg_short = nt_errors.ERROR_MESSAGES[key][0]
             error_msg_verbose = nt_errors.ERROR_MESSAGES[key][1] 
             return 'LSAD SessionError: code: 0x%x - %s - %s' % (self.error_code, error_msg_short, error_msg_verbose)
@@ -147,12 +149,12 @@ class STRING(NDRSTRUCT):
     )
 
     def dump(self, msg = None, indent = 0):
-        if msg is None: msg = self.__class__.__name__
-        ind = ' '*indent
+        if msg is None:
+            msg = self.__class__.__name__
         if msg != '':
-            print "%s" % (msg),
+            print("%s" % msg, end=' ')
         # Here just print the data
-        print " %r" % (self['Data']),
+        print(" %r" % (self['Data']), end=' ')
 
     def __setitem__(self, key, value):
         if key == 'Data':
@@ -1600,7 +1602,7 @@ def hLsarRetrievePrivateData(dce, policyHandle, keyName):
     request['PolicyHandle'] = policyHandle
     request['KeyName'] = keyName
     retVal = dce.request(request)
-    return ''.join(retVal['EncryptedData']['Buffer'])
+    return b''.join(retVal['EncryptedData']['Buffer'])
 
 def hLsarStorePrivateData(dce, policyHandle, keyName, encryptedData):
     request = LsarStorePrivateData()
@@ -1638,7 +1640,7 @@ def hLsarQuerySecurityObject(dce, policyHandle, securityInformation = OWNER_SECU
     request['PolicyHandle'] = policyHandle
     request['SecurityInformation'] = securityInformation
     retVal =  dce.request(request)
-    return ''.join(retVal['SecurityDescriptor']['SecurityDescriptor'])
+    return b''.join(retVal['SecurityDescriptor']['SecurityDescriptor'])
 
 def hLsarSetSecurityObject(dce, policyHandle, securityInformation, securityDescriptor):
     request = LsarSetSecurityObject()
@@ -1661,4 +1663,3 @@ def hLsarSetInformationPolicy(dce, policyHandle, informationClass, policyInforma
     request['InformationClass'] = informationClass
     request['PolicyInformation'] = policyInformation
     return dce.request(request)
-

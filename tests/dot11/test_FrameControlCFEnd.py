@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 # sorry, this is very ugly, but I'm in python 2.5
 import sys
 sys.path.insert(0,"../..")
@@ -11,7 +10,7 @@ class TestDot11FrameControlCFEnd(unittest.TestCase):
 
     def setUp(self):
         # 802.11 Control Frame CFEnd
-        self.frame_orig='\xe4\x00\x00\x00\xff\xff\xff\xff\xff\xff\x00\x19\xe0\x98\x04\xd4\xad\x9c\x3c\xc0'
+        self.frame_orig=b'\xe4\x00\x00\x00\xff\xff\xff\xff\xff\xff\x00\x19\xe0\x98\x04\xd4\xad\x9c\x3c\xc0'
 
         d = Dot11(self.frame_orig)
         
@@ -62,4 +61,3 @@ class TestDot11FrameControlCFEnd(unittest.TestCase):
       
 suite = unittest.TestLoader().loadTestsFromTestCase(TestDot11FrameControlCFEnd)
 unittest.TextTestRunner(verbosity=1).run(suite)
-

@@ -29,7 +29,7 @@ from impacket.smb3 import SMB3, SMB2_GLOBAL_CAP_ENCRYPTION, SMB2_DIALECT_WILDCAR
     SMB2_NEGOTIATE, SMB2Negotiate, SMB2_DIALECT_002, SMB2_DIALECT_21, SMB2_DIALECT_30, SMB2_GLOBAL_CAP_LEASING, \
     SMB3Packet, SMB2_GLOBAL_CAP_LARGE_MTU, SMB2_GLOBAL_CAP_DIRECTORY_LEASING, SMB2_GLOBAL_CAP_MULTI_CHANNEL, \
     SMB2_GLOBAL_CAP_PERSISTENT_HANDLES, SMB2_NEGOTIATE_SIGNING_REQUIRED, SMB2Packet,SMB2SessionSetup, SMB2_SESSION_SETUP, STATUS_MORE_PROCESSING_REQUIRED, SMB2SessionSetup_Response
-from impacket.smbconnection import SMBConnection, SMB_DIALECT, SessionError
+from impacket.smbconnection import SMBConnection, SMB_DIALECT
 from impacket.spnego import SPNEGO_NegTokenInit, SPNEGO_NegTokenResp, TypesMech
 from impacket.dcerpc.v5.transport import SMBTransport
 from impacket.dcerpc.v5 import scmr
@@ -171,7 +171,7 @@ class SMBRelayClient(ProtocolClient):
             else:
                 LOG.error('SMBCLient error: %s' % str(e))
             return False
-        if packet[0] == '\xfe':
+        if packet[0:1] == b'\xfe':
             smbClient = MYSMB3(self.targetHost, self.targetPort, self.extendedSecurity,nmbSession=self.session.getNMBServer(), negPacket=packet)
         else:
             # Answer is SMB packet, sticking to SMBv1
@@ -213,7 +213,7 @@ class SMBRelayClient(ProtocolClient):
 
         # NTLMSSP
         blob['MechTypes'] = [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
-        blob['MechToken'] = str(negotiateMessage)
+        blob['MechToken'] = negotiateMessage
 
         sessionSetup['SecurityBufferLength'] = len(blob)
         sessionSetup['Buffer'] = blob.getData()
@@ -263,7 +263,7 @@ class SMBRelayClient(ProtocolClient):
 
         # NTLMSSP
         blob['MechTypes'] = [TypesMech['NTLMSSP - Microsoft NTLM Security Support Provider']]
-        blob['MechToken'] = str(negotiateMessage)
+        blob['MechToken'] = negotiateMessage
 
         sessionSetup['Parameters']['SecurityBlobLength']  = len(blob)
         sessionSetup['Parameters'].getData()
@@ -318,8 +318,8 @@ class SMBRelayClient(ProtocolClient):
 
             sessionSetup['Data']['AnsiPwd'] = sessionSetupData['AnsiPwd']
             sessionSetup['Data']['UnicodePwd'] = sessionSetupData['UnicodePwd']
-            sessionSetup['Data']['Account'] = str(sessionSetupData['Account'])
-            sessionSetup['Data']['PrimaryDomain'] = str(sessionSetupData['PrimaryDomain'])
+            sessionSetup['Data']['Account'] = sessionSetupData['Account']
+            sessionSetup['Data']['PrimaryDomain'] = sessionSetupData['PrimaryDomain']
             sessionSetup['Data']['NativeOS'] = 'Unix'
             sessionSetup['Data']['NativeLanMan'] = 'Samba'
 
@@ -342,13 +342,13 @@ class SMBRelayClient(ProtocolClient):
         return clientResponse, errorCode
 
     def sendAuth(self, authenticateMessageBlob, serverChallenge=None):
-        if unpack('B', str(authenticateMessageBlob)[:1])[0] != SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP:
+        if unpack('B', authenticateMessageBlob[:1])[0] != SPNEGO_NegTokenResp.SPNEGO_NEG_TOKEN_RESP:
             # We need to wrap the NTLMSSP into SPNEGO
             respToken2 = SPNEGO_NegTokenResp()
-            respToken2['ResponseToken'] = str(authenticateMessageBlob)
+            respToken2['ResponseToken'] = authenticateMessageBlob
             authData = respToken2.getData()
         else:
-            authData = str(authenticateMessageBlob)
+            authData = authenticateMessageBlob
 
         if self.session.getDialect() == SMB_DIALECT:
             token, errorCode = self.sendAuthv1(authData, serverChallenge)

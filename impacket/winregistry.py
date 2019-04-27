@@ -16,13 +16,15 @@
 #
 # [ ] Parse li records, probable the same as the ri but couldn't find any to probe
 
-
+from __future__ import division
+from __future__ import print_function
 import sys
 from struct import unpack
 import ntpath
+from six import b
 
 from impacket import LOG
-from impacket.structure import Structure
+from impacket.structure import Structure, hexdump
 
 
 # Constants
@@ -51,9 +53,9 @@ class REG_REGF(Structure):
         ('DataSize','<L=0'),
         ('1111','<L=0'),
         ('Name','48s=""'),
-        ('Remaining1','411s=""'),
+        ('Remaining1','411s=b""'),
         ('CheckSum','<L=0xffffffff'), # Sum of all DWORDs from 0x0 to 0x1FB
-        ('Remaining2','3585s=""'),
+        ('Remaining2','3585s=b""'),
     )
 
 class REG_HBIN(Structure):
@@ -86,7 +88,7 @@ class REG_NK(Structure):
         ('OffsetValueList','<l=0'),
         ('OffsetSkRecord','<l=0'),
         ('OffsetClassName','<l=0'),
-        ('UnUsed','20s=""'),
+        ('UnUsed','20s=b""'),
         ('NameLength','<H=0'),
         ('ClassNameLength','<H=0'),
         ('_KeyName','_-KeyName','self["NameLength"]'),
@@ -141,15 +143,15 @@ class REG_SK(Structure):
 class REG_HASH(Structure):
     structure = (
         ('OffsetNk','<L=0'),
-        ('KeyName','4s=""'),
+        ('KeyName','4s=b""'),
     )
 
-StructMappings = {'nk': REG_NK,
-                  'vk': REG_VK,
-                  'lf': REG_LF,
-                  'lh': REG_LH,
-                  'ri': REG_RI,
-                  'sk': REG_SK,
+StructMappings = {b'nk': REG_NK,
+                  b'vk': REG_VK,
+                  b'lf': REG_LF,
+                  b'lh': REG_LH,
+                  b'ri': REG_RI,
+                  b'sk': REG_SK,
                  }
 
 class Registry:
@@ -189,8 +191,8 @@ class Registry:
                     if isinstance(block, REG_NK):
                         if block['Type'] == ROOT_KEY:
                             return block
-            except:
-                 pass
+            except Exception as e:
+                pass
             data = self.fd.read(4096)
 
         return None
@@ -204,7 +206,7 @@ class Registry:
             return None
         else:
             block = REG_HBINBLOCK(data)
-            if StructMappings.has_key(block['Data'][:2]):
+            if block['Data'][:2] in StructMappings:
                 return StructMappings[block['Data'][:2]](block['Data'])
             else:
                 LOG.debug("Unknown type 0x%s" % block['Data'][:2])
@@ -242,7 +244,7 @@ class Registry:
             block.fromString(data)
             blockLen = len(block)
 
-            if StructMappings.has_key(block['Data'][:2]):
+            if block['Data'][:2] in StructMappings:
                 block = StructMappings[block['Data'][:2]](block['Data'])
 
             res.append(block)
@@ -261,15 +263,15 @@ class Registry:
 
     def __getLhHash(self, key):
         res = 0
-        for b in key.upper():
+        for bb in key.upper():
             res *= 37
-            res += ord(b)
+            res += ord(bb)
         return res % 0x100000000
 
     def __compareHash(self, magic, hashData, key):
         if magic == 'lf':
             hashRec = REG_HASH(hashData)
-            if hashRec['KeyName'].strip('\x00') == key[:4]:
+            if hashRec['KeyName'].strip(b'\x00') == b(key[:4]):
                 return hashRec['OffsetNk']
         elif magic == 'lh':
             hashRec = REG_HASH(hashData)
@@ -294,7 +296,7 @@ class Registry:
             # Let's search the hash records for the name
             if lf['Magic'] == 'ri':
                 # ri points to lf/lh records, so we must parse them before
-                records = ''
+                records = b''
                 for i in range(lf['NumKeys']):
                     offset = unpack('<L', data[:4])[0]
                     l = self.__getBlock(offset)
@@ -309,7 +311,7 @@ class Registry:
                 if res is not None:
                     # We have a match, now let's check the whole record
                     nk = self.__getBlock(res)
-                    if nk['KeyName'] == subKey:
+                    if nk['KeyName'].decode('utf-8') == subKey:
                         return nk
                 data = data[8:]
 
@@ -318,7 +320,7 @@ class Registry:
     def __walkSubNodes(self, rec):
         nk = self.__getBlock(rec['OffsetNk'])
         if isinstance(nk, REG_NK):
-            print "%s%s" % (self.indent, nk['KeyName'])
+            print("%s%s" % (self.indent, nk['KeyName'].decode('utf-8')))
             self.indent += '  '
             if nk['OffsetSubKeyLf'] < 0:
                 self.indent = self.indent[:-2]
@@ -381,29 +383,29 @@ class Registry:
     def printValue(self, valueType, valueData):
         if valueType == REG_SZ or valueType == REG_EXPAND_SZ:
             if type(valueData) is int:
-                print 'NULL'
+                print('NULL')
             else:
-                print "%s" % (valueData.decode('utf-16le'))
+                print("%s" % (valueData.decode('utf-16le')))
         elif valueType == REG_BINARY:
-            print ''
+            print('')
             hexdump(valueData, self.indent)
         elif valueType == REG_DWORD:
-            print "%d" % valueData
+            print("%d" % valueData)
         elif valueType == REG_QWORD:
-            print "%d" % (unpack('<Q',valueData)[0])
+            print("%d" % (unpack('<Q',valueData)[0]))
         elif valueType == REG_NONE:
             try:
                 if len(valueData) > 1:
-                    print ''
+                    print('')
                     hexdump(valueData, self.indent)
                 else:
-                    print " NULL"
+                    print(" NULL")
             except:
-                print " NULL"
+                print(" NULL")
         elif valueType == REG_MULTISZ:
-            print "%s" % (valueData.decode('utf-16le'))
+            print("%s" % (valueData.decode('utf-16le')))
         else:
-            print "Unknown Type 0x%x!" % valueType
+            print("Unknown Type 0x%x!" % valueType)
             hexdump(valueData)
 
     def enumKey(self, parentKey):
@@ -428,7 +430,7 @@ class Registry:
                 hashRec = REG_HASH(data[:8])
                 nk = self.__getBlock(hashRec['OffsetNk'])
                 data = data[8:]
-                res.append('%s'%nk['KeyName'])
+                res.append('%s'%nk['KeyName'].decode('utf-8'))
         return res
 
     def enumValues(self,key):
@@ -442,7 +444,7 @@ class Registry:
                 if value['Flag'] > 0:
                     resp.append(value['Name'])
                 else:
-                    resp.append('default')
+                    resp.append(b'default')
 
         return resp
 
@@ -460,7 +462,7 @@ class Registry:
             valueList = self.__getValueBlocks(key['OffsetValueList'], key['NumValues']+1)
 
             for value in valueList:
-                if value['Name'] == regValue:
+                if value['Name'] == b(regValue):
                     return value['ValueType'], self.__getValueData(value)
                 elif regValue == 'default' and value['Flag'] <=0:
                     return value['ValueType'], self.__getValueData(value)
@@ -478,28 +480,3 @@ class Registry:
         if key['OffsetClassName'] > 0:
             value = self.__getBlock(key['OffsetClassName'])
             return value['Data']
-
-def pretty_print(x):
-    if x in '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~ ':
-       return x
-    else:
-       return '.'
-
-def hexdump(data, indent = ''):
-    x=str(data)
-    strLen = len(x)
-    i = 0
-    while i < strLen:
-        print indent,
-        print "%04x  " % i,
-        for j in range(16):
-            if i+j < strLen:
-                print "%02X" % ord(x[i+j]),
-            else:
-                print "  ",
-            if j%16 == 7:
-                print "",
-        print " ",
-        print ''.join(pretty_print(x) for x in x[i:i+16] )
-        i += 16
-

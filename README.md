@@ -44,7 +44,7 @@ Grab the latest stable release, unpack it and run `pip install .` from the direc
 Requirements
 ============
 
- * A Python interpreter. Versions 2.6 and newer are known to work.
+ * A Python interpreter. Python 2.6/2.7 and Python 3.6 are known to work. 
    1. If you want to run the examples and you have Python < 2.7, you
       will need to install the `argparse` package for them to work.
    2. For Kerberos support you will need `pyasn1` package
@@ -71,7 +71,7 @@ If you want to run the library test cases you need to do mainly three things:
 
 1. Install and configure a Windows 2012 R2 Domain Controller.
    * Be sure the RemoteRegistry service is enabled and running.
-2. Configure the [dcetest.cfg](https://github.com/SecureAuthCorp/impacket/blob/impacket_0_9_17/tests/SMB_RPC/dcetests.cfg) file with the necessary information
+2. Configure the [dcetest.cfg](https://github.com/SecureAuthCorp/impacket/blob/impacket_0_9_19/tests/SMB_RPC/dcetests.cfg) file with the necessary information
 3. Install tox (`pip install tox`)
 
 Once that's done, you can run `tox` and wait for the results. If all goes well, all test cases should pass.
