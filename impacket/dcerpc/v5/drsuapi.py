@@ -22,6 +22,7 @@ from __future__ import division
 from __future__ import print_function
 from builtins import bytes
 import hashlib
+import sys
 from struct import pack
 from six import PY2
 
@@ -608,12 +609,16 @@ class WCHAR_ARRAY(NDRUniConformantArray):
     def __getitem__(self, key):
         if key == 'Data':
             try:
-                return ''.join([chr(i) for i in self.fields[key]])
+                data = ''.join([chr(i) for i in self.fields[key]])
             except ValueError:
                 # We might have Unicode chars in here, let's use unichr instead
                 LOG.debug('ValueError exception on %s' % self.fields[key])
                 LOG.debug('Switching to unichr()')
-                return ''.join([chr(i) for i in self.fields[key]])
+                if sys.version > '3':
+                    data = ''.join([chr(i) for i in self.fields[key]])
+                else:
+                    data = ''.join([unichr(i) for i in self.fields[key]])
+             return data
 
         else:
             return NDR.__getitem__(self,key)
