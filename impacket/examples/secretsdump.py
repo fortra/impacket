@@ -1888,8 +1888,21 @@ class NTDSHashes:
                 decryptedPekList = self.PEKLIST_PLAIN(
                     self.__cryptoCommon.decryptAES(self.__bootKey, encryptedPekList['EncryptedPek'],
                                                    encryptedPekList['KeyMaterial']))
-                self.__PEK.append(decryptedPekList['DecryptedPek'][4:][:16])
-                LOG.info("PEK # 0 found and decrypted: %s", hexlify(decryptedPekList['DecryptedPek'][4:][:16]).decode('utf-8'))
+
+                # PEK list entries take the form:
+                #   index (4 byte LE int), PEK (16 byte key)
+                # the entries are in ascending order, and the list is terminated
+                # by an entry with a non-sequential index (08080808 observed)
+                pos, cur_index = 0, 0
+                while True:
+                    pek_entry = decryptedPekList['DecryptedPek'][pos:pos+20]
+                    if len(pek_entry) < 20: break # if list truncated, should not happen
+                    index, pek = unpack('<L16s', pek_entry)
+                    if index != cur_index: break # break on non-sequential index
+                    self.__PEK.append(pek)
+                    LOG.info("PEK # %d found and decrypted: %s", index, hexlify(pek).decode('utf-8'))
+                    cur_index += 1
+                    pos += 20
 
     def __removeRC4Layer(self, cryptedHash):
         md5 = hashlib.new('md5')
