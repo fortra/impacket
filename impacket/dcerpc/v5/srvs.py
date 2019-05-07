@@ -86,6 +86,9 @@ STYPE_CLUSTER_DFS  = 0x08000000
 STYPE_SPECIAL      = 0x80000000
 STYPE_TEMPORARY    = 0x40000000
 
+# AND with shi_type to extract the Share Type part
+STYPE_MASK         = 0x000000FF
+
 # 2.2.2.5 Client-Side Caching (CSC) States
 CSC_CACHE_MANUAL_REINT = 0x00
 CSC_CACHE_AUTO_REINT   = 0x10
