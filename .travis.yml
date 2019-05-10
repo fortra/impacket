@@ -15,8 +15,6 @@ matrix:
 install: pip install flake8 tox -r requirements.txt
   
 before_script:
-  # Verify installed packages have compatible dependencies
-  - pip check
   # stop the build if there are Python syntax errors or undefined names
   - flake8 . --count --select=E9,F72,F82 --show-source --statistics
   # exit-zero treats all errors as warnings.  The GitHub editor is 127 chars wide
