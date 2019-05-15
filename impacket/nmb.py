@@ -967,13 +967,17 @@ class NetBIOSTCPSession(NetBIOSSession):
 
     def non_polling_read(self, read_length, timeout):
         data = b''
+        if timeout is None:
+            timeout = 3600
+
+        start_time = time.time()
         bytes_left = read_length
 
         while bytes_left > 0:
             try:
                 ready, _, _ = select.select([self._sock.fileno()], [], [], timeout)
 
-                if not ready:
+                if not ready or (time.time() - start_time) > timeout:
                     raise NetBIOSTimeout
 
                 received = self._sock.recv(bytes_left)
