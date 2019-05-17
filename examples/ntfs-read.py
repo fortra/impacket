@@ -497,7 +497,7 @@ class AttributeNonResident(Attribute):
         if offset % self.ClusterSize:
             # Read the whole VCN
             bufTemp = self.readVCN(vcnToStart, 1)
-            if bufTemp is b'':
+            if bufTemp == b'':
                 # Something went wrong
                 return None
             buf = bufTemp[offset % self.ClusterSize:]
@@ -513,7 +513,7 @@ class AttributeNonResident(Attribute):
         if curLength // self.ClusterSize:
             # Yep.. so let's read full clusters
             bufTemp = self.readVCN(vcnToStart, curLength // self.ClusterSize)
-            if bufTemp is b'':
+            if bufTemp == b'':
                 # Something went wrong
                 return None
             if len(bufTemp) > curLength:
@@ -1084,7 +1084,7 @@ class MiniShell(cmd.Cmd):
         if res is None:
             logging.error("Directory not found")
             self.pwd = oldpwd
-            return 
+            return
         if res.isDirectory() == 0:
             logging.error("Not a directory!")
             self.pwd = oldpwd
@@ -1128,7 +1128,7 @@ class MiniShell(cmd.Cmd):
             if display is True:
                 inode.displayName()
             self.completion.append((inode.FileName,inode.isDirectory()))
-            
+
     def complete_cd(self, text, line, begidx, endidx):
         return self.complete_get(text, line, begidx, endidx, include = 2)
 

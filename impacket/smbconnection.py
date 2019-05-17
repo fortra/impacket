@@ -348,9 +348,9 @@ class SMBConnection:
                     # So, if that's the case we'll force using RC4 by converting
                     # the password to lm/nt hashes and hope for the best. If that's already
                     # done, byebye.
-                    if lmhash is '' and nthash is '' and (aesKey is '' or aesKey is None) and TGT is None and TGS is None:
+                    if lmhash == '' and nthash == '' and aesKey in ('', None) and TGT is None and TGS is None:
                         lmhash = compute_lmhash(password)
-                        nthash = compute_nthash(password) 
+                        nthash = compute_nthash(password)
                     else:
                         raise e
                 else:
@@ -628,7 +628,7 @@ class SMBConnection:
         """
         removes a file
 
-        :param string shareName: a valid name for the share where the file is to be deleted 
+        :param string shareName: a valid name for the share where the file is to be deleted
         :param string pathName: the path name to remove
 
         :return: None, raises a SessionError exception if error.
@@ -930,7 +930,7 @@ class SMBConnection:
             return self._SMBConnection.set_session_key(key)
         else:
             return self._SMBConnection.setSessionKey(key)
-            
+
     def close(self):
         """
         logs off and closes the underlying _NetBIOSSession()
@@ -953,7 +953,7 @@ class SessionError(Exception):
         Exception.__init__(self)
         self.error = error
         self.packet = packet
-       
+
     def getErrorCode( self ):
         return self.error
 

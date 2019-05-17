@@ -4,13 +4,13 @@
 # of the Apache Software License. See the accompanying LICENSE file
 # for more information.
 #
-# Description: [MS-TDS] & [MC-SQLR] implementation. 
+# Description: [MS-TDS] & [MC-SQLR] implementation.
 #
 # ToDo:
-# [ ] Add all the tokens left 
-# [ ] parseRow should be rewritten and add support for all the SQL types in a 
+# [ ] Add all the tokens left
+# [ ] parseRow should be rewritten and add support for all the SQL types in a
 #     good way. Right now it just supports a few types.
-# [ ] printRows is crappy, just an easy way to print the rows. It should be 
+# [ ] printRows is crappy, just an easy way to print the rows. It should be
 #     rewritten to output like a normal SQL client
 #
 # Author:
@@ -37,11 +37,11 @@ except:
     LOG.critical("pyOpenSSL is not installed, can't continue")
     raise
 
-# We need to have a fake Logger to be compatible with the way Impact 
-# prints information. Outside Impact it's just a print. Inside 
+# We need to have a fake Logger to be compatible with the way Impact
+# prints information. Outside Impact it's just a print. Inside
 # we will receive the Impact logger instance to print row information
 # The rest it processed through the standard impacket logging mech.
-class DummyPrint:        
+class DummyPrint:
     def logMessage(self,message):
         if message == '\n':
             print(message)
@@ -86,7 +86,7 @@ class SQLR_Response(SQLR):
         ('_Data','_-Data','self["Size"]'),
         ('Data',':'),
     )
-    
+
 class SQLErrorException(Exception):
     pass
 
@@ -106,7 +106,7 @@ TDS_PRE_LOGIN       = 18
 
 # Status constants
 TDS_STATUS_NORMAL            = 0
-TDS_STATUS_EOM               = 1 
+TDS_STATUS_EOM               = 1
 TDS_STATUS_RESET_CONNECTION  = 8
 TDS_STATUS_RESET_SKIPTRANS   = 16
 
@@ -351,7 +351,7 @@ class TDS_LOGIN(Structure):
         self['ServerNameOffset']=self['AppNameOffset'] + len(self['AppName'])
         self['CltIntNameOffset']=self['ServerNameOffset'] + len(self['ServerName'])
         self['LanguageOffset']=self['CltIntNameOffset'] + len(self['CltIntName'])
-        self['DatabaseOffset']=self['LanguageOffset'] 
+        self['DatabaseOffset']=self['LanguageOffset']
         self['SSPIOffset']=self['DatabaseOffset'] + len(self['Database'])
         self['AtchDBFileOffset']=self['SSPIOffset'] + len(self['SSPI'])
         return Structure.getData(self)
@@ -431,7 +431,7 @@ class TDS_ENVCHANGE_VARCHAR(Structure):
         ('_OldValue','_-OldValue','self["OldValueLen"]*2'),
         ('OldValue',':'),
     )
-    
+
 class TDS_ROW(Structure):
     structure = (
         ('TokenType','<B'),
@@ -484,7 +484,7 @@ class MSSQL:
             return []
         else:
             data, _ = s.recvfrom(65536, 0)
-   
+
         s.close()
         resp = SQLR_Response(data)
 
@@ -493,7 +493,7 @@ class MSSQL:
 
         # We don't want the last one, it's empty
         entries.pop()
- 
+
         # the answer to send back
         resp = []
 
@@ -506,7 +506,7 @@ class MSSQL:
             resp.append(ret)
 
         return resp
-        
+
 
     def preLogin(self):
         prelogin = TDS_PRELOGIN()
@@ -520,7 +520,7 @@ class MSSQL:
         tds = self.recvTDS()
 
         return TDS_PRELOGIN(tds['Data'])
-    
+
     def encryptPassword(self, password ):
 
         return ''.join([chr(((ord(x) & 0x0f) << 4) + ((ord(x) & 0xf0) >> 4) ^ 0xa5) for x in password])
@@ -528,14 +528,14 @@ class MSSQL:
     def connect(self):
         af, socktype, proto, canonname, sa = socket.getaddrinfo(self.server, self.port, 0, socket.SOCK_STREAM)[0]
         sock = socket.socket(af, socktype, proto)
-        
+
         try:
             sock.connect(sa)
         except Exception:
             #import traceback
             #traceback.print_exc()
             raise
-        
+
         self.socket = sock
         return sock
 
@@ -548,7 +548,7 @@ class MSSQL:
 
     def getPacketSize(self):
         return self.packetSize
-    
+
     def socketSendall(self,data):
         if self.tlsSocket is None:
             return self.socket.sendall(data)
@@ -610,16 +610,16 @@ class MSSQL:
         while packetLen > len(packet['Data']):
             data = self.socketRecv(packetSize)
             packet['Data'] += data
-        
+
         remaining = None
         if packetLen <  len(packet['Data']):
             remaining = packet['Data'][packetLen:]
             packet['Data'] = packet['Data'][:packetLen]
 
-        #print "REMAINING ", 
-        #if remaining is None: 
-        #   print None 
-        #else: 
+        #print "REMAINING ",
+        #if remaining is None:
+        #   print None
+        #else:
         #   print len(remaining)
 
         while status != TDS_STATUS_EOM:
@@ -641,7 +641,7 @@ class MSSQL:
             status = tmpPacket['Status']
             packet['Data'] += tmpPacket['Data']
             packet['Length'] += tmpPacket['Length'] - 8
-            
+
         #print packet['Length']
         return packet
 
@@ -775,7 +775,7 @@ class MSSQL:
                             # So, if that's the case we'll force using RC4 by converting
                             # the password to lm/nt hashes and hope for the best. If that's already
                             # done, byebye.
-                            if lmhash is '' and nthash is '' and (aesKey is '' or aesKey is None) and TGT is None and TGS is None:
+                            if lmhash == '' and nthash == '' and aesKey in ('', None) and TGT is None and TGS is None:
                                 from impacket.ntlm import compute_lmhash, compute_nthash
                                 LOG.debug('Got KDC_ERR_ETYPE_NOSUPP, fallback to RC4')
                                 lmhash = compute_lmhash(password)
@@ -810,7 +810,7 @@ class MSSQL:
                         # So, if that's the case we'll force using RC4 by converting
                         # the password to lm/nt hashes and hope for the best. If that's already
                         # done, byebye.
-                        if lmhash is '' and nthash is '' and (aesKey is '' or aesKey is None) and TGT is None and TGS is None:
+                        if lmhash == '' and nthash == '' and aesKey in ('', None) and TGT is None and TGS is None:
                             from impacket.ntlm import compute_lmhash, compute_nthash
                             LOG.debug('Got KDC_ERR_ETYPE_NOSUPP, fallback to RC4')
                             lmhash = compute_lmhash(password)
@@ -924,10 +924,10 @@ class MSSQL:
                 else:
                     break
 
-            # SSL and TLS limitation: Secure Socket Layer (SSL) and its replacement, 
+            # SSL and TLS limitation: Secure Socket Layer (SSL) and its replacement,
             # Transport Layer Security(TLS), limit data fragments to 16k in size.
             self.packetSize = 16*1024-1
-            self.tlsSocket = tls 
+            self.tlsSocket = tls
 
 
         login = TDS_LOGIN()
@@ -958,8 +958,8 @@ class MSSQL:
         # Send the NTLMSSP Negotiate or SQL Auth Packet
         self.sendTDS(TDS_LOGIN7, login.getData())
 
-        # According to the specs, if encryption is not required, we must encrypt just 
-        # the first Login packet :-o 
+        # According to the specs, if encryption is not required, we must encrypt just
+        # the first Login packet :-o
         if resp['Encryption'] == TDS_ENCRYPT_OFF:
             self.tlsSocket = None
 
@@ -969,7 +969,7 @@ class MSSQL:
         if useWindowsAuth is True:
             serverChallenge = tds['Data'][3:]
 
-            # Generate the NTLM ChallengeResponse AUTH 
+            # Generate the NTLM ChallengeResponse AUTH
             type3, exportedSessionKey = ntlm.getNTLMSSPType3(auth, serverChallenge, username, password, domain, lmhash, nthash)
 
             self.sendTDS(TDS_SSPI, type3.getData())
@@ -987,28 +987,28 @@ class MSSQL:
         for col in self.colMeta:
             if col['Type'] in [TDS_NVARCHARTYPE, TDS_NCHARTYPE, TDS_NTEXTTYPE]:
                 col['Length'] = col['TypeData']//2
-                fmt = '%%-%ds' 
+                fmt = '%%-%ds'
             elif col['Type'] in [TDS_GUIDTYPE]:
                 col['Length'] = 36
-                fmt = '%%%ds' 
+                fmt = '%%%ds'
             elif col['Type'] in [TDS_DECIMALNTYPE,TDS_NUMERICNTYPE]:
                 col['Length'] = ord(col['TypeData'][0])
-                fmt = '%%%ds' 
+                fmt = '%%%ds'
             elif col['Type'] in [TDS_DATETIMNTYPE]:
                 col['Length'] = 19
-                fmt = '%%-%ds' 
+                fmt = '%%-%ds'
             elif col['Type'] in [TDS_INT4TYPE, TDS_INTNTYPE]:
                 col['Length'] = 11
-                fmt = '%%%ds' 
+                fmt = '%%%ds'
             elif col['Type'] in [TDS_FLTNTYPE, TDS_MONEYNTYPE]:
                 col['Length'] = 25
-                fmt = '%%%ds' 
+                fmt = '%%%ds'
             elif col['Type'] in [TDS_BITNTYPE, TDS_BIGCHARTYPE]:
                 col['Length'] = col['TypeData']
-                fmt = '%%%ds' 
+                fmt = '%%%ds'
             elif col['Type'] in [TDS_BIGBINARYTYPE, TDS_BIGVARBINTYPE]:
                 col['Length'] = col['TypeData'] * 2
-                fmt = '%%%ds' 
+                fmt = '%%%ds'
             elif col['Type'] in [TDS_TEXTTYPE, TDS_BIGVARCHRTYPE]:
                 col['Length'] = col['TypeData']
                 fmt = '%%-%ds'
@@ -1049,7 +1049,7 @@ class MSSQL:
         for keys in list(self.replies.keys()):
             for i, key in enumerate(self.replies[keys]):
                 if key['TokenType'] == TDS_ERROR_TOKEN:
-                    error =  "ERROR(%s): Line %d: %s" % (key['ServerName'].decode('utf-16le'), key['LineNumber'], key['MsgText'].decode('utf-16le'))                                      
+                    error =  "ERROR(%s): Line %d: %s" % (key['ServerName'].decode('utf-16le'), key['LineNumber'], key['MsgText'].decode('utf-16le'))
                     self.lastError = SQLErrorException("ERROR: Line %d: %s" % (key['LineNumber'], key['MsgText'].decode('utf-16le')))
                     LOG.error(error)
 
@@ -1075,12 +1075,12 @@ class MSSQL:
                         elif key['Type'] == TDS_ENVCHANGE_PACKETSIZE:
                             _type = 'PACKETSIZE'
                         else:
-                            _type = "%d" % key['Type']                 
+                            _type = "%d" % key['Type']
                         LOG.info("ENVCHANGE(%s): Old Value: %s, New Value: %s" % (_type,record['OldValue'].decode('utf-16le'), record['NewValue'].decode('utf-16le')))
-       
+
     def parseRow(self,token,tuplemode=False):
         # TODO: This REALLY needs to be improved. Right now we don't support correctly all the data types
-        # help would be appreciated ;) 
+        # help would be appreciated ;)
         if len(token) == 1:
             return 0
 
@@ -1119,7 +1119,7 @@ class MSSQL:
                     data = data[uuidLen:]
                 else:
                     value = 'NULL'
-                
+
             elif (_type == TDS_NTEXTTYPE) |\
                  (_type == TDS_IMAGETYPE) :
                 # Skip the pointer data
@@ -1139,7 +1139,7 @@ class MSSQL:
                         data = data[charLen:]
                     else:
                         value = 'NULL'
-                
+
             elif _type == TDS_TEXTTYPE:
                 # Skip the pointer data
                 charLen = ord(data[0])
@@ -1169,7 +1169,7 @@ class MSSQL:
             elif (_type == TDS_DATETIM4TYPE) |\
                  (_type == TDS_DATETIMNTYPE) |\
                  (_type == TDS_DATETIMETYPE):
-                value = ''    
+                value = ''
                 if _type == TDS_DATETIMNTYPE:
                     # For DATETIMNTYPE, the only valid lengths are 0x04 and 0x08, which map to smalldatetime and
                     # datetime SQL data _types respectively.
@@ -1193,7 +1193,7 @@ class MSSQL:
                     else:
                         baseDate = datetime.date(1900,1,1)
                     timeValue = struct.unpack('<L',data[:4])[0]
-                    data = data[4:] 
+                    data = data[4:]
                 elif _type == TDS_DATETIM4TYPE:
                     # Small datetime
                     # 2.2.5.5.1.8
@@ -1254,7 +1254,7 @@ class MSSQL:
                 else:
                     value = 'NULL'
 
-                
+
             elif _type == TDS_BIGCHARTYPE:
                 #print "BIGC"
                 charLen = struct.unpack('<H',data[:struct.calcsize('<H')])[0]
@@ -1316,7 +1316,7 @@ class MSSQL:
                     number = struct.unpack(fmt, value[1:])[0]
                     number //= math.pow(precision, scale)
                     if isPositiveSign == 0:
-                        number *= -1 
+                        number *= -1
                     value = number
                 else:
                     value = 'NULL'
@@ -1477,7 +1477,7 @@ class MSSQL:
         if len(tokens) == 0:
             return False
 
-        replies = {} 
+        replies = {}
         while len(tokens) > 0:
             tokenID = struct.unpack('B',tokens[0:1])[0]
             if tokenID == TDS_ERROR_TOKEN:
@@ -1495,10 +1495,10 @@ class MSSQL:
                     self.packetSize = int( record['NewValue'].decode('utf-16le') )
                 elif token['Type'] is TDS_ENVCHANGE_DATABASE:
                     record = TDS_ENVCHANGE_VARCHAR(token['Data'])
-                    self.currentDB =  record['NewValue'].decode('utf-16le') 
+                    self.currentDB =  record['NewValue'].decode('utf-16le')
 
             elif (tokenID == TDS_DONEINPROC_TOKEN) |\
-                 (tokenID == TDS_DONEPROC_TOKEN): 
+                 (tokenID == TDS_DONEPROC_TOKEN):
                 token = TDS_DONEINPROC(tokens)
             elif tokenID == TDS_ORDER_TOKEN:
                 token = TDS_ORDER(tokens)
@@ -1540,23 +1540,23 @@ class MSSQL:
             return self.rows
         else:
             return True
-        
-    
+
+
     def batchStatement(self, cmd,tuplemode=False):
         # First of all we clear the rows, colMeta and lastError
         self.rows = []
         self.colMeta = []
         self.lastError = False
         self.sendTDS(TDS_SQL_BATCH, (cmd+'\r\n').encode('utf-16le'))
-        #self.recvTDS()        
+        #self.recvTDS()
 
-            
+
     # Handy alias
     sql_query = batch
 
-    def changeDB(self, db):        
+    def changeDB(self, db):
         if db != self.currentDB:
-            chdb = 'use %s' % db            
+            chdb = 'use %s' % db
             self.batch(chdb)
             self.printReplies()
 
@@ -1572,7 +1572,7 @@ class MSSQL:
         if self.lastError:
             raise self.lastError
         return ret
-    
+
     def RunSQLStatement(self,db,sql_query,wait=True,**kwArgs):
         self.RunSQLQuery(db,sql_query,wait=wait)
         if self.lastError:
