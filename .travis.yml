@@ -16,7 +16,7 @@ install: pip install flake8 tox -r requirements.txt
   
 before_script:
   # stop the build if there are Python syntax errors or undefined names
-  - flake8 . --count --select=E9,F6,F72,F82 --show-source --statistics
+  - flake8 . --count --select=E9,F63,F72,F82 --show-source --statistics
   # exit-zero treats all errors as warnings.  The GitHub editor is 127 chars wide
   - flake8 . --count --ignore=E1,E2,E3,E501,W291,W293 --exit-zero --max-complexity=65 --max-line-length=127 --statistics
 
