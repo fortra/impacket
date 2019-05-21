@@ -2451,8 +2451,8 @@ class SMBCommands:
                     # accept-completed
                     respToken['NegResult'] = b'\x00'
 
-                    smbServer.log('User %s\\%s authenticated successfully' % (authenticateMessage['user_name'].decode('utf-16le'),
-                                                                              authenticateMessage['host_name'].decode('utf-16le')))
+                    smbServer.log('User %s\\%s authenticated successfully' % (authenticateMessage['host_name'].decode('utf-16le'),
+                                                                              authenticateMessage['user_name'].decode('utf-16le')))
                     # Let's store it in the connection data
                     connData['AUTHENTICATE_MESSAGE'] = authenticateMessage
                     try:
@@ -2830,7 +2830,7 @@ class SMB2Commands:
                 # accept-completed
                 respToken['NegResult'] = b'\x00'
                 smbServer.log('User %s\\%s authenticated successfully' % (
-                authenticateMessage['user_name'].decode('utf-16le'), authenticateMessage['host_name'].decode('utf-16le')))
+                authenticateMessage['host_name'].decode('utf-16le'), authenticateMessage['user_name'].decode('utf-16le')))
                 # Let's store it in the connection data
                 connData['AUTHENTICATE_MESSAGE'] = authenticateMessage
                 try:
