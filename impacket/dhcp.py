@@ -130,7 +130,7 @@ class DhcpPacket(ProtocolPacket, structure.Structure):
         'fully-qualified-domain-name':(81,':'),   # https://www.ietf.org/rfc/rfc4702.txt
         'default-url': (114, ':'),                # text (URL) - not defined in any RFC but assigned by IANA
         'auto-configuration':(116,'B'),           # https://www.ietf.org/rfc/rfc2563.txt
-        'domain-search-list':(119,'B'),           # https://www.ietf.org/rfc/rfc3397.txt
+        'domain-search-list':(119,':'),           # https://www.ietf.org/rfc/rfc3397.txt
         'classless-route-121':(121, ':'),         # https://www.ietf.org/rfc/rfc3442.txt
         'classless-route-249':(249, ':'),         # https://web.archive.org/web/20140205135249/support.microsoft.com/kb/121005
         'proxy-autoconfig':(252,':'),
